@@ -451,6 +451,11 @@ def consumer_xref(world: World, *, version: int = 1, **params: Any) -> Response:
     return world.api.get(f"/api/consumer/{world.key('Capi')}/v{version}/xref", **params)
 
 
+def consumer_resolve(world: World, body: Any, *, version: int = 1, **params: Any) -> Response:
+    """``POST /api/consumer/{apiKey}/v{version}/resolve`` of ``Capi`` with ``body``."""
+    return world.api.post(f"/api/consumer/{world.key('Capi')}/v{version}/resolve", body, **params)
+
+
 def consumer_xref_typed(world: World, query: str, *, version: int = 1) -> Response:
     """XREF with ``query`` exactly as a client types it into the URL (C3b)."""
     return world.api.client.get(f"/api/consumer/{world.key('Capi')}/v{version}/xref?{query}")

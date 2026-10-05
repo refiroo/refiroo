@@ -1,7 +1,14 @@
 """J29 — Resolve a business object through a consumer API (USER_JOURNEYS.md)."""
 
 import pytest
-from scenario import consumer_object, consumer_xref, consumer_xref_typed, ok, refused
+from scenario import (
+    consumer_object,
+    consumer_resolve,
+    consumer_xref,
+    consumer_xref_typed,
+    ok,
+    refused,
+)
 
 CAPI = (
     "Capi", "R", "R2", "R.u", "R2.u", "K", "K.code", "B11", "Bown", "Bscope", "G", "D",
@@ -358,3 +365,227 @@ def test_scores_from_limits_which_related_records_score(world):
     (north_watcher,) = [item for item in watched["results"] if item[_out(world, "name")] == "North watcher"]
     assert north_watcher[_out(world, "id")] == watchers["North watcher"]["id"]
     assert north_watcher[_out(world, "Bscope")] == [{_out(world, "Bscope.name"): "Gate zone"}]
+
+
+# --- batch resolve (C14) ---
+
+
+def _resolve(world, body, **params):
+    response = consumer_resolve(world, body, **params)
+    answer = ok(response)
+    assert response.headers["RDM-Workspace"] == answer["workspace"]
+    return answer
+
+
+def _single(world, item, defaults=None):
+    """The single read an item stands for: xref?expect=one by query, get by ID by id, with the
+    defaults overlaid by the item's own parameters."""
+    params = {**(defaults or {}), **{name: value for name, value in item.items() if name not in ("ref", "query", "id")}}
+    if "id" in item:
+        return consumer_object(world, item["id"], **params)
+    return consumer_xref(world, query=item["query"], expect="one", **params)
+
+
+def _same_as_single(world, body, answer):
+    """Each outcome is the single read's answer: the object when found, its error otherwise."""
+    statuses = {200: "found", 404: "not_found", 409: "ambiguous", 400: "rejected"}
+    for index, (item, outcome) in enumerate(zip(body["items"], answer["items"], strict=True)):
+        assert (outcome["index"], outcome["ref"]) == (index, item.get("ref"))
+        single = _single(world, item, body.get("defaults"))
+        assert outcome["status"] == statuses[single.status_code], (item, outcome)
+        if single.status_code == 200:
+            assert outcome["object"] == single.json()
+            assert "error" not in outcome
+        else:
+            assert outcome["error"] == single.json()["error"]
+            assert "object" not in outcome
+
+
+def _statuses(answer):
+    return [outcome["status"] for outcome in answer["items"]]
+
+
+@pytest.mark.journey("J29.8")
+@pytest.mark.structures(*CAPI)
+def test_batch_resolve_a_mixed_batch(world):
+    """One batch holding J29's lookups as items: a code in another case, a name, a promoted code, two
+    terms in one item, a "Bonds, Notes" term as one string, an object ID, an unknown ID, a miss, a
+    term found by contains only and the two records sharing a name. Outcomes come in item order with
+    index and ref; each found equals the xref?expect=one (or get by ID) body; each not_found and
+    ambiguous equals that read's 404 or 409 error; counts add up. The same lookup sent again, its
+    terms reordered or repeated, gets the same answer."""
+    coded = _ledger(world, "Alpha", "LED-7")
+    world.made("R2", "Led", parent=coded["id"])
+    _ledger(world, "Ledger seven", "SEV-7")
+    _paired(world, "Paired", "PA-1", "Token nine", "TK-9")
+    _paired(world, "Bonded", "BO-1", "Bonds, Notes", "BN-1")
+    _ledger(world, "Twin", "TW-1")
+    _ledger(world, "Twin", "TW-2")
+
+    body = {
+        "items": [
+            {"ref": "row-1", "query": "led-7"},
+            {"ref": "row-2", "query": "Led"},
+            {"ref": "row-3", "query": "tk-9"},
+            {"ref": "row-4", "query": ["LED-7", "TK-9"]},
+            {"ref": "row-5", "query": "Bonds, Notes"},
+            {"ref": "row-6", "id": coded["id"]},
+            {"ref": "row-7", "id": "00000000-0000-4000-8000-000000000000"},
+            {"query": "nothing-like-it"},
+            {"ref": "row-9", "query": "dger"},
+            {"ref": "row-10", "query": "twin"},
+        ]
+    }
+    answer = _resolve(world, body)
+    assert answer["workspace"] == "default"
+    assert _statuses(answer) == [
+        "found", "found", "found", "found", "found", "found", "not_found", "not_found", "found", "ambiguous",
+    ]
+    found = [outcome["object"] for outcome in answer["items"] if outcome["status"] == "found"]
+    assert [(item[_out(world, "name")], item.get("matchScore")) for item in found] == [
+        ("Alpha", 500), ("Led", 200), ("Paired", 80), ("Alpha", 500), ("Bonded", 75), ("Alpha", None),
+        ("Ledger seven", 30),
+    ]
+    codes = [outcome["error"]["code"] for outcome in answer["items"] if "error" in outcome]
+    assert codes == ["OBJECT_NOT_FOUND", "NO_MATCH", "AMBIGUOUS_MATCH"]
+    assert answer["counts"] == {"found": 7, "notFound": 2, "ambiguous": 1, "rejected": 0}
+    _same_as_single(world, body, answer)
+
+    # The same lookup sent again, its terms reordered and repeated, has the same answer.
+    repeated = {"items": [{"query": ["LED-7", "TK-9"]}, {"query": ["TK-9", "LED-7", "TK-9"]}, {"query": "twin"}] * 2}
+    answer = _resolve(world, repeated)
+    assert answer["items"][1]["object"] == answer["items"][0]["object"] == found[3]
+    assert [outcome["status"] for outcome in answer["items"]] == ["found", "found", "ambiguous"] * 2
+    assert answer["items"][5]["error"] == answer["items"][2]["error"]
+
+
+@pytest.mark.journey("J29.9")
+@pytest.mark.structures(*CAPI)
+def test_batch_resolve_defaults_and_item_parameters(world):
+    """defaults kind with R's public name narrows every item; an item giving kind with R2's replaces
+    it; an item resolving the "Twin" 409 with defaults alone is found with its own kind; a by-ID item
+    filtered out by container is not_found; watchRegion (scoresFrom) in defaults gives J29.7's
+    scores."""
+    twin = _ledger(world, "Twin", "TW-1")
+    base = _ledger(world, "Base", "BA-1")
+    twin_entry = world.made("R2", "Twin", parent=base["id"])
+    owner = _ledger(world, "Owner", "OW-1")
+    watchers = {}
+    for region_name in ("North", "South"):
+        region = world.made("G", region_name, values={"K.code": f"G{region_name[0]}"})
+        zone = world.made(
+            "D", "Portal", parent=world.dependant_parent(region["id"]), relations=[world.owner("Bown", owner["id"])]
+        )
+        watchers[region_name] = world.made("R2", f"{region_name} watcher", parent=base["id"])
+        ok(world.relate("Bscope", watchers[region_name]["id"], zone["id"]), 201)
+
+    ledger, entry = world.key("Capi.R"), world.key("Capi.R2")
+    kind, container, watch = _param(world, "kind"), _param(world, "container"), _param(world, "watch")
+
+    body = {
+        "defaults": {kind: ledger},
+        "items": [
+            {"ref": "default kind", "query": "Twin"},
+            {"ref": "own kind", "query": "Twin", kind: entry},
+            {"ref": "by id", "id": twin["id"], container: "Yard"},
+            {"ref": "by id, default kind", "id": twin_entry["id"]},
+        ],
+    }
+    answer = _resolve(world, body)
+    assert _statuses(answer) == ["found", "found", "not_found", "not_found"]
+    assert answer["items"][0]["object"][_out(world, "id")] == twin["id"]
+    assert answer["items"][1]["object"][_out(world, "id")] == twin_entry["id"]
+    _same_as_single(world, body, answer)
+
+    plain = {"items": [{"query": "Twin"}, {"query": "Twin", kind: entry}]}
+    answer = _resolve(world, plain)
+    assert _statuses(answer) == ["ambiguous", "found"]
+    _same_as_single(world, plain, answer)
+
+    # Both watchers take 60 from the Portal they watch; scoresFrom lets only North's pass.
+    portals = {"defaults": {kind: entry}, "items": [{"query": "Portal"}, {"query": "Portal", watch: "North"}]}
+    answer = _resolve(world, portals)
+    assert _statuses(answer) == ["ambiguous", "found"]
+    assert answer["items"][1]["object"][_out(world, "id")] == watchers["North"]["id"]
+    assert answer["items"][1]["object"]["matchScore"] == 60
+    _same_as_single(world, portals, answer)
+    narrowed = _resolve(world, {"defaults": {kind: entry, watch: "North"}, "items": [{"query": "Portal"}]})
+    assert narrowed["items"][0]["object"] == answer["items"][1]["object"]
+
+
+@pytest.mark.journey("J29.10")
+@pytest.mark.structures(*CAPI)
+def test_batch_resolve_refusals(world):
+    """Per item, rejected with the single read's code and a pointer into the item: both query and id,
+    neither, expect, pageSize, an unknown name, an empty term list, 101 terms, an unknown kind. As a
+    whole: an unknown or unapplied name in defaults, a definition parameter in the query string, a
+    body of the wrong shape (400), an unknown workspace (404), and, with the limit set to 5, six items
+    (413 BATCH_TOO_LARGE naming the setting). GET /capabilities reports the limit."""
+    coded = _ledger(world, "Alpha", "LED-7")
+    kind = _param(world, "kind")
+    items = [
+        {"query": "led-7", "id": coded["id"]},
+        {"ref": "neither"},
+        {"query": "led-7", "expect": "one"},
+        {"query": "led-7", "pageSize": "5"},
+        {"query": "led-7", "bogus": "1"},
+        {"query": ["", " "]},
+        {"query": [f"T{number}" for number in range(101)]},
+        {"query": "led-7", kind: "Nothing"},
+        {"query": "led-7"},
+    ]
+    answer = _resolve(world, {"items": items})
+    assert _statuses(answer) == ["rejected"] * 8 + ["found"]
+    errors = [(outcome["error"]["code"], outcome["error"]["details"]["pointer"]) for outcome in answer["items"][:8]]
+    assert errors == [
+        ("QUERY_OR_ID_REQUIRED", "/items/0"),
+        ("QUERY_OR_ID_REQUIRED", "/items/1"),
+        ("PARAMETER_NOT_SUPPORTED", "/items/2/expect"),
+        ("PARAMETER_NOT_SUPPORTED", "/items/3/pageSize"),
+        ("UNKNOWN_PARAMETER", "/items/4/bogus"),
+        ("QUERY_REQUIRED", "/items/5/query"),
+        ("TOO_MANY_TERMS", "/items/6/query"),
+        ("UNKNOWN_OBJECT_TYPE", f"/items/7/{kind}"),
+    ]
+    assert answer["counts"] == {"found": 1, "notFound": 0, "ambiguous": 0, "rejected": 8}
+    # A value from defaults points at defaults.
+    defaulted = _resolve(world, {"defaults": {kind: "Nothing"}, "items": [{"query": "led-7"}]})
+    assert defaulted["items"][0]["error"]["details"]["pointer"] == f"/defaults/{kind}"
+
+    one = {"items": [{"query": "led-7"}]}
+    error = refused(consumer_resolve(world, {**one, "defaults": {"bogus": "1"}}), 400, "UNKNOWN_PARAMETER")
+    assert error["details"]["pointer"] == "/defaults/bogus"
+    refused(consumer_resolve(world, {**one, "defaults": {"expect": "one"}}), 400, "PARAMETER_NOT_SUPPORTED")
+    refused(consumer_resolve(world, one, **{kind: world.key("Capi.R")}), 400, "PARAMETER_NOT_SUPPORTED")
+    refused(consumer_resolve(world, one, query="led-7"), 400, "PARAMETER_NOT_SUPPORTED")
+    refused(consumer_resolve(world, one, bogus="1"), 400, "UNKNOWN_PARAMETER")
+    refused(consumer_resolve(world, one, workspace="nowhere"), 404, "WORKSPACE_NOT_FOUND")
+    for wrong in (
+        None,
+        [],
+        {"items": []},
+        {"items": "led-7"},
+        {"items": ["led-7"]},
+        {"items": [{"query": 7}]},
+        {"items": [{"query": "led-7", "ref": ""}]},
+        {"items": [{"id": ["a", "b"]}]},
+        {"items": [{"query": "led-7"}], "defaults": []},
+        {"items": [{"query": "led-7"}], "other": 1},
+    ):
+        refused(consumer_resolve(world, wrong), 400, "REQUEST_VALIDATION_ERROR")
+    raw = world.api.client.post(
+        f"/api/consumer/{world.key('Capi')}/v1/resolve", content=b"{not json", headers={"content-type": "application/json"}
+    )
+    refused(raw, 400, "REQUEST_VALIDATION_ERROR")
+
+    capabilities = ok(world.api.get("/capabilities"))
+    assert capabilities["consumerApi"] == {"resolveMaxItems": 1000, "setting": "CONSUMER_RESOLVE_MAX_ITEMS"}
+    state = world.api.client.app.state
+    saved = state.consumer_resolve_max_items
+    state.consumer_resolve_max_items = 5
+    try:
+        error = refused(consumer_resolve(world, {"items": [{"query": "led-7"}] * 6}), 413, "BATCH_TOO_LARGE")
+        assert error["details"] == {"setting": "CONSUMER_RESOLVE_MAX_ITEMS", "maximum": 5, "items": 6}
+        assert _statuses(_resolve(world, {"items": [{"query": "led-7"}] * 5})) == ["found"] * 5
+    finally:
+        state.consumer_resolve_max_items = saved

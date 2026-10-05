@@ -173,7 +173,14 @@ recorded (C-D34–C-D41, [record](BASE_0_9_IMPLEMENTATION_PLAN.md#c4-delivery-re
 delivered (2026-10-05):** the definition's parameters narrow XREF, acting on the scored objects, and a
 `projection` parameter with `scoresFrom` limits which related records pass scores; `scoresFrom` is
 validated and part of the contract (C-D42–C-D46,
-[record](BASE_0_9_IMPLEMENTATION_PLAN.md#c5-delivery-record)). Next: C14.
+[record](BASE_0_9_IMPLEMENTATION_PLAN.md#c5-delivery-record)). **C14 is delivered (2026-10-05):** batch
+resolve (`POST /api/consumer/{apiKey}/v{n}/resolve`), up to 1,000 lookups or IDs, each outcome the
+single read's answer; XREF became a batch of one, seeking a single best match with exact rules first;
+a trigram index on names with workspace and type (`btree_gin`, migration `20261005_02`); 1,000
+lookups in 816 ms at full volume (C-D47–C-D53,
+[record](BASE_0_9_IMPLEMENTATION_PLAN.md#c14-delivery-record)). **C14a and C14b (2026-10-05):** repeated
+lookups resolved once, the ancestor walk read by ID and contains selects built without aliases; the
+1,000-lookup batch now takes 236 ms. Next: C15.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

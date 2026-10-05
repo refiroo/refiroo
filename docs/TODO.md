@@ -31,8 +31,10 @@ delivered (2026-10-04)**: the consumer tier with get by ID (C-D21–C-D26). **C3
 (2026-10-04)**: consumer lists and every parameter kind (C-D27–C-D33). **C3a is delivered
 (2026-10-04)**: attribute sorts read in value order (D46–D48). **C3b is delivered (2026-10-04)**:
 several values the OpenAPI way, `%2C` for a comma in a value (C-D32 amended). **C4 is delivered
-(2026-10-05)**: XREF lookup and scoring (C-D34–C-D41). Next: C5, in the order of the delivery
-queue. See
+(2026-10-05)**: XREF lookup and scoring (C-D34–C-D41). **C5 is delivered (2026-10-05)**: the
+definition's parameters on XREF, `scoresFrom` (C-D42–C-D46). **C14 is delivered (2026-10-05)**: batch
+resolve, one scoring path with XREF, exact rules first (C-D47–C-D53). Next: C15, in the order of the
+delivery queue. See
 [Next — 0.9](#next--09).
 
 - **Publish and change-set creation move the workspace through Python (found 2026-10-03, F1;
@@ -61,6 +63,10 @@ queue. See
 No 0.8 decision is open ([0.8 decisions](BASE_0_8_IMPLEMENTATION_PLAN.md#decisions-summary)). The
 0.9 decisions are in the [0.9 plan](BASE_0_9_IMPLEMENTATION_PLAN.md#decisions); the 0.10 ones in
 [MODEL_AUTHORING.md](MODEL_AUTHORING.md).
+
+- **Settings, integration administration and UI foundation (approved 2026-10-05).** U-D1–U-D5 taken
+  in [SETTINGS_AND_UI_PLAN.md](SETTINGS_AND_UI_PLAN.md#decisions); U-D6 (visual direction) is open
+  until U1. CN1 (renaming `apiKey`) comes before C6.
 
 See `ROADMAP.md` for the delivery scope, exit gates and full milestone sequence.
 
@@ -126,6 +132,13 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   contains checks read every value the trigram index matches before the record type filters them: a
   promoted rule on groups' codes reads all 100,000 item codes containing the term (~60 ms). Closing
   it needs the record type in the value index, a design change; lookups themselves take 34–58 ms.
+  C14 (2026-10-05): 147 ms (C5's run 108 ms); both code-contains reads, own and promoted, now join
+  all 100,000 matching values before their limit stops them. A trigram index holding the attribute
+  key made it 181 ms and was left out.
+- [ ] Batch resolve items with different parameters resolve in one group each (C-D51, C14): a batch
+  whose every item has its own parameter values runs close to one lookup per item. One statement
+  for all of them would need C3's parameter predicates to read their values from a relation of
+  `(item, parameter, value)` instead of literals. For a measured need only.
 - [ ] C6 task (D47): C3a's value-order attribute sort for publication and change-set reads, over
   `snapshot_attribute_values`, with its budget recorded.
 - [ ] Comma-separated values on the management API's repeated filters (`filter.<field>.eq=A,B`), as the

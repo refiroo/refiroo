@@ -62,6 +62,8 @@ class Settings(BaseModel):
     # How long the change feed answers a position (D8, INTEGRATION_API F5); reported by
     # GET /capabilities.
     feed_retention_days: int = Field(default=30, ge=1)
+    # The items one consumer batch resolve holds (C-D13, C-D50); reported by GET /capabilities.
+    consumer_resolve_max_items: int = Field(default=1_000, ge=1)
 
     @classmethod
     def from_env(cls, environ: dict[str, str] | None = None) -> Self:
@@ -104,6 +106,7 @@ class Settings(BaseModel):
             job_chunk_items=_positive(env, "JOB_CHUNK_ITEMS", 500),
             job_lease_seconds=_positive(env, "JOB_LEASE_SECONDS", 120),
             feed_retention_days=_positive(env, "FEED_RETENTION_DAYS", 30),
+            consumer_resolve_max_items=_positive(env, "CONSUMER_RESOLVE_MAX_ITEMS", 1_000),
         )
 
     def validate_model_admin_topology(self) -> None:

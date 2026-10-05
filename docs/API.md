@@ -194,12 +194,14 @@ Capabilities return deployment-supported operations explicitly:
     "limits": { "batchMaxItems": 1000, "batchMaxBytes": 5242880, "atomicJobMaxItems": 10000, "retentionDays": 7 },
     "setting": "INTEGRATION_JOBS_ENABLED"
   },
-  "changeFeed": { "retentionDays": 30 }
+  "changeFeed": { "retentionDays": 30 },
+  "consumerApi": { "resolveMaxItems": 1000, "setting": "CONSUMER_RESOLVE_MAX_ITEMS" }
 }
 ```
 
 `changeFeed.retentionDays` is `FEED_RETENTION_DAYS`: how long the [change feed](#change-feed-base-09-f1-f2)
-answers a position.
+answers a position. `consumerApi.resolveMaxItems` is the most items one consumer
+[batch resolve](#batch-resolve) holds, named in `setting`.
 
 Each group names in `setting` the deployment setting that enables its mutations, so a client can tell
 an operator what to change without knowing the server's configuration names.
@@ -2129,7 +2131,10 @@ same record) with `matchScore`, an integer, after the declared fields.
   `includeTotal`: `totalCount` and `startIndex` are always given. A cursor binds the terms, the
   parameter values, the workspace and the contract version.
 - **`expect=one`** answers the single top result as a bare object, as get by ID does; no paging name
-  applies with it.
+  applies with it. A lookup its exact matches settle (the top score is above the most any contains
+  match could give, and no contains match could lower it) is answered without reading contains
+  matches, so it is refused as `QUERY_TOO_BROAD` only when its exact matches exceed the limit; a
+  lookup they do not settle reads contains matches and counts them as above.
 - A definition without `match` matches nothing.
 
 ```jsonc
@@ -2152,9 +2157,76 @@ same record) with `matchScore`, an integer, after the declared fields.
 The API, workspace, paging and parameter refusals (`UNKNOWN_OBJECT_TYPE`) are those of the table
 below.
 
+### Batch resolve
+
+```text
+POST /api/consumer/{apiKey}/v{contractVersion}/resolve?workspace=…
+```
+
+Resolves many values in one call, for a flow translating a file of codes. It is a read: the body
+only carries the items, and nothing changes.
+
+```jsonc
+{ "defaults": { "kind": "Ledger" },                      // parameters for every item
+  "items": [
+    { "ref": "row-1", "query": "LED-7" },                 // as xref?query=LED-7&expect=one
+    { "ref": "row-2", "query": ["LED-7", "TK-9"], "kind": "Entry" },
+    { "ref": "row-3", "id": "7f3c…" } ] }                 // as get by ID
+```
+
+- **Items.** Each item holds exactly one of `query` (a text or a list of texts, its terms) and `id`
+  (an object ID), an optional `ref` (1–200 characters, echoed in its outcome) and the definition's
+  [parameters](#parameters) by name. `defaults` gives parameters to every item; an item's own value
+  for a name replaces the default's. Values are a text or a list of texts, alternatives as on the
+  URL; JSON lists them itself, so a comma is part of a value (`"Bonds, Notes"` is one term).
+- **Each item is resolved as its single read:** by `query` as [XREF](#xref) with `expect=one`
+  (scoring, parameters, ties and the limits of 100 terms, 10,000 matches and 3 characters for
+  contains), by `id` as [get by ID](#get-by-id).
+- **Outcomes** come in item order, unpaged, each with `index` (from 0), `ref` and `status`:
+  `found` with `object`, the single read's answer (with `matchScore` for a query); or `not_found`
+  (`NO_MATCH`, `OBJECT_NOT_FOUND`), `ambiguous` (`AMBIGUOUS_MATCH` with its `candidates` and
+  `count`) or `rejected` with `error`, the single read's error. A rejection's `details.pointer`
+  points into the item, or into `defaults` for a value given there. `counts` sums the statuses.
+  A processed batch answers `200` whatever its outcomes.
+- **Limit.** At most `CONSUMER_RESOLVE_MAX_ITEMS` items (1,000), reported by `GET /capabilities` as
+  `consumerApi.resolveMaxItems`; more are refused as a whole and nothing is resolved.
+- The URL takes only `workspace`; `publication` (C6), `asOf` (C16) and `to.…` (C15) arrive with
+  their packages.
+
+```jsonc
+// RDM-Workspace: default
+{ "items": [
+    { "index": 0, "ref": "row-1", "status": "found", "object": { "objectType": "Ledger", …, "matchScore": 500 } },
+    { "index": 1, "ref": "row-2", "status": "ambiguous",
+      "error": { "code": "AMBIGUOUS_MATCH", "message": "…", "details": { "count": 2, "candidates": [ … ] } } },
+    { "index": 2, "ref": "row-3", "status": "rejected",
+      "error": { "code": "UNKNOWN_OBJECT_TYPE", "message": "…", "details": { "pointer": "/defaults/kind", "…": "…" } } } ],
+  "workspace": "default",
+  "counts": { "found": 1, "notFound": 0, "ambiguous": 1, "rejected": 1 } }
+```
+
+An item is `rejected` for what it holds, and the other items are still resolved:
+
+| Code | When |
+| --- | --- |
+| `QUERY_OR_ID_REQUIRED` | Both or neither of `query` and `id` |
+| `UNKNOWN_PARAMETER`, `PARAMETER_NOT_SUPPORTED` | A name the API does not know, or one a lookup does not apply (`expect`, a paging name, a list's parent parameter) |
+| `QUERY_REQUIRED`, `TOO_MANY_TERMS`, `QUERY_TOO_BROAD`, `UNKNOWN_OBJECT_TYPE` | As the single read refuses them |
+
+The request is refused as a whole:
+
+| Status | Code | When |
+| --- | --- | --- |
+| 400 | `REQUEST_VALIDATION_ERROR` | The body is not JSON or not the shape above (`items` missing or empty, an item or a value of the wrong type, an unknown top-level name); `details.pointer` |
+| 400 | `UNKNOWN_PARAMETER`, `PARAMETER_NOT_SUPPORTED` | In `defaults` (`details.pointer`), or a definition parameter or another name in the URL |
+| 413 | `BATCH_TOO_LARGE` | More items than `CONSUMER_RESOLVE_MAX_ITEMS`; `details.setting`, `maximum` and `items` |
+
+The API and workspace refusals are those of the [parameters](#parameters) table.
+
 ### Parameters
 
-Every definition parameter applies to get by ID, to every list (C-D31) and to [XREF](#xref):
+Every definition parameter applies to get by ID, to every list (C-D31), to [XREF](#xref) and to
+[batch resolve](#batch-resolve)'s items:
 
 | Kind | Effect |
 | --- | --- |
@@ -2184,7 +2256,7 @@ Every definition parameter applies to get by ID, to every list (C-D31) and to [X
 | 404 | `PARENT_NOT_FOUND` | A parent value is no record of the list's parent types in the workspace; `details.parents` names them |
 | 400 | `UNKNOWN_PARAMETER` | A name the API does not know; `details.parameters` names them |
 | 400 | `PARAMETER_NOT_SUPPORTED` | A name the API knows that this read does not apply: a paging name on get by ID, `query` or `expect` off XREF, or a list's parent parameter on get by ID or another list |
-| 400 | `UNKNOWN_OBJECT_TYPE` | An `objectType` value that is not an exposed public name; `details.publicNames` lists them |
+| 400 | `UNKNOWN_OBJECT_TYPE` | An `objectType` value that is not an exposed public name; `details.publicNames` lists them, `details.path` names the parameter |
 | 400 | `INVALID_PAGE_SIZE` | `pageSize` outside 1–100 |
 | 400 | `INVALID_PAGE_PARAMETER` | `from` other than `start` or `end`, or `includeTotal` other than `true` or `false` |
 | 400 | `INVALID_CURSOR`, `CONFLICTING_PAGE_PARAMETERS`, `INVALID_POSITION`, `INVALID_SEEK` | The shared paging refusals, with the consumer tier's status for a request error |
@@ -2197,8 +2269,8 @@ Designed in [INTEGRATION_API.md](INTEGRATION_API.md) and sequenced in the
 - Relation and relation-set items (B3)
 - Asynchronous import/export jobs
 - Webhook subscriptions
-- Consumer API batch resolve, crosswalk, publications and events
-  ([CONSUMER_API.md](CONSUMER_API.md)); get by ID, lists and XREF are delivered (above)
+- Consumer API crosswalk, publications and events ([CONSUMER_API.md](CONSUMER_API.md)); get by
+  ID, lists, XREF and batch resolve are delivered (above)
 
 There will be no equivalent of enumerating numeric attribute IDs `1..1000` or using `take: 0` for a full
 extract.

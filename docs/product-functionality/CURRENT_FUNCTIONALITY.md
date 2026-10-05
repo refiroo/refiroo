@@ -456,10 +456,17 @@ parameter can turn an ambiguous lookup into a single answer. A parameter over a 
 be declared to limit which related records score: a lookup of another system's code then finds only
 the records whose code in that system matches.
 
+A system translating a file of codes resolves up to 1,000 of them in one call. Each item is a
+lookup or a record ID, with parameters shared by every item and its own where it differs, and each
+gets the answer a single lookup for exactly one result would give: the record, or why there is none
+or more than one, or why the item itself was refused, in the order sent.
+
 Limits: matching on part of a value needs at least 3 characters; a shorter term matches whole values
 only. A lookup whose terms match more than 10,000 records is refused, asking for a more specific
-term, whatever parameters narrow it, and a lookup holds at most 100 terms. Batch
-resolve, crosswalks, publications, business dates and events are being delivered in 0.9.
+term, whatever parameters narrow it; a lookup for exactly one result that its whole-value matches
+already settle is answered without that count. A lookup holds at most 100 terms, and a batch at most
+1,000 items (a setting). Crosswalks, publications, business dates and events are being delivered in
+0.9.
 
 Evidence: [consumer API design](../CONSUMER_API.md),
 [contract check](../../backend/app/engine/model/consumer_contract.py).

@@ -442,6 +442,15 @@ one XREF request per row. It is a read: POST only carries the list, and it chang
   over it the request is `413` and nothing is resolved. Outcomes come back in item order, unpaged,
   because the batch is bounded.
 
+_Delivered in C14 (2026-10-05):_ values in the body are a text or a list of texts, never split on
+commas, and an item's parameter replaces the default of the same name (C-D47). Each outcome carries
+the single read's answer, `object` or its unchanged `error`, with `counts` and `workspace` (C-D48).
+A body of the wrong shape, a wrong name in `defaults` or a definition parameter in the URL refuses
+the request; an item's own content rejects only that item (C-D49). The maximum is
+`CONSUMER_RESOLVE_MAX_ITEMS`, reported by `GET /capabilities`, with `413 BATCH_TOO_LARGE` (C-D50).
+XREF and batch resolve are one implementation (C-D51), which seeks a single best match with the exact
+rules first (C-D52).
+
 #### Crosswalk
 
 "Code X in system A: what is it in system B?" is a resolve whose output is narrowed to the target
@@ -693,7 +702,7 @@ coordination is 0.11 work.
 | C11 | Subscription administration: API, filters through definition parameters, host allowlist, suspension on model change (signing keys and rotation in 0.12) |
 | C12 | Dispatcher: per-change batches, coalesced debounce, ordering, retry with backoff, suspension and resume (signing in 0.12) |
 | C13 | Event acceptance: the scenarios below, plus a bulk-volume delivery budget |
-| C14 | Batch resolve: `POST …/resolve`, by query and by ID, `defaults`, per-item outcomes, batch maximum, volume budget |
+| C14 | Batch resolve: `POST …/resolve`, by query and by ID, `defaults`, per-item outcomes, batch maximum, volume budget (C-D47–C-D53) — **delivered 2026-10-05** |
 | C15 | Crosswalk: `targetable` validation, `to.{parameter}` on XREF, get by ID, lists and batch resolve, `target`, `target_not_found` and `ambiguous_target` |
 | C16 | `asOf` on every read, over the model's declared effective periods (Base 0.9 Track Q); `AS_OF_NOT_SUPPORTED`, `asOfApplied` |
 
@@ -760,7 +769,8 @@ table under "Behavior the engine does not carry over" says otherwise:
 
 C-D1 decided 2026-09-29; C-D2–C-D16 accepted 2026-09-29 as recommended, with the notes below;
 C-D17–C-D20 raised by C1 and accepted 2026-09-30 as recommended; C-D21–C-D26 settled with the user
-for C2, C-D27–C-D33 for C3 and C-D34–C-D41 for C4, on 2026-10-04; C-D42–C-D46 for C5 on 2026-10-05.
+for C2, C-D27–C-D33 for C3 and C-D34–C-D41 for C4, on 2026-10-04; C-D42–C-D46 for C5 and
+C-D47–C-D53 for C14 on 2026-10-05.
 
 | # | Question | Decision |
 | --- | --- | --- |
@@ -800,7 +810,7 @@ for C2, C-D27–C-D33 for C3 and C-D34–C-D41 for C4, on 2026-10-04; C-D42–C-
 | C-D34 | A maintained consumer index, or scoring at read time | **Settled 2026-10-04 (C4).** Read time, over the trigram indexes on names and text values (contains), the object ID index and, added at delivery with the user's agreement, `lower(name)` and `lower(text_value)` indexes for exact matches (revision `20261005_01`). Measured on the full-volume seed: identifier lookups, promotion and selective contains stay well within 100 ms; a maintained match table would add write-path upkeep and a rebuild on every install and would not serve a term matching everything either. Amends "Read index". Revisit only on a measured need |
 | C-D35 | How own weights combine | **Settled 2026-10-04 (C4).** Exact weights add up; contains weights add up and count only when no exact weight applied, as the reference does |
 | C-D36 | How promotion combines | **Settled 2026-10-04 (C4).** A related record takes its first matching `firstMatch` rule and passes the weight to its owners through the projection; an owner's score is the higher of its own and its best promoted weight. With `preferTargetTypes`, a related record relating to an owner of a preferred type passes its weight only to those owners |
-| C-D37 | Short and broad terms | **Settled 2026-10-04 (C4).** Contains from 3 characters, the engine's search minimum; a shorter term matches exactly only. A query matching more than 10,000 records (its own matches and the related records promotion reads) answers `400 QUERY_TOO_BROAD`: a documented limit rather than a silent cap or a slow read. Both limits are stated in API.md, the per-definition OpenAPI (C6), CURRENT_FUNCTIONALITY and the error's message |
+| C-D37 | Short and broad terms | **Settled 2026-10-04 (C4).** Contains from 3 characters, the engine's search minimum; a shorter term matches exactly only. A query matching more than 10,000 records (its own matches and the related records promotion reads) answers `400 QUERY_TOO_BROAD`: a documented limit rather than a silent cap or a slow read. Both limits are stated in API.md, the per-definition OpenAPI (C6), CURRENT_FUNCTIONALITY and the error's message. _Amended by C-D52 (2026-10-05):_ an `expect=one` lookup its exact matches settle is answered without reading contains matches, so only its exact matches count towards the limit |
 | C-D38 | Terms | **Settled 2026-10-04 (C4, with C3b).** Comma-separated (a comma inside a term as `%2C`) or repeated `query`; empty terms dropped; no term is `400 QUERY_REQUIRED`; at most 100 terms (`400 TOO_MANY_TERMS`), as a request limit; the best score over the terms counts |
 | C-D39 | Paging and the envelope | **Settled 2026-10-04 (C4).** `{ "results", "query": [terms], "workspace", "pageSize", "nextCursor", "prevCursor", "anchor", "totalCount", "startIndex" }`. `totalCount` is always present: the scored set is counted anyway. Cursors both ways, `position` and `from=end`; `seek` and `includeTotal` answer `400 PARAMETER_NOT_SUPPORTED` |
 | C-D40 | `expect=one` | **Settled 2026-10-04 (C4).** The bare shared object with `matchScore`, as get by ID answers; `404 NO_MATCH`; `409 AMBIGUOUS_MATCH` with `details.candidates` (the tied objects' ID, public type, name and score, at most 10) and `details.count`. Paging names with `expect=one` answer `400 PARAMETER_NOT_SUPPORTED` |
@@ -810,3 +820,10 @@ for C2, C-D27–C-D33 for C3 and C-D34–C-D41 for C4, on 2026-10-04; C-D42–C-
 | C-D44 | Parameters and the 10,000-match limit | **Settled 2026-10-05 (C5).** The limit counts what the terms match, before parameters: it bounds the work of reading a term's matches, which a parameter does not reduce |
 | C-D45 | `scoresFrom` that could never act | **Settled 2026-10-05 (C5).** Refused at `/consumerApis/<key>/parameters/<name>/scoresFrom` when no `match.promoted` entry reads the parameter's projection, or the definition has no `match` |
 | C-D46 | Is `scoresFrom` part of the contract? | **Settled 2026-10-05 (C5).** Yes: it changes ranking, for C-D4's reason. Turning it on or off is `version_required`, reported at `/parameters/<name>/scoresFrom` |
+| C-D47 | The batch resolve request | **Settled 2026-10-05 (C14).** Body `{ "defaults", "items" }`; an item has an optional `ref` (1–200 characters), exactly one of `query` or `id`, and definition parameters by name. `query` and every parameter value are a text or a list of texts, never split on commas (C-D32 is how a URL lists values). An item's parameter replaces the default of the same name. The URL takes only `workspace` |
+| C-D48 | The batch resolve outcome | **Settled 2026-10-05 (C14).** `{ "items": [ { "index", "ref", "status", "object" or "error" } ], "workspace", "counts": { "found", "notFound", "ambiguous", "rejected" } }`, in item order, unpaged. `found` carries the single read's body; `not_found` (`NO_MATCH`, `OBJECT_NOT_FOUND`), `ambiguous` (`AMBIGUOUS_MATCH`) and `rejected` carry the single read's error unchanged, a rejection with `details.pointer` into the item or `defaults` in place of the read's `path`. A processed batch answers `200` |
+| C-D49 | Request or item refusal | **Settled 2026-10-05 (C14).** The request is refused (`400`) for a body of the wrong shape (`REQUEST_VALIDATION_ERROR`), an unknown or unapplied name in `defaults`, a definition parameter in the URL; `404` for an unknown workspace. An item is `rejected` for both or neither of `query` and `id` (`QUERY_OR_ID_REQUIRED`), an unknown or unapplied name, and every refusal its single read gives |
+| C-D50 | The batch resolve limit | **Settled 2026-10-05 (C14).** 1,000 items (C-D13), `CONSUMER_RESOLVE_MAX_ITEMS`, reported by `GET /capabilities` as `consumerApi.resolveMaxItems`; over it `413 BATCH_TOO_LARGE` with `details.setting`, `maximum` and `items`. No byte limit of its own |
+| C-D51 | One scoring path | **Settled 2026-10-05 (C14).** XREF is a batch of one lookup: the terms of every lookup are one relation, exact matches are read for every term at once and contains matches by one select per term with its pattern bound (a pattern read from the relation planned 5× slower), names through a trigram index holding the workspace and type (`btree_gin`, revision `20261005_02`), so batch resolve equals `xref?expect=one` by construction. Items are grouped by their parameters, one set of statements per group; per-item parameters within one statement wait for a measured need (TODO) |
+| C-D52 | Exact first | **Settled 2026-10-05 (C14).** A single best match is sought with the exact rules first; contains rules are read only for the lookups whose top score is not above the most a contains match can give, or is held from a promoted rule a contains weight precedes. Amends C-D37 for `expect=one`: a lookup its exact matches settle is not refused for what its contains terms would match. `expect=any` is unchanged |
+| C-D53 | The batch budget | **Settled 2026-10-05 (C14); restated at delivery with the user.** 1,000 lookups as a flow sends them (codes, IDs, group codes, misses), fitting the parameters they are sent with, over at most 10 parameter sets: within 1 s at full volume (816 ms; 451 ms over three sets), confirming C-D13's maximum. Recorded, not budgeted: heavy promotion fan-out, parameters that filter items off their match, contains-only batches and a parameter set per item |

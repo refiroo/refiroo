@@ -902,7 +902,7 @@ rest follows in C5–C16 ([CONSUMER_API.md](../CONSUMER_API.md)).
 ### J29 — Resolve a business object through a consumer API
 
 **Actor:** consuming system. **Channel:** consumer API. **Stories:** US-I09 (consumer side).
-**Status:** delivered in 0.9 C4, with the definition's parameters in C5
+**Status:** delivered in 0.9 C4, with the definition's parameters in C5 and batch resolve in C14
 ([CONSUMER_API.md](../CONSUMER_API.md)).
 
 1. Look up business objects by what the system knows, a code, an ID, a name or a related record's
@@ -938,12 +938,30 @@ rest follows in C5–C16 ([CONSUMER_API.md](../CONSUMER_API.md)).
   parameter limits that projection's items; a cursor is bound to the parameter values.
 - **J29.7 `scoresFrom`**: a `projection` parameter declaring `scoresFrom` also limits which related
   records pass their weights through that projection; the objects' own scores are untouched.
+- **J29.8 Resolve many values at once**: `POST …/resolve` with up to 1,000 items, each a query or
+  an object ID; each outcome, in item order with its `index` and `ref`, is the single read's answer:
+  `found` with the object `xref?expect=one` or get by ID returns, or `not_found`, `ambiguous` or
+  `rejected` with that read's error; `counts` sum them.
+- **J29.9 Defaults and item parameters**: `defaults` give every item the definition's parameters; an
+  item's own parameter replaces the default of the same name, so one item can be narrowed out of an
+  ambiguous match while the others keep the defaults.
+- **J29.10 Batch refusals**: an item with both or neither of `query` and `id`, a name the lookup does
+  not apply, or any refusal of the single read is `rejected` with a pointer into it, and the other
+  items are resolved; a body of the wrong shape, a wrong name in `defaults` or a definition parameter
+  in the URL refuses the request, and more items than `CONSUMER_RESOLVE_MAX_ITEMS` (reported by
+  `GET /capabilities`) is `413`.
+
+An `expect=one` lookup settled by exact matches (a code, an ID or an exact name scoring above
+anything a contains match could give) is answered without reading contains matches, so a contains
+term matching more than 10,000 records does not refuse it.
 
 **Refusals:** `400 QUERY_REQUIRED`, `400 TOO_MANY_TERMS`, `400 QUERY_TOO_BROAD`, `400 INVALID_EXPECT`,
 `400 PARAMETER_NOT_SUPPORTED`, `400 UNKNOWN_OBJECT_TYPE`, `404 NO_MATCH`, `409 AMBIGUOUS_MATCH`, and
-J28's API, workspace and paging refusals.
+J28's API, workspace and paging refusals; batch resolve adds `400 REQUEST_VALIDATION_ERROR` (a body
+of the wrong shape), `QUERY_OR_ID_REQUIRED` (an item's outcome) and `413 BATCH_TOO_LARGE`.
 
-**Evidence today:** the J29 journey tests; `QUERY_TOO_BROAD` in `test_consumer_xref_volume`.
+**Evidence today:** the J29 journey tests; `QUERY_TOO_BROAD`, the exact-first rule and batch
+statements in `test_consumer_xref_volume`.
 
 ## Operations
 
@@ -962,7 +980,7 @@ controlled diagnostics.
 **Variants:**
 
 - **J12.1 No or a wrong database URL**, **J12.2 the wrong collation**, **J12.3 an unknown revision**,
-  **J12.4 `pg_trgm` missing**: each refused with its instruction.
+  **J12.4 `pg_trgm` or `btree_gin` missing**: each refused with its instruction.
 - **J12.5 An interrupted migration** leaves the database at its previous revision; the next start
   recovers.
 - **J12.6 An unsupported model schema in the database**: startup names the offline upgrade command,

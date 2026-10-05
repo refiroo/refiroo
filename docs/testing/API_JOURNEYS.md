@@ -90,6 +90,7 @@ Every response names the workspace it read in the `RDM-Workspace` header.
 | `GET /{apiKey}/v{contractVersion}/objects/{id}` (`workspace`, the definition's parameters) | J28, J28.1–J28.5, J28.9 |
 | `GET /{apiKey}/v{contractVersion}/lists/{listKey}` (`workspace`, the list's parent parameter, the definition's parameters, `pageSize`, `cursor`, `position`, `from`, `seek`, `includeTotal`) | J28.6–J28.10 |
 | `GET /{apiKey}/v{contractVersion}/xref` (`query`, `expect`, `workspace`, the definition's parameters, `pageSize`, `cursor`, `position`, `from`) | J29, J29.1–J29.7 |
+| `POST /{apiKey}/v{contractVersion}/resolve` (`workspace`; the body's `defaults` and `items`, each with `ref`, `query` or `id` and the definition's parameters) | J29.8–J29.10 |
 
 ## Error codes
 
@@ -113,7 +114,7 @@ documented nowhere; API.md documents them since H4c (D-4).
 | J23 | `AS_OF_NOT_SUPPORTED`, `INVALID_EFFECTIVE_PERIOD` |
 | J26 | `FEED_POSITION_AHEAD`, `FEED_POSITION_EXPIRED` |
 | J28 | `CONSUMER_API_NOT_FOUND`, `CONTRACT_VERSION_NOT_FOUND`, `PARAMETER_NOT_SUPPORTED`, `LIST_NOT_FOUND`, `PARENT_NOT_FOUND`, `INVALID_PAGE_SIZE`, `INVALID_PAGE_PARAMETER`; on the consumer API `UNKNOWN_PARAMETER`, `UNKNOWN_OBJECT_TYPE` and the paging codes are `400` (J28.4, J28.8, J28.10), and an unknown or retired workspace `404 WORKSPACE_NOT_FOUND` (J28.3) |
-| J29 | `QUERY_REQUIRED`, `TOO_MANY_TERMS`, `QUERY_TOO_BROAD` (`test_consumer_xref_volume`), `INVALID_EXPECT`, `NO_MATCH`, `AMBIGUOUS_MATCH` (J29.3, J29.5, J29.6), `UNKNOWN_OBJECT_TYPE` (J29.6) |
+| J29 | `QUERY_REQUIRED`, `TOO_MANY_TERMS`, `QUERY_TOO_BROAD` (`test_consumer_xref_volume`), `INVALID_EXPECT`, `NO_MATCH`, `AMBIGUOUS_MATCH` (J29.3, J29.5, J29.6), `UNKNOWN_OBJECT_TYPE` (J29.6); batch resolve: each item's outcome carries the single read's code, plus `QUERY_OR_ID_REQUIRED`; the request is refused as `400 REQUEST_VALIDATION_ERROR` (a body of the wrong shape), `400 UNKNOWN_PARAMETER` or `PARAMETER_NOT_SUPPORTED` (`defaults`, the URL) and `413 BATCH_TOO_LARGE` (J29.10) |
 | J11, J24 | `BATCH_TOO_LARGE`, `INVALID_BATCH_CONTEXT`, `IDEMPOTENCY_KEY_REUSED`, `IDEMPOTENCY_IN_PROGRESS`, `MISSING_RECORD_KEY`, `INVALID_RECORD_KEY`, `REFERENCE_NOT_FOUND`, `REFERENCE_TYPE_MISMATCH`, `JOB_NOT_FOUND`, `JOB_FINISHED`, `JOB_FAILED` |
 
 ## Operator surface (J12)
@@ -125,6 +126,7 @@ documented nowhere; API.md documents them since H4c (D-4).
 | `MODEL_ADMIN_MUTATIONS_ENABLED`, `WORKSPACE_ADMIN_MUTATIONS_ENABLED`, `INTEGRATION_JOBS_ENABLED` | J12.7, J08, J19.4, J11 |
 | `BATCH_MAX_ITEMS`, `BATCH_MAX_BYTES`, `ATOMIC_JOB_MAX_ITEMS`, `BACKGROUND_JOB_MAX_ITEMS`, `BATCH_BACKGROUND_MAX_BYTES`, `JOB_CHUNK_ITEMS`, `JOB_LEASE_SECONDS`, `JOB_RETENTION_DAYS` | J12.7, J11, J24 |
 | `FEED_RETENTION_DAYS` | J26.6 |
+| `CONSUMER_RESOLVE_MAX_ITEMS` (reported by `GET /capabilities` as `consumerApi.resolveMaxItems`) | J29.10 |
 | `WEB_CONCURRENCY` | J12.7 (refused above 1 with model administration) |
 | `CORS_ORIGINS` | J12.7 (a browser client on another origin) |
 | `RDM_CURSOR_SIGNING_KEY` | J21 (cursors that survive a restart), J12.7 |

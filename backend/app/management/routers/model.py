@@ -25,6 +25,7 @@ from ..schemas.model import (
     AttributeTypeResponse,
     CapabilitiesResponse,
     ChangeFeedCapabilities,
+    ConsumerApiCapabilities,
     IntegrationJobCapabilities,
     JobLimits,
     MetadataPage,
@@ -74,6 +75,10 @@ def get_capabilities(request: Request) -> CapabilitiesResponse:
             setting="INTEGRATION_JOBS_ENABLED",
         ),
         changeFeed=ChangeFeedCapabilities(retentionDays=request.app.state.feed_retention_days),
+        consumerApi=ConsumerApiCapabilities(
+            resolveMaxItems=request.app.state.consumer_resolve_max_items,
+            setting="CONSUMER_RESOLVE_MAX_ITEMS",
+        ),
     )
 
 

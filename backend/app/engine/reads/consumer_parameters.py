@@ -79,7 +79,7 @@ def consumer_filter(
     for name, given in values.items():
         parameter = definition.parameters[name]
         if isinstance(parameter, ObjectTypeParameter):
-            records.append(builder.object_type(given))
+            records.append(builder.object_type(name, given))
         elif isinstance(parameter, AncestorParameter):
             records.append(builder.ancestor(parameter, given))
         elif isinstance(parameter, RelatedParameter):
@@ -111,7 +111,7 @@ class _Builder:
         self.definition = definition
         self.workspace_key = workspace_key
 
-    def object_type(self, names: Sequence[str]) -> Predicate:
+    def object_type(self, parameter: str, names: Sequence[str]) -> Predicate:
         by_name = {item.publicName: key for key, item in self.definition.objectTypes.items()}
         unknown = [name for name in names if name not in by_name]
         if unknown:
@@ -120,7 +120,7 @@ class _Builder:
                 400,
                 "UNKNOWN_OBJECT_TYPE",
                 f"Unknown object type '{unknown[0]}'; this API exposes {', '.join(public)}",
-                {"objectTypes": unknown, "publicNames": public},
+                {"objectTypes": unknown, "publicNames": public, "path": f"/query/{parameter}"},
             )
         keys = sorted({by_name[name] for name in names})
         return lambda entity: entity.object_type_key.in_(keys)

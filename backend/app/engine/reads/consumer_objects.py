@@ -18,11 +18,11 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import Select, and_, false, select
-from sqlalchemy.orm import Session
+from sqlalchemy import ARRAY, Select, String, and_, any_, bindparam, false, select, true
+from sqlalchemy.orm import Session, aliased
 
 from ...common.time import as_utc
-from ...errors import api_error
+from ...errors import ApiError, api_error
 from ...models.database import AttributeValue, ObjectRelation, RdmObject
 from ...models.schema import ConsumerApiDefinition, EngineModel
 from ..model.consumer_contract import (
@@ -235,20 +235,32 @@ class ConsumerObjects:
         return [(owner, record) for (owner, _id), record in found.items()]
 
     def _ancestors(self, session: Session, starts: set[str]) -> dict[str, _Record]:
-        """Every record above ``starts``, with them, in one recursive statement."""
+        """Every record above ``starts``, with them: the walk's IDs in one recursive statement, then
+        those records and their values by the list of IDs.
+
+        Each step of the walk finds the parent by its ID through a bounded ``LATERAL``, an index
+        probe PostgreSQL cannot flatten into a join; the records are then read by a bound list, as a
+        filter's walked containers are (``consumer_parameters.below``). Read as one statement,
+        PostgreSQL estimated the walk a hundred times too large (54,540 rows for 540 at full volume)
+        and hashed every record and every value: 192 ms where the walk reads 540 rows (0.9 C14b)."""
         if not starts:
             return {}
-        up = (
-            select(RdmObject.id, RdmObject.parent_object_id)
-            .where(RdmObject.id.in_(sorted(starts)))
-            .cte("up", recursive=True)
+        up = select(RdmObject.id, RdmObject.parent_object_id).where(RdmObject.id.in_(sorted(starts))).cte(
+            "up", recursive=True
         )
-        up = up.union(
-            select(RdmObject.id, RdmObject.parent_object_id).join(up, RdmObject.id == up.c.parent_object_id)
+        parent = aliased(RdmObject)
+        step = (
+            select(parent.id, parent.parent_object_id)
+            .where(parent.id == up.c.parent_object_id)
+            .limit(1)
+            .lateral("parent")
         )
+        up = up.union(select(step.c.id, step.c.parent_object_id).select_from(up).join(step, true()))
+        walked = sorted(session.scalars(select(up.c.id)))
+        listed = bindparam(None, walked, type_=ARRAY(String))
         chain = (
             select(RdmObject.id, RdmObject.object_type_key, RdmObject.name, RdmObject.parent_object_id)
-            .join(up, up.c.id == RdmObject.id)
+            .where(RdmObject.id == any_(listed))
             .subquery()
         )
         return _load(session, chain, self._ancestor_keys)
@@ -399,6 +411,11 @@ def read_consumer_object(
     type the definition does not expose, or one the parameters filter out (C-D31)."""
     composed = ConsumerObjects(model, definition).compose(session, workspace_key, [object_id], narrowed)
     if object_id not in composed:
-        raise api_error(404, "OBJECT_NOT_FOUND", f"Object '{object_id}' not found")
+        raise object_not_found(object_id)
     return composed[object_id]
+
+
+def object_not_found(object_id: str) -> ApiError:
+    """Get by ID's refusal, which batch resolve gives a by-ID item as well (C14)."""
+    return api_error(404, "OBJECT_NOT_FOUND", f"Object '{object_id}' not found")
 

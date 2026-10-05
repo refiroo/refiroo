@@ -37,15 +37,16 @@ def test_read_capabilities_model_placements_and_metadata(world):
     """When the integrator reads the capabilities, the model, the placements and every metadata
     collection one item a page, a type, a relationship type's pairs, an attribute type, the reference
     page and the OpenAPI document. Then the capabilities name the three gated groups with their flags,
-    limits and settings, and the change feed's retention; the model names its release; the placements give each application's
+    limits and settings, the change feed's retention and the consumer batch resolve maximum; the model names its release; the placements give each application's
     top-level types and per type its children and possible types; each collection walks every item
     once; the relationship type lists its pairs with cardinality and whether required; every
     identifier is a UUID and none is a number."""
     capabilities = ok(world.api.get("/capabilities"))
     gated = {"modelAdmin", "workspaceAdmin", "integrationJobs"}
-    assert set(capabilities) == gated | {"changeFeed"}
+    assert set(capabilities) == gated | {"changeFeed", "consumerApi"}
     assert all("setting" in capabilities[group] for group in gated)
     assert capabilities["changeFeed"]["retentionDays"] >= 1
+    assert capabilities["consumerApi"]["resolveMaxItems"] >= 1
     assert {"batchMaxItems", "batchMaxBytes"} <= set(capabilities["integrationJobs"]["limits"])
 
     model = world.api.get("/model")

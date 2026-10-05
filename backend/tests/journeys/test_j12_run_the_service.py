@@ -148,10 +148,10 @@ def test_an_unknown_revision_is_refused_and_left_untouched(configuration, databa
 
 
 @pytest.mark.journey("J12.4")
-def test_a_missing_pg_trgm_is_refused_until_it_is_installed(configuration, databases):
-    """When the service starts where pg_trgm is missing and its role cannot create it. Then it refuses
-    with the instruction to install the extension; once an administrator has installed it, the next
-    start serves."""
+def test_missing_extensions_are_refused_until_they_are_installed(configuration, databases):
+    """When the service starts where pg_trgm and btree_gin are missing and its role cannot create
+    them. Then it refuses with the instruction to install both; once an administrator has installed
+    them, the next start serves."""
     url = _empty(databases)
     with seeds.admin() as server:
         server.exec_driver_sql(
@@ -162,8 +162,13 @@ def test_a_missing_pg_trgm_is_refused_until_it_is_installed(configuration, datab
     limited = url.set(username=LIMITED_ROLE)
     try:
         with serve(configuration, limited) as service:
-            _refusal(service, "lacks the pg_trgm extension", "CREATE EXTENSION pg_trgm;")
+            _refusal(
+                service,
+                "lacks the pg_trgm and btree_gin extensions",
+                "CREATE EXTENSION pg_trgm; CREATE EXTENSION btree_gin;",
+            )
         execute(url, "CREATE EXTENSION pg_trgm")
+        execute(url, "CREATE EXTENSION btree_gin")
         with serve(configuration, limited) as service:
             _serves(service)
     finally:

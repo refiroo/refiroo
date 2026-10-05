@@ -346,6 +346,16 @@ class RdmObject(Base):
         ),
         # An exact lookup ignoring case seeks the name (0.9 C4, 20261005_01).
         Index("ix_objects_workspace_lower_name", "workspace_key", func.lower(literal_column("name"))),
+        # A lookup's contains match reads the names of its types in its workspace in one probe
+        # (0.9 C14, 20261005_02; btree_gin for the key columns).
+        Index(
+            "ix_objects_type_name_trigram",
+            "workspace_key",
+            "object_type_key",
+            "name",
+            postgresql_using="gin",
+            postgresql_ops={"name": "gin_trgm_ops"},
+        ),
     )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

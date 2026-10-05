@@ -66,10 +66,12 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # PublicationResponse and the feed route's description naming the expiry; removing those gives
     # the previous document exactly. Re-baselined for 0.9 T1b: the codes in the document are upper
     # case (the four job reasons and the invalidCursor, versionConflict and requestValidation error
-    # examples); lower-casing those seven gives the previous document exactly.
+    # examples); lower-casing those seven gives the previous document exactly. Re-baselined for
+    # 0.9 C14: consumerApi (ConsumerApiCapabilities) on CapabilitiesResponse; removing it gives the
+    # previous document exactly.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "e38bede7191c6bc46cb2f95f158cba6a18963a8cd6a63e5f1fae6509181964d6"
+        "ab5f5116b6531978d893db46f04c73506e41c9b55e5fda3ed0fefd728372222b"
     )
 
 

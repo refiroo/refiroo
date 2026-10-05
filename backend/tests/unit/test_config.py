@@ -1,7 +1,7 @@
 """``config.py``: the settings the service starts with.
 
 J12.7 starts the service with one invalid limit and with small limits. Here every integration-job
-setting, and the change feed's retention, has its default and refuses a value that is not a positive
+setting, the change feed's retention and the consumer batch resolve maximum have its default and refuses a value that is not a positive
 integer.
 """
 
@@ -19,6 +19,7 @@ JOB_LIMITS = {
     "JOB_CHUNK_ITEMS": ("job_chunk_items", 500),
     "JOB_LEASE_SECONDS": ("job_lease_seconds", 120),
     "FEED_RETENTION_DAYS": ("feed_retention_days", 30),
+    "CONSUMER_RESOLVE_MAX_ITEMS": ("consumer_resolve_max_items", 1000),
 }
 
 

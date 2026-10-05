@@ -8,6 +8,31 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 C14b: a consumer read's ancestors are walked by ID and read by the walked list
+  (170–192 ms to 10 ms at full volume), and contains reads are built without table aliases; a
+  1,000-lookup batch resolve takes 236 ms (was 817 ms).
+- Base 0.9 C14a: batch resolve resolves each distinct lookup once (same terms and parameters, in
+  any order); a batch sending one heavy lookup 100 times fell from 1.7 s to 0.8 s at full volume.
+- Base 0.9 C14: consumer API batch resolve:
+  `POST /api/consumer/{apiKey}/v{contractVersion}/resolve`.
+  - **Items.** Up to 1,000 items (`CONSUMER_RESOLVE_MAX_ITEMS`, reported by `GET /capabilities` as
+    `consumerApi`; more are `413 BATCH_TOO_LARGE`), each a `query` or an `id`, with an optional
+    `ref` and the definition's parameters over the request's `defaults`; JSON values are never
+    split on commas (C-D47, C-D50).
+  - **Outcomes.** In item order, each the single read's answer: `found` with the object, or
+    `not_found`, `ambiguous` or `rejected` with that read's error, a rejection pointing into the item
+    (`QUERY_OR_ID_REQUIRED` for both or neither of `query` and `id`); a body of the wrong shape or a
+    wrong name in `defaults` refuses the request (C-D48, C-D49).
+  - **One scoring path.** XREF is a batch of one: exact matches of every term are read at once,
+    contains matches one select per term with its pattern bound; items group by their parameters,
+    each group in a fixed number of statements (C-D51). A single best match is sought with the exact
+    rules first, so an `expect=one` lookup its exact matches settle is no longer refused for what its
+    contains terms match (C-D52, amends C-D37).
+  - **Index.** Migration `20261005_02` adds a trigram index on names holding the workspace and type;
+    it needs the `btree_gin` extension, which startup now requires beside `pg_trgm` and creates when
+    it may.
+  - **Budgets.** 1,000 lookups in 816 ms at full volume (451 ms over three parameter sets); XREF's
+    lookups 13–65 ms. `test_consumer_xref_volume` checks equal statements for 10 and 100 items.
 - Base 0.9 C5: the consumer API's parameters on XREF.
   - **Parameters.** Every definition parameter (`objectType`, `ancestor`, `related`, `projection`)
     narrows XREF with its list meaning: an object is a result when it scored and every parameter

@@ -55,12 +55,14 @@ Reported under `integrationJobs` by `GET /api/v1/capabilities`; a request over a
 | `JOB_LEASE_SECONDS` | 120 | A worker's lease on a job, renewed each chunk |
 | `JOB_RETENTION_DAYS` | 7 | How long a finished job keeps its outcomes and idempotency key |
 | `FEED_RETENTION_DAYS` | 30 | How long the change feed answers a position; older positions are `410 FEED_POSITION_EXPIRED`, naming the publication to re-read. Entries after the active publication, and every entry of a workspace without one, are always answered. The audit log is not pruned |
+| `CONSUMER_RESOLVE_MAX_ITEMS` | 1,000 | Items in one consumer batch resolve (`POST /api/consumer/…/resolve`); more are refused as `413 BATCH_TOO_LARGE`. Reported by `GET /capabilities` |
 
 ## Database
 
 PostgreSQL 17 is the only supported database (since 0.9.0-alpha.1). The database's default collation
 must be the ICU root collation `und` (a language-independent Unicode order), and the role needs the
-`pg_trgm` extension, which startup creates when it may. For a server other than the development one:
+`pg_trgm` and `btree_gin` extensions (both in PostgreSQL's contrib modules; `btree_gin` since 0.9
+C14), which startup creates when it may. For a server other than the development one:
 
 ```sql
 CREATE DATABASE rdm TEMPLATE template0 LOCALE_PROVIDER icu ICU_LOCALE 'und' LOCALE 'C';
@@ -86,7 +88,7 @@ migration from SQLite.
 Startup refuses to serve, logs what to do and answers `GET /health` with `503` when:
 
 - `DATABASE_URL` is missing, not PostgreSQL, uses another driver, or the server is unreachable;
-- the database has another collation, or `pg_trgm` is missing and cannot be created;
+- the database has another collation, or `pg_trgm` or `btree_gin` is missing and cannot be created;
 - the database schema revision is unknown, or a migration fails (see [Upgrades](#upgrades));
 - the database selects a model release whose schema the engine no longer reads; the log names the
   selected and supported schemas and prints the offline transition command

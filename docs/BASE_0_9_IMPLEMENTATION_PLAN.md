@@ -14,8 +14,9 @@ the interim release 0.9.0-alpha.1 (2026-10-03), [F1](#f1-feed-positions) (2026-1
 read, D31), [B3](#b3-relation-and-relation-set-items) (2026-10-03, D35–D39),
 [F2](#f2-feed-retention-and-recovery) (2026-10-03, D40–D41), [T1](#t1-track-checkpoint-q-b-f) (2026-10-03),
 [T1a](#t1a-copies-inside-the-database) (2026-10-04), [T1b](#t1b-one-error-code-pattern) (2026-10-04),
-[C2](#c2-consumer-object-and-projections) (2026-10-04, C-D21–C-D26).
-**Next:** C3, in the order of the [delivery queue](#delivery-queue).
+[C2](#c2-consumer-object-and-projections) (2026-10-04, C-D21–C-D26), C3–C5 and
+[C14](#c14-batch-resolve) (2026-10-05, C-D47–C-D53).
+**Next:** C15, in the order of the [delivery queue](#delivery-queue).
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
 Effective dates and consumer API definitions extend the model, so the starter becomes content release
@@ -219,17 +220,24 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 14b | [C3b](#c3b-several-values-the-standard-way) | C3 | Amendment: several values as OpenAPI serialises them, `%2C` for a comma in a value (C-D32 amended) — **delivered 2026-10-04** ([record](#c3b-delivery-record)) |
 | 15 | [C4](#c4-xref-lookup-and-scoring) | C2, C3b | XREF lookup and scoring (C-D34–C-D41) — **delivered 2026-10-05** ([record](#c4-delivery-record)) |
 | 16 | [C5](#c5-xref-parameters) | C4 | XREF parameters: every kind on XREF, `scoresFrom` (C-D42–C-D46) — **delivered 2026-10-05** ([record](#c5-delivery-record)) |
-| 17 | C14 | C4 | Batch resolve |
+| 17 | [C14](#c14-batch-resolve) | C4, C5 | Batch resolve: one scoring path with XREF, exact rules first (C-D47–C-D53) — **delivered 2026-10-05** ([record](#c14-delivery-record)) |
+| 17a | [C14a](#c14a-repeated-lookups-resolved-once-the-batch-profiled) | C14 | Amendment: repeated lookups resolved once; the batch profiled — **delivered 2026-10-05** |
+| 17b | [C14b](#c14b-the-ancestor-walk-and-the-contains-selects-made-cheap) | C14a | Amendment: the ancestor walk and the contains selects made cheap — **delivered 2026-10-05** |
 | 18 | C15 | C5 | Crosswalk |
+| 18a | [CN1](SETTINGS_AND_UI_PLAN.md#packages-track-u) | C15 | Amendment: the consumer API namespace is `consumerApi` in public contracts, not `apiKey` (U-D1) |
 | 19 | C6 | C3, C4, F1 | ETag, publications with `eventSequence`, OpenAPI per definition, API index |
 | 20 | [V2](#v2-consumer-sources) | V1, C6 | Consumer contracts as reference sources |
+| 20a | [U4](SETTINGS_AND_UI_PLAN.md#packages-track-u) | U3, C6, V2 | Settings › Integration: Consumer APIs, Jobs and feed, API reference; a starter consumer API (U-D5) |
 | 21 | C8 | C3–C6, C14, C15 | Parity acceptance; the consumer read line's checkpoint |
 | 22 | C16 | C2, Q4 | `asOf` in the consumer tier; SC-11 (consumer) |
 | 23 | C9 | C2 | Event definitions |
 | 24 | C10 | C9, F2 | Event deriver, event store, pull feed |
 | 25 | C11 | C10 | Subscriptions |
 | 26 | C12 | C11 | Dispatcher |
+| 26a | [U5](SETTINGS_AND_UI_PLAN.md#packages-track-u) | U4, C12 | Settings › Integration › Webhooks over the subscriptions API (U-D3) |
 | 27 | C13 | C12 | Event acceptance; the events line's checkpoint |
+| 27a | [U2](SETTINGS_AND_UI_PLAN.md#packages-track-u) | U1 | UI foundation: token layers, regions, data-context bar, `ui/` components, the shell |
+| 27b | [U3](SETTINGS_AND_UI_PLAN.md#packages-track-u) | U2 | Settings area: About, Appearance, Deployment (read-only, U-D2), Workspaces and Model moved; `GET /api/v1/system` |
 | — | _cut line (D9)_ | | _If R is out of reach, 0.9.0 releases here with R-a and Track J moves to 0.9.1_ |
 | 28 | [J1](#j1-export) | Q3, Q4, B2, F1 | Export jobs |
 | 29 | [J2](#j2-import-profiles-and-file-reading) | B3 | Import profiles, XLSX/CSV/JSON Lines reading, rows to items |
@@ -259,6 +267,12 @@ amendment, not a silent edit.
 
 After C2, the consumer read line (C3–C8, C14–C16) and the events line (C9–C13) are independent;
 the queue lists one order that respects both.
+
+**Track U, approved 2026-10-05** (U-D1–U-D5;
+[SETTINGS_AND_UI_PLAN](SETTINGS_AND_UI_PLAN.md#packages-track-u)): settings and the UI foundation.
+U1 (the visual direction, no product code) is a filler at any time. Then U-D6 is taken, and U2 and U3
+follow C13, before J4. The other rows are in the queue above. U4 needs U3, so if U3 has not landed
+when V2 is done, U4 waits for it. Above the cut line (D9).
 
 ## Sequence and dependencies
 
@@ -1710,7 +1724,7 @@ Scope, order and acceptance are in [CONSUMER_API.md](CONSUMER_API.md#delivery-pa
 | C3 | C2 | `consumer`, `queries`, `volume` | Lists with and without a parent, ADR-030 paging |
 | C4 | C2 | `consumer`, `volume` | XREF scoring deterministic; `expect=one` |
 | C5 | C4 | `consumer`, `contract`, `volume` | Every parameter kind on XREF; `scoresFrom` |
-| C14 | C4 | `consumer`, `volume` | Batch resolve equal to `xref?expect=one` per item; C-D13 limit confirmed |
+| C14 | C4, C5 | `consumer`, `contract`, `volume` | Batch resolve equal to `xref?expect=one` per item; C-D13 limit confirmed by C-D53's budget |
 | C15 | C5 | `consumer` | Crosswalk with `target_not_found` and `ambiguous_target` |
 | C6 | C3, C4, F1 | `consumer`, `contract`, `volume` | Publications with `eventSequence` (= `feedPosition`), OpenAPI per definition, API index, resolved `workspace` named (C-D16); **task (D47):** C3a's value-order attribute sort for the publication (and change set) contexts, over `snapshot_attribute_values`, with its budget recorded |
 | C8 | C3–C6, C14, C15 | `consumer`, `volume` | Parity scenarios 1–13 and 16 pass on the fixture model |
@@ -2854,6 +2868,302 @@ lookup); their serial part selects none. The modules that load the volume model 
 `test_consumer_api_model`: 254 passed. `ruff check app/ tests/` clean. Not run: `startup` (no
 migration), `queries` (`object_query` unchanged), the frontend (unchanged), the full suites (R).
 
+#### C14: Batch resolve
+
+**Delivered 2026-10-05** ([record](#c14-delivery-record)). **Planned 2026-10-05; decisions C-D47–C-D53
+and the test cases approved by the user the same day** (the full-volume timing of case 6 cleared to
+run once; the contains reads, the index and the budgeted batches changed at delivery with the user).
+**Needs:** C4, C5 (the parameters items carry). **Groups:** `consumer`, `contract`, `volume`.
+
+**Behaviour.** A flow translating a file of codes resolves them in one call instead of one XREF
+request per row ([CONSUMER_API "Batch resolve"](CONSUMER_API.md#batch-resolve)). It is a read: POST
+only carries the list, and nothing changes.
+
+```text
+POST /api/consumer/{apiKey}/v{contractVersion}/resolve?workspace=…
+{ "defaults": { "codelist": "Currency" },
+  "items": [ { "ref": "row-1", "query": "CHF" },
+             { "ref": "row-2", "query": ["EUR", "Euro"], "codelist": "Legacy" },
+             { "ref": "row-3", "id": "7f3c…" } ] }
+```
+
+- **Each item** is resolved exactly as `xref?expect=one` (by `query`) or get by ID (by `id`), with
+  its own parameters over `defaults`. Scoring, parameters (C5, `scoresFrom` included), tie rules and
+  the per-item limits (100 terms, 10,000 matches, 3 characters for contains) are XREF's.
+- **Each outcome** is the single read's answer for that item, in item order: `found` with the
+  object, or `not_found`, `ambiguous` or `rejected` with the error the single read answers (C-D48).
+- **The batch** holds at most 1,000 items, a setting reported by capabilities; over it the request is
+  `413 BATCH_TOO_LARGE` and nothing is resolved (C-D13, C-D50).
+- **Not yet:** `publication` (C6), `asOf` (C16) and `to.{parameter}` (C15) arrive with their packages,
+  for every item at once; until then they are refused as on the other consumer routes today.
+
+**Evidence (checked 2026-10-05 on a clone of the volume seed at 10,000 items, the trigram and
+`lower(…)` indexes added to match the current schema; nothing kept).** C4's scoring rewritten as one
+statement over a terms relation `(item, term)`, each rule's match joined per term (`LATERAL`, bounded
+at 10,001 as C4's count is), with the volume weights (ID 1000, code 500/40, name 200/30; promoted
+group code 80, name 75, code contains 10). Terms: item codes in another case, every tenth a group code,
+every fiftieth a miss.
+
+| Items | Every rule | Exact rules only |
+| --- | --- | --- |
+| 1 | 3.5 ms | — |
+| 100 | 161 ms | — |
+| 1,000 | 1,480 ms | 35 ms |
+
+- **One statement, not one per item.** Repeating XREF per item would cost C4's 34–57 ms per lookup
+  at full volume, 35–57 s for 1,000. The set statement's cost grows with the items only through the
+  per-term index reads.
+- **Contains is 97 % of the cost.** Each term runs three trigram probes (code contains, name contains,
+  promoted code contains), 0.3–0.5 ms each here. A trigram probe reads posting lists that grow with
+  the data, so at 100,000 items this is likely several seconds per 1,000 items (not measured; the
+  full-volume seed is not built). The exact rules read B-tree indexes and stay at 35 ms.
+- **Bounding each probe is required.** Unbounded, PostgreSQL flattened the name-contains join into
+  1,000 × 11,000 comparisons (5.5 s); with the bound it probes the index per term.
+
+**Design.**
+
+- **Route** `POST /{apiKey}/v{contractVersion}/resolve` in `app/consumer/router.py`. The query string
+  serves `workspace` only; a definition parameter there is `400 PARAMETER_NOT_SUPPORTED` (it belongs
+  in `defaults`). The body is checked as a whole first (C-D49), then the item count (C-D50).
+- **One scoring path** (C-D51). `_Scoring` takes a terms relation `(item, term)` instead of literal
+  terms, and `read_xref` becomes a batch of one item, so XREF and batch resolve cannot drift apart.
+  Typed terms are parsed in Python into one column per value type; contains arms skip terms shorter
+  than 3 characters; every per-term arm is a bounded `LATERAL`.
+- **Groups.** Items are grouped by their effective parameters (defaults overlaid with the item's),
+  since a `ConsumerFilter` is built per parameter set. Each group runs the same statements for all its
+  items, so the statements grow with the distinct parameter sets, not with the items.
+- **Exact first** (C-D52). Per group: one statement scores every item with the exact rules and counts
+  their matches; an item whose top is decided by them is answered from that. Only the items left
+  undecided run the full C4 scoring with contains, in one more statement and its bounded count.
+  "Decided": the top score is above the most any contains match can give (the sum of the own contains
+  weights, or the highest promoted contains weight), and every object at the top score got it from
+  an own exact rule or from a promoted rule with no contains weight earlier in `firstMatch`. Then no
+  contains match can reach, raise or break the top, and the result equals full scoring.
+- **Ranking per item** with `row_number()` over `(item)` in C4's order, the top 11 rows per item read,
+  ties counted only past 10, as C4's `expect=one`.
+- **By ID**: one `ConsumerObjects.compose` per group over its by-ID items (C-D31's filtering of a set
+  of one, for many). **Composition** of the found objects: one `compose` per group, `matchScore`
+  added to the XREF items.
+- **Setting** `CONSUMER_RESOLVE_MAX_ITEMS` (default 1,000) in `app/config.py`; `GET /capabilities`
+  gains `consumerApi: { resolveMaxItems, setting }` (C-D50).
+- **No migration and no new index.** _Changed at delivery with the user's agreement:_ migration
+  `20261005_02` adds a trigram index on names holding the workspace and type ([record](#c14-delivery-record)).
+
+**Decisions** (status per row):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| C-D47 | The request | Body `{ "defaults": {…}, "items": [ … ] }`. An item has an optional `ref` (1–200 characters, as P2), exactly one of `query` or `id`, and definition parameters by name (`ref` and `id` are already reserved names, C1). `query` and every parameter value are a string or an array of strings: JSON carries a list itself, so no comma splitting (C-D32 is how a URL lists values; `"Bonds, Notes"` is one term). An item's parameter replaces the default of the same name, not merged. The query string carries only `workspace` (later `publication`, `asOf`) |
+| C-D48 | The outcome | `{ "items": [ { "index", "ref", "status", "object" or "error" } ], "workspace", "counts": { "found", "notFound", "ambiguous", "rejected" } }`, in item order, unpaged (the batch is bounded), named `items` as the integration API's outcomes (P2). `found` carries the single read's body (with `matchScore` for a query). The other statuses carry the single read's error, code, message and details unchanged: `not_found` is `NO_MATCH` or `OBJECT_NOT_FOUND`, `ambiguous` is `AMBIGUOUS_MATCH` with its `candidates` and `count`, `rejected` is the single read's `400` code with `details.pointer` into the item. So "equal to the single read" is checkable item by item. A processed batch answers `200` whatever its outcomes |
+| C-D49 | Request or item refusal | Refused as a whole (`400`, nothing resolved): a body that is not the documented shape (not JSON, `items` missing or empty, an item or value of the wrong JSON type), an unknown or unapplied name in `defaults` (every item would fail), a definition parameter in the query string, an unknown workspace (`404`). Rejected per item: both or neither of `query` and `id`, an unknown or unapplied name in the item (`expect`, paging names), and every refusal XREF or get by ID gives an item (`QUERY_REQUIRED`, `TOO_MANY_TERMS`, `QUERY_TOO_BROAD`, `UNKNOWN_OBJECT_TYPE`) |
+| C-D50 | The limit | 1,000 items (C-D13), `CONSUMER_RESOLVE_MAX_ITEMS`, reported by `GET /capabilities` as `consumerApi.resolveMaxItems`; over it `413 BATCH_TOO_LARGE` with `details.setting`, `maximum` and `items`, B1's code and shape. No byte limit of its own: the item and term limits bound the work. The per-definition OpenAPI (C6) states the maximum |
+| C-D51 | One scoring path | XREF becomes a batch of one item, as single writes became batches of one in PG3b: one implementation, so batch resolve equals `xref?expect=one` by construction. Items are grouped by their effective parameters, one set of statements per group. Basis: the table above. Cost: C4's and C5's XREF statements change and are re-timed against 100 ms at delivery (case 6). A batch whose every item has different parameters runs one group per item, close to a loop; per-item parameters inside one statement would mean rewriting C3's parameter predicates to read values from a relation, recorded in TODO for a measured need |
+| C-D52 | Exact first, and C-D37 for `expect=one` | Score exact rules first and run contains only for the items they leave undecided (the rule in "Design"). Basis: exact rules 35 ms, contains 1,445 ms of 1,480 for 1,000 items; a file of codes is mostly exact hits. **Amends C-D37 for `expect=one`** (XREF and batch alike, one path): an item decided by its exact matches is answered without reading contains matches, so a contains term matching more than 10,000 records no longer refuses it; the limit still applies to the exact matches, and to contains when it is read. `expect=any` is unchanged, since it pages every match |
+| C-D53 | The budget | A batch of 1,000 identifiers (codes, IDs, exact names; misses included) with at most 10 distinct parameter sets: **1 s** at full volume, beside B1's 1,000 upserts at 0.8 s. Recorded, not budgeted: 1,000 terms that all need contains, and 1,000 items with distinct parameters. Meeting the budget confirms C-D13's 1,000. A read over it is reported with its cause, not tuned in a loop |
+
+**Journey.** J29 gains variants J29.8–J29.10 (batch resolve) in USER_JOURNEYS and API_JOURNEYS
+(the route, `BATCH_TOO_LARGE` on the consumer tier); J29.3 notes C-D52. No fixture change: generated
+A and B's `Capi` exercises both evaluation paths, since a code or name hit (500, 200) is above its
+largest contains sum (110), while a promoted hit (80, 60) is not. The volume definition is unchanged.
+
+**Test cases** (journey tests, written first and confirmed failing):
+
+1. **J29.8 A mixed batch.** One batch holding J29's lookups as items: a code in another case, a
+   name, a promoted code, two terms in one item, a `Bonds, Notes` term as one string, an object ID,
+   an unknown ID, a miss and the two records sharing a name. Then: outcomes in item order with
+   `index` and `ref`; each `found` equals the `xref?expect=one` (or get by ID) body; each `not_found`
+   and `ambiguous` equals that read's `404` or `409` error; `counts` add up.
+2. **J29.9 Defaults and item parameters.** `defaults` `kind` with `R`'s public name narrows every
+   item; an item giving `kind` with `R2`'s replaces it; an item resolving the "Twin" `409` with
+   defaults alone is `found` with its own `kind`; a by-ID item filtered out by `container` is
+   `not_found`; `watchRegion` (`scoresFrom`) in `defaults` gives J29.7's scores.
+3. **J29.10 Refusals.** Per item, `rejected` with the single read's code and a pointer into the item:
+   both `query` and `id`; neither; `expect`; `pageSize`; an unknown name; an empty term list; 101
+   terms. As a whole: an unknown name in `defaults`, a definition parameter in the query string
+   (`400`), an unknown workspace (`404`), and, with the limit set to 5 for the test, 6 items
+   (`413 BATCH_TOO_LARGE` naming the setting). `GET /capabilities` reports the limit.
+4. **J25:** unchanged (no model rule is added).
+5. **Volume.** `test_consumer_xref_volume` gains batch scenarios at 0.01 and 0.04: 10 and 100 items
+   (codes, promoted codes, misses, a contains-only term) execute the same statements at both scales
+   and both sizes; 100 items over 3 parameter sets execute three groups' statements. With the match
+   limit lowered as in C4, an `expect=one` decided by an exact code is answered while a contains term
+   in it matches past the limit, and an undecided item is `rejected` `QUERY_TOO_BROAD`.
+6. **Timed once at full volume** (`volume_baseline.py --only-consumer`; no full-volume seed exists on
+   the server now, so the run builds one and is announced with its expected time first): the C-D53 batch against 1 s; the two recorded
+   batches; C4's and C5's lookups again against 100 ms, since their path changed (C-D51).
+
+No unit tests beyond the decided rule: one unit test of the "decided" predicate over weights (own
+contains sum, a promoted contains before an exact rule), since journeys reach only the generated
+weights. **Checks:** J29, J28 and J25 on generated A and B; the groups `consumer`, `contract`
+(`test_api_journeys`, `test_boundaries`, the capabilities lock) and `volume` (the changed module);
+`tests/unit/test_config.py`; `ruff`. No migration, so no `startup`; not `queries` (`object_query`
+unchanged).
+
+**Docs at delivery:** API.md gains batch resolve and the capability, and amends XREF's `expect=one`
+limit text (C-D52); CONSUMER_API records C-D47–C-D53, amends "Batch resolve" and C-D37, and marks the
+C14 row delivered; OPERATIONS adds `CONSUMER_RESOLVE_MAX_ITEMS`; USER_JOURNEYS and API_JOURNEYS add
+J29.8–J29.10; CURRENT_FUNCTIONALITY describes resolving many values in one call.
+
+**Composable domains (ADR-032):** no model change; batch resolve reads the `match` and `parameters`
+declarations as XREF does. Identity, attribute storage, audit and the bulk APIs are untouched. A
+product catalogue's translation of a supplier's SKU file is this route, so the door is exercised, not
+narrowed. Crosswalk (C15) adds `to.{parameter}` to items on the same path.
+
+##### C14 delivery record
+
+**Delivered 2026-10-05.** What was built:
+
+- **Route** `POST /{apiKey}/v{contractVersion}/resolve` in `app/consumer/router.py`: the URL serves
+  `workspace` only (`_Parameters.check(..., applies_definition=False)`); the body is read whole and
+  checked by `_resolve_items` (shape `400 REQUEST_VALIDATION_ERROR` with a pointer, `413
+  BATCH_TOO_LARGE`, names in `defaults`), each item's own names, `query`/`id` and terms becoming
+  that item's refusal (C-D47, C-D49, C-D50).
+- **Batch** in `engine/reads/consumer_resolve.py`: items grouped by their effective parameters, one
+  `consumer_filter`, one `resolve_lookups` and one `ConsumerObjects.compose` per group; outcomes
+  carry the single read's body or error, a rejection's `path` turned into a pointer into the item
+  or `defaults` (C-D48). Get by ID's refusal is shared (`consumer_objects.object_not_found`).
+- **One scoring path** (C-D51) in `engine/reads/consumer_xref.py`: the terms of every lookup are a
+  relation bound as arrays; exact matches of every term are one `LATERAL` select per rule; contains
+  matches are one bounded select per term and rule with the pattern bound; `tops()` answers each
+  lookup's matched count and top 11 rows (with the tie size and whether it is safe) in one
+  statement. `read_xref`'s `expect=one` is `resolve_lookups` for one lookup; `expect=any` pages the
+  same scored statement.
+- **Exact first** (C-D52): `contains_ceiling` and `safe_positions` decide whether the exact rules
+  settle a lookup; the unsettled ones are scored with every rule, at most 200 contains terms to a
+  statement (`CONTAINS_TERMS_PER_STATEMENT`).
+- **Migration** `20261005_02` (not in the plan; see below): the `btree_gin` extension and
+  `ix_objects_type_name_trigram` (GIN over workspace, type and `name gin_trgm_ops`), declared in
+  the ORM. Startup now requires and creates both `pg_trgm` and `btree_gin`, refusing with one
+  message naming the missing ones.
+- **Setting** `CONSUMER_RESOLVE_MAX_ITEMS` (1,000), reported by `GET /capabilities` as
+  `consumerApi`. `UNKNOWN_OBJECT_TYPE` names its parameter in `details.path`.
+
+**Differences from the plan** (each decided with the user on 2026-10-05):
+
+- **Contains reads per term.** The first full-volume run put single XREF over budget (85–131 ms)
+  and contains-only batches at 31 ms per item. Cause: a pattern read from the terms relation is
+  planned as matching ~1,300 records, so each probe intersected the type index and hash-joined every
+  record (19.6 ms against 3.4 ms with the pattern bound). Contains matches are now one select per
+  term with the pattern bound; exact matches stay one `LATERAL` per rule.
+- **The index.** The user chose trigram indexes holding the key columns as well (`btree_gin`). Measured: the
+  name index reads as fast as a bound pattern and stays; the same index on attribute values made
+  PostgreSQL underestimate a term matching every value and read them all in one process (the
+  too-broad refusal 181 ms against 127 ms without it), for about 1.5 ms per ordinary probe, and was
+  dropped. The development database, migrated by the user's `uvicorn --reload` while the migration
+  still held both indexes under earlier names, was brought to the delivered schema by hand
+  (two renames, then the value index dropped); it serves healthy.
+- **The budgeted batches** (C-D53 restated with the user): the first run's identifier batch made a
+  tenth of its items the group code 1,500 items cite (970 ms of exact scoring) and applied
+  parameters that filtered most items off their own match. The budgeted batches now send lookups
+  that fit their parameters, with ordinary group codes; those two batches are recorded, not
+  budgeted.
+- **Test data:** J29.9's by-ID item is filtered out by `container` with no matching M (the
+  definition's parameter, no M created).
+- **Added:** `QUERY_OR_ID_REQUIRED`; `consumerApi` in J20's capability groups.
+
+**Budgets at full volume** (`volume_baseline.py --only-consumer --scale 1 --repeat 3`, after the seed
+rebuild, warm median · statements · ORM rows):
+
+| Request | Budget | Time |
+| --- | --- | --- |
+| 1,000 identifiers (codes, group codes, IDs, misses, one contains term) | 1 s | **816.5 ms** · 7 · 3 |
+| 1,000 items over three parameter sets, each fitting its set | 1 s | **451.2 ms** · 18 · 3 |
+| 1,000 identifiers, a tenth the group code 1,500 items cite | recorded | 1,703.1 ms · 7 · 3 |
+| 1,000 identifiers over three sets regardless of fit | recorded | 3,996.8 ms · 19 · 3 |
+| 1,000 contains-only terms | recorded | 15,441.3 ms · 9 · 3 |
+| 1,000 items, each its own parameter value | recorded | 38,418.1 ms · 4,002 · 3 |
+| XREF: code, promoted code, contains, `expect=one` | 100 ms | 35.4, 54.4, 65.4, 13.3 ms |
+| XREF: within the heavy group, `scoresFrom` | 100 ms | 64.1, 59.2 ms |
+| XREF: a term in every item, too broad (over budget since C4) | recorded | 147.1 ms |
+
+The 1,000-identifier batch confirms C-D13's maximum. A contains read costs 3–5 ms per term and rule
+at full volume however it is written, so contains-heavy batches take seconds; a batch with a
+parameter set per item runs four statements per item (TODO). The too-broad refusal is 147 ms against
+C4's 116 ms and C5's 108 ms: both code-contains reads of a term in every item join all 100,000
+matching values before their limit stops them (TODO, beside C4's entry).
+
+**Checks:** J29.8–J29.10 confirmed failing first (no route), then J29 (22 on generated A and B).
+After the last change: groups `consumer` (129, the volume module and the new unit tests among them),
+`startup` (95: clean bootstrap, upgrade through every revision to `20261005_02`, restart, the
+extension refusals, schema drift) in parallel, their serial parts selecting none; before the index
+change, `contract` (66, the OpenAPI lock re-baselined: removing `consumerApi` gives the previous
+document exactly), `queries` (232) and `test_search_index` (4), which the dropped index does not
+touch. `test_consumer_xref_volume`: equal statements for 10 and 100 items at both sizes; an
+`expect=one` settled by its exact code answered while its contains term matches past the lowered
+limit. `ruff check app/ tests/` clean. The development database at `20261005_02` serves healthy
+and answers the route. Not run: the frontend (unchanged), the write budgets with the new index
+(`budget`, at R), the full suites (R).
+
+#### C14a: Repeated lookups resolved once; the batch profiled
+
+**Delivered 2026-10-05**, asked for by the user after C14 ("can these times be made significantly
+shorter?"). **Needs:** C14. **Before:** C15, whose crosswalk items take the same path.
+
+**Built.** `read_resolve` resolves each distinct lookup of a parameter group once: a lookup is its
+set of terms (order and repeats do not change a score), and every item that sent it takes its
+answer. A file of codes repeats its values, and the fan-out batch sent one heavy lookup 100 times.
+J29.8 gains the case: the same lookup sent again, reordered and repeated, has the same answer and
+the same ambiguity.
+
+**Profile at full volume** (one run, warm median of three; statements in order: the exact rules, the
+contains reads of the unsettled lookups, the records and values, the projection, the ancestors):
+
+| Batch | Wall | SQL | Statements (ms) |
+| --- | --- | --- | --- |
+| 1,000 identifiers (899 found, 100 not found, 1 ambiguous) | 764 ms | 319 ms | 21.5 · 78.9 · 19.6 · 7.1 · **191.6** |
+| Three parameter sets | 455 ms | 290 ms | two groups' ancestor walks 87.3 and 86.0 ms, the rest 2–39 ms |
+| Cited group fan-out (C14: 1,703 ms) | 804 ms | 299 ms | 31.0 · 74.7 · 19.9 · 6.7 · 166.7 |
+
+- **The ancestor walk** of the composition (`ConsumerObjects._ancestors`, shared with lists and get by
+  ID) is the largest statement: PostgreSQL estimates the recursive walk at 54,540 rows for 540, so
+  both its step and the final join hash all 257,758 records. C3a met the same estimate in
+  `consumer_parameters.below` and bound the walked rows as a list.
+- **Outside SQL**, about 445 ms for 900 objects (composition in Python, encoding the response); not
+  yet split.
+
+**Checks:** J29 (22 on generated A and B), `test_consumer_xref_volume` (3), `ruff` clean. Not
+run: the rest of `consumer` (its other modules unchanged), the full suites (R).
+
+#### C14b: The ancestor walk and the contains selects made cheap
+
+**Delivered 2026-10-05**, on C14a's profile, with the user's agreement. **Needs:** C14a. **Before:** C15.
+
+**Built.**
+
+- **Ancestor walk** (`ConsumerObjects._ancestors`, shared by get by ID, lists, XREF and batch
+  resolve): the walk reads its IDs in one recursive statement, each step finding the parent through a
+  `LATERAL` bounded at one row (PostgreSQL flattened an unbounded one back into a join), then the
+  records and their values are read by the bound list of IDs, as `consumer_parameters.below` reads
+  walked containers since C3a. Before, one statement estimated the walk at 54,540 rows for 540 and
+  hashed all 257,758 records and values: 170–192 ms, now 5.1 + 5.4 ms. Each read that composes
+  ancestors runs one statement more.
+- **Contains selects** read `objects` and `attribute_values` unaliased: each is a subquery of its
+  own, and aliasing both tables for each of 313 terms made SQLAlchemy build 6,444 column objects,
+  0.47 s of the request, now under 0.1 s.
+
+**Full volume** (one run, warm median of three · statements · ORM rows):
+
+| Request | Budget | C14 | Now |
+| --- | --- | --- | --- |
+| 1,000 identifiers | 1 s | 816.5 ms | **235.7 ms** · 8 · 3 |
+| 1,000 items over three parameter sets | 1 s | 451.2 ms | **227.8 ms** · 21 · 3 |
+| Cited group fan-out (C14a: repeated lookups once) | recorded | 1,703.1 ms | 264.8 ms · 8 · 3 |
+| Parameters filtering items out | recorded | 3,996.8 ms | 2,431.3 ms · 22 · 3 |
+| Contains only (C14a: its 1,000 terms are 100 distinct ones) | recorded | 15,441.3 ms | 1,021.1 ms · 5 · 3 |
+| A parameter set per item | recorded | 38,418.1 ms | 35,921.1 ms · 4,002 · 3 |
+| XREF lookups (code, promoted, contains, `expect=one`, narrowed, `scoresFrom`) | 100 ms | 13.3–65.4 ms | 14.5–64.8 ms |
+| XREF too broad | recorded | 147.1 ms | 145.3 ms |
+| Consumer lists (C3a's figures) | 100 ms | 7.9–113.6 ms | 7.5–111.9 ms |
+
+The identifier batch now spends 179 ms in SQL, chiefly the unsettled lookups' contains statement
+(98 ms, of which 25 ms executing and the rest planning its 313 selects); the contains-only figure falls
+by C14a's deduplication, not cheaper reads. The position jump and the ancestor filter with its total
+stay at the budget line, as C3a recorded them.
+
+**Checks:** group `consumer` after the last change: 129 passed (J28, J29 and
+`test_consumer_xref_volume`, equal statements at both sizes, among them); `ruff` clean. Not run:
+`queries` (no shared code changed), the full suites (R).
+
 ## Track V — API reference
 
 #### V1: API reference page
@@ -2926,6 +3236,12 @@ for R.
 **Needs:** V1, C6. **Scope:** the page lists every installed consumer definition and contract version
 from the API index as separate sources. **Tests:** sources follow a model release that adds and
 removes a definition. **Groups:** `consumer`, `contract`; `test:browser:v1`.
+
+_Amendment, approved 2026-10-05, also to C6:_ each source is labelled
+`{name} · v{contractVersion}`. Its document writes the namespace and version into every path, with
+no placeholder parameters, and carries the contract version as `info.version`. A release raising
+the version shows the new one, and the old document answers `404 CONTRACT_VERSION_NOT_FOUND`
+([SETTINGS_AND_UI_PLAN](SETTINGS_AND_UI_PLAN.md#versions-in-the-documentation)).
 
 ## Track J — Import and export
 

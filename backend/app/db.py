@@ -3,7 +3,8 @@
 :func:`create_database` runs at every start. It refuses, each with what failed, why, the service's
 state and the operator's next step, a ``DATABASE_URL`` that is missing or not PostgreSQL, a server
 it cannot reach, a database whose default collation is not ICU ``und`` (PG-D11), a revision this
-version does not know and a missing ``pg_trgm`` extension (PG-D7), and then migrates to the Alembic
+version does not know and a missing ``pg_trgm`` or ``btree_gin`` extension (PG-D7, 0.9 C14), and then
+migrates to the Alembic
 head. PostgreSQL runs DDL in the migration's transaction, so an interrupted upgrade leaves the
 database at its previous revision.
 """
@@ -30,7 +31,8 @@ logger = logging.getLogger(__name__)
 DRIVER = "postgresql+psycopg"
 # PG-D11: the language-independent Unicode root order, the same on every platform.
 COLLATION_PROVIDER, COLLATION_LOCALES = "i", frozenset({"und", "root"})
-REQUIRED_EXTENSION = "pg_trgm"
+# The trigram search indexes (PG-D7) and, for the key columns beside the trigrams, btree_gin (0.9 C14).
+REQUIRED_EXTENSIONS = ("pg_trgm", "btree_gin")
 
 _MAINTENANCE = (
     "RDM Engine startup will remain in maintenance mode and /health will return HTTP 503."
@@ -214,36 +216,49 @@ def _check_revision(
     return current
 
 
-def _ensure_extension(connection: Connection, label: str) -> None:
-    installed = connection.scalar(
-        text("SELECT 1 FROM pg_extension WHERE extname = :name"), {"name": REQUIRED_EXTENSION}
+def _ensure_extensions(connection: Connection, label: str) -> None:
+    installed = set(
+        connection.scalars(
+            text("SELECT extname FROM pg_extension WHERE extname = ANY(:names)"),
+            {"names": list(REQUIRED_EXTENSIONS)},
+        )
     )
     connection.rollback()
-    if installed:
+    missing = [name for name in REQUIRED_EXTENSIONS if name not in installed]
+    if not missing:
         return
     try:
         with connection.begin():
-            connection.execute(text(f"CREATE EXTENSION IF NOT EXISTS {REQUIRED_EXTENSION}"))
+            for name in missing:
+                connection.execute(text(f"CREATE EXTENSION IF NOT EXISTS {name}"))
         return
     except DBAPIError as exc:
         reason = _failure_reason(exc)
-    available = connection.scalar(
-        text("SELECT 1 FROM pg_available_extensions WHERE name = :name"),
-        {"name": REQUIRED_EXTENSION},
+    available = set(
+        connection.scalars(
+            text("SELECT name FROM pg_available_extensions WHERE name = ANY(:names)"),
+            {"names": missing},
+        )
     )
-    if not available:
+    named = " and ".join(missing)
+    if not set(missing) <= available:
         action = (
-            "Install the PostgreSQL contrib modules on the database server (pg_trgm ships with "
+            f"Install the PostgreSQL contrib modules on the database server ({named} ship with "
             "them), then restart RDM Engine."
         )
     else:
+        statements = " ".join(f"CREATE EXTENSION {name};" for name in missing)
         action = (
-            f"Run 'CREATE EXTENSION {REQUIRED_EXTENSION};' in this database as its owner or a "
-            "superuser, or grant the RDM Engine role CREATE on the database, then restart RDM Engine."
+            f"Run '{statements}' in this database as its owner or a superuser, or grant the RDM "
+            "Engine role CREATE on the database, then restart RDM Engine."
         )
+    noun = "extension" if len(missing) == 1 else "extensions"
     raise DatabaseStartupError(
-        f"The {label} lacks the {REQUIRED_EXTENSION} extension that search indexes need, and RDM "
-        f"Engine could not create it. Reason: {reason}. " + _MAINTENANCE + " " + action
+        f"The {label} lacks the {named} {noun} that search indexes need, and RDM "
+        f"Engine could not create {'it' if len(missing) == 1 else 'them'}. Reason: {reason}. "
+        + _MAINTENANCE
+        + " "
+        + action
     )
 
 
@@ -258,7 +273,7 @@ def create_database() -> None:
         with get_engine().connect() as connection:
             _check_collation(connection, label)
             current_revision = _check_revision(connection, script, label) or "unversioned"
-            _ensure_extension(connection, label)
+            _ensure_extensions(connection, label)
     except DatabaseStartupError:
         raise
     except DBAPIError as exc:

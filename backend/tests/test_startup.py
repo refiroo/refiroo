@@ -2,7 +2,7 @@
 
 A clean database is checked, migrated to the baseline and bootstrapped, and starts again unchanged.
 Every refusal (no or a non-PostgreSQL ``DATABASE_URL``, another collation, an unknown revision, a
-missing ``pg_trgm``) leaves the service in maintenance mode (``/health`` 503) and logs one message
+missing ``pg_trgm`` or ``btree_gin``) leaves the service in maintenance mode (``/health`` 503) and logs one message
 saying what failed and what to do, never a traceback. A migration that fails part-way rolls back
 completely, and the next start after the cause is removed succeeds. PG2's revision (the trigram
 search indexes) upgrades a database at the baseline, and its interrupted run rolls back to it.
@@ -25,7 +25,7 @@ from app.db import DatabaseStartupError, get_engine, migration_config
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261005_01"
+HEAD = "20261005_02"
 DECIMAL_ENCODING = "20261004_02"
 FEED_POSITIONS = "20261003_02"
 SEARCH_INDEXES = "20261003_01"
@@ -97,7 +97,7 @@ def test_a_clean_database_boots_and_restarts(monkeypatch, databases):
             assert client.get("/api/v1/model").status_code == 200
             assert client.get("/api/v1/workspaces/default").status_code == 200
         assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
-        assert _scalar(url, "SELECT count(*) FROM pg_extension WHERE extname = 'pg_trgm'") == 1
+        assert _scalar(url, "SELECT count(*) FROM pg_extension WHERE extname IN ('pg_trgm', 'btree_gin')") == 2
         assert _scalar(url, "SELECT count(*) FROM model_releases") == 1
 
 
@@ -154,7 +154,7 @@ def test_an_unknown_revision_is_refused_and_left_as_it_is(monkeypatch, databases
     assert _scalar(url, "SELECT version_num FROM alembic_version") == "20991231_01"
 
 
-def test_a_missing_pg_trgm_the_role_cannot_create_is_refused(monkeypatch, databases):
+def test_missing_extensions_the_role_cannot_create_are_refused(monkeypatch, databases):
     url = seeds.create_empty()
     databases.append(url)
     with seeds.admin() as server:
@@ -168,7 +168,11 @@ def test_a_missing_pg_trgm_the_role_cannot_create_is_refused(monkeypatch, databa
     limited = url.set(username=LIMITED_ROLE)
     with serve(monkeypatch, _render(limited)) as (client, errors):
         _assert_refused(
-            client, errors, "lacks the pg_trgm extension", "CREATE EXTENSION pg_trgm;", "permission"
+            client,
+            errors,
+            "lacks the pg_trgm and btree_gin extensions",
+            "CREATE EXTENSION pg_trgm; CREATE EXTENSION btree_gin;",
+            "permission",
         )
     assert _scalar(url, "SELECT count(*) FROM pg_tables WHERE schemaname = 'public'") == 0
     with seeds.admin() as server:

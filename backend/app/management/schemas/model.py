@@ -241,11 +241,20 @@ class ChangeFeedCapabilities(BaseModel):
     retentionDays: int
 
 
+class ConsumerApiCapabilities(BaseModel):
+    """The consumer tier (CONSUMER_API). A batch resolve holds at most ``resolveMaxItems`` items
+    (``CONSUMER_RESOLVE_MAX_ITEMS``); more are refused as ``BATCH_TOO_LARGE``."""
+
+    resolveMaxItems: int
+    setting: Literal["CONSUMER_RESOLVE_MAX_ITEMS"]
+
+
 class CapabilitiesResponse(BaseModel):
     modelAdmin: ModelAdminCapabilities
     workspaceAdmin: WorkspaceAdminCapabilities
     integrationJobs: IntegrationJobCapabilities
     changeFeed: ChangeFeedCapabilities
+    consumerApi: ConsumerApiCapabilities
 
 
 class ModelDraftCreate(BaseModel):

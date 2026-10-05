@@ -694,6 +694,136 @@ def consumer_xref_scenarios(client, engine: Engine, dataset: VolumeDataset, *, r
     return results
 
 
+CONSUMER_RESOLVE = f"/api/consumer/{CONSUMER_API}/v1/resolve"
+
+
+def _resolve_bodies(engine: Engine, dataset: VolumeDataset, size: int) -> dict[str, dict[str, Any]]:
+    """0.9 C14: batch resolve bodies of ``size`` items.
+
+    Budgeted (C-D53), lookups as a flow sends them, each fitting the parameters it is sent with:
+
+    - identifiers: item codes in another case, every tenth the code of another group, every tenth a
+      miss, every twentieth an item's ID, and one contains-only term (a code without its last two
+      characters), so every batch runs the contains statement for its unsettled lookups;
+    - three parameter sets: no parameter, the heavy group with codes of its own items, the cited
+      group's code as ``scoresFrom`` value; each set opens with a miss and a hit it keeps.
+
+    Recorded, not budgeted:
+
+    - cited group fan-out: as identifiers, but every tenth item is the one group code 1,500 items
+      cite, so each such lookup scores 1,501 objects;
+    - parameters filtering items out: the identifiers over the three sets regardless of fit, so
+      most lookups lose their exact match to a parameter and read contains matches;
+    - contains only: every item a code without its last character;
+    - distinct parameters: every item narrowed to its own group, one parameter set per item.
+    """
+    from app.models.database import AttributeValue, RdmObject
+
+    def codes_of(session: Session, *conditions: Any, limit: int) -> list[Any]:
+        return list(
+            session.execute(
+                select(RdmObject.id, AttributeValue.text_value)
+                .join(RdmObject, RdmObject.id == AttributeValue.object_id)
+                .where(AttributeValue.attribute_type_key == CODE, *conditions)
+                .order_by(AttributeValue.text_value)
+                .limit(limit)
+            ).all()
+        )
+
+    with Session(engine) as session:
+        items = codes_of(session, RdmObject.object_type_key == ITEM, limit=size)
+        groups = codes_of(
+            session, RdmObject.object_type_key == GROUP, RdmObject.id != dataset.cited_group_id, limit=size
+        )
+        heavy = codes_of(session, RdmObject.parent_object_id == dataset.heavy_group_id, limit=size)
+        cited = session.scalar(
+            select(AttributeValue.text_value).where(
+                AttributeValue.attribute_type_key == CODE, AttributeValue.object_id == dataset.cited_group_id
+            )
+        )
+
+    def identifiers(group_code: Callable[[int], str]) -> list[dict[str, Any]]:
+        mix = []
+        for index, (object_id, code) in enumerate(items):
+            if index == 0:
+                mix.append({"ref": "contains", "query": code[:-2]})
+            elif index % 10 == 1:
+                mix.append({"query": group_code(index)})
+            elif index % 10 == 2:
+                mix.append({"query": f"nothing-{index}"})
+            elif index % 20 == 3:
+                mix.append({"id": object_id})
+            else:
+                mix.append({"query": code.lower()})
+        return mix
+
+    budgeted = identifiers(lambda index: groups[index // 10 % len(groups)][1])
+    sets = [{}, {WITHIN_GROUP: dataset.heavy_group_id}, {CITING: cited}]
+    fitting = [
+        budgeted,
+        [{"query": code.lower()} for _object_id, code in heavy],
+        [{"query": code.lower()} for _object_id, code in items],
+    ]
+    per_set = (size - 6) // 3
+    three_sets = [
+        item
+        for values, hit, own in zip(sets, (budgeted[4]["query"], heavy[0][1], cited), fitting, strict=True)
+        for item in (
+            [{"query": f"nothing-in-{len(values)}-{hit}", **values}, {"query": hit, **values}]
+            + [{**item, **values} for item in (own * size)[:per_set]]
+        )
+    ]
+    three_sets += [{"query": f"nothing-extra-{index}"} for index in range(size - len(three_sets))]
+    return {
+        "identifiers": {"items": budgeted},
+        "three parameter sets": {"items": three_sets},
+        "cited group fan-out": {"items": identifiers(lambda _index: cited)},
+        "parameters filtering items out": {
+            "items": [{**item, **sets[index % 3]} for index, item in enumerate(budgeted)]
+        },
+        "contains only": {"items": [{"query": code[:-1]} for _object_id, code in items]},
+        "distinct parameters": {
+            "items": [
+                {"query": code.lower(), WITHIN_GROUP: groups[index % len(groups)][0]}
+                for index, (_object_id, code) in enumerate(items)
+            ]
+        },
+    }
+
+
+def consumer_resolve_scenarios(
+    client,
+    engine: Engine,
+    dataset: VolumeDataset,
+    *,
+    repeat: int,
+    sizes: tuple[int, ...] = (1_000,),
+    families: tuple[str, ...] = (
+        "identifiers",
+        "three parameter sets",
+        "cited group fan-out",
+        "parameters filtering items out",
+        "contains only",
+        "distinct parameters",
+    ),
+) -> list[Measurement]:
+    """0.9 C14: batch resolve, live (``--only-consumer``): each family of :func:`_resolve_bodies` at
+    each size. The scenario is named ``consumer resolve: <family>, <size> items``."""
+    results = []
+    for size in sizes:
+        bodies = _resolve_bodies(engine, dataset, size)
+        for family in families:
+            body = bodies[family]
+            status, milliseconds, statements, rows = _timed(
+                engine,
+                lambda body=body: client.post(CONSUMER_RESOLVE, json=body, params={"workspace": WORKSPACE}),
+                repeat,
+            )
+            scenario = f"consumer resolve: {family}, {len(body['items'])} items"
+            results.append(Measurement("live", scenario, status, milliseconds, statements, rows))
+    return results
+
+
 def publish_scenario(client, engine: Engine, dataset: VolumeDataset) -> list[Measurement]:
     """0.9 T1: publishing a change set that renames a tenth of the items (10,000 at full volume),
     staged through inline batches, timed once: it changes the data the reads above measured."""
@@ -902,7 +1032,7 @@ def main() -> None:
     parser.add_argument(
         "--only-consumer",
         action="store_true",
-        help="measure only the 0.9 C3 consumer list reads and C4 XREF lookups",
+        help="measure only the 0.9 C3 consumer list reads, C4 XREF lookups and C14 batch resolve",
     )
     arguments = parser.parse_args()
 
@@ -926,6 +1056,7 @@ def main() -> None:
                 elif arguments.only_consumer:
                     results = consumer_scenarios(client, engine, dataset, repeat=arguments.repeat)
                     results += consumer_xref_scenarios(client, engine, dataset, repeat=arguments.repeat)
+                    results += consumer_resolve_scenarios(client, engine, dataset, repeat=arguments.repeat)
                 elif arguments.only_dated:
                     results = dated_scenarios(client, engine, dataset, repeat=arguments.repeat)
                 elif arguments.only_publish:

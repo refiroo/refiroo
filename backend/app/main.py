@@ -174,6 +174,7 @@ def create_app() -> FastAPI:
     application.state.model_admin_mutations_enabled = mutations_enabled
     application.state.workspace_admin_mutations_enabled = workspace_mutations_enabled
     application.state.integration_jobs_enabled = settings.integration_jobs_enabled
+    application.state.consumer_resolve_max_items = settings.consumer_resolve_max_items
     application.state.batch_limits = BatchLimits(
         max_items=settings.batch_max_items,
         max_bytes=settings.batch_max_bytes,

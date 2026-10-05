@@ -59,11 +59,13 @@ def test_a_migrated_database_matches_the_orm(migrated):
     assert _schema_differences(migrated) == []
 
 
-def test_the_baseline_installs_pg_trgm(migrated):
+def test_the_migrations_install_pg_trgm_and_btree_gin(migrated):
     engine = create_engine(migrated)
     try:
         with engine.connect() as connection:
-            assert connection.scalar(text("SELECT count(*) FROM pg_extension WHERE extname = 'pg_trgm'"))
+            assert connection.scalar(
+                text("SELECT count(*) FROM pg_extension WHERE extname IN ('pg_trgm', 'btree_gin')")
+            ) == 2
     finally:
         engine.dispose()
 

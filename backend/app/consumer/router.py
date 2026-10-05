@@ -2,13 +2,15 @@
 
 Each route resolves the definition from the active release (``{apiKey}`` and ``v{contractVersion}``),
 checks the request's parameters against the names it serves, resolves the workspace and reads live
-data through ``engine/reads/consumer_objects``, ``consumer_lists`` and ``consumer_xref``. Every response names the
-workspace it read in the ``RDM-Workspace`` header (C-D23). The routes stay out of the management
+data through ``engine/reads/consumer_objects``, ``consumer_lists``, ``consumer_xref`` and
+``consumer_resolve``. Every response names the workspace it read in the ``RDM-Workspace`` header
+(C-D23). The routes stay out of the management
 OpenAPI document; C6 generates one document per definition.
 """
 
+import json
 from collections.abc import Callable, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Annotated, Any
 from urllib.parse import unquote_plus
 
@@ -21,6 +23,7 @@ from ..engine.model.registry import resolve_model_snapshot
 from ..engine.reads.consumer_lists import consumer_list, read_consumer_list
 from ..engine.reads.consumer_objects import consumer_definition, read_consumer_object
 from ..engine.reads.consumer_parameters import consumer_filter
+from ..engine.reads.consumer_resolve import ResolveItem, item_error, read_resolve
 from ..engine.reads.consumer_xref import read_xref, xref_terms
 from ..engine.workspaces.catalogue import resolve_workspace
 from ..errors import ApiError, api_error
@@ -39,6 +42,9 @@ _XREF_ONE = _OBJECT | {"query", "expect"}
 _XREF = _XREF_ONE | (_PAGING - {"seek", "includeTotal"})
 # Every name a route of the API serves.
 _ROUTE_NAMES = _LIST | _XREF
+# The names a batch resolve item holds besides the definition's parameters (C-D47).
+_ITEM = frozenset({"ref", "query", "id"})
+_REF_LENGTH = (1, 200)
 _DEFAULT_PAGE_SIZE = 20
 _MAX_PAGE_SIZE = 100
 # The shared paging refusals answer 400 here, the consumer tier's status for a request error.
@@ -50,7 +56,12 @@ def _session() -> Iterator[Session]:
         yield session
 
 
+async def _body(request: Request) -> bytes:
+    return await request.body()
+
+
 DbSession = Annotated[Session, Depends(_session)]
+Body = Annotated[bytes, Depends(_body)]
 
 router = APIRouter(prefix=PREFIX, tags=["consumer"], include_in_schema=False)
 
@@ -152,6 +163,164 @@ def get_xref(
     )
 
 
+@router.post("/{api_key}/v{contract_version}/resolve")
+@reads_own_parameters
+def post_resolve(
+    api_key: str, contract_version: str, request: Request, response: Response, session: DbSession, body: Body
+) -> dict[str, Any]:
+    """Batch resolve: each item as ``xref?expect=one`` (by ``query``) or get by ID (by ``id``), with
+    the definition's parameters from ``defaults`` and the item, its outcome the single read's answer
+    (C-D47–C-D50). A read: the body only carries the items."""
+    model = resolve_model_snapshot(session).model
+    definition = consumer_definition(model, api_key, contract_version)
+    parameters = _Parameters.check(request, definition, serves=_OBJECT, applies_definition=False)
+    workspace = _workspace(session, parameters.single("workspace"))
+    return _answer(
+        response,
+        workspace,
+        lambda: read_resolve(
+            session,
+            model,
+            definition,
+            workspace.key,
+            _resolve_items(body, definition, request.app.state.consumer_resolve_max_items),
+        ),
+    )
+
+
+def _resolve_items(raw: bytes, definition: ConsumerApiDefinition, max_items: int) -> list[ResolveItem]:
+    """The body's items, checked: its shape as a whole (``400 REQUEST_VALIDATION_ERROR``), the
+    item count (``413 BATCH_TOO_LARGE``) and ``defaults``' names refuse the request (C-D49, C-D50);
+    an item's own names, its ``query`` or ``id`` and its terms refuse that item only."""
+    try:
+        body = json.loads(raw)
+    except ValueError:
+        raise _shape("", "the body is not JSON") from None
+    if not isinstance(body, dict):
+        raise _shape("", "the body must be an object with 'items'")
+    for name in body:
+        if name not in ("items", "defaults"):
+            raise _shape(f"/{name}", f"'{name}' is not part of a batch resolve request")
+    items = body.get("items")
+    if not isinstance(items, list):
+        raise _shape("/items", "'items' must be a list of items")
+    if len(items) > max_items:
+        raise api_error(
+            413,
+            "BATCH_TOO_LARGE",
+            f"The batch has {len(items)} items; at most {max_items} resolve in one request",
+            {"setting": "CONSUMER_RESOLVE_MAX_ITEMS", "maximum": max_items, "items": len(items)},
+        )
+    if not items:
+        raise _shape("/items", "'items' must hold at least one item")
+    defaults = body.get("defaults", {})
+    if not isinstance(defaults, dict):
+        raise _shape("/defaults", "'defaults' must be an object of parameters")
+    default_values = {name: _json_values(value, f"/defaults/{name}") for name, value in defaults.items()}
+    shaped = [_shaped_item(item, f"/items/{index}") for index, item in enumerate(items)]
+
+    known = _ROUTE_NAMES | _ITEM | set(definition.parameters) | {
+        item.parentParameter.name for item in definition.lists if item.parentParameter is not None
+    }
+    applied = set(definition.parameters)
+    refused = _names_refused(list(default_values), known, applied, "/defaults")
+    if refused is not None:
+        raise refused
+    resolved = []
+    for index, (ref, values) in enumerate(shaped):
+        refused = _names_refused(list(values), known, applied | _ITEM, f"/items/{index}")
+        if refused is not None:
+            resolved.append(ResolveItem(index=index, ref=ref, refused=refused))
+            continue
+        if ("query" in values) == ("id" in values):
+            resolved.append(
+                ResolveItem(
+                    index=index,
+                    ref=ref,
+                    refused=api_error(
+                        400,
+                        "QUERY_OR_ID_REQUIRED",
+                        "An item holds exactly one of 'query' and 'id'",
+                        {"pointer": f"/items/{index}"},
+                    ),
+                )
+            )
+            continue
+        own = {name: given for name, given in values.items() if name not in _ITEM}
+        pointers = {name: f"/defaults/{name}" for name in default_values if name not in own}
+        found = ResolveItem(
+            index=index,
+            ref=ref,
+            parameters={**default_values, **own},
+            pointers=pointers,
+        )
+        if "id" in values:
+            resolved.append(replace(found, object_id=values["id"][0]))
+            continue
+        try:
+            resolved.append(replace(found, terms=xref_terms(values["query"])))
+        except ApiError as error:
+            resolved.append(replace(found, refused=item_error(error, found.pointer("/query/query"))))
+    return resolved
+
+
+def _shaped_item(item: Any, pointer: str) -> tuple[str | None, dict[str, list[str]]]:
+    """An item's ``ref`` and its other names' values, each a list of strings."""
+    if not isinstance(item, dict):
+        raise _shape(pointer, "an item must be an object")
+    ref = item.get("ref")
+    if ref is not None and not (isinstance(ref, str) and _REF_LENGTH[0] <= len(ref) <= _REF_LENGTH[1]):
+        raise _shape(f"{pointer}/ref", "'ref' must be text of 1 to 200 characters")
+    identifier = item.get("id")
+    if identifier is not None and not isinstance(identifier, str):
+        raise _shape(f"{pointer}/id", "'id' must be text")
+    values = {
+        name: _json_values(value, f"{pointer}/{name}") for name, value in item.items() if name != "ref"
+    }
+    return ref, values
+
+
+def _json_values(value: Any, pointer: str) -> list[str]:
+    """A value given as text or a list of texts. JSON lists values itself, so nothing is split on
+    commas (C-D47)."""
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, list) and all(isinstance(item, str) for item in value):
+        return list(value)
+    raise _shape(pointer, "a value must be text or a list of texts")
+
+
+def _names_refused(names: list[str], known: set[str], applied: set[str], at: str) -> ApiError | None:
+    """``UNKNOWN_PARAMETER`` for a name the API does not know, ``PARAMETER_NOT_SUPPORTED`` for one it
+    knows that a lookup does not apply, pointing at the first."""
+    unknown = [name for name in names if name not in known]
+    if unknown:
+        return api_error(
+            400,
+            "UNKNOWN_PARAMETER",
+            f"Unknown parameter '{unknown[0]}'",
+            {"parameters": unknown, "pointer": f"{at}/{unknown[0]}"},
+        )
+    unsupported = [name for name in names if name not in applied]
+    if unsupported:
+        return api_error(
+            400,
+            "PARAMETER_NOT_SUPPORTED",
+            f"Parameter '{unsupported[0]}' is not supported in batch resolve",
+            {"parameters": unsupported, "pointer": f"{at}/{unsupported[0]}"},
+        )
+    return None
+
+
+def _shape(pointer: str, message: str) -> ApiError:
+    return api_error(
+        400,
+        "REQUEST_VALIDATION_ERROR",
+        f"The request body is not a batch resolve request: {message}",
+        {"pointer": pointer},
+    )
+
+
 def _expect_one(raw: str | None) -> bool:
     if raw is None or raw == "any":
         return False
@@ -191,11 +360,13 @@ class _Parameters:
         *,
         serves: frozenset[str],
         parent: str | None = None,
+        applies_definition: bool = True,
     ) -> _Parameters:
         """Refuse a name the API does not know (``UNKNOWN_PARAMETER``), then one it knows that this
-        route does not apply (``PARAMETER_NOT_SUPPORTED``): one outside ``serves``, or a list's parent
-        parameter off its list."""
-        applied = set(serves) | set(definition.parameters)
+        route does not apply (``PARAMETER_NOT_SUPPORTED``): one outside ``serves``, a list's parent
+        parameter off its list, or a definition parameter on a route that takes them in its body
+        (batch resolve's ``defaults``)."""
+        applied = set(serves) | (set(definition.parameters) if applies_definition else set())
         if parent is not None:
             applied.add(parent)
         known = applied | _ROUTE_NAMES | set(definition.parameters) | {
@@ -226,7 +397,7 @@ class _Parameters:
             definition={
                 name: listed[name]
                 for name in raw
-                if name in definition.parameters and name != parent
+                if name in applied and name in definition.parameters and name != parent
             },
             parents=list(dict.fromkeys(listed[parent])) if parent in raw else [],
         )
