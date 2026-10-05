@@ -319,3 +319,203 @@ def test_a_projection_names_its_items_type_where_the_types_are_exposed(world):
     assert any(d["path"] == changed for d in compiled["consumerContracts"]["diagnostics"]), compiled[
         "consumerContracts"
     ]["diagnostics"]
+
+
+def _events(world):
+    """Two events on ``Capi``: one over R and R2 with every change, watching the code, the name, the
+    parent and the B11 projection; one over D, creations and deletions only, with no watch."""
+    return [
+        {
+            "key": "ledger-changed",
+            "objectTypes": [world.key("R"), world.key("R2")],
+            "changes": ["created", "updated", "deleted"],
+            "watch": {
+                "fields": [world.key("Capi.code"), world.key("Capi.name"), world.key("Capi.parent")],
+                "projections": [world.key("Capi.B11")],
+            },
+        },
+        {"key": "permit-churn", "objectTypes": [world.key("D")], "changes": ["created", "deleted"]},
+    ]
+
+
+def _with_events(world, suffix, events=None):
+    model, definition = _capi_model(world, suffix)
+    definition["events"] = _events(world) if events is None else events
+    return model, definition
+
+
+@pytest.mark.journey("J25.3")
+@pytest.mark.structures("Capi", "R", "R2", "D", "B11")
+def test_declare_events(world):
+    """Given the active Capi without events. When a draft gives it two events and is compiled,
+    installed and activated. Then it is valid and compatible (adding events), activates, and the
+    release's model holds both events as declared."""
+    model, _definition = _with_events(world, "events")
+    draft, compiled = _compile(world, model)
+    assert compiled["valid"] is True, compiled["diagnostics"]
+    assert compiled["consumerContracts"]["classification"] == "compatible"
+    release = ok(_install(world, draft), 201)
+    ok(world.activate(release["id"]))
+    read = ok(world.api.get(f"/model-releases/{release['id']}", includeModel=True))
+    assert _capi(read["model"], world)["events"] == _events(world)
+
+
+@pytest.mark.journey("J25.3")
+@pytest.mark.structures("Capi", "R", "R2", "D", "K", "B11")
+def test_event_mistakes_are_refused_at_their_pointer(world):
+    """Each mistake in an event is refused with 422 INVALID_MODEL at its pointer under
+    /consumerApis/<Capi>/events/<event>: a type not exposed or unknown, a repeated or upper-case key,
+    no change or a repeated one, a watch naming a role rather than its output or an unknown output,
+    an unknown projection, an empty watch, a watch on an event without updates. An unknown change
+    kind is a shape error at its position. A parameter named event or after is reserved."""
+    base = f"/consumerApis/{world.key('Capi')}"
+    first = f"{base}/events/ledger-changed"
+
+    def first_event(change):
+        def mutate(events):
+            change(events[0])
+            return events
+
+        return mutate
+
+    cases = {
+        "not-exposed": (first_event(lambda e: e["objectTypes"].append(world.key("K"))), f"{first}/objectTypes"),
+        "unknown-type": (first_event(lambda e: e["objectTypes"].append("no-such-type")), f"{first}/objectTypes"),
+        "repeated-type": (first_event(lambda e: e["objectTypes"].append(world.key("R"))), f"{first}/objectTypes"),
+        "repeated-key": (lambda events: events + [copy.deepcopy(events[0])], first),
+        "upper-key": (first_event(lambda e: e.update(key="Ledger-changed")), f"{base}/events/Ledger-changed/key"),
+        "no-change": (first_event(lambda e: e.update(changes=[])), f"{first}/changes"),
+        "repeated-change": (first_event(lambda e: e["changes"].append("deleted")), f"{first}/changes"),
+        "role-name": (first_event(lambda e: e["watch"]["fields"].append("active")), f"{first}/watch/fields"),
+        "unknown-output": (first_event(lambda e: e["watch"]["fields"].append("no-such-output")), f"{first}/watch/fields"),
+        "unknown-projection": (
+            first_event(lambda e: e["watch"]["projections"].append("noSuchProjection")),
+            f"{first}/watch/projections",
+        ),
+        "empty-watch": (first_event(lambda e: e.update(watch={})), f"{first}/watch"),
+        "watch-without-updates": (
+            first_event(lambda e: e.update(changes=["created", "deleted"])),
+            f"{first}/watch",
+        ),
+    }
+    for name, (mutate, pointer) in cases.items():
+        model, _definition = _with_events(world, f"event-{name}", mutate(_events(world)))
+        draft, compiled = _compile(world, model)
+        assert compiled["valid"] is False, name
+        assert any(d["path"].startswith(pointer) for d in compiled["diagnostics"]), (name, compiled["diagnostics"])
+        error = refused(_install(world, draft), 422, "INVALID_MODEL")
+        assert pointer in json.dumps(error["details"]), name
+
+    events = _events(world)
+    events[0]["changes"].append("renamed")
+    model, _definition = _with_events(world, "event-renamed", events)
+    _draft, compiled = _compile(world, model)
+    assert compiled["valid"] is False
+    assert any(d["path"].endswith("/events/0/changes/3") for d in compiled["diagnostics"]), compiled["diagnostics"]
+
+    for name in ("event", "after"):
+        model, definition = _capi_model(world, f"reserved-{name}")
+        definition["parameters"][name] = {"kind": "objectType"}
+        _draft, compiled = _compile(world, model)
+        assert compiled["valid"] is False, name
+        reserved = f"{base}/parameters/{name}"
+        assert any(d["path"] == reserved for d in compiled["diagnostics"]), compiled["diagnostics"]
+
+
+@pytest.mark.journey("J25.4")
+@pytest.mark.structures("Capi", "R", "R2", "D", "E", "B11", "R.n")
+def test_events_are_contract(world):
+    """Given Capi's two events active at contract version 1. When drafts at the same version tell
+    their consumers less (an event removed, a type or a change removed, a watched output removed, a
+    watch added). Then each is version_required at its path, and activating one is refused until the
+    version is raised. When drafts tell them more (an event, a type, a change or a watched output
+    added, a watch dropped). Then each is compatible."""
+    model, _definition = _with_events(world, "events")
+    draft, _compiled = _compile(world, model)
+    ok(world.activate(ok(_install(world, draft), 201)["id"]))
+    events = f"/consumerApis/{world.key('Capi')}/events"
+    first, second = f"{events}/ledger-changed", f"{events}/permit-churn"
+
+    def drop_second(e):
+        del e[1]
+
+    def drop_r2(e):
+        e[0]["objectTypes"].remove(world.key("R2"))
+
+    def drop_deleted(e):
+        e[0]["changes"].remove("deleted")
+
+    def drop_parent(e):
+        e[0]["watch"]["fields"].remove(world.key("Capi.parent"))
+
+    def watch_second(e):
+        e[1]["changes"].append("updated")
+        e[1]["watch"] = {"fields": [world.key("Capi.name")]}
+
+    narrower = {
+        "drop-event": (drop_second, events),
+        "drop-type": (drop_r2, f"{first}/objectTypes"),
+        "drop-change": (drop_deleted, f"{first}/changes"),
+        "drop-watched": (drop_parent, f"{first}/watch"),
+        "add-watch": (watch_second, f"{second}/watch"),
+    }
+    for name, (change, path) in narrower.items():
+        changed = _events(world)
+        change(changed)
+        model, _definition = _with_events(world, name, changed)
+        draft, compiled = _compile(world, model)
+        assert compiled["valid"] is True, (name, compiled["diagnostics"])
+        assert compiled["consumerContracts"]["classification"] == "version_required", name
+        assert any(d["path"] == path for d in compiled["consumerContracts"]["diagnostics"]), (
+            name,
+            compiled["consumerContracts"]["diagnostics"],
+        )
+
+    # Telling less is refused at activation until the version is raised.
+    changed = _events(world)
+    drop_parent(changed)
+    model, _definition = _with_events(world, "less", changed)
+    draft, _compiled = _compile(world, model)
+    refused(world.activate(ok(_install(world, draft), 201)["id"]), 409, "CONSUMER_CONTRACT_VERSION_REQUIRED")
+    model, _definition = _with_events(world, "less-v2", changed)
+    _capi(model, world)["contractVersion"] = 2
+    draft, _compiled = _compile(world, model)
+    ok(world.activate(ok(_install(world, draft), 201)["id"]))
+    model, _definition = _with_events(world, "events-v2")
+    _capi(model, world)["contractVersion"] = 2
+    draft, compiled = _compile(world, model)
+    assert compiled["consumerContracts"]["classification"] == "compatible"
+    ok(world.activate(ok(_install(world, draft), 201)["id"]))
+
+    def add_event(e):
+        e.append({"key": "rate-changed", "objectTypes": [world.key("E")], "changes": ["updated"]})
+
+    def add_type(e):
+        e[0]["objectTypes"].append(world.key("E"))
+
+    def add_change(e):
+        e[1]["changes"].append("updated")
+
+    def add_watched(e):
+        e[0]["watch"]["fields"].append(world.key("Capi.n"))
+
+    def drop_watch(e):
+        del e[0]["watch"]
+
+    for name, change in {
+        "add-event": add_event,
+        "add-type": add_type,
+        "add-change": add_change,
+        "add-watched": add_watched,
+        "drop-watch": drop_watch,
+    }.items():
+        changed = _events(world)
+        change(changed)
+        model, _definition = _with_events(world, name, changed)
+        _capi(model, world)["contractVersion"] = 2
+        _draft, compiled = _compile(world, model)
+        assert compiled["valid"] is True, (name, compiled["diagnostics"])
+        assert compiled["consumerContracts"]["classification"] == "compatible", (
+            name,
+            compiled["consumerContracts"]["diagnostics"],
+        )

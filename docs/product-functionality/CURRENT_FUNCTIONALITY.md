@@ -433,6 +433,11 @@ lookup parameters and lists, each with a contract version. Every reference is va
 releases reports contract changes, and activation refuses a breaking change without a higher contract
 version.
 
+A consumer API also declares the change events its consumers will be told about: which record types,
+whether creations, updates or deletions, and which of the fields and related-record blocks count as
+an update. The declaration is validated and is part of the contract, so a release cannot quietly
+tell consumers less. The events themselves are not sent yet.
+
 A consuming system reads one business object through a declared API by its record ID, at the
 API's contract version: exactly the fields the definition declares, values in their declared types,
 the parent and the path of ancestors, and the related records each projection names (one object or

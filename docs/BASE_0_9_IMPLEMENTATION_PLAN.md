@@ -16,8 +16,8 @@ read, D31), [B3](#b3-relation-and-relation-set-items) (2026-10-03, D35–D39),
 [T1a](#t1a-copies-inside-the-database) (2026-10-04), [T1b](#t1b-one-error-code-pattern) (2026-10-04),
 [C2](#c2-consumer-object-and-projections) (2026-10-04, C-D21–C-D26), C3–C5 and
 [C14](#c14-batch-resolve) (2026-10-05, C-D47–C-D53), [C15](#c15-crosswalk) (2026-10-05, C-D54–C-D58),
-[CN1](#cn1-the-consumer-apis-name-in-public-contracts) (2026-10-05, C-D59), [C6a](#c6a-publications) (2026-10-05, C-D60–C-D68), [C6b](#c6b-the-contract-documents) (2026-10-05, C-D69–C-D70), [V2](#v2-consumer-sources) (2026-10-05), [C8](#c8-parity-acceptance) (2026-10-05, C-D72–C-D75), [C16](#c16-asof-in-the-consumer-tier) (2026-10-05, C-D76–C-D80).
-**Next:** C9, in the order of the [delivery queue](#delivery-queue) (U4 waits for U3).
+[CN1](#cn1-the-consumer-apis-name-in-public-contracts) (2026-10-05, C-D59), [C6a](#c6a-publications) (2026-10-05, C-D60–C-D68), [C6b](#c6b-the-contract-documents) (2026-10-05, C-D69–C-D70), [V2](#v2-consumer-sources) (2026-10-05), [C8](#c8-parity-acceptance) (2026-10-05, C-D72–C-D75), [C16](#c16-asof-in-the-consumer-tier) (2026-10-05, C-D76–C-D80), [C9](#c9-event-definitions) (2026-10-05, C-D81–C-D86).
+**Next:** C10, in the order of the [delivery queue](#delivery-queue) (U4 waits for U3).
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
 Effective dates and consumer API definitions extend the model, so the starter becomes content release
@@ -232,7 +232,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 20a | [U4](SETTINGS_AND_UI_PLAN.md#packages-track-u) | U3, C6b, V2 | Settings › Integration: Consumer APIs, Jobs and feed, API reference; a starter consumer API (U-D5) |
 | 21 | [C8](#c8-parity-acceptance) | C3–C6, C14, C15 | Parity acceptance; the consumer read line's checkpoint; `objectType` in projections, the parent keyed by output names (C-D72–C-D75) — **delivered 2026-10-05** ([record](#c8-delivery-record)) |
 | 22 | [C16](#c16-asof-in-the-consumer-tier) | C2, Q4 | `asOf` in the consumer tier; SC-11 (consumer) (C-D76–C-D80) — **delivered 2026-10-05** ([record](#c16-delivery-record)) |
-| 23 | C9 | C2 | Event definitions |
+| 23 | [C9](#c9-event-definitions) | C2 | Event definitions (C-D81–C-D86) — **delivered 2026-10-05** ([record](#c9-delivery-record)) |
 | 24 | C10 | C9, F2 | Event deriver, event store, pull feed |
 | 25 | C11 | C10 | Subscriptions |
 | 26 | C12 | C11 | Dispatcher |
@@ -4336,6 +4336,184 @@ tuned (C-D80):
 **Composable domains (ADR-032):** the `match` declaration, identity, attribute storage, audit, the
 bulk APIs and mapping coverage are untouched; a price list valid on a date reads through the same
 parameter.
+
+#### C9: Event definitions
+
+**Delivered 2026-10-05** ([record](#c9-delivery-record)). Planned 2026-10-05; decisions C-D81–C-D86
+approved by the user the same day, the test cases with the instruction to deliver.
+**Needs:** C2 (events are about the shared object and its projections); built on C1's validation
+and contract check. **Groups:** `consumer`, `model`.
+**Design:** [CONSUMER_API "Event definitions (model)"](CONSUMER_API.md#event-definitions-model),
+"What counts as a change", C-D2, C-D7, C-D8, C-D11; INTEGRATION_API F6.
+
+**Behaviour.** A model author declares, in a consumer API definition, which changes its consumers are
+told about: which exposed types, which kinds of change, and for an update which outputs count. The
+release validates the declaration at its JSON pointer, and the contract check guards it, so a
+release cannot quietly stop telling a consumer what it relied on. Nothing is derived or delivered
+yet: C9 is the declaration only, as C1 was for the reads.
+
+```jsonc
+"events": [{
+  "key": "reference-data-changed",
+  "objectTypes": ["master-value", "codelist", "location"],
+  "changes": ["created", "updated", "deleted"],
+  "watch": {
+    "fields": ["masterId", "code", "name", "isActive", "validFrom", "validTo", "valueName"],
+    "projections": ["systemVariants", "translations"]
+  }
+}]
+```
+
+- An author drafts a definition with `events`, compiles it and sees each mistake at its pointer;
+  installs and activates it; reads it back in the model.
+- A later draft that removes an event, or makes one tell less, is `version_required`, as removing a
+  field is; one that tells more is compatible.
+- Consumers see no change on the wire in C9: no event is produced, and the pull feed, its OpenAPI
+  path and subscriptions arrive with C10 and C11. C9 fixes the contract they implement.
+
+**What exists today** (checked 2026-10-05):
+
+- **`events` is refused** as an unknown field (`ConsumerApiDefinition` is `extra="forbid"`), pinned by
+  `test_consumer_api_model` (`unknown_field` at `/consumerApis/0/events`) and stated in CONSUMER_API's
+  "Not yet" line.
+- **Validation** (`engine/model/validation/consumer_api_rules.py`, `_Definition.check`) already
+  knows every output name of a definition (`_check_object` returns them, `_check_projections`
+  checks them), the exposed types and the URL key rule (`_URL_KEY`) that lists use.
+- **The contract** (`engine/model/consumer_contract.py`) derives `OutputContract` and compares two
+  with `_breaking_changes`; events are a new part of both.
+- **CONSUMER_API's example** names `watch.fields` by role (`id`, `active`) and attribute key
+  (`valueName`) mixed, while the event body reports `changed` by output name (`systemVariants`). Under
+  the reference definition the roles' outputs are `masterId` and `isActive`, so the example cannot
+  mean both (C-D81).
+- **No route, migration or frontend** reads a consumer definition's events; the frontend reads no
+  `consumerApis` at all. The operators example model declares a consumer API without events.
+
+**Design.**
+
+- **Shape** (`models/schema.py`): `ConsumerEvent` with `key`, `objectTypes` (model keys, at least
+  one), `changes` (`created`, `updated`, `deleted`, at least one) and an optional `watch`
+  (`ConsumerEventWatch`: `fields` and `projections`, each a tuple of names, omitted when empty).
+  `ConsumerApiDefinition.events` is a tuple, default empty and omitted from the canonical document
+  when empty, so releases without events keep their hash (as `lists` and C1's optional parts).
+- **Rules** (`consumer_api_rules._Definition._check_events`, after the lists), each refused with
+  `INVALID_MODEL` (or `DUPLICATE_KEY`, `UNKNOWN_OBJECT_TYPE`, as C1 names them) at
+  `/consumerApis/<key>/events/<event>/…` (C-D84). The output names come from `_check_object`'s
+  result, so watch and the object read one list.
+- **Contract** (`consumer_contract.OutputContract.events`): per event key its types, changes and its
+  watched names (`None` for "every output"); `_breaking_changes` reports what C-D85 lists at
+  `/events` or `/events/<event>/{objectTypes,changes,watch}`.
+- **Reserved names** (`RESERVED_PARAMETERS`): `event` and `after`, which the pull feed's URL takes
+  beside the definition's parameters (C-D86).
+- **The meaning of an event** (C-D82, C-D83) is decided here and written into CONSUMER_API, since the
+  contract check depends on it (a narrower watch is breaking because a receiver hears less). C10
+  implements it; C9 adds no runtime code.
+- **No migration, no route, no setting, no frontend.** The management OpenAPI lock should not change
+  (the model document is not typed in it); checked once.
+
+**Decisions** (status per row):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| C-D81 | What `watch.fields` names | **Approved 2026-10-05.** The object's **output names**, as a consumer reads them and as an event's `changed` reports them: each role's `output` (`masterId`, `isActive`), each attribute field's name, the `parent`, `path` and `hierarchy` outputs, and `objectType`, which every object carries. Not role names or model keys: the author would write one name and the receiver read another. `watch.projections` names projections (also output names). CONSUMER_API's example is amended to `masterId` and `isActive` |
+| C-D82 | When an object counts as `updated` | **Approved 2026-10-05.** When a read of the object by ID would answer differently in a watched output (every output without `watch`), for a change in live data. That includes changes in other records the object shows: its parent's fields, an ancestor's name in `path` or `hierarchy`, a projected record's declared fields (and its ancestors' through `ancestor:`), and a projection gaining or losing an item, also when the relation itself was deleted ("What counts as a change"). So renaming a codelist makes `updated` for each of its values that watches `path` or `parent`: one event per affected object, batched in delivery (C12). Not a change: a period starting or ending with no data change (no write happens), edits in a change set, model releases. The alternative, counting only the object's own record and its projection membership, is cheaper for C10, but a receiver caching `path` would never learn it is stale; an author who does not want the fan-out leaves `path` and `parent` out of `watch`. C10 measures the fan-out of renaming a large container |
+| C-D83 | A type change (ADR-034, `reclassified`) | **Approved 2026-10-05.** No fourth change kind. Seen from one event: an object whose type moves out of the event's `objectTypes` (or out of the definition) is `deleted`; one moving in is `created`; one moving between two of its types is `updated` with `objectType` among the changed outputs. A receiver then needs only the three kinds the declaration names, and 0.8 D37's requirement that consumer APIs represent `reclassified` is met by this mapping |
+| C-D84 | Declaration rules | **Approved 2026-10-05.** Event keys are unique in a definition and URL-safe (lowercase letters, digits, hyphens; the subscription body and the pull feed's `event=` carry them), as list keys. `objectTypes`: at least one, each exposed by the definition, no repeats. `changes`: at least one of the three, no repeats. `watch`, when given, names at least one output or projection, each declared, no repeats; refused when `changes` has no `updated`, since it could never act (C-D45's pattern). Shape errors (an unknown change kind, a wrong JSON type) are reported at their position, as other shape errors are (`/consumerApis/0/events/0/changes/0`) |
+| C-D85 | What in an event is contract | **Approved 2026-10-05.** A receiver depends on being told. Breaking (`version_required`): removing an event; removing a type or a change kind from it; removing a watched name, or adding `watch` where there was none (both mean fewer events). Compatible: adding an event, a type, a change kind or a watched name, and dropping `watch` (more events; receivers already tolerate repeats and unknown objects, at-least-once). An output removed from the object is already breaking as a field (C-D2), so a watch naming it adds no second diagnostic. This states C-D2's "removing an event, or narrowing its types or changes" for `watch` too |
+| C-D86 | Names the pull feed takes | **Approved 2026-10-05.** `event` and `after` join the reserved parameter names now, since `GET …/events?event=…&after=…&{parameters}` puts them beside the definition's parameters (C10). A definition parameter so named would be shadowed. Checked: no fixture, example or starter declares a parameter with either name. Pre-1.0, a definition that did would be refused at activation with the pointer, as C3 reserved `from`, `seek` and `includeTotal` |
+
+**Journey.** J25 gains **J25.3** (declare events) and **J25.4** (events in the contract) in
+USER_JOURNEYS; J25's status says events are declared from C9 and produced from C10. No new route or
+code, so API_JOURNEYS changes only J25's row text. Generated A and B's `Capi` is unchanged: the cases
+add events to a draft, as J25's other cases change `Capi` in a draft, so no seed rebuilds. The parity
+fixture's `_reference_definition` gains CONSUMER_API's event (with C-D81's names), so the printed
+example is validated whole, as C8 did for the definition; its small seed rebuilds once, and C13 can
+use it.
+
+**Test cases** (journey tests on generated A and B, written first and confirmed failing: today
+`events` is an unknown field):
+
+1. **J25.3 Declare events.** A draft gives `Capi` two events: one over `R` and `R2` with all three
+   changes, watching `Capi.code`, `Capi.name`, `Capi.parent` and the projection `Capi.B11`; one over
+   `D` with `created` and `deleted` and no `watch`. It compiles valid and `compatible` against the
+   active release (adding events), installs and activates, and the model read returns both events
+   as declared.
+2. **J25.3 Refusals,** each a draft compiled invalid and its installation refused `422
+   INVALID_MODEL` at its pointer under `/consumerApis/<Capi>/events/<event>`: a type not exposed
+   (`K`) and an unknown type (`…/objectTypes`); a repeated event key and a key with an upper-case
+   letter (`…/key`); `changes` empty, and a repeated kind (`…/changes`); `watch.fields` naming a role
+   rather than its output (`active` where `Capi.active` is `isActive`) and an unknown name
+   (`…/watch/fields`); an unknown projection (`…/watch/projections`); an empty `watch` and a `watch`
+   with only `created` and `deleted` (`…/watch`). An unknown change kind (`renamed`) is a shape error
+   at `/consumerApis/<n>/events/0/changes/0`. A parameter named `event` or `after` is refused as
+   reserved at `…/parameters/<name>`.
+3. **J25.4 Events in the contract.** With case 1's events active at contract version 1, drafts at
+   the same version: removing the `D` event (`/events`), removing `R2` from the first
+   (`…/objectTypes`), removing `deleted` from it (`…/changes`), removing `Capi.parent` from its
+   watch and adding a watch to the `D` event (`…/watch`) are each `version_required` at their path,
+   and activation of one is refused `409 CONSUMER_CONTRACT_VERSION_REQUIRED`; with contract version
+   2 it activates. Adding a third event, adding `E` (`Rate`, exposed since C16) to the first event's
+   types, adding `updated` to the `D` event, adding `Capi.n` to the watch and dropping the first
+   event's `watch` are each `compatible`.
+4. **Changed:** `test_consumer_api_model`'s case pinning `events` as `unknown_field` is replaced by a
+   round trip: a definition with events keeps its canonical hash across compile and read, and one
+   without events keeps the hash it has today.
+
+No unit tests: the rules are table-like and walked by case 2 on two configurations; the contract by
+case 3. **Checks:** J25 and the parity module on their configurations (the parity seed's rebuild
+validates the printed event); `test_consumer_api_model`; the `consumer` and `model` groups once;
+`test_openapi_contract` once (expected unchanged); `ruff`. Not run: `startup` (no migration),
+`volume` (no read or write path changes), `feed` (nothing derived yet), `contract` beyond the lock,
+the frontend (unchanged), the full suites (R).
+
+**Exit:** a release declares events, validated at their pointers and guarded by the contract check;
+CONSUMER_API states what an event means (C-D82, C-D83), which C10 implements.
+
+**Docs at delivery:** CONSUMER_API: "Event definitions" amended (output names, the rules, the
+contract, the meaning of `updated` and of a type change), the reserved names gain `event` and
+`after`, the "Not yet: `events`" line removed, C-D81–C-D86 recorded, the C9 row delivered;
+APPLICATION_MODEL: `events` in the schema 0.8 section; USER_JOURNEYS: J25.3, J25.4 and J25's
+status; CURRENT_FUNCTIONALITY: a consumer API declares its change events (produced from C10).
+
+**Composable domains (ADR-032):** the declaration is generic: types, outputs and projections of any
+definition, with no branch on a key. A product catalogue telling shops that a price or a supplier
+link changed is an event over its exposed types watching those outputs, so the door is used, not
+narrowed. Identity, attribute storage, audit, the bulk APIs, the `match` declaration and mapping
+coverage are untouched; audit stays the outbox C10 reads (C-D8).
+
+##### C9 delivery record
+
+**Delivered 2026-10-05**, as designed, with C-D81–C-D86.
+
+- **Shape** (`models/schema.py`): `ConsumerEvent` (`key`, `objectTypes`, `changes`, optional
+  `watch`) and `ConsumerEventWatch` (`fields`, `projections`); `ConsumerApiDefinition.events`. Empty
+  `events`, `fields` and `projections` are left out of the canonical document, so a definition
+  without events keeps its hash (the operators example and every installed release).
+- **Rules** (`consumer_api_rules._Definition._check_events`): C-D84 over the outputs `_check_object`
+  returns, plus `objectType`; `event` and `after` in `RESERVED_PARAMETERS` (C-D86).
+- **Contract** (`consumer_contract`): `OutputContract.events` of `EventContract`s;
+  `_event_changes` reports C-D85's narrowings at `/events` or `/events/<event>/{objectTypes,changes,watch}`.
+- **Fixtures:** the parity configuration's definition carries CONSUMER_API's event (seed rebuilt
+  once, 0.6 s). Generated A and B are unchanged; the J25 cases add events in drafts.
+- **Docs:** CONSUMER_API ("Event definitions" with C-D81–C-D85, the reserved names, C-D81–C-D86, the
+  C9 row), APPLICATION_MODEL, USER_JOURNEYS (J25.3, J25.4, J25's status), CURRENT_FUNCTIONALITY,
+  EXECUTION_GUIDE's `consumer` and `model` counts (254 and 348; `model` had read 302 since before
+  C9), CHANGELOG, PROJECT_STATUS, TODO.
+
+**Differs from the plan:**
+- A repeated event key is refused at `/events/<event>` (`DUPLICATE_KEY`), as a repeated list key is,
+  not at `…/key`; a key with an upper-case letter at `…/key`, as planned.
+- J25.4's compatible additions add `E` (exposed since C16) to an event's types; the plan first named
+  `K`, which `Capi` does not expose.
+
+**Checks:**
+- **Failing first:** the six J25.3 and J25.4 cases (generated A and B) and the two
+  `test_consumer_api_model` round trips failed (`events` an unknown field); all pass.
+- **Targeted:** J25, the parity module and `test_consumer_api_model`: 127 passed.
+- **Groups** `consumer` and `model` in parallel: 487 passed in 51 s; their serial part selects none.
+- `test_openapi_contract` (8) and `test_api_journeys` (5) passed, the lock unchanged.
+- `ruff check app/ tests/`: clean.
+- **Not run:** `startup` (no migration), `volume` (no read or write path changed), `feed` (nothing
+  derived), the frontend (unchanged), the full suites (R).
 
 ## Track V — API reference
 

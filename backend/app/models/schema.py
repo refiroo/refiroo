@@ -522,6 +522,33 @@ class ConsumerList(ModelDefinition):
     sortBy: str | None = _omitted()
 
 
+def _omitted_when_empty() -> Any:
+    """An optional list left out of the canonical document when empty, so documents without it keep
+    their hash."""
+    return Field(default=(), exclude_if=lambda value: not value)
+
+
+class ConsumerEventWatch(ModelDefinition):
+    """What makes an object ``updated`` for an event: output names and projections (C-D81)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fields: tuple[str, ...] = _omitted_when_empty()
+    projections: tuple[str, ...] = _omitted_when_empty()
+
+
+class ConsumerEvent(ModelDefinition):
+    """A change event a definition declares (Base 0.9 C9, CONSUMER_API "Event definitions")."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str
+    objectTypes: tuple[str, ...]
+    changes: tuple[Literal["created", "updated", "deleted"], ...]
+    # Without ``watch``, any change to the object's output counts.
+    watch: ConsumerEventWatch | None = _omitted()
+
+
 class ConsumerApiDefinition(ModelDefinition):
     """One consumer API: its public name (``consumerApi`` in routes and contracts), contract version and shape."""
 
@@ -537,6 +564,7 @@ class ConsumerApiDefinition(ModelDefinition):
     match: ConsumerMatch | None = _omitted()
     parameters: Mapping[str, ConsumerParameter] = Field(default_factory=dict)
     lists: tuple[ConsumerList, ...] = ()
+    events: tuple[ConsumerEvent, ...] = _omitted_when_empty()
 
 
 class ProductDefinition(ModelDefinition):

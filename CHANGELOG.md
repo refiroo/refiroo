@@ -8,6 +8,14 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 C9: consumer API event definitions. A definition declares `events`: exposed types, change
+  kinds (`created`, `updated`, `deleted`) and an optional `watch` of the outputs and projections that
+  count as an update, named as consumers read them (C-D81). Each mistake is refused at
+  `/consumerApis/<key>/events/<event>/…` (C-D84); an event that tells consumers less needs a higher
+  `contractVersion`, one that tells them more is compatible (C-D85). What `updated` means and how a
+  type change is reported are settled for C10 (C-D82, C-D83). `event` and `after` become reserved
+  parameter names, refusing a definition parameter so named (C-D86). No event is produced yet.
+
 - Base 0.9 C16: business dates on the consumer API. `asOf=YYYY-MM-DD` on get by ID, lists, XREF and
   batch resolve keeps the records effective that day by their type's declared effective period, live
   or pinned to a publication. Types without a period are left unfiltered in a lookup and refused as

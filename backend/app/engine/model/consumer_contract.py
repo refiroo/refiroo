@@ -2,7 +2,7 @@
 
 A definition's contract is what its consumers depend on: the exposed types and their public names,
 the output fields and their value types, each projection's shape and fields, the scoring weights, the
-lists and the parameters (CONSUMER_API C-D2, C-D4, C-D18). :func:`output_contract` derives it from a
+lists, the parameters and the events (CONSUMER_API C-D2, C-D4, C-D18, C-D85). :func:`output_contract` derives it from a
 definition and its release; model validation uses the same field resolution for its type rules, so
 the checked contract and the validated one cannot drift apart.
 
@@ -12,7 +12,7 @@ needs a higher ``contractVersion``; removing a whole definition is a warning (C-
 """
 
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from ...common.json_pointer import pointer_segment
@@ -169,6 +169,15 @@ def source_type(
 
 
 @dataclass(frozen=True)
+class EventContract:
+    """An event's types, change kinds and watched names; ``watch`` ``None`` watches every output."""
+
+    object_types: frozenset[str]
+    changes: frozenset[str]
+    watch: frozenset[str] | None
+
+
+@dataclass(frozen=True)
 class OutputContract:
     """What a definition's consumers read, keyed for comparison."""
 
@@ -185,6 +194,9 @@ class OutputContract:
     targetable: frozenset[str] = frozenset()
     # Exposed types that declare an effective period, on which ``asOf`` filters (Base 0.9 Q4).
     as_of: frozenset[str] = frozenset()
+    # The declared events, which consumers rely on to be told (C9, C-D85).
+    events: dict[str, EventContract] = field(default_factory=dict)
+
 
 
 def output_contract(model: EngineModel, definition: ConsumerApiDefinition) -> OutputContract:
@@ -256,6 +268,16 @@ def output_contract(model: EngineModel, definition: ConsumerApiDefinition) -> Ou
             if isinstance(parameter, ProjectionParameter) and parameter.targetable
         ),
         as_of=frozenset(item.key for item in types if item.effectivePeriod is not None),
+        events={
+            event.key: EventContract(
+                object_types=frozenset(event.objectTypes),
+                changes=frozenset(event.changes),
+                watch=None
+                if event.watch is None
+                else frozenset(event.watch.fields) | frozenset(event.watch.projections),
+            )
+            for event in definition.events
+        },
     )
 
 
@@ -385,6 +407,27 @@ def _breaking_changes(old: OutputContract, new: OutputContract) -> list[tuple[st
                     ),
                 )
             )
+    changes += _event_changes(old.events, new.events)
+    return changes
+
+
+def _event_changes(old: dict[str, EventContract], new: dict[str, EventContract]) -> list[tuple[str, str]]:
+    """An event that tells its consumers less (C-D85): removed, a type or a change kind removed, a
+    watched name removed or a watch added. Telling them more is compatible."""
+    changes: list[tuple[str, str]] = []
+    for key, event in old.items():
+        path = f"/events/{pointer_segment(key)}"
+        after = new.get(key)
+        if after is None:
+            changes.append(("/events", f"removes event '{key}'"))
+            continue
+        if lost := sorted(event.object_types - after.object_types):
+            changes.append((f"{path}/objectTypes", f"no longer reports event '{key}' for {lost}"))
+        if lost := sorted(event.changes - after.changes):
+            changes.append((f"{path}/changes", f"no longer reports {lost} in event '{key}'"))
+        if after.watch is not None and (event.watch is None or event.watch - after.watch):
+            narrowed = "watches fewer outputs" if event.watch is not None else "adds a watch"
+            changes.append((f"{path}/watch", f"{narrowed} in event '{key}', so it reports fewer updates"))
     return changes
 
 

@@ -601,7 +601,8 @@ US-I01. **Scenario:** SC-14, SC-08. **Status:** delivered (0.8 W).
 
 **Actor:** model author. **Channel:** API (model documents), UI (model administration).
 **Stories:** US-I09 (consumer side), US-P04. **Status:** definitions delivered (0.9 C1); the
-consumer tier's reads follow in C2–C16 ([CONSUMER_API.md](../CONSUMER_API.md)).
+consumer tier's reads in C2–C16 ([CONSUMER_API.md](../CONSUMER_API.md)); event declarations in C9,
+their events produced from C10.
 
 1. Declare a consumer API in the model: exposed types and their public names, fields with their
    sources, projections, parameters and lists, and a contract version.
@@ -613,6 +614,13 @@ consumer tier's reads follow in C2–C16 ([CONSUMER_API.md](../CONSUMER_API.md))
 
 - **J25.1 Additions are compatible**; removals and lower versions are reported.
 - **J25.2 A model change** (a cardinality) changes a projection's shape and is reported.
+- **J25.3 Declare events**: a definition names its change events (`events`): the exposed types, the
+  kinds of change (`created`, `updated`, `deleted`) and, for an update, the outputs and projections
+  it watches, by the names consumers read. Each mistake is refused at its pointer under
+  `/consumerApis/<key>/events/<event>`; `event` and `after` are reserved parameter names (C9).
+- **J25.4 Events in the contract**: a release that tells consumers less (an event, a type, a change
+  kind or a watched output removed, a watch added) needs a higher contract version; one that tells
+  them more is compatible (C-D85).
 
 The identity (`id` role) reads the object ID: its source is `["id"]`, and any other source is
 refused at `/consumerApis/<key>/object/id/source` (C-D24). Another identifier, such as a former

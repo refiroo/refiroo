@@ -927,8 +927,8 @@ def parity() -> Configuration:
 def _reference_definition() -> dict[str, Any]:
     """CONSUMER_API "Definition shape", its ``…`` written out: ``domain`` exposed, the ``values`` and
     ``all-values`` lists, ``alternative`` with the related record's ``objectType`` (C-D73) and
-    ``duration`` as the reference object has them, and ``language`` targetable for a crosswalk to a
-    translation."""
+    ``duration`` as the reference object has them, ``language`` targetable for a crosswalk to a
+    translation, and its event (C9)."""
     return {
         "key": "rdm",
         "name": "RDM consumer API",
@@ -1059,6 +1059,18 @@ def _reference_definition() -> dict[str, Any]:
             {"key": "codelists", "objectType": "codelist", "parentParameter": {"name": "domain", "objectTypes": ["domain"]}},
             {"key": "values", "objectType": "master-value", "parentParameter": {"name": "codelist", "objectTypes": ["codelist"]}},
             {"key": "all-values", "objectType": "master-value"},
+        ],
+        # CONSUMER_API "Event definitions": watched outputs by the names consumers read (C-D81).
+        "events": [
+            {
+                "key": "reference-data-changed",
+                "objectTypes": ["master-value", "codelist", "location"],
+                "changes": ["created", "updated", "deleted"],
+                "watch": {
+                    "fields": ["masterId", "code", "name", "isActive", "validFrom", "validTo", "valueName"],
+                    "projections": ["systemVariants", "translations"],
+                },
+            }
         ],
     }
 

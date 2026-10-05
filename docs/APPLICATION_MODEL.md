@@ -555,6 +555,11 @@ contract rules are specified in [CONSUMER_API.md](CONSUMER_API.md#definition-sha
   where the definition exposes every type the projection reaches, refused otherwise at
   `/consumerApis/<key>/projections/<name>/fields/<field>` (C-D73). The `parent` block's fields are
   keyed by the roles' output names (C-D75).
+- An event (`events`, 0.9 C9) names exposed `objectTypes`, `changes` (`created`, `updated`,
+  `deleted`) and an optional `watch` of output names and projections, by the names consumers read
+  (C-D81); each mistake is refused at `/consumerApis/<key>/events/<event>/…` (C-D84). An event that
+  tells consumers less needs a higher `contractVersion` (C-D85). `event` and `after` are reserved
+  parameter names (C-D86).
 - A list (`key`, `objectType`, optional `parentParameter`) may name `sortBy`: a scalar attribute (not
   JSON) its type binds, refused otherwise at `/consumerApis/<key>/lists/<list>/sortBy` (C-D29).
   Records without a value come last, then name, then creation order. `from`, `seek` and

@@ -186,7 +186,7 @@ def test_definition_compiles_into_the_release_with_its_output_contract(base):
     }
 
 
-def test_consumer_apis_need_schema_0_8_and_events_wait_for_c9(base):
+def test_consumer_apis_need_schema_0_8(base):
     source, k = base
     older = with_definition(source, definition(k))
     older["schemaVersion"] = "0.7"
@@ -196,9 +196,26 @@ def test_consumer_apis_need_schema_0_8_and_events_wait_for_c9(base):
     assert (diagnostic.code, diagnostic.path) == ("INVALID_MODEL", "/consumerApis")
     assert "0.8" in diagnostic.message
 
-    with_events = definition(k) | {"events": []}
-    diagnostic = compile_model(with_definition(source, with_events)).diagnostics[0]
-    assert (diagnostic.code, diagnostic.path) == ("unknown_field", "/consumerApis/0/events")
+
+def test_events_round_trip_and_leave_definitions_without_them_unchanged(base):
+    """A definition's events (0.9 C9) keep their canonical form and hash; a definition without events
+    has none in its document, so releases made before C9 keep their hash."""
+    source, k = base
+    without = compile_model(with_definition(source, definition(k)))
+    assert "events" not in without.canonical_model["consumerApis"][0]
+
+    event = {
+        "key": "reference-data-changed",
+        "objectTypes": [k("master-value"), k("codelist")],
+        "changes": ["created", "updated", "deleted"],
+        "watch": {"fields": ["masterId", "code", "isActive"], "projections": ["systemVariants"]},
+    }
+    unwatched = {"key": "domains", "objectTypes": [k("domain")], "changes": ["created"]}
+    compiled = compile_model(with_definition(source, definition(k) | {"events": [event, unwatched]}))
+    assert compiled.valid, compiled.diagnostics
+    assert compiled.canonical_model["consumerApis"][0]["events"] == [event, unwatched]
+    assert compile_model(compiled.canonical_model).model_hash == compiled.model_hash
+    assert compiled.model_hash != without.model_hash
 
 
 Mutation = Callable[[dict[str, Any], Keys], None]

@@ -41,7 +41,8 @@ and ETag (C-D60–C-D68). **C6b is delivered (2026-10-05)**: the API index `GET 
 OpenAPI 3.1 document per consumer API (C-D69, C-D70). **V2 is delivered (2026-10-05)**: every consumer API
 as a source on `/docs`. **C8 is delivered (2026-10-05)**: parity acceptance; `objectType` in
 projections, the parent keyed by output names (C-D72–C-D75). **C16 is delivered (2026-10-05)**: `asOf`
-on every consumer read (C-D76–C-D80). Next: C9, in the order of the delivery
+on every consumer read (C-D76–C-D80). **C9 is delivered (2026-10-05)**: event definitions
+(C-D81–C-D86). Next: C10, in the order of the delivery
 queue (U4 waits for U3). See
 [Next — 0.9](#next--09).
 
@@ -136,8 +137,8 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 - [ ] Asynchronous CSV/XLSX import and export with validation previews; import runs an import profile
   (revised D3, [MODEL_AUTHORING A1](MODEL_AUTHORING.md#delivery)).
 - [ ] Ordered change feed and retryable webhooks. The feed read with positions in commit order is
-  delivered as 0.9 F1 (2026-10-03), retention and recovery as F2 (2026-10-03); webhooks (C9–C13)
-  remain.
+  delivered as 0.9 F1 (2026-10-03), retention and recovery as F2 (2026-10-03), event definitions
+  as C9 (2026-10-05); events and webhooks (C10–C13) remain.
 - [x] Cross-type object lookup `GET /objects` (P1), moved from 0.8 (D20): delivered as 0.9 Q1
   (2026-09-29).
 - [x] A general relation edge list with publication context (P3), moved from 0.8 (D20): delivered as

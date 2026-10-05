@@ -350,7 +350,7 @@ Rules the validator enforces:
   integers.
 - **Parameter names** are unique per definition and cannot shadow reserved names (`query`, `expect`,
   `pageSize`, `cursor`, `position`, `from`, `seek`, `includeTotal`, `publication`, `asOf`,
-  `workspace`, `ref`, `id`) or start with `to.`.
+  `workspace`, `ref`, `id`, and the pull feed's `event` and `after`, C-D86) or start with `to.`.
 - **List order (C3):** a list's optional `sortBy` names a scalar attribute (not JSON) its type binds,
   refused otherwise at `/consumerApis/<key>/lists/<list>/sortBy`; changing it is a breaking change.
 - **Crosswalk targets:** a `projection` parameter may declare `"targetable": true`, which enables
@@ -377,7 +377,7 @@ _Delivered in C1 (2026-09-30), with these rules settled on the way:_
   `ancestor` parameter's types must be ancestors of an exposed type; a `related` parameter's `via` is
   `self`, a projection or `sharedProjection:<projection>`; a list's parent types must be able to
   contain its type. A list's parent parameter may share a definition parameter's name.
-- **Not yet:** `events` is refused as an unknown field until C9.
+- **Events (C9):** see [Event definitions](#event-definitions-model).
 
 ### Endpoints
 
@@ -607,7 +607,7 @@ Each consumer API definition declares its events next to its object, projections
   "objectTypes": ["master-value", "codelist", "location"],
   "changes": ["created", "updated", "deleted"],
   "watch": {
-    "fields": ["id", "code", "name", "active", "validFrom", "validTo", "valueName"],
+    "fields": ["masterId", "code", "name", "isActive", "validFrom", "validTo", "valueName"],
     "projections": ["systemVariants", "translations"]
   }
 }]
@@ -616,9 +616,28 @@ Each consumer API definition declares its events next to its object, projections
 - `objectTypes` must be exposed by the definition; `changes` is any of `created`, `updated`, `deleted`.
 - `watch` limits `updated`. Only changes to the listed output fields or projections count, so edits
   to unexposed attributes make no event. When `watch` is omitted, any change to the object's output
-  counts.
-- Events are part of the contract: removing an event, or narrowing its types or changes, needs a new
-  `contractVersion` (C-D2).
+  counts. `watch.fields` names outputs as consumers read them (`masterId`, `isActive`, an attribute
+  field's name, `parent`, `path`, `hierarchy`, `objectType`), the names an event's `changed` reports
+  (C-D81).
+- **An object is `updated`** when a read of it by ID would answer differently in a watched output,
+  for a change in live data. That includes the records it shows: its parent's fields, an ancestor's
+  name in `path` or `hierarchy`, a projected record's declared fields (and its ancestors' through
+  `ancestor:`), and a projection gaining or losing an item, also when the relation itself was deleted.
+  Renaming a codelist makes `updated` for each of its values that watches `path` or `parent`. A period
+  starting or ending with no write is no change (C-D82).
+- **A type change** (ADR-034) uses the same three kinds, seen from the event: an object moving out of
+  its `objectTypes` is `deleted`, one moving in `created`, one moving between two of them `updated`
+  with `objectType` among the changed outputs (C-D83).
+- **Rules (C-D84):** event keys are unique in a definition and use lowercase letters, digits and
+  hyphens; `objectTypes` and `changes` list at least one entry each, none twice; a `watch` names at
+  least one declared output or projection, none twice, and needs `updated` among the changes. Each is
+  refused at `/consumerApis/<key>/events/<event>/…`.
+- **Events are part of the contract** (C-D2, C-D85): an event that tells its consumers less (removed;
+  a type or a change kind removed; a watched output removed, or a watch added) needs a new
+  `contractVersion`. One that tells them more (an event, a type, a change kind or a watched output
+  added, the watch dropped) is compatible.
+- _Delivered in C9 (2026-10-05):_ the declaration, its validation and its contract check. Events are
+  produced from C10.
 
 ### Subscriptions (runtime, not model)
 
@@ -752,7 +771,7 @@ coordination is 0.11 work.
 | C6 | ETag / `If-None-Match`, `publication` reads including `latest`, the publications list with `eventSequence`, per-definition OpenAPI, the API index. Split in two (C-D71): **C6a** (publications, ETag; C-D60–C-D68) and **C6b** (OpenAPI per definition, API index; C-D69, C-D70) **delivered 2026-10-05** |
 | C7 | _Moved to 0.12 (C-D1):_ OAuth 2.0 client access per definition, webhook signing keys, UI administration of both |
 | C8 | Parity acceptance: a test-only fixture model extending the starter with locations, availability and a single-valued self relation (fixture content, not product scope), a fixture dataset, and a definition that reproduces the reference response for the scenarios below; volume budgets; `objectType` in projections (C-D73) and the parent keyed by output names (C-D75) (C-D72–C-D75) — **delivered 2026-10-05** |
-| C9 | Event definitions: `events` schema and validation, contract rules for events |
+| C9 | Event definitions: `events` schema and validation, contract rules for events (C-D81–C-D86) — **delivered 2026-10-05** |
 | C10 | Event deriver over the workspace change feed (INTEGRATION_API F6): owning-object resolution through projections, `watch` evaluation, event store, retention, pull feed |
 | C11 | Subscription administration: API, filters through definition parameters, host allowlist, suspension on model change (signing keys and rotation in 0.12) |
 | C12 | Dispatcher: per-change batches, coalesced debounce, ordering, retry with backoff, suspension and resume (signing in 0.12) |
@@ -826,7 +845,7 @@ C-D1 decided 2026-09-29; C-D2–C-D16 accepted 2026-09-29 as recommended, with t
 C-D17–C-D20 raised by C1 and accepted 2026-09-30 as recommended; C-D21–C-D26 settled with the user
 for C2, C-D27–C-D33 for C3 and C-D34–C-D41 for C4, on 2026-10-04; C-D42–C-D46 for C5 and
 C-D47–C-D53 for C14, C-D54–C-D58 for C15, C-D59 for CN1, C-D60–C-D71 for C6, C-D72–C-D75 for C8 and
-C-D76–C-D80 for C16 on 2026-10-05.
+C-D76–C-D80 for C16 and C-D81–C-D86 for C9 on 2026-10-05.
 
 | # | Question | Decision |
 | --- | --- | --- |
@@ -910,3 +929,9 @@ C-D76–C-D80 for C16 on 2026-10-05.
 | C-D78 | How a read says what was dated | **Decided 2026-10-05 (C16).** `asOfApplied` (the dated public names, sorted) in the list, XREF page and batch resolve bodies, and the `RDM-As-Of-Applied` header on every answer to a dated read, get by ID and `expect=one` included; neither without `asOf` |
 | C-D79 | A malformed date | **Decided 2026-10-05 (C16).** `400 INVALID_AS_OF` at `/query/asOf` for anything but one `YYYY-MM-DD` calendar date (a time, a zone, an impossible day, two values). In batch resolve `defaults` or an item, `asOf` is `PARAMETER_NOT_SUPPORTED`, as `publication` is |
 | C-D80 | The budget | **Decided 2026-10-05 (C16).** Measured once at full volume (the dated list live and pinned, a dated mixed XREF, a dated 1,000-item batch), recorded beside the undated figures, not tuned in C16 |
+| C-D81 | What `watch.fields` names | **Decided 2026-10-05 (C9).** The object's output names, as consumers read them and as an event's `changed` reports them: role outputs (`masterId`, `isActive`), attribute fields, `parent`, `path`, `hierarchy` and `objectType`; `watch.projections` names projections. Not role names or model keys |
+| C-D82 | When an object counts as `updated` | **Decided 2026-10-05 (C9).** When a read of it by ID would answer differently in a watched output (every output without `watch`), for a change in live data, including the records it shows: parent, ancestors in `path` and `hierarchy`, projected records' fields and their ancestors, items joining or leaving a projection. Not a period starting or ending without a write, change-set edits or model releases. An author avoids the fan-out of a container rename by leaving `path` and `parent` out of `watch`; C10 measures it |
+| C-D83 | A type change (`reclassified`) | **Decided 2026-10-05 (C9).** No fourth kind. Seen from one event: out of its types `deleted`, into them `created`, between two of them `updated` with `objectType` changed. Meets Base 0.8 D37 for the consumer API |
+| C-D84 | Declaration rules | **Decided 2026-10-05 (C9).** Unique, URL-safe event keys; at least one exposed type and one change kind, none twice; a `watch` names at least one declared output or projection, none twice, and needs `updated`. Refused at `/consumerApis/<key>/events/<event>/…`; shape errors (an unknown change kind) at their position |
+| C-D85 | What in an event is contract | **Decided 2026-10-05 (C9).** Telling consumers less is `version_required`: removing an event, a type or a change kind, removing a watched name or adding a watch. Telling them more is compatible. A watched output that is itself removed is reported once, as the field |
+| C-D86 | Names the pull feed takes | **Decided 2026-10-05 (C9).** `event` and `after` are reserved parameter names |

@@ -4,8 +4,8 @@ CONSUMER_API.md "Definition shape" and its rules: every type, attribute, relatio
 projection and parameter a definition names resolves in the same release; a field's sources share
 one output type (C-D19) and a default has that type; a match rule reads a field that is ``name``,
 ``id``, or ``searchable`` or ``unique`` (C-D20), and a ``contains`` weight a text field (0.9 C4);
-output, parameter and list names do not collide. A
-failure is refused at the pointer ``/consumerApis/<key>/…`` of the part that is wrong.
+output, parameter and list names do not collide; an event names exposed types and watches declared
+outputs (0.9 C9, C-D84). A failure is refused at the pointer ``/consumerApis/<key>/…`` of the part that is wrong.
 """
 
 import re
@@ -59,6 +59,9 @@ RESERVED_PARAMETERS = frozenset(
         "workspace",
         "ref",
         "id",
+        # The pull feed's own names, beside a definition's parameters (C-D86).
+        "event",
+        "after",
     }
 )
 # Output fields the shared object carries whatever the definition says.
@@ -103,6 +106,7 @@ class _Definition:
         self._check_match()
         self._check_parameters()
         self._check_lists()
+        self._check_events(outputs)
 
     def _fail(self, code: str, path: str, message: str) -> NoReturn:
         raise ModelReferenceError(code, f"{self.base}{path}", f"Consumer API '{self.definition.key}': {message}")
@@ -355,6 +359,59 @@ class _Definition:
                         f"'{key}' cannot contain records of '{list_definition.objectType}'",
                     )
 
+
+    def _check_events(self, outputs: set[str]) -> None:
+        """Each event names exposed types and change kinds once, and watches declared outputs (C-D81,
+        C-D84). Every object carries ``objectType``, so it is watchable too."""
+        keys: set[str] = set()
+        watchable = outputs | {"objectType"}
+        for event in self.definition.events:
+            path = f"/events/{pointer_segment(event.key)}"
+            if event.key in keys:
+                self._fail("DUPLICATE_KEY", path, f"event '{event.key}' is declared twice")
+            keys.add(event.key)
+            if not _URL_KEY.match(event.key):
+                self._fail("INVALID_MODEL", f"{path}/key", "an event key uses lowercase letters, digits and hyphens")
+            self._require_listed(event.objectTypes, f"{path}/objectTypes", "object type")
+            for index, key in enumerate(event.objectTypes):
+                if key not in self.definition.objectTypes:
+                    self._fail(
+                        "INVALID_REFERENCE", f"{path}/objectTypes/{index}", f"type '{key}' is not exposed"
+                    )
+            self._require_listed(event.changes, f"{path}/changes", "change")
+            watch = event.watch
+            if watch is None:
+                continue
+            if not watch.fields and not watch.projections:
+                self._fail("INVALID_MODEL", f"{path}/watch", "a watch names at least one output or projection")
+            if "updated" not in event.changes:
+                self._fail(
+                    "INVALID_MODEL",
+                    f"{path}/watch",
+                    "a watch limits updates, and the event reports none, so it could never act",
+                )
+            for part, names, declared in (
+                ("fields", watch.fields, watchable),
+                ("projections", watch.projections, set(self.definition.projections)),
+            ):
+                self._require_listed(names, f"{path}/watch/{part}", "name", allow_empty=True)
+                for index, name in enumerate(names):
+                    if name not in declared:
+                        kind = "an output" if part == "fields" else "a projection"
+                        self._fail(
+                            "INVALID_REFERENCE",
+                            f"{path}/watch/{part}/{index}",
+                            f"'{name}' is not {kind} of the definition; a watch names outputs as"
+                            " consumers read them",
+                        )
+
+    def _require_listed(
+        self, values: Sequence[str], path: str, label: str, *, allow_empty: bool = False
+    ) -> None:
+        if not values and not allow_empty:
+            self._fail("INVALID_MODEL", path, f"at least one {label} is needed")
+        if len(set(values)) != len(values):
+            self._fail("DUPLICATE_KEY", path, f"a {label} is listed twice")
 
     def _check_sort_by(self, type_key: str, attribute: str, path: str) -> None:
         """A scalar attribute the list's type binds (C-D29)."""
