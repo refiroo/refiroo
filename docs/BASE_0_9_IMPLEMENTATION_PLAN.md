@@ -207,9 +207,9 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 7 | [B1](#b1-job-model-and-inline-object-batches) | — | **Track P (§P1–P5, P7)**, `POST /batches` with object items, inline — **delivered 2026-10-01** |
 | 8 | [F1](#f1-feed-positions) | B1 | Feed position in commit order, publish entries (D15, D32), lock order, the feed read (D31) — **delivered 2026-10-03** |
 | 9 | [B2](#b2-background-jobs) | B1 | **Track P (§P6)**: worker, chunks, lease, resume, cancel, retention — **delivered 2026-10-01**, before F1 |
-| 9a | [PG1–PG2](POSTGRESQL_RUNTIME_PLAN.md) with [H1](TEST_HARNESS_PLAN.md) | B2 | PostgreSQL only: runtime, baseline migration, the test harness with seeded databases built once, PostgreSQL forms |
-| 9b | [H2–H3](TEST_HARNESS_PLAN.md) | PG2 | Parallel test runs (H2 **delivered 2026-10-01**); time ceilings, full-size budgets out of everyday runs (H3); no product change |
-| 9c | [PG3–PG5](POSTGRESQL_RUNTIME_PLAN.md) | PG2 | The per-workspace write lock and concurrency tests; PG3b batch writes decided in memory and written in bulk (PG-D12–PG-D17); existing data carried over; budgets on PostgreSQL with the 100,000-item batch measured once; released as 0.9.0-alpha.1 |
+| 9a | [PG1–PG2](POSTGRESQL_RUNTIME_PLAN.md) with [H1](TEST_HARNESS_PLAN.md) | B2 | PostgreSQL only: runtime, baseline migration, the test harness with seeded databases built once, PostgreSQL forms — **delivered 2026-10-01** |
+| 9b | [H2–H3](TEST_HARNESS_PLAN.md) | PG2 | Parallel test runs (H2 **delivered 2026-10-01**); time ceilings, full-size budgets out of everyday runs (H3); no product change — **delivered 2026-10-01** |
+| 9c | [PG3–PG5](POSTGRESQL_RUNTIME_PLAN.md) | PG2 | The per-workspace write lock and concurrency tests; PG3b batch writes decided in memory and written in bulk (PG-D12–PG-D17); existing data carried over; budgets on PostgreSQL with the 100,000-item batch measured once; released as 0.9.0-alpha.1 — **delivered 2026-10-03** (PG4 dropped), tagged `v0.9.0-alpha.1` |
 | 10 | [B3](#b3-relation-and-relation-set-items) | B1 | Relation items and `replaceRelationSet` — **delivered 2026-10-03** |
 | 11 | [F2](#f2-feed-retention-and-recovery) | F1 | Retention, `410` with baselines, the deep read budget (the read moved to F1, D31) — **delivered 2026-10-03** |
 | 12 | [T1](#t1-track-checkpoint-q-b-f) | Q4, B2, B3, F2 | Track checkpoint for Q, B and F: their groups, budgets and a composed journey — **delivered 2026-10-03** |
