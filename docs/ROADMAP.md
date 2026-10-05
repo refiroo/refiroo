@@ -343,6 +343,14 @@ than UI endpoints or undocumented limits.
     and bundled with the engine by default, so the page works without internet access; a setting
     switches to loading it from a CDN instead. The page route stays outside the OpenAPI document, so
     the OpenAPI locks are unaffected. Authentication in the "try it" console follows in 0.12.
+    Each consumer API's document writes its namespace and contract version into its paths and
+    `info.version`, with no placeholders (amends C6 and V2; approved 2026-10-05).
+11. _Approved 2026-10-05:_ Track U begins ([SETTINGS_AND_UI_PLAN.md](SETTINGS_AND_UI_PLAN.md)).
+    The consumer API namespace gets a name that does not read as a credential (CN1, U-D1). The user
+    chooses a visual direction (U1). The UI foundation lands: token layers, distinct regions, colour
+    with meaning, a data-context bar and the missing components (U2). A settings area with one page
+    per item: About, Appearance, Deployment, Workspaces and Model (U3); Consumer APIs with their
+    namespace, contract version and base URL, Jobs and feed, and API reference (U4); Webhooks (U5).
 
 Security is not part of 0.9: its APIs are unauthenticated like the management API, and no 0.9
 contract uses API keys or puts a credential in a URL. The 0.12 security release covers them
@@ -357,6 +365,8 @@ contract uses API keys or puts a credential in a URL. The 0.12 security release 
   outbound network access, and with the CDN script when so configured.
 - A consumer API definition alone reproduces the reference XREF and list responses (CONSUMER_API.md
   C8), with no runtime branch on object-type or relation keys.
+- Every consumer API's namespace, contract version and base URL is visible
+  on a settings page, and its API reference shows that version with no placeholder.
 
 ## Product release 0.10 — Model authoring and spreadsheet onboarding
 
@@ -384,6 +394,8 @@ reviewed upsert. Opened without a workbook, the same editor is the structured mo
    application (A6).
 6. Model-description sheets and matching across files (A7), and list blocks in sheets laid out for
    reading (A8); both may move to a 0.10.x release.
+7. _Approved 2026-10-05:_ the remaining surfaces on the 0.9 UI foundation (U6), first
+   in 0.10 and before the editor (A4), which is built on it ([SETTINGS_AND_UI_PLAN.md](SETTINGS_AND_UI_PLAN.md)).
 
 Changes to released structure (key renames, splits, merges, cardinality) are shown with their impact
 and blocked; they are enabled in 1.0 on the 0.11 migration boundary.
@@ -415,7 +427,8 @@ immutable model releases in controlled stages. Authentication and authorization 
 - Database constraints as a second line behind the per-workspace write lock, for writes that bypass
   the write unit, decided on evidence. Single-node multi-writer uniqueness is delivered in
   0.9.0-alpha.1
-- Metrics, structured logging, health/readiness, backup and restore rehearsal (`pg_dump`)
+- Metrics, structured logging, health/readiness, backup and restore rehearsal (`pg_dump`), shown on
+  the settings area's Operations page (U7, approved 2026-10-05, [SETTINGS_AND_UI_PLAN.md](SETTINGS_AND_UI_PLAN.md))
 - Multi-node and multi-process operation: immutable-snapshot propagation across processes
   (`WEB_CONCURRENCY` above 1), and the job worker on several nodes through its lease (0.9 B2)
 - Executable workspace-scoped data migration plans
@@ -483,7 +496,10 @@ to a proven identity.
   OAuth clients
 - HMAC signing keys for webhook subscriptions, shown once and rotatable; the `RDM-Signature` header
   added to deliveries (CONSUMER_API C-D12)
-- UI administration of OAuth clients and their access, and of webhook subscriptions and their keys
+- UI administration of OAuth clients and their access, and of webhook subscriptions and their keys.
+  _Approved 2026-10-05:_ as the settings area's Security pages (sign-in and account, users and
+  roles, OAuth clients and their access per consumer API, signing keys), with webhook subscriptions
+  already on their 0.9 page (U8, U-D3, [SETTINGS_AND_UI_PLAN.md](SETTINGS_AND_UI_PLAN.md))
 - Audit identity: changes record the authenticated actor
 - Protected model and workspace administration, replacing the default-enabled workspace mutation
   posture; deployment capability flags stay as defence in depth (ADR-031)
@@ -519,6 +535,9 @@ need a migration, and reuses proven definitions.
 - Published releases remain immutable and reproducible.
 - Unsafe model changes remain blocked until an explicit migration succeeds.
 - Extensions cannot introduce application-specific branches into the runtime.
+- Every administrative, integration and security object a route manages
+  has a settings page, every deployment setting is visible on one, and every surface uses the UI
+  foundation and passes the accessibility and visual gates in light and dark.
 
 ## First fixes after 1.0
 
