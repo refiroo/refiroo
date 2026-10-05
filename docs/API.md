@@ -2017,7 +2017,7 @@ the reader misses nothing. An export as a second baseline follows with export jo
 
 A retired workspace's feed stays readable. The feed is ungated like other reads until 0.12 (D10).
 
-## Consumer API (Base 0.9 C2–C6, C14–C16)
+## Consumer API (Base 0.9 C2–C6, C10, C14–C16)
 
 A separate, read-only tier at `/api/consumer`, whose contract each consumer API definition in the
 active model release declares ([CONSUMER_API.md](CONSUMER_API.md)). Its routes are not in the
@@ -2454,8 +2454,8 @@ Each API's **document** is OpenAPI 3.1 and describes that API at its contract ve
   deployment's root path, and the index's `openapi` URL does too.
 - **`info`**: `title` is the definition's `name`, `version` the contract version as a string
   (`"2"`), and `description` names the model release that declares it.
-- **Operations**: get by ID, each list (with its parent parameter), XREF, batch resolve and the
-  publications list, each with the parameters it applies (definition parameters as arrays,
+- **Operations**: get by ID, each list (with its parent parameter), XREF, batch resolve, the
+  publications list and, for a definition that declares events, the events read, each with the parameters it applies (definition parameters as arrays,
   `style: form`; each targetable parameter's `to.` name; `asOf` where the read can return a dated
   type, on a list only when its type is dated), the `ETag`, `RDM-Workspace`, `RDM-Publication` and
   `RDM-As-Of-Applied` headers, `304`, and its refusal codes.
@@ -2472,6 +2472,76 @@ Each API's **document** is OpenAPI 3.1 and describes that API at its contract ve
 Both answer an `ETag` that changes with the active model release, and `304` to a matching
 `If-None-Match`. A query parameter is refused as on the reads (`400 UNKNOWN_PARAMETER`, or
 `PARAMETER_NOT_SUPPORTED` for a name a read serves).
+
+### Consumer events (Base 0.9 C10)
+
+A definition that declares `events` ([CONSUMER_API](CONSUMER_API.md#event-definitions-model)) tells
+its consumers about changes to live data. The engine derives the events from the workspace's change
+feed after each write commits, without the write waiting, and serves them here; webhooks (C11–C12)
+will deliver the same events.
+
+```text
+GET /api/consumer/{consumerApi}/v{contractVersion}/events?workspace=…&event=…&after={position}|cursor=…&pageSize=…&payload=full|identity&{parameters}
+```
+
+```jsonc
+// RDM-Workspace: default
+{
+  "items": [{
+    "eventId": "1d0c…",            // the same event read or delivered again has the same ID
+    "position": 184223,            // the feed position of the change that caused it
+    "occurredAt": "2026-10-06T10:14:03+00:00",
+    "event": "reference-data-changed",
+    "change": "updated",           // created | updated | deleted
+    "contractVersion": 1,          // the version that derived it
+    "objectType": "CodelistValue", // public name
+    "id": "…", "code": "HU", "name": "Hungary",   // now; null when the object no longer exists
+    "changed": ["path"],           // with updated: the watched outputs that changed
+    "cause": { "kind": "publication", "id": "…" },   // user | job | publication
+    "stateAt": 184230,             // payload=full: the feed position object shows
+    "object": { "masterId": "…", "code": "HU", "name": "Hungary", "path": "Europe/Hungary", … }
+  }],
+  "workspace": "default", "pageSize": 100,
+  "cursor": "…",            // continue after the last event read; a lasting resume token
+  "caughtUp": false,        // true: every event derived so far is read
+  "headPosition": 184230,   // how far events are derived
+  "earliestPosition": 170001
+}
+```
+
+- **What is told.** `created` and `deleted` for an exposed object of the event's types; `updated`
+  when a read of the object by ID would answer differently in a watched output, also for a change
+  to a record it shows: its parent, an ancestor's name in `path` or `hierarchy`, a projected record
+  or its ancestor, a projection gaining or losing an item. Changes are read by name, never by value,
+  so `changed` may name an output whose answer stayed the same. A type change is `deleted`,
+  `created` or `updated` with `objectType`, as seen from each event. Change-set work, model releases
+  and refused writes make none.
+- **Where to start.** `after` (default `0`): the last position processed, or a publication's
+  `eventSequence` after reading it. Then `cursor`, which continues inside a position too. `after`
+  and `cursor` together are `400 CONFLICTING_PAGE_PARAMETERS`; a cursor of another API, workspace,
+  `event` or parameters `400 INVALID_CURSOR`; `after` not a whole number `400 INVALID_POSITION`;
+  past the feed's head `409 EVENT_POSITION_AHEAD` with `headPosition`. A position the deriver has
+  not reached yet answers an empty, caught-up page.
+- **Payload.** `full` (default): each event carries its object as get by ID answers it with the same
+  parameters, under the contract version served; a deleted object has none. `identity`: no object.
+  `pageSize` is 1–100 (default 100) with `full` and 1–1,000 (default 500) with `identity`, else
+  `400 INVALID_PAGE_SIZE`; another payload is `400 INVALID_PAYLOAD`.
+- **Narrowing.** `event` (one or more keys; `400 UNKNOWN_EVENT` for one not declared) and the
+  definition's parameters, applied as on a list to the object in live data now; a type parameter
+  matches the type stored with the event; an event whose object no longer exists passes every other
+  parameter. `publication`, `asOf` and `to.` names are `400 PARAMETER_NOT_SUPPORTED`. A narrowed
+  page scans at most ten pages of events: it may come back short or empty with `caughtUp` false and
+  the cursor advanced.
+- **Every version.** All events of the API are served, whichever contract version derived them.
+- **Expiry.** Events are kept as long as the change feed's entries (`FEED_RETENTION_DAYS`, default
+  30), never past the active publication's position. A position below `earliestPosition - 1` is
+  `410 EVENTS_EXPIRED` with `earliestPosition`, `headPosition` and `publication`
+  (`{id, eventSequence}`, or `null`): read that publication's lists, then the events after its
+  `eventSequence`. Without a publication nothing expires. A workspace that existed at the upgrade to
+  this release has events from its active publication's position on.
+- **Caching.** The `ETag` changes when a new event is derived; `304` to a matching `If-None-Match`.
+- A definition without events answers `404 EVENTS_NOT_DECLARED`; an unknown or retired workspace
+  `404 WORKSPACE_NOT_FOUND`.
 
 ## Planned integration endpoints
 

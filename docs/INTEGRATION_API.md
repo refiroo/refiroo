@@ -510,6 +510,9 @@ coalesce into one delivery. Each consumer event carries the `position` of the en
 so positions compare with the raw feed and with a publication's `eventSequence`, which is its
 `feedPosition`. The consumer pull feed pages by `after` position plus an opaque cursor within one
 position. The deriver keeps a checkpoint per workspace and reads the feed like any reader.
+_Delivered in C10 (2026-10-06):_ the pull feed's contract is in
+[API.md](API.md#consumer-events-base-09-c10); a record's entry also names its parent, and its previous
+parent when it moved, kept with the entry and not shown in the feed's answer (C-D95).
 
 ## Q: Queries
 

@@ -165,7 +165,7 @@ path, and changes are attributed to a proven identity.
 - engine-provided OAuth 2.0 with JWT access tokens for the backend, frontend and consumer APIs; no API
   keys and no credential in a URL;
 - application/record-type/operation authorization and per-definition consumer API access;
-- HMAC-signed webhooks with rotatable keys;
+- rotatable webhook signing keys (signing itself from 0.9, CONSUMER_API C-D12);
 - UI administration of OAuth clients and webhook subscriptions; and
 - authenticated audit identity.
 

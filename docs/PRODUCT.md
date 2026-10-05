@@ -142,10 +142,10 @@ can complete the task in the application; "API" means another system can.
 | Release | What it adds |
 | --- | --- |
 | 0.9.0-alpha.1 | PostgreSQL as the only database, with real concurrency: workspaces write in parallel (in progress) |
-| 0.9 | Bulk relationship and mapping loads; the consumer APIs (lookup by code across systems, lists, crosswalks) with change events and webhooks; import and export of files with a preview |
+| 0.9 | Bulk relationship and mapping loads; the consumer APIs (lookup by code across systems, lists, crosswalks) with change events that carry the changed data, and signed webhooks; import and export of files with a preview |
 | 0.10 | Turn a spreadsheet into a working application; one structured editor for the model and the import mapping ([design](MODEL_AUTHORING.md)) |
 | 0.11 | Production readiness: performance at scale, several servers, monitoring, rehearsed backup and restore, moving workspaces between model versions in stages |
-| 0.12 | Sign-in for people and systems, permissions per application, record type and operation, signed webhooks |
+| 0.12 | Sign-in for people and systems, permissions per application, record type and operation, rotating webhook signing keys |
 | 1.0 | Change released structure through the editor (renames, splits, merges) with a migration preview; reusable model modules |
 
 The [roadmap](ROADMAP.md) has each release's scope and exit criteria.

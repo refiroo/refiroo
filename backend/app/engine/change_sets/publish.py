@@ -138,7 +138,12 @@ def publish_entries(merge: LiveMerge, model: Any) -> list[AuditEntry]:
                 after.version,
                 {"changedFields": fields, "attributeTypeKeys": values},
                 (object_id,),
-                object_subject(after, before.object_type_key if retyped else None),
+                object_subject(
+                    after,
+                    before.object_type_key if retyped else None,
+                    previous_parent_object_id=before.parent_object_id,
+                    moved=before.parent_object_id != after.parent_object_id,
+                ),
             )
         )
     for relation_id in sorted(merge.removed_relation_ids):

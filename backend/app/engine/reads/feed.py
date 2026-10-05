@@ -39,19 +39,22 @@ class FeedPage:
     earliest_position: int
 
 
-def read_feed(
-    session: Session,
-    workspace_key: str,
-    *,
-    after: int,
-    page_size: int,
-    retention_days: int,
-    kinds: Sequence[str] = (),
-    object_type_keys: Sequence[str] = (),
-) -> FeedPage:
-    """The entries after ``after``: a page of them, or of those matching the filters within a
-    bounded scan. ``kinds`` and ``object_type_keys`` each match any of their values; an object type
-    matches a record's type or, for a reclassification, its previous one."""
+@dataclass(frozen=True)
+class RetentionFloor:
+    """The workspace's feed head, the earliest position still answered, and the active publication
+    to re-read below it (its ID, number and position; ``None`` without one)."""
+
+    head_position: int
+    earliest_position: int
+    publication_id: str | None
+    publication_number: int | None
+    publication_position: int | None
+
+
+def retention_floor(session: Session, workspace_key: str, retention_days: int) -> RetentionFloor:
+    """The earliest position the feed answers (F2, D40): the first entry within the period, never
+    past the active publication's position + 1; 1 with no publication that has a position. Consumer
+    events expire with it (C-D92). ``404 WORKSPACE_NOT_FOUND`` for an unknown workspace."""
     row = session.execute(
         select(
             Workspace.feed_position,
@@ -65,6 +68,28 @@ def read_feed(
     if row is None:
         raise api_error(404, "WORKSPACE_NOT_FOUND", "Workspace not found")
     head, publication_id, publication_number, baseline = row
+    earliest = 1
+    if baseline is not None:
+        cutoff = datetime.now(UTC) - timedelta(days=retention_days)
+        earliest = min(baseline + 1, _time_floor(session, workspace_key, cutoff, head))
+    return RetentionFloor(head, earliest, publication_id, publication_number, baseline)
+
+
+def read_feed(
+    session: Session,
+    workspace_key: str,
+    *,
+    after: int,
+    page_size: int,
+    retention_days: int,
+    kinds: Sequence[str] = (),
+    object_type_keys: Sequence[str] = (),
+) -> FeedPage:
+    """The entries after ``after``: a page of them, or of those matching the filters within a
+    bounded scan. ``kinds`` and ``object_type_keys`` each match any of their values; an object type
+    matches a record's type or, for a reclassification, its previous one."""
+    floor = retention_floor(session, workspace_key, retention_days)
+    head, earliest = floor.head_position, floor.earliest_position
     if after > head:
         raise api_error(
             409,
@@ -74,10 +99,6 @@ def read_feed(
             "baseline",
             {"headPosition": head},
         )
-    earliest = 1
-    if baseline is not None:
-        cutoff = datetime.now(UTC) - timedelta(days=retention_days)
-        earliest = min(baseline + 1, _time_floor(session, workspace_key, cutoff, head))
     if after < earliest - 1:
         raise api_error(
             410,
@@ -88,9 +109,9 @@ def read_feed(
                 "earliestPosition": earliest,
                 "headPosition": head,
                 "publication": {
-                    "id": publication_id,
-                    "publicationNumber": publication_number,
-                    "feedPosition": baseline,
+                    "id": floor.publication_id,
+                    "publicationNumber": floor.publication_number,
+                    "feedPosition": floor.publication_position,
                 },
             },
         )

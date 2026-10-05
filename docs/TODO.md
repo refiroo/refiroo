@@ -42,7 +42,8 @@ OpenAPI 3.1 document per consumer API (C-D69, C-D70). **V2 is delivered (2026-10
 as a source on `/docs`. **C8 is delivered (2026-10-05)**: parity acceptance; `objectType` in
 projections, the parent keyed by output names (C-D72–C-D75). **C16 is delivered (2026-10-05)**: `asOf`
 on every consumer read (C-D76–C-D80). **C9 is delivered (2026-10-05)**: event definitions
-(C-D81–C-D86). Next: C10, in the order of the delivery
+(C-D81–C-D86). **C10 is delivered (2026-10-06)**: the event deriver, the event store and the pull feed
+(C-D87–C-D92, C-D95). Next: C11, in the order of the delivery
 queue (U4 waits for U3). See
 [Next — 0.9](#next--09).
 
@@ -138,7 +139,10 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   (revised D3, [MODEL_AUTHORING A1](MODEL_AUTHORING.md#delivery)).
 - [ ] Ordered change feed and retryable webhooks. The feed read with positions in commit order is
   delivered as 0.9 F1 (2026-10-03), retention and recovery as F2 (2026-10-03), event definitions
-  as C9 (2026-10-05); events and webhooks (C10–C13) remain.
+  as C9 (2026-10-05), the events and their pull feed as C10 (2026-10-06); webhooks (C11–C13) remain:
+  subscriptions with the signing key (C-D12 revised), `payload`, the suspension reasons and
+  C-D93's resume after expired events (C11); the dispatcher with full-object batches and a byte
+  limit (C12).
 - [x] Cross-type object lookup `GET /objects` (P1), moved from 0.8 (D20): delivered as 0.9 Q1
   (2026-09-29).
 - [x] A general relation edge list with publication context (P3), moved from 0.8 (D20): delivered as
@@ -288,7 +292,8 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 - [ ] Precomputed sort keys for attribute and ancestor sorts over very large parents (D26, after 0.9).
 - [ ] 0.12 security: engine-provided OAuth 2.0 with JWT for backend, frontend and consumer APIs (no API
   keys, no credential in a URL), application/object/operation authorization, audit identity,
-  HMAC-signed webhooks, and UI administration of OAuth clients and webhook subscriptions.
+  webhook signing-key rotation (signing itself is 0.9, C-D12 revised), and UI administration of OAuth
+  clients.
 - [ ] 0.12: replace the pre-authentication, default-enabled workspace mutation posture with authenticated,
   authorized workspace administration; retain the capability gate as deployment defence in depth.
 - [ ] Multi-node active-model propagation and protected publication; verify split deployment

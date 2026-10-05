@@ -500,3 +500,24 @@ C6a's run also measured batch resolve, live only, and did not record it separate
   exact-first (C-D52) reads their contains matches; C14's "parameters filtering items out" shape.
 - **A term in every item** (132.5 and 161.9 ms): the cost of refusing it, which joins all 100,000
   items before the 10,000-match limit refuses (C-D37). It answers `400`, not a page.
+
+### Consumer events (0.9 C10)
+
+Measured once at full volume (110,254 objects; 2026-10-06) with
+`volume_baseline.py --only-events --scale 1 --repeat 3` (the seed built once, 328 s; warm median ·
+statements · ORM rows). A release gives the volume consumer API one event over groups and items,
+every change, no watch. Derivation runs once per step, since it consumes its entries; the reads are
+timed three times. `test_consumer_event_volume` holds the statement counts at two sizes.
+
+| Step | Live |
+| --- | --- |
+| Derive a page of 500 live creations | 42.2 ms · 6 · 502 |
+| Derive the rename of the heavy group: 20,001 objects told (C-D82's fan-out) | 724.0 ms · 5 · 2 |
+| Events read: first page of 100, full payload | 25.5 ms · 13 · 103 |
+| Events read: first page of 100, identity | 11.5 ms · 9 · 103 |
+| Events read: narrowed by the `within` ancestor parameter, full payload | 54.5 ms · 16 · 103 |
+
+Derivation is not a request: it runs on the deriver's thread a moment after the write commits, and the
+write never waits for it. Its 502 rows are the page's 500 entries read to plan it (C10's "decide"
+step); the fan-out itself stays in PostgreSQL, so the rename costs the same 5 statements at every
+size. The reads are within the 100 ms budget.

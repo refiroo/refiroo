@@ -8,6 +8,24 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 C10: consumer events and the pull feed. After a live write commits, a deriver thread in
+  the API process turns the workspace's feed entries into the events each consumer API declares,
+  without the write waiting: `created`, `updated` naming the watched outputs that changed (also for
+  a change to a record the object shows: its parent, an ancestor's name, a projected record, a
+  projection's items) and `deleted`; a type change as seen from each event (C-D82, C-D83, C-D87).
+  `GET /api/consumer/{consumerApi}/v{contractVersion}/events` reads them in position order from
+  `after` or a lasting `cursor`, with `caughtUp`, narrowed by `event` and the definition's
+  parameters (C-D90, C-D91); `payload=full` (default) carries each object as get by ID answers it,
+  labelled `stateAt`, `payload=identity` leaves it out (C-D7 revised). Every event of the API is
+  served, each naming its contract version (C-D88). Events expire with the change feed
+  (`410 EVENTS_EXPIRED` naming the publication to re-read) and start, for an existing workspace, at
+  its active publication's position (C-D92). New codes: `EVENTS_NOT_DECLARED`, `UNKNOWN_EVENT`,
+  `INVALID_PAYLOAD`, `EVENT_POSITION_AHEAD`, `EVENTS_EXPIRED`. `payload` becomes a reserved parameter
+  name. A record's feed entry now also keeps its parent and previous parent, not shown in the feed
+  (C-D95). Migration `20261006_01` adds `consumer_events` and `consumer_event_checkpoints`.
+  Renaming a group with 20,000 items below it tells 20,001 objects in 0.7 s on the deriver's
+  thread.
+
 - Base 0.9 C9: consumer API event definitions. A definition declares `events`: exposed types, change
   kinds (`created`, `updated`, `deleted`) and an optional `watch` of the outputs and projections that
   count as an update, named as consumers read them (C-D81). Each mistake is refused at

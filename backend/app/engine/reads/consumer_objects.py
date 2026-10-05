@@ -208,6 +208,28 @@ class ConsumerObjects:
             if object_id in records
         }
 
+    def identities(
+        self, session: Session, source: ConsumerSource, object_ids: Sequence[str]
+    ) -> dict[str, tuple[Any, Any]]:
+        """The ``code`` and ``name`` of each record of ``object_ids`` the source holds, of any type,
+        as the object's roles read them (the name falling back to the built-in name), in one
+        statement: what a consumer event names its object by (C10, C-D89)."""
+        objects = source.objects
+        keys = _attribute_keys([self.roles[role] for role in ("code", "name") if role in self.roles])
+        records = _load(
+            session,
+            source,
+            select(objects.id, objects.object_type_key, objects.name, objects.parent_object_id)
+            .where(objects.id.in_(list(object_ids)), objects.workspace_key == source.workspace_key)
+            .subquery(),
+            keys,
+        )
+        code = self.roles.get("code")
+        return {
+            object_id: (code.read(record) if code is not None else None, self._name(record))
+            for object_id, record in records.items()
+        }
+
     def _related(
         self,
         session: Session,

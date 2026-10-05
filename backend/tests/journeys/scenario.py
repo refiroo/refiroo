@@ -461,6 +461,17 @@ def consumer_publications(world: World, *, version: int = 1, **params: Any) -> R
     return world.api.get(f"/api/consumer/{world.key('Capi')}/v{version}/publications", **params)
 
 
+def consumer_events(world: World, *, version: int = 1, **params: Any) -> Response:
+    """``GET /api/consumer/{consumerApi}/v{version}/events`` of ``Capi``."""
+    return world.api.get(f"/api/consumer/{world.key('Capi')}/v{version}/events", **params)
+
+
+def derive_events(world: World) -> int:
+    """Run the application's event deriver until every workspace is derived to its head (C10);
+    the journey application does not start its thread."""
+    return world.api.client.app.state.event_deriver.run_until_idle()
+
+
 def consumer_xref_typed(world: World, query: str, *, version: int = 1) -> Response:
     """XREF with ``query`` exactly as a client types it into the URL (C3b)."""
     return world.api.client.get(f"/api/consumer/{world.key('Capi')}/v{version}/xref?{query}")
@@ -681,6 +692,7 @@ def application(
         with seeds.application_environment(database, model_path(configuration)):
             app = create_app()
             app.state.run_job_worker = False
+            app.state.run_event_deriver = False
             with TestClient(app) as client:
                 yield World(configuration, Api(client), database)
     finally:

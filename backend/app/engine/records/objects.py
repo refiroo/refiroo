@@ -303,7 +303,9 @@ def decide_object_update(
             record.version,
             {**changes, **(audit_changes or {})},
             (record.object_id,),
-            object_subject(record),
+            object_subject(
+                record, previous_parent_object_id=item.parent_object_id, moved=moved
+            ),
         )
     )
     return record

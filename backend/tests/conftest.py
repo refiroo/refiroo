@@ -71,7 +71,7 @@ GROUP_DESCRIPTIONS = {
     "volume": "Track S volume fixture: read and write budgets as the dataset grows",
     "consumer": "consumer API definitions, reads, XREF, batch resolve, crosswalk, publications, parity",
     "jobs": "jobs, outcomes, idempotency, batches, background execution, import profiles, imports and exports",
-    "feed": "feed positions, publish entries and the feed read; later retention and consumer events",
+    "feed": "feed positions, publish entries and the feed read, retention, consumer events (C10)",
 }
 TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_model.py": ("model",),
@@ -138,6 +138,7 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_change_lists_volume.py": ("volume", "change_sets"),
     "test_consumer_list_volume.py": ("consumer", "volume"),
     "test_consumer_xref_volume.py": ("consumer", "volume"),
+    "test_consumer_event_volume.py": ("feed", "consumer", "volume"),
     "test_type_changes.py": ("change_sets", "records", "matrix"),
     "test_restructuring_planner.py": ("change_sets", "records", "matrix"),
     "test_restructuring_volume.py": ("volume", "change_sets"),
@@ -158,6 +159,7 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
 UNIT_GROUPS: dict[str, tuple[str, ...]] = {
     "consumer/": ("consumer",),
     "engine/change_sets/test_publish.py": ("change_sets", "feed"),
+    "engine/events/": ("feed", "consumer"),
     "engine/jobs/": ("jobs",),
     "engine/model/": ("model",),
     "engine/reads/": ("consumer",),
@@ -195,6 +197,7 @@ JOURNEY_GROUPS: dict[str, tuple[str, ...]] = {
     "J26": ("feed", "records", "change_sets"),
     "J28": ("consumer",),
     "J29": ("consumer",),
+    "J30": ("feed", "consumer"),
 }
 
 

@@ -14,6 +14,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from .config import Settings, get_settings, reload_settings
 from .consumer import router as consumer_router
 from .db import DatabaseStartupError, SessionLocal, create_database, get_engine
+from .engine.events.worker import EventDeriver
 from .engine.indexes.matrix_states import build_at_startup as build_matrix_states
 from .engine.jobs.inline import BatchLimits
 from .engine.jobs.worker import JobWorker, WorkerSettings
@@ -107,9 +108,17 @@ async def lifespan(application: FastAPI):
         worker = None
     if worker is not None:
         worker.start()
+    # The event deriver (C10) runs where the model can be served, as the job worker does.
+    deriver = application.state.event_deriver if application.state.run_event_deriver else None
+    if deriver is not None and not model_registry.ready:
+        deriver = None
+    if deriver is not None:
+        deriver.start()
     try:
         yield
     finally:
+        if deriver is not None:
+            deriver.stop()
         if worker is not None:
             worker.stop()
 
@@ -200,6 +209,12 @@ def create_app() -> FastAPI:
     )
     application.state.run_job_worker = True
     application.state.feed_retention_days = settings.feed_retention_days
+    # The consumer event deriver (C10). Tests that derive themselves set ``run_event_deriver`` to
+    # False before the application starts.
+    application.state.event_deriver = EventDeriver(
+        SessionLocal, retention_days=settings.feed_retention_days
+    )
+    application.state.run_event_deriver = True
     application.add_exception_handler(ApiError, api_error_handler)
     application.add_exception_handler(RequestValidationError, validation_error_handler)
     application.add_exception_handler(StarletteHTTPException, http_error_handler)

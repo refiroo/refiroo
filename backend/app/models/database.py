@@ -1027,6 +1027,63 @@ class AuditEventSubject(Base):
     object_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
 
 
+class ConsumerEvent(Base):
+    """A consumer event derived from a feed entry (Base 0.9 C10, CONSUMER_API C-D8).
+
+    One per position, consumer API, event and object; ``ordinal`` orders the events of one position.
+    It keeps no values: identity and the object are read when the event is read or sent (C-D7,
+    C-D89). ``object_type_key`` is the type the event is about (the previous one for a type change
+    told as a deletion), ``object_type`` its public name in the definition that derived it.
+    """
+
+    __tablename__ = "consumer_events"
+    __table_args__ = (
+        UniqueConstraint(
+            "workspace_key", "consumer_api", "position", "ordinal", name="uq_consumer_event_order"
+        ),
+        CheckConstraint("change IN ('created', 'updated', 'deleted')", name="ck_consumer_event_change"),
+    )
+
+    sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    event_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True)
+    workspace_key: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.key", ondelete="CASCADE"), nullable=False
+    )
+    consumer_api: Mapped[str] = mapped_column(String(160), nullable=False)
+    contract_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    event_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
+    change: Mapped[str] = mapped_column(String(20), nullable=False)
+    object_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    object_type_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    object_type: Mapped[str] = mapped_column(String(300), nullable=False)
+    changed: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    cause_kind: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    cause_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    occurred_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    model_release_id: Mapped[int] = mapped_column(
+        ForeignKey("model_releases.id", ondelete="RESTRICT"), nullable=False
+    )
+
+
+class ConsumerEventCheckpoint(Base):
+    """How far a workspace's feed is derived into consumer events (C10): every entry up to
+    ``position``. ``start_position`` is where derivation began (C-D92): earlier entries have no
+    events."""
+
+    __tablename__ = "consumer_event_checkpoints"
+
+    workspace_key: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.key", ondelete="CASCADE"), primary_key=True
+    )
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    start_position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+
+
 class Job(Base):
     """A bulk write, import or export: its parameters, state and counts (Base 0.9, ADR-036).
 

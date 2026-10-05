@@ -46,7 +46,7 @@ background jobs are J24, the change feed J26 and supplier files J27.
 | Relationship sets and coverage | J10 replace a record's related records, J16 coverage across ancestors (J09 retired) |
 | Change sets and history (designer) | J05 prepare and publish, J06 live beside a change set, J07 withdraw and restart from history, J17 review changes, J18 next model version |
 | Administration | J08 model release, J19 workspaces, J25 consumer API definition |
-| Integration | J11 bulk change, J20 discover, J21 read completely, J22 precise dataset, J23 business date, J24 background job, J26 follow changes, J27 supplier file (planned), J28 consumer read |
+| Integration | J11 bulk change, J20 discover, J21 read completely, J22 precise dataset, J23 business date, J24 background job, J26 follow changes, J27 supplier file (planned), J28 consumer read, J29 consumer lookup, J30 consumer events |
 | Operations | J12 run, refuse and recover |
 
 ## Records and structure
@@ -602,7 +602,7 @@ US-I01. **Scenario:** SC-14, SC-08. **Status:** delivered (0.8 W).
 **Actor:** model author. **Channel:** API (model documents), UI (model administration).
 **Stories:** US-I09 (consumer side), US-P04. **Status:** definitions delivered (0.9 C1); the
 consumer tier's reads in C2–C16 ([CONSUMER_API.md](../CONSUMER_API.md)); event declarations in C9,
-their events produced from C10.
+their events produced from C10 (J30).
 
 1. Declare a consumer API in the model: exposed types and their public names, fields with their
    sources, projections, parameters and lists, and a contract version.
@@ -1032,6 +1032,49 @@ of the wrong shape), `QUERY_OR_ID_REQUIRED` (an item's outcome) and `413 BATCH_T
 **Evidence today:** the J29 journey tests and, on a model shaped like the reference deployment's,
 the parity tests (`test_j28_j29_parity`, 0.9 C8); `QUERY_TOO_BROAD`, the exact-first rule and batch
 statements in `test_consumer_xref_volume`.
+
+### J30 — Follow a consumer API's changes
+
+**Actor:** integrator. **Channel:** API. **Stories:** US-I05. **Status:** the pull feed delivered
+(0.9 C10); webhooks follow in C11–C13 ([CONSUMER_API.md](../CONSUMER_API.md)).
+
+1. Read the events a consumer API declares for a workspace, in position order, from a position (`0`,
+   or a publication's `eventSequence`), a page at a time by cursor until caught up.
+2. Take each event's object from the event itself (the full payload), or only its identity.
+3. Store the cursor and resume from it; recognise a repeated event by its `eventId`.
+4. Recover from an expired position by re-reading a publication and following on from it.
+
+**Variants:**
+
+- **J30.1 Own changes**: creating, changing and deleting an exposed object makes `created`,
+  `updated` (naming the changed outputs the event watches) and `deleted` under each event that takes
+  that kind and type; a deletion says so and carries no object, code or name. Each event's position
+  is its raw feed entry's.
+- **J30.2 What an object shows**: changing a record the object shows makes `updated` for the object:
+  its parent (`parent`), an ancestor's name (`path`, `hierarchy`), a projected record or its ancestor
+  (the projection), a projection gaining or losing an item, also when the relationship is deleted.
+- **J30.3 Batches, publishes and type changes**: a batch's applied items are told with the job as
+  cause, a publish's changes with the publication as cause, at or below its `eventSequence`;
+  change-set work, refused writes and failed items make none. A type change is `deleted`, `created`
+  or `updated` with `objectType`, as seen from each event.
+- **J30.4 Reading**: `event`, and the definition's parameters as a list applies them; an event whose
+  object no longer exists passes every parameter but the type. A position holding many events is
+  read whole by cursor; a caught-up cursor later returns the next events. `payload=full` (default)
+  carries the object as get by ID answers it with the same parameters, `payload=identity` the same
+  events without it. An entity tag answers `304` until a new event is derived.
+- **J30.5 An expired position**: events expire with the change feed's retention, never past the
+  active publication's position. A position below the earliest is refused naming that publication
+  and its `eventSequence`; the reader re-reads the publication's lists and follows on from there.
+  Without a publication nothing expires.
+
+**Refusals:** `404 EVENTS_NOT_DECLARED`, `400 UNKNOWN_EVENT`, `400 PARAMETER_NOT_SUPPORTED`
+(`publication`, `asOf`, `to.`), `400 INVALID_PAGE_SIZE` (1–100 with the full payload, 1–1,000 with
+identity), `400 INVALID_PAYLOAD`, `400 INVALID_POSITION`, `400 CONFLICTING_PAGE_PARAMETERS`,
+`400 INVALID_CURSOR`, `409 EVENT_POSITION_AHEAD`, `410 EVENTS_EXPIRED`, and J28's API and workspace
+refusals.
+
+**Evidence today:** the J30 journey tests (`test_j30_consumer_events`); the deriver's plan in
+`tests/unit/engine/events/`; its cost in `test_consumer_event_volume`.
 
 ## Operations
 

@@ -59,9 +59,10 @@ RESERVED_PARAMETERS = frozenset(
         "workspace",
         "ref",
         "id",
-        # The pull feed's own names, beside a definition's parameters (C-D86).
+        # The pull feed's own names, beside a definition's parameters (C-D86, and C-D7 revised).
         "event",
         "after",
+        "payload",
     }
 )
 # Output fields the shared object carries whatever the definition says.

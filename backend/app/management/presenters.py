@@ -19,6 +19,7 @@ from ..engine.model.diff import SemanticChange
 from ..engine.reads.feed import FeedPage as FeedRead
 from ..engine.reads.object_query import live_object_paths
 from ..engine.records.attributes import load_attribute_values
+from ..engine.records.feed import changed_names
 from ..engine.records.values import row_value
 from ..engine.workspaces.catalogue import delete_blocker, load_workspace_runtime_state
 from ..models.database import (
@@ -219,24 +220,8 @@ def runtime_state_response(item: WorkspaceRuntimeState) -> WorkspaceRuntimeState
     )
 
 
-def _changed(event: AuditEvent) -> tuple[list[str], list[str]]:
-    """The field names and attribute types an entry changed, never values: what history and the
-    feed both show."""
-    changes = event.changes if isinstance(event.changes, dict) else {}
-    if "changedFields" in changes:
-        # A type change (ADR-034) stores its full before state, and a publish's entry (D15) only
-        # names; either names what changed and the attribute types it concerned, not values.
-        changed_fields = [str(key) for key in changes.get("changedFields", [])]
-        attribute_type_keys = sorted(str(key) for key in changes.get("attributeTypeKeys", []))
-    else:
-        # A batch overwrite records the version it replaced; it is how, not what, it changed.
-        changed_fields = sorted(str(key) for key in changes if key != "overwrite")
-        attribute_type_keys = _attribute_type_keys(event, changes.get("attributes"))
-    return changed_fields, attribute_type_keys
-
-
 def _audit_response(event: AuditEvent) -> AuditEventResponse:
-    changed_fields, attribute_type_keys = _changed(event)
+    changed_fields, attribute_type_keys = changed_names(event)
     return AuditEventResponse(
         id=event.event_id,
         aggregateType=event.aggregate_type,
@@ -250,24 +235,6 @@ def _audit_response(event: AuditEvent) -> AuditEventResponse:
             AuditCause(kind=event.cause_kind, id=event.cause_id) if event.cause_kind else None
         ),
     )
-
-
-def _attribute_type_keys(event: AuditEvent, attributes: Any) -> list[str]:
-    if not isinstance(attributes, dict):
-        return []
-    if event.aggregate_type == "relation" and event.action == "updated":
-        return sorted(
-            {
-                str(key)
-                for position in ("from", "to")
-                for key in (
-                    attributes.get(position)
-                    if isinstance(attributes.get(position), dict)
-                    else {}
-                )
-            }
-        )
-    return sorted(str(key) for key in attributes)
 
 
 def audit_event_page(events: Page[AuditEvent]) -> AuditEventPage:
@@ -287,7 +254,7 @@ def _feed_entry(event: AuditEvent, releases: dict[int, str]) -> FeedEntry:
         entry_id = changes.get("withdrawnPublicationId", event.aggregate_id)
     else:
         kind, entry_id = event.aggregate_type, event.aggregate_id
-        changed_fields, attribute_type_keys = _changed(event)
+        changed_fields, attribute_type_keys = changed_names(event)
     return FeedEntry(
         position=event.feed_position,
         eventId=event.event_id,

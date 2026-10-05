@@ -1,9 +1,11 @@
 """The consumer API document builder over the operators example model's definitions."""
 
+import json
 from pathlib import Path
 
 from openapi_spec_validator import validate as validate_openapi
 
+from app.engine.model.compiler import parse_model
 from app.engine.model.consumer_openapi import consumer_openapi
 from app.engine.model.loader import load_model
 
@@ -54,3 +56,30 @@ def test_as_of_is_documented_where_a_read_can_return_a_dated_type():
     for envelope in ("ListPage", "XrefPage", "ResolveAnswer"):
         schema = document["components"]["schemas"][envelope]
         assert "asOfApplied" in schema["properties"] and "asOfApplied" not in schema["required"]
+
+
+def test_a_definition_with_events_documents_its_pull_feed():
+    """A definition that declares events gets ``GET …/events`` (0.9 C10): the reserved names, its
+    parameters without ``to.`` names (the pull feed takes no crosswalk), the event and page schemas
+    with the object as get by ID answers it, and ``410``; one without events has no such path."""
+    document = json.loads(EXAMPLE.read_text())
+    (definition,) = document["consumerApis"]
+    model = parse_model(document)
+    plain = consumer_openapi(model, model.consumerApis[0], root_path="", resolve_max_items=1000)
+    assert "/api/consumer/rdm/v1/events" not in plain["paths"]
+
+    definition["events"] = [
+        {"key": "reference-data-changed", "objectTypes": list(definition["objectTypes"])[:2], "changes": ["created", "deleted"]}
+    ]
+    model = parse_model(document)
+    built = consumer_openapi(model, model.consumerApis[0], root_path="", resolve_max_items=1000)
+    validate_openapi(built)
+    events = built["paths"]["/api/consumer/rdm/v1/events"]["get"]
+    names = {item["name"] for item in events["parameters"]}
+    assert {"workspace", "event", "after", "cursor", "pageSize", "payload"} <= names
+    assert set(definition.get("parameters", {})) <= names
+    assert not any(name.startswith("to.") for name in names)
+    assert "410" in events["responses"] and "409" in events["responses"]
+    schemas = built["components"]["schemas"]
+    assert schemas["Event"]["properties"]["object"] == {"$ref": "#/components/schemas/Object"}
+    assert schemas["Event"]["properties"]["event"]["enum"] == ["reference-data-changed"]

@@ -38,6 +38,10 @@ RULES = {
     ("publications", "workspace_key"): ("workspaces", "RESTRICT"),
     ("workspace_runtime_state", "default_workspace_key"): ("workspaces", "RESTRICT"),
     ("relation_set_versions", "workspace_key"): ("workspaces", "CASCADE"),
+    # Consumer events and the deriver's checkpoint are derived from the workspace's feed (0.9 C10);
+    # they go with it.
+    ("consumer_events", "workspace_key"): ("workspaces", "CASCADE"),
+    ("consumer_event_checkpoints", "workspace_key"): ("workspaces", "CASCADE"),
     # Publications are history and never deleted; withdrawal changes a status. Their rows would go
     # with them.
     ("publication_objects", "publication_id"): ("publications", "CASCADE"),
@@ -55,6 +59,8 @@ RULES = {
     ("jobs", "model_release_id"): ("model_releases", "RESTRICT"),
     # A feed entry names the release its change ran under (Base 0.9 F1).
     ("audit_events", "model_release_id"): ("model_releases", "RESTRICT"),
+    # A consumer event names the release that derived it (0.9 C10, C-D88).
+    ("consumer_events", "model_release_id"): ("model_releases", "RESTRICT"),
     ("model_drafts", "base_model_release_id"): ("model_releases", "SET NULL"),
     ("model_applications", "model_release_id"): ("model_releases", "CASCADE"),
     ("model_application_object_types", "model_release_id"): ("model_releases", "CASCADE"),

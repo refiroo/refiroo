@@ -18,7 +18,7 @@ professional UI fixup. The answers below were checked against the code on 2026-1
 | --- | --- | --- |
 | The `apiKey` | The `key` of a `consumerApis` entry in the model (`models/schema.py`, `ConsumerApiDefinition.key`). A route matches it against the active release's definitions (`engine/reads/consumer_objects.consumer_definition`). It is validated as lowercase letters, digits and hyphens, unique in the release. It is a **namespace**: it selects which definition a request reads. It is not a credential and grants nothing. The backend has no authentication code at all. The starter model declares no consumer API. Only test models do | The name reads as a credential (`apiKey` is the industry term for one). Nothing in the UI shows it. It can be set only by editing model JSON in the model workbench |
 | Administrative settings | Every deployment setting is an environment variable (`config.py`, OPERATIONS.md). `GET /api/v1/capabilities` reports the capability groups and limits. The UI has two administration pages, Models and Workspaces, as rail entries | No page shows deployment settings or the engine's version |
-| API settings | No authentication (0.12, C-D1). Webhook subscriptions arrive with C11 as an API, and their UI administration is planned for 0.12 | No integration page exists |
+| API settings | No authentication (0.12, C-D1). Webhook subscriptions arrive with C11 as an API, signed from 0.9 (C-D12 revised 2026-10-05), and their UI administration is planned for 0.12 | No integration page exists |
 | Current contract version | `contractVersion` in the model. The only API that tells a caller is a `404 CONTRACT_VERSION_NOT_FOUND` with `details.contractVersion`. The API index (`GET /api/consumer`, C6) is not built yet | Nothing in the UI or API shows it before C6 |
 | Version in the documentation | The consumer router is excluded from OpenAPI (`include_in_schema=False`), so `/docs` shows no consumer route. C6 plans "per-definition OpenAPI" and V2 lists them on `/docs`, but neither says how paths and versions are written | Must be specified before C6 |
 | Settings menu | `app/SettingsMenu.tsx` is a popover at the bottom of the rail: a disabled "Sign in", and the theme choice | No settings area and no settings pages |
@@ -44,7 +44,8 @@ professional UI fixup. The answers below were checked against the code on 2026-1
   Operations in 0.11).
 - **API settings:** **Settings › Integration** (Consumer APIs, Webhooks, Jobs and feed, API
   reference) in 0.9, and **Settings › Security** (users and roles, OAuth clients and their access
-  per consumer API, webhook signing keys) in 0.12.
+  per consumer API, webhook signing-key rotation) in 0.12. A webhook's signing key is shown once, on
+  the Webhooks page when the subscription is created (0.9, C-D12 revised 2026-10-05).
 
 ## Principles
 
@@ -63,8 +64,8 @@ professional UI fixup. The answers below were checked against the code on 2026-1
    with its own URL. The rail's popover keeps only what is personal (account, theme) and links to
    Settings.
 5. **Secrets are never displayed.** `DATABASE_URL` is shown without its password. The cursor
-   signing key, and in 0.12 client secrets and signing keys after creation, are never returned by
-   any read.
+   signing key, webhook signing keys after creation (0.9), and in 0.12 client secrets, are never
+   returned by any read.
 
 ## Settings area
 
@@ -80,8 +81,8 @@ becomes a select at the top of the page.
 | Administration | Model | The current model workbench (releases, drafts, diff), moved | existing routes | U3 (0.9) |
 | Administration | Deployment | Every operator setting: name, environment variable, value, default, what it controls; capability groups on or off with the setting that switches them | `GET /api/v1/system`, `GET /api/v1/capabilities` | U3 (0.9) |
 | Administration | Operations | Health, readiness, metrics summary, last backup rehearsal | 0.11 routes | U7 (0.11) |
-| Integration | Consumer APIs | Per definition: name, namespace, contract version, base URL with copy, OpenAPI URL, a link to its source on `/docs`, exposed types, lists, events. The model release that declares it, with a link to the model | `GET /api/consumer` (C6), the active release | U4 (0.9) |
-| Integration | Webhooks | Subscriptions: create, edit, suspend, resume, delete; delivery state, last error, next attempt. Unsigned until 0.12, which adds the signing-key column | `/api/v1/consumer-subscriptions` (C11–C12) | U5 (0.9) |
+| Integration | Consumer APIs | Per definition: name, namespace, contract version, base URL with copy, OpenAPI URL, a link to its source on `/docs`, exposed types, lists, events (each with its types, change kinds and watched outputs, read-only). The model release that declares it, with a link to the model | `GET /api/consumer` (C6), the active release | U4 (0.9) |
+| Integration | Webhooks | Subscriptions: create (the signing key shown once), edit, suspend, resume (after expired events: the lost range and the publication to re-sync from, and an explicit confirmation of the loss, C-D93), delete; events chosen from the definition's declared events, each linked to its declaration on Consumer APIs; payload (`full` or `identity`); delivery state, last error, next attempt. Signed from 0.9 (C-D12 revised 2026-10-05); 0.12 adds rotation | `/api/v1/consumer-subscriptions` (C11–C12) | U5 (0.9) |
 | Integration | Jobs and feed | Recent jobs with status and outcome counts; cancel; batch and job limits; feed retention | job routes (B1–B2), `GET /api/v1/capabilities` | U4 (0.9) |
 | Integration | API reference | Links to `/docs`, one per source, with its version | `GET /api/consumer` | U4 (0.9) |
 | Security | Users and roles; OAuth clients and their access per consumer API; signing keys; sign-in | 0.12 routes | U8 (0.12) |
@@ -188,7 +189,7 @@ The user chose Direction B, "Open" (U-D6, ADR-039), which sets the values for po
 | U5 | 0.9 | U4, C12 | Webhooks page over the subscriptions API |
 | U6 | 0.10 (first) | U2 | The remaining surfaces on the foundation: record browser and inspector, relation matrix, tree, change sets and review, publications, model workbench. Before 0.10's editor (A4), which is built on it |
 | U7 | 0.11 | U3 | Operations page over 0.11's health, readiness, metrics and backup routes |
-| U8 | 0.12 | U5 | Security pages: sign-in and account; users and roles; OAuth clients and their access per consumer API; webhook signing keys (shown once, rotate). Replaces 0.12's "UI administration" items with pages in this area |
+| U8 | 0.12 | U5 | Security pages: sign-in and account; users and roles; OAuth clients and their access per consumer API; webhook signing-key rotation (keys are generated and shown once from 0.9, U5). Replaces 0.12's "UI administration" items with pages in this area |
 
 Order in the 0.9 queue (U-D4): CN1 right after C15; U1 any time as a filler; U2 and U3 after C13
 and before J4, so the import screen is built on the foundation; U4 after V2; U5 after C12. All
@@ -385,7 +386,7 @@ U-D1–U-D6 were decided by the user on 2026-10-05; U-D7–U-D9 on 2026-10-06.
 | --- | --- | --- | --- |
 | U-D1 | Rename `apiKey` in public contracts? | **Decided 2026-10-05: yes.** Before C6. The JSON field becomes `consumerApi` (in the API index, subscriptions, events and error details), and the route placeholder is written `{consumerApi}` in docs. The model keeps `key`, as every model element does. Error codes stay (`CONSUMER_API_NOT_FOUND` already says it) | "API key" means a credential to every integrator, and 0.12 forbids credentials in URLs, so the name invites the very misreading C-D1 rules out. Today only the route carries it (no error does, C-D59). After C6 and C11 it would sit in three more contracts |
 | U-D2 | Deployment settings: environment only, or editable in the UI? | **Decided 2026-10-05: read-only for now**, to revisit once 0.11 and 0.12 make runtime changes safe. Environment only; the UI shows them read-only with the variable name | They govern startup, limits and capability gates. Changing them at runtime needs propagation across processes (0.11) and authorization (0.12). Runtime objects (subscriptions, clients, keys) are data and are edited in the UI |
-| U-D3 | Webhook subscription UI in 0.9 or 0.12? | **Decided 2026-10-05:** 0.9 (U5), unsigned like the API; 0.12 adds keys | The API arrives in C11. A page over it is cheap, and integrators need to see delivery state while testing |
+| U-D3 | Webhook subscription UI in 0.9 or 0.12? | **Decided 2026-10-05:** 0.9 (U5), unsigned like the API; 0.12 adds keys. _Amended 2026-10-05 (C-D12 revised):_ signed from 0.9, the key shown once on create; 0.12 adds rotation | The API arrives in C11. A page over it is cheap, and integrators need to see delivery state while testing |
 | U-D4 | Where the UI foundation lands | **Decided 2026-10-05:** U1–U5 in 0.9 above the cut line; U6 first in 0.10 | The settings pages and the 0.9 import screen are new surfaces and should be built once, on the foundation. U6 must precede the 0.10 editor |
 | U-D5 | Should the starter model declare a consumer API? | **Decided 2026-10-05: yes**, a small one in U4, as a starter content release | Without one, the Consumer APIs page and `/docs` show nothing on a fresh install. Tests keep their own definitions |
 | U-D6 | Visual direction | **Decided 2026-10-05: Direction B, "Open", for now** ([ADR-039](DECISIONS.md#adr-039--the-open-visual-direction-light-ruled-surfaces-with-colour-kept-for-context-and-state)). Chosen by the user in U1 from two mockups | It is a product decision, not an engineering one |

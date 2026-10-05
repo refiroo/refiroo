@@ -387,7 +387,8 @@ its parameters, state, progress and one outcome per item, kept for a retention p
 - **Two failure policies**, named per request: `atomic` (all or nothing, bounded) and `independent`
   (each item on its own, in order, seeing the items before it).
 - **Inline or background**, chosen by the caller, never by size. An inline job runs in the request. A
-  background job is stored and run by a worker thread in the API process (`engine/jobs/worker.py`) in
+  background job is stored and run by a worker thread in the API process (`engine/jobs/worker.py`;
+  the consumer event deriver is its sibling, `engine/events/worker.py`) in
   chunks: a chunk's writes, outcomes and the job's checkpoint commit in one transaction, so a resumed
   job starts at its first item without an outcome and never repeats or skips one.
 - **Lease.** A worker claims a job with `leaseOwner` and `leaseExpiresAt` in a short transaction and
@@ -520,7 +521,7 @@ a maintained path for very deep hierarchies.
 
 ### Change feed and consumer API (0.9)
 
-The audit log is the ordered source of the change feed and, later, consumer events (ADR-037).
+The audit log is the ordered source of the change feed and of consumer events (ADR-037).
 - **Positions.** Every live change takes a gapless per-workspace feed position from
   `workspaces.feed_position`, incremented under the workspace row lock the live write unit already
   holds (`records/feed.py`).
@@ -531,7 +532,9 @@ The audit log is the ordered source of the change feed and, later, consumer even
   records what changed, with the publication as cause, then its `published` entry, whose position
   is the publication's.
 - **What an entry carries.** Identity and changed keys, never values. A containment relation is its
-  record's parent and has no entry of its own.
+  record's parent and has no entry of its own; a record's entry names its parent, and its previous
+  one when it moved (`feed.object_subject`, C-D95). `feed.changed_names` reads the changed names
+  from a live entry (which holds values) and a publish entry (which holds names) alike.
 - **Reading.** The feed is read by position (`reads/feed.py`, `GET /workspaces/{key}/feed`), with
   filtered pages scanning a bounded range.
 - **Retention.** Entries older than `FEED_RETENTION_DAYS` expire from the feed, not from the audit
@@ -565,6 +568,22 @@ The audit log is the ordered source of the change feed and, later, consumer even
   scored objects, and a `scoresFrom` parameter's predicate to the related records promotion reads
   (C-D42, C-D43). The tier checks its query parameters against the definition itself, so
   the management API's unknown-parameter check leaves its routes alone.
+- **Consumer events** (`engine/events/`, 0.9 C10). A deriver thread in the API process, beside the
+  job worker, turns each workspace's feed into the events the definitions declare: once a second it
+  compares each workspace's feed position with its row in `consumer_event_checkpoints` and derives
+  a page of up to 500 entries (`deriver.derive_page`) in one REPEATABLE READ transaction holding
+  that row `FOR UPDATE SKIP LOCKED`. It takes no workspace lock, so a write never waits for it, and
+  two processes never derive one range. `plan.py` reads from a definition alone, once per release,
+  which objects each kind of change reaches and which of their outputs change (C-D82); the page's
+  entries become rows of that plan in Python, and one `INSERT … SELECT` per definition finds the
+  reached objects in the database (children, descendants by a recursive query, relation owners),
+  merges what one position does to one object, keeps what each event takes and writes
+  `consumer_events`, committed with the checkpoint. An entry is derived under its own release
+  (C-D88), its reach read from live data as the deriver finds it (C-D89). Events store no values;
+  the pull feed (`reads/consumer_events.py`) reads each object's identity, and with the full
+  payload the object itself through `ConsumerObjects`, in the read's one snapshot. The hourly sweep
+  deletes events below the feed's retention floor (`reads/feed.retention_floor`); the audit log is
+  never pruned.
 
 ### Domain extension
 
@@ -577,7 +596,8 @@ values, redaction within immutable history, keyed inbound upsert and additive va
 
 Authentication and authorization are deferred to the 0.12 security release: OAuth 2.0 with
 engine-issued JWT access tokens for the backend, frontend and consumer APIs, model-configurable
-application, object-type and operation permissions, HMAC-signed webhooks and UI administration of
+application, object-type and operation permissions, webhook signing-key rotation (signing itself
+arrives in 0.9) and UI administration of
 clients and subscriptions, replacing the default-enabled workspace administration. No API keys, and no
 credential in a URL. Record-level rules come only for demonstrated needs.
 

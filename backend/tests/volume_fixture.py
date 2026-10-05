@@ -28,6 +28,7 @@ from sqlalchemy import event, insert, select, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
+from app.engine.events.worker import THREAD_NAME as EVENT_DERIVER_THREAD
 from app.engine.indexes import matrix_states
 from app.engine.indexes.snapshot_values import insert_value_rows, release_value_types, value_rows
 from app.engine.jobs.worker import THREAD_NAME as JOB_WORKER_THREAD
@@ -1261,12 +1262,13 @@ def measure(engine: Engine) -> Iterator[RequestCost]:
     ``rows_loaded`` counts entities the ORM builds from result rows, which is where whole-set
     loading shows: a bounded page loads a page of rows, a whole-membership read loads the set.
     The background job worker's statements are not the request's: its sweep and poll after the
-    application starts used to land in a measurement whenever a run was slow enough (H4b).
+    application starts used to land in a measurement whenever a run was slow enough (H4b). Nor are
+    the event deriver's, which polls once a second (C10).
     """
     cost = RequestCost()
 
     def counted() -> bool:
-        return threading.current_thread().name != JOB_WORKER_THREAD
+        return threading.current_thread().name not in (JOB_WORKER_THREAD, EVENT_DERIVER_THREAD)
 
     def on_execute(*_args: Any) -> None:
         if counted():
@@ -1302,8 +1304,13 @@ def volume_app(directory: Path, shape: VolumeShape) -> Iterator[tuple[Any, Volum
     model_path = directory / "volume-model.json"
     model_path.write_text(json.dumps(volume_model()))
     try:
-        with seeds.application_environment(url, model_path), TestClient(create_app()) as client:
-            yield client, VolumeDataset.from_payload(payload["dataset"])
+        with seeds.application_environment(url, model_path):
+            app = create_app()
+            # Its once-a-second poll would land in the statements a test counts; a test that
+            # measures derivation runs the deriver itself (C10).
+            app.state.run_event_deriver = False
+            with TestClient(app) as client:
+                yield client, VolumeDataset.from_payload(payload["dataset"])
     finally:
         seeds.drop(url.database)
 

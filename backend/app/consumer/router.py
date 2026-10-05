@@ -23,11 +23,21 @@ from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..common.cursors import signed_scope
+from ..common.cursors import decode_cursor, signed_scope
 from ..common.pagination import PageRequest, paginate_sequence
 from ..db import SessionLocal
 from ..engine.model.consumer_openapi import consumer_openapi, consumer_openapi_path
 from ..engine.model.registry import ModelSnapshot, resolve_model_snapshot, resolve_pinned_release
+from ..engine.reads.consumer_events import (
+    AFTER_POSITION,
+    PAGE_SIZES,
+    SORT,
+    EventsRequest,
+    cursor_filters,
+    cursor_scope,
+    derived_head,
+    read_consumer_events,
+)
 from ..engine.reads.consumer_lists import consumer_list, read_consumer_list
 from ..engine.reads.consumer_objects import consumer_definition, read_consumer_object
 from ..engine.reads.consumer_parameters import TARGET_PREFIX, consumer_filter, target_names
@@ -59,8 +69,10 @@ _XREF_ONE = _OBJECT | {"query", "expect"}
 _XREF = _XREF_ONE | (_PAGING - {"seek", "includeTotal"})
 # The publications list reads live data in the order of publication, which no caller seeks (C-D66).
 _PUBLICATIONS = frozenset({"workspace"}) | (_PAGING - {"seek"})
+# The pull feed pages by position and cursor (C-D91) and chooses its payload (C-D7 revised).
+_EVENTS = frozenset({"workspace", "event", "after", "cursor", "pageSize", "payload"})
 # Every name a route of the API serves.
-_ROUTE_NAMES = _LIST | _XREF
+_ROUTE_NAMES = _LIST | _XREF | _EVENTS
 # The names a batch resolve item holds besides the definition's parameters (C-D47).
 _ITEM = frozenset({"ref", "query", "id"})
 _REF_LENGTH = (1, 200)
@@ -348,6 +360,121 @@ def get_publications(
 
     return _answer(
         request, response, workspace, live, lambda _read: read_publications(session, workspace.key, page, page_size)
+    )
+
+
+@router.get("/{consumer_api}/v{contract_version}/events", response_model=None)
+@reads_own_parameters
+def get_events(
+    consumer_api: str, contract_version: str, request: Request, response: Response, session: DbSession
+) -> dict[str, Any] | Response:
+    """The pull feed: the definition's events in the workspace, in position order, from a position
+    or a cursor, narrowed by ``event`` and the definition's parameters, with each object or its
+    identity only (C10, C-D88–C-D92, C-D7 revised). The read is one snapshot, so ``stateAt`` is the
+    position its objects show."""
+    session.connection(execution_options={"isolation_level": "REPEATABLE READ"})
+    active = resolve_model_snapshot(session)
+    definition = consumer_definition(active.model, consumer_api, contract_version)
+    if not definition.events:
+        raise api_error(
+            404,
+            "EVENTS_NOT_DECLARED",
+            f"Consumer API '{definition.key}' declares no events at contract version {definition.contractVersion}",
+        )
+    parameters = _Parameters.check(request, definition, serves=_EVENTS, crosswalk=False)
+    workspace = _workspace(session, parameters.single("workspace"))
+    asked = _events_request(parameters, definition, workspace.key)
+    derived, _start = derived_head(session, workspace.key)
+
+    def live() -> _Read:
+        tag = entity_tag(("events", workspace.key, str(derived), active.release_id), definition.contractVersion)
+        return _Read(active.model, definition, ConsumerSource(workspace.key), parameters, tag)
+
+    return _answer(
+        request,
+        response,
+        workspace,
+        live,
+        lambda read: read_consumer_events(
+            session,
+            read.model,
+            read.definition,
+            workspace,
+            asked,
+            retention_days=request.app.state.feed_retention_days,
+        ),
+    )
+
+
+def _events_request(parameters: _Parameters, definition: ConsumerApiDefinition, workspace_key: str) -> EventsRequest:
+    """The pull feed's request, checked: its events, payload and page size, and where it starts,
+    from ``after`` or a cursor issued for the same API, workspace, events and parameters."""
+    declared = {event.key for event in definition.events}
+    event_keys = tuple(dict.fromkeys(parameters.listed.get("event", []))) if "event" in parameters.raw else ()
+    unknown = [key for key in event_keys if key not in declared]
+    if unknown:
+        raise api_error(
+            400,
+            "UNKNOWN_EVENT",
+            f"Consumer API '{definition.key}' declares no event '{unknown[0]}'; it declares {', '.join(sorted(declared))}",
+            {"events": unknown, "path": "/query/event"},
+        )
+    payload = parameters.single("payload") or "full"
+    if payload not in PAGE_SIZES:
+        raise api_error(
+            400, "INVALID_PAYLOAD", "payload must be 'full' or 'identity'", {"path": "/query/payload"}
+        )
+    maximum, default = PAGE_SIZES[payload]
+    raw_size = parameters.single("pageSize")
+    try:
+        page_size = default if raw_size is None else int(raw_size)
+    except ValueError:
+        page_size = 0
+    if not 1 <= page_size <= maximum:
+        raise api_error(
+            400,
+            "INVALID_PAGE_SIZE",
+            f"pageSize must be a whole number from 1 to {maximum} with payload '{payload}'",
+            {"path": "/query/pageSize"},
+        )
+    cursor, raw_after = parameters.single("cursor"), parameters.single("after")
+    if cursor is not None and raw_after is not None:
+        raise api_error(
+            400,
+            "CONFLICTING_PAGE_PARAMETERS",
+            "Give either after or cursor: a cursor already holds where it continues",
+            {"path": "/query/cursor"},
+        )
+    if cursor is not None:
+        try:
+            decoded = decode_cursor(
+                cursor,
+                scope=cursor_scope(definition, workspace_key),
+                sort=SORT,
+                filters=cursor_filters(event_keys, parameters.definition),
+                position_size=2,
+            )
+            start = (int(decoded[0]), int(decoded[1]))
+        except (ApiError, ValueError):
+            raise api_error(
+                400, "INVALID_CURSOR", "Cursor does not continue this read", {"path": "/query/cursor"}
+            ) from None
+    else:
+        try:
+            after = 0 if raw_after is None else int(raw_after)
+        except ValueError:
+            after = -1
+        if after < 0:
+            raise api_error(
+                400, "INVALID_POSITION", "after must be a whole number, 0 or more", {"path": "/query/after"}
+            )
+        start = (after, AFTER_POSITION)
+    return EventsRequest(
+        start=start,
+        page_size=page_size,
+        payload=payload,
+        event_keys=event_keys,
+        parameters=parameters.definition,
     )
 
 
@@ -686,14 +813,19 @@ class _Parameters:
         serves: frozenset[str],
         parent: str | None = None,
         applies_definition: bool = True,
+        crosswalk: bool = True,
     ) -> _Parameters:
         """Refuse a name the API does not know (``UNKNOWN_PARAMETER``), then one it knows that this
         route does not apply (``PARAMETER_NOT_SUPPORTED``): one outside ``serves``, a list's parent
         parameter off its list, or a definition parameter on a route that takes them in its body
         (batch resolve's ``defaults``). A ``to.`` name is a definition parameter's crosswalk target,
-        one per read (C-D56, C-D57)."""
+        one per read (C-D56, C-D57); a read without ``crosswalk`` (the pull feed) applies none."""
         targets = target_names(definition)
-        applied = set(serves) | (set(definition.parameters) | set(targets) if applies_definition else set())
+        applied = set(serves) | (
+            set(definition.parameters) | (set(targets) if crosswalk else set())
+            if applies_definition
+            else set()
+        )
         if parent is not None:
             applied.add(parent)
         known = applied | _ROUTE_NAMES | set(definition.parameters) | set(targets) | {

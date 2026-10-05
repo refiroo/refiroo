@@ -107,6 +107,8 @@ class _Document:
             f"{self.base}/resolve": {"post": self._resolve()},
             f"{self.base}/publications": {"get": self._publications()},
         }
+        if definition.events:
+            paths[f"{self.base}/events"] = {"get": self._events()}
         intro = f"{definition.description}\n\n" if definition.description else ""
         return {
             "openapi": OPENAPI_VERSION,
@@ -128,15 +130,15 @@ class _Document:
 
     # --- parameters ---
 
-    def _definition_parameters(self, parent: str | None = None) -> list[dict[str, Any]]:
-        """The definition's parameters and their ``to.`` names. On a list whose parent parameter shares
-        a definition parameter's name, the name addresses the parent there, so it is listed once, as
-        the parent (C1; the consumer router reads it so)."""
+    def _definition_parameters(self, parent: str | None = None, *, crosswalk: bool = True) -> list[dict[str, Any]]:
+        """The definition's parameters and, unless ``crosswalk`` is off, their ``to.`` names. On a list
+        whose parent parameter shares a definition parameter's name, the name addresses the parent
+        there, so it is listed once, as the parent (C1; the consumer router reads it so)."""
         found = []
         for name, parameter in self.definition.parameters.items():
             if name != parent:
                 found.append(_query(name, _parameter_description(parameter), _LISTED))
-        for name in self.targets:
+        for name in self.targets if crosswalk else ():
             projection = self.definition.parameters[name]
             assert isinstance(projection, ProjectionParameter)
             found.append(
@@ -303,6 +305,39 @@ class _Document:
             "responses": _responses(_ref("PublicationPage"), "WORKSPACE_NOT_FOUND"),
         }
 
+    def _events(self) -> dict[str, Any]:
+        declared = ", ".join(f"`{event.key}`" for event in self.definition.events)
+        return {
+            "summary": "Events",
+            "description": (
+                f"The changes this API tells its consumers about ({declared}), in position order: `created`,"
+                " `updated` naming the watched outputs that changed, `deleted`. Start after a position"
+                " (`after`: `0`, or a publication's `eventSequence`) and continue by `cursor`, a lasting"
+                " resume token; `caughtUp` says the events derived so far (`headPosition`) are read."
+                " With `payload=full` (default) each event carries its object as get by ID answers it with"
+                " the same parameters, at the feed position `stateAt`; `payload=identity` leaves it out. A"
+                " parameter filters as on a list, against live data; an event whose object no longer exists"
+                " passes every parameter but the type. Events are kept as long as the change feed's"
+                " entries: an older position is `410 EVENTS_EXPIRED`, naming the publication to re-read."
+            ),
+            "parameters": [
+                _WORKSPACE,
+                _EVENT_NAMES,
+                _AFTER,
+                _EVENT_CURSOR,
+                _EVENT_PAGE_SIZE,
+                _PAYLOAD,
+                *self._definition_parameters(crosswalk=False),
+            ],
+            "responses": _responses(
+                _ref("EventPage"),
+                "EVENTS_NOT_DECLARED, WORKSPACE_NOT_FOUND",
+                conflict="EVENT_POSITION_AHEAD",
+                bad="UNKNOWN_EVENT, INVALID_PAYLOAD, INVALID_POSITION",
+                gone="EVENTS_EXPIRED",
+            ),
+        }
+
     # --- schemas ---
 
     def _schemas(self) -> dict[str, Any]:
@@ -412,7 +447,46 @@ class _Document:
             "required": ["code", "message"],
         }
         schemas["Error"] = _object({"error": _ref("ErrorBody")})
+        if self.definition.events:
+            schemas.update(self._event_schemas())
         return schemas
+
+    def _event_schemas(self) -> dict[str, Any]:
+        event = {
+            "eventId": {"type": "string", "description": "The same event delivered again has the same ID."},
+            "position": {"type": "integer", "description": "The feed position of the change that caused it."},
+            "occurredAt": {"type": "string", "format": "date-time"},
+            "event": {"type": "string", "enum": [item.key for item in self.definition.events]},
+            "change": {"type": "string", "enum": ["created", "updated", "deleted"]},
+            "contractVersion": {"type": "integer", "description": "The contract version that derived it."},
+            "objectType": {"type": "string"},
+            "id": {"type": "string"},
+            "code": {"description": "The object's code now; null when it no longer exists."},
+            "name": {"type": ["string", "null"], "description": "The object's name now; null when it no longer exists."},
+            "changed": {"type": "array", "items": {"type": "string"}},
+            "cause": _object(
+                {"kind": {"type": "string", "enum": ["user", "job", "publication"]}, "id": {"type": "string"}},
+                ["kind"],
+            ),
+        }
+        full = {
+            "stateAt": {"type": "integer", "description": "The feed position whose state `object` shows."},
+            "object": _ref("Object"),
+        }
+        return {
+            "Event": _object({**event, **full}, list(event)),
+            "EventPage": _object(
+                {
+                    "items": {"type": "array", "items": _ref("Event")},
+                    "workspace": {"type": "string"},
+                    "pageSize": {"type": "integer"},
+                    "cursor": {"type": "string"},
+                    "caughtUp": {"type": "boolean"},
+                    "headPosition": {"type": "integer"},
+                    "earliestPosition": {"type": "integer"},
+                }
+            ),
+        }
 
     def _fields(self) -> dict[str, Any]:
         shape = self.definition.object
@@ -553,6 +627,36 @@ _PAGING = [
     {"name": "position", "in": "query", "description": "Start at this position (from 0).", "schema": {"type": "integer", "minimum": 0}},
     {"name": "from", "in": "query", "description": "`end`: the last page.", "schema": {"type": "string", "enum": ["start", "end"]}},
 ]
+_EVENT_NAMES = {
+    "name": "event",
+    "in": "query",
+    "description": "Keep these events (their keys); several, repeated or comma-separated, are alternatives.",
+    **_LISTED,
+}
+_AFTER = {
+    "name": "after",
+    "in": "query",
+    "description": "Start after this position: `0`, or a publication's `eventSequence`. Not with `cursor`.",
+    "schema": {"type": "integer", "minimum": 0, "default": 0},
+}
+_EVENT_CURSOR = {
+    "name": "cursor",
+    "in": "query",
+    "description": "`cursor` of a page: continue after it, with the same events and parameters.",
+    "schema": {"type": "string"},
+}
+_EVENT_PAGE_SIZE = {
+    "name": "pageSize",
+    "in": "query",
+    "description": "1–100 with `payload=full` (default 100), 1–1,000 with `payload=identity` (default 500).",
+    "schema": {"type": "integer", "minimum": 1, "maximum": 1000},
+}
+_PAYLOAD = {
+    "name": "payload",
+    "in": "query",
+    "description": "`full`: each event with its object; `identity`: without it.",
+    "schema": {"type": "string", "enum": ["full", "identity"], "default": "full"},
+}
 _SEEK = {"name": "seek", "in": "query", "description": "Start at this sort value.", "schema": {"type": "string"}}
 _INCLUDE_TOTAL = {
     "name": "includeTotal",
@@ -578,7 +682,13 @@ _RESPONSES = {
 
 
 def _responses(
-    ok: dict[str, Any], missing: str, *, conflict: str | None = None, bad: str | None = None, tagged: bool = True
+    ok: dict[str, Any],
+    missing: str,
+    *,
+    conflict: str | None = None,
+    bad: str | None = None,
+    gone: str | None = None,
+    tagged: bool = True,
 ) -> dict[str, Any]:
     headers = {
         "RDM-Workspace": {"$ref": "#/components/headers/RDM-Workspace"},
@@ -601,4 +711,6 @@ def _responses(
         responses["304"] = {"$ref": "#/components/responses/NotModified"}
     if conflict:
         responses["409"] = {"description": f"Conflict: {conflict}.", **error}
+    if gone:
+        responses["410"] = {"description": f"Gone: {gone}.", **error}
     return dict(sorted(responses.items()))

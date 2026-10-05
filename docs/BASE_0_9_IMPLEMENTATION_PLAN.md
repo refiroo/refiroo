@@ -16,8 +16,8 @@ read, D31), [B3](#b3-relation-and-relation-set-items) (2026-10-03, D35–D39),
 [T1a](#t1a-copies-inside-the-database) (2026-10-04), [T1b](#t1b-one-error-code-pattern) (2026-10-04),
 [C2](#c2-consumer-object-and-projections) (2026-10-04, C-D21–C-D26), C3–C5 and
 [C14](#c14-batch-resolve) (2026-10-05, C-D47–C-D53), [C15](#c15-crosswalk) (2026-10-05, C-D54–C-D58),
-[CN1](#cn1-the-consumer-apis-name-in-public-contracts) (2026-10-05, C-D59), [C6a](#c6a-publications) (2026-10-05, C-D60–C-D68), [C6b](#c6b-the-contract-documents) (2026-10-05, C-D69–C-D70), [V2](#v2-consumer-sources) (2026-10-05), [C8](#c8-parity-acceptance) (2026-10-05, C-D72–C-D75), [C16](#c16-asof-in-the-consumer-tier) (2026-10-05, C-D76–C-D80), [C9](#c9-event-definitions) (2026-10-05, C-D81–C-D86).
-**Next:** C10, in the order of the [delivery queue](#delivery-queue) (U4 waits for U3).
+[CN1](#cn1-the-consumer-apis-name-in-public-contracts) (2026-10-05, C-D59), [C6a](#c6a-publications) (2026-10-05, C-D60–C-D68), [C6b](#c6b-the-contract-documents) (2026-10-05, C-D69–C-D70), [V2](#v2-consumer-sources) (2026-10-05), [C8](#c8-parity-acceptance) (2026-10-05, C-D72–C-D75), [C16](#c16-asof-in-the-consumer-tier) (2026-10-05, C-D76–C-D80), [C9](#c9-event-definitions) (2026-10-05, C-D81–C-D86), [C10](#c10-event-deriver-event-store-and-pull-feed) (2026-10-06, C-D87–C-D92, C-D95).
+**Next:** C11, in the order of the [delivery queue](#delivery-queue) (U4 waits for U3).
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
 Effective dates and consumer API definitions extend the model, so the starter becomes content release
@@ -139,7 +139,7 @@ position, retention and `410` recovery (D5, D8). Consumer events and webhooks (C
 derive from the same sequence (C-D11), so positions compare.
 
 **Track C — consumer API.** CONSUMER_API C1–C6 and C8 (read tier), batch resolve (C14), crosswalk (C15)
-and `asOf` (C16, after Track Q's effective periods), then events C9–C13 without signing; C7 access
+and `asOf` (C16, after Track Q's effective periods), then events C9–C13, with full-object payloads and signed webhooks (C-D7, C-D12 revised 2026-10-05); C7 access
 control moved to 0.12 (C-D1). Its open decisions C-D2–C-D16 are settled first.
 
 **Track V — API reference** (Track D in earlier drafts). Scalar at `/docs`, bundled script by default, CDN by setting, management
@@ -233,7 +233,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 21 | [C8](#c8-parity-acceptance) | C3–C6, C14, C15 | Parity acceptance; the consumer read line's checkpoint; `objectType` in projections, the parent keyed by output names (C-D72–C-D75) — **delivered 2026-10-05** ([record](#c8-delivery-record)) |
 | 22 | [C16](#c16-asof-in-the-consumer-tier) | C2, Q4 | `asOf` in the consumer tier; SC-11 (consumer) (C-D76–C-D80) — **delivered 2026-10-05** ([record](#c16-delivery-record)) |
 | 23 | [C9](#c9-event-definitions) | C2 | Event definitions (C-D81–C-D86) — **delivered 2026-10-05** ([record](#c9-delivery-record)) |
-| 24 | C10 | C9, F2 | Event deriver, event store, pull feed |
+| 24 | [C10](#c10-event-deriver-event-store-and-pull-feed) | C9, F2 | Event deriver, event store, pull feed (C-D87–C-D92, C-D95) — **delivered 2026-10-06** ([record](#c10-delivery-record)) |
 | 25 | C11 | C10 | Subscriptions |
 | 26 | C12 | C11 | Dispatcher |
 | 26a | [U5](SETTINGS_AND_UI_PLAN.md#packages-track-u) | U4, C12 | Settings › Integration › Webhooks over the subscriptions API (U-D3) |
@@ -1734,7 +1734,7 @@ Scope, order and acceptance are in [CONSUMER_API.md](CONSUMER_API.md#delivery-pa
 | C9 | C2 | `consumer`, `model` | `events` validated and in the contract check |
 | C10 | C9, F2 | `feed`, `consumer` | Deriver checkpoint per workspace; pull feed with `410` |
 | C11 | C10 | `feed`, `contract` | Subscriptions API under its capability, host allowlist, suspension on model change |
-| C12 | C11 | `feed` | Ordered per-change and coalesced delivery, retry, suspend, resume |
+| C12 | C11 | `feed` | Ordered per-change and coalesced delivery, retry, suspend, resume; a resume after expired events refused `409 EVENTS_EXPIRED` unless `acknowledgeLoss` (C-D93) |
 | C13 | C12 | `feed`, `volume` | Event scenarios 1–9, 11–13 and parity scenario 14; bulk-volume delivery budget |
 
 #### C1: Consumer API definitions
@@ -4515,6 +4515,304 @@ coverage are untouched; audit stays the outbox C10 reads (C-D8).
 - **Not run:** `startup` (no migration), `volume` (no read or write path changed), `feed` (nothing
   derived), the frontend (unchanged), the full suites (R).
 
+#### C10: Event deriver, event store and pull feed
+
+**Delivered 2026-10-06** ([record](#c10-delivery-record)). Planned 2026-10-05. Decisions C-D87–C-D92
+approved by the user the same day (C-D89 with a note, amended in delivery), and C-D7 and C-D12
+revised with C-D91 amended (full-object payloads, signing in 0.9); C-D95 found and decided in
+delivery.
+**Needs:** C9 (the declaration and what an event means, C-D82, C-D83), F2 (positions, the retention
+floor and the `410` baseline). **Groups:** `feed`, `consumer`, `startup` (migration), `contract`
+(route), `volume` (deriver cost, C-D82's fan-out, once).
+**Design:** CONSUMER_API "What counts as a change", "Event definitions", "Delivery", "Pull feed", "How
+events are produced"; C-D7 (revised), C-D8, C-D9, C-D11, C-D15, C-D16; INTEGRATION_API F3–F6; D40.
+
+**Behaviour.** After a change to live data commits, the engine turns its feed entries into the
+consumer events its definitions declare, in position order and without the write waiting. An
+integrator reads them per consumer API, filtered like a list, and resumes where it stopped:
+
+```text
+GET /api/consumer/{consumerApi}/v{contractVersion}/events?workspace=…&event=…&after=…&cursor=…&pageSize=…&payload=…&{parameters}
+```
+
+```jsonc
+{
+  "workspace": "main",
+  "items": [{
+    "eventId": "…", "position": 184223, "occurredAt": "2026-10-06T10:14:03Z",
+    "event": "reference-data-changed", "change": "updated", "contractVersion": 1,
+    "objectType": "CodelistValue", "id": "…", "code": "…", "name": "…",
+    "changed": ["path", "parent"],
+    "cause": { "kind": "publication", "id": "…" },
+    "stateAt": 184230,      // payload=full (default): the object as get-by-ID answers it, at this position
+    "object": { "masterId": "…", "code": "…", "name": "…", "path": [ … ], "translations": [ … ] }
+  }],
+  "cursor": "…",            // resume token: the next page, or the next poll when caught up
+  "caughtUp": false,
+  "headPosition": 184230,   // the position events are derived up to
+  "earliestPosition": 170001
+}
+```
+
+- A live write, a batch and a publish make events; change-set work, model releases and refused or
+  rolled-back writes make none (the audit log is the outbox, C-D8).
+- Renaming a container makes `updated` for each object below it that shows its name (`parent`,
+  `path`, `hierarchy`, an `ancestor:` field of a projection), one per object (C-D82).
+- An expired position answers `410 EVENTS_EXPIRED` naming the active publication and its
+  `eventSequence`; the receiver reads the publication's lists and follows on from there (C-D15).
+- Each event carries the object as get-by-ID answers it, so a receiver keeping a copy never calls
+  back; `payload=identity` leaves it out (C-D7 revised). A `deleted` event has no object.
+
+**What exists today** (checked 2026-10-05):
+
+- **The outbox.** Each live change's audit entry has `workspace_key`, `feed_position`,
+  `model_release_id`, `cause_kind`/`cause_id` and `feed_subject` (object type and application, or a
+  relation's type and both ends, kept for after a delete). Live entries keep values in `changes`
+  (`name` from and to, `attributes`); publish entries keep names only (`changedFields`,
+  `attributeTypeKeys`, D15, D16). `management/presenters._changed` reduces both to names, in the
+  management tier, which the engine cannot import.
+- **Deletes.** An object's delete entry holds its type and cascade root, a relation's its type and
+  ends; neither holds `code` or `name`, and after commit the record is gone.
+- **The raw feed read** (`engine/reads/feed.read_feed`, `_time_floor`) computes the retention floor
+  (D40) and the `410` baseline; the deriver and the pull feed reuse the rule.
+- **Releases.** `ModelRegistry.resolve_release` resolves any installed release, not only the active
+  one.
+- **Consumer reads.** `ConsumerObjects` composes outputs from roles, attribute fields, `parent`,
+  `path`, `hierarchy` and projections (with `ancestor:` fields); `consumer_parameters.consumer_filter`
+  turns parameters into SQL predicates over a live record alias; `consumer/etag.entity_tag` tags a
+  read by its data version; `consumer_contract` holds C9's `EventContract`s.
+- **The job worker** (`engine/jobs/worker.py`) is an in-process thread started in the lifespan, with
+  an hourly sweep; tests drive it themselves (`run_job_worker` False, `run_until_idle`).
+- **The volume fixture** has a heavy group of 20,000 items and a consumer definition
+  (`volume_baseline.consumer_scenarios`), so C-D82's container rename can be measured there.
+- **Nothing** derives or stores consumer events; there is no `/events` route, and the per-definition
+  OpenAPI has no events path.
+
+**Design.**
+
+- **One vocabulary.** `_changed` moves to `engine/records/feed.changed_names`; the presenters import
+  it. The feed's answer does not change.
+- **Impact plan** (`engine/events/plan.py`), compiled once per release and definition with events and
+  cached by release: for each kind of raw change, which objects it reaches and which outputs it
+  changes. Built only from the definition's sources, so nothing branches on a key:
+  1. an exposed record's own change: `created`, `deleted`; for `updated`, the outputs whose sources
+     are among the changed names (`name`, attribute keys; a move changes `parent`, `path` and
+     `hierarchy`); a type change by C-D83;
+  2. a record the `parent` block reads (its `code` sources, `name`, type): its exposed children's
+     `parent`;
+  3. a record `path` or `hierarchy` names: its exposed descendants at any depth;
+  4. a projected record whose read fields changed: the owners through the projection's relation, the
+     projection named;
+  5. an ancestor an `ancestor:` field reads, renamed, or a projected record moved: the projected
+     records below it, then their owners;
+  6. a relation of a projection's type created or deleted: the owner end (its ends are in the entry).
+- **Deriver** (`engine/events/deriver.py`): per workspace, the entries after its checkpoint up to the
+  head, 500 at a time, in one REPEATABLE READ transaction. Entries are grouped by their release
+  (C-D88); each impact is one set statement (owners through relations, descendants through a recursive
+  query on `parent_object_id`), and the events go in with `INSERT … SELECT`, never row by row. One
+  event per position, definition, event and object, its `changed` merged, kept only when the event's
+  `objectTypes`, `changes` and `watch` take it (C-D82, C-D87). `code` and `name` are read in the same
+  statement (C-D89). Events and the checkpoint commit together, so a crash repeats and skips nothing;
+  `eventId` is a UUIDv5 of the entry's `eventId`, the definition, the event and the object, so a
+  derivation repeated from the same state gives the same IDs.
+- **Store** (migration `20261006_01_consumer_events`): `consumer_events` (`event_id` unique,
+  `workspace_key`, `consumer_api`, `contract_version`, `event_key`, `position`, `ordinal`, `change`,
+  `object_id`, model type key and public name, `code`, `name`, `changed`, cause, `occurred_at`,
+  `model_release_id`), unique on (`workspace_key`, `consumer_api`, `position`, `ordinal`), which is
+  also the read's index. `consumer_event_checkpoints` (`workspace_key` key, `position`): the migration
+  starts each workspace by C-D92; a new workspace starts at 0.
+- **Running it** (`engine/events/worker.py`): a thread beside the job worker, started in the lifespan
+  when the registry is ready. Once a second it compares each workspace's feed position with its
+  checkpoint (one statement) and derives where they differ; the write path is untouched. It locks a
+  workspace's checkpoint row `FOR UPDATE SKIP LOCKED`, so two processes never derive one range, and
+  takes no workspace lock, so a write never waits for it. Tests drive it (`run_event_deriver` False,
+  `run_until_idle`).
+- **Retention:** the hourly sweep deletes events below the raw feed's floor (`FEED_RETENTION_DAYS`,
+  never past the active publication's position + 1, D40) with one `DELETE` per workspace. The audit
+  log is not pruned.
+- **Pull feed** (`engine/reads/consumer_events.py`, the route in `consumer/router.py`), paged and
+  filtered by C-D90 and C-D91. With `payload=full` the page's objects are composed by get-by-ID's code
+  (`ConsumerObjects.compose` over the page's object IDs, one call per page, the request's parameters
+  applied as on a list), under the contract version served; `stateAt` is the feed position read with
+  them, as the `ETag` reads it. An event whose object no longer exists has no `object` (every
+  `deleted`, and an earlier event of an object deleted since, whose own `deleted` follows). With
+  `payload=identity` nothing is composed. `payload` joins the
+  reserved parameter names (C-D86's list); no model or fixture declares a parameter so named
+  (checked 2026-10-05). An unknown `event` is `400 UNKNOWN_EVENT`; a definition without events
+  `404 EVENTS_NOT_DECLARED`; `after` past the raw feed's head `409 EVENT_POSITION_AHEAD` (a position
+  derived later is not ahead: the page is empty and `caughtUp` true); an expired one `410
+  EVENTS_EXPIRED` (C-D92). The `ETag`'s data version is the checkpoint, so a poller gets `304` until
+  a new event is derived.
+- **Contract documents:** a definition with events gets `GET …/events` in its OpenAPI, with its
+  parameters, `payload` and the event item, whose `object` is the definition's object schema (present
+  with `payload=full`); the API index is unchanged. The management OpenAPI lock should not
+  change; checked once.
+- **No frontend, no setting** (retention is shared; the pull feed is a consumer read, ungated until
+  0.12).
+
+**Decisions** (status per row):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| C-D87 | How the deriver knows a watched output changed | **Approved 2026-10-05.** From the names the entry records (the feed's changed fields and attribute types), not by comparing values: an output changed when one of its sources is among them. Publish entries keep names only (D15, D16), so values cannot be compared for every entry. So an `updated` may name an output whose answer stayed the same (a value rewritten unchanged; a second source written while the first is set); receivers re-read, as at-least-once already asks. The alternative, before and after values in every entry, changes the write path C-D8 keeps unchanged and copies values the erasure door wants kept out of the feed |
+| C-D88 | Which release an entry is derived under, and which events a version serves | **Approved 2026-10-05.** The release the entry was written under (`model_release_id`), so an activation between a write and its derivation cannot change its events. Each event keeps its definition's `contractVersion`. The pull feed at `v{N}` serves every event of the consumer API, whatever version derived it, each naming its own: serving only vN's would drop, without a word, the changes made just before a version change from a receiver resuming across it (principle 6). Reading `v{N}` once it is no longer installed stays `404 CONTRACT_VERSION_NOT_FOUND`, as for reads |
+| C-D89 | What owners and identity are read from | **Approved 2026-10-05.** _Amended 2026-10-05 (found in delivery), by the user:_ `code` and `name` are not stored with the event; they are read when a page is read or a batch sent, by the same read as the full object (C-D7 revised), so the event store keeps no values (the erasure door is untouched) and the value encoding is not repeated in SQL. Owners are still resolved at derivation. Approved originally with the user's note that a deletion must say so: a `deleted` event always carries `change: "deleted"` with the object's `id` and public `objectType` (both kept in the entry), and only `code` and `name` are `null`. Live data when the deriver runs, a moment after commit, not the state at the entry's position. A projected record's owners are its relations then; one deleted since is an entry of its own naming the former owner, so no owner is missed, only reached at the later position. `code` and `name` are the object's values then, `null` when it no longer exists (always for `deleted`: the entry holds no values, D16). The alternative, deriving inside the write's transaction, sees the exact state but puts C-D82's fan-out on the write path, which C-D8 rules out |
+| C-D90 | How the pull feed's parameters filter | **Approved 2026-10-05.** Against live data at the read, through the lists' predicates (C3) on the event's object; `objectType` against the type stored with the event. An event whose object no longer exists (every `deleted`) passes every other parameter, since there is no state to test. CONSUMER_API's "state after the change, last state for a deletion" would need a snapshot per event, which C-D7 declined; a receiver told of a deletion outside its scope ignores an ID it never had. `publication`, `asOf` and `to.` are `400 PARAMETER_NOT_SUPPORTED` there. C11's subscription filters reuse this |
+| C-D91 | How the pull feed pages and resumes | **Approved 2026-10-05.** _Amended 2026-10-05 with C-D7's revision:_ `pageSize` by payload: `full` 1–100, default 100, as the lists, since each item is a whole object; `identity` as below. Originally: `after={position}` starts after a position (a publication's `eventSequence`, or `0`); the response's opaque `cursor` continues from the last item, inside a position too, which a container rename can fill with thousands of events (F6). Events never change, so the cursor is a lasting resume token; `caughtUp` says the derived head is reached. `pageSize` 1–1,000, default 500, as the raw feed (items are small, unlike the lists' objects). A filtered page scans at most ten pages of events and may come back short or empty with the cursor advanced (as F4) |
+| C-D7 (revised) | What an event carries | **Approved 2026-10-05.** Fully event driven: `payload=full` (default) carries the object exactly as get-by-ID answers it with the request's or subscription's parameters, composed by get-by-ID's code when the page is read or the batch sent, under the contract version served, never stored, labelled `stateAt`. `payload=identity` leaves it out, as snapshot and thin events are offered side by side; it costs one switch, since events, positions and IDs are shared. A `deleted` event has no object. `payload` is reserved. Replaces "identity only; receivers read the object" |
+| C-D12 (revised) | Webhook signing | **Approved 2026-10-05.** Signed in 0.9: with data in events, a forged one could plant false reference data. C11 generates the key on create and returns it once; C12 signs every request. Not in C10 (no webhook yet); recorded here because C-D7's revision causes it. 0.12 keeps rotation |
+| C-D95 | A projection over a containment relation | **Approved 2026-10-05 (found in delivery).** The validator allows a projection over a parent–child relation (none is declared today), but the feed names no parent for a delete, nor the former parent of a record a publish moved, so a removed or moved child's former parent could not be found. Each record's feed subject now also names its `parentObjectId`, and its `previousParentObjectId` when it moved, on every path that builds one (`feed.object_subject`). The raw feed's answer is unchanged. The deriver then updates both parents. Rejected: refusing such projections (closes a door), or the current parent only (a silent loss) |
+| C-D92 | Where derivation starts, and what expires | **Approved 2026-10-05.** An existing workspace starts at its active publication's `feedPosition` (`0` without one), so a receiver re-syncing from that publication (C-D15) finds every later event; earlier entries are not derived (their state is gone). Events expire with the raw feed's floor (D40); `after` below `earliestPosition - 1`, or below the start, is `410 EVENTS_EXPIRED` with the active publication and its `eventSequence`; with no publication nothing expires. Starting at the head instead would put the active publication's position below the earliest one, so the `410`'s own baseline would be refused |
+
+**Journey.** USER_JOURNEYS gains **J30 — Follow a consumer API's changes** (integrator, API,
+US-I05): J30.1 own changes, J30.2 what an object shows, J30.3 batches and publishes, J30.4 reading
+and filters, J30.5 expiry and re-sync; C11–C13 add webhooks to it. J25's status says events are
+produced from C10. API_JOURNEYS gains the route, its parameters and codes. Generated A and B's `Capi`
+gains C9's two events (from J25.3) plus a third, over `R` and `R2` without `watch`, so their seeds
+rebuild once; the parity fixture already carries CONSUMER_API's event.
+
+**Test cases** (journey tests on generated A and B, written first and confirmed failing: the route
+is `404`), each read after the test runs the deriver:
+
+1. **J30.1 Own changes.** Creating an `R` makes `created` under the first and third events; renaming
+   it `updated` with `changed` `[name]`; setting `R.n` makes `updated` `[score]` under the third event
+   only (not watched by the first); deleting it `deleted` with `code` and `name` `null`. Each item's
+   `position` equals the raw feed entry's, `cause` `user`. A `D` created and deleted makes the second
+   event's two items; editing it makes none there.
+2. **J30.2 What an object shows.** Renaming an `R` makes `updated` for its `R2` children with
+   `parent`, `path` and `hierarchy` (the first event's watch keeps `parent`); renaming the `K` an `R`
+   projects through `B11` makes `updated` `[pairedToken]` for that `R`; renaming a `G` makes
+   `updated` `[permits]` for each `R` owning a `D` below it (`ancestor:G.name`); deleting the `B11`
+   relation makes `updated` `[pairedToken]` for the former owner.
+3. **J30.3 Batches and publishes.** A background batch's items make events with the job as `cause`; a
+   change set publishing several changes makes events at its entries' positions with the publication
+   as `cause`, all at or below its `eventSequence`; change-set edits and discard, a rejected item and
+   a refused write make none.
+4. **J30.4 Reading.** `event=` narrows to one event; `kind`, `container` and `token` narrow as the
+   list does; a deleted `R` passes `container` (C-D90). With `pageSize=2`, a position holding five
+   events is read whole by cursor, and the cursor of a caught-up page later returns the next events.
+   With `payload=full` (default) each item's `object` equals get-by-ID of that object read at the
+   same moment with the same parameters (`permit` limiting `permits` on both), and a `deleted` item
+   has none; `payload=identity` returns the same items, positions and `eventId`s without `object` and
+   `stateAt`; `pageSize=101` is `400 INVALID_PAGE_SIZE` with `full` and allowed with `identity`.
+   `ETag` answers `304` until a new event is derived. Refusals: `400 UNKNOWN_EVENT`, `400
+   PARAMETER_NOT_SUPPORTED` (`publication`, `asOf`), `400 INVALID_PAGE_SIZE`, `409
+   EVENT_POSITION_AHEAD`, `404 WORKSPACE_NOT_FOUND`, `404 EVENTS_NOT_DECLARED` (a definition without
+   events).
+5. **J30.5 Expiry and re-sync.** With entries aged past retention (as J26.6 ages them), `after` below
+   the floor is `410 EVENTS_EXPIRED` naming the active publication and its `eventSequence`; reading
+   that publication's list and following from its `eventSequence` ends with live data; without a
+   publication nothing expires.
+6. **The deriver.** Writes made while it is stopped, then derived together, give the events (and
+   `eventId`s) derived one write at a time; two derivers at once derive each range once; a release
+   activated between a write and its derivation leaves the event under the write's release (C-D88).
+7. **Unit** (`tests/unit/engine/events/test_plan.py`): the plan built from a definition, each impact
+   kind, and C-D83's type change seen from an event (moving out `deleted`, in `created`, between two of
+   its types `updated` with `objectType`).
+8. **Startup:** the migration on a clean database and from `20261005_03` with a workspace that has a
+   publication (its checkpoint at the publication's position); the lifespan starts the deriver.
+9. **Volume, measured once:** deriving 500 live entries and a 10,000-entry publish at both seeded
+   sizes (the same statements per page), and renaming the 20,000-item heavy group with `path` watched
+   (events written, wall time), recorded in POSTGRESQL_BUDGETS §7 as C-D82 asks; the pull feed's first
+   page and a filtered page at both sizes, each with `payload=full` (100 composed objects: the same
+   statements at both sizes, as get-by-ID's budget) and `payload=identity`.
+
+**Checks:** J30 on generated A and B; the plan's unit tests; the `feed` and `consumer` groups once;
+`startup` (migration and lifespan); `test_openapi_contract` and `test_api_journeys` (the lock
+expected unchanged); the new `test_consumer_event_volume` once; `ruff`. Not run: the frontend
+(unchanged), the write groups (the write path is untouched; `presenters` only imports the moved
+vocabulary, covered by J26 in `feed`), the full suites and `budget` (R).
+
+**Exit:** live changes become consumer events in position order without slowing writes; the pull feed
+pages, filters, resumes and expires them with a re-sync path, with the object or without it; C-D82's
+fan-out is measured.
+
+**Docs at delivery:** CONSUMER_API ("Pull feed", "How events are produced", C-D87–C-D92, `payload`
+among the reserved names, the C10 row; C-D7's and C-D12's revisions are already written); API.md (the events read); ARCHITECTURE (the deriver, its checkpoint and lock, the two tables);
+OPERATIONS (shared retention, the deriver's head beside the feed's); USER_JOURNEYS J30 and J25's
+status; API_JOURNEYS; CURRENT_FUNCTIONALITY; EXECUTION_GUIDE (new modules and counts);
+POSTGRESQL_BUDGETS §7; CHANGELOG, PROJECT_STATUS, TODO.
+
+**Composable domains (ADR-032):** the deriver reads the audit log and leaves it as it is, and the plan
+is built from any definition's sources. One door is touched: **erasure**. Events keep `code` and
+`name` copies for up to the retention period, so a future erasure must reach `consumer_events` too
+(added to COMPOSABLE_DOMAINS at delivery). A `full` event's object is composed when read or sent and
+never stored, so it adds nothing to that. Identity, attribute storage, the bulk APIs, `match` and
+mapping coverage are untouched.
+
+##### C10 delivery record
+
+**Delivered 2026-10-06**, as designed, with C-D87–C-D92, C-D7's revision (both payloads), C-D89's
+amendment and C-D95.
+
+- **Feed subject and vocabulary** (`engine/records/feed.py`): a record's entry names its
+  `parentObjectId`, and its `previousParentObjectId` when it moved, on the live update and the
+  publish (C-D95); `changed_names` moved there from `management/presenters`, which imports it. The
+  raw feed's answer is unchanged.
+- **Plan** (`engine/events/plan.py`): `FeedChange.of` reads an entry by name; `EventPlan` turns a
+  page's changes into `Own` rows (the record's own change) and `Reach` rows (children, descendants,
+  self and descendants, each optionally through a projection's relation to its owners), from the
+  definition alone (C-D82, C-D87).
+- **Deriver** (`engine/events/deriver.py`, `worker.py`): `derive_page` per workspace, 500 entries,
+  REPEATABLE READ, the checkpoint row `FOR UPDATE SKIP LOCKED`; per release and definition one
+  `INSERT … SELECT` over parallel-array CTEs, a recursive descendant walk and relation joins,
+  merged per position and object, classified per event (C-D83 in SQL), ordered by `row_number()`.
+  `EventDeriver` polls once a second, sweeps hourly through `reads/feed.retention_floor` (made
+  public from `read_feed`), and starts in the lifespan as `app.state.event_deriver`
+  (`run_event_deriver` False in tests that derive themselves).
+- **Store** (migration `20261006_01`): `consumer_events` and `consumer_event_checkpoints`, existing
+  workspaces started at their active publication's position (C-D92).
+- **Pull feed** (`engine/reads/consumer_events.py`, the route in `consumer/router.py`): `after` or
+  `cursor`, `caughtUp`, both payloads with their page sizes, `event` and the definition's parameters
+  (C-D90), the bounded narrowed scan, `409 EVENT_POSITION_AHEAD`, `410 EVENTS_EXPIRED`, the ETag
+  over the checkpoint, one REPEATABLE READ snapshot so `stateAt` is exact. `ConsumerObjects`
+  gains `identities` (`code` and `name`, one statement). `payload` is a reserved parameter name;
+  `event`, `after` and `payload` are route names, so other reads answer `PARAMETER_NOT_SUPPORTED`
+  for them.
+- **Contract documents**: a definition with events gets `GET …/events` with `Event` and
+  `EventPage`; the management OpenAPI lock is unchanged.
+- **Docs**: CONSUMER_API (pull feed, how events are produced, the filters line, reserved names,
+  C-D87–C-D92 and C-D95, the C10 row), API.md (consumer events), ARCHITECTURE, OPERATIONS,
+  USER_JOURNEYS (J30; J29 added to the integration row it was missing from), API_JOURNEYS,
+  CURRENT_FUNCTIONALITY, EXECUTION_GUIDE (`feed` 55, `consumer` 276, `volume` 77), POSTGRESQL_BUDGETS
+  §7, INTEGRATION_API F6, CHANGELOG, PROJECT_STATUS, TODO.
+
+**Differs from the plan:**
+- **Identity is read at delivery** (C-D89 amended by the user): `code` and `name` are not stored, so
+  the event store keeps no values and the erasure door is untouched; COMPOSABLE_DOMAINS needs no
+  note.
+- **C-D95** (found in delivery, decided by the user): the feed subject names the parents, so a
+  projection over a containment relation (allowed by the validator, declared nowhere today) misses
+  no former parent.
+- **The journey configurations are unchanged**: J30's tests activate a release with events, as
+  J25.3 does, since events seeded into `Capi` would break J25.3 and J25.4; no seed rebuilt.
+- **Case 6** compares two derivations of the same state. Derived as each write happens, a rename
+  does not reach a child created after it; derived later, it does, since reach is read when the
+  deriver runs (C-D89). Both are correct under C-D89; the test pins the repeatable one.
+- **The event ID** is an MD5 digest of the entry, definition, event and object, written as a UUID,
+  computed in the `INSERT … SELECT` (the plan said UUIDv5; PostgreSQL has no built-in v5).
+- **No 10,000-entry publish case in the volume test**: the small seeds hold too few items, and a
+  publish's entries take the same page path as live ones, which the 500-entry case pins.
+- **Volume applications start no deriver thread**: its poll landed in a test that counts every
+  statement (`test_capturing_and_publishing_a_whole_workspace_bind_no_parameter_per_record`); the
+  thread is also left out of `measure`.
+
+**Checks:**
+- **Failing first:** the 14 J30 cases (generated A and B) failed (no deriver); all pass.
+- **Targeted:** J30 14, the plan's unit tests 6, the OpenAPI test 3, the C10 startup cases with
+  the clean boot 3, `test_consumer_event_volume` 2: all passed.
+- **Groups** `records`, `change_sets`, `mapping`, `matrix`, `feed`, `jobs`, `consumer`, `model`,
+  `startup` and `contract` in parallel: 1,493 passed, 3 failed (`test_api_journeys`' error-code
+  inventory and the two `test_foreign_keys` cases, which name every rule); the inventories updated,
+  those 7 cases passed. Their serial part: 3 passed.
+- **`volume`** in parallel: 76 passed after volume applications stopped starting the deriver
+  thread (1 failed before, above).
+- **Full volume, once** (C-D82): the heavy group's rename tells 20,001 objects in 724 ms, 5
+  statements; the reads 11.5–54.5 ms (POSTGRESQL_BUDGETS §7).
+- `ruff check app/ tests/`: clean.
+- **Not run:** `queries`, `workspaces`, `model_admin` (no boundary of theirs changed), the frontend
+  (unchanged), `budget` and the full suites (R).
+
 ## Track V — API reference
 
 #### V1: API reference page
@@ -4729,7 +5027,8 @@ This build touches every door in [COMPOSABLE_DOMAINS.md](COMPOSABLE_DOMAINS.md#d
   batch that caused a change is recorded on its audit entry, so a value-source field stays additive.
 - **Derived values:** export and consumer projections read values; neither assumes every value is stored.
 - **History and erasure:** feed entries and events carry identity and changed field keys, not value
-  blobs (C-D7), so a redaction never has to rewrite the feed.
+  blobs (C-D7), so a redaction never has to rewrite the feed. A `full` event's object (C-D7 revised)
+  is composed at delivery and never stored.
 - **Inbound flow:** Track B is this door; recurring feeds and one-off loads use one contract.
 - **Matching and review:** the consumer `match` declaration stays independent of `mappingGrid`
   vocabulary.
@@ -4771,7 +5070,7 @@ D31–D34 raised by F1 (2026-10-03), D35–D39 raised by B3 (2026-10-03), and D4
 | D13 | Batch and job limits | Synchronous batch 1,000 items and 5 MB; `atomic` job 10,000 items; background job 1,000,000 items and 200 MB upload; all settings, reported by capabilities, confirmed against the volume fixture in the first B package. **Confirmed 2026-10-01 (B1)** on the fixture at scale 0.005: an item costs about its single write (creates 15 statements live and 26 in a change set, against 16 and 42 for a single create; upserts with half updates 20.5 and 34.0), and the time per item stays flat as the change set grows once its lookups probe by key. A batch is one transaction holding SQLite's writer lock: 1,000 upserts 3.3 s live and 6.8 s in a change set, 10,000 atomic creates 29 s and 55 s. The defaults stay, and `SQLITE_LOCK_WAIT_SECONDS` (60 by default) lets other writes wait for that lock instead of failing at the driver's 5 s; an operator who wants shorter waits lowers the limits. The background limits are B2's. **Restated on PostgreSQL (0.9.0-alpha.1 PG5, 2026-10-03):** since PG3b items are decided in memory and written in bulk: 1,000 upserts 0.8 s live and in a change set (0.06 statements per item), 10,000 atomic creates 5.4 s live and 17.8 s in a change set (0.01–0.02 per item); a batch holds its workspace's lock (PG3), so other writes in that workspace wait and other workspaces do not; `SQLITE_LOCK_WAIT_SECONDS` is gone (PG2). The defaults stay ([POSTGRESQL_BUDGETS](POSTGRESQL_BUDGETS.md)) | B, J |
 | D14 | Retention of jobs, outcomes, files and idempotency keys | 7 days, one setting; afterwards the job is `expired` with its summary kept | B, J |
 | D15 | How a publish appears in the audit log | Found 2026-09-29: publishing writes one `published` event with no per-record subjects (`workspace_audit.record_change_set_published`), and the records it changes in live were audited earlier as change-set edits. The feed could not tell what a publish changed. Publish now writes one audit entry per record it applies to live (`created`, `updated`, `deleted`, `reclassified`), each with identity and changed field keys (no values), subjects, a feed position and the `published` event as its cause. Bounded like single writes; replaces the "publishing never amplifies events per object" rule | F, C |
-| D16 | The `reclassified` payload in feeds | Its stored before state (ADR-034) stays in the audit log. Feed entries and consumer events carry identity and changed keys only (C-D7, erasure door) | F, C |
+| D16 | The `reclassified` payload in feeds | Its stored before state (ADR-034) stays in the audit log. Feed entries and consumer events carry identity and changed keys only (C-D7, erasure door). _Amended 2026-10-05 (C-D7 revised):_ a `full` consumer event is delivered with the object as get-by-ID answers it, composed at delivery and never stored, so the feed and the event store still keep no values beyond the event's identity (C-D89) | F, C |
 | D17 | Query item shape with `select` and `expand` | **Accepted 2026-09-29 (Q3).** Items always carry `id`, `objectTypeKey` and `version`. Without `select`, the rest of the object list's item; with it, the selected values under `fields`, keyed by field (built-ins, attributes, `ancestor:<type>` as `{id, name}` of the ancestor of that type nearest the root), not as item properties, since attribute keys are model keys and could equal one. `expanded` holds one entry per `expand` in request order: `relationTypeKey`, `direction`, `count`, `items` (`relationId`, `object`) and `nextCursor`, a signed cursor that continues on `GET /relations`, as the mapping conflict continuation does | Q |
 | D18 | Criteria at the other end of a hop | **Accepted 2026-09-29 (Q3).** The object list's rule over the types the binding allows there: built-in fields always, an attribute only when that is one type binding it as filterable; otherwise `invalid_query` at the criterion | Q |
 | D19 | Errors of the query body | **Accepted 2026-09-29 (Q3).** The body's shape (JSON types of known properties, unknown properties, bounds such as `pageSize` and `limit`) is `422 request_validation_error`, as on every other body. What depends on the model (field, operator, value for the field's type, binding, `select`, `expand`, `sort`, `asOf`) is `422 invalid_query` with `details.path`, a JSON pointer into the body | Q |

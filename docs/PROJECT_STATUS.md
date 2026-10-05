@@ -205,7 +205,14 @@ types, `AS_OF_NOT_SUPPORTED` and `INVALID_AS_OF`; SC-11 passes through the consu
 **C9 is delivered (2026-10-05):** a consumer API declares its change events (types, change kinds,
 watched outputs), validated at their pointers and guarded by the contract check; no event is
 produced yet (C-D81–C-D86, [record](BASE_0_9_IMPLEMENTATION_PLAN.md#c9-delivery-record)).
-Next: C10, in the order of the
+**C10 is delivered (2026-10-06):** a deriver thread turns each workspace's feed into the declared
+consumer events after commit, without writes waiting, and `GET …/events` serves them in position
+order with a lasting cursor, each with its object (or identity only), narrowed like a list,
+expiring with the feed and naming the publication to re-read; a container rename's fan-out stays in
+PostgreSQL (20,001 objects in 0.7 s at full volume). Webhook signing moved into 0.9 and events carry
+the object (C-D7 and C-D12 revised); C-D87–C-D92, C-D95
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#c10-delivery-record)).
+Next: C11, in the order of the
 [delivery queue](BASE_0_9_IMPLEMENTATION_PLAN.md#delivery-queue) (U4 waits for U3).
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).

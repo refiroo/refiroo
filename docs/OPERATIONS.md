@@ -54,7 +54,7 @@ Reported under `integrationJobs` by `GET /api/v1/capabilities`; a request over a
 | `JOB_CHUNK_ITEMS` | 500 | Items one background chunk commits |
 | `JOB_LEASE_SECONDS` | 120 | A worker's lease on a job, renewed each chunk |
 | `JOB_RETENTION_DAYS` | 7 | How long a finished job keeps its outcomes and idempotency key |
-| `FEED_RETENTION_DAYS` | 30 | How long the change feed answers a position; older positions are `410 FEED_POSITION_EXPIRED`, naming the publication to re-read. Entries after the active publication, and every entry of a workspace without one, are always answered. The audit log is not pruned |
+| `FEED_RETENTION_DAYS` | 30 | How long the change feed answers a position; older positions are `410 FEED_POSITION_EXPIRED`, naming the publication to re-read. Entries after the active publication, and every entry of a workspace without one, are always answered. Consumer events expire with the entries (`410 EVENTS_EXPIRED`) and are deleted hourly. The audit log is not pruned |
 | `CONSUMER_RESOLVE_MAX_ITEMS` | 1,000 | Items in one consumer batch resolve (`POST /api/consumer/…/resolve`); more are refused as `413 BATCH_TOO_LARGE`. Reported by `GET /capabilities` |
 
 ## Database
@@ -101,8 +101,8 @@ selected release. Restart the process; it then loads the database selection.
 While the service runs, `/health` asks the database each time: while the database is unreachable it
 answers `503`, and requests answer `500 INTERNAL_ERROR` with a correlation ID (logged in one line, no
 traceback). Nothing needs restarting: once the database is back, `/health` answers `200`, requests
-are served and the job worker resumes (it retries every 2 s and logs the outage once, then a line a
-minute).
+are served and the job worker and the event deriver resume (each retries every 2 s and logs the
+outage once, then a line a minute).
 
 ## Background jobs
 
@@ -122,6 +122,26 @@ retention every hour.
 
 A background job holds its workspace's write lock for one chunk at a time (0.25–0.5 s for 500 items),
 so other writes in that workspace wait at most that long.
+
+## Consumer events
+
+A second thread in the API process derives consumer events from each workspace's change feed for
+every consumer API that declares `events` (0.9 C10). It runs while the model is healthy, needs no
+setting and takes no workspace lock: writes never wait for it.
+
+- **Lag:** it looks once a second. A consumer reading `GET …/events` sees `headPosition`, how far
+  events are derived; the workspace's feed head (`GET /api/v1/workspaces/{key}/feed`) shows how far
+  writes are. A large fan-out (renaming a container with 20,000 objects below it) derives in under a
+  second.
+- **Several processes** share the work: each workspace is derived by one at a time through its row in
+  `consumer_event_checkpoints`.
+- **Crash or kill:** the page in progress rolls back and is derived again; no event is lost or made
+  twice.
+- **Database outage:** as the job worker: retries every 2 s, one traceback per outage, then a line a
+  minute.
+- **Retention:** events are deleted hourly with the change feed's floor (`FEED_RETENTION_DAYS`).
+- **Upgrade to 0.9 C10:** each workspace's events start at its active publication's position (all of
+  its feed without one); earlier changes have no events.
 
 ## Deployment topologies
 

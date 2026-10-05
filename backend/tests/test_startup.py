@@ -25,7 +25,8 @@ from app.db import DatabaseStartupError, get_engine, migration_config
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261005_03"
+HEAD = "20261006_01"
+PUBLICATION_READS = "20261005_03"
 TYPED_TRIGRAMS = "20261005_02"
 DECIMAL_ENCODING = "20261004_02"
 FEED_POSITIONS = "20261003_02"
@@ -511,3 +512,77 @@ def test_stored_job_codes_follow_the_upper_case_revision_both_ways(monkeypatch, 
             ("rejected", "UNKNOWN_OBJECT_TYPE"),
         ]
     assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+
+
+def _checkpoints(url: URL) -> dict[str, tuple[int, int]]:
+    engine = create_engine(url)
+    try:
+        with engine.connect() as connection:
+            rows = connection.execute(
+                text("SELECT workspace_key, position, start_position FROM consumer_event_checkpoints")
+            )
+            return {row.workspace_key: (row.position, row.start_position) for row in rows}
+    finally:
+        engine.dispose()
+
+
+def test_a_database_with_a_publication_upgrades_to_consumer_events(monkeypatch, databases):
+    """Base 0.9 C10 on a database at the previous revision with a published workspace and one without
+    a publication: the upgrade starts the first workspace's derivation at its publication's feed
+    position and the second at 0 (C-D92); the service then derives and serves the events, and
+    starts twice."""
+    url = seeds.create_empty()
+    databases.append(url)
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        assert errors == []
+        assert client.post("/api/v1/workspaces", json={"key": "second", "label": "Second"}).status_code == 201
+        change_set = client.post(
+            "/api/v1/workspaces/default/change-sets", json={"source": "currentLive"}
+        ).json()
+        published = client.post(
+            f"/api/v1/change-sets/{change_set['id']}/publication",
+            json={"expectedChangeSetVersion": change_set["version"], "expectedActivePublicationId": None},
+        )
+        assert published.status_code == 200, published.text
+        position = published.json()["feedPosition"]
+    command.downgrade(migration_config(url), PUBLICATION_READS)
+    assert _scalar(url, "SELECT to_regclass('consumer_events')") is None
+    for _start in range(2):
+        with serve(monkeypatch, _render(url)) as (client, errors):
+            assert errors == []
+            assert client.get("/health").json() == {"status": "ok"}
+        assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+        starts = {key: start for key, (_position, start) in _checkpoints(url).items()}
+        assert starts == {"default": position, "second": 0}
+
+
+def test_an_interrupted_consumer_events_revision_rolls_back_and_the_next_start_recovers(
+    monkeypatch, databases
+):
+    url = seeds.create_empty()
+    databases.append(url)
+    command.upgrade(migration_config(url), PUBLICATION_READS)
+    # The second table's name already taken: the revision fails after creating the first.
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        connection.execute(text("CREATE TABLE consumer_event_checkpoints (taken integer)"))
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        message = _assert_refused(
+            client,
+            errors,
+            "Database migration failed",
+            f"Current revision: {PUBLICATION_READS}",
+            f"target revision: {HEAD}",
+            "still at its current revision",
+        )
+        assert "consumer_event_checkpoints" in message
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == PUBLICATION_READS
+    assert _scalar(url, "SELECT to_regclass('consumer_events')") is None
+    with engine.begin() as connection:
+        connection.execute(text("DROP TABLE consumer_event_checkpoints"))
+    engine.dispose()
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        assert errors == []
+        assert client.get("/health").json() == {"status": "ok"}
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+    assert _checkpoints(url)["default"][1] == 0

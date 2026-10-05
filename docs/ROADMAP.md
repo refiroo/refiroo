@@ -494,8 +494,8 @@ to a proven identity.
   the consumer APIs. No API keys, and no credential in a URL
 - Authorization for application, object-type and operation scopes, and per consumer API definition for
   OAuth clients
-- HMAC signing keys for webhook subscriptions, shown once and rotatable; the `RDM-Signature` header
-  added to deliveries (CONSUMER_API C-D12)
+- Rotation of webhook signing keys. _Revised 2026-10-05:_ the keys themselves and the
+  `RDM-Signature` header arrive in 0.9 (CONSUMER_API C-D12 revised), since events carry data
 - UI administration of OAuth clients and their access, and of webhook subscriptions and their keys.
   _Approved 2026-10-05:_ as the settings area's Security pages (sign-in and account, users and
   roles, OAuth clients and their access per consumer API, signing keys), with webhook subscriptions

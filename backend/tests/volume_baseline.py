@@ -13,6 +13,7 @@ a client scrolling there would hold one; S3 adds position, end, backward and see
 
 import argparse
 import json
+import os
 import platform
 import statistics
 import sys
@@ -30,6 +31,7 @@ from sqlalchemy.orm import Session
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from volume_fixture import (
+    APPLICATION,
     AS_OF,
     CELLS_BY_COLUMN,
     CITING,
@@ -658,6 +660,94 @@ def consumer_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat
     return results
 
 
+CONSUMER_EVENTS = f"/api/consumer/{CONSUMER_API}/v1/events"
+EVENT_PAGE = 100
+
+
+def activate_events(client) -> None:
+    """Activate a release whose volume consumer API declares one event over groups and items, every
+    change and no watch (0.9 C10); the service runs with model administration on."""
+    model = volume_model()
+    model["release"]["version"] += "-events"
+    (definition,) = model["consumerApis"]
+    definition["events"] = [
+        {"key": "catalogue-changed", "objectTypes": [GROUP, ITEM], "changes": ["created", "updated", "deleted"]}
+    ]
+    draft = client.post("/api/v1/model-drafts", json={"name": "Events", "model": model}).json()
+    release = client.post(
+        f"/api/v1/model-drafts/{draft['id']}/installation", json={"expectedVersion": draft["version"]}
+    )
+    assert release.status_code == 201, release.text
+    state = client.get("/api/v1/model-runtime-state").json()
+    activated = client.post(
+        f"/api/v1/model-releases/{release.json()['id']}/activation",
+        json={"expectedRuntimeVersion": state["version"], "expectedActiveReleaseId": state["activeReleaseId"]},
+    )
+    assert activated.status_code == 200, activated.text
+
+
+def event_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat: int) -> tuple[list[Measurement], int]:
+    """0.9 C10 (``--only-events``): deriving a page of 500 live creations, and the heavy group's rename,
+    which updates every group and item below it (C-D82's fan-out); then the pull feed's first page with
+    each payload and narrowed by the ``within`` ancestor parameter. Derivation runs once each (it
+    consumes its entries); the reads ``repeat`` times. Also returns how many objects the rename told."""
+    from app.models.database import ConsumerEvent, Workspace
+
+    deriver = client.app.state.event_deriver
+    activate_events(client)
+    deriver.run_until_idle()
+    results = []
+
+    def derived(scenario: str) -> None:
+        with measure(engine) as cost:
+            assert deriver.derive(WORKSPACE)
+        results.append(Measurement("live", scenario, 200, cost.seconds * 1000, cost.statements, cost.rows_loaded))
+
+    items = [
+        {
+            "op": "create",
+            "applicationKey": APPLICATION,
+            "objectTypeKey": ITEM,
+            "name": f"Event item {index}",
+            "parent": {"id": dataset.small_group_id},
+            "attributes": [{"attributeTypeKey": CODE, "value": f"EV-{index:04d}"}],
+        }
+        for index in range(500)
+    ]
+    batch = client.post(
+        "/api/v1/batches", json={"workspaceKey": WORKSPACE, "policy": "atomic", "run": "inline", "items": items}
+    )
+    assert batch.status_code == 200, batch.text
+    derived("events: derive 500 live creations")
+    deriver.run_until_idle()
+
+    path = f"/api/v1/objects/{GROUP}/{dataset.heavy_group_id}"
+    heavy = client.get(path, params={"workspaceKey": WORKSPACE}).json()
+    renamed = client.patch(path, json={"expectedVersion": heavy["version"], "name": f"{heavy['name']} renamed"})
+    assert renamed.status_code == 200, renamed.text
+    with Session(engine) as session:
+        position = session.scalar(select(Workspace.feed_position).where(Workspace.key == WORKSPACE))
+    derived("events: derive the heavy group's rename")
+    with Session(engine) as session:
+        told = session.scalar(
+            select(func.count())
+            .select_from(ConsumerEvent)
+            .where(ConsumerEvent.workspace_key == WORKSPACE, ConsumerEvent.position == position)
+        )
+
+    base = {"workspace": WORKSPACE, "pageSize": EVENT_PAGE, "after": position - 1}
+    for scenario, params in (
+        ("events: first page, full", base),
+        ("events: first page, identity", {**base, "payload": "identity"}),
+        ("events: within the heavy group, full", {**base, WITHIN_GROUP: dataset.heavy_group_id}),
+    ):
+        status, milliseconds, statements, rows = _timed(
+            engine, lambda params=params: client.get(CONSUMER_EVENTS, params=params), repeat
+        )
+        results.append(Measurement("live", scenario, status, milliseconds, statements, rows))
+    return results, told
+
+
 CONSUMER_XREF = f"/api/consumer/{CONSUMER_API}/v1/xref"
 
 
@@ -1059,6 +1149,11 @@ def main() -> None:
         help="measure only the P2a change lists over the review change set",
     )
     parser.add_argument(
+        "--only-events",
+        action="store_true",
+        help="measure only the 0.9 C10 event derivation and pull feed (turns model administration on)",
+    )
+    parser.add_argument(
         "--only-consumer",
         action="store_true",
         help="measure only the 0.9 C3 consumer list reads, C4 XREF lookups and C14 batch resolve",
@@ -1071,6 +1166,8 @@ def main() -> None:
     from app.db import get_engine
 
     publish_error: Exception | None = None
+    if arguments.only_events:
+        os.environ["MODEL_ADMIN_MUTATIONS_ENABLED"] = "true"
     server_started = postgres_server.start()
     try:
         with tempfile.TemporaryDirectory() as directory:
@@ -1086,6 +1183,9 @@ def main() -> None:
                     results = consumer_scenarios(client, engine, dataset, repeat=arguments.repeat)
                     results += consumer_xref_scenarios(client, engine, dataset, repeat=arguments.repeat)
                     results += consumer_resolve_scenarios(client, engine, dataset, repeat=arguments.repeat)
+                elif arguments.only_events:
+                    results, told = event_scenarios(client, engine, dataset, repeat=arguments.repeat)
+                    dataset.counts["events told by the heavy group's rename"] = told
                 elif arguments.only_dated:
                     results = dated_scenarios(client, engine, dataset, repeat=arguments.repeat)
                 elif arguments.only_publish:
