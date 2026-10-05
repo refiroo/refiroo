@@ -1,6 +1,7 @@
 """J20 — Discover the model and the API (USER_JOURNEYS.md)."""
 
 import copy
+import json
 import re
 
 import pytest
@@ -316,3 +317,52 @@ def test_a_consumer_apis_document(world):
     assert all(path.startswith(f"/api/consumer/{capi}/v2/") for path in raised["paths"])
     error = refused(world.api.get(f"{base}/openapi.json"), 404, "CONTRACT_VERSION_NOT_FOUND")
     assert error["details"]["contractVersion"] == 2
+
+
+def _reference_sources(world, **params):
+    """The sources the API reference page at ``/docs`` gives Scalar."""
+    page = world.api.get("/docs", **params)
+    assert page.status_code == 200, page.text
+    match = re.search(r'Scalar\.createApiReference\("#rdm-api-reference", (\{.*\})\);', page.text)
+    assert match, page.text
+    return json.loads(match.group(1))["sources"]
+
+
+@pytest.mark.journey("J20.5")
+@pytest.mark.structures(*CAPI)
+def test_the_api_reference_lists_the_consumer_apis(world):
+    """The reference page's sources are the management API, then one per consumer API of the active
+    release, in consumerApi order, labelled "{name} · v{contractVersion}", each at the URL the API
+    index names, which answers 200. A link to a source (Scalar's ?api={slug}) opens the page. A release adding a definition adds its source; one removing it
+    removes it; one raising Capi to version 2 shows v2 in the label, in every path and in
+    info.version, and the v1 document answers 404."""
+    capi = world.key("Capi")
+    management, consumer = _reference_sources(world)
+    assert management == {"title": "Management API", "slug": "management", "url": "/openapi.json", "default": True}
+    assert consumer == {
+        "title": "Capi · v1",
+        "slug": f"consumer-{capi}-v1",
+        "url": f"/api/consumer/{capi}/v1/openapi.json",
+    }
+    assert [consumer["url"]] == [entry["openapi"] for entry in ok(_index(world))["items"]]
+    assert ok(world.api.get(consumer["url"]))["info"]["title"] == "Capi"
+    assert _reference_sources(world, api=consumer["slug"]) == [management, consumer]
+
+    _activate(world, world.with_consumer_api(copy.deepcopy(world.configuration.model)), "second")
+    sources = _reference_sources(world)[1:]
+    assert [source["url"] for source in sources] == [entry["openapi"] for entry in _every_entry(world)]
+    assert {source["title"] for source in sources} == {"Capi · v1", "Journey API · v1"}
+    for source in sources:
+        ok(world.api.get(source["url"]))
+
+    model = copy.deepcopy(world.configuration.model)
+    (definition,) = [item for item in model["consumerApis"] if item["key"] == capi]
+    definition["contractVersion"] = 2
+    _activate(world, model, "v2")
+    (_, raised) = _reference_sources(world)
+    assert raised["title"] == "Capi · v2"
+    assert raised["url"] == f"/api/consumer/{capi}/v2/openapi.json"
+    document = ok(world.api.get(raised["url"]))
+    assert document["info"]["version"] == "2"
+    assert all(path.startswith(f"/api/consumer/{capi}/v2/") for path in document["paths"])
+    refused(world.api.get(f"/api/consumer/{capi}/v1/openapi.json"), 404, "CONTRACT_VERSION_NOT_FOUND")

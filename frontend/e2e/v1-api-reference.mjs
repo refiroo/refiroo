@@ -1,6 +1,7 @@
 // Base 0.9 V1 browser evidence: the Scalar API reference at /docs, served by a real backend with no
 // network. Every request that leaves the engine's origin is aborted and fails the runner, so the page,
-// its bundled script and the management OpenAPI source must all come from the engine itself.
+// its bundled script and the management OpenAPI source must all come from the engine itself. V2: the
+// starter is started with one consumer API, whose document is the page's second source.
 import { spawn } from "node:child_process";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
@@ -37,7 +38,16 @@ try {
   const apiUrl = `http://127.0.0.1:${port}`;
   const modelPath = resolve(output, "model.json");
   database = cloneDatabase("schema");
-  await writeFile(modelPath, await readFile(resolve(root, "model/rdm-starter.json"), "utf8"));
+  const starter = JSON.parse(await readFile(resolve(root, "model/rdm-starter.json"), "utf8"));
+  starter.consumerApis = [{
+    key: "codes",
+    name: "Codelists",
+    contractVersion: 1,
+    objectTypes: { codelist: { publicName: "Codelist" } },
+    object: { id: { output: "codelistId", source: ["id"] }, name: { output: "name", source: ["name"] } },
+    lists: [{ key: "codelists", objectType: "codelist" }],
+  }];
+  await writeFile(modelPath, JSON.stringify(starter));
   backend = spawn(
     resolve(root, "backend/.venv/bin/python"),
     ["-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", String(port)],
@@ -66,6 +76,8 @@ try {
     ...(process.env.PLAYWRIGHT_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH } : {}),
   });
   const openapi = await (await fetch(`${apiUrl}/openapi.json`)).json();
+  const consumerUrl = "/api/consumer/codes/v1/openapi.json";
+  const consumer = await (await fetch(`${apiUrl}${consumerUrl}`)).json();
 
   for (const [label, viewport] of [["wide", { width: 1440, height: 900 }], ["narrow", { width: 390, height: 844 }]]) {
     const context = await browser.newContext({ viewport });
@@ -101,6 +113,26 @@ try {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow <= 0, `${label}: horizontal overflow ${overflow}px`);
     await page.screenshot({ path: resolve(output, `v1-api-reference-${label}.png`) });
+
+    // V2: the consumer API is a source of its own, labelled with its name and contract version, and
+    // selecting it reads its document from the engine.
+    const sources = await page.evaluate(() => {
+      const script = [...document.scripts].find((item) => item.text.includes("createApiReference"));
+      return JSON.parse(script.text.match(/createApiReference\("#rdm-api-reference", (\{.*\})\);/)[1]).sources;
+    });
+    expect(JSON.stringify(sources.map((item) => [item.title, item.url])) ===
+      JSON.stringify([["Management API", "/openapi.json"], ["Codelists · v1", consumerUrl]]),
+    `${label}: sources ${JSON.stringify(sources)}`);
+    await page.goto(`${apiUrl}/docs?api=${sources[1].slug}`);
+    await page.getByRole("heading", { name: consumer.info.title, level: 1 }).waitFor();
+    await page.getByText("/api/consumer/codes/v1/lists/codelists").first().waitFor();
+    await page.waitForLoadState("networkidle");
+    expect(loaded.includes(consumerUrl), `${label}: consumer source not loaded: ${loaded}`);
+    await page.screenshot({ path: resolve(output, `v2-consumer-source-${label}.png`) });
+    checks.push(`${label}: the consumer API "Codelists · v1" listed beside the management API, its document read from the engine`);
+    await page.goto(`${apiUrl}/docs`);
+    await page.getByRole("heading", { name: openapi.info.title, level: 1 }).waitFor();
+    await page.waitForLoadState("networkidle");
 
     expect(blocked.length === 0, `${label}: requests left the engine: ${blocked.join(", ")}`);
 

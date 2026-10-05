@@ -502,11 +502,15 @@ are not mutation-gated. Lifecycle errors use:
 
 As elsewhere, errors use the shared `{ "error": { "code", "message", "details" } }` envelope.
 
-### API reference page (Base 0.9 V1)
+### API reference page (Base 0.9 V1, V2)
 
 `GET /docs` serves the API reference, rendered by [Scalar](https://github.com/scalar/scalar) (MIT)
-from the OpenAPI documents: the management API (`/openapi.json`) is its first source, and 0.9 V2 adds
-each installed consumer API contract version as a further source. Swagger UI and ReDoc are gone:
+from the OpenAPI documents: the management API (`/openapi.json`) is its first source, followed by
+each consumer API of the active release (0.9 V2), in `consumerApi` order, labelled
+`{name} · v{contractVersion}` and read from the document the [API index](#api-index-and-documents) names.
+The sources are built per request, so a release that adds, removes or re-versions a consumer API shows
+on the next page load. Scalar keeps the selected source in the address as `?api=<slug>`, so a link
+opens that source. Swagger UI and ReDoc are gone:
 `/redoc` and `/docs/oauth2-redirect` answer `404`.
 
 The Scalar standalone script is pinned (1.72.2) and bundled with the engine, served at

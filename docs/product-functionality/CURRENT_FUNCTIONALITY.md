@@ -33,7 +33,7 @@ backend coverage is not mistaken for a complete user experience. Reviewed 2026-1
 | F21 | Read by business date (`asOf`) | Fields only | Available | 0.9 Q4 |
 | F22 | Load data in bulk as jobs | Unavailable | Available | 0.9 B1–B2; import screen 0.9 J4 |
 | F23 | Declare consumer APIs and read through them | JSON model editing | Definitions; reading one business object; reading lists; looking up by code; reading a publication; an index and a typed document per API | 0.9 C1–C6 |
-| F24 | Read the API reference | Available at `/docs` | Not applicable | 0.9 V1 |
+| F24 | Read the API reference | Available at `/docs` | Not applicable | 0.9 V1, V2 |
 | F25 | Follow changes in order | Not applicable | Available | 0.9 F1; retention and recovery 0.9 F2 |
 
 "Validated" means a composed real-browser runner covers the journey against a real backend
@@ -499,11 +499,13 @@ Evidence: [consumer API design](../CONSUMER_API.md),
 
 **User outcome:** A developer explores and tries the API from a page served by the engine itself.
 
-`/docs` renders the management API's OpenAPI document with Scalar. The script is bundled, so the page
-works without internet access and loads nothing from elsewhere; a setting loads it from a CDN instead.
-Its "try it" console calls the engine that served it.
+`/docs` renders the management API's OpenAPI document with Scalar, and beside it every consumer API
+the active model declares, each labelled with its name and contract version and switched to from the
+page's source menu. A model release that adds, removes or re-versions a consumer API shows on the next
+page load. The script is bundled, so the page works without internet access and loads nothing from
+elsewhere; a setting loads it from a CDN instead. Its "try it" console calls the engine that served it.
 
-Evidence: [API reference page](../API.md#api-reference-page-base-09-v1),
+Evidence: [API reference page](../API.md#api-reference-page-base-09-v1-v2),
 [reference module](../../backend/app/management/reference/__init__.py).
 
 ## F25 — Follow changes in order

@@ -409,8 +409,8 @@ Errors share one envelope, `{ "error": { "code", "message", "details" } }`, with
 
 FastAPI generates the management API's OpenAPI document (`/openapi.json`); its digest and inventories
 are locked by backend tests, so a contract change is always deliberate. `GET /docs` renders it with
-[Scalar](https://github.com/scalar/scalar) (MIT); 0.9 V2 adds each installed consumer API contract
-version as a further source. The Scalar script is pinned and bundled with the engine, so the page works
+[Scalar](https://github.com/scalar/scalar) (MIT), followed by each consumer API of the active release
+as a further source, built per request (0.9 V2). The Scalar script is pinned and bundled with the engine, so the page works
 offline and loads nothing from elsewhere. `GET /api/v1/capabilities` reports the deployment's
 capability groups and job limits.
 

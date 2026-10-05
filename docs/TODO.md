@@ -38,7 +38,8 @@ resolve, one scoring path with XREF, exact rules first (C-D47–C-D53). **C15 is
 the consumer API's name is `consumerApi` in public contracts (U-D1, C-D59). **C6a is delivered (2026-10-05)**:
 reads pinned to a publication (`publication`, `latest`), the publications list with `eventSequence`
 and ETag (C-D60–C-D68). **C6b is delivered (2026-10-05)**: the API index `GET /api/consumer` and an
-OpenAPI 3.1 document per consumer API (C-D69, C-D70). Next: V2, in the order of the delivery queue. See
+OpenAPI 3.1 document per consumer API (C-D69, C-D70). **V2 is delivered (2026-10-05)**: every consumer API
+as a source on `/docs`. Next: C8, in the order of the delivery queue (U4 waits for U3). See
 [Next — 0.9](#next--09).
 
 - **Publish and change-set creation move the workspace through Python (found 2026-10-03, F1;
@@ -146,7 +147,8 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 - [x] Built-in Scalar API reference at `/docs` replacing Swagger UI and ReDoc: delivered as 0.9 V1
   (2026-09-30) with the management API as its source; pinned script bundled, CDN by setting, outside
   the OpenAPI document.
-- [ ] V2: each installed consumer API contract version as a further source on `/docs` (needs C6b).
+- [x] V2: each consumer API of the active release as a further source on `/docs`: delivered 2026-10-05
+  ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#v2-delivery-record)).
 - [x] Consumer lists ordered by `sortBy` over the 100 ms budget (found in C3, 0.5–2.6 s): delivered
   as C3a (2026-10-04), 10–12 ms through value-order indexes. Left at the budget line and recorded,
   not tuned: a position jump to row 50,000 (123 ms) and an ancestor filter over 20,000 items with

@@ -191,8 +191,11 @@ publications list with `eventSequence`, `RDM-Publication`, ETag and `304`; publi
 (`20261005_03`); C-D60–C-D68 ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#c6a-delivery-record)). **C6b is
 delivered (2026-10-05):** the API index `GET /api/consumer` and each consumer API's own OpenAPI 3.1
 document, paths written out with its name and version (C-D69, C-D70,
-[record](BASE_0_9_IMPLEMENTATION_PLAN.md#c6b-delivery-record)). Next: V2, in the order of the
-[delivery queue](BASE_0_9_IMPLEMENTATION_PLAN.md#delivery-queue).
+[record](BASE_0_9_IMPLEMENTATION_PLAN.md#c6b-delivery-record)). **V2 is delivered (2026-10-05):**
+`/docs` lists every consumer API of the active release beside the management API, labelled
+`{name} · v{contractVersion}`; a link to a source (`?api=`) opens it
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#v2-delivery-record)). Next: C8, in the order of the
+[delivery queue](BASE_0_9_IMPLEMENTATION_PLAN.md#delivery-queue) (U4 waits for U3).
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

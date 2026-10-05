@@ -16,8 +16,8 @@ read, D31), [B3](#b3-relation-and-relation-set-items) (2026-10-03, D35–D39),
 [T1a](#t1a-copies-inside-the-database) (2026-10-04), [T1b](#t1b-one-error-code-pattern) (2026-10-04),
 [C2](#c2-consumer-object-and-projections) (2026-10-04, C-D21–C-D26), C3–C5 and
 [C14](#c14-batch-resolve) (2026-10-05, C-D47–C-D53), [C15](#c15-crosswalk) (2026-10-05, C-D54–C-D58),
-[CN1](#cn1-the-consumer-apis-name-in-public-contracts) (2026-10-05, C-D59), [C6a](#c6a-publications) (2026-10-05, C-D60–C-D68), [C6b](#c6b-the-contract-documents) (2026-10-05, C-D69–C-D70).
-**Next:** [V2](#v2-consumer-sources), in the order of the [delivery queue](#delivery-queue).
+[CN1](#cn1-the-consumer-apis-name-in-public-contracts) (2026-10-05, C-D59), [C6a](#c6a-publications) (2026-10-05, C-D60–C-D68), [C6b](#c6b-the-contract-documents) (2026-10-05, C-D69–C-D70), [V2](#v2-consumer-sources) (2026-10-05).
+**Next:** C8, in the order of the [delivery queue](#delivery-queue) (U4 waits for U3).
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
 Effective dates and consumer API definitions extend the model, so the starter becomes content release
@@ -228,7 +228,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 18a | [CN1](#cn1-the-consumer-apis-name-in-public-contracts) | C15 | Amendment: the consumer API namespace is `consumerApi` in public contracts, not `apiKey` (U-D1) — **delivered 2026-10-05** ([record](#cn1-delivery-record)) |
 | 19 | [C6a](#c6a-publications) | C3, C4, F1, CN1 | `publication` reads with `latest`, the publications list with `eventSequence`, ETag, publication indexes and D47's sort (C-D60–C-D68) — **delivered 2026-10-05** ([record](#c6a-delivery-record)) |
 | 19a | [C6b](#c6b-the-contract-documents) | C6a | OpenAPI per definition, the API index (C-D69, C-D70) — **delivered 2026-10-05** ([record](#c6b-delivery-record)) |
-| 20 | [V2](#v2-consumer-sources) | V1, C6b | Consumer contracts as reference sources |
+| 20 | [V2](#v2-consumer-sources) | V1, C6b | Consumer contracts as reference sources — **delivered 2026-10-05** ([record](#v2-delivery-record)) |
 | 20a | [U4](SETTINGS_AND_UI_PLAN.md#packages-track-u) | U3, C6b, V2 | Settings › Integration: Consumer APIs, Jobs and feed, API reference; a starter consumer API (U-D5) |
 | 21 | C8 | C3–C6, C14, C15 | Parity acceptance; the consumer read line's checkpoint |
 | 22 | C16 | C2, Q4 | `asOf` in the consumer tier; SC-11 (consumer) |
@@ -3916,6 +3916,39 @@ _Amendment, approved 2026-10-05, also to C6:_ each source is labelled
 no placeholder parameters, and carries the contract version as `info.version`. A release raising
 the version shows the new one, and the old document answers `404 CONTRACT_VERSION_NOT_FOUND`
 ([SETTINGS_AND_UI_PLAN](SETTINGS_AND_UI_PLAN.md#versions-in-the-documentation)).
+
+##### V2 delivery record
+
+**Delivered 2026-10-05**, as specified; no decision was needed. Journey variant J20.5 was added to
+the catalogue and its test written first, and it failed on both configurations (the page had the
+management source only). What was built:
+
+- **Sources** (`management/reference/__init__.py`, `consumer_sources`): after the management API,
+  one source per consumer API of the active release, in `consumerApi` order as the API index lists
+  them, titled `{name} · v{contractVersion}`, slug `consumer-{consumerApi}-v{contractVersion}` (the
+  prefix keeps a definition named `management` from taking the management source's slug), URL after
+  the deployment's root path. Built per request, so a release shows on the next page load.
+- **One URL** for a definition's document: `consumer_openapi_path` in
+  `engine/model/consumer_openapi.py`, used by the page, the API index and the document's own paths,
+  so the three cannot name different URLs.
+- **Without an active model** (none installed, the registry unhealthy, an unsupported schema) the
+  page still shows the management API, whose routes then report the cause.
+
+**Found on the way (in the browser):** when a reader picks a source, Scalar writes
+`?api=<slug>` into the address and reads it back on load, and the app-wide unknown-parameter check
+refused it (`UNKNOWN_PARAMETER`), so a reloaded or shared link to a consumer API's source answered an
+error instead of the page. `/docs` now declares `api` (the page ignores it; Scalar reads it). J20.5
+opens the page with it.
+
+**Checks:** J20.5 failed first, then J20 and `test_api_reference`: 17 passed (V1's tests unchanged:
+their database has no installed model, so they also cover the fallback). Groups `consumer` and
+`contract` in parallel: 241 passed in 34 s (the serial part selects none); the management OpenAPI
+lock unchanged. `test:browser:v1`, extended: the starter started with one consumer API; at 1440px and
+390px the page lists `Codelists · v1` after the management API, `?api=consumer-codes-v1` opens it with
+its document read from the engine (its title and a list's path shown), nothing leaves the engine's
+origin, and the V1 checks still pass. Screenshots inspected at both widths. `ruff check app/ tests/`
+clean. Not run: `volume` and `startup` (no read or migration changed), frontend format, lint and
+build (only the runner changed), the full suites (R).
 
 ## Track J — Import and export
 

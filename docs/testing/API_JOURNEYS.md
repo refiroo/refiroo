@@ -33,7 +33,7 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/docs` a
 | Operation | Journeys |
 | --- | --- |
 | `GET /health` | J12 |
-| `GET /docs`, `GET /openapi.json` | J20 |
+| `GET /docs` (`api`, the source Scalar opens), `GET /openapi.json` | J20, J20.5 |
 | `GET /capabilities` | J20, J12.7, J26.6 (`changeFeed.retentionDays`) |
 | `GET /model`, `GET /model/placements` | J20, J20.1, J03, J14 |
 | `GET /model-runtime-state` | J08 (fresh version for activation), J20.2 |

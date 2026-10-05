@@ -638,7 +638,8 @@ A list may name a `sortBy` attribute: a scalar attribute its type binds, refused
 3. Page the model's applications, attribute types, object types, relation types and allowed type
    pairs, or read one by key.
 4. Read the API reference (`/docs`) and the OpenAPI document; find the consumer APIs in their index
-   and read each one's own OpenAPI document (J20.3, J20.4).
+   and read each one's own OpenAPI document (J20.3, J20.4), also as a source of the reference page
+   (J20.5).
 
 Every identifier is a stable public key or UUID; no internal sequence number is exposed. The model
 read names the release it was read under (`X-Model-Release-Id`).
@@ -654,11 +655,15 @@ read names the release it was read under (`X-Model-Release-Id`).
   is the API's typed contract: valid OpenAPI 3.1, its paths written out with the name and version,
   one per list, its parameters, shapes, limits and refusals; a client generated from it reads the
   API's real answers. A release raising the version moves the document to the new version's URL.
+- **J20.5 The consumer APIs on the reference page**: `/docs` shows the management API and, beside
+  it, one source per consumer API of the active release, labelled `{name} · v{contractVersion}`
+  and read from the document the index names. A release adding, removing or re-versioning a
+  definition shows on the next page load.
 
 **Refusals:** `404 CHANGE_SET_NOT_FOUND`, `422 MUTUALLY_EXCLUSIVE_CONTEXT`,
 `503 MODEL_REGISTRY_UNAVAILABLE`, `503 MODEL_RUNTIME_STATE_UNAVAILABLE`.
 
-**Evidence today:** `v1-api-reference`; `test_model_placements`, `test_request_scope`,
+**Evidence today:** `v1-api-reference` (with a consumer API source); `test_model_placements`, `test_request_scope`,
 `test_api_reference`, `test_model_lifecycle`, `test_openapi_contract`.
 
 ### J21 — Read a collection completely and resume

@@ -8,6 +8,10 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 V2: the API reference page `/docs` lists every consumer API of the active release beside
+  the management API, labelled `{name} · v{contractVersion}`, built per request. A link to a source
+  (Scalar's `?api=<slug>`) opens it; before, the parameter was refused.
+
 - Base 0.9 C6b: the consumer API index `GET /api/consumer` (each API's `consumerApi`, `name`,
   `contractVersion` and `openapi` URL, paged, C-D69) and each API's own OpenAPI 3.1 document at
   `/api/consumer/{consumerApi}/v{contractVersion}/openapi.json`: paths written out with the name and

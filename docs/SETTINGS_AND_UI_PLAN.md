@@ -121,7 +121,7 @@ the API index `GET /api/consumer`; V2's sources follow):
   release that raises the version changes the document at its new URL. The old URL answers
   `404 CONTRACT_VERSION_NOT_FOUND` naming the current version.
 
-V2's sources on `/docs`: one per definition, labelled `{name} · v{contractVersion}`, built per
+V2's sources on `/docs` (**delivered in V2, 2026-10-05**): one per definition, labelled `{name} · v{contractVersion}`, built per
 request from the active release. A release that adds, removes or re-versions a definition shows on
 the next page load. Test (added to V2's): a release raising a definition from 1 to 2 shows `v2` in
 the source label, in every path and in `info.version`, and the v1 document answers `404`.

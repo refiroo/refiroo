@@ -39,6 +39,17 @@ _TYPES: dict[str, dict[str, Any]] = {
 _STRINGS = {"anyOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}}]}
 
 
+def consumer_api_base(definition: ConsumerApiDefinition) -> str:
+    """The path every route of the definition's API starts with, at its contract version."""
+    return f"/api/consumer/{definition.key}/v{definition.contractVersion}"
+
+
+def consumer_openapi_path(definition: ConsumerApiDefinition) -> str:
+    """Where the definition's document is served, before the deployment's root path: the URL the API
+    index (C-D69) and the reference page's source (V2) name."""
+    return f"{consumer_api_base(definition)}/openapi.json"
+
+
 def consumer_openapi(
     model: EngineModel, definition: ConsumerApiDefinition, *, root_path: str, resolve_max_items: int
 ) -> dict[str, Any]:
@@ -83,7 +94,7 @@ class _Document:
         self.contract: OutputContract = output_contract(model, definition)
         self.root_path = root_path
         self.resolve_max_items = resolve_max_items
-        self.base = f"/api/consumer/{definition.key}/v{definition.contractVersion}"
+        self.base = consumer_api_base(definition)
         self.targets = sorted(self.contract.targetable)
 
     def build(self) -> dict[str, Any]:

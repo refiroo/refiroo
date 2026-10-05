@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 from ..common.cursors import signed_scope
 from ..common.pagination import PageRequest, paginate_sequence
 from ..db import SessionLocal
-from ..engine.model.consumer_openapi import consumer_openapi
+from ..engine.model.consumer_openapi import consumer_openapi, consumer_openapi_path
 from ..engine.model.registry import ModelSnapshot, resolve_model_snapshot, resolve_pinned_release
 from ..engine.reads.consumer_lists import consumer_list, read_consumer_list
 from ..engine.reads.consumer_objects import consumer_definition, read_consumer_object
@@ -351,7 +351,7 @@ def get_index(request: Request, response: Response, session: DbSession) -> dict[
             "name": item.name,
             **({"description": item.description} if item.description else {}),
             "contractVersion": item.contractVersion,
-            "openapi": f"{root_path}{PREFIX}/{item.key}/v{item.contractVersion}/openapi.json",
+            "openapi": f"{root_path}{consumer_openapi_path(item)}",
         }
         for item in active.model.consumerApis or ()
     ]
