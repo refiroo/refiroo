@@ -1,8 +1,9 @@
 # Documentation plan
 
 **Status:** Draft, 2026-10-05. Started at the user's request: the engine needs very good user
-documentation, built up before 1.0. Every decision below ([DOC-D1–DOC-D9](#decisions)) is a
-recommendation awaiting the user's approval. Nothing here is scheduled until it is approved.
+documentation, built up before 1.0. [DOC-D1–DOC-D3](#decisions) approved by the user on 2026-10-05;
+DOC-D4–DOC-D9 are recommendations awaiting approval. ROADMAP, TODO and AGENTS.md are not yet
+changed.
 
 ## Why
 
@@ -250,9 +251,9 @@ first.
 
 | # | Question | Recommendation |
 | --- | --- | --- |
-| DOC-D1 | When is the documentation written? | Foundation, generated reference and explanations from after 0.9 (DOC1–DOC3); a documentation release **0.13** after 0.12 for tutorials, how-tos, screenshots and the fresh-reader check; a "user-visible change updates the guide" rule from DOC1 on. Basis: 0.12 changes every API example and Track U and 0.10 change the browser, so writing earlier means rewriting; the concepts are stable now. Alternative: everything in 0.13, which leaves the rule-based upkeep unused for three releases and makes 0.13 large |
-| DOC-D2 | Where is it served? | By the engine at `/guide`, offline, from the version it runs (as `/docs` serves the API reference). The same sources build a public site (DOC8). The generator is chosen in DOC1 against the criteria listed there. It has not been evaluated yet, so no tool is recommended here |
-| DOC-D3 | Where do the sources live? | A new top-level `guide/` directory, so that `docs/` stays the builders' record and the two cannot be confused. PRODUCT.md's overview moves to the guide's "What RDM Engine is" (one home), and `docs/PRODUCT.md` links to it. CURRENT_FUNCTIONALITY stays as the planning catalogue |
+| DOC-D1 | When is the documentation written? | **Approved 2026-10-05.** Foundation, generated reference and explanations from after 0.9 (DOC1–DOC3); a documentation release **0.13** after 0.12 for tutorials, how-tos, screenshots and the fresh-reader check; a "user-visible change updates the guide" rule from DOC1 on. Basis: 0.12 changes every API example and Track U and 0.10 change the browser, so writing earlier means rewriting; the concepts are stable now. Alternative: everything in 0.13, which leaves the rule-based upkeep unused for three releases and makes 0.13 large |
+| DOC-D2 | Where is it served? | **Approved 2026-10-05.** By the engine at `/guide`, offline, from the version it runs (as `/docs` serves the API reference). The same sources build a public site (DOC8). The generator is chosen in DOC1 against the criteria listed there. It has not been evaluated yet, so no tool is recommended here |
+| DOC-D3 | Where do the sources live? | **Approved 2026-10-05.** A new top-level `guide/` directory, so that `docs/` stays the builders' record and the two cannot be confused. PRODUCT.md's overview moves to the guide's "What RDM Engine is" (one home), and `docs/PRODUCT.md` links to it. CURRENT_FUNCTIONALITY stays as the planning catalogue |
 | DOC-D4 | The running example | The bundled example model (delivery methods, systems, translations; PRODUCT.md's "Collection" / "PICKUP" story), with the starter consumer API U4 adds. Tutorial 2 builds a second, small domain from an empty model (countries, regions, cities, the case C-D27 used), which shows that the engine is generic |
 | DOC-D5 | Tested examples | A `docs` test group runs every request and command in the guide against the seeded example model, once per seed (seed once, reuse), and compares the response with the one shown, with IDs and times normalised. It is a check on the documentation, not a test programme. It reuses the journey harness |
 | DOC-D6 | Generated reference | Error codes, settings, limits and the model language generated from the code, each with a check that fails on an undescribed entry. The descriptions live beside the code (the code's own description field or docstring), so a new code cannot ship without one |
