@@ -1,7 +1,7 @@
 # Settings, integration administration and UI foundation
 
 **Status:** Approved 2026-10-05: the user took [U-D1–U-D5](#decisions) as recommended (U-D2 "for
-now"). U-D6, the visual direction, is chosen in U1. Track U runs from 0.9 to 0.12, so the product
+now"). U-D6: Direction B, "Open", chosen "for now" on 2026-10-05 ([ADR-039](DECISIONS.md#adr-039--the-open-visual-direction-light-ruled-surfaces-with-colour-kept-for-context-and-state)). Track U runs from 0.9 to 0.12, so the product
 reaches 1.0 with a settings area that covers administration, integration and security.
 
 ## Why
@@ -173,15 +173,14 @@ tokens (no pre-styled design system). The fixup works within it:
    test over the token file. Visual baselines are re-recorded surface by surface, with each changed
    screenshot inspected.
 
-The visual direction itself is chosen by the user in U1 from two concrete alternatives, not decided
-by an agent.
+The user chose Direction B, "Open" (U-D6, ADR-039), which sets the values for points 1–4.
 
 ## Packages (Track U)
 
 | Package | Release | Needs | Scope |
 | --- | --- | --- | --- |
 | CN1 | 0.9 | C15 | Rename the namespace in public contracts per U-D1 before C6 publishes it in the API index and C9–C11 put it in events and subscriptions: route placeholder, error details, docs, journey tests. Model field `key` unchanged |
-| U1 | 0.9 | — | **Mockups delivered 2026-10-05** ([canvas](https://claude.ai/artifact/GmafaZfJ6PxbXs8rGVysMc): today's baselines with the audit, Direction A "Framed" and Direction B "Open", three screens each, light and dark); waiting for U-D6. Visual direction. A screenshot audit of today's surfaces against the diagnosis, then two alternative directions (tokens, rail, page header, a table page, a record page, a settings page, light and dark) as clickable mockups. The user chooses, and the choice is recorded as an ADR. No product code. A filler, any time |
+| U1 | 0.9 | — | **Mockups delivered 2026-10-05** ([canvas](https://claude.ai/artifact/GmafaZfJ6PxbXs8rGVysMc): today's baselines with the audit, Direction A "Framed" and Direction B "Open", three screens each, light and dark); **Direction B chosen 2026-10-05 (U-D6, ADR-039).** Visual direction. A screenshot audit of today's surfaces against the diagnosis, then two alternative directions (tokens, rail, page header, a table page, a record page, a settings page, light and dark) as clickable mockups. The user chooses, and the choice is recorded as an ADR. No product code. A filler, any time |
 | U2 | 0.9 | U1 | Foundation: the token layers, the type and spacing scale, the components above, the rail and header, the data-context bar. Applied to the shell. Contrast test over the tokens. Shell baselines re-recorded |
 | U3 | 0.9 | U2 | Settings area: `/settings` routes and layout; About, Appearance and Deployment; Workspaces and Model moved under Administration (old URLs redirect); the popover reduced to account and theme with a link to Settings; `GET /api/v1/system` |
 | U4 | 0.9 | U3, C6, V2 | Integration pages: Consumer APIs, Jobs and feed, API reference. Starter consumer API per U-D5 |
@@ -205,7 +204,7 @@ above the cut line (D9): they are UI work and do not lengthen the API lines.
 
 ## Decisions
 
-U-D1–U-D5 decided by the user on 2026-10-05. U-D6 is taken in U1.
+All decided by the user on 2026-10-05.
 
 | # | Question | Recommendation | Why |
 | --- | --- | --- | --- |
@@ -214,4 +213,4 @@ U-D1–U-D5 decided by the user on 2026-10-05. U-D6 is taken in U1.
 | U-D3 | Webhook subscription UI in 0.9 or 0.12? | **Decided 2026-10-05:** 0.9 (U5), unsigned like the API; 0.12 adds keys | The API arrives in C11. A page over it is cheap, and integrators need to see delivery state while testing |
 | U-D4 | Where the UI foundation lands | **Decided 2026-10-05:** U1–U5 in 0.9 above the cut line; U6 first in 0.10 | The settings pages and the 0.9 import screen are new surfaces and should be built once, on the foundation. U6 must precede the 0.10 editor |
 | U-D5 | Should the starter model declare a consumer API? | **Decided 2026-10-05: yes**, a small one in U4, as a starter content release | Without one, the Consumer APIs page and `/docs` show nothing on a fresh install. Tests keep their own definitions |
-| U-D6 | Visual direction | Chosen by the user in U1 from two mockups | It is a product decision, not an engineering one |
+| U-D6 | Visual direction | **Decided 2026-10-05: Direction B, "Open", for now** ([ADR-039](DECISIONS.md#adr-039--the-open-visual-direction-light-ruled-surfaces-with-colour-kept-for-context-and-state)). Chosen by the user in U1 from two mockups | It is a product decision, not an engineering one |

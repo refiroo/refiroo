@@ -1446,3 +1446,56 @@ attributes carry validity.
 - Validity is ordinary attribute data: it is edited, versioned, audited, published and fed like any
   other value, and history and publications need no change.
 - `dateTime` periods, several periods per type and period-aware uniqueness wait for a real case.
+
+## ADR-039 — The "Open" visual direction: light, ruled surfaces with colour kept for context and state
+
+**Status:** Accepted, 2026-10-05, by the user "for now" (U-D6, Track U U1). It may be revisited on
+what U2 and U6 show in the product. The mockups are on the
+[U1 canvas](https://claude.ai/artifact/GmafaZfJ6PxbXs8rGVysMc) (Direction B), and the plan is
+[SETTINGS_AND_UI_PLAN.md](SETTINGS_AND_UI_PLAN.md#ui-foundation). It works within
+[ADR-023](#adr-023--build-rdm-ui-components-on-react-aria-behavior): React Aria behind `ui/`
+wrappers, with every style owned by RDM tokens.
+
+### Motivation
+
+The U1 audit of the 0.8 baselines found four near-white surfaces that do not separate regions, one
+green used for actions, navigation, selection, status and plain values, and a data context
+(live, change set, publication) that is easy to miss. Two directions were drawn on the same three
+screens. The user chose B, "Open", over A, "Framed" (a dark frame with raised panels).
+
+### Decision
+
+- **Surfaces.** Light throughout. A white top bar and a warm light-grey rail, each separated by a
+  1px line. Content sits on the page, not in cards. Sections and tables are separated by rules: a
+  stronger rule under a section heading or table header, a light rule between rows. Dark mode
+  redefines the same semantic tokens.
+- **Colour has one meaning each.** The indigo accent is used only for the primary action, the
+  selected lens tab and links. Selection (current collection, current row, current settings page)
+  has its own indigo tint. The current application is shown by an ink underline, not by colour.
+  Status hues appear only for states: green for live, amber for a change set, violet for a
+  publication, red for errors and conflicts.
+- **Data context.** In live data, a green "Live" chip with a one-line explanation at the top of
+  the page. In a change set, an amber band across the full width of the content, above the page
+  title, naming the change set with its state and its Review, Validate and Publish actions; it
+  stays visible while the page scrolls. A publication uses the same band in violet. Changed fields
+  and records carry the amber marker, with the live value shown beside a changed one.
+- **Values are data, not status.** Booleans and other values are plain text. Pills are kept for
+  states and versions.
+- **Type.** Instrument Sans for text and JetBrains Mono for codes, keys and URLs, both under the
+  SIL Open Font Licence. They are bundled with the engine and served from it, since the UI must
+  work without internet access (as the API reference page does, V1). Hierarchy comes from size and
+  weight: page titles 30px semibold, section headings 15px semibold, column headers 12px semibold
+  in the tertiary ink.
+- **Shell.** The top bar holds the product mark, then the workspace switcher, then the
+  applications as underlined tabs, with Settings and the account at the right. Settings opens its
+  own shell (the same top bar, labelled Settings, with "Back to applications") and a grouped side
+  navigation.
+
+### Consequences
+
+- U2 turns the mockup's values into the three token layers and checks every text and border pair
+  for WCAG AA contrast in light and dark. Every visual baseline changes; each is re-recorded with
+  its screenshot inspected, surface by surface (U2 the shell, U3 settings, U6 the rest).
+- The two fonts and their licences are added to OPEN_SOURCE in U2.
+- Direction A's ideas that B does not use (a dark frame, raised panels) are not carried over
+  piecemeal. A change of direction is a new decision.

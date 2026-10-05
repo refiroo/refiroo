@@ -64,9 +64,9 @@ No 0.8 decision is open ([0.8 decisions](BASE_0_8_IMPLEMENTATION_PLAN.md#decisio
 0.9 decisions are in the [0.9 plan](BASE_0_9_IMPLEMENTATION_PLAN.md#decisions); the 0.10 ones in
 [MODEL_AUTHORING.md](MODEL_AUTHORING.md).
 
-- **Settings, integration administration and UI foundation (approved 2026-10-05).** U-D1–U-D5 taken
-  in [SETTINGS_AND_UI_PLAN.md](SETTINGS_AND_UI_PLAN.md#decisions); U-D6 (visual direction) is open
-  until U1. CN1 (renaming `apiKey`) comes before C6.
+- **Settings, integration administration and UI foundation (approved 2026-10-05).** U-D1–U-D6 taken
+  in [SETTINGS_AND_UI_PLAN.md](SETTINGS_AND_UI_PLAN.md#decisions); U1 delivered, Direction B "Open"
+  chosen (ADR-039). CN1 (renaming `apiKey`) comes before C6.
 
 See `ROADMAP.md` for the delivery scope, exit gates and full milestone sequence.
 
