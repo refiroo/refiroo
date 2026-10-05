@@ -461,10 +461,20 @@ representation. On XREF, get by ID, lists and batch resolve, `to.{parameter}` na
 GET …/xref?query=CHF&system=SAP&to.system=Oracle&expect=one
 ```
 
-- The plain parameter (`system=SAP`) still decides matching and scoring. `to.system=Oracle` limits
-  that projection in the output to the items matching `Oracle` and adds them as `target`.
-- With `expect=one` (and in batch resolve) the target must also be unique: no matching item answers
-  `404 target_not_found`, several answer `409 ambiguous_target`, each naming the object found.
+- The plain parameter (`system=SAP`) still decides matching and scoring, with its `requireMatch` and
+  `scoresFrom`; `to.system` changes no object, score, order, `totalCount` or tie, so a cursor does
+  not bind it. `to.system=Oracle` shows the projection's items matching `Oracle` in place of the
+  plain parameter's (other parameters over that projection still apply), and adds them again as
+  `target`, after the declared fields and before `matchScore` (C-D54). It may be sent without
+  `system`.
+- A read of one object (`expect=one`, get by ID, a batch item) answers one target: `target` is the
+  item, none answers `404 TARGET_NOT_FOUND`, several `409 AMBIGUOUS_TARGET` (with `count` and up to
+  10 `targets`), each naming the object found (`id`, `objectType`, `parameter`). The object is
+  decided first: a shared top score stays `409 AMBIGUOUS_MATCH`. A page (`expect=any`, lists) refuses
+  nothing: `target` takes the projection's shape, empty where an object has none (C-D55).
+- One `to.` name per read, `400 MULTIPLE_TARGETS` for a second (C-D56); several values of it are
+  alternatives. A `to.` name of anything but a targetable parameter is `400 UNKNOWN_PARAMETER`
+  (C-D57). Turning `targetable` off is `version_required` (C-D58).
 - The engine treats neither systems nor translations specially: any targetable projection parameter
   crosswalks, so the same form returns a value's Spanish translation with `to.language=es`.
 
@@ -703,7 +713,7 @@ coordination is 0.11 work.
 | C12 | Dispatcher: per-change batches, coalesced debounce, ordering, retry with backoff, suspension and resume (signing in 0.12) |
 | C13 | Event acceptance: the scenarios below, plus a bulk-volume delivery budget |
 | C14 | Batch resolve: `POST …/resolve`, by query and by ID, `defaults`, per-item outcomes, batch maximum, volume budget (C-D47–C-D53) — **delivered 2026-10-05** |
-| C15 | Crosswalk: `targetable` validation, `to.{parameter}` on XREF, get by ID, lists and batch resolve, `target`, `target_not_found` and `ambiguous_target` |
+| C15 | Crosswalk: `targetable` in the contract, `to.{parameter}` on XREF, get by ID, lists and batch resolve, `target`, `TARGET_NOT_FOUND`, `AMBIGUOUS_TARGET` and `MULTIPLE_TARGETS` (C-D54–C-D58) — **delivered 2026-10-05** |
 | C16 | `asOf` on every read, over the model's declared effective periods (Base 0.9 Track Q); `AS_OF_NOT_SUPPORTED`, `asOfApplied` |
 
 C1 comes first. C2 builds on C1. C3 and C4 can run in parallel after C2. C5 follows C4, C6 follows C3
@@ -756,7 +766,7 @@ table under "Behavior the engine does not carry over" says otherwise:
 11. batch resolve of a mixed batch returns `found`, `not_found`, `ambiguous` and `rejected` in item
     order, and every `found` equals the matching `xref?expect=one` answer;
 12. a crosswalk from one system's code to another's; with `expect=one`, no target is
-    `404 target_not_found` and two targets are `409 ambiguous_target`; the same form for a translation;
+    `404 TARGET_NOT_FOUND` and two targets are `409 AMBIGUOUS_TARGET`; the same form for a translation;
 13. a list without a parent pinned with `publication=latest` pages every object of the type once, and
     the response names the resolved publication;
 14. after `410 EVENTS_EXPIRED`, a re-sync from a publication's lists and its `eventSequence` misses no
@@ -770,7 +780,7 @@ table under "Behavior the engine does not carry over" says otherwise:
 C-D1 decided 2026-09-29; C-D2–C-D16 accepted 2026-09-29 as recommended, with the notes below;
 C-D17–C-D20 raised by C1 and accepted 2026-09-30 as recommended; C-D21–C-D26 settled with the user
 for C2, C-D27–C-D33 for C3 and C-D34–C-D41 for C4, on 2026-10-04; C-D42–C-D46 for C5 and
-C-D47–C-D53 for C14 on 2026-10-05.
+C-D47–C-D53 for C14 and C-D54–C-D58 for C15 on 2026-10-05.
 
 | # | Question | Decision |
 | --- | --- | --- |
@@ -827,3 +837,8 @@ C-D47–C-D53 for C14 on 2026-10-05.
 | C-D51 | One scoring path | **Settled 2026-10-05 (C14).** XREF is a batch of one lookup: the terms of every lookup are one relation, exact matches are read for every term at once and contains matches by one select per term with its pattern bound (a pattern read from the relation planned 5× slower), names through a trigram index holding the workspace and type (`btree_gin`, revision `20261005_02`), so batch resolve equals `xref?expect=one` by construction. Items are grouped by their parameters, one set of statements per group; per-item parameters within one statement wait for a measured need (TODO) |
 | C-D52 | Exact first | **Settled 2026-10-05 (C14).** A single best match is sought with the exact rules first; contains rules are read only for the lookups whose top score is not above the most a contains match can give, or is held from a promoted rule a contains weight precedes. Amends C-D37 for `expect=one`: a lookup its exact matches settle is not refused for what its contains terms would match. `expect=any` is unchanged |
 | C-D53 | The batch budget | **Settled 2026-10-05 (C14); restated at delivery with the user.** 1,000 lookups as a flow sends them (codes, IDs, group codes, misses), fitting the parameters they are sent with, over at most 10 parameter sets: within 1 s at full volume (816 ms; 451 ms over three sets), confirming C-D13's maximum. Recorded, not budgeted: heavy promotion fan-out, parameters that filter items off their match, contains-only batches and a parameter set per item |
+| C-D54 | What `to.{p}` does | **Settled 2026-10-05 (C15).** The projection over which `p` is declared shows the items `to.{p}` matches, AND the limits of any *other* parameters over that projection; `p`'s own limit is replaced, not combined (`system=SAP&to.system=Oracle` would otherwise show nothing). The same items are added as `target` after the declared fields, before `matchScore`. `p`'s `requireMatch` and `scoresFrom` act as without the target, and `to.{p}` may be sent without `p`. It keeps and drops no object and changes no score, order, `totalCount` or tie: CONSUMER_API's "the plain parameter still decides matching and scoring". So the cursors do not bind it |
+| C-D55 | `target`'s shape, and where it must be unique | **Settled 2026-10-05 (C15).** A read that answers one object (XREF `expect=one`, get by ID, a batch item) answers one target: `target` is the item, `404 TARGET_NOT_FOUND` with none, `409 AMBIGUOUS_TARGET` with several. Details: the object's `id` and `objectType`, the `parameter`, and for the ambiguity `count` and `targets` (the items as projected, at most 10, as `AMBIGUOUS_MATCH`'s candidates). The object is decided first: a shared top score stays `409 AMBIGUOUS_MATCH` even if only one candidate has a target, since the target does not decide matching. A page (XREF `expect=any`, lists) refuses nothing: `target` takes the projection's shape (an array, or an object or `null` for a projection of one), empty where an object has no target. Codes in upper case (C-D25), amending CONSUMER_API's `target_not_found` and `ambiguous_target`. Get by ID is one object, so it is counted with `expect=one`; CONSUMER_API named only `expect=one` and batch resolve |
+| C-D56 | Several targets in one read | **Settled 2026-10-05 (C15).** One `to.` name per read; a second is `400 MULTIPLE_TARGETS` naming both (in batch resolve: the item rejected, or the request when both are in `defaults`; an item's `to.` name replaces a different one from `defaults` rather than adding a second). `target` is then one field, as CONSUMER_API's text has it. Several *values* of one `to.` name are alternatives (C3b), so `to.system=Oracle,SAP` is allowed and with `expect=one` is ambiguous when both exist. A consumer needing two representations makes two reads or batches |
+| C-D57 | A `to.` name that cannot target | **Settled 2026-10-05 (C15).** `to.<name>` exists only for a targetable parameter. Any other `to.` name, of an unknown, non-projection or non-targetable parameter, is `400 UNKNOWN_PARAMETER` (C3's code and shape), its message naming the targetable parameters. In batch resolve, per C-D49: in an item it rejects the item, in `defaults` the request |
+| C-D58 | Is `targetable` part of the contract? | **Settled 2026-10-05 (C15).** Yes, as a capability consumers call: turning it off is `version_required` at `/parameters/<name>/targetable` (a consumer's `to.` read would start failing); turning it on adds a capability and needs no new version, as adding a field does not (C-D2) |

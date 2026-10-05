@@ -21,8 +21,8 @@ from sqlalchemy.orm import Session
 
 from ...errors import ApiError
 from ...models.schema import ConsumerApiDefinition, EngineModel
-from .consumer_objects import ConsumerObjects, object_not_found
-from .consumer_parameters import consumer_filter
+from .consumer_objects import ConsumerObjects, object_not_found, one_target
+from .consumer_parameters import Target, consumer_filter
 from .consumer_xref import Found, resolve_lookups
 
 _STATUS = {404: "not_found", 409: "ambiguous"}
@@ -99,12 +99,14 @@ def read_resolve(
             if item.object_id is not None:
                 body = composed.get(item.object_id)
                 outcomes[item.index] = (
-                    _found(item, body) if body is not None else _failed(item, object_not_found(item.object_id))
+                    _targeted(item, body, item.object_id, narrowed.target)
+                    if body is not None
+                    else _failed(item, object_not_found(item.object_id))
                 )
                 continue
             answer = found[item.index]
             if isinstance(answer, Found):
-                outcomes[item.index] = _found(item, {**composed[answer.id], "matchScore": answer.score})
+                outcomes[item.index] = _targeted(item, composed[answer.id], answer.id, narrowed.target, answer.score)
             elif answer.status in _STATUS:
                 outcomes[item.index] = _failed(item, answer)
             else:
@@ -120,6 +122,18 @@ def _lookup(item: ResolveItem) -> tuple[str, ...]:
     """What a lookup is: its terms, whatever their order or repeats, since an object's score is its
     best over the terms."""
     return tuple(sorted(set(item.terms or [])))
+
+
+def _targeted(
+    item: ResolveItem, body: dict[str, Any], object_id: str, target: Target | None, score: int | None = None
+) -> dict[str, Any]:
+    """A found object's outcome: ``found``, or with a crosswalk target that is missing or not
+    unique, ``not_found`` or ``ambiguous`` pointing at where the ``to.`` name was given (C-D55)."""
+    try:
+        answered = one_target(body, object_id, target)
+    except ApiError as error:
+        return _failed(item, item_error(error, item.pointer((error.details or {}).get("path"))))
+    return _found(item, answered if score is None else {**answered, "matchScore": score})
 
 
 def _found(item: ResolveItem, body: dict[str, Any]) -> dict[str, Any]:

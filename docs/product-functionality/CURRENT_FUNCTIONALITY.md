@@ -461,12 +461,19 @@ lookup or a record ID, with parameters shared by every item and its own where it
 gets the answer a single lookup for exactly one result would give: the record, or why there is none
 or more than one, or why the item itself was refused, in the order sent.
 
+A consuming system can also translate a value from one representation to another in the same read:
+"code X in system A, what is it in system B?", or a value's translation in another language. Any
+read (a lookup, a record by ID, a list, a batch) names the representation it wants, through a
+parameter the definition marks as a possible target, and each record carries the matching related
+item as its target. What is found, its score and its order do not change. Where the read answers
+one record, the target must be one item: none and several are told apart, each naming the record.
+
 Limits: matching on part of a value needs at least 3 characters; a shorter term matches whole values
 only. A lookup whose terms match more than 10,000 records is refused, asking for a more specific
 term, whatever parameters narrow it; a lookup for exactly one result that its whole-value matches
 already settle is answered without that count. A lookup holds at most 100 terms, and a batch at most
-1,000 items (a setting). Crosswalks, publications, business dates and events are being delivered in
-0.9.
+1,000 items (a setting). A read names one target. Publications, business dates and events are being
+delivered in 0.9.
 
 Evidence: [consumer API design](../CONSUMER_API.md),
 [contract check](../../backend/app/engine/model/consumer_contract.py).

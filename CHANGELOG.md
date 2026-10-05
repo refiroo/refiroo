@@ -8,6 +8,14 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 C15: consumer API crosswalk. `to.{name}` on get by ID, lists, XREF and batch resolve
+  names a `projection` parameter declared `targetable` and a value; the projection shows the items it
+  matches, and each object carries them again as `target`, before `matchScore`. It changes no object,
+  score, order or total, and cursors do not bind it (C-D54). A read of one object answers one target:
+  `404 TARGET_NOT_FOUND` for none, `409 AMBIGUOUS_TARGET` for several, each naming the object; a
+  page refuses nothing (C-D55). One `to.` name per read (`400 MULTIPLE_TARGETS`); a `to.` name of
+  anything but a targetable parameter is `400 UNKNOWN_PARAMETER` (C-D56, C-D57). Turning
+  `targetable` off is `version_required` at `/parameters/<name>/targetable` (C-D58). No migration.
 - Base 0.9 C14b: a consumer read's ancestors are walked by ID and read by the walked list
   (170–192 ms to 10 ms at full volume), and contains reads are built without table aliases; a
   1,000-lookup batch resolve takes 236 ms (was 817 ms).
@@ -190,6 +198,10 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Fixed
 
+- Base 0.9 C15: a model shape error inside a typed union (a view's or panel's `config`, a consumer
+  API parameter) was reported at a path holding Pydantic's type tag, such as
+  `/applications/1/views/1/tree/config/pageSize`, which names no node of the document, so the model
+  draft editor could not go to it. The tag is left out: `/applications/1/views/1/config/pageSize`.
 - Base 0.9 T1: creating a change set from current live data and publishing a change set failed with
   `500` in a workspace holding more than about 65,000 records. Both read every record's values and
   relationships with a list of all the record IDs, one statement parameter each, and PostgreSQL

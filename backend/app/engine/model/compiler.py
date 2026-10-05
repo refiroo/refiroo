@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -53,7 +54,7 @@ def compile_model(source: Any) -> CompilationResult:
     try:
         model = EngineModel.model_validate(source)
     except ValidationError as exc:
-        return _invalid(tuple(_shape_diagnostic(error) for error in exc.errors()))
+        return _invalid(tuple(_shape_diagnostic(error, source) for error in exc.errors()))
 
     reference_diagnostics = validate_references(model)
     if reference_diagnostics:
@@ -103,18 +104,36 @@ def _invalid(
     )
 
 
-def _shape_diagnostic(error: dict[str, Any]) -> ModelDiagnostic:
-    """Render one Pydantic shape error, whose ``loc`` already points at the failing node."""
+def _shape_diagnostic(error: dict[str, Any], source: Any) -> ModelDiagnostic:
+    """Render one Pydantic shape error, whose ``loc`` points at the failing node of ``source``."""
     message = str(error.get("msg", "Model validation failed"))
     error_type = str(error.get("type", ""))
     code = _shape_code(error_type)
     location = error.get("loc", ())
     path = (
-        "".join(f"/{pointer_segment(item)}" for item in location)
+        "".join(f"/{pointer_segment(item)}" for item in document_location(location, source))
         if isinstance(location, (list, tuple))
         else ""
     )
     return ModelDiagnostic(severity="error", code=code, path=path, message=message)
+
+
+def document_location(location: Sequence[Any], source: Any) -> list[Any]:
+    """``location`` without the tags Pydantic inserts for a tagged union (``…/zone/ancestor/…`` for a
+    parameter of kind ``ancestor``): a segment before the last that is no key of its object but one
+    of its values names the union member, not a node of the document (0.9 C15)."""
+    node, kept = source, []
+    for position, item in enumerate(location):
+        if isinstance(node, dict):
+            if item not in node and position < len(location) - 1 and item in node.values():
+                continue
+            node = node.get(item)
+        elif isinstance(node, list) and isinstance(item, int) and 0 <= item < len(node):
+            node = node[item]
+        else:
+            node = None
+        kept.append(item)
+    return kept
 
 
 def _shape_code(error_type: str) -> str:

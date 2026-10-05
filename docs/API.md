@@ -2013,12 +2013,12 @@ the reader misses nothing. An export as a second baseline follows with export jo
 
 A retired workspace's feed stays readable. The feed is ungated like other reads until 0.12 (D10).
 
-## Consumer API (Base 0.9 C2–C5)
+## Consumer API (Base 0.9 C2–C5, C14, C15)
 
 A separate, read-only tier at `/api/consumer`, whose contract each consumer API definition in the
 active model release declares ([CONSUMER_API.md](CONSUMER_API.md)). Its routes are not in the
-management OpenAPI document; C6 generates one document per definition. Batch resolve, crosswalk,
-publications and `asOf` follow in C6–C16.
+management OpenAPI document; C6 generates one document per definition. Publications and `asOf`
+follow in C6 and C16.
 
 ### Get by ID
 
@@ -2190,8 +2190,11 @@ only carries the items, and nothing changes.
   A processed batch answers `200` whatever its outcomes.
 - **Limit.** At most `CONSUMER_RESOLVE_MAX_ITEMS` items (1,000), reported by `GET /capabilities` as
   `consumerApi.resolveMaxItems`; more are refused as a whole and nothing is resolved.
-- The URL takes only `workspace`; `publication` (C6), `asOf` (C16) and `to.…` (C15) arrive with
-  their packages.
+- **Crosswalk.** A [`to.` name](#crosswalk) in `defaults` or in an item; an item's `to.` name
+  replaces a different one from `defaults`. A missing or ambiguous target is `not_found`
+  (`TARGET_NOT_FOUND`) or `ambiguous` (`AMBIGUOUS_TARGET`), pointing at where the `to.` name was
+  given; two `to.` names in an item reject it, in `defaults` refuse the request (`MULTIPLE_TARGETS`).
+- The URL takes only `workspace`; `publication` (C6) and `asOf` (C16) arrive with their packages.
 
 ```jsonc
 // RDM-Workspace: default
@@ -2211,6 +2214,7 @@ An item is `rejected` for what it holds, and the other items are still resolved:
 | --- | --- |
 | `QUERY_OR_ID_REQUIRED` | Both or neither of `query` and `id` |
 | `UNKNOWN_PARAMETER`, `PARAMETER_NOT_SUPPORTED` | A name the API does not know, or one a lookup does not apply (`expect`, a paging name, a list's parent parameter) |
+| `MULTIPLE_TARGETS` | Two `to.` names in the item |
 | `QUERY_REQUIRED`, `TOO_MANY_TERMS`, `QUERY_TOO_BROAD`, `UNKNOWN_OBJECT_TYPE` | As the single read refuses them |
 
 The request is refused as a whole:
@@ -2218,7 +2222,7 @@ The request is refused as a whole:
 | Status | Code | When |
 | --- | --- | --- |
 | 400 | `REQUEST_VALIDATION_ERROR` | The body is not JSON or not the shape above (`items` missing or empty, an item or a value of the wrong type, an unknown top-level name); `details.pointer` |
-| 400 | `UNKNOWN_PARAMETER`, `PARAMETER_NOT_SUPPORTED` | In `defaults` (`details.pointer`), or a definition parameter or another name in the URL |
+| 400 | `UNKNOWN_PARAMETER`, `PARAMETER_NOT_SUPPORTED`, `MULTIPLE_TARGETS` | In `defaults` (`details.pointer`), or a definition parameter, a `to.` name or another name in the URL |
 | 413 | `BATCH_TOO_LARGE` | More items than `CONSUMER_RESOLVE_MAX_ITEMS`; `details.setting`, `maximum` and `items` |
 
 The API and workspace refusals are those of the [parameters](#parameters) table.
@@ -2243,8 +2247,8 @@ Every definition parameter applies to get by ID, to every list (C-D31), to [XREF
   or separated by a literal comma in the URL. A comma inside a value is percent-encoded as `%2C`, as
   every HTTP library sends it: `token=Bonds%2C%20Notes` is one value, `token=Bonds,Notes` two. A
   backslash has no special meaning.
-- `scoresFrom` matters only to XREF; `to.…` arrives in C15, `publication` in C6 and `asOf` in C16
-  (until then `400 UNKNOWN_PARAMETER`).
+- `scoresFrom` matters only to XREF; `publication` arrives in C6 and `asOf` in C16 (until then
+  `400 UNKNOWN_PARAMETER`).
 
 | Status | Code | When |
 | --- | --- | --- |
@@ -2257,9 +2261,49 @@ Every definition parameter applies to get by ID, to every list (C-D31), to [XREF
 | 400 | `UNKNOWN_PARAMETER` | A name the API does not know; `details.parameters` names them |
 | 400 | `PARAMETER_NOT_SUPPORTED` | A name the API knows that this read does not apply: a paging name on get by ID, `query` or `expect` off XREF, or a list's parent parameter on get by ID or another list |
 | 400 | `UNKNOWN_OBJECT_TYPE` | An `objectType` value that is not an exposed public name; `details.publicNames` lists them, `details.path` names the parameter |
+| 400 | `MULTIPLE_TARGETS` | Two `to.` names; `details.parameters` names them |
+| 404 | `TARGET_NOT_FOUND` | Get by ID or XREF `expect=one` with a `to.` name its object has no matching item for |
+| 409 | `AMBIGUOUS_TARGET` | Get by ID or XREF `expect=one` with a `to.` name its object has several matching items for |
 | 400 | `INVALID_PAGE_SIZE` | `pageSize` outside 1–100 |
 | 400 | `INVALID_PAGE_PARAMETER` | `from` other than `start` or `end`, or `includeTotal` other than `true` or `false` |
 | 400 | `INVALID_CURSOR`, `CONFLICTING_PAGE_PARAMETERS`, `INVALID_POSITION`, `INVALID_SEEK` | The shared paging refusals, with the consumer tier's status for a request error |
+
+### Crosswalk
+
+"Code X in system A: what is it in system B?" in one read. On get by ID, lists, XREF and batch
+resolve, `to.{name}` names a `projection` parameter the definition declares `"targetable": true`,
+with values matched by that parameter's `matchFields`:
+
+```text
+GET …/xref?query=CHF&system=SAP&to.system=Oracle&expect=one
+GET …/objects/{id}?to.language=es
+```
+
+- **It changes no object, score, order or total.** The plain parameter (`system=SAP`) keeps its
+  meaning, `requireMatch` and `scoresFrom` included, and `to.system` may be sent without it. Cursors
+  do not bind `to.` values, so a cursor from a page without it reads the next page with it.
+- **The output.** The projection shows the items `to.system` matches in place of the plain
+  parameter's (another parameter's limit over the same projection still applies), and each object
+  carries them again as `target`, after its declared fields and before `matchScore`.
+- **One object, one target.** Get by ID, XREF `expect=one` and a batch item answer `target` as the
+  single item; none is `404 TARGET_NOT_FOUND`, several `409 AMBIGUOUS_TARGET`. Their details name the
+  object (`id`, `objectType`) and the `parameter`; an ambiguity adds `count` and up to 10 `targets`,
+  as projected. The object is decided first: a shared top score stays `409 AMBIGUOUS_MATCH`.
+- **Pages refuse nothing.** On a list or XREF `expect=any`, `target` takes the projection's shape: an
+  array (empty where an object has none), or an object or `null` for a projection of one.
+- **One target per read.** A second `to.` name is `400 MULTIPLE_TARGETS`; several values of one are
+  alternatives, so `to.system=Oracle,SAP` with `expect=one` is ambiguous where both exist. A `to.`
+  name of an unknown, non-projection or non-targetable parameter is `400 UNKNOWN_PARAMETER`, its
+  message naming the targetable ones.
+- Turning `targetable` off in a later release needs a new contract version; turning it on does not.
+
+```jsonc
+// GET …/xref?query=LX&to.watchRegion=South&expect=one
+{ "objectType": "Ledger", "ledgerId": "…", "code": "LX", …,
+  "watchedPermits": [ { "watchedName": "South desk" } ],
+  "target": { "watchedName": "South desk" },
+  "matchScore": 500 }
+```
 
 ## Planned integration endpoints
 
@@ -2269,8 +2313,8 @@ Designed in [INTEGRATION_API.md](INTEGRATION_API.md) and sequenced in the
 - Relation and relation-set items (B3)
 - Asynchronous import/export jobs
 - Webhook subscriptions
-- Consumer API crosswalk, publications and events ([CONSUMER_API.md](CONSUMER_API.md)); get by
-  ID, lists, XREF and batch resolve are delivered (above)
+- Consumer API publications and events ([CONSUMER_API.md](CONSUMER_API.md)); get by ID, lists,
+  XREF, batch resolve and crosswalk are delivered (above)
 
 There will be no equivalent of enumerating numeric attribute IDs `1..1000` or using `take: 0` for a full
 extract.

@@ -42,10 +42,10 @@ Structures:
   ``Bown`` outgoing with ``ancestor:G.name`` (many) and ``Bscope`` outgoing (many); the lists
   ``all`` (``R``, sorted by ``R.n``), ``entries`` (``R2`` under ``R``) and ``permits`` (``D`` under
   ``G``); the parameters ``container`` (``ancestor``, ``M`` by name), ``permit`` (``projection``
-  over ``Bown`` by ``ancestor:G.name``, ``requireMatch``), ``token`` (``related``, ``K`` by name
+  over ``Bown`` by ``ancestor:G.name``, ``requireMatch``, ``targetable``), ``token`` (``related``, ``K`` by name
   through ``B11``), ``peer`` (``related``, ``R`` by name through ``self`` and the shared
   ``Bscope``), ``kind`` (``objectType``) and ``watch`` (``projection`` over ``Bscope`` by
-  ``ancestor:G.name``, ``scoresFrom``); a ``match`` (J29): own ``id`` 1000, ``R.u`` and
+  ``ancestor:G.name``, ``scoresFrom``, ``targetable``); a ``match`` (J29): own ``id`` 1000, ``R.u`` and
   ``R2.u`` 500/40, ``name`` 200/30, promoted over ``B11`` (``K.code`` 80, ``name`` 75, ``K.code``
   contains 10) and over ``Bscope`` (``name`` 60, preferring ``R2``). Its API key, list keys, public
   names, output names and parameter names are ``Capi.…`` keys.
@@ -753,6 +753,7 @@ def _consumer_api(variant: str, k: dict[str, str]) -> dict[str, Any]:
                 "projection": n["Capi.Bown"],
                 "matchFields": [f"ancestor:{k['G']}.name"],
                 "requireMatch": True,
+                "targetable": True,
             },
             n["Capi.token"]: {
                 "kind": "related",
@@ -772,6 +773,7 @@ def _consumer_api(variant: str, k: dict[str, str]) -> dict[str, Any]:
                 "projection": n["Capi.Bscope"],
                 "matchFields": [f"ancestor:{k['G']}.name"],
                 "scoresFrom": True,
+                "targetable": True,
             },
         },
         "lists": [

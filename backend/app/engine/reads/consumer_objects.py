@@ -34,7 +34,10 @@ from ..model.consumer_contract import (
     split_ancestor_reference,
 )
 from ..records.values import VALUE_COLUMNS, canonical_decimal, stored_json_value
-from .consumer_parameters import NO_FILTER, ConsumerFilter, Predicate
+from .consumer_parameters import NO_FILTER, ConsumerFilter, Predicate, Target
+
+# The targets an ambiguous crosswalk names, as many as an ambiguous match's candidates (C-D55).
+AMBIGUOUS_TARGETS = 10
 
 
 def consumer_definition(model: EngineModel, api_key: str, contract_version: str) -> ConsumerApiDefinition:
@@ -165,7 +168,9 @@ class ConsumerObjects:
     ) -> dict[str, dict[str, Any]]:
         """The shared object of each exposed record of ``object_ids`` in the workspace, by ID, in the
         order given; a record of another type or workspace, or no record, is left out, and so is one
-        ``narrowed``'s parameters filter out. They also limit the projections' items (C3)."""
+        ``narrowed``'s parameters filter out. They also limit the projections' items (C3); with a
+        crosswalk target, each object carries its projection's items again as ``target``, in the
+        projection's shape (C15)."""
         records = _load(
             session,
             select(RdmObject.id, RdmObject.object_type_key, RdmObject.name, RdmObject.parent_object_id)
@@ -190,7 +195,7 @@ class ConsumerObjects:
                 starts |= {item.parent_id for _owner, item in related[projection.output]}
         ancestors = self._ancestors(session, starts - {None})
         return {
-            object_id: self._object(records[object_id], related, ancestors)
+            object_id: self._object(records[object_id], related, ancestors, narrowed.target)
             for object_id in object_ids
             if object_id in records
         }
@@ -270,6 +275,7 @@ class ConsumerObjects:
         record: _Record,
         related: dict[str, list[tuple[str, _Record]]],
         ancestors: dict[str, _Record],
+        target: Target | None,
     ) -> dict[str, Any]:
         result: dict[str, Any] = {"objectType": self.public_names[record.type_key]}
         for item in self.roles.values():
@@ -295,6 +301,8 @@ class ConsumerObjects:
                 if owner == record.id
             ]
             result[projection.output] = items if projection.many else (items[0] if items else None)
+        if target is not None:
+            result["target"] = result[target.projection]
         return result
 
     def _parent(self, parent: _Record) -> dict[str, Any]:
@@ -408,11 +416,44 @@ def read_consumer_object(
 ) -> dict[str, Any]:
     """Get by ID: the shared object of the record with this object ID (C-D24), or
     ``404 OBJECT_NOT_FOUND`` for an unknown or deleted record, one in another workspace, one of a
-    type the definition does not expose, or one the parameters filter out (C-D31)."""
+    type the definition does not expose, or one the parameters filter out (C-D31); with a crosswalk
+    target, its single item (``one_target``)."""
     composed = ConsumerObjects(model, definition).compose(session, workspace_key, [object_id], narrowed)
     if object_id not in composed:
         raise object_not_found(object_id)
-    return composed[object_id]
+    return one_target(composed[object_id], object_id, narrowed.target)
+
+
+def one_target(body: dict[str, Any], object_id: str, target: Target | None) -> dict[str, Any]:
+    """The answer of a read of one object (get by ID, XREF ``expect=one``, a batch item): with a
+    crosswalk target, ``target`` is its single item. None is ``404 TARGET_NOT_FOUND``, several
+    ``409 AMBIGUOUS_TARGET``, each naming the object (C-D55)."""
+    if target is None:
+        return body
+    found = body["target"]
+    items = found if isinstance(found, list) else ([] if found is None else [found])
+    details = {
+        "id": object_id,
+        "objectType": body["objectType"],
+        "parameter": target.name,
+        "path": f"/query/{target.name}",
+    }
+    if not items:
+        raise api_error(
+            404,
+            "TARGET_NOT_FOUND",
+            f"{body['objectType']} '{object_id}' has no item of '{target.projection}' that {target.name} matches",
+            details,
+        )
+    if len(items) > 1:
+        raise api_error(
+            409,
+            "AMBIGUOUS_TARGET",
+            f"{body['objectType']} '{object_id}' has {len(items)} items of '{target.projection}' that"
+            f" {target.name} matches; the target does not identify one",
+            {**details, "count": len(items), "targets": items[:AMBIGUOUS_TARGETS]},
+        )
+    return {**body, "target": items[0]}
 
 
 def object_not_found(object_id: str) -> ApiError:

@@ -15,8 +15,8 @@ read, D31), [B3](#b3-relation-and-relation-set-items) (2026-10-03, D35–D39),
 [F2](#f2-feed-retention-and-recovery) (2026-10-03, D40–D41), [T1](#t1-track-checkpoint-q-b-f) (2026-10-03),
 [T1a](#t1a-copies-inside-the-database) (2026-10-04), [T1b](#t1b-one-error-code-pattern) (2026-10-04),
 [C2](#c2-consumer-object-and-projections) (2026-10-04, C-D21–C-D26), C3–C5 and
-[C14](#c14-batch-resolve) (2026-10-05, C-D47–C-D53).
-**Next:** C15, in the order of the [delivery queue](#delivery-queue).
+[C14](#c14-batch-resolve) (2026-10-05, C-D47–C-D53), [C15](#c15-crosswalk) (2026-10-05, C-D54–C-D58).
+**Next:** CN1, in the order of the [delivery queue](#delivery-queue).
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
 Effective dates and consumer API definitions extend the model, so the starter becomes content release
@@ -223,7 +223,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 17 | [C14](#c14-batch-resolve) | C4, C5 | Batch resolve: one scoring path with XREF, exact rules first (C-D47–C-D53) — **delivered 2026-10-05** ([record](#c14-delivery-record)) |
 | 17a | [C14a](#c14a-repeated-lookups-resolved-once-the-batch-profiled) | C14 | Amendment: repeated lookups resolved once; the batch profiled — **delivered 2026-10-05** |
 | 17b | [C14b](#c14b-the-ancestor-walk-and-the-contains-selects-made-cheap) | C14a | Amendment: the ancestor walk and the contains selects made cheap — **delivered 2026-10-05** |
-| 18 | C15 | C5 | Crosswalk |
+| 18 | [C15](#c15-crosswalk) | C5, C14 | Crosswalk: `to.{parameter}` on every read, `target`, `TARGET_NOT_FOUND`, `AMBIGUOUS_TARGET` (C-D54–C-D58) — **delivered 2026-10-05** ([record](#c15-delivery-record)) |
 | 18a | [CN1](SETTINGS_AND_UI_PLAN.md#packages-track-u) | C15 | Amendment: the consumer API namespace is `consumerApi` in public contracts, not `apiKey` (U-D1) |
 | 19 | C6 | C3, C4, F1 | ETag, publications with `eventSequence`, OpenAPI per definition, API index |
 | 20 | [V2](#v2-consumer-sources) | V1, C6 | Consumer contracts as reference sources |
@@ -1725,8 +1725,8 @@ Scope, order and acceptance are in [CONSUMER_API.md](CONSUMER_API.md#delivery-pa
 | C4 | C2 | `consumer`, `volume` | XREF scoring deterministic; `expect=one` |
 | C5 | C4 | `consumer`, `contract`, `volume` | Every parameter kind on XREF; `scoresFrom` |
 | C14 | C4, C5 | `consumer`, `contract`, `volume` | Batch resolve equal to `xref?expect=one` per item; C-D13 limit confirmed by C-D53's budget |
-| C15 | C5 | `consumer` | Crosswalk with `target_not_found` and `ambiguous_target` |
-| C6 | C3, C4, F1 | `consumer`, `contract`, `volume` | Publications with `eventSequence` (= `feedPosition`), OpenAPI per definition, API index, resolved `workspace` named (C-D16); **task (D47):** C3a's value-order attribute sort for the publication (and change set) contexts, over `snapshot_attribute_values`, with its budget recorded |
+| C15 | C5, C14 | `consumer`, `contract` | Crosswalk on XREF, get by ID, lists and batch resolve, with `TARGET_NOT_FOUND` and `AMBIGUOUS_TARGET` (C-D54–C-D58) |
+| C6 | C3, C4, F1 | `consumer`, `contract`, `volume` | Publications with `eventSequence` (= `feedPosition`), OpenAPI per definition, API index, resolved `workspace` named (C-D16); the document describes the `to.` names and `target` (C15); **task (D47):** C3a's value-order attribute sort for the publication (and change set) contexts, over `snapshot_attribute_values`, with its budget recorded |
 | C8 | C3–C6, C14, C15 | `consumer`, `volume` | Parity scenarios 1–13 and 16 pass on the fixture model |
 | C16 | C2, Q4 | `consumer` | `asOf` everywhere; SC-11's consumer half; parity scenario 15 |
 | C9 | C2 | `consumer`, `model` | `events` validated and in the contract check |
@@ -3163,6 +3163,185 @@ stay at the budget line, as C3a recorded them.
 **Checks:** group `consumer` after the last change: 129 passed (J28, J29 and
 `test_consumer_xref_volume`, equal statements at both sizes, among them); `ruff` clean. Not run:
 `queries` (no shared code changed), the full suites (R).
+
+#### C15: Crosswalk
+
+**Delivered 2026-10-05** ([record](#c15-delivery-record)). **Planned 2026-10-05; decisions C-D54–C-D58 and the test cases approved by the user the same day**
+(no volume case, as proposed).
+**Needs:** C5 (the projection limits and `scoresFrom` a target sits beside), C14 (batch items carry
+it), C14b. **Groups:** `consumer`, `contract`.
+
+**Behaviour.** "Code X in system A: what is it in system B?" A consuming system holds one
+representation of a business object and needs another: a system's code for another system, a value's
+translation in another language ([CONSUMER_API "Crosswalk"](CONSUMER_API.md#crosswalk)). It is one
+read, not a lookup followed by a get:
+
+```text
+GET …/xref?query=CHF&system=SAP&to.system=Oracle&expect=one
+GET …/objects/{id}?to.language=es
+GET …/lists/{listKey}?…&to.system=Oracle
+POST …/resolve   { "defaults": { "system": "SAP", "to.system": "Oracle" }, "items": [ … ] }
+```
+
+- **`to.{parameter}`** names a `projection` parameter the definition declares `"targetable": true`,
+  with a value matched by that parameter's `matchFields`. It applies to XREF, get by ID, lists and
+  batch resolve (in `defaults` and in an item).
+- **The plain parameter still decides** matching, scoring and which objects are kept: `system=SAP`
+  keeps its `requireMatch` and `scoresFrom` meaning. `to.system` changes no object, score, order,
+  total or tie (C-D54).
+- **The output:** the projection shows the target items (those matching `Oracle`) instead of the
+  plain parameter's, and each object carries them again as `target`, after its declared fields and
+  before `matchScore` (C-D54).
+- **One object, one target:** where the read answers one object (XREF `expect=one`, get by ID, a
+  batch item), `target` is one item, and it must be unique: none is `404 TARGET_NOT_FOUND`, several
+  are `409 AMBIGUOUS_TARGET`, each naming the object found. On a page (XREF `expect=any`, lists)
+  `target` takes the projection's shape and nothing is refused (C-D55).
+- **One target per read** (C-D56); a `to.` name for anything but a targetable parameter is
+  `400 UNKNOWN_PARAMETER` (C-D57).
+- The engine treats neither systems nor translations specially: any targetable `projection`
+  parameter crosswalks.
+
+**Design.**
+
+- **Names** (`app/consumer/router.py`): `_Parameters.check` and `_resolve_items` know `to.<name>` for
+  each targetable parameter and apply it where the definition's parameters apply. Several `to.` names
+  refuse the read, or in batch resolve the item (or the request, when in `defaults`). The values are
+  split as C3b splits a parameter's values (several values are alternatives).
+- **Filter** (`engine/reads/consumer_parameters.py`): `ConsumerFilter` gains `target`: the parameter
+  name, its projection and the item predicate, built by `_Builder.projection` as a limit is.
+  `consumer_filter` sets the projection's limit to the target predicate AND the limits of the other
+  parameters over that projection, leaving out the targeted parameter's own limit (else `SAP` AND
+  `Oracle` would leave nothing). `records` and `scoring` are built as now, so the plain parameter's
+  `requireMatch` and `scoresFrom` are untouched.
+- **Composition** (`ConsumerObjects.compose`): with a target, each object gets `target`: the limited
+  projection's items, in the projection's shape. No statement is added: the target is the limit
+  `_related` already applies in its select.
+- **Uniqueness** (one function beside `object_not_found`, used by `read_consumer_object`,
+  `read_xref`'s `expect=one` and `read_resolve`): after the object is decided, the projection's
+  items decide `target`: one is the item, none `TARGET_NOT_FOUND`, several `AMBIGUOUS_TARGET`. In a
+  batch the item's status follows the error's status, as C-D48 maps every error (`not_found`,
+  `ambiguous`), with `details.pointer` to the item's or `defaults`' `to.` name.
+- **Grouping and paging:** batch items group by their effective parameters, `to.` included, so the
+  statements still grow with the parameter sets. The list and XREF cursors do not bind `to.` values,
+  since they change no row or order.
+- **Contract** (`engine/model/consumer_contract.py`): `OutputContract` records the targetable
+  parameters; turning `targetable` off is `version_required` at `/parameters/<name>/targetable`,
+  turning it on is not (C-D58).
+- **Validation:** none added. `targetable` exists only on a `projection` parameter (schema 0.8,
+  `extra="forbid"`), `to.` is a reserved name prefix and `target` a reserved output name since C1.
+- **No migration, no index, no new setting.**
+
+**Decisions** (status per row):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| C-D54 | What `to.{p}` does | **Approved 2026-10-05.** The projection over which `p` is declared shows the items `to.{p}` matches, AND the limits of any *other* parameters over that projection; `p`'s own limit is replaced, not combined (`system=SAP&to.system=Oracle` would otherwise show nothing). The same items are added as `target` after the declared fields, before `matchScore`. `p`'s `requireMatch` and `scoresFrom` act as without the target, and `to.{p}` may be sent without `p`. It keeps and drops no object and changes no score, order, `totalCount` or tie: CONSUMER_API's "the plain parameter still decides matching and scoring". So the cursors do not bind it |
+| C-D55 | `target`'s shape, and where it must be unique | **Approved 2026-10-05.** A read that answers one object (XREF `expect=one`, get by ID, a batch item) answers one target: `target` is the item, `404 TARGET_NOT_FOUND` with none, `409 AMBIGUOUS_TARGET` with several. Details: the object's `id` and `objectType`, the `parameter`, and for the ambiguity `count` and `targets` (the items as projected, at most 10, as `AMBIGUOUS_MATCH`'s candidates). The object is decided first: a shared top score stays `409 AMBIGUOUS_MATCH` even if only one candidate has a target, since the target does not decide matching. A page (XREF `expect=any`, lists) refuses nothing: `target` takes the projection's shape (an array, or an object or `null` for a projection of one), empty where an object has no target. Codes in upper case (C-D25), amending CONSUMER_API's `target_not_found` and `ambiguous_target`. Get by ID is one object, so it is counted with `expect=one`; CONSUMER_API named only `expect=one` and batch resolve |
+| C-D56 | Several targets in one read | **Approved 2026-10-05.** One `to.` name per read; a second is `400 MULTIPLE_TARGETS` naming both (in batch resolve: the item rejected, or the request when both are in `defaults`; an item's `to.` name replaces a different one from `defaults` rather than adding a second). `target` is then one field, as CONSUMER_API's text has it. Several *values* of one `to.` name are alternatives (C3b), so `to.system=Oracle,SAP` is allowed and with `expect=one` is ambiguous when both exist. A consumer needing two representations makes two reads or batches |
+| C-D57 | A `to.` name that cannot target | **Approved 2026-10-05.** `to.<name>` exists only for a targetable parameter. Any other `to.` name, of an unknown, non-projection or non-targetable parameter, is `400 UNKNOWN_PARAMETER` (C3's code and shape), its message naming the targetable parameters. In batch resolve, per C-D49: in an item it rejects the item, in `defaults` the request |
+| C-D58 | Is `targetable` part of the contract? | **Approved 2026-10-05.** Yes, as a capability consumers call: turning it off is `version_required` at `/parameters/<name>/targetable` (a consumer's `to.` read would start failing); turning it on adds a capability and needs no new version, as adding a field does not (C-D2) |
+
+**Journey.** J29 gains variants J29.11–J29.14 (crosswalk) in USER_JOURNEYS and API_JOURNEYS (the
+`to.` name on every route, `TARGET_NOT_FOUND`, `AMBIGUOUS_TARGET`, `MULTIPLE_TARGETS`). Generated A
+and B's `Capi` declares `watch` and `permit` targetable. `watch` (over `Bscope`) gives the cases:
+`Bscope` from `R2` to `D` has no scope rule, so an `R2` can watch two `D`s in one `G`. `permit`
+(over `Bown`) is needed only as a second targetable parameter for `MULTIPLE_TARGETS`, and `token`
+(`related`) is the non-targetable name. The change rebuilds the two seeds once. The volume definition
+is unchanged.
+
+**Test cases** (journey tests, written first and confirmed failing):
+
+Given an `R` "Ledger X" (code `LX`) watching (`Bscope`) a `D` below `G` "North" and a `D` below
+"South"; an `R` "Ledger Y" (`LY`) watching only a North `D`; an `R2` "Entry Z" (`EZ`) watching two
+`D`s below "South".
+
+1. **J29.11 Crosswalk with `expect=one`.**
+   - `query=LX&to.watchRegion=South&expect=one` answers Ledger X with `target` the South item; its
+     `watchedPermits` holds only that item, and `matchScore` is the one without `to.`.
+   - `watchRegion=North&to.watchRegion=South` on `LX` gives the same answer: the plain parameter does
+     not limit the output when the target is given.
+   - `LY` answers `404 TARGET_NOT_FOUND` naming Ledger Y; `EZ` answers `409 AMBIGUOUS_TARGET` naming
+     Entry Z, with `count` 2 and both items; `to.watchRegion=North,South` on `LX` is
+     `409 AMBIGUOUS_TARGET`.
+   - Two records sharing a name, only one with a South target: `409 AMBIGUOUS_MATCH`.
+2. **J29.12 Pages and get by ID.** Get by ID of Ledger X with `to.watchRegion=South` has `target` the
+   item; of Ledger Y, `404 TARGET_NOT_FOUND`; of Entry Z, `409 AMBIGUOUS_TARGET`. The list `all`
+   (every `R`) with `to.watchRegion=South` keeps every ledger with the same `totalCount`, each
+   `target` an array (Ledger Y's empty); a cursor from the page without `to.` reads the next page
+   with it. XREF `expect=any` for a term both ledgers match: both, same scores and order.
+3. **J29.13 Batch resolve.** `defaults` `to.watchRegion=South`; items `LX`, `LY`, `EZ`, Ledger X by ID,
+   and `LY` with its own `to.watchRegion=North`: `found` (with `target`), `not_found`
+   (`TARGET_NOT_FOUND`), `ambiguous` (`AMBIGUOUS_TARGET`), `found`, `found`; each outcome equals the
+   single read's answer, with `counts` adding up.
+4. **J29.14 Refusals.** `to.token` and `to.nothing` are `400 UNKNOWN_PARAMETER`;
+   `to.watchRegion=South&to.permitRegion=North` is `400 MULTIPLE_TARGETS`. In batch resolve, the same
+   in an item rejects that item with a pointer into it, and `to.token` in `defaults` refuses the
+   request.
+5. **J25 (changed).** A candidate release turning `targetable` off for `watchRegion` is reported
+   `version_required` at `/parameters/<name>/targetable`; one turning it back on needs no new
+   version. `targetable` on the `ancestor` parameter `container` is refused at its pointer: C1's
+   schema, asserted here, not expected to fail first.
+
+No unit tests: the target adds no logic with edge cases beyond what J29.11–J29.14 walk. No volume
+case: the target is the projection limit C3 already applies in the same select, so it adds no
+statement. That is the design's reasoning, not a measurement; a `test_consumer_xref_volume` batch
+with `to.` would check it, at the cost of the volume definition and seeds rebuilt once, and is left
+out unless the user asks for it. **Checks:** J29, J28 and J25 on generated A and B; the
+groups `consumer` and `contract` (`test_api_journeys`, `test_boundaries`, the OpenAPI lock, which
+should not change, since the consumer routes are outside the management document); `ruff`. No
+migration, so no `startup`; not `queries` (`object_query` unchanged), not `volume`.
+
+**Docs at delivery:** API.md gains crosswalk on the four routes and the three codes; CONSUMER_API
+records C-D54–C-D58, amends "Crosswalk" (codes in upper case, get by ID with `expect=one`, the
+replaced limit) and marks the C15 row delivered; APPLICATION_MODEL notes `targetable` in the
+contract; USER_JOURNEYS and API_JOURNEYS add J29.11–J29.14; CURRENT_FUNCTIONALITY describes
+translating a value from one representation to another in one read. C6's per-definition OpenAPI
+then describes `to.` names and `target` (noted for C6).
+
+**Composable domains (ADR-032):** the `match` declaration is untouched; the `parameters`
+declaration gains `targetable`'s contract entry. Identity, attribute storage, audit, the bulk APIs
+and mapping coverage are untouched. A product catalogue's "our SKU in the supplier's numbering" is a
+targetable `projection` parameter over the supplier links, so the door is exercised, not narrowed.
+
+##### C15 delivery record
+
+**Delivered 2026-10-05**, as designed, with the decisions C-D54–C-D58 and the approved cases.
+
+- **Names** (`app/consumer/router.py`): `to.<name>` is known and applied for each targetable
+  parameter on get by ID, lists and XREF, and in batch resolve's `defaults` and items (in the URL of
+  batch resolve it is `PARAMETER_NOT_SUPPORTED`, as a definition parameter is). An unknown `to.` name
+  answers `UNKNOWN_PARAMETER` naming the targetable ones; a second is `MULTIPLE_TARGETS`
+  (`details.parameters`, and the `path` or `pointer` of the second). An item's `to.` name drops the
+  defaults' one.
+- **Filter** (`consumer_parameters.py`): `consumer_filter` takes the `to.` value with the
+  parameters; `ConsumerFilter.target` names it and its projection, and the projection's limit is the
+  target's items AND the other parameters' limits over it, the targeted parameter's own left out.
+  `records` and `scoring` are built as before. `without_target` keeps `to.` values out of the list
+  and XREF cursors.
+- **Composition and uniqueness** (`consumer_objects.py`): `compose` adds `target` (the limited
+  projection, in its shape) after the declared fields; `one_target` turns it into the single item or
+  refuses, for get by ID, XREF `expect=one` and each batch item, where `item_error` points the
+  refusal at the `to.` name in `defaults` or the item. No statement is added.
+- **Contract** (`consumer_contract.py`): `OutputContract.targetable`; turning it off is
+  `version_required` at `/parameters/<name>/targetable`.
+- **Differs from the plan:** J25's last case found a defect, not expected: a shape error inside a
+  typed union was reported at a path holding Pydantic's tag (`…/parameters/zone/ancestor/targetable`,
+  and for views and panels `…/views/1/tree/config/pageSize`), a node the document does not have, so
+  the model draft editor's "go to path" could not find it. `compiler.document_location` leaves the
+  tag out (a segment before the last that is no key of its object but one of its values), with a
+  unit test (`tests/unit/engine/model/test_compiler.py`, mapped to `model` in `UNIT_GROUPS`). Three
+  older `test_model.py` cases (13 parametrised) pinned the tagged path and now assert the document's
+  pointer. Shape errors still locate a list item by position (`/consumerApis/0/…`), as before.
+- **Docs:** API.md (the Crosswalk section, the codes on the parameters and batch resolve tables),
+  CONSUMER_API (C-D54–C-D58, "Crosswalk" amended, C15 delivered), APPLICATION_MODEL, USER_JOURNEYS and
+  API_JOURNEYS (J29.11–J29.14), CURRENT_FUNCTIONALITY; C6's row notes the `to.` names for its OpenAPI.
+
+**Checks:** the new journey cases failed first (8 crosswalk, 2 J25), then pass;
+`pytest -n auto -m "consumer or contract or model"` 407 cases, 394 passed and 13 failed on the
+older tagged-path assertions, which were then updated: `tests/test_model.py` 123 passed; J25, J28
+and J29 68 passed; the serial part of those groups is empty; `ruff check app/ tests/` clean. Not run:
+`volume` (no statement added, the design's reasoning, not measured), `queries` (`object_query`
+unchanged), `startup` (no migration), the full suites (R).
 
 ## Track V — API reference
 

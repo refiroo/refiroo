@@ -33,8 +33,9 @@ delivered (2026-10-04)**: the consumer tier with get by ID (C-D21–C-D26). **C3
 several values the OpenAPI way, `%2C` for a comma in a value (C-D32 amended). **C4 is delivered
 (2026-10-05)**: XREF lookup and scoring (C-D34–C-D41). **C5 is delivered (2026-10-05)**: the
 definition's parameters on XREF, `scoresFrom` (C-D42–C-D46). **C14 is delivered (2026-10-05)**: batch
-resolve, one scoring path with XREF, exact rules first (C-D47–C-D53). Next: C15, in the order of the
-delivery queue. See
+resolve, one scoring path with XREF, exact rules first (C-D47–C-D53). **C15 is delivered
+(2026-10-05)**: crosswalk, `to.{parameter}` on every consumer read (C-D54–C-D58). Next: CN1, in the
+order of the delivery queue. See
 [Next — 0.9](#next--09).
 
 - **Publish and change-set creation move the workspace through Python (found 2026-10-03, F1;

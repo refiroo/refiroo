@@ -733,8 +733,14 @@ def test_panel_sort_fields_must_not_be_empty():
     source = load_model(MODEL_PATH).model_dump(mode="json")
     _system_panel(source)["config"]["sortFields"] = []
     result = compile_model(source)
-    # A shape error: Pydantic locates it by position and panel type.
-    assert result.diagnostics[0].path.endswith("/relations/config/sortFields")
+    # A shape error: located by position, without Pydantic's panel-type tag (0.9 C15).
+    panel = _system_panel(source)
+    for app_index, application in enumerate(source["applications"]):
+        for detail_index, detail in enumerate(application["details"]):
+            for panel_index, item in enumerate(detail["panels"]):
+                if item is panel:
+                    pointer = f"/applications/{app_index}/details/{detail_index}/panels/{panel_index}"
+    assert result.diagnostics[0].path == f"{pointer}/config/sortFields"
 
 
 def test_generated_volume_model_validates_with_its_relation_matrices_and_tree():
@@ -760,6 +766,15 @@ def test_generated_volume_model_validates_with_its_relation_matrices_and_tree():
 def _matrix(source, app_key="rdm-translations", view_key="master-value-translations"):
     application = next(a for a in source["applications"] if a["key"] == app_key)
     return next(v for v in application["views"] if v["key"] == view_key)
+
+
+def _shape_pointer(source, view, below):
+    """The JSON pointer of a node below ``view`` by position, as a shape error names it."""
+    for app_index, application in enumerate(source["applications"]):
+        for view_index, item in enumerate(application["views"]):
+            if item is view:
+                return f"/applications/{app_index}/views/{view_index}/{below}"
+    raise AssertionError("view not found")
 
 
 def _matrix_path(app_key, view_key):
@@ -1057,7 +1072,8 @@ def test_relation_matrix_shape_is_strict(field, value):
     _matrix(source)["config"][field] = value
     result = compile_model(source)
     assert not result.valid
-    assert f"/relationMatrix/config/{field}" in result.diagnostics[0].path
+    # A JSON pointer into the document, without Pydantic's view-type tag (0.9 C15).
+    assert result.diagnostics[0].path.startswith(_shape_pointer(source, _matrix(source), f"config/{field}"))
 
 
 def test_relation_matrix_accepts_a_differently_keyed_model():
@@ -1326,7 +1342,7 @@ def test_tree_shape_is_strict(field, value):
     _tree(source)["config"][field] = value
     result = compile_model(source)
     assert not result.valid
-    assert f"/tree/config/{field}" in result.diagnostics[0].path
+    assert result.diagnostics[0].path.startswith(_shape_pointer(source, _tree(source), f"config/{field}"))
 
 
 def test_tree_accepts_a_differently_keyed_model():

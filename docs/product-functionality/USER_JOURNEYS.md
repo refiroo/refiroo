@@ -902,8 +902,8 @@ rest follows in C5–C16 ([CONSUMER_API.md](../CONSUMER_API.md)).
 ### J29 — Resolve a business object through a consumer API
 
 **Actor:** consuming system. **Channel:** consumer API. **Stories:** US-I09 (consumer side).
-**Status:** delivered in 0.9 C4, with the definition's parameters in C5 and batch resolve in C14
-([CONSUMER_API.md](../CONSUMER_API.md)).
+**Status:** delivered in 0.9 C4, with the definition's parameters in C5, batch resolve in C14 and
+crosswalk in C15 ([CONSUMER_API.md](../CONSUMER_API.md)).
 
 1. Look up business objects by what the system knows, a code, an ID, a name or a related record's
    value: `GET /api/consumer/{apiKey}/v{contractVersion}/xref?query=…`.
@@ -917,6 +917,9 @@ rest follows in C5–C16 ([CONSUMER_API.md](../CONSUMER_API.md)).
 4. Page through the results with cursors both ways, `position` and `from=end`; `totalCount` is always
    given. Or ask for the single best one with `expect=one`.
 5. Read live data in the default workspace, or in the one named by `workspace`.
+6. Translate what was found into another representation in the same read (crosswalk): `to.{name}`
+   names a targetable `projection` parameter and a value, and each object carries the projection's
+   matching items as `target`.
 
 **Variants:**
 
@@ -950,13 +953,29 @@ rest follows in C5–C16 ([CONSUMER_API.md](../CONSUMER_API.md)).
   items are resolved; a body of the wrong shape, a wrong name in `defaults` or a definition parameter
   in the URL refuses the request, and more items than `CONSUMER_RESOLVE_MAX_ITEMS` (reported by
   `GET /capabilities`) is `413`.
+- **J29.11 Crosswalk with `expect=one`**: `to.{name}` with `expect=one` answers the object found
+  with `target`, the single matching item, which the projection also shows in place of the plain
+  parameter's items; matching, scores and the plain parameter's `requireMatch` and `scoresFrom` are
+  unchanged. No matching item is `404 TARGET_NOT_FOUND`, several `409 AMBIGUOUS_TARGET`, each naming
+  the object; a shared top score stays `409 AMBIGUOUS_MATCH`.
+- **J29.12 Crosswalk on pages and get by ID**: get by ID answers one target as `expect=one` does; a
+  list or an `expect=any` page keeps every object, its order, scores and `totalCount`, each `target`
+  in the projection's shape (empty where an object has none); cursors do not bind `to.` values.
+- **J29.13 Crosswalk in batch resolve**: `to.{name}` in `defaults` or in an item; each outcome is the
+  single read's answer, a missing or ambiguous target `not_found` or `ambiguous` with a pointer to
+  where the `to.` name was given.
+- **J29.14 Crosswalk refusals**: a `to.` name for anything but a targetable parameter is
+  `400 UNKNOWN_PARAMETER`, two `to.` names `400 MULTIPLE_TARGETS`; in batch resolve, in an item they
+  reject the item (an item's `to.` name replaces a different one from `defaults`), in `defaults` the
+  request.
 
 An `expect=one` lookup settled by exact matches (a code, an ID or an exact name scoring above
 anything a contains match could give) is answered without reading contains matches, so a contains
 term matching more than 10,000 records does not refuse it.
 
 **Refusals:** `400 QUERY_REQUIRED`, `400 TOO_MANY_TERMS`, `400 QUERY_TOO_BROAD`, `400 INVALID_EXPECT`,
-`400 PARAMETER_NOT_SUPPORTED`, `400 UNKNOWN_OBJECT_TYPE`, `404 NO_MATCH`, `409 AMBIGUOUS_MATCH`, and
+`400 PARAMETER_NOT_SUPPORTED`, `400 UNKNOWN_OBJECT_TYPE`, `404 NO_MATCH`, `409 AMBIGUOUS_MATCH`,
+`400 MULTIPLE_TARGETS`, `404 TARGET_NOT_FOUND` (also on get by ID), `409 AMBIGUOUS_TARGET`, and
 J28's API, workspace and paging refusals; batch resolve adds `400 REQUEST_VALIDATION_ERROR` (a body
 of the wrong shape), `QUERY_OR_ID_REQUIRED` (an item's outcome) and `413 BATCH_TOO_LARGE`.
 

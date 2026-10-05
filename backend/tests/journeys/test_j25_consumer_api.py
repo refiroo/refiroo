@@ -249,3 +249,40 @@ def test_scores_from_needs_a_promoted_entry_and_is_contract(world):
     assert any(d["path"] == changed for d in compiled["consumerContracts"]["diagnostics"]), compiled[
         "consumerContracts"
     ]["diagnostics"]
+
+
+@pytest.mark.journey("J25")
+@pytest.mark.structures("Capi", "Bown", "Bscope", "G", "M")
+def test_targetable_is_contract(world):
+    """A candidate turning targetable off for a parameter is version_required at
+    /parameters/<name>/targetable; turning it back on needs no new version. targetable on an ancestor
+    parameter is refused at its pointer."""
+    watch = world.key("Capi.watch")
+    changed = f"/consumerApis/{world.key('Capi')}/parameters/{watch}/targetable"
+    model, definition = _capi_model(world, "targetable-off")
+    definition["parameters"][watch]["targetable"] = False
+    draft, compiled = _compile(world, model)
+    assert compiled["valid"] is True
+    assert compiled["consumerContracts"]["classification"] == "version_required"
+    assert any(d["path"] == changed for d in compiled["consumerContracts"]["diagnostics"]), compiled[
+        "consumerContracts"
+    ]["diagnostics"]
+
+    definition["contractVersion"] = 2
+    model["release"]["version"] += "-v2"
+    draft, _compiled = _compile(world, model)
+    ok(world.activate(ok(_install(world, draft), 201)["id"]))
+    model, definition = _capi_model(world, "targetable-on")
+    definition["contractVersion"] = 2
+    _draft, compiled = _compile(world, model)
+    assert compiled["valid"] is True
+    assert compiled["consumerContracts"]["classification"] == "compatible"
+
+    container = world.key("Capi.container")
+    model, definition = _capi_model(world, "targetable-ancestor")
+    definition["parameters"][container]["targetable"] = True
+    _draft, compiled = _compile(world, model)
+    assert compiled["valid"] is False
+    index = model["consumerApis"].index(definition)
+    pointer = f"/consumerApis/{index}/parameters/{container}/targetable"
+    assert [d["path"] for d in compiled["diagnostics"]] == [pointer], compiled["diagnostics"]

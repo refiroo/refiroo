@@ -2,6 +2,7 @@
 
 import pytest
 from scenario import (
+    consumer_list,
     consumer_object,
     consumer_resolve,
     consumer_xref,
@@ -589,3 +590,215 @@ def test_batch_resolve_refusals(world):
         assert _statuses(_resolve(world, {"items": [{"query": "led-7"}] * 5})) == ["found"] * 5
     finally:
         state.consumer_resolve_max_items = saved
+
+
+# --- crosswalk (C15) ---
+
+
+def _to(world, name):
+    """The ``to.`` name of a targetable parameter of ``Capi``."""
+    return f"to.{_param(world, name)}"
+
+
+def _crosswalk(world):
+    """Ledger X (LX) watching (Bscope) a D below G North and a D below South; Ledger Y (LY) watching
+    only the North D; Entry Z (EZ, an R2) watching two D below South. Each D has its own owner, since
+    an R owns one active D per G."""
+    regions = {name: world.made("G", name, values={"K.code": f"G{name[0]}"}) for name in ("North", "South")}
+    desks = {}
+    for number, (name, region) in enumerate(
+        (("North desk", "North"), ("South desk", "South"), ("South annex", "South")), start=1
+    ):
+        owner = _ledger(world, f"Owner {number}", f"OW-{number}")
+        desks[name] = world.made(
+            "D",
+            name,
+            parent=world.dependant_parent(regions[region]["id"]),
+            relations=[world.owner("Bown", owner["id"])],
+        )
+    x = _ledger(world, "Ledger X", "LX")
+    y = _ledger(world, "Ledger Y", "LY")
+    z = world.made("R2", "Entry Z", parent=y["id"], values={"R2.u": "EZ"})
+    for record, names in ((x, ("North desk", "South desk")), (y, ("North desk",)), (z, ("South desk", "South annex"))):
+        for name in names:
+            ok(world.relate("Bscope", record["id"], desks[name]["id"]), 201)
+    return x, y, z
+
+
+def _watched_item(world, name):
+    return {_out(world, "Bscope.name"): name}
+
+
+def _without_pointer(error):
+    """An error without where it points: a single read names the query parameter, a batch item the
+    place in the body."""
+    details = {key: value for key, value in error.get("details", {}).items() if key not in ("path", "pointer")}
+    return {**error, "details": details}
+
+
+@pytest.mark.journey("J29.11")
+@pytest.mark.structures(*CAPI)
+def test_crosswalk_with_expect_one(world):
+    """query=LX&to.watchRegion=South&expect=one answers Ledger X with target the South item, its
+    watchedPermits only that item and the matchScore it has without to.; watchRegion=North with the
+    target gives the same answer. LY is 404 TARGET_NOT_FOUND, EZ 409 AMBIGUOUS_TARGET with count 2
+    and both items, to.watchRegion=North,South on LX 409 AMBIGUOUS_TARGET. Two records sharing a
+    name, one with a South target, stay 409 AMBIGUOUS_MATCH."""
+    x, y, z = _crosswalk(world)
+    to, watch = _to(world, "watch"), _param(world, "watch")
+    south = _watched_item(world, "South desk")
+
+    plain = _xref(world, query="LX", expect="one")
+    found = _xref(world, query="LX", expect="one", **{to: "South"})
+    assert found[_out(world, "id")] == x["id"]
+    assert found["target"] == south
+    assert found[_out(world, "Bscope")] == [south]
+    assert found["matchScore"] == plain["matchScore"] == 500
+    assert list(found)[-2:] == ["target", "matchScore"]
+    assert {key: value for key, value in found.items() if key not in ("target", _out(world, "Bscope"))} == {
+        key: value for key, value in plain.items() if key != _out(world, "Bscope")
+    }
+    assert _xref(world, query="LX", expect="one", **{watch: "North", to: "South"}) == found
+
+    error = refused(consumer_xref(world, query="LY", expect="one", **{to: "South"}), 404, "TARGET_NOT_FOUND")
+    assert (error["details"]["id"], error["details"]["objectType"]) == (y["id"], world.key("Capi.R"))
+    assert error["details"]["parameter"] == to
+    error = refused(consumer_xref(world, query="EZ", expect="one", **{to: "South"}), 409, "AMBIGUOUS_TARGET")
+    assert (error["details"]["id"], error["details"]["objectType"]) == (z["id"], world.key("Capi.R2"))
+    assert error["details"]["count"] == 2
+    assert sorted(error["details"]["targets"], key=str) == sorted(
+        [south, _watched_item(world, "South annex")], key=str
+    )
+    error = refused(
+        consumer_xref_typed(world, f"query=LX&expect=one&{to}=North,South"), 409, "AMBIGUOUS_TARGET"
+    )
+    assert error["details"]["count"] == 2
+
+    twin = _ledger(world, "Twin", "TW-1")
+    _ledger(world, "Twin", "TW-2")
+    south_desk = _xref(world, query="South desk", expect="one")[_out(world, "id")]
+    ok(world.relate("Bscope", twin["id"], south_desk), 201)
+    refused(consumer_xref(world, query="twin", expect="one", **{to: "South"}), 409, "AMBIGUOUS_MATCH")
+
+
+@pytest.mark.journey("J29.12")
+@pytest.mark.structures(*CAPI)
+def test_crosswalk_on_pages_and_get_by_id(world):
+    """Get by ID with to.watchRegion=South: Ledger X has target the item, Ledger Y is 404
+    TARGET_NOT_FOUND, Entry Z 409 AMBIGUOUS_TARGET. The list of every R with the target keeps every
+    ledger and its totalCount, each target an array (Ledger Y's empty); a cursor from the page without
+    to. reads the next page with it. XREF expect=any for a term both ledgers match: both, with the
+    same scores and order."""
+    x, y, z = _crosswalk(world)
+    to = _to(world, "watch")
+    south = _watched_item(world, "South desk")
+
+    by_id = ok(consumer_object(world, x["id"], **{to: "South"}))
+    assert by_id["target"] == south
+    assert list(by_id)[-1] == "target"
+    refused(consumer_object(world, y["id"], **{to: "South"}), 404, "TARGET_NOT_FOUND")
+    refused(consumer_object(world, z["id"], **{to: "South"}), 409, "AMBIGUOUS_TARGET")
+
+    ledgers = world.key("Capi.all")
+    plain = ok(consumer_list(world, ledgers, includeTotal="true"))
+    targeted = ok(consumer_list(world, ledgers, includeTotal="true", **{to: "South"}))
+    assert targeted["totalCount"] == plain["totalCount"] == 5
+    names = [item[_out(world, "name")] for item in plain["items"]]
+    assert [item[_out(world, "name")] for item in targeted["items"]] == names
+    targets = {item[_out(world, "name")]: item["target"] for item in targeted["items"]}
+    assert targets["Ledger X"] == [south]
+    assert targets["Ledger Y"] == []
+    first = ok(consumer_list(world, ledgers, pageSize=2))
+    following = ok(consumer_list(world, ledgers, pageSize=2, cursor=first["nextCursor"], **{to: "South"}))
+    assert [item[_out(world, "name")] for item in following["items"]] == names[2:4]
+    assert all("target" in item for item in following["items"])
+
+    without = _xref(world, query="Ledger")
+    page = _xref(world, query="Ledger", **{to: "South"})
+    assert _scored(world, page) == _scored(world, without) == [("Ledger X", 30), ("Ledger Y", 30)]
+    assert page["totalCount"] == without["totalCount"]
+    assert [item["target"] for item in page["results"]] == [[south], []]
+
+
+@pytest.mark.journey("J29.13")
+@pytest.mark.structures(*CAPI)
+def test_crosswalk_in_batch_resolve(world):
+    """defaults to.watchRegion=South; items LX, LY, EZ, Ledger X by ID, and LY with its own
+    to.watchRegion=North: found with target, not_found TARGET_NOT_FOUND, ambiguous AMBIGUOUS_TARGET,
+    found, found; each outcome is the single read's answer, and counts add up."""
+    x, _y, _z = _crosswalk(world)
+    to = _to(world, "watch")
+    body = {
+        "defaults": {to: "South"},
+        "items": [
+            {"query": "LX"},
+            {"query": "LY"},
+            {"query": "EZ"},
+            {"id": x["id"]},
+            {"query": "LY", to: "North"},
+        ],
+    }
+    answer = _resolve(world, body)
+    assert _statuses(answer) == ["found", "not_found", "ambiguous", "found", "found"]
+    assert answer["counts"] == {"found": 3, "notFound": 1, "ambiguous": 1, "rejected": 0}
+    assert answer["items"][0]["object"]["target"] == _watched_item(world, "South desk")
+    assert answer["items"][4]["object"]["target"] == _watched_item(world, "North desk")
+    for index, (item, outcome) in enumerate(zip(body["items"], answer["items"], strict=True)):
+        single = _single(world, item, body["defaults"])
+        if single.status_code == 200:
+            assert outcome["object"] == single.json()
+        else:
+            assert _without_pointer(outcome["error"]) == _without_pointer(single.json()["error"])
+            assert outcome["error"]["details"]["pointer"] == f"/defaults/{to}", index
+    assert [o["error"]["code"] for o in answer["items"] if "error" in o] == ["TARGET_NOT_FOUND", "AMBIGUOUS_TARGET"]
+
+
+@pytest.mark.journey("J29.14")
+@pytest.mark.structures(*CAPI)
+def test_crosswalk_refusals(world):
+    """to.token (a related parameter) and to.nothing are 400 UNKNOWN_PARAMETER;
+    to.watchRegion=South&to.permitRegion=North is 400 MULTIPLE_TARGETS. In batch resolve the same in
+    an item rejects that item with a pointer into it, an item's to. name replaces a different one
+    from defaults, and to.token in defaults refuses the request."""
+    x, _y, _z = _crosswalk(world)
+    watch_to, permit_to, token_to = _to(world, "watch"), _to(world, "permit"), f"to.{_param(world, 'token')}"
+    for name in (token_to, "to.nothing"):
+        error = refused(consumer_xref(world, query="LX", **{name: "South"}), 400, "UNKNOWN_PARAMETER")
+        assert error["details"]["parameters"] == [name]
+        assert watch_to in error["message"] and permit_to in error["message"]
+    error = refused(
+        consumer_object(world, x["id"], **{watch_to: "South", permit_to: "North"}), 400, "MULTIPLE_TARGETS"
+    )
+    assert sorted(error["details"]["parameters"]) == sorted([watch_to, permit_to])
+    refused(
+        consumer_list(world, world.key("Capi.all"), **{watch_to: "South", permit_to: "North"}),
+        400,
+        "MULTIPLE_TARGETS",
+    )
+
+    answer = _resolve(
+        world,
+        {
+            "defaults": {watch_to: "South"},
+            "items": [
+                {"query": "LX", token_to: "x"},
+                {"query": "LX", watch_to: "South", permit_to: "North"},
+                {"query": "LX", permit_to: "North"},
+                {"query": "LX"},
+            ],
+        },
+    )
+    assert _statuses(answer) == ["rejected", "rejected", "not_found", "found"]
+    errors = [(o["error"]["code"], o["error"]["details"]["pointer"]) for o in answer["items"][:3]]
+    assert errors[0] == ("UNKNOWN_PARAMETER", f"/items/0/{token_to}")
+    assert errors[1][0] == "MULTIPLE_TARGETS" and errors[1][1].startswith("/items/1/")
+    assert errors[2] == ("TARGET_NOT_FOUND", f"/items/2/{permit_to}")
+
+    one = {"items": [{"query": "LX"}]}
+    error = refused(consumer_resolve(world, {**one, "defaults": {token_to: "x"}}), 400, "UNKNOWN_PARAMETER")
+    assert error["details"]["pointer"] == f"/defaults/{token_to}"
+    refused(
+        consumer_resolve(world, {**one, "defaults": {watch_to: "South", permit_to: "North"}}),
+        400,
+        "MULTIPLE_TARGETS",
+    )

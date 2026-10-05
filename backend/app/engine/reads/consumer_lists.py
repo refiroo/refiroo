@@ -19,7 +19,7 @@ from ...errors import api_error
 from ...models.database import RdmObject
 from ...models.schema import ConsumerApiDefinition, ConsumerList, EngineModel
 from .consumer_objects import ConsumerObjects
-from .consumer_parameters import ConsumerFilter, below
+from .consumer_parameters import ConsumerFilter, below, without_target
 from .object_query import build_object_query
 
 
@@ -45,7 +45,8 @@ def read_consumer_list(
     page_size: int,
 ) -> dict[str, Any]:
     """One page of the list. ``parameters`` are the request's parameter values, bound into the
-    cursor with the workspace, the parent IDs and the contract version."""
+    cursor with the workspace, the parent IDs and the contract version; a ``to.`` value is not
+    bound, since it changes no row or order (C-D54)."""
     query = build_object_query(
         model,
         object_type_key=declared.objectType,
@@ -72,7 +73,7 @@ def read_consumer_list(
             "workspace": workspace_key,
             "contractVersion": definition.contractVersion,
             "parents": sorted(parent_ids),
-            "parameters": {name: sorted(values) for name, values in sorted(parameters.items())},
+            "parameters": {name: sorted(values) for name, values in sorted(without_target(parameters).items())},
         },
         page=page,
         page_size=page_size,

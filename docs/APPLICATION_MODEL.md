@@ -544,7 +544,9 @@ contract rules are specified in [CONSUMER_API.md](CONSUMER_API.md#definition-sha
 - Each definition has a `key` (the `apiKey`), a `name` and its own `contractVersion`, and declares the
   exposed object types, output fields, projections, lists, XREF parameters and scoring, and events.
 - A `projection` parameter may declare `"targetable": true`, which enables crosswalk reads
-  (`to.{parameter}`). Only a `projection` parameter can be targetable.
+  (`to.{parameter}`). Only a `projection` parameter can be targetable. It is part of the contract:
+  turning it off is `version_required` at `/consumerApis/<key>/parameters/<name>/targetable`,
+  turning it on is compatible (C-D58).
 - A `projection` parameter may declare `"scoresFrom": true`: on XREF, only the related records it
   matches pass scores through its projection. It needs a `match.promoted` entry over that
   projection, refused otherwise at `/consumerApis/<key>/parameters/<name>/scoresFrom` (C-D45).

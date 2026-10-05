@@ -78,8 +78,8 @@ from ...models.schema import (
 from ...models.search_index import MIN_INDEXED_LENGTH
 from ..model.consumer_contract import projection_targets
 from ..records.values import VALUE_COLUMNS
-from .consumer_objects import ConsumerObjects
-from .consumer_parameters import ConsumerFilter
+from .consumer_objects import ConsumerObjects, one_target
+from .consumer_parameters import ConsumerFilter, without_target
 from .object_query import INDEXED_MATCH_LIMIT, escape_like, parse_typed
 
 # The records a query may match before it is refused as too broad (C-D37).
@@ -624,15 +624,16 @@ def read_xref(
 ) -> dict[str, Any]:
     """XREF's answer: a page of scored shared objects in the envelope (C-D39), or with
     ``expect_one`` the single top object (C-D40), of those ``narrowed`` keeps (C-D42). Each object
-    carries ``matchScore`` after its declared fields (C-D41). ``parameters`` are the request's
-    parameter values, bound into the cursor with the terms, the workspace and the contract version."""
+    carries ``matchScore`` after its declared fields (C-D41), and with a crosswalk target ``target``
+    before it (C15). ``parameters`` are the request's parameter values, bound into the cursor with the
+    terms, the workspace and the contract version; a ``to.`` value is not bound (C-D54)."""
     composer = ConsumerObjects(model, definition)
     if expect_one:
         (answer,) = resolve_lookups(session, model, definition, workspace_key, [terms], narrowed)
         if isinstance(answer, ApiError):
             raise answer
         composed = composer.compose(session, workspace_key, [answer.id], narrowed)
-        return {**composed[answer.id], "matchScore": answer.score}
+        return {**one_target(composed[answer.id], answer.id, narrowed.target), "matchScore": answer.score}
     ranked = None
     if definition.match is not None:
         scoring = _Scoring(model, definition, workspace_key, [terms], narrowed)
@@ -653,7 +654,7 @@ def read_xref(
             "workspace": workspace_key,
             "contractVersion": definition.contractVersion,
             "query": sorted(set(terms)),
-            "parameters": {name: sorted(values) for name, values in sorted(parameters.items())},
+            "parameters": {name: sorted(values) for name, values in sorted(without_target(parameters).items())},
         },
         page=replace(page, include_total=True),
         page_size=page_size,

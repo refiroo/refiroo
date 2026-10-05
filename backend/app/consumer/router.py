@@ -22,7 +22,7 @@ from ..db import SessionLocal
 from ..engine.model.registry import resolve_model_snapshot
 from ..engine.reads.consumer_lists import consumer_list, read_consumer_list
 from ..engine.reads.consumer_objects import consumer_definition, read_consumer_object
-from ..engine.reads.consumer_parameters import consumer_filter
+from ..engine.reads.consumer_parameters import TARGET_PREFIX, consumer_filter, target_names
 from ..engine.reads.consumer_resolve import ResolveItem, item_error, read_resolve
 from ..engine.reads.consumer_xref import read_xref, xref_terms
 from ..engine.workspaces.catalogue import resolve_workspace
@@ -219,16 +219,17 @@ def _resolve_items(raw: bytes, definition: ConsumerApiDefinition, max_items: int
     default_values = {name: _json_values(value, f"/defaults/{name}") for name, value in defaults.items()}
     shaped = [_shaped_item(item, f"/items/{index}") for index, item in enumerate(items)]
 
-    known = _ROUTE_NAMES | _ITEM | set(definition.parameters) | {
+    targets = target_names(definition)
+    known = _ROUTE_NAMES | _ITEM | set(definition.parameters) | set(targets) | {
         item.parentParameter.name for item in definition.lists if item.parentParameter is not None
     }
-    applied = set(definition.parameters)
-    refused = _names_refused(list(default_values), known, applied, "/defaults")
+    applied = set(definition.parameters) | set(targets)
+    refused = _names_refused(list(default_values), known, applied, "/defaults", targets)
     if refused is not None:
         raise refused
     resolved = []
     for index, (ref, values) in enumerate(shaped):
-        refused = _names_refused(list(values), known, applied | _ITEM, f"/items/{index}")
+        refused = _names_refused(list(values), known, applied | _ITEM, f"/items/{index}", targets)
         if refused is not None:
             resolved.append(ResolveItem(index=index, ref=ref, refused=refused))
             continue
@@ -247,11 +248,17 @@ def _resolve_items(raw: bytes, definition: ConsumerApiDefinition, max_items: int
             )
             continue
         own = {name: given for name, given in values.items() if name not in _ITEM}
-        pointers = {name: f"/defaults/{name}" for name in default_values if name not in own}
+        # An item's target replaces the defaults' rather than adding a second (C-D56).
+        inherited = {
+            name: given
+            for name, given in default_values.items()
+            if name not in own and not (_is_target(name) and any(_is_target(key) for key in own))
+        }
+        pointers = {name: f"/defaults/{name}" for name in inherited}
         found = ResolveItem(
             index=index,
             ref=ref,
-            parameters={**default_values, **own},
+            parameters={**inherited, **own},
             pointers=pointers,
         )
         if "id" in values:
@@ -290,15 +297,18 @@ def _json_values(value: Any, pointer: str) -> list[str]:
     raise _shape(pointer, "a value must be text or a list of texts")
 
 
-def _names_refused(names: list[str], known: set[str], applied: set[str], at: str) -> ApiError | None:
+def _names_refused(
+    names: list[str], known: set[str], applied: set[str], at: str, targets: list[str]
+) -> ApiError | None:
     """``UNKNOWN_PARAMETER`` for a name the API does not know, ``PARAMETER_NOT_SUPPORTED`` for one it
-    knows that a lookup does not apply, pointing at the first."""
+    knows that a lookup does not apply, pointing at the first; then ``MULTIPLE_TARGETS`` for a
+    second ``to.`` name."""
     unknown = [name for name in names if name not in known]
     if unknown:
         return api_error(
             400,
             "UNKNOWN_PARAMETER",
-            f"Unknown parameter '{unknown[0]}'",
+            f"Unknown parameter '{unknown[0]}'{_targetable(unknown[0], targets)}",
             {"parameters": unknown, "pointer": f"{at}/{unknown[0]}"},
         )
     unsupported = [name for name in names if name not in applied]
@@ -309,7 +319,34 @@ def _names_refused(names: list[str], known: set[str], applied: set[str], at: str
             f"Parameter '{unsupported[0]}' is not supported in batch resolve",
             {"parameters": unsupported, "pointer": f"{at}/{unsupported[0]}"},
         )
-    return None
+    return _multiple_targets(names, "pointer", at)
+
+
+def _is_target(name: str) -> bool:
+    return name.startswith(TARGET_PREFIX)
+
+
+def _targetable(name: str, targets: list[str]) -> str:
+    """The end of an unknown ``to.`` name's message: the names this API can target (C-D57)."""
+    if not _is_target(name):
+        return ""
+    if not targets:
+        return "; this API has no targetable parameter"
+    return f"; this API targets {', '.join(targets)}"
+
+
+def _multiple_targets(names: list[str], key: str, at: str) -> ApiError | None:
+    """``MULTIPLE_TARGETS`` when ``names`` hold more than one ``to.`` name: a read has one target
+    (C-D56)."""
+    given = [name for name in names if _is_target(name)]
+    if len(given) < 2:
+        return None
+    return api_error(
+        400,
+        "MULTIPLE_TARGETS",
+        f"A read has one target, but {' and '.join(given)} are given",
+        {"parameters": given, key: f"{at}/{given[1]}"},
+    )
 
 
 def _shape(pointer: str, message: str) -> ApiError:
@@ -348,7 +385,7 @@ class _Parameters:
     raw: dict[str, list[str]]
     # Each name's values, split as OpenAPI's form style lists them (C-D32, C3b).
     listed: dict[str, list[str]]
-    # The definition parameters the route applies, by name.
+    # The definition parameters the route applies, by name, with a ``to.`` target among them.
     definition: dict[str, list[str]]
     parents: list[str]
 
@@ -365,11 +402,13 @@ class _Parameters:
         """Refuse a name the API does not know (``UNKNOWN_PARAMETER``), then one it knows that this
         route does not apply (``PARAMETER_NOT_SUPPORTED``): one outside ``serves``, a list's parent
         parameter off its list, or a definition parameter on a route that takes them in its body
-        (batch resolve's ``defaults``)."""
-        applied = set(serves) | (set(definition.parameters) if applies_definition else set())
+        (batch resolve's ``defaults``). A ``to.`` name is a definition parameter's crosswalk target,
+        one per read (C-D56, C-D57)."""
+        targets = target_names(definition)
+        applied = set(serves) | (set(definition.parameters) | set(targets) if applies_definition else set())
         if parent is not None:
             applied.add(parent)
-        known = applied | _ROUTE_NAMES | set(definition.parameters) | {
+        known = applied | _ROUTE_NAMES | set(definition.parameters) | set(targets) | {
             item.parentParameter.name for item in definition.lists if item.parentParameter is not None
         }
         raw = {name: request.query_params.getlist(name) for name in sorted(set(request.query_params))}
@@ -379,7 +418,7 @@ class _Parameters:
             raise api_error(
                 400,
                 "UNKNOWN_PARAMETER",
-                f"Unknown query parameter '{unknown[0]}'",
+                f"Unknown query parameter '{unknown[0]}'{_targetable(unknown[0], targets)}",
                 {"parameters": unknown, "path": f"/query/{unknown[0]}"},
             )
         unsupported = [name for name in raw if name not in applied]
@@ -390,6 +429,9 @@ class _Parameters:
                 f"Parameter '{unsupported[0]}' is not supported on this read",
                 {"parameters": unsupported, "path": f"/query/{unsupported[0]}"},
             )
+        multiple = _multiple_targets(list(raw), "path", "/query")
+        if multiple is not None:
+            raise multiple
         # On its list, a parent parameter sharing a definition parameter's name addresses the parent.
         return cls(
             raw=raw,
@@ -397,7 +439,7 @@ class _Parameters:
             definition={
                 name: listed[name]
                 for name in raw
-                if name in applied and name in definition.parameters and name != parent
+                if name in applied and (name in definition.parameters or _is_target(name)) and name != parent
             },
             parents=list(dict.fromkeys(listed[parent])) if parent in raw else [],
         )

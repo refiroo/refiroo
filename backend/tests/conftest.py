@@ -158,6 +158,7 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
 UNIT_GROUPS: dict[str, tuple[str, ...]] = {
     "engine/change_sets/test_publish.py": ("change_sets", "feed"),
     "engine/jobs/": ("jobs",),
+    "engine/model/": ("model",),
     "engine/reads/": ("consumer",),
     "engine/records/test_audit.py": ("records", "jobs"),
     "models/test_commands.py": ("jobs",),

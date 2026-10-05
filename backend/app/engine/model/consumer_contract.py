@@ -148,6 +148,9 @@ class OutputContract:
     parameters: dict[str, str]
     # The ``projection`` parameters declaring ``scoresFrom``, which changes ranking (C-D46).
     scores_from: frozenset[str] = frozenset()
+    # The ``projection`` parameters declaring ``targetable``, which consumers read ``to.`` names of
+    # (C-D58).
+    targetable: frozenset[str] = frozenset()
     # Exposed types that declare an effective period, on which ``asOf`` filters (Base 0.9 Q4).
     as_of: frozenset[str] = frozenset()
 
@@ -214,6 +217,11 @@ def output_contract(model: EngineModel, definition: ConsumerApiDefinition) -> Ou
             name
             for name, parameter in definition.parameters.items()
             if isinstance(parameter, ProjectionParameter) and parameter.scoresFrom
+        ),
+        targetable=frozenset(
+            name
+            for name, parameter in definition.parameters.items()
+            if isinstance(parameter, ProjectionParameter) and parameter.targetable
         ),
         as_of=frozenset(item.key for item in types if item.effectivePeriod is not None),
     )
@@ -323,6 +331,14 @@ def _breaking_changes(old: OutputContract, new: OutputContract) -> list[tuple[st
                 (
                     f"/parameters/{pointer_segment(name)}/scoresFrom",
                     f"turns scoresFrom {turned} for parameter '{name}', which changes its ranking",
+                )
+            )
+        # Turning targetable on adds a capability, as adding a field does (C-D2).
+        if name in new.parameters and new.parameters[name] == kind and name in old.targetable - new.targetable:
+            changes.append(
+                (
+                    f"/parameters/{pointer_segment(name)}/targetable",
+                    f"turns targetable off for parameter '{name}', so its to.{name} reads are refused",
                 )
             )
     # A type still exposed without its period would refuse the asOf its consumers send.

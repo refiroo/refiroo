@@ -180,7 +180,11 @@ a trigram index on names with workspace and type (`btree_gin`, migration `202610
 lookups in 816 ms at full volume (C-D47–C-D53,
 [record](BASE_0_9_IMPLEMENTATION_PLAN.md#c14-delivery-record)). **C14a and C14b (2026-10-05):** repeated
 lookups resolved once, the ancestor walk read by ID and contains selects built without aliases; the
-1,000-lookup batch now takes 236 ms. Next: C15.
+1,000-lookup batch now takes 236 ms. **C15 is delivered (2026-10-05):** crosswalk, `to.{parameter}`
+on get by ID, lists, XREF and batch resolve with `target`, `TARGET_NOT_FOUND`, `AMBIGUOUS_TARGET` and
+`MULTIPLE_TARGETS`; `targetable` is part of the contract (C-D54–C-D58,
+[record](BASE_0_9_IMPLEMENTATION_PLAN.md#c15-delivery-record)). Next: CN1, in the order of the
+[delivery queue](BASE_0_9_IMPLEMENTATION_PLAN.md#delivery-queue).
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter
