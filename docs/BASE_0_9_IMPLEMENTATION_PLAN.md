@@ -3838,6 +3838,13 @@ the management OpenAPI lock unchanged. `ruff check app/ tests/` clean. Not run: 
 documents read only the model), `startup` (no migration), the frontend (unchanged), the full suites
 (R).
 
+**Found after delivery (2026-10-05):** a list whose parent parameter shares a definition parameter's
+name, which C1 allows and CONSUMER_API's reference definition does (`domain`, `codelist`), listed the
+name twice on that list's operation, so the document was not valid OpenAPI (`Duplicate parameter`).
+The route reads the name as the parent there, so the document now lists it once, as the parent.
+Found while adding consumer APIs to the operators example model; held by
+`tests/unit/engine/model/test_consumer_openapi.py` over that model, which failed before the fix.
+
 ## Track V — API reference
 
 #### V1: API reference page

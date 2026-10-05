@@ -128,10 +128,14 @@ class _Document:
 
     # --- parameters ---
 
-    def _definition_parameters(self) -> list[dict[str, Any]]:
+    def _definition_parameters(self, parent: str | None = None) -> list[dict[str, Any]]:
+        """The definition's parameters and their ``to.`` names. On a list whose parent parameter shares
+        a definition parameter's name, the name addresses the parent there, so it is listed once, as
+        the parent (C1; the consumer router reads it so)."""
         found = []
         for name, parameter in self.definition.parameters.items():
-            found.append(_query(name, _parameter_description(parameter), _LISTED))
+            if name != parent:
+                found.append(_query(name, _parameter_description(parameter), _LISTED))
         for name in self.targets:
             projection = self.definition.parameters[name]
             assert isinstance(projection, ProjectionParameter)
@@ -191,7 +195,9 @@ class _Document:
             "parameters": [
                 *parent,
                 *self._reads(),
-                *self._definition_parameters(),
+                *self._definition_parameters(
+                    declared.parentParameter.name if declared.parentParameter is not None else None
+                ),
                 *_PAGING,
                 _SEEK,
                 _INCLUDE_TOTAL,
