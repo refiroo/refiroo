@@ -81,6 +81,8 @@ ITEMS_BY_GROUP, RANKED_ITEMS = "items", "ranked-items"
 GROUP_PARENT, WITHIN_GROUP = "group", "within"
 # Base 0.9 C4: the groups an item cites, through which a group's match promotes the citing items.
 CITED_GROUPS = "citedGroups"
+# Base 0.9 C5: a projection parameter over the cited groups by code, which also limits promotion.
+CITING = "cites"
 
 _INSERT_BATCH = 5000
 
@@ -338,7 +340,8 @@ def volume_model() -> dict[str, Any]:
 def _consumer_api() -> dict[str, Any]:
     """Base 0.9 C3: items under a group (the parent by ID), every item by rank, and an ancestor
     parameter matching a group by ID, name or code at any depth. C4: XREF by ID, code and name, and a
-    group's code or name promoted to the items citing it."""
+    group's code or name promoted to the items citing it. C5: a projection parameter over the cited
+    groups by code, with ``scoresFrom``."""
     return {
         "key": CONSUMER_API,
         "name": "Volume consumer API",
@@ -377,7 +380,8 @@ def _consumer_api() -> dict[str, Any]:
             ],
         },
         "parameters": {
-            WITHIN_GROUP: {"kind": "ancestor", "objectTypes": [GROUP], "matchFields": ["id", "name", CODE]}
+            WITHIN_GROUP: {"kind": "ancestor", "objectTypes": [GROUP], "matchFields": ["id", "name", CODE]},
+            CITING: {"kind": "projection", "projection": CITED_GROUPS, "matchFields": [CODE], "scoresFrom": True},
         },
         "lists": [
             {

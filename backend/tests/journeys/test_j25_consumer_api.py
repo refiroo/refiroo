@@ -222,3 +222,30 @@ def test_contains_reads_text_only(world):
         assert any(d["path"] == pointer for d in compiled["diagnostics"]), compiled["diagnostics"]
         error = refused(_install(world, draft), 422, "INVALID_MODEL")
         assert pointer in json.dumps(error["details"])
+
+
+@pytest.mark.journey("J25")
+@pytest.mark.structures("Capi", "Bown", "Bscope", "G")
+def test_scores_from_needs_a_promoted_entry_and_is_contract(world):
+    """scoresFrom on a parameter over a projection no match.promoted entry reads is refused at its
+    /parameters/<name>/scoresFrom pointer; turning a parameter's scoresFrom off is version_required."""
+    permit = world.key("Capi.permit")
+    model, definition = _capi_model(world, "scores-from-bown")
+    definition["parameters"][permit]["scoresFrom"] = True
+    draft, compiled = _compile(world, model)
+    pointer = f"/consumerApis/{world.key('Capi')}/parameters/{permit}/scoresFrom"
+    assert compiled["valid"] is False
+    assert any(d["path"] == pointer for d in compiled["diagnostics"]), compiled["diagnostics"]
+    error = refused(_install(world, draft), 422, "INVALID_MODEL")
+    assert pointer in json.dumps(error["details"])
+
+    watch = world.key("Capi.watch")
+    model, definition = _capi_model(world, "scores-from-off")
+    definition["parameters"][watch]["scoresFrom"] = False
+    _draft, compiled = _compile(world, model)
+    assert compiled["valid"] is True
+    assert compiled["consumerContracts"]["classification"] == "version_required"
+    changed = f"/consumerApis/{world.key('Capi')}/parameters/{watch}/scoresFrom"
+    assert any(d["path"] == changed for d in compiled["consumerContracts"]["diagnostics"]), compiled[
+        "consumerContracts"
+    ]["diagnostics"]

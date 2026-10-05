@@ -202,9 +202,9 @@ def test_paging(world):
 @pytest.mark.journey("J29.5")
 @pytest.mark.structures(*CAPI)
 def test_refusals(world):
-    """No query or only empty terms: 400 QUERY_REQUIRED; 101 terms: 400 TOO_MANY_TERMS; a definition
-    parameter, seek or includeTotal: 400 PARAMETER_NOT_SUPPORTED; a two-character term matches
-    exactly only."""
+    """No query or only empty terms: 400 QUERY_REQUIRED; 101 terms: 400 TOO_MANY_TERMS; a list's
+    parent parameter, seek or includeTotal: 400 PARAMETER_NOT_SUPPORTED, while a definition parameter
+    is applied; a two-character term matches exactly only."""
     _ledger(world, "Qz", "QZ-1")
     _ledger(world, "Qz long", "QZ-2")
 
@@ -216,8 +216,145 @@ def test_refusals(world):
     assert "100" in error["message"]
     assert _typed(world, "query=" + ",".join(f"T{number}" for number in range(100)))["results"] == []
 
-    for name, value in ((world.key("Capi.token"), "x"), ("seek", "1"), ("includeTotal", "true")):
+    for name, value in ((world.key("Capi.entries.parent"), "x"), ("seek", "1"), ("includeTotal", "true")):
         error = refused(consumer_xref(world, query="qz", **{name: value}), 400, "PARAMETER_NOT_SUPPORTED")
         assert error["details"]["parameters"] == [name]
+    assert _xref(world, query="qz", **{world.key("Capi.token"): "x"})["results"] == []
 
     assert _scored(world, _xref(world, query="qz")) == [("Qz", 200)]
+
+
+def _param(world, name):
+    """A parameter name of ``Capi``, chosen by the configuration."""
+    return world.key(f"Capi.{name}")
+
+
+def _found(world, page):
+    """Each result's public type, name and score, ignoring the order of equal results."""
+    return sorted((item["objectType"], item[_out(world, "name")], item["matchScore"]) for item in page["results"])
+
+
+@pytest.mark.journey("J29.6")
+@pytest.mark.structures(*CAPI, "M")
+def test_parameters_narrow_the_lookup(world):
+    """Given an R and an R2 both named "Twin", and records matching "Twin" by contains: an R paired
+    (B11) with a K named "Coin", an R with a permit in G "North", and a D under an M named "Yard".
+    kind keeps the named type and totalCount follows; an unknown kind is 400 UNKNOWN_OBJECT_TYPE.
+    container, token and peer keep what they keep on lists; permitRegion keeps the R with a North
+    permit and limits its permits. Two parameters keep what both keep, each result with the score it
+    has without parameters. A kind resolves an ambiguous expect=one; a cursor sent with another kind
+    is 400 INVALID_CURSOR; a list's parent parameter is 400 PARAMETER_NOT_SUPPORTED."""
+    holder = _ledger(world, "Holder", "HO-1")
+    twin = _ledger(world, "Twin", "TW-1")
+    base = _ledger(world, "Base", "BA-1")
+    twin_entry = world.made("R2", "Twin", parent=base["id"])
+    _paired(world, "Twin paired", "TP-1", "Coin", "CO-1")
+    permitted = _ledger(world, "Twin permitted", "TPM-1")
+    north = world.made("G", "North", values={"K.code": "GN"})
+    south = world.made("G", "South", values={"K.code": "GS"})
+    for region, name in ((north, "North permit"), (south, "South permit")):
+        world.made(
+            "D", name, parent=world.dependant_parent(region["id"]), relations=[world.owner("Bown", permitted["id"])]
+        )
+    yard = world.made("M", "Yard", parent=south["id"])
+    world.made("D", "Twin yard permit", parent=yard["id"], relations=[world.owner("Bown", holder["id"])])
+    spot = world.made(
+        "D", "Watched spot", parent=world.dependant_parent(south["id"]), relations=[world.owner("Bown", base["id"])]
+    )
+    ok(world.relate("Bscope", twin["id"], spot["id"]), 201)
+    ok(world.relate("Bscope", twin_entry["id"], spot["id"]), 201)
+
+    ledger, entry, permit = world.key("Capi.R"), world.key("Capi.R2"), world.key("Capi.D")
+    everything = _xref(world, query="Twin")
+    assert _found(world, everything) == sorted([
+        (ledger, "Twin", 200),
+        (entry, "Twin", 200),
+        (ledger, "Twin paired", 30),
+        (ledger, "Twin permitted", 30),
+        (permit, "Twin yard permit", 30),
+    ])
+    scores = {item[_out(world, "id")]: item["matchScore"] for item in everything["results"]}
+
+    def narrowed(**params):
+        page = _xref(world, query="Twin", **{_param(world, name): value for name, value in params.items()})
+        assert page["totalCount"] == len(page["results"])
+        for item in page["results"]:
+            assert item["matchScore"] == scores[item[_out(world, "id")]]
+        return page
+
+    assert _found(world, narrowed(kind=ledger)) == sorted([
+        (ledger, "Twin", 200), (ledger, "Twin paired", 30), (ledger, "Twin permitted", 30),
+    ])
+    refused(consumer_xref(world, query="Twin", **{_param(world, "kind"): "Nothing"}), 400, "UNKNOWN_OBJECT_TYPE")
+    assert _found(world, narrowed(container="Yard")) == [(permit, "Twin yard permit", 30)]
+    assert _found(world, narrowed(token="coin")) == [(ledger, "Twin paired", 30)]
+    assert _found(world, narrowed(peer="Twin")) == sorted([(ledger, "Twin", 200), (entry, "Twin", 200)])
+
+    held = narrowed(permit="North")
+    assert _found(world, held) == [(ledger, "Twin permitted", 30)]
+    assert held["results"][0][_out(world, "Bown")] == [
+        {_out(world, "Bown.name"): "North permit", _out(world, "Bown.G"): "North"}
+    ]
+    assert _found(world, narrowed(kind=ledger, peer="Twin")) == [(ledger, "Twin", 200)]
+
+    error = refused(consumer_xref(world, query="Twin", expect="one"), 409, "AMBIGUOUS_MATCH")
+    assert error["details"]["count"] == 2
+    one = _xref(world, query="Twin", expect="one", **{_param(world, "kind"): entry})
+    assert one == {**ok(consumer_object(world, twin_entry["id"])), "matchScore": 200}
+
+    first = _xref(world, query="Twin", pageSize=2, **{_param(world, "kind"): ledger})
+    assert first["totalCount"] == 3 and first["nextCursor"]
+    refused(
+        consumer_xref(world, query="Twin", pageSize=2, cursor=first["nextCursor"], **{_param(world, "kind"): entry}),
+        400,
+        "INVALID_CURSOR",
+    )
+    error = refused(
+        consumer_xref(world, query="Twin", **{_param(world, "entries.parent"): twin["id"]}),
+        400,
+        "PARAMETER_NOT_SUPPORTED",
+    )
+    assert error["details"]["parameters"] == [_param(world, "entries.parent")]
+
+
+@pytest.mark.journey("J29.7")
+@pytest.mark.structures(*CAPI)
+def test_scores_from_limits_which_related_records_score(world):
+    """Given two D named "Gate zone", one below G "North" and one below "South"; an R2 "North watcher"
+    watching the North one, an R2 "South watcher" the South one, and an R2 named "Gate zone" watching
+    the South one. query=Gate zone finds both D and the R2 named "Gate zone" (200, own) and both
+    watchers (60, promoted). With watchRegion=North the North watcher keeps 60 and its watchedPermits
+    holds only the North D; the South watcher is absent; the own matches keep 200."""
+    owner = _ledger(world, "Owner", "OW-1")
+    base = _ledger(world, "Watch base", "WB-1")
+    zones = {}
+    for region_name in ("North", "South"):
+        region = world.made("G", region_name, values={"K.code": f"G{region_name[0]}"})
+        zones[region_name] = world.made(
+            "D", "Gate zone", parent=world.dependant_parent(region["id"]), relations=[world.owner("Bown", owner["id"])]
+        )
+    watchers = {}
+    for name, region_name in (("North watcher", "North"), ("South watcher", "South"), ("Gate zone", "South")):
+        watchers[name] = world.made("R2", name, parent=base["id"])
+        ok(world.relate("Bscope", watchers[name]["id"], zones[region_name]["id"]), 201)
+
+    entry, permit = world.key("Capi.R2"), world.key("Capi.D")
+    assert _found(world, _xref(world, query="Gate zone")) == sorted([
+        (entry, "Gate zone", 200),
+        (permit, "Gate zone", 200),
+        (permit, "Gate zone", 200),
+        (entry, "North watcher", 60),
+        (entry, "South watcher", 60),
+    ])
+
+    watched = _xref(world, query="Gate zone", **{_param(world, "watch"): "North"})
+    assert _found(world, watched) == sorted([
+        (entry, "Gate zone", 200),
+        (permit, "Gate zone", 200),
+        (permit, "Gate zone", 200),
+        (entry, "North watcher", 60),
+    ])
+    assert watched["totalCount"] == 4
+    (north_watcher,) = [item for item in watched["results"] if item[_out(world, "name")] == "North watcher"]
+    assert north_watcher[_out(world, "id")] == watchers["North watcher"]["id"]
+    assert north_watcher[_out(world, "Bscope")] == [{_out(world, "Bscope.name"): "Gate zone"}]

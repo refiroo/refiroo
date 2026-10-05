@@ -218,7 +218,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 14a | [C3a](#c3a-attribute-sorts-read-in-value-order) | C3 | Amendment: attribute sorts read in value order (D46–D48) — **delivered 2026-10-04** ([record](#c3a-delivery-record)) |
 | 14b | [C3b](#c3b-several-values-the-standard-way) | C3 | Amendment: several values as OpenAPI serialises them, `%2C` for a comma in a value (C-D32 amended) — **delivered 2026-10-04** ([record](#c3b-delivery-record)) |
 | 15 | [C4](#c4-xref-lookup-and-scoring) | C2, C3b | XREF lookup and scoring (C-D34–C-D41) — **delivered 2026-10-05** ([record](#c4-delivery-record)) |
-| 16 | [C5](#c5-xref-parameters) | C4 | XREF parameters: every kind on XREF, `scoresFrom` (C-D42–C-D46) |
+| 16 | [C5](#c5-xref-parameters) | C4 | XREF parameters: every kind on XREF, `scoresFrom` (C-D42–C-D46) — **delivered 2026-10-05** ([record](#c5-delivery-record)) |
 | 17 | C14 | C4 | Batch resolve |
 | 18 | C15 | C5 | Crosswalk |
 | 19 | C6 | C3, C4, F1 | ETag, publications with `eventSequence`, OpenAPI per definition, API index |
@@ -2817,6 +2817,42 @@ gain only the `scoresFrom` rule and its contract entry. Identity, attribute stor
 bulk APIs are untouched. A product catalogue's lookup of a SKU within a category (an `ancestor`
 parameter) or of a supplier's code (a `projection` parameter with `scoresFrom`) is this route, so the
 door is exercised, not narrowed. Crosswalk (C15) and batch resolve (C14) build on the same filter.
+
+##### C5 delivery record
+
+**Delivered 2026-10-05**, as designed. The route applies the definition's parameters
+(`_Parameters.check` lost its `filters` switch, which no route needs any more); `ConsumerFilter`
+gained `scoring`; `_Scoring.ranked()` filters the scored objects and `_passed()` joins each best hit's
+related record to the `scoresFrom` predicate; `read_xref` composes with the filter and binds the
+parameter values into the cursor. `scoresFrom` is validated at its pointer (C-D45) and recorded in
+`OutputContract.scores_from`, a change reported at `/parameters/<name>/scoresFrom` (C-D46). Generated
+A and B's `Capi` gained `watchRegion` (`Capi.watch`); the volume definition gained `cites`
+(`projection` over `citedGroups` by code, `scoresFrom`). No migration.
+
+**Differences from the plan:** none in behaviour. J29.5's case now sends the list parent parameter
+where it sent `token`, and asserts that `token` is applied.
+
+**Budgets at full volume** (`volume_baseline.py --only-consumer --scale 1 --repeat 3`, after the seed
+rebuild, warm median · statements · ORM rows):
+
+| Request | Time |
+| --- | --- |
+| A group's code, within the heavy group (ancestor filter over the promoted items) | 56.7 ms · 9 · 3 |
+| A group's code, `scoresFrom` on the group | 60.9 ms · 8 · 3 |
+| C4's lookups in the same run (code, promoted code, contains, `expect=one`) | 29.0–50.0 ms |
+| C4's too-broad refusal (recorded over budget in C4) | 107.6 ms |
+
+Both new reads hold the 100 ms budget, which bears out C-D42's reasoning: filtering after scoring
+added 7–11 ms over the unfiltered promoted lookup. C3's list figures match C3a's and C4's.
+
+**Checks:** the J29.5–J29.7 and new J25 cases confirmed failing first (8 failures:
+`PARAMETER_NOT_SUPPORTED` on XREF and the missing validation), then J25, J28 and J29 passing on
+generated A and B (52). Groups `consumer` and `contract` in parallel after the last change: 191 passed
+in 24 s, `test_consumer_xref_volume` among them (equal statements at 0.01 and 0.04, 8–9 per narrowed
+lookup); their serial part selects none. The modules that load the volume model (`test_model`,
+`test_restructuring_planner`, `test_type_changes`, `test_restructuring_api`) and
+`test_consumer_api_model`: 254 passed. `ruff check app/ tests/` clean. Not run: `startup` (no
+migration), `queries` (`object_query` unchanged), the frontend (unchanged), the full suites (R).
 
 ## Track V — API reference
 

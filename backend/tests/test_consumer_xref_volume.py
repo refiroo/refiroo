@@ -1,8 +1,9 @@
-"""Base 0.9 C4: XREF lookups hold the read budgets as the dataset grows.
+"""Base 0.9 C4 and C5: XREF lookups hold the read budgets as the dataset grows.
 
 An item's code in another case, the cited group's code (its own match and the citing items it
-promotes), a 4-character contains, ``expect=one`` and a term in every item refused as
-``QUERY_TOO_BROAD`` must each execute the same statements when the dataset grows fourfold, and load
+promotes), a 4-character contains, ``expect=one``, the cited group's code narrowed to the heavy group
+and with the ``scoresFrom`` parameter (C5), and a term in every item refused as ``QUERY_TOO_BROAD``
+must each execute the same statements when the dataset grows fourfold, and load
 at most ``ROWS_PER_LISTED_ROW`` ORM rows per listed row. Wall times at full volume come from
 ``volume_baseline.py --only-consumer`` and are recorded in the Base 0.9 plan.
 
@@ -44,4 +45,4 @@ def test_xref_holds_the_budgets_as_the_data_grows(measured):
         if max(small.rows_loaded, other.rows_loaded) > ROWS_PER_LISTED_ROW * PAGE_SIZE:
             failures.append(f"{small.scenario}: rows {small.rows_loaded} → {other.rows_loaded}")
     assert not failures
-    assert [item.status for item in measured["small"]] == [200, 200, 200, 200, 400]
+    assert [item.status for item in measured["small"]] == [200, 200, 200, 200, 200, 200, 400]

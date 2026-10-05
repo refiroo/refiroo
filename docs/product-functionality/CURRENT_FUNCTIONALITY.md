@@ -449,9 +449,16 @@ that record ahead of records whose names merely contain it. Several terms can be
 results page like a list and always carry a total, or the system asks for exactly one result and is
 told when nothing, or more than one equally good record, matched.
 
+The system can narrow a lookup by what else it knows, with the same parameters as a list: the type
+it expects, the codelist or region a value belongs to, a related record, or the system whose code it
+holds. Only the matching records that every parameter keeps are results, with unchanged scores, so a
+parameter can turn an ambiguous lookup into a single answer. A parameter over a projection can also
+be declared to limit which related records score: a lookup of another system's code then finds only
+the records whose code in that system matches.
+
 Limits: matching on part of a value needs at least 3 characters; a shorter term matches whole values
 only. A lookup whose terms match more than 10,000 records is refused, asking for a more specific
-term, and a lookup holds at most 100 terms. The API's parameters do not narrow a lookup yet. Batch
+term, whatever parameters narrow it, and a lookup holds at most 100 terms. Batch
 resolve, crosswalks, publications, business dates and events are being delivered in 0.9.
 
 Evidence: [consumer API design](../CONSUMER_API.md),

@@ -15,6 +15,12 @@ term of the query:
 An object's score is the highest of its own and promoted scores over every term (C-D38). Results
 order by score, then the type's public name, then name, then object ID.
 
+The definition's parameters act on the scored objects (C5, C-D42): an object is a result when it
+scored and every parameter keeps it, with the score it has without them, and ``projection``
+parameters limit the projections' items as on a list. A parameter declaring ``scoresFrom`` acts
+before that, on promotion: only the related records it matches pass their weight through its
+projection (C-D43).
+
 Everything is scored at read time over existing indexes (the trigram indexes on names and text
 values for contains, their ``lower(…)`` indexes for exact matches, the object ID index), in one
 statement Python builds from the definition, and nothing scores row by row (C-D34). Before it runs, one bounded statement counts the records the terms match:
@@ -22,7 +28,7 @@ past :data:`MATCH_LIMIT` the request is refused, a documented limit rather than 
 slow read (C-D37). A term shorter than :data:`MIN_INDEXED_LENGTH` matches exactly only.
 """
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import Any
 
@@ -42,6 +48,7 @@ from ...models.search_index import MIN_INDEXED_LENGTH
 from ..model.consumer_contract import projection_targets
 from ..records.values import VALUE_COLUMNS
 from .consumer_objects import ConsumerObjects
+from .consumer_parameters import ConsumerFilter
 from .object_query import INDEXED_MATCH_LIMIT, escape_like, parse_typed
 
 # The records a query may match before it is refused as too broad (C-D37).
@@ -90,10 +97,15 @@ class _Ranked:
 
 
 class _Scoring:
-    """The statements of one query over one definition in one workspace."""
+    """The statements of one query over one definition in one workspace, narrowed by ``narrowed``."""
 
     def __init__(
-        self, model: EngineModel, definition: ConsumerApiDefinition, workspace_key: str, terms: Sequence[str]
+        self,
+        model: EngineModel,
+        definition: ConsumerApiDefinition,
+        workspace_key: str,
+        terms: Sequence[str],
+        narrowed: ConsumerFilter,
     ) -> None:
         assert definition.match is not None
         self.model = model
@@ -101,6 +113,7 @@ class _Scoring:
         self.match = definition.match
         self.workspace_key = workspace_key
         self.terms = list(terms)
+        self.narrowed = narrowed
         self.exposed = list(definition.objectTypes)
 
     # --- what one rule matches ---
@@ -190,14 +203,19 @@ class _Scoring:
 
     def _passed(self, promoted: ConsumerPromotedMatch, arms: list[Select[Any]]) -> Select[Any]:
         """``(object_id, score)``: each related record's first matching weight, passed to the exposed
-        objects it relates to through the projection (C-D36)."""
+        objects it relates to through the projection (C-D36); with a ``scoresFrom`` parameter over
+        the projection, only by the related records it matches (C-D43)."""
         hits = union_all(*arms).subquery()
         best = (
             select(hits.c.id, hits.c.term, hits.c.weight)
             .distinct(hits.c.id, hits.c.term)
             .order_by(hits.c.id, hits.c.term, hits.c.position)
-            .subquery()
         )
+        scoring = self.narrowed.scoring.get(promoted.projection)
+        if scoring is not None:
+            related = aliased(RdmObject)
+            best = best.join(related, related.id == hits.c.id).where(scoring(related))
+        best = best.subquery()
         route = self.definition.projections[promoted.projection].from_
         relation, owner = aliased(ObjectRelation), aliased(RdmObject)
         outgoing = route.direction == "outgoing"
@@ -260,6 +278,7 @@ class _Scoring:
                 RdmObject.name.label("name"),
             )
             .join(best, best.c.object_id == RdmObject.id)
+            .where(*self.narrowed.on(RdmObject))
             .subquery("ranked")
         )
         return _Ranked(select(ranked.c.id, ranked.c.score, ranked.c.public_name, ranked.c.name), ranked.c)
@@ -267,7 +286,7 @@ class _Scoring:
     def matched_count(self, session: Session) -> int:
         """The distinct records the terms match, own matches and the related records promotion reads,
         counted up to ``MATCH_LIMIT + 1``: each rule reads at most that many, so a common term costs
-        no more than the limit."""
+        no more than the limit. Parameters do not count: they narrow what the terms match (C-D44)."""
         arms = self.own_arms()
         for promoted in self.match.promoted:
             arms += self.promoted_arms(promoted)
@@ -293,14 +312,19 @@ def read_xref(
     *,
     workspace_key: str,
     terms: Sequence[str],
+    narrowed: ConsumerFilter,
+    parameters: Mapping[str, Sequence[str]],
     expect_one: bool,
     page: PageRequest,
     page_size: int,
 ) -> dict[str, Any]:
     """XREF's answer: a page of scored shared objects in the envelope (C-D39), or with
-    ``expect_one`` the single top object (C-D40). Each object carries ``matchScore`` after its
-    declared fields (C-D41)."""
-    scoring = _Scoring(model, definition, workspace_key, terms) if definition.match is not None else None
+    ``expect_one`` the single top object (C-D40), of those ``narrowed`` keeps (C-D42). Each object
+    carries ``matchScore`` after its declared fields (C-D41). ``parameters`` are the request's
+    parameter values, bound into the cursor with the terms, the workspace and the contract version."""
+    scoring = (
+        _Scoring(model, definition, workspace_key, terms, narrowed) if definition.match is not None else None
+    )
     ranked = None
     if scoring is not None:
         matched = scoring.matched_count(session)
@@ -316,7 +340,7 @@ def read_xref(
         ranked = scoring.ranked()
     composer = ConsumerObjects(model, definition)
     if expect_one:
-        return _expect_one(session, composer, workspace_key, ranked)
+        return _expect_one(session, composer, workspace_key, ranked, narrowed)
     if ranked is None:
         nothing = {"nextCursor": None, "prevCursor": None, "anchor": None, "totalCount": 0, "startIndex": 0}
         return _envelope([], terms, workspace_key, page_size, nothing)
@@ -329,13 +353,14 @@ def read_xref(
             "workspace": workspace_key,
             "contractVersion": definition.contractVersion,
             "query": sorted(set(terms)),
+            "parameters": {name: sorted(values) for name, values in sorted(parameters.items())},
         },
         page=replace(page, include_total=True),
         page_size=page_size,
         rows=True,
     )
     scores = {row.id: row.score for row in found.items}
-    composed = composer.compose(session, workspace_key, list(scores))
+    composed = composer.compose(session, workspace_key, list(scores), narrowed)
     results = [
         {**composed[object_id], "matchScore": score}
         for object_id, score in scores.items()
@@ -361,7 +386,11 @@ def _envelope(
 
 
 def _expect_one(
-    session: Session, composer: ConsumerObjects, workspace_key: str, ranked: _Ranked | None
+    session: Session,
+    composer: ConsumerObjects,
+    workspace_key: str,
+    ranked: _Ranked | None,
+    narrowed: ConsumerFilter,
 ) -> dict[str, Any]:
     """The single top object; ``404 NO_MATCH`` when nothing matched, ``409 AMBIGUOUS_MATCH`` naming
     the tied objects when the top score is shared (C-D40)."""
@@ -394,5 +423,5 @@ def _expect_one(
                 ],
             },
         )
-    composed = composer.compose(session, workspace_key, [rows[0].id])
+    composed = composer.compose(session, workspace_key, [rows[0].id], narrowed)
     return {**composed[rows[0].id], "matchScore": top}

@@ -902,7 +902,7 @@ rest follows in C5–C16 ([CONSUMER_API.md](../CONSUMER_API.md)).
 ### J29 — Resolve a business object through a consumer API
 
 **Actor:** consuming system. **Channel:** consumer API. **Stories:** US-I09 (consumer side).
-**Status:** delivered in 0.9 C4; definition parameters on XREF follow in C5
+**Status:** delivered in 0.9 C4, with the definition's parameters in C5
 ([CONSUMER_API.md](../CONSUMER_API.md)).
 
 1. Look up business objects by what the system knows, a code, an ID, a name or a related record's
@@ -912,9 +912,11 @@ rest follows in C5–C16 ([CONSUMER_API.md](../CONSUMER_API.md)).
    up; contains counts only without an exact match) and passes a related record's first matching
    weight to the objects it relates to through a projection. Ties order by public type name, name
    and object ID.
-3. Page through the results with cursors both ways, `position` and `from=end`; `totalCount` is always
+3. Narrow the lookup with the definition's parameters, as on a list (J28.8): only the scored objects
+   every parameter keeps are results.
+4. Page through the results with cursors both ways, `position` and `from=end`; `totalCount` is always
    given. Or ask for the single best one with `expect=one`.
-4. Read live data in the default workspace, or in the one named by `workspace`.
+5. Read live data in the default workspace, or in the one named by `workspace`.
 
 **Variants:**
 
@@ -927,13 +929,19 @@ rest follows in C5–C16 ([CONSUMER_API.md](../CONSUMER_API.md)).
   naming the tied objects.
 - **J29.4 Paging**: cursors both ways, `position`, `from=end`, `totalCount` and `startIndex` on every
   page; a cursor is bound to its terms.
-- **J29.5 Refusals and limits**: no term, more than 100 terms, a parameter XREF does not apply; a
-  term shorter than 3 characters matches exactly only; a query matching more than 10,000 records is
-  refused.
+- **J29.5 Refusals and limits**: no term, more than 100 terms, a parameter XREF does not apply (a
+  list's parent parameter, `seek`, `includeTotal`); a term shorter than 3 characters matches exactly
+  only; a query matching more than 10,000 records is refused, whatever parameters narrow it.
+- **J29.6 Parameters narrow the lookup**: `objectType`, `ancestor`, `related` and `projection` keep
+  the scored objects they keep on a list, each with its unchanged score; `totalCount`, the pages and
+  `expect=one` follow the narrowed set, so a parameter can resolve an ambiguous match; a `projection`
+  parameter limits that projection's items; a cursor is bound to the parameter values.
+- **J29.7 `scoresFrom`**: a `projection` parameter declaring `scoresFrom` also limits which related
+  records pass their weights through that projection; the objects' own scores are untouched.
 
 **Refusals:** `400 QUERY_REQUIRED`, `400 TOO_MANY_TERMS`, `400 QUERY_TOO_BROAD`, `400 INVALID_EXPECT`,
-`400 PARAMETER_NOT_SUPPORTED`, `404 NO_MATCH`, `409 AMBIGUOUS_MATCH`, and J28's API, workspace and
-paging refusals.
+`400 PARAMETER_NOT_SUPPORTED`, `400 UNKNOWN_OBJECT_TYPE`, `404 NO_MATCH`, `409 AMBIGUOUS_MATCH`, and
+J28's API, workspace and paging refusals.
 
 **Evidence today:** the J29 journey tests; `QUERY_TOO_BROAD` in `test_consumer_xref_volume`.
 

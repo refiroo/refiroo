@@ -124,16 +124,13 @@ def get_list(
 def get_xref(
     api_key: str, contract_version: str, request: Request, response: Response, session: DbSession
 ) -> dict[str, Any]:
-    """XREF: the exposed objects the query's terms match, scored by the definition's ``match``, a
-    page of them or with ``expect=one`` the single best (C-D34–C-D41). Definition parameters are
-    known but not yet applied here (C5)."""
+    """XREF: the exposed objects the query's terms match, scored by the definition's ``match`` and
+    narrowed by its parameters, a page of them or with ``expect=one`` the single best (C-D34–C-D43)."""
     model = resolve_model_snapshot(session).model
     definition = consumer_definition(model, api_key, contract_version)
     expect = request.query_params.getlist("expect")
     expect_one = _expect_one(expect[-1] if expect else None)
-    parameters = _Parameters.check(
-        request, definition, serves=_XREF_ONE if expect_one else _XREF, filters=False
-    )
+    parameters = _Parameters.check(request, definition, serves=_XREF_ONE if expect_one else _XREF)
     terms = xref_terms(parameters.listed.get("query", []))
     page_size, page = (_DEFAULT_PAGE_SIZE, PageRequest()) if expect_one else _page(parameters)
     workspace = _workspace(session, parameters.single("workspace"))
@@ -146,6 +143,8 @@ def get_xref(
             definition,
             workspace_key=workspace.key,
             terms=terms,
+            narrowed=consumer_filter(session, model, definition, workspace.key, parameters.definition),
+            parameters=parameters.definition,
             expect_one=expect_one,
             page=page,
             page_size=page_size,
@@ -192,12 +191,11 @@ class _Parameters:
         *,
         serves: frozenset[str],
         parent: str | None = None,
-        filters: bool = True,
     ) -> _Parameters:
         """Refuse a name the API does not know (``UNKNOWN_PARAMETER``), then one it knows that this
-        route does not apply (``PARAMETER_NOT_SUPPORTED``): one outside ``serves``, a list's parent
-        parameter off its list, or a definition parameter where ``filters`` is off (XREF until C5)."""
-        applied = set(serves) | (set(definition.parameters) if filters else set())
+        route does not apply (``PARAMETER_NOT_SUPPORTED``): one outside ``serves``, or a list's parent
+        parameter off its list."""
+        applied = set(serves) | set(definition.parameters)
         if parent is not None:
             applied.add(parent)
         known = applied | _ROUTE_NAMES | set(definition.parameters) | {
@@ -228,7 +226,7 @@ class _Parameters:
             definition={
                 name: listed[name]
                 for name in raw
-                if filters and name in definition.parameters and name != parent
+                if name in definition.parameters and name != parent
             },
             parents=list(dict.fromkeys(listed[parent])) if parent in raw else [],
         )

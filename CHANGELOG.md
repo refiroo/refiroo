@@ -8,6 +8,19 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 C5: the consumer API's parameters on XREF.
+  - **Parameters.** Every definition parameter (`objectType`, `ancestor`, `related`, `projection`)
+    narrows XREF with its list meaning: an object is a result when it scored and every parameter
+    keeps it, with its unchanged score; `totalCount`, the pages and `expect=one` follow the narrowed
+    set, and the cursor binds the parameter values (C-D42). A definition parameter on XREF is no
+    longer `400 PARAMETER_NOT_SUPPORTED`. The 10,000-match limit still counts what the terms match
+    before parameters (C-D44).
+  - **`scoresFrom`.** A `projection` parameter declaring it limits which related records pass
+    weights through its projection when the request gives it; own scores are untouched (C-D43).
+    Refused at `/consumerApis/<key>/parameters/<name>/scoresFrom` without a `match.promoted` entry
+    over the projection (C-D45); turning it on or off is `version_required` (C-D46).
+  - **Budgets.** `test_consumer_xref_volume` adds a lookup narrowed by an ancestor and one with
+    `scoresFrom`, with equal statements at two sizes.
 - Base 0.9 C4: consumer API XREF lookup:
   `GET /api/consumer/{apiKey}/v{contractVersion}/xref?query=…&expect=any|one`.
   - **Scoring.** The live records of the exposed types, scored by the definition's `match` at read

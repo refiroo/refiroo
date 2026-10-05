@@ -21,6 +21,7 @@ from ...models.schema import (
     ConsumerField,
     EngineModel,
     ObjectTypeDefinition,
+    ProjectionParameter,
 )
 from .diagnostics import ModelDiagnostic
 from .traversal import ancestor_type_keys, related_object_types
@@ -145,6 +146,8 @@ class OutputContract:
     match: Any
     lists: dict[str, dict[str, Any]]
     parameters: dict[str, str]
+    # The ``projection`` parameters declaring ``scoresFrom``, which changes ranking (C-D46).
+    scores_from: frozenset[str] = frozenset()
     # Exposed types that declare an effective period, on which ``asOf`` filters (Base 0.9 Q4).
     as_of: frozenset[str] = frozenset()
 
@@ -207,6 +210,11 @@ def output_contract(model: EngineModel, definition: ConsumerApiDefinition) -> Ou
             for item in definition.lists
         },
         parameters={name: parameter.kind for name, parameter in definition.parameters.items()},
+        scores_from=frozenset(
+            name
+            for name, parameter in definition.parameters.items()
+            if isinstance(parameter, ProjectionParameter) and parameter.scoresFrom
+        ),
         as_of=frozenset(item.key for item in types if item.effectivePeriod is not None),
     )
 
@@ -307,6 +315,14 @@ def _breaking_changes(old: OutputContract, new: OutputContract) -> list[tuple[st
                 (
                     f"/parameters/{pointer_segment(name)}/kind",
                     f"changes parameter '{name}' from kind '{kind}' to '{new.parameters[name]}'",
+                )
+            )
+        elif (name in old.scores_from) != (name in new.scores_from):
+            turned = "on" if name in new.scores_from else "off"
+            changes.append(
+                (
+                    f"/parameters/{pointer_segment(name)}/scoresFrom",
+                    f"turns scoresFrom {turned} for parameter '{name}', which changes its ranking",
                 )
             )
     # A type still exposed without its period would refuse the asOf its consumers send.

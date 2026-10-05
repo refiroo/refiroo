@@ -1,7 +1,7 @@
 """A consumer API definition's parameters as SQL predicates (Base 0.9 C3, C-D31–C-D33).
 
-Every definition parameter applies to get by ID and to every list; XREF (C4, C5) and batch resolve
-(C14) reuse the same predicates. Each parameter becomes a predicate on the record, so a filter, its
+Every definition parameter applies to get by ID, to every list and to XREF (C5); batch resolve (C14)
+reuses the same predicates. Each parameter becomes a predicate on the record, so a filter, its
 total and a position jump stay in the database:
 
 - ``objectType`` keeps the records of the named public types;
@@ -10,7 +10,8 @@ total and a position jump stay in the database:
   record itself (``self``), or a shared projection (both relate to one projected record, the
   matching record itself excluded);
 - ``projection`` limits a projection's items to the matching ones, and with ``requireMatch`` also
-  drops the records left with none.
+  drops the records left with none; with ``scoresFrom``, only the matching items pass XREF scores
+  through the projection (C-D43).
 
 A value first finds its candidates: the records of the listed types whose match field equals it,
 text ignoring case, read through the indexes a search reads. A value that does not parse for a typed
@@ -49,10 +50,12 @@ VIA_SHARED = "sharedProjection:"
 
 @dataclass(frozen=True)
 class ConsumerFilter:
-    """What a read's parameters ask: conditions on the record, and on each projection's items."""
+    """What a read's parameters ask: conditions on the record, on each projection's items, and on
+    the related records that may pass XREF scores through a projection (``scoresFrom``)."""
 
     records: tuple[Predicate, ...] = ()
     limits: Mapping[str, Predicate] = field(default_factory=dict)
+    scoring: Mapping[str, Predicate] = field(default_factory=dict)
 
     def on(self, entity: Any) -> list[Any]:
         return [predicate(entity) for predicate in self.records]
@@ -72,6 +75,7 @@ def consumer_filter(
     builder = _Builder(session, model, definition, workspace_key)
     records: list[Predicate] = []
     limits: dict[str, list[Predicate]] = {}
+    scoring: dict[str, list[Predicate]] = {}
     for name, given in values.items():
         parameter = definition.parameters[name]
         if isinstance(parameter, ObjectTypeParameter):
@@ -83,11 +87,14 @@ def consumer_filter(
         elif isinstance(parameter, ProjectionParameter):
             item, required = builder.projection(parameter, given)
             limits.setdefault(parameter.projection, []).append(item)
+            if parameter.scoresFrom:
+                scoring.setdefault(parameter.projection, []).append(item)
             if required is not None:
                 records.append(required)
     return ConsumerFilter(
         records=tuple(records),
         limits={name: _all(predicates) for name, predicates in limits.items()},
+        scoring={name: _all(predicates) for name, predicates in scoring.items()},
     )
 
 

@@ -169,7 +169,11 @@ delivered (2026-10-05):** XREF lookup (`GET /api/consumer/{apiKey}/v{n}/xref`): 
 order, paging with a total, `expect=one` with `404 NO_MATCH` and `409 AMBIGUOUS_MATCH`; contains from
 3 characters, `400 QUERY_TOO_BROAD` past 10,000 matches. Exact matches read new `lower(…)` indexes
 (migration `20261005_01`); lookups take 34–58 ms at full volume and the too-broad refusal 116 ms,
-recorded (C-D34–C-D41, [record](BASE_0_9_IMPLEMENTATION_PLAN.md#c4-delivery-record)). Next: C5.
+recorded (C-D34–C-D41, [record](BASE_0_9_IMPLEMENTATION_PLAN.md#c4-delivery-record)). **C5 is
+delivered (2026-10-05):** the definition's parameters narrow XREF, acting on the scored objects, and a
+`projection` parameter with `scoresFrom` limits which related records pass scores; `scoresFrom` is
+validated and part of the contract (C-D42–C-D46,
+[record](BASE_0_9_IMPLEMENTATION_PLAN.md#c5-delivery-record)). Next: C14.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

@@ -2011,12 +2011,12 @@ the reader misses nothing. An export as a second baseline follows with export jo
 
 A retired workspace's feed stays readable. The feed is ungated like other reads until 0.12 (D10).
 
-## Consumer API (Base 0.9 C2–C4)
+## Consumer API (Base 0.9 C2–C5)
 
 A separate, read-only tier at `/api/consumer`, whose contract each consumer API definition in the
 active model release declares ([CONSUMER_API.md](CONSUMER_API.md)). Its routes are not in the
 management OpenAPI document; C6 generates one document per definition. Batch resolve, crosswalk,
-publications and `asOf` follow in C5–C16.
+publications and `asOf` follow in C6–C16.
 
 ### Get by ID
 
@@ -2089,7 +2089,7 @@ the shared object above (equal to get by ID's answer for the same record and par
 ### XREF
 
 ```text
-GET /api/consumer/{apiKey}/v{contractVersion}/xref?query=…&expect=any|one&workspace=…
+GET /api/consumer/{apiKey}/v{contractVersion}/xref?query=…&{parameters}&expect=any|one&workspace=…
     &pageSize=…&cursor=…|position=…|from=end
 ```
 
@@ -2114,14 +2114,23 @@ same record) with `matchScore`, an integer, after the declared fields.
 - **Limits.** `contains` needs a term of **at least 3 characters**; a shorter term matches exactly
   only. A query whose terms match **more than 10,000 records** (counting its own matches and the
   related records promotion reads) is refused with `400 QUERY_TOO_BROAD` rather than capped or read
-  slowly: use a longer or more specific term. A query holds **at most 100 terms**.
+  slowly: use a longer or more specific term. Parameters do not count towards the limit: it counts
+  what the terms match before parameters narrow it. A query holds **at most 100 terms**.
+- **Parameters.** The definition's [parameters](#parameters) narrow the lookup with their meaning on
+  lists: an object is a result when it scored and every parameter keeps it, with the score it has
+  without them. `totalCount`, the pages and `expect=one` (its top result and tie) follow the narrowed
+  set, so a parameter can resolve an `AMBIGUOUS_MATCH`. A `projection` parameter limits that
+  projection's items in each result; with `requireMatch` it also drops the objects left with none.
+- **`scoresFrom`.** A `projection` parameter declaring `scoresFrom`, when the request gives it, also
+  limits promotion: in every `match.promoted` entry over its projection, only the related records it
+  matches pass their weight. The objects' own scores are untouched, and `preferTargetTypes` chooses
+  among the owners of the records that pass.
 - **Paging** as on lists, without `seek` (a score is not something a caller seeks) and without
   `includeTotal`: `totalCount` and `startIndex` are always given. A cursor binds the terms, the
-  workspace and the contract version.
+  parameter values, the workspace and the contract version.
 - **`expect=one`** answers the single top result as a bare object, as get by ID does; no paging name
   applies with it.
-- The definition's parameters are not applied to XREF yet (C5); a definition without `match` matches
-  nothing.
+- A definition without `match` matches nothing.
 
 ```jsonc
 // RDM-Workspace: default
@@ -2136,22 +2145,23 @@ same record) with `matchScore`, an integer, after the declared fields.
 | 400 | `TOO_MANY_TERMS` | More than 100 terms; `details.limit` and `details.count` |
 | 400 | `QUERY_TOO_BROAD` | The terms match more than 10,000 records; `details.limit` and `details.minimumContainsLength` (3) |
 | 400 | `INVALID_EXPECT` | `expect` other than `any` or `one` |
-| 400 | `PARAMETER_NOT_SUPPORTED` | `seek`, `includeTotal`, a paging name with `expect=one`, a definition parameter (until C5) or a list's parent parameter |
+| 400 | `PARAMETER_NOT_SUPPORTED` | `seek`, `includeTotal`, a paging name with `expect=one`, or a list's parent parameter |
 | 404 | `NO_MATCH` | `expect=one` and nothing matched |
 | 409 | `AMBIGUOUS_MATCH` | `expect=one` and the top score is shared; `details.count` and `details.candidates` (the tied objects' `id`, `objectType`, `name` and `matchScore`, at most 10) |
 
-The API, workspace and paging refusals are those of the table below.
+The API, workspace, paging and parameter refusals (`UNKNOWN_OBJECT_TYPE`) are those of the table
+below.
 
 ### Parameters
 
-Every definition parameter applies to get by ID and to every list (C-D31):
+Every definition parameter applies to get by ID, to every list (C-D31) and to [XREF](#xref):
 
 | Kind | Effect |
 | --- | --- |
 | `objectType` | Keeps records of the named public types; an unknown name is `400 UNKNOWN_OBJECT_TYPE` |
 | `ancestor` | Keeps records below a matching record of its `objectTypes`, at any depth |
 | `related` | Keeps records linked to a matching record of its `objectTypes` through its `via` routes: a projection, `self` (the record itself matches), or `sharedProjection:<projection>` (both relate to one projected record; the matching record itself is kept only by `self`) |
-| `projection` | Limits the projection's items to those matching on `matchFields` (`ancestor:<type>.<field>` included); `requireMatch` also drops records left with none |
+| `projection` | Limits the projection's items to those matching on `matchFields` (`ancestor:<type>.<field>` included); `requireMatch` also drops records left with none; on XREF, `scoresFrom` also limits which related records pass scores through the projection |
 
 - A value matches a field when it equals it: text ignoring case, typed values by their type. A value
   that does not parse for a typed field does not match that field.
@@ -2161,8 +2171,8 @@ Every definition parameter applies to get by ID and to every list (C-D31):
   or separated by a literal comma in the URL. A comma inside a value is percent-encoded as `%2C`, as
   every HTTP library sends it: `token=Bonds%2C%20Notes` is one value, `token=Bonds,Notes` two. A
   backslash has no special meaning.
-- `scoresFrom` matters only to XREF (C4, C5); `to.…` arrives in C15, `publication` in C6 and `asOf` in
-  C16 (until then `400 UNKNOWN_PARAMETER`).
+- `scoresFrom` matters only to XREF; `to.…` arrives in C15, `publication` in C6 and `asOf` in C16
+  (until then `400 UNKNOWN_PARAMETER`).
 
 | Status | Code | When |
 | --- | --- | --- |

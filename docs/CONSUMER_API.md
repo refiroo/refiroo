@@ -381,7 +381,10 @@ GET /api/consumer
   reference's cap of `max(20, terms)` is replaced by paging with cursors both ways, `position` and
   `from=end`, and `totalCount` counts every match (C-D39). Contains needs 3 characters, a query
   matching more than 10,000 records is `400 QUERY_TOO_BROAD`, and a query holds at most 100 terms
-  (C-D37, C-D38). Definition parameters apply to XREF from C5.
+  (C-D37, C-D38). _Delivered in C5 (2026-10-05):_ the definition's parameters narrow XREF with their
+  list meaning, acting on the scored objects (C-D42); a `projection` parameter with `scoresFrom` also
+  limits which related records pass scores (C-D43). Parameters do not count towards the 10,000-match
+  limit (C-D44).
 - **Get by ID** returns one object in the same shape, found by its object ID (C-D24). _Delivered in
   C2 (2026-10-04):_ the answer is the bare shared object; an unknown or deleted record, one in another
   workspace or one of a type the definition does not expose is `404 OBJECT_NOT_FOUND`. Data is read
@@ -681,7 +684,7 @@ coordination is 0.11 work.
 | C2 | Common object and projections: get by ID, ancestor fields, cardinality-derived shape, typed values — **delivered 2026-10-04** |
 | C3 | Lists with and without a parent (by object ID, anywhere below it), `sortBy`, ADR-030 paging; every parameter kind (`objectType`, `ancestor`, `related` including a shared projection, `projection`) on lists and get by ID (C-D27–C-D33) — **delivered 2026-10-04** |
 | C4 | XREF scoring at read time (C-D34): own-field and promoted scores, multi-term queries, deterministic order, paging, `expect=one` (C-D34–C-D41) — **delivered 2026-10-05** |
-| C5 | XREF's use of C3's parameter kinds, with `scoresFrom` (C-D33) |
+| C5 | XREF's use of C3's parameter kinds, with `scoresFrom` (C-D33, C-D42–C-D46) — **delivered 2026-10-05** |
 | C6 | ETag / `If-None-Match`, `publication` reads including `latest`, the publications list with `eventSequence`, per-definition OpenAPI, the API index |
 | C7 | _Moved to 0.12 (C-D1):_ OAuth 2.0 client access per definition, webhook signing keys, UI administration of both |
 | C8 | Parity acceptance: a test-only fixture model extending the starter with locations, availability and a single-valued self relation (fixture content, not product scope), a fixture dataset, and a definition that reproduces the reference response for the scenarios below; volume budgets |
@@ -757,7 +760,7 @@ table under "Behavior the engine does not carry over" says otherwise:
 
 C-D1 decided 2026-09-29; C-D2–C-D16 accepted 2026-09-29 as recommended, with the notes below;
 C-D17–C-D20 raised by C1 and accepted 2026-09-30 as recommended; C-D21–C-D26 settled with the user
-for C2, C-D27–C-D33 for C3 and C-D34–C-D41 for C4, on 2026-10-04.
+for C2, C-D27–C-D33 for C3 and C-D34–C-D41 for C4, on 2026-10-04; C-D42–C-D46 for C5 on 2026-10-05.
 
 | # | Question | Decision |
 | --- | --- | --- |
@@ -802,3 +805,8 @@ for C2, C-D27–C-D33 for C3 and C-D34–C-D41 for C4, on 2026-10-04.
 | C-D39 | Paging and the envelope | **Settled 2026-10-04 (C4).** `{ "results", "query": [terms], "workspace", "pageSize", "nextCursor", "prevCursor", "anchor", "totalCount", "startIndex" }`. `totalCount` is always present: the scored set is counted anyway. Cursors both ways, `position` and `from=end`; `seek` and `includeTotal` answer `400 PARAMETER_NOT_SUPPORTED` |
 | C-D40 | `expect=one` | **Settled 2026-10-04 (C4).** The bare shared object with `matchScore`, as get by ID answers; `404 NO_MATCH`; `409 AMBIGUOUS_MATCH` with `details.candidates` (the tied objects' ID, public type, name and score, at most 10) and `details.count`. Paging names with `expect=one` answer `400 PARAMETER_NOT_SUPPORTED` |
 | C-D41 | `matchScore` | **Settled 2026-10-04 (C4).** Every XREF result carries `matchScore`, an integer, after the declared fields; lists and get by ID do not |
+| C-D42 | Where parameters act in XREF | **Settled 2026-10-05 (C5).** An object is a result when it scored and every parameter keeps it; a parameter is a condition on the object, so its score does not change. The parameters are evaluated once on the scored objects. `totalCount`, paging and `expect=one` (top and tie) follow the narrowed set; `projection` limits and `requireMatch` act as on lists (C-D31); the cursor binds the parameter values |
+| C-D43 | What `scoresFrom` does | **Settled 2026-10-05 (C5).** When the request gives a `scoresFrom` parameter, only the related records it matches pass weights in the `match.promoted` entries over its projection. Own scores are untouched; `preferTargetTypes` chooses among the owners of passing records. Several over one projection combine with AND. Without the parameter in the request, no effect |
+| C-D44 | Parameters and the 10,000-match limit | **Settled 2026-10-05 (C5).** The limit counts what the terms match, before parameters: it bounds the work of reading a term's matches, which a parameter does not reduce |
+| C-D45 | `scoresFrom` that could never act | **Settled 2026-10-05 (C5).** Refused at `/consumerApis/<key>/parameters/<name>/scoresFrom` when no `match.promoted` entry reads the parameter's projection, or the definition has no `match` |
+| C-D46 | Is `scoresFrom` part of the contract? | **Settled 2026-10-05 (C5).** Yes: it changes ranking, for C-D4's reason. Turning it on or off is `version_required`, reported at `/parameters/<name>/scoresFrom` |

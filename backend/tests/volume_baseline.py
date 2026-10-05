@@ -32,6 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from volume_fixture import (
     AS_OF,
     CELLS_BY_COLUMN,
+    CITING,
     CODE,
     CONSUMER_API,
     GROUP,
@@ -651,7 +652,9 @@ CONSUMER_XREF = f"/api/consumer/{CONSUMER_API}/v1/xref"
 def consumer_xref_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat: int) -> list[Measurement]:
     """0.9 C4: XREF lookups, live (``--only-consumer``): an item's code in another case, the cited
     group's code (its own match and the citing items it promotes), a 4-character contains, the
-    same code with ``expect=one``, and a term in every item refused as ``QUERY_TOO_BROAD``."""
+    same code with ``expect=one``, and a term in every item refused as ``QUERY_TOO_BROAD``. C5: the
+    cited group's code narrowed to the heavy group (a filter over the promoted items), and with the
+    ``scoresFrom`` parameter on the cited group."""
     from app.models.database import AttributeValue
 
     with Session(engine) as session:
@@ -670,6 +673,16 @@ def consumer_xref_scenarios(client, engine: Engine, dataset: VolumeDataset, *, r
         ("consumer xref: a group's code promoted to its citing items", {**base, "query": codes[dataset.cited_group_id]}, None),
         ("consumer xref: 4-character contains", {**base, "query": "0099"}, None),
         ("consumer xref: expect=one", {"workspace": WORKSPACE, "query": item_code, "expect": "one"}, None),
+        (
+            "consumer xref: a group's code, within the heavy group",
+            {**base, "query": codes[dataset.cited_group_id], WITHIN_GROUP: dataset.heavy_group_id},
+            None,
+        ),
+        (
+            "consumer xref: a group's code, scoresFrom on the group",
+            {**base, "query": codes[dataset.cited_group_id], CITING: codes[dataset.cited_group_id]},
+            None,
+        ),
         ("consumer xref: a term in every item, too broad", {**base, "query": "item"}, 400),
     ]
     results = []

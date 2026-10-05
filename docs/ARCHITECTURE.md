@@ -550,7 +550,10 @@ The audit log is the ordered source of the change feed and, later, consumer even
   statement built from the definition's `match`: a select per term and rule over the trigram indexes
   (contains) and the `lower(name)` and `lower(text_value)` indexes (exact, revision `20261005_01`),
   combined in SQL. A bounded count of the matched records runs first and refuses a query matching
-  more than 10,000; no consumer index is maintained (C-D34). The tier checks its query parameters against the definition itself, so
+  more than 10,000; no consumer index is maintained (C-D34). The definition's parameters are one
+  filter (`engine/reads/consumer_parameters.py`) that every read applies: XREF applies it to the
+  scored objects, and a `scoresFrom` parameter's predicate to the related records promotion reads
+  (C-D42, C-D43). The tier checks its query parameters against the definition itself, so
   the management API's unknown-parameter check leaves its routes alone.
 
 ### Domain extension

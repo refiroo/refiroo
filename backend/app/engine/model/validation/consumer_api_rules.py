@@ -291,6 +291,18 @@ class _Definition:
                             f"{path}/matchFields/{field_index}",
                             f"match field '{field}' is not a field of projection '{parameter.projection}'",
                         )
+                if parameter.scoresFrom and not self._promotes(parameter.projection):
+                    self._fail(
+                        "INVALID_MODEL",
+                        f"{path}/scoresFrom",
+                        f"no match.promoted entry reads projection '{parameter.projection}', so"
+                        " 'scoresFrom' could never limit a score",
+                    )
+
+    def _promotes(self, projection: str) -> bool:
+        """A ``match.promoted`` entry reads ``projection`` (C-D45)."""
+        match = self.definition.match
+        return match is not None and any(item.projection == projection for item in match.promoted)
 
     def _check_parameter_name(self, name: str, path: str) -> None:
         if name in RESERVED_PARAMETERS or name.startswith("to."):
