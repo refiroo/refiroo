@@ -19,11 +19,10 @@ from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import ARRAY, Select, String, and_, any_, bindparam, false, select, true
-from sqlalchemy.orm import Session, aliased
+from sqlalchemy.orm import Session
 
 from ...common.time import as_utc
 from ...errors import ApiError, api_error
-from ...models.database import AttributeValue, ObjectRelation, RdmObject
 from ...models.schema import ConsumerApiDefinition, EngineModel
 from ..model.consumer_contract import (
     BUILT_IN_FIELDS,
@@ -35,6 +34,7 @@ from ..model.consumer_contract import (
 )
 from ..records.values import VALUE_COLUMNS, canonical_decimal, stored_json_value
 from .consumer_parameters import NO_FILTER, ConsumerFilter, Predicate, Target
+from .consumer_source import ConsumerSource
 
 # The targets an ambiguous crosswalk names, as many as an ambiguous match's candidates (C-D55).
 AMBIGUOUS_TARGETS = 10
@@ -162,30 +162,33 @@ class ConsumerObjects:
     def compose(
         self,
         session: Session,
-        workspace_key: str,
+        source: ConsumerSource,
         object_ids: Sequence[str],
         narrowed: ConsumerFilter = NO_FILTER,
     ) -> dict[str, dict[str, Any]]:
-        """The shared object of each exposed record of ``object_ids`` in the workspace, by ID, in the
+        """The shared object of each exposed record of ``object_ids`` in the source (the workspace's
+        live data or a publication), by ID, in the
         order given; a record of another type or workspace, or no record, is left out, and so is one
         ``narrowed``'s parameters filter out. They also limit the projections' items (C3); with a
         crosswalk target, each object carries its projection's items again as ``target``, in the
         projection's shape (C15)."""
+        objects = source.objects
         records = _load(
             session,
-            select(RdmObject.id, RdmObject.object_type_key, RdmObject.name, RdmObject.parent_object_id)
+            source,
+            select(objects.id, objects.object_type_key, objects.name, objects.parent_object_id)
             .where(
-                RdmObject.id.in_(list(object_ids)),
-                RdmObject.workspace_key == workspace_key,
-                RdmObject.object_type_key.in_(list(self.public_names)),
-                *narrowed.on(RdmObject),
+                objects.id.in_(list(object_ids)),
+                objects.workspace_key == source.workspace_key,
+                objects.object_type_key.in_(list(self.public_names)),
+                *narrowed.on(objects),
             )
             .subquery(),
             self._own_keys,
         )
         related = {
             projection.output: self._related(
-                session, workspace_key, projection, list(records), narrowed.limits.get(projection.output)
+                session, source, projection, list(records), narrowed.limits.get(projection.output)
             )
             for projection in self.projections
         }
@@ -193,7 +196,7 @@ class ConsumerObjects:
         for projection in self.projections:
             if projection.reads_ancestors:
                 starts |= {item.parent_id for _owner, item in related[projection.output]}
-        ancestors = self._ancestors(session, starts - {None})
+        ancestors = self._ancestors(session, source, starts - {None})
         return {
             object_id: self._object(records[object_id], related, ancestors, narrowed.target)
             for object_id in object_ids
@@ -203,7 +206,7 @@ class ConsumerObjects:
     def _related(
         self,
         session: Session,
-        workspace_key: str,
+        source: ConsumerSource,
         projection: _Projection,
         owner_ids: list[str],
         limit: Predicate | None,
@@ -213,33 +216,35 @@ class ConsumerObjects:
         if not owner_ids:
             return []
         outgoing = projection.direction == "outgoing"
-        own = ObjectRelation.from_object_id if outgoing else ObjectRelation.to_object_id
-        other = ObjectRelation.to_object_id if outgoing else ObjectRelation.from_object_id
+        relations, objects = source.relations, source.objects
+        own = relations.from_object_id if outgoing else relations.to_object_id
+        other = relations.to_object_id if outgoing else relations.from_object_id
         pairs = (
             select(
                 own.label("owner_id"),
-                RdmObject.id,
-                RdmObject.object_type_key,
-                RdmObject.name,
-                RdmObject.parent_object_id,
+                objects.id,
+                objects.object_type_key,
+                objects.name,
+                objects.parent_object_id,
             )
-            .join(RdmObject, RdmObject.id == other)
+            .select_from(relations)
+            .join(objects, objects.id == other)
             .where(
-                ObjectRelation.relation_type_key == projection.relation,
+                relations.relation_type_key == projection.relation,
                 own.in_(owner_ids),
-                RdmObject.workspace_key == workspace_key,
-                *([] if limit is None else [limit(RdmObject)]),
+                objects.workspace_key == source.workspace_key,
+                *([] if limit is None else [limit(objects)]),
             )
             .subquery()
         )
-        rows = _rows(session, pairs, projection.attribute_keys, extra=(pairs.c.owner_id,))
+        rows = _rows(session, source, pairs, projection.attribute_keys, extra=(pairs.c.owner_id,))
         found: dict[tuple[str, str], _Record] = {}
         for row in rows:
             record = found.setdefault((row.owner_id, row.id), _record(row))
             _add_value(record, row)
         return [(owner, record) for (owner, _id), record in found.items()]
 
-    def _ancestors(self, session: Session, starts: set[str]) -> dict[str, _Record]:
+    def _ancestors(self, session: Session, source: ConsumerSource, starts: set[str]) -> dict[str, _Record]:
         """Every record above ``starts``, with them: the walk's IDs in one recursive statement, then
         those records and their values by the list of IDs.
 
@@ -250,10 +255,11 @@ class ConsumerObjects:
         and hashed every record and every value: 192 ms where the walk reads 540 rows (0.9 C14b)."""
         if not starts:
             return {}
-        up = select(RdmObject.id, RdmObject.parent_object_id).where(RdmObject.id.in_(sorted(starts))).cte(
+        objects = source.objects
+        up = select(objects.id, objects.parent_object_id).where(objects.id.in_(sorted(starts))).cte(
             "up", recursive=True
         )
-        parent = aliased(RdmObject)
+        parent = source.object_alias()
         step = (
             select(parent.id, parent.parent_object_id)
             .where(parent.id == up.c.parent_object_id)
@@ -264,11 +270,11 @@ class ConsumerObjects:
         walked = sorted(session.scalars(select(up.c.id)))
         listed = bindparam(None, walked, type_=ARRAY(String))
         chain = (
-            select(RdmObject.id, RdmObject.object_type_key, RdmObject.name, RdmObject.parent_object_id)
-            .where(RdmObject.id == any_(listed))
+            select(objects.id, objects.object_type_key, objects.name, objects.parent_object_id)
+            .where(objects.id == any_(listed))
             .subquery()
         )
-        return _load(session, chain, self._ancestor_keys)
+        return _load(session, source, chain, self._ancestor_keys)
 
     def _object(
         self,
@@ -350,9 +356,12 @@ def _attribute_keys(fields: Iterable[_Field]) -> set[str]:
 _VALUE_COLUMNS = sorted(set(VALUE_COLUMNS.values()))
 
 
-def _rows(session: Session, records: Any, keys: set[str], extra: tuple[Any, ...] = ()) -> Sequence[Any]:
+def _rows(
+    session: Session, source: ConsumerSource, records: Any, keys: set[str], extra: tuple[Any, ...] = ()
+) -> Sequence[Any]:
     """The rows of ``records`` with their values of ``keys``, one row per value (or one without)."""
-    value_columns = [getattr(AttributeValue, name).label(name) for name in _VALUE_COLUMNS]
+    values = source.values
+    value_columns = [getattr(values, name).label(name) for name in _VALUE_COLUMNS]
     statement: Select[Any] = (
         select(
             *extra,
@@ -360,16 +369,16 @@ def _rows(session: Session, records: Any, keys: set[str], extra: tuple[Any, ...]
             records.c.object_type_key,
             records.c.name,
             records.c.parent_object_id,
-            AttributeValue.attribute_type_key,
-            AttributeValue.value_type,
+            values.attribute_type_key,
+            values.value_type,
             *value_columns,
         )
         .select_from(records)
         .outerjoin(
-            AttributeValue,
+            values,
             and_(
-                AttributeValue.object_id == records.c.id,
-                AttributeValue.attribute_type_key.in_(sorted(keys)) if keys else false(),
+                values.object_id == records.c.id,
+                values.attribute_type_key.in_(sorted(keys)) if keys else false(),
             ),
         )
         .order_by(records.c.name, records.c.id)
@@ -377,9 +386,9 @@ def _rows(session: Session, records: Any, keys: set[str], extra: tuple[Any, ...]
     return session.execute(statement).all()
 
 
-def _load(session: Session, records: Any, keys: set[str]) -> dict[str, _Record]:
+def _load(session: Session, source: ConsumerSource, records: Any, keys: set[str]) -> dict[str, _Record]:
     found: dict[str, _Record] = {}
-    for row in _rows(session, records, keys):
+    for row in _rows(session, source, records, keys):
         _add_value(found.setdefault(row.id, _record(row)), row)
     return found
 
@@ -410,7 +419,7 @@ def read_consumer_object(
     session: Session,
     model: EngineModel,
     definition: ConsumerApiDefinition,
-    workspace_key: str,
+    source: ConsumerSource,
     object_id: str,
     narrowed: ConsumerFilter = NO_FILTER,
 ) -> dict[str, Any]:
@@ -418,7 +427,7 @@ def read_consumer_object(
     ``404 OBJECT_NOT_FOUND`` for an unknown or deleted record, one in another workspace, one of a
     type the definition does not expose, or one the parameters filter out (C-D31); with a crosswalk
     target, its single item (``one_target``)."""
-    composed = ConsumerObjects(model, definition).compose(session, workspace_key, [object_id], narrowed)
+    composed = ConsumerObjects(model, definition).compose(session, source, [object_id], narrowed)
     if object_id not in composed:
         raise object_not_found(object_id)
     return one_target(composed[object_id], object_id, narrowed.target)

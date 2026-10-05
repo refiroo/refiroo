@@ -617,32 +617,35 @@ CONSUMER_LISTS = f"/api/consumer/{CONSUMER_API}/v1/lists"
 
 
 def consumer_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat: int) -> list[Measurement]:
-    """0.9 C3: consumer list reads, live (``--only-consumer``). The next page and the position jump
-    are read through the cursor and position the first page and the total name."""
+    """0.9 C3: consumer list reads, live (``--only-consumer``); C6a: the same reads pinned to the
+    seed's publication. The next page and the position jump are read through the cursor and position
+    the first page and the total name."""
     ranked = f"{CONSUMER_LISTS}/{RANKED_ITEMS}"
-    base = {"workspace": WORKSPACE, "pageSize": PAGE_SIZE}
-    first = client.get(ranked, params={**base, "includeTotal": "true"}).json()
-    scenarios = [
-        ("consumer: first page of every item by rank", ranked, base),
-        ("consumer: next cursor page", ranked, {**base, "cursor": first["nextCursor"]}),
-        ("consumer: position jump to the middle", ranked, {**base, "position": first["totalCount"] // 2}),
-        (
-            "consumer: 20,000 items under a parent",
-            f"{CONSUMER_LISTS}/{ITEMS_BY_GROUP}",
-            {**base, GROUP_PARENT: dataset.heavy_group_id},
-        ),
-        (
-            "consumer: ancestor filter with includeTotal",
-            ranked,
-            {**base, WITHIN_GROUP: dataset.heavy_group_id, "includeTotal": "true"},
-        ),
-    ]
     results = []
-    for scenario, path, params in scenarios:
-        status, milliseconds, statements, rows = _timed(
-            engine, lambda path=path, params=params: client.get(path, params=params), repeat
-        )
-        results.append(Measurement("live", scenario, status, milliseconds, statements, rows))
+    for context, pinned in (("live", {}), ("history", {"publication": dataset.publication_id})):
+        label = "consumer" if not pinned else "consumer pinned"
+        base = {"workspace": WORKSPACE, "pageSize": PAGE_SIZE, **pinned}
+        first = client.get(ranked, params={**base, "includeTotal": "true"}).json()
+        scenarios = [
+            (f"{label}: first page of every item by rank", ranked, base),
+            (f"{label}: next cursor page", ranked, {**base, "cursor": first["nextCursor"]}),
+            (f"{label}: position jump to the middle", ranked, {**base, "position": first["totalCount"] // 2}),
+            (
+                f"{label}: 20,000 items under a parent",
+                f"{CONSUMER_LISTS}/{ITEMS_BY_GROUP}",
+                {**base, GROUP_PARENT: dataset.heavy_group_id},
+            ),
+            (
+                f"{label}: ancestor filter with includeTotal",
+                ranked,
+                {**base, WITHIN_GROUP: dataset.heavy_group_id, "includeTotal": "true"},
+            ),
+        ]
+        for scenario, path, params in scenarios:
+            status, milliseconds, statements, rows = _timed(
+                engine, lambda path=path, params=params: client.get(path, params=params), repeat
+            )
+            results.append(Measurement(context, scenario, status, milliseconds, statements, rows))
     return results
 
 
@@ -650,7 +653,8 @@ CONSUMER_XREF = f"/api/consumer/{CONSUMER_API}/v1/xref"
 
 
 def consumer_xref_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat: int) -> list[Measurement]:
-    """0.9 C4: XREF lookups, live (``--only-consumer``): an item's code in another case, the cited
+    """0.9 C4: XREF lookups, live (``--only-consumer``), and since C6a pinned to the seed's
+    publication: an item's code in another case, the cited
     group's code (its own match and the citing items it promotes), a 4-character contains, the
     same code with ``expect=one``, and a term in every item refused as ``QUERY_TOO_BROAD``. C5: the
     cited group's code narrowed to the heavy group (a filter over the promoted items), and with the
@@ -667,30 +671,32 @@ def consumer_xref_scenarios(client, engine: Engine, dataset: VolumeDataset, *, r
             ).all()
         )
     item_code = codes[dataset.live_item_id].lower()
-    base = {"workspace": WORKSPACE, "pageSize": PAGE_SIZE}
-    scenarios = [
-        ("consumer xref: an item's code, another case", {**base, "query": item_code}, None),
-        ("consumer xref: a group's code promoted to its citing items", {**base, "query": codes[dataset.cited_group_id]}, None),
-        ("consumer xref: 4-character contains", {**base, "query": "0099"}, None),
-        ("consumer xref: expect=one", {"workspace": WORKSPACE, "query": item_code, "expect": "one"}, None),
-        (
-            "consumer xref: a group's code, within the heavy group",
-            {**base, "query": codes[dataset.cited_group_id], WITHIN_GROUP: dataset.heavy_group_id},
-            None,
-        ),
-        (
-            "consumer xref: a group's code, scoresFrom on the group",
-            {**base, "query": codes[dataset.cited_group_id], CITING: codes[dataset.cited_group_id]},
-            None,
-        ),
-        ("consumer xref: a term in every item, too broad", {**base, "query": "item"}, 400),
-    ]
     results = []
-    for scenario, params, refused in scenarios:
-        status, milliseconds, statements, rows = _timed(
-            engine, lambda params=params: client.get(CONSUMER_XREF, params=params), repeat, refused=refused
-        )
-        results.append(Measurement("live", scenario, status, milliseconds, statements, rows))
+    for context, pinned in (("live", {}), ("history", {"publication": dataset.publication_id})):
+        label = "consumer xref" if not pinned else "consumer xref pinned"
+        base = {"workspace": WORKSPACE, "pageSize": PAGE_SIZE, **pinned}
+        scenarios = [
+            (f"{label}: an item's code, another case", {**base, "query": item_code}, None),
+            (f"{label}: a group's code promoted to its citing items", {**base, "query": codes[dataset.cited_group_id]}, None),
+            (f"{label}: 4-character contains", {**base, "query": "0099"}, None),
+            (f"{label}: expect=one", {"workspace": WORKSPACE, **pinned, "query": item_code, "expect": "one"}, None),
+            (
+                f"{label}: a group's code, within the heavy group",
+                {**base, "query": codes[dataset.cited_group_id], WITHIN_GROUP: dataset.heavy_group_id},
+                None,
+            ),
+            (
+                f"{label}: a group's code, scoresFrom on the group",
+                {**base, "query": codes[dataset.cited_group_id], CITING: codes[dataset.cited_group_id]},
+                None,
+            ),
+            (f"{label}: a term in every item, too broad", {**base, "query": "item"}, 400),
+        ]
+        for scenario, params, refused in scenarios:
+            status, milliseconds, statements, rows = _timed(
+                engine, lambda params=params: client.get(CONSUMER_XREF, params=params), repeat, refused=refused
+            )
+            results.append(Measurement(context, scenario, status, milliseconds, statements, rows))
     return results
 
 

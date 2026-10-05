@@ -63,11 +63,11 @@ from sqlalchemy import (
     true,
     union_all,
 )
-from sqlalchemy.orm import Session, aliased
+from sqlalchemy.orm import Session
 
 from ...common.pagination import PageRequest, integer_key, paginate_statement, text_key
 from ...errors import ApiError, api_error
-from ...models.database import AttributeValue, ObjectRelation, RdmObject
+from ...models.database import AttributeValue
 from ...models.schema import (
     ConsumerApiDefinition,
     ConsumerMatch,
@@ -80,6 +80,7 @@ from ..model.consumer_contract import projection_targets
 from ..records.values import VALUE_COLUMNS
 from .consumer_objects import ConsumerObjects, one_target
 from .consumer_parameters import ConsumerFilter, without_target
+from .consumer_source import ConsumerSource, cursor_scope
 from .object_query import INDEXED_MATCH_LIMIT, escape_like, parse_typed
 
 # The records a query may match before it is refused as too broad (C-D37).
@@ -213,14 +214,15 @@ def _unnest(name: str, columns: Sequence[tuple[str, Any, list[Any]]]) -> Any:
 
 
 class _Scoring:
-    """The statements of a set of lookups over one definition in one workspace, narrowed by
-    ``narrowed``; with ``contains`` false, the exact rules only (C-D52)."""
+    """The statements of a set of lookups over one definition in one source (a workspace's live data
+    or a publication), narrowed by ``narrowed``; with ``contains`` false, the exact rules only
+    (C-D52)."""
 
     def __init__(
         self,
         model: EngineModel,
         definition: ConsumerApiDefinition,
-        workspace_key: str,
+        source: ConsumerSource,
         lookups: Sequence[Sequence[str]],
         narrowed: ConsumerFilter,
         *,
@@ -230,7 +232,7 @@ class _Scoring:
         self.model = model
         self.definition = definition
         self.match = definition.match
-        self.workspace_key = workspace_key
+        self.source = source
         self.terms = _Terms(model, lookups)
         self.narrowed = narrowed
         self.contains = contains
@@ -281,8 +283,8 @@ class _Scoring:
         at most ``MATCH_LIMIT + 1`` of them. A contains read is a subquery of its own, so it reads the
         tables unaliased: aliasing them for each of hundreds of terms cost SQLAlchemy more time than
         PostgreSQL took to run them (0.9 C14b)."""
-        record = aliased(RdmObject) if terms is not None else RdmObject
-        scope = [record.workspace_key == self.workspace_key, record.object_type_key.in_(list(type_keys))]
+        record = self.source.object_alias() if terms is not None else self.source.objects
+        scope = [record.workspace_key == self.source.workspace_key, record.object_type_key.in_(list(type_keys))]
         if field == "id":
             # Object IDs are UUIDs in lower case; validation keeps contains off them.
             matched = select(record.id).where(*scope, record.id == func.lower(terms.c.text))
@@ -290,7 +292,7 @@ class _Scoring:
             matched = select(record.id).where(*scope, _text_match(record.name, terms, contains_pattern))
         else:
             value_type = self.model.attribute_type(field).valueType
-            value = aliased(AttributeValue) if terms is not None else AttributeValue
+            value = self.source.value_alias() if terms is not None else self.source.values
             stored = getattr(value, VALUE_COLUMNS[value_type])
             comparison = (
                 _text_match(stored, terms, contains_pattern) if value_type in _TEXT_TYPES else stored == terms.c.value
@@ -372,11 +374,11 @@ class _Scoring:
         )
         scoring = self.narrowed.scoring.get(promoted.projection)
         if scoring is not None:
-            related = aliased(RdmObject)
+            related = self.source.object_alias()
             best = best.join(related, related.id == hits.c.id).where(scoring(related))
         best = best.subquery()
         route = self.definition.projections[promoted.projection].from_
-        relation, owner = aliased(ObjectRelation), aliased(RdmObject)
+        relation, owner = self.source.relation_alias(), self.source.object_alias()
         outgoing = route.direction == "outgoing"
         own = relation.from_object_id if outgoing else relation.to_object_id
         other = relation.to_object_id if outgoing else relation.from_object_id
@@ -395,7 +397,7 @@ class _Scoring:
             .select_from(best)
             .join(relation, and_(relation.relation_type_key == route.relation, other == best.c.id))
             .join(owner, owner.id == own)
-            .where(owner.workspace_key == self.workspace_key, owner.object_type_key.in_(self.exposed))
+            .where(owner.workspace_key == self.source.workspace_key, owner.object_type_key.in_(self.exposed))
         )
         if not preferred:
             return passed
@@ -445,22 +447,24 @@ class _Scoring:
             .group_by(scores.c.item, scores.c.object_id)
             .subquery()
         )
+        objects = self.source.objects
         public_name = case(
             {key: item.publicName for key, item in self.definition.objectTypes.items()},
-            value=RdmObject.object_type_key,
+            value=objects.object_type_key,
             else_=literal(None, String),
         )
         ranked = (
             select(
                 best.c.item,
-                RdmObject.id.label("id"),
+                objects.id.label("id"),
                 best.c.score.label("score"),
                 best.c.safe_score,
                 public_name.label("public_name"),
-                RdmObject.name.label("name"),
+                objects.name.label("name"),
             )
-            .join(best, best.c.object_id == RdmObject.id)
-            .where(*self.narrowed.on(RdmObject))
+            .select_from(objects)
+            .join(best, best.c.object_id == objects.id)
+            .where(*self.narrowed.on(objects))
             .subquery("ranked")
         )
         return _Ranked(select(ranked.c.id, ranked.c.score, ranked.c.public_name, ranked.c.name), ranked.c)
@@ -534,7 +538,7 @@ def resolve_lookups(
     session: Session,
     model: EngineModel,
     definition: ConsumerApiDefinition,
-    workspace_key: str,
+    source: ConsumerSource,
     lookups: Sequence[Sequence[str]],
     narrowed: ConsumerFilter,
 ) -> list[Found | ApiError]:
@@ -549,7 +553,7 @@ def resolve_lookups(
     )
     ceiling = contains_ceiling(match)
     answers: list[Found | ApiError | None] = [None] * len(lookups)
-    exact = _Scoring(model, definition, workspace_key, lookups, narrowed, contains=False).tops(session)
+    exact = _Scoring(model, definition, source, lookups, narrowed, contains=False).tops(session)
     unsettled = []
     for item, terms in enumerate(lookups):
         matched, rows = exact.get(item, (0, []))
@@ -561,7 +565,7 @@ def resolve_lookups(
         else:
             unsettled.append(item)
     for chunk in _chunks(unsettled, lookups):
-        full = _Scoring(model, definition, workspace_key, [lookups[item] for item in chunk], narrowed).tops(session)
+        full = _Scoring(model, definition, source, [lookups[item] for item in chunk], narrowed).tops(session)
         for number, item in enumerate(chunk):
             matched, rows = full.get(number, (0, []))
             answers[item] = _too_broad() if matched > MATCH_LIMIT else _decided(rows)
@@ -614,7 +618,7 @@ def read_xref(
     model: EngineModel,
     definition: ConsumerApiDefinition,
     *,
-    workspace_key: str,
+    source: ConsumerSource,
     terms: Sequence[str],
     narrowed: ConsumerFilter,
     parameters: Mapping[str, Sequence[str]],
@@ -629,14 +633,14 @@ def read_xref(
     terms, the workspace and the contract version; a ``to.`` value is not bound (C-D54)."""
     composer = ConsumerObjects(model, definition)
     if expect_one:
-        (answer,) = resolve_lookups(session, model, definition, workspace_key, [terms], narrowed)
+        (answer,) = resolve_lookups(session, model, definition, source, [terms], narrowed)
         if isinstance(answer, ApiError):
             raise answer
-        composed = composer.compose(session, workspace_key, [answer.id], narrowed)
+        composed = composer.compose(session, source, [answer.id], narrowed)
         return {**one_target(composed[answer.id], answer.id, narrowed.target), "matchScore": answer.score}
     ranked = None
     if definition.match is not None:
-        scoring = _Scoring(model, definition, workspace_key, [terms], narrowed)
+        scoring = _Scoring(model, definition, source, [terms], narrowed)
         counted = scoring.matched()
         matched = session.scalar(select(counted.subquery().c.matched)) if counted is not None else 0
         if (matched or 0) > MATCH_LIMIT:
@@ -644,14 +648,14 @@ def read_xref(
         ranked = scoring.ranked()
     if ranked is None:
         nothing = {"nextCursor": None, "prevCursor": None, "anchor": None, "totalCount": 0, "startIndex": 0}
-        return _envelope([], terms, workspace_key, page_size, nothing)
+        return _envelope([], terms, source, page_size, nothing)
     found = paginate_statement(
         session,
         ranked.statement,
         keys=ranked.keys,
-        scope=f"consumer-xref:{definition.key}",
+        scope=cursor_scope(f"consumer-xref:{definition.key}", source),
         filters={
-            "workspace": workspace_key,
+            "workspace": source.workspace_key,
             "contractVersion": definition.contractVersion,
             "query": sorted(set(terms)),
             "parameters": {name: sorted(values) for name, values in sorted(without_target(parameters).items())},
@@ -661,26 +665,27 @@ def read_xref(
         rows=True,
     )
     scores = {row.id: row.score for row in found.items}
-    composed = composer.compose(session, workspace_key, list(scores), narrowed)
+    composed = composer.compose(session, source, list(scores), narrowed)
     results = [
         {**composed[object_id], "matchScore": score}
         for object_id, score in scores.items()
         if object_id in composed
     ]
-    return _envelope(results, terms, workspace_key, page_size, found.links())
+    return _envelope(results, terms, source, page_size, found.links())
 
 
 def _envelope(
     results: list[dict[str, Any]],
     terms: Sequence[str],
-    workspace_key: str,
+    source: ConsumerSource,
     page_size: int,
     links: dict[str, Any],
 ) -> dict[str, Any]:
     return {
         "results": results,
         "query": list(terms),
-        "workspace": workspace_key,
+        "workspace": source.workspace_key,
+        "publication": source.publication_id,
         "pageSize": page_size,
         **links,
     }

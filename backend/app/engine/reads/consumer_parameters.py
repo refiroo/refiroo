@@ -27,10 +27,9 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from sqlalchemy import ARRAY, Select, String, and_, any_, bindparam, exists, false, or_, select
-from sqlalchemy.orm import Session, aliased
+from sqlalchemy.orm import Session
 
 from ...errors import api_error
-from ...models.database import AttributeValue, ObjectRelation, RdmObject
 from ...models.schema import (
     AncestorParameter,
     ConsumerApiDefinition,
@@ -42,9 +41,10 @@ from ...models.schema import (
 from ..model.consumer_contract import projection_targets, split_ancestor_reference
 from ..model.traversal import ancestor_type_keys
 from ..records.values import VALUE_COLUMNS
+from .consumer_source import ConsumerSource
 from .object_query import SEARCH_CANDIDATE_LIMIT, escape_like, parse_typed
 
-# A condition on a record, given the entity (``RdmObject`` or an alias of it) that holds it.
+# A condition on a record, given the entity (the source's records, or an alias of them) that holds it.
 Predicate = Callable[[Any], Any]
 
 VIA_SELF = "self"
@@ -97,7 +97,7 @@ def consumer_filter(
     session: Session,
     model: EngineModel,
     definition: ConsumerApiDefinition,
-    workspace_key: str,
+    source: ConsumerSource,
     values: Mapping[str, Sequence[str]],
 ) -> ConsumerFilter:
     """The predicates of the definition parameters in ``values`` (name to its split values), and of
@@ -106,7 +106,7 @@ def consumer_filter(
     The target's items, AND the limits of the other parameters over its projection, limit that
     projection; the targeted parameter's own limit is left out, else ``p=A&to.p=B`` would show
     nothing. Its ``requireMatch`` and ``scoresFrom`` act as without the target (C-D54)."""
-    builder = _Builder(session, model, definition, workspace_key)
+    builder = _Builder(session, model, definition, source)
     records: list[Predicate] = []
     limits: dict[str, list[Predicate]] = {}
     scoring: dict[str, list[Predicate]] = {}
@@ -155,12 +155,12 @@ def _all(predicates: list[Predicate]) -> Predicate:
 
 class _Builder:
     def __init__(
-        self, session: Session, model: EngineModel, definition: ConsumerApiDefinition, workspace_key: str
+        self, session: Session, model: EngineModel, definition: ConsumerApiDefinition, source: ConsumerSource
     ) -> None:
         self.session = session
         self.model = model
         self.definition = definition
-        self.workspace_key = workspace_key
+        self.source = source
 
     def object_type(self, parameter: str, names: Sequence[str]) -> Predicate:
         by_name = {item.publicName: key for key, item in self.definition.objectTypes.items()}
@@ -178,7 +178,7 @@ class _Builder:
 
     def ancestor(self, parameter: AncestorParameter, values: Sequence[str]) -> Predicate:
         starts = self.candidates(parameter.objectTypes, parameter.matchFields, values)
-        return below(self.session, self.model, self.workspace_key, starts, self.definition.objectTypes)
+        return below(self.session, self.model, self.source, starts, self.definition.objectTypes)
 
     def related(self, parameter: RelatedParameter, values: Sequence[str]) -> Predicate:
         candidates = self.candidates(parameter.objectTypes, parameter.matchFields, values)
@@ -212,25 +212,25 @@ class _Builder:
             else:
                 type_key, name = reference
                 starts = self.candidates([type_key], [name], values)
-                matches.append(below(self.session, self.model, self.workspace_key, starts, targets))
+                matches.append(below(self.session, self.model, self.source, starts, targets))
 
         def item(entity: Any) -> Any:
             return or_(*(match(entity) for match in matches))
 
         if not parameter.requireMatch:
             return item, None
-        related = aliased(RdmObject)
+        related = self.source.object_alias()
         matching = select(related.id).where(item(related))
         return item, lambda entity: self._linked(entity, parameter.projection, entity_ids=matching)
 
     def candidates(self, type_keys: Sequence[str], fields: Sequence[str], values: Sequence[str]) -> Select[Any]:
-        """The IDs of the records of ``type_keys`` in the workspace whose ``fields`` match a value."""
-        record = aliased(RdmObject)
+        """The IDs of the records of ``type_keys`` in the source whose ``fields`` match a value."""
+        record = self.source.object_alias()
         matches = [
             match for value in values for name in fields if (match := self._match(record, name, value)) is not None
         ]
         return select(record.id).where(
-            record.workspace_key == self.workspace_key,
+            record.workspace_key == self.source.workspace_key,
             record.object_type_key.in_(list(type_keys)),
             or_(*matches) if matches else false(),
         )
@@ -243,7 +243,8 @@ class _Builder:
         if name == "name":
             return record.name.ilike(escape_like(value), escape="\\")
         value_type = self.model.attribute_type(name).valueType
-        column = getattr(AttributeValue, VALUE_COLUMNS[value_type])
+        values = self.source.values
+        column = getattr(values, VALUE_COLUMNS[value_type])
         if value_type in {"text", "longText"}:
             comparison = column.ilike(escape_like(value), escape="\\")
         else:
@@ -252,7 +253,7 @@ class _Builder:
             except ValueError:
                 return None
         return record.id.in_(
-            select(AttributeValue.object_id).where(AttributeValue.attribute_type_key == name, comparison)
+            select(values.object_id).where(values.attribute_type_key == name, comparison)
         )
 
     def _ends(self, relation: Any, projection: str) -> tuple[str, Any, Any]:
@@ -264,7 +265,7 @@ class _Builder:
 
     def _linked(self, entity: Any, projection: str, *, entity_ids: Select[Any]) -> Any:
         """``entity`` relates through the projection to a record of ``entity_ids``."""
-        relation = aliased(ObjectRelation)
+        relation = self.source.relation_alias()
         key, own, other = self._ends(relation, projection)
         return exists(
             select(relation.sequence_id).where(
@@ -275,7 +276,7 @@ class _Builder:
     def _shared(self, entity: Any, projection: str, candidates: Select[Any]) -> Any:
         """``entity`` and another record of ``candidates`` relate through the projection to one
         projected record."""
-        mine, theirs = aliased(ObjectRelation), aliased(ObjectRelation)
+        mine, theirs = self.source.relation_alias(), self.source.relation_alias()
         key, own, other = self._ends(mine, projection)
         _key, their_own, their_other = self._ends(theirs, projection)
         return exists(
@@ -293,7 +294,7 @@ class _Builder:
 def below(
     session: Session,
     model: EngineModel,
-    workspace_key: str,
+    source: ConsumerSource,
     starts: Select[Any],
     type_keys: Iterable[str],
 ) -> Predicate:
@@ -311,13 +312,13 @@ def below(
     """
     containers = sorted(set().union(*(ancestor_type_keys(model, key) for key in type_keys)))
     walk = starts.cte(recursive=True)
-    child = aliased(RdmObject)
+    child = source.object_alias()
     # UNION, not UNION ALL: a record met twice ends the walk, whatever the data holds.
     walk = walk.union(
         select(child.id)
         .select_from(walk)
         .join(child, child.parent_object_id == walk.c.id)
-        .where(child.workspace_key == workspace_key, child.object_type_key.in_(containers))
+        .where(child.workspace_key == source.workspace_key, child.object_type_key.in_(containers))
     )
     walked = select(walk.c.id)
     found = list(session.scalars(walked.limit(SEARCH_CANDIDATE_LIMIT + 1)))

@@ -1,11 +1,13 @@
 """The consumer API's routes (Base 0.9 C2 onward).
 
 Each route resolves the definition from the active release (``{consumerApi}`` and ``v{contractVersion}``),
-checks the request's parameters against the names it serves, resolves the workspace and reads live
-data through ``engine/reads/consumer_objects``, ``consumer_lists``, ``consumer_xref`` and
-``consumer_resolve``. Every response names the workspace it read in the ``RDM-Workspace`` header
-(C-D23). The routes stay out of the management
-OpenAPI document; C6 generates one document per definition.
+checks the request's parameters against the names it serves, resolves the workspace and reads its
+live data, or with ``publication`` one of its publications (C6a), through
+``engine/reads/consumer_objects``, ``consumer_lists``, ``consumer_xref`` and ``consumer_resolve``.
+Every response names the workspace it read in the ``RDM-Workspace`` header (C-D23), and a pinned
+read's the publication in ``RDM-Publication`` (C-D63). A ``GET`` answers an ``ETag`` and honours
+``If-None-Match`` (C-D65). The routes stay out of the management OpenAPI document; C6b generates one
+document per definition.
 """
 
 import json
@@ -15,31 +17,41 @@ from typing import Annotated, Any
 from urllib.parse import unquote_plus
 
 from fastapi import APIRouter, Depends, Request, Response
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..common.cursors import signed_scope
 from ..common.pagination import PageRequest
 from ..db import SessionLocal
-from ..engine.model.registry import resolve_model_snapshot
+from ..engine.model.registry import ModelSnapshot, resolve_model_snapshot, resolve_pinned_release
 from ..engine.reads.consumer_lists import consumer_list, read_consumer_list
 from ..engine.reads.consumer_objects import consumer_definition, read_consumer_object
 from ..engine.reads.consumer_parameters import TARGET_PREFIX, consumer_filter, target_names
+from ..engine.reads.consumer_publications import read_publications
 from ..engine.reads.consumer_resolve import ResolveItem, item_error, read_resolve
+from ..engine.reads.consumer_source import PUBLICATION_SCOPE, ConsumerSource
 from ..engine.reads.consumer_xref import read_xref, xref_terms
 from ..engine.workspaces.catalogue import resolve_workspace
 from ..errors import ApiError, api_error
-from ..models.database import Workspace
-from ..models.schema import ConsumerApiDefinition
+from ..models.database import Publication, Workspace
+from ..models.schema import ConsumerApiDefinition, EngineModel
+from .etag import entity_tag, none_match
 
 PREFIX = "/api/consumer"
 WORKSPACE_HEADER = "RDM-Workspace"
+PUBLICATION_HEADER = "RDM-Publication"
+# The value of ``publication`` that reads the workspace's active publication (C-D61).
+LATEST = "latest"
 # The names that select a list's page (ADR-030, C-D30).
 _PAGING = frozenset({"pageSize", "cursor", "position", "from", "seek", "includeTotal"})
 # The names each route serves besides the definition's parameters. XREF pages by score, which no
 # caller seeks, and always counts its total (C-D39); with expect=one it reads no page (C-D40).
-_OBJECT = frozenset({"workspace"})
+_OBJECT = frozenset({"workspace", "publication"})
 _LIST = _OBJECT | _PAGING
 _XREF_ONE = _OBJECT | {"query", "expect"}
 _XREF = _XREF_ONE | (_PAGING - {"seek", "includeTotal"})
+# The publications list reads live data in the order of publication, which no caller seeks (C-D66).
+_PUBLICATIONS = frozenset({"workspace"}) | (_PAGING - {"seek"})
 # Every name a route of the API serves.
 _ROUTE_NAMES = _LIST | _XREF
 # The names a batch resolve item holds besides the definition's parameters (C-D47).
@@ -73,89 +85,192 @@ def reads_own_parameters[F](endpoint: F) -> F:
     return endpoint
 
 
-@router.get("/{consumer_api}/v{contract_version}/objects/{object_id}")
+@dataclass(frozen=True)
+class _Read:
+    """What a read reads: the model and definition that shape it, the source of its rows, its
+    parameters as checked against that definition, and its entity tag."""
+
+    model: EngineModel
+    definition: ConsumerApiDefinition
+    source: ConsumerSource
+    parameters: _Parameters
+    tag: str
+
+    def narrowed(self, session: Session) -> Any:
+        return consumer_filter(session, self.model, self.definition, self.source, self.parameters.definition)
+
+
+def _reading(
+    session: Session,
+    active: ModelSnapshot,
+    definition: ConsumerApiDefinition,
+    parameters: _Parameters,
+    workspace: Workspace,
+    recheck: Callable[[ConsumerApiDefinition], _Parameters],
+) -> Callable[[], _Read]:
+    """How the read is resolved, run where its refusals name the workspace: live data, shaped by the
+    active release; or the publication ``publication`` names, shaped by the release it was published
+    under, which must declare this API at this contract version (C-D60). ``recheck`` checks the
+    parameters against that release's definition when it differs from the active one."""
+
+    def resolve() -> _Read:
+        value = parameters.single("publication")
+        if value is None:
+            tag = entity_tag(
+                ("live", workspace.key, str(workspace.feed_position), active.release_id), definition.contractVersion
+            )
+            return _Read(active.model, definition, ConsumerSource(workspace.key), parameters, tag)
+        publication = _publication(session, workspace, value, parameters.single("cursor"))
+        pinned = resolve_pinned_release(session, publication.model_release_id)
+        declared = next((item for item in pinned.model.consumerApis or () if item.key == definition.key), None)
+        if declared is None or declared.contractVersion != definition.contractVersion:
+            declared_version = declared.contractVersion if declared is not None else None
+            raise api_error(
+                409,
+                "PUBLICATION_CONTRACT_MISMATCH",
+                f"Publication '{publication.id}' was published under a model release that "
+                + (
+                    f"declares contract version {declared_version} of this API"
+                    if declared is not None
+                    else "does not declare this API"
+                )
+                + f", not version {definition.contractVersion}; read a publication made under this version",
+                {"publication": publication.id, "contractVersion": declared_version},
+            )
+        checked = parameters if declared == definition else recheck(declared)
+        tag = entity_tag(("publication", publication.id, pinned.release_id), declared.contractVersion)
+        return _Read(pinned.model, declared, ConsumerSource(workspace.key, publication.id), checked, tag)
+
+    return resolve
+
+
+def _publication(session: Session, workspace: Workspace, value: str, cursor: str | None) -> Publication:
+    """The publication of the workspace that ``value`` names (C-D62). ``latest`` is the workspace's
+    active one (C-D61), except that a cursor issued by a pinned read continues in its own publication
+    (C-D64)."""
+    publication_id = value
+    if value == LATEST:
+        scope = signed_scope(cursor) if cursor is not None else None
+        if scope is not None and PUBLICATION_SCOPE in scope:
+            publication_id = scope.rsplit(PUBLICATION_SCOPE, 1)[1]
+        elif workspace.active_publication_id is None:
+            raise api_error(
+                404,
+                "PUBLICATION_NOT_FOUND",
+                f"Workspace '{workspace.key}' has no current publication to read as '{LATEST}'",
+                {"publication": LATEST},
+            )
+        else:
+            publication_id = workspace.active_publication_id
+    publication = session.scalar(
+        select(Publication).where(Publication.id == publication_id, Publication.workspace_key == workspace.key)
+    )
+    if publication is None:
+        raise api_error(
+            404,
+            "PUBLICATION_NOT_FOUND",
+            f"Publication '{value}' not found in workspace '{workspace.key}'",
+            {"publication": value},
+        )
+    return publication
+
+
+@router.get("/{consumer_api}/v{contract_version}/objects/{object_id}", response_model=None)
 @reads_own_parameters
 def get_object(
     consumer_api: str, contract_version: str, object_id: str, request: Request, response: Response, session: DbSession
-) -> dict[str, Any]:
+) -> dict[str, Any] | Response:
     """Get by ID: the definition's shared object for the record with this object ID, narrowed by the
     definition's parameters (C-D31)."""
-    model = resolve_model_snapshot(session).model
-    definition = consumer_definition(model, consumer_api, contract_version)
-    parameters = _Parameters.check(request, definition, serves=_OBJECT)
+    active = resolve_model_snapshot(session)
+    definition = consumer_definition(active.model, consumer_api, contract_version)
+
+    def check(declared: ConsumerApiDefinition) -> _Parameters:
+        return _Parameters.check(request, declared, serves=_OBJECT)
+
+    parameters = check(definition)
     workspace = _workspace(session, parameters.single("workspace"))
     return _answer(
+        request,
         response,
         workspace,
-        lambda: read_consumer_object(
-            session,
-            model,
-            definition,
-            workspace.key,
-            object_id,
-            consumer_filter(session, model, definition, workspace.key, parameters.definition),
+        _reading(session, active, definition, parameters, workspace, check),
+        lambda read: read_consumer_object(
+            session, read.model, read.definition, read.source, object_id, read.narrowed(session)
         ),
     )
 
 
-@router.get("/{consumer_api}/v{contract_version}/lists/{list_key}")
+@router.get("/{consumer_api}/v{contract_version}/lists/{list_key}", response_model=None)
 @reads_own_parameters
 def get_list(
     consumer_api: str, contract_version: str, list_key: str, request: Request, response: Response, session: DbSession
-) -> dict[str, Any]:
+) -> dict[str, Any] | Response:
     """A page of the definition's list ``list_key``: the records of its type, below the parent
     values when given, narrowed by the definition's parameters (C-D27–C-D31)."""
-    model = resolve_model_snapshot(session).model
-    definition = consumer_definition(model, consumer_api, contract_version)
-    declared = consumer_list(definition, list_key)
-    parent = declared.parentParameter.name if declared.parentParameter else None
-    parameters = _Parameters.check(request, definition, serves=_LIST, parent=parent)
+    active = resolve_model_snapshot(session)
+    definition = consumer_definition(active.model, consumer_api, contract_version)
+
+    def check(declared: ConsumerApiDefinition) -> _Parameters:
+        listed = consumer_list(declared, list_key)
+        parent = listed.parentParameter.name if listed.parentParameter else None
+        return _Parameters.check(request, declared, serves=_LIST, parent=parent)
+
+    parameters = check(definition)
     page_size, page = _page(parameters)
     workspace = _workspace(session, parameters.single("workspace"))
-    return _answer(
-        response,
-        workspace,
-        lambda: read_consumer_list(
+
+    def read(current: _Read) -> dict[str, Any]:
+        return read_consumer_list(
             session,
-            model,
-            definition,
-            declared,
-            workspace_key=workspace.key,
-            parent_ids=parameters.parents,
-            narrowed=consumer_filter(session, model, definition, workspace.key, parameters.definition),
-            parameters=parameters.definition,
+            current.model,
+            current.definition,
+            consumer_list(current.definition, list_key),
+            source=current.source,
+            parent_ids=current.parameters.parents,
+            narrowed=current.narrowed(session),
+            parameters=current.parameters.definition,
             page=page,
             page_size=page_size,
-        ),
+        )
+
+    return _answer(
+        request, response, workspace, _reading(session, active, definition, parameters, workspace, check), read
     )
 
 
-@router.get("/{consumer_api}/v{contract_version}/xref")
+@router.get("/{consumer_api}/v{contract_version}/xref", response_model=None)
 @reads_own_parameters
 def get_xref(
     consumer_api: str, contract_version: str, request: Request, response: Response, session: DbSession
-) -> dict[str, Any]:
+) -> dict[str, Any] | Response:
     """XREF: the exposed objects the query's terms match, scored by the definition's ``match`` and
     narrowed by its parameters, a page of them or with ``expect=one`` the single best (C-D34–C-D43)."""
-    model = resolve_model_snapshot(session).model
-    definition = consumer_definition(model, consumer_api, contract_version)
+    active = resolve_model_snapshot(session)
+    definition = consumer_definition(active.model, consumer_api, contract_version)
     expect = request.query_params.getlist("expect")
     expect_one = _expect_one(expect[-1] if expect else None)
-    parameters = _Parameters.check(request, definition, serves=_XREF_ONE if expect_one else _XREF)
+
+    def check(declared: ConsumerApiDefinition) -> _Parameters:
+        return _Parameters.check(request, declared, serves=_XREF_ONE if expect_one else _XREF)
+
+    parameters = check(definition)
     terms = xref_terms(parameters.listed.get("query", []))
     page_size, page = (_DEFAULT_PAGE_SIZE, PageRequest()) if expect_one else _page(parameters)
     workspace = _workspace(session, parameters.single("workspace"))
     return _answer(
+        request,
         response,
         workspace,
-        lambda: read_xref(
+        _reading(session, active, definition, parameters, workspace, check),
+        lambda read: read_xref(
             session,
-            model,
-            definition,
-            workspace_key=workspace.key,
+            read.model,
+            read.definition,
+            source=read.source,
             terms=terms,
-            narrowed=consumer_filter(session, model, definition, workspace.key, parameters.definition),
-            parameters=parameters.definition,
+            narrowed=read.narrowed(session),
+            parameters=read.parameters.definition,
             expect_one=expect_one,
             page=page,
             page_size=page_size,
@@ -163,28 +278,60 @@ def get_xref(
     )
 
 
-@router.post("/{consumer_api}/v{contract_version}/resolve")
+@router.post("/{consumer_api}/v{contract_version}/resolve", response_model=None)
 @reads_own_parameters
 def post_resolve(
     consumer_api: str, contract_version: str, request: Request, response: Response, session: DbSession, body: Body
-) -> dict[str, Any]:
+) -> dict[str, Any] | Response:
     """Batch resolve: each item as ``xref?expect=one`` (by ``query``) or get by ID (by ``id``), with
     the definition's parameters from ``defaults`` and the item, its outcome the single read's answer
-    (C-D47–C-D50). A read: the body only carries the items."""
-    model = resolve_model_snapshot(session).model
-    definition = consumer_definition(model, consumer_api, contract_version)
-    parameters = _Parameters.check(request, definition, serves=_OBJECT, applies_definition=False)
+    (C-D47–C-D50). A read: the body only carries the items. It answers no ETag: HTTP answers ``304``
+    to ``GET`` only (C-D65)."""
+    active = resolve_model_snapshot(session)
+    definition = consumer_definition(active.model, consumer_api, contract_version)
+
+    def check(declared: ConsumerApiDefinition) -> _Parameters:
+        return _Parameters.check(request, declared, serves=_OBJECT, applies_definition=False)
+
+    parameters = check(definition)
     workspace = _workspace(session, parameters.single("workspace"))
     return _answer(
+        request,
         response,
         workspace,
-        lambda: read_resolve(
+        _reading(session, active, definition, parameters, workspace, check),
+        lambda read: read_resolve(
             session,
-            model,
-            definition,
-            workspace.key,
-            _resolve_items(body, definition, request.app.state.consumer_resolve_max_items),
+            read.model,
+            read.definition,
+            read.source,
+            _resolve_items(body, read.definition, request.app.state.consumer_resolve_max_items),
         ),
+        tagged=False,
+    )
+
+
+@router.get("/{consumer_api}/v{contract_version}/publications", response_model=None)
+@reads_own_parameters
+def get_publications(
+    consumer_api: str, contract_version: str, request: Request, response: Response, session: DbSession
+) -> dict[str, Any] | Response:
+    """The workspace's publications, newest first, each with the ``eventSequence`` to follow changes
+    from after reading it (C-D66)."""
+    active = resolve_model_snapshot(session)
+    definition = consumer_definition(active.model, consumer_api, contract_version)
+    parameters = _Parameters.check(request, definition, serves=_PUBLICATIONS, applies_definition=False)
+    page_size, page = _page(parameters)
+    workspace = _workspace(session, parameters.single("workspace"))
+
+    def live() -> _Read:
+        tag = entity_tag(
+            ("live", workspace.key, str(workspace.feed_position), active.release_id), definition.contractVersion
+        )
+        return _Read(active.model, definition, ConsumerSource(workspace.key), parameters, tag)
+
+    return _answer(
+        request, response, workspace, live, lambda _read: read_publications(session, workspace.key, page, page_size)
     )
 
 
@@ -366,16 +513,35 @@ def _expect_one(raw: str | None) -> bool:
     raise api_error(400, "INVALID_EXPECT", "expect must be 'any' or 'one'", {"path": "/query/expect"})
 
 
-def _answer(response: Response, workspace: Workspace, read: Callable[[], dict[str, Any]]) -> dict[str, Any]:
-    """The read's answer, naming the workspace in the header, on a refusal as well."""
-    response.headers[WORKSPACE_HEADER] = workspace.key
+def _answer(
+    request: Request,
+    response: Response,
+    workspace: Workspace,
+    reading: Callable[[], _Read],
+    read: Callable[[_Read], dict[str, Any]],
+    *,
+    tagged: bool = True,
+) -> dict[str, Any] | Response:
+    """The read's answer, naming the workspace and a pinned read's publication in the headers, on a
+    refusal as well. A tagged read answers its ``ETag``, or ``304`` with no body when the request's
+    ``If-None-Match`` names it (C-D65)."""
+    headers = {WORKSPACE_HEADER: workspace.key}
     try:
-        return read()
+        current = reading()
+        if current.source.publication_id is not None:
+            headers[PUBLICATION_HEADER] = current.source.publication_id
+        body = read(current)
     except ApiError as exc:
         if exc.status == 422 and exc.code in _PAGING_CODES:
             exc.status = 400
-        exc.headers = {**(exc.headers or {}), WORKSPACE_HEADER: workspace.key}
+        exc.headers = {**(exc.headers or {}), **headers}
         raise
+    if tagged:
+        headers["ETag"] = current.tag
+        if none_match(request.headers.get("if-none-match"), current.tag):
+            return Response(status_code=304, headers=headers)
+    response.headers.update(headers)
+    return body
 
 
 @dataclass(frozen=True)

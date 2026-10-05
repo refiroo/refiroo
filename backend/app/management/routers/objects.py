@@ -299,6 +299,7 @@ def list_objects(
             rows=True,
             seek=query.seek,
             overlay=query.overlay,
+            parts=query.parts,
         )
         paths = object_paths(session, context, page.items)
         return ObjectPage(
@@ -445,6 +446,7 @@ def lookup_objects(
             rows=True,
             seek=query.seek,
             overlay=query.overlay,
+            parts=query.parts,
         )
         paths = object_paths(session, context, page.items)
         return ObjectPage(

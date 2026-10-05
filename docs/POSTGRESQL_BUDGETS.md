@@ -354,7 +354,12 @@ estimate (`EXPLAIN` row estimate, or `pg_trgm`'s similarity statistics) says the
 `children: heavy parent by rank`. Known since 0.8 S4R1 and decided as **D26: precomputed sort keys,
 after 0.9** (an indexed sort value per record). Unchanged by PG5. **Live: closed by 0.9 C3a
 (2026-10-04), 9.9 ms**, through value-order indexes and a list read in two parts (0.9 D46). The change
-set (150 ms) and history (142 ms) contexts remain; 0.9 D47 makes them a task of C6. What 0.8 D26's
+set (150 ms) and history (142 ms) contexts remained; 0.9 D47 made them a task of C6. **History: 0.9
+C6a (2026-10-05)** reads a publication's attribute sort in two parts through partial value-order
+indexes (`20261005_03`, C-D67); a consumer list pinned to the publication reads the first page by rank
+in 14.5 ms and the heavy parent's items in 15.0 ms. The management `children: heavy parent by rank`
+history row was not re-measured (the full table was not run). **The change-set context stays** (its
+base-and-overlay union cannot be walked in one index's order; TODO). What 0.8 D26's
 stored key would still add: attributes with few distinct values (a whole group of equal values sorted
 by name) and deep positions (113–123 ms at row 50,000 of a consumer list sorted by rank).
 

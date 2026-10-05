@@ -16,7 +16,8 @@ every record of the walked (type, name) index until PG5: 20 ms per 100,000 recor
 The baseline creates the ``pg_trgm`` extension; revision ``20261001_02`` creates the value indexes
 and ``20261003_01`` the name indexes. The consumer API's contains matches of names read their own
 trigram index, with the workspace and type beside the trigrams (``btree_gin``, revision
-``20261005_02``, declared on ``objects`` in ``database.py``).
+``20261005_02``, declared on ``objects`` in ``database.py``), and a read pinned to a publication
+reads the same index on ``publication_objects`` (``20261005_03``).
 """
 
 from dataclasses import dataclass

@@ -32,7 +32,7 @@ backend coverage is not mistaken for a complete user experience. Reviewed 2026-1
 | F20 | Query and look up across the data | Not applicable | Available | 0.9 Q1–Q3 |
 | F21 | Read by business date (`asOf`) | Fields only | Available | 0.9 Q4 |
 | F22 | Load data in bulk as jobs | Unavailable | Available | 0.9 B1–B2; import screen 0.9 J4 |
-| F23 | Declare consumer APIs and read through them | JSON model editing | Definitions; reading one business object; reading lists; looking up by code | 0.9 C1–C4 |
+| F23 | Declare consumer APIs and read through them | JSON model editing | Definitions; reading one business object; reading lists; looking up by code; reading a publication | 0.9 C1–C6a |
 | F24 | Read the API reference | Available at `/docs` | Not applicable | 0.9 V1 |
 | F25 | Follow changes in order | Not applicable | Available | 0.9 F1; retention and recovery 0.9 F2 |
 
@@ -468,12 +468,23 @@ parameter the definition marks as a possible target, and each record carries the
 item as its target. What is found, its score and its order do not change. Where the read answers
 one record, the target must be one item: none and several are told apart, each naming the record.
 
+A consuming system that must read one consistent state, an extract read page by page over minutes
+or a file of codes resolved against a fixed state, reads a publication instead of live data: by its
+ID, or the workspace's current one. Every read answers from what the publication holds, whatever
+has changed live since, and names the publication it read. An extract started on the current
+publication finishes in it even when a newer one is published meanwhile. A list of the workspace's
+publications shows which is current and where to follow changes from after reading one. A
+publication is read with the API's contract as it stood when it was published: after a new contract
+version, older publications cannot be read through it until the next publication. Every read also
+tells a client or cache whether what it holds is still current, so an unchanged answer is not sent
+again.
+
 Limits: matching on part of a value needs at least 3 characters; a shorter term matches whole values
 only. A lookup whose terms match more than 10,000 records is refused, asking for a more specific
 term, whatever parameters narrow it; a lookup for exactly one result that its whole-value matches
 already settle is answered without that count. A lookup holds at most 100 terms, and a batch at most
-1,000 items (a setting). A read names one target. Publications, business dates and events are being
-delivered in 0.9.
+1,000 items (a setting). A read names one target. A typed contract document per API, business dates
+and events are being delivered in 0.9.
 
 Evidence: [consumer API design](../CONSUMER_API.md),
 [contract check](../../backend/app/engine/model/consumer_contract.py).

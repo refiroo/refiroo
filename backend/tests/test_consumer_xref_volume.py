@@ -2,8 +2,8 @@
 
 An item's code in another case, the cited group's code (its own match and the citing items it
 promotes), a 4-character contains, ``expect=one``, the cited group's code narrowed to the heavy group
-and with the ``scoresFrom`` parameter (C5), and a term in every item refused as ``QUERY_TOO_BROAD``
-must each execute the same statements when the dataset grows fourfold, and load
+and with the ``scoresFrom`` parameter (C5), and a term in every item refused as ``QUERY_TOO_BROAD``,
+live and pinned to the seed's publication (C6a), must each execute the same statements when the dataset grows fourfold, and load
 at most ``ROWS_PER_LISTED_ROW`` ORM rows per listed row. Batch resolve (C14) must execute the same
 statements for 10 items and for 100, at both sizes: identifiers (codes, promoted codes, misses and a
 contains-only term) and the same items over three parameter sets. Wall times at full volume come from
@@ -84,7 +84,7 @@ def _compare(small: list, large: list, rows_per: int) -> list[str]:
 
 def test_xref_holds_the_budgets_as_the_data_grows(measured):
     assert not _compare(measured["small"]["xref"], measured["large"]["xref"], PAGE_SIZE)
-    assert [item.status for item in measured["small"]["xref"]] == [200, 200, 200, 200, 200, 200, 400]
+    assert [item.status for item in measured["small"]["xref"]] == [200, 200, 200, 200, 200, 200, 400] * 2
 
 
 def test_batch_resolve_statements_follow_the_parameter_sets_not_the_items(measured):

@@ -418,7 +418,15 @@ GET /api/consumer
 - **Consistency:** reads use live data by default. `publication={publicationId}` reads a
   publication, so a flow or extract can pin one consistent snapshot; `publication=latest` reads the
   workspace's newest publication, and the response names the publication it resolved to. Responses
-  carry `ETag: "{dataVersion}:{contractVersion}"` and honor `If-None-Match`.
+  carry `ETag: "{dataVersion}:{contractVersion}"` and honor `If-None-Match`. _Delivered in C6a
+  (2026-10-05):_ `latest` is the workspace's **active** publication, `404 PUBLICATION_NOT_FOUND`
+  when there is none, and any publication of the workspace stays readable by its ID (C-D61); a
+  publication is looked up in the read's workspace (C-D62) and read with the definition of the
+  release it was published under, which must declare the requested contract version, else
+  `409 PUBLICATION_CONTRACT_MISMATCH` (C-D60). The response names it in `RDM-Publication` and the
+  collection envelopes in `publication` (C-D63); a cursor keeps its publication (C-D64). The ETag is
+  opaque: a digest of the data version (the workspace's feed position, or the publication) and the
+  model release, then `:` and the contract version, on every `GET`, compared after the read (C-D65).
 
 #### Batch resolve
 
@@ -502,6 +510,9 @@ parameters and may be combined.
 (ADR-030). Each has its `id`, `publishedAt` and `eventSequence`: the event position current when it
 was published, so a consumer can extract a list pinned to it and then follow events from that
 position (C-D15). It lets a consumer that cannot call the management API find a snapshot to pin.
+_Delivered in C6a (2026-10-05):_ each item also has `status` (`active`, the one `latest` reads, or
+`withdrawn`); `eventSequence` is `null` for a publication made before F1; paging without `seek`
+(C-D66).
 
 #### API index
 
@@ -708,7 +719,7 @@ coordination is 0.11 work.
 | C3 | Lists with and without a parent (by object ID, anywhere below it), `sortBy`, ADR-030 paging; every parameter kind (`objectType`, `ancestor`, `related` including a shared projection, `projection`) on lists and get by ID (C-D27–C-D33) — **delivered 2026-10-04** |
 | C4 | XREF scoring at read time (C-D34): own-field and promoted scores, multi-term queries, deterministic order, paging, `expect=one` (C-D34–C-D41) — **delivered 2026-10-05** |
 | C5 | XREF's use of C3's parameter kinds, with `scoresFrom` (C-D33, C-D42–C-D46) — **delivered 2026-10-05** |
-| C6 | ETag / `If-None-Match`, `publication` reads including `latest`, the publications list with `eventSequence`, per-definition OpenAPI, the API index |
+| C6 | ETag / `If-None-Match`, `publication` reads including `latest`, the publications list with `eventSequence`, per-definition OpenAPI, the API index. Split in two (C-D71): **C6a** (publications, ETag; C-D60–C-D68) **delivered 2026-10-05**; C6b (OpenAPI per definition, API index; C-D69, C-D70) next |
 | C7 | _Moved to 0.12 (C-D1):_ OAuth 2.0 client access per definition, webhook signing keys, UI administration of both |
 | C8 | Parity acceptance: a test-only fixture model extending the starter with locations, availability and a single-valued self relation (fixture content, not product scope), a fixture dataset, and a definition that reproduces the reference response for the scenarios below; volume budgets |
 | C9 | Event definitions: `events` schema and validation, contract rules for events |
@@ -784,7 +795,7 @@ table under "Behavior the engine does not carry over" says otherwise:
 C-D1 decided 2026-09-29; C-D2–C-D16 accepted 2026-09-29 as recommended, with the notes below;
 C-D17–C-D20 raised by C1 and accepted 2026-09-30 as recommended; C-D21–C-D26 settled with the user
 for C2, C-D27–C-D33 for C3 and C-D34–C-D41 for C4, on 2026-10-04; C-D42–C-D46 for C5 and
-C-D47–C-D53 for C14, C-D54–C-D58 for C15 and C-D59 for CN1 on 2026-10-05.
+C-D47–C-D53 for C14, C-D54–C-D58 for C15, C-D59 for CN1 and C-D60–C-D71 for C6 on 2026-10-05.
 
 | # | Question | Decision |
 | --- | --- | --- |
@@ -847,3 +858,15 @@ C-D47–C-D53 for C14, C-D54–C-D58 for C15 and C-D59 for CN1 on 2026-10-05.
 | C-D57 | A `to.` name that cannot target | **Settled 2026-10-05 (C15).** `to.<name>` exists only for a targetable parameter. Any other `to.` name, of an unknown, non-projection or non-targetable parameter, is `400 UNKNOWN_PARAMETER` (C3's code and shape), its message naming the targetable parameters. In batch resolve, per C-D49: in an item it rejects the item, in `defaults` the request |
 | C-D58 | Is `targetable` part of the contract? | **Settled 2026-10-05 (C15).** Yes, as a capability consumers call: turning it off is `version_required` at `/parameters/<name>/targetable` (a consumer's `to.` read would start failing); turning it on adds a capability and needs no new version, as adding a field does not (C-D2) |
 | C-D59 | Do the not-found errors carry the consumer API name? | **Decided 2026-10-05 by the user (CN1): no.** Renaming `apiKey` to `consumerApi` (U-D1) adds no field. `CONSUMER_API_NOT_FOUND` and `CONTRACT_VERSION_NOT_FOUND` keep their `details` as they are: the caller sent the name in the URL, and no not-found error echoes the identifier it was given. `details.contractVersion` stays, since it names the version served |
+| C-D60 | Which definition reads a publication made under another model release | **Decided 2026-10-05 (C6).** The publication's release, when it declares the same `consumerApi` at the requested contract version: its definition and model read the publication's rows, as the management API reads a publication with its pinned release. Otherwise `409 PUBLICATION_CONTRACT_MISMATCH` with `details.publication` and the `contractVersion` that release declares (`null` if none). After a release raising the contract version, older publications are not readable through the new version until a new publication is made. **To be stated very clearly in the user documentation** (TODO) |
+| C-D61 | What `latest` means; which publications are readable | **Decided 2026-10-05 (C6).** The workspace's active publication, which is always the newest one or none; none is `404 PUBLICATION_NOT_FOUND` with `details.publication: "latest"`. Any publication of the workspace, active or withdrawn, is readable by its ID |
+| C-D62 | A publication of another workspace | **Decided 2026-10-05 (C6).** Looked up in the read's workspace (`workspace`, or the default); another workspace's ID is `404 PUBLICATION_NOT_FOUND`, as get by ID treats another workspace's record |
+| C-D63 | How a response names the publication | **Decided 2026-10-05 (C6).** `RDM-Publication` on every response of a pinned read, refusals included; lists, XREF pages and batch resolve gain `publication` in the envelope (`null` when live); get by ID and `expect=one` stay the bare object |
+| C-D64 | Cursors and `latest` | **Decided 2026-10-05 (C6).** A cursor binds the resolved publication; with a cursor, `latest` continues in the cursor's publication even after a newer one. A live cursor with `publication`, a pinned one without it or with another ID, is `400 INVALID_CURSOR` |
+| C-D65 | The ETag | **Decided 2026-10-05 (C6).** Opaque: the data version (live: the workspace and its feed position; pinned: the publication) and the model release that shaped the read, then `:{contractVersion}`. On every `GET` answering `200`, not on batch resolve. Compared after the read (RFC 9110: `*`, several tags, weak comparison); a match answers `304` with the ETag and `RDM-` headers. Any live write in the workspace changes a live tag. Comparing before the read is left for a measured need (TODO) |
+| C-D66 | The publications list item | **Decided 2026-10-05 (C6).** `id`, `publishedAt`, `eventSequence` (`null` before F1) and `status`, newest first by publication number; paging as the lists without `seek` (`PARAMETER_NOT_SUPPORTED`); definition parameters are `PARAMETER_NOT_SUPPORTED` there |
+| C-D67 | Which contexts get C3a's value-order sort (D47) | **Decided 2026-10-05 (C6).** Publications, for consumer and management lists alike; not change sets, whose base-and-overlay union cannot be walked in one index's order and which consumers never read (TODO). The indexes are partial on `owner_kind = 'publication'` |
+| C-D68 | Indexes for pinned XREF and lists | **Decided 2026-10-05 (C6).** C3a's, C4's and C14's live indexes, built for publications (revision `20261005_03`), so a pinned read keeps the live budgets; T1a's publish copy measured once with them |
+| C-D69 | The API index entry and paging | **Decided 2026-10-05 (C6, for C6b).** `{ "consumerApi", "name", "contractVersion", "openapi" }` plus `description` when declared; ordered by `consumerApi`; paged as the lists; not per workspace |
+| C-D70 | How the per-definition document is checked | **Decided 2026-10-05 (C6, for C6b).** `openapi-spec-validator` as a dev dependency: the document is valid OpenAPI 3.1 and real answers validate against it |
+| C-D71 | Split C6 | **Decided 2026-10-05.** C6a (publications, ETag) then C6b (the documents) |

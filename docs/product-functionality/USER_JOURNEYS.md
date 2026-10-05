@@ -852,8 +852,8 @@ background job across a restart, its publish and its cancellation, 0.9 T1).
 ### J28 — Read a business object through a consumer API
 
 **Actor:** consuming system. **Channel:** consumer API. **Stories:** US-I09 (consumer side).
-**Status:** get by ID delivered (0.9 C2), lists and parameters (0.9 C3); XREF is J29 (0.9 C4); the
-rest follows in C5–C16 ([CONSUMER_API.md](../CONSUMER_API.md)).
+**Status:** get by ID delivered (0.9 C2), lists and parameters (0.9 C3), publications and ETag (0.9
+C6a); XREF is J29 (0.9 C4); the rest follows in C6b and C16 ([CONSUMER_API.md](../CONSUMER_API.md)).
 
 1. Read one business object by its object ID from a consumer API's contract version:
    `GET /api/consumer/{consumerApi}/v{contractVersion}/objects/{id}`; or read a declared list of them,
@@ -863,7 +863,8 @@ rest follows in C5–C16 ([CONSUMER_API.md](../CONSUMER_API.md)).
    object or `null`, or as an array, by the relationship's cardinality. A list item is the same object.
 3. Narrow either read with the definition's parameters, and a list with its parent parameter.
 4. Read live data in the default workspace, or in the workspace named by `workspace`; the response
-   names it in `RDM-Workspace`, and a list's envelope in `workspace` as well.
+   names it in `RDM-Workspace`, and a list's envelope in `workspace` as well. Or read one of its
+   publications with `publication` (J28.11).
 
 **Variants:**
 
@@ -890,20 +891,35 @@ rest follows in C5–C16 ([CONSUMER_API.md](../CONSUMER_API.md)).
   (`404`); a paging or parent parameter is not supported there.
 - **J28.10 Paging refusals**: an unknown list, a page size outside 1–100, conflicting page
   selectors and a cursor sent with other parameters.
+- **J28.11 Pinned to a publication**: `publication={id}` reads every record, value and relationship
+  as that publication holds them, whatever live data has done since; the response names it in
+  `RDM-Publication`, and a list's envelope in `publication` (`null` when live).
+- **J28.12 `latest` and paging an extract**: `publication=latest` reads the workspace's current
+  publication; a cursor keeps the publication it started in, so an extract pages every record once
+  even when a newer publication appears meanwhile. A superseded or withdrawn publication stays
+  readable by its ID; with no current publication, `latest` is not found.
+- **J28.13 Publication refusals**: an unknown publication, or one of another workspace; a cursor of
+  another publication or of live data; `publication` inside a batch resolve item; a publication made
+  under a model release that does not declare the requested contract version.
+- **J28.14 The publications list and ETag**: `GET …/publications` lists the workspace's publications
+  newest first with `eventSequence`, the feed position to follow changes from, and `status`; every
+  `GET` read answers an `ETag`, and `If-None-Match` with it answers `304` until the data, the model
+  release or the contract changes. A pinned read's tag never changes.
 
 **Refusals:** `404 CONSUMER_API_NOT_FOUND`, `404 CONTRACT_VERSION_NOT_FOUND`,
 `404 OBJECT_NOT_FOUND`, `404 WORKSPACE_NOT_FOUND` (unknown or retired), `404 LIST_NOT_FOUND`,
 `404 PARENT_NOT_FOUND`, `400 UNKNOWN_PARAMETER`, `400 PARAMETER_NOT_SUPPORTED`,
 `400 UNKNOWN_OBJECT_TYPE`, `400 INVALID_PAGE_SIZE`, `400 INVALID_CURSOR`,
-`400 CONFLICTING_PAGE_PARAMETERS`, `400 INVALID_POSITION`, `400 INVALID_SEEK`.
+`400 CONFLICTING_PAGE_PARAMETERS`, `400 INVALID_POSITION`, `400 INVALID_SEEK`,
+`404 PUBLICATION_NOT_FOUND`, `409 PUBLICATION_CONTRACT_MISMATCH`.
 
 **Evidence today:** the J28 journey tests.
 
 ### J29 — Resolve a business object through a consumer API
 
 **Actor:** consuming system. **Channel:** consumer API. **Stories:** US-I09 (consumer side).
-**Status:** delivered in 0.9 C4, with the definition's parameters in C5, batch resolve in C14 and
-crosswalk in C15 ([CONSUMER_API.md](../CONSUMER_API.md)).
+**Status:** delivered in 0.9 C4, with the definition's parameters in C5, batch resolve in C14,
+crosswalk in C15 and reads pinned to a publication in C6a ([CONSUMER_API.md](../CONSUMER_API.md)).
 
 1. Look up business objects by what the system knows, a code, an ID, a name or a related record's
    value: `GET /api/consumer/{consumerApi}/v{contractVersion}/xref?query=…`.
@@ -968,6 +984,9 @@ crosswalk in C15 ([CONSUMER_API.md](../CONSUMER_API.md)).
   `400 UNKNOWN_PARAMETER`, two `to.` names `400 MULTIPLE_TARGETS`; in batch resolve, in an item they
   reject the item (an item's `to.` name replaces a different one from `defaults`), in `defaults` the
   request.
+- **J29.15 Resolving against a publication**: XREF, crosswalk and batch resolve with `publication`
+  match, score and answer from the publication's records, as J28.11 reads them; batch resolve takes
+  `publication` in the URL, for every item.
 
 An `expect=one` lookup settled by exact matches (a code, an ID or an exact name scoring above
 anything a contains match could give) is answered without reading contains matches, so a contains

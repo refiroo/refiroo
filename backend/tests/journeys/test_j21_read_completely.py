@@ -286,9 +286,22 @@ def test_an_attribute_sort_pages_across_records_with_and_without_a_value(world):
     prevCursor, at a position in each part, with from=end, a seek and includeTotal. Then each record
     appears once, by value, the records without a value last in both directions, and totalCount and
     startIndex follow."""
+    _attribute_sort_pages(world)
+
+
+@pytest.mark.journey("J21.9")
+@pytest.mark.structures(*PAGED)
+def test_an_attribute_sort_pages_the_same_way_in_a_publication(world):
+    """The same reads in a publication of those records (publicationId), which read their order
+    through the publication's own value index since 0.9 C6a (C-D67), answer the same way."""
+    publication = world.publish(world.change_set())
+    _attribute_sort_pages(world, publicationId=publication["id"])
+
+
+def _attribute_sort_pages(world, **context):
     rank = world.key("V.rank")
     for sort, descending in ((rank, False), (f"-{rank}", True)):
-        pages = _forward(world, page_size=7, sort=sort)
+        pages = _forward(world, page_size=7, sort=sort, **context)
         items = [item for page in pages for item in page["items"]]
         ids = [item["id"] for item in items]
         assert len(ids) == ARTICLES and len(set(ids)) == ARTICLES
@@ -300,24 +313,24 @@ def test_an_attribute_sort_pages_across_records_with_and_without_a_value(world):
 
         back, cursor = [], pages[-1]["prevCursor"]
         while cursor:
-            page = ok(_list(world, pageSize=7, sort=sort, cursor=cursor))
+            page = ok(_list(world, **context, pageSize=7, sort=sort, cursor=cursor))
             back = [item["id"] for item in page["items"]] + back
             cursor = page.get("prevCursor")
         assert back == ids[: len(back)] and len(back) + len(pages[-1]["items"]) == ARTICLES
 
         for position in (len(present) - 3, len(present) + 2):
-            at = ok(_list(world, pageSize=7, sort=sort, position=position, includeTotal=True))
+            at = ok(_list(world, **context, pageSize=7, sort=sort, position=position, includeTotal=True))
             assert [item["id"] for item in at["items"]] == ids[position : position + 7]
             assert (at["totalCount"], at["startIndex"]) == (ARTICLES, position)
-            following = ok(_list(world, pageSize=7, sort=sort, cursor=at["nextCursor"], includeTotal=True))
+            following = ok(_list(world, **context, pageSize=7, sort=sort, cursor=at["nextCursor"], includeTotal=True))
             assert [item["id"] for item in following["items"]] == ids[position + 7 : position + 14]
             assert following["startIndex"] == position + 7
 
-        last = ok(_list(world, pageSize=7, sort=sort, includeTotal=True, **{"from": "end"}))
+        last = ok(_list(world, **context, pageSize=7, sort=sort, includeTotal=True, **{"from": "end"}))
         assert [item["id"] for item in last["items"]] == ids[-7:]
         assert last["startIndex"] == ARTICLES - 7
 
-        sought = ok(_list(world, pageSize=7, sort=sort, seek=40, includeTotal=True))
+        sought = ok(_list(world, **context, pageSize=7, sort=sort, seek=40, includeTotal=True))
         first = next(i for i, v in enumerate(values) if v is None or (v <= 40 if descending else v >= 40))
         assert [item["id"] for item in sought["items"]] == ids[first : first + 7]
         assert sought["startIndex"] == first

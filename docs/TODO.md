@@ -35,8 +35,10 @@ several values the OpenAPI way, `%2C` for a comma in a value (C-D32 amended). **
 definition's parameters on XREF, `scoresFrom` (C-D42–C-D46). **C14 is delivered (2026-10-05)**: batch
 resolve, one scoring path with XREF, exact rules first (C-D47–C-D53). **C15 is delivered
 (2026-10-05)**: crosswalk, `to.{parameter}` on every consumer read (C-D54–C-D58). **CN1 is delivered (2026-10-05)**:
-the consumer API's name is `consumerApi` in public contracts (U-D1, C-D59). Next: C6, in the
-order of the delivery queue. See
+the consumer API's name is `consumerApi` in public contracts (U-D1, C-D59). **C6a is delivered (2026-10-05)**:
+reads pinned to a publication (`publication`, `latest`), the publications list with `eventSequence`
+and ETag (C-D60–C-D68). Next: C6b (the contract documents, C-D69, C-D70), in the order of the
+delivery queue. See
 [Next — 0.9](#next--09).
 
 - **Publish and change-set creation move the workspace through Python (found 2026-10-03, F1;
@@ -69,6 +71,27 @@ No 0.8 decision is open ([0.8 decisions](BASE_0_8_IMPLEMENTATION_PLAN.md#decisio
 - **Settings, integration administration and UI foundation (approved 2026-10-05).** U-D1–U-D6 taken
   in [SETTINGS_AND_UI_PLAN.md](SETTINGS_AND_UI_PLAN.md#decisions); U1 delivered, Direction B "Open"
   chosen (ADR-039). CN1 delivered (2026-10-05).
+- **User documentation is not scheduled in any release yet.** API.md, CONSUMER_API and
+  CURRENT_FUNCTIONALITY describe contracts and capabilities, but no guide for integrators or users
+  exists. When it is planned, it must state these points very clearly, as the user asked:
+  - **Reading an older publication after a model release (C-D60, 2026-10-05).** A publication is
+    read with the definition of the model release it was published under, and only when that
+    release declares the same consumer API at the requested contract version. After a release that
+    raises the contract version, publications made before it cannot be read through the new
+    version (`409 PUBLICATION_CONTRACT_MISMATCH`) until a new publication is made. Integrators
+    pinning extracts to publications must plan contract version changes with this in mind.
+  - The consumer search limits: contains from 3 characters and at most 10,000 matches (C-D37).
+  - **Which workspace a consumer read addresses (C-D16, C-D23).** Every consumer read (get by ID,
+    lists, XREF, batch resolve, publications) reads one workspace: the one named by `workspace`, or
+    the deployment's default. Changing the default workspace moves every consumer that does not
+    name one, so production integrations should always name it. The response names the workspace
+    read in `RDM-Workspace`.
+  - **Publications and `latest` (C-D61, C-D62).** `latest` is the workspace's current publication;
+    after a withdrawal with no new publication there is none (`404`). A publication read by its ID
+    stays readable after it is superseded or withdrawn. A publication is found only in its own
+    workspace (C-D62).
+  - **ETag (C-D65).** Any live write in the workspace changes a live read's ETag, also one the
+    consumer API does not show; a pinned read's ETag never changes.
 
 See `ROADMAP.md` for the delivery scope, exit gates and full milestone sequence.
 
@@ -123,7 +146,7 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 - [x] Built-in Scalar API reference at `/docs` replacing Swagger UI and ReDoc: delivered as 0.9 V1
   (2026-09-30) with the management API as its source; pinned script bundled, CDN by setting, outside
   the OpenAPI document.
-- [ ] V2: each installed consumer API contract version as a further source on `/docs` (needs C6).
+- [ ] V2: each installed consumer API contract version as a further source on `/docs` (needs C6b).
 - [x] Consumer lists ordered by `sortBy` over the 100 ms budget (found in C3, 0.5–2.6 s): delivered
   as C3a (2026-10-04), 10–12 ms through value-order indexes. Left at the budget line and recorded,
   not tuned: a position jump to row 50,000 (123 ms) and an ancestor filter over 20,000 items with
@@ -141,8 +164,15 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   whose every item has its own parameter values runs close to one lookup per item. One statement
   for all of them would need C3's parameter predicates to read their values from a relation of
   `(item, parameter, value)` instead of literals. For a measured need only.
-- [ ] C6 task (D47): C3a's value-order attribute sort for publication and change-set reads, over
-  `snapshot_attribute_values`, with its budget recorded.
+- [ ] Publish cost of C6a's publication indexes (C-D68): 10.8 s at 0.1 scale on a reused seed, within
+  the 11 s budget but 1.7 s above T1a's 9.1 s, leaving 0.2 s margin. Which index costs what is not
+  measured (the `btree_gin` trigram on `publication_objects` is the likeliest). Revisit if a later
+  package moves publish over its budget.
+- [ ] Value-order attribute sort in the change-set context (C-D67): base and overlay in one union,
+  partial indexes do not cover it, and change-set base copies would maintain the indexes. Unmeasured;
+  a package of about C3a's size if a management list needs it.
+- [ ] Consumer ETag: compare `If-None-Match` before the read to save the read itself (C-D65), for a
+  measured need only.
 - [ ] Comma-separated values on the management API's repeated filters (`filter.<field>.eq=A,B`), as the
   consumer API reads them since C3b (OpenAPI `form` style: a literal comma separates, `%2C` is a comma
   inside a value). Today they repeat the parameter only.

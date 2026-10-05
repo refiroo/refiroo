@@ -23,6 +23,7 @@ from ...errors import ApiError
 from ...models.schema import ConsumerApiDefinition, EngineModel
 from .consumer_objects import ConsumerObjects, object_not_found, one_target
 from .consumer_parameters import Target, consumer_filter
+from .consumer_source import ConsumerSource
 from .consumer_xref import Found, resolve_lookups
 
 _STATUS = {404: "not_found", 409: "ambiguous"}
@@ -61,10 +62,11 @@ def read_resolve(
     session: Session,
     model: EngineModel,
     definition: ConsumerApiDefinition,
-    workspace_key: str,
+    source: ConsumerSource,
     items: Sequence[ResolveItem],
 ) -> dict[str, Any]:
-    """Every item's outcome, in item order, with the workspace read and the outcomes counted."""
+    """Every item's outcome, in item order, with the workspace and publication read and the outcomes
+    counted."""
     outcomes: dict[int, dict[str, Any]] = {}
     groups: dict[tuple[tuple[str, tuple[str, ...]], ...], list[ResolveItem]] = {}
     for item in items:
@@ -76,7 +78,7 @@ def read_resolve(
     composer = ConsumerObjects(model, definition)
     for members in groups.values():
         try:
-            narrowed = consumer_filter(session, model, definition, workspace_key, members[0].parameters)
+            narrowed = consumer_filter(session, model, definition, source, members[0].parameters)
         except ApiError as error:
             for item in members:
                 outcomes[item.index] = _failed(item, item_error(error, item.pointer((error.details or {}).get("path"))))
@@ -87,14 +89,14 @@ def read_resolve(
         answers = dict(
             zip(
                 distinct,
-                resolve_lookups(session, model, definition, workspace_key, [list(key) for key in distinct], narrowed),
+                resolve_lookups(session, model, definition, source, [list(key) for key in distinct], narrowed),
                 strict=True,
             )
         )
         found = {item.index: answers[_lookup(item)] for item in members if item.terms is not None}
         wanted = [answer.id for answer in found.values() if isinstance(answer, Found)]
         wanted += [item.object_id for item in members if item.object_id is not None]
-        composed = composer.compose(session, workspace_key, list(dict.fromkeys(wanted)), narrowed)
+        composed = composer.compose(session, source, list(dict.fromkeys(wanted)), narrowed)
         for item in members:
             if item.object_id is not None:
                 body = composed.get(item.object_id)
@@ -115,7 +117,12 @@ def read_resolve(
     counts = dict.fromkeys(_COUNTS.values(), 0)
     for outcome in ordered:
         counts[_COUNTS[outcome["status"]]] += 1
-    return {"items": ordered, "workspace": workspace_key, "counts": counts}
+    return {
+        "items": ordered,
+        "workspace": source.workspace_key,
+        "publication": source.publication_id,
+        "counts": counts,
+    }
 
 
 def _lookup(item: ResolveItem) -> tuple[str, ...]:

@@ -16,8 +16,8 @@ read, D31), [B3](#b3-relation-and-relation-set-items) (2026-10-03, D35–D39),
 [T1a](#t1a-copies-inside-the-database) (2026-10-04), [T1b](#t1b-one-error-code-pattern) (2026-10-04),
 [C2](#c2-consumer-object-and-projections) (2026-10-04, C-D21–C-D26), C3–C5 and
 [C14](#c14-batch-resolve) (2026-10-05, C-D47–C-D53), [C15](#c15-crosswalk) (2026-10-05, C-D54–C-D58),
-[CN1](#cn1-the-consumer-apis-name-in-public-contracts) (2026-10-05, C-D59).
-**Next:** C6, in the order of the [delivery queue](#delivery-queue).
+[CN1](#cn1-the-consumer-apis-name-in-public-contracts) (2026-10-05, C-D59), [C6a](#c6a-publications) (2026-10-05, C-D60–C-D68).
+**Next:** [C6b](#c6b-the-contract-documents), in the order of the [delivery queue](#delivery-queue).
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
 Effective dates and consumer API definitions extend the model, so the starter becomes content release
@@ -226,9 +226,10 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 17b | [C14b](#c14b-the-ancestor-walk-and-the-contains-selects-made-cheap) | C14a | Amendment: the ancestor walk and the contains selects made cheap — **delivered 2026-10-05** |
 | 18 | [C15](#c15-crosswalk) | C5, C14 | Crosswalk: `to.{parameter}` on every read, `target`, `TARGET_NOT_FOUND`, `AMBIGUOUS_TARGET` (C-D54–C-D58) — **delivered 2026-10-05** ([record](#c15-delivery-record)) |
 | 18a | [CN1](#cn1-the-consumer-apis-name-in-public-contracts) | C15 | Amendment: the consumer API namespace is `consumerApi` in public contracts, not `apiKey` (U-D1) — **delivered 2026-10-05** ([record](#cn1-delivery-record)) |
-| 19 | C6 | C3, C4, F1 | ETag, publications with `eventSequence`, OpenAPI per definition, API index |
-| 20 | [V2](#v2-consumer-sources) | V1, C6 | Consumer contracts as reference sources |
-| 20a | [U4](SETTINGS_AND_UI_PLAN.md#packages-track-u) | U3, C6, V2 | Settings › Integration: Consumer APIs, Jobs and feed, API reference; a starter consumer API (U-D5) |
+| 19 | [C6a](#c6a-publications) | C3, C4, F1, CN1 | `publication` reads with `latest`, the publications list with `eventSequence`, ETag, publication indexes and D47's sort (C-D60–C-D68) — **delivered 2026-10-05** ([record](#c6a-delivery-record)) |
+| 19a | [C6b](#c6b-the-contract-documents) | C6a | OpenAPI per definition, the API index (C-D69, C-D70) |
+| 20 | [V2](#v2-consumer-sources) | V1, C6b | Consumer contracts as reference sources |
+| 20a | [U4](SETTINGS_AND_UI_PLAN.md#packages-track-u) | U3, C6b, V2 | Settings › Integration: Consumer APIs, Jobs and feed, API reference; a starter consumer API (U-D5) |
 | 21 | C8 | C3–C6, C14, C15 | Parity acceptance; the consumer read line's checkpoint |
 | 22 | C16 | C2, Q4 | `asOf` in the consumer tier; SC-11 (consumer) |
 | 23 | C9 | C2 | Event definitions |
@@ -255,7 +256,7 @@ little depends on it yet, and keeps self-contained packages as fillers:
   order (INTEGRATION_API F3). The background worker (B2) is then built on that order from the start
   instead of being retrofitted. F1 needs only B1.
 - **V1** is independent of every other package: it is delivered wherever a gap suits, early enough
-  that the reference page can be used to review contracts as they land. V2 follows C6.
+  that the reference page can be used to review contracts as they land. V2 follows C6b.
 - **T1** checks Tracks Q, B and F together after F2, which have no acceptance package of their own;
   C8 and C13 serve the consumer lines. R then confirms the build rather than discovering problems.
 
@@ -280,7 +281,7 @@ when V2 is done, U4 waits for it. Above the cut line (D9).
 ```text
 Track P:  inside B1 (§P1–P5, P7) and B2 (§P6); no package of its own
 Track Q:  Q1 ─ Q3 ─ Q4            Q2 (alone)          Q4 also needs C1 (schema 0.8)
-Track V:  V1 ────────────────── V2                    V2 needs C6
+Track V:  V1 ────────────────── V2                    V2 needs C6b
 Track B:  B1 ─┬─ B2
               └─ B3
 Track F:  B1 ─ F1 ─ F2                                F1 before B2 (lock order)
@@ -1727,7 +1728,7 @@ Scope, order and acceptance are in [CONSUMER_API.md](CONSUMER_API.md#delivery-pa
 | C5 | C4 | `consumer`, `contract`, `volume` | Every parameter kind on XREF; `scoresFrom` |
 | C14 | C4, C5 | `consumer`, `contract`, `volume` | Batch resolve equal to `xref?expect=one` per item; C-D13 limit confirmed by C-D53's budget |
 | C15 | C5, C14 | `consumer`, `contract` | Crosswalk on XREF, get by ID, lists and batch resolve, with `TARGET_NOT_FOUND` and `AMBIGUOUS_TARGET` (C-D54–C-D58) |
-| C6 | C3, C4, F1 | `consumer`, `contract`, `volume` | Publications with `eventSequence` (= `feedPosition`), OpenAPI per definition, API index, resolved `workspace` named (C-D16); the document describes the `to.` names and `target` (C15); **task (D47):** C3a's value-order attribute sort for the publication (and change set) contexts, over `snapshot_attribute_values`, with its budget recorded |
+| C6 (as [C6a](#c6a-publications) and [C6b](#c6b-the-contract-documents), C-D71) | C3, C4, F1 | `consumer`, `queries`, `contract`, `startup`, `volume` | Publications with `eventSequence` (= `feedPosition`), OpenAPI per definition, API index, resolved `workspace` named (C-D16); the document describes the `to.` names and `target` (C15); **task (D47):** C3a's value-order attribute sort for the publication (and change set) contexts, over `snapshot_attribute_values`, with its budget recorded |
 | C8 | C3–C6, C14, C15 | `consumer`, `volume` | Parity scenarios 1–13 and 16 pass on the fixture model |
 | C16 | C2, Q4 | `consumer` | `asOf` everywhere; SC-11's consumer half; parity scenario 15 |
 | C9 | C2 | `consumer`, `model` | `events` validated and in the contract check |
@@ -3455,6 +3456,360 @@ passed; `ruff check app/ tests/` clean. A grep for `apiKey`/`api_key` finds none
 CHANGELOG entries) and the text recording the rename. Not run: `volume` (no statement changed),
 `startup` (no migration), `queries`, the frontend (unchanged), the full suites (R).
 
+#### C6: Publications, ETag, the OpenAPI per definition and the API index
+
+**Planned 2026-10-05. Approved by the user on 2026-10-05:** C-D60 (with a note for the user
+documentation, in TODO), C-D61–C-D71 and the test cases of C6a and C6b. C6 is delivered as C6a,
+then C6b (C-D71).
+**Needs:** C3, C4, F1 (and C14, C15, CN1, which the reads now carry). **Design:**
+[CONSUMER_API "Consistency", "Publications", "API index"](CONSUMER_API.md#endpoints),
+[SETTINGS_AND_UI_PLAN "Versions in the documentation"](SETTINGS_AND_UI_PLAN.md#versions-in-the-documentation),
+C-D15, C-D16, D47.
+
+**What exists today** (checked 2026-10-05):
+
+- **Publications are already recorded.** `publications.feed_position` holds the position of each
+  publication's `published` feed entry (F1, set in `change_sets/publish.py`), so `eventSequence`
+  needs no migration. It is `null` for publications made before F1's revision. A new publication
+  marks the previous one `withdrawn`, and a publication can also be withdrawn with no successor
+  (`withdraw_publication`), so a workspace has at most one `active` publication, and possibly none.
+  Each publication is pinned to the model release it was published under (`model_release_id`).
+- **A publication's rows** are `publication_objects` (`object_id`, type, name, parent, attributes as
+  JSON), `publication_relations` (`relation_id`, ends, type) and its typed values in
+  `snapshot_attribute_values` (`owner_id` = the publication). The volume seed already holds a full
+  publication of the 110,000 records (`volume_fixture.py`).
+- **Every consumer read is written against live tables.** `consumer_objects`, `consumer_lists`,
+  `consumer_parameters` and `consumer_xref` (about 1,600 lines) name `RdmObject`, `AttributeValue`
+  and `ObjectRelation` directly, scoped by `workspace_key`. Reading a publication means reading the
+  same statements over the publication's rows instead. This is the largest part of C6.
+- **The indexes C4 and C14 added** (`lower(name)`, `lower(text_value)`, the per-type name trigram)
+  and C3a's value-order indexes exist on live tables only. A pinned XREF or sorted list would scan
+  the publication's rows without matching ones.
+- **No ETag** anywhere in the engine. A live workspace's `feed_position` rises with every live write
+  and every publish or withdrawal (F1), which makes it the data version of live data.
+- **No OpenAPI for consumers.** The consumer router is `include_in_schema=False`.
+  `engine/model/consumer_contract.output_contract` already derives what a definition returns (field
+  types, projection shapes, lists, parameter kinds, targetable parameters): the source for the
+  document's schemas. `common/pagination.paginate_sequence` pages an in-memory list, which the API
+  index needs (definitions live in the model, not in a table).
+
+**The split** (C-D71, approved). C6 has two independent halves. Reading publications touches every
+consumer read, adds a migration and needs a volume budget. Documenting the API touches no read.
+Delivered as one package it would be several times C15. So:
+
+- **C6a: publications.** `publication` on every read (by ID and `latest`), the publications list
+  with `eventSequence`, ETag and `If-None-Match`, the publication indexes and D47's sort.
+  **Groups:** `consumer`, `queries`, `contract`, `startup`, `volume`.
+- **C6b: the contract documents.** The OpenAPI document per definition and the API index
+  `GET /api/consumer`. **Needs:** C6a, so the document describes the final read contract
+  (`publication`, the ETag, `304`, the publications route) once. **Groups:** `consumer`, `contract`.
+
+V2 then needs C6b. Queue rows 19 and 19a replace row 19.
+
+##### C6a: Publications
+
+**Delivered 2026-10-05** ([record](#c6a-delivery-record)).
+
+**Behaviour.** A consuming system extracts a consistent snapshot and reads it as long as it needs,
+while live data changes:
+
+```text
+GET …/publications?workspace=north                 newest first: id, publishedAt, eventSequence, status
+GET …/lists/{listKey}?publication=latest           pinned to the active publication; RDM-Publication names it
+GET …/lists/{listKey}?cursor=…                     the cursor keeps the publication, even after a newer one
+GET …/objects/{id}?publication={id}                one record as published
+GET …/xref?query=CHF&publication={id}&expect=one   resolve against the snapshot
+POST …/resolve?publication=latest                  every item against the snapshot
+```
+
+- Every read, crosswalk (`to.`) and every parameter included, answers from the publication exactly
+  as it would from live data holding the same records: same shape, order, scores, paging and
+  refusals.
+- A response names the publication it read in the `RDM-Publication` header, and the collection
+  envelopes in `publication` (`null` for live), as C-D16 and C-D23 name the workspace.
+- Every `GET` read answers an `ETag`; a request with a matching `If-None-Match` gets `304` with no
+  body. A pinned read's ETag never changes; a live one changes with any live write in the workspace.
+- `eventSequence` is where a consumer follows events from after extracting a publication (C-D15;
+  the events arrive in C10).
+
+**Design.**
+
+- **One read over two sources** (`engine/reads/consumer_source.py`, new). A `ConsumerSource` names
+  where a read's rows are: the objects (entity, `id`, type, name, parent columns), the values (entity
+  and its owner condition), the relations (entity, `id`, ends, type) and the scope condition
+  (`workspace_key = …` or `publication_id = …`). `LIVE` builds it over `objects`,
+  `attribute_values` and `object_relations`; `publication(id)` over `publication_objects`,
+  `snapshot_attribute_values` and `publication_relations`. `consumer_objects`, `consumer_lists`,
+  `consumer_parameters`, `consumer_xref` and `consumer_resolve` take a source where they take
+  `workspace_key` today, and build every statement through it. The live source yields the statements
+  of today, so live budgets keep their statement counts (checked by the existing volume tests).
+  This mirrors `ObjectColumns` (`object_query`), which serves the management lists in every context;
+  consumer lists keep building on it, with the publication's columns from `snapshot_reads`.
+- **The `publication` name** (`app/consumer/router.py`): a reserved name on objects, lists, XREF
+  and in batch resolve's URL (C-D47's "the URL takes only `workspace`" gains `publication`), never
+  in an item. `latest` or an ID is resolved after the workspace (C-D61, C-D62), then the model:
+  a pinned read uses the publication's release (C-D60).
+- **Cursors** bind the resolved publication (C-D64): `consumer-list:<key>:<listKey>` and XREF's scope
+  gain it.
+- **ETag** (`app/consumer/etag.py`, new): computed from the data version read **before** the data,
+  so a tag is never newer than the body it labels (C-D65). Compared after the read.
+- **The publications list** (`engine/reads/consumer_publications.py`, new): newest first by
+  publication number, `paginate_statement` with the list paging names (no `seek`).
+- **Migration** (one revision): on `publication_objects`, `(publication_id, lower(name))` and the
+  `btree_gin` trigram `(publication_id, object_type_key, name)`; on `snapshot_attribute_values`,
+  `(owner_id, attribute_type_key, lower(text_value))` and one value-order index per typed column,
+  `(owner_id, attribute_type_key, <integer|decimal|boolean|date|datetime>_value, object_id)`. The
+  `snapshot_attribute_values` ones are partial, `WHERE owner_kind = 'publication'` (C-D67, C-D68).
+- **D47's sort**: C3a's two-part attribute sort (records with a value through the index, then those
+  without) for the publication context of `object_query`, which consumer pinned lists and the
+  management per-type list in publication context share. Not the change-set context (C-D67).
+- **No new setting.** `publication` joins the reserved names.
+
+**Decisions** (status per row; a row without one is a recommendation awaiting approval):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| C-D60 | Which definition reads a publication made under another model release? | **Approved 2026-10-05; to be stated very clearly in the user documentation (TODO, "Open decisions").** **The publication's release**, when it declares the same `consumerApi` at the requested `contractVersion`: its definition and its model read its rows, as the management API reads a publication with its pinned release. The publication's keys mean what its release says (a later release may reuse a key with another type). Otherwise `409 PUBLICATION_CONTRACT_MISMATCH` with `details.publication` and the `contractVersion` that release declares (`null` if none). The route still checks the version against the active release first (C-D3). Consequence: after a release raising the contract version, consumers cannot read older publications through the new version; the next publication serves it. The alternative, reading old rows with the active definition, would answer fields the publication cannot hold as `null`, indistinguishable from "no value" |
+| C-D61 | What `latest` means, and which publications are readable | **Approved 2026-10-05**, after clarifying that the active publication is always the newest one or none: they differ only after a withdrawal with no successor. `latest` is the workspace's **active** publication; with none (never published, or the last one withdrawn without a successor) `404 PUBLICATION_NOT_FOUND`, `details.publication: "latest"`. This amends CONSUMER_API's "the newest publication": a withdrawn publication has been taken back and should not be served as current. **By ID, any publication of the workspace is readable**, active or withdrawn: publications are immutable, every publish withdraws its predecessor, and an extract pinned to one must be able to finish |
+| C-D62 | A publication of another workspace | **Approved 2026-10-05.** Looked up in the resolved workspace (`workspace`, or the default, C-D16); another workspace's ID is `404 PUBLICATION_NOT_FOUND`, as get by ID treats another workspace's record (C2). No workspace is inferred from the ID, so a request means the same whatever the default is |
+| C-D63 | How a response names the publication | **Approved 2026-10-05.** `RDM-Publication: {id}` on every response of a pinned read, refusals included (as `RDM-Workspace`, C-D23). Lists, XREF pages and batch resolve gain `publication` in the envelope, `null` when live: an additive field. Get by ID and `expect=one` stay the bare object |
+| C-D64 | Cursors and `latest` | **Approved 2026-10-05.** A cursor binds the resolved publication. With a cursor, `latest` continues in the cursor's publication even after a newer one is published, so an extract pages every object once (C8 scenario 13). A cursor from a live read sent with `publication`, from a pinned read sent without it, or with a different explicit ID, is `400 INVALID_CURSOR` |
+| C-D65 | The ETag | **Approved 2026-10-05.** **Value:** opaque, documented as such: for live, the workspace, its feed position and the active release; for a pinned read, the publication and the release that reads it; with `:{contractVersion}`, as CONSUMER_API writes it. The release is in it because a compatible release (an added field, C-D2) changes a response without changing the data or the contract version. **Routes:** every `GET` that answers `200` (get by ID, lists, XREF, the publications list; C6b's documents). Not batch resolve: HTTP answers `304` only to `GET` and `HEAD`. **Comparison:** after the read, per RFC 9110 (`*`, several tags, weak comparison); a match answers `304` with the ETag and the `RDM-` headers and no body. Comparing before the read would save the read, but the tag is one data version for every read of the workspace, so a tag sent to another URL could answer `304` for a record that does not exist. Saving the read is left in TODO for a measured need. **Granularity:** any live write in the workspace changes the tag, also one this API does not show; conservative, documented |
+| C-D66 | The publications list item | **Approved 2026-10-05.** `id`, `publishedAt`, `eventSequence` (`null` before F1's revision) and `status` (`active` or `withdrawn`), newest first by publication number. Paging as the lists: cursors both ways, `position`, `from=end`, `includeTotal`; `seek` is `400 PARAMETER_NOT_SUPPORTED` (no name order to seek in). Definition parameters are `PARAMETER_NOT_SUPPORTED` there. `status` is added to CONSUMER_API's three fields so a consumer sees which publication `latest` reads |
+| C-D67 | D47: which contexts get the value-order sort | **Approved 2026-10-05.** **Publications** only, consumer and management alike (they share the publication columns). Not change sets: their rows are a base and an overlay in one union, which cannot be walked in one index's order, and consumers never read them (C-D6). The change-set sort stays as it is, recorded in TODO. D47 is amended accordingly. The indexes are partial on `owner_kind = 'publication'`, so change-set base and change-set writes do not maintain them |
+| C-D68 | Indexes for pinned XREF and lists | **Approved 2026-10-05.** The live indexes of C3a, C4 and C14, built for publications (Design, Migration), so a pinned read keeps the live budgets. Cost: each publish copies the whole live graph into the publication (T1a), and these indexes are maintained on that copy. T1a's publish budget is measured once more at full volume and recorded; if it degrades beyond its budget, the finding is reported before going further |
+
+**Journey.** J28 gains J28.11–J28.14, J29 gains J29.15, both in USER_JOURNEYS and API_JOURNEYS (the
+publications route, `publication` on four routes, `PUBLICATION_NOT_FOUND`,
+`PUBLICATION_CONTRACT_MISMATCH`, `304`). C8 scenario 13 is then reachable. No model or seed change:
+the generated configurations already declare lists, XREF and a targetable parameter; the cases
+publish through the management API.
+
+**Test cases** (journey tests, on generated A and B, written first and confirmed failing; approved 2026-10-05):
+
+Given a workspace with records `L1` "Ledger One" (code `L1`) and `L2`, a list of their type, and a
+publication `P1` made through the management API; then, live, `L1` renamed "Ledger Uno", `L3`
+created and `L2` deleted.
+
+1. **J28.11 Pinned to a publication.** Get by ID of `L1` with `publication=P1` answers "Ledger One",
+   live answers "Ledger Uno"; `L2` is found in `P1` and `404 OBJECT_NOT_FOUND` live; `L3` is
+   `404 OBJECT_NOT_FOUND` in `P1`. The list read in `P1` holds `L1` and `L2` with `publication: P1`
+   in the envelope; live holds `L1` and `L3` with `publication: null`. Every pinned response carries
+   `RDM-Publication: P1`. A projection and a parameter read from `P1` show the published relations.
+2. **J28.12 `latest` and paging an extract.** `publication=latest` reads `P1`. A list read pinned to
+   `latest` with `pageSize=1` gives a cursor; a second publication `P2` is published; the cursor
+   continues in `P1` to the end, each `P1` record once, every page naming `P1`; a new read with
+   `latest` reads `P2`. Pinned to `P1` by ID after `P2`, `P1` (now withdrawn) still answers. `P2`
+   withdrawn without a successor: `latest` is `404 PUBLICATION_NOT_FOUND`.
+3. **J28.13 Refusals.** An unknown publication ID, and `P1` read with another `workspace`:
+   `404 PUBLICATION_NOT_FOUND`. A live list cursor sent with `publication=P1`, and a `P1` cursor sent
+   with `publication=P2`: `400 INVALID_CURSOR`. `publication` inside a batch resolve item: the item
+   `rejected` with `PARAMETER_NOT_SUPPORTED`. A release raising the contract version to 2:
+   `v2/…?publication=P1` is `409 PUBLICATION_CONTRACT_MISMATCH` naming version 1; after a
+   publication under the new release, `latest` reads it.
+4. **J28.14 The publications list and ETag.** The list holds `P2` then `P1`, `P2` `active` and `P1`
+   `withdrawn`, each `eventSequence` equal to the `feedPosition` of its `published` entry in the
+   management feed; it pages with cursors and `includeTotal`; `seek` is `PARAMETER_NOT_SUPPORTED`.
+   A live get by ID answers an `ETag`; the same request with `If-None-Match` is `304` with no body
+   and the `RDM-Workspace` header; after a live write to another record, `200` with a new tag. A
+   pinned read's tag is unchanged by the live write. A compatible release (one added field) changes
+   the live tag. Batch resolve answers no `ETag`.
+5. **J29.15 Resolving against a publication.** `xref?query=L1&expect=one&publication=P1` finds `L1`
+   by its published code after its live code changed, where live answers `404 NO_MATCH`; with
+   `to.<targetable>` the target is the published one. Batch resolve with `publication=P1` answers
+   each item as the pinned single read does, with `publication: P1` in the envelope.
+6. **J21 (unchanged behaviour, one case):** the management per-type list in a publication's context
+   sorted by an attribute, across both parts (C3a's J21 case, run with `publicationId`), guarding
+   C-D67. Not expected to fail first.
+
+**Unit tests:** `If-None-Match` parsing and comparison (`*`, lists, `W/`, malformed), generated over
+tag shapes: the only logic with edge cases of its own.
+
+**Volume:** `test_consumer_list_volume` and `test_consumer_xref_volume` gain their scenarios pinned
+to the seed's publication, holding the same statements as the data grows fourfold. Wall times at
+full volume measured once with `volume_baseline.py --only-consumer` and recorded here, beside the
+live ones, and T1a's publish copy measured once (C-D68). The migration means the seeds are rebuilt
+once.
+
+**Checks:** the new cases fail first, then pass; J28, J29 and J21 (`--journey`); groups `consumer`,
+`queries` (`object_query`'s publication sort), `contract` (`test_api_journeys`, `test_boundaries`;
+the management OpenAPI lock unchanged), `startup` (clean bootstrap, upgrade from `20261005_02`,
+restart, interrupted migration, lifespan, a smoke start on a copy of the development database),
+the two consumer volume tests; `ruff`. Not run: the frontend (unchanged), the full suites (R).
+
+**Docs at delivery:** API.md (the `publication` name on four routes, the publications route, ETag
+and `304`, the codes); CONSUMER_API (C-D60–C-D68, "Consistency" and "Publications" amended,
+`latest` as the active publication); D47 amended; USER_JOURNEYS and API_JOURNEYS (J28.11–J28.14,
+J29.15); CURRENT_FUNCTIONALITY (reading a consistent snapshot); POSTGRESQL_BUDGETS (the pinned
+reads); TODO (the change-set sort, comparing before the read).
+
+**Composable domains (ADR-032):** identity untouched (publication IDs are existing public IDs).
+Attribute storage gains indexes, not a shape. Audit is read, not changed. Bulk APIs, the `match`
+declaration and mapping coverage are untouched. A catalogue publishing a price list version for
+shops to extract is a pinned list: the door is exercised.
+
+##### C6a delivery record
+
+**Delivered 2026-10-05**, with C-D60–C-D68 and the approved cases.
+
+- **One read over two sources** (`engine/reads/consumer_source.py`): `ConsumerSource` is the
+  workspace's live data or one publication. A publication's rows are presented in the live tables'
+  shape (each live class mapped onto a subquery of `publication_objects`, the publication's
+  `snapshot_attribute_values` or `publication_relations`, with `adapt_on_names`), so
+  `consumer_objects`, `consumer_parameters`, `consumer_xref`, `consumer_resolve` and
+  `consumer_lists` build the same statements over either; the live source yields today's
+  statements. An alias of a publication entity is a fresh, anonymous subquery (aliasing a mapped
+  subquery would alias the live table; two aliases share one `FROM` in `_shared`).
+- **Lists** pinned to a publication use the publication's object query (`snapshot_object_query`),
+  shared with the management publication lists; `ObjectQuery.record` names the listed record's
+  columns for the parameter predicates, and `then_by_name` reads its name. **D47 (C-D67):**
+  `value_order_parts` (formerly C3a's live-only helper) now serves the publication context too, so
+  the management per-type list, the cross-type lookup and the relation matrix in a publication's
+  context read an attribute sort in two parts as well.
+- **Router** (`app/consumer/router.py`): `publication` on get by ID, lists, XREF and batch resolve's
+  URL; `latest` is the active publication, or with a pinned cursor that cursor's publication, read
+  from the cursor's signed scope (`common/cursors.signed_scope`); the publication's release must
+  declare this API at the version (`PUBLICATION_CONTRACT_MISMATCH`), and the parameters are checked
+  again against its definition when it differs from the active one. `RDM-Publication` on every
+  pinned response; `publication` in the list, XREF and resolve envelopes. Cursor scopes carry
+  `:publication:<id>` for a pinned read. `GET …/publications` (`engine/reads/consumer_publications.py`).
+- **ETag** (`app/consumer/etag.py`): a digest of the data version (the workspace's feed position,
+  read with the workspace before the data, or the publication) and the release, then
+  `:{contractVersion}`; compared after the read; `304` with the ETag and `RDM-` headers. Not on
+  batch resolve.
+- **Migration** `20261005_03`: `publication_objects` (`publication_id`, `lower(name)`) and the
+  `btree_gin` trigram (`publication_id`, `object_type_key`, `name`); on `snapshot_attribute_values`,
+  partial on `owner_kind = 'publication'`, (`owner_id`, `attribute_type_key`, `lower(text_value)`)
+  and five value-order indexes. Declared in `models/database.py`.
+- **Differs from the plan:** a pinned list's records sharing the sort value and name follow their
+  object ID, not creation order: a publication records none (as the management publication lists
+  already do, J21.6). The plan's "same order" holds otherwise. Envelopes order `publication` after
+  `workspace`.
+
+**Full-volume timings** (`volume_baseline.py --only-consumer --scale 1 --repeat 3`, warm median ·
+statements · ORM rows; measured once, after the seed rebuild the migration needed):
+
+| Read | Live | Pinned to the seed's publication |
+| --- | --- | --- |
+| List: first page by rank | 10.5 ms · 11 · 24 | 14.5 ms · 13 · 5 |
+| List: next cursor page | 12.2 ms · 13 · 25 | 18.3 ms · 15 · 5 |
+| List: position jump to the middle | 113.8 ms · 11 · 24 | 117.4 ms · 13 · 5 |
+| List: 20,000 items under a parent | 9.9 ms · 9 · 24 | 15.0 ms · 11 · 5 |
+| List: ancestor filter with `includeTotal` | 95.9 ms · 13 · 24 | 120.2 ms · 15 · 5 |
+| XREF: an item's code, another case | 28.7 ms · 8 · 3 | 41.5 ms · 10 · 5 |
+| XREF: a group's code promoted to its citing items | 48.5 ms · 9 · 3 | 66.9 ms · 11 · 5 |
+| XREF: 4-character contains | 49.4 ms · 7 · 3 | 57.5 ms · 9 · 5 |
+| XREF: `expect=one` | 12.8 ms · 7 · 3 | 18.8 ms · 9 · 5 |
+| XREF: within the heavy group | 63.3 ms · 10 · 3 | 79.6 ms · 12 · 5 |
+| XREF: `scoresFrom` on the group | 52.2 ms · 9 · 3 | 73.5 ms · 11 · 5 |
+| XREF: a term in every item, `QUERY_TOO_BROAD` | 132.5 ms · 3 · 3 | 161.9 ms · 5 · 5 |
+
+A pinned read costs two statements more (the publication and its release) and 4–24 ms more. Over
+100 ms, live and pinned alike: the position jump to the middle (D46's known deep-position cost) and
+the refusal of a term in every item (C-D37's known cost, live 116–133 ms); the ancestor filter with
+a total is 96 ms live and 120 ms pinned. Not investigated further in this package (no measurement
+loop); the batch resolve figures of the same run were measured live only.
+
+**Publish with the new indexes (C-D68),** `--only-publish`, each once: at full volume, capture
+48.7 s and publish of 10,000 renamed records 137.1 s (T1a's probe: 55.6 s and 119.0 s, both on a
+freshly built seed), the same 20,153 statements and 2,704,503 rows. At 0.1 scale (the budgeted size,
+11 s): 60.4 s, on a seed built in the same run, where T1a recorded 56–57 s on a fresh seed and 9.1 s
+on a reused one. Then once on the reused seed, at the user's request: **10.8 s** (capture 3.6 s), the
+same 2,081 statements: within the 11 s budget, and 1.7 s (about 19 %) above T1a's 9.1 s, the cost of
+maintaining the new indexes on the publication's copy. Which index costs what was not measured; the
+`btree_gin` trigram on `publication_objects` is the likeliest. The margin to the budget is now 0.2 s.
+
+**Checks:** the 10 new journey cases failed first (`publication` unknown, the publications route
+missing), then pass; the J21.9 publication guard passed before and after. J28, J29, J21, J25, J05,
+J06 and J07: 134 passed. Groups `consumer`, `queries` and `contract` in parallel: 437 passed in
+1 min 6 s (their serial part selects none); `matrix`: 108 passed; J16: 18 passed; `startup` with
+`HEAD` at `20261005_03` and a new case (an interrupted run of the revision rolls back to
+`20261005_02`; with the cause removed it upgrades and starts twice): 96 passed;
+`test_schema_drift` passed. Unit: `tests/unit/consumer/test_etag.py`, 30 passed. Volume:
+`test_consumer_list_volume` and `test_consumer_xref_volume`, with the pinned scenarios, same
+statements at both sizes: 4 passed. `ruff check app/ tests/` clean. **Smoke:** a copy of the
+development database downgraded to `20261005_02` upgraded on start, published, served a
+1,610-record publication list sorted by an attribute (first page, end, middle), and started again
+healthy; the copy dropped. The development database itself was migrated to `20261005_03` by the
+running `uvicorn --reload` and answers `/health` ok. Not run: the frontend (unchanged), the full
+suites (R).
+
+##### C6b: The contract documents
+
+**Behaviour.** An integrator discovers the consumer APIs and gets a typed contract for each:
+
+```text
+GET /api/consumer                                   the installed definitions, paged
+GET /api/consumer/{consumerApi}/v{contractVersion}/openapi.json
+```
+
+- **The API index** lists, for each definition of the active release: `consumerApi`, `name`,
+  `contractVersion` and `openapi` (the document's URL, after the deployment's root path), ordered by
+  `consumerApi`, paged (C-D69).
+- **The document** describes this definition's API as it answers, so a client generator or Scalar
+  (V2) gives a working client: per SETTINGS_AND_UI_PLAN, literal paths with no `{consumerApi}` or
+  `{contractVersion}` placeholders and one path per list, `info.title` the definition's `name`,
+  `info.version` the contract version, `info.description` naming the declaring release, `servers`
+  after the root path. A release raising the version moves the document; the old URL answers
+  `404 CONTRACT_VERSION_NOT_FOUND`.
+
+**Design.**
+
+- **Builder** (`engine/model/consumer_openapi.py`, new; engine tier, no FastAPI): one function from
+  the model and a definition to a dict, OpenAPI 3.1. Schemas come from `output_contract`: the shared
+  object (each declared field with its JSON type, `null` allowed where a field can have no value,
+  `parent`, `path`, `hierarchy`), each projection as an object, nullable object or array by its
+  cardinality, `matchScore` on XREF results, `target` where `to.` is given. Each definition parameter
+  is a query parameter on the routes that apply it (C-D31), an array with `style: form`,
+  `explode: true` (C-D32); each targetable one adds its `to.` name; reserved names (`workspace`,
+  `publication`, paging, `query`, `expect`) with their bounds. Responses: `200` with `ETag`,
+  `RDM-Workspace` and `RDM-Publication` headers, `304`, and each route's error codes through one
+  shared error schema. The documented limits are written where they apply: contains from 3
+  characters and the 10,000-match limit (C-D37, as its approval required), 100 terms, `pageSize`
+  1–100, the resolve maximum from `CONSUMER_RESOLVE_MAX_ITEMS` (C-D50).
+- **Routes** (`app/consumer/router.py`): `GET /api/consumer` and `…/openapi.json`, both with the ETag
+  of the active release (C-D65). They stay out of the management document.
+- **No migration, no setting, no frontend.** V2 lists the index's documents on `/docs`.
+
+**Decisions** (status per row; a row without one is a recommendation awaiting approval):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| C-D69 | The API index entry and paging | **Approved 2026-10-05.** `{ "consumerApi", "name", "contractVersion", "openapi" }`, plus `description` when the model has one; ordered by `consumerApi`; paged as the lists (cursors both ways, `position`, `from=end`, `includeTotal`) through `paginate_sequence`, since definitions are in the model, not a table. No `workspace`: definitions are not per workspace. The index names no model release; `info.description` of each document does |
+| C-D70 | How the document is checked | **Approved 2026-10-05.** Add `openapi-spec-validator` as a **dev** dependency (it brings `jsonschema`): the journey test checks the document is valid OpenAPI 3.1 and that a real `200` of each route validates against its documented schema, so the document cannot drift from the answers. Without it, the tests can only assert chosen facts, and a wrong schema would surface only in a client generator. Cost: one dev dependency, no runtime one |
+| C-D71 | Split C6 into C6a and C6b | **Approved 2026-10-05.** Yes, as above: C6a's reads first, then C6b documents them. Each is one vertical slice with its own record and checks |
+
+**Journey.** J20 gains J20.3 (the API index) and J20.4 (a consumer API's document) in USER_JOURNEYS
+and API_JOURNEYS; C8 scenario 16 is then reachable.
+
+**Test cases** (journey tests, on generated A and B; approved 2026-10-05):
+
+1. **J20.3 The API index.** It lists the configuration's definition with its `consumerApi`, `name`,
+   `contractVersion` and an `openapi` URL that answers `200`. A release adding a second definition
+   lists both, in key order, paging with `pageSize=1`; a release removing it lists one again. A
+   paging refusal answers as the lists' do. A matching `If-None-Match` is `304`.
+2. **J20.4 The document.** `info.version` is the contract version, `info.title` the name. Every path
+   is literal (`/api/consumer/<key>/v<n>/xref`, one per list), none holds `{consumerApi}` or
+   `{contractVersion}`. The document is valid OpenAPI 3.1. A real answer of get by ID, a list page,
+   XREF (`any` and `one`, with `to.`), batch resolve and the publications list each validates against
+   its documented `200` schema. A definition parameter appears on the routes that apply it, with
+   `style: form`; the targetable one's `to.` name appears; the contains and 10,000-match limits
+   appear in XREF's description. After a release raising the version to 2, `v2/openapi.json` has
+   `info.version` `"2"` and `v2` in every path, and `v1/openapi.json` is
+   `404 CONTRACT_VERSION_NOT_FOUND`.
+
+No unit tests: the builder's logic is walked by J20.4 on two configurations. **Checks:** J20, J28;
+groups `consumer`, `contract` (`test_api_journeys`, `test_boundaries`, the management OpenAPI lock
+unchanged); `ruff`. Not run: `volume` (the documents read only the model), `startup` (no
+migration), the frontend, the full suites (R).
+
+**Docs at delivery:** API.md (the index, the document); CONSUMER_API (C-D69–C-D71; "API index" and
+"Generated OpenAPI" amended); SETTINGS_AND_UI_PLAN ("Versions in the documentation" delivered);
+USER_JOURNEYS and API_JOURNEYS (J20.3, J20.4); CURRENT_FUNCTIONALITY; OPEN_SOURCE only if a runtime
+dependency were added (none is).
+
+**Composable domains (ADR-032):** documentation of an existing contract. No door is affected.
+
 ## Track V — API reference
 
 #### V1: API reference page
@@ -3524,7 +3879,7 @@ for R.
 
 #### V2: Consumer sources
 
-**Needs:** V1, C6. **Scope:** the page lists every installed consumer definition and contract version
+**Needs:** V1, C6b. **Scope:** the page lists every installed consumer definition and contract version
 from the API index as separate sources. **Tests:** sources follow a model release that adds and
 removes a definition. **Groups:** `consumer`, `contract`; `test:browser:v1`.
 
@@ -3705,7 +4060,7 @@ D31–D34 raised by F1 (2026-10-03), D35–D39 raised by B3 (2026-10-03), and D4
 | D40 | The retention floor and the baseline | **Decided 2026-10-03 by the user (F2).** The floor (`earliestPosition`) is the first entry within `FEED_RETENTION_DAYS`, but never past the active publication's `feedPosition + 1`; with no active publication that has a position (never published, withdrawn, or published before F1), nothing expires. Otherwise a publication older than the period is itself expired, so a reader refused `410` gets `410` again after re-reading it, and a workspace with no publication has no baseline until J1's export. It costs nothing: the audit log is not pruned. A withdrawal can lower the floor back to 1. J1 revisits the no-publication case once an export is a baseline any reader can take | F |
 | D41 | The export in the `410` details | **Decided 2026-10-03 by the user (F2).** F2's `410` names the active publication only; J1 adds the export route as a second baseline, an additive field | F, J |
 | D46 | Index the attribute values or store a sort key per record (Base 0.8 D26)? | **Approved 2026-10-04 (C3a).** Index the values now; 0.8 D26's stored key stays after 0.9 for few distinct values and deep positions | Q, C |
-| D47 | Which contexts C3a's sort covers | **Approved 2026-10-04 (C3a).** Live only; change sets and publications are a task of C6 | C |
+| D47 | Which contexts C3a's sort covers | **Approved 2026-10-04 (C3a).** Live only; change sets and publications are a task of C6. _Amended 2026-10-05 by C-D67 (C6a):_ publications gained it; change sets stay as they are (TODO) | C |
 | D48 | Which lists C3a's sort covers | **Approved 2026-10-04 (C3a).** The shared live attribute sort (consumer lists and the management per-type list); not the `ancestor:<type>` sort | Q, C |
 
 ## Next

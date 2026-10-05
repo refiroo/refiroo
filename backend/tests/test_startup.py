@@ -25,7 +25,8 @@ from app.db import DatabaseStartupError, get_engine, migration_config
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261005_02"
+HEAD = "20261005_03"
+TYPED_TRIGRAMS = "20261005_02"
 DECIMAL_ENCODING = "20261004_02"
 FEED_POSITIONS = "20261003_02"
 SEARCH_INDEXES = "20261003_01"
@@ -273,6 +274,63 @@ def test_an_interrupted_search_index_revision_rolls_back_and_the_next_start_reco
         assert errors == []
         assert client.get("/health").json() == {"status": "ok"}
     assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+
+
+PUBLICATION_READ_INDEXES = {
+    "ix_publication_objects_lower_name",
+    "ix_publication_objects_type_name_trigram",
+    "ix_snapshot_attribute_values_publication_lower_text",
+    *(f"ix_snapshot_attribute_values_publication_key_{name}" for name in ("integer", "decimal", "boolean", "date", "datetime")),
+}
+
+
+def _publication_read_indexes(url: URL) -> set[str]:
+    engine = create_engine(url)
+    try:
+        return {
+            index["name"]
+            for table in ("publication_objects", "snapshot_attribute_values")
+            for index in inspect(engine).get_indexes(table)
+            if index["name"] in PUBLICATION_READ_INDEXES
+        }
+    finally:
+        engine.dispose()
+
+
+def test_an_interrupted_publication_index_revision_rolls_back_and_upgrades_on_the_next_start(
+    monkeypatch, databases
+):
+    """Base 0.9 C6a's revision on a database at the previous one: interrupted after its first
+    indexes, it leaves the database where it was; with the cause removed, it upgrades, and the
+    service starts twice."""
+    url = seeds.create_empty()
+    databases.append(url)
+    command.upgrade(migration_config(url), TYPED_TRIGRAMS)
+    last = "ix_snapshot_attribute_values_publication_key_datetime"
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        connection.execute(text(f"CREATE INDEX {last} ON snapshot_attribute_values (owner_id)"))
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        message = _assert_refused(
+            client,
+            errors,
+            "Database migration failed",
+            f"Current revision: {TYPED_TRIGRAMS}",
+            f"target revision: {HEAD}",
+            "still at its current revision",
+        )
+        assert last in message
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == TYPED_TRIGRAMS
+    assert _publication_read_indexes(url) == {last}
+    with engine.begin() as connection:
+        connection.execute(text(f"DROP INDEX {last}"))
+    engine.dispose()
+    for _start in range(2):
+        with serve(monkeypatch, _render(url)) as (client, errors):
+            assert errors == []
+            assert client.get("/health").json() == {"status": "ok"}
+        assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+        assert _publication_read_indexes(url) == PUBLICATION_READ_INDEXES
 
 
 def test_a_database_with_audit_history_upgrades_to_feed_positions(monkeypatch, databases):

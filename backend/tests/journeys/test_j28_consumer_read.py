@@ -4,7 +4,17 @@ import copy
 from uuid import uuid4
 
 import pytest
-from scenario import W1, W2, W3, consumer_list, consumer_list_typed, consumer_object, ok, refused
+from scenario import (
+    W1,
+    W2,
+    W3,
+    consumer_list,
+    consumer_list_typed,
+    consumer_object,
+    consumer_publications,
+    ok,
+    refused,
+)
 
 CAPI = (
     "Capi", "R", "R2", "R.u", "R2.u", "R.b", "R.n", "R.dt", "K", "K.code", "B11", "Bown", "Bscope",
@@ -441,3 +451,218 @@ def test_paging_refusals(world):
     refused(consumer_list(world, all_, cursor=cursor, position=1), 400, "CONFLICTING_PAGE_PARAMETERS")
     token = _param(world, "token")
     refused(consumer_list(world, all_, pageSize=1, cursor=cursor, **{token: "x"}), 400, "INVALID_CURSOR")
+
+
+# --- publications and ETag (C6a) -----------------------------------------------------------------
+
+
+def _published_world(world):
+    """L1 "Ledger one" (code L1) paired with a K, and L2, published as P1; then, live, L1 renamed
+    "Ledger uno" and unpaired, L3 created and L2 deleted."""
+    l1 = world.made("R", "Ledger one", values={"R.u": "L1"})
+    l2 = world.made("R", "Ledger two", values={"R.u": "L2"})
+    token = world.made("K", "Pinned token", values={"K.code": "TK-P"})
+    pairing = ok(world.relate("B11", l1["id"], token["id"]), 201)
+    p1 = world.publish(world.change_set())
+    ok(world.update("R", l1["id"], l1["version"], name="Ledger uno"))
+    removed = world.api.delete(f"/relations/{pairing['id']}", expectedVersion=pairing["version"])
+    assert removed.status_code == 204
+    l3 = world.made("R", "Ledger three")
+    gone = world.api.delete(f"/objects/{world.key('R')}/{l2['id']}", expectedVersion=l2["version"])
+    assert gone.status_code == 204
+    return {"l1": l1, "l2": l2, "l3": l3, "p1": p1}
+
+
+@pytest.mark.journey("J28.11")
+@pytest.mark.structures(*CAPI)
+def test_pinned_to_a_publication(world):
+    """Get by ID of L1 with publication=P1 answers "Ledger one" with its pairing, live "Ledger uno"
+    without it; L2 is found in P1 and 404 OBJECT_NOT_FOUND live; L3 is 404 OBJECT_NOT_FOUND in P1.
+    The list in P1 holds L1 and L2 with publication P1 in the envelope; live holds L1 and L3 with
+    publication null. Every pinned response, a refusal included, carries RDM-Publication: P1; a live
+    one carries none. A parameter read from P1 sees the published relations."""
+    made = _published_world(world)
+    p1 = made["p1"]["id"]
+
+    pinned = consumer_object(world, made["l1"]["id"], publication=p1)
+    assert ok(pinned)[_out(world, "name")] == "Ledger one"
+    assert ok(pinned)[_out(world, "B11")] == {
+        _out(world, "B11.name"): "Pinned token",
+        _out(world, "B11.code"): "TK-P",
+    }
+    assert pinned.headers["RDM-Publication"] == p1
+    live = consumer_object(world, made["l1"]["id"])
+    assert ok(live)[_out(world, "name")] == "Ledger uno"
+    assert ok(live)[_out(world, "B11")] is None
+    assert "RDM-Publication" not in live.headers
+
+    assert _read(world, made["l2"]["id"], publication=p1)[_out(world, "name")] == "Ledger two"
+    refused(consumer_object(world, made["l2"]["id"]), 404, "OBJECT_NOT_FOUND")
+    missing = consumer_object(world, made["l3"]["id"], publication=p1)
+    refused(missing, 404, "OBJECT_NOT_FOUND")
+    assert missing.headers["RDM-Publication"] == p1
+
+    response = consumer_list(world, world.key("Capi.all"), publication=p1)
+    page = ok(response)
+    assert _names(world, page) == ["Ledger one", "Ledger two"]
+    assert page["publication"] == p1
+    assert response.headers["RDM-Publication"] == p1
+    page = _page(world, "all")
+    assert _names(world, page) == ["Ledger three", "Ledger uno"]
+    assert page["publication"] is None
+
+    token = _param(world, "token")
+    assert _listed(world, "all", publication=p1, **{token: "Pinned token"}) == ["Ledger one"]
+    assert _listed(world, "all", **{token: "Pinned token"}) == []
+
+
+@pytest.mark.journey("J28.12")
+@pytest.mark.structures(*CAPI)
+def test_latest_and_paging_an_extract(world):
+    """publication=latest reads P1. A list pinned to latest with pageSize=1 gives a cursor; P2 is
+    then published; the cursor continues in P1 to the end, each P1 record once, every page naming
+    P1; a new read with latest reads P2. P1, now withdrawn, still answers by its ID. P2 withdrawn
+    with no successor: latest is 404 PUBLICATION_NOT_FOUND."""
+    made = _published_world(world)
+    p1 = made["p1"]["id"]
+    all_ = world.key("Capi.all")
+
+    first = ok(consumer_list(world, all_, publication="latest", pageSize=1))
+    assert first["publication"] == p1
+    assert _names(world, first) == ["Ledger one"]
+    p2 = world.publish(world.change_set())["id"]
+    names, page = _names(world, first), first
+    while page["nextCursor"]:
+        response = consumer_list(world, all_, publication="latest", pageSize=1, cursor=page["nextCursor"])
+        page = ok(response)
+        assert page["publication"] == p1
+        assert response.headers["RDM-Publication"] == p1
+        names += _names(world, page)
+    assert names == ["Ledger one", "Ledger two"]
+
+    latest = ok(consumer_list(world, all_, publication="latest"))
+    assert latest["publication"] == p2
+    assert _names(world, latest) == ["Ledger three", "Ledger uno"]
+    assert _read(world, made["l2"]["id"], publication=p1)[_out(world, "name")] == "Ledger two"
+
+    assert world.api.post(f"/publications/{p2}/withdrawal").status_code == 204
+    error = refused(consumer_list(world, all_, publication="latest"), 404, "PUBLICATION_NOT_FOUND")
+    assert error["details"]["publication"] == "latest"
+    assert _read(world, made["l1"]["id"], publication=p2)[_out(world, "name")] == "Ledger uno"
+
+
+@pytest.mark.journey("J28.13")
+@pytest.mark.structures(*CAPI)
+def test_publication_refusals(world):
+    """An unknown publication ID, and P1 read with another workspace: 404 PUBLICATION_NOT_FOUND. A
+    live list cursor sent with publication=P1, and a P1 cursor sent with publication=P2: 400
+    INVALID_CURSOR. publication inside a batch resolve item: that item rejected with
+    PARAMETER_NOT_SUPPORTED. A release raising the contract version to 2: v2 with publication=P1 is
+    409 PUBLICATION_CONTRACT_MISMATCH naming version 1; after a publication under the new release,
+    latest reads it."""
+    made = _published_world(world)
+    p1 = made["p1"]["id"]
+    all_ = world.key("Capi.all")
+
+    refused(consumer_object(world, made["l1"]["id"], publication=str(uuid4())), 404, "PUBLICATION_NOT_FOUND")
+    refused(consumer_object(world, made["l1"]["id"], publication=p1, workspace=W2), 404, "PUBLICATION_NOT_FOUND")
+
+    live_cursor = _page(world, "all", pageSize=1)["nextCursor"]
+    refused(consumer_list(world, all_, pageSize=1, cursor=live_cursor, publication=p1), 400, "INVALID_CURSOR")
+    pinned_cursor = _page(world, "all", pageSize=1, publication=p1)["nextCursor"]
+    p2 = world.publish(world.change_set())["id"]
+    refused(consumer_list(world, all_, pageSize=1, cursor=pinned_cursor, publication=p2), 400, "INVALID_CURSOR")
+    refused(consumer_list(world, all_, pageSize=1, cursor=pinned_cursor), 400, "INVALID_CURSOR")
+
+    answer = ok(
+        world.api.post(
+            f"/api/consumer/{world.key('Capi')}/v1/resolve",
+            {"items": [{"query": "L1"}, {"query": "L1", "publication": p1}]},
+        )
+    )
+    assert [item["status"] for item in answer["items"]] == ["found", "rejected"]
+    assert answer["items"][1]["error"]["code"] == "PARAMETER_NOT_SUPPORTED"
+
+    model = copy.deepcopy(world.configuration.model)
+    model["release"]["version"] += "-v2"
+    (definition,) = [d for d in model["consumerApis"] if d["key"] == world.key("Capi")]
+    definition["contractVersion"] = 2
+    ok(world.activate(world.install(model)["id"]))
+    error = refused(
+        consumer_object(world, made["l1"]["id"], version=2, publication=p1), 409, "PUBLICATION_CONTRACT_MISMATCH"
+    )
+    assert error["details"]["publication"] == p1
+    assert error["details"]["contractVersion"] == 1
+    p3 = world.publish(world.change_set())["id"]
+    response = consumer_object(world, made["l1"]["id"], version=2, publication="latest")
+    assert ok(response)[_out(world, "name")] == "Ledger uno"
+    assert response.headers["RDM-Publication"] == p3
+
+
+def _get(world, path, etag=None, **params):
+    headers = {"If-None-Match": etag} if etag is not None else {}
+    return world.api.client.get(path, params=params, headers=headers)
+
+
+@pytest.mark.journey("J28.14")
+@pytest.mark.structures(*CAPI)
+def test_the_publications_list_and_etag(world):
+    """The publications list holds P2 then P1, P2 active and P1 withdrawn, each eventSequence the
+    position of its published entry in the management feed; it pages with cursors and includeTotal;
+    seek is PARAMETER_NOT_SUPPORTED. A live get by ID answers an ETag; the same request with
+    If-None-Match is 304 with no body and the RDM-Workspace header; after a live write to another
+    record, 200 with a new tag. A pinned read's tag is unchanged by the live write. A compatible
+    release (one added field) changes the live tag. Batch resolve answers no ETag."""
+    made = _published_world(world)
+    p1 = made["p1"]["id"]
+    p2 = world.publish(world.change_set())["id"]
+
+    listed = ok(consumer_publications(world, includeTotal="true"))
+    assert [item["id"] for item in listed["items"][:2]] == [p2, p1]
+    assert [item["status"] for item in listed["items"][:2]] == ["active", "withdrawn"]
+    assert listed["workspace"] == W1
+    entries = ok(world.api.get(f"/workspaces/{W1}/feed", kind="publication", pageSize=100))["items"]
+    published = {entry["id"]: entry["position"] for entry in entries if entry["action"] == "published"}
+    for item in listed["items"][:2]:
+        assert item["eventSequence"] == published[item["id"]]
+        assert set(item) == {"id", "publishedAt", "eventSequence", "status"}
+    first = ok(consumer_publications(world, pageSize=1, includeTotal="true"))
+    assert [item["id"] for item in first["items"]] == [p2]
+    following = ok(consumer_publications(world, pageSize=1, cursor=first["nextCursor"]))
+    assert [item["id"] for item in following["items"]] == [p1]
+    assert first["totalCount"] == listed["totalCount"]
+    refused(consumer_publications(world, seek="x"), 400, "PARAMETER_NOT_SUPPORTED")
+
+    path = f"/api/consumer/{world.key('Capi')}/v1/objects/{made['l1']['id']}"
+    live = _get(world, path)
+    tag = live.headers["ETag"]
+    unchanged = _get(world, path, tag)
+    assert unchanged.status_code == 304
+    assert unchanged.content == b""
+    assert unchanged.headers["ETag"] == tag
+    assert unchanged.headers["RDM-Workspace"] == W1
+    pinned = _get(world, path, publication=p1)
+    pinned_tag = pinned.headers["ETag"]
+    assert pinned_tag != tag
+    assert _get(world, path, pinned_tag, publication=p1).status_code == 304
+
+    l3 = made["l3"]
+    ok(world.update("R", l3["id"], l3["version"], name="Ledger three b"))
+    changed = _get(world, path, tag)
+    assert changed.status_code == 200
+    assert changed.headers["ETag"] != tag
+    assert _get(world, path, pinned_tag, publication=p1).status_code == 304
+
+    model = copy.deepcopy(world.configuration.model)
+    model["release"]["version"] += "-added"
+    (definition,) = [d for d in model["consumerApis"] if d["key"] == world.key("Capi")]
+    definition["object"]["attributes"]["addedCopy"] = {"source": [world.key("R.u")]}
+    ok(world.activate(world.install(model)["id"]))
+    current = changed.headers["ETag"]
+    after = _get(world, path, current)
+    assert after.status_code == 200
+    assert after.json()["addedCopy"] == "L1"
+
+    resolved = world.api.post(f"/api/consumer/{world.key('Capi')}/v1/resolve", {"items": [{"query": "L1"}]})
+    assert resolved.status_code == 200
+    assert "ETag" not in resolved.headers

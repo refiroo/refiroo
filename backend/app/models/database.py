@@ -552,6 +552,17 @@ class PublicationObject(Base):
             "name",
             "object_id",
         ),
+        # A consumer read pinned to the publication matches as live reads do (0.9 C6a, 20261005_03):
+        # exactly ignoring case, and by contains within one type.
+        Index("ix_publication_objects_lower_name", "publication_id", func.lower(literal_column("name"))),
+        Index(
+            "ix_publication_objects_type_name_trigram",
+            "publication_id",
+            "object_type_key",
+            "name",
+            postgresql_using="gin",
+            postgresql_ops={"name": "gin_trgm_ops"},
+        ),
     )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -802,6 +813,26 @@ class SnapshotAttributeValue(Base):
             "object_id",
         ),
         search_index(SNAPSHOT_VALUES),
+        # A consumer read pinned to a publication looks up and sorts its values as live reads do;
+        # partial, so change-set bases and change sets do not maintain them (0.9 C6a, 20261005_03).
+        Index(
+            "ix_snapshot_attribute_values_publication_lower_text",
+            "owner_id",
+            "attribute_type_key",
+            func.lower(literal_column("text_value")),
+            postgresql_where=text("owner_kind = 'publication'"),
+        ),
+        *(
+            Index(
+                f"ix_snapshot_attribute_values_publication_key_{name}",
+                "owner_id",
+                "attribute_type_key",
+                f"{name}_value",
+                "object_id",
+                postgresql_where=text("owner_kind = 'publication'"),
+            )
+            for name in ("integer", "decimal", "boolean", "date", "datetime")
+        ),
     )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

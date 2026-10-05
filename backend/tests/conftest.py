@@ -156,6 +156,7 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
 # While the groups remain (H4d is postponed), the tests H4d moved keep being selected by them: a unit test by its
 # folder under tests/unit/ (the longest matching prefix), a journey test by its journeys.
 UNIT_GROUPS: dict[str, tuple[str, ...]] = {
+    "consumer/": ("consumer",),
     "engine/change_sets/test_publish.py": ("change_sets", "feed"),
     "engine/jobs/": ("jobs",),
     "engine/model/": ("model",),

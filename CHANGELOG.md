@@ -8,6 +8,18 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 C6a: consumer API reads pinned to a publication. `publication={id}` or `latest` (the
+  workspace's active publication) on get by ID, lists, XREF and batch resolve's URL reads the
+  publication's records, values and relationships, with the definition of the release it was
+  published under (`409 PUBLICATION_CONTRACT_MISMATCH` when that release declares another contract
+  version, C-D60); `404 PUBLICATION_NOT_FOUND` for an unknown publication, another workspace's, or
+  `latest` with none current (C-D61, C-D62). `RDM-Publication` and an envelope `publication` field
+  name it (C-D63); a cursor keeps its publication, also with `latest` (C-D64).
+  `GET /api/consumer/{consumerApi}/v{contractVersion}/publications` lists them newest first with
+  `eventSequence` and `status` (C-D66). Every consumer `GET` answers an `ETag` and `304` to a matching
+  `If-None-Match` (C-D65). Publication lists sort by an attribute through value-order indexes, on the
+  management API too (D47, C-D67). Migration `20261005_03`: publication read indexes (C-D68).
+
 - Base 0.9 C15: consumer API crosswalk. `to.{name}` on get by ID, lists, XREF and batch resolve
   names a `projection` parameter declared `targetable` and a value; the projection shows the items it
   matches, and each object carries them again as `target`, before `matchScore`. It changes no object,

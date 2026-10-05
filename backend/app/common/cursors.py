@@ -99,6 +99,23 @@ def decode_directed_cursor(
     return direction, tuple(position)
 
 
+def signed_scope(cursor: str) -> str | None:
+    """The scope a cursor was issued in, when its signature holds; ``None`` otherwise. Decoding it
+    against a read still checks everything else."""
+    try:
+        encoded_payload, encoded_signature = cursor.split(".")
+        payload = _base64_decode(encoded_payload)
+        if not hmac.compare_digest(
+            _base64_decode(encoded_signature), hmac.digest(cursor_signing_key(), payload, "sha256")
+        ):
+            return None
+        decoded = json.loads(payload)
+    except (ValueError, json.JSONDecodeError):
+        return None
+    scope = decoded.get("scope") if isinstance(decoded, dict) else None
+    return scope if isinstance(scope, str) else None
+
+
 METADATA_CURSOR_MESSAGE = "Metadata cursor is invalid"
 
 

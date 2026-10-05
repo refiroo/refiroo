@@ -802,3 +802,55 @@ def test_crosswalk_refusals(world):
         400,
         "MULTIPLE_TARGETS",
     )
+
+
+@pytest.mark.journey("J29.15")
+@pytest.mark.structures(*CAPI)
+def test_resolving_against_a_publication(world):
+    """Given Ledger X watching the South desk, published as P1; then, live, Ledger X's code changed
+    from LX to LX-NEW and its South watch removed. Then query=LX&expect=one with publication=P1 finds
+    Ledger X by its published code, where live answers 404 NO_MATCH; with to.watchRegion=South the
+    target is the published South item. Batch resolve with publication=P1 answers each item as the
+    pinned single read does, with publication P1 in the envelope and the RDM-Publication header."""
+    x, _y, _z = _crosswalk(world)
+    to = _to(world, "watch")
+    p1 = world.publish(world.change_set())["id"]
+    record = world.record("R", x["id"])
+    ok(world.update("R", x["id"], record["version"], values={"R.u": "LX-NEW"}))
+    watches = ok(
+        world.api.get(
+            "/relations", objectId=x["id"], direction="outgoing", relationTypeKey=world.key("Bscope"), pageSize=100
+        )
+    )["items"]
+    (south,) = [item["relation"] for item in watches if item["object"]["name"] == "South desk"]
+    removed = world.api.delete(f"/relations/{south['id']}", expectedVersion=south["version"])
+    assert removed.status_code == 204
+
+    refused(consumer_xref(world, query="LX", expect="one"), 404, "NO_MATCH")
+    pinned = _xref(world, query="LX", expect="one", publication=p1)
+    assert pinned[_out(world, "id")] == x["id"]
+    assert pinned[_out(world, "code")] == "LX"
+    crossed = _xref(world, query="LX", expect="one", publication=p1, **{to: "South"})
+    assert crossed["target"] == _watched_item(world, "South desk")
+    refused(consumer_xref(world, query="LX-NEW", expect="one", **{to: "South"}), 404, "TARGET_NOT_FOUND")
+    page = _xref(world, query="LX", publication=p1)
+    assert page["publication"] == p1
+    assert [item[_out(world, "id")] for item in page["results"]] == [x["id"]]
+
+    body = {"defaults": {to: "South"}, "items": [{"query": "LX"}, {"query": "LX-NEW"}, {"id": x["id"]}]}
+    response = consumer_resolve(world, body, publication=p1)
+    answer = ok(response)
+    assert answer["publication"] == p1
+    assert response.headers["RDM-Publication"] == p1
+    assert _statuses(answer) == ["found", "not_found", "found"]
+    for item, outcome in zip(body["items"], answer["items"], strict=True):
+        params = {to: "South", "publication": p1}
+        single = (
+            consumer_object(world, item["id"], **params)
+            if "id" in item
+            else consumer_xref(world, query=item["query"], expect="one", **params)
+        )
+        if single.status_code == 200:
+            assert outcome["object"] == single.json()
+        else:
+            assert _without_pointer(outcome["error"]) == _without_pointer(single.json()["error"])

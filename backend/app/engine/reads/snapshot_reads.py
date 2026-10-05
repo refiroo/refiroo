@@ -13,6 +13,7 @@ check only the records they touch, through ``engine/records/context.py`` (S2b).
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, replace
 from datetime import date
+from types import SimpleNamespace
 from typing import Any, Literal
 
 from sqlalchemy import (
@@ -59,6 +60,7 @@ from .object_query import (
     search_candidates,
     searchable_attribute_keys,
     top_level_filter,
+    value_order_parts,
 )
 
 # Change set and history rows record no timestamps; a query on them is refused, not matched as empty.
@@ -748,7 +750,7 @@ def snapshot_object_query(
             "sort",
         )
 
-    def refine(part: ChangeSetPart) -> tuple[Any, Any, Any, Any]:
+    def refine(part: ChangeSetPart) -> tuple[Subquery, Any, Any, Any, Any]:
         projection = object_projection(context, **narrowing, part=part)
         statement = select(projection)
         if id_filter is not None:
@@ -762,7 +764,7 @@ def snapshot_object_query(
         )
         if builtin is not None:
             columns = replace(columns, builtin={**columns.builtin, **builtin(projection)})
-        return refine_object_query(
+        return projection, *refine_object_query(
             model,
             columns,
             statement,
@@ -775,12 +777,30 @@ def snapshot_object_query(
             search_ids=search_ids,
         )
 
-    statement, keys, seek, normalized_filters = refine("effective")
+    projection, statement, keys, seek, normalized_filters = refine("effective")
     # A change set over a base resolves position reads in the base's index (Base 0.8 S4R6).
     overlay = None
     if context.kind == "change_set" and context.base is not None:
-        parts = {part: Keyed(*refine(part)[:2]) for part in ("base", "replaced", "added")}
-        overlay = Overlay(parts["base"], parts["replaced"], parts["added"])
+        overlay_parts = {part: Keyed(*refine(part)[1:3]) for part in ("base", "replaced", "added")}
+        overlay = Overlay(overlay_parts["base"], overlay_parts["replaced"], overlay_parts["added"])
+    # A publication's attribute sort reads its own value index in value order, as live lists do
+    # (C3a); a change set's union of base and overlay cannot be walked in one index's order (C-D67).
+    parts = (
+        value_order_parts(
+            model,
+            statement,
+            keys,
+            sort,
+            SnapshotAttributeValue,
+            lambda values: (
+                values.owner_id == context.id,
+                values.owner_kind == "publication",
+                values.object_id == projection.c.object_id,
+            ),
+        )
+        if context.kind == "publication"
+        else None
+    )
     owner = "changeSetId" if context.kind == "change_set" else "publicationId"
     return ObjectQuery(
         statement=statement,
@@ -788,6 +808,13 @@ def snapshot_object_query(
         filters={owner: context.id, **filters, "typedFilters": normalized_filters},
         seek=seek,
         overlay=overlay,
+        parts=parts,
+        record=SimpleNamespace(
+            id=projection.c.object_id,
+            name=projection.c.name,
+            object_type_key=projection.c.object_type_key,
+            parent_object_id=projection.c.parent_object_id,
+        ),
     )
 
 

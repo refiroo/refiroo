@@ -2013,12 +2013,13 @@ the reader misses nothing. An export as a second baseline follows with export jo
 
 A retired workspace's feed stays readable. The feed is ungated like other reads until 0.12 (D10).
 
-## Consumer API (Base 0.9 C2–C5, C14, C15)
+## Consumer API (Base 0.9 C2–C5, C6a, C14, C15)
 
 A separate, read-only tier at `/api/consumer`, whose contract each consumer API definition in the
 active model release declares ([CONSUMER_API.md](CONSUMER_API.md)). Its routes are not in the
-management OpenAPI document; C6 generates one document per definition. Publications and `asOf`
-follow in C6 and C16.
+management OpenAPI document; C6b generates one document per definition. Every read takes live data
+by default, or one publication with `publication` ([below](#publications-and-caching)); `asOf`
+follows in C16.
 
 ### Get by ID
 
@@ -2065,7 +2066,7 @@ GET /api/consumer/{consumerApi}/v{contractVersion}/lists/{listKey}?{parentParame
     &pageSize=…&cursor=…|position=…|from=end|seek=…&includeTotal=true
 ```
 
-A page of the definition's list: live records of the list's `objectType` in the workspace, each item
+A page of the definition's list: the records of the list's `objectType` in the workspace, each item
 the shared object above (equal to get by ID's answer for the same record and parameters).
 
 - **Without a parent value** the list holds every record of its type, each showing its `parent`.
@@ -2082,7 +2083,7 @@ the shared object above (equal to get by ID's answer for the same record and par
 
 ```jsonc
 // RDM-Workspace: default
-{ "items": [ … ], "workspace": "default", "pageSize": 20,
+{ "items": [ … ], "workspace": "default", "publication": null, "pageSize": 20,
   "nextCursor": "…", "prevCursor": null, "anchor": "…", "totalCount": 412, "startIndex": 0 }
 ```
 
@@ -2095,7 +2096,7 @@ GET /api/consumer/{consumerApi}/v{contractVersion}/xref?query=…&{parameters}&e
     &pageSize=…&cursor=…|position=…|from=end
 ```
 
-Finds the live records of the definition's exposed types that the query's terms match, scored by the
+Finds the records of the definition's exposed types that the query's terms match, scored by the
 definition's `match`, best first. Each result is the shared object above (get by ID's answer for the
 same record) with `matchScore`, an integer, after the declared fields.
 
@@ -2140,7 +2141,7 @@ same record) with `matchScore`, an integer, after the declared fields.
 ```jsonc
 // RDM-Workspace: default
 { "results": [ { "objectType": "Ledger", "ledgerId": "7f3c…", "code": "LED-7", …, "matchScore": 500 } ],
-  "query": ["led-7"], "workspace": "default", "pageSize": 20,
+  "query": ["led-7"], "workspace": "default", "publication": null, "pageSize": 20,
   "nextCursor": null, "prevCursor": null, "anchor": "…", "totalCount": 1, "startIndex": 0 }
 ```
 
@@ -2194,7 +2195,10 @@ only carries the items, and nothing changes.
   replaces a different one from `defaults`. A missing or ambiguous target is `not_found`
   (`TARGET_NOT_FOUND`) or `ambiguous` (`AMBIGUOUS_TARGET`), pointing at where the `to.` name was
   given; two `to.` names in an item reject it, in `defaults` refuse the request (`MULTIPLE_TARGETS`).
-- The URL takes only `workspace`; `publication` (C6) and `asOf` (C16) arrive with their packages.
+- The URL takes `workspace` and `publication`, which apply to every item; `publication` in an item
+  or in `defaults` is `PARAMETER_NOT_SUPPORTED`. `asOf` (C16) arrives with its package. The answer
+  names the publication read in `publication` (`null` when live) and in `RDM-Publication`. Batch
+  resolve answers no `ETag`: it is a `POST`.
 
 ```jsonc
 // RDM-Workspace: default
@@ -2204,7 +2208,7 @@ only carries the items, and nothing changes.
       "error": { "code": "AMBIGUOUS_MATCH", "message": "…", "details": { "count": 2, "candidates": [ … ] } } },
     { "index": 2, "ref": "row-3", "status": "rejected",
       "error": { "code": "UNKNOWN_OBJECT_TYPE", "message": "…", "details": { "pointer": "/defaults/kind", "…": "…" } } } ],
-  "workspace": "default",
+  "workspace": "default", "publication": null,
   "counts": { "found": 1, "notFound": 0, "ambiguous": 1, "rejected": 1 } }
 ```
 
@@ -2247,8 +2251,8 @@ Every definition parameter applies to get by ID, to every list (C-D31), to [XREF
   or separated by a literal comma in the URL. A comma inside a value is percent-encoded as `%2C`, as
   every HTTP library sends it: `token=Bonds%2C%20Notes` is one value, `token=Bonds,Notes` two. A
   backslash has no special meaning.
-- `scoresFrom` matters only to XREF; `publication` arrives in C6 and `asOf` in C16 (until then
-  `400 UNKNOWN_PARAMETER`).
+- `scoresFrom` matters only to XREF; `asOf` arrives in C16 (until then `400 UNKNOWN_PARAMETER`).
+  `workspace` and `publication` are reserved names on every read.
 
 | Status | Code | When |
 | --- | --- | --- |
@@ -2304,6 +2308,66 @@ GET …/objects/{id}?to.language=es
   "target": { "watchedName": "South desk" },
   "matchScore": 500 }
 ```
+
+### Publications and caching
+
+A consumer that must read one consistent snapshot, an extract paged over minutes or a flow resolving
+a file of codes against a fixed state, pins its reads to a publication:
+
+```text
+GET /api/consumer/{consumerApi}/v{contractVersion}/publications?workspace=…&pageSize=…&cursor=…|position=…|from=end&includeTotal=true
+GET …/lists/{listKey}?publication=latest          the workspace's current publication
+GET …/objects/{id}?publication=4b1e…              a publication by its ID
+```
+
+- **`publication`** applies to get by ID, lists, XREF and batch resolve (in its URL). Every record,
+  value and relationship is read as the publication holds it, whatever live data has done since; the
+  read is otherwise the same, its parameters, crosswalk, scores, paging and refusals included. On a
+  list, records sharing the sort value and the name follow their object ID (a publication records no
+  creation order), as on the management API's publication lists.
+- **`latest`** reads the workspace's current (`active`) publication. With none (never published, or
+  the current one withdrawn without a successor) it is `404 PUBLICATION_NOT_FOUND`,
+  `details.publication: "latest"`. A publication superseded or withdrawn stays readable by its ID.
+- **One workspace.** A publication is looked up in the read's workspace (`workspace`, or the
+  default); another workspace's ID is not found.
+- **The release that shaped it.** A publication is read with the definition of the model release it
+  was published under, and only when that release declares this API at the requested contract
+  version. After a release that raises the contract version, publications made before it answer
+  `409 PUBLICATION_CONTRACT_MISMATCH` (`details.publication`, and `details.contractVersion`: the
+  version that release declares, or `null`) until a new publication is made.
+- **Naming it.** Every pinned response, refusals included, names the publication in the
+  `RDM-Publication` header; lists, XREF pages and batch resolve also in `publication` (`null` when
+  live).
+- **Cursors** keep their publication: a cursor from a page read with `latest` continues in that
+  publication even after a newer one is published, so an extract pages every record once. A live
+  cursor sent with `publication`, or a pinned one sent without it or with another publication, is
+  `400 INVALID_CURSOR`.
+- **The publications list** is the workspace's publications, newest first, paged as the lists are
+  (no `seek`: `400 PARAMETER_NOT_SUPPORTED`). Each item has `id`, `publishedAt`, `eventSequence` and
+  `status` (`active` or `withdrawn`). `eventSequence` is the feed position of the publication's
+  `published` entry: live data at that position equals the publication, so a consumer extracts it
+  and then follows changes from there (consumer events, C10). It is `null` for publications made
+  before 0.9.0-alpha.1's feed positions.
+
+```jsonc
+// GET …/publications?workspace=default
+{ "items": [ { "id": "4b1e…", "publishedAt": "2026-10-05T12:00:00+00:00", "eventSequence": 1842, "status": "active" },
+             { "id": "90aa…", "publishedAt": "2026-10-01T08:30:00+00:00", "eventSequence": 1530, "status": "withdrawn" } ],
+  "workspace": "default", "pageSize": 20, "nextCursor": null, "prevCursor": null, "anchor": "…",
+  "totalCount": null, "startIndex": null }
+```
+
+**ETag.** Every `GET` that answers `200` carries an `ETag`; sent back as `If-None-Match`, it answers
+`304 Not Modified` with no body (and the `ETag` and `RDM-` headers) while nothing it depends on has
+changed. The tag is opaque. A live read's tag changes with any live write, publish or withdrawal in
+the workspace (also one this API does not show), with a model release activation, and with the
+contract version; a pinned read's tag never changes. Batch resolve, a `POST`, carries none. Several
+tags, weak tags (`W/`) and `*` are compared as RFC 9110 compares them for `GET`.
+
+| Status | Code | When |
+| --- | --- | --- |
+| 404 | `PUBLICATION_NOT_FOUND` | No publication with this ID in the read's workspace, or `latest` with no current publication; `details.publication` |
+| 409 | `PUBLICATION_CONTRACT_MISMATCH` | The publication's model release declares another contract version of this API, or none; `details.publication`, `details.contractVersion` |
 
 ## Planned integration endpoints
 

@@ -69,7 +69,10 @@ class ObjectQuery:
 
     ``seek`` turns a ``seek`` value into the predicate for rows at or after it in list order, over
     ``keys`` or the keys it is given. ``overlay`` names a change set list's parts, through which
-    position reads resolve. ``parts`` read a live attribute sort in value order (0.9 C3a).
+    position reads resolve. ``parts`` read an attribute sort in value order (0.9 C3a; publications
+    since C6a). ``record`` holds the listed record's ``id``, ``name``, ``object_type_key`` and
+    ``parent_object_id``, which a condition added to the statement addresses: ``RdmObject`` for a live
+    list, the projection's columns for a change set or publication list.
     """
 
     statement: Select[Any]
@@ -78,12 +81,13 @@ class ObjectQuery:
     seek: Callable[..., Any]
     overlay: Overlay | None = None
     parts: tuple[Keyed, ...] | None = None
+    record: Any = RdmObject
 
     def then_by_name(self) -> ObjectQuery:
         """The same query with the name ordering ties before the unique tiebreak."""
 
         def widened(keys: tuple[SortKey, ...]) -> tuple[SortKey, ...]:
-            return (*keys[:-1], text_key("name", RdmObject.name, "name"), keys[-1])
+            return (*keys[:-1], text_key("name", self.record.name, "name"), keys[-1])
 
         return replace(
             self,
@@ -327,7 +331,14 @@ def build_object_query(
         search_ids=search_ids,
     )
     return ObjectQuery(
-        parts=_value_order_parts(model, statement, keys, sort),
+        parts=value_order_parts(
+            model,
+            statement,
+            keys,
+            sort,
+            AttributeValue,
+            lambda values: (values.object_id == RdmObject.id,),
+        ),
         statement=statement,
         keys=keys,
         filters={
@@ -344,24 +355,30 @@ def build_object_query(
     )
 
 
-def _value_order_parts(
-    model: EngineModel, statement: Select[Any], keys: tuple[SortKey, ...], sort: str | None
+def value_order_parts(
+    model: EngineModel,
+    statement: Select[Any],
+    keys: tuple[SortKey, ...],
+    sort: str | None,
+    values: Any,
+    value_match: Callable[[Any], tuple[Any, ...]],
 ) -> tuple[Keyed, ...] | None:
-    """A live attribute sort read in two parts (0.9 C3a, D46): the records with a value, joined to it
+    """An attribute sort read in two parts (0.9 C3a, D46): the records with a value, joined to it
     and ordered through the (attribute, value) index, then the records without one. Each part holds
     its null rank constant, so a position in the other part costs it nothing. ``None`` for any other
-    sort."""
+    sort. ``values`` is the typed value table, ``value_match`` relates an alias of it to the listed
+    record: live values, or a publication's (C6a, C-D67)."""
     field_name = (sort or DEFAULT_SORT).removeprefix("-")
     if len(keys) != 3 or keys[0].name != f"{field_name}:null":
         return None
     null_rank, value_key, tiebreak = keys
     column_name = VALUE_COLUMNS[model.attribute_type(field_name).valueType]
-    held, absent = aliased(AttributeValue), aliased(AttributeValue)
+    held, absent = aliased(values), aliased(values)
     held_value = getattr(held, column_name)
     with_value = statement.join(
         held,
         and_(
-            held.object_id == RdmObject.id,
+            *value_match(held),
             held.attribute_type_key == field_name,
             held_value.is_not(None),
         ),
@@ -369,7 +386,7 @@ def _value_order_parts(
     without_value = statement.where(
         ~exists(
             select(absent.sequence_id).where(
-                absent.object_id == RdmObject.id,
+                *value_match(absent),
                 absent.attribute_type_key == field_name,
                 getattr(absent, column_name).is_not(None),
             )

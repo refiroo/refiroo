@@ -185,7 +185,10 @@ on get by ID, lists, XREF and batch resolve with `target`, `TARGET_NOT_FOUND`, `
 `MULTIPLE_TARGETS`; `targetable` is part of the contract (C-D54–C-D58,
 [record](BASE_0_9_IMPLEMENTATION_PLAN.md#c15-delivery-record)). **CN1 is delivered (2026-10-05):** the
 consumer API's name is `consumerApi` in routes and planned contracts, not `apiKey`; no response
-changes (U-D1, C-D59, [record](BASE_0_9_IMPLEMENTATION_PLAN.md#cn1-delivery-record)). Next: C6, in the order of the
+changes (U-D1, C-D59, [record](BASE_0_9_IMPLEMENTATION_PLAN.md#cn1-delivery-record)). **C6a is delivered
+(2026-10-05):** consumer reads pinned to a publication (`publication=<id>` or `latest`), the
+publications list with `eventSequence`, `RDM-Publication`, ETag and `304`; publication read indexes
+(`20261005_03`); C-D60–C-D68 ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#c6a-delivery-record)). Next: C6b, in the order of the
 [delivery queue](BASE_0_9_IMPLEMENTATION_PLAN.md#delivery-queue).
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
