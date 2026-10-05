@@ -82,7 +82,8 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/docs` a
 
 ### Consumer API
 
-Under `/api/consumer`, outside the management OpenAPI document (C6b generates one per definition).
+Under `/api/consumer`, outside the management OpenAPI document: each definition serves its own
+(`openapi.json`), and the API index lists them.
 Every response names the workspace it read in the `RDM-Workspace` header, and a read pinned with
 `publication` the publication in `RDM-Publication`. Every `GET` answers an `ETag` and `304` to a
 matching `If-None-Match` (J28.14).
@@ -94,6 +95,8 @@ matching `If-None-Match` (J28.14).
 | `GET /{consumerApi}/v{contractVersion}/xref` (`query`, `expect`, `workspace`, `publication`, the definition's parameters, `to.{parameter}`, `pageSize`, `cursor`, `position`, `from`) | J29, J29.1–J29.7, J29.11, J29.12, J29.14, J29.15 |
 | `POST /{consumerApi}/v{contractVersion}/resolve` (`workspace`, `publication`; the body's `defaults` and `items`, each with `ref`, `query` or `id`, the definition's parameters and `to.{parameter}`) | J28.13, J28.14, J29.8–J29.10, J29.13, J29.14, J29.15 |
 | `GET /{consumerApi}/v{contractVersion}/publications` (`workspace`, `pageSize`, `cursor`, `position`, `from`, `includeTotal`) | J28.14 |
+| `GET /` (the API index: `pageSize`, `cursor`, `position`, `from`, `includeTotal`) | J20.3 |
+| `GET /{consumerApi}/v{contractVersion}/openapi.json` | J20.3, J20.4 |
 
 ## Error codes
 

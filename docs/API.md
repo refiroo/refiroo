@@ -2013,13 +2013,13 @@ the reader misses nothing. An export as a second baseline follows with export jo
 
 A retired workspace's feed stays readable. The feed is ungated like other reads until 0.12 (D10).
 
-## Consumer API (Base 0.9 C2–C5, C6a, C14, C15)
+## Consumer API (Base 0.9 C2–C6, C14, C15)
 
 A separate, read-only tier at `/api/consumer`, whose contract each consumer API definition in the
 active model release declares ([CONSUMER_API.md](CONSUMER_API.md)). Its routes are not in the
-management OpenAPI document; C6b generates one document per definition. Every read takes live data
-by default, or one publication with `publication` ([below](#publications-and-caching)); `asOf`
-follows in C16.
+management OpenAPI document: each definition serves its own, and the API index lists them
+([below](#api-index-and-documents)). Every read takes live data by default, or one publication with
+`publication` ([below](#publications-and-caching)); `asOf` follows in C16.
 
 ### Get by ID
 
@@ -2368,6 +2368,47 @@ tags, weak tags (`W/`) and `*` are compared as RFC 9110 compares them for `GET`.
 | --- | --- | --- |
 | 404 | `PUBLICATION_NOT_FOUND` | No publication with this ID in the read's workspace, or `latest` with no current publication; `details.publication` |
 | 409 | `PUBLICATION_CONTRACT_MISMATCH` | The publication's model release declares another contract version of this API, or none; `details.publication`, `details.contractVersion` |
+
+### API index and documents
+
+```text
+GET /api/consumer?pageSize=…&cursor=…|position=…|from=end&includeTotal=true
+GET /api/consumer/{consumerApi}/v{contractVersion}/openapi.json
+```
+
+The **API index** lists the active release's consumer APIs, ordered by `consumerApi` and paged as
+the lists are (no `seek`). Definitions are not per workspace, so it takes no `workspace`.
+
+```jsonc
+{ "items": [ { "consumerApi": "rdm", "name": "Reference data", "contractVersion": 2,
+               "openapi": "/api/consumer/rdm/v2/openapi.json" } ],   // "description" when declared
+  "pageSize": 20, "nextCursor": null, "prevCursor": null, "anchor": "…", "totalCount": null, "startIndex": null }
+```
+
+Each API's **document** is OpenAPI 3.1 and describes that API at its contract version as it answers:
+
+- **Paths are written out** with the name and version, one per list: `/api/consumer/rdm/v2/xref`,
+  `/api/consumer/rdm/v2/lists/products`. Neither is a path parameter. `servers` follows the
+  deployment's root path, and the index's `openapi` URL does too.
+- **`info`**: `title` is the definition's `name`, `version` the contract version as a string
+  (`"2"`), and `description` names the model release that declares it.
+- **Operations**: get by ID, each list (with its parent parameter), XREF, batch resolve and the
+  publications list, each with the parameters it applies (definition parameters as arrays,
+  `style: form`; each targetable parameter's `to.` name), the `ETag`, `RDM-Workspace` and
+  `RDM-Publication` headers, `304`, and its refusal codes.
+- **Schemas** come from the contract the breaking-change check compares: the shared object with every
+  declared field typed (decimals as strings, dates and date-times formatted, `null` where a field can
+  have no value), each projection as an array or a nullable object by its cardinality, `matchScore`
+  on XREF results, `target`, and the envelopes. Answers carry no undeclared field.
+- **Limits** are stated where they apply: contains from 3 characters, 10,000 matches and 100 terms on
+  XREF, `pageSize` 1–100, and the batch resolve maximum (`CONSUMER_RESOLVE_MAX_ITEMS`).
+- One contract version is served per definition (C-D3): after a release raising it, the document is
+  at the new version's URL and the old one answers `404 CONTRACT_VERSION_NOT_FOUND` naming the
+  current version.
+
+Both answer an `ETag` that changes with the active model release, and `304` to a matching
+`If-None-Match`. A query parameter is refused as on the reads (`400 UNKNOWN_PARAMETER`, or
+`PARAMETER_NOT_SUPPORTED` for a name a read serves).
 
 ## Planned integration endpoints
 

@@ -108,7 +108,8 @@ becomes a select at the top of the page.
 ## Versions in the documentation
 
 Amends C6 and V2 (0.9). C6's per-definition OpenAPI document
-(`/api/consumer/{namespace}/v{contractVersion}/openapi.json`):
+(`/api/consumer/{namespace}/v{contractVersion}/openapi.json`; **delivered in C6b, 2026-10-05**, with
+the API index `GET /api/consumer`; V2's sources follow):
 
 - `paths` are written literally: `/api/consumer/rdm/v2/xref`, `/api/consumer/rdm/v2/lists/products`.
   Neither the namespace nor the version is a path parameter. Lists are separate paths, not

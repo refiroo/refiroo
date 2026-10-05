@@ -6,8 +6,8 @@ live data, or with ``publication`` one of its publications (C6a), through
 ``engine/reads/consumer_objects``, ``consumer_lists``, ``consumer_xref`` and ``consumer_resolve``.
 Every response names the workspace it read in the ``RDM-Workspace`` header (C-D23), and a pinned
 read's the publication in ``RDM-Publication`` (C-D63). A ``GET`` answers an ``ETag`` and honours
-``If-None-Match`` (C-D65). The routes stay out of the management OpenAPI document; C6b generates one
-document per definition.
+``If-None-Match`` (C-D65). The routes stay out of the management OpenAPI document: each definition
+serves its own at ``…/openapi.json``, and ``GET /api/consumer`` lists them (C6b, C-D69).
 """
 
 import json
@@ -21,8 +21,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..common.cursors import signed_scope
-from ..common.pagination import PageRequest
+from ..common.pagination import PageRequest, paginate_sequence
 from ..db import SessionLocal
+from ..engine.model.consumer_openapi import consumer_openapi
 from ..engine.model.registry import ModelSnapshot, resolve_model_snapshot, resolve_pinned_release
 from ..engine.reads.consumer_lists import consumer_list, read_consumer_list
 from ..engine.reads.consumer_objects import consumer_definition, read_consumer_object
@@ -333,6 +334,104 @@ def get_publications(
     return _answer(
         request, response, workspace, live, lambda _read: read_publications(session, workspace.key, page, page_size)
     )
+
+
+@router.get("", response_model=None)
+@reads_own_parameters
+def get_index(request: Request, response: Response, session: DbSession) -> dict[str, Any] | Response:
+    """The API index: every consumer API of the active release, by ``consumerApi``, with its name,
+    contract version and the URL of its OpenAPI document (C-D69). Definitions are not per workspace."""
+    active = resolve_model_snapshot(session)
+    parameters = _plain(request, _PUBLICATIONS - {"workspace"})
+    page_size, page = _page(parameters)
+    root_path = _root_path(request)
+    entries = [
+        {
+            "consumerApi": item.key,
+            "name": item.name,
+            **({"description": item.description} if item.description else {}),
+            "contractVersion": item.contractVersion,
+            "openapi": f"{root_path}{PREFIX}/{item.key}/v{item.contractVersion}/openapi.json",
+        }
+        for item in active.model.consumerApis or ()
+    ]
+
+    def read() -> dict[str, Any]:
+        found = paginate_sequence(
+            entries, lambda entry: (entry["consumerApi"],), scope="consumer-index", page=page, page_size=page_size
+        )
+        return {"items": found.items, "pageSize": page_size, **found.links()}
+
+    return _document(request, response, entity_tag(("index", active.release_id, root_path), "index"), read)
+
+
+@router.get("/{consumer_api}/v{contract_version}/openapi.json", response_model=None)
+@reads_own_parameters
+def get_openapi(
+    consumer_api: str, contract_version: str, request: Request, response: Response, session: DbSession
+) -> dict[str, Any] | Response:
+    """The definition's own OpenAPI document at its contract version (C6b): its paths written out with
+    the name and version, ``info.version`` the contract version; another version answers
+    ``404 CONTRACT_VERSION_NOT_FOUND`` naming the one served."""
+    active = resolve_model_snapshot(session)
+    definition = consumer_definition(active.model, consumer_api, contract_version)
+    _plain(request, frozenset())
+    root_path = _root_path(request)
+    return _document(
+        request,
+        response,
+        entity_tag(("openapi", active.release_id, root_path), definition.contractVersion),
+        lambda: consumer_openapi(
+            active.model,
+            definition,
+            root_path=root_path,
+            resolve_max_items=request.app.state.consumer_resolve_max_items,
+        ),
+    )
+
+
+def _root_path(request: Request) -> str:
+    """The deployment's root path behind a proxy, as the reference page follows it (V1)."""
+    return str(request.scope.get("root_path", "")).rstrip("/")
+
+
+def _plain(request: Request, serves: frozenset[str]) -> _Parameters:
+    """The query parameters of a route that reads no definition parameters: a name it does not serve
+    is ``UNKNOWN_PARAMETER``, or ``PARAMETER_NOT_SUPPORTED`` for one a consumer read serves."""
+    raw = {name: request.query_params.getlist(name) for name in sorted(set(request.query_params))}
+    unknown = [name for name in raw if name not in serves and name not in _ROUTE_NAMES]
+    if unknown:
+        raise api_error(
+            400,
+            "UNKNOWN_PARAMETER",
+            f"Unknown query parameter '{unknown[0]}'",
+            {"parameters": unknown, "path": f"/query/{unknown[0]}"},
+        )
+    unsupported = [name for name in raw if name not in serves]
+    if unsupported:
+        raise api_error(
+            400,
+            "PARAMETER_NOT_SUPPORTED",
+            f"Parameter '{unsupported[0]}' is not supported on this read",
+            {"parameters": unsupported, "path": f"/query/{unsupported[0]}"},
+        )
+    return _Parameters(raw=raw, listed={}, definition={}, parents=[])
+
+
+def _document(
+    request: Request, response: Response, tag: str, read: Callable[[], dict[str, Any]]
+) -> dict[str, Any] | Response:
+    """A read that depends on the active release only: its answer with ``tag``, or ``304``."""
+    try:
+        body = read()
+    except ApiError as exc:
+        if exc.status == 422 and exc.code in _PAGING_CODES:
+            exc.status = 400
+        raise
+    if none_match(request.headers.get("if-none-match"), tag):
+        return Response(status_code=304, headers={"ETag": tag})
+    response.headers["ETag"] = tag
+    return body
 
 
 def _resolve_items(raw: bytes, definition: ConsumerApiDefinition, max_items: int) -> list[ResolveItem]:

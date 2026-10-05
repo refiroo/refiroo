@@ -32,7 +32,7 @@ backend coverage is not mistaken for a complete user experience. Reviewed 2026-1
 | F20 | Query and look up across the data | Not applicable | Available | 0.9 Q1–Q3 |
 | F21 | Read by business date (`asOf`) | Fields only | Available | 0.9 Q4 |
 | F22 | Load data in bulk as jobs | Unavailable | Available | 0.9 B1–B2; import screen 0.9 J4 |
-| F23 | Declare consumer APIs and read through them | JSON model editing | Definitions; reading one business object; reading lists; looking up by code; reading a publication | 0.9 C1–C6a |
+| F23 | Declare consumer APIs and read through them | JSON model editing | Definitions; reading one business object; reading lists; looking up by code; reading a publication; an index and a typed document per API | 0.9 C1–C6 |
 | F24 | Read the API reference | Available at `/docs` | Not applicable | 0.9 V1 |
 | F25 | Follow changes in order | Not applicable | Available | 0.9 F1; retention and recovery 0.9 F2 |
 
@@ -483,8 +483,14 @@ Limits: matching on part of a value needs at least 3 characters; a shorter term 
 only. A lookup whose terms match more than 10,000 records is refused, asking for a more specific
 term, whatever parameters narrow it; a lookup for exactly one result that its whole-value matches
 already settle is answered without that count. A lookup holds at most 100 terms, and a batch at most
-1,000 items (a setting). A read names one target. A typed contract document per API, business dates
-and events are being delivered in 0.9.
+1,000 items (a setting). A read names one target. Business dates and events are being delivered in
+0.9.
+
+An integrator finds the consumer APIs in an index, each with its name, contract version and the
+address of its own OpenAPI document. That document is the API's typed contract at its version: every
+path written out with the API's name and version, every field with its type, the parameters each read
+takes, its limits and its refusals. A client generated from it reads the API's real answers. When a
+release raises the contract version, the index and the document move to the new version.
 
 Evidence: [consumer API design](../CONSUMER_API.md),
 [contract check](../../backend/app/engine/model/consumer_contract.py).

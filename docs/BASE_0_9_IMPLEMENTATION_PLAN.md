@@ -16,8 +16,8 @@ read, D31), [B3](#b3-relation-and-relation-set-items) (2026-10-03, D35–D39),
 [T1a](#t1a-copies-inside-the-database) (2026-10-04), [T1b](#t1b-one-error-code-pattern) (2026-10-04),
 [C2](#c2-consumer-object-and-projections) (2026-10-04, C-D21–C-D26), C3–C5 and
 [C14](#c14-batch-resolve) (2026-10-05, C-D47–C-D53), [C15](#c15-crosswalk) (2026-10-05, C-D54–C-D58),
-[CN1](#cn1-the-consumer-apis-name-in-public-contracts) (2026-10-05, C-D59), [C6a](#c6a-publications) (2026-10-05, C-D60–C-D68).
-**Next:** [C6b](#c6b-the-contract-documents), in the order of the [delivery queue](#delivery-queue).
+[CN1](#cn1-the-consumer-apis-name-in-public-contracts) (2026-10-05, C-D59), [C6a](#c6a-publications) (2026-10-05, C-D60–C-D68), [C6b](#c6b-the-contract-documents) (2026-10-05, C-D69–C-D70).
+**Next:** [V2](#v2-consumer-sources), in the order of the [delivery queue](#delivery-queue).
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
 Effective dates and consumer API definitions extend the model, so the starter becomes content release
@@ -227,7 +227,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 18 | [C15](#c15-crosswalk) | C5, C14 | Crosswalk: `to.{parameter}` on every read, `target`, `TARGET_NOT_FOUND`, `AMBIGUOUS_TARGET` (C-D54–C-D58) — **delivered 2026-10-05** ([record](#c15-delivery-record)) |
 | 18a | [CN1](#cn1-the-consumer-apis-name-in-public-contracts) | C15 | Amendment: the consumer API namespace is `consumerApi` in public contracts, not `apiKey` (U-D1) — **delivered 2026-10-05** ([record](#cn1-delivery-record)) |
 | 19 | [C6a](#c6a-publications) | C3, C4, F1, CN1 | `publication` reads with `latest`, the publications list with `eventSequence`, ETag, publication indexes and D47's sort (C-D60–C-D68) — **delivered 2026-10-05** ([record](#c6a-delivery-record)) |
-| 19a | [C6b](#c6b-the-contract-documents) | C6a | OpenAPI per definition, the API index (C-D69, C-D70) |
+| 19a | [C6b](#c6b-the-contract-documents) | C6a | OpenAPI per definition, the API index (C-D69, C-D70) — **delivered 2026-10-05** ([record](#c6b-delivery-record)) |
 | 20 | [V2](#v2-consumer-sources) | V1, C6b | Consumer contracts as reference sources |
 | 20a | [U4](SETTINGS_AND_UI_PLAN.md#packages-track-u) | U3, C6b, V2 | Settings › Integration: Consumer APIs, Jobs and feed, API reference; a starter consumer API (U-D5) |
 | 21 | C8 | C3–C6, C14, C15 | Parity acceptance; the consumer read line's checkpoint |
@@ -3736,6 +3736,8 @@ suites (R).
 
 ##### C6b: The contract documents
 
+**Delivered 2026-10-05** ([record](#c6b-delivery-record)).
+
 **Behaviour.** An integrator discovers the consumer APIs and gets a typed contract for each:
 
 ```text
@@ -3809,6 +3811,32 @@ USER_JOURNEYS and API_JOURNEYS (J20.3, J20.4); CURRENT_FUNCTIONALITY; OPEN_SOURC
 dependency were added (none is).
 
 **Composable domains (ADR-032):** documentation of an existing contract. No door is affected.
+
+##### C6b delivery record
+
+**Delivered 2026-10-05**, with C-D69 and C-D70 and the approved cases.
+
+- **Builder** (`engine/model/consumer_openapi.py`, engine tier): `consumer_openapi(model, definition,
+  root_path, resolve_max_items)` writes the OpenAPI 3.1 document from `output_contract`: the
+  `Object` and `ScoredObject` schemas with every declared field typed (nullable unless it is the
+  `id` role, the `name` role, `path`, `hierarchy` or has a `default`), a `Projection_<name>` schema
+  per projection, `target` where a parameter is targetable, the list, XREF, publications and resolve
+  envelopes, and one error schema; the five operations with their parameters, headers, `304` and
+  codes; the limits in the descriptions and bounds. Every object schema refuses undeclared fields.
+- **Routes** (`app/consumer/router.py`): `GET /api/consumer` (the index, `paginate_sequence` by
+  `consumerApi`) and `GET /api/consumer/{consumerApi}/v{contractVersion}/openapi.json`, both tagged
+  by the active release and the root path; their query names are checked as on the reads.
+- **Dev dependency** `openapi-spec-validator` (with `jsonschema`), C-D70; the README's tools table
+  names it. No runtime dependency, so OPEN_SOURCE is unchanged.
+- **Differs from the plan:** none. Checked once by hand that the response validation is strict:
+  a corrupted answer (a text where an integer is declared, an undeclared field, a missing field, a
+  text `matchScore`) is rejected; that check was not kept.
+
+**Checks:** J20.3 and J20.4 failed first (no route), then pass on generated A and B; J20: 10 passed.
+Groups `consumer` and `contract` in parallel: 239 passed in 36 s (their serial part selects none),
+the management OpenAPI lock unchanged. `ruff check app/ tests/` clean. Not run: `volume` (the
+documents read only the model), `startup` (no migration), the frontend (unchanged), the full suites
+(R).
 
 ## Track V — API reference
 

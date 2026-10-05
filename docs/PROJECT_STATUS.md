@@ -188,7 +188,10 @@ consumer API's name is `consumerApi` in routes and planned contracts, not `apiKe
 changes (U-D1, C-D59, [record](BASE_0_9_IMPLEMENTATION_PLAN.md#cn1-delivery-record)). **C6a is delivered
 (2026-10-05):** consumer reads pinned to a publication (`publication=<id>` or `latest`), the
 publications list with `eventSequence`, `RDM-Publication`, ETag and `304`; publication read indexes
-(`20261005_03`); C-D60–C-D68 ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#c6a-delivery-record)). Next: C6b, in the order of the
+(`20261005_03`); C-D60–C-D68 ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#c6a-delivery-record)). **C6b is
+delivered (2026-10-05):** the API index `GET /api/consumer` and each consumer API's own OpenAPI 3.1
+document, paths written out with its name and version (C-D69, C-D70,
+[record](BASE_0_9_IMPLEMENTATION_PLAN.md#c6b-delivery-record)). Next: V2, in the order of the
 [delivery queue](BASE_0_9_IMPLEMENTATION_PLAN.md#delivery-queue).
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).

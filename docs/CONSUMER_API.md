@@ -414,7 +414,7 @@ GET /api/consumer
   (a paging name on get by ID, a list's parent parameter on get by ID or another list) is refused with
   `400 PARAMETER_NOT_SUPPORTED` (C3).
 - **Generated OpenAPI:** each definition generates its own OpenAPI document, so integrators get a
-  typed contract per API.
+  typed contract per API. _Delivered in C6b (2026-10-05)_, at `…/openapi.json` (see "API index").
 - **Consistency:** reads use live data by default. `publication={publicationId}` reads a
   publication, so a flow or extract can pin one consistent snapshot; `publication=latest` reads the
   workspace's newest publication, and the response names the publication it resolved to. Responses
@@ -518,7 +518,11 @@ _Delivered in C6a (2026-10-05):_ each item also has `status` (`active`, the one 
 
 `GET /api/consumer` lists the installed definitions, paged: `consumerApi`, `name`, `contractVersion` and the
 URL of each OpenAPI document. Clients discover the APIs from it, and the API reference page (Base 0.9
-Track D) builds its list of sources from it.
+Track D) builds its list of sources from it. _Delivered in C6b (2026-10-05):_ ordered by
+`consumerApi`, `description` when declared, paged without `seek`, not per workspace (C-D69); each
+document is OpenAPI 3.1 with its paths written out with the name and version, `info.version` the
+contract version (SETTINGS_AND_UI_PLAN "Versions in the documentation"), its schemas from
+`output_contract`, checked against real answers (C-D70).
 
 The existing gateway can stay in front and map the reference routes (`/xref`,
 `/stations/{stationId}/locations`, …) onto these endpoints, so current consumers move without changes
@@ -719,7 +723,7 @@ coordination is 0.11 work.
 | C3 | Lists with and without a parent (by object ID, anywhere below it), `sortBy`, ADR-030 paging; every parameter kind (`objectType`, `ancestor`, `related` including a shared projection, `projection`) on lists and get by ID (C-D27–C-D33) — **delivered 2026-10-04** |
 | C4 | XREF scoring at read time (C-D34): own-field and promoted scores, multi-term queries, deterministic order, paging, `expect=one` (C-D34–C-D41) — **delivered 2026-10-05** |
 | C5 | XREF's use of C3's parameter kinds, with `scoresFrom` (C-D33, C-D42–C-D46) — **delivered 2026-10-05** |
-| C6 | ETag / `If-None-Match`, `publication` reads including `latest`, the publications list with `eventSequence`, per-definition OpenAPI, the API index. Split in two (C-D71): **C6a** (publications, ETag; C-D60–C-D68) **delivered 2026-10-05**; C6b (OpenAPI per definition, API index; C-D69, C-D70) next |
+| C6 | ETag / `If-None-Match`, `publication` reads including `latest`, the publications list with `eventSequence`, per-definition OpenAPI, the API index. Split in two (C-D71): **C6a** (publications, ETag; C-D60–C-D68) and **C6b** (OpenAPI per definition, API index; C-D69, C-D70) **delivered 2026-10-05** |
 | C7 | _Moved to 0.12 (C-D1):_ OAuth 2.0 client access per definition, webhook signing keys, UI administration of both |
 | C8 | Parity acceptance: a test-only fixture model extending the starter with locations, availability and a single-valued self relation (fixture content, not product scope), a fixture dataset, and a definition that reproduces the reference response for the scenarios below; volume budgets |
 | C9 | Event definitions: `events` schema and validation, contract rules for events |

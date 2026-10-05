@@ -8,6 +8,13 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 C6b: the consumer API index `GET /api/consumer` (each API's `consumerApi`, `name`,
+  `contractVersion` and `openapi` URL, paged, C-D69) and each API's own OpenAPI 3.1 document at
+  `/api/consumer/{consumerApi}/v{contractVersion}/openapi.json`: paths written out with the name and
+  version, `info.version` the contract version, schemas from the contract, the limits stated. Both
+  answer an `ETag`. Dev dependency `openapi-spec-validator` checks the document and real answers
+  against it (C-D70).
+
 - Base 0.9 C6a: consumer API reads pinned to a publication. `publication={id}` or `latest` (the
   workspace's active publication) on get by ID, lists, XREF and batch resolve's URL reads the
   publication's records, values and relationships, with the definition of the release it was

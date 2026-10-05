@@ -1,9 +1,21 @@
 """J20 — Discover the model and the API (USER_JOURNEYS.md)."""
 
+import copy
 import re
 
 import pytest
-from scenario import W1, ok, refused
+from openapi_schema_validator import OAS31Validator
+from openapi_spec_validator import validate as validate_openapi
+from scenario import (
+    W1,
+    consumer_list,
+    consumer_object,
+    consumer_publications,
+    consumer_resolve,
+    consumer_xref,
+    ok,
+    refused,
+)
 
 UUID4 = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
 
@@ -163,3 +175,144 @@ def test_read_the_releases(world):
     assert "model" not in ok(world.api.get(f"/model-releases/{candidate}"))
     assert ok(world.api.get(f"/model-releases/{candidate}", includeModel=True))["model"]
     assert state["version"] >= 1 and UUID4.match(state["activeReleaseId"])
+
+
+# --- the consumer APIs' documents (C6b) ----------------------------------------------------------
+
+CAPI = (
+    "Capi", "R", "R2", "R.u", "R2.u", "R.b", "R.n", "R.dt", "K", "K.code", "B11", "Bown", "Bscope",
+    "G", "M", "D", "B1n",
+)
+
+
+def _index(world, **params):
+    return world.api.get("/api/consumer", **params)
+
+
+def _activate(world, model, suffix):
+    model["release"]["version"] += f"-{suffix}"
+    ok(world.activate(world.install(model)["id"]))
+
+
+def _every_entry(world):
+    entries, cursor = [], None
+    while True:
+        page = ok(_index(world, pageSize=1, cursor=cursor))
+        entries += page["items"]
+        cursor = page["nextCursor"]
+        if not cursor:
+            return entries
+
+
+@pytest.mark.journey("J20.3")
+@pytest.mark.structures(*CAPI)
+def test_the_consumer_api_index(world):
+    """The index lists the configuration's definition with its consumerApi, name, contractVersion and
+    an openapi URL that answers 200. A release adding a second definition lists both, in key order,
+    paging with pageSize=1; a release removing it lists one again. A page size of 0 is 400
+    INVALID_PAGE_SIZE. A matching If-None-Match is 304."""
+    capi = world.key("Capi")
+    response = _index(world)
+    (entry,) = ok(response)["items"]
+    assert entry == {
+        "consumerApi": capi,
+        "name": "Capi",
+        "contractVersion": 1,
+        "openapi": f"/api/consumer/{capi}/v1/openapi.json",
+    }
+    assert ok(world.api.get(entry["openapi"]))["info"]["version"] == "1"
+    unchanged = world.api.client.get("/api/consumer", headers={"If-None-Match": response.headers["ETag"]})
+    assert unchanged.status_code == 304
+
+    _activate(world, world.with_consumer_api(copy.deepcopy(world.configuration.model)), "second")
+    entries = _every_entry(world)
+    assert [item["consumerApi"] for item in entries] == sorted([capi, "journey-api"])
+    second = next(item for item in entries if item["consumerApi"] == "journey-api")
+    assert second["name"] == "Journey API"
+    assert ok(world.api.get(second["openapi"]))["info"]["title"] == "Journey API"
+    assert ok(_index(world, includeTotal="true"))["totalCount"] == 2
+
+    _activate(world, copy.deepcopy(world.configuration.model), "without")
+    assert [item["consumerApi"] for item in _every_entry(world)] == [capi]
+    refused(_index(world, pageSize=0), 400, "INVALID_PAGE_SIZE")
+
+
+def _conforms(document, path, method, answer):
+    """``answer`` validates against the document's ``200`` schema of the operation."""
+    schema = document["paths"][path][method]["responses"]["200"]["content"]["application/json"]["schema"]
+    OAS31Validator({**schema, "components": document["components"]}).validate(answer)
+
+
+@pytest.mark.journey("J20.4")
+@pytest.mark.structures(*CAPI)
+def test_a_consumer_apis_document(world):
+    """info.version is the contract version and info.title the name. Every path is literal, one per
+    list, none holding {consumerApi} or {contractVersion}, and the document is valid OpenAPI 3.1. A
+    real answer of get by ID, a list page, XREF (any, and one with to.), batch resolve and the
+    publications list each validates against its documented 200 schema. A definition parameter
+    appears on the routes that apply it, with style form; the targetable one's to. name appears; the
+    contains and 10,000-match limits appear in XREF's description. After a release raising the
+    version to 2, v2's document has info.version "2" and v2 in every path, and v1's is 404
+    CONTRACT_VERSION_NOT_FOUND."""
+    capi = world.key("Capi")
+    base = f"/api/consumer/{capi}/v1"
+    document = ok(world.api.get(f"{base}/openapi.json"))
+    validate_openapi(document)
+    assert document["openapi"].startswith("3.1")
+    assert (document["info"]["title"], document["info"]["version"]) == ("Capi", "1")
+    lists = [world.key(f"Capi.{name}") for name in ("all", "entries", "permits")]
+    assert set(document["paths"]) == {
+        f"{base}/xref",
+        f"{base}/objects/{{id}}",
+        f"{base}/resolve",
+        f"{base}/publications",
+        *(f"{base}/lists/{key}" for key in lists),
+    }
+    assert not any("{consumerApi}" in path or "{contractVersion}" in path for path in document["paths"])
+
+    xref = document["paths"][f"{base}/xref"]["get"]
+    parameters = {item["name"]: item for item in xref["parameters"]}
+    token, watch = world.key("Capi.token"), world.key("Capi.watch")
+    assert parameters[token]["style"] == "form"
+    assert f"to.{watch}" in parameters
+    assert {"query", "expect", "workspace", "publication"} <= set(parameters)
+    assert "3 characters" in xref["description"] and "10,000" in xref["description"]
+    entries = document["paths"][f"{base}/lists/{lists[1]}"]["get"]
+    assert world.key("Capi.entries.parent") in {item["name"] for item in entries["parameters"]}
+    by_id = document["paths"][f"{base}/objects/{{id}}"]["get"]
+    assert token in {item["name"] for item in by_id["parameters"]}
+    assert "pageSize" not in {item["name"] for item in by_id["parameters"]}
+
+    north = world.made("G", "Region north", values={"K.code": "GN"})
+    ledger = world.made("R", "Documented ledger", values={"R.u": "DOC-1", "R.n": 7, "R.dt": "2026-01-02"})
+    other = world.made("R", "Desk owner", values={"R.u": "OWN-1"})
+    desk = world.made(
+        "D", "North desk", parent=world.dependant_parent(north["id"]), relations=[world.owner("Bown", other["id"])]
+    )
+    ok(world.relate("Bscope", ledger["id"], desk["id"]), 201)
+    token_record = world.made("K", "Documented token", values={"K.code": "TK-D"})
+    ok(world.relate("B11", ledger["id"], token_record["id"]), 201)
+    world.made("R2", "Documented entry", parent=ledger["id"], values={"R2.u": "DOC-E"})
+    world.publish(world.change_set())
+
+    to = f"to.{watch}"
+    _conforms(document, f"{base}/objects/{{id}}", "get", ok(consumer_object(world, ledger["id"])))
+    _conforms(document, f"{base}/objects/{{id}}", "get", ok(consumer_object(world, ledger["id"], **{to: "Region north"})))
+    _conforms(document, f"{base}/lists/{lists[0]}", "get", ok(consumer_list(world, lists[0], includeTotal="true")))
+    _conforms(document, f"{base}/lists/{lists[1]}", "get", ok(consumer_list(world, lists[1], **{to: "Region north"})))
+    _conforms(document, f"{base}/xref", "get", ok(consumer_xref(world, query="Documented")))
+    _conforms(document, f"{base}/xref", "get", ok(consumer_xref(world, query="DOC-1", expect="one", **{to: "Region north"})))
+    answer = ok(consumer_resolve(world, {"items": [{"query": "DOC-1"}, {"query": "nothing-like-it"}, {"id": "x"}]}))
+    _conforms(document, f"{base}/resolve", "post", answer)
+    _conforms(document, f"{base}/publications", "get", ok(consumer_publications(world)))
+
+    model = copy.deepcopy(world.configuration.model)
+    (definition,) = [item for item in model["consumerApis"] if item["key"] == capi]
+    definition["contractVersion"] = 2
+    _activate(world, model, "v2")
+    raised = ok(world.api.get(f"/api/consumer/{capi}/v2/openapi.json"))
+    validate_openapi(raised)
+    assert raised["info"]["version"] == "2"
+    assert all(path.startswith(f"/api/consumer/{capi}/v2/") for path in raised["paths"])
+    error = refused(world.api.get(f"{base}/openapi.json"), 404, "CONTRACT_VERSION_NOT_FOUND")
+    assert error["details"]["contractVersion"] == 2

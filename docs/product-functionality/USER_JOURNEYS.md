@@ -637,7 +637,8 @@ A list may name a `sortBy` attribute: a scalar attribute its type binds, refused
    each type may stand).
 3. Page the model's applications, attribute types, object types, relation types and allowed type
    pairs, or read one by key.
-4. Read the API reference (`/docs`) and the OpenAPI document.
+4. Read the API reference (`/docs`) and the OpenAPI document; find the consumer APIs in their index
+   and read each one's own OpenAPI document (J20.3, J20.4).
 
 Every identifier is a stable public key or UUID; no internal sequence number is exposed. The model
 read names the release it was read under (`X-Model-Release-Id`).
@@ -646,6 +647,13 @@ read names the release it was read under (`X-Model-Release-Id`).
 
 - **J20.1 In a change set pinned to another release**: the model and metadata follow the pin.
 - **J20.2 Releases**: list and read installed releases and the runtime state.
+- **J20.3 The consumer API index**: `GET /api/consumer` lists the active release's consumer APIs,
+  paged, each with its `consumerApi`, name, contract version and the URL of its OpenAPI document; a
+  release adding or removing a definition shows in it.
+- **J20.4 A consumer API's document**: `GET /api/consumer/{consumerApi}/v{contractVersion}/openapi.json`
+  is the API's typed contract: valid OpenAPI 3.1, its paths written out with the name and version,
+  one per list, its parameters, shapes, limits and refusals; a client generated from it reads the
+  API's real answers. A release raising the version moves the document to the new version's URL.
 
 **Refusals:** `404 CHANGE_SET_NOT_FOUND`, `422 MUTUALLY_EXCLUSIVE_CONTEXT`,
 `503 MODEL_REGISTRY_UNAVAILABLE`, `503 MODEL_RUNTIME_STATE_UNAVAILABLE`.

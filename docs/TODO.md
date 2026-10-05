@@ -37,8 +37,8 @@ resolve, one scoring path with XREF, exact rules first (C-D47–C-D53). **C15 is
 (2026-10-05)**: crosswalk, `to.{parameter}` on every consumer read (C-D54–C-D58). **CN1 is delivered (2026-10-05)**:
 the consumer API's name is `consumerApi` in public contracts (U-D1, C-D59). **C6a is delivered (2026-10-05)**:
 reads pinned to a publication (`publication`, `latest`), the publications list with `eventSequence`
-and ETag (C-D60–C-D68). Next: C6b (the contract documents, C-D69, C-D70), in the order of the
-delivery queue. See
+and ETag (C-D60–C-D68). **C6b is delivered (2026-10-05)**: the API index `GET /api/consumer` and an
+OpenAPI 3.1 document per consumer API (C-D69, C-D70). Next: V2, in the order of the delivery queue. See
 [Next — 0.9](#next--09).
 
 - **Publish and change-set creation move the workspace through Python (found 2026-10-03, F1;
