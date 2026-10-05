@@ -161,7 +161,7 @@ Each page has a worked example on the running example's data:
 
 ### The points that must be stated clearly
 
-TODO's five points, each placed where its reader will meet it:
+TODO's five points and those found since, each placed where its reader will meet it:
 
 | Point | Stated on |
 | --- | --- |
@@ -170,6 +170,7 @@ TODO's five points, each placed where its reader will meet it:
 | Which workspace a consumer read addresses (C-D16, C-D23) | Consumer APIs; tutorial 4's first request names `workspace`; a warning on every consumer how-to |
 | `latest` and publications by ID (C-D61, C-D62) | Consistency for consumers; How-to: extract a consistent snapshot |
 | ETag (C-D65) | Consistency for consumers; How-to: cache with ETag |
+| XREF searches the types its consumer API exposes, not an application or the whole model: one lookup across the model needs one definition exposing every type, and several definitions give several separate lookups (found 2026-10-05 in Scalar, when the operators example's four APIs each resolved only their own IDs). Exposing a type and a representation of it (a system value with the same code) makes a bare `expect=one` on that code ambiguous; `type` or `system` narrows it | Consumer APIs; How XREF scores; How-to: design a consumer API; tutorial 4 |
 
 Points like these keep arising: a decision says "state this clearly". From DOC1 on, such a
 requirement is recorded as a page entry here, not as a TODO note.

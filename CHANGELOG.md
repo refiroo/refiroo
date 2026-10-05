@@ -192,10 +192,11 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
-- Example model `rdm-operators-timetables` 0.5.0 declares four consumer APIs: `master-data` (domains,
-  codelists, values, regions, operators, locations), `timetables` (the timetable catalogue),
-  `systems` (systems, groups, values and their mappings) and `translations`, each with lists, XREF
-  matching, parameters and crosswalk through system codes and languages.
+- Example model `rdm-operators-timetables` 0.6.0 declares one consumer API, `rdm`, over every object
+  type of the model, so one XREF looks up any ID, code or name across master data, operators and
+  locations, the timetable catalogue, systems and translations; `type` narrows it, and `system` and
+  `language` resolve and translate codes (crosswalk). Lists per type. It replaces 0.5.0's four
+  APIs split by audience, whose XREFs each searched only their own types.
 - Base 0.9 CN1: the consumer API's name is written `consumerApi` in public contracts, not
   `apiKey`, which reads as a credential: the route `/api/consumer/{consumerApi}/v{contractVersion}/…`
   and the planned API index, subscriptions, webhook bodies and events (U-D1). No response changes:
