@@ -238,7 +238,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 26 | C12 | C11 | Dispatcher |
 | 26a | [U5](SETTINGS_AND_UI_PLAN.md#packages-track-u) | U4, C12 | Settings › Integration › Webhooks over the subscriptions API (U-D3) |
 | 27 | C13 | C12 | Event acceptance; the events line's checkpoint |
-| 27a | [U2](SETTINGS_AND_UI_PLAN.md#packages-track-u) | U1 | UI foundation: token layers, regions, data-context bar, `ui/` components, the shell |
+| 27a | [U2](SETTINGS_AND_UI_PLAN.md#u2-the-foundation-and-the-shell) | U1 | UI foundation: token layers, regions, data-context band, `PageHeader`, `StatusPill` and `Card`, the shell; planned 2026-10-06, delivered alongside C10 (U-D7–U-D9 decided) |
 | 27b | [U3](SETTINGS_AND_UI_PLAN.md#packages-track-u) | U2 | Settings area: About, Appearance, Deployment (read-only, U-D2), Workspaces and Model moved; `GET /api/v1/system` |
 | — | _cut line (D9)_ | | _If R is out of reach, 0.9.0 releases here with R-a and Track J moves to 0.9.1_ |
 | 28 | [J1](#j1-export) | Q3, Q4, B2, F1 | Export jobs |
@@ -273,7 +273,7 @@ the queue lists one order that respects both.
 **Track U, approved 2026-10-05** (U-D1–U-D5;
 [SETTINGS_AND_UI_PLAN](SETTINGS_AND_UI_PLAN.md#packages-track-u)): settings and the UI foundation.
 U1 (the visual direction, no product code) is a filler at any time. Then U-D6 is taken, and U2 and U3
-follow C13, before J4. The other rows are in the queue above. U4 needs U3, so if U3 has not landed
+follow C13, before J4 (_revised 2026-10-06 by the user: U2 is delivered alongside C10_). The other rows are in the queue above. U4 needs U3, so if U3 has not landed
 when V2 is done, U4 waits for it. Above the cut line (D9).
 
 ## Sequence and dependencies

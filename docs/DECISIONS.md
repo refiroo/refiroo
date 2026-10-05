@@ -1499,3 +1499,6 @@ screens. The user chose B, "Open", over A, "Framed" (a dark frame with raised pa
 - The two fonts and their licences are added to OPEN_SOURCE in U2.
 - Direction A's ideas that B does not use (a dark frame, raised panels) are not carried over
   piecemeal. A change of direction is a new decision.
+- _Note 2026-10-06 (U-D8):_ the user kept a `Card` component in U2, since the UI is not final.
+  Whether content sits on the page or in cards is judged in the product after U2 and U6, not ruled
+  out in advance.
