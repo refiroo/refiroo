@@ -28,6 +28,8 @@ from .traversal import ancestor_type_keys, related_object_types
 
 # Built-in fields a source, projection field or match rule may name, and their value types.
 BUILT_IN_FIELDS = {"id": "text", "name": "text"}
+# A projection field's source naming the related record's public type name (C-D73).
+PROJECTION_TYPE_SOURCE = "objectType"
 ANCESTOR_REFERENCE_PREFIX = "ancestor:"
 # Roles of the shared object, in output order.
 OBJECT_ROLES = ("id", "code", "name", "active", "validFrom", "validTo")
@@ -91,6 +93,23 @@ def reference_value_type(
     return field_value_type(model, (ancestor,), name)
 
 
+def projection_field_type(
+    model: EngineModel,
+    definition: ConsumerApiDefinition,
+    targets: Sequence[ObjectTypeDefinition],
+    source: str,
+) -> str | None:
+    """The output type of a projection field's source, or ``None`` when it does not resolve.
+
+    ``objectType`` is the related record's public type name, so it resolves only where the definition
+    exposes every type the projection reaches; another type has no public name (C-D73).
+    """
+    if source == PROJECTION_TYPE_SOURCE:
+        exposed = bool(targets) and all(item.key in definition.objectTypes for item in targets)
+        return "text" if exposed else None
+    return reference_value_type(model, targets, source)
+
+
 def exposed_types(model: EngineModel, definition: ConsumerApiDefinition) -> list[ObjectTypeDefinition]:
     return [item for key in definition.objectTypes if (item := model.object_type(key)) is not None]
 
@@ -126,6 +145,19 @@ def projection_shape(
         )
         single = single and at_most_one
     return "one" if single else "many"
+
+
+def parent_keys(definition: ConsumerApiDefinition) -> dict[str, str]:
+    """Each field the ``parent`` lists, by the key it has in the answer: a role's output name, as
+    the object's own field has it (C-D75), and ``objectType`` as itself. A role the object does not
+    declare keeps its role name."""
+    shape = definition.object
+    assert shape.parent is not None
+    keys = {}
+    for name in shape.parent.fields:
+        role: ConsumerField | None = None if name == "objectType" else getattr(shape, name)
+        keys[name] = name if role is None else role.output
+    return keys
 
 
 def source_type(
@@ -176,7 +208,7 @@ def output_contract(model: EngineModel, definition: ConsumerApiDefinition) -> Ou
             "name": role_types.get("name", "text"),
         }
         fields[shape.parent.output] = {
-            "object": {name: parent_types[name] for name in shape.parent.fields}
+            "object": {key: parent_types[name] for name, key in parent_keys(definition).items()}
         }
     if shape.path is not None:
         fields[shape.path] = "text"
@@ -190,7 +222,7 @@ def output_contract(model: EngineModel, definition: ConsumerApiDefinition) -> Ou
         projections[name] = {
             "shape": projection_shape(model, definition, route.relation, route.direction),
             "fields": {
-                output: reference_value_type(model, targets, source)
+                output: projection_field_type(model, definition, targets, source)
                 for output, source in projection.fields.items()
             },
         }

@@ -229,7 +229,7 @@ it: the caller sent it in the URL (C-D59).
       "internalOnly": { "source": ["internal-only"], "default": false },
       "description":  { "source": ["description"] }
     },
-    "parent": { "output": "parent", "fields": ["objectType", "id", "code", "name"] },
+    "parent": { "output": "parent", "fields": ["objectType", "id", "code", "name"] },   // keyed masterId, code, name (C-D75)
     "path": "path", "hierarchy": "hierarchy"
   },
 
@@ -259,6 +259,14 @@ it: the caller sent it in the URL (C-D59).
     "availableAt": {
       "from": { "relation": "available-at-location", "direction": "outgoing" },
       "fields": { "locationId": "master-id", "locationName": "name", "locationValueCode": "value-code", "locationValueName": "value-name" }
+    },
+    "duration": {
+      "from": { "relation": "has-duration", "direction": "outgoing" },
+      "fields": { "durationId": "id", "durationCode": "value-code", "durationName": "name" }
+    },
+    "alternative": {   // a one-to-one relation: an object or null
+      "from": { "relation": "alternative-for", "direction": "outgoing" },
+      "fields": { "objectType": "objectType", "masterId": "id", "code": "value-code", "name": "name" }   // objectType: C-D73
     }
   },
 
@@ -292,7 +300,8 @@ it: the caller sent it in the URL (C-D59).
     "domain":   { "kind": "ancestor", "objectTypes": ["domain"], "matchFields": ["name", "domain-code"] },
     "location": { "kind": "related", "objectTypes": ["location"], "matchFields": ["master-id", "name", "value-code", "value-name"],
                   "via": ["availableAt", "self", "sharedProjection:systemVariants"] },
-    "language": { "kind": "projection", "projection": "translations", "matchFields": ["ancestor:language.language-code"], "requireMatch": true }
+    "language": { "kind": "projection", "projection": "translations", "matchFields": ["ancestor:language.language-code"], "requireMatch": true,
+                  "targetable": true }
   },
 
   // Lists.
@@ -307,8 +316,10 @@ it: the caller sent it in the URL (C-D59).
 
 The example is the reference deployment's definition. Every key, projection and parameter name in it
 is that deployment's choice, not something the engine requires. Keys missing from `rdm-starter.json`
-(`available-at-location`, `location`, `operator-code`, `internal-only`) come from a model that extends the
-starter, as the source deployment's does.
+(`available-at-location`, `has-duration`, `alternative-for`, `location`, `operator-code`,
+`internal-only`) come from a model that extends the starter, as the source deployment's does. The
+parity fixture (C8, `backend/tests/journeys/configurations.py`) is such a model, and this definition,
+written out, answers the C8 scenarios on it.
 
 The engine supplies only these parameter kinds. A definition names its parameters and binds each one
 to a kind:
@@ -331,6 +342,10 @@ Rules the validator enforces:
 - **Projection shape:** a projection is an object or `null` when the relation, in that direction,
   allows at most one related object, and an array otherwise. This is derived, never declared, so a
   model cardinality change becomes a contract change the validator can see.
+- **Projection fields** read the related record's `id`, `name`, an attribute of the related types,
+  `ancestor:<type>.<field>`, or `objectType`: its public type name, allowed where the definition
+  exposes every type the projection reaches (C-D73). The `parent` block's fields are keyed by the
+  roles' output names (C-D75).
 - **Match fields** must be `searchable` or explicitly listed as identifiers; weights are positive
   integers.
 - **Parameter names** are unique per definition and cannot shadow reserved names (`query`, `expect`,
@@ -545,7 +560,8 @@ engine cannot score every object and join every projection per request. Each def
   `snapshot_attribute_values` in 0.8 S2, and rebuilt on definition or model install.
 
 Projections for a result page are loaded in one batched query per projection, not per object. Budgets
-are set against the 0.8 Track S volume fixture (C8).
+are set against the 0.8 Track S volume fixture, measured per package and collected in C8
+([POSTGRESQL_BUDGETS §7](POSTGRESQL_BUDGETS.md#7-consumer-api-reads-09-collected-in-c8), C-D74).
 
 ## Change events and webhooks
 
@@ -725,7 +741,7 @@ coordination is 0.11 work.
 | C5 | XREF's use of C3's parameter kinds, with `scoresFrom` (C-D33, C-D42–C-D46) — **delivered 2026-10-05** |
 | C6 | ETag / `If-None-Match`, `publication` reads including `latest`, the publications list with `eventSequence`, per-definition OpenAPI, the API index. Split in two (C-D71): **C6a** (publications, ETag; C-D60–C-D68) and **C6b** (OpenAPI per definition, API index; C-D69, C-D70) **delivered 2026-10-05** |
 | C7 | _Moved to 0.12 (C-D1):_ OAuth 2.0 client access per definition, webhook signing keys, UI administration of both |
-| C8 | Parity acceptance: a test-only fixture model extending the starter with locations, availability and a single-valued self relation (fixture content, not product scope), a fixture dataset, and a definition that reproduces the reference response for the scenarios below; volume budgets |
+| C8 | Parity acceptance: a test-only fixture model extending the starter with locations, availability and a single-valued self relation (fixture content, not product scope), a fixture dataset, and a definition that reproduces the reference response for the scenarios below; volume budgets; `objectType` in projections (C-D73) and the parent keyed by output names (C-D75) (C-D72–C-D75) — **delivered 2026-10-05** |
 | C9 | Event definitions: `events` schema and validation, contract rules for events |
 | C10 | Event deriver over the workspace change feed (INTEGRATION_API F6): owning-object resolution through projections, `watch` evaluation, event store, retention, pull feed |
 | C11 | Subscription administration: API, filters through definition parameters, host allowlist, suspension on model change (signing keys and rotation in 0.12) |
@@ -799,7 +815,8 @@ table under "Behavior the engine does not carry over" says otherwise:
 C-D1 decided 2026-09-29; C-D2–C-D16 accepted 2026-09-29 as recommended, with the notes below;
 C-D17–C-D20 raised by C1 and accepted 2026-09-30 as recommended; C-D21–C-D26 settled with the user
 for C2, C-D27–C-D33 for C3 and C-D34–C-D41 for C4, on 2026-10-04; C-D42–C-D46 for C5 and
-C-D47–C-D53 for C14, C-D54–C-D58 for C15, C-D59 for CN1 and C-D60–C-D71 for C6 on 2026-10-05.
+C-D47–C-D53 for C14, C-D54–C-D58 for C15, C-D59 for CN1, C-D60–C-D71 for C6 and C-D72–C-D75 for
+C8 on 2026-10-05.
 
 | # | Question | Decision |
 | --- | --- | --- |
@@ -874,3 +891,7 @@ C-D47–C-D53 for C14, C-D54–C-D58 for C15, C-D59 for CN1 and C-D60–C-D71 fo
 | C-D69 | The API index entry and paging | **Decided 2026-10-05 (C6, for C6b).** `{ "consumerApi", "name", "contractVersion", "openapi" }` plus `description` when declared; ordered by `consumerApi`; paged as the lists; not per workspace |
 | C-D70 | How the per-definition document is checked | **Decided 2026-10-05 (C6, for C6b).** `openapi-spec-validator` as a dev dependency: the document is valid OpenAPI 3.1 and real answers validate against it |
 | C-D71 | Split C6 | **Decided 2026-10-05.** C6a (publications, ETag) then C6b (the documents) |
+| C-D72 | Which model the parity scenarios run on | **Decided 2026-10-05 (C8).** A test-only fixture: the starter, a small extension and this document's definition written out. Not the operators example model, whose API is a deliberately different design (every type exposed, `id` not `masterId`, system values as objects) |
+| C-D73 | The reference's `objectType` inside projection items | **Decided 2026-10-05 (C8).** A projection field may read `objectType`, the related record's public type name, where the definition exposes every type the projection reaches; refused at the field otherwise. Adding it is compatible, removing it `version_required` |
+| C-D74 | The C8 volume budgets | **Decided 2026-10-05 (C8).** No new full-volume run: every consumer read was measured at full volume by its package and nothing on a read's path changed since C6a. The figures are collected in POSTGRESQL_BUDGETS §7 |
+| C-D75 | The parent's keys | **Decided 2026-10-05 (C8).** Found by the parity shape check: the reference's parent is `{objectType, name, code, masterId}`, the object's own names, while the engine keyed it by role (`id`). The parent's fields are keyed by the roles' output names, as the object's own fields; `objectType` stays. Flows look for a field on the object, then in `parent`, with one name |

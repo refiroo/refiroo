@@ -926,7 +926,8 @@ C6a); XREF is J29 (0.9 C4); the rest follows in C6b and C16 ([CONSUMER_API.md](.
 `400 CONFLICTING_PAGE_PARAMETERS`, `400 INVALID_POSITION`, `400 INVALID_SEEK`,
 `404 PUBLICATION_NOT_FOUND`, `409 PUBLICATION_CONTRACT_MISMATCH`.
 
-**Evidence today:** the J28 journey tests.
+**Evidence today:** the J28 journey tests; on a model shaped like the reference deployment's, the
+parity tests (`test_j28_j29_parity`, 0.9 C8).
 
 ### J29 — Resolve a business object through a consumer API
 
@@ -1011,7 +1012,8 @@ term matching more than 10,000 records does not refuse it.
 J28's API, workspace and paging refusals; batch resolve adds `400 REQUEST_VALIDATION_ERROR` (a body
 of the wrong shape), `QUERY_OR_ID_REQUIRED` (an item's outcome) and `413 BATCH_TOO_LARGE`.
 
-**Evidence today:** the J29 journey tests; `QUERY_TOO_BROAD`, the exact-first rule and batch
+**Evidence today:** the J29 journey tests and, on a model shaped like the reference deployment's,
+the parity tests (`test_j28_j29_parity`, 0.9 C8); `QUERY_TOO_BROAD`, the exact-first rule and batch
 statements in `test_consumer_xref_volume`.
 
 ## Operations

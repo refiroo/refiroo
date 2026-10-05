@@ -20,7 +20,7 @@ from ...models.schema import (
     ProjectionParameter,
     RelatedParameter,
 )
-from ..model.consumer_contract import OutputContract, output_contract
+from ..model.consumer_contract import OutputContract, output_contract, parent_keys
 
 OPENAPI_VERSION = "3.1.0"
 # The read limits the document states (CONSUMER_API C-D30, C-D37, C-D38).
@@ -394,10 +394,12 @@ class _Document:
         found: dict[str, Any] = {}
         for name, value_type in self.contract.fields.items():
             if isinstance(value_type, dict):
-                parent = value_type["object"]
+                # A parent's type is null when not exposed (C-D22), its code when it has none.
+                keys = parent_keys(self.definition)
+                nullable = {keys[name] for name in ("objectType", "code") if name in keys}
                 properties = {
-                    field: {"type": ["string", "null"]} if field in ("objectType", "code") else _value(kind)
-                    for field, kind in parent.items()
+                    field: {"type": ["string", "null"]} if field in nullable else _value(kind)
+                    for field, kind in value_type["object"].items()
                 }
                 found[name] = _nullable(_object(properties))
                 continue

@@ -451,3 +451,43 @@ touched by PG5.
 - **The full backend suite at PG5** (before the last read-path edits): 1,399 passed, the 8 stale
   tests failed, 4 min 1 s. After the edits: the read, search, migration and budget modules (§2) passed;
   the full suite was not rerun (user's decision).
+
+## 7. Consumer API reads (0.9, collected in C8)
+
+Every consumer read was measured at full volume by the package that built it, with
+`volume_baseline.py --only-consumer --scale 1 --repeat 3` (warm median · statements · ORM rows).
+Base 0.9 C8 (2026-10-05) collects the latest figure of each here and does not re-measure (C-D74):
+nothing on a consumer read's path changed after C6a's run. The `volume` group holds the statement
+counts at two sizes (`test_consumer_list_volume`, `test_consumer_xref_volume`).
+
+| Read | Live | Pinned to a publication | Measured in |
+| --- | --- | --- | --- |
+| List: first page by rank | 10.5 ms · 11 · 24 | 14.5 ms · 13 · 5 | C6a |
+| List: next cursor page | 12.2 ms · 13 · 25 | 18.3 ms · 15 · 5 | C6a |
+| List: position jump to the middle | **113.8 ms** · 11 · 24 | **117.4 ms** · 13 · 5 | C6a |
+| List: 20,000 items under a parent | 9.9 ms · 9 · 24 | 15.0 ms · 11 · 5 | C6a |
+| List: ancestor filter with `includeTotal` | 95.9 ms · 13 · 24 | **120.2 ms** · 15 · 5 | C6a |
+| XREF: an item's code, another case | 28.7 ms · 8 · 3 | 41.5 ms · 10 · 5 | C6a |
+| XREF: a group's code promoted to its 1,500 citing items | 48.5 ms · 9 · 3 | 66.9 ms · 11 · 5 | C6a |
+| XREF: 4-character contains | 49.4 ms · 7 · 3 | 57.5 ms · 9 · 5 | C6a |
+| XREF: `expect=one` | 12.8 ms · 7 · 3 | 18.8 ms · 9 · 5 | C6a |
+| XREF: within the heavy group | 63.3 ms · 10 · 3 | 79.6 ms · 12 · 5 | C6a |
+| XREF: `scoresFrom` on the group | 52.2 ms · 9 · 3 | 73.5 ms · 11 · 5 | C6a |
+| XREF: a term in every item, `QUERY_TOO_BROAD` (a refusal) | **132.5 ms** · 3 · 3 | **161.9 ms** · 5 · 5 | C6a |
+| Batch resolve: 1,000 identifiers (budget 1 s) | 816.5 ms · 7 · 3 | — | C14 |
+| Batch resolve: 1,000 items over three parameter sets (budget 1 s) | 451.2 ms · 18 · 3 | — | C14 |
+
+Batch resolve shapes outside the budget, recorded in C14: a tenth of the identifiers a group code
+1,500 items cite (1.7 s), three sets regardless of fit (4.0 s), 1,000 contains-only terms (15.4 s)
+and 1,000 items each with its own parameter value (38.4 s, 4,002 statements: one group per value).
+C6a's run also measured batch resolve, live only, and did not record it separately.
+
+**Over 100 ms, live or pinned:**
+- **The position jump to the middle** (113.8 and 117.4 ms): D46's deep-position cost, the shape of
+  [E3](#e3-sort-by-an-attribute-under-the-20000-child-parent-104-150-and-142-ms-live-closed-by-09-c3a);
+  0.8 D26's stored sort key is the fix after 1.0.
+- **The ancestor filter with a total, pinned** (120.2 ms; 95.9 ms live): it counts 20,000 matches
+  over the publication's rows. Not investigated; the shape of E2 and E8 (an exact total over a large
+  result).
+- **A term in every item** (132.5 and 161.9 ms): the cost of refusing it, which joins all 100,000
+  items before the 10,000-match limit refuses (C-D37). It answers `400`, not a page.

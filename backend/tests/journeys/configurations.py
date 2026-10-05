@@ -14,6 +14,10 @@ applications) and so on. A configuration maps each structure it holds to its own
 Every test runs on generated A, and on the example model where it holds the test's structures,
 otherwise on generated B: two configurations each (H4c, decided 2026-10-02).
 
+- **parity** is the consumer API's parity fixture (Base 0.9 C8, C-D72): the starter with locations,
+  availability, durations and a single-valued self relation, and CONSUMER_API's reference definition.
+  It is fixture content, not product scope, and only the parity tests use it; no structure maps to it.
+
 Structures:
 
 - ``A1``, ``A2``: two applications.
@@ -812,6 +816,242 @@ def example() -> Configuration:
     return Configuration(
         "example", json.loads(STARTER.read_text()), keys, frozenset({"deep-scope"})
     )
+
+
+def parity() -> Configuration:
+    """The starter extended as the reference deployment's model is, with CONSUMER_API's definition
+    ("Definition shape") written out: the parity fixture (C8). ``Capi`` is its key, so the consumer
+    helpers of ``scenario`` read it."""
+    model = json.loads(STARTER.read_text())
+    model["release"] = {**model["release"], "key": "rdm-parity", "name": "Consumer API parity fixture"}
+    model["attributeTypes"] += [
+        {"key": "operator-code", "name": "Operator code", "features": {"searchable": True}},
+        {"key": "internal-only", "name": "Internal only", "valueType": "boolean"},
+    ]
+    master_value = next(item for item in model["objectTypes"] if item["key"] == "master-value")
+    master_value["attributes"].append({"attributeTypeKey": "internal-only", "order": 90})
+    model["objectTypes"].append(
+        {
+            "key": "location",
+            "name": "Location",
+            "pluralName": "Locations",
+            "attributes": [
+                {"attributeTypeKey": "master-id", "required": True, "order": 10},
+                {"attributeTypeKey": "value-code", "order": 20},
+                {"attributeTypeKey": "value-name", "order": 30},
+                {"attributeTypeKey": "operator-code", "order": 40},
+                {"attributeTypeKey": "active", "order": 50},
+            ],
+            "features": {"rootCreatable": False},
+            "behavior": {"parentRelationTypeKeys": ["codelist-contains-location"]},
+        }
+    )
+    model["relationTypes"] += [
+        {
+            "key": "codelist-contains-location",
+            "reverseKey": "location-belongs-to-codelist",
+            "name": "Contains location",
+            "reverseName": "Belongs to codelist",
+            "features": {"parentOf": True},
+        },
+        {
+            "key": "available-at-location",
+            "reverseKey": "location-offers",
+            "name": "Available at",
+            "reverseName": "Offers",
+            "features": {"searchable": True},
+        },
+        {
+            "key": "has-duration",
+            "reverseKey": "duration-of",
+            "name": "Has duration",
+            "reverseName": "Duration of",
+            "features": {"searchable": True},
+        },
+        {
+            "key": "alternative-for",
+            "reverseKey": "has-alternative",
+            "name": "Alternative for",
+            "reverseName": "Has alternative",
+            "features": {"searchable": True},
+        },
+    ]
+    model["objectTypeRelations"] += [
+        {
+            "relationTypeKey": "codelist-contains-location",
+            "fromObjectTypeKey": "codelist",
+            "toObjectTypeKey": "location",
+            "cardinality": "one-to-many",
+        },
+        {
+            "relationTypeKey": "available-at-location",
+            "fromObjectTypeKey": "master-value",
+            "toObjectTypeKey": "location",
+            "cardinality": "many-to-many",
+        },
+        {
+            "relationTypeKey": "has-duration",
+            "fromObjectTypeKey": "master-value",
+            "toObjectTypeKey": "master-value",
+            "cardinality": "many-to-many",
+        },
+        # One slot type per value: the reference's alternative is an object or null.
+        {
+            "relationTypeKey": "alternative-for",
+            "fromObjectTypeKey": "master-value",
+            "toObjectTypeKey": "master-value",
+            "cardinality": "one-to-one",
+        },
+        {
+            "relationTypeKey": "system-value-maps-to-master",
+            "fromObjectTypeKey": "system-value",
+            "toObjectTypeKey": "location",
+            "cardinality": "many-to-many",
+        },
+    ]
+    master = next(item for item in model["applications"] if item["key"] == "rdm-master")
+    master["objectTypeKeys"].append("location")
+    model["consumerApis"] = [_reference_definition()]
+    return Configuration("parity", model, {"Capi": "rdm"})
+
+
+def _reference_definition() -> dict[str, Any]:
+    """CONSUMER_API "Definition shape", its ``…`` written out: ``domain`` exposed, the ``values`` and
+    ``all-values`` lists, ``alternative`` with the related record's ``objectType`` (C-D73) and
+    ``duration`` as the reference object has them, and ``language`` targetable for a crosswalk to a
+    translation."""
+    return {
+        "key": "rdm",
+        "name": "RDM consumer API",
+        "contractVersion": 1,
+        "objectTypes": {
+            "master-value": {"publicName": "CodelistValue"},
+            "codelist": {"publicName": "Codelist"},
+            "domain": {"publicName": "Domain"},
+            "location": {"publicName": "Location"},
+        },
+        "object": {
+            "id": {"output": "masterId", "source": ["id"]},
+            "code": {"output": "code", "source": ["operator-code", "value-code", "codelist-code", "domain-code"]},
+            "name": {"output": "name", "source": ["name"]},
+            "active": {"output": "isActive", "source": ["active"], "default": True},
+            "validFrom": {"output": "validFrom", "source": ["valid-from"]},
+            "validTo": {"output": "validTo", "source": ["valid-to"]},
+            "attributes": {
+                "formerId": {"source": ["master-id"]},
+                "valueName": {"source": ["value-name"]},
+                "sortOrder": {"source": ["sort-order"], "default": 0},
+                "internalOnly": {"source": ["internal-only"], "default": False},
+                "description": {"source": ["description"]},
+            },
+            "parent": {"output": "parent", "fields": ["objectType", "id", "code", "name"]},
+            "path": "path",
+            "hierarchy": "hierarchy",
+        },
+        "projections": {
+            "systemVariants": {
+                "from": {"relation": "system-value-maps-to-master", "direction": "incoming"},
+                "fields": {
+                    "system": "ancestor:system.name",
+                    "value": "name",
+                    "valueCode": "value-code",
+                    "valueName": "value-name",
+                    "externalId": "external-id",
+                    "isActive": "active",
+                },
+            },
+            "translations": {
+                "from": {"relation": "object-has-translation", "direction": "outgoing"},
+                "fields": {
+                    "languageCode": "ancestor:language.language-code",
+                    "languageName": "ancestor:language.name",
+                    "translatedName": "translated-name",
+                    "translatedDescription": "translated-description",
+                    "isActive": "active",
+                },
+            },
+            "availableAt": {
+                "from": {"relation": "available-at-location", "direction": "outgoing"},
+                "fields": {
+                    "locationId": "master-id",
+                    "locationName": "name",
+                    "locationValueCode": "value-code",
+                    "locationValueName": "value-name",
+                },
+            },
+            "duration": {
+                "from": {"relation": "has-duration", "direction": "outgoing"},
+                "fields": {"durationId": "id", "durationCode": "value-code", "durationName": "name"},
+            },
+            "alternative": {
+                "from": {"relation": "alternative-for", "direction": "outgoing"},
+                "fields": {"objectType": "objectType", "masterId": "id", "code": "value-code", "name": "name"},
+            },
+        },
+        "match": {
+            "own": [
+                {"field": "master-id", "exact": 1000},
+                {"field": "value-code", "exact": 500, "contains": 40},
+                {"field": "operator-code", "exact": 500, "contains": 40},
+                {"field": "name", "exact": 200, "contains": 30},
+                {"field": "value-name", "exact": 200, "contains": 30},
+            ],
+            "promoted": [
+                {
+                    "projection": "systemVariants",
+                    "firstMatch": [
+                        {"field": "name", "exact": 80},
+                        {"field": "value-code", "exact": 70},
+                        {"field": "external-id", "exact": 75},
+                        {"field": "value-name", "exact": 75},
+                        {"field": "name", "contains": 15},
+                        {"field": "value-code", "contains": 10},
+                        {"field": "external-id", "contains": 10},
+                        {"field": "value-name", "contains": 10},
+                    ],
+                    "preferTargetTypes": ["location"],
+                },
+                {
+                    "projection": "translations",
+                    "firstMatch": [
+                        {"field": "translated-name", "exact": 60},
+                        {"field": "translated-name", "contains": 12},
+                    ],
+                },
+            ],
+        },
+        "parameters": {
+            "type": {"kind": "objectType"},
+            "system": {
+                "kind": "projection",
+                "projection": "systemVariants",
+                "matchFields": ["ancestor:system.name", "ancestor:system.system-code"],
+                "scoresFrom": True,
+                "requireMatch": True,
+                "targetable": True,
+            },
+            "codelist": {"kind": "ancestor", "objectTypes": ["codelist"], "matchFields": ["name", "codelist-code"]},
+            "domain": {"kind": "ancestor", "objectTypes": ["domain"], "matchFields": ["name", "domain-code"]},
+            "location": {
+                "kind": "related",
+                "objectTypes": ["location"],
+                "matchFields": ["master-id", "name", "value-code", "value-name"],
+                "via": ["availableAt", "self", "sharedProjection:systemVariants"],
+            },
+            "language": {
+                "kind": "projection",
+                "projection": "translations",
+                "matchFields": ["ancestor:language.language-code"],
+                "requireMatch": True,
+                "targetable": True,
+            },
+        },
+        "lists": [
+            {"key": "codelists", "objectType": "codelist", "parentParameter": {"name": "domain", "objectTypes": ["domain"]}},
+            {"key": "values", "objectType": "master-value", "parentParameter": {"name": "codelist", "objectTypes": ["codelist"]}},
+            {"key": "all-values", "objectType": "master-value"},
+        ],
+    }
 
 
 @cache

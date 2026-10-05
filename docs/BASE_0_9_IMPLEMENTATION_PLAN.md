@@ -16,8 +16,8 @@ read, D31), [B3](#b3-relation-and-relation-set-items) (2026-10-03, D35–D39),
 [T1a](#t1a-copies-inside-the-database) (2026-10-04), [T1b](#t1b-one-error-code-pattern) (2026-10-04),
 [C2](#c2-consumer-object-and-projections) (2026-10-04, C-D21–C-D26), C3–C5 and
 [C14](#c14-batch-resolve) (2026-10-05, C-D47–C-D53), [C15](#c15-crosswalk) (2026-10-05, C-D54–C-D58),
-[CN1](#cn1-the-consumer-apis-name-in-public-contracts) (2026-10-05, C-D59), [C6a](#c6a-publications) (2026-10-05, C-D60–C-D68), [C6b](#c6b-the-contract-documents) (2026-10-05, C-D69–C-D70), [V2](#v2-consumer-sources) (2026-10-05).
-**Next:** C8, in the order of the [delivery queue](#delivery-queue) (U4 waits for U3).
+[CN1](#cn1-the-consumer-apis-name-in-public-contracts) (2026-10-05, C-D59), [C6a](#c6a-publications) (2026-10-05, C-D60–C-D68), [C6b](#c6b-the-contract-documents) (2026-10-05, C-D69–C-D70), [V2](#v2-consumer-sources) (2026-10-05), [C8](#c8-parity-acceptance) (2026-10-05, C-D72–C-D75).
+**Next:** C16, in the order of the [delivery queue](#delivery-queue) (U4 waits for U3).
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
 Effective dates and consumer API definitions extend the model, so the starter becomes content release
@@ -230,7 +230,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 19a | [C6b](#c6b-the-contract-documents) | C6a | OpenAPI per definition, the API index (C-D69, C-D70) — **delivered 2026-10-05** ([record](#c6b-delivery-record)) |
 | 20 | [V2](#v2-consumer-sources) | V1, C6b | Consumer contracts as reference sources — **delivered 2026-10-05** ([record](#v2-delivery-record)) |
 | 20a | [U4](SETTINGS_AND_UI_PLAN.md#packages-track-u) | U3, C6b, V2 | Settings › Integration: Consumer APIs, Jobs and feed, API reference; a starter consumer API (U-D5) |
-| 21 | C8 | C3–C6, C14, C15 | Parity acceptance; the consumer read line's checkpoint |
+| 21 | [C8](#c8-parity-acceptance) | C3–C6, C14, C15 | Parity acceptance; the consumer read line's checkpoint; `objectType` in projections, the parent keyed by output names (C-D72–C-D75) — **delivered 2026-10-05** ([record](#c8-delivery-record)) |
 | 22 | C16 | C2, Q4 | `asOf` in the consumer tier; SC-11 (consumer) |
 | 23 | C9 | C2 | Event definitions |
 | 24 | C10 | C9, F2 | Event deriver, event store, pull feed |
@@ -3844,6 +3844,230 @@ name twice on that list's operation, so the document was not valid OpenAPI (`Dup
 The route reads the name as the parent there, so the document now lists it once, as the parent.
 Found while adding consumer APIs to the operators example model; held by
 `tests/unit/engine/model/test_consumer_openapi.py` over that model, which failed before the fix.
+
+#### C8: Parity acceptance
+
+**Delivered 2026-10-05** ([record](#c8-delivery-record)), with C-D75 raised during delivery. **Planned 2026-10-05; decisions C-D72–C-D74 and the test cases approved by the user the same day.**
+**Needs:** C3–C6, C14, C15 (all delivered). **Groups:** `consumer`, `model`, `contract`, `volume`.
+**Design:** [CONSUMER_API "Reference implementation"](CONSUMER_API.md#reference-implementation),
+"Definition shape", the C8 scenarios.
+
+**Behaviour.** The consumer read line's checkpoint. CONSUMER_API's promise is that "the reference
+response must be reproducible from a definition alone": a consumer of the production gateway can
+move to the engine by a definition, with only the documented differences ("Behavior the engine does
+not carry over"). Each C package proved its own mechanism on generated A and B, whose shapes are
+abstract (`R`, `Bscope`, `watch`). C8 proves the whole on a model shaped like the reference
+deployment's (codelists, locations, availability, systems, translations, a single-valued self
+relation), through the calls integration flows make: XREF with `system`, take the top result, read
+one to three fields from it.
+
+**What exists today** (checked 2026-10-05):
+
+- **The documented definition validates.** A scratch probe (not kept): the starter plus a `location`
+  type below a codelist, `operator-code` and `internal-only`, `available-at-location`
+  (value → location, many-to-many), `alternative-for` (value → value, one-to-one) and
+  `system-value-maps-to-master` also bound to `location`; with CONSUMER_API's "Definition shape"
+  written out (its `…` filled with `domain`, the `values` and `all-values` lists) the release
+  compiles with no diagnostic.
+- **One field of the reference object cannot be declared.** The reference's `alternative` items
+  carry `objectType` (`{ "objectType", "masterId", "code", "name" }`). A projection field reads `id`,
+  `name`, an attribute or `ancestor:<type>.<field>` of the related record, not its type: adding
+  `"objectType": "objectType"` to the probe's `alternative` is refused at
+  `/consumerApis/rdm/projections/alternative/fields/objectType`. C-D73.
+- **Scenario coverage on generated A and B.** Scenarios 1, 2, 5, 9 (J29, J29.3), 3 (J29.1
+  `preferTargetTypes`), 6–8 (J29.6, J28.8), 10 (J28.7, J28.8), 11 (J29.8), 12 (J29.11–J29.13), 13
+  (J28.12) and 16 (J20.3) each have a journey test of the mechanism. Not covered anywhere: the
+  reference's shapes together on one object, a translated name scoring through a promoted
+  translation on a translation-shaped model, and crosswalk to a translation (`to.language`), since
+  the documented `language` parameter is not `targetable`.
+- **Budgets.** Every consumer read was measured at full volume by its package
+  (`volume_baseline.py --only-consumer --scale 1 --repeat 3`): lists (C3, C3a), XREF (C4, C5), batch
+  resolve (C14) and the pinned reads (C6a). _Corrected at delivery:_ C6a's run has three reads over
+  100 ms, not only the deep positions of
+  [POSTGRESQL_BUDGETS E3](POSTGRESQL_BUDGETS.md#e3-sort-by-an-attribute-under-the-20000-child-parent-104-150-and-142-ms-live-closed-by-09-c3a):
+  the position jump (114/117 ms), the pinned ancestor filter with a total (120 ms) and the
+  too-broad refusal (133/162 ms), each recorded in C6a's record.
+  Since C6a, no file under `engine/reads/` changed; `consumer/router.py` gained C6b's two document
+  routes and nothing on a read's path. The figures sit in five delivery records, not in one table.
+- **The operators example model** (`model/rdm-operators-timetables.json` 0.6.0) has every structure the
+  fixture needs, but its one `rdm` API is a different design on purpose: every type exposed, `id`
+  output as `id`, system values and translations as objects of their own, so a bare `expect=one` on a
+  code is ambiguous there ([DOCUMENTATION_PLAN](DOCUMENTATION_PLAN.md)). It does not reproduce the
+  reference. C-D72.
+
+**Design.**
+
+- **Fixture** (`tests/journeys/configurations.py`, `parity()`; C-D72): the starter model, read from
+  `rdm-starter.json` so it follows the starter, plus the extension of the probe above (fixture content,
+  not product scope), plus CONSUMER_API's definition with `alternative` (with `objectType`, C-D73)
+  and `duration` added and `language` declared `targetable`. Not in `all_configurations()`, so no
+  generic journey runs on it. One model-only seed, built once (seed once, reuse).
+- **Dataset**, written by one `POST /batches` per module (records and relationships, inline), about
+  40 records:
+  - Domain Transport (`HC`) › codelist Timetable types (`MOT`) › Train (`CONS`), Follow-up
+    (`FUP`), Tram (`VAC`), Standard (`STD`); Train's alternative is Follow-up.
+  - Codelist Stations (`CLIN`) › locations Central Station (`CEN`, operator `BR1`) and North Station
+    (`NOR`).
+  - Domain Finance (`FIN`) › codelist Currencies (`CUR`) › Swiss franc (`CHF`, master ID
+    `MV-0001`), Euro (`EUR`), Standard (`STD`).
+  - Systems SAP and Oracle. SAP `CHF` (external ID `1001`) and Oracle `SFR` (`O-77`) map to Swiss
+    franc; SAP `LOC-9` (`9001`) maps only to North Station; SAP `FU-1` maps to Follow-up and to
+    Central Station.
+  - Train is available at Central Station, Tram at North Station. So each `location`
+    route has a record of its own: Train by availability only, Follow-up by the shared system
+    value only.
+  - German (`de`): Eisenbahn for Train, Schweizer Franken for Swiss franc. (No translation is a
+    substring of its object's name, so a translation's score is never hidden by the object's own
+    contains score.)
+- **Shape check**, on every answer: valid against the definition's own OpenAPI document (C6b's
+  validator, C-D70). On one XREF result and one list item: the keys are the reference shared object's
+  keys, mapped by the "does not carry over" table (`masterId` is the object ID and the former ID is
+  `formerId`; `parent` always present; `description` in both; `alternative` an object or `null`;
+  booleans and dates typed; no `page` or `returnedCount`).
+- **`objectType` in a projection** (C-D73): `engine/model/validation/consumer_api_rules.py` accepts
+  the source `objectType` when every type the projection reaches is exposed, and refuses it at the
+  field's path otherwise; `consumer_contract.output_contract` types it as the exposed public names
+  (the OpenAPI schema an `enum`); the composition writes the related record's public name. Adding it
+  to a projection adds a field (not breaking, C-D2); removing it is `version_required`, as for any
+  field. No statement is added: the related select already reads the type key.
+- **No migration, no index, no setting, no route.**
+
+**Decisions** (status per row):
+
+| # | Question | Decision |
+| --- | --- | --- |
+| C-D72 | Which model the parity scenarios run on | **Approved 2026-10-05.** A test-only fixture, the starter plus a small extension and CONSUMER_API's printed definition (as CONSUMER_API's C8 row says), not the operators example model. The operators model's API is a deliberately different design (every type exposed, `id` not `masterId`, system values as objects), so it would need a second definition written to match the reference, and the example would then carry a test's needs; a later edit to the example would break acceptance. The fixture also proves that the definition CONSUMER_API prints is valid and answers as documented. The operators model keeps its OpenAPI test |
+| C-D73 | The reference's `objectType` inside projection items (`alternative`) | **Approved 2026-10-05.** Allow `objectType` as a projection field source, the related record's public type name, only where every type the projection reaches is exposed by the definition (otherwise there is no public name; refused at the field). Two real cases: the reference's `alternative`, and a projection over a relation with several target types (the operators model's `mapsTo`, where an item is a value or a location). The alternative, a new row in "does not carry over", would leave a mixed projection whose items cannot be told apart |
+| C-D74 | The C8 volume budgets | **Approved 2026-10-05.** No new full-volume run. Every consumer read was measured at full volume by its package, and nothing on a read's path changed since C6a, so a rerun would repeat C6a's figures. C8 collects them into one consumer table in POSTGRESQL_BUDGETS (each row with the package that measured it) and runs the `volume` group, whose statement counts at two sizes hold them. C-D73 adds a field, not a statement, which `test_consumer_xref_volume` confirms. CONSUMER_API's "Budgets are set against the 0.8 Track S volume fixture (C8)" becomes "set per package, collected in C8" |
+| C-D75 | The parent's keys (raised during delivery) | **Approved 2026-10-05.** The parity shape check found that the reference's parent is `{objectType, name, code, masterId}`, the object's own field names, while the engine keyed it by role (`id`, `code`, `name`), so a flow that reads `masterId` from the object and then from `parent` found it only on the object. The parent's fields are now keyed by the roles' output names, as the object's own fields; `objectType` stays. Pre-1.0, so the shape changes for every definition whose `id`, `code` or `name` output is not the role name (generated A and B's `ledgerId`); the alternative, a row in "does not carry over", was not taken |
+
+**Journey.** No new journey: a consumer migrating from the gateway walks J28 and J29. The parity
+module is the evidence for the variants it walks on the reference-shaped model (API_JOURNEYS), and
+USER_JOURNEYS' J28 and J29 "Evidence today" name it.
+
+**Test cases** (`tests/journeys/test_j28_j29_parity.py`, on the `parity` configuration, written
+first). Except C-D73's, they test delivered behaviour on a new model, so they are expected to pass
+on the first run, as T1's did; that is recorded, not engineered around. Each is one call or a few,
+named by its CONSUMER_API scenario:
+
+1. **Scenarios 1 and 5.** `query=MV-0001` (the global ID, `master-id`) scores Swiss franc 1000;
+   `query=CHF` finds it first with 500, its SAP value's promoted 80 adding nothing (the higher
+   wins); `query=franc` finds it by contains only, below any exact score; `query=CHF,EUR` has both
+   currencies, each with its best term.
+2. **Scenario 2.** `query=1001` finds Swiss franc with 75 (the SAP value's external ID, promoted);
+   with `system=SAP` the same, `systemVariants` holding only the SAP item; with `system=Oracle`
+   nothing, since only Oracle values may score (`scoresFrom`).
+3. **Scenario 3.** `query=9001&expect=one` answers North Station; `query=FU-1` scores Central Station
+   and not Follow-up (`preferTargetTypes`).
+4. **Scenario 4.** `query=Eisenbahn` finds Train with 60; `query=Berat` with 12.
+5. **Scenario 6.** `query=STD` with `codelist=MOT`, `codelist=Timetable types`, `domain=HC` or
+   `domain=Transport` keeps the timetable Standard only.
+6. **Scenarios 7 and 8.** On `lists/all-values`, `location=CEN` keeps Train (availability)
+   and Follow-up (shared system value), not Tram or Standard; `location=North Station` keeps
+   Tram; `query=CEN&location=CEN` keeps Central Station itself (`self`). With `system=SAP`
+   added, `location=CEN` keeps Follow-up only.
+7. **Scenario 9.** `query=STD&expect=one` is `409 AMBIGUOUS_MATCH` naming both Standards in the
+   documented order (score, public type, name, ID); with `codelist=CUR` it answers the currency.
+8. **Scenario 10.** `lists/values?codelist=<MOT's ID>` holds the four timetable types; with
+   `language=de` only Train, its `translations` limited to German; `lists/all-values` with
+   `codelist=MOT` or `codelist=Timetable types` (the `ancestor` parameter, C-D28) the same four;
+   `lists/values?codelist=MOT` is `404 PARENT_NOT_FOUND` (a code is no parent, C-D28).
+9. **Scenario 11.** Batch resolve, items `CHF` with `system=SAP`, `9001` with `system=SAP`,
+   `nothing`, `STD`, and one with both `query` and `id`: `found`, `found`, `not_found`, `ambiguous`,
+   `rejected`, in item order; each `found` equals its `xref?expect=one` answer.
+10. **Scenario 12.** `query=CHF&system=SAP&to.system=Oracle&expect=one` answers Swiss franc with
+    `target` the `SFR` item; `query=EUR&to.system=Oracle&expect=one` is `404 TARGET_NOT_FOUND`;
+    after a second Oracle value is mapped to Swiss franc, the first read is `409 AMBIGUOUS_TARGET`;
+    `query=CONS&to.language=de&expect=one` answers `target` the Eisenbahn item.
+11. **Scenario 13.** A change set is published; `lists/all-values?publication=latest&pageSize=2`
+    names the resolved publication; a second change set adding a value is published between pages;
+    following the cursor reads every value of the first publication once and not the new one.
+12. **Scenario 16.** `GET /api/consumer` lists `rdm` with its OpenAPI URL, and that document
+    validates.
+13. **The reference shape** (beside every case: each answer valid against the document). Get by ID
+    of Train has `alternative` the object `{objectType: "CodelistValue", masterId, code,
+    name}` of Follow-up, `availableAt` an array with Central Station, `parent` the codelist, `path`
+    and `hierarchy` from the walk; Swiss franc's `alternative` is `null`, Transport's `parent`
+    `null`, `isActive` a boolean, `validFrom` `null`; the XREF result and the list item for
+    Train are the same object apart from `matchScore`.
+14. **J25 (changed, C-D73).** A candidate release with `objectType` in a projection that reaches a
+    type the definition does not expose is refused at that field; removing `objectType` from
+    `alternative` is `version_required` at its path, adding it is not. These fail first.
+
+No unit tests: C-D73's rule is walked by J25 and case 13. **Checks:** the parity module and J25,
+J28 and J29 on their configurations; then the C8 groups together once, `consumer`, `model`,
+`contract` and `volume` (the checkpoint run, as T1); `ruff`. No migration, so no `startup`; not
+`queries` (no shared read changed); the frontend unchanged.
+
+**Exit:** scenarios 1–13 and 16 pass on the fixture, or each failure is fixed as an amendment or
+recorded against its package, before C16.
+
+**Docs at delivery:** CONSUMER_API: the C8 row delivered, "Definition shape" gains `alternative`
+with `objectType`, `duration` and `targetable` on `language` (so the crosswalk example's
+`to.language=es` matches the printed definition), the "Budgets" sentence (C-D74), C-D72–C-D74
+recorded; APPLICATION_MODEL notes `objectType` as a projection source; API.md the field;
+POSTGRESQL_BUDGETS the consumer table; USER_JOURNEYS (J28, J29 evidence) and API_JOURNEYS;
+EXECUTION_GUIDE's `consumer` row gains the module; CURRENT_FUNCTIONALITY says a projection can name
+each related record's type.
+
+**Composable domains (ADR-032):** the `match` declaration is untouched. The projection declaration
+gains `objectType`, which a product catalogue's mixed "related items" (a part or an accessory) needs
+in the same way, so the door is used, not narrowed. Identity, attribute storage, audit, the bulk APIs
+and mapping coverage are untouched.
+
+##### C8 delivery record
+
+**Delivered 2026-10-05**, with C-D72–C-D74 as approved, C-D75 raised and approved during delivery,
+and the approved cases.
+
+- **Fixture** (`tests/journeys/configurations.py`, `parity()`): the starter with `location` below a
+  codelist, `operator-code`, `internal-only`, `available-at-location`, `has-duration`,
+  `alternative-for` (one-to-one) and `system-value-maps-to-master` bound to `location`; and
+  CONSUMER_API's definition written out (`_reference_definition`). Not in `all_configurations()`.
+  Its dataset (29 records and 12 relationships, one atomic `POST /batches`) is the seed
+  `scenario-parity`, built once.
+- **Parity module** (`tests/journeys/test_j28_j29_parity.py`): 13 tests, scenarios 1–13 and 16 and
+  the reference shape. Every `200` answer is validated against the definition's own OpenAPI document
+  (`Parity.conforms`).
+- **C-D73** (`engine/model/consumer_contract.py`): `projection_field_type` resolves the source
+  `objectType` as text where the definition exposes every type the projection reaches; validation
+  (`consumer_api_rules`) and the contract use it, and `ConsumerObjects` writes the related record's
+  public name. No statement added.
+- **C-D75** (`consumer_contract.parent_keys`): the parent's fields keyed by the roles' output names,
+  in the composition (`ConsumerObjects._parent`), the contract and the OpenAPI document's parent
+  schema (whose nullable `code` is now found by its output name).
+- **Defect in the test groups:** `JOURNEY_GROUPS` had no `J29`, so since C4 none of the 32 J29
+  journey tests was selected by `-m consumer`; each package ran J29 by name, but the group runs left
+  it out. `J29` is mapped to `consumer` (the group grows from 129 to 215 with the parity module and
+  the unit tests counted since).
+- **Budgets** (C-D74): POSTGRESQL_BUDGETS §7 collects the consumer figures (C6a's run for lists and
+  XREF, C14's for batch resolve), with the three reads over 100 ms and their causes. No new run.
+- **Differs from the plan:**
+  - The plan's "all within 100 ms except the deep positions" was wrong; corrected above.
+  - The OpenAPI schema types a projection's `objectType` field as a nullable string, not an `enum`
+    of public names: the contract records value types only, and an `enum` would be its first
+    exception. The answers validate against the document.
+  - C-D75 and the J29 group mapping were not in the plan.
+  - Translations are under language › translation group; the plan's dataset named only the
+    languages. Spanish (Cita médica) was added so that `language=de` visibly limits `translations`.
+
+**Checks:**
+- **Failing first:** the parity module could not load its model until C-D73 (every test errored at
+  `alternative.objectType`). After C-D73, 12 of 13 passed on their first run, as expected for
+  delivered behaviour; the reference shape failed on `parent` (C-D75). The new J25 case (2 on
+  generated A and B) and J28's two changed parent assertions (4) failed with the app changes stashed
+  and pass with them. Three failures on the way were the test's own (commas sent encoded, the
+  candidates' key, `POST /objects` with `parent` instead of `parentObjectId`), fixed in the test.
+- **Targeted:** the parity module, J25, J28, J29, J20 and `test_consumer_openapi`: 106 passed.
+- **The C8 groups together** (`consumer`, `model`, `contract`, `volume`, in parallel): 538 passed
+  and 2 failed in 1 min 13 s. Both failures were `test_consumer_api_model`'s pinned parent contract
+  (`id`, C-D75), updated; that module then passed (87). Serial part: 1 passed.
+- `ruff check app/ tests/`: clean.
+- Not run: `startup` (no migration), `queries` (no shared read changed), the frontend (unchanged),
+  the browser runners, the full suites (R).
+
+**Composable domains (ADR-032):** the projection declaration gains `objectType` (C-D73); the `match`
+declaration, identity, attribute storage, audit, the bulk APIs and mapping coverage are untouched.
 
 ## Track V — API reference
 

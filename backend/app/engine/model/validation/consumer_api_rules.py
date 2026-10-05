@@ -30,6 +30,7 @@ from ..consumer_contract import (
     binding_types,
     exposed_types,
     field_value_type,
+    projection_field_type,
     projection_targets,
     reference_value_type,
     source_type,
@@ -195,12 +196,13 @@ class _Definition:
                     f"no exposed type has a {route.direction} binding of '{route.relation}'",
                 )
             for output, source in projection.fields.items():
-                if reference_value_type(self.model, targets, source) is None:
+                if projection_field_type(self.model, self.definition, targets, source) is None:
                     self._fail(
                         "INVALID_REFERENCE",
                         f"{path}/fields/{pointer_segment(output)}",
-                        f"field '{source}' is not 'id', 'name', an attribute of the related types or"
-                        " 'ancestor:<type>.<field>' of an ancestor they can sit under",
+                        f"field '{source}' is not 'id', 'name', an attribute of the related types,"
+                        " 'ancestor:<type>.<field>' of an ancestor they can sit under, or 'objectType'"
+                        " where the definition exposes every related type",
                     )
 
     def _check_match(self) -> None:

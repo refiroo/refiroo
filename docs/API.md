@@ -2043,7 +2043,8 @@ Returns the definition's shared object for the record whose **object ID** is `{i
   "isActive": false,
   "score": 50,                            // integers and booleans as JSON values
   "openedOn": "2026-03-04",               // dates YYYY-MM-DD; decimals as strings; dateTime in UTC
-  "parent": null,                         // or {objectType, id, code, name} as declared
+  "parent": null,                         // or {objectType, ledgerId, code, name}: the roles declared,
+                                          // keyed by their output names
   "path": "",                             // ancestors' names joined with "/", top down
   "hierarchy": [],                        // the same names as a list, without the object itself
   "pairedToken": { "tokenName": "Paired token", "tokenCode": "TK-1" },  // at most one: object or null
@@ -2055,7 +2056,13 @@ Returns the definition's shared object for the record whose **object ID** is `{i
 
 - Every declared field is always present and no undeclared field appears. A field takes the first of
   its sources that has a value, then its `default`, then `null`; empty text is no value.
-- `parent.objectType` is `null` when the parent's type is not exposed.
+- `parent` holds the fields its declaration lists, each keyed as the object's own field is: the
+  `id`, `code` and `name` roles by their output names (`ledgerId` above), and `objectType`. A
+  consumer reading a field from an object or its parent uses one name (C-D75).
+  `parent.objectType` is `null` when the parent's type is not exposed.
+- A projection field with the source `objectType` gives each item's public type name, as the
+  object's own `objectType` does. It is allowed where the definition exposes every type the
+  projection reaches (C-D73).
 - `workspace` selects the workspace (default: the deployment's default); the response names it in the
   `RDM-Workspace` header, also on an error after the workspace was resolved.
 - Change sets are never read; a record created in an open change set is not found until published.

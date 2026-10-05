@@ -8,6 +8,13 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 C8: consumer API parity acceptance. A test-only fixture shaped like the reference
+  deployment (the starter with locations, availability, durations and a one-to-one self relation)
+  and CONSUMER_API's definition written out answer the parity scenarios, each answer validated
+  against the API's own OpenAPI document. A projection field may read `objectType`, the related
+  record's public type name, where the definition exposes every type the projection reaches
+  (C-D73). The consumer read budgets are collected in POSTGRESQL_BUDGETS §7 (C-D74).
+
 - Base 0.9 V2: the API reference page `/docs` lists every consumer API of the active release beside
   the management API, labelled `{name} · v{contractVersion}`, built per request. A link to a source
   (Scalar's `?api=<slug>`) opens it; before, the parameter was refused.
@@ -192,6 +199,11 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
+- Base 0.9 C8: a consumer object's `parent` keys its fields by the roles' output names, as the
+  object's own fields (`masterId`, not `id`, where the `id` role's output is `masterId`; C-D75).
+  The reference deployment's parent has these names, and a flow reading a field from an object and
+  then from its parent uses one name.
+
 - Example model `rdm-operators-timetables` 0.6.0 declares one consumer API, `rdm`, over every object
   type of the model, so one XREF looks up any ID, code or name across master data, operators and
   locations, the timetable catalogue, systems and translations; `type` narrows it, and `system` and
@@ -229,6 +241,9 @@ All notable changes to this project are documented in this file. The format foll
   record with `cause: {"kind": "publication", "id"}`; `AuditCause.kind` gains `publication`.
 
 ### Fixed
+
+- Base 0.9 C8: the `consumer` test group now selects the J29 journey tests; since C4 it had left
+  them out (`JOURNEY_GROUPS` had no `J29`).
 
 - Base 0.9 C6b: a consumer API document was not valid OpenAPI when a list's parent parameter shared a
   definition parameter's name (`Duplicate parameter`); the list's operation now lists the name once,

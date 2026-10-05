@@ -194,7 +194,11 @@ document, paths written out with its name and version (C-D69, C-D70,
 [record](BASE_0_9_IMPLEMENTATION_PLAN.md#c6b-delivery-record)). **V2 is delivered (2026-10-05):**
 `/docs` lists every consumer API of the active release beside the management API, labelled
 `{name} · v{contractVersion}`; a link to a source (`?api=`) opens it
-([record](BASE_0_9_IMPLEMENTATION_PLAN.md#v2-delivery-record)). Next: C8, in the order of the
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#v2-delivery-record)). **C8 is delivered (2026-10-05):** parity
+acceptance on a fixture shaped like the reference deployment, every answer checked against the API's
+own document; a projection may name each item's type (`objectType`) and the parent's fields take the
+roles' output names (C-D72–C-D75, [record](BASE_0_9_IMPLEMENTATION_PLAN.md#c8-delivery-record)).
+Next: C16, in the order of the
 [delivery queue](BASE_0_9_IMPLEMENTATION_PLAN.md#delivery-queue) (U4 waits for U3).
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).

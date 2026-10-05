@@ -550,6 +550,11 @@ contract rules are specified in [CONSUMER_API.md](CONSUMER_API.md#definition-sha
 - A `projection` parameter may declare `"scoresFrom": true`: on XREF, only the related records it
   matches pass scores through its projection. It needs a `match.promoted` entry over that
   projection, refused otherwise at `/consumerApis/<key>/parameters/<name>/scoresFrom` (C-D45).
+- A projection field reads `id`, `name`, an attribute of the related types or
+  `ancestor:<type>.<field>`, or `objectType`: the related record's public type name, allowed only
+  where the definition exposes every type the projection reaches, refused otherwise at
+  `/consumerApis/<key>/projections/<name>/fields/<field>` (C-D73). The `parent` block's fields are
+  keyed by the roles' output names (C-D75).
 - A list (`key`, `objectType`, optional `parentParameter`) may name `sortBy`: a scalar attribute (not
   JSON) its type binds, refused otherwise at `/consumerApis/<key>/lists/<list>/sortBy` (C-D29).
   Records without a value come last, then name, then creation order. `from`, `seek` and

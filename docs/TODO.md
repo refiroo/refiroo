@@ -39,7 +39,9 @@ the consumer API's name is `consumerApi` in public contracts (U-D1, C-D59). **C6
 reads pinned to a publication (`publication`, `latest`), the publications list with `eventSequence`
 and ETag (C-D60–C-D68). **C6b is delivered (2026-10-05)**: the API index `GET /api/consumer` and an
 OpenAPI 3.1 document per consumer API (C-D69, C-D70). **V2 is delivered (2026-10-05)**: every consumer API
-as a source on `/docs`. Next: C8, in the order of the delivery queue (U4 waits for U3). See
+as a source on `/docs`. **C8 is delivered (2026-10-05)**: parity acceptance; `objectType` in
+projections, the parent keyed by output names (C-D72–C-D75). Next: C16, in the order of the delivery
+queue (U4 waits for U3). See
 [Next — 0.9](#next--09).
 
 - **Publish and change-set creation move the workspace through Python (found 2026-10-03, F1;

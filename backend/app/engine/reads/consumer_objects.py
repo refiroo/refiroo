@@ -27,7 +27,9 @@ from ...models.schema import ConsumerApiDefinition, EngineModel
 from ..model.consumer_contract import (
     BUILT_IN_FIELDS,
     OBJECT_ROLES,
+    PROJECTION_TYPE_SOURCE,
     exposed_types,
+    parent_keys,
     projection_shape,
     source_type,
     split_ancestor_reference,
@@ -103,7 +105,8 @@ class _Projection:
 
     @property
     def attribute_keys(self) -> set[str]:
-        return {source for _output, source in self.fields if isinstance(source, str)} - set(BUILT_IN_FIELDS)
+        sources = {source for _output, source in self.fields if isinstance(source, str)}
+        return sources - set(BUILT_IN_FIELDS) - {PROJECTION_TYPE_SOURCE}
 
     @property
     def ancestor_keys(self) -> set[str]:
@@ -135,6 +138,8 @@ class ConsumerObjects:
             for name, item in shape.attributes.items()
         ]
         self.parent = shape.parent
+        # The parent's keys are the roles' output names (C-D75).
+        self.parent_keys = parent_keys(definition) if shape.parent is not None else {}
         self.path = shape.path
         self.hierarchy = shape.hierarchy
         self.projections = [
@@ -300,7 +305,9 @@ class ConsumerObjects:
         for projection in self.projections:
             items = [
                 {
-                    output: _projected(item, source, ancestors)
+                    output: self.public_names.get(item.type_key)
+                    if source == PROJECTION_TYPE_SOURCE
+                    else _projected(item, source, ancestors)
                     for output, source in projection.fields
                 }
                 for owner, item in related[projection.output]
@@ -318,8 +325,7 @@ class ConsumerObjects:
             "code": self.roles["code"].read(parent) if "code" in self.roles else None,
             "name": self._name(parent),
         }
-        assert self.parent is not None
-        return {name: values[name] for name in self.parent.fields}
+        return {key: values[name] for name, key in self.parent_keys.items()}
 
     def _name(self, record: _Record) -> Any:
         """The ``name`` role, falling back to the built-in name."""

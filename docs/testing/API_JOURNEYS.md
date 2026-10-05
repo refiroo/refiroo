@@ -86,7 +86,9 @@ Under `/api/consumer`, outside the management OpenAPI document: each definition 
 (`openapi.json`), and the API index lists them.
 Every response names the workspace it read in the `RDM-Workspace` header, and a read pinned with
 `publication` the publication in `RDM-Publication`. Every `GET` answers an `ETag` and `304` to a
-matching `If-None-Match` (J28.14).
+matching `If-None-Match` (J28.14). The parity tests (`test_j28_j29_parity`, 0.9 C8) walk get by ID,
+lists, XREF, batch resolve, the index and the document again on a model shaped like the reference
+deployment's, each answer checked against the API's own document.
 
 | Operation | Journeys |
 | --- | --- |

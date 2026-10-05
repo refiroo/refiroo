@@ -90,11 +90,12 @@ def test_the_shared_object(world):
     assert entry[_out(world, "active")] is True
     assert entry[_out(world, "n")] == 50
     assert entry[_out(world, "dt")] is None
+    # The parent's keys are the roles' output names, as the object's own (C-D75).
     assert entry[_out(world, "parent")] == {
         "objectType": world.key("Capi.R"),
-        "id": r["id"],
-        "code": "LED-1",
-        "name": "Alpha ledger",
+        _out(world, "id"): r["id"],
+        _out(world, "code"): "LED-1",
+        _out(world, "name"): "Alpha ledger",
     }
     assert entry[_out(world, "hierarchy")] == ["Alpha ledger"]
     assert entry[_out(world, "path")] == "Alpha ledger"
@@ -323,7 +324,7 @@ def test_below_a_parent(world):
     )
     every = _page(world, "entries")
     assert _names(world, every) == both
-    parents = [item[_out(world, "parent")]["id"] for item in every["items"]]
+    parents = [item[_out(world, "parent")][_out(world, "id")] for item in every["items"]]
     assert parents == [north["id"], north["id"], south["id"]]
 
     region = _param(world, "permits.parent")

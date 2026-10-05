@@ -167,7 +167,7 @@ def test_definition_compiles_into_the_release_with_its_output_contract(base):
         "sortOrder": "integer",
         # description is longText, which outputs as text (C-D19).
         "description": "text",
-        "parent": {"object": {"objectType": "text", "id": "text", "code": "text", "name": "text"}},
+        "parent": {"object": {"objectType": "text", "masterId": "text", "code": "text", "name": "text"}},  # C-D75
         "path": "text",
         "hierarchy": "text[]",
     }

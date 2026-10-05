@@ -432,7 +432,8 @@ version.
 A consuming system reads one business object through a declared API by its record ID, at the
 API's contract version: exactly the fields the definition declares, values in their declared types,
 the parent and the path of ancestors, and the related records each projection names (one object or
-a list, by the relationship's cardinality). It reads live, published data in the default workspace
+a list, by the relationship's cardinality). The parent's fields have the same names as the object's
+own, and a projection can name each related record's type. It reads live, published data in the default workspace
 or the one it names, and every answer says which workspace it read. Work in a change set is never
 visible until it is published.
 
@@ -491,6 +492,10 @@ address of its own OpenAPI document. That document is the API's typed contract a
 path written out with the API's name and version, every field with its type, the parameters each read
 takes, its limits and its refusals. A client generated from it reads the API's real answers. When a
 release raises the contract version, the index and the document move to the new version.
+
+A definition alone reproduces the answers of the consumer API the design started from (an API
+gateway over the source platform's reference data), apart from the documented differences: a
+consumer moves to the engine by writing a definition.
 
 Evidence: [consumer API design](../CONSUMER_API.md),
 [contract check](../../backend/app/engine/model/consumer_contract.py).

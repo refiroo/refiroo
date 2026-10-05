@@ -286,3 +286,36 @@ def test_targetable_is_contract(world):
     index = model["consumerApis"].index(definition)
     pointer = f"/consumerApis/{index}/parameters/{container}/targetable"
     assert [d["path"] for d in compiled["diagnostics"]] == [pointer], compiled["diagnostics"]
+
+
+@pytest.mark.journey("J25")
+@pytest.mark.structures("Capi", "B11", "Bown", "K", "D")
+def test_a_projection_names_its_items_type_where_the_types_are_exposed(world):
+    """A projection field with the source objectType gives each related record's public type name
+    (C-D73). Over a route reaching a type the definition does not expose (B11 to K) it is refused at
+    the field; over one reaching only exposed types (Bown to D) adding it is compatible, and removing it
+    again is version_required at the projection's fields."""
+    key, paired, permits = world.key("Capi"), world.key("Capi.B11"), world.key("Capi.Bown")
+    model, definition = _capi_model(world, "type-of-unexposed")
+    definition["projections"][paired]["fields"]["tokenType"] = "objectType"
+    draft, compiled = _compile(world, model)
+    pointer = f"/consumerApis/{key}/projections/{paired}/fields/tokenType"
+    assert compiled["valid"] is False
+    assert [d["path"] for d in compiled["diagnostics"]] == [pointer], compiled["diagnostics"]
+    error = refused(_install(world, draft), 422, "INVALID_MODEL")
+    assert pointer in json.dumps(error["details"])
+
+    model, definition = _capi_model(world, "type-added")
+    definition["projections"][permits]["fields"]["permitType"] = "objectType"
+    draft, compiled = _compile(world, model)
+    assert compiled["valid"] is True
+    assert compiled["consumerContracts"]["classification"] == "compatible"
+    ok(world.activate(ok(_install(world, draft), 201)["id"]))
+
+    model, definition = _capi_model(world, "type-removed")
+    _draft, compiled = _compile(world, model)
+    assert compiled["consumerContracts"]["classification"] == "version_required"
+    changed = f"/consumerApis/{key}/projections/{permits}/fields"
+    assert any(d["path"] == changed for d in compiled["consumerContracts"]["diagnostics"]), compiled[
+        "consumerContracts"
+    ]["diagnostics"]
