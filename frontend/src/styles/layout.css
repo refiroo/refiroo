@@ -27,7 +27,8 @@
   box-shadow: var(--shadow-md);
 }
 
-/* Global header */
+/* Top bar (ADR-039): the product mark, the workspace switcher, the applications as underlined tabs,
+   then administration and Settings at the right. White, separated from the content by a rule. */
 .global-header {
   position: sticky;
   top: 0;
@@ -35,11 +36,11 @@
   grid-column: 1 / -1;
   display: flex;
   align-items: stretch;
-  gap: 24px;
+  gap: var(--space-5);
   height: var(--header-height);
-  padding: 0 16px 0 14px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--line);
+  padding: 0 var(--space-4) 0 var(--space-5);
+  background: var(--topbar-surface);
+  border-bottom: 1px solid var(--border-subtle);
 }
 .product-mark {
   display: flex;
@@ -48,28 +49,34 @@
   flex: none;
   border: 0;
   background: transparent;
-  color: var(--ink);
-  padding: 0 4px;
-  font-size: 14px;
+  color: var(--text-primary);
+  padding: 0;
+  font-size: var(--text-lg);
 }
 .product-mark > span {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
-  background: var(--accent);
-  color: var(--on-accent);
-  font-weight: 700;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: var(--text-primary);
+  color: var(--surface-app);
+  font-size: var(--text-sm);
+  font-weight: 600;
 }
 .product-mark strong {
-  font-weight: 650;
-  letter-spacing: -0.01em;
+  font-weight: 600;
+}
+.topbar-workspace {
+  display: flex;
+  align-items: center;
+  flex: none;
+  min-width: 0;
 }
 .application-nav {
   display: flex;
   align-items: stretch;
-  gap: 2px;
+  gap: var(--space-5);
   min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
@@ -78,79 +85,90 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 12px;
+  gap: var(--space-2);
+  padding: 2px 0 0;
   border: 0;
+  border-bottom: 2px solid transparent;
   background: transparent;
-  color: var(--muted);
-  font-size: 14px;
-  font-weight: 550;
+  color: var(--text-secondary);
+  font-size: var(--text-md);
+  font-weight: 500;
   white-space: nowrap;
 }
-.application-tab::after {
-  content: "";
-  position: absolute;
-  left: 10px;
-  right: 10px;
-  bottom: -1px;
-  height: 2px;
-  border-radius: 2px 2px 0 0;
-  background: transparent;
-}
 .application-tab:hover {
-  color: var(--ink);
+  color: var(--text-primary);
 }
+/* The current application is marked by an ink underline, not by colour. */
 .application-tab[aria-current="page"] {
-  color: var(--ink);
-  font-weight: 650;
-}
-.application-tab[aria-current="page"]::after {
-  background: var(--accent);
+  border-bottom-color: var(--text-primary);
+  color: var(--text-primary);
+  font-weight: 600;
 }
 .application-tab:focus-visible {
   outline-offset: -4px;
-  border-radius: 8px;
+  border-radius: 4px;
 }
 .application-glyph {
   display: grid;
   place-items: center;
-  color: var(--faint);
+  color: var(--text-tertiary);
 }
-.header-end {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-left: auto;
-  flex: none;
+.topbar-spacer {
+  flex: 1 1 0;
 }
 .model-version {
-  color: var(--muted);
-  font-size: 12px;
+  align-self: center;
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
   white-space: nowrap;
 }
 .secondary-navigation {
   display: flex;
+  align-items: center;
+  gap: var(--space-1);
 }
 .header-link {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
   min-height: 32px;
-  padding: 0 10px;
-  border: 1px solid var(--line-strong);
+  padding: 0 var(--space-2);
+  border: 0;
   border-radius: var(--radius-control);
-  background: var(--surface);
-  color: var(--ink-2);
-  font-size: 13px;
-  font-weight: 550;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 500;
 }
 .header-link:hover {
   background: var(--surface-hover);
+  color: var(--text-primary);
 }
 .header-link[aria-current="page"] {
-  border-color: var(--accent-line);
-  background: var(--accent-soft);
-  color: var(--accent-ink);
+  background: var(--state-selected);
+  color: var(--state-selected-text);
+  font-weight: 600;
+}
+.topbar-icon-button {
+  display: grid;
+  place-items: center;
+  align-self: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-secondary);
+}
+.topbar-icon-button:hover,
+.topbar-icon-button[aria-expanded="true"] {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+.topbar-icon-button[data-focus-visible] {
+  outline: 2px solid var(--focus-color);
+  outline-offset: 1px;
 }
 .navigation-toggle {
   display: none;
@@ -164,8 +182,8 @@
   height: calc(100vh - var(--header-height));
   min-width: 0;
   overflow-y: auto;
-  background: var(--sidebar-bg);
-  border-right: 1px solid var(--line);
+  background: var(--rail-surface);
+  border-right: 1px solid var(--border-subtle);
 }
 .workspace-sidebar > div {
   min-height: 100%;
@@ -179,56 +197,9 @@
   padding: 16px 12px 0;
 }
 
-/* Settings are pinned to the bottom of the rail and stay reachable while the tree scrolls. */
-.sidebar-footer {
-  position: sticky;
-  bottom: 0;
-  z-index: 2;
-  margin: auto -12px 0;
-  padding: 8px 12px 12px;
-  border-top: 1px solid var(--line);
-  background: var(--sidebar-bg);
-}
 .explorer,
 .sidebar-slot {
   margin-bottom: 20px;
-}
-.settings-trigger {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 6px 8px;
-  border: 0;
-  border-radius: var(--radius-control);
-  background: transparent;
-  color: var(--ink-2);
-  text-align: left;
-}
-.settings-trigger:hover,
-.settings-trigger[aria-expanded="true"] {
-  background: var(--fill);
-}
-.settings-trigger > .icon {
-  color: var(--muted);
-}
-.settings-trigger[data-focus-visible] {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-.settings-trigger-text {
-  display: grid;
-  flex: 1;
-  min-width: 0;
-  line-height: 1.25;
-}
-.settings-trigger-text strong {
-  font-size: 13px;
-  font-weight: 600;
-}
-.settings-trigger-text small {
-  color: var(--muted);
-  font-size: 12px;
 }
 .account-avatar {
   display: grid;
@@ -236,9 +207,10 @@
   flex: none;
   width: 30px;
   height: 30px;
+  border: 1px solid var(--border-subtle);
   border-radius: 50%;
-  background: var(--accent-soft);
-  color: var(--accent-ink);
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
 }
 .settings-popover {
   width: min(320px, calc(100vw - 24px));
@@ -345,40 +317,62 @@ fieldset.settings-section legend {
   left: calc(var(--sidebar) - 5px);
   width: 10px;
 }
-.workspace-selector {
-  margin: 0 4px 18px;
-}
+/* The workspace switcher sits in the top bar: its label is read by assistive technology and
+   shown only as the field's name; the retired note stays in the content (the shell's notice). */
 .workspace-selector .selection-field {
-  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.workspace-selector .selection-field > label,
+.workspace-selector .field-description {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
 }
 .workspace-selector .combo-control {
+  width: 200px;
   min-width: 0;
-  background: var(--surface);
+  min-height: 32px;
+  background: var(--surface-sunken);
 }
 .workspace-selector input {
   width: 100%;
   min-width: 0;
+  font-weight: 500;
 }
 .workspace-single {
-  display: grid;
-  gap: 2px;
-  padding: 0 6px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 .workspace-single-label {
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
 }
 .workspace-single strong {
-  overflow-wrap: anywhere;
-  font-size: 14px;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-md);
   font-weight: 600;
 }
+.workspace-single .field-description {
+  position: static;
+  width: auto;
+  height: auto;
+  clip: auto;
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+}
 .workspace-single .workspace-manage {
-  justify-self: start;
-  margin: 4px 0 0 -8px;
+  min-height: 30px;
+  padding: 0 var(--space-2);
+  font-size: var(--text-sm);
 }
 .nav-label {
   margin: 0 10px 6px;
@@ -596,7 +590,7 @@ fieldset.settings-section legend {
   width: 100%;
   margin-top: 8px;
   padding: 8px;
-  border: 1px dashed var(--line-strong);
+  border: 1px dashed var(--border-control);
   border-radius: var(--radius-control);
   background: transparent;
   color: var(--ink-2);
@@ -609,9 +603,11 @@ fieldset.settings-section legend {
 
 /* Main column */
 .workspace-main {
+  --main-pad-top: 20px;
+  --main-pad-x: 32px;
   grid-column: 2;
   min-width: 0;
-  padding: 20px 32px 48px;
+  padding: var(--main-pad-top) var(--main-pad-x) 48px;
 }
 .without-sidebar .workspace-main {
   grid-column: 1;
@@ -621,6 +617,7 @@ fieldset.settings-section legend {
   margin-left: auto;
   margin-right: auto;
 }
+/* Admin pages keep their own context line until U3 moves them into Settings. */
 .context-bar {
   display: flex;
   align-items: center;
@@ -635,30 +632,128 @@ fieldset.settings-section legend {
   flex-wrap: wrap;
   gap: 4px;
   min-width: 0;
-  color: var(--muted);
-  font-size: 13px;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
   overflow-wrap: anywhere;
 }
-.context-status {
-  display: inline-flex;
+.shell-context .status-pill {
   margin-left: 6px;
+}
+
+/* The data-context band (ADR-039): across the content's full width, visible while the page
+   scrolls. Live is a green pill on the page; a change set turns the band amber and a publication
+   violet, with their own actions. */
+.data-context-band {
+  position: sticky;
+  top: var(--header-height);
+  z-index: 10;
+  display: grid;
+  gap: var(--space-3);
+  max-width: none;
+  margin: calc(-1 * var(--main-pad-top)) calc(-1 * var(--main-pad-x)) var(--space-5);
+  padding: var(--space-3) var(--main-pad-x);
+  background: var(--surface-app);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.band-change-set {
+  --band-surface: var(--context-change-set-surface);
+  --band-text: var(--context-change-set-text);
+  --band-marker: var(--context-change-set-marker);
+  --band-line: var(--context-change-set-line);
+}
+.band-publication {
+  --band-surface: var(--context-publication-surface);
+  --band-text: var(--context-publication-text);
+  --band-marker: var(--context-publication-marker);
+  --band-line: var(--context-publication-line);
+}
+.band-change-set,
+.band-publication {
+  background: var(--band-surface);
+  border-bottom-color: var(--band-line);
+  color: var(--band-text);
+}
+.band-change-set .shell-context,
+.band-publication .shell-context,
+.band-change-set .band-note,
+.band-publication .band-note {
+  color: inherit;
+}
+.band-context {
+  display: flex;
   align-items: center;
-  padding: 2px 9px;
-  border-radius: 999px;
-  background: var(--success-soft);
-  color: var(--success);
-  font-size: 12px;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+}
+.band-note {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+.band-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+}
+/* Controls on a tinted band take its ink: the outline is the band's marker (3:1, U-D9). */
+.band-change-set .secondary,
+.band-publication .secondary,
+.band-change-set .change-set-secondary-actions summary {
+  border-color: var(--band-marker);
+  background: transparent;
+  color: var(--band-text);
+  box-shadow: none;
+}
+.band-change-set .secondary:hover:not(:disabled),
+.band-publication .secondary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--band-text) 8%, transparent);
+}
+.band-change-set .primary {
+  border-color: var(--band-text);
+  background: var(--band-text);
+  color: var(--band-surface);
+}
+.band-change-set .primary:hover:not(:disabled) {
+  border-color: var(--band-text);
+  background: var(--band-text);
+  opacity: 0.9;
+}
+.band-details:empty {
+  display: none;
+}
+.data-context-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-left: auto;
+}
+.data-context-switch button {
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+.band-change-set .data-context-switch button,
+.band-publication .data-context-switch button {
+  color: inherit;
+}
+.data-context-switch button:hover {
+  color: var(--text-primary);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.data-context-switch button[aria-current="page"] {
+  color: inherit;
   font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
-.context-status.status-change-set {
-  background: var(--warning-soft);
-  color: var(--warning);
+.data-context-band:not(.band-change-set):not(.band-publication) .data-context-switch button[aria-current="page"] {
+  color: var(--text-primary);
 }
-.context-status.status-publication {
-  background: var(--info-soft);
-  color: var(--info);
-}
-.data-context-switch,
 .segmented {
   display: inline-flex;
   flex-wrap: wrap;
@@ -667,7 +762,6 @@ fieldset.settings-section legend {
   border-radius: 8px;
   background: var(--fill);
 }
-.data-context-switch button,
 .segmented button {
   display: inline-flex;
   align-items: center;
@@ -681,11 +775,9 @@ fieldset.settings-section legend {
   font-size: 13px;
   font-weight: 550;
 }
-.data-context-switch button:hover,
 .segmented button:hover {
   color: var(--ink);
 }
-.data-context-switch button[aria-current="page"],
 .segmented button[aria-pressed="true"] {
   background: var(--surface);
   color: var(--ink);

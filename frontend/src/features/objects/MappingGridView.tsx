@@ -6,6 +6,7 @@ import { errorMessage, isApiError } from "@/api/errors";
 import { InlineError } from "@/ui/InlineError";
 import { ScrollWindow } from "@/ui/ScrollWindow";
 import { Icon } from "@/ui/Icon";
+import { PageHeader } from "@/ui/PageHeader";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { formatValue } from "@/ui/formatValue";
@@ -125,23 +126,21 @@ export function MappingGridView({
 
   return (
     <div ref={root}>
-      <header className="page-header collection-header">
-        <div className="page-title">
-          <span className="page-icon" aria-hidden="true">
-            <Icon name="mapping" size={20} />
-          </span>
-          <div>
-            <h1 tabIndex={-1}>{view.name}</h1>
-            <p className="mapping-direction">
-              <span>{sourceType.name}</span>
-              <Icon name="arrow-right" size={14} />
-              <span>{directionLabel ?? "maps to"}</span>
-              <Icon name="arrow-right" size={14} />
-              <span>{targetType.name}</span>
-            </p>
-          </div>
-        </div>
-      </header>
+      <PageHeader
+        focusTitle
+        icon={<Icon name="mapping" size={20} />}
+        title={view.name}
+        descriptionClassName="mapping-direction"
+        description={
+          <>
+            <span>{sourceType.name}</span>
+            <Icon name="arrow-right" size={14} />
+            <span>{directionLabel ?? "maps to"}</span>
+            <Icon name="arrow-right" size={14} />
+            <span>{targetType.name}</span>
+          </>
+        }
+      />
       {query.parentObjectId && (
         <div className="scope-banner">
           <CollectionScope

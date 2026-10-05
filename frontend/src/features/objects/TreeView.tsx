@@ -48,6 +48,7 @@ import type { AttributeTypeDefinition, ObjectItem, ObjectTypeDefinition, TreeVie
 import { parseAttributeValue } from "@/ui/attributeForm";
 import { AnchoredMenu } from "@/ui/AnchoredMenu";
 import { Icon } from "@/ui/Icon";
+import { PageHeader } from "@/ui/PageHeader";
 import { Notice } from "@/ui/Notice";
 import type { ViewComponentProps } from "./views/types";
 
@@ -447,26 +448,19 @@ export function TreeView({
   const headingId = `tree-lens-${view.key}`;
   return (
     <div className="tree-lens">
-      <header className="page-header collection-header">
-        <div className="page-title">
-          <span className="page-icon" aria-hidden="true">
-            <Icon name="tree" size={20} />
+      <PageHeader
+        focusTitle
+        titleId={headingId}
+        icon={<Icon name="tree" size={20} />}
+        title={view.name}
+        descriptionClassName="mapping-direction"
+        description={rootNames.map((name, index) => (
+          <span key={name} className="tree-lens-level">
+            {index > 0 && <Icon name="chevron-right" size={13} />}
+            <span>{name}</span>
           </span>
-          <div>
-            <h1 tabIndex={-1} id={headingId}>
-              {view.name}
-            </h1>
-            <p className="mapping-direction">
-              {rootNames.map((name, index) => (
-                <span key={name} className="tree-lens-level">
-                  {index > 0 && <Icon name="chevron-right" size={13} />}
-                  <span>{name}</span>
-                </span>
-              ))}
-            </p>
-          </div>
-        </div>
-      </header>
+        ))}
+      />
       {lenses}
       <section className="surface collection-surface">
         <div className="collection-toolbar object-toolbar">

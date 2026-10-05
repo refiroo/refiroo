@@ -2,7 +2,8 @@
 
 @media (max-width: 1080px) {
   .workspace-main {
-    padding: 20px 20px 40px;
+    --main-pad-x: 20px;
+    padding-bottom: 40px;
   }
   .model-version {
     display: none;
@@ -53,26 +54,50 @@
   .column-resizer {
     display: none;
   }
+  /* Two rows: the mark, the workspace and Settings; then the applications (scrolling) beside
+     the administration links. */
   .global-header {
     position: static;
-    height: auto;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "mark workspace settings"
+      "apps apps admin";
     align-items: center;
-    gap: 0;
+    gap: 0 var(--space-3);
+    height: auto;
     padding: 0 12px;
   }
   .product-mark {
-    min-height: 48px;
+    grid-area: mark;
+    min-height: 52px;
   }
-  .header-end {
-    margin-left: auto;
+  .product-mark strong,
+  .topbar-spacer {
+    display: none;
+  }
+  .topbar-workspace {
+    grid-area: workspace;
+  }
+  .workspace-selector,
+  .workspace-selector .selection-field,
+  .workspace-selector .combo-control {
+    width: 100%;
+  }
+  .global-header > .topbar-icon-button {
+    grid-area: settings;
+    justify-self: end;
   }
   .application-nav {
-    order: 3;
-    flex: 1 0 100%;
-    margin: 0 -12px;
-    padding: 0 4px;
-    border-top: 1px solid var(--soft-line);
+    grid-area: apps;
+    align-self: stretch;
+    gap: var(--space-4);
+    border-top: 1px solid var(--border-faint);
+  }
+  .secondary-navigation {
+    grid-area: admin;
+    align-self: stretch;
+    border-top: 1px solid var(--border-faint);
   }
   .application-tab {
     min-height: 44px;
@@ -92,7 +117,16 @@
     text-align: left;
   }
   .workspace-main {
-    padding: 16px 16px 32px;
+    --main-pad-top: 16px;
+    --main-pad-x: 16px;
+    padding-bottom: 32px;
+  }
+  /* On a phone the band would cover much of the screen, so it scrolls with the page. */
+  .data-context-band {
+    position: static;
+  }
+  .data-context-switch {
+    margin-left: 0;
   }
   .context-bar {
     align-items: flex-start;
@@ -163,7 +197,7 @@
   .mapping-table table {
     min-width: 0;
   }
-  .detail-actions {
+  .detail-header .page-actions {
     margin-left: 0;
   }
   .dialog-backdrop {

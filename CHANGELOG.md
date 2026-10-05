@@ -8,6 +8,19 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 U2: the UI foundation and the shell (ADR-039, Direction B "Open").
+  - Design tokens are in three layers in `styles/tokens.css`: primitives, semantic roles (dark mode
+    redefines only these) and component tokens.
+  - A contrast test holds every text pair to WCAG AA, and control borders, focus and state
+    markers to 3:1 (U-D9).
+  - Instrument Sans and JetBrains Mono are bundled and served with the UI (OFL-1.1).
+  - A top bar holds the workspace switcher, the applications as underlined tabs, and Settings.
+  - A data-context band names the data in view: a green Live pill, an amber band in a change set
+    with its Review, Validate and Publish actions, and a violet band in a publication.
+  - `ui/PageHeader` now draws all ten page headers; there are also `ui/StatusPill` and `ui/Card`.
+  - Every screen takes the new colours and type through the older token names, kept as aliases
+    until U6 (U-D7). All visual baselines were re-recorded, and `change-set-editing-dark` was added.
+
 - Base 0.9 C10: consumer events and the pull feed. After a live write commits, a deriver thread in
   the API process turns the workspace's feed entries into the events each consumer API declares,
   without the write waiting: `created`, `updated` naming the watched outputs that changed (also for

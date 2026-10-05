@@ -9,6 +9,8 @@ import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { InlineError } from "@/ui/InlineError";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
+import { PageHeader } from "@/ui/PageHeader";
+import { StatusPill } from "@/ui/StatusPill";
 
 export function Publications({
   workspaceKey,
@@ -51,14 +53,11 @@ export function Publications({
 
   return (
     <section className="context-page">
-      <header className="page-header">
-        <div className="page-title">
-          <div>
-            <h1>Publications</h1>
-            <p>Newest first. Opening a publication or starting a change set from it does not change live data.</p>
-          </div>
-        </div>
-      </header>
+      <PageHeader
+        variant="plain"
+        title="Publications"
+        description="Newest first. Opening a publication or starting a change set from it does not change live data."
+      />
       {message && <Notice tone="success">{message}</Notice>}
       {feed.items.map((publication) => (
         <article key={publication.id} className="surface publication-card">
@@ -222,21 +221,26 @@ export function PublicationBanner({ onExit }: { onExit: () => void }) {
   if (!publication || !model) return null;
   const pinned = `${model.release.key} ${model.release.version}`;
   return (
-    <Notice tone="info" title={`Viewing Publication ${publication.publicationNumber}`}>
-      <p>
-        Read-only publication, interpreted with its pinned model release {pinned}. Current definitions are not
-        substituted.
-      </p>
-      {activeModelReleaseId && activeModelReleaseId !== publication.modelReleaseId && (
+    <section className="publication-bar" aria-labelledby="publication-bar-title">
+      <div className="publication-bar-main">
+        <StatusPill tone="publication">Publication</StatusPill>
+        <h2 id="publication-bar-title">{`Viewing Publication ${publication.publicationNumber}`}</h2>
         <p>
-          The current model is {activeModelReleaseLabel ?? "a different release"}; this publication remains on {pinned}.
-          Starting a change set preserves that pin. Publishing it requires a supported model migration, which Base 0.6
-          does not perform.
+          Read-only publication, interpreted with its pinned model release {pinned}. Current definitions are not
+          substituted.
+          {activeModelReleaseId && activeModelReleaseId !== publication.modelReleaseId && (
+            <>
+              {" "}
+              The current model is {activeModelReleaseLabel ?? "a different release"}; this publication remains on{" "}
+              {pinned}. Starting a change set preserves that pin. Publishing it requires a supported model migration,
+              which Base 0.6 does not perform.
+            </>
+          )}
         </p>
-      )}
+      </div>
       <button className="secondary" onClick={onExit}>
         Back to publications
       </button>
-    </Notice>
+    </section>
   );
 }

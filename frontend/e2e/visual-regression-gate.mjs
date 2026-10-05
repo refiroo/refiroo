@@ -128,6 +128,10 @@ try {
   await capture(page, "model-workbench-dark", output);
   await openLongList(page, uiUrl, longDomain);
   await capture(page, "scrolling-list-tree-dark", output);
+  // The amber data-context band in a change set (Track U U2), on the second change set.
+  await page.goto(`${uiUrl}/apps/rdm-master/views/domains?workspaceKey=default&changeSetId=${changeSet2.id}`);
+  await shown(page.getByRole("button", { name: "Domain 00", exact: true }));
+  await capture(page, "change-set-editing-dark", output);
   await page.emulateMedia({ colorScheme: "light" });
   const changeSet2Detail = await api(`/change-sets/${changeSet2.id}`);
   await api(`/change-sets/${changeSet2.id}?expectedVersion=${changeSet2Detail.version}`, undefined, "DELETE");

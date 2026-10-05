@@ -15,6 +15,8 @@ import { CreateDraftDialog, type CreateDraftSeed } from "@/features/model-admin/
 import { ModelDraftEditor } from "@/features/model-admin/ModelDraftEditor";
 import { ModelReleaseDetail } from "@/features/model-admin/ModelReleaseDetail";
 import { Icon } from "@/ui/Icon";
+import { PageHeader } from "@/ui/PageHeader";
+import { StatusPill } from "@/ui/StatusPill";
 import { SidebarPortal } from "@/ui/SidebarSlot";
 
 type ModelsRoute = Extract<RouteState, { kind: "models" }>;
@@ -211,27 +213,18 @@ export function ModelWorkbench({
         <div role="group" className="shell-context" aria-label="Current context">
           <span>Model administration</span>
           {activeRelease && (
-            <span className="context-status">
+            <StatusPill tone="success">
               Active · {activeRelease.name} {activeRelease.version}
-            </span>
+            </StatusPill>
           )}
         </div>
       </div>
-      <header className="page-header collection-header">
-        <div className="page-title">
-          <span className="page-icon" aria-hidden="true">
-            <Icon name="model" size={20} />
-          </span>
-          <div>
-            <h1>Models</h1>
-            <p>
-              Review immutable releases and safely move JSON candidates through draft, validation, installation and
-              activation.
-            </p>
-          </div>
-        </div>
-        {capabilities?.modelAdmin.manageDrafts && (
-          <div className="collection-header-actions">
+      <PageHeader
+        icon={<Icon name="model" size={20} />}
+        title="Models"
+        description="Review immutable releases and safely move JSON candidates through draft, validation, installation and activation."
+        actions={
+          capabilities?.modelAdmin.manageDrafts && (
             <button
               ref={newDraftButtonRef}
               className="primary"
@@ -239,9 +232,9 @@ export function ModelWorkbench({
             >
               <Icon name="plus" /> New draft
             </button>
-          </div>
-        )}
-      </header>
+          )
+        }
+      />
       {error && (
         <div className="inline-state error-notice" role="alert">
           <span>{error}</span>

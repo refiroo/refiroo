@@ -10,6 +10,9 @@ import { InlineError } from "@/ui/InlineError";
 import { Modal } from "@/ui/Modal";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { Icon } from "@/ui/Icon";
+import { PageHeader } from "@/ui/PageHeader";
+import { StatusPill } from "@/ui/StatusPill";
+import { BelowContextBand } from "@/ui/ContextBandSlot";
 
 /** An API message followed by more guidance, so the two read as separate sentences. */
 function asSentence(cause: unknown) {
@@ -38,27 +41,23 @@ export function ChangeSets({
   const [creating, setCreating] = useState(false);
   return (
     <section className="context-page">
-      <header className="page-header collection-header">
-        <div className="page-title">
-          <div>
-            <h1>Change sets</h1>
-            <p>Coordinate changes in an optional change set. Ordinary maintenance remains available in Live.</p>
-          </div>
-        </div>
-        {!readOnly && (
-          <div className="collection-header-actions">
+      <PageHeader
+        title="Change sets"
+        description="Coordinate changes in an optional change set. Ordinary maintenance remains available in Live."
+        actions={
+          !readOnly && (
             <button className="primary" onClick={() => setCreating(true)}>
               <Icon name="plus" /> Start from current live data
             </button>
-          </div>
-        )}
-      </header>
+          )
+        }
+      />
       {feed.items.length > 0 && (
         <div className="change-set-list">
           {feed.items.map((changeSet) => (
             <article className="surface change-set-card" key={changeSet.id}>
               <div>
-                <span className="context-status status-change-set">Change set</span>
+                <StatusPill tone="changeSet">Change set</StatusPill>
                 <h2>{changeSet.name || "Untitled change set"}</h2>
                 <p>{changeSetSource(changeSet)}</p>
                 <p className="change-set-model-release">
@@ -347,82 +346,86 @@ export function ChangeSetActions({
     }
   }
   return (
-    <section className="surface change-set-bar" aria-label="Change set publication">
-      <div className="change-set-bar-row">
-        <div className="change-set-bar-main">
-          <span className="context-status status-change-set">Named change set</span>
-          <h2>{current.name || "Untitled change set"}</h2>
-          <span className="change-set-bar-meta">
-            <span>Version {current.version}</span>
-            <span>{changeSetSource(current)}</span>
-            <span>
-              Model {current.modelReleaseKey} {current.modelReleaseVersion}
+    <>
+      <section className="change-set-bar" aria-label="Change set publication">
+        <div className="change-set-bar-row">
+          <div className="change-set-bar-main">
+            <h2>{current.name || "Untitled change set"}</h2>
+            <span className="change-set-bar-meta">
+              <span>Private until published</span>
+              <span>Version {current.version}</span>
+              <span>{changeSetSource(current)}</span>
+              <span>
+                Model {current.modelReleaseKey} {current.modelReleaseVersion}
+              </span>
             </span>
-          </span>
-        </div>
-        {(!readOnly || (onReview && !reviewing)) && (
-          <div className="change-set-bar-actions">
-            {onReview && !reviewing && (
-              <button className="secondary" onClick={onReview}>
-                Review changes
-              </button>
-            )}
-            {!readOnly && (
-              <>
-                <button
-                  className="secondary"
-                  disabled={pending}
-                  onClick={check}
-                  title="Check the full change set graph against the current publication"
-                >
-                  Validate change set
-                </button>
-                <button
-                  className="primary"
-                  disabled={
-                    pending || modelMismatch || !validation?.result.valid || validation.version !== current.version
-                  }
-                  title={
-                    modelMismatch
-                      ? "Change set model version differs from the active release. Change the version or wait until this release is activated."
-                      : "Publishing is available after a successful validation."
-                  }
-                  onClick={() => setConfirm("publish")}
-                >
-                  Publish change set
-                </button>
-                <details className="change-set-secondary-actions">
-                  <summary>More change set actions</summary>
-                  <div className="change-set-secondary-menu">
-                    <button className="secondary" disabled={pending} onClick={openVersionChange}>
-                      Change model version
-                    </button>
-                    <button className="danger-ghost" disabled={pending} onClick={() => setConfirm("discard")}>
-                      Discard change set
-                    </button>
-                  </div>
-                </details>
-              </>
-            )}
           </div>
+          {(!readOnly || (onReview && !reviewing)) && (
+            <div className="change-set-bar-actions">
+              {onReview && !reviewing && (
+                <button className="secondary" onClick={onReview}>
+                  Review changes
+                </button>
+              )}
+              {!readOnly && (
+                <>
+                  <button
+                    className="secondary"
+                    disabled={pending}
+                    onClick={check}
+                    title="Check the full change set graph against the current publication"
+                  >
+                    Validate change set
+                  </button>
+                  <button
+                    className="primary"
+                    disabled={
+                      pending || modelMismatch || !validation?.result.valid || validation.version !== current.version
+                    }
+                    title={
+                      modelMismatch
+                        ? "Change set model version differs from the active release. Change the version or wait until this release is activated."
+                        : "Publishing is available after a successful validation."
+                    }
+                    onClick={() => setConfirm("publish")}
+                  >
+                    Publish change set
+                  </button>
+                  <details className="change-set-secondary-actions">
+                    <summary>More change set actions</summary>
+                    <div className="change-set-secondary-menu">
+                      <button className="secondary" disabled={pending} onClick={openVersionChange}>
+                        Change model version
+                      </button>
+                      <button className="danger-ghost" disabled={pending} onClick={() => setConfirm("discard")}>
+                        Discard change set
+                      </button>
+                    </div>
+                  </details>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </section>
+      <BelowContextBand>
+        {modelMismatch && (
+          <Notice tone="info" title="This change set uses a different model version">
+            This change set works under {current.modelReleaseKey} {current.modelReleaseVersion}; live data uses the
+            active model{activeModelReleaseLabel ? ` ${activeModelReleaseLabel}` : ""}. Publishing requires these
+            versions to match. You can change the change set's model version if the content fits, or discard the change
+            set.
+          </Notice>
         )}
-      </div>
-      <p className="change-set-bar-note">Changes here remain private to this change set until it is published.</p>
-      {modelMismatch && (
-        <Notice tone="info" title="This change set uses a different model version">
-          This change set works under {current.modelReleaseKey} {current.modelReleaseVersion}; live data uses the active
-          model{activeModelReleaseLabel ? ` ${activeModelReleaseLabel}` : ""}. Publishing requires these versions to
-          match. You can change the change set's model version if the content fits, or discard the change set.
-        </Notice>
-      )}
-      {warning && (
-        <InlineError
-          message={warning}
-          onRetry={() => {
-            reload().catch((cause) => setError(errorMessage(cause)));
-          }}
-        />
-      )}
+        {warning && (
+          <InlineError
+            message={warning}
+            onRetry={() => {
+              reload().catch((cause) => setError(errorMessage(cause)));
+            }}
+          />
+        )}
+      </BelowContextBand>
       {changingVersion && (
         <Modal
           title="Change model version"
@@ -478,26 +481,28 @@ export function ChangeSetActions({
           </form>
         </Modal>
       )}
-      {validation && (
-        <Notice
-          tone={validation.result.valid && validation.version === current.version ? "success" : "warning"}
-          title={
-            validation.version !== current.version
-              ? "Change set changed: validate again"
-              : validation.result.valid
-                ? "Change set validation passed"
-                : "Change set needs corrections"
-          }
-        >
-          <ChangeSetDiagnostics items={validation.result.diagnostics} />
-        </Notice>
-      )}
-      {error && (
-        <Notice tone="error" title="Change set action could not be completed">
-          {error}
-          <ChangeSetDiagnostics items={diagnostics} />
-        </Notice>
-      )}
+      <BelowContextBand>
+        {validation && (
+          <Notice
+            tone={validation.result.valid && validation.version === current.version ? "success" : "warning"}
+            title={
+              validation.version !== current.version
+                ? "Change set changed: validate again"
+                : validation.result.valid
+                  ? "Change set validation passed"
+                  : "Change set needs corrections"
+            }
+          >
+            <ChangeSetDiagnostics items={validation.result.diagnostics} />
+          </Notice>
+        )}
+        {error && (
+          <Notice tone="error" title="Change set action could not be completed">
+            {error}
+            <ChangeSetDiagnostics items={diagnostics} />
+          </Notice>
+        )}
+      </BelowContextBand>
       {confirm && (
         <ConfirmDialog
           title={confirm === "publish" ? "Publish this change set?" : "Discard this change set?"}
@@ -536,6 +541,6 @@ export function ChangeSetActions({
           )}
         </ConfirmDialog>
       )}
-    </section>
+    </>
   );
 }

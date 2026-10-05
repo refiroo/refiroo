@@ -1,0 +1,316 @@
+/* Design tokens in three layers (ADR-039, Track U U2).
+
+   1. Primitives: the colour scales and the type and spacing scales. Nothing outside this file
+      reads a primitive.
+   2. Semantic roles: what a colour is for (a surface, a text level, a border, an action, a
+      selection, a status, a data context). Dark mode redefines this layer only. Every text and
+      marker pair is held to WCAG AA by `tokens.test.ts` (U-D9).
+   3. Component tokens: the shell and the `ui/` components that read a role through a name of
+      their own.
+
+   The older flat names (`--ink`, `--muted`, `--accent`, …) are aliases of the roles, kept in
+   `base.css` until U6 moves each screen onto the roles. */
+
+:root {
+  /* --- 1. Primitives --- */
+
+  /* Warm neutrals, light */
+  --neutral-0: #ffffff;
+  --neutral-50: #faf9f7;
+  --neutral-100: #f6f5f2;
+  --neutral-150: #efede8;
+  --neutral-200: #e4e2dc;
+  --neutral-300: #cfccc4;
+  --neutral-450: #8a867d;
+  --neutral-500: #7a766f;
+  --neutral-600: #69655e;
+  --neutral-700: #55524c;
+  --neutral-900: #1d1c1a;
+  /* Cool neutrals, dark */
+  --night-0: #141416;
+  --night-50: #18181b;
+  --night-100: #1d1d21;
+  --night-150: #1f1f23;
+  --night-175: #26262b;
+  --night-200: #2c2c31;
+  --night-300: #3e3e45;
+  --night-450: #74737c;
+  --night-500: #86858d;
+  --night-600: #9a99a1;
+  --night-700: #b4b3ba;
+  --night-900: #ececee;
+
+  /* Indigo: the brand accent, selection and links */
+  --indigo-50: #eceefc;
+  --indigo-200: #c9cff5;
+  --indigo-600: #3346c9;
+  --indigo-700: #2a3bb0;
+  --indigo-800: #26339a;
+  --indigo-dark-50: #23284a;
+  --indigo-dark-200: #3a4280;
+  --indigo-dark-300: #8e9bff;
+  --indigo-dark-400: #a7b1ff;
+  --indigo-dark-100: #c9cfff;
+  --indigo-dark-900: #10153d;
+
+  /* Green: live */
+  --green-50: #e5f3ea;
+  --green-200: #b9dfc7;
+  --green-500: #1f8a52;
+  --green-800: #1b5e3a;
+  --green-dark-50: #13301f;
+  --green-dark-200: #2a5a3e;
+  --green-dark-400: #40c47f;
+  --green-dark-100: #a3dfbc;
+
+  /* Amber: a change set, and warnings */
+  --amber-50: #fff1d6;
+  --amber-100: #fff6e3;
+  --amber-200: #f0cf8f;
+  --amber-500: #b0650b;
+  --amber-800: #6f3d06;
+  --amber-dark-50: #3a2a0e;
+  --amber-dark-200: #5a4219;
+  --amber-dark-400: #f2a53c;
+  --amber-dark-100: #f5d091;
+
+  /* Violet: a publication */
+  --violet-50: #efeafc;
+  --violet-200: #d7cdf6;
+  --violet-500: #6e52cc;
+  --violet-800: #47308f;
+  --violet-dark-50: #29214a;
+  --violet-dark-200: #463a78;
+  --violet-dark-400: #a58cf0;
+  --violet-dark-100: #d2c8fb;
+
+  /* Red: errors and conflicts */
+  --red-50: #fdf0ee;
+  --red-200: #f3c4bd;
+  --red-600: #b42318;
+  --red-700: #912018;
+  --red-800: #7a1f17;
+  --red-dark-50: #3a1d1b;
+  --red-dark-200: #6b2f2a;
+  --red-dark-400: #f28b82;
+  --red-dark-300: #f6a59e;
+  --red-dark-100: #ffb4ab;
+
+  /* Type: Instrument Sans for text, JetBrains Mono for codes, keys and URLs (bundled, OFL-1.1). */
+  --font-sans: "Instrument Sans Variable", "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 14px;
+  --text-lg: 15px;
+  --text-xl: 19px;
+  --text-2xl: 30px;
+
+  /* Spacing: a 4px scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-9: 36px;
+  --space-10: 40px;
+
+  /* --- 2. Semantic roles, light --- */
+  color-scheme: light;
+
+  --surface-app: var(--neutral-0);
+  --surface-top: var(--neutral-0);
+  --surface-nav: var(--neutral-100);
+  --surface-raised: var(--neutral-0);
+  --surface-sunken: var(--neutral-100);
+  --surface-hover: var(--neutral-150);
+  --surface-fill: var(--neutral-150);
+
+  --text-primary: var(--neutral-900);
+  --text-secondary: var(--neutral-700);
+  --text-tertiary: var(--neutral-600);
+  --text-placeholder: var(--neutral-500);
+  --text-on-action: var(--neutral-0);
+
+  --border-faint: var(--neutral-150);
+  --border-subtle: var(--neutral-200);
+  --border-strong: var(--neutral-300);
+  --border-control: var(--neutral-450);
+  --border-control-hover: var(--neutral-600);
+
+  --action-primary: var(--indigo-600);
+  --action-primary-hover: var(--indigo-700);
+  --link: var(--indigo-600);
+  --focus-color: var(--indigo-600);
+
+  --state-selected: var(--indigo-50);
+  --state-selected-text: var(--indigo-800);
+  --state-selected-line: var(--indigo-200);
+  --state-hover: var(--neutral-50);
+
+  --context-live-surface: var(--green-50);
+  --context-live-text: var(--green-800);
+  --context-live-marker: var(--green-500);
+  --context-live-line: var(--green-200);
+  --context-change-set-surface: var(--amber-50);
+  --context-change-set-text: var(--amber-800);
+  --context-change-set-marker: var(--amber-500);
+  --context-change-set-line: var(--amber-200);
+  --context-publication-surface: var(--violet-50);
+  --context-publication-text: var(--violet-800);
+  --context-publication-marker: var(--violet-500);
+  --context-publication-line: var(--violet-200);
+
+  --status-success-surface: var(--green-50);
+  --status-success-text: var(--green-800);
+  --status-success-marker: var(--green-500);
+  --status-success-line: var(--green-200);
+  --status-warning-surface: var(--amber-100);
+  --status-warning-text: var(--amber-800);
+  --status-warning-marker: var(--amber-500);
+  --status-warning-line: var(--amber-200);
+  --status-error-surface: var(--red-50);
+  --status-error-text: var(--red-800);
+  --status-error-marker: var(--red-600);
+  --status-error-line: var(--red-200);
+  --status-error-action: var(--red-600);
+  --status-error-action-hover: var(--red-700);
+  --status-draft-surface: var(--neutral-150);
+  --status-draft-text: var(--neutral-700);
+  --status-draft-marker: var(--neutral-450);
+  --status-draft-line: var(--neutral-300);
+
+  /* --- 3. Component tokens --- */
+  --topbar-height: 56px;
+  --topbar-surface: var(--surface-top);
+  --rail-surface: var(--surface-nav);
+  --band-padding: var(--space-3) var(--space-8);
+  --pill-radius: 999px;
+  --card-surface: var(--surface-raised);
+  --card-border: var(--border-subtle);
+  --card-radius: 8px;
+}
+
+/* --- 2. Semantic roles, dark: an explicit choice, or the system preference unless light is pinned.
+   The two blocks are identical; `tokens.test.ts` checks that they stay so. --- */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-app: var(--night-0);
+  --surface-top: var(--night-50);
+  --surface-nav: var(--night-100);
+  --surface-raised: var(--night-50);
+  --surface-sunken: var(--night-150);
+  --surface-hover: var(--night-175);
+  --surface-fill: var(--night-200);
+  --text-primary: var(--night-900);
+  --text-secondary: var(--night-700);
+  --text-tertiary: var(--night-600);
+  --text-placeholder: var(--night-500);
+  --text-on-action: var(--indigo-dark-900);
+  --border-faint: var(--night-150);
+  --border-subtle: var(--night-200);
+  --border-strong: var(--night-300);
+  --border-control: var(--night-450);
+  --border-control-hover: var(--night-600);
+  --action-primary: var(--indigo-dark-300);
+  --action-primary-hover: var(--indigo-dark-400);
+  --link: var(--indigo-dark-400);
+  --focus-color: var(--indigo-dark-300);
+  --state-selected: var(--indigo-dark-50);
+  --state-selected-text: var(--indigo-dark-100);
+  --state-selected-line: var(--indigo-dark-200);
+  --state-hover: var(--night-150);
+  --context-live-surface: var(--green-dark-50);
+  --context-live-text: var(--green-dark-100);
+  --context-live-marker: var(--green-dark-400);
+  --context-live-line: var(--green-dark-200);
+  --context-change-set-surface: var(--amber-dark-50);
+  --context-change-set-text: var(--amber-dark-100);
+  --context-change-set-marker: var(--amber-dark-400);
+  --context-change-set-line: var(--amber-dark-200);
+  --context-publication-surface: var(--violet-dark-50);
+  --context-publication-text: var(--violet-dark-100);
+  --context-publication-marker: var(--violet-dark-400);
+  --context-publication-line: var(--violet-dark-200);
+  --status-success-surface: var(--green-dark-50);
+  --status-success-text: var(--green-dark-100);
+  --status-success-marker: var(--green-dark-400);
+  --status-success-line: var(--green-dark-200);
+  --status-warning-surface: var(--amber-dark-50);
+  --status-warning-text: var(--amber-dark-100);
+  --status-warning-marker: var(--amber-dark-400);
+  --status-warning-line: var(--amber-dark-200);
+  --status-error-surface: var(--red-dark-50);
+  --status-error-text: var(--red-dark-100);
+  --status-error-marker: var(--red-dark-400);
+  --status-error-line: var(--red-dark-200);
+  --status-error-action: var(--red-dark-400);
+  --status-error-action-hover: var(--red-dark-300);
+  --status-draft-surface: var(--night-200);
+  --status-draft-text: var(--night-700);
+  --status-draft-marker: var(--night-500);
+  --status-draft-line: var(--night-300);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface-app: var(--night-0);
+    --surface-top: var(--night-50);
+    --surface-nav: var(--night-100);
+    --surface-raised: var(--night-50);
+    --surface-sunken: var(--night-150);
+    --surface-hover: var(--night-175);
+    --surface-fill: var(--night-200);
+    --text-primary: var(--night-900);
+    --text-secondary: var(--night-700);
+    --text-tertiary: var(--night-600);
+    --text-placeholder: var(--night-500);
+    --text-on-action: var(--indigo-dark-900);
+    --border-faint: var(--night-150);
+    --border-subtle: var(--night-200);
+    --border-strong: var(--night-300);
+    --border-control: var(--night-450);
+    --border-control-hover: var(--night-600);
+    --action-primary: var(--indigo-dark-300);
+    --action-primary-hover: var(--indigo-dark-400);
+    --link: var(--indigo-dark-400);
+    --focus-color: var(--indigo-dark-300);
+    --state-selected: var(--indigo-dark-50);
+    --state-selected-text: var(--indigo-dark-100);
+    --state-selected-line: var(--indigo-dark-200);
+    --state-hover: var(--night-150);
+    --context-live-surface: var(--green-dark-50);
+    --context-live-text: var(--green-dark-100);
+    --context-live-marker: var(--green-dark-400);
+    --context-live-line: var(--green-dark-200);
+    --context-change-set-surface: var(--amber-dark-50);
+    --context-change-set-text: var(--amber-dark-100);
+    --context-change-set-marker: var(--amber-dark-400);
+    --context-change-set-line: var(--amber-dark-200);
+    --context-publication-surface: var(--violet-dark-50);
+    --context-publication-text: var(--violet-dark-100);
+    --context-publication-marker: var(--violet-dark-400);
+    --context-publication-line: var(--violet-dark-200);
+    --status-success-surface: var(--green-dark-50);
+    --status-success-text: var(--green-dark-100);
+    --status-success-marker: var(--green-dark-400);
+    --status-success-line: var(--green-dark-200);
+    --status-warning-surface: var(--amber-dark-50);
+    --status-warning-text: var(--amber-dark-100);
+    --status-warning-marker: var(--amber-dark-400);
+    --status-warning-line: var(--amber-dark-200);
+    --status-error-surface: var(--red-dark-50);
+    --status-error-text: var(--red-dark-100);
+    --status-error-marker: var(--red-dark-400);
+    --status-error-line: var(--red-dark-200);
+    --status-error-action: var(--red-dark-400);
+    --status-error-action-hover: var(--red-dark-300);
+    --status-draft-surface: var(--night-200);
+    --status-draft-text: var(--night-700);
+    --status-draft-marker: var(--night-500);
+    --status-draft-line: var(--night-300);
+  }
+}

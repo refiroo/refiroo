@@ -43,9 +43,20 @@ as a source on `/docs`. **C8 is delivered (2026-10-05)**: parity acceptance; `ob
 projections, the parent keyed by output names (C-D72–C-D75). **C16 is delivered (2026-10-05)**: `asOf`
 on every consumer read (C-D76–C-D80). **C9 is delivered (2026-10-05)**: event definitions
 (C-D81–C-D86). **C10 is delivered (2026-10-06)**: the event deriver, the event store and the pull feed
-(C-D87–C-D92, C-D95). Next: C11, in the order of the delivery
-queue (U4 waits for U3). See
+(C-D87–C-D92, C-D95). **U2 is delivered (2026-10-06)**, alongside C10: the token layers, the
+bundled fonts, the top bar, rail and data-context band, `PageHeader`, `StatusPill` and `Card`
+(U-D7–U-D9, [record](SETTINGS_AND_UI_PLAN.md#u2-delivery-record)). Next: C11, in the order of the
+delivery queue (U4 waits for U3). See
 [Next — 0.9](#next--09).
+
+- **For U6, from U2 (2026-10-06).** Boolean and other values still render as green "Yes" and grey
+  "No" pills (`ui/formatValue`). ADR-039 asks for plain text, with pills kept for states and
+  versions. Move each `.surface` panel onto `ui/Card` or a ruled section, whichever reads better in
+  the product (U-D8). Remove the older token names in `styles/base.css` once no screen reads them.
+- **Intermittent: wp9-navigation's 390px change-set record return (seen once, 2026-10-06, U2).**
+  `ui03a-navigation.mjs:144` waited 10 s for the list URL with its anchor after **Back to list**.
+  The next run passed. It is watched for at the next run of the runner; if it repeats, find out
+  whether the anchor restored after a reload depends on the page's height.
 
 - **Publish and change-set creation move the workspace through Python (found 2026-10-03, F1;
   measured and decided in T1).** Publishing 1,000 renamed records in a 26,000-record workspace takes

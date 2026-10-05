@@ -183,7 +183,7 @@ The user chose Direction B, "Open" (U-D6, ADR-039), which sets the values for po
 | --- | --- | --- | --- |
 | CN1 | 0.9 | C15 | **Delivered 2026-10-05** ([plan](BASE_0_9_IMPLEMENTATION_PLAN.md#cn1-the-consumer-apis-name-in-public-contracts)). Rename the namespace in public contracts per U-D1 before C6 publishes it in the API index and C9–C11 put it in events and subscriptions: route placeholder, error details, docs, journey tests. Model field `key` unchanged |
 | U1 | 0.9 | — | **Mockups delivered 2026-10-05** ([canvas](https://claude.ai/artifact/GmafaZfJ6PxbXs8rGVysMc): today's baselines with the audit, Direction A "Framed" and Direction B "Open", three screens each, light and dark); **Direction B chosen 2026-10-05 (U-D6, ADR-039).** Visual direction. A screenshot audit of today's surfaces against the diagnosis, then two alternative directions (tokens, rail, page header, a table page, a record page, a settings page, light and dark) as clickable mockups. The user chooses, and the choice is recorded as an ADR. No product code. A filler, any time |
-| U2 | 0.9 | U1 | Foundation: the token layers, the type and spacing scale, the components above, the rail and header, the data-context bar. Applied to the shell. Contrast test over the tokens. Shell baselines re-recorded |
+| U2 | 0.9 | U1 | **Delivered 2026-10-06** ([record](#u2-delivery-record)). Foundation: the token layers, the type and spacing scale, the components above, the rail and header, the data-context bar. Applied to the shell. Contrast test over the tokens. Shell baselines re-recorded |
 | U3 | 0.9 | U2 | Settings area: `/settings` routes and layout; About, Appearance and Deployment; Workspaces and Model moved under Administration (old URLs redirect); the popover reduced to account and theme with a link to Settings; `GET /api/v1/system` |
 | U4 | 0.9 | U3, C6b, V2 | Integration pages: Consumer APIs, Jobs and feed, API reference. Starter consumer API per U-D5 |
 | U5 | 0.9 | U4, C12 | Webhooks page over the subscriptions API |
@@ -199,7 +199,7 @@ no code ([U2, running beside C10](#running-beside-c10)).
 
 ### U2: the foundation and the shell
 
-**Planned 2026-10-06.** Needs U1 (delivered). [U-D7–U-D9](#decisions) are decided (2026-10-06).
+**Planned and delivered 2026-10-06** ([record](#u2-delivery-record)). Needs U1 (delivered). [U-D7–U-D9](#decisions) are decided (2026-10-06).
 
 **Outcome.** The product looks like Direction B on every screen, because the old token names now
 resolve to the new semantic roles. The shell (top bar, rail, data-context band) is rebuilt to
@@ -269,17 +269,23 @@ can tell live data, a change set and a publication apart at a glance and by text
      resizer and drawer are unchanged.
    - At *390px*, the top bar keeps the mark, the workspace switcher and Settings. The application
      tabs move into the navigation drawer above the explorer. There is no horizontal scroll.
+     _Amended in delivery:_ the tabs stay in the top bar, on a second row that scrolls sideways,
+     beside Models and Workspaces. Runners and users reach them as before; the drawer keeps only
+     the explorer.
 4. **Data-context band** (`app/DataContextBand.tsx`): one region at the top of `main` replaces
    `.context-bar` and hosts `ChangeSetActions` and `PublicationBanner`, which App stops rendering
    separately. It is sticky while the page scrolls.
    - *Live*: a green **Live** pill and "Edits apply immediately in the {workspace} workspace".
    - *Change set*: an amber band across the content's width with the change set's name, version,
      source and model; then Review changes, Validate change set, Publish change set, More change
-     set actions; then **Back to live**.
+     set actions; then **Back to live**. _Amended in delivery:_ no separate **Back to live**; the
+     switch's **Live** is the way back. "Changes here remain private…" became "Private until
+     published" in the meta line, so the band is two lines.
    - *Publication*: the same band in violet with "Viewing Publication {n}", the pinned-model text
      and **Back to publications**.
    - The Live / Change sets / Publications switch stays at the band's right end in all three
-     contexts.
+     contexts. _Amended in delivery:_ below 760px the band scrolls with the page instead of
+     staying visible, since on a phone it would cover much of the screen.
    - Behaviour, accessible names and roles do not change ("Change set publication", the buttons,
      "Workspace data context", "Current context"). The retired-workspace notice stays below the
      band.
@@ -368,6 +374,90 @@ in three places, each with a rule:
 - The three browser runners and both gates pass, and all 41 or more baselines are re-recorded and
   inspected.
 - The U2 record is written here, and the 0.9 plan's row is marked delivered.
+
+#### U2 delivery record
+
+**Delivered 2026-10-06.** C10 was delivered first the same day, so the browser runs used a clean
+backend; nothing in `backend/` changed.
+
+**Built:**
+- **Tokens** (`frontend/src/styles/tokens.css`):
+  - Primitives: warm neutrals for light, cool neutrals for dark; indigo, green, amber, violet and
+    red scales; the type steps 12, 13, 14, 15, 19 and 30; `--space-1` to `--space-10`.
+  - Semantic roles for light, with dark redefining only that layer, written once per dark trigger.
+  - Component tokens for the top bar, rail, band, pill and card.
+  - `base.css` keeps the ~60 older names, each an alias of one role, marked for removal in U6.
+  - `border.control` (3:1) now draws every control's outline: buttons, fields, the search box,
+    combo boxes, inline editors, the tree switch, "Load more", the window scrollbar.
+- **Fonts:** `@fontsource-variable/instrument-sans` and `@fontsource-variable/jetbrains-mono`
+  5.3.0, imported in `main.tsx` and bundled into `dist`. They are the variable versions, so the
+  existing 550/650 weights render without synthesis. `code`, `kbd` and the JSON fields use
+  `--font-mono`.
+- **Shell** (`app/AppShell.tsx`):
+  - The top bar holds the mark, the workspace switcher (moved from the rail; label read by
+    assistive technology), the application tabs (ink underline, no model colour), the model
+    version, Models, Workspaces, and the gear named **Settings**, which opens the existing popover
+    (`app/SettingsMenu.tsx`).
+  - The rail holds the explorer only.
+- **Band** (`app/DataContextBand.tsx`):
+  - Live, change set and publication. `App` passes `ChangeSetActions` or `PublicationBanner` in
+    as `contextActions`, and their behaviour is unchanged.
+  - The change set's reports (validation, refusals, model mismatch) render just below the band
+    through `ui/ContextBandSlot.tsx`, so the band stays short while it is visible.
+  - The publication bar is a labelled section in the violet band.
+- **Components:** `ui/PageHeader` (the ten page headers, including the record header with its
+  context menu), `ui/StatusPill` (the band, the change set cards, and the Models and Workspaces
+  context lines), and `ui/Card` (with `.surface` panels on the same card tokens, per U-D8).
+- **Contrast test** (`src/styles/tokens.test.ts`, `unit` project): 6 tests.
+  - The unit project now keeps `tokens.css` for `?raw` reads (`vite.config.ts`).
+  - The test caught one value: the dark draft marker was 2.97:1 and now uses a lighter step.
+- **Visual gate:** adds `change-set-editing-dark`, so there are 42 baselines.
+- **Open source:** both fonts are listed in [OPEN_SOURCE.md](OPEN_SOURCE.md).
+
+**Differs from the plan** (each amended above):
+- The application tabs stay in the top bar at 390px.
+- No separate **Back to live** in the band.
+- The band is not sticky below 760px.
+- The model's application colour no longer tints the application glyphs or the record header icon,
+  since colour is kept for state.
+- The tree's drag preview is now opaque, and its type label takes the status ink. Its 0.94 opacity
+  let the row behind pull the label to below 4.5:1, which was the only `test:a11y` failure.
+
+**Checks:**
+- **Unit** (`vitest related` over every changed source): 14 files, 186 tests passed.
+- **Contrast test:** 6 passed.
+- **Static:** `format:check` clean; `lint` 0 errors (the 8 warnings are the existing ones in files
+  this package did not change at those lines); `build` passed.
+- **Browser, real backend:**
+  - `test:browser` (wp9-navigation: two object types, live and change set, keyboard, 1440 and
+    390px) passed, then failed once and passed on the run after. The failure was a 10 s
+    `waitForURL` in the 390px change-set record-return step (`ui03a-navigation.mjs:144`), after
+    the band became static on phones. It did not repeat and is recorded in TODO.
+  - `test:browser:change-sets` and `test:browser:publications` passed.
+- **Gates** (U-D7):
+  - `test:a11y`: 50 checks. The first run failed on the drag preview (above). The rerun after the
+    fix passed with no violations, light and dark.
+  - `test:visual --update-baselines`: all 42 baselines re-recorded, then compared (passed).
+
+**Evidence, reported separately:**
+- *Functional:* the shell, band and page headers in the three runners above.
+- *Accessibility:* the axe gate and the token test. Keyboard order (skip link, top bar, band,
+  content) is exercised by wp9-navigation.
+- *Visual:* 26 of the 42 baselines were opened and inspected against the U1 reference, plus two
+  390px screenshots from the navigation runner. They cover every surface in at least one theme:
+  collection (both applications), record, change-set record and band (light and dark), review
+  (light and dark), change sets, publications, models, workspaces (light and dark), relation matrix
+  and its cell dialog, tree lens, tree drag (accepted and refused), move dialogs, restructuring
+  previews and the scrolling list. The other 16 are the other theme of a screen that was opened.
+  They were compared, and they are covered by the contrast test and the dark axe scenarios, but not
+  opened one by one.
+
+**Not run:** the other browser runners and both full suites (R), and the backend (unchanged).
+
+**For U6** (in TODO):
+- Boolean and other values still render as green "Yes" pills. ADR-039 asks for plain text.
+- The `.surface` panels are to move onto `Card` or a ruled section.
+- The older token names are to be removed.
 
 ### Exit by 1.0
 

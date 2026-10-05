@@ -16,7 +16,7 @@ read, D31), [B3](#b3-relation-and-relation-set-items) (2026-10-03, D35–D39),
 [T1a](#t1a-copies-inside-the-database) (2026-10-04), [T1b](#t1b-one-error-code-pattern) (2026-10-04),
 [C2](#c2-consumer-object-and-projections) (2026-10-04, C-D21–C-D26), C3–C5 and
 [C14](#c14-batch-resolve) (2026-10-05, C-D47–C-D53), [C15](#c15-crosswalk) (2026-10-05, C-D54–C-D58),
-[CN1](#cn1-the-consumer-apis-name-in-public-contracts) (2026-10-05, C-D59), [C6a](#c6a-publications) (2026-10-05, C-D60–C-D68), [C6b](#c6b-the-contract-documents) (2026-10-05, C-D69–C-D70), [V2](#v2-consumer-sources) (2026-10-05), [C8](#c8-parity-acceptance) (2026-10-05, C-D72–C-D75), [C16](#c16-asof-in-the-consumer-tier) (2026-10-05, C-D76–C-D80), [C9](#c9-event-definitions) (2026-10-05, C-D81–C-D86), [C10](#c10-event-deriver-event-store-and-pull-feed) (2026-10-06, C-D87–C-D92, C-D95).
+[CN1](#cn1-the-consumer-apis-name-in-public-contracts) (2026-10-05, C-D59), [C6a](#c6a-publications) (2026-10-05, C-D60–C-D68), [C6b](#c6b-the-contract-documents) (2026-10-05, C-D69–C-D70), [V2](#v2-consumer-sources) (2026-10-05), [C8](#c8-parity-acceptance) (2026-10-05, C-D72–C-D75), [C16](#c16-asof-in-the-consumer-tier) (2026-10-05, C-D76–C-D80), [C9](#c9-event-definitions) (2026-10-05, C-D81–C-D86), [C10](#c10-event-deriver-event-store-and-pull-feed) (2026-10-06, C-D87–C-D92, C-D95), [U2](SETTINGS_AND_UI_PLAN.md#u2-delivery-record) (2026-10-06, U-D7–U-D9).
 **Next:** C11, in the order of the [delivery queue](#delivery-queue) (U4 waits for U3).
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
@@ -238,7 +238,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 26 | C12 | C11 | Dispatcher |
 | 26a | [U5](SETTINGS_AND_UI_PLAN.md#packages-track-u) | U4, C12 | Settings › Integration › Webhooks over the subscriptions API (U-D3) |
 | 27 | C13 | C12 | Event acceptance; the events line's checkpoint |
-| 27a | [U2](SETTINGS_AND_UI_PLAN.md#u2-the-foundation-and-the-shell) | U1 | UI foundation: token layers, regions, data-context band, `PageHeader`, `StatusPill` and `Card`, the shell; planned 2026-10-06, delivered alongside C10 (U-D7–U-D9 decided) |
+| 27a | [U2](SETTINGS_AND_UI_PLAN.md#u2-the-foundation-and-the-shell) | U1 | UI foundation: token layers, regions, data-context band, `PageHeader`, `StatusPill` and `Card`, the shell (U-D7–U-D9) — **delivered 2026-10-06** ([record](SETTINGS_AND_UI_PLAN.md#u2-delivery-record)) |
 | 27b | [U3](SETTINGS_AND_UI_PLAN.md#packages-track-u) | U2 | Settings area: About, Appearance, Deployment (read-only, U-D2), Workspaces and Model moved; `GET /api/v1/system` |
 | — | _cut line (D9)_ | | _If R is out of reach, 0.9.0 releases here with R-a and Track J moves to 0.9.1_ |
 | 28 | [J1](#j1-export) | Q3, Q4, B2, F1 | Export jobs |

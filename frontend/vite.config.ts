@@ -15,7 +15,8 @@ export default defineConfig({
     projects: [
       {
         extends: true,
-        test: { name: "unit", environment: "node", include: ["src/**/*.test.ts"] },
+        // `tokens.css` is read as text by its contrast test (`?raw`), so CSS processing keeps it.
+        test: { name: "unit", environment: "node", include: ["src/**/*.test.ts"], css: { include: [/tokens\.css/] } },
       },
       {
         extends: true,

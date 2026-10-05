@@ -12,6 +12,7 @@ import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
 import { ObjectDeleteDialog } from "@/features/objects/ObjectDeleteDialog";
 import { HistoryPanel } from "./panels/HistoryPanel";
 import { Icon, ModelIcon } from "@/ui/Icon";
+import { PageHeader } from "@/ui/PageHeader";
 import { panelComponentRegistry } from "./panels/registry";
 import type { PanelProps } from "./panels/types";
 
@@ -260,48 +261,44 @@ export function ObjectDetail({
           </ol>
         </nav>
       </div>
-      <header
-        className="page-header detail-header"
+      <PageHeader
+        variant="detail"
         onContextMenu={(event) => {
           event.preventDefault();
           setMenuOpen(true);
         }}
-      >
-        <span className="page-icon" aria-hidden="true" style={{ color: application.color }}>
-          <ModelIcon name={objectType.icon} size={20} />
-        </span>
-        <div className="detail-title">
-          {detail.header.showObjectType && <p className="eyebrow">{objectType.name}</p>}
-          <h1 ref={titleRef} tabIndex={-1}>
-            {String(title ?? object.name)}
-          </h1>
-          {subtitle !== undefined && subtitle !== null && subtitle !== "" && <p>{String(subtitle)}</p>}
-        </div>
-        <div className="detail-actions">
-          <span className="version" title="Record version, used to detect concurrent changes">
-            v{object.version}
-          </span>
-          {!readOnly && (
-            <button className="secondary" onClick={() => setEditing(true)}>
-              Edit record
-            </button>
-          )}
-          {onExpand && (
-            <button className="secondary expand-record" onClick={onExpand}>
-              Expand to full page
-            </button>
-          )}
-          <RecordActionMenu
-            object={object}
-            readOnly={readOnly}
-            label="Record actions"
-            isOpen={menuOpen}
-            onOpenChange={setMenuOpen}
-            onEdit={() => setEditing(true)}
-            onDelete={() => setDeleting(true)}
-          />
-        </div>
-      </header>
+        icon={<ModelIcon name={objectType.icon} size={20} />}
+        eyebrow={detail.header.showObjectType ? objectType.name : undefined}
+        title={String(title ?? object.name)}
+        titleRef={titleRef}
+        description={subtitle !== undefined && subtitle !== null && subtitle !== "" ? String(subtitle) : undefined}
+        actions={
+          <>
+            <span className="version" title="Record version, used to detect concurrent changes">
+              v{object.version}
+            </span>
+            {!readOnly && (
+              <button className="secondary" onClick={() => setEditing(true)}>
+                Edit record
+              </button>
+            )}
+            {onExpand && (
+              <button className="secondary expand-record" onClick={onExpand}>
+                Expand to full page
+              </button>
+            )}
+            <RecordActionMenu
+              object={object}
+              readOnly={readOnly}
+              label="Record actions"
+              isOpen={menuOpen}
+              onOpenChange={setMenuOpen}
+              onEdit={() => setEditing(true)}
+              onDelete={() => setDeleting(true)}
+            />
+          </>
+        }
+      />
       <div
         key={panelRefresh}
         className={`detail-grid ${sidePanels.length ? "with-side" : ""}`}

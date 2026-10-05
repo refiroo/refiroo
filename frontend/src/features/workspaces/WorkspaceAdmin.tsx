@@ -18,6 +18,8 @@ import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import type { CapabilitiesResponse, RouteState, Workspace, WorkspaceDetail, WorkspaceRuntimeState } from "@/types";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { Icon } from "@/ui/Icon";
+import { PageHeader } from "@/ui/PageHeader";
+import { StatusPill } from "@/ui/StatusPill";
 import { InlineError } from "@/ui/InlineError";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
@@ -137,30 +139,21 @@ export function WorkspaceAdmin({
       <div className="context-bar">
         <div role="group" className="shell-context" aria-label="Current context">
           <span>Workspace administration</span>
-          {defaultWorkspace && <span className="context-status">Default · {defaultWorkspace.label}</span>}
+          {defaultWorkspace && <StatusPill tone="neutral">Default · {defaultWorkspace.label}</StatusPill>}
         </div>
       </div>
-      <header className="page-header collection-header">
-        <div className="page-title">
-          <span className="page-icon" aria-hidden="true">
-            <Icon name="workspace" size={20} />
-          </span>
-          <div>
-            <h1>Workspaces</h1>
-            <p>
-              Create, rename, retire and delete workspaces and choose the default. Each workspace keeps its own live
-              data, change sets and publications.
-            </p>
-          </div>
-        </div>
-        {canManage && (
-          <div className="collection-header-actions">
+      <PageHeader
+        icon={<Icon name="workspace" size={20} />}
+        title="Workspaces"
+        description="Create, rename, retire and delete workspaces and choose the default. Each workspace keeps its own live data, change sets and publications."
+        actions={
+          canManage && (
             <button ref={newButtonRef} className="primary" onClick={() => setCreating(true)}>
               <Icon name="plus" /> New workspace
             </button>
-          </div>
-        )}
-      </header>
+          )
+        }
+      />
       {loadError && (
         <InlineError
           message={loadError}

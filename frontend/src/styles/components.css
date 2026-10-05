@@ -13,52 +13,55 @@
   box-shadow: none;
 }
 
-/* Page header */
+/* Page header (ui/PageHeader): title on the 30px step, hierarchy from size and weight (ADR-039). */
 .page-header {
   display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  margin-bottom: 16px;
-}
-.collection-header {
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-5);
 }
 .page-title {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: var(--space-3);
+  flex: 1 1 320px;
+  min-width: 0;
+}
+.page-title-text {
   min-width: 0;
 }
 .page-header h1 {
   margin: 0;
-  font-size: 22px;
-  font-weight: 680;
+  font-size: var(--text-2xl);
+  font-weight: 600;
   letter-spacing: -0.015em;
-  line-height: 1.25;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
 }
 .page-header p {
   max-width: 760px;
-  margin: 3px 0 0;
-  color: var(--muted);
-  font-size: 13.5px;
+  margin: var(--space-1) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--text-md);
+}
+.page-header .eyebrow {
+  margin: 0 0 2px;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
 }
 .page-icon {
   display: grid;
   place-items: center;
   flex: none;
-  width: 40px;
-  height: 40px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
-  color: var(--accent);
-  box-shadow: var(--shadow-sm);
+  color: var(--text-tertiary);
 }
-.collection-header-actions {
+.page-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: var(--space-2);
   flex: none;
 }
 .scope-banner {
@@ -112,11 +115,93 @@
 }
 
 /* Surfaces and toolbars */
-.surface {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-surface);
-  box-shadow: var(--shadow-sm);
+/* Today's panels and ui/Card share the card tokens, so U2 shows how cards read in Direction B
+   (U-D8); U6 moves each panel onto Card or onto a ruled section. */
+.surface,
+.card {
+  background: var(--card-surface);
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+}
+.card {
+  padding: var(--space-4) var(--space-5);
+}
+.card-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-3);
+}
+.card-header h2,
+.card-header h3 {
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+.card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* ui/StatusPill: a state or data context, a marker plus text in its tone (ADR-039). */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 2px 10px;
+  border-radius: var(--pill-radius);
+  background: var(--pill-surface);
+  color: var(--pill-text);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.status-pill-marker {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--pill-marker);
+}
+.tone-live {
+  --pill-surface: var(--context-live-surface);
+  --pill-text: var(--context-live-text);
+  --pill-marker: var(--context-live-marker);
+}
+.tone-change-set {
+  --pill-surface: var(--context-change-set-surface);
+  --pill-text: var(--context-change-set-text);
+  --pill-marker: var(--context-change-set-marker);
+}
+.tone-publication {
+  --pill-surface: var(--context-publication-surface);
+  --pill-text: var(--context-publication-text);
+  --pill-marker: var(--context-publication-marker);
+}
+.tone-success {
+  --pill-surface: var(--status-success-surface);
+  --pill-text: var(--status-success-text);
+  --pill-marker: var(--status-success-marker);
+}
+.tone-warning {
+  --pill-surface: var(--status-warning-surface);
+  --pill-text: var(--status-warning-text);
+  --pill-marker: var(--status-warning-marker);
+}
+.tone-error {
+  --pill-surface: var(--status-error-surface);
+  --pill-text: var(--status-error-text);
+  --pill-marker: var(--status-error-marker);
+}
+.tone-draft,
+.tone-neutral {
+  --pill-surface: var(--status-draft-surface);
+  --pill-text: var(--status-draft-text);
+  --pill-marker: var(--status-draft-marker);
 }
 .collection-surface {
   overflow: hidden;
@@ -149,7 +234,7 @@
   align-items: center;
   gap: 8px;
   min-height: var(--control-height);
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--border-control);
   border-radius: var(--radius-control);
   padding: 0 10px;
   background: var(--surface);
@@ -319,7 +404,7 @@
   position: relative;
   width: 100%;
   border-radius: 5px;
-  background: var(--line-strong);
+  background: var(--border-control);
   cursor: grab;
 }
 .window-scrollbar:hover .window-scrollbar-thumb,
@@ -648,7 +733,7 @@ th[aria-sort] {
   place-items: center;
 }
 .record-actions-column .menu-trigger,
-.detail-actions .menu-trigger {
+.detail-header .page-actions .menu-trigger {
   width: 32px;
   min-height: 32px;
   padding: 0;
@@ -715,25 +800,10 @@ th[aria-sort] {
   color: var(--ink-2);
 }
 .detail-header {
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 14px;
-  padding-bottom: 18px;
-  border-bottom: 1px solid var(--line);
-  margin-bottom: 18px;
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-strong);
 }
-.detail-title {
-  flex: 1;
-  min-width: 0;
-}
-.detail-title h1 {
-  overflow-wrap: anywhere;
-}
-.detail-actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
+.detail-header .page-actions {
   margin-left: auto;
 }
 .version {
@@ -901,7 +971,7 @@ th[aria-sort] {
   gap: 10px;
   margin-top: 6px;
   padding: 12px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--border-control);
   border-radius: 8px;
   background: var(--surface-subtle);
 }
@@ -1061,8 +1131,11 @@ th[aria-sort] {
   position: static;
 }
 /* A narrow inspector wraps the record's actions below its title rather than squeezing the title. */
-.record-inspector .detail-title {
+.record-inspector .detail-header .page-title {
   flex: 1 1 14rem;
+}
+.record-inspector .detail-header h1 {
+  font-size: var(--text-xl);
 }
 .properties-resizer::before,
 .inspector-resizer::before {
@@ -1243,7 +1316,7 @@ th[aria-sort] {
   justify-content: space-between;
   gap: 8px;
   min-height: var(--control-height);
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--border-control);
   border-radius: var(--radius-control);
   background: var(--surface);
   color: var(--ink);
@@ -1483,11 +1556,8 @@ th[aria-sort] {
 .workspace-main > .notice,
 .context-page > .notice,
 .dialog .notice,
-.change-set-bar .notice {
-  margin: 0 0 14px;
-}
-.change-set-bar .notice {
-  margin: 12px 0 0;
+.band-details .notice {
+  margin: 0 0 var(--space-4);
 }
 .inline-state {
   display: flex;
@@ -1586,10 +1656,10 @@ th[aria-sort] {
   gap: 12px;
   white-space: nowrap;
 }
+/* The change set's bar inside the amber data-context band (ADR-039). */
 .change-set-bar {
-  margin-bottom: 18px;
-  padding: 12px 16px;
-  border-left: 3px solid var(--warning-accent);
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .change-set-bar-row {
   display: flex;
@@ -1599,23 +1669,22 @@ th[aria-sort] {
   gap: 10px 16px;
 }
 .change-set-bar-main {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px 10px;
+  display: grid;
+  gap: 2px;
   min-width: 0;
 }
-.change-set-bar-main h2 {
+.change-set-bar-main h2,
+.publication-bar-main h2 {
   margin: 0;
-  font-size: 16px;
-  font-weight: 650;
+  color: inherit;
+  font-size: var(--text-lg);
+  font-weight: 600;
 }
 .change-set-bar-meta {
   display: inline-flex;
   flex-wrap: wrap;
   gap: 4px;
-  color: var(--muted);
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 .change-set-bar-meta > span + span::before {
   content: "·";
@@ -1627,10 +1696,27 @@ th[aria-sort] {
   flex-wrap: wrap;
   gap: 8px;
 }
-.change-set-bar-note {
-  margin: 4px 0 0;
-  color: var(--muted);
-  font-size: 12.5px;
+/* The publication's bar inside the violet band. */
+.publication-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.publication-bar-main {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  min-width: 0;
+}
+.publication-bar-main p {
+  flex: 1 1 100%;
+  margin: 0;
+  font-size: var(--text-sm);
 }
 .change-set-secondary-actions {
   position: relative;
@@ -1640,7 +1726,7 @@ th[aria-sort] {
   align-items: center;
   min-height: var(--control-height);
   padding: 0 12px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--border-control);
   border-radius: var(--radius-control);
   background: var(--surface);
   color: var(--ink-2);
@@ -1906,12 +1992,7 @@ form .admin-hint {
   min-height: 440px;
   resize: vertical;
   tab-size: 2;
-  font:
-    12px/1.55 ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    Consolas,
-    monospace;
+  font: 12px/1.55 var(--font-mono);
 }
 .model-actions {
   display: flex;
@@ -1992,11 +2073,7 @@ form .admin-hint {
   padding: 0;
   background: transparent;
   color: var(--accent);
-  font:
-    12px ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    monospace;
+  font: 12px var(--font-mono);
 }
 .diagnostic-list code {
   display: block;
@@ -2779,7 +2856,7 @@ form .admin-hint {
   display: block;
   width: 26px;
   height: 15px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--border-control);
   border-radius: 999px;
   background: var(--fill);
 }
@@ -2874,8 +2951,7 @@ form .admin-hint {
   background: var(--surface);
   color: var(--ink-2);
   font-size: 13px;
-  opacity: 0.94;
-  box-shadow: 0 6px 18px rgba(14, 26, 21, 0.16);
+  box-shadow: var(--shadow-md);
   pointer-events: none;
 }
 .tree-drag-preview.accepted {
@@ -2896,6 +2972,12 @@ form .admin-hint {
   color: var(--muted);
   font-size: 12px;
   white-space: nowrap;
+}
+.tree-drag-preview.accepted .tree-drag-type {
+  color: var(--status-success-text);
+}
+.tree-drag-preview.refused .tree-drag-type {
+  color: var(--status-error-text);
 }
 .tree-drag-reason {
   color: var(--danger-ink);

@@ -39,6 +39,8 @@
     "test:visual:update": "node e2e/visual-regression-gate.mjs --update-baselines"
   },
   "dependencies": {
+    "@fontsource-variable/instrument-sans": "5.3.0",
+    "@fontsource-variable/jetbrains-mono": "5.3.0",
     "lucide-react": "1.39.0",
     "react": "^19.2.8",
     "react-aria-components": "1.21.0",

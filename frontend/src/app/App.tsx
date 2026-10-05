@@ -259,6 +259,36 @@ function AppContent({
   const collectionApplication = collection ? applicationFor(model, collection.applicationKey) : undefined;
   const hasDetail = activeRoute.kind === "detail";
   const inspector = hasDetail && Boolean(collection) && activeRoute.fullPage === false;
+  // The change set's or publication's own bar sits in the shell's data-context band once loaded.
+  const contextActions =
+    data.loadingError || contextLoading ? undefined : data.changeSet ? (
+      <ChangeSetActions
+        readOnly={readOnly}
+        reviewing={activeRoute.kind === "changeSetChanges"}
+        onReview={() => navigate(changeReviewFor(application.key, data.changeSet!.workspaceKey, data.changeSet!.id))}
+        onExit={(result) => {
+          setMessage(result);
+          navigate({ ...viewRoute(application, application.defaultView, data.changeSet!.workspaceKey) });
+          setRefreshToken((value) => value + 1);
+        }}
+        onModelChanged={async () => {
+          if (data.reloadChangeSetModel) {
+            await data.reloadChangeSetModel();
+            setRefreshToken((value) => value + 1);
+          }
+        }}
+      />
+    ) : data.publication ? (
+      <PublicationBanner
+        onExit={() =>
+          navigate({
+            kind: "publications",
+            applicationKey: application.key,
+            workspaceKey: data.publication!.workspaceKey,
+          })
+        }
+      />
+    ) : undefined;
   return (
     <AppShell
       model={model}
@@ -272,6 +302,7 @@ function AppContent({
       onWorkspaceResolved={setWorkspace}
       onHome={goHome}
       onOpenObject={(item) => openObject(item, undefined, "hierarchy")}
+      contextActions={contextActions}
     >
       {message && <Notice tone="success">{message}</Notice>}
       {data.loadingError ? (
@@ -313,37 +344,6 @@ function AppContent({
         </div>
       ) : (
         <>
-          {data.changeSet && (
-            <ChangeSetActions
-              readOnly={readOnly}
-              reviewing={activeRoute.kind === "changeSetChanges"}
-              onReview={() =>
-                navigate(changeReviewFor(application.key, data.changeSet!.workspaceKey, data.changeSet!.id))
-              }
-              onExit={(result) => {
-                setMessage(result);
-                navigate({ ...viewRoute(application, application.defaultView, data.changeSet!.workspaceKey) });
-                setRefreshToken((value) => value + 1);
-              }}
-              onModelChanged={async () => {
-                if (data.reloadChangeSetModel) {
-                  await data.reloadChangeSetModel();
-                  setRefreshToken((value) => value + 1);
-                }
-              }}
-            />
-          )}
-          {data.publication && (
-            <PublicationBanner
-              onExit={() =>
-                navigate({
-                  kind: "publications",
-                  applicationKey: application.key,
-                  workspaceKey: data.publication!.workspaceKey,
-                })
-              }
-            />
-          )}
           {activeRoute.kind === "models" ? (
             <ModelWorkbench
               route={activeRoute}

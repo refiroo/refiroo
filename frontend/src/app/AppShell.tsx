@@ -1,12 +1,16 @@
 /**
- * The application frame: product mark, application navigation, workspace selector, and the view
- * unified collection/hierarchy browser. Everything it shows comes from the model — the applications,
- * view declarations and the product name — so the frame carries no knowledge of any
- * particular application.
+ * The application frame (ADR-039): a top bar with the product mark, the workspace switcher, the
+ * applications as tabs and, at the right, administration and Settings; the rail with the
+ * collection/hierarchy browser; and the data-context band at the top of the content. Everything it
+ * shows comes from the model — the applications, view declarations and the product name — so the
+ * frame carries no knowledge of any particular application.
  *
- * Applications are peer destinations in the global header. Model and workspace administration are
- * separate header entries that omit workspace controls and the application browser; Workspaces
- * appears only where the deployment allows workspace administration.
+ * The band names the data being read or edited: Live, a change set (amber, with the change set's
+ * own actions passed in as `contextActions`) or a publication (violet). It stays visible while the
+ * page scrolls; what its actions report is placed just below it (`BelowContextBand`).
+ *
+ * Model and workspace administration omit the workspace switcher, the band and the application
+ * browser; Workspaces appears only where the deployment allows workspace administration.
  */
 
 import { useEffect, useState } from "react";
@@ -18,11 +22,12 @@ import { isAdminRoute, routeChangeSetId, viewRoute } from "@/routing/routes";
 import type { ApplicationDefinition, EngineModel, ObjectItem, RouteState, Workspace } from "@/types";
 import { Icon, ModelIcon } from "@/ui/Icon";
 import { NavigationDrawer } from "@/ui/NavigationDrawer";
-import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { Notice } from "@/ui/Notice";
 import { ResizeHandle } from "@/ui/ResizeHandle";
 import { useLocalNumberPreference } from "@/lib/localPreference";
 import { SidebarSlotContext } from "@/ui/SidebarSlot";
+import { ContextBandSlotContext } from "@/ui/ContextBandSlot";
+import { DataContextBand } from "./DataContextBand";
 import { SettingsMenu } from "./SettingsMenu";
 
 export function AppShell({
@@ -37,6 +42,7 @@ export function AppShell({
   onWorkspaceResolved,
   onHome,
   onOpenObject,
+  contextActions,
   children,
 }: {
   model: EngineModel;
@@ -50,12 +56,14 @@ export function AppShell({
   onWorkspaceResolved: (workspace: Workspace) => void;
   onHome: () => void;
   onOpenObject: (item: Pick<ObjectItem, "applicationKey" | "objectTypeKey" | "id" | "workspaceKey">) => void;
+  /** The change set's or publication's own bar, shown inside the band once its context has loaded. */
+  contextActions?: ReactNode;
   children: ReactNode;
 }) {
-  const { changeSet, publication } = useWorkspaceData();
   const rail = useLocalNumberPreference("rdm:layout:navigation-width:v1", 248, 210, 380);
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [sidebarSlot, setSidebarSlot] = useState<HTMLElement | null>(null);
+  const [bandSlot, setBandSlot] = useState<HTMLElement | null>(null);
   // Capabilities only decide whether Workspaces is offered; a failed read leaves it hidden, and the
   // screen itself reports the capability state for a direct link.
   const [manageWorkspaces, setManageWorkspaces] = useState(false);
@@ -74,14 +82,6 @@ export function AppShell({
     activeRoute.kind === "list" || activeRoute.kind === "detail" ? activeRoute.publicationId : undefined;
 
   const admin = isAdminRoute(activeRoute);
-  const status = changeSetId
-    ? `Change set · ${changeSet?.name || "Untitled change set"}`
-    : publicationId
-      ? publication
-        ? `Publication ${publication.publicationNumber}`
-        : "Publication"
-      : "Live";
-  const statusTone = changeSetId ? "change-set" : publicationId ? "publication" : "live";
 
   return (
     <div className="app-shell" style={{ "--sidebar": `${rail.value}px` } as CSSProperties}>
@@ -93,6 +93,20 @@ export function AppShell({
           <span>{model.product.name.slice(0, 1)}</span>
           <strong>{model.product.name}</strong>
         </button>
+        {!admin && (
+          <div className="topbar-workspace">
+            <WorkspaceSelector
+              workspaceKey={activeRoute.workspaceKey}
+              onChange={onChangeWorkspace}
+              onResolved={onWorkspaceResolved}
+              onManage={
+                manageWorkspaces
+                  ? () => onNavigate({ kind: "workspaces", selectedWorkspaceKey: activeRoute.workspaceKey })
+                  : undefined
+              }
+            />
+          </div>
+        )}
         <nav className="application-nav" aria-label="Applications">
           {model.applications.map((item) => (
             <button
@@ -105,42 +119,42 @@ export function AppShell({
                 setNavigationOpen(false);
               }}
             >
-              <span className="application-glyph" style={item.color ? { color: item.color } : undefined}>
+              <span className="application-glyph">
                 <ModelIcon name={item.icon} size={15} />
               </span>
               {item.name}
             </button>
           ))}
         </nav>
-        <div className="header-end">
-          <span className="model-version" title={`Active model: ${model.release.name} (${model.release.key})`}>
-            Model {model.release.version} · Schema {model.schemaVersion}
-          </span>
-          <nav className="secondary-navigation" aria-label="Administration">
+        <div className="topbar-spacer" />
+        <span className="model-version" title={`Active model: ${model.release.name} (${model.release.key})`}>
+          Model {model.release.version} · Schema {model.schemaVersion}
+        </span>
+        <nav className="secondary-navigation" aria-label="Administration">
+          <button
+            className="header-link"
+            aria-current={activeRoute.kind === "models" ? "page" : undefined}
+            onClick={() => {
+              onNavigate({ kind: "models" });
+              setNavigationOpen(false);
+            }}
+          >
+            Models
+          </button>
+          {(manageWorkspaces || activeRoute.kind === "workspaces") && (
             <button
               className="header-link"
-              aria-current={activeRoute.kind === "models" ? "page" : undefined}
+              aria-current={activeRoute.kind === "workspaces" ? "page" : undefined}
               onClick={() => {
-                onNavigate({ kind: "models" });
+                onNavigate({ kind: "workspaces" });
                 setNavigationOpen(false);
               }}
             >
-              <Icon name="settings" /> Models
+              Workspaces
             </button>
-            {(manageWorkspaces || activeRoute.kind === "workspaces") && (
-              <button
-                className="header-link"
-                aria-current={activeRoute.kind === "workspaces" ? "page" : undefined}
-                onClick={() => {
-                  onNavigate({ kind: "workspaces" });
-                  setNavigationOpen(false);
-                }}
-              >
-                <Icon name="workspace" /> Workspaces
-              </button>
-            )}
-          </nav>
-        </div>
+          )}
+        </nav>
+        <SettingsMenu />
       </header>
       <button
         type="button"
@@ -181,43 +195,30 @@ export function AppShell({
           {admin ? (
             <div ref={setSidebarSlot} className="sidebar-slot" />
           ) : (
-            <>
-              <WorkspaceSelector
-                workspaceKey={activeRoute.workspaceKey}
-                onChange={onChangeWorkspace}
-                onResolved={onWorkspaceResolved}
-                onManage={
-                  manageWorkspaces
-                    ? () => onNavigate({ kind: "workspaces", selectedWorkspaceKey: activeRoute.workspaceKey })
-                    : undefined
-                }
-              />
-              <Explorer
-                key={`${application.key}:${activeRoute.workspaceKey}`}
-                model={model}
-                application={application}
-                workspaceKey={activeRoute.workspaceKey}
-                activeObjectId={activeRoute.kind === "detail" ? activeRoute.objectId : undefined}
-                activeObjectTypeKey={activeRoute.kind === "detail" ? activeRoute.objectTypeKey : undefined}
-                activeViewKey={activeRoute.kind === "list" ? activeRoute.viewKey : undefined}
-                refreshToken={refreshToken}
-                onOpen={(item) => {
-                  onOpenObject(item);
-                  setNavigationOpen(false);
-                }}
-                onOpenCollection={(viewKey, parent) => {
-                  onNavigate({
-                    ...viewRoute(application, viewKey, activeRoute.workspaceKey),
-                    changeSetId,
-                    publicationId,
-                    ...(parent ? { parentObjectId: parent.id, parentObjectTypeKey: parent.objectTypeKey } : {}),
-                  });
-                  setNavigationOpen(false);
-                }}
-              />
-            </>
+            <Explorer
+              key={`${application.key}:${activeRoute.workspaceKey}`}
+              model={model}
+              application={application}
+              workspaceKey={activeRoute.workspaceKey}
+              activeObjectId={activeRoute.kind === "detail" ? activeRoute.objectId : undefined}
+              activeObjectTypeKey={activeRoute.kind === "detail" ? activeRoute.objectTypeKey : undefined}
+              activeViewKey={activeRoute.kind === "list" ? activeRoute.viewKey : undefined}
+              refreshToken={refreshToken}
+              onOpen={(item) => {
+                onOpenObject(item);
+                setNavigationOpen(false);
+              }}
+              onOpenCollection={(viewKey, parent) => {
+                onNavigate({
+                  ...viewRoute(application, viewKey, activeRoute.workspaceKey),
+                  changeSetId,
+                  publicationId,
+                  ...(parent ? { parentObjectId: parent.id, parentObjectTypeKey: parent.objectTypeKey } : {}),
+                });
+                setNavigationOpen(false);
+              }}
+            />
           )}
-          <SettingsMenu />
           {/* Fixed-position, so it stays inside the navigation landmark without affecting layout. */}
           <ResizeHandle
             className="navigation-resizer"
@@ -231,63 +232,24 @@ export function AppShell({
         </aside>
       </NavigationDrawer>
       <main id="main-content" className="workspace-main" tabIndex={-1}>
-        {!admin && (
-          <div className="context-bar">
-            <div role="group" className="shell-context" aria-label="Current context">
-              <span>{workspace?.key === activeRoute.workspaceKey ? workspace.label : activeRoute.workspaceKey}</span>
-              <span aria-hidden="true"> / </span>
-              <span>{application.name}</span>
-              {activeRoute.kind !== "changeSets" && activeRoute.kind !== "publications" && (
-                <span className={`context-status status-${statusTone}`}>{status}</span>
-              )}
-            </div>
-            <nav className="data-context-switch" aria-label="Workspace data context">
-              <button
-                aria-current={
-                  activeRoute.kind !== "changeSets" &&
-                  activeRoute.kind !== "publications" &&
-                  !changeSetId &&
-                  !publicationId
-                    ? "page"
-                    : undefined
-                }
-                onClick={() => onNavigate(viewRoute(application, application.defaultView, activeRoute.workspaceKey))}
-              >
-                Live
-              </button>
-              <button
-                aria-current={activeRoute.kind === "changeSets" || changeSetId ? "page" : undefined}
-                onClick={() =>
-                  onNavigate({
-                    kind: "changeSets",
-                    applicationKey: application.key,
-                    workspaceKey: activeRoute.workspaceKey,
-                  })
-                }
-              >
-                Change sets
-              </button>
-              <button
-                aria-current={activeRoute.kind === "publications" || publicationId ? "page" : undefined}
-                onClick={() =>
-                  onNavigate({
-                    kind: "publications",
-                    applicationKey: application.key,
-                    workspaceKey: activeRoute.workspaceKey,
-                  })
-                }
-              >
-                Publications
-              </button>
-            </nav>
-          </div>
+        {!isAdminRoute(activeRoute) && (
+          <DataContextBand
+            application={application}
+            route={activeRoute}
+            workspaceLabel={workspace?.key === activeRoute.workspaceKey ? workspace.label : activeRoute.workspaceKey}
+            contextActions={contextActions}
+            onNavigate={onNavigate}
+          />
         )}
+        <div ref={setBandSlot} className="band-details" />
         {!admin && workspace?.key === activeRoute.workspaceKey && workspace.status === "retired" && (
           <Notice tone="info" title="Read-only workspace">
             This workspace is retired. Runtime data and history remain available, but changes are disabled.
           </Notice>
         )}
-        <SidebarSlotContext.Provider value={sidebarSlot}>{children}</SidebarSlotContext.Provider>
+        <SidebarSlotContext.Provider value={sidebarSlot}>
+          <ContextBandSlotContext.Provider value={bandSlot}>{children}</ContextBandSlotContext.Provider>
+        </SidebarSlotContext.Provider>
       </main>
     </div>
   );

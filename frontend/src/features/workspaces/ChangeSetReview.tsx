@@ -25,6 +25,7 @@ import type {
 import { ControlPopover } from "@/ui/ControlPopover";
 import { formatValue } from "@/ui/formatValue";
 import { Icon } from "@/ui/Icon";
+import { PageHeader } from "@/ui/PageHeader";
 import { InlineError } from "@/ui/InlineError";
 import { ScrollWindow } from "@/ui/ScrollWindow";
 import { Tabs } from "@/ui/Tabs";
@@ -168,22 +169,21 @@ export function ChangeSetReview({
 
   return (
     <section className="context-page change-review">
-      <header className="page-header collection-header">
-        <div className="page-title">
-          <div>
-            <h1 tabIndex={-1}>Review changes</h1>
-            <p>
-              What {changeSet?.name ? `“${changeSet.name}”` : "this change set"} adds, changes and removes compared with
-              its source. Nothing here is live until the change set is published.
-            </p>
-          </div>
-        </div>
-        <div className="collection-header-actions">
+      <PageHeader
+        focusTitle
+        title="Review changes"
+        description={
+          <>
+            What {changeSet?.name ? `“${changeSet.name}”` : "this change set"} adds, changes and removes compared with
+            its source. Nothing here is live until the change set is published.
+          </>
+        }
+        actions={
           <button type="button" className="secondary" onClick={onBack}>
             Back to change set
           </button>
-        </div>
-      </header>
+        }
+      />
       <Tabs
         label="Changes"
         selected={route.tab}

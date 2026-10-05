@@ -5,6 +5,9 @@ import { Icon } from "@/ui/Icon";
 import { ComboBoxField, SelectField } from "@/ui/Selection";
 import { Tabs } from "@/ui/Tabs";
 import { Notice } from "@/ui/Notice";
+import { Card } from "@/ui/Card";
+import { PageHeader } from "@/ui/PageHeader";
+import { StatusPill } from "@/ui/StatusPill";
 
 describe("RDM UI foundation", () => {
   it("keeps decorative icons hidden and gives meaningful icons an accessible name", () => {
@@ -91,5 +94,47 @@ describe("RDM UI foundation", () => {
       </Notice>,
     );
     expect(screen.getByRole("alert")).toHaveFocus();
+  });
+
+  it("gives a page one focusable title with its description, decorative icon and actions", () => {
+    const { container } = render(
+      <PageHeader
+        focusTitle
+        icon={<Icon name="tree" />}
+        eyebrow="Domain"
+        title="Domains"
+        description="Top-level grouping of reference data"
+        actions={<button className="primary">Add domain</button>}
+      />,
+    );
+    const title = screen.getByRole("heading", { level: 1, name: "Domains" });
+    expect(title).toHaveAttribute("tabindex", "-1");
+    expect(screen.getByText("Domain")).toHaveClass("eyebrow");
+    expect(screen.getByText("Top-level grouping of reference data")).toBeInTheDocument();
+    expect(container.querySelector(".page-icon")).toHaveAttribute("aria-hidden", "true");
+    expect(screen.getByRole("button", { name: "Add domain" }).closest(".page-actions")).not.toBeNull();
+    render(<PageHeader title="Publications" />);
+    expect(screen.getByRole("heading", { level: 1, name: "Publications" })).not.toHaveAttribute("tabindex");
+  });
+
+  it("names a status in text, with its marker hidden from assistive technology", () => {
+    const { container } = render(<StatusPill tone="changeSet">Change set · Q4</StatusPill>);
+    const pill = container.querySelector(".status-pill");
+    expect(pill).toHaveClass("tone-change-set");
+    expect(pill).toHaveTextContent("Change set · Q4");
+    expect(container.querySelector(".status-pill-marker")).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("makes a titled card a region named by its heading, and an untitled one a plain block", () => {
+    render(
+      <Card title="Details" actions={<button>Edit</button>}>
+        <p>Body</p>
+      </Card>,
+    );
+    expect(screen.getByRole("region", { name: "Details" })).toHaveTextContent("Body");
+    expect(screen.getByRole("heading", { level: 2, name: "Details" })).toBeInTheDocument();
+    const { container } = render(<Card>Plain</Card>);
+    expect(container.querySelector("section")).toBeNull();
+    expect(container.querySelector(".card")).toHaveTextContent("Plain");
   });
 });

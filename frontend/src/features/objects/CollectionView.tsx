@@ -10,6 +10,7 @@ import { attributeName, isQueryableField, listSortFields } from "@/model/fields"
 import { objectTypeFor } from "@/model/lookup";
 import { InlineError } from "@/ui/InlineError";
 import { Icon, ModelIcon } from "@/ui/Icon";
+import { PageHeader } from "@/ui/PageHeader";
 import { ObjectTable } from "@/ui/ObjectTable";
 import { TableDisplay, useTableDisplay } from "@/ui/TableDisplay";
 import { SortMenu, useTableSort } from "@/ui/TableSort";
@@ -140,24 +141,19 @@ export function ObjectCollectionView({
         focusedRow.current = (event.target as HTMLElement).dataset.recordId;
       }}
     >
-      <header className="page-header collection-header">
-        <div className="page-title">
-          <span className="page-icon" aria-hidden="true">
-            <ModelIcon name={objectType.icon} size={20} />
-          </span>
-          <div>
-            <h1 tabIndex={-1}>{view.name}</h1>
-            <p>{objectType.description ?? application.description}</p>
-          </div>
-        </div>
-        {!readOnly && (
-          <div className="collection-header-actions">
+      <PageHeader
+        focusTitle
+        icon={<ModelIcon name={objectType.icon} size={20} />}
+        title={view.name}
+        description={objectType.description ?? application.description}
+        actions={
+          !readOnly && (
             <button className="primary" onClick={() => setCreating(true)}>
               <Icon name="plus" /> Add {objectType.name}
             </button>
-          </div>
-        )}
-      </header>
+          )
+        }
+      />
       {query.parentObjectId && (
         <div className="scope-banner">
           <CollectionScope

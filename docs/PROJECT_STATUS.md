@@ -212,6 +212,11 @@ expiring with the feed and naming the publication to re-read; a container rename
 PostgreSQL (20,001 objects in 0.7 s at full volume). Webhook signing moved into 0.9 and events carry
 the object (C-D7 and C-D12 revised); C-D87–C-D92, C-D95
 ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#c10-delivery-record)).
+**U2 is delivered (2026-10-06)**, alongside C10: the UI's tokens are in three layers with a contrast
+test, the fonts are bundled, and the shell is rebuilt to ADR-039. It has a top bar with the workspace
+switcher and the applications, a toned rail, and a data-context band that turns amber in a change
+set and violet in a publication. Every screen takes the new look through aliases until U6
+(U-D7–U-D9, [record](SETTINGS_AND_UI_PLAN.md#u2-delivery-record)).
 Next: C11, in the order of the
 [delivery queue](BASE_0_9_IMPLEMENTATION_PLAN.md#delivery-queue) (U4 waits for U3).
 

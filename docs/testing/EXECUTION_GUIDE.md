@@ -198,7 +198,7 @@ failure atomicity: `py -m pytest "tests/test_wp8_publish.py::test_no_partial_pub
 
 | Project | Files | Environment | Purpose |
 | --- | --- | --- | --- |
-| `unit` | `src/**/*.test.ts` | node (per-file `// @vitest-environment jsdom` opt-in) | API clients, routing, model reads, dates, fixtures |
+| `unit` | `src/**/*.test.ts` | node (per-file `// @vitest-environment jsdom` opt-in) | API clients, routing, model reads, dates, fixtures; the token contrast test (`styles/tokens.test.ts`, reads `tokens.css` raw), selected by any change to `styles/tokens.css` |
 | `dom` | `src/**/*.test.tsx` | jsdom with `src/test/setup.ts` | rendered components and hooks |
 
 Every test file matches exactly one project by extension, so none is unclassified. Selection:

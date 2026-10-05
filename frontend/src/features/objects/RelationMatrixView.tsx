@@ -14,6 +14,7 @@ import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { InlineError } from "@/ui/InlineError";
 import { ScrollWindow } from "@/ui/ScrollWindow";
 import { Icon } from "@/ui/Icon";
+import { PageHeader } from "@/ui/PageHeader";
 import { formatValue } from "@/ui/formatValue";
 import { attributeName } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
@@ -291,22 +292,20 @@ export function RelationMatrixView({
 
   return (
     <div>
-      <header className="page-header collection-header">
-        <div className="page-title">
-          <span className="page-icon" aria-hidden="true">
-            <Icon name="matrix" size={20} />
-          </span>
-          <div>
-            <h1 tabIndex={-1}>{view.name}</h1>
-            <p className="mapping-direction">
-              <span>{rowType.pluralName}</span>
-              <Icon name="arrow-right" size={14} />
-              <span>{cellType.pluralName}</span>
-              <span className="muted">by {columnType.name.toLowerCase()}</span>
-            </p>
-          </div>
-        </div>
-      </header>
+      <PageHeader
+        focusTitle
+        icon={<Icon name="matrix" size={20} />}
+        title={view.name}
+        descriptionClassName="mapping-direction"
+        description={
+          <>
+            <span>{rowType.pluralName}</span>
+            <Icon name="arrow-right" size={14} />
+            <span>{cellType.pluralName}</span>
+            <span className="muted">by {columnType.name.toLowerCase()}</span>
+          </>
+        }
+      />
       {query.parentObjectId && (
         <div className="scope-banner">
           <CollectionScope
