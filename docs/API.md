@@ -2023,7 +2023,7 @@ follow in C6 and C16.
 ### Get by ID
 
 ```text
-GET /api/consumer/{apiKey}/v{contractVersion}/objects/{id}?workspace=…&{parameters}
+GET /api/consumer/{consumerApi}/v{contractVersion}/objects/{id}?workspace=…&{parameters}
 ```
 
 Returns the definition's shared object for the record whose **object ID** is `{id}`, read live:
@@ -2061,7 +2061,7 @@ Returns the definition's shared object for the record whose **object ID** is `{i
 ### Lists
 
 ```text
-GET /api/consumer/{apiKey}/v{contractVersion}/lists/{listKey}?{parentParameter}=…&{parameters}&workspace=…
+GET /api/consumer/{consumerApi}/v{contractVersion}/lists/{listKey}?{parentParameter}=…&{parameters}&workspace=…
     &pageSize=…&cursor=…|position=…|from=end|seek=…&includeTotal=true
 ```
 
@@ -2091,7 +2091,7 @@ the shared object above (equal to get by ID's answer for the same record and par
 ### XREF
 
 ```text
-GET /api/consumer/{apiKey}/v{contractVersion}/xref?query=…&{parameters}&expect=any|one&workspace=…
+GET /api/consumer/{consumerApi}/v{contractVersion}/xref?query=…&{parameters}&expect=any|one&workspace=…
     &pageSize=…&cursor=…|position=…|from=end
 ```
 
@@ -2160,7 +2160,7 @@ below.
 ### Batch resolve
 
 ```text
-POST /api/consumer/{apiKey}/v{contractVersion}/resolve?workspace=…
+POST /api/consumer/{consumerApi}/v{contractVersion}/resolve?workspace=…
 ```
 
 Resolves many values in one call, for a flow translating a file of codes. It is a read: the body
@@ -2252,7 +2252,7 @@ Every definition parameter applies to get by ID, to every list (C-D31), to [XREF
 
 | Status | Code | When |
 | --- | --- | --- |
-| 404 | `CONSUMER_API_NOT_FOUND` | No definition has this `apiKey` in the active release |
+| 404 | `CONSUMER_API_NOT_FOUND` | No definition has this `consumerApi` in the active release |
 | 404 | `CONTRACT_VERSION_NOT_FOUND` | The definition serves another contract version; `details.contractVersion` names it |
 | 404 | `WORKSPACE_NOT_FOUND` | Unknown or retired workspace |
 | 404 | `OBJECT_NOT_FOUND` | No record with this object ID in the workspace, one of a type the definition does not expose, or one the parameters filter out |

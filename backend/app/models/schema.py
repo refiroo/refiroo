@@ -523,7 +523,7 @@ class ConsumerList(ModelDefinition):
 
 
 class ConsumerApiDefinition(ModelDefinition):
-    """One consumer API: its public key (the ``apiKey``), contract version and shape."""
+    """One consumer API: its public name (``consumerApi`` in routes and contracts), contract version and shape."""
 
     model_config = ConfigDict(extra="forbid")
 

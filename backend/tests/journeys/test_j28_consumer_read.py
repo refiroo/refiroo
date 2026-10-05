@@ -150,7 +150,7 @@ def test_another_workspace(world):
 @pytest.mark.journey("J28.4")
 @pytest.mark.structures(*CAPI)
 def test_refusals(world):
-    """An unknown apiKey is 404 CONSUMER_API_NOT_FOUND. Version 2 of a version-1 API is 404
+    """An unknown consumer API name is 404 CONSUMER_API_NOT_FOUND. Version 2 of a version-1 API is 404
     CONTRACT_VERSION_NOT_FOUND. A record of a type the definition does not expose is 404
     OBJECT_NOT_FOUND. pagesize=5 is 400 UNKNOWN_PARAMETER, naming it. A list's parent parameter is
     400 PARAMETER_NOT_SUPPORTED (C3)."""

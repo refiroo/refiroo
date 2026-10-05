@@ -15,8 +15,9 @@ read, D31), [B3](#b3-relation-and-relation-set-items) (2026-10-03, D35–D39),
 [F2](#f2-feed-retention-and-recovery) (2026-10-03, D40–D41), [T1](#t1-track-checkpoint-q-b-f) (2026-10-03),
 [T1a](#t1a-copies-inside-the-database) (2026-10-04), [T1b](#t1b-one-error-code-pattern) (2026-10-04),
 [C2](#c2-consumer-object-and-projections) (2026-10-04, C-D21–C-D26), C3–C5 and
-[C14](#c14-batch-resolve) (2026-10-05, C-D47–C-D53), [C15](#c15-crosswalk) (2026-10-05, C-D54–C-D58).
-**Next:** CN1, in the order of the [delivery queue](#delivery-queue).
+[C14](#c14-batch-resolve) (2026-10-05, C-D47–C-D53), [C15](#c15-crosswalk) (2026-10-05, C-D54–C-D58),
+[CN1](#cn1-the-consumer-apis-name-in-public-contracts) (2026-10-05, C-D59).
+**Next:** C6, in the order of the [delivery queue](#delivery-queue).
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
 Effective dates and consumer API definitions extend the model, so the starter becomes content release
@@ -224,7 +225,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 17a | [C14a](#c14a-repeated-lookups-resolved-once-the-batch-profiled) | C14 | Amendment: repeated lookups resolved once; the batch profiled — **delivered 2026-10-05** |
 | 17b | [C14b](#c14b-the-ancestor-walk-and-the-contains-selects-made-cheap) | C14a | Amendment: the ancestor walk and the contains selects made cheap — **delivered 2026-10-05** |
 | 18 | [C15](#c15-crosswalk) | C5, C14 | Crosswalk: `to.{parameter}` on every read, `target`, `TARGET_NOT_FOUND`, `AMBIGUOUS_TARGET` (C-D54–C-D58) — **delivered 2026-10-05** ([record](#c15-delivery-record)) |
-| 18a | [CN1](SETTINGS_AND_UI_PLAN.md#packages-track-u) | C15 | Amendment: the consumer API namespace is `consumerApi` in public contracts, not `apiKey` (U-D1) |
+| 18a | [CN1](#cn1-the-consumer-apis-name-in-public-contracts) | C15 | Amendment: the consumer API namespace is `consumerApi` in public contracts, not `apiKey` (U-D1) — **delivered 2026-10-05** ([record](#cn1-delivery-record)) |
 | 19 | C6 | C3, C4, F1 | ETag, publications with `eventSequence`, OpenAPI per definition, API index |
 | 20 | [V2](#v2-consumer-sources) | V1, C6 | Consumer contracts as reference sources |
 | 20a | [U4](SETTINGS_AND_UI_PLAN.md#packages-track-u) | U3, C6, V2 | Settings › Integration: Consumer APIs, Jobs and feed, API reference; a starter consumer API (U-D5) |
@@ -3342,6 +3343,117 @@ older tagged-path assertions, which were then updated: `tests/test_model.py` 123
 and J29 68 passed; the serial part of those groups is empty; `ruff check app/ tests/` clean. Not run:
 `volume` (no statement added, the design's reasoning, not measured), `queries` (`object_query`
 unchanged), `startup` (no migration), the full suites (R).
+
+#### CN1: The consumer API's name in public contracts
+
+**Planned 2026-10-05; C-D59 decided by the user the same day (no new field).** Amends C2–C5, C14,
+C15 and the designs of C6, C9–C11 per [U-D1](SETTINGS_AND_UI_PLAN.md#decisions).
+**Needs:** C15. **Groups:** `consumer`, `contract`.
+
+**Behaviour.** An integrator reading the consumer API's documentation sees the definition's name
+written as `consumerApi` everywhere it appears: the route `/api/consumer/{consumerApi}/v{contractVersion}/…`,
+and, once C6 and C11 build them, the API index entries, the subscription filter and body, and the
+webhook and event bodies. Nothing reads as a credential. The model keeps `key`, as every model
+element does, and the error codes stay (`CONSUMER_API_NOT_FOUND` already says it).
+
+**What carries it today** (checked 2026-10-05):
+
+- **On the wire: nothing.** No response field, error detail or query parameter carries the name.
+  `CONSUMER_API_NOT_FOUND` has no `details`, and `CONTRACT_VERSION_NOT_FOUND`'s `details` holds only
+  `contractVersion`. The consumer router is left out of OpenAPI (`include_in_schema=False`), so the
+  path parameter's name (`api_key`) is invisible to clients. The SETTINGS plan's line that "the route
+  and error details carry it" is wrong about error details. It is corrected with this package.
+- **In the code:** the path parameter `api_key` on the four routes (`app/consumer/router.py`) and
+  `consumer_definition(model, api_key, …)` (`engine/reads/consumer_objects.py`), plus docstrings in
+  the router, `models/schema.py` and the journey helpers (`tests/journeys/scenario.py`, J28.4's text).
+  The frontend has no occurrence.
+- **In the documents:** API.md (four route lines, the `CONSUMER_API_NOT_FOUND` row), CONSUMER_API
+  (25: the Security note, the section "The `apiKey`", the endpoint list, the API index, subscriptions,
+  webhook bodies, the events route, C-D1 and C-D18), APPLICATION_MODEL, USER_JOURNEYS, API_JOURNEYS,
+  PROJECT_STATUS and TODO.
+
+So CN1 changes no response. Its value is that C6 (the API index), C9–C11 (events, subscriptions)
+and V2 (the per-definition OpenAPI) are built from designs that already say `consumerApi`, and that
+the route documentation reads correctly before C6 publishes it in OpenAPI.
+
+**Design.**
+
+- **Code:** the path parameter becomes `consumer_api` on the four routes, so C6's OpenAPI would
+  show `{consumer_api}` if a route were ever included as is. V2's document writes paths literally
+  (SETTINGS plan, "Versions in the documentation"), so no placeholder appears there either way.
+  `consumer_definition` takes `consumer_api`. Docstrings say `{consumerApi}`. Error messages keep
+  their wording ("Consumer API 'x' not found"). The internal cursor scope
+  `consumer-list:<key>:<listKey>` is not public and stays.
+- **Living documents:** every occurrence above becomes `consumerApi` (route placeholder `{consumerApi}`).
+  CONSUMER_API's section is renamed "The consumer API name (`consumerApi`)", keeps its points (not a
+  credential, model-key format, stable across versions, several per model) and its examples table,
+  and its anchor link from the Security note follows. The planned contracts change field for field:
+  the API index entry's `apiKey` → `consumerApi`; `GET /api/v1/consumer-subscriptions?consumerApi=…`;
+  the subscription body's `"consumerApi": "rdm"`; both webhook bodies and the events route. C-D1 and
+  C-D18 keep their decisions with the new word.
+- **History stays as written.** Delivery records (C2–C15 in this plan) and released CHANGELOG
+  entries describe what was delivered under the old name; they are not rewritten. CHANGELOG
+  Unreleased gains one entry. This plan's undelivered text (the queue row, C6's row) uses the new
+  name.
+- **Same word, other contract:** `GET /api/v1/capabilities` already has a `consumerApi` group
+  (`{"resolveMaxItems": 1000, "setting": …}`), an object describing the consumer API capability. The
+  new field is a string naming one definition, in other routes. The shapes differ and neither
+  document defines both, so both stay.
+- **No model change, no migration, no new error code.**
+
+**Decisions:**
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| C-D59 | Should the two not-found errors gain `details.consumerApi`? | **Decided 2026-10-05 by the user: no.** U-D1 renames the field where it is carried, and no error carries it. Adding it would be a new field, not a rename. The caller sent the name in the URL. No not-found error in the engine echoes the identifier it was given (`OBJECT_NOT_FOUND`, `MODEL_RELEASE_NOT_FOUND`, `ATTRIBUTE_NOT_FOUND` carry no `details`). `CONTRACT_VERSION_NOT_FOUND`'s `details.contractVersion` is different: it tells the caller something new, the version that is served. The SETTINGS plan's "error details" is corrected to "the route" |
+
+**Journey.** No journey changes behaviour. USER_JOURNEYS (J28, J29) and API_JOURNEYS (the four
+consumer route rows) change only the placeholder. `test_api_journeys` reduces every `{…}` to `{}`
+before it compares routes, so the inventory check is unaffected.
+
+**Test cases:** none new. A journey test asserts what a user sees, and what a user sees does not
+change, so no case can fail first. Existing cases show that the renamed path parameter still routes
+every request: J28 (get by ID, lists, J28.4's `CONSUMER_API_NOT_FOUND` and
+`CONTRACT_VERSION_NOT_FOUND`) and J29 (XREF, batch resolve, crosswalk) on generated A and B. J28.4's
+docstring says "an unknown consumer API name".
+
+**Checks:** J28 and J29 (`--journey`); the `contract` group's `test_api_journeys` and
+`test_boundaries`; `ruff check app/ tests/`. Not run: `volume` (no statement changes), `startup`
+(no migration), `queries`, the frontend (unchanged), the full suites (R). A final
+`grep -rn "apiKey\|api_key"` over `backend/app`, `backend/tests` and the living documents lists
+only history (delivery records, released CHANGELOG entries) and the U-D1 text that records the
+rename.
+
+**Docs at delivery:** listed under Design. SETTINGS_AND_UI_PLAN marks CN1 delivered and corrects
+"the route and error details". CONSUMER_API records C-D59. PROJECT_STATUS and TODO drop "CN1 comes
+before C6".
+
+**Composable domains (ADR-032):** a rename in documentation and internal names. The `match`
+declaration, identity, attribute storage, audit, the bulk APIs and mapping coverage are untouched.
+No door is affected.
+
+##### CN1 delivery record
+
+**Delivered 2026-10-05**, as designed, with C-D59 (no new field).
+
+- **Code:** the four consumer routes take `consumer_api` (`app/consumer/router.py`), as does
+  `consumer_definition` (`engine/reads/consumer_objects.py`); the docstrings in the router,
+  `models/schema.py`, `tests/journeys/scenario.py` and J28.4 say `{consumerApi}`. Error codes,
+  messages and `details` are unchanged.
+- **Docs:** API.md (route lines, the `CONSUMER_API_NOT_FOUND` row); CONSUMER_API (the Security note,
+  "The consumer API name (`consumerApi`)" with its anchor, the endpoint list, the API index,
+  subscriptions, both webhook bodies, the events route, C-D1, C-D18, and C-D59 recorded);
+  APPLICATION_MODEL, USER_JOURNEYS, API_JOURNEYS, PROJECT_STATUS, TODO, CHANGELOG (Changed); the
+  SETTINGS plan's "route and error details" corrected. Delivery records above and released CHANGELOG
+  entries keep `apiKey`, as planned.
+- **Differs from the plan:** none.
+
+**Checks:** no new case, as planned (no response changes). J28 and J29 on generated A and B
+(`--journey J28 --journey J29`): 52 passed in 50 s; `test_api_journeys` and `test_boundaries`: 8
+passed; `ruff check app/ tests/` clean. A grep for `apiKey`/`api_key` finds none in `backend/app`,
+`backend/tests` or `frontend/src`; in the documents only history (delivery records, released
+CHANGELOG entries) and the text recording the rename. Not run: `volume` (no statement changed),
+`startup` (no migration), `queries`, the frontend (unchanged), the full suites (R).
 
 ## Track V — API reference
 

@@ -169,6 +169,10 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
+- Base 0.9 CN1: the consumer API's name is written `consumerApi` in public contracts, not
+  `apiKey`, which reads as a credential: the route `/api/consumer/{consumerApi}/v{contractVersion}/…`
+  and the planned API index, subscriptions, webhook bodies and events (U-D1). No response changes:
+  none carried the name, and the not-found errors gain no field (C-D59). The model keeps `key`.
 - **Breaking — Base 0.9 C2: a consumer API's identity is the object ID.** The `id` role's source is
   `["id"]`; a `unique` attribute as its source, which C1 accepted, is refused at
   `/consumerApis/<key>/object/id/source`. Publish a former system's ID as an attribute field.

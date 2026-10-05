@@ -426,7 +426,7 @@ class World:
 def consumer_object(
     world: World, object_id: str, *, version: int = 1, api: str | None = None, **params: Any
 ) -> Response:
-    """``GET /api/consumer/{apiKey}/v{version}/objects/{id}`` of ``Capi`` (or ``api``)."""
+    """``GET /api/consumer/{consumerApi}/v{version}/objects/{id}`` of ``Capi`` (or ``api``)."""
     key = api if api is not None else world.key("Capi")
     return world.api.get(f"/api/consumer/{key}/v{version}/objects/{object_id}", **params)
 
@@ -434,7 +434,7 @@ def consumer_object(
 def consumer_list(
     world: World, list_key: str, *, version: int = 1, api: str | None = None, **params: Any
 ) -> Response:
-    """``GET /api/consumer/{apiKey}/v{version}/lists/{listKey}`` of ``Capi`` (or ``api``)."""
+    """``GET /api/consumer/{consumerApi}/v{version}/lists/{listKey}`` of ``Capi`` (or ``api``)."""
     key = api if api is not None else world.key("Capi")
     return world.api.get(f"/api/consumer/{key}/v{version}/lists/{list_key}", **params)
 
@@ -447,12 +447,12 @@ def consumer_list_typed(world: World, list_key: str, query: str, *, version: int
 
 
 def consumer_xref(world: World, *, version: int = 1, **params: Any) -> Response:
-    """``GET /api/consumer/{apiKey}/v{version}/xref`` of ``Capi``."""
+    """``GET /api/consumer/{consumerApi}/v{version}/xref`` of ``Capi``."""
     return world.api.get(f"/api/consumer/{world.key('Capi')}/v{version}/xref", **params)
 
 
 def consumer_resolve(world: World, body: Any, *, version: int = 1, **params: Any) -> Response:
-    """``POST /api/consumer/{apiKey}/v{version}/resolve`` of ``Capi`` with ``body``."""
+    """``POST /api/consumer/{consumerApi}/v{version}/resolve`` of ``Capi`` with ``body``."""
     return world.api.post(f"/api/consumer/{world.key('Capi')}/v{version}/resolve", body, **params)
 
 

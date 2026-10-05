@@ -541,7 +541,7 @@ An object type may declare one business validity period:
 A new optional top-level array of read-only consumer API definitions. Their shape, validation and
 contract rules are specified in [CONSUMER_API.md](CONSUMER_API.md#definition-shape); in summary:
 
-- Each definition has a `key` (the `apiKey`), a `name` and its own `contractVersion`, and declares the
+- Each definition has a `key` (`consumerApi` in routes and contracts), a `name` and its own `contractVersion`, and declares the
   exposed object types, output fields, projections, lists, XREF parameters and scoring, and events.
 - A `projection` parameter may declare `"targetable": true`, which enables crosswalk reads
   (`to.{parameter}`). Only a `projection` parameter can be targetable. It is part of the contract:

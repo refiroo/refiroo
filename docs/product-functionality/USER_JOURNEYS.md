@@ -856,8 +856,8 @@ background job across a restart, its publish and its cancellation, 0.9 T1).
 rest follows in C5–C16 ([CONSUMER_API.md](../CONSUMER_API.md)).
 
 1. Read one business object by its object ID from a consumer API's contract version:
-   `GET /api/consumer/{apiKey}/v{contractVersion}/objects/{id}`; or read a declared list of them,
-   page by page: `GET /api/consumer/{apiKey}/v{contractVersion}/lists/{listKey}`.
+   `GET /api/consumer/{consumerApi}/v{contractVersion}/objects/{id}`; or read a declared list of them,
+   page by page: `GET /api/consumer/{consumerApi}/v{contractVersion}/lists/{listKey}`.
 2. Receive the definition's shared object: exactly the declared fields, values in their declared
    types, `parent` (or `null`), `path` and `hierarchy` from the ancestors, and each projection as an
    object or `null`, or as an array, by the relationship's cardinality. A list item is the same object.
@@ -906,7 +906,7 @@ rest follows in C5–C16 ([CONSUMER_API.md](../CONSUMER_API.md)).
 crosswalk in C15 ([CONSUMER_API.md](../CONSUMER_API.md)).
 
 1. Look up business objects by what the system knows, a code, an ID, a name or a related record's
-   value: `GET /api/consumer/{apiKey}/v{contractVersion}/xref?query=…`.
+   value: `GET /api/consumer/{consumerApi}/v{contractVersion}/xref?query=…`.
 2. Receive the matching objects of the definition's exposed types, best first, each as the shared
    object with its `matchScore`: the definition's `match` weights its own fields (exact matches add
    up; contains counts only without an exact match) and passes a related record's first matching

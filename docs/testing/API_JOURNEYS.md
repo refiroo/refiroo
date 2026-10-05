@@ -87,10 +87,10 @@ Every response names the workspace it read in the `RDM-Workspace` header.
 
 | Operation | Journeys |
 | --- | --- |
-| `GET /{apiKey}/v{contractVersion}/objects/{id}` (`workspace`, the definition's parameters, `to.{parameter}`) | J28, J28.1–J28.5, J28.9, J29.12, J29.14 |
-| `GET /{apiKey}/v{contractVersion}/lists/{listKey}` (`workspace`, the list's parent parameter, the definition's parameters, `to.{parameter}`, `pageSize`, `cursor`, `position`, `from`, `seek`, `includeTotal`) | J28.6–J28.10, J29.12, J29.14 |
-| `GET /{apiKey}/v{contractVersion}/xref` (`query`, `expect`, `workspace`, the definition's parameters, `to.{parameter}`, `pageSize`, `cursor`, `position`, `from`) | J29, J29.1–J29.7, J29.11, J29.12, J29.14 |
-| `POST /{apiKey}/v{contractVersion}/resolve` (`workspace`; the body's `defaults` and `items`, each with `ref`, `query` or `id`, the definition's parameters and `to.{parameter}`) | J29.8–J29.10, J29.13, J29.14 |
+| `GET /{consumerApi}/v{contractVersion}/objects/{id}` (`workspace`, the definition's parameters, `to.{parameter}`) | J28, J28.1–J28.5, J28.9, J29.12, J29.14 |
+| `GET /{consumerApi}/v{contractVersion}/lists/{listKey}` (`workspace`, the list's parent parameter, the definition's parameters, `to.{parameter}`, `pageSize`, `cursor`, `position`, `from`, `seek`, `includeTotal`) | J28.6–J28.10, J29.12, J29.14 |
+| `GET /{consumerApi}/v{contractVersion}/xref` (`query`, `expect`, `workspace`, the definition's parameters, `to.{parameter}`, `pageSize`, `cursor`, `position`, `from`) | J29, J29.1–J29.7, J29.11, J29.12, J29.14 |
+| `POST /{consumerApi}/v{contractVersion}/resolve` (`workspace`; the body's `defaults` and `items`, each with `ref`, `query` or `id`, the definition's parameters and `to.{parameter}`) | J29.8–J29.10, J29.13, J29.14 |
 
 ## Error codes
 

@@ -164,7 +164,7 @@ ancestor filter with its total (101 ms) remain at the budget line (D46–D48,
 consumer API parameters list several values as OpenAPI 3 serialises a list in a query, repeated or
 comma-separated with `%2C` for a comma inside a value; C3's `\,` escape, which the user had not
 approved, is withdrawn ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#c3b-delivery-record)). **C4 is
-delivered (2026-10-05):** XREF lookup (`GET /api/consumer/{apiKey}/v{n}/xref`): the definition's
+delivered (2026-10-05):** XREF lookup (`GET /api/consumer/{consumerApi}/v{n}/xref`): the definition's
 `match` scores live records at read time, own and promoted weights, several terms, deterministic
 order, paging with a total, `expect=one` with `404 NO_MATCH` and `409 AMBIGUOUS_MATCH`; contains from
 3 characters, `400 QUERY_TOO_BROAD` past 10,000 matches. Exact matches read new `lower(…)` indexes
@@ -174,7 +174,7 @@ delivered (2026-10-05):** the definition's parameters narrow XREF, acting on the
 `projection` parameter with `scoresFrom` limits which related records pass scores; `scoresFrom` is
 validated and part of the contract (C-D42–C-D46,
 [record](BASE_0_9_IMPLEMENTATION_PLAN.md#c5-delivery-record)). **C14 is delivered (2026-10-05):** batch
-resolve (`POST /api/consumer/{apiKey}/v{n}/resolve`), up to 1,000 lookups or IDs, each outcome the
+resolve (`POST /api/consumer/{consumerApi}/v{n}/resolve`), up to 1,000 lookups or IDs, each outcome the
 single read's answer; XREF became a batch of one, seeking a single best match with exact rules first;
 a trigram index on names with workspace and type (`btree_gin`, migration `20261005_02`); 1,000
 lookups in 816 ms at full volume (C-D47–C-D53,
@@ -183,7 +183,9 @@ lookups resolved once, the ancestor walk read by ID and contains selects built w
 1,000-lookup batch now takes 236 ms. **C15 is delivered (2026-10-05):** crosswalk, `to.{parameter}`
 on get by ID, lists, XREF and batch resolve with `target`, `TARGET_NOT_FOUND`, `AMBIGUOUS_TARGET` and
 `MULTIPLE_TARGETS`; `targetable` is part of the contract (C-D54–C-D58,
-[record](BASE_0_9_IMPLEMENTATION_PLAN.md#c15-delivery-record)). Next: CN1, in the order of the
+[record](BASE_0_9_IMPLEMENTATION_PLAN.md#c15-delivery-record)). **CN1 is delivered (2026-10-05):** the
+consumer API's name is `consumerApi` in routes and planned contracts, not `apiKey`; no response
+changes (U-D1, C-D59, [record](BASE_0_9_IMPLEMENTATION_PLAN.md#cn1-delivery-record)). Next: C6, in the order of the
 [delivery queue](BASE_0_9_IMPLEMENTATION_PLAN.md#delivery-queue).
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).

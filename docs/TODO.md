@@ -34,7 +34,8 @@ several values the OpenAPI way, `%2C` for a comma in a value (C-D32 amended). **
 (2026-10-05)**: XREF lookup and scoring (C-D34–C-D41). **C5 is delivered (2026-10-05)**: the
 definition's parameters on XREF, `scoresFrom` (C-D42–C-D46). **C14 is delivered (2026-10-05)**: batch
 resolve, one scoring path with XREF, exact rules first (C-D47–C-D53). **C15 is delivered
-(2026-10-05)**: crosswalk, `to.{parameter}` on every consumer read (C-D54–C-D58). Next: CN1, in the
+(2026-10-05)**: crosswalk, `to.{parameter}` on every consumer read (C-D54–C-D58). **CN1 is delivered (2026-10-05)**:
+the consumer API's name is `consumerApi` in public contracts (U-D1, C-D59). Next: C6, in the
 order of the delivery queue. See
 [Next — 0.9](#next--09).
 
@@ -67,7 +68,7 @@ No 0.8 decision is open ([0.8 decisions](BASE_0_8_IMPLEMENTATION_PLAN.md#decisio
 
 - **Settings, integration administration and UI foundation (approved 2026-10-05).** U-D1–U-D6 taken
   in [SETTINGS_AND_UI_PLAN.md](SETTINGS_AND_UI_PLAN.md#decisions); U1 delivered, Direction B "Open"
-  chosen (ADR-039). CN1 (renaming `apiKey`) comes before C6.
+  chosen (ADR-039). CN1 delivered (2026-10-05).
 
 See `ROADMAP.md` for the delivery scope, exit gates and full milestone sequence.
 

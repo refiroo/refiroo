@@ -1,6 +1,6 @@
 """The consumer API's routes (Base 0.9 C2 onward).
 
-Each route resolves the definition from the active release (``{apiKey}`` and ``v{contractVersion}``),
+Each route resolves the definition from the active release (``{consumerApi}`` and ``v{contractVersion}``),
 checks the request's parameters against the names it serves, resolves the workspace and reads live
 data through ``engine/reads/consumer_objects``, ``consumer_lists``, ``consumer_xref`` and
 ``consumer_resolve``. Every response names the workspace it read in the ``RDM-Workspace`` header
@@ -73,15 +73,15 @@ def reads_own_parameters[F](endpoint: F) -> F:
     return endpoint
 
 
-@router.get("/{api_key}/v{contract_version}/objects/{object_id}")
+@router.get("/{consumer_api}/v{contract_version}/objects/{object_id}")
 @reads_own_parameters
 def get_object(
-    api_key: str, contract_version: str, object_id: str, request: Request, response: Response, session: DbSession
+    consumer_api: str, contract_version: str, object_id: str, request: Request, response: Response, session: DbSession
 ) -> dict[str, Any]:
     """Get by ID: the definition's shared object for the record with this object ID, narrowed by the
     definition's parameters (C-D31)."""
     model = resolve_model_snapshot(session).model
-    definition = consumer_definition(model, api_key, contract_version)
+    definition = consumer_definition(model, consumer_api, contract_version)
     parameters = _Parameters.check(request, definition, serves=_OBJECT)
     workspace = _workspace(session, parameters.single("workspace"))
     return _answer(
@@ -98,15 +98,15 @@ def get_object(
     )
 
 
-@router.get("/{api_key}/v{contract_version}/lists/{list_key}")
+@router.get("/{consumer_api}/v{contract_version}/lists/{list_key}")
 @reads_own_parameters
 def get_list(
-    api_key: str, contract_version: str, list_key: str, request: Request, response: Response, session: DbSession
+    consumer_api: str, contract_version: str, list_key: str, request: Request, response: Response, session: DbSession
 ) -> dict[str, Any]:
     """A page of the definition's list ``list_key``: the records of its type, below the parent
     values when given, narrowed by the definition's parameters (C-D27–C-D31)."""
     model = resolve_model_snapshot(session).model
-    definition = consumer_definition(model, api_key, contract_version)
+    definition = consumer_definition(model, consumer_api, contract_version)
     declared = consumer_list(definition, list_key)
     parent = declared.parentParameter.name if declared.parentParameter else None
     parameters = _Parameters.check(request, definition, serves=_LIST, parent=parent)
@@ -130,15 +130,15 @@ def get_list(
     )
 
 
-@router.get("/{api_key}/v{contract_version}/xref")
+@router.get("/{consumer_api}/v{contract_version}/xref")
 @reads_own_parameters
 def get_xref(
-    api_key: str, contract_version: str, request: Request, response: Response, session: DbSession
+    consumer_api: str, contract_version: str, request: Request, response: Response, session: DbSession
 ) -> dict[str, Any]:
     """XREF: the exposed objects the query's terms match, scored by the definition's ``match`` and
     narrowed by its parameters, a page of them or with ``expect=one`` the single best (C-D34–C-D43)."""
     model = resolve_model_snapshot(session).model
-    definition = consumer_definition(model, api_key, contract_version)
+    definition = consumer_definition(model, consumer_api, contract_version)
     expect = request.query_params.getlist("expect")
     expect_one = _expect_one(expect[-1] if expect else None)
     parameters = _Parameters.check(request, definition, serves=_XREF_ONE if expect_one else _XREF)
@@ -163,16 +163,16 @@ def get_xref(
     )
 
 
-@router.post("/{api_key}/v{contract_version}/resolve")
+@router.post("/{consumer_api}/v{contract_version}/resolve")
 @reads_own_parameters
 def post_resolve(
-    api_key: str, contract_version: str, request: Request, response: Response, session: DbSession, body: Body
+    consumer_api: str, contract_version: str, request: Request, response: Response, session: DbSession, body: Body
 ) -> dict[str, Any]:
     """Batch resolve: each item as ``xref?expect=one`` (by ``query``) or get by ID (by ``id``), with
     the definition's parameters from ``defaults`` and the item, its outcome the single read's answer
     (C-D47–C-D50). A read: the body only carries the items."""
     model = resolve_model_snapshot(session).model
-    definition = consumer_definition(model, api_key, contract_version)
+    definition = consumer_definition(model, consumer_api, contract_version)
     parameters = _Parameters.check(request, definition, serves=_OBJECT, applies_definition=False)
     workspace = _workspace(session, parameters.single("workspace"))
     return _answer(
