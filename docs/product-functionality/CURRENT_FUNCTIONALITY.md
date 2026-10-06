@@ -317,7 +317,7 @@ keys. Every list is paged with signed cursors bound to the query, or by position
 request. Errors are structured and distinguish not found, invalid input, conflict, retired scope and
 unavailable service. Integration-scale functions are F20–F23 and F25; the reference page is F24.
 
-Limits: no webhooks, file import or export yet (0.9); every API is unauthenticated until 0.12.
+Limits: no file import or export yet (0.9); every API is unauthenticated until 0.12.
 
 Evidence: [API contracts](../API.md),
 [ADR-018](../DECISIONS.md#adr-018--bind-opaque-cursors-to-query-semantics).
@@ -452,9 +452,18 @@ identity. Only addresses on hosts the deployment allows are accepted, over HTTPS
 the key that will sign every delivery and shows it once. The operator can read, list, edit, pause,
 resume and delete subscriptions. A new model release that no longer offers what a subscription asks
 for, or that changes its contract version, pauses it with the reason, as does retiring its
-workspace; resuming checks it again, and after events it missed have expired the operator must
-accept the loss and is told which publication to read again. The webhooks themselves are not sent
-yet.
+workspace; resuming checks it again, and after events it missed have expired the operator is told
+which publication to read again and can resume from now on instead.
+
+The engine sends each subscription's changes to its address as they happen, in order, signed with
+its key so the receiver can tell the request is genuine: up to 100 changes (and at most 1 MiB) per
+request, or, for a summarised subscription, one short notice once the changes pause. A receiver
+that does not answer is tried again, with growing waits, for up to a day, and nothing later is sent
+past the change it missed; the subscription shows the attempts, the last error and when the next try
+is. After a day it is paused with the reason, and resuming sends everything from the first change
+the receiver did not take. A subscription is also paused, with the reason, when its address's host
+is no longer allowed, when a record its filter names no longer exists, or when changes expired
+before they could be sent; the operator can then resume from now on and re-read the data.
 
 A consuming system reads one business object through a declared API by its record ID, at the
 API's contract version: exactly the fields the definition declares, values in their declared types,
@@ -560,8 +569,7 @@ re-read: it reads that publication, then follows the feed from the publication's
 nothing. Entries after the workspace's current publication never expire, and a workspace with no
 current publication keeps every entry, so there is always a way back.
 
-Limits: re-synchronising from an export instead of a publication follows with export jobs, and
-webhooks with the consumer API.
+Limits: re-synchronising from an export instead of a publication follows with export jobs.
 
 Evidence: [feed contract](../API.md#change-feed-base-09-f1-f2),
 [positions](../../backend/app/engine/records/feed.py), [read](../../backend/app/engine/reads/feed.py).

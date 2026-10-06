@@ -10,8 +10,10 @@ is active. A subscription records the contract version it was accepted under (C-
 A new subscription starts after the workspace's feed head, or after an earlier position still kept
 (C-D97). Its signing key is 32 random bytes, answered once and stored sealed with the deployment key
 (C-D96, C-D12). A subscription is ``active`` or ``suspended`` with a reason (C-D98); a resume checks
-again and, after events it had not acknowledged expired, needs the loss acknowledged (C-D93). Every
-change claims the version read. Nothing here delivers: the dispatcher (C12) does.
+again and, after events it had not acknowledged expired, is refused unless it resets to the feed's
+head (C-D93 revised, C-D110). Every change claims the version read. The dispatcher (C12) delivers;
+an edit drops the batch it is retrying and a resume clears its failures, so the next attempt is at
+once, from the first unacknowledged event (C-D108, C-D111).
 """
 
 import base64
@@ -19,6 +21,7 @@ import secrets
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import delete, select
@@ -34,7 +37,7 @@ from ...models.commands import (
 from ...models.database import ConsumerSubscription, Workspace
 from ...models.schema import EngineModel
 from ..model.registry import resolve_model_snapshot
-from ..reads.consumer_events import AFTER_POSITION, check_after, event_window
+from ..reads.consumer_events import AFTER_POSITION, EventWindow, check_after, event_window
 from ..reads.consumer_parameters import unmatched_values
 from ..reads.consumer_source import ConsumerSource
 from ..workspaces.catalogue import load_workspace_runtime_state
@@ -112,9 +115,26 @@ def _findings(
     return findings, workspace
 
 
+def secret_text(key: bytes) -> str:
+    """The signing key as ``signingSecret`` shows it, and as a receiver uses it to verify."""
+    return SECRET_PREFIX + base64.urlsafe_b64encode(key).decode().rstrip("=")
+
+
 def _secret() -> tuple[str, bytes]:
     key = secrets.token_bytes(32)
-    return SECRET_PREFIX + base64.urlsafe_b64encode(key).decode().rstrip("="), key
+    return secret_text(key), key
+
+
+def clear_delivery(subscription: ConsumerSubscription) -> None:
+    """Forget the batch being retried and its failures: the next attempt is at once, and builds a
+    new batch, with a new delivery ID, after the acknowledged position."""
+    subscription.pending_delivery_id = None
+    subscription.pending_position = None
+    subscription.pending_ordinal = None
+    subscription.attempts = 0
+    subscription.failing_since = None
+    subscription.next_attempt_at = None
+    subscription.last_error = None
 
 
 def create_subscription(
@@ -237,6 +257,7 @@ def update_subscription(
             subscription.debounce_seconds = None
         if payload.payload is not None:
             subscription.payload = payload.payload
+        clear_delivery(subscription)
         _touch(subscription)
         return subscription
 
@@ -268,12 +289,14 @@ def resume_subscription(
     session: Session,
     public_id: str,
     expected_version: int,
-    acknowledge_loss: bool,
+    reset: bool,
     settings: SubscriptionSettings,
 ) -> ConsumerSubscription:
     """Resume after any reason: the subscription is checked as a create (``409
-    SUBSCRIPTION_NEEDS_EDIT`` listing what to fix), then for events that expired since it was last
-    acknowledged (C-D93). The contract version served becomes the one accepted."""
+    SUBSCRIPTION_NEEDS_EDIT`` listing what to fix). It continues from the first unacknowledged event,
+    refused when events since then expired (C-D93); with ``reset`` it starts after the workspace's
+    feed head instead, as a new subscription does (C-D110). The contract version served becomes the
+    one accepted."""
 
     def change() -> ConsumerSubscription:
         subscription = _claimed(session, public_id, expected_version)
@@ -294,22 +317,18 @@ def resume_subscription(
                 {"errors": [finding_body(error) for error in findings]},
             )
         window = event_window(session, subscription.workspace_key, settings.retention_days)
-        if subscription.acknowledged_position < window.earliest - 1:
-            if not acknowledge_loss:
-                raise api_error(
-                    409,
-                    "EVENTS_EXPIRED",
-                    f"Events from position {subscription.acknowledged_position + 1} to "
-                    f"{window.earliest - 1} expired while the subscription was suspended. Re-sync "
-                    "from the publication named in the details, or resume with acknowledgeLoss",
-                    {
-                        "fromPosition": subscription.acknowledged_position + 1,
-                        "toPosition": window.earliest - 1,
-                        "publication": window.publication,
-                    },
-                )
-            subscription.acknowledged_position = window.earliest - 1
+        if reset:
+            subscription.acknowledged_position = window.feed_head
             subscription.acknowledged_ordinal = AFTER_POSITION
+        elif subscription.acknowledged_position < window.earliest - 1:
+            raise api_error(
+                409,
+                "EVENTS_EXPIRED",
+                f"Events from position {subscription.acknowledged_position + 1} to "
+                f"{window.earliest - 1} expired before they were delivered. Resume with reset to "
+                "start after the feed's head, and re-sync from the publication named in the details",
+                expired_details(subscription.acknowledged_position, window),
+            )
         definition = definition_of(model, subscription.consumer_api)
         assert definition is not None
         subscription.contract_version = definition.contractVersion
@@ -318,10 +337,20 @@ def resume_subscription(
         subscription.suspension_message = None
         subscription.suspension_details = None
         subscription.suspended_at = None
+        clear_delivery(subscription)
         _touch(subscription)
         return subscription
 
     return _changing(session, change)
+
+
+def expired_details(acknowledged: int, window: EventWindow) -> dict[str, Any]:
+    """The events a subscription lost, and the publication its receiver re-syncs from (C-D93)."""
+    return {
+        "fromPosition": acknowledged + 1,
+        "toPosition": window.earliest - 1,
+        "publication": window.publication,
+    }
 
 
 def delete_subscription(session: Session, public_id: str, expected_version: int) -> None:

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Query, Request, Response
 from ...common.cursors import METADATA_CURSOR_MESSAGE
 from ...common.pagination import paginate_sequence
 from ...common.time import as_utc
+from ...engine.events import delivery
 from ...engine.model.compiler import compile_model
 from ...engine.model.placements import model_placements
 from ...engine.model.runtime import load_runtime_state
@@ -38,6 +39,7 @@ from ..schemas.model import (
     ObjectTypeRelationResponse,
     ObjectTypeResponse,
     RelationTypeResponse,
+    WebhookDeliveryLimits,
     WorkspaceAdminCapabilities,
 )
 
@@ -83,6 +85,14 @@ def get_capabilities(request: Request) -> CapabilitiesResponse:
         consumerSubscriptions=ConsumerSubscriptionCapabilities(
             manageSubscriptions=bool(request.app.state.consumer_subscriptions_enabled),
             allowedHosts=list(request.app.state.webhook_allowed_hosts),
+            delivery=WebhookDeliveryLimits(
+                maxEvents=delivery.MAX_EVENTS,
+                maxBytes=delivery.MAX_BYTES,
+                timeoutSeconds=delivery.TIMEOUT_SECONDS,
+                retryWaitsSeconds=list(delivery.RETRY_WAITS),
+                laterWaitSeconds=delivery.LATER_WAIT,
+                retryHours=delivery.RETRY_HOURS,
+            ),
             setting="CONSUMER_SUBSCRIPTIONS_ENABLED",
         ),
     )

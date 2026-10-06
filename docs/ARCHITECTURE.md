@@ -388,7 +388,8 @@ its parameters, state, progress and one outcome per item, kept for a retention p
   (each item on its own, in order, seeing the items before it).
 - **Inline or background**, chosen by the caller, never by size. An inline job runs in the request. A
   background job is stored and run by a worker thread in the API process (`engine/jobs/worker.py`;
-  the consumer event deriver is its sibling, `engine/events/worker.py`) in
+  the consumer event deriver and the webhook dispatcher are its siblings, `engine/events/worker.py`
+  and `engine/events/dispatcher.py`) in
   chunks: a chunk's writes, outcomes and the job's checkpoint commit in one transaction, so a resumed
   job starts at its first item without an outcome and never repeats or skips one.
 - **Lease.** A worker claims a job with `leaseOwner` and `leaseExpiresAt` in a short transaction and
@@ -602,6 +603,33 @@ The audit log is the ordered source of the change feed and of consumer events (A
   the subscription's ID as associated data) under `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`, which the
   database never holds. Subscription changes write no audit entry: the audit log is the outbox of
   data changes.
+- **Webhook dispatcher** (`engine/events/dispatcher.py`, `delivery.py`, `webhook_client.py`, 0.9
+  C12). A third thread in the API process, built only with `CONSUMER_SUBSCRIPTIONS_ENABLED` and
+  started where the model is served. Once a second it claims up to four active subscriptions that
+  are due and have a pending batch or derived events after their acknowledged position: one
+  `UPDATE … WHERE sequence_id IN (SELECT … FOR UPDATE SKIP LOCKED)` sets `lease_owner` and a 60 s
+  `lease_expires_at`, least recently handled first, so several processes share the work and each
+  subscription is handled by one at a time; four sender threads send them, so a slow receiver
+  delays only its own subscription. One step per subscription checks, before sending, that its host
+  is still allowed, its next events have not expired and its filter values still match a record,
+  suspending it otherwise. It then reads the next events through the pull feed's read
+  (`reads/consumer_events.event_page`, which also bounds a read by an end key), cuts the batch at
+  100 events and 1 MiB, and commits it as pending (`pending_delivery_id`, `pending_position`,
+  `pending_ordinal`) before sending, so a crash retries the same batch under the same ID; a retry
+  reads the range again and composes its objects anew. A coalesced subscription is decided from
+  the event store at each look (counts and times per event key), with no timer. No transaction is
+  open during a request, and no row lock: the row is locked only to record the outcome, under the
+  lease. A `2xx` moves the acknowledged key; a failure records `attempts`, `failing_since`,
+  `last_error` and `next_attempt_at` (`delivery.retry_wait`), and suspends after 24 hours. Delivery
+  state never changes `version`. The client (`webhook_client.post`, standard library) resolves the
+  host once, refuses link-local and unexpected loopback addresses, connects to the checked address
+  with the host name for TLS, follows no redirect and reads at most 4 KiB of the answer. The
+  signing key is unsealed for each send and not kept.
+- **Outages in the background threads** (`common/outage.OutageLog`, 0.9 C12). The job worker, the
+  deriver and the dispatcher retry a failed round every 2 s. A database that cannot be reached
+  (`database_unreachable`: a lost or refused connection, SQLSTATE class 08 or 57P01–57P03) is one
+  plain ERROR line with the traceback at DEBUG, then a WARNING a minute, then an INFO line when it
+  answers again; any other exception keeps its traceback at ERROR.
 
 ### Domain extension
 

@@ -20,6 +20,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
+from ...common.outage import OutageLog
 from ...models.database import ConsumerEvent, ConsumerEventCheckpoint, Workspace
 from ..model.registry import model_registry
 from ..reads.feed import retention_floor
@@ -30,7 +31,6 @@ logger = logging.getLogger(__name__)
 
 POLL_SECONDS = 1.0
 RETRY_SECONDS = 2.0
-REMINDER_SECONDS = 60.0
 SWEEP_SECONDS = 3600.0
 # The thread's name, which a measurement of one request's statements leaves out.
 THREAD_NAME = "rdm-event-deriver"
@@ -152,7 +152,7 @@ class EventDeriver:
 
     def _loop(self) -> None:
         next_sweep = 0.0
-        failing, next_reminder = False, 0.0
+        outage = OutageLog(logger, "The event deriver", RETRY_SECONDS)
         while not self._stopping.is_set():
             wait = POLL_SECONDS
             try:
@@ -161,23 +161,8 @@ class EventDeriver:
                     next_sweep = time.monotonic() + SWEEP_SECONDS
                 while self.run_once() and not self._stopping.is_set():
                     pass
-                if failing:
-                    logger.info("The event deriver reaches the database again")
-                    failing = False
-            except Exception as exc:
-                # The traceback once per outage, then one line a minute.
-                if not failing:
-                    logger.exception(
-                        "The event deriver could not derive consumer events; it retries every %s s",
-                        RETRY_SECONDS,
-                    )
-                    failing, next_reminder = True, time.monotonic() + REMINDER_SECONDS
-                elif time.monotonic() >= next_reminder:
-                    next_reminder = time.monotonic() + REMINDER_SECONDS
-                    logger.warning(
-                        "The event deriver still cannot derive consumer events (%s); it retries in %s s",
-                        " ".join(str(exc).split())[:200] or type(exc).__name__,
-                        RETRY_SECONDS,
-                    )
+                outage.succeeded()
+            except Exception as exc:  # noqa: BLE001 - every failure is logged by OutageLog
+                outage.failed(exc)
                 wait = RETRY_SECONDS
             self._stopping.wait(wait)

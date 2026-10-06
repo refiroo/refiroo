@@ -21,7 +21,7 @@ from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -472,6 +472,13 @@ def derive_events(world: World) -> int:
     return world.api.client.app.state.event_deriver.run_until_idle()
 
 
+def dispatch(world: World, now: datetime | None = None) -> int:
+    """Run the application's webhook dispatcher until nothing more is due at ``now`` (C12); the
+    journey application does not start its thread. ``now`` is the dispatcher's clock: a test moves
+    it forward instead of waiting."""
+    return world.api.client.app.state.consumer_dispatcher.run_until_idle(now)
+
+
 def consumer_xref_typed(world: World, query: str, *, version: int = 1) -> Response:
     """XREF with ``query`` exactly as a client types it into the URL (C3b)."""
     return world.api.client.get(f"/api/consumer/{world.key('Capi')}/v{version}/xref?{query}")
@@ -693,6 +700,7 @@ def application(
             app = create_app()
             app.state.run_job_worker = False
             app.state.run_event_deriver = False
+            app.state.run_consumer_dispatcher = False
             with TestClient(app) as client:
                 yield World(configuration, Api(client), database)
     finally:

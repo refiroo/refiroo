@@ -139,7 +139,55 @@ def check_after(window: EventWindow, position: int, pointer: str | None = None) 
         )
 
 
-def read_consumer_events(
+def event_filters(
+    session: Session,
+    model: EngineModel,
+    definition: ConsumerApiDefinition,
+    workspace_key: str,
+    event_keys: Sequence[str],
+    parameters: Mapping[str, Sequence[str]],
+) -> tuple[list[Any], Any]:
+    """The conditions on ``ConsumerEvent`` that narrow a read to ``event_keys`` and the definition's
+    ``parameters`` (C-D90), and the filter that narrows each composed object's projections."""
+    event = ConsumerEvent
+    source = ConsumerSource(workspace_key)
+    narrowed = consumer_filter(session, model, definition, source, parameters)
+    typed = {
+        name: values
+        for name, values in parameters.items()
+        if isinstance(definition.parameters[name], ObjectTypeParameter)
+    }
+    others = {name: values for name, values in parameters.items() if name not in typed}
+    filters = []
+    if event_keys:
+        filters.append(event.event_key.in_(event_keys))
+    if typed:
+        filters += consumer_filter(session, model, definition, source, typed).on(event)
+    rest = consumer_filter(session, model, definition, source, others).on if others else None
+    if rest is not None:
+        live, matching = aliased(RdmObject), aliased(RdmObject)
+        exists_live = exists().where(live.id == event.object_id, live.workspace_key == workspace_key)
+        exists_matching = exists().where(
+            matching.id == event.object_id, matching.workspace_key == workspace_key, *rest(matching)
+        )
+        filters.append(or_(~exists_live, exists_matching))
+    return filters, narrowed
+
+
+@dataclass(frozen=True)
+class EventPage:
+    """A page of events: its items as the pull feed answers them, the key it read through (the last
+    item's, or further when a narrowed read scanned past events it left out), and whether every
+    event derived so far is read."""
+
+    items: list[dict[str, Any]]
+    keys: list[tuple[int, int]]
+    last: tuple[int, int]
+    caught_up: bool
+    window: EventWindow
+
+
+def event_page(
     session: Session,
     model: EngineModel,
     definition: ConsumerApiDefinition,
@@ -147,37 +195,25 @@ def read_consumer_events(
     request: EventsRequest,
     *,
     retention_days: int,
-) -> dict[str, Any]:
-    """One page of the consumer API's events in the workspace."""
+    through: tuple[int, int] | None = None,
+) -> EventPage:
+    """One page of the consumer API's events in the workspace after ``request.start``, and no further
+    than ``through`` when given (a webhook batch read again, C12)."""
     window = event_window(session, workspace.key, retention_days)
-    head, earliest = window.head, window.earliest
+    head = window.head
     position, ordinal = request.start
     check_after(window, position)
 
     event = ConsumerEvent
     after = tuple_(event.position, event.ordinal) > tuple_(position, ordinal)
-    scope = (event.workspace_key == workspace.key, event.consumer_api == definition.key, event.position <= head)
-    source = ConsumerSource(workspace.key)
-    narrowed = consumer_filter(session, model, definition, source, request.parameters)
-    typed = {
-        name: values
-        for name, values in request.parameters.items()
-        if isinstance(definition.parameters[name], ObjectTypeParameter)
-    }
-    others = {name: values for name, values in request.parameters.items() if name not in typed}
-    filters = []
-    if request.event_keys:
-        filters.append(event.event_key.in_(request.event_keys))
-    if typed:
-        filters += consumer_filter(session, model, definition, source, typed).on(event)
-    rest = consumer_filter(session, model, definition, source, others).on if others else None
-    if rest is not None:
-        live, matching = aliased(RdmObject), aliased(RdmObject)
-        exists_live = exists().where(live.id == event.object_id, live.workspace_key == workspace.key)
-        exists_matching = exists().where(
-            matching.id == event.object_id, matching.workspace_key == workspace.key, *rest(matching)
-        )
-        filters.append(or_(~exists_live, exists_matching))
+    scope = [event.workspace_key == workspace.key, event.consumer_api == definition.key, event.position <= head]
+    ceiling = (head, AFTER_POSITION)
+    if through is not None:
+        scope.append(tuple_(event.position, event.ordinal) <= tuple_(*through))
+        ceiling = min(ceiling, through)
+    filters, narrowed = event_filters(
+        session, model, definition, workspace.key, request.event_keys, request.parameters
+    )
 
     bound = []
     end: tuple[int, int] | None = None
@@ -200,23 +236,44 @@ def read_consumer_events(
     elif end is not None:
         last = end
     else:
-        last = max((position, ordinal), (head, AFTER_POSITION))
+        last = max((position, ordinal), ceiling)
     caught_up = not session.scalar(
         select(exists().where(*scope, tuple_(event.position, event.ordinal) > tuple_(*last)))
     )
+    source = ConsumerSource(workspace.key)
+    return EventPage(
+        items=_items(session, model, definition, source, rows, request, narrowed, workspace.feed_position),
+        keys=[(row.position, row.ordinal) for row in rows],
+        last=last,
+        caught_up=caught_up,
+        window=window,
+    )
+
+
+def read_consumer_events(
+    session: Session,
+    model: EngineModel,
+    definition: ConsumerApiDefinition,
+    workspace: Workspace,
+    request: EventsRequest,
+    *,
+    retention_days: int,
+) -> dict[str, Any]:
+    """One page of the consumer API's events in the workspace."""
+    page = event_page(session, model, definition, workspace, request, retention_days=retention_days)
     return {
-        "items": _items(session, model, definition, source, rows, request, narrowed, workspace.feed_position),
+        "items": page.items,
         "workspace": workspace.key,
         "pageSize": request.page_size,
         "cursor": encode_cursor(
-            (str(last[0]), str(last[1])),
+            (str(page.last[0]), str(page.last[1])),
             scope=cursor_scope(definition, workspace.key),
             sort=SORT,
             filters=cursor_filters(request.event_keys, request.parameters),
         ),
-        "caughtUp": caught_up,
-        "headPosition": head,
-        "earliestPosition": earliest,
+        "caughtUp": page.caught_up,
+        "headPosition": page.window.head,
+        "earliestPosition": page.window.earliest,
     }
 
 

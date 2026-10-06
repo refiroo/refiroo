@@ -8,6 +8,32 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 C12: webhook delivery. While `CONSUMER_SUBSCRIPTIONS_ENABLED` is on, a dispatcher thread
+  in the API process sends each active subscription's events to its URL, in position order, one
+  request at a time per subscription.
+  - Per change: up to 100 events and at most 1 MiB of body per request, an event alone over 1 MiB
+    sent alone (C-D104); each event as the pull feed has it, with the object as get by ID answers
+    it (`full`) or without it (`identity`). Coalesced: one notice per event once the newest
+    matching event is `debounceSeconds` old, or the oldest 10 minutes old (C-D105).
+  - Every request is signed: `RDM-Signature: sha256=<hex>`, the HMAC-SHA256 of
+    `"{RDM-Timestamp}.{body}"` keyed with the subscription's `signingSecret`; `RDM-Delivery-Id`
+    stays the same on every retry of a batch (C-D12).
+  - Any `2xx` acknowledges. A failed batch (another status, a redirect, which is never followed, no
+    answer in 10 s, a connection or TLS failure, a refused address) is retried with the same events
+    after 10 s, 30 s, 1, 2, 5, 10 and 30 min, then hourly, each ±20 %, for 24 hours from its first
+    failure; then the subscription is suspended `DELIVERY_FAILED` (C-D103). Nothing later is sent
+    past a failing batch.
+  - The host is resolved at each attempt and the request goes to the address checked: link-local
+    addresses are always refused, loopback ones unless the URL names a loopback host (C-D107).
+  - A subscription answers `delivery`: `lastDeliveredAt`, and `pending` while a batch fails, with
+    its attempts, first failure, last error and next attempt; delivery never changes `version`
+    (C-D108). `GET /capabilities` reports the limits in `consumerSubscriptions.delivery`.
+  - The dispatcher also suspends a subscription whose host left the allowlist (`HOST_NOT_ALLOWED`),
+    one with a filter value no record matches any longer, before sending (`FILTER_MATCHES_NOTHING`,
+    C-D109), and one whose next events expired (`EVENTS_EXPIRED`, new, C-D110).
+  - Several processes share delivery through a 60 s lease per subscription (C-D106).
+  - Migration `20261006_03` adds the delivery state to `consumer_subscriptions`.
+
 - Base 0.9 U2: the UI foundation and the shell (ADR-039, Direction B "Open").
   - Design tokens are in three layers in `styles/tokens.css`: primitives, semantic roles (dark mode
     redefines only these) and component tokens.
@@ -264,6 +290,17 @@ All notable changes to this project are documented in this file. The format foll
   - Decisions D35–D39. No migration.
 
 ### Changed
+
+- Base 0.9 C12: `POST /consumer-subscriptions/{id}/resume` takes `reset` instead of
+  `acknowledgeLoss` (C-D93 revised, C-D110). `reset: true` starts delivery after the workspace's
+  feed head, whatever happened before; without it a resume after expired events is still
+  `409 EVENTS_EXPIRED`, its message naming `reset`. A resume and an edit now also clear a failing
+  batch's retries, so the next attempt is at once. A filter value that stops matching suspends
+  the subscription without delivering the deletions first (C-D94 revised).
+- Base 0.9 C12: the job worker, the event deriver and the new dispatcher log a database they cannot
+  reach in one plain ERROR line, with the traceback at DEBUG, then a WARNING a minute; other
+  failures keep their traceback. J12's outage case no longer fails when the deriver polls during
+  the outage.
 
 - Base 0.9 C8: a consumer object's `parent` keys its fields by the roles' output names, as the
   object's own fields (`masterId`, not `id`, where the `id` role's output is `masterId`; C-D75).

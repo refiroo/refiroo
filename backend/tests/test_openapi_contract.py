@@ -72,9 +72,11 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # Re-baselined for 0.9 C11: capabilities gain consumerSubscriptions (ConsumerSubscriptionCapabilities)
     # and deleteBlockedBy gains "subscribed"; the subscription routes are gated off by default (checked
     # with the capability on below), and no existing path changed.
+    # Re-baselined for 0.9 C12: consumerSubscriptions gains delivery (WebhookDeliveryLimits) and its
+    # description says the group also delivers; removing those gives the previous document exactly.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "527106462f4c2ecce10d63aa5492b3f81f953a6d5c086082590b3973fdea89a8"
+        "8fbf461468c678b73bfcf29a5ebac0e0aa9cccf9cae29c468afd395f5bc02d93"
     )
 
 
@@ -245,7 +247,7 @@ def test_base_0_5_enabled_openapi_exposes_guarded_activation(monkeypatch):
     }
 
 
-def test_base_0_9_c11_enabled_openapi_exposes_the_subscriptions_api(monkeypatch):
+def test_base_0_9_c11_c12_enabled_openapi_exposes_the_subscriptions_api(monkeypatch):
     monkeypatch.setenv("CONSUMER_SUBSCRIPTIONS_ENABLED", "true")
     monkeypatch.setenv("CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY", "a" * 43)
     schema = create_app().openapi()
@@ -259,8 +261,18 @@ def test_base_0_9_c11_enabled_openapi_exposes_the_subscriptions_api(monkeypatch)
         "/api/v1/consumer-subscriptions/{subscription_id}/suspend": frozenset({"post"}),
         "/api/v1/consumer-subscriptions/{subscription_id}/resume": frozenset({"post"}),
     }
-    response = schema["components"]["schemas"]["SubscriptionResponse"]
+    components = schema["components"]["schemas"]
+    response = components["SubscriptionResponse"]
     assert "signingSecret" not in response["required"]
+    # C12: the delivery state, the reasons the dispatcher sets, and resume's reset (C-D108, C-D110).
+    assert "delivery" in response["required"]
+    assert set(components["SubscriptionDelivery"]["properties"]) == {"lastDeliveredAt", "pending"}
+    assert set(components["DeliveryError"]["properties"]["kind"]["enum"]) == {
+        "status", "redirect", "timeout", "connection", "tls", "address"
+    }
+    reasons = set(components["SubscriptionSuspension"]["properties"]["reason"]["enum"])
+    assert {"DELIVERY_FAILED", "FILTER_MATCHES_NOTHING", "HOST_NOT_ALLOWED", "EVENTS_EXPIRED"} <= reasons
+    assert set(components["ConsumerSubscriptionResume"]["properties"]) == {"expectedVersion", "reset"}
 
 
 def test_wp4_mapping_query_inventory_and_required_context():

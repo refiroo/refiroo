@@ -249,13 +249,31 @@ class ConsumerApiCapabilities(BaseModel):
     setting: Literal["CONSUMER_RESOLVE_MAX_ITEMS"]
 
 
+class WebhookDeliveryLimits(BaseModel):
+    """How webhooks are delivered (CONSUMER_API "Delivery", C-D103, C-D104): a per-change request
+    holds at most ``maxEvents`` events and ``maxBytes`` of body (an event alone over it is sent
+    alone); a receiver answers within ``timeoutSeconds``; a failing batch is retried with backoff
+    (``retryWaitsSeconds``, then every ``laterWaitSeconds``, each ±20 %) for ``retryHours`` after
+    its first failure, then the subscription is suspended ``DELIVERY_FAILED``. Constants, not
+    settings."""
+
+    maxEvents: int
+    maxBytes: int
+    timeoutSeconds: float
+    retryWaitsSeconds: list[int]
+    laterWaitSeconds: int
+    retryHours: int
+
+
 class ConsumerSubscriptionCapabilities(BaseModel):
     """Webhook subscriptions (CONSUMER_API "Subscriptions"): managed through
-    ``/consumer-subscriptions`` when ``manageSubscriptions`` (``CONSUMER_SUBSCRIPTIONS_ENABLED``);
-    their URLs name one of ``allowedHosts`` (``CONSUMER_WEBHOOK_ALLOWED_HOSTS``)."""
+    ``/consumer-subscriptions`` and delivered when ``manageSubscriptions``
+    (``CONSUMER_SUBSCRIPTIONS_ENABLED``); their URLs name one of ``allowedHosts``
+    (``CONSUMER_WEBHOOK_ALLOWED_HOSTS``)."""
 
     manageSubscriptions: bool
     allowedHosts: list[str]
+    delivery: WebhookDeliveryLimits
     setting: Literal["CONSUMER_SUBSCRIPTIONS_ENABLED"]
 
 

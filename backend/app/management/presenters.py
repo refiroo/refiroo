@@ -36,6 +36,9 @@ from ..models.database import (
 )
 from ..models.schema import EngineModel
 from .schemas.consumer_subscriptions import (
+    DeliveryError,
+    PendingDelivery,
+    SubscriptionDelivery,
     SubscriptionPage,
     SubscriptionResponse,
     SubscriptionSuspension,
@@ -397,11 +400,35 @@ def subscription_response(item: ConsumerSubscription, secret: str | None = None)
             suspendedAt=as_utc(item.suspended_at),
         ),
         acknowledgedThrough=item.acknowledged_position,
+        delivery=_delivery(item),
         signingKeyCreatedAt=as_utc(item.signing_key_created_at),
         version=item.version,
         createdAt=as_utc(item.created_at),
         updatedAt=as_utc(item.updated_at),
         signingSecret=secret,
+    )
+
+
+def _delivery(item: ConsumerSubscription) -> SubscriptionDelivery:
+    failing = (
+        item.pending_position is not None
+        and item.failing_since is not None
+        and item.last_attempt_at is not None
+        and item.last_error is not None
+    )
+    return SubscriptionDelivery(
+        lastDeliveredAt=as_utc(item.last_delivered_at) if item.last_delivered_at else None,
+        pending=PendingDelivery(
+            deliveryId=item.pending_delivery_id or "",
+            throughPosition=item.pending_position or 0,
+            attempts=item.attempts,
+            failingSince=as_utc(item.failing_since),
+            lastAttemptAt=as_utc(item.last_attempt_at),
+            nextAttemptAt=as_utc(item.next_attempt_at) if item.next_attempt_at else None,
+            lastError=DeliveryError(**(item.last_error or {})),
+        )
+        if failing
+        else None,
     )
 
 

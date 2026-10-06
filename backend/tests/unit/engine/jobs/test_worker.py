@@ -13,7 +13,9 @@ from typing import Any
 import pytest
 from scenario import W1
 from sqlalchemy import func, select
+from sqlalchemy.exc import OperationalError
 
+from app.common import outage as outage_module
 from app.db import SessionLocal
 from app.engine.change_sets.lifecycle import create_change_set
 from app.engine.jobs import worker as worker_module
@@ -211,20 +213,22 @@ def test_an_unexpected_error_fails_the_job_with_a_correlation_id(seeded, monkeyp
 
 
 @pytest.mark.serial
-def test_without_its_database_the_worker_waits_between_retries_and_logs_one_traceback(
+def test_without_its_database_the_worker_waits_between_retries_and_logs_no_traceback(
     monkeypatch, caplog
 ):
     """A database down for hours once made the worker spin (a failed sweep left its next sweep in
-    the past, so the wait was negative) and log a traceback per pass: 28 GB of log overnight."""
+    the past, so the wait was negative) and log a traceback per pass: 28 GB of log overnight. An
+    unreachable database is an expected failure: one plain line, then a reminder an interval, no
+    traceback (C12)."""
     attempts = 0
 
     def unreachable() -> Any:
         nonlocal attempts
         attempts += 1
-        raise OSError("connection refused")
+        raise OperationalError("SELECT 1", {}, OSError("connection refused"))
 
     monkeypatch.setattr(worker_module, "RETRY_SECONDS", 0.05)
-    monkeypatch.setattr(worker_module, "REMINDER_SECONDS", 0.2)
+    monkeypatch.setattr(outage_module, "REMINDER_SECONDS", 0.2)
     down = JobWorker(unreachable, WorkerSettings(CHUNK, 120, 7), owner="worker-down")
     with caplog.at_level("INFO", logger=worker_module.logger.name):
         down.start()
@@ -232,5 +236,6 @@ def test_without_its_database_the_worker_waits_between_retries_and_logs_one_trac
         down.stop(timeout=1)
     retries = [r for r in caplog.records if "reach the database" in r.getMessage()]
     assert 5 <= attempts <= 15
-    assert sum(r.exc_info is not None for r in retries) == 1
+    assert sum(r.exc_info is not None for r in retries) == 0
+    assert [r.levelname for r in retries][:1] == ["ERROR"]
     assert 1 <= len(retries) <= 4

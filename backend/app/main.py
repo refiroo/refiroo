@@ -14,6 +14,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from .config import Settings, get_settings, reload_settings
 from .consumer import router as consumer_router
 from .db import DatabaseStartupError, SessionLocal, create_database, get_engine
+from .engine.events.dispatcher import EventDispatcher
 from .engine.events.subscriptions import SubscriptionSettings
 from .engine.events.worker import EventDeriver
 from .engine.indexes.matrix_states import build_at_startup as build_matrix_states
@@ -116,9 +117,17 @@ async def lifespan(application: FastAPI):
         deriver = None
     if deriver is not None:
         deriver.start()
+    # The webhook dispatcher (C12): only with subscriptions on (C-D102), where the model is served.
+    dispatcher = application.state.consumer_dispatcher if application.state.run_consumer_dispatcher else None
+    if dispatcher is not None and not model_registry.ready:
+        dispatcher = None
+    if dispatcher is not None:
+        dispatcher.start()
     try:
         yield
     finally:
+        if dispatcher is not None:
+            dispatcher.stop()
         if deriver is not None:
             deriver.stop()
         if worker is not None:
@@ -229,6 +238,14 @@ def create_app() -> FastAPI:
         SessionLocal, retention_days=settings.feed_retention_days
     )
     application.state.run_event_deriver = True
+    # The webhook dispatcher (C12): none with the subscriptions capability off (C-D102). Tests that
+    # dispatch themselves set ``run_consumer_dispatcher`` to False before the application starts.
+    application.state.consumer_dispatcher = (
+        EventDispatcher(SessionLocal, application.state.subscription_settings)
+        if application.state.subscription_settings is not None
+        else None
+    )
+    application.state.run_consumer_dispatcher = True
     application.add_exception_handler(ApiError, api_error_handler)
     application.add_exception_handler(RequestValidationError, validation_error_handler)
     application.add_exception_handler(StarletteHTTPException, http_error_handler)

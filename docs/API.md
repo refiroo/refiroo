@@ -199,6 +199,11 @@ Capabilities return deployment-supported operations explicitly:
   "consumerSubscriptions": {
     "manageSubscriptions": false,
     "allowedHosts": [],
+    "delivery": {
+      "maxEvents": 100, "maxBytes": 1048576, "timeoutSeconds": 10.0,
+      "retryWaitsSeconds": [10, 30, 60, 120, 300, 600, 1800], "laterWaitSeconds": 3600,
+      "retryHours": 24
+    },
     "setting": "CONSUMER_SUBSCRIPTIONS_ENABLED"
   }
 }
@@ -208,8 +213,10 @@ Capabilities return deployment-supported operations explicitly:
 answers a position. `consumerApi.resolveMaxItems` is the most items one consumer
 [batch resolve](#batch-resolve) holds, named in `setting`. `consumerSubscriptions.manageSubscriptions`
 says whether the [subscriptions API](#consumer-subscriptions-base-09-c11) is served
-(`CONSUMER_SUBSCRIPTIONS_ENABLED`), and `allowedHosts` the hosts a webhook URL may name
-(`CONSUMER_WEBHOOK_ALLOWED_HOSTS`).
+(`CONSUMER_SUBSCRIPTIONS_ENABLED`) and its subscriptions delivered, `allowedHosts` the hosts a
+webhook URL may name (`CONSUMER_WEBHOOK_ALLOWED_HOSTS`), and `delivery` how
+[webhooks are delivered](#webhook-delivery-base-09-c12): the events and bytes one request holds, the
+receiver's timeout, and the retry waits and window. These are constants, not settings.
 
 Each group names in `setting` the deployment setting that enables its mutations, so a client can tell
 an operator what to change without knowing the server's configuration names.
@@ -2558,7 +2565,7 @@ GET /api/consumer/{consumerApi}/v{contractVersion}/events?workspace=…&event=�
 Where a consumer API's events are delivered as webhooks. The routes are served only when
 `CONSUMER_SUBSCRIPTIONS_ENABLED=true` (off by default; otherwise `404`, reads included), which also
 requires `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY` ([OPERATIONS](OPERATIONS.md)). Subscriptions are
-deployment data, not part of a model release. Delivery itself arrives with C12.
+deployment data, not part of a model release. [Delivery](#webhook-delivery-base-09-c12) is C12's.
 
 | Route | Answer |
 |---|---|
@@ -2575,8 +2582,9 @@ The create body names `consumerApi`, `events` (at least one) and `url`, and opti
 text or a list of texts), `mode` (`perChange`, default, or `coalesced`), `debounceSeconds`
 (`coalesced` only, 1–600, default 60), `payload` (`full`, default, or `identity`) and `startAfter`.
 `PATCH` takes `expectedVersion` with any of `events`, `filters`, `url`, `mode`, `debounceSeconds` and
-`payload`; the consumer API and workspace are not edited. `suspend` takes `expectedVersion`;
-`resume` takes `expectedVersion` and `acknowledgeLoss` (default false).
+`payload`; the consumer API and workspace are not edited, and a batch being retried is dropped
+(the next attempt is at once). `suspend` takes `expectedVersion`; `resume` takes `expectedVersion`
+and `reset` (default false).
 
 ```jsonc
 {
@@ -2588,6 +2596,7 @@ text or a list of texts), `mode` (`perChange`, default, or `coalesced`), `deboun
   "suspension": { "reason": "MODEL_CHANGED", "message": "…", "suspendedAt": "…",
                   "details": { "errors": [{ "code": "UNKNOWN_EVENT", "message": "…", "pointer": "/events/0" }] } },
   "acknowledgedThrough": 184100,
+  "delivery": { "lastDeliveredAt": "…", "pending": null },
   "signingKeyCreatedAt": "…", "version": 3, "createdAt": "…", "updatedAt": "…"
 }
 ```
@@ -2607,13 +2616,24 @@ text or a list of texts), `mode` (`perChange`, default, or `coalesced`), `deboun
 - **Suspension reasons:** `SUSPENDED_BY_USER`; `MODEL_CHANGED` (an activated release no longer
   declares the API, an event or a filter's parameter; `details.errors`); `CONTRACT_VERSION_CHANGED`
   (an activated release serves another version; `details.contractVersion`,
-  `details.servedContractVersion`); `WORKSPACE_RETIRED`. Delivery (C12) adds `DELIVERY_FAILED`,
-  `FILTER_MATCHES_NOTHING` and `HOST_NOT_ALLOWED`.
+  `details.servedContractVersion`); `WORKSPACE_RETIRED`. The dispatcher (C12) adds
+  `DELIVERY_FAILED` (`deliveryId`, `attempts`, `failingSince`, `lastError`), `HOST_NOT_ALLOWED` (the
+  URL's refusal: `code`, `message`, `host`, `setting`, `allowedHosts`), `FILTER_MATCHES_NOTHING`
+  (`parameter`, `values`, `pointer`, and `position`, the acknowledged position) and
+  `EVENTS_EXPIRED` (`fromPosition`, `toPosition`, `publication`). A suspension raises `version`.
 - **Resume** re-runs the checks: a failure is `409 SUBSCRIPTION_NEEDS_EDIT` with each finding's
-  `code`, `message` and `pointer` in `details.errors`. If events after `acknowledgedThrough` expired,
-  it is `409 EVENTS_EXPIRED` with `fromPosition`, `toPosition` and `publication`; with
-  `acknowledgeLoss: true` it continues after the last expired position. A resume accepts the
-  contract version served.
+  `code`, `message` and `pointer` in `details.errors`. It continues after `acknowledgedThrough`, at
+  once, the failing batch's retries cleared. If events after `acknowledgedThrough` expired, it is
+  `409 EVENTS_EXPIRED` with `fromPosition`, `toPosition` and `publication`. With `reset: true` it
+  starts after the workspace's feed head instead, whatever happened before: the receiver re-syncs
+  what it missed after the reset (a publication's lists), so nothing falls between. A resume
+  accepts the contract version served.
+- **Delivery state** (`delivery`, C-D108): `lastDeliveredAt`, when a request was last acknowledged
+  (`null` before the first); `pending`, `null` unless a batch is failing: its `deliveryId`, the
+  `throughPosition` it ends at, `attempts`, `failingSince`, `lastAttemptAt`, `nextAttemptAt` and
+  `lastError` (`kind`: `status`, `redirect`, `timeout`, `connection`, `tls` or `address`; `status`
+  when the receiver answered; `message`, at most 200 characters). Delivery changes neither
+  `version` nor `updatedAt`.
 
 | Status | Code | When |
 |---|---|---|
@@ -2630,6 +2650,62 @@ text or a list of texts), `mode` (`perChange`, default, or `coalesced`), `deboun
 | 422 | `REQUEST_VALIDATION_ERROR` | the body's shape, or `debounceSeconds` without `coalesced` |
 
 Every refusal changes nothing. Edits, suspensions, resumes and deletions write no audit entry.
+
+### Webhook delivery (Base 0.9 C12)
+
+While `CONSUMER_SUBSCRIPTIONS_ENABLED` is on, every active subscription's events are POSTed to its
+URL, in position order, one request at a time per subscription; the next goes after the previous is
+acknowledged. [CONSUMER_API "Delivery"](CONSUMER_API.md#delivery) explains each rule.
+
+**Per change** (`mode: perChange`): up to 100 events and at most 1 MiB of body per request; an event
+alone over 1 MiB is sent alone. Each event is the pull feed's item, with the object as get by ID
+answers it under the subscription's filters (`payload: full`) or without it (`identity`); an object
+deleted since it changed has none.
+
+```json
+{
+  "deliveryId": "6f1c…", "subscriptionId": "…",
+  "consumerApi": "rdm", "contractVersion": 1, "workspaceKey": "main",
+  "events": [{
+    "eventId": "…", "position": 184223, "occurredAt": "2026-10-06T10:14:03.512000+00:00",
+    "event": "reference-data-changed", "change": "updated", "contractVersion": 1,
+    "objectType": "TimetableType", "id": "…", "code": "…", "name": "…",
+    "changed": ["systemVariants"], "cause": { "kind": "publication", "id": "…" },
+    "stateAt": 184230, "object": { … }
+  }]
+}
+```
+
+**Coalesced** (`mode: coalesced`): one request per subscribed event once its newest matching event
+is `debounceSeconds` old, or its oldest 10 minutes old; each with its own `deliveryId`.
+
+```json
+{
+  "deliveryId": "…", "subscriptionId": "…",
+  "consumerApi": "rdm", "contractVersion": 1, "workspaceKey": "main",
+  "event": "reference-data-changed",
+  "fromPosition": 184100, "toPosition": 184223, "eventCount": 124,
+  "objectTypes": ["TimetableType", "Location"],
+  "occurredFrom": "…", "occurredTo": "…"
+}
+```
+
+**Headers:**
+
+| Header | Value |
+|---|---|
+| `Content-Type` | `application/json` (UTF-8, compact) |
+| `User-Agent` | `rdm-engine` |
+| `RDM-Delivery-Id` | the body's `deliveryId`; the same on every retry of a batch |
+| `RDM-Timestamp` | Unix seconds, new on every attempt |
+| `RDM-Signature` | `sha256=` and the lowercase hex HMAC-SHA256 of `"{RDM-Timestamp}.{body}"`, keyed with the `signingSecret` exactly as the create answered it |
+
+**The receiver's answer:** any `2xx` acknowledges. Anything else fails the attempt: another status, a
+redirect (not followed), no answer within 10 s, a connection or TLS failure, or a refused address
+(link-local always; loopback unless the URL names a loopback host). A failed batch is retried with
+the same events and `deliveryId` after 10 s, 30 s, 1, 2, 5, 10 and 30 min, then hourly, each ±20 %,
+for 24 hours from its first failure; then the subscription is suspended `DELIVERY_FAILED`. Delivery
+is at least once: deduplicate by `eventId`.
 
 ## Planned integration endpoints
 

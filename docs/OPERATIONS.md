@@ -102,8 +102,11 @@ selected release. Restart the process; it then loads the database selection.
 While the service runs, `/health` asks the database each time: while the database is unreachable it
 answers `503`, and requests answer `500 INTERNAL_ERROR` with a correlation ID (logged in one line, no
 traceback). Nothing needs restarting: once the database is back, `/health` answers `200`, requests
-are served and the job worker and the event deriver resume (each retries every 2 s and logs the
-outage once, then a line a minute).
+are served and the job worker, the event deriver and the webhook dispatcher resume. Each retries
+every 2 s and logs the outage in one ERROR line saying it cannot reach the database, then a WARNING
+a minute, then an INFO line when the database answers again, with no traceback: an unreachable
+database is an expected failure. The traceback is logged at DEBUG, for escalation. Any other
+failure of these threads is logged at ERROR with its traceback, since it points at a defect.
 
 ## Background jobs
 
@@ -116,8 +119,8 @@ retention every hour.
 - **Crash or kill:** the chunk in progress rolls back. Once the lease expires (`JOB_LEASE_SECONDS`), the
   next worker resumes the job at its first item without an outcome. No item is applied twice or
   skipped.
-- **Database outage:** the worker retries every 2 s, logs the traceback once per outage and then one
-  line a minute, and logs when the database is reachable again.
+- **Database outage:** the worker retries every 2 s, logs the outage in one line (the traceback at
+  DEBUG) and then one line a minute, and logs when the database is reachable again.
 - **Cancel:** `POST /api/v1/jobs/{jobId}/cancel` stops a job at its next chunk; an `atomic` job rolls
   back completely.
 
@@ -138,20 +141,21 @@ setting and takes no workspace lock: writes never wait for it.
   `consumer_event_checkpoints`.
 - **Crash or kill:** the page in progress rolls back and is derived again; no event is lost or made
   twice.
-- **Database outage:** as the job worker: retries every 2 s, one traceback per outage, then a line a
-  minute.
+- **Database outage:** as the job worker: retries every 2 s, one plain line per outage (the
+  traceback at DEBUG), then a line a minute.
 - **Retention:** events are deleted hourly with the change feed's floor (`FEED_RETENTION_DAYS`).
 - **Upgrade to 0.9 C10:** each workspace's events start at its active publication's position (all of
   its feed without one); earlier changes have no events.
 
 ## Webhook subscriptions
 
-Subscriptions say where a consumer API's events are delivered (0.9 C11; delivery arrives with C12).
-They are deployment data: they are not part of a model release and are not copied by one.
+Subscriptions say where a consumer API's events are delivered (0.9 C11), and a dispatcher thread in
+the API process delivers them (0.9 C12). They are deployment data: they are not part of a model
+release and are not copied by one.
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
-| `CONSUMER_SUBSCRIPTIONS_ENABLED` | off | Serves the subscriptions API (see capability groups) |
+| `CONSUMER_SUBSCRIPTIONS_ENABLED` | off | Serves the subscriptions API (see capability groups) and runs the dispatcher that delivers them |
 | `CONSUMER_WEBHOOK_ALLOWED_HOSTS` | empty | Comma-separated hosts a webhook URL may name: exact names, or `*.` and a domain for any host below it (not the domain itself); IP addresses as written; any port. Empty allows nothing. URLs must use HTTPS; plain HTTP is accepted only to `localhost`, `127.0.0.1` or `::1` when listed (development). Reported by `GET /api/v1/capabilities` |
 | `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY` | none | 32 bytes in URL-safe base64; signing keys are stored sealed with it (AES-256-GCM). Required with the capability on |
 
@@ -164,8 +168,46 @@ They are deployment data: they are not part of a model release and are not copie
   (`CONTRACT_VERSION_CHANGED`). **Retiring a workspace** suspends its subscriptions
   (`WORKSPACE_RETIRED`), and a workspace with subscriptions cannot be deleted.
 - **Long suspensions:** events expire with `FEED_RETENTION_DAYS`. A resume after unacknowledged
-  events expired is refused unless the owner acknowledges the loss; the refusal names the
-  publication to re-sync from.
+  events expired is refused; the refusal names the publication to re-sync from. The owner resumes
+  with `reset`, which starts after the feed's head, and then re-syncs the receiver (a publication's
+  lists): reset first, so nothing falls between.
+
+### Delivery
+
+- **What a receiver must do.** Accept `POST` requests of up to 1 MiB of JSON body, more for an
+  unusually large single object (nginx's default `client_max_body_size` is exactly 1 MiB); answer
+  `2xx` within 10 seconds once the request is stored; verify `RDM-Signature` (HMAC-SHA256 of
+  `"{RDM-Timestamp}.{body}"` with the subscription's `signingSecret`) and reject stale timestamps;
+  deduplicate by `eventId`, since delivery is at least once. A redirect is not followed: give the
+  final URL. The limits are reported in `GET /api/v1/capabilities` (`consumerSubscriptions.delivery`)
+  and explained in [CONSUMER_API "Delivery"](CONSUMER_API.md#delivery).
+- **A failing receiver.** A batch that fails is retried with the same events and delivery ID after
+  10 s, 30 s, 1, 2, 5, 10 and 30 minutes, then hourly (each ±20 %), for 24 hours from its first
+  failure; nothing later is sent past it. The subscription's `delivery.pending` shows the attempts,
+  the last error and the next attempt; each failed attempt is one INFO line in the log. After 24
+  hours it is suspended `DELIVERY_FAILED`. Fix the receiver, then resume: delivery continues from
+  the first unacknowledged event. Editing the URL retries at once.
+- **Suspensions the dispatcher sets, and what to do:**
+
+  | Reason | Cause | Fix |
+  | --- | --- | --- |
+  | `DELIVERY_FAILED` | The receiver failed for 24 hours | Fix the receiver (or the URL), then resume |
+  | `HOST_NOT_ALLOWED` | The URL's host left `CONSUMER_WEBHOOK_ALLOWED_HOSTS` | Edit the URL, or list the host again and restart, then resume |
+  | `FILTER_MATCHES_NOTHING` | A filter value no longer matches any record (it was deleted or renamed) | Edit the filter, then resume; the events since, deletions included, are delivered |
+  | `EVENTS_EXPIRED` | Events expired before they were delivered: the dispatcher did not run for `FEED_RETENTION_DAYS` (the capability was off, or no process ran) | Resume with `reset`, then re-sync the receiver from the publication the details name |
+
+  Each suspension is one WARNING line in the log.
+- **Addresses.** The host is resolved at each attempt; a link-local address (`169.254.0.0/16`,
+  `fe80::/10`, where cloud metadata services listen) is always refused, and a loopback address
+  unless the URL names a loopback host. Private addresses are allowed: the allowlist decides which
+  hosts. A refused address is a failed attempt and is retried.
+- **TLS** is verified against the system's trust store. For receivers with certificates from an
+  internal CA, point `SSL_CERT_FILE` at a bundle that includes it. **No outbound proxy** is used in
+  0.9: the API process needs direct HTTPS access to the receivers.
+- **Several processes** share delivery through a lease per subscription (60 s): each subscription is
+  delivered by one process at a time, in order. Turning the capability off stops delivery; stored
+  subscriptions continue when it is turned on again, and those whose events expired meanwhile are
+  suspended `EVENTS_EXPIRED`.
 
 ## Deployment topologies
 

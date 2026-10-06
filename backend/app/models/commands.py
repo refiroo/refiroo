@@ -454,9 +454,10 @@ class ConsumerSubscriptionVersion(BaseModel):
 
 
 class ConsumerSubscriptionResume(BaseModel):
-    """A resume; ``acknowledgeLoss`` goes on past events that expired while suspended (C-D93)."""
+    """A resume; ``reset`` starts after the workspace's feed head instead of the first event not
+    acknowledged, skipping what happened meanwhile (C-D93 revised, C-D110)."""
 
     model_config = ConfigDict(extra="forbid")
 
     expectedVersion: int = Field(ge=1)
-    acknowledgeLoss: bool = False
+    reset: bool = False

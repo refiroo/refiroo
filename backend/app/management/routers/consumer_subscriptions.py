@@ -1,7 +1,7 @@
 """Webhook subscriptions (Base 0.9 C11, CONSUMER_API "Subscriptions").
 
 Registered only with ``CONSUMER_SUBSCRIPTIONS_ENABLED`` (C-D10, C-D102): with the capability off
-no route here is served, reads included. Nothing is delivered before C12.
+no route here is served, reads included, and the dispatcher delivers nothing (C12).
 """
 
 from typing import Literal
@@ -82,7 +82,8 @@ def update(
     subscription_id: str, payload: ConsumerSubscriptionUpdate, request: Request, session: DbSession
 ) -> SubscriptionResponse:
     """Edit the events, filters, URL, mode or payload, checked as a create; a suspended
-    subscription stays suspended until it is resumed."""
+    subscription stays suspended until it is resumed. A batch being retried is dropped: the next
+    attempt is at once, with the edit, from the first event not acknowledged."""
     return subscription_response(update_subscription(session, subscription_id, payload, _settings(request)))
 
 
@@ -96,17 +97,16 @@ def suspend(subscription_id: str, payload: ConsumerSubscriptionVersion, session:
 def resume(
     subscription_id: str, payload: ConsumerSubscriptionResume, request: Request, session: DbSession
 ) -> SubscriptionResponse:
-    """Continue after any suspension, from the first event not acknowledged.
+    """Continue after any suspension, from the first event not acknowledged, at once.
 
     The subscription is checked as a create: ``409 SUBSCRIPTION_NEEDS_EDIT`` lists what to fix. If
     events it had not acknowledged expired meanwhile, ``409 EVENTS_EXPIRED`` names them and the
-    publication to re-sync from; ``acknowledgeLoss: true`` goes on from the earliest event kept.
-    Resuming accepts the contract version served.
+    publication to re-sync from. ``reset: true`` starts after the workspace's feed head instead:
+    the receiver re-syncs what it missed, after the reset, so nothing falls between. Resuming
+    accepts the contract version served and clears a failing batch's retries.
     """
     return subscription_response(
-        resume_subscription(
-            session, subscription_id, payload.expectedVersion, payload.acknowledgeLoss, _settings(request)
-        )
+        resume_subscription(session, subscription_id, payload.expectedVersion, payload.reset, _settings(request))
     )
 
 

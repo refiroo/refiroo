@@ -1,0 +1,547 @@
+"""J30.8–J30.9 — Receive a subscription's events, and what stops them (USER_JOURNEYS.md, Base 0.9 C12).
+
+Each test starts the application with the subscriptions capability on, as J30.6 does, and a
+receiver on ``localhost`` (the standard library's HTTP server in a thread) that answers as the test
+scripts it and records each request. The journey application starts neither the deriver's nor the
+dispatcher's thread: a test derives (``derive_events``) and then dispatches (``dispatch``) with a
+clock it moves forward, so no test waits for a retry or a debounce. Expired events (J30.9) need
+entries older than the retention period, and a coalesced notice events older than ten minutes; the
+test moves their times back in the database, as J30.5 does.
+"""
+
+import hashlib
+import hmac
+import json
+import threading
+import time
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from itertools import pairwise
+from typing import Self
+from uuid import uuid4
+
+import pytest
+from scenario import consumer_events, consumer_object, derive_events, dispatch, ok, refused
+from sqlalchemy import create_engine, text
+from sqlalchemy.pool import NullPool
+from test_j30_consumer_events import (
+    EVERY,
+    LEDGER,
+    WATCHED,
+    _activate,
+    _age,
+    _delete,
+    _head,
+    _workspace,
+)
+from test_j30_subscriptions import PATH, SUBSCRIPTIONS, _feed_head
+
+
+class Receiver:
+    """A webhook receiver on ``localhost``: answers each request with the next scripted answer
+    (then the standing one) and records it, with when it arrived and when it was answered."""
+
+    def __init__(self) -> None:
+        self.requests: list[dict] = []
+        self.script: list[tuple[int, float, dict]] = []
+        self.standing: tuple[int, float, dict] = (200, 0.0, {})
+        self._lock = threading.Lock()
+        receiver = self
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self) -> None:
+                arrived = time.monotonic()
+                body = self.rfile.read(int(self.headers["Content-Length"]))
+                with receiver._lock:
+                    status, delay, headers = receiver.script.pop(0) if receiver.script else receiver.standing
+                if delay:
+                    time.sleep(delay)
+                self.send_response(status)
+                for name, value in headers.items():
+                    self.send_header(name, value)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                with receiver._lock:
+                    receiver.requests.append(
+                        {
+                            "path": self.path,
+                            "headers": {name.lower(): value for name, value in self.headers.items()},
+                            "raw": body,
+                            "body": json.loads(body),
+                            "status": status,
+                            "arrived": arrived,
+                            "answered": time.monotonic(),
+                        }
+                    )
+
+            def log_message(self, *_args) -> None:
+                pass
+
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.url = f"http://localhost:{self.server.server_address[1]}/hook"
+        self._thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+
+    def answer(self, status: int, delay: float = 0.0, **headers: str) -> None:
+        self.standing = (status, delay, headers)
+
+    def then(self, status: int, delay: float = 0.0, **headers: str) -> None:
+        self.script.append((status, delay, headers))
+
+    def delivered(self) -> list[dict]:
+        """The bodies of the requests answered ``2xx``, in the order they arrived."""
+        answered = sorted(self.requests, key=lambda r: r["arrived"])
+        return [r["body"] for r in answered if 200 <= r["status"] < 300]
+
+    def __enter__(self) -> Self:
+        self._thread.start()
+        return self
+
+    def __exit__(self, *_exc) -> None:
+        self.server.shutdown()
+        self.server.server_close()
+
+
+@pytest.fixture
+def receiver():
+    with Receiver() as running:
+        yield running
+
+
+def _subscribe(world, workspace, url, **changes):
+    body = {"consumerApi": world.key("Capi"), "workspaceKey": workspace, "events": [WATCHED], "url": url}
+    body.update(changes)
+    return ok(world.api.post(PATH, body), 201)
+
+
+def _read(world, subscription):
+    return ok(world.api.get(f"{PATH}/{subscription['id']}"))
+
+
+def _resume(world, subscription, **body):
+    current = _read(world, subscription)
+    return world.api.post(f"{PATH}/{current['id']}/resume", {"expectedVersion": current["version"], **body})
+
+
+def _feed(world, workspace, after, *events):
+    """The pull feed's events after ``after``, of ``events``, every page."""
+    params = {"workspace": workspace, "after": after, "payload": "identity", "pageSize": 1000}
+    items = []
+    while True:
+        page = ok(consumer_events(world, **params))
+        items += [e for e in page["items"] if e["event"] in events]
+        if page["caughtUp"]:
+            return items
+        params = {"workspace": workspace, "cursor": page["cursor"], "payload": "identity", "pageSize": 1000}
+
+
+def _signed(secret, request):
+    timestamp = request["headers"]["rdm-timestamp"]
+    digest = hmac.new(secret.encode(), timestamp.encode() + b"." + request["raw"], hashlib.sha256)
+    return request["headers"]["rdm-signature"] == f"sha256={digest.hexdigest()}"
+
+
+def _ledgers(world, workspace, count, prefix):
+    """``count`` exposed records created by one inline batch."""
+    items = [
+        {
+            "op": "create",
+            "applicationKey": world.app("R"),
+            "objectTypeKey": world.key("R"),
+            "name": f"{prefix} {index}",
+            "attributes": [
+                {"attributeTypeKey": key, "value": value}
+                for key, value in {**world.required_values("R"), world.key("R.u"): f"{prefix}-{index}"}.items()
+            ],
+        }
+        for index in range(count)
+    ]
+    body = {"workspaceKey": workspace, "policy": "atomic", "run": "inline", "items": items}
+    result = ok(world.api.post("/batches", body))
+    assert result["job"]["result"] == "applied", result["job"]
+
+
+def _age_events(world, workspace, minutes, through):
+    """Make the workspace's consumer events up to position ``through`` ``minutes`` older."""
+    engine = create_engine(world.database, poolclass=NullPool)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "UPDATE consumer_events SET occurred_at = occurred_at - make_interval(mins => :m) "
+                "WHERE workspace_key = :w AND position <= :p"
+            ),
+            {"m": minutes, "w": workspace, "p": through},
+        )
+    engine.dispose()
+
+
+def _now():
+    return datetime.now(UTC)
+
+
+@pytest.mark.journey("J30.8")
+@pytest.mark.settings(**SUBSCRIPTIONS)
+@pytest.mark.structures(*LEDGER)
+def test_a_subscription_receives_its_events_signed_and_in_order(world, receiver):
+    """Given a subscription to the watched event with the full payload. When exposed records are
+    created, renamed and deleted. Then one request carries the events in position order, as the
+    pull feed has them, each object as get by ID answers it, and none for the deleted record. The
+    request is signed with the subscription's key over the timestamp and the body, and a body
+    changed by one byte does not verify. The subscription has acknowledged through the last event
+    and shows when it last delivered, with nothing pending and its version unchanged."""
+    _activate(world, "events")
+    ws = _workspace(world)
+    created = _subscribe(world, ws, receiver.url)
+    secret, start = created["signingSecret"], created["acknowledgedThrough"]
+
+    kept = world.made("R", "Ledger A", workspace=ws)
+    ok(world.update("R", kept["id"], kept["version"], name="Ledger B"))
+    gone = world.made("R", "Ledger C", workspace=ws)
+    _delete(world, "R", gone["id"], ws)
+    derive_events(world)
+    dispatch(world)
+
+    (request,) = receiver.requests
+    body = request["body"]
+    assert request["path"] == "/hook"
+    assert request["headers"]["content-type"] == "application/json"
+    assert request["headers"]["rdm-delivery-id"] == body["deliveryId"]
+    assert abs(int(request["headers"]["rdm-timestamp"]) - time.time()) < 60
+    assert _signed(secret, request)
+    assert not _signed(secret, {**request, "raw": request["raw"].replace(b"Ledger", b"Ledges", 1)})
+    assert (body["subscriptionId"], body["consumerApi"], body["contractVersion"], body["workspaceKey"]) == (
+        created["id"],
+        world.key("Capi"),
+        1,
+        ws,
+    )
+    expected = _feed(world, ws, start, WATCHED)
+    assert [(e["eventId"], e["position"], e["change"], e["id"]) for e in body["events"]] == [
+        (e["eventId"], e["position"], e["change"], e["id"]) for e in expected
+    ]
+    for event in body["events"]:
+        if event["id"] == gone["id"]:
+            # Composed when sent: an object deleted since has no object, code or name to send.
+            assert "object" not in event and (event["code"], event["name"]) == (None, None)
+        else:
+            assert event["object"] == ok(consumer_object(world, event["id"], workspace=ws))
+            assert event["stateAt"] >= event["position"]
+
+    after = _read(world, created)
+    assert after["acknowledgedThrough"] == body["events"][-1]["position"] == _head(world, ws)
+    assert after["delivery"]["lastDeliveredAt"] and after["delivery"]["pending"] is None
+    assert after["version"] == created["version"]
+
+
+@pytest.mark.journey("J30.8")
+@pytest.mark.settings(**SUBSCRIPTIONS)
+@pytest.mark.structures(*LEDGER)
+def test_many_events_arrive_in_ordered_batches_within_the_subscriptions_scope(world, receiver):
+    """Given a full and an identity subscription to one event, and one narrowed to a type nothing
+    here creates. When a batch creates 250 exposed records. Then each of the first two receives
+    three requests of 100, 100 and 50 events in position order, each sent after the previous one was
+    answered, only of its event; the identity requests carry no objects. The narrowed subscription
+    receives nothing and has acknowledged through the feed's head."""
+    _activate(world, "events")
+    ws = _workspace(world)
+    full = _subscribe(world, ws, receiver.url + "/full", events=[EVERY])
+    identity = _subscribe(world, ws, receiver.url + "/identity", events=[EVERY], payload="identity")
+    narrowed = _subscribe(world, ws, receiver.url + "/narrowed", filters={world.key("Capi.kind"): world.key("Capi.R2")})
+
+    _ledgers(world, ws, 250, "Bulk")
+    derive_events(world)
+    dispatch(world)
+
+    expected = [e["eventId"] for e in _feed(world, ws, full["acknowledgedThrough"], EVERY)]
+    assert len(expected) == 250
+    for path, payload in (("/hook/full", "full"), ("/hook/identity", "identity")):
+        requests = [r for r in receiver.requests if r["path"] == path]
+        assert [len(r["body"]["events"]) for r in requests] == [100, 100, 50]
+        assert [e["eventId"] for r in requests for e in r["body"]["events"]] == expected
+        assert all(e["event"] == EVERY for r in requests for e in r["body"]["events"])
+        assert all(later["arrived"] >= earlier["answered"] for earlier, later in pairwise(requests))
+        assert all(("object" in e) == (payload == "full") for r in requests for e in r["body"]["events"])
+        assert all(("stateAt" in e) == (payload == "full") for r in requests for e in r["body"]["events"])
+    assert not [r for r in receiver.requests if r["path"] == "/hook/narrowed"]
+    assert _read(world, narrowed)["acknowledgedThrough"] == _head(world, ws)
+    assert _read(world, identity)["acknowledgedThrough"] == _head(world, ws)
+
+
+@pytest.mark.journey("J30.8")
+@pytest.mark.settings(**SUBSCRIPTIONS)
+@pytest.mark.structures(*LEDGER)
+def test_a_coalesced_subscription_is_told_once_the_changes_pause(world, receiver):
+    """Given a coalesced subscription to two events with a 60 s debounce. When three records are
+    created. Then nothing is sent while the newest event is less than 60 s old; then one notice per
+    event, each with the range, the count and the type. Given changes going on for ten minutes (the
+    oldest event aged), a notice goes at once, and the next only after the following pause."""
+    _activate(world, "events")
+    ws = _workspace(world)
+    created = _subscribe(world, ws, receiver.url, events=[WATCHED, EVERY], mode="coalesced", debounceSeconds=60)
+    start = created["acknowledgedThrough"]
+    for name in ("One", "Two", "Three"):
+        world.made("R", f"Ledger {name}", workspace=ws)
+    derive_events(world)
+
+    dispatch(world, _now() + timedelta(seconds=30))
+    assert receiver.requests == []
+    dispatch(world, _now() + timedelta(seconds=61))
+    head = _head(world, ws)
+    notices = {r["body"]["event"]: r["body"] for r in receiver.requests}
+    assert set(notices) == {WATCHED, EVERY}
+    for notice in notices.values():
+        assert (notice["fromPosition"], notice["toPosition"], notice["eventCount"]) == (start + 1, head, 3)
+        assert notice["objectTypes"] == [world.key("Capi.R")]
+        assert notice["subscriptionId"] == created["id"] and notice["occurredFrom"] <= notice["occurredTo"]
+    assert notices[WATCHED]["deliveryId"] != notices[EVERY]["deliveryId"]
+    assert _read(world, created)["acknowledgedThrough"] == head
+
+    ongoing = ok(world.api.patch(f"{PATH}/{created['id']}", {"expectedVersion": 1, "events": [WATCHED]}))
+    world.made("R", "Ledger Early", workspace=ws)
+    derive_events(world)
+    _age_events(world, ws, 11, _head(world, ws))
+    world.made("R", "Ledger Late", workspace=ws)
+    derive_events(world)
+    sent = len(receiver.requests)
+    dispatch(world, _now())
+    assert len(receiver.requests) == sent + 1
+    assert receiver.requests[-1]["body"]["eventCount"] == 2
+
+    world.made("R", "Ledger Again", workspace=ws)
+    derive_events(world)
+    dispatch(world, _now())
+    assert len(receiver.requests) == sent + 1
+    dispatch(world, _now() + timedelta(seconds=61))
+    assert len(receiver.requests) == sent + 2 and receiver.requests[-1]["body"]["eventCount"] == 1
+    assert _read(world, ongoing)["acknowledgedThrough"] == _head(world, ws)
+
+
+@pytest.mark.journey("J30.9")
+@pytest.mark.settings(**SUBSCRIPTIONS)
+@pytest.mark.structures(*LEDGER)
+def test_a_failing_receiver_is_retried_with_the_same_batch_until_it_answers(world, receiver):
+    """Given a subscription whose receiver answers 503. When a record is created. Then the attempt
+    fails, the subscription shows the pending batch, its attempts, the last error and the next
+    attempt, and a later change is not sent past it. The retry carries the same delivery ID and
+    events with a new timestamp. A redirect and an answer slower than the timeout are failed
+    attempts of their kind. Once the receiver answers, the batch and the one after it arrive in
+    order, nothing is pending and the version is unchanged."""
+    _activate(world, "events")
+    ws = _workspace(world)
+    created = _subscribe(world, ws, receiver.url)
+    receiver.answer(503)
+    world.made("R", "Ledger First", workspace=ws)
+    derive_events(world)
+    now = _now()
+    dispatch(world, now)
+
+    pending = _read(world, created)["delivery"]["pending"]
+    assert (pending["attempts"], pending["lastError"]["kind"], pending["lastError"]["status"]) == (1, "status", 503)
+    assert pending["failingSince"] and pending["lastAttemptAt"]
+    assert datetime.fromisoformat(pending["nextAttemptAt"]) > now
+    assert pending["throughPosition"] == _head(world, ws)
+
+    world.made("R", "Ledger Second", workspace=ws)
+    derive_events(world)
+    dispatch(world, now)
+    assert len(receiver.requests) == 1
+    dispatch(world, now + timedelta(seconds=15))
+    first, second = receiver.requests
+    assert second["headers"]["rdm-delivery-id"] == first["headers"]["rdm-delivery-id"] == pending["deliveryId"]
+    assert second["headers"]["rdm-timestamp"] != first["headers"]["rdm-timestamp"]
+    assert [e["eventId"] for e in second["body"]["events"]] == [e["eventId"] for e in first["body"]["events"]]
+
+    receiver.answer(302, Location="https://elsewhere.example.test/hook")
+    dispatch(world, now + timedelta(seconds=60))
+    error = _read(world, created)["delivery"]["pending"]["lastError"]
+    assert error["kind"] == "redirect" and "elsewhere.example.test" in error["message"]
+
+    world.api.client.app.state.consumer_dispatcher.timeout_seconds = 0.3
+    receiver.answer(200, delay=1.0)
+    dispatch(world, now + timedelta(minutes=5))
+    pending = _read(world, created)["delivery"]["pending"]
+    assert pending["lastError"]["kind"] == "timeout" and pending["attempts"] == 4
+
+    receiver.answer(200)
+    dispatch(world, now + timedelta(hours=1))
+    after = _read(world, created)
+    assert after["delivery"]["pending"] is None and after["version"] == created["version"]
+    # The slow attempt reached the receiver after the dispatcher gave up on it: at least once.
+    delivered = [e["eventId"] for body in receiver.delivered() for e in body["events"]]
+    expected = [e["eventId"] for e in _feed(world, ws, created["acknowledgedThrough"], WATCHED)]
+    assert list(dict.fromkeys(delivered)) == expected and len(expected) == 2
+    assert after["acknowledgedThrough"] == _head(world, ws)
+
+
+@pytest.mark.journey("J30.9")
+@pytest.mark.settings(**SUBSCRIPTIONS)
+@pytest.mark.structures(*LEDGER)
+def test_a_receiver_failing_for_a_day_suspends_and_a_resume_delivers_everything(world, receiver):
+    """Given a subscription whose receiver answers 500. When it fails for 24 hours of the
+    dispatcher's clock. Then it is suspended DELIVERY_FAILED with the last error and the delivery,
+    its version raised, and later changes are not sent. Once resumed, every event from the first
+    unacknowledged one arrives, in order, none skipped."""
+    _activate(world, "events")
+    ws = _workspace(world)
+    created = _subscribe(world, ws, receiver.url)
+    receiver.answer(500)
+    world.made("R", "Ledger Down", workspace=ws)
+    derive_events(world)
+    now = _now()
+    clock = now
+    dispatch(world, clock)
+    while _read(world, created)["status"] == "active":
+        assert clock < now + timedelta(hours=26)
+        clock += timedelta(hours=2)
+        dispatch(world, clock)
+
+    suspended = _read(world, created)
+    suspension = suspended["suspension"]
+    assert suspension["reason"] == "DELIVERY_FAILED" and clock - now >= timedelta(hours=24)
+    assert suspension["details"]["lastError"]["status"] == 500
+    assert suspension["details"]["deliveryId"] == receiver.requests[0]["headers"]["rdm-delivery-id"]
+    assert suspended["version"] == created["version"] + 1
+    world.made("R", "Ledger While Down", workspace=ws)
+    derive_events(world)
+    sent = len(receiver.requests)
+    dispatch(world, clock + timedelta(hours=3))
+    assert len(receiver.requests) == sent
+
+    receiver.answer(200)
+    resumed = ok(_resume(world, created))
+    assert resumed["status"] == "active" and resumed["delivery"]["pending"] is None
+    dispatch(world)
+    delivered = [e["eventId"] for body in receiver.delivered() for e in body["events"]]
+    assert delivered == [e["eventId"] for e in _feed(world, ws, created["acknowledgedThrough"], WATCHED)]
+
+
+@pytest.mark.journey("J30.9")
+@pytest.mark.settings(**SUBSCRIPTIONS)
+@pytest.mark.structures(*LEDGER)
+def test_a_host_no_longer_allowed_or_a_filter_matching_nothing_suspends(world, receiver):
+    """Given a subscription, and a dispatcher whose deployment no longer lists its host (a process
+    started with another allowlist). Then it is suspended HOST_NOT_ALLOWED before any request. Given
+    a subscription narrowed to a token, when the ledger paired with it and the token are deleted, it
+    is suspended FILTER_MATCHES_NOTHING naming the filter, the value and its position, and nothing
+    is sent. After the filter is edited to another token and it is resumed, the deletions arrive."""
+    _activate(world, "events")
+    ws = _workspace(world)
+    hosted = _subscribe(world, ws, receiver.url)
+    world.made("R", "Ledger Hosted", workspace=ws)
+    derive_events(world)
+    running = world.api.client.app.state.consumer_dispatcher
+    restarted = type(running)(running.session_factory, replace(running.settings, allowed_hosts=("hooks.example.test",)))
+    restarted.run_until_idle()
+    assert receiver.requests == []
+    suspension = _read(world, hosted)["suspension"]
+    assert suspension["reason"] == "HOST_NOT_ALLOWED" and suspension["details"]["host"] == "localhost"
+    ok(world.api.delete(f"{PATH}/{hosted['id']}", expectedVersion=_read(world, hosted)["version"]), 204)
+    receiver.requests.clear()
+
+    token, other = (world.made("K", f"Token {uuid4().hex[:6]}", workspace=ws) for _ in range(2))
+    ledger = world.made("R", "Ledger Paired", workspace=ws)
+    ok(world.relate("B11", ledger["id"], token["id"]), 201)
+    derive_events(world)
+    filter_name = world.key("Capi.token")
+    narrowed = _subscribe(world, ws, receiver.url, events=[WATCHED, EVERY], filters={filter_name: token["name"]})
+    start = narrowed["acknowledgedThrough"]
+    _delete(world, "R", ledger["id"], ws)
+    _delete(world, "K", token["id"], ws)
+    derive_events(world)
+    dispatch(world)
+
+    assert receiver.requests == []
+    suspended = _read(world, narrowed)
+    suspension = suspended["suspension"]
+    assert suspension["reason"] == "FILTER_MATCHES_NOTHING"
+    assert suspension["details"]["parameter"] == filter_name and suspension["details"]["values"] == [token["name"]]
+    assert suspension["details"]["position"] == start == suspended["acknowledgedThrough"]
+
+    edited = ok(
+        world.api.patch(f"{PATH}/{narrowed['id']}", {"expectedVersion": suspended["version"], "filters": {filter_name: other["name"]}})
+    )
+    ok(_resume(world, edited))
+    dispatch(world)
+    told = [(e["event"], e["change"]) for body in receiver.delivered() for e in body["events"] if e["id"] == ledger["id"]]
+    assert (WATCHED, "deleted") in told and (EVERY, "deleted") in told
+
+
+@pytest.mark.journey("J30.9")
+@pytest.mark.settings(**SUBSCRIPTIONS)
+@pytest.mark.structures(*LEDGER)
+def test_events_expired_while_active_suspend_and_a_reset_starts_from_the_head(world, receiver):
+    """Given an active subscription whose next events aged past retention (its dispatcher did not
+    run). Then it is suspended EVENTS_EXPIRED with the lost range and the publication to re-sync
+    from, and nothing is sent; a plain resume is refused as expired, naming reset; a resume with
+    reset starts after the feed's head, and only later changes arrive. A subscription suspended by
+    hand while changes are made and resumed with reset receives none of them."""
+    _activate(world, "events")
+    ws = _workspace(world)
+    created = _subscribe(world, ws, receiver.url)
+    start = created["acknowledgedThrough"]
+    world.made("R", "Before", workspace=ws)
+    cs = world.change_set(workspace=ws)
+    world.made("R", "Added", change_set=world.current(cs), workspace=ws)
+    publication = world.publish(cs, workspace=ws)
+    world.made("R", "After", workspace=ws)
+    derive_events(world)
+    sequence = publication["feedPosition"]
+    _age(world, ws, 31, sequence)
+    dispatch(world)
+
+    assert receiver.requests == []
+    suspended = _read(world, created)
+    assert suspended["suspension"]["reason"] == "EVENTS_EXPIRED"
+    assert suspended["suspension"]["details"] == {
+        "fromPosition": start + 1,
+        "toPosition": sequence,
+        "publication": {"id": publication["id"], "eventSequence": sequence},
+    }
+    error = refused(_resume(world, created), 409, "EVENTS_EXPIRED")
+    assert "reset" in error["message"]
+    resumed = ok(_resume(world, created, reset=True))
+    assert (resumed["status"], resumed["acknowledgedThrough"]) == ("active", _feed_head(world, ws))
+    fresh = world.made("R", "Fresh", workspace=ws)
+    derive_events(world)
+    dispatch(world)
+    assert {e["id"] for body in receiver.delivered() for e in body["events"]} == {fresh["id"]}
+
+    paused = _subscribe(world, ws, receiver.url + "/paused")
+    ok(world.api.post(f"{PATH}/{paused['id']}/suspend", {"expectedVersion": paused["version"]}))
+    world.made("R", "Missed", workspace=ws)
+    derive_events(world)
+    ok(_resume(world, paused, reset=True))
+    dispatch(world)
+    assert not [r for r in receiver.requests if r["path"] == "/hook/paused"]
+    later = world.made("R", "Later", workspace=ws)
+    derive_events(world)
+    dispatch(world)
+    told = {e["id"] for r in receiver.requests if r["path"] == "/hook/paused" for e in r["body"]["events"]}
+    assert told == {later["id"]}
+
+
+@pytest.mark.journey("J30.9")
+@pytest.mark.settings(**SUBSCRIPTIONS)
+@pytest.mark.structures(*LEDGER)
+def test_two_dispatchers_deliver_each_batch_once_and_in_order(world, receiver):
+    """Given one subscription and two dispatchers on the database (two processes). When a batch
+    creates 300 records and both dispatch at once. Then every event arrives exactly once, in
+    position order, each batch under its own delivery ID."""
+    _activate(world, "events")
+    ws = _workspace(world)
+    created = _subscribe(world, ws, receiver.url, events=[EVERY], payload="identity")
+    _ledgers(world, ws, 300, "Shared")
+    derive_events(world)
+    running = world.api.client.app.state.consumer_dispatcher
+    other = type(running)(running.session_factory, running.settings)
+    threads = [threading.Thread(target=d.run_until_idle) for d in (running, other)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(60)
+    dispatch(world)
+
+    delivered = [e["eventId"] for body in receiver.delivered() for e in body["events"]]
+    assert delivered == [e["eventId"] for e in _feed(world, ws, created["acknowledgedThrough"], EVERY)]
+    ids = [body["deliveryId"] for body in receiver.delivered()]
+    assert len(ids) == len(set(ids)) == 3

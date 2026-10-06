@@ -16,8 +16,8 @@ read, D31), [B3](#b3-relation-and-relation-set-items) (2026-10-03, D35–D39),
 [T1a](#t1a-copies-inside-the-database) (2026-10-04), [T1b](#t1b-one-error-code-pattern) (2026-10-04),
 [C2](#c2-consumer-object-and-projections) (2026-10-04, C-D21–C-D26), C3–C5 and
 [C14](#c14-batch-resolve) (2026-10-05, C-D47–C-D53), [C15](#c15-crosswalk) (2026-10-05, C-D54–C-D58),
-[CN1](#cn1-the-consumer-apis-name-in-public-contracts) (2026-10-05, C-D59), [C6a](#c6a-publications) (2026-10-05, C-D60–C-D68), [C6b](#c6b-the-contract-documents) (2026-10-05, C-D69–C-D70), [V2](#v2-consumer-sources) (2026-10-05), [C8](#c8-parity-acceptance) (2026-10-05, C-D72–C-D75), [C16](#c16-asof-in-the-consumer-tier) (2026-10-05, C-D76–C-D80), [C9](#c9-event-definitions) (2026-10-05, C-D81–C-D86), [C10](#c10-event-deriver-event-store-and-pull-feed) (2026-10-06, C-D87–C-D92, C-D95), [U2](SETTINGS_AND_UI_PLAN.md#u2-delivery-record) (2026-10-06, U-D7–U-D9), [C11](#c11-subscriptions) (2026-10-06, C-D96–C-D102).
-**Next:** C12, in the order of the [delivery queue](#delivery-queue) (U4 waits for U3).
+[CN1](#cn1-the-consumer-apis-name-in-public-contracts) (2026-10-05, C-D59), [C6a](#c6a-publications) (2026-10-05, C-D60–C-D68), [C6b](#c6b-the-contract-documents) (2026-10-05, C-D69–C-D70), [V2](#v2-consumer-sources) (2026-10-05), [C8](#c8-parity-acceptance) (2026-10-05, C-D72–C-D75), [C16](#c16-asof-in-the-consumer-tier) (2026-10-05, C-D76–C-D80), [C9](#c9-event-definitions) (2026-10-05, C-D81–C-D86), [C10](#c10-event-deriver-event-store-and-pull-feed) (2026-10-06, C-D87–C-D92, C-D95), [U2](SETTINGS_AND_UI_PLAN.md#u2-delivery-record) (2026-10-06, U-D7–U-D9), [C11](#c11-subscriptions) (2026-10-06, C-D96–C-D102), [C12](#c12-the-dispatcher) (2026-10-06, C-D103–C-D111).
+**Next:** C13, in the order of the [delivery queue](#delivery-queue) (U4 waits for U3).
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
 Effective dates and consumer API definitions extend the model, so the starter becomes content release
@@ -235,7 +235,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 23 | [C9](#c9-event-definitions) | C2 | Event definitions (C-D81–C-D86) — **delivered 2026-10-05** ([record](#c9-delivery-record)) |
 | 24 | [C10](#c10-event-deriver-event-store-and-pull-feed) | C9, F2 | Event deriver, event store, pull feed (C-D87–C-D92, C-D95) — **delivered 2026-10-06** ([record](#c10-delivery-record)) |
 | 25 | [C11](#c11-subscriptions) | C10 | Subscriptions API, signing key, allowlist, suspension on model change and retirement (C-D96–C-D102) — **delivered 2026-10-06** ([record](#c11-delivery-record)) |
-| 26 | C12 | C11 | Dispatcher |
+| 26 | [C12](#c12-the-dispatcher) | C11 | Dispatcher: per-change and coalesced delivery, signing, retries, the delivery suspensions (C-D103–C-D111) — **delivered 2026-10-06** ([record](#c12-delivery-record)) |
 | 26a | [U5](SETTINGS_AND_UI_PLAN.md#packages-track-u) | U4, C12 | Settings › Integration › Webhooks over the subscriptions API (U-D3) |
 | 27 | C13 | C12 | Event acceptance; the events line's checkpoint |
 | 27a | [U2](SETTINGS_AND_UI_PLAN.md#u2-the-foundation-and-the-shell) | U1 | UI foundation: token layers, regions, data-context band, `PageHeader`, `StatusPill` and `Card`, the shell (U-D7–U-D9) — **delivered 2026-10-06** ([record](SETTINGS_AND_UI_PLAN.md#u2-delivery-record)) |
@@ -5113,6 +5113,356 @@ code or name, as a stored query would, and hold no record data for erasure to re
 - **Not run:** `consumer` (the consumer router and answers are unchanged; J30 runs in `feed`),
   `volume` (no data read or write path changed), the frontend (unchanged), `budget` and the full
   suites (R).
+
+#### C12: The dispatcher
+
+**Delivered 2026-10-06** ([record](#c12-delivery-record)). Planned 2026-10-06. The user decided C-D103–C-D108 and C-D111 the same day, and C-D109 as a
+revision of C-D94 (a filter that stops matching suspends at once), and C-D110 from the user's
+proposal (a reset on resume, replacing `acknowledgeLoss`, which revises C-D93). The test cases are
+approved (2026-10-06); C12 is ready to deliver. C-D7, C-D12 (both revised), C-D90, C-D93,
+C-D98, C-D101 and C-D102 apply as written.
+**Needs:** C11 (subscriptions, their acknowledged position, the sealed signing key, the
+allowlist). **Groups:** `feed`, `startup` (migration, the dispatcher started in the lifespan),
+`contract` (the subscription answer and the capabilities group change).
+**Design:** CONSUMER_API "Delivery", "Subscriptions (runtime, not model)" (the C12 reasons),
+"Security (0.12)"; C-D7, C-D12, C-D90, C-D93, C-D94, C-D98, C-D101, C-D102; INTEGRATION_API F3
+(position order).
+
+**Behaviour.** An active subscription receives its events at its URL, in position order, signed. A
+per-change subscription gets POSTs of up to 100 events, each event with its object as get by ID
+answers it (or only its identity). A coalesced one gets one POST per event saying "this scope
+changed" once the changes pause. A receiver that answers `2xx` acknowledges the batch, and the next
+one follows. A receiver that fails is retried with backoff, with the same batch and the same
+delivery ID, and nothing later is sent past it. After 24 hours of failures the subscription is
+suspended `DELIVERY_FAILED`, and a resume continues from the first unacknowledged event. The
+operator sees the delivery state on the subscription: the last success, the failing attempts, the
+last error and the next attempt. The dispatcher also suspends a subscription whose host the
+allowlist no longer names (`HOST_NOT_ALLOWED`), whose filter no longer matches any record
+(`FILTER_MATCHES_NOTHING`, at once, C-D109), and one whose next events expired while it was active
+(`EVENTS_EXPIRED`, C-D110).
+
+```http
+POST /rdm HTTP/1.1
+Host: hooks.example.test
+Content-Type: application/json
+User-Agent: rdm-engine
+RDM-Delivery-Id: 6f1c…                 (the same on every retry of this batch)
+RDM-Timestamp: 1791281643              (Unix seconds, new on every attempt)
+RDM-Signature: sha256=3b9e…            (hex HMAC-SHA256 of "{timestamp}.{body}" with the signing key)
+
+{ "deliveryId": "6f1c…", "subscriptionId": "…", "consumerApi": "rdm", "contractVersion": 1,
+  "workspaceKey": "main", "events": [ … ] }     // CONSUMER_API's per-change body
+```
+
+```jsonc
+// GET /api/v1/consumer-subscriptions/{id} gains (C-D108)
+"delivery": {
+  "lastDeliveredAt": "…",          // the last acknowledged POST, null before the first
+  "pending": {                     // null when nothing is being retried
+    "deliveryId": "…", "throughPosition": 184223,
+    "attempts": 3, "failingSince": "…", "lastAttemptAt": "…", "nextAttemptAt": "…",
+    "lastError": { "kind": "status", "status": 503, "message": "Service Unavailable" }
+  }
+}
+```
+
+**What exists today** (checked 2026-10-06):
+
+- **Subscriptions** (`consumer_subscriptions`, C11): the consumer API, contract version, workspace,
+  `event_keys`, `filters` (each a list of strings), `url`, `mode`, `debounce_seconds`, `payload`,
+  `status` and the suspension's reason, message and details; `acknowledged_position` and
+  `acknowledged_ordinal`, set at create to the feed head (or `startAfter`) with the ordinal "after
+  every event of the position"; `signing_key` sealed with AES-256-GCM, the public ID as associated
+  data (`common/sealing.py`). Every change claims `version` under `FOR UPDATE`. No delivery state.
+- **The pull feed** (`reads/consumer_events.read_consumer_events`) already reads what a subscription
+  receives: events after a `(position, ordinal)` key, narrowed by event keys and the definition's
+  parameters (C-D90), each with its identity and, with `full`, its object composed by
+  `ConsumerObjects.compose` and labelled `stateAt`. A narrowed read scans at most ten pages and may
+  return fewer items with the key advanced. It answers an encoded cursor, not the key.
+  `event_window` and `check_after` give the derived head, the earliest kept position and the `410`.
+- **The filter check** `reads/consumer_parameters.unmatched_values` answers
+  `FILTER_MATCHES_NOTHING` for a value no record matches now (C-D100).
+- **The URL check** `events/webhook_urls.check_webhook_url` applies the allowlist (C-D101); it does
+  not resolve names. Its docstring leaves resolution and redirects to C12.
+- **Background threads** in the API process: the job worker (B2, a lease per job:
+  `lease_owner`, `lease_expires_at`) and the event deriver (C10, `events/worker.py`, polling once a
+  second, `run_until_idle` for tests, `run_event_deriver` False in tests). `lifespan` starts each
+  only when the model is ready. `WEB_CONCURRENCY` may be above 1 when model administration is off,
+  so two processes can run a dispatcher.
+- **No HTTP client** is a runtime dependency (`httpx` is a dev dependency, for tests).
+- **Tests:** `test_j30_subscriptions` starts the application with the capability on, the allowlist
+  `hooks.example.test, localhost` and a key; `scenario.derive_events` drives the deriver;
+  `test_j30_consumer_events._age` moves entries' times back (J30.5).
+- **Outage logging (TODO from C11, decided 2026-10-06 by the user):** the job worker
+  (`jobs/worker.py:310`) and the deriver log the first failure of a database outage with
+  `logger.exception`, an ERROR with the traceback, against AGENTS.md's rule for expected operational
+  failures. J12.8's case (`test_the_database_goes_away_while_running`) allows no ERROR with a
+  traceback; it fails when the deriver's once-a-second poll falls inside the outage, and passes with
+  the job worker only because it idles 60 s between polls.
+
+**Design.**
+
+- **Thread** `engine/events/dispatcher.py`, `EventDispatcher` beside the deriver: `run_once(now)`,
+  `run_until_idle(now)` for tests, `start` and `stop`. `create_app` builds it only with
+  `CONSUMER_SUBSCRIPTIONS_ENABLED` (C-D102); `lifespan` starts it when the model is ready and
+  `run_consumer_dispatcher` is true. Once a second it claims the subscriptions that are due and
+  handles each on a pool of four sender threads; one subscription is never handled twice at once,
+  which keeps its order (C-D106).
+- **Claim** (C-D106): one statement sets `lease_owner` and `lease_expires_at` (60 s) on up to four
+  active subscriptions that are due (`next_attempt_at` is null or past) and not leased, picked
+  `FOR UPDATE SKIP LOCKED`, oldest lease first. The lease is renewed before each send. No row lock
+  is held while a request is in flight, so an edit, suspend or delete never waits for a receiver.
+- **One step for a subscription** (`dispatch_one`):
+  1. Read the active release's definition; a subscription the release does not serve is already
+     suspended by C11's hook, so nothing here re-checks the model.
+  2. Check the URL against today's allowlist; refused → suspend `HOST_NOT_ALLOWED` with C11's
+     refusal as details.
+  3. Check the acknowledged position against the event window; expired → suspend `EVENTS_EXPIRED`
+     with the lost range and the publication (C-D110).
+  3a. When events follow the acknowledged position, check each filter value (`unmatched_values`);
+     one that matches no record → suspend `FILTER_MATCHES_NOTHING` naming the filter, the value and
+     the acknowledged position, before anything is sent (C-D109).
+  4. **Per change.** If a batch is pending, read it again: the events in (acknowledged, pending
+     end], with the same delivery ID. Otherwise read the next events through the pull feed's read
+     with the subscription's events, filters and payload, up to 100, and cut the batch at the byte
+     limit (C-D104). Nothing matched but the read advanced → store the advanced position, no POST.
+     **Coalesced** (C-D105): count the matching events after the acknowledged position, per event
+     key; when the newest is older than `debounceSeconds`, or the oldest older than 10 minutes, send
+     one POST per event key in the order of their first positions, through the newest event.
+  5. Commit the batch as pending (delivery ID, end key) before sending, so a crash retries the same
+     batch with the same ID.
+  6. Send (C-D107): resolve the host, refuse a link-local address (and a loopback one unless the URL
+     names a loopback host), connect to the checked address with the host name for TLS, POST with
+     the headers above, 10 s for the whole exchange, no redirects followed, at most 4 KiB of the
+     answer read for the error message.
+  7. `2xx`: one transaction checks the lease is still held, sets the acknowledged key to the batch's
+     end, clears `pending` and the failure fields, sets `last_delivered_at`. Anything else: records
+     the attempt and the next one (C-D103); past 24 hours since `failing_since`, suspends
+     `DELIVERY_FAILED` with the last error.
+- **Reading through the pull feed.** `read_consumer_events` is split so the dispatcher gets the
+  page's items and its last key without a cursor; the pull feed's answers do not change. Objects are
+  composed by the same code under the active release, `stateAt` as the pull feed sets it (C-D7). An
+  event of an earlier contract version is sent as the pull feed serves it, naming its own version
+  (C-D88).
+- **Signing** (C-D12): the key is unsealed with the deployment key for each send and not kept in
+  memory between sends. The body is the compact JSON's UTF-8 bytes; the signature covers exactly
+  them.
+- **Versions.** Delivery progress (the acknowledged key, pending batch, failures) does not change
+  `version` or `updatedAt`, so an operator's edit is never refused because events were delivered;
+  a suspension by the dispatcher does, as any status change (C-D108).
+- **C11's operations** keep their contracts and gain: `resume` clears the pending batch and the
+  failures, so the next attempt is immediate and from the first unacknowledged event (CONSUMER_API
+  "resume continues from the first unacknowledged event"), and gains `reset` (C-D110): `true`
+  moves the acknowledged position to the workspace's feed head at the resume. `acknowledgeLoss`
+  is removed (C-D93 revised): an amendment of C11's resume and its J30.7 case, which the
+  implementing agent changes as the revised decision says. `PATCH` that changes the URL, events,
+  filters, mode or payload drops the pending batch (a new one, with a new delivery ID, is built for
+  the next attempt, which is immediate), keeping the acknowledged position; `delete` ends delivery,
+  and an acknowledgement for a deleted subscription changes nothing.
+- **Store** (migration `…_consumer_deliveries`, named at delivery): `consumer_subscriptions` gains
+  `lease_owner`, `lease_expires_at`, `pending_delivery_id`, `pending_position`, `pending_ordinal`,
+  `attempts`, `failing_since`, `last_attempt_at`, `next_attempt_at`, `last_error` jsonb,
+  `last_delivered_at`; a partial index on
+  `next_attempt_at` where `status = 'active'`. Existing rows get nulls and zero attempts. The
+  reason column has no check constraint, so the four new reasons need no schema change.
+- **Capabilities.** `consumerSubscriptions` gains `delivery`: `maxEvents` 100, `maxBytes`,
+  `timeoutSeconds` 10, `retryHours` 24, so no limit is undocumented. The management OpenAPI lock is
+  re-baselined (diffed: this group only); the gated document's case checks the subscription answer's
+  `delivery` and the reasons.
+- **Logging.** One line per failed attempt (subscription, delivery ID, status or error kind) at
+  INFO, one WARNING per suspension; no traceback for a receiver's failure, since it is the
+  receiver's state, not the engine's.
+- **Outage logging in the three loops** (decided 2026-10-06 by the user; an amendment of B2's and
+  C10's code). One helper the job worker, the deriver and the dispatcher share: a failure to reach
+  the database (a connection error) is one plain ERROR line saying what failed and that the thread
+  retries every 2 s, with the traceback at DEBUG; the once-a-minute reminder and the "reaches the
+  database again" line stay. Any other exception keeps its traceback at ERROR: it is a defect in the
+  engine's code, and the traceback is the only way to find it. J12.8's case holds it unchanged.
+- **No frontend** (the Webhooks page is U5), **no pull-feed change**, **no new setting**: the batch
+  size, byte limit, timeout and retry window are constants reported in capabilities. CA bundles come
+  from the system trust store, which `SSL_CERT_FILE` overrides (OPERATIONS); an outbound proxy is
+  not supported in 0.9 (TODO, for the user to place).
+
+**Decisions** (each proposed; status per row):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| C-D103 | The retry schedule | **Approved 2026-10-06.** The user asked for it to be documented well (DOCUMENTATION_PLAN, points to state clearly). After a failed attempt the next waits 10 s, 30 s, 1 min, 2 min, 5 min, 10 min, 30 min, then every hour, each with ±20 % jitter, until 24 hours after the first failure of the batch (`failing_since`); then `DELIVERY_FAILED`, with the last error and the delivery ID in the details. About 30 attempts in all: short outages are bridged within minutes, and a receiver down for a day is not hammered. The clock starts at the first failure of the batch, not the subscription, so one success resets it. Constants, reported in capabilities; a setting would be added only on a real need |
+| C-D104 | The byte limit of a `full` batch | **Approved 2026-10-06.** The user asked for it to be documented well (DOCUMENTATION_PLAN, points to state clearly). 1 MiB of body. Events are added in order while the body stays within it; an event that alone exceeds it is sent alone, since skipping it would break order and lose a change. 1 MiB passes the default request limits of common receivers (nginx's default is 1 MiB, most frameworks allow more), and 100 typical objects stay well below it. `identity` batches are small and stop at 100 |
+| C-D105 | How coalesced mode decides and what it sends | **Approved 2026-10-06.** Stateless over the event store: at each look, the matching events after the acknowledged position, per event key; send when the newest is `debounceSeconds` old, or the oldest 10 minutes old, by `occurredAt`. One POST per event key (the body names one `event`), in the order of their first positions; the acknowledged key moves to the newest event counted once every POST of the round is acknowledged. A failure retries the round as per-change does. `payload` does not apply: the body carries no objects (CONSUMER_API's body); a `full` subscription in coalesced mode is accepted as C11 does and documented as such, rather than changing C11's contract. Rejected: a debounce timer per subscription in memory (lost on restart, and two processes would disagree) |
+| C-D106 | Several processes, and a slow receiver | **Approved 2026-10-06.** A lease per subscription in the row, as the job worker's (B2): 60 s, renewed before each send; an acknowledgement commits only while the lease is held. Four sender threads per process, one subscription each at a time, so a receiver timing out (10 s) delays only its own subscription. Rejected: holding the row's lock during the request (an operator's edit would wait up to 10 s), and one sequential loop (one slow receiver delays every other) |
+| C-D107 | What the dispatcher checks when it connects (left to C12 by C-D101) | **Approved 2026-10-06.** It resolves the host at each attempt and connects to an address it checked, never resolving twice, so a name cannot be pointed elsewhere between the check and the connection. A link-local address (`169.254.0.0/16`, `fe80::/10`, which hold cloud metadata services) is always refused; a loopback address only when the URL names a loopback host the allowlist lists. Private ranges are allowed: integrations inside the organisation's network are the common case, and the allowlist names them. A refused address is a failed attempt (`kind: "address"`), retried, since a DNS change may be temporary. Redirects are not followed: a `3xx` is a failed attempt naming the `Location`, so a receiver cannot send events to an unlisted host. TLS is verified against the system trust store. The client is the standard library's `http.client` and `ssl`, which allow connecting to a checked address with the name for TLS; no runtime dependency is added. No outbound proxy in 0.9 |
+| C-D108 | What the operator sees of delivery, and whether it changes `version` | **Approved 2026-10-06.** The subscription answer gains `delivery` (shape above): the last acknowledged POST, and the batch being retried with its attempts, first failure, last and next attempt and last error (`kind` `status`, `timeout`, `connection`, `tls`, `address`, `redirect`, with `status` and up to 200 characters of the answer or error). Delivery progress changes neither `version` nor `updatedAt`, which describe the configuration an operator edits; otherwise every delivered batch would make an edit read with the previous version fail `409 VERSION_CONFLICT`. A suspension raises `version`. No delivery history is kept (a log per attempt is U5's or later's question); the receiver has the delivery IDs |
+| C-D109 | When `FILTER_MATCHES_NOTHING` is decided (C-D94) | **Decided 2026-10-06 by the user, revising C-D94.** At once: when events follow a subscription's acknowledged position, the dispatcher checks each filter value before it sends; a value that matches no record suspends the subscription `FILTER_MATCHES_NOTHING`, naming the filter, the value and the acknowledged position. The deletions are not delivered first. A record a filter names is not deleted by accident: whoever deletes it is changing the structure, and the subscription's owner edits the filter. Nothing is lost: the acknowledged position does not move, so after the edit and resume the events from it are delivered, the deletions among them (a deletion passes every filter but the type, C-D90). Replaces the proposal to wait until the deletions were delivered (two steps and two columns), which the user judged overengineered |
+| C-D110 | An active subscription whose next events expired, and a reset on resume | **Decided 2026-10-06 by the user** (their proposal, with `reset` replacing `acknowledgeLoss`). An active subscription whose acknowledged position has expired (the capability turned back on after the retention period, C-D102, or the process down that long) is suspended `EVENTS_EXPIRED` with the lost range and the publication to re-sync from. **Resume gains `reset`** (any reason): `true` starts delivery after the workspace's feed head at the resume, as a new subscription starts (C-D97), and the receiver re-syncs what it missed itself (a publication's lists today, an export job from J1); without it, delivery continues from the first unacknowledged event, and a resume whose unacknowledged events expired is refused `409 EVENTS_EXPIRED` as C-D93 has it, its message naming `reset`. A gap-free re-sync resets first and reads after: changes in between arrive twice, never not at all. `reset` replaces `acknowledgeLoss` (C-D93 revised, delivered in C11): `acknowledgeLoss` continues from the earliest event still kept, so the receiver still has a gap to repair by a re-sync, after which the kept tail only repeats it; two ways to accept a loss would also need explaining on the Webhooks page. Replacing it is a revision of C-D93 and an amendment of C11's resume, done in C12 |
+| C-D111 | Retry of a batch whose events changed meanwhile | **Approved 2026-10-06.** A pending batch is fixed by its range (acknowledged key to end key) and its delivery ID; each attempt reads that range again and composes the objects again, so a retry carries the current state (`stateAt` later than before, as CONSUMER_API says) and the same events, as events never change. A filter or payload edit drops the pending batch (C-D108's PATCH rule), so a batch never mixes configurations under one delivery ID |
+
+**Journey.** J30 gains **J30.8 Receive** (per change, coalesced, filters and payload, signature,
+order and batches, the delivery state) and **J30.9 A receiver that fails or a subscription that
+cannot continue** (retries, `DELIVERY_FAILED` and resume, `HOST_NOT_ALLOWED`,
+`FILTER_MATCHES_NOTHING`, `EVENTS_EXPIRED`). J30's status says webhooks are delivered from C12. The
+tests start a receiver on `localhost` (the standard library's HTTP server in a thread, in the test
+module, answering as each case scripts: `200`, `503`, a slow answer, a redirect, recording each
+request's headers and body) and drive the dispatcher with `run_until_idle(now=…)` and a clock the
+test moves, as `derive_events` drives the deriver; no test waits on real time. J30's
+configurations, release with events and settings are reused; no seed is rebuilt.
+
+**Test cases** (approved by the user 2026-10-06; journey tests on generated A and B, written first
+and confirmed failing: nothing is delivered):
+
+1. **J30.8 Per change.** A `full` subscription; create, change and delete exposed records: one POST
+   with the events in position order, CONSUMER_API's body, each object equal to get by ID with the
+   subscription's filters, the deletion without an object. `RDM-Signature` verifies with the
+   `signingSecret` over `"{RDM-Timestamp}.{body}"`; a body changed by one byte does not.
+   `acknowledgedThrough` is the last event's position and `delivery.lastDeliveredAt` is set.
+2. **J30.8 Batches.** A batch job of 250 exposed items: three POSTs of 100, 100 and 50 in position
+   order, the second sent only after the first was answered; with `identity`, no `object` or
+   `stateAt`. An event the subscription does not name, or a record its filter excludes, is not sent;
+   a change only outside its scope moves `acknowledgedThrough` with no POST.
+3. **J30.8 Coalesced.** With `debounceSeconds` 60, a few changes: nothing while the dispatcher's
+   clock is less than 60 s past the newest event, then one POST with `fromPosition`, `toPosition`,
+   `eventCount` and `objectTypes`. Events whose oldest is aged 10 minutes (as J30.5 ages entries)
+   while a new one has just arrived: a POST at once, and the next after the pause.
+4. **J30.9 Retries.** The receiver answers `503`: nothing later is sent; the subscription shows
+   `delivery.pending` with the attempts, `lastError` and `nextAttemptAt`; the next attempt carries
+   the same `RDM-Delivery-Id` and a new timestamp. A redirect and a slow answer (past 10 s) are
+   failed attempts of their kind. The receiver recovers: the batch and the ones after it arrive in
+   order, `pending` is `null`, `version` unchanged.
+5. **J30.9 Suspension and resume.** The receiver fails for 24 hours on the test clock: `suspended`,
+   `DELIVERY_FAILED` with the last error, `version` raised. Further changes are not sent. Resume:
+   every event from the first unacknowledged one arrives, in order, none skipped.
+6. **J30.9 Host and filter.** The application restarted with an allowlist without the host: the
+   subscription is `HOST_NOT_ALLOWED` before any request. A subscription filtered on one container;
+   the container and its records are deleted: no request is sent and the subscription is
+   `FILTER_MATCHES_NOTHING` naming the filter, the value and its acknowledged position (C-D109).
+   After the filter is edited to another container and the subscription resumed, the deletions
+   arrive.
+7. **J30.9 Expired while active, and reset.** Events past the subscription's position aged beyond
+   retention (as J30.5): `EVENTS_EXPIRED` with the range and the publication; a plain resume is
+   `409 EVENTS_EXPIRED`; a resume with `reset` is `active` with `acknowledgedThrough` at the feed
+   head, and only changes made after it arrive. A subscription suspended by hand while changes are
+   made, resumed with `reset`, receives none of them (C-D110).
+8. **Two dispatchers.** Two dispatchers on one database (two processes' leases) handle one
+   subscription through 300 events: each batch arrives once, in order.
+9. **Unit:** the outage helper (a connection error logged without a traceback, then once a minute;
+   another exception with it); the retry schedule and the 24-hour cut; the byte-limit cut (an event alone over the
+   limit is sent alone); the signature over known bytes; the address check (link-local refused,
+   loopback only for a loopback URL, private allowed); the coalesced decision over event times.
+10. **Startup:** the migration on a clean database and from `20261006_02`; with the capability off,
+    no dispatcher starts.
+
+**Checks:** J30.8 and J30.9 on generated A and B; the unit tests; the C11 cases (`test_j30_subscriptions`,
+edit and resume change); the `feed` group once; `startup` (migration; J12.8's outage case and J24's background-job cases for the shared outage
+logging); `test_openapi_contract` (lock
+re-baselined for capabilities, the gated document) and `test_api_journeys`; `ruff`. Not run:
+`consumer` (no consumer answer changes; the pull feed's split read is covered by
+`test_j30_consumer_events`, run as a targeted module), `volume` (the bulk-volume delivery budget is
+C13's), the frontend, `budget` and the full suites (R).
+
+**Exit:** active subscriptions receive their events in order, in signed batches of at most 100 and
+1 MiB or as coalesced notices; failures are retried with the same delivery ID and suspend after
+24 hours; host, filter and expiry suspensions carry their reasons; a resume continues from the first
+unacknowledged event; the delivery state is visible on the subscription.
+
+**Docs at delivery:** the retry schedule (C-D103) and the byte limit (C-D104) are documented in
+full, as the user asked (2026-10-06; DOCUMENTATION_PLAN, points to state clearly): each wait and its
+jitter, when the 24 hours start and what resets them, what a receiver should answer and how fast;
+how a batch is cut, the event sent alone over the limit, and the request size a receiver's server
+must accept, with nginx's default as the example. Then CONSUMER_API (Delivery: the headers' exact
+form, the byte limit, the retry schedule, coalesced per event, redirects and addresses, the
+reasons, `reset` and the order "reset, then re-sync"; C-D94 revised, C-D103–C-D111; the C12 row);
+API.md (the `delivery` object, the reasons, the capabilities group); ARCHITECTURE (the dispatcher
+thread, the lease, the pending batch); OPERATIONS (what a receiver must answer, the trust store and
+`SSL_CERT_FILE`, no proxy, link-local refusal, the suspensions and what to do for each);
+USER_JOURNEYS J30.8 and J30.9; API_JOURNEYS; CURRENT_FUNCTIONALITY; OPERATIONS also states what
+the background threads log during a database outage and how to see the traceback (DEBUG); EXECUTION_GUIDE (new modules,
+counts); SETTINGS_AND_UI_PLAN's Webhooks row (the delivery state U5 shows); CHANGELOG,
+PROJECT_STATUS, TODO.
+
+**Composable domains (ADR-032):** no door is affected. Delivery reads the events and composes
+objects through get by ID; identity, attribute storage, audit/history, the bulk APIs, `match` and
+mapping coverage are untouched, and the store gains delivery state only, no record values.
+
+##### C12 delivery record
+
+**Delivered 2026-10-06**, as designed, with C-D103–C-D111 and C-D93 and C-D94 revised.
+
+- **Dispatcher** (`engine/events/dispatcher.py`): the claim (one `UPDATE … WHERE sequence_id IN
+  (SELECT … FOR UPDATE SKIP LOCKED)`, a 60 s lease, least recently handled first), one step per
+  subscription (the host, expiry and filter checks, then the batch, stored as pending before it is
+  sent), the outcome recorded under the lease, and the thread with four senders. `create_app` builds
+  it only with the capability on; `lifespan` starts it where the model is served
+  (`run_consumer_dispatcher`).
+- **Delivery** (`engine/events/delivery.py`): the limits, the retry schedule, the coalesced
+  decision, the encoding (as the API writes values), the 1 MiB cut, the signature and the headers.
+- **Client** (`engine/events/webhook_client.py`): the standard library's `http.client` and `ssl`;
+  one resolution per attempt, the address check, a connection to the checked address with the host
+  name for TLS, no redirects, 4 KiB of the answer, failures by kind.
+- **The pull feed's read** (`reads/consumer_events.py`) is split into `event_filters` and
+  `event_page` (with an optional end key, `through`); `read_consumer_events` answers as before.
+- **C11's service**: `resume` takes `reset` (C-D110) and clears a failing batch; `PATCH` drops it
+  (`clear_delivery`); `secret_text` gives the key as `signingSecret` shows it; the four reasons are
+  constants in `subscription_rules`.
+- **Outage logging** (`common/outage.py`): `OutageLog` and `database_unreachable`, used by the job
+  worker, the deriver and the dispatcher; the TODO from C11 is closed.
+- **Store** (migration `20261006_03`): the delivery columns and `ix_consumer_subscriptions_due`.
+- **API**: the subscription's `delivery` (`SubscriptionDelivery`, `PendingDelivery`,
+  `DeliveryError`), `EVENTS_EXPIRED` among the reasons, `reset` on resume,
+  `consumerSubscriptions.delivery` (`WebhookDeliveryLimits`) in capabilities; the management OpenAPI
+  lock re-baselined (diffed: the capabilities group's description and `delivery`, nothing else).
+- **Docs**: CONSUMER_API (Delivery rewritten, the retry schedule and the size limit stated in full
+  as the user asked; C-D93 and C-D94 revised; C-D103–C-D111; the C12 row), API.md (capabilities,
+  the subscription's `delivery` and reasons, resume's `reset`, "Webhook delivery"), ARCHITECTURE
+  (the dispatcher, the outage log), OPERATIONS (outage lines, a Delivery section: what a receiver
+  must do, a failing receiver, each suspension and its fix, addresses, TLS and `SSL_CERT_FILE`, no
+  proxy, several processes), USER_JOURNEYS (J30.8, J30.9, J30's status), API_JOURNEYS,
+  CURRENT_FUNCTIONALITY, EXECUTION_GUIDE (groups, counts, two changed-boundary rows),
+  SETTINGS_AND_UI_PLAN's Webhooks rows, DOCUMENTATION_PLAN (the two points to state clearly, added
+  at planning), CHANGELOG, PROJECT_STATUS, TODO.
+
+**Differs from the plan:**
+- **The signature's key is the `signingSecret` text**, exactly as the create answered it, not the
+  32 bytes it encodes: a receiver uses what it was given, with no decoding to get wrong.
+- **Capabilities also report the schedule** (`retryWaitsSeconds`, `laterWaitSeconds`), so the whole
+  retry rule is readable from the API, not only the window.
+- **A coalesced round has one delivery ID; each notice's `deliveryId`** is derived from it and the
+  event key (UUID 5), so each request has its own ID and keeps it on every retry.
+- **An object deleted after its event** is sent without an object, as the pull feed answers it
+  (C-D7: composed when sent). The first draft of case 1 expected an object for every event that is
+  not a deletion; the case's text is unchanged, its assertion was corrected to C-D7.
+- **The host and two-dispatcher cases** build a second `EventDispatcher` on the application's
+  session factory (one with another allowlist), standing for a second process, instead of
+  restarting the application.
+- **Lease renewals and `RDM-Timestamp`** take the later of the round's clock and the real clock, so
+  a long round's later sends renew the lease for real time, while a test's clock still leads.
+- **Tests changed by the package's own decisions:** C11's expired-resume case uses `reset` and reads
+  the feed head from the `410` details (after aging, the feed read is itself expired); C11's two
+  capabilities cases include `delivery`; J24.6 and the worker's unit outage case expect no traceback.
+- **Found and fixed during the build:** the claim's subqueries were not correlated to the outer row
+  inside `UPDATE … IN (SELECT …)`, so with several subscriptions the claim failed; the batches case
+  found it.
+- **Documents and code that differed:** EXECUTION_GUIDE's `jobs` count (78) was stale; it is 145.
+- **Your development database:** a `uvicorn --reload` process (not started here) was running and
+  will have applied `20261006_03` to it on reload.
+
+**Checks:**
+- **Failing first:** the 16 cases of `test_j30_delivery` (generated A and B) failed (no dispatcher);
+  all pass.
+- **Targeted:** `test_j30_delivery` 16; the unit tests of delivery, the client and the outage log
+  44; the startup cases (the upgrade from `20261006_02` with a subscription and two starts, the
+  interrupted revision, C11's upgrade, the clean boot, the failed migration) 5;
+  `test_openapi_contract`, `test_api_journeys`, `test_boundaries` 17; `test_j30_subscriptions`,
+  `test_j30_consumer_events`, `test_j24_background_job`, `test_j20_discover`, the worker's unit tests
+  and J12.8's outage case 61: all passed.
+- **The thread**, once, by a throwaway case (deleted): three subscriptions delivered through the
+  sender pool, then the thread stopped.
+- **Groups**, once each: `feed`, `startup` and `contract` in parallel, 324 passed in 1 min 25 s (no
+  serial part); `consumer`, 366 passed in 1 min 54 s (its serial part empty); `jobs`, 144 passed in
+  36 s and its serial part 1.
+- `ruff check app/ tests/`: clean.
+- **Not run:** `volume` (the split read issues the same statements; the bulk delivery budget is
+  C13's), `model_admin` and `workspaces` (their hooks are unchanged), the frontend (unchanged),
+  `budget` and the full suites (R).
 
 ## Track V — API reference
 

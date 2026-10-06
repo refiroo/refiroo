@@ -1036,8 +1036,8 @@ statements in `test_consumer_xref_volume`.
 ### J30 — Follow a consumer API's changes
 
 **Actor:** integrator; operator (subscriptions). **Channel:** API. **Stories:** US-I05. **Status:**
-the pull feed delivered (0.9 C10); subscriptions managed from 0.9 C11, delivered from C12; C13
-closes the events ([CONSUMER_API.md](../CONSUMER_API.md)).
+the pull feed delivered (0.9 C10); subscriptions managed from 0.9 C11 and delivered as webhooks
+from C12; C13 closes the events ([CONSUMER_API.md](../CONSUMER_API.md)).
 
 1. Read the events a consumer API declares for a workspace, in position order, from a position (`0`,
    or a publication's `eventSequence`), a page at a time by cursor until caught up.
@@ -1081,6 +1081,22 @@ closes the events ([CONSUMER_API.md](../CONSUMER_API.md)).
   re-checks the subscription and lists what to fix; after its unacknowledged events expired it is
   refused unless the loss is acknowledged, naming the lost positions and the publication to re-sync
   from. A workspace with subscriptions cannot be deleted.
+- **J30.8 Receive**: an active subscription's receiver gets its events in position order: per
+  change, requests of up to 100 events (and at most 1 MiB), each event with the object as get by ID
+  answers it under the subscription's filters, or only its identity; coalesced, one notice per event
+  once the changes pause for the debounce, or after ten minutes of continuous change. Each request
+  is signed with the subscription's key over its timestamp and body. A `2xx` answer acknowledges the
+  request and the next follows; events outside the subscription's events or filters are not sent,
+  and the subscription's position moves past them. The subscription shows when it last delivered.
+- **J30.9 A receiver that fails, or a subscription that cannot continue**: a failed request (an
+  error status, a redirect, no answer within the timeout, an address refused) is retried with the
+  same delivery ID and events, nothing later is sent past it, and the subscription shows the
+  attempts, the last error and the next attempt. After 24 hours of failures it is suspended
+  `DELIVERY_FAILED`; a resume delivers everything from the first unacknowledged event. A host the
+  deployment no longer allows suspends it `HOST_NOT_ALLOWED`; a filter value no record matches
+  any longer, `FILTER_MATCHES_NOTHING`, before anything is sent; events that expired before they
+  were delivered, `EVENTS_EXPIRED`. A resume with `reset` starts after the feed's head instead,
+  and the receiver re-syncs what it missed itself.
 
 **Refusals:** `404 EVENTS_NOT_DECLARED`, `400 UNKNOWN_EVENT`, `400 PARAMETER_NOT_SUPPORTED`
 (`publication`, `asOf`, `to.`), `400 INVALID_PAGE_SIZE` (1–100 with the full payload, 1–1,000 with

@@ -47,19 +47,18 @@ on every consumer read (C-D76–C-D80). **C9 is delivered (2026-10-05)**: event 
 bundled fonts, the top bar, rail and data-context band, `PageHeader`, `StatusPill` and `Card`
 (U-D7–U-D9, [record](SETTINGS_AND_UI_PLAN.md#u2-delivery-record)). **C11 is delivered
 (2026-10-06)**: webhook subscriptions, their sealed signing keys, the host allowlist and the
-suspensions on activation and retirement (C-D96–C-D102). Next: C12, in the order of the delivery
-queue (U4 waits for U3). See [Next — 0.9](#next--09).
+suspensions on activation and retirement (C-D96–C-D102). **C12 is delivered (2026-10-06)**: webhook
+delivery, signed, in order, retried for 24 hours, with the dispatcher's suspensions, `reset` on
+resume and the background threads' outage logging (C-D103–C-D111). Next: C13, in the order of the
+delivery queue (U4 waits for U3). See [Next — 0.9](#next--09).
 
 - **For U3, from C11 (2026-10-06).** The Workspaces page words no hint for `deleteBlockedBy:
   subscribed` (a workspace with webhook subscriptions); delete stays disabled. Add the hint ("Delete
   its webhook subscriptions first, or retire it") when U3 moves the page into Settings.
-- **To decide: the event deriver's traceback during an outage (found 2026-10-06, C11's checks).**
-  The C10 deriver logs the first failure of a database outage with its traceback, as the job worker
-  does, while J12's `test_the_database_goes_away_while_running` allows no logged traceback during an
-  outage. The case fails whenever the deriver's once-a-second poll falls inside the outage (once in
-  C11's group run; it passed when run again). Either the deriver (and the job worker) log the first
-  failure without the traceback, keeping it for debug logging, or the case accepts the workers' one
-  traceback per outage.
+- **For the user to place, from C12 (2026-10-06): an outbound proxy for webhooks.** The dispatcher
+  connects to receivers directly (C-D107); a deployment that reaches the internet only through an
+  HTTPS proxy cannot deliver. Adding one means connecting through the proxy while keeping the
+  address check (C-D107) meaningful, since the proxy, not the engine, then resolves the host.
 
 - **For U6, from U2 (2026-10-06).** Boolean and other values still render as green "Yes" and grey
   "No" pills (`ui/formatValue`). ADR-039 asks for plain text, with pills kept for states and
@@ -163,9 +162,9 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 - [ ] Ordered change feed and retryable webhooks. The feed read with positions in commit order is
   delivered as 0.9 F1 (2026-10-03), retention and recovery as F2 (2026-10-03), event definitions
   as C9 (2026-10-05), the events and their pull feed as C10 (2026-10-06), subscriptions with their
-  signing keys, suspensions and C-D93's resume as C11 (2026-10-06); webhooks remain: the dispatcher
-  with full-object batches, a byte limit, signing, retries and the delivery suspensions (C12), and
-  the events' acceptance (C13).
+  signing keys, suspensions and C-D93's resume as C11 (2026-10-06), webhook delivery with
+  full-object batches, a byte limit, signing, retries and the delivery suspensions as C12
+  (2026-10-06); the events' acceptance (C13) remains.
 - [x] Cross-type object lookup `GET /objects` (P1), moved from 0.8 (D20): delivered as 0.9 Q1
   (2026-09-29).
 - [x] A general relation edge list with publication context (P3), moved from 0.8 (D20): delivered as

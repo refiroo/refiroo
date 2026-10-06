@@ -647,7 +647,7 @@ Where events go is deployment data: URLs and secrets differ by environment and m
 immutable, portable model release. An administrative API manages subscriptions, served only with
 the deployment capability `CONSUMER_SUBSCRIPTIONS_ENABLED` (off by default, C-D10, C-D102).
 _Delivered in C11 (2026-10-06); the contract is in
-[API.md](API.md#consumer-subscriptions-base-09-c11). Delivery is C12's._
+[API.md](API.md#consumer-subscriptions-base-09-c11). Delivered from C12 (2026-10-06), below._
 
 ```text
 POST   /api/v1/consumer-subscriptions                       201, the signing key in this answer only
@@ -655,7 +655,7 @@ GET    /api/v1/consumer-subscriptions?consumerApi=…&workspaceKey=…&status=�
 GET    /api/v1/consumer-subscriptions/{id}
 PATCH  /api/v1/consumer-subscriptions/{id}                  (expectedVersion, like other updates)
 POST   /api/v1/consumer-subscriptions/{id}/suspend
-POST   /api/v1/consumer-subscriptions/{id}/resume           (acknowledgeLoss, C-D93)
+POST   /api/v1/consumer-subscriptions/{id}/resume           (reset, C-D93 revised; acknowledgeLoss until C12)
 POST   /api/v1/consumer-subscriptions/{id}/rotate-secret    (0.12)
 DELETE /api/v1/consumer-subscriptions/{id}?expectedVersion=…
 ```
@@ -695,43 +695,87 @@ DELETE /api/v1/consumer-subscriptions/{id}?expectedVersion=…
 - **State** (C-D98): `active` or `suspended`, and a suspension always has a reason:
   `SUSPENDED_BY_USER` (`suspend`), `MODEL_CHANGED` and `CONTRACT_VERSION_CHANGED` (an activation,
   C-D99), `WORKSPACE_RETIRED` (a retirement, C-D99); C12 adds `DELIVERY_FAILED`,
-  `FILTER_MATCHES_NOTHING` (C-D94) and `HOST_NOT_ALLOWED`. Nothing rewrites a subscription.
+  `FILTER_MATCHES_NOTHING` (C-D94), `HOST_NOT_ALLOWED` and `EVENTS_EXPIRED` (C-D110). Nothing
+  rewrites a subscription.
 - **After a model change**, in the activation's transaction: a subscription whose consumer API,
   events or filters the release no longer declares is suspended `MODEL_CHANGED` with each finding;
   one whose contract version the release raises is suspended `CONTRACT_VERSION_CHANGED`, since one
   version is served (C-D3) and the `full` object's shape would change without the receiver agreeing.
 - **After a data change**, a subscription whose filter value no longer matches any record is
-  suspended with `FILTER_MATCHES_NOTHING` once the deletions in its scope are delivered; it is never
-  deleted automatically (C-D94).
+  suspended with `FILTER_MATCHES_NOTHING` when its next events are to be sent, before they are; the
+  deletions are delivered after the owner edits and resumes it. It is never deleted automatically
+  (C-D94, revised 2026-10-06).
 - **Retiring the workspace** suspends its subscriptions; a workspace with subscriptions cannot be
   deleted (C-D99).
 - **Resume** works after any reason. It checks the subscription as a create does and lists what to
-  fix (`409 SUBSCRIPTION_NEEDS_EDIT`); after events it had not acknowledged expired it needs the
-  loss acknowledged (C-D93); and it accepts the contract version served.
+  fix (`409 SUBSCRIPTION_NEEDS_EDIT`); after events it had not acknowledged expired it is refused
+  unless it resets to the feed head (`reset`, C-D93 revised); and it accepts the contract version
+  served.
 
 ### Delivery
 
+_Delivered in C12 (2026-10-06); the contract is in [API.md](API.md#webhook-delivery-base-09-c12)._
+A dispatcher in the API process delivers every active subscription while
+`CONSUMER_SUBSCRIPTIONS_ENABLED` is on (C-D102).
+
 - **Per-change mode:** one POST carries a batch of up to 100 events in position order, so a bulk job
-  or a large publication becomes a few requests, not thousands.
-- **Coalesced mode:** one POST says "this scope changed" after `debounceSeconds` without new
-  matching events, or after at most 10 minutes of continuous change. This fits "run an export when
-  data changes".
-- **Ordering:** each subscription delivers in feed-position order (INTEGRATION_API F3). A batch goes out only after the
-  previous one is acknowledged.
-- **Acknowledgement and retry:** any `2xx` acknowledges. Anything else, or a timeout (10 s), is
-  retried with exponential backoff and jitter for up to 24 hours. After that the subscription is
-  **suspended**. `resume` continues from the first unacknowledged event; nothing is skipped. If
-  events it had not acknowledged have expired meanwhile, a plain `resume` is `409 EVENTS_EXPIRED`
-  with the lost range and the baseline to re-sync from; `resume` with `acknowledgeLoss: true` goes on
-  from the earliest event still kept (C-D93).
-- **At-least-once:** receivers deduplicate by `eventId`. The event `position` tells them whether they
-  are behind.
-- **Headers:** `RDM-Delivery-Id`, `RDM-Timestamp` and
-  `RDM-Signature: sha256=<HMAC of "{timestamp}.{body}">`. Receivers verify the signature and reject
-  stale timestamps to prevent replay (C-D12, revised 2026-10-05: signed from 0.9, since a forged event
-  could otherwise plant data). Every request is signed, retries included.
-- **Size:** a `full` batch also stops at a byte limit, so 100 large objects do not make one oversized
-  request; C12 sets the limit.
+  or a large publication becomes a few requests, not thousands. The events are read as the pull
+  feed reads them, with the subscription's events, filters and payload; events it does not take
+  are passed over without a request.
+- **Coalesced mode:** one POST per subscribed event says "this scope changed" once the newest
+  matching event is `debounceSeconds` old, or once the oldest is 10 minutes old during continuous
+  change (C-D105). This fits "run an export when data changes". The body carries no objects, so
+  `payload` does not apply to it.
+- **Ordering:** each subscription delivers in feed-position order (INTEGRATION_API F3). A batch goes
+  out only after the previous one is acknowledged, and nothing later is sent past a failing batch.
+- **Acknowledgement:** any `2xx` acknowledges the request; the subscription's `acknowledgedThrough`
+  moves to the batch's end. Anything else is a failed attempt: an error status, a redirect (never
+  followed, C-D107), no answer within 10 seconds, a failed connection or TLS handshake, or an
+  address refused (below).
+- **Retries (C-D103).** A failed batch is retried with the same events and the same `deliveryId`.
+  After the first failed attempt the next waits 10 s, then 30 s, 1 min, 2 min, 5 min, 10 min,
+  30 min, and from then on 1 hour; each wait varies by ±20 % so that subscriptions that failed
+  together do not retry together. Retries go on for 24 hours counted from the batch's **first**
+  failure, about 30 attempts in all; a success resets the count, so a receiver that fails now and
+  then is never suspended for it. After 24 hours the subscription is **suspended**
+  `DELIVERY_FAILED`, with the delivery ID, the attempts and the last error in the suspension's
+  details. While a batch is failing, the subscription's `delivery.pending` shows the attempts, the
+  first failure, the last error and the next attempt. An edit of the subscription drops the failing
+  batch and the next attempt is at once; so does a resume.
+- **Resume** continues from the first unacknowledged event; nothing is skipped. If events it had not
+  acknowledged have expired meanwhile, a plain `resume` is `409 EVENTS_EXPIRED` with the lost range
+  and the baseline to re-sync from. `resume` with `reset: true` (after any reason) starts after the
+  feed head at the resume instead, and the receiver re-syncs what it missed: reset first, then
+  re-sync, so a change in between arrives twice rather than not at all. An active subscription
+  whose next events expired (the dispatcher did not run for the retention period) is suspended
+  `EVENTS_EXPIRED` (C-D93 revised, Base 0.9 C-D110).
+- **At-least-once:** receivers deduplicate by `eventId`. A request the receiver handled but answered
+  too late is sent again. The event `position` tells a receiver whether it is behind.
+- **Headers:** `Content-Type: application/json`, `User-Agent: rdm-engine`, `RDM-Delivery-Id` (the
+  body's `deliveryId`, the same on every retry of a batch), `RDM-Timestamp` (Unix seconds, new on
+  every attempt) and `RDM-Signature: sha256=<hex>`, the HMAC-SHA256 of `"{RDM-Timestamp}.{body}"`
+  with the subscription's `signingSecret`, exactly as the create answered it, as the key. Receivers
+  verify the signature over the body bytes as received and reject stale timestamps to prevent
+  replay (C-D12, revised 2026-10-05: signed from 0.9, since a forged event could otherwise plant
+  data). Every request is signed, retries included.
+- **Size (C-D104).** A per-change request holds at most 100 events **and** at most 1 MiB (1,048,576
+  bytes) of body. Events are added in position order while the body stays within 1 MiB; the batch
+  ends before the first event that would pass it, and the next batch starts there. An event that is
+  alone larger than 1 MiB is sent alone, since skipping it would break the order and lose a change.
+  A receiver's server must therefore accept request bodies of 1 MiB, and somewhat more for an
+  unusually large single object: nginx's default `client_max_body_size` is exactly 1 MiB, most
+  frameworks allow more. An `identity` batch is small and stops at 100 events. The limits are
+  reported in `GET /api/v1/capabilities` (`consumerSubscriptions.delivery`).
+- **Where requests go (C-D107).** The host must stay in `CONSUMER_WEBHOOK_ALLOWED_HOSTS`; one removed
+  from it suspends the subscription `HOST_NOT_ALLOWED` before anything is sent. The host is resolved
+  at each attempt and the request goes to the address checked. A link-local address
+  (`169.254.0.0/16`, `fe80::/10`, where cloud metadata services listen) is always refused, and a
+  loopback address unless the URL names a loopback host; private ranges are allowed. TLS is verified
+  against the system's trust store. No outbound proxy is used in 0.9.
+- **Filters that stop matching (C-D94 revised, C-D109):** when a subscription's next events are to
+  be sent and one of its filter values no longer matches any record, it is suspended
+  `FILTER_MATCHES_NOTHING` before they are; its position stays, so after the owner edits the filter
+  and resumes, those events, the deletions among them, are delivered.
 
 Per-change body:
 
@@ -864,7 +908,7 @@ dispatcher (C12) will run beside it. Multi-node coordination is 0.11 work.
 | C9 | Event definitions: `events` schema and validation, contract rules for events (C-D81–C-D86) — **delivered 2026-10-05** |
 | C10 | Event deriver over the workspace change feed (INTEGRATION_API F6): owning-object resolution through projections, `watch` evaluation, event store, retention, pull feed (C-D87–C-D92, C-D95) — **delivered 2026-10-06** |
 | C11 | Subscription administration: API, filters through definition parameters, host allowlist, suspension on model change and retirement, `payload` (C-D7), the signing key generated on create and sealed at rest (C-D12, C-D96; rotation in 0.12), resume after expired events (C-D93) (C-D96–C-D102) — **delivered 2026-10-06** |
-| C12 | Dispatcher: per-change batches, coalesced debounce, ordering, retry with backoff, suspension (`DELIVERY_FAILED`, `FILTER_MATCHES_NOTHING`, `HOST_NOT_ALLOWED`; resume is C11's); objects composed through get-by-ID for `full` subscriptions with a byte limit per request (C-D7); every request signed (C-D12) |
+| C12 | Dispatcher: per-change batches, coalesced debounce, ordering, retry with backoff, suspension (`DELIVERY_FAILED`, `FILTER_MATCHES_NOTHING`, `HOST_NOT_ALLOWED`; resume is C11's); objects composed through get-by-ID for `full` subscriptions with a byte limit per request (C-D7); every request signed (C-D12) — **delivered 2026-10-06** (C-D103–C-D111; `EVENTS_EXPIRED` and `reset` added, C-D93 and C-D94 revised) |
 | C13 | Event acceptance: the scenarios below, plus a bulk-volume delivery budget |
 | C14 | Batch resolve: `POST …/resolve`, by query and by ID, `defaults`, per-item outcomes, batch maximum, volume budget (C-D47–C-D53) — **delivered 2026-10-05** |
 | C15 | Crosswalk: `targetable` in the contract, `to.{parameter}` on XREF, get by ID, lists and batch resolve, `target`, `TARGET_NOT_FOUND`, `AMBIGUOUS_TARGET` and `MULTIPLE_TARGETS` (C-D54–C-D58) — **delivered 2026-10-05** |
@@ -937,7 +981,8 @@ for C2, C-D27–C-D33 for C3 and C-D34–C-D41 for C4, on 2026-10-04; C-D42–C-
 C-D47–C-D53 for C14, C-D54–C-D58 for C15, C-D59 for CN1, C-D60–C-D71 for C6, C-D72–C-D75 for C8 and
 C-D76–C-D80 for C16 and C-D81–C-D86 for C9 on 2026-10-05; C-D87–C-D92 for C10 the same day, with
 C-D93 and C-D94 for C11 and C12 raised while planning it, and C-D95 during its delivery
-(2026-10-06); C-D96–C-D102 for C11 on 2026-10-06.
+(2026-10-06); C-D96–C-D102 for C11 and C-D103–C-D111 for C12 on 2026-10-06, with C-D93 and
+C-D94 revised for C12.
 
 | # | Question | Decision |
 | --- | --- | --- |
@@ -1033,8 +1078,8 @@ C-D93 and C-D94 for C11 and C12 raised while planning it, and C-D95 during its d
 | C-D90 | How the pull feed's parameters filter | **Decided 2026-10-05 (C10).** Against live data at the read, through the lists' predicates; the type parameter against the type stored with the event; an event whose object no longer exists passes every other parameter. `publication`, `asOf` and `to.` are not supported there. Subscription filters (C11) follow it |
 | C-D91 | How the pull feed pages and resumes | **Decided 2026-10-05 (C10); amended with C-D7's revision.** `after` starts after a position, the opaque `cursor` continues inside a position too and is a lasting resume token, `caughtUp` says the derived head is reached. `pageSize` 1–100 (default 100) with the full payload, 1–1,000 (default 500) with identity. A narrowed page scans at most ten pages of events |
 | C-D92 | Where derivation starts, and what expires | **Decided 2026-10-05 (C10).** An existing workspace starts at its active publication's `feedPosition` (0 without one); events expire with the change feed's floor (D40); a position below the earliest, or below the start, is `410 EVENTS_EXPIRED` naming the active publication and its `eventSequence`; without a publication nothing expires |
-| C-D93 | Resuming a subscription after its events expired | **Decided 2026-10-05 (C10 planning, for C11 and C12), by the user.** A suspended subscription receives nothing, and events past retention (C-D9) are gone for it. A plain `resume` after such a loss is refused `409 EVENTS_EXPIRED` with the lost range (`fromPosition`, `toPosition`) and the baseline (the active publication and its `eventSequence`, C-D15) in the details. `resume` with `acknowledgeLoss: true` proceeds from the earliest event still kept. Otherwise a script that resumes automatically would pass over a warning in the response, and principle 6 rules out a silent loss. The Webhooks page shows the same message and asks for the same confirmation |
-| C-D94 | A filter value that no longer matches any record | **Decided 2026-10-05 (C10 planning, for C11 and C12), by the user.** A filter is a value matched by name or code, so deleting the record it named never loosens it: it stops matching. The subscription is kept until the deletions in its scope are delivered and acknowledged, since the receiver needs them to drop its copies (C-D90). Then a subscription whose filter value matches no record is suspended with the reason `FILTER_MATCHES_NOTHING`, naming the filter and the position, in the API and on the Webhooks page. It is never deleted automatically: a data edit does not remove another owner's configuration, and a record recreated under the same name would match again. The owner edits and resumes, or deletes it |
+| C-D93 | Resuming a subscription after its events expired | **Revised 2026-10-06 (C12 planning), by the user:** `resume` takes `reset` instead of `acknowledgeLoss`. `reset: true`, after any reason, starts delivery after the workspace's feed head at the resume, and the receiver re-syncs what it missed (a publication's lists, or an export job from J1); without it a resume after expired events is still `409 EVENTS_EXPIRED`, its message naming `reset`. `acknowledgeLoss` continued from the earliest event still kept, which left a gap the receiver had to re-sync anyway. An active subscription whose next events expired is suspended `EVENTS_EXPIRED` (Base 0.9 C-D110). C12 makes the change to C11's resume. _Was:_ **Decided 2026-10-05 (C10 planning, for C11 and C12), by the user.** A suspended subscription receives nothing, and events past retention (C-D9) are gone for it. A plain `resume` after such a loss is refused `409 EVENTS_EXPIRED` with the lost range (`fromPosition`, `toPosition`) and the baseline (the active publication and its `eventSequence`, C-D15) in the details. `resume` with `acknowledgeLoss: true` proceeds from the earliest event still kept. Otherwise a script that resumes automatically would pass over a warning in the response, and principle 6 rules out a silent loss. The Webhooks page shows the same message and asks for the same confirmation |
+| C-D94 | A filter value that no longer matches any record | **Revised 2026-10-06 (C12 planning), by the user:** suspended at once, when the dispatcher is about to send the subscription's next events, without delivering the deletions first: a record a filter names is not deleted by accident, and the owner edits the filter; the acknowledged position stays, so the deletions arrive after the resume (Base 0.9 C-D109). _Was:_ **Decided 2026-10-05 (C10 planning, for C11 and C12), by the user.** A filter is a value matched by name or code, so deleting the record it named never loosens it: it stops matching. The subscription is kept until the deletions in its scope are delivered and acknowledged, since the receiver needs them to drop its copies (C-D90). Then a subscription whose filter value matches no record is suspended with the reason `FILTER_MATCHES_NOTHING`, naming the filter and the position, in the API and on the Webhooks page. It is never deleted automatically: a data edit does not remove another owner's configuration, and a record recreated under the same name would match again. The owner edits and resumes, or deletes it |
 | C-D95 | A projection over a containment relation | **Decided 2026-10-06 (C10 delivery), by the user.** A record's feed subject names its `parentObjectId`, and its `previousParentObjectId` when it moved, on every path that builds it, so the deriver updates both parents of a child created, deleted or moved under a projection over a parent–child relation. The raw feed's answer is unchanged |
 | C-D96 | How a webhook signing key is kept at rest | **Decided 2026-10-06 (C11).** Sealed with AES-256-GCM under `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`, a deployment secret outside the database, required with the capability on (startup refuses without it). Signing needs the key itself, so it cannot be hashed; in plain text a backup or replica would let anyone forge events. The sealed value carries a format byte so 0.12 can re-seal under another key |
 | C-D97 | Where a new subscription starts | **Decided 2026-10-06 (C11).** After the workspace's feed head at creation; `startAfter` names an earlier position still kept, checked as the pull feed's `after` (`410 EVENTS_EXPIRED`, `409 EVENT_POSITION_AHEAD`). The feed head, not the derived head, so a lagging deriver loses nothing |
@@ -1043,3 +1088,12 @@ C-D93 and C-D94 for C11 and C12 raised while planning it, and C-D95 during its d
 | C-D100 | A filter value that matches nothing at create | **Decided 2026-10-06 (C11).** Refused `400 FILTER_MATCHES_NOTHING` at create, edit and resume, at `/filters/{name}`; a type name the API does not expose is `400 UNKNOWN_OBJECT_TYPE` |
 | C-D101 | What the host allowlist accepts | **Decided 2026-10-06 (C11).** Host names ignoring case, exact or `*.` and a domain (any depth below, not the domain itself); IP addresses as written; any port. Absolute HTTPS, no user information or fragment, at most 2,048 characters; plain HTTP only to a listed `localhost`, `127.0.0.1` or `::1`. Empty allows nothing. Reported in capabilities. A host removed later is C12's (`HOST_NOT_ALLOWED`) |
 | C-D102 | What the subscriptions capability gates | **Decided 2026-10-06 (C11).** The whole group: off, no subscription route is served (reads included) and C12 delivers nothing; stored subscriptions are kept |
+| C-D103 | The retry schedule | **Decided 2026-10-06 (C12).** After a failed attempt the next waits 10 s, 30 s, 1 min, 2 min, 5 min, 10 min, 30 min, then every hour, each ±20 %, until 24 hours after the batch's first failure; then `DELIVERY_FAILED` with the delivery ID, attempts and last error. A success resets it. Constants, reported in capabilities; documented in full (the user's request) |
+| C-D104 | The byte limit of a batch | **Decided 2026-10-06 (C12).** 1 MiB of body: events in order while the body stays within it; an event alone over it is sent alone. Documented in full with what a receiver's server must accept (the user's request) |
+| C-D105 | Coalesced mode | **Decided 2026-10-06 (C12).** Decided from the event store at each look, no timer: send when the newest matching event is `debounceSeconds` old or the oldest 10 minutes old; one POST per event key, in the order of their first positions; the acknowledged position moves once every POST of the round is acknowledged; `payload` does not apply |
+| C-D106 | Several processes, and a slow receiver | **Decided 2026-10-06 (C12).** A 60 s lease per subscription in its row, renewed before each send; an acknowledgement is recorded only under the lease. Four senders per process, one subscription each at a time. No row lock during a request |
+| C-D107 | What the dispatcher checks when it connects | **Decided 2026-10-06 (C12).** Resolve at each attempt and connect to the checked address; link-local always refused, loopback only for a loopback URL, private ranges allowed; a refused address is a failed attempt. Redirects not followed. TLS against the system trust store; the standard library's client; no proxy in 0.9 |
+| C-D108 | What the operator sees, and `version` | **Decided 2026-10-06 (C12).** The subscription answers `delivery`: `lastDeliveredAt` and `pending` (delivery ID, end position, attempts, first failure, last and next attempt, last error by kind). Delivery progress changes neither `version` nor `updatedAt`; a suspension does. No attempt history |
+| C-D109 | When `FILTER_MATCHES_NOTHING` is decided | **Decided 2026-10-06 (C12), revising C-D94.** When the next events are to be sent, before they are; the position stays, so the deletions arrive after the edit and resume |
+| C-D110 | Expired events of an active subscription; a reset | **Decided 2026-10-06 (C12), revising C-D93.** Suspended `EVENTS_EXPIRED` with the lost range and the publication. `resume` takes `reset` (any reason), starting after the feed head; `acknowledgeLoss` is removed |
+| C-D111 | A retried batch | **Decided 2026-10-06 (C12).** Fixed by its range and delivery ID; each attempt reads the range again and composes the objects anew; an edit drops it |

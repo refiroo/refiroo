@@ -33,6 +33,15 @@ SUBSCRIPTIONS = {
     "CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY": KEY,
 }
 PATH = "/consumer-subscriptions"
+# How webhooks are delivered (C12, C-D103, C-D104), reported whether the capability is on or off.
+DELIVERY = {
+    "maxEvents": 100,
+    "maxBytes": 1048576,
+    "timeoutSeconds": 10.0,
+    "retryWaitsSeconds": [10, 30, 60, 120, 300, 600, 1800],
+    "laterWaitSeconds": 3600,
+    "retryHours": 24,
+}
 URL = "https://hooks.example.test/rdm"
 
 
@@ -67,6 +76,14 @@ def _suspend(world, subscription):
 def _resume(world, subscription, **body):
     current = _read(world, subscription)
     return world.api.post(f"{PATH}/{current['id']}/resume", {"expectedVersion": current["version"], **body})
+
+
+def _feed_head(world, workspace):
+    """The workspace's feed head, also once its earliest entries expired (the read answers 410)."""
+    response = world.api.get(f"/workspaces/{workspace}/feed")
+    if response.status_code == 410:
+        return response.json()["error"]["details"]["headPosition"]
+    return ok(response)["headPosition"]
 
 
 def _workspace_version(world, key):
@@ -302,11 +319,11 @@ def test_retiring_a_workspace_suspends_its_subscriptions(world):
 @pytest.mark.journey("J30.7")
 @pytest.mark.settings(**SUBSCRIPTIONS)
 @pytest.mark.structures(*LEDGER)
-def test_resuming_after_expired_events_needs_the_loss_acknowledged(world):
+def test_resuming_after_expired_events_needs_a_reset(world):
     """Given a subscription suspended by hand in a new workspace, then writes and a publish whose
     entries age past retention. When it is resumed, the resume is refused as expired, naming the
-    lost positions and the publication to re-sync from; with the loss acknowledged it resumes after
-    the last expired position. A subscription cannot start at an expired position."""
+    lost positions and the publication to re-sync from; with reset it resumes after the feed's head
+    (C-D93 revised in C12). A subscription cannot start at an expired position."""
     _activate(world, "events")
     ws = _workspace(world)
     subscription = _subscribe(world, ws)
@@ -328,8 +345,8 @@ def test_resuming_after_expired_events_needs_the_loss_acknowledged(world):
         "toPosition": sequence,
         "publication": {"id": publication["id"], "eventSequence": sequence},
     }
-    resumed = ok(_resume(world, subscription, acknowledgeLoss=True))
-    assert (resumed["status"], resumed["acknowledgedThrough"]) == ("active", sequence)
+    resumed = ok(_resume(world, subscription, reset=True))
+    assert (resumed["status"], resumed["acknowledgedThrough"]) == ("active", _feed_head(world, ws))
 
     error = refused(world.api.post(PATH, _body(world, ws, startAfter=0)), 410, "EVENTS_EXPIRED")
     assert error["details"]["pointer"] == "/startAfter"
@@ -346,6 +363,7 @@ def test_subscriptions_are_a_capability_the_deployment_turns_on(world):
     assert capabilities == {
         "manageSubscriptions": False,
         "allowedHosts": [],
+        "delivery": DELIVERY,
         "setting": "CONSUMER_SUBSCRIPTIONS_ENABLED",
     }
     assert world.api.get(PATH).status_code == 404
@@ -356,9 +374,11 @@ def test_subscriptions_are_a_capability_the_deployment_turns_on(world):
 @pytest.mark.settings(**SUBSCRIPTIONS)
 @pytest.mark.structures(*LEDGER)
 def test_the_capabilities_name_the_allowed_hosts(world):
-    """Given the capability on. Then the capabilities report it with the allowlist."""
+    """Given the capability on. Then the capabilities report it with the allowlist and how webhooks
+    are delivered."""
     assert ok(world.api.get("/capabilities"))["consumerSubscriptions"] == {
         "manageSubscriptions": True,
         "allowedHosts": ["hooks.example.test", "localhost"],
+        "delivery": DELIVERY,
         "setting": "CONSUMER_SUBSCRIPTIONS_ENABLED",
     }

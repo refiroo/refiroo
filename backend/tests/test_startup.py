@@ -8,6 +8,7 @@ completely, and the next start after the cause is removed succeeds. PG2's revisi
 search indexes) upgrades a database at the baseline, and its interrupted run rolls back to it.
 """
 
+import threading
 from collections.abc import Iterator
 from contextlib import contextmanager, suppress
 from unittest.mock import patch as mock_patch
@@ -25,7 +26,8 @@ from app.db import DatabaseStartupError, get_engine, migration_config
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261006_02"
+HEAD = "20261006_03"
+SUBSCRIPTIONS = "20261006_02"
 CONSUMER_EVENTS = "20261006_01"
 PUBLICATION_READS = "20261005_03"
 TYPED_TRIGRAMS = "20261005_02"
@@ -608,6 +610,79 @@ def test_a_database_with_consumer_events_upgrades_to_subscriptions(monkeypatch, 
         assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
     command.downgrade(migration_config(url), CONSUMER_EVENTS)
     assert _scalar(url, "SELECT to_regclass('consumer_subscriptions')") is None
+
+
+def _dispatching() -> bool:
+    return any(thread.name == "rdm-webhook-dispatcher" for thread in threading.enumerate())
+
+
+def test_a_database_with_subscriptions_upgrades_to_delivery_state(monkeypatch, databases):
+    """Base 0.9 C12 on a database at the previous revision holding a subscription: the upgrade adds
+    the delivery state, the subscription has nothing pending and continues after its acknowledged
+    position, and the service starts twice. The dispatcher runs only with the capability on."""
+    url = seeds.create_empty()
+    databases.append(url)
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        assert errors == [] and client.app.state.consumer_dispatcher is None and not _dispatching()
+    command.downgrade(migration_config(url), SUBSCRIPTIONS)
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO consumer_subscriptions (public_id, consumer_api, contract_version, workspace_key, "
+                "event_keys, filters, url, mode, payload, status, acknowledged_position, acknowledged_ordinal, "
+                "signing_key, signing_key_created_at, version, created_at, updated_at) VALUES "
+                "('00000000-0000-4000-8000-000000000001', 'rdm', 1, 'default', '[\"changed\"]', '{}', "
+                "'https://hooks.example.test/x', 'perChange', 'full', 'active', 7, 2147483647, '\\x00', "
+                "now(), 1, now(), now())"
+            )
+        )
+    engine.dispose()
+    monkeypatch.setenv("CONSUMER_SUBSCRIPTIONS_ENABLED", "true")
+    monkeypatch.setenv("CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY", "a" * 43)
+    for _start in range(2):
+        with serve(monkeypatch, _render(url)) as (client, errors):
+            assert errors == []
+            assert client.get("/health").json() == {"status": "ok"}
+            assert _dispatching()
+            (item,) = client.get("/api/v1/consumer-subscriptions").json()["items"]
+            assert item["acknowledgedThrough"] == 7
+            assert item["delivery"] == {"lastDeliveredAt": None, "pending": None}
+        assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+        assert _scalar(url, "SELECT attempts FROM consumer_subscriptions") == 0
+    command.downgrade(migration_config(url), SUBSCRIPTIONS)
+    assert _scalar(url, "SELECT count(*) FROM consumer_subscriptions") == 1
+
+
+def test_an_interrupted_delivery_state_revision_rolls_back_and_the_next_start_recovers(
+    monkeypatch, databases
+):
+    url = seeds.create_empty()
+    databases.append(url)
+    command.upgrade(migration_config(url), SUBSCRIPTIONS)
+    # The index's name already taken: the revision fails after adding the columns.
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        connection.execute(text("CREATE INDEX ix_consumer_subscriptions_due ON consumer_subscriptions (url)"))
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        message = _assert_refused(
+            client,
+            errors,
+            "Database migration failed",
+            f"Current revision: {SUBSCRIPTIONS}",
+            f"target revision: {HEAD}",
+            "still at its current revision",
+        )
+        assert "ix_consumer_subscriptions_due" in message
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == SUBSCRIPTIONS
+    assert "attempts" not in {c["name"] for c in inspect(engine).get_columns("consumer_subscriptions")}
+    with engine.begin() as connection:
+        connection.execute(text("DROP INDEX ix_consumer_subscriptions_due"))
+    engine.dispose()
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        assert errors == []
+        assert client.get("/health").json() == {"status": "ok"}
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
 
 
 @pytest.mark.parametrize(

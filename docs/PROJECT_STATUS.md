@@ -224,7 +224,18 @@ signing key that is shown once and stored sealed with a deployment key. An activ
 retirement that leaves one behind suspends it with a reason, and a resume after expired events needs
 the loss acknowledged. Nothing is delivered until C12 (C-D96–C-D102,
 [record](BASE_0_9_IMPLEMENTATION_PLAN.md#c11-delivery-record)).
-Next: C12, in the order of the
+
+**C12 is delivered (2026-10-06):** a dispatcher in the API process delivers every active
+subscription's events to its URL in position order: per change in signed requests of up to 100
+events and 1 MiB, or coalesced as one notice per event once changes pause. A failing receiver is
+retried with the same batch for 24 hours, then the subscription is suspended; the subscription shows
+its delivery state. A host no longer allowed, a filter value that matches nothing and events expired
+before delivery also suspend it, and a resume can `reset` to the feed's head instead of resuming
+from the first unacknowledged event (this replaces `acknowledgeLoss`). Several processes share
+delivery through a lease. The background threads now log a database outage without a traceback
+(C-D103–C-D111, C-D93 and C-D94 revised,
+[record](BASE_0_9_IMPLEMENTATION_PLAN.md#c12-delivery-record)).
+Next: C13, event acceptance, in the order of the
 [delivery queue](BASE_0_9_IMPLEMENTATION_PLAN.md#delivery-queue) (U4 waits for U3).
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).

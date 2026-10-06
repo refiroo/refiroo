@@ -1102,6 +1102,7 @@ class ConsumerSubscription(Base):
         CheckConstraint("status IN ('active', 'suspended')", name="ck_consumer_subscription_status"),
         Index("ix_consumer_subscriptions_api", "consumer_api", "sequence_id"),
         Index("ix_consumer_subscriptions_workspace", "workspace_key", "sequence_id"),
+        Index("ix_consumer_subscriptions_due", "next_attempt_at", postgresql_where=text("status = 'active'")),
     )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -1128,6 +1129,20 @@ class ConsumerSubscription(Base):
     acknowledged_ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
     signing_key: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     signing_key_created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    # Delivery (C12): which process delivers it until when (C-D106); the batch being sent or
+    # retried, by its delivery ID and the event key it ends at (C-D111); the failed attempts of that
+    # batch (C-D103); the last acknowledgement. None of it changes ``version`` (C-D108).
+    lease_owner: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    pending_delivery_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    pending_position: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pending_ordinal: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    failing_since: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    last_attempt_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    next_attempt_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    last_error: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    last_delivered_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     created_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)

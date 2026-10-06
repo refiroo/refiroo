@@ -14,6 +14,7 @@ import seeds
 from scenario import W1, W2, ok, refused
 from sqlalchemy import text
 
+from app.common import outage as outage_module
 from app.db import SessionLocal
 from app.engine.jobs import worker as worker_module
 from app.engine.jobs.worker import JobWorker, WorkerSettings
@@ -289,10 +290,11 @@ def _unreachable(database):
 @pytest.mark.structures("R", "R.u")
 def test_the_worker_waits_while_the_database_is_unreachable(world, monkeypatch, caplog):
     """Given a running job. When the database becomes unreachable, then returns. Then the worker
-    retries, logging the cause once with its traceback and no more than a line a reminder interval;
+    retries, logging the cause once in a plain line without a traceback (C12) and no more than a
+    line a reminder interval;
     it logs the recovery, and the job resumes and completes with every item applied once."""
     monkeypatch.setattr(worker_module, "RETRY_SECONDS", 0.05)
-    monkeypatch.setattr(worker_module, "REMINDER_SECONDS", 0.3)
+    monkeypatch.setattr(outage_module, "REMINDER_SECONDS", 0.3)
     job = _submit(world, _items(world, 20))
     worker = _worker("survivor")
     assert worker.run_once()
@@ -309,7 +311,7 @@ def test_the_worker_waits_while_the_database_is_unreachable(world, monkeypatch, 
             worker.stop(timeout=10)
     lines = [r for r in caplog.records if r.name == worker_module.logger.name]
     outage = [r for r in lines if "reach the database" in r.getMessage()]
-    assert sum(r.exc_info is not None for r in outage) == 1
+    assert sum(r.exc_info is not None for r in outage) == 0
     assert 2 <= len(outage) <= 6
     assert any("reaches the database again" in r.getMessage() for r in lines)
     assert _outcomes(world, job["id"]) == [("applied", "created")] * 20
