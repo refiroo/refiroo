@@ -209,6 +209,9 @@ nav.settings-rail {
 .empty-message p {
   margin: 0;
 }
+.empty-message-icon {
+  display: grid;
+}
 
 /* Skeleton: placeholder lines while content loads. */
 .skeleton {

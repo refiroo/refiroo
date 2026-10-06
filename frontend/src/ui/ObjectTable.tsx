@@ -2,10 +2,14 @@ import { useState, type ReactNode } from "react";
 import type { EngineModel, ObjectItem } from "@/types";
 import type { CursorWindow } from "@/lib/hooks/useCursorWindow";
 import { ScrollWindow } from "@/ui/ScrollWindow";
-import { formatValue } from "@/ui/formatValue";
-import { attributeName, fieldValue } from "@/model/fields";
+import { EmptyState } from "@/ui/EmptyState";
+import { FieldValue } from "@/ui/FieldValue";
+import { attributeName } from "@/model/fields";
+import { objectTypeHue } from "@/model/hues";
 import { ResizeHandle } from "@/ui/ResizeHandle";
 import { SortAnnouncement, SortHeader, headerSort, type TableSort } from "@/ui/TableSort";
+
+const LOADING_ROWS = 6;
 
 export function ObjectTable({
   compact = false,
@@ -23,6 +27,8 @@ export function ObjectTable({
   renderActions,
   label = "Objects",
   emptyMessage = "Nothing to show yet.",
+  emptyIcon,
+  emptyAction,
   columnWidths = {},
   onColumnWidth,
 }: {
@@ -46,7 +52,11 @@ export function ObjectTable({
   selectedId?: string;
   renderActions?: (item: ObjectItem, menu: { isOpen: boolean; onOpenChange: (open: boolean) => void }) => ReactNode;
   label?: string;
-  emptyMessage?: string;
+  emptyMessage?: ReactNode;
+  /** Decorative, above the empty message: the collection's type tile. */
+  emptyIcon?: ReactNode;
+  /** What fills the empty list, or clears a search that emptied it. */
+  emptyAction?: ReactNode;
   columnWidths?: Record<string, number>;
   onColumnWidth?: (column: string, width: number) => void;
 }) {
@@ -123,15 +133,28 @@ export function ObjectTable({
           </thead>
           <tbody>
             {loading && objects.length === 0 ? (
-              <tr>
-                <td colSpan={columns.length + Number(Boolean(renderActions))} className="empty-row">
-                  Loading…
-                </td>
-              </tr>
+              // Rows in the table's own shape while the first page loads; one status announces it.
+              Array.from({ length: LOADING_ROWS }, (_, row) => (
+                <tr key={row} className="loading-row">
+                  {columns.map((column, index) => (
+                    <td key={column} className={secondary(column)}>
+                      {row === 0 && index === 0 && (
+                        <span className="visually-hidden" role="status">
+                          Loading {noun[1]}…
+                        </span>
+                      )}
+                      <span className="skeleton-line" aria-hidden="true" />
+                    </td>
+                  ))}
+                  {renderActions && <td className="record-actions-column" />}
+                </tr>
+              ))
             ) : objects.length === 0 ? (
               <tr>
                 <td colSpan={columns.length + Number(Boolean(renderActions))} className="empty-row">
-                  {emptyMessage}
+                  <EmptyState icon={emptyIcon} action={emptyAction}>
+                    {emptyMessage}
+                  </EmptyState>
                 </td>
               </tr>
             ) : (
@@ -141,6 +164,7 @@ export function ObjectTable({
                   data-row-key={item.id}
                   data-row-index={list.startIndex + position}
                   aria-rowindex={list.startIndex + position + 2}
+                  data-hue={objectTypeHue(model, item.objectTypeKey)}
                   className={`clickable-row${selectedId === item.id ? " selected-record" : ""}`}
                   onClick={(event) => {
                     // The identity button is the keyboard path; the row is a larger pointer target.
@@ -178,10 +202,10 @@ export function ObjectTable({
                           aria-current={selectedId === item.id ? "true" : undefined}
                           onClick={() => onOpen(item)}
                         >
-                          {formatValue(fieldValue(item, column, model))}
+                          <FieldValue item={item} field={column} model={model} />
                         </button>
                       ) : (
-                        formatValue(fieldValue(item, column, model))
+                        <FieldValue item={item} field={column} model={model} />
                       )}
                     </td>
                   ))}

@@ -644,6 +644,14 @@ fieldset.settings-section legend {
   flex-wrap: wrap;
   gap: var(--space-2) var(--space-4);
 }
+/* Live is a soft green strip; the Live pill keeps its outline on it (ADR-040). */
+.band-live {
+  background: var(--context-live-strip);
+  border-bottom-color: var(--context-live-strip-line);
+}
+.band-live .status-pill {
+  box-shadow: inset 0 0 0 1px var(--context-live-line);
+}
 /* Controls on a tinted band take its ink: the outline is the band's marker (3:1, U-D9). */
 .band-change-set .secondary,
 .band-publication .secondary,
@@ -717,14 +725,30 @@ fieldset.settings-section legend {
   gap: 6px;
   min-height: 28px;
   padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   border: 0;
   border-radius: 6px;
   background: transparent;
   color: var(--muted);
+  box-shadow: none;
   font-size: 13px;
   font-weight: 550;
 }
 .segmented button:hover {
+.context-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.context-dot-change-set {
+  background: var(--context-change-set-marker);
+}
+.context-dot-publication {
+  background: var(--context-publication-marker);
+}
   color: var(--ink);
 }
 .segmented button[aria-pressed="true"] {

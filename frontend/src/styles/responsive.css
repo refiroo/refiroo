@@ -118,7 +118,7 @@
     flex-wrap: wrap;
     gap: 12px;
   }
-  .page-icon {
+  .page-icon:not(:has(> .hue-tile)) {
     display: none;
   }
   .collection-toolbar,

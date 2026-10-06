@@ -1,10 +1,13 @@
 /**
  * The data-context band at the top of the content (ADR-039, Track U U2): which workspace and
- * application the page is in, and which data it reads and edits. Live is a green pill with a
- * one-line explanation. A change set turns the band amber and a publication violet, and the band
+ * application the page is in, and which data it reads and edits. Live is a soft green strip with
+ * the Live pill and a one-line explanation (ADR-040). A change set turns the band amber and a
+ * publication violet, and the band
  * then carries that context's own bar (`contextActions`: the change set's Review, Validate and
  * Publish, or the publication's way back). The Live / Change sets / Publications switch stays at
- * its right end in every context; its Live is the way back from a change set.
+ * its right end in every context, a dot of each context's colour on its switch; its Live is the
+ * way back from a change set. The change set and publication lists are about a context rather
+ * than in one, so their band is neutral.
  *
  * The band stays visible while the page scrolls (CSS); what its actions report is placed below it
  * through `BelowContextBand`.
@@ -45,7 +48,7 @@ export function DataContextBand({
   const live = () => onNavigate(viewRoute(application, application.defaultView, route.workspaceKey));
 
   return (
-    <div className={`data-context-band band-${tone === "changeSet" ? "change-set" : tone}`}>
+    <div className={`data-context-band band-${listing ? "neutral" : tone === "changeSet" ? "change-set" : tone}`}>
       <div className="band-context">
         <div role="group" className="shell-context" aria-label="Current context">
           <span>{workspaceLabel}</span>
@@ -64,6 +67,7 @@ export function DataContextBand({
               onNavigate({ kind: "changeSets", applicationKey: application.key, workspaceKey: route.workspaceKey })
             }
           >
+            <span className="context-dot context-dot-change-set" aria-hidden="true" />
             Change sets
           </button>
           <button
@@ -72,6 +76,7 @@ export function DataContextBand({
               onNavigate({ kind: "publications", applicationKey: application.key, workspaceKey: route.workspaceKey })
             }
           >
+            <span className="context-dot context-dot-publication" aria-hidden="true" />
             Publications
           </button>
         </nav>

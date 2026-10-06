@@ -76,9 +76,7 @@ Next: UA, the Atlas redesign (ADR-040), before U4 and U5. See [Next — 0.9](#ne
   needs the record's state before the change for each filter kind, which events do not keep
   (C-D89); how much of it the audit entries already hold was not checked.
 
-- **For U6, from U2 (2026-10-06).** Boolean and other values still render as green "Yes" and grey
-  "No" pills (`ui/formatValue`). ADR-039 asks for plain text, with pills kept for states and
-  versions. Move each `.surface` panel onto `ui/Card` or a ruled section, whichever reads better in
+- **For U6, from U2 (2026-10-06).** (Booleans are plain text since UA3.) Move each `.surface` panel onto `ui/Card` or a ruled section, whichever reads better in
   the product (U-D8). Remove the older token names in `styles/base.css` once no screen reads them.
 - **Intermittent: wp9-navigation's record return (seen once in U2; 4 of 10 runs in UA0,
   2026-10-06).** `ui03a-navigation.mjs:144` waits 10 s for the list URL with its anchor after
@@ -86,7 +84,8 @@ Next: UA, the Atlas redesign (ADR-040), before U4 and U5. See [Next — 0.9](#ne
   `wp9-navigation.mjs:263`, and change set, `:383`). Without UA0's changes it passed 2 of 2 runs,
   so a link to them is not ruled out; three runs with diagnostics at the wait passed, so the URL it
   lands on is still unknown. Next: capture that URL at the failure and see whether the anchor
-  restored after a reload depends on the page's height.
+  restored after a reload depends on the page's height. _UA3 (2026-10-06):_ 2 of 3 runs failed
+  there, both at the change-set call site (`:383`); the UA2 revision's one run failed there too.
 - **From UA0 (2026-10-06): `test:browser:b3` fails at its drag of Sodium.** `helpers/tree.mjs:189`
   waits for the drag preview after pressing on Sodium in the opened Electrolytes branch
   (`b3-tree-lens.mjs:579`); none appears. It fails the same without UA0's changes, so it came

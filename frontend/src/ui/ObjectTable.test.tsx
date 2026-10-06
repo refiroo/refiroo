@@ -6,6 +6,8 @@ import { ObjectTable } from "@/ui/ObjectTable";
 import { staticWindow } from "@/test/cursorWindow";
 import { SortMenu, useTableSort } from "@/ui/TableSort";
 import { attributeName } from "@/model/fields";
+import { objectTypeHue } from "@/model/hues";
+import type { EngineModel } from "@/types";
 
 describe("ObjectTable", () => {
   it("renders model-derived column headers and values for one object type", () => {
@@ -168,5 +170,85 @@ describe("ObjectTable", () => {
       expect(screen.getByRole("columnheader", { name: "Name" })).not.toHaveAttribute("aria-sort");
       expect(screen.queryByRole("button", { name: /Sort|Name/ })).not.toBeInTheDocument();
     });
+  });
+
+  describe("colour for kinds of record (ADR-040, UA3)", () => {
+    // The same table in two model configurations: the type order, and so each type's hue, differs.
+    const reordered: EngineModel = { ...testModel, objectTypes: [...testModel.objectTypes].reverse() };
+
+    it.each([
+      ["the fixture model", testModel],
+      ["the same types in the other order", reordered],
+    ])(
+      "shows a parent column as a chip in the parent's type colour and the selected row in its own (%s)",
+      (_, model) => {
+        const [parent, own] = [codelistObject.path[0].objectTypeKey, codelistObject.objectTypeKey];
+        render(
+          <ObjectTable
+            model={model}
+            columns={["name", `ancestor:${parent}`, "active"]}
+            list={staticWindow([codelistObject])}
+            pageSize={20}
+            selectedId={codelistObject.id}
+            onOpen={() => {}}
+          />,
+        );
+        const chip = screen.getByText(codelistObject.path[0].name).closest(".record-chip");
+        expect(chip).toHaveAttribute("data-hue", String(objectTypeHue(model, parent)));
+        const row = screen.getByRole("button", { name: codelistObject.name }).closest("tr");
+        expect(row).toHaveClass("selected-record");
+        expect(row).toHaveAttribute("data-hue", String(objectTypeHue(model, own)));
+        expect(objectTypeHue(model, parent)).not.toBe(objectTypeHue(model, own));
+        // A value is plain text, not a pill (ADR-039).
+        expect(within(row as HTMLElement).getByText("No")).not.toHaveClass("pill");
+      },
+    );
+
+    it("shows a dash where the record has no parent of the column's type", () => {
+      render(
+        <ObjectTable
+          model={testModel}
+          columns={["name", `ancestor:${codelistObject.objectTypeKey}`]}
+          list={staticWindow([domainObject])}
+          pageSize={20}
+          onOpen={() => {}}
+        />,
+      );
+      expect(document.querySelector(".record-chip")).toBeNull();
+      expect(screen.getByText("—")).toBeInTheDocument();
+    });
+  });
+
+  it("loads in rows of the table's shape, announced once", () => {
+    render(
+      <ObjectTable
+        model={testModel}
+        columns={["name", "code"]}
+        list={staticWindow([], { loading: true })}
+        pageSize={20}
+        onOpen={() => {}}
+      />,
+    );
+    const loading = screen.getAllByRole("status").filter((status) => status.textContent === "Loading records…");
+    expect(loading).toHaveLength(1);
+    expect(document.querySelectorAll("tbody tr.loading-row")).toHaveLength(6);
+  });
+
+  it("shows the empty state with its icon and the action that fills the list", () => {
+    render(
+      <ObjectTable
+        model={testModel}
+        columns={["name", "code"]}
+        list={staticWindow([])}
+        pageSize={20}
+        onOpen={() => {}}
+        emptyMessage="No domains yet"
+        emptyIcon={<span data-testid="tile" />}
+        emptyAction={<button>Add Domain</button>}
+      />,
+    );
+    expect(screen.getByText("No domains yet")).toBeInTheDocument();
+    expect(screen.getByTestId("tile").closest(".empty-message-icon")).toHaveAttribute("aria-hidden", "true");
+    expect(screen.getByRole("button", { name: "Add Domain" })).toBeInTheDocument();
   });
 });

@@ -336,6 +336,12 @@ All notable changes to this project are documented in this file. The format foll
 - Base 0.9 UA2: the record browser shows what contains what. Every record carries its type's
   tile, an open branch hangs from a guide line, a type's heading is a quiet label with its count
   and never looks like a record, and the selected record is filled with its type's colour.
+- Base 0.9 UA3: the collection page in the Atlas look. The page header carries the type's tile,
+  Live is a soft green strip with dots of the change-set and publication colours on their switches,
+  a column that shows another record (an `ancestor:<type>` column) shows it as a chip in that
+  type's colour, the selected row takes its type's colour, booleans read Yes and No in plain text
+  everywhere, the first page loads as rows in the table's shape, and an empty collection shows its
+  tile and the Add action.
 
 - Base 0.9 C12: `POST /consumer-subscriptions/{id}/resume` takes `reset` instead of
   `acknowledgeLoss` (C-D93 revised, C-D110). `reset: true` starts delivery after the workspace's

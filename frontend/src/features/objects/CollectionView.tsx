@@ -9,7 +9,9 @@ import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDat
 import { attributeName, isQueryableField, listSortFields } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
 import { InlineError } from "@/ui/InlineError";
-import { Icon, ModelIcon } from "@/ui/Icon";
+import { Icon } from "@/ui/Icon";
+import { HueTile } from "@/ui/HueTile";
+import { objectTypeHue } from "@/model/hues";
 import { PageHeader } from "@/ui/PageHeader";
 import { ObjectTable } from "@/ui/ObjectTable";
 import { TableDisplay, useTableDisplay } from "@/ui/TableDisplay";
@@ -133,6 +135,13 @@ export function ObjectCollectionView({
     labelFor: (field) => attributeName(model, field),
   });
   if (!objectType) return <div className="empty-state">This configured view does not select an object type.</div>;
+  const hue = objectTypeHue(model, objectType.key);
+  const narrowed = query.search !== "" || query.filters.length > 0;
+  const add = !readOnly && (
+    <button className="primary" onClick={() => setCreating(true)}>
+      <Icon name="plus" /> Add {objectType.name}
+    </button>
+  );
 
   return (
     <div
@@ -143,16 +152,10 @@ export function ObjectCollectionView({
     >
       <PageHeader
         focusTitle
-        icon={<ModelIcon name={objectType.icon} size={20} />}
+        icon={<HueTile hue={hue} icon={objectType.icon} size={40} />}
         title={view.name}
         description={objectType.description ?? application.description}
-        actions={
-          !readOnly && (
-            <button className="primary" onClick={() => setCreating(true)}>
-              <Icon name="plus" /> Add {objectType.name}
-            </button>
-          )
-        }
+        actions={add}
       />
       <ScopeBanner
         model={model}
@@ -208,11 +211,14 @@ export function ObjectCollectionView({
               />
             )}
             label={`${view.name} table`}
+            emptyIcon={<HueTile hue={hue} icon={objectType.icon} size={40} />}
             emptyMessage={
-              query.search || query.filters.length > 0
+              narrowed
                 ? "No results match these filters"
                 : `No ${objectType.pluralName.toLowerCase()} in this workspace yet`
             }
+            // A narrowed list's way back is the toolbar's Clear filters, right above it.
+            emptyAction={narrowed ? undefined : add}
           />
         )}
       </section>

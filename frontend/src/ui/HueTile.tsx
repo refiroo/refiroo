@@ -7,10 +7,10 @@
 import type { Hue } from "@/model/hues";
 import { ModelIcon } from "@/ui/Icon";
 
-export function HueTile({ hue, icon, size = 22 }: { hue?: Hue; icon?: string; size?: 18 | 20 | 22 }) {
+export function HueTile({ hue, icon, size = 22 }: { hue?: Hue; icon?: string; size?: 18 | 20 | 22 | 40 }) {
   return (
     <span className={`hue-tile hue-tile-${size}`} data-hue={hue}>
-      <ModelIcon name={icon} size={size <= 18 ? 11 : 12} />
+      <ModelIcon name={icon} size={size === 40 ? 20 : size <= 18 ? 11 : 12} />
     </span>
   );
 }

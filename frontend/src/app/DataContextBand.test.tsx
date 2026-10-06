@@ -68,7 +68,8 @@ describe("DataContextBand", () => {
   });
 
   it("shows no pill on the change set and publication lists, which are about a context rather than in one", () => {
-    band({ kind: "changeSets", applicationKey: "catalogue", workspaceKey: "north" });
+    const { root } = band({ kind: "changeSets", applicationKey: "catalogue", workspaceKey: "north" });
+    expect(root).toHaveClass("band-neutral");
     expect(screen.getByRole("group", { name: "Current context" })).toHaveTextContent(/^North \/ Catalogue$/);
     expect(switcher().getByRole("button", { name: "Change sets" })).toHaveAttribute("aria-current", "page");
     expect(switcher().getByRole("button", { name: "Live" })).not.toHaveAttribute("aria-current");

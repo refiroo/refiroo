@@ -8,8 +8,8 @@ import { isManagedRelation, relatedObjectTypes, relationChoices } from "@/model/
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { RelationFormDialog } from "./RelationFormDialog";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
-import { formatValue } from "@/ui/formatValue";
-import { attributeName, fieldValue, isQueryableField, listSortFields } from "@/model/fields";
+import { FieldValue } from "@/ui/FieldValue";
+import { attributeName, isQueryableField, listSortFields } from "@/model/fields";
 import { InlineError } from "@/ui/InlineError";
 import { Icon } from "@/ui/Icon";
 import { ScrollWindow } from "@/ui/ScrollWindow";
@@ -276,10 +276,10 @@ export function RelationsPanel({
                                 onOpen(item.object.objectTypeKey, item.object.id, item.object.applicationKey)
                               }
                             >
-                              {formatValue(fieldValue(item.object, column, model))}
+                              <FieldValue item={item.object} field={column} model={model} />
                             </button>
                           ) : (
-                            formatValue(fieldValue(item.object, column, model))
+                            <FieldValue item={item.object} field={column} model={model} />
                           )}
                         </td>
                       ))}

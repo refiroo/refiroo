@@ -265,7 +265,11 @@ and the rail's Collections; awaiting the user's pick between two palettes (U-D13
 ([record](SETTINGS_AND_UI_PLAN.md#ua1-record-2026-10-06)). **UA2 is implemented (2026-10-06)**: the record
 browser shows each record's type tile, a branch's guide line, quiet type headings and the selected
 record in its type's colour; awaiting approval
-([record](SETTINGS_AND_UI_PLAN.md#ua2-record-2026-10-06)).
+([record](SETTINGS_AND_UI_PLAN.md#ua2-record-2026-10-06)). **UA3 is implemented (2026-10-06)**: the
+collection page's type tile, the green Live strip, record chips in a column that shows a record,
+the selected row in its type's colour, plain-text booleans, and table-shaped loading and empty
+states; no model or backend change; awaiting approval
+([record](SETTINGS_AND_UI_PLAN.md#ua3-record-2026-10-06)).
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

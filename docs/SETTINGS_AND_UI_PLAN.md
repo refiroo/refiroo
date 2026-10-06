@@ -1114,6 +1114,54 @@ Implemented; waiting for the user's approval of the screenshots. The tokens hold
   Sodium, which now passes. Screenshots at 1440px and 390px (drawer), light. **Not run:**
   `test:a11y`, `test:visual` (UA7).
 
+#### UA3 record (2026-10-06)
+
+Implemented; waiting for the user's approval of the screenshots.
+
+- **The table column (decided by the user, 2026-10-06).** The canvas's Timetable types table had a
+  Category column. No collection table in either example model declares a column that shows a
+  record, and table views cannot: model validation allows only built-in fields and the type's own
+  attributes there (`application_rules.py`), while record panels and matrix rows take
+  `ancestor:<type>`. Adding such columns would change the models and the engine's rule only to
+  make room for colour, so the user chose no model or backend change. The chip is a rendering of
+  any column that shows a record, wherever a view already declares one.
+- **Header.** A collection's page header carries its type's `ui/HueTile` at 40px (radius 8, 20px
+  icon), also at 390px; the other page icons still hide on a phone.
+- **The Live strip.** Live is the soft green strip (`--context-live-strip`, its line below) with
+  the Live pill outlined in `--context-live-line`; the Change sets and Publications switches carry
+  a 7px dot of their context's marker. The change-set and publication lists, which are about a
+  context rather than in one, have a neutral band. The amber and violet strips stay UA5's.
+- **The table.** `ui/FieldValue` renders a record's field as a cell shows it: an `ancestor:<type>`
+  column as `ui/RecordChip` (the parent's name on its type's fill, in its ink, after a 6px marker;
+  ellipsis when long), anything else through `formatValue`. `ObjectTable` and the record panels'
+  relation tables use it, so a value's System and Language columns show chips (seen on an
+  timetable type's System mappings and Translations). A row carries its record's hue; the
+  selected row is filled with it, its marker as a 3px line at the left. Cells have 10px of
+  vertical padding, as in the canvas.
+- **Values.** `formatValue` renders booleans as plain Yes and No everywhere, as ADR-039 says;
+  pills stay for states and versions (TODO's U6 item updated).
+- **Loading and empty.** The first page loads as six rows in the table's shape (`.skeleton-line`
+  per cell) with one status ("Loading records…"). The empty row is `ui/EmptyState`, which gained a
+  decorative icon: the type's tile, the message, and **Add {type}** when nothing exists and the
+  user may write. A narrowed list's empty row has no action, since the toolbar's **Clear filters**
+  is right above it.
+- **Toolbar.** Unchanged; it already matched the canvas (search, Filter, Display, Sort on the
+  card's ruled top). The canvas's quick filter by parent is a new feature, not in UA.
+- **Not done here.** A table row is selected only while its record is open beside it in the
+  inspector, which today only the tree lens does; the selected row's screenshot set the state in
+  the browser, and the unit test covers it.
+- **Generic.** Hues come from `model/hues` by position; no renderer reads a key.
+- **Tests.** `ObjectTable.test`: on two model configurations (the type order reversed), a parent
+  column's chip carries the parent type's slot and the selected row its own, booleans are not
+  pills; no parent of the column's type shows a dash; loading rows with one status; the empty
+  state's icon and action. `DataContextBand.test`: the change-set list's band is neutral.
+- **Checks.** `vitest related` on the changed files: 19 files, 231 tests passed. `format`, `lint`
+  (0 errors, the 7 recorded warnings), `build` and the contrast test passed. Runners:
+  `test:browser:wp13c` (12 checks) and `test:browser:wp14` passed; `test:browser` passed 1 of 3
+  runs, failing twice at the record return in TODO (`ui03a-navigation.mjs:144`, change-set call
+  site), which UA3 does not touch. Screenshots at 1440 and 390px, light (and the record panel's
+  chips in dark), sent to the user. **Not run:** `test:a11y`, `test:visual` (UA7).
+
 ### Exit by 1.0
 
 - Every administrative, integration and security object a route manages has a settings page, and
