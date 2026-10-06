@@ -1009,8 +1009,11 @@ Implemented; done when the user has checked it on the dev server (above).
   was not; corrected below.
 - **One top bar and one frame (U-D14).** `app/TopBar` (mark to home, application tabs, Settings,
   Account) and `app/ShellFrame` (skip link, top bar, resizable rail, drawer below 760px, main) are
-  the only ones; `AppShell` and `SettingsShell` only fill the rail and the content. On Settings no
-  tab is current and the Settings link is (styled as current); the tab of the application last
+  the only ones; `AppShell` and `SettingsShell` only fill the rail and the content. Exactly one
+  item in the bar is current, marked the same way (ink underline, semibold): the application's
+  tab, or on Settings the Settings link, which there reads as a tab with the gear and its name
+  (asked by the user after U-D14 left Settings without a name in the bar; at 390px it sits in the
+  first row, the applications below); the tab of the application last
   looked at returns to that route, another tab to its last collection or default view, the mark
   home. "Back to applications" and the "{product} / Settings" bar are gone with their CSS.
 - **Copies removed** (jscpd over `src`, blocks of 6 lines or more; 0.32% duplicated lines after):

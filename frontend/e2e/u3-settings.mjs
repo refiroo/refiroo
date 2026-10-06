@@ -52,6 +52,11 @@ try {
       const appTabs = await tabs.allInnerTexts();
       const current = await page.locator('nav[aria-label="Applications"] [aria-current="page"]').innerText();
       const appBar = await page.getByRole("banner").boundingBox();
+      const mark = (element) => {
+        const style = getComputedStyle(element);
+        return `${style.borderBottomColor} ${style.borderBottomWidth} ${style.fontWeight}`;
+      };
+      const appCurrent = await page.locator('nav[aria-label="Applications"] [aria-current="page"]').evaluate(mark);
       await page.getByRole("banner").getByRole("link", { name: "Settings", exact: true }).click();
       await page.getByRole("heading", { level: 1, name: "About" }).waitFor();
       expect(path() === "/settings/about", `${suffix}: gear opened ${page.url()}`);
@@ -61,17 +66,28 @@ try {
       );
       expect((await page.locator('nav[aria-label="Applications"] [aria-current]').count()) === 0, "a tab is current");
       expect(
-        (await page.getByRole("banner").getByRole("link", { name: "Settings" }).getAttribute("aria-current")) === "page",
+        (await page.getByRole("banner").getByRole("link", { name: "Settings" }).getAttribute("aria-current")) ===
+          "page",
         "Settings link not current",
       );
       const settingsBar = await page.getByRole("banner").boundingBox();
+      const settingsTab = page.getByRole("banner").getByRole("link", { name: "Settings", exact: true });
+      expect((await settingsTab.innerText()).trim() === "Settings", "the Settings tab does not read Settings");
+      const settingsCurrent = await settingsTab.evaluate(mark);
+      expect(
+        settingsCurrent === appCurrent,
+        `${suffix}: Settings is marked ${settingsCurrent}, a current tab ${appCurrent}`,
+      );
       if (width === 1440) {
         const mark = await page.locator(".product-mark").boundingBox();
         const tab = await tabs.first().boundingBox();
         const gap = Math.round(tab.x - (mark.x + mark.width));
         expect(gap === 36, `settings: the tabs start ${gap}px after the product name, not 36px`);
       }
-      expect(settingsBar.height === appBar.height, `${suffix}: top bar height ${settingsBar.height} vs ${appBar.height}`);
+      expect(
+        settingsBar.height === appBar.height,
+        `${suffix}: top bar height ${settingsBar.height} vs ${appBar.height}`,
+      );
       expect((await page.getByRole("link", { name: "Back to applications" }).count()) === 0, "a second bar's Back");
       expect((await page.getByLabel("Current context").count()) === 0, "data-context band shown");
       expect((await page.getByRole("combobox", { name: "Workspace", exact: true }).count()) === 0, "switcher shown");
@@ -80,7 +96,7 @@ try {
       expect(page.url() === from, `${suffix}: the tab returned to ${page.url()}, not ${from}`);
     }
     checks.push(
-      `${suffix}: the gear opens Settings in the same top bar (same tabs and height, tabs 36px after the product name at 1440px, none current, Settings current) from two applications; each application's tab returns to its view with its query`,
+      `${suffix}: the gear opens Settings in the same top bar (same tabs and height, tabs 36px after the product name at 1440px, none current, Settings a current tab marked as the application's is) from two applications; each application's tab returns to its view with its query`,
     );
 
     // 2. Every page, through the rail (wide) or the navigation drawer (narrow).

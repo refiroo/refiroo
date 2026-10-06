@@ -114,8 +114,15 @@
 }
 .topbar-actions {
   display: flex;
+  align-self: stretch;
   align-items: center;
   gap: var(--space-1);
+}
+/* On a settings page the Settings link is the current tab, so it stretches to the bar's rule. */
+.settings-tab {
+  align-self: stretch;
+  margin-right: var(--space-3);
+  text-decoration: none;
 }
 .topbar-icon-button {
   display: grid;
@@ -134,10 +141,6 @@
 .topbar-icon-button[aria-expanded="true"] {
   background: var(--surface-hover);
   color: var(--text-primary);
-}
-.topbar-icon-button[aria-current="page"] {
-  background: var(--state-selected);
-  color: var(--state-selected-text);
 }
 .topbar-icon-button[data-focus-visible] {
   outline: 2px solid var(--focus-color);

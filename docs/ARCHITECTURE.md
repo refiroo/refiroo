@@ -435,7 +435,7 @@ content), under one top bar, `app/TopBar` (product mark to home, the application
 Settings, the account; U-D14). Application routes fill it in `AppShell`: the workspace switcher
 above the collection and hierarchy browser in the rail, and the data-context band (live, change
 set or publication) above the content. Settings routes (`/settings/…`) fill it in `SettingsShell`,
-with no workspace or data context: no tab is current and Settings is, the rail holds the settings
+with no workspace or data context: no application is current and Settings reads as the current tab, the rail holds the settings
 navigation, and each page is a `SettingsLayout`. From Settings, the tab of the application last
 looked at returns to that route of the session, another application's tab to its last collection
 or default view. Addresses the settings area replaced (`/models`, `/workspaces`) parse to their settings

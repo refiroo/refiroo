@@ -1,7 +1,8 @@
 /**
  * The one top bar (ADR-039, ADR-040): the product mark, which goes home, the applications as tabs,
  * then the link to Settings and the account at the right. Application pages and Settings show the
- * same bar; on a settings page no tab is current and the Settings link is.
+ * same bar, and exactly one item in it is current, marked the same way: the application's tab, or
+ * on a settings page the Settings link, which then reads as a tab (icon, name, underline).
  */
 
 import { routePath } from "@/routing/routes";
@@ -52,16 +53,29 @@ export function TopBar({
       </nav>
       <div className="topbar-spacer" />
       <div className="topbar-actions">
-        <RouteLink
-          className="topbar-icon-button"
-          href={routePath(SETTINGS)}
-          aria-label="Settings"
-          aria-current={inSettings ? "page" : undefined}
-          title="Settings"
-          onNavigate={() => onNavigate(SETTINGS)}
-        >
-          <Icon name="gear" size={18} />
-        </RouteLink>
+        {inSettings ? (
+          <RouteLink
+            className="application-tab settings-tab"
+            href={routePath(SETTINGS)}
+            aria-current="page"
+            onNavigate={() => onNavigate(SETTINGS)}
+          >
+            <span className="application-glyph">
+              <Icon name="gear" size={15} />
+            </span>
+            Settings
+          </RouteLink>
+        ) : (
+          <RouteLink
+            className="topbar-icon-button"
+            href={routePath(SETTINGS)}
+            aria-label="Settings"
+            title="Settings"
+            onNavigate={() => onNavigate(SETTINGS)}
+          >
+            <Icon name="gear" size={18} />
+          </RouteLink>
+        )}
         <AccountMenu settingsHref={routePath(SETTINGS)} onOpenSettings={() => onNavigate(SETTINGS)} />
       </div>
     </header>

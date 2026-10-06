@@ -395,7 +395,7 @@ All notable changes to this project are documented in this file. The format foll
   36px after it, as ADR-040 says.
 - Base 0.9 UA0: Settings had a top bar of its own, whose product mark could not be clicked and
   which had no applications. Every page now has the same top bar (U-D14): on Settings no
-  application is current and Settings is, an application's tab goes back to it (the one last
+  application is current and **Settings** shows as the current tab (gear, name, underline), an application's tab goes back to it (the one last
   looked at, to the same view and query), and the mark goes home. "Back to applications" is gone.
   One frame (`app/ShellFrame`) and one top bar (`app/TopBar`) serve every area, and copied markup
   is replaced by shared components: `ui/SearchField`, `ScopeBanner`, a release picker and a
