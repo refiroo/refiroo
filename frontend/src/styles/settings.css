@@ -1,28 +1,8 @@
-/* The Settings area (Track U U3, ADR-039 `B-Settings`): its top bar and rail, the settings page
+/* The Settings area (Track U U3, ADR-039 `B-Settings`): its rail, the settings page
    width, and the components that came with it (Section, DescriptionList, FormField, EmptyState,
    Skeleton, Toast). */
 
-/* Top bar: "{product} / Settings", then Back to applications and the account. */
-.settings-topbar {
-  align-items: center;
-  gap: var(--space-3);
-}
-.settings-mark {
-  cursor: default;
-}
-.settings-topbar-separator {
-  color: var(--text-tertiary);
-  font-size: var(--text-lg);
-}
-.settings-topbar-title {
-  color: var(--text-primary);
-  font-size: var(--text-lg);
-  font-weight: 600;
-}
-.header-link.settings-back {
-  gap: var(--space-2);
-  text-decoration: none;
-}
+/* The account avatar in the top bar, which Settings shares with the application pages. */
 .account-button .account-avatar {
   width: 28px;
   height: 28px;
@@ -374,28 +354,6 @@ nav.settings-rail {
 }
 
 @media (max-width: 760px) {
-  .global-header.settings-topbar {
-    display: flex;
-    gap: var(--space-2);
-  }
-  .settings-topbar .product-mark strong {
-    display: none;
-  }
-  /* Back to applications keeps its icon and its accessible name. */
-  .settings-back-label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-  .header-link.settings-back {
-    margin-left: auto;
-    justify-content: center;
-    min-width: 40px;
-    min-height: 40px;
-  }
   /* In the drawer the navigation is padded as the dialog's content, not as the rail. */
   .navigation-dialog nav.settings-rail {
     padding: 0;

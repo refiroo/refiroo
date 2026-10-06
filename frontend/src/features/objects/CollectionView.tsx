@@ -15,7 +15,7 @@ import { ObjectTable } from "@/ui/ObjectTable";
 import { TableDisplay, useTableDisplay } from "@/ui/TableDisplay";
 import { SortMenu, useTableSort } from "@/ui/TableSort";
 import { ObjectToolbar } from "@/features/objects/ObjectToolbar";
-import { CollectionScope } from "@/features/objects/CollectionScope";
+import { ScopeBanner } from "@/features/objects/CollectionScope";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import type { ObjectItem, TableViewDefinition } from "@/types";
 import type { ViewComponentProps } from "./views/types";
@@ -154,29 +154,13 @@ export function ObjectCollectionView({
           )
         }
       />
-      {query.parentObjectId && (
-        <div className="scope-banner">
-          <CollectionScope
-            model={model}
-            workspaceKey={workspaceKey}
-            parentObjectId={query.parentObjectId}
-            parentObjectTypeKey={query.parentObjectTypeKey}
-          />
-          <button
-            className="ghost"
-            onClick={() =>
-              onQueryChange({
-                ...query,
-                parentObjectId: undefined,
-                parentObjectTypeKey: undefined,
-                anchor: undefined,
-              })
-            }
-          >
-            Show all {objectType.pluralName.toLowerCase()}
-          </button>
-        </div>
-      )}
+      <ScopeBanner
+        model={model}
+        workspaceKey={workspaceKey}
+        query={query}
+        onQueryChange={onQueryChange}
+        pluralName={objectType.pluralName}
+      />
       {lenses}
       <section className="surface collection-surface">
         <ObjectToolbar

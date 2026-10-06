@@ -927,11 +927,14 @@ looked or felt right):
 - **UA0: popovers.** (The revert point `ui-before-atlas` exists since 2026-10-06.) Fix the popover click:
   a click on the page while a popover is open closes it and acts (React Aria `isNonModal` or an
   equivalent), with a regression test that clicks the application tabs and the settings navigation
-  with the Account popover open. Look at the two flakes in TODO.
+  with the Account popover open. Look at the two flakes in TODO. Done only when the user has
+  checked on the dev server that the settings navigation and the application tabs respond to the
+  first click with a popover open (the user reported it twice, 2026-10-06).
 - **UA1: tokens and type colours.** The eight-hue palette (fill, ink, marker; light and dark) and
   the context strips as tokens; the contrast test extended to them; `model/` gains the read that
   gives a type or an application its hue (U-D13), tested on two models. The top bar's application
-  tiles and the rail's Collections tiles use it.
+  tiles and the rail's Collections tiles use it. (The tabs' 36px after the product name, asked by
+  the user on 2026-10-06, was done in UA0.)
 - **UA2: the record browser.** The tree as described above, on two models, by keyboard and at
   390px (drawer). The user's screenshot of the timetables tree (type groups, folders and records
   alike) is the case to fix.
@@ -958,6 +961,81 @@ slice changes; the contrast test. `test:a11y` and `test:visual` once, in UA7, un
 **Not in UA:** new features, new routes or API changes; U4 and U5's pages (they come after, in the
 new look).
 
+#### UA0 record (2026-10-06)
+
+Implemented; done when the user has checked it on the dev server (above).
+
+- **Cause.** `ui/ControlPopover` used React Aria's modal `Popover`, which makes the rest of the page
+  `inert` and lays a full-screen underlay over it while open. The first press landed on the
+  underlay and only closed the popover.
+- **Fix.** The popover is non-modal (`isNonModal`). React Aria leaves two things to its owner, done
+  in `ControlPopover`: closing on a press outside (and on the user's wheel or touch scrolling,
+  which the modal version prevented), and ignoring its own close-on-scroll for scrolls the layout
+  causes. Without the second, applying a filter closed the Filter popover: the shorter list scrolls
+  the document (found by `test:browser`). Escape and focus leaving close it as before. Focus is no
+  longer trapped: Tab past the last control leaves the popover and closes it. The other popovers
+  (`ActionMenu`, `Selection`, `AnchoredMenu`: menus and selects) stay modal, like native menus.
+- **Flakes.** `test:browser:w4` step 11 was a real defect: opening the workspace switcher before the
+  current workspace resolved left only that workspace in the list, since its label arriving as the
+  input's value made React Aria's ComboBox filter by it. Reproduced by delaying
+  `GET /workspaces/default` by 1.2 s (options: Default only; without the delay: all four). The
+  switcher is disabled until the workspace resolves. `RelationMatrixView.test` "lets a reload replace
+  cells…" did not reproduce: 30 repeats under a parallel `vitest related` run passed, it takes
+  92 ms, and the code orders the cell patch before the dialog closes. It stays in TODO as observed
+  once.
+- **Tests.** `test:browser:settings` step 6: with Account open, one click on another application's
+  tab and one on the Deployment link each close it and navigate, a click on the heading closes it,
+  and axe runs with it open (0 violations). It failed before the fix ("app-shell intercepts pointer
+  events"). Unit: `SettingsMenu.test` (outside press reaches its target and the page is not inert;
+  inside press and Escape; layout scroll keeps it, wheel closes it) and `WorkspaceSelector.test`
+  (opened before the workspace resolves, all workspaces listed), each failing before its fix.
+- **Checks.** `vitest related` on the three changed files: 13 files, 176 tests passed. `format`,
+  `lint` (0 errors), `build` passed. Runners passed: `test:browser:settings` (10), `test:browser:w4`,
+  `test:browser` and `test:browser:a4`. `test:browser` failed once after the scroll fix and passed
+  twice after; the failing step was not captured. `test:browser:a4` failed once at the matrix cell
+  dialog's reopen after an unlink (line 383, `ui/Modal`, which UA0 does not touch) and passed on
+  the rerun. Both are in TODO. No surface looks different, so there are no screenshots.
+- **Top bar spacing** (the user, from another session the same day): the application tabs started
+  20px after "RDM Engine" (the header's gap; about 28px before U2). They now start 36px after it,
+  as ADR-040 says (`layout.css`); at 390px the tabs have their own row and are unchanged. Measured
+  on the dev server: the mark ends at 143px, the first tab starts at 179px; no page overflow at
+  either width. Every `test:visual` baseline shows the top bar, so they differ until UA7
+  re-records them.
+- **The header click on the dev server** (checked when the user said it was still the same): with
+  Account open, and with Display open, one click on **RDM Systems** closed the popover and switched
+  the application. This was checked on an application page only. The user meant the Settings
+  page, whose top bar was a different one: its product mark was text, not a button, and it had no
+  applications, so neither the click nor the spacing fix reached it. Reported as fixed when it
+  was not; corrected below.
+- **One top bar and one frame (U-D14).** `app/TopBar` (mark to home, application tabs, Settings,
+  Account) and `app/ShellFrame` (skip link, top bar, resizable rail, drawer below 760px, main) are
+  the only ones; `AppShell` and `SettingsShell` only fill the rail and the content. On Settings no
+  tab is current and the Settings link is (styled as current); the tab of the application last
+  looked at returns to that route, another tab to its last collection or default view, the mark
+  home. "Back to applications" and the "{product} / Settings" bar are gone with their CSS.
+- **Copies removed** (jscpd over `src`, blocks of 6 lines or more; 0.32% duplicated lines after):
+  the search box written five times is `ui/SearchField`, and the URL-backed search with its 250 ms
+  timer written three times is `DebouncedSearchField` (collection toolbar, mapping grid, relation
+  matrix; the matrix's column chooser and the tree use `SearchField`); the narrowed collection's
+  banner written three times is `ScopeBanner`; the model-release picker written twice in
+  `ChangeSets` is `ReleasePicker`; the change-review list frame written twice is `ChangeList`; the
+  unused `.header-link` rules are gone; shadow and backdrop tokens moved from `base.css` into
+  `tokens.css`, so their dark values sit in the two dark blocks `tokens.test` holds equal. What
+  remains: the two dark blocks themselves (CSS cannot share one block between the media query and
+  the attribute selector), and the mapping grid's and the matrix's page openings, which are now the
+  same shared components called with different content.
+- **Checks for the frame and the copies.** `vitest related` on the 18 changed source files: 14
+  files, 186 tests passed. `format`, `lint` (0 errors), `build` passed. Runners passed:
+  `test:browser:settings` (10; now also the same tabs and height as the application bar, the tabs
+  36px after the mark on Settings, no tab current, the application's tab returning to its view, and
+  the keyboard order home, tabs, Settings, Account), `wp14`, `a4`, `p2`, `change-sets`, `wp11`,
+  `wp13c`, `w4`, `wp12`. `test:browser` passed 6 of 10 runs; the 4 failures are the intermittent
+  record return in TODO (`ui03a-navigation.mjs:144`, waiting for the list URL after **Back to
+  list**), which passed 2 of 2 runs without this session's changes, so a link to them is not ruled
+  out; the cause is not found. `test:browser:b3` fails at the drag of Sodium
+  (`helpers/tree.mjs:189`, no drag preview) with and without this session's changes.
+- **Not run:** `test:a11y` and `test:visual` (UA7).
+
 ### Exit by 1.0
 
 - Every administrative, integration and security object a route manages has a settings page, and
@@ -969,7 +1047,7 @@ new look).
 
 ## Decisions
 
-U-D1–U-D6 were decided by the user on 2026-10-05; U-D7–U-D9 on 2026-10-06. U-D10 and U-D11 on 2026-10-06 (U-D10 revised by the user the same day), U-D12 and U-D13 on 2026-10-06.
+U-D1–U-D6 were decided by the user on 2026-10-05; U-D7–U-D9 on 2026-10-06. U-D10 and U-D11 on 2026-10-06 (U-D10 revised by the user the same day), U-D12 and U-D13 on 2026-10-06, U-D14 on 2026-10-06.
 
 | # | Question | Recommendation | Why |
 | --- | --- | --- | --- |
@@ -986,3 +1064,4 @@ U-D1–U-D6 were decided by the user on 2026-10-05; U-D7–U-D9 on 2026-10-06. U
 | U-D11 | Does the settings navigation show pages not built yet? | **Decided 2026-10-06 by the user: no**, as recommended. Only built pages are listed. U4 and U5 add Integration's, and U7 and U8 add theirs. The mockup's Security entries tagged "0.12" are left out | An entry with nothing behind it is a dead end, and a disabled one says nothing a user can act on. What is planned is in ROADMAP |
 | U-D12 | Which visual direction replaces Direction B, and how is it built? | **Decided 2026-10-06 (the user): Atlas, look E** ([ADR-040](DECISIONS.md#adr-040--the-atlas-visual-direction-todays-calm-shell-a-colour-for-every-kind-of-record)): today's shell and shapes with a colour for every kind of record and for the data context. Built in one pass (UA) before U4 and U5, each surface approved by the user from screenshots, with today's design tagged `ui-before-atlas` to switch back | The user found the product incoherent after U2 and U3, liked the current navigation, sidebar and shapes, and liked Atlas's colours; look E combined them and was accepted. Building slice by slice from written rules had drifted from the mockups |
 | U-D13 | How does an object type (and an application) get its colour? | **Decided 2026-10-06 by the user, as recommended:** automatically, by its position in the model (`objectTypes`, `applications`) over the eight-hue palette, so any model is coloured and stays stable while its order does; a later schema version may let a model name a palette hue. The palette's hues are kept apart from the three context colours (green, amber, violet) by shade, or those three are left out of the type palette; the user picks from the two on the real app in UA1 | ADR-040 needs colour per type without the engine knowing type keys. Position needs no model change; naming a hue would change the model schema. The canvas used amber for categories and violet for the catalogue, the same hues as change sets and publications, which ADR-039's "one meaning per colour" warns against |
+| U-D14 | Does Settings keep a top bar of its own? | **Decided 2026-10-06 by the user: no.** One navigation bar across the application, and every component reused rather than copied. Every area renders in `app/ShellFrame` under `app/TopBar`; on a settings page no tab is current and Settings is. The application's tab replaces "Back to applications" and returns to the same route. Revises U3's settings top bar and ADR-039's shell | The user found the settings bar different and not clickable (its product mark was text, it had no applications), and asked for one bar and no redundant code |

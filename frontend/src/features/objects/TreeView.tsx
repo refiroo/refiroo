@@ -51,6 +51,7 @@ import { Icon } from "@/ui/Icon";
 import { PageHeader } from "@/ui/PageHeader";
 import { Notice } from "@/ui/Notice";
 import type { ViewComponentProps } from "./views/types";
+import { SearchField } from "@/ui/SearchField";
 
 /** A written value as a label reads it: booleans spelt out, no value as nothing. */
 function text(value: unknown): string {
@@ -464,21 +465,13 @@ export function TreeView({
       {lenses}
       <section className="surface collection-surface">
         <div className="collection-toolbar object-toolbar">
-          <label className="search-box">
-            <Icon name="search" />
-            <input
-              aria-label={`Search ${view.name}`}
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Escape" && searchInput) {
-                  event.preventDefault();
-                  setSearchInput("");
-                }
-              }}
-              placeholder="Find a record"
-            />
-          </label>
+          <SearchField
+            value={searchInput}
+            onChange={setSearchInput}
+            label={`Search ${view.name}`}
+            placeholder="Find a record"
+            clearOnEscape
+          />
           {actions.size > 0 && (
             <p className="tree-lens-hint muted">
               <kbd>F2</kbd> rename · <kbd>Shift</kbd>+<kbd>F10</kbd> actions

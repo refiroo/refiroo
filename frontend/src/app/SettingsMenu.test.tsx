@@ -58,4 +58,40 @@ describe("AccountMenu", () => {
     expect(onOpenSettings).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Account" })).not.toBeInTheDocument());
   });
+
+  it("leaves the page live: a press outside closes it and reaches its target (UA0)", async () => {
+    const onPress = vi.fn();
+    render(
+      <button type="button" onClick={onPress}>
+        Outside
+      </button>,
+    );
+    openMenu();
+    await screen.findByRole("dialog", { name: "Account" });
+    const outside = screen.getByRole("button", { name: "Outside" });
+    expect(outside.closest("[inert]")).toBeNull();
+    fireEvent.pointerDown(outside);
+    fireEvent.click(outside);
+    expect(onPress).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Account" })).not.toBeInTheDocument());
+  });
+
+  it("stays open for a press inside and closes on Escape", async () => {
+    openMenu();
+    const dialog = await screen.findByRole("dialog", { name: "Account" });
+    fireEvent.pointerDown(screen.getByRole("radio", { name: "Dark" }));
+    expect(dialog).toBeInTheDocument();
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Account" })).not.toBeInTheDocument());
+  });
+
+  it("stays open through a scroll the layout causes and closes on the user's own (UA0)", async () => {
+    render(<p>Page</p>);
+    openMenu();
+    const dialog = await screen.findByRole("dialog", { name: "Account" });
+    fireEvent.scroll(document);
+    expect(dialog).toBeInTheDocument();
+    fireEvent.wheel(screen.getByText("Page"));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Account" })).not.toBeInTheDocument());
+  });
 });

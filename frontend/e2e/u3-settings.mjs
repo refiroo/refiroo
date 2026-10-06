@@ -1,5 +1,6 @@
 // 0.9 U3 browser evidence: the Settings area against a real backend, at 1440px and 390px. Settings
-// opened from the gear in two applications and left with Back to applications to each; every page;
+// opened from the gear in two applications, in the same top bar, and left with each application's
+// tab back to where it was; every page;
 // every address the settings area replaced; the default table density from Appearance seen in two
 // views of different object types, with a view's own choice winning; and the keyboard order.
 import { writeFile } from "node:fs/promises";
@@ -41,23 +42,45 @@ try {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
     const suffix = width === 390 ? "narrow" : "wide";
 
-    // 1. Settings from the gear in two applications; Back to applications returns to each.
+    // 1. Settings from the gear in two applications, in the same top bar; the tab of the
+    //    application it came from returns to that view with its query.
     for (const [view, record] of VIEWS) {
       await page.goto(`${uiUrl}${view}&search=0`);
       await page.getByRole("button", { name: record, exact: true }).waitFor();
       const from = page.url();
+      const tabs = page.getByRole("navigation", { name: "Applications" }).getByRole("button");
+      const appTabs = await tabs.allInnerTexts();
+      const current = await page.locator('nav[aria-label="Applications"] [aria-current="page"]').innerText();
+      const appBar = await page.getByRole("banner").boundingBox();
       await page.getByRole("banner").getByRole("link", { name: "Settings", exact: true }).click();
       await page.getByRole("heading", { level: 1, name: "About" }).waitFor();
       expect(path() === "/settings/about", `${suffix}: gear opened ${page.url()}`);
-      expect((await page.getByRole("navigation", { name: "Applications" }).count()) === 0, "application tabs shown");
+      expect(
+        JSON.stringify(await tabs.allInnerTexts()) === JSON.stringify(appTabs),
+        `${suffix}: settings top bar tabs differ from the application's`,
+      );
+      expect((await page.locator('nav[aria-label="Applications"] [aria-current]').count()) === 0, "a tab is current");
+      expect(
+        (await page.getByRole("banner").getByRole("link", { name: "Settings" }).getAttribute("aria-current")) === "page",
+        "Settings link not current",
+      );
+      const settingsBar = await page.getByRole("banner").boundingBox();
+      if (width === 1440) {
+        const mark = await page.locator(".product-mark").boundingBox();
+        const tab = await tabs.first().boundingBox();
+        const gap = Math.round(tab.x - (mark.x + mark.width));
+        expect(gap === 36, `settings: the tabs start ${gap}px after the product name, not 36px`);
+      }
+      expect(settingsBar.height === appBar.height, `${suffix}: top bar height ${settingsBar.height} vs ${appBar.height}`);
+      expect((await page.getByRole("link", { name: "Back to applications" }).count()) === 0, "a second bar's Back");
       expect((await page.getByLabel("Current context").count()) === 0, "data-context band shown");
       expect((await page.getByRole("combobox", { name: "Workspace", exact: true }).count()) === 0, "switcher shown");
-      await page.getByRole("link", { name: "Back to applications" }).click();
+      await tabs.filter({ hasText: current }).click();
       await page.getByRole("button", { name: record, exact: true }).waitFor();
-      expect(page.url() === from, `${suffix}: back returned to ${page.url()}, not ${from}`);
+      expect(page.url() === from, `${suffix}: the tab returned to ${page.url()}, not ${from}`);
     }
     checks.push(
-      `${suffix}: the gear opens Settings from two applications; Back to applications returns to each view with its query`,
+      `${suffix}: the gear opens Settings in the same top bar (same tabs and height, tabs 36px after the product name at 1440px, none current, Settings current) from two applications; each application's tab returns to its view with its query`,
     );
 
     // 2. Every page, through the rail (wide) or the navigation drawer (narrow).
@@ -171,13 +194,28 @@ try {
     "Compact on Appearance compacts two views of different object types; one view's own Comfortable wins only there",
   );
 
-  // 5. Keyboard order: skip link, top bar (Back to applications, Account), the settings navigation
-  //    with the rail's resize handle, then the content.
+  // 5. Keyboard order: skip link, top bar (home, the applications, Settings, Account), the settings
+  //    navigation with the rail's resize handle, then the content.
   await page.goto(`${uiUrl}/settings/deployment`);
   await page.getByRole("region", { name: "Capability groups" }).waitFor();
   await page.evaluate(() => document.activeElement?.blur());
+  const tabNames = await page.getByRole("navigation", { name: "Applications" }).getByRole("button").allInnerTexts();
+  const productName = (await page.locator(".product-mark strong").innerText()).trim();
+  const expected = [
+    "other:Skip to main content",
+    `topbar:${productName} home`,
+    ...tabNames.map((name) => `topbar:${name.trim()}`),
+    "topbar:Settings",
+    "topbar:Account",
+    "navigation:About",
+    "navigation:Appearance",
+    "navigation:Workspaces",
+    "navigation:Model",
+    "navigation:Deployment",
+    "navigation:Resize settings navigation",
+  ];
   const order = [];
-  for (let index = 0; index < 10; index += 1) {
+  for (let index = 0; index <= expected.length; index += 1) {
     await page.keyboard.press("Tab");
     order.push(
       await page.evaluate(() => {
@@ -193,19 +231,8 @@ try {
       }),
     );
   }
-  const expected = [
-    "other:Skip to main content",
-    "topbar:Back to applications",
-    "topbar:Account",
-    "navigation:About",
-    "navigation:Appearance",
-    "navigation:Workspaces",
-    "navigation:Model",
-    "navigation:Deployment",
-    "navigation:Resize settings navigation",
-  ];
   expect(
-    expected.every((item, index) => order[index] === item) && order[9].startsWith("main:"),
+    expected.every((item, index) => order[index] === item) && order[expected.length].startsWith("main:"),
     `keyboard order: ${order.join(" → ")}`,
   );
   // Back past the resize handle and Deployment to Model, and open it from the keyboard.
@@ -213,6 +240,48 @@ try {
   await page.keyboard.press("Enter");
   await page.getByRole("heading", { level: 1, name: "Model" }).waitFor();
   checks.push(`keyboard order: ${order.join(" → ")}; Enter on a navigation link opens its page`);
+
+  // 6. A popover open does not swallow the first click on the page (UA0): with Account open, one
+  //    click on an application tab or a settings navigation link closes it and navigates; a click
+  //    on plain text only closes it. Playwright refuses to click under an underlay or an inert page.
+  const account = page.getByRole("dialog", { name: "Account" });
+  const openAccount = async () => {
+    await page.getByRole("banner").getByRole("button", { name: "Account" }).click();
+    await account.waitFor();
+  };
+  const click = { timeout: 3000 };
+  await page.goto(`${uiUrl}${VIEWS[0][0]}`);
+  await page.getByRole("button", { name: VIEWS[0][1], exact: true }).waitFor();
+  const tabs = page.getByRole("navigation", { name: "Applications" }).getByRole("button");
+  const other = tabs.and(page.locator(":not([aria-current])")).first();
+  const otherName = (await other.innerText()).trim();
+  await openAccount();
+  await other.click(click);
+  await page.waitForFunction(
+    (name) =>
+      [...document.querySelectorAll('nav[aria-label="Applications"] [aria-current="page"]')].some(
+        (tab) => tab.textContent.trim() === name,
+      ),
+    otherName,
+    click,
+  );
+  expect((await account.count()) === 0, "Account stayed open after a tab click");
+  await openAccount();
+  await page.getByRole("heading", { level: 1 }).first().click(click);
+  await account.waitFor({ state: "detached", ...click });
+  await page.goto(`${uiUrl}/settings/about`);
+  await page.getByRole("heading", { level: 1, name: "About" }).waitFor();
+  await openAccount();
+  // The page is no longer hidden while a popover is open; axe reads both together.
+  const popoverAxe = await runAxe(page, [], "u3-account-open");
+  if (popoverAxe.violations.length) failures.push(`u3-account-open:\n${formatViolations(popoverAxe.violations)}`);
+  await page.getByRole("navigation", { name: "Settings" }).getByRole("link", { name: "Deployment" }).click(click);
+  await page.waitForURL("**/settings/deployment", click);
+  expect((await account.count()) === 0, "Account stayed open after a settings link click");
+  checks.push(
+    `with Account open, one click on the ${otherName} tab or the Deployment link closes it and navigates; a click on the heading closes it; axe with Account open: ${popoverAxe.violations.length} violations`,
+  );
+
   await page.goto(`${uiUrl}/settings/deployment`);
   await page.getByRole("region", { name: "Capability groups" }).waitFor();
 

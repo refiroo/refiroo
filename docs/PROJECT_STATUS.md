@@ -254,7 +254,11 @@ widened, a drawer for phones and the workspace switcher returned to the rail
 ([revisions](SETTINGS_AND_UI_PLAN.md#u3-revisions-after-delivery-2026-10-06)). Finding the UI
 incoherent, the user then chose a new visual direction, **Atlas** (ADR-040): today's shell with a
 colour for every kind of record. Next: **UA**, the Atlas redesign of every surface
-([plan](SETTINGS_AND_UI_PLAN.md#ua-the-atlas-redesign)), before U4 and U5.
+([plan](SETTINGS_AND_UI_PLAN.md#ua-the-atlas-redesign)), before U4 and U5. **UA0 is implemented
+(2026-10-06)**, awaiting the user's check on the dev server: popovers no longer swallow the first
+click on the page, the workspace switcher lists every workspace when opened while loading, and
+every page, Settings included, has one top bar and one frame, with copied markup replaced by
+shared components (U-D14, [record](SETTINGS_AND_UI_PLAN.md#ua0-record-2026-10-06)).
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

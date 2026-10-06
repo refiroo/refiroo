@@ -1,10 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
-import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
+import { useCursorFeed, type CursorFeed } from "@/lib/hooks/useCursorFeed";
 import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { allowNavigation } from "@/routing/navigationGuard";
-import type { ChangeSet, ChangeSetValidation } from "@/types";
+import type { ChangeSet, ChangeSetValidation, ModelReleaseSummary } from "@/types";
 import { Notice } from "@/ui/Notice";
 import { InlineError } from "@/ui/InlineError";
 import { Modal } from "@/ui/Modal";
@@ -140,29 +140,15 @@ function CreateChangeSet({
           Change set name
           <input autoFocus value={name} maxLength={300} onChange={(event) => setName(event.target.value)} />
         </label>
-        {(releases.items.length > 1 || releases.hasMore) && (
-          <label>
-            Model version
-            <select value={selectedRelease} onChange={(event) => setSelectedRelease(event.target.value)}>
-              <option value="">
-                {activeRelease ? `${activeRelease.key} ${activeRelease.version} (active)` : "Active release"}
-              </option>
-              {releases.items
-                .filter((r) => !r.active)
-                .map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.key} {r.version}
-                  </option>
-                ))}
-            </select>
-          </label>
-        )}
-        {releases.hasMore && (
-          <button type="button" className="secondary" disabled={releases.loading} onClick={releases.loadMore}>
-            Load more model releases
-          </button>
-        )}
-        {releases.error && <InlineError message={releases.error} onRetry={releases.retry} />}
+        <ReleasePicker
+          label="Model version"
+          releases={releases}
+          value={selectedRelease}
+          onChange={setSelectedRelease}
+          placeholder={activeRelease ? `${activeRelease.key} ${activeRelease.version} (active)` : "Active release"}
+          exclude={(release) => release.active}
+          onlyWhenChoice
+        />
         {error && (
           <Notice tone="error">
             {error}
@@ -188,6 +174,55 @@ function CreateChangeSet({
 }
 
 /** Human-readable diagnostics retain record identities without exposing serialized exception data. */
+/**
+ * An installed model release to choose, paged with Load more. The empty option is `placeholder`;
+ * `onlyWhenChoice` hides the select while one release is all there is.
+ */
+function ReleasePicker({
+  label,
+  releases,
+  value,
+  onChange,
+  placeholder,
+  exclude,
+  onlyWhenChoice = false,
+}: {
+  label: string;
+  releases: CursorFeed<ModelReleaseSummary>;
+  value: string;
+  onChange: (releaseId: string) => void;
+  placeholder: string;
+  exclude: (release: ModelReleaseSummary) => boolean;
+  onlyWhenChoice?: boolean;
+}) {
+  return (
+    <>
+      {(!onlyWhenChoice || releases.items.length > 1 || releases.hasMore) && (
+        <label>
+          {label}
+          <select value={value} onChange={(event) => onChange(event.target.value)}>
+            <option value="">{placeholder}</option>
+            {releases.items
+              .filter((release) => !exclude(release))
+              .map((release) => (
+                <option key={release.id} value={release.id}>
+                  {release.key} {release.version}
+                  {release.active ? " (active)" : ""}
+                </option>
+              ))}
+          </select>
+        </label>
+      )}
+      {releases.hasMore && (
+        <button type="button" className="secondary" disabled={releases.loading} onClick={releases.loadMore}>
+          Load more model releases
+        </button>
+      )}
+      {releases.error && <InlineError message={releases.error} onRetry={releases.retry} />}
+    </>
+  );
+}
+
 export function ChangeSetDiagnostics({ items }: { items: Array<Record<string, unknown>> }) {
   return (
     <ul>
@@ -444,26 +479,14 @@ export function ChangeSetActions({
             <p>
               Select a different installed model release. The change set content must already satisfy the target model.
             </p>
-            <label>
-              Target release
-              <select value={selectedRelease} onChange={(event) => setSelectedRelease(event.target.value)}>
-                <option value="">Select a release…</option>
-                {releases.items
-                  .filter((r) => r.id !== current.modelReleaseId)
-                  .map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.key} {r.version}
-                      {r.active ? " (active)" : ""}
-                    </option>
-                  ))}
-              </select>
-            </label>
-            {releases.hasMore && (
-              <button type="button" className="secondary" disabled={releases.loading} onClick={releases.loadMore}>
-                Load more model releases
-              </button>
-            )}
-            {releases.error && <InlineError message={releases.error} onRetry={releases.retry} />}
+            <ReleasePicker
+              label="Target release"
+              releases={releases}
+              value={selectedRelease}
+              onChange={setSelectedRelease}
+              placeholder="Select a release…"
+              exclude={(release) => release.id === current.modelReleaseId}
+            />
             {versionChangeError && (
               <Notice tone="error" title="Version change failed">
                 {versionChangeError}

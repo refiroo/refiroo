@@ -28,7 +28,7 @@ import {
   stateLabel,
   type MatrixStateKey,
 } from "@/features/objects/relationMatrixStates";
-import { CollectionScope } from "@/features/objects/CollectionScope";
+import { ScopeBanner } from "@/features/objects/CollectionScope";
 import type {
   RelationMatrixCell,
   RelationMatrixColumn,
@@ -36,6 +36,7 @@ import type {
   RelationMatrixViewDefinition,
 } from "@/types";
 import type { ViewComponentProps } from "./views/types";
+import { DebouncedSearchField } from "@/ui/SearchField";
 
 /** A cell re-read after a save, kept over the loaded page until the list reloads. */
 interface RowPatch {
@@ -60,7 +61,6 @@ export function RelationMatrixView({
   const { config } = view;
   const api = useDataApi();
   const { changeSet, publication } = useWorkspaceData();
-  const [search, setSearch] = useState(query.search);
   const [columnCursor, setColumnCursor] = useState<string>();
   const [open, setOpen] = useState<{ rowId: string; columnId: string }>();
   const [active, setActive] = useState<{ rowId: string; column: number }>();
@@ -78,14 +78,6 @@ export function RelationMatrixView({
   const columnIds = query.matrixColumnIds;
   const state = columnIds?.length ? query.matrixState : undefined;
   const pageSize = query.pageSize || config.pageSize;
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const trimmed = search.trim();
-      if (trimmed !== query.search) onQueryChange({ ...query, search: trimmed, anchor: undefined });
-    }, 250);
-    return () => window.clearTimeout(timer);
-  }, [search, query, onQueryChange]);
 
   // The columns come with each page; they depend only on what selects them, so every page of one
   // list carries the same ones and a late page of an earlier list is ignored.
@@ -306,36 +298,21 @@ export function RelationMatrixView({
           </>
         }
       />
-      {query.parentObjectId && (
-        <div className="scope-banner">
-          <CollectionScope
-            model={model}
-            workspaceKey={workspaceKey}
-            parentObjectId={query.parentObjectId}
-            parentObjectTypeKey={query.parentObjectTypeKey}
-          />
-          <button
-            className="ghost"
-            onClick={() =>
-              onQueryChange({ ...query, parentObjectId: undefined, parentObjectTypeKey: undefined, anchor: undefined })
-            }
-          >
-            Show all {rowsPlural}
-          </button>
-        </div>
-      )}
+      <ScopeBanner
+        model={model}
+        workspaceKey={workspaceKey}
+        query={query}
+        onQueryChange={onQueryChange}
+        pluralName={rowType.pluralName}
+      />
       {lenses}
       <section className="surface collection-surface">
         <div className="collection-toolbar object-toolbar">
-          <label className="search-box">
-            <Icon name="search" />
-            <input
-              aria-label="Search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder={`Search ${rowsPlural}`}
-            />
-          </label>
+          <DebouncedSearchField
+            appliedValue={query.search}
+            onApply={(search) => onQueryChange({ ...query, search, anchor: undefined })}
+            placeholder={`Search ${rowsPlural}`}
+          />
           <RelationMatrixFilter
             model={model}
             workspaceKey={workspaceKey}

@@ -1,8 +1,9 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { attributeName } from "@/model/fields";
 import type { CollectionQueryState, EngineModel, TableViewDefinition, ValueType } from "@/types";
 import { Icon } from "@/ui/Icon";
 import { ControlPopover } from "@/ui/ControlPopover";
+import { DebouncedSearchField } from "@/ui/SearchField";
 
 const OPERATOR_LABELS: Record<string, string> = {
   eq: "is",
@@ -43,9 +44,9 @@ export function ObjectToolbar({
   return (
     <>
       <div className="collection-toolbar object-toolbar">
-        <SearchControl
+        <DebouncedSearchField
           key={query.search}
-          initialValue={query.search}
+          appliedValue={query.search}
           placeholder={placeholder}
           onApply={(search) => onChange({ ...query, search })}
         />
@@ -99,36 +100,6 @@ export function ObjectToolbar({
         )}
       </div>
     </>
-  );
-}
-
-function SearchControl({
-  initialValue,
-  placeholder,
-  onApply,
-}: {
-  initialValue: string;
-  placeholder: string;
-  onApply: (value: string) => void;
-}) {
-  const [value, setValue] = useState(initialValue);
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const search = value.trim();
-      if (search !== initialValue) onApply(search);
-    }, 250);
-    return () => window.clearTimeout(timer);
-  }, [initialValue, onApply, value]);
-  return (
-    <label className="search-box">
-      <Icon name="search" />
-      <input
-        aria-label="Search"
-        value={value}
-        onChange={(event) => setValue(event.target.value)}
-        placeholder={placeholder}
-      />
-    </label>
   );
 }
 

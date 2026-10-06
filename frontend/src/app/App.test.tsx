@@ -37,8 +37,9 @@ vi.mock("@/api/client", () => ({
 
 const capabilities = (manageWorkspaces: boolean) => capabilitiesFixture({ manageWorkspaces });
 
-/** Back to applications, in the settings top bar (its icon only on phones). */
-const backToApplications = () => screen.getAllByRole("link", { name: "Back to applications" })[0];
+/** The application's tab in the top bar, which Settings shares with the application pages. */
+const applicationTab = () =>
+  within(screen.getByRole("navigation", { name: "Applications" })).getByRole("button", { name: "Test App" });
 
 /** The settings navigation, where each page is a link. */
 const settingsNavigation = () => screen.getByRole("navigation", { name: "Settings" });
@@ -262,7 +263,7 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Account" })).toBeInTheDocument();
   });
 
-  it("opens Settings without workspace controls and comes back with Back to applications", async () => {
+  it("opens Settings in the same top bar without workspace controls, and the application's tab comes back", async () => {
     vi.mocked(api.system).mockResolvedValue({
       engine: { version: "0.9.0-alpha.1", managementApi: "v1" },
       schemaLanguages: ["0.7", "0.8"],
@@ -285,14 +286,15 @@ describe("App", () => {
     expect(window.location.pathname).toBe("/settings/about");
     expect(within(settingsNavigation()).getByRole("link", { name: "About" })).toHaveAttribute("aria-current", "page");
     expect(screen.queryByRole("combobox", { name: "Workspace" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("navigation", { name: "Applications" })).not.toBeInTheDocument();
+    expect(applicationTab()).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: /home$/ })).toBeInTheDocument();
     expect(screen.queryByLabelText("Current context")).not.toBeInTheDocument();
     expect(await screen.findByText("20261005_02")).toBeInTheDocument();
 
     fireEvent.click(within(settingsNavigation()).getByRole("link", { name: "Appearance" }));
     expect(await screen.findByRole("heading", { name: "Appearance", level: 1 })).toBeInTheDocument();
-    expect(backToApplications()).toHaveAttribute("href", expect.stringContaining("workspaceKey=west"));
-    fireEvent.click(backToApplications());
+    fireEvent.click(applicationTab());
     await waitFor(() => expect(window.location.pathname).toBe("/apps/test-app/views/domains"));
     expect(new URLSearchParams(window.location.search).get("search")).toBe("cli");
     expect(new URLSearchParams(window.location.search).get("workspaceKey")).toBe("west");
@@ -379,7 +381,7 @@ describe("App", () => {
     expect(await screen.findByText(/Workspace west \(west\) was deleted/)).toBeInTheDocument();
     await waitFor(() => expect(window.location.pathname).toBe("/settings/workspaces"));
 
-    fireEvent.click(backToApplications());
+    fireEvent.click(applicationTab());
     await waitFor(() => expect(window.location.search).toContain("workspaceKey=default"));
   });
 

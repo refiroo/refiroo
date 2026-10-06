@@ -110,6 +110,9 @@ export function WorkspaceSelector({
         }}
         options={options}
         allowsCustomValue={false}
+        // Until the current workspace resolves, its label is still to arrive as the field's value;
+        // arriving while the list is open, it would filter the list down to itself.
+        isDisabled={!selectedWorkspace && !resolveError}
         description={description}
         action={
           onManage

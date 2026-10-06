@@ -1487,9 +1487,10 @@ screens. The user chose B, "Open", over A, "Framed" (a dark frame with raised pa
   weight: page titles 30px semibold, section headings 15px semibold, column headers 12px semibold
   in the tertiary ink.
 - **Shell.** The top bar holds the product mark, then the workspace switcher, then the
-  applications as underlined tabs, with Settings and the account at the right. Settings opens its
-  own shell (the same top bar, labelled Settings, with "Back to applications") and a grouped side
-  navigation.
+  applications as underlined tabs, with Settings and the account at the right. Settings uses the
+  same frame and the same top bar (no tab current, Settings current) with a grouped side
+  navigation in the rail. _Revised 2026-10-06 (U-D14): Settings first had a top bar of its own
+  ("{product} / Settings", "Back to applications")._
 
 ### Consequences
 

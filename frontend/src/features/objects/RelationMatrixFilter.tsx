@@ -12,7 +12,6 @@ import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { ControlPopover } from "@/ui/ControlPopover";
 import { InlineError } from "@/ui/InlineError";
 import { ScrollWindow } from "@/ui/ScrollWindow";
-import { Icon } from "@/ui/Icon";
 import { fieldValue } from "@/model/fields";
 import { MATRIX_MAX_COLUMNS } from "@/routing/routes";
 import { StateMark, type MatrixStateKey } from "@/features/objects/relationMatrixStates";
@@ -23,6 +22,7 @@ import type {
   ObjectTypeDefinition,
   RelationMatrixColumn,
 } from "@/types";
+import { SearchField } from "@/ui/SearchField";
 
 type MatrixFilter = Pick<CollectionQueryState, "matrixColumnIds" | "matrixState">;
 
@@ -145,15 +145,7 @@ function ColumnChooser({
   const plural = columnType.pluralName.toLowerCase();
   return (
     <>
-      <label className="search-box">
-        <Icon name="search" />
-        <input
-          aria-label={`Search ${plural}`}
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder={`Search ${plural}`}
-        />
-      </label>
+      <SearchField value={search} onChange={setSearch} label={`Search ${plural}`} placeholder={`Search ${plural}`} />
       {full && <p className="muted-text">At most {MATRIX_MAX_COLUMNS} can be shown at once.</p>}
       <ScrollWindow
         list={list}

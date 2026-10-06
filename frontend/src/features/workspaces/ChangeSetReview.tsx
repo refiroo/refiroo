@@ -10,7 +10,7 @@
 import { useId, useState, type ReactNode } from "react";
 import { api } from "@/api/client";
 import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
-import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
+import { useCursorWindow, type CursorWindow } from "@/lib/hooks/useCursorWindow";
 import { attributeName } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
 import type {
@@ -328,6 +328,50 @@ function unchangedNote(noun: "record" | "relationship") {
   return `No field differs from the source. The ${noun} was saved again, so publishing still checks its version against live data.`;
 }
 
+/**
+ * A change list: the window of rows over its cursor list, its loading and empty states, and a
+ * failed read with Retry. Record and relationship changes differ only in their rows.
+ */
+function ChangeList<T>({
+  list,
+  label,
+  noun,
+  onAnchorChange,
+  empty,
+  renderRow,
+}: {
+  list: CursorWindow<T>;
+  label: string;
+  noun: [string, string];
+  onAnchorChange: (anchor: string | undefined) => void;
+  empty: ReactNode;
+  renderRow: (item: T, position: number) => ReactNode;
+}) {
+  return (
+    <>
+      {list.error && <InlineError message={list.error} onRetry={list.retry} />}
+      {(!list.error || list.items.length > 0) && (
+        <ScrollWindow
+          list={list}
+          label={label}
+          noun={noun}
+          pageSize={PAGE_SIZE}
+          className="change-list"
+          onAnchorChange={onAnchorChange}
+        >
+          {list.items.length > 0 && (
+            <ul className="change-rows" aria-busy={list.loading || undefined}>
+              {list.items.map(renderRow)}
+            </ul>
+          )}
+          {list.loading && !list.items.length && <p className="candidate-state">Loading changes…</p>}
+          {!list.loading && !list.error && !list.items.length && empty}
+        </ScrollWindow>
+      )}
+    </>
+  );
+}
+
 function ObjectChanges({
   model,
   changeSetId,
@@ -361,85 +405,67 @@ function ObjectChanges({
     { anchor, refreshToken },
   );
   return (
-    <>
-      {list.error && <InlineError message={list.error} onRetry={list.retry} />}
-      {(!list.error || list.items.length > 0) && (
-        <ScrollWindow
-          list={list}
-          label="Record changes"
-          noun={["record change", "record changes"]}
-          pageSize={PAGE_SIZE}
-          className="change-list"
-          onAnchorChange={onAnchorChange}
-        >
-          {list.items.length > 0 && (
-            <ul className="change-rows" aria-busy={list.loading || undefined}>
-              {list.items.map((item, position) => {
-                const name = item.after?.name ?? item.before?.name ?? item.objectId;
-                // A reclassified record (C1) names its type on both sides; an added or removed one
-                // the type of the side it has, so a removed record is named as its source holds it.
-                const ownType = (item.after ?? item.before)?.objectTypeKey ?? item.objectTypeKey;
-                const type =
-                  item.before && item.after && item.changedFields.includes("objectType")
-                    ? `${endType(model, item.before.objectTypeKey)} → ${endType(model, item.after.objectTypeKey)}`
-                    : (objectTypeFor(model, ownType)?.name ?? ownType);
-                const where = location(item.path);
-                return (
-                  <ChangeRow
-                    key={item.objectId}
-                    rowKey={item.objectId}
-                    index={list.startIndex + position}
-                    name={name}
-                    summary={
-                      <>
-                        <KindBadge kind={item.kind} />
-                        <span className="change-row-main">
-                          <span className="change-row-title">
-                            {item.kind === "removed" ? (
-                              <span className="change-row-name">{name}</span>
-                            ) : (
-                              <button type="button" className="cell-link" onClick={() => onOpenRecord(item)}>
-                                {name}
-                              </button>
-                            )}
-                            <span className="change-row-type">{type}</span>
-                          </span>
-                          <span className="change-row-meta">
-                            <span className="change-row-path">{where}</span>
-                            <ChangedFields model={model} fields={item.changedFields} kind={item.kind} />
-                          </span>
-                        </span>
-                      </>
-                    }
-                  >
-                    {item.changedFields.length === 0 ? (
-                      <p className="muted-text">{unchangedNote("record")}</p>
+    <ChangeList
+      list={list}
+      label="Record changes"
+      noun={["record change", "record changes"]}
+      onAnchorChange={onAnchorChange}
+      empty={<EmptyState filtered={filtered} what="record" />}
+      renderRow={(item, position) => {
+        const name = item.after?.name ?? item.before?.name ?? item.objectId;
+        // A reclassified record (C1) names its type on both sides; an added or removed one
+        // the type of the side it has, so a removed record is named as its source holds it.
+        const ownType = (item.after ?? item.before)?.objectTypeKey ?? item.objectTypeKey;
+        const type =
+          item.before && item.after && item.changedFields.includes("objectType")
+            ? `${endType(model, item.before.objectTypeKey)} → ${endType(model, item.after.objectTypeKey)}`
+            : (objectTypeFor(model, ownType)?.name ?? ownType);
+        const where = location(item.path);
+        return (
+          <ChangeRow
+            key={item.objectId}
+            rowKey={item.objectId}
+            index={list.startIndex + position}
+            name={name}
+            summary={
+              <>
+                <KindBadge kind={item.kind} />
+                <span className="change-row-main">
+                  <span className="change-row-title">
+                    {item.kind === "removed" ? (
+                      <span className="change-row-name">{name}</span>
                     ) : (
-                      <DiffTable
-                        caption={`Changes to ${name}`}
-                        rows={item.changedFields.map((field) => ({
-                          key: field,
-                          label: fieldLabel(model, field),
-                          before: objectValue(
-                            model,
-                            field,
-                            item.before,
-                            item.kind === "removed" ? item.path : item.beforePath,
-                          ),
-                          after: objectValue(model, field, item.after, item.path),
-                        }))}
-                      />
+                      <button type="button" className="cell-link" onClick={() => onOpenRecord(item)}>
+                        {name}
+                      </button>
                     )}
-                  </ChangeRow>
-                );
-              })}
-            </ul>
-          )}
-          {list.loading && !list.items.length && <p className="candidate-state">Loading changes…</p>}
-          {!list.loading && !list.error && !list.items.length && <EmptyState filtered={filtered} what="record" />}
-        </ScrollWindow>
-      )}
-    </>
+                    <span className="change-row-type">{type}</span>
+                  </span>
+                  <span className="change-row-meta">
+                    <span className="change-row-path">{where}</span>
+                    <ChangedFields model={model} fields={item.changedFields} kind={item.kind} />
+                  </span>
+                </span>
+              </>
+            }
+          >
+            {item.changedFields.length === 0 ? (
+              <p className="muted-text">{unchangedNote("record")}</p>
+            ) : (
+              <DiffTable
+                caption={`Changes to ${name}`}
+                rows={item.changedFields.map((field) => ({
+                  key: field,
+                  label: fieldLabel(model, field),
+                  before: objectValue(model, field, item.before, item.kind === "removed" ? item.path : item.beforePath),
+                  after: objectValue(model, field, item.after, item.path),
+                }))}
+              />
+            )}
+          </ChangeRow>
+        );
+      }}
+    />
   );
 }
 
@@ -487,89 +513,70 @@ function RelationChanges({
     { anchor, refreshToken },
   );
   return (
-    <>
-      {list.error && <InlineError message={list.error} onRetry={list.retry} />}
-      {(!list.error || list.items.length > 0) && (
-        <ScrollWindow
-          list={list}
-          label="Relationship changes"
-          noun={["relationship change", "relationship changes"]}
-          pageSize={PAGE_SIZE}
-          className="change-list"
-          onAnchorChange={onAnchorChange}
-        >
-          {list.items.length > 0 && (
-            <ul className="change-rows" aria-busy={list.loading || undefined}>
-              {list.items.map((item, position) => {
-                const type = model.relationTypes.find((relation) => relation.key === item.relationTypeKey);
-                const from = item.fromObject.name ?? item.fromObject.objectId;
-                const to = item.toObject.name ?? item.toObject.objectId;
-                const name = `${from} → ${to}`;
-                const attributes = [
-                  ...new Set([
-                    ...Object.keys(item.before?.attributes ?? {}),
-                    ...Object.keys(item.after?.attributes ?? {}),
-                  ]),
-                ];
-                const fields = item.kind === "changed" ? item.changedFields : attributes;
-                return (
-                  <ChangeRow
-                    key={item.relationId}
-                    rowKey={item.relationId}
-                    index={list.startIndex + position}
-                    name={`${type?.name ?? item.relationTypeKey} ${name}`}
-                    summary={
-                      <>
-                        <KindBadge kind={item.kind} />
-                        <span className="change-row-main">
-                          <span className="change-row-title">
-                            <span className="change-row-name">
-                              {from} <span aria-hidden="true">→</span>
-                              <span className="visually-hidden"> to </span> {to}
-                            </span>
-                            <span className="change-row-type">{type?.name ?? item.relationTypeKey}</span>
-                            {item.containment && <span className="pill">Parent link</span>}
-                          </span>
-                          <span className="change-row-meta">
-                            <span className="change-row-path">
-                              {endType(model, item.fromObject.objectTypeKey)} →{" "}
-                              {endType(model, item.toObject.objectTypeKey)}
-                            </span>
-                            <ChangedFields model={model} fields={item.changedFields} kind={item.kind} />
-                          </span>
-                        </span>
-                      </>
-                    }
-                  >
-                    {fields.length === 0 ? (
-                      <p className="muted-text">
-                        {item.kind === "changed"
-                          ? unchangedNote("relationship")
-                          : `${item.kind === "added" ? "Added" : "Removed"} with no attributes.`}
-                      </p>
-                    ) : (
-                      <DiffTable
-                        caption={`Changes to ${name}`}
-                        rows={fields.map((field) => ({
-                          key: field,
-                          label: attributeName(model, field),
-                          before: formatValue(item.before?.attributes[field]),
-                          after: formatValue(item.after?.attributes[field]),
-                        }))}
-                      />
-                    )}
-                  </ChangeRow>
-                );
-              })}
-            </ul>
-          )}
-          {list.loading && !list.items.length && <p className="candidate-state">Loading changes…</p>}
-          {!list.loading && !list.error && !list.items.length && (
-            <EmptyState filtered={filtered} what="relationship" parentLinksHidden={!containment} />
-          )}
-        </ScrollWindow>
-      )}
-    </>
+    <ChangeList
+      list={list}
+      label="Relationship changes"
+      noun={["relationship change", "relationship changes"]}
+      onAnchorChange={onAnchorChange}
+      empty={<EmptyState filtered={filtered} what="relationship" parentLinksHidden={!containment} />}
+      renderRow={(item, position) => {
+        const type = model.relationTypes.find((relation) => relation.key === item.relationTypeKey);
+        const from = item.fromObject.name ?? item.fromObject.objectId;
+        const to = item.toObject.name ?? item.toObject.objectId;
+        const name = `${from} → ${to}`;
+        const attributes = [
+          ...new Set([...Object.keys(item.before?.attributes ?? {}), ...Object.keys(item.after?.attributes ?? {})]),
+        ];
+        const fields = item.kind === "changed" ? item.changedFields : attributes;
+        return (
+          <ChangeRow
+            key={item.relationId}
+            rowKey={item.relationId}
+            index={list.startIndex + position}
+            name={`${type?.name ?? item.relationTypeKey} ${name}`}
+            summary={
+              <>
+                <KindBadge kind={item.kind} />
+                <span className="change-row-main">
+                  <span className="change-row-title">
+                    <span className="change-row-name">
+                      {from} <span aria-hidden="true">→</span>
+                      <span className="visually-hidden"> to </span> {to}
+                    </span>
+                    <span className="change-row-type">{type?.name ?? item.relationTypeKey}</span>
+                    {item.containment && <span className="pill">Parent link</span>}
+                  </span>
+                  <span className="change-row-meta">
+                    <span className="change-row-path">
+                      {endType(model, item.fromObject.objectTypeKey)} → {endType(model, item.toObject.objectTypeKey)}
+                    </span>
+                    <ChangedFields model={model} fields={item.changedFields} kind={item.kind} />
+                  </span>
+                </span>
+              </>
+            }
+          >
+            {fields.length === 0 ? (
+              <p className="muted-text">
+                {item.kind === "changed"
+                  ? unchangedNote("relationship")
+                  : `${item.kind === "added" ? "Added" : "Removed"} with no attributes.`}
+              </p>
+            ) : (
+              <DiffTable
+                caption={`Changes to ${name}`}
+                rows={fields.map((field) => ({
+                  key: field,
+                  label: attributeName(model, field),
+                  before: formatValue(item.before?.attributes[field]),
+                  after: formatValue(item.after?.attributes[field]),
+                }))}
+              />
+            )}
+          </ChangeRow>
+        );
+      }}
+    />
   );
 }
 

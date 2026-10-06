@@ -1,0 +1,66 @@
+import { useEffect, useState } from "react";
+import { Icon } from "@/ui/Icon";
+
+/** The search box every list uses: the icon, then an input named by `label`. */
+export function SearchField({
+  value,
+  onChange,
+  label = "Search",
+  placeholder,
+  clearOnEscape = false,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  label?: string;
+  placeholder: string;
+  /** Escape empties a non-empty box instead of reaching the page. */
+  clearOnEscape?: boolean;
+}) {
+  return (
+    <label className="search-box">
+      <Icon name="search" />
+      <input
+        aria-label={label}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={
+          clearOnEscape
+            ? (event) => {
+                if (event.key === "Escape" && value) {
+                  event.preventDefault();
+                  onChange("");
+                }
+              }
+            : undefined
+        }
+        placeholder={placeholder}
+      />
+    </label>
+  );
+}
+
+/**
+ * A search box over a search held elsewhere (the URL): typing is applied, trimmed, 250ms after
+ * the last key, and only when it differs from `appliedValue`.
+ */
+export function DebouncedSearchField({
+  appliedValue,
+  onApply,
+  label,
+  placeholder,
+}: {
+  appliedValue: string;
+  onApply: (value: string) => void;
+  label?: string;
+  placeholder: string;
+}) {
+  const [value, setValue] = useState(appliedValue);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const search = value.trim();
+      if (search !== appliedValue) onApply(search);
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [appliedValue, onApply, value]);
+  return <SearchField value={value} onChange={setValue} label={label} placeholder={placeholder} />;
+}

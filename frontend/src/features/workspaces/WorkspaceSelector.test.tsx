@@ -129,4 +129,17 @@ describe("WorkspaceSelector", () => {
     await waitFor(() => expect(api.workspaces).toHaveBeenCalled());
     expect(screen.getByText("Workspace 'missing' not found")).toBeInTheDocument();
   });
+
+  it("lists every workspace when opened before the current one has resolved (UA0)", async () => {
+    let resolve: (workspace: typeof defaultWorkspace) => void = () => {};
+    vi.mocked(api.workspace).mockReturnValue(new Promise((done) => (resolve = done)));
+    render(<WorkspaceSelector workspaceKey="default" onChange={vi.fn()} />);
+    await waitFor(() => expect(api.workspaces).toHaveBeenCalled());
+    const show = screen.getByRole("button", { name: /Show workspace options/ });
+    fireEvent.click(show);
+    resolve(defaultWorkspace);
+    expect(await screen.findByRole("combobox", { name: "Workspace" })).toHaveValue("Default workspace");
+    if (!screen.queryByRole("listbox")) fireEvent.click(show);
+    expect(await screen.findByRole("option", { name: /Central Europe/ })).toBeInTheDocument();
+  });
 });

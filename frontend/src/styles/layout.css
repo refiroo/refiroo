@@ -27,7 +27,7 @@
   box-shadow: var(--shadow-md);
 }
 
-/* Top bar (ADR-039): the product mark, the workspace switcher, the applications as underlined tabs,
+/* Top bar (ADR-039, one for every area: `app/TopBar`): the product mark, the applications as tabs,
    then Settings and the account at the right. White, separated from the content by a rule. */
 .global-header {
   position: sticky;
@@ -67,10 +67,12 @@
 .product-mark strong {
   font-weight: 600;
 }
+/* The tabs start 36px after the product name (ADR-040); the header's gap gives the first 20. */
 .application-nav {
   display: flex;
   align-items: stretch;
   gap: var(--space-5);
+  margin-inline-start: calc(36px - var(--space-5));
   min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
@@ -115,27 +117,6 @@
   align-items: center;
   gap: var(--space-1);
 }
-.header-link {
-  display: inline-flex;
-  align-items: center;
-  min-height: 32px;
-  padding: 0 var(--space-2);
-  border: 0;
-  border-radius: var(--radius-control);
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: var(--text-sm);
-  font-weight: 500;
-}
-.header-link:hover {
-  background: var(--surface-hover);
-  color: var(--text-primary);
-}
-.header-link[aria-current="page"] {
-  background: var(--state-selected);
-  color: var(--state-selected-text);
-  font-weight: 600;
-}
 .topbar-icon-button {
   display: grid;
   place-items: center;
@@ -153,6 +134,10 @@
 .topbar-icon-button[aria-expanded="true"] {
   background: var(--surface-hover);
   color: var(--text-primary);
+}
+.topbar-icon-button[aria-current="page"] {
+  background: var(--state-selected);
+  color: var(--state-selected-text);
 }
 .topbar-icon-button[data-focus-visible] {
   outline: 2px solid var(--focus-color);

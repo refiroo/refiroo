@@ -55,14 +55,16 @@ records leaving a filter's scope documented (C-D112–C-D114). **U3 is delivered
 Settings area and `GET /api/v1/system` ([record](SETTINGS_AND_UI_PLAN.md#u3-delivery-record)), revised the same day.
 Next: UA, the Atlas redesign (ADR-040), before U4 and U5. See [Next — 0.9](#next--09).
 
-- **For UA0, from U3 (2026-10-06): a popover swallows the first click.** With the Account, Display or
-  Filter popover open, the first click on the page (the settings navigation, the application tabs)
-  only closes it; the user reported navigation that did not respond. No runner clicks the page with
-  a popover open. UA0 fixes it with a regression test.
-- **For UA0, from U3 (2026-10-06): two flakes.** `RelationMatrixView.test` "lets a reload replace cells
-  re-read after earlier saves" failed once in a parallel `vitest related` run and passed three times
-  alone. `test:browser:w4` once missed the re-created "Nordics" in the workspace switcher
-  (`w4-workspace-admin.mjs`, step 11) and passed on the rerun; it now saves `failure.png`.
+- **For UA0 (2026-10-06): the user's check on the dev server.** The popover click and the
+  workspace switcher are fixed ([record](SETTINGS_AND_UI_PLAN.md#ua0-record-2026-10-06)); UA0 is
+  done when the user has seen the settings navigation and the application tabs respond to the
+  first click with a popover open, and that the applications now stand 36px after the product
+  name (also done in UA0), on the Settings page as well, which now has the same top bar (U-D14).
+- **From UA0 (2026-10-06): three failures seen once, not reproduced.** `RelationMatrixView.test`
+  "lets a reload replace cells re-read after earlier saves" (once in U3's parallel `vitest related`;
+  30 repeats under load passed in UA0). `test:browser:a4` timed out once waiting for the cell dialog
+  to reopen after an unlink (`a4-relation-matrix.mjs` line 383) and passed on the rerun.
+  `test:browser` failed once with a timeout whose step was not captured, then passed twice.
 - **For the user to place, from C12 (2026-10-06): an outbound proxy for webhooks.** The dispatcher
   connects to receivers directly (C-D107); a deployment that reaches the internet only through an
   HTTPS proxy cannot deliver. Adding one means connecting through the proxy while keeping the
@@ -78,10 +80,17 @@ Next: UA, the Atlas redesign (ADR-040), before U4 and U5. See [Next — 0.9](#ne
   "No" pills (`ui/formatValue`). ADR-039 asks for plain text, with pills kept for states and
   versions. Move each `.surface` panel onto `ui/Card` or a ruled section, whichever reads better in
   the product (U-D8). Remove the older token names in `styles/base.css` once no screen reads them.
-- **Intermittent: wp9-navigation's 390px change-set record return (seen once, 2026-10-06, U2).**
-  `ui03a-navigation.mjs:144` waited 10 s for the list URL with its anchor after **Back to list**.
-  The next run passed. It is watched for at the next run of the runner; if it repeats, find out
-  whether the anchor restored after a reload depends on the page's height.
+- **Intermittent: wp9-navigation's record return (seen once in U2; 4 of 10 runs in UA0,
+  2026-10-06).** `ui03a-navigation.mjs:144` waits 10 s for the list URL with its anchor after
+  **Back to list** following a reload of the record page; seen at both call sites (live,
+  `wp9-navigation.mjs:263`, and change set, `:383`). Without UA0's changes it passed 2 of 2 runs,
+  so a link to them is not ruled out; three runs with diagnostics at the wait passed, so the URL it
+  lands on is still unknown. Next: capture that URL at the failure and see whether the anchor
+  restored after a reload depends on the page's height.
+- **From UA0 (2026-10-06): `test:browser:b3` fails at its drag of Sodium.** `helpers/tree.mjs:189`
+  waits for the drag preview after pressing on Sodium in the opened Electrolytes branch
+  (`b3-tree-lens.mjs:579`); none appears. It fails the same without UA0's changes, so it came
+  earlier; U3's checks did not run b3.
 
 - **Publish and change-set creation move the workspace through Python (found 2026-10-03, F1;
   measured and decided in T1).** Publishing 1,000 renamed records in a 26,000-record workspace takes

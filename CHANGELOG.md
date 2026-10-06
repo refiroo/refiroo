@@ -382,6 +382,25 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Fixed
 
+- Base 0.9 UA0: with a popover open (Account, Display, Filter), the first click on the page only
+  closed it, so a tab or link seemed not to respond. `ui/ControlPopover` is now non-modal: a press
+  outside, or the user's own wheel or touch scrolling, closes it and the press acts; a scroll the
+  layout causes, such as an applied filter shortening the list, keeps it open. Escape and focus
+  leaving it still close it. `test:browser:settings` clicks an application tab, a settings link and
+  the page heading with Account open.
+- Base 0.9 UA0: the workspace switcher, opened before the current workspace had loaded, showed only
+  that workspace: its name arriving as the field's value filtered the open list. The switcher is
+  disabled until the current workspace is known. This was `test:browser:w4`'s intermittent miss.
+- Base 0.9 UA0: the application tabs stood 20px after the product name in the top bar; they start
+  36px after it, as ADR-040 says.
+- Base 0.9 UA0: Settings had a top bar of its own, whose product mark could not be clicked and
+  which had no applications. Every page now has the same top bar (U-D14): on Settings no
+  application is current and Settings is, an application's tab goes back to it (the one last
+  looked at, to the same view and query), and the mark goes home. "Back to applications" is gone.
+  One frame (`app/ShellFrame`) and one top bar (`app/TopBar`) serve every area, and copied markup
+  is replaced by shared components: `ui/SearchField`, `ScopeBanner`, a release picker and a
+  change list.
+
 - Base 0.9 C8: the `consumer` test group now selects the J29 journey tests; since C4 it had left
   them out (`JOURNEY_GROUPS` had no `J29`).
 

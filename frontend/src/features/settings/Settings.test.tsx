@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
+import { testModel } from "@/test/fixtures";
 import { SettingsShell } from "@/app/SettingsShell";
 import { AboutPage } from "@/features/settings/AboutPage";
 import { AppearancePage } from "@/features/settings/AppearancePage";
@@ -70,19 +71,19 @@ afterEach(() => {
 });
 
 describe("SettingsShell", () => {
-  function renderShell(onNavigate = vi.fn(), onBack = vi.fn()) {
+  function renderShell(onNavigate = vi.fn(), onSelectApplication = vi.fn(), onHome = vi.fn()) {
     render(
       <SettingsShell
-        productName="RDM"
+        model={testModel}
         page="deployment"
-        backHref="/apps/a/views/v"
-        onBack={onBack}
+        onHome={onHome}
+        onSelectApplication={onSelectApplication}
         onNavigate={onNavigate}
       >
         <p>Page</p>
       </SettingsShell>,
     );
-    return { onNavigate, onBack };
+    return { onNavigate, onSelectApplication, onHome };
   }
 
   it("lists the built pages by group and marks the current one", () => {
@@ -104,24 +105,26 @@ describe("SettingsShell", () => {
     expect(onNavigate).toHaveBeenCalledWith({ kind: "settings", page: "model" });
   });
 
-  it("names the current page on the narrow screens' navigation bar, and goes Back to applications", () => {
-    const { onBack } = renderShell();
+  it("shows the application pages' top bar: home, the applications with none current, Settings current", () => {
+    const { onSelectApplication, onHome } = renderShell();
     const toggle = screen.getByRole("button", { name: "Settings: Deployment" });
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     expect(toggle).toHaveAttribute("aria-controls", "settings-navigation");
-    const back = screen.getByRole("link", { name: "Back to applications" });
-    expect(back).toHaveAttribute("href", "/apps/a/views/v");
-    fireEvent.click(back);
-    expect(onBack).toHaveBeenCalledTimes(1);
+    const tabs = within(screen.getByRole("navigation", { name: "Applications" })).getAllByRole("button");
+    expect(tabs.map((tab) => tab.textContent)).toEqual(testModel.applications.map((item) => item.name));
+    expect(tabs.every((tab) => !tab.hasAttribute("aria-current"))).toBe(true);
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("aria-current", "page");
+    fireEvent.click(tabs[0]);
+    expect(onSelectApplication).toHaveBeenCalledWith(testModel.applications[0]);
+    fireEvent.click(screen.getByRole("button", { name: `${testModel.product.name} home` }));
+    expect(onHome).toHaveBeenCalledTimes(1);
   });
 
-  it("reads the product, then Settings, in the top bar, and keeps the order skip link, top bar, navigation, content", () => {
+  it("keeps the order skip link, top bar, navigation, content", () => {
     renderShell();
-    const banner = screen.getByRole("banner");
-    expect(banner).toHaveTextContent(/RDM\s*\/\s*Settings/);
     const order = [
       screen.getByRole("link", { name: "Skip to main content" }),
-      banner,
+      screen.getByRole("banner"),
       screen.getByRole("navigation", { name: "Settings" }),
       screen.getByRole("main"),
     ];

@@ -180,6 +180,11 @@ errors explicit and machine-readable.
   publication lists). Do not hand-write a cursor stack or page buttons.
 - Recognise an API failure with `isApiError` from `api/errors`, never by reading `code` off a cast,
   and render one with `errorMessage` so users never see an `Error:` prefix.
+- One component per piece of UI (the user, 2026-10-06, U-D14). Before writing markup or a hook
+  that exists elsewhere, reuse it, or extract it once and move every copy onto it. Every area
+  renders in `app/ShellFrame` under `app/TopBar`; a search box is `ui/SearchField` (or
+  `DebouncedSearchField` over a search in the URL); a narrowed collection's banner is
+  `ScopeBanner`. A second top bar, frame or copied block is a defect.
 - Build a dialog with `ui/Modal`, which owns the backdrop, the generated `aria-labelledby`,
   Escape, focus restore, the focus trap and the scroll lock. Do not hand-roll a `.dialog-backdrop`.
 - Preserve keyboard operation and semantic HTML.

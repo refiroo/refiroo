@@ -1,6 +1,7 @@
 /**
- * The Settings area's pages inside its shell (Track U U3). Back to applications returns to the
- * application route the user last looked at in this session, or to the default route.
+ * The Settings area's pages inside its shell (Track U U3). The top bar is the application pages'
+ * own: the tab of the application the user last looked at returns to that exact route, another
+ * application's tab to its last collection or its default view, and the product mark home.
  */
 
 import { AboutPage } from "@/features/settings/AboutPage";
@@ -9,25 +10,33 @@ import { DeploymentPage } from "@/features/settings/DeploymentPage";
 import { ModelWorkbench } from "@/features/model-admin/ModelWorkbench";
 import { WorkspaceAdmin } from "@/features/workspaces/WorkspaceAdmin";
 import { applicationFor } from "@/model/lookup";
-import { defaultRoute, routePath, viewRoute } from "@/routing/routes";
-import type { EngineModel, SettingsRoute } from "@/types";
+import { defaultRoute, viewRoute } from "@/routing/routes";
+import type { ApplicationDefinition, EngineModel, SettingsRoute } from "@/types";
 import { ToastProvider } from "@/ui/Toast";
 import { SettingsShell } from "./SettingsShell";
 import type { Router } from "./useRouter";
 
 export function SettingsArea({ router, model, route }: { router: Router; model: EngineModel; route: SettingsRoute }) {
-  const { navigate, lastApplicationRoute, defaultWorkspaceKey } = router;
-  const backRoute = lastApplicationRoute() ?? defaultRoute(model, defaultWorkspaceKey);
+  const { navigate, lastApplicationRoute, lastCollection, defaultWorkspaceKey } = router;
+  const workspaceKey = lastApplicationRoute()?.workspaceKey ?? defaultWorkspaceKey;
+  const selectApplication = (selected: ApplicationDefinition) => {
+    const last = lastApplicationRoute();
+    navigate(
+      last?.applicationKey === selected.key
+        ? last
+        : (lastCollection(selected.key) ?? viewRoute(selected, selected.defaultView, workspaceKey)),
+    );
+  };
   // A workspace opens in the application the user last worked in.
   const application = applicationFor(model, lastApplicationRoute()?.applicationKey ?? "") ?? model.applications[0];
 
   return (
     <ToastProvider>
       <SettingsShell
-        productName={model.product.name}
+        model={model}
         page={route.page}
-        backHref={routePath(backRoute)}
-        onBack={() => navigate(backRoute)}
+        onHome={() => navigate(defaultRoute(model, workspaceKey))}
+        onSelectApplication={selectApplication}
         onNavigate={(next) => navigate(next)}
       >
         {route.page === "about" ? (

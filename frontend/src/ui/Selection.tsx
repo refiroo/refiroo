@@ -82,6 +82,7 @@ export function ComboBoxField({
   allowsCustomValue = true,
   onSelect,
   action,
+  isDisabled = false,
 }: {
   label: string;
   value: string;
@@ -92,6 +93,7 @@ export function ComboBoxField({
   onSelect?: (value: string) => void;
   /** A command listed after the options, such as opening the screen that manages them. */
   action?: { label: string; onAction: () => void };
+  isDisabled?: boolean;
 }) {
   const items: readonly (SelectionOption & { action?: true })[] = action
     ? [...options, { id: ACTION_KEY, label: action.label, action: true }]
@@ -120,6 +122,7 @@ export function ComboBoxField({
       allowsCustomValue={allowsCustomValue}
       allowsEmptyCollection
       menuTrigger="focus"
+      isDisabled={isDisabled}
     >
       <Label>{label}</Label>
       <div className="combo-control">

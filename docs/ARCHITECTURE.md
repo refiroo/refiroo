@@ -429,14 +429,16 @@ through one accessible wrapper. This boundary permits a future behaviour-provide
 altering the application model or feature contracts. The module layout is in
 [FRONTEND_STRUCTURE_REFACTOR.md](FRONTEND_STRUCTURE_REFACTOR.md).
 
-The URL is the route (`routing/routes.ts`), and a route belongs to one of two frames (ADR-039).
-Application routes render in `AppShell`: the top bar with the applications, the rail with the
-workspace switcher above the collection and hierarchy browser, and the data-context band (live,
-change set or publication) above the content. Settings routes (`/settings/…`) render in
-`SettingsShell`, which has no workspace or data context: the top bar reads "{product} / Settings" with
-Back to applications, the rail holds the settings navigation (in the navigation drawer below
-760px, as the application pages' rail is), and each page is a `SettingsLayout`. Back to applications returns to the last application route of the
-session. Addresses the settings area replaced (`/models`, `/workspaces`) parse to their settings
+The URL is the route (`routing/routes.ts`). Every route renders in one frame, `app/ShellFrame`
+(skip link, top bar, resizable rail that moves into the navigation drawer below 760px, main
+content), under one top bar, `app/TopBar` (product mark to home, the applications as tabs,
+Settings, the account; U-D14). Application routes fill it in `AppShell`: the workspace switcher
+above the collection and hierarchy browser in the rail, and the data-context band (live, change
+set or publication) above the content. Settings routes (`/settings/…`) fill it in `SettingsShell`,
+with no workspace or data context: no tab is current and Settings is, the rail holds the settings
+navigation, and each page is a `SettingsLayout`. From Settings, the tab of the application last
+looked at returns to that route of the session, another application's tab to its last collection
+or default view. Addresses the settings area replaced (`/models`, `/workspaces`) parse to their settings
 routes, and the router's first-load `replaceState` rewrites them. Per-browser preferences (theme,
 the default table density, a view's own display) are kept in local storage.
 

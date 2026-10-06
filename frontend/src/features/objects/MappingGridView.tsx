@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
@@ -13,7 +13,7 @@ import { formatValue } from "@/ui/formatValue";
 import { attributeName } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
-import { CollectionScope } from "@/features/objects/CollectionScope";
+import { ScopeBanner } from "@/features/objects/CollectionScope";
 import type {
   EngineModel,
   MappingCoverageRow,
@@ -24,6 +24,7 @@ import type {
   ObjectTypeDefinition,
 } from "@/types";
 import type { ViewComponentProps } from "./views/types";
+import { DebouncedSearchField } from "@/ui/SearchField";
 
 const STATE_FILTERS: { value: "" | "unmapped" | "mapped" | "ambiguous"; label: string }[] = [
   { value: "", label: "All" },
@@ -49,7 +50,6 @@ export function MappingGridView({
   const api = useDataApi();
   const { changeSet } = useWorkspaceData();
   const root = useRef<HTMLDivElement>(null);
-  const [search, setSearch] = useState(query.search);
   const [internalRefresh, setInternalRefresh] = useState(0);
   const [editingId, setEditingId] = useState<string>();
 
@@ -59,14 +59,6 @@ export function MappingGridView({
   const sourceType = objectTypeFor(model, sourceTypeKey);
   const targetType = objectTypeFor(model, targetTypeKey);
   const relationType = model.relationTypes.find((rt) => rt.key === config.relationTypeKey);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const trimmed = search.trim();
-      if (trimmed !== query.search) onQueryChange({ ...query, search: trimmed, anchor: undefined });
-    }, 250);
-    return () => window.clearTimeout(timer);
-  }, [search, query, onQueryChange]);
 
   const combinedRefresh = refreshToken + internalRefresh;
 
@@ -141,36 +133,21 @@ export function MappingGridView({
           </>
         }
       />
-      {query.parentObjectId && (
-        <div className="scope-banner">
-          <CollectionScope
-            model={model}
-            workspaceKey={workspaceKey}
-            parentObjectId={query.parentObjectId}
-            parentObjectTypeKey={query.parentObjectTypeKey}
-          />
-          <button
-            className="ghost"
-            onClick={() =>
-              onQueryChange({ ...query, parentObjectId: undefined, parentObjectTypeKey: undefined, anchor: undefined })
-            }
-          >
-            Show all {sourceType.pluralName.toLowerCase()}
-          </button>
-        </div>
-      )}
+      <ScopeBanner
+        model={model}
+        workspaceKey={workspaceKey}
+        query={query}
+        onQueryChange={onQueryChange}
+        pluralName={sourceType.pluralName}
+      />
       {lenses}
       <section className="surface collection-surface">
         <div className="collection-toolbar object-toolbar">
-          <label className="search-box">
-            <Icon name="search" />
-            <input
-              aria-label="Search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={`Search ${sourceType.pluralName.toLowerCase()}`}
-            />
-          </label>
+          <DebouncedSearchField
+            appliedValue={query.search}
+            onApply={(search) => onQueryChange({ ...query, search, anchor: undefined })}
+            placeholder={`Search ${sourceType.pluralName.toLowerCase()}`}
+          />
           <div className="segmented" role="group" aria-label="Mapping status">
             {STATE_FILTERS.map((option) => (
               <button
