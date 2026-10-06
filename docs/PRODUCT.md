@@ -98,14 +98,22 @@ can complete the task in the application; "API" means another system can.
   records keep their identity, and what a new type has no place for is kept in history and offered
   back later.
 
+### Check and set up the deployment — browser and API
+
+- In **Settings** (the gear in the top bar), see what the deployment runs (engine version, schema
+  languages, active model release, database revision) and how it is configured: every setting with
+  its value, its default and where it came from, and the capability groups on or off. Settings are
+  read here, never edited; secrets show only whether they are set.
+- Choose the theme and the default table density for this browser.
+
 ### Manage workspaces — browser and API
 
-- Create, rename, retire, reactivate and delete workspaces, and choose the default. A retired
+- In Settings › **Workspaces**, create, rename, retire, reactivate and delete workspaces, and choose the default. A retired
   workspace stays readable; a workspace that was ever published can only be retired.
 
 ### Manage the application model — browser and API
 
-- In the **Models** workbench, inspect installed model releases, compare them and export them.
+- In Settings › **Model**, inspect installed model releases, compare them and export them.
 - Edit a model draft as JSON, validate it, install it as a new release and activate it. Activation is
   refused when existing data would not fit; the previous release stays available to roll back to.
 

@@ -1,7 +1,7 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SettingsMenu } from "@/app/SettingsMenu";
-import { THEME_STORAGE_KEY } from "@/lib/theme";
+import { AccountMenu } from "@/app/SettingsMenu";
+import { resetThemePreference, THEME_STORAGE_KEY } from "@/lib/theme";
 
 beforeEach(() => {
   const values = new Map<string, string>();
@@ -10,17 +10,23 @@ beforeEach(() => {
     setItem: (key: string, value: string) => values.set(key, value),
     removeItem: (key: string) => values.delete(key),
   });
+  resetThemePreference();
 });
 afterEach(() => {
   delete document.documentElement.dataset.theme;
   vi.unstubAllGlobals();
 });
 
-describe("SettingsMenu", () => {
-  it("offers an account placeholder and persists the appearance choice", async () => {
-    render(<SettingsMenu />);
-    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-    await screen.findByRole("dialog", { name: "Settings" });
+function openMenu(onOpenSettings = vi.fn()) {
+  render(<AccountMenu settingsHref="/settings/about" onOpenSettings={onOpenSettings} />);
+  fireEvent.click(screen.getByRole("button", { name: "Account" }));
+  return onOpenSettings;
+}
+
+describe("AccountMenu", () => {
+  it("offers an account placeholder and persists the theme choice", async () => {
+    openMenu();
+    await screen.findByRole("dialog", { name: "Account" });
     expect(screen.getByRole("button", { name: "Sign in" })).toBeDisabled();
     expect(screen.getByRole("radio", { name: "System" })).toBeChecked();
 
@@ -35,13 +41,21 @@ describe("SettingsMenu", () => {
 
   it("restores a saved choice and ignores an invalid one", async () => {
     window.localStorage.setItem(THEME_STORAGE_KEY, '"light"');
-    const { unmount } = render(<SettingsMenu />);
-    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    openMenu();
     expect(await screen.findByRole("radio", { name: "Light" })).toBeChecked();
-    unmount();
+    cleanup();
+    resetThemePreference();
     window.localStorage.setItem(THEME_STORAGE_KEY, '"sepia"');
-    render(<SettingsMenu />);
-    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    openMenu();
     expect(await screen.findByRole("radio", { name: "System" })).toBeChecked();
+  });
+
+  it("links to all settings and closes when it is followed", async () => {
+    const onOpenSettings = openMenu();
+    const link = await screen.findByRole("link", { name: "All settings" });
+    expect(link).toHaveAttribute("href", "/settings/about");
+    fireEvent.click(link);
+    expect(onOpenSettings).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Account" })).not.toBeInTheDocument());
   });
 });

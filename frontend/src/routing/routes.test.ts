@@ -5,22 +5,37 @@ import type { RouteState } from "@/types";
 import { changeReviewFor, defaultRoute, parseRoute, routePath } from "@/routing/routes";
 
 describe("routes", () => {
-  it("round-trips the global Models route outside application navigation", () => {
-    const models = { kind: "models", releaseId: "release/id" } as const;
-    window.history.pushState({}, "", routePath(models));
-    expect(routePath(models)).toBe("/models?releaseId=release%2Fid");
-    expect(parseRoute(testModel)).toEqual(models);
-    window.history.pushState({}, "", "/");
+  const at = (path: string) =>
+    parseRoute(testModel, "default", {
+      pathname: path.split("?")[0],
+      search: path.includes("?") ? `?${path.split("?")[1]}` : "",
+    });
+
+  it.each<[string, RouteState]>([
+    ["/settings/about", { kind: "settings", page: "about" }],
+    ["/settings/appearance", { kind: "settings", page: "appearance" }],
+    ["/settings/deployment", { kind: "settings", page: "deployment" }],
+    ["/settings/workspaces", { kind: "settings", page: "workspaces" }],
+    ["/settings/workspaces/central-europe", { kind: "settings", page: "workspaces", workspaceKey: "central-europe" }],
+    ["/settings/model", { kind: "settings", page: "model" }],
+    ["/settings/model/releases/release%2Fid", { kind: "settings", page: "model", releaseId: "release/id" }],
+    ["/settings/model/drafts/d1", { kind: "settings", page: "model", draftId: "d1" }],
+  ])("round-trips the settings page %s (U3)", (path, route) => {
+    expect(at(path)).toEqual(route);
+    expect(routePath(route)).toBe(path);
   });
 
-  it("round-trips the global Workspaces route with and without a selected workspace", () => {
-    const selected = { kind: "workspaces", selectedWorkspaceKey: "central-europe" } as const;
-    window.history.pushState({}, "", routePath(selected));
-    expect(routePath(selected)).toBe("/workspaces/central-europe");
-    expect(parseRoute(testModel)).toEqual(selected);
-    window.history.pushState({}, "", routePath({ kind: "workspaces" }));
-    expect(parseRoute(testModel)).toEqual({ kind: "workspaces" });
-    window.history.pushState({}, "", "/");
+  it.each<[string, string]>([
+    ["/settings", "/settings/about"],
+    ["/settings/no-such-page", "/settings/about"],
+    ["/models", "/settings/model"],
+    ["/models?releaseId=release%2Fid", "/settings/model/releases/release%2Fid"],
+    ["/models?draftId=d1", "/settings/model/drafts/d1"],
+    ["/models?releaseId=r1&draftId=d1", "/settings/model/drafts/d1"],
+    ["/workspaces", "/settings/workspaces"],
+    ["/workspaces/central-europe", "/settings/workspaces/central-europe"],
+  ])("reads %s as the settings page at %s, so the old address redirects (U3)", (path, canonical) => {
+    expect(routePath(at(path))).toBe(canonical);
   });
 
   it("round-trips a change set review with its tab, filters and anchor (P2b)", () => {
@@ -57,12 +72,6 @@ describe("routes", () => {
     });
     window.history.pushState({}, "", "/apps/test-app/change-sets?workspaceKey=west");
     expect(parseRoute(testModel)).toEqual({ kind: "changeSets", applicationKey: "test-app", workspaceKey: "west" });
-    window.history.pushState({}, "", "/");
-  });
-
-  it("normalizes an ambiguous Models URL to the editable draft", () => {
-    window.history.pushState({}, "", "/models?releaseId=r1&draftId=d1");
-    expect(parseRoute(testModel)).toEqual({ kind: "models", draftId: "d1" });
     window.history.pushState({}, "", "/");
   });
 

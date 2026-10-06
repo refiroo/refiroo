@@ -1,4 +1,5 @@
 import logging
+import os
 import shlex
 import sys
 from contextlib import asynccontextmanager
@@ -11,7 +12,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from .config import Settings, get_settings, reload_settings
+from .config import ENGINE_VERSION, Settings, describe_settings, get_settings, reload_settings
 from .consumer import router as consumer_router
 from .db import DatabaseStartupError, SessionLocal, create_database, get_engine
 from .engine.events.dispatcher import EventDispatcher
@@ -46,6 +47,7 @@ from .management.routers import (
     queries,
     relation_matrix,
     relations,
+    system,
     workspaces,
 )
 from .management.schemas.common import ApiErrorResponse
@@ -118,7 +120,9 @@ async def lifespan(application: FastAPI):
     if deriver is not None:
         deriver.start()
     # The webhook dispatcher (C12): only with subscriptions on (C-D102), where the model is served.
-    dispatcher = application.state.consumer_dispatcher if application.state.run_consumer_dispatcher else None
+    dispatcher = (
+        application.state.consumer_dispatcher if application.state.run_consumer_dispatcher else None
+    )
     if dispatcher is not None and not model_registry.ready:
         dispatcher = None
     if dispatcher is not None:
@@ -142,7 +146,7 @@ def create_app() -> FastAPI:
     workspace_mutations_enabled = settings.workspace_admin_mutations_enabled
     application = FastAPI(
         title="RDM Engine API",
-        version="0.9.0-alpha.1",
+        version=ENGINE_VERSION,
         description="API-first, model-driven reference data management engine.",
         lifespan=lifespan,
         # Every route accepts only the query parameters it declares (D-3).
@@ -246,6 +250,8 @@ def create_app() -> FastAPI:
         else None
     )
     application.state.run_consumer_dispatcher = True
+    # What GET /system reports: the settings as this process read them, fixed until a restart (U-D2).
+    application.state.settings_report = describe_settings(settings, os.environ)
     application.add_exception_handler(ApiError, api_error_handler)
     application.add_exception_handler(RequestValidationError, validation_error_handler)
     application.add_exception_handler(StarletteHTTPException, http_error_handler)
@@ -267,6 +273,7 @@ def create_app() -> FastAPI:
 
     application.include_router(api_reference_router(settings.api_reference_script))
     application.include_router(model.router)
+    application.include_router(system.router)
     application.include_router(model_releases.router)
     application.include_router(workspaces.read_router)
     if workspace_mutations_enabled:

@@ -22,13 +22,15 @@ const committedBaselineDir = resolve(helpers, "..", "baselines");
  * @param {string} [options.baselineDir] - Baseline directory (defaults to committed baselines).
  * @param {number} [options.threshold=0.1] - pixelmatch color threshold (0-1). Default 0.1.
  * @param {number} [options.maxDiffPercent=0.5] - Maximum percentage of differing pixels before failure.
+ * @param {import("playwright").Locator[]} [options.mask] - Regions whose values differ between runs, covered.
  * @returns {Promise<{passed: boolean, diffPercent: number, baselineCreated: boolean, message: string}>}
  */
 export async function compareScreenshot(page, name, options = {}) {
-  const { outputDir, threshold = 0.1, maxDiffPercent = 0.5, baselineDir = committedBaselineDir } = options;
+  const { outputDir, threshold = 0.1, maxDiffPercent = 0.5, baselineDir = committedBaselineDir, mask = [] } = options;
   const updateMode = process.argv.includes("--update-baselines");
   const baselinePath = resolve(baselineDir, `${name}.png`);
-  const actualBuffer = await page.screenshot({ fullPage: false });
+  // `mask` covers values that differ from run to run (a time, a port) with a solid box.
+  const actualBuffer = await page.screenshot({ fullPage: false, mask });
 
   await mkdir(baselineDir, { recursive: true });
 

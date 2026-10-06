@@ -18,9 +18,72 @@ export interface WorkspaceAdminCapabilities {
   setting: string;
 }
 
+export interface JobLimits {
+  batchMaxItems: number;
+  batchMaxBytes: number;
+  atomicJobMaxItems: number;
+  backgroundJobMaxItems: number;
+  backgroundBatchMaxBytes: number;
+  chunkItems: number;
+  retentionDays: number;
+}
+
+export interface IntegrationJobCapabilities {
+  createJobs: boolean;
+  runModes: ("inline" | "background")[];
+  limits: JobLimits;
+  setting: string;
+}
+
+export interface WebhookDeliveryLimits {
+  maxEvents: number;
+  maxBytes: number;
+  timeoutSeconds: number;
+  retryWaitsSeconds: number[];
+  laterWaitSeconds: number;
+  retryHours: number;
+}
+
+export interface ConsumerSubscriptionCapabilities {
+  manageSubscriptions: boolean;
+  allowedHosts: string[];
+  delivery: WebhookDeliveryLimits;
+  setting: string;
+}
+
 export interface CapabilitiesResponse {
   modelAdmin: ModelAdminCapabilities;
   workspaceAdmin: WorkspaceAdminCapabilities;
+  integrationJobs: IntegrationJobCapabilities;
+  changeFeed: { retentionDays: number };
+  consumerApi: { resolveMaxItems: number; setting: string };
+  consumerSubscriptions: ConsumerSubscriptionCapabilities;
+}
+
+/** A deployment setting as `GET /system` reports it; a secret carries no value or default. */
+export interface SystemSetting {
+  name: string;
+  group: "runtime" | "capabilities" | "limits" | "webhooks";
+  description: string;
+  value: unknown;
+  default: unknown;
+  source: "environment" | "default";
+}
+
+/** What the deployment runs and how it is configured (`GET /api/v1/system`). */
+export interface SystemResponse {
+  engine: { version: string; managementApi: string };
+  schemaLanguages: string[];
+  activeModelRelease: {
+    id: string;
+    key: string;
+    name: string;
+    version: string;
+    schemaVersion: string;
+    activatedAt: string;
+  };
+  database: { revision: string | null };
+  settings: SystemSetting[];
 }
 
 export interface ModelDiagnostic {

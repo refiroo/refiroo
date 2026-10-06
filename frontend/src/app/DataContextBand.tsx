@@ -13,7 +13,7 @@
 import type { ReactNode } from "react";
 import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { routeChangeSetId, viewRoute } from "@/routing/routes";
-import type { AdminRoute, ApplicationDefinition, RouteState } from "@/types";
+import type { ApplicationDefinition, ApplicationRoute, RouteState } from "@/types";
 import { StatusPill } from "@/ui/StatusPill";
 
 export function DataContextBand({
@@ -24,7 +24,7 @@ export function DataContextBand({
   onNavigate,
 }: {
   application: ApplicationDefinition;
-  route: Exclude<RouteState, AdminRoute>;
+  route: ApplicationRoute;
   workspaceLabel: string;
   contextActions?: ReactNode;
   onNavigate: (route: RouteState) => void;

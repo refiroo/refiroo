@@ -429,6 +429,17 @@ through one accessible wrapper. This boundary permits a future behaviour-provide
 altering the application model or feature contracts. The module layout is in
 [FRONTEND_STRUCTURE_REFACTOR.md](FRONTEND_STRUCTURE_REFACTOR.md).
 
+The URL is the route (`routing/routes.ts`), and a route belongs to one of two frames (ADR-039).
+Application routes render in `AppShell`: the top bar with the applications, the rail with the
+workspace switcher above the collection and hierarchy browser, and the data-context band (live,
+change set or publication) above the content. Settings routes (`/settings/…`) render in
+`SettingsShell`, which has no workspace or data context: the top bar reads "{product} / Settings" with
+Back to applications, the rail holds the settings navigation (in the navigation drawer below
+760px, as the application pages' rail is), and each page is a `SettingsLayout`. Back to applications returns to the last application route of the
+session. Addresses the settings area replaced (`/models`, `/workspaces`) parse to their settings
+routes, and the router's first-load `replaceState` rewrites them. Per-browser preferences (theme,
+the default table density, a view's own display) are kept in local storage.
+
 ### Contextual collection composition
 
 ADR-029 separates presentation into context, collection, lens, query and object detail. The application

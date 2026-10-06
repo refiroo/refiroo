@@ -1,4 +1,5 @@
-// Base 0.8 W4 browser evidence: the Workspaces administration screen, the selector's Manage
+// Base 0.8 W4 browser evidence: the Workspaces administration screen (Settings › Workspaces since 0.9
+// U3, the catalogue beside the selected workspace), the selector's Manage
 // workspaces entry and single-workspace label, and read-only capability status, against a real
 // backend with workspace administration on and then off. W6 adds deleting a mistyped workspace.
 import { writeFile } from "node:fs/promises";
@@ -43,16 +44,15 @@ try {
   await single.waitFor();
   expect((await single.innerText()).includes(defaultLabel), "single label names the workspace");
   expect((await page.getByRole("combobox", { name: "Workspace", exact: true }).count()) === 0, "combobox shown");
-  const header = page.getByRole("navigation", { name: "Administration" });
-  await header.getByRole("button", { name: "Workspaces" }).waitFor();
+  await page.getByRole("banner").getByRole("link", { name: "Settings" }).waitFor();
   await shot("w4-single-workspace-wide");
-  checks.push("one workspace: selector is a read-only label; header offers Workspaces beside Models");
+  checks.push("one workspace: selector is a read-only label; the top bar links to Settings");
 
   // 2. Keyboard: the label's Manage workspaces opens the screen on that workspace.
   await single.getByRole("button", { name: "Manage workspaces" }).focus();
   await page.keyboard.press("Enter");
   await page.getByRole("heading", { level: 1, name: "Workspaces" }).waitFor();
-  expect(new URL(page.url()).pathname === "/workspaces/default", `manage link url ${page.url()}`);
+  expect(new URL(page.url()).pathname === "/settings/workspaces/default", `manage link url ${page.url()}`);
   await page.getByRole("heading", { level: 2, name: defaultLabel }).waitFor();
   const capabilities = page.getByRole("region", { name: "Deployment capabilities" });
   const capabilityText = await capabilities.innerText();
@@ -78,7 +78,7 @@ try {
   await axe(page, "w4-create-dialog");
   await page.keyboard.press("Enter");
   await page.getByRole("heading", { level: 2, name: "Central Europe" }).waitFor();
-  expect(new URL(page.url()).pathname === "/workspaces/central-europe", `created url ${page.url()}`);
+  expect(new URL(page.url()).pathname === "/settings/workspaces/central-europe", `created url ${page.url()}`);
   const catalogue = page.getByRole("navigation", { name: "Workspace catalogue" });
   await catalogue.getByRole("button", { name: /Central Europe/ }).waitFor();
   checks.push("keyboard creation suggests the key, selects the new workspace and lists it");
@@ -138,7 +138,7 @@ try {
   checks.push(`axe w4-selector-open (popover): ${popover.violations.length} violations`);
   await manage.click();
   await page.getByRole("heading", { level: 2, name: "Central Europe East" }).waitFor();
-  expect(new URL(page.url()).pathname === "/workspaces/central-europe", `dropdown manage url ${page.url()}`);
+  expect(new URL(page.url()).pathname === "/settings/workspaces/central-europe", `dropdown manage url ${page.url()}`);
   checks.push("dropdown Manage workspaces opens the current workspace's administration");
 
   // 8. Set it as default: the runtime state moves and an unqualified URL lands there.
@@ -154,7 +154,7 @@ try {
   checks.push("set as default stores the runtime state, blocks its retirement and changes the landing workspace");
 
   // 9. A concurrent default switch is reported with the current default instead of retried.
-  await page.goto(`${uiUrl}/workspaces/default`);
+  await page.goto(`${uiUrl}/settings/workspaces/default`);
   await page.getByRole("button", { name: "Set as default" }).waitFor();
   const state = await api("/workspace-runtime-state");
   await api("/workspace-runtime-state", { defaultWorkspaceKey: "default", expectedVersion: state.version }, "PATCH");
@@ -191,13 +191,13 @@ try {
   checks.push("retirement after confirmation lists it as retired, offers reactivation and opens read only");
 
   // 11. W6: a mistyped key is deleted by keyboard and the corrected key created.
-  await page.goto(`${uiUrl}/workspaces/default`);
+  await page.goto(`${uiUrl}/settings/workspaces/default`);
   await page.getByRole("button", { name: "New workspace" }).click();
   await createDialog.getByRole("textbox", { name: "Name" }).fill("Nordics");
   await createDialog.getByRole("textbox", { name: /^Key/ }).fill("nordcis");
   await createDialog.getByRole("button", { name: "Create workspace" }).click();
   await page.getByRole("heading", { level: 2, name: "Nordics" }).waitFor();
-  expect(new URL(page.url()).pathname === "/workspaces/nordcis", `mistyped url ${page.url()}`);
+  expect(new URL(page.url()).pathname === "/settings/workspaces/nordcis", `mistyped url ${page.url()}`);
   await page.getByRole("button", { name: "Delete…" }).focus();
   await page.keyboard.press("Enter");
   const deleteConfirm = page.getByRole("alertdialog", { name: "Delete Nordics?" });
@@ -209,7 +209,7 @@ try {
   await page.keyboard.press("Tab");
   await page.keyboard.press("Enter");
   await page.getByText("Workspace Nordics (nordcis) was deleted.", { exact: false }).waitFor();
-  expect(new URL(page.url()).pathname === "/workspaces", `after delete url ${page.url()}`);
+  expect(new URL(page.url()).pathname === "/settings/workspaces", `after delete url ${page.url()}`);
   await page.getByRole("heading", { level: 2, name: defaultLabel }).waitFor();
   expect((await catalogue.getByRole("button", { name: /nordcis/ }).count()) === 0, "deleted key still listed");
   expect(
@@ -217,14 +217,14 @@ try {
     "deleted key still stored",
   );
   await shot("w6-deleted-wide");
-  await page.goto(`${uiUrl}/workspaces/nordcis`);
+  await page.goto(`${uiUrl}/settings/workspaces/nordcis`);
   await page.getByText("Workspace 'nordcis' not found").waitFor();
   await page.getByRole("button", { name: "New workspace" }).click();
   await createDialog.getByRole("textbox", { name: "Name" }).fill("Nordics");
   expect((await createDialog.getByRole("textbox", { name: /^Key/ }).inputValue()) === "nordics", "corrected key");
   await createDialog.getByRole("button", { name: "Create workspace" }).click();
   await page.getByRole("heading", { level: 2, name: "Nordics" }).waitFor();
-  expect(new URL(page.url()).pathname === "/workspaces/nordics", `corrected url ${page.url()}`);
+  expect(new URL(page.url()).pathname === "/settings/workspaces/nordics", `corrected url ${page.url()}`);
   await page.goto(`${uiUrl}/apps/rdm-master/views/domains?workspaceKey=default`);
   await page.getByRole("button", { name: "Show workspace options" }).click();
   await page.getByRole("option", { name: /Nordics/ }).waitFor();
@@ -232,29 +232,30 @@ try {
   await page.keyboard.press("Escape");
   checks.push("W6: mistyped workspace deleted by keyboard after a confirmation naming its key; stale URL is not found; corrected key created; selector drops it");
 
-  // 12. Narrow: the catalogue lives in the Browse workspaces drawer; no page overflow.
+  // 12. Narrow: the selected workspace alone with a way back to the catalogue; no page overflow.
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(`${uiUrl}/workspaces/central-europe`);
+  await page.goto(`${uiUrl}/settings/workspaces/central-europe`);
   await page.getByRole("heading", { level: 2, name: "Central Europe East" }).waitFor();
+  expect(!(await catalogue.isVisible()), "narrow page shows the catalogue beside the workspace");
   let scroll = await overflow(page);
   expect(scroll <= 0, `narrow Workspaces page scrolls horizontally by ${scroll}px`);
   await shot("w4-workspaces-narrow");
-  await page.getByRole("button", { name: "Browse workspaces" }).click();
-  await page
-    .getByRole("navigation", { name: "Workspace catalogue" })
-    .getByRole("button", { name: /Central Europe East/ })
-    .waitFor();
-  await page.getByRole("dialog", { name: "Workspace catalogue" }).waitFor();
-  await shot("w4-catalogue-drawer-narrow");
-  await axe(page, "w4-catalogue-drawer-narrow");
-  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "All workspaces" }).click();
+  await catalogue.getByRole("button", { name: /Central Europe East/ }).waitFor();
+  expect(new URL(page.url()).pathname === "/settings/workspaces", `narrow back url ${page.url()}`);
+  scroll = await overflow(page);
+  expect(scroll <= 0, `narrow catalogue scrolls horizontally by ${scroll}px`);
+  await shot("w4-catalogue-narrow");
+  await axe(page, "w4-catalogue-narrow");
+  await catalogue.getByRole("button", { name: /Central Europe East/ }).click();
+  await page.getByRole("heading", { level: 2, name: "Central Europe East" }).waitFor();
   await page.getByRole("button", { name: "Rename…" }).click();
   await page.getByRole("dialog", { name: "Rename workspace" }).waitFor();
   scroll = await overflow(page);
   expect(scroll <= 0, `narrow rename dialog scrolls horizontally by ${scroll}px`);
   await shot("w4-rename-narrow");
   await page.keyboard.press("Escape");
-  checks.push("390px: page, drawer catalogue and rename dialog fit without horizontal scroll");
+  checks.push("390px: the workspace, the catalogue (All workspaces) and the rename dialog take turns and fit without horizontal scroll");
   await harness.cleanup();
   harness = undefined;
 
@@ -267,10 +268,8 @@ try {
   const offSingle = off.page.getByRole("group", { name: "Workspace", exact: true });
   await offSingle.waitFor();
   expect((await offSingle.getByRole("button", { name: "Manage workspaces" }).count()) === 0, "manage shown when off");
-  const offHeader = off.page.getByRole("navigation", { name: "Administration" });
-  await offHeader.getByRole("button", { name: "Models" }).waitFor();
-  expect((await offHeader.getByRole("button", { name: "Workspaces" }).count()) === 0, "Workspaces shown when off");
-  await offHeader.getByRole("button", { name: "Models" }).click();
+  await off.page.getByRole("banner").getByRole("link", { name: "Settings" }).click();
+  await off.page.getByRole("navigation", { name: "Settings" }).getByRole("link", { name: "Model", exact: true }).click();
   const modelStatus = off.page.getByRole("region", { name: "Deployment capabilities" });
   await modelStatus.waitFor();
   const modelStatusText = await modelStatus.innerText();
@@ -280,14 +279,16 @@ try {
   );
   expect(/Model administration\s*Enabled/.test(modelStatusText), `models enabled: ${modelStatusText}`);
   await off.page.screenshot({ path: resolve(off.output, "w4-models-capabilities-wide.png"), fullPage: true });
+  // The address the settings area replaced still lands on the page.
   await off.page.goto(`${off.uiUrl}/workspaces`);
+  await off.page.waitForURL(/\/settings\/workspaces$/);
   await off.page.getByRole("heading", { level: 2, name: defaultLabel }).waitFor();
   expect((await off.page.getByRole("button", { name: "New workspace" }).count()) === 0, "create offered when off");
   expect((await off.page.getByRole("button", { name: "Rename…" }).count()) === 0, "rename offered when off");
   await off.page.getByRole("button", { name: "Open workspace" }).waitFor();
   await axe(off.page, "w4-workspaces-disabled");
   await off.page.screenshot({ path: resolve(off.output, "w4-workspaces-disabled-wide.png"), fullPage: true });
-  checks.push("flag off: no header entry or manage link; a direct link is read only and Models names the setting");
+  checks.push("flag off: no manage link; Settings › Model names the setting; the old /workspaces link lands on a read-only page");
 
   const report = {
     browser: off.browser.version(),
@@ -305,6 +306,9 @@ try {
     process.exitCode = 1;
   }
 } catch (error) {
+  await harness?.page
+    ?.screenshot({ path: resolve(harness.output, "failure.png"), fullPage: true })
+    .catch(() => undefined);
   console.error("W4 browser evidence failed:", error);
   for (const failure of failures) console.error(failure);
   console.error(`Evidence: ${outputs.join(", ")}`);

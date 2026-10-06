@@ -5,12 +5,14 @@ import { ApiError } from "@/api/errors";
 import { codelistObject, domainObject, testModel } from "@/test/fixtures";
 import type { ApplicationDefinition } from "@/types";
 import { TREE_PAGE_SIZE } from "@/features/objects/RecordTree";
+import { capabilitiesFixture } from "@/test/capabilities";
 import App from "./App";
 
 vi.mock("@/api/client", () => ({
   api: {
     model: vi.fn(),
     capabilities: vi.fn(),
+    system: vi.fn(),
     changeSet: vi.fn(),
     publication: vi.fn(),
     publications: vi.fn(),
@@ -33,18 +35,13 @@ vi.mock("@/api/client", () => ({
   },
 }));
 
-function capabilities(manageWorkspaces: boolean) {
-  return {
-    modelAdmin: {
-      readReleases: true,
-      manageDrafts: false,
-      install: false,
-      activate: false,
-      setting: "MODEL_ADMIN_MUTATIONS_ENABLED",
-    },
-    workspaceAdmin: { manageWorkspaces, setting: "WORKSPACE_ADMIN_MUTATIONS_ENABLED" },
-  };
-}
+const capabilities = (manageWorkspaces: boolean) => capabilitiesFixture({ manageWorkspaces });
+
+/** Back to applications, in the settings top bar (its icon only on phones). */
+const backToApplications = () => screen.getAllByRole("link", { name: "Back to applications" })[0];
+
+/** The settings navigation, where each page is a link. */
+const settingsNavigation = () => screen.getByRole("navigation", { name: "Settings" });
 
 function visit(path: string) {
   window.history.replaceState({}, "", path);
@@ -255,23 +252,53 @@ describe("App", () => {
     expect(window.location.pathname).toBe("/apps/test-app/views/domains");
   });
 
-  it("offers Workspaces beside Models only when workspace administration is enabled", async () => {
+  it("links to Settings from the top bar instead of administration links (U3)", async () => {
     visit("/apps/test-app/views/domains?workspaceKey=default");
-    const { unmount } = render(<App />);
-    const administration = await screen.findByRole("navigation", { name: "Administration" });
-    await within(administration).findByRole("button", { name: "Workspaces" });
-    unmount();
-
-    vi.mocked(api.capabilities).mockResolvedValue(capabilities(false));
     render(<App />);
     await screen.findByRole("heading", { name: "Domains", level: 1 });
-    await waitFor(() => expect(api.capabilities).toHaveBeenCalledTimes(2));
-    expect(
-      within(screen.getByRole("navigation", { name: "Administration" })).queryByRole("button", { name: "Workspaces" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Administration" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Model .* · Schema/)).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/settings/about");
+    expect(screen.getByRole("button", { name: "Account" })).toBeInTheDocument();
   });
 
-  it("opens Workspaces from the header without workspace controls and returns to the opened workspace", async () => {
+  it("opens Settings without workspace controls and comes back with Back to applications", async () => {
+    vi.mocked(api.system).mockResolvedValue({
+      engine: { version: "0.9.0-alpha.1", managementApi: "v1" },
+      schemaLanguages: ["0.7", "0.8"],
+      activeModelRelease: {
+        id: "r1",
+        key: "test",
+        name: "Test",
+        version: "1",
+        schemaVersion: "0.8",
+        activatedAt: "2026-09-05T00:00:00Z",
+      },
+      database: { revision: "20261005_02" },
+      settings: [],
+    });
+    visit("/apps/test-app/views/domains?workspaceKey=west&search=cli");
+    render(<App />);
+    fireEvent.click(await screen.findByRole("link", { name: "Settings" }));
+
+    expect(await screen.findByRole("heading", { name: "About", level: 1 })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/settings/about");
+    expect(within(settingsNavigation()).getByRole("link", { name: "About" })).toHaveAttribute("aria-current", "page");
+    expect(screen.queryByRole("combobox", { name: "Workspace" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Applications" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Current context")).not.toBeInTheDocument();
+    expect(await screen.findByText("20261005_02")).toBeInTheDocument();
+
+    fireEvent.click(within(settingsNavigation()).getByRole("link", { name: "Appearance" }));
+    expect(await screen.findByRole("heading", { name: "Appearance", level: 1 })).toBeInTheDocument();
+    expect(backToApplications()).toHaveAttribute("href", expect.stringContaining("workspaceKey=west"));
+    fireEvent.click(backToApplications());
+    await waitFor(() => expect(window.location.pathname).toBe("/apps/test-app/views/domains"));
+    expect(new URLSearchParams(window.location.search).get("search")).toBe("cli");
+    expect(new URLSearchParams(window.location.search).get("workspaceKey")).toBe("west");
+  });
+
+  it("opens a workspace from Settings › Workspaces in the application last used", async () => {
     vi.mocked(api.workspaces).mockResolvedValue({
       items: [
         {
@@ -293,17 +320,27 @@ describe("App", () => {
       ],
       nextCursor: null,
     });
+    vi.mocked(api.workspace).mockImplementation(async (key) => ({
+      key,
+      label: key,
+      status: "active",
+      version: 1,
+      createdAt: "2026-09-05T00:00:00Z",
+      updatedAt: "2026-09-05T00:00:00Z",
+      deletable: false,
+      deleteBlockedBy: "notEmpty",
+    }));
     visit("/apps/test-app/views/domains?workspaceKey=default");
     render(<App />);
-    fireEvent.click(await screen.findByRole("button", { name: "Workspaces" }));
+    fireEvent.click(await screen.findByRole("link", { name: "Settings" }));
+    fireEvent.click(
+      within(await screen.findByRole("navigation", { name: "Settings" })).getByRole("link", { name: "Workspaces" }),
+    );
 
     expect(await screen.findByRole("heading", { name: "Workspaces", level: 1 })).toBeInTheDocument();
-    expect(window.location.pathname).toBe("/workspaces");
-    expect(screen.getByRole("button", { name: "Workspaces" })).toHaveAttribute("aria-current", "page");
-    expect(screen.queryByRole("combobox", { name: "Workspace" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Browse workspaces" })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/settings/workspaces");
     fireEvent.click(await screen.findByRole("button", { name: /^west/ }));
-    await waitFor(() => expect(window.location.pathname).toBe("/workspaces/west"));
+    await waitFor(() => expect(window.location.pathname).toBe("/settings/workspaces/west"));
     fireEvent.click(await screen.findByRole("button", { name: "Open workspace" }));
 
     await waitFor(() => expect(window.location.search).toContain("workspaceKey=west"));
@@ -328,7 +365,10 @@ describe("App", () => {
     vi.mocked(api.deleteWorkspace).mockResolvedValue(undefined);
     visit("/apps/test-app/views/domains?workspaceKey=west");
     render(<App />);
-    fireEvent.click(await screen.findByRole("button", { name: "Workspaces" }));
+    fireEvent.click(await screen.findByRole("link", { name: "Settings" }));
+    fireEvent.click(
+      within(await screen.findByRole("navigation", { name: "Settings" })).getByRole("link", { name: "Workspaces" }),
+    );
     fireEvent.click(await screen.findByRole("button", { name: /^west/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Delete…" }));
     fireEvent.click(
@@ -337,9 +377,9 @@ describe("App", () => {
       }),
     );
     expect(await screen.findByText(/Workspace west \(west\) was deleted/)).toBeInTheDocument();
-    await waitFor(() => expect(window.location.pathname).toBe("/workspaces"));
+    await waitFor(() => expect(window.location.pathname).toBe("/settings/workspaces"));
 
-    fireEvent.click(screen.getByRole("button", { name: / home$/ }));
+    fireEvent.click(backToApplications());
     await waitFor(() => expect(window.location.search).toContain("workspaceKey=default"));
   });
 

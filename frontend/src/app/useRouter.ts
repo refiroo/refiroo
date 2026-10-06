@@ -2,10 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import { applicationFor } from "@/model/lookup";
-import { defaultRoute, isAdminRoute, parseRoute, routePath } from "@/routing/routes";
+import { defaultRoute, isSettingsRoute, parseRoute, routePath } from "@/routing/routes";
 import { historyState, navigationEntry, restoreOrigin, routeWithOrigin } from "@/routing/navigationHistory";
 import { allowNavigation } from "@/routing/navigationGuard";
-import type { EngineModel, RouteState } from "@/types";
+import type { ApplicationRoute, EngineModel, RouteState } from "@/types";
 
 type ListRoute = Extract<RouteState, { kind: "list" }>;
 
@@ -35,7 +35,15 @@ export interface Router {
    * would tie the rendered output to something React does not track.
    */
   lastCollection: (applicationKey?: string) => ListRoute | undefined;
-  /** Moves the remembered collection to another workspace, so returning to it stays in place. */
+  /**
+   * The application route the user last looked at in this session, which Settings' "Back to
+   * applications" returns to; a function for the same reason as `lastCollection`.
+   */
+  lastApplicationRoute: () => ApplicationRoute | undefined;
+  /**
+   * Moves the remembered collections to another workspace, so returning to them stays in place;
+   * the remembered application route becomes the most recent of them.
+   */
   rememberWorkspace: (workspaceKey: string) => void;
   /** Re-reads the active model, after a different release is activated. */
   reloadModel: () => Promise<void>;
@@ -59,6 +67,7 @@ export function useRouter(): Router {
   const [defaultWorkspaceKey, setDefaultWorkspaceKey] = useState("default");
   const lastCollections = useRef(new Map<string, ListRoute>());
   const mostRecentCollection = useRef<ListRoute | undefined>(undefined);
+  const mostRecentApplicationRoute = useRef<ApplicationRoute | undefined>(undefined);
   const currentRoute = useRef<RouteState | undefined>(undefined);
   const historyIndex = useRef(0);
   const restoring = useRef(false);
@@ -113,9 +122,13 @@ export function useRouter(): Router {
     return () => window.removeEventListener("popstate", pop);
   }, [defaultWorkspaceKey, model]);
 
-  const requested = model && route && !isAdminRoute(route) ? applicationFor(model, route.applicationKey) : undefined;
+  const requested = model && route && !isSettingsRoute(route) ? applicationFor(model, route.applicationKey) : undefined;
   const active =
-    model && route ? (isAdminRoute(route) || requested ? route : defaultRoute(model, defaultWorkspaceKey)) : undefined;
+    model && route
+      ? isSettingsRoute(route) || requested
+        ? route
+        : defaultRoute(model, defaultWorkspaceKey)
+      : undefined;
 
   // Remembering the collection is a write, so it belongs in an effect rather than in render. The
   // value is only ever read from event handlers, which run after effects have committed.
@@ -126,6 +139,7 @@ export function useRouter(): Router {
       lastCollections.current.set(collection.applicationKey, collection);
       mostRecentCollection.current = collection;
     }
+    if (active && !isSettingsRoute(active)) mostRecentApplicationRoute.current = active;
   }, [active]);
 
   const navigate = useCallback((next: RouteState, replace = false) => {
@@ -172,6 +186,7 @@ export function useRouter(): Router {
         publicationId: undefined,
         anchor: undefined,
       };
+    mostRecentApplicationRoute.current = mostRecentCollection.current;
   }, []);
 
   return {
@@ -182,6 +197,7 @@ export function useRouter(): Router {
     replaceRoute,
     lastCollection: (applicationKey) =>
       applicationKey ? lastCollections.current.get(applicationKey) : mostRecentCollection.current,
+    lastApplicationRoute: () => mostRecentApplicationRoute.current,
     rememberWorkspace,
     reloadModel,
     defaultWorkspaceKey,

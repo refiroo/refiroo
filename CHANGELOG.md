@@ -8,6 +8,32 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 U3: the Settings area. `/settings` has its own frame without workspace or data context:
+  a top bar reading "{product} / Settings" with **Back to applications** (to the last application
+  route of the session) and the account, the settings navigation in the rail (in the navigation
+  drawer below 760px, opened from a **Settings: {page}** bar), and pages as wide as the application
+  pages, built from new `ui/` components (`SettingsLayout`, `Section`, `DescriptionList`,
+  `FormField`, `EmptyState`, `Skeleton`, `Toast`).
+  - **About**: engine and management API version, schema languages, the active model release and
+    when it was activated, the database revision. **Deployment**: the capability groups on or off
+    with their settings and limits, then every setting with its value, default, source and what it
+    controls; secrets only as Set or Not set, the cursor-key warning when it is ephemeral. Read only:
+    settings change with a restart (U-D2). **Appearance**: theme and the default table density for
+    this browser; a view's own density (now with **Default**) overrides it.
+  - **Workspaces** and **Model** moved under Administration, as the screens they were: the catalogue
+    beside the selected workspace, release or draft, each at its own address (U-D10 as revised).
+    `/models` and `/workspaces` addresses redirect. Confirmations are toasts; a workspace with
+    webhook subscriptions says why it cannot be deleted.
+  - The application top bar has a **Settings** link and an **Account** popover (theme, **All
+    settings**) in place of Models, Workspaces, the model version and the settings popover. Only
+    built pages are listed (U-D11). The workspace switcher is back at the top of the rail, where it
+    was before U2.
+  - `GET /api/v1/system` answers the same facts. Settings come from a catalogue in `config.py` (group,
+    description, secret) held against `Settings` and OPERATIONS by a unit test; the engine version
+    has one home, `config.ENGINE_VERSION`. Journey J31 (operator: check what a deployment runs).
+  - Planned next: the **Atlas** visual direction (ADR-040), today's shell with a colour for every
+    kind of record, applied to every surface in UA before U4 and U5.
+
 - Base 0.9 C13: the events' acceptance. The CONSUMER_API event scenarios are walked end to end,
   from a write through the deriver and the dispatcher to a receiver, on two generated models: a
   publish delivered in batches exactly as the pull feed has it, work that never reaches live data

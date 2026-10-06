@@ -1,9 +1,11 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, api } from "@/api/client";
 import type { ModelDraft } from "@/types";
 import { ModelDraftEditor } from "@/features/model-admin/ModelDraftEditor";
 import { ModelWorkbench } from "@/features/model-admin/ModelWorkbench";
+import { capabilitiesFixture } from "@/test/capabilities";
+import { ToastProvider } from "@/ui/Toast";
 
 vi.mock("@/api/client", async (load) => {
   const actual = await load<typeof import("@/api/client")>();
@@ -45,18 +47,17 @@ beforeEach(() => {
   vi.mocked(api.modelReleaseActivations).mockResolvedValue({ items: [], nextCursor: null });
 });
 
+function renderWorkbench(route: Parameters<typeof ModelWorkbench>[0]["route"], onRouteChange = vi.fn()) {
+  return render(
+    <ToastProvider>
+      <ModelWorkbench route={route} onRouteChange={onRouteChange} />
+    </ToastProvider>,
+  );
+}
+
 describe("ModelWorkbench", () => {
   it("keeps release inspection visible while hiding mutation actions", async () => {
-    vi.mocked(api.capabilities).mockResolvedValue({
-      modelAdmin: {
-        readReleases: true,
-        manageDrafts: false,
-        install: false,
-        activate: false,
-        setting: "MODEL_ADMIN_MUTATIONS_ENABLED",
-      },
-      workspaceAdmin: { manageWorkspaces: true, setting: "WORKSPACE_ADMIN_MUTATIONS_ENABLED" },
-    });
+    vi.mocked(api.capabilities).mockResolvedValue(capabilitiesFixture({ manageModel: false }));
     vi.mocked(api.modelReleases).mockResolvedValue({ items: [release], nextCursor: null });
     vi.mocked(api.modelRuntimeState).mockResolvedValue({
       activeReleaseId: "r1",
@@ -65,7 +66,7 @@ describe("ModelWorkbench", () => {
       updatedAt: release.installedAt,
     });
     vi.mocked(api.modelRelease).mockResolvedValue({ ...release, model });
-    render(<ModelWorkbench route={{ kind: "models", releaseId: "r1" }} onRouteChange={vi.fn()} />);
+    renderWorkbench({ kind: "settings", page: "model", releaseId: "r1" });
     expect(await screen.findByText(/mutations are disabled/i)).toBeInTheDocument();
     // The disabled group names the setting that controls it; the enabled group does not need to.
     const status = screen.getByRole("region", { name: "Deployment capabilities" });
@@ -80,16 +81,7 @@ describe("ModelWorkbench", () => {
 
   it("keeps unsupported historical releases inspectable while blocking activation", async () => {
     const historical = { ...release, id: "historical", active: false };
-    vi.mocked(api.capabilities).mockResolvedValue({
-      modelAdmin: {
-        readReleases: true,
-        manageDrafts: true,
-        install: true,
-        activate: true,
-        setting: "MODEL_ADMIN_MUTATIONS_ENABLED",
-      },
-      workspaceAdmin: { manageWorkspaces: true, setting: "WORKSPACE_ADMIN_MUTATIONS_ENABLED" },
-    });
+    vi.mocked(api.capabilities).mockResolvedValue(capabilitiesFixture({ manageModel: true }));
     vi.mocked(api.modelReleases).mockResolvedValue({ items: [release, historical], nextCursor: null });
     vi.mocked(api.modelDrafts).mockResolvedValue({ items: [], nextCursor: null });
     vi.mocked(api.modelRuntimeState).mockResolvedValue({
@@ -103,12 +95,37 @@ describe("ModelWorkbench", () => {
       new ApiError(422, "UNSUPPORTED_SCHEMA_VERSION", "Unsupported historical schema"),
     );
 
-    render(<ModelWorkbench route={{ kind: "models", releaseId: historical.id }} onRouteChange={vi.fn()} />);
+    renderWorkbench({ kind: "settings", page: "model", releaseId: historical.id });
 
     expect(await screen.findByText("Historical release")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Export JSON" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: /Activate/ })).not.toBeInTheDocument();
     expect(screen.getByText(/raw JSON remain available/)).toBeInTheDocument();
+  });
+
+  it("shows the active release beside the catalogue without a selection, and opens an entry at its address", async () => {
+    vi.mocked(api.capabilities).mockResolvedValue(capabilitiesFixture({ manageModel: true }));
+    vi.mocked(api.modelReleases).mockResolvedValue({ items: [release], nextCursor: null });
+    vi.mocked(api.modelDrafts).mockResolvedValue({ items: [draft], nextCursor: null });
+    vi.mocked(api.modelRuntimeState).mockResolvedValue({
+      activeReleaseId: "r1",
+      activeModelHash: "abc",
+      version: 1,
+      updatedAt: release.installedAt,
+    });
+    vi.mocked(api.modelRelease).mockResolvedValue({ ...release, model });
+    const onRouteChange = vi.fn();
+    renderWorkbench({ kind: "settings", page: "model" }, onRouteChange);
+    const catalogue = await screen.findByRole("navigation", { name: "Model catalogue" });
+    expect(await within(catalogue).findByRole("button", { name: /Test.*Active/ })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(await screen.findByRole("button", { name: /export json/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /All releases and drafts/ })).not.toBeInTheDocument();
+    expect(onRouteChange).not.toHaveBeenCalled();
+    fireEvent.click(within(catalogue).getByRole("button", { name: /Candidate/ }));
+    expect(onRouteChange).toHaveBeenCalledWith({ kind: "settings", page: "model", draftId: "d1" });
   });
 });
 

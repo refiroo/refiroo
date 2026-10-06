@@ -152,7 +152,7 @@ individual screens:
 [ADR-023](DECISIONS.md#adr-023--build-rdm-ui-components-on-react-aria-behavior) stays: React Aria behind `ui/` wrappers, and RDM owns every style through
 tokens (no pre-styled design system). The fixup works within it:
 
-1. **Three token layers.** Primitive scales (neutral, brand and status hues, 50–900) feed semantic
+1. **Three token layers.** Primitive scales (neutral, operator and status hues, 50–900) feed semantic
    roles (`surface.app`, `surface.nav`, `surface.raised`, `surface.sunken`, `text.primary`,
    `text.secondary`, `border.subtle`, `border.strong`, `action.primary`, `state.selected`,
    `status.{draft, live, published, conflict, error, warning, success}`, `context.{live,
@@ -161,7 +161,7 @@ tokens (no pre-styled design system). The fixup works within it:
 2. **Distinct regions.** The rail sits on its own toned surface, the content on the canvas, and
    panels and the record inspector are raised (border and shadow). The header carries the
    workspace and data context.
-3. **Colour carries meaning.** The brand accent is used only for the primary action and the current
+3. **Colour carries meaning.** The operator accent is used only for the primary action and the current
    location. Selection has its own tint. Status hues appear only for states. The data context gets
    a persistent coloured bar: live, change set and publication are distinguishable at a glance and
    by text.
@@ -184,10 +184,11 @@ The user chose Direction B, "Open" (U-D6, ADR-039), which sets the values for po
 | CN1 | 0.9 | C15 | **Delivered 2026-10-05** ([plan](BASE_0_9_IMPLEMENTATION_PLAN.md#cn1-the-consumer-apis-name-in-public-contracts)). Rename the namespace in public contracts per U-D1 before C6 publishes it in the API index and C9–C11 put it in events and subscriptions: route placeholder, error details, docs, journey tests. Model field `key` unchanged |
 | U1 | 0.9 | — | **Mockups delivered 2026-10-05** ([canvas](https://claude.ai/artifact/GmafaZfJ6PxbXs8rGVysMc): today's baselines with the audit, Direction A "Framed" and Direction B "Open", three screens each, light and dark); **Direction B chosen 2026-10-05 (U-D6, ADR-039).** Visual direction. A screenshot audit of today's surfaces against the diagnosis, then two alternative directions (tokens, rail, page header, a table page, a record page, a settings page, light and dark) as clickable mockups. The user chooses, and the choice is recorded as an ADR. No product code. A filler, any time |
 | U2 | 0.9 | U1 | **Delivered 2026-10-06** ([record](#u2-delivery-record)). Foundation: the token layers, the type and spacing scale, the components above, the rail and header, the data-context bar. Applied to the shell. Contrast test over the tokens. Shell baselines re-recorded |
-| U3 | 0.9 | U2 | **Planned 2026-10-06** ([plan](#u3-the-settings-area); U-D10 decided, U-D11 proposed). Settings area: `/settings` routes and layout; About, Appearance and Deployment; Workspaces and Model moved under Administration (old URLs redirect); the popover reduced to account and theme with a link to Settings; `GET /api/v1/system` |
-| U4 | 0.9 | U3, C6b, V2 | Integration pages: Consumer APIs, Jobs and feed, API reference. Starter consumer API per U-D5 |
+| U3 | 0.9 | U2 | **Delivered 2026-10-06** ([record](#u3-delivery-record); U-D10 and U-D11). Settings area: `/settings` routes and layout; About, Appearance and Deployment; Workspaces and Model moved under Administration (old URLs redirect); the popover reduced to account and theme with a link to Settings; `GET /api/v1/system` |
+| UA | 0.9 | U3 | **Planned 2026-10-06** ([plan](#ua-the-atlas-redesign); ADR-040, U-D12, U-D13). The Atlas redesign of every surface in one pass, the record browser first, each surface approved by the user from screenshots; replaces the older styles; folds in U6 |
+| U4 | 0.9 | UA, C6b, V2 | Integration pages: Consumer APIs, Jobs and feed, API reference. Starter consumer API per U-D5 |
 | U5 | 0.9 | U4, C12 | Webhooks page over the subscriptions API (C12 delivered 2026-10-06: `delivery`, the four dispatcher reasons, `reset`) |
-| U6 | 0.10 (first) | U2 | The remaining surfaces on the foundation: record browser and inspector, relation matrix, tree, change sets and review, publications, model workbench. Before 0.10's editor (A4), which is built on it |
+| U6 | — | — | **Folded into UA (2026-10-06):** the remaining surfaces are redesigned in UA, in 0.9. 0.10's editor (A4) builds on UA |
 | U7 | 0.11 | U3 | Operations page over 0.11's health, readiness, metrics and backup routes |
 | U8 | 0.12 | U5 | Security pages: sign-in and account; users and roles; OAuth clients and their access per consumer API; webhook signing-key rotation (keys are generated and shown once from 0.9, U5). Replaces 0.12's "UI administration" items with pages in this area |
 
@@ -234,7 +235,7 @@ can tell live data, a change set and a publication apart at a glance and by text
 #### Scope
 
 1. **Token layers** in a new `styles/tokens.css`, imported first:
-   - *Primitives*: neutral (warm grey), indigo (brand), green, amber, violet and red scales,
+   - *Primitives*: neutral (warm grey), indigo (operator), green, amber, violet and red scales,
      50–900, taken from the mockup's values.
    - *Semantic roles* (light, then dark, which redefines this layer only): `surface.{app, nav, top,
      sunken, raised}`, `text.{primary, secondary, tertiary, on-action}`, `border.{subtle, strong,
@@ -461,8 +462,8 @@ backend; nothing in `backend/` changed.
 
 ### U3: the settings area
 
-**Planned 2026-10-06.** Needs U2 (delivered). [U-D10](#decisions) is decided (2026-10-06); U-D11 is
-proposed, for the user to decide before the build starts. U3 depends on no C-track package; its
+**Delivered 2026-10-06** ([record](#u3-delivery-record)). Planned 2026-10-06; [U-D10](#decisions)
+and U-D11 decided the same day. U3 depends on no C-track package; its
 place after C13 (27b, before J4) is the order the user chose on 2026-10-06, not a dependency. If it
 is moved forward, as U2 was, the rules in [Running beside C12](#running-beside-c12) apply.
 
@@ -727,6 +728,236 @@ engine read, the OpenAPI lock), so two more rules apply:
 - The runners and both gates pass, and the baselines are re-recorded and inspected.
 - The U3 record is written here, and the 0.9 plan's row is marked delivered.
 
+#### U3 delivery record
+
+**Delivered 2026-10-06.** C12 and C13 were delivered first, so nothing ran beside them.
+
+**Built:**
+- **`GET /api/v1/system`** (`management/routers/system.py`, `engine/reads/system.py`,
+  `management/schemas/system.py`), as specified. The settings come from `config.SETTINGS_CATALOGUE`
+  (22 entries: variable, field, group, description, secret) through `config.describe_settings`,
+  computed once in `create_app`, since values change only with a restart.
+- **Settings shell** (`app/SettingsShell.tsx`, `app/SettingsArea.tsx`): top bar, rail with
+  `nav aria-label="Settings"` and the rail's resize handle, the 390px page select with Back to
+  applications beside it. `App` renders it for every `settings` route; the application content no
+  longer branches on administration routes. `useRouter` remembers the last application route.
+- **Pages:** About, Appearance and Deployment (`features/settings/`); Workspaces and Model rebuilt as
+  list and detail pages (`WorkspaceAdmin`, `ModelWorkbench`) with their dialogs, rules and errors
+  unchanged.
+- **Routes:** one `settings` kind with a `page`; `/models[?releaseId|draftId]` and
+  `/workspaces[/{key}]` parse to it. `isAdminRoute` and `AdminRoute` are gone.
+- **Top bar:** a **Settings** link (the gear) and the **Account** popover (`AccountMenu` in
+  `app/SettingsMenu.tsx`) with Account, Theme and **All settings**; Models, Workspaces and the model
+  version left it. **Manage workspaces** opens `/settings/workspaces/{key}`.
+- **Components** (U-D8): `SettingsLayout`, `Section`, `DescriptionList`, `FormField` (create and
+  rename workspace dialogs, Appearance), `EmptyState` (no drafts, no workspace matching the filter),
+  `Skeleton` (About, Deployment, the detail pages), `Toast` (create, rename, default, retire,
+  reactivate and delete a workspace; install and activate a release; delete a draft). Plus
+  `ui/RouteLink` for links that navigate in place, and `lib/tableDensity.ts`.
+- **Density:** the default every table starts from (Appearance); the Display popover offers
+  **Default (Compact|Comfortable)**, Comfortable and Compact. A stored `compact: true` reads as
+  Compact, `false` as Default.
+- **Removed:** `features/administration/CapabilityStatus.tsx` (Deployment's capability groups and a
+  notice on a disabled page replace it), `ui/SidebarSlot.tsx`, and their CSS.
+- C11's TODO is closed: a workspace blocked by `subscribed` says "Delete its webhook subscriptions
+  first, or retire it".
+
+**Differs from the plan** (each found during the work):
+- `ENGINE_VERSION` lives in `config.py`, not `app/__init__.py`: the tier rules
+  (`test_boundaries`) let `management/` import `app.config` but not the package root.
+- `source` is `environment` when the variable is set to a non-empty value. `DATABASE_URL` also loses a
+  `password` query parameter, and reads `null` if it cannot be parsed as a URL.
+- The account button shows a person glyph, not initials: single-user mode has no name to take
+  them from.
+- A detail page's title (h1) is the workspace's, release's or draft's name. The name heading inside
+  the release and draft details was dropped, and their section headings moved from h3 to h2. The
+  accessibility gate's heading-order rule found the gap.
+- Workspaces gained a filter (server search), which gives `EmptyState` its "no match" use. The
+  Workspaces entry is listed when workspace administration is off, since the page is read only, not
+  missing.
+- Settings tables are labelled, focusable groups (axe `scrollable-region-focusable`) and stack row
+  by row below 760px. The new `EmptyState` uses its own class (`empty-message`). The older
+  `.empty-state` on the record screens is U6's.
+- The visual gate's `compareScreenshot` takes `mask` locators, covering values that differ between
+  runs (times, the harness's ports and paths).
+- `wp9-publications` checked the pinned model in the top bar's version text. It now checks the
+  publication bar, which names it.
+
+**Checks:**
+- **Backend:**
+  - J31's 12 cases (two configurations) were written first and failed with `404`, then passed.
+  - `tests/unit/test_config.py`: catalogue coverage, each setting in its OPERATIONS table, typed
+    values and source, secrets, five URL-masking cases, and the version against `pyproject.toml`.
+  - `startup` and `contract` groups: 220 passed in 41 s; their serial part selects nothing.
+  - OpenAPI lock regenerated: removing `/system` and its five schemas gives the previous hash.
+  - `ruff check` clean.
+- **Frontend unit:** `vitest related` over the 33 changed sources: 35 files, 360 tests passed.
+  Then `format`, `lint` (0 errors; the 7 warnings are older ones, two of them carried unchanged into
+  `ModelWorkbench`), `tsc`, `build`.
+- **Browser, real backend:**
+  - `test:browser:settings` (new, 9 checks, 1440 and 390px). Its first runs found the resize handle
+    outside a landmark, an unfocusable scrolling table and an overflowing Runtime table; all fixed.
+  - `test:browser:w4` (21 checks, moved to the new pages), `test:browser:wp12` (7, new URLs, the
+    activation toast), `test:browser:wp11` (5).
+  - `test:browser` (wp9-navigation) failed at 390px on the Model page: the disabled notice's flex
+    layout and an unbreakable setting name. Fixed (`Notice`), then passed.
+  - `test:browser:publications` passed.
+- **Gates:**
+  - `test:a11y`: the first run failed on `settings-release-detail` light and dark (heading order,
+    above). The rerun passed, 61 scenarios with no violations. They include the six settings pages
+    light and dark and the 390px page select.
+  - `test:visual --update-baselines`, then a compare: 49 baselines, passed. The last re-record
+    followed the workspace page's alignment fix and the narrowed Model masks.
+
+**Evidence, reported separately:**
+- *Functional:* the runners and unit tests above.
+- *Accessibility:* the axe gate and the runners' axe scans. Keyboard order (skip link, top bar,
+  settings navigation and its resize handle, content) is checked in `u3-settings`.
+- *Visual:* all 11 new baselines were opened and checked against `B-Settings`: `settings-about`,
+  `-model`, `-workspaces`, `-deployment` (light and dark), `-appearance`, `-release-detail` and
+  `-workspace-detail`. Also the runner's 1440 and 390px screenshots of About, Deployment and Model.
+  - The 38 changed shell baselines differ only in the top bar. `collection-table-domain-light` was
+    opened. The others were compared but not opened one by one.
+  - Release and draft details keep their card look inside the page until U6.
+
+**Not run:** the full suites and the other browser runners (build acceptance, R).
+
+#### U3 revisions after delivery (2026-10-06)
+
+The user looked at U3 in the running app the same day and asked for changes. Each was made and
+checked before UA was planned.
+
+- **Workspaces and Model** (U-D10 revised by the user): the list pages with tables and plain links
+  read as bare hypertext. Both are back to the screens they were before U3: the catalogue (entries
+  with icon, name, key and pill, the current one highlighted) beside the selected entry's card,
+  with the old capability cards and detail markup. The catalogue now sits in the page, beside the
+  settings navigation. Each entry keeps its own address (`/settings/workspaces/{key}`,
+  `/settings/model/releases/{id}`, `/settings/model/drafts/{id}`); without one, the default
+  workspace or the active release is shown. Below 760px the catalogue and the selection take
+  turns, with **All workspaces** or **All releases and drafts** to go back.
+  The tables, `RouteLink` rows, filter and list `EmptyState` of the first version are gone; toasts
+  and the `subscribed` reason stay.
+- **Width:** every settings page uses the application pages' width (1440px), not 1040px.
+- **Phones:** the settings page select is replaced by the application pages' pattern, a
+  **Settings: {page}** bar that opens the settings navigation in the navigation drawer. Back to
+  applications keeps its icon in the top bar.
+- **About:** **Open release** is a button.
+- **Workspace switcher back in the rail** (revises ADR-039's shell and U2): at the top of the rail,
+  above the application browser, with its pre-U2 styles; on phones it is in the Browse application
+  drawer again.
+- **Checks:** related unit tests 358 passed. One relation-matrix test failed once under the parallel
+  run and passed three times alone, so it is listed in TODO as a flake. Lint 0 errors; build passed.
+  Runners: `test:browser:settings` (9), `test:browser:w4` (21; one earlier run missed the re-created
+  workspace in the switcher and passed on the rerun, also in TODO), `test:browser:wp12` (7) and
+  `test:browser` passed. `test:a11y` 61 scenarios, no violations. `test:visual` re-recorded (49) and
+  compared.
+- **Found, not fixed:** with a popover open (Account, Display, Filter), the first click on the page
+  only closes the popover; the user saw navigation that did not respond. No runner clicks the page
+  with a popover open. Fixed first in UA (UA0).
+
+### Atlas (ADR-040)
+
+The direction the user chose on 2026-10-06 from five looks on the same screen with real data
+([look canvas](https://claude.ai/artifact/P4BpxdQdyVYTAaQMRGnRFB), look **E**, "the mixture"; the
+canvas holds the exact values). Today's calm shell and shapes, with colour that means something.
+
+**Kept as it is now:** the top bar; the rail (workspace switcher, Collections, Browse records);
+Instrument Sans and JetBrains Mono; 6px radius on controls, chips and tiles, 8px on cards; the
+indigo accent for the primary action and links; ruled tables on a white card.
+
+**Colour for kinds of record.**
+- Every object type gets one hue from a fixed palette of eight: a soft fill, a dark ink of the same
+  hue (4.5:1 on the fill and on white) and a marker. The canvas uses teal (timetable type), amber
+  (category), blue (duration), rose (role), violet (catalogue) and coral (system value); cyan and
+  slate complete the palette.
+- How a type gets its hue is U-D13 (decided: automatically from the model's order, so any model
+  is coloured and no renderer knows a type key; whether the palette uses other shades of the
+  context colours or leaves them out is shown on the real app in UA1).
+- Where the hue appears: a 22px tile with the type's icon in Collections; an 18px tile in the
+  tree; the record header's 36–40px tile and a tinted header band in the inspector; chips for a
+  related or parent record (table columns that show a record, breadcrumbs, the inspector's
+  **Connected** list); the page header's tile on a collection.
+- Values stay plain text; pills stay for states (ADR-039).
+
+**Colour for where you are.** Live is a soft green strip with the Live chip and "Edits apply
+immediately"; a change set is amber and a publication violet, in the same place, with a dot of
+their colour on the Change sets and Publications tabs. The exact hues are the existing context
+tokens. The palette in U-D13 must keep type hues distinguishable from these three.
+
+**The record browser.** Every row shows the type tile; containment is shown by indentation with a
+guide line; a group's count sits at the right; the selected record is filled with its type's
+soft colour; type groups and records never look alike.
+
+**The top bar.** Each application carries a small tile of its own colour (the application
+palette follows the same rule as types, from the model's order), and the tabs start 36px after
+the product name.
+
+**Dark mode.** Every fill, ink and marker has a dark value; the contrast test covers the palette in
+both themes.
+
+### UA: the Atlas redesign
+
+**Planned 2026-10-06** for a later session. Needs U3 (delivered and revised). U4 and U5 wait for
+UA, so new pages land in the new look. U6 is folded into UA.
+
+**Outcome.** Every surface in the Atlas look, coherent from the top bar to the dialogs, light and
+dark, desktop and phone, with the older stylesheet layers removed instead of overridden.
+
+**Revert point.** Today's design (U3 with its revisions) is committed and tagged
+`ui-before-atlas` (2026-10-06), because the user asked for an easy way back to it. Each UA slice is
+committed on its own, so one slice can be reverted without the others.
+- See what UA changed: `git diff ui-before-atlas -- frontend/src`.
+- Run the previous design beside the current one, without touching the working copy:
+  `git worktree add ../rdm-engine-before-atlas ui-before-atlas`, then start its frontend there
+  (`npm install`, `npm run dev -- --port 5174`) against the same backend. Remove it with
+  `git worktree remove ../rdm-engine-before-atlas`.
+- Its screenshots: `frontend/e2e/baselines/` at that tag (49, light and dark).
+- Bring one surface back: `git checkout ui-before-atlas -- <its files>` and commit.
+
+**How the user judges it** (the lesson of U2 and U3: tests showed the code worked, not that it
+looked or felt right):
+- Each slice ends with screenshots of its surfaces at 1440 and 390px, light (and dark in UA7),
+  sent to the user, and a few minutes of the user using it on the dev server.
+- The next slice starts only after the user says the surface is right. Changes asked for are made
+  in the same slice.
+- Where the canvas does not decide something, the slice shows two small variants on the real app
+  and the user picks; no new rule is invented in writing alone.
+
+**Slices**, in order:
+- **UA0: popovers.** (The revert point `ui-before-atlas` exists since 2026-10-06.) Fix the popover click:
+  a click on the page while a popover is open closes it and acts (React Aria `isNonModal` or an
+  equivalent), with a regression test that clicks the application tabs and the settings navigation
+  with the Account popover open. Look at the two flakes in TODO.
+- **UA1: tokens and type colours.** The eight-hue palette (fill, ink, marker; light and dark) and
+  the context strips as tokens; the contrast test extended to them; `model/` gains the read that
+  gives a type or an application its hue (U-D13), tested on two models. The top bar's application
+  tiles and the rail's Collections tiles use it.
+- **UA2: the record browser.** The tree as described above, on two models, by keyboard and at
+  390px (drawer). The user's screenshot of the timetables tree (type groups, folders and records
+  alike) is the case to fix.
+- **UA3: the collection page.** Page header tile, the context strip, the table (a column showing a
+  record as a chip in its type's colour), toolbar, empty and loading states.
+- **UA4: the record.** Inspector and full page: tinted header with the type tile, breadcrumb chips,
+  fields, the **Connected** list grouping related records by relation with type-coloured chips,
+  history.
+- **UA5: change sets and publications.** The amber and violet strips, the change set bar and its
+  actions, the review screen, publications.
+- **UA6: the rest.** Relation matrix, tree lens, mapping grid, dialogs, settings pages; the
+  remaining `.surface` panels, the ~60 older token aliases and the unused rules in
+  `components.css` removed.
+- **UA7: dark mode and the gates.** Every surface in dark; `test:a11y` and `test:visual` with all
+  baselines re-recorded; a screenshot of every screen in both themes for the user.
+
+**Generic.** Every rule is driven by the model: hues by position, icons from the model's `icon`,
+relation labels from relation types. Each slice is checked on the starter model and a generated
+one; no renderer branches on a type or application key.
+
+**Checks per slice:** `vitest related`, `format`, `lint`, `build`; the runners of the surfaces the
+slice changes; the contrast test. `test:a11y` and `test:visual` once, in UA7, unless a slice asks.
+
+**Not in UA:** new features, new routes or API changes; U4 and U5's pages (they come after, in the
+new look).
+
 ### Exit by 1.0
 
 - Every administrative, integration and security object a route manages has a settings page, and
@@ -738,7 +969,7 @@ engine read, the OpenAPI lock), so two more rules apply:
 
 ## Decisions
 
-U-D1–U-D6 were decided by the user on 2026-10-05; U-D7–U-D9 on 2026-10-06. U-D10 on 2026-10-06; U-D11 is proposed, for the user to decide before U3 is built.
+U-D1–U-D6 were decided by the user on 2026-10-05; U-D7–U-D9 on 2026-10-06. U-D10 and U-D11 on 2026-10-06 (U-D10 revised by the user the same day), U-D12 and U-D13 on 2026-10-06.
 
 | # | Question | Recommendation | Why |
 | --- | --- | --- | --- |
@@ -751,5 +982,7 @@ U-D1–U-D6 were decided by the user on 2026-10-05; U-D7–U-D9 on 2026-10-06. U
 | U-D7 | How much does U2 re-colour? | **Decided 2026-10-06: all of it.** The old token names become aliases of the new roles, so every screen takes Direction B's colours, type and rules in U2. Screens keep their markup until U6. All 41 baselines are re-recorded and inspected in U2, and `test:a11y` and `test:visual` run once in the package, as an exception to AGENTS' "gates at build acceptance" | Every baseline contains the shell, so the visual gate fails on all 41 whichever option is taken. The other option, new tokens for the shell only, would ship 0.9.0 with an indigo shell around green screens until U6 in 0.10. ADR-039's "U2 the shell, U6 the rest" then means structure, not colour |
 | U-D8 | Which `ui/` components does U2 build? | **Decided 2026-10-06 (the user): `Card` is kept**, because the UI is not final and how a card looks and works is judged in the product. U2 builds `PageHeader` (the ten page headers), `StatusPill` (the band and the context statuses) and `Card`, styled from Direction B's tokens. Today's `.surface` panels resolve to the same tokens, so U2's screenshots show the card look; U6 moves those panels onto `Card`, or onto `Section` where a card looks wrong. `SettingsLayout`, `Section`, `DescriptionList`, `FormField`, `EmptyState`, `Skeleton` and `Toast` come with U3, and `Toolbar`, `Breadcrumbs` and `SegmentedControl` with U6 | UI_ACCEPTANCE §1: a shared component comes with the surfaces that use it. `Card` already has those surfaces in today's panels. ADR-039's "content on the page, not in cards" is held for now and tested against the product, not ruled out in advance |
 | U-D9 | Which pairs does the contrast test hold to which ratio? | **Decided 2026-10-06, to be reviewed on U2's screenshots** (the user: "let's see how it looks"): text at 4.5:1 (3:1 for the 30px title). A control's border, the focus ring and any status or context marker that is the only sign of a state at 3:1, with `border.control` added as its own darker role. Separator rules (`border.subtle`, `border.strong`) are decorative and exempt, listed as such in the test | The mockup's control border is 1.6:1 and the light change-set dot is 2.9:1, both below WCAG 1.4.11's 3:1 for a boundary or state marker. The ruled look in ADR-039 needs light separators, which 1.4.11 does not cover. So "every border pair at AA" in this plan's §UI foundation is narrowed to borders that identify something |
-| U-D10 | Where do the Workspaces and Model catalogues go, now that the rail holds the settings navigation? | **Decided 2026-10-06 (the user): a list page and a detail page.** `/settings/workspaces` is a ruled table of workspaces (label, key, status, default) with New workspace, and `/settings/workspaces/{key}` is the workspace's page, with "Workspaces" as its eyebrow link back. `/settings/model` shows the active release, then the releases and the drafts as tables; a release or draft opens at its own URL. Paging stays cursors with Load more | U5's Webhooks and U8's users and clients have the same shape, so the settings area needs one list-and-detail pattern, and these two pages are its first uses. The detail keeps the content's full width, which the release diff needs. The alternative, a list column beside the detail inside the page, keeps today's side-by-side browsing but costs the detail about 280px on top of the settings rail, and the 390px layout stacks either way. Nesting the lists under their entries in the settings navigation would crowd it with paged lists |
-| U-D11 | Does the settings navigation show pages not built yet? | **Proposed: no.** Only built pages are listed. U4 and U5 add Integration's, and U7 and U8 add theirs. The mockup's Security entries tagged "0.12" are left out | An entry with nothing behind it is a dead end, and a disabled one says nothing a user can act on. What is planned is in ROADMAP |
+| U-D10 | Where do the Workspaces and Model catalogues go, now that the rail holds the settings navigation? | **Revised 2026-10-06 by the user:** the screens as they were before U3, the catalogue beside the selected entry, inside the page next to the settings navigation; each entry keeps its address ([revisions](#u3-revisions-after-delivery-2026-10-06)). _Was: decided 2026-10-06 (the user): a list page and a detail page._ `/settings/workspaces` is a ruled table of workspaces (label, key, status, default) with New workspace, and `/settings/workspaces/{key}` is the workspace's page, with "Workspaces" as its eyebrow link back. `/settings/model` shows the active release, then the releases and the drafts as tables; a release or draft opens at its own URL. Paging stays cursors with Load more | U5's Webhooks and U8's users and clients have the same shape, so the settings area needs one list-and-detail pattern, and these two pages are its first uses. The detail keeps the content's full width, which the release diff needs. The alternative, a list column beside the detail inside the page, keeps today's side-by-side browsing but costs the detail about 280px on top of the settings rail, and the 390px layout stacks either way. Nesting the lists under their entries in the settings navigation would crowd it with paged lists |
+| U-D11 | Does the settings navigation show pages not built yet? | **Decided 2026-10-06 by the user: no**, as recommended. Only built pages are listed. U4 and U5 add Integration's, and U7 and U8 add theirs. The mockup's Security entries tagged "0.12" are left out | An entry with nothing behind it is a dead end, and a disabled one says nothing a user can act on. What is planned is in ROADMAP |
+| U-D12 | Which visual direction replaces Direction B, and how is it built? | **Decided 2026-10-06 (the user): Atlas, look E** ([ADR-040](DECISIONS.md#adr-040--the-atlas-visual-direction-todays-calm-shell-a-colour-for-every-kind-of-record)): today's shell and shapes with a colour for every kind of record and for the data context. Built in one pass (UA) before U4 and U5, each surface approved by the user from screenshots, with today's design tagged `ui-before-atlas` to switch back | The user found the product incoherent after U2 and U3, liked the current navigation, sidebar and shapes, and liked Atlas's colours; look E combined them and was accepted. Building slice by slice from written rules had drifted from the mockups |
+| U-D13 | How does an object type (and an application) get its colour? | **Decided 2026-10-06 by the user, as recommended:** automatically, by its position in the model (`objectTypes`, `applications`) over the eight-hue palette, so any model is coloured and stays stable while its order does; a later schema version may let a model name a palette hue. The palette's hues are kept apart from the three context colours (green, amber, violet) by shade, or those three are left out of the type palette; the user picks from the two on the real app in UA1 | ADR-040 needs colour per type without the engine knowing type keys. Position needs no model change; naming a hue would change the model schema. The canvas used amber for categories and violet for the catalogue, the same hues as change sets and publications, which ADR-039's "one meaning per colour" warns against |

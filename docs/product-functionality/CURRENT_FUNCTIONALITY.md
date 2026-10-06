@@ -66,8 +66,9 @@ Users select a workspace by label or search; its key stays in the page address, 
 the default. Retired workspaces stay readable and are visibly read only. With a single workspace the
 selector is a label.
 
-The **Workspaces** screen lists every workspace and creates, renames, retires, reactivates, deletes and
-sets the default, each protected against concurrent changes. A workspace that was ever published can
+Settings › **Workspaces** lists every workspace beside the selected one, which can be created,
+renamed, retired, reactivated, deleted and made the default, each protected against concurrent
+changes; each workspace has its own address. Confirmations appear as toasts. A workspace that was ever published can
 only be retired; **Delete…** is for correcting a mistyped key on an empty workspace. Workspace
 administration is a deployment setting (on by default until sign-in exists, not a permission); when it
 is off the screen is read only and names the setting.
@@ -291,8 +292,9 @@ Evidence: [publications](../../frontend/src/features/workspaces/Publications.tsx
 **User outcome:** A model administrator evolves what applications mean without editing the active
 definition in place.
 
-The **Models** workbench lists installed releases and the active one, with summaries, technical
-details, comparisons between releases and JSON export. With model administration enabled (a
+Settings › **Model** lists installed releases and drafts beside the selected one (the active release
+when none is chosen), each at its own address, with summaries, technical details, comparisons
+between releases and JSON export. With model administration enabled (a
 deployment setting, one API process), an administrator edits a JSON draft with conflict protection,
 validates and compiles it, installs an immutable release and activates a compatible one. Installing
 never activates. Activation is refused when existing data would not fit, and also when a consumer API
@@ -341,7 +343,8 @@ Evidence: [WP9 authoring runner](../../frontend/e2e/wp9-authoring.mjs),
 
 The interface has a skip link, labelled regions, semantic tables and trees, visible focus, keyboard
 menus and shortcuts, managed dialog focus, dirty-input guards, narrow-screen navigation, light and dark
-mode, resizable panels and display preferences. An automated accessibility gate (axe) and a visual
+mode, resizable panels and display preferences. Settings › **Appearance** sets the theme and the table
+density every table starts from; a view's own density choice overrides it. An automated accessibility gate (axe) and a visual
 regression gate cover the main screens in both themes.
 
 Limits: no screen-reader user testing has been recorded.
@@ -362,7 +365,15 @@ older model release. Background jobs survive restarts.
 Limits: performance at production scale, several servers, metrics and rehearsed restore are 0.11.
 SQLite was a development database only; the engine offers no migration from it.
 
-Evidence: [operations guide](../OPERATIONS.md), [application startup](../../backend/app/main.py).
+Settings › **About** and **Deployment** show what the deployment runs and how it is configured, from
+`GET /api/v1/system`: the engine and management API version, the schema languages, the active
+release and when it was activated, the database's migration revision, and every setting with its
+value, default, source and what it controls, beside the capability groups. Secrets read only as set
+or not set, and the database address without its password. Settings change only with a restart.
+
+Evidence: [operations guide](../OPERATIONS.md), [application startup](../../backend/app/main.py),
+[settings catalogue](../../backend/app/config.py), [J31 journey tests](../../backend/tests/journeys/test_j31_system.py),
+[settings runner](../../frontend/e2e/u3-settings.mjs).
 
 ## F20 — Query and look up across the data
 

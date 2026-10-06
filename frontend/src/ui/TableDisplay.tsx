@@ -3,30 +3,52 @@ import type { EngineModel } from "@/types";
 import { attributeName } from "@/model/fields";
 import { ControlPopover } from "@/ui/ControlPopover";
 import { readLocalPreference, removeLocalPreference, writeLocalPreference } from "@/lib/localPreference";
+import { isTableDensity, readDefaultTableDensity, type TableDensity } from "@/lib/tableDensity";
+
+/** A view's own density, or the default every table starts from (Settings › Appearance). */
+export type ViewDensity = TableDensity | "default";
 
 interface TablePreference {
   hidden: string[];
-  compact: boolean;
+  /** Absent: the default density. */
+  density?: TableDensity;
   widths: Record<string, number>;
 }
 
-const defaults: TablePreference = { hidden: [], compact: false, widths: {} };
+/**
+ * A preference as stored before U3, when density was `compact: boolean`. A stored `false` cannot be
+ * told apart from "never chosen", so it reads as the default; `true` reads as Compact.
+ */
+interface StoredPreference extends Omit<TablePreference, "density"> {
+  density?: unknown;
+  compact?: unknown;
+}
+
+const defaults: TablePreference = { hidden: [], widths: {} };
 const keyFor = (scope: string) => `rdm:table-display:v1:${scope}`;
-function isPreference(value: unknown): value is TablePreference {
+function isStoredPreference(value: unknown): value is StoredPreference {
   if (!value || typeof value !== "object") return false;
-  const item = value as Partial<TablePreference>;
+  const item = value as Partial<StoredPreference>;
   return (
     Array.isArray(item.hidden) &&
     item.hidden.every((key) => typeof key === "string") &&
-    typeof item.compact === "boolean" &&
+    (item.density === undefined || isTableDensity(item.density)) &&
+    (item.compact === undefined || typeof item.compact === "boolean") &&
     !!item.widths &&
     typeof item.widths === "object" &&
     Object.values(item.widths).every((width) => typeof width === "number" && Number.isFinite(width))
   );
 }
 
+function readPreference(scope: string): TablePreference {
+  const stored = readLocalPreference<StoredPreference>(keyFor(scope), defaults, isStoredPreference);
+  const density = isTableDensity(stored.density) ? stored.density : stored.compact === true ? "compact" : undefined;
+  return { hidden: stored.hidden, widths: stored.widths, ...(density ? { density } : {}) };
+}
+
 export function useTableDisplay(columns: string[], scope: string) {
-  const load = () => readLocalPreference(keyFor(scope), defaults, isPreference);
+  const load = () => readPreference(scope);
+  const [defaultDensity] = useState(readDefaultTableDensity);
   const [settings, setSettings] = useState<{ scope: string; value: TablePreference }>(() => ({ scope, value: load() }));
   const current = settings.scope === scope ? settings.value : load();
   const identity = columns.includes("name") ? "name" : columns.includes("id") ? "id" : columns[0];
@@ -37,14 +59,22 @@ export function useTableDisplay(columns: string[], scope: string) {
   return {
     columns: columns.filter((column) => column === identity || !current.hidden.includes(column)),
     identity,
-    compact: current.compact,
+    /** The density in effect: the view's own, or the default. */
+    compact: (current.density ?? defaultDensity) === "compact",
+    density: (current.density ?? "default") as ViewDensity,
+    defaultDensity,
     widths: Object.fromEntries(
       Object.entries(current.widths).filter(
         ([column, width]) => columns.includes(column) && width >= 120 && width <= 520,
       ),
     ),
     setWidth: (column: string, width: number) => update({ ...current, widths: { ...current.widths, [column]: width } }),
-    setCompact: (compact: boolean) => update({ ...current, compact }),
+    setDensity: (density: ViewDensity) =>
+      update({
+        hidden: current.hidden,
+        widths: current.widths,
+        ...(density === "default" ? {} : { density }),
+      }),
     toggle: (column: string) =>
       update({
         ...current,
@@ -97,10 +127,8 @@ export function TableDisplay({
       </fieldset>
       <label className="toolbar-field">
         Density
-        <select
-          value={display.compact ? "compact" : "comfortable"}
-          onChange={(event) => display.setCompact(event.target.value === "compact")}
-        >
+        <select value={display.density} onChange={(event) => display.setDensity(event.target.value as ViewDensity)}>
+          <option value="default">Default ({display.defaultDensity === "compact" ? "Compact" : "Comfortable"})</option>
           <option value="comfortable">Comfortable</option>
           <option value="compact">Compact</option>
         </select>
@@ -133,7 +161,7 @@ export function TableDisplay({
       </fieldset>
       <p className="field-description">
         {urlBacked ? "Page size is saved in the URL. " : "Page size applies to this panel. "}Column visibility, density
-        and widths are remembered on this device for this view.
+        and widths are remembered on this device for this view. The default density is set in Settings › Appearance.
       </p>
     </ControlPopover>
   );

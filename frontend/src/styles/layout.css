@@ -28,7 +28,7 @@
 }
 
 /* Top bar (ADR-039): the product mark, the workspace switcher, the applications as underlined tabs,
-   then administration and Settings at the right. White, separated from the content by a rule. */
+   then Settings and the account at the right. White, separated from the content by a rule. */
 .global-header {
   position: sticky;
   top: 0;
@@ -66,12 +66,6 @@
 }
 .product-mark strong {
   font-weight: 600;
-}
-.topbar-workspace {
-  display: flex;
-  align-items: center;
-  flex: none;
-  min-width: 0;
 }
 .application-nav {
   display: flex;
@@ -116,13 +110,7 @@
 .topbar-spacer {
   flex: 1 1 0;
 }
-.model-version {
-  align-self: center;
-  color: var(--text-tertiary);
-  font-size: var(--text-xs);
-  white-space: nowrap;
-}
-.secondary-navigation {
+.topbar-actions {
   display: flex;
   align-items: center;
   gap: var(--space-1);
@@ -317,62 +305,41 @@ fieldset.settings-section legend {
   left: calc(var(--sidebar) - 5px);
   width: 10px;
 }
-/* The workspace switcher sits in the top bar: its label is read by assistive technology and
-   shown only as the field's name; the retired note stays in the content (the shell's notice). */
-.workspace-selector .selection-field {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+/* The workspace switcher at the top of the rail, above the application browser (restored 0.9 U3). */
+.workspace-selector {
+  margin: 0 4px 18px;
 }
-.workspace-selector .selection-field > label,
-.workspace-selector .field-description {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
+.workspace-selector .selection-field {
+  width: 100%;
 }
 .workspace-selector .combo-control {
-  width: 200px;
   min-width: 0;
-  min-height: 32px;
-  background: var(--surface-sunken);
+  background: var(--surface);
 }
 .workspace-selector input {
   width: 100%;
   min-width: 0;
-  font-weight: 500;
 }
 .workspace-single {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+  display: grid;
+  gap: 2px;
+  padding: 0 6px;
 }
 .workspace-single-label {
-  color: var(--text-tertiary);
-  font-size: var(--text-xs);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 .workspace-single strong {
-  max-width: 220px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--text-md);
+  overflow-wrap: anywhere;
+  font-size: 14px;
   font-weight: 600;
 }
-.workspace-single .field-description {
-  position: static;
-  width: auto;
-  height: auto;
-  clip: auto;
-  color: var(--text-tertiary);
-  font-size: var(--text-xs);
-}
 .workspace-single .workspace-manage {
-  min-height: 30px;
-  padding: 0 var(--space-2);
-  font-size: var(--text-sm);
+  justify-self: start;
+  margin: 4px 0 0 -8px;
 }
 .nav-label {
   margin: 0 10px 6px;
@@ -616,15 +583,6 @@ fieldset.settings-section legend {
   max-width: 1440px;
   margin-left: auto;
   margin-right: auto;
-}
-/* Admin pages keep their own context line until U3 moves them into Settings. */
-.context-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 20px;
 }
 .shell-context {
   display: flex;

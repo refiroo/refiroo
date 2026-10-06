@@ -51,12 +51,18 @@ suspensions on activation and retirement (C-D96–C-D102). **C12 is delivered (2
 delivery, signed, in order, retried for 24 hours, with the dispatcher's suspensions, `reset` on
 resume and the background threads' outage logging (C-D103–C-D111). **C13 is delivered
 (2026-10-06)**: the events' acceptance end to end, the delivery budget, and C-D114's rule for
-records leaving a filter's scope documented (C-D112–C-D114). Next: U3, in the order of the delivery
-queue (U4 waits for U3). See [Next — 0.9](#next--09).
+records leaving a filter's scope documented (C-D112–C-D114). **U3 is delivered (2026-10-06)**: the
+Settings area and `GET /api/v1/system` ([record](SETTINGS_AND_UI_PLAN.md#u3-delivery-record)), revised the same day.
+Next: UA, the Atlas redesign (ADR-040), before U4 and U5. See [Next — 0.9](#next--09).
 
-- **For U3, from C11 (2026-10-06).** The Workspaces page words no hint for `deleteBlockedBy:
-  subscribed` (a workspace with webhook subscriptions); delete stays disabled. Add the hint ("Delete
-  its webhook subscriptions first, or retire it") when U3 moves the page into Settings.
+- **For UA0, from U3 (2026-10-06): a popover swallows the first click.** With the Account, Display or
+  Filter popover open, the first click on the page (the settings navigation, the application tabs)
+  only closes it; the user reported navigation that did not respond. No runner clicks the page with
+  a popover open. UA0 fixes it with a regression test.
+- **For UA0, from U3 (2026-10-06): two flakes.** `RelationMatrixView.test` "lets a reload replace cells
+  re-read after earlier saves" failed once in a parallel `vitest related` run and passed three times
+  alone. `test:browser:w4` once missed the re-created "Nordics" in the workspace switcher
+  (`w4-workspace-admin.mjs`, step 11) and passed on the rerun; it now saves `failure.png`.
 - **For the user to place, from C12 (2026-10-06): an outbound proxy for webhooks.** The dispatcher
   connects to receivers directly (C-D107); a deployment that reaches the internet only through an
   HTTPS proxy cannot deliver. Adding one means connecting through the proxy while keeping the

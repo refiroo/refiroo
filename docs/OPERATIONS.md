@@ -9,7 +9,14 @@ is unauthenticated today: run it only in a trusted environment or behind an acce
 ## Settings
 
 The backend reads its settings from the environment at startup (`backend/app/config.py`).
-`GET /api/v1/capabilities` reports the effective capability groups and job limits.
+`GET /api/v1/capabilities` reports the effective capability groups and job limits, and
+`GET /api/v1/system` every setting with its value, default and source (secrets only as set or not,
+`DATABASE_URL` without its password). In the browser, **Settings › Deployment** shows both, read only:
+a change needs a restart.
+
+A new setting is added to the `Settings` model, to the settings catalogue in `config.py` (its group
+and the one line the API and the Deployment page show) and to the table of its group below.
+`tests/unit/test_config.py` fails until all three agree.
 
 ### Runtime
 
@@ -37,8 +44,9 @@ not authorization ([ADR-031](DECISIONS.md#adr-031--workspace-terminology-and-dep
 
 Always available: installed-release reads, diff and inline validation; workspace discovery; the
 change-set workflow (create, edit, validate, publish, discard) and publication withdrawal. Retired
-workspaces stay readable and refuse every runtime write. In the browser, the **Models** and
-**Workspaces** screens show a disabled group read only and name its setting.
+workspaces stay readable and refuse every runtime write. In the browser, Settings › **Model** and
+**Workspaces** show a disabled group read only and name its setting, and **Deployment** lists every
+group on or off with the setting that switches it.
 
 ### Batch and job limits
 
@@ -239,7 +247,7 @@ in `model_runtime_state`, even when the file holds a newer one. Changing the fil
 The model lifecycle is staged: save a draft, validate and compile it (no side effects), install it as
 an immutable inactive release, then activate it with the current runtime version and active-release
 ID. Activation is refused when stored data is incompatible with the candidate. All four steps are in
-the browser's **Models** workbench and the [model API](API.md#model-endpoints), with
+the browser's Settings › **Model** pages and the [model API](API.md#model-endpoints), with
 `MODEL_ADMIN_MUTATIONS_ENABLED` on.
 
 To roll back model content, activate a previously installed compatible release. The same

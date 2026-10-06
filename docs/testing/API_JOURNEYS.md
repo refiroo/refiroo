@@ -35,6 +35,7 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/docs` a
 | `GET /health` | J12 |
 | `GET /docs` (`api`, the source Scalar opens), `GET /openapi.json` | J20, J20.5 |
 | `GET /capabilities` | J20, J12.7, J26.6 (`changeFeed.retentionDays`) |
+| `GET /system` | J31, J31.1–J31.3 |
 | `GET /model`, `GET /model/placements` | J20, J20.1, J03, J14 |
 | `GET /model-runtime-state` | J08 (fresh version for activation), J20.2 |
 | `POST /model-validations` | J08.1 |
@@ -134,7 +135,8 @@ documented nowhere; API.md documents them since H4c (D-4).
 
 | Setting or command | Journeys |
 | --- | --- |
-| `DATABASE_URL` | J12, J12.1 |
+| `DATABASE_URL` | J12, J12.1, J31.2 (reported without its password) |
+| Every setting (reported by `GET /system` with value, default and source; secrets as set or not) | J31, J31.1, J31.2 |
 | `RDM_MODEL_PATH` | J12 (the starter or bootstrap model), J08 |
 | `MODEL_ADMIN_MUTATIONS_ENABLED`, `WORKSPACE_ADMIN_MUTATIONS_ENABLED`, `INTEGRATION_JOBS_ENABLED` | J12.7, J08, J19.4, J11 |
 | `BATCH_MAX_ITEMS`, `BATCH_MAX_BYTES`, `ATOMIC_JOB_MAX_ITEMS`, `BACKGROUND_JOB_MAX_ITEMS`, `BATCH_BACKGROUND_MAX_BYTES`, `JOB_CHUNK_ITEMS`, `JOB_LEASE_SECONDS`, `JOB_RETENTION_DAYS` | J12.7, J11, J24 |

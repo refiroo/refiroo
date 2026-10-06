@@ -409,13 +409,16 @@ try {
   await page.keyboard.press("Escape");
   checks.push("Two workspaces and Domain/System change set navigation retain named change set and workspace identity; 720px CSS viewport checks 200%-zoom-equivalent reflow and drawer focus");
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.getByRole("navigation", { name: "Administration" }).getByRole("button", { name: "Models", exact: true }).click();
-  await shown(page.getByRole("heading", { name: "Models", exact: true, level: 1 }));
+  // The top bar holds no administration links (U3): Settings, then Model in its navigation.
+  assert.equal(await page.getByRole("navigation", { name: "Administration" }).count(), 0);
+  await page.getByRole("banner").getByRole("link", { name: "Settings", exact: true }).click();
+  await page.getByRole("navigation", { name: "Settings" }).getByRole("link", { name: "Model", exact: true }).click();
+  await shown(page.getByRole("heading", { name: "Model", exact: true, level: 1 }));
   await page.screenshot({ path: resolve(output, "desktop-models.png"), fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await page.screenshot({ path: resolve(output, "mobile-models.png"), fullPage: true });
-  checks.push("The sidebar tree lists every root record in its scrolling group, with no Load more, beside model-derived collection groups and without changing the later-page URL; model administration remains reachable at desktop/mobile");
+  checks.push("The sidebar tree lists every root record in its scrolling group, with no Load more, beside model-derived collection groups and without changing the later-page URL; model administration remains reachable through Settings at desktop/mobile");
   await checkInspectorDeletion({ page, api, uiUrl, output, checks });
   await checkHierarchySelection({ page, api, uiUrl, output, checks });
   assert.deepEqual(failures, []);

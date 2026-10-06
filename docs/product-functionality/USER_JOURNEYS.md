@@ -47,7 +47,7 @@ background jobs are J24, the change feed J26 and supplier files J27.
 | Change sets and history (designer) | J05 prepare and publish, J06 live beside a change set, J07 withdraw and restart from history, J17 review changes, J18 next model version |
 | Administration | J08 model release, J19 workspaces, J25 consumer API definition |
 | Integration | J11 bulk change, J20 discover, J21 read completely, J22 precise dataset, J23 business date, J24 background job, J26 follow changes, J27 supplier file (planned), J28 consumer read, J29 consumer lookup, J30 consumer events |
-| Operations | J12 run, refuse and recover |
+| Operations | J12 run, refuse and recover, J31 check the deployment |
 
 ## Records and structure
 
@@ -535,7 +535,8 @@ The lists agree with what publishing would do to live data.
 
 ### J08 — Create and activate an application-model release
 
-**Actor:** model administrator; model author. **Channel:** UI, API (model administration enabled).
+**Actor:** model administrator; model author. **Channel:** UI (Settings › Model), API (model
+administration enabled).
 **Stories:** US-P01–P04, US-P06, US-P08, US-O02. **Scenario:** SC-12. **Status:** delivered.
 
 1. Inspect the active and installed releases.
@@ -572,7 +573,8 @@ mutating routes are absent.
 
 ### J19 — Administer workspaces
 
-**Actor:** workspace administrator; integrator. **Channel:** UI, API. **Stories:** US-A01–A03,
+**Actor:** workspace administrator; integrator. **Channel:** UI (Settings › Workspaces), API.
+**Stories:** US-A01–A03,
 US-I01. **Scenario:** SC-14, SC-08. **Status:** delivered (0.8 W).
 
 1. Create a workspace with a stable key and a label; change its label later.
@@ -1152,6 +1154,30 @@ controlled diagnostics.
 
 **Evidence today:** the J12 journey tests; `test_startup`, `test_model_schema_upgrade`,
 `test_schema_drift`, `test_api_reference`; unit tests of `config.py` and `main.py`.
+
+### J31 — Check what a deployment runs and how it is configured
+
+**Actor:** platform operator. **Channel:** API (`GET /api/v1/system`) and UI (Settings › About and
+Deployment). **Status:** delivered (0.9 U3).
+
+1. Read what the deployment runs: the engine and management API version, the schema languages it
+   reads, the active model release (name, key, version, schema language, when it was activated) and
+   the database's migration revision.
+2. Read how it is configured: every setting, its group, what it controls, its value, its default and
+   whether the value came from the environment or is the default; the capability groups on or off.
+
+Settings change only with a restart; the API and the page read them, never edit them.
+
+**Variants:**
+
+- **J31.1 From the environment or the default**: a setting given in the environment reads its typed
+  value (integer, boolean, list) and `environment`; one left alone reads its default and `default`.
+- **J31.2 Secrets**: the cursor signing key and the webhook key-encryption key read no value, only
+  whether they are set; `DATABASE_URL` reads without its password.
+- **J31.3 After an activation**: the active release is the one activated, with the activation's time.
+
+**Evidence today:** `test_j31_system`; the settings catalogue and URL masking in
+`tests/unit/test_config.py`; the settings pages in `e2e/u3-settings.mjs`.
 
 ## Guardrails kept from 0.7
 

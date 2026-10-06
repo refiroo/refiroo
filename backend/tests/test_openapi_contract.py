@@ -74,9 +74,11 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # with the capability on below), and no existing path changed.
     # Re-baselined for 0.9 C12: consumerSubscriptions gains delivery (WebhookDeliveryLimits) and its
     # description says the group also delivers; removing those gives the previous document exactly.
+    # Re-baselined for 0.9 U3: GET /system with SystemResponse, EngineInfo, ActiveModelRelease,
+    # DatabaseInfo and SystemSetting; removing those gives the previous document exactly.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "8fbf461468c678b73bfcf29a5ebac0e0aa9cccf9cae29c468afd395f5bc02d93"
+        "4592eb39167d41e15d4e002d6ca18e8f5294535ef7aa3e94567ad9c2f627ec0b"
     )
 
 

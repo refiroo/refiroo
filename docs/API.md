@@ -228,6 +228,40 @@ guard, not an authorization mechanism. Mutation enablement requires a single pro
 `workspaceAdmin.manageWorkspaces` follows `WORKSPACE_ADMIN_MUTATIONS_ENABLED`, which defaults to true
 until authentication exists. It is a deployment capability and not evidence of caller authorization.
 
+#### What the deployment runs (`GET /api/v1/system`)
+
+Read-only and behind no capability, like `/capabilities` (for administrators once roles exist,
+0.12). It answers what the deployment runs and how it is configured, read on one session:
+
+```json
+{
+  "engine": { "version": "0.9.0-alpha.1", "managementApi": "v1" },
+  "schemaLanguages": ["0.5", "0.6", "0.7", "0.8"],
+  "activeModelRelease": {
+    "id": "…", "key": "rdm-starter", "name": "RDM Starter Model", "version": "0.9.0",
+    "schemaVersion": "0.8", "activatedAt": "2026-10-06T08:00:00Z"
+  },
+  "database": { "revision": "20261006_03" },
+  "settings": [
+    { "name": "FEED_RETENTION_DAYS", "group": "limits", "description": "Days the change feed and consumer events answer a position", "value": 14, "default": 30, "source": "environment" },
+    { "name": "RDM_CURSOR_SIGNING_KEY", "group": "runtime", "description": "Signs pagination cursors; …", "value": null, "default": null, "source": "default" }
+  ]
+}
+```
+
+- `engine.version` is the product version, the same as the API document's `info.version`.
+- `activeModelRelease.activatedAt` is the runtime state's `updatedAt`: when the release was activated
+  or its schema upgraded.
+- `database.revision` is the migration revision the database is at.
+- `settings` lists every setting the engine reads, once, in the order and groups of
+  [OPERATIONS § Settings](OPERATIONS.md#settings) (`runtime`, `capabilities`, `limits`, `webhooks`).
+  `value` and `default` keep their types (integers, booleans, lists). `source` is `environment` when
+  the variable is set to a non-empty value, otherwise `default`. Values are those the process read at
+  startup; they change only with a restart.
+- Secrets (`RDM_CURSOR_SIGNING_KEY`, `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`) report `value` and
+  `default` as `null`; only `source` says whether they are set. `DATABASE_URL` is reported without its
+  password (also a `password` query parameter), or `null` when it cannot be read as a URL.
+
 `GET /api/v1/model` continues to return the active `EngineModel` body and adds:
 
 - `ETag: "<modelHash>"`; and

@@ -1,3 +1,9 @@
+/**
+ * Settings › Model (Track U U3, U-D10 as revised 2026-10-06): the model workbench as before, its
+ * catalogue of releases and drafts beside the selected release or draft. Each has its own address;
+ * without one the active release is shown. Below 760px the catalogue and the selection take turns.
+ */
+
 import { useEffect, useRef, useState } from "react";
 import { formatServerTime } from "@/lib/dates";
 import { api } from "@/api/client";
@@ -8,18 +14,21 @@ import type {
   ModelRelease,
   ModelReleaseSummary,
   ModelRuntimeState,
-  RouteState,
+  SettingsRoute,
 } from "@/types";
 import { CapabilityStatus } from "@/features/administration/CapabilityStatus";
 import { CreateDraftDialog, type CreateDraftSeed } from "@/features/model-admin/CreateDraftDialog";
 import { ModelDraftEditor } from "@/features/model-admin/ModelDraftEditor";
 import { ModelReleaseDetail } from "@/features/model-admin/ModelReleaseDetail";
 import { Icon } from "@/ui/Icon";
-import { PageHeader } from "@/ui/PageHeader";
+import { EmptyState } from "@/ui/EmptyState";
+import { SettingsLayout } from "@/ui/SettingsLayout";
 import { StatusPill } from "@/ui/StatusPill";
-import { SidebarPortal } from "@/ui/SidebarSlot";
+import { useToast } from "@/ui/Toast";
 
-type ModelsRoute = Extract<RouteState, { kind: "models" }>;
+type ModelsRoute = Extract<SettingsRoute, { page: "model" }>;
+
+const MODEL: ModelsRoute = { kind: "settings", page: "model" };
 
 function appendUnique<T extends { id: string }>(current: T[], incoming: T[]) {
   const ids = new Set(current.map((item) => item.id));
@@ -35,6 +44,7 @@ export function ModelWorkbench({
   onRouteChange: (route: ModelsRoute) => void;
   onActiveModelChange?: () => Promise<unknown>;
 }) {
+  const toast = useToast();
   const [capabilities, setCapabilities] = useState<CapabilitiesResponse>();
   const [releases, setReleases] = useState<ModelReleaseSummary[]>([]);
   const [releaseCursor, setReleaseCursor] = useState<string | null>();
@@ -84,8 +94,6 @@ export function ModelWorkbench({
         setDrafts([]);
         setDraftCursor(null);
       }
-      if (!route.releaseId && !route.draftId && releasePage.items.length)
-        onRouteChange({ kind: "models", releaseId: state.activeReleaseId });
     } catch (cause) {
       setError(errorMessage(cause));
     }
@@ -131,19 +139,26 @@ export function ModelWorkbench({
   }
 
   function installed(releaseId: string) {
-    void load().then(() => onRouteChange({ kind: "models", releaseId }));
+    void load().then(() => {
+      toast("The draft was installed as a release. It is not active until you activate it.");
+      onRouteChange({ ...MODEL, releaseId });
+    });
   }
 
   function activated(state: ModelRuntimeState) {
     setRuntime(state);
-    void Promise.all([load(), onActiveModelChange?.()]).then(() =>
-      onRouteChange({ kind: "models", releaseId: state.activeReleaseId }),
-    );
+    void Promise.all([load(), onActiveModelChange?.()]).then(() => {
+      toast("The release is now the active model.");
+      onRouteChange({ ...MODEL, releaseId: state.activeReleaseId });
+    });
   }
 
   const selectedDraft = route.draftId ? drafts.find((item) => item.id === route.draftId) : undefined;
   const activeReleaseId = runtime?.activeReleaseId ?? releases.find((item) => item.active)?.id ?? "";
   const activeRelease = releases.find((item) => item.id === activeReleaseId);
+  // Without a selection in the address the active release is shown, as the workbench always did.
+  const shownReleaseId = route.draftId ? undefined : (route.releaseId ?? (activeReleaseId || undefined));
+  const selected = Boolean(route.releaseId || route.draftId);
   const catalogue = (
     <nav className="model-catalogue" aria-label="Model catalogue">
       <section>
@@ -153,9 +168,9 @@ export function ModelWorkbench({
         {releases.map((release) => (
           <button
             key={release.id}
-            className={route.releaseId === release.id ? "active" : ""}
-            aria-current={route.releaseId === release.id ? "page" : undefined}
-            onClick={() => onRouteChange({ kind: "models", releaseId: release.id })}
+            className={shownReleaseId === release.id ? "active" : ""}
+            aria-current={shownReleaseId === release.id ? "page" : undefined}
+            onClick={() => onRouteChange({ ...MODEL, releaseId: release.id })}
           >
             <Icon name="model" />
             <span className="catalogue-text">
@@ -184,7 +199,7 @@ export function ModelWorkbench({
                 key={draft.id}
                 className={route.draftId === draft.id ? "active" : ""}
                 aria-current={route.draftId === draft.id ? "page" : undefined}
-                onClick={() => onRouteChange({ kind: "models", draftId: draft.id })}
+                onClick={() => onRouteChange({ ...MODEL, draftId: draft.id })}
               >
                 <Icon name="list" />
                 <span className="catalogue-text">
@@ -196,7 +211,7 @@ export function ModelWorkbench({
               </button>
             ))
           ) : (
-            <p className="explorer-empty">No drafts yet.</p>
+            <EmptyState>No drafts yet.</EmptyState>
           )}
           {draftCursor && (
             <button className="load-more" onClick={moreDrafts}>
@@ -208,33 +223,35 @@ export function ModelWorkbench({
     </nav>
   );
   return (
-    <div className="model-workbench">
-      <div className="context-bar">
-        <div role="group" className="shell-context" aria-label="Current context">
-          <span>Model administration</span>
+    <SettingsLayout
+      eyebrow="Administration"
+      title="Model"
+      description={
+        <>
+          Review immutable releases and safely move JSON candidates through draft, validation, installation and
+          activation.
           {activeRelease && (
-            <StatusPill tone="success">
-              Active · {activeRelease.name} {activeRelease.version}
-            </StatusPill>
+            <>
+              {" "}
+              <StatusPill tone="success">
+                Active · {activeRelease.name} {activeRelease.version}
+              </StatusPill>
+            </>
           )}
-        </div>
-      </div>
-      <PageHeader
-        icon={<Icon name="model" size={20} />}
-        title="Models"
-        description="Review immutable releases and safely move JSON candidates through draft, validation, installation and activation."
-        actions={
-          capabilities?.modelAdmin.manageDrafts && (
-            <button
-              ref={newDraftButtonRef}
-              className="primary"
-              onClick={() => setCreating({ name: "", releaseId: createReleaseId })}
-            >
-              <Icon name="plus" /> New draft
-            </button>
-          )
-        }
-      />
+        </>
+      }
+      actions={
+        capabilities?.modelAdmin.manageDrafts && (
+          <button
+            ref={newDraftButtonRef}
+            className="primary"
+            onClick={() => setCreating({ name: "", releaseId: createReleaseId })}
+          >
+            <Icon name="plus" /> New draft
+          </button>
+        )
+      }
+    >
       {error && (
         <div className="inline-state error-notice" role="alert">
           <span>{error}</span>
@@ -250,34 +267,44 @@ export function ModelWorkbench({
           Model mutations are disabled. Installed releases remain available for read-only inspection and export.
         </p>
       )}
-      <SidebarPortal>{catalogue}</SidebarPortal>
-      <section className="surface model-detail">
-        {selectedDraft ? (
-          <ModelDraftEditor
-            draft={selectedDraft}
-            canInstall={!!capabilities?.modelAdmin.install}
-            onSaved={updateDraft}
-            onReload={() => reloadDraft(selectedDraft.id)}
-            onInstalled={installed}
-            onDeleted={() => {
-              setDrafts((items) => items.filter((item) => item.id !== selectedDraft.id));
-              onRouteChange({ kind: "models", releaseId: activeReleaseId });
-            }}
-          />
-        ) : route.releaseId && activeReleaseId ? (
-          <ModelReleaseDetail
-            key={route.releaseId}
-            releaseId={route.releaseId}
-            activeReleaseId={activeReleaseId}
-            canManageDrafts={!!capabilities?.modelAdmin.manageDrafts}
-            canActivate={!!capabilities?.modelAdmin.activate}
-            onCreateDraft={startFromRelease}
-            onActivated={activated}
-          />
-        ) : (
-          <div className="panel-state">Choose an installed release or draft.</div>
-        )}
-      </section>
+      <div className={`catalogue-layout${selected ? " has-selection" : ""}`}>
+        {catalogue}
+        <div className="catalogue-selection">
+          {selected && (
+            <button type="button" className="secondary catalogue-back" onClick={() => onRouteChange(MODEL)}>
+              <Icon name="arrow-left" /> All releases and drafts
+            </button>
+          )}
+          <section className="surface model-detail">
+            {selectedDraft ? (
+              <ModelDraftEditor
+                draft={selectedDraft}
+                canInstall={!!capabilities?.modelAdmin.install}
+                onSaved={updateDraft}
+                onReload={() => reloadDraft(selectedDraft.id)}
+                onInstalled={installed}
+                onDeleted={() => {
+                  setDrafts((items) => items.filter((item) => item.id !== selectedDraft.id));
+                  toast(`Draft ${selectedDraft.name} was deleted.`);
+                  onRouteChange(MODEL);
+                }}
+              />
+            ) : shownReleaseId && activeReleaseId ? (
+              <ModelReleaseDetail
+                key={shownReleaseId}
+                releaseId={shownReleaseId}
+                activeReleaseId={activeReleaseId}
+                canManageDrafts={!!capabilities?.modelAdmin.manageDrafts}
+                canActivate={!!capabilities?.modelAdmin.activate}
+                onCreateDraft={startFromRelease}
+                onActivated={activated}
+              />
+            ) : (
+              <div className="panel-state">Choose an installed release or draft.</div>
+            )}
+          </section>
+        </div>
+      </div>
       {creating && (
         <CreateDraftDialog
           releases={releases}
@@ -286,10 +313,10 @@ export function ModelWorkbench({
           onCreated={(draft) => {
             setDrafts((items) => [draft, ...items]);
             setCreating(undefined);
-            onRouteChange({ kind: "models", draftId: draft.id });
+            onRouteChange({ ...MODEL, draftId: draft.id });
           }}
         />
       )}
-    </div>
+    </SettingsLayout>
   );
 }

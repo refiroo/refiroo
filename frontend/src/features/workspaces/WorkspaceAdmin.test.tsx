@@ -1,8 +1,10 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, api } from "@/api/client";
-import type { CapabilitiesResponse, WorkspaceDetail } from "@/types";
+import type { WorkspaceDetail } from "@/types";
 import { WorkspaceAdmin } from "@/features/workspaces/WorkspaceAdmin";
+import { capabilitiesFixture } from "@/test/capabilities";
+import { ToastProvider } from "@/ui/Toast";
 
 vi.mock("@/api/client", async (load) => {
   const actual = await load<typeof import("@/api/client")>();
@@ -42,28 +44,26 @@ const archive: WorkspaceDetail = {
 };
 const runtime = { defaultWorkspaceKey: "default", version: 4, updatedAt: time };
 
-function capabilities(manageWorkspaces: boolean): CapabilitiesResponse {
-  return {
-    modelAdmin: {
-      readReleases: true,
-      manageDrafts: false,
-      install: false,
-      activate: false,
-      setting: "MODEL_ADMIN_MUTATIONS_ENABLED",
-    },
-    workspaceAdmin: { manageWorkspaces, setting: "WORKSPACE_ADMIN_MUTATIONS_ENABLED" },
-  };
-}
+const capabilities = (manageWorkspaces: boolean) => capabilitiesFixture({ manageWorkspaces });
 
-function renderAdmin(selectedWorkspaceKey?: string, overrides: Partial<Parameters<typeof WorkspaceAdmin>[0]> = {}) {
+const LIST = { kind: "settings", page: "workspaces" } as const;
+
+function renderAdmin(workspaceKey?: string, overrides: Partial<Parameters<typeof WorkspaceAdmin>[0]> = {}) {
   const props = {
-    route: { kind: "workspaces" as const, ...(selectedWorkspaceKey ? { selectedWorkspaceKey } : {}) },
+    route: { ...LIST, ...(workspaceKey ? { workspaceKey } : {}) },
     onRouteChange: vi.fn(),
     onDefaultChanged: vi.fn(),
     onOpenWorkspace: vi.fn(),
     ...overrides,
   };
-  return { ...render(<WorkspaceAdmin {...props} />), props };
+  return {
+    ...render(
+      <ToastProvider>
+        <WorkspaceAdmin {...props} />
+      </ToastProvider>,
+    ),
+    props,
+  };
 }
 
 const byKey = new Map<string, WorkspaceDetail>();
@@ -134,9 +134,7 @@ describe("WorkspaceAdmin", () => {
     expect(within(dialog).getByRole("textbox", { name: /^Key/ })).toHaveValue("central-europe");
     fireEvent.click(within(dialog).getByRole("button", { name: "Create workspace" }));
 
-    await waitFor(() =>
-      expect(props.onRouteChange).toHaveBeenCalledWith({ kind: "workspaces", selectedWorkspaceKey: "central-europe" }),
-    );
+    await waitFor(() => expect(props.onRouteChange).toHaveBeenCalledWith({ ...LIST, workspaceKey: "central-europe" }));
     expect(api.createWorkspace).toHaveBeenCalledWith({ key: "central-europe", label: "Central Europe" });
     expect(screen.queryByRole("dialog", { name: "New workspace" })).not.toBeInTheDocument();
     expect(api.workspaces).toHaveBeenCalledTimes(2);
@@ -273,25 +271,27 @@ describe("WorkspaceAdmin", () => {
 
     expect(await screen.findByText(/Workspace Retial \(retial\) was deleted/)).toBeInTheDocument();
     expect(api.deleteWorkspace).toHaveBeenCalledWith("retial", 1);
-    expect(props.onRouteChange).toHaveBeenCalledWith({ kind: "workspaces" });
+    expect(props.onRouteChange).toHaveBeenCalledWith(LIST);
     expect(props.onWorkspaceDeleted).toHaveBeenCalledWith("retial");
     expect(api.workspaces).toHaveBeenCalledTimes(2);
 
-    // Creating the corrected key replaces the deletion notice rather than showing it above the new workspace.
+    // Creating the corrected key is confirmed beside the deletion; both are toasts, not page notices.
     vi.mocked(api.createWorkspace).mockResolvedValue({ ...typo, key: "retail-eu", label: "Retail EU" });
     fireEvent.click(screen.getByRole("button", { name: /New workspace/ }));
     const dialog = await screen.findByRole("dialog", { name: "New workspace" });
     fireEvent.change(within(dialog).getByRole("textbox", { name: "Name" }), { target: { value: "Retail EU" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Create workspace" }));
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "New workspace" })).not.toBeInTheDocument());
-    expect(screen.queryByText(/was deleted/)).not.toBeInTheDocument();
+    expect(await screen.findByText("Workspace Retail EU was created.")).toBeInTheDocument();
   });
 
   it.each([
     ["default", undefined, /default workspace cannot be retired or deleted/],
     ["retail", "retail", /has been published, so it cannot be deleted.*Retire it instead/],
     ["archive", "archive", /Only an empty workspace can be deleted/],
+    ["subscribed", "subscribed", /Delete its webhook subscriptions first, or retire it/],
   ])("offers no deletion for the %s workspace and says why", async (_, key, reason) => {
+    byKey.set("subscribed", { ...retail, key: "subscribed", label: "Subscribed", deleteBlockedBy: "subscribed" });
     renderAdmin(key);
     expect(await screen.findByText(reason)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Delete…" })).not.toBeInTheDocument();

@@ -9,11 +9,18 @@ import base64
 import os
 import secrets
 from collections.abc import Mapping
+from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
-from typing import Literal, Self
+from typing import Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy.engine import URL, make_url
+from sqlalchemy.exc import ArgumentError
+
+# The product version: the management API document's ``info.version`` and ``GET /api/v1/system``.
+# ``pyproject.toml`` carries the same value, held equal by ``tests/unit/test_config.py``.
+ENGINE_VERSION = "0.9.0-alpha.1"
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MODEL_PATH = PROJECT_ROOT / "model" / "rdm-starter.json"
@@ -199,6 +206,205 @@ def _api_reference_script(raw: str) -> ApiReferenceScript:
     raise RuntimeError(
         f"RDM_API_REFERENCE_SCRIPT must be one of {', '.join(API_REFERENCE_SCRIPTS)}, not {raw!r}"
     )
+
+
+# The four groups of OPERATIONS § Settings, in its order.
+SettingGroup = Literal["runtime", "capabilities", "limits", "webhooks"]
+SettingSource = Literal["environment", "default"]
+
+
+@dataclass(frozen=True)
+class CatalogueEntry:
+    """One setting as the API and the Deployment page describe it. The runbook detail stays in
+    OPERATIONS; ``description`` is the one line the API returns."""
+
+    name: str
+    field: str
+    group: SettingGroup
+    description: str
+    secret: bool = False
+
+
+# Every ``Settings`` field once, in OPERATIONS' order. A new setting is added here and to OPERATIONS
+# (``tests/unit/test_config.py`` holds both).
+SETTINGS_CATALOGUE: tuple[CatalogueEntry, ...] = (
+    CatalogueEntry(
+        "DATABASE_URL", "database_url", "runtime", "The PostgreSQL database the engine runs on"
+    ),
+    CatalogueEntry(
+        "RDM_MODEL_PATH",
+        "model_path",
+        "runtime",
+        "The model file installed on a database's first start; not the active model",
+    ),
+    CatalogueEntry(
+        "RDM_CURSOR_SIGNING_KEY",
+        "cursor_signing_key",
+        "runtime",
+        "Signs pagination cursors; unset, each process makes its own, so cursors stop working "
+        "after a restart and differ between instances",
+        secret=True,
+    ),
+    CatalogueEntry(
+        "CORS_ORIGINS", "cors_origins", "runtime", "Browser origins allowed to call the API"
+    ),
+    CatalogueEntry(
+        "RDM_API_REFERENCE_SCRIPT",
+        "api_reference_script",
+        "runtime",
+        "Where the API reference page at /docs loads its script from: bundled or cdn",
+    ),
+    CatalogueEntry(
+        "WEB_CONCURRENCY",
+        "web_concurrency",
+        "runtime",
+        "Server worker processes; must be 1 while model administration is on",
+    ),
+    CatalogueEntry(
+        "MODEL_ADMIN_MUTATIONS_ENABLED",
+        "model_admin_mutations_enabled",
+        "capabilities",
+        "Model drafts, compiling, installing and activating releases",
+    ),
+    CatalogueEntry(
+        "WORKSPACE_ADMIN_MUTATIONS_ENABLED",
+        "workspace_admin_mutations_enabled",
+        "capabilities",
+        "Creating, renaming, retiring, deleting workspaces and choosing the default",
+    ),
+    CatalogueEntry(
+        "INTEGRATION_JOBS_ENABLED",
+        "integration_jobs_enabled",
+        "capabilities",
+        "Creating and cancelling jobs (POST /batches); job reads stay available",
+    ),
+    CatalogueEntry(
+        "CONSUMER_SUBSCRIPTIONS_ENABLED",
+        "consumer_subscriptions_enabled",
+        "capabilities",
+        "Webhook subscriptions and their delivery",
+    ),
+    CatalogueEntry("BATCH_MAX_ITEMS", "batch_max_items", "limits", "Items in an inline batch"),
+    CatalogueEntry(
+        "BATCH_MAX_BYTES", "batch_max_bytes", "limits", "Bytes in an inline batch's body"
+    ),
+    CatalogueEntry(
+        "ATOMIC_JOB_MAX_ITEMS",
+        "atomic_job_max_items",
+        "limits",
+        "Items in an atomic batch, inline or background",
+    ),
+    CatalogueEntry(
+        "BACKGROUND_JOB_MAX_ITEMS",
+        "background_job_max_items",
+        "limits",
+        "Items in a background batch",
+    ),
+    CatalogueEntry(
+        "BATCH_BACKGROUND_MAX_BYTES",
+        "batch_background_max_bytes",
+        "limits",
+        "Bytes in a background batch's body",
+    ),
+    CatalogueEntry(
+        "JOB_CHUNK_ITEMS", "job_chunk_items", "limits", "Items one background chunk commits"
+    ),
+    CatalogueEntry(
+        "JOB_LEASE_SECONDS",
+        "job_lease_seconds",
+        "limits",
+        "Seconds a worker holds a job, renewed with each chunk",
+    ),
+    CatalogueEntry(
+        "JOB_RETENTION_DAYS",
+        "job_retention_days",
+        "limits",
+        "Days a finished job keeps its outcomes and idempotency key",
+    ),
+    CatalogueEntry(
+        "FEED_RETENTION_DAYS",
+        "feed_retention_days",
+        "limits",
+        "Days the change feed and consumer events answer a position",
+    ),
+    CatalogueEntry(
+        "CONSUMER_RESOLVE_MAX_ITEMS",
+        "consumer_resolve_max_items",
+        "limits",
+        "Items in one consumer batch resolve",
+    ),
+    CatalogueEntry(
+        "CONSUMER_WEBHOOK_ALLOWED_HOSTS",
+        "consumer_webhook_allowed_hosts",
+        "webhooks",
+        "Hosts a webhook URL may name; empty allows none",
+    ),
+    CatalogueEntry(
+        "CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY",
+        "consumer_webhook_key_encryption_key",
+        "webhooks",
+        "Encrypts the stored webhook signing keys; required with subscriptions on",
+        secret=True,
+    ),
+)
+
+
+@dataclass(frozen=True)
+class ReportedSetting:
+    """A setting as ``GET /system`` reports it: typed value and default, never a secret."""
+
+    name: str
+    group: SettingGroup
+    description: str
+    value: Any
+    default: Any
+    source: SettingSource
+
+
+def describe_settings(settings: Settings, environ: Mapping[str, str]) -> list[ReportedSetting]:
+    """Every catalogued setting with its value, its default and where the value came from. A secret
+    reports neither value nor default; the database URL loses its password."""
+    defaults = Settings.from_env({})
+    reported = []
+    for entry in SETTINGS_CATALOGUE:
+        hidden = entry.secret
+        value = None if hidden else _shown(getattr(settings, entry.field))
+        default = None if hidden else _shown(getattr(defaults, entry.field))
+        if entry.field == "database_url" and value is not None:
+            value = without_password(value)
+        source: SettingSource = "environment" if environ.get(entry.name) else "default"
+        reported.append(
+            ReportedSetting(entry.name, entry.group, entry.description, value, default, source)
+        )
+    return reported
+
+
+def _shown(value: Any) -> Any:
+    """A setting's value as JSON writes it: paths as text, tuples as lists."""
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, tuple):
+        return list(value)
+    return value
+
+
+def without_password(url: str) -> str | None:
+    """The URL with its user, host, port and database, and no password; none when it cannot be read
+    as a URL, since it might then hold the password anywhere."""
+    try:
+        parsed = make_url(url)
+    except ArgumentError:
+        return None
+    query = {key: value for key, value in parsed.query.items() if key.lower() != "password"}
+    shown = URL.create(
+        parsed.drivername,
+        username=parsed.username,
+        host=parsed.host,
+        port=parsed.port,
+        database=parsed.database,
+        query=query,
+    )
+    return shown.render_as_string(hide_password=False)
 
 
 @cache

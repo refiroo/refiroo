@@ -136,9 +136,10 @@ try {
   checks.push(`publications: ${result.violations.length} violations, ${result.allowed.length} allowed`);
   await page.screenshot({ path: resolve(output, "a11y-publications.png"), fullPage: true });
 
-  // --- 7. Model workbench ---
-  await page.goto(`${uiUrl}/models`);
-  await shown(page.getByRole("heading", { name: "Models" }));
+  // --- 7. Settings › Model (the model workbench's list page since U3) ---
+  await page.goto(`${uiUrl}/settings/model`);
+  await shown(page.getByRole("heading", { name: "Model", exact: true, level: 1 }));
+  await shown(page.getByRole("navigation", { name: "Model catalogue" }));
   result = await runAxe(page, ALLOWLIST, "model-workbench");
   if (result.violations.length > 0) failures.push(`model-workbench:\n${formatViolations(result.violations)}`);
   checks.push(`model-workbench: ${result.violations.length} violations, ${result.allowed.length} allowed`);
@@ -153,9 +154,9 @@ try {
   checks.push(`change sets-list: ${result.violations.length} violations, ${result.allowed.length} allowed`);
   await page.screenshot({ path: resolve(output, "a11y-change-sets-list.png"), fullPage: true });
 
-  // --- 9. Settings menu (account placeholder and appearance) ---
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await shown(page.getByRole("dialog", { name: "Settings" }));
+  // --- 9. Account menu (account placeholder, theme and the link to all settings) ---
+  await page.getByRole("button", { name: "Account", exact: true }).click();
+  await shown(page.getByRole("dialog", { name: "Account" }));
   result = await runAxe(page, ALLOWLIST, "settings-menu");
   if (result.violations.length > 0) failures.push(`settings-menu:\n${formatViolations(result.violations)}`);
   checks.push(`settings-menu: ${result.violations.length} violations, ${result.allowed.length} allowed`);
@@ -190,7 +191,7 @@ try {
     ["dark-detail-domain", `/apps/rdm-master/objects/domain/${records.domain[0].id}?workspaceKey=default`, () => page.getByRole("heading", { name: "Domain 00" })],
     ["dark-detail-system", `/apps/rdm-systems/objects/system/${records.system[0].id}?workspaceKey=default`, () => page.getByRole("heading", { name: "System 00" })],
     ["dark-change-sets-list", "/apps/rdm-master/change-sets?workspaceKey=default", () => page.getByText("Second change set")],
-    ["dark-model-workbench", "/models", () => page.getByRole("heading", { name: "Models" })],
+    ["dark-model-workbench", "/settings/model", () => page.getByRole("navigation", { name: "Model catalogue" })],
   ]) {
     await page.goto(`${uiUrl}${path}`);
     await shown(ready());
@@ -205,8 +206,8 @@ try {
   if (result.violations.length > 0) failures.push(`dark-scrolling-list-tree:\n${formatViolations(result.violations)}`);
   checks.push(`dark-scrolling-list-tree: ${result.violations.length} violations, ${result.allowed.length} allowed`);
   await page.screenshot({ path: resolve(output, "a11y-dark-scrolling-list-tree.png"), fullPage: true });
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await shown(page.getByRole("dialog", { name: "Settings" }));
+  await page.getByRole("button", { name: "Account", exact: true }).click();
+  await shown(page.getByRole("dialog", { name: "Account" }));
   result = await runAxe(page, ALLOWLIST, "dark-settings-menu");
   if (result.violations.length > 0) failures.push(`dark-settings-menu:\n${formatViolations(result.violations)}`);
   checks.push(`dark-settings-menu: ${result.violations.length} violations, ${result.allowed.length} allowed`);
@@ -347,23 +348,47 @@ try {
   const restructuringDetail = await api(`/change-sets/${restructuring.id}`);
   await api(`/change-sets/${restructuring.id}?expectedVersion=${restructuringDetail.version}`, undefined, "DELETE");
 
-  // --- 14. Workspaces administration (Base 0.8 W4), light and dark, with a retired workspace ---
+  // --- 14. Settings (U3), light and dark: Workspaces with a retired workspace, a workspace's
+  // page, About, Appearance, Deployment and a release's page; then the phone's navigation drawer ---
   const retired = await api("/workspaces", { key: "archive", label: "Archive" });
   await api("/workspaces/archive", { expectedVersion: retired.version, status: "retired" }, "PATCH");
-  for (const [name, scheme] of [
-    ["workspaces-admin", "light"],
-    ["dark-workspaces-admin", "dark"],
-  ]) {
+  const activeRelease = (await api("/model-runtime-state")).activeReleaseId;
+  const settingsPages = [
+    ["workspaces-admin", "/settings/workspaces", () => page.getByRole("button", { name: /Archive.*Retired/s })],
+    [
+      "settings-workspace-detail",
+      "/settings/workspaces/default",
+      () => page.getByRole("button", { name: "Open workspace" }),
+    ],
+    ["settings-about", "/settings/about", () => page.getByRole("region", { name: "Database" })],
+    ["settings-appearance", "/settings/appearance", () => page.getByRole("group", { name: "Table density" })],
+    ["settings-deployment", "/settings/deployment", () => page.getByRole("region", { name: "Webhook subscriptions" })],
+    ["settings-release-detail", `/settings/model/releases/${activeRelease}`, () => page.getByRole("button", { name: "Export JSON" })],
+  ];
+  for (const scheme of ["light", "dark"]) {
     await page.emulateMedia({ colorScheme: scheme });
-    await page.goto(`${uiUrl}/workspaces`);
-    await shown(page.getByRole("heading", { level: 2, name: "Default" }));
-    await shown(page.getByRole("button", { name: /Archive.*Retired/s }));
-    await page.waitForLoadState("networkidle");
-    result = await runAxe(page, ALLOWLIST, name);
-    if (result.violations.length > 0) failures.push(`${name}:\n${formatViolations(result.violations)}`);
-    checks.push(`${name}: ${result.violations.length} violations, ${result.allowed.length} allowed`);
-    await page.screenshot({ path: resolve(output, `a11y-${name}.png`), fullPage: true });
+    for (const [base, path, ready] of settingsPages) {
+      const name = scheme === "dark" ? `dark-${base}` : base;
+      await page.goto(`${uiUrl}${path}`);
+      await shown(ready());
+      await page.waitForLoadState("networkidle");
+      result = await runAxe(page, ALLOWLIST, name);
+      if (result.violations.length > 0) failures.push(`${name}:\n${formatViolations(result.violations)}`);
+      checks.push(`${name}: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+      await page.screenshot({ path: resolve(output, `a11y-${name}.png`), fullPage: true });
+    }
   }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${uiUrl}/settings/deployment`);
+  await page.getByRole("button", { name: "Settings: Deployment" }).click();
+  await shown(page.getByRole("dialog", { name: "Settings navigation" }));
+  await page.waitForLoadState("networkidle");
+  result = await runAxe(page, ALLOWLIST, "dark-settings-narrow");
+  if (result.violations.length > 0) failures.push(`dark-settings-narrow:\n${formatViolations(result.violations)}`);
+  checks.push(`dark-settings-narrow: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+  await page.screenshot({ path: resolve(output, "a11y-dark-settings-narrow.png"), fullPage: true });
+  await page.keyboard.press("Escape");
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.emulateMedia({ colorScheme: "light" });
 
   // Discard the leftover change set.

@@ -1502,3 +1502,51 @@ screens. The user chose B, "Open", over A, "Framed" (a dark frame with raised pa
 - _Note 2026-10-06 (U-D8):_ the user kept a `Card` component in U2, since the UI is not final.
   Whether content sits on the page or in cards is judged in the product after U2 and U6, not ruled
   out in advance.
+
+## ADR-040 — The "Atlas" visual direction: today's calm shell, a colour for every kind of record
+
+**Status:** Accepted, 2026-10-06, by the user ("looks good, let's see it implemented"), after
+comparing five looks on the same screen with real data on the
+[look canvas](https://claude.ai/artifact/P4BpxdQdyVYTAaQMRGnRFB) (look E, "the mixture").
+Supersedes [ADR-039](#adr-039--the-open-visual-direction-light-ruled-surfaces-with-colour-kept-for-context-and-state)
+where they differ; ADR-039's shell, type and shapes stay. Works within
+[ADR-023](#adr-023--build-rdm-ui-components-on-react-aria-behavior). The design rules are in
+[SETTINGS_AND_UI_PLAN § Atlas](SETTINGS_AND_UI_PLAN.md#atlas-adr-040); the package is
+[UA](SETTINGS_AND_UI_PLAN.md#ua-the-atlas-redesign).
+
+### Motivation
+
+After U2 and U3 the user found the UI incoherent and not good to look at: parts of the product
+were in different generations of style, the record browser did not show what contains what (type
+groups, folders and records looked alike), and colour carried almost no meaning. Building the
+direction slice by slice from written rules, judged by tests, had drifted from the mockups. The
+user asked for a design that is clean and professional but also colourful and playful, and chose
+look E: the current app's structure with the "Atlas" colour system.
+
+### Decision
+
+- **Kept from the current app:** the top bar (mark, product name, the applications as plain tabs
+  with an ink underline, Settings and the account at the right), the warm light-grey rail with the
+  workspace switcher at its top (as before U2), Collections and Browse records, Instrument Sans and
+  JetBrains Mono, and the moderate shapes: 6px on controls and chips, 8px on cards.
+- **Colour means a kind of record.** Every object type has one hue from a fixed palette, used the
+  same way everywhere it appears: its tile in the collections, its icon in the tree, its chip in a
+  table column and in breadcrumbs, the record header and the related records in the inspector. A
+  soft fill with a dark ink of the same hue, at 4.5:1. The engine stays unaware of type keys: the
+  hue comes from the model (U-D13).
+- **Colour means where you are.** Green for live data, amber for a change set, violet for a
+  publication: the context strip, its dots and the change markers.
+- **The record browser shows structure:** the type icon on every record, indent guides for
+  containment, counts at the right, and the selected record highlighted in its type's colour.
+- **Applications** each carry a small coloured tile in the top bar, with more space between the
+  product name and the tabs.
+- **One accent for actions:** indigo for the primary action and links, as before.
+
+### Consequences
+
+- UA restyles every surface in one pass, starting from the record browser, and replaces the older
+  styles instead of layering on them. The user judges each surface by screenshots before the next.
+- Tests guard behaviour, accessibility and contrast; they are not evidence that a screen looks
+  right.
+- The design before UA is kept at the git tag `ui-before-atlas`, so it can be compared or restored;
+  how is in [UA's revert point](SETTINGS_AND_UI_PLAN.md#ua-the-atlas-redesign).

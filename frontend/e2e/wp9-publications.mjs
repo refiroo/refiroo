@@ -181,7 +181,8 @@ try {
   await page.locator("main table").getByRole("button", { name: "Published old domain", exact: true }).click();
   await page.getByRole("heading", { name: "Published old domain", exact: true }).waitFor();
   assert.match(await page.locator("main").innerText(), /History count\s*7/i);
-  await page.locator(".model-version").getByText(new RegExp(`^Model ${oldModelVersion.replaceAll(".", "\\.")} ·`)).waitFor();
+  // The publication bar names the pinned model (the top bar's model version left with U3).
+  await page.getByText(new RegExp(`pinned model release \\S+ ${oldModelVersion.replaceAll(".", "\\.")}\\b`)).waitFor();
   await page.getByRole("button", { name: "Record actions", exact: true }).click();
   assert.equal(await page.getByRole("menuitem", { name: "Edit all fields", exact: true }).count(), 0);
   await page.keyboard.press("Escape");

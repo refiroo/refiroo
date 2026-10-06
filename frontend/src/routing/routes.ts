@@ -4,7 +4,14 @@
  * hand-edited or stale URL falls back to a valid route rather than rendering an empty screen.
  */
 
-import type { AdminRoute, ApplicationDefinition, ChangeKind, EngineModel, RouteState, ViewDefinition } from "@/types";
+import type {
+  ApplicationDefinition,
+  ChangeKind,
+  EngineModel,
+  RouteState,
+  SettingsRoute,
+  ViewDefinition,
+} from "@/types";
 import { DEFAULT_COLLECTION_QUERY, DEFAULT_WORKSPACE } from "@/model/defaults";
 import { applicationFor, objectTypeFor } from "@/model/lookup";
 import { listSortFields } from "@/model/fields";
@@ -77,8 +84,45 @@ export function routeChangeSetId(route: RouteState) {
     : undefined;
 }
 
-export function isAdminRoute(route: RouteState): route is AdminRoute {
-  return route.kind === "models" || route.kind === "workspaces";
+export function isSettingsRoute(route: RouteState): route is SettingsRoute {
+  return route.kind === "settings";
+}
+
+/**
+ * A settings page from its path below `/settings`, or from an address the settings area replaced:
+ * `/models` (with `releaseId` or `draftId`) and `/workspaces[/{key}]`. The router writes the
+ * canonical URL back on first load, so an old link lands on its page without a second entry.
+ */
+function settingsRoute(parts: string[], query: URLSearchParams): SettingsRoute | undefined {
+  if (parts[0] === "models") {
+    const draftId = query.get("draftId")?.trim();
+    const releaseId = query.get("releaseId")?.trim();
+    if (draftId) return { kind: "settings", page: "model", draftId };
+    return releaseId ? { kind: "settings", page: "model", releaseId } : { kind: "settings", page: "model" };
+  }
+  if (parts[0] === "workspaces")
+    return parts[1]
+      ? { kind: "settings", page: "workspaces", workspaceKey: parts[1] }
+      : { kind: "settings", page: "workspaces" };
+  if (parts[0] !== "settings") return undefined;
+  const [, page, kind, id] = parts;
+  if (page === "appearance" || page === "deployment") return { kind: "settings", page };
+  if (page === "workspaces") return kind ? { kind: "settings", page, workspaceKey: kind } : { kind: "settings", page };
+  if (page === "model") {
+    if (kind === "releases" && id) return { kind: "settings", page, releaseId: id };
+    if (kind === "drafts" && id) return { kind: "settings", page, draftId: id };
+    return { kind: "settings", page };
+  }
+  return { kind: "settings", page: "about" };
+}
+
+function settingsPath(route: SettingsRoute) {
+  if (route.page === "workspaces" && route.workspaceKey)
+    return `/settings/workspaces/${encodeURIComponent(route.workspaceKey)}`;
+  if (route.page === "model" && route.draftId) return `/settings/model/drafts/${encodeURIComponent(route.draftId)}`;
+  if (route.page === "model" && route.releaseId)
+    return `/settings/model/releases/${encodeURIComponent(route.releaseId)}`;
+  return `/settings/${route.page}`;
 }
 
 export function defaultRoute(
@@ -117,13 +161,8 @@ export function parseRoute(
     return { kind: "changeSets", applicationKey: parts[1], workspaceKey };
   if (parts[0] === "apps" && parts[2] === "publications" && applicationFor(model, parts[1]))
     return { kind: "publications", applicationKey: parts[1], workspaceKey };
-  if (parts[0] === "models") {
-    const releaseId = query.get("releaseId")?.trim() || undefined;
-    const draftId = query.get("draftId")?.trim() || undefined;
-    return draftId ? { kind: "models", draftId } : { kind: "models", ...(releaseId ? { releaseId } : {}) };
-  }
-  if (parts[0] === "workspaces")
-    return parts[1] ? { kind: "workspaces", selectedWorkspaceKey: parts[1] } : { kind: "workspaces" };
+  const settings = settingsRoute(parts, query);
+  if (settings) return settings;
   if (parts[0] === "apps" && parts[2] === "views" && parts[3]) {
     const application = applicationFor(model, parts[1]);
     const view = application?.views.find((view) => view.key === parts[3]);
@@ -199,14 +238,7 @@ export function parseRoute(
 }
 
 export function routePath(route: RouteState) {
-  if (route.kind === "models") {
-    const query = new URLSearchParams();
-    if (route.releaseId) query.set("releaseId", route.releaseId);
-    if (route.draftId) query.set("draftId", route.draftId);
-    return `/models${query.size ? `?${query}` : ""}`;
-  }
-  if (route.kind === "workspaces")
-    return `/workspaces${route.selectedWorkspaceKey ? `/${encodeURIComponent(route.selectedWorkspaceKey)}` : ""}`;
+  if (route.kind === "settings") return settingsPath(route);
   const app = encodeURIComponent(route.applicationKey);
   const query = new URLSearchParams({ workspaceKey: route.workspaceKey });
   if (route.kind === "changeSets") return `/apps/${app}/change-sets?${query}`;

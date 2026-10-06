@@ -244,8 +244,17 @@ of 100 costs 61 ms and the dispatcher's idle claim 5 ms. A filtered subscription
 record leaves its filter's scope; this is now documented with the workarounds, and a fix is in TODO
 for the user to place (C-D112–C-D114,
 [record](BASE_0_9_IMPLEMENTATION_PLAN.md#c13-delivery-record)). The events line (C9–C13) is complete.
-Next: U3, in the order of the
-[delivery queue](BASE_0_9_IMPLEMENTATION_PLAN.md#delivery-queue) (U4 waits for U3).
+**U3 is delivered (2026-10-06):** the Settings area at `/settings` with its own shell (About,
+Appearance, Workspaces, Model, Deployment; old `/models` and `/workspaces` addresses redirect), the
+account popover beside a Settings link in the top bar, a default table density, and
+`GET /api/v1/system` with a settings catalogue in `config.py` (U-D10, U-D11,
+[record](SETTINGS_AND_UI_PLAN.md#u3-delivery-record)). The same day, after using it, the user had
+Workspaces and Model restored to their earlier screens beside the settings navigation, the pages
+widened, a drawer for phones and the workspace switcher returned to the rail
+([revisions](SETTINGS_AND_UI_PLAN.md#u3-revisions-after-delivery-2026-10-06)). Finding the UI
+incoherent, the user then chose a new visual direction, **Atlas** (ADR-040): today's shell with a
+colour for every kind of record. Next: **UA**, the Atlas redesign of every surface
+([plan](SETTINGS_AND_UI_PLAN.md#ua-the-atlas-redesign)), before U4 and U5.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

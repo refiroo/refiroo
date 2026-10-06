@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ActionMenu } from "@/ui/ActionMenu";
 import { Icon } from "@/ui/Icon";
@@ -8,6 +8,13 @@ import { Notice } from "@/ui/Notice";
 import { Card } from "@/ui/Card";
 import { PageHeader } from "@/ui/PageHeader";
 import { StatusPill } from "@/ui/StatusPill";
+import { DescriptionList } from "@/ui/DescriptionList";
+import { EmptyState } from "@/ui/EmptyState";
+import { FormField } from "@/ui/FormField";
+import { Section } from "@/ui/Section";
+import { SettingsLayout } from "@/ui/SettingsLayout";
+import { Skeleton } from "@/ui/Skeleton";
+import { TOAST_TIMEOUT_MS, ToastProvider, useToast } from "@/ui/Toast";
 
 describe("RDM UI foundation", () => {
   it("keeps decorative icons hidden and gives meaningful icons an accessible name", () => {
@@ -136,5 +143,108 @@ describe("RDM UI foundation", () => {
     const { container } = render(<Card>Plain</Card>);
     expect(container.querySelector("section")).toBeNull();
     expect(container.querySelector(".card")).toHaveTextContent("Plain");
+  });
+
+  it("lays out a settings page with its eyebrow, title and ruled sections (U3)", () => {
+    render(
+      <SettingsLayout eyebrow="General" title="About" description="What this deployment runs.">
+        <Section title="Engine" description="The running engine." actions={<a href="#x">Open</a>}>
+          <DescriptionList
+            items={[
+              { term: "Version", value: "0.9.0" },
+              { term: <abbr title="Application programming interface">API</abbr>, value: "v1", key: "api" },
+            ]}
+          />
+        </Section>
+      </SettingsLayout>,
+    );
+    expect(screen.getByRole("heading", { level: 1, name: "About" })).toBeInTheDocument();
+    expect(screen.getByText("General")).toHaveClass("eyebrow");
+    const section = screen.getByRole("region", { name: "Engine" });
+    expect(within(section).getByRole("heading", { level: 2, name: "Engine" })).toBeInTheDocument();
+    expect(within(section).getByRole("link", { name: "Open" })).toBeInTheDocument();
+    expect(
+      within(section)
+        .getAllByRole("term")
+        .map((item) => item.textContent),
+    ).toEqual(["Version", "API"]);
+    expect(
+      within(section)
+        .getAllByRole("definition")
+        .map((item) => item.textContent),
+    ).toEqual(["0.9.0", "v1"]);
+  });
+
+  it("ties a field's label, help and error to its control, or to a group's legend", () => {
+    render(
+      <>
+        <FormField label="Name" help="Shown in lists." error="A name is required.">
+          {(control) => <input {...control} />}
+        </FormField>
+        <FormField group label="Theme" help="Saved in this browser.">
+          {() => (
+            <label>
+              <input type="radio" name="t" /> Dark
+            </label>
+          )}
+        </FormField>
+      </>,
+    );
+    const input = screen.getByRole("textbox", { name: "Name" });
+    expect(input).toHaveAccessibleDescription("Shown in lists. A name is required.");
+    expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("group", { name: "Theme" })).toHaveAccessibleDescription("Saved in this browser.");
+  });
+
+  it("shows an empty state with its action, and a skeleton announced by its label", () => {
+    const create = vi.fn();
+    render(
+      <>
+        <EmptyState action={<button onClick={create}>New draft</button>}>No drafts yet.</EmptyState>
+        <Skeleton label="Loading releases" lines={2} />
+      </>,
+    );
+    expect(screen.getByText("No drafts yet.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "New draft" }));
+    expect(create).toHaveBeenCalledTimes(1);
+    const skeleton = screen.getByRole("status", { name: "Loading releases" });
+    expect(skeleton).toHaveAttribute("aria-busy", "true");
+    expect(skeleton.querySelectorAll(".skeleton-line")).toHaveLength(2);
+  });
+
+  it("keeps a toast until dismissed or eight seconds pass without hover or focus", () => {
+    vi.useFakeTimers();
+    function Confirm() {
+      const toast = useToast();
+      return <button onClick={() => toast("Workspace renamed.")}>Rename</button>;
+    }
+    try {
+      render(
+        <ToastProvider>
+          <Confirm />
+        </ToastProvider>,
+      );
+      const region = screen.getByRole("status");
+      fireEvent.click(screen.getByRole("button", { name: "Rename" }));
+      expect(region).toHaveTextContent("Workspace renamed.");
+      act(() => vi.advanceTimersByTime(TOAST_TIMEOUT_MS - 1));
+      expect(region).toHaveTextContent("Workspace renamed.");
+      act(() => vi.advanceTimersByTime(1));
+      expect(region).not.toHaveTextContent("Workspace renamed.");
+
+      fireEvent.click(screen.getByRole("button", { name: "Rename" }));
+      const toast = within(region).getByText("Workspace renamed.").parentElement!;
+      fireEvent.mouseEnter(toast);
+      act(() => vi.advanceTimersByTime(TOAST_TIMEOUT_MS * 2));
+      expect(region).toHaveTextContent("Workspace renamed.");
+      fireEvent.mouseLeave(toast);
+      fireEvent.focus(within(toast).getByRole("button", { name: "Dismiss" }));
+      act(() => vi.advanceTimersByTime(TOAST_TIMEOUT_MS * 2));
+      expect(region).toHaveTextContent("Workspace renamed.");
+      fireEvent.click(within(toast).getByRole("button", { name: "Dismiss" }));
+      expect(region).not.toHaveTextContent("Workspace renamed.");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -75,8 +75,18 @@ export type RouteState =
       anchor?: string;
     }
   | { kind: "publications"; applicationKey: string; workspaceKey: string }
-  | { kind: "models"; releaseId?: string; draftId?: string }
-  | { kind: "workspaces"; selectedWorkspaceKey?: string };
+  | SettingsRoute;
 
-/** Global administration screens, which sit outside any workspace and application. */
-export type AdminRoute = Extract<RouteState, { kind: "models" | "workspaces" }>;
+/**
+ * The Settings area (Track U U3): pages outside any workspace and application, each with its own
+ * URL under `/settings`. Workspaces and Model are a list page with a detail page per entry (U-D10).
+ */
+export type SettingsRoute =
+  | { kind: "settings"; page: "about" | "appearance" | "deployment" }
+  | { kind: "settings"; page: "workspaces"; workspaceKey?: string }
+  | { kind: "settings"; page: "model"; releaseId?: string; draftId?: string };
+
+export type SettingsPage = SettingsRoute["page"];
+
+/** Every route that is not a settings page: an application's data, in a workspace. */
+export type ApplicationRoute = Exclude<RouteState, SettingsRoute>;

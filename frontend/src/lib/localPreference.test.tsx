@@ -1,6 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readLocalPreference, useLocalNumberPreference, writeLocalPreference } from "@/lib/localPreference";
+import { TABLE_DENSITY_STORAGE_KEY } from "@/lib/tableDensity";
 import { useTableDisplay } from "@/ui/TableDisplay";
 
 describe("local display preferences", () => {
@@ -42,7 +43,7 @@ describe("local display preferences", () => {
       first.result.current.toggle("active");
     });
     act(() => {
-      first.result.current.setCompact(true);
+      first.result.current.setDensity("compact");
     });
     act(() => {
       first.result.current.setWidth("code", 260);
@@ -55,5 +56,27 @@ describe("local display preferences", () => {
     expect(restored.result.current.widths).toEqual({ code: 260 });
     act(() => restored.result.current.toggle("name"));
     expect(restored.result.current.columns).toContain("name");
+  });
+
+  it("starts every table at the default density and lets a view's own choice win (U3)", () => {
+    window.localStorage.setItem(TABLE_DENSITY_STORAGE_KEY, '"compact"');
+    const view = renderHook(() => useTableDisplay(["name"], "products"));
+    expect(view.result.current.density).toBe("default");
+    expect(view.result.current.defaultDensity).toBe("compact");
+    expect(view.result.current.compact).toBe(true);
+    act(() => view.result.current.setDensity("comfortable"));
+    expect(view.result.current.compact).toBe(false);
+    act(() => view.result.current.setDensity("default"));
+    expect(view.result.current.compact).toBe(true);
+    expect(JSON.parse(window.localStorage.getItem("rdm:table-display:v1:products")!)).not.toHaveProperty("density");
+  });
+
+  it("reads a view stored before U3 as Compact for true and as the default for false", () => {
+    window.localStorage.setItem(TABLE_DENSITY_STORAGE_KEY, '"compact"');
+    window.localStorage.setItem("rdm:table-display:v1:a", JSON.stringify({ hidden: [], compact: true, widths: {} }));
+    window.localStorage.setItem("rdm:table-display:v1:b", JSON.stringify({ hidden: [], compact: false, widths: {} }));
+    expect(renderHook(() => useTableDisplay(["name"], "a")).result.current.density).toBe("compact");
+    const stale = renderHook(() => useTableDisplay(["name"], "b")).result.current;
+    expect([stale.density, stale.compact]).toEqual(["default", true]);
   });
 });

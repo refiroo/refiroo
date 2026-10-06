@@ -5,9 +5,6 @@
     --main-pad-x: 20px;
     padding-bottom: 40px;
   }
-  .model-version {
-    display: none;
-  }
   .model-summary {
     grid-template-columns: repeat(3, 1fr);
   }
@@ -54,15 +51,14 @@
   .column-resizer {
     display: none;
   }
-  /* Two rows: the mark, the workspace and Settings; then the applications (scrolling) beside
-     the administration links. */
+  /* Two rows: the mark, then Settings with the account; then the applications, scrolling. */
   .global-header {
     position: static;
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     grid-template-areas:
-      "mark workspace settings"
-      "apps apps admin";
+      "mark . actions"
+      "apps apps apps";
     align-items: center;
     gap: 0 var(--space-3);
     height: auto;
@@ -76,27 +72,14 @@
   .topbar-spacer {
     display: none;
   }
-  .topbar-workspace {
-    grid-area: workspace;
-  }
-  .workspace-selector,
-  .workspace-selector .selection-field,
-  .workspace-selector .combo-control {
-    width: 100%;
-  }
-  .global-header > .topbar-icon-button {
-    grid-area: settings;
+  .global-header > .topbar-actions {
+    grid-area: actions;
     justify-self: end;
   }
   .application-nav {
     grid-area: apps;
     align-self: stretch;
     gap: var(--space-4);
-    border-top: 1px solid var(--border-faint);
-  }
-  .secondary-navigation {
-    grid-area: admin;
-    align-self: stretch;
     border-top: 1px solid var(--border-faint);
   }
   .application-tab {
@@ -127,11 +110,6 @@
   }
   .data-context-switch {
     margin-left: 0;
-  }
-  .context-bar {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 10px;
   }
   .page-header,
   .collection-header {

@@ -32,7 +32,7 @@ try {
   console.log("WP-12 browser: fixtures ready");
 
   // Active release: Before is the release it replaced on activation; no activation check.
-  await page.goto(`${uiUrl}/models?releaseId=${introduced.id}`);
+  await page.goto(`${uiUrl}/settings/model/releases/${introduced.id}`);
   const direction = page.locator(".release-comparison-direction");
   await direction.waitFor();
   const activeText = await direction.innerText();
@@ -59,7 +59,7 @@ try {
   checks.push(`keyboard expands Technical details and copy reports: ${feedback}`);
 
   // Inactive release without activation history: installation-order fallback plus activation check.
-  await page.goto(`${uiUrl}/models?releaseId=${pending.id}`);
+  await page.goto(`${uiUrl}/settings/model/releases/${pending.id}`);
   await page.getByText("Semantic changes").waitFor();
   const pendingText = await direction.innerText();
   expect(pendingText.includes("installation order only"), `fallback label: ${pendingText}`);
@@ -76,11 +76,11 @@ try {
   checks.push("explicit baseline choice re-compares history; activation readiness unchanged");
 
   // Bootstrap release: first release of its key, no recorded predecessor.
-  await page.goto(`${uiUrl}/models?releaseId=${original.activeReleaseId}`);
+  await page.goto(`${uiUrl}/settings/model/releases/${original.activeReleaseId}`);
   await page.getByText(/No earlier release to compare with/).waitFor();
   checks.push("first installed release shows an explained no-predecessor state");
 
-  await page.goto(`${uiUrl}/models?releaseId=${pending.id}`);
+  await page.goto(`${uiUrl}/settings/model/releases/${pending.id}`);
   await page.getByText("Semantic changes").waitFor();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByText("Technical details").click();
@@ -98,7 +98,9 @@ try {
   expect((await page.getByRole("button", { name: "Activate…" }).count()) === 0, "Activate offered after activation");
   expect((await page.locator(".model-detail-header .pill").count()) === 0, "Inactive shown after activation");
   expect((await page.getByRole("region", { name: /^Current active release/ }).count()) === 0, "stale check");
-  checks.push("activating the inspected release updates status, actions and recorded-predecessor baseline");
+  await page.getByRole("status").getByText("The release is now the active model.").waitFor();
+  expect(new URL(page.url()).pathname === `/settings/model/releases/${pending.id}`, `after activation ${page.url()}`);
+  checks.push("activating the inspected release keeps its page, confirms it, and updates status, actions and baseline");
 
   const report = {
     browser: browser.version(),

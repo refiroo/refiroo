@@ -47,7 +47,7 @@ export interface WorkspaceDetail extends Workspace {
   /** True when nothing refers to the workspace, so it may be deleted rather than retired. */
   deletable: boolean;
   /** Why the workspace cannot be deleted, when `deletable` is false. */
-  deleteBlockedBy?: "default" | "published" | "notEmpty" | null;
+  deleteBlockedBy?: "default" | "published" | "notEmpty" | "subscribed" | null;
 }
 
 export interface WorkspacePage {

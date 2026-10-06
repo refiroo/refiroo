@@ -23,6 +23,7 @@ import type {
   ObjectSort,
   CollectionFilter,
   CapabilitiesResponse,
+  SystemResponse,
   ModelCompilation,
   ModelDraft,
   ModelDraftPage,
@@ -57,7 +58,8 @@ import { ApiError } from "@/api/errors";
 // `isApiError` live in ./errors so that a test mocking this module does not shadow them.
 export { ApiError } from "@/api/errors";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+/** The engine this browser application calls (`VITE_API_URL`, set when the frontend is built). */
+export const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
@@ -277,6 +279,7 @@ export const api = {
     return { ...model, placements };
   },
   capabilities: () => request<CapabilitiesResponse>("/api/v1/capabilities"),
+  system: () => request<SystemResponse>("/api/v1/system"),
   workspaces: (
     options: {
       search?: string;

@@ -35,12 +35,12 @@ async function shown(locator) {
   await locator.waitFor({ state: "visible" });
 }
 
-async function capture(page, name, outputDir) {
+async function capture(page, name, outputDir, mask = []) {
   // A record heading can appear while its independently fetched panels still load.
   await page.waitForLoadState("networkidle");
   await page.waitForFunction(() => document.querySelectorAll('[aria-busy="true"]').length === 0);
   await page.evaluate(() => document.fonts.ready);
-  const result = await compareScreenshot(page, name, { outputDir });
+  const result = await compareScreenshot(page, name, { outputDir, mask });
   checks.push(result.message);
   if (!result.passed) failures.push(result.message);
   return result;
@@ -93,10 +93,16 @@ try {
   await shown(page.getByText("Publication 1"));
   await capture(page, "publications-view-light", output);
 
-  // --- 8. Model workbench ---
-  await page.goto(`${uiUrl}/models`);
-  await shown(page.getByRole("heading", { name: "Models" }));
-  await capture(page, "model-workbench-light", output);
+  // --- 8. Settings › Model (U3): the list page, and the active release's page ---
+  await page.goto(`${uiUrl}/settings/model`);
+  await shown(page.getByRole("navigation", { name: "Model catalogue" }));
+  await capture(page, "settings-model-light", output, [
+    page.locator(".release-metadata dd, .catalogue-text small:has-text(':')"),
+  ]);
+  const activeRelease = (await api("/model-runtime-state")).activeReleaseId;
+  await page.goto(`${uiUrl}/settings/model/releases/${activeRelease}`);
+  await shown(page.getByRole("button", { name: "Export JSON" }));
+  await capture(page, "settings-release-detail-light", output, [page.locator(".release-metadata dd")]);
 
   // --- 9. Change sets list ---
   const changeSet2 = await api(`/workspaces/default/change-sets`, { name: "Second change set", source: "currentLive" });
@@ -123,9 +129,11 @@ try {
   await page.goto(`${uiUrl}/apps/rdm-master/objects/domain/${records.domain[0].id}?workspaceKey=default`);
   await shown(page.getByRole("heading", { name: "Domain 00" }));
   await capture(page, "record-detail-domain-dark", output);
-  await page.goto(`${uiUrl}/models`);
-  await shown(page.getByRole("heading", { name: "Models" }));
-  await capture(page, "model-workbench-dark", output);
+  await page.goto(`${uiUrl}/settings/model`);
+  await shown(page.getByRole("navigation", { name: "Model catalogue" }));
+  await capture(page, "settings-model-dark", output, [
+    page.locator(".release-metadata dd, .catalogue-text small:has-text(':')"),
+  ]);
   await openLongList(page, uiUrl, longDomain);
   await capture(page, "scrolling-list-tree-dark", output);
   // The amber data-context band in a change set (Track U U2), on the second change set.
@@ -223,20 +231,37 @@ try {
   const restructuringDetail = await api(`/change-sets/${restructuring.id}`);
   await api(`/change-sets/${restructuring.id}?expectedVersion=${restructuringDetail.version}`, undefined, "DELETE");
 
-  // --- 14. Workspaces administration (Base 0.8 W4), last because a second workspace turns every
-  // earlier shell's single-workspace label into the selector ---
+  // --- 14. Settings (U3): Workspaces and a workspace's page, About, Deployment and Appearance.
+  // Last because a second workspace turns every earlier shell's single-workspace label into the
+  // selector. Values that change from run to run (times, the harness's ports and paths) are masked.
   const retired = await api("/workspaces", { key: "archive", label: "Archive" });
   await api("/workspaces/archive", { expectedVersion: retired.version, status: "retired" }, "PATCH");
-  await page.goto(`${uiUrl}/workspaces`);
-  await shown(page.getByRole("heading", { level: 2, name: "Default" }));
-  await shown(page.getByRole("button", { name: /Archive.*Retired/s }));
-  await capture(page, "workspaces-admin-light", output);
-  await page.emulateMedia({ colorScheme: "dark" });
-  await page.goto(`${uiUrl}/workspaces`);
-  await shown(page.getByRole("heading", { level: 2, name: "Default" }));
-  await shown(page.getByRole("button", { name: /Archive.*Retired/s }));
-  await capture(page, "workspaces-admin-dark", output);
+  const varying = () => [
+    page.locator(".description-list dd:has-text(':'), .release-metadata dd:has-text(':')"),
+    page.locator(".settings-note code").first(),
+  ];
+  for (const scheme of ["light", "dark"]) {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.goto(`${uiUrl}/settings/workspaces`);
+    await shown(page.getByRole("button", { name: /Archive.*Retired/s }));
+    await capture(page, `settings-workspaces-${scheme}`, output);
+    await page.goto(`${uiUrl}/settings/about`);
+    await shown(page.getByRole("region", { name: "Database" }));
+    await capture(page, `settings-about-${scheme}`, output, varying());
+    await page.goto(`${uiUrl}/settings/deployment`);
+    await shown(page.getByRole("region", { name: "Capability groups" }));
+    await capture(page, `settings-deployment-${scheme}`, output, [
+      ...varying(),
+      page.getByRole("region", { name: "Runtime" }).locator("td"),
+    ]);
+  }
   await page.emulateMedia({ colorScheme: "light" });
+  await page.goto(`${uiUrl}/settings/workspaces/default`);
+  await shown(page.getByRole("button", { name: "Open workspace" }));
+  await capture(page, "settings-workspace-detail-light", output, varying());
+  await page.goto(`${uiUrl}/settings/appearance`);
+  await shown(page.getByRole("group", { name: "Table density" }));
+  await capture(page, "settings-appearance-light", output);
 
   // Write report.
   const report = { checks, failures, passed: failures.length === 0 };

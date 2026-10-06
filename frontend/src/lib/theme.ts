@@ -2,9 +2,12 @@
  * Colour theme preference. "system" follows the operating system; "light" and "dark" pin the
  * theme through `data-theme` on the document element, which the design tokens key on. The same
  * storage key is read by the inline script in index.html so the first paint uses the saved theme.
+ *
+ * The account popover and Settings › Appearance can be open together, so the choice is one store
+ * that every user of the hook follows.
  */
 
-import { useState } from "react";
+import { useSyncExternalStore } from "react";
 import { readLocalPreference, writeLocalPreference } from "@/lib/localPreference";
 
 export type ThemePreference = "system" | "light" | "dark";
@@ -19,14 +22,33 @@ export function applyTheme(theme: ThemePreference) {
   else document.documentElement.dataset.theme = theme;
 }
 
+let current: ThemePreference | undefined;
+const listeners = new Set<() => void>();
+
+function snapshot(): ThemePreference {
+  current ??= readLocalPreference(THEME_STORAGE_KEY, "system", isTheme);
+  return current;
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+/** Forgets the remembered choice so the next read is from storage; for tests. */
+export function resetThemePreference() {
+  current = undefined;
+}
+
 export function useThemePreference() {
-  const [theme, setTheme] = useState<ThemePreference>(() => readLocalPreference(THEME_STORAGE_KEY, "system", isTheme));
+  const theme = useSyncExternalStore(subscribe, snapshot);
   return {
     theme,
     setTheme: (next: ThemePreference) => {
-      setTheme(next);
+      current = next;
       writeLocalPreference(THEME_STORAGE_KEY, next);
       applyTheme(next);
+      listeners.forEach((listener) => listener());
     },
   };
 }
