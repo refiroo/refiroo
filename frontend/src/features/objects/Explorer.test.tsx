@@ -156,10 +156,11 @@ describe("Explorer", () => {
         .map((node) => node.getAttribute("aria-label")),
     ).toEqual(["Timetable types", "Tariffs"]);
     const second = screen.getByRole("treeitem", { name: "Tariffs" });
+    // Records sit one level below their type group's heading, which no longer counts in their set.
     expect(["aria-level", "aria-posinset", "aria-setsize"].map((name) => second.getAttribute(name))).toEqual([
+      "4",
       "2",
-      "3",
-      "3",
+      "2",
     ]);
     fireEvent.click(codelists.querySelector(".tree-node")!);
     expect(onOpenCollection).toHaveBeenCalledWith("codelists", connections);
@@ -231,10 +232,14 @@ describe("Explorer", () => {
     // The selected record is filled with its own type's colour.
     expect(active.querySelector(".tree-node")).toHaveClass("active");
     expect(active.querySelector(".tree-node")).toHaveAttribute("data-hue", slot("codelist"));
-    expect((await item("Domains, 2")).querySelector(".hue-tile")).toBeNull();
-    // An open branch hangs from a guide line below its record's toggle.
+    // A heading's own row has no tile (its records, drawn inside it, have theirs).
+    expect((await item("Domains, 2")).querySelector(":scope > .tree-row .hue-tile")).toBeNull();
+    // An open branch's frames start below its record's toggle, and each group sits in a frame of
+    // its type's colour.
     const branch = screen.getByRole("group", { name: "Within Connections" });
-    expect(branch.style.getPropertyValue("--tree-guide")).toBe("15px");
+    // The record starts one step in from its heading (18px); its toggle's middle is 11px further.
+    expect(branch.style.marginLeft).toBe("29px");
+    expect(branch.querySelector(".tree-group")).toHaveAttribute("data-hue", slot("codelist"));
   });
 
   it("keeps branch navigation usable when saved preferences are malformed or storage is blocked", async () => {
@@ -277,7 +282,7 @@ describe("Explorer", () => {
       "second",
     ]);
     const last = screen.getByRole("treeitem", { name: "Finance" });
-    expect([last.getAttribute("aria-posinset"), last.getAttribute("aria-setsize")]).toEqual(["3", "3"]);
+    expect([last.getAttribute("aria-posinset"), last.getAttribute("aria-setsize")]).toEqual(["2", "2"]);
 
     press("ArrowUp");
     press("ArrowRight");
@@ -286,7 +291,13 @@ describe("Explorer", () => {
     expect(document.activeElement).toBe(firstChild);
     press("ArrowDown");
     expect(document.activeElement).toBe(screen.getByRole("treeitem", { name: "Timetable types" }));
+    // Left returns to the record's type group heading, an open parent that does not fold
+    // (FOLDING_GROUPS is off), then to the record above.
     press("ArrowLeft");
+    expect(document.activeElement).toBe(firstChild);
+    expect(firstChild).toHaveAttribute("aria-expanded", "true");
+    press("ArrowLeft");
+    expect(firstChild).toHaveAttribute("aria-expanded", "true");
     expect(document.activeElement).toBe(screen.getByRole("treeitem", { name: "Connections" }));
     press("ArrowLeft");
     expect(screen.getByRole("treeitem", { name: "Connections" })).toHaveAttribute("aria-expanded", "false");

@@ -94,7 +94,21 @@ Next: UA, the Atlas redesign (ADR-040), before U4 and U5. See [Next — 0.9](#ne
   focus is on the `vol-groups` window instead of the moved group (`b3-tree-lens.mjs:467`); and,
   in the change set, the page has scrolled the lens's top-level heading under the sticky band, so
   the drop names no target and no dialog opens (`:459`). Neither step was reached since UA0, so it
-  is not known whether they failed before UA2.
+  is not known whether they failed before UA2. _UA2 revision (2026-10-06):_ the Sodium failure's
+  cause is found: Sodium sat just below the bottom edge of its branch's scrolling window, and
+  `dragFrom` pressed where it was without scrolling it into view, so the press hit the window's
+  edge; whether it fitted depended on the layout. The helper now scrolls the row into view first,
+  as a user would. The whole run then passed once (30 checks, B5b included); the two B5b steps
+  stay here until they pass again, since they failed differently each time. _Folding headings
+  (2026-10-07):_ both B5b failures had the same kind of cause. The change set's band is taller (it
+  carries the change set's actions), and scrolling a row only "into view" left the top-level
+  heading under it, so the pointer rested on the band. `dragFrom` and `dragOver` now bring the
+  row to the middle of the view; b3 then passed in full (30 checks). Kept here until a second run
+  confirms it.
+- **`test:browser:c4` fails at its own API call (seen 2026-10-07).** `c4-restructuring.mjs:336`
+  reads `/objects/system-group/{id}/history?workspaceKey=default` and the API refuses the
+  parameter (`422 UNKNOWN_PARAMETER`). The runner, not the UI, sends it; when the history route
+  stopped taking `workspaceKey` was not checked.
 
 - **Publish and change-set creation move the workspace through Python (found 2026-10-03, F1;
   measured and decided in T1).** Publishing 1,000 renamed records in a 26,000-record workspace takes

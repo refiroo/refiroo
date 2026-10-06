@@ -633,7 +633,8 @@ describe("TreeView dragging", () => {
     expect(row(above)).not.toHaveClass("drop-refused");
     const line = document.querySelector<HTMLElement>(".tree-drop-line")!;
     expect(line).toHaveClass("refused");
-    expect([line.style.top, line.style.left]).toEqual(["120px", "40px"]);
+    // Connections's records start one step in from their heading: 46px, plus the 22px toggle column.
+    expect([line.style.top, line.style.left]).toEqual(["120px", "68px"]);
     expect(preview()).toHaveTextContent("Current location");
     release();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

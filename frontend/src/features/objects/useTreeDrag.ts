@@ -90,7 +90,7 @@ export function useTreeDrag({
   config?: TreeDragConfiguration;
   /** The drawn records by tree key. */
   records: Map<string, ObjectItem>;
-  /** Where a level's rows start, from the row's left edge. */
+  /** Where a level's rows start, from the tree's left edge. */
   indentOf: (level: number) => number;
   /** The rows that show the top level for a dragged record; without it the top level takes no drop. */
   topLevelRows?: (item: ObjectItem) => string[];
@@ -140,7 +140,8 @@ export function useTreeDrag({
       const all = Array.from(root.querySelectorAll<HTMLElement>(ITEM));
       const index = all.indexOf(item);
       const [above, below] = zone < 0 ? [all[index - 1], item] : [item, all[index + 1]];
-      const left = rect.left;
+      // Levels are measured from the tree's edge, since nested branches' rows start further in.
+      const left = root.getBoundingClientRect().left;
       const chosen = chooseGapBranch(
         gapBranches(above && placeOf(above), below && placeOf(below)),
         x - left,
@@ -330,14 +331,17 @@ function ownRow(item: HTMLElement) {
   return Array.from(item.children).find((child): child is HTMLElement => child.classList.contains("tree-row"));
 }
 
-/** The record item a row is drawn under, or undefined at the top. */
+/**
+ * The record item a row is drawn under, or undefined at the top. A record's rows sit inside its type
+ * groups' headings, which are tree items too but not records, so they are passed over.
+ */
 function parentItemOf(item: HTMLElement) {
-  return item.parentElement?.closest<HTMLElement>(ITEM) ?? undefined;
+  return item.parentElement?.closest<HTMLElement>(`${ITEM}[data-object-id]`) ?? undefined;
 }
 
-/** A row's level and the record items above it, outermost first. */
+/** A row's record level and the record items above it, outermost first. */
 function placeOf(item: HTMLElement): RowPlace<HTMLElement> {
   const parents: HTMLElement[] = [];
   for (let parent = parentItemOf(item); parent; parent = parentItemOf(parent)) parents.unshift(parent);
-  return { level: Number(item.getAttribute("aria-level") ?? parents.length + 1), parents };
+  return { level: parents.length + 1, parents };
 }

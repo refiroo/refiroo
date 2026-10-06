@@ -9,7 +9,9 @@
  *
  * Every record shows its type's tile (`model/hues`, ADR-040) and the selected one is filled with
  * its type's soft colour; a group's heading is a quiet label with its count, never drawn like a
- * record; an open branch hangs from a guide line below its record's toggle.
+ * record. Each group sits in a dim frame of its type's colour that glows while its own window
+ * scrolls, and an open branch's frames start below its record's toggle, so nested groups read as
+ * boxes inside boxes.
  *
  * The tree follows the WAI-ARIA tree pattern with one tab stop. Positions and set sizes come from
  * the groups' totals, and arrow keys that cross the edge of a group's window load the next page
@@ -55,6 +57,15 @@ import { useTreeDrag, type TreeDragConfiguration, type TreeDragState } from "./u
 
 /** Rows a tree group reads per request; its window holds at most five pages (D2). */
 export const TREE_PAGE_SIZE = 50;
+/** How long a group's frame keeps glowing after its window last moved. */
+const SCROLL_GLOW_MS = 700;
+/**
+ * Whether a type group's heading folds like a record (UA2 revision, 2026-10-07). Turned off by the
+ * user the same day, kept to turn back on: with `false` every group stays open, its heading shows no
+ * chevron and its name starts where the chevron was, and the arrow keys pass over it as an open
+ * parent (`aria-expanded="true"`, Left to the record above, Right into its rows).
+ */
+const FOLDING_GROUPS = false;
 
 const numberFormat = new Intl.NumberFormat();
 
@@ -127,6 +138,8 @@ interface TreeState {
   /** The item that holds the tree's single tab stop. */
   focusKey?: string;
   isExpanded: (objectId: string) => boolean;
+  /** Whether a type group is open; groups start open, and a choice persists like a record's. */
+  isGroupOpen: (groupKey: string) => boolean;
   toggle: (objectId: string, expanded: boolean) => void;
   /** True while a type-ahead is in progress; Space then extends it rather than opening. */
   typing: () => boolean;
@@ -149,11 +162,29 @@ function useTree() {
   return tree;
 }
 
-const indent = (level: number) => ({ paddingLeft: `${4 + (level - 1) * 14}px` });
-/** Where a level's rows start their icon and label, after the indent and the toggle column. */
-const rowStart = (level: number) => 4 + (level - 1) * 14 + 22;
-/** The guide line of a record's branch runs below the middle of its toggle (ADR-040). */
-const guide = (level: number) => ({ "--tree-guide": `${4 + (level - 1) * 14 + 11}px` }) as React.CSSProperties;
+/*
+ * Positions from the tree's edge, by record level. A type group's heading folds like a record, so
+ * its records sit one step in from it: their toggles start inside the heading's line.
+ */
+/** Where a level's type headings start. */
+const headingStart = (level: number) => 4 + (level - 1) * 28;
+/** Where a level's records start, one step in from their heading. */
+const recordStart = (level: number) => headingStart(level) + 14;
+/** Where a level's records start their icon and label, after the toggle column. */
+const rowStart = (level: number) => recordStart(level) + 22;
+/** The middle of a record's toggle: its open branch's frames start below it (ADR-040). */
+const branchEdge = (level: number) => recordStart(level) + 11;
+/**
+ * Where the box holding a level's groups starts: a branch's groups sit in frames that start below
+ * their record's toggle, so a row's indent is counted from there.
+ */
+const boxStart = (level: number) => (level > 1 ? branchEdge(level - 1) : 0);
+/** A heading's indent inside the box it is drawn in (by default its own level's). */
+const indent = (level: number, box = level) => ({ paddingLeft: `${headingStart(level) - boxStart(box)}px` });
+/** A record's indent inside its level's box. */
+const recordIndent = (level: number) => ({ paddingLeft: `${recordStart(level) - boxStart(level)}px` });
+/** An open branch's box starts below its record's toggle. */
+const branchInset = (level: number) => ({ marginLeft: `${branchEdge(level) - boxStart(level)}px` });
 
 export function RecordTree({
   model,
@@ -284,6 +315,7 @@ export function RecordTree({
     (objectId: string) => branchState.choices.get(objectId) ?? activeAncestors?.has(objectId) ?? false,
     [branchState, activeAncestors],
   );
+  const isGroupOpen = useCallback((groupKey: string) => branchState.choices.get(groupKey) ?? true, [branchState]);
   const toggle = useCallback(
     (objectId: string, expanded: boolean) => {
       const choices = new Map(branchState.choices);
@@ -437,7 +469,8 @@ export function RecordTree({
       return;
     }
     const expanded = item.getAttribute("aria-expanded");
-    const objectId = item.dataset.objectId;
+    // A record folds by its ID, a type group's heading by its fold key.
+    const objectId = item.dataset.objectId ?? (FOLDING_GROUPS ? item.dataset.foldKey : undefined);
     switch (event.key) {
       case "ArrowDown":
         move(item, 1);
@@ -498,6 +531,7 @@ export function RecordTree({
       activeObjectId,
       focusKey,
       isExpanded,
+      isGroupOpen,
       toggle,
       typing,
       register,
@@ -522,6 +556,7 @@ export function RecordTree({
       activeObjectId,
       focusKey,
       isExpanded,
+      isGroupOpen,
       toggle,
       typing,
       register,
@@ -639,6 +674,8 @@ function TreeGroups({
   );
   const values = types.map((type) => reports[type]?.status ?? "loading");
   const shown = values.includes("shown");
+  // A heading's position counts the groups drawn beside it; an empty group draws nothing.
+  const drawn = types.filter((type) => reports[type]?.status === "shown");
   const failures = types.flatMap((type) => {
     const failure = reports[type]?.status === "failed" ? reports[type]?.failure : undefined;
     return failure ? [{ type, ...failure }] : [];
@@ -654,6 +691,8 @@ function TreeGroups({
             parent={parent}
             level={level}
             parentKey={parentKey}
+            position={drawn.indexOf(type) + 1}
+            siblings={drawn.length}
             onStatus={report}
           />
         )),
@@ -663,7 +702,7 @@ function TreeGroups({
         <InlineError key={failure.type} message={failure.message} onRetry={failure.retry} />
       ))}
       {note && (
-        <div className={noteClassName} style={level > 1 ? indent(level) : undefined}>
+        <div className={noteClassName} style={level > 1 ? indent(level, level - 1) : undefined}>
           {note}
         </div>
       )}
@@ -676,12 +715,17 @@ function TreeGroup({
   parent,
   level,
   parentKey,
+  position,
+  siblings,
   onStatus,
 }: {
   objectTypeKey: string;
   parent?: ObjectItem;
   level: number;
   parentKey: string;
+  /** The heading's place among the groups drawn beside it. */
+  position: number;
+  siblings: number;
   onStatus: (objectTypeKey: string, report: GroupReport) => void;
 }) {
   const tree = useTree();
@@ -729,29 +773,46 @@ function TreeGroup({
   useLayoutEffect(() => () => register(groupKey, undefined), [groupKey, register]);
   useLayoutEffect(() => rowsChanged(), [list.items, rowsChanged]);
 
+  const scrolling = useScrolling();
+  // A heading folds like a record. A reveal passing through a folded group opens it, once per reveal.
+  const foldKey = `group:${parent?.id ?? "top"}:${objectTypeKey}`;
+  const groupOpen = !FOLDING_GROUPS || tree.isGroupOpen(foldKey);
+  const { toggle, revealToken } = tree;
+  const unfolded = useRef("");
+  useEffect(() => {
+    if (!step || groupOpen) return;
+    const request = `${revealToken}:${step.id}`;
+    if (unfolded.current === request) return;
+    unfolded.current = request;
+    toggle(foldKey, true);
+  }, [step, groupOpen, revealToken, toggle, foldKey]);
+
   const label = parent ? `${plural} within ${parent.name}` : search ? `${plural} matching ${search}` : plural;
   if (status !== "shown") return null;
 
   const view = collectionGroups(application).find((group) => group.objectTypeKey === objectTypeKey)?.defaultView;
   const open = view && tree.onOpenCollection ? () => tree.onOpenCollection?.(view.key, parent) : undefined;
   const total = list.totalCount ?? list.startIndex + list.items.length;
-  // The heading is the first item of the group's set, so each row's position is its index plus two.
-  const setSize = total + 1;
   const headingKey = `${groupKey}#`;
   return (
     <div
-      className="tree-group"
+      className={`tree-group${scrolling.active ? " is-scrolling" : ""}`}
       data-tree-group={groupKey}
+      data-hue={objectTypeHue(model, objectTypeKey)}
+      onScrollCapture={scrolling.onScrollCapture}
       // The window's start and end markers line up with its rows' names.
-      style={{ "--tree-indent": `${4 + (level - 1) * 14 + 22}px` } as React.CSSProperties}
+      style={{ "--tree-indent": `${rowStart(level) - boxStart(level)}px` } as React.CSSProperties}
     >
       <div
         role="treeitem"
         className="tree-item tree-heading"
         data-tree-key={headingKey}
-        aria-level={level}
-        aria-setsize={setSize}
-        aria-posinset={1}
+        data-fold-key={foldKey}
+        // A heading sits one level above its records: headings at odd levels, records at even ones.
+        aria-level={level * 2 - 1}
+        aria-setsize={siblings}
+        aria-posinset={position}
+        aria-expanded={groupOpen}
         aria-label={`${label}, ${numberFormat.format(total)}`}
         tabIndex={tree.focusKey === headingKey ? 0 : -1}
         onKeyDown={(event) => {
@@ -761,8 +822,20 @@ function TreeGroup({
           open?.();
         }}
       >
-        <div className={`tree-row${dropClass(tree.drag, headingKey)}`} style={indent(level)}>
-          <span className="tree-branch" />
+        <div
+          className={`tree-row${FOLDING_GROUPS ? "" : " tree-row-plain"}${dropClass(tree.drag, headingKey)}`}
+          style={indent(level)}
+        >
+          {FOLDING_GROUPS && (
+            <span
+              className="tree-toggle"
+              aria-hidden="true"
+              title={groupOpen ? "Collapse" : "Expand"}
+              onClick={() => toggle(foldKey, !groupOpen)}
+            >
+              <Icon name={groupOpen ? "chevron-down" : "chevron-right"} size={14} />
+            </span>
+          )}
           <span
             className="tree-node tree-collection"
             title={open ? `Open ${plural.toLowerCase()}${parent ? ` within ${parent.name}` : ""}` : undefined}
@@ -772,34 +845,55 @@ function TreeGroup({
             <span className="tree-count">{numberFormat.format(total)}</span>
           </span>
         </div>
+        {groupOpen && (
+          <ScrollWindow
+            list={list}
+            label={label}
+            noun={["record", "records"]}
+            pageSize={pageSize}
+            rowNavigation={false}
+            footer={false}
+            role="group"
+            edgeMarkers="partial"
+            onAnnounce={tree.announce}
+          >
+            <ul role="none" className="tree-rows">
+              {list.items.map((item, position) => (
+                <TreeNode
+                  key={item.id}
+                  item={item}
+                  index={list.startIndex + position}
+                  level={level}
+                  setSize={total}
+                  parentKey={groupKey}
+                  match={!parent && Boolean(search)}
+                />
+              ))}
+            </ul>
+          </ScrollWindow>
+        )}
       </div>
-      <ScrollWindow
-        list={list}
-        label={label}
-        noun={["record", "records"]}
-        pageSize={pageSize}
-        rowNavigation={false}
-        footer={false}
-        role="group"
-        edgeMarkers="partial"
-        onAnnounce={tree.announce}
-      >
-        <ul role="none" className="tree-rows">
-          {list.items.map((item, position) => (
-            <TreeNode
-              key={item.id}
-              item={item}
-              index={list.startIndex + position}
-              level={level}
-              setSize={setSize}
-              parentKey={groupKey}
-              match={!parent && Boolean(search)}
-            />
-          ))}
-        </ul>
-      </ScrollWindow>
     </div>
   );
+}
+
+/**
+ * Whether a group's own window is scrolling, so its frame can glow while it moves. Scrolls of the
+ * groups nested inside it are theirs, not its.
+ */
+function useScrolling() {
+  const [active, setActive] = useState(false);
+  const timer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  return {
+    active,
+    onScrollCapture: (event: React.UIEvent<HTMLElement>) => {
+      if ((event.target as HTMLElement).closest(".tree-group") !== event.currentTarget) return;
+      setActive(true);
+      window.clearTimeout(timer.current);
+      timer.current = window.setTimeout(() => setActive(false), SCROLL_GLOW_MS);
+    },
+  };
 }
 
 function TreeNode({
@@ -849,9 +943,9 @@ function TreeNode({
       data-row-index={index}
       data-tree-key={key}
       data-object-id={item.id}
-      aria-level={level}
+      aria-level={level * 2}
       aria-setsize={setSize}
-      aria-posinset={index + 2}
+      aria-posinset={index + 1}
       aria-expanded={expandable ? expanded : undefined}
       aria-current={active ? "page" : undefined}
       aria-label={[label, ancestors && `in ${ancestors}`, description].filter(Boolean).join(", ")}
@@ -868,7 +962,7 @@ function TreeNode({
     >
       <div
         className={`tree-row${tree.drag?.item.id === item.id ? " dragging" : ""}${dropClass(tree.drag, key)}`}
-        style={indent(level)}
+        style={recordIndent(level)}
         onPointerDown={startDrag && ((event) => startDrag(event, item))}
       >
         {expandable ? (
@@ -907,7 +1001,7 @@ function TreeNode({
           emptyText="Nothing inside"
           noteClassName="tree-note"
           wrap={(children) => (
-            <div role="group" aria-label={`Within ${item.name}`} className="tree-children" style={guide(level)}>
+            <div role="group" aria-label={`Within ${item.name}`} className="tree-children" style={branchInset(level)}>
               {children}
             </div>
           )}

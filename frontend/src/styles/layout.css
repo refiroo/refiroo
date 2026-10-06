@@ -402,31 +402,65 @@ fieldset.settings-section legend {
   /* Each group scrolls in its own bounded window; a branch's windows are shorter. */
   --tree-window: min(520px, calc(100vh - 340px));
   display: grid;
-  gap: 4px;
+  gap: 8px;
 }
 .tree[hidden] {
   display: none;
 }
-/* A branch hangs from a guide line below its record's toggle (ADR-040). */
+/* An open branch's groups sit in frames that start below its record's toggle (ADR-040). */
 .tree-children {
   --tree-window: 300px;
-  position: relative;
-}
-.tree-children::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 6px;
-  left: var(--tree-guide);
-  border-left: 1px solid var(--border-subtle);
-  pointer-events: none;
+  display: grid;
+  gap: 6px;
+  padding: 4px 6px 6px 0;
 }
 .tree-group .scroll-window {
   --window-height: var(--tree-window);
 }
+/* Each type group sits in a dim frame of its type's colour, so groups never run into each other;
+   while its own window scrolls the frame glows in the accent, a state rather than a kind, showing
+   which part is moving (UA2 revision). */
+.tree-group {
+  border: 1px solid color-mix(in srgb, var(--hue-marker, var(--border-subtle)) 26%, transparent);
+  border-radius: 8px;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+.tree-group.is-scrolling {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent),
+    0 0 16px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.tree-group .scroll-window-viewport {
+  border-radius: 0 0 7px 7px;
+}
+/* The innermost group under the pointer glows in its own colour, marking the area the pointer is in;
+   while any group scrolls, only the scrolling one glows. */
+@media (hover: hover) {
+  .tree:not(:has(.tree-group.is-scrolling)) .tree-group:hover:not(:has(.tree-group:hover)) {
+    border-color: var(--active-area);
+    box-shadow:
+      0 0 0 3px color-mix(in srgb, var(--active-area) 20%, transparent),
+      0 0 14px color-mix(in srgb, var(--active-area) 30%, transparent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tree-group {
+    transition: none;
+  }
+}
 .tree .scroll-window-viewport {
-  /* Reaching a branch's end scrolls the enclosing list on, as a tree reads as one list. */
+  /* On touch, reaching a branch's end scrolls the enclosing list on, as a finger expects. */
   overscroll-behavior: auto;
+}
+/* With a pointer, a window that scrolls stops at its first and last row, so a flick never carries on
+   into the area around it; that area scrolls with the pointer outside the window (UA2 revision). */
+@media (pointer: fine) {
+  .tree .scroll-window-viewport {
+    overscroll-behavior: contain;
+  }
 }
 .tree .scroll-window-edge {
   justify-content: flex-start;
@@ -451,6 +485,12 @@ fieldset.settings-section legend {
   display: grid;
   grid-template-columns: 22px minmax(0, 1fr);
   align-items: center;
+}
+/* A heading that does not fold has no toggle column: its name starts at its own indent, left of
+   its records' toggles (RecordTree's FOLDING_GROUPS). */
+.tree-row.tree-row-plain,
+.tree-lens .tree-row.tree-row-plain {
+  grid-template-columns: minmax(0, 1fr);
 }
 .tree .tree-toggle {
   display: grid;
@@ -604,6 +644,14 @@ fieldset.settings-section legend {
   background: var(--surface-app);
   border-bottom: 1px solid var(--border-subtle);
 }
+/* Live is a soft green strip; the Live pill keeps its outline on it (ADR-040). */
+.band-live {
+  background: var(--context-live-strip);
+  border-bottom-color: var(--context-live-strip-line);
+}
+.band-live .status-pill {
+  box-shadow: inset 0 0 0 1px var(--context-live-line);
+}
 .band-change-set {
   --band-surface: var(--context-change-set-surface);
   --band-text: var(--context-change-set-text);
@@ -644,14 +692,6 @@ fieldset.settings-section legend {
   flex-wrap: wrap;
   gap: var(--space-2) var(--space-4);
 }
-/* Live is a soft green strip; the Live pill keeps its outline on it (ADR-040). */
-.band-live {
-  background: var(--context-live-strip);
-  border-bottom-color: var(--context-live-strip-line);
-}
-.band-live .status-pill {
-  box-shadow: inset 0 0 0 1px var(--context-live-line);
-}
 /* Controls on a tinted band take its ink: the outline is the band's marker (3:1, U-D9). */
 .band-change-set .secondary,
 .band-publication .secondary,
@@ -685,13 +725,29 @@ fieldset.settings-section legend {
   margin-left: auto;
 }
 .data-context-switch button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   min-height: 32px;
   padding: 0;
   border: 0;
   background: transparent;
+  box-shadow: none;
   color: var(--text-secondary);
   font-size: var(--text-sm);
   font-weight: 500;
+}
+.context-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.context-dot-change-set {
+  background: var(--context-change-set-marker);
+}
+.context-dot-publication {
+  background: var(--context-publication-marker);
 }
 .band-change-set .data-context-switch button,
 .band-publication .data-context-switch button {
@@ -725,30 +781,14 @@ fieldset.settings-section legend {
   gap: 6px;
   min-height: 28px;
   padding: 0 12px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
   border: 0;
   border-radius: 6px;
   background: transparent;
   color: var(--muted);
-  box-shadow: none;
   font-size: 13px;
   font-weight: 550;
 }
 .segmented button:hover {
-.context-dot {
-  flex: none;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-}
-.context-dot-change-set {
-  background: var(--context-change-set-marker);
-}
-.context-dot-publication {
-  background: var(--context-publication-marker);
-}
   color: var(--ink);
 }
 .segmented button[aria-pressed="true"] {

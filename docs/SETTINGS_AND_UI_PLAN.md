@@ -1114,6 +1114,64 @@ Implemented; waiting for the user's approval of the screenshots. The tokens hold
   Sodium, which now passes. Screenshots at 1440px and 390px (drawer), light. **Not run:**
   `test:a11y`, `test:visual` (UA7).
 
+#### UA2 revision: framed groups (2026-10-06)
+
+Asked by the user after UA3, from the timetable hierarchy lens: nested scrolling groups ran into
+each other with no sign of which part scrolls, and a scrolled window could line up rows of
+different groups as if they were one. The user keeps the nested windows and asked for frames.
+
+- **Frames.** Every type group (heading and window) sits in a 1px frame of its type's marker at
+  26%, radius 8, in the sidebar and the lens alike. While the group's own window scrolls, the frame
+  glows in the accent (border, a 3px ring and a soft 16px glow, 700 ms after the last scroll; no
+  transition under reduced motion). The glow is a state, not a kind, so it is the accent for every
+  type; a nested group's scroll does not light its parent (`useScrolling` in `RecordTree`).
+- **The area under the pointer** (asked by the user the next day, 2026-10-07). The innermost group
+  under the pointer glows in `--active-area` (teal; its dark value in both dark blocks), a second
+  colour beside the accent's scrolling glow, since the area the pointer is in may be a
+  non-scrolling part of a scrolling one. While any group scrolls, only the scrolling one glows; the
+  hover glow returns when it stops. CSS only (`:has`, under `@media (hover: hover)`).
+- **Boxes inside boxes.** An open branch's frames start below its record's toggle, where the guide
+  line ran, and the frame's edge replaces the guide line. Rows are indented from the box they are
+  drawn in (`indent`, `boxStart`, `branchInset`) rather than from the tree's edge; groups have 8px
+  between them at the top and 6px in a branch. The drag measures levels from the tree's edge
+  (`useTreeDrag`), since nested rows now start further in.
+- **Stops at a window's ends** (asked by the user, 2026-10-07: the nested windows felt wobbly
+  because a flick that reached a window's end carried on into the area around it). With a pointer
+  (`@media (pointer: fine)`), a window that scrolls stops at its first and last row
+  (`overscroll-behavior: contain`); the area around it scrolls with the pointer outside the window.
+  Touch keeps the carry-on, so a finger starting inside a window that fills the drawer can still
+  move the page. A window that does not scroll passes the wheel on as before. Checked on the dev
+  server: twelve wheel flicks inside the categories window scrolled it to its end, and neither the
+  window around it nor the page moved. `s6` and `b3` (30 checks) passed.
+- **Folding turned off the same day, by the user, kept to turn back on.** `FOLDING_GROUPS` in
+  `RecordTree` is `false`: every group stays open, its heading has no chevron and its name starts
+  at the heading's own indent (`.tree-row-plain`), left of its records' toggles; the heading stays
+  an open parent for assistive technology (`aria-expanded="true"`; Left goes to the record above,
+  Right into its rows). The records' extra step in, the frames, the glows and the stops stay.
+  Setting it to `true` brings back everything described in the next item. Checks: 151 tests in
+  `src/features/objects`, `lint` (0 errors), `build`, `s6`, `wp14`, `b3` (30 checks) passed.
+- **Type groups fold** (asked by the user, 2026-10-07, after seeing why the timetable
+  hierarchy's "Durations 6" looked like a stray label beside folding categories; the model was
+  kept as it is). Every type group's heading has a chevron and folds like a record; groups start
+  open and a fold persists per browser like a record's. The heading now holds its records, which
+  sit one step in from it, so a record's chevron starts inside the heading's line (headings at
+  4 + 28px per record level, records 14px further). Accessibility: headings are odd levels and
+  records even ones (a top-level record is level 2), a record's set no longer counts the heading,
+  Left from a record returns to its heading and Left again folds it, Right on a folded heading
+  opens it. A reveal through a folded group opens it once. The drag counts record levels and
+  record parents only (`useTreeDrag`). The lens's second line (`secondaryField: "objectType"`) is
+  unchanged.
+- **Tests.** `Explorer.test`: a branch's box starts below its record's toggle (29px since the
+  fold), its group carries its type's slot, a heading folds and unfolds by keyboard. The level,
+  position and set-size expectations in `Explorer.test`, `TreeView.test` (the drop line at 68px),
+  `s6` and `b3` follow the heading level; `wp14` clicks a heading's own node. `helpers/tree.mjs`
+  brings the dragged row and the drop target to the middle of the view first (TODO). `s6` opens a
+  record by Right only when it is closed: an open heading now takes a further Right into its rows.
+- **Checks.** `vitest run src/features/objects`: 151 tests passed. `format`, `lint` (0 errors),
+  `build` passed. Runners: `s6`, `wp14` and `b3` (30 checks, B5b included) passed;
+  `test:browser` failed at the record return in TODO; `c4` failed at its own API call (TODO).
+  Screenshots of the lens at 1440 and 390px: framed, scrolling, hovered, headings open and folded.
+
 #### UA3 record (2026-10-06)
 
 Implemented; waiting for the user's approval of the screenshots.

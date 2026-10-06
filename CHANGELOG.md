@@ -342,6 +342,10 @@ All notable changes to this project are documented in this file. The format foll
   type's colour, the selected row takes its type's colour, booleans read Yes and No in plain text
   everywhere, the first page loads as rows in the table's shape, and an empty collection shows its
   tile and the Add action.
+- Base 0.9 UA2 revision: the record browser's groups sit in frames of their type's colour, nested
+  as boxes inside boxes; a group glows in the accent while it scrolls and in teal while the pointer
+  is in it; with a pointer, a scrolling group stops at its first and last row; records sit one step
+  in from their group's heading. Folding headings is built and switched off (`FOLDING_GROUPS`).
 
 - Base 0.9 C12: `POST /consumer-subscriptions/{id}/resume` takes `reset` instead of
   `acknowledgeLoss` (C-D93 revised, C-D110). `reset: true` starts delivery after the workspace's

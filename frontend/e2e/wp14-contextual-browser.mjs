@@ -35,7 +35,8 @@ try {
   await page.goto(`${uiUrl}/apps/rdm-systems/views/systems?workspaceKey=default`);
   const browser = page.getByRole("region", { name: "RDM Systems explorer" });
   await browser.getByRole("treeitem", { name: "System 00", exact: true }).locator(".tree-toggle").first().click();
-  await browser.getByRole("treeitem", { name: /^System values within System 00, / }).locator(".tree-node").click();
+  // The heading's own node; its records are drawn inside it.
+  await browser.getByRole("treeitem", { name: /^System values within System 00, / }).locator(":scope > .tree-row .tree-node").click();
   await page.getByRole("heading", { name: "System values", level: 1 }).waitFor();
   await page.getByText("Within System: System 00", { exact: true }).waitFor();
   assert.equal(new URL(page.url()).searchParams.get("parentObjectId"), harness.records.system[0].id);

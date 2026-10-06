@@ -127,7 +127,7 @@ try {
       roots.items.map((item) => item.name),
       `${context}: the first root page`,
     );
-    assert.equal(rows.setSize, String(roots.totalCount + 1), `${context}: set size from the total`);
+    assert.equal(rows.setSize, String(roots.totalCount), `${context}: set size from the total`);
 
     // A branch shows exactly its own children, per child type, with their counts.
     const search = explorer.getByRole("textbox", { name: "Search this explorer" });
@@ -164,7 +164,7 @@ try {
       heavyItems.items.map((item) => item.name),
       `${context}: heavy branch first page`,
     );
-    assert.equal(rows.setSize, String(heavyItems.totalCount + 1));
+    assert.equal(rows.setSize, String(heavyItems.totalCount));
 
     // The heavy group's items scroll end to end in a bounded window.
     const viewport = itemsGroup;
@@ -215,12 +215,18 @@ try {
       const focused = await focusedItem(page);
       assert.deepEqual(
         [focused.level, focused.posinset, focused.setsize],
-        [depth + 1, 3, 3],
+        // Records sit one level below their type group's heading, which is not in their set.
+        [(depth + 1) * 2, 2, 2],
         `${context}: depth ${depth}`,
       );
       if (depth < 7) {
-        await page.keyboard.press("ArrowRight");
-        await tree.getByRole("treeitem", { name: `vol-nodes within ${node.name}, 2`, exact: true }).waitFor();
+        // Right opens a closed record, then enters its first child (its type group's heading). A
+        // record may already be open from an earlier context, and an open heading now takes a
+        // further Right into its rows, so Right is pressed to open only when it is closed.
+        if ((await page.evaluate(() => document.activeElement?.getAttribute("aria-expanded"))) !== "true") {
+          await page.keyboard.press("ArrowRight");
+          await tree.getByRole("treeitem", { name: `vol-nodes within ${node.name}, 2`, exact: true }).waitFor();
+        }
         await page.keyboard.press("ArrowRight");
       }
       parentName = node.name;
@@ -332,7 +338,7 @@ try {
   await waitForFocus(page, "Codelist Alpha");
   assert.deepEqual(
     Object.values(await focusedItem(page)).slice(2),
-    [2, 2, 3],
+    [4, 1, 2],
     "the codelist's level, position and set size",
   );
   await page.keyboard.press("ArrowRight");
@@ -342,7 +348,10 @@ try {
     await tree.getByRole("treeitem", { name: "Codelist Alpha", exact: true }).getAttribute("aria-expanded"),
     "false",
   );
+  // Left returns to the record's type group heading; Up from it returns to the domain.
   await page.keyboard.press("ArrowLeft");
+  await waitForFocus(page, `Codelists within ${domain.name}, 2`);
+  await page.keyboard.press("ArrowUp");
   await waitForFocus(page, domain.name);
   await assertAccessible(page, "s6-starter-master-tree");
   await page.screenshot({ path: resolve(harness.output, "s6-starter-master-1440.png") });

@@ -392,7 +392,7 @@ try {
     await h.findBySearch(name, name);
     // The search's matches give way to the tree, revealing the group in its parent's branch.
     await page
-      .locator(`.tree-lens [role='treeitem'][data-object-id="${nested.id}"][aria-level="2"]`)
+      .locator(`.tree-lens [role='treeitem'][data-object-id="${nested.id}"][aria-level="4"]`)
       .waitFor()
       .catch(() => failures.push(`B5b ${context}: ${name} is not drawn nested`));
     await topHeading.waitFor();
@@ -466,7 +466,7 @@ try {
     }
     await h.expectFocus(name, `B5b ${context}: the moved group`);
     await page
-      .waitForFunction((id) => document.querySelector(`.tree-lens [role='treeitem'][data-object-id="${id}"]`)?.getAttribute("aria-level") === "1", nested.id, { timeout: 10000 })
+      .waitForFunction((id) => document.querySelector(`.tree-lens [role='treeitem'][data-object-id="${id}"]`)?.getAttribute("aria-level") === "2", nested.id, { timeout: 10000 })
       .catch(() => failures.push(`B5b ${context}: ${name} is not drawn at the top level after the move`));
     const countAfter = await topCount();
     expect(countAfter === countBefore + 1, `B5b ${context}: the top-level count went from ${countBefore} to ${countAfter}`);

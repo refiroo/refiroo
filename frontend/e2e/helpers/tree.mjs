@@ -167,13 +167,17 @@ async function pointOn(item, where = "middle") {
 }
 
 /**
- * Presses the mouse on `item`'s row and moves it far enough to start a drag. The row is measured
+ * Presses the mouse on `item`'s row and moves it far enough to start a drag. The row is scrolled
+ * into view and measured
  * once the tree has settled (a write re-reads it and reveals the written record), and the drag must
  * be of that row's record.
  */
 export async function dragFrom(page, item) {
   const node = item.locator(".tree-node").first();
   await page.waitForLoadState("networkidle");
+  // As a user would: the row is scrolled to the middle of the view first. Otherwise a row below the
+  // edge of its group's window, or under the sticky data-context band, takes the press elsewhere.
+  await node.evaluate((element) => element.scrollIntoView({ block: "center" }));
   let box = await node.boundingBox();
   for (let attempt = 0; attempt < 20; attempt++) {
     await page.waitForTimeout(50);
@@ -199,6 +203,9 @@ export async function dragFrom(page, item) {
  * branch would open it.
  */
 export async function dragOver(page, item, where = "middle") {
+  // As a user would: the target's row is brought to the middle of the view, never left under the
+  // sticky data-context band (taller in a change set, where it carries the change set's actions).
+  await ownRow(item).evaluate((element) => element.scrollIntoView({ block: "center" }));
   let point = await pointOn(item, where);
   await page.mouse.move(point.x, point.y, { steps: 8 });
   for (let attempt = 0; attempt < 10; attempt++) {
