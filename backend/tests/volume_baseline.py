@@ -18,9 +18,11 @@ import platform
 import statistics
 import sys
 import tempfile
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -661,6 +663,15 @@ def consumer_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat
 
 
 CONSUMER_EVENTS = f"/api/consumer/{CONSUMER_API}/v1/events"
+SUBSCRIPTIONS_PATH = "/api/v1/consumer-subscriptions"
+# The subscriptions capability (0.9 C11, C12) as the delivery scenarios need it: on, ``localhost``
+# allowed (plain HTTP to a listed loopback host, C-D101), and a key to seal signing keys with.
+SUBSCRIPTION_SETTINGS = {
+    "CONSUMER_SUBSCRIPTIONS_ENABLED": "true",
+    "CONSUMER_WEBHOOK_ALLOWED_HOSTS": "localhost",
+    "CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY": "a2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2s=",
+}
+CAUGHT_UP_SUBSCRIPTIONS = 100
 EVENT_PAGE = 100
 
 
@@ -686,7 +697,9 @@ def activate_events(client) -> None:
     assert activated.status_code == 200, activated.text
 
 
-def event_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat: int) -> tuple[list[Measurement], int]:
+def event_scenarios(
+    client, engine: Engine, dataset: VolumeDataset, *, repeat: int, caught_up: int = CAUGHT_UP_SUBSCRIPTIONS
+) -> tuple[list[Measurement], int]:
     """0.9 C10 (``--only-events``): deriving a page of 500 live creations, and the heavy group's rename,
     which updates every group and item below it (C-D82's fan-out); then the pull feed's first page with
     each payload and narrowed by the ``within`` ancestor parameter. Derivation runs once each (it
@@ -745,7 +758,144 @@ def event_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat: i
             engine, lambda params=params: client.get(CONSUMER_EVENTS, params=params), repeat
         )
         results.append(Measurement("live", scenario, status, milliseconds, statements, rows))
+    results += delivery_scenarios(client, engine, position, repeat=repeat, caught_up=caught_up)
     return results, told
+
+
+
+
+class _Receiver:
+    """A webhook receiver on ``localhost`` that answers ``200`` at once and counts what it got."""
+
+    def __init__(self) -> None:
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+        receiver = self
+        self.requests = 0
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self) -> None:
+                self.rfile.read(int(self.headers["Content-Length"]))
+                receiver.requests += 1
+                self.send_response(200)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+
+            def log_message(self, *_args) -> None:
+                pass
+
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.url = f"http://localhost:{self.server.server_address[1]}/hook"
+        self._thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self._thread.start()
+
+    def close(self) -> None:
+        self.server.shutdown()
+        self.server.server_close()
+
+
+def delivery_scenarios(
+    client, engine: Engine, position: int, *, repeat: int, caught_up: int = CAUGHT_UP_SUBSCRIPTIONS
+) -> list[Measurement]:
+    """0.9 C13 (``--only-events``, C-D113): webhook delivery of the heavy group's rename, the events
+    at ``position``, to a receiver on ``localhost`` that answers at once. First the dispatcher's claim
+    with ``caught_up`` caught-up subscriptions (one statement however many), which every process runs once a second. Then a ``full`` and an
+    ``identity`` subscription starting just before the rename: one batch of 100 (the claim, the step
+    and the acknowledgement, the receiver's answer included) ``repeat`` times after a warm-up, then
+    the rest of the events, reported with the batches as the whole delivery. Last, one coalesced
+    round over every event. The application's dispatcher thread is off; each step runs here."""
+    dispatcher = client.app.state.consumer_dispatcher
+    assert dispatcher is not None, "the delivery scenarios need the subscriptions capability on"
+    receiver = _Receiver()
+    results: list[Measurement] = []
+
+    def subscribe(**changes: Any) -> str:
+        body = {"consumerApi": CONSUMER_API, "workspaceKey": WORKSPACE, "events": ["catalogue-changed"]}
+        response = client.post(SUBSCRIPTIONS_PATH, json={**body, "url": receiver.url, **changes})
+        assert response.status_code == 201, response.text
+        return response.json()["id"]
+
+    def remove(subscription: str) -> None:
+        version = client.get(f"{SUBSCRIPTIONS_PATH}/{subscription}").json()["version"]
+        response = client.delete(f"{SUBSCRIPTIONS_PATH}/{subscription}", params={"expectedVersion": version})
+        assert response.status_code == 204, response.text
+
+    def step(now: datetime) -> tuple[list[int], Any]:
+        with measure(engine) as cost:
+            claimed = dispatcher.claim(now)
+            for sequence_id in claimed:
+                dispatcher.dispatch_one(sequence_id, now)
+        return claimed, cost
+
+    try:
+        idle = [subscribe(payload="identity") for _ in range(caught_up)]
+        timings = []
+        for run in range(repeat + 1):
+            claimed, cost = step(datetime.now(UTC))
+            assert claimed == []
+            if run or not repeat:
+                timings.append(cost.seconds * 1000)
+        results.append(
+            Measurement(
+                "live",
+                f"delivery: claim with {caught_up} caught-up subscriptions",
+                200,
+                statistics.median(timings),
+                cost.statements,
+                cost.rows_loaded,
+            )
+        )
+        for subscription in idle:
+            remove(subscription)
+
+        for payload in ("full", "identity"):
+            subscription = subscribe(payload=payload, startAfter=position - 1)
+            sent = receiver.requests
+            timings, total_ms, total_statements = [], 0.0, 0
+            for run in range(repeat + 1):
+                claimed, cost = step(datetime.now(UTC))
+                assert len(claimed) == 1 and receiver.requests == sent + run + 1
+                total_ms, total_statements = total_ms + cost.seconds * 1000, total_statements + cost.statements
+                if run or not repeat:
+                    timings.append(cost.seconds * 1000)
+            results.append(
+                Measurement(
+                    "live",
+                    f"delivery: a batch of {EVENT_PAGE}, {payload}",
+                    200,
+                    statistics.median(timings),
+                    cost.statements,
+                    cost.rows_loaded,
+                )
+            )
+            with measure(engine) as rest:
+                dispatcher.run_until_idle(datetime.now(UTC))
+            batches = receiver.requests - sent
+            results.append(
+                Measurement(
+                    "live",
+                    f"delivery: the whole rename, {payload} ({batches} batches)",
+                    200,
+                    total_ms + rest.seconds * 1000,
+                    total_statements + rest.statements,
+                    rest.rows_loaded,
+                )
+            )
+            remove(subscription)
+
+        subscription = subscribe(mode="coalesced", debounceSeconds=1, startAfter=position - 1)
+        sent = receiver.requests
+        claimed, cost = step(datetime.now(UTC) + timedelta(minutes=11))
+        assert len(claimed) == 1 and receiver.requests == sent + 1
+        results.append(
+            Measurement(
+                "live", "delivery: a coalesced round over the rename", 200, cost.seconds * 1000, cost.statements, cost.rows_loaded
+            )
+        )
+        remove(subscription)
+    finally:
+        receiver.close()
+    return results
 
 
 CONSUMER_XREF = f"/api/consumer/{CONSUMER_API}/v1/xref"
@@ -1168,6 +1318,7 @@ def main() -> None:
     publish_error: Exception | None = None
     if arguments.only_events:
         os.environ["MODEL_ADMIN_MUTATIONS_ENABLED"] = "true"
+        os.environ.update(SUBSCRIPTION_SETTINGS)
     server_started = postgres_server.start()
     try:
         with tempfile.TemporaryDirectory() as directory:

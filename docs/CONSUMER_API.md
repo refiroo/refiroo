@@ -681,6 +681,12 @@ DELETE /api/v1/consumer-subscriptions/{id}?expectedVersion=…
   (C-D90), since no state of it is kept (C-D7, C-D89). A read's own names (`workspace`,
   `publication`, `asOf`, `payload`…) and crosswalk targets are not filters. Each value must match a
   record when the subscription is created, edited or resumed (C-D100).
+- **Leaving the scope** (C-D114): since filters read the object's state when the events are sent, a
+  filtered subscription is not told when a record moves out of its scope (a new parent outside an
+  `ancestor` filter) or an edit stops a `related` or `projection` filter matching it: that record's
+  `updated` event is filtered out like any other out of scope. Deletions are told. A receiver that
+  must drop records leaving its scope subscribes with the type filter only and applies the narrower
+  filter itself, or reconciles now and then from the list with the same parameters.
 - **Payload** (C-D7): `full`, the default, delivers each event with the object as get-by-ID answers
   it under the subscription's parameters; `identity` delivers the same events without it.
 - **Where it starts** (C-D97): after the workspace's feed head when it is created, or after an
@@ -844,7 +850,8 @@ downtime or a suspension, and verification. _Delivered in C10 (2026-10-06); the 
   when it no longer exists.
 - **Narrowing.** `event` keeps the named events; the definition's parameters filter as on a list,
   against live data at the read; the type parameter against the type stored with the event; an
-  event whose object no longer exists passes the others (C-D90). `publication`, `asOf` and `to.`
+  event whose object no longer exists passes the others (C-D90). A record that left the parameters'
+  scope is not told by a narrowed read, as for a subscription (C-D114). `publication`, `asOf` and `to.`
   names are `400 PARAMETER_NOT_SUPPORTED`. A narrowed page scans at most ten pages of events and
   may come back short or empty with the cursor advanced.
 - **Versions (C-D88).** Every event of the consumer API is served, each naming the `contractVersion`
@@ -909,7 +916,7 @@ dispatcher (C12) will run beside it. Multi-node coordination is 0.11 work.
 | C10 | Event deriver over the workspace change feed (INTEGRATION_API F6): owning-object resolution through projections, `watch` evaluation, event store, retention, pull feed (C-D87–C-D92, C-D95) — **delivered 2026-10-06** |
 | C11 | Subscription administration: API, filters through definition parameters, host allowlist, suspension on model change and retirement, `payload` (C-D7), the signing key generated on create and sealed at rest (C-D12, C-D96; rotation in 0.12), resume after expired events (C-D93) (C-D96–C-D102) — **delivered 2026-10-06** |
 | C12 | Dispatcher: per-change batches, coalesced debounce, ordering, retry with backoff, suspension (`DELIVERY_FAILED`, `FILTER_MATCHES_NOTHING`, `HOST_NOT_ALLOWED`; resume is C11's); objects composed through get-by-ID for `full` subscriptions with a byte limit per request (C-D7); every request signed (C-D12) — **delivered 2026-10-06** (C-D103–C-D111; `EVENTS_EXPIRED` and `reset` added, C-D93 and C-D94 revised) |
-| C13 | Event acceptance: the scenarios below, plus a bulk-volume delivery budget |
+| C13 | Event acceptance: the scenarios below, plus a bulk-volume delivery budget — **delivered 2026-10-06** (C-D112–C-D114; scenario 10 is 0.12's) |
 | C14 | Batch resolve: `POST …/resolve`, by query and by ID, `defaults`, per-item outcomes, batch maximum, volume budget (C-D47–C-D53) — **delivered 2026-10-05** |
 | C15 | Crosswalk: `targetable` in the contract, `to.{parameter}` on XREF, get by ID, lists and batch resolve, `target`, `TARGET_NOT_FOUND`, `AMBIGUOUS_TARGET` and `MULTIPLE_TARGETS` (C-D54–C-D58) — **delivered 2026-10-05** |
 | C16 | `asOf` on every read, over the model's declared effective periods (Base 0.9 Track Q); `AS_OF_NOT_SUPPORTED`, `asOfApplied` (C-D76–C-D80) — **delivered 2026-10-05** |
@@ -940,7 +947,8 @@ prerequisite: XREF scores the consumer definition's matches itself, not through 
    first unacknowledged event.
 10. _0.12:_ signature verification succeeds with the current key and fails after rotation with the
     old one.
-11. A disallowed or non-HTTPS target is rejected at create and update.
+11. A disallowed or non-HTTPS target is rejected at create and update (plain HTTP is accepted only to a
+    listed loopback host, C-D101).
 12. A model release that removes a subscribed event suspends the subscription with a reason.
 13. The pull feed returns the same events as webhooks, and `410` beyond retention.
 
@@ -968,7 +976,8 @@ table under "Behavior the engine does not carry over" says otherwise:
 13. a list without a parent pinned with `publication=latest` pages every object of the type once, and
     the response names the resolved publication;
 14. after `410 EVENTS_EXPIRED`, a re-sync from a publication's lists and its `eventSequence` misses no
-    change and repeats only already-seen events (with C13);
+    change and repeats only already-seen events (with C13: the pull feed in J30.5, webhooks with
+    `reset` in the events' acceptance);
 15. `asOf` on each side of a period boundary, at the boundary itself and with overlapping periods;
     `AS_OF_NOT_SUPPORTED` for a type with no declared period (SC-11, with C16);
 16. the API index lists every installed definition and its OpenAPI URL.
@@ -982,7 +991,7 @@ C-D47–C-D53 for C14, C-D54–C-D58 for C15, C-D59 for CN1, C-D60–C-D71 for C
 C-D76–C-D80 for C16 and C-D81–C-D86 for C9 on 2026-10-05; C-D87–C-D92 for C10 the same day, with
 C-D93 and C-D94 for C11 and C12 raised while planning it, and C-D95 during its delivery
 (2026-10-06); C-D96–C-D102 for C11 and C-D103–C-D111 for C12 on 2026-10-06, with C-D93 and
-C-D94 revised for C12.
+C-D94 revised for C12; C-D112–C-D114 for C13 the same day.
 
 | # | Question | Decision |
 | --- | --- | --- |
@@ -1097,3 +1106,6 @@ C-D94 revised for C12.
 | C-D109 | When `FILTER_MATCHES_NOTHING` is decided | **Decided 2026-10-06 (C12), revising C-D94.** When the next events are to be sent, before they are; the position stays, so the deletions arrive after the edit and resume |
 | C-D110 | Expired events of an active subscription; a reset | **Decided 2026-10-06 (C12), revising C-D93.** Suspended `EVENTS_EXPIRED` with the lost range and the publication. `resume` takes `reset` (any reason), starting after the feed head; `acknowledgeLoss` is removed |
 | C-D111 | A retried batch | **Decided 2026-10-06 (C12).** Fixed by its range and delivery ID; each attempt reads the range again and composes the objects anew; an edit drops it |
+| C-D112 | How the event scenarios are accepted | **Decided 2026-10-06 (C13).** A scenario a journey test already walks is cited, not tested again; the rest are walked end to end through a receiver on generated A and B and compared with the pull feed and the lists (Base 0.9 C13's table names the test of each). Not on a reference-shaped fixture: events have no reference behaviour to reproduce |
+| C-D113 | The bulk-volume delivery budget | **Decided 2026-10-06 (C13).** A batch of 100 `full` events within 100 ms of engine time; the heavy group's rename (20,001 events) delivered to one subscription within 30 s; the dispatcher's claim with 100 caught-up subscriptions within 10 ms; statements per batch and per claim the same at every size. Figures in POSTGRESQL_BUDGETS §7 |
+| C-D114 | A record that leaves a subscription's filter | **Decided 2026-10-06 (C13).** C-D90's rule stays in 0.9: a filtered subscription is told of the records in its scope and of deletions, not of a record that moves out of the scope or is edited so the filter stops matching it. A receiver that must drop such records subscribes with the type filter only and narrows itself, or reconciles from the list with the same parameters. Telling "left the scope" needs the state before the change, which events do not keep (C-D89); a later fix is in TODO |

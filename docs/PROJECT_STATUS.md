@@ -235,7 +235,16 @@ from the first unacknowledged event (this replaces `acknowledgeLoss`). Several p
 delivery through a lease. The background threads now log a database outage without a traceback
 (C-D103–C-D111, C-D93 and C-D94 revised,
 [record](BASE_0_9_IMPLEMENTATION_PLAN.md#c12-delivery-record)).
-Next: C13, event acceptance, in the order of the
+**C13 is delivered (2026-10-06):** the events are accepted end to end, from a write through the
+deriver and the dispatcher to a receiver, on two generated models: a publish arrives in batches as
+the pull feed has it, work that never reaches live data sends nothing, filters scope deliveries as
+the lists do, a reset and re-sync after expired events misses nothing, and a running application
+delivers on its own. At full volume one subscription receives about 3,500 events a second, a batch
+of 100 costs 61 ms and the dispatcher's idle claim 5 ms. A filtered subscription is not told when a
+record leaves its filter's scope; this is now documented with the workarounds, and a fix is in TODO
+for the user to place (C-D112–C-D114,
+[record](BASE_0_9_IMPLEMENTATION_PLAN.md#c13-delivery-record)). The events line (C9–C13) is complete.
+Next: U3, in the order of the
 [delivery queue](BASE_0_9_IMPLEMENTATION_PLAN.md#delivery-queue) (U4 waits for U3).
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).

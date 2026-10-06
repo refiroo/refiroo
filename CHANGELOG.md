@@ -8,6 +8,17 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 C13: the events' acceptance. The CONSUMER_API event scenarios are walked end to end,
+  from a write through the deriver and the dispatcher to a receiver, on two generated models: a
+  publish delivered in batches exactly as the pull feed has it, work that never reaches live data
+  (a rolled-back batch, a refused write, a validated and discarded change set) sending nothing,
+  filters scoping deliveries as the lists do, a reset and re-sync after expired events missing
+  nothing, and a running application delivering on its own. Webhook delivery has a volume budget
+  (C-D113): the dispatcher's claim, a delivered batch and a coalesced round hold their statements
+  as the data grows, with full-volume figures in POSTGRESQL_BUDGETS §7. CONSUMER_API, OPERATIONS
+  and the journeys now say that a filtered subscription is not told when a record leaves its
+  filter's scope, and how a receiver handles it (C-D114).
+
 - Base 0.9 C12: webhook delivery. While `CONSUMER_SUBSCRIPTIONS_ENABLED` is on, a dispatcher thread
   in the API process sends each active subscription's events to its URL, in position order, one
   request at a time per subscription.

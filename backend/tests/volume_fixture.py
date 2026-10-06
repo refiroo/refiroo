@@ -1309,6 +1309,8 @@ def volume_app(directory: Path, shape: VolumeShape) -> Iterator[tuple[Any, Volum
             # Its once-a-second poll would land in the statements a test counts; a test that
             # measures derivation runs the deriver itself (C10).
             app.state.run_event_deriver = False
+            # Likewise the webhook dispatcher's, when subscriptions are on: a test runs it (C13).
+            app.state.run_consumer_dispatcher = False
             with TestClient(app) as client:
                 yield client, VolumeDataset.from_payload(payload["dataset"])
     finally:

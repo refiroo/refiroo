@@ -521,3 +521,29 @@ Derivation is not a request: it runs on the deriver's thread a moment after the 
 write never waits for it. Its 502 rows are the page's 500 entries read to plan it (C10's "decide"
 step); the fan-out itself stays in PostgreSQL, so the rename costs the same 5 statements at every
 size. The reads are within the 100 ms budget.
+
+### Webhook delivery (0.9 C13)
+
+Measured once at full volume (110,254 objects; 2026-10-06) with the same run as the events above
+(`volume_baseline.py --only-events --scale 1 --repeat 3`; the seed rebuilt after C12's migration,
+332 s). The heavy group's rename (20,001 events at one position) is delivered to a receiver on
+`localhost` that answers `200` at once, so the times are the engine's, with one local HTTP exchange
+per batch. A batch is the dispatcher's claim, its step and the acknowledgement (warm median of three
+batches · statements · ORM rows). `test_consumer_event_volume` holds the statements of the claim, a
+batch of each payload and the coalesced round at two sizes (C-D113).
+
+| Step | Live | Budget (C-D113) |
+| --- | --- | --- |
+| The claim, 100 subscriptions caught up (every process, once a second) | 4.9 ms · 1 · 0 | 10 ms |
+| A batch of 100 events, `full` | 61.1 ms · 24 · 105 | 100 ms |
+| A batch of 100 events, `identity` | 22.4 ms · 20 · 105 | — |
+| The whole rename to one subscription, `full` (201 batches) | 5,755 ms · 4,825 · 20,586 | 30 s |
+| The whole rename to one subscription, `identity` (201 batches) | 4,033 ms · 4,021 · 20,586 | — |
+| A coalesced round over the 20,001 events | 34.6 ms · 15 · 5 | — |
+
+Every step is within its budget: one subscription takes about 3,500 `full` events a second (about
+5,000 with `identity`). A batch's statements do not grow with the data (24 and 20 at every size); the
+whole delivery's are its batches'. A `full` batch is the pull feed's `full` page (19.9 ms in the same
+run) plus the claim, the pending batch's commit, the POST and the acknowledgement. A slow receiver
+adds its own time to each batch: subscriptions are delivered four at a time per process (C-D106), so
+one slow receiver delays only its own.

@@ -16,8 +16,8 @@ read, D31), [B3](#b3-relation-and-relation-set-items) (2026-10-03, D35–D39),
 [T1a](#t1a-copies-inside-the-database) (2026-10-04), [T1b](#t1b-one-error-code-pattern) (2026-10-04),
 [C2](#c2-consumer-object-and-projections) (2026-10-04, C-D21–C-D26), C3–C5 and
 [C14](#c14-batch-resolve) (2026-10-05, C-D47–C-D53), [C15](#c15-crosswalk) (2026-10-05, C-D54–C-D58),
-[CN1](#cn1-the-consumer-apis-name-in-public-contracts) (2026-10-05, C-D59), [C6a](#c6a-publications) (2026-10-05, C-D60–C-D68), [C6b](#c6b-the-contract-documents) (2026-10-05, C-D69–C-D70), [V2](#v2-consumer-sources) (2026-10-05), [C8](#c8-parity-acceptance) (2026-10-05, C-D72–C-D75), [C16](#c16-asof-in-the-consumer-tier) (2026-10-05, C-D76–C-D80), [C9](#c9-event-definitions) (2026-10-05, C-D81–C-D86), [C10](#c10-event-deriver-event-store-and-pull-feed) (2026-10-06, C-D87–C-D92, C-D95), [U2](SETTINGS_AND_UI_PLAN.md#u2-delivery-record) (2026-10-06, U-D7–U-D9), [C11](#c11-subscriptions) (2026-10-06, C-D96–C-D102), [C12](#c12-the-dispatcher) (2026-10-06, C-D103–C-D111).
-**Next:** C13, in the order of the [delivery queue](#delivery-queue) (U4 waits for U3).
+[CN1](#cn1-the-consumer-apis-name-in-public-contracts) (2026-10-05, C-D59), [C6a](#c6a-publications) (2026-10-05, C-D60–C-D68), [C6b](#c6b-the-contract-documents) (2026-10-05, C-D69–C-D70), [V2](#v2-consumer-sources) (2026-10-05), [C8](#c8-parity-acceptance) (2026-10-05, C-D72–C-D75), [C16](#c16-asof-in-the-consumer-tier) (2026-10-05, C-D76–C-D80), [C9](#c9-event-definitions) (2026-10-05, C-D81–C-D86), [C10](#c10-event-deriver-event-store-and-pull-feed) (2026-10-06, C-D87–C-D92, C-D95), [U2](SETTINGS_AND_UI_PLAN.md#u2-delivery-record) (2026-10-06, U-D7–U-D9), [C11](#c11-subscriptions) (2026-10-06, C-D96–C-D102), [C12](#c12-the-dispatcher) (2026-10-06, C-D103–C-D111), [C13](#c13-event-acceptance) (2026-10-06, C-D112–C-D114).
+**Next:** U3, in the order of the [delivery queue](#delivery-queue) (U4 waits for U3).
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
 Effective dates and consumer API definitions extend the model, so the starter becomes content release
@@ -237,7 +237,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 25 | [C11](#c11-subscriptions) | C10 | Subscriptions API, signing key, allowlist, suspension on model change and retirement (C-D96–C-D102) — **delivered 2026-10-06** ([record](#c11-delivery-record)) |
 | 26 | [C12](#c12-the-dispatcher) | C11 | Dispatcher: per-change and coalesced delivery, signing, retries, the delivery suspensions (C-D103–C-D111) — **delivered 2026-10-06** ([record](#c12-delivery-record)) |
 | 26a | [U5](SETTINGS_AND_UI_PLAN.md#packages-track-u) | U4, C12 | Settings › Integration › Webhooks over the subscriptions API (U-D3) |
-| 27 | C13 | C12 | Event acceptance; the events line's checkpoint |
+| 27 | [C13](#c13-event-acceptance) | C12 | Event acceptance; the events line's checkpoint; the delivery budget (C-D112–C-D114) — **delivered 2026-10-06** ([record](#c13-delivery-record)) |
 | 27a | [U2](SETTINGS_AND_UI_PLAN.md#u2-the-foundation-and-the-shell) | U1 | UI foundation: token layers, regions, data-context band, `PageHeader`, `StatusPill` and `Card`, the shell (U-D7–U-D9) — **delivered 2026-10-06** ([record](SETTINGS_AND_UI_PLAN.md#u2-delivery-record)) |
 | 27b | [U3](SETTINGS_AND_UI_PLAN.md#u3-the-settings-area) | U2 | Settings area: About, Appearance, Deployment (read-only, U-D2), Workspaces and Model moved; `GET /api/v1/system`; planned 2026-10-06 (U-D10 decided, U-D11 proposed); no C-track dependency, stays after C13 by the user's choice |
 | — | _cut line (D9)_ | | _If R is out of reach, 0.9.0 releases here with R-a and Track J moves to 0.9.1_ |
@@ -5463,6 +5463,216 @@ mapping coverage are untouched, and the store gains delivery state only, no reco
 - **Not run:** `volume` (the split read issues the same statements; the bulk delivery budget is
   C13's), `model_admin` and `workspaces` (their hooks are unchanged), the frontend (unchanged),
   `budget` and the full suites (R).
+
+#### C13: Event acceptance
+
+**Delivered 2026-10-06** ([record](#c13-delivery-record)). Planned 2026-10-06; C-D112–C-D114 and the test cases approved by the user the same day.
+**Needs:** C12 (delivered). **Groups:** `feed`, `consumer`, `volume` (the events line's checkpoint
+run, as C8 ran the read line's).
+**Design:** CONSUMER_API "C13 event scenarios", "Subscriptions (runtime, not model)", "Delivery",
+"Pull feed"; C8 scenario 14; C-D7, C-D89, C-D90, C-D94, C-D103–C-D110.
+
+**Behaviour.** The events line's checkpoint, as C8 was the read line's. C9–C12 each proved its own
+mechanism: events in the pull feed (C10), subscriptions (C11), delivery (C12). C13 proves the
+CONSUMER_API scenarios end to end, from a write through the deriver and the dispatcher to a
+receiver, compared with the pull feed and the lists. It also adds the delivery budget the
+scenarios name, which C10's budgets did not cover. No journey is added and no product change is
+planned. A case that finds a defect is fixed in C13 when the fix stays in the events code; anything
+larger becomes an amendment package ("Deviations"). C-D114 may add documentation only.
+
+**What exists today** (checked 2026-10-06):
+
+| # | CONSUMER_API scenario | Evidence today | Left for C13 |
+| --- | --- | --- | --- |
+| 1 | A watched field makes `updated`, an unwatched one none | J30.1 (`test_an_objects_own_changes_are_told`: the watched event leaves out the score change) | — |
+| 2 | Editing a projected record updates its owner, naming the projection | J30.2 (the K's rename) | — |
+| 3 | Deleting the projecting relation updates the former owner | J30.2 (last step) | — |
+| 4 | A publish with many changes: one event per object, one cause, in batches | J30.3 (a publish of two changes, pull feed); J30.8 batches (250 items from a batch job, not a publish) | A publish of more than 100 changes, delivered |
+| 5 | A rolled-back write makes no event | J30.3 (a refused write; an independent batch's failed item); J26 (an atomic batch rolled back, raw feed only) | The atomic rollback, at the events and the receiver |
+| 6 | Change-set edits, validation and discard make no event | J30.3 (edits); J26 (validation and discard, raw feed only) | Validation and discard, at the events and the receiver |
+| 7 | Filters scope deliveries as the list or XREF parameters do | J30.4 (pull feed: type, related and projection narrowings against a list); J30.8 (a type filter that matches nothing sent) | A delivered, filtered subscription compared with the list; a record leaving the scope (C-D114) |
+| 8 | Coalesced mode: once after the debounce, at the maximum wait | J30.8 (`test_a_coalesced_subscription_is_told_once_the_changes_pause`) | — |
+| 9 | A failing receiver: retries in order, suspension, resume delivers everything | J30.9 (retries; 24 hours; resume) | — |
+| 10 | _0.12:_ signature fails after rotation | Signing in 0.9 is verified by J30.8; rotation is 0.12 (C-D1, C-D12) | Out of scope |
+| 11 | A disallowed or non-HTTPS target refused at create and update | J30.6 (`test_a_subscription_the_definition_or_deployment_cannot_serve_is_refused`, create and edit) | — (wording, below) |
+| 12 | A release removing a subscribed event suspends with a reason | J30.7 | — |
+| 13 | The pull feed and webhooks carry the same events; `410` beyond retention | J30.8 (one request against the pull feed); J30.5 (`410`) | The same comparison over many batches and a publish |
+| C8 14 | After `410`, a re-sync from a publication misses nothing and repeats only seen events | J30.5 (the publication's list and the events after its `eventSequence` end at live data) | The webhook form: `EVENTS_EXPIRED`, `reset`, re-sync (C-D110's order) |
+| — | A bulk-volume delivery budget | C10 measured derivation and the pull feed at full volume (POSTGRESQL_BUDGETS §7) | Delivery not measured |
+
+Also found:
+
+- **No kept test runs the two threads.** The journey application starts neither the deriver nor
+  the dispatcher (`run_event_deriver`, `run_consumer_dispatcher` false); tests drive them with
+  `derive_events` and `dispatch`. C12 ran the dispatcher's thread once in a throwaway case.
+  Nothing kept shows that a write reaches a receiver on its own in a running application.
+- **A record leaving a filter's scope is never told to that subscription.** Filters apply to the
+  object's live state when the events are read or sent (C-D90), and no earlier state is kept
+  (C-D7, C-D89). A record moved to a parent outside an `ancestor` filter, or edited so that a
+  `related` or `projection` filter no longer matches it, has its `updated` event filtered out. A
+  receiver following the filtered subscription keeps a copy it should drop, and nothing tells it.
+  Deletions pass every filter but the type (C-D90), so this concerns moves and edits only. Neither
+  CONSUMER_API, USER_JOURNEYS nor OPERATIONS states it. C-D114.
+- **The dispatcher's cost.** The claim takes only subscriptions with events of their API waiting
+  (`EXISTS` on `consumer_events`), so a caught-up subscription costs a share of one statement per
+  second per process. A step reads the definition, the event window, each filter's values
+  (`unmatched_values`) and a page (`event_page`), then commits the pending batch and, after the
+  POST, the acknowledgement. Not measured at volume.
+- **Documents that differ from the code:** USER_JOURNEYS J30.7 still says a resume after expired
+  events is "refused unless the loss is acknowledged" (`acknowledgeLoss`, replaced by `reset` in
+  C12, C-D110). CONSUMER_API scenario 11 says a "non-HTTPS" target is refused, while C-D101 allows
+  plain HTTP to a listed loopback host. Both are corrected in C13's documents.
+
+**Design.**
+
+- **Acceptance module** `tests/journeys/test_j30_acceptance.py` (journey `J30`), on generated A
+  and B with J30's structures (`LEDGER`) and settings (`SUBSCRIPTIONS`), reusing J30's helpers and
+  C12's `Receiver`. No new configuration and no new seed (C-D112).
+- **The comparison** used by several cases: the requests a receiver got, flattened, against the
+  pull feed read after the same position with the same events, filters and payload, by
+  `(eventId, position, change, id, changed)`; with `full`, each object against get by ID. Objects
+  are composed when sent (C-D7), so they are compared with get by ID at the end, not with each
+  other.
+- **Delivery budget** (C-D113): `volume_baseline.event_scenarios` (`--only-events`) gains the
+  delivery steps after the heavy group's rename (20,001 events at one position), with a receiver on
+  `localhost` that answers `200` at once: a `full` and an `identity` subscription created before
+  the rename and delivered through its events by `run_until_idle`; the cost of one batch (claim,
+  step, acknowledgement: time, statements, ORM rows); the whole delivery; a coalesced round over
+  the 20,001 events; and the claim with 100 caught-up subscriptions. `test_consumer_event_volume`
+  holds the statements of a batch and of the claim at its two sizes. The full volume is measured
+  once and recorded in POSTGRESQL_BUDGETS §7.
+- **No migration, route, setting or frontend.**
+
+**Decisions** (status per row):
+
+| # | Question | Decision |
+| --- | --- | --- |
+| C-D112 | How C13 proves the scenarios | **Approved 2026-10-06.** As C8 and T1 did: a scenario a journey test already walks is cited in the table above, not tested again; the gaps get one composed module through a real receiver on generated A and B, compared with the pull feed and the lists. Not on C8's `parity` fixture or the operators model: events have no reference behaviour to reproduce, and scenario 2's "system value" is the example of a projected record, which J30.2 walks on both configurations. The cases test delivered behaviour, so except case 3's leaving-the-scope step (C-D114) they are expected to pass on the first run; that is recorded, not engineered around |
+| C-D113 | The bulk-volume delivery budget | **Approved 2026-10-06.** The rename of the heavy group (20,001 events at one position, C10's fan-out) delivered to one subscription with a receiver that answers at once. **A batch of 100 `full` events within 100 ms** of engine time (claim, step and acknowledgement, the receiver's time excluded), the read budget: the pull feed's `full` page takes 25.5 ms (C10), and the send and two commits are added. **The whole delivery within 30 s** (about 670 events a second for one subscription); estimated at about 10 s (201 batches at about 45 ms), not measured. **The claim with 100 caught-up subscriptions within 10 ms**, since every process runs it once a second. Statements per batch and per claim equal at both sizes. One full-volume run, announced at delivery: about 6 minutes if the volume seed is rebuilt after C12's migration, about 2 otherwise. A figure over its budget is recorded with its cause, as C16's were; fixing it is the user's call |
+| C-D114 | A record that leaves a subscription's filter | **Approved 2026-10-06.** Keep C-D90's rule in 0.9 and state its consequence where a receiver's author reads it (CONSUMER_API Subscriptions and Pull feed, OPERATIONS Delivery, USER_JOURNEYS J30.4 and J30.8): a filtered subscription is told of the records in its scope, and of deletions; it is not told when a record moves out of the scope or an edit stops it matching. A receiver that must drop such records subscribes with the type filter only and applies the narrower filter itself, or reconciles from the list with the same parameters. Case 3 pins the behaviour. Not fixed now because telling "left the scope" needs the object's state before the change, which events do not keep (C-D89), while filters are read at send time; checking each filter kind (`ancestor`, `related`, `projection`) against a before state is a design of its own. Not checked: how much of a before state the audit entries already hold. A TODO for the user to place; the alternative is an amendment package before R |
+
+**Journey.** No new journey or variant. J30's status says the events are closed by C13;
+USER_JOURNEYS' J30 "Evidence today" names the acceptance module.
+
+**Test cases** (approved by the user 2026-10-06; journey tests on generated A and B; each a few calls, named by its
+CONSUMER_API scenario):
+
+1. **Scenarios 4 and 13: a publish delivered.** Given a `full` and an `identity` subscription to
+   the event over every change. When a change set creates 150 R by one batch, renames one existing
+   R twice and deletes another, and is published. Then each receiver gets requests of at most 100
+   events in position order, each after the previous one was answered; one event per changed
+   object, the twice-renamed one once; every event's cause the publication, at or below its
+   `eventSequence`. What each received equals the pull feed's read with its events and payload,
+   and each `full` object equals get by ID.
+2. **Scenarios 5 and 6: what makes no event.** Given a `full` subscription. When an atomic batch
+   whose last item is refused is rolled back, a write with a stale version is refused, and a change
+   set is edited, validated and discarded; then one record is renamed live. Then the receiver gets
+   one request holding only the rename's events, and `acknowledgedThrough` is the feed's head.
+3. **Scenario 7 and C-D114: filters scope as the lists do.** Given three subscriptions narrowed
+   by the definition's type, related and projection parameters, one each. When records in and out
+   of each scope are created, changed and deleted. Then each receiver got the events of exactly the
+   objects the list returns under the same parameter, plus the deletions of its type. When the
+   relationship that put an R in the related filter's scope is removed, the list no longer returns
+   it and that subscription receives nothing of the change (C-D114's rule), while the unfiltered
+   subscription receives the `updated` event.
+4. **C8 scenario 14 and C-D110: a re-sync after expiry.** Given a `full` subscription suspended by
+   hand while records are written and a change set is published, then the entries aged past
+   retention (as J30.5). When it is resumed, the answer is `409 EVENTS_EXPIRED` naming `reset`;
+   resumed with `reset`, one more record is written, then the receiver reads the live list and
+   applies what it receives for further writes and deletions. Then its copy equals the live list:
+   nothing missed, and the only event repeated is the write between the reset and the list read,
+   for an object the list already gave.
+5. **The threads deliver on their own.** Given the application started as a deployment runs it,
+   with the deriver's and the dispatcher's threads (the two run flags on), and a subscription. When
+   a record is created. Then the receiver gets its event within 10 s, without the test driving
+   either thread; on shutdown both threads stop and the subscription holds no lease. (It waits on
+   real time, about 2 s: one poll of each thread.)
+6. **Volume:** `test_consumer_event_volume` holds the statements of a delivered batch and of the
+   claim at the small and large sizes, and the ORM rows a batch loads within
+   `ROWS_PER_LISTED_ROW` per event.
+
+No unit tests: C13 adds no logic.
+
+**Checks:** the acceptance module on generated A and B; `test_consumer_event_volume`; then the
+groups `feed`, `consumer` and `volume` together once (the checkpoint run). C12's `consumer` run took
+1 min 54 s alone, so together they may exceed the 2-minute ceiling: announced with the expected time
+at delivery, and run on the user's go-ahead. The full-volume `--only-events` run once (C-D113),
+announced. `ruff`. Not run: `startup` (no migration; case 5 starts the threads through the
+lifespan), `contract` (no route or code changes), the frontend, the browser runners, `budget` and
+the full suites (R).
+
+**Exit:** every C13 scenario but 10 has a journey test that passes on generated A and B; the
+delivery budget is measured and recorded; C-D114 is decided and documented. Each failure is fixed
+as an amendment or recorded against its package before the queue continues.
+
+**Docs at delivery:** CONSUMER_API (the C13 row delivered; scenario 11 worded as C-D101; C8
+scenario 14's "(with C13)" closed; C-D112–C-D114; C-D114's consequence under Subscriptions and
+Pull feed); POSTGRESQL_BUDGETS §7 (the delivery rows); OPERATIONS (Delivery: throughput, and a
+receiver whose records leave its filter); USER_JOURNEYS (J30's status; J30.7's resume corrected to
+`reset`; J30.4 and J30.8 the leaving-the-scope sentence; evidence); API_JOURNEYS; EXECUTION_GUIDE
+(the module, counts); TODO (C-D114's follow-up for the user to place; the roadmap item "Ordered
+change feed and retryable webhooks" checked); CHANGELOG, PROJECT_STATUS.
+
+**Composable domains (ADR-032):** no door is affected. C13 adds tests, a budget and documents; the
+event store, identity, attribute storage, audit/history, the bulk APIs, `match` and mapping coverage
+are untouched. C-D114's later fix, if the user places one, would read the audit's before state and
+states its door then.
+
+##### C13 delivery record
+
+**Delivered 2026-10-06**, with C-D112–C-D114 as approved and the approved cases.
+
+- **Acceptance module** (`tests/journeys/test_j30_acceptance.py`, journey `J30`): the five cases
+  on generated A and B (10 tests), through C12's `Receiver`, compared with the pull feed
+  (`_feed`) and the R list (`_listed`, every page).
+- **Delivery budget** (C-D113): `volume_baseline.delivery_scenarios`, run by `event_scenarios`
+  (`--only-events`), with a receiver on `localhost` that answers at once: the claim with caught-up
+  subscriptions, a batch of each payload, the whole rename, a coalesced round. `SUBSCRIPTION_SETTINGS`
+  turns the capability on for the run and for `test_consumer_event_volume`, which holds the
+  statements of the claim, both batches and the round at its two sizes. `volume_app` now also keeps
+  the dispatcher's thread off, as it does the deriver's.
+- **C-D114** documented: CONSUMER_API ("Leaving the scope" under Subscriptions, the pull feed's
+  narrowing), OPERATIONS (Delivery), USER_JOURNEYS (J30.4, J30.8); the fix is a TODO for the user to
+  place.
+- **Docs**: CONSUMER_API (the C13 row, scenario 11's wording, C8 scenario 14 closed,
+  C-D112–C-D114), POSTGRESQL_BUDGETS §7 (Webhook delivery), OPERATIONS (throughput, filtered
+  subscriptions), USER_JOURNEYS (J30's status and evidence; J30.7's resume corrected to `reset`),
+  EXECUTION_GUIDE (the module in `feed`, the delivery rows, counts), TODO (the roadmap item
+  checked, C-D114's follow-up), CHANGELOG, PROJECT_STATUS. API_JOURNEYS unchanged: no route, code or
+  parameter changed.
+
+**Figures** (full volume, 110,254 objects, POSTGRESQL_BUDGETS §7): the claim with 100 caught-up
+subscriptions 4.9 ms · 1 statement (budget 10 ms); a batch of 100 `full` events 61.1 ms · 24
+(budget 100 ms), `identity` 22.4 ms · 20; the rename's 20,001 events to one subscription 5.8 s
+`full` (budget 30 s) and 4.0 s `identity`, 201 batches each; a coalesced round 34.6 ms · 15. Every
+budget is met; the plan's estimate (about 45 ms a batch, 10 s in all) was close for the whole and
+low for the batch.
+
+**Differs from the plan:**
+- **Case 3's removed record** is related to a token of its own: B11 is one-to-one, so a second
+  record cannot be related to the filtered token. Its deletion passes every filter either way
+  (C-D90), which is what the step shows.
+- **`test_consumer_event_volume` uses 10 caught-up subscriptions**, not 100: with 100 it rose to
+  11.4 s (over the 10 s line), spent creating and deleting subscriptions, while the claim is one
+  statement however many there are. The full-volume run keeps 100. It now takes 5 s.
+- **The checkpoint run took 1 min 24 s**, within the 2-minute ceiling, not over it as the plan
+  feared.
+
+**Found:** no defect. Every case passed on its first run, as C-D112 expected for delivered
+behaviour; case 3's leaving-the-scope step confirms C-D114's rule (the token-filtered subscription
+gets nothing when the relationship is removed; the type-filtered one gets the update).
+
+**Checks:**
+- **Targeted:** `test_j30_acceptance` 10 passed (generated A and B, 22 s);
+  `test_consumer_event_volume` 2 passed.
+- **The events line's checkpoint** (`feed`, `consumer`, `volume` together, in parallel): 484
+  passed in 1 min 24 s; serial part 1 passed. Groups now: `feed` 166, `consumer` 376, `volume` 77.
+- **Full volume** `volume_baseline.py --only-events --scale 1 --repeat 3`, once, announced and
+  approved (seed rebuilt, 332 s; about 7 minutes in all).
+- `ruff check app/ tests/`: clean.
+- **Not run:** `startup` (no migration; case 5 starts the deriver's and the dispatcher's threads
+  through the lifespan of a second application on the same database), `contract` (no route or code
+  changed), the frontend (unchanged), the browser runners, `budget` and the full suites (R).
 
 ## Track V — API reference
 

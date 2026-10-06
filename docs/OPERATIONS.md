@@ -197,6 +197,13 @@ release and are not copied by one.
   | `EVENTS_EXPIRED` | Events expired before they were delivered: the dispatcher did not run for `FEED_RETENTION_DAYS` (the capability was off, or no process ran) | Resume with `reset`, then re-sync the receiver from the publication the details name |
 
   Each suspension is one WARNING line in the log.
+- **Filtered subscriptions and records leaving their scope.** Filters are applied to each record as
+  it is when its events are sent. A record moved out of a filtered scope, or edited so a filter no
+  longer matches it, is therefore not sent to that subscription, and its receiver keeps its copy;
+  deletions are always sent. A receiver that must drop such records subscribes with the type filter
+  only and narrows on its side, or reconciles now and then from the consumer list with the same
+  parameters ([CONSUMER_API "Subscriptions"](CONSUMER_API.md#subscriptions-runtime-not-model),
+  C-D114).
 - **Addresses.** The host is resolved at each attempt; a link-local address (`169.254.0.0/16`,
   `fe80::/10`, where cloud metadata services listen) is always refused, and a loopback address
   unless the URL names a loopback host. Private addresses are allowed: the allowlist decides which
@@ -204,6 +211,11 @@ release and are not copied by one.
 - **TLS** is verified against the system's trust store. For receivers with certificates from an
   internal CA, point `SSL_CERT_FILE` at a bundle that includes it. **No outbound proxy** is used in
   0.9: the API process needs direct HTTPS access to the receivers.
+- **Throughput.** Measured at full volume, one subscription receives about 3,500 events a second
+  with the full payload (about 5,000 with `identity`) from a receiver that answers at once: 20,001
+  events from one rename arrive in about 6 seconds, in 201 requests. A receiver's own answer time
+  adds to every request, and a process delivers four subscriptions at a time. Figures in
+  [POSTGRESQL_BUDGETS §7](POSTGRESQL_BUDGETS.md#webhook-delivery-09-c13).
 - **Several processes** share delivery through a lease per subscription (60 s): each subscription is
   delivered by one process at a time, in order. Turning the capability off stops delivery; stored
   subscriptions continue when it is turned on again, and those whose events expired meanwhile are

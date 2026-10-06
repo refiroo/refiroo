@@ -1037,7 +1037,7 @@ statements in `test_consumer_xref_volume`.
 
 **Actor:** integrator; operator (subscriptions). **Channel:** API. **Stories:** US-I05. **Status:**
 the pull feed delivered (0.9 C10); subscriptions managed from 0.9 C11 and delivered as webhooks
-from C12; C13 closes the events ([CONSUMER_API.md](../CONSUMER_API.md)).
+from C12; the events accepted end to end in C13 ([CONSUMER_API.md](../CONSUMER_API.md)).
 
 1. Read the events a consumer API declares for a workspace, in position order, from a position (`0`,
    or a publication's `eventSequence`), a page at a time by cursor until caught up.
@@ -1060,7 +1060,9 @@ from C12; C13 closes the events ([CONSUMER_API.md](../CONSUMER_API.md)).
   or `updated` with `objectType`, as seen from each event.
 - **J30.4 Reading**: `event`, and the definition's parameters as a list applies them; an event whose
   object no longer exists passes every parameter but the type. A position holding many events is
-  read whole by cursor; a caught-up cursor later returns the next events. `payload=full` (default)
+  read whole by cursor; a caught-up cursor later returns the next events. A record that leaves the
+  parameters' scope (moved, or edited so they stop matching) is not told by a narrowed read; its
+  deletion is. `payload=full` (default)
   carries the object as get by ID answers it with the same parameters, `payload=identity` the same
   events without it. An entity tag answers `304` until a new event is derived.
 - **J30.5 An expired position**: events expire with the change feed's retention, never past the
@@ -1079,15 +1081,17 @@ from C12; C13 closes the events ([CONSUMER_API.md](../CONSUMER_API.md)).
   each finding); one that only raises the contract version suspends it until resumed
   (`CONTRACT_VERSION_CHANGED`). Retiring its workspace suspends it (`WORKSPACE_RETIRED`). A resume
   re-checks the subscription and lists what to fix; after its unacknowledged events expired it is
-  refused unless the loss is acknowledged, naming the lost positions and the publication to re-sync
-  from. A workspace with subscriptions cannot be deleted.
+  refused `EVENTS_EXPIRED`, naming the lost positions, the publication to re-sync from and `reset`,
+  which starts after the feed's head instead (J30.9). A workspace with subscriptions cannot be deleted.
 - **J30.8 Receive**: an active subscription's receiver gets its events in position order: per
   change, requests of up to 100 events (and at most 1 MiB), each event with the object as get by ID
   answers it under the subscription's filters, or only its identity; coalesced, one notice per event
   once the changes pause for the debounce, or after ten minutes of continuous change. Each request
   is signed with the subscription's key over its timestamp and body. A `2xx` answer acknowledges the
   request and the next follows; events outside the subscription's events or filters are not sent,
-  and the subscription's position moves past them. The subscription shows when it last delivered.
+  and the subscription's position moves past them; so is the change by which a record leaves the
+  filters' scope, so a receiver that must drop such records filters by type only and narrows
+  itself. The subscription shows when it last delivered.
 - **J30.9 A receiver that fails, or a subscription that cannot continue**: a failed request (an
   error status, a redirect, no answer within the timeout, an address refused) is retried with the
   same delivery ID and events, nothing later is sent past it, and the subscription shows the
@@ -1110,8 +1114,12 @@ WORKSPACE_NOT_FOUND`, `404 SUBSCRIPTION_NOT_FOUND`; `409 VERSION_CONFLICT`,
 `EVENT_POSITION_AHEAD`, `EVENTS_EXPIRED` (resume), `WORKSPACE_HAS_SUBSCRIPTIONS`; `410
 EVENTS_EXPIRED` (`startAfter`).
 
-**Evidence today:** the J30 journey tests (`test_j30_consumer_events`); the deriver's plan in
-`tests/unit/engine/events/`; its cost in `test_consumer_event_volume`.
+**Evidence today:** the J30 journey tests (`test_j30_consumer_events`, `test_j30_subscriptions`,
+`test_j30_delivery`), and the events' acceptance end to end through a receiver
+(`test_j30_acceptance`: a publish in batches as the pull feed has it, work that never reaches live
+data, filters as the lists scope, a reset and re-sync after expiry, a running application
+delivering on its own); the deriver's plan and delivery in `tests/unit/engine/events/`; their cost
+in `test_consumer_event_volume`.
 
 ## Operations
 

@@ -49,8 +49,10 @@ bundled fonts, the top bar, rail and data-context band, `PageHeader`, `StatusPil
 (2026-10-06)**: webhook subscriptions, their sealed signing keys, the host allowlist and the
 suspensions on activation and retirement (C-D96–C-D102). **C12 is delivered (2026-10-06)**: webhook
 delivery, signed, in order, retried for 24 hours, with the dispatcher's suspensions, `reset` on
-resume and the background threads' outage logging (C-D103–C-D111). Next: C13, in the order of the
-delivery queue (U4 waits for U3). See [Next — 0.9](#next--09).
+resume and the background threads' outage logging (C-D103–C-D111). **C13 is delivered
+(2026-10-06)**: the events' acceptance end to end, the delivery budget, and C-D114's rule for
+records leaving a filter's scope documented (C-D112–C-D114). Next: U3, in the order of the delivery
+queue (U4 waits for U3). See [Next — 0.9](#next--09).
 
 - **For U3, from C11 (2026-10-06).** The Workspaces page words no hint for `deleteBlockedBy:
   subscribed` (a workspace with webhook subscriptions); delete stays disabled. Add the hint ("Delete
@@ -59,6 +61,12 @@ delivery queue (U4 waits for U3). See [Next — 0.9](#next--09).
   connects to receivers directly (C-D107); a deployment that reaches the internet only through an
   HTTPS proxy cannot deliver. Adding one means connecting through the proxy while keeping the
   address check (C-D107) meaningful, since the proxy, not the engine, then resolves the host.
+- **For the user to place, from C13 (2026-10-06): telling a filtered subscription that a record left
+  its scope (C-D114).** Filters read a record's state when its events are sent, so a record moved
+  out of an `ancestor` filter, or edited so a `related` or `projection` filter stops matching, is
+  not sent; the receiver keeps a copy it should drop. Documented in 0.9, with the workarounds. A fix
+  needs the record's state before the change for each filter kind, which events do not keep
+  (C-D89); how much of it the audit entries already hold was not checked.
 
 - **For U6, from U2 (2026-10-06).** Boolean and other values still render as green "Yes" and grey
   "No" pills (`ui/formatValue`). ADR-039 asks for plain text, with pills kept for states and
@@ -159,12 +167,12 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   (2026-10-01); relation and relation-set items as B3 (2026-10-03).
 - [ ] Asynchronous CSV/XLSX import and export with validation previews; import runs an import profile
   (revised D3, [MODEL_AUTHORING A1](MODEL_AUTHORING.md#delivery)).
-- [ ] Ordered change feed and retryable webhooks. The feed read with positions in commit order is
+- [x] Ordered change feed and retryable webhooks. The feed read with positions in commit order is
   delivered as 0.9 F1 (2026-10-03), retention and recovery as F2 (2026-10-03), event definitions
   as C9 (2026-10-05), the events and their pull feed as C10 (2026-10-06), subscriptions with their
   signing keys, suspensions and C-D93's resume as C11 (2026-10-06), webhook delivery with
   full-object batches, a byte limit, signing, retries and the delivery suspensions as C12
-  (2026-10-06); the events' acceptance (C13) remains.
+  (2026-10-06), and the events' acceptance as C13 (2026-10-06).
 - [x] Cross-type object lookup `GET /objects` (P1), moved from 0.8 (D20): delivered as 0.9 Q1
   (2026-09-29).
 - [x] A general relation edge list with publication context (P3), moved from 0.8 (D20): delivered as
