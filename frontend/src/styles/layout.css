@@ -367,10 +367,7 @@ fieldset.settings-section legend {
   font-size: 14px;
   font-weight: 500;
 }
-.collection-tree button > .icon {
-  color: var(--faint);
-}
-.collection-tree button > span:first-of-type {
+.collection-tree .collection-name {
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -384,9 +381,6 @@ fieldset.settings-section legend {
   background: var(--accent-soft);
   color: var(--accent-ink);
   font-weight: 650;
-}
-.collection-tree button.active > .icon {
-  color: var(--accent);
 }
 .collection-hint {
   display: grid;

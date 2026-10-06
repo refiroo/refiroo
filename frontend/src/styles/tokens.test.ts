@@ -57,6 +57,8 @@ function ratio(a: string, b: string) {
 const SURFACES = ["surface-app", "surface-top", "surface-nav", "surface-raised", "surface-sunken", "surface-hover"];
 const CONTEXTS = ["live", "change-set", "publication"].map((tone) => `context-${tone}`);
 const STATUSES = ["success", "warning", "error", "draft"].map((tone) => `status-${tone}`);
+/** The eight type-hue slots (ADR-040, U-D13). */
+const HUES = Array.from({ length: 8 }, (_, index) => `hue-${index + 1}`);
 
 /** [foreground, background, minimum] */
 const PAIRS: Array<[string, string, number]> = [
@@ -73,6 +75,19 @@ const PAIRS: Array<[string, string, number]> = [
   ["text-on-action", "status-error-action", 4.5],
   ["status-error-action", "surface-raised", 4.5],
   ...[...CONTEXTS, ...STATUSES].map((tone): [string, string, number] => [`${tone}-text`, `${tone}-surface`, 4.5]),
+  // The context strip carries the page's text, a link, its context chip's words and dot.
+  ...CONTEXTS.flatMap((tone): Array<[string, string, number]> => [
+    ["text-primary", `${tone}-strip`, 4.5],
+    ["text-secondary", `${tone}-strip`, 4.5],
+    ["link", `${tone}-strip`, 4.5],
+    [`${tone}-text`, `${tone}-strip`, 4.5],
+  ]),
+  // A type's ink is text on its own fill (a chip, a tile's icon) and on the page (ADR-040).
+  ...HUES.flatMap((hue): Array<[string, string, number]> => [
+    [`${hue}-ink`, `${hue}-fill`, 4.5],
+    [`${hue}-ink`, "surface-app", 4.5],
+    [`${hue}-ink`, "surface-nav", 4.5],
+  ]),
   // Non-text: a control's boundary, the focus indicator, the primary action's fill, and markers.
   ...["surface-app", "surface-nav", "surface-raised", "surface-sunken"].map((surface): [string, string, number] => [
     "border-control",
@@ -90,6 +105,11 @@ const PAIRS: Array<[string, string, number]> = [
     [`${tone}-marker`, "surface-app", 3],
     [`${tone}-marker`, "surface-nav", 3],
   ]),
+  ...CONTEXTS.map((tone): [string, string, number] => [`${tone}-marker`, `${tone}-strip`, 3]),
+  ...HUES.flatMap((hue): Array<[string, string, number]> => [
+    [`${hue}-marker`, "surface-app", 3],
+    [`${hue}-marker`, "surface-nav", 3],
+  ]),
 ];
 
 /** Decorative rules: they separate regions and rows but never identify a control or a state. */
@@ -99,6 +119,7 @@ const EXEMPT = [
   "border-strong",
   "state-selected-line",
   ...[...CONTEXTS, ...STATUSES].map((tone) => `${tone}-line`),
+  ...CONTEXTS.map((tone) => `${tone}-strip-line`),
 ];
 
 describe("design tokens", () => {
@@ -108,7 +129,7 @@ describe("design tokens", () => {
 
   it("redefines only semantic roles in dark mode", () => {
     const primitives = [...darkExplicit.keys()].filter((name) =>
-      /^(neutral|night|indigo|green|amber|violet|red)-/.test(name),
+      /^(neutral|night|indigo|green|amber|violet|red|teal|blue|plum|gold|rose|coral|cyan|slate)-/.test(name),
     );
     expect(primitives).toEqual([]);
   });

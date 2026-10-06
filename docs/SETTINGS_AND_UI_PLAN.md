@@ -1039,6 +1039,49 @@ Implemented; done when the user has checked it on the dev server (above).
   (`helpers/tree.mjs:189`, no drag preview) with and without this session's changes.
 - **Not run:** `test:a11y` and `test:visual` (UA7).
 
+#### UA1 record (2026-10-06)
+
+Implemented; the next slice waits for the user's pick between the two palettes (U-D13) and their
+approval of the screenshots.
+
+- **Tokens** (`styles/tokens.css`). Eight hue families as primitives, each a fill, a marker and an
+  ink, with dark values. The semantic roles `--hue-1` … `--hue-8` (`-fill`, `-ink`, `-marker`) are
+  slots, not colour names, so a palette change touches token values only; `[data-hue="n"]` maps a
+  slot onto `--hue-fill`, `--hue-ink` and `--hue-marker` for a component. Teal, blue, rose and coral
+  carry the canvas's fill and ink; the markers are a shade darker than the canvas where they fell
+  under 3:1 on the rail. The context strips are `--context-{live,change-set,publication}-strip` and
+  `-strip-line`, look E's green strip and its amber and violet counterparts, lighter than the
+  context chip they carry; UA3 and UA5 put them on the page.
+- **Contrast test** (`tokens.test.ts`), both themes: a hue's ink at 4.5:1 on its fill, on the page
+  and on the rail; its marker at 3:1 on the page and the rail; the page's text, a link and the
+  context's own text at 4.5:1 on each strip and the context marker at 3:1; strip lines exempt as
+  separators. The dark-mode check now also covers the new primitive families.
+- **The read** (`model/hues.ts`): `objectTypeHue` and `applicationHue` give slot
+  `position mod 8 + 1` from `objectTypes` or `applications`; an undeclared key has none. Unit
+  tests on the starter model and a generated 19-type model, plus the wrap, the order and an
+  unknown key.
+- **One component** (`ui/HueTile`): the model icon in the hue's ink on its fill, 18, 20 or 22px,
+  neutral without a hue. The top bar's application tabs (20px) and the rail's Collections (22px)
+  use it; UA2 uses the 18px tile in the tree. No renderer reads a key.
+- **The two palettes for U-D13.** Slots 1–8 are teal, blue, ·, ·, rose, coral, cyan, slate in both;
+  they differ in slots 3 and 4. **A, other shades:** plum and gold, the violet and amber families
+  at shades unlike the publication and change-set colours. **B, left out:** magenta and olive,
+  outside the three context families. A is in the tokens; B was shown by overriding the slot-3 and
+  slot-4 roles on the dev server (light values `#fbe6f6`/`#972178`/`#cf4fae` and
+  `#eef2d4`/`#525d10`/`#7a8c18`, all passing the same pairs; dark values follow when B is chosen).
+  Seen on the operators-and-timetables model: B's magenta (Master values) sits close to rose
+  (Operators); A's gold and plum read as amber and violet only beside the Live chip, since no change
+  set or publication was open.
+- **Hues repeat** after eight types: the operators-and-timetables model has 18, and RDM Master's 12
+  collections show Domains and Timetable types both teal, Codelists and Durations both blue. This
+  is U-D13's rule (position over eight hues); a later schema may let a model name a hue.
+- **Checks.** `vitest related` on the changed files: 5 files, 55 tests passed. `format`, `lint`
+  (0 errors, the 7 recorded warnings), `build` passed. Runners passed: `test:browser:settings`
+  (top bar: tabs, keyboard order, 36px after the mark, popover clicks, axe 0 violations) and
+  `test:browser` (19 checks; the rail at 1440 and 390px, keyboard expansion). Screenshots at 1440px
+  and 390px (drawer), light, both palettes, sent to the user. **Not run:** `test:a11y`,
+  `test:visual` (UA7; every baseline now differs in the top bar).
+
 ### Exit by 1.0
 
 - Every administrative, integration and security object a route manages has a settings page, and

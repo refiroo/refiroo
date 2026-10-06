@@ -328,6 +328,12 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
+- Base 0.9 UA1: every application and every kind of record has a colour (ADR-040). Each takes one
+  of eight hues by its position in the model, so any model is coloured and no screen knows a key;
+  the application tabs and the rail's Collections show it as a tile with the model's icon. The
+  hues, their dark values and the context strips are tokens held to the contrast minimums in both
+  themes.
+
 - Base 0.9 C12: `POST /consumer-subscriptions/{id}/resume` takes `reset` instead of
   `acknowledgeLoss` (C-D93 revised, C-D110). `reset: true` starts delivery after the workspace's
   feed head, whatever happened before; without it a resume after expired events is still

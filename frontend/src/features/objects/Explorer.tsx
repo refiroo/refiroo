@@ -2,8 +2,10 @@ import { useState } from "react";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { objectTypeFor } from "@/model/lookup";
 import { collectionGroups } from "@/model/collections";
+import { objectTypeHue } from "@/model/hues";
 import type { ApplicationDefinition, EngineModel, ObjectItem } from "@/types";
-import { Icon, ModelIcon } from "@/ui/Icon";
+import { HueTile } from "@/ui/HueTile";
+import { Icon } from "@/ui/Icon";
 import { RecordTree } from "@/features/objects/RecordTree";
 
 export function Explorer({
@@ -46,8 +48,8 @@ export function Explorer({
                 aria-current={active ? "page" : undefined}
                 onClick={() => onOpenCollection?.(group.defaultView.key)}
               >
-                <ModelIcon name={type?.icon} />
-                <span>{type?.pluralName ?? group.objectTypeKey}</span>
+                <HueTile hue={objectTypeHue(model, group.objectTypeKey)} icon={type?.icon} />
+                <span className="collection-name">{type?.pluralName ?? group.objectTypeKey}</span>
                 {group.views.some((view) => view.type === "mappingGrid") && (
                   <span className="collection-hint" title="Includes a mapping view">
                     <Icon name="mapping" size={13} label="Includes a mapping view" />

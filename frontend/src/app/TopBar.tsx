@@ -1,13 +1,16 @@
 /**
  * The one top bar (ADR-039, ADR-040): the product mark, which goes home, the applications as tabs,
- * then the link to Settings and the account at the right. Application pages and Settings show the
- * same bar, and exactly one item in it is current, marked the same way: the application's tab, or
- * on a settings page the Settings link, which then reads as a tab (icon, name, underline).
+ * each with a tile in its hue (`model/hues`), then the link to Settings and the account at the
+ * right. Application pages and Settings show the same bar, and exactly one item in it is current,
+ * marked the same way: the application's tab, or on a settings page the Settings link, which then
+ * reads as a tab (icon, name, underline).
  */
 
+import { applicationHue } from "@/model/hues";
 import { routePath } from "@/routing/routes";
 import type { ApplicationDefinition, EngineModel, RouteState } from "@/types";
-import { Icon, ModelIcon } from "@/ui/Icon";
+import { HueTile } from "@/ui/HueTile";
+import { Icon } from "@/ui/Icon";
 import { RouteLink } from "@/ui/RouteLink";
 import { AccountMenu } from "./SettingsMenu";
 
@@ -44,9 +47,7 @@ export function TopBar({
             title={item.description}
             onClick={() => onSelectApplication(item)}
           >
-            <span className="application-glyph">
-              <ModelIcon name={item.icon} size={15} />
-            </span>
+            <HueTile hue={applicationHue(model, item.key)} icon={item.icon} size={20} />
             {item.name}
           </button>
         ))}
