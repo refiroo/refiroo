@@ -246,6 +246,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 29 | [J2](#j2-import-profiles-and-file-reading) | B3 | Import profiles, XLSX/CSV/JSON Lines reading, rows to items |
 | 30 | [J3](#j3-import-preview-and-execution) | J2, B2 | Import preview, confirm, execute |
 | 31 | [J4](#j4-import-screen-and-sc-10) | J1, J3, F2 | The SC-10 screen and SC-10 acceptance |
+| 31a | [Track K](#track-k--bulk-selection-and-editing-in-collections) | J4, UA | Bulk selection and bulk edits in collections over `POST /batches`; packages K1–K5 planned in detail when the track starts — **added 2026-10-06** |
 | 32 | [R](#r-build-acceptance-and-release) | all | Build acceptance and release |
 
 **Order revised 2026-09-30, after Q3.** The queue delivers first what later packages build on, while
@@ -296,6 +297,7 @@ Track C:  C1 ─ C2 ─┬─ C3 ───────────────�
           ── cut line (D9) ──
 Track J:  J1                                       needs Q3, Q4, B2, F1
           B3 ─ J2 ─ J3 ─ J4                        J3 needs B2; J4 needs J1, F2
+Track K:  J4, UA ─ K1 ─ K2 ─ K3                    K4 and K5 as decided in K1's planning
 Release:  Q2, T1, C8, C13, C16, V2, J4 → R          (R-a without J at the cut line)
 ```
 
@@ -5860,6 +5862,42 @@ in the accessibility and visual gates, light and dark.
 
 **Exit:** SC-10 passes, with its simplicity check (failed rows acted on without redoing successful
 work).
+
+## Track K — Bulk selection and editing in collections
+
+**Added 2026-10-06 by the user**, after Track J, which brings the job screens it reuses. The
+packages below are an outline; each is planned in detail, with its journeys and decisions, when the
+track starts.
+
+**Outcome.** In a collection a user selects records (by hand, a range, or every record a search and
+filters match) and changes them together: attribute values, and the relations the table does not
+show, such as setting the duration of the selected timetable types or adding a role to all of
+them, in live data or a change set. The UI writes through `POST /batches` (B1–B3), so it is one
+client of the bulk API rather than a second write path, and every action the model allows for the
+type is offered, read from the model (the relation types a type may have, their direction and
+cardinality); no screen knows a type key.
+
+**Packages (outline):**
+- **K1: selection.** A selection column in `ui/ObjectTable` (pointer, Shift for a range, keyboard),
+  the selection's count and "select all matching" kept as the search and filters rather than as
+  IDs, the bulk action bar's frame; no writes.
+- **K2: attribute edits and delete.** Set or clear an attribute, delete; a preview of what will
+  change; inline or background run with progress, cancel and per-item results linking to each
+  record (the job screens from Track J).
+- **K3: relation edits.** For each relation type the model allows: add (`ensureRelation`), remove
+  (`deleteRelation`) and replace (`replaceRelationSet`), choosing targets with the record picker.
+- **K4 (if decided): query-scoped batches.** A batch whose items are "every record matching these
+  criteria", decided in the engine, so a large selection is neither paged through nor sent as IDs;
+  an API capability integrators get too.
+- **K5 (if decided): relation columns.** A view may declare a relation as a column, shown as record
+  chips (`ui/RecordChip`), so the result of a bulk relation edit is visible in the list.
+
+**Decisions for K1's planning:** how "all matching" meets optimistic concurrency (versions read at
+selection, or an explicit "apply to current values" that the invariant allows only when stated);
+enumerated IDs or K4; the limits a UI selection meets (`integrationJobs.limits`); what the UI does
+when `INTEGRATION_JOBS_ENABLED` is off; `independent` or `atomic` as the UI's default; a change set's
+version claim for a long job. Composable-domains line (ADR-032): bulk APIs are used, not changed,
+unless K4 is taken.
 
 ## R: Build acceptance and release
 

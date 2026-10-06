@@ -895,6 +895,74 @@ the product name.
 **Dark mode.** Every fill, ink and marker has a dark value; the contrast test covers the palette in
 both themes.
 
+### Type palettes A and B
+
+The eight type hues (U-D13) differ between the two palettes only in slots 3 and 4. **B is in the
+tokens** (chosen by the user, 2026-10-06, after seeing both beside a change set); **A** keeps both
+slots in the amber and violet families, at shades unlike the change-set and publication colours.
+Both pass the contrast test (`tokens.test.ts`) in light and dark. Slots 1, 2 and 5–8 (teal, blue,
+rose, coral, cyan, slate) are the same in both.
+
+| Slot | A | B |
+| --- | --- | --- |
+| 3 | plum | magenta |
+| 4 | gold | olive |
+
+**To switch,** in `frontend/src/styles/tokens.css`:
+1. Replace the twelve primitives after `--blue-…` (the slot-3 and slot-4 families) with the other
+   palette's twelve below.
+2. In the three places that map the slots (the light `:root` block, `:root[data-theme="dark"]` and
+   the `prefers-color-scheme: dark` block), rename the family in the `--hue-3-*` and `--hue-4-*`
+   lines: `magenta` ↔ `plum` and `olive` ↔ `gold` (light uses `-50`, `-800`, `-500`; dark uses
+   `-dark-50`, `-dark-100`, `-dark-400`).
+3. Run `npx vitest run src/styles/tokens.test.ts` (contrast and the two dark blocks).
+
+Palette A (commit `226beb2`):
+
+```css
+  --plum-50: #f5e8f8;
+  --plum-500: #ac5cc0;
+  --plum-800: #7b2d8e;
+  --plum-dark-50: #2e1935;
+  --plum-dark-400: #bf78d2;
+  --plum-dark-100: #e3b8ee;
+  --gold-50: #faf1c8;
+  --gold-500: #a17f00;
+  --gold-800: #6a5200;
+  --gold-dark-50: #2c2510;
+  --gold-dark-400: #c9a21a;
+  --gold-dark-100: #ecd78a;
+```
+
+Palette B (in the tokens since 2026-10-06, commit `6db248a`):
+
+```css
+  --magenta-50: #fbe6f6;
+  --magenta-500: #cf4fae;
+  --magenta-800: #972178;
+  --magenta-dark-50: #361630;
+  --magenta-dark-400: #de6cc0;
+  --magenta-dark-100: #f2b0e0;
+  --olive-50: #eef2d4;
+  --olive-500: #7a8c18;
+  --olive-800: #525d10;
+  --olive-dark-50: #252a12;
+  --olive-dark-400: #9fb236;
+  --olive-dark-100: #d2dc95;
+```
+
+The slot mapping, light (dark: the `-dark-` shades in the same three roles):
+
+```css
+  /* A */                                /* B */
+  --hue-3-fill: var(--plum-50);          --hue-3-fill: var(--magenta-50);
+  --hue-3-ink: var(--plum-800);          --hue-3-ink: var(--magenta-800);
+  --hue-3-marker: var(--plum-500);       --hue-3-marker: var(--magenta-500);
+  --hue-4-fill: var(--gold-50);          --hue-4-fill: var(--olive-50);
+  --hue-4-ink: var(--gold-800);          --hue-4-ink: var(--olive-800);
+  --hue-4-marker: var(--gold-500);       --hue-4-marker: var(--olive-500);
+```
+
 ### UA: the Atlas redesign
 
 **Planned 2026-10-06** for a later session. Needs U3 (delivered and revised). U4 and U5 wait for

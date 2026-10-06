@@ -393,6 +393,28 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 - Object drafts, object revisions, object activation/retirement, or per-object publication state.
 - A second public CRUD dialect under `/change-sets/{draftId}/objects` or `/relations`.
 
+## Ideas to investigate
+
+Not feature requests: ideas the user raised to look into later, kept here so they are not lost.
+Each becomes work only if the user decides it is needed.
+
+- **A filter builder in collections (raised 2026-10-07).** _How it works today:_ a table view
+  declares its filter fields (`filterFields`); the Filter popover shows exactly those, one row per
+  field with an operator set by its value type (text: is, contains, starts with, is null, is
+  unset; numbers and dates: comparisons; booleans: Yes, No, Any). A field holds one condition, and
+  all conditions combine with AND (repeated "is" on one field is OR). Only attributes whose type
+  is marked `filterable` can be declared, so Durations offers value code and active, and value name
+  is never offered. _The idea:_ the user builds the filter: rows of attribute, operator and value,
+  each with remove and add, choosing any filterable attribute of the type (the view's fields as
+  the first rows), several rows on one field, and AND or OR between rows. _What is known:_ the rows
+  and the attribute choice are frontend work over the existing list API; OR needs the model query
+  (`POST …/queries/objects`) to take groups (deferred by D4 until a second real case), the
+  collection to read through it, and the URL to keep the filter tree. Per-row AND/OR is ambiguous
+  once mixed ("A and B or C"); groups that match all or any, nested when needed, avoid that. The
+  query's `related` criterion would also let a row filter through a relation (timetable types
+  whose duration is 45 min), which fits Track K's "select all filtered". _Open:_ whether today's
+  filter already covers what users need.
+
 ## Known accessibility exceptions
 
 - [x] WP1-001: the navigation resize separator now sits inside the navigation landmark (fixed
