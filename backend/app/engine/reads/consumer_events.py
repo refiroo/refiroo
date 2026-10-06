@@ -80,6 +80,65 @@ def derived_head(session: Session, workspace_key: str) -> tuple[int, int]:
     return (0, 0) if row is None else (row.position, row.start_position)
 
 
+@dataclass(frozen=True)
+class EventWindow:
+    """What a workspace's events cover: derived up to ``head``, kept from ``earliest`` on, with the
+    feed's head and the publication a reader re-syncs from once a position expired (C-D92)."""
+
+    head: int
+    earliest: int
+    feed_head: int
+    publication_id: str | None
+    publication_position: int | None
+
+    @property
+    def publication(self) -> dict[str, Any] | None:
+        if self.publication_id is None:
+            return None
+        return {"id": self.publication_id, "eventSequence": self.publication_position}
+
+
+def event_window(session: Session, workspace_key: str, retention_days: int) -> EventWindow:
+    head, start_position = derived_head(session, workspace_key)
+    floor = retention_floor(session, workspace_key, retention_days)
+    return EventWindow(
+        head=head,
+        earliest=max(floor.earliest_position, start_position + 1),
+        feed_head=floor.head_position,
+        publication_id=floor.publication_id,
+        publication_position=floor.publication_position,
+    )
+
+
+def check_after(window: EventWindow, position: int, pointer: str | None = None) -> None:
+    """Refuse a position to read or deliver after: past the feed's head ``409
+    EVENT_POSITION_AHEAD``, below the earliest kept ``410 EVENTS_EXPIRED`` naming the publication to
+    re-sync from. ``pointer`` names the request field that gave it, for a body (C11)."""
+    at = {} if pointer is None else {"pointer": pointer}
+    if position > window.feed_head:
+        raise api_error(
+            409,
+            "EVENT_POSITION_AHEAD",
+            f"Position {position} is past the feed's head, {window.feed_head}: it was not read from "
+            "this workspace's events, or the database was restored to an earlier state. Read again "
+            "from a publication",
+            {"headPosition": window.feed_head, **at},
+        )
+    if position < window.earliest - 1:
+        raise api_error(
+            410,
+            "EVENTS_EXPIRED",
+            f"Position {position} has expired: events are kept from position {window.earliest} on. Read "
+            "the publication named in the details, then follow the events from its eventSequence",
+            {
+                "earliestPosition": window.earliest,
+                "headPosition": window.head,
+                "publication": window.publication,
+                **at,
+            },
+        )
+
+
 def read_consumer_events(
     session: Session,
     model: EngineModel,
@@ -90,33 +149,10 @@ def read_consumer_events(
     retention_days: int,
 ) -> dict[str, Any]:
     """One page of the consumer API's events in the workspace."""
-    head, start_position = derived_head(session, workspace.key)
-    floor = retention_floor(session, workspace.key, retention_days)
-    earliest = max(floor.earliest_position, start_position + 1)
+    window = event_window(session, workspace.key, retention_days)
+    head, earliest = window.head, window.earliest
     position, ordinal = request.start
-    if position > floor.head_position:
-        raise api_error(
-            409,
-            "EVENT_POSITION_AHEAD",
-            f"Position {position} is past the feed's head, {floor.head_position}: it was not read from "
-            "this workspace's events, or the database was restored to an earlier state. Read again "
-            "from a publication",
-            {"headPosition": floor.head_position},
-        )
-    if position < earliest - 1:
-        raise api_error(
-            410,
-            "EVENTS_EXPIRED",
-            f"Position {position} has expired: events are kept from position {earliest} on. Read "
-            "the publication named in the details, then follow the events from its eventSequence",
-            {
-                "earliestPosition": earliest,
-                "headPosition": head,
-                "publication": None
-                if floor.publication_id is None
-                else {"id": floor.publication_id, "eventSequence": floor.publication_position},
-            },
-        )
+    check_after(window, position)
 
     event = ConsumerEvent
     after = tuple_(event.position, event.ordinal) > tuple_(position, ordinal)

@@ -249,12 +249,23 @@ class ConsumerApiCapabilities(BaseModel):
     setting: Literal["CONSUMER_RESOLVE_MAX_ITEMS"]
 
 
+class ConsumerSubscriptionCapabilities(BaseModel):
+    """Webhook subscriptions (CONSUMER_API "Subscriptions"): managed through
+    ``/consumer-subscriptions`` when ``manageSubscriptions`` (``CONSUMER_SUBSCRIPTIONS_ENABLED``);
+    their URLs name one of ``allowedHosts`` (``CONSUMER_WEBHOOK_ALLOWED_HOSTS``)."""
+
+    manageSubscriptions: bool
+    allowedHosts: list[str]
+    setting: Literal["CONSUMER_SUBSCRIPTIONS_ENABLED"]
+
+
 class CapabilitiesResponse(BaseModel):
     modelAdmin: ModelAdminCapabilities
     workspaceAdmin: WorkspaceAdminCapabilities
     integrationJobs: IntegrationJobCapabilities
     changeFeed: ChangeFeedCapabilities
     consumerApi: ConsumerApiCapabilities
+    consumerSubscriptions: ConsumerSubscriptionCapabilities
 
 
 class ModelDraftCreate(BaseModel):

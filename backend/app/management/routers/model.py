@@ -26,6 +26,7 @@ from ..schemas.model import (
     CapabilitiesResponse,
     ChangeFeedCapabilities,
     ConsumerApiCapabilities,
+    ConsumerSubscriptionCapabilities,
     IntegrationJobCapabilities,
     JobLimits,
     MetadataPage,
@@ -78,6 +79,11 @@ def get_capabilities(request: Request) -> CapabilitiesResponse:
         consumerApi=ConsumerApiCapabilities(
             resolveMaxItems=request.app.state.consumer_resolve_max_items,
             setting="CONSUMER_RESOLVE_MAX_ITEMS",
+        ),
+        consumerSubscriptions=ConsumerSubscriptionCapabilities(
+            manageSubscriptions=bool(request.app.state.consumer_subscriptions_enabled),
+            allowedHosts=list(request.app.state.webhook_allowed_hosts),
+            setting="CONSUMER_SUBSCRIPTIONS_ENABLED",
         ),
     )
 

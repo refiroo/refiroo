@@ -69,9 +69,12 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # examples); lower-casing those seven gives the previous document exactly. Re-baselined for
     # 0.9 C14: consumerApi (ConsumerApiCapabilities) on CapabilitiesResponse; removing it gives the
     # previous document exactly.
+    # Re-baselined for 0.9 C11: capabilities gain consumerSubscriptions (ConsumerSubscriptionCapabilities)
+    # and deleteBlockedBy gains "subscribed"; the subscription routes are gated off by default (checked
+    # with the capability on below), and no existing path changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "ab5f5116b6531978d893db46f04c73506e41c9b55e5fda3ed0fefd728372222b"
+        "527106462f4c2ecce10d63aa5492b3f81f953a6d5c086082590b3973fdea89a8"
     )
 
 
@@ -240,6 +243,24 @@ def test_base_0_5_enabled_openapi_exposes_guarded_activation(monkeypatch):
         "/api/v1/model-drafts/{draft_id}/compile": frozenset({"post"}),
         "/api/v1/model-drafts/{draft_id}/installation": frozenset({"post"}),
     }
+
+
+def test_base_0_9_c11_enabled_openapi_exposes_the_subscriptions_api(monkeypatch):
+    monkeypatch.setenv("CONSUMER_SUBSCRIPTIONS_ENABLED", "true")
+    monkeypatch.setenv("CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY", "a" * 43)
+    schema = create_app().openapi()
+    assert {
+        path: frozenset(method for method in schema["paths"][path] if method != "parameters")
+        for path in schema["paths"]
+        if path.startswith("/api/v1/consumer-subscriptions")
+    } == {
+        "/api/v1/consumer-subscriptions": frozenset({"get", "post"}),
+        "/api/v1/consumer-subscriptions/{subscription_id}": frozenset({"get", "patch", "delete"}),
+        "/api/v1/consumer-subscriptions/{subscription_id}/suspend": frozenset({"post"}),
+        "/api/v1/consumer-subscriptions/{subscription_id}/resume": frozenset({"post"}),
+    }
+    response = schema["components"]["schemas"]["SubscriptionResponse"]
+    assert "signingSecret" not in response["required"]
 
 
 def test_wp4_mapping_query_inventory_and_required_context():

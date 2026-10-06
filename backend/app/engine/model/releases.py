@@ -19,6 +19,7 @@ from ...models.database import (
     ViewDefinitionMeta,
 )
 from ...models.schema import EngineModel
+from ..events.subscription_rules import suspend_left_behind
 from ..indexes import matrix_states
 from .compatibility import CompatibilityResult, analyze_compatibility
 from .compiler import SUPPORTED_SCHEMA_VERSIONS, ModelDiagnostic, canonical_model, compile_model
@@ -191,6 +192,8 @@ def activate_model_release(
     new_version = expected_runtime_version + 1
     # Stored matrix cell states follow the newly active model's matrix shapes (A3b).
     matrix_states.sync_all(session)
+    # Subscriptions the new release cannot serve are suspended with it (C11, C-D99).
+    suspend_left_behind(session, candidate_compilation.model)
     session.add(
         AuditEvent(
             aggregate_type="model_runtime_state",

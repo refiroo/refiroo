@@ -205,6 +205,58 @@ def consumer_filter(
     )
 
 
+def unmatched_values(
+    session: Session,
+    model: EngineModel,
+    definition: ConsumerApiDefinition,
+    source: ConsumerSource,
+    name: str,
+    values: Sequence[str],
+    pointer: str,
+) -> ApiError | None:
+    """The refusal of a subscription filter whose values do not all match a record now (C11,
+    C-D100): a type name the API does not expose is ``UNKNOWN_OBJECT_TYPE``; a value no candidate
+    record has, as the parameter finds candidates on a read, ``FILTER_MATCHES_NOTHING``."""
+    parameter = definition.parameters[name]
+    builder = _Builder(session, model, definition, source)
+    if isinstance(parameter, ObjectTypeParameter):
+        try:
+            builder.object_type_keys(name, values)
+        except ApiError as error:
+            details = {key: value for key, value in error.details.items() if key != "path"}
+            return api_error(error.status, error.code, error.message, {**details, "pointer": pointer})
+        return None
+    unmatched = [value for value in values if not session.scalar(select(exists(_candidates(builder, parameter, value))))]
+    if not unmatched:
+        return None
+    return api_error(
+        400,
+        "FILTER_MATCHES_NOTHING",
+        f"Filter '{name}' value '{unmatched[0]}' matches no record in workspace '{source.workspace_key}'",
+        {"parameter": name, "values": unmatched, "pointer": pointer},
+    )
+
+
+def _candidates(builder: _Builder, parameter: Any, value: str) -> Select[Any]:
+    """The records a parameter's value names, the way the parameter finds its candidates."""
+    if isinstance(parameter, (AncestorParameter, RelatedParameter)):
+        return builder.candidates(parameter.objectTypes, parameter.matchFields, [value])
+    route = builder.definition.projections[parameter.projection].from_
+    targets = [
+        item.key for item in projection_targets(builder.model, builder.definition, route.relation, route.direction)
+    ]
+    selects = []
+    for match_field in parameter.matchFields:
+        reference = split_ancestor_reference(match_field)
+        if reference is None:
+            selects.append(builder.candidates(targets, [match_field], [value]))
+        else:
+            type_key, field_name = reference
+            selects.append(builder.candidates([type_key], [field_name], [value]))
+    first, *rest = selects
+    return first.union_all(*rest) if rest else first
+
+
 def _effective(model: EngineModel, source: ConsumerSource, dated: frozenset[str], as_of: date) -> Predicate:
     """Records of a dated type effective on ``as_of`` by that type's period; records of other types
     pass (C-D14). Each period's checks hold the type test inside them, so the predicate is an AND of

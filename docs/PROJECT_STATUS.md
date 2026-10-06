@@ -217,7 +217,14 @@ test, the fonts are bundled, and the shell is rebuilt to ADR-039. It has a top b
 switcher and the applications, a toned rail, and a data-context band that turns amber in a change
 set and violet in a publication. Every screen takes the new look through aliases until U6
 (U-D7–U-D9, [record](SETTINGS_AND_UI_PLAN.md#u2-delivery-record)).
-Next: C11, in the order of the
+**C11 is delivered (2026-10-06):** webhook subscriptions are managed through
+`/api/v1/consumer-subscriptions` when the deployment turns them on (`CONSUMER_SUBSCRIPTIONS_ENABLED`).
+Each is checked against the active definition, a host allowlist and its workspace, and gets a
+signing key that is shown once and stored sealed with a deployment key. An activation or a workspace
+retirement that leaves one behind suspends it with a reason, and a resume after expired events needs
+the loss acknowledged. Nothing is delivered until C12 (C-D96–C-D102,
+[record](BASE_0_9_IMPLEMENTATION_PLAN.md#c11-delivery-record)).
+Next: C12, in the order of the
 [delivery queue](BASE_0_9_IMPLEMENTATION_PLAN.md#delivery-queue) (U4 waits for U3).
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).

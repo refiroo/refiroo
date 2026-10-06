@@ -17,9 +17,10 @@ from ...models.database import (
     Workspace,
     WorkspaceRuntimeState,
 )
+from ..events.subscription_rules import has_subscriptions, suspend_for_retired_workspace
 from ..indexes import matrix_states
 
-DeleteBlocker = Literal["default", "published", "notEmpty"]
+DeleteBlocker = Literal["default", "published", "notEmpty", "subscribed"]
 
 
 def load_workspace(session: Session, key: str, *, for_update: bool = False) -> Workspace:
@@ -176,6 +177,8 @@ def update_workspace(session: Session, key: str, payload: WorkspaceUpdate) -> Wo
             "Workspace version has changed",
             {"currentVersion": current.version},
         )
+    if payload.status == "retired":
+        suspend_for_retired_workspace(session, key)
     session.commit()
     return load_workspace(session, key)
 
@@ -233,6 +236,9 @@ def delete_blocker(
     }
     if counts["objectCount"] or counts["changeSetCount"]:
         return "notEmpty", counts
+    # A workspace change never removes another owner's configuration (C11, C-D99).
+    if has_subscriptions(session, key):
+        return "subscribed", counts
     return None, counts
 
 
@@ -280,6 +286,12 @@ def _require_deletable(session: Session, key: str, expected_version: int) -> Non
             f"Workspace '{key}' still has objects or change sets. Delete its objects and discard "
             "its change sets first, or retire it",
             counts,
+        )
+    if blocker == "subscribed":
+        raise api_error(
+            409,
+            "WORKSPACE_HAS_SUBSCRIPTIONS",
+            f"Workspace '{key}' has webhook subscriptions. Delete them first, or retire the workspace",
         )
     if workspace.version != expected_version:
         raise api_error(

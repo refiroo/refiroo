@@ -387,3 +387,76 @@ class BatchRequest(BaseModel):
     run: Literal["inline", "background"]
     onExisting: Literal["reject", "overwrite"] = "reject"
     items: list[BatchItem] = Field(min_length=1)
+
+
+# A subscription filter's value: one text or a list of texts, as a batch resolve item holds them.
+FilterValue = Annotated[str, Field(min_length=1)] | Annotated[
+    list[Annotated[str, Field(min_length=1)]], Field(min_length=1)
+]
+SubscriptionMode = Literal["perChange", "coalesced"]
+SubscriptionPayload = Literal["full", "identity"]
+# The longest a coalesced subscription waits for quiet: the maximum wait during continuous change.
+MAX_DEBOUNCE_SECONDS = 600
+
+
+class ConsumerSubscriptionCreate(BaseModel):
+    """A webhook subscription (Base 0.9 C11, CONSUMER_API "Subscriptions"). ``workspaceKey`` defaults
+    to the default workspace, resolved and stored; ``debounceSeconds`` is for ``coalesced`` only
+    (default 60); ``startAfter`` an earlier position to start after (C-D97)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    consumerApi: str = Field(min_length=1, max_length=160)
+    workspaceKey: str | None = Field(default=None, min_length=1, max_length=160)
+    events: list[Annotated[str, Field(min_length=1, max_length=160)]] = Field(min_length=1, max_length=100)
+    filters: dict[str, FilterValue] = Field(default_factory=dict)
+    url: str = Field(min_length=1)
+    mode: SubscriptionMode = "perChange"
+    debounceSeconds: int | None = Field(default=None, ge=1, le=MAX_DEBOUNCE_SECONDS)
+    payload: SubscriptionPayload = "full"
+    startAfter: int | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def debounce_only_when_coalesced(self) -> ConsumerSubscriptionCreate:
+        if self.debounceSeconds is not None and self.mode != "coalesced":
+            raise ValueError("debounceSeconds applies to mode 'coalesced' only")
+        return self
+
+
+class ConsumerSubscriptionUpdate(BaseModel):
+    """An edit of a subscription with the version read; the consumer API and workspace stay."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    expectedVersion: int = Field(ge=1)
+    events: list[Annotated[str, Field(min_length=1, max_length=160)]] | None = Field(
+        default=None, min_length=1, max_length=100
+    )
+    filters: dict[str, FilterValue] | None = None
+    url: str | None = Field(default=None, min_length=1)
+    mode: SubscriptionMode | None = None
+    debounceSeconds: int | None = Field(default=None, ge=1, le=MAX_DEBOUNCE_SECONDS)
+    payload: SubscriptionPayload | None = None
+
+    @model_validator(mode="after")
+    def require_subscription_change(self) -> ConsumerSubscriptionUpdate:
+        if not self.model_fields_set - {"expectedVersion"}:
+            raise ValueError("At least one field besides 'expectedVersion' is required")
+        if self.debounceSeconds is not None and self.mode == "perChange":
+            raise ValueError("debounceSeconds applies to mode 'coalesced' only")
+        return self
+
+
+class ConsumerSubscriptionVersion(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expectedVersion: int = Field(ge=1)
+
+
+class ConsumerSubscriptionResume(BaseModel):
+    """A resume; ``acknowledgeLoss`` goes on past events that expired while suspended (C-D93)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    expectedVersion: int = Field(ge=1)
+    acknowledgeLoss: bool = False

@@ -32,7 +32,7 @@ backend coverage is not mistaken for a complete user experience. Reviewed 2026-1
 | F20 | Query and look up across the data | Not applicable | Available | 0.9 Q1–Q3 |
 | F21 | Read by business date (`asOf`) | Fields only | Available | 0.9 Q4, C16 |
 | F22 | Load data in bulk as jobs | Unavailable | Available | 0.9 B1–B2; import screen 0.9 J4 |
-| F23 | Declare consumer APIs and read through them | JSON model editing | Definitions; reading one business object; reading lists; looking up by code; reading a publication; an index and a typed document per API; following change events | 0.9 C1–C6, C10 |
+| F23 | Declare consumer APIs and read through them | JSON model editing | Definitions; reading one business object; reading lists; looking up by code; reading a publication; an index and a typed document per API; following change events; subscribing to them | 0.9 C1–C6, C10, C11 |
 | F24 | Read the API reference | Available at `/docs` | Not applicable | 0.9 V1, V2 |
 | F25 | Follow changes in order | Not applicable | Available | 0.9 F1; retention and recovery 0.9 F2 |
 
@@ -444,7 +444,17 @@ Each event names the record, what kind of change it was and which watched fields
 including changes to records it shows (its parent, an ancestor's name, a related record), and by
 default carries the record itself as a read of it would answer, so the consumer need not ask again.
 Events can be narrowed like a list. A consumer that fell behind longer than the retention period is
-told which publication to read again. Webhooks delivering the same events are not sent yet.
+told which publication to read again.
+
+Where a deployment turns them on, an operator subscribes a web address to some of a consumer API's
+events in a workspace, narrowed like a list, per change or summarised, with the record or only its
+identity. Only addresses on hosts the deployment allows are accepted, over HTTPS. The engine makes
+the key that will sign every delivery and shows it once. The operator can read, list, edit, pause,
+resume and delete subscriptions. A new model release that no longer offers what a subscription asks
+for, or that changes its contract version, pauses it with the reason, as does retiring its
+workspace; resuming checks it again, and after events it missed have expired the operator must
+accept the loss and is told which publication to read again. The webhooks themselves are not sent
+yet.
 
 A consuming system reads one business object through a declared API by its record ID, at the
 API's contract version: exactly the fields the definition declares, values in their declared types,

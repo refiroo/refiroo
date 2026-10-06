@@ -1035,8 +1035,9 @@ statements in `test_consumer_xref_volume`.
 
 ### J30 — Follow a consumer API's changes
 
-**Actor:** integrator. **Channel:** API. **Stories:** US-I05. **Status:** the pull feed delivered
-(0.9 C10); webhooks follow in C11–C13 ([CONSUMER_API.md](../CONSUMER_API.md)).
+**Actor:** integrator; operator (subscriptions). **Channel:** API. **Stories:** US-I05. **Status:**
+the pull feed delivered (0.9 C10); subscriptions managed from 0.9 C11, delivered from C12; C13
+closes the events ([CONSUMER_API.md](../CONSUMER_API.md)).
 
 1. Read the events a consumer API declares for a workspace, in position order, from a position (`0`,
    or a publication's `eventSequence`), a page at a time by cursor until caught up.
@@ -1066,12 +1067,32 @@ statements in `test_consumer_xref_volume`.
   active publication's position. A position below the earliest is refused naming that publication
   and its `eventSequence`; the reader re-reads the publication's lists and follows on from there.
   Without a publication nothing expires.
+- **J30.6 Subscribe**: with the deployment's subscriptions capability on, an operator subscribes a
+  URL on an allowlisted host to some of a consumer API's events in a workspace, narrowed by the
+  definition's parameters as a list applies them, per change or coalesced, with the object or its
+  identity. The subscription starts after the feed's head, or after an earlier position still kept;
+  its signing key is answered once. The operator reads, lists, edits (with the version read),
+  suspends, resumes and deletes it. Off, the routes are not served; the capabilities say which
+  setting turns them on and which hosts are allowed.
+- **J30.7 A subscription the model or workspace leaves behind**: activating a release that no
+  longer declares a subscription's consumer API, event or filter suspends it (`MODEL_CHANGED`, with
+  each finding); one that only raises the contract version suspends it until resumed
+  (`CONTRACT_VERSION_CHANGED`). Retiring its workspace suspends it (`WORKSPACE_RETIRED`). A resume
+  re-checks the subscription and lists what to fix; after its unacknowledged events expired it is
+  refused unless the loss is acknowledged, naming the lost positions and the publication to re-sync
+  from. A workspace with subscriptions cannot be deleted.
 
 **Refusals:** `404 EVENTS_NOT_DECLARED`, `400 UNKNOWN_EVENT`, `400 PARAMETER_NOT_SUPPORTED`
 (`publication`, `asOf`, `to.`), `400 INVALID_PAGE_SIZE` (1–100 with the full payload, 1–1,000 with
 identity), `400 INVALID_PAYLOAD`, `400 INVALID_POSITION`, `400 CONFLICTING_PAGE_PARAMETERS`,
 `400 INVALID_CURSOR`, `409 EVENT_POSITION_AHEAD`, `410 EVENTS_EXPIRED`, and J28's API and workspace
-refusals.
+refusals. Subscriptions: `400 CONSUMER_API_NOT_FOUND`, `EVENTS_NOT_DECLARED`, `UNKNOWN_EVENT`,
+`UNKNOWN_PARAMETER`, `PARAMETER_NOT_SUPPORTED`, `UNKNOWN_OBJECT_TYPE`, `FILTER_MATCHES_NOTHING`,
+`INVALID_WEBHOOK_URL`, `WEBHOOK_HOST_NOT_ALLOWED`, each at its body pointer; `404
+WORKSPACE_NOT_FOUND`, `404 SUBSCRIPTION_NOT_FOUND`; `409 VERSION_CONFLICT`,
+`SUBSCRIPTION_ALREADY_SUSPENDED`, `SUBSCRIPTION_NOT_SUSPENDED`, `SUBSCRIPTION_NEEDS_EDIT`,
+`EVENT_POSITION_AHEAD`, `EVENTS_EXPIRED` (resume), `WORKSPACE_HAS_SUBSCRIPTIONS`; `410
+EVENTS_EXPIRED` (`startAfter`).
 
 **Evidence today:** the J30 journey tests (`test_j30_consumer_events`); the deriver's plan in
 `tests/unit/engine/events/`; its cost in `test_consumer_event_volume`.

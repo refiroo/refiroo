@@ -5,6 +5,7 @@ access. Building an application re-reads it through :func:`reload_settings`, whi
 test change the environment and construct a differently configured app in the same process.
 """
 
+import base64
 import os
 import secrets
 from collections.abc import Mapping
@@ -64,6 +65,11 @@ class Settings(BaseModel):
     feed_retention_days: int = Field(default=30, ge=1)
     # The items one consumer batch resolve holds (C-D13, C-D50); reported by GET /capabilities.
     consumer_resolve_max_items: int = Field(default=1_000, ge=1)
+    # Webhook subscriptions as a deployment capability group, off by default (C-D10, C-D102); the
+    # hosts their URLs may name (C-D101) and the key their signing keys are encrypted with (C-D96).
+    consumer_subscriptions_enabled: bool = False
+    consumer_webhook_allowed_hosts: tuple[str, ...] = ()
+    consumer_webhook_key_encryption_key: bytes | None = None
 
     @classmethod
     def from_env(cls, environ: dict[str, str] | None = None) -> Self:
@@ -107,7 +113,27 @@ class Settings(BaseModel):
             job_lease_seconds=_positive(env, "JOB_LEASE_SECONDS", 120),
             feed_retention_days=_positive(env, "FEED_RETENTION_DAYS", 30),
             consumer_resolve_max_items=_positive(env, "CONSUMER_RESOLVE_MAX_ITEMS", 1_000),
+            consumer_subscriptions_enabled=(
+                env.get("CONSUMER_SUBSCRIPTIONS_ENABLED", "false").strip().lower() in TRUTHY
+            ),
+            consumer_webhook_allowed_hosts=allowed_hosts(
+                env.get("CONSUMER_WEBHOOK_ALLOWED_HOSTS", "")
+            ),
+            consumer_webhook_key_encryption_key=_encryption_key(
+                env.get("CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY", "")
+            ),
         )
+
+    def validate_consumer_subscriptions(self) -> None:
+        """Refuse to start with subscriptions on and no key to encrypt their signing keys with
+        (C-D96): a key generated per process would leave every stored signing key unreadable after
+        a restart."""
+        if self.consumer_subscriptions_enabled and self.consumer_webhook_key_encryption_key is None:
+            raise RuntimeError(
+                "CONSUMER_SUBSCRIPTIONS_ENABLED=true requires CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY, the "
+                "key webhook signing keys are encrypted with. Generate one with "
+                "`python -m app.cli.generate_key` and keep it outside the database"
+            )
 
     def validate_model_admin_topology(self) -> None:
         """Reject model mutations when Uvicorn is configured with multiple workers."""
@@ -141,6 +167,28 @@ def _positive(env: Mapping[str, str], name: str, default: int) -> int:
     if value < 1:
         raise RuntimeError(f"{name} must be a positive integer, not {raw!r}")
     return value
+
+
+def allowed_hosts(raw: str) -> tuple[str, ...]:
+    """The webhook hosts, as listed: comma-separated, compared ignoring case (C-D101)."""
+    return tuple(dict.fromkeys(host.strip().lower() for host in raw.split(",") if host.strip()))
+
+
+def _encryption_key(raw: str) -> bytes | None:
+    """The 32-byte key written in URL-safe base64, or none when unset."""
+    value = raw.strip()
+    if not value:
+        return None
+    try:
+        key = base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
+    except ValueError:
+        key = b""
+    if len(key) != 32:
+        raise RuntimeError(
+            "CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY must be 32 bytes written in URL-safe base64; "
+            "generate one with `python -m app.cli.generate_key`"
+        )
+    return key
 
 
 def _api_reference_script(raw: str) -> ApiReferenceScript:

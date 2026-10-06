@@ -584,6 +584,24 @@ The audit log is the ordered source of the change feed and of consumer events (A
   payload the object itself through `ConsumerObjects`, in the read's one snapshot. The hourly sweep
   deletes events below the feed's retention floor (`reads/feed.retention_floor`); the audit log is
   never pruned.
+- **Consumer subscriptions** (`engine/events/subscriptions.py`, `subscription_rules.py`,
+  `webhook_urls.py`, 0.9 C11). Rows of `consumer_subscriptions`, deployment data outside any model
+  release, managed through `management/routers/consumer_subscriptions.py`, which `create_app`
+  mounts only with `CONSUMER_SUBSCRIPTIONS_ENABLED`. Create, edit and resume run one set of checks
+  against the active release (`subscription_rules.definition_findings`), the filter values
+  (`reads/consumer_parameters.unmatched_values`, the candidates a read would find), the host
+  allowlist and the workspace. Each change claims the row's version under `FOR UPDATE`. Two hooks
+  run in the transactions that cause them: `activate_model_release` calls
+  `suspend_left_behind`, which checks every active subscription against the release being
+  activated and suspends the ones it cannot serve in one `UPDATE … FROM VALUES`, and retiring a
+  workspace suspends its subscriptions with one `UPDATE`; `subscription_rules` imports only the
+  model and the table, so neither caller imports the reads. A workspace with subscriptions cannot
+  be deleted (the foreign key restricts; the catalogue refuses first). The acknowledged position and
+  ordinal say where delivery continues; positions are checked as the pull feed's
+  (`reads/consumer_events.check_after`). A signing key is sealed (`common/sealing.py`, AES-256-GCM,
+  the subscription's ID as associated data) under `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`, which the
+  database never holds. Subscription changes write no audit entry: the audit log is the outbox of
+  data changes.
 
 ### Domain extension
 

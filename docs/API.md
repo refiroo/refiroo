@@ -195,13 +195,21 @@ Capabilities return deployment-supported operations explicitly:
     "setting": "INTEGRATION_JOBS_ENABLED"
   },
   "changeFeed": { "retentionDays": 30 },
-  "consumerApi": { "resolveMaxItems": 1000, "setting": "CONSUMER_RESOLVE_MAX_ITEMS" }
+  "consumerApi": { "resolveMaxItems": 1000, "setting": "CONSUMER_RESOLVE_MAX_ITEMS" },
+  "consumerSubscriptions": {
+    "manageSubscriptions": false,
+    "allowedHosts": [],
+    "setting": "CONSUMER_SUBSCRIPTIONS_ENABLED"
+  }
 }
 ```
 
 `changeFeed.retentionDays` is `FEED_RETENTION_DAYS`: how long the [change feed](#change-feed-base-09-f1-f2)
 answers a position. `consumerApi.resolveMaxItems` is the most items one consumer
-[batch resolve](#batch-resolve) holds, named in `setting`.
+[batch resolve](#batch-resolve) holds, named in `setting`. `consumerSubscriptions.manageSubscriptions`
+says whether the [subscriptions API](#consumer-subscriptions-base-09-c11) is served
+(`CONSUMER_SUBSCRIPTIONS_ENABLED`), and `allowedHosts` the hosts a webhook URL may name
+(`CONSUMER_WEBHOOK_ALLOWED_HOSTS`).
 
 Each group names in `setting` the deployment setting that enables its mutations, so a client can tell
 an operator what to change without knowing the server's configuration names.
@@ -717,10 +725,12 @@ this order in one transaction and change nothing:
 | 409 | `WORKSPACE_IS_DEFAULT` | it is the current default |
 | 409 | `WORKSPACE_HAS_PUBLICATIONS` | it has ever been published (withdrawn publications count); retire it instead |
 | 409 | `WORKSPACE_NOT_EMPTY` | it has objects or change sets; `details` carries `objectCount` and `changeSetCount` |
+| 409 | `WORKSPACE_HAS_SUBSCRIPTIONS` | it has [webhook subscriptions](#consumer-subscriptions-base-09-c11); delete them first, or retire it |
 | 409 | `VERSION_CONFLICT` | `expectedVersion` is stale; `details.currentVersion` |
 
 Single-workspace responses (`GET`, `POST` and `PATCH /workspaces/{workspaceKey}`) add `deletable` and,
-when it is false, `deleteBlockedBy`: `default`, `published` or `notEmpty`, in the refusal order above.
+when it is false, `deleteBlockedBy`: `default`, `published`, `notEmpty` or `subscribed`, in the
+refusal order above. Retiring a workspace suspends its subscriptions (`WORKSPACE_RETIRED`).
 The paged list omits both. A live write that resolved a workspace before it was deleted or retired is
 refused when it commits (`404 WORKSPACE_NOT_FOUND` or `409 WORKSPACE_RETIRED`), and nothing is saved.
 
@@ -2542,6 +2552,84 @@ GET /api/consumer/{consumerApi}/v{contractVersion}/events?workspace=…&event=�
 - **Caching.** The `ETag` changes when a new event is derived; `304` to a matching `If-None-Match`.
 - A definition without events answers `404 EVENTS_NOT_DECLARED`; an unknown or retired workspace
   `404 WORKSPACE_NOT_FOUND`.
+
+### Consumer subscriptions (Base 0.9 C11)
+
+Where a consumer API's events are delivered as webhooks. The routes are served only when
+`CONSUMER_SUBSCRIPTIONS_ENABLED=true` (off by default; otherwise `404`, reads included), which also
+requires `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY` ([OPERATIONS](OPERATIONS.md)). Subscriptions are
+deployment data, not part of a model release. Delivery itself arrives with C12.
+
+| Route | Answer |
+|---|---|
+| `POST /api/v1/consumer-subscriptions` | `201`, the subscription with `signingSecret` |
+| `GET /api/v1/consumer-subscriptions` (`consumerApi`, `workspaceKey`, `status`, paging) | the subscriptions, newest first (ADR-030) |
+| `GET /api/v1/consumer-subscriptions/{id}` | the subscription |
+| `PATCH /api/v1/consumer-subscriptions/{id}` | the edited subscription |
+| `POST /api/v1/consumer-subscriptions/{id}/suspend` | the subscription, `suspended` (`SUSPENDED_BY_USER`) |
+| `POST /api/v1/consumer-subscriptions/{id}/resume` | the subscription, `active` |
+| `DELETE /api/v1/consumer-subscriptions/{id}?expectedVersion=N` | `204` |
+
+The create body names `consumerApi`, `events` (at least one) and `url`, and optionally
+`workspaceKey` (the default workspace, resolved and stored), `filters` (definition parameters, each a
+text or a list of texts), `mode` (`perChange`, default, or `coalesced`), `debounceSeconds`
+(`coalesced` only, 1–600, default 60), `payload` (`full`, default, or `identity`) and `startAfter`.
+`PATCH` takes `expectedVersion` with any of `events`, `filters`, `url`, `mode`, `debounceSeconds` and
+`payload`; the consumer API and workspace are not edited. `suspend` takes `expectedVersion`;
+`resume` takes `expectedVersion` and `acknowledgeLoss` (default false).
+
+```jsonc
+{
+  "id": "…", "consumerApi": "rdm", "contractVersion": 1, "workspaceKey": "main",
+  "events": ["reference-data-changed"], "filters": { "type": ["Location"] },
+  "url": "https://integration.example.com/hooks/rdm",
+  "mode": "perChange", "debounceSeconds": null, "payload": "full",
+  "status": "suspended",
+  "suspension": { "reason": "MODEL_CHANGED", "message": "…", "suspendedAt": "…",
+                  "details": { "errors": [{ "code": "UNKNOWN_EVENT", "message": "…", "pointer": "/events/0" }] } },
+  "acknowledgedThrough": 184100,
+  "signingKeyCreatedAt": "…", "version": 3, "createdAt": "…", "updatedAt": "…"
+}
+```
+
+- **Checks** (create, edit and resume): the consumer API exists in the active release and declares
+  events; each event is declared; each filter names a definition parameter (a read's own names and
+  `to.` targets are not filters) and each value matches a record now; the URL is absolute HTTPS on
+  an allowed host, without user information or fragment, at most 2,048 characters, or HTTP to a
+  listed loopback host (`localhost`, `127.0.0.1`, `::1`); the workspace exists and is active.
+- **The signing key** is answered once, as `signingSecret` (`rdmwh_` and 43 base64url characters),
+  and never by a read; keep it to verify deliveries (C12). It is stored sealed with the deployment
+  key.
+- **Start.** Delivery continues after `acknowledgedThrough`: the workspace's feed head at create, or
+  `startAfter`, refused as the pull feed's `after` is (`410 EVENTS_EXPIRED` with `publication`,
+  `409 EVENT_POSITION_AHEAD`).
+- **Contract version.** `contractVersion` is the version the subscription was accepted under.
+- **Suspension reasons:** `SUSPENDED_BY_USER`; `MODEL_CHANGED` (an activated release no longer
+  declares the API, an event or a filter's parameter; `details.errors`); `CONTRACT_VERSION_CHANGED`
+  (an activated release serves another version; `details.contractVersion`,
+  `details.servedContractVersion`); `WORKSPACE_RETIRED`. Delivery (C12) adds `DELIVERY_FAILED`,
+  `FILTER_MATCHES_NOTHING` and `HOST_NOT_ALLOWED`.
+- **Resume** re-runs the checks: a failure is `409 SUBSCRIPTION_NEEDS_EDIT` with each finding's
+  `code`, `message` and `pointer` in `details.errors`. If events after `acknowledgedThrough` expired,
+  it is `409 EVENTS_EXPIRED` with `fromPosition`, `toPosition` and `publication`; with
+  `acknowledgeLoss: true` it continues after the last expired position. A resume accepts the
+  contract version served.
+
+| Status | Code | When |
+|---|---|---|
+| 400 | `CONSUMER_API_NOT_FOUND`, `EVENTS_NOT_DECLARED` | at `/consumerApi` |
+| 400 | `UNKNOWN_EVENT` | at `/events/{i}` |
+| 400 | `UNKNOWN_PARAMETER`, `PARAMETER_NOT_SUPPORTED`, `UNKNOWN_OBJECT_TYPE`, `FILTER_MATCHES_NOTHING` | at `/filters/{name}` |
+| 400 | `INVALID_WEBHOOK_URL`, `WEBHOOK_HOST_NOT_ALLOWED` | at `/url`; the latter names `host`, `setting` and `allowedHosts` |
+| 404 | `WORKSPACE_NOT_FOUND` | at `/workspaceKey`: unknown or retired |
+| 404 | `SUBSCRIPTION_NOT_FOUND` | the ID |
+| 409 | `VERSION_CONFLICT` | `expectedVersion` is stale; `details.currentVersion` |
+| 409 | `SUBSCRIPTION_ALREADY_SUSPENDED`, `SUBSCRIPTION_NOT_SUSPENDED` | suspend or resume in the wrong state |
+| 409 | `SUBSCRIPTION_NEEDS_EDIT`, `EVENTS_EXPIRED` | resume, above |
+| 409 / 410 | `EVENT_POSITION_AHEAD` / `EVENTS_EXPIRED` | `startAfter`, at `/startAfter` |
+| 422 | `REQUEST_VALIDATION_ERROR` | the body's shape, or `debounceSeconds` without `coalesced` |
+
+Every refusal changes nothing. Edits, suspensions, resumes and deletions write no audit entry.
 
 ## Planned integration endpoints
 

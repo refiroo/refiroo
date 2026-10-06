@@ -21,6 +21,25 @@ All notable changes to this project are documented in this file. The format foll
   - Every screen takes the new colours and type through the older token names, kept as aliases
     until U6 (U-D7). All visual baselines were re-recorded, and `change-set-editing-dark` was added.
 
+- Base 0.9 C11: webhook subscriptions. With `CONSUMER_SUBSCRIPTIONS_ENABLED` (off by default), an
+  operator manages subscriptions at `/api/v1/consumer-subscriptions`: create, list, read, edit with
+  `expectedVersion`, suspend, resume and delete. A subscription names a consumer API, a workspace,
+  some of its events, filters in the definition's parameters, an HTTPS URL on a host in
+  `CONSUMER_WEBHOOK_ALLOWED_HOSTS`, `perChange` or `coalesced` delivery and the `full` or `identity`
+  payload. Each filter value must match a record (C-D100). It starts after the feed's head, or after
+  an earlier `startAfter` (C-D97). Its signing key is shown once and stored sealed (AES-256-GCM)
+  under `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`, which startup requires with the capability on;
+  `python -m app.cli.generate_key` makes one (C-D96). A subscription is `active` or `suspended`
+  with a reason (C-D98). Activating a release that drops what it names suspends it
+  `MODEL_CHANGED`, one that raises the contract version `CONTRACT_VERSION_CHANGED`, and retiring
+  its workspace `WORKSPACE_RETIRED` (C-D99). A resume checks it again and, after unacknowledged
+  events expired, needs `acknowledgeLoss` (C-D93). A workspace with subscriptions cannot be
+  deleted (`deleteBlockedBy: subscribed`). `GET /capabilities` gains `consumerSubscriptions`. New
+  codes: `FILTER_MATCHES_NOTHING`, `INVALID_WEBHOOK_URL`, `WEBHOOK_HOST_NOT_ALLOWED`,
+  `SUBSCRIPTION_NOT_FOUND`, `SUBSCRIPTION_ALREADY_SUSPENDED`, `SUBSCRIPTION_NOT_SUSPENDED`,
+  `SUBSCRIPTION_NEEDS_EDIT`, `WORKSPACE_HAS_SUBSCRIPTIONS`. Migration `20261006_02`. Nothing is
+  delivered yet (C12).
+
 - Base 0.9 C10: consumer events and the pull feed. After a live write commits, a deriver thread in
   the API process turns the workspace's feed entries into the events each consumer API declares,
   without the write waiting: `created`, `updated` naming the watched outputs that changed (also for

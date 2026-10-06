@@ -25,6 +25,7 @@ from ..engine.workspaces.catalogue import delete_blocker, load_workspace_runtime
 from ..models.database import (
     AttributeValue,
     AuditEvent,
+    ConsumerSubscription,
     Job,
     JobItem,
     ModelRelease,
@@ -34,6 +35,11 @@ from ..models.database import (
     WorkspaceRuntimeState,
 )
 from ..models.schema import EngineModel
+from .schemas.consumer_subscriptions import (
+    SubscriptionPage,
+    SubscriptionResponse,
+    SubscriptionSuspension,
+)
 from .schemas.jobs import (
     BatchResponse,
     JobCounts,
@@ -367,3 +373,37 @@ def batch_response(session: Session, job: Job, items: Page[JobItem]) -> BatchRes
         items=[job_item_response(item) for item in items.items],
         **items.links(),
     )
+
+
+def subscription_response(item: ConsumerSubscription, secret: str | None = None) -> SubscriptionResponse:
+    return SubscriptionResponse(
+        id=item.public_id,
+        consumerApi=item.consumer_api,
+        contractVersion=item.contract_version,
+        workspaceKey=item.workspace_key,
+        events=list(item.event_keys),
+        filters={name: list(values) for name, values in item.filters.items()},
+        url=item.url,
+        mode=item.mode,
+        debounceSeconds=item.debounce_seconds,
+        payload=item.payload,
+        status=item.status,
+        suspension=None
+        if item.suspension_reason is None or item.suspended_at is None
+        else SubscriptionSuspension(
+            reason=item.suspension_reason,
+            message=item.suspension_message or "",
+            details=item.suspension_details,
+            suspendedAt=as_utc(item.suspended_at),
+        ),
+        acknowledgedThrough=item.acknowledged_position,
+        signingKeyCreatedAt=as_utc(item.signing_key_created_at),
+        version=item.version,
+        createdAt=as_utc(item.created_at),
+        updatedAt=as_utc(item.updated_at),
+        signingSecret=secret,
+    )
+
+
+def subscription_page(page: Page[ConsumerSubscription]) -> SubscriptionPage:
+    return SubscriptionPage(items=[subscription_response(item) for item in page.items], **page.links())

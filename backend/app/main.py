@@ -14,6 +14,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from .config import Settings, get_settings, reload_settings
 from .consumer import router as consumer_router
 from .db import DatabaseStartupError, SessionLocal, create_database, get_engine
+from .engine.events.subscriptions import SubscriptionSettings
 from .engine.events.worker import EventDeriver
 from .engine.indexes.matrix_states import build_at_startup as build_matrix_states
 from .engine.jobs.inline import BatchLimits
@@ -34,6 +35,7 @@ from .management.reference import api_reference_router
 from .management.routers import (
     attributes,
     change_sets,
+    consumer_subscriptions,
     jobs,
     mapping,
     model,
@@ -126,6 +128,7 @@ async def lifespan(application: FastAPI):
 def create_app() -> FastAPI:
     settings = reload_settings()
     settings.validate_model_admin_topology()
+    settings.validate_consumer_subscriptions()
     mutations_enabled = settings.model_admin_mutations_enabled
     workspace_mutations_enabled = settings.workspace_admin_mutations_enabled
     application = FastAPI(
@@ -184,6 +187,17 @@ def create_app() -> FastAPI:
     application.state.workspace_admin_mutations_enabled = workspace_mutations_enabled
     application.state.integration_jobs_enabled = settings.integration_jobs_enabled
     application.state.consumer_resolve_max_items = settings.consumer_resolve_max_items
+    application.state.consumer_subscriptions_enabled = settings.consumer_subscriptions_enabled
+    application.state.webhook_allowed_hosts = settings.consumer_webhook_allowed_hosts
+    application.state.subscription_settings = (
+        SubscriptionSettings(
+            allowed_hosts=settings.consumer_webhook_allowed_hosts,
+            encryption_key=settings.consumer_webhook_key_encryption_key,
+            retention_days=settings.feed_retention_days,
+        )
+        if settings.consumer_subscriptions_enabled and settings.consumer_webhook_key_encryption_key
+        else None
+    )
     application.state.batch_limits = BatchLimits(
         max_items=settings.batch_max_items,
         max_bytes=settings.batch_max_bytes,
@@ -252,6 +266,8 @@ def create_app() -> FastAPI:
     application.include_router(jobs.router)
     if settings.integration_jobs_enabled:
         application.include_router(jobs.write_router)
+    if settings.consumer_subscriptions_enabled:
+        application.include_router(consumer_subscriptions.router)
     application.include_router(consumer_router.router)
     return application
 

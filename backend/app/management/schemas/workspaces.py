@@ -19,7 +19,7 @@ class WorkspaceDetailResponse(WorkspaceResponse):
     """One workspace and whether it may be deleted; computed for single-workspace responses only."""
 
     deletable: bool
-    deleteBlockedBy: Literal["default", "published", "notEmpty"] | None = None
+    deleteBlockedBy: Literal["default", "published", "notEmpty", "subscribed"] | None = None
 
 
 class WorkspacePage(CollectionPage[WorkspaceResponse]):

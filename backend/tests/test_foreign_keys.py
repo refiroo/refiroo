@@ -42,6 +42,8 @@ RULES = {
     # they go with it.
     ("consumer_events", "workspace_key"): ("workspaces", "CASCADE"),
     ("consumer_event_checkpoints", "workspace_key"): ("workspaces", "CASCADE"),
+    # A workspace with subscriptions cannot be deleted (C11, C-D99).
+    ("consumer_subscriptions", "workspace_key"): ("workspaces", "RESTRICT"),
     # Publications are history and never deleted; withdrawal changes a status. Their rows would go
     # with them.
     ("publication_objects", "publication_id"): ("publications", "CASCADE"),

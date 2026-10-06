@@ -16,8 +16,8 @@ read, D31), [B3](#b3-relation-and-relation-set-items) (2026-10-03, D35–D39),
 [T1a](#t1a-copies-inside-the-database) (2026-10-04), [T1b](#t1b-one-error-code-pattern) (2026-10-04),
 [C2](#c2-consumer-object-and-projections) (2026-10-04, C-D21–C-D26), C3–C5 and
 [C14](#c14-batch-resolve) (2026-10-05, C-D47–C-D53), [C15](#c15-crosswalk) (2026-10-05, C-D54–C-D58),
-[CN1](#cn1-the-consumer-apis-name-in-public-contracts) (2026-10-05, C-D59), [C6a](#c6a-publications) (2026-10-05, C-D60–C-D68), [C6b](#c6b-the-contract-documents) (2026-10-05, C-D69–C-D70), [V2](#v2-consumer-sources) (2026-10-05), [C8](#c8-parity-acceptance) (2026-10-05, C-D72–C-D75), [C16](#c16-asof-in-the-consumer-tier) (2026-10-05, C-D76–C-D80), [C9](#c9-event-definitions) (2026-10-05, C-D81–C-D86), [C10](#c10-event-deriver-event-store-and-pull-feed) (2026-10-06, C-D87–C-D92, C-D95), [U2](SETTINGS_AND_UI_PLAN.md#u2-delivery-record) (2026-10-06, U-D7–U-D9).
-**Next:** C11, in the order of the [delivery queue](#delivery-queue) (U4 waits for U3).
+[CN1](#cn1-the-consumer-apis-name-in-public-contracts) (2026-10-05, C-D59), [C6a](#c6a-publications) (2026-10-05, C-D60–C-D68), [C6b](#c6b-the-contract-documents) (2026-10-05, C-D69–C-D70), [V2](#v2-consumer-sources) (2026-10-05), [C8](#c8-parity-acceptance) (2026-10-05, C-D72–C-D75), [C16](#c16-asof-in-the-consumer-tier) (2026-10-05, C-D76–C-D80), [C9](#c9-event-definitions) (2026-10-05, C-D81–C-D86), [C10](#c10-event-deriver-event-store-and-pull-feed) (2026-10-06, C-D87–C-D92, C-D95), [U2](SETTINGS_AND_UI_PLAN.md#u2-delivery-record) (2026-10-06, U-D7–U-D9), [C11](#c11-subscriptions) (2026-10-06, C-D96–C-D102).
+**Next:** C12, in the order of the [delivery queue](#delivery-queue) (U4 waits for U3).
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
 Effective dates and consumer API definitions extend the model, so the starter becomes content release
@@ -234,7 +234,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 22 | [C16](#c16-asof-in-the-consumer-tier) | C2, Q4 | `asOf` in the consumer tier; SC-11 (consumer) (C-D76–C-D80) — **delivered 2026-10-05** ([record](#c16-delivery-record)) |
 | 23 | [C9](#c9-event-definitions) | C2 | Event definitions (C-D81–C-D86) — **delivered 2026-10-05** ([record](#c9-delivery-record)) |
 | 24 | [C10](#c10-event-deriver-event-store-and-pull-feed) | C9, F2 | Event deriver, event store, pull feed (C-D87–C-D92, C-D95) — **delivered 2026-10-06** ([record](#c10-delivery-record)) |
-| 25 | C11 | C10 | Subscriptions |
+| 25 | [C11](#c11-subscriptions) | C10 | Subscriptions API, signing key, allowlist, suspension on model change and retirement (C-D96–C-D102) — **delivered 2026-10-06** ([record](#c11-delivery-record)) |
 | 26 | C12 | C11 | Dispatcher |
 | 26a | [U5](SETTINGS_AND_UI_PLAN.md#packages-track-u) | U4, C12 | Settings › Integration › Webhooks over the subscriptions API (U-D3) |
 | 27 | C13 | C12 | Event acceptance; the events line's checkpoint |
@@ -1734,7 +1734,7 @@ Scope, order and acceptance are in [CONSUMER_API.md](CONSUMER_API.md#delivery-pa
 | C9 | C2 | `consumer`, `model` | `events` validated and in the contract check |
 | C10 | C9, F2 | `feed`, `consumer` | Deriver checkpoint per workspace; pull feed with `410` |
 | C11 | C10 | `feed`, `contract` | Subscriptions API under its capability, host allowlist, suspension on model change |
-| C12 | C11 | `feed` | Ordered per-change and coalesced delivery, retry, suspend, resume; a resume after expired events refused `409 EVENTS_EXPIRED` unless `acknowledgeLoss` (C-D93) |
+| C12 | C11 | `feed` | Ordered per-change and coalesced delivery, retry, suspension (`DELIVERY_FAILED`, `FILTER_MATCHES_NOTHING`, `HOST_NOT_ALLOWED`); resume with C-D93's check is built in C11 |
 | C13 | C12 | `feed`, `volume` | Event scenarios 1–9, 11–13 and parity scenario 14; bulk-volume delivery budget |
 
 #### C1: Consumer API definitions
@@ -4812,6 +4812,307 @@ amendment and C-D95.
 - `ruff check app/ tests/`: clean.
 - **Not run:** `queries`, `workspaces`, `model_admin` (no boundary of theirs changed), the frontend
   (unchanged), `budget` and the full suites (R).
+
+#### C11: Subscriptions
+
+**Delivered 2026-10-06** ([record](#c11-delivery-record)). Planned 2026-10-06. Decisions C-D96–C-D102 approved by the user the same day; C-D93 and C-D94
+(decided 2026-10-05) and C-D7's and C-D12's revisions apply as written.
+**Needs:** C10 (the events, their positions, `410 EVENTS_EXPIRED` and its baseline, C-D90's filter
+rule). **Groups:** `feed`, `contract` (new routes, capabilities), `startup` (migration, the setting
+checked at start), `model_admin` (activation suspends), `workspaces` (retirement suspends, deletion
+refused).
+**Design:** CONSUMER_API "Subscriptions (runtime, not model)", "Delivery" (the parts C11 stores),
+"Security (0.12)"; C-D7 (revised), C-D10, C-D12 (revised), C-D16, C-D88, C-D90, C-D93, C-D94;
+ADR-031 (capability groups).
+
+**Behaviour.** An operator (or a script) tells the engine where a consumer API's events go. A
+subscription names the consumer API, the workspace, the events, filters in the definition's own
+parameters, the target URL, the delivery mode and the payload. The engine checks it against the
+active definition and the deployment's host allowlist, generates its signing key and returns the
+key once. The subscription is then managed through the API: read, edited with optimistic
+concurrency, suspended, resumed and deleted. A model activation or a workspace retirement that the
+subscription can no longer follow suspends it with a machine-readable reason; nothing rewrites it.
+**Nothing is sent in C11**: the dispatcher (C12) delivers what C11 stores.
+
+```text
+POST   /api/v1/consumer-subscriptions                       201, the signing key in this answer only
+GET    /api/v1/consumer-subscriptions?consumerApi=…&workspaceKey=…&status=…&cursor=…&pageSize=…
+GET    /api/v1/consumer-subscriptions/{id}
+PATCH  /api/v1/consumer-subscriptions/{id}                  { "expectedVersion": 3, … }
+POST   /api/v1/consumer-subscriptions/{id}/suspend          { "expectedVersion": 3 }
+POST   /api/v1/consumer-subscriptions/{id}/resume           { "expectedVersion": 4, "acknowledgeLoss": false }
+DELETE /api/v1/consumer-subscriptions/{id}?expectedVersion=…
+```
+
+```jsonc
+// POST body
+{
+  "consumerApi": "rdm",
+  "workspaceKey": "main",                 // optional: the default workspace, resolved and stored
+  "events": ["reference-data-changed"],   // required, at least one
+  "filters": { "type": "Location", "codelist": ["Country", "Region"] },
+  "url": "https://integration.example.com/hooks/rdm",
+  "mode": "perChange",                    // or "coalesced"
+  "debounceSeconds": 60,                  // coalesced only, 1–600
+  "payload": "full",                      // or "identity" (C-D7)
+  "startAfter": 184100                    // optional (C-D97): default the workspace's feed head
+}
+
+// answer (a read leaves out signingSecret)
+{
+  "id": "…", "consumerApi": "rdm", "contractVersion": 1, "workspaceKey": "main",
+  "events": ["reference-data-changed"], "filters": { … }, "url": "…",
+  "mode": "perChange", "debounceSeconds": null, "payload": "full",
+  "status": "active",                     // or "suspended"
+  "suspension": null,                     // { "reason", "message", "details", "suspendedAt" }
+  "acknowledgedThrough": 184100,          // the position delivery continues after
+  "signingKeyCreatedAt": "…",
+  "version": 1, "createdAt": "…", "updatedAt": "…",
+  "signingSecret": "rdmwh_…"              // create only, never again (C-D12)
+}
+```
+
+- An operator subscribes, keeps the key, reads the subscription back, edits its URL or filters with
+  the version they read, suspends it and resumes it.
+- A filter scopes as the same parameter on a list (C-D90); one the definition does not declare, or
+  one a list does not take (`workspace`, `publication`, `asOf`, `to.…`, `payload`), is refused at
+  its pointer, as batch resolve refuses an item's.
+- A URL outside the allowlist, or plain HTTP to anything but an allowlisted loopback host, is
+  refused at create, edit and resume (C13 scenario 11).
+- Activating a release that drops the subscription's consumer API, one of its events or one of its
+  filters suspends it with `MODEL_CHANGED`; one that raises the contract version suspends it with
+  `CONTRACT_VERSION_CHANGED` (C13 scenario 12).
+- Resuming after the subscription's unacknowledged events expired is `409 EVENTS_EXPIRED` with the
+  lost range and the baseline, unless `acknowledgeLoss` is true (C-D93).
+
+**What exists today** (checked 2026-10-06):
+
+- **Capability groups** are settings read in `config.Settings` and copied onto `app.state` in
+  `create_app`; a gated router is mounted only when its setting is on, so its routes are `404` and
+  absent from the OpenAPI document (model administration, `jobs.write_router`). `GET /capabilities`
+  reports each group with the `setting` that enables it. No subscription setting exists.
+- **The definition and its events**: `reads/consumer_objects.consumer_definition` resolves the active
+  release's definition (`404 CONSUMER_API_NOT_FOUND`); the events route refuses a definition without
+  events (`404 EVENTS_NOT_DECLARED`) and an unknown event (`400 UNKNOWN_EVENT`).
+- **Filters**: `reads/consumer_parameters.consumer_filter` turns parameter values into predicates,
+  and its builder finds a value's candidates (`_Builder.candidates`). The name checks
+  (`UNKNOWN_PARAMETER`, `PARAMETER_NOT_SUPPORTED`, JSON values as batch resolve takes them,
+  `_names_refused`, `_json_values`) live in `consumer/router.py`, which the management tier cannot
+  import (`tests/test_boundaries.py`).
+- **Positions**: `reads/consumer_events.derived_head` and `reads/feed.retention_floor` give the
+  derived head, the earliest kept position and the `410` baseline that C-D93's check needs.
+- **Activation** (`engine/model/releases.activate_model_release`) runs in one transaction holding
+  the runtime-state row; **retirement and deletion** of a workspace in
+  `engine/workspaces/catalogue.update_workspace` and `delete_workspace`. A retired workspace can be
+  reactivated.
+- **No symmetric cipher** is available: the runtime dependencies are FastAPI, Pydantic, SQLAlchemy,
+  psycopg, Alembic and Uvicorn (`pyproject.toml`); `hmac` and `secrets` (stdlib) sign and generate.
+- **Nothing** stores subscriptions; there is no `/consumer-subscriptions` route.
+
+**Design.**
+
+- **Setting** `CONSUMER_SUBSCRIPTIONS_ENABLED` (default `false`, C-D10) mounts the router
+  (C-D102). `CONSUMER_WEBHOOK_ALLOWED_HOSTS` (comma-separated, default empty) and
+  `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY` (C-D96) join `Settings`; with the capability on and no
+  encryption key, startup refuses with the instruction to generate one (the command in OPERATIONS).
+  `GET /capabilities` gains `consumerSubscriptions` (`manageSubscriptions`, `allowedHosts`,
+  `setting`).
+- **Engine** (`engine/events/subscriptions.py`): create, update, suspend, resume, delete and the two
+  hooks below; the checks in one function used by create, edit and resume:
+  1. the consumer API exists in the active release and declares events; each named event exists;
+  2. each filter names a definition parameter a list takes, with text or a list of texts; the
+     consumer router's name and value checks move to `engine/reads/consumer_parameters` so both
+     tiers use them (the consumer answers do not change);
+  3. each filter value matches at least one record now (C-D100), through the builder's candidates;
+  4. the URL passes the allowlist (C-D101);
+  5. the workspace exists and is active.
+  A subscription records the contract version it was accepted under; the dispatcher composes `full`
+  objects under it (C-D99).
+- **Hooks.** `activate_model_release` calls `subscriptions.on_activation(session, model)` before it
+  commits; it checks every active subscription against the new release by rules 1–2 and suspends
+  in one `UPDATE … FROM (VALUES …)` (subscriptions are configuration, few, decided in Python and
+  written as one set statement). `update_workspace` retiring a workspace suspends its active
+  subscriptions with one `UPDATE`; `delete_workspace` refuses a workspace with subscriptions
+  `409 WORKSPACE_HAS_SUBSCRIPTIONS` (C-D99).
+- **Store** (migration `…_consumer_subscriptions`, named at delivery): `consumer_subscriptions`
+  (`public_id` unique, `consumer_api`, `contract_version`, `workspace_key` → `workspaces.key`,
+  `event_keys` text[], `filters` jsonb, `url`, `mode`, `debounce_seconds`, `payload`, `status`,
+  `suspension_reason`, `suspension_details` jsonb, `suspended_at`, `acknowledged_position`,
+  `acknowledged_ordinal`, `signing_key` bytea (encrypted), `signing_key_created_at`, `version`,
+  `created_at`, `updated_at`); indexed on (`consumer_api`, `created_at`, `public_id`) for the list
+  and on `workspace_key`. The acknowledged position and ordinal are where delivery continues, inside
+  a position too, as the pull feed's cursor (C-D91); C12 advances them and adds its delivery state.
+- **Routes** (`management/routers/consumer_subscriptions.py`, schemas in
+  `management/schemas/consumer_subscriptions.py`): the list pages through `PageQuery` (ADR-030),
+  newest first, filtered by `consumerApi`, `workspaceKey` and `status`. Codes: `404
+  SUBSCRIPTION_NOT_FOUND`; `409 VERSION_CONFLICT`; `400 CONSUMER_API_NOT_FOUND`,
+  `EVENTS_NOT_DECLARED`, `UNKNOWN_EVENT`, `UNKNOWN_PARAMETER`, `PARAMETER_NOT_SUPPORTED`,
+  `FILTER_MATCHES_NOTHING`, `INVALID_WEBHOOK_URL`, `WEBHOOK_HOST_NOT_ALLOWED`, each with its body
+  pointer (a body field, so `400`, unlike a route segment's `404`); `404 WORKSPACE_NOT_FOUND`
+  (retired too, as consumer reads); `409 SUBSCRIPTION_NOT_SUSPENDED`,
+  `SUBSCRIPTION_ALREADY_SUSPENDED`; on resume `409 SUBSCRIPTION_NEEDS_EDIT` with each failed check's
+  code and pointer in `details.errors`, and `409 EVENTS_EXPIRED` (C-D93). `startAfter` takes the pull
+  feed's `after` rules: `410 EVENTS_EXPIRED`, `409 EVENT_POSITION_AHEAD`.
+- **Not audited.** Subscription changes write no `audit_events` entry: that log is the outbox of data
+  changes, and every feed reader would have to skip a configuration entry. `updatedAt`, `version`
+  and the suspension fields hold the state; who changed it waits for 0.12's actors.
+- **Signing key**: 32 bytes from `secrets`, shown as `rdmwh_` and base64url, encrypted with AES-GCM
+  under the deployment key (C-D96) before it is stored; reads never return it. C12 decrypts it to
+  sign.
+- **Contract documents:** the management OpenAPI lock is built with the capability off, so it changes
+  only by `consumerSubscriptions` in the capabilities response (re-baselined, diffed); a second
+  contract case builds the document with the capability on and checks the routes, as model
+  administration's is checked. The consumer documents do not change.
+- **No frontend** (the Webhooks page is U5, after C12), **no dispatcher, no HTTP client** (C12).
+
+**Decisions** (status per row):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| C-D96 | How the signing key is kept at rest (left to C11 by CONSUMER_API) | **Approved 2026-10-06.** Encrypted with AES-GCM under `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`, a deployment secret kept outside the database; required when the capability is on, and startup refuses without it, naming the setting and the command that generates one. HMAC needs the key itself, so it cannot be hashed like a password. Stored in plain text, a database backup or a read replica would let whoever holds it forge signed events that plant data in every receiver, which is what C-D12's revision guards against. Adds `cryptography` as a runtime dependency; 0.12's JWTs need it too. The stored value carries a format prefix, so 0.12 can re-encrypt under a new deployment key without a schema change |
+| C-D97 | Where a new subscription starts | **Approved 2026-10-06.** After the workspace's feed head when it is created, so it receives the changes that follow and nothing earlier; `startAfter` may name an earlier position (a publication's `eventSequence`, as a receiver starting from that publication's lists does, C-D15), checked as the pull feed's `after`: below the earliest kept `410 EVENTS_EXPIRED` with the baseline, past the head `409 EVENT_POSITION_AHEAD`. The feed head, not the derived head: events derived later for positions after it are delivered, so a lagging deriver loses nothing. Rejected: starting at 0 (floods a receiver with up to 30 days of history it did not ask for) |
+| C-D98 | One switch, or `enabled` and suspension | **Approved 2026-10-06.** One: `status` is `active` or `suspended`, and suspension always has a reason; CONSUMER_API's `enabled` field is dropped. Suspending by hand is `POST …/suspend` (`SUSPENDED_BY_USER`); every reason is undone by `POST …/resume`. Resume re-runs create's checks against the active release, the allowlist and the workspace, so CONSUMER_API's "needs an edit first after `MODEL_CHANGED` or `FILTER_MATCHES_NOTHING`" is a check, not a rule per reason: a resume that would fail is `409 SUBSCRIPTION_NEEDS_EDIT` listing what to fix. After `CONTRACT_VERSION_CHANGED` the resume records the new version as accepted. C-D93's loss check applies to every resume. Reasons: `SUSPENDED_BY_USER`, `MODEL_CHANGED`, `CONTRACT_VERSION_CHANGED`, `WORKSPACE_RETIRED` (C11); `DELIVERY_FAILED`, `FILTER_MATCHES_NOTHING`, `HOST_NOT_ALLOWED` (C12). Two switches would let a subscription be enabled and suspended at once, with two answers to "why is nothing arriving" |
+| C-D99 | When a model change or a workspace retirement suspends | **Approved 2026-10-06.** In the transaction that causes it, so no event is ever composed under a definition the subscription was not checked against. Activation: a missing consumer API, event or filter parameter, or a filter parameter of another kind, is `MODEL_CHANGED` with each finding's pointer; otherwise a different `contractVersion` is `CONTRACT_VERSION_CHANGED`, since only one version is served (C-D3) and the `full` object's shape would change without the receiver agreeing. An already suspended subscription keeps its reason; its resume re-checks. Retirement: `WORKSPACE_RETIRED` at once; undelivered events stay until retention, and after a reactivation a resume continues from them (C-D93 if they expired). Deleting a workspace that has subscriptions is refused `409 WORKSPACE_HAS_SUBSCRIPTIONS`: a workspace change never removes another owner's configuration (as C-D94). Rejected: checking lazily in the dispatcher (the API would show `active` for a subscription that can no longer be served) |
+| C-D100 | A filter value that matches nothing when the subscription is created | **Approved 2026-10-06.** Refused `400 FILTER_MATCHES_NOTHING` at create, edit and resume, at `/filters/{name}`. C-D94 suspends a subscription whose filter stops matching; accepting one that matches nothing would create it only for C12 to suspend it, and a typo would pass silently. A receiver waiting for a record not yet created subscribes after it exists |
+| C-D101 | What the host allowlist accepts | **Approved 2026-10-06.** `CONSUMER_WEBHOOK_ALLOWED_HOSTS` lists host names, compared ignoring case, each exact or `*.` followed by a domain (any depth below it, not the domain itself); IP addresses only as written. Any port. The URL is absolute HTTPS, without user information or fragment, at most 2,048 characters; plain HTTP only to `localhost`, `127.0.0.1` or `::1`, and only when listed (CONSUMER_API's "allowlisted local hosts in development" without a separate mode). Empty, the default, allows nothing: create is `400 WEBHOOK_HOST_NOT_ALLOWED` naming the setting. The list is reported in capabilities, so the Webhooks page (U5) can say what is allowed. A host removed from the list later is caught by C12 before it sends (`HOST_NOT_ALLOWED`); name resolution and redirects are C12's |
+| C-D102 | What the capability gates | **Approved 2026-10-06.** The whole group: with `CONSUMER_SUBSCRIPTIONS_ENABLED` off, no subscription route is mounted (reads included) and C12 delivers nothing; stored subscriptions are kept and continue when it is turned on. Model administration keeps reads ungated because releases exist whatever the setting; a subscription exists only to be delivered, and its URL names hosts inside the deployment, so an unauthenticated read of it off is no use and some exposure (until 0.12) |
+
+**Journey.** J30 gains **J30.6 Subscribe** (create, read, list, edit, suspend, resume, delete; the
+key once; the refusals) and **J30.7 A subscription the model or workspace leaves behind** (activation,
+retirement, the resume checks, C-D93). API_JOURNEYS gains the routes and codes; J30's status says
+subscriptions are managed from C11 and delivered from C12. The tests run with the capability on, the
+allowlist naming `hooks.example.test` and `localhost`, and an encryption key, set before the test
+application starts; J30's configurations and release with events are reused, so no seed is rebuilt.
+
+**Test cases** (journey tests on generated A and B, written first and confirmed failing: the routes
+are `404`):
+
+1. **J30.6 Subscribe.** Create with two events, a `kind` and a `container` filter and `full`: `201`
+   with `status` `active`, `contractVersion` the active one, `acknowledgedThrough` the feed head and
+   `signingSecret`; a read and the list return it without the key. With `startAfter` at an earlier
+   position, `acknowledgedThrough` is that position. `PATCH` with the read version changes the URL and
+   filters and raises `version`; a stale one is `409 VERSION_CONFLICT`. Suspend: `suspended`,
+   `SUSPENDED_BY_USER`; suspend again `409 SUBSCRIPTION_ALREADY_SUSPENDED`; resume: `active`; resume
+   again `409 SUBSCRIPTION_NOT_SUSPENDED`. Delete with the version: gone, `404
+   SUBSCRIPTION_NOT_FOUND`. The list pages by cursor and narrows by `consumerApi` and `status`.
+2. **J30.6 Refusals, each at its pointer:** an unknown consumer API, a definition without events, an
+   unknown event, an undeclared filter, `asOf` and `to.…` as filters, a filter value no record has,
+   `http://hooks.example.test/…`, a host outside the list, a URL with user information, a retired
+   workspace, `debounceSeconds` with `perChange`, `startAfter` below the floor (`410`) and past the
+   head (`409`). The same URL and filter checks on `PATCH`.
+3. **J30.7 Model change.** Activating a release that removes an event a subscription names suspends it
+   `MODEL_CHANGED` with the event's pointer; one that removes a filter's parameter likewise; one that
+   only raises `contractVersion` suspends it `CONTRACT_VERSION_CHANGED`, and its resume records the
+   new version; a subscription the release still serves stays `active`. Resuming the
+   `MODEL_CHANGED` one unedited is `409 SUBSCRIPTION_NEEDS_EDIT`; after removing the event, it
+   resumes.
+4. **J30.7 Workspace.** Retiring a workspace suspends its subscriptions `WORKSPACE_RETIRED`; a resume
+   is `409 SUBSCRIPTION_NEEDS_EDIT` (workspace inactive); after reactivation it resumes. Deleting a
+   workspace with a subscription is `409 WORKSPACE_HAS_SUBSCRIPTIONS`.
+5. **J30.7 Expired events (C-D93).** A suspended subscription whose acknowledged position falls below
+   the floor (entries aged as J30.5 ages them): resume is `409 EVENTS_EXPIRED` with `fromPosition`,
+   `toPosition`, the active publication and its `eventSequence`; with `acknowledgeLoss: true` it
+   resumes with `acknowledgedThrough` at the floor.
+6. **Capability.** With the setting off the routes are `404` and capabilities say
+   `manageSubscriptions: false`; on, they report the allowlist.
+7. **Unit:** the allowlist (exact, wildcard depth, the domain itself, case, IP, loopback over HTTP,
+   user information, fragment, length); the key's encryption round trip and a wrong deployment key
+   refused.
+8. **Startup:** the migration on a clean database and from `20261006_01`; the capability on without
+   an encryption key refuses to start with the setting named (no traceback).
+
+**Checks:** J30.6 and J30.7 on generated A and B; the unit tests; the `feed` group once; `startup`
+(migration, the refusal); `test_openapi_contract` (lock re-baselined for capabilities, the gated
+document) and `test_api_journeys`; the `model_admin` and `workspaces` groups (activation and
+retirement call the hooks); `test_foreign_keys` (the new reference); `ruff`. Not run: `consumer`
+(the consumer answers are unchanged; the moved name checks are covered by J28's and J29's refusal
+cases, run as targeted modules), `volume` (no read or write path of data changes; subscriptions are
+configuration), the frontend, `budget` and the full suites (R).
+
+**Exit:** subscriptions are managed through the API with the signing key generated and shown once,
+checked against the definition, the allowlist and the workspace, and suspended with a reason when a
+model activation or retirement leaves them behind; resume refuses a silent loss.
+
+**Docs at delivery:** CONSUMER_API (Subscriptions: the shape without `enabled`, the reasons,
+`startAfter`, the key at rest; C-D96–C-D102; the C11 row); API.md (the subscriptions API and the
+capabilities group); ARCHITECTURE (the table, the hooks, the key's encryption); OPERATIONS (the three
+settings, generating the encryption key, what turning the capability off does); USER_JOURNEYS J30.6
+and J30.7; API_JOURNEYS; CURRENT_FUNCTIONALITY; EXECUTION_GUIDE (new modules, counts, the
+changed-boundary row); SETTINGS_AND_UI_PLAN's Webhooks row (suspend and resume as above);
+CHANGELOG, PROJECT_STATUS, TODO. The C12 row above says the resume check is built in C11.
+
+**Composable domains (ADR-032):** no door is affected. Subscriptions are deployment configuration;
+identity, attribute storage, audit/history (configuration is not audited, the audit log is
+unchanged), the bulk APIs, `match` and mapping coverage are untouched. Filter values name records by
+code or name, as a stored query would, and hold no record data for erasure to reach.
+
+##### C11 delivery record
+
+**Delivered 2026-10-06**, as designed, with C-D96–C-D102.
+
+- **Settings** (`config.py`): `CONSUMER_SUBSCRIPTIONS_ENABLED`, `CONSUMER_WEBHOOK_ALLOWED_HOSTS` and
+  `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY` (32 bytes, URL-safe base64); `python -m
+  app.cli.generate_key` prints a key. `cryptography` is a runtime dependency.
+- **Sealing** (`common/sealing.py`): AES-256-GCM with a format byte and the subscription's ID as
+  associated data (C-D96).
+- **Rules** (`engine/events/subscription_rules.py`): the definition checks (consumer API, events,
+  each event, each filter's name from the model's reserved names and the definition's parameters),
+  the activation hook `suspend_left_behind` (called by `activate_model_release` before it commits)
+  and the retirement hook (called by `update_workspace`). It imports only the model and the table,
+  so neither caller imports the reads.
+- **Service** (`engine/events/subscriptions.py`): create, edit, suspend, resume, delete and the
+  paged list; each change claims the version under `FOR UPDATE`; the filter values through
+  `reads/consumer_parameters.unmatched_values` (C-D100), the URL through `webhook_urls.py`
+  (C-D101), positions through `reads/consumer_events.check_after` and `event_window`, factored out
+  of the pull feed with its answers unchanged (C-D97, C-D93).
+- **Store** (migration `20261006_02`): `consumer_subscriptions`, its workspace reference
+  `RESTRICT`; `delete_blocker` gains `subscribed` (`409 WORKSPACE_HAS_SUBSCRIPTIONS`).
+- **Routes** (`management/routers/consumer_subscriptions.py`, mounted with the capability) and
+  `consumerSubscriptions` in `GET /capabilities`; the management OpenAPI lock re-baselined (diffed:
+  the capabilities group and `deleteBlockedBy`'s `subscribed`, nothing else).
+- **Docs**: CONSUMER_API (Subscriptions, C-D96–C-D102, the C11 and C12 rows), API.md (consumer
+  subscriptions, capabilities, workspace deletion), ARCHITECTURE, OPERATIONS (the settings, the key,
+  suspensions), USER_JOURNEYS (J30.6, J30.7, J30's status), API_JOURNEYS, CURRENT_FUNCTIONALITY,
+  EXECUTION_GUIDE (groups, counts, the changed-boundary row), SETTINGS_AND_UI_PLAN's Webhooks row,
+  CHANGELOG, PROJECT_STATUS, TODO.
+
+**Differs from the plan:**
+- **The consumer router is unchanged.** The filter-name checks are built in `subscription_rules`
+  from the model's `RESERVED_PARAMETERS`, the definition's parameters, `to.` targets and list
+  parents, instead of moving the router's checks to the engine; a filter takes JSON values, so the
+  router's query-string handling had nothing to share.
+- **A filter parameter whose kind changes** is not looked for separately: the contract check
+  refuses that release unless the contract version is raised, so it reaches the subscription as
+  `CONTRACT_VERSION_CHANGED`, and the resume checks the values again.
+- **A type name the API does not expose** in an `objectType` filter is `400 UNKNOWN_OBJECT_TYPE`,
+  as on a read, at its filter pointer (recorded in C-D100).
+- **The activation's suspensions** are one executemany `UPDATE` over the rows found, not
+  `UPDATE … FROM (VALUES …)`; subscriptions are configuration and few.
+- **A `suspension_message` column** holds the reason's text the API answers.
+- **The startup refusal** without a usable key is a `RuntimeError` at application construction,
+  naming the setting and the command, as `WEB_CONCURRENCY`'s check is; the plan said "no traceback",
+  which the existing settings checks do not give either.
+- **The frontend** does not yet word `deleteBlockedBy: subscribed` (the Workspaces page shows no
+  hint; delete stays disabled): U2 was changing that page, so the hint goes to U3, which moves it
+  (TODO).
+- **J20's capabilities case** names the fourth gated group.
+
+**Checks:**
+- **Failing first:** the 14 cases of `test_j30_subscriptions` (generated A and B) failed (routes
+  `404`, no capabilities group); all pass.
+- **Targeted:** `test_j30_subscriptions` 14; the allowlist and sealing unit tests 27; the startup
+  cases for the C10 and C11 migrations and the key refusal 6; `test_openapi_contract`,
+  `test_api_journeys`, `test_foreign_keys`, `test_boundaries` 19: all passed.
+- **Groups** `feed`, `startup`, `model_admin`, `workspaces` and `contract` in parallel, once: 540
+  passed, 3 failed. J20's capabilities case (both configurations) named three gated groups; updated,
+  it passes. `test_the_database_goes_away_while_running[generated-a]` (J12) passed when run again on
+  both configurations: it fails when the C10 deriver's once-a-second poll falls inside the outage,
+  because the deriver logs the outage's first failure with its traceback and the case allows none.
+  That is C10's behaviour, not changed here; recorded in TODO for a decision.
+- `ruff check app/ tests/`: clean.
+- **Not run:** `consumer` (the consumer router and answers are unchanged; J30 runs in `feed`),
+  `volume` (no data read or write path changed), the frontend (unchanged), `budget` and the full
+  suites (R).
 
 ## Track V — API reference
 

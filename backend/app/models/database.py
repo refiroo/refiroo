@@ -12,6 +12,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     Numeric,
     String,
     Text,
@@ -1079,6 +1080,58 @@ class ConsumerEventCheckpoint(Base):
     )
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     start_position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+
+
+class ConsumerSubscription(Base):
+    """Where a consumer API's events go (Base 0.9 C11, CONSUMER_API "Subscriptions").
+
+    Deployment data, never part of a model release. ``contract_version`` is the version the
+    subscription was accepted under (C-D99); ``acknowledged_position`` and ``acknowledged_ordinal``
+    are where delivery continues, inside a position too, as a pull-feed cursor (C-D91). A suspended
+    subscription names its reason (C-D98). ``signing_key`` is sealed with the deployment key
+    (``common/sealing``, C-D96) and never returned after create.
+    """
+
+    __tablename__ = "consumer_subscriptions"
+    __table_args__ = (
+        CheckConstraint("mode IN ('perChange', 'coalesced')", name="ck_consumer_subscription_mode"),
+        CheckConstraint("payload IN ('full', 'identity')", name="ck_consumer_subscription_payload"),
+        CheckConstraint("status IN ('active', 'suspended')", name="ck_consumer_subscription_status"),
+        Index("ix_consumer_subscriptions_api", "consumer_api", "sequence_id"),
+        Index("ix_consumer_subscriptions_workspace", "workspace_key", "sequence_id"),
+    )
+
+    sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    public_id: Mapped[str] = mapped_column(
+        String(36), nullable=False, unique=True, default=lambda: str(uuid4())
+    )
+    consumer_api: Mapped[str] = mapped_column(String(160), nullable=False)
+    contract_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    workspace_key: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.key", ondelete="RESTRICT"), nullable=False
+    )
+    event_keys: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    filters: Mapped[dict[str, list[str]]] = mapped_column(JSON, nullable=False, default=dict)
+    url: Mapped[str] = mapped_column(String(2048), nullable=False)
+    mode: Mapped[str] = mapped_column(String(20), nullable=False)
+    debounce_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    payload: Mapped[str] = mapped_column(String(20), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    suspension_reason: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    suspension_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    suspension_details: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    suspended_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    acknowledged_position: Mapped[int] = mapped_column(Integer, nullable=False)
+    acknowledged_ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
+    signing_key: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    signing_key_created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
     updated_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
     )

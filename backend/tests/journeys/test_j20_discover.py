@@ -49,13 +49,13 @@ def _identifiers(value, found):
 def test_read_capabilities_model_placements_and_metadata(world):
     """When the integrator reads the capabilities, the model, the placements and every metadata
     collection one item a page, a type, a relationship type's pairs, an attribute type, the reference
-    page and the OpenAPI document. Then the capabilities name the three gated groups with their flags,
+    page and the OpenAPI document. Then the capabilities name the four gated groups with their flags,
     limits and settings, the change feed's retention and the consumer batch resolve maximum; the model names its release; the placements give each application's
     top-level types and per type its children and possible types; each collection walks every item
     once; the relationship type lists its pairs with cardinality and whether required; every
     identifier is a UUID and none is a number."""
     capabilities = ok(world.api.get("/capabilities"))
-    gated = {"modelAdmin", "workspaceAdmin", "integrationJobs"}
+    gated = {"modelAdmin", "workspaceAdmin", "integrationJobs", "consumerSubscriptions"}
     assert set(capabilities) == gated | {"changeFeed", "consumerApi"}
     assert all("setting" in capabilities[group] for group in gated)
     assert capabilities["changeFeed"]["retentionDays"] >= 1

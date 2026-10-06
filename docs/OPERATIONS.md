@@ -33,6 +33,7 @@ not authorization ([ADR-031](DECISIONS.md#adr-031--workspace-terminology-and-dep
 | `MODEL_ADMIN_MUTATIONS_ENABLED` | off | Model draft create/edit, compile, release install and activation. Requires one process (`WEB_CONCURRENCY=1`); startup refuses it with more workers |
 | `WORKSPACE_ADMIN_MUTATIONS_ENABLED` | on | Workspace create, rename, retire, reactivate, delete and default switching. Turn it off on an API exposed outside a trusted environment unless an access-control layer protects it |
 | `INTEGRATION_JOBS_ENABLED` | on | Job creation (`POST /api/v1/batches`) and cancellation. Job reads stay registered |
+| `CONSUMER_SUBSCRIPTIONS_ENABLED` | off | The webhook subscriptions API (`/api/v1/consumer-subscriptions`), reads included, and from 0.9 C12 their delivery. Requires `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`; startup refuses without it. Turned off, stored subscriptions are kept and continue when it is turned on again |
 
 Always available: installed-release reads, diff and inline validation; workspace discovery; the
 change-set workflow (create, edit, validate, publish, discard) and publication withdrawal. Retired
@@ -142,6 +143,29 @@ setting and takes no workspace lock: writes never wait for it.
 - **Retention:** events are deleted hourly with the change feed's floor (`FEED_RETENTION_DAYS`).
 - **Upgrade to 0.9 C10:** each workspace's events start at its active publication's position (all of
   its feed without one); earlier changes have no events.
+
+## Webhook subscriptions
+
+Subscriptions say where a consumer API's events are delivered (0.9 C11; delivery arrives with C12).
+They are deployment data: they are not part of a model release and are not copied by one.
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `CONSUMER_SUBSCRIPTIONS_ENABLED` | off | Serves the subscriptions API (see capability groups) |
+| `CONSUMER_WEBHOOK_ALLOWED_HOSTS` | empty | Comma-separated hosts a webhook URL may name: exact names, or `*.` and a domain for any host below it (not the domain itself); IP addresses as written; any port. Empty allows nothing. URLs must use HTTPS; plain HTTP is accepted only to `localhost`, `127.0.0.1` or `::1` when listed (development). Reported by `GET /api/v1/capabilities` |
+| `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY` | none | 32 bytes in URL-safe base64; signing keys are stored sealed with it (AES-256-GCM). Required with the capability on |
+
+- **Generating the key:** `python -m app.cli.generate_key` prints one. Keep it with the deployment's
+  other secrets, never in the database or its backups. Every process of a deployment uses the same
+  key. Changing it makes every stored signing key unreadable: subscriptions would have to be
+  recreated (rotation arrives in 0.12).
+- **A model activation** that drops what a subscription names suspends it (`MODEL_CHANGED`); one
+  that raises its consumer API's contract version suspends it until resumed
+  (`CONTRACT_VERSION_CHANGED`). **Retiring a workspace** suspends its subscriptions
+  (`WORKSPACE_RETIRED`), and a workspace with subscriptions cannot be deleted.
+- **Long suspensions:** events expire with `FEED_RETENTION_DAYS`. A resume after unacknowledged
+  events expired is refused unless the owner acknowledges the loss; the refusal names the
+  publication to re-sync from.
 
 ## Deployment topologies
 

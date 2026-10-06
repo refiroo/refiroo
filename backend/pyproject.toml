@@ -5,6 +5,7 @@ description = "Model-driven reference data management engine"
 requires-python = ">=3.14"
 dependencies = [
   "alembic>=1.14,<2",
+  "cryptography>=46,<48",
   "fastapi>=0.115,<1",
   "pydantic>=2.10,<3",
   "sqlalchemy>=2.0,<3",

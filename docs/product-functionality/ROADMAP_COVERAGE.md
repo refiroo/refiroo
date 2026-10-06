@@ -14,7 +14,7 @@ available today is in the [functionality catalogue](CURRENT_FUNCTIONALITY.md).
 | 0.7 | Review mapping coverage and replace one mapping atomically | US-M01–M04, US-W09 | Delivered 2026-09-25 |
 | 0.8 | Work with translation coverage and deep hierarchies at any size | US-L03–L04, US-H01–H03 | Delivered 2026-09-29 |
 | 0.9.0-alpha.1 | PostgreSQL runtime with real concurrency | — (no user-visible change) | In progress |
-| 0.9 | Exchange and synchronise data at integration scale | US-I03–I09 | In progress: queries, `asOf`, bulk object jobs and consumer API definitions delivered |
+| 0.9 | Exchange and synchronise data at integration scale | US-I03–I09 | In progress: queries, `asOf`, bulk jobs, the change feed, the consumer API reads, its change events and webhook subscriptions delivered; webhook delivery and file import and export to come |
 | 0.10 | Turn spreadsheets into applications; edit models in one structured editor | US-P05 (additive), US-P09–P10 | Roadmap |
 | 0.11 | Operate reliably with multiple writers and nodes, and staged models | US-O03–O04, US-O06, US-P07 | Roadmap |
 | 0.12 | Authenticate every caller and authorise every operation | US-S01, US-O05 | Roadmap |

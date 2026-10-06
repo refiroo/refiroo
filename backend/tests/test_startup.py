@@ -25,7 +25,8 @@ from app.db import DatabaseStartupError, get_engine, migration_config
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261006_01"
+HEAD = "20261006_02"
+CONSUMER_EVENTS = "20261006_01"
 PUBLICATION_READS = "20261005_03"
 TYPED_TRIGRAMS = "20261005_02"
 DECIMAL_ENCODING = "20261004_02"
@@ -586,3 +587,48 @@ def test_an_interrupted_consumer_events_revision_rolls_back_and_the_next_start_r
         assert client.get("/health").json() == {"status": "ok"}
     assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
     assert _checkpoints(url)["default"][1] == 0
+
+
+def test_a_database_with_consumer_events_upgrades_to_subscriptions(monkeypatch, databases):
+    """Base 0.9 C11 on a database at the previous revision: the upgrade adds the subscriptions table,
+    the service starts twice with the capability on, and a workspace with a subscription cannot be
+    deleted (the reference restricts)."""
+    url = seeds.create_empty()
+    databases.append(url)
+    command.upgrade(migration_config(url), CONSUMER_EVENTS)
+    assert _scalar(url, "SELECT to_regclass('consumer_subscriptions')") is None
+    monkeypatch.setenv("CONSUMER_SUBSCRIPTIONS_ENABLED", "true")
+    monkeypatch.setenv("CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY", "a" * 43)
+    for _start in range(2):
+        with serve(monkeypatch, _render(url)) as (client, errors):
+            assert errors == []
+            assert client.get("/health").json() == {"status": "ok"}
+            listed = client.get("/api/v1/consumer-subscriptions")
+            assert listed.status_code == 200 and listed.json()["items"] == []
+        assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+    command.downgrade(migration_config(url), CONSUMER_EVENTS)
+    assert _scalar(url, "SELECT to_regclass('consumer_subscriptions')") is None
+
+
+@pytest.mark.parametrize(
+    ("key", "message"),
+    [
+        (None, "requires CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY"),
+        ("too-short", "must be 32 bytes written in URL-safe base64"),
+    ],
+)
+def test_subscriptions_without_a_usable_encryption_key_refuse_to_start(monkeypatch, key, message):
+    """Base 0.9 C11 (C-D96): with the capability on, a missing or malformed key refuses the
+    application's construction with the setting named and the command that generates one."""
+    monkeypatch.setenv("CONSUMER_SUBSCRIPTIONS_ENABLED", "true")
+    if key is None:
+        monkeypatch.delenv("CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY", raising=False)
+    else:
+        monkeypatch.setenv("CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY", key)
+    try:
+        with pytest.raises(RuntimeError, match=message) as refused:
+            create_app()
+        assert "python -m app.cli.generate_key" in str(refused.value)
+    finally:
+        monkeypatch.undo()
+        reload_settings()
