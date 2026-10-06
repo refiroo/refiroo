@@ -129,7 +129,7 @@ describe("design tokens", () => {
 
   it("redefines only semantic roles in dark mode", () => {
     const primitives = [...darkExplicit.keys()].filter((name) =>
-      /^(neutral|night|indigo|green|amber|violet|red|teal|blue|plum|gold|rose|coral|cyan|slate)-/.test(name),
+      /^(neutral|night|indigo|green|amber|violet|red|teal|blue|magenta|olive|rose|coral|cyan|slate)-/.test(name),
     );
     expect(primitives).toEqual([]);
   });

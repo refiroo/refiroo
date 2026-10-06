@@ -109,8 +109,8 @@
   --red-dark-100: #ffb4ab;
 
   /* The type palette (ADR-040, U-D13): eight hues for kinds of record, each a soft fill (-50), a
-     marker (-500) and a dark ink (-800), and their dark values. Amber and violet mean a change set
-     and a publication, so the palette takes gold and plum, other shades of those families. */
+     marker (-500) and a dark ink (-800), and their dark values. Green, amber and violet mean live
+     data, a change set and a publication, so the palette leaves those families out (U-D13). */
   --teal-50: #ddf4ef;
   --teal-500: #11967f;
   --teal-800: #0b6e62;
@@ -123,18 +123,18 @@
   --blue-dark-50: #152640;
   --blue-dark-400: #5a95ec;
   --blue-dark-100: #a9c8f7;
-  --plum-50: #f5e8f8;
-  --plum-500: #ac5cc0;
-  --plum-800: #7b2d8e;
-  --plum-dark-50: #2e1935;
-  --plum-dark-400: #bf78d2;
-  --plum-dark-100: #e3b8ee;
-  --gold-50: #faf1c8;
-  --gold-500: #a17f00;
-  --gold-800: #6a5200;
-  --gold-dark-50: #2c2510;
-  --gold-dark-400: #c9a21a;
-  --gold-dark-100: #ecd78a;
+  --magenta-50: #fbe6f6;
+  --magenta-500: #cf4fae;
+  --magenta-800: #972178;
+  --magenta-dark-50: #361630;
+  --magenta-dark-400: #de6cc0;
+  --magenta-dark-100: #f2b0e0;
+  --olive-50: #eef2d4;
+  --olive-500: #7a8c18;
+  --olive-800: #525d10;
+  --olive-dark-50: #252a12;
+  --olive-dark-400: #9fb236;
+  --olive-dark-100: #d2dc95;
   --rose-50: #fde8ee;
   --rose-500: #dc4f7f;
   --rose-800: #a3254f;
@@ -241,12 +241,12 @@
   --hue-2-fill: var(--blue-50);
   --hue-2-ink: var(--blue-800);
   --hue-2-marker: var(--blue-500);
-  --hue-3-fill: var(--plum-50);
-  --hue-3-ink: var(--plum-800);
-  --hue-3-marker: var(--plum-500);
-  --hue-4-fill: var(--gold-50);
-  --hue-4-ink: var(--gold-800);
-  --hue-4-marker: var(--gold-500);
+  --hue-3-fill: var(--magenta-50);
+  --hue-3-ink: var(--magenta-800);
+  --hue-3-marker: var(--magenta-500);
+  --hue-4-fill: var(--olive-50);
+  --hue-4-ink: var(--olive-800);
+  --hue-4-marker: var(--olive-500);
   --hue-5-fill: var(--rose-50);
   --hue-5-ink: var(--rose-800);
   --hue-5-marker: var(--rose-500);
@@ -352,12 +352,12 @@
   --hue-2-fill: var(--blue-dark-50);
   --hue-2-ink: var(--blue-dark-100);
   --hue-2-marker: var(--blue-dark-400);
-  --hue-3-fill: var(--plum-dark-50);
-  --hue-3-ink: var(--plum-dark-100);
-  --hue-3-marker: var(--plum-dark-400);
-  --hue-4-fill: var(--gold-dark-50);
-  --hue-4-ink: var(--gold-dark-100);
-  --hue-4-marker: var(--gold-dark-400);
+  --hue-3-fill: var(--magenta-dark-50);
+  --hue-3-ink: var(--magenta-dark-100);
+  --hue-3-marker: var(--magenta-dark-400);
+  --hue-4-fill: var(--olive-dark-50);
+  --hue-4-ink: var(--olive-dark-100);
+  --hue-4-marker: var(--olive-dark-400);
   --hue-5-fill: var(--rose-dark-50);
   --hue-5-ink: var(--rose-dark-100);
   --hue-5-marker: var(--rose-dark-400);
@@ -445,12 +445,12 @@
     --hue-2-fill: var(--blue-dark-50);
     --hue-2-ink: var(--blue-dark-100);
     --hue-2-marker: var(--blue-dark-400);
-    --hue-3-fill: var(--plum-dark-50);
-    --hue-3-ink: var(--plum-dark-100);
-    --hue-3-marker: var(--plum-dark-400);
-    --hue-4-fill: var(--gold-dark-50);
-    --hue-4-ink: var(--gold-dark-100);
-    --hue-4-marker: var(--gold-dark-400);
+    --hue-3-fill: var(--magenta-dark-50);
+    --hue-3-ink: var(--magenta-dark-100);
+    --hue-3-marker: var(--magenta-dark-400);
+    --hue-4-fill: var(--olive-dark-50);
+    --hue-4-ink: var(--olive-dark-100);
+    --hue-4-marker: var(--olive-dark-400);
     --hue-5-fill: var(--rose-dark-50);
     --hue-5-ink: var(--rose-dark-100);
     --hue-5-marker: var(--rose-dark-400);

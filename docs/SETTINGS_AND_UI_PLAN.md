@@ -1072,6 +1072,9 @@ approval of the screenshots.
   Seen on the operators-and-timetables model: B's magenta (Master values) sits close to rose
   (Operators); A's gold and plum read as amber and violet only beside the Live chip, since no change
   set or publication was open.
+  _Switched to B by the user (2026-10-06)_ after seeing both beside a change set: slots 3 and 4
+  are magenta and olive in the tokens, with their dark values, under the same contrast test; the
+  gold and plum primitives are removed (they are in commit `226beb2` if A is wanted back).
 - **Hues repeat** after eight types: the operators-and-timetables model has 18, and RDM Master's 12
   collections show Domains and Timetable types both teal, Codelists and Durations both blue. This
   is U-D13's rule (position over eight hues); a later schema may let a model name a hue.
@@ -1084,8 +1087,8 @@ approval of the screenshots.
 
 #### UA2 record (2026-10-06)
 
-Implemented; waiting for the user's approval of the screenshots. U-D13's palette pick from UA1 is
-still open (palette A in the tokens).
+Implemented; waiting for the user's approval of the screenshots. The tokens hold UA1's palette B
+(magenta and olive), to which the user switched.
 
 - **The case.** On the dev server (operators and timetables), the type headings ("Timetable
   categories 15"), the folders and the records all drew one grey icon at nearly one weight, and
