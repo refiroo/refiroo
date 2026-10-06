@@ -90,7 +90,12 @@ Next: UA, the Atlas redesign (ADR-040), before U4 and U5. See [Next — 0.9](#ne
 - **From UA0 (2026-10-06): `test:browser:b3` fails at its drag of Sodium.** `helpers/tree.mjs:189`
   waits for the drag preview after pressing on Sodium in the opened Electrolytes branch
   (`b3-tree-lens.mjs:579`); none appears. It fails the same without UA0's changes, so it came
-  earlier; U3's checks did not run b3.
+  earlier; U3's checks did not run b3. _Since UA2 (2026-10-06):_ the drag of Sodium passes and the
+  run stops later, in B5b, differently in each of two runs: after the keyboard **Move to…** the
+  focus is on the `vol-groups` window instead of the moved group (`b3-tree-lens.mjs:467`); and,
+  in the change set, the page has scrolled the lens's top-level heading under the sticky band, so
+  the drop names no target and no dialog opens (`:459`). Neither step was reached since UA0, so it
+  is not known whether they failed before UA2.
 
 - **Publish and change-set creation move the workspace through Python (found 2026-10-03, F1;
   measured and decided in T1).** Publishing 1,000 renamed records in a 26,000-record workspace takes

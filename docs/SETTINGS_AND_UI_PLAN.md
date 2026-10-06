@@ -1082,6 +1082,35 @@ approval of the screenshots.
   and 390px (drawer), light, both palettes, sent to the user. **Not run:** `test:a11y`,
   `test:visual` (UA7; every baseline now differs in the top bar).
 
+#### UA2 record (2026-10-06)
+
+Implemented; waiting for the user's approval of the screenshots. U-D13's palette pick from UA1 is
+still open (palette A in the tokens).
+
+- **The case.** On the dev server (operators and timetables), the type headings ("Timetable
+  categories 15"), the folders and the records all drew one grey icon at nearly one weight, and
+  nothing showed what contains what.
+- **Records** show their type's 18px `ui/HueTile` (`model/hues`); the selected record is filled
+  with its type's soft colour in its ink, its tile turning white so it stays visible. The drag
+  preview of the tree lens shows the same tile.
+- **Type group headings** are quiet labels: no icon, 12px semibold in the tertiary text colour,
+  the count at the right, 26px high. They still open their collection and keep their tree role.
+- **Containment:** an open branch hangs from a 1px guide line below its record's toggle
+  (`--tree-guide` on the branch's group); hover uses `--surface-hover`.
+- **The variant not taken.** The canvas drew groups with their type's tile in bold, like records.
+  Shown on the dev server as variant B: groups and records then differ only by weight, and the
+  longer headings are cut off ("Timetable catalog…"). A is in the code; both screenshots were
+  sent.
+- **Generic.** One tree for the sidebar and the tree lens; no key is read. Checked on the
+  operators-and-timetables model (dev server) and the starter and volume models (runners).
+- **Tests.** `Explorer.test`: a record's tile and its selected fill carry its own type's slot, a
+  heading has no tile, a branch's guide sits below its toggle.
+- **Checks.** `vitest related`: 6 files, 119 tests passed. `format`, `lint` (0 errors), `build`
+  passed. Runners passed: `test:browser` (keyboard expansion at desktop and 390px), `s6`, `wp14`.
+  `test:browser:b3` failed twice at B5b, differently (TODO); before UA2 it stopped at the drag of
+  Sodium, which now passes. Screenshots at 1440px and 390px (drawer), light. **Not run:**
+  `test:a11y`, `test:visual` (UA7).
+
 ### Exit by 1.0
 
 - Every administrative, integration and security object a route manages has a settings page, and

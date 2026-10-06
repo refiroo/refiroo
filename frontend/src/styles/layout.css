@@ -407,8 +407,19 @@ fieldset.settings-section legend {
 .tree[hidden] {
   display: none;
 }
+/* A branch hangs from a guide line below its record's toggle (ADR-040). */
 .tree-children {
   --tree-window: 300px;
+  position: relative;
+}
+.tree-children::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 6px;
+  left: var(--tree-guide);
+  border-left: 1px solid var(--border-subtle);
+  pointer-events: none;
 }
 .tree-group .scroll-window {
   --window-height: var(--tree-window);
@@ -474,23 +485,21 @@ fieldset.settings-section legend {
   cursor: pointer;
 }
 .tree-node:hover {
-  background: var(--fill);
+  background: var(--surface-hover);
 }
+/* Records carry their type's tile; the selected record is filled with its type's soft colour. */
 .tree-node.active {
-  background: var(--accent-soft);
-  color: var(--accent-ink);
-  font-weight: 650;
+  background: var(--hue-fill, var(--state-selected));
+  color: var(--hue-ink, var(--state-selected-text));
+  font-weight: 600;
 }
-.tree-icon {
-  display: grid;
-  place-items: center;
-  color: var(--faint);
+.tree-node.active .hue-tile {
+  background: var(--surface-raised);
 }
-.tree-node.active .tree-icon {
-  color: var(--accent);
-}
+/* A type group's heading is a quiet label with its count, never drawn like a record. */
 .tree-collection {
-  color: var(--muted);
+  min-height: 26px;
+  color: var(--text-tertiary);
   font-size: 12px;
   font-weight: 600;
 }

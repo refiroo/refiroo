@@ -2938,7 +2938,7 @@ form .admin-hint {
 .tree-row.dragging .tree-node {
   color: var(--muted);
 }
-.tree-row.dragging .tree-icon {
+.tree-row.dragging .hue-tile {
   opacity: 0.5;
 }
 .tree-row.drop-accepted,

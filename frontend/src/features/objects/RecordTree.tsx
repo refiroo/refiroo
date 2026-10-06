@@ -7,6 +7,10 @@
  * records of every type with their ancestor path. Every group is a `useCursorWindow` in a
  * `ScrollWindow`, headed by an item that names the type, shows its count and opens its collection.
  *
+ * Every record shows its type's tile (`model/hues`, ADR-040) and the selected one is filled with
+ * its type's soft colour; a group's heading is a quiet label with its count, never drawn like a
+ * record; an open branch hangs from a guide line below its record's toggle.
+ *
  * The tree follows the WAI-ARIA tree pattern with one tab stop. Positions and set sizes come from
  * the groups' totals, and arrow keys that cross the edge of a group's window load the next page
  * first, so keyboard users walk a branch of any size. Typing a name's first letters moves to the
@@ -38,11 +42,13 @@ import { createPortal } from "react-dom";
 import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorWindow, type CursorWindow } from "@/lib/hooks/useCursorWindow";
 import { collectionGroups, rootObjectTypeKeys } from "@/model/collections";
+import { objectTypeHue } from "@/model/hues";
 import { childObjectTypeKeys } from "@/model/placements";
 import { fieldValue } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
 import type { ApplicationDefinition, EngineModel, ObjectItem } from "@/types";
-import { Icon, ModelIcon } from "@/ui/Icon";
+import { HueTile } from "@/ui/HueTile";
+import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
 import { ScrollWindow } from "@/ui/ScrollWindow";
 import { useTreeDrag, type TreeDragConfiguration, type TreeDragState } from "./useTreeDrag";
@@ -146,6 +152,8 @@ function useTree() {
 const indent = (level: number) => ({ paddingLeft: `${4 + (level - 1) * 14}px` });
 /** Where a level's rows start their icon and label, after the indent and the toggle column. */
 const rowStart = (level: number) => 4 + (level - 1) * 14 + 22;
+/** The guide line of a record's branch runs below the middle of its toggle (ADR-040). */
+const guide = (level: number) => ({ "--tree-guide": `${4 + (level - 1) * 14 + 11}px` }) as React.CSSProperties;
 
 export function RecordTree({
   model,
@@ -576,9 +584,11 @@ export function RecordTree({
               className={`tree-drag-preview${drag.target ? (drag.target.refusal ? " refused" : " accepted") : ""}`}
             >
               <span className="tree-drag-record">
-                <span className="tree-icon">
-                  <ModelIcon name={objectTypeFor(model, drag.item.objectTypeKey)?.icon} size={14} />
-                </span>
+                <HueTile
+                  hue={objectTypeHue(model, drag.item.objectTypeKey)}
+                  icon={objectTypeFor(model, drag.item.objectTypeKey)?.icon}
+                  size={18}
+                />
                 <span className="tree-name">{config.labelOf?.(drag.item) ?? drag.item.name}</span>
                 <span className="tree-drag-type">
                   {objectTypeFor(model, drag.item.objectTypeKey)?.name ?? drag.item.objectTypeKey}
@@ -758,9 +768,6 @@ function TreeGroup({
             title={open ? `Open ${plural.toLowerCase()}${parent ? ` within ${parent.name}` : ""}` : undefined}
             onClick={open}
           >
-            <span className="tree-icon">
-              <Icon name="list" size={14} />
-            </span>
             <span className="tree-name">{plural}</span>
             <span className="tree-count">{numberFormat.format(total)}</span>
           </span>
@@ -878,12 +885,11 @@ function TreeNode({
         )}
         <span
           className={`tree-node${active ? " active" : ""}`}
+          data-hue={objectTypeHue(tree.model, item.objectTypeKey)}
           title={`${item.name} · ${type?.name ?? item.objectTypeKey}`}
           onClick={() => tree.onOpen(item)}
         >
-          <span className="tree-icon">
-            <ModelIcon name={type?.icon} size={14} />
-          </span>
+          <HueTile hue={objectTypeHue(tree.model, item.objectTypeKey)} icon={type?.icon} size={18} />
           <span className="tree-label">
             {config.renderLabel ? config.renderLabel(item, label) : <span className="tree-name">{label}</span>}
             {ancestors && <span className="tree-path">{ancestors}</span>}
@@ -901,7 +907,7 @@ function TreeNode({
           emptyText="Nothing inside"
           noteClassName="tree-note"
           wrap={(children) => (
-            <div role="group" aria-label={`Within ${item.name}`} className="tree-children">
+            <div role="group" aria-label={`Within ${item.name}`} className="tree-children" style={guide(level)}>
               {children}
             </div>
           )}

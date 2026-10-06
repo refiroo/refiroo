@@ -333,6 +333,9 @@ All notable changes to this project are documented in this file. The format foll
   the application tabs and the rail's Collections show it as a tile with the model's icon. The
   hues, their dark values and the context strips are tokens held to the contrast minimums in both
   themes.
+- Base 0.9 UA2: the record browser shows what contains what. Every record carries its type's
+  tile, an open branch hangs from a guide line, a type's heading is a quiet label with its count
+  and never looks like a record, and the selected record is filled with its type's colour.
 
 - Base 0.9 C12: `POST /consumer-subscriptions/{id}/resume` takes `reset` instead of
   `acknowledgeLoss` (C-D93 revised, C-D110). `reset: true` starts delivery after the workspace's

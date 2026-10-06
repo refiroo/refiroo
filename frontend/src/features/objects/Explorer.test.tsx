@@ -217,6 +217,26 @@ describe("Explorer", () => {
     expect(screen.queryByRole("treeitem", { name: "Urgent tariffs" })).not.toBeInTheDocument();
   });
 
+  it("draws each record in its type's hue and a type group as a label, never like a record", async () => {
+    serve();
+    vi.spyOn(api, "object").mockResolvedValue(urgent);
+    const model = treeModel();
+    render(explorer({ model, activeObjectId: urgent.id, activeObjectTypeKey: "codelist" }));
+    const slot = (key: string) => String(model.objectTypes.findIndex((type) => type.key === key) + 1);
+
+    const active = await item("Urgent tariffs");
+    const connectionsRow = screen.getByRole("treeitem", { name: "Connections" }).querySelector(".tree-row")!;
+    expect(connectionsRow.querySelector(".hue-tile")).toHaveAttribute("data-hue", slot("domain"));
+    expect(active.querySelector(".hue-tile")).toHaveAttribute("data-hue", slot("codelist"));
+    // The selected record is filled with its own type's colour.
+    expect(active.querySelector(".tree-node")).toHaveClass("active");
+    expect(active.querySelector(".tree-node")).toHaveAttribute("data-hue", slot("codelist"));
+    expect((await item("Domains, 2")).querySelector(".hue-tile")).toBeNull();
+    // An open branch hangs from a guide line below its record's toggle.
+    const branch = screen.getByRole("group", { name: "Within Connections" });
+    expect(branch.style.getPropertyValue("--tree-guide")).toBe("15px");
+  });
+
   it("keeps branch navigation usable when saved preferences are malformed or storage is blocked", async () => {
     window.localStorage.setItem('rdm:hierarchy:v2:["west","test-app"]', "{broken");
     serve();
