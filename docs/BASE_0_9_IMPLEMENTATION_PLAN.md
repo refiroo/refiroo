@@ -239,7 +239,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 26a | [U5](SETTINGS_AND_UI_PLAN.md#packages-track-u) | U4, C12 | Settings › Integration › Webhooks over the subscriptions API (U-D3) |
 | 27 | C13 | C12 | Event acceptance; the events line's checkpoint |
 | 27a | [U2](SETTINGS_AND_UI_PLAN.md#u2-the-foundation-and-the-shell) | U1 | UI foundation: token layers, regions, data-context band, `PageHeader`, `StatusPill` and `Card`, the shell (U-D7–U-D9) — **delivered 2026-10-06** ([record](SETTINGS_AND_UI_PLAN.md#u2-delivery-record)) |
-| 27b | [U3](SETTINGS_AND_UI_PLAN.md#packages-track-u) | U2 | Settings area: About, Appearance, Deployment (read-only, U-D2), Workspaces and Model moved; `GET /api/v1/system` |
+| 27b | [U3](SETTINGS_AND_UI_PLAN.md#u3-the-settings-area) | U2 | Settings area: About, Appearance, Deployment (read-only, U-D2), Workspaces and Model moved; `GET /api/v1/system`; planned 2026-10-06 (U-D10 decided, U-D11 proposed); no C-track dependency, stays after C13 by the user's choice |
 | — | _cut line (D9)_ | | _If R is out of reach, 0.9.0 releases here with R-a and Track J moves to 0.9.1_ |
 | 28 | [J1](#j1-export) | Q3, Q4, B2, F1 | Export jobs |
 | 29 | [J2](#j2-import-profiles-and-file-reading) | B3 | Import profiles, XLSX/CSV/JSON Lines reading, rows to items |

@@ -184,7 +184,7 @@ The user chose Direction B, "Open" (U-D6, ADR-039), which sets the values for po
 | CN1 | 0.9 | C15 | **Delivered 2026-10-05** ([plan](BASE_0_9_IMPLEMENTATION_PLAN.md#cn1-the-consumer-apis-name-in-public-contracts)). Rename the namespace in public contracts per U-D1 before C6 publishes it in the API index and C9–C11 put it in events and subscriptions: route placeholder, error details, docs, journey tests. Model field `key` unchanged |
 | U1 | 0.9 | — | **Mockups delivered 2026-10-05** ([canvas](https://claude.ai/artifact/GmafaZfJ6PxbXs8rGVysMc): today's baselines with the audit, Direction A "Framed" and Direction B "Open", three screens each, light and dark); **Direction B chosen 2026-10-05 (U-D6, ADR-039).** Visual direction. A screenshot audit of today's surfaces against the diagnosis, then two alternative directions (tokens, rail, page header, a table page, a record page, a settings page, light and dark) as clickable mockups. The user chooses, and the choice is recorded as an ADR. No product code. A filler, any time |
 | U2 | 0.9 | U1 | **Delivered 2026-10-06** ([record](#u2-delivery-record)). Foundation: the token layers, the type and spacing scale, the components above, the rail and header, the data-context bar. Applied to the shell. Contrast test over the tokens. Shell baselines re-recorded |
-| U3 | 0.9 | U2 | Settings area: `/settings` routes and layout; About, Appearance and Deployment; Workspaces and Model moved under Administration (old URLs redirect); the popover reduced to account and theme with a link to Settings; `GET /api/v1/system` |
+| U3 | 0.9 | U2 | **Planned 2026-10-06** ([plan](#u3-the-settings-area); U-D10 decided, U-D11 proposed). Settings area: `/settings` routes and layout; About, Appearance and Deployment; Workspaces and Model moved under Administration (old URLs redirect); the popover reduced to account and theme with a link to Settings; `GET /api/v1/system` |
 | U4 | 0.9 | U3, C6b, V2 | Integration pages: Consumer APIs, Jobs and feed, API reference. Starter consumer API per U-D5 |
 | U5 | 0.9 | U4, C12 | Webhooks page over the subscriptions API |
 | U6 | 0.10 (first) | U2 | The remaining surfaces on the foundation: record browser and inspector, relation matrix, tree, change sets and review, publications, model workbench. Before 0.10's editor (A4), which is built on it |
@@ -459,6 +459,274 @@ backend; nothing in `backend/` changed.
 - The `.surface` panels are to move onto `Card` or a ruled section.
 - The older token names are to be removed.
 
+### U3: the settings area
+
+**Planned 2026-10-06.** Needs U2 (delivered). [U-D10](#decisions) is decided (2026-10-06); U-D11 is
+proposed, for the user to decide before the build starts. U3 depends on no C-track package; its
+place after C13 (27b, before J4) is the order the user chose on 2026-10-06, not a dependency. If it
+is moved forward, as U2 was, the rules in [Running beside C12](#running-beside-c12) apply.
+
+**Outcome.** One **Settings** area at `/settings`, with its own top bar and a grouped side
+navigation (ADR-039, `B-Settings`). An operator reads what the deployment runs (engine, API, schema
+languages, active model release, database revision) and how it is configured (every setting, where
+its value came from, and the capability groups) on **About** and **Deployment**. The same facts come
+from one new route, `GET /api/v1/system`. A user picks the theme and table density on
+**Appearance**. **Workspaces** and **Model** move under Administration. The old URLs redirect, and
+the pages behave as before.
+
+**Reference.** The [U1 canvas](https://claude.ai/artifact/GmafaZfJ6PxbXs8rGVysMc), `B-Settings`:
+the top bar reads "{product} / Settings" with **Back to applications** and the account at the right.
+The rail holds the navigation, with group headings in tertiary ink and the current page in
+`state.selected`. Content is at most 1040px wide, with a 30px title and ruled sections. The settings
+table [above](#settings-area) and [`GET /api/v1/system`](#get-apiv1system-u3) are the scope.
+
+**Composable domains (ADR-032):** no door is affected. U3 adds a read of the deployment and moves
+two pages. It does not touch identity, attribute storage, audit, bulk APIs, `match` or mapping
+coverage.
+
+#### What exists (checked 2026-10-06)
+
+- **Settings.** `config.Settings` reads 22 environment variables (`config.py`, `from_env`). Their
+  meanings are written once, in [OPERATIONS § Settings](OPERATIONS.md#settings), in four tables:
+  runtime, capability groups, batch and job limits, and webhook subscriptions. Nothing in the code
+  links a setting to its group or description. Two are secrets: `RDM_CURSOR_SIGNING_KEY` and
+  `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`. `DATABASE_URL` carries a password. `VITE_API_URL` is the
+  frontend's build setting, not the engine's.
+- **Versions.**
+  - The engine version `0.9.0-alpha.1` is written twice: `backend/pyproject.toml`, and `main.py`
+    as the management document's `info.version`.
+  - Schema languages: `engine/model/compiler.SUPPORTED_SCHEMA_VERSIONS`.
+  - The migration revision is read only at startup (`db._check_revision`, through Alembic's
+    `MigrationContext`).
+  - The active release is in `GET /model-runtime-state` (`activeReleaseId`; `updatedAt` is set when
+    a release is activated or its schema is upgraded, `engine/model/releases.py:161`). Its name and
+    version are in `GET /model-releases/{id}`.
+- **Capabilities.** `GET /api/v1/capabilities` reports six groups. Each names the `setting` that
+  switches it, along with the limits and the webhook host allowlist.
+- **Shell.**
+  - `AppShell` renders the top bar: mark, workspace switcher, application tabs, the model version
+    ("Model 0.9.0 · Schema 0.8"), **Models**, **Workspaces**, and the gear. The gear opens
+    `SettingsMenu`, a popover with the Account placeholder and the theme radio group.
+  - On `models` and `workspaces` routes (`isAdminRoute`), the shell hides the workspace switcher
+    and the band, and the rail becomes a `SidebarSlot`.
+  - The workspace switcher's **Manage workspaces** opens `/workspaces/{key}`.
+- **Models and Workspaces put their catalogue in the rail.**
+  - `ModelWorkbench` (295 lines) portals the release and draft lists into the rail
+    (`SidebarPortal`) and shows the selected release or draft in `main`. Its URLs are `/models`,
+    `?releaseId=` and `?draftId=`.
+  - `WorkspaceAdmin` (702 lines) does the same with the workspace list, at `/workspaces` and
+    `/workspaces/{key}`.
+  - ADR-039 gives the rail to the settings navigation, so the catalogues need another place
+    (U-D10).
+- **Routing.** `parseRoute` reads the URL, and the router writes the canonical URL back with
+  `replaceState` on first load (`app/useRouter.ts:76`). So an old URL parsed to a settings route is
+  rewritten without a second history entry. The backend does not serve the SPA, so deep links need
+  no server change.
+- **Theme and density.**
+  - The theme is stored per browser (`lib/theme.ts`, `rdm:theme:v1`) and is read by an inline
+    script in `index.html` before first paint.
+  - Density is already a per-view choice: `TableDisplay` stores `compact: boolean` with column
+    visibility and widths per view, and `ObjectTable` adds `density-compact`. A stored `false`
+    cannot be told apart from "never chosen".
+- **Tests on these surfaces.**
+  - `w4-workspace-admin` and `wp12-release-identity` open `/workspaces` and `/models` directly, and
+    so do the accessibility and visual gates.
+  - Four baselines show the two pages: `model-workbench` and `workspaces-admin`, light and dark.
+  - `test_openapi_contract` locks the management document. `test_api_journeys` refuses a route the
+    [API inventory](testing/API_JOURNEYS.md) does not map to a journey.
+- **Open item from C11** ([TODO](TODO.md)): the Workspaces page gives no reason when delete is
+  disabled by `deleteBlockedBy: subscribed`.
+
+#### Scope
+
+1. **`GET /api/v1/system`**, in a new `management/routers/system.py`. It is read-only and not
+   behind a capability, like `/capabilities`.
+   - The **engine version** has one home: `app/__init__.py` `ENGINE_VERSION`. `main.py` reads it
+     for `info.version`, and a unit test holds it equal to `pyproject.toml`.
+   - A **settings catalogue** in `config.py`. Each entry has the environment variable, its group
+     (`runtime`, `capabilities`, `limits`, `webhooks`, the four OPERATIONS tables), a one-line
+     description of what it controls, the default, and whether it is secret.
+     - OPERATIONS keeps the runbook detail. The catalogue's line is the API's text. A unit test
+       holds that every `Settings` field has exactly one entry and that every entry's variable
+       appears in OPERATIONS, so neither can drift.
+     - A setting C12 adds fails that test until it has an entry.
+   - **Response.** It follows the [shape above](#get-apiv1system-u3), with four changes:
+     - `activeModelRelease` adds `key` and `schemaVersion`. Its `activatedAt` is the runtime
+       state's `updatedAt`.
+     - `database` carries only `revision`, read from `alembic_version` on the request's session.
+       `DATABASE_URL` appears once, in `settings`.
+     - Each setting has `name` (the variable), `group`, `description`, `value`, `default` and
+       `source` (`environment` or `default`). Values keep their types: integers, booleans, and
+       lists for `CORS_ORIGINS` and the allowed hosts.
+     - `DATABASE_URL`'s value drops its password, and keeps the user, host, port and database.
+       Both secrets have `value: null` and `default: null`, and only `source` tells whether they
+       are set. Nothing else in the response is secret.
+   - **Engine side.** The engine reads the revision and the active release (`engine/reads/system.py`).
+     The router presents them, with no model logic in the handler. One read, one session.
+   - **0.12:** this route is for administrators once roles exist (U8). Until then it is as open as
+     `/capabilities`, which already reports the allowlist.
+2. **Settings shell** (`app/SettingsShell.tsx`). `App` renders it for every settings route in place
+   of `AppShell`.
+   - **Top bar.** The mark, a separator, then **Settings**. At the right: **Back to applications**
+     and the account button. Back to applications returns to the last application route of the
+     session, or the default route when there is none.
+   - **No data context.** No workspace switcher, application tabs or data-context band, since
+     settings are not workspace data.
+   - **Rail.** The rail on `surface.nav` holds `nav aria-label="Settings"`, with the groups as
+     headings and the pages as links with `aria-current="page"`. Its width and resizer are the
+     application rail's.
+   - **At 390px** the rail is replaced by a labelled select at the top of the content (as the
+     settings table says), and the top bar keeps the mark, Settings and the account.
+   - **Keyboard order:** skip link, top bar, settings navigation, content.
+3. **Application shell changes** (`AppShell`, `SettingsMenu`).
+   - The gear becomes a link named **Settings** to `/settings`. The **Models** and **Workspaces**
+     links and the model-version text leave the top bar, since About shows the version.
+   - The account button (initials on `surface.sunken`, named "Account") opens the popover from
+     `SettingsMenu`. It keeps Account and the theme radio group and adds an **All settings** link.
+   - **Manage workspaces** opens `/settings/workspaces/{key}`.
+   - The `isAdminRoute` branches and the rail's `SidebarSlot` leave `AppShell`.
+4. **Routes** (`routing/routes.ts`, `types/ui.ts`): one route kind, `settings`, with a `page` and
+   the page's own selection.
+   - `/settings` redirects to `/settings/about`. The pages are `/settings/about`,
+     `/settings/appearance`, `/settings/deployment`, `/settings/workspaces`,
+     `/settings/workspaces/{key}`, `/settings/model`, `/settings/model/releases/{id}` and
+     `/settings/model/drafts/{id}`.
+   - **Old URLs** parse to the new routes, and the router's first-load `replaceState` rewrites
+     them: `/models` (with `releaseId` or `draftId`) and `/workspaces[/{key}]`. Their routes and
+     tests go. Each redirect is held by a routes test.
+   - **Navigation entries** list only built pages (U-D11). U4 and U5 add Integration's pages.
+5. **Pages**, each `SettingsLayout` with `PageHeader` (the group as eyebrow) and `Section`s:
+   - **About**: engine and management API version; schema languages; the active model release
+     (name, key, version, schema language, activated at) with a link to its page under Model; the
+     database revision. These are `DescriptionList`s over `GET /system`.
+   - **Appearance**: Theme (System, Light, Dark) and Table density (Comfortable, Compact), as radio
+     groups in `FormField`s. Both are saved in this browser, and the page says so.
+     - Theme writes the same preference as the account popover.
+     - Density is the default for every table. A view's own choice (the table display popover)
+       overrides it. That popover gains **Default** and shows which density the default currently
+       is.
+     - Stored per-view preferences are read as `compact: true` → Compact and `false` → Default,
+       since a stored `false` was never a deliberate choice that can be told apart.
+   - **Deployment**: one `Section` per group, in OPERATIONS' order. Each is a ruled table: setting
+     (variable in mono), value, default, source, what it controls.
+     - A secret reads "Set" or "Not set".
+     - An ephemeral `RDM_CURSOR_SIGNING_KEY` carries a warning line: cursors stop working on
+       restart and differ between instances.
+     - The capability groups lead the page, from `/capabilities`: on or off with the setting that
+       switches them, and the limits under each.
+     - A note says the values come from the environment and change only on restart (U-D2), and
+       names the API address this UI calls (`VITE_API_URL`).
+   - **Workspaces** and **Model**, as a list page and a detail page each (U-D10). Their behaviour, dialogs, capability
+     rules, errors and paging (cursors with Load more) do not change. The release diff, draft
+     editor and workspace detail keep their markup inside the page; U6 restyles them.
+     - Workspace delete, when blocked by `subscribed`, gives the reason: "Delete its webhook
+       subscriptions first, or retire it" (C11's TODO).
+6. **Components** in `ui/`, each with its first uses (U-D8):
+   - `SettingsLayout`: the settings pages.
+   - `Section`: a titled block with a rule under its heading, no card. Every settings page uses it.
+   - `DescriptionList`: About, and the workspace and release facts.
+   - `FormField` (label, help, error): Appearance, and the create and rename workspace dialogs.
+   - `EmptyState` (message and an action): no drafts, and no workspaces matching a filter.
+   - `Skeleton`: About and Deployment while `/system` loads.
+   - `Toast`: the confirmation after workspace create, delete or default change, and after draft
+     install or release activation, in place of the pages' inline success notices. It uses
+     `role="status"` and stays until dismissed or until it has been visible for 8 s without hover
+     or focus. Errors stay inline.
+
+**Not in U3:** Integration and Security pages (U4, U5, U8). Editing any deployment setting (U-D2).
+Restyling the content of the release diff, the draft editor or the record screens (U6). Removing the
+old token aliases (U6).
+
+#### Checks
+
+Test work stays within about a quarter of the package. Journey cases are written first, from this
+plan, and seen to fail.
+
+- **Journeys and inventory.** [USER_JOURNEYS](product-functionality/USER_JOURNEYS.md) gets **J31 —
+  Check what a deployment runs and how it is configured** (operator; API and UI). Its variants:
+  - J31.1 a setting from the environment against one left at its default;
+  - J31.2 secrets and the database password never returned;
+  - J31.3 the active release after an activation.
+
+  J08 and J19 name the settings pages as their UI path.
+  [API_JOURNEYS](testing/API_JOURNEYS.md) maps `GET /api/v1/system` to J31.
+- **Backend** (`startup` and `contract` groups only, per the
+  [execution guide](testing/EXECUTION_GUIDE.md)):
+  - `test_j31_system` (in `startup`): defaults with `source: default`; two variables set in the
+    environment and reported with `source: environment` and typed values; `DATABASE_URL` without
+    its password; both secrets `null`, set and unset; the revision equal to Alembic's head; the
+    active release and `activatedAt` after an activation.
+  - Unit (`tests/unit/test_config.py`): the catalogue covers every `Settings` field once and
+    matches OPERATIONS; the URL masking (with a password, without one, user only);
+    `ENGINE_VERSION` equals `pyproject.toml`.
+  - `contract`: the OpenAPI lock regenerated for the one new route; `test_api_journeys` and
+    `test_boundaries` pass.
+- **Frontend unit** (`vitest related` over the changed sources): `routes.test.ts` (every settings
+  URL both ways, and each old-URL redirect), `App.test.tsx`, `SettingsMenu.test.tsx` (account
+  popover and its link), a new `Settings.test.tsx` (navigation, `aria-current`, the 390px select,
+  About and Deployment over a fixture response, secrets shown as Set or Not set, Appearance writing
+  both preferences), `localPreference.test.tsx` (density default and override),
+  `ModelWorkbench.test.tsx`, `ModelReleaseDetail.test.tsx`, `WorkspaceAdmin.test.tsx` (the new
+  layout, behaviour unchanged, and the `subscribed` reason), and `UIFoundation.test.tsx` for the
+  seven components. Then `format`, `lint` (no errors) and `build`.
+- **Browser, real backend:**
+  - A new runner, `e2e/u3-settings.mjs` (`test:browser:settings`), at 1440 and 390px:
+    1. Open Settings from the gear in two applications, and come back to each with Back to
+       applications.
+    2. Visit every page.
+    3. Load each old URL and land on its page.
+    4. Choose Compact on Appearance and see it in two views of different object types. A view's
+       own choice wins.
+    5. Keyboard order.
+  - `test:browser:w4` and `test:browser:wp12`, moved to the new URLs. `test:browser:wp11`.
+    `test:browser` (wp9-navigation: the top bar without Models and Workspaces).
+- **Gates, run once each.** `test:a11y`, with the settings pages added in light and dark. Then
+  `test:visual --update-baselines`.
+  - The four Models and Workspaces baselines are replaced by `settings-model` and
+    `settings-workspaces` (light and dark), `settings-release-detail` and
+    `settings-workspace-detail` (light).
+  - Added: `settings-about` and `settings-deployment` (light and dark) and `settings-appearance`
+    (light). The gate holds 49.
+  - Every baseline whose top bar changed is re-recorded. Each new or moved screenshot is opened and
+    checked against `B-Settings`. The others are compared, and the record says which were opened.
+  - This repeats U-D7's exception for the reason ADR-039 gives: "baselines re-recorded surface by
+    surface (U3 settings)". The moved pages' baselines fail at their old URLs whichever way it is
+    run.
+- **Documentation.**
+  - [PRODUCT](PRODUCT.md) and [CURRENT_FUNCTIONALITY](product-functionality/CURRENT_FUNCTIONALITY.md):
+    the settings area.
+  - [API](API.md): `/system`.
+  - [OPERATIONS](OPERATIONS.md): the Deployment page, and the catalogue rule for new settings.
+  - [ARCHITECTURE](ARCHITECTURE.md): the two shells.
+  - [UI_ACCEPTANCE](testing/UI_ACCEPTANCE.md): a "Settings layout" reference row and its state
+    inventory.
+  - [EXECUTION_GUIDE](testing/EXECUTION_GUIDE.md): the runner and `test_j31_system`.
+  - CHANGELOG, PROJECT_STATUS, and TODO (C11's item closed).
+
+#### Running beside C12
+
+If the user runs U3 beside C12, U2's three rules ([Running beside C10](#running-beside-c10)) apply
+unchanged: browser runs on a cleanly starting backend, own lines in shared documents, heavy gates
+not beside C12's database checks. U3 changes `backend/` (`config.py`, `main.py`, a router, an
+engine read, the OpenAPI lock), so two more rules apply:
+
+- **Settings.** C12 is likely to add delivery settings to `config.py`. Whichever package lands
+  second adds their catalogue entries; the catalogue test fails until it does. Neither package
+  edits the other's fields.
+- **The OpenAPI lock and the API inventory.** They are regenerated or edited after the other
+  package's last change to them, never merged by hand mid-change.
+
+#### Exit
+
+- `GET /api/v1/system` answers as specified, in OpenAPI and the API inventory, with J31's cases
+  passing.
+- Every setting is in the catalogue and on Deployment, and no secret is returned.
+- The settings shell, navigation and the five pages work at 1440px and 390px, in light and dark.
+- The old URLs redirect, and the Workspaces and Model pages behave as before.
+- The seven components exist, each with its first uses.
+- The runners and both gates pass, and the baselines are re-recorded and inspected.
+- The U3 record is written here, and the 0.9 plan's row is marked delivered.
+
 ### Exit by 1.0
 
 - Every administrative, integration and security object a route manages has a settings page, and
@@ -470,7 +738,7 @@ backend; nothing in `backend/` changed.
 
 ## Decisions
 
-U-D1–U-D6 were decided by the user on 2026-10-05; U-D7–U-D9 on 2026-10-06.
+U-D1–U-D6 were decided by the user on 2026-10-05; U-D7–U-D9 on 2026-10-06. U-D10 on 2026-10-06; U-D11 is proposed, for the user to decide before U3 is built.
 
 | # | Question | Recommendation | Why |
 | --- | --- | --- | --- |
@@ -483,3 +751,5 @@ U-D1–U-D6 were decided by the user on 2026-10-05; U-D7–U-D9 on 2026-10-06.
 | U-D7 | How much does U2 re-colour? | **Decided 2026-10-06: all of it.** The old token names become aliases of the new roles, so every screen takes Direction B's colours, type and rules in U2. Screens keep their markup until U6. All 41 baselines are re-recorded and inspected in U2, and `test:a11y` and `test:visual` run once in the package, as an exception to AGENTS' "gates at build acceptance" | Every baseline contains the shell, so the visual gate fails on all 41 whichever option is taken. The other option, new tokens for the shell only, would ship 0.9.0 with an indigo shell around green screens until U6 in 0.10. ADR-039's "U2 the shell, U6 the rest" then means structure, not colour |
 | U-D8 | Which `ui/` components does U2 build? | **Decided 2026-10-06 (the user): `Card` is kept**, because the UI is not final and how a card looks and works is judged in the product. U2 builds `PageHeader` (the ten page headers), `StatusPill` (the band and the context statuses) and `Card`, styled from Direction B's tokens. Today's `.surface` panels resolve to the same tokens, so U2's screenshots show the card look; U6 moves those panels onto `Card`, or onto `Section` where a card looks wrong. `SettingsLayout`, `Section`, `DescriptionList`, `FormField`, `EmptyState`, `Skeleton` and `Toast` come with U3, and `Toolbar`, `Breadcrumbs` and `SegmentedControl` with U6 | UI_ACCEPTANCE §1: a shared component comes with the surfaces that use it. `Card` already has those surfaces in today's panels. ADR-039's "content on the page, not in cards" is held for now and tested against the product, not ruled out in advance |
 | U-D9 | Which pairs does the contrast test hold to which ratio? | **Decided 2026-10-06, to be reviewed on U2's screenshots** (the user: "let's see how it looks"): text at 4.5:1 (3:1 for the 30px title). A control's border, the focus ring and any status or context marker that is the only sign of a state at 3:1, with `border.control` added as its own darker role. Separator rules (`border.subtle`, `border.strong`) are decorative and exempt, listed as such in the test | The mockup's control border is 1.6:1 and the light change-set dot is 2.9:1, both below WCAG 1.4.11's 3:1 for a boundary or state marker. The ruled look in ADR-039 needs light separators, which 1.4.11 does not cover. So "every border pair at AA" in this plan's §UI foundation is narrowed to borders that identify something |
+| U-D10 | Where do the Workspaces and Model catalogues go, now that the rail holds the settings navigation? | **Decided 2026-10-06 (the user): a list page and a detail page.** `/settings/workspaces` is a ruled table of workspaces (label, key, status, default) with New workspace, and `/settings/workspaces/{key}` is the workspace's page, with "Workspaces" as its eyebrow link back. `/settings/model` shows the active release, then the releases and the drafts as tables; a release or draft opens at its own URL. Paging stays cursors with Load more | U5's Webhooks and U8's users and clients have the same shape, so the settings area needs one list-and-detail pattern, and these two pages are its first uses. The detail keeps the content's full width, which the release diff needs. The alternative, a list column beside the detail inside the page, keeps today's side-by-side browsing but costs the detail about 280px on top of the settings rail, and the 390px layout stacks either way. Nesting the lists under their entries in the settings navigation would crowd it with paged lists |
+| U-D11 | Does the settings navigation show pages not built yet? | **Proposed: no.** Only built pages are listed. U4 and U5 add Integration's, and U7 and U8 add theirs. The mockup's Security entries tagged "0.12" are left out | An entry with nothing behind it is a dead end, and a disabled one says nothing a user can act on. What is planned is in ROADMAP |
