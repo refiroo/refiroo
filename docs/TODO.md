@@ -86,7 +86,11 @@ Next: UA, the Atlas redesign (ADR-040), before U4 and U5. See [Next — 0.9](#ne
   lands on is still unknown. Next: capture that URL at the failure and see whether the anchor
   restored after a reload depends on the page's height. _UA3 (2026-10-06):_ 2 of 3 runs failed
   there, both at the change-set call site (`:383`); the UA2 revision's one run failed there too.
-  _UA4 (2026-10-07):_ the one run failed there again (`:383`).
+  _UA4 (2026-10-07):_ the one run failed there again (`:383`). _UA4 revision, record ID
+  (2026-10-07):_ failed once at the live call site (`:263`), passed on the next run.
+- **For the UA4 revision (2026-10-07): the user's pick of the pencil variant.** `AttributesPanel`
+  reads `localStorage["rdm:edit-hint"]` (`always`: the pencil faint at rest; otherwise only on hover
+  and focus). Once the user picks, keep that one and remove the switch and the other variant's CSS.
 - **From the UA4 revision (2026-10-07): a column header's accessible name includes its resize
   handle** ("Path Resize Path column"), in every `ui/DataTable` table and in the collection tables
   before it. Naming the header with `aria-label` fixes the name but makes every header match a

@@ -48,6 +48,8 @@ import {
   Text,
   UserRound,
   X,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 
 const icons = {
@@ -59,6 +61,7 @@ const icons = {
   "chevron-down": ChevronDown,
   "chevron-right": ChevronRight,
   close: X,
+  copy: Copy,
   filter: ListFilter,
   info: Info,
   list: List,
@@ -70,6 +73,7 @@ const icons = {
   workspace: LayoutGrid,
   monitor: Monitor,
   moon: Moon,
+  pencil: Pencil,
   more: Ellipsis,
   plus: Plus,
   search: Search,
@@ -80,6 +84,7 @@ const icons = {
   sliders: SlidersHorizontal,
   sun: Sun,
   table: Table2,
+  trash: Trash2,
   tree: ListTree,
   user: UserRound,
   "state-one": CircleCheck,

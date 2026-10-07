@@ -16,6 +16,29 @@ import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { InlineAttributeEditor } from "./InlineAttributeEditor";
 import { useNavigationGuard } from "@/routing/navigationGuard";
 import { formatValue } from "@/ui/formatValue";
+import { Icon } from "@/ui/Icon";
+
+/**
+ * Whether a field's pencil shows only on hover and focus ("hover") or faintly all the time
+ * ("always"). Two variants for the user to pick on the dev server (UA4 revision); until then a
+ * browser chooses with `localStorage.setItem("rdm:edit-hint", "always")`.
+ */
+function editHint(): "hover" | "always" {
+  try {
+    return localStorage.getItem("rdm:edit-hint") === "always" ? "always" : "hover";
+  } catch {
+    return "hover";
+  }
+}
+
+/** A field's value as the row shows it, telling not set, null and empty text apart. */
+function shownValue(stored: ObjectAttributeValue | undefined, computed: unknown, isComputed = false) {
+  if (isComputed) return <span className="attribute-value">{formatValue(computed)}</span>;
+  if (!stored) return <span className="unset-value">Not set</span>;
+  if (stored.value === null) return <span className="unset-value">Null</span>;
+  if (stored.value === "") return <span className="unset-value">Empty text</span>;
+  return <span className="attribute-value">{formatValue(stored.value)}</span>;
+}
 
 export function AttributesPanel({
   model,
@@ -89,7 +112,7 @@ export function AttributesPanel({
 
   return (
     <>
-      <dl className="attribute-grid">
+      <dl className="attribute-grid" data-edit-hint={editHint()}>
         {panel.config.fields.map((field) => {
           const binding = bindingMap.get(field);
           const attribute = model.attributeTypes.find((item) => item.key === field);
@@ -116,18 +139,49 @@ export function AttributesPanel({
                   />
                 ) : (
                   <>
-                    {attribute ? (
-                      !stored ? (
-                        <span className="unset-value">Not set</span>
-                      ) : stored.value === null ? (
-                        <span className="unset-value">Null</span>
-                      ) : stored.value === "" ? (
-                        <span className="unset-value">Empty text</span>
-                      ) : (
-                        <span className="attribute-value">{formatValue(stored.value)}</span>
-                      )
+                    {editable && !readOnly ? (
+                      // The value is the control (UA4 revision): a click edits it, or adds one when the
+                      // field is not set. A click that ends a text selection leaves it for copying.
+                      <button
+                        type="button"
+                        className="attribute-edit"
+                        disabled={!!editing || !!removing || !!warning}
+                        onClick={(event) => {
+                          const selection = window.getSelection();
+                          if (selection?.toString() && event.currentTarget.contains(selection.anchorNode)) return;
+                          trigger.current = event.currentTarget.closest(".attribute-grid > div");
+                          setSavedField("");
+                          setEditing(stored ? { ...editable, stored } : { ...editable });
+                        }}
+                      >
+                        <span className="visually-hidden">
+                          {stored ? "Edit" : "Add"} {attributeName(model, field)}:
+                        </span>{" "}
+                        {shownValue(stored, undefined)}
+                        <span className="attribute-edit-hint">
+                          <Icon name={stored ? "pencil" : "plus"} size={13} />
+                        </span>
+                      </button>
                     ) : (
-                      <span className="attribute-value">{formatValue(fieldValue(object, field, model))}</span>
+                      shownValue(stored, attribute ? undefined : fieldValue(object, field, model), !attribute)
+                    )}
+                    {!readOnly && editable && stored && !editable.binding.required && (
+                      <div className="row-actions">
+                        <button
+                          type="button"
+                          className="attribute-remove text-danger"
+                          aria-label={`Remove ${attributeName(model, field)}`}
+                          title={`Remove ${attributeName(model, field)}`}
+                          disabled={!!editing || !!removing || !!warning}
+                          onClick={() => {
+                            setRemoveError("");
+                            setRemoved(false);
+                            setRemoving({ ...editable, stored });
+                          }}
+                        >
+                          <Icon name="trash" size={14} />
+                        </button>
+                      </div>
                     )}
                     {savedField === field && (
                       <p role="status" className="inline-save-status">
@@ -135,48 +189,6 @@ export function AttributesPanel({
                       </p>
                     )}
                   </>
-                )}
-                {!readOnly && editable && editing?.attribute.key !== field && (
-                  <div className="row-actions">
-                    {stored ? (
-                      <>
-                        <button
-                          disabled={!!editing || !!removing || !!warning}
-                          onClick={(event) => {
-                            trigger.current = event.currentTarget.closest(".attribute-grid > div");
-                            setSavedField("");
-                            setEditing({ ...editable, stored });
-                          }}
-                        >
-                          Edit
-                        </button>
-                        {!editable.binding.required && (
-                          <button
-                            disabled={!!editing || !!removing || !!warning}
-                            className="text-danger"
-                            onClick={() => {
-                              setRemoveError("");
-                              setRemoved(false);
-                              setRemoving({ ...editable, stored });
-                            }}
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </>
-                    ) : (
-                      <button
-                        disabled={!!editing || !!removing || !!warning}
-                        onClick={(event) => {
-                          trigger.current = event.currentTarget.closest(".attribute-grid > div");
-                          setSavedField("");
-                          setEditing({ ...editable });
-                        }}
-                      >
-                        Add value
-                      </button>
-                    )}
-                  </div>
                 )}
               </dd>
             </div>

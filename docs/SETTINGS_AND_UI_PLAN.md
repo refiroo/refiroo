@@ -1387,6 +1387,47 @@ content.
   above). `test:browser:authoring` failed on two **Add Domain** buttons, from UA3's empty state
   (TODO). **Not run:** `test:a11y`, `test:visual` (UA7).
 
+#### UA4 revision: fields edited in place (2026-10-07)
+
+Asked by the user: edit a record's fields by clicking them instead of the Edit, Remove and Add value
+buttons, with a delete icon on hover. Recommended with conditions, which the user accepted, and two
+variants of the pencil to pick from on the dev server.
+
+- **The value is the control** (`AttributesPanel`). An editable field's value is a button that reads
+  as text (`.attribute-edit`): a soft fill and a pencil on hover and keyboard focus; an empty field
+  shows **Not set** with a plus and adds a value. Its name says the action and the value ("Edit
+  Value code: 16-BUS-002", "Add Description: Not set"). Its text can be selected; a click that ends a
+  selection inside it is left for copying, as table rows do.
+- **Saving stays explicit.** The editor is unchanged: Save or Enter, Escape cancels, a click elsewhere
+  does nothing, null and conflict handling as before. Focus returns to the value afterwards.
+- **Remove** is a trash icon (`Remove {field}`) at the row's end, shown with the row's hover or
+  focus, always on touch (`hover: none`), hidden while another field is edited; required fields have
+  none; the confirmation is unchanged. On phones it keeps the row's top right with a 40px target.
+- **Read-only** (a publication, a read-only binding, a computed field) shows the plain value.
+- **Two variants (U-D: the user's pick):** the pencil only on hover and focus (in the code), or faint
+  at rest (`localStorage.setItem("rdm:edit-hint", "always")` in the browser, then reload). TODO holds
+  removing the switch once picked.
+- **Tests.** `AttributesPanel.test`: on two record types, a value opens its editor and focus returns
+  to it after Escape; an empty field adds; only an optional field has Remove, which asks first; a
+  click that selected the value's text does not open the editor. `ObjectDetail.test` follows the new
+  name. Runners `wp9-authoring` and `wp9-change-sets` find a row's control by the start of its name,
+  and `wp9-authoring` waits for focus on the edited value.
+- **Checks.** `vitest run` over `ui`, `features/objects`, `lib`, `app`: 29 files, 274 tests passed.
+  `format`, `lint` (0 errors, the 7 recorded warnings), `build` passed. `test:browser:change-sets`
+  passed. `test:browser:authoring` stops at UA3's two **Add Domain** buttons (TODO) before its field
+  steps; run once with that click pointed at the first button (not kept), it passed end to end,
+  editing, adding and removing fields at 1440 and 390px. Screenshots of both variants at rest and on
+  hover, in the inspector and on the page, the editor open, and a touch phone.
+- **The record's ID** (asked by the user the same day: the consumer API returns each record's `id`,
+  and the record page showed it nowhere). The header band shows it under the title (`.record-meta`)
+  with `ui/CopyValue`: the label, the ID in the monospace face, selectable, and **Copy ID**, which
+  announces "ID copied." or how to copy by hand. On the inspector, the full page and at 390px. The
+  model's **Master ID** field is a different value (`master-id`); in the dev data it is empty for
+  every record (checked: no stored value, no write in the history, none in the SQLite file it came
+  from; the API returns all 6,993 stored values exactly). `ObjectDetail.test`: the ID shows and
+  copies. Checks: 29 files, 276 tests; `format`, `lint`, `build`; `test:browser` failed once at the
+  known record return (TODO) and passed on the next run.
+
 ### Exit by 1.0
 
 - Every administrative, integration and security object a route manages has a settings page, and

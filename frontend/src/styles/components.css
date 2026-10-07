@@ -919,6 +919,52 @@ th[aria-sort] {
   color: var(--hue-ink, var(--text-tertiary));
   font-weight: 600;
 }
+/* The record's ID under its title, in the header band (UA4 revision). */
+.record-meta {
+  margin: -4px 0 0 52px;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+@media (max-width: 760px) {
+  .record-meta {
+    margin-left: 0;
+  }
+}
+/* ui/CopyValue: a label, a selectable monospace value and its copy button. */
+.copy-value {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  max-width: 100%;
+}
+.copy-value-label {
+  color: var(--text-tertiary);
+  font-weight: 600;
+}
+.copy-value code {
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+.copy-value-button {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  min-height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-secondary);
+}
+.copy-value-button:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
 .record-header .breadcrumbs ol {
   font-size: var(--text-sm);
 }
@@ -1070,7 +1116,7 @@ th[aria-sort] {
   border-bottom: 0;
 }
 .attribute-grid dt {
-  padding-right: 110px;
+  padding-right: 36px;
   color: var(--muted);
   font-size: 12px;
   font-weight: 550;
@@ -1117,6 +1163,86 @@ th[aria-sort] {
 }
 .attribute-row.editing .row-actions {
   display: none;
+}
+/* A field's value is its edit control (UA4 revision): it reads as text, shows a soft fill and a
+   pencil (or a plus where nothing is set) on hover and focus, and its text can still be selected
+   for copying. With `data-edit-hint="always"` the pencil also shows faintly at rest. */
+.attribute-grid {
+  --edit-hint-rest: 0;
+}
+.attribute-grid[data-edit-hint="always"] {
+  --edit-hint-rest: 0.4;
+}
+.attribute-edit {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  max-width: calc(100% + 12px);
+  min-height: 0;
+  margin: -3px -6px;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  text-align: left;
+  overflow-wrap: anywhere;
+  user-select: text;
+  cursor: pointer;
+}
+.attribute-edit:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+.attribute-edit:disabled {
+  opacity: 1;
+  cursor: default;
+}
+.attribute-edit-hint {
+  display: inline-flex;
+  flex: none;
+  align-self: center;
+  color: var(--text-tertiary);
+  opacity: var(--edit-hint-rest);
+  transition: opacity 120ms ease;
+}
+.attribute-edit:hover:not(:disabled) .attribute-edit-hint,
+.attribute-edit:focus-visible .attribute-edit-hint {
+  opacity: 1;
+}
+.attribute-edit:disabled .attribute-edit-hint {
+  opacity: 0;
+}
+/* Remove: a small icon at the row's end, shown with the row's hover or focus; always on touch. */
+.row-actions .attribute-remove {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  min-height: 28px;
+  padding: 0;
+  color: var(--status-error-action);
+  opacity: 0;
+}
+.attribute-row:hover .attribute-remove,
+.attribute-row:focus-within .attribute-remove {
+  opacity: 1;
+}
+/* While another field is edited or removed, the icons step aside rather than fade. */
+.row-actions .attribute-remove:disabled {
+  visibility: hidden;
+}
+@media (hover: none) {
+  .row-actions .attribute-remove,
+  .attribute-edit-hint {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .attribute-edit-hint {
+    transition: none;
+  }
 }
 .table-wrap .row-actions {
   white-space: nowrap;

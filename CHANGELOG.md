@@ -355,6 +355,15 @@ All notable changes to this project are documented in this file. The format foll
   header (it was reachable by keyboard only): a drag starts from the column's drawn width, keeps the
   other columns as they were, and may make a column narrower than its content, which then ends in an
   ellipsis. The look of a table that has not been resized is unchanged.
+- Base 0.9 UA4 revision: a record's fields are edited by clicking their value, not by Edit, Remove
+  and Add value buttons. The value is a button that reads as text, with a soft fill and a pencil on
+  hover and focus (a plus on an empty field, which adds a value); an optional value's trash icon
+  shows with the row's hover or focus and always on touch, and removing still asks first. Saving
+  stays explicit, a selected text is left for copying, and focus returns to the value after
+  editing. Read-only fields and publications show plain values.
+- Base 0.9 UA4 revision: the record's header shows its ID (the `id` the management and consumer
+  APIs return) under the title, in monospace with a copy button (`ui/CopyValue`), in the inspector
+  and on the full page.
 - Base 0.9 UA2 revision: the record browser's groups sit in frames of their type's colour, nested
   as boxes inside boxes; a group glows in the accent while it scrolls and in teal while the pointer
   is in it; with a pointer, a scrolling group stops at its first and last row; records sit one step

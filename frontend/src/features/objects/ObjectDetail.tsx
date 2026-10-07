@@ -19,6 +19,7 @@ import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
 import { ObjectDeleteDialog } from "@/features/objects/ObjectDeleteDialog";
 import { ConnectedList } from "./panels/ConnectedList";
 import { HistoryPanel } from "./panels/HistoryPanel";
+import { CopyValue } from "@/ui/CopyValue";
 import { HueTile } from "@/ui/HueTile";
 import { Icon } from "@/ui/Icon";
 import { RecordChip } from "@/ui/RecordChip";
@@ -323,6 +324,10 @@ export function ObjectDetail({
             </>
           }
         />
+        {/* The record's own ID, as the API returns it (`id`), to copy into another system. */}
+        <p className="record-meta">
+          <CopyValue label="ID" value={object.id} />
+        </p>
       </div>
       <div
         key={panelRefresh}

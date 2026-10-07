@@ -243,12 +243,20 @@
   .inline-attribute-editor button {
     min-height: 40px;
   }
+  /* The remove icon keeps the row's top right with a 40px target; the value is a taller target. */
   .attribute-grid .row-actions {
-    position: static;
-    margin: 4px 0 0 -7px;
+    top: 2px;
+    right: -8px;
+  }
+  .row-actions .attribute-remove {
+    width: 40px;
   }
   .attribute-grid dt {
-    padding-right: 0;
+    padding-right: 40px;
+  }
+  .attribute-edit {
+    align-items: center;
+    min-height: 36px;
   }
 }
 

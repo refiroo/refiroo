@@ -181,7 +181,7 @@ try {
   assert.equal((await api(`/objects/translation?workspaceKey=${workspaceKey}`)).items.length, 0);
   await open(translation, first);
   const translatedName = panel(page, "Translation details").locator(".attribute-grid > div").filter({ has: page.locator("dt", { hasText: /^Translated name$/ }) });
-  await translatedName.getByRole("button", { name: "Edit", exact: true }).click();
+  await translatedName.getByRole("button", { name: /^Edit / }).click();
   await page.getByRole("form").getByLabel("Translated name", { exact: true }).fill("Doručení");
   await page.getByRole("form").getByRole("button", { name: "Save", exact: true }).click();
   await page.getByRole("form").waitFor({ state: "hidden" });

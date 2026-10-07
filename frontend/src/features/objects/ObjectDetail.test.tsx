@@ -38,7 +38,7 @@ describe("ObjectDetail lifecycle controls", () => {
         />,
       );
       const divider = await screen.findByRole("separator", { name: "Resize record properties" });
-      fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
+      fireEvent.click(screen.getAllByRole("button", { name: /^Edit Code:/ })[0]);
       const input = screen.getByLabelText("Code");
       fireEvent.change(input, { target: { value: "unsaved" } });
       fireEvent.keyDown(divider, { key: "ArrowLeft" });
@@ -215,6 +215,18 @@ describe.each([
     );
     return { onOpen, ...view };
   }
+
+  it("shows the record's ID, as the API returns it, and copies it", async () => {
+    vi.spyOn(api, "relations").mockResolvedValue({ items: [], nextCursor: null });
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
+    show(codelistObject);
+    await screen.findByRole("heading", { level: 1, name: codelistObject.name });
+    expect(screen.getByText(codelistObject.id)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Copy ID" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(codelistObject.id));
+    expect(await screen.findByText("ID copied.")).toBeInTheDocument();
+  });
 
   it("tints the header in the record's type and shows its ancestors as chips in theirs", async () => {
     vi.spyOn(api, "relations").mockResolvedValue({ items: [], nextCursor: null });

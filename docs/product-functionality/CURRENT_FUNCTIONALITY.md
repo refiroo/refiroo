@@ -135,7 +135,11 @@ text.
 Fields are text, long text, integer, decimal, boolean, date, date-time or JSON. The engine enforces
 required fields, defaults, read-only bindings, numeric ranges, "at least one of" rules and uniqueness
 (also within an ancestor). In the browser a field is edited in place with an editor for its type, and a
-missing optional value is kept distinct from a stored false, zero, empty or null value.
+missing optional value is kept distinct from a stored false, zero, empty or null value. Clicking a value
+(or Enter on it) opens its editor, clicking an empty field adds a value, and an optional value is
+removed by its trash icon after a confirmation; saving is always explicit (Save or Enter, Escape
+cancels), and selecting a value's text to copy it does not open the editor. The record's header
+shows its ID, the `id` every API returns, with a button that copies it.
 
 Evidence: [inline editor](../../frontend/src/features/objects/panels/InlineAttributeEditor.tsx),
 [attribute panel](../../frontend/src/features/objects/panels/AttributesPanel.tsx),
