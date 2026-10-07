@@ -248,7 +248,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 28 | [J1](#j1-export) | Q3, Q4, B2, F1 | Export jobs: JSON Lines, CSV and XLSX, one snapshot, the manifest on the job (D49–D56) — **delivered 2026-10-07** ([record](#j1-record-2026-10-07)) |
 | 28a | [J1u](#j1u-export-in-the-ui-and-job-notifications-outline) | J1 | Export in the UI: the dialog, the job page, notifications pushed over a per-job event stream (D57–D63) — **delivered 2026-10-07**, screenshots approved by the user ([record](#j1u-record-2026-10-07)) |
 | 29 | [J2](#j2-import-profiles-and-file-reading) | B3 | Import profiles, XLSX/CSV/JSON Lines reading, rows to items, `POST /imports` with `stage: execute` (D64–D74) — **delivered 2026-10-07** ([record](#j2-record-2026-10-07)) |
-| 29a | J2a (if D74 is accepted) | J2 | Database-backed uniqueness for `unique` attributes (TODO, C-D24); planned when J2 is delivered |
+| 29a | [J2a](#j2a-database-backed-uniqueness-for-unique-attributes) | J2 | Database-backed uniqueness for `unique` attributes (TODO, C-D24, D74, D75–D78) — **delivered 2026-10-07** ([record](#j2a-record-2026-10-07)) |
 | 30 | [J3](#j3-import-preview-and-execution) | J2, B2 | Import preview, confirm; `stage: execute` arrives with J2 (D64) |
 | 31 | [J4](#j4-import-screen-and-sc-10) | J1u, J3, F2 | The SC-10 screen and SC-10 acceptance |
 | 31a | [Track K](#track-k--bulk-selection-and-editing-in-collections) | J4, UA | Bulk selection and bulk edits in collections over `POST /batches`; packages K1–K5 planned in detail when the track starts — **added 2026-10-06** |
@@ -7144,6 +7144,215 @@ were written first and failed (20 cases, every route `404`), then passed.
 **Not run or not verified.** The full suites (R). No frontend change, so no frontend checks. The
 full-size import budget is J3's (D68: openpyxl's speed is measured there). An import into a change set
 with related records, and a cancel during binding, are not covered by a test of their own.
+
+#### J2a: Database-backed uniqueness for unique attributes
+
+**Design:** ADR-010 (its planned hardening), TODO (C-D24), D74. **Needs:** J2.
+
+##### J2a plan (2026-10-07)
+
+**Planned 2026-10-07. D75–D78 and the test cases accepted by the user the same day; D79 withdrawn, out of scope.** Checked against the code at
+`1e8d3ea`: the unique rule (`rules.unique_values`) asks the lookup for a holder of the value in its
+typed column (`LiveLookup`, `ChangeSetLookup`, `LiveBatchLookup`), under the workspace lock (PG3);
+live values are written by the write unit through the ORM (`LiveWrites._save_saved_values`,
+`save_values`) and removed by Core deletes (`remove_records`, the publish's apply) and by the
+`objects` cascade; the publish's apply deletes and rewrites each authored record's values one record
+at a time (`writes.py`, after whole-graph validation); activation counts duplicates for an
+attribute newly made unique (`compatibility.py`, `ATTRIBUTE_UNIQUENESS_VIOLATED`) and refuses a
+change of value type; the active release is switched in `model/releases.py`, the offline
+`cli/model_schema_upgrade.py` and `model/bootstrap.py`; the active release's attribute types are
+rows of `model_attribute_types` (`definition` holds `features.unique`); `rdm_value_json`
+(`20261004_02`) gives a stored value's canonical JSON in SQL, the form `stored_json_value` gives in
+Python. A live create maps every `IntegrityError` to `409 DUPLICATE_RELATION`
+(`objects.create_object_record`, `apply_object_create`, `batches._LiveItems.write_one`), and a
+batch chunk whose bulk write fails is redone item by item (PG-D15). The development database
+(read once): seven unique attributes in the active release, 14 values among them, two workspaces,
+no duplicates.
+
+**Behaviour.** Nothing a client sees changes when the rules work: a duplicate is refused
+`409 DUPLICATE_ATTRIBUTE_VALUE` live, in a change set, in a batch and in an import, as today. What
+changes is that the database itself holds the rule for live data: a value of an attribute the active
+release declares `unique` is held by one record per workspace, even when an engine write path
+skips the rule or gets it wrong (a defect). A write that would break it commits nothing
+and answers the same `409` naming the holder. A release that makes an attribute unique backs its
+values from the moment it is active; one that drops `unique` releases them.
+
+**Contract.** No route, schema or setting changes. `409 DUPLICATE_ATTRIBUTE_VALUE` keeps its shape;
+a collision of two relationships keeps `409 DUPLICATE_RELATION`. OpenAPI
+unchanged.
+
+**Design.**
+
+- **Storage** (D75). Revision after `20261007_06`: `unique_attribute_values` (`value_id` →
+  `attribute_values.sequence_id` `ON DELETE CASCADE`, primary key; `workspace_key`;
+  `attribute_type_key`; `object_id`; `value_digest` `bytea`, the SHA-256 of the value's
+  `rdm_value_json` text) with `UNIQUE (workspace_key, attribute_type_key, value_digest)
+  DEFERRABLE INITIALLY DEFERRED`. Only values of attributes unique in the active release have a
+  row; empty text has none (the rule's E-D4 exemption). The digest makes equality the rule's
+  equality (text exactly, a decimal by its canonical digits so `1.0` is `1.00`, a dateTime by its
+  instant, date, integer, boolean) and keeps the index row fixed-width for a long `longText`.
+- **Kept by PostgreSQL** (D76). `rdm_unique_values_*` statement-level `AFTER INSERT` and
+  `AFTER UPDATE` triggers on `attribute_values` with transition tables: one set statement each,
+  joining the changed rows to their records' workspaces and to the active release's unique
+  attribute types; a delete needs no trigger (the cascade). An `AFTER UPDATE OF
+  active_model_release_id` trigger on `model_runtime_state` re-derives the table for the
+  attributes whose `unique` changed (rows removed, rows added by `INSERT … SELECT`), so
+  `releases.py`, the offline upgrade and bootstrap are covered alike. No Python code writes the
+  table; ARCHITECTURE and AGENTS.md say so beside the matrix-state and value-index rules.
+- **Checked at the end of each write** (D77). The write unit ends `write_live` with
+  `SET CONSTRAINTS uq_unique_attribute_values IMMEDIATE` (and `DEFERRED` again), as do the
+  publish's apply and activation, so a write that hands a value from one record to another inside
+  one statement sequence passes, and a violation surfaces inside the batch's savepoint, where the
+  item-by-item redo (PG-D15) already catches it. A path that forgets the check is still refused at
+  commit; only its answer is less precise.
+- **The answer.** The live create's and the batch's `IntegrityError` mapping reads the constraint's
+  name: `uq_unique_attribute_values` answers `409 DUPLICATE_ATTRIBUTE_VALUE` with the holder (one
+  read of the table), anything else keeps `DUPLICATE_RELATION`. A publish that meets it answers its
+  existing conflict shape with `DUPLICATE_ATTRIBUTE_VALUE`.
+- **Scope** (D78). Live data only. A change set keeps the rule under its lock, and publishing
+  writes live rows, which meet the constraint; publications reserve nothing (ADR-010). Scoped
+  relationship uniqueness (`uniqueToAncestorTypeKey`) depends on the hierarchy, is no row-level key
+  and stays a rule under the workspace lock; the relationship edge already has its unique index.
+- **Upgrade.** The revision creates the table and triggers, then fills it from the active
+  release's unique attributes by one `INSERT … SELECT`. No branch for stored duplicates: every
+  value was written through the rules, and the development database has none (D79 withdrawn).
+- **Cost.** No client statement is added except the two `SET CONSTRAINTS` per write; the
+  triggers' server time is measured once: a 500-item upsert chunk keyed by a unique attribute at
+  the 0.1 fixture (PG3b measured 0.25–0.46 s) and one activation adding `unique` to an attribute
+  with 10,000 values. Results reported, not iterated (J3 measures the import at full size).
+- **Frontend:** none.
+
+**Decisions** (for approval):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D75 | A partial unique index on `attribute_values` or a table of its own | **Accepted 2026-10-07 by the user.** **A table of its own with a deferrable unique constraint.** A partial index cannot be deferred (PostgreSQL defers constraints, not partial indexes), so a swap inside one publish would fail mid-apply; its predicate would have to name the unique attributes, changing the DDL at each activation; `attribute_values` has no workspace column; and a long text exceeds a B-tree row. The TODO's second form fits all four |
+| D76 | Who keeps the table | **Accepted 2026-10-07 by the user.** **PostgreSQL triggers, not the write unit.** Every path then keeps it: ORM and Core writes, the cascade, the three places that switch the active release, and any later data migration, with no "note what you changed" contract like `matrix_states.note_rows` to forget. Statement-level triggers with transition tables keep it set work (AGENTS.md). The cost is server time per write statement, measured once |
+| D77 | When the constraint is checked | **Accepted 2026-10-07 by the user.** **At the end of each write unit (`SET CONSTRAINTS … IMMEDIATE`), deferred within it.** Within one write the order of rows is the ORM's, not the rule's, so an immediate check would refuse legal hand-overs (a batch's `A: X→Z, B: Y→X`, a publish exchanging two values); checking at the end keeps the failure inside the savepoint where the redo and the `409` mapping can name it |
+| D78 | What it covers | **Accepted 2026-10-07 by the user.** **Live values of attributes unique in the active release, per workspace.** Not change sets (drafts, guarded by the rule and met by the constraint at publish), not publications (ADR-010), not scoped relationship uniqueness (a hierarchy rule). Object IDs need nothing (C-D24) |
+| D79 | ~~Duplicates already stored at upgrade~~ | **Withdrawn 2026-10-07.** Raised for a database the engine did not write; none exists here, so the upgrade has no branch for it |
+
+**Journey.** USER_JOURNEYS and API_JOURNEYS gain two variants; the catalogue's other uniqueness
+variants (J02.5, J03.8, J11.2) are unchanged:
+
+- **J06.4 Publishing an exchange of unique values**: a change set that hands values between
+  records publishes; live holds each value once.
+- **J08.10 A release dropping and restoring `unique`**: records may share a value while the
+  attribute is not unique; restoring it is refused while they do, and backs the value once it is
+  active.
+
+**Test cases** (journey tests on generated A and on the example or generated B, through the API;
+1–3 pass today and guard that the backing changes no answer, 4 and the unit tests fail first):
+
+1. **A value handed on in one batch.** Given `R1` holding `R.u = X` and `R2` holding `Y`, an
+   `atomic` inline batch updating `R1` to `Z`, then `R2` to `X`: both applied; a third record with
+   `X` is refused `409 DUPLICATE_ATTRIBUTE_VALUE`; deleting `R2` frees `X` for it. The same value in
+   a second workspace is accepted.
+2. **Publishing an exchange (J06.4).** A change set sets `R1` to `T`, `R2` to `X`, `R1` to `Y`:
+   it publishes, live reads `R1 = Y`, `R2 = X`, and a live create with either is refused.
+3. **Racing creates (J03.8)** unchanged: one `201`, one `409 DUPLICATE_ATTRIBUTE_VALUE`.
+4. **Dropping and restoring `unique` (J08.10).** A release without `unique` on `R.u` activates; two
+   records take `V`; a release restoring it is refused `ATTRIBUTE_UNIQUENESS_VIOLATED`; one record
+   changes; the release activates; a create or a batch item with `V` is refused.
+
+Plus the migration checks (AGENTS.md): clean bootstrap, upgrade from `20261007_06`, two starts, an
+interrupted run recovering, the downgrade. Unit tests (`tests/unit/engine/indexes/`) for the
+backing's purpose, against the database: a duplicate written through the write unit past the rules
+fails at the check; empty text is not backed; `1.0` and `1.00`, and one instant at two offsets,
+collide; a 10,000-character `longText` is backed; a non-unique attribute is not; the constraint's
+failure answers `DUPLICATE_ATTRIBUTE_VALUE` with the holder and a relationship collision still
+`DUPLICATE_RELATION`; switching the active release re-derives the rows.
+
+**Checks.** The cases above, `--journey J03 J06 J08 J11`, the groups the execution guide
+selects for `writes.py` (`records`, `change_sets`, `mapping`, `matrix`, `feed`, with `jobs`) and
+`model` and `startup` for activation and the revision, `test_schema_drift`, `ruff`. If they pass
+the 2-minute ceiling it is reported, not rerun. The two measurements above, once. No frontend
+change. Not run: the full suites (R).
+
+**Docs at delivery.** DECISIONS (ADR-010: the hardening delivered), ARCHITECTURE (the table, the
+triggers, the deferred check, the lock order unchanged), AGENTS.md (no code writes the table),
+APPLICATION_MODEL (`unique` backed by the database for live data), USER_JOURNEYS, API_JOURNEYS, CHANGELOG, PROJECT_STATUS, TODO (the uniqueness
+item closed; the non-text value-index item unchanged).
+
+**Composable domains (ADR-032):** identity and attribute storage are touched and stay open. Object
+IDs are untouched; a unique attribute stays a key a later retired-ID redirect or a source-system ID
+can use, now backed by the database; the table is derived and holds no value of its own, so a value
+source, a derived value or an erasure changes only `attribute_values`.
+
+##### J2a record (2026-10-07)
+
+**Delivered 2026-10-07.** D75–D78 and the test cases accepted by the user before coding; D79
+withdrawn. The journey cases were written first; as the plan said, they passed before the change
+(they guard that it changes no answer: 8 cases), and the unit tests failed first (the module did
+not exist).
+
+**Built.**
+
+- **The table** (`models/database.py` `UniqueAttributeValue`, revision `20261007_07`):
+  `unique_attribute_values` (`value_id` → `attribute_values.sequence_id` `ON DELETE CASCADE`,
+  `workspace_key`, `attribute_type_key`, `object_id`, `value_digest`) with
+  `uq_unique_attribute_values` deferred and an index on `object_id`. `rdm_value_digest` is the
+  SHA-256 of `rdm_value_json`, `NULL` for empty text.
+- **The triggers** (D76): `attribute_values_unique_insert` and `_update`, statement triggers with a
+  transition table, one set statement each against the active release's unique attribute types
+  (`model_attribute_types.definition`); `model_runtime_state_unique_values` removes the rows of
+  attributes the new release no longer declares unique and adds those of attributes it newly does
+  (the old and the new release's keys compared). The revision fills the table from the stored values.
+- **The check** (`engine/indexes/unique_values.py`): `check(session, model, object_ids)` reads the
+  table for the records a write wrote and raises the rule's `409 DUPLICATE_ATTRIBUTE_VALUE` (with
+  the holder) as `DuplicateValueWritten`. Called at the end of `LiveWrites.write` (every create,
+  update, batch chunk and relationship write that saves values), by `apply_attribute_values` (the
+  single attribute routes) and by the publish's apply. A batch's bulk write that raises it is redone
+  item by item, as for an `IntegrityError` (PG-D15).
+
+**Where it differs from the plan.**
+
+- **The end-of-write check is a read of the table, not `SET CONSTRAINTS … IMMEDIATE`** (D77's
+  mechanism; its decision, deferred within the write and checked at its end, stands). Setting the
+  constraint immediate needs a savepoint around it to keep the transaction usable for the `409`'s
+  holder, two statements more per write and a constraint name read off the driver's error; one
+  `SELECT` for the written records gives the same answer with the holder, and the constraint still
+  refuses at commit whatever no check covers. Writes without saved values add no statement.
+- **No change to the `IntegrityError` mappings.** The plan read the constraint's name where a live
+  create answers `DUPLICATE_RELATION`; since the check refuses before commit, a value collision no
+  longer reaches those mappings, so they stay as they were (and the unit case for them was not
+  needed).
+- **A publish meeting it answers `409 DUPLICATE_ATTRIBUTE_VALUE`**, not the publish's conflict list:
+  it can only follow a defect, since the publish validates the whole graph first.
+- **The activation measurement ran on 5,802 values**, the 0.02 volume seed's codes, not 10,000.
+
+**Found on the way.** Nothing new. The three `test_consumer_openapi` cases J2 recorded as failing on
+`HEAD` (the operators model's four consumer APIs) still fail, untouched.
+
+**Checks.**
+
+- Journey tests `--journey J03 --journey J06 --journey J08 --journey J11`: 70 passed (the three new
+  cases and J03.8 on two configurations each).
+- Unit tests `tests/unit/engine/indexes/test_unique_values.py`: 11 passed (a duplicate written
+  through the write unit refused with its holder and at commit by the constraint; empty text, a
+  10,000-character text, an attribute not unique; eight value-equality cases; the rows following
+  activation both ways).
+- Startup (AGENTS.md): `test_upgrade_to_unique_values_fills_them_and_an_interrupted_run_recovers`:
+  a database with records taken back to `20261007_06`, a stray table making the upgrade refuse and
+  roll back, then two starts filling the table with the same rows, then a downgrade removing it;
+  with J2's and J1u's neighbouring cases, 3 passed. `test_schema_drift` and `test_foreign_keys`
+  (the new key added to the review list) passed.
+- The guide's groups for the write unit (`records or change_sets or mapping or matrix or feed or
+  jobs or model or startup`) in parallel: 1541 passed, 3 failed (the consumer OpenAPI cases above),
+  in **3 min 59 s, over the 2-minute ceiling**. The seeds were rebuilt for the new revision in this
+  run; how much of the time that was is not separated. Serial part: 3 passed.
+- Measured once, 0.02 volume seed, a 500-item upsert chunk keyed by the unique code (half updating
+  stored items): **48 statements and 0.52–0.64 s with the triggers, 46 and 0.41 s without them**
+  (two runs each). `test_batch_statements`' live upsert budget is 48, now reached exactly. Filling
+  the rows of one attribute (5,802 values) with the constraint checked: 0.06 s. Why the triggers cost
+  0.1–0.2 s per chunk was not analysed; a likely cause, unverified, is that the ORM sends each
+  updated value as its own statement, so a statement trigger fires per value.
+- `ruff check app/ tests/` clean; the new modules formatted.
+- Smoke: the development server (`--reload`) restarted on the change, applied `20261007_07` to the
+  development database (14 rows: the 14 stored unique values) and answers `/health`.
+
+**Not run or not verified.** The full suites (R). No frontend change, so no frontend checks. The
+trigger cost at full size (J3's 100,000-row budget runs with it in place, as D74 intended).
 
 #### J3: Import preview and execution
 

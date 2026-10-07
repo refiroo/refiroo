@@ -74,15 +74,19 @@ branches in the model.
 
 ## ADR-010 — Enforce attribute uniqueness at the service layer
 
-**Status:** Accepted; live/draft application consolidated by ADR-026 and ADR-027
+**Status:** Accepted; live/draft application consolidated by ADR-026 and ADR-027; the database
+backing delivered in 0.9 J2a (2026-10-07, D75–D78)
 
 Attribute types may declare `features.unique`. Uniqueness is enforced at create and update by the
 service layer, scoped to a single workspace and to the attribute type key. This keeps the runtime
 generic (no object-type or domain branches) and avoids inventing one physical unique index per dynamic
 attribute type. `json` values are excluded because their equality is not order-stable; declaring
-`unique` on a `json` type is rejected at model load. The tradeoff is a race window under concurrent
-writers; a database-level constraint (partial unique index or a dedicated unique-key table) is the
-planned hardening for PostgreSQL.
+`unique` on a `json` type is rejected at model load. The race window under concurrent writers was
+closed by the workspace lock (0.9.0-alpha.1 PG3). Since 0.9 J2a the database holds live unique values
+too: a dedicated table (`unique_attribute_values`) kept by PostgreSQL triggers, under a deferred
+unique constraint, so a value written past the rule is refused at the end of its write and at commit.
+A partial index was rejected: it cannot be deferred, its predicate would change with each release,
+and a long text exceeds an index row.
 
 Live writes enforce configured uniqueness against live content. Draft validation checks the effective
 candidate, and activation rechecks the merged live graph after applying any configured conditional

@@ -36,7 +36,7 @@ from ...models.database import (
     Workspace,
 )
 from ...models.schema import EngineModel
-from ..indexes import matrix_states
+from ..indexes import matrix_states, unique_values
 from .audit import AuditEntry, record_audit_event, record_audit_events
 from .batch_lookup import Changes
 from .values import VALUE_COLUMNS, normalize_value
@@ -214,6 +214,7 @@ class LiveWrites:
             for relation in changes.added.values()
         )
         session.flush()
+        unique_values.check(session, model, changes.saved)
         return rows
 
     def _save_saved_values(self, model: EngineModel, changes: Changes) -> None:
@@ -444,6 +445,7 @@ class LiveWrites:
                 session.execute(attribute_delete.execution_options(synchronize_session=False))
                 self.save_values(model, object_id, authored.attributes or {})
             session.flush()
+            unique_values.check(session, model, authored_objects)
             for object_id in sorted(authored_objects):
                 # Set containment pointers only after every merged object row exists (whole-graph
                 # validation guarantees the parent is present in the merged graph) so a new parent

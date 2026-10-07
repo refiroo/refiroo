@@ -500,3 +500,21 @@ def test_decimals_at_the_smallest_stored_scales_are_captured_and_published(world
         world.value(world.record("V", item["id"], publicationId=publication["id"]), "V.amount")
         for item in items
     ] == live
+
+
+@pytest.mark.journey("J06.4")
+@pytest.mark.structures("R", "R.u")
+def test_publishing_an_exchange_of_unique_values(world):
+    """Given R1 holding the unique value X and R2 holding Y, and a change set that sets R1 to T, R2
+    to X, then R1 to Y. When it is published. Then live reads R1 with Y and R2 with X, and a live
+    create with either value is refused."""
+    r1 = world.made("R", "Exchange one", values={"R.u": "SWAP-X"})
+    r2 = world.made("R", "Exchange two", values={"R.u": "SWAP-Y"})
+    cs = world.change_set()
+    for record, value in ((r1, "SWAP-T"), (r2, "SWAP-X"), (r1, "SWAP-Y")):
+        ok(_update_in(world, cs, "R", record["id"], values={"R.u": value}))
+    world.publish(cs)
+    assert world.value(world.record("R", r1["id"]), "R.u") == "SWAP-Y"
+    assert world.value(world.record("R", r2["id"]), "R.u") == "SWAP-X"
+    for value in ("SWAP-X", "SWAP-Y"):
+        refused(world.create("R", "Third", values={"R.u": value}), 409, "DUPLICATE_ATTRIBUTE_VALUE")

@@ -18,6 +18,8 @@ RULES = {
     # states and audit; the cascades are a second line. Both detach parent pointers before
     # deleting, since a record's children must never vanish with it unseen.
     ("attribute_values", "object_id"): ("objects", "CASCADE"),
+    # A unique value's row goes with its value (0.9 J2a).
+    ("unique_attribute_values", "value_id"): ("attribute_values", "CASCADE"),
     ("object_relations", "from_object_id"): ("objects", "CASCADE"),
     ("object_relations", "to_object_id"): ("objects", "CASCADE"),
     ("objects", "parent_object_id"): ("objects", "RESTRICT"),

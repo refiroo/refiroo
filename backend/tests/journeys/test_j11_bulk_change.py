@@ -529,3 +529,33 @@ def test_a_record_its_required_relationship_and_its_set_in_one_atomic_batch(worl
         ("rejected", "RELATION_SET_VERSION_CONFLICT")
     ]
     assert _count(world, "R") == records
+
+
+@pytest.mark.journey("J11.1")
+@pytest.mark.structures("R", "R.u")
+def test_a_unique_value_handed_on_in_one_batch(world):
+    """Given R1 holding the unique value X and R2 holding Y. When an atomic batch changes R1 to Z,
+    then R2 to X. Then both are applied; a third record with X is refused naming R2; once R2 is
+    deleted, X can be given again; the same value is accepted in another workspace."""
+    r1 = world.made("R", "First holder", values={"R.u": "HAND-X"})
+    r2 = world.made("R", "Second holder", values={"R.u": "HAND-Y"})
+    u = world.key("R.u")
+    items = [
+        {
+            "op": "update",
+            "target": {"id": record["id"]},
+            "expectedVersion": record["version"],
+            "attributes": [{"attributeTypeKey": u, "value": value}],
+        }
+        for record, value in ((r1, "HAND-Z"), (r2, "HAND-X"))
+    ]
+    result = ok(_batch(world, items, policy="atomic"))
+    assert _outcomes(result) == [("applied", "updated"), ("applied", "updated")]
+    assert world.value(world.record("R", r1["id"]), "R.u") == "HAND-Z"
+    assert world.value(world.record("R", r2["id"]), "R.u") == "HAND-X"
+
+    refused(world.create("R", "Third", values={"R.u": "HAND-X"}), 409, "DUPLICATE_ATTRIBUTE_VALUE")
+    r2 = world.record("R", r2["id"])
+    ok(world.api.delete(f"/objects/{world.key('R')}/{r2['id']}", expectedVersion=r2["version"]), 204)
+    world.made("R", "Third", values={"R.u": "HAND-X"})
+    world.made("R", "Elsewhere", values={"R.u": "HAND-X"}, workspace="second-site")

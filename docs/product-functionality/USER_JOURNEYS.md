@@ -455,6 +455,8 @@ overwrites the live edit or deletes live-only records.
 - **J06.2 The same record changed on both sides** is refused, naming it.
 - **J06.3 Publishing beside live writes and other change sets' writes**: publishing waits for live
   writes of its workspace and leaves other change sets free.
+- **J06.4 Publishing an exchange of unique values**: a change set that hands unique values between
+  records publishes; live holds each value once.
 
 **Refusals:** `409 VERSION_CONFLICT`, naming each record changed on both sides in `details.conflicts`.
 
@@ -560,6 +562,8 @@ selects nothing. Read-only inspection and export stay available when administrat
 - **J08.7 Export a release** (with its model) to reuse elsewhere.
 - **J08.8 Read the activation history** of a release.
 - **J08.9 Read a model draft's history** (planned, decided D-5).
+- **J08.10 A release dropping and restoring `unique`**: records may share a value while the
+  attribute is not unique; restoring it is refused while they do, and holds the value once active.
 
 **Refusals:** `422 INVALID_MODEL` (with the JSON pointer), `409 RELEASE_IDENTITY_CONFLICT`,
 `409 MODEL_MIGRATION_REQUIRED`, `409 ACTIVATION_CONFLICT` (stale runtime state),

@@ -44,7 +44,7 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/docs` a
 | `GET /model-releases` (`releaseKey`, `active`), `GET /model-releases/{id}` (`includeModel`) | J08, J08.7, J20.2 |
 | `GET /model-releases/{id}/activations` | J08.8 |
 | `GET /model-releases/{id}/diff` (`againstReleaseId`) | J08.2, J25 |
-| `POST /model-releases/{id}/activation` | J08, J08.3, J08.5, J08.6 |
+| `POST /model-releases/{id}/activation` | J08, J08.3, J08.5, J08.6, J08.10 |
 | `GET/POST /model-drafts`, `GET/PATCH/DELETE /model-drafts/{id}` | J08 |
 | `POST /model-drafts/{id}/compile`, `POST /model-drafts/{id}/installation` | J08, J25 |
 | `GET/POST /workspaces` (`search`, `status`) | J19, J19.3 |
@@ -56,7 +56,7 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/docs` a
 | `GET /change-sets/{id}/object-changes` (`kind`, `objectTypeKey`), `GET /change-sets/{id}/relation-changes` (`kind`, `relationTypeKey`, `containment`) | J17 |
 | `POST /change-sets/{id}/restructurings/preview`, `POST /change-sets/{id}/restructurings` | J15 |
 | `POST /change-sets/{id}/validation` | J05.4 |
-| `POST /change-sets/{id}/publication` | J05, J05.1 (typed snapshot and filter parity), J06, J18 |
+| `POST /change-sets/{id}/publication` | J05, J05.1 (typed snapshot and filter parity), J06, J06.4, J18 |
 | `GET /workspaces/{key}/publications`, `GET /publications/{id}` | J07, J07.1 |
 | `POST /publications/{id}/withdrawal` | J07 |
 | `POST /objects` | J03, J14, J16 |

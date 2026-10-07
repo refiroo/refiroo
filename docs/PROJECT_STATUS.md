@@ -316,7 +316,10 @@ every problem at its pointer) and `POST /imports`, a file sent with its request 
 XLSX or CSV through a profile, JSON Lines items or an export's tables without one; keys, matches,
 hierarchy order and related records resolved in PostgreSQL, rejected rows named by sheet, row and
 column (D64–D74, revision `20261007_06`; [record](BASE_0_9_IMPLEMENTATION_PLAN.md#j2-record-2026-10-07)).
-Next are J2a (database-backed uniqueness, D74), J3 (the preview), J4, Track K and R.
+**J2a is delivered (2026-10-07)**: the database holds live unique attribute values
+(`unique_attribute_values`, kept by PostgreSQL triggers under a deferred constraint, D75–D78,
+revision `20261007_07`; [record](BASE_0_9_IMPLEMENTATION_PLAN.md#j2a-record-2026-10-07)).
+Next are J3 (the preview), J4, Track K and R.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

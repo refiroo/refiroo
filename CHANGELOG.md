@@ -8,6 +8,14 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 J2a: the database holds unique attribute values. `unique_attribute_values` keeps each
+  live value of an attribute the active release declares `unique` once per workspace, keyed by the
+  SHA-256 of its canonical JSON under a deferred unique constraint (D75, D77); PostgreSQL triggers
+  on `attribute_values` and `model_runtime_state` keep it, so it follows every write and every
+  activation (D76). A write that wrote a duplicate past the rule is refused at its end with the
+  rule's `409 DUPLICATE_ATTRIBUTE_VALUE`, and at commit by the database; values handed between
+  records within one batch or one publish pass. Live data only (D78). Revision `20261007_07` adds
+  the table and fills it from the stored values. No API change.
 - Base 0.9 J2: imports. Import profiles (`/api/v1/import-profiles`: create, read, list, replace at a
   version, delete; instance-wide, D65) say how a file's sheets and columns become records and
   relationships, checked against the model with every problem at its JSON pointer and read as no

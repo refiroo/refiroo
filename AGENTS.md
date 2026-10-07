@@ -136,6 +136,9 @@ errors explicit and machine-readable.
   which is for whole-graph validation, publishing and writes. Publication, change-set base and change-set object
   rows keep a typed value index (`snapshot_attribute_values`) that an ORM flush hook maintains; a bulk
   insert or delete of those rows outside the ORM must update it through `engine/indexes/snapshot_values.py`.
+- Live values of `unique` attributes are held in `unique_attribute_values`, which PostgreSQL triggers
+  keep (0.9 J2a); no code writes it. A path that writes live attribute values ends with
+  `engine/indexes/unique_values.check` for the records it wrote, as the write unit does.
 - Whole-set data work runs in PostgreSQL as set statements, not row by row through Python. Copying
   a workspace, a change-set base or a publication, merging rows, filling an index or checking a
   condition across a set is done with `INSERT … SELECT`, `UPDATE … FROM`, `MERGE`, JSON aggregation

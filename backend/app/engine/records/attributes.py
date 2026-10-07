@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from ...errors import api_error
 from ...models.database import AttributeValue, RdmObject
 from ...models.schema import AttributeTypeDefinition, EngineModel, ObjectTypeDefinition
+from ..indexes import unique_values
 from . import rules
 from .context import LiveLookup
 from .relations import validate_scoped_relations
@@ -132,6 +133,7 @@ def apply_attribute_values(
     """
     validate_attribute_change(writes.session, model, object_type, item, attributes)
     writes.save_values(model, item.id, attributes)
+    unique_values.check(writes.session, model, [item.id])
     validate_scoped_relations(
         LiveLookup.of(writes.session, writes.workspace_key), model, item, moved=False
     )

@@ -43,8 +43,9 @@ Features are typed JSON values. For example:
 ```
 
 Attribute-type features control engine behavior. `unique: true` enforces workspace-scoped uniqueness
-for the value at create and update (HTTP `409 DUPLICATE_ATTRIBUTE_VALUE`); it is not supported for
-`json` values and is rejected at model load. `searchable` includes the attribute in object search.
+for the value at create and update (HTTP `409 DUPLICATE_ATTRIBUTE_VALUE`), and the database holds
+live values to it as well (ADR-010); it is not supported for `json` values and is rejected at model
+load. `searchable` includes the attribute in object search.
 `filterable` enables the schema 0.5 daily-use filter grammar for non-JSON attributes; table views
 select the subset exposed as filter controls, and the API validates the capability from the attribute
 definition itself. Every non-JSON attribute sorts, whatever its `sortable` flag: every data column of

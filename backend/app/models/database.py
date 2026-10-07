@@ -495,6 +495,40 @@ class AttributeValue(Base):
     version: Mapped[int] = mapped_column(Integer, default=1)
 
 
+class UniqueAttributeValue(Base):
+    """A live value of an attribute the active release declares ``unique``, held once per
+    workspace (ADR-010, 0.9 J2a, D75).
+
+    PostgreSQL keeps these rows: triggers on ``attribute_values`` add them as values are written,
+    the ``attribute_values`` cascade removes them, and a trigger on ``model_runtime_state`` follows
+    the active release. No code writes them; ``engine/indexes/unique_values.py`` reads them at the
+    end of a write. The constraint is deferred, so values handed between records within one write
+    pass; it holds at commit whatever wrote the values.
+    """
+
+    __tablename__ = "unique_attribute_values"
+    __table_args__ = (
+        UniqueConstraint(
+            "workspace_key",
+            "attribute_type_key",
+            "value_digest",
+            name="uq_unique_attribute_values",
+            deferrable=True,
+            initially="DEFERRED",
+        ),
+        Index("ix_unique_attribute_values_object_id", "object_id"),
+    )
+
+    value_id: Mapped[int] = mapped_column(
+        ForeignKey("attribute_values.sequence_id", ondelete="CASCADE"), primary_key=True
+    )
+    workspace_key: Mapped[str] = mapped_column(String(160))
+    attribute_type_key: Mapped[str] = mapped_column(String(160))
+    object_id: Mapped[str] = mapped_column(String(36))
+    # SHA-256 of the value's canonical JSON (``rdm_value_json``): equal values, equal digests.
+    value_digest: Mapped[bytes] = mapped_column(LargeBinary)
+
+
 class ObjectRelation(Base):
     __tablename__ = "object_relations"
     __table_args__ = (

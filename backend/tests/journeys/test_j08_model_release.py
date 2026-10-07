@@ -319,3 +319,44 @@ def test_export_a_release_and_reuse_it(world):
     exported = ok(world.api.get(f"/model-releases/{release['id']}", includeModel=True))["model"]
     compiled = _compile(world, _draft(world, exported))
     assert compiled["valid"] is True and compiled["modelHash"] == release["modelHash"]
+
+
+@pytest.mark.journey("J08.10")
+@pytest.mark.structures("R", "R.u")
+def test_a_release_dropping_and_restoring_unique(world):
+    """Given a release in which R's unique attribute is no longer unique, activated. When two
+    records take one value, the release restoring uniqueness is activated, one record changes and
+    it is activated again. Then the records may share the value meanwhile; restoring it is refused
+    while they do; once it is active, a create and a batch item with the value are refused."""
+    restoring = _active(world)["activeReleaseId"]
+    model = copy.deepcopy(world.configuration.model)
+    u = world.key("R.u")
+    attribute = next(a for a in model["attributeTypes"] if a["key"] == u)
+    del attribute["features"]["unique"]
+    model["release"]["version"] += "-not-unique"
+    ok(world.activate(world.install(model)["id"]))
+
+    first = world.made("R", "Sharing one", values={"R.u": "SHARED"})
+    world.made("R", "Sharing two", values={"R.u": "SHARED"})
+    refused(world.activate(restoring), 409, "MODEL_MIGRATION_REQUIRED")
+    ok(world.update("R", first["id"], first["version"], values={"R.u": "NO-LONGER-SHARED"}))
+    ok(world.activate(restoring))
+
+    refused(world.create("R", "Third", values={"R.u": "SHARED"}), 409, "DUPLICATE_ATTRIBUTE_VALUE")
+    item = {
+        "op": "create",
+        "applicationKey": world.app("R"),
+        "objectTypeKey": world.key("R"),
+        "name": "Batch third",
+        "attributes": [
+            {"attributeTypeKey": k, "value": v}
+            for k, v in {**world.required_values("R"), u: "SHARED"}.items()
+        ],
+    }
+    result = ok(
+        world.api.post(
+            "/batches",
+            {"policy": "independent", "run": "inline", "workspaceKey": W1, "items": [item]},
+        )
+    )
+    assert result["items"][0]["error"]["code"] == "DUPLICATE_ATTRIBUTE_VALUE"

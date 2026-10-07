@@ -61,6 +61,7 @@ from ..change_sets.records import (
     decide_change_set_object_update,
 )
 from ..indexes import matrix_states
+from ..indexes.unique_values import DuplicateValueWritten
 from ..model import registry
 from ..model.registry import resolve_model_snapshot
 from ..records import rules
@@ -332,8 +333,9 @@ class _Batch:
             try:
                 with self.session.begin_nested():
                     self.writer.write()
-            except IntegrityError:
-                # A row the rules did not foresee (PG-D15): each item again as a batch of one.
+            except (IntegrityError, DuplicateValueWritten):
+                # A row the rules did not foresee (PG-D15), or a unique value written past them
+                # (J2a): each item again as a batch of one.
                 return self._one_by_one(segment, outcomes)
         outcomes.extend(decided)
         return True

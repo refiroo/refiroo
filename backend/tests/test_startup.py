@@ -26,7 +26,8 @@ from app.db import DatabaseStartupError, get_engine, migration_config
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261007_06"
+HEAD = "20261007_07"
+IMPORT_PROFILES = "20261007_06"
 JOB_NOTIFICATIONS = "20261007_05"
 EXPORT_OUTPUT = "20261007_04"
 DELIVERY_CHOICES = "20261007_03"
@@ -977,6 +978,57 @@ def test_jobs_upgrade_to_import_profiles_and_an_interrupted_run_recovers(monkeyp
     assert _scalar(url, "SELECT count(*) FROM import_profiles") == 0
     command.downgrade(migration_config(url), JOB_NOTIFICATIONS)
     assert _scalar(url, "SELECT to_regclass('import_profiles') IS NULL") is True
+    engine.dispose()
+
+
+def test_upgrade_to_unique_values_fills_them_and_an_interrupted_run_recovers(
+    monkeypatch, databases
+):
+    """Base 0.9 J2a on a database with records, taken back to the previous revision: with a
+    ``unique_attribute_values`` table already there (by hand) the revision rolls back and the start
+    refuses naming it; once dropped, the next start creates the table filled with the stored unique
+    values and the service starts twice. A downgrade removes the table and its functions."""
+    url = seeds.create_empty()
+    databases.append(url)
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        assert errors == []
+        for code in ("UPGRADE-1", "UPGRADE-2", "UPGRADE-3"):
+            body = {
+                "applicationKey": "rdm-master",
+                "objectTypeKey": "domain",
+                "name": f"Domain {code}",
+                "workspaceKey": "default",
+                "attributes": [{"attributeTypeKey": "domain-code", "value": code}],
+            }
+            assert client.post("/api/v1/objects", json=body).status_code == 201
+    held = _scalar(url, "SELECT count(*) FROM unique_attribute_values")
+    assert held >= 3
+    command.downgrade(migration_config(url), IMPORT_PROFILES)
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        connection.execute(text("CREATE TABLE unique_attribute_values (stray integer)"))
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        message = _assert_refused(
+            client,
+            errors,
+            "Database migration failed",
+            f"Current revision: {IMPORT_PROFILES}",
+            f"target revision: {HEAD}",
+            "still at its current revision",
+        )
+        assert "unique_attribute_values" in message
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == IMPORT_PROFILES
+    with engine.begin() as connection:
+        connection.execute(text("DROP TABLE unique_attribute_values"))
+    for _start in range(2):
+        with serve(monkeypatch, _render(url)) as (client, errors):
+            assert errors == []
+            assert client.get("/health").json() == {"status": "ok"}
+        assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+    assert _scalar(url, "SELECT count(*) FROM unique_attribute_values") == held
+    command.downgrade(migration_config(url), IMPORT_PROFILES)
+    assert _scalar(url, "SELECT to_regclass('unique_attribute_values') IS NULL") is True
+    assert _scalar(url, "SELECT count(*) FROM pg_proc WHERE proname LIKE 'rdm_unique_values%'") == 0
     engine.dispose()
 
 

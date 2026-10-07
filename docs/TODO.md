@@ -270,8 +270,8 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 - [x] J2 reads an export's CSV and XLSX table layout without a profile, decoding XLSX's `_xHHHH_`
   escapes (INTEGRATION_API §J2); the round trip of CSV and XLSX is tested there. Delivered in J2
   (2026-10-07), with `applicationKey` added to the records table (D71).
-- [ ] J2a (D74): database-backed uniqueness for `unique` attributes (the item below), between J2
-  and J3, planned when it is next.
+- [x] J2a (D74): database-backed uniqueness for `unique` attributes (the item below), delivered
+  2026-10-07 (D75–D78).
 - [ ] J4: Settings › Integration's limits list shows `IMPORT_MAX_BYTES`
   (`integrationJobs.limits.importMaxBytes`, added in J2), and the job page an import's file and
   profile; J2 changed no screen.
@@ -397,7 +397,9 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   audit and matrix states. PG5 (2026-10-03) re-measured every budget on PostgreSQL and removed the
   SQLite planner constructs and comments; a search for SQLite in `app/`, `tests/` and `frontend/e2e`
   finds only the refusal of a SQLite URL, its tests, the boundary check and testmon's data file.
-- [ ] **Database-backed uniqueness for `unique` attributes (decided 2026-10-04, 0.9 C2 C-D24; build
+- [x] **Delivered in 0.9 J2a (2026-10-07):** `unique_attribute_values`, kept by PostgreSQL triggers
+  under a deferred unique constraint, live values only (D75–D78).
+  **Database-backed uniqueness for `unique` attributes (decided 2026-10-04, 0.9 C2 C-D24; build
   to be chosen, at the latest with the import and migration work; scheduled as 0.9 J2a, D74).** A `unique` attribute (for
   example a former system's ID kept beside the object ID) must be unique in every case, including a
   migration. Today the write rules compare values within a workspace (ADR-010), serialised by the

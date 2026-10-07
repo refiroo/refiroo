@@ -173,6 +173,13 @@ readable and refuse every runtime write. Workspace administration is a deploymen
 - **`attribute_values`** holds one value per record and attribute type, in the physical column its
   declared type selects: text, integer, decimal, boolean, date, date-time or JSON. Dynamic modelling
   does not reduce values to text.
+- **`unique_attribute_values`** holds each live value of an attribute the active release declares
+  `unique` once per workspace: the value's row, record, workspace, attribute and the SHA-256 of its
+  canonical JSON (`rdm_value_digest`), under a deferred unique constraint (ADR-010, 0.9 J2a). Empty
+  text has no row. PostgreSQL keeps it: statement triggers on `attribute_values` add the rows of
+  written values, the `attribute_values` cascade removes them, and a trigger on `model_runtime_state`
+  adds and removes rows as the active release declares `unique` on more or fewer attributes. No code
+  writes it.
 - **`object_relations`** holds typed directed edges, checked against the allowed combinations and
   cardinality before they are written.
 - **`relation_set_versions`** versions each relation set exactly, per workspace, relation type and
@@ -317,6 +324,13 @@ bulk job.
   it changes after taking its lock. A chunk checks its release before writing matrix states, so an
   activation that drops a matrix view cannot deadlock with it. A bulk write failing on a row the rules
   could not see is redone item by item, so only that item is refused. Delete items keep a per-item path.
+- **Unique values are held by the database too** (0.9 J2a). The rule refuses a duplicate before it is
+  written; the write unit, the single attribute write and the publish's apply then read
+  `unique_attribute_values` for the records they wrote (`indexes/unique_values.check`), so a value
+  written past the rule is refused with the rule's `409 DUPLICATE_ATTRIBUTE_VALUE` inside the
+  transaction, where a batch redoes its items one by one. The constraint is deferred, so values handed
+  between records within one write pass; at commit it refuses whatever no check covered. Change sets
+  keep the rule alone and meet the constraint when they publish.
 - **Optimistic concurrency everywhere else.** Updates carry the record's `expectedVersion`; mapping
   saves carry the relation set's version; change sets, drafts, activation and workspace administration
   carry their own versions. A stale claim is a `409` with the current state.
