@@ -305,6 +305,26 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 
 - [ ] Complete the release licensing checklist in [LICENSING_TODO.md](LICENSING_TODO.md), including
   ownership, contribution, dependency, security, trademark and commercial-service documentation.
+- [ ] **Before 1.0: revise publication withdrawal (raised by the user, 2026-10-07).** Publishing
+  merges the change set into live and copies all of live into the publication, so live is the data
+  and a publication is a frozen copy. Withdrawing changes only the copy's status: live keeps what the
+  publication put there, nothing is rolled back, the previous publication does not become current
+  again (`latest` is the newest publication or none, C-D61), and the only effect is that
+  `?publication=latest` returns `404` until the next publish. It survives from ADR-024 as first
+  written, when a draft replaced the current data and the published revision was the data; ADR-026
+  made live the authority and left withdrawal acting on a copy. Recommendation: remove it. Removal
+  reaches the `POST /publications/{id}/withdrawal` route and `withdrawn` status, the feed's
+  `withdrawn` event and webhook handling, C-D61's `latest`, the UI action, J07, US-W06 and their
+  tests, and existing `withdrawn` rows (a migration choice). Related findings, each its own decision:
+  - The need behind "the release was bad" is a restore: a change set holding the whole of an earlier
+    publication (deleting records added since), validated and published as usual, as set work in
+    PostgreSQL. Today a change set from a publication applies only what is edited in it.
+  - Every publish copies the whole data set, so storage grows with data size × publishes. Row
+    versions valid between feed positions would make Publication N a position (as SNOMED CT's
+    effective-time rows or SQL temporal tables do), but need permanent record and relationship
+    history, since feed events expire. Size it by expected publish frequency and data volume.
+  - The Publications page opens each snapshot read-only but shows no difference between two
+    publications, or between the latest and live.
 - [ ] **First fixes after 1.0: the PostgreSQL read budgets (deferred by the user, 2026-10-03).** PG5
   restated every volume budget on PostgreSQL: statements and rows hold everywhere; 11 of 154
   full-volume reads exceed 100 ms. [POSTGRESQL_BUDGETS.md](POSTGRESQL_BUDGETS.md) is the complete
