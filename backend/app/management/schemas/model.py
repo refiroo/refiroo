@@ -213,8 +213,8 @@ class WorkspaceAdminCapabilities(BaseModel):
 class JobLimits(BaseModel):
     """Batch and job limits (D13) and retention (D14). A refusal names the setting it enforces:
     ``BATCH_MAX_ITEMS``, ``BATCH_MAX_BYTES``, ``ATOMIC_JOB_MAX_ITEMS``,
-    ``BACKGROUND_JOB_MAX_ITEMS``, ``BATCH_BACKGROUND_MAX_BYTES``. A background job commits
-    ``chunkItems`` items at a time (``JOB_CHUNK_ITEMS``)."""
+    ``BACKGROUND_JOB_MAX_ITEMS``, ``BATCH_BACKGROUND_MAX_BYTES``, ``IMPORT_MAX_BYTES``. A
+    background job commits ``chunkItems`` items at a time (``JOB_CHUNK_ITEMS``)."""
 
     batchMaxItems: int
     batchMaxBytes: int
@@ -222,6 +222,7 @@ class JobLimits(BaseModel):
     backgroundJobMaxItems: int
     backgroundBatchMaxBytes: int
     chunkItems: int
+    importMaxBytes: int
     retentionDays: int
 
 

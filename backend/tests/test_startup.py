@@ -26,7 +26,8 @@ from app.db import DatabaseStartupError, get_engine, migration_config
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261007_05"
+HEAD = "20261007_06"
+JOB_NOTIFICATIONS = "20261007_05"
 EXPORT_OUTPUT = "20261007_04"
 DELIVERY_CHOICES = "20261007_03"
 RESENDS = "20261007_02"
@@ -942,6 +943,40 @@ def test_jobs_upgrade_to_notifications_and_an_interrupted_run_recovers(monkeypat
     assert _scalar(url, "SELECT count(*) FROM pg_trigger WHERE tgname = 'jobs_notify'") == 1
     command.downgrade(migration_config(url), EXPORT_OUTPUT)
     assert _scalar(url, "SELECT count(*) FROM pg_trigger WHERE tgname = 'jobs_notify'") == 0
+    engine.dispose()
+
+
+def test_jobs_upgrade_to_import_profiles_and_an_interrupted_run_recovers(monkeypatch, databases):
+    """Base 0.9 J2 on a database at the previous revision: with an ``import_profiles`` table already
+    there (by hand) the revision rolls back and the start refuses naming it; once dropped, the next
+    start creates the table and the service starts twice. A downgrade removes it again."""
+    url = seeds.create_empty()
+    databases.append(url)
+    command.upgrade(migration_config(url), JOB_NOTIFICATIONS)
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        connection.execute(text("CREATE TABLE import_profiles (stray integer)"))
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        message = _assert_refused(
+            client,
+            errors,
+            "Database migration failed",
+            f"Current revision: {JOB_NOTIFICATIONS}",
+            f"target revision: {HEAD}",
+            "still at its current revision",
+        )
+        assert "import_profiles" in message
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == JOB_NOTIFICATIONS
+    with engine.begin() as connection:
+        connection.execute(text("DROP TABLE import_profiles"))
+    for _start in range(2):
+        with serve(monkeypatch, _render(url)) as (client, errors):
+            assert errors == []
+            assert client.get("/health").json() == {"status": "ok"}
+        assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+    assert _scalar(url, "SELECT count(*) FROM import_profiles") == 0
+    command.downgrade(migration_config(url), JOB_NOTIFICATIONS)
+    assert _scalar(url, "SELECT to_regclass('import_profiles') IS NULL") is True
     engine.dispose()
 
 

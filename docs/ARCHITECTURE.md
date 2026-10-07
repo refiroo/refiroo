@@ -414,6 +414,18 @@ its parameters, state, progress and one outcome per item, kept for a retention p
   Cancel requests, the lease and progress go through a short session of the worker's own every
   10,000 rows, because the snapshot cannot see later commits. Files live in `JOB_FILE_DIR`
   (`engine/jobs/files.py`), named after their job; a file is kept only while its job is completed.
+- **Imports** (`engine/imports/`, 0.9 J2) run on the batch worker. The file is stored in
+  `JOB_FILE_DIR` as `{jobId}.source` before the job is queued. The worker's first step binds it in
+  one transaction: a reader streams the rows (openpyxl's read-only mode for XLSX, the standard library
+  for CSV and JSON Lines), each bound cell is converted through the attribute registry, and the rows
+  are copied into temporary tables. Set statements over those and the context's records
+  (`engine/reads/context_sets.py`, shared with the export) then find each row's record by its key or
+  give it an ID, reject repeated keys with differing values, resolve every match against the context
+  and the file's own rows, order a source's own hierarchy by a recursive query, find related records
+  through their relationship and parent, and build the items as JSON. Rejected rows become the job's
+  first outcomes and the items its inputs (`INSERT … SELECT`), and from there the import runs as a
+  background batch. Profiles (`engine/imports/profiles.py`) are checked against a model release with
+  every problem at its JSON pointer.
 - **Following a job** (0.9 J1u): a trigger on `jobs` sends `pg_notify('rdm_job_events', id)` when
   a change to a job's state, progress, cancel request or output commits, so every path that changes
   a job is heard and nothing rolled back is. One listener thread per process (`engine/jobs/events.py`)

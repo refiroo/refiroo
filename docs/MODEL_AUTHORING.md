@@ -182,8 +182,11 @@ boundary is where model-level changes reuse it.
 
 ## Import profile
 
-The profile is the contract between the editor and the 0.9 import job. Its exact JSON is fixed with
-0.9 Track J ([INTEGRATION_API.md](INTEGRATION_API.md) section J); this is its outline:
+The profile is the contract between the editor and the 0.9 import job. Its exact JSON was fixed by
+0.9 J2 (2026-10-07): [API.md](API.md#import-profiles) holds it and
+[INTEGRATION_API §J3](INTEGRATION_API.md#j3-import-profile) what changed from this outline (each source
+names its application; translations and system mappings are profiles of one `relatedRecord`
+binding; profiles are instance-wide). This is the outline as first written:
 
 ```json
 {

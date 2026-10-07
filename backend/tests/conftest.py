@@ -151,6 +151,7 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_consumer_xref_volume.py": ("consumer", "volume"),
     "test_consumer_event_volume.py": ("feed", "consumer", "volume"),
     "test_export_volume.py": ("jobs", "volume"),
+    "test_import_volume.py": ("jobs", "volume"),
     "test_type_changes.py": ("change_sets", "records", "matrix"),
     "test_restructuring_planner.py": ("change_sets", "records", "matrix"),
     "test_restructuring_volume.py": ("volume", "change_sets"),

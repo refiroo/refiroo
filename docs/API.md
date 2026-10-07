@@ -2058,7 +2058,7 @@ file, then the model's type order, then ID); the same data gives the same bytes.
 
 | Table | Columns |
 | --- | --- |
-| Records | `objectTypeKey`, `id`, `version`, `name`, `parentObjectId`, one `#{attributeTypeKey}` per attribute type an exported type binds (the model's order), `~parentPath` |
+| Records | `objectTypeKey`, `applicationKey` (0.9 J2, D71), `id`, `version`, `name`, `parentObjectId`, one `#{attributeTypeKey}` per attribute type an exported type binds (the model's order), `~parentPath` |
 | Relationships | `relationTypeKey`, `id`, `version`, `fromId`, `toId`, one `#{attributeTypeKey}` per attribute type their bindings carry, `~fromName`, `~fromObjectTypeKey`, `~toName`, `~toObjectTypeKey` |
 
 Attribute types are global, so a `#` column means one thing in every row; it is empty where the row's
@@ -2066,8 +2066,8 @@ type does not bind the attribute or the record has no value. The `#` keeps an at
 or `id` apart from the built-in columns. `~` columns are for orientation and an import ignores them.
 
 - **CSV** (`text/csv`): one file, UTF-8 with a BOM, RFC 4180, comma. Its header is the union of both
-  tables' columns (`objectTypeKey`, `relationTypeKey`, `id`, `version`, `name`, `parentObjectId`,
-  `fromId`, `toId`, the `#` columns, the `~` columns); records first, then relationships, a row
+  tables' columns (`objectTypeKey`, `applicationKey`, `relationTypeKey`, `id`, `version`, `name`,
+  `parentObjectId`, `fromId`, `toId`, the `#` columns, the `~` columns); records first, then relationships, a row
   being a record when `objectTypeKey` is filled. Values in the API's canonical text (dates ISO 8601,
   decimals as the API writes them, `true`/`false`, a JSON value as JSON text); an empty cell is no
   value. Text is written as stored: a spreadsheet opening the file may read a value beginning with
@@ -2103,6 +2103,189 @@ context of another workspace `422 WORKSPACE_CONTEXT_MISMATCH`; both context IDs,
 or a body of the wrong shape `422 REQUEST_VALIDATION_ERROR`. On the output: `404 JOB_NOT_FOUND`,
 `404 JOB_HAS_NO_OUTPUT` (a batch), `409 JOB_NOT_COMPLETED` with `details.state`, `410 JOB_EXPIRED`
 (retention removed the file), `410 JOB_OUTPUT_MISSING` (the file is gone from `JOB_FILE_DIR`).
+
+## Imports (Base 0.9 J2)
+
+- `GET /api/v1/import-profiles`, `GET /api/v1/import-profiles/{profileKey}`
+- `POST /api/v1/import-profiles`, `PUT /api/v1/import-profiles/{profileKey}`,
+  `DELETE /api/v1/import-profiles/{profileKey}?expectedVersion=` (registered with
+  `INTEGRATION_JOBS_ENABLED`)
+- `POST /api/v1/imports` (registered with `INTEGRATION_JOBS_ENABLED`)
+
+An import loads a file into one workspace, live or into a change set, as a background job of kind
+`import`. The file is an XLSX workbook or a CSV file read through an **import profile**, or, without
+one, a JSON Lines file of batch items or an export's CSV or XLSX tables.
+
+### Import profiles
+
+A profile says how a file's sheets and columns become records and relationships of the model. It is
+stored once for the instance (D65) and names model keys only, never data of a workspace beyond the
+fixed values it matches. A list pages in key order (ADR-030).
+
+```json
+{
+  "key": "supplier-codes",
+  "name": "Supplier codes",
+  "csv": {"delimiter": ","},
+  "sources": [
+    {
+      "sheet": "Codes",
+      "headerRow": 1,
+      "block": {"firstColumn": "A", "lastColumn": "H", "lastRow": null},
+      "applicationKey": "master",
+      "objectTypeKey": "master-value",
+      "record": "upsert",
+      "key": {"attributeTypeKey": "master-id"},
+      "columns": [
+        {"column": "Code", "attributeTypeKey": "value-code"},
+        {"column": "Name", "field": "name"},
+        {"column": "Order", "attributeTypeKey": "sort-order", "valueMap": "placeholders"},
+        {"column": "List", "parent": {"objectTypeKey": "codelist", "matchBy": {"attributeTypeKey": "codelist-code"}}},
+        {"column": "Systems", "relation": {"relationTypeKey": "system-value-maps-to-master", "direction": "incoming",
+          "objectTypeKey": "system-value", "matchBy": {"attributeTypeKey": "value-code"}, "split": ";"}},
+        {"columns": ["Web", "Phone"], "relationFlags": {"relationTypeKey": "offered-by", "objectTypeKey": "channel",
+          "matchBy": {"field": "name"}, "targets": {"Web": "Web booking", "Phone": "Phone booking"}}},
+        {"column": "Name (de)", "relatedRecord": {"relationTypeKey": "object-has-translation",
+          "applicationKey": "translations", "objectTypeKey": "translation",
+          "parent": {"objectTypeKey": "translation-group", "matchBy": {"attributeTypeKey": "group-code"}, "value": "DE-MASTER"},
+          "attributeTypeKey": "translated-name"}},
+        {"column": "Comment", "ignore": true}
+      ]
+    }
+  ],
+  "valueMaps": {"placeholders": {"N/A": null, "-": null}}
+}
+```
+
+- **A source** loads one object type of one application from a sheet (the first sheet when
+  `sheet` is left out; a CSV file is one sheet), from its `headerRow`, optionally within a `block`.
+  Columns the profile does not name are ignored; a header names a column by its text.
+- **`key`** finds a row's existing record: `{"attributeTypeKey"}`, an attribute declared `unique`
+  whose value the row's own column supplies, or `{"column"}`, a column holding the public ID.
+  Without a key every row creates a record, so sending such a file twice creates its records twice. A found record is updated (under `onExisting`, below);
+  otherwise a record is created. `record: "existing"` finds each row's record by its key and writes
+  only its relationships and related records (a sheet of translations, one row per language).
+- **Bindings**, one kind per column: `field: "name"`; `attributeTypeKey` (a writable attribute the
+  type binds); `parent`; `relation` (`relationTypeKey` and `direction` from the row's record,
+  `outgoing` by default; `split` cuts a cell into several values; `replace: true` makes the matched
+  records the whole set, a `replaceRelationSet`, instead of adding to it); `relationFlags` (columns
+  that each stand for one record; a cell holding a boolean TRUE, 1 or one of `trueValues`, by default
+  `x`, `yes`, `y`, `true`, `1` ignoring case, relates the row's record to it); `relatedRecord`;
+  `ignore`.
+- **`matchBy`** finds the record a cell names: `{"field": "name"}`, `{"field": "id"}` or
+  `{"attributeTypeKey"}`, unique or not. It looks at the context's records and at the records the
+  same file creates or changes, so a row can name a record another sheet or row of the file loads.
+- **`relatedRecord`** (D70) is a record of `objectTypeKey` under the record `parent` finds (a fixed
+  `value`, or the row's cell in `column`), related to the row's record by `relationTypeKey`; this
+  column fills its `name` (`field`) or one attribute. Columns naming the same relation, type and
+  parent fill one related record. It is the record that relationship already joins to the row's
+  record under that parent (narrowed by `matchBy: {"attributeTypeKey"}`, one of its own values), or
+  a new one; a new related record takes its name from its `field: "name"` column, else from its
+  first value. A translation and a system mapping are profiles of this binding (ADR-032).
+- **`valueMaps`** map a cell's text to another value (`null`: no value) before it is converted or
+  matched; a column names one with `valueMap`.
+- **Sources run in order** of their references: a source whose parent, relationship or related
+  record's parent names a type another source loads runs after it. Sources that reference each
+  other are refused (`SOURCE_CYCLE`).
+
+**Checked against the model.** Saving a profile checks it against the active model release, and a
+profile is refused with every problem at once: `422 INVALID_IMPORT_PROFILE` with
+`details.problems`, each `{path, code, message}` with a JSON pointer into the profile (codes
+`UNKNOWN_APPLICATION`, `UNKNOWN_OBJECT_TYPE`, `TYPE_NOT_IN_APPLICATION`, `UNKNOWN_ATTRIBUTE`,
+`ATTRIBUTE_NOT_BOUND`, `ATTRIBUTE_READ_ONLY`, `KEY_NOT_UNIQUE`, `KEY_NOT_BOUND`,
+`UNKNOWN_RELATION_TYPE`, `RELATION_NOT_ALLOWED`, `PARENT_NOT_ALLOWED`, `UNKNOWN_VALUE_MAP`,
+`FLAG_WITHOUT_TARGET`, `SOURCE_CYCLE`). A stored profile answers with `version`, `checkedAgainst`
+(the release it was saved against), `createdAt`, `updatedAt`, and `valid` and `problems` as it reads
+under the active release now, so a profile a later release broke shows what to fix.
+
+`PUT` replaces the whole profile at `expectedVersion` in the body; `DELETE` takes `expectedVersion`
+as a parameter. Refusals: `409 IMPORT_PROFILE_EXISTS`, `404 IMPORT_PROFILE_NOT_FOUND`,
+`409 IMPORT_PROFILE_VERSION_CONFLICT` with `details.currentVersion`.
+
+### Sending a file
+
+`POST /api/v1/imports` takes `multipart/form-data` with two parts: `file`, and `request`, JSON:
+
+```json
+{
+  "workspaceKey": "main",
+  "changeSetId": null,
+  "expectedChangeSetVersion": null,
+  "profileKey": "supplier-codes",
+  "profile": null,
+  "format": null,
+  "policy": "independent",
+  "onExisting": "overwrite",
+  "stage": "execute"
+}
+```
+
+- The context as a batch's: `workspaceKey` for live data, or `changeSetId` with
+  `expectedChangeSetVersion`.
+- `profileKey` names a stored profile, `profile` gives one inline; neither for a JSON Lines file or
+  an export's tables.
+- `format`: `xlsx`, `csv` or `jsonl`; otherwise from the file name (`.xlsx`, `.csv`, `.jsonl`,
+  `.ndjson`). A legacy `.xls` workbook is refused: save it as XLSX.
+- `policy` and `onExisting` as on [batches](#batches-and-jobs-base-09-b1-b2-b3). A file without
+  versions updates found records only with `onExisting: "overwrite"` (audited with the version it
+  replaced); a row equal to its record is `unchanged` either way.
+- `stage: "execute"` runs the import as soon as its file is bound. (`preview` arrives with J3.)
+- `Idempotency-Key` as on batches: it covers the request and the file's SHA-256, so a retry answers
+  with the first job (`Idempotent-Replayed: true`) and another file under the same key is
+  `422 IDEMPOTENCY_KEY_REUSED`.
+
+It answers `202` with the queued job. Its `parameters` hold `policy`, `onExisting`, `stage`, the
+`profile` as the job uses it (`key` and `version`, or the inline one, and its `definition`) and the
+`file` (`name`, `format`, `bytes`, `sha256`). Refused before a job is stored: `413 IMPORT_TOO_LARGE`
+(`details.setting` `IMPORT_MAX_BYTES`, `maximum`, `bytes`), `422 UNSUPPORTED_FILE_FORMAT`,
+`422 INVALID_IMPORT_PROFILE` (a stored profile no longer valid, or an inline one, with its
+problems), `404 IMPORT_PROFILE_NOT_FOUND`, the context's codes as for a batch, and
+`422 REQUEST_VALIDATION_ERROR` (a part missing, or `request` of the wrong shape).
+
+### What the job does
+
+The worker first **binds** the file (`stage: binding`, `progress.total` `null`): it reads every row,
+converts each value by its attribute's type, finds each row's record and resolves every match, then
+stores the rows as batch items (`stage: applying`, `progress.total` the rows rejected plus the items)
+and runs them as a [background batch](#background-jobs) does. Each item's `ref` names its row:
+`{sheet}!{row}` (`csv!{row}`, `jsonl!{line}`), the row's number in the sheet. A row becomes an
+`upsert` of its record (by its ID), then the upserts of its related records, then `ensureRelation`
+items for its relationship and flag columns (or one `replaceRelationSet` per set). Records run by
+source order, then depth, so parents come first; related records and relationships after every
+record.
+
+**A row that cannot be bound** is rejected before anything runs, with the column in
+`details.column`, and its items are left out: `INVALID_ATTRIBUTE_VALUE` (and the attribute's range
+codes), `REFERENCE_NOT_FOUND` and `REFERENCE_AMBIGUOUS` (`details.count`) for a match finding no
+record or several, `DUPLICATE_KEY_IN_FILE` (rows with one key and different values, all of them,
+`details.rows` naming the others; rows with one key and equal values are one record, and their
+relationship columns add up, D69), `REFERENCE_CYCLE` (rows whose parent columns form a ring),
+`MISSING_RECORD_KEY` (an empty key attribute; an empty ID column creates a record, except under
+`record: "existing"`), `NAME_REQUIRED` (a new record without a name),
+`INVALID_NAME` (over 500 characters). Rejected rows are the job's first outcomes, in row order;
+under `independent` the other rows load, under `atomic` nothing does and every item is
+`unprocessed` with `BATCH_ROLLED_BACK`. A cell left empty, or mapped to `null`, gives no value: an
+import never clears a value.
+
+**A file that does not fit** fails the job before an item runs, writing nothing:
+`IMPORT_FILE_MISMATCH` with `details.problems` (`SHEET_NOT_FOUND`, `HEADER_ROW_NOT_FOUND`,
+`COLUMN_NOT_FOUND`, each at the profile's pointer; `NOT_A_TABLE_LAYOUT` without a profile),
+`IMPORT_FILE_UNREADABLE` (not a workbook, not UTF-8, broken CSV quoting with its line),
+`INVALID_IMPORT_PROFILE` (the profile no longer valid under the job's release),
+`IMPORT_TOO_MANY_ITEMS` (more items than `BACKGROUND_JOB_MAX_ITEMS`, or `ATOMIC_JOB_MAX_ITEMS` for an
+atomic import) or `IMPORT_FILE_MISSING`. Cancel, model release changes, `JOB_FAILED` and retention
+work as for background jobs; the file is removed when the job finishes.
+
+**Without a profile.** A JSON Lines file holds one batch item per line; a line that is not one is
+rejected `REQUEST_VALIDATION_ERROR`. An export's CSV or XLSX tables (above) are read back by their
+column keys: a records row is an `upsert` by `id` with `version` as `expectedVersion` (a `create`
+when `id` is empty), its `#` attributes the type binds and can write; a relationships row an
+`ensureRelation` with its version; `~` columns are ignored. A cell that is not an ID, a version or a
+known type is `INVALID_CELL`. An unchanged export sent back changes nothing.
+
+**Files.** XLSX cells are read as stored values, never formulas (a formula's cached value), dates
+from date cells or ISO 8601 text, Excel's `_xHHHH_` escapes decoded. CSV is UTF-8 with or without a
+BOM, RFC 4180, the profile's delimiter (a comma by default), a header row.
 
 ## Change feed (Base 0.9 F1, F2)
 
@@ -2948,8 +3131,7 @@ is at least once: deduplicate by `eventId`.
 Designed in [INTEGRATION_API.md](INTEGRATION_API.md) and sequenced in the
 [Base 0.9 plan](BASE_0_9_IMPLEMENTATION_PLAN.md); each contract moves here when its package is delivered.
 
-- Relation and relation-set items (B3)
-- Asynchronous import/export jobs
+- Import preview and confirmation (J3)
 - Webhook subscriptions
 - Consumer API publications and events ([CONSUMER_API.md](CONSUMER_API.md)); get by ID, lists,
   XREF, batch resolve and crosswalk are delivered (above)

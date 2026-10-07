@@ -342,8 +342,9 @@ def test_csv_and_xlsx_hold_the_same_rows_in_one_table_layout(world):
     assert response.content.startswith(b"\xef\xbb\xbf")
     rows = list(csv.DictReader(io.StringIO(response.content.decode("utf-8-sig"))))
     header = list(rows[0].keys())
-    assert header[:8] == [
-        "objectTypeKey", "relationTypeKey", "id", "version", "name", "parentObjectId", "fromId", "toId"
+    assert header[:9] == [
+        "objectTypeKey", "applicationKey", "relationTypeKey", "id", "version", "name",
+        "parentObjectId", "fromId", "toId",
     ]
     assert f"#{world.key('R.u')}" in header and "~parentPath" in header
     records = [row for row in rows if row["objectTypeKey"]]
@@ -351,6 +352,7 @@ def test_csv_and_xlsx_hold_the_same_rows_in_one_table_layout(world):
     assert rows == records + relations
     assert {row["id"]: int(row["version"]) for row in records} == versions
     row = next(row for row in records if row["id"] == coded["id"])
+    assert row["applicationKey"] == world.app("R")
     assert row[f"#{world.key('R.u')}"] == "007"
     assert row[f"#{world.key('R.n')}"] == "42"
     assert row[f"#{world.key('R.b')}"] == "true"
@@ -366,7 +368,7 @@ def test_csv_and_xlsx_hold_the_same_rows_in_one_table_layout(world):
     table = sheet.tables["records"]
     cells = list(sheet[table.ref])
     keys = [cell.value for cell in cells[0]]
-    assert keys[:5] == ["objectTypeKey", "id", "version", "name", "parentObjectId"]
+    assert keys[:6] == ["objectTypeKey", "applicationKey", "id", "version", "name", "parentObjectId"]
     rows = [dict(zip(keys, (cell.value for cell in row), strict=True)) for row in cells[1:]]
     assert {row["id"]: row["version"] for row in rows} == versions
     row = next(row for row in rows if row["id"] == coded["id"])

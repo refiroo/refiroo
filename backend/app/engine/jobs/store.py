@@ -136,6 +136,17 @@ def record_outcomes(session: Session, job: Job, outcomes: Sequence[ItemOutcome])
     job.processed += len(outcomes)
 
 
+def record_binding(session: Session, job: Job, *, rejected: int, items: int) -> None:
+    """An import's file is bound (0.9 J2): its rejected rows are its first outcomes, already
+    stored, and its items wait as inputs after them."""
+    counts = _empty_counts() | dict(job.counts or {})
+    counts["rejected"] += rejected
+    job.counts = counts
+    job.total = rejected + items
+    job.processed = rejected
+    job.stage = "applying"
+
+
 def complete_job(session: Session, job: Job, *, retention_days: int) -> None:
     """Every item has its outcome: the job is completed with its result."""
     _finish(session, job, "completed", retention_days=retention_days)
@@ -151,7 +162,10 @@ def stop_job(
     retention_days: int,
 ) -> None:
     """End the job before its last item (P6): every item without an outcome is ``unprocessed`` with
-    ``reason``, written from its stored input in one statement."""
+    ``reason``, written from its stored input in one statement. An import stopped before its file
+    was bound has no items: its total becomes what it processed."""
+    if job.total is None:
+        job.total = job.processed
     remaining = job.total - job.processed
     if remaining:
         session.execute(

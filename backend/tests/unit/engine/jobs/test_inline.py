@@ -27,6 +27,7 @@ LIMITS = BatchLimits(
     background_max_items=5,
     background_max_bytes=2000,
     chunk_items=2,
+    import_max_bytes=4000,
 )
 
 

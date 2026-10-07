@@ -44,7 +44,6 @@ from sqlalchemy import (
     MetaData,
     String,
     Text,
-    cast,
     exists,
     func,
     insert,
@@ -62,9 +61,7 @@ from sqlalchemy.orm import Session, aliased
 
 from ...errors import ApiError, api_error
 from ...models.database import (
-    AttributeValue,
     Job,
-    ObjectRelation,
     Publication,
     RdmObject,
     Workspace,
@@ -73,6 +70,7 @@ from ...models.exports import ExportRequest
 from ...models.queries import ModelQuery, QueryContext
 from ...models.schema import EngineModel
 from ..model.registry import resolve_request_model
+from ..reads.context_sets import record_source, relation_source
 from ..reads.model_query import plan_model_query
 from ..reads.snapshot_reads import (
     SnapshotContext,
@@ -80,7 +78,6 @@ from ..reads.snapshot_reads import (
     find_object,
     object_projection,
     publication_context,
-    relation_projection,
 )
 from ..workspaces.catalogue import resolve_workspace
 from . import xlsx
@@ -94,10 +91,11 @@ FORMATS = {
     "csv": ("text/csv; charset=utf-8", "csv"),
     "xlsx": (XLSX_TYPE, "xlsx"),
 }
-RECORD_COLUMNS = ("objectTypeKey", "id", "version", "name", "parentObjectId")
+RECORD_COLUMNS = ("objectTypeKey", "applicationKey", "id", "version", "name", "parentObjectId")
 RELATION_COLUMNS = ("relationTypeKey", "id", "version", "fromId", "toId")
 CSV_COLUMNS = (
     "objectTypeKey",
+    "applicationKey",
     "relationTypeKey",
     "id",
     "version",
@@ -106,10 +104,14 @@ CSV_COLUMNS = (
     "fromId",
     "toId",
 )
+# How each built-in column is written to a workbook: text, or the version as a number.
+RECORD_KINDS = ("text", "text", "text", "number", "text", "text")
+RELATION_KINDS = ("text", "text", "number", "text", "text")
 RECORD_ORIENTATION = ("~parentPath",)
 RELATION_ORIENTATION = ("~fromName", "~fromObjectTypeKey", "~toName", "~toObjectTypeKey")
 LABELS = {
     "objectTypeKey": "Object type",
+    "applicationKey": "Application",
     "relationTypeKey": "Relationship type",
     "id": "ID",
     "version": "Version",
@@ -493,54 +495,6 @@ def _feed_position(session: Session, plan: ExportPlan) -> int | None:
 # --- set statements --------------------------------------------------------------------------------
 
 
-def _record_source(plan: ExportPlan, context: SnapshotContext | None, types: Sequence[str] | None) -> Any:
-    """The context's records with their values as one JSON object per record (``rdm_value_json``,
-    the canonical form a snapshot row holds), narrowed to ``types`` when given."""
-    if context is not None:
-        projection = object_projection(context, object_type_keys=types)
-        return select(
-            projection.c.object_id,
-            projection.c.application_key,
-            projection.c.object_type_key,
-            projection.c.name,
-            projection.c.parent_object_id,
-            projection.c.attributes,
-            projection.c.version,
-        ).subquery()
-    values = AttributeValue
-    attributes = (
-        select(
-            func.json_object_agg(
-                values.attribute_type_key,
-                func.rdm_value_json(
-                    values.value_type,
-                    values.text_value,
-                    values.integer_value,
-                    values.decimal_value,
-                    values.boolean_value,
-                    values.date_value,
-                    values.datetime_value,
-                    values.json_value,
-                ),
-            )
-        )
-        .where(values.object_id == RdmObject.id)
-        .scalar_subquery()
-    )
-    statement = select(
-        RdmObject.id.label("object_id"),
-        RdmObject.application_key,
-        RdmObject.object_type_key,
-        RdmObject.name,
-        RdmObject.parent_object_id,
-        func.coalesce(attributes, cast(literal("{}"), JSON)).label("attributes"),
-        RdmObject.version,
-    ).where(RdmObject.workspace_key == plan.workspace_key)
-    if types is not None:
-        statement = statement.where(RdmObject.object_type_key.in_(types))
-    return statement.subquery()
-
-
 def _tree_source(plan: ExportPlan, context: SnapshotContext | None) -> Any:
     """Every record of the context with its parent and name, for walks up and down the tree."""
     if context is not None:
@@ -563,7 +517,7 @@ def _tree_source(plan: ExportPlan, context: SnapshotContext | None) -> Any:
 def _fill_records(
     session: Session, model: EngineModel, plan: ExportPlan, context: SnapshotContext | None
 ) -> None:
-    source = _record_source(plan, context, plan.types)
+    source = record_source(plan.workspace_key, context, plan.types)
     conditions = [source.c.object_id.in_(_scope_ids(model, plan, context))]
     parent = plan.request.scope.parentObjectId
     if parent is not None:
@@ -645,27 +599,6 @@ def _fill_paths(session: Session, plan: ExportPlan, context: SnapshotContext | N
     )
 
 
-def _relation_source(context: SnapshotContext | None) -> Any:
-    if context is not None:
-        projection = relation_projection(context)
-        return select(
-            projection.c.relation_id,
-            projection.c.relation_type_key,
-            projection.c.from_object_id,
-            projection.c.to_object_id,
-            projection.c.attributes,
-            projection.c.version,
-        ).subquery()
-    return select(
-        ObjectRelation.id.label("relation_id"),
-        ObjectRelation.relation_type_key,
-        ObjectRelation.from_object_id,
-        ObjectRelation.to_object_id,
-        ObjectRelation.attributes,
-        ObjectRelation.version,
-    ).subquery()
-
-
 def _containment(model: EngineModel) -> set[str]:
     return {key for item in model.objectTypes for key in model.containment_relation_keys(item.key)}
 
@@ -680,7 +613,7 @@ def _fill_relations(
 ) -> None:
     """The exported records' relationships, containment left out (a parent is the record's own
     field): both ends exported (``withinScope``) or either (``all``)."""
-    relation = _relation_source(context)
+    relation = relation_source(context)
     has_from = exists().where(_RECORDS.c.object_id == relation.c.from_object_id)
     has_to = exists().where(_RECORDS.c.object_id == relation.c.to_object_id)
     ends = has_from & has_to if plan.request.include.relations == "withinScope" else or_(has_from, has_to)
@@ -726,7 +659,7 @@ def _fill_initial(
     )
     if not pairs:
         return
-    relation = _relation_source(context)
+    relation = relation_source(context)
     statement = (
         select(_RECORDS.c.object_id, relation.c.relation_type_key, relation.c.from_object_id, relation.c.attributes)
         .join(relation, relation.c.to_object_id == _RECORDS.c.object_id)
@@ -854,12 +787,18 @@ def _write_csv(
     record_values = dict(columns.records)
     relation_values = dict(columns.relations)
     record_cells = [
-        sql.SQL("r.object_type_key, NULL, r.object_id, r.version, r.name, r.parent_object_id, NULL, NULL"),
+        sql.SQL(
+            "r.object_type_key, r.application_key, NULL, r.object_id, r.version, r.name,"
+            " r.parent_object_id, NULL, NULL"
+        ),
         *(_cell("r", key, kind) if key in record_values else null for key, kind in attributes),
         sql.SQL("r.path, NULL, NULL, NULL, NULL"),
     ]
     relation_cells = [
-        sql.SQL("NULL, x.relation_type_key, x.relation_id, x.version, NULL, NULL, x.from_id, x.to_id"),
+        sql.SQL(
+            "NULL, NULL, x.relation_type_key, x.relation_id, x.version, NULL, NULL, x.from_id,"
+            " x.to_id"
+        ),
         *(_cell("x", key, kind) if key in relation_values else null for key, kind in attributes),
         sql.SQL("NULL, x.from_name, x.from_type, x.to_name, x.to_type"),
     ]
@@ -912,7 +851,8 @@ def _write_xlsx(
     ]
     relation_types = sorted(relation_counts)
     records = sql.SQL(
-        "SELECT r.object_type_key, r.object_id, r.version, r.name, r.parent_object_id{}, r.path"
+        "SELECT r.object_type_key, r.application_key, r.object_id, r.version, r.name,"
+        " r.parent_object_id{}, r.path"
         " FROM export_records r {}"
     ).format(
         sql.SQL("").join(sql.SQL(", {}").format(_cell("r", key, kind)) for key, kind in columns.records),
@@ -926,19 +866,30 @@ def _write_xlsx(
         sql.SQL("").join(sql.SQL(", {}").format(_cell("x", key, kind)) for key, kind in columns.relations)
     )
     tables = (
-        ("Records", "records", records, record_keys, columns.records, record_counts, plan.types, "A"),
+        (
+            "Records",
+            "records",
+            records,
+            record_keys,
+            RECORD_KINDS,
+            columns.records,
+            record_counts,
+            plan.types,
+            "A",
+        ),
         (
             "Relationships",
             "relationships",
             relations,
             relation_keys,
+            RELATION_KINDS,
             columns.relations,
             relation_counts,
             relation_types,
             "B",
         ),
     )
-    for title, table, query, keys, attributes, counts, type_list, list_column in tables:
+    for title, table, query, keys, built_in, attributes, counts, type_list, list_column in tables:
         letters = [xlsx.column(index) for index in range(1, len(keys) + 1)]
         lists = (
             [(letters[0], f"Lists!${list_column}$1:${list_column}${len(type_list)}")]
@@ -946,7 +897,7 @@ def _write_xlsx(
             else []
         )
         lists += [
-            (letters[len(RECORD_COLUMNS) + index], '"TRUE,FALSE"')
+            (letters[len(built_in) + index], '"TRUE,FALSE"')
             for index, (_, kind) in enumerate(attributes)
             if kind == "boolean"
         ]
@@ -961,7 +912,7 @@ def _write_xlsx(
                     labels=[LABELS.get(key) or columns.names.get(key[1:], key) for key in keys],
                     count=sum(counts.values()),
                     rows=cursor,
-                    encode=_xlsx_row(letters, [kind for _, kind in attributes]),
+                    encode=_xlsx_row(letters, built_in, [kind for _, kind in attributes]),
                     lists=lists,
                 )
             )
@@ -970,20 +921,21 @@ def _write_xlsx(
     book.close()
 
 
-def _xlsx_row(letters: Sequence[str], kinds: Sequence[str]) -> Callable[[Sequence[Any], int], str]:
-    """How a row of the records or relationships query becomes its cells: five built-in columns
-    (the third the version), the attributes by their value types, then the orientation columns."""
-    built_in = len(RECORD_COLUMNS)
-    attributes = list(enumerate(kinds, built_in))
-    orientation = range(built_in + len(kinds), len(letters))
+def _xlsx_row(
+    letters: Sequence[str], built_in: Sequence[str], kinds: Sequence[str]
+) -> Callable[[Sequence[Any], int], str]:
+    """How a row of the records or relationships query becomes its cells: the built-in columns
+    (text, the version a number), the attributes by their value types, then the orientation
+    columns."""
+    attributes = list(enumerate(kinds, len(built_in)))
+    orientation = range(len(built_in) + len(kinds), len(letters))
 
     def encode(row: Sequence[Any], number: int) -> str:
         parts = [
-            xlsx.text_cell(f"{letters[0]}{number}", row[0]),
-            xlsx.text_cell(f"{letters[1]}{number}", row[1]),
-            xlsx.number_cell(f"{letters[2]}{number}", row[2]),
-            xlsx.text_cell(f"{letters[3]}{number}", row[3]),
-            xlsx.text_cell(f"{letters[4]}{number}", row[4]),
+            xlsx.number_cell(f"{letters[index]}{number}", row[index])
+            if kind == "number"
+            else xlsx.text_cell(f"{letters[index]}{number}", row[index])
+            for index, kind in enumerate(built_in)
         ]
         parts += [
             xlsx.cell(f"{letters[index]}{number}", row[index], kind) for index, kind in attributes

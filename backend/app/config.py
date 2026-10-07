@@ -69,6 +69,8 @@ class Settings(BaseModel):
     batch_background_max_bytes: int = Field(default=50 * 1024 * 1024, ge=1)
     job_chunk_items: int = Field(default=500, ge=1)
     job_lease_seconds: int = Field(default=120, ge=1)
+    # The largest file an import takes (D13: 200 MB), stored in JOB_FILE_DIR (0.9 J2).
+    import_max_bytes: int = Field(default=200 * 1024 * 1024, ge=1)
     # Export files and, from J2, uploads (D12, D55): one directory, created at start.
     job_file_dir: Path = DEFAULT_JOB_FILE_DIR
     # How long the change feed answers a position (D8, INTEGRATION_API F5); reported by
@@ -123,6 +125,7 @@ class Settings(BaseModel):
             ),
             job_chunk_items=_positive(env, "JOB_CHUNK_ITEMS", 500),
             job_lease_seconds=_positive(env, "JOB_LEASE_SECONDS", 120),
+            import_max_bytes=_positive(env, "IMPORT_MAX_BYTES", 200 * 1024 * 1024),
             job_file_dir=Path(env.get("JOB_FILE_DIR", "").strip() or DEFAULT_JOB_FILE_DIR),
             feed_retention_days=_positive(env, "FEED_RETENTION_DAYS", 30),
             consumer_resolve_max_items=_positive(env, "CONSUMER_RESOLVE_MAX_ITEMS", 1_000),
@@ -332,6 +335,9 @@ SETTINGS_CATALOGUE: tuple[CatalogueEntry, ...] = (
     ),
     CatalogueEntry(
         "JOB_CHUNK_ITEMS", "job_chunk_items", "limits", "Items one background chunk commits"
+    ),
+    CatalogueEntry(
+        "IMPORT_MAX_BYTES", "import_max_bytes", "limits", "Bytes in an import's file"
     ),
     CatalogueEntry(
         "JOB_LEASE_SECONDS",

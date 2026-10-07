@@ -1355,3 +1355,27 @@ class IdempotencyKey(Base):
     )
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
 
+
+
+class ImportProfile(Base):
+    """A stored import profile (Base 0.9 J2, INTEGRATION_API §J3): how a file's sheets and columns
+    become records and relationships. Instance-wide, as the model is (D65); an import names the
+    workspace. ``checked_release_id`` is the release it was last checked against."""
+
+    __tablename__ = "import_profiles"
+
+    sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    key: Mapped[str] = mapped_column(String(160), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    # The profile as saved: csv, sources and valueMaps.
+    definition: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    checked_release_id: Mapped[int] = mapped_column(
+        ForeignKey("model_releases.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )

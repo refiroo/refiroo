@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from ..common.pagination import Page
 from ..common.time import as_utc
 from ..engine.events import delivery_log
+from ..engine.imports.profiles import StoredProfile
 from ..engine.jobs.store import release_public_ids
 from ..engine.model.compiler import ModelDiagnostic
 from ..engine.model.consumer_contract import contract_diagnostics
@@ -50,6 +51,7 @@ from .schemas.consumer_subscriptions import (
     SubscriptionResponse,
     SubscriptionSuspension,
 )
+from .schemas.imports import ImportProfilePage, ImportProfileProblem, ImportProfileResponse
 from .schemas.jobs import (
     BatchResponse,
     JobCounts,
@@ -512,3 +514,22 @@ def delivery_detail_response(found: dict[str, Any]) -> DeliveryDetail:
 
 def _utc_or_none(value: datetime | None) -> datetime | None:
     return as_utc(value) if value is not None else None
+
+
+def import_profile_response(found: StoredProfile) -> ImportProfileResponse:
+    profile = found.profile
+    return ImportProfileResponse(
+        key=profile.key,
+        name=profile.name,
+        version=profile.version,
+        checkedAgainst=found.checked_against,
+        valid=not found.problems,
+        problems=[ImportProfileProblem(**problem.body()) for problem in found.problems],
+        createdAt=as_utc(profile.created_at),
+        updatedAt=as_utc(profile.updated_at),
+        **profile.definition,
+    )
+
+
+def import_profile_page(found: list[StoredProfile], page: Page[Any]) -> ImportProfilePage:
+    return ImportProfilePage(items=[import_profile_response(item) for item in found], **page.links())

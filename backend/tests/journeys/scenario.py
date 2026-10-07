@@ -82,6 +82,16 @@ class Api:
     def delete(self, path: str, **params: Any) -> Response:
         return self._call("DELETE", path, params=_params(params))
 
+    def upload(
+        self,
+        path: str,
+        files: dict[str, tuple[str, bytes, str]],
+        data: dict[str, str],
+        headers: dict[str, str] | None = None,
+    ) -> Response:
+        """A ``multipart/form-data`` request, as a client sends a file with its request."""
+        return self._call("POST", path, files=files, data=data, headers=headers)
+
 
 def _params(params: dict[str, Any]) -> list[tuple[str, Any]]:
     """Query parameters; a list value repeats the parameter, ``None`` leaves it out, and a key

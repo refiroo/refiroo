@@ -26,7 +26,7 @@ and the one line the API and the Deployment page show) and to the table of its g
 | `RDM_MODEL_PATH` | `model/rdm-starter.json` | Bootstrap model file. Not the active-model setting; see [Model releases](#model-releases-and-rollback) |
 | `RDM_CURSOR_SIGNING_KEY` | ephemeral | Secret that signs pagination cursors. Without it each process generates its own key, so cursors stop working after a restart and between instances |
 | `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated browser origins allowed to call the API |
-| `JOB_FILE_DIR` | `var/job-files` | Where export files wait for download, named after their job; created at start. With job creation on, a directory that cannot be written stops startup. A file is kept while its job is completed and removed when the job expires (`JOB_RETENTION_DAYS`), fails or is cancelled. Several instances need it on shared storage. See [Exports](#exports) |
+| `JOB_FILE_DIR` | `var/job-files` | Where export files wait for download and import files wait to be read, named after their job; created at start. With job creation on, a directory that cannot be written stops startup. An export's file is kept while its job is completed and removed when the job expires (`JOB_RETENTION_DAYS`), fails or is cancelled; an import's file until its job finishes. Several instances need it on shared storage. See [Exports](#exports) and [Imports](#imports) |
 | `RDM_API_REFERENCE_SCRIPT` | `bundled` | `bundled` serves the pinned Scalar script from the engine, so `/docs` works offline; `cdn` loads the same version from jsDelivr under its integrity hash. Any other value stops startup |
 | `WEB_CONCURRENCY` | `1` | Uvicorn worker count. Must be `1` while model administration is enabled |
 | `VITE_API_URL` (frontend) | `http://localhost:8000` | API address the browser application calls |
@@ -61,6 +61,7 @@ Reported under `integrationJobs` by `GET /api/v1/capabilities`; a request over a
 | `ATOMIC_JOB_MAX_ITEMS` | 10,000 | Items in an `atomic` batch, inline or background |
 | `BACKGROUND_JOB_MAX_ITEMS` | 1,000,000 | Items in a background batch |
 | `BATCH_BACKGROUND_MAX_BYTES` | 50 MB | Body of a background batch |
+| `IMPORT_MAX_BYTES` | 200 MB | An import's file (`POST /api/v1/imports`); a larger one is `413 IMPORT_TOO_LARGE`, and the request's body is held on disk while it is read. An import's items count against `BACKGROUND_JOB_MAX_ITEMS` and, `atomic`, `ATOMIC_JOB_MAX_ITEMS` (`IMPORT_TOO_MANY_ITEMS`) |
 | `JOB_CHUNK_ITEMS` | 500 | Items one background chunk commits |
 | `JOB_LEASE_SECONDS` | 120 | A worker's lease on a job, renewed each chunk |
 | `JOB_RETENTION_DAYS` | 7 | How long a finished job keeps its outcomes and idempotency key |
@@ -165,6 +166,24 @@ waits behind a batch and a batch never waits behind an export; two exports run o
 - **CSV and spreadsheets:** values are written exactly as stored. A text value beginning with `=`,
   `+`, `-` or `@` is not altered; a spreadsheet that opens a CSV may read it as a formula. The XLSX
   format writes every text as text, never as a formula.
+
+### Imports
+
+Imports (`POST /api/v1/imports`, 0.9 J2) run on the batch worker: an import first binds its file,
+then applies its items in chunks as a background batch does, so a long import makes a batch wait
+as a long batch does.
+
+- **Files:** the uploaded file is written to `JOB_FILE_DIR` as `{jobId}.source` before the job is
+  queued, read by the worker, and removed when the job finishes; the hourly sweep removes any whose
+  job no longer reads it. Disk use is the files of the imports waiting or running. A file removed
+  by hand fails its job with `IMPORT_FILE_MISSING`; send it again.
+- **Binding:** reading the file and resolving its keys and matches is one transaction. A crash or a
+  stop before it commits binds the file again from the start once the lease expires; after it, the
+  import resumes at its first item without an outcome, like a batch. A cancel request takes effect
+  every 10,000 rows read, and at the next chunk once bound.
+- **Readers:** XLSX through openpyxl (read-only mode; a formula's cached value is read, never the
+  formula), CSV and JSON Lines through the standard library. A legacy `.xls` file is refused;
+  convert it to XLSX.
 
 ## Consumer events
 

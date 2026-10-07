@@ -8,6 +8,19 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 J2: imports. Import profiles (`/api/v1/import-profiles`: create, read, list, replace at a
+  version, delete; instance-wide, D65) say how a file's sheets and columns become records and
+  relationships, checked against the model with every problem at its JSON pointer and read as no
+  longer valid when a release breaks them. `POST /api/v1/imports` takes a file and its request as
+  `multipart/form-data` and queues a job of kind `import`: XLSX or CSV through a profile, or JSON
+  Lines batch items, or an export's CSV or XLSX tables without one (the records table gains
+  `applicationKey`, D71). The worker binds the file in one transaction, converting values through
+  the attribute registry and resolving keys, matches (also to records the same file creates),
+  hierarchy order and related records (D70) by set statements in PostgreSQL (D68); rejected rows
+  are the job's first outcomes, named `{sheet}!{row}` with their column, and the items then run as a
+  background batch (D72, D73). Rows repeating a key load as one record when they agree and are all
+  refused otherwise (D69). `IMPORT_MAX_BYTES` (200 MB) caps a file. Revision `20261007_06` adds
+  `import_profiles`. openpyxl becomes a runtime dependency and `python-multipart` is added (D67).
 - Base 0.9 J1u: export in the browser and pushed job notifications. **Export** on a collection page
   opens a dialog prefilled with the page's type, data context, filters and parent narrowing (the
   search is not carried); **New export** on Settings › Integration › Jobs and feed exports any types

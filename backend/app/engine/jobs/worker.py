@@ -23,6 +23,11 @@ outcome then become ``unprocessed`` with the stop's reason; chunks committed bef
 **Retention.** The worker expires finished jobs past ``expiresAt`` every hour (D14, D30), and
 removes the job files no completed job serves any more (``files.py``).
 
+**Imports** (Base 0.9 J2, D73) run on the batch worker. An import's first step binds its file
+(``imports/binding.py``): its rejected rows become its first outcomes and its items its inputs, in
+one commit; a restart before that commit binds the file again. Its chunks then run as a background
+batch's. Its file goes once the job finishes.
+
 **Exports** (Base 0.9 J1, D53) run on a worker of their own, which claims only ``export`` jobs while
 the batch worker claims the rest, so neither kind waits behind the other. An export runs in one
 step from one snapshot (``exports.py``); a cancel request, the lease and progress go through a short
@@ -42,7 +47,7 @@ from typing import Any
 from uuid import uuid4
 
 from pydantic import TypeAdapter
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import case, func, or_, select, update
 from sqlalchemy.orm import Session
 
 from ...common.outage import OutageLog
@@ -50,15 +55,18 @@ from ...common.time import as_utc
 from ...errors import ApiError
 from ...models.commands import BatchItem
 from ...models.database import ChangeSet, Job
+from ..imports.binding import ImportLimits, bind_import
 from .background import open_job_context
 from .batches import JobCancelled, run_items
 from .exports import ExportCancelled, ExportControl, run_export
 from .files import JobFiles
 from .store import (
+    FINISHED,
     complete_job,
     expire_jobs,
     finish_export,
     load_inputs,
+    record_binding,
     record_outcomes,
     stop_export,
     stop_job,
@@ -74,7 +82,7 @@ SWEEP_SECONDS = 3600.0
 # The worker threads' names, which a measurement of one request's statements leaves out.
 THREAD_NAME = "rdm-job-worker"
 EXPORT_THREAD_NAME = "rdm-export-worker"
-BATCH_KINDS = ("batch",)
+BATCH_KINDS = ("batch", "import")
 EXPORT_KINDS = ("export",)
 _ITEM = TypeAdapter(BatchItem)
 
@@ -84,6 +92,9 @@ class WorkerSettings:
     chunk_items: int
     lease_seconds: int
     retention_days: int
+    # An import's items once its file is bound, under the batch limits (D13).
+    atomic_max_items: int = 10_000
+    background_max_items: int = 1_000_000
 
 
 class _LeaseLost(Exception):
@@ -175,7 +186,10 @@ class JobWorker:
                 .where(Job.sequence_id == sequence_id, *claimable)
                 .values(
                     state="running",
-                    stage="applying",
+                    stage=case(
+                        ((Job.kind == "import") & Job.total.is_(None), "binding"),
+                        else_="applying",
+                    ),
                     started_at=func.coalesce(Job.started_at, now),
                     lease_owner=self.owner,
                     lease_expires_at=now + timedelta(seconds=self.settings.lease_seconds),
@@ -205,7 +219,10 @@ class JobWorker:
                 self._run_export(job)
                 return
             try:
-                self._apply_chunk(session, job)
+                if job.kind == "import" and job.total is None:
+                    self._bind(session, job)
+                else:
+                    self._apply_chunk(session, job)
             except JobCancelled:
                 session.rollback()
                 self._stop(sequence_id, "cancelled", "JOB_CANCELLED", None)
@@ -269,6 +286,74 @@ class JobWorker:
                 seconds=self.settings.lease_seconds
             )
         session.commit()
+        self._finished_import(job)
+
+    # --- imports ----------------------------------------------------------------------------------
+
+    def _bind(self, session: Session, job: Job) -> None:
+        """Bind the import's file into its outcomes and inputs in one commit (0.9 J2). Under
+        ``atomic`` a rejected row ends the job there: its items become ``unprocessed``."""
+        context = open_job_context(session, job)
+        files = self._files()
+        bound = bind_import(
+            session,
+            job,
+            files.source(job.id),
+            context.model,
+            lambda: self._binding_check(job.sequence_id),
+            ImportLimits(
+                atomic_max_items=self.settings.atomic_max_items,
+                background_max_items=self.settings.background_max_items,
+            ),
+        )
+        self._hold_lease(session, job.sequence_id)
+        record_binding(session, job, rejected=bound.rejected, items=bound.items)
+        retention = self.settings.retention_days
+        if job.parameters.get("policy") == "atomic" and bound.rejected:
+            stop_job(
+                session,
+                job,
+                state="completed",
+                reason="BATCH_ROLLED_BACK",
+                error=None,
+                retention_days=retention,
+            )
+        elif job.processed >= job.total:
+            complete_job(session, job, retention_days=retention)
+        else:
+            job.lease_expires_at = datetime.now(UTC) + timedelta(
+                seconds=self.settings.lease_seconds
+            )
+        session.commit()
+        self._finished_import(job)
+
+    def _binding_check(self, sequence_id: int) -> None:
+        """While a file is bound: renew the lease, and stop for a cancel request or a lost lease."""
+        with self.session_factory() as session:
+            row = session.execute(
+                select(Job.lease_owner, Job.cancel_requested_at)
+                .where(Job.sequence_id == sequence_id)
+                .with_for_update()
+            ).one()
+            if row.lease_owner != self.owner:
+                session.rollback()
+                raise _LeaseLost
+            session.execute(
+                update(Job)
+                .where(Job.sequence_id == sequence_id)
+                .values(
+                    lease_expires_at=datetime.now(UTC)
+                    + timedelta(seconds=self.settings.lease_seconds)
+                )
+                .execution_options(synchronize_session=False)
+            )
+            session.commit()
+        if row.cancel_requested_at is not None:
+            raise JobCancelled
+
+    def _finished_import(self, job: Job) -> None:
+        if job.kind == "import" and job.state in FINISHED and self.files is not None:
+            self.files.remove(job.id)
 
     def _hold_lease(self, session: Session, sequence_id: int) -> None:
         owner = session.scalar(
@@ -400,6 +485,7 @@ class JobWorker:
                 retention_days=self.settings.retention_days,
             )
             session.commit()
+            self._finished_import(job)
 
     # --- the thread -------------------------------------------------------------------------------
 

@@ -330,7 +330,7 @@ keys. Every list is paged with signed cursors bound to the query, or by position
 request. Errors are structured and distinguish not found, invalid input, conflict, retired scope and
 unavailable service. Integration-scale functions are F20–F23 and F25; the reference page is F24.
 
-Limits: no file import or export yet (0.9); every API is unauthenticated until 0.12.
+Limits: the import has no preview yet (0.9); every API is unauthenticated until 0.12.
 
 Evidence: [API contracts](../API.md),
 [ADR-018](../DECISIONS.md#adr-018--bind-opaque-cursors-to-query-semantics).
@@ -466,8 +466,23 @@ job has its own page showing its state and progress as they change, its error, C
 export what the file holds and Download. An integration follows any job the same way through the
 API: the engine pushes each change as it commits.
 
-Limits: notifications reach the tab that started the job while it is open; file import with a
-preview screen follows in 0.9; the relationship view in the browser still saves one related record
+An integration imports a file the same way, as a job, into live data or a change set: an Excel
+workbook or a CSV file through an import profile, or a JSON Lines file of bulk items, or an export's
+CSV or workbook sent back. A profile is kept in the engine, under a version, and says how the file's
+sheets and columns become records and relationships: which type each sheet loads, which column finds
+an existing record, which columns hold names and values, which name a parent or related records
+(by name, ID or any value, a cell split into several, or a column per record ticked), value maps
+for placeholders, and records that belong to each row's record, such as its translations. A
+profile is checked against the model when it is saved and whenever it is used, and every problem is
+named where it is. The import finds the records a row names among the existing ones and those the
+same file loads, loads parents before their children, and names each outcome by its sheet and row.
+A row that cannot load is refused with its column and why (a value that does not fit, a name that
+finds no record or several, one key on rows that disagree, rows that are each other's parents);
+the other rows load, or with all-or-nothing none do. A file that does not fit its profile, or cannot
+be read, changes nothing. An unchanged export sent back changes nothing.
+
+Limits: notifications reach the tab that started the job while it is open; the import runs at once,
+through the API only: its preview and its screen follow in 0.9; the relationship view in the browser still saves one related record
 at a time.
 
 Evidence: [batch contracts](../API.md#batches-and-jobs-base-09-b1-b2-b3),

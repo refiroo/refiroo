@@ -209,7 +209,10 @@ keyboard; users do not reconstruct language, target or parent context on separat
 ## SC-10 — Exchange a supplier file and recover an interrupted synchronization
 
 **Stories:** US-I03–I05, US-I07–I08. **Target:** 0.9; the export sentence passes through the API
-(Base 0.9 J1, `test_j27_export`); the import half is planned (J2–J4).
+(Base 0.9 J1, `test_j27_export`). Of the import half, the file's rows load under the chosen policy
+with outcomes by row and field, an invalid number and a duplicate key refused and a retry with its
+key creating nothing twice (Base 0.9 J2, `test_j27_import`); the preview follows (J3) and the
+screen (J4).
 
 An operator receives a supplier code file containing a new value, an existing value, an invalid
 number and a duplicate business key. They select the destination, identify the columns and preview

@@ -40,6 +40,7 @@ from .management.routers import (
     attributes,
     change_sets,
     consumer_subscriptions,
+    imports,
     jobs,
     mapping,
     model,
@@ -237,6 +238,7 @@ def create_app() -> FastAPI:
         background_max_items=settings.background_job_max_items,
         background_max_bytes=settings.batch_background_max_bytes,
         chunk_items=settings.job_chunk_items,
+        import_max_bytes=settings.import_max_bytes,
     )
     # The in-process job worker (P6): none with the capability off. Tests that drive the worker
     # themselves set ``run_job_worker`` to False before the application starts.
@@ -246,6 +248,8 @@ def create_app() -> FastAPI:
         chunk_items=settings.job_chunk_items,
         lease_seconds=settings.job_lease_seconds,
         retention_days=settings.job_retention_days,
+        atomic_max_items=settings.atomic_job_max_items,
+        background_max_items=settings.background_job_max_items,
     )
     application.state.job_worker = (
         JobWorker(SessionLocal, worker_settings, files=application.state.job_files)
@@ -323,8 +327,10 @@ def create_app() -> FastAPI:
     application.include_router(mapping.router)
     application.include_router(relation_matrix.router)
     application.include_router(jobs.router)
+    application.include_router(imports.router)
     if settings.integration_jobs_enabled:
         application.include_router(jobs.write_router)
+        application.include_router(imports.write_router)
     if settings.consumer_subscriptions_enabled:
         application.include_router(consumer_subscriptions.router)
     application.include_router(consumer_router.router)

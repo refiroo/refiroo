@@ -428,7 +428,7 @@ files do not require an unbounded synchronous request.
 **Accepted when:** validation can be previewed, job status resumes safely, failures are itemized and
 completed output can be retrieved without holding one request open.
 
-**Coverage:** Planned integration APIs. **Status:** In progress for 0.9: background jobs with resumable status exist (B2); file import and export follow (J1–J4).
+**Coverage:** Background jobs, export and import jobs (`POST /batches`, `POST /exports`, `POST /imports`). **Status:** In progress for 0.9: background jobs with resumable status (B2), export jobs (J1) and import jobs through profiles (J2) are available through the API; the import preview follows (J3).
 ### US-I05 — Follow and deliver changes reliably
 
 **Story:** As an integration developer, I want an ordered change feed and retryable webhooks so that
@@ -457,7 +457,7 @@ proposed changes and errors so that I can correct mistakes before importing them
 with declared fields, and the preview explains invalid values, duplicate keys and proposed additions
 or updates by row. Preview changes no data; execution reports its agreed failure policy and outcomes.
 
-**Coverage:** Planned import jobs. **Status:** Roadmap 0.9 (import profiles and preview, J2–J4). **Example:** SC-10.
+**Coverage:** Import profiles and import jobs (`/import-profiles`, `POST /imports`). **Status:** In progress for 0.9: profiles identify a file's columns, and rejected rows are reported by sheet, row and column (J2); the preview that changes nothing follows (J3), and its screen (J4). **Example:** SC-10.
 ### US-I08 — Export the intended dataset
 
 **Story:** As a data owner, I want to export a clearly selected workspace and scope so that the

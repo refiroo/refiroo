@@ -17,6 +17,7 @@ read, D31), [B3](#b3-relation-and-relation-set-items) (2026-10-03, D35–D39),
 [C2](#c2-consumer-object-and-projections) (2026-10-04, C-D21–C-D26), C3–C5 and
 [C14](#c14-batch-resolve) (2026-10-05, C-D47–C-D53), [C15](#c15-crosswalk) (2026-10-05, C-D54–C-D58),
 [CN1](#cn1-the-consumer-apis-name-in-public-contracts) (2026-10-05, C-D59), [C6a](#c6a-publications) (2026-10-05, C-D60–C-D68), [C6b](#c6b-the-contract-documents) (2026-10-05, C-D69–C-D70), [V2](#v2-consumer-sources) (2026-10-05), [C8](#c8-parity-acceptance) (2026-10-05, C-D72–C-D75), [C16](#c16-asof-in-the-consumer-tier) (2026-10-05, C-D76–C-D80), [C9](#c9-event-definitions) (2026-10-05, C-D81–C-D86), [C10](#c10-event-deriver-event-store-and-pull-feed) (2026-10-06, C-D87–C-D92, C-D95), [U2](SETTINGS_AND_UI_PLAN.md#u2-delivery-record) (2026-10-06, U-D7–U-D9), [C11](#c11-subscriptions) (2026-10-06, C-D96–C-D102), [C12](#c12-the-dispatcher) (2026-10-06, C-D103–C-D111), [C13](#c13-event-acceptance) (2026-10-06, C-D112–C-D114), [U3](SETTINGS_AND_UI_PLAN.md#u3-delivery-record) (2026-10-06, U-D10–U-D11).
+**J2, import profiles and imports, is delivered (2026-10-07)** ([record](#j2-record-2026-10-07)).
 **U5, the Webhooks page, is implemented (2026-10-07)** ([record](SETTINGS_AND_UI_PLAN.md#u5-record-2026-10-07)), and so is **U5a**, webhook names and the delivery log with the page revised ([record](SETTINGS_AND_UI_PLAN.md#u5a-record-2026-10-07)). The screenshots of UA (the Atlas redesign, ADR-040), U5, U5a and C17 were approved by the user on 2026-10-07; U4's (the Integration pages, [record](SETTINGS_AND_UI_PLAN.md#u4-record-2026-10-07)) await approval.
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
@@ -246,7 +247,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | — | _cut line (D9)_ | | _If R is out of reach, 0.9.0 releases here with R-a and Track J moves to 0.9.1_ |
 | 28 | [J1](#j1-export) | Q3, Q4, B2, F1 | Export jobs: JSON Lines, CSV and XLSX, one snapshot, the manifest on the job (D49–D56) — **delivered 2026-10-07** ([record](#j1-record-2026-10-07)) |
 | 28a | [J1u](#j1u-export-in-the-ui-and-job-notifications-outline) | J1 | Export in the UI: the dialog, the job page, notifications pushed over a per-job event stream (D57–D63) — **delivered 2026-10-07**, screenshots approved by the user ([record](#j1u-record-2026-10-07)) |
-| 29 | [J2](#j2-import-profiles-and-file-reading) | B3 | Import profiles, XLSX/CSV/JSON Lines reading, rows to items, `POST /imports` with `stage: execute` (D64) — **planned 2026-10-07**, D64–D74 and the test cases accepted ([plan](#j2-plan-2026-10-07)) |
+| 29 | [J2](#j2-import-profiles-and-file-reading) | B3 | Import profiles, XLSX/CSV/JSON Lines reading, rows to items, `POST /imports` with `stage: execute` (D64–D74) — **delivered 2026-10-07** ([record](#j2-record-2026-10-07)) |
 | 29a | J2a (if D74 is accepted) | J2 | Database-backed uniqueness for `unique` attributes (TODO, C-D24); planned when J2 is delivered |
 | 30 | [J3](#j3-import-preview-and-execution) | J2, B2 | Import preview, confirm; `stage: execute` arrives with J2 (D64) |
 | 31 | [J4](#j4-import-screen-and-sc-10) | J1u, J3, F2 | The SC-10 screen and SC-10 acceptance |
@@ -7046,6 +7047,103 @@ batches. Provenance: the job is each change's audit cause, and the profile's key
 source name for a later value-source field. Value types convert through the attribute registry.
 `relatedRecord` replaces the translation and system-mapping bindings with one generic binding. The
 `match` declaration and mapping coverage are untouched.
+
+##### J2 record (2026-10-07)
+
+**Delivered 2026-10-07.** D64–D74 and the test cases accepted by the user before coding (D65 and D69
+after an explanation, D69 with relationship columns of repeated rows adding up). The journey tests
+were written first and failed (20 cases, every route `404`), then passed.
+
+**Built.**
+
+- **Profiles** (`engine/imports/profiles.py`, `models/imports.py`, `management/routers/imports.py`,
+  `management/schemas/imports.py`): create, read, list (key order, ADR-030), replace at a version,
+  delete; each checked against the active release with every problem at its JSON pointer, and read
+  with `valid` and `problems` under the release active now. Revision `20261007_06` adds
+  `import_profiles`.
+- **`POST /imports`** (`engine/imports/submit.py`): `multipart/form-data` with `file` and `request`
+  (typed `Json[ImportRequest]`, so the contract documents and validates it); the context, the change
+  set's claim, the size (`IMPORT_MAX_BYTES`), the format and the profile checked before a job is
+  stored; the file written as `{jobId}.source` in `JOB_FILE_DIR` and the job queued in one commit; an
+  `Idempotency-Key` over the request and the file's SHA-256.
+- **Reading** (`engine/imports/readers.py`, `cells.py`): XLSX through openpyxl's read-only mode,
+  CSV and JSON Lines through the standard library; cells converted through the attribute registry;
+  Excel's `_xHHHH_` escapes decoded.
+- **Binding** (`engine/imports/binding.py`), the batch worker's first step for an import: rows copied
+  into temporary tables; keys, repeated keys (D69), matches against the context and the file's own
+  rows, a source's hierarchy (a recursive query, rings rejected) and related records (D70) resolved by
+  set statements; rejected rows stored as the job's first outcomes and the items as its inputs by
+  `INSERT … SELECT`; then the chunks run as a background batch's. Without a profile, JSON Lines items
+  and an export's tables (D71) map row by row.
+- **The worker** claims `import` jobs beside batches (D73), binds with lease renewal and a cancel
+  check every 10,000 rows, ends an `atomic` import with a rejected row before any chunk, and removes
+  the file when the job finishes; `JobFiles.reconcile` keeps a `.source` file while its job reads it.
+- **The export** writes `applicationKey` after `objectTypeKey` in its records table (D71). The
+  context's records and relationships as set sources moved from `exports.py` to
+  `engine/reads/context_sets.py`, shared by both.
+- `IMPORT_MAX_BYTES` (200 MB) in the settings, `GET /system` and `integrationJobs.limits`; openpyxl
+  moved to the runtime dependencies and `python-multipart` added (LICENSING_TODO records both).
+
+**Where it differs from the plan.**
+
+- **No `import_rows` table in the revision.** The rows are staged in temporary tables of the binding
+  transaction (`ON COMMIT DROP`), since binding is one transaction and a restart binds the file again:
+  nothing is left to clean up.
+- **More row and file codes than the plan named**, each documented in API.md: `NAME_REQUIRED` (a new
+  record without a name), `INVALID_NAME` (over 500 characters), `INVALID_CELL` (an export table's
+  ID, version or key that is not one), `MISSING_RECORD_KEY` (an empty key attribute, the batch's
+  code), `IMPORT_FILE_MISSING`; the problem codes `TYPE_NOT_IN_APPLICATION`, `FLAG_WITHOUT_TARGET`,
+  `SHEET_NOT_FOUND`, `HEADER_ROW_NOT_FOUND`, `COLUMN_NOT_FOUND` and `NOT_A_TABLE_LAYOUT`.
+- **`IDEMPOTENCY_KEY_REUSED` is `422`**, as batches already answer it, not the plan's `409`.
+- **An empty cell leaves the attribute out of the item**, so an import never clears a value; the
+  same reading as the export, whose JSON Lines leaves absent values out. A value map to `null` does
+  the same.
+- **Source order counts every relationship column**, as §J3 says, not only required ones: two
+  sources whose relationships point at each other's types are a `SOURCE_CYCLE` (test case 1's
+  third problem). Relationships still run after every record, so the order only matters for parents.
+- **A keyless source creates its records on every send.** Test case 5's re-send checks the keyed
+  ledger rows; its branch rows (added to the case for the ambiguous and missing matches) have no key.
+- **Test case 2 also re-imports its ledgers** and finds their related records rather than creating
+  second ones; my addition, beyond the approved case.
+- **No frontend change**, as planned. The Settings limits list and an import job's page show nothing
+  new yet (TODO, J4); the jobs list already labels the `import` kind.
+
+**Found on the way.**
+
+- **openpyxl judges a workbook by its file name**: it refused the stored `{jobId}.source` as not an
+  XLSX file. The reader opens the file and hands openpyxl the file object.
+- **Pre-existing failures, not touched:** `tests/unit/engine/model/test_consumer_openapi.py` (three
+  cases) unpacks one consumer API from `model/rdm-operators-timetables.json`, which declares four
+  since `46ebc08` (operators model 0.7.0, per-application APIs). They fail on `HEAD` as well; the
+  `model` group selection found them.
+- `model/Objects_2026-10-07-15-48-38.xlsx` (the source system's export) is untracked in the
+  repository's `model/` directory; vendor exports stay outside the repository (AGENTS.md).
+
+**Checks.**
+
+- J27 import journey tests (`test_j27_import`, 10 tests on two configurations each, 20 cases) and the
+  export's (`test_j27_export`, 18 cases, with the added column); unit tests
+  `tests/unit/engine/imports/` (76: every value type from a typed cell and from text, the refusals,
+  flags, escapes; each binding kind's problem at its pointer, the source order and its cycle; the CSV
+  dialect and the workbook reader); `test_import_volume` (binding executes the same statements at
+  500 and 2,000 rows and loads no record into the ORM; every item applied).
+- Startup (AGENTS.md): upgrade from `20261007_05` with the table made by hand refused and rolled back,
+  then two starts and a downgrade, with the neighbouring revisions' cases and a clean start: 4 passed.
+- `jobs or model or contract or startup` in parallel: 719 passed, 7 failed in 1 min 21 s: the three
+  pre-existing cases above, and the foreign-key review list and J12's limits case, which the new
+  table and setting changed; both extended and rerun (12 passed). Serial part: 1 passed.
+- OpenAPI lock re-baselined: removing the import paths, their 20 schemas and `importMaxBytes` with its
+  description gives J1u's document exactly (checked by hash). The paging inventory counts 27
+  collections.
+- `ruff check app/ tests/` clean; the new modules formatted with `ruff format`.
+- Smoke: the development server (`--reload`) restarted on the change, applied `20261007_06` to the
+  development database and serves `/health`, `GET /import-profiles` and `importMaxBytes`. Only reads
+  were sent, so nothing was written to the development data; the import itself runs in the journey
+  tests, on the batch worker the journey application drives by hand.
+
+**Not run or not verified.** The full suites (R). No frontend change, so no frontend checks. The
+full-size import budget is J3's (D68: openpyxl's speed is measured there). An import into a change set
+with related records, and a cancel during binding, are not covered by a test of their own.
 
 #### J3: Import preview and execution
 

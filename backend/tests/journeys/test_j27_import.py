@@ -1,0 +1,884 @@
+"""J27 — Exchange a supplier file: the import (USER_JOURNEYS.md, 0.9 J2).
+
+Each test writes in a workspace of its own. The journey application runs no worker thread; a test
+runs the engine's job worker itself (``_run``). Files are built as a supplier would send them:
+workbooks with openpyxl, CSV and JSON Lines as text.
+"""
+
+import csv
+import io
+import json
+from datetime import date
+from uuid import uuid4
+
+import pytest
+from openpyxl import Workbook
+from scenario import ok, refused
+
+XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+TYPES = {
+    "xlsx": XLSX,
+    "csv": "text/csv",
+    "jsonl": "application/x-ndjson",
+    "xls": "application/vnd.ms-excel",
+}
+
+
+def _workspace(world):
+    key = f"import-{uuid4().hex[:8]}"
+    ok(world.api.post("/workspaces", {"key": key, "label": "Import site"}), 201)
+    return key
+
+
+def _xlsx(sheets):
+    book = Workbook()
+    book.remove(book.active)
+    for title, rows in sheets.items():
+        sheet = book.create_sheet(title)
+        for row in rows:
+            sheet.append(list(row))
+    buffer = io.BytesIO()
+    book.save(buffer)
+    return buffer.getvalue()
+
+
+def _csv(rows):
+    buffer = io.StringIO()
+    csv.writer(buffer).writerows(rows)
+    return buffer.getvalue().encode()
+
+
+def _request(workspace, **extra):
+    return {
+        "workspaceKey": workspace,
+        "policy": "independent",
+        "onExisting": "overwrite",
+        "stage": "execute",
+        **extra,
+    }
+
+
+def _send(world, name, content, request, headers=None):
+    file_type = TYPES[name.rsplit(".", 1)[1]]
+    return world.api.upload(
+        "/imports", {"file": (name, content, file_type)}, {"request": json.dumps(request)}, headers
+    )
+
+
+def _run(world):
+    return world.api.client.app.state.job_worker.run_until_idle()
+
+
+def _imported(world, name, content, request, headers=None):
+    job = ok(_send(world, name, content, request, headers), 202)
+    assert job["kind"] == "import" and job["state"] == "queued", job["error"]
+    _run(world)
+    return ok(world.api.get(f"/jobs/{job['id']}"))
+
+
+def _outcomes(world, job):
+    items, cursor = [], None
+    while True:
+        page = ok(world.api.get(f"/jobs/{job['id']}/items", pageSize=500, cursor=cursor))
+        items += page["items"]
+        cursor = page.get("nextCursor")
+        if not cursor:
+            return items
+
+
+def _by_ref(items):
+    rows = {}
+    for item in items:
+        rows.setdefault(item["ref"], []).append(item)
+    return rows
+
+
+def _code(item):
+    return item.get("error", {}).get("code")
+
+
+def _named(world, structure, workspace, **context):
+    page = ok(
+        world.api.get(
+            f"/objects/{world.key(structure)}", workspaceKey=workspace, pageSize=100, **context
+        )
+    )
+    return {item["name"]: item for item in page["items"]}
+
+
+def _related(world, object_id, structure, workspace):
+    page = ok(
+        world.api.get(
+            "/relations",
+            objectId=object_id,
+            relationTypeKey=world.key(structure),
+            workspaceKey=workspace,
+            pageSize=100,
+        )
+    )
+    return {item["object"]["id"] for item in page["items"]}
+
+
+def _ledger_profile(world, key=None):
+    """R records from a sheet, keyed by R.u, with typed values and a value map."""
+    return {
+        "key": key or f"ledgers-{uuid4().hex[:8]}",
+        "name": "Ledgers",
+        "sources": [
+            {
+                "sheet": "Ledgers",
+                "applicationKey": world.app("R"),
+                "objectTypeKey": world.key("R"),
+                "key": {"attributeTypeKey": world.key("R.u")},
+                "columns": [
+                    {"column": "Number", "attributeTypeKey": world.key("R.u")},
+                    {"column": "Name", "field": "name"},
+                    {"column": "Owner", "attributeTypeKey": world.key("R.q")},
+                    {"column": "Summary", "attributeTypeKey": world.key("R.x1")},
+                    {"column": "Score", "attributeTypeKey": world.key("R.n"), "valueMap": "blanks"},
+                    {"column": "Flagged", "attributeTypeKey": world.key("R.b")},
+                    {"column": "Opened", "attributeTypeKey": world.key("R.dt")},
+                ],
+            }
+        ],
+        "valueMaps": {"blanks": {"N/A": None}},
+    }
+
+
+LEDGER_HEADER = ("Number", "Name", "Owner", "Summary", "Score", "Flagged", "Opened")
+
+
+@pytest.mark.journey("J27.7")
+@pytest.mark.structures("R", "R.u", "R.n", "R.b", "R.dt", "R.q", "R.x1", "H", "K", "K.code", "Bnn")
+def test_profiles_are_kept_under_a_version_and_refused_with_every_problem(world):
+    """Given a valid profile. When it is created, read, listed, changed at its version, changed
+    again at the old version, created twice and deleted. Then it is version 1, then 2; the stale
+    change is a version conflict naming the current version; the second create is refused. A
+    profile naming an unknown attribute, a relationship the two types do not allow and two sources
+    that reference each other is refused with three problems at their pointers. After a release
+    removes an attribute a stored profile binds, the profile reads as no longer valid with that
+    path, and an import naming it is refused with the same problem."""
+    profile = _ledger_profile(world)
+    created = ok(world.api.post("/import-profiles", profile), 201)
+    assert created["version"] == 1 and created["valid"] is True and created["problems"] == []
+    active = ok(world.api.get("/model-runtime-state"))["activeReleaseId"]
+    assert created["checkedAgainst"] == active
+    read = ok(world.api.get(f"/import-profiles/{profile['key']}"))
+    assert read["sources"] == created["sources"] and read["name"] == "Ledgers"
+    assert profile["key"] in {p["key"] for p in ok(world.api.get("/import-profiles"))["items"]}
+
+    body = {k: v for k, v in profile.items() if k != "key"}
+    changed = ok(
+        world.api.put(
+            f"/import-profiles/{profile['key']}", {**body, "name": "Renamed", "expectedVersion": 1}
+        )
+    )
+    assert changed["version"] == 2 and changed["name"] == "Renamed"
+    error = refused(
+        world.api.put(f"/import-profiles/{profile['key']}", {**body, "expectedVersion": 1}),
+        409,
+        "IMPORT_PROFILE_VERSION_CONFLICT",
+    )
+    assert error["details"]["currentVersion"] == 2
+    refused(world.api.post("/import-profiles", profile), 409, "IMPORT_PROFILE_EXISTS")
+
+    bad = _ledger_profile(world)
+    bad["sources"][0]["columns"].append(
+        {"column": "Ghost", "attributeTypeKey": "no-such-attribute"}
+    )
+    bad["sources"][0]["columns"].append(
+        {
+            "column": "Tokens",
+            "relation": {
+                "relationTypeKey": world.key("Bnn"),
+                "objectTypeKey": world.key("K"),
+                "matchBy": {"field": "name"},
+            },
+        }
+    )
+    bnn = {"relationTypeKey": world.key("Bnn"), "matchBy": {"field": "name"}}
+    bad["sources"] += [
+        {
+            "sheet": "Branches",
+            "applicationKey": world.app("H"),
+            "objectTypeKey": world.key("H"),
+            "columns": [
+                {"column": "Name", "field": "name"},
+                {"column": "Token", "relation": {**bnn, "objectTypeKey": world.key("K")}},
+            ],
+        },
+        {
+            "sheet": "Tokens",
+            "applicationKey": world.app("K"),
+            "objectTypeKey": world.key("K"),
+            "columns": [
+                {"column": "Name", "field": "name"},
+                {
+                    "column": "Branch",
+                    "relation": {**bnn, "direction": "incoming", "objectTypeKey": world.key("H")},
+                },
+            ],
+        },
+    ]
+    error = refused(world.api.post("/import-profiles", bad), 422, "INVALID_IMPORT_PROFILE")
+    problems = {(p["path"], p["code"]) for p in error["details"]["problems"]}
+    assert problems == {
+        ("/sources/0/columns/7/attributeTypeKey", "UNKNOWN_ATTRIBUTE"),
+        ("/sources/0/columns/8/relation", "RELATION_NOT_ALLOWED"),
+        ("/sources", "SOURCE_CYCLE"),
+    }, problems
+
+    model, added = world.candidate("compatible")
+    ok(world.activate(world.install(model)["id"]))
+    bound = _ledger_profile(world)
+    bound["sources"][0]["columns"].append({"column": "Added", "attributeTypeKey": added})
+    ok(world.api.post("/import-profiles", bound), 201)
+    again = dict(
+        world.configuration.model,
+        release={**world.configuration.model["release"], "version": "again"},
+    )
+    ok(world.activate(world.install(again)["id"]))
+    stale = ok(world.api.get(f"/import-profiles/{bound['key']}"))
+    assert stale["valid"] is False
+    assert {(p["path"], p["code"]) for p in stale["problems"]} == {
+        ("/sources/0/columns/7/attributeTypeKey", "UNKNOWN_ATTRIBUTE")
+    }
+    ws = _workspace(world)
+    content = _xlsx({"Ledgers": [LEDGER_HEADER + ("Added",)]})
+    error = refused(
+        _send(world, "ledgers.xlsx", content, _request(ws, profileKey=bound["key"])),
+        422,
+        "INVALID_IMPORT_PROFILE",
+    )
+    assert [p["path"] for p in error["details"]["problems"]] == [
+        "/sources/0/columns/7/attributeTypeKey"
+    ]
+
+    ok(world.api.delete(f"/import-profiles/{profile['key']}", expectedVersion=2), 204)
+    refused(world.api.get(f"/import-profiles/{profile['key']}"), 404, "IMPORT_PROFILE_NOT_FOUND")
+
+
+def _workbook_profile(world, parent_structure, parent_name):
+    """Every binding kind: P and C by a parent name, K, H with a split relation column and flags,
+    and R keyed by R.u with a related D under a fixed parent."""
+    k = world.key
+    by_name = {"field": "name"}
+    return {
+        "key": f"supplier-{uuid4().hex[:8]}",
+        "name": "Supplier workbook",
+        "sources": [
+            {
+                "sheet": "Rooms",
+                "applicationKey": world.app("C"),
+                "objectTypeKey": k("C"),
+                "columns": [
+                    {"column": "Name", "field": "name"},
+                    {"column": "Estate", "parent": {"objectTypeKey": k("P"), "matchBy": by_name}},
+                ],
+            },
+            {
+                "sheet": "Estates",
+                "applicationKey": world.app("P"),
+                "objectTypeKey": k("P"),
+                "columns": [
+                    {"column": "Name", "field": "name"},
+                    {"column": "Code", "attributeTypeKey": k("H.code")},
+                ],
+            },
+            {
+                "sheet": "Branches",
+                "applicationKey": world.app("H"),
+                "objectTypeKey": k("H"),
+                "columns": [
+                    {"column": "Code", "attributeTypeKey": k("H.code")},
+                    {"column": "Name", "field": "name"},
+                    {
+                        "column": "Tokens",
+                        "valueMap": "none",
+                        "relation": {
+                            "relationTypeKey": k("Bnn"),
+                            "objectTypeKey": k("K"),
+                            "matchBy": {"attributeTypeKey": k("K.code")},
+                            "split": ";",
+                        },
+                    },
+                    {
+                        "columns": ["Web", "Phone"],
+                        "relationFlags": {
+                            "relationTypeKey": k("Bnn"),
+                            "objectTypeKey": k("K"),
+                            "matchBy": by_name,
+                            "targets": {"Web": "Token three", "Phone": "Token one"},
+                        },
+                    },
+                ],
+            },
+            {
+                "sheet": "Tokens",
+                "applicationKey": world.app("K"),
+                "objectTypeKey": k("K"),
+                "columns": [
+                    {"column": "Code", "attributeTypeKey": k("K.code")},
+                    {"column": "Name", "field": "name"},
+                ],
+            },
+            {
+                "sheet": "Ledgers",
+                "applicationKey": world.app("R"),
+                "objectTypeKey": k("R"),
+                "key": {"attributeTypeKey": k("R.u")},
+                "columns": [
+                    {"column": "Number", "attributeTypeKey": k("R.u")},
+                    {"column": "Name", "field": "name"},
+                    {"column": "Owner", "attributeTypeKey": k("R.q")},
+                    {"column": "Summary", "attributeTypeKey": k("R.x1")},
+                    {"column": "Score", "attributeTypeKey": k("R.n"), "valueMap": "none"},
+                    {"column": "Flagged", "attributeTypeKey": k("R.b")},
+                    {"column": "Opened", "attributeTypeKey": k("R.dt")},
+                    {
+                        "column": "Permit",
+                        "relatedRecord": {
+                            "relationTypeKey": k("Bown"),
+                            "applicationKey": world.app("D"),
+                            "objectTypeKey": k("D"),
+                            "parent": {
+                                "objectTypeKey": k(parent_structure),
+                                "matchBy": by_name,
+                                "value": parent_name,
+                            },
+                            "attributeTypeKey": k("K.code"),
+                        },
+                    },
+                ],
+            },
+        ],
+        "valueMaps": {"none": {"N/A": None, "-": None}},
+    }
+
+
+def _workbook():
+    return {
+        "Rooms": [("Name", "Estate"), ("Room in new", "New estate"), ("Room in old", "Old estate")],
+        "Estates": [("Name", "Code"), ("New estate", "NE")],
+        "Branches": [
+            ("Code", "Name", "Tokens", "Web", "Phone"),
+            ("BR1", "Branch one", "TK1;TK2", "x", None),
+            ("BR2", "Branch two", "-", None, "yes"),
+        ],
+        "Tokens": [
+            ("Code", "Name"),
+            ("TK1", "Token one"),
+            ("TK2", "Token two"),
+            ("TK3", "Token three"),
+        ],
+        "Ledgers": [
+            LEDGER_HEADER + ("Permit",),
+            ("L-NEW", "New ledger", "Ann", "Summary", 42, True, date(2026, 3, 4), "PC1"),
+            ("L-OLD", "Old ledger renamed", "Bob", "Summary", "N/A", False, "2026-05-06", None),
+        ],
+    }
+
+
+def _parent_of_d(world, workspace):
+    """The record a D stands under: G itself, or an M container below it (``deep-scope``)."""
+    ground = world.made("G", "Ground", workspace=workspace)
+    parent_id = world.dependant_parent(ground["id"], workspace=workspace)
+    structure = "M" if parent_id != ground["id"] else "G"
+    name = (
+        "Ground"
+        if structure == "G"
+        else world.record("M", parent_id, workspaceKey=workspace)["name"]
+    )
+    return structure, name, parent_id
+
+
+def _check_workbook_loaded(world, ws, existing, permit_parent, **context):
+    estates = _named(world, "P", ws, **context)
+    rooms = _named(world, "C", ws, **context)
+    assert rooms["Room in new"]["parentObjectId"] == estates["New estate"]["id"]
+    assert rooms["Room in old"]["parentObjectId"] == existing["estate"]["id"]
+    new_estate = world.record("P", estates["New estate"]["id"], workspaceKey=ws, **context)
+    assert world.value(new_estate, "H.code") == "NE"
+
+    tokens = _named(world, "K", ws, **context)
+    branches = _named(world, "H", ws, **context)
+    ledgers = _named(world, "R", ws, **context)
+    new = world.record("R", ledgers["New ledger"]["id"], workspaceKey=ws, **context)
+    assert world.value(new, "R.u") == "L-NEW"
+    assert world.value(new, "R.n") == 42
+    assert world.value(new, "R.b") is True
+    assert world.value(new, "R.dt") == "2026-03-04"
+    old = world.record("R", existing["ledger"]["id"], workspaceKey=ws, **context)
+    assert old["name"] == "Old ledger renamed"
+    assert world.value(old, "R.b") is False and world.value(old, "R.dt") == "2026-05-06"
+    assert world.value(old, "R.n") == 7
+    return tokens, branches, new
+
+
+@pytest.mark.journey("J27.8")
+@pytest.mark.structures(
+    "R",
+    "R.u",
+    "R.n",
+    "R.b",
+    "R.dt",
+    "R.q",
+    "R.x1",
+    "P",
+    "C",
+    "H",
+    "H.code",
+    "K",
+    "K.code",
+    "Bnn",
+    "G",
+    "D",
+    "Bown",
+)
+def test_a_workbook_loads_every_binding_kind_through_a_profile(world):
+    """Given an existing P "Old estate" and an existing R numbered L-OLD, and a workbook whose
+    sheets load C records under a P named in the row (one created by the same file, one existing),
+    P records, K tokens, H branches with a split relation column through a value map and two flag
+    columns, and R ledgers keyed by R.u with an integer, a date cell, a date as text, a boolean, a
+    value mapped to nothing and a related D under a fixed parent. When it is imported live under
+    independent with overwrite. Then the job completes, every row applied; each record, value,
+    parent, relationship and related record reads back as the file says; the existing ledger is
+    updated in place; every item names its sheet and row; the feed names the job as the cause."""
+    ws = _workspace(world)
+    existing = {
+        "estate": world.made("P", "Old estate", workspace=ws),
+        "ledger": world.made(
+            "R", "Old ledger", workspace=ws, values={"R.u": "L-OLD", "R.n": 7, "R.b": True}
+        ),
+    }
+    parent_structure, parent_name, permit_parent = _parent_of_d(world, ws)
+    profile = ok(
+        world.api.post("/import-profiles", _workbook_profile(world, parent_structure, parent_name)),
+        201,
+    )
+
+    job = _imported(
+        world, "supplier.xlsx", _xlsx(_workbook()), _request(ws, profileKey=profile["key"])
+    )
+    assert job["state"] == "completed" and job["result"] == "applied", job["error"]
+    assert job["parameters"]["file"]["name"] == "supplier.xlsx"
+    assert job["parameters"]["profile"]["key"] == profile["key"]
+    outcomes = _outcomes(world, job)
+    rows = _by_ref(outcomes)
+    assert {"Rooms!2", "Rooms!3", "Estates!2", "Branches!2", "Tokens!4", "Ledgers!3"} <= set(rows)
+    assert {item["status"] for item in outcomes} == {"applied"}
+
+    tokens, branches, new = _check_workbook_loaded(world, ws, existing, permit_parent)
+    assert _related(world, branches["Branch one"]["id"], "Bnn", ws) == {
+        tokens["Token one"]["id"],
+        tokens["Token two"]["id"],
+        tokens["Token three"]["id"],
+    }
+    assert _related(world, branches["Branch two"]["id"], "Bnn", ws) == {tokens["Token one"]["id"]}
+    permits = _related(world, new["id"], "Bown", ws)
+    assert len(permits) == 1
+    permit = world.record("D", permits.pop(), workspaceKey=ws)
+    assert permit["parentObjectId"] == permit_parent and world.value(permit, "K.code") == "PC1"
+
+    entries = ok(world.api.get(f"/workspaces/{ws}/feed", pageSize=200))["items"]
+    from_job = [e for e in entries if e["cause"].get("id") == job["id"]]
+    assert from_job and all(e["cause"]["kind"] == "job" for e in from_job)
+
+    # The ledgers again: each finds its record by R.u and its related D through Bown and its parent.
+    ledgers_only = _workbook_profile(world, parent_structure, parent_name)
+    ledgers_only["sources"] = ledgers_only["sources"][-1:]
+    ledgers_only = ok(world.api.post("/import-profiles", ledgers_only), 201)
+    again = _imported(
+        world,
+        "ledgers.xlsx",
+        _xlsx({"Ledgers": _workbook()["Ledgers"]}),
+        _request(ws, profileKey=ledgers_only["key"]),
+    )
+    assert {(i["status"], i.get("action")) for i in _outcomes(world, again)} == {
+        ("applied", "unchanged")
+    }
+    assert _related(world, new["id"], "Bown", ws) == {permit["id"]}
+
+
+@pytest.mark.journey("J27.8")
+@pytest.mark.structures("R", "R.u", "R.n", "R.b", "R.dt", "R.q", "R.x1")
+def test_the_same_content_as_csv_loads_the_same_and_into_a_change_set_only_there(world):
+    """Given the ledger rows as a workbook and as CSV. When each is imported into a workspace of its
+    own, and the CSV again into a change set of a third. Then both give the same records with the
+    same values and the same outcome counts; the change set holds the records and live data does
+    not."""
+    rows = [
+        LEDGER_HEADER,
+        ("L-1", "First ledger", "Ann", "Summary", 12, True, "2026-01-02"),
+        ("L-2", "Second ledger", "Bob", "Summary", "N/A", False, "2026-02-03"),
+    ]
+    profile = ok(world.api.post("/import-profiles", _ledger_profile(world)), 201)
+
+    def loaded(ws, **context):
+        records = _named(world, "R", ws, **context)
+        return {
+            name: (
+                world.value(world.record("R", item["id"], workspaceKey=ws, **context), "R.u"),
+                world.value(world.record("R", item["id"], workspaceKey=ws, **context), "R.n"),
+                world.value(world.record("R", item["id"], workspaceKey=ws, **context), "R.b"),
+                world.value(world.record("R", item["id"], workspaceKey=ws, **context), "R.dt"),
+            )
+            for name, item in records.items()
+        }
+
+    first, second = _workspace(world), _workspace(world)
+    from_xlsx = _imported(
+        world, "l.xlsx", _xlsx({"Ledgers": rows}), _request(first, profileKey=profile["key"])
+    )
+    from_csv = _imported(world, "l.csv", _csv(rows), _request(second, profileKey=profile["key"]))
+    assert from_xlsx["counts"] == from_csv["counts"] and from_csv["counts"]["created"] == 2
+    assert (
+        loaded(first)
+        == loaded(second)
+        == {
+            "First ledger": ("L-1", 12, True, "2026-01-02"),
+            "Second ledger": ("L-2", None, False, "2026-02-03"),
+        }
+    )
+    assert {item["ref"] for item in _outcomes(world, from_csv)} == {"csv!2", "csv!3"}
+
+    third = _workspace(world)
+    cs = world.change_set(workspace=third)
+    request = {
+        "changeSetId": cs["id"],
+        "expectedChangeSetVersion": cs["version"],
+        "policy": "independent",
+        "onExisting": "overwrite",
+        "stage": "execute",
+        "profileKey": profile["key"],
+    }
+    staged = _imported(world, "l.csv", _csv(rows), request)
+    assert staged["state"] == "completed" and staged["counts"]["created"] == 2, staged["error"]
+    assert set(loaded(third, changeSetId=cs["id"])) == {"First ledger", "Second ledger"}
+    assert _named(world, "R", third) == {}
+
+
+def _export(world, ws, types, fmt):
+    request = {
+        "workspaceKey": ws,
+        "scope": {"types": [{"objectTypeKey": world.key(t)} for t in types]},
+        "include": {"relations": "withinScope"},
+        "format": fmt,
+    }
+    job = ok(world.api.post("/exports", request), 202)
+    world.api.client.app.state.export_worker.run_until_idle()
+    response = world.api.get(f"/jobs/{job['id']}/output")
+    assert response.status_code == 200, response.text
+    return response.content
+
+
+@pytest.mark.journey("J27.9", "J27.3")
+@pytest.mark.structures("H", "H.code", "K", "K.code", "Bnn", "Bnn.weight")
+def test_an_export_sent_back_without_a_profile_changes_nothing_and_an_edited_one_applies(world):
+    """Given H and K records with Bnn relationships. When they are exported as CSV and as XLSX and
+    each file is sent back without a profile. Then every item is applied unchanged. When the CSV is
+    sent with one name edited, one row added without an ID, and one record renamed in the
+    workspace since the export and in the file. Then the edited record is updated, the added row
+    created, the changed one refused as a version conflict and the rest unchanged. A JSON Lines
+    export sent as a file is applied unchanged too."""
+    ws = _workspace(world)
+    top = world.made("H", "Top", workspace=ws, values={"H.code": "T"})
+    leaf = world.made("H", "Leaf", parent=top["id"], workspace=ws, values={"H.code": "L"})
+    token = world.made("K", "Token", workspace=ws, values={"K.code": "K1"})
+    ok(world.relate("Bnn", leaf["id"], token["id"], {"Bnn.weight": 2}), 201)
+    types = ("H", "K")
+
+    for fmt in ("csv", "xlsx", "jsonl"):
+        content = _export(world, ws, types, fmt)
+        job = _imported(world, f"back.{fmt}", content, _request(ws, onExisting="reject"))
+        assert job["state"] == "completed", job["error"]
+        assert {(i["status"], i.get("action")) for i in _outcomes(world, job)} == {
+            ("applied", "unchanged")
+        }, fmt
+
+    content = _export(world, ws, types, "csv").decode("utf-8-sig")
+    ok(
+        world.update(
+            "H",
+            leaf["id"],
+            world.record("H", leaf["id"], workspaceKey=ws)["version"],
+            name="Leaf meanwhile",
+        )
+    )
+    rows = list(csv.reader(io.StringIO(content)))
+    header = rows[0]
+    column = {name: header.index(name) for name in header}
+    edited = [header]
+    for row in rows[1:]:
+        if row[column["id"]] == top["id"]:
+            row[column["name"]] = "Top edited"
+        if row[column["id"]] == leaf["id"]:
+            row[column["name"]] = "Leaf edited"
+        edited.append(row)
+    added = [""] * len(header)
+    added[column["objectTypeKey"]] = world.key("H")
+    added[column["applicationKey"]] = world.app("H")
+    added[column["name"]] = "Added in the file"
+    added[column[f"#{world.key('H.code')}"]] = "ADD"
+    edited.insert(2, added)
+    job = _imported(world, "edited.csv", _csv(edited), _request(ws, onExisting="reject"))
+    by_row = {item["ref"]: item for item in _outcomes(world, job)}
+    assert by_row["csv!2"]["action"] in ("updated", "unchanged")
+    outcome = {(item["status"], item.get("action") or _code(item)) for ref, item in by_row.items()}
+    assert ("applied", "updated") in outcome and ("applied", "created") in outcome
+    assert ("rejected", "VERSION_CONFLICT") in outcome
+    assert world.record("H", top["id"], workspaceKey=ws)["name"] == "Top edited"
+    assert world.record("H", leaf["id"], workspaceKey=ws)["name"] == "Leaf meanwhile"
+    added_record = _named(world, "H", ws)["Added in the file"]
+    assert world.value(world.record("H", added_record["id"], workspaceKey=ws), "H.code") == "ADD"
+
+
+def _sc10_rows():
+    return [
+        LEDGER_HEADER,
+        ("S-NEW", "New value", "Ann", "Summary", 10, True, "2026-01-01"),
+        ("S-OLD", "Existing value renamed", "Bob", "Summary", 20, False, "2026-01-01"),
+        ("S-BAD", "Invalid number", "Cid", "Summary", "twelve", False, "2026-01-01"),
+        ("S-DUP", "Duplicate one", "Dee", "Summary", 30, False, "2026-01-01"),
+        ("S-DUP", "Duplicate two", "Dee", "Summary", 30, False, "2026-01-01"),
+    ]
+
+
+@pytest.mark.journey("J27.10", "J27.8")
+@pytest.mark.structures("R", "R.u", "R.n", "R.b", "R.dt", "R.q", "R.x1", "H", "K", "K.code", "Bnn")
+def test_rows_that_cannot_load_are_rejected_by_row_and_the_rest_load(world):
+    """Given an existing ledger S-OLD, two K tokens sharing one code and the SC-10 file: a new
+    value, an existing value, an invalid number, two rows with one key and different names, and
+    branches naming the shared token code, an unknown code, and a known one. When it is imported
+    under independent with overwrite. Then the new one is created, the existing one updated, the
+    number refused with its column, both duplicates refused naming each other, the ambiguous match
+    refused with its count and the unknown one as not found. Under atomic nothing is written and
+    the other items are unprocessed. Sent again with the same Idempotency-Key the job is replayed;
+    sent again without one, every applied row is unchanged."""
+    ws = _workspace(world)
+    old = world.made("R", "Existing value", workspace=ws, values={"R.u": "S-OLD"})
+    for n in (1, 2):
+        world.made("K", f"Shared {n}", workspace=ws, values={"K.code": "SHARED"})
+    world.made("K", "Known", workspace=ws, values={"K.code": "KNOWN"})
+    world.made("K", "Other", workspace=ws, values={"K.code": "OTHER"})
+    profile = _ledger_profile(world)
+    profile["sources"].append(
+        {
+            "sheet": "Branches",
+            "applicationKey": world.app("H"),
+            "objectTypeKey": world.key("H"),
+            "columns": [
+                {"column": "Name", "field": "name"},
+                {"column": "Code", "attributeTypeKey": world.key("H.code")},
+                {
+                    "column": "Token",
+                    "relation": {
+                        "relationTypeKey": world.key("Bnn"),
+                        "objectTypeKey": world.key("K"),
+                        "matchBy": {"attributeTypeKey": world.key("K.code")},
+                    },
+                },
+            ],
+        }
+    )
+    profile = ok(world.api.post("/import-profiles", profile), 201)
+    workbook = {
+        "Ledgers": _sc10_rows(),
+        "Branches": [
+            ("Name", "Code", "Token"),
+            ("Ambiguous branch", "B1", "SHARED"),
+            ("Lost branch", "B2", "NOWHERE"),
+            ("Good branch", "B3", "KNOWN"),
+        ],
+    }
+    content = _xlsx(workbook)
+
+    atomic = _imported(
+        world, "sc10.xlsx", content, _request(ws, profileKey=profile["key"], policy="atomic")
+    )
+    statuses = {item["status"] for item in _outcomes(world, atomic)}
+    assert statuses == {"rejected", "unprocessed"}, statuses
+    assert "S-NEW" not in {
+        world.value(world.record("R", r["id"], workspaceKey=ws), "R.u")
+        for r in _named(world, "R", ws).values()
+    }
+
+    headers = {"Idempotency-Key": f"sc10-{uuid4().hex}"}
+    job = _imported(world, "sc10.xlsx", content, _request(ws, profileKey=profile["key"]), headers)
+    assert job["state"] == "completed" and job["result"] == "partial", job["error"]
+    rows = _by_ref(_outcomes(world, job))
+    assert [i["action"] for i in rows["Ledgers!2"]] == ["created"]
+    assert [i["action"] for i in rows["Ledgers!3"]] == ["updated"]
+    bad = rows["Ledgers!4"][0]
+    assert _code(bad) == "INVALID_ATTRIBUTE_VALUE" and bad["error"]["details"]["column"] == "Score"
+    for ref, other in (("Ledgers!5", 6), ("Ledgers!6", 5)):
+        error = rows[ref][0]["error"]
+        assert error["code"] == "DUPLICATE_KEY_IN_FILE" and other in error["details"]["rows"]
+    ambiguous = rows["Branches!2"][0]["error"]
+    assert ambiguous["code"] == "REFERENCE_AMBIGUOUS"
+    assert ambiguous["details"]["count"] == 2 and ambiguous["details"]["column"] == "Token"
+    assert _code(rows["Branches!3"][0]) == "REFERENCE_NOT_FOUND"
+    assert {i["status"] for i in rows["Branches!4"]} == {"applied"}
+    assert world.record("R", old["id"], workspaceKey=ws)["name"] == "Existing value renamed"
+
+    replay = _send(world, "sc10.xlsx", content, _request(ws, profileKey=profile["key"]), headers)
+    assert ok(replay, 202)["id"] == job["id"] and replay.headers["idempotent-replayed"] == "true"
+
+    again = _imported(world, "sc10.xlsx", content, _request(ws, profileKey=profile["key"]))
+    applied = [
+        i
+        for i in _outcomes(world, again)
+        if i["status"] == "applied" and i["ref"].startswith("Ledgers!")
+    ]
+    assert applied and {i["action"] for i in applied} == {"unchanged"}
+
+
+@pytest.mark.journey("J27.10")
+@pytest.mark.structures("R", "R.u", "R.q", "R.x1", "K", "K.code", "B1n")
+def test_rows_repeating_a_key_with_equal_values_load_as_one_record_with_every_relationship(world):
+    """Given two K tokens. When a file holds two rows for one ledger number with equal values and
+    a different token each in its relation column. Then the ledger is created once and holds both
+    relationships."""
+    ws = _workspace(world)
+    first = world.made("K", "First", workspace=ws, values={"K.code": "T1"})
+    second = world.made("K", "Second", workspace=ws, values={"K.code": "T2"})
+    profile = _ledger_profile(world)
+    profile["sources"][0]["columns"] = profile["sources"][0]["columns"][:4] + [
+        {
+            "column": "Token",
+            "relation": {
+                "relationTypeKey": world.key("B1n"),
+                "objectTypeKey": world.key("K"),
+                "matchBy": {"attributeTypeKey": world.key("K.code")},
+            },
+        }
+    ]
+    profile = ok(world.api.post("/import-profiles", profile), 201)
+    rows = [
+        ("Number", "Name", "Owner", "Summary", "Token"),
+        ("L-1", "Ledger", "Ann", "Summary", "T1"),
+        ("L-1", "Ledger", "Ann", "Summary", "T2"),
+    ]
+    job = _imported(world, "rows.csv", _csv(rows), _request(ws, profileKey=profile["key"]))
+    assert job["state"] == "completed" and job["result"] == "applied", job["error"]
+    ledgers = _named(world, "R", ws)
+    assert list(ledgers) == ["Ledger"]
+    assert _related(world, ledgers["Ledger"]["id"], "B1n", ws) == {first["id"], second["id"]}
+
+
+@pytest.mark.journey("J27.10", "J27.8")
+@pytest.mark.structures("H", "H.code", "Hparent")
+def test_a_hierarchy_in_one_sheet_loads_parents_first_and_a_ring_is_refused(world):
+    """Given a sheet of H rows whose parent column names rows further down, and three rows naming
+    each other in a ring. When it is imported. Then every parent is created before its children
+    whatever the row order; the three ring rows are refused as a cycle and the rest load."""
+    ws = _workspace(world)
+    profile = {
+        "key": f"tree-{uuid4().hex[:6]}",
+        "name": "Tree",
+        "sources": [
+            {
+                "applicationKey": world.app("H"),
+                "objectTypeKey": world.key("H"),
+                "columns": [
+                    {"column": "Name", "field": "name"},
+                    {"column": "Code", "attributeTypeKey": world.key("H.code")},
+                    {
+                        "column": "Parent",
+                        "parent": {"objectTypeKey": world.key("H"), "matchBy": {"field": "name"}},
+                    },
+                ],
+            }
+        ],
+    }
+    profile = ok(world.api.post("/import-profiles", profile), 201)
+    rows = [
+        ("Name", "Code", "Parent"),
+        ("Leaf", "C3", "Middle"),
+        ("Middle", "C2", "Root"),
+        ("Root", "C1", None),
+        ("Ring A", "RA", "Ring C"),
+        ("Ring B", "RB", "Ring A"),
+        ("Ring C", "RC", "Ring B"),
+    ]
+    job = _imported(world, "tree.csv", _csv(rows), _request(ws, profileKey=profile["key"]))
+    rows_out = _by_ref(_outcomes(world, job))
+    assert {_code(rows_out[f"csv!{n}"][0]) for n in (5, 6, 7)} == {"REFERENCE_CYCLE"}
+    records = _named(world, "H", ws)
+    assert set(records) == {"Leaf", "Middle", "Root"}
+    assert records["Leaf"]["parentObjectId"] == records["Middle"]["id"]
+    assert records["Middle"]["parentObjectId"] == records["Root"]["id"]
+    assert records["Root"]["parentObjectId"] is None
+
+
+@pytest.mark.journey("J27.10")
+@pytest.mark.structures("R", "R.u", "R.n", "R.b", "R.dt", "R.q", "R.x1")
+def test_a_file_that_does_not_fit_fails_before_anything_is_written(world):
+    """Given a profile reading a Ledgers sheet. When a workbook lacks the sheet, one lacks a column,
+    a file is not a workbook, an .xls file is sent, and a file is over the limit. Then the first two
+    jobs fail with the mismatch naming each problem and write nothing; the third fails as
+    unreadable; the .xls and the oversized file are refused before a job is stored."""
+    ws = _workspace(world)
+    profile = ok(world.api.post("/import-profiles", _ledger_profile(world)), 201)
+    request = _request(ws, profileKey=profile["key"])
+
+    job = _imported(world, "a.xlsx", _xlsx({"Other": [("x",)]}), request)
+    assert job["state"] == "failed" and job["error"]["code"] == "IMPORT_FILE_MISMATCH", job["error"]
+    assert job["error"]["details"]["problems"][0]["path"] == "/sources/0/sheet"
+    header = tuple(name for name in LEDGER_HEADER if name != "Score")
+    job = _imported(
+        world,
+        "b.xlsx",
+        _xlsx({"Ledgers": [header, ("L-9", "Nine", "A", "S", True, "2026-01-01")]}),
+        request,
+    )
+    assert job["state"] == "failed" and job["error"]["code"] == "IMPORT_FILE_MISMATCH", job["error"]
+    assert [p["path"] for p in job["error"]["details"]["problems"]] == [
+        "/sources/0/columns/4/column"
+    ]
+    job = _imported(world, "c.xlsx", b"not a workbook", request)
+    assert job["state"] == "failed" and job["error"]["code"] == "IMPORT_FILE_UNREADABLE", job[
+        "error"
+    ]
+    assert _named(world, "R", ws) == {}
+
+    jobs = len(ok(world.api.get("/jobs", workspaceKey=ws))["items"])
+    refused(_send(world, "old.xls", b"\xd0\xcf\x11\xe0", request), 422, "UNSUPPORTED_FILE_FORMAT")
+    assert len(ok(world.api.get("/jobs", workspaceKey=ws))["items"]) == jobs
+
+
+@pytest.mark.journey("J27.10")
+@pytest.mark.structures("R", "R.u", "R.q", "R.x1")
+@pytest.mark.settings(IMPORT_MAX_BYTES="100")
+def test_a_file_over_the_limit_is_refused_naming_the_setting(world):
+    """Given the service started with a 100-byte import limit. When a larger file is sent. Then it is
+    refused naming the setting, its maximum and the file's size, and no job is stored."""
+    ws = _workspace(world)
+    profile = ok(world.api.post("/import-profiles", _ledger_profile(world)), 201)
+    content = _csv(
+        [LEDGER_HEADER] + [(f"L-{n}", "Name", "A", "S", 1, True, "2026-01-01") for n in range(20)]
+    )
+    error = refused(
+        _send(world, "big.csv", content, _request(ws, profileKey=profile["key"])),
+        413,
+        "IMPORT_TOO_LARGE",
+    )
+    assert error["details"] == {
+        "setting": "IMPORT_MAX_BYTES",
+        "maximum": 100,
+        "bytes": len(content),
+    }
+    assert ok(world.api.get("/jobs", workspaceKey=ws))["items"] == []
+
+
+@pytest.mark.journey("J27.10")
+@pytest.mark.structures("R")
+@pytest.mark.settings(INTEGRATION_JOBS_ENABLED="false")
+def test_with_job_creation_off_the_import_writes_are_absent_and_profiles_read(world):
+    """Given the service started with job creation turned off. When an import is sent and a profile
+    created. Then neither route is there, and profile reads still answer."""
+    response = _send(world, "x.csv", b"a\n", _request("main"))
+    assert response.status_code in (404, 405), response.text
+    response = world.api.post("/import-profiles", {"key": "x", "name": "x", "sources": []})
+    assert response.status_code in (404, 405), response.text
+    ok(world.api.get("/import-profiles"))

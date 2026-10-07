@@ -85,10 +85,13 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # exactly (the subscription routes, with the delivery choices, are gated off).
     # Re-baselined for 0.9 J1: POST /exports and GET /jobs/{job_id}/output, the Export* schemas
     # and JobResponse.output; no existing path or schema otherwise changed. Re-baselined for 0.9
-    # J1u: GET /jobs/{job_id}/events, the job event stream; nothing else changed.
+    # J1u: GET /jobs/{job_id}/events, the job event stream; nothing else changed. Re-baselined for
+    # 0.9 J2: GET/POST /import-profiles, GET/PUT/DELETE /import-profiles/{profile_key} and POST
+    # /imports with the ImportProfile*, ImportRequest and binding schemas, and importMaxBytes in
+    # JobLimits with its description; removing those gives J1u's document exactly.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "95cad7f39c29d212dfef3f454ee97970c5fc8cd6cc4089df48d946c45b38fbcf"
+        "d4d1eb8111e4ad30073dfbc4efea2b70adda96a73b6f28976d957950c202d832"
     )
 
 
@@ -118,9 +121,10 @@ def test_paging_openapi_inventory():
         assert next(iter(properties)) == "items", path
         assert {"totalCount", "startIndex"}.isdisjoint(document["components"]["schemas"][name]["required"])
         assert properties["totalCount"]["type"] == properties["startIndex"]["type"] == "integer"
-    # 0.9 B1 added the job list and a job's outcomes; H4c removed GET /workspaces/{key}/mappings (D-1).
-    assert seekable <= paged and len(paged) == 26
-    assert {"/api/v1/jobs", "/api/v1/jobs/{job_id}/items"} <= paged
+    # 0.9 B1 added the job list and a job's outcomes; H4c removed GET /workspaces/{key}/mappings (D-1);
+    # 0.9 J2 added the import profiles.
+    assert seekable <= paged and len(paged) == 27
+    assert {"/api/v1/jobs", "/api/v1/jobs/{job_id}/items", "/api/v1/import-profiles"} <= paged
     objects = {item["name"] for item in document["paths"]["/api/v1/objects/{object_type_key}"]["get"]["parameters"]}
     relations = {item["name"] for item in document["paths"]["/api/v1/relations"]["get"]["parameters"]}
     assert "topLevel" in objects and {"search", "sort"} <= relations

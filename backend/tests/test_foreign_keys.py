@@ -67,6 +67,8 @@ RULES = {
     ("audit_events", "model_release_id"): ("model_releases", "RESTRICT"),
     # A consumer event names the release that derived it (0.9 C10, C-D88).
     ("consumer_events", "model_release_id"): ("model_releases", "RESTRICT"),
+    # An import profile names the release it was last checked against (0.9 J2).
+    ("import_profiles", "checked_release_id"): ("model_releases", "RESTRICT"),
     ("model_drafts", "base_model_release_id"): ("model_releases", "SET NULL"),
     ("model_applications", "model_release_id"): ("model_releases", "CASCADE"),
     ("model_application_object_types", "model_release_id"): ("model_releases", "CASCADE"),

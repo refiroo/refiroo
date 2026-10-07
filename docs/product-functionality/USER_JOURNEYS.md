@@ -46,7 +46,7 @@ background jobs are J24, the change feed J26 and supplier files J27.
 | Relationship sets and coverage | J10 replace a record's related records, J16 coverage across ancestors (J09 retired) |
 | Change sets and history (designer) | J05 prepare and publish, J06 live beside a change set, J07 withdraw and restart from history, J17 review changes, J18 next model version |
 | Administration | J08 model release, J19 workspaces, J25 consumer API definition |
-| Integration | J11 bulk change, J20 discover, J21 read completely, J22 precise dataset, J23 business date, J24 background job, J26 follow changes, J27 supplier file (planned), J28 consumer read, J29 consumer lookup, J30 consumer events |
+| Integration | J11 bulk change, J20 discover, J21 read completely, J22 precise dataset, J23 business date, J24 background job, J26 follow changes, J27 supplier file, J28 consumer read, J29 consumer lookup, J30 consumer events |
 | Operations | J12 run, refuse and recover, J31 check the deployment |
 
 ## Records and structure
@@ -880,10 +880,11 @@ retention), `422 REQUEST_VALIDATION_ERROR` (page size, position).
 publish beside a live write); the composed journey `test_j24_j26_composed` (a reader following a
 background job across a restart, its publish and its cancellation, 0.9 T1).
 
-### J27 — Exchange a supplier file (planned)
+### J27 — Exchange a supplier file
 
 **Actor:** exchange operator; data owner. **Channel:** API, UI. **Stories:** US-I04, US-I07, US-I08.
-**Scenario:** SC-10. **Status:** export delivered in 0.9 J1 (API); import planned, 0.9 J2–J4.
+**Scenario:** SC-10. **Status:** export delivered in 0.9 J1 (API) and J1u (browser); import
+through the API delivered in 0.9 J2; its preview (J3) and screen (J4) planned.
 
 1. Choose the destination and identify the file's columns.
 2. Preview proposed additions, updates and errors by row and field; nothing changes.
@@ -914,14 +915,36 @@ background job across a restart, its publish and its cancellation, 0.9 T1).
   any types of a workspace. A notification says the export started; another says it finished,
   with Download and View job, or that it failed or was cancelled, with View job. The job's page
   shows its state, progress, error and, once completed, what the file holds and Download.
+- **J27.7 Keep import profiles**: save, read, list, change under a version and delete a profile
+  that maps a file's sheets and columns to the model; a profile is refused with every problem at
+  its JSON pointer; after a release changes what it names it reads as no longer valid, and an
+  import naming it is refused with the same problems.
+- **J27.8 Load a file through a profile**: an XLSX or CSV file into live data or a change set;
+  attributes converted by their value types, value maps, parents and relationships matched by a
+  name, ID or attribute (also to records the same file creates), split cells, flag columns and
+  related records; each row's items name its sheet and row.
+- **J27.9 Load a file without a profile**: a JSON Lines file of batch items, or an export's CSV or
+  XLSX tables sent back; an unchanged export changes nothing.
+- **J27.10 Rows that cannot load**: a value that does not convert, a match finding no record or
+  several, one key on rows with different values, rows whose parents form a ring; under
+  `independent` the other rows load, under `atomic` nothing does. A file that does not fit its
+  profile fails before anything is written; an unsupported or oversized file is refused before a
+  job is stored.
 
 **Refusals:** `422 INVALID_QUERY`, `422 AS_OF_NOT_SUPPORTED`, `422 WORKSPACE_CONTEXT_MISMATCH`,
 `404 PARENT_NOT_FOUND`, `404 WORKSPACE_NOT_FOUND`, `404 CHANGE_SET_NOT_FOUND`,
 `404 PUBLICATION_NOT_FOUND`, `422 REQUEST_VALIDATION_ERROR`; on the output `404 JOB_NOT_FOUND`,
 `404 JOB_HAS_NO_OUTPUT`, `409 JOB_NOT_COMPLETED`, `410 JOB_EXPIRED`, `410 JOB_OUTPUT_MISSING`.
+Profiles: `422 INVALID_IMPORT_PROFILE`, `409 IMPORT_PROFILE_EXISTS`, `404 IMPORT_PROFILE_NOT_FOUND`,
+`409 IMPORT_PROFILE_VERSION_CONFLICT`. Imports: `413 IMPORT_TOO_LARGE`, `422 UNSUPPORTED_FILE_FORMAT`;
+a job's `IMPORT_FILE_MISMATCH`, `IMPORT_FILE_UNREADABLE`, `IMPORT_TOO_MANY_ITEMS`,
+`IMPORT_FILE_MISSING`; a row's `INVALID_ATTRIBUTE_VALUE`, `REFERENCE_NOT_FOUND`,
+`REFERENCE_AMBIGUOUS`, `DUPLICATE_KEY_IN_FILE`, `REFERENCE_CYCLE`, `MISSING_RECORD_KEY`,
+`NAME_REQUIRED`, `INVALID_NAME`, `INVALID_CELL`.
 
-**Evidence today:** the J27 journey tests (`test_j27_export`, 0.9 J1); J27.6 in the browser runner
-`j1u-export` and `ExportDialog.test`, `JobNotifications.test` (0.9 J1u).
+**Evidence today:** the J27 journey tests (`test_j27_export`, 0.9 J1; `test_j27_import`, 0.9 J2);
+J27.6 in the browser runner `j1u-export` and `ExportDialog.test`, `JobNotifications.test` (0.9 J1u);
+unit tests of `engine/imports/` (cells, profiles, readers) and `test_import_volume`.
 
 ### J28 — Read a business object through a consumer API
 

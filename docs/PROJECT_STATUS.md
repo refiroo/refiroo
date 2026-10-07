@@ -310,9 +310,13 @@ the object or the notification only, in RDM JSON or CloudEvents 1.0; the coalesc
 (2026-10-07)**: Export on a collection page and New export on Jobs and feed, a page per job, and
 notifications that a job started and ended (with Download and View job), pushed over
 `GET /jobs/{id}/events` from a trigger at commit, never polled (D57–D63, revision `20261007_05`);
-screenshots approved ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#j1u-record-2026-10-07)). Next
-is **J2, import profiles and file reading** ([plan](BASE_0_9_IMPLEMENTATION_PLAN.md#j2-plan-2026-10-07)),
-planned 2026-10-07: D64–D74 and its test cases accepted the same day; then J3–J4, Track K and R.
+screenshots approved ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#j1u-record-2026-10-07)).
+**J2 is delivered (2026-10-07)**: import profiles (`/import-profiles`, checked against the model with
+every problem at its pointer) and `POST /imports`, a file sent with its request and run as a job:
+XLSX or CSV through a profile, JSON Lines items or an export's tables without one; keys, matches,
+hierarchy order and related records resolved in PostgreSQL, rejected rows named by sheet, row and
+column (D64–D74, revision `20261007_06`; [record](BASE_0_9_IMPLEMENTATION_PLAN.md#j2-record-2026-10-07)).
+Next are J2a (database-backed uniqueness, D74), J3 (the preview), J4, Track K and R.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

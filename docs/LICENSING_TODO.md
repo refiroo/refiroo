@@ -103,6 +103,10 @@ but the project can distinguish official builds and services from modified distr
   metadata alone when an asset is copied into the repository.
 - [ ] Add `THIRD_PARTY_NOTICES.md` containing the notices and license texts required for the actual
   release contents, and regenerate it as part of release preparation.
+- Recorded as they were added (to verify in the inventory): `openpyxl` (MIT), a backend runtime
+  dependency since 0.9 J2 for reading imported workbooks (A-D10), and `python-multipart`
+  (Apache-2.0), added in 0.9 J2 to read `multipart/form-data` uploads (D67). Both are permissive and
+  compatible with AGPL-3.0-or-later; Apache-2.0's NOTICE requirement applies to the notices file.
 
 Acceptance criteria: a named reviewer can reproduce the inventory for a release, every distributed
 third-party item has a recorded license decision, and the shipped notices cover all required text.

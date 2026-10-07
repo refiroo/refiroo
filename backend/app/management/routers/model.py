@@ -73,6 +73,7 @@ def get_capabilities(request: Request) -> CapabilitiesResponse:
                 backgroundJobMaxItems=limits.background_max_items,
                 backgroundBatchMaxBytes=limits.background_max_bytes,
                 chunkItems=limits.chunk_items,
+                importMaxBytes=limits.import_max_bytes,
                 retentionDays=limits.retention_days,
             ),
             setting="INTEGRATION_JOBS_ENABLED",

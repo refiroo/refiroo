@@ -663,6 +663,13 @@ with `objectTypeKey` given) and `stage`: `preview` or `execute`.
    changed since the preview, and outcomes are recorded as they happen. A preview not confirmed within
    retention (D14) expires.
 
+_Delivered in J2 (2026-10-07, D64, D67, D72):_ `POST /imports` with `stage: execute`; the file and the
+request are one `multipart/form-data` body (`file`, `request` as JSON); binding stores the rejected rows
+as the job's first outcomes and the items as its inputs in one commit, and each item's `ref` names its
+row (`{sheet}!{row}`). Under `atomic` a rejected row ends the job before any item runs. `preview`,
+`awaiting_confirmation`, confirm and the binding report are J3's. The contract is in
+[API.md](API.md#imports-base-09-j2).
+
 ### J2: File contract
 
 | Format | Rules |
@@ -670,17 +677,21 @@ with `objectTypeKey` given) and `stage`: `preview` or `execute`.
 | XLSX | One or several sheets; cell values, never formulas (a formula's cached value is read); dates from date cells or ISO 8601 text |
 | CSV | UTF-8 (a BOM is accepted), RFC 4180 quoting, a header row, comma by default or a declared delimiter |
 | JSON Lines | One batch item (B3, B4) per line; no profile. The export format, so an export re-imports as upserts |
-| An export's table layout (J1, D51) | CSV or XLSX as an export writes them ([API.md](API.md#exports-base-09-j1)): `objectTypeKey` or `relationTypeKey` per row, built-in columns by key, `#{attributeTypeKey}` columns, `~` columns ignored; read without a profile. XLSX text may hold Excel's `_xHHHH_` escapes, which the reader decodes |
+| An export's table layout (J1, D51) | CSV or XLSX as an export writes them ([API.md](API.md#exports-base-09-j1)): `objectTypeKey` or `relationTypeKey` per row, built-in columns by key (with `applicationKey` on records, D71, added in J2), `#{attributeTypeKey}` columns, `~` columns ignored; read without a profile. XLSX text may hold Excel's `_xHHHH_` escapes, which the reader decodes (all XLSX text is decoded so) |
 
 Values convert through the attribute registry by the target attribute's value type, with the same
 canonical forms as the API (API.md, attribute format). A value that does not convert rejects its
 row with `INVALID_ATTRIBUTE_VALUE` and the column. Empty cells are "no value", never an empty string,
-unless a value map says otherwise.
+unless a value map says otherwise. _As delivered (J2):_ a cell of only spaces is empty too, text is
+otherwise kept as written, and "no value" leaves the attribute out of the item, so an import never
+clears a value.
 
 ### J3: Import profile
 
 The profile fixes the outline of [MODEL_AUTHORING](MODEL_AUTHORING.md#import-profile). It is runtime
-data per workspace, not model content, since it names sheets and columns of files:
+data, not model content, since it names sheets and columns of files. _Amended in J2 (D65):_ profiles
+are instance-wide, not per workspace: a profile maps a file to the model, which is instance-wide,
+and the import names the workspace.
 
 ```text
 POST/GET/PUT/DELETE /api/v1/import-profiles[/{key}]   (versioned, optimistic concurrency)
@@ -705,6 +716,18 @@ POST/GET/PUT/DELETE /api/v1/import-profiles[/{key}]   (versioned, optimistic con
   its related records. A row's outcome is its worst item's, with every item's outcome available.
 - **Validation** at save and at job start against the pinned release, with a path per binding. A
   profile records the release it was checked against (MODEL_AUTHORING).
+
+_Final in J2 (2026-10-07, D66, D69, D70):_ the profile's JSON is [API.md's](API.md#import-profiles):
+each source names its `applicationKey`; `key` is `{attributeTypeKey}` (unique) or `{column}` (the
+public ID) or absent; `record: "existing"` writes only a row's relationships and related records;
+`block`, `trueValues` on flags and fixed `value` matches are added; `translations` and
+`systemMapping` are not bindings of their own but profiles of `relatedRecord`, which finds its record
+through the relationship and its parent (D70); `modelReleaseKey` is the engine's `checkedAgainst`.
+Rows repeating a key are one record when their values agree and all rejected
+`DUPLICATE_KEY_IN_FILE` otherwise (D69). Source order counts parents, relationships and related
+records' parents, so two sources whose relationships point at each other's types are a cycle; a
+relationship needs no order inside a run, since relationships run after every record. Matches and
+keys are resolved in PostgreSQL over the file's rows and the context's records (D68).
 
 ### J4: Export
 

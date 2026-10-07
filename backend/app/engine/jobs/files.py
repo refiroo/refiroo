@@ -4,6 +4,9 @@ A file is named after its job: ``{jobId}.partial`` while it is written, ``{jobId
 its job completed. No path is stored on the job. Output is served only for a completed job, so a
 file is kept only while its job is completed: a cancel, a failure, a restart or retention removes
 it, and :meth:`JobFiles.reconcile` removes whatever a stopped process left behind.
+
+An import's uploaded file (0.9 J2) is ``{jobId}.source``, kept while its job waits or runs: a
+restart binds it again. It goes when the job finishes.
 """
 
 import logging
@@ -18,6 +21,9 @@ from ...models.database import Job
 logger = logging.getLogger(__name__)
 
 PARTIAL = "partial"
+SOURCE = "source"
+# The states in which an import still reads its file.
+READS_SOURCE = frozenset({"queued", "running", "awaiting_confirmation"})
 
 
 @dataclass(frozen=True)
@@ -30,6 +36,9 @@ class JobFiles:
     def final(self, job_id: str, extension: str) -> Path:
         return self.directory / f"{job_id}.{extension}"
 
+    def source(self, job_id: str) -> Path:
+        return self.directory / f"{job_id}.{SOURCE}"
+
     def remove(self, job_id: str) -> None:
         """Every file of the job, written or partial."""
         for path in self.directory.glob(f"{job_id}.*"):
@@ -37,7 +46,8 @@ class JobFiles:
 
     def reconcile(self, session: Session) -> int:
         """Remove each file whose job neither runs nor is completed (expired, cancelled, failed,
-        unknown), and each partial file of a completed job; the number removed."""
+        unknown), each partial file of a completed job, and each import's file whose job no
+        longer reads it; the number removed."""
         if not self.directory.is_dir():
             return 0
         paths = [path for path in self.directory.iterdir() if path.is_file() and "." in path.name]
@@ -51,7 +61,10 @@ class JobFiles:
             state = states.get(job_id)
             # A running export's file is renamed into place just before the commit that completes
             # its job, so a running job keeps its file under either name.
-            keep = state == "running" or (extension != PARTIAL and state == "completed")
+            if extension == SOURCE:
+                keep = state in READS_SOURCE
+            else:
+                keep = state == "running" or (extension != PARTIAL and state == "completed")
             if not keep:
                 path.unlink(missing_ok=True)
                 removed += 1
