@@ -1041,7 +1041,8 @@ statements in `test_consumer_xref_volume`.
 
 ### J30 — Follow a consumer API's changes
 
-**Actor:** integrator; operator (subscriptions). **Channel:** API. **Stories:** US-I05. **Status:**
+**Actor:** integrator; operator (subscriptions). **Channel:** API; UI (subscriptions on Settings ›
+Integration › Webhooks, 0.9 U5). **Stories:** US-I05. **Status:**
 the pull feed delivered (0.9 C10); subscriptions managed from 0.9 C11 and delivered as webhooks
 from C12; the events accepted end to end in C13 ([CONSUMER_API.md](../CONSUMER_API.md)).
 
@@ -1076,10 +1077,11 @@ from C12; the events accepted end to end in C13 ([CONSUMER_API.md](../CONSUMER_A
   and its `eventSequence`; the reader re-reads the publication's lists and follows on from there.
   Without a publication nothing expires.
 - **J30.6 Subscribe**: with the deployment's subscriptions capability on, an operator subscribes a
-  URL on an allowlisted host to some of a consumer API's events in a workspace, narrowed by the
+  URL (HTTPS on any host; plain HTTP only to a local host) to some of a consumer API's events in a workspace, narrowed by the
   definition's parameters as a list applies them, per change or coalesced, with the object or its
   identity. The subscription starts after the feed's head, or after an earlier position still kept;
-  its signing key is answered once. The operator reads, lists, edits (with the version read),
+  its signing key is answered once. It has a name the operator gives it (required, 0.9 U5a); a
+  rename alone keeps a batch being retried. The operator reads, lists, edits (with the version read),
   suspends, resumes and deletes it. Off, the routes are not served; the capabilities say which
   setting turns them on and which hosts are allowed.
 - **J30.7 A subscription the model or workspace leaves behind**: activating a release that no
@@ -1102,11 +1104,20 @@ from C12; the events accepted end to end in C13 ([CONSUMER_API.md](../CONSUMER_A
   error status, a redirect, no answer within the timeout, an address refused) is retried with the
   same delivery ID and events, nothing later is sent past it, and the subscription shows the
   attempts, the last error and the next attempt. After 24 hours of failures it is suspended
-  `DELIVERY_FAILED`; a resume delivers everything from the first unacknowledged event. A host the
-  deployment no longer allows suspends it `HOST_NOT_ALLOWED`; a filter value no record matches
-  any longer, `FILTER_MATCHES_NOTHING`, before anything is sent; events that expired before they
+  `DELIVERY_FAILED`; a resume delivers everything from the first unacknowledged event. A filter
+  value no record matches any longer suspends it `FILTER_MATCHES_NOTHING`, before anything is sent; events that expired before they
   were delivered, `EVENTS_EXPIRED`. A resume with `reset` starts after the feed's head instead,
   and the receiver re-syncs what it missed itself.
+- **J30.10 Read what was delivered** (0.9 U5a): an operator lists a subscription's deliveries,
+  newest first, one row per event of a per-change request and one per notice of a coalesced one,
+  each with its delivery ID, event, object, status (`queued`, `sending`, `retrying`, `succeeded`,
+  `failed`, `dropped`), attempts, the receiver's latest status code, when it was sent and, while a
+  retry is due, when; narrowed by status. A request's detail holds the body as sent (its latest
+  attempt's) and every attempt with its start, completion, duration, answer or error and up to
+  4 KiB of the response. Rows of one request share its outcome. An edit that drops a batch leaves
+  it `dropped`; a day of failures, `failed`. Entries are kept for
+  `CONSUMER_WEBHOOK_LOG_RETENTION_DAYS` (reported in capabilities), a batch still pending longer;
+  a deleted subscription's go with it. UI: Settings › Integration › Webhooks, Deliveries.
 
 **Refusals:** `404 EVENTS_NOT_DECLARED`, `400 UNKNOWN_EVENT`, `400 PARAMETER_NOT_SUPPORTED`
 (`publication`, `asOf`, `to.`), `400 INVALID_PAGE_SIZE` (1–100 with the full payload, 1–1,000 with
@@ -1114,9 +1125,10 @@ identity), `400 INVALID_PAYLOAD`, `400 INVALID_POSITION`, `400 CONFLICTING_PAGE_
 `400 INVALID_CURSOR`, `409 EVENT_POSITION_AHEAD`, `410 EVENTS_EXPIRED`, and J28's API and workspace
 refusals. Subscriptions: `400 CONSUMER_API_NOT_FOUND`, `EVENTS_NOT_DECLARED`, `UNKNOWN_EVENT`,
 `UNKNOWN_PARAMETER`, `PARAMETER_NOT_SUPPORTED`, `UNKNOWN_OBJECT_TYPE`, `FILTER_MATCHES_NOTHING`,
-`INVALID_WEBHOOK_URL`, `WEBHOOK_HOST_NOT_ALLOWED`, each at its body pointer; `404
+`INVALID_WEBHOOK_URL`, each at its body pointer; `404
 WORKSPACE_NOT_FOUND`, `404 SUBSCRIPTION_NOT_FOUND`; `409 VERSION_CONFLICT`,
 `SUBSCRIPTION_ALREADY_SUSPENDED`, `SUBSCRIPTION_NOT_SUSPENDED`, `SUBSCRIPTION_NEEDS_EDIT`,
+`404 DELIVERY_NOT_FOUND` (J30.10),
 `EVENT_POSITION_AHEAD`, `EVENTS_EXPIRED` (resume), `WORKSPACE_HAS_SUBSCRIPTIONS`; `410
 EVENTS_EXPIRED` (`startAfter`).
 
@@ -1125,7 +1137,8 @@ EVENTS_EXPIRED` (`startAfter`).
 (`test_j30_acceptance`: a publish in batches as the pull feed has it, work that never reaches live
 data, filters as the lists scope, a reset and re-sync after expiry, a running application
 delivering on its own); the deriver's plan and delivery in `tests/unit/engine/events/`; their cost
-in `test_consumer_event_volume`.
+in `test_consumer_event_volume`; the Webhooks page in `u5-webhooks` (create, the key, a refused
+delivery retried, suspend and resume, delete, through a receiver).
 
 ## Operations
 

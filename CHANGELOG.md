@@ -8,6 +8,36 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Example model `rdm-operators-timetables` 0.8.0 declares events on its consumer APIs: one per
+  exposed object type (`timetable-category-changed`, `timetable-type-changed`, …), each for
+  created, updated and deleted, with no watch, so any change to the object's output counts. The
+  contract versions stay, as adding events is compatible.
+- Base 0.9 U5a: webhook names and the delivery log.
+  - A subscription has a `name` (required on create, editable; existing ones are named after their
+    URL's host and path). Renaming alone keeps a batch being retried.
+  - Every request the dispatcher sends is logged with its events, the body as sent and each
+    attempt's start, duration, status code or error and up to 4 KiB of the answer:
+    `GET /api/v1/consumer-subscriptions/{id}/deliveries` (a row per event, newest first, narrowed
+    by status) and `…/deliveries/{deliveryId}`. Kept for `CONSUMER_WEBHOOK_LOG_RETENTION_DAYS`
+    (7, in capabilities); a pending batch longer; deleted with its subscription. Revision
+    `20261007_01`.
+  - The Webhooks page: the new-webhook dialog rebuilt in sections, with events as all or a chosen
+    few (a searchable list, chosen ones as chips) and filters added from a menu, their values as
+    chips; the webhook's page has **Configuration** and **Deliveries** tabs above its name; an
+    event opens with its attempts and the request and response bodies as coloured JSON.
+- Base 0.9 U5: Settings › Integration › **Webhooks**. Subscribe a receiver to a consumer API's
+  events from the page: the consumer API and workspace, the events (each with what it covers), the
+  URL (the allowed hosts named), filters per declared parameter, payload and delivery mode; a
+  refusal is shown at its field. The signing key is shown once after creating. Subscriptions are
+  listed with Active, Retrying or Suspended beside the selected one, which shows the last delivery,
+  a failing batch's attempts, receiver answer and next attempt, and when suspended the reason, its
+  details and what fixes it. Edit, suspend, resume (from the first event not acknowledged, or with
+  `reset`; a refusal lists what to edit, expired events choose the reset) and delete. With
+  subscriptions off, the page names the setting. No API change.
+  - A workspace that cannot be deleted because of its webhooks lists them, each linked to its page.
+  - `ui/CatalogueLayout` and `CatalogueEntry` replace the catalogue markup Workspaces and Model each
+    had; Webhooks uses them too.
+
 - Base 0.9 U4: Settings › Integration. **Consumer APIs** shows each consumer API of the active
   release, read only: its name in the address, contract version, base URL and OpenAPI document
   (with copy buttons), its source in the API reference, exposed types under their public names,
@@ -340,6 +370,13 @@ All notable changes to this project are documented in this file. The format foll
   - Decisions D35–D39. No migration.
 
 ### Changed
+
+- Webhook URLs may name any host (C-D101 revised): HTTPS on any host and port, plain HTTP only to
+  `localhost`, `127.0.0.1` or `::1`. `CONSUMER_WEBHOOK_ALLOWED_HOSTS` is removed, with
+  `consumerSubscriptions.allowedHosts` in capabilities, `WEBHOOK_HOST_NOT_ALLOWED` and the
+  `HOST_NOT_ALLOWED` suspension; adding a receiver no longer needs a restart. The dispatcher still
+  refuses link-local addresses (cloud metadata) when it connects. The Webhooks dialog and the
+  Deployment page drop the allowed hosts.
 
 - Base 0.9 UA1: every application and every kind of record has a colour (ADR-040). Each takes one
   of eight hues by its position in the model, so any model is coloured and no screen knows a key;

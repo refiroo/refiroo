@@ -14,7 +14,6 @@ import hmac
 import json
 import threading
 import time
-from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from itertools import pairwise
@@ -40,12 +39,13 @@ from test_j30_subscriptions import PATH, SUBSCRIPTIONS, _feed_head
 
 class Receiver:
     """A webhook receiver on ``localhost``: answers each request with the next scripted answer
-    (then the standing one) and records it, with when it arrived and when it was answered."""
+    (then the standing one: a status, a delay, headers and a body) and records it, with when it
+    arrived and when it was answered."""
 
     def __init__(self) -> None:
         self.requests: list[dict] = []
-        self.script: list[tuple[int, float, dict]] = []
-        self.standing: tuple[int, float, dict] = (200, 0.0, {})
+        self.script: list[tuple[int, float, dict, bytes]] = []
+        self.standing: tuple[int, float, dict, bytes] = (200, 0.0, {}, b"")
         self._lock = threading.Lock()
         receiver = self
 
@@ -54,14 +54,15 @@ class Receiver:
                 arrived = time.monotonic()
                 body = self.rfile.read(int(self.headers["Content-Length"]))
                 with receiver._lock:
-                    status, delay, headers = receiver.script.pop(0) if receiver.script else receiver.standing
+                    status, delay, headers, answer = receiver.script.pop(0) if receiver.script else receiver.standing
                 if delay:
                     time.sleep(delay)
                 self.send_response(status)
                 for name, value in headers.items():
                     self.send_header(name, value)
-                self.send_header("Content-Length", "0")
+                self.send_header("Content-Length", str(len(answer)))
                 self.end_headers()
+                self.wfile.write(answer)
                 with receiver._lock:
                     receiver.requests.append(
                         {
@@ -82,11 +83,11 @@ class Receiver:
         self.url = f"http://localhost:{self.server.server_address[1]}/hook"
         self._thread = threading.Thread(target=self.server.serve_forever, daemon=True)
 
-    def answer(self, status: int, delay: float = 0.0, **headers: str) -> None:
-        self.standing = (status, delay, headers)
+    def answer(self, status: int, delay: float = 0.0, body: bytes = b"", **headers: str) -> None:
+        self.standing = (status, delay, headers, body)
 
-    def then(self, status: int, delay: float = 0.0, **headers: str) -> None:
-        self.script.append((status, delay, headers))
+    def then(self, status: int, delay: float = 0.0, body: bytes = b"", **headers: str) -> None:
+        self.script.append((status, delay, headers, body))
 
     def delivered(self) -> list[dict]:
         """The bodies of the requests answered ``2xx``, in the order they arrived."""
@@ -109,7 +110,13 @@ def receiver():
 
 
 def _subscribe(world, workspace, url, **changes):
-    body = {"consumerApi": world.key("Capi"), "workspaceKey": workspace, "events": [WATCHED], "url": url}
+    body = {
+        "name": "Ledger receiver",
+        "consumerApi": world.key("Capi"),
+        "workspaceKey": workspace,
+        "events": [WATCHED],
+        "url": url,
+    }
     body.update(changes)
     return ok(world.api.post(PATH, body), 201)
 
@@ -418,26 +425,12 @@ def test_a_receiver_failing_for_a_day_suspends_and_a_resume_delivers_everything(
 @pytest.mark.journey("J30.9")
 @pytest.mark.settings(**SUBSCRIPTIONS)
 @pytest.mark.structures(*LEDGER)
-def test_a_host_no_longer_allowed_or_a_filter_matching_nothing_suspends(world, receiver):
-    """Given a subscription, and a dispatcher whose deployment no longer lists its host (a process
-    started with another allowlist). Then it is suspended HOST_NOT_ALLOWED before any request. Given
-    a subscription narrowed to a token, when the ledger paired with it and the token are deleted, it
-    is suspended FILTER_MATCHES_NOTHING naming the filter, the value and its position, and nothing
-    is sent. After the filter is edited to another token and it is resumed, the deletions arrive."""
+def test_a_filter_matching_nothing_suspends(world, receiver):
+    """Given a subscription narrowed to a token, when the ledger paired with it and the token are
+    deleted, it is suspended FILTER_MATCHES_NOTHING naming the filter, the value and its position,
+    and nothing is sent. After the filter is edited to another token and it is resumed, the deletions arrive."""
     _activate(world, "events")
     ws = _workspace(world)
-    hosted = _subscribe(world, ws, receiver.url)
-    world.made("R", "Ledger Hosted", workspace=ws)
-    derive_events(world)
-    running = world.api.client.app.state.consumer_dispatcher
-    restarted = type(running)(running.session_factory, replace(running.settings, allowed_hosts=("hooks.example.test",)))
-    restarted.run_until_idle()
-    assert receiver.requests == []
-    suspension = _read(world, hosted)["suspension"]
-    assert suspension["reason"] == "HOST_NOT_ALLOWED" and suspension["details"]["host"] == "localhost"
-    ok(world.api.delete(f"{PATH}/{hosted['id']}", expectedVersion=_read(world, hosted)["version"]), 204)
-    receiver.requests.clear()
-
     token, other = (world.made("K", f"Token {uuid4().hex[:6]}", workspace=ws) for _ in range(2))
     ledger = world.made("R", "Ledger Paired", workspace=ws)
     ok(world.relate("B11", ledger["id"], token["id"]), 201)

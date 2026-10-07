@@ -268,11 +268,11 @@ class WebhookDeliveryLimits(BaseModel):
 class ConsumerSubscriptionCapabilities(BaseModel):
     """Webhook subscriptions (CONSUMER_API "Subscriptions"): managed through
     ``/consumer-subscriptions`` and delivered when ``manageSubscriptions``
-    (``CONSUMER_SUBSCRIPTIONS_ENABLED``); their URLs name one of ``allowedHosts``
-    (``CONSUMER_WEBHOOK_ALLOWED_HOSTS``)."""
+    (``CONSUMER_SUBSCRIPTIONS_ENABLED``)."""
 
     manageSubscriptions: bool
-    allowedHosts: list[str]
+    # Days the delivery log keeps a request (``CONSUMER_WEBHOOK_LOG_RETENTION_DAYS``, U5a).
+    logRetentionDays: int
     delivery: WebhookDeliveryLimits
     setting: Literal["CONSUMER_SUBSCRIPTIONS_ENABLED"]
 

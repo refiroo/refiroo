@@ -32,10 +32,11 @@ async function freePort() {
  * @param {(output: string) => Promise<{modelPath: string, database: {databaseUrl: string, drop: () => void}}>} [options.prepare] -
  *   Provide a prepared model and database (from `cloneDatabase`) instead of the starter model and records.
  * @param {{width: number, height: number}} [options.viewport] - Browser viewport; 1440×900 by default.
+ * @param {Record<string, string>} [options.backendEnv] - Further backend settings, such as a capability turned on.
  * @returns {Promise<{page, browser, apiUrl, uiUrl, output, records, cleanup}>}
  */
 export async function bootHarness(options = {}) {
-  const { modelAdmin = true, workspaceAdmin = true, transformModel, prepare, viewport } = options;
+  const { modelAdmin = true, workspaceAdmin = true, transformModel, prepare, viewport, backendEnv = {} } = options;
   const started = performance.now();
   // Setup phase durations in milliseconds, separated from the runner's own checks (WP-13B).
   const timings = {};
@@ -106,6 +107,7 @@ export async function bootHarness(options = {}) {
         MODEL_ADMIN_MUTATIONS_ENABLED: String(modelAdmin),
         WORKSPACE_ADMIN_MUTATIONS_ENABLED: String(workspaceAdmin),
         WEB_CONCURRENCY: "1",
+        ...backendEnv,
       },
     );
     await ready(`${apiUrl}/health`, backend);

@@ -456,3 +456,224 @@ nav.settings-rail {
     color: var(--text-secondary);
   }
 }
+
+/* Webhooks (U5): the detail's notices and sections keep the card's inset, as its actions do. */
+.webhook-detail > .notice,
+.webhook-section {
+  margin: 0 20px;
+}
+.webhook-section {
+  display: grid;
+  gap: var(--space-2);
+}
+.webhook-section h3 {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 650;
+}
+.webhook-detail .notice p {
+  margin: 0 0 var(--space-2);
+}
+.webhook-event-list,
+.webhook-findings,
+.workspace-subscriptions {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.webhook-event-list small {
+  display: block;
+  color: var(--text-tertiary);
+}
+.webhook-findings {
+  margin-bottom: var(--space-2);
+}
+.workspace-subscriptions {
+  margin-top: var(--space-1);
+}
+/* The events to choose, and the resume's two starting points: a choice with its explanation. */
+.webhook-events {
+  display: grid;
+  gap: var(--space-2);
+}
+.dialog form .webhook-events label {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--text-primary);
+}
+.webhook-events input {
+  margin-top: 3px;
+}
+.webhook-events small {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 400;
+}
+.webhook-form .form-field {
+  margin-bottom: var(--space-4);
+}
+.dialog form.webhook-form .form-field > label {
+  margin-bottom: 0;
+}
+.webhook-section .admin-hint {
+  margin: 0;
+}
+.webhook-form .form-field .form-field {
+  margin: var(--space-2) 0 0;
+}
+.webhook-form .theme-choice {
+  grid-template-columns: repeat(2, 1fr);
+}
+/* The dialog's own label rule would turn the segmented choices back into blocks. */
+.dialog form.webhook-form .theme-choice label {
+  display: flex;
+  margin: 0;
+  color: var(--text-tertiary);
+}
+.dialog form.webhook-form .theme-choice label.selected {
+  color: var(--text-primary);
+}
+.webhook-secret {
+  overflow-wrap: anywhere;
+}
+
+/* The webhook dialog (U5a): ruled sections, two fields side by side where they pair. */
+.webhook-form {
+  display: grid;
+  gap: 0;
+}
+.webhook-form-section {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--border-faint);
+}
+.webhook-form-section:first-child {
+  padding-top: 0;
+}
+.webhook-form-section h3 {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 650;
+}
+.webhook-form-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.webhook-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+.webhook-form .webhook-form-grid .form-field,
+.webhook-form .webhook-form-section > .form-field {
+  margin: 0;
+}
+.webhook-form .webhook-form-section > .theme-choice {
+  max-width: 420px;
+}
+.webhook-form .dialog-actions {
+  padding-top: var(--space-4);
+}
+.webhook-wait {
+  max-width: 120px;
+}
+.webhook-filters {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.webhook-filters > li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-2);
+}
+.webhook-filters > li > .icon-button {
+  margin-top: 26px;
+}
+@media (max-width: 760px) {
+  .webhook-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The webhook's page: the tabs above its name, then the panel. */
+.webhook-detail > div > .tab-list {
+  padding: 0 20px;
+}
+.webhook-head {
+  display: grid;
+  gap: var(--space-4);
+  padding-bottom: var(--space-4);
+}
+.webhook-head > .notice {
+  margin: 0 20px;
+}
+.webhook-panel {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-faint);
+}
+.webhook-deliveries {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4) 20px 20px;
+  border-top: 1px solid var(--border-faint);
+}
+.webhook-deliveries-bar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.webhook-change {
+  color: var(--text-tertiary);
+}
+.delivery-detail {
+  display: grid;
+  gap: var(--space-5);
+  padding: 18px 22px 22px;
+}
+.delivery-detail h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 650;
+}
+.delivery-bodies {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+.delivery-detail .link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--link);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.delivery-detail .link-button[aria-pressed="true"] {
+  color: var(--text-primary);
+  font-weight: 650;
+  text-decoration: none;
+}
+@media (max-width: 960px) {
+  .delivery-bodies {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.webhook-deliveries .settings-table code {
+  white-space: nowrap;
+}

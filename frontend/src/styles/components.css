@@ -3684,3 +3684,232 @@ form.restructuring-plan-form .dialog-actions {
 .restructuring-siblings .candidate-scroll {
   max-height: 180px;
 }
+
+/* Chips, MultiSelect, SearchMenu and TokenField (U5a): a choice of several shown as removable
+   chips; a searchable list in a popover. */
+.chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  min-height: 26px;
+  padding: 2px 4px 2px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  background: var(--surface-fill);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  outline: none;
+}
+.chip[data-focus-visible] {
+  box-shadow: var(--focus-ring);
+}
+.chip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chip-remove {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+.chip-remove[data-hovered] {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+.chip-remove[data-focus-visible] {
+  box-shadow: var(--focus-ring);
+}
+.chip-empty {
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+}
+.multi-select {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2);
+}
+.chip-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.picker-popover {
+  width: min(440px, calc(100vw - 32px));
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-overlay);
+  outline: none;
+}
+.picker {
+  display: grid;
+  outline: none;
+}
+.picker-search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-faint);
+  color: var(--text-tertiary);
+}
+.picker-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  outline: none;
+}
+.picker-list {
+  max-height: min(320px, 50vh);
+  overflow-y: auto;
+  padding: var(--space-1);
+  outline: none;
+}
+.picker-option {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: 7px 10px;
+  border-radius: 6px;
+  color: var(--text-primary);
+  cursor: pointer;
+  outline: none;
+}
+.picker-option[data-focused] {
+  background: var(--surface-hover);
+}
+.picker-option[data-selected] {
+  background: var(--state-selected);
+}
+.picker-check {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  border: 1px solid var(--border-control);
+  border-radius: 4px;
+  color: var(--action-primary);
+}
+.picker-option[data-selected] .picker-check {
+  border-color: var(--action-primary);
+}
+.picker-text {
+  display: grid;
+  min-width: 0;
+  font-size: var(--text-sm);
+}
+.picker-text span {
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+.picker-text small {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+.picker-empty {
+  margin: 0;
+  padding: var(--space-3);
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+}
+.picker-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--border-faint);
+}
+.picker-footer > span {
+  flex: 1;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+}
+.token-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-control);
+  background: var(--surface-raised);
+}
+.token-field:focus-within {
+  border-color: var(--action-primary);
+  box-shadow: var(--focus-ring);
+}
+.dialog form .token-field input,
+.token-field input {
+  flex: 1;
+  min-width: 140px;
+  min-height: 26px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+}
+
+/* JsonView (U5a): a body, formatted and coloured by kind of token, scrolling in its frame. */
+.json-view {
+  display: grid;
+  min-width: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-sunken);
+}
+.json-view-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 6px 4px 12px;
+  border-bottom: 1px solid var(--border-faint);
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+.json-view pre {
+  max-height: 360px;
+  margin: 0;
+  padding: var(--space-3);
+  overflow: auto;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+.json-view pre:focus-visible {
+  outline: none;
+  box-shadow: inset var(--focus-ring);
+}
+.json-key {
+  color: var(--context-publication-text);
+}
+.json-string {
+  color: var(--status-success-text);
+}
+.json-number {
+  color: var(--context-change-set-text);
+}
+.json-literal {
+  color: var(--status-warning-text);
+}

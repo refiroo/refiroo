@@ -28,6 +28,13 @@ import type {
   ConsumerApiIndexPage,
   Job,
   JobPage,
+  DeliveryDetail,
+  DeliveryRowPage,
+  DeliveryStatus,
+  Subscription,
+  SubscriptionCreate,
+  SubscriptionPage,
+  SubscriptionUpdate,
   ModelCompilation,
   ModelDraft,
   ModelDraftPage,
@@ -303,6 +310,47 @@ export const api = {
     if (cursor) params.set("cursor", cursor);
     return request<JobPage>(`/api/v1/jobs?${params}`);
   },
+  /** Webhook subscriptions, newest first, optionally of one workspace. */
+  subscriptions: (options: { cursor?: string; workspaceKey?: string } = {}) => {
+    const params = new URLSearchParams({ pageSize: "50" });
+    if (options.cursor) params.set("cursor", options.cursor);
+    if (options.workspaceKey) params.set("workspaceKey", options.workspaceKey);
+    return request<SubscriptionPage>(`/api/v1/consumer-subscriptions?${params}`);
+  },
+  subscription: (id: string) => request<Subscription>(`/api/v1/consumer-subscriptions/${encodeURIComponent(id)}`),
+  /** The answer holds `signingSecret`, which no later read returns. */
+  createSubscription: (body: SubscriptionCreate) =>
+    request<Subscription>("/api/v1/consumer-subscriptions", { method: "POST", body: JSON.stringify(body) }),
+  updateSubscription: (id: string, body: SubscriptionUpdate) =>
+    request<Subscription>(`/api/v1/consumer-subscriptions/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  suspendSubscription: (id: string, expectedVersion: number) =>
+    request<Subscription>(`/api/v1/consumer-subscriptions/${encodeURIComponent(id)}/suspend`, {
+      method: "POST",
+      body: JSON.stringify({ expectedVersion }),
+    }),
+  resumeSubscription: (id: string, expectedVersion: number, reset = false) =>
+    request<Subscription>(`/api/v1/consumer-subscriptions/${encodeURIComponent(id)}/resume`, {
+      method: "POST",
+      body: JSON.stringify({ expectedVersion, reset }),
+    }),
+  /** What a subscription delivered, newest first: a row per event, or per notice. */
+  deliveries: (id: string, options: { cursor?: string; status?: DeliveryStatus } = {}) => {
+    const params = new URLSearchParams({ pageSize: "50" });
+    if (options.cursor) params.set("cursor", options.cursor);
+    if (options.status) params.set("status", options.status);
+    return request<DeliveryRowPage>(`/api/v1/consumer-subscriptions/${encodeURIComponent(id)}/deliveries?${params}`);
+  },
+  delivery: (id: string, deliveryId: string) =>
+    request<DeliveryDetail>(
+      `/api/v1/consumer-subscriptions/${encodeURIComponent(id)}/deliveries/${encodeURIComponent(deliveryId)}`,
+    ),
+  deleteSubscription: (id: string, expectedVersion: number) =>
+    request<void>(`/api/v1/consumer-subscriptions/${encodeURIComponent(id)}?expectedVersion=${expectedVersion}`, {
+      method: "DELETE",
+    }),
   cancelJob: (jobId: string) => request<Job>(`/api/v1/jobs/${encodeURIComponent(jobId)}/cancel`, { method: "POST" }),
   workspaces: (
     options: {

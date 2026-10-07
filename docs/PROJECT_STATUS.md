@@ -281,7 +281,15 @@ awaits approval ([record](SETTINGS_AND_UI_PLAN.md#ua7-record-2026-10-07)). **U4 
 exposed types, lists and events), **Jobs and feed** (jobs of every workspace, cancel, the limits)
 and **API reference** (each `/docs` source), over existing routes; the starter is content 0.9.2
 with a small consumer API `rdm` and one event (U-D5); screenshots await approval
-([record](SETTINGS_AND_UI_PLAN.md#u4-record-2026-10-07)).
+([record](SETTINGS_AND_UI_PLAN.md#u4-record-2026-10-07)). **U5 is implemented (2026-10-07)**:
+Settings › Integration › **Webhooks** over the subscriptions API (create with the signing key shown
+once, delivery state, each suspension reason with its fix, edit, suspend, resume with or without
+`reset`, delete), and a workspace refused deletion names its webhooks; no backend change;
+screenshots await approval ([record](SETTINGS_AND_UI_PLAN.md#u5-record-2026-10-07)). **U5a is
+implemented (2026-10-07)**: webhooks have names, every delivery request and attempt is logged
+(`/consumer-subscriptions/{id}/deliveries`, `CONSUMER_WEBHOOK_LOG_RETENTION_DAYS`, revision
+`20261007_01`, C-D115–C-D119), and the Webhooks page has a rebuilt dialog and Configuration and
+Deliveries tabs ([record](SETTINGS_AND_UI_PLAN.md#u5a-record-2026-10-07)).
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

@@ -201,12 +201,12 @@ def create_app() -> FastAPI:
     application.state.integration_jobs_enabled = settings.integration_jobs_enabled
     application.state.consumer_resolve_max_items = settings.consumer_resolve_max_items
     application.state.consumer_subscriptions_enabled = settings.consumer_subscriptions_enabled
-    application.state.webhook_allowed_hosts = settings.consumer_webhook_allowed_hosts
+    application.state.consumer_webhook_log_retention_days = settings.consumer_webhook_log_retention_days
     application.state.subscription_settings = (
         SubscriptionSettings(
-            allowed_hosts=settings.consumer_webhook_allowed_hosts,
             encryption_key=settings.consumer_webhook_key_encryption_key,
             retention_days=settings.feed_retention_days,
+            log_retention_days=settings.consumer_webhook_log_retention_days,
         )
         if settings.consumer_subscriptions_enabled and settings.consumer_webhook_key_encryption_key
         else None

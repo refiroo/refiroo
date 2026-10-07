@@ -17,7 +17,7 @@ read, D31), [B3](#b3-relation-and-relation-set-items) (2026-10-03, D35–D39),
 [C2](#c2-consumer-object-and-projections) (2026-10-04, C-D21–C-D26), C3–C5 and
 [C14](#c14-batch-resolve) (2026-10-05, C-D47–C-D53), [C15](#c15-crosswalk) (2026-10-05, C-D54–C-D58),
 [CN1](#cn1-the-consumer-apis-name-in-public-contracts) (2026-10-05, C-D59), [C6a](#c6a-publications) (2026-10-05, C-D60–C-D68), [C6b](#c6b-the-contract-documents) (2026-10-05, C-D69–C-D70), [V2](#v2-consumer-sources) (2026-10-05), [C8](#c8-parity-acceptance) (2026-10-05, C-D72–C-D75), [C16](#c16-asof-in-the-consumer-tier) (2026-10-05, C-D76–C-D80), [C9](#c9-event-definitions) (2026-10-05, C-D81–C-D86), [C10](#c10-event-deriver-event-store-and-pull-feed) (2026-10-06, C-D87–C-D92, C-D95), [U2](SETTINGS_AND_UI_PLAN.md#u2-delivery-record) (2026-10-06, U-D7–U-D9), [C11](#c11-subscriptions) (2026-10-06, C-D96–C-D102), [C12](#c12-the-dispatcher) (2026-10-06, C-D103–C-D111), [C13](#c13-event-acceptance) (2026-10-06, C-D112–C-D114), [U3](SETTINGS_AND_UI_PLAN.md#u3-delivery-record) (2026-10-06, U-D10–U-D11).
-**Next:** U5, the Webhooks page. UA (the Atlas redesign, ADR-040) and U4 (the Integration pages, [record](SETTINGS_AND_UI_PLAN.md#u4-record-2026-10-07)) are implemented, awaiting the user's approval of their screenshots.
+**U5, the Webhooks page, is implemented (2026-10-07)** ([record](SETTINGS_AND_UI_PLAN.md#u5-record-2026-10-07)), and so is **U5a**, webhook names and the delivery log with the page revised ([record](SETTINGS_AND_UI_PLAN.md#u5a-record-2026-10-07)). UA (the Atlas redesign, ADR-040), U4 (the Integration pages, [record](SETTINGS_AND_UI_PLAN.md#u4-record-2026-10-07)) and U5 await the user's approval of their screenshots.
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
 Effective dates and consumer API definitions extend the model, so the starter becomes content release
@@ -236,11 +236,13 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 24 | [C10](#c10-event-deriver-event-store-and-pull-feed) | C9, F2 | Event deriver, event store, pull feed (C-D87–C-D92, C-D95) — **delivered 2026-10-06** ([record](#c10-delivery-record)) |
 | 25 | [C11](#c11-subscriptions) | C10 | Subscriptions API, signing key, allowlist, suspension on model change and retirement (C-D96–C-D102) — **delivered 2026-10-06** ([record](#c11-delivery-record)) |
 | 26 | [C12](#c12-the-dispatcher) | C11 | Dispatcher: per-change and coalesced delivery, signing, retries, the delivery suspensions (C-D103–C-D111) — **delivered 2026-10-06** ([record](#c12-delivery-record)) |
-| 26a | [U5](SETTINGS_AND_UI_PLAN.md#packages-track-u) | U4, C12 | Settings › Integration › Webhooks over the subscriptions API (U-D3) |
+| 26a | [U5](SETTINGS_AND_UI_PLAN.md#u5-the-webhooks-page) | U4, C12 | Settings › Integration › Webhooks over the subscriptions API (U-D3) — **implemented 2026-10-07**, screenshots awaiting the user's approval ([record](SETTINGS_AND_UI_PLAN.md#u5-record-2026-10-07)) |
+| 26b | [U5a](SETTINGS_AND_UI_PLAN.md#u5a-webhook-names-the-delivery-log-and-the-webhooks-page-revised) | U5, C12 | Webhook names, the delivery log (`/deliveries`, `CONSUMER_WEBHOOK_LOG_RETENTION_DAYS`, C-D115–C-D119) and the Webhooks page revised: the dialog rebuilt, Configuration and Deliveries tabs — **implemented 2026-10-07**, screenshots awaiting the user's approval ([record](SETTINGS_AND_UI_PLAN.md#u5a-record-2026-10-07)) |
 | 27 | [C13](#c13-event-acceptance) | C12 | Event acceptance; the events line's checkpoint; the delivery budget (C-D112–C-D114) — **delivered 2026-10-06** ([record](#c13-delivery-record)) |
 | 27a | [U2](SETTINGS_AND_UI_PLAN.md#u2-the-foundation-and-the-shell) | U1 | UI foundation: token layers, regions, data-context band, `PageHeader`, `StatusPill` and `Card`, the shell (U-D7–U-D9) — **delivered 2026-10-06** ([record](SETTINGS_AND_UI_PLAN.md#u2-delivery-record)) |
 | 27b | [U3](SETTINGS_AND_UI_PLAN.md#u3-the-settings-area) | U2 | Settings area: About, Appearance, Deployment (read-only, U-D2), Workspaces and Model moved; `GET /api/v1/system` (U-D10, U-D11) — **delivered 2026-10-06** ([record](SETTINGS_AND_UI_PLAN.md#u3-delivery-record); [revised the same day](SETTINGS_AND_UI_PLAN.md#u3-revisions-after-delivery-2026-10-06)) |
 | 27c | [UA](SETTINGS_AND_UI_PLAN.md#ua-the-atlas-redesign) | U3 | The Atlas redesign of every surface (ADR-040, U-D12, U-D13), each surface approved by the user from screenshots; today's design tagged `ui-before-atlas`. Comes before U4 and U5 by the user's choice (2026-10-06); folds in U6 — **planned 2026-10-06** |
+| 27d | [C17](#c17-webhook-delivery-choices-batching-payload-and-cloudevents) | U5a | Webhook delivery choices: one event per request or batched, with the object or notification only, RDM JSON or CloudEvents; `coalesced` retired (C-D120–C-D128) — **planned 2026-10-07**, decisions approved |
 | — | _cut line (D9)_ | | _If R is out of reach, 0.9.0 releases here with R-a and Track J moves to 0.9.1_ |
 | 28 | [J1](#j1-export) | Q3, Q4, B2, F1 | Export jobs |
 | 29 | [J2](#j2-import-profiles-and-file-reading) | B3 | Import profiles, XLSX/CSV/JSON Lines reading, rows to items |
@@ -4977,7 +4979,7 @@ DELETE /api/v1/consumer-subscriptions/{id}?expectedVersion=…
 | C-D98 | One switch, or `enabled` and suspension | **Approved 2026-10-06.** One: `status` is `active` or `suspended`, and suspension always has a reason; CONSUMER_API's `enabled` field is dropped. Suspending by hand is `POST …/suspend` (`SUSPENDED_BY_USER`); every reason is undone by `POST …/resume`. Resume re-runs create's checks against the active release, the allowlist and the workspace, so CONSUMER_API's "needs an edit first after `MODEL_CHANGED` or `FILTER_MATCHES_NOTHING`" is a check, not a rule per reason: a resume that would fail is `409 SUBSCRIPTION_NEEDS_EDIT` listing what to fix. After `CONTRACT_VERSION_CHANGED` the resume records the new version as accepted. C-D93's loss check applies to every resume. Reasons: `SUSPENDED_BY_USER`, `MODEL_CHANGED`, `CONTRACT_VERSION_CHANGED`, `WORKSPACE_RETIRED` (C11); `DELIVERY_FAILED`, `FILTER_MATCHES_NOTHING`, `HOST_NOT_ALLOWED` (C12). Two switches would let a subscription be enabled and suspended at once, with two answers to "why is nothing arriving" |
 | C-D99 | When a model change or a workspace retirement suspends | **Approved 2026-10-06.** In the transaction that causes it, so no event is ever composed under a definition the subscription was not checked against. Activation: a missing consumer API, event or filter parameter, or a filter parameter of another kind, is `MODEL_CHANGED` with each finding's pointer; otherwise a different `contractVersion` is `CONTRACT_VERSION_CHANGED`, since only one version is served (C-D3) and the `full` object's shape would change without the receiver agreeing. An already suspended subscription keeps its reason; its resume re-checks. Retirement: `WORKSPACE_RETIRED` at once; undelivered events stay until retention, and after a reactivation a resume continues from them (C-D93 if they expired). Deleting a workspace that has subscriptions is refused `409 WORKSPACE_HAS_SUBSCRIPTIONS`: a workspace change never removes another owner's configuration (as C-D94). Rejected: checking lazily in the dispatcher (the API would show `active` for a subscription that can no longer be served) |
 | C-D100 | A filter value that matches nothing when the subscription is created | **Approved 2026-10-06.** Refused `400 FILTER_MATCHES_NOTHING` at create, edit and resume, at `/filters/{name}`. C-D94 suspends a subscription whose filter stops matching; accepting one that matches nothing would create it only for C12 to suspend it, and a typo would pass silently. A receiver waiting for a record not yet created subscribes after it exists |
-| C-D101 | What the host allowlist accepts | **Approved 2026-10-06.** `CONSUMER_WEBHOOK_ALLOWED_HOSTS` lists host names, compared ignoring case, each exact or `*.` followed by a domain (any depth below it, not the domain itself); IP addresses only as written. Any port. The URL is absolute HTTPS, without user information or fragment, at most 2,048 characters; plain HTTP only to `localhost`, `127.0.0.1` or `::1`, and only when listed (CONSUMER_API's "allowlisted local hosts in development" without a separate mode). Empty, the default, allows nothing: create is `400 WEBHOOK_HOST_NOT_ALLOWED` naming the setting. The list is reported in capabilities, so the Webhooks page (U5) can say what is allowed. A host removed from the list later is caught by C12 before it sends (`HOST_NOT_ALLOWED`); name resolution and redirects are C12's |
+| C-D101 | What the host allowlist accepts | **Revised 2026-10-07, by the user:** no host allowlist; any host over HTTPS, plain HTTP only to `localhost`, `127.0.0.1` or `::1`. `CONSUMER_WEBHOOK_ALLOWED_HOSTS`, `allowedHosts` in capabilities, `WEBHOOK_HOST_NOT_ALLOWED` and the `HOST_NOT_ALLOWED` suspension are removed: webhook targets are not deployment configuration that needs a restart. The dispatcher's address checks (C-D107) stay. Was: **Approved 2026-10-06.** `CONSUMER_WEBHOOK_ALLOWED_HOSTS` lists host names, compared ignoring case, each exact or `*.` followed by a domain (any depth below it, not the domain itself); IP addresses only as written. Any port. The URL is absolute HTTPS, without user information or fragment, at most 2,048 characters; plain HTTP only to `localhost`, `127.0.0.1` or `::1`, and only when listed (CONSUMER_API's "allowlisted local hosts in development" without a separate mode). Empty, the default, allows nothing: create is `400 WEBHOOK_HOST_NOT_ALLOWED` naming the setting. The list is reported in capabilities, so the Webhooks page (U5) can say what is allowed. A host removed from the list later is caught by C12 before it sends (`HOST_NOT_ALLOWED`); name resolution and redirects are C12's |
 | C-D102 | What the capability gates | **Approved 2026-10-06.** The whole group: with `CONSUMER_SUBSCRIPTIONS_ENABLED` off, no subscription route is mounted (reads included) and C12 delivers nothing; stored subscriptions are kept and continue when it is turned on. Model administration keeps reads ungated because releases exist whatever the setting; a subscription exists only to be delivered, and its URL names hosts inside the deployment, so an unauthenticated read of it off is no use and some exposure (until 0.12) |
 
 **Journey.** J30 gains **J30.6 Subscribe** (create, read, list, edit, suspend, resume, delete; the
@@ -5295,7 +5297,7 @@ RDM-Signature: sha256=3b9e…            (hex HMAC-SHA256 of "{timestamp}.{body}
 | C-D105 | How coalesced mode decides and what it sends | **Approved 2026-10-06.** Stateless over the event store: at each look, the matching events after the acknowledged position, per event key; send when the newest is `debounceSeconds` old, or the oldest 10 minutes old, by `occurredAt`. One POST per event key (the body names one `event`), in the order of their first positions; the acknowledged key moves to the newest event counted once every POST of the round is acknowledged. A failure retries the round as per-change does. `payload` does not apply: the body carries no objects (CONSUMER_API's body); a `full` subscription in coalesced mode is accepted as C11 does and documented as such, rather than changing C11's contract. Rejected: a debounce timer per subscription in memory (lost on restart, and two processes would disagree) |
 | C-D106 | Several processes, and a slow receiver | **Approved 2026-10-06.** A lease per subscription in the row, as the job worker's (B2): 60 s, renewed before each send; an acknowledgement commits only while the lease is held. Four sender threads per process, one subscription each at a time, so a receiver timing out (10 s) delays only its own subscription. Rejected: holding the row's lock during the request (an operator's edit would wait up to 10 s), and one sequential loop (one slow receiver delays every other) |
 | C-D107 | What the dispatcher checks when it connects (left to C12 by C-D101) | **Approved 2026-10-06.** It resolves the host at each attempt and connects to an address it checked, never resolving twice, so a name cannot be pointed elsewhere between the check and the connection. A link-local address (`169.254.0.0/16`, `fe80::/10`, which hold cloud metadata services) is always refused; a loopback address only when the URL names a loopback host the allowlist lists. Private ranges are allowed: integrations inside the organisation's network are the common case, and the allowlist names them. A refused address is a failed attempt (`kind: "address"`), retried, since a DNS change may be temporary. Redirects are not followed: a `3xx` is a failed attempt naming the `Location`, so a receiver cannot send events to an unlisted host. TLS is verified against the system trust store. The client is the standard library's `http.client` and `ssl`, which allow connecting to a checked address with the name for TLS; no runtime dependency is added. No outbound proxy in 0.9 |
-| C-D108 | What the operator sees of delivery, and whether it changes `version` | **Approved 2026-10-06.** The subscription answer gains `delivery` (shape above): the last acknowledged POST, and the batch being retried with its attempts, first failure, last and next attempt and last error (`kind` `status`, `timeout`, `connection`, `tls`, `address`, `redirect`, with `status` and up to 200 characters of the answer or error). Delivery progress changes neither `version` nor `updatedAt`, which describe the configuration an operator edits; otherwise every delivered batch would make an edit read with the previous version fail `409 VERSION_CONFLICT`. A suspension raises `version`. No delivery history is kept (a log per attempt is U5's or later's question); the receiver has the delivery IDs |
+| C-D108 | What the operator sees of delivery, and whether it changes `version` | **Approved 2026-10-06.** The subscription answer gains `delivery` (shape above): the last acknowledged POST, and the batch being retried with its attempts, first failure, last and next attempt and last error (`kind` `status`, `timeout`, `connection`, `tls`, `address`, `redirect`, with `status` and up to 200 characters of the answer or error). Delivery progress changes neither `version` nor `updatedAt`, which describe the configuration an operator edits; otherwise every delivered batch would make an edit read with the previous version fail `409 VERSION_CONFLICT`. A suspension raises `version`. No delivery history is kept (a log per attempt is U5's or later's question); the receiver has the delivery IDs. _Amended 2026-10-07 (U5a, C-D116, the user): every request and attempt is logged, kept for `CONSUMER_WEBHOOK_LOG_RETENTION_DAYS`_ |
 | C-D109 | When `FILTER_MATCHES_NOTHING` is decided (C-D94) | **Decided 2026-10-06 by the user, revising C-D94.** At once: when events follow a subscription's acknowledged position, the dispatcher checks each filter value before it sends; a value that matches no record suspends the subscription `FILTER_MATCHES_NOTHING`, naming the filter, the value and the acknowledged position. The deletions are not delivered first. A record a filter names is not deleted by accident: whoever deletes it is changing the structure, and the subscription's owner edits the filter. Nothing is lost: the acknowledged position does not move, so after the edit and resume the events from it are delivered, the deletions among them (a deletion passes every filter but the type, C-D90). Replaces the proposal to wait until the deletions were delivered (two steps and two columns), which the user judged overengineered |
 | C-D110 | An active subscription whose next events expired, and a reset on resume | **Decided 2026-10-06 by the user** (their proposal, with `reset` replacing `acknowledgeLoss`). An active subscription whose acknowledged position has expired (the capability turned back on after the retention period, C-D102, or the process down that long) is suspended `EVENTS_EXPIRED` with the lost range and the publication to re-sync from. **Resume gains `reset`** (any reason): `true` starts delivery after the workspace's feed head at the resume, as a new subscription starts (C-D97), and the receiver re-syncs what it missed itself (a publication's lists today, an export job from J1); without it, delivery continues from the first unacknowledged event, and a resume whose unacknowledged events expired is refused `409 EVENTS_EXPIRED` as C-D93 has it, its message naming `reset`. A gap-free re-sync resets first and reads after: changes in between arrive twice, never not at all. `reset` replaces `acknowledgeLoss` (C-D93 revised, delivered in C11): `acknowledgeLoss` continues from the earliest event still kept, so the receiver still has a gap to repair by a re-sync, after which the kept tail only repeats it; two ways to accept a loss would also need explaining on the Webhooks page. Replacing it is a revision of C-D93 and an amendment of C11's resume, done in C12 |
 | C-D111 | Retry of a batch whose events changed meanwhile | **Approved 2026-10-06.** A pending batch is fixed by its range (acknowledged key to end key) and its delivery ID; each attempt reads that range again and composes the objects again, so a retry carries the current state (`stateAt` later than before, as CONSUMER_API says) and the same events, as events never change. A filter or payload edit drops the pending batch (C-D108's PATCH rule), so a batch never mixes configurations under one delivery ID |
@@ -5676,6 +5678,194 @@ gets nothing when the relationship is removed; the type-filtered one gets the up
 - **Not run:** `startup` (no migration; case 5 starts the deriver's and the dispatcher's threads
   through the lifespan of a second application on the same database), `contract` (no route or code
   changed), the frontend (unchanged), the browser runners, `budget` and the full suites (R).
+
+#### C17: Webhook delivery choices: batching, payload and CloudEvents
+
+**Planned 2026-10-07** at the user's request, after a review of the delivery modes against industry
+practice. **Decisions C-D120–C-D128 and the test cases approved by the user the same day**, with
+C-D123 changed: no subscription is in production, so nothing is converted.
+**Needs:** U5a (webhook names and the delivery log share the subscription, the dispatcher, the
+dialog and the delivery log's rows). **Groups:** `feed`, `consumer`, `contract`, `startup`
+(migration). Amends C-D105 (retired), C-D104 (the event cap becomes a subscription setting) and
+U5a's C-D119 (no notice rows).
+
+**Why.** A subscription today chooses `mode` (`perChange` or `coalesced`) and `payload` (`full` or
+`identity`). The two modes are not two ways of grouping the same messages. `perChange` sends the
+events, up to 100 in a request. `coalesced` sends a different message, a count of changes for each
+event key after the changes pause, with no event IDs or objects. So `payload` does nothing there:
+a `coalesced` subscription with `payload: full` is accepted and the `full` is ignored silently
+(C-D105). Neither name is an industry term. Practice (checked 2026-10-07) treats delivery as two
+independent choices:
+
+- **What a message carries.** Fowler's *event notification* vs *event-carried state transfer*.
+  Stripe's *thin* vs *snapshot* events. Microsoft Graph's *basic* vs *rich* notifications
+  (`includeResourceData`).
+- **How many events a request holds.** Azure Event Grid sends one event per request by default.
+  Batching is opt-in per subscription (`maxEventsPerBatch` 1–5,000, `preferredBatchSizeInKilobytes`
+  up to 1,024), and a batch succeeds or fails as a whole. CloudEvents' HTTP binding has a *batched*
+  content mode, a JSON array under `application/cloudevents-batch+json`.
+
+Summaries like `coalesced` exist only as a safeguard at volume, not as a subscriber's choice.
+Salesforce Change Data Capture merges one identical change to many records into one event with
+`recordIds`, and sends an overflow event past 100,000 changes in a transaction. EIP's nearest
+pattern is the Aggregator, with a completeness condition that may be a timeout.
+
+**Behaviour.** An operator creating or editing a webhook makes three independent choices. Every
+combination is valid and does what it says.
+
+1. **Requests: one event per request** (the default) **or batched, up to N events** (N from 2 to
+   1,000). A batch also stops at 1 MiB. It holds what is waiting when it is sent and never waits to
+   fill up.
+2. **Content: with the object** (`full`, the default) **or notification only** (`identity`: the
+   event's identity, its change and the changed outputs).
+3. **Format: RDM JSON** (the default, today's body) **or CloudEvents 1.0**: one structured event per
+   request, or a batched array.
+
+Order, at-least-once delivery, retries, suspension, signing and the delivery log work as before,
+per request. `coalesced` mode and `debounceSeconds` are removed. Its use, "run an export when data
+changes", is a batched, notification-only subscription: one request per batch of changes, and the
+receiver can ignore the details.
+
+**What it costs.** Requests to a subscriber go one at a time, to keep the order (C12). With one
+event per request, 10,000 changes become 10,000 requests in a row: about 8 minutes at 50 ms per
+answer, longer for a slow receiver. The dispatcher starts the next request at once while work
+remains, without the one-second poll, so the receiver's speed is the limit. Each request also costs
+the dispatcher one claim, one events read and one record. The docs and the dialog say that batching
+is the choice for bulk changes.
+
+**Contract.**
+
+- **Subscription** (create, `PATCH`, every answer):
+  - `maxEventsPerBatch` is an integer from 1 to 1,000, default 1.
+  - `format` is `rdm` (default) or `cloudevents`.
+  - `payload` is unchanged.
+  - `mode` and `debounceSeconds` are removed. Sending either is `422 REQUEST_VALIDATION_ERROR`, as
+    any unknown field is.
+  - An edit of `maxEventsPerBatch`, `format` or `payload` drops a batch being retried, as other
+    edits do. Only a name edit keeps it (C-D115).
+- **Capabilities.** `consumerSubscriptions.delivery.maxEvents` becomes `maxEventsPerBatch` (1,000),
+  the most a subscription may set. `maxBytes` stays 1 MiB.
+- **RDM JSON requests.** Today's per-change body, with 1 to `maxEventsPerBatch` events in `events`.
+  A single event still comes in the envelope, so a receiver's code does not change with the batch
+  size. `Content-Type: application/json`.
+- **CloudEvents requests.**
+  - With `maxEventsPerBatch` 1, one event in *structured* mode
+    (`Content-Type: application/cloudevents+json; charset=utf-8`).
+  - Otherwise a JSON array of structured events
+    (`Content-Type: application/cloudevents-batch+json; charset=utf-8`), also when a batch holds one
+    event, so the content type depends on the subscription and not on the traffic.
+  - Each event:
+
+    ```json
+    {
+      "specversion": "1.0",
+      "id": "<eventId>",
+      "source": "/api/consumer/rdm/v1/events?workspace=main",
+      "type": "rdm.timetable-type-changed.updated",
+      "subject": "TimetableType/<id>",
+      "time": "<occurredAt>",
+      "datacontenttype": "application/json",
+      "rdmsubscription": "<subscriptionId>",
+      "data": { "...": "the event exactly as the RDM JSON body carries it" }
+    }
+    ```
+
+  - `data` is the same object as an item of the RDM JSON `events` array, with `position`,
+    `changed`, `cause`, `stateAt` and `object` per `payload`. A receiver therefore handles `data`
+    with the same code in either format.
+- **Headers in both formats.** `RDM-Delivery-Id`, `RDM-Timestamp` and `RDM-Signature` (HMAC over
+  `"{timestamp}.{body}"`) are unchanged. The signature covers the whole body, CloudEvents attributes
+  included, which is why structured mode is used rather than binary.
+- **Removed.** The coalesced body, `COALESCE_MAX_SECONDS`, and U5a's notice rows: the delivery
+  log's `kind` is always events, so the field is dropped.
+
+**Design.**
+
+- **Storage.** Revision `20261007_02`, after U5a's `_01`, works on `consumer_subscriptions`:
+  - Adds `max_events_per_batch` (integer, not null, check 1–1,000) and `format` (`rdm` or
+    `cloudevents`, not null, default `rdm`).
+  - Existing rows take the defaults (1, `rdm`), whatever their mode was (C-D123).
+  - Drops `mode`, `debounce_seconds` and their check, and `consumer_webhook_requests.kind`
+    (U5a's `events`/`notice`) with its check.
+- **Dispatcher.**
+  - `_batch` reads `page_size = max_events_per_batch` events.
+  - `delivery.fitting` measures the body in the subscription's format.
+  - `_coalesced` and `coalesce_due` are deleted.
+  - The delivery log (`engine/events/delivery_log.py`, U5a) loses its notice row in `_rows`, which
+    is built from a notice body's `event` and `toPosition`. `DeliveryDetail.kind` leaves the answer.
+  - Encoding goes in one function per format in `delivery.py`. The CloudEvents encoder builds
+    `source`, `type` and `subject` from the subscription and the event alone, so a retry composes
+    the same attributes (C-D111).
+- **Frontend.**
+  - The dialog's Delivery section has three groups. **Requests**: "One event per request" /
+    "Batched, up to [N] events", with the cost line when one is chosen. **Content**: "With the
+    object" / "Notification only". **Format**: "RDM JSON" / "CloudEvents 1.0".
+  - The mode and wait fields go. The detail shows the three choices.
+  - Types and capabilities follow the contract.
+- **Not changed.** The pull feed stays RDM JSON (C-D127). Ordering, leases, retries, suspensions,
+  `reset` and signing are unchanged.
+
+**Decisions** (approved by the user, 2026-10-07):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| C-D120 | How is batching set? | **One field, `maxEventsPerBatch`, 1 to 1,000, default 1**; 1 means one event per request. A separate switch plus a size would allow "single with size 50", a combination that means nothing. 1,000 matches the pull feed's identity page. With `full`, the 1 MiB cap usually ends a batch first |
+| C-D121 | Is the 1 MiB cap per subscription? | **No, it stays fixed** and reported in capabilities. It protects the receiver's request-size limit (nginx's default is exactly 1 MiB). Event Grid's own byte setting is only a preference |
+| C-D122 | The default | **One event per request, as the user asked**, with `full` and `rdm`. Existing subscriptions keep 100 (C-D123) |
+| C-D123 | What happens to existing subscriptions? | **Nothing special (the user): no subscription is in production.** The migration gives every existing row the defaults; no conversion, suspension or CHANGELOG note for it |
+| C-D124 | Rename `payload`'s values? | **No: `identity` and `full` stay.** The pull feed shares the parameter, and no single standard pair of names exists (Stripe's thin/snapshot, Graph's basic/rich). The UI says "Notification only" and "With the object"; the docs map them to Fowler, Stripe and Graph |
+| C-D125 | Which CloudEvents content modes? | **Structured for one event per request, batched otherwise; not binary.** Binary mode puts the attributes in headers, which the HMAC signature does not cover, and batched mode is defined only for structured formats |
+| C-D126 | How are the CloudEvents attributes filled? | As shown above. **`id`** is the `eventId`, a UUID, so `source` + `id` is unique. **`source`** is the relative path of the definition's events read with the workspace: a URI-reference, as the spec allows, since the engine has no public base URL setting. **`type`** is `rdm.{event}.{change}`, which is not the reverse-DNS prefix the spec recommends (a SHOULD): the engine owns no domain and deployments differ. **`subject`** is `{objectType}/{id}` and **`time`** is `occurredAt`. **`rdmsubscription`** is the one extension, because the batched array has no envelope. **`dataschema`** is left out. **`data`** is the RDM event unchanged |
+| C-D127 | CloudEvents on the pull feed too? | **No, not in this package.** The pull feed is read by the engine's own clients in RDM JSON. A `format` parameter can be added later without breaking anything |
+| C-D128 | Adopt the CloudEvents *webhook* spec (an `OPTIONS` handshake, bearer tokens, `429 Retry-After`, `410 Gone`)? | **No.** Receivers are registered by an operator and every request is HMAC-signed (C-D12). The handshake and bearer tokens would be a second trust scheme. C17 adopts the event format and its HTTP binding only |
+
+**Journey.** J30.6 (subscribe) gains the three choices and loses `mode` and `debounceSeconds`.
+J30.8 (delivery) gains one-event-per-request, the batch size and CloudEvents, and loses the
+coalesced variant. J30.10 (U5a's log) loses notice rows. USER_JOURNEYS and API_JOURNEYS change
+accordingly. C13's acceptance scenario 8 ("coalesced mode delivers once after the debounce
+window") is retired with the mode.
+
+**Test cases** (journey tests on generated A and B with `test_j30_delivery`'s receiver, written
+first and confirmed failing):
+
+1. **One per request by default.** Given a subscription created without `maxEventsPerBatch`, when
+   three records change, then the receiver gets three requests in position order, each an RDM JSON
+   envelope with one event. The answer and capabilities show the default and the cap of 1,000.
+2. **Batched.** Given `maxEventsPerBatch: 2` and five changes, then requests of 2, 2 and 1 events
+   arrive in order. Given 1,000 and `full`, a large change set splits at 1 MiB before 1,000 events.
+3. **Notification only in both shapes.** `identity` with one per request and with a batch carries
+   no `object` or `stateAt`. `full` carries the object as get-by-ID answers it.
+4. **CloudEvents.** With `format: cloudevents` and one per request, the request is
+   `application/cloudevents+json` with `specversion`, `id` = the event ID, `source`, `type`,
+   `subject`, `time`, `rdmsubscription`, and `data` equal to the RDM JSON event for the same change.
+   Batched, it is `application/cloudevents-batch+json`, an array in position order. Both bodies
+   verify against `RDM-Signature`.
+5. **Refusals and edits.** `maxEventsPerBatch` 0 or 1,001, an unknown `format`, or `mode` /
+   `debounceSeconds` sent is `422 REQUEST_VALIDATION_ERROR`. A `PATCH` of `format` while a batch is
+   retried drops it, and the next request has a new delivery ID in the new format.
+6. **Migration** (AGENTS.md): upgrade from `20261007_01` with an existing subscription, which reads
+   back with the defaults; then two starts, and an interrupted run recovering.
+
+The coalesced cases are removed: `test_j30_delivery`'s coalesced test, U5a's case 5, the coalesced
+round in `volume_baseline`, and the frontend's coalesced fields. Unit tests:
+`delivery.fitting` and the two encoders (attribute filling, both content types, the byte cap).
+
+**Checks.** The cases above and `--journey J30`, `test_startup` for the migration,
+`test_consumer_event_volume`, `test_openapi_contract` (the subscription schemas and capabilities
+change; re-baselined with the difference stated), `ruff`. Frontend: the Webhooks unit tests,
+`format`, `lint`, `build`; `test:browser:webhooks` updated to the three choices, with screenshots
+of the dialog and the detail at 1440px and 390px, light and dark, for the user's approval as for U5.
+UI_ACCEPTANCE's U5-1 row names the three choices. Not run: the full suites (R).
+
+**Docs at delivery.**
+
+- **CONSUMER_API:** Delivery and its bodies, the CloudEvents mapping, C-D105 marked retired.
+- **API.md:** subscriptions, capabilities and the webhook delivery section.
+- **Others:** USER_JOURNEYS, API_JOURNEYS, CURRENT_FUNCTIONALITY, PRODUCT, OPERATIONS (the
+  throughput note) and CHANGELOG (Changed).
+
+**Composable domains (ADR-032):** the change is to delivery only. Event definitions, the event
+store, identity, audit and the bulk APIs are untouched, so no door is affected.
 
 ## Track V — API reference
 

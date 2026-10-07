@@ -107,7 +107,10 @@ can complete the task in the application; "API" means another system can.
 - Choose the theme and the default table density for this browser.
 - In Settings › **Integration**, read each consumer API the active release declares (its version,
   base URL, exposed types, lists and events), follow and cancel jobs beside the batch, job and feed
-  limits, and open each API's reference.
+  limits, and open each API's reference. On **Webhooks**, subscribe a receiver to a consumer API's
+  events, keep the signing key shown once, and see whether delivery is going, why a subscription
+  stopped and what fixes it; edit, suspend, resume and delete subscriptions. Each webhook's
+  **Deliveries** list what was sent, with each attempt, the request and the receiver's answer.
 
 ### Manage workspaces — browser and API
 

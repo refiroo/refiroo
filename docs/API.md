@@ -198,7 +198,6 @@ Capabilities return deployment-supported operations explicitly:
   "consumerApi": { "resolveMaxItems": 1000, "setting": "CONSUMER_RESOLVE_MAX_ITEMS" },
   "consumerSubscriptions": {
     "manageSubscriptions": false,
-    "allowedHosts": [],
     "delivery": {
       "maxEvents": 100, "maxBytes": 1048576, "timeoutSeconds": 10.0,
       "retryWaitsSeconds": [10, 30, 60, 120, 300, 600, 1800], "laterWaitSeconds": 3600,
@@ -213,8 +212,7 @@ Capabilities return deployment-supported operations explicitly:
 answers a position. `consumerApi.resolveMaxItems` is the most items one consumer
 [batch resolve](#batch-resolve) holds, named in `setting`. `consumerSubscriptions.manageSubscriptions`
 says whether the [subscriptions API](#consumer-subscriptions-base-09-c11) is served
-(`CONSUMER_SUBSCRIPTIONS_ENABLED`) and its subscriptions delivered, `allowedHosts` the hosts a
-webhook URL may name (`CONSUMER_WEBHOOK_ALLOWED_HOSTS`), and `delivery` how
+(`CONSUMER_SUBSCRIPTIONS_ENABLED`) and its subscriptions delivered, and `delivery` how
 [webhooks are delivered](#webhook-delivery-base-09-c12): the events and bytes one request holds, the
 receiver's timeout, and the retry waits and window. These are constants, not settings.
 
@@ -2611,19 +2609,22 @@ deployment data, not part of a model release. [Delivery](#webhook-delivery-base-
 | `POST /api/v1/consumer-subscriptions/{id}/suspend` | the subscription, `suspended` (`SUSPENDED_BY_USER`) |
 | `POST /api/v1/consumer-subscriptions/{id}/resume` | the subscription, `active` |
 | `DELETE /api/v1/consumer-subscriptions/{id}?expectedVersion=N` | `204` |
+| `GET /api/v1/consumer-subscriptions/{id}/deliveries` (`status`, paging) | what it delivered, newest first ([below](#the-delivery-log-base-09-u5a)) |
+| `GET /api/v1/consumer-subscriptions/{id}/deliveries/{deliveryId}` | one request with its body and attempts |
 
-The create body names `consumerApi`, `events` (at least one) and `url`, and optionally
+The create body names `name` (1–200 characters once trimmed, not unique, U5a), `consumerApi`,
+`events` (at least one) and `url`, and optionally
 `workspaceKey` (the default workspace, resolved and stored), `filters` (definition parameters, each a
 text or a list of texts), `mode` (`perChange`, default, or `coalesced`), `debounceSeconds`
 (`coalesced` only, 1–600, default 60), `payload` (`full`, default, or `identity`) and `startAfter`.
-`PATCH` takes `expectedVersion` with any of `events`, `filters`, `url`, `mode`, `debounceSeconds` and
-`payload`; the consumer API and workspace are not edited, and a batch being retried is dropped
-(the next attempt is at once). `suspend` takes `expectedVersion`; `resume` takes `expectedVersion`
+`PATCH` takes `expectedVersion` with any of `name`, `events`, `filters`, `url`, `mode`,
+`debounceSeconds` and `payload`; the consumer API and workspace are not edited, and a batch being
+retried is dropped (the next attempt is at once) unless only the name changed. `suspend` takes `expectedVersion`; `resume` takes `expectedVersion`
 and `reset` (default false).
 
 ```jsonc
 {
-  "id": "…", "consumerApi": "rdm", "contractVersion": 1, "workspaceKey": "main",
+  "id": "…", "name": "Billing system", "consumerApi": "rdm", "contractVersion": 1, "workspaceKey": "main",
   "events": ["reference-data-changed"], "filters": { "type": ["Location"] },
   "url": "https://integration.example.com/hooks/rdm",
   "mode": "perChange", "debounceSeconds": null, "payload": "full",
@@ -2652,8 +2653,7 @@ and `reset` (default false).
   declares the API, an event or a filter's parameter; `details.errors`); `CONTRACT_VERSION_CHANGED`
   (an activated release serves another version; `details.contractVersion`,
   `details.servedContractVersion`); `WORKSPACE_RETIRED`. The dispatcher (C12) adds
-  `DELIVERY_FAILED` (`deliveryId`, `attempts`, `failingSince`, `lastError`), `HOST_NOT_ALLOWED` (the
-  URL's refusal: `code`, `message`, `host`, `setting`, `allowedHosts`), `FILTER_MATCHES_NOTHING`
+  `DELIVERY_FAILED` (`deliveryId`, `attempts`, `failingSince`, `lastError`), `FILTER_MATCHES_NOTHING`
   (`parameter`, `values`, `pointer`, and `position`, the acknowledged position) and
   `EVENTS_EXPIRED` (`fromPosition`, `toPosition`, `publication`). A suspension raises `version`.
 - **Resume** re-runs the checks: a failure is `409 SUBSCRIPTION_NEEDS_EDIT` with each finding's
@@ -2675,7 +2675,7 @@ and `reset` (default false).
 | 400 | `CONSUMER_API_NOT_FOUND`, `EVENTS_NOT_DECLARED` | at `/consumerApi` |
 | 400 | `UNKNOWN_EVENT` | at `/events/{i}` |
 | 400 | `UNKNOWN_PARAMETER`, `PARAMETER_NOT_SUPPORTED`, `UNKNOWN_OBJECT_TYPE`, `FILTER_MATCHES_NOTHING` | at `/filters/{name}` |
-| 400 | `INVALID_WEBHOOK_URL`, `WEBHOOK_HOST_NOT_ALLOWED` | at `/url`; the latter names `host`, `setting` and `allowedHosts` |
+| 400 | `INVALID_WEBHOOK_URL` | at `/url`: not absolute HTTPS (plain HTTP only to `localhost`, `127.0.0.1` or `::1`), user information, a fragment, or over 2,048 characters |
 | 404 | `WORKSPACE_NOT_FOUND` | at `/workspaceKey`: unknown or retired |
 | 404 | `SUBSCRIPTION_NOT_FOUND` | the ID |
 | 409 | `VERSION_CONFLICT` | `expectedVersion` is stale; `details.currentVersion` |
@@ -2685,6 +2685,37 @@ and `reset` (default false).
 | 422 | `REQUEST_VALIDATION_ERROR` | the body's shape, or `debounceSeconds` without `coalesced` |
 
 Every refusal changes nothing. Edits, suspensions, resumes and deletions write no audit entry.
+
+#### The delivery log (Base 0.9 U5a)
+
+The dispatcher logs every request it sends (C-D116): a per-change batch is one request, a coalesced
+one a request per notice. `GET …/deliveries` lists one row per event of a request, or one per notice
+(`eventId` and `objectId` `null`), newest first; rows of one request share its outcome, since
+delivery is per request (C-D119):
+
+```json
+{ "deliveryId": "…", "eventId": "…", "event": "values-changed", "change": "updated",
+  "objectType": "CodelistValue", "objectId": "…", "position": 184223,
+  "status": "retrying", "attempts": 2, "responseStatus": 503,
+  "sentAt": "…", "nextAttemptAt": "…" }
+```
+
+`status` is `queued` (built, not sent yet), `sending`, `retrying` (failed; tried again, or waiting
+for a resume), `succeeded`, `failed` (the subscription was suspended `DELIVERY_FAILED`) or `dropped`
+(an edit or resume dropped the batch, or its events left the subscription). `responseStatus` and
+`sentAt` are the latest attempt's; `nextAttemptAt` is set while the batch waits for a retry. The
+list narrows by `status`.
+
+`GET …/deliveries/{deliveryId}` answers the request: `deliveryId`, `batchId`, `kind` (`events` or
+`notice`), `status`, `events`, `requestBody` (the JSON of the latest attempt as the receiver got
+it, C-D117; `null` before the first), `requestBytes`, `createdAt`, `nextAttemptAt` and `attempts`,
+each `number`, `startedAt`, `completedAt`, `durationMs`, `responseStatus`, `error` (`kind` and
+`message`, or `null`) and `responseBody` (up to 4 KiB of the answer). An unknown ID is
+`404 DELIVERY_NOT_FOUND`, an unknown subscription `404 SUBSCRIPTION_NOT_FOUND`.
+
+Entries are kept for `CONSUMER_WEBHOOK_LOG_RETENTION_DAYS` (7), reported as
+`consumerSubscriptions.logRetentionDays` in capabilities; a batch still pending keeps its entries
+longer. A deleted subscription's go with it.
 
 ### Webhook delivery (Base 0.9 C12)
 

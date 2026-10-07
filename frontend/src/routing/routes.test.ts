@@ -20,6 +20,27 @@ describe("routes", () => {
     ["/settings/api-reference", { kind: "settings", page: "api-reference" }],
     ["/settings/workspaces", { kind: "settings", page: "workspaces" }],
     ["/settings/workspaces/central-europe", { kind: "settings", page: "workspaces", workspaceKey: "central-europe" }],
+    ["/settings/webhooks", { kind: "settings", page: "webhooks" }],
+    ["/settings/webhooks/6f1c-2a", { kind: "settings", page: "webhooks", subscriptionId: "6f1c-2a" }],
+    [
+      "/settings/webhooks/6f1c-2a/deliveries",
+      { kind: "settings", page: "webhooks", subscriptionId: "6f1c-2a", tab: "deliveries" },
+    ],
+    [
+      "/settings/webhooks/6f1c-2a/deliveries/d-1/e-9",
+      {
+        kind: "settings",
+        page: "webhooks",
+        subscriptionId: "6f1c-2a",
+        tab: "deliveries",
+        deliveryId: "d-1",
+        eventId: "e-9",
+      },
+    ],
+    [
+      "/settings/webhooks/6f1c-2a/deliveries/n-3",
+      { kind: "settings", page: "webhooks", subscriptionId: "6f1c-2a", tab: "deliveries", deliveryId: "n-3" },
+    ],
     ["/settings/model", { kind: "settings", page: "model" }],
     ["/settings/model/releases/release%2Fid", { kind: "settings", page: "model", releaseId: "release/id" }],
     ["/settings/model/drafts/d1", { kind: "settings", page: "model", draftId: "d1" }],

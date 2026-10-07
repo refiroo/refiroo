@@ -113,6 +113,19 @@ function settingsRoute(parts: string[], query: URLSearchParams): SettingsRoute |
   const [, page, kind, id] = parts;
   if (isSinglePage(page)) return { kind: "settings", page };
   if (page === "workspaces") return kind ? { kind: "settings", page, workspaceKey: kind } : { kind: "settings", page };
+  if (page === "webhooks") {
+    if (!kind) return { kind: "settings", page };
+    if (id !== "deliveries") return { kind: "settings", page, subscriptionId: kind };
+    const [deliveryId, eventId] = parts.slice(4);
+    return {
+      kind: "settings",
+      page,
+      subscriptionId: kind,
+      tab: "deliveries",
+      ...(deliveryId ? { deliveryId } : {}),
+      ...(deliveryId && eventId ? { eventId } : {}),
+    };
+  }
   if (page === "model") {
     if (kind === "releases" && id) return { kind: "settings", page, releaseId: id };
     if (kind === "drafts" && id) return { kind: "settings", page, draftId: id };
@@ -124,6 +137,13 @@ function settingsRoute(parts: string[], query: URLSearchParams): SettingsRoute |
 function settingsPath(route: SettingsRoute) {
   if (route.page === "workspaces" && route.workspaceKey)
     return `/settings/workspaces/${encodeURIComponent(route.workspaceKey)}`;
+  if (route.page === "webhooks" && route.subscriptionId) {
+    const base = `/settings/webhooks/${encodeURIComponent(route.subscriptionId)}`;
+    if (route.tab !== "deliveries") return base;
+    if (!route.deliveryId) return `${base}/deliveries`;
+    const opened = `${base}/deliveries/${encodeURIComponent(route.deliveryId)}`;
+    return route.eventId ? `${opened}/${encodeURIComponent(route.eventId)}` : opened;
+  }
   if (route.page === "model" && route.draftId) return `/settings/model/drafts/${encodeURIComponent(route.draftId)}`;
   if (route.page === "model" && route.releaseId)
     return `/settings/model/releases/${encodeURIComponent(route.releaseId)}`;

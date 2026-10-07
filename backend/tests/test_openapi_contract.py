@@ -76,9 +76,13 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # description says the group also delivers; removing those gives the previous document exactly.
     # Re-baselined for 0.9 U3: GET /system with SystemResponse, EngineInfo, ActiveModelRelease,
     # DatabaseInfo and SystemSetting; removing those gives the previous document exactly.
+    # Re-baselined for C-D101 revised: consumerSubscriptions loses allowedHosts and its description
+    # the allowlist; adding those back gives the previous document exactly.
+    # Re-baselined for 0.9 U5a: consumerSubscriptions gains logRetentionDays; removing it gives the
+    # previous document exactly (the subscription routes, with name and the deliveries, are gated off).
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "4592eb39167d41e15d4e002d6ca18e8f5294535ef7aa3e94567ad9c2f627ec0b"
+        "a1f6be82950284b8ccf244698d25f9de5f3f078f061f49a0927b3d0886a1c93a"
     )
 
 
@@ -262,10 +266,15 @@ def test_base_0_9_c11_c12_enabled_openapi_exposes_the_subscriptions_api(monkeypa
         "/api/v1/consumer-subscriptions/{subscription_id}": frozenset({"get", "patch", "delete"}),
         "/api/v1/consumer-subscriptions/{subscription_id}/suspend": frozenset({"post"}),
         "/api/v1/consumer-subscriptions/{subscription_id}/resume": frozenset({"post"}),
+        # U5a: the delivery log.
+        "/api/v1/consumer-subscriptions/{subscription_id}/deliveries": frozenset({"get"}),
+        "/api/v1/consumer-subscriptions/{subscription_id}/deliveries/{delivery_id}": frozenset({"get"}),
     }
     components = schema["components"]["schemas"]
     response = components["SubscriptionResponse"]
     assert "signingSecret" not in response["required"]
+    # U5a: a subscription is named, on create and in every answer (C-D115).
+    assert "name" in response["required"] and "name" in components["ConsumerSubscriptionCreate"]["required"]
     # C12: the delivery state, the reasons the dispatcher sets, and resume's reset (C-D108, C-D110).
     assert "delivery" in response["required"]
     assert set(components["SubscriptionDelivery"]["properties"]) == {"lastDeliveredAt", "pending"}
@@ -273,7 +282,8 @@ def test_base_0_9_c11_c12_enabled_openapi_exposes_the_subscriptions_api(monkeypa
         "status", "redirect", "timeout", "connection", "tls", "address"
     }
     reasons = set(components["SubscriptionSuspension"]["properties"]["reason"]["enum"])
-    assert {"DELIVERY_FAILED", "FILTER_MATCHES_NOTHING", "HOST_NOT_ALLOWED", "EVENTS_EXPIRED"} <= reasons
+    assert {"DELIVERY_FAILED", "FILTER_MATCHES_NOTHING", "EVENTS_EXPIRED"} <= reasons
+    assert "HOST_NOT_ALLOWED" not in reasons
     assert set(components["ConsumerSubscriptionResume"]["properties"]) == {"expectedVersion", "reset"}
 
 

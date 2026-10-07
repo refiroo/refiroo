@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from ..common.pagination import Page
 from ..common.time import as_utc
+from ..engine.events import delivery_log
 from ..engine.jobs.store import release_public_ids
 from ..engine.model.compiler import ModelDiagnostic
 from ..engine.model.consumer_contract import contract_diagnostics
@@ -36,7 +37,13 @@ from ..models.database import (
 )
 from ..models.schema import EngineModel
 from .schemas.consumer_subscriptions import (
+    DeliveryAttempt,
+    DeliveryAttemptError,
+    DeliveryDetail,
     DeliveryError,
+    DeliveryEvent,
+    DeliveryPage,
+    DeliveryRow,
     PendingDelivery,
     SubscriptionDelivery,
     SubscriptionPage,
@@ -381,6 +388,7 @@ def batch_response(session: Session, job: Job, items: Page[JobItem]) -> BatchRes
 def subscription_response(item: ConsumerSubscription, secret: str | None = None) -> SubscriptionResponse:
     return SubscriptionResponse(
         id=item.public_id,
+        name=item.name,
         consumerApi=item.consumer_api,
         contractVersion=item.contract_version,
         workspaceKey=item.workspace_key,
@@ -434,3 +442,71 @@ def _delivery(item: ConsumerSubscription) -> SubscriptionDelivery:
 
 def subscription_page(page: Page[ConsumerSubscription]) -> SubscriptionPage:
     return SubscriptionPage(items=[subscription_response(item) for item in page.items], **page.links())
+
+
+def delivery_page(page: Page[Any], subscription: ConsumerSubscription) -> DeliveryPage:
+    """A subscription's deliveries rows (U5a, C-D119)."""
+    return DeliveryPage(
+        items=[
+            DeliveryRow(
+                deliveryId=row.delivery_id,
+                eventId=row.event_id,
+                event=row.event_key,
+                change=row.change,
+                objectType=row.object_type,
+                objectId=row.object_id,
+                position=row.position,
+                status=row.status,
+                attempts=row.attempts,
+                responseStatus=row.last_status,
+                sentAt=as_utc(row.sent_at) if row.sent_at else None,
+                nextAttemptAt=_utc_or_none(delivery_log.row_next_attempt(subscription, row)),
+            )
+            for row in page.items
+        ],
+        **page.links(),
+    )
+
+
+def delivery_detail_response(found: dict[str, Any]) -> DeliveryDetail:
+    """A request of a webhook batch with its events and attempts (U5a, C-D116, C-D117)."""
+    request = found["request"]
+    return DeliveryDetail(
+        deliveryId=request.delivery_id,
+        batchId=request.batch_id,
+        kind=request.kind,
+        status=request.status,
+        events=[
+            DeliveryEvent(
+                eventId=event.event_id,
+                event=event.event_key,
+                change=event.change,
+                objectType=event.object_type,
+                objectId=event.object_id,
+                position=event.position,
+            )
+            for event in found["events"]
+        ],
+        requestBody=found["body"],
+        requestBytes=request.request_bytes,
+        createdAt=as_utc(request.created_at),
+        nextAttemptAt=_utc_or_none(found["next_attempt_at"]),
+        attempts=[
+            DeliveryAttempt(
+                number=attempt.number,
+                startedAt=as_utc(attempt.started_at),
+                completedAt=_utc_or_none(attempt.completed_at),
+                durationMs=attempt.duration_ms,
+                responseStatus=attempt.response_status,
+                error=DeliveryAttemptError(kind=attempt.error_kind, message=attempt.error_message or "")
+                if attempt.error_kind
+                else None,
+                responseBody=attempt.response_body,
+            )
+            for attempt in found["attempts"]
+        ],
+    )
+
+
+def _utc_or_none(value: datetime | None) -> datetime | None:
+    return as_utc(value) if value is not None else None

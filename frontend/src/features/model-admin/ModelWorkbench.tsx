@@ -4,7 +4,6 @@
  * without one the active release is shown. Below 760px the catalogue and the selection take turns.
  */
 
-import { Card } from "@/ui/Card";
 import { useEffect, useRef, useState } from "react";
 import { formatServerTime } from "@/lib/dates";
 import { api } from "@/api/client";
@@ -21,6 +20,7 @@ import { CapabilityStatus } from "@/features/administration/CapabilityStatus";
 import { CreateDraftDialog, type CreateDraftSeed } from "@/features/model-admin/CreateDraftDialog";
 import { ModelDraftEditor } from "@/features/model-admin/ModelDraftEditor";
 import { ModelReleaseDetail } from "@/features/model-admin/ModelReleaseDetail";
+import { CatalogueEntry, CatalogueLayout } from "@/ui/CatalogueLayout";
 import { Icon } from "@/ui/Icon";
 import { EmptyState } from "@/ui/EmptyState";
 import { SettingsLayout } from "@/ui/SettingsLayout";
@@ -168,21 +168,15 @@ export function ModelWorkbench({
           Releases <span>{releases.length}</span>
         </h2>
         {releases.map((release) => (
-          <button
+          <CatalogueEntry
             key={release.id}
-            className={shownReleaseId === release.id ? "active" : ""}
-            aria-current={shownReleaseId === release.id ? "page" : undefined}
-            onClick={() => onRouteChange({ ...MODEL, releaseId: release.id })}
-          >
-            <Icon name="model" />
-            <span className="catalogue-text">
-              <strong>{release.name}</strong>
-              <small>
-                {release.key} · {release.version}
-              </small>
-            </span>
-            {release.active && <StatusPill tone="success">Active</StatusPill>}
-          </button>
+            icon="model"
+            title={release.name}
+            subtitle={`${release.key} · ${release.version}`}
+            current={shownReleaseId === release.id}
+            onSelect={() => onRouteChange({ ...MODEL, releaseId: release.id })}
+            pill={release.active && <StatusPill tone="success">Active</StatusPill>}
+          />
         ))}
         {releaseCursor && (
           <button className="load-more" onClick={moreReleases}>
@@ -197,20 +191,14 @@ export function ModelWorkbench({
           </h2>
           {drafts.length ? (
             drafts.map((draft) => (
-              <button
+              <CatalogueEntry
                 key={draft.id}
-                className={route.draftId === draft.id ? "active" : ""}
-                aria-current={route.draftId === draft.id ? "page" : undefined}
-                onClick={() => onRouteChange({ ...MODEL, draftId: draft.id })}
-              >
-                <Icon name="list" />
-                <span className="catalogue-text">
-                  <strong>{draft.name}</strong>
-                  <small>
-                    Version {draft.version} · {formatServerTime(draft.updatedAt)}
-                  </small>
-                </span>
-              </button>
+                icon="list"
+                title={draft.name}
+                subtitle={`Version ${draft.version} · ${formatServerTime(draft.updatedAt)}`}
+                current={route.draftId === draft.id}
+                onSelect={() => onRouteChange({ ...MODEL, draftId: draft.id })}
+              />
             ))
           ) : (
             <EmptyState>No drafts yet.</EmptyState>
@@ -269,44 +257,39 @@ export function ModelWorkbench({
           Model mutations are disabled. Installed releases remain available for read-only inspection and export.
         </Notice>
       )}
-      <div className={`catalogue-layout${selected ? " has-selection" : ""}`}>
-        {catalogue}
-        <div className="catalogue-selection">
-          {selected && (
-            <button type="button" className="secondary catalogue-back" onClick={() => onRouteChange(MODEL)}>
-              <Icon name="arrow-left" /> All releases and drafts
-            </button>
-          )}
-          <Card as="section" flush className="model-detail">
-            {selectedDraft ? (
-              <ModelDraftEditor
-                draft={selectedDraft}
-                canInstall={!!capabilities?.modelAdmin.install}
-                onSaved={updateDraft}
-                onReload={() => reloadDraft(selectedDraft.id)}
-                onInstalled={installed}
-                onDeleted={() => {
-                  setDrafts((items) => items.filter((item) => item.id !== selectedDraft.id));
-                  toast(`Draft ${selectedDraft.name} was deleted.`);
-                  onRouteChange(MODEL);
-                }}
-              />
-            ) : shownReleaseId && activeReleaseId ? (
-              <ModelReleaseDetail
-                key={shownReleaseId}
-                releaseId={shownReleaseId}
-                activeReleaseId={activeReleaseId}
-                canManageDrafts={!!capabilities?.modelAdmin.manageDrafts}
-                canActivate={!!capabilities?.modelAdmin.activate}
-                onCreateDraft={startFromRelease}
-                onActivated={activated}
-              />
-            ) : (
-              <div className="panel-state">Choose an installed release or draft.</div>
-            )}
-          </Card>
-        </div>
-      </div>
+      <CatalogueLayout
+        catalogue={catalogue}
+        hasSelection={!!selected}
+        backLabel="All releases and drafts"
+        onBack={() => onRouteChange(MODEL)}
+      >
+        {selectedDraft ? (
+          <ModelDraftEditor
+            draft={selectedDraft}
+            canInstall={!!capabilities?.modelAdmin.install}
+            onSaved={updateDraft}
+            onReload={() => reloadDraft(selectedDraft.id)}
+            onInstalled={installed}
+            onDeleted={() => {
+              setDrafts((items) => items.filter((item) => item.id !== selectedDraft.id));
+              toast(`Draft ${selectedDraft.name} was deleted.`);
+              onRouteChange(MODEL);
+            }}
+          />
+        ) : shownReleaseId && activeReleaseId ? (
+          <ModelReleaseDetail
+            key={shownReleaseId}
+            releaseId={shownReleaseId}
+            activeReleaseId={activeReleaseId}
+            canManageDrafts={!!capabilities?.modelAdmin.manageDrafts}
+            canActivate={!!capabilities?.modelAdmin.activate}
+            onCreateDraft={startFromRelease}
+            onActivated={activated}
+          />
+        ) : (
+          <div className="panel-state">Choose an installed release or draft.</div>
+        )}
+      </CatalogueLayout>
       {creating && (
         <CreateDraftDialog
           releases={releases}

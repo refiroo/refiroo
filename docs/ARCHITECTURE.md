@@ -603,8 +603,8 @@ The audit log is the ordered source of the change feed and of consumer events (A
   release, managed through `management/routers/consumer_subscriptions.py`, which `create_app`
   mounts only with `CONSUMER_SUBSCRIPTIONS_ENABLED`. Create, edit and resume run one set of checks
   against the active release (`subscription_rules.definition_findings`), the filter values
-  (`reads/consumer_parameters.unmatched_values`, the candidates a read would find), the host
-  allowlist and the workspace. Each change claims the row's version under `FOR UPDATE`. Two hooks
+  (`reads/consumer_parameters.unmatched_values`, the candidates a read would find), the URL's
+  form and the workspace. Each change claims the row's version under `FOR UPDATE`. Two hooks
   run in the transactions that cause them: `activate_model_release` calls
   `suspend_left_behind`, which checks every active subscription against the release being
   activated and suspends the ones it cannot serve in one `UPDATE … FROM VALUES`, and retiring a
@@ -623,9 +623,8 @@ The audit log is the ordered source of the change feed and of consumer events (A
   `UPDATE … WHERE sequence_id IN (SELECT … FOR UPDATE SKIP LOCKED)` sets `lease_owner` and a 60 s
   `lease_expires_at`, least recently handled first, so several processes share the work and each
   subscription is handled by one at a time; four sender threads send them, so a slow receiver
-  delays only its own subscription. One step per subscription checks, before sending, that its host
-  is still allowed, its next events have not expired and its filter values still match a record,
-  suspending it otherwise. It then reads the next events through the pull feed's read
+  delays only its own subscription. One step per subscription checks, before sending, that its next
+  events have not expired and its filter values still match a record, suspending it otherwise. It then reads the next events through the pull feed's read
   (`reads/consumer_events.event_page`, which also bounds a read by an end key), cuts the batch at
   100 events and 1 MiB, and commits it as pending (`pending_delivery_id`, `pending_position`,
   `pending_ordinal`) before sending, so a crash retries the same batch under the same ID; a retry
@@ -638,6 +637,18 @@ The audit log is the ordered source of the change feed and of consumer events (A
   host once, refuses link-local and unexpected loopback addresses, connects to the checked address
   with the host name for TLS, follows no redirect and reads at most 4 KiB of the answer. The
   signing key is unsealed for each send and not kept.
+- **Delivery log** (`engine/events/delivery_log.py`, 0.9 U5a). The dispatcher writes it as it
+  works, each step a fixed number of statements: when a batch is committed as pending, a
+  `consumer_webhook_requests` row per body (`queued`) with its events in
+  `consumer_webhook_request_events` (one multi-row insert); in the lease renewal before each send,
+  the request's body and `sending`, and a `consumer_webhook_attempts` row with its start (the
+  dispatcher's clock); after the answer, the attempt's completion (start plus the monotonic
+  duration), status, error and up to 4 KiB of the answer, and the request's `succeeded` or
+  `retrying`. `clear_delivery` marks a dropped batch's unfinished requests `dropped`; giving up
+  marks them `failed`. Each dispatcher deletes entries older than
+  `CONSUMER_WEBHOOK_LOG_RETENTION_DAYS` at most hourly, by one `DELETE` that keeps a batch still
+  pending; events and attempts follow by `CASCADE`, as the whole log does when its subscription is
+  deleted.
 - **Outages in the background threads** (`common/outage.OutageLog`, 0.9 C12). The job worker, the
   deriver and the dispatcher retry a failed round every 2 s. A database that cannot be reached
   (`database_unreachable`: a lost or refused connection, SQLSTATE class 08 or 57P01–57P03) is one

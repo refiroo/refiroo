@@ -6,7 +6,15 @@ item and its single-write route validate one shape.
 
 from typing import Annotated, Any, Literal
 
-from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    UUID4,
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 
 class AttributeInput(BaseModel):
@@ -399,6 +407,10 @@ SubscriptionPayload = Literal["full", "identity"]
 MAX_DEBOUNCE_SECONDS = 600
 
 
+# What the operator calls a subscription (U5a, C-D115): 1–200 characters once trimmed, not unique.
+SubscriptionName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+
+
 class ConsumerSubscriptionCreate(BaseModel):
     """A webhook subscription (Base 0.9 C11, CONSUMER_API "Subscriptions"). ``workspaceKey`` defaults
     to the default workspace, resolved and stored; ``debounceSeconds`` is for ``coalesced`` only
@@ -406,6 +418,7 @@ class ConsumerSubscriptionCreate(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    name: SubscriptionName
     consumerApi: str = Field(min_length=1, max_length=160)
     workspaceKey: str | None = Field(default=None, min_length=1, max_length=160)
     events: list[Annotated[str, Field(min_length=1, max_length=160)]] = Field(min_length=1, max_length=100)
@@ -429,6 +442,7 @@ class ConsumerSubscriptionUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     expectedVersion: int = Field(ge=1)
+    name: SubscriptionName | None = None
     events: list[Annotated[str, Field(min_length=1, max_length=160)]] | None = Field(
         default=None, min_length=1, max_length=100
     )

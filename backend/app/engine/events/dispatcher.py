@@ -7,8 +7,8 @@ holds, picked ``FOR UPDATE SKIP LOCKED``, least recently handled first. No row l
 request is in flight, so an operator's edit never waits for a receiver. On its thread, the claimed
 subscriptions are sent by four senders, each one at a time, so a slow receiver delays only its own.
 
-**One step** (``dispatch_one``). A subscription whose host the allowlist no longer names is
-suspended ``HOST_NOT_ALLOWED``; one whose next events expired, ``EVENTS_EXPIRED`` (C-D110); one with
+**One step** (``dispatch_one``). A subscription whose next events expired is suspended
+``EVENTS_EXPIRED`` (C-D110); one with
 a filter value no record matches any longer, ``FILTER_MATCHES_NOTHING``, before anything is sent
 (C-D109). Otherwise it builds the batch: the next events after the acknowledged position, read as
 the pull feed reads them with the subscription's events, filters and payload, at most 100 and 1 MiB
@@ -30,6 +30,7 @@ import logging
 import os
 import socket
 import threading
+import time
 import uuid
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -61,13 +62,12 @@ from ..reads.consumer_events import (
 )
 from ..reads.consumer_parameters import unmatched_values
 from ..reads.consumer_source import ConsumerSource
-from . import delivery
+from . import delivery, delivery_log
 from .subscription_rules import (
     ACTIVE,
     DELIVERY_FAILED,
     EVENTS_EXPIRED,
     FILTER_MATCHES_NOTHING,
-    HOST_NOT_ALLOWED,
     SUSPENDED,
     definition_of,
 )
@@ -79,7 +79,6 @@ from .subscriptions import (
     secret_text,
 )
 from .webhook_client import Answer, post
-from .webhook_urls import check_webhook_url
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +87,8 @@ SENDERS = 4
 POLL_SECONDS = 1.0
 RETRY_SECONDS = 2.0
 THREAD_NAME = "rdm-webhook-dispatcher"
+# How often a dispatcher prunes the delivery log (C-D118).
+PRUNE_EVERY = timedelta(hours=1)
 
 Key = tuple[int, int]
 
@@ -119,6 +120,7 @@ class EventDispatcher:
         self.senders = senders
         self.timeout_seconds = timeout_seconds
         self._stopping = threading.Event()
+        self._pruned_at: datetime | None = None
         self._thread: threading.Thread | None = None
         self._pool: ThreadPoolExecutor | None = None
 
@@ -223,6 +225,7 @@ class EventDispatcher:
                 return batch
             subscription.pending_delivery_id = batch.delivery_id
             subscription.pending_position, subscription.pending_ordinal = batch.end
+            delivery_log.open_batch(session, sequence_id, batch.delivery_id, batch.bodies, now)
             url = subscription.url
             secret = secret_text(
                 unseal(self.settings.encryption_key, subscription.signing_key, subscription.public_id.encode())
@@ -241,19 +244,8 @@ class EventDispatcher:
         workspace: Workspace,
         window: EventWindow,
     ) -> tuple[str, str, dict[str, Any]] | None:
-        """Why the subscription cannot go on, checked before anything is sent: its host, its expired
-        events, a filter value no record matches (C-D101, C-D110, C-D109)."""
-        refusal = check_webhook_url(subscription.url, self.settings.allowed_hosts)
-        if refusal is not None:
-            host = refusal.details.get("host", "") if isinstance(refusal.details, dict) else ""
-            return (
-                HOST_NOT_ALLOWED,
-                (
-                    f"Host '{host}' is no longer in CONSUMER_WEBHOOK_ALLOWED_HOSTS, or the URL is no "
-                    "longer accepted: edit the URL or the deployment's setting, then resume"
-                ),
-                {"code": refusal.code, "message": refusal.message, **(refusal.details or {})},
-            )
+        """Why the subscription cannot go on, checked before anything is sent: its expired events,
+        a filter value no record matches (C-D110, C-D109)."""
         if subscription.acknowledged_position < window.earliest - 1:
             details = expired_details(subscription.acknowledged_position, window)
             return (
@@ -411,17 +403,29 @@ class EventDispatcher:
         for delivery_id, body in batch.bodies:
             # A round's clock may lag behind a long round's later sends; a test's runs ahead.
             at = max(now, datetime.now(UTC))
-            self._renew(sequence_id, at)
             data = delivery.encode(body)
+            started = self._renew(sequence_id, at, (delivery_id, data))
             timestamp = int(at.timestamp())
+            clock = time.monotonic()
             answer = post(
                 url, data, delivery.headers(delivery_id, secret, timestamp, data), timeout=self.timeout_seconds
             )
+            elapsed = timedelta(seconds=time.monotonic() - clock)
+            if started is not None:
+                with self.session_factory() as session:
+                    delivery_log.finish_attempt(
+                        session, started, answer, at + elapsed, int(elapsed.total_seconds() * 1000)
+                    )
+                    session.commit()
             if not answer.ok:
                 return answer
         return answer
 
-    def _renew(self, sequence_id: int, now: datetime) -> None:
+    def _renew(
+        self, sequence_id: int, now: datetime, sending: tuple[str, bytes] | None = None
+    ) -> tuple[int, int] | None:
+        """Renew the lease; with ``sending`` (a delivery ID and its body), log the attempt's start in
+        the same transaction (U5a) and return it."""
         with self.session_factory() as session:
             session.execute(
                 update(ConsumerSubscription)
@@ -429,7 +433,11 @@ class EventDispatcher:
                 .values(lease_expires_at=now + timedelta(seconds=LEASE_SECONDS))
                 .execution_options(synchronize_session=False)
             )
+            started = (
+                delivery_log.start_attempt(session, sequence_id, sending[0], sending[1], now) if sending else None
+            )
             session.commit()
+        return started
 
     def _record(self, sequence_id: int, batch: _Batch, answer: Answer, now: datetime) -> bool:
         """Record what the receiver answered, while this dispatcher still holds the lease."""
@@ -466,6 +474,7 @@ class EventDispatcher:
             )
             if subscription.status == ACTIVE and delivery.gives_up(subscription.failing_since, now):
                 subscription.next_attempt_at = None
+                delivery_log.settle_batch(session, sequence_id, batch.delivery_id, "failed")
                 session.commit()
                 return self._suspend(
                     session,
@@ -510,6 +519,7 @@ class EventDispatcher:
     def run_once(self, now: datetime | None = None) -> bool:
         """Handle every subscription claimed now; whether any changed."""
         at = now or datetime.now(UTC)
+        self.prune(at)
         claimed = self.claim(at)
         if not claimed:
             return False
@@ -518,6 +528,18 @@ class EventDispatcher:
         else:
             results = [self.dispatch_one(sequence_id, at) for sequence_id in claimed]
         return any(results)
+
+    def prune(self, now: datetime) -> None:
+        """Delete delivery log entries past their retention, at most once per ``PRUNE_EVERY`` of
+        this dispatcher's clock (C-D118)."""
+        if self._pruned_at is not None and now - self._pruned_at < PRUNE_EVERY:
+            return
+        with self.session_factory() as session:
+            removed = delivery_log.prune(session, now, self.settings.log_retention_days)
+            session.commit()
+        self._pruned_at = now
+        if removed:
+            logger.info("Pruned %s webhook delivery log entries", removed)
 
     def run_until_idle(self, now: datetime | None = None) -> int:
         """Handle subscriptions until none changes at ``now``; the rounds that changed one."""

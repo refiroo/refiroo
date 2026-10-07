@@ -32,7 +32,7 @@ backend coverage is not mistaken for a complete user experience. Reviewed 2026-1
 | F20 | Query and look up across the data | Not applicable | Available | 0.9 Q1–Q3 |
 | F21 | Read by business date (`asOf`) | Fields only | Available | 0.9 Q4, C16 |
 | F22 | Load data in bulk as jobs | Jobs listed and cancelled in Settings | Available | 0.9 B1–B2; import screen 0.9 J4 |
-| F23 | Declare consumer APIs and read through them | JSON model editing; each shown in Settings | Definitions; reading one business object; reading lists; looking up by code; reading a publication; an index and a typed document per API; following change events; subscribing to them | 0.9 C1–C6, C10, C11 |
+| F23 | Declare consumer APIs and read through them | JSON model editing; each shown in Settings | Definitions; reading one business object; reading lists; looking up by code; reading a publication; an index and a typed document per API; following change events; subscribing to them | 0.9 C1–C6, C10, C11; Webhooks page U5 |
 | F24 | Read the API reference | Available at `/docs`, each source linked from Settings | Not applicable | 0.9 V1, V2 |
 | F25 | Follow changes in order | Not applicable | Available | 0.9 F1; retention and recovery 0.9 F2 |
 
@@ -495,6 +495,17 @@ is. After a day it is paused with the reason, and resuming sends everything from
 the receiver did not take. A subscription is also paused, with the reason, when its address's host
 is no longer allowed, when a record its filter names no longer exists, or when changes expired
 before they could be sent; the operator can then resume from now on and re-read the data.
+
+Settings › Integration › **Webhooks** does all of this on a page. A webhook has a name of its
+own. Creating one asks for the name and address, the consumer API and workspace, its events (all,
+or a few chosen from a searchable list) and any filters (added one at a time, their values typed as
+tags), and shows the signing key once. Each webhook's page has two tabs. **Configuration** shows
+whether it is delivering, retrying or paused, the reason and what fixes it, and edits, pauses,
+resumes (from the first change not taken, or from now on) and deletes it. **Deliveries** lists
+every change sent or being sent, newest first, with its status, attempts, the receiver's answer and
+when it went; opening one shows each attempt with how long it took, the request exactly as sent and
+the receiver's answer, as formatted JSON. Deliveries are kept for a week by default. A workspace
+that cannot be deleted because of its subscriptions lists them, each linked to its page.
 
 A consuming system reads one business object through a declared API by its record ID, at the
 API's contract version: exactly the fields the definition declares, values in their declared types,

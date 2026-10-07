@@ -10,7 +10,6 @@
  * each workspace; this screen does not list them.
  */
 
-import { Card } from "@/ui/Card";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
@@ -18,11 +17,15 @@ import { CapabilityStatus } from "@/features/administration/CapabilityStatus";
 import { formatServerTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import type { CapabilitiesResponse, SettingsRoute, Workspace, WorkspaceDetail, WorkspaceRuntimeState } from "@/types";
+import { CatalogueEntry, CatalogueLayout } from "@/ui/CatalogueLayout";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
+import { urlName } from "@/features/settings/webhookText";
+import { routePath } from "@/routing/routes";
 import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
+import { RouteLink } from "@/ui/RouteLink";
 import { SettingsLayout } from "@/ui/SettingsLayout";
 import { StatusPill } from "@/ui/StatusPill";
 import { useToast } from "@/ui/Toast";
@@ -52,7 +55,8 @@ export function WorkspaceAdmin({
   onWorkspaceDeleted,
 }: {
   route: WorkspacesRoute;
-  onRouteChange: (route: WorkspacesRoute) => void;
+  /** Moves within Workspaces, or to a webhook that keeps a workspace from being deleted. */
+  onRouteChange: (route: SettingsRoute) => void;
   onDefaultChanged?: (workspaceKey: string) => void;
   onOpenWorkspace: (workspaceKey: string) => void;
   onWorkspaceDeleted?: (workspaceKey: string) => void;
@@ -103,23 +107,21 @@ export function WorkspaceAdmin({
           Workspaces <span>{feed.items.length}</span>
         </h2>
         {feed.items.map((workspace) => (
-          <button
+          <CatalogueEntry
             key={workspace.key}
-            className={selectedKey === workspace.key ? "active" : ""}
-            aria-current={selectedKey === workspace.key ? "page" : undefined}
-            onClick={() => onRouteChange({ ...WORKSPACES, workspaceKey: workspace.key })}
-          >
-            <Icon name="workspace" />
-            <span className="catalogue-text">
-              <strong>{workspace.label}</strong>
-              <small>{workspace.key}</small>
-            </span>
-            {workspace.key === runtime?.defaultWorkspaceKey ? (
-              <StatusPill tone="success">Default</StatusPill>
-            ) : (
-              workspace.status === "retired" && <StatusPill tone="neutral">Retired</StatusPill>
-            )}
-          </button>
+            icon="workspace"
+            title={workspace.label}
+            subtitle={workspace.key}
+            current={selectedKey === workspace.key}
+            onSelect={() => onRouteChange({ ...WORKSPACES, workspaceKey: workspace.key })}
+            pill={
+              workspace.key === runtime?.defaultWorkspaceKey ? (
+                <StatusPill tone="success">Default</StatusPill>
+              ) : (
+                workspace.status === "retired" && <StatusPill tone="neutral">Retired</StatusPill>
+              )
+            }
+          />
         ))}
         {feed.loading && !feed.items.length && <p className="explorer-empty">Loading workspaces…</p>}
         {feed.error && (
@@ -171,41 +173,39 @@ export function WorkspaceAdmin({
       )}
       {!capabilities && !loadError && <div className="panel-state">Loading workspace catalogue…</div>}
       {capabilities && <CapabilityStatus capabilities={capabilities} />}
-      <div className={`catalogue-layout${route.workspaceKey ? " has-selection" : ""}`}>
-        {catalogue}
-        <div className="catalogue-selection">
-          {route.workspaceKey && (
-            <button type="button" className="secondary catalogue-back" onClick={() => onRouteChange(WORKSPACES)}>
-              <Icon name="arrow-left" /> All workspaces
-            </button>
-          )}
-          <Card as="section" flush className="model-detail">
-            {selectedKey && capabilities && runtime ? (
-              <WorkspaceDetail
-                key={selectedKey}
-                workspaceKey={selectedKey}
-                runtime={runtime}
-                canManage={canManage}
-                onChanged={replaceItem}
-                onRuntimeChanged={(state) => {
-                  setRuntime(state);
-                  onDefaultChanged?.(state.defaultWorkspaceKey);
-                }}
-                reloadRuntime={reloadRuntime}
-                onOpen={onOpenWorkspace}
-                onDeleted={(workspace) => {
-                  toast(`Workspace ${workspace.label} (${workspace.key}) was deleted. Its key can be used again.`);
-                  feed.reload();
-                  onRouteChange(WORKSPACES);
-                  onWorkspaceDeleted?.(workspace.key);
-                }}
-              />
-            ) : (
-              !loadError && <div className="panel-state">Choose a workspace.</div>
-            )}
-          </Card>
-        </div>
-      </div>
+      <CatalogueLayout
+        catalogue={catalogue}
+        hasSelection={!!route.workspaceKey}
+        backLabel="All workspaces"
+        onBack={() => onRouteChange(WORKSPACES)}
+      >
+        {selectedKey && capabilities && runtime ? (
+          <WorkspaceDetail
+            key={selectedKey}
+            workspaceKey={selectedKey}
+            runtime={runtime}
+            canManage={canManage}
+            onChanged={replaceItem}
+            onRuntimeChanged={(state) => {
+              setRuntime(state);
+              onDefaultChanged?.(state.defaultWorkspaceKey);
+            }}
+            reloadRuntime={reloadRuntime}
+            onOpen={onOpenWorkspace}
+            onOpenSubscription={(subscriptionId) =>
+              onRouteChange({ kind: "settings", page: "webhooks", subscriptionId })
+            }
+            onDeleted={(workspace) => {
+              toast(`Workspace ${workspace.label} (${workspace.key}) was deleted. Its key can be used again.`);
+              feed.reload();
+              onRouteChange(WORKSPACES);
+              onWorkspaceDeleted?.(workspace.key);
+            }}
+          />
+        ) : (
+          !loadError && <div className="panel-state">Choose a workspace.</div>
+        )}
+      </CatalogueLayout>
       {creating && (
         <CreateWorkspaceDialog
           onClose={() => {
@@ -232,6 +232,7 @@ function WorkspaceDetail({
   onRuntimeChanged,
   reloadRuntime,
   onOpen,
+  onOpenSubscription,
   onDeleted,
 }: {
   workspaceKey: string;
@@ -241,6 +242,7 @@ function WorkspaceDetail({
   onRuntimeChanged: (state: WorkspaceRuntimeState) => void;
   reloadRuntime: () => Promise<WorkspaceRuntimeState>;
   onOpen: (workspaceKey: string) => void;
+  onOpenSubscription: (subscriptionId: string) => void;
   onDeleted: (workspace: Workspace) => void;
 }) {
   const [workspace, setWorkspace] = useState<WorkspaceDetail>();
@@ -476,6 +478,9 @@ function WorkspaceDetail({
         </p>
       )}
       {canManage && deleteBlockedHint && <p className="admin-hint">{deleteBlockedHint}</p>}
+      {canManage && workspace.deleteBlockedBy === "subscribed" && (
+        <WorkspaceSubscriptions workspaceKey={workspace.key} onOpen={onOpenSubscription} />
+      )}
       <p className="admin-hint">
         {active
           ? "Change sets and publications belong to this workspace. Open it to work with them."
@@ -530,6 +535,42 @@ function WorkspaceDetail({
             change sets or publications, so no data is lost, and the key can be created again.
           </p>
         </ConfirmDialog>
+      )}
+    </div>
+  );
+}
+
+/** The webhook subscriptions that keep a workspace from being deleted, each linked to its page. */
+function WorkspaceSubscriptions({
+  workspaceKey,
+  onOpen,
+}: {
+  workspaceKey: string;
+  onOpen: (subscriptionId: string) => void;
+}) {
+  const feed = useCursorFeed((cursor) => api.subscriptions({ cursor, workspaceKey }), [workspaceKey]);
+  if (feed.error) return <InlineError message={feed.error} onRetry={feed.retry} />;
+  if (!feed.items.length) return null;
+  return (
+    <div className="admin-hint">
+      Its webhooks:
+      <ul className="workspace-subscriptions">
+        {feed.items.map((subscription) => (
+          <li key={subscription.id}>
+            <RouteLink
+              href={routePath({ kind: "settings", page: "webhooks", subscriptionId: subscription.id })}
+              onNavigate={() => onOpen(subscription.id)}
+            >
+              {subscription.name}
+            </RouteLink>{" "}
+            ({urlName(subscription.url)})
+          </li>
+        ))}
+      </ul>
+      {feed.hasMore && (
+        <button className="load-more" disabled={feed.loading} onClick={feed.loadMore}>
+          Load more webhooks
+        </button>
       )}
     </div>
   );

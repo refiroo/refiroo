@@ -26,7 +26,8 @@ from app.db import DatabaseStartupError, get_engine, migration_config
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261006_03"
+HEAD = "20261007_01"
+DELIVERY_STATE = "20261006_03"
 SUBSCRIPTIONS = "20261006_02"
 CONSUMER_EVENTS = "20261006_01"
 PUBLICATION_READS = "20261005_03"
@@ -678,6 +679,71 @@ def test_an_interrupted_delivery_state_revision_rolls_back_and_the_next_start_re
     assert "attempts" not in {c["name"] for c in inspect(engine).get_columns("consumer_subscriptions")}
     with engine.begin() as connection:
         connection.execute(text("DROP INDEX ix_consumer_subscriptions_due"))
+    engine.dispose()
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        assert errors == []
+        assert client.get("/health").json() == {"status": "ok"}
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+
+
+def test_a_database_with_subscriptions_upgrades_to_names_and_the_delivery_log(monkeypatch, databases):
+    """Base 0.9 U5a on a database at the previous revision holding a subscription: the upgrade
+    names it after its URL's host and path, adds the empty delivery log, and the service starts
+    twice. A downgrade keeps the subscription."""
+    url = seeds.create_empty()
+    databases.append(url)
+    command.upgrade(migration_config(url), DELIVERY_STATE)
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO consumer_subscriptions (public_id, consumer_api, contract_version, workspace_key, "
+                "event_keys, filters, url, mode, payload, status, acknowledged_position, acknowledged_ordinal, "
+                "signing_key, signing_key_created_at, version, created_at, updated_at) VALUES "
+                "('00000000-0000-4000-8000-000000000002', 'rdm', 1, 'default', '[\"changed\"]', '{}', "
+                "'https://hooks.example.test/rdm/in/?token=x', 'perChange', 'full', 'active', 3, 2147483647, "
+                "'\\x00', now(), 1, now(), now())"
+            )
+        )
+    engine.dispose()
+    monkeypatch.setenv("CONSUMER_SUBSCRIPTIONS_ENABLED", "true")
+    monkeypatch.setenv("CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY", "a" * 43)
+    for _start in range(2):
+        with serve(monkeypatch, _render(url)) as (client, errors):
+            assert errors == []
+            (item,) = client.get("/api/v1/consumer-subscriptions").json()["items"]
+            assert item["name"] == "hooks.example.test/rdm/in"
+            deliveries = client.get(f"/api/v1/consumer-subscriptions/{item['id']}/deliveries")
+            assert deliveries.status_code == 200 and deliveries.json()["items"] == []
+        assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+    command.downgrade(migration_config(url), DELIVERY_STATE)
+    assert _scalar(url, "SELECT count(*) FROM consumer_subscriptions") == 1
+    assert _scalar(url, "SELECT to_regclass('consumer_webhook_requests')") is None
+
+
+def test_an_interrupted_delivery_log_revision_rolls_back_and_the_next_start_recovers(monkeypatch, databases):
+    url = seeds.create_empty()
+    databases.append(url)
+    command.upgrade(migration_config(url), DELIVERY_STATE)
+    # The attempts table's name already taken: the revision fails after naming the subscriptions.
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        connection.execute(text("CREATE TABLE consumer_webhook_attempts (x integer)"))
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        message = _assert_refused(
+            client,
+            errors,
+            "Database migration failed",
+            f"Current revision: {DELIVERY_STATE}",
+            f"target revision: {HEAD}",
+            "still at its current revision",
+        )
+        assert "consumer_webhook_attempts" in message
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == DELIVERY_STATE
+    assert "name" not in {c["name"] for c in inspect(engine).get_columns("consumer_subscriptions")}
+    assert _scalar(url, "SELECT to_regclass('consumer_webhook_requests')") is None
+    with engine.begin() as connection:
+        connection.execute(text("DROP TABLE consumer_webhook_attempts"))
     engine.dispose()
     with serve(monkeypatch, _render(url)) as (client, errors):
         assert errors == []

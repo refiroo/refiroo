@@ -32,7 +32,7 @@ export function capabilitiesFixture({
     consumerApi: { resolveMaxItems: 1000, setting: "CONSUMER_RESOLVE_MAX_ITEMS" },
     consumerSubscriptions: {
       manageSubscriptions: false,
-      allowedHosts: [],
+      logRetentionDays: 7,
       delivery: {
         maxEvents: 100,
         maxBytes: 1024 * 1024,

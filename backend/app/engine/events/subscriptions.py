@@ -25,7 +25,7 @@ from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import delete, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
 from ...common.sealing import seal
@@ -41,6 +41,7 @@ from ..reads.consumer_events import AFTER_POSITION, EventWindow, check_after, ev
 from ..reads.consumer_parameters import unmatched_values
 from ..reads.consumer_source import ConsumerSource
 from ..workspaces.catalogue import load_workspace_runtime_state
+from . import delivery_log
 from .subscription_rules import (
     ACTIVE,
     SUSPENDED,
@@ -59,12 +60,13 @@ _KEYS = (integer_key("sequenceId", ConsumerSubscription.sequence_id, "sequence_i
 
 @dataclass(frozen=True)
 class SubscriptionSettings:
-    """What the deployment configures: the hosts URLs may name, the key signing keys are sealed
-    with, and the events' retention, which decides what has expired."""
+    """What the deployment configures: the key signing keys are sealed with, the events'
+    retention, which decides what has expired, and how long the delivery log keeps a request
+    (C-D118)."""
 
-    allowed_hosts: tuple[str, ...]
     encryption_key: bytes
     retention_days: int
+    log_retention_days: int = 7
 
 
 def listed(filters: Mapping[str, str | Sequence[str]]) -> dict[str, list[str]]:
@@ -109,7 +111,7 @@ def _findings(
             refusal = unmatched_values(session, model, definition, source, name, values, f"/filters/{name}")
             if refusal is not None:
                 findings.append(refusal)
-    url_refusal = check_webhook_url(url, settings.allowed_hosts)
+    url_refusal = check_webhook_url(url)
     if url_refusal is not None:
         findings.append(url_refusal)
     return findings, workspace
@@ -127,7 +129,11 @@ def _secret() -> tuple[str, bytes]:
 
 def clear_delivery(subscription: ConsumerSubscription) -> None:
     """Forget the batch being retried and its failures: the next attempt is at once, and builds a
-    new batch, with a new delivery ID, after the acknowledged position."""
+    new batch, with a new delivery ID, after the acknowledged position. The dropped batch's
+    unfinished requests are logged ``dropped`` (U5a)."""
+    session = object_session(subscription)
+    if session is not None:
+        delivery_log.settle_batch(session, subscription.sequence_id, subscription.pending_delivery_id, "dropped")
     subscription.pending_delivery_id = None
     subscription.pending_position = None
     subscription.pending_ordinal = None
@@ -159,6 +165,7 @@ def create_subscription(
     now = datetime.now(UTC)
     subscription = ConsumerSubscription(
         public_id=public_id,
+        name=payload.name,
         consumer_api=definition.key,
         contract_version=definition.contractVersion,
         workspace_key=workspace.key,
@@ -257,7 +264,11 @@ def update_subscription(
             subscription.debounce_seconds = None
         if payload.payload is not None:
             subscription.payload = payload.payload
-        clear_delivery(subscription)
+        if payload.name is not None:
+            subscription.name = payload.name
+        # A rename changes nothing the receiver sees, so it keeps a batch being retried (C-D115).
+        if payload.model_fields_set - {"expectedVersion", "name"}:
+            clear_delivery(subscription)
         _touch(subscription)
         return subscription
 

@@ -256,4 +256,31 @@ export interface EngineModel {
   relationTypes: RelationTypeDefinition[];
   objectTypeRelations: ObjectTypeRelationDefinition[];
   applications: ApplicationDefinition[];
+  /** The consumer APIs the release declares (schema 0.8); the parts the Webhooks page reads. */
+  consumerApis?: ConsumerApiDeclaration[];
+}
+
+/** A change event a consumer API declares: the types it covers, the changes, what an update watches. */
+export interface ConsumerEventDeclaration {
+  key: string;
+  objectTypes: string[];
+  changes: ("created" | "updated" | "deleted")[];
+  watch?: { fields?: string[]; projections?: string[] };
+}
+
+/** A consumer API parameter, which a webhook subscription may use as a filter. */
+export interface ConsumerParameterDeclaration {
+  kind: "objectType" | "ancestor" | "related" | "projection";
+  objectTypes?: string[];
+  matchFields?: string[];
+  projection?: string;
+}
+
+export interface ConsumerApiDeclaration {
+  key: string;
+  name: string;
+  description?: string;
+  contractVersion: number;
+  parameters?: Record<string, ConsumerParameterDeclaration>;
+  events?: ConsumerEventDeclaration[];
 }

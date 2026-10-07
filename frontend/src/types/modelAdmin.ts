@@ -46,7 +46,8 @@ export interface WebhookDeliveryLimits {
 
 export interface ConsumerSubscriptionCapabilities {
   manageSubscriptions: boolean;
-  allowedHosts: string[];
+  /** Days the delivery log keeps a request (`CONSUMER_WEBHOOK_LOG_RETENTION_DAYS`). */
+  logRetentionDays: number;
   delivery: WebhookDeliveryLimits;
   setting: string;
 }

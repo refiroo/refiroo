@@ -1,6 +1,6 @@
 /**
- * Integration contracts the settings pages read: the consumer API index (`GET /api/consumer`) and
- * jobs (`GET /api/v1/jobs`).
+ * Integration contracts the settings pages read: the consumer API index (`GET /api/consumer`), jobs
+ * (`GET /api/v1/jobs`) and webhook subscriptions (`/api/v1/consumer-subscriptions`).
  */
 
 /** One consumer API of the active release, as the API index lists it. */
@@ -56,4 +56,140 @@ export interface Job {
 export interface JobPage {
   items: Job[];
   nextCursor: string | null;
+}
+
+export type SuspensionReason =
+  | "SUSPENDED_BY_USER"
+  | "MODEL_CHANGED"
+  | "CONTRACT_VERSION_CHANGED"
+  | "WORKSPACE_RETIRED"
+  | "DELIVERY_FAILED"
+  | "FILTER_MATCHES_NOTHING"
+  | "EVENTS_EXPIRED";
+
+/** Why an attempt failed (C-D107): `status` when the receiver answered; `message` at most 200 characters. */
+export interface DeliveryError {
+  kind: "status" | "redirect" | "timeout" | "connection" | "tls" | "address";
+  status?: number;
+  message: string;
+}
+
+/** A finding of the subscription checks: what is wrong, at its body pointer. */
+export interface SubscriptionFinding {
+  code: string;
+  message: string;
+  pointer?: string;
+}
+
+/** A webhook subscription (C11, C12). `signingSecret` is in the create answer only. */
+export interface Subscription {
+  id: string;
+  name: string;
+  consumerApi: string;
+  contractVersion: number;
+  workspaceKey: string;
+  events: string[];
+  filters: Record<string, string[]>;
+  url: string;
+  mode: "perChange" | "coalesced";
+  debounceSeconds: number | null;
+  payload: "full" | "identity";
+  status: "active" | "suspended";
+  suspension: {
+    reason: SuspensionReason;
+    message: string;
+    /** Per reason (API.md, "Suspension reasons"). */
+    details: Record<string, unknown> | null;
+    suspendedAt: string;
+  } | null;
+  acknowledgedThrough: number;
+  delivery: {
+    lastDeliveredAt: string | null;
+    pending: {
+      deliveryId: string;
+      throughPosition: number;
+      attempts: number;
+      failingSince: string;
+      lastAttemptAt: string;
+      nextAttemptAt: string | null;
+      lastError: DeliveryError;
+    } | null;
+  };
+  signingKeyCreatedAt: string;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+  signingSecret?: string;
+}
+
+export interface SubscriptionPage {
+  items: Subscription[];
+  nextCursor: string | null;
+}
+
+/** What a subscription asks for; a create adds the consumer API and workspace. */
+export interface SubscriptionSettings {
+  name: string;
+  events: string[];
+  filters: Record<string, string[]>;
+  url: string;
+  mode: Subscription["mode"];
+  debounceSeconds?: number;
+  payload: Subscription["payload"];
+}
+
+export interface SubscriptionCreate extends SubscriptionSettings {
+  consumerApi: string;
+  workspaceKey: string;
+}
+
+export type SubscriptionUpdate = Partial<SubscriptionSettings> & { expectedVersion: number };
+
+export type DeliveryStatus = "queued" | "sending" | "retrying" | "succeeded" | "failed" | "dropped";
+
+/** One event of a request, or one notice (`GET /consumer-subscriptions/{id}/deliveries`). Rows of
+ * one request share its status, attempts, answer and time. */
+export interface DeliveryRow {
+  deliveryId: string;
+  eventId: string | null;
+  event: string;
+  change: string | null;
+  objectType: string | null;
+  objectId: string | null;
+  position: number;
+  status: DeliveryStatus;
+  attempts: number;
+  responseStatus: number | null;
+  sentAt: string | null;
+  nextAttemptAt: string | null;
+}
+
+export interface DeliveryRowPage {
+  items: DeliveryRow[];
+  nextCursor: string | null;
+}
+
+export interface DeliveryAttempt {
+  number: number;
+  startedAt: string;
+  completedAt: string | null;
+  durationMs: number | null;
+  responseStatus: number | null;
+  error: { kind: DeliveryError["kind"]; message: string } | null;
+  /** Up to 4 KiB of the receiver's answer. */
+  responseBody: string | null;
+}
+
+/** A request of a webhook batch with its body as sent and every attempt. */
+export interface DeliveryDetail {
+  deliveryId: string;
+  batchId: string;
+  kind: "events" | "notice";
+  status: DeliveryStatus;
+  events: Omit<DeliveryRow, "deliveryId" | "status" | "attempts" | "responseStatus" | "sentAt" | "nextAttemptAt">[];
+  requestBody: unknown;
+  requestBytes: number | null;
+  createdAt: string;
+  nextAttemptAt: string | null;
+  attempts: DeliveryAttempt[];
 }

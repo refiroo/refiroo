@@ -664,11 +664,10 @@ def consumer_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat
 
 CONSUMER_EVENTS = f"/api/consumer/{CONSUMER_API}/v1/events"
 SUBSCRIPTIONS_PATH = "/api/v1/consumer-subscriptions"
-# The subscriptions capability (0.9 C11, C12) as the delivery scenarios need it: on, ``localhost``
-# allowed (plain HTTP to a listed loopback host, C-D101), and a key to seal signing keys with.
+# The subscriptions capability (0.9 C11, C12) as the delivery scenarios need it: on, and a key to
+# seal signing keys with.
 SUBSCRIPTION_SETTINGS = {
     "CONSUMER_SUBSCRIPTIONS_ENABLED": "true",
-    "CONSUMER_WEBHOOK_ALLOWED_HOSTS": "localhost",
     "CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY": "a2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2s=",
 }
 CAUGHT_UP_SUBSCRIPTIONS = 100
@@ -810,7 +809,12 @@ def delivery_scenarios(
     results: list[Measurement] = []
 
     def subscribe(**changes: Any) -> str:
-        body = {"consumerApi": CONSUMER_API, "workspaceKey": WORKSPACE, "events": ["catalogue-changed"]}
+        body = {
+            "name": "Volume receiver",
+            "consumerApi": CONSUMER_API,
+            "workspaceKey": WORKSPACE,
+            "events": ["catalogue-changed"],
+        }
         response = client.post(SUBSCRIPTIONS_PATH, json={**body, "url": receiver.url, **changes})
         assert response.status_code == 201, response.text
         return response.json()["id"]

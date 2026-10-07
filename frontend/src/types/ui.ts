@@ -84,6 +84,16 @@ export type RouteState =
 export type SettingsRoute =
   | { kind: "settings"; page: "about" | "appearance" | "deployment" | "consumer-apis" | "jobs" | "api-reference" }
   | { kind: "settings"; page: "workspaces"; workspaceKey?: string }
+  | {
+      kind: "settings";
+      page: "webhooks";
+      subscriptionId?: string;
+      /** The detail's tab; Configuration without one. */
+      tab?: "deliveries";
+      /** An opened delivery: its request, and the event within it (none for a notice). */
+      deliveryId?: string;
+      eventId?: string;
+    }
   | { kind: "settings"; page: "model"; releaseId?: string; draftId?: string };
 
 export type SettingsPage = SettingsRoute["page"];

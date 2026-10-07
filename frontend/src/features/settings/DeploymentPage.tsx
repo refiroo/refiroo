@@ -158,7 +158,6 @@ function capabilityGroups(capabilities: CapabilitiesResponse) {
       setting: capabilities.consumerSubscriptions.setting,
       scope: "Subscribing to a consumer API's events and delivering them as signed webhooks.",
       limits: [
-        { term: "Allowed hosts", value: capabilities.consumerSubscriptions.allowedHosts.join(", ") || "None" },
         { term: "Delivery batch", value: `${count(delivery.maxEvents)} events, ${bytes(delivery.maxBytes)}` },
         { term: "Receiver timeout", value: `${count(delivery.timeoutSeconds)} seconds` },
         { term: "Retried for", value: `${count(delivery.retryHours)} hours` },

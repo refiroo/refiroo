@@ -44,6 +44,10 @@ RULES = {
     ("consumer_event_checkpoints", "workspace_key"): ("workspaces", "CASCADE"),
     # A workspace with subscriptions cannot be deleted (C11, C-D99).
     ("consumer_subscriptions", "workspace_key"): ("workspaces", "RESTRICT"),
+    # The delivery log goes with its subscription, and a request's events and attempts with it (U5a).
+    ("consumer_webhook_requests", "subscription_sequence_id"): ("consumer_subscriptions", "CASCADE"),
+    ("consumer_webhook_request_events", "request_sequence_id"): ("consumer_webhook_requests", "CASCADE"),
+    ("consumer_webhook_attempts", "request_sequence_id"): ("consumer_webhook_requests", "CASCADE"),
     # Publications are history and never deleted; withdrawal changes a status. Their rows would go
     # with them.
     ("publication_objects", "publication_id"): ("publications", "CASCADE"),

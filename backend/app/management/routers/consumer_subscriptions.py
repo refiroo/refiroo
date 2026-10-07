@@ -8,6 +8,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Query, Request
 
+from ...engine.events.delivery_log import delivery_detail, delivery_rows
 from ...engine.events.subscriptions import (
     SubscriptionSettings,
     create_subscription,
@@ -26,9 +27,14 @@ from ...models.commands import (
 )
 from ..dependencies import DbSession
 from ..paging import PageQuery
+from ..presenters import delivery_detail_response, delivery_page, subscription_response
 from ..presenters import subscription_page as present_page
-from ..presenters import subscription_response
-from ..schemas.consumer_subscriptions import SubscriptionPage, SubscriptionResponse
+from ..schemas.consumer_subscriptions import (
+    DeliveryDetail,
+    DeliveryPage,
+    SubscriptionPage,
+    SubscriptionResponse,
+)
 
 router = APIRouter(prefix="/api/v1", tags=["consumer subscriptions"])
 
@@ -41,8 +47,8 @@ def _settings(request: Request) -> SubscriptionSettings:
 def create(payload: ConsumerSubscriptionCreate, request: Request, session: DbSession) -> SubscriptionResponse:
     """Subscribe a URL to some of a consumer API's events in a workspace.
 
-    The subscription is checked against the active release's definition, the deployment's host
-    allowlist (``CONSUMER_WEBHOOK_ALLOWED_HOSTS``) and the workspace; each filter value must match
+    The subscription is checked against the active release's definition, the URL's form and the
+    workspace; each filter value must match
     a record. It starts after the workspace's feed head, or after ``startAfter``. The answer holds
     ``signingSecret``, the key every delivery is signed with: it is never returned again.
     """
@@ -117,3 +123,27 @@ def delete(
     expected_version: int = Query(alias="expectedVersion", ge=1),
 ) -> None:
     delete_subscription(session, subscription_id, expected_version)
+
+
+@router.get("/consumer-subscriptions/{subscription_id}/deliveries", response_model=DeliveryPage)
+def list_deliveries(
+    subscription_id: str,
+    session: DbSession,
+    paging: PageQuery,
+    status: Literal["queued", "sending", "retrying", "succeeded", "failed", "dropped"] | None = None,
+    page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
+) -> DeliveryPage:
+    """What the subscription delivered or is delivering, newest first: one row per event of a
+    per-change request and one per notice of a coalesced one (U5a). Rows of one request share its
+    status, attempts, answer and time. Kept for ``CONSUMER_WEBHOOK_LOG_RETENTION_DAYS``."""
+    subscription = load_subscription(session, subscription_id)
+    page, _ = delivery_rows(session, subscription, status, paging, page_size)
+    return delivery_page(page, subscription)
+
+
+@router.get("/consumer-subscriptions/{subscription_id}/deliveries/{delivery_id}", response_model=DeliveryDetail)
+def get_delivery(subscription_id: str, delivery_id: str, session: DbSession) -> DeliveryDetail:
+    """A request by its delivery ID (``RDM-Delivery-Id``): its events or notice, the body of its
+    latest attempt as the receiver got it, and every attempt with its start, duration and answer."""
+    subscription = load_subscription(session, subscription_id)
+    return delivery_detail_response(delivery_detail(session, subscription, delivery_id))

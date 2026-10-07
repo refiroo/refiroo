@@ -82,7 +82,7 @@ becomes a select at the top of the page.
 | Administration | Deployment | Every operator setting: name, environment variable, value, default, what it controls; capability groups on or off with the setting that switches them | `GET /api/v1/system`, `GET /api/v1/capabilities` | U3 (0.9) |
 | Administration | Operations | Health, readiness, metrics summary, last backup rehearsal | 0.11 routes | U7 (0.11) |
 | Integration | Consumer APIs | Per definition: name, namespace, contract version, base URL with copy, OpenAPI URL, a link to its source on `/docs`, exposed types, lists, events (each with its types, change kinds and watched outputs, read-only). The model release that declares it, with a link to the model | `GET /api/consumer` (C6), the active release | U4 (0.9) |
-| Integration | Webhooks | Subscriptions: create (the signing key shown once), edit, suspend, resume (after expired events: the lost range and the publication to re-sync from, and resume with `reset`, starting after the feed's head, with the order "reset, then re-sync" explained, C-D93 revised, C-D110; a resume that needs an edit lists what to fix, C-D98), delete; the suspension reason with its message and findings; the allowed hosts from capabilities (C-D101); a workspace's subscriptions named where deleting it is refused (`deleteBlockedBy: subscribed`); events chosen from the definition's declared events, each linked to its declaration on Consumer APIs; payload (`full` or `identity`); delivery state from the subscription's `delivery` (C12, C-D108): last delivered, and while a batch fails its attempts, first failure, last error by kind and next attempt; the dispatcher's reasons (`DELIVERY_FAILED`, `HOST_NOT_ALLOWED`, `FILTER_MATCHES_NOTHING`, `EVENTS_EXPIRED`) each with its fix; the delivery limits from capabilities. Signed from 0.9 (C-D12 revised 2026-10-05); 0.12 adds rotation | `/api/v1/consumer-subscriptions` (C11–C12) | U5 (0.9) |
+| Integration | Webhooks | Subscriptions: create (the signing key shown once), edit, suspend, resume (after expired events: the lost range and the publication to re-sync from, and resume with `reset`, starting after the feed's head, with the order "reset, then re-sync" explained, C-D93 revised, C-D110; a resume that needs an edit lists what to fix, C-D98), delete; the suspension reason with its message and findings; the allowed hosts from capabilities (C-D101); a workspace's subscriptions named where deleting it is refused (`deleteBlockedBy: subscribed`); events chosen from the definition's declared events, each linked to its declaration on Consumer APIs; payload (`full` or `identity`); delivery state from the subscription's `delivery` (C12, C-D108): last delivered, and while a batch fails its attempts, first failure, last error by kind and next attempt; the dispatcher's reasons (`DELIVERY_FAILED`, `FILTER_MATCHES_NOTHING`, `EVENTS_EXPIRED`) each with its fix; the delivery limits from capabilities. Signed from 0.9 (C-D12 revised 2026-10-05); 0.12 adds rotation | `/api/v1/consumer-subscriptions` (C11–C12) | U5 (0.9) |
 | Integration | Jobs and feed | Recent jobs with status and outcome counts; cancel; batch and job limits; feed retention | job routes (B1–B2), `GET /api/v1/capabilities` | U4 (0.9) |
 | Integration | API reference | Links to `/docs`, one per source, with its version | `GET /api/consumer` | U4 (0.9) |
 | Security | Users and roles; OAuth clients and their access per consumer API; signing keys; sign-in | 0.12 routes | U8 (0.12) |
@@ -187,7 +187,8 @@ The user chose Direction B, "Open" (U-D6, ADR-039), which sets the values for po
 | U3 | 0.9 | U2 | **Delivered 2026-10-06** ([record](#u3-delivery-record); U-D10 and U-D11). Settings area: `/settings` routes and layout; About, Appearance and Deployment; Workspaces and Model moved under Administration (old URLs redirect); the popover reduced to account and theme with a link to Settings; `GET /api/v1/system` |
 | UA | 0.9 | U3 | **Planned 2026-10-06** ([plan](#ua-the-atlas-redesign); ADR-040, U-D12, U-D13). The Atlas redesign of every surface in one pass, the record browser first, each surface approved by the user from screenshots; replaces the older styles; folds in U6 |
 | U4 | 0.9 | UA, C6b, V2 | **Implemented 2026-10-07** ([plan](#u4-the-integration-pages), [record](#u4-record-2026-10-07)), screenshots awaiting approval. Integration pages: Consumer APIs, Jobs and feed, API reference. Starter consumer API per U-D5 |
-| U5 | 0.9 | U4, C12 | Webhooks page over the subscriptions API (C12 delivered 2026-10-06: `delivery`, the four dispatcher reasons, `reset`) |
+| U5 | 0.9 | U4, C12 | **Implemented 2026-10-07** ([plan](#u5-the-webhooks-page), [record](#u5-record-2026-10-07)), screenshots awaiting approval. Webhooks page over the subscriptions API (C12 delivered 2026-10-06: `delivery`, the four dispatcher reasons, `reset`) |
+| U5a | 0.9 | U5 | **Implemented 2026-10-07** ([plan](#u5a-webhook-names-the-delivery-log-and-the-webhooks-page-revised), [record](#u5a-record-2026-10-07)), screenshots awaiting approval. Webhook names, the delivery log and its routes, the dialog rebuilt, the Configuration and Deliveries tabs |
 | U6 | — | — | **Folded into UA (2026-10-06):** the remaining surfaces are redesigned in UA, in 0.9. 0.10's editor (A4) builds on UA |
 | U7 | 0.11 | U3 | Operations page over 0.11's health, readiness, metrics and backup routes |
 | U8 | 0.12 | U5 | Security pages: sign-in and account; users and roles; OAuth clients and their access per consumer API; webhook signing-key rotation (keys are generated and shown once from 0.9, U5). Replaces 0.12's "UI administration" items with pages in this area |
@@ -503,7 +504,7 @@ coverage.
     a release is activated or its schema is upgraded, `engine/model/releases.py:161`). Its name and
     version are in `GET /model-releases/{id}`.
 - **Capabilities.** `GET /api/v1/capabilities` reports six groups. Each names the `setting` that
-  switches it, along with the limits and the webhook host allowlist.
+  switches it, along with the limits.
 - **Shell.**
   - `AppShell` renders the top bar: mark, workspace switcher, application tabs, the model version
     ("Model 0.9.0 · Schema 0.8"), **Models**, **Workspaces**, and the gear. The gear opens
@@ -1815,6 +1816,313 @@ Implemented as planned; waiting for the user's approval of the screenshots (the 
   the address to `#<slug>`; the runner checks the source by its title, as V1's does. In full-page
   captures of a long settings page the rail's background stops at the viewport's height (Deployment
   too, so not new).
+
+### U5: the Webhooks page
+
+**Planned 2026-10-07** and implemented the same day on the user's request ("implement build 0.9
+u5"); the plan was not approved separately. Needs U4 (implemented) and C12 (delivered).
+
+**Outcome.** **Settings › Integration › Webhooks**, after Consumer APIs. An integrator or operator
+subscribes a receiver to a consumer API's events without writing a request, keeps the signing key
+shown once, and later reads whether delivery is going, why a subscription stopped and what to do
+about it, then edits, suspends, resumes (with or without `reset`) or deletes it.
+
+**Reference.** The list-and-detail settings pattern of Workspaces and Model (U-D10 as revised): the
+catalogue beside the selected entry, each entry at its own address, taking turns below 760px.
+`Section`, `DescriptionList`, `StatusPill`, `Notice`, `Modal`, `ConfirmDialog`, `CopyValue`, `Toast`,
+`EmptyState`, `Skeleton`.
+
+**Composable domains (ADR-032):** no door is affected. U5 adds a page over existing routes; it does
+not touch identity, attribute storage, audit, bulk APIs, `match` or mapping coverage.
+
+#### What exists (checked 2026-10-07)
+
+- **No route is missing.** `/api/v1/consumer-subscriptions` (C11, C12) creates (answering
+  `signingSecret` once), pages newest first, reads, edits (`PATCH` with `expectedVersion`),
+  suspends, resumes (`reset`) and deletes. The answer carries `suspension` (reason, message, details)
+  and `delivery` (`lastDeliveredAt`, `pending`). `GET /capabilities` has `consumerSubscriptions`
+  (on or off, the delivery limits); with it off every route answers `404`.
+  `GET /model` has each definition's `events` and `parameters`, which the create form needs.
+- **Workspaces** already refuses a delete with "This workspace has webhook subscriptions" (U3), but
+  does not name them.
+- **Consumer APIs** (U4, reworked after its record; TODO "Document the starter's consumer API
+  lookups and the reworked Consumer APIs page") lists each definition's routes from its OpenAPI
+  document, not its events one by one. So a subscription's events cannot link to an event's
+  declaration there; U5 shows each event's declaration (types, changes, what an update watches) in
+  place, from the active model, and links the consumer API to Consumer APIs.
+- The catalogue layout (`catalogue-layout`, the catalogue `nav`, the back button and the detail
+  card) is copied in `WorkspaceAdmin` and `ModelWorkbench`. U5 would be the third copy.
+
+#### Scope
+
+1. **One catalogue component (U-D14).** `ui/CatalogueLayout` (the layout, the way back below 760px
+   and the detail card) and `ui/CatalogueEntry` (an entry button with icon, title, subtitle and
+   pill). Workspaces and Model move onto them; their markup and styles stay as they are.
+2. **Routes and navigation.** `/settings/webhooks` and `/settings/webhooks/{id}`; Webhooks after
+   Consumer APIs in the Integration group.
+3. **Off.** With `manageSubscriptions` off the page reads nothing else and says that webhooks are
+   off, naming `CONSUMER_SUBSCRIPTIONS_ENABLED` (and that it needs
+   `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`), linking Deployment.
+4. **Catalogue.** Subscriptions newest first with Load more: the URL's host and path, the consumer
+   API and workspace, and a pill: Active, Retrying (a batch is failing) or Suspended. Without a
+   selection the detail asks to choose one; with none, an `EmptyState` with **New webhook**.
+5. **Detail.**
+   - **Status**: when suspended, a `Notice` with the reason in words, its message, when, its details
+     and the fix for that reason: `SUSPENDED_BY_USER` (resume); `MODEL_CHANGED` (each finding with its
+     pointer; edit, then resume); `CONTRACT_VERSION_CHANGED` (accepted and served versions; a resume
+     accepts the served one); `WORKSPACE_RETIRED` (reactivate the workspace, then resume, or delete);
+     `DELIVERY_FAILED` (attempts, failing since, the last error; fix the receiver, then resume);
+     `FILTER_MATCHES_NOTHING` (the parameter and values; edit the filter);
+     `EVENTS_EXPIRED` (the lost positions and the publication; resume with reset, then re-sync from
+     the publication).
+   - **Delivery**: last delivered; while a batch fails, its delivery ID, attempts, failing since,
+     last attempt, next attempt and last error (kind, status, message); delivery continues after
+     position `acknowledgedThrough`.
+   - **Subscription**: URL, consumer API (name and contract version, linked to Consumer APIs),
+     workspace, events each with its declaration, filters, payload, mode (and debounce), signing key
+     created, created, last changed.
+   - **Actions**: Edit…, Suspend, Resume…, Delete…. Resume opens a dialog that explains continuing
+     from the first event not acknowledged against `reset` (start after the feed's head, then re-sync
+     from a publication, in that order); `409 SUBSCRIPTION_NEEDS_EDIT` lists each finding, and
+     `409 EVENTS_EXPIRED` names the lost range and the publication and offers the reset. A
+     `VERSION_CONFLICT` reloads and says so, as Workspaces does.
+6. **New webhook** (a dialog): consumer API (definitions of the active release that declare
+   events), workspace (active ones, the default first), events (checkboxes, each with its
+   declaration), URL (with the allowed hosts; when none is allowed, a notice naming the setting),
+   payload (`full`, `identity`), mode (`perChange`, `coalesced` with debounce seconds) and a filter
+   field per declared parameter (values separated by commas, its match fields named). A refusal is
+   shown with its message. On success a dialog shows the signing key once, with copy, and says it
+   is never shown again; then the new subscription is selected.
+7. **Edit** (the same form): events, filters, URL, payload and mode; the consumer API and workspace
+   are shown, not edited (the API does not edit them). Only changed fields are sent.
+8. **Workspaces.** A workspace refused deletion for its subscriptions lists them, each linked to
+   its page.
+
+**Not in U5:** a delivery log per attempt (C-D108 left it to U5 or later; no route keeps one, and
+the receiver has the delivery IDs). `startAfter` on create (API only). Signing-key rotation (U8).
+Any backend route or contract change.
+
+#### Checks
+
+- **Journeys.** No API journey changes, so no journey test is added. J-catalogue entries for
+  subscriptions name Settings › Integration › Webhooks as their UI channel.
+- **Backend.** None changed; not run.
+- **Frontend unit** (`vitest run` on the changed areas): `routes.test.ts` (the two URLs both ways),
+  a `WebhooksPage.test.tsx` (off; catalogue and empty state; create with the key shown once; each
+  suspension reason's fix; resume with `SUBSCRIPTION_NEEDS_EDIT` and with `EVENTS_EXPIRED` then
+  reset; edit sending only changes; conflict), the Workspaces and Model tests for the extraction;
+  then `format`, `lint`, `build`.
+- **Browser, real backend:** `e2e/u5-webhooks.mjs` (`test:browser:webhooks`) at 1440 and 390px on
+  two consumer API configurations (the starter's `rdm` and a second definition with other keys and
+  an event), with subscriptions on and `localhost` allowed: create from the page and read the key;
+  the subscription in `GET /consumer-subscriptions/{id}`; a receiver that refuses, the retrying
+  batch shown; suspend and resume by keyboard; delete; axe; screenshots light and dark.
+- **Gates.** Not run (build acceptance).
+
+#### Exit
+
+- Webhooks works at 1440px and 390px, light and dark, over the real backend.
+- The focused checks pass, and the U5 record is written here.
+
+#### U5 record (2026-10-07)
+
+Implemented as planned; waiting for the user's approval of the screenshots (the list and detail at
+1440px, 390px and dark, the new-webhook dialog, the signing key, a retrying batch and the resume
+dialog).
+
+- **Page.** `features/settings/WebhooksPage` (catalogue, detail, the key dialog, suspension notice,
+  resume dialog), `WebhookDialog` (new and edit) and `webhookText` (states, reasons, fixes, a failed
+  attempt, an event's declaration). `/settings/webhooks[/{id}]`; Webhooks after Consumer APIs. No
+  backend route or contract changed; the client gained the seven subscription calls, and the model
+  type its `consumerApis` (the parts the page reads).
+- **One component, no copies (U-D14).** `ui/CatalogueLayout` and `CatalogueEntry` replace the
+  catalogue markup copied in Workspaces and Model, which moved onto them; Webhooks is the third
+  user. A `webhook` icon joins `ui/Icon`. The harness takes `backendEnv` for a runner that turns a
+  capability on.
+- **Wording.** A failed attempt shows the engine's message as written (it already names the status,
+  host or cause), prefixed "The receiver answered" for a status. A catalogue address wraps only after
+  a slash or a dot.
+- **Workspaces.** A workspace refused deletion for its subscriptions lists them
+  (`GET /consumer-subscriptions?workspaceKey=`), each linked to its page.
+- **Tests the change made wrong**, changed: the settings navigation's list (`Settings.test`) gained
+  Webhooks; the subscribed workspace's case in `WorkspaceAdmin.test` became its own case, the
+  webhooks named and linked.
+- **Checks.** Frontend: `vitest run src/features/settings src/features/workspaces/WorkspaceAdmin.test.tsx
+  src/features/model-admin src/routing/routes.test.ts src/app/App.test.tsx src/ui` (13 files, 172
+  tests; the new `WebhooksPage.test` has 10), `format`, `lint` (0 errors, the 7 recorded warnings),
+  `build`. Browser: `test:browser:webhooks` (12 checks, axe 0 violations on the list, detail and
+  dialog, light and dark; the delivery's `RDM-Signature` verified with the key read from the page),
+  and, for the extraction, `test:browser:w4` (21 checks) and `test:browser:wp12` (7 checks).
+  Backend: no change, not run. Not run: `test:a11y`, `test:visual` (build acceptance; the page has no
+  baselines yet).
+- **Not seen.** The lower half of the new-webhook dialog (Delivery, the wait, the buttons) is below
+  the fold in its screenshot; it is exercised by the unit tests and the runner, not inspected. The
+  off state and the suspension reasons other than `SUSPENDED_BY_USER` are covered by unit tests
+  only; no runner produces them on a real backend.
+- **Found, not changed.** U4's CHANGELOG entry and record say Consumer APIs shows exposed types,
+  lists and events; the page now lists routes (TODO above). The runner's first signature check keyed
+  the HMAC with the decoded key bytes and failed: the key is the `signingSecret` text as answered,
+  as API.md says; the runner was wrong, not the engine.
+
+### U5a: webhook names, the delivery log and the Webhooks page revised
+
+**Planned 2026-10-07** after the user reviewed U5 on the dev server, and implemented the same day on
+their request ("plan and implement"); the four questions below were answered by the user, the journey
+cases were not approved separately. Amends C-D108 ("No delivery history is kept").
+
+**Outcome.** A webhook has a **name** of its own, beside its URL. Its page has two tabs above the
+name: **Configuration** (today's detail) and **Deliveries**: every event the subscription delivered
+or is delivering, newest first, with its event ID, event, object ID, status, attempts, the
+receiver's status code and when it was sent. Opening one shows the same facts, the next attempt
+while one is due, each attempt with its start, duration and answer, the **request body** as sent
+and the **response body**, both as formatted, coloured JSON. The new-webhook dialog is rebuilt for
+consumer APIs with many events and parameters: a searchable multi-select with chips for events, and
+filters added one at a time from a menu, each with its values as chips.
+
+**The question asked: do we track when a send starts and completes?** Not before U5a. The
+subscription kept only its latest state (`last_attempt_at` and `last_delivered_at`, both the time
+the dispatcher's round began, before the request; while a batch failed, its attempts, first failure,
+next attempt and a 200-character error). Nothing marked a request in flight or measured its
+duration, the request body was never stored, and only the first 4 KiB of a failing answer was read.
+U5a records each attempt's start and completion.
+
+**Composable domains (ADR-032):** the audit/history door is not affected: the delivery log is an
+operational record of requests to receivers, kept for days, separate from record history and audit.
+
+#### Decisions
+
+| ID | Question | Decision | Why |
+| --- | --- | --- | --- |
+| C-D115 | Does a subscription have a name? | **The user, 2026-10-07:** required on create (1–200 characters, not unique), edited with `PATCH`; existing subscriptions are named after their URL's host and path by the migration. An edit of the name alone keeps a batch being retried | The URL no longer says which integration a webhook serves. Renaming changes nothing the receiver sees, so it does not drop a batch as other edits do |
+| C-D116 | What is kept of a delivery? | **The user, 2026-10-07: every attempt.** One log entry per request (its delivery ID, the batch, the events or the notice it carries, its status and the body of its latest attempt) and one per attempt (start, completion, the receiver's status, or the error's kind and message, and up to 4 KiB of the answer). Amends C-D108 | Integrators need to see what was sent and answered while testing; the latest state alone loses earlier failures |
+| C-D117 | Which request body does an event's detail show? | **The user, 2026-10-07: the whole request** as the receiver got it, with all the events in it (up to 100, at most 1 MiB): the latest attempt's body, since each attempt composes its objects anew (C-D111) | It is what the signature covers and what the receiver saw |
+| C-D118 | How long is the log kept? | **The user, 2026-10-07: 7 days**, `CONSUMER_WEBHOOK_LOG_RETENTION_DAYS`, reported in capabilities. The dispatcher deletes older entries by a set statement at most hourly; a request of a batch still pending is kept | Bodies reach 1 MiB a request; a week covers testing an integration |
+| C-D119 | What does the deliveries list list? | One row per event in a per-change request, one per notice in a coalesced one (no event or object ID). Rows of one request share its status, attempts, answer and time: delivery is per request, not per event. Statuses: `queued` (built, not sent yet), `sending`, `retrying` (failed, will be tried again or waits for a resume), `succeeded`, `failed` (the subscription was suspended `DELIVERY_FAILED`), `dropped` (an edit or resume dropped the batch, or its events left the subscription) | The user asked for events; the request is the unit that succeeds or fails |
+
+#### Contract
+
+- **Name.** `name` in the create body (required), in `PATCH` and in every subscription answer.
+- **`GET /api/v1/consumer-subscriptions/{id}/deliveries`** (paging, `status`): newest first.
+  Each item: `deliveryId` (the request's, as `RDM-Delivery-Id`), `eventId`, `event`, `change`,
+  `objectType`, `objectId` (`null` for a notice), `position`, `status`, `attempts`,
+  `responseStatus` (the latest attempt's, `null` before an answer or for an error without one),
+  `sentAt` (the latest attempt's start), `nextAttemptAt` (while the batch waits for a retry).
+- **`GET /api/v1/consumer-subscriptions/{id}/deliveries/{deliveryId}`**: the request: `deliveryId`,
+  `batchId`, `kind` (`events`, `notice`), `status`, `events` (each as in the list), `requestBody`
+  (the JSON sent, `null` before the first attempt), `requestBytes`, `createdAt`, `nextAttemptAt`,
+  `attempts` (each `number`, `startedAt`, `completedAt`, `durationMs`, `responseStatus`, `error`
+  `{kind, message}` or `null`, `responseBody`, text up to 4 KiB). `404 DELIVERY_NOT_FOUND`.
+- **Capabilities.** `consumerSubscriptions.logRetentionDays`.
+- **Storage.** `consumer_webhook_requests`, `consumer_webhook_request_events` and
+  `consumer_webhook_attempts`, removed with their subscription (`CASCADE`); revision `20261007_01`
+  adds them and `consumer_subscriptions.name`.
+
+#### Journey cases (J30.6 amended, J30.10 new)
+
+Each runs on two model configurations with the receiver of `test_j30_delivery`.
+
+1. **Named.** Given the capability on, when an operator creates a subscription without `name`, then
+   `422 REQUEST_VALIDATION_ERROR`; with a name, the answer and every read carry it; a `PATCH` of
+   the name alone changes it and keeps a batch being retried (its `delivery.pending` unchanged).
+2. **Delivered.** Given a receiver answering `200`, when two records change and the dispatcher runs,
+   then `/deliveries` lists one row per event newest first, each `succeeded`, 1 attempt, `200`,
+   `sentAt` set, with the event IDs, events and object IDs the receiver got; the request's detail
+   has `requestBody` equal to the body the receiver got and one attempt with `startedAt` ≤
+   `completedAt`, `durationMs` ≥ 0 and the receiver's answer as `responseBody`.
+3. **Retried.** Given a receiver answering `503` then `200`, after the first round the rows are
+   `retrying`, 1 attempt, `503`, with `nextAttemptAt` equal to the subscription's
+   `delivery.pending.nextAttemptAt`; after the retry they are `succeeded` with 2 attempts, the
+   detail listing `503` then `200`.
+4. **Dropped and failed.** An edit of the URL while a batch is retried leaves its rows `dropped`,
+   and the next batch has a new `deliveryId`; a receiver failing for 24 hours leaves the batch's rows
+   `failed` and the subscription suspended `DELIVERY_FAILED`.
+5. **Coalesced.** A coalesced subscription's rows are its notices: the event key, no event or object
+   ID, `succeeded`.
+6. **Kept for the retention.** Rows older than `CONSUMER_WEBHOOK_LOG_RETENTION_DAYS` are gone after
+   the dispatcher's next round, a batch still retried keeps its rows, and capabilities report the
+   retention.
+7. **Refusals.** An unknown delivery ID is `404 DELIVERY_NOT_FOUND`, an unknown subscription `404
+   SUBSCRIPTION_NOT_FOUND`; a deleted subscription's deliveries go with it.
+
+Plus the migration's checks (AGENTS.md): upgrade from `20261006_03` with a subscription (named after
+its URL), two starts, an interrupted run recovering.
+
+#### UI
+
+- **The dialog** (`ui/Modal` wide), in sections: **Webhook** (name, URL), **Source** (consumer API
+  and workspace side by side), **Events** (all, or chosen in a searchable list whose choices show as
+  removable chips, each option with its declaration), **Filters** (**Add filter** opens a searchable
+  menu of the parameters not yet used; each added filter is a row of its name, its values as chips
+  typed with Enter or a comma, and a remove button), **Delivery** (payload and mode side by side, the
+  wait when coalesced). New components: `ui/MultiSelect`, `ui/TokenField` on React Aria (ADR-023).
+- **The detail.** `ui/Tabs` gains a header between the tab list and the panels: the tab list where
+  the "Webhook" eyebrow was, then the name with the URL and API below it, then the panel.
+  `/settings/webhooks/{id}` is Configuration, `/settings/webhooks/{id}/deliveries` Deliveries, and
+  `/settings/webhooks/{id}/deliveries/{deliveryId}/{eventId}` an opened event (a notice without the
+  last part).
+- **Deliveries**: a settings table, Load more and Refresh. A row opens the event (a wide `Modal`):
+  the row's facts and the next attempt; **Attempts** (start, duration, status or error), choosing
+  one shows its response; **Request** and **Response** in `ui/JsonView` (formatted, coloured from
+  existing text tokens; plain text when the answer is not JSON), each with copy.
+- The catalogue and the header show the name, with the URL below it.
+
+#### Checks
+
+Backend: the new journey cases and the J30 groups (`--journey J30`), `test_startup` for the
+migration, the unit tests of the changed client, `test_foreign_keys`, the event volume budget
+(`test_consumer_event_volume`, the delivery's statements must still hold), `ruff`. Frontend: the
+Webhooks unit tests, `format`, `lint`, `build`; `test:browser:webhooks` extended to the name, the
+tabs, the deliveries and an opened event; screenshots. Not run: the full suites (build acceptance).
+
+#### U5a record (2026-10-07)
+
+Implemented as planned; waiting for the user's approval of the screenshots (the dialog with the
+events picker and the filter menu, the Configuration and Deliveries tabs at 1440px, 390px and
+dark, an opened event).
+
+- **Worked beside another session.** While U5a was planned, another session removed the webhook
+  host allowlist (C-D101 revised) in the same files; U5a waited until it finished and builds on
+  it, so the dialog has no allowed-hosts hint. That session then planned C17 (C-D120–C-D128),
+  which will retire the coalesced mode and with it the notice rows; nothing in U5a changed for it.
+- **Backend.** `models/database.py` gains `ConsumerSubscription.name` and the three log tables
+  (revision `20261007_01`, which names existing subscriptions after their URL's host and path);
+  `engine/events/delivery_log.py` writes and reads the log; the dispatcher logs each batch when it
+  is committed, each attempt's start in the lease renewal before the send and its answer after,
+  marks a given-up batch `failed`, and prunes at most hourly from `run_once`; `clear_delivery`
+  marks a dropped batch `dropped`; a rename alone keeps a batch being retried. `webhook_client`'s
+  `Answer` keeps up to 4 KiB of every answer, not only a failing one.
+  `CONSUMER_WEBHOOK_LOG_RETENTION_DAYS` joins the settings catalogue and capabilities.
+- **Frontend.** `ui/MultiSelect`, `ui/SearchMenu`, `ui/TokenField` and `ui/JsonView` (React Aria,
+  ADR-023); `ui/Tabs` takes a `header` between the tab list and the panels; `CopyValue` a
+  `buttonOnly`. `WebhookDialog` rebuilt; `WebhookDeliveries` (the tab and the opened event); the
+  routes `/settings/webhooks/{id}/deliveries[/{deliveryId}[/{eventId}]]`. The catalogue and the
+  workspace page name webhooks by their name, the URL below.
+- **Tests the change made wrong**, changed: the create bodies of `test_j30_subscriptions`,
+  `test_j30_delivery` and `volume_baseline` gained a `name`; the two J30.6 capability cases gained
+  `logRetentionDays`; `test_j30_delivery`'s receiver can answer with a body; `test_startup`'s head
+  moved to `20261007_01`; `test_foreign_keys` pins the three cascades; the OpenAPI lock was
+  re-baselined (removing `logRetentionDays` gives the previous hash exactly, checked); the
+  Webhooks, Workspaces and route unit tests follow the name and the new controls.
+- **Checks.** Backend: the new `test_j30_delivery_log` (7 cases × 2 configurations, confirmed
+  failing first), then in parallel every J30 module, `tests/unit/engine/events`, `test_startup`
+  (two new migration cases: upgrade with a subscription and two starts, interrupted run and
+  recovery), `test_foreign_keys`, `test_openapi_contract` and `tests/unit/test_config.py` (201
+  passed after the capability fix, 41 s); `test_consumer_event_volume` (the delivery's statements
+  still equal at both sizes, 20 s); `ruff check`. The full suite was not run (a migration selects
+  it; build acceptance). Frontend: `vitest run` on settings, workspaces, model admin, routing,
+  `App.test` and `ui` (176 passed, then `WebhooksPage.test`'s 12th case for `sending` and notice rows), `format`, `lint` (0 errors, the 7
+  recorded warnings), `build`. Browser: `test:browser:webhooks` (15 checks; axe 0 violations on the
+  list, detail, deliveries with an opened event and the dialog, light and dark; the opened event's
+  request body equal to the body the receiver got).
+- **Closed after the first report (the user, 2026-10-07).** A `sending` row and a notice row are
+  rendered in a unit test (a request in flight lasts milliseconds, so no runner catches it on a
+  real backend; no test observes `sending` at the API, which the dispatcher replaces once the
+  answer arrives). The runner now creates a coalesced webhook with a one-second wait and checks its
+  notice row and body on the page, and takes the dialog scrolled to its buttons with the coalesced
+  wait showing (16 checks). The first report had said tests covered both states; for `sending`
+  that was not so.
+- **Found, not changed.** The request body kept is the latest attempt's: each attempt composes its
+  objects anew (C-D111), so an earlier attempt may have sent other object states.
 
 ### Exit by 1.0
 

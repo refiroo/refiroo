@@ -74,6 +74,7 @@ beforeEach(() => {
   for (const item of [primary, retail, archive]) byKey.set(item.key, item);
   vi.mocked(api.capabilities).mockResolvedValue(capabilities(true));
   vi.mocked(api.workspaceRuntimeState).mockResolvedValue(runtime);
+  vi.mocked(api.subscriptions).mockResolvedValue({ items: [], nextCursor: null });
   vi.mocked(api.workspaces).mockResolvedValue({ items: [archive, primary, retail], nextCursor: null });
   vi.mocked(api.workspace).mockImplementation(async (key) => byKey.get(key)!);
 });
@@ -295,6 +296,18 @@ describe("WorkspaceAdmin", () => {
     renderAdmin(key);
     expect(await screen.findByText(reason)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Delete…" })).not.toBeInTheDocument();
+  });
+
+  it("names the webhooks that keep a workspace from being deleted, each linked to its page", async () => {
+    byKey.set("subscribed", { ...retail, key: "subscribed", label: "Subscribed", deleteBlockedBy: "subscribed" });
+    vi.mocked(api.subscriptions).mockResolvedValue({
+      items: [{ id: "s1", name: "Billing", url: "https://receiver.example.com/hook", consumerApi: "codes" } as never],
+      nextCursor: null,
+    });
+    const { props } = renderAdmin("subscribed");
+    fireEvent.click(await screen.findByRole("link", { name: "Billing" }));
+    expect(api.subscriptions).toHaveBeenCalledWith({ cursor: undefined, workspaceKey: "subscribed" });
+    expect(props.onRouteChange).toHaveBeenCalledWith({ kind: "settings", page: "webhooks", subscriptionId: "s1" });
   });
 
   it("does not suggest retiring a retired published workspace", async () => {

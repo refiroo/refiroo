@@ -56,7 +56,11 @@ Settings area and `GET /api/v1/system` ([record](SETTINGS_AND_UI_PLAN.md#u3-deli
 UA, the Atlas redesign (ADR-040), is implemented (UA7 awaiting approval). **U4 is implemented
 (2026-10-07)**: Settings › Integration (Consumer APIs, Jobs and feed, API reference) and the
 starter's consumer API ([record](SETTINGS_AND_UI_PLAN.md#u4-record-2026-10-07)); screenshots await
-approval. Next: U5. See [Next — 0.9](#next--09).
+approval. **U5 is implemented (2026-10-07)**: Settings › Integration › Webhooks
+([record](SETTINGS_AND_UI_PLAN.md#u5-record-2026-10-07)), and **U5a** (webhook names, the delivery
+log, the page revised, [record](SETTINGS_AND_UI_PLAN.md#u5a-record-2026-10-07)); screenshots await
+approval. See
+[Next — 0.9](#next--09).
 
 - **Document the starter's consumer API lookups and the reworked Consumer APIs page (the user,
   2026-10-07, "later").** The starter (content 0.9.2) now declares `match` (own fields and, through

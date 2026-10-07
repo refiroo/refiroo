@@ -72,11 +72,12 @@ class Settings(BaseModel):
     feed_retention_days: int = Field(default=30, ge=1)
     # The items one consumer batch resolve holds (C-D13, C-D50); reported by GET /capabilities.
     consumer_resolve_max_items: int = Field(default=1_000, ge=1)
-    # Webhook subscriptions as a deployment capability group, off by default (C-D10, C-D102); the
-    # hosts their URLs may name (C-D101) and the key their signing keys are encrypted with (C-D96).
+    # Webhook subscriptions as a deployment capability group, off by default (C-D10, C-D102), and
+    # the key their signing keys are encrypted with (C-D96).
     consumer_subscriptions_enabled: bool = False
-    consumer_webhook_allowed_hosts: tuple[str, ...] = ()
     consumer_webhook_key_encryption_key: bytes | None = None
+    # How long the webhook delivery log keeps a request (U5a, C-D118).
+    consumer_webhook_log_retention_days: int = Field(default=7, ge=1)
 
     @classmethod
     def from_env(cls, environ: dict[str, str] | None = None) -> Self:
@@ -123,12 +124,10 @@ class Settings(BaseModel):
             consumer_subscriptions_enabled=(
                 env.get("CONSUMER_SUBSCRIPTIONS_ENABLED", "false").strip().lower() in TRUTHY
             ),
-            consumer_webhook_allowed_hosts=allowed_hosts(
-                env.get("CONSUMER_WEBHOOK_ALLOWED_HOSTS", "")
-            ),
             consumer_webhook_key_encryption_key=_encryption_key(
                 env.get("CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY", "")
             ),
+            consumer_webhook_log_retention_days=_positive(env, "CONSUMER_WEBHOOK_LOG_RETENTION_DAYS", 7),
         )
 
     def validate_consumer_subscriptions(self) -> None:
@@ -174,11 +173,6 @@ def _positive(env: Mapping[str, str], name: str, default: int) -> int:
     if value < 1:
         raise RuntimeError(f"{name} must be a positive integer, not {raw!r}")
     return value
-
-
-def allowed_hosts(raw: str) -> tuple[str, ...]:
-    """The webhook hosts, as listed: comma-separated, compared ignoring case (C-D101)."""
-    return tuple(dict.fromkeys(host.strip().lower() for host in raw.split(",") if host.strip()))
 
 
 def _encryption_key(raw: str) -> bytes | None:
@@ -334,10 +328,10 @@ SETTINGS_CATALOGUE: tuple[CatalogueEntry, ...] = (
         "Items in one consumer batch resolve",
     ),
     CatalogueEntry(
-        "CONSUMER_WEBHOOK_ALLOWED_HOSTS",
-        "consumer_webhook_allowed_hosts",
+        "CONSUMER_WEBHOOK_LOG_RETENTION_DAYS",
+        "consumer_webhook_log_retention_days",
         "webhooks",
-        "Hosts a webhook URL may name; empty allows none",
+        "Days the webhook delivery log keeps a request, its body and its attempts",
     ),
     CatalogueEntry(
         "CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY",

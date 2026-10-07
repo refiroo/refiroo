@@ -50,6 +50,7 @@ import {
   X,
   Pencil,
   Trash2,
+  Webhook,
 } from "lucide-react";
 
 const icons = {
@@ -87,6 +88,7 @@ const icons = {
   trash: Trash2,
   tree: ListTree,
   user: UserRound,
+  webhook: Webhook,
   "state-one": CircleCheck,
   "state-several": Copy,
   "state-conflict": TriangleAlert,

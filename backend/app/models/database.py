@@ -1109,6 +1109,8 @@ class ConsumerSubscription(Base):
     public_id: Mapped[str] = mapped_column(
         String(36), nullable=False, unique=True, default=lambda: str(uuid4())
     )
+    # What the operator calls it (U5a, C-D115); not unique.
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
     consumer_api: Mapped[str] = mapped_column(String(160), nullable=False)
     contract_version: Mapped[int] = mapped_column(Integer, nullable=False)
     workspace_key: Mapped[str] = mapped_column(
@@ -1150,6 +1152,81 @@ class ConsumerSubscription(Base):
     updated_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
     )
+
+
+WEBHOOK_REQUEST_STATUSES = ("queued", "sending", "retrying", "succeeded", "failed", "dropped")
+
+
+class ConsumerWebhookRequest(Base):
+    """One request of a webhook batch (U5a, C-D116): a per-change batch is one request, a
+    coalesced batch one per notice. ``delivery_id`` is the request's ``RDM-Delivery-Id``,
+    ``batch_id`` the batch's (the subscription's ``pending_delivery_id`` while it is retried).
+    ``request_body`` is the text of the latest attempt's body exactly as sent. Removed with its
+    subscription, and after ``CONSUMER_WEBHOOK_LOG_RETENTION_DAYS`` (C-D118)."""
+
+    __tablename__ = "consumer_webhook_requests"
+    __table_args__ = (
+        CheckConstraint("kind IN ('events', 'notice')", name="ck_consumer_webhook_request_kind"),
+        CheckConstraint(
+            "status IN ('queued', 'sending', 'retrying', 'succeeded', 'failed', 'dropped')",
+            name="ck_consumer_webhook_request_status",
+        ),
+        UniqueConstraint("subscription_sequence_id", "delivery_id", name="uq_consumer_webhook_request_delivery"),
+        Index("ix_consumer_webhook_requests_batch", "subscription_sequence_id", "batch_id"),
+        Index("ix_consumer_webhook_requests_created", "created_at"),
+    )
+
+    sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    subscription_sequence_id: Mapped[int] = mapped_column(
+        ForeignKey("consumer_subscriptions.sequence_id", ondelete="CASCADE"), nullable=False
+    )
+    delivery_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    batch_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    kind: Mapped[str] = mapped_column(String(10), nullable=False)
+    status: Mapped[str] = mapped_column(String(10), nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    request_body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    request_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    last_status: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    sent_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+
+
+class ConsumerWebhookRequestEvent(Base):
+    """An event a request carries, or, for a notice, the notice itself (no event or object ID):
+    one row of a subscription's deliveries (C-D119). ``ordinal`` orders them within the request."""
+
+    __tablename__ = "consumer_webhook_request_events"
+
+    request_sequence_id: Mapped[int] = mapped_column(
+        ForeignKey("consumer_webhook_requests.sequence_id", ondelete="CASCADE"), primary_key=True
+    )
+    ordinal: Mapped[int] = mapped_column(Integer, primary_key=True)
+    event_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    event_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    change: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    object_type: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    object_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class ConsumerWebhookAttempt(Base):
+    """One attempt to send a request: when it started and completed, the receiver's status, or the
+    error's kind and message, and up to 4 KiB of the answer (C-D116)."""
+
+    __tablename__ = "consumer_webhook_attempts"
+
+    request_sequence_id: Mapped[int] = mapped_column(
+        ForeignKey("consumer_webhook_requests.sequence_id", ondelete="CASCADE"), primary_key=True
+    )
+    number: Mapped[int] = mapped_column(Integer, primary_key=True)
+    started_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    response_status: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    error_kind: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    response_body: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class Job(Base):

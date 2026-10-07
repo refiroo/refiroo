@@ -4,9 +4,10 @@ The host is resolved once per attempt and the request goes to an address that wa
 name cannot be pointed elsewhere between the check and the connection; TLS is verified against the
 host name and the system trust store (``SSL_CERT_FILE`` overrides it). A link-local address
 (``169.254.0.0/16``, ``fe80::/10``, where cloud metadata services listen) is always refused, and a
-loopback one unless the URL names a loopback host, which the allowlist must list (C-D101); private
+loopback one unless the URL names a loopback host (C-D101); private
 ranges are allowed. Redirects are not followed. The whole exchange has one timeout, and at most
-4 KiB of the answer is read, for the error message. No outbound proxy is used.
+4 KiB of the answer is read, for the error message and the delivery log (U5a). No outbound proxy
+is used.
 
 The answer is a success (``2xx``) or a failure of one kind: ``status``, ``redirect``, ``timeout``,
 ``connection``, ``tls`` or ``address``, with a message of at most 200 characters (C-D108).
@@ -32,21 +33,23 @@ Resolver = Callable[..., list[tuple[Any, ...]]]
 
 @dataclass(frozen=True)
 class Answer:
-    """What a receiver answered: ``error`` is ``None`` for a ``2xx``."""
+    """What a receiver answered: ``error`` is ``None`` for a ``2xx``; ``body`` is up to 4 KiB of the
+    answer, ``None`` when none was read."""
 
     status: int | None
     error: dict[str, Any] | None
+    body: str | None = None
 
     @property
     def ok(self) -> bool:
         return self.error is None
 
 
-def _failure(kind: str, message: str, status: int | None = None) -> Answer:
+def _failure(kind: str, message: str, status: int | None = None, body: str | None = None) -> Answer:
     error: dict[str, Any] = {"kind": kind, "message": " ".join(message.split())[:MESSAGE_LENGTH]}
     if status is not None:
         error["status"] = status
-    return Answer(status, error)
+    return Answer(status, error, body)
 
 
 def address_refusal(host: str, address: str) -> str | None:
@@ -131,13 +134,16 @@ def post(
         text = response.read(READ_BYTES).decode("utf-8", "replace")
         status = response.status
         if 200 <= status < 300:
-            return Answer(status, None)
+            return Answer(status, None, text)
         if 300 <= status < 400:
             location = response.getheader("Location") or "nowhere"
             return _failure(
-                "redirect", f"The receiver answered {status} redirecting to {location}; redirects are not followed", status
+                "redirect",
+                f"The receiver answered {status} redirecting to {location}; redirects are not followed",
+                status,
+                text,
             )
-        return _failure("status", f"{status} {response.reason}: {text}".rstrip(": "), status)
+        return _failure("status", f"{status} {response.reason}: {text}".rstrip(": "), status, text)
     except TimeoutError:
         return _failure("timeout", f"No answer from '{host}' within {timeout:g} s")
     except ssl.SSLError as exc:

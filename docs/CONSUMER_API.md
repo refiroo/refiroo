@@ -695,13 +695,13 @@ DELETE /api/v1/consumer-subscriptions/{id}?expectedVersion=…
 - **The signing key** is 32 random bytes generated on create and returned once as `signingSecret`,
   never by a read. It is stored sealed with AES-256-GCM under `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`,
   a deployment secret kept outside the database (C-D96). Rotation (`rotate-secret`) arrives in 0.12.
-- **Target hosts** must match the deployment allowlist (`CONSUMER_WEBHOOK_ALLOWED_HOSTS`: exact
-  names or `*.` and a domain, C-D101) and use HTTPS; plain HTTP only to a listed loopback host. An
-  empty list allows nothing. Subscriptions cannot point at arbitrary internal addresses.
+- **Target hosts:** any host and port over HTTPS; plain HTTP only to `localhost`, `127.0.0.1` or
+  `::1` (C-D101 revised). There is no host allowlist; the dispatcher refuses link-local addresses
+  when it connects (C-D107).
 - **State** (C-D98): `active` or `suspended`, and a suspension always has a reason:
   `SUSPENDED_BY_USER` (`suspend`), `MODEL_CHANGED` and `CONTRACT_VERSION_CHANGED` (an activation,
   C-D99), `WORKSPACE_RETIRED` (a retirement, C-D99); C12 adds `DELIVERY_FAILED`,
-  `FILTER_MATCHES_NOTHING` (C-D94), `HOST_NOT_ALLOWED` and `EVENTS_EXPIRED` (C-D110). Nothing
+  `FILTER_MATCHES_NOTHING` (C-D94) and `EVENTS_EXPIRED` (C-D110). Nothing
   rewrites a subscription.
 - **After a model change**, in the activation's transaction: a subscription whose consumer API,
   events or filters the release no longer declares is suspended `MODEL_CHANGED` with each finding;
@@ -772,8 +772,7 @@ A dispatcher in the API process delivers every active subscription while
   unusually large single object: nginx's default `client_max_body_size` is exactly 1 MiB, most
   frameworks allow more. An `identity` batch is small and stops at 100 events. The limits are
   reported in `GET /api/v1/capabilities` (`consumerSubscriptions.delivery`).
-- **Where requests go (C-D107).** The host must stay in `CONSUMER_WEBHOOK_ALLOWED_HOSTS`; one removed
-  from it suspends the subscription `HOST_NOT_ALLOWED` before anything is sent. The host is resolved
+- **Where requests go (C-D107).** The host is resolved
   at each attempt and the request goes to the address checked. A link-local address
   (`169.254.0.0/16`, `fe80::/10`, where cloud metadata services listen) is always refused, and a
   loopback address unless the URL names a loopback host; private ranges are allowed. TLS is verified
@@ -915,7 +914,7 @@ dispatcher (C12) will run beside it. Multi-node coordination is 0.11 work.
 | C9 | Event definitions: `events` schema and validation, contract rules for events (C-D81–C-D86) — **delivered 2026-10-05** |
 | C10 | Event deriver over the workspace change feed (INTEGRATION_API F6): owning-object resolution through projections, `watch` evaluation, event store, retention, pull feed (C-D87–C-D92, C-D95) — **delivered 2026-10-06** |
 | C11 | Subscription administration: API, filters through definition parameters, host allowlist, suspension on model change and retirement, `payload` (C-D7), the signing key generated on create and sealed at rest (C-D12, C-D96; rotation in 0.12), resume after expired events (C-D93) (C-D96–C-D102) — **delivered 2026-10-06** |
-| C12 | Dispatcher: per-change batches, coalesced debounce, ordering, retry with backoff, suspension (`DELIVERY_FAILED`, `FILTER_MATCHES_NOTHING`, `HOST_NOT_ALLOWED`; resume is C11's); objects composed through get-by-ID for `full` subscriptions with a byte limit per request (C-D7); every request signed (C-D12) — **delivered 2026-10-06** (C-D103–C-D111; `EVENTS_EXPIRED` and `reset` added, C-D93 and C-D94 revised) |
+| C12 | Dispatcher: per-change batches, coalesced debounce, ordering, retry with backoff, suspension (`DELIVERY_FAILED`, `FILTER_MATCHES_NOTHING`; resume is C11's); objects composed through get-by-ID for `full` subscriptions with a byte limit per request (C-D7); every request signed (C-D12) — **delivered 2026-10-06** (C-D103–C-D111; `EVENTS_EXPIRED` and `reset` added, C-D93 and C-D94 revised) |
 | C13 | Event acceptance: the scenarios below, plus a bulk-volume delivery budget — **delivered 2026-10-06** (C-D112–C-D114; scenario 10 is 0.12's) |
 | C14 | Batch resolve: `POST …/resolve`, by query and by ID, `defaults`, per-item outcomes, batch maximum, volume budget (C-D47–C-D53) — **delivered 2026-10-05** |
 | C15 | Crosswalk: `targetable` in the contract, `to.{parameter}` on XREF, get by ID, lists and batch resolve, `target`, `TARGET_NOT_FOUND`, `AMBIGUOUS_TARGET` and `MULTIPLE_TARGETS` (C-D54–C-D58) — **delivered 2026-10-05** |
@@ -1095,11 +1094,11 @@ C-D94 revised for C12; C-D112–C-D114 for C13 the same day.
 | C-D98 | One switch, or `enabled` and suspension | **Decided 2026-10-06 (C11).** One: `active` or `suspended`, with a reason; `enabled` dropped. `suspend` sets `SUSPENDED_BY_USER`; `resume` undoes every reason after re-running create's checks (`409 SUBSCRIPTION_NEEDS_EDIT` listing them) and C-D93's loss check, and accepts the contract version served |
 | C-D99 | When a model change or a retirement suspends | **Decided 2026-10-06 (C11).** In the transaction that causes it. Activation: a missing consumer API, event or filter parameter is `MODEL_CHANGED` with each finding; otherwise a raised contract version `CONTRACT_VERSION_CHANGED`. A suspended subscription keeps its reason. Retirement: `WORKSPACE_RETIRED`; undelivered events stay until retention. A workspace with subscriptions cannot be deleted (`409 WORKSPACE_HAS_SUBSCRIPTIONS`) |
 | C-D100 | A filter value that matches nothing at create | **Decided 2026-10-06 (C11).** Refused `400 FILTER_MATCHES_NOTHING` at create, edit and resume, at `/filters/{name}`; a type name the API does not expose is `400 UNKNOWN_OBJECT_TYPE` |
-| C-D101 | What the host allowlist accepts | **Decided 2026-10-06 (C11).** Host names ignoring case, exact or `*.` and a domain (any depth below, not the domain itself); IP addresses as written; any port. Absolute HTTPS, no user information or fragment, at most 2,048 characters; plain HTTP only to a listed `localhost`, `127.0.0.1` or `::1`. Empty allows nothing. Reported in capabilities. A host removed later is C12's (`HOST_NOT_ALLOWED`) |
+| C-D101 | What the host allowlist accepts | **Revised 2026-10-07, by the user:** no host allowlist; any host over HTTPS, plain HTTP only to `localhost`, `127.0.0.1` or `::1`. `CONSUMER_WEBHOOK_ALLOWED_HOSTS`, `allowedHosts` in capabilities, `WEBHOOK_HOST_NOT_ALLOWED` and the `HOST_NOT_ALLOWED` suspension are removed: webhook targets are not deployment configuration that needs a restart. The dispatcher's address checks (C-D107) stay. Was: **Decided 2026-10-06 (C11).** Host names ignoring case, exact or `*.` and a domain (any depth below, not the domain itself); IP addresses as written; any port. Absolute HTTPS, no user information or fragment, at most 2,048 characters; plain HTTP only to a listed `localhost`, `127.0.0.1` or `::1`. Empty allows nothing. Reported in capabilities. A host removed later is C12's (`HOST_NOT_ALLOWED`) |
 | C-D102 | What the subscriptions capability gates | **Decided 2026-10-06 (C11).** The whole group: off, no subscription route is served (reads included) and C12 delivers nothing; stored subscriptions are kept |
 | C-D103 | The retry schedule | **Decided 2026-10-06 (C12).** After a failed attempt the next waits 10 s, 30 s, 1 min, 2 min, 5 min, 10 min, 30 min, then every hour, each ±20 %, until 24 hours after the batch's first failure; then `DELIVERY_FAILED` with the delivery ID, attempts and last error. A success resets it. Constants, reported in capabilities; documented in full (the user's request) |
 | C-D104 | The byte limit of a batch | **Decided 2026-10-06 (C12).** 1 MiB of body: events in order while the body stays within it; an event alone over it is sent alone. Documented in full with what a receiver's server must accept (the user's request) |
-| C-D105 | Coalesced mode | **Decided 2026-10-06 (C12).** Decided from the event store at each look, no timer: send when the newest matching event is `debounceSeconds` old or the oldest 10 minutes old; one POST per event key, in the order of their first positions; the acknowledged position moves once every POST of the round is acknowledged; `payload` does not apply |
+| C-D105 | Coalesced mode | **To be retired by C17 (approved 2026-10-07, C-D120–C-D128).** **Decided 2026-10-06 (C12).** Decided from the event store at each look, no timer: send when the newest matching event is `debounceSeconds` old or the oldest 10 minutes old; one POST per event key, in the order of their first positions; the acknowledged position moves once every POST of the round is acknowledged; `payload` does not apply |
 | C-D106 | Several processes, and a slow receiver | **Decided 2026-10-06 (C12).** A 60 s lease per subscription in its row, renewed before each send; an acknowledgement is recorded only under the lease. Four senders per process, one subscription each at a time. No row lock during a request |
 | C-D107 | What the dispatcher checks when it connects | **Decided 2026-10-06 (C12).** Resolve at each attempt and connect to the checked address; link-local always refused, loopback only for a loopback URL, private ranges allowed; a refused address is a failed attempt. Redirects not followed. TLS against the system trust store; the standard library's client; no proxy in 0.9 |
 | C-D108 | What the operator sees, and `version` | **Decided 2026-10-06 (C12).** The subscription answers `delivery`: `lastDeliveredAt` and `pending` (delivery ID, end position, attempts, first failure, last and next attempt, last error by kind). Delivery progress changes neither `version` nor `updatedAt`; a suspension does. No attempt history |
@@ -1109,3 +1108,12 @@ C-D94 revised for C12; C-D112–C-D114 for C13 the same day.
 | C-D112 | How the event scenarios are accepted | **Decided 2026-10-06 (C13).** A scenario a journey test already walks is cited, not tested again; the rest are walked end to end through a receiver on generated A and B and compared with the pull feed and the lists (Base 0.9 C13's table names the test of each). Not on a reference-shaped fixture: events have no reference behaviour to reproduce |
 | C-D113 | The bulk-volume delivery budget | **Decided 2026-10-06 (C13).** A batch of 100 `full` events within 100 ms of engine time; the heavy group's rename (20,001 events) delivered to one subscription within 30 s; the dispatcher's claim with 100 caught-up subscriptions within 10 ms; statements per batch and per claim the same at every size. Figures in POSTGRESQL_BUDGETS §7 |
 | C-D114 | A record that leaves a subscription's filter | **Decided 2026-10-06 (C13).** C-D90's rule stays in 0.9: a filtered subscription is told of the records in its scope and of deletions, not of a record that moves out of the scope or is edited so the filter stops matching it. A receiver that must drop such records subscribes with the type filter only and narrows itself, or reconciles from the list with the same parameters. Telling "left the scope" needs the state before the change, which events do not keep (C-D89); a later fix is in TODO |
+| C-D120 | How batching is set (C17) | **Approved 2026-10-07.** One field, `maxEventsPerBatch`, 1–1,000, default 1 (one event per request); no separate switch |
+| C-D121 | The byte cap (C17) | **Approved 2026-10-07.** 1 MiB per request, fixed and reported in capabilities |
+| C-D122 | Defaults (C17) | **Approved 2026-10-07.** One event per request, `payload: full`, `format: rdm` |
+| C-D123 | Existing subscriptions (C17) | **Approved 2026-10-07, the user:** none is in production; the migration gives every row the defaults |
+| C-D124 | `payload` values (C17) | **Approved 2026-10-07.** `identity` and `full` stay (shared with the pull feed); the UI says "Notification only" and "With the object" |
+| C-D125 | CloudEvents content modes (C17) | **Approved 2026-10-07.** Structured for one event per request, batched otherwise; never binary, whose header attributes the signature does not cover |
+| C-D126 | CloudEvents attributes (C17) | **Approved 2026-10-07.** `id` the event ID; `source` the definition's events path with the workspace (relative); `type` `rdm.{event}.{change}`; `subject` `{objectType}/{id}`; `time` `occurredAt`; extension `rdmsubscription`; no `dataschema`; `data` the RDM event unchanged |
+| C-D127 | CloudEvents on the pull feed (C17) | **Approved 2026-10-07.** Not now; the pull feed stays RDM JSON |
+| C-D128 | The CloudEvents webhook spec (C17) | **Approved 2026-10-07.** Not adopted (handshake, bearer tokens); requests stay HMAC-signed (C-D12) |

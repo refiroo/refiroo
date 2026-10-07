@@ -29,7 +29,6 @@ from test_j30_consumer_events import (
 KEY = base64.urlsafe_b64encode(b"k" * 32).decode()
 SUBSCRIPTIONS = {
     "CONSUMER_SUBSCRIPTIONS_ENABLED": "true",
-    "CONSUMER_WEBHOOK_ALLOWED_HOSTS": "hooks.example.test, localhost",
     "CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY": KEY,
 }
 PATH = "/consumer-subscriptions"
@@ -51,6 +50,7 @@ def _token(world, workspace):
 
 def _body(world, workspace, **changes):
     body = {
+        "name": "Ledger feed",
         "consumerApi": world.key("Capi"),
         "workspaceKey": workspace,
         "events": [WATCHED, EVERY],
@@ -202,7 +202,6 @@ def test_a_subscription_the_definition_or_deployment_cannot_serve_is_refused(wor
         ({"filters": {related: [token["name"], "No such token"]}}, 400, "FILTER_MATCHES_NOTHING", f"/filters/{related}"),
         ({"url": "http://hooks.example.test/rdm"}, 400, "INVALID_WEBHOOK_URL", "/url"),
         ({"url": "https://user:secret@hooks.example.test/rdm"}, 400, "INVALID_WEBHOOK_URL", "/url"),
-        ({"url": "https://elsewhere.example.test/rdm"}, 400, "WEBHOOK_HOST_NOT_ALLOWED", "/url"),
         ({"workspaceKey": retired}, 404, "WORKSPACE_NOT_FOUND", "/workspaceKey"),
         ({"workspaceKey": "no-such-site"}, 404, "WORKSPACE_NOT_FOUND", "/workspaceKey"),
         ({"startAfter": _head(world, ws) + 1}, 409, "EVENT_POSITION_AHEAD", "/startAfter"),
@@ -214,7 +213,7 @@ def test_a_subscription_the_definition_or_deployment_cannot_serve_is_refused(wor
     local = _subscribe(world, ws, url="http://localhost:9000/hook", filters={related: token["name"]})
     assert local["url"] == "http://localhost:9000/hook"
     for changes, code, pointer in [
-        ({"url": "https://elsewhere.example.test/rdm"}, "WEBHOOK_HOST_NOT_ALLOWED", "/url"),
+        ({"url": "http://hooks.example.test/rdm"}, "INVALID_WEBHOOK_URL", "/url"),
         ({"filters": {related: "No such token"}}, "FILTER_MATCHES_NOTHING", f"/filters/{related}"),
         ({"events": ["no-such-event"]}, "UNKNOWN_EVENT", "/events/0"),
     ]:
@@ -362,7 +361,7 @@ def test_subscriptions_are_a_capability_the_deployment_turns_on(world):
     capabilities = ok(world.api.get("/capabilities"))["consumerSubscriptions"]
     assert capabilities == {
         "manageSubscriptions": False,
-        "allowedHosts": [],
+        "logRetentionDays": 7,
         "delivery": DELIVERY,
         "setting": "CONSUMER_SUBSCRIPTIONS_ENABLED",
     }
@@ -373,12 +372,11 @@ def test_subscriptions_are_a_capability_the_deployment_turns_on(world):
 @pytest.mark.journey("J30.6")
 @pytest.mark.settings(**SUBSCRIPTIONS)
 @pytest.mark.structures(*LEDGER)
-def test_the_capabilities_name_the_allowed_hosts(world):
-    """Given the capability on. Then the capabilities report it with the allowlist and how webhooks
-    are delivered."""
+def test_the_capabilities_report_the_capability_on(world):
+    """Given the capability on. Then the capabilities report it with how webhooks are delivered."""
     assert ok(world.api.get("/capabilities"))["consumerSubscriptions"] == {
         "manageSubscriptions": True,
-        "allowedHosts": ["hooks.example.test", "localhost"],
+        "logRetentionDays": 7,
         "delivery": DELIVERY,
         "setting": "CONSUMER_SUBSCRIPTIONS_ENABLED",
     }

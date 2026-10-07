@@ -164,8 +164,17 @@ release and are not copied by one.
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | `CONSUMER_SUBSCRIPTIONS_ENABLED` | off | Serves the subscriptions API (see capability groups) and runs the dispatcher that delivers them |
-| `CONSUMER_WEBHOOK_ALLOWED_HOSTS` | empty | Comma-separated hosts a webhook URL may name: exact names, or `*.` and a domain for any host below it (not the domain itself); IP addresses as written; any port. Empty allows nothing. URLs must use HTTPS; plain HTTP is accepted only to `localhost`, `127.0.0.1` or `::1` when listed (development). Reported by `GET /api/v1/capabilities` |
 | `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY` | none | 32 bytes in URL-safe base64; signing keys are stored sealed with it (AES-256-GCM). Required with the capability on |
+| `CONSUMER_WEBHOOK_LOG_RETENTION_DAYS` | 7 | Days the delivery log keeps each request, with the body it sent (up to 1 MiB), its events and its attempts (0.9 U5a); a batch still being retried or awaiting a resume is kept longer. Reported by `GET /api/v1/capabilities` |
+
+**The delivery log** (0.9 U5a) records every request the dispatcher sends: its body, the events
+it carries and each attempt's start, duration and answer (up to 4 KiB). It is read on Settings ›
+Integration › Webhooks, Deliveries, and through `GET /api/v1/consumer-subscriptions/{id}/deliveries`.
+A busy subscription writes up to 1 MiB per request: size the database for the retention. The
+dispatcher deletes expired entries at most hourly.
+
+A webhook URL may name any host and port. It must use HTTPS; plain HTTP is accepted only to
+`localhost`, `127.0.0.1` or `::1` (development). There is no host allowlist (C-D101 revised).
 
 - **Generating the key:** `python -m app.cli.generate_key` prints one. Keep it with the deployment's
   other secrets, never in the database or its backups. Every process of a deployment uses the same
@@ -200,7 +209,6 @@ release and are not copied by one.
   | Reason | Cause | Fix |
   | --- | --- | --- |
   | `DELIVERY_FAILED` | The receiver failed for 24 hours | Fix the receiver (or the URL), then resume |
-  | `HOST_NOT_ALLOWED` | The URL's host left `CONSUMER_WEBHOOK_ALLOWED_HOSTS` | Edit the URL, or list the host again and restart, then resume |
   | `FILTER_MATCHES_NOTHING` | A filter value no longer matches any record (it was deleted or renamed) | Edit the filter, then resume; the events since, deletions included, are delivered |
   | `EVENTS_EXPIRED` | Events expired before they were delivered: the dispatcher did not run for `FEED_RETENTION_DAYS` (the capability was off, or no process ran) | Resume with `reset`, then re-sync the receiver from the publication the details name |
 
@@ -214,8 +222,7 @@ release and are not copied by one.
   C-D114).
 - **Addresses.** The host is resolved at each attempt; a link-local address (`169.254.0.0/16`,
   `fe80::/10`, where cloud metadata services listen) is always refused, and a loopback address
-  unless the URL names a loopback host. Private addresses are allowed: the allowlist decides which
-  hosts. A refused address is a failed attempt and is retried.
+  unless the URL names a loopback host. Private addresses are allowed. A refused address is a failed attempt and is retried.
 - **TLS** is verified against the system's trust store. For receivers with certificates from an
   internal CA, point `SSL_CERT_FILE` at a bundle that includes it. **No outbound proxy** is used in
   0.9: the API process needs direct HTTPS access to the receivers.
