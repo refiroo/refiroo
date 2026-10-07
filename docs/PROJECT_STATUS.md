@@ -319,7 +319,8 @@ column (D64–D74, revision `20261007_06`; [record](BASE_0_9_IMPLEMENTATION_PLAN
 **J2a is delivered (2026-10-07)**: the database holds live unique attribute values
 (`unique_attribute_values`, kept by PostgreSQL triggers under a deferred constraint, D75–D78,
 revision `20261007_07`; [record](BASE_0_9_IMPLEMENTATION_PLAN.md#j2a-record-2026-10-07)).
-Next are J3 (the preview), J4, Track K and R.
+Next is **J3, import preview and confirmation** ([plan](BASE_0_9_IMPLEMENTATION_PLAN.md#j3-plan-2026-10-07)),
+planned 2026-10-07 with D79–D87 awaiting approval; then J4, Track K and R.
 **C18, the consumer API definition written for readers**, is planned 2026-10-07 (schema 0.9 syntax,
 nothing a consumer sees changes; C-D132–C-D141 decided;
 [plan](BASE_0_9_IMPLEMENTATION_PLAN.md#c18-plan-2026-10-07)). It is independent of Track J.

@@ -250,7 +250,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 28a | [J1u](#j1u-export-in-the-ui-and-job-notifications-outline) | J1 | Export in the UI: the dialog, the job page, notifications pushed over a per-job event stream (D57–D63) — **delivered 2026-10-07**, screenshots approved by the user ([record](#j1u-record-2026-10-07)) |
 | 29 | [J2](#j2-import-profiles-and-file-reading) | B3 | Import profiles, XLSX/CSV/JSON Lines reading, rows to items, `POST /imports` with `stage: execute` (D64–D74) — **delivered 2026-10-07** ([record](#j2-record-2026-10-07)) |
 | 29a | [J2a](#j2a-database-backed-uniqueness-for-unique-attributes) | J2 | Database-backed uniqueness for `unique` attributes (TODO, C-D24, D74, D75–D78) — **delivered 2026-10-07** ([record](#j2a-record-2026-10-07)) |
-| 30 | [J3](#j3-import-preview-and-execution) | J2, B2 | Import preview, confirm; `stage: execute` arrives with J2 (D64) |
+| 30 | [J3](#j3-import-preview-and-execution) | J2, B2 | Import preview, confirm, outcomes by row, the binding report; `stage: execute` arrives with J2 (D64) — **planned 2026-10-07** ([plan](#j3-plan-2026-10-07)), D79–D87 awaiting approval |
 | 31 | [J4](#j4-import-screen-and-sc-10) | J1u, J3, F2 | The SC-10 screen and SC-10 acceptance |
 | 31a | [Track K](#track-k--bulk-selection-and-editing-in-collections) | J4, UA | Bulk selection and bulk edits in collections over `POST /batches`; packages K1–K5 planned in detail when the track starts — **added 2026-10-06** |
 | V | [V3–V9](#v3v9-the-management-api-documented-plan-2026-10-07) | V2 | The management API documented: the starter extended, content and examples beside the document, the error catalogue; V3 first, then V4–V8 in any order, then V9. **Independent fillers; block no release** (V-D9) — **planned 2026-10-07**, V-D1 open |
@@ -7611,6 +7611,188 @@ policies; an interrupted import resumed and retried with its idempotency key cre
 **Groups:** `jobs`, `records`, `change_sets`, `volume`.
 
 **Exit:** SC-10's import half passes at API level.
+
+##### J3 plan (2026-10-07)
+
+**Planned 2026-10-07; D79–D87 and the test cases await the user's approval.** Checked against the
+code at `477453f`: the worker (`engine/jobs/worker.py`: claims `queued` and `running` jobs only;
+an import binds while `total` is null, then runs chunks), `run_items` (`engine/jobs/batches.py`:
+the items in one savepoint, rolled back whole for an `atomic` rejection), the job store
+(`record_binding`, `stop_job`, `expire_jobs`, which expires finished jobs only), the binding
+(`engine/imports/binding.py`: a row stops at its first failing cell, `ref` is `{sheet}!{row}`, items
+ordered records, related records, relationships), the jobs routes (`/items` filters by `status`
+only, `/cancel` leaves every finish to the worker, D28) and the tables (`jobs.state` already allows
+`awaiting_confirmation`; `job_items` has no row columns; `jobs.output` is the export manifest). The
+latest revision is `20261007_07`. **Needs:** J2, B2 (delivered); J2a delivered, so the budgets
+measure the write path with the unique triggers in place (D74).
+
+**Behaviour.** An integrator sends a file with `stage: preview`. The job binds the whole file as
+an execution would, then runs its items against the data in a transaction that is rolled back, and
+waits in `awaiting_confirmation`. Nothing is written: no record, relationship, feed entry, audit
+entry or event. The job then says what an execution would do: counts by action, the result under
+the chosen policy, whether the preview covered every item (`complete`) or the first ones
+(`sample`), a binding report per column (cells read, empty, converted, value-mapped, refused; for
+match columns resolved, not found, ambiguous) and outcomes by row, each row with every failing cell
+and its column. The integrator confirms, and the import runs as `stage: execute` would on the stored
+file, or cancels; an unconfirmed preview expires with the job's retention. Execution is
+authoritative: data may change between preview and confirmation, and the outcomes are the
+execution's.
+
+**Contract.**
+
+- **`POST /api/v1/imports`** takes `stage: "preview"` beside `execute`. The same refusals before a
+  job is stored; the same `Idempotency-Key` (the fingerprint already covers `stage`).
+- **The job.** `stage` reads `binding`, `previewing` or `applying` while it runs. A preview ends in
+  `awaiting_confirmation` with `preview`:
+
+  ```json
+  {
+    "coverage": "complete",
+    "items": { "total": 30, "previewed": 30 },
+    "rows": { "total": 12, "previewed": 12, "rejected": 4 },
+    "counts": { "created": 1, "updated": 1, "unchanged": 6, "deleted": 0, "rejected": 4 },
+    "result": "partial",
+    "previewedAt": "2026-10-08T09:00:00Z"
+  }
+  ```
+
+  `result` is what execution would give under the request's policy (`rejected` for an `atomic`
+  import with any refusal, since nothing would be written). Every import, previewed or executed,
+  carries `bindingReport` once bound (null for a JSON Lines file, which has no columns):
+
+  ```json
+  [{ "sheet": "Codes", "objectTypeKey": "master-value", "rows": 12, "rejectedRows": 2,
+     "columns": [
+       { "column": "Order", "binding": "attributeTypeKey", "target": "sort-order",
+         "cells": 12, "empty": 1, "converted": 9, "valueMapped": 1, "refused": 1 },
+       { "column": "List", "binding": "parent", "target": "codelist",
+         "cells": 12, "empty": 0, "resolved": 10, "notFound": 1, "ambiguous": 1 } ] }]
+  ```
+
+- **`POST /api/v1/jobs/{jobId}/confirm`** (under `INTEGRATION_JOBS_ENABLED`, no body): `202` with
+  the job, queued again; the confirmation time is `confirmedAt`. Confirming a job already confirmed
+  answers `202` with it unchanged, so a retried request is safe. Refusals:
+  `409 JOB_NOT_AWAITING_CONFIRMATION` (`details.state`; an import sent with `execute`, a batch, an
+  export, a cancelled preview), `410 JOB_EXPIRED`, and the context's codes checked again as at
+  submission (`MODEL_RELEASE_CHANGED`, `WORKSPACE_NOT_FOUND`, `CHANGE_SET_NOT_FOUND`,
+  `CHANGE_SET_VERSION_CONFLICT` against the request's claim), each leaving the job awaiting.
+- **`POST /jobs/{id}/cancel`** on a job awaiting confirmation finishes it `cancelled` at once (`202`),
+  keeping the preview's outcomes to read until retention, and removes its file (amends D28's "the
+  worker does every finish": the worker never claims a waiting job).
+- **`GET /api/v1/jobs/{jobId}/rows`** (new, paged per ADR-030, in source then row order): one entry
+  per row of the file: `ref`, `sheet`, `row`, `status` (its worst item's: `rejected`, then
+  `unprocessed`, then `applied`), `actions` (applied items counted by action), and the outcomes of
+  its rejected and unprocessed items; filter `status`. `GET /jobs/{id}/items` gains `ref=` for every
+  item of one row. A batch or export answers `404 JOB_HAS_NO_ROWS`.
+- **A row's failing cells** (D84): a binding refusal names every failing cell of the row: its error
+  is the first cell's, as today, with `details.cells` (`column`, `code`, `message`) listing all.
+- **Setting:** `IMPORT_PREVIEW_MAX_ITEMS` (10,000, the atomic maximum), reported in
+  `integrationJobs.limits`.
+
+**Design.**
+
+- **Storage.** Revision `20261007_08`: `jobs` gains `report` (JSON: `bindingReport` and `preview`)
+  and `confirmed_at`; `job_inputs` and `job_items` gain `source_index` and `row_number` (nullable;
+  set for imports only), with an index on `job_items (job_id, source_index, row_number)` for the row
+  read. Existing jobs keep nulls; their rows read empty.
+- **Binding** (`binding.py`) carries each item's source and row into `job_inputs`, and from there
+  into outcomes. Converting a row goes on past a failing cell and collects every failure (D84). The
+  report's cell counts are counters kept while the rows stream (conversion is per cell already); the
+  match counts are one aggregate statement over the temporary tables after resolution.
+- **The preview** (`engine/imports/preview.py`, new; the worker's step after binding when the stage
+  is `preview` and `confirmed_at` is null): open the job's context, load the first
+  `IMPORT_PREVIEW_MAX_ITEMS` inputs, `run_items` them with `policy: independent` (D79), roll the whole
+  transaction back, then in a short transaction holding the lease record the outcomes, the
+  `preview` summary and `awaiting_confirmation`, and clear the lease. The rollback undoes feed
+  positions, audit entries, matrix states, unique values and change-set versions together, and
+  PostgreSQL drops a rolled-back transaction's notifications, so no event or job-stream wake leaks.
+  The preview holds the workspace lock (or the change set's claim) while it runs, as an atomic job
+  of that size does. A restart during the preview runs it again from the stored inputs.
+- **Confirm** (`engine/jobs/store.py`): under the job row's lock, check the state and context, then
+  remove the preview's inputs and outcomes, reset `total`, `processed` and `counts`, keep `preview`,
+  set `confirmed_at`, queue the job and wake the worker. The worker binds the file again and runs it
+  as `stage: execute` (D80), so there is one execution path.
+- **Expiry.** A preview's `expiresAt` is set from its end (D14's 7 days); the hourly sweep expires
+  `awaiting_confirmation` jobs past it like finished ones and the file goes with them.
+- **The row read** (`management/projections/` read): a `GROUP BY source_index, row_number` over the
+  job's outcomes with keyset paging on the two columns, through `common/pagination.py`.
+- **Frontend:** none (J4). The J1u job page already shows the state's label; J4 builds the screen.
+
+**Decisions** (for approval):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D79 | What a preview runs under an `atomic` import | **Every item, independently, whatever the policy; `result` states what the policy would do.** An atomic run stops at the first refusal and marks the rest `unprocessed`, so a preview run atomically would show one problem per round trip. Run independently it shows every refusal, and when there is none its outcomes equal an atomic run's (D23: each item sees the items before it either way). The alternative, the request's policy as §J1 says, is exact but useless for fixing a file |
+| D80 | What confirming runs | **The stored file bound again, then executed, as `stage: execute` would (amends §J1's "execute on confirm" reading of the stored items).** Bindings resolve names and keys against the data at binding time; a preview may be confirmed days later, after records were renamed, created or removed. Binding again keeps one execution path and makes "execution is authoritative" true of the matches too. Cost: a second binding; measured in the budget. The alternative, running the stored items, saves the binding but executes resolutions that may be stale |
+| D81 | Where the preview's changes go | **One transaction rolled back whole; the outcomes recorded afterwards in a short one.** Simpler than a savepoint inside the recording transaction, and it guarantees nothing of the preview reaches a commit. The workspace lock is held for its length: about 5 s live and 18 s in a change set for 10,000 items (D13 restated, PG5), so live writes in that workspace wait that long once per preview |
+| D82 | A file over the preview limit (`sample`) | **Binding covers every row (its refusals and the report are complete); the items run in execution order up to `IMPORT_PREVIEW_MAX_ITEMS`; a row counts as previewed only when all its items ran.** Items run records first and relationships last, so a sample of a large file previews its records and maybe no relationships; the counts say so. A row-based sample (the first rows' items only) would have relationships naming records of later rows refused falsely |
+| D83 | Outcomes by row | **`GET /jobs/{id}/rows`, a row per entry with its worst item, paged by sheet and row; `ref=` on `/items`; `source_index` and `row_number` stored on inputs and outcomes.** D72 left "pages it by row" to J3. A row's items are spread over the item order (records, related records, relationships), so the read groups them; a client walking `/items` cannot page by row. Stored integers make the order and the keyset exact; parsing `ref` would sort `Codes!10` before `Codes!9` |
+| D84 | Every failing cell of a row | **Conversion goes on past the first failing cell; the row's error keeps the first cell's code and lists all in `details.cells`.** SC-10: "the preview reports errors by row and field"; today a row with two bad cells reports one, and the user finds the second on the next attempt. Match and key refusals found later in the database stay one per row (the row is already refused) |
+| D85 | The binding report | **Per source and column, on every import (preview or execute) once bound, in `jobs.report`; none for JSON Lines.** The counts the user needs to see that a column was bound as meant (a date column with every cell refused, a match column resolving nothing). Kept on the job, not as outcomes, since it describes columns, not rows |
+| D86 | Confirm, cancel and expiry of a waiting preview | **Confirm is idempotent (`202` with the job when already confirmed), checks the context again and refuses with its codes leaving the job waiting; cancel finishes a waiting job at once (D28 amended); a waiting job expires after D14's retention from the preview's end.** The request's change-set claim stands: a change set changed since submission is refused at confirm, not after queuing. No setting of its own for preview expiry; one retention rule |
+| D87 | The budgets | **A 10,000-row XLSX preview under 30 s and a 100,000-row XLSX execution (binding included) under 2 minutes, live, on the volume fixture, measured once with `-m budget`.** Basis: the 100,000-item batch took 52 s live (PG5); J2a's triggers added 0.1–0.2 s per 500-item chunk (+20–40 s over 200 chunks); openpyxl's read-only speed is unmeasured here (D68). A miss is reported with its cause before anything is tuned |
+
+**Journey.** J27 gains its preview variants; USER_JOURNEYS (J27.11–J27.12, J27.10 amended for
+every failing cell) and API_JOURNEYS (`stage: preview`, `/confirm`, `/rows`, `ref=`, the codes,
+`IMPORT_PREVIEW_MAX_ITEMS`) change with it:
+
+- **J27.11 Preview before loading**: a file previewed live or in a change set changes nothing; the
+  counts, the result under the policy, the binding report and the rows say what execution would do;
+  confirmed, it executes; cancelled or left, it ends without writing.
+- **J27.12 A large file previewed in part**: every row bound and reported, the first items run, the
+  preview marked `sample` with what it covers.
+
+**Test cases** (journey tests on generated A and on the example or generated B, through the API,
+written first and confirmed failing):
+
+1. **SC-10's file previewed, then confirmed.** J2's case-5 file (a new value, an existing value, an
+   invalid number, two rows with one key and different names, an ambiguous and a missing match)
+   with `stage: preview` under `independent`: the job waits with `coverage: complete`, counts
+   `created` 1, `updated` 1 and four refused, `result: partial`; `/rows?status=rejected` lists the
+   four rows with their columns; the records, the feed head and the audit log are unchanged. On
+   confirm, the job completes with the same codes on the same rows; a second confirm answers `202`
+   with the same job. Under `atomic` the preview says `result: rejected` and lists the same rows.
+2. **Two failing cells of one row** (an invalid number and an invalid date) are both in
+   `details.cells`; the binding report counts one refusal in each column and a not-found and an
+   ambiguous match in the parent column.
+3. **Data changed between preview and confirm.** After the preview, the existing value is deleted
+   and the record the missing match names is created through the API: the execution creates the
+   value the preview reported `updated` and loads the row the preview refused
+   `REFERENCE_NOT_FOUND`, since it binds again (D80).
+4. **Into a change set**: the preview leaves the change set's version and contents unchanged;
+   confirm after another write to the change set is `409 CHANGE_SET_VERSION_CONFLICT` and the job
+   still waits.
+5. **`sample`**: with `IMPORT_PREVIEW_MAX_ITEMS` at 5, a 12-row file previews 5 items, says
+   `sample`, counts the rows fully covered, and still reports every binding refusal.
+6. **Ending a preview**: cancel of a waiting job finishes it at once with its file removed and its
+   outcomes readable; a preview past its retention is `expired` after the sweep, and confirm is
+   `410 JOB_EXPIRED`; confirm of an `execute` import or a batch is `409
+   JOB_NOT_AWAITING_CONFIRMATION`.
+7. **Interrupted and retried** (SC-10): an import whose worker stops after its first chunk resumes
+   at the checkpoint; the same request with its `Idempotency-Key` replays the job; nothing is created
+   twice.
+
+Plus the migration checks (AGENTS.md): upgrade from `20261007_07` with jobs and outcomes present,
+two starts, an interrupted run recovering. Unit tests only where the edge cases are real: the row
+status order and the row read's paging across sources; the report's counters per binding kind.
+
+**Checks.** The cases above, `--journey J27` (J2's import and J1's export cases unchanged),
+`jobs`, `records` and `change_sets` as the guide selects them, `test_startup` for the migration,
+`test_openapi_contract` (re-baselined, difference stated), `ruff`. `test_import_volume` extended:
+the preview's statements flat as rows grow. D87's two budgets once. No frontend change. Not run: the
+full suites (R).
+
+**Docs at delivery.** API.md (preview, the job's `preview` and `bindingReport`, confirm, rows, the
+codes, the setting), INTEGRATION_API §J1 amended by D79–D82 and D86, OPERATIONS
+(`IMPORT_PREVIEW_MAX_ITEMS`, the preview's lock), POSTGRESQL_BUDGETS (a section for imports),
+USER_JOURNEYS, API_JOURNEYS, CURRENT_FUNCTIONALITY, PRODUCT, ACCEPTANCE_SCENARIOS (SC-10's import
+half at API level), CHANGELOG, PROJECT_STATUS, TODO (the import item; 0.10 A3's dry run points at
+this preview).
+
+**Composable domains (ADR-032):** inbound flow is touched and stays open: the preview runs the
+batch path unchanged and writes nothing, so provenance and identity are untouched. Value types
+still convert through the attribute registry. The `match` declaration and mapping coverage are
+untouched.
 
 #### J4: Import screen and SC-10
 
