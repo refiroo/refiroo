@@ -2,15 +2,21 @@
  * Settings › Integration › Jobs and feed (Track U U4): the jobs of every workspace, newest first
  * (`GET /jobs`), with their state and outcome counts, and a cancel for a queued or running job while
  * jobs can be created (`POST /jobs/{id}/cancel`, J24.2); then the job limits and the change feed's
- * retention from `GET /capabilities`.
+ * retention from `GET /capabilities`. Each job opens its own page, and New export starts an export
+ * of any types of a workspace (0.9 J1u, D57, D62).
  */
 
 import { useState } from "react";
+import { ExportDialog } from "@/features/jobs/ExportDialog";
+import { JobPage } from "@/features/jobs/JobPage";
+import { useJobNotifications } from "@/features/jobs/JobNotifications";
+import { routePath } from "@/routing/routes";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import { formatServerTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
-import type { Job } from "@/types";
+import type { EngineModel, Job, RouteState, SettingsRoute } from "@/types";
+import { RouteLink } from "@/ui/RouteLink";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { DescriptionList } from "@/ui/DescriptionList";
 import { EmptyState } from "@/ui/EmptyState";
@@ -20,38 +26,51 @@ import { Section } from "@/ui/Section";
 import { SettingsLayout } from "@/ui/SettingsLayout";
 import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
-import { StatusPill, type StatusTone } from "@/ui/StatusPill";
+import { StatusPill } from "@/ui/StatusPill";
+import { KIND, RESULT, STATE, cancellable } from "@/features/jobs/jobText";
 import { count, jobLimitItems } from "./limits";
 import { useCapabilities } from "./useSystem";
 
-const KIND: Record<Job["kind"], string> = { batch: "Batch", import: "Import", export: "Export" };
+const JOBS: Extract<SettingsRoute, { page: "jobs" }> = { kind: "settings", page: "jobs" };
 
-const STATE: Record<Job["state"], { label: string; tone: StatusTone }> = {
-  queued: { label: "Queued", tone: "draft" },
-  running: { label: "Running", tone: "draft" },
-  awaiting_confirmation: { label: "Awaiting confirmation", tone: "draft" },
-  completed: { label: "Completed", tone: "success" },
-  failed: { label: "Failed", tone: "error" },
-  cancelled: { label: "Cancelled", tone: "neutral" },
-  expired: { label: "Expired", tone: "neutral" },
-};
+export function JobsPage({
+  model,
+  route,
+  onNavigate,
+}: {
+  model: EngineModel;
+  route: Extract<SettingsRoute, { page: "jobs" }>;
+  onNavigate: (route: RouteState) => void;
+}) {
+  const { capabilities } = useCapabilities();
+  if (route.jobId)
+    return (
+      <JobPage
+        key={route.jobId}
+        model={model}
+        jobId={route.jobId}
+        canCancel={capabilities?.integrationJobs.createJobs ?? false}
+        jobsHref={routePath(JOBS)}
+        onJobs={() => onNavigate(JOBS)}
+      />
+    );
+  return <JobList model={model} onNavigate={onNavigate} />;
+}
 
-const RESULT: Record<NonNullable<Job["result"]>, string> = {
-  applied: "Every item applied",
-  partial: "Partly applied",
-  rejected: "Nothing applied",
-};
-
-const cancellable = (job: Job) => (job.state === "queued" || job.state === "running") && !job.cancelRequestedAt;
-
-export function JobsPage() {
+function JobList({ model, onNavigate }: { model: EngineModel; onNavigate: (route: RouteState) => void }) {
   const feed = useCursorFeed((cursor) => api.jobs(cursor), []);
+  const notifications = useJobNotifications();
+  const [exporting, setExporting] = useState(false);
   const { capabilities, error: capabilityError, retry: retryCapabilities } = useCapabilities();
   const [cancelling, setCancelling] = useState<Job>();
   const [pending, setPending] = useState(false);
   const [cancelError, setCancelError] = useState("");
   const [notice, setNotice] = useState("");
   const canCancel = capabilities?.integrationJobs.createJobs ?? false;
+  const open = (job: Job) => {
+    const next: RouteState = { ...JOBS, jobId: job.id };
+    return { href: routePath(next), onNavigate: () => onNavigate(next) };
+  };
 
   async function cancel() {
     if (!cancelling) return;
@@ -79,7 +98,14 @@ export function JobsPage() {
     <SettingsLayout
       eyebrow="Integration"
       title="Jobs and feed"
-      description="Bulk writes run as jobs. Jobs of every workspace are listed newest first; finished jobs are kept for the retention below."
+      description="Bulk writes and exports run as jobs. Jobs of every workspace are listed newest first; finished jobs are kept for the retention below."
+      actions={
+        canCancel && (
+          <button type="button" className="primary" onClick={() => setExporting(true)}>
+            New export
+          </button>
+        )
+      }
     >
       <Section
         title="Jobs"
@@ -107,7 +133,8 @@ export function JobsPage() {
           <Skeleton label="Loading jobs" lines={5} />
         ) : feed.items.length === 0 ? (
           <EmptyState>
-            No jobs yet. A job is created when a batch is submitted to <code>POST /api/v1/batches</code>.
+            No jobs yet. A job is created by an export, or when a batch is submitted to{" "}
+            <code>POST /api/v1/batches</code>.
           </EmptyState>
         ) : (
           <SettingsTable
@@ -118,6 +145,7 @@ export function JobsPage() {
               <JobRow
                 key={job.id}
                 job={job}
+                link={open(job)}
                 onCancel={canCancel && cancellable(job) ? () => setCancelling(job) : undefined}
               />
             ))}
@@ -138,6 +166,18 @@ export function JobsPage() {
           <DescriptionList className="compact" items={jobLimitItems(capabilities)} />
         )}
       </Section>
+      {exporting && (
+        <ExportDialog
+          model={model}
+          start={{ objectTypeKeys: model.objectTypes.map((type) => type.key), selected: [] }}
+          onClose={() => setExporting(false)}
+          onStarted={(job) => {
+            setExporting(false);
+            notifications.follow(job);
+            feed.setItems((items) => [job, ...items]);
+          }}
+        />
+      )}
       {cancelling && (
         <ConfirmDialog
           title="Cancel this job?"
@@ -161,17 +201,25 @@ export function JobsPage() {
   );
 }
 
-function JobRow({ job, onCancel }: { job: Job; onCancel?: () => void }) {
+function JobRow({
+  job,
+  link,
+  onCancel,
+}: {
+  job: Job;
+  link: { href: string; onNavigate: () => void };
+  onCancel?: () => void;
+}) {
   const state = STATE[job.state];
   const { applied, rejected, unprocessed } = job.counts;
   const total = job.progress.total;
   return (
     <tr>
       <th scope="row">
-        <span className="job-name">
+        <RouteLink className="job-name" {...link}>
           {KIND[job.kind]}
           <code>{job.id}</code>
-        </span>
+        </RouteLink>
       </th>
       <td data-label="Workspace">
         <code>{job.workspaceKey}</code>

@@ -447,10 +447,31 @@ their state, result and item counts, and cancels a queued or running job after c
 the deployment lets jobs be created). It also shows the batch and job limits and how long the
 change feed is kept.
 
-Limits: file import and export with a preview screen follow in 0.9; the relationship view in the
-browser still saves one related record at a time.
+An integration also exports a stated scope of a workspace as a job: live data, a change set or a
+publication; chosen types, each with its own criteria; only below one record; on a business date;
+with or without relationships; as JSON Lines, CSV or an Excel workbook. Everything in the file is
+read at one instant, and the job says what the file holds: counts per type, the context, the change
+feed position it equals, the model release, the size and a checksum. A live export is therefore a
+starting point for following the change feed. The JSON Lines file sent back as a batch changes
+nothing; edited, it updates only the records nobody else changed since the export. CSV and the
+workbook hold the same records in one table layout, the workbook with typed cells and dropdowns. A
+cancelled or failed export has no file.
+
+In the browser, **Export** on a collection page exports what the page shows (its type, its data
+context, its filters and its narrowing to a parent; the search is not carried), with other types of
+the application if wanted, a date, the relationships and a format. Settings › Integration › Jobs
+and feed starts an export of any types of a workspace. A notification says the export started, and
+another when it finished, with Download and the job's page, or that it failed or was cancelled. Each
+job has its own page showing its state and progress as they change, its error, Cancel, and for an
+export what the file holds and Download. An integration follows any job the same way through the
+API: the engine pushes each change as it commits.
+
+Limits: notifications reach the tab that started the job while it is open; file import with a
+preview screen follows in 0.9; the relationship view in the browser still saves one related record
+at a time.
 
 Evidence: [batch contracts](../API.md#batches-and-jobs-base-09-b1-b2-b3),
+[exports](../API.md#exports-base-09-j1),
 [jobs](../../backend/app/engine/jobs/),
 [ADR-036](../DECISIONS.md#adr-036--a-batch-is-a-job-one-mechanism-for-bulk-writes-imports-and-exports).
 

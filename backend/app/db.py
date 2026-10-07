@@ -95,6 +95,12 @@ def get_engine() -> Engine:
     return _engine_for_url(configured_url().render_as_string(hide_password=False))
 
 
+def libpq_url() -> str:
+    """The configured database as a libpq URL, for a connection of psycopg's own (the job
+    listener's ``LISTEN``, 0.9 J1u)."""
+    return configured_url().set(drivername="postgresql").render_as_string(hide_password=False)
+
+
 @cache
 def _sessionmaker_for_url(url: str) -> sessionmaker[Session]:
     return sessionmaker(bind=_engine_for_url(url), expire_on_commit=False)

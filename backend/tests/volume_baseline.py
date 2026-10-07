@@ -1175,6 +1175,46 @@ def publish_scenario(client, engine: Engine, dataset: VolumeDataset) -> list[Mea
     ]
 
 
+EXPORT_FORMATS = ("jsonl", "csv", "xlsx")
+
+
+def export_scenarios(client, engine: Engine, dataset: VolumeDataset) -> list[tuple[Measurement, int]]:
+    """0.9 J1: the whole live workspace exported in each format with its relationships, timed once
+    each (D56), with the rows each wrote. The export runs in this thread, so its statements are
+    counted; the export worker's own thread is stopped first so it cannot take the job."""
+    worker = client.app.state.export_worker
+    worker.stop()
+    types = [item["key"] for item in volume_model()["objectTypes"]]
+    results = []
+    for export_format in EXPORT_FORMATS:
+        body = {
+            "workspaceKey": WORKSPACE,
+            "scope": {"types": [{"objectTypeKey": key} for key in types]},
+            "include": {"relations": "withinScope"},
+            "format": export_format,
+        }
+        queued = client.post("/api/v1/exports", json=body)
+        assert queued.status_code == 202, queued.text
+        with measure(engine) as cost:
+            worker.run_until_idle()
+        job = client.get(f"/api/v1/jobs/{queued.json()['id']}").json()
+        assert job["state"] == "completed", job
+        counts = job["output"]["counts"]
+        records = sum(counts["records"].values())
+        relations = sum(counts["relations"].values())
+        measurement = Measurement(
+            "live",
+            f"export {export_format}: {records:,} records, {relations:,} relationships, "
+            f"{job['output']['bytes'] / 1e6:,.1f} MB",
+            200,
+            cost.seconds * 1000,
+            cost.statements,
+            cost.rows_loaded,
+        )
+        results.append((measurement, records + relations))
+    return results
+
+
 def change_list_scenarios(client, engine: Engine, review: ReviewChangeSet, *, repeat: int) -> list[Measurement]:
     """P2a: both change lists of the review change set, paged every way a reviewer reaches a row."""
     results = []
@@ -1314,6 +1354,11 @@ def main() -> None:
         help="measure only the 0.9 C10 event derivation and pull feed (turns model administration on)",
     )
     parser.add_argument(
+        "--only-exports",
+        action="store_true",
+        help="measure only the 0.9 J1 exports of the whole live workspace, once per format",
+    )
+    parser.add_argument(
         "--only-consumer",
         action="store_true",
         help="measure only the 0.9 C3 consumer list reads, C4 XREF lookups and C14 batch resolve",
@@ -1332,6 +1377,9 @@ def main() -> None:
     server_started = postgres_server.start()
     try:
         with tempfile.TemporaryDirectory() as directory:
+            # Before the application is first imported (app.main builds one): export files (0.9
+            # J1) stay in this run's directory, never the project's var/.
+            os.environ.setdefault("JOB_FILE_DIR", str(Path(directory) / "job-files"))
             started = time.perf_counter()
             # A clone of the volume seed at this scale, built once (tests/seeds.py, H1).
             with volume_app(Path(directory), scaled_shape(arguments.scale)) as (client, dataset):
@@ -1347,6 +1395,8 @@ def main() -> None:
                 elif arguments.only_events:
                     results, told = event_scenarios(client, engine, dataset, repeat=arguments.repeat)
                     dataset.counts["events told by the heavy group's rename"] = told
+                elif arguments.only_exports:
+                    results = [item for item, _rows in export_scenarios(client, engine, dataset)]
                 elif arguments.only_dated:
                     results = dated_scenarios(client, engine, dataset, repeat=arguments.repeat)
                 elif arguments.only_publish:

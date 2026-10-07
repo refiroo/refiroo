@@ -197,6 +197,9 @@ CONSUMER_API), and a later value-source field builds on it (ADR-032, provenance)
 with their size and checksum recorded on the job; they are not database rows. Output is served only
 by a `completed` job, so partial output cannot be mistaken for a complete one. A batch's items are
 not a file (D27); the directory arrives with the first package that stores one (J1 or J2).
+_Delivered in J1:_ `JOB_FILE_DIR` (default `var/job-files`, D55) holds `{jobId}.partial` while an
+export writes and `{jobId}.{extension}` once it completes; a file is kept while its job is completed
+and removed when the job expires, fails or is cancelled; no path is stored on the job.
 
 **Retention (D14, B2).** The worker expires finished jobs past `expiresAt` every hour: the job becomes
 `expired` with its summary kept, and its outcomes, inputs and idempotency keys are removed. A process
@@ -498,7 +501,9 @@ GET /api/v1/workspaces/{workspaceKey}/feed?after={position}&pageSize=â€¦&kind=â€
 - The `410` details name the recovery baseline: the workspace's active publication with its
   `feedPosition`. A reader re-reads the baseline, then follows the feed from the baseline's position.
   The export route (J4) joins as a second baseline when J1 delivers it (D41); J1 then revisits
-  whether a workspace without a publication still keeps every entry.
+  whether a workspace without a publication still keeps every entry. _Delivered in J1:_ the `410`
+  names `export: {href: "/api/v1/exports"}`; a workspace without a publication still keeps every
+  entry (D54).
 - A publication's `feedPosition` is the position of its `published` entry; it equals live data at
   that position (C-D15, verified). An export records the position it read at.
 
@@ -665,6 +670,7 @@ with `objectTypeKey` given) and `stage`: `preview` or `execute`.
 | XLSX | One or several sheets; cell values, never formulas (a formula's cached value is read); dates from date cells or ISO 8601 text |
 | CSV | UTF-8 (a BOM is accepted), RFC 4180 quoting, a header row, comma by default or a declared delimiter |
 | JSON Lines | One batch item (B3, B4) per line; no profile. The export format, so an export re-imports as upserts |
+| An export's table layout (J1, D51) | CSV or XLSX as an export writes them ([API.md](API.md#exports-base-09-j1)): `objectTypeKey` or `relationTypeKey` per row, built-in columns by key, `#{attributeTypeKey}` columns, `~` columns ignored; read without a profile. XLSX text may hold Excel's `_xHHHH_` escapes, which the reader decodes |
 
 Values convert through the attribute registry by the target attribute's value type, with the same
 canonical forms as the API (API.md, attribute format). A value that does not convert rejects its
@@ -712,12 +718,20 @@ POST /api/v1/exports
   or `csv`.
 - Output: JSON Lines of B3 `create` items with IDs, then B4 `createRelation` items; CSV as one file per
   type (a ZIP when several), with field keys as headers and parents and relation ends as IDs.
+  _Amended in J1 (D49, D51):_ JSON Lines holds `upsert` items keyed by ID with the record's version
+  as `expectedVersion`, then `ensureRelation` items, so a re-import changes nothing; CSV and XLSX
+  share one table layout (records and relationships, `#{attributeTypeKey}` columns), CSV as one file.
 - Consistency: the export reads one database snapshot, and a live export records the feed position of
   that snapshot, so it serves as a re-sync baseline (F5). A publication export is its publication.
 - Output is served only by a `completed` job, with a manifest: counts per type, context, feed
   position, model release, format and SHA-256. A failed or cancelled export has no output, so a
   partial file cannot be taken for a complete one. Round trips preserve records, values, parents and
-  relations; versions and history are not carried (SC-10 excludes lossless round trips).
+  relations; versions and history are not carried (SC-10 excludes lossless round trips). _Amended in
+  J1:_ each record carries its version, so an edited file updates only records nobody changed since
+  the export; history is not carried. The manifest is the job's `output`, never in the file (D52).
+  _Delivered in J1 (2026-10-07):_ the contract is in [API.md](API.md#exports-base-09-j1); `format`
+  also takes `xlsx`; `scope.types` carries a `where` per type, and `asOf` dates the types with a
+  period (D50); exports run on a worker of their own from one snapshot (D53).
 
 ### J5: The SC-10 screen
 

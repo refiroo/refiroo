@@ -356,6 +356,7 @@ def job_responses(session: Session, jobs: list[Job]) -> list[JobResponse]:
             cancelRequestedAt=_optional_utc(job.cancel_requested_at),
             leaseOwner=job.lease_owner,
             leaseExpiresAt=_optional_utc(job.lease_expires_at),
+            output=job.output,
         )
         for job in jobs
     ]

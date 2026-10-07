@@ -48,7 +48,7 @@ def start_job(
     change_set_id: str | None,
     model_release_id: int,
     parameters: dict[str, Any],
-    total: int,
+    total: int | None,
     retention_days: int,
     queued: bool = False,
     change_set_version: int | None = None,
@@ -213,6 +213,40 @@ def _finish(session: Session, job: Job, state: str, *, retention_days: int) -> N
         .where(IdempotencyKey.job_id == job.sequence_id)
         .values(expires_at=job.expires_at)
     )
+
+
+def finish_export(
+    session: Session, job: Job, output: dict[str, Any], *, retention_days: int
+) -> None:
+    """A completed export with its manifest (D52). ``result`` describes item outcomes, which an
+    export has none of, so it stays empty."""
+    job.output = output
+    job.processed = job.total or 0
+    _close(job, "completed", retention_days=retention_days)
+
+
+def stop_export(
+    session: Session,
+    job: Job,
+    *,
+    state: str,
+    error: dict[str, Any] | None,
+    retention_days: int,
+) -> None:
+    """A cancelled or failed export: no output, its file removed by the worker."""
+    job.error = error
+    job.output = None
+    _close(job, state, retention_days=retention_days)
+
+
+def _close(job: Job, state: str, *, retention_days: int) -> None:
+    now = datetime.now(UTC)
+    job.state = state
+    job.stage = None
+    job.finished_at = now
+    job.expires_at = now + timedelta(days=retention_days)
+    job.lease_owner = None
+    job.lease_expires_at = None
 
 
 def expire_jobs(session: Session, now: datetime) -> int:

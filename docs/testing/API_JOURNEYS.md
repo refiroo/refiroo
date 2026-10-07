@@ -80,6 +80,8 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/docs` a
 | `POST /batches` (`run`: `inline`) | J11; relationship items J11.7, J11.8; `replaceRelationSet` J10.10, J11.8 |
 | `POST /batches` (`run`: `background`), `GET /jobs` (`kind`, `state`), `GET /jobs/{id}`, `GET /jobs/{id}/items` (`status`), `POST /jobs/{id}/cancel` | J24 |
 | `GET /workspaces/{key}/feed` (`after`, `pageSize`, `kind` and `objectTypeKey` repeatable) | J26, J26.1–J26.6 |
+| `POST /exports` (`context`, `scope`: `types` with `where`, `parentObjectId`, `asOf`; `include.relations`; `format`: `jsonl`, `csv`, `xlsx`), `GET /jobs/{id}/output`, the job's `output` (0.9 J1) | J27, J27.1–J27.5 |
+| `GET /jobs/{id}/events` (server-sent events: the job at once and after each committed change, ending after a final state; 0.9 J1u) | J24.7, J27.6 |
 | `POST /consumer-subscriptions`, `GET /consumer-subscriptions` (`consumerApi`, `workspaceKey`, `status`), `GET`, `PATCH` and `DELETE /consumer-subscriptions/{id}`, `POST /consumer-subscriptions/{id}/suspend`, `POST /consumer-subscriptions/{id}/resume` (`reset`); served with `CONSUMER_SUBSCRIPTIONS_ENABLED`; the subscription's `delivery`; `name` (U5a); `maxEventsPerBatch`, `payload`, `format` (C17; `mode` and `debounceSeconds` retired) | J30.6, J30.7, J30.8, J30.9 |
 | `GET /consumer-subscriptions/{id}/deliveries` (`status`, paging), `GET /consumer-subscriptions/{id}/deliveries/{deliveryId}`, `POST …/deliveries/{deliveryId}/resend` (`eventId`); `CONSUMER_WEBHOOK_LOG_RETENTION_DAYS` and `consumerSubscriptions.logRetentionDays` (U5a) | J30.10 |
 
@@ -124,7 +126,8 @@ documented nowhere; API.md documents them since H4c (D-4).
 | J08, J11, J24 | `MODEL_RELEASE_CHANGED` |
 | J19 | `WORKSPACE_ALREADY_EXISTS`, `DEFAULT_WORKSPACE_CANNOT_BE_RETIRED`, `WORKSPACE_IS_DEFAULT`, `WORKSPACE_HAS_PUBLICATIONS`, `WORKSPACE_NOT_EMPTY` |
 | J23 | `AS_OF_NOT_SUPPORTED`, `INVALID_EFFECTIVE_PERIOD`; on the consumer API both answer `400`: `AS_OF_NOT_SUPPORTED` (J23.6, J23.7) and `INVALID_AS_OF` (J23.8) |
-| J26 | `FEED_POSITION_AHEAD`, `FEED_POSITION_EXPIRED` |
+| J26 | `FEED_POSITION_AHEAD`, `FEED_POSITION_EXPIRED` (naming the export route, J27.2) |
+| J27 | Exports: `INVALID_QUERY` (at a body pointer), `AS_OF_NOT_SUPPORTED`, `PARENT_NOT_FOUND`, `WORKSPACE_NOT_FOUND`, `CHANGE_SET_NOT_FOUND`, `PUBLICATION_NOT_FOUND`, `REQUEST_VALIDATION_ERROR` (J27.5); the output: `JOB_NOT_FOUND`, `JOB_HAS_NO_OUTPUT`, `JOB_NOT_COMPLETED`, `JOB_EXPIRED` (J27.4), `JOB_OUTPUT_MISSING` (`410`, a file removed from `JOB_FILE_DIR` by hand; no journey reaches it, the route's own check); a failed export's `MODEL_RELEASE_CHANGED` and `JOB_FAILED` (J27.4) |
 | J30 | `EVENTS_NOT_DECLARED` (`404`), `UNKNOWN_EVENT`, `INVALID_PAYLOAD` (`400`), `EVENT_POSITION_AHEAD` (`409`), `EVENTS_EXPIRED` (`410`) (J30.4, J30.5); `PARAMETER_NOT_SUPPORTED` for `publication`, `asOf` and `to.` names, and the paging codes, as on the other consumer reads |
 | J30.6, J30.7 | Subscriptions: `CONSUMER_API_NOT_FOUND`, `EVENTS_NOT_DECLARED`, `UNKNOWN_EVENT`, `UNKNOWN_PARAMETER`, `PARAMETER_NOT_SUPPORTED`, `UNKNOWN_OBJECT_TYPE`, `FILTER_MATCHES_NOTHING`, `INVALID_WEBHOOK_URL` (`400`, at a body pointer); `WORKSPACE_NOT_FOUND`, `SUBSCRIPTION_NOT_FOUND` (`404`); `VERSION_CONFLICT`, `SUBSCRIPTION_ALREADY_SUSPENDED`, `SUBSCRIPTION_NOT_SUSPENDED`, `SUBSCRIPTION_NEEDS_EDIT`, `EVENT_POSITION_AHEAD`, `EVENTS_EXPIRED` (resume), `WORKSPACE_HAS_SUBSCRIPTIONS` (`409`); `EVENTS_EXPIRED` (`410`, `startAfter`) |
 | J30.10 | Deliveries: `SUBSCRIPTION_NOT_FOUND`, `DELIVERY_NOT_FOUND`, `EVENT_NOT_IN_DELIVERY` (`404`); `DELIVERY_NOT_SENT` (`409`, resend; held by a unit test, since no journey reaches a request never sent reliably); `REQUEST_VALIDATION_ERROR` (`422`: a create without `name`, J30.6; a resend without `eventId`; `maxEventsPerBatch` outside 1–1,000, an unknown `format`, the retired `mode` or `debounceSeconds`, J30.6 and J30.8) |
@@ -143,6 +146,7 @@ documented nowhere; API.md documents them since H4c (D-4).
 | `MODEL_ADMIN_MUTATIONS_ENABLED`, `WORKSPACE_ADMIN_MUTATIONS_ENABLED`, `INTEGRATION_JOBS_ENABLED` | J12.7, J08, J19.4, J11 |
 | `BATCH_MAX_ITEMS`, `BATCH_MAX_BYTES`, `ATOMIC_JOB_MAX_ITEMS`, `BACKGROUND_JOB_MAX_ITEMS`, `BATCH_BACKGROUND_MAX_BYTES`, `JOB_CHUNK_ITEMS`, `JOB_LEASE_SECONDS`, `JOB_RETENTION_DAYS` | J12.7, J11, J24 |
 | `FEED_RETENTION_DAYS` | J26.6 |
+| `JOB_FILE_DIR` (export files; a directory that cannot be written refuses the start with jobs on) | J27, J12.1 |
 | `CONSUMER_RESOLVE_MAX_ITEMS` (reported by `GET /capabilities` as `consumerApi.resolveMaxItems`) | J29.10 |
 | `CONSUMER_SUBSCRIPTIONS_ENABLED` (the subscriptions API and their delivery, reported by `GET /capabilities` as `consumerSubscriptions` with the delivery limits, `maxEventsPerBatch` among them), `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY` (required with the capability on) | J30.6–J30.9 |
 | `python -m app.cli.generate_key` | J30.6 (the encryption key) |

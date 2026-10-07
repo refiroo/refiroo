@@ -55,6 +55,8 @@ can complete the task in the application; "API" means another system can.
 - Open a record to see its fields, its place in the hierarchy, its children, its relationships and its
   change history, and return to the list where you left it.
 - Browse a hierarchy of any depth in the sidebar tree, and search it to find a record with its path.
+- Export what a collection page shows, with its filters, as an Excel workbook, CSV or JSON Lines; a
+  notification says when the file is ready, with Download and the job's page.
 
 ### Keep data accurate — browser and API
 
@@ -107,7 +109,9 @@ can complete the task in the application; "API" means another system can.
 - Choose the theme and the default table density for this browser.
 - In Settings › **Integration**, read each consumer API the active release declares (its version,
   base URL, exposed types, lists and events), follow and cancel jobs beside the batch, job and feed
-  limits, and open each API's reference. On **Webhooks**, subscribe a receiver to a consumer API's
+  limits, and open each job's page with its state, progress and, for an export, what the file
+  holds and Download; start an export of any types of a workspace; and open each API's reference.
+  On **Webhooks**, subscribe a receiver to a consumer API's
   events, one per request or batched, with the object or as a notification only, in RDM JSON or
   CloudEvents 1.0; keep the signing key shown once, and see whether delivery is going, why a subscription
   stopped and what fixes it; edit, suspend, resume and delete subscriptions. Each webhook's
@@ -139,7 +143,15 @@ can complete the task in the application; "API" means another system can.
   workspace's change feed, with no gaps, so an integration reads on from the last number it
   processed, resumes after an interruption and recognises repeats. A publish lists each record and
   relationship it changed, then itself. Entries name what changed and why, never values. After the
-  retention period an integration is told which publication to re-read before it reads on.
+  retention period an integration is told which publication to re-read, or to export, before it
+  reads on.
+- Follow any job as it changes: the engine pushes the job at once and after each change, until it
+  ends.
+- Export a stated scope of a workspace (live data, a change set or a publication; chosen types with
+  their own criteria, a subtree, a business date, with or without relationships) as JSON Lines, CSV
+  or an Excel workbook, read at one instant and described by its job: counts, context, the change
+  feed position it equals, size and checksum. The JSON Lines file sent back as a bulk request changes
+  nothing; edited, it updates only the records nobody changed since.
 - Declare consumer APIs in the model: the read-only contracts other systems will use, checked so that a
   breaking change needs a new contract version. Another system reads one business object through
   such an API by its record ID, in the declared shape, or reads its declared lists page by page,

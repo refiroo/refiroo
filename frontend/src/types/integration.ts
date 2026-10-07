@@ -51,6 +51,52 @@ export interface Job {
   finishedAt: string | null;
   expiresAt: string;
   cancelRequestedAt: string | null;
+  /** The kind's choices: for an export, its `context`, `scope`, `include` and `format`. */
+  parameters: Record<string, unknown>;
+  /** A completed export's manifest (0.9 J1, D52); null for other jobs and states. */
+  output: ExportOutput | null;
+}
+
+export type ExportFormat = "jsonl" | "csv" | "xlsx";
+export type ExportRelations = "none" | "withinScope" | "all";
+
+/** One criterion of the model-aware query (`where`), as an export's type carries it. */
+export interface ExportCriterion {
+  field: string;
+  op: string;
+  value: unknown;
+}
+
+/** `POST /api/v1/exports` (0.9 J1). */
+export interface ExportRequest {
+  workspaceKey: string;
+  context: { changeSetId: string | null; publicationId: string | null };
+  scope: {
+    types: { objectTypeKey: string; where: ExportCriterion[] }[];
+    parentObjectId: string | null;
+    asOf: string | null;
+  };
+  include: { relations: ExportRelations };
+  format: ExportFormat;
+}
+
+/** What a completed export's file holds. */
+export interface ExportOutput {
+  format: ExportFormat;
+  contentType: string;
+  counts: { records: Record<string, number>; relations: Record<string, number> };
+  context: {
+    workspaceKey: string;
+    changeSetId: string | null;
+    changeSetVersion: number | null;
+    publicationId: string | null;
+  };
+  feedPosition: number | null;
+  asOf: string | null;
+  asOfApplied: string[];
+  modelReleaseId: string;
+  bytes: number;
+  sha256: string;
 }
 
 export interface JobPage {

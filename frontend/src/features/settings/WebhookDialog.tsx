@@ -21,6 +21,7 @@ import type {
   SubscriptionUpdate,
   Workspace,
 } from "@/types";
+import { Choice } from "@/ui/Choice";
 import { FormField } from "@/ui/FormField";
 import { Icon } from "@/ui/Icon";
 import { Modal } from "@/ui/Modal";
@@ -109,30 +110,6 @@ function fieldOf(cause: unknown) {
   if (typeof pointer !== "string") return "form";
   if (pointer.startsWith("/filters/")) return `filter:${decodeURIComponent(pointer.slice("/filters/".length))}`;
   return pointer.split("/")[1] || "form";
-}
-
-/** A segmented choice of two, as the settings pages draw them. */
-function Choice<T extends string>({
-  name,
-  value,
-  options,
-  onChange,
-}: {
-  name: string;
-  value: T;
-  options: readonly (readonly [T, string])[];
-  onChange: (value: T) => void;
-}) {
-  return (
-    <div className="theme-choice">
-      {options.map(([option, label]) => (
-        <label key={option} className={value === option ? "selected" : undefined}>
-          <input type="radio" name={name} checked={value === option} onChange={() => onChange(option)} />
-          {label}
-        </label>
-      ))}
-    </div>
-  );
 }
 
 export function WebhookDialog({
@@ -265,15 +242,15 @@ export function WebhookDialog({
       onClose={onClose}
     >
       <form
-        className="webhook-form"
+        className="dialog-form"
         onSubmit={(event) => {
           event.preventDefault();
           void save();
         }}
       >
-        <section className="webhook-form-section" aria-labelledby="webhook-form-webhook">
-          <h3 id="webhook-form-webhook">Webhook</h3>
-          <div className="webhook-form-grid">
+        <section className="dialog-form-section" aria-labelledby="dialog-form-webhook">
+          <h3 id="dialog-form-webhook">Webhook</h3>
+          <div className="dialog-form-grid">
             <FormField label="Name" help="What the receiver is, for people." error={fieldError("name")}>
               {(control) => (
                 <input
@@ -302,8 +279,8 @@ export function WebhookDialog({
           </div>
         </section>
 
-        <section className="webhook-form-section" aria-labelledby="webhook-form-source">
-          <h3 id="webhook-form-source">Source</h3>
+        <section className="dialog-form-section" aria-labelledby="dialog-form-source">
+          <h3 id="dialog-form-source">Source</h3>
           {editing ? (
             <p className="admin-hint">
               {definition ? `${definition.name} · v${subscription.contractVersion}` : subscription.consumerApi},
@@ -311,7 +288,7 @@ export function WebhookDialog({
               delete the subscription and create another to change them.
             </p>
           ) : (
-            <div className="webhook-form-grid">
+            <div className="dialog-form-grid">
               <FormField label="Consumer API" error={fieldError("consumerApi")}>
                 {(control) => (
                   <select
@@ -354,8 +331,8 @@ export function WebhookDialog({
           )}
         </section>
 
-        <section className="webhook-form-section" aria-labelledby="webhook-form-events">
-          <h3 id="webhook-form-events">Events</h3>
+        <section className="dialog-form-section" aria-labelledby="dialog-form-events">
+          <h3 id="dialog-form-events">Events</h3>
           <Choice
             name="webhook-events"
             value={draft.allEvents ? "all" : "some"}
@@ -384,9 +361,9 @@ export function WebhookDialog({
           {fieldError("events") && <small className="field-error">{fieldError("events")}</small>}
         </section>
 
-        <section className="webhook-form-section" aria-labelledby="webhook-form-filters">
-          <div className="webhook-form-heading">
-            <h3 id="webhook-form-filters">Filters</h3>
+        <section className="dialog-form-section" aria-labelledby="dialog-form-filters">
+          <div className="dialog-form-heading">
+            <h3 id="dialog-form-filters">Filters</h3>
             <SearchMenu
               label="Add filter"
               items={unusedParameters}
@@ -436,8 +413,8 @@ export function WebhookDialog({
           )}
         </section>
 
-        <section className="webhook-form-section" aria-labelledby="webhook-form-delivery">
-          <h3 id="webhook-form-delivery">Delivery</h3>
+        <section className="dialog-form-section" aria-labelledby="dialog-form-delivery">
+          <h3 id="dialog-form-delivery">Delivery</h3>
           <FormField
             label="Requests"
             group
@@ -479,7 +456,7 @@ export function WebhookDialog({
               )}
             </FormField>
           )}
-          <div className="webhook-form-grid">
+          <div className="dialog-form-grid">
             <FormField
               label="Content"
               group
@@ -514,7 +491,7 @@ export function WebhookDialog({
             >
               {() => (
                 <Choice
-                  name="webhook-format"
+                  name="dialog-format"
                   value={draft.format}
                   options={[
                     ["rdm", FORMAT.rdm],

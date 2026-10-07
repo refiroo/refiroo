@@ -401,6 +401,26 @@ its parameters, state, progress and one outcome per item, kept for a retention p
 - **Idempotency keys** replay a finished job's response and refuse a reused key with a different body.
 - **Staging is the change set**: a job targets live data or a named change set; there is no separate
   staging store.
+- **Exports** (`engine/jobs/exports.py`) run on a second worker thread that claims only `export`
+  jobs, so batches and exports never wait for each other. An export is one step, not chunks: it
+  reads everything in one `REPEATABLE READ` transaction, so the file is one instant of its context
+  and a live export's feed head is a baseline to follow the feed from. The scope's records are
+  selected per type through the model query's builders (`plan_model_query`) into a temporary table
+  by one statement; depth, parent paths, relationships and required relationships are set
+  statements over it; JSON Lines and CSV rows are built by PostgreSQL (`json_build_object`, `COPY`)
+  and streamed to the file. XLSX is written as SpreadsheetML straight into its ZIP container
+  (`engine/jobs/xlsx.py`), its values extracted as canonical text by PostgreSQL as for CSV and
+  typed per cell, row by row.
+  Cancel requests, the lease and progress go through a short session of the worker's own every
+  10,000 rows, because the snapshot cannot see later commits. Files live in `JOB_FILE_DIR`
+  (`engine/jobs/files.py`), named after their job; a file is kept only while its job is completed.
+- **Following a job** (0.9 J1u): a trigger on `jobs` sends `pg_notify('rdm_job_events', id)` when
+  a change to a job's state, progress, cancel request or output commits, so every path that changes
+  a job is heard and nothing rolled back is. One listener thread per process (`engine/jobs/events.py`)
+  holds a psycopg connection that `LISTEN`s and wakes the server-sent event streams following that
+  job (`GET /jobs/{id}/events`), which read the job again in a short session of their own. The
+  browser keeps one stream per running job its tab started and shows the job's outcome as a
+  notification (`features/jobs/`); nothing is polled.
 
 ## API projection
 

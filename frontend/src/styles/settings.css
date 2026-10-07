@@ -252,7 +252,8 @@ nav.settings-rail {
   }
 }
 
-/* Toast: confirmations at the bottom right; they stay until dismissed or eight quiet seconds. */
+/* Toast: confirmations at the bottom right, with links when a job's outcome needs one; they stay
+   until dismissed or eight quiet seconds. */
 .toast-region {
   position: fixed;
   right: var(--space-5);
@@ -281,9 +282,23 @@ nav.settings-rail {
   margin-top: 2px;
   color: var(--status-success-marker);
 }
-.toast > span {
+.toast.info {
+  border-color: var(--border-strong);
+}
+.toast.info > .icon {
+  color: var(--text-secondary);
+}
+.toast-body {
+  display: grid;
   flex: 1;
+  gap: var(--space-2);
   min-width: 0;
+}
+.toast-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  font-weight: 600;
 }
 .toast-dismiss {
   display: grid;
@@ -397,6 +412,25 @@ nav.settings-rail {
   gap: 2px;
   color: var(--text-secondary);
   font-size: var(--text-xs);
+}
+p.job-state {
+  margin: 0 0 var(--space-3);
+}
+/* A job's page (0.9 J1u): progress while it runs, the file's checksum wrapping on narrow screens. */
+.job-progress {
+  display: grid;
+  gap: var(--space-1);
+  max-width: 480px;
+  margin-bottom: var(--space-3);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+.job-progress progress {
+  width: 100%;
+  accent-color: var(--action-primary);
+}
+.job-checksum {
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 760px) {
@@ -515,73 +549,83 @@ nav.settings-rail {
   font-size: 12px;
   font-weight: 400;
 }
-.webhook-form .form-field {
+.dialog-form .form-field {
   margin-bottom: var(--space-4);
 }
-.dialog form.webhook-form .form-field > label {
+.dialog form.dialog-form .form-field > label {
   margin-bottom: 0;
 }
 .webhook-section .admin-hint {
   margin: 0;
 }
-.webhook-form .form-field .form-field {
+.dialog-form .form-field .form-field {
   margin: var(--space-2) 0 0;
 }
-.webhook-form .theme-choice {
-  grid-template-columns: repeat(2, 1fr);
+/* One row of equal options, however many the choice has. */
+.dialog-form .theme-choice {
+  grid-template-columns: none;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
+}
+@media (max-width: 760px) {
+  /* On a phone the options stack, so a longer one is not squeezed onto two lines. */
+  .dialog-form .theme-choice {
+    grid-auto-flow: row;
+  }
 }
 /* The dialog's own label rule would turn the segmented choices back into blocks. */
-.dialog form.webhook-form .theme-choice label {
+.dialog form.dialog-form .theme-choice label {
   display: flex;
   margin: 0;
   color: var(--text-tertiary);
 }
-.dialog form.webhook-form .theme-choice label.selected {
+.dialog form.dialog-form .theme-choice label.selected {
   color: var(--text-primary);
 }
 .webhook-secret {
   overflow-wrap: anywhere;
 }
 
-/* The webhook dialog (U5a): ruled sections, two fields side by side where they pair. */
-.webhook-form {
+/* A dialog form in ruled sections, two fields side by side where they pair: the webhook dialog
+   (U5a) and the export dialog (0.9 J1u). */
+.dialog-form {
   display: grid;
   gap: 0;
 }
-.webhook-form-section {
+.dialog-form-section {
   display: grid;
   gap: var(--space-3);
   padding: var(--space-4) 0;
   border-bottom: 1px solid var(--border-faint);
 }
-.webhook-form-section:first-child {
+.dialog-form-section:first-child {
   padding-top: 0;
 }
-.webhook-form-section h3 {
+.dialog-form-section h3 {
   margin: 0;
   font-size: var(--text-sm);
   font-weight: 650;
 }
-.webhook-form-heading {
+.dialog-form-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
 }
-.webhook-form-grid {
+.dialog-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-4);
   align-items: start;
 }
-.webhook-form .webhook-form-grid .form-field,
-.webhook-form .webhook-form-section > .form-field {
+.dialog-form .dialog-form-grid .form-field,
+.dialog-form .dialog-form-section > .form-field {
   margin: 0;
 }
-.webhook-form .webhook-form-section > .theme-choice {
+.dialog-form .dialog-form-section > .theme-choice {
   max-width: 420px;
 }
-.webhook-form .dialog-actions {
+.dialog-form .dialog-actions {
   padding-top: var(--space-4);
 }
 .webhook-wait {
@@ -604,7 +648,7 @@ nav.settings-rail {
   margin-top: 26px;
 }
 @media (max-width: 760px) {
-  .webhook-form-grid {
+  .dialog-form-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }

@@ -4,22 +4,35 @@
 (D10); ``router`` reads them and is always registered.
 """
 
+import asyncio
+import base64
+import json
+import logging
+from collections.abc import AsyncIterator
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
-from fastapi.responses import JSONResponse
+from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 
 from ...common.pagination import FIRST_PAGE
 from ...engine.jobs.background import request_cancel, submit_background_batch
+from ...engine.jobs.events import JobListener
+from ...engine.jobs.exports import FORMATS, submit_export
+from ...engine.jobs.files import JobFiles
 from ...engine.jobs.inline import BatchLimits, check_batch_request, submit_inline_batch
 from ...engine.jobs.store import job_item_page, job_page, load_job
+from ...errors import api_error
 from ...models.commands import BatchRequest
+from ...models.exports import ExportRequest
 from ..dependencies import DbSession
 from ..paging import PageQuery
 from ..presenters import batch_response, job_responses
 from ..presenters import job_item_page as present_job_items
 from ..presenters import job_page as present_jobs
 from ..schemas.jobs import BatchResponse, JobItemPage, JobPage, JobResponse
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1", tags=["jobs"])
 write_router = APIRouter(prefix="/api/v1", tags=["jobs"])
@@ -121,10 +134,31 @@ def cancel_job(job_id: str, request: Request, session: DbSession) -> JobResponse
     return job_responses(session, [job])[0]
 
 
-def _wake_worker(request: Request) -> None:
-    worker = getattr(request.app.state, "job_worker", None)
+@write_router.post("/exports", response_model=JobResponse, status_code=202, tags=["exports"])
+def create_export(payload: ExportRequest, request: Request, session: DbSession) -> JobResponse:
+    """Export a stated scope of one workspace as a background job (0.9 J1).
+
+    Answers 202 with the queued job. Everything in the file is read at one instant: a live
+    export's ``output.feedPosition`` is the feed head it equals, so a reader follows the feed from
+    there. When the job is ``completed``, ``output`` describes the file and
+    ``GET /jobs/{jobId}/output`` serves it; a cancelled or failed export has no file. JSON Lines
+    holds batch items (``upsert`` by ID with ``expectedVersion``, then ``ensureRelation``), so the
+    file sent back to ``POST /batches`` changes nothing; CSV and XLSX hold the same rows in one
+    table layout. A criterion the model cannot answer is ``422 INVALID_QUERY`` at its JSON pointer.
+    """
+    limits: BatchLimits = request.app.state.batch_limits
+    job = submit_export(session, payload, retention_days=limits.retention_days)
+    worker = getattr(request.app.state, "export_worker", None)
     if worker is not None:
         worker.wake()
+    return job_responses(session, [job])[0]
+
+
+def _wake_worker(request: Request) -> None:
+    for name in ("job_worker", "export_worker"):
+        worker = getattr(request.app.state, name, None)
+        if worker is not None:
+            worker.wake()
 
 
 @router.get("/jobs", response_model=JobPage)
@@ -171,3 +205,123 @@ def list_job_items(
     return present_job_items(
         job_item_page(session, job, status=status, page=paging, page_size=page_size)
     )
+
+
+@router.get(
+    "/jobs/{job_id}/output",
+    response_class=FileResponse,
+    responses={
+        200: {
+            "description": "The completed export's file, with its SHA-256 in ETag and Repr-Digest",
+            "content": {content_type.split(";")[0]: {} for content_type, _ in FORMATS.values()},
+        }
+    },
+)
+def get_job_output(job_id: str, request: Request, session: DbSession) -> FileResponse:
+    """A completed export's file (0.9 J1). A job that is not completed has none (``409
+    JOB_NOT_COMPLETED`` naming its state), so a partial file cannot be taken for a complete one; a
+    batch has none (``404 JOB_HAS_NO_OUTPUT``); retention removes it (``410 JOB_EXPIRED``)."""
+    job = load_job(session, job_id)
+    if job.kind != "export":
+        raise api_error(
+            404, "JOB_HAS_NO_OUTPUT", f"Job '{job.id}' is a {job.kind}; only an export has a file"
+        )
+    if job.state == "expired":
+        raise api_error(
+            410,
+            "JOB_EXPIRED",
+            f"Export '{job.id}' passed its retention and its file was removed; request it again",
+        )
+    if job.state != "completed" or job.output is None:
+        raise api_error(
+            409,
+            "JOB_NOT_COMPLETED",
+            f"Export '{job.id}' is {job.state}; its file is served once it is completed",
+            {"state": job.state},
+        )
+    output = job.output
+    files: JobFiles = request.app.state.job_files
+    path = files.final(job.id, FORMATS[output["format"]][1])
+    if not path.is_file():
+        logger.warning("The file of export %s is missing from %s", job.id, files.directory)
+        raise api_error(
+            410,
+            "JOB_OUTPUT_MISSING",
+            f"The file of export '{job.id}' is no longer in the job file directory; request the "
+            "export again. Operators: check JOB_FILE_DIR and what removes files from it",
+        )
+    digest = bytes.fromhex(output["sha256"])
+    return FileResponse(
+        path,
+        media_type=output["contentType"],
+        filename=f"export-{job.id}.{FORMATS[output['format']][1]}",
+        headers={
+            "ETag": f'"{output["sha256"]}"',
+            "Repr-Digest": f"sha-256=:{base64.b64encode(digest).decode()}:",
+        },
+    )
+
+
+# A stream sends a comment this often while its job does not change, so proxies keep it open.
+KEEP_ALIVE_SECONDS = 15.0
+FINAL_STATES = frozenset({"completed", "failed", "cancelled", "expired"})
+
+
+@router.get(
+    "/jobs/{job_id}/events",
+    response_class=StreamingResponse,
+    responses={
+        200: {
+            "description": "Server-sent events: `event: job` with the job as `GET /jobs/{jobId}` "
+            "answers it, at once and after each committed change; the stream ends after a final state",
+            "content": {"text/event-stream": {}},
+        }
+    },
+)
+async def job_events(job_id: str, request: Request) -> StreamingResponse:
+    """Follow a job as it changes (0.9 J1u): the job at once, then again after each committed change
+    of its state, progress, cancel request or output; the stream ends once the job is completed,
+    failed, cancelled or expired. Nothing is polled: the database tells the engine of each change
+    (D58). A comment line every 15 s keeps an idle stream open through proxies."""
+    listener: JobListener = request.app.state.job_listener
+    subscription = listener.subscribe(job_id)
+    try:
+        first = await run_in_threadpool(_job_body, request, job_id)
+    except BaseException:
+        listener.unsubscribe(subscription)
+        raise
+
+    async def stream() -> AsyncIterator[str]:
+        try:
+            body = first
+            yield _event(body)
+            while body["state"] not in FINAL_STATES:
+                try:
+                    await asyncio.wait_for(subscription.woken.wait(), KEEP_ALIVE_SECONDS)
+                except TimeoutError:
+                    yield ": keep-alive\n\n"
+                    continue
+                subscription.woken.clear()
+                current = await run_in_threadpool(_job_body, request, job_id)
+                if current != body:
+                    body = current
+                    yield _event(body)
+        finally:
+            listener.unsubscribe(subscription)
+
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+def _job_body(request: Request, job_id: str) -> dict:
+    """The job as ``GET /jobs/{id}`` answers it. A stream outlives any one request session, so each
+    read opens a short session of its own instead of holding a connection while the job runs."""
+    with request.app.state.session_factory() as session:
+        return job_responses(session, [load_job(session, job_id)])[0].model_dump(mode="json")
+
+
+def _event(body: dict) -> str:
+    return f"event: job\ndata: {json.dumps(body, separators=(',', ':'))}\n\n"

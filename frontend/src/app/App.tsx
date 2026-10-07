@@ -15,28 +15,41 @@ import { Notice } from "@/ui/Notice";
 import { ResizeHandle } from "@/ui/ResizeHandle";
 import { useLocalNumberPreference } from "@/lib/localPreference";
 import { Card } from "@/ui/Card";
+import { ToastProvider } from "@/ui/Toast";
+import { JobNotificationsProvider, useJobNotifications } from "@/features/jobs/JobNotifications";
+import { ExportDialog, type ExportStart } from "@/features/jobs/ExportDialog";
+import { useCapabilities } from "@/features/settings/useSystem";
 
 export default function App() {
   const router = useRouter();
   const [message, setMessage] = useState("");
   const { model, route, error } = router;
   if (!model || !route) return <div className="center-message">{error || "Loading the model…"}</div>;
-  // Settings are not workspace data: their own shell, and no workspace or data context (U3).
-  if (isSettingsRoute(route)) return <SettingsArea router={router} model={model} route={route} />;
-  const changeSetId = routeChangeSetId(route);
-  const publicationId = route.kind === "list" || route.kind === "detail" ? route.publicationId : undefined;
+  // Toasts and the notifications about this tab's jobs live above every page (0.9 J1u).
   return (
-    <WorkspaceDataProvider
-      key={`${route.workspaceKey}:${changeSetId ?? publicationId ?? "live"}`}
-      changeSetId={changeSetId}
-      publicationId={publicationId}
-      workspaceKey={route.workspaceKey}
-      model={model}
-    >
-      <AppContent router={router} route={route} message={message} setMessage={setMessage} />
-    </WorkspaceDataProvider>
+    <ToastProvider>
+      <JobNotificationsProvider model={model} onNavigate={router.navigate}>
+        {isSettingsRoute(route) ? (
+          // Settings are not workspace data: their own shell, and no workspace or data context (U3).
+          <SettingsArea router={router} model={model} route={route} />
+        ) : (
+          <WorkspaceDataProvider
+            key={`${route.workspaceKey}:${routeChangeSetId(route) ?? routePublicationId(route) ?? "live"}`}
+            changeSetId={routeChangeSetId(route)}
+            publicationId={routePublicationId(route)}
+            workspaceKey={route.workspaceKey}
+            model={model}
+          >
+            <AppContent router={router} route={route} message={message} setMessage={setMessage} />
+          </WorkspaceDataProvider>
+        )}
+      </JobNotificationsProvider>
+    </ToastProvider>
   );
 }
+
+const routePublicationId = (route: ApplicationRoute) =>
+  route.kind === "list" || route.kind === "detail" ? route.publicationId : undefined;
 
 function AppContent({
   router,
@@ -55,6 +68,11 @@ function AppContent({
   const [refreshToken, setRefreshToken] = useState(0);
   // Writes made in the collection beside an open record; the record's own writes do not count.
   const [collectionWrites, setCollectionWrites] = useState(0);
+  // Export is offered while the deployment lets jobs be created (0.9 J1u, D57).
+  const { capabilities } = useCapabilities();
+  const notifications = useJobNotifications();
+  const [exportStart, setExportStart] = useState<ExportStart>();
+  const onExport = capabilities?.integrationJobs.createJobs ? setExportStart : undefined;
   const contextLoading =
     !data.model &&
     !data.loadingError &&
@@ -402,6 +420,7 @@ function AppContent({
                       setCollectionWrites((value) => value + 1);
                     }}
                     query={collection}
+                    onExport={onExport}
                     onQueryChange={(query: CollectionQueryState) =>
                       navigate(
                         activeRoute.kind === "detail"
@@ -481,6 +500,17 @@ function AppContent({
             </div>
           )}
         </>
+      )}
+      {exportStart && (
+        <ExportDialog
+          model={model}
+          start={exportStart}
+          onClose={() => setExportStart(undefined)}
+          onStarted={(job) => {
+            setExportStart(undefined);
+            notifications.follow(job);
+          }}
+        />
       )}
     </AppShell>
   );

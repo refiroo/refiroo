@@ -416,8 +416,8 @@ def test_a_position_older_than_retention_is_refused_naming_the_baseline(world):
     """Given a workspace whose entries up to its publish are older than the retention period, with
     later entries after it. When a reader asks for the entries after a position below the earliest
     one still readable, or from the start, and then after the position just below it. Then the first
-    two are refused as expired, naming the earliest and head positions and the active publication
-    with its number and position; the last is answered from the earliest position on."""
+    two are refused as expired, naming the earliest and head positions, the active publication
+    with its number and position, and the export route (0.9 J1); the last is answered from the earliest position on."""
     ws, publication, entries = _published_then_more(world)
     position = publication["feedPosition"]
     assert entries[position - 1]["action"] == "published"
@@ -438,6 +438,7 @@ def test_a_position_older_than_retention_is_refused_naming_the_baseline(world):
                 "publicationNumber": publication["publicationNumber"],
                 "feedPosition": position,
             },
+            "export": {"href": "/api/v1/exports"},
         }
 
 

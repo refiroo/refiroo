@@ -8,6 +8,26 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 J1u: export in the browser and pushed job notifications. **Export** on a collection page
+  opens a dialog prefilled with the page's type, data context, filters and parent narrowing (the
+  search is not carried); **New export** on Settings › Integration › Jobs and feed exports any types
+  of a workspace. A notification says an export started, and another when it ends: completed with
+  Download and View job, failed or cancelled with View job. Each job has its own page
+  (`/settings/jobs/{jobId}`) with its state, progress, error, Cancel and, for an export, the file's
+  facts and Download. `GET /api/v1/jobs/{jobId}/events` streams a job (server-sent events) at once and
+  after each committed change until it ends; a trigger on `jobs` (revision `20261007_05`) notifies
+  the engine at commit, so nothing is polled (D57–D63).
+- Base 0.9 J1: export jobs. `POST /api/v1/exports` exports a stated scope of one workspace (live, a
+  change set or a publication; object types each with their own criteria, a subtree, `asOf`,
+  relationships `none`, `withinScope` or `all`) as JSON Lines, CSV or XLSX, in the background from
+  one database snapshot. The job's new `output` field states what the file holds (counts per type,
+  context, the feed position it equals, model release, format, size, SHA-256), and
+  `GET /api/v1/jobs/{jobId}/output` serves the file only once the job is completed. JSON Lines holds
+  `upsert` and `ensureRelation` batch items with each record's version, so the file sent back as a
+  batch changes nothing; CSV and XLSX share one table layout (D49–D56). Exports run on a worker of
+  their own. New setting `JOB_FILE_DIR` (default `var/job-files`); revision `20261007_04` adds
+  `jobs.output`. The feed's `410 FEED_POSITION_EXPIRED` names the export route beside the
+  publication (`details.export`).
 - Example model `rdm-operators-timetables` 0.8.0 declares events on its consumer APIs: one per
   exposed object type (`timetable-category-changed`, `timetable-type-changed`, …), each for
   created, updated and deleted, with no watch, so any change to the object's output counts. The

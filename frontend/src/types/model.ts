@@ -38,6 +38,8 @@ export interface ObjectTypeDefinition {
   features: Record<string, unknown>;
   behavior: { parentRelationTypeKeys?: string[]; [key: string]: unknown };
   validation: { atLeastOneOf?: string[]; [key: string]: unknown };
+  /** Business validity from two date attributes (schema 0.8); records are read on a date by it. */
+  effectivePeriod?: { startAttributeTypeKey: string; endAttributeTypeKey: string };
 }
 
 export interface RelationTypeDefinition {

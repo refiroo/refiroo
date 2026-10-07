@@ -4,6 +4,7 @@
  */
 
 import type { ReactNode } from "react";
+import type { ExportStart } from "@/features/jobs/ExportDialog";
 import type { ApplicationDefinition, CollectionQueryState, EngineModel, ObjectItem, ViewDefinition } from "@/types";
 
 export interface ViewComponentProps {
@@ -24,6 +25,11 @@ export interface ViewComponentProps {
   onViewChange?: (viewKey: string) => void;
   /** Opens the open change set's review, for a lens that wrote several records at once (C4). */
   onReviewChanges?: () => void;
+  /**
+   * Offers Export with what the page shows (0.9 J1u, D57); given only while the deployment lets
+   * jobs be created. A view without it offers no export.
+   */
+  onExport?: (start: ExportStart) => void;
   /** Sibling lenses of the same source collection, placed by the renderer below its heading. */
   lenses?: ReactNode;
   /**

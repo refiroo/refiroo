@@ -256,28 +256,28 @@ widened, a drawer for phones and the workspace switcher returned to the rail
 incoherent, the user then chose a new visual direction, **Atlas** (ADR-040): today's shell with a
 colour for every kind of record. Then **UA**, the Atlas redesign of every surface
 ([plan](SETTINGS_AND_UI_PLAN.md#ua-the-atlas-redesign)), before U4 and U5. **UA0 is implemented
-(2026-10-06)**, awaiting the user's check on the dev server: popovers no longer swallow the first
+(2026-10-06)**, approved by the user 2026-10-07: popovers no longer swallow the first
 click on the page, the workspace switcher lists every workspace when opened while loading, and
 every page, Settings included, has one top bar and one frame, with copied markup replaced by
 shared components (U-D14, [record](SETTINGS_AND_UI_PLAN.md#ua0-record-2026-10-06)). **UA1 is implemented (2026-10-06)**: the
 eight-hue type palette and the context strips as tokens under the contrast test, a type's or an
 application's hue from its position in the model (`model/hues`), and `ui/HueTile` in the top bar
-and the rail's Collections; the user picked palette B (U-D13); awaiting approval
+and the rail's Collections; the user picked palette B (U-D13); approved 2026-10-07
 ([record](SETTINGS_AND_UI_PLAN.md#ua1-record-2026-10-06)). **UA2 is implemented (2026-10-06)**: the record
 browser shows each record's type tile, a branch's guide line, quiet type headings and the selected
-record in its type's colour; awaiting approval
+record in its type's colour; approved 2026-10-07
 ([record](SETTINGS_AND_UI_PLAN.md#ua2-record-2026-10-06)). **UA3 is implemented (2026-10-06)**: the
 collection page's type tile, the green Live strip, record chips in a column that shows a record,
 the selected row in its type's colour, plain-text booleans, and table-shaped loading and empty
-states; no model or backend change; awaiting approval
+states; no model or backend change; approved 2026-10-07
 ([record](SETTINGS_AND_UI_PLAN.md#ua3-record-2026-10-06)). **UA4 is implemented (2026-10-07)**: the
 record's header band in its type's colour with ancestor chips, and the inspector's ruled sections,
-side-by-side fields and **Connected** list; no model or backend change; awaiting approval
+side-by-side fields and **Connected** list; no model or backend change; approved 2026-10-07
 ([record](SETTINGS_AND_UI_PLAN.md#ua4-record-2026-10-07)). **UA5–UA7 are implemented (2026-10-07)**:
 change sets and publications, the remaining surfaces, then dark mode and the gates: every screen
 checked in dark, checkboxes and radios drawn from the tokens, column headers named by their label
-alone, and `test:a11y` (73 checks) and `test:visual` (64 baselines, light and dark) passing; each
-awaits approval ([record](SETTINGS_AND_UI_PLAN.md#ua7-record-2026-10-07)). **U4 is implemented
+alone, and `test:a11y` (73 checks) and `test:visual` (64 baselines, light and dark) passing; approved
+2026-10-07 ([record](SETTINGS_AND_UI_PLAN.md#ua7-record-2026-10-07)). **U4 is implemented
 (2026-10-07)**: Settings › Integration with **Consumer APIs** (each definition's version, base URL,
 exposed types, lists and events), **Jobs and feed** (jobs of every workspace, cancel, the limits)
 and **API reference** (each `/docs` source), over existing routes; the starter is content 0.9.2
@@ -286,22 +286,32 @@ with a small consumer API `rdm` and one event (U-D5); screenshots await approval
 Settings › Integration › **Webhooks** over the subscriptions API (create with the signing key shown
 once, delivery state, each suspension reason with its fix, edit, suspend, resume with or without
 `reset`, delete), and a workspace refused deletion names its webhooks; no backend change;
-screenshots await approval ([record](SETTINGS_AND_UI_PLAN.md#u5-record-2026-10-07)). **U5a is
+screenshots approved 2026-10-07 ([record](SETTINGS_AND_UI_PLAN.md#u5-record-2026-10-07)). **U5a is
 implemented (2026-10-07)**: webhooks have names, every delivery request and attempt is logged
 (`/consumer-subscriptions/{id}/deliveries`, `CONSUMER_WEBHOOK_LOG_RETENTION_DAYS`, revision
 `20261007_01`, C-D115–C-D119), and the Webhooks page has a rebuilt dialog and Configuration and
 Deliveries tabs; revised the same day with resending an event by hand (C-D129–C-D131, revision
-`20261007_02`) and an event's object linked to its record; screenshots await approval
+`20261007_02`) and an event's object linked to its record; screenshots approved 2026-10-07
 ([record](SETTINGS_AND_UI_PLAN.md#u5a-record-2026-10-07)). **C17 is implemented
 (2026-10-07)**: a webhook chooses one event per request (the default) or batched up to 1,000, with
 the object or the notification only, in RDM JSON or CloudEvents 1.0; the coalesced mode is retired
-(revision `20261007_03`, C-D120–C-D128); screenshots await approval
-([record](BASE_0_9_IMPLEMENTATION_PLAN.md#c17-record-2026-10-07)). Next is **J1, export jobs**
-([plan](BASE_0_9_IMPLEMENTATION_PLAN.md#j1-plan-2026-10-07)), planned 2026-10-07: D49, D50, D52–D55 accepted,
-the formats JSON Lines, CSV and XLSX decided, D51's table layout, D56 and its test cases awaiting
-the user's approval; then **J1u**, export in the UI with notifications pushed over a per-job event
-stream (outline); then
-J2–J4 (import), Track K and R.
+(revision `20261007_03`, C-D120–C-D128); screenshots approved 2026-10-07
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#c17-record-2026-10-07)). **J1 is delivered
+(2026-10-07):** export jobs.
+- `POST /api/v1/exports` exports live data, a change set or a publication: types each with their
+  own criteria, a subtree, `asOf`, relationships, as JSON Lines, CSV or XLSX, from one snapshot, on
+  an export worker of its own; `GET /jobs/{id}/output` serves the file once the job is completed,
+  and the job's `output` states what it holds (D49–D56, revision `20261007_04`, `JOB_FILE_DIR`).
+- JSON Lines is batch items with each record's version, so the file sent back changes nothing; CSV
+  and XLSX share one table layout; a live export is a feed baseline (`410` names it).
+- The whole volume workspace exports in 23 s (JSON Lines), 24 s (CSV) and 32 s (XLSX).
+
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#j1-record-2026-10-07)). **J1u is implemented
+(2026-10-07)**: Export on a collection page and New export on Jobs and feed, a page per job, and
+notifications that a job started and ended (with Download and View job), pushed over
+`GET /jobs/{id}/events` from a trigger at commit, never polled (D57–D63, revision `20261007_05`);
+screenshots await approval ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#j1u-record-2026-10-07)). Next
+are J2–J4 (import), Track K and R.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

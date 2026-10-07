@@ -17,7 +17,7 @@ read, D31), [B3](#b3-relation-and-relation-set-items) (2026-10-03, D35–D39),
 [C2](#c2-consumer-object-and-projections) (2026-10-04, C-D21–C-D26), C3–C5 and
 [C14](#c14-batch-resolve) (2026-10-05, C-D47–C-D53), [C15](#c15-crosswalk) (2026-10-05, C-D54–C-D58),
 [CN1](#cn1-the-consumer-apis-name-in-public-contracts) (2026-10-05, C-D59), [C6a](#c6a-publications) (2026-10-05, C-D60–C-D68), [C6b](#c6b-the-contract-documents) (2026-10-05, C-D69–C-D70), [V2](#v2-consumer-sources) (2026-10-05), [C8](#c8-parity-acceptance) (2026-10-05, C-D72–C-D75), [C16](#c16-asof-in-the-consumer-tier) (2026-10-05, C-D76–C-D80), [C9](#c9-event-definitions) (2026-10-05, C-D81–C-D86), [C10](#c10-event-deriver-event-store-and-pull-feed) (2026-10-06, C-D87–C-D92, C-D95), [U2](SETTINGS_AND_UI_PLAN.md#u2-delivery-record) (2026-10-06, U-D7–U-D9), [C11](#c11-subscriptions) (2026-10-06, C-D96–C-D102), [C12](#c12-the-dispatcher) (2026-10-06, C-D103–C-D111), [C13](#c13-event-acceptance) (2026-10-06, C-D112–C-D114), [U3](SETTINGS_AND_UI_PLAN.md#u3-delivery-record) (2026-10-06, U-D10–U-D11).
-**U5, the Webhooks page, is implemented (2026-10-07)** ([record](SETTINGS_AND_UI_PLAN.md#u5-record-2026-10-07)), and so is **U5a**, webhook names and the delivery log with the page revised ([record](SETTINGS_AND_UI_PLAN.md#u5a-record-2026-10-07)). UA (the Atlas redesign, ADR-040), U4 (the Integration pages, [record](SETTINGS_AND_UI_PLAN.md#u4-record-2026-10-07)) and U5 await the user's approval of their screenshots.
+**U5, the Webhooks page, is implemented (2026-10-07)** ([record](SETTINGS_AND_UI_PLAN.md#u5-record-2026-10-07)), and so is **U5a**, webhook names and the delivery log with the page revised ([record](SETTINGS_AND_UI_PLAN.md#u5a-record-2026-10-07)). The screenshots of UA (the Atlas redesign, ADR-040), U5, U5a and C17 were approved by the user on 2026-10-07; U4's (the Integration pages, [record](SETTINGS_AND_UI_PLAN.md#u4-record-2026-10-07)) await approval.
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
 Effective dates and consumer API definitions extend the model, so the starter becomes content release
@@ -175,7 +175,7 @@ As in 0.8: each package below is one vertical slice, delivered on the instructio
 A package starts when every package it **needs** is delivered. Packages without a dependency between
 them may be delivered in either order.
 
-**Names.** Package IDs are Q1–Q4, B1–B3, F1–F2, C1–C16 (CONSUMER_API's), J1–J4, V1–V2, T1 and R. The API
+**Names.** Package IDs are Q1–Q4, B1–B3, F1–F2, C1–C16 (CONSUMER_API's), J1–J4, V1–V9, T1 and R. The API
 reference track, called D in earlier drafts, is **Track V** so its packages do not read as decisions
 D1–D16.
 
@@ -236,21 +236,22 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 24 | [C10](#c10-event-deriver-event-store-and-pull-feed) | C9, F2 | Event deriver, event store, pull feed (C-D87–C-D92, C-D95) — **delivered 2026-10-06** ([record](#c10-delivery-record)) |
 | 25 | [C11](#c11-subscriptions) | C10 | Subscriptions API, signing key, allowlist, suspension on model change and retirement (C-D96–C-D102) — **delivered 2026-10-06** ([record](#c11-delivery-record)) |
 | 26 | [C12](#c12-the-dispatcher) | C11 | Dispatcher: per-change and coalesced delivery, signing, retries, the delivery suspensions (C-D103–C-D111) — **delivered 2026-10-06** ([record](#c12-delivery-record)) |
-| 26a | [U5](SETTINGS_AND_UI_PLAN.md#u5-the-webhooks-page) | U4, C12 | Settings › Integration › Webhooks over the subscriptions API (U-D3) — **implemented 2026-10-07**, screenshots awaiting the user's approval ([record](SETTINGS_AND_UI_PLAN.md#u5-record-2026-10-07)) |
-| 26b | [U5a](SETTINGS_AND_UI_PLAN.md#u5a-webhook-names-the-delivery-log-and-the-webhooks-page-revised) | U5, C12 | Webhook names, the delivery log (`/deliveries`, `CONSUMER_WEBHOOK_LOG_RETENTION_DAYS`, C-D115–C-D119) and the Webhooks page revised: the dialog rebuilt, Configuration and Deliveries tabs; revised the same day with resending an event by hand (C-D129–C-D131, revision `20261007_02`) and an event's object linked to its record — **implemented 2026-10-07**, screenshots awaiting the user's approval ([record](SETTINGS_AND_UI_PLAN.md#u5a-record-2026-10-07)) |
+| 26a | [U5](SETTINGS_AND_UI_PLAN.md#u5-the-webhooks-page) | U4, C12 | Settings › Integration › Webhooks over the subscriptions API (U-D3) — **implemented 2026-10-07**, screenshots approved by the user 2026-10-07 ([record](SETTINGS_AND_UI_PLAN.md#u5-record-2026-10-07)) |
+| 26b | [U5a](SETTINGS_AND_UI_PLAN.md#u5a-webhook-names-the-delivery-log-and-the-webhooks-page-revised) | U5, C12 | Webhook names, the delivery log (`/deliveries`, `CONSUMER_WEBHOOK_LOG_RETENTION_DAYS`, C-D115–C-D119) and the Webhooks page revised: the dialog rebuilt, Configuration and Deliveries tabs; revised the same day with resending an event by hand (C-D129–C-D131, revision `20261007_02`) and an event's object linked to its record — **implemented 2026-10-07**, screenshots approved by the user 2026-10-07 ([record](SETTINGS_AND_UI_PLAN.md#u5a-record-2026-10-07)) |
 | 27 | [C13](#c13-event-acceptance) | C12 | Event acceptance; the events line's checkpoint; the delivery budget (C-D112–C-D114) — **delivered 2026-10-06** ([record](#c13-delivery-record)) |
 | 27a | [U2](SETTINGS_AND_UI_PLAN.md#u2-the-foundation-and-the-shell) | U1 | UI foundation: token layers, regions, data-context band, `PageHeader`, `StatusPill` and `Card`, the shell (U-D7–U-D9) — **delivered 2026-10-06** ([record](SETTINGS_AND_UI_PLAN.md#u2-delivery-record)) |
 | 27b | [U3](SETTINGS_AND_UI_PLAN.md#u3-the-settings-area) | U2 | Settings area: About, Appearance, Deployment (read-only, U-D2), Workspaces and Model moved; `GET /api/v1/system` (U-D10, U-D11) — **delivered 2026-10-06** ([record](SETTINGS_AND_UI_PLAN.md#u3-delivery-record); [revised the same day](SETTINGS_AND_UI_PLAN.md#u3-revisions-after-delivery-2026-10-06)) |
-| 27c | [UA](SETTINGS_AND_UI_PLAN.md#ua-the-atlas-redesign) | U3 | The Atlas redesign of every surface (ADR-040, U-D12, U-D13), each surface approved by the user from screenshots; today's design tagged `ui-before-atlas`. Comes before U4 and U5 by the user's choice (2026-10-06); folds in U6 — **implemented 2026-10-06–07** (UA0–UA7 and their revisions), screenshots awaiting the user's approval, UA0 the user's check on the dev server ([records](SETTINGS_AND_UI_PLAN.md#ua0-record-2026-10-06)) |
-| 27d | [C17](#c17-webhook-delivery-choices-batching-payload-and-cloudevents) | U5a | Webhook delivery choices: one event per request or batched, with the object or notification only, RDM JSON or CloudEvents; `coalesced` retired (C-D120–C-D128) — **implemented 2026-10-07**, screenshots await approval ([record](#c17-record-2026-10-07)) |
+| 27c | [UA](SETTINGS_AND_UI_PLAN.md#ua-the-atlas-redesign) | U3 | The Atlas redesign of every surface (ADR-040, U-D12, U-D13), each surface approved by the user from screenshots; today's design tagged `ui-before-atlas`. Comes before U4 and U5 by the user's choice (2026-10-06); folds in U6 — **implemented 2026-10-06–07** (UA0–UA7 and their revisions), approved by the user 2026-10-07 ([records](SETTINGS_AND_UI_PLAN.md#ua0-record-2026-10-06)) |
+| 27d | [C17](#c17-webhook-delivery-choices-batching-payload-and-cloudevents) | U5a | Webhook delivery choices: one event per request or batched, with the object or notification only, RDM JSON or CloudEvents; `coalesced` retired (C-D120–C-D128) — **implemented 2026-10-07**, screenshots approved by the user 2026-10-07 ([record](#c17-record-2026-10-07)) |
 | — | _cut line (D9)_ | | _If R is out of reach, 0.9.0 releases here with R-a and Track J moves to 0.9.1_ |
-| 28 | [J1](#j1-export) | Q3, Q4, B2, F1 | Export jobs: JSON Lines, CSV and XLSX, one snapshot, the manifest on the job ([plan](#j1-plan-2026-10-07)) |
-| 28a | [J1u](#j1u-export-in-the-ui-and-job-notifications-outline) | J1 | Export in the UI: the dialog, the job page, notifications pushed over a per-job event stream — **added 2026-10-07**, outline |
+| 28 | [J1](#j1-export) | Q3, Q4, B2, F1 | Export jobs: JSON Lines, CSV and XLSX, one snapshot, the manifest on the job (D49–D56) — **delivered 2026-10-07** ([record](#j1-record-2026-10-07)) |
+| 28a | [J1u](#j1u-export-in-the-ui-and-job-notifications-outline) | J1 | Export in the UI: the dialog, the job page, notifications pushed over a per-job event stream (D57–D63) — **implemented 2026-10-07**, screenshots await the user's approval ([record](#j1u-record-2026-10-07)) |
 | 29 | [J2](#j2-import-profiles-and-file-reading) | B3 | Import profiles, XLSX/CSV/JSON Lines reading, rows to items |
 | 30 | [J3](#j3-import-preview-and-execution) | J2, B2 | Import preview, confirm, execute |
 | 31 | [J4](#j4-import-screen-and-sc-10) | J1u, J3, F2 | The SC-10 screen and SC-10 acceptance |
 | 31a | [Track K](#track-k--bulk-selection-and-editing-in-collections) | J4, UA | Bulk selection and bulk edits in collections over `POST /batches`; packages K1–K5 planned in detail when the track starts — **added 2026-10-06** |
-| 32 | [R](#r-build-acceptance-and-release) | all | Build acceptance and release |
+| V | [V3–V9](#v3v9-the-management-api-documented-plan-2026-10-07) | V2 | The management API documented: the starter extended, content and examples beside the document, the error catalogue; V3 first, then V4–V8 in any order, then V9. **Independent fillers; block no release** (V-D9) — **planned 2026-10-07**, V-D1 open |
+| 32 | [R](#r-build-acceptance-and-release) | all except Track V's V3–V9 | Build acceptance and release |
 
 **Order revised 2026-09-30, after Q3.** The queue delivers first what later packages build on, while
 little depends on it yet, and keeps self-contained packages as fillers:
@@ -286,7 +287,7 @@ when V2 is done, U4 waits for it. Above the cut line (D9).
 ```text
 Track P:  inside B1 (§P1–P5, P7) and B2 (§P6); no package of its own
 Track Q:  Q1 ─ Q3 ─ Q4            Q2 (alone)          Q4 also needs C1 (schema 0.8)
-Track V:  V1 ────────────────── V2                    V2 needs C6b
+Track V:  V1 ────────────────── V2 ─ V3 ─ V4…V8 ─ V9     V2 needs C6b; V3–V9 block no release (V-D9)
 Track B:  B1 ─┬─ B2
               └─ B3
 Track F:  B1 ─ F1 ─ F2                                F1 before B2 (lock order)
@@ -5914,8 +5915,8 @@ store, identity, audit and the bulk APIs are untouched, so no door is affected.
 
 #### C17 record (2026-10-07)
 
-Implemented as planned, with the amendments from the check against the code; screenshots await the
-user's approval (the dialog's Delivery section at 1440px batched as CloudEvents and at 390px dark,
+Implemented as planned, with the amendments from the check against the code; screenshots approved
+by the user on 2026-10-07 (the dialog's Delivery section at 1440px batched as CloudEvents and at 390px dark,
 the detail with Requests, Content and Format at both widths, a CloudEvents webhook's deliveries and
 an opened event whose request body is the batched array).
 
@@ -6081,6 +6082,79 @@ origin, and the V1 checks still pass. Screenshots inspected at both widths. `ruf
 clean. Not run: `volume` and `startup` (no read or migration changed), frontend format, lint and
 build (only the runner changed), the full suites (R).
 
+#### V3–V9: The management API documented (plan, 2026-10-07)
+
+**Status:** planned at the user's request (2026-10-07). V-D2–V-D10 decided by the user 2026-10-07;
+V-D1 (where the text lives) is open. Independent of every release (V-D9).
+
+**Why.** `/docs` shows every management operation, but the document behind it says very little.
+Measured on `create_app()` on 2026-10-07: 74 operations by default (about 91 with model
+administration and webhooks enabled). 74 have a summary and 15 a description. No operation documents
+an error response besides the shared default envelope. 151 of 373 parameters and 75 of 176 schemas are
+described. `info.description` is one line, and the eleven tags have no text. The document has three
+examples. The behaviour is recorded in API.md, INTEGRATION_API, CONSUMER_API and the code. API.md is
+written for builders and organised by delivery, so an integrator reading `/docs` cannot learn from it
+what an operation is for, how it behaves, what it refuses, or what a real exchange looks like.
+
+**Outcome.** For every management operation, `/docs` states:
+
+- **what it is for**, with the use cases;
+- **how it behaves**: contexts (workspace, change set, publication, `asOf`), versions and optimistic
+  concurrency, paging, ordering, defaults and side effects (audit, feed, events);
+- **its limitations**: limits, what it does not do, and the operation to use instead;
+- **its errors**: each status with the codes it can carry, what each code means and what the client
+  should do;
+- **an example request and response**, recorded from a run against the extended starter's seeded
+  database (V-D3), not written by hand: one per operation to start (V-D4).
+
+Each tag gets an area overview: the concepts, how its operations fit together, and the common
+sequences, for example "create a change set, edit, validate, publish". The document's own
+description covers the conventions every operation shares: identifiers, contexts, versions, paging,
+the error envelope, idempotency, and the optional surfaces with the settings that enable them.
+
+**Sources, in order of authority:** the code (what the API does), then API.md, INTEGRATION_API and
+CONSUMER_API (what was decided), then the journey catalogue (what the use cases are). Where the code
+and the documents disagree, see V-D7.
+
+##### Decisions
+
+| # | Question | Decision |
+| --- | --- | --- |
+| V-D1 | Where does the text live? | **Open; the user asked for a minimal footprint in the code (2026-10-07).** Recommendation: **the code holds no documentation text and no examples.** One function merges a content directory into the generated OpenAPI document when the app builds it, the way FastAPI's documented `app.openapi()` override does. The directory is `backend/app/management/reference/content/`, shipped as package data like the bundled Scalar script. It holds an `index.md` for the document's conventions and, per tag, one Markdown file with the area overview and a section for each operation, headed by its method and path (`POST /api/v1/objects`) and holding the purpose, behaviour, limitations, errors and parameter notes. It also holds `errors.md`, the code catalogue (V-D5), and `examples/`, one JSON file per operation with its named example requests and responses, written by the recording (V-D3). Keys are method and path, the public contract, not FastAPI's generated `operationId`, which follows Python function names. The in-code descriptions that already exist (15 operations, 151 parameters, 75 schemas) stay. New field text goes in the code only where the field is otherwise undescribed and a sentence is enough. A section naming a route that no longer exists fails the V-D6 check. API.md remains the builders' contract record (DOCUMENTATION_PLAN "Not included"). API.md says what was decided and why, and `/docs` says how to use it |
+| V-D2 | Which model and data do the examples use? | **Decided by the user 2026-10-07: the bundled starter, extended until it holds every capability the documentation must show, both for the examples and for demonstrating the engine.** The extension is a new content release of the starter, shipped to every new deployment, so a reader can repeat every example on a fresh install. The starter has no transport content (domains, codelists, master values such as delivery methods, systems and translations). Today it holds only part of the structures the journey tests name (checked in `configurations.py`, `example()`): a root type with a unique code, and languages, translation groups and translations with a scoped uniqueness rule. It lacks a self-hierarchy, a many-to-many relation with its own attributes, a one-to-one relation, a type ladder to restructure across, the integer range, required, read-only-with-default and at-least-one rules, and a consumer API with match rules and every parameter kind. V3 lists every capability the documented operations need, maps each to the starter type that shows it or to the smallest addition in the same domain, and adds them. The journey tests on the `example` configuration then cover more structures, because the starter holds more. `rdm-operators-timetables` is not used, because timetables, resources and roles read as a transport domain |
+| V-D3 | Where do the examples come from? | **Decided by the user 2026-10-07: recorded from a run, and kept current by a rule, not by a comparison check.** A reference scenario calls the public API on the extended starter's seed, built once and reused. Each step records a request and its response into the operation's example file, normalised: IDs become stable readable placeholders (consistent across steps, so a created ID reappears in the next request) and times are fixed. Each step asserts only the status and code it records. The rule (V-D8): a change to a route's behaviour or shape regenerates that route's examples in the same change, and the git diff of the example files shows the change for review. There is no committed-versus-rerun comparison |
+| V-D4 | How many cases? | **Decided by the user 2026-10-07: one example per operation to start**, the operation's main successful use. The errors are described in text (V-D5), not shown as examples. After V3, the user looks at how the examples read, how much space they take and how manageable they are, and decides whether more are added (more use cases, error examples) |
+| V-D5 | How are errors documented? | **Decided by the user 2026-10-07: a few sentences for every error code**, in the code catalogue `errors.md`, written once per code: what the code means, why it happens with a hint at the usual root cause, and what the client does about it. Today a code carries a short message at the place it is raised; the catalogue explains it. Each operation lists its statuses as OpenAPI responses with the codes each can carry, linked to the catalogue, from reading the operation's code path. One check: every code the backend raises (the set `test_api_journeys` already collects) has a catalogue entry and is listed on at least one operation |
+| V-D6 | How does completeness stay visible? | **Approved by the user 2026-10-07.** A contract test from V3 on lists every operation without a content section or example, every parameter and schema field without a description, every content section or example naming a route that does not exist, and every code without a catalogue entry. It compares them with a committed gap list that may only shrink. Each package empties the list for its area, and V9 deletes the list. The text is written for integrators: no package or decision IDs and no history (DOCUMENTATION_PLAN principle 1). Each statement can be checked against the code |
+| V-D7 | What if the code and API.md disagree? | **Decided by the user 2026-10-07: logged, highlighted and decided separately.** The package documents what the code does, records the discrepancy in TODO under "API documentation discrepancies" (the route, what API.md says, what the code does, where) and lists it at the top of its record and its report, so it is not missed. The decision (fix the code or correct API.md) is taken separately. API.md is read on every prompt, so few discrepancies are expected |
+| V-D8 | How does the documentation stay current? | **Approved by the user 2026-10-07, as part of the coding-agent guide.** V3 adds the rule to AGENTS.md (working method, the documentation step) and to "How a package is delivered", step 3: a change that adds or changes a management route updates its content section, its error listing and catalogue entries, and regenerates its examples, in the same change |
+| V-D9 | Where in the queue? | **Decided by the user 2026-10-07: Track V's V3–V9 are independent and block no release, neither 0.9.0 nor 1.0.** They are fillers taken when chosen. R and R-a do not wait for them. DOC2's audit of the OpenAPI descriptions is done here instead, and DOC2 keeps the settings, limits and model language references; DOCUMENTATION_PLAN gets a pointer in V3 |
+| V-D10 | Document size | **Approved by the user 2026-10-07.** Examples stay short: pages of two or three items, and long arrays trimmed in the recording with a note saying so. The document is 290 KB today. V3 measures it with V3's examples, projects the full size and reports. If the projection is over about 2 MB, examples are served as separate files that the document references, not inline. Measured once and not tuned in a loop |
+
+##### Packages
+
+Each package documents one area completely by V-D1–V-D6 and empties its part of the gap list. Its
+tests are the `reference` group (new in V3: the recording run, whose steps assert their status and
+code) and `contract` (the OpenAPI lock, re-baselined for each package by diffing the document). Each
+package covers about 10–25 operations.
+
+| Package | Needs | Area (operations) |
+| --- | --- | --- |
+| **V3** Foundation and the service | V2 | The starter extended (V-D2: the capability inventory, the additions, a new content release, the `example` configuration's structure map updated). The mechanism: the content directory and its merge (V-D1), the scenario harness and recording (V-D3), the error catalogue and per-operation responses (V-D5), the gap list and its check (V-D6), and the size measurement (V-D10). The V-D8 rule in AGENTS.md and the delivery steps. Text: the document's conventions, every error code's catalogue entry, and the `system`, `health`, `capabilities`, `workspaces` and workspace runtime state operations (about 12). Ends with the user's review of how the examples look (V-D4) |
+| **V4** Records | V3 | Objects: create, read, update, delete, the per-type list and the cross-type lookup, the model-aware query, attribute values, history and parent candidates (15). Contexts, `asOf`, filters and sorts, uniqueness and required rules, moving a record |
+| **V5** Relations and mappings | V3 | Relations (5), the edge list and the mapping reads and replacement (5), and the relation matrix (3). Relation rules, cardinality, containment as a relation, coverage |
+| **V6** Change sets and publications | V3 | Change sets (list, create, read, update, delete, model release, object and relation changes, validation, publication), restructuring preview and apply, publications (read, list, withdrawal) (17). How a change set merges onto live data, conflicts, publication snapshots |
+| **V7** Bulk and following changes | V3 | `POST /batches` with every item kind, jobs (read, list, items, cancel), the feed, and the export routes once J1 is delivered (about 8). Idempotency, failure policies, item outcomes, background runs, feed positions, retention and `410` |
+| **V8** The model | V3 | Model reads (applications, types, relations, placements, the model, runtime state), releases, diffs and activations, validations, and the model administration surface when enabled (about 25). The model is the bulk of the area overview: the operations are simple reads, but what they describe is the whole engine |
+| **V9** Webhooks, and close-out | V3, V4–V8 | Consumer subscriptions: create, read, update, suspend, resume, delete, deliveries and resend (10). Retries, batching and signing, as DOCUMENTATION_PLAN's points require. Then the close-out: the gap list empty and deleted, the V-D5 check passing over the whole document, the API.md pointer to `/docs` added, and the DOC2 audit item marked done |
+
+**Not included:** the consumer read API (`/consumer/...`). Its documents are generated per
+definition from the model, and their descriptions are a separate question (TODO once V-D1 is
+approved). Also excluded: tutorials and how-to guides (DOCUMENTATION_PLAN 0.13) and translations.
+
+**Composable domains (ADR-032):** no door is affected. The text describes contracts and does not change
+them. The examples use one configuration of generic capabilities and are presented as such.
+
 ## Track J — Import and export
 
 #### J1: Export
@@ -6106,8 +6180,8 @@ all `unchanged`; cancelled and failed exports with no output.
 
 **Planned 2026-10-07. D49, D50, D52, D53 (revised: a worker of its own for exports), D54 and D55
 accepted by the user the same day. D51 revised after the user's review: the formats are JSON Lines,
-CSV and XLSX (the user's decision), with one table layout for CSV and XLSX; its layout, D56 and the
-test cases await approval. The UI to start an export and follow it is a package of its own,
+CSV and XLSX (the user's decision), with one table layout for CSV and XLSX. The layout, D56 and the test
+cases approved with the user's go-ahead to implement, 2026-10-07. The UI to start an export and follow it is a package of its own,
 [J1u](#j1u-export-in-the-ui-and-job-notifications-outline), before J4.** Checked
 against the code at `6053996`: the job table, the worker (`engine/jobs/worker.py`, which today runs
 batch chunks only), the model query's builders (`engine/reads/model_query.py`, `object_query.py`,
@@ -6159,7 +6233,8 @@ since the export. A cancelled or failed export has no file.
 - **Refusals at the request**, checked before the job is stored, with JSON pointers into the body:
   `422 INVALID_QUERY` (an unknown type, field, operator or binding, `details.path`
   `/scope/types/0/where/0/field`; Q3's code, since these are Q3's criteria), `422 AS_OF_NOT_SUPPORTED`
-  (no scoped type declares a period), `422 INVALID_AS_OF`, `404 PARENT_NOT_FOUND`,
+  (no scoped type declares a period), `422 INVALID_AS_OF` (_as delivered, `INVALID_QUERY` at
+  `/scope/asOf`, Q3's rule_), `404 PARENT_NOT_FOUND`,
   `404 WORKSPACE_NOT_FOUND`, `404 CHANGE_SET_NOT_FOUND`, `404 PUBLICATION_NOT_FOUND`,
   `422 REQUEST_VALIDATION_ERROR` (shape, both context IDs, a type listed twice).
 - **The job.** `GET /jobs/{id}` as today. An export job adds `output` once completed (D52):
@@ -6230,7 +6305,8 @@ since the export. A cancelled or failed export has no file.
   waits behind an export and an export never waits behind a batch. A queued or cancelled export
   wakes the export worker; `INTEGRATION_JOBS_ENABLED` off starts neither, and a graceful stop
   releases both workers' leases.
-- **One snapshot** (D53). The export opens a `REPEATABLE READ, READ ONLY` transaction
+- **One snapshot** (D53). The export opens a `REPEATABLE READ, READ ONLY` transaction (_as
+  delivered, not `READ ONLY`: PostgreSQL refuses temporary tables there_)
   (`begin_snapshot_read`) and in it reads the workspace's feed head (`workspaces.feed_position`,
   which commits with its entries under the workspace lock), counts the scope, and streams every
   file. Cancel requests, lease renewal and progress go through a second, short session every
@@ -6243,7 +6319,8 @@ since the export. A cancelled or failed export has no file.
   with a server-side cursor; CSV through `COPY (SELECT …) TO STDOUT (FORMAT csv)`; XLSX rows
   selected and encoded the same way and written by XlsxWriter (BSD, checked against OPEN_SOURCE
   before it is added) in its constant-memory mode. Python writes the bytes and cells, counts and
-  hashes; it never holds the set. Change sets and publications read
+  hashes; it never holds the set. _As delivered: XLSX is written as sheet XML by the engine's own
+  `engine/jobs/xlsx.py` (see the record)._ Change sets and publications read
   through `snapshot_reads` like every other context read.
 - **Files.** Written to `{JOB_FILE_DIR}/{jobId}.partial`, then renamed with the extension once the
   checksum is stored in the same commit as `completed`. A cancel, a failure or a restart deletes the
@@ -6257,12 +6334,12 @@ since the export. A cancelled or failed export has no file.
 | --- | --- | --- |
 | D49 | What a JSON Lines line is | **Accepted 2026-10-07 by the user.** **`upsert` by `{id}` and `ensureRelation`, not §J4's `create` and `createRelation`.** A `create` of an existing record is refused, so §J4's file could not be re-imported as the package's own test requires and §J2 promises ("an export re-imports as upserts"). Required relationships also ride on the upsert as `initialRelations` (used only on create), so a record that requires one can be created from the file. **Limit:** object IDs are unique across the instance, so the file loads into the same workspace or another instance, not into a second workspace of the same instance; copying a workspace is a different feature. Relationship IDs are not carried. **Amended 2026-10-07 by the user: each record carries its version** (`expectedVersion` on the upsert line, a `version` column in the tables), so a re-imported edited file updates the rows nobody changed since the export and refuses only a row changed in the engine meanwhile (`VERSION_CONFLICT`), instead of needing `onExisting: overwrite`; an unchanged row stays `unchanged`, decided before the version (D24). §J4's "versions are not carried" is amended; history still is not |
 | D50 | The scope's shape | **Accepted 2026-10-07 by the user.** **`where` per type; `parentObjectId` and `asOf` shared; `include.relations` `none` / `withinScope` (default) / `all`.** §J4 names types, `where` and `asOf` without saying which type a criterion is for; Q3's criteria belong to one type. `asOf` follows the consumer API (C-D76–C-D80): types without a period are exported undated, the manifest names the dated ones (`asOfApplied`), and only a scope with no dated type is refused. `all` can name records outside the file; a re-import then needs them present (`REFERENCE_NOT_FOUND` otherwise) |
-| D51 | Formats and the table layout | **Formats JSON Lines, CSV and XLSX: decided by the user 2026-10-07** (XLSX is a machine format as much as a human one). **Layout, recommended:** one table layout for CSV and XLSX as in the contract above: a records table and a relationships table keyed by column keys, attribute columns `#{attributeTypeKey}` (attribute types are global, so one column means one thing in every row), orientation columns `~…` ignored on import, the record's `version` (D49); CSV both tables in one file, XLSX two named tables with typed cells. The first recommendation (a file per type, a ZIP) is withdrawn: it rested on attributes differing per type, which the global attribute types rule out. §J4's "one file per type (a ZIP when several)" is amended. The source system's export (reviewed 2026-10-07) also keeps every type in one sheet, relationships in another with orientation columns |
+| D51 | Formats and the table layout | **Formats JSON Lines, CSV and XLSX: decided by the user 2026-10-07** (XLSX is a machine format as much as a human one). **Layout approved 2026-10-07 with the go-ahead to implement:** one table layout for CSV and XLSX as in the contract above: a records table and a relationships table keyed by column keys, attribute columns `#{attributeTypeKey}` (attribute types are global, so one column means one thing in every row), orientation columns `~…` ignored on import, the record's `version` (D49); CSV both tables in one file, XLSX two named tables with typed cells. The first recommendation (a file per type, a ZIP) is withdrawn: it rested on attributes differing per type, which the global attribute types rule out. §J4's "one file per type (a ZIP when several)" is amended. The source system's export (reviewed 2026-10-07) also keeps every type in one sheet, relationships in another with orientation columns |
 | D52 | Where the manifest lives | **Accepted 2026-10-07 by the user.** **On the job only (`output`), with the checksum also in `Repr-Digest` and `ETag`.** A manifest line would make a JSON Lines file no longer a list of batch items, and a manifest only in a ZIP would differ by format. One home, read before downloading |
 | D53 | One snapshot for a long export | **Accepted 2026-10-07 by the user, revised: exports run on a worker of their own.** **One read-only `REPEATABLE READ` transaction for the whole export, restarted whole after a crash; no chunked resume.** Resuming a file across transactions would need an exported snapshot kept open across processes, which a crash loses anyway. **Exports get their own worker thread**, claiming only exports while the existing worker claims batches, so neither kind waits behind the other; the lease already supports several workers (B2). **Cost:** one thread, and two database connections while an export runs (the snapshot and the short cancel and progress checks), well within SQLAlchemy's default pool. Exports wait for each other. A long-open snapshot holds back PostgreSQL's cleanup of rows changed meanwhile until the export ends; not noticeable at the expected duration (measured by D56), noted in OPERATIONS |
 | D54 | D40 revisited: does a workspace without a publication keep every entry? | **Accepted 2026-10-07 by the user.** **Yes, keep D40.** The audit log is not pruned (F5), so letting entries expire there saves nothing and only takes away a reader's incremental catch-up; the export is offered beside the publication in the `410` (D41). The floor stays as it is |
 | D55 | `JOB_FILE_DIR` | **Accepted 2026-10-07 by the user.** **Default `var/job-files` under the project root (used when the setting is not set), created at start; a start with jobs enabled and the directory not writable is refused with the path and the setting's name.** Reported by `GET /capabilities` as present, never as a path. 0.11's several nodes need shared storage behind it (D12) |
-| D56 | The budget's size | **The fixture's whole live workspace, 258,000 records and their relationships, to JSON Lines, CSV and XLSX, measured once and announced.** The 110,000 in this package's outline predates 0.8 A2 (TODO). Target: under 60 s each, memory flat (no set held in Python). A `volume` test at 0.1 scale holds statements and time per run |
+| D56 | The budget's size | **Approved 2026-10-07 with the go-ahead to implement.** **The fixture's whole live workspace, 258,000 records and their relationships, to JSON Lines, CSV and XLSX, measured once and announced.** The 110,000 in this package's outline predates 0.8 A2 (TODO). Target: under 60 s each, memory flat (no set held in Python). A `volume` test at 0.1 scale holds statements and time per run |
 
 **Journey.** J27 (exchange a supplier file) gains its export variants; USER_JOURNEYS and API_JOURNEYS
 (the two routes, the codes, `JOB_FILE_DIR`) change with it:
@@ -6332,6 +6409,96 @@ export sentence), USER_STORIES (US-I08), CHANGELOG, PROJECT_STATUS, TODO (the 11
 audit, the `match` declaration and mapping coverage are untouched, so no door is affected. The
 export carries no domain concept: scope, items and files are the engine's generic ones.
 
+##### J1 record (2026-10-07)
+
+**Delivered 2026-10-07.** Decisions D49–D56 approved by the user (D49, D50, D52, D54, D55 on
+review; D53 revised with a worker of its own; D51's formats chosen by the user, its layout, D56 and
+the test cases with the go-ahead to implement). The eight test cases were written first and
+failed (collection: no export module), then passed.
+
+**Built.**
+
+- `POST /api/v1/exports` (`management/routers/jobs.py`, `engine/jobs/exports.py`, `models/exports.py`):
+  checks the request against the model (each type's criteria through `plan_model_query`, refused at
+  the body's pointer) and queues a job of kind `export`; nothing is stored when it is refused.
+- The export worker: a second `JobWorker` (`kinds=("export",)`, thread `rdm-export-worker`, no
+  sweep) beside the batch worker, which now claims `batch` jobs only. An export runs in one step from
+  one `REPEATABLE READ` snapshot: the scope into temporary tables by set statements (records through
+  the query builders, depth inside the file, parent paths, relationships, required relationships),
+  then the file. Cancel, lease and progress go through the worker's own short session every 10,000
+  rows (`should_stop`); a crash restarts the export.
+- Formats: JSON Lines built by PostgreSQL (`json_build_object`, streamed); CSV by `COPY … TO STDOUT`;
+  XLSX as SpreadsheetML written straight into the ZIP (`engine/jobs/xlsx.py`): inline strings,
+  typed cells, two named tables, a hidden `Lists` sheet for the dropdowns.
+- `GET /api/v1/jobs/{jobId}/output` with `ETag` and `Repr-Digest`; the job's `output` (D52);
+  `JobFiles` in `JOB_FILE_DIR` (`engine/jobs/files.py`), reconciled at start and with each sweep.
+- Revision `20261007_04` (`jobs.output`); `JOB_FILE_DIR` (D55), checked at start; the feed's `410`
+  names `export` (D41, D54).
+
+**Where it differs from the plan.**
+
+- **Not `READ ONLY`.** PostgreSQL refuses `CREATE TEMPORARY TABLE` in a read-only transaction. The
+  snapshot is plain `REPEATABLE READ`, writes only its temporary tables, and is rolled back.
+- **XLSX writer.** XlsxWriter's streaming mode cannot add tables, so the first writer used openpyxl's
+  write-only workbook (MIT): 72.8 s at full size, over D56's 60 s. The user chose to make it faster
+  in J1: the workbook is now written as sheet XML by the engine itself, 31.5 s. openpyxl stays as a
+  test dependency only, to read workbooks back. No library was added to the engine.
+- **An invalid `asOf`** is `422 INVALID_QUERY` at `/scope/asOf`, as Q3 refuses it, not a new
+  `INVALID_AS_OF`. A context of another workspace is `422 WORKSPACE_CONTEXT_MISMATCH`, as on every
+  context read.
+- **Relationships carry their version too**: `expectedVersion` on `ensureRelation`, a `version`
+  column in the tables, so an edited relationship is claimed like a record.
+- **`counts.records`** names every exported type, zero included.
+- **CSV's cancel check** comes between its two `COPY` statements (a `COPY` cannot pause), not every
+  10,000 rows.
+- **Dropdowns** cover the type columns and boolean columns: the model has no list of allowed values
+  to offer.
+- **Test case 5** sends the file back with the default `onExisting` (the versions make `overwrite`
+  unnecessary) and adds the edited file: one record updated, one refused `VERSION_CONFLICT`, the rest
+  `unchanged`. Case 6 checks the shared layout in CSV and XLSX. These follow D49's and D51's revisions.
+
+**Found on the way.**
+
+- **A file renamed into place could be reconciled away.** The sweep removed a file whose job was
+  still `running` in the moment between the rename and the commit that completes it; a running job
+  now keeps its file under either name.
+- **Test runs shared one job file directory.** `conftest.py` set `JOB_FILE_DIR` once and the xdist
+  workers inherited it, so another worker's application, reconciling the directory against its own
+  database, removed a running export's file (one `JOB_FAILED` in the first group run). Each worker,
+  journey application, seed build and the volume script now has a directory of its own, removed when
+  it ends. Two script runs had left an empty `var/job-files` in the project; removed.
+- `test_boundaries` bans `json_each` and `json_type…` as another database's SQL; the export uses
+  PostgreSQL's `jsonb_each` and `jsonb_typeof`.
+
+**Checks.**
+
+- J27 journey tests (9 tests on two configurations each, 18 cases) and J26's expired-position test
+  updated for `details.export`; `test_export_volume` (statements at two sizes); unit
+  `tests/unit/engine/jobs/test_xlsx.py` (22: every value type read back, the 15-digit rule, text
+  escapes, column letters). After the last change: J27 and the volume test 19 passed in 18 s; the
+  unit tests 22 passed; `test_boundaries`, `test_api_journeys`, `test_openapi_contract`, the config and
+  main unit tests 62 passed.
+- The guide's selection for `engine/jobs/*`, `reads/feed.py` and the lifespan, before the XLSX
+  writer and the harness fixes: `jobs or feed or contract or startup` in parallel, 556 passed in
+  1 min 45 s; its serial part 1 passed.
+- Startup (AGENTS.md): upgrade from `20261007_03` with the column added by hand refused and rolled
+  back, then two starts and a downgrade; a clean start; an unwritable `JOB_FILE_DIR` refused with the
+  path and the setting: 4 passed.
+- OpenAPI lock re-baselined: two paths, eight `Export*` schemas and `JobResponse.output` added,
+  nothing else changed (diffed against `HEAD`).
+- Budget (D56), measured with the user's go-ahead: POSTGRESQL_BUDGETS §8. JSON Lines 23.1 s, CSV
+  24.4 s, XLSX 31.5 s at 257,758 records and 316,616 relationships.
+- `ruff check app/ tests/` clean.
+- Smoke on the development server (its `--reload` restart applied `20261007_04` to the development
+  database; `/health` ok): one XLSX export of two types through `POST /exports`, run by the export
+  worker's own thread, completed and downloaded with its `Repr-Digest`. The journey tests run the
+  worker by hand, so this is the evidence for the thread.
+
+**Not run or not verified.** The full suites (R). No frontend change, so no frontend checks. The
+XLSX files were read back by openpyxl only, not opened in Excel or Numbers. The round trip of CSV
+and XLSX through an import waits for J2. Memory during an export was not measured with an
+instrument.
+
 #### J1u: Export in the UI and job notifications (outline)
 
 **Added 2026-10-07 by the user**, while planning J1. An outline, planned in detail with its journeys,
@@ -6366,6 +6533,213 @@ accessibility and visual gates, light and dark.
 
 **Not in J1u:** notifications to a closed browser (Web Push, which sends through the browser
 vendor's service), and per-person notifications, which need the users of 0.12.
+
+##### J1u plan (2026-10-07)
+
+**Planned 2026-10-07 at the user's request to implement J1u. D57 and D60 accepted by the user the
+same day, D59 decided by the user (8 seconds); D58, D61–D63 and the test cases approved the same
+day.** Checked against the code after J1: `ui/Toast` takes a text message only;
+`features/settings/JobsPage` lists jobs without a page per job; Settings routes have a detail form
+for webhooks (`/settings/webhooks/{id}`) to follow; the collection page's `PageHeader` has one
+action (Add); a collection carries its filters, search and parent scope in the URL; no route
+streams and nothing in the engine uses `LISTEN`/`NOTIFY`. **Needs:** J1 (delivered).
+
+**Behaviour.**
+
+1. On a collection page, **Export** opens a dialog prefilled from the page: its object type, the
+   data context (live, the change set or the publication being viewed), its filters and its parent
+   scope. The user may add types of the same application, a date, the relationships and a format,
+   and starts the export. Settings › Integration › Jobs has **New export** for any types of a chosen
+   workspace (D57).
+2. A notification says the export has started, with a link to its job page.
+3. When it finishes, a notification says so: completed with **Download** and **View job**; failed or
+   cancelled with **View job** only (the user, 2026-10-07: the job page shows the error). Like every
+   notification it stays 8 s, longer while hovered or focused (D59).
+4. The job page (`/settings/jobs/{jobId}`) shows the state, progress while running, the error,
+   **Cancel** while it can be cancelled, and for a completed export the manifest (context, feed
+   position, release, counts per type, size, checksum) and **Download**. It updates as the job
+   changes. Each row of the jobs list opens its page.
+5. Updates are pushed, never polled (the user, 2026-10-07): the browser opens a job's event stream
+   when it starts the job, and the job page opens it while shown. A reload reopens the streams of
+   the jobs this tab started; a closed browser receives nothing.
+
+**Contract.**
+
+- `GET /api/v1/jobs/{jobId}/events` (a read, always registered): `text/event-stream`. It sends the
+  job at once (`event: job`, `data:` the `JobResponse` as `GET /jobs/{id}` answers it), then the job
+  again after each change of its state, progress, cancel request or output, and ends after a final
+  state (`completed`, `failed`, `cancelled`, `expired`). A finished job is sent once and the stream
+  ends. A comment line (`: keep-alive`) every 15 s keeps proxies from closing an idle stream.
+  `404 JOB_NOT_FOUND` before the stream starts. `X-Accel-Buffering: no` and `Cache-Control:
+  no-cache` so a proxy passes events at once. Each event carries the whole job, so a reconnecting
+  client needs no `Last-Event-ID`.
+- No other route changes. Starting an export is J1's `POST /exports`; the download is J1's
+  `GET /jobs/{id}/output`.
+
+**Design.**
+
+- **Notification at commit** (D58). Revision after `20261007_04` adds a trigger on `jobs`: after an
+  insert, or an update that changes `state`, `processed`, `total`, `cancel_requested_at` or
+  `output`, `pg_notify('rdm_job_events', job id)`. PostgreSQL delivers a notification only when its
+  transaction commits, and a trigger catches every path that changes a job, the worker's, the
+  routes' and the store's, including future ones. Lease renewals alone notify nothing.
+- **One listener per process** (`engine/jobs/events.py`): a thread holding one connection that
+  `LISTEN`s and hands each job ID to the streams waiting for it (an asyncio queue per stream, fed
+  through the event loop). Started in the lifespan where the model is served, as the deriver is;
+  it reconnects after an outage with the `OutageLog`. Several processes each listen to the same
+  database, so 0.11's nodes need no change.
+- **The stream** (`management/routers/jobs.py`): an async generator. It subscribes before reading
+  the job, so no change falls between the read and the subscription; on each notification it reads
+  the job again (one short query) and sends it unless unchanged. A client that disconnects ends it.
+- **Frontend.**
+  - `ui/Toast` gains actions (links or buttons); the region and timing stay one component (U-D14).
+  - `features/jobs/`: `useJobStream(jobId)` over `EventSource`; `JobNotifications`, a provider in
+    the app shell that remembers the jobs this tab started (`sessionStorage`), keeps one stream per
+    running job and shows the notifications; `ExportDialog` (`ui/Modal`); `JobPage`.
+  - The collection page's header gains **Export** beside Add (also in a read-only context: an export
+    changes nothing), shown while the deployment lets jobs be created
+    (`capabilities.integrationJobs.createJobs`).
+  - The dialog: types (this collection's checked; the application's other types listed), the
+    context as a read-only line, the collection's filters as `where` criteria with their labels, the
+    parent scope as "Only below …" (checked when the page is scoped), the search left out with a
+    sentence saying so (D60), a date when a chosen type declares a period, relationships (none,
+    both ends exported, all; default both ends), the format (XLSX, CSV, JSON Lines; default XLSX,
+    D61). A refusal shows inline at its field, from the error's JSON pointer.
+  - Settings › Jobs: rows link to their page; **New export** opens the same dialog with a workspace
+    chooser and no prefill.
+  - Download is a plain link to `/api/v1/jobs/{id}/output` (`download` attribute).
+- **Not changed:** the engine's export, its worker, the batch pages.
+
+**Decisions** (for approval):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D57 | Where does a user start an export? | **Accepted 2026-10-07 by the user.** **On a collection page (prefilled from it) and from Settings › Jobs (New export, any types of a workspace).** The collection is where the user already chose a type, a context, filters and a scope; Jobs is where exports are followed. No export in the record detail or the tree, which are about one record |
+| D58 | How the engine learns a job changed | **Approved 2026-10-07 by the user.** **A trigger on `jobs` with `pg_notify`, delivered at commit.** Notifying from Python would need every path that changes a job to remember it; the trigger cannot be forgotten, and an aborted transaction notifies nothing |
+| D59 | How long the finished notification stays | **Decided 2026-10-07 by the user: 8 seconds, as every notification** (longer while hovered or focused). The recommendation was until dismissed. Only the finished notification of a job this tab started is shown |
+| D60 | The collection's search in an export | **Accepted 2026-10-07 by the user.** **Left out, said in the dialog.** The model query has no full-text search; carrying it as a name criterion would export a different set than the page shows. Filters carry over exactly (the same field, operator and value) |
+| D61 | The dialog's default format | **Approved 2026-10-07 by the user.** **XLSX**: the person in the browser most often opens the file; integrations use the API and choose |
+| D62 | The job page's address | **Approved 2026-10-07 by the user.** **`/settings/jobs/{jobId}`**, a detail of Jobs as webhooks have, so the notification's link and the list's rows open one page |
+| D63 | Several jobs at once in one tab | **Approved 2026-10-07 by the user.** **One stream per running job the tab started, no limit**; HTTP/1.1's six connections per site make a seventh wait (OPERATIONS says so); HTTP/2 lifts it |
+
+**Journey.** J27.6 (new): *start an export in the browser and follow it*, the UI channel of J27.1
+and J27.4, and J24's job stream: J24.7 (new) *follow a job as it changes* through the API (any job
+kind). USER_JOURNEYS, API_JOURNEYS (the route, `JOB_NOT_FOUND`) and UI_ACCEPTANCE (a row for the
+dialog, the job page and the notification) change.
+
+**Test cases.**
+
+Journey tests (API, generated A and B):
+
+1. **The stream follows a job to its end.** Given a queued export, when a client opens its events
+   and the export worker runs it, then the client receives the job queued, then running with
+   progress, then completed with `output`, and the stream ends. A batch job's stream does the same
+   for its chunks.
+2. **A finished job is sent once.** The stream of a completed job sends it and ends at once; an
+   unknown job is `404 JOB_NOT_FOUND`.
+3. **A cancel reaches the stream.** A cancel request is sent as the job with `cancelRequestedAt`,
+   then `cancelled`.
+4. **Only committed changes are sent.** A batch whose chunk rolls back (an atomic batch with a
+   rejected item) sends no state the job never committed.
+
+Unit tests: the stream's formatting and keep-alive; `Toast` with actions and `persistent`; the
+dialog's request from a collection (filters to `where`, scope, context, search left out); the
+pointer of a refusal shown at its field.
+
+Browser runner `test:browser:j1u` (real backend, two object types or models, keyboard, 390px):
+from a collection with a filter, Export, the dialog prefilled, start, the started notification, the
+finished notification with Download and View job, the downloaded file's name, the job page with the
+manifest; a cancelled export's notification and page; New export from Jobs; the dialog's refusal at a
+field. Screenshots of the dialog, the notification and the job page at 1440px and 390px, light and
+dark, for the user's approval, and the three surfaces in `test:a11y` and `test:visual`.
+
+**Checks.** The journey and unit tests above; `jobs`, `contract` (the new route; OpenAPI re-baseline)
+and `startup` (the trigger's migration: upgrade, two starts, an interrupted run); frontend `vitest
+related`, `format`, `lint`, `build`; `test:browser:j1u`; the a11y and visual scenarios of the changed
+surfaces. Not run: the full suites (R).
+
+**Docs at delivery.** API.md (the events route), OPERATIONS (proxies and the connection limit),
+ARCHITECTURE (the listener), USER_JOURNEYS, API_JOURNEYS, UI_ACCEPTANCE, CURRENT_FUNCTIONALITY,
+PRODUCT, CHANGELOG, PROJECT_STATUS, TODO.
+
+**Composable domains (ADR-032):** notifications about jobs and a screen over existing routes;
+identity, attribute storage, audit, bulk APIs, `match` and mapping coverage are untouched.
+
+##### J1u record (2026-10-07)
+
+**Implemented 2026-10-07; the screenshots await the user's approval.** D57–D63 and the test cases
+approved by the user before coding (D59 their choice: 8 seconds). The four stream cases were written
+first and failed (no route), then passed.
+
+**Built.**
+
+- **Backend.** Revision `20261007_05`: the `jobs_notify` trigger (`pg_notify` at commit on a change
+  of state, progress, total, cancel request or output). `engine/jobs/events.py`: one listener thread
+  per process (`rdm-job-listener`) holding a psycopg connection that `LISTEN`s and wakes the streams
+  of the job named. `GET /api/v1/jobs/{jobId}/events`: an async server-sent event stream, subscribed
+  before its first read, sending the job at once and after each change, ending after a final state,
+  with a keep-alive comment every 15 s. `db.libpq_url`.
+- **Frontend.** `features/jobs/`: `useJobStream` (EventSource, closed at a final state),
+  `JobNotificationsProvider` (the jobs a tab started, remembered in `sessionStorage`, one stream
+  each), `ExportDialog`, `JobPage`, `exportRequest` (filters to criteria, a pointer to its field),
+  `jobText` (the job labels, moved from `JobsPage` so the list, the page and the notifications share
+  them). `ui/Toast` carries links and an `info` tone; the toast region and the notifications moved
+  to the app root, so they work on every page. `ui/Choice` extracted from the webhook dialog, and
+  the webhook dialog's `webhook-form*` styles renamed `dialog-form*`, so both dialogs share one form
+  (U-D14). A collection page shows **Export** when the app shell passes `onExport` (while jobs can be
+  created); Jobs and feed has **New export** and links each job to `/settings/jobs/{jobId}`.
+
+**Where it differs from the plan.**
+
+- **The page's parent narrowing.** A collection narrowed to a parent shows that parent's direct
+  children; the export's `scope.parentObjectId` means any depth. To export what the page shows, the
+  dialog sends the narrowing as a `parentObjectId eq` criterion on the page's type, not as
+  `scope.parentObjectId`. The checkbox reads "Only the {records} this page is narrowed to".
+- **Capabilities and notifications are read by the app shell**, which passes an optional `onExport`
+  to the collection views; a generic view reads no app service, and a view without it offers no
+  export (the collection tests needed no change).
+- **Each stream read opens a short session of its own** (`app.state.session_factory`), not the
+  request's: a stream outlives its request and must not hold a connection while a job runs.
+- **The browser runner** does not cancel an export from the browser (an export of the seed finishes
+  before a cancel can reach it); it shows a cancelled job's page with a batch queued behind a large
+  one, and the cancelled notification is held by `JobNotifications.test`. A refusal at a field is
+  held by `ExportDialog.test`; the browser cannot make the engine refuse a prefilled dialog.
+- **The comprehensive gates.** The three surfaces were checked with axe and screenshots in the
+  runner, as U4 and U5 were; adding them to `test:a11y` and `test:visual` (scenarios and baselines)
+  belongs to build acceptance (R), which runs those gates (TODO).
+
+**Found on the way.**
+
+- **The listener's outage was logged as a defect.** J12's database outage test failed: a raw
+  psycopg `OperationalError` was not recognised as an unreachable database (only SQLAlchemy's
+  wrapper was), so the listener logged a traceback at ERROR. `database_unreachable` now reads a
+  psycopg connection's error by the same SQLSTATE rule; regression cases in
+  `tests/unit/common/test_outage.py`; J12 passes.
+- **The test client cannot follow a stream**: Starlette's `TestClient` buffers a streamed response
+  until it ends. The stream tests serve the journey application over HTTP on a local port
+  (uvicorn, lifespan off) and read it with httpx, as a browser does.
+- The toast test reached the toast as its message's parent; the message now sits in a body element,
+  so the test finds the toast by its class.
+
+**Checks.**
+
+- Backend: `test_j24_job_stream` (4 tests on two configurations, 8 cases); the trigger's startup
+  test (upgrade from `20261007_04` refused with the function present, two starts, downgrade); the
+  OpenAPI lock re-baselined (only `GET /jobs/{job_id}/events` added, diffed against J1's document);
+  `jobs or feed or contract or startup` in parallel, 565 passed and J12's two cases failed before the
+  outage fix; after it, `jobs or feed or startup` 496 passed in 1 min 42 s, the serial part 1 passed;
+  `ruff` clean.
+- Frontend: `vitest related` over the changed files, 287 passed (`ExportDialog.test` 4,
+  `JobNotifications.test` 3, the existing Settings, routes, toast and collection tests); `format`,
+  `lint` (0 errors; the 7 warnings are in files this package did not touch), `build`.
+- Browser (`test:browser:j1u`): 12 checks at 1440px and 390px on Domains (filtered to one record,
+  XLSX) and Systems (CSV): Export by keyboard, the started and completed notifications, the
+  downloaded file's name and size, the job page's counts; New export from Jobs and feed; a cancelled
+  batch's page; axe 0 violations on the dialog, the notification and the job page, light and dark.
+  Screenshots inspected: the choices wrapped onto two rows and squeezed at 390px, and the dialog's
+  eyebrow repeated its title; fixed (one row, stacked on a phone; no eyebrow).
+
+**Not run.** The full suites and `test:a11y`, `test:visual` (R).
 
 #### J2: Import profiles and file reading
 
@@ -6558,10 +6932,12 @@ D31–D34 raised by F1 (2026-10-03), D35–D39 raised by B3 (2026-10-03), and D4
 | D48 | Which lists C3a's sort covers | **Approved 2026-10-04 (C3a).** The shared live attribute sort (consumer lists and the management per-type list); not the `ancestor:<type>` sort | Q, C |
 | D49 | What a JSON Lines export line is | **Accepted 2026-10-07 by the user (J1).** `upsert` items keyed by `{id}` (required relationships also as `initialRelations`), then `ensureRelation` items, instead of §J4's `create` and `createRelation`, so a re-import changes nothing. Each record line carries its version as `expectedVersion` (amended the same day by the user), so an edited file updates only rows nobody changed since the export. The file loads into the same workspace or another instance, not a second workspace of the same instance (object IDs are instance-wide) | J |
 | D50 | The export scope's shape | **Accepted 2026-10-07 by the user (J1).** `where` per type; `parentObjectId` and `asOf` shared, `asOf` dating only the types with a period (as C-D76–C-D80, named in `asOfApplied`) and refused only when none has one; `include.relations` `none`, `withinScope` (default) or `all` | J |
+| D51 | Export formats and the table layout | **Formats decided by the user, layout approved, 2026-10-07 (J1).** JSON Lines, CSV and XLSX. CSV and XLSX share one table layout: records and relationships keyed by column keys, `#{attributeTypeKey}` attribute columns (attribute types are global), `~` orientation columns an import ignores, each record's `version`; CSV both tables in one file, XLSX two named tables with typed cells | J |
 | D52 | Where an export's manifest lives | **Accepted 2026-10-07 by the user (J1).** On the job only (`output`), never in the file; the checksum also in `Repr-Digest` and `ETag` on the download | J |
 | D53 | One snapshot for a long export | **Accepted 2026-10-07 by the user (J1), revised the same day.** One read-only `REPEATABLE READ` transaction per export, restarted whole after a crash; cancel, lease and progress through a second short session. Exports run on a worker thread of their own, so batches and exports never wait for each other | J |
 | D54 | D40 revisited after the export | **Accepted 2026-10-07 by the user (J1).** D40 stays: a workspace without a publication keeps every feed entry, since the audit log is not pruned; the `410` names the export beside the publication (D41) | F, J |
 | D55 | `JOB_FILE_DIR` | **Accepted 2026-10-07 by the user (J1).** Without the setting the engine uses `var/job-files` under the project root, created at start; with jobs enabled, a directory that cannot be written refuses the start, naming the path and the setting | J |
+| D56 | The export budget | **Approved 2026-10-07 (J1).** The whole live volume workspace (258,000 records) to each format once, under 60 s each; measured 23.1, 24.4 and 31.5 s (POSTGRESQL_BUDGETS §8) | J |
 
 ## Next
 

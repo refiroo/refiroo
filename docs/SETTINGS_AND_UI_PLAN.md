@@ -187,8 +187,8 @@ The user chose Direction B, "Open" (U-D6, ADR-039), which sets the values for po
 | U3 | 0.9 | U2 | **Delivered 2026-10-06** ([record](#u3-delivery-record); U-D10 and U-D11). Settings area: `/settings` routes and layout; About, Appearance and Deployment; Workspaces and Model moved under Administration (old URLs redirect); the popover reduced to account and theme with a link to Settings; `GET /api/v1/system` |
 | UA | 0.9 | U3 | **Planned 2026-10-06** ([plan](#ua-the-atlas-redesign); ADR-040, U-D12, U-D13). The Atlas redesign of every surface in one pass, the record browser first, each surface approved by the user from screenshots; replaces the older styles; folds in U6 |
 | U4 | 0.9 | UA, C6b, V2 | **Implemented 2026-10-07** ([plan](#u4-the-integration-pages), [record](#u4-record-2026-10-07)), screenshots awaiting approval. Integration pages: Consumer APIs, Jobs and feed, API reference. Starter consumer API per U-D5 |
-| U5 | 0.9 | U4, C12 | **Implemented 2026-10-07** ([plan](#u5-the-webhooks-page), [record](#u5-record-2026-10-07)), screenshots awaiting approval. Webhooks page over the subscriptions API (C12 delivered 2026-10-06: `delivery`, the four dispatcher reasons, `reset`) |
-| U5a | 0.9 | U5 | **Implemented 2026-10-07** ([plan](#u5a-webhook-names-the-delivery-log-and-the-webhooks-page-revised), [record](#u5a-record-2026-10-07)), screenshots awaiting approval. Webhook names, the delivery log and its routes, the dialog rebuilt, the Configuration and Deliveries tabs |
+| U5 | 0.9 | U4, C12 | **Implemented 2026-10-07** ([plan](#u5-the-webhooks-page), [record](#u5-record-2026-10-07)), screenshots approved by the user 2026-10-07. Webhooks page over the subscriptions API (C12 delivered 2026-10-06: `delivery`, the four dispatcher reasons, `reset`) |
+| U5a | 0.9 | U5 | **Implemented 2026-10-07** ([plan](#u5a-webhook-names-the-delivery-log-and-the-webhooks-page-revised), [record](#u5a-record-2026-10-07)), screenshots approved by the user 2026-10-07. Webhook names, the delivery log and its routes, the dialog rebuilt, the Configuration and Deliveries tabs |
 | U6 | — | — | **Folded into UA (2026-10-06):** the remaining surfaces are redesigned in UA, in 0.9. 0.10's editor (A4) builds on UA |
 | U7 | 0.11 | U3 | Operations page over 0.11's health, readiness, metrics and backup routes |
 | U8 | 0.12 | U5 | Security pages: sign-in and account; users and roles; OAuth clients and their access per consumer API; webhook signing-key rotation (keys are generated and shown once from 0.9, U5). Replaces 0.12's "UI administration" items with pages in this area |
@@ -2163,8 +2163,8 @@ DELIVERY_NOT_SENT`.
 for a `succeeded` event a confirmation, "Resend a delivered event?", first. The result shows in the
 dialog with a link to the new delivery, and the list reloads; a resend's row says "resent".
 
-**Record (2026-10-07).** Implemented as planned; screenshots await approval (the confirmation and
-the result). `engine/events/resend.py` (the route's work, in the API request), `delivery_log`'s
+**Record (2026-10-07).** Implemented as planned; screenshots (the confirmation and the result)
+approved by the user 2026-10-07. `engine/events/resend.py` (the route's work, in the API request), `delivery_log`'s
 `finish_attempt` takes the status of a failed attempt (`failed` for a resend), revision
 `20261007_02` (C17's migration renumbered to `_03` by its session). Checks: the three journey cases
 × 2 configurations confirmed failing first, then `test_j30_delivery_log` (20 passed); in parallel

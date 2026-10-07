@@ -6,7 +6,8 @@ counter shows. A filtered page scans at most ten pages' worth of positions and s
 stopped, so a sparse filter never costs an unbounded scan.
 
 Entries older than the retention period expire (F2, §F5, D8): a position below the earliest one
-still answered is refused, naming the workspace's active publication as the baseline to re-read.
+still answered is refused, naming the workspace's active publication as the baseline to re-read,
+and the export route as a second one (0.9 J1, D41).
 The earliest position never passes that publication's, so a reader can always follow on from it,
 and with no publication to re-read nothing expires (D40). The audit log itself is never pruned.
 """
@@ -21,6 +22,8 @@ from sqlalchemy.orm import Session
 from ...errors import api_error
 from ...models.database import AuditEvent, Publication, Workspace
 
+# The route that makes a live export, named in an expired position's refusal (D41).
+EXPORT_ROUTE = "/api/v1/exports"
 # What a filtered page scans at most, in pages (§F4).
 SCAN_PAGES = 10
 # The audit aggregates of each kind of entry; a withdrawal is aggregated on the workspace.
@@ -113,6 +116,8 @@ def read_feed(
                     "publicationNumber": floor.publication_number,
                     "feedPosition": floor.publication_position,
                 },
+                # A live export is a second baseline, read at one instant (0.9 J1, D41).
+                "export": {"href": EXPORT_ROUTE},
             },
         )
     filtered = bool(kinds or object_type_keys)

@@ -18,6 +18,7 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
 import sys
 import tempfile
 import time
@@ -277,16 +278,23 @@ def application_environment(url: URL, model_path: Path | None = None) -> Iterato
     from app.db import get_engine
     from app.engine.model.registry import model_registry
 
-    saved = {key: os.environ.get(key) for key in ("DATABASE_URL", "RDM_MODEL_PATH")}
+    saved = {key: os.environ.get(key) for key in ("DATABASE_URL", "RDM_MODEL_PATH", "JOB_FILE_DIR")}
     os.environ["DATABASE_URL"] = url.render_as_string(hide_password=False)
     if model_path is not None:
         os.environ["RDM_MODEL_PATH"] = str(model_path)
+    # Job files (0.9 J1) of an application started outside a test session (a seed build, the
+    # volume script) go to a directory of their own, never the project's var/.
+    files = None if saved["JOB_FILE_DIR"] else tempfile.mkdtemp(prefix="rdm-job-files-")
+    if files is not None:
+        os.environ["JOB_FILE_DIR"] = files
     reload_settings()
     model_registry.clear()
     try:
         yield
     finally:
         get_engine().dispose()
+        if files is not None:
+            shutil.rmtree(files, ignore_errors=True)
         for key, value in saved.items():
             if value is None:
                 os.environ.pop(key, None)
@@ -382,9 +390,14 @@ def main() -> None:
     parser.add_argument("command", choices=("list", "build"))
     arguments = parser.parse_args()
     started = postgres_server.start()
+    # A seed build imports app.main, which starts an application: its job files (0.9 J1) go to a
+    # directory of this command's, never the project's var/.
+    files = tempfile.mkdtemp(prefix="rdm-job-files-")
+    os.environ.setdefault("JOB_FILE_DIR", files)
     try:
         _list() if arguments.command == "list" else _build_all()
     finally:
+        shutil.rmtree(files, ignore_errors=True)
         if started:
             postgres_server.stop()
 

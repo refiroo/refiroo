@@ -107,6 +107,8 @@ export async function bootHarness(options = {}) {
         MODEL_ADMIN_MUTATIONS_ENABLED: String(modelAdmin),
         WORKSPACE_ADMIN_MUTATIONS_ENABLED: String(workspaceAdmin),
         WEB_CONCURRENCY: "1",
+        // Export files (0.9 J1) stay in the run's own folder, never the project's var/.
+        JOB_FILE_DIR: resolve(output, "job-files"),
         ...backendEnv,
       },
     );

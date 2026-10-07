@@ -3,7 +3,9 @@
 import logging
 import time
 
+import psycopg
 import pytest
+from psycopg import errors as psycopg_errors
 from sqlalchemy.exc import OperationalError
 
 from app.common import outage as outage_module
@@ -30,6 +32,11 @@ def _database(sqlstate=None, invalidated=False):
         (_database("40001"), False),
         (_database("40P01"), False),
         (ValueError("a defect"), False),
+        # A connection of psycopg's own, as the job listener holds (0.9 J1u): lost, shut down, or a
+        # statement failing on a live connection.
+        (psycopg.OperationalError("server closed the connection unexpectedly"), True),
+        (psycopg_errors.AdminShutdown("terminating connection"), True),
+        (psycopg_errors.SerializationFailure("could not serialize"), False),
     ],
 )
 def test_an_unreachable_database_is_told_apart_from_a_failing_statement(error, unreachable):

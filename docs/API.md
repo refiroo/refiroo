@@ -1964,6 +1964,146 @@ chunk. The worker carries it out at the job's next chunk (a queued job before it
 back completely. Cancelling again changes nothing; a
 finished job is `409 JOB_FINISHED` with `details.state`, an unknown one `404 JOB_NOT_FOUND`.
 
+## Exports (Base 0.9 J1)
+
+- `POST /api/v1/exports` (registered with `INTEGRATION_JOBS_ENABLED`)
+- `GET /api/v1/jobs/{jobId}/output`
+
+An export writes a stated scope of one workspace to a file, as a background job of kind `export`.
+`POST /exports` answers `202` with the job, `queued`. When the job is `completed`, its `output`
+describes the file and `GET /jobs/{jobId}/output` serves it.
+
+```json
+{
+  "workspaceKey": "main",
+  "context": {"changeSetId": null, "publicationId": null},
+  "scope": {
+    "types": [
+      {"objectTypeKey": "codelist", "where": [{"field": "codelist-code", "op": "eq", "value": "MOT"}]},
+      {"objectTypeKey": "code"}
+    ],
+    "parentObjectId": null,
+    "asOf": null
+  },
+  "include": {"relations": "withinScope"},
+  "format": "jsonl"
+}
+```
+
+- **`context`**: empty for live data, or one change set or one publication.
+- **`scope.types`**: one or more object types, each once, each with its own `where`: the criteria of
+  the [model-aware query](#model-aware-query-base-09-q3) (fields, `ancestor:<type>`, one `related`
+  hop), which select the same records here in every context.
+- **`scope.parentObjectId`**: only records below that record, at any depth.
+- **`scope.asOf`**: a date. The types that declare an effective period export the records effective
+  on it; the others are exported undated, and `output.asOfApplied` names the dated ones (D50).
+- **`include.relations`**: `none`, `withinScope` (the default: both ends exported) or `all` (every
+  relationship of an exported record, whose other end may not be in the file). Containment is never
+  a relationship here: it is the record's parent.
+- **`format`**: `jsonl`, `csv` or `xlsx`.
+- No `Idempotency-Key`: an export changes nothing, and a repeated request makes a second job.
+
+**One snapshot.** Everything in the file is read at one instant. A live export's
+`output.feedPosition` is the feed head it read at, so a reader follows the feed from there and misses
+nothing; a publication's is the publication's own position (`null` when it was published before
+positions existed); a change set's is `null`, since change set work is not in the feed.
+
+**The job.** `parameters` holds the request's `context`, `scope`, `include` and `format`; `result`
+stays `null` (an export has no item outcomes); `progress.total` is the number of records and
+relationships in scope, and `processed` rises as they are written. A completed export's `output`:
+
+```json
+{
+  "format": "jsonl",
+  "contentType": "application/x-ndjson",
+  "counts": {"records": {"codelist": 1, "code": 240}, "relations": {"maps-to": 312}},
+  "context": {"workspaceKey": "main", "changeSetId": null, "changeSetVersion": null, "publicationId": null},
+  "feedPosition": 18422,
+  "asOf": null,
+  "asOfApplied": [],
+  "modelReleaseId": "…",
+  "bytes": 183044,
+  "sha256": "…"
+}
+```
+
+`counts.records` names every exported type, zero included. The manifest lives on the job only, never
+in the file (D52). A cancelled or failed export has no `output` and no file, so a partial file
+cannot be taken for a complete one. Cancel, model release changes, `JOB_FAILED` and retention
+(`JOB_RETENTION_DAYS`) work as for [background jobs](#background-jobs); an export is restarted from
+the beginning after a crash, never resumed half way.
+
+**JSON Lines** (D49). One batch item per line: records first, as `upsert` items keyed by ID, then
+relationships as `ensureRelation` items. Records come parents before children (by depth inside the
+file, then the model's type order, then ID); the same data gives the same bytes.
+
+```json
+{"op": "upsert", "objectTypeKey": "code", "applicationKey": "rdm", "key": {"id": "…"}, "name": "Follow-up", "parent": {"id": "…"}, "expectedVersion": 3, "attributes": [{"attributeTypeKey": "code-value", "value": "08-IC-002"}], "initialRelations": []}
+{"op": "ensureRelation", "relationTypeKey": "maps-to", "from": {"id": "…"}, "to": {"id": "…"}, "attributes": {}, "expectedVersion": 1}
+```
+
+- `parent` is left out for a record at the top level; values keep their declared types, and a record
+  without a value has no entry for it.
+- `expectedVersion` is the record's (or relationship's) version in the snapshot. The file sent back
+  to `POST /batches` in the same workspace changes nothing: every item is `unchanged`, decided
+  before the version (D24). Edited and sent back, it updates only the records nobody changed since
+  the export; a record changed meanwhile is `VERSION_CONFLICT`.
+- `initialRelations` carries the relationships the record's type requires (a required binding into
+  it), so a record that requires one can be created from the file.
+- Object IDs are unique across the instance: the file loads into the workspace it came from or into
+  another instance, not into a second workspace of the same instance. Relationship IDs and history
+  are not carried.
+
+**CSV and XLSX** (D51) share one table layout, read back by the import (0.9 J2):
+
+| Table | Columns |
+| --- | --- |
+| Records | `objectTypeKey`, `id`, `version`, `name`, `parentObjectId`, one `#{attributeTypeKey}` per attribute type an exported type binds (the model's order), `~parentPath` |
+| Relationships | `relationTypeKey`, `id`, `version`, `fromId`, `toId`, one `#{attributeTypeKey}` per attribute type their bindings carry, `~fromName`, `~fromObjectTypeKey`, `~toName`, `~toObjectTypeKey` |
+
+Attribute types are global, so a `#` column means one thing in every row; it is empty where the row's
+type does not bind the attribute or the record has no value. The `#` keeps an attribute keyed `name`
+or `id` apart from the built-in columns. `~` columns are for orientation and an import ignores them.
+
+- **CSV** (`text/csv`): one file, UTF-8 with a BOM, RFC 4180, comma. Its header is the union of both
+  tables' columns (`objectTypeKey`, `relationTypeKey`, `id`, `version`, `name`, `parentObjectId`,
+  `fromId`, `toId`, the `#` columns, the `~` columns); records first, then relationships, a row
+  being a record when `objectTypeKey` is filled. Values in the API's canonical text (dates ISO 8601,
+  decimals as the API writes them, `true`/`false`, a JSON value as JSON text); an empty cell is no
+  value. Text is written as stored: a spreadsheet opening the file may read a value beginning with
+  `=` as a formula.
+- **XLSX** (`application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`): the sheets
+  `Records` and `Relationships`, each one named table (`records`, `relationships`) whose header row
+  is the column keys, below a row of readable labels. Cells are typed: text as text (never a number
+  or a formula), integers and decimals as numbers when Excel holds them exactly (up to 15 significant
+  digits; beyond, as text in canonical form), booleans as booleans, dates as date cells; a date-time
+  and a JSON value as text. A character XML cannot hold is written as Excel's `_xHHHH_`. The type
+  columns and boolean columns offer dropdowns from a hidden `Lists` sheet. A table past a sheet's
+  1,048,576 rows continues on `Records 2` (table `records_2`) and so on.
+
+**Following a job.** `GET /api/v1/jobs/{jobId}/events` (0.9 J1u) is a server-sent event stream for
+any job: `event: job` with the job as `GET /jobs/{jobId}` answers it, sent at once and again after
+each committed change of its state, progress, cancel request or output; the stream ends after the
+job is `completed`, `failed`, `cancelled` or `expired`, and a job already finished is sent once.
+Nothing is polled: the database tells the engine of each change at commit (D58). A comment line
+(`: keep-alive`) every 15 s keeps an idle stream open; `Cache-Control: no-cache` and
+`X-Accel-Buffering: no` let it pass proxies. Each event carries the whole job, so a client that
+reconnects needs no `Last-Event-ID`. An unknown job is `404 JOB_NOT_FOUND` before the stream starts.
+
+**Output.** `GET /jobs/{jobId}/output` serves the file with its content type,
+`Content-Disposition: attachment; filename="export-{jobId}.{jsonl|csv|xlsx}"`, `ETag` (the SHA-256)
+and `Repr-Digest: sha-256=:…:` (RFC 9530).
+
+**Refusals.** At the request, before a job is stored: an unknown type, field, operator or binding is
+`422 INVALID_QUERY` with `details.path`, a JSON pointer into the body (`/scope/types/1/where/0/field`;
+an invalid date at `/scope/asOf`); `asOf` with no exported type that declares a period is
+`422 AS_OF_NOT_SUPPORTED`; an unknown parent `404 PARENT_NOT_FOUND`; an unknown workspace, change
+set or publication `404 WORKSPACE_NOT_FOUND`, `CHANGE_SET_NOT_FOUND`, `PUBLICATION_NOT_FOUND`; a
+context of another workspace `422 WORKSPACE_CONTEXT_MISMATCH`; both context IDs, a type named twice
+or a body of the wrong shape `422 REQUEST_VALIDATION_ERROR`. On the output: `404 JOB_NOT_FOUND`,
+`404 JOB_HAS_NO_OUTPUT` (a batch), `409 JOB_NOT_COMPLETED` with `details.state`, `410 JOB_EXPIRED`
+(retention removed the file), `410 JOB_OUTPUT_MISSING` (the file is gone from `JOB_FILE_DIR`).
+
 ## Change feed (Base 0.9 F1, F2)
 
 - `GET /api/v1/workspaces/{workspaceKey}/feed?after=…&pageSize=…&kind=…&objectTypeKey=…`
@@ -2055,7 +2195,8 @@ before the feed existed) has nothing to re-read, so nothing expires and `earlies
     "details": {
       "earliestPosition": 500001,
       "headPosition": 1000000,
-      "publication": {"id": "…", "publicationNumber": 12, "feedPosition": 500000}
+      "publication": {"id": "…", "publicationNumber": 12, "feedPosition": 500000},
+      "export": {"href": "/api/v1/exports"}
     }
   }
 }
@@ -2063,7 +2204,9 @@ before the feed existed) has nothing to re-read, so nothing expires and `earlies
 
 To recover, the reader reads the named publication (the lists with `publicationId`), then follows the
 feed with `after` set to its `feedPosition`. The publication equals live data at that position, so
-the reader misses nothing. An export as a second baseline follows with export jobs (J1, D41).
+the reader misses nothing. Or it exports live data (`details.export`, [Exports](#exports-base-09-j1))
+and follows the feed from the export's `output.feedPosition`, which works in a workspace without a
+publication too (0.9 J1, D41). A workspace without a publication still keeps every entry (D54).
 
 A retired workspace's feed stays readable. The feed is ungated like other reads until 0.12 (D10).
 

@@ -22,7 +22,10 @@ the tests that walk J02 or one of its variants.
 
 import os
 import re
+import shutil
+import tempfile
 import time
+from pathlib import Path
 from uuid import uuid4
 
 import layout
@@ -50,6 +53,14 @@ if _WORKER:
     os.environ["DATABASE_URL"] = _SESSION_URL
 else:
     os.environ.setdefault("DATABASE_URL", _SESSION_URL)
+# Job files (0.9 J1) go to a directory of the session's own, never the project's ``var/``. Like the
+# database URL, a worker replaces the one it inherits: an application reconciles its directory
+# against its own database, so two workers sharing one would remove each other's files.
+_SESSION_FILES = str(Path(tempfile.gettempdir()) / "rdm-test-job-files" / SESSION_DATABASE)
+if _WORKER:
+    os.environ["JOB_FILE_DIR"] = _SESSION_FILES
+else:
+    os.environ.setdefault("JOB_FILE_DIR", _SESSION_FILES)
 
 from app.config import reload_settings
 from app.db import get_engine
@@ -139,6 +150,7 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_consumer_list_volume.py": ("consumer", "volume"),
     "test_consumer_xref_volume.py": ("consumer", "volume"),
     "test_consumer_event_volume.py": ("feed", "consumer", "volume"),
+    "test_export_volume.py": ("jobs", "volume"),
     "test_type_changes.py": ("change_sets", "records", "matrix"),
     "test_restructuring_planner.py": ("change_sets", "records", "matrix"),
     "test_restructuring_volume.py": ("volume", "change_sets"),
@@ -379,6 +391,8 @@ def pytest_runtest_logreport(report: pytest.TestReport) -> None:
 
 
 def pytest_sessionfinish(session: pytest.Session) -> None:
+    # This process's job files go with the session (each worker has its own directory).
+    shutil.rmtree(os.environ.get("JOB_FILE_DIR", _SESSION_FILES), ignore_errors=True)
     # A worker hands what it did with seeds and serial tests to the run's own process.
     if _is_worker(session.config):
         session.config.workeroutput["seed_activity"] = [list(entry) for entry in seeds.ACTIVITY]

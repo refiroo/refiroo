@@ -53,13 +53,14 @@ resume and the background threads' outage logging (C-D103–C-D111). **C13 is de
 (2026-10-06)**: the events' acceptance end to end, the delivery budget, and C-D114's rule for
 records leaving a filter's scope documented (C-D112–C-D114). **U3 is delivered (2026-10-06)**: the
 Settings area and `GET /api/v1/system` ([record](SETTINGS_AND_UI_PLAN.md#u3-delivery-record)), revised the same day.
-UA, the Atlas redesign (ADR-040), is implemented (UA7 awaiting approval). **U4 is implemented
+UA, the Atlas redesign (ADR-040), is implemented and approved (2026-10-07). **U4 is implemented
 (2026-10-07)**: Settings › Integration (Consumer APIs, Jobs and feed, API reference) and the
 starter's consumer API ([record](SETTINGS_AND_UI_PLAN.md#u4-record-2026-10-07)); screenshots await
 approval. **U5 is implemented (2026-10-07)**: Settings › Integration › Webhooks
 ([record](SETTINGS_AND_UI_PLAN.md#u5-record-2026-10-07)), and **U5a** (webhook names, the delivery
-log, the page revised, [record](SETTINGS_AND_UI_PLAN.md#u5a-record-2026-10-07)); screenshots await
-approval. See
+log, the page revised, [record](SETTINGS_AND_UI_PLAN.md#u5a-record-2026-10-07)); screenshots approved
+2026-10-07. **J1 is delivered (2026-10-07)**: export jobs in JSON Lines, CSV and XLSX
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#j1-record-2026-10-07)). See
 [Next — 0.9](#next--09).
 
 - **Document the starter's consumer API lookups and the reworked Consumer APIs page (the user,
@@ -258,8 +259,14 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   shape), and a dated 1,000-identifier batch 2.2 s, where identifiers not effective on the date lose
   their exact match and exact-first (C-D52) reads their contains matches. Revisit with E8's fixes, or
   with a rule settling a lookup whose exact matches are all filtered out.
-- [ ] J1's export budget names "110,000 records"; the volume fixture holds 258,000 since 0.8 A2 (found
-  in Q1). Restate it when J1 is delivered.
+- [x] J1's export budget names "110,000 records"; the volume fixture holds 258,000 since 0.8 A2 (found
+  in Q1). Restated in D56 and measured at 258,000 in J1 (2026-10-07, POSTGRESQL_BUDGETS §8).
+- [x] J1u: the export dialog, the job page and notifications pushed over a per-job event stream
+  (implemented 2026-10-07; screenshots await approval).
+- [ ] R: add J1u's export dialog, notification and job page to `test:a11y` and `test:visual`
+  (scenarios and baselines), light and dark; J1u checked them with axe in its runner.
+- [ ] J2 reads an export's CSV and XLSX table layout without a profile, decoding XLSX's `_xHHHH_`
+  escapes (INTEGRATION_API §J2); the round trip of CSV and XLSX is tested there.
 - [x] Built-in Scalar API reference at `/docs` replacing Swagger UI and ReDoc: delivered as 0.9 V1
   (2026-09-30) with the management API as its source; pinned script bundled, CDN by setting, outside
   the OpenAPI document.

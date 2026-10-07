@@ -27,5 +27,8 @@ backend/.test-postgres/
 # The development PostgreSQL server's data directory (scripts/postgres.sh)
 backend/.postgres/
 
+# Export files waiting for download (JOB_FILE_DIR's default, 0.9 J1)
+var/job-files/
+
 # Test selection data (pytest-testmon, H4b)
 backend/.testmondata*

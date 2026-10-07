@@ -15,6 +15,7 @@ the rest of what it needs through the API, so its given steps read as a user's.
 import copy
 import json
 import os
+import shutil
 import tempfile
 import time
 from collections.abc import Callable, Iterator
@@ -692,7 +693,9 @@ def application(
     from app.config import reload_settings
     from app.main import create_app
 
-    wanted = {**DEFAULT_SETTINGS, **(settings or {})}
+    # Each application keeps its job files apart, in a directory named after its database.
+    files = Path(tempfile.gettempdir()) / "rdm-journey-job-files" / str(database.database)
+    wanted = {**DEFAULT_SETTINGS, "JOB_FILE_DIR": str(files), **(settings or {})}
     saved = {key: os.environ.get(key) for key in wanted}
     os.environ.update(wanted)
     try:
@@ -704,6 +707,7 @@ def application(
             with TestClient(app) as client:
                 yield World(configuration, Api(client), database)
     finally:
+        shutil.rmtree(files, ignore_errors=True)
         for key, value in saved.items():
             if value is None:
                 os.environ.pop(key, None)

@@ -1,6 +1,6 @@
 """How a background thread reports that it keeps failing (Base 0.9 C12; AGENTS.md "Error handling").
 
-The job worker, the event deriver and the webhook dispatcher retry a failed round every few seconds.
+The job worker, the event deriver, the webhook dispatcher and the job listener retry a failed round every few seconds.
 A database they cannot reach is an expected operational failure: it is reported in one plain ERROR
 line saying what failed and how often the thread retries, with the traceback kept at DEBUG. Any
 other exception is a defect in the engine's code and keeps its traceback at ERROR, since with no
@@ -11,6 +11,7 @@ WARNING a minute; when a round succeeds again, one INFO line. An outage of hours
 import logging
 import time
 
+import psycopg
 from sqlalchemy.exc import DBAPIError
 
 REMINDER_SECONDS = 60.0
@@ -23,12 +24,18 @@ _UNREACHABLE_STATES = frozenset({"57P01", "57P02", "57P03"})
 def database_unreachable(exc: BaseException) -> bool:
     """Whether ``exc`` says the database cannot be reached, rather than that a statement failed: a
     connection that was lost, one that could not be opened (no SQLSTATE: the server never answered,
-    or refused the connection), or a server shutting down."""
+    or refused the connection), or a server shutting down. Through SQLAlchemy, or from a connection
+    of psycopg's own (the job listener's, 0.9 J1u)."""
+    if isinstance(exc, psycopg.OperationalError):
+        return _unreachable_state(exc.sqlstate)
     if not isinstance(exc, DBAPIError):
         return False
     if exc.connection_invalidated:
         return True
-    state = getattr(exc.orig, "sqlstate", None)
+    return _unreachable_state(getattr(exc.orig, "sqlstate", None))
+
+
+def _unreachable_state(state: str | None) -> bool:
     return state is None or state.startswith(_UNREACHABLE_CLASS) or state in _UNREACHABLE_STATES
 
 

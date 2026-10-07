@@ -83,9 +83,12 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # Re-baselined for 0.9 C17: WebhookDeliveryLimits' maxEvents becomes maxEventsPerBatch, with its
     # description; renaming it back with the previous description gives the previous document
     # exactly (the subscription routes, with the delivery choices, are gated off).
+    # Re-baselined for 0.9 J1: POST /exports and GET /jobs/{job_id}/output, the Export* schemas
+    # and JobResponse.output; no existing path or schema otherwise changed. Re-baselined for 0.9
+    # J1u: GET /jobs/{job_id}/events, the job event stream; nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "d089ed4ab16e75f7d13b79c087433b104baeb7045f091c62ad559c0626d9f860"
+        "95cad7f39c29d212dfef3f454ee97970c5fc8cd6cc4089df48d946c45b38fbcf"
     )
 
 

@@ -20,7 +20,14 @@ refusal of the context (a retired workspace, a lost change set claim) fails it w
 Any other error rolls the chunk back and fails the job with ``JOB_FAILED`` (D29). Items without an
 outcome then become ``unprocessed`` with the stop's reason; chunks committed before stay applied.
 
-**Retention.** The worker expires finished jobs past ``expiresAt`` every hour (D14, D30).
+**Retention.** The worker expires finished jobs past ``expiresAt`` every hour (D14, D30), and
+removes the job files no completed job serves any more (``files.py``).
+
+**Exports** (Base 0.9 J1, D53) run on a worker of their own, which claims only ``export`` jobs while
+the batch worker claims the rest, so neither kind waits behind the other. An export runs in one
+step from one snapshot (``exports.py``); a cancel request, the lease and progress go through a short
+session of the worker's own, between the export's rows. A failed, cancelled or lost export leaves no
+file; a completed one's file is renamed into place before the commit that completes the job.
 """
 
 import logging
@@ -45,7 +52,17 @@ from ...models.commands import BatchItem
 from ...models.database import ChangeSet, Job
 from .background import open_job_context
 from .batches import JobCancelled, run_items
-from .store import complete_job, expire_jobs, load_inputs, record_outcomes, stop_job
+from .exports import ExportCancelled, ExportControl, run_export
+from .files import JobFiles
+from .store import (
+    complete_job,
+    expire_jobs,
+    finish_export,
+    load_inputs,
+    record_outcomes,
+    stop_export,
+    stop_job,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +71,11 @@ logger = logging.getLogger(__name__)
 IDLE_SECONDS = 60.0
 RETRY_SECONDS = 2.0
 SWEEP_SECONDS = 3600.0
-# The worker thread's name, which a measurement of one request's statements leaves out.
+# The worker threads' names, which a measurement of one request's statements leaves out.
 THREAD_NAME = "rdm-job-worker"
+EXPORT_THREAD_NAME = "rdm-export-worker"
+BATCH_KINDS = ("batch",)
+EXPORT_KINDS = ("export",)
 _ITEM = TypeAdapter(BatchItem)
 
 
@@ -79,10 +99,18 @@ class JobWorker:
         settings: WorkerSettings,
         *,
         owner: str | None = None,
+        kinds: tuple[str, ...] = BATCH_KINDS,
+        files: JobFiles | None = None,
+        sweeps: bool = True,
+        thread_name: str = THREAD_NAME,
     ) -> None:
         self.session_factory = session_factory
         self.settings = settings
         self.owner = owner or f"{socket.gethostname()}:{os.getpid()}:{uuid4().hex[:8]}"
+        self.kinds = kinds
+        self.files = files
+        self.sweeps = sweeps
+        self.thread_name = thread_name
         self._wake = threading.Event()
         self._stopping = threading.Event()
         self._thread: threading.Thread | None = None
@@ -108,15 +136,19 @@ class JobWorker:
         return chunks
 
     def sweep(self, now: datetime | None = None) -> int:
-        """Expire finished jobs past their retention; the number expired."""
+        """Expire finished jobs past their retention and remove the files no job serves any more;
+        the number expired."""
         with self.session_factory() as session:
             expired = expire_jobs(session, now or datetime.now(UTC))
             session.commit()
+            if self.files is not None:
+                self.files.reconcile(session)
         return expired
 
     def _claim(self) -> int | None:
         now = datetime.now(UTC)
         claimable = (
+            Job.kind.in_(self.kinds),
             Job.state.in_(("queued", "running")),
             or_(
                 Job.lease_owner.is_(None),
@@ -131,6 +163,7 @@ class JobWorker:
             if sequence_id is None:
                 self._leased_elsewhere_until = session.scalar(
                     select(func.min(Job.lease_expires_at)).where(
+                        Job.kind.in_(self.kinds),
                         Job.state.in_(("queued", "running")),
                         Job.lease_owner.is_not(None),
                         Job.lease_owner != self.owner,
@@ -165,6 +198,11 @@ class JobWorker:
             if job.cancel_requested_at is not None:
                 session.rollback()
                 self._stop(sequence_id, "cancelled", "JOB_CANCELLED", None)
+                return
+            if job.kind == "export":
+                session.expunge(job)
+                session.rollback()
+                self._run_export(job)
                 return
             try:
                 self._apply_chunk(session, job)
@@ -239,6 +277,102 @@ class JobWorker:
         if owner != self.owner:
             raise _LeaseLost
 
+    # --- exports ----------------------------------------------------------------------------------
+
+    def _run_export(self, job: Job) -> None:
+        """Run the export from one snapshot in a session of its own; this worker's short sessions
+        answer its checks (cancel, lease, progress) meanwhile."""
+        files = self._files()
+        partial = files.partial(job.id)
+        lost: list[bool] = []
+        control = ExportControl(
+            check=lambda total, processed: self._export_check(job.sequence_id, total, processed, lost)
+        )
+        try:
+            files.directory.mkdir(parents=True, exist_ok=True)
+            with self.session_factory() as work:
+                try:
+                    outcome = run_export(work, job, partial, control)
+                finally:
+                    work.rollback()
+        except ExportCancelled:
+            files.remove(job.id)
+            if not lost:
+                self._stop(job.sequence_id, "cancelled", "JOB_CANCELLED", None)
+            return
+        except ApiError as error:
+            files.remove(job.id)
+            reason = "MODEL_RELEASE_CHANGED" if error.code == "MODEL_RELEASE_CHANGED" else "JOB_FAILED"
+            self._stop(job.sequence_id, "failed", reason, _error_body(error))
+            return
+        except Exception:
+            files.remove(job.id)
+            correlation_id = uuid4().hex
+            logger.exception(
+                "Export %s failed (correlation ID %s); it left no file", job.id, correlation_id
+            )
+            self._stop(
+                job.sequence_id,
+                "failed",
+                "JOB_FAILED",
+                {
+                    "code": "JOB_FAILED",
+                    "message": "The export stopped because of an internal error and left no file. "
+                    "Request it again; if it recurs, report the correlation ID",
+                    "details": {"correlationId": correlation_id},
+                },
+            )
+            return
+        final = files.final(job.id, outcome.extension)
+        partial.replace(final)
+        with self.session_factory() as session:
+            try:
+                self._hold_lease(session, job.sequence_id)
+            except _LeaseLost:
+                session.rollback()
+                final.unlink(missing_ok=True)
+                return
+            stored = session.get(Job, job.sequence_id)
+            finish_export(
+                session, stored, outcome.output, retention_days=self.settings.retention_days
+            )
+            session.commit()
+
+    def _export_check(
+        self, sequence_id: int, total: int | None, processed: int, lost: list[bool]
+    ) -> bool:
+        """Record progress and renew the lease; ``True`` when the export must stop: a cancel
+        request, or the lease lost to another worker (``lost`` then says so)."""
+        with self.session_factory() as session:
+            row = session.execute(
+                select(Job.lease_owner, Job.cancel_requested_at)
+                .where(Job.sequence_id == sequence_id)
+                .with_for_update()
+            ).one()
+            if row.lease_owner != self.owner:
+                lost.append(True)
+                session.rollback()
+                return True
+            session.execute(
+                update(Job)
+                .where(Job.sequence_id == sequence_id)
+                .values(
+                    total=total,
+                    processed=processed,
+                    stage="writing",
+                    lease_expires_at=datetime.now(UTC)
+                    + timedelta(seconds=self.settings.lease_seconds),
+                )
+                .execution_options(synchronize_session=False)
+            )
+            session.commit()
+            return row.cancel_requested_at is not None
+
+    def _files(self) -> JobFiles:
+        if self.files is None:
+            raise RuntimeError("This worker was started without JOB_FILE_DIR; it runs no exports")
+        return self.files
+
     def _stop(
         self, sequence_id: int, state: str, reason: str, error: dict[str, Any] | None
     ) -> None:
@@ -249,6 +383,14 @@ class JobWorker:
             except _LeaseLost:
                 return
             job = session.get(Job, sequence_id)
+            if job.kind == "export":
+                stop_export(
+                    session, job, state=state, error=error, retention_days=self.settings.retention_days
+                )
+                session.commit()
+                if self.files is not None:
+                    self.files.remove(job.id)
+                return
             stop_job(
                 session,
                 job,
@@ -263,7 +405,7 @@ class JobWorker:
 
     def start(self) -> None:
         self._stopping.clear()
-        self._thread = threading.Thread(target=self._loop, name=THREAD_NAME, daemon=True)
+        self._thread = threading.Thread(target=self._loop, name=self.thread_name, daemon=True)
         self._thread.start()
 
     def stop(self, timeout: float = 30.0) -> None:
@@ -291,12 +433,13 @@ class JobWorker:
         self._wake.set()
 
     def _loop(self) -> None:
-        next_sweep = 0.0
+        # Only the batch worker sweeps; the export worker's next sweep never comes.
+        next_sweep = 0.0 if self.sweeps else float("inf")
         outage = OutageLog(logger, "The job worker", RETRY_SECONDS)
         while not self._stopping.is_set():
             worked, wait = False, IDLE_SECONDS
             try:
-                if time.monotonic() >= next_sweep:
+                if self.sweeps and time.monotonic() >= next_sweep:
                     self.sweep()
                     next_sweep = time.monotonic() + SWEEP_SECONDS
                 worked = self.run_once()

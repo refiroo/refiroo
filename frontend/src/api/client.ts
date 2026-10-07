@@ -28,6 +28,7 @@ import type {
   ConsumerApiIndexPage,
   Job,
   JobPage,
+  ExportRequest,
   DeliveryDetail,
   DeliveryRowPage,
   DeliveryStatus,
@@ -71,6 +72,12 @@ export { ApiError } from "@/api/errors";
 
 /** The engine this browser application calls (`VITE_API_URL`, set when the frontend is built). */
 export const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+
+/** A completed export's file, as a link the browser downloads (0.9 J1). */
+export const jobOutputUrl = (jobId: string) => `${API_URL}/api/v1/jobs/${encodeURIComponent(jobId)}/output`;
+
+/** A job's server-sent event stream (0.9 J1u): the job now and after each change, until it ends. */
+export const jobEventsUrl = (jobId: string) => `${API_URL}/api/v1/jobs/${encodeURIComponent(jobId)}/events`;
 
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return requestUrl<T>(`${API_URL}${path}`, path, init);
@@ -358,6 +365,10 @@ export const api = {
       method: "DELETE",
     }),
   cancelJob: (jobId: string) => request<Job>(`/api/v1/jobs/${encodeURIComponent(jobId)}/cancel`, { method: "POST" }),
+  job: (jobId: string) => request<Job>(`/api/v1/jobs/${encodeURIComponent(jobId)}`),
+  /** Queue an export (0.9 J1); the answer is the queued job. */
+  createExport: (body: ExportRequest) =>
+    request<Job>("/api/v1/exports", { method: "POST", body: JSON.stringify(body) }),
   workspaces: (
     options: {
       search?: string;

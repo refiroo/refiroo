@@ -125,6 +125,11 @@ button:not([class]):hover:not(:disabled) {
 .secondary[data-pressed] {
   background: var(--surface-hover);
 }
+/* A link drawn as a button, such as a file to download. */
+a.primary,
+a.secondary {
+  text-decoration: none;
+}
 .primary {
   border-color: var(--action-primary);
   background: var(--action-primary);

@@ -26,7 +26,9 @@ from app.db import DatabaseStartupError, get_engine, migration_config
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261007_03"
+HEAD = "20261007_05"
+EXPORT_OUTPUT = "20261007_04"
+DELIVERY_CHOICES = "20261007_03"
 RESENDS = "20261007_02"
 DELIVERY_LOG = "20261007_01"
 DELIVERY_STATE = "20261006_03"
@@ -864,6 +866,101 @@ def test_subscriptions_upgrade_to_the_delivery_choices_and_an_interrupted_run_re
     command.downgrade(migration_config(url), RESENDS)
     assert _scalar(url, "SELECT mode FROM consumer_subscriptions") == "perChange"
     assert _scalar(url, "SELECT kind FROM consumer_webhook_requests") == "events"
+
+
+def test_jobs_upgrade_to_export_output_and_an_interrupted_run_recovers(monkeypatch, databases):
+    """Base 0.9 J1 on a database at the previous revision: with ``jobs.output`` already there (by
+    hand) the revision rolls back and the start refuses naming it; once cleared, the next start
+    adds the column and the service starts twice. A downgrade removes it again."""
+    url = seeds.create_empty()
+    databases.append(url)
+    command.upgrade(migration_config(url), DELIVERY_CHOICES)
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE jobs ADD COLUMN output integer"))
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        message = _assert_refused(
+            client,
+            errors,
+            "Database migration failed",
+            f"Current revision: {DELIVERY_CHOICES}",
+            f"target revision: {HEAD}",
+            "still at its current revision",
+        )
+        assert "output" in message
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == DELIVERY_CHOICES
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE jobs DROP COLUMN output"))
+    engine.dispose()
+    for _start in range(2):
+        with serve(monkeypatch, _render(url)) as (client, errors):
+            assert errors == []
+            assert client.get("/health").json() == {"status": "ok"}
+        assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+    assert "output" in _job_columns(url)
+    command.downgrade(migration_config(url), DELIVERY_CHOICES)
+    assert "output" not in _job_columns(url)
+
+
+def _job_columns(url: URL) -> set[str]:
+    engine = create_engine(url)
+    try:
+        return {column["name"] for column in inspect(engine).get_columns("jobs")}
+    finally:
+        engine.dispose()
+
+
+def test_jobs_upgrade_to_notifications_and_an_interrupted_run_recovers(monkeypatch, databases):
+    """Base 0.9 J1u on a database at the previous revision: with the trigger function already there
+    (by hand) the revision rolls back and the start refuses naming it; once cleared, the next start
+    adds the trigger and the service starts twice (J24.7's tests show a committed change reaching
+    a stream). A downgrade removes the trigger."""
+    url = seeds.create_empty()
+    databases.append(url)
+    command.upgrade(migration_config(url), EXPORT_OUTPUT)
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        connection.execute(text("CREATE FUNCTION rdm_notify_job() RETURNS integer LANGUAGE sql AS 'SELECT 1'"))
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        message = _assert_refused(
+            client,
+            errors,
+            "Database migration failed",
+            f"Current revision: {EXPORT_OUTPUT}",
+            f"target revision: {HEAD}",
+            "still at its current revision",
+        )
+        assert "rdm_notify_job" in message
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == EXPORT_OUTPUT
+    with engine.begin() as connection:
+        connection.execute(text("DROP FUNCTION rdm_notify_job()"))
+    for _start in range(2):
+        with serve(monkeypatch, _render(url)) as (client, errors):
+            assert errors == []
+            assert client.get("/health").json() == {"status": "ok"}
+        assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+    assert _scalar(url, "SELECT count(*) FROM pg_trigger WHERE tgname = 'jobs_notify'") == 1
+    command.downgrade(migration_config(url), EXPORT_OUTPUT)
+    assert _scalar(url, "SELECT count(*) FROM pg_trigger WHERE tgname = 'jobs_notify'") == 0
+    engine.dispose()
+
+
+def test_a_job_file_directory_that_cannot_be_written_refuses_to_start(monkeypatch, tmp_path):
+    """Base 0.9 J1 (D55): with job creation on, a ``JOB_FILE_DIR`` that cannot be written refuses
+    the application's construction, naming the path and the setting; with job creation off the
+    directory is not needed."""
+    blocked = tmp_path / "not-a-directory"
+    blocked.write_text("a file where the directory should be")
+    monkeypatch.setenv("JOB_FILE_DIR", str(blocked / "job-files"))
+    try:
+        with pytest.raises(RuntimeError, match="JOB_FILE_DIR") as refused:
+            create_app()
+        assert str(blocked / "job-files") in str(refused.value)
+        monkeypatch.setenv("INTEGRATION_JOBS_ENABLED", "false")
+        create_app()
+    finally:
+        monkeypatch.undo()
+        reload_settings()
 
 
 @pytest.mark.parametrize(

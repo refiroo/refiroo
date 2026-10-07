@@ -24,6 +24,8 @@ ENGINE_VERSION = "0.9.0-alpha.1"
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MODEL_PATH = PROJECT_ROOT / "model" / "rdm-starter.json"
+# Where export files wait for download when JOB_FILE_DIR is not set (0.9 J1, D55).
+DEFAULT_JOB_FILE_DIR = PROJECT_ROOT / "var" / "job-files"
 DEFAULT_CORS_ORIGINS = "http://localhost:5173"
 
 TRUTHY = {"1", "true", "yes", "on"}
@@ -67,6 +69,8 @@ class Settings(BaseModel):
     batch_background_max_bytes: int = Field(default=50 * 1024 * 1024, ge=1)
     job_chunk_items: int = Field(default=500, ge=1)
     job_lease_seconds: int = Field(default=120, ge=1)
+    # Export files and, from J2, uploads (D12, D55): one directory, created at start.
+    job_file_dir: Path = DEFAULT_JOB_FILE_DIR
     # How long the change feed answers a position (D8, INTEGRATION_API F5); reported by
     # GET /capabilities.
     feed_retention_days: int = Field(default=30, ge=1)
@@ -119,6 +123,7 @@ class Settings(BaseModel):
             ),
             job_chunk_items=_positive(env, "JOB_CHUNK_ITEMS", 500),
             job_lease_seconds=_positive(env, "JOB_LEASE_SECONDS", 120),
+            job_file_dir=Path(env.get("JOB_FILE_DIR", "").strip() or DEFAULT_JOB_FILE_DIR),
             feed_retention_days=_positive(env, "FEED_RETENTION_DAYS", 30),
             consumer_resolve_max_items=_positive(env, "CONSUMER_RESOLVE_MAX_ITEMS", 1_000),
             consumer_subscriptions_enabled=(
@@ -129,6 +134,25 @@ class Settings(BaseModel):
             ),
             consumer_webhook_log_retention_days=_positive(env, "CONSUMER_WEBHOOK_LOG_RETENTION_DAYS", 7),
         )
+
+    def prepare_job_file_dir(self) -> None:
+        """Create ``JOB_FILE_DIR`` and refuse to start, with job creation on, when it cannot be
+        written (D55): otherwise every export would fail later, one job at a time."""
+        if not self.integration_jobs_enabled:
+            return
+        directory = self.job_file_dir
+        try:
+            directory.mkdir(parents=True, exist_ok=True)
+            probe = directory / f".write-check-{os.getpid()}"
+            probe.write_bytes(b"")
+            probe.unlink()
+        except OSError as exc:
+            raise RuntimeError(
+                f"JOB_FILE_DIR '{directory}' cannot be created or written ({exc.strerror or exc}). "
+                "Export files are stored there while jobs are on. Point JOB_FILE_DIR at a "
+                "directory this process can write, or turn job creation off with "
+                "INTEGRATION_JOBS_ENABLED=false"
+            ) from exc
 
     def validate_consumer_subscriptions(self) -> None:
         """Refuse to start with subscriptions on and no key to encrypt their signing keys with
@@ -241,6 +265,12 @@ SETTINGS_CATALOGUE: tuple[CatalogueEntry, ...] = (
     ),
     CatalogueEntry(
         "CORS_ORIGINS", "cors_origins", "runtime", "Browser origins allowed to call the API"
+    ),
+    CatalogueEntry(
+        "JOB_FILE_DIR",
+        "job_file_dir",
+        "runtime",
+        "Where export files wait for download; created at start, kept as long as their job",
     ),
     CatalogueEntry(
         "RDM_API_REFERENCE_SCRIPT",

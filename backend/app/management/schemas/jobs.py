@@ -31,10 +31,44 @@ class JobCounts(BaseModel):
     deleted: int = 0
 
 
+class ExportCounts(BaseModel):
+    """Records by object type (every exported type, zero included) and relationships by type."""
+
+    records: dict[str, int]
+    relations: dict[str, int]
+
+
+class ExportedContext(BaseModel):
+    workspaceKey: str
+    changeSetId: str | None
+    changeSetVersion: int | None
+    publicationId: str | None
+
+
+class ExportOutput(BaseModel):
+    """What a completed export's file holds (0.9 J1, D52): read before downloading it from
+    ``GET /jobs/{jobId}/output``. ``feedPosition`` is the position the export equals: the feed head
+    it read live data at, a publication's own position, ``null`` for a change set. ``asOfApplied``
+    names the types ``asOf`` dated."""
+
+    format: Literal["jsonl", "csv", "xlsx"]
+    contentType: str
+    counts: ExportCounts
+    context: ExportedContext
+    feedPosition: int | None
+    asOf: str | None
+    asOfApplied: list[str]
+    modelReleaseId: str
+    bytes: int
+    sha256: str
+
+
 class JobResponse(BaseModel):
     """A job. ``result`` says whether every item applied: a ``completed`` job may be ``partial``.
 
-    ``parameters`` holds the kind's choices: ``run`` and ``onExisting`` for a batch.
+    ``parameters`` holds the kind's choices: ``run`` and ``onExisting`` for a batch; ``context``,
+    ``scope``, ``include`` and ``format`` for an export, whose ``result`` stays ``null`` (it has no
+    item outcomes) and whose ``output`` describes its file once completed.
     ``changeSetVersion``, for a job in a change set, is the version the job holds: its claim while
     it is queued or running, the version it left once finished. ``leaseOwner`` and
     ``leaseExpiresAt`` name the worker running a background job; ``cancelRequestedAt`` is set by a
@@ -64,6 +98,9 @@ class JobResponse(BaseModel):
     cancelRequestedAt: datetime | None
     leaseOwner: str | None
     leaseExpiresAt: datetime | None
+    output: ExportOutput | None = Field(
+        default=None, description="A completed export's manifest; null for other jobs and states"
+    )
 
 
 class JobPage(CollectionPage[JobResponse]):

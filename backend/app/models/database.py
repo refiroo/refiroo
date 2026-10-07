@@ -1287,6 +1287,8 @@ class Job(Base):
     lease_expires_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     # Set by a cancel request; the worker finishes the job as cancelled (D28).
     cancel_requested_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    # A completed export's manifest (0.9 J1, D52); its file is in JOB_FILE_DIR under the job's ID.
+    output: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
 
 
 class JobInput(Base):

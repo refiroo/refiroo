@@ -468,7 +468,7 @@ are explicit. Completion can be checked later, large output is retrievable in th
 partial output cannot be mistaken for a complete export. Field representation follows the documented
 format contract.
 
-**Coverage:** Planned export jobs. **Status:** Roadmap 0.9 (export jobs, J1). **Example:** SC-10.
+**Coverage:** Export jobs (`POST /exports`, `GET /jobs/{id}/output`). **Status:** Available through the API (0.9 J1): live, change-set and publication context, per-type criteria, a subtree, a business date, relationships, JSON Lines, CSV and XLSX, a manifest on the job and no output unless completed; the screen follows (J1u). **Example:** SC-10.
 ### US-I09 — Request the precise dataset an integration needs
 
 **Story:** As an integration developer, I want supported combinations of business criteria beyond a

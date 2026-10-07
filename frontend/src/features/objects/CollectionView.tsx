@@ -37,6 +37,7 @@ export function ObjectCollectionView({
   refreshToken = 0,
   selectedId,
   lenses,
+  onExport,
 }: ViewComponentProps) {
   const declaredView = rawView as TableViewDefinition;
   const api = useDataApi();
@@ -143,6 +144,27 @@ export function ObjectCollectionView({
       <Icon name="plus" /> Add {objectType.name}
     </button>
   );
+  // Export changes nothing, so it is offered in every context; the search is not carried (D60).
+  const exportAction = onExport && (
+    <button
+      type="button"
+      className="secondary"
+      onClick={() =>
+        onExport({
+          workspaceKey,
+          changeSetId: changeSet?.id,
+          publicationId: publication?.id,
+          objectTypeKeys: application.objectTypeKeys,
+          selected: [objectType.key],
+          filters: { objectTypeKey: objectType.key, filters: query.filters },
+          search: query.search || undefined,
+          parentObjectId: query.parentObjectId,
+        })
+      }
+    >
+      Export
+    </button>
+  );
 
   return (
     <div
@@ -156,7 +178,12 @@ export function ObjectCollectionView({
         icon={<HueTile hue={hue} icon={objectType.icon} size={40} />}
         title={view.name}
         description={objectType.description ?? application.description}
-        actions={add}
+        actions={
+          <>
+            {exportAction}
+            {add}
+          </>
+        }
       />
       <ScopeBanner
         model={model}

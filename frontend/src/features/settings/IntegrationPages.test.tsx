@@ -6,6 +6,9 @@ import { ApiReferencePage } from "@/features/settings/ApiReferencePage";
 import { ConsumerApisPage } from "@/features/settings/ConsumerApisPage";
 import { JobsPage } from "@/features/settings/JobsPage";
 import { capabilitiesFixture } from "@/test/capabilities";
+import { testModel } from "@/test/fixtures";
+import { JobNotificationsProvider } from "@/features/jobs/JobNotifications";
+import { ToastProvider } from "@/ui/Toast";
 import type { ConsumerApiDocument, ConsumerApiIndexEntry, Job, SystemResponse } from "@/types";
 
 vi.mock("@/api/client", async (load) => {
@@ -56,8 +59,21 @@ const job = (id: string, overrides: Partial<Job> = {}): Job => ({
   finishedAt: "2026-10-07T08:00:02Z",
   expiresAt: "2026-10-14T08:00:00Z",
   cancelRequestedAt: null,
+  parameters: {},
+  output: null,
   ...overrides,
 });
+
+/** The jobs list in the providers the application gives every page (0.9 J1u). */
+function renderJobs() {
+  render(
+    <ToastProvider>
+      <JobNotificationsProvider model={testModel} onNavigate={vi.fn()}>
+        <JobsPage model={testModel} route={{ kind: "settings", page: "jobs" }} onNavigate={vi.fn()} />
+      </JobNotificationsProvider>
+    </ToastProvider>,
+  );
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -136,7 +152,7 @@ describe("Jobs and feed", () => {
         items: [job("j1", { state: "failed", result: null, error: { code: "JOB_FAILED", message: "It failed" } })],
         nextCursor: null,
       });
-    render(<JobsPage />);
+    renderJobs();
     const jobs = await screen.findByRole("group", { name: "Jobs" });
     expect(within(jobs).getByRole("row", { name: /j2/ })).toHaveTextContent(
       /default\s*Completed\s*Partly applied\s*3 of 3 processed: 2 applied, 1 rejected, 0 unprocessed/,
@@ -158,7 +174,7 @@ describe("Jobs and feed", () => {
     vi.mocked(api.cancelJob).mockResolvedValue(
       job("j1", { state: "running", result: null, finishedAt: null, cancelRequestedAt: "2026-10-07T08:00:03Z" }),
     );
-    render(<JobsPage />);
+    renderJobs();
     fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
     fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Cancel job" }));
     const row = await screen.findByRole("row", { name: /j1/ });
@@ -175,7 +191,7 @@ describe("Jobs and feed", () => {
       })
       .mockResolvedValueOnce({ items: [job("j1")], nextCursor: null });
     vi.mocked(api.cancelJob).mockRejectedValue(new ApiError(409, "JOB_FINISHED", "Job j1 has already finished"));
-    render(<JobsPage />);
+    renderJobs();
     fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
     fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Cancel job" }));
     expect(await screen.findByText("Job j1 has already finished")).toBeInTheDocument();
@@ -193,7 +209,7 @@ describe("Jobs and feed", () => {
       items: [job("j1", { state: "queued", result: null, finishedAt: null })],
       nextCursor: null,
     });
-    render(<JobsPage />);
+    renderJobs();
     await screen.findByRole("region", { name: "Limits" });
     await screen.findByText(/Background batch/);
     expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
@@ -201,7 +217,7 @@ describe("Jobs and feed", () => {
 
   it("says there are no jobs yet", async () => {
     vi.mocked(api.jobs).mockResolvedValue({ items: [], nextCursor: null });
-    render(<JobsPage />);
+    renderJobs();
     expect(await screen.findByText(/No jobs yet/)).toBeInTheDocument();
   });
 });

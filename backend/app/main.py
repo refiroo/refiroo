@@ -14,13 +14,15 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .config import ENGINE_VERSION, Settings, describe_settings, get_settings, reload_settings
 from .consumer import router as consumer_router
-from .db import DatabaseStartupError, SessionLocal, create_database, get_engine
+from .db import DatabaseStartupError, SessionLocal, create_database, get_engine, libpq_url
 from .engine.events.dispatcher import EventDispatcher
 from .engine.events.subscriptions import SubscriptionSettings
 from .engine.events.worker import EventDeriver
 from .engine.indexes.matrix_states import build_at_startup as build_matrix_states
+from .engine.jobs.events import JobListener
+from .engine.jobs.files import JobFiles
 from .engine.jobs.inline import BatchLimits
-from .engine.jobs.worker import JobWorker, WorkerSettings
+from .engine.jobs.worker import EXPORT_KINDS, EXPORT_THREAD_NAME, JobWorker, WorkerSettings
 from .engine.model.bootstrap import bootstrap_model
 from .engine.model.compiler import SUPPORTED_SCHEMA_VERSIONS
 from .engine.model.loader import load_bootstrap_model
@@ -109,10 +111,21 @@ async def lifespan(application: FastAPI):
             )
     # A process that cannot serve the model runs no jobs: each chunk would fail its job.
     worker = application.state.job_worker if application.state.run_job_worker else None
-    if worker is not None and not model_registry.ready:
-        worker = None
+    exporter = application.state.export_worker if application.state.run_job_worker else None
+    if not model_registry.ready:
+        worker = exporter = None
     if worker is not None:
+        # Files a stopped process left behind: partial ones, or a finished job's (D55).
+        with SessionLocal() as session:
+            application.state.job_files.reconcile(session)
         worker.start()
+    if exporter is not None:
+        exporter.start()
+    listener = application.state.job_listener if application.state.run_job_listener else None
+    if listener is not None and not model_registry.ready:
+        listener = None
+    if listener is not None:
+        listener.start()
     # The event deriver (C10) runs where the model can be served, as the job worker does.
     deriver = application.state.event_deriver if application.state.run_event_deriver else None
     if deriver is not None and not model_registry.ready:
@@ -134,6 +147,10 @@ async def lifespan(application: FastAPI):
             dispatcher.stop()
         if deriver is not None:
             deriver.stop()
+        if listener is not None:
+            listener.stop()
+        if exporter is not None:
+            exporter.stop()
         if worker is not None:
             worker.stop()
 
@@ -142,6 +159,7 @@ def create_app() -> FastAPI:
     settings = reload_settings()
     settings.validate_model_admin_topology()
     settings.validate_consumer_subscriptions()
+    settings.prepare_job_file_dir()
     mutations_enabled = settings.model_admin_mutations_enabled
     workspace_mutations_enabled = settings.workspace_admin_mutations_enabled
     application = FastAPI(
@@ -222,19 +240,36 @@ def create_app() -> FastAPI:
     )
     # The in-process job worker (P6): none with the capability off. Tests that drive the worker
     # themselves set ``run_job_worker`` to False before the application starts.
+    # Export files (0.9 J1, D55); served by GET /jobs/{id}/output whatever the capability.
+    application.state.job_files = JobFiles(settings.job_file_dir)
+    worker_settings = WorkerSettings(
+        chunk_items=settings.job_chunk_items,
+        lease_seconds=settings.job_lease_seconds,
+        retention_days=settings.job_retention_days,
+    )
     application.state.job_worker = (
+        JobWorker(SessionLocal, worker_settings, files=application.state.job_files)
+        if settings.integration_jobs_enabled
+        else None
+    )
+    # Exports run on a worker of their own, so neither kind waits behind the other (D53).
+    application.state.export_worker = (
         JobWorker(
             SessionLocal,
-            WorkerSettings(
-                chunk_items=settings.job_chunk_items,
-                lease_seconds=settings.job_lease_seconds,
-                retention_days=settings.job_retention_days,
-            ),
+            worker_settings,
+            kinds=EXPORT_KINDS,
+            files=application.state.job_files,
+            sweeps=False,
+            thread_name=EXPORT_THREAD_NAME,
         )
         if settings.integration_jobs_enabled
         else None
     )
     application.state.run_job_worker = True
+    # The job event stream's listener (0.9 J1u, D58): it only listens, so tests keep it running.
+    application.state.session_factory = SessionLocal
+    application.state.job_listener = JobListener(libpq_url)
+    application.state.run_job_listener = True
     application.state.feed_retention_days = settings.feed_retention_days
     # The consumer event deriver (C10). Tests that derive themselves set ``run_event_deriver`` to
     # False before the application starts.

@@ -26,6 +26,7 @@ and the one line the API and the Deployment page show) and to the table of its g
 | `RDM_MODEL_PATH` | `model/rdm-starter.json` | Bootstrap model file. Not the active-model setting; see [Model releases](#model-releases-and-rollback) |
 | `RDM_CURSOR_SIGNING_KEY` | ephemeral | Secret that signs pagination cursors. Without it each process generates its own key, so cursors stop working after a restart and between instances |
 | `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated browser origins allowed to call the API |
+| `JOB_FILE_DIR` | `var/job-files` | Where export files wait for download, named after their job; created at start. With job creation on, a directory that cannot be written stops startup. A file is kept while its job is completed and removed when the job expires (`JOB_RETENTION_DAYS`), fails or is cancelled. Several instances need it on shared storage. See [Exports](#exports) |
 | `RDM_API_REFERENCE_SCRIPT` | `bundled` | `bundled` serves the pinned Scalar script from the engine, so `/docs` works offline; `cdn` loads the same version from jsDelivr under its integrity hash. Any other value stops startup |
 | `WEB_CONCURRENCY` | `1` | Uvicorn worker count. Must be `1` while model administration is enabled |
 | `VITE_API_URL` (frontend) | `http://localhost:8000` | API address the browser application calls |
@@ -134,6 +135,36 @@ retention every hour.
 
 A background job holds its workspace's write lock for one chunk at a time (0.25–0.5 s for 500 items),
 so other writes in that workspace wait at most that long.
+
+### Exports
+
+Exports (`POST /api/v1/exports`) run on a second worker thread of their own, so an export never
+waits behind a batch and a batch never waits behind an export; two exports run one after the other.
+
+- **Files:** each export writes `{jobId}.partial` in `JOB_FILE_DIR` and renames it to
+  `{jobId}.jsonl`, `.csv` or `.xlsx` when the job completes. A file stays while its job is
+  completed and goes when the job expires, fails or is cancelled; at start and with the hourly
+  sweep the worker removes any file no completed job serves (a partial file a crash left, a file
+  of an expired job). A file removed by hand answers `410 JOB_OUTPUT_MISSING`; run the export again.
+  Disk use is one file per completed export for `JOB_RETENTION_DAYS`.
+- **One snapshot:** an export reads everything in one `REPEATABLE READ` transaction, held for as
+  long as it runs. PostgreSQL cannot clean up rows changed meanwhile until it ends; for exports of
+  a few minutes this is not noticeable. Writes are never blocked by an export.
+- **Crash or kill:** the export starts again from the beginning once its lease expires
+  (`JOB_LEASE_SECONDS`); nothing resumes half way.
+- **Cancel:** takes effect at the export's next check, every 10,000 rows (a CSV export between its
+  records and its relationships).
+- **Following jobs (0.9 J1u):** `GET /api/v1/jobs/{id}/events` is a server-sent event stream; the
+  browser opens one per running job a tab started, and the job page one while it is shown. A
+  proxy in front of the engine must not buffer it (nginx reads the `X-Accel-Buffering: no` header the
+  engine sends) and must allow responses that stay open (a keep-alive comment comes every 15 s).
+  Under HTTP/1.1 a browser opens at most six connections per site, so a tab following more than
+  about five running jobs at once waits for one to end; HTTP/2 lifts it. Each process holds one
+  extra database connection that `LISTEN`s for job changes (revision `20261007_05`'s trigger); it
+  reconnects after an outage, logging it like the other background threads.
+- **CSV and spreadsheets:** values are written exactly as stored. A text value beginning with `=`,
+  `+`, `-` or `@` is not altered; a spreadsheet that opens a CSV may read it as a formula. The XLSX
+  format writes every text as text, never as a formula.
 
 ## Consumer events
 

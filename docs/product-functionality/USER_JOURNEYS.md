@@ -827,11 +827,15 @@ feed lists jobs and cancels a queued or running one, 0.9 U4). **Stories:** US-I0
   so reading them answers an empty page.
 - **J24.6 The database is unreachable**: the worker waits and retries, logging the cause once, and
   resumes when the database returns.
+- **J24.7 Follow a job as it changes**: `GET /jobs/{id}/events` sends the job at once, then again
+  after each committed change of its state, progress, cancel request or output, and ends after a
+  final state; a finished job is sent once. A browser follows its own jobs this way and is told
+  when they finish (0.9 J1u); nothing is polled.
 
 **Refusals:** `409 JOB_FINISHED`, `404 JOB_NOT_FOUND`; job errors `MODEL_RELEASE_CHANGED`,
 `CHANGE_SET_VERSION_CONFLICT`, `WORKSPACE_RETIRED`, `JOB_FAILED` (with a correlation ID).
 
-**Evidence today:** the J24 journey tests; unit tests of `engine/jobs/worker.py`, `store.py` and
+**Evidence today:** the J24 journey tests (J24.7 in `test_j24_job_stream`, over HTTP); unit tests of `engine/jobs/worker.py`, `store.py` and
 `background.py`; `test_pg3_concurrency`; the composed journey `test_j24_j26_composed` (a resumed,
 a staged and two cancelled jobs read back through the feed and the queries, 0.9 T1).
 
@@ -865,7 +869,8 @@ a staged and two cancelled jobs read back through the feed and the queries, 0.9 
   the earliest one still readable is refused, naming the active publication and its position; the
   reader re-reads that publication, follows the feed from its position and ends with live data. The
   earliest position never passes the active publication's, and without one nothing expires, so a
-  reader always has a way back.
+  reader always has a way back. The refusal also names the export route: a live export is a second
+  baseline, read at one instant with its feed position (0.9 J1, J27.2).
 
 **Refusals:** `404 WORKSPACE_NOT_FOUND`, `409 FEED_POSITION_AHEAD` (a position past the head, from
 another workspace or a restored database), `410 FEED_POSITION_EXPIRED` (a position older than
@@ -878,12 +883,45 @@ background job across a restart, its publish and its cancellation, 0.9 T1).
 ### J27 — Exchange a supplier file (planned)
 
 **Actor:** exchange operator; data owner. **Channel:** API, UI. **Stories:** US-I04, US-I07, US-I08.
-**Scenario:** SC-10. **Status:** planned, 0.9 J1–J4.
+**Scenario:** SC-10. **Status:** export delivered in 0.9 J1 (API); import planned, 0.9 J2–J4.
 
 1. Choose the destination and identify the file's columns.
 2. Preview proposed additions, updates and errors by row and field; nothing changes.
 3. Execute under the chosen failure policy; act on rejected rows without redoing applied ones.
-4. Export a chosen, stated scope.
+4. Export a chosen, stated scope: `POST /exports` queues a job; when it completes, the job states
+   what the file holds and `GET /jobs/{id}/output` serves it.
+
+**Variants:**
+
+- **J27.1 Export a stated scope**: live data, a change set or a publication; one or several types,
+  each with its own criteria; only below one record; on a business date (types with a declared
+  period are dated, the others exported as they are); with or without relationships; JSON Lines,
+  CSV or XLSX. The job's `output` names the counts per type, the context, the feed position, the
+  release, the format, the size and the SHA-256 of the file.
+- **J27.2 The export as a baseline**: everything in the file was read at one instant; writes
+  committed meanwhile are not in it and appear in the feed after the export's position. A reader
+  whose position expired re-reads an export and follows the feed from its position.
+- **J27.3 Round trip**: a JSON Lines export sent back as a batch to the same workspace changes
+  nothing; each record carries its version, so an edited file updates only records nobody changed
+  since the export. CSV and XLSX hold the same records in one table layout.
+- **J27.4 No partial output**: a cancelled, failed or expired export serves no file; a batch has
+  none.
+- **J27.5 Refusals**: an unknown type, field or operator at its pointer, a date no exported type
+  is dated by, an unknown parent, two contexts at once, a type named twice; with job creation
+  turned off the route is absent.
+- **J27.6 In the browser**: Export on a collection page opens a dialog prefilled with its type,
+  context, filters and scope (the search is not carried); New export on Settings › Jobs exports
+  any types of a workspace. A notification says the export started; another says it finished,
+  with Download and View job, or that it failed or was cancelled, with View job. The job's page
+  shows its state, progress, error and, once completed, what the file holds and Download.
+
+**Refusals:** `422 INVALID_QUERY`, `422 AS_OF_NOT_SUPPORTED`, `422 WORKSPACE_CONTEXT_MISMATCH`,
+`404 PARENT_NOT_FOUND`, `404 WORKSPACE_NOT_FOUND`, `404 CHANGE_SET_NOT_FOUND`,
+`404 PUBLICATION_NOT_FOUND`, `422 REQUEST_VALIDATION_ERROR`; on the output `404 JOB_NOT_FOUND`,
+`404 JOB_HAS_NO_OUTPUT`, `409 JOB_NOT_COMPLETED`, `410 JOB_EXPIRED`, `410 JOB_OUTPUT_MISSING`.
+
+**Evidence today:** the J27 journey tests (`test_j27_export`, 0.9 J1); J27.6 in the browser runner
+`j1u-export` and `ExportDialog.test`, `JobNotifications.test` (0.9 J1u).
 
 ### J28 — Read a business object through a consumer API
 

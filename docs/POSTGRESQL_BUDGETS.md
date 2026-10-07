@@ -74,6 +74,7 @@ figures by 20–50 %. **Use the full replay once, at the end. Diagnose with plan
 | Full-volume read table | `.venv/bin/python tests/volume_baseline.py --scale 1 --repeat 5 --json out.json` | ~3.5 min, plus ~3 min when the seed rebuilds |
 | Restructuring planner near its limit | `… volume_baseline.py --only-restructuring --scale 0.024` | ~30 s |
 | Dated reads only (0.9 T1) | `… volume_baseline.py --only-dated --scale 1 --repeat 3` | ~10 s |
+| Exports of the whole live workspace, once per format (0.9 J1) | `… volume_baseline.py --only-exports --scale 1` | ~1.5 min, plus ~5.5 min when the seed rebuilds |
 | Publish of a tenth of the items renamed (0.9 T1; the full table runs it last) | `… volume_baseline.py --only-publish --scale 0.1` | ~1 min (11 s publish after T1); at `--scale 1` about 2 min plus |
 | Budgets 1–2 | `.venv/bin/python -m pytest -n auto -q tests/test_volume_baseline.py tests/test_change_lists_volume.py tests/test_restructuring_volume.py tests/test_relation_matrix_volume.py tests/test_batch_statements.py tests/test_paging_contract.py` | ~20 s |
 | Validate and publish at 2 % volume (serial, timed) | `.venv/bin/python -m pytest -q tests/test_graph_validation_scale.py::test_validating_and_publishing_a_large_workspace_stay_within_budget` | ~20 s |
@@ -550,3 +551,27 @@ whole delivery's are its batches'. A `full` batch is the pull feed's `full` page
 run) plus the claim, the pending batch's commit, the POST and the acknowledgement. A slow receiver
 adds its own time to each batch: subscriptions are delivered four at a time per process (C-D106), so
 one slow receiver delays only its own.
+
+## 8. Exports (0.9 J1)
+
+The whole live workspace of the volume fixture at full size (257,758 records of six types and
+316,616 relationships, `withinScope`), exported once per format on 2026-10-07 with
+`volume_baseline.py --only-exports --scale 1` (the seed rebuilt after J1's migration, 326 s). Each is
+one job run by the export worker in the measuring thread, from the claim to the completed job
+(time · statements · ORM rows). `test_export_volume` holds the statements at two sizes: the same at
+both, except the progress checks, two statements per 10,000 rows written.
+
+| Format | File | Time | Budget (D56) |
+| --- | --- | --- | --- |
+| JSON Lines | 209.6 MB | 23.1 s · 145 · 4 | 60 s |
+| CSV | 103.1 MB | 24.4 s · 36 · 4 | 60 s |
+| XLSX | 71.6 MB | 31.5 s · 144 · 4 | 60 s |
+
+Every format is within its budget. The first XLSX writer (openpyxl's write-only workbook, one cell
+object each) took 72.8 s; the user chose to make it faster within J1, and the workbook is now written
+as sheet XML directly (`engine/jobs/xlsx.py`), its values extracted as text by PostgreSQL as for CSV.
+The ORM loads the job only, never a record; the records pass through Python only as the lines and
+rows streamed to the file. The snapshot transaction is held for the export's whole time. Memory was
+not measured with an instrument; nothing holds the set (server-side cursors, `COPY`, a streamed ZIP
+entry).
+

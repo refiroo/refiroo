@@ -244,7 +244,7 @@ describe("RDM UI foundation", () => {
       expect(region).not.toHaveTextContent("Workspace renamed.");
 
       fireEvent.click(screen.getByRole("button", { name: "Rename" }));
-      const toast = within(region).getByText("Workspace renamed.").parentElement!;
+      const toast = within(region).getByText("Workspace renamed.").closest<HTMLElement>(".toast")!;
       fireEvent.mouseEnter(toast);
       act(() => vi.advanceTimersByTime(TOAST_TIMEOUT_MS * 2));
       expect(region).toHaveTextContent("Workspace renamed.");
