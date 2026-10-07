@@ -1211,6 +1211,20 @@ different groups as if they were one. The user keeps the nested windows and aske
   move the page. A window that does not scroll passes the wheel on as before. Checked on the dev
   server: twelve wheel flicks inside the categories window scrolled it to its end, and neither the
   window around it nor the page moved. `s6` and `b3` (30 checks) passed.
+- **The group under the pointer owns the wheel** (two defects found by the user after UA4,
+  2026-10-07). Over a group's heading the wheel scrolled the window around the group, since the
+  heading sits outside the group's own window, while the hover glow named the group. And with the
+  stops above, a group whose top had been scrolled out of its parent window could not be scrolled
+  back into view from inside it. A wheel handler on the tree (`treeWheel.planWheel`, wired in
+  `RecordTree`) now gives each step to the innermost group whose window scrolls, heading included.
+  The owner scrolls first (over its own rows the browser does it, smoothly); at its end the step
+  moves the nearest enclosing window, or the page, only as far as the owner's frame is still
+  hidden, then stops. Touch and keyboard are unaffected. Checked on the dev server with wheel
+  events: a step over the categories heading scrolled the categories (120px) and nothing else; with
+  72px of the categories' top hidden, scrolling up inside them reached their top and then moved the
+  catalogues back by exactly 72px; scrolling inside the rows moved only the categories. Unit tests
+  for the decision (`treeWheel.test`); `src/features/objects` 163 tests, `lint` (0 errors), `build`,
+  `s6`, `wp14` passed; `b3` passed (30 checks) on its second run (TODO).
 - **Folding turned off the same day, by the user, kept to turn back on.** `FOLDING_GROUPS` in
   `RecordTree` is `false`: every group stays open, its heading has no chevron and its name starts
   at the heading's own indent (`.tree-row-plain`), left of its records' toggles; the heading stays

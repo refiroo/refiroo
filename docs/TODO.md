@@ -122,6 +122,11 @@ Next: UA, the Atlas redesign (ADR-040), before U4 and U5. See [Next — 0.9](#ne
   heading under it, so the pointer rested on the band. `dragFrom` and `dragOver` now bring the
   row to the middle of the view; b3 then passed in full (30 checks). Kept here until a second run
   confirms it.
+- **`test:browser:b3`: "Shift+Tab never reached the tree" (seen once, 2026-10-07).** In the volume
+  maintenance journey (`b3-tree-lens.mjs:349`, `maintain` → `keyIntoTree`), sixty Shift+Tab presses
+  never focused a tree item. Seen in one of two runs with the tree's wheel handler (the other passed
+  all 30 checks), and not in one run of the committed UA4 code without it; the handler touches no
+  focus, but one run does not rule it out. Next time: capture the focused element at the failure.
 - **`test:browser:c4` fails at its own API call (seen 2026-10-07).** `c4-restructuring.mjs:336`
   reads `/objects/system-group/{id}/history?workspaceKey=default` and the API refuses the
   parameter (`422 UNKNOWN_PARAMETER`). The runner, not the UI, sends it; when the history route

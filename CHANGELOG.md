@@ -359,6 +359,9 @@ All notable changes to this project are documented in this file. The format foll
   as boxes inside boxes; a group glows in the accent while it scrolls and in teal while the pointer
   is in it; with a pointer, a scrolling group stops at its first and last row; records sit one step
   in from their group's heading. Folding headings is built and switched off (`FOLDING_GROUPS`).
+- Record browser: the group under the pointer owns the mouse wheel, its heading included; at its end
+  the wheel moves the window around it only until the whole group is in view, so a group partly
+  scrolled out of sight can always be brought back from inside it.
 
 - Base 0.9 C12: `POST /consumer-subscriptions/{id}/resume` takes `reset` instead of
   `acknowledgeLoss` (C-D93 revised, C-D110). `reset: true` starts delivery after the workspace's
