@@ -54,7 +54,7 @@ import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
 import { ScrollWindow } from "@/ui/ScrollWindow";
 import { useTreeDrag, type TreeDragConfiguration, type TreeDragState } from "./useTreeDrag";
-import { planWheel, wheelPixels } from "./treeWheel";
+import { useTreeWheel } from "./useTreeWheel";
 
 /** Rows a tree group reads per request; its window holds at most five pages (D2). */
 export const TREE_PAGE_SIZE = 50;
@@ -332,37 +332,8 @@ export function RecordTree({
   );
 
   const tree = useRef<HTMLDivElement>(null);
-  // The group under the pointer owns a wheel step, heading included (treeWheel). Not passive, so a
-  // step the tree takes over does not also scroll what the browser would have picked.
-  useEffect(() => {
-    const root = tree.current;
-    if (!root) return;
-    const onWheel = (event: WheelEvent) => {
-      if (event.ctrlKey || event.deltaY === 0) return;
-      const target = event.target as HTMLElement;
-      const owner = owningWindow(target);
-      if (!owner) return;
-      const delta = wheelPixels(event, owner.clientHeight);
-      const frame = owner.closest<HTMLElement>(".tree-group")!.getBoundingClientRect();
-      const scrollers = enclosingScrollers(owner);
-      const step = planWheel(
-        delta,
-        roomOf(owner, delta),
-        scrollers.map((scroller) => {
-          const box = visibleBox(scroller);
-          const hidden = delta > 0 ? frame.bottom - box.bottom : box.top - frame.top;
-          return { hidden: Math.max(0, Math.round(hidden)), room: roomOf(scroller, delta) };
-        }),
-      );
-      // Over the owner's own rows the browser already scrolls the owner, smoothly; let it.
-      if (step.kind === "own" && target.closest(".scroll-window-viewport") === owner) return;
-      event.preventDefault();
-      if (step.kind === "own") owner.scrollTop += step.by;
-      else if (step.kind === "enclosing") scrollers[step.index].scrollTop += step.by;
-    };
-    root.addEventListener("wheel", onWheel, { passive: false });
-    return () => root.removeEventListener("wheel", onWheel);
-  }, []);
+  // The group under the pointer owns a wheel step, heading included (treeWheel, useTreeWheel).
+  useTreeWheel(tree);
   const lists = useRef(new Map<string, CursorWindow<ObjectItem>>());
   const pending = useRef<{ key: string; step: 1 | -1 } | undefined>(undefined);
   const [focusKey, setFocusKey] = useState<string>();
@@ -1060,43 +1031,6 @@ function groupsAround(element: HTMLElement) {
 }
 
 /** A group's own scrolling window, before any nested group's in document order. */
-/** The window of the innermost group around `element` whose window scrolls; its heading counts. */
-function owningWindow(element: HTMLElement) {
-  for (let group = element.closest<HTMLElement>(".tree-group"); group;) {
-    const viewport = windowOf(group);
-    if (viewport && viewport.scrollHeight > viewport.clientHeight + 1) return viewport;
-    group = group.parentElement?.closest<HTMLElement>(".tree-group") ?? null;
-  }
-  return null;
-}
-
-/** The scrollers around a group's window, nearest first: the windows of the groups around it that
- * scroll, then whatever scrolls the page. */
-function enclosingScrollers(viewport: HTMLElement) {
-  const scrollers: HTMLElement[] = [];
-  for (let next = viewport.parentElement?.closest<HTMLElement>(".scroll-window-viewport"); next;) {
-    if (next.scrollHeight > next.clientHeight + 1) scrollers.push(next);
-    next = next.parentElement?.closest<HTMLElement>(".scroll-window-viewport");
-  }
-  let page: HTMLElement | null = (scrollers.at(-1) ?? viewport).parentElement;
-  while (page && !(/(auto|scroll)/.test(getComputedStyle(page).overflowY) && page.scrollHeight > page.clientHeight))
-    page = page.parentElement;
-  scrollers.push(page ?? (viewport.ownerDocument.scrollingElement as HTMLElement));
-  return scrollers;
-}
-
-/** The part of a scroller the user sees, on the screen. */
-function visibleBox(scroller: HTMLElement) {
-  if (scroller === scroller.ownerDocument.scrollingElement) return { top: 0, bottom: window.innerHeight };
-  return scroller.getBoundingClientRect();
-}
-
-/** How far a scroller can still move in a step's direction. */
-function roomOf(scroller: HTMLElement, delta: number) {
-  const room = delta > 0 ? scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop : scroller.scrollTop;
-  return Math.max(0, Math.floor(room));
-}
-
 function windowOf(group: HTMLElement) {
   return group.querySelector<HTMLElement>(".scroll-window-viewport");
 }

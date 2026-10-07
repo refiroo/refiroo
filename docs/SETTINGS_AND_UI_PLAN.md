@@ -1209,6 +1209,19 @@ different groups as if they were one. The user keeps the nested windows and aske
   move the page. A window that does not scroll passes the wheel on as before. Checked on the dev
   server: twelve wheel flicks inside the categories window scrolled it to its end, and neither the
   window around it nor the page moved. `s6` and `b3` (30 checks) passed.
+- **Gestures, the parent row, fainter frames** (asked by the user after UA6, 2026-10-07). In the
+  sidebar a group's window could fill the visible tree, so after its end every step stopped and the
+  rail could not be scrolled on. Steps less than `GESTURE_GAP_MS` (400 ms) apart are now one gesture,
+  which keeps the scroller it started with; a new gesture that starts on a group at its end, in
+  full view, moves the nearest enclosing scroller that can still move (`outwardIndex`). Going up,
+  the area brought into view includes the row of the record the group belongs to, so a heading is
+  never shown without its owner. The DOM side moved from `RecordTree` into `useTreeWheel`. A
+  group's resting frame is 14% of its type's marker (was 26%). Checked on the dev server: in the
+  sidebar the first gesture scrolled the catalogues window to its end and brought it into view,
+  each later gesture moved the rail on until Durations and Roles showed; in the lens one upward
+  gesture showed the categories' heading and the catalogue row above it (120px, exactly the parent
+  row's top); a step over a heading and steps over rows behaved as before. `src/features/objects`
+  178 tests, `lint` (0 errors), `build`, `s6`, `wp14`, `b3` (30 checks) passed.
 - **The group under the pointer owns the wheel** (two defects found by the user after UA4,
   2026-10-07). Over a group's heading the wheel scrolled the window around the group, since the
   heading sits outside the group's own window, while the hover glow named the group. And with the

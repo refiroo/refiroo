@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { planWheel, wheelPixels } from "./treeWheel";
+import { outwardIndex, planWheel, wheelPixels } from "./treeWheel";
 
 describe("planWheel", () => {
   it("scrolls the owner while it has room, by no more than that room", () => {
@@ -46,6 +46,28 @@ describe("planWheel", () => {
       ]),
     ).toEqual({ kind: "stop" });
     expect(planWheel(200, 0, [])).toEqual({ kind: "stop" });
+  });
+});
+
+describe("outwardIndex", () => {
+  it("hands a new gesture to the nearest enclosing scroller that can still move", () => {
+    expect(
+      outwardIndex([
+        { hidden: 0, room: 296 },
+        { hidden: 0, room: 279 },
+      ]),
+    ).toBe(0);
+    expect(
+      outwardIndex([
+        { hidden: 0, room: 0 },
+        { hidden: 0, room: 279 },
+      ]),
+    ).toBe(1);
+  });
+
+  it("finds none when every enclosing scroller is at its end", () => {
+    expect(outwardIndex([{ hidden: 0, room: 0 }])).toBe(-1);
+    expect(outwardIndex([])).toBe(-1);
   });
 });
 

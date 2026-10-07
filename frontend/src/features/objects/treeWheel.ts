@@ -4,8 +4,17 @@
  * outside the group's window, so the browser alone would scroll the window around it. The owner
  * scrolls first. At its end, the step moves an enclosing scroller (a parent group's window, or the
  * page) only as far as part of the owner's frame is still hidden behind that scroller's edge, so the
- * whole group can always be brought into view; then it stops, and never carries on beyond that.
+ * whole group can always be brought into view; then it stops. Going up, the frame counts the row of
+ * the record the group belongs to, so the heading is never shown without its owner.
+ *
+ * Steps closer together than `GESTURE_GAP_MS` are one gesture (a trackpad's momentum, a wheel spun
+ * on), and a gesture keeps the scroller it started with, so it never wobbles from one to another. A
+ * new gesture that starts on an owner already at its end, with its frame in view, moves the nearest
+ * enclosing scroller that can still move (`outwardIndex`): a deliberate scroll always gets out.
  */
+
+/** Wheel steps closer together than this belong to one gesture. */
+export const GESTURE_GAP_MS = 400;
 
 /** A scroller enclosing the owner: how far the owner's frame is hidden past its edge in the step's
  * direction, and how far it can still scroll that way. */
@@ -34,6 +43,14 @@ export function planWheel(delta: number, ownRoom: number, enclosing: EnclosingSc
   if (index < 0) return { kind: "stop" };
   const { hidden, room } = enclosing[index];
   return { kind: "enclosing", index, by: sign * Math.min(size, hidden, room) };
+}
+
+/**
+ * For a new gesture on an owner with no room left and its frame in view (`planWheel` stops): the
+ * nearest enclosing scroller that can still move, which takes the gesture over, or -1.
+ */
+export function outwardIndex(enclosing: EnclosingScroller[]): number {
+  return enclosing.findIndex((scroller) => scroller.room > 0);
 }
 
 /** A wheel event's vertical step in pixels, whatever unit the device reported it in. */

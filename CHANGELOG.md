@@ -401,6 +401,9 @@ All notable changes to this project are documented in this file. The format foll
 - Record browser: the group under the pointer owns the mouse wheel, its heading included; at its end
   the wheel moves the window around it only until the whole group is in view, so a group partly
   scrolled out of sight can always be brought back from inside it.
+- Record browser: a new scroll gesture on a group that is at its end moves the area around it on,
+  so the sidebar never gets stuck; scrolling up into a group also shows the record it belongs to;
+  the groups' resting frames are fainter.
 
 - Base 0.9 C12: `POST /consumer-subscriptions/{id}/resume` takes `reset` instead of
   `acknowledgeLoss` (C-D93 revised, C-D110). `reset: true` starts delivery after the workspace's

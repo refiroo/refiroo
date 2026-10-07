@@ -442,7 +442,7 @@ fieldset.settings-section legend {
    while its own window scrolls the frame glows in the accent, a state rather than a kind, showing
    which part is moving (UA2 revision). */
 .tree-group {
-  border: 1px solid color-mix(in srgb, var(--hue-marker, var(--border-subtle)) 26%, transparent);
+  border: 1px solid color-mix(in srgb, var(--hue-marker, var(--border-subtle)) 14%, transparent);
   border-radius: 8px;
   transition:
     border-color 160ms ease,
