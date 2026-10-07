@@ -246,8 +246,9 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | — | _cut line (D9)_ | | _If R is out of reach, 0.9.0 releases here with R-a and Track J moves to 0.9.1_ |
 | 28 | [J1](#j1-export) | Q3, Q4, B2, F1 | Export jobs: JSON Lines, CSV and XLSX, one snapshot, the manifest on the job (D49–D56) — **delivered 2026-10-07** ([record](#j1-record-2026-10-07)) |
 | 28a | [J1u](#j1u-export-in-the-ui-and-job-notifications-outline) | J1 | Export in the UI: the dialog, the job page, notifications pushed over a per-job event stream (D57–D63) — **delivered 2026-10-07**, screenshots approved by the user ([record](#j1u-record-2026-10-07)) |
-| 29 | [J2](#j2-import-profiles-and-file-reading) | B3 | Import profiles, XLSX/CSV/JSON Lines reading, rows to items |
-| 30 | [J3](#j3-import-preview-and-execution) | J2, B2 | Import preview, confirm, execute |
+| 29 | [J2](#j2-import-profiles-and-file-reading) | B3 | Import profiles, XLSX/CSV/JSON Lines reading, rows to items, `POST /imports` with `stage: execute` (D64) — **planned 2026-10-07**, D64–D74 and the test cases accepted ([plan](#j2-plan-2026-10-07)) |
+| 29a | J2a (if D74 is accepted) | J2 | Database-backed uniqueness for `unique` attributes (TODO, C-D24); planned when J2 is delivered |
+| 30 | [J3](#j3-import-preview-and-execution) | J2, B2 | Import preview, confirm; `stage: execute` arrives with J2 (D64) |
 | 31 | [J4](#j4-import-screen-and-sc-10) | J1u, J3, F2 | The SC-10 screen and SC-10 acceptance |
 | 31a | [Track K](#track-k--bulk-selection-and-editing-in-collections) | J4, UA | Bulk selection and bulk edits in collections over `POST /batches`; packages K1–K5 planned in detail when the track starts — **added 2026-10-06** |
 | V | [V3–V9](#v3v9-the-management-api-documented-plan-2026-10-07) | V2 | The management API documented: the starter extended, content and examples beside the document, the error catalogue; V3 first, then V4–V8 in any order, then V9. **Independent fillers; block no release** (V-D9) — **planned 2026-10-07**, V-D1 open |
@@ -300,7 +301,7 @@ Track C:  C1 ─ C2 ─┬─ C3 ───────────────�
                    └─ C9 ─ C10 ─ C11 ─ C12 ─ C13   C10 needs F2
           ── cut line (D9) ──
 Track J:  J1 ─ J1u                                 J1 needs Q3, Q4, B2, F1
-          B3 ─ J2 ─ J3 ─ J4                        J3 needs B2; J4 needs J1u, F2
+          B3 ─ J2 ─ J2a ─ J3 ─ J4                  J3 needs B2; J4 needs J1u, F2; J2a if D74
 Track K:  J4, UA ─ K1 ─ K2 ─ K3                    K4 and K5 as decided in K1's planning
 Release:  Q2, T1, C8, C13, C16, V2, J4 → R          (R-a without J at the cut line)
 ```
@@ -6762,6 +6763,290 @@ another release; cycles.
 **Exit:** the profile JSON is final in §J3 and MODEL_AUTHORING's outline points to it (0.10 A1 builds
 on it).
 
+##### J2 plan (2026-10-07)
+
+**Planned 2026-10-07. D64–D74 and the test cases accepted by the user the same day (D65 and D69 after an explanation; D69 with relation columns of repeated rows adding up).** Checked against the
+code at `0630f62`: the batch items and record references (`models/commands.py`: `upsert` keyed by
+`{id}` or one unique attribute, references by `{id}` or a unique key only, §B2), the job tables
+(`jobs.kind` already allows `import` and `state` `awaiting_confirmation`; `job_inputs` and
+`job_items` carry a `ref` of 200 characters), `background.submit_background_batch` and the batch
+worker, `JobFiles` (`engine/jobs/files.py`), the batch audit cause (`audit_cause(…, "job", id)`), and
+the dependencies (`openpyxl` is a test dependency only; nothing parses `multipart/form-data`). The
+starter declares `unique` on `domain-code`, `codelist-code`, `master-id`, `system-code` and
+`language-code` only; `system-value`, `translation-group` and `translation` have no unique
+attribute, and `object-has-translation` is unique per record within a `language`
+(`uniqueToAncestorTypeKey`). J1's table layout has no `applicationKey` column, although a record
+belongs to one application and a create needs it. **Needs:** B3 (delivered).
+
+**Behaviour.** An integrator keeps import profiles: named, versioned descriptions of how a file's
+sheets and columns become records and relationships of the model, checked against the active model
+release when saved and again when used. They send a file (XLSX, CSV or JSON Lines) with a profile,
+or without one when the file is a JSON Lines batch or an export's table layout, naming the workspace
+and context, the failure policy and `onExisting`. The import runs in the background as a job: the
+file is read, every row is bound and converted, references are resolved to records (including
+records the same file creates), and the rows become batch items that run through the batch path,
+with each item's outcome naming its sheet, row and column. A row that cannot be bound (a value that
+does not convert, a match that finds no record or several, a duplicate key with differing values) is
+rejected with its code; under `independent` the other rows still load, under `atomic` nothing does.
+The same import sent again changes nothing (every item `unchanged`). Preview, confirmation and the
+binding report are J3's (D64).
+
+**Contract.**
+
+- **Profiles** (always registered for reads; writes under `INTEGRATION_JOBS_ENABLED`, D10):
+  `POST /api/v1/import-profiles` (`201`), `GET /api/v1/import-profiles` (paged, ADR-030),
+  `GET /api/v1/import-profiles/{profileKey}`, `PUT /api/v1/import-profiles/{profileKey}` (the whole
+  profile with `expectedVersion`), `DELETE /api/v1/import-profiles/{profileKey}?expectedVersion=`.
+  Instance-wide, not per workspace (D65). A profile answers with `key`, `name`, `version`,
+  `checkedAgainst` (the release it was checked against), `valid` and `problems` (each `{path, code,
+  message}`) when read under a newer active release, `createdAt`, `updatedAt` and its definition.
+  Refusals: `422 INVALID_IMPORT_PROFILE` with `details.problems` (every failing binding at its JSON
+  pointer, not only the first), `409 IMPORT_PROFILE_EXISTS`, `404 IMPORT_PROFILE_NOT_FOUND`,
+  `409 IMPORT_PROFILE_VERSION_CONFLICT` (with `details.currentVersion`).
+- **The profile** (D66), final for 0.10 A1:
+
+  ```json
+  {
+    "key": "supplier-codes",
+    "name": "Supplier codes",
+    "csv": { "delimiter": "," },
+    "sources": [
+      {
+        "sheet": "Codes",
+        "headerRow": 1,
+        "block": { "firstColumn": "A", "lastColumn": "H", "lastRow": null },
+        "applicationKey": "master",
+        "objectTypeKey": "master-value",
+        "record": "upsert",
+        "key": { "attributeTypeKey": "master-id" },
+        "columns": [
+          { "column": "Code", "attributeTypeKey": "value-code" },
+          { "column": "Name", "field": "name" },
+          { "column": "Order", "attributeTypeKey": "sort-order", "valueMap": "placeholders" },
+          { "column": "List", "parent": {
+              "objectTypeKey": "codelist", "matchBy": { "attributeTypeKey": "codelist-code" } } },
+          { "column": "Systems", "relation": {
+              "relationTypeKey": "system-value-maps-to-master", "direction": "incoming",
+              "objectTypeKey": "system-value", "matchBy": { "attributeTypeKey": "value-code" },
+              "split": ";", "replace": false } },
+          { "columns": ["Web", "Phone"], "relationFlags": {
+              "relationTypeKey": "…", "objectTypeKey": "…", "matchBy": { "field": "name" },
+              "targets": { "Web": "Web booking", "Phone": "Phone booking" },
+              "trueValues": ["x", "yes", "y", "true", "1"] } },
+          { "column": "Name (de)", "relatedRecord": {
+              "relationTypeKey": "object-has-translation", "applicationKey": "translations",
+              "objectTypeKey": "translation",
+              "parent": { "objectTypeKey": "translation-group",
+                          "matchBy": { "attributeTypeKey": "group-code" }, "value": "DE-MASTER" },
+              "attributeTypeKey": "translated-name" } },
+          { "column": "Comment", "ignore": true }
+        ]
+      }
+    ],
+    "valueMaps": { "placeholders": { "N/A": null, "-": null } }
+  }
+  ```
+
+  - A **source** loads one object type from a sheet (`sheet` omitted for CSV), with its header row
+    and an optional block. `key` is `{ "attributeTypeKey" }` (a unique attribute, D2), `{ "column" }`
+    (a column holding the public ID) or omitted (every row creates). `record: "existing"` finds the
+    row's record by its key and writes only its relationships and related records: the
+    row-per-language translation sheet and similar shapes. Columns the profile does not name are
+    ignored.
+  - **Bindings:** `field` (`name`), `attributeTypeKey`, `parent`, `relation` (`relationTypeKey`
+    and `direction` from the row's record, `outgoing` by default, as batch items name them),
+    `relationFlags` and `relatedRecord` (the same two), `ignore`. `matchBy` is `{ "field": "name" }`, `{ "field": "id" }` or `{ "attributeTypeKey" }`,
+    unique or not. `split` cuts a cell into several values; `valueMap` maps raw values first;
+    `value` in place of a column gives a fixed match (a related record's parent). `replace: true`
+    makes a relation column a `replaceRelationSet` instead of `ensureRelation` items.
+  - **`relatedRecord`** is the one binding behind the outline's translations and system mappings
+    (ADR-032, D70): a record of a named type under a matched parent, related to the row's record by
+    the named relation, with this column as one of its values (several columns may share one
+    related record by giving the same `relationTypeKey`, `objectTypeKey` and `parent`). The outline's
+    `translations` and `systemMapping` keys are not part of the contract; the 0.10 editor offers
+    them as patterns.
+- **`POST /api/v1/imports`** (under `INTEGRATION_JOBS_ENABLED`): `multipart/form-data` with a `file`
+  part and a `request` part (JSON) (D67). Answers `202` with the queued job (`kind: import`).
+
+  ```json
+  {
+    "workspaceKey": "main",
+    "changeSetId": null,
+    "expectedChangeSetVersion": null,
+    "profileKey": "supplier-codes",
+    "profile": null,
+    "format": null,
+    "policy": "independent",
+    "onExisting": "overwrite",
+    "stage": "execute"
+  }
+  ```
+
+  `profileKey` or an inline `profile` or neither (a JSON Lines file, or an export's table layout,
+  D71). `format` `xlsx`, `csv` or `jsonl`, otherwise from the file name (`.xls` is refused: convert
+  first, A-D4). `stage` accepts only `execute` until J3 adds `preview`. `Idempotency-Key` as on
+  batches (§P5): the fingerprint covers the request and the file's SHA-256, so a retry replays the
+  job and a different file under the same key is `409 IDEMPOTENCY_KEY_REUSED`.
+- **Refusals at the request**, before a job is stored: `413 IMPORT_TOO_LARGE` (`details.setting`
+  `IMPORT_MAX_BYTES`, `maximum`, `bytes`), `422 UNSUPPORTED_FILE_FORMAT`, `422 INVALID_IMPORT_PROFILE`
+  (an inline profile, or a stored one no longer valid against the active release, with its problems),
+  `404 IMPORT_PROFILE_NOT_FOUND`, the batch request's context codes (`WORKSPACE_NOT_FOUND`,
+  `CHANGE_SET_NOT_FOUND`, `CHANGE_SET_VERSION_CONFLICT`, …), `422 REQUEST_VALIDATION_ERROR`.
+- **The job.** `parameters` holds the request, the profile as used (its key and version, or the
+  inline one) and the file (`name`, `format`, `bytes`, `sha256`). `progress.total` is the number of
+  items once the file is bound, `null` before. A file that does not fit the profile fails the job
+  before any item runs: `IMPORT_FILE_MISMATCH` with `details.problems` (a missing sheet or column, a
+  header row past the end, at the profile's pointer) or `IMPORT_FILE_UNREADABLE` (not a workbook,
+  not UTF-8, a broken CSV quote at its line). `GET /jobs/{id}/items` as for batches: each item's
+  `ref` is `{sheet}!{row}` (`csv!{row}` for CSV, `jsonl!{line}`), and a binding refusal names the
+  column (`details.column`) (D72).
+- **New row codes:** `REFERENCE_AMBIGUOUS` (a match found several records: `details.count`,
+  `details.column`), `DUPLICATE_KEY_IN_FILE` (`details.rows`, D69), `REFERENCE_CYCLE` (rows of one
+  source whose parent columns form a cycle). Values that do not convert are the existing
+  `INVALID_ATTRIBUTE_VALUE` with `details.column`; a match with none is `REFERENCE_NOT_FOUND`.
+- **Settings:** `IMPORT_MAX_BYTES` (200 MB, D13), reported in `integrationJobs.limits`. A job's
+  items stay under `BACKGROUND_JOB_MAX_ITEMS` (`422 IMPORT_TOO_MANY_ITEMS` fails the job at binding).
+
+**Design.**
+
+- **Storage.** Revision after `20261007_05`: `import_profiles` (`key` unique, `name`, `version`,
+  `definition` JSON, `checked_release_id`, timestamps) and `import_rows`, a staging table per job
+  (`job_id`, `source_index`, `row_number`, `cells` JSONB, `record_id`, `error` JSONB), emptied when
+  the job's items are stored.
+- **Validation** (`engine/imports/profiles.py`, new): the profile's shape in Pydantic
+  (`models/imports.py`); its references against the model (types in the application, attributes
+  bound to the type, relations allowed between the types in that direction, `matchBy` attributes,
+  value maps named, sources ordered by their references with a cycle a problem) with one problem
+  per binding at its pointer, never only the first. Run at save, at read under a newer release, and
+  when an import starts.
+- **Reading** (`engine/imports/readers.py`): XLSX with openpyxl's read-only mode, cached values not
+  formulas (A-D10, D68); CSV with the standard library (UTF-8 with or without BOM, RFC 4180, the
+  profile's delimiter); JSON Lines line by line. A reader yields rows; nothing holds the file.
+  XLSX text decodes Excel's `_xHHHH_` escapes (TODO, from J1). The upload is written to
+  `{JOB_FILE_DIR}/{jobId}.source` while its checksum is computed, and removed with the job (D14).
+- **Rows to items, in the database** (AGENTS.md, D68). The worker streams rows: Python converts
+  each bound cell through the attribute registry (`engine/records/values.py`, one home for
+  conversion) and `COPY`s the rows into `import_rows`. Then set statements, per source in
+  reference order: the row's own record found by its key (existing in the context, through
+  `snapshot_reads` for a change set) or given a new ID (`gen_random_uuid()`); duplicate keys
+  (D69); every `matchBy` resolved against the context's records and the rows of earlier sources (so
+  a row can name a record the same file creates), with none or several recorded as the row's
+  error; a self-hierarchy's rows ordered by depth with a recursive CTE, a cycle marked; related
+  records found by D70's rule. Finally one `INSERT … SELECT` builds the items as JSON into
+  `job_inputs` (records as `upsert` keyed by `{id}`, references by `{id}`), in source order, then
+  depth, then row, and a rejected row's outcome straight into `job_items`. Python never holds the
+  set; statements per import do not grow with its rows (the `volume` check).
+- **Running.** The batch worker claims `import` jobs too (D73): bind (above), then the chunks as a
+  background batch's, through `batches.py` unchanged, with the audit cause `job`. Under `atomic`, a
+  row rejected at binding ends the job before any chunk: every other item `unprocessed` (D72). A
+  restart during binding rebinds from the stored file; after binding it resumes at the checkpoint.
+  `MODEL_RELEASE_CHANGED` and cancellation as for batches.
+- **The export's table layout** (D71): `applicationKey` joins the records table after
+  `objectTypeKey` (J1 amended: CSV and XLSX exports gain the column). Read without a profile, a
+  records row is an `upsert` by `{id}` with `expectedVersion` from `version` (empty `id`: a create
+  with a new ID), `#` columns as attributes, `~` columns ignored; a relationships row is an
+  `ensureRelation` with its version. A JSON Lines file is a background batch read from a file.
+- **Frontend:** none (J4).
+
+**Decisions** (for approval):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D64 | What J2 delivers that a user can see | **Accepted 2026-10-07 by the user.** **J2 delivers `POST /imports` with `stage: execute`; J3 adds `preview`, `awaiting_confirmation`, confirm, the binding report and `sample`.** The outline's J2 (profiles and readers) has no route that runs a file, so its journeys could only be tested by inspecting private item lists. Executing directly is §J1's `stage: execute`, already in the contract, and every binding is then tested by the records it writes. J3 adds the preview on top of the same binding step, and keeps its budgets |
+| D65 | Where profiles live | **Accepted 2026-10-07 by the user.** **Instance-wide, not per workspace (amends §J3's "per workspace").** A profile maps a file to the model, which is instance-wide (one active release); the import names the workspace. One supplier's profile then serves every workspace, and the 0.10 editor attaches profiles to model drafts, which are instance-wide too (A-D3) |
+| D66 | The profile's shape against the MODEL_AUTHORING outline | **Accepted 2026-10-07 by the user.** **As in the contract above.** Additions: `applicationKey` per source (a record belongs to one application), the three `key` forms, `record: "existing"` for sheets that only add to existing records, `block`, `trueValues` on flags (default `x`, `yes`, `y`, `true`, `1`, case-insensitive, and a boolean `TRUE` cell), fixed `value` matches. Removed: `translations` and `systemMapping`, which are `relatedRecord` (D70), and `modelReleaseKey`, which the engine records as `checkedAgainst` |
+| D67 | How the file is sent | **Accepted 2026-10-07 by the user.** **One `multipart/form-data` request (`file` and `request`), parsed by `python-multipart` (Apache-2.0, FastAPI's own choice), checked against OPEN_SOURCE before it is added.** It is spooled to disk while read, so 200 MB never sits in memory. The alternative, a separate upload resource (`POST /source-files`, MODEL_AUTHORING's 0.10 outline) and an import naming it, is two calls and a second retention rule for every client; 0.10 may add it beside |
+| D68 | XLSX reader and where rows become items | **Accepted 2026-10-07 by the user.** **openpyxl read-only (A-D10, MIT; moved from a test to a runtime dependency) for XLSX; conversion in Python while streaming, through the attribute registry; key, match and order resolution in PostgreSQL over a staging table, items built by `INSERT … SELECT`.** Reading a file and converting a cell are per-row by nature and the registry is the one conversion home; resolving keys and matches is set work (AGENTS.md). Records the file creates get their IDs at binding, so a name match can point at them; a record created by someone else between binding and its item is refused by the unique rule, never duplicated. openpyxl's speed is measured once in J3's 100,000-row budget |
+| D69 | A key repeated within a source | **Accepted 2026-10-07 by the user.** **Rows with one key and the same bound values are one record (its outcome on the first row, the others referring to it); rows with one key and differing values are all rejected `DUPLICATE_KEY_IN_FILE`, naming the rows.** Only the record's own fields (name, parent, attributes) must agree: relation and flag columns of the repeated rows add up, each row contributing its `ensureRelation` items (with `replace: true`, their union is the set), so a sheet with one row per relationship loads (added on acceptance, 2026-10-07). The first is the outline's "repeated parent" shape (a category on every row); the second is SC-10's duplicate business key. "Last row wins" would silently drop data |
+| D70 | How a related record is found | **Accepted 2026-10-07 by the user.** **The record of the named type, under the matched parent, related to the row's record by the named relation; created there when none, `REFERENCE_AMBIGUOUS` when several.** It needs no unique attribute (the starter's translations have none) and reads the model's scoping (`uniqueToAncestorTypeKey`) as it is. An optional `matchBy` on the related record narrows it where a relation may hold several (a system's values mapped to one master value) |
+| D71 | Reading an export's tables without a profile | **Accepted 2026-10-07 by the user.** **The records table gains `applicationKey` (amends D51 and J1's export, an added column), and an import reads the layout without a profile.** Without it a new row could not be created: a type may belong to several applications. Closes the TODO "J2 reads an export's CSV and XLSX table layout"; the CSV and XLSX round trip is tested here |
+| D72 | Rows rejected at binding, and naming a row | **Accepted 2026-10-07 by the user.** **A binding refusal is the row's outcome, recorded with the others; under `atomic` it ends the job before any item runs, under `independent` the other rows load. Items carry `ref` `{sheet}!{row}`, refusals `details.column`.** One outcome list for binding and execution; J3 pages it by row and reports a row as its worst item (§J3) |
+| D73 | Which worker runs imports | **Accepted 2026-10-07 by the user.** **The batch worker.** An import's execution is batch chunks; binding is its first step. A long binding makes a waiting batch wait, as a long batch does; exports keep their own worker (D53) |
+| D74 | Database-backed uniqueness (TODO, C-D24: "at the latest with the import") | **Accepted 2026-10-07 by the user.** **Not in J2: a package of its own, J2a, between J2 and J3.** Imports write through the batch rules under the workspace lock, so a duplicate is already refused; the hardening changes every write path and J3's budget should measure the path with it in place |
+
+**Journey.** J27 (exchange a supplier file) gains its import variants. USER_JOURNEYS (J27.7–J27.10)
+and API_JOURNEYS (the routes, the codes, `IMPORT_MAX_BYTES`) change with it:
+
+- **J27.7 Keep import profiles**: save, read, change under a version, delete; refused with every
+  problem at its path; read as no longer valid after a release changes what it names.
+- **J27.8 Load a file through a profile**: XLSX or CSV into live data or a change set; every binding
+  kind; references to records the file itself creates; row outcomes by sheet, row and column.
+- **J27.9 Load a file without a profile**: a JSON Lines batch file, or an export's CSV or XLSX
+  tables sent back (the round trip).
+- **J27.10 Rows that cannot load**: values that do not convert, missing and ambiguous matches,
+  duplicate keys, cycles; `independent` loads the rest, `atomic` nothing; a file that does not fit
+  the profile fails before anything is written.
+
+**Test cases** (journey tests on generated A and on the example or generated B, through the API,
+written first and confirmed failing):
+
+1. **Profiles.** Given a valid profile, it is created (`201`, version 1), read, changed with
+   `expectedVersion` 1 (version 2), refused at a stale version with `409
+   IMPORT_PROFILE_VERSION_CONFLICT`, and deleted. A profile naming an unknown attribute, a relation
+   the two types do not allow and two sources that reference each other is refused `422
+   INVALID_IMPORT_PROFILE` with three problems at their pointers. After a release removes an
+   attribute it binds, the profile reads `valid: false` with that path, and an import naming it is
+   refused with the same problem.
+2. **A workbook through a profile.** Given an XLSX with a sheet of `P` records and a sheet of `C`
+   records whose parent column names a `P` by a non-unique name (one created by the file, one
+   existing), with an integer, a date cell, an ISO date as text, a boolean, a `Bnn`-like relation
+   column split on `;` with a value map, two flag columns and a `relatedRecord` column (`Bown`'s
+   dependant under a `G` matched by name), when it is imported live under `independent`, then the
+   job completes and each record, value, parent, relationship and related record reads back through
+   the API as the file says; items carry `{sheet}!{row}`; the feed holds the changes with the job as
+   their cause.
+3. **The same content as CSV**, one source, gives the same records and the same outcome counts; into
+   a change set it changes only the change set.
+4. **Round trip without a profile.** A J1 export of two types with relationships as CSV and as XLSX,
+   sent back to the same workspace: every item `unchanged`. With one cell edited, one row added
+   without an ID and one record changed in the engine since: one `updated`, one `created`, one
+   `VERSION_CONFLICT`. A JSON Lines export sent as a file behaves as J27.3's batch.
+5. **Rows that cannot load (SC-10's file).** A file with a new value, an existing value, an invalid
+   number, two rows with one key and different names, a name matching two records and a name
+   matching none, under `independent` with `onExisting: overwrite`: the new one `created`, the
+   existing one `updated`, the others rejected `INVALID_ATTRIBUTE_VALUE` (with the column),
+   `DUPLICATE_KEY_IN_FILE` (both rows, naming each other), `REFERENCE_AMBIGUOUS` (count 2) and
+   `REFERENCE_NOT_FOUND`. Under `atomic`, nothing is written and every other item is `unprocessed`.
+   The same file sent again with the same `Idempotency-Key` replays the job; sent again without
+   one, every applied row answers `unchanged`.
+   Two rows with one key and equal values but different relation cells load as one record holding
+   both relationships.
+6. **Hierarchy within one sheet.** `H` rows whose parent column names rows below them load parents
+   first whatever the row order; three rows naming each other in a ring are rejected
+   `REFERENCE_CYCLE` and the rest load.
+7. **A file that does not fit.** A missing sheet and a missing column fail the job with
+   `IMPORT_FILE_MISMATCH` and both problems, writing nothing; a file that is not a workbook fails
+   `IMPORT_FILE_UNREADABLE`; an `.xls` file is `422 UNSUPPORTED_FILE_FORMAT` and a file over the
+   limit `413 IMPORT_TOO_LARGE`, neither storing a job; with `INTEGRATION_JOBS_ENABLED` off the
+   write routes are absent and profile reads still answer.
+
+Plus the migration checks (AGENTS.md): upgrade from `20261007_05`, two starts, an interrupted run
+recovering. Unit tests only where the edge cases are real: a cell of every value type from XLSX and
+from CSV text to its typed value (empty, whitespace, `_xHHHH_`, the 15-digit text numbers J1
+writes); `split`, value maps and `trueValues`; the profile's problems and source order (pairwise
+over binding kinds); the CSV dialect (BOM, delimiter, quotes across lines).
+
+**Checks.** The cases above, `--journey J27` (J1's export cases unchanged except the added column),
+`jobs`, `model` and `contract` as the guide selects them, `test_startup` for the migration,
+`test_openapi_contract` (re-baselined, difference stated), `ruff`. A `volume` test at 0.1 scale
+holding statements per import flat as rows grow. The full-size import budget is J3's. No frontend
+change. Not run: the full suites (R).
+
+**Docs at delivery.** API.md (profiles, imports, the codes, the export's `applicationKey`),
+INTEGRATION_API §J1–J3 amended by D64–D72 (§J3's profile final), MODEL_AUTHORING's outline pointing
+to §J3, OPERATIONS (`IMPORT_MAX_BYTES`, the stored upload), OPEN_SOURCE and LICENSING_TODO
+(`python-multipart`, openpyxl at runtime), USER_JOURNEYS, API_JOURNEYS, CURRENT_FUNCTIONALITY,
+PRODUCT, ACCEPTANCE_SCENARIOS (SC-10's status), USER_STORIES (US-I04, US-I07), CHANGELOG,
+PROJECT_STATUS, TODO (the table layout item closed; J2a added).
+
+**Composable domains (ADR-032):** inbound flow and identity are touched and stay open. The import
+is the file form of keyed inbound upsert (the door), through the batch path unchanged; upsert keys
+stay D2's public ID or one unique attribute, so a later retired-ID redirect applies to imports as to
+batches. Provenance: the job is each change's audit cause, and the profile's key is the natural
+source name for a later value-source field. Value types convert through the attribute registry.
+`relatedRecord` replaces the translation and system-mapping bindings with one generic binding. The
+`match` declaration and mapping coverage are untouched.
+
 #### J3: Import preview and execution
 
 **Design:** §J1. **Needs:** J2, B2.
@@ -6769,6 +7054,8 @@ on it).
 **Scope:** `POST /api/v1/imports` (multipart); validating, preview (rolled back, `complete` up to the
 preview limit, `sample` beyond), the binding report, `awaiting_confirmation`,
 `POST /jobs/{id}/confirm`, direct `execute`, row outcomes with sheet and row.
+_If D64 is accepted, `POST /imports`, direct `execute` and items named by sheet and row arrive with
+J2; J3 adds `stage: preview` and what follows from it, and pages outcomes by row._
 
 **Tests:** the preview changing nothing and predicting execution's codes when nothing changed
 between; SC-10's file (new value, existing value, invalid number, duplicate key) under both
