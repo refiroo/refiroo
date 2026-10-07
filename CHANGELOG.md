@@ -383,6 +383,10 @@ All notable changes to this project are documented in this file. The format foll
   change set list offers **Start from current live data** as the header does. In **Review changes**
   the kind of change is a pill (Added green, Changed grey, Removed red), a record shows its type's
   tile, and a relationship's two ends are chips in their types' colours.
+- Base 0.9 UA6 revision: the settings navigation's group headings are dark and bold, and their pages
+  hang one step in from a guide line, so headings and pages no longer look alike. In the 390px
+  drawer the navigation keeps the rail's inset and the headings their size (they took the dialog's
+  heading size and sat against the screen edge).
 - Base 0.9 UA6: the remaining surfaces in the Atlas look. The relation matrix, mapping grid and
   tree lens carry their row type's tile in the page header, as a collection does; a matrix cell's
   record and a mapping's targets (in the grid and in its dialog's **Currently**) are chips in their

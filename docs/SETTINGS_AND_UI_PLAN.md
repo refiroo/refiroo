@@ -1583,6 +1583,19 @@ its type's colour, pills only for states, panels on a card).
   lens, the move and restructuring dialogs and the settings pages. **Not run:** `test:a11y`,
   `test:visual` (UA7).
 
+#### UA6 revision: the settings navigation's groups (2026-10-07)
+
+Asked by the user: the group headings in the settings navigation looked like its pages (both grey,
+both at the rail's edge). Two variants were shown on the dev server; the user chose A. Headings are
+dark and bold (12px, 700, capitals), and the pages hang one step in from a 1px guide line
+(`--border-strong`), as nesting does in the record browser; framed groups (B) were not taken. Only
+the settings navigation changes; the application rail's **Collections** heading is as it was.
+Found on the way: in the 390px drawer the headings took the dialog's `h2` size and sat against the
+screen edge, since the drawer dropped the rail's padding assuming the dialog padded it, which it
+does not. The drawer now keeps the rail's inset. Checks: `Settings.test` and `app` (60 tests),
+`format`, `build`, `test:browser:settings` (10 checks, axe 0 violations). Screenshots at 1440px
+(light and dark) and 390px (drawer).
+
 ### Exit by 1.0
 
 - Every administrative, integration and security object a route manages has a settings page, and
