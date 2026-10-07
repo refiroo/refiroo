@@ -17,19 +17,7 @@ import { InlineAttributeEditor } from "./InlineAttributeEditor";
 import { useNavigationGuard } from "@/routing/navigationGuard";
 import { formatValue } from "@/ui/formatValue";
 import { Icon } from "@/ui/Icon";
-
-/**
- * Whether a field's pencil shows only on hover and focus ("hover") or faintly all the time
- * ("always"). Two variants for the user to pick on the dev server (UA4 revision); until then a
- * browser chooses with `localStorage.setItem("rdm:edit-hint", "always")`.
- */
-function editHint(): "hover" | "always" {
-  try {
-    return localStorage.getItem("rdm:edit-hint") === "always" ? "always" : "hover";
-  } catch {
-    return "hover";
-  }
-}
+import { readEditHint } from "@/lib/editHint";
 
 /** A field's value as the row shows it, telling not set, null and empty text apart. */
 function shownValue(stored: ObjectAttributeValue | undefined, computed: unknown, isComputed = false) {
@@ -112,7 +100,7 @@ export function AttributesPanel({
 
   return (
     <>
-      <dl className="attribute-grid" data-edit-hint={editHint()}>
+      <dl className="attribute-grid" data-edit-hint={readEditHint()}>
         {panel.config.fields.map((field) => {
           const binding = bindingMap.get(field);
           const attribute = model.attributeTypes.find((item) => item.key === field);

@@ -361,6 +361,13 @@ All notable changes to this project are documented in this file. The format foll
   shows with the row's hover or focus and always on touch, and removing still asks first. Saving
   stays explicit, a selected text is left for copying, and focus returns to the value after
   editing. Read-only fields and publications show plain values.
+- Base 0.9 UA4 revision: Settings › Appearance has **Type colours**: palette B (magenta and olive,
+  the default) or A (plum and gold) for the record type colours, saved in this browser.
+- Base 0.9 UA4 revision: Settings › Appearance has **Edit pencil**: a record's editable fields show
+  their pencil on hover and focus (the default) or faintly all the time, saved in this browser.
+- Base 0.9 UA4 revision: the top bar takes a way back (`TopBar`'s `back`), shown after the product
+  mark. Settings uses it: **Back to {application}** returns to the exact page Settings was opened
+  from, or to the home page when Settings was the first page opened.
 - Base 0.9 UA4 revision: the record's header shows its ID (the `id` the management and consumer
   APIs return) under the title, in monospace with a copy button (`ui/CopyValue`), in the inspector
   and on the full page.

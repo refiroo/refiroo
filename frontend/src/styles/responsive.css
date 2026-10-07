@@ -57,7 +57,7 @@
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     grid-template-areas:
-      "mark . actions"
+      "mark back actions"
       "apps apps apps";
     align-items: center;
     gap: 0 var(--space-3);
@@ -71,6 +71,13 @@
   .product-mark strong,
   .topbar-spacer {
     display: none;
+  }
+  .topbar-back {
+    grid-area: back;
+    justify-self: start;
+    min-height: 40px;
+    max-width: 100%;
+    min-width: 0;
   }
   .global-header > .topbar-actions {
     grid-area: actions;

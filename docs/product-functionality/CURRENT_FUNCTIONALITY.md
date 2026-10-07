@@ -351,7 +351,9 @@ Evidence: [WP9 authoring runner](../../frontend/e2e/wp9-authoring.mjs),
 The interface has a skip link, labelled regions, semantic tables and trees, visible focus, keyboard
 menus and shortcuts, managed dialog focus, dirty-input guards, narrow-screen navigation, light and dark
 mode, resizable panels and display preferences. Settings › **Appearance** sets the theme and the table
-density every table starts from; a view's own density choice overrides it. An automated accessibility gate (axe) and a visual
+density every table starts from; a view's own density choice overrides it. It also sets the palette
+of the record type colours (B, magenta and olive, or A, plum and gold) and when a record's editable
+fields show their pencil: on hover and focus (the default), or faintly all the time. An automated accessibility gate (axe) and a visual
 regression gate cover the main screens in both themes.
 
 Limits: no screen-reader user testing has been recorded.
@@ -377,6 +379,8 @@ Settings › **About** and **Deployment** show what the deployment runs and how 
 release and when it was activated, the database's migration revision, and every setting with its
 value, default, source and what it controls, beside the capability groups. Secrets read only as set
 or not set, and the database address without its password. Settings change only with a restart.
+Every settings page has **Back to {application}** in the top bar, which returns to the page Settings
+was opened from (or the home page when Settings was opened first).
 
 Evidence: [operations guide](../OPERATIONS.md), [application startup](../../backend/app/main.py),
 [settings catalogue](../../backend/app/config.py), [J31 journey tests](../../backend/tests/journeys/test_j31_system.py),

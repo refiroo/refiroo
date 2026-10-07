@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { codelistObject, domainObject, testModel } from "@/test/fixtures";
 import type { AttributesPanelDefinition } from "@/types";
 import { AttributesPanel } from "@/features/objects/panels/AttributesPanel";
+import { EDIT_HINT_STORAGE_KEY } from "@/lib/editHint";
 
 const panel: AttributesPanelDefinition = {
   key: "attributes",
@@ -96,6 +97,26 @@ describe("AttributesPanel", () => {
     window.getSelection()?.removeAllRanges();
     fireEvent.click(value);
     expect(screen.getByRole("form", { name: "Edit Code" })).toBeInTheDocument();
+  });
+
+  it("shows the pencil as chosen on Settings › Appearance", () => {
+    const stored = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => stored.get(key) ?? null,
+      setItem: (key: string, value: string) => stored.set(key, value),
+      removeItem: (key: string) => stored.delete(key),
+    });
+    try {
+      const props = { model: testModel, object: domainObject, panel, onObjectChanged: vi.fn(), onReload: vi.fn() };
+      const first = render(<AttributesPanel {...props} />);
+      expect(first.container.querySelector(".attribute-grid")).toHaveAttribute("data-edit-hint", "hover");
+      first.unmount();
+      stored.set(EDIT_HINT_STORAGE_KEY, JSON.stringify("always"));
+      const second = render(<AttributesPanel {...props} />);
+      expect(second.container.querySelector(".attribute-grid")).toHaveAttribute("data-edit-hint", "always");
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("does not offer mutations for a read-only binding", () => {

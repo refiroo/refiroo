@@ -14,6 +14,13 @@
       } catch {
         // Storage may be unavailable; the system theme applies.
       }
+      // The type palette likewise; see src/lib/palette.ts. B, the default, needs no attribute.
+      try {
+        if (JSON.parse(localStorage.getItem("rdm:palette:v1") || '"b"') === "a")
+          document.documentElement.dataset.palette = "a";
+      } catch {
+        // Storage may be unavailable; palette B applies.
+      }
     </script>
   </head>
   <body>

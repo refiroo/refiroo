@@ -79,10 +79,11 @@ try {
         `${suffix}: Settings is marked ${settingsCurrent}, a current tab ${appCurrent}`,
       );
       if (width === 1440) {
-        const mark = await page.locator(".product-mark").boundingBox();
+        // The tabs keep 36px from what stands before them: the mark, or Settings' way back (UA4 revision).
+        const before = await page.locator(".global-header > .topbar-back, .global-header > .product-mark").last().boundingBox();
         const tab = await tabs.first().boundingBox();
-        const gap = Math.round(tab.x - (mark.x + mark.width));
-        expect(gap === 36, `settings: the tabs start ${gap}px after the product name, not 36px`);
+        const gap = Math.round(tab.x - (before.x + before.width));
+        expect(gap === 36, `settings: the tabs start ${gap}px after the item before them, not 36px`);
       }
       expect(
         settingsBar.height === appBar.height,
@@ -91,6 +92,12 @@ try {
       expect((await page.getByRole("link", { name: "Back to applications" }).count()) === 0, "a second bar's Back");
       expect((await page.getByLabel("Current context").count()) === 0, "data-context band shown");
       expect((await page.getByRole("combobox", { name: "Workspace", exact: true }).count()) === 0, "switcher shown");
+      // Settings' way back names the application it was opened from and returns to that page.
+      const back = page.getByRole("banner").getByRole("link", { name: `Back to ${current}`, exact: true });
+      expect(
+        (await back.count()) === 1 && new URL(await back.getAttribute("href"), page.url()).href === from,
+        `${suffix}: Back does not return to ${from}`,
+      );
       await tabs.filter({ hasText: current }).click();
       await page.getByRole("button", { name: record, exact: true }).waitFor();
       expect(page.url() === from, `${suffix}: the tab returned to ${page.url()}, not ${from}`);
@@ -217,9 +224,12 @@ try {
   await page.evaluate(() => document.activeElement?.blur());
   const tabNames = await page.getByRole("navigation", { name: "Applications" }).getByRole("button").allInnerTexts();
   const productName = (await page.locator(".product-mark strong").innerText()).trim();
+  // Settings' way back to the page it was opened from sits after the mark (UA4 revision).
+  const backLabel = (await page.locator(".topbar-back").innerText()).trim();
   const expected = [
     "other:Skip to main content",
     `topbar:${productName} home`,
+    `topbar:${backLabel}`,
     ...tabNames.map((name) => `topbar:${name.trim()}`),
     "topbar:Settings",
     "topbar:Account",

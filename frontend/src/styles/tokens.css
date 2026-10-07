@@ -135,6 +135,20 @@
   --olive-dark-50: #252a12;
   --olive-dark-400: #9fb236;
   --olive-dark-100: #d2dc95;
+  /* Palette A's slots 3 and 4 (U-D13): the violet and amber families at shades unlike the
+     publication and change-set colours, chosen on Settings › Appearance (`data-palette="a"`). */
+  --plum-50: #f5e8f8;
+  --plum-500: #ac5cc0;
+  --plum-800: #7b2d8e;
+  --plum-dark-50: #2e1935;
+  --plum-dark-400: #bf78d2;
+  --plum-dark-100: #e3b8ee;
+  --gold-50: #faf1c8;
+  --gold-500: #a17f00;
+  --gold-800: #6a5200;
+  --gold-dark-50: #2c2510;
+  --gold-dark-400: #c9a21a;
+  --gold-dark-100: #ecd78a;
   --rose-50: #fde8ee;
   --rose-500: #dc4f7f;
   --rose-800: #a3254f;
@@ -495,6 +509,36 @@
     --status-draft-text: var(--night-700);
     --status-draft-marker: var(--night-500);
     --status-draft-line: var(--night-300);
+  }
+}
+
+/* Type palette A (U-D13, Settings › Appearance): slots 3 and 4 in plum and gold instead of B's
+   magenta and olive. The dark blocks are one step more specific than the light one, so a dark
+   theme keeps its dark shades; the bands follow the fills, being mixed from them. */
+:root[data-palette="a"] {
+  --hue-3-fill: var(--plum-50);
+  --hue-3-ink: var(--plum-800);
+  --hue-3-marker: var(--plum-500);
+  --hue-4-fill: var(--gold-50);
+  --hue-4-ink: var(--gold-800);
+  --hue-4-marker: var(--gold-500);
+}
+:root[data-palette="a"][data-theme="dark"] {
+  --hue-3-fill: var(--plum-dark-50);
+  --hue-3-ink: var(--plum-dark-100);
+  --hue-3-marker: var(--plum-dark-400);
+  --hue-4-fill: var(--gold-dark-50);
+  --hue-4-ink: var(--gold-dark-100);
+  --hue-4-marker: var(--gold-dark-400);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-palette="a"]:not([data-theme="light"]) {
+    --hue-3-fill: var(--plum-dark-50);
+    --hue-3-ink: var(--plum-dark-100);
+    --hue-3-marker: var(--plum-dark-400);
+    --hue-4-fill: var(--gold-dark-50);
+    --hue-4-ink: var(--gold-dark-100);
+    --hue-4-marker: var(--gold-dark-400);
   }
 }
 

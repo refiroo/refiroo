@@ -10,7 +10,7 @@ import { DeploymentPage } from "@/features/settings/DeploymentPage";
 import { ModelWorkbench } from "@/features/model-admin/ModelWorkbench";
 import { WorkspaceAdmin } from "@/features/workspaces/WorkspaceAdmin";
 import { applicationFor } from "@/model/lookup";
-import { defaultRoute, viewRoute } from "@/routing/routes";
+import { defaultRoute, routePath, viewRoute } from "@/routing/routes";
 import type { ApplicationDefinition, EngineModel, SettingsRoute } from "@/types";
 import { ToastProvider } from "@/ui/Toast";
 import { SettingsShell } from "./SettingsShell";
@@ -27,6 +27,15 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
         : (lastCollection(selected.key) ?? viewRoute(selected, selected.defaultView, workspaceKey)),
     );
   };
+  // Back returns to the page Settings was opened from: the last application page of the session, or
+  // the home page when Settings was the first page opened.
+  const returnRoute = lastApplicationRoute() ?? defaultRoute(model, workspaceKey);
+  const returnApplication = applicationFor(model, returnRoute.applicationKey);
+  const back = {
+    label: `Back to ${returnApplication?.name ?? "applications"}`,
+    href: routePath(returnRoute),
+    onNavigate: () => navigate(returnRoute),
+  };
   // A workspace opens in the application the user last worked in.
   const application = applicationFor(model, lastApplicationRoute()?.applicationKey ?? "") ?? model.applications[0];
 
@@ -38,6 +47,7 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
         onHome={() => navigate(defaultRoute(model, workspaceKey))}
         onSelectApplication={selectApplication}
         onNavigate={(next) => navigate(next)}
+        back={back}
       >
         {route.page === "about" ? (
           <AboutPage onNavigate={(next) => navigate(next)} />

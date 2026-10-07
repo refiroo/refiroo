@@ -55,6 +55,16 @@ records leaving a filter's scope documented (C-D112–C-D114). **U3 is delivered
 Settings area and `GET /api/v1/system` ([record](SETTINGS_AND_UI_PLAN.md#u3-delivery-record)), revised the same day.
 Next: UA, the Atlas redesign (ADR-040), before U4 and U5. See [Next — 0.9](#next--09).
 
+- **Rework the type palettes so A and B differ visibly (the user, 2026-10-07).** A and B differ
+  only in slots 3 and 4 (magenta and olive against plum and gold), and side by side the user could
+  not tell them apart: in the operators model only Master values, Resources, Regions, Roles and the
+  RDM Translations tile change, and pink against purple, olive against gold, read as near shades.
+  Rework them into two palettes a person tells apart at a glance, keeping what both must hold: eight
+  hues distinguishable from each other and from the Live, change-set and publication colours (green,
+  amber, violet; ADR-040), ink at 4.5:1 on its fill and the page, markers at 3:1, in light and dark
+  (`tokens.test.ts`). Show both on the real app for the user to judge (Settings › Appearance › Type
+  colours switches them). Where: `styles/tokens.css`, palette section of
+  [SETTINGS_AND_UI_PLAN](SETTINGS_AND_UI_PLAN.md#type-palettes-a-and-b).
 - **For UA0 (2026-10-06): the user's check on the dev server.** The popover click and the
   workspace switcher are fixed ([record](SETTINGS_AND_UI_PLAN.md#ua0-record-2026-10-06)); UA0 is
   done when the user has seen the settings navigation and the application tabs respond to the
@@ -64,7 +74,7 @@ Next: UA, the Atlas redesign (ADR-040), before U4 and U5. See [Next — 0.9](#ne
   "lets a reload replace cells re-read after earlier saves" (once in U3's parallel `vitest related`;
   30 repeats under load passed in UA0). `test:browser:a4` timed out once waiting for the cell dialog
   to reopen after an unlink (`a4-relation-matrix.mjs` line 383) and passed on the rerun.
-  `test:browser` failed once with a timeout whose step was not captured, then passed twice.
+  `test:browser` failed once with a timeout whose step was not captured, then passed twice. _UA4 revision (2026-10-07):_ `RelationMatrixView.test` failed once more in a full run ("creates a record from an empty cell…": the row named Connections not found) and passed alone.
 - **For the user to place, from C12 (2026-10-06): an outbound proxy for webhooks.** The dispatcher
   connects to receivers directly (C-D107); a deployment that reaches the internet only through an
   HTTPS proxy cannot deliver. Adding one means connecting through the proxy while keeping the
@@ -88,9 +98,6 @@ Next: UA, the Atlas redesign (ADR-040), before U4 and U5. See [Next — 0.9](#ne
   there, both at the change-set call site (`:383`); the UA2 revision's one run failed there too.
   _UA4 (2026-10-07):_ the one run failed there again (`:383`). _UA4 revision, record ID
   (2026-10-07):_ failed once at the live call site (`:263`), passed on the next run.
-- **For the UA4 revision (2026-10-07): the user's pick of the pencil variant.** `AttributesPanel`
-  reads `localStorage["rdm:edit-hint"]` (`always`: the pencil faint at rest; otherwise only on hover
-  and focus). Once the user picks, keep that one and remove the switch and the other variant's CSS.
 - **From the UA4 revision (2026-10-07): a column header's accessible name includes its resize
   handle** ("Path Resize Path column"), in every `ui/DataTable` table and in the collection tables
   before it. Naming the header with `aria-label` fixes the name but makes every header match a

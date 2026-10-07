@@ -5,6 +5,8 @@ import { testModel } from "@/test/fixtures";
 import { SettingsShell } from "@/app/SettingsShell";
 import { AboutPage } from "@/features/settings/AboutPage";
 import { AppearancePage } from "@/features/settings/AppearancePage";
+import { EDIT_HINT_STORAGE_KEY } from "@/lib/editHint";
+import { PALETTE_STORAGE_KEY, resetPalettePreference } from "@/lib/palette";
 import { DeploymentPage } from "@/features/settings/DeploymentPage";
 import { TABLE_DENSITY_STORAGE_KEY } from "@/lib/tableDensity";
 import { resetThemePreference, THEME_STORAGE_KEY } from "@/lib/theme";
@@ -71,7 +73,7 @@ afterEach(() => {
 });
 
 describe("SettingsShell", () => {
-  function renderShell(onNavigate = vi.fn(), onSelectApplication = vi.fn(), onHome = vi.fn()) {
+  function renderShell(onNavigate = vi.fn(), onSelectApplication = vi.fn(), onHome = vi.fn(), onBack = vi.fn()) {
     render(
       <SettingsShell
         model={testModel}
@@ -79,12 +81,25 @@ describe("SettingsShell", () => {
         onHome={onHome}
         onSelectApplication={onSelectApplication}
         onNavigate={onNavigate}
+        back={{
+          label: "Back to Test App",
+          href: "/apps/test-app/views/domains?workspaceKey=default",
+          onNavigate: onBack,
+        }}
       >
         <p>Page</p>
       </SettingsShell>,
     );
-    return { onNavigate, onSelectApplication, onHome };
+    return { onNavigate, onSelectApplication, onHome, onBack };
   }
+
+  it("offers the way back to the page Settings was opened from in the top bar", () => {
+    const { onBack } = renderShell();
+    const back = within(screen.getByRole("banner")).getByRole("link", { name: "Back to Test App" });
+    expect(back).toHaveAttribute("href", "/apps/test-app/views/domains?workspaceKey=default");
+    fireEvent.click(back);
+    expect(onBack).toHaveBeenCalled();
+  });
 
   it("lists the built pages by group and marks the current one", () => {
     const { onNavigate } = renderShell();
@@ -220,5 +235,26 @@ describe("Appearance", () => {
     fireEvent.click(within(density).getByRole("radio", { name: "Compact" }));
     expect(stored.get(TABLE_DENSITY_STORAGE_KEY)).toBe('"compact"');
     expect(screen.getByText(/saved in this browser/)).toBeInTheDocument();
+  });
+
+  it("switches the type palette and saves it (UA4 revision)", () => {
+    resetPalettePreference();
+    render(<AppearancePage />);
+    const palette = screen.getByRole("group", { name: "Type colours" });
+    expect(within(palette).getByRole("radio", { name: "B: magenta and olive" })).toBeChecked();
+    fireEvent.click(within(palette).getByRole("radio", { name: "A: plum and gold" }));
+    expect(stored.get(PALETTE_STORAGE_KEY)).toBe('"a"');
+    expect(document.documentElement.dataset.palette).toBe("a");
+    fireEvent.click(within(palette).getByRole("radio", { name: "B: magenta and olive" }));
+    expect(document.documentElement.dataset.palette).toBeUndefined();
+    resetPalettePreference();
+  });
+
+  it("writes when editable fields show their pencil (UA4 revision)", () => {
+    render(<AppearancePage />);
+    const hint = screen.getByRole("group", { name: "Edit pencil" });
+    expect(within(hint).getByRole("radio", { name: "On hover and focus" })).toBeChecked();
+    fireEvent.click(within(hint).getByRole("radio", { name: "Always, faintly" }));
+    expect(stored.get(EDIT_HINT_STORAGE_KEY)).toBe('"always"');
   });
 });

@@ -908,14 +908,12 @@ rose, coral, cyan, slate) are the same in both.
 | 3 | plum | magenta |
 | 4 | gold | olive |
 
-**To switch,** in `frontend/src/styles/tokens.css`:
-1. Replace the twelve primitives after `--blue-…` (the slot-3 and slot-4 families) with the other
-   palette's twelve below.
-2. In the three places that map the slots (the light `:root` block, `:root[data-theme="dark"]` and
-   the `prefers-color-scheme: dark` block), rename the family in the `--hue-3-*` and `--hue-4-*`
-   lines: `magenta` ↔ `plum` and `olive` ↔ `gold` (light uses `-50`, `-800`, `-500`; dark uses
-   `-dark-50`, `-dark-100`, `-dark-400`).
-3. Run `npx vitest run src/styles/tokens.test.ts` (contrast and the two dark blocks).
+**To switch** (since the UA4 revision, 2026-10-07): Settings › Appearance › **Type colours**, saved
+in this browser (`lib/palette`, `rdm:palette:v1`, applied before the first paint by `index.html`).
+Both palettes are in `tokens.css`: B is the default mapping, and A is an override on
+`:root[data-palette="a"]` with its own dark blocks, one step more specific than the light one. The
+contrast test checks A in light and dark as it does B, and its two dark blocks for sameness. To make
+A the default for everyone, swap which family the base blocks and the override name.
 
 Palette A (commit `226beb2`):
 
@@ -1404,9 +1402,13 @@ variants of the pencil to pick from on the dev server.
   focus, always on touch (`hover: none`), hidden while another field is edited; required fields have
   none; the confirmation is unchanged. On phones it keeps the row's top right with a 40px target.
 - **Read-only** (a publication, a read-only binding, a computed field) shows the plain value.
-- **Two variants (U-D: the user's pick):** the pencil only on hover and focus (in the code), or faint
-  at rest (`localStorage.setItem("rdm:edit-hint", "always")` in the browser, then reload). TODO holds
-  removing the switch once picked.
+- **Two variants, both kept (decided by the user, 2026-10-07):** the pencil only on hover and focus,
+  or faint at rest. Recommended: hover and focus, since whether a field can be edited follows the
+  context (Live, a change set, a publication) more than the field, so a mark on every row says
+  little and costs calm. The user kept both as a choice: Settings › Appearance › **Edit pencil**
+  (**On hover and focus**, the default, or **Always, faintly**), saved in this browser
+  (`lib/editHint`, `rdm:edit-hint:v1`), as the table density is. `Settings.test` writes it;
+  `AttributesPanel.test` shows the panel following it. `test:browser:settings` (10 checks) passed.
 - **Tests.** `AttributesPanel.test`: on two record types, a value opens its editor and focus returns
   to it after Escape; an empty field adds; only an optional field has Remove, which asks first; a
   click that selected the value's text does not open the editor. `ObjectDetail.test` follows the new
@@ -1427,6 +1429,38 @@ variants of the pencil to pick from on the dev server.
   from; the API returns all 6,993 stored values exactly). `ObjectDetail.test`: the ID shows and
   copies. Checks: 29 files, 276 tests; `format`, `lint`, `build`; `test:browser` failed once at the
   known record return (TODO) and passed on the next run.
+
+#### UA4 revision: the top bar's way back (2026-10-07)
+
+Asked by the user: a back button in the top bar for Settings, returning to the page Settings was
+opened from, built into the one top bar so other areas can use it later.
+
+- **`TopBar`'s `back`** (`TopBarBack`: label, address, action) draws a quiet link with an arrow after
+  the product mark (`.topbar-back`); the bar knows nothing else about it. On phones it takes the
+  first row's middle, between the mark and Settings.
+- **Settings** passes **Back to {application}** to `SettingsShell`: the router's last application
+  route of the session (`lastApplicationRoute`, which settings pages never replace), so moving
+  between settings pages keeps the target; opened first, it is the home route. Checked on the dev
+  server at 1440 and 390px: from a record, into Settings, to Appearance, Back returns to the same
+  record address.
+- **The 36px rule** (UA0, the user's) now reads: the tabs start 36px after the item before them,
+  the mark or the way back. `u3-settings.mjs` measures it so, has the link in the keyboard order
+  after the mark, and checks that Back names the application and leads to the exact page it left.
+- **Tests.** `Settings.test`: the shell's Back link carries its address and acts. `vitest run`
+  over `ui`, `features`, `lib`, `app`: 38 files, 368 tests. `format`, `lint` (0 errors), `build`;
+  `test:browser:settings` (10 checks) passed.
+
+#### UA4 revision: the type palette in Settings (2026-10-07)
+
+Asked by the user: switch between palettes A and B from Settings › Appearance instead of editing the
+tokens. **Type colours** offers **B: magenta and olive** (the default) and **A: plum and gold**; A
+sets `data-palette="a"`, which remaps slots 3 and 4 in light and dark; the bands follow the fills.
+The plum and gold primitives are back in the tokens (from `226beb2`). `tokens.test.ts` covers A in
+both themes (11 tests); `Settings.test` switches and saves it. Checked on the dev server: the
+Translations tile (slot 3) turns plum at once, the choice survives a reload, and dark mode takes the
+dark shades. `vitest` over `features`, `app`, `ui`, `lib`, `styles`: 380 tests, one known
+intermittent `RelationMatrixView.test` failure (TODO; passed alone, 14 of 14). `format`, `lint`,
+`build`, `test:browser:settings` (10 checks) passed.
 
 ### Exit by 1.0
 

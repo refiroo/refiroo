@@ -12,7 +12,7 @@ import { routePath } from "@/routing/routes";
 import type { ApplicationDefinition, EngineModel, RouteState, SettingsPage } from "@/types";
 import { RouteLink } from "@/ui/RouteLink";
 import { ShellFrame } from "./ShellFrame";
-import { TopBar } from "./TopBar";
+import { TopBar, type TopBarBack } from "./TopBar";
 
 export function SettingsShell({
   model,
@@ -20,6 +20,7 @@ export function SettingsShell({
   onHome,
   onSelectApplication,
   onNavigate,
+  back,
   children,
 }: {
   model: EngineModel;
@@ -27,6 +28,8 @@ export function SettingsShell({
   onHome: () => void;
   onSelectApplication: (application: ApplicationDefinition) => void;
   onNavigate: (route: RouteState) => void;
+  /** Back to the page the user opened Settings from. */
+  back: TopBarBack;
   children: ReactNode;
 }) {
   const current = SETTINGS_NAVIGATION.flatMap((group) => group.pages).find((item) => item.page === page);
@@ -36,6 +39,7 @@ export function SettingsShell({
         <TopBar
           model={model}
           inSettings
+          back={back}
           onHome={onHome}
           onSelectApplication={onSelectApplication}
           onNavigate={onNavigate}

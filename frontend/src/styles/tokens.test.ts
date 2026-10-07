@@ -30,7 +30,19 @@ function block(selector: string, from = 0): Map<string, string> {
 const light = block(":root");
 const darkExplicit = block(':root[data-theme="dark"]');
 const darkSystem = block(':root:not([data-theme="light"])', css.indexOf("@media (prefers-color-scheme: dark)"));
-const themes = { light, dark: new Map([...light, ...darkExplicit]) };
+const paletteA = block(':root[data-palette="a"]');
+const paletteADark = block(':root[data-palette="a"][data-theme="dark"]');
+const paletteADarkSystem = block(
+  ':root[data-palette="a"]:not([data-theme="light"])',
+  css.indexOf('@media (prefers-color-scheme: dark) {\n  :root[data-palette="a"]'),
+);
+const themes = {
+  light,
+  dark: new Map([...light, ...darkExplicit]),
+  // Palette A (U-D13): its slots 3 and 4 over each theme.
+  "palette A light": new Map([...light, ...paletteA]),
+  "palette A dark": new Map([...light, ...darkExplicit, ...paletteA, ...paletteADark]),
+};
 
 function resolve(theme: Map<string, string>, name: string, seen: string[] = []): string {
   const value = theme.get(name);
@@ -156,9 +168,15 @@ describe("design tokens", () => {
     expect([...darkSystem.entries()]).toEqual([...darkExplicit.entries()]);
   });
 
+  it("defines palette A's dark slots identically for the explicit choice and the system preference", () => {
+    expect([...paletteADarkSystem.entries()]).toEqual([...paletteADark.entries()]);
+  });
+
   it("redefines only semantic roles in dark mode", () => {
     const primitives = [...darkExplicit.keys()].filter((name) =>
-      /^(neutral|night|indigo|green|amber|violet|red|teal|blue|magenta|olive|rose|coral|cyan|slate)-/.test(name),
+      /^(neutral|night|indigo|green|amber|violet|red|teal|blue|magenta|olive|plum|gold|rose|coral|cyan|slate)-/.test(
+        name,
+      ),
     );
     expect(primitives).toEqual([]);
   });
