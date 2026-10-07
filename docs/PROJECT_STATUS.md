@@ -297,8 +297,10 @@ Deliveries tabs; revised the same day with resending an event by hand (C-D129–
 the object or the notification only, in RDM JSON or CloudEvents 1.0; the coalesced mode is retired
 (revision `20261007_03`, C-D120–C-D128); screenshots await approval
 ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#c17-record-2026-10-07)). Next is **J1, export jobs**
-([plan](BASE_0_9_IMPLEMENTATION_PLAN.md#j1-plan-2026-10-07)), planned 2026-10-07: D49, D50, D53 and D54 accepted,
-D51, D52, D55, D56 and its test cases awaiting the user's approval; then
+([plan](BASE_0_9_IMPLEMENTATION_PLAN.md#j1-plan-2026-10-07)), planned 2026-10-07: D49, D50, D52–D55 accepted,
+the formats JSON Lines, CSV and XLSX decided, D51's table layout, D56 and its test cases awaiting
+the user's approval; then **J1u**, export in the UI with notifications pushed over a per-job event
+stream (outline); then
 J2–J4 (import), Track K and R.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).

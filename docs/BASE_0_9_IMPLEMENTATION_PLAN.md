@@ -244,10 +244,11 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 27c | [UA](SETTINGS_AND_UI_PLAN.md#ua-the-atlas-redesign) | U3 | The Atlas redesign of every surface (ADR-040, U-D12, U-D13), each surface approved by the user from screenshots; today's design tagged `ui-before-atlas`. Comes before U4 and U5 by the user's choice (2026-10-06); folds in U6 — **implemented 2026-10-06–07** (UA0–UA7 and their revisions), screenshots awaiting the user's approval, UA0 the user's check on the dev server ([records](SETTINGS_AND_UI_PLAN.md#ua0-record-2026-10-06)) |
 | 27d | [C17](#c17-webhook-delivery-choices-batching-payload-and-cloudevents) | U5a | Webhook delivery choices: one event per request or batched, with the object or notification only, RDM JSON or CloudEvents; `coalesced` retired (C-D120–C-D128) — **implemented 2026-10-07**, screenshots await approval ([record](#c17-record-2026-10-07)) |
 | — | _cut line (D9)_ | | _If R is out of reach, 0.9.0 releases here with R-a and Track J moves to 0.9.1_ |
-| 28 | [J1](#j1-export) | Q3, Q4, B2, F1 | Export jobs |
+| 28 | [J1](#j1-export) | Q3, Q4, B2, F1 | Export jobs: JSON Lines, CSV and XLSX, one snapshot, the manifest on the job ([plan](#j1-plan-2026-10-07)) |
+| 28a | [J1u](#j1u-export-in-the-ui-and-job-notifications-outline) | J1 | Export in the UI: the dialog, the job page, notifications pushed over a per-job event stream — **added 2026-10-07**, outline |
 | 29 | [J2](#j2-import-profiles-and-file-reading) | B3 | Import profiles, XLSX/CSV/JSON Lines reading, rows to items |
 | 30 | [J3](#j3-import-preview-and-execution) | J2, B2 | Import preview, confirm, execute |
-| 31 | [J4](#j4-import-screen-and-sc-10) | J1, J3, F2 | The SC-10 screen and SC-10 acceptance |
+| 31 | [J4](#j4-import-screen-and-sc-10) | J1u, J3, F2 | The SC-10 screen and SC-10 acceptance |
 | 31a | [Track K](#track-k--bulk-selection-and-editing-in-collections) | J4, UA | Bulk selection and bulk edits in collections over `POST /batches`; packages K1–K5 planned in detail when the track starts — **added 2026-10-06** |
 | 32 | [R](#r-build-acceptance-and-release) | all | Build acceptance and release |
 
@@ -297,8 +298,8 @@ Track C:  C1 ─ C2 ─┬─ C3 ───────────────�
                    ├─ C16                          needs Q4
                    └─ C9 ─ C10 ─ C11 ─ C12 ─ C13   C10 needs F2
           ── cut line (D9) ──
-Track J:  J1                                       needs Q3, Q4, B2, F1
-          B3 ─ J2 ─ J3 ─ J4                        J3 needs B2; J4 needs J1, F2
+Track J:  J1 ─ J1u                                 J1 needs Q3, Q4, B2, F1
+          B3 ─ J2 ─ J3 ─ J4                        J3 needs B2; J4 needs J1u, F2
 Track K:  J4, UA ─ K1 ─ K2 ─ K3                    K4 and K5 as decided in K1's planning
 Release:  Q2, T1, C8, C13, C16, V2, J4 → R          (R-a without J at the cut line)
 ```
@@ -6103,8 +6104,11 @@ all `unchanged`; cancelled and failed exports with no output.
 
 ##### J1 plan (2026-10-07)
 
-**Planned 2026-10-07. D49, D50, D53 (revised: a worker of its own for exports) and D54 accepted by
-the user the same day; D51, D52, D55, D56 and the test cases await approval.** Checked
+**Planned 2026-10-07. D49, D50, D52, D53 (revised: a worker of its own for exports), D54 and D55
+accepted by the user the same day. D51 revised after the user's review: the formats are JSON Lines,
+CSV and XLSX (the user's decision), with one table layout for CSV and XLSX; its layout, D56 and the
+test cases await approval. The UI to start an export and follow it is a package of its own,
+[J1u](#j1u-export-in-the-ui-and-job-notifications-outline), before J4.** Checked
 against the code at `6053996`: the job table, the worker (`engine/jobs/worker.py`, which today runs
 batch chunks only), the model query's builders (`engine/reads/model_query.py`, `object_query.py`,
 `snapshot_reads.py`), the feed floor (`engine/reads/feed.py`), `begin_snapshot_read` and the
@@ -6112,13 +6116,15 @@ batch chunks only), the model query's builders (`engine/reads/model_query.py`, `
 
 **Behaviour.** An integrator asks for an export of a stated scope of one workspace: live data, one
 change set or one publication; one or several object types, each with its own criteria, optionally
-only below one record, optionally on a business date; with or without relationships; as JSON Lines
-or CSV. The export runs in the background as a job. When it completes, the job states what the file
+only below one record, optionally on a business date; with or without relationships; as JSON Lines,
+CSV or XLSX. The export runs in the background as a job. When it completes, the job states what the file
 holds (counts per type, context, the feed position it was read at, release, format, size, SHA-256)
 and the file is downloaded from the job. Everything in the file was read at one instant, so a live
 export is a baseline: the integrator follows the feed from the export's position and misses nothing.
 A JSON Lines export sent back as a batch to the same workspace changes nothing (every item
-`unchanged`). A cancelled or failed export has no file.
+`unchanged`); CSV and XLSX share one table layout that J2's import reads back the same way. Every
+record carries its version, so an edited file re-imported updates only the rows nobody changed
+since the export. A cancelled or failed export has no file.
 
 **Contract.**
 
@@ -6148,7 +6154,7 @@ A JSON Lines export sent back as a batch to the same workspace changes nothing (
     any depth. `asOf` (D50) dates the types that declare an effective period.
   - `include.relations` (D50): `none`, `withinScope` (default: both ends exported) or `all` (every
     non-containment relationship of an exported record).
-  - `format`: `jsonl` or `csv`.
+  - `format`: `jsonl`, `csv` or `xlsx`.
   - No `Idempotency-Key`: an export writes no data, and a repeated request only makes a second job.
 - **Refusals at the request**, checked before the job is stored, with JSON pointers into the body:
   `422 INVALID_QUERY` (an unknown type, field, operator or binding, `details.path`
@@ -6157,31 +6163,53 @@ A JSON Lines export sent back as a batch to the same workspace changes nothing (
   `404 WORKSPACE_NOT_FOUND`, `404 CHANGE_SET_NOT_FOUND`, `404 PUBLICATION_NOT_FOUND`,
   `422 REQUEST_VALIDATION_ERROR` (shape, both context IDs, a type listed twice).
 - **The job.** `GET /jobs/{id}` as today. An export job adds `output` once completed (D52):
-  `{ "format", "contentType", "files": [ { "name", "objectTypeKey" | "relationTypeKey", "count" } ],
-  "counts": { "records": { "<type>": n }, "relations": { "<relation type>": n } }, "context": {
+  `{ "format", "contentType", "counts": { "records": { "<type>": n }, "relations": { "<relation type>": n } }, "context": {
   "workspaceKey", "changeSetId", "changeSetVersion", "publicationId" }, "feedPosition", "asOf",
   "asOfApplied", "modelReleaseId", "bytes", "sha256" }`. `progress.total` is the number of records
   and relationships in scope, counted in the snapshot; `processed` rises as they are written.
   `result` stays `null` for an export (its values describe item outcomes). `parameters` holds the
   request's `scope`, `include` and `format`.
 - **`GET /api/v1/jobs/{id}/output`** serves the file: `application/x-ndjson`, `text/csv` or
-  `application/zip`, with `Content-Disposition` (`export-{jobId}.jsonl|csv|zip`), `ETag` and
+  `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`, with `Content-Disposition`
+  (`export-{jobId}.jsonl|csv|xlsx`), `ETag` and
   `Repr-Digest: sha-256=:…:` (RFC 9530) from the stored checksum. Refusals: `404 JOB_NOT_FOUND`,
   `404 JOB_HAS_NO_OUTPUT` (a batch), `409 JOB_NOT_COMPLETED` (queued, running, failed or cancelled;
   `details.state`), `410 JOB_EXPIRED`, `410 JOB_OUTPUT_MISSING` (the file is gone from
   `JOB_FILE_DIR`: run the export again; the operator message names the setting).
 - **JSON Lines** (D49): one batch item per line. Records first, as `upsert` items keyed by
-  `{ "id": … }` with `objectTypeKey`, `applicationKey`, `name`, `parent: { "id": … }`, `attributes`
+  `{ "id": … }` with `objectTypeKey`, `applicationKey`, `name`, `parent: { "id": … }`, `expectedVersion`
+  (the record's version in the snapshot, D49), `attributes`
   (values in their declared types, absent values left out) and, for each required binding into the
   record's type, `initialRelations`. Then relationships as `ensureRelation` items (`relationTypeKey`,
   `from`, `to` by ID, `attributes`). Order: records by containment depth, then the model's type
   order, then ID; relationships by type, then ID. The same data gives the same bytes and checksum.
-- **CSV** (D51): one file per object type (`{objectTypeKey}.csv`: `id`, `name`, `parentObjectId`,
-  then one column per attribute the type binds, in binding order) and per relation type
-  (`relations/{relationTypeKey}.csv`: `id`, `fromId`, `toId`, its attributes). One file is served as
-  is; several are a ZIP. UTF-8 without BOM, RFC 4180, comma; a value in the API's canonical text
-  (dates ISO 8601, decimals as the API writes them, booleans `true`/`false`, a JSON value as JSON
-  text); an empty cell is no value.
+- **The table layout** (D51), shared by CSV and XLSX. One table of records and one of
+  relationships. Columns are keys, never labels:
+  - **Records:** `objectTypeKey`, `id`, `version`, `name`, `parentObjectId`, then one `#{attributeTypeKey}`
+    column per attribute type any exported type binds, in the model's order. Attribute types are
+    global (one meaning and value type in every row), so a cell is empty where the row's type does
+    not bind that attribute or the record has no value. The `#` keeps an attribute whose key is
+    `name` or `id` apart from the built-in columns (the model reserves no attribute keys).
+  - **Relationships:** `relationTypeKey`, `id`, `fromId`, `toId`, then `#{attributeTypeKey}` per
+    attribute any exported relation binding carries.
+  - **Orientation columns**, ignored on import, prefixed `~`: `~parentPath` on records;
+    `~fromName`, `~fromObjectTypeKey`, `~toName`, `~toObjectTypeKey` on relationships.
+  - Rows in the JSON Lines order.
+- **CSV:** both tables in one file, records first: the union of their columns, a row being a record
+  when `objectTypeKey` is filled and a relationship when `relationTypeKey` is. UTF-8 with a BOM (so
+  Excel reads the characters), RFC 4180, comma. A value in the API's canonical text (dates ISO 8601,
+  decimals as the API writes them, booleans `true`/`false`, a JSON value as JSON text); an empty
+  cell is no value. Values are not altered against spreadsheet formula injection: the file is data
+  and keeps it exactly (OPERATIONS says so).
+- **XLSX:** a sheet `Records` and a sheet `Relationships`, each one named Excel table (`records`,
+  `relationships`) whose header row is the keys, with a row of readable labels (the model's names)
+  above the table, outside it. Cells are typed: text as text (so `007` stays `007`), integers and
+  decimals as numbers, booleans as booleans, dates as date cells, a JSON value as JSON text. A
+  number Excel cannot hold exactly (more than 15 significant digits) is written as text in its
+  canonical form, so a machine reader can trust every value. Data validation lists for
+  `objectTypeKey`, `relationTypeKey`, boolean columns and attributes with allowed values, from a
+  hidden sheet `Lists`. No import settings, manifest or user lists in the workbook (D52). A table
+  past Excel's 1,048,576 rows continues on `Records 2` (table `records_2`) and so on.
 - **The feed's `410 FEED_POSITION_EXPIRED`** gains `details.export: { "href": "/api/v1/exports" }`
   beside `publication` (D41, additive). The floor is unchanged (D54).
 - **Settings:** `JOB_FILE_DIR` (D55). No new limit: an export is a read and streams to disk; its size
@@ -6212,8 +6240,10 @@ A JSON Lines export sent back as a batch to the same workspace changes nothing (
   through the model query's builders (the same `ObjectQuery` and `SetFilter`s, so `where`,
   `ancestor:`, `related` and `asOf` select the same records in every context) and builds each line
   in the database: `json_build_object` with attributes aggregated through `rdm_value_json`, read
-  with a server-side cursor; CSV through `COPY (SELECT …) TO STDOUT (FORMAT csv, HEADER)`. Python
-  writes the bytes, counts and hashes; it never holds the set. Change sets and publications read
+  with a server-side cursor; CSV through `COPY (SELECT …) TO STDOUT (FORMAT csv)`; XLSX rows
+  selected and encoded the same way and written by XlsxWriter (BSD, checked against OPEN_SOURCE
+  before it is added) in its constant-memory mode. Python writes the bytes and cells, counts and
+  hashes; it never holds the set. Change sets and publications read
   through `snapshot_reads` like every other context read.
 - **Files.** Written to `{JOB_FILE_DIR}/{jobId}.partial`, then renamed with the extension once the
   checksum is stored in the same commit as `completed`. A cancel, a failure or a restart deletes the
@@ -6225,20 +6255,20 @@ A JSON Lines export sent back as a batch to the same workspace changes nothing (
 
 | # | Question | Recommendation |
 | --- | --- | --- |
-| D49 | What a JSON Lines line is | **Accepted 2026-10-07 by the user.** **`upsert` by `{id}` and `ensureRelation`, not §J4's `create` and `createRelation`.** A `create` of an existing record is refused, so §J4's file could not be re-imported as the package's own test requires and §J2 promises ("an export re-imports as upserts"). Required relationships also ride on the upsert as `initialRelations` (used only on create), so a record that requires one can be created from the file. **Limit:** object IDs are unique across the instance, so the file loads into the same workspace or another instance, not into a second workspace of the same instance; copying a workspace is a different feature. Relationship IDs are not carried (§J4: no versions or history) |
+| D49 | What a JSON Lines line is | **Accepted 2026-10-07 by the user.** **`upsert` by `{id}` and `ensureRelation`, not §J4's `create` and `createRelation`.** A `create` of an existing record is refused, so §J4's file could not be re-imported as the package's own test requires and §J2 promises ("an export re-imports as upserts"). Required relationships also ride on the upsert as `initialRelations` (used only on create), so a record that requires one can be created from the file. **Limit:** object IDs are unique across the instance, so the file loads into the same workspace or another instance, not into a second workspace of the same instance; copying a workspace is a different feature. Relationship IDs are not carried. **Amended 2026-10-07 by the user: each record carries its version** (`expectedVersion` on the upsert line, a `version` column in the tables), so a re-imported edited file updates the rows nobody changed since the export and refuses only a row changed in the engine meanwhile (`VERSION_CONFLICT`), instead of needing `onExisting: overwrite`; an unchanged row stays `unchanged`, decided before the version (D24). §J4's "versions are not carried" is amended; history still is not |
 | D50 | The scope's shape | **Accepted 2026-10-07 by the user.** **`where` per type; `parentObjectId` and `asOf` shared; `include.relations` `none` / `withinScope` (default) / `all`.** §J4 names types, `where` and `asOf` without saying which type a criterion is for; Q3's criteria belong to one type. `asOf` follows the consumer API (C-D76–C-D80): types without a period are exported undated, the manifest names the dated ones (`asOfApplied`), and only a scope with no dated type is refused. `all` can name records outside the file; a re-import then needs them present (`REFERENCE_NOT_FOUND` otherwise) |
-| D51 | The CSV layout | **One file per object type and per relation type; plain CSV for one file, a ZIP for several.** Relation attributes differ per relation type, so one relationship file would need every type's columns. Field keys as headers, IDs for parents and ends (§J4); the values' canonical text as the API writes them |
-| D52 | Where the manifest lives | **On the job only (`output`), with the checksum also in `Repr-Digest` and `ETag`.** A manifest line would make a JSON Lines file no longer a list of batch items, and a manifest only in a ZIP would differ by format. One home, read before downloading |
+| D51 | Formats and the table layout | **Formats JSON Lines, CSV and XLSX: decided by the user 2026-10-07** (XLSX is a machine format as much as a human one). **Layout, recommended:** one table layout for CSV and XLSX as in the contract above: a records table and a relationships table keyed by column keys, attribute columns `#{attributeTypeKey}` (attribute types are global, so one column means one thing in every row), orientation columns `~…` ignored on import, the record's `version` (D49); CSV both tables in one file, XLSX two named tables with typed cells. The first recommendation (a file per type, a ZIP) is withdrawn: it rested on attributes differing per type, which the global attribute types rule out. §J4's "one file per type (a ZIP when several)" is amended. The source system's export (reviewed 2026-10-07) also keeps every type in one sheet, relationships in another with orientation columns |
+| D52 | Where the manifest lives | **Accepted 2026-10-07 by the user.** **On the job only (`output`), with the checksum also in `Repr-Digest` and `ETag`.** A manifest line would make a JSON Lines file no longer a list of batch items, and a manifest only in a ZIP would differ by format. One home, read before downloading |
 | D53 | One snapshot for a long export | **Accepted 2026-10-07 by the user, revised: exports run on a worker of their own.** **One read-only `REPEATABLE READ` transaction for the whole export, restarted whole after a crash; no chunked resume.** Resuming a file across transactions would need an exported snapshot kept open across processes, which a crash loses anyway. **Exports get their own worker thread**, claiming only exports while the existing worker claims batches, so neither kind waits behind the other; the lease already supports several workers (B2). **Cost:** one thread, and two database connections while an export runs (the snapshot and the short cancel and progress checks), well within SQLAlchemy's default pool. Exports wait for each other. A long-open snapshot holds back PostgreSQL's cleanup of rows changed meanwhile until the export ends; not noticeable at the expected duration (measured by D56), noted in OPERATIONS |
 | D54 | D40 revisited: does a workspace without a publication keep every entry? | **Accepted 2026-10-07 by the user.** **Yes, keep D40.** The audit log is not pruned (F5), so letting entries expire there saves nothing and only takes away a reader's incremental catch-up; the export is offered beside the publication in the `410` (D41). The floor stays as it is |
-| D55 | `JOB_FILE_DIR` | **Default `var/job-files` under the project root, created at start; a start with jobs enabled and the directory not writable is refused with the path and the setting's name.** Reported by `GET /capabilities` as present, never as a path. 0.11's several nodes need shared storage behind it (D12) |
-| D56 | The budget's size | **The fixture's whole live workspace, 258,000 records and their relationships, to JSON Lines and to CSV, measured once and announced.** The 110,000 in this package's outline predates 0.8 A2 (TODO). Target: under 60 s each, memory flat (no set held in Python). A `volume` test at 0.1 scale holds statements and time per run |
+| D55 | `JOB_FILE_DIR` | **Accepted 2026-10-07 by the user.** **Default `var/job-files` under the project root (used when the setting is not set), created at start; a start with jobs enabled and the directory not writable is refused with the path and the setting's name.** Reported by `GET /capabilities` as present, never as a path. 0.11's several nodes need shared storage behind it (D12) |
+| D56 | The budget's size | **The fixture's whole live workspace, 258,000 records and their relationships, to JSON Lines, CSV and XLSX, measured once and announced.** The 110,000 in this package's outline predates 0.8 A2 (TODO). Target: under 60 s each, memory flat (no set held in Python). A `volume` test at 0.1 scale holds statements and time per run |
 
 **Journey.** J27 (exchange a supplier file) gains its export variants; USER_JOURNEYS and API_JOURNEYS
 (the two routes, the codes, `JOB_FILE_DIR`) change with it:
 
 - **J27.1 Export a stated scope**: live, change set or publication; types with criteria, a subtree,
-  a date; with or without relationships; JSON Lines or CSV.
+  a date; with or without relationships; JSON Lines, CSV or XLSX.
 - **J27.2 The export as a baseline**: a live export names the feed position it was read at; the
   reader follows the feed from there and ends with live data.
 - **J27.3 Round trip**: a JSON Lines export sent back as a batch changes nothing.
@@ -6268,9 +6298,12 @@ written first and confirmed failing):
 5. **Round trip.** The JSON Lines output of case 1, sent as `POST /batches` (background,
    `independent`, `onExisting: overwrite`) to the same workspace: every item `applied` with action
    `unchanged`; the feed head does not move.
-6. **CSV.** One type without relations is `text/csv` with the header `id,name,parentObjectId,…`
-   in binding order and typed values in canonical text; two types with relations are a ZIP with one
-   file per type and per relation type and the same counts as the JSON Lines export.
+6. **CSV and XLSX.** An export of two types with relationships as CSV is one file whose header is
+   the layout's keys (`objectTypeKey`, `id`, `version`, `name`, `parentObjectId`, `#…`,
+   `relationTypeKey`, `fromId`, `toId`, `~…`), records then relationships, typed values in canonical
+   text; as XLSX, the `records` and `relationships` tables hold the same rows, with a code `007`
+   as text, a date as a date cell and an integer as a number. Both match the JSON Lines export's
+   counts and versions.
 7. **No partial output.** A cancelled export answers `409 JOB_NOT_COMPLETED` on its output and leaves
    no file; an export whose release changes before it runs fails `MODEL_RELEASE_CHANGED` with no
    output; an expired export answers `410 JOB_EXPIRED` and its file is gone; a batch job's output is
@@ -6281,8 +6314,8 @@ written first and confirmed failing):
 
 Plus the migration checks (AGENTS.md): upgrade from `20261007_03`, two starts, an interrupted run
 recovering, and the start refused with an unwritable `JOB_FILE_DIR`. Unit tests only where the edge
-cases are real: the record order (depth, type order, self-hierarchies), and the CSV text of every
-value type, nulls and quoting.
+cases are real: the record order (depth, type order, self-hierarchies), the CSV text and the XLSX
+cell of every value type (nulls, quoting, the 15-digit rule).
 
 **Checks.** The cases above, `--journey J27` and `--journey J26` (the `410` details), `jobs`,
 `queries` and `feed` as the guide selects them, `test_startup` for the migration and the directory,
@@ -6291,13 +6324,48 @@ the full-size budget (D56) once, announced with its expected time and run only o
 frontend change. Not run: the full suites (R).
 
 **Docs at delivery.** API.md (exports, the output route, the job's `output`, the `410` field),
-INTEGRATION_API §J4 and §F5 amended by D49–D54, OPERATIONS (`JOB_FILE_DIR`, disk use, the snapshot's
+INTEGRATION_API §J2 (the layout J2 reads), §J4 and §F5 amended by D49–D54, OPERATIONS (`JOB_FILE_DIR`, disk use, the snapshot's
 cost), USER_JOURNEYS, API_JOURNEYS, CURRENT_FUNCTIONALITY, PRODUCT, ACCEPTANCE_SCENARIOS (SC-10's
 export sentence), USER_STORIES (US-I08), CHANGELOG, PROJECT_STATUS, TODO (the 110,000 item closed).
 
 **Composable domains (ADR-032):** a bulk read beside the bulk APIs; identity, attribute storage,
 audit, the `match` declaration and mapping coverage are untouched, so no door is affected. The
 export carries no domain concept: scope, items and files are the engine's generic ones.
+
+#### J1u: Export in the UI and job notifications (outline)
+
+**Added 2026-10-07 by the user**, while planning J1. An outline, planned in detail with its journeys,
+screens and decisions when it is next. **Needs:** J1. J4 reuses its job page and notifications.
+
+**Behaviour.** From a collection or the workspace, a user opens an export dialog (context, types,
+criteria, subtree, date, relationships, format) and starts the export. A notification says it has
+started. When the job finishes, a notification says so, with a link to the job's page and, for a
+completed export, a link that downloads the file. A failed or cancelled job's notification links to
+the job page, which shows the error (the user, 2026-10-07; errors stay off toasts, U3). The job page
+shows state, progress, the manifest (D52), the download and any error; Settings › Integration ›
+Jobs and feed links each job to it.
+
+**Notifications are pushed, never polled (the user, 2026-10-07).**
+
+- `GET /api/v1/jobs/{jobId}/events`: a server-sent event stream for one job. It sends the job's
+  current state at once, then each change (running, progress, finished), sends the final state and
+  ends. A job already finished answers with its final state and ends. A public route like any
+  other, so a script can follow a job as the UI does.
+- Inside the engine, a job's state change sends a PostgreSQL `NOTIFY` in the transaction that
+  commits it, so only committed changes are announced; each process listens on one connection and
+  passes events to its open streams. It works unchanged with several nodes (0.11), which share the
+  database.
+- The browser opens a stream when it starts a job and remembers the jobs it started in that tab, so
+  a reload reopens their streams. A closed browser receives nothing; the job page and the jobs list
+  still show the result.
+- One connection per running job: past about five at once from one tab, HTTP/1.1's six connections
+  per site make later streams wait; HTTP/2 lifts it. Proxies must not buffer the stream (OPERATIONS).
+
+**Also:** toasts that can carry links (`ui/Toast` takes text only today); the job page in the
+accessibility and visual gates, light and dark.
+
+**Not in J1u:** notifications to a closed browser (Web Push, which sends through the browser
+vendor's service), and per-person notifications, which need the users of 0.12.
 
 #### J2: Import profiles and file reading
 
@@ -6341,7 +6409,7 @@ policies; an interrupted import resumed and retried with its idempotency key cre
 
 #### J4: Import screen and SC-10
 
-**Design:** §J5. **Needs:** J1, J3, F2.
+**Design:** §J5. **Needs:** J1u (its job page and notifications), J3, F2.
 
 **Scope:** the minimal import screen from the workspace (choose a file and a profile, preview,
 counts, binding report, rejected rows paged, confirm or cancel, result); SC-10 end to end; the screen
@@ -6488,10 +6556,12 @@ D31–D34 raised by F1 (2026-10-03), D35–D39 raised by B3 (2026-10-03), and D4
 | D46 | Index the attribute values or store a sort key per record (Base 0.8 D26)? | **Approved 2026-10-04 (C3a).** Index the values now; 0.8 D26's stored key stays after 0.9 for few distinct values and deep positions | Q, C |
 | D47 | Which contexts C3a's sort covers | **Approved 2026-10-04 (C3a).** Live only; change sets and publications are a task of C6. _Amended 2026-10-05 by C-D67 (C6a):_ publications gained it; change sets stay as they are (TODO) | C |
 | D48 | Which lists C3a's sort covers | **Approved 2026-10-04 (C3a).** The shared live attribute sort (consumer lists and the management per-type list); not the `ancestor:<type>` sort | Q, C |
-| D49 | What a JSON Lines export line is | **Accepted 2026-10-07 by the user (J1).** `upsert` items keyed by `{id}` (required relationships also as `initialRelations`), then `ensureRelation` items, instead of §J4's `create` and `createRelation`, so a re-import changes nothing. The file loads into the same workspace or another instance, not a second workspace of the same instance (object IDs are instance-wide) | J |
+| D49 | What a JSON Lines export line is | **Accepted 2026-10-07 by the user (J1).** `upsert` items keyed by `{id}` (required relationships also as `initialRelations`), then `ensureRelation` items, instead of §J4's `create` and `createRelation`, so a re-import changes nothing. Each record line carries its version as `expectedVersion` (amended the same day by the user), so an edited file updates only rows nobody changed since the export. The file loads into the same workspace or another instance, not a second workspace of the same instance (object IDs are instance-wide) | J |
 | D50 | The export scope's shape | **Accepted 2026-10-07 by the user (J1).** `where` per type; `parentObjectId` and `asOf` shared, `asOf` dating only the types with a period (as C-D76–C-D80, named in `asOfApplied`) and refused only when none has one; `include.relations` `none`, `withinScope` (default) or `all` | J |
+| D52 | Where an export's manifest lives | **Accepted 2026-10-07 by the user (J1).** On the job only (`output`), never in the file; the checksum also in `Repr-Digest` and `ETag` on the download | J |
 | D53 | One snapshot for a long export | **Accepted 2026-10-07 by the user (J1), revised the same day.** One read-only `REPEATABLE READ` transaction per export, restarted whole after a crash; cancel, lease and progress through a second short session. Exports run on a worker thread of their own, so batches and exports never wait for each other | J |
 | D54 | D40 revisited after the export | **Accepted 2026-10-07 by the user (J1).** D40 stays: a workspace without a publication keeps every feed entry, since the audit log is not pruned; the `410` names the export beside the publication (D41) | F, J |
+| D55 | `JOB_FILE_DIR` | **Accepted 2026-10-07 by the user (J1).** Without the setting the engine uses `var/job-files` under the project root, created at start; with jobs enabled, a directory that cannot be written refuses the start, naming the path and the setting | J |
 
 ## Next
 
