@@ -244,6 +244,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 27b | [U3](SETTINGS_AND_UI_PLAN.md#u3-the-settings-area) | U2 | Settings area: About, Appearance, Deployment (read-only, U-D2), Workspaces and Model moved; `GET /api/v1/system` (U-D10, U-D11) — **delivered 2026-10-06** ([record](SETTINGS_AND_UI_PLAN.md#u3-delivery-record); [revised the same day](SETTINGS_AND_UI_PLAN.md#u3-revisions-after-delivery-2026-10-06)) |
 | 27c | [UA](SETTINGS_AND_UI_PLAN.md#ua-the-atlas-redesign) | U3 | The Atlas redesign of every surface (ADR-040, U-D12, U-D13), each surface approved by the user from screenshots; today's design tagged `ui-before-atlas`. Comes before U4 and U5 by the user's choice (2026-10-06); folds in U6 — **implemented 2026-10-06–07** (UA0–UA7 and their revisions), approved by the user 2026-10-07 ([records](SETTINGS_AND_UI_PLAN.md#ua0-record-2026-10-06)) |
 | 27d | [C17](#c17-webhook-delivery-choices-batching-payload-and-cloudevents) | U5a | Webhook delivery choices: one event per request or batched, with the object or notification only, RDM JSON or CloudEvents; `coalesced` retired (C-D120–C-D128) — **implemented 2026-10-07**, screenshots approved by the user 2026-10-07 ([record](#c17-record-2026-10-07)) |
+| 27e | [C18](#c18-the-consumer-api-definition-written-for-readers) | C17, U5a | The consumer API definition written for readers: schema 0.9 syntax (listed operations, `exposes`, `fields`, `related` by `via`, `filters`, defaults), the expanded read, the two models converted; nothing a consumer sees changes (C-D132–C-D141) — **planned 2026-10-07** ([plan](#c18-plan-2026-10-07)); independent of Track J |
 | — | _cut line (D9)_ | | _If R is out of reach, 0.9.0 releases here with R-a and Track J moves to 0.9.1_ |
 | 28 | [J1](#j1-export) | Q3, Q4, B2, F1 | Export jobs: JSON Lines, CSV and XLSX, one snapshot, the manifest on the job (D49–D56) — **delivered 2026-10-07** ([record](#j1-record-2026-10-07)) |
 | 28a | [J1u](#j1u-export-in-the-ui-and-job-notifications-outline) | J1 | Export in the UI: the dialog, the job page, notifications pushed over a per-job event stream (D57–D63) — **delivered 2026-10-07**, screenshots approved by the user ([record](#j1u-record-2026-10-07)) |
@@ -300,6 +301,7 @@ Track C:  C1 ─ C2 ─┬─ C3 ───────────────�
                    │   C3, C4, F1 ─ C6 ─┴─ C8
                    ├─ C16                          needs Q4
                    └─ C9 ─ C10 ─ C11 ─ C12 ─ C13   C10 needs F2
+          C17, U5a ─ C18                          the definition syntax (schema 0.9)
           ── cut line (D9) ──
 Track J:  J1 ─ J1u                                 J1 needs Q3, Q4, B2, F1
           B3 ─ J2 ─ J2a ─ J3 ─ J4                  J3 needs B2; J4 needs J1u, F2; J2a if D74
@@ -5971,6 +5973,241 @@ an opened event whose request body is the batched array).
   `lint` (0 errors, the 7 recorded warnings), `build`. Browser: `test:browser:webhooks` (19 checks,
   axe 0 violations on the list, detail, deliveries and dialog, light and dark), the record-link
   step included. Not run: the full suites (R).
+
+#### C18: The consumer API definition written for readers
+
+**Design:** CONSUMER_API "Definition shape" (replaced by this package), C-D2, C-D60, C-D132–C-D141.
+**Needs:** C17, U5a.
+
+##### C18 plan (2026-10-07)
+
+**Planned 2026-10-07. C-D132–C-D141 decided or approved by the user the same day.**
+Checked against the code at `1e8d3ea`.
+
+**Why.** Today a `consumerApis` entry is organised around the engine's internal parts (roles, projections,
+match weights, parameter kinds). A reader can't tell from it which operations the API offers, what an
+operation returns or which filters apply. It also says one fact several times: the operators model's
+definition is 1,113 lines, with 18 `publicName` entries that are the key in PascalCase, 18 identical
+`<type>-changed` events, and the eight code attributes repeated in `object.code`, `match.own` and the
+parameters' `matchFields`. Every link between the model and the routes lives in the docs and the engine.
+This package gives the same capabilities a syntax organised by what a reader asks: what is exposed,
+which operations exist, what an object looks like, how it is found, how it is filtered, what changes
+are announced.
+
+**Behaviour.** For an API that offers all its operations, **nothing a consumer sees changes**: routes,
+bodies, headers, error codes, scoring, ordering, paging, events and webhooks all stay as they are. What
+changes:
+
+- **Model authors** write `consumerApis` in schema 0.9 (the new syntax). A new schema-0.8 document
+  that declares `consumerApis` is refused at install and draft compile, and the refusal names schema
+  0.9. Installed 0.8 releases are immutable and stay readable as stored (C-D134).
+- **A definition lists its operations.** An operation it does not list does not exist (C-D132).
+- **Integrators and the UI** can read a definition fully expanded, with every default written out
+  (C-D137).
+
+**Same responses (the user's condition, 2026-10-07).** Every consumer API response body, header
+name, status and error code stays the same. Only two values change, once, when the converted model
+is activated. They change because it is a new model release (a release's content cannot change
+under the same version), not because of the syntax, and any model release changes them the same
+way: the `ETag` values, which include the release (C-D65), and the release name and version in the
+per-definition OpenAPI's `info.description`. Reads pinned to an older publication keep their
+release and their tags.
+
+**Contract.**
+
+- Consumer API: `404 OPERATION_NOT_OFFERED` (naming the operation) on the `objects`, `xref` or
+  `resolve` route of a definition that does not list it. An API without `events` keeps today's
+  `404 EVENTS_NOT_DECLARED`, and an unlisted list keeps today's unknown-list `404`. The per-definition
+  OpenAPI leaves out the paths of operations not offered. The API index is unchanged.
+- Management API: `GET /api/v1/model/consumer-apis/{consumerApi}`, the expanded definition of the
+  context's model, with the model's ETag (as `/model/placements`). Model install and draft compile
+  refuse a schema-0.8 document with `consumerApis` (`422`, `UNSUPPORTED_SCHEMA_VERSION` at
+  `/schemaVersion`, the message naming schema 0.9 and CONSUMER_API "Definition shape"). OpenAPI lock re-baselined.
+- Model contract (C-D2): no longer offering an operation is a breaking change that needs a new
+  `contractVersion`; offering one more is compatible.
+
+**The syntax (schema 0.9).** The 0.8 → 0.9 mapping, complete (every field of today's
+`ConsumerApiDefinition`):
+
+| Schema 0.8 | Schema 0.9 |
+| --- | --- |
+| `key`, `name`, `description`, `contractVersion` | unchanged |
+| `objectTypes: {type: {publicName}}` | `exposes: [type, …]` + `publicNames: {type: name}` for names that are not the key in PascalCase (C-D136) |
+| `object.id/code/name/active/validFrom/validTo` (`output`, `source`, `default`) + `object.attributes` | `object.fields: {output: …}`, in output order: a string (one source), a list (sources, first non-empty) or `{from, default, role, description}`; `role` is `id`, `code`, `name`, `active`, `validFrom` or `validTo`, and role fields come first, in that order (C-D140). `{ "role": "id" }` reads `id` |
+| `object.parent: {output, fields}` | `object.parent: [fields]` (output `parent`) or `{output, fields}` |
+| `object.path`, `object.hierarchy` (output name) | `true` (output `path` / `hierarchy`) or the output name |
+| `projections: {name: {from: {relation, direction}, fields}}` | `object.related: {name: {via, fields, description}}`; `via` is the relation's `key` for `outgoing` and its `reverseKey` for `incoming`; `fields` unchanged (`ancestor:`, `objectType`) |
+| `match` absent | no `matchOn` under `operations.xref` (XREF offered, finds nothing, as today) |
+| `match.own: [{field, exact, contains}]` | `operations.xref.matchOn: […]`; `field: "code"` stands for one rule per source of the `code` field, with the same weights, in place (C-D135) |
+| `match.promoted: [{projection, firstMatch, preferTargetTypes}]` | `operations.xref.alsoMatchThrough: [{related, firstOf, preferTypes}]` |
+| `parameters: {name: {kind: objectType}}` | `filters: {name: {byType: true}}` |
+| `{kind: ancestor, objectTypes, matchFields}` | `{under: [types], matchOn}`; `matchOn` defaults to `id`, the `code` field's sources the types bind, and `name` (C-D135, C-D136) |
+| `{kind: related, objectTypes, matchFields, via}` | `{linkedTo: [types], through, matchOn}`; `through` items `itself`, a related name, `sharedWith:<related>`; same `matchOn` default |
+| `{kind: projection, projection, matchFields, requireMatch, scoresFrom, targetable}` | `{onRelated, matchOn, keepOnlyMatching, scoreOnlyMatching, crosswalk}`; `matchOn` is required and keeps today's references (fields of the related records, `ancestor:`) |
+| `lists: [{key, objectType, parentParameter: {name, objectTypes}, sortBy}]` | `operations.lists: {key: {of, within: {filter, types}, sortBy, description}}`; `within.types` defaults to the named filter's types when it is an `under` filter (C-D136) |
+| `events: [{key, objectTypes, changes, watch}]` | `operations.events: {perType, custom: […]}`; `perType: true` declares `<type>-changed` for each exposed type, in `exposes` order, with `created`, `updated`, `deleted` and no `watch`, before `custom` (C-D136) |
+| (all operations always on) | `operations.objects`, `.xref`, `.resolve`, `.lists`, `.events`: listed means offered (C-D132); `resolve` needs `objects` and `xref` |
+| (none) | an optional `description` on operations, lists, filters, related blocks and fields, carried into the OpenAPI (C-D139) |
+
+The starter's `rdm` in schema 0.9 (today 157 lines in 0.8):
+
+```jsonc
+{
+  "key": "rdm", "name": "RDM API", "description": "…", "contractVersion": 1,
+  "exposes": ["domain", "codelist", "master-value"],
+  "publicNames": { "master-value": "CodelistValue" },
+  "object": {
+    "fields": {
+      "id":          { "role": "id" },
+      "code":        { "role": "code", "from": ["value-code", "codelist-code", "domain-code"] },
+      "name":        { "role": "name", "from": "name" },
+      "isActive":    { "role": "active", "from": "active", "default": true },
+      "validFrom":   { "role": "validFrom", "from": "valid-from" },
+      "validTo":     { "role": "validTo", "from": "valid-to" },
+      "description": "description",
+      "masterId":    "master-id",
+      "valueName":   "value-name",
+      "sortOrder":   "sort-order"
+    },
+    "parent": ["objectType", "id", "code", "name"],
+    "path": true,
+    "related": {
+      "systemVariants": { "via": "master-value-represented-by-system-value",
+        "fields": { "system": "ancestor:system.name", "systemCode": "ancestor:system.system-code", "value": "name",
+                    "valueCode": "value-code", "valueName": "value-name", "externalId": "external-id", "isActive": "active" } },
+      "translations":   { "via": "object-has-translation",
+        "fields": { "languageCode": "ancestor:language.language-code", "languageName": "ancestor:language.name",
+                    "translatedName": "translated-name", "translatedValue": "translated-value", "isActive": "active" } }
+    }
+  },
+  "operations": {
+    "objects": {},
+    "xref": {
+      "matchOn": [
+        { "field": "id", "exact": 1000 }, { "field": "master-id", "exact": 900 },
+        { "field": "code", "exact": 500, "contains": 40 },
+        { "field": "name", "exact": 200, "contains": 30 }, { "field": "value-name", "exact": 200, "contains": 30 }
+      ],
+      "alsoMatchThrough": [
+        { "related": "systemVariants", "firstOf": [
+            { "field": "external-id", "exact": 90 }, { "field": "value-code", "exact": 80 },
+            { "field": "name", "exact": 75 }, { "field": "value-name", "exact": 75 },
+            { "field": "value-code", "contains": 10 }, { "field": "name", "contains": 10 } ] },
+        { "related": "translations", "firstOf": [
+            { "field": "translated-name", "exact": 60 }, { "field": "translated-name", "contains": 12 } ] }
+      ]
+    },
+    "resolve": {},
+    "lists": {
+      "domains":   { "of": "domain" },
+      "codelists": { "of": "codelist", "within": { "filter": "domain" } },
+      "values":    { "of": "master-value", "within": { "filter": "codelist" }, "sortBy": "sort-order" }
+    },
+    "events": {
+      "custom": [ { "key": "values-changed", "objectTypes": ["master-value"], "changes": ["created", "updated", "deleted"],
+                    "watch": { "fields": ["code", "name", "isActive", "validFrom", "validTo"] } } ]
+    }
+  },
+  "filters": {
+    "domain":   { "under": ["domain"] },
+    "codelist": { "under": ["codelist"] }
+  }
+}
+```
+
+**Design.**
+
+- **One internal form, unchanged readers.** Today's `ConsumerApiDefinition` classes become the
+  engine's internal (compiled) form, gaining only the set of offered operations. Every reader (the
+  reads, XREF, resolve, events, the deriver, the dispatcher, subscription rules, the contract check,
+  the OpenAPI builder, the reference sources) keeps working on that form. The 15 places that read
+  `model.consumerApis` go through one accessor that returns the compiled definitions of the snapshot,
+  compiled once with it. The router checks the offered operation, and the OpenAPI builder and the
+  index read it. No query, statement or ordering changes.
+- **Two readers of documents, one to write.** A schema-0.9 document's `consumerApis` is parsed in the
+  new syntax and expanded into the internal form. A schema-0.8 document's is read as today, in a
+  module beside `legacy.py`, and gets all operations offered (today's behaviour). Install and draft
+  compile refuse 0.8 with `consumerApis`; loading a stored release, activation of an installed release
+  and publication reads (C-D60) never do (C-D134). The canonical document and `modelHash` are the
+  authored document, so `GET /model` returns what the author wrote, in either schema.
+- **Validation** runs the existing rules on the expanded form. Expansion keeps the authored pointer of
+  every node, so each diagnostic points into the authored 0.9 document with today's codes, worded in
+  the new vocabulary (C-D141). Checks of the syntax itself come first: exactly one of `byType`, `under`,
+  `linkedTo`, `onRelated`; a `via` that is neither a relation's `key` nor its `reverseKey`; a relation
+  whose `key` equals another's `reverseKey` (ambiguous, refused at the `via`); role fields first;
+  `resolve` without `objects` and `xref`; an empty `events`; a `field: "code"` without a `code` field.
+- **Converting once, no tool shipped** (C-D138). The starter (0.9.2 → 0.9.3) and the operators and
+  timetables model (0.8.0 → 0.9.0) are rewritten in 0.9, using a default wherever it is equal. The
+  test configurations that install a consumer API (`journeys/configurations.py`, the volume fixture,
+  the model tests) are rewritten too, since a 0.8 install is refused. A throwaway script in the
+  session's scratch directory does the rewriting and checks that each original and its rewrite compile
+  to the same internal definition; it is not part of the engine, and its result is reported in the
+  record. Both models are then installed on the development instance, and the one active today is
+  activated in its 0.9 version.
+- **The expanded read** (C-D137): `GET /api/v1/model/consumer-apis/{consumerApi}` renders the
+  internal form in the 0.9 vocabulary, every default written out (all public names, the generated
+  events, every `matchOn`, `within.types`), for the context's model, 0.8 and 0.9 releases alike. The
+  Webhooks page and its deliveries read events, filters and public names from it instead of the model
+  document, so the UI never repeats the expansion.
+- **Frontend:** `types/model.ts` drops `ConsumerApiDeclaration` from `EngineModel` in favour of the
+  expanded read's type; `WebhookDialog`, `WebhooksPage` and `WebhookDeliveries` read it (one query
+  per definition, cached with the model's ETag); `subscribable` reads `operations.events` from it.
+  No visible change.
+- **Docs at delivery:** CONSUMER_API "Definition shape" rewritten in 0.9 with the mapping table above,
+  and "Endpoints" with the operations; API.md (the read, the index field, `OPERATION_NOT_OFFERED`, the
+  0.8 refusal); APPLICATION_MODEL (schema 0.9); USER_JOURNEYS and
+  API_JOURNEYS; EXECUTION_GUIDE (the new modules); CHANGELOG, PROJECT_STATUS; TODO gains the `code`
+  role on object types (an application-model change of its own: an object type naming its code
+  attribute, after which `code.from` becomes optional and `parent.code` is unchanged).
+
+**Decisions:** C-D132–C-D141 in [CONSUMER_API.md](CONSUMER_API.md#decisions).
+
+**Journey.** J25 gains four variants and J20 one:
+
+- **J25.5 Rewriting a definition changes nothing it serves.** A workspace active on the operators model
+  in 0.8 (the fixture) installs and activates its 0.9 conversion. The diff reports no consumer contract
+  change, no subscription is suspended, and get by ID, a list with a parent and filters, XREF
+  (`expect=one` and a page, a crosswalk), batch resolve, the pull feed and the API index answer
+  bodies and headers equal to before, apart from the `ETag` values. The per-definition OpenAPI
+  equals the previous one apart from the release line in `info.description`.
+- **J25.6 Schema 0.8 refused for new definitions.** Installing or draft-compiling a 0.8 document with
+  `consumerApis` is refused at `/schemaVersion`, naming schema 0.9. A 0.8 document without
+  `consumerApis` installs, and the stored 0.8 release stays readable.
+- **J25.7 Operations a definition offers.** A definition without `xref` answers `404
+  OPERATION_NOT_OFFERED` on `/xref` and `/resolve`, and its OpenAPI omits them. Dropping
+  `xref` from an active definition without a new `contractVersion` is refused (`version_required`).
+  `resolve` without `xref` is refused at `/consumerApis/<key>/operations/resolve`.
+- **J25.8 Mistakes at the author's pointers.** A `via` naming no relation, a filter with two verbs,
+  role fields after an attribute field, and `alsoMatchThrough` naming an unknown related block are
+  each refused at their pointer in the 0.9 document.
+- **J20.x Reading a definition expanded.** `GET /model/consumer-apis/rdm` lists every public name,
+  the generated events and every `matchOn`, and its ETag is the model's.
+
+**Test cases** (through the API on the shipped models and a generated configuration; 2–5 fail first):
+
+1. **Equivalence (the proof of no change).** For the two shipped models, kept as their 0.8 originals in
+   `tests/fixtures/consumer_08/` (they also show a stored 0.8 release still reads): the internal
+   form of each fixture equals that of the shipped 0.9 file, and the per-definition OpenAPI documents
+   are equal apart from the release line. Then J25.5 as above.
+2. J25.6. 3. J25.7. 4. J25.8. 5. J20.x.
+
+Plus unit tests for the expansion (each default; `code` expanded in place; `via` resolved from both
+keys). The existing consumer and events
+tests run on their converted configurations **with their assertions unchanged**. That is the
+regression proof, so no assertion may be edited to make one pass. Rewriting the configurations is
+mechanical (the throwaway script, C-D138).
+
+**Checks.** The cases above; the `consumer`, `model`, `model_admin` and `feed` groups (subscription
+suspension at activation); `contract` (`test_boundaries`, the OpenAPI lock, `test_api_journeys`);
+`ruff`. No `volume` run, since no read, statement or ordering changes; that is stated in the record.
+No `startup` run, since there is no revision (stored releases are untouched). The seeded test
+databases are rebuilt once, since the starter changes (seed once, reuse). Frontend: `vitest run` on
+settings, `tsc`, `lint`, `build`, and `test:browser:webhooks` unchanged. Not run: the full suites
+(R).
+
+**Composable domains (ADR-032):** the consumer API `match` declaration is touched. It moves to
+`operations.xref.matchOn` with the same rules and stays independent of `mappingGrid` vocabulary; no
+door is affected.
 
 ## Track V — API reference
 

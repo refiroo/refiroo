@@ -320,6 +320,9 @@ column (D64–D74, revision `20261007_06`; [record](BASE_0_9_IMPLEMENTATION_PLAN
 (`unique_attribute_values`, kept by PostgreSQL triggers under a deferred constraint, D75–D78,
 revision `20261007_07`; [record](BASE_0_9_IMPLEMENTATION_PLAN.md#j2a-record-2026-10-07)).
 Next are J3 (the preview), J4, Track K and R.
+**C18, the consumer API definition written for readers**, is planned 2026-10-07 (schema 0.9 syntax,
+nothing a consumer sees changes; C-D132–C-D141 decided;
+[plan](BASE_0_9_IMPLEMENTATION_PLAN.md#c18-plan-2026-10-07)). It is independent of Track J.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter
