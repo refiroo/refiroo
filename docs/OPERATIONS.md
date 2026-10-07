@@ -62,6 +62,7 @@ Reported under `integrationJobs` by `GET /api/v1/capabilities`; a request over a
 | `BACKGROUND_JOB_MAX_ITEMS` | 1,000,000 | Items in a background batch |
 | `BATCH_BACKGROUND_MAX_BYTES` | 50 MB | Body of a background batch |
 | `IMPORT_MAX_BYTES` | 200 MB | An import's file (`POST /api/v1/imports`); a larger one is `413 IMPORT_TOO_LARGE`, and the request's body is held on disk while it is read. An import's items count against `BACKGROUND_JOB_MAX_ITEMS` and, `atomic`, `ATOMIC_JOB_MAX_ITEMS` (`IMPORT_TOO_MANY_ITEMS`) |
+| `IMPORT_PREVIEW_MAX_ITEMS` | 10,000 | The items an import's preview runs (`stage: preview`, 0.9 J3); beyond them the preview is a `sample`. The preview holds its workspace's write lock (or its change set's claim) while it runs, so a larger value makes other writes in that workspace wait longer once per preview |
 | `JOB_CHUNK_ITEMS` | 500 | Items one background chunk commits |
 | `JOB_LEASE_SECONDS` | 120 | A worker's lease on a job, renewed each chunk |
 | `JOB_RETENTION_DAYS` | 7 | How long a finished job keeps its outcomes and idempotency key |
@@ -184,6 +185,14 @@ as a long batch does.
 - **Readers:** XLSX through openpyxl (read-only mode; a formula's cached value is read, never the
   formula), CSV and JSON Lines through the standard library. A legacy `.xls` file is refused;
   convert it to XLSX.
+- **Previews** (0.9 J3): a preview runs its first `IMPORT_PREVIEW_MAX_ITEMS` items in one
+  transaction that is rolled back, holding its workspace's write lock (or its change set's claim)
+  for that time, as an atomic job of its size does: about 8 s live for 10,000 items on the volume
+  fixture (J3's budget run; longer in a change set), so writes in that workspace wait that long
+  once per preview. A crash during it runs
+  the preview again from the bound items. A preview waiting for confirmation holds no lock and no
+  lease; its file stays in `JOB_FILE_DIR` until it is confirmed and finishes, is cancelled, or
+  expires `JOB_RETENTION_DAYS` after the preview ended. Confirming binds the file again.
 
 ## Consumer events
 

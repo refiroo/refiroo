@@ -4,11 +4,15 @@ An inline batch writes the job, its items' changes and their outcomes, and commi
 request leaves no job behind. A background job is queued with its items as inputs (D27); the worker
 commits each chunk's changes, outcomes and checkpoint (``processed``) together, so every item before
 the checkpoint has its outcome and none after it has.
+
+An import's inputs and outcomes carry the source and row of the file they came from (0.9 J3), so its
+outcomes read by row. A previewed import waits in ``awaiting_confirmation`` (D87): confirming it
+removes the preview's outcomes and queues it to be bound and run again; cancelling it ends it at once.
 """
 
 import hashlib
 import json
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -22,6 +26,9 @@ from ...models.database import IdempotencyKey, Job, JobInput, JobItem, ModelRele
 
 ACTIONS = ("created", "updated", "unchanged", "deleted")
 FINISHED = frozenset({"completed", "failed", "cancelled", "expired"})
+AWAITING = "awaiting_confirmation"
+# The states retention expires: the finished ones, and a preview nobody confirmed (D87).
+EXPIRABLE = ("completed", "failed", "cancelled", AWAITING)
 
 _JOB_KEYS = (integer_key("sequenceId", Job.sequence_id, "sequence_id", descending=True),)
 _ITEM_KEYS = (integer_key("index", JobItem.item_index, "item_index"),)
@@ -133,18 +140,48 @@ def record_outcomes(session: Session, job: Job, outcomes: Sequence[ItemOutcome])
         if outcome.status == "applied":
             counts[outcome.fields["action"]] += 1
     job.counts = counts
+    if job.kind == "import" and outcomes:
+        # The outcomes take their source and row from the inputs they ran (0.9 J3).
+        session.execute(
+            update(JobItem)
+            .where(
+                JobItem.job_id == job.sequence_id,
+                JobItem.item_index.between(outcomes[0].index, outcomes[-1].index),
+                JobInput.job_id == job.sequence_id,
+                JobInput.item_index == JobItem.item_index,
+            )
+            .values(source_index=JobInput.source_index, row_number=JobInput.row_number)
+            .execution_options(synchronize_session=False)
+        )
     job.processed += len(outcomes)
 
 
-def record_binding(session: Session, job: Job, *, rejected: int, items: int) -> None:
+def record_binding(
+    session: Session,
+    job: Job,
+    *,
+    rejected: int,
+    items: int,
+    report: list[dict[str, Any]] | None,
+) -> None:
     """An import's file is bound (0.9 J2): its rejected rows are its first outcomes, already
-    stored, and its items wait as inputs after them."""
+    stored, and its items wait as inputs after them. The binding report goes on the job (D86)."""
     counts = _empty_counts() | dict(job.counts or {})
     counts["rejected"] += rejected
     job.counts = counts
     job.total = rejected + items
     job.processed = rejected
     job.stage = "applying"
+    job.report = {**(job.report or {}), "bindingReport": report}
+
+
+def previewing(job: Job) -> bool:
+    """Whether the import runs as a preview: sent with ``stage: preview`` and not confirmed."""
+    return (
+        job.kind == "import"
+        and job.parameters.get("stage") == "preview"
+        and job.confirmed_at is None
+    )
 
 
 def complete_job(session: Session, job: Job, *, retention_days: int) -> None:
@@ -170,16 +207,16 @@ def stop_job(
     if remaining:
         session.execute(
             insert(JobItem).from_select(
-                ["job_id", "item_index", "ref", "status", "outcome"],
+                ["job_id", "item_index", "ref", "source_index", "row_number", "status", "outcome"],
                 select(
                     JobInput.job_id,
                     JobInput.item_index,
                     JobInput.ref,
+                    JobInput.source_index,
+                    JobInput.row_number,
                     literal("unprocessed"),
                     literal({"reason": reason}, JSON),
-                ).where(
-                    JobInput.job_id == job.sequence_id, JobInput.item_index >= job.processed
-                ),
+                ).where(JobInput.job_id == job.sequence_id, JobInput.item_index >= job.processed),
             )
         )
         counts = _empty_counts() | dict(job.counts or {})
@@ -221,12 +258,75 @@ def _finish(session: Session, job: Job, state: str, *, retention_days: int) -> N
     job.lease_owner = None
     job.lease_expires_at = None
     session.execute(delete(JobInput).where(JobInput.job_id == job.sequence_id))
-    # A key answers with its job for as long as the job is kept.
+    keep_key_with(session, job)
+
+
+def keep_key_with(session: Session, job: Job) -> None:
+    """A key answers with its job for as long as the job is kept."""
     session.execute(
         update(IdempotencyKey)
         .where(IdempotencyKey.job_id == job.sequence_id)
         .values(expires_at=job.expires_at)
     )
+
+
+def await_confirmation(
+    session: Session, job: Job, report: dict[str, Any], *, retention_days: int
+) -> None:
+    """A preview's end (D87): the job waits for confirmation with the preview's summary, and is
+    kept, unconfirmed, for the retention from now."""
+    now = datetime.now(UTC)
+    job.report = {**(job.report or {}), "preview": report}
+    job.state = AWAITING
+    job.stage = None
+    job.expires_at = now + timedelta(days=retention_days)
+    job.lease_owner = None
+    job.lease_expires_at = None
+    keep_key_with(session, job)
+
+
+def confirm_job(session: Session, job: Job, check_context: Callable[[Job], None]) -> bool:
+    """Confirm a waiting preview (D81, D87) under the job row's lock: its context is checked again
+    by ``check_context``, which raises to refuse and leave it waiting; then the preview's outcomes
+    and inputs go, and the job is queued to bind its file again and run as an execution. ``False``
+    when the job was confirmed before, which answers unchanged."""
+    session.refresh(job, with_for_update=True)
+    if job.confirmed_at is not None:
+        return False
+    if job.state == "expired":
+        raise api_error(
+            410,
+            "JOB_EXPIRED",
+            f"Job '{job.id}' passed its retention unconfirmed and its file was removed; send the "
+            "import again",
+        )
+    if job.state != AWAITING:
+        raise api_error(
+            409,
+            "JOB_NOT_AWAITING_CONFIRMATION",
+            f"Job '{job.id}' is {job.state}; only an import previewed and waiting is confirmed",
+            {"jobId": job.id, "state": job.state},
+        )
+    check_context(job)
+    for table in (JobItem, JobInput):
+        session.execute(delete(table).where(table.job_id == job.sequence_id))
+    job.confirmed_at = datetime.now(UTC)
+    job.state = "queued"
+    job.stage = None
+    job.total = None
+    job.processed = 0
+    job.counts = _empty_counts()
+    job.result = None
+    return True
+
+
+def cancel_waiting(session: Session, job: Job, *, retention_days: int) -> None:
+    """A waiting preview cancelled ends at once (D87, amending D28: the worker never claims a
+    waiting job); its outcomes stay readable until retention."""
+    session.execute(delete(JobInput).where(JobInput.job_id == job.sequence_id))
+    job.cancel_requested_at = datetime.now(UTC)
+    _close(job, "cancelled", retention_days=retention_days)
+    keep_key_with(session, job)
 
 
 def finish_export(
@@ -264,13 +364,12 @@ def _close(job: Job, state: str, *, retention_days: int) -> None:
 
 
 def expire_jobs(session: Session, now: datetime) -> int:
-    """Retention (D14): a finished job past ``expiresAt`` becomes ``expired``, keeping its summary
-    (counts, result, error) while its outcomes, inputs and idempotency keys are removed. Keys past
-    their own expiry go too. Returns the number of jobs expired."""
+    """Retention (D14): a finished job, or a preview left unconfirmed (D87), past ``expiresAt``
+    becomes ``expired``, keeping its summary (counts, result, error, report) while its outcomes,
+    inputs and idempotency keys are removed. Keys past their own expiry go too. Returns the number
+    of jobs expired."""
     expired = session.scalars(
-        select(Job.sequence_id).where(
-            Job.state.in_(("completed", "failed", "cancelled")), Job.expires_at <= now
-        )
+        select(Job.sequence_id).where(Job.state.in_(EXPIRABLE), Job.expires_at <= now)
     ).all()
     for start in range(0, len(expired), _INSERT_ROWS):
         ids = expired[start : start + _INSERT_ROWS]
@@ -333,7 +432,8 @@ def replayed_job(
             "This Idempotency-Key was used with a different request; nothing was run",
             {"jobId": job.id if job is not None else None},
         )
-    if job is None or job.state not in FINISHED:
+    # A preview waiting for confirmation is the request's answer too.
+    if job is None or (job.state not in FINISHED and job.state != AWAITING):
         raise api_error(
             409,
             "IDEMPOTENCY_IN_PROGRESS",
@@ -414,18 +514,26 @@ def job_page(
 
 
 def job_item_page(
-    session: Session, job: Job, *, status: str | None, page: PageRequest, page_size: int
+    session: Session,
+    job: Job,
+    *,
+    status: str | None,
+    page: PageRequest,
+    page_size: int,
+    ref: str | None = None,
 ) -> Page[JobItem]:
-    """A job's outcomes in item order."""
+    """A job's outcomes in item order; ``ref`` keeps those of one row (``{sheet}!{row}``)."""
     statement = select(JobItem).where(JobItem.job_id == job.sequence_id)
     if status is not None:
         statement = statement.where(JobItem.status == status)
+    if ref is not None:
+        statement = statement.where(JobItem.ref == ref)
     return paginate_statement(
         session,
         statement,
         keys=_ITEM_KEYS,
         scope="job-items",
-        filters={"jobId": job.id, "status": status},
+        filters={"jobId": job.id, "status": status, "ref": ref},
         page=page,
         page_size=page_size,
         message="Job item cursor is invalid",

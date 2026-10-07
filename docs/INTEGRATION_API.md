@@ -641,7 +641,8 @@ period over records it would refuse is `MODEL_MIGRATION_REQUIRED` with their cou
 POST /api/v1/imports                 multipart: file + request (JSON)
 POST /api/v1/jobs/{jobId}/confirm    run an import that awaits confirmation
 POST /api/v1/jobs/{jobId}/cancel
-GET  /api/v1/jobs/{jobId}/items      row outcomes, with sheet and row
+GET  /api/v1/jobs/{jobId}/items      item outcomes, each with its sheet and row (ref=)
+GET  /api/v1/jobs/{jobId}/rows       outcomes by row (J3, D84)
 ```
 
 The request names the context (as B1), `policy`, `onExisting`, the profile (`profileKey` of a stored
@@ -668,7 +669,28 @@ request are one `multipart/form-data` body (`file`, `request` as JSON); binding 
 as the job's first outcomes and the items as its inputs in one commit, and each item's `ref` names its
 row (`{sheet}!{row}`). Under `atomic` a rejected row ends the job before any item runs. `preview`,
 `awaiting_confirmation`, confirm and the binding report are J3's. The contract is in
-[API.md](API.md#imports-base-09-j2).
+[API.md](API.md#imports-base-09-j2-j3).
+
+_Amended in J3 (2026-10-07, D80–D87):_
+- **The preview runs every item independently, whatever the policy (D80)**, not "in the same policy
+  as execution": an atomic run stops at the first refusal and would show one problem per round trip.
+  `result` states what the request's policy would give (`rejected` for `atomic` with any refusal).
+  With no refusal, its outcomes equal an atomic run's, since each item sees the items before it
+  either way.
+- **Confirming binds the stored file again and executes it as `stage: execute` (D81)**, rather than
+  running the preview's items: matches resolve against the data at execution, so "execution is
+  authoritative" holds for the matches too.
+- **The preview is one transaction rolled back whole**; its outcomes are recorded in a short one
+  after (D82).
+- **A sample (D83):** binding covers every row; items run in execution order up to
+  `IMPORT_PREVIEW_MAX_ITEMS`, so a sample previews records before relationships, and a row counts as
+  previewed only once all its items ran.
+- **Confirm, cancel and expiry (D87):** confirm is idempotent and checks the context again, a refusal
+  leaving the job waiting; cancel finishes a waiting job at once (amending D28, where the worker does
+  every finish: no worker claims a waiting job); a waiting job expires after D14's retention from the
+  preview's end.
+- Outcomes page by row (D84), a row names every failing cell (D85), and the binding report is on every
+  import once bound (D86).
 
 ### J2: File contract
 

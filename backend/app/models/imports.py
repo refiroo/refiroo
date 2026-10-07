@@ -249,7 +249,8 @@ class InlineProfile(ImportProfileDefinition):
 class ImportRequest(BaseModel):
     """``POST /imports``'s ``request`` part. A stored profile by ``profileKey``, one given inline,
     or neither for a JSON Lines file or an export's table layout (D71). ``stage: execute`` runs the
-    import as soon as its file is bound; J3 adds ``preview``."""
+    import as soon as its file is bound; ``stage: preview`` runs it without writing and waits for
+    ``POST /jobs/{id}/confirm`` (0.9 J3)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -261,7 +262,7 @@ class ImportRequest(BaseModel):
     format: ImportFormat | None = None
     policy: Literal["atomic", "independent"]
     onExisting: Literal["reject", "overwrite"] = "reject"
-    stage: Literal["execute"]
+    stage: Literal["execute", "preview"]
 
     @model_validator(mode="after")
     def one_profile(self) -> ImportRequest:

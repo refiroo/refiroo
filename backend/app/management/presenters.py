@@ -359,6 +359,9 @@ def job_responses(session: Session, jobs: list[Job]) -> list[JobResponse]:
             leaseOwner=job.lease_owner,
             leaseExpiresAt=_optional_utc(job.lease_expires_at),
             output=job.output,
+            confirmedAt=_optional_utc(job.confirmed_at),
+            preview=(job.report or {}).get("preview"),
+            bindingReport=(job.report or {}).get("bindingReport"),
         )
         for job in jobs
     ]

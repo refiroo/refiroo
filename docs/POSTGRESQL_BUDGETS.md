@@ -575,3 +575,29 @@ rows streamed to the file. The snapshot transaction is held for the export's who
 not measured with an instrument; nothing holds the set (server-side cursors, `COPY`, a streamed ZIP
 entry).
 
+
+## 9. Imports (0.9 J3)
+
+Two XLSX files of items (one upsert per row, keyed by a unique code, its group matched by name),
+imported live into the volume fixture at the 0.005 shape the batch budgets use, measured once on
+2026-10-07 with `pytest -m budget tests/test_import_budget.py` (2 min 8 s with writing the files).
+A test worker runs each job from its first claim to its end, binding included.
+
+| Run | Rows (= items) | Binding | In all | Budget (D88) |
+| --- | --- | --- | --- | --- |
+| Preview | 10,000 | 2.5 s | 10.6 s | 30 s |
+| Execution | 100,000 | 26.3 s | 110.7 s | 2 min |
+
+Both are within their budgets; the execution's margin is 8 %. Binding 100,000 rows takes 26 s
+(openpyxl's read-only reader and the conversions in Python, the matching in PostgreSQL); the rest,
+84 s, is the batch path's chunks with J2a's unique triggers (the 100,000-item batch took 52 s at
+PG5). The preview's own step, about 8 s for 10,000 items, holds the workspace's write lock that long.
+`test_import_volume` holds the statements at two sizes: binding the same at both, and the preview's
+step growing only by the batch path's statements paged by about 1,000 rows (about ten per 1,000
+items) and its cancel checks, with no record loaded into the ORM.
+
+Found while measuring (not changed): an `ensureRelation` item whose target already holds many
+relationships of the type loads those relationships into the ORM (1,000 rows for a group cited by
+1,000 items, seen in `test_import_volume` when a preview followed an execution citing the same
+groups). It is the batch path's relation lookup, shared by batches and imports; a candidate for the
+post-1.0 fixes if a budget needs it.

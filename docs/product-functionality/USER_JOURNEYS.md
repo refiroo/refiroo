@@ -888,7 +888,8 @@ background job across a restart, its publish and its cancellation, 0.9 T1).
 
 **Actor:** exchange operator; data owner. **Channel:** API, UI. **Stories:** US-I04, US-I07, US-I08.
 **Scenario:** SC-10. **Status:** export delivered in 0.9 J1 (API) and J1u (browser); import
-through the API delivered in 0.9 J2; its preview (J3) and screen (J4) planned.
+through the API delivered in 0.9 J2, its preview and confirmation in 0.9 J3; its screen (J4)
+planned.
 
 1. Choose the destination and identify the file's columns.
 2. Preview proposed additions, updates and errors by row and field; nothing changes.
@@ -930,10 +931,19 @@ through the API delivered in 0.9 J2; its preview (J3) and screen (J4) planned.
 - **J27.9 Load a file without a profile**: a JSON Lines file of batch items, or an export's CSV or
   XLSX tables sent back; an unchanged export changes nothing.
 - **J27.10 Rows that cannot load**: a value that does not convert, a match finding no record or
-  several, one key on rows with different values, rows whose parents form a ring; under
-  `independent` the other rows load, under `atomic` nothing does. A file that does not fit its
-  profile fails before anything is written; an unsupported or oversized file is refused before a
-  job is stored.
+  several, one key on rows with different values, rows whose parents form a ring; a row names
+  every cell that does not convert, each with its column; under `independent` the other rows load,
+  under `atomic` nothing does. A file that does not fit its profile fails before anything is
+  written; an unsupported or oversized file is refused before a job is stored. An import stopped
+  midway resumes where it stopped, and a retry with its `Idempotency-Key` creates nothing twice.
+- **J27.11 Preview before loading**: a file previewed live or in a change set changes nothing; the
+  counts, the result under the policy, the binding report (per column: cells read, empty,
+  converted, value-mapped, refused; for a match column resolved, not found, ambiguous) and the
+  outcomes by row say what execution would do. Confirmed, it binds the file again and executes, so
+  data changed meanwhile counts; a change set changed meanwhile refuses the confirmation and the
+  preview keeps waiting. Cancelled, it ends at once; left, it expires with the job's retention.
+- **J27.12 A large file previewed in part**: every row bound and reported, the first items run up
+  to `IMPORT_PREVIEW_MAX_ITEMS`, the preview marked `sample` with the items and rows it covers.
 
 **Refusals:** `422 INVALID_QUERY`, `422 AS_OF_NOT_SUPPORTED`, `422 WORKSPACE_CONTEXT_MISMATCH`,
 `404 PARENT_NOT_FOUND`, `404 WORKSPACE_NOT_FOUND`, `404 CHANGE_SET_NOT_FOUND`,
@@ -944,11 +954,15 @@ Profiles: `422 INVALID_IMPORT_PROFILE`, `409 IMPORT_PROFILE_EXISTS`, `404 IMPORT
 a job's `IMPORT_FILE_MISMATCH`, `IMPORT_FILE_UNREADABLE`, `IMPORT_TOO_MANY_ITEMS`,
 `IMPORT_FILE_MISSING`; a row's `INVALID_ATTRIBUTE_VALUE`, `REFERENCE_NOT_FOUND`,
 `REFERENCE_AMBIGUOUS`, `DUPLICATE_KEY_IN_FILE`, `REFERENCE_CYCLE`, `MISSING_RECORD_KEY`,
-`NAME_REQUIRED`, `INVALID_NAME`, `INVALID_CELL`.
+`NAME_REQUIRED`, `INVALID_NAME`, `INVALID_CELL`. Previews: confirm's `409 JOB_NOT_AWAITING_CONFIRMATION`,
+`410 JOB_EXPIRED`, `409 CHANGE_SET_VERSION_CONFLICT` and the context's codes; rows'
+`404 JOB_HAS_NO_ROWS`.
 
-**Evidence today:** the J27 journey tests (`test_j27_export`, 0.9 J1; `test_j27_import`, 0.9 J2);
+**Evidence today:** the J27 journey tests (`test_j27_export`, 0.9 J1; `test_j27_import`, 0.9 J2 and
+J3, the preview);
 J27.6 in the browser runner `j1u-export` and `ExportDialog.test`, `JobNotifications.test` (0.9 J1u);
-unit tests of `engine/imports/` (cells, profiles, readers) and `test_import_volume`.
+unit tests of `engine/imports/` (cells, profiles, readers, the binding report) and of the row read,
+`test_import_volume` and the budget `test_import_budget`.
 
 ### J28 — Read a business object through a consumer API
 

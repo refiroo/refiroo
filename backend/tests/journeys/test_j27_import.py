@@ -1,4 +1,4 @@
-"""J27 — Exchange a supplier file: the import (USER_JOURNEYS.md, 0.9 J2).
+"""J27 — Exchange a supplier file: the import (USER_JOURNEYS.md, 0.9 J2, J3).
 
 Each test writes in a workspace of its own. The journey application runs no worker thread; a test
 runs the engine's job worker itself (``_run``). Files are built as a supplier would send them:
@@ -8,12 +8,15 @@ workbooks with openpyxl, CSV and JSON Lines as text.
 import csv
 import io
 import json
-from datetime import date
+from datetime import date, datetime, timedelta
 from uuid import uuid4
 
 import pytest
 from openpyxl import Workbook
 from scenario import ok, refused
+
+from app.db import SessionLocal
+from app.engine.jobs.worker import JobWorker, WorkerSettings
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 TYPES = {
@@ -882,3 +885,387 @@ def test_with_job_creation_off_the_import_writes_are_absent_and_profiles_read(wo
     response = world.api.post("/import-profiles", {"key": "x", "name": "x", "sources": []})
     assert response.status_code in (404, 405), response.text
     ok(world.api.get("/import-profiles"))
+
+
+# --- J3: preview, confirmation and outcomes by row -----------------------------------------------
+
+
+def _previewed(world, name, content, request, headers=None):
+    """A preview sent and run until it waits for confirmation."""
+    job = _imported(world, name, content, {**request, "stage": "preview"}, headers)
+    assert job["state"] == "awaiting_confirmation", (job["state"], job["error"])
+    return job
+
+
+def _rows(world, job, **params):
+    rows, cursor = [], None
+    while True:
+        page = ok(world.api.get(f"/jobs/{job['id']}/rows", pageSize=2, cursor=cursor, **params))
+        rows += page["items"]
+        cursor = page.get("nextCursor")
+        if not cursor:
+            return rows
+
+
+def _confirm(world, job):
+    return world.api.post(f"/jobs/{job['id']}/confirm", None)
+
+
+def _feed_head(world, ws):
+    return ok(world.api.get(f"/workspaces/{ws}/feed", pageSize=1))["headPosition"]
+
+
+def _sc10_profile(world):
+    profile = _ledger_profile(world)
+    profile["sources"].append(
+        {
+            "sheet": "Branches",
+            "applicationKey": world.app("H"),
+            "objectTypeKey": world.key("H"),
+            "columns": [
+                {"column": "Name", "field": "name"},
+                {"column": "Code", "attributeTypeKey": world.key("H.code")},
+                {
+                    "column": "Token",
+                    "relation": {
+                        "relationTypeKey": world.key("Bnn"),
+                        "objectTypeKey": world.key("K"),
+                        "matchBy": {"attributeTypeKey": world.key("K.code")},
+                    },
+                },
+            ],
+        }
+    )
+    return ok(world.api.post("/import-profiles", profile), 201)
+
+
+def _sc10_file():
+    """A new value, an existing value, an invalid number, two rows with one key and different
+    names, an ambiguous and a missing match."""
+    return _xlsx(
+        {
+            "Ledgers": _sc10_rows(),
+            "Branches": [
+                ("Name", "Code", "Token"),
+                ("Ambiguous branch", "B1", "SHARED"),
+                ("Lost branch", "B2", "NOWHERE"),
+            ],
+        }
+    )
+
+
+def _sc10_world(world, ws):
+    old = world.made("R", "Existing value", workspace=ws, values={"R.u": "S-OLD"})
+    for n in (1, 2):
+        world.made("K", f"Shared {n}", workspace=ws, values={"K.code": "SHARED"})
+    return old
+
+
+REFUSED_ROWS = {"Ledgers!4", "Ledgers!5", "Ledgers!6", "Branches!2", "Branches!3"}
+
+
+def _codes_by_row(world, job):
+    return {
+        row["ref"]: tuple(o["error"]["code"] for o in row["outcomes"] if o["status"] == "rejected")
+        for row in _rows(world, job, status="rejected")
+    }
+
+
+@pytest.mark.journey("J27.11", "J27.10")
+@pytest.mark.structures("R", "R.u", "R.n", "R.b", "R.dt", "R.q", "R.x1", "H", "K", "K.code", "Bnn")
+def test_a_preview_changes_nothing_and_confirming_it_executes_with_the_same_outcomes(world):
+    """Given an existing ledger S-OLD, two K tokens sharing one code and the SC-10 file. When it is
+    previewed under independent. Then the job waits with a complete preview: one record created,
+    one updated, the refused rows listed by row with their columns, the result partial; records,
+    the feed head and the existing record's history are unchanged. When confirmed, the job
+    completes with the same codes on the same rows, and a second confirm answers with the same
+    job. Under atomic the preview says the result would be rejected and lists the same rows."""
+    ws = _workspace(world)
+    old = _sc10_world(world, ws)
+    profile = _sc10_profile(world)
+    names = set(_named(world, "R", ws))
+    head = _feed_head(world, ws)
+    history = ok(world.api.get(f"/objects/{world.key('R')}/{old['id']}/history"))["items"]
+
+    job = _previewed(world, "sc10.xlsx", _sc10_file(), _request(ws, profileKey=profile["key"]))
+    preview = job["preview"]
+    assert preview["coverage"] == "complete"
+    assert preview["counts"]["created"] == 1 and preview["counts"]["updated"] == 1
+    assert preview["counts"]["rejected"] == len(REFUSED_ROWS)
+    assert preview["result"] == "partial" and preview["previewedAt"]
+    assert preview["rows"] == {"total": 7, "previewed": 7, "rejected": len(REFUSED_ROWS)}
+    assert job["bindingReport"] is not None and job["finishedAt"] is None
+    previewed_codes = _codes_by_row(world, job)
+    assert set(previewed_codes) == REFUSED_ROWS
+    score = next(r for r in _rows(world, job, status="rejected") if r["ref"] == "Ledgers!4")
+    assert score["sheet"] == "Ledgers" and score["row"] == 4 and score["status"] == "rejected"
+    assert score["outcomes"][0]["error"]["details"]["column"] == "Score"
+    applied = {r["ref"]: r["actions"] for r in _rows(world, job, status="applied")}
+    assert applied["Ledgers!2"]["created"] == 1 and applied["Ledgers!3"]["updated"] == 1
+    one_row = ok(world.api.get(f"/jobs/{job['id']}/items", ref="Ledgers!3"))["items"]
+    assert [i["ref"] for i in one_row] == ["Ledgers!3"]
+
+    assert set(_named(world, "R", ws)) == names
+    assert world.record("R", old["id"], workspaceKey=ws)["name"] == "Existing value"
+    assert _feed_head(world, ws) == head
+    after = ok(world.api.get(f"/objects/{world.key('R')}/{old['id']}/history"))["items"]
+    assert after == history
+
+    confirmed = ok(_confirm(world, job), 202)
+    assert confirmed["state"] == "queued" and confirmed["confirmedAt"]
+    assert confirmed["preview"] == preview
+    _run(world)
+    done = ok(world.api.get(f"/jobs/{job['id']}"))
+    assert done["state"] == "completed" and done["result"] == "partial", done["error"]
+    assert _codes_by_row(world, done) == previewed_codes
+    assert world.record("R", old["id"], workspaceKey=ws)["name"] == "Existing value renamed"
+    again = ok(_confirm(world, job), 202)
+    assert again["id"] == job["id"] and again["state"] == "completed"
+    assert again["confirmedAt"] == confirmed["confirmedAt"]
+
+    atomic_ws = _workspace(world)
+    _sc10_world(world, atomic_ws)
+    atomic = _previewed(
+        world,
+        "sc10.xlsx",
+        _sc10_file(),
+        _request(atomic_ws, profileKey=profile["key"], policy="atomic"),
+    )
+    assert atomic["preview"]["result"] == "rejected"
+    assert _codes_by_row(world, atomic) == previewed_codes
+
+
+@pytest.mark.journey("J27.10", "J27.11")
+@pytest.mark.structures("V", "V.code", "V.rank", "V.on")
+def test_every_failing_cell_of_a_row_is_named_and_the_binding_report_counts_each_column(world):
+    """Given two V records named "Twin" and one named "Root". When a file's rows hold a row with an
+    invalid integer and an invalid date, a row under a parent no record is named, a row under the
+    ambiguous "Twin", and two good rows, and it is previewed. Then the first row's error names both
+    cells; the binding report counts one refusal in each of the two columns, and in the parent
+    column one resolved by the file's own rows or the data, one not found and one ambiguous."""
+    ws = _workspace(world)
+    root = world.made("V", "Root", workspace=ws, values={"V.code": "ROOT"})
+    for n in (1, 2):
+        world.made("V", "Twin", workspace=ws, values={"V.code": f"TWIN{n}"})
+    k = world.key
+    profile = {
+        "key": f"articles-{uuid4().hex[:6]}",
+        "name": "Articles",
+        "sources": [
+            {
+                "applicationKey": world.app("V"),
+                "objectTypeKey": k("V"),
+                "key": {"attributeTypeKey": k("V.code")},
+                "columns": [
+                    {"column": "Code", "attributeTypeKey": k("V.code")},
+                    {"column": "Name", "field": "name"},
+                    {"column": "Rank", "attributeTypeKey": k("V.rank")},
+                    {"column": "On", "attributeTypeKey": k("V.on")},
+                    {
+                        "column": "Under",
+                        "parent": {"objectTypeKey": k("V"), "matchBy": {"field": "name"}},
+                    },
+                ],
+            }
+        ],
+    }
+    profile = ok(world.api.post("/import-profiles", profile), 201)
+    rows = [
+        ("Code", "Name", "Rank", "On", "Under"),
+        ("A1", "Two bad cells", "many", "yesterday", "Root"),
+        ("A2", "Lost", 2, "2026-01-02", "Nobody"),
+        ("A3", "Twin child", 3, "2026-01-03", "Twin"),
+        ("A4", "Good", 4, "2026-01-04", "Root"),
+        ("A5", "Top", 5, None, None),
+    ]
+    job = _previewed(world, "articles.csv", _csv(rows), _request(ws, profileKey=profile["key"]))
+    first = ok(world.api.get(f"/jobs/{job['id']}/items", ref="csv!2"))["items"][0]["error"]
+    assert first["code"] == "INVALID_ATTRIBUTE_VALUE" and first["details"]["column"] == "Rank"
+    assert [(c["column"], c["code"]) for c in first["details"]["cells"]] == [
+        ("Rank", "INVALID_ATTRIBUTE_VALUE"),
+        ("On", "INVALID_ATTRIBUTE_VALUE"),
+    ]
+    [source] = job["bindingReport"]
+    assert source["objectTypeKey"] == k("V") and source["rows"] == 5
+    assert source["rejectedRows"] == 3
+    columns = {c["column"]: c for c in source["columns"]}
+    assert columns["Rank"]["binding"] == "attributeTypeKey"
+    assert columns["Rank"]["target"] == k("V.rank")
+    assert (columns["Rank"]["cells"], columns["Rank"]["refused"]) == (5, 1)
+    assert (columns["On"]["empty"], columns["On"]["refused"], columns["On"]["converted"]) == (
+        1,
+        1,
+        3,
+    )
+    under = columns["Under"]
+    assert under["binding"] == "parent" and under["target"] == k("V")
+    assert (under["cells"], under["empty"]) == (5, 1)
+    assert (under["resolved"], under["notFound"], under["ambiguous"]) == (2, 1, 1)
+    assert root["id"]
+
+
+@pytest.mark.journey("J27.11")
+@pytest.mark.structures("R", "R.u", "R.n", "R.b", "R.dt", "R.q", "R.x1", "H", "K", "K.code", "Bnn")
+def test_execution_binds_again_so_data_changed_since_the_preview_counts(world):
+    """Given the SC-10 file previewed. When the existing value is deleted and the token the missing
+    match names is created through the API before confirming. Then the execution creates the value
+    the preview reported updated, and loads the row the preview refused as not found."""
+    ws = _workspace(world)
+    old = _sc10_world(world, ws)
+    profile = _sc10_profile(world)
+    job = _previewed(world, "sc10.xlsx", _sc10_file(), _request(ws, profileKey=profile["key"]))
+    assert _codes_by_row(world, job)["Branches!3"] == ("REFERENCE_NOT_FOUND",)
+
+    current = world.record("R", old["id"], workspaceKey=ws)
+    ok(
+        world.api.delete(
+            f"/objects/{world.key('R')}/{old['id']}", expectedVersion=current["version"]
+        ),
+        204,
+    )
+    world.made("K", "Found later", workspace=ws, values={"K.code": "NOWHERE"})
+    ok(_confirm(world, job), 202)
+    _run(world)
+    done = ok(world.api.get(f"/jobs/{job['id']}"))
+    assert done["state"] == "completed", done["error"]
+    rows = {row["ref"]: row for row in _rows(world, done)}
+    assert rows["Ledgers!3"]["actions"]["created"] == 1
+    assert rows["Branches!3"]["status"] == "applied"
+    assert "Branches!3" not in _codes_by_row(world, done)
+
+
+@pytest.mark.journey("J27.11")
+@pytest.mark.structures("R", "R.u", "R.n", "R.b", "R.dt", "R.q", "R.x1")
+def test_a_preview_in_a_change_set_leaves_it_and_a_stale_claim_refuses_the_confirm(world):
+    """Given a change set. When ledger rows are previewed into it. Then its version and contents are
+    unchanged. When the change set is written meanwhile, confirm is refused as a version conflict
+    and the job still waits."""
+    ws = _workspace(world)
+    cs = world.change_set(workspace=ws)
+    profile = ok(world.api.post("/import-profiles", _ledger_profile(world)), 201)
+    rows = [LEDGER_HEADER, ("L-1", "First", "Ann", "Summary", 1, True, "2026-01-02")]
+    request = {
+        "changeSetId": cs["id"],
+        "expectedChangeSetVersion": cs["version"],
+        "policy": "independent",
+        "onExisting": "overwrite",
+        "profileKey": profile["key"],
+    }
+    job = _previewed(world, "l.csv", _csv(rows), request)
+    assert job["preview"]["counts"]["created"] == 1
+    read = ok(world.api.get(f"/change-sets/{cs['id']}"))
+    assert read["version"] == cs["version"]
+    assert _named(world, "R", ws, changeSetId=cs["id"]) == {}
+
+    world.made("R", "Meanwhile", workspace=ws, change_set=read)
+    refused(_confirm(world, job), 409, "CHANGE_SET_VERSION_CONFLICT")
+    assert ok(world.api.get(f"/jobs/{job['id']}"))["state"] == "awaiting_confirmation"
+
+
+@pytest.mark.journey("J27.12")
+@pytest.mark.structures("R", "R.u", "R.n", "R.b", "R.dt", "R.q", "R.x1")
+@pytest.mark.settings(IMPORT_PREVIEW_MAX_ITEMS="5")
+def test_a_large_file_is_previewed_in_part_and_every_binding_refusal_is_still_reported(world):
+    """Given the preview limit at 5 items. When a 12-row file with two rows that cannot be bound is
+    previewed. Then 5 items ran, the preview says sample with the rows it covers fully, and both
+    binding refusals are reported; the capabilities name the limit."""
+    limits = ok(world.api.get("/capabilities"))["integrationJobs"]["limits"]
+    assert limits["importPreviewMaxItems"] == 5
+    ws = _workspace(world)
+    profile = ok(world.api.post("/import-profiles", _ledger_profile(world)), 201)
+    rows = [LEDGER_HEADER] + [
+        (f"L-{n:02d}", f"Ledger {n}", "Ann", "Summary", n, True, "2026-01-02") for n in range(10)
+    ]
+    rows += [("L-X1", "Bad one", "Ann", "Summary", "x", True, "2026-01-02")]
+    rows += [("L-X2", "Bad two", "Ann", "Summary", 1, True, "never")]
+    job = _previewed(world, "big.csv", _csv(rows), _request(ws, profileKey=profile["key"]))
+    preview = job["preview"]
+    assert preview["coverage"] == "sample"
+    assert preview["items"] == {"total": 12, "previewed": 7}
+    assert preview["rows"] == {"total": 12, "previewed": 7, "rejected": 2}
+    assert preview["counts"]["created"] == 5 and preview["counts"]["rejected"] == 2
+    assert set(_codes_by_row(world, job)) == {"csv!12", "csv!13"}
+    assert _named(world, "R", ws) == {}
+
+
+@pytest.mark.journey("J27.11")
+@pytest.mark.structures("R", "R.u", "R.n", "R.b", "R.dt", "R.q", "R.x1")
+def test_a_waiting_preview_ends_by_cancel_or_retention_and_only_a_preview_confirms(world):
+    """Given a waiting preview. When it is cancelled. Then it is cancelled at once, its file is gone
+    and its outcomes still read. Given another, past its retention after the sweep, it is expired
+    and confirm is refused as expired. Confirming an executed import or a batch is refused as not
+    awaiting confirmation, naming its state."""
+    ws = _workspace(world)
+    profile = ok(world.api.post("/import-profiles", _ledger_profile(world)), 201)
+    rows = [LEDGER_HEADER, ("L-1", "First", "Ann", "Summary", 1, True, "2026-01-02")]
+    request = _request(ws, profileKey=profile["key"])
+    files = world.api.client.app.state.job_files
+
+    job = _previewed(world, "l.csv", _csv(rows), request)
+    assert files.source(job["id"]).is_file()
+    cancelled = ok(world.api.post(f"/jobs/{job['id']}/cancel", None), 202)
+    assert cancelled["state"] == "cancelled" and cancelled["finishedAt"]
+    assert not files.source(job["id"]).is_file()
+    assert [r["ref"] for r in _rows(world, job)] == ["csv!2"]
+    refused(_confirm(world, job), 409, "JOB_NOT_AWAITING_CONFIRMATION")
+
+    waiting = _previewed(world, "l.csv", _csv(rows), request)
+    expires = datetime.fromisoformat(waiting["expiresAt"])
+    world.api.client.app.state.job_worker.sweep(expires + timedelta(seconds=1))
+    assert ok(world.api.get(f"/jobs/{waiting['id']}"))["state"] == "expired"
+    refused(_confirm(world, waiting), 410, "JOB_EXPIRED")
+
+    executed = _imported(world, "l.csv", _csv(rows), request)
+    error = refused(_confirm(world, executed), 409, "JOB_NOT_AWAITING_CONFIRMATION")
+    assert error["details"]["state"] == "completed"
+    batch = ok(
+        world.api.post(
+            "/batches",
+            {
+                "workspaceKey": ws,
+                "policy": "independent",
+                "run": "inline",
+                "items": [{"op": "delete", "target": {"id": str(uuid4())}, "expectedVersion": 1}],
+            },
+        )
+    )
+    refused(_confirm(world, batch["job"]), 409, "JOB_NOT_AWAITING_CONFIRMATION")
+    refused(world.api.get(f"/jobs/{batch['job']['id']}/rows"), 404, "JOB_HAS_NO_ROWS")
+
+
+@pytest.mark.journey("J27.10", "J24")
+@pytest.mark.structures("R", "R.u", "R.n", "R.b", "R.dt", "R.q", "R.x1")
+@pytest.mark.settings(JOB_CHUNK_ITEMS="3")
+def test_an_interrupted_import_resumes_and_a_retry_with_its_key_creates_nothing_twice(world):
+    """Given a 10-row file sent with an Idempotency-Key and three items a chunk. When the worker
+    binds it, runs one chunk and stops, and another worker takes the job over. Then the job
+    completes with every row created once; sent again with the key it is answered with the same
+    job and nothing more is created."""
+    ws = _workspace(world)
+    profile = ok(world.api.post("/import-profiles", _ledger_profile(world)), 201)
+    rows = [LEDGER_HEADER] + [
+        (f"L-{n:02d}", f"Ledger {n}", "Ann", "Summary", n, True, "2026-01-02") for n in range(10)
+    ]
+    content = _csv(rows)
+    headers = {"Idempotency-Key": f"resume-{uuid4().hex}"}
+    request = _request(ws, profileKey=profile["key"])
+    job = ok(_send(world, "l.csv", content, request, headers), 202)
+
+    state = world.api.client.app.state
+    first = JobWorker(SessionLocal, WorkerSettings(3, 120, 7), owner="first", files=state.job_files)
+    assert first.run_once() and first.run_once()
+    midway = ok(world.api.get(f"/jobs/{job['id']}"))
+    assert midway["state"] == "running" and midway["progress"]["processed"] == 3
+    first.stop()
+    second = JobWorker(
+        SessionLocal, WorkerSettings(3, 120, 7), owner="second", files=state.job_files
+    )
+    second.run_until_idle()
+    done = ok(world.api.get(f"/jobs/{job['id']}"))
+    assert done["state"] == "completed" and done["counts"]["created"] == 10, done["error"]
+    assert len(_named(world, "R", ws)) == 10
+
+    replay = _send(world, "l.csv", content, request, headers)
+    assert ok(replay, 202)["id"] == job["id"] and replay.headers["idempotent-replayed"] == "true"
+    _run(world)
+    assert len(_named(world, "R", ws)) == 10

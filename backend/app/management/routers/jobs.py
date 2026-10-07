@@ -16,7 +16,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 
 from ...common.pagination import FIRST_PAGE
-from ...engine.jobs.background import request_cancel, submit_background_batch
+from ...engine.jobs.background import confirm_preview, request_cancel, submit_background_batch
 from ...engine.jobs.events import JobListener
 from ...engine.jobs.exports import FORMATS, submit_export
 from ...engine.jobs.files import JobFiles
@@ -30,7 +30,8 @@ from ..paging import PageQuery
 from ..presenters import batch_response, job_responses
 from ..presenters import job_item_page as present_job_items
 from ..presenters import job_page as present_jobs
-from ..schemas.jobs import BatchResponse, JobItemPage, JobPage, JobResponse
+from ..projections.job_rows import job_row_page
+from ..schemas.jobs import BatchResponse, JobItemPage, JobPage, JobResponse, JobRowPage
 
 logger = logging.getLogger(__name__)
 
@@ -127,9 +128,31 @@ def cancel_job(job_id: str, request: Request, session: DbSession) -> JobResponse
 
     The worker carries it out at the job's next chunk: items not reached become ``unprocessed``
     with ``JOB_CANCELLED``, chunks committed before stay applied, and an ``atomic`` job rolls back
-    completely. A finished job answers ``409 job_finished``.
+    completely. An import preview awaiting confirmation is cancelled at once, its file removed and
+    its preview's outcomes kept to read. A finished job answers ``409 job_finished``.
     """
-    job = request_cancel(session, job_id)
+    limits: BatchLimits = request.app.state.batch_limits
+    job = request_cancel(
+        session, job_id, files=request.app.state.job_files, retention_days=limits.retention_days
+    )
+    _wake_worker(request)
+    return job_responses(session, [job])[0]
+
+
+@write_router.post("/jobs/{job_id}/confirm", response_model=JobResponse, status_code=202)
+def confirm_job(job_id: str, request: Request, session: DbSession) -> JobResponse:
+    """Confirm an import previewed with ``stage: preview`` (0.9 J3).
+
+    The job is queued again: the worker binds the stored file anew and runs it as ``stage:
+    execute`` would, so data changed since the preview counts, and execution's outcomes are
+    authoritative. Confirming a job already confirmed answers with it unchanged. Refused, leaving
+    the job waiting: ``409 MODEL_RELEASE_CHANGED``, ``404 WORKSPACE_NOT_FOUND``, ``404
+    CHANGE_SET_NOT_FOUND``, ``409 CHANGE_SET_VERSION_CONFLICT`` (the change set changed since the
+    request's ``expectedChangeSetVersion``). A job not waiting is ``409
+    JOB_NOT_AWAITING_CONFIRMATION`` naming its state; a preview past its retention ``410
+    JOB_EXPIRED``.
+    """
+    job = confirm_preview(session, job_id)
     _wake_worker(request)
     return job_responses(session, [job])[0]
 
@@ -198,12 +221,33 @@ def list_job_items(
     session: DbSession,
     paging: PageQuery,
     status: Literal["applied", "rejected", "unprocessed"] | None = None,
+    ref: str | None = Query(
+        default=None, description="One row's outcomes, as ``{sheet}!{row}`` (an import's items)"
+    ),
     page_size: int = Query(default=1000, ge=1, le=1000, alias="pageSize"),
 ) -> JobItemPage:
     """A job's outcomes in item order."""
     job = load_job(session, job_id)
     return present_job_items(
-        job_item_page(session, job, status=status, page=paging, page_size=page_size)
+        job_item_page(session, job, status=status, ref=ref, page=paging, page_size=page_size)
+    )
+
+
+@router.get("/jobs/{job_id}/rows", response_model=JobRowPage)
+def list_job_rows(
+    job_id: str,
+    session: DbSession,
+    paging: PageQuery,
+    status: Literal["applied", "rejected", "unprocessed"] | None = Query(
+        default=None, description="Rows whose worst item has this status"
+    ),
+    page_size: int = Query(default=500, ge=1, le=1000, alias="pageSize"),
+) -> JobRowPage:
+    """An import's outcomes by row of its file, in source then row order (0.9 J3): each row's
+    worst status, its applied items by action and its rejected and unprocessed outcomes. A batch
+    or an export has none (``404 JOB_HAS_NO_ROWS``)."""
+    return job_row_page(
+        session, load_job(session, job_id), status=status, page=paging, page_size=page_size
     )
 
 

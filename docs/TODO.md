@@ -241,8 +241,8 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   (2026-10-01); relation and relation-set items as B3 (2026-10-03).
 - [ ] Asynchronous CSV/XLSX import and export with validation previews; import runs an import profile
   (revised D3, [MODEL_AUTHORING A1](MODEL_AUTHORING.md#delivery)). Export delivered as 0.9 J1 and
-  J1u (2026-10-07); import profiles and imports run directly as J2 (2026-10-07); the preview is J3,
-  the screen J4.
+  J1u (2026-10-07); import profiles and imports run directly as J2 (2026-10-07); the preview,
+  confirmation, outcomes by row and the binding report as J3 (2026-10-07); the screen is J4.
 - [x] Ordered change feed and retryable webhooks. The feed read with positions in commit order is
   delivered as 0.9 F1 (2026-10-03), retention and recovery as F2 (2026-10-03), event definitions
   as C9 (2026-10-05), the events and their pull feed as C10 (2026-10-06), subscriptions with their
@@ -272,9 +272,10 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   (2026-10-07), with `applicationKey` added to the records table (D71).
 - [x] J2a (D74): database-backed uniqueness for `unique` attributes (the item below), delivered
   2026-10-07 (D75–D78).
-- [ ] J4: Settings › Integration's limits list shows `IMPORT_MAX_BYTES`
-  (`integrationJobs.limits.importMaxBytes`, added in J2), and the job page an import's file and
-  profile; J2 changed no screen.
+- [ ] J4: Settings › Integration's limits list shows `IMPORT_MAX_BYTES` and
+  `IMPORT_PREVIEW_MAX_ITEMS` (`integrationJobs.limits.importMaxBytes`, `importPreviewMaxItems`,
+  added in J2 and J3), and the job page an import's file and profile, its preview, binding report
+  and rows; J2 and J3 changed no screen.
 - [x] Built-in Scalar API reference at `/docs` replacing Swagger UI and ReDoc: delivered as 0.9 V1
   (2026-09-30) with the management API as its source; pinned script bundled, CDN by setting, outside
   the OpenAPI document.
@@ -317,7 +318,7 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   A-D1–A-D3 decided 2026-09-29 (A-D2: declared navigation groups); others open; packages A1–A8 to specify after 0.9 Track J's import contract.
   - [ ] A0 design pass: A-D4–A-D10, plan D1–D10, API design, operation vocabulary.
   - [ ] A1 import profile contract and execution (delivered inside 0.9 Track J): the contract and
-    direct execution in J2 (2026-10-07); the dry run is J3's preview.
+    direct execution in J2 (2026-10-07); the dry run is J3's preview (delivered 2026-10-07).
   - [ ] A2 operation API on model drafts: additive and draft-only operations, history, undo.
   - [ ] A3 source profiling and the dry-run summary after each operation.
   - [ ] A4 editor: model pane, relationship matrix, preview, layout editing.

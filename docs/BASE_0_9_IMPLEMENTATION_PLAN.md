@@ -250,7 +250,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 28a | [J1u](#j1u-export-in-the-ui-and-job-notifications-outline) | J1 | Export in the UI: the dialog, the job page, notifications pushed over a per-job event stream (D57–D63) — **delivered 2026-10-07**, screenshots approved by the user ([record](#j1u-record-2026-10-07)) |
 | 29 | [J2](#j2-import-profiles-and-file-reading) | B3 | Import profiles, XLSX/CSV/JSON Lines reading, rows to items, `POST /imports` with `stage: execute` (D64–D74) — **delivered 2026-10-07** ([record](#j2-record-2026-10-07)) |
 | 29a | [J2a](#j2a-database-backed-uniqueness-for-unique-attributes) | J2 | Database-backed uniqueness for `unique` attributes (TODO, C-D24, D74, D75–D78) — **delivered 2026-10-07** ([record](#j2a-record-2026-10-07)) |
-| 30 | [J3](#j3-import-preview-and-execution) | J2, B2 | Import preview, confirm, outcomes by row, the binding report; `stage: execute` arrives with J2 (D64) — **planned 2026-10-07** ([plan](#j3-plan-2026-10-07)), D80–D88 accepted |
+| 30 | [J3](#j3-import-preview-and-execution) | J2, B2 | Import preview, confirm, outcomes by row, the binding report; `stage: execute` arrives with J2 (D64) — **delivered 2026-10-07** ([record](#j3-record-2026-10-07)), D80–D88 |
 | 31 | [J4](#j4-import-screen-and-sc-10) | J1u, J3, F2 | The SC-10 screen and SC-10 acceptance |
 | 31a | [Track K](#track-k--bulk-selection-and-editing-in-collections) | J4, UA | Bulk selection and bulk edits in collections over `POST /batches`; packages K1–K5 planned in detail when the track starts — **added 2026-10-06** |
 | V | [V3–V9](#v3v9-the-management-api-documented-plan-2026-10-07) | V2 | The management API documented: the starter extended, content and examples beside the document, the error catalogue; V3 first, then V4–V8 in any order, then V9. **Independent fillers; block no release** (V-D9) — **planned 2026-10-07**, V-D1 open |
@@ -7793,6 +7793,83 @@ this preview).
 batch path unchanged and writes nothing, so provenance and identity are untouched. Value types
 still convert through the attribute registry. The `match` declaration and mapping coverage are
 untouched.
+
+##### J3 record (2026-10-07)
+
+**Delivered 2026-10-07.** D80–D88 and the seven test cases accepted with the plan. The journey
+cases were written first and run before the change: six failed (`stage: preview` refused as a
+request validation error), and case 7 (an interrupted import resumed, its retry with the key
+creating nothing twice) passed, since J2 and B2 already did both; it stays as SC-10's evidence.
+
+**Built.**
+
+- **Storage** (revision `20261007_08`): `jobs.report` (`bindingReport`, `preview`) and
+  `jobs.confirmed_at`; `source_index` and `row_number` on `job_inputs` and `job_items`, with
+  `ix_job_items_rows (job_id, source_index, row_number)`.
+- **Binding** (`engine/imports/binding.py`): the items and the binding's refusals carry their source
+  (load order) and row into the inputs and outcomes, and a chunk's outcomes take them from their
+  inputs in one `UPDATE … FROM`. A row's cells are all converted, so its refusal is the first failing
+  cell's with `details.cells` listing every one (D85; the export's table layout collects its `#`
+  columns the same way). The binding report (D86): cell counts kept while the rows stream, every
+  match cell copied to `import_match_cells` (a refused row's too) and resolved with the others, then
+  one aggregate for `resolved`, `notFound`, `ambiguous` and one for `rejectedRows`.
+- **The preview** (`engine/imports/preview.py`, the worker's `_preview`): after binding, a job sent
+  with `stage: preview` and not confirmed runs its first `IMPORT_PREVIEW_MAX_ITEMS` items through
+  `run_items` independently (D80), rolls the transaction back (D82), then records the outcomes, the
+  summary and `awaiting_confirmation` in a short transaction holding the lease, with no lease after.
+  Stages `binding`, `previewing`; a cancel request during it stops it as for an atomic job.
+- **Confirm, cancel, expiry** (`engine/jobs/store.py`, `background.py`): `POST /jobs/{id}/confirm`
+  checks the state, then the context, then locks the job row and checks again; it removes the
+  preview's inputs and outcomes, resets the counts and queues the job (D81). A waiting job is
+  cancelled in the request with its file removed and outcomes kept (D87). Retention expires
+  `awaiting_confirmation` jobs; a key's retry answers with a waiting preview.
+- **Reads**: `GET /jobs/{id}/rows` (`management/projections/job_rows.py`, a `GROUP BY` over the
+  outcomes with keyset paging on the two integers), `ref=` on `/items`; the job's `confirmedAt`,
+  `preview` and `bindingReport`. **Setting** `IMPORT_PREVIEW_MAX_ITEMS` (10,000), reported as
+  `integrationJobs.limits.importPreviewMaxItems` and by `GET /system`.
+
+**Where it differs from the plan.**
+
+- **Case 1's counts.** The plan says the SC-10 file gives "four refused"; the file it lists (an
+  invalid number, two rows with one key, an ambiguous and a missing match) refuses five rows, and
+  the test asserts five. The case's own list is kept; only the number was off.
+- **Case 6's batch.** The test first sent an empty inline batch to confirm, which the batch route
+  refuses as invalid; it sends one item instead. The case's assertions are unchanged.
+- **The binding report** adds `refused` to match columns (a value that does not convert for an
+  attribute match), so a column's counts add up; an export's table layout is reported too (its
+  `name` and `#` columns, `objectTypeKey` null), beyond the plan's "none for JSON Lines". A related
+  record's parent column is not reported as a match column of its own.
+- **Confirm's lock order.** The context (the change set's row) is read before the job row is locked,
+  following the lock order (workspace, change set, …, job row).
+- **The preview's statements are not flat as rows grow:** one preview is one call of the batch path,
+  which pages its bulk statements by about 1,000 rows, about ten statements per 1,000 items, as an
+  atomic job of that size does. `test_import_volume` bounds the growth by those pages and the cancel
+  checks; the ORM loads stay at six rows at both sizes.
+
+**Checks.** The seven cases on generated A and B (14 passed); `--journey J27 --journey J24` (80
+passed); the groups `jobs`, `records`, `change_sets` in parallel (881 passed, 2 min 52 s, **over the
+2-minute ceiling** for the three groups together) and their serial part (3 passed);
+`--journey J31 --journey J12` (56 passed after J12's limits case gained `IMPORT_PREVIEW_MAX_ITEMS`,
+which J3 made wrong); `test_startup` (the new upgrade, refusal, two starts and downgrade on a
+database with a job and its outcomes, beside J2's and J2a's: 3 passed); `test_openapi_contract`
+re-baselined (9 passed; the difference is stated in the test: two paths, the new schemas, the job's
+three fields, `importPreviewMaxItems`, `stage`'s `preview`, `ref` and the cancel description);
+`test_api_journeys` (5 passed); `test_import_volume` (2 passed); the unit tests (`tests/unit` and
+`test_boundaries`, 335 passed, 3 failed: `test_consumer_openapi` expects one consumer API in the
+operators model, which has four; neither the model file nor that code differs from `d1cd3b7`, so it
+fails without J3 and is left to the user); `ruff check app/ tests/` clean. No frontend change.
+D88's budgets, once, live on the volume fixture at the batch budgets' 0.005 shape: a 10,000-row
+preview in 10.6 s (binding 2.5 s; budget 30 s) and a 100,000-row execution in 110.7 s (binding
+26.3 s; budget 2 minutes, margin 8 %) ([POSTGRESQL_BUDGETS §9](POSTGRESQL_BUDGETS.md#9-imports-09-j3)).
+Not run: the full suites (R).
+
+**Found, not changed.** An `ensureRelation` whose target already holds many relationships of the
+type loads them into the ORM (1,000 rows in `test_import_volume` when a preview followed an
+execution citing the same groups); the batch path's relation lookup, recorded in POSTGRESQL_BUDGETS.
+
+**Composable domains (ADR-032):** inbound flow touched and open: the preview runs the batch path
+unchanged and writes nothing; identity, attribute storage, the `match` declaration and mapping
+coverage untouched.
 
 #### J4: Import screen and SC-10
 

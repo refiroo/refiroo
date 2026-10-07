@@ -239,6 +239,7 @@ def create_app() -> FastAPI:
         background_max_bytes=settings.batch_background_max_bytes,
         chunk_items=settings.job_chunk_items,
         import_max_bytes=settings.import_max_bytes,
+        import_preview_max_items=settings.import_preview_max_items,
     )
     # The in-process job worker (P6): none with the capability off. Tests that drive the worker
     # themselves set ``run_job_worker`` to False before the application starts.
@@ -250,6 +251,7 @@ def create_app() -> FastAPI:
         retention_days=settings.job_retention_days,
         atomic_max_items=settings.atomic_job_max_items,
         background_max_items=settings.background_job_max_items,
+        preview_max_items=settings.import_preview_max_items,
     )
     application.state.job_worker = (
         JobWorker(SessionLocal, worker_settings, files=application.state.job_files)

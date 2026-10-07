@@ -214,7 +214,9 @@ class JobLimits(BaseModel):
     """Batch and job limits (D13) and retention (D14). A refusal names the setting it enforces:
     ``BATCH_MAX_ITEMS``, ``BATCH_MAX_BYTES``, ``ATOMIC_JOB_MAX_ITEMS``,
     ``BACKGROUND_JOB_MAX_ITEMS``, ``BATCH_BACKGROUND_MAX_BYTES``, ``IMPORT_MAX_BYTES``. A
-    background job commits ``chunkItems`` items at a time (``JOB_CHUNK_ITEMS``)."""
+    background job commits ``chunkItems`` items at a time (``JOB_CHUNK_ITEMS``); an import's
+    preview runs at most ``importPreviewMaxItems`` items (``IMPORT_PREVIEW_MAX_ITEMS``) and is a
+    sample beyond them."""
 
     batchMaxItems: int
     batchMaxBytes: int
@@ -223,6 +225,7 @@ class JobLimits(BaseModel):
     backgroundBatchMaxBytes: int
     chunkItems: int
     importMaxBytes: int
+    importPreviewMaxItems: int
     retentionDays: int
 
 

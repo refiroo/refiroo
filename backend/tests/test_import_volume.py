@@ -5,7 +5,13 @@ matched by code through a split cell, is imported into the volume seed's workspa
 four times apart. Binding the file (the worker's first step: the rows copied in, keys, matches and
 order resolved and the items built by set statements) must execute the same statements at both
 sizes and load no record into the ORM: the job only. Applying the items is the batch path's, whose
-budgets are its own (B1–B3); the full-size import budget is J3's.
+budgets are its own (B1–B3).
+
+0.9 J3: the same files previewed first, before any execution. The preview's step (every item run in
+one transaction rolled back, then the outcomes and summary recorded) is one call of the batch path,
+which pages its bulk statements (lookups, inserts, audit subjects, outcomes) about 1,000 rows at a
+time and looks for a cancel request every ``STOP_CHECK_ITEMS`` items: its statements grow by those
+pages only, and it loads no record into the ORM beyond the job's context.
 """
 
 import csv
@@ -16,11 +22,18 @@ import pytest
 from volume_fixture import CODE, RANK, WORKSPACE, measure, scaled_shape, volume_app
 
 from app.db import get_engine
+from app.engine.jobs.batches import STOP_CHECK_ITEMS
 
 SHAPE = scaled_shape(0.01)
 SIZES = (500, 2_000)
 # The job, read by the worker's claim and by its binding.
 ORM_ROWS = 4
+# The preview's context too: the workspace, the runtime state and release, and the parents' records.
+PREVIEW_ORM_ROWS = 8
+# The batch path's statements paged by about 1,000 rows, measured at 0.9 J3 as about ten per 1,000
+# items: relation and record lookups, record, relationship, value and audit inserts, audit
+# subjects, relation set versions, outcomes.
+PAGED_STATEMENTS = 10
 
 
 def _profile():
@@ -94,6 +107,25 @@ def measured(tmp_path_factory):
         group_name, codes = _groups(client)
         results = {}
         for rows in SIZES:
+            preview = {
+                "workspaceKey": WORKSPACE,
+                "profileKey": "volume-items",
+                "policy": "independent",
+                "onExisting": "overwrite",
+                "stage": "preview",
+            }
+            queued = client.post(
+                "/api/v1/imports",
+                files={"file": ("items.csv", _file(rows, group_name, codes), "text/csv")},
+                data={"request": json.dumps(preview)},
+            )
+            assert queued.status_code == 202, queued.text
+            assert worker.run_once()
+            with measure(get_engine()) as cost:
+                assert worker.run_once()
+            waiting = client.get(f"/api/v1/jobs/{queued.json()['id']}").json()
+            results[("preview", rows)] = (cost, waiting)
+        for rows in SIZES:
             request = {
                 "workspaceKey": WORKSPACE,
                 "profileKey": "volume-items",
@@ -114,6 +146,19 @@ def measured(tmp_path_factory):
             done = client.get(f"/api/v1/jobs/{queued.json()['id']}").json()
             results[rows] = (cost, bound, done)
         return results
+
+
+def test_the_preview_grows_only_by_its_paged_statements_and_cancel_checks(measured):
+    (few, small), (many, large) = measured[("preview", SIZES[0])], measured[("preview", SIZES[1])]
+    for rows, waiting in ((SIZES[0], small), (SIZES[1], large)):
+        assert waiting["state"] == "awaiting_confirmation", waiting["error"]
+        preview = waiting["preview"]
+        assert preview["coverage"] == "complete" and preview["counts"]["created"] == rows * 3
+    few_items, many_items = SIZES[0] * 3, SIZES[1] * 3
+    checks = many_items // STOP_CHECK_ITEMS - few_items // STOP_CHECK_ITEMS
+    pages = -(-many_items // 1_000) - -(-few_items // 1_000)
+    assert many.statements - few.statements <= checks + PAGED_STATEMENTS * pages, (few, many)
+    assert max(few.rows_loaded, many.rows_loaded) <= PREVIEW_ORM_ROWS, (few, many)
 
 
 def test_binding_holds_its_statements_as_the_file_grows(measured):

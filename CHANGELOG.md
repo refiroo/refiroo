@@ -8,6 +8,18 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 J3: import preview and confirmation. `POST /api/v1/imports` takes `stage: "preview"`:
+  the file is bound, its first `IMPORT_PREVIEW_MAX_ITEMS` (10,000) items run independently against
+  the data in a transaction rolled back whole, and the job waits in `awaiting_confirmation` with
+  `preview` (coverage `complete` or `sample`, items and rows covered, counts by action, the result
+  under the request's policy) (D80, D82, D83). `POST /api/v1/jobs/{jobId}/confirm` queues it to
+  bind the stored file again and execute (D81); it is idempotent, checks the context again and
+  refuses with `409 JOB_NOT_AWAITING_CONFIRMATION` or `410 JOB_EXPIRED`; cancel ends a waiting
+  preview at once and retention expires it (D87). Every import carries `bindingReport` per source
+  and column (D86); `GET /api/v1/jobs/{jobId}/rows` reads its outcomes by row and `/items` takes
+  `ref=` (D84); a row refusal lists every failing cell in `details.cells` (D85). Revision
+  `20261007_08` adds `jobs.report`, `jobs.confirmed_at` and the source and row of inputs and
+  outcomes; `integrationJobs.limits.importPreviewMaxItems` reports the setting.
 - Base 0.9 J2a: the database holds unique attribute values. `unique_attribute_values` keeps each
   live value of an attribute the active release declares `unique` once per workspace, keyed by the
   SHA-256 of its canonical JSON under a deferred unique constraint (D75, D77); PostgreSQL triggers

@@ -88,10 +88,15 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # J1u: GET /jobs/{job_id}/events, the job event stream; nothing else changed. Re-baselined for
     # 0.9 J2: GET/POST /import-profiles, GET/PUT/DELETE /import-profiles/{profile_key} and POST
     # /imports with the ImportProfile*, ImportRequest and binding schemas, and importMaxBytes in
-    # JobLimits with its description; removing those gives J1u's document exactly.
+    # JobLimits with its description; removing those gives J1u's document exactly. Re-baselined for
+    # 0.9 J3: POST /jobs/{job_id}/confirm and GET /jobs/{job_id}/rows with the JobRow*, JobActions,
+    # ImportPreview, Preview* and BindingReport* schemas; JobResponse gains confirmedAt, preview and
+    # bindingReport, JobLimits importPreviewMaxItems (and its description), ImportRequest's stage
+    # takes preview (and its description), GET /jobs/{job_id}/items gains ref and the cancel
+    # route's description names a waiting preview; no other path or schema changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "d4d1eb8111e4ad30073dfbc4efea2b70adda96a73b6f28976d957950c202d832"
+        "16d2abc017418129a7d334b739b2bd529817647b0c513eebf86ce190867d6689"
     )
 
 
@@ -122,9 +127,14 @@ def test_paging_openapi_inventory():
         assert {"totalCount", "startIndex"}.isdisjoint(document["components"]["schemas"][name]["required"])
         assert properties["totalCount"]["type"] == properties["startIndex"]["type"] == "integer"
     # 0.9 B1 added the job list and a job's outcomes; H4c removed GET /workspaces/{key}/mappings (D-1);
-    # 0.9 J2 added the import profiles.
-    assert seekable <= paged and len(paged) == 27
-    assert {"/api/v1/jobs", "/api/v1/jobs/{job_id}/items", "/api/v1/import-profiles"} <= paged
+    # 0.9 J2 added the import profiles; 0.9 J3 an import's rows.
+    assert seekable <= paged and len(paged) == 28
+    assert {
+        "/api/v1/jobs",
+        "/api/v1/jobs/{job_id}/items",
+        "/api/v1/jobs/{job_id}/rows",
+        "/api/v1/import-profiles",
+    } <= paged
     objects = {item["name"] for item in document["paths"]["/api/v1/objects/{object_type_key}"]["get"]["parameters"]}
     relations = {item["name"] for item in document["paths"]["/api/v1/relations"]["get"]["parameters"]}
     assert "topLevel" in objects and {"search", "sort"} <= relations

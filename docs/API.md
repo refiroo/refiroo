@@ -191,7 +191,7 @@ Capabilities return deployment-supported operations explicitly:
   "integrationJobs": {
     "createJobs": true,
     "runModes": ["inline"],
-    "limits": { "batchMaxItems": 1000, "batchMaxBytes": 5242880, "atomicJobMaxItems": 10000, "retentionDays": 7 },
+    "limits": { "batchMaxItems": 1000, "batchMaxBytes": 5242880, "atomicJobMaxItems": 10000, "importPreviewMaxItems": 10000, "retentionDays": 7 },
     "setting": "INTEGRATION_JOBS_ENABLED"
   },
   "changeFeed": { "retentionDays": 30 },
@@ -1785,7 +1785,7 @@ POST /api/v1/batches                                   (INTEGRATION_JOBS_ENABLED
 POST /api/v1/jobs/{jobId}/cancel                       (INTEGRATION_JOBS_ENABLED)
 GET  /api/v1/jobs?workspaceKey=…&kind=…&state=…        newest first, ADR-030 paging
 GET  /api/v1/jobs/{jobId}
-GET  /api/v1/jobs/{jobId}/items?status=…               outcomes in item order, ADR-030 paging
+GET  /api/v1/jobs/{jobId}/items?status=…&ref=…         outcomes in item order, ADR-030 paging
 ```
 
 ### Request
@@ -1961,7 +1961,9 @@ activated meanwhile) creates no job. A worker in the API process then runs it:
 `POST /jobs/{jobId}/cancel` answers `202` with the job and `cancelRequestedAt` set; it waits for no
 chunk. The worker carries it out at the job's next chunk (a queued job before its first item); an
 `atomic` job looks for it before every 500 items it decides and before it writes them, and rolls
-back completely. Cancelling again changes nothing; a
+back completely. An import preview waiting for confirmation (0.9 J3) is cancelled at once: it is
+`cancelled` with `finishedAt` set, its file removed and its preview's outcomes kept to read until
+retention. Cancelling again changes nothing; a
 finished job is `409 JOB_FINISHED` with `details.state`, an unknown one `404 JOB_NOT_FOUND`.
 
 ## Exports (Base 0.9 J1)
@@ -2104,13 +2106,15 @@ or a body of the wrong shape `422 REQUEST_VALIDATION_ERROR`. On the output: `404
 `404 JOB_HAS_NO_OUTPUT` (a batch), `409 JOB_NOT_COMPLETED` with `details.state`, `410 JOB_EXPIRED`
 (retention removed the file), `410 JOB_OUTPUT_MISSING` (the file is gone from `JOB_FILE_DIR`).
 
-## Imports (Base 0.9 J2)
+## Imports (Base 0.9 J2, J3)
 
 - `GET /api/v1/import-profiles`, `GET /api/v1/import-profiles/{profileKey}`
 - `POST /api/v1/import-profiles`, `PUT /api/v1/import-profiles/{profileKey}`,
   `DELETE /api/v1/import-profiles/{profileKey}?expectedVersion=` (registered with
   `INTEGRATION_JOBS_ENABLED`)
-- `POST /api/v1/imports` (registered with `INTEGRATION_JOBS_ENABLED`)
+- `POST /api/v1/imports`, `POST /api/v1/jobs/{jobId}/confirm` (registered with
+  `INTEGRATION_JOBS_ENABLED`)
+- `GET /api/v1/jobs/{jobId}/rows?status=…` (an import's outcomes by row, ADR-030 paging)
 
 An import loads a file into one workspace, live or into a change set, as a background job of kind
 `import`. The file is an XLSX workbook or a CSV file read through an **import profile**, or, without
@@ -2229,7 +2233,8 @@ as a parameter. Refusals: `409 IMPORT_PROFILE_EXISTS`, `404 IMPORT_PROFILE_NOT_F
 - `policy` and `onExisting` as on [batches](#batches-and-jobs-base-09-b1-b2-b3). A file without
   versions updates found records only with `onExisting: "overwrite"` (audited with the version it
   replaced); a row equal to its record is `unchanged` either way.
-- `stage: "execute"` runs the import as soon as its file is bound. (`preview` arrives with J3.)
+- `stage: "execute"` runs the import as soon as its file is bound; `stage: "preview"` runs it
+  without writing anything and waits for confirmation ([below](#preview-and-confirmation)).
 - `Idempotency-Key` as on batches: it covers the request and the file's SHA-256, so a retry answers
   with the first job (`Idempotent-Replayed: true`) and another file under the same key is
   `422 IDEMPOTENCY_KEY_REUSED`.
@@ -2255,7 +2260,9 @@ source order, then depth, so parents come first; related records and relationshi
 record.
 
 **A row that cannot be bound** is rejected before anything runs, with the column in
-`details.column`, and its items are left out: `INVALID_ATTRIBUTE_VALUE` (and the attribute's range
+`details.column`, and its items are left out. A row with cells that do not convert names every one
+of them: its error is the first cell's, and `details.cells` lists each failing cell's `column`,
+`code` and `message`. The refusals: `INVALID_ATTRIBUTE_VALUE` (and the attribute's range
 codes), `REFERENCE_NOT_FOUND` and `REFERENCE_AMBIGUOUS` (`details.count`) for a match finding no
 record or several, `DUPLICATE_KEY_IN_FILE` (rows with one key and different values, all of them,
 `details.rows` naming the others; rows with one key and equal values are one record, and their
@@ -2286,6 +2293,97 @@ known type is `INVALID_CELL`. An unchanged export sent back changes nothing.
 **Files.** XLSX cells are read as stored values, never formulas (a formula's cached value), dates
 from date cells or ISO 8601 text, Excel's `_xHHHH_` escapes decoded. CSV is UTF-8 with or without a
 BOM, RFC 4180, the profile's delimiter (a comma by default), a header row.
+
+### The binding report
+
+Once its file is bound, every import's job (previewed or executed) carries `bindingReport`: per
+source, in load order, what binding made of each column's cells. It is `null` before binding and for
+a JSON Lines file; an export's table layout reports its `name` and `#` attribute columns with
+`objectTypeKey` `null`.
+
+```json
+[{ "sheet": "Codes", "objectTypeKey": "master-value", "rows": 12, "rejectedRows": 2,
+   "columns": [
+     { "column": "Order", "binding": "attributeTypeKey", "target": "sort-order",
+       "cells": 12, "empty": 1, "converted": 9, "valueMapped": 1, "refused": 1 },
+     { "column": "List", "binding": "parent", "target": "codelist",
+       "cells": 12, "empty": 0, "resolved": 10, "notFound": 1, "ambiguous": 1, "refused": 0 } ] }]
+```
+
+- `binding` is the profile's kind: `field` (the name), `attributeTypeKey`, `key` (an ID key column),
+  `relatedRecord`, which count `converted`, `valueMapped` (a value map replaced the cell) and
+  `refused` cells; or `parent`, `relation`, `relationFlags` (one entry per flag column), which count
+  `refused` cells (a value that does not convert for an attribute match) and the values that found
+  one record (`resolved`), none (`notFound`) or several (`ambiguous`). A split cell holds several
+  values; a flag column counts an unset cell as `empty`.
+- Every cell is counted, a refused row's too, so a column bound wrongly shows at once: a date column
+  with every cell refused, a match column resolving nothing.
+- `rejectedRows` counts the source's rows refused by binding.
+
+### Preview and confirmation
+
+An import sent with `stage: "preview"` is bound as an execution would be, then its items run against
+the data in one transaction that is rolled back: no record, relationship, feed entry, audit entry or
+event is written, and a change set keeps its version. The job's `stage` reads `binding`, then
+`previewing`; it then waits in `awaiting_confirmation` with `preview`:
+
+```json
+{
+  "coverage": "complete",
+  "items": { "total": 30, "previewed": 30 },
+  "rows": { "total": 12, "previewed": 12, "rejected": 4 },
+  "counts": { "created": 1, "updated": 1, "unchanged": 6, "deleted": 0, "rejected": 4 },
+  "result": "partial",
+  "previewedAt": "2026-10-08T09:00:00Z"
+}
+```
+
+- The items run **independently, whatever the policy**, so every refusal shows at once; `result` is
+  what execution would give under the request's policy: `rejected` for an `atomic` import with any
+  refusal, since nothing would be written.
+- **`coverage`** is `complete` when every item ran and `sample` when only the first
+  `IMPORT_PREVIEW_MAX_ITEMS` did (10,000, reported as `integrationJobs.limits.importPreviewMaxItems`).
+  Binding still covers every row, so every binding refusal and the whole binding report are there.
+  Items run records first and relationships last, so a sample may preview a row's record and not its
+  relationships; a row counts in `rows.previewed` only when all its items ran.
+- The preview's outcomes read like an execution's (`/items`, `/rows`); `applied` there means it would
+  apply. The preview holds the workspace (or the change set's claim) while it runs, as an atomic job
+  of its size does.
+
+**`POST /api/v1/jobs/{jobId}/confirm`** (no body) answers `202` with the job queued again and
+`confirmedAt` set. The worker binds the stored file again and runs it as `stage: "execute"` would,
+so records created, renamed or removed since the preview count: **execution is authoritative**, and
+its outcomes replace the preview's (`preview` stays on the job). Confirming a job already confirmed
+answers `202` with it unchanged, so a retried request is safe. Refused, leaving the job waiting: the
+context's codes checked again as at submission (`409 MODEL_RELEASE_CHANGED`,
+`404 WORKSPACE_NOT_FOUND`, `404 CHANGE_SET_NOT_FOUND`, and `409 CHANGE_SET_VERSION_CONFLICT` when
+the change set changed since the request's `expectedChangeSetVersion`). A job that is not a waiting
+preview (an import sent with `execute`, a batch, an export, a cancelled preview) is
+`409 JOB_NOT_AWAITING_CONFIRMATION` with `details.state`; a preview past its retention
+`410 JOB_EXPIRED`.
+
+A waiting preview is cancelled at once by `POST /jobs/{jobId}/cancel`; left unconfirmed, it expires
+`JOB_RETENTION_DAYS` after its preview ended, and its file goes with it. A retry of the preview's
+request with its `Idempotency-Key` answers with the waiting job.
+
+### Outcomes by row
+
+`GET /api/v1/jobs/{jobId}/rows` lists an import's rows in source, then row order (ADR-030 paging),
+each with its items' outcomes gathered:
+
+```json
+{ "ref": "Codes!4", "sheet": "Codes", "row": 4, "status": "rejected",
+  "actions": { "created": 0, "updated": 0, "unchanged": 0, "deleted": 0 },
+  "outcomes": [{ "index": 2, "ref": "Codes!4", "status": "rejected",
+                 "error": { "code": "INVALID_ATTRIBUTE_VALUE", "message": "…",
+                            "details": { "column": "Order", "cells": [ … ] } } }] }
+```
+
+A row's `status` is its worst item's (`rejected`, then `unprocessed`, then `applied`), `actions`
+counts its applied items, and `outcomes` holds its rejected and unprocessed items; `status=` keeps
+rows of one status. Every item of one row reads at `GET /jobs/{jobId}/items?ref=Codes!4`. A sample
+preview lists the rows it has outcomes for. A batch or an export has no rows:
+`404 JOB_HAS_NO_ROWS`.
 
 ## Change feed (Base 0.9 F1, F2)
 
@@ -3131,7 +3229,6 @@ is at least once: deduplicate by `eventId`.
 Designed in [INTEGRATION_API.md](INTEGRATION_API.md) and sequenced in the
 [Base 0.9 plan](BASE_0_9_IMPLEMENTATION_PLAN.md); each contract moves here when its package is delivered.
 
-- Import preview and confirmation (J3)
 - Webhook subscriptions
 - Consumer API publications and events ([CONSUMER_API.md](CONSUMER_API.md)); get by ID, lists,
   XREF, batch resolve and crosswalk are delivered (above)

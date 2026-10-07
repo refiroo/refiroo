@@ -438,8 +438,21 @@ its parameters, state, progress and one outcome per item, kept for a retention p
   and the file's own rows, order a source's own hierarchy by a recursive query, find related records
   through their relationship and parent, and build the items as JSON. Rejected rows become the job's
   first outcomes and the items its inputs (`INSERT … SELECT`), and from there the import runs as a
-  background batch. Profiles (`engine/imports/profiles.py`) are checked against a model release with
-  every problem at its JSON pointer.
+  background batch. Inputs and outcomes keep each item's source and row (`source_index`,
+  `row_number`), so `GET /jobs/{id}/rows` groups the outcomes by row in one statement. A row's cells
+  are all converted, so its refusal names every failing cell; the binding report's cell counts are
+  kept while the rows stream and its match counts are one aggregate over the temporary tables, kept
+  on the job (`jobs.report`). Profiles (`engine/imports/profiles.py`) are checked against a model
+  release with every problem at its JSON pointer.
+- **Import previews** (`engine/imports/preview.py`, 0.9 J3): after binding, the worker runs the
+  first `IMPORT_PREVIEW_MAX_ITEMS` items through `run_items` independently, in one transaction it
+  rolls back whole, so records, relationships, feed positions, audit entries, matrix states, unique
+  values and change-set versions go together and PostgreSQL drops the transaction's notifications;
+  a short transaction holding the lease then records the outcomes and the summary, and the job waits
+  in `awaiting_confirmation` without a lease, which no worker claims. Confirming (under the job row's
+  lock, after the context is checked again) removes the preview's inputs and outcomes and queues the
+  job, which binds the file again and runs as an execution: one execution path. Cancelling a waiting
+  job finishes it in the request; retention expires it like a finished one.
 - **Following a job** (0.9 J1u): a trigger on `jobs` sends `pg_notify('rdm_job_events', id)` when
   a change to a job's state, progress, cancel request or output commits, so every path that changes
   a job is heard and nothing rolled back is. One listener thread per process (`engine/jobs/events.py`)

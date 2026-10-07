@@ -211,8 +211,10 @@ keyboard; users do not reconstruct language, target or parent context on separat
 **Stories:** US-I03–I05, US-I07–I08. **Target:** 0.9; the export sentence passes through the API
 (Base 0.9 J1, `test_j27_export`). Of the import half, the file's rows load under the chosen policy
 with outcomes by row and field, an invalid number and a duplicate key refused and a retry with its
-key creating nothing twice (Base 0.9 J2, `test_j27_import`); the preview follows (J3) and the
-screen (J4).
+key creating nothing twice (Base 0.9 J2, `test_j27_import`); the import half passes at API level
+with the preview (Base 0.9 J3, `test_j27_import`: the preview reports errors by row and every failing
+field and changes nothing, execution follows the chosen policy, an interrupted import resumes and a
+retry with its key creates nothing twice); the screen follows (J4).
 
 An operator receives a supplier code file containing a new value, an existing value, an invalid
 number and a duplicate business key. They select the destination, identify the columns and preview

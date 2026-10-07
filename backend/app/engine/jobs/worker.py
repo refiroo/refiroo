@@ -26,7 +26,9 @@ removes the job files no completed job serves any more (``files.py``).
 **Imports** (Base 0.9 J2, D73) run on the batch worker. An import's first step binds its file
 (``imports/binding.py``): its rejected rows become its first outcomes and its items its inputs, in
 one commit; a restart before that commit binds the file again. Its chunks then run as a background
-batch's. Its file goes once the job finishes.
+batch's. Its file goes once the job finishes. A preview (0.9 J3) runs its items in one step that is
+rolled back (``imports/preview.py``), records what they would do and waits for confirmation without
+a lease; a confirmed preview is queued again and binds its file anew (D81).
 
 **Exports** (Base 0.9 J1, D53) run on a worker of their own, which claims only ``export`` jobs while
 the batch worker claims the rest, so neither kind waits behind the other. An export runs in one
@@ -56,6 +58,7 @@ from ...errors import ApiError
 from ...models.commands import BatchItem
 from ...models.database import ChangeSet, Job
 from ..imports.binding import ImportLimits, bind_import
+from ..imports.preview import preview_items, record_preview
 from .background import open_job_context
 from .batches import JobCancelled, run_items
 from .exports import ExportCancelled, ExportControl, run_export
@@ -66,6 +69,7 @@ from .store import (
     expire_jobs,
     finish_export,
     load_inputs,
+    previewing,
     record_binding,
     record_outcomes,
     stop_export,
@@ -95,6 +99,8 @@ class WorkerSettings:
     # An import's items once its file is bound, under the batch limits (D13).
     atomic_max_items: int = 10_000
     background_max_items: int = 1_000_000
+    # The items an import's preview runs (IMPORT_PREVIEW_MAX_ITEMS, 0.9 J3, D83).
+    preview_max_items: int = 10_000
 
 
 class _LeaseLost(Exception):
@@ -188,6 +194,12 @@ class JobWorker:
                     state="running",
                     stage=case(
                         ((Job.kind == "import") & Job.total.is_(None), "binding"),
+                        (
+                            (Job.kind == "import")
+                            & Job.confirmed_at.is_(None)
+                            & (Job.parameters["stage"].as_string() == "preview"),
+                            "previewing",
+                        ),
                         else_="applying",
                     ),
                     started_at=func.coalesce(Job.started_at, now),
@@ -221,6 +233,8 @@ class JobWorker:
             try:
                 if job.kind == "import" and job.total is None:
                     self._bind(session, job)
+                elif previewing(job):
+                    self._preview(session, job)
                 else:
                     self._apply_chunk(session, job)
             except JobCancelled:
@@ -260,9 +274,7 @@ class JobWorker:
     def _apply_chunk(self, session: Session, job: Job) -> None:
         atomic = job.parameters.get("policy") == "atomic"
         context = open_job_context(session, job)
-        inputs = load_inputs(
-            session, job, job.total if atomic else self.settings.chunk_items
-        )
+        inputs = load_inputs(session, job, job.total if atomic else self.settings.chunk_items)
         outcomes = run_items(
             session,
             context,
@@ -307,9 +319,17 @@ class JobWorker:
             ),
         )
         self._hold_lease(session, job.sequence_id)
-        record_binding(session, job, rejected=bound.rejected, items=bound.items)
+        record_binding(
+            session, job, rejected=bound.rejected, items=bound.items, report=bound.report
+        )
         retention = self.settings.retention_days
-        if job.parameters.get("policy") == "atomic" and bound.rejected:
+        if previewing(job):
+            # The preview runs next, every item whatever the policy (D80).
+            job.stage = "previewing"
+            job.lease_expires_at = datetime.now(UTC) + timedelta(
+                seconds=self.settings.lease_seconds
+            )
+        elif job.parameters.get("policy") == "atomic" and bound.rejected:
             stop_job(
                 session,
                 job,
@@ -326,6 +346,25 @@ class JobWorker:
             )
         session.commit()
         self._finished_import(job)
+
+    def _preview(self, session: Session, job: Job) -> None:
+        """Run the preview's items and roll them back (D82); then, holding the lease, record what
+        they would do and leave the job waiting for confirmation. A restart meanwhile runs the
+        preview again from the stored inputs."""
+        sequence_id = job.sequence_id
+        context = open_job_context(session, job)
+        outcomes = preview_items(
+            session,
+            job,
+            context,
+            limit=self.settings.preview_max_items,
+            should_stop=_cancel_requested(session, sequence_id),
+        )
+        session.rollback()
+        self._hold_lease(session, sequence_id)
+        job = session.get(Job, sequence_id)
+        record_preview(session, job, outcomes, retention_days=self.settings.retention_days)
+        session.commit()
 
     def _binding_check(self, sequence_id: int) -> None:
         """While a file is bound: renew the lease, and stop for a cancel request or a lost lease."""
@@ -371,7 +410,9 @@ class JobWorker:
         partial = files.partial(job.id)
         lost: list[bool] = []
         control = ExportControl(
-            check=lambda total, processed: self._export_check(job.sequence_id, total, processed, lost)
+            check=lambda total, processed: self._export_check(
+                job.sequence_id, total, processed, lost
+            )
         )
         try:
             files.directory.mkdir(parents=True, exist_ok=True)
@@ -387,7 +428,9 @@ class JobWorker:
             return
         except ApiError as error:
             files.remove(job.id)
-            reason = "MODEL_RELEASE_CHANGED" if error.code == "MODEL_RELEASE_CHANGED" else "JOB_FAILED"
+            reason = (
+                "MODEL_RELEASE_CHANGED" if error.code == "MODEL_RELEASE_CHANGED" else "JOB_FAILED"
+            )
             self._stop(job.sequence_id, "failed", reason, _error_body(error))
             return
         except Exception:
@@ -470,7 +513,11 @@ class JobWorker:
             job = session.get(Job, sequence_id)
             if job.kind == "export":
                 stop_export(
-                    session, job, state=state, error=error, retention_days=self.settings.retention_days
+                    session,
+                    job,
+                    state=state,
+                    error=error,
+                    retention_days=self.settings.retention_days,
                 )
                 session.commit()
                 if self.files is not None:

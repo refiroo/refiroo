@@ -63,6 +63,82 @@ class ExportOutput(BaseModel):
     sha256: str
 
 
+class PreviewItems(BaseModel):
+    total: int
+    previewed: int
+
+
+class PreviewRows(BaseModel):
+    """The file's rows: how many, how many every item of which ran, how many refused."""
+
+    total: int
+    previewed: int
+    rejected: int
+
+
+class PreviewCounts(BaseModel):
+    created: int
+    updated: int
+    unchanged: int
+    deleted: int
+    rejected: int
+
+
+class ImportPreview(BaseModel):
+    """What executing a previewed import would do (0.9 J3, D80–D83). ``coverage`` is ``complete``
+    when every item ran, ``sample`` when only the first ``IMPORT_PREVIEW_MAX_ITEMS`` did (every
+    row was still bound, so every binding refusal is listed). ``result`` is what execution would
+    give under the request's policy: ``rejected`` for an ``atomic`` import with any refusal.
+    Execution is authoritative: data may change before confirmation."""
+
+    coverage: Literal["complete", "sample"]
+    items: PreviewItems
+    rows: PreviewRows
+    counts: PreviewCounts
+    result: Literal["applied", "partial", "rejected"]
+    previewedAt: datetime
+
+
+class BindingReportColumn(BaseModel):
+    """What binding made of one column's cells (D86). A converted column (``field``,
+    ``attributeTypeKey``, ``relatedRecord``, ``key``) counts ``converted``, ``valueMapped`` and
+    ``refused`` cells; a match column (``parent``, ``relation``, ``relationFlags``) counts
+    ``refused`` cells and the values that found one record (``resolved``), none (``notFound``) or
+    several (``ambiguous``): a split cell holds several values."""
+
+    column: str
+    binding: Literal[
+        "field",
+        "attributeTypeKey",
+        "key",
+        "parent",
+        "relation",
+        "relationFlags",
+        "relatedRecord",
+    ]
+    target: str | None
+    cells: int
+    empty: int
+    converted: int | SkipJsonSchema[None] = _by_status()
+    valueMapped: int | SkipJsonSchema[None] = _by_status()
+    refused: int
+    resolved: int | SkipJsonSchema[None] = _by_status()
+    notFound: int | SkipJsonSchema[None] = _by_status()
+    ambiguous: int | SkipJsonSchema[None] = _by_status()
+
+
+class BindingReportSource(BaseModel):
+    """One source of the file (a sheet, or the CSV) in load order: its rows, the rows binding or
+    execution refused before they ran, and its columns. ``objectTypeKey`` is null for an export's
+    table layout, whose sheets may hold several types."""
+
+    sheet: str
+    objectTypeKey: str | None
+    rows: int
+    rejectedRows: int
+    columns: list[BindingReportColumn]
+
+
 class JobResponse(BaseModel):
     """A job. ``result`` says whether every item applied: a ``completed`` job may be ``partial``.
 
@@ -100,6 +176,18 @@ class JobResponse(BaseModel):
     leaseExpiresAt: datetime | None
     output: ExportOutput | None = Field(
         default=None, description="A completed export's manifest; null for other jobs and states"
+    )
+    confirmedAt: datetime | None = Field(
+        default=None, description="When a previewed import was confirmed (0.9 J3)"
+    )
+    preview: ImportPreview | None = Field(
+        default=None,
+        description="A previewed import's summary, kept after confirmation; null otherwise",
+    )
+    bindingReport: list[BindingReportSource] | None = Field(
+        default=None,
+        description="An import's binding report per source and column once its file is bound; "
+        "null before, for a JSON Lines file and for other jobs",
     )
 
 
@@ -156,3 +244,30 @@ class BatchResponse(JobItemPage):
     from ``GET /jobs/{jobId}/items``."""
 
     job: JobResponse
+
+
+class JobActions(BaseModel):
+    """A row's applied items by action."""
+
+    created: int
+    updated: int
+    unchanged: int
+    deleted: int
+
+
+class JobRowResponse(BaseModel):
+    """One row of an import's file (0.9 J3, D84): its ``status`` is its worst item's
+    (``rejected``, then ``unprocessed``, then ``applied``), ``actions`` counts its applied items,
+    and ``outcomes`` holds its rejected and unprocessed items' outcomes. Every item of the row
+    reads at ``GET /jobs/{jobId}/items?ref=``."""
+
+    ref: str
+    sheet: str | None
+    row: int
+    status: Literal["applied", "rejected", "unprocessed"]
+    actions: JobActions
+    outcomes: list[JobItemResponse]
+
+
+class JobRowPage(CollectionPage[JobRowResponse]):
+    """An import's rows in source then row order (ADR-030)."""

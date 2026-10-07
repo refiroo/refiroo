@@ -319,8 +319,13 @@ column (D64–D74, revision `20261007_06`; [record](BASE_0_9_IMPLEMENTATION_PLAN
 **J2a is delivered (2026-10-07)**: the database holds live unique attribute values
 (`unique_attribute_values`, kept by PostgreSQL triggers under a deferred constraint, D75–D78,
 revision `20261007_07`; [record](BASE_0_9_IMPLEMENTATION_PLAN.md#j2a-record-2026-10-07)).
-Next is **J3, import preview and confirmation** ([plan](BASE_0_9_IMPLEMENTATION_PLAN.md#j3-plan-2026-10-07)),
-planned 2026-10-07: D80–D88 and its test cases accepted the same day; then J4, Track K and R.
+**J3 is delivered (2026-10-07)**: an import sent with `stage: preview` is bound, run against the
+data and rolled back, and waits for `POST /jobs/{id}/confirm` with what execution would do (counts,
+the result under the policy, `complete` or `sample`), a binding report per column, outcomes by row
+(`GET /jobs/{id}/rows`) and every failing cell of a row; confirming binds the file again and
+executes it (D80–D88, revision `20261007_08`, `IMPORT_PREVIEW_MAX_ITEMS`). A 10,000-row preview
+takes 10.6 s and a 100,000-row execution 110.7 s
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#j3-record-2026-10-07)). Next are J4, Track K and R.
 **C18, the consumer API definition written for readers**, is planned 2026-10-07 (schema 0.9 syntax,
 nothing a consumer sees changes; C-D132–C-D141 decided;
 [plan](BASE_0_9_IMPLEMENTATION_PLAN.md#c18-plan-2026-10-07)). It is independent of Track J.

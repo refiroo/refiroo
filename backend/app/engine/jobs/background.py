@@ -11,15 +11,24 @@ from datetime import UTC, datetime
 from sqlalchemy import func, update
 from sqlalchemy.orm import Session
 
-from ...errors import api_error
+from ...errors import ApiError, api_error
 from ...models.commands import BatchRequest
 from ...models.database import Job
 from ..change_sets.access import change_set_model, load_change_set
 from ..model.registry import resolve_model_snapshot
 from ..workspaces.catalogue import resolve_workspace
 from .batches import BatchContext, open_batch_context
+from .files import JobFiles
 from .inline import batch_parameters, earlier_job, keep_key
-from .store import load_job, request_fingerprint, start_job, store_inputs
+from .store import (
+    AWAITING,
+    cancel_waiting,
+    confirm_job,
+    load_job,
+    request_fingerprint,
+    start_job,
+    store_inputs,
+)
 
 CANCELLABLE = ("queued", "running")
 
@@ -68,10 +77,19 @@ def submit_background_batch(
     return job, False
 
 
-def request_cancel(session: Session, job_id: str) -> Job:
+def request_cancel(session: Session, job_id: str, *, files: JobFiles, retention_days: int) -> Job:
     """Ask the worker to cancel the job (D28). One short write: the worker finishes the job, so
-    the request never waits for a chunk."""
+    the request never waits for a chunk. A preview waiting for confirmation, which no worker
+    claims, is cancelled at once and its file removed (D87)."""
     job = load_job(session, job_id)
+    if job.state == AWAITING:
+        session.refresh(job, with_for_update=True)
+        if job.state == AWAITING:
+            cancel_waiting(session, job, retention_days=retention_days)
+            session.commit()
+            files.remove(job.id)
+            session.refresh(job)
+            return job
     result = session.execute(
         update(Job)
         .where(Job.sequence_id == job.sequence_id, Job.state.in_(CANCELLABLE))
@@ -84,10 +102,48 @@ def request_cancel(session: Session, job_id: str) -> Job:
         raise api_error(
             409,
             "JOB_FINISHED",
-            f"Job '{job.id}' is {job.state}; only a queued or running job can be cancelled",
+            f"Job '{job.id}' is {job.state}; only a queued, running or waiting job can be "
+            "cancelled",
             {"jobId": job.id, "state": job.state},
         )
     session.commit()
+    session.refresh(job)
+    return job
+
+
+def confirm_preview(session: Session, job_id: str) -> Job:
+    """Confirm a previewed import (D87) and commit: it is queued to bind its file again and run as
+    ``stage: execute`` would (D81). A job confirmed before answers unchanged. Its context is
+    checked again as at submission, and a refusal leaves it waiting: a release activated since,
+    a retired workspace, a missing change set, or a change set changed since the request's
+    ``expectedChangeSetVersion``."""
+    job = load_job(session, job_id)
+
+    def check(job: Job) -> None:
+        try:
+            context = open_job_context(session, job)
+        except ApiError as error:
+            if error.code != "MODEL_RELEASE_CHANGED":
+                raise
+            raise api_error(
+                409,
+                "MODEL_RELEASE_CHANGED",
+                "The model release this preview ran under is no longer the one its context uses; "
+                "send the import again",
+            ) from None
+        if context.change_set is not None and context.change_set.version != job.change_set_version:
+            raise api_error(
+                409,
+                "CHANGE_SET_VERSION_CONFLICT",
+                "The change set changed since the import was sent; send it again with the "
+                "change set's current version",
+                {"currentVersion": context.change_set.version},
+            )
+
+    if confirm_job(session, job, check):
+        session.commit()
+    else:
+        session.rollback()
     session.refresh(job)
     return job
 
@@ -125,4 +181,3 @@ def _release_changed():
         "The model release this job was created under is no longer the one its context uses; "
         "the job stopped, and the items it applied before stay applied",
     )
-

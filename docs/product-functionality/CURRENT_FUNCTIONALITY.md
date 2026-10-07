@@ -330,7 +330,7 @@ keys. Every list is paged with signed cursors bound to the query, or by position
 request. Errors are structured and distinguish not found, invalid input, conflict, retired scope and
 unavailable service. Integration-scale functions are F20–F23 and F25; the reference page is F24.
 
-Limits: the import has no preview yet (0.9); every API is unauthenticated until 0.12.
+Limits: every API is unauthenticated until 0.12.
 
 Evidence: [API contracts](../API.md),
 [ADR-018](../DECISIONS.md#adr-018--bind-opaque-cursors-to-query-semantics).
@@ -476,14 +476,23 @@ for placeholders, and records that belong to each row's record, such as its tran
 profile is checked against the model when it is saved and whenever it is used, and every problem is
 named where it is. The import finds the records a row names among the existing ones and those the
 same file loads, loads parents before their children, and names each outcome by its sheet and row.
-A row that cannot load is refused with its column and why (a value that does not fit, a name that
-finds no record or several, one key on rows that disagree, rows that are each other's parents);
-the other rows load, or with all-or-nothing none do. A file that does not fit its profile, or cannot
-be read, changes nothing. An unchanged export sent back changes nothing.
+A row that cannot load is refused with every cell that failed and why (a value that does not fit, a
+name that finds no record or several, one key on rows that disagree, rows that are each other's
+parents); the other rows load, or with all-or-nothing none do. A file that does not fit its profile,
+or cannot be read, changes nothing. An unchanged export sent back changes nothing.
 
-Limits: notifications reach the tab that started the job while it is open; the import runs at once,
-through the API only: its preview and its screen follow in 0.9; the relationship view in the browser still saves one related record
-at a time.
+An import can be previewed first: the whole file is read and tried against the data without
+changing anything, and the job then says what loading it would do (how many records would be
+created, updated or left unchanged, which rows would be refused and why, and whether the chosen
+policy would load anything) together with a report per column of how its cells were read (empty,
+converted, mapped, refused, or for a column naming records, found, not found or ambiguous). Outcomes
+read row by row. A very large file is previewed in part, saying how much was tried. Confirmed, the
+import loads the file as it stands then, so data changed meanwhile counts; cancelled or left, it
+ends without writing.
+
+Limits: notifications reach the tab that started the job while it is open; the import and its
+preview are available through the API only, the import screen follows in 0.9; the relationship view
+in the browser still saves one related record at a time.
 
 Evidence: [batch contracts](../API.md#batches-and-jobs-base-09-b1-b2-b3),
 [exports](../API.md#exports-base-09-j1),

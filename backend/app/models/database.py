@@ -1323,6 +1323,11 @@ class Job(Base):
     cancel_requested_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     # A completed export's manifest (0.9 J1, D52); its file is in JOB_FILE_DIR under the job's ID.
     output: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    # An import's binding report and its preview's summary (0.9 J3, D86): ``bindingReport``,
+    # ``preview``.
+    report: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    # When a previewed import was confirmed (D87); the worker then runs it as ``execute``.
+    confirmed_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
 
 class JobInput(Base):
@@ -1338,6 +1343,9 @@ class JobInput(Base):
     )
     item_index: Mapped[int] = mapped_column(Integer, nullable=False)
     ref: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # An import's item: the source (in load order) and the row of the file it came from (0.9 J3).
+    source_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    row_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # The item as the request gave it: only the fields it set.
     item: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
 
@@ -1352,6 +1360,7 @@ class JobItem(Base):
             "status IN ('applied', 'rejected', 'unprocessed')", name="ck_job_item_status"
         ),
         Index("ix_job_items_status", "job_id", "status", "item_index"),
+        Index("ix_job_items_rows", "job_id", "source_index", "row_number"),
     )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -1361,6 +1370,9 @@ class JobItem(Base):
     item_index: Mapped[int] = mapped_column(Integer, nullable=False)
     ref: Mapped[str | None] = mapped_column(String(200), nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
+    # An import's outcome: its source and row, read grouped by ``GET /jobs/{id}/rows`` (0.9 J3).
+    source_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    row_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # The rest of the outcome: action, record identity and version, error, or reason.
     outcome: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
 

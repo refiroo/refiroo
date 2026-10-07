@@ -152,6 +152,7 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_consumer_event_volume.py": ("feed", "consumer", "volume"),
     "test_export_volume.py": ("jobs", "volume"),
     "test_import_volume.py": ("jobs", "volume"),
+    "test_import_budget.py": ("volume", "jobs"),
     "test_type_changes.py": ("change_sets", "records", "matrix"),
     "test_restructuring_planner.py": ("change_sets", "records", "matrix"),
     "test_restructuring_volume.py": ("volume", "change_sets"),
@@ -238,7 +239,7 @@ SERIAL_DESCRIPTION = "timing-based check: left out of a parallel run, run with `
 # Full-size budgets (H3): left out of every run whose -m expression does not name `budget`, and
 # serial when named. PG3b replaces their timed checks with statement counts at two seeded sizes
 # (PG-D17); the 100,000-item batch is measured once at PG5's acceptance.
-BUDGET_MODULES = ("test_batch_volume.py", "test_background_volume.py")
+BUDGET_MODULES = ("test_batch_volume.py", "test_background_volume.py", "test_import_budget.py")
 BUDGET_DESCRIPTION = "full-size budget: left out unless `-m` names `budget`; a release's acceptance only"
 SLOW_SECONDS = 10.0
 JOURNEY_DESCRIPTION = (

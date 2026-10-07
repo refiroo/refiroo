@@ -34,6 +34,7 @@ class BatchLimits:
     background_max_bytes: int
     chunk_items: int
     import_max_bytes: int
+    import_preview_max_items: int = 10_000
 
 
 def check_batch_request(request: BatchRequest, body_bytes: int, limits: BatchLimits) -> None:

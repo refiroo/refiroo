@@ -26,7 +26,8 @@ from app.db import DatabaseStartupError, get_engine, migration_config
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261007_07"
+HEAD = "20261007_08"
+UNIQUE_VALUES = "20261007_07"
 IMPORT_PROFILES = "20261007_06"
 JOB_NOTIFICATIONS = "20261007_05"
 EXPORT_OUTPUT = "20261007_04"
@@ -1029,6 +1030,66 @@ def test_upgrade_to_unique_values_fills_them_and_an_interrupted_run_recovers(
     command.downgrade(migration_config(url), IMPORT_PROFILES)
     assert _scalar(url, "SELECT to_regclass('unique_attribute_values') IS NULL") is True
     assert _scalar(url, "SELECT count(*) FROM pg_proc WHERE proname LIKE 'rdm_unique_values%'") == 0
+    engine.dispose()
+
+
+def test_upgrade_to_import_preview_keeps_jobs_and_an_interrupted_run_recovers(
+    monkeypatch, databases
+):
+    """Base 0.9 J3 on a database with a job and its outcomes, taken back to the previous revision:
+    with a ``jobs.report`` column already there (by hand) the revision rolls back and the start
+    refuses naming it; once dropped, the next start adds the columns and the service starts twice.
+    The job and its outcomes are kept, with no source or row, so they read no rows. A downgrade
+    removes the columns again."""
+    url = seeds.create_empty()
+    databases.append(url)
+    batch = {
+        "workspaceKey": "default",
+        "policy": "independent",
+        "run": "inline",
+        "items": [
+            {
+                "op": "create",
+                "applicationKey": "rdm-master",
+                "objectTypeKey": "domain",
+                "name": "Domain PREVIEW-1",
+                "attributes": [{"attributeTypeKey": "domain-code", "value": "PREVIEW-1"}],
+            }
+        ],
+    }
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        assert errors == []
+        response = client.post("/api/v1/batches", json=batch)
+        assert response.status_code == 200, response.text
+        job_id = response.json()["job"]["id"]
+    command.downgrade(migration_config(url), UNIQUE_VALUES)
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE jobs ADD COLUMN report integer"))
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        message = _assert_refused(
+            client,
+            errors,
+            "Database migration failed",
+            f"Current revision: {UNIQUE_VALUES}",
+            f"target revision: {HEAD}",
+            "still at its current revision",
+        )
+        assert "report" in message
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == UNIQUE_VALUES
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE jobs DROP COLUMN report"))
+    for _start in range(2):
+        with serve(monkeypatch, _render(url)) as (client, errors):
+            assert errors == []
+            assert client.get(f"/api/v1/jobs/{job_id}").json()["confirmedAt"] is None
+            assert client.get(f"/api/v1/jobs/{job_id}/items").json()["items"][0]["status"] == (
+                "applied"
+            )
+        assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+    assert _scalar(url, "SELECT count(*) FROM job_items WHERE source_index IS NOT NULL") == 0
+    command.downgrade(migration_config(url), UNIQUE_VALUES)
+    assert {"report", "confirmed_at"}.isdisjoint(_job_columns(url))
     engine.dispose()
 
 
