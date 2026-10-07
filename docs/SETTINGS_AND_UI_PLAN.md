@@ -1222,6 +1222,20 @@ different groups as if they were one. The user keeps the nested windows and aske
   gesture showed the categories' heading and the catalogue row above it (120px, exactly the parent
   row's top); a step over a heading and steps over rows behaved as before. `src/features/objects`
   178 tests, `lint` (0 errors), `build`, `s6`, `wp14`, `b3` (30 checks) passed.
+- **Frames only while scrolling** (asked by the user after UA7, 2026-10-07). A group's frame is
+  transparent at rest, in the sidebar and the lens alike, and shows only as the accent glow while
+  the group's own window scrolls, fading 700 ms after the last scroll. The border keeps its 1px, so
+  nothing moves when it lights up. The teal glow on the group under the pointer (the item below on
+  the area under the pointer) is removed with its `--active-area` token: only scrolling shows a
+  frame. Nesting now shows by indentation alone, since the frame's edge had replaced the guide
+  line. Checked on the dev server (timetable hierarchy, light and dark): no frame at rest, the
+  categories window's frame while it scrolled and gone a second later. The contrast test, `format`,
+  `lint` (0 errors), `build` passed; `test:visual` passed (the resting frames were under its
+  tolerance) and its baselines were re-recorded, 48 of them showing a tree.
+- **No count on a group's heading** (asked by the user, 2026-10-07). A type group's heading shows
+  its name only, in the sidebar and the lens; the count stays in the heading's accessible name
+  ("Domains, 3"), and records keep their `aria-setsize`. `src/features/objects` (178 tests),
+  `lint` (0 errors), `s6` passed; the visual baselines were re-recorded.
 - **The group under the pointer owns the wheel** (two defects found by the user after UA4,
   2026-10-07). Over a group's heading the wheel scrolled the window around the group, since the
   heading sits outside the group's own window, while the hover glow named the group. And with the

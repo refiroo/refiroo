@@ -438,11 +438,11 @@ fieldset.settings-section legend {
 .tree-group .scroll-window {
   --window-height: var(--tree-window);
 }
-/* Each type group sits in a dim frame of its type's colour, so groups never run into each other;
-   while its own window scrolls the frame glows in the accent, a state rather than a kind, showing
-   which part is moving (UA2 revision). */
+/* Each type group sits in a frame that shows only while its own window scrolls: then it glows in
+   the accent, a state rather than a kind, showing which part is moving (UA2 revision). At rest the
+   frame is transparent but keeps its width, so nothing moves when it lights up. */
 .tree-group {
-  border: 1px solid color-mix(in srgb, var(--hue-marker, var(--border-subtle)) 14%, transparent);
+  border: 1px solid transparent;
   border-radius: 8px;
   transition:
     border-color 160ms ease,
@@ -456,16 +456,6 @@ fieldset.settings-section legend {
 }
 .tree-group .scroll-window-viewport {
   border-radius: 0 0 7px 7px;
-}
-/* The innermost group under the pointer glows in its own colour, marking the area the pointer is in;
-   while any group scrolls, only the scrolling one glows. */
-@media (hover: hover) {
-  .tree:not(:has(.tree-group.is-scrolling)) .tree-group:hover:not(:has(.tree-group:hover)) {
-    border-color: var(--active-area);
-    box-shadow:
-      0 0 0 3px color-mix(in srgb, var(--active-area) 20%, transparent),
-      0 0 14px color-mix(in srgb, var(--active-area) 30%, transparent);
-  }
 }
 @media (prefers-reduced-motion: reduce) {
   .tree-group {
@@ -586,13 +576,6 @@ fieldset.settings-section legend {
   white-space: nowrap;
   font-size: 11.5px;
   font-weight: 400;
-}
-.tree-count {
-  margin-left: auto;
-  color: var(--text-tertiary);
-  font-size: 12px;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
 }
 .tree-note {
   padding: 4px 8px 6px;

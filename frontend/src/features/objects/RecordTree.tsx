@@ -5,13 +5,13 @@
  * bounded, scrolling group. Expanding a record mounts one group per child type, paged with
  * `parentObjectId`; collapsing it unmounts them and releases their pages. A search lists matching
  * records of every type with their ancestor path. Every group is a `useCursorWindow` in a
- * `ScrollWindow`, headed by an item that names the type, shows its count and opens its collection.
+ * `ScrollWindow`, headed by an item that names the type and opens its collection; its count is in
+ * the heading's accessible name only.
  *
  * Every record shows its type's tile (`model/hues`, ADR-040) and the selected one is filled with
- * its type's soft colour; a group's heading is a quiet label with its count, never drawn like a
- * record. Each group sits in a dim frame of its type's colour that glows while its own window
- * scrolls, and an open branch's frames start below its record's toggle, so nested groups read as
- * boxes inside boxes.
+ * its type's soft colour; a group's heading is a quiet label, never drawn like a record. Each
+ * group sits in a frame that shows only while its own window scrolls, and an open branch's groups
+ * start below its record's toggle.
  *
  * The tree follows the WAI-ARIA tree pattern with one tab stop. Positions and set sizes come from
  * the groups' totals, and arrow keys that cross the edge of a group's window load the next page
@@ -813,6 +813,7 @@ function TreeGroup({
         data-fold-key={foldKey}
         // A heading sits one level above its records: headings at odd levels, records at even ones.
         aria-level={level * 2 - 1}
+        // The count is not drawn (asked by the user, 2026-10-07) but stays in the name.
         aria-setsize={siblings}
         aria-posinset={position}
         aria-expanded={groupOpen}
@@ -845,7 +846,6 @@ function TreeGroup({
             onClick={open}
           >
             <span className="tree-name">{plural}</span>
-            <span className="tree-count">{numberFormat.format(total)}</span>
           </span>
         </div>
         {groupOpen && (

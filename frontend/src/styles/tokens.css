@@ -282,8 +282,6 @@
   --hue-6-band: color-mix(in srgb, var(--hue-6-fill) 50%, var(--surface-raised));
   --hue-7-band: color-mix(in srgb, var(--hue-7-fill) 50%, var(--surface-raised));
   --hue-8-band: color-mix(in srgb, var(--hue-8-fill) 50%, var(--surface-raised));
-  /* The tree group under the pointer (UA2 revision); apart from the accent, which marks scrolling. */
-  --active-area: var(--teal-500);
 
   --status-success-surface: var(--green-50);
   --status-success-text: var(--green-800);
@@ -400,7 +398,6 @@
   --hue-8-fill: var(--slate-dark-50);
   --hue-8-ink: var(--slate-dark-100);
   --hue-8-marker: var(--slate-dark-400);
-  --active-area: var(--teal-dark-400);
   --status-success-surface: var(--green-dark-50);
   --status-success-text: var(--green-dark-100);
   --status-success-marker: var(--green-dark-400);
@@ -494,7 +491,6 @@
     --hue-8-fill: var(--slate-dark-50);
     --hue-8-ink: var(--slate-dark-100);
     --hue-8-marker: var(--slate-dark-400);
-    --active-area: var(--teal-dark-400);
     --status-success-surface: var(--green-dark-50);
     --status-success-text: var(--green-dark-100);
     --status-success-marker: var(--green-dark-400);

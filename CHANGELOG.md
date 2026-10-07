@@ -383,6 +383,11 @@ All notable changes to this project are documented in this file. The format foll
   change set list offers **Start from current live data** as the header does. In **Review changes**
   the kind of change is a pill (Added green, Changed grey, Removed red), a record shows its type's
   tile, and a relationship's two ends are chips in their types' colours.
+- Base 0.9 UA2 revision: the record browser's group frames show only while a group scrolls, in the
+  sidebar and the hierarchy lens. At rest they are invisible, and the glow on the group under the
+  pointer is removed.
+- Base 0.9 UA2 revision: a type group's heading in the record browser no longer shows its count;
+  screen readers still hear it with the heading's name.
 - Base 0.9 UA7: dark mode and the gates. Every surface was checked in dark beside its light
   version. Checkboxes and radios are drawn from the design tokens instead of the browser's own
   controls, which in dark were grey discs where a disabled choice looked like an enabled one. A
