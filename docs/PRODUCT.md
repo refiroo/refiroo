@@ -105,6 +105,9 @@ can complete the task in the application; "API" means another system can.
   its value, its default and where it came from, and the capability groups on or off. Settings are
   read here, never edited; secrets show only whether they are set.
 - Choose the theme and the default table density for this browser.
+- In Settings › **Integration**, read each consumer API the active release declares (its version,
+  base URL, exposed types, lists and events), follow and cancel jobs beside the batch, job and feed
+  limits, and open each API's reference.
 
 ### Manage workspaces — browser and API
 

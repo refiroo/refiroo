@@ -1,6 +1,6 @@
 /**
  * The settings navigation: groups and their pages, in order. Only built pages are listed (U-D11);
- * Integration's pages come with U4 and U5, Security's with U8.
+ * Webhooks joins Integration with U5, and Security's pages come with U8.
  */
 
 import type { SettingsPage } from "@/types";
@@ -24,6 +24,14 @@ export const SETTINGS_NAVIGATION: SettingsGroup[] = [
       { page: "workspaces", label: "Workspaces" },
       { page: "model", label: "Model" },
       { page: "deployment", label: "Deployment" },
+    ],
+  },
+  {
+    label: "Integration",
+    pages: [
+      { page: "consumer-apis", label: "Consumer APIs" },
+      { page: "jobs", label: "Jobs and feed" },
+      { page: "api-reference", label: "API reference" },
     ],
   },
 ];

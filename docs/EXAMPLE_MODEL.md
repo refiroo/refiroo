@@ -47,6 +47,12 @@ Structure that the declarations rely on:
   required, uniquely scoped ownership binding `object-has-translation` from a domain, codelist or
   master value to a translation.
 
+The example also declares one consumer API, `rdm` ("RDM API", contract version 1): domains,
+codelists and master values under public names, the lists `domains`, `codelists` (by domain) and
+`values` (by codelist, in sort order), and the event `values-changed` for master values created,
+updated or deleted. It is there so a fresh installation has a consumer API to read, document and
+subscribe to; a model may declare none, or many of a different shape.
+
 ## Why the example applications differ
 
 **The applications differ only because the example model declares different views for them.** The

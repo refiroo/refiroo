@@ -31,9 +31,9 @@ backend coverage is not mistaken for a complete user experience. Reviewed 2026-1
 | F19 | Operate and recover the service | Operator messages | Available | Production hardening is 0.11 |
 | F20 | Query and look up across the data | Not applicable | Available | 0.9 Q1–Q3 |
 | F21 | Read by business date (`asOf`) | Fields only | Available | 0.9 Q4, C16 |
-| F22 | Load data in bulk as jobs | Unavailable | Available | 0.9 B1–B2; import screen 0.9 J4 |
-| F23 | Declare consumer APIs and read through them | JSON model editing | Definitions; reading one business object; reading lists; looking up by code; reading a publication; an index and a typed document per API; following change events; subscribing to them | 0.9 C1–C6, C10, C11 |
-| F24 | Read the API reference | Available at `/docs` | Not applicable | 0.9 V1, V2 |
+| F22 | Load data in bulk as jobs | Jobs listed and cancelled in Settings | Available | 0.9 B1–B2; import screen 0.9 J4 |
+| F23 | Declare consumer APIs and read through them | JSON model editing; each shown in Settings | Definitions; reading one business object; reading lists; looking up by code; reading a publication; an index and a typed document per API; following change events; subscribing to them | 0.9 C1–C6, C10, C11 |
+| F24 | Read the API reference | Available at `/docs`, each source linked from Settings | Not applicable | 0.9 V1, V2 |
 | F25 | Follow changes in order | Not applicable | Available | 0.9 F1; retention and recovery 0.9 F2 |
 
 "Validated" means a composed real-browser runner covers the journey against a real backend
@@ -442,6 +442,11 @@ An idempotency key makes a retry return the first result. Background jobs report
 restarts without repeating or skipping an item, and can be cancelled. Jobs and their outcomes are
 kept for a configurable retention.
 
+Settings › Integration › **Jobs and feed** lists the jobs of every workspace, newest first, with
+their state, result and item counts, and cancels a queued or running job after confirming (while
+the deployment lets jobs be created). It also shows the batch and job limits and how long the
+change feed is kept.
+
 Limits: file import and export with a preview screen follow in 0.9; the relationship view in the
 browser still saves one related record at a time.
 
@@ -554,6 +559,13 @@ path written out with the API's name and version, every field with its type, the
 takes, its limits and its refusals. A client generated from it reads the API's real answers. When a
 release raises the contract version, the index and the document move to the new version.
 
+Settings › Integration › **Consumer APIs** shows each consumer API of the active release, read
+only: its name in the address, contract version, base URL and OpenAPI document (each with a copy
+button), a link to its source in the API reference, the record types it exposes under their public
+names, its lists and its events; it links to the release that declares it. The bundled example
+model declares one small consumer API (master data, with an event for changed codelist values), so
+a fresh installation has one to show.
+
 A definition alone reproduces the answers of the consumer API the design started from (an API
 gateway over the source platform's reference data), apart from the documented differences: a
 consumer moves to the engine by writing a definition.
@@ -568,7 +580,8 @@ Evidence: [consumer API design](../CONSUMER_API.md),
 `/docs` renders the management API's OpenAPI document with Scalar, and beside it every consumer API
 the active model declares, each labelled with its name and contract version and switched to from the
 page's source menu. A model release that adds, removes or re-versions a consumer API shows on the next
-page load. The script is bundled, so the page works without internet access and loads nothing from
+page load. Settings › Integration › **API reference** lists the same sources with their versions,
+each linked to its source on the page and to its OpenAPI document. The script is bundled, so the page works without internet access and loads nothing from
 elsewhere; a setting loads it from a CDN instead. Its "try it" console calls the engine that served it.
 
 Evidence: [API reference page](../API.md#api-reference-page-base-09-v1-v2),

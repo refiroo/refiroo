@@ -126,8 +126,10 @@ def definition(k: Keys) -> dict[str, Any]:
 
 @pytest.fixture(params=["starter", "renamed"])
 def base(request) -> tuple[dict[str, Any], Keys]:
-    """The starter on schema 0.8, as it is or with every key renamed, and its key map."""
+    """The starter on schema 0.8 without its own consumer API, as it is or with every key renamed,
+    and its key map; each test declares the definition it needs."""
     source = json.loads(MODEL_PATH.read_text())
+    source.pop("consumerApis", None)
     names: dict[str, str] = {}
     if request.param == "renamed":
         source, names = renamed_model(source)
@@ -435,18 +437,26 @@ def admin_client(monkeypatch, migrated_database) -> Iterator[TestClient]:
 
 
 def test_compile_diff_and_activation_hold_the_active_contract(admin_client):
-    """C-D17 at the API: draft compile and release diff report the check, activation refuses a break."""
+    """C-D17 at the API: draft compile and release diff report the check, activation refuses a break.
+    The active model's own definitions stay as they are beside the test's, under a key of its own."""
     client = admin_client
     source = client.get("/api/v1/model").json()
     source["schemaVersion"] = "0.8"
     keys: Keys = lambda key: key
-    first = _install(with_definition(source, definition(keys)), "0.9.0-c1-contract")
+    api = "/consumerApis/c1"
+
+    def with_own(item: dict[str, Any]) -> dict[str, Any]:
+        result = copy.deepcopy(source)
+        result["consumerApis"] = [*source.get("consumerApis", []), item | {"key": "c1"}]
+        return result
+
+    first = _install(with_own(definition(keys)), "0.9.0-c1-contract")
     activated = _activate(client, first)
     assert activated.status_code == 200, activated.text
 
     broken_definition = definition(keys)
     del broken_definition["object"]["attributes"]["sortOrder"]
-    broken = with_definition(source, broken_definition)
+    broken = with_own(broken_definition)
     broken["release"]["version"] = "0.9.0-c1-broken"
     draft = client.post("/api/v1/model-drafts", json={"name": "C1 break", "model": broken})
     assert draft.status_code == 201, draft.text
@@ -457,7 +467,7 @@ def test_compile_diff_and_activation_hold_the_active_contract(admin_client):
     assert contracts["classification"] == "version_required"
     assert contracts["activeReleaseId"] == first
     assert [(d["severity"], d["code"], d["path"]) for d in contracts["diagnostics"]] == [
-        ("error", "CONSUMER_CONTRACT_VERSION_REQUIRED", f"{API}/object")
+        ("error", "CONSUMER_CONTRACT_VERSION_REQUIRED", f"{api}/object")
     ]
 
     broken_id = _install(broken, "0.9.0-c1-broken")
@@ -468,11 +478,12 @@ def test_compile_diff_and_activation_hold_the_active_contract(admin_client):
     assert refused.status_code == 409, refused.text
     error = refused.json()["error"]
     assert error["code"] == "CONSUMER_CONTRACT_VERSION_REQUIRED"
-    assert [item["path"] for item in error["details"]] == [f"{API}/object"]
+    assert [item["path"] for item in error["details"]] == [f"{api}/object"]
     assert client.get("/api/v1/model").headers["X-Model-Release-Id"] == first
 
     raised_definition = broken_definition | {"contractVersion": 2}
-    raised = _install(with_definition(source, raised_definition), "0.9.0-c1-raised")
+    raised = _install(with_own(raised_definition), "0.9.0-c1-raised")
     accepted = _activate(client, raised)
     assert accepted.status_code == 200, accepted.text
-    assert client.get("/api/v1/model").json()["consumerApis"][0]["contractVersion"] == 2
+    served = client.get("/api/v1/model").json()["consumerApis"]
+    assert next(item for item in served if item["key"] == "c1")["contractVersion"] == 2

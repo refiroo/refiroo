@@ -82,7 +82,7 @@ export type RouteState =
  * URL under `/settings`. Workspaces and Model are a list page with a detail page per entry (U-D10).
  */
 export type SettingsRoute =
-  | { kind: "settings"; page: "about" | "appearance" | "deployment" }
+  | { kind: "settings"; page: "about" | "appearance" | "deployment" | "consumer-apis" | "jobs" | "api-reference" }
   | { kind: "settings"; page: "workspaces"; workspaceKey?: string }
   | { kind: "settings"; page: "model"; releaseId?: string; draftId?: string };
 

@@ -108,12 +108,21 @@ describe("SettingsShell", () => {
       within(navigation)
         .getAllByRole("heading")
         .map((heading) => heading.textContent),
-    ).toEqual(["General", "Administration"]);
+    ).toEqual(["General", "Administration", "Integration"]);
     expect(
       within(navigation)
         .getAllByRole("link")
         .map((link) => link.textContent),
-    ).toEqual(["About", "Appearance", "Workspaces", "Model", "Deployment"]);
+    ).toEqual([
+      "About",
+      "Appearance",
+      "Workspaces",
+      "Model",
+      "Deployment",
+      "Consumer APIs",
+      "Jobs and feed",
+      "API reference",
+    ]);
     expect(within(navigation).getByRole("link", { name: "Deployment" })).toHaveAttribute("aria-current", "page");
     expect(within(navigation).getByRole("link", { name: "About" })).not.toHaveAttribute("aria-current");
     fireEvent.click(within(navigation).getByRole("link", { name: "Model" }));

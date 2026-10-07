@@ -93,6 +93,11 @@ export function isSettingsRoute(route: RouteState): route is SettingsRoute {
  * `/models` (with `releaseId` or `draftId`) and `/workspaces[/{key}]`. The router writes the
  * canonical URL back on first load, so an old link lands on its page without a second entry.
  */
+/** The settings pages with no selection of their own; About is the fallback. */
+const SINGLE_PAGES = ["appearance", "deployment", "consumer-apis", "jobs", "api-reference"] as const;
+const isSinglePage = (page: string): page is (typeof SINGLE_PAGES)[number] =>
+  (SINGLE_PAGES as readonly string[]).includes(page);
+
 function settingsRoute(parts: string[], query: URLSearchParams): SettingsRoute | undefined {
   if (parts[0] === "models") {
     const draftId = query.get("draftId")?.trim();
@@ -106,7 +111,7 @@ function settingsRoute(parts: string[], query: URLSearchParams): SettingsRoute |
       : { kind: "settings", page: "workspaces" };
   if (parts[0] !== "settings") return undefined;
   const [, page, kind, id] = parts;
-  if (page === "appearance" || page === "deployment") return { kind: "settings", page };
+  if (isSinglePage(page)) return { kind: "settings", page };
   if (page === "workspaces") return kind ? { kind: "settings", page, workspaceKey: kind } : { kind: "settings", page };
   if (page === "model") {
     if (kind === "releases" && id) return { kind: "settings", page, releaseId: id };

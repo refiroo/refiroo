@@ -5,18 +5,18 @@
  * order. A secret shows only whether it is set.
  */
 
-import { useEffect, useState } from "react";
-import { API_URL, api } from "@/api/client";
-import { errorMessage } from "@/api/errors";
+import { API_URL } from "@/api/client";
 import type { CapabilitiesResponse, SystemSetting } from "@/types";
 import { DescriptionList, type DescriptionItem } from "@/ui/DescriptionList";
 import { InlineError } from "@/ui/InlineError";
 import { Notice } from "@/ui/Notice";
 import { Section } from "@/ui/Section";
 import { SettingsLayout } from "@/ui/SettingsLayout";
+import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
-import { useSystem } from "./useSystem";
+import { bytes, count, jobLimitItems } from "./limits";
+import { useCapabilities, useSystem } from "./useSystem";
 
 const GROUPS: { group: SystemSetting["group"]; title: string }[] = [
   { group: "runtime", title: "Runtime" },
@@ -26,10 +26,6 @@ const GROUPS: { group: SystemSetting["group"]; title: string }[] = [
 ];
 
 const SECRETS = new Set(["RDM_CURSOR_SIGNING_KEY", "CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY"]);
-
-const count = (value: number) => value.toLocaleString("en");
-const bytes = (value: number) =>
-  value >= 1024 * 1024 && value % (1024 * 1024) === 0 ? `${count(value / (1024 * 1024))} MB` : `${count(value)} bytes`;
 
 /** A setting's value as text: booleans as On and Off, lists joined, and nothing as None. */
 function shown(value: unknown) {
@@ -42,19 +38,7 @@ function shown(value: unknown) {
 
 export function DeploymentPage() {
   const { system, error, retry } = useSystem();
-  const [capabilities, setCapabilities] = useState<CapabilitiesResponse>();
-  const [capabilityError, setCapabilityError] = useState("");
-  const [attempt, setAttempt] = useState(0);
-  useEffect(() => {
-    let active = true;
-    api
-      .capabilities()
-      .then((loaded) => active && setCapabilities(loaded))
-      .catch((cause) => active && setCapabilityError(errorMessage(cause)));
-    return () => {
-      active = false;
-    };
-  }, [attempt]);
+  const { capabilities, error: capabilityError, retry: retryCapabilities } = useCapabilities();
   const failure = error || capabilityError;
   const signingKey = system?.settings.find((setting) => setting.name === "RDM_CURSOR_SIGNING_KEY");
 
@@ -72,9 +56,8 @@ export function DeploymentPage() {
         <InlineError
           message={failure}
           onRetry={() => {
-            setCapabilityError("");
-            setAttempt((value) => value + 1);
-            retry();
+            if (capabilityError) retryCapabilities();
+            if (error) retry();
           }}
         />
       ) : !system || !capabilities ? (
@@ -107,7 +90,7 @@ export function DeploymentPage() {
                   Cursors stop working when the engine restarts and differ between instances. Set it to keep them.
                 </Notice>
               )}
-              <SettingsTable
+              <SettingValues
                 label={`${title} settings`}
                 settings={system.settings.filter((setting) => setting.group === group)}
               />
@@ -119,47 +102,32 @@ export function DeploymentPage() {
   );
 }
 
-function SettingsTable({ label, settings }: { label: string; settings: SystemSetting[] }) {
+function SettingValues({ label, settings }: { label: string; settings: SystemSetting[] }) {
   return (
-    // Focusable, so a table wider than the page can be scrolled from the keyboard.
-    <div className="table-wrap settings-table" role="group" aria-label={label} tabIndex={0}>
-      <table>
-        <thead>
-          <tr>
-            <th scope="col">Setting</th>
-            <th scope="col">Value</th>
-            <th scope="col">Default</th>
-            <th scope="col">Source</th>
-            <th scope="col">What it controls</th>
+    <SettingsTable label={label} columns={["Setting", "Value", "Default", "Source", "What it controls"]}>
+      {settings.map((setting) => {
+        const secret = SECRETS.has(setting.name);
+        return (
+          <tr key={setting.name}>
+            <th scope="row">
+              <code>{setting.name}</code>
+            </th>
+            <td data-label="Value">
+              {secret ? (setting.source === "environment" ? "Set" : "Not set") : shown(setting.value)}
+            </td>
+            <td data-label="Default">{secret ? "None" : shown(setting.default)}</td>
+            <td data-label="Source" className="settings-source">
+              {setting.source === "environment" ? "Environment" : "Default"}
+            </td>
+            <td data-label="What it controls">{setting.description}</td>
           </tr>
-        </thead>
-        <tbody>
-          {settings.map((setting) => {
-            const secret = SECRETS.has(setting.name);
-            return (
-              <tr key={setting.name}>
-                <th scope="row">
-                  <code>{setting.name}</code>
-                </th>
-                <td data-label="Value">
-                  {secret ? (setting.source === "environment" ? "Set" : "Not set") : shown(setting.value)}
-                </td>
-                <td data-label="Default">{secret ? "None" : shown(setting.default)}</td>
-                <td data-label="Source" className="settings-source">
-                  {setting.source === "environment" ? "Environment" : "Default"}
-                </td>
-                <td data-label="What it controls">{setting.description}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+        );
+      })}
+    </SettingsTable>
   );
 }
 
 function capabilityGroups(capabilities: CapabilitiesResponse) {
-  const jobs = capabilities.integrationJobs.limits;
   const delivery = capabilities.consumerSubscriptions.delivery;
   const groups: { name: string; enabled: boolean; setting: string; scope: string; limits?: DescriptionItem[] }[] = [
     {
@@ -180,15 +148,7 @@ function capabilityGroups(capabilities: CapabilitiesResponse) {
       setting: capabilities.integrationJobs.setting,
       scope: "Creating and cancelling batch jobs. Job reads stay available when it is off.",
       limits: [
-        { term: "Inline batch", value: `${count(jobs.batchMaxItems)} items, ${bytes(jobs.batchMaxBytes)}` },
-        { term: "Atomic batch", value: `${count(jobs.atomicJobMaxItems)} items` },
-        {
-          term: "Background batch",
-          value: `${count(jobs.backgroundJobMaxItems)} items, ${bytes(jobs.backgroundBatchMaxBytes)}`,
-        },
-        { term: "Chunk", value: `${count(jobs.chunkItems)} items` },
-        { term: "Jobs kept", value: `${count(jobs.retentionDays)} days` },
-        { term: "Change feed kept", value: `${count(capabilities.changeFeed.retentionDays)} days` },
+        ...jobLimitItems(capabilities),
         { term: "Consumer batch resolve", value: `${count(capabilities.consumerApi.resolveMaxItems)} items` },
       ],
     },

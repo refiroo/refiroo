@@ -1,0 +1,68 @@
+/**
+ * Settings › Integration › API reference (Track U U4): the sources of the reference page at `/docs`,
+ * as it lists them: the management API, then each consumer API of the active release at its
+ * contract version (V2). Each opens on its own source (`?api=<slug>`) and links its OpenAPI document.
+ */
+
+import { API_URL } from "@/api/client";
+import { InlineError } from "@/ui/InlineError";
+import { Section } from "@/ui/Section";
+import { SettingsLayout } from "@/ui/SettingsLayout";
+import { SettingsTable } from "@/ui/SettingsTable";
+import { Skeleton } from "@/ui/Skeleton";
+import { allConsumerApis, consumerSlug, openapiUrl, referenceUrl } from "./consumerAddresses";
+import { useSettingsRead, useSystem } from "./useSystem";
+
+export function ApiReferencePage() {
+  const { system, error: systemError, retry: retrySystem } = useSystem();
+  const { data: entries, error, retry } = useSettingsRead(allConsumerApis);
+  const failure = systemError || error;
+  return (
+    <SettingsLayout
+      eyebrow="Integration"
+      title="API reference"
+      description="The engine's interactive API reference, one source per API. It is built from the active model release when it opens."
+    >
+      {failure ? (
+        <InlineError
+          message={failure}
+          onRetry={() => {
+            if (systemError) retrySystem();
+            if (error) retry();
+          }}
+        />
+      ) : !system || !entries ? (
+        <Skeleton label="Loading the API reference's sources" lines={4} />
+      ) : (
+        <Section title="Sources">
+          <SettingsTable label="API reference sources" columns={["Source", "Version", "OpenAPI document"]}>
+            <tr>
+              <th scope="row">
+                <a href={referenceUrl("management")}>Management API</a>
+              </th>
+              <td data-label="Version">
+                <code>{system.engine.managementApi}</code> (engine {system.engine.version})
+              </td>
+              <td data-label="OpenAPI document">
+                <a href={`${API_URL}/openapi.json`}>openapi.json</a>
+              </td>
+            </tr>
+            {entries.map((entry) => (
+              <tr key={entry.consumerApi}>
+                <th scope="row">
+                  <a href={referenceUrl(consumerSlug(entry))}>{entry.name}</a>
+                </th>
+                <td data-label="Version">
+                  <code>v{entry.contractVersion}</code>
+                </td>
+                <td data-label="OpenAPI document">
+                  <a href={openapiUrl(entry)}>openapi.json</a>
+                </td>
+              </tr>
+            ))}
+          </SettingsTable>
+        </Section>
+      )}
+    </SettingsLayout>
+  );
+}

@@ -5,8 +5,11 @@
  */
 
 import { AboutPage } from "@/features/settings/AboutPage";
+import { ApiReferencePage } from "@/features/settings/ApiReferencePage";
 import { AppearancePage } from "@/features/settings/AppearancePage";
+import { ConsumerApisPage } from "@/features/settings/ConsumerApisPage";
 import { DeploymentPage } from "@/features/settings/DeploymentPage";
+import { JobsPage } from "@/features/settings/JobsPage";
 import { ModelWorkbench } from "@/features/model-admin/ModelWorkbench";
 import { WorkspaceAdmin } from "@/features/workspaces/WorkspaceAdmin";
 import { applicationFor } from "@/model/lookup";
@@ -55,6 +58,12 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
           <AppearancePage />
         ) : route.page === "deployment" ? (
           <DeploymentPage />
+        ) : route.page === "consumer-apis" ? (
+          <ConsumerApisPage onNavigate={(next) => navigate(next)} />
+        ) : route.page === "jobs" ? (
+          <JobsPage />
+        ) : route.page === "api-reference" ? (
+          <ApiReferencePage />
         ) : route.page === "workspaces" ? (
           <WorkspaceAdmin
             route={route}

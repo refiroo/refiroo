@@ -359,6 +359,46 @@ nav.settings-rail {
   font-size: var(--text-xs);
 }
 
+/* Links in a settings page's facts, notes and tables. */
+.settings-note a,
+.settings-page .description-list a,
+.settings-table td a {
+  color: var(--link);
+}
+.copy-value a {
+  min-width: 0;
+  color: var(--link);
+}
+.copy-value a code {
+  color: inherit;
+}
+
+/* Consumer APIs: the base URL and the OpenAPI document above an API's routes. */
+.consumer-api-base {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-1);
+  margin: 0;
+}
+
+/* Jobs: the kind above the job's ID; the state's pill with its result and cause under it. */
+.job-name {
+  display: grid;
+  gap: 2px;
+}
+.job-name code {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 400;
+}
+.job-state {
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+}
+
 @media (max-width: 760px) {
   /* In the drawer the navigation keeps the rail's inset, below the dialog's header. */
   .navigation-dialog nav.settings-rail {

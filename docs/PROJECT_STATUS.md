@@ -276,7 +276,12 @@ side-by-side fields and **Connected** list; no model or backend change; awaiting
 change sets and publications, the remaining surfaces, then dark mode and the gates: every screen
 checked in dark, checkboxes and radios drawn from the tokens, column headers named by their label
 alone, and `test:a11y` (73 checks) and `test:visual` (64 baselines, light and dark) passing; UA7
-awaits approval ([record](SETTINGS_AND_UI_PLAN.md#ua7-record-2026-10-07)).
+awaits approval ([record](SETTINGS_AND_UI_PLAN.md#ua7-record-2026-10-07)). **U4 is implemented
+(2026-10-07)**: Settings › Integration with **Consumer APIs** (each definition's version, base URL,
+exposed types, lists and events), **Jobs and feed** (jobs of every workspace, cancel, the limits)
+and **API reference** (each `/docs` source), over existing routes; the starter is content 0.9.2
+with a small consumer API `rdm` and one event (U-D5); screenshots await approval
+([record](SETTINGS_AND_UI_PLAN.md#u4-record-2026-10-07)).
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

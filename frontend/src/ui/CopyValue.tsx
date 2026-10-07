@@ -1,12 +1,24 @@
 /**
  * A value a person copies elsewhere, such as a record's ID (UA4 revision): its label, the value in
- * the monospace face (selectable), and a button that copies it, announcing the result.
+ * the monospace face (selectable), and a button that copies it, announcing the result. Where a
+ * term beside it already names the value (a description list), `labelled={false}` leaves the
+ * label to the button's name. A value that is an address opens it with `href`.
  */
 
 import { useState } from "react";
 import { Icon } from "@/ui/Icon";
 
-export function CopyValue({ label, value }: { label: string; value: string }) {
+export function CopyValue({
+  label,
+  value,
+  labelled = true,
+  href,
+}: {
+  label: string;
+  value: string;
+  labelled?: boolean;
+  href?: string;
+}) {
   const [message, setMessage] = useState("");
   async function copy() {
     try {
@@ -19,8 +31,14 @@ export function CopyValue({ label, value }: { label: string; value: string }) {
   }
   return (
     <span className="copy-value">
-      <span className="copy-value-label">{label}</span>
-      <code>{value}</code>
+      {labelled && <span className="copy-value-label">{label}</span>}
+      {href ? (
+        <a href={href}>
+          <code>{value}</code>
+        </a>
+      ) : (
+        <code>{value}</code>
+      )}
       <button
         type="button"
         className="copy-value-button"

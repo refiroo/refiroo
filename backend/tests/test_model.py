@@ -35,7 +35,7 @@ def test_starter_model_is_valid():
     assert model.applications[0].details[0].panels[0].type == "children"
     assert model.applications[0].details[1].panels[0].type == "children"
     assert model.schemaVersion == "0.8"
-    assert model.release.version == "0.9.0"
+    assert model.release.version == "0.9.2"
     assert {view.type for app in model.applications for view in app.views} == {
         "table",
         "mappingGrid",
@@ -1089,7 +1089,9 @@ def test_relation_matrix_accepts_a_differently_keyed_model():
     }
     text = json.dumps(source)
     for old, new in renames.items():
-        text = text.replace(f'"{old}"', f'"{new}"').replace(f'"ancestor:{old}"', f'"ancestor:{new}"')
+        text = text.replace(f'"{old}"', f'"{new}"').replace(f'"ancestor:{old}"', f'"ancestor:{new}"').replace(
+            f'"ancestor:{old}.', f'"ancestor:{new}.'
+        )
     renamed = json.loads(text)
     assert compile_model(renamed).valid
     assert _matrix(renamed)["config"]["columnObjectTypeKey"] == "market"
@@ -1358,7 +1360,9 @@ def test_tree_accepts_a_differently_keyed_model():
     }
     text = json.dumps(source)
     for old, new in renames.items():
-        text = text.replace(f'"{old}"', f'"{new}"').replace(f'"ancestor:{old}"', f'"ancestor:{new}"')
+        text = text.replace(f'"{old}"', f'"{new}"').replace(f'"ancestor:{old}"', f'"ancestor:{new}"').replace(
+            f'"ancestor:{old}.', f'"ancestor:{new}.'
+        )
     renamed = json.loads(text)
     assert compile_model(renamed).valid
     assert _tree(renamed)["config"]["objectTypeKeys"] == ["channel", "channel-folder", "listing"]

@@ -8,6 +8,19 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 U4: Settings › Integration. **Consumer APIs** shows each consumer API of the active
+  release, read only: its name in the address, contract version, base URL and OpenAPI document
+  (with copy buttons), its source in the API reference, exposed types under their public names,
+  lists and events, and the release that declares it. **Jobs and feed** lists the jobs of every
+  workspace newest first with state, result and counts, cancels a queued or running job after
+  confirming, and shows the batch, job and feed limits. **API reference** lists the `/docs` sources
+  with their versions and documents. No API change; API.md states the `?api=` slug's form.
+  - The starter model is content release 0.9.2: it declares a consumer API `rdm` (domains,
+    codelists and values; three lists; the event `values-changed`), so a fresh installation has one
+    (U-D5). An existing database installs it beside 0.9.0 without activating it.
+  - `ui/SettingsTable`, the shared job-limits list and settings read hook replace Deployment's own
+    copies; `CopyValue` can link its value; `ConfirmDialog` takes a label for its dismiss button.
+
 - Base 0.9 U3: the Settings area. `/settings` has its own frame without workspace or data context:
   a top bar reading "{product} / Settings" with **Back to applications** (to the last application
   route of the session) and the account, the settings navigation in the rail (in the navigation

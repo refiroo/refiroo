@@ -186,7 +186,7 @@ The user chose Direction B, "Open" (U-D6, ADR-039), which sets the values for po
 | U2 | 0.9 | U1 | **Delivered 2026-10-06** ([record](#u2-delivery-record)). Foundation: the token layers, the type and spacing scale, the components above, the rail and header, the data-context bar. Applied to the shell. Contrast test over the tokens. Shell baselines re-recorded |
 | U3 | 0.9 | U2 | **Delivered 2026-10-06** ([record](#u3-delivery-record); U-D10 and U-D11). Settings area: `/settings` routes and layout; About, Appearance and Deployment; Workspaces and Model moved under Administration (old URLs redirect); the popover reduced to account and theme with a link to Settings; `GET /api/v1/system` |
 | UA | 0.9 | U3 | **Planned 2026-10-06** ([plan](#ua-the-atlas-redesign); ADR-040, U-D12, U-D13). The Atlas redesign of every surface in one pass, the record browser first, each surface approved by the user from screenshots; replaces the older styles; folds in U6 |
-| U4 | 0.9 | UA, C6b, V2 | Integration pages: Consumer APIs, Jobs and feed, API reference. Starter consumer API per U-D5 |
+| U4 | 0.9 | UA, C6b, V2 | **Implemented 2026-10-07** ([plan](#u4-the-integration-pages), [record](#u4-record-2026-10-07)), screenshots awaiting approval. Integration pages: Consumer APIs, Jobs and feed, API reference. Starter consumer API per U-D5 |
 | U5 | 0.9 | U4, C12 | Webhooks page over the subscriptions API (C12 delivered 2026-10-06: `delivery`, the four dispatcher reasons, `reset`) |
 | U6 | — | — | **Folded into UA (2026-10-06):** the remaining surfaces are redesigned in UA, in 0.9. 0.10's editor (A4) builds on UA |
 | U7 | 0.11 | U3 | Operations page over 0.11's health, readiness, metrics and backup routes |
@@ -1652,6 +1652,170 @@ chips, bands and pills.
   the branch an earlier step opened (Domain 04 in several dark screens); this is the gate's order,
   not the theme.
 
+### U4: the integration pages
+
+**Planned and approved 2026-10-07** (the user: as written, with the starter's one event, and the
+selected backend groups rather than the full suite). Needs UA (UA7 awaiting approval), C6b and V2
+(delivered).
+
+**Outcome.** A new **Integration** group in the settings navigation, after Administration, with
+three pages. An integrator or operator reads, without opening the model JSON, which consumer APIs
+the active release declares, at which contract version and base URL, and what each exposes
+(**Consumer APIs**); follows and cancels jobs and reads the batch, job and feed limits (**Jobs and
+feed**); and opens each API's reference on `/docs` (**API reference**). A fresh install declares a
+small consumer API, so these pages and `/docs` show something (U-D5).
+
+**Reference.** The settings layout (U3, restyled in UA6): `SettingsLayout`, ruled `Section`s,
+`DescriptionList`, settings tables as on Deployment, `StatusPill`, `EmptyState`, `Skeleton`,
+`CopyValue`, `HueTile` for object types (U-D13).
+
+**Composable domains (ADR-032):** no door is affected. U4 adds pages over existing reads and one
+starter content release; it does not touch identity, attribute storage, audit, bulk APIs, `match`
+or mapping coverage.
+
+#### What exists (checked 2026-10-07)
+
+- **No route is missing.** `GET /api/consumer` (C6b) lists each definition's `consumerApi`, name,
+  description, contract version and `openapi` URL (with the root path), paged. `GET /api/v1/model`
+  returns the active release's model, `consumerApis` included (exposed types, lists, events).
+  `GET /api/v1/jobs` pages jobs newest first (all workspaces without `workspaceKey`), each with
+  state, result, counts and times; `POST /jobs/{id}/cancel` exists while `INTEGRATION_JOBS_ENABLED`.
+  `GET /capabilities` has the job limits (`integrationJobs.limits`) and `changeFeed.retentionDays`.
+  `GET /system` has the engine version and the active release's id.
+- **`/docs`** opens a source with `?api=<slug>`: `management`, or `consumer-{key}-v{version}`
+  (`management/reference`). API.md says the address keeps the slug but not its form.
+- **Deployment** already lists the job limits and feed retention under "Integration jobs"
+  (`DeploymentPage.capabilityGroups`).
+- **The starter** (`model/rdm-starter.json`, content 0.9.0, schema 0.8) declares no consumer API.
+  Startup installs the bundled file as a release; a changed file under the same version stops
+  startup (`ReleaseIdentityConflict`), so the content needs a new version. On an existing database
+  the new release is installed but not activated; a fresh one starts on it. Tests that need a
+  consumer API set their own (`model_support` removes `consumerApis`; the journey configurations
+  and `v1-api-reference` replace them). `tests.affected` selects the full backend suite for any
+  `model/*.json` change.
+
+#### Scope
+
+1. **Routes and navigation.** `SettingsRoute` gains `consumer-apis`, `jobs` and `api-reference`
+   (`/settings/consumer-apis`, `/settings/jobs`, `/settings/api-reference`). The navigation's
+   **Integration** group lists them in that order; U5 inserts Webhooks after Consumer APIs.
+2. **Consumer APIs** (`features/settings/ConsumerApisPage.tsx`), over `GET /api/consumer` (every
+   page) and `GET /model`, with the release from `GET /system`.
+   - A lead line names the active release that declares them, with **Open release** (its page under
+     Model), and says the definitions change only through a model release.
+   - One `Section` per definition, in index order, titled with its name: description; a
+     `DescriptionList` of the namespace (`consumerApi`), contract version, **base URL**
+     (`{API_URL}/api/consumer/{consumerApi}/v{version}`, with copy), OpenAPI document (link and
+     copy) and **Reference** (a link to its source on `/docs`).
+   - **Exposed types**: the model's type name with its `HueTile`, and the public name.
+   - **Lists**: key, type, the parent parameter (name and types) and the sort attribute.
+   - **Events** (when declared): key, types, changes, and what an update watches (outputs and
+     projections), or "Any output".
+   - Empty: `EmptyState` "The active release declares no consumer API", with **Open model**.
+3. **Jobs and feed** (`features/settings/JobsPage.tsx`).
+   - **Jobs**: a ruled table over `GET /jobs` with `useCursorFeed` and Load more (newest first):
+     kind, workspace, state (`StatusPill`), result, counts (applied, rejected, unprocessed),
+     progress, created and finished. **Refresh** reloads. **Cancel** on a queued or running job
+     without a cancel request, when `createJobs` is on; it confirms, posts the cancel, and the row
+     shows "Cancel requested" (`409 JOB_FINISHED` is shown inline and the list reloads). Empty:
+     `EmptyState` "No jobs yet" naming `POST /api/v1/batches`.
+   - **Limits**: the job limits and the feed's retention, as Deployment shows them. The items move
+     to one shared function that both pages call (U-D14), and Deployment keeps them.
+4. **API reference** (`features/settings/ApiReferencePage.tsx`), over `GET /system` and
+   `GET /api/consumer`: one row per `/docs` source, as the page lists them: **Management API ·
+   {managementApi}** (engine version) and each **{name} · v{contractVersion}**, each with **Open
+   reference** (`{API_URL}/docs?api=<slug>`) and its OpenAPI document. API.md gains the slug's form,
+   so the link is a documented address, not a copy of a private rule.
+5. **Starter consumer API** (U-D5): content release **0.9.1**, one definition `rdm`, "RDM API",
+   contract version 1. Exposed: domains, codelists and their values (`Domain`, `Codelist`,
+   `CodelistValue`); the object roles `id`, `code`, `name`, `isActive`, `validFrom`, `validTo`,
+   `parent`, `path`, and the attributes `description`, `masterId`, `valueName`, `sortOrder`.
+   Lists `domains`, `codelists` (parent `domain`) and `values` (parent `codelist`, sorted by
+   `sort-order`). One event, `values-changed`: codelist values created, updated or deleted,
+   watching `code`, `name`, `isActive`, `validFrom` and `validTo`, so U5's Webhooks page has an
+   event to subscribe to on a fresh install. No projections, `match` or `parameters` beyond the
+   lists' own.
+
+**Not in U4:** Webhooks (U5). A job's detail page or item outcomes (the API pages them; no journey
+needs them on a page yet). Editing a definition (the model, through a release). Any backend route
+or contract change.
+
+#### Checks
+
+- **Journeys.** No API journey changes, so no journey test is added. J20 (Discover) names Settings
+  › Integration › Consumer APIs and API reference as its UI channel; J24 (background job) names
+  Jobs and feed for following and cancelling; J25 names Consumer APIs as where a declared
+  definition is read. API_JOURNEYS is unchanged.
+- **Backend.** The starter change selects the full suite (`tests.affected`), which AGENTS forbids
+  in a package; instead the groups that load the starter as data and the consumer, model and
+  startup groups the execution guide selects for `model/*.json`, within the 2-minute ceiling, and
+  the starter's own compile (`test_model_diagnostics`). The full suite stays at build acceptance.
+- **Frontend unit** (`vitest related`): `routes.test.ts` (the three URLs both ways),
+  `Settings.test.tsx` (the Integration group; Consumer APIs over a fixture index and model with two
+  definitions, one with events and one without, and the empty state; Jobs: a page, Load more,
+  cancel and its refusal, cancel hidden when `createJobs` is off; API reference's links), then
+  `format`, `lint`, `build`.
+- **Browser, real backend:** a new `e2e/u4-integration.mjs` (`test:browser:integration`) at 1440
+  and 390px, on two model configurations (the starter's API, and a second definition with other
+  keys installed by the runner):
+  1. Open each Integration page from the navigation.
+  2. Consumer APIs shows both definitions' versions and base URLs, and a base URL read from the page
+     answers on the consumer API; the reference link opens `/docs` on that source.
+  3. A background batch submitted through the API appears on Jobs and feed; cancelling it from the
+     page leaves the job cancelled in `GET /jobs/{id}`.
+  4. Keyboard order and axe on the three pages.
+- **Gates.** Not run in the package (build acceptance). Screenshots of the three pages, light and
+  dark and at 390px, are shown to the user for approval, as UA's surfaces were.
+- **Documentation.** PRODUCT and CURRENT_FUNCTIONALITY (the Integration pages, the starter API);
+  API.md (the `?api=` slug's form); EXAMPLE_MODEL (the starter's consumer API); UI_ACCEPTANCE
+  (state rows); EXECUTION_GUIDE (the runner); CHANGELOG, PROJECT_STATUS, the 0.9 plan's row.
+
+#### Exit
+
+- The three pages work at 1440px and 390px, in light and dark, over the real backend.
+- A fresh install declares the starter consumer API; `/docs` lists it.
+- The focused checks pass, and the U4 record is written here.
+
+#### U4 record (2026-10-07)
+
+Implemented as planned; waiting for the user's approval of the screenshots (the three pages at
+1440px, 390px and dark, and the cancel dialog).
+
+- **Pages.** `features/settings/ConsumerApisPage`, `JobsPage` and `ApiReferencePage`, under a new
+  **Integration** group (`/settings/consumer-apis`, `/settings/jobs`, `/settings/api-reference`).
+  No backend route or contract changed: the pages read `GET /api/consumer` (every page),
+  `GET /model`, `GET /system`, `GET /jobs`, `GET /capabilities` and post the cancel.
+- **One component, no copies (U-D14).** Extracted and reused: `ui/SettingsTable` (Deployment's table
+  frame, now used by the three pages and Deployment), `features/settings/limits.jobLimitItems`
+  (Deployment's job limits, now also on Jobs and feed), `useSettingsRead` (behind `useSystem` and a
+  new `useCapabilities`; Deployment's own capability read went), `consumerAddresses` (base URL,
+  document and `/docs?api=` addresses, shared by two pages). `CopyValue` gained `labelled` and
+  `href`; `ConfirmDialog` a `dismissLabel` (the cancel dialog reads **Keep the job** / **Cancel
+  job**, not Cancel / Cancel job). Links in settings facts, notes and tables take `--link`.
+- **Starter content 0.9.2** declares `rdm` as planned. On an existing database the release is
+  installed at startup beside 0.9.0 and not activated; activate it in Settings › Model to see it.
+  API.md now states the `?api=` slug's form.
+- **Tests the starter change made wrong**, changed: the starter version in `test_model` and
+  `test_effective_periods`; `model_support.renamed_model` renames a consumer API's exposed-type map
+  (`objectTypes` as a keyed map); `test_consumer_api_model`'s base drops the starter's own API, and
+  its activation test declares its definition as `c1` beside the starter's (with `rdm` already
+  active, the test's different `rdm` v1 is, correctly, refused as a contract break); the 0.7 copy in
+  `test_effective_periods` drops `consumerApis`. `u3-settings`' keyboard order includes the three
+  new links.
+- **Checks.** Backend: `-m "model or startup or consumer or contract"` in parallel (810 tests, 1 min
+  37 s; the 10 failures above, fixed), then the changed modules, every user of `renamed_model` and
+  the journeys J08, J20, J25, J26, J28–J31 (501 passed, 1 min 25 s); `ruff check` clean. The full
+  suite was not run (the user's choice; build acceptance). Frontend: `vitest run src/features/settings
+  src/ui src/routing/routes.test.ts` (unit tests in a new `IntegrationPages.test.tsx` rather than
+  `Settings.test.tsx`, 8 cases), `format`, `lint` (0 errors, the 7 recorded warnings), `build`.
+  Browser: `test:browser:integration` (13 checks, axe 0 violations on the three pages light and
+  dark) and `test:browser:settings` (10 checks). Not run: `test:a11y`, `test:visual` (build
+  acceptance; the new pages have no baselines yet).
+- **Found, not changed.** `/docs` opened with `?api=<slug>` shows that source, then Scalar rewrites
+  the address to `#<slug>`; the runner checks the source by its title, as V1's does. In full-page
+  captures of a long settings page the rail's background stops at the viewport's height (Deployment
+  too, so not new).
+
 ### Exit by 1.0
 
 - Every administrative, integration and security object a route manages has a settings page, and
@@ -1671,7 +1835,7 @@ U-D1–U-D6 were decided by the user on 2026-10-05; U-D7–U-D9 on 2026-10-06. U
 | U-D2 | Deployment settings: environment only, or editable in the UI? | **Decided 2026-10-05: read-only for now**, to revisit once 0.11 and 0.12 make runtime changes safe. Environment only; the UI shows them read-only with the variable name | They govern startup, limits and capability gates. Changing them at runtime needs propagation across processes (0.11) and authorization (0.12). Runtime objects (subscriptions, clients, keys) are data and are edited in the UI |
 | U-D3 | Webhook subscription UI in 0.9 or 0.12? | **Decided 2026-10-05:** 0.9 (U5), unsigned like the API; 0.12 adds keys. _Amended 2026-10-05 (C-D12 revised):_ signed from 0.9, the key shown once on create; 0.12 adds rotation | The API arrives in C11. A page over it is cheap, and integrators need to see delivery state while testing |
 | U-D4 | Where the UI foundation lands | **Decided 2026-10-05:** U1–U5 in 0.9 above the cut line; U6 first in 0.10 | The settings pages and the 0.9 import screen are new surfaces and should be built once, on the foundation. U6 must precede the 0.10 editor |
-| U-D5 | Should the starter model declare a consumer API? | **Decided 2026-10-05: yes**, a small one in U4, as a starter content release | Without one, the Consumer APIs page and `/docs` show nothing on a fresh install. Tests keep their own definitions |
+| U-D5 | Should the starter model declare a consumer API? | **Decided 2026-10-05: yes**, a small one in U4, as a starter content release. _Done in U4 (2026-10-07):_ content 0.9.2, `rdm` with one event (the user chose the event) | Without one, the Consumer APIs page and `/docs` show nothing on a fresh install. Tests keep their own definitions |
 | U-D6 | Visual direction | **Decided 2026-10-05: Direction B, "Open", for now** ([ADR-039](DECISIONS.md#adr-039--the-open-visual-direction-light-ruled-surfaces-with-colour-kept-for-context-and-state)). Chosen by the user in U1 from two mockups | It is a product decision, not an engineering one |
 | U-D7 | How much does U2 re-colour? | **Decided 2026-10-06: all of it.** The old token names become aliases of the new roles, so every screen takes Direction B's colours, type and rules in U2. Screens keep their markup until U6. All 41 baselines are re-recorded and inspected in U2, and `test:a11y` and `test:visual` run once in the package, as an exception to AGENTS' "gates at build acceptance" | Every baseline contains the shell, so the visual gate fails on all 41 whichever option is taken. The other option, new tokens for the shell only, would ship 0.9.0 with an indigo shell around green screens until U6 in 0.10. ADR-039's "U2 the shell, U6 the rest" then means structure, not colour |
 | U-D8 | Which `ui/` components does U2 build? | **Decided 2026-10-06 (the user): `Card` is kept**, because the UI is not final and how a card looks and works is judged in the product. U2 builds `PageHeader` (the ten page headers), `StatusPill` (the band and the context statuses) and `Card`, styled from Direction B's tokens. Today's `.surface` panels resolve to the same tokens, so U2's screenshots show the card look; U6 moves those panels onto `Card`, or onto `Section` where a card looks wrong. `SettingsLayout`, `Section`, `DescriptionList`, `FormField`, `EmptyState`, `Skeleton` and `Toast` come with U3, and `Toolbar`, `Breadcrumbs` and `SegmentedControl` with U6 | UI_ACCEPTANCE §1: a shared component comes with the surfaces that use it. `Card` already has those surfaces in today's panels. ADR-039's "content on the page, not in cards" is held for now and tested against the product, not ruled out in advance |

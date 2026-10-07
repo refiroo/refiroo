@@ -13,6 +13,7 @@ export function ConfirmDialog({
   title,
   children,
   confirmLabel,
+  dismissLabel = "Cancel",
   pending,
   error,
   onCancel,
@@ -21,6 +22,8 @@ export function ConfirmDialog({
   title: string;
   children: React.ReactNode;
   confirmLabel: string;
+  /** The button that closes the dialog without acting, where "Cancel" would read as the action. */
+  dismissLabel?: string;
   pending?: boolean;
   error?: string;
   onCancel: () => void;
@@ -48,7 +51,7 @@ export function ConfirmDialog({
       </div>
       <div className="dialog-actions">
         <button ref={cancelRef} className="secondary" disabled={pending} onClick={onCancel}>
-          Cancel
+          {dismissLabel}
         </button>
         <button className="danger" disabled={pending} onClick={onConfirm}>
           {pending ? "Working…" : confirmLabel}

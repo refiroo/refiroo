@@ -8,4 +8,5 @@
 export type * from "@/types/model";
 export type * from "@/types/runtime";
 export type * from "@/types/modelAdmin";
+export type * from "@/types/integration";
 export type * from "@/types/ui";

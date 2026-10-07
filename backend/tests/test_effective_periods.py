@@ -64,7 +64,7 @@ def _diagnostic(source: dict[str, Any]) -> tuple[str, str]:
 def test_the_starter_declares_its_period_on_schema_0_8(renamed):
     source, k = starter_source(renamed)
     model = parse_model(source)
-    assert (model.schemaVersion, model.release.version) == ("0.8", "0.9.0")
+    assert (model.schemaVersion, model.release.version) == ("0.8", "0.9.2")
     declared = {item.key: item.effectivePeriod for item in model.objectTypes if item.effectivePeriod}
     assert list(declared) == [k("master-value")]
     period = declared[k("master-value")]
@@ -83,6 +83,7 @@ def test_a_period_is_refused_at_its_path(renamed):
 
     older = copy.deepcopy(source)
     older["schemaVersion"] = "0.7"
+    older.pop("consumerApis", None)
     assert _diagnostic(older) == ("INVALID_MODEL", path)
     unbound = with_period(startAttributeTypeKey=k("valid-from"), endAttributeTypeKey=k("domain-code"))
     assert _diagnostic(unbound) == ("UNKNOWN_ATTRIBUTE_TYPE", f"{path}/endAttributeTypeKey")
@@ -108,6 +109,7 @@ def test_a_model_without_a_period_keeps_its_canonical_form():
     del _object_type(source, "master-value")["effectivePeriod"]
     older = copy.deepcopy(source)
     older["schemaVersion"] = "0.7"
+    older.pop("consumerApis", None)
     for item in (source, older):
         model_json, _hash = canonical_model(parse_model(item))
         assert all("effectivePeriod" not in item for item in model_json["objectTypes"])

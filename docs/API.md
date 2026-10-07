@@ -558,8 +558,9 @@ from the OpenAPI documents: the management API (`/openapi.json`) is its first so
 each consumer API of the active release (0.9 V2), in `consumerApi` order, labelled
 `{name} · v{contractVersion}` and read from the document the [API index](#api-index-and-documents) names.
 The sources are built per request, so a release that adds, removes or re-versions a consumer API shows
-on the next page load. Scalar keeps the selected source in the address as `?api=<slug>`, so a link
-opens that source. Swagger UI and ReDoc are gone:
+on the next page load. A link opens a source with `?api=<slug>`: `management`, or
+`consumer-{consumerApi}-v{contractVersion}` for a consumer API (the Settings › API reference page
+links each this way). Swagger UI and ReDoc are gone:
 `/redoc` and `/docs/oauth2-redirect` answer `404`.
 
 The Scalar standalone script is pinned (1.72.2) and bundled with the engine, served at

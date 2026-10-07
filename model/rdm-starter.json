@@ -3,7 +3,7 @@
   "release": {
     "key": "rdm-starter",
     "name": "RDM Starter Model",
-    "version": "0.9.0"
+    "version": "0.9.2"
   },
   "product": {
     "name": "RDM Engine",
@@ -534,6 +534,107 @@
             { "key": "attributes", "title": "Translation details", "type": "attributes", "region": "side", "order": 10, "config": { "fields": ["translated-name", "translated-description", "translated-value", "active"] } },
             { "key": "hierarchy", "title": "Hierarchy", "type": "hierarchy", "region": "side", "order": 20, "config": { "showParent": true, "showAncestors": true } }
           ]
+        }
+      ]
+    }
+  ],
+  "consumerApis": [
+    {
+      "key": "rdm",
+      "name": "RDM API",
+      "description": "The master data: domains, their codelists and the codelists' values, with the systems' codes mapped to each value and its translations. Lists read each level under its parent. XREF and batch resolve look a record up by its ID, master ID, code or name, or by a mapped system code or a translated name. The values-changed event reports values created, changed or deleted.",
+      "contractVersion": 1,
+      "objectTypes": {
+        "domain": { "publicName": "Domain" },
+        "codelist": { "publicName": "Codelist" },
+        "master-value": { "publicName": "CodelistValue" }
+      },
+      "object": {
+        "id": { "output": "id", "source": ["id"] },
+        "code": { "output": "code", "source": ["value-code", "codelist-code", "domain-code"] },
+        "name": { "output": "name", "source": ["name"] },
+        "active": { "output": "isActive", "source": ["active"], "default": true },
+        "validFrom": { "output": "validFrom", "source": ["valid-from"] },
+        "validTo": { "output": "validTo", "source": ["valid-to"] },
+        "attributes": {
+          "description": { "source": ["description"] },
+          "masterId": { "source": ["master-id"] },
+          "valueName": { "source": ["value-name"] },
+          "sortOrder": { "source": ["sort-order"] }
+        },
+        "parent": { "output": "parent", "fields": ["objectType", "id", "code", "name"] },
+        "path": "path"
+      },
+      "projections": {
+        "systemVariants": {
+          "from": { "relation": "system-value-maps-to-master", "direction": "incoming" },
+          "fields": {
+            "system": "ancestor:system.name",
+            "systemCode": "ancestor:system.system-code",
+            "value": "name",
+            "valueCode": "value-code",
+            "valueName": "value-name",
+            "externalId": "external-id",
+            "isActive": "active"
+          }
+        },
+        "translations": {
+          "from": { "relation": "object-has-translation", "direction": "outgoing" },
+          "fields": {
+            "languageCode": "ancestor:language.language-code",
+            "languageName": "ancestor:language.name",
+            "translatedName": "translated-name",
+            "translatedValue": "translated-value",
+            "isActive": "active"
+          }
+        }
+      },
+      "match": {
+        "own": [
+          { "field": "id", "exact": 1000 },
+          { "field": "master-id", "exact": 900 },
+          { "field": "value-code", "exact": 500, "contains": 40 },
+          { "field": "codelist-code", "exact": 500, "contains": 40 },
+          { "field": "domain-code", "exact": 500, "contains": 40 },
+          { "field": "name", "exact": 200, "contains": 30 },
+          { "field": "value-name", "exact": 200, "contains": 30 }
+        ],
+        "promoted": [
+          {
+            "projection": "systemVariants",
+            "firstMatch": [
+              { "field": "external-id", "exact": 90 },
+              { "field": "value-code", "exact": 80 },
+              { "field": "name", "exact": 75 },
+              { "field": "value-name", "exact": 75 },
+              { "field": "value-code", "contains": 10 },
+              { "field": "name", "contains": 10 }
+            ]
+          },
+          {
+            "projection": "translations",
+            "firstMatch": [
+              { "field": "translated-name", "exact": 60 },
+              { "field": "translated-name", "contains": 12 }
+            ]
+          }
+        ]
+      },
+      "parameters": {
+        "domain": { "kind": "ancestor", "objectTypes": ["domain"], "matchFields": ["id", "domain-code", "name"] },
+        "codelist": { "kind": "ancestor", "objectTypes": ["codelist"], "matchFields": ["id", "codelist-code", "name"] }
+      },
+      "lists": [
+        { "key": "domains", "objectType": "domain" },
+        { "key": "codelists", "objectType": "codelist", "parentParameter": { "name": "domain", "objectTypes": ["domain"] } },
+        { "key": "values", "objectType": "master-value", "parentParameter": { "name": "codelist", "objectTypes": ["codelist"] }, "sortBy": "sort-order" }
+      ],
+      "events": [
+        {
+          "key": "values-changed",
+          "objectTypes": ["master-value"],
+          "changes": ["created", "updated", "deleted"],
+          "watch": { "fields": ["code", "name", "isActive", "validFrom", "validTo"] }
         }
       ]
     }

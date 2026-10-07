@@ -24,6 +24,10 @@ import type {
   CollectionFilter,
   CapabilitiesResponse,
   SystemResponse,
+  ConsumerApiDocument,
+  ConsumerApiIndexPage,
+  Job,
+  JobPage,
   ModelCompilation,
   ModelDraft,
   ModelDraftPage,
@@ -62,7 +66,12 @@ export { ApiError } from "@/api/errors";
 export const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
+  return requestUrl<T>(`${API_URL}${path}`, path, init);
+}
+
+/** A request to an address the API gave whole, such as a document the consumer API index names. */
+async function requestUrl<T>(url: string, path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, {
     ...init,
     headers: { "Content-Type": "application/json", ...init?.headers },
   });
@@ -280,6 +289,21 @@ export const api = {
   },
   capabilities: () => request<CapabilitiesResponse>("/api/v1/capabilities"),
   system: () => request<SystemResponse>("/api/v1/system"),
+  /** The consumer API index (`GET /api/consumer`), one page. */
+  consumerApis: (cursor?: string) => {
+    const params = new URLSearchParams({ pageSize: "100" });
+    if (cursor) params.set("cursor", cursor);
+    return request<ConsumerApiIndexPage>(`/api/consumer?${params}`);
+  },
+  /** A consumer API's OpenAPI document, at the address its index entry names (resolved whole). */
+  consumerApiDocument: (url: string) => requestUrl<ConsumerApiDocument>(url, new URL(url).pathname),
+  /** Jobs in every workspace, newest first. */
+  jobs: (cursor?: string) => {
+    const params = new URLSearchParams({ pageSize: "50" });
+    if (cursor) params.set("cursor", cursor);
+    return request<JobPage>(`/api/v1/jobs?${params}`);
+  },
+  cancelJob: (jobId: string) => request<Job>(`/api/v1/jobs/${encodeURIComponent(jobId)}/cancel`, { method: "POST" }),
   workspaces: (
     options: {
       search?: string;

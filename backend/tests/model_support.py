@@ -64,8 +64,8 @@ def renamed_model(
 ) -> tuple[dict[str, Any], dict[str, str]]:
     """The starter (or ``source``) with every declared key renamed, and the old-to-new key map.
 
-    String values naming a key are renamed wherever they appear, as are ``ancestor:<type>`` field
-    references and the keys of maps keyed by a model key; JSON property names are left alone.
+    String values naming a key are renamed wherever they appear, as are ``ancestor:<type>`` and
+    ``ancestor:<type>.<field>`` references and the keys of maps keyed by a model key; JSON property names are left alone.
     """
     source = copy.deepcopy(source) if source is not None else json.loads(MODEL_PATH.read_text())
     names = {key: f"{prefix}{key}" for key in starter_keys(source)}
@@ -75,14 +75,19 @@ def renamed_model(
             if value in names:
                 return names[value]
             head, _, tail = value.partition(":")
-            if tail in names and head in {"ancestor"}:
-                return f"{head}:{names[tail]}"
+            if head == "ancestor":
+                # ``ancestor:<type>`` or, in a consumer projection, ``ancestor:<type>.<field>``.
+                type_key, dot, field = tail.partition(".")
+                if type_key in names:
+                    return f"{head}:{names[type_key]}{dot}{names.get(field, field)}"
             return value
         if isinstance(value, list):
             return [rename(item) for item in value]
         if isinstance(value, dict):
             return {
-                (names.get(key, key) if keyed else key): rename(item, keyed=key in _KEYED_MAPS)
+                (names.get(key, key) if keyed else key): (
+                    item if key in _LOCAL_NAMES else rename(item, keyed=key in _KEYED_MAPS)
+                )
                 for key, item in value.items()
             }
         return value
@@ -90,5 +95,8 @@ def renamed_model(
     return rename(source), names
 
 
-# Properties whose value is a map keyed by model keys.
-_KEYED_MAPS = {"childSort"}
+# Properties whose value is a map keyed by model keys: a sort per child type, and a consumer API's
+# exposed types (the model's own ``objectTypes`` is a list, so it is not touched).
+_KEYED_MAPS = {"childSort", "objectTypes"}
+# Properties naming something local to a consumer API, never a model key: a match rule's projection.
+_LOCAL_NAMES = {"projection"}

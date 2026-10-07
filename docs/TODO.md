@@ -53,8 +53,19 @@ resume and the background threads' outage logging (C-D103–C-D111). **C13 is de
 (2026-10-06)**: the events' acceptance end to end, the delivery budget, and C-D114's rule for
 records leaving a filter's scope documented (C-D112–C-D114). **U3 is delivered (2026-10-06)**: the
 Settings area and `GET /api/v1/system` ([record](SETTINGS_AND_UI_PLAN.md#u3-delivery-record)), revised the same day.
-Next: UA, the Atlas redesign (ADR-040), before U4 and U5. See [Next — 0.9](#next--09).
+UA, the Atlas redesign (ADR-040), is implemented (UA7 awaiting approval). **U4 is implemented
+(2026-10-07)**: Settings › Integration (Consumer APIs, Jobs and feed, API reference) and the
+starter's consumer API ([record](SETTINGS_AND_UI_PLAN.md#u4-record-2026-10-07)); screenshots await
+approval. Next: U5. See [Next — 0.9](#next--09).
 
+- **Document the starter's consumer API lookups and the reworked Consumer APIs page (the user,
+  2026-10-07, "later").** The starter (content 0.9.2) now declares `match` (own fields and, through
+  the `systemVariants` and `translations` projections, a mapped system code or a translated name),
+  so XREF and batch resolve find records; 0.9.1 had none and its XREF found nothing. The Consumer
+  APIs page now lists each API's routes from its OpenAPI document and shows its fields, related
+  records, lookup rules (or a warning when there are none) and parameters. Still to update:
+  EXAMPLE_MODEL (the starter's `rdm`), CURRENT_FUNCTIONALITY F23, CHANGELOG, the U4 record and
+  UI_ACCEPTANCE U4-1. A 0.9.1 installed on a database stays beside 0.9.2 and is never activated.
 - **Rework the type palettes so A and B differ visibly (the user, 2026-10-07).** A and B differ
   only in slots 3 and 4 (magenta and olive against plum and gold), and side by side the user could
   not tell them apart: in the operators model only Master values, Resources, Regions, Roles and the

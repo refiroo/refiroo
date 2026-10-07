@@ -601,7 +601,8 @@ US-I01. **Scenario:** SC-14, SC-08. **Status:** delivered (0.8 W).
 
 ### J25 — Define a consumer API in the model
 
-**Actor:** model author. **Channel:** API (model documents), UI (model administration).
+**Actor:** model author. **Channel:** API (model documents), UI (model administration; a declared
+definition is read on Settings › Integration › Consumer APIs, 0.9 U4).
 **Stories:** US-I09 (consumer side), US-P04. **Status:** definitions delivered (0.9 C1); the
 consumer tier's reads in C2–C16 ([CONSUMER_API.md](../CONSUMER_API.md)); event declarations in C9,
 their events produced from C10 (J30).
@@ -640,7 +641,8 @@ A list may name a `sortBy` attribute: a scalar attribute its type binds, refused
 
 ### J20 — Discover the model and the API
 
-**Actor:** integrator. **Channel:** API. **Stories:** US-I01, US-P01. **Status:** delivered.
+**Actor:** integrator. **Channel:** API; UI (Settings › Integration › Consumer APIs and API
+reference, 0.9 U4). **Stories:** US-I01, US-P01. **Status:** delivered.
 
 1. Read the capabilities: which groups are enabled and their limits.
 2. Read the active model, or the model of a change set or publication, and its placements (where
@@ -673,7 +675,8 @@ read names the release it was read under (`X-Model-Release-Id`).
 **Refusals:** `404 CHANGE_SET_NOT_FOUND`, `422 MUTUALLY_EXCLUSIVE_CONTEXT`,
 `503 MODEL_REGISTRY_UNAVAILABLE`, `503 MODEL_RUNTIME_STATE_UNAVAILABLE`.
 
-**Evidence today:** `v1-api-reference` (with a consumer API source); `test_model_placements`, `test_request_scope`,
+**Evidence today:** `v1-api-reference` (with a consumer API source); `u4-integration` (the
+Integration pages); `test_model_placements`, `test_request_scope`,
 `test_api_reference`, `test_model_lifecycle`, `test_openapi_contract`.
 
 ### J21 — Read a collection completely and resume
@@ -804,7 +807,8 @@ single writes' codes.
 
 ### J24 — Run a large background job and recover
 
-**Actor:** integrator; exchange operator. **Channel:** API. **Stories:** US-I03, US-I04.
+**Actor:** integrator; exchange operator. **Channel:** API; UI (Settings › Integration › Jobs and
+feed lists jobs and cancels a queued or running one, 0.9 U4). **Stories:** US-I03, US-I04.
 **Scenario:** SC-10. **Status:** delivered (0.9 B2).
 
 1. Submit a batch to run in the background; receive the queued job.
