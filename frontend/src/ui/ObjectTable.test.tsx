@@ -41,7 +41,7 @@ describe("ObjectTable", () => {
   });
 
   it("resizes configured data columns by keyboard without resizing the actions column", () => {
-    const onColumnWidth = vi.fn();
+    const onColumnWidths = vi.fn();
     render(
       <ObjectTable
         model={testModel}
@@ -49,13 +49,34 @@ describe("ObjectTable", () => {
         list={staticWindow([domainObject])}
         pageSize={20}
         onOpen={() => {}}
-        onColumnWidth={onColumnWidth}
+        onColumnWidths={onColumnWidths}
         renderActions={() => <button>Actions</button>}
       />,
     );
     fireEvent.keyDown(screen.getByRole("separator", { name: "Resize Name column" }), { key: "ArrowRight" });
-    expect(onColumnWidth).toHaveBeenCalledWith("name", 190);
+    // The first resize keeps every other column at the width it was drawn with.
+    expect(onColumnWidths).toHaveBeenCalledWith({ name: 190, code: 180 });
     expect(screen.getAllByRole("separator")).toHaveLength(2);
+  });
+
+  it("sizes a column narrower than its content once widths are set (UA4 revision)", () => {
+    const onColumnWidths = vi.fn();
+    render(
+      <ObjectTable
+        model={testModel}
+        columns={["name", "code"]}
+        list={staticWindow([domainObject])}
+        pageSize={20}
+        onOpen={() => {}}
+        columnWidths={{ name: 60, code: 200 }}
+        onColumnWidths={onColumnWidths}
+      />,
+    );
+    const table = screen.getByRole("table");
+    expect(table).toHaveClass("sized-columns");
+    expect(screen.getByRole("columnheader", { name: /Name/ }).style.getPropertyValue("--column-width")).toBe("60px");
+    fireEvent.keyDown(screen.getByRole("separator", { name: "Resize Name column" }), { key: "Home" });
+    expect(onColumnWidths).toHaveBeenCalledWith({ name: 48, code: 200 });
   });
 
   describe("sorting (S4R3)", () => {

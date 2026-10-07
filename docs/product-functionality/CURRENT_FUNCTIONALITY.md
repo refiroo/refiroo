@@ -181,6 +181,9 @@ resolves system values to their shared meaning.
 Relationships are listed in both directions, created, edited (their own fields) and removed, with the
 record types, direction, cardinality, requiredness and field types validated. Parent relationships are
 shown but changed only by moving the record (F07). Related records are found by server-side search.
+A record opened beside a tree lens lists them under **Connected**, one row per relationship panel the
+record's detail declares, as chips in their types' colours that open the record; they are managed in
+the panels' tables on the record's full page, one click away.
 
 A mapping grid shows each source value as mapped, unmapped or ambiguous across the whole list, with
 counts, target previews and a state filter. Choosing, replacing or clearing a target is one atomic

@@ -39,6 +39,42 @@ describe("RelationsPanel", () => {
     }),
   );
 
+  // UA4 revision: the relationship table is drawn by ui/DataTable, keyed by relationship.
+  it("lists one record on two rows when two relationships reach it, and sizes its columns", async () => {
+    const reach = (id: string, direction: "outgoing" | "incoming") => ({
+      direction,
+      relation: {
+        id,
+        relationTypeKey: "domain-contains-codelist",
+        fromObjectId: domainObject.id,
+        toObjectId: codelistObject.id,
+        attributes: {},
+        version: 1,
+      },
+      object: codelistObject,
+    });
+    vi.mocked(api.relations).mockResolvedValue({
+      items: [reach("first", "outgoing"), reach("second", "incoming")],
+      nextCursor: null,
+    });
+    render(
+      <RelationsPanel
+        model={testModel}
+        object={domainObject}
+        panel={{ ...panel, config: { ...panel.config, direction: "both" } }}
+        onOpen={vi.fn()}
+      />,
+    );
+    expect(await screen.findAllByRole("button", { name: codelistObject.name })).toHaveLength(2);
+    expect(screen.getByText("Contains")).toBeInTheDocument();
+    expect(screen.getByText("Belongs to")).toBeInTheDocument();
+    const rows = screen.getAllByRole("row").filter((row) => row.getAttribute("data-row-key"));
+    expect(rows.map((row) => row.getAttribute("data-row-key"))).toEqual(["first", "second"]);
+    expect(screen.getByRole("separator", { name: "Resize Name column" })).toBeInTheDocument();
+    expect(screen.getByRole("separator", { name: "Resize Relationship column" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Display" })).toBeInTheDocument();
+  });
+
   it("shows direction-correct labels and protects managed containment rows", async () => {
     render(<RelationsPanel model={testModel} object={domainObject} panel={panel} onOpen={vi.fn()} />);
     expect(await screen.findByText("Contains")).toBeInTheDocument();
@@ -65,11 +101,11 @@ describe("RelationsPanel", () => {
     );
 
     expect(await screen.findByText("Timetable types")).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Domain" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /^Domain/ })).toBeInTheDocument();
     expect(screen.getByText("Connections")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Timetable types" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Connections" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("columnheader", { name: "Relationship" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: /^Relationship/ })).not.toBeInTheDocument();
     expect(screen.queryByText("Contains")).not.toBeInTheDocument();
   });
 
@@ -264,7 +300,7 @@ describe("RelationsPanel", () => {
       fireEvent.click(screen.getByRole("button", { name: "Relationship" }));
       await waitFor(() => expect(lastSort()).toBe("relationship"));
       // The computed path is the one column the server cannot order.
-      expect(within(screen.getByRole("columnheader", { name: "Path" })).queryByRole("button")).toBeNull();
+      expect(within(screen.getByRole("columnheader", { name: /^Path/ })).queryByRole("button")).toBeNull();
       expect(screen.queryByRole("combobox", { name: "Sort" })).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Sort: Relationship, ascending" })).toBeInTheDocument();
     });
@@ -322,7 +358,7 @@ describe("RelationsPanel", () => {
       );
       await screen.findByText("Timetable types");
       expect(lastSort()).toBe("name");
-      expect(within(screen.getByRole("columnheader", { name: "Updated" })).queryByRole("button")).toBeNull();
+      expect(within(screen.getByRole("columnheader", { name: /^Updated/ })).queryByRole("button")).toBeNull();
       expect(screen.getByRole("columnheader", { name: /Name/ })).toHaveAttribute("aria-sort", "ascending");
     });
   });

@@ -120,7 +120,7 @@ export function CollectionPanelTable({
           columns={display.columns}
           compact={display.compact}
           columnWidths={display.widths}
-          onColumnWidth={display.setWidth}
+          onColumnWidths={display.setWidths}
           identityColumn={display.identity}
           sorting={sorting}
           list={pages}

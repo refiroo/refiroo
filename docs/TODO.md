@@ -86,6 +86,23 @@ Next: UA, the Atlas redesign (ADR-040), before U4 and U5. See [Next — 0.9](#ne
   lands on is still unknown. Next: capture that URL at the failure and see whether the anchor
   restored after a reload depends on the page's height. _UA3 (2026-10-06):_ 2 of 3 runs failed
   there, both at the change-set call site (`:383`); the UA2 revision's one run failed there too.
+  _UA4 (2026-10-07):_ the one run failed there again (`:383`).
+- **From the UA4 revision (2026-10-07): a column header's accessible name includes its resize
+  handle** ("Path Resize Path column"), in every `ui/DataTable` table and in the collection tables
+  before it. Naming the header with `aria-label` fixes the name but makes every header match a
+  label lookup for the same field name (`getByLabelText`, Playwright `getByLabel`), which the form
+  tests and runners rely on. Next: draw the handles outside the header cells (one layer over the
+  header row), for UA7's accessibility gate.
+- **Since UA3 (2026-10-06), seen in the UA4 revision: `test:browser:authoring` fails on two
+  "Add Domain" buttons.** An empty collection's `EmptyState` carries **Add {type}** (UA3) beside the
+  page header's button of the same name, and `wp9-authoring` clicks it by exact name (strict mode).
+  Whether an empty list should repeat the header's action under the same name is the user's call;
+  then the runner follows.
+- **From UA4 (2026-10-07): `test:browser:b4` fails at its cycle refusal check.**
+  `b4-hierarchy-acceptance.mjs:136` matches the API's refusal against `/422.*parent_cycle/`, but the
+  error code is `PARENT_CYCLE`, so the check fails while the API refuses correctly (422
+  `PARENT_CYCLE`, for both the system and the domain case). The runner's pattern needs the `i` flag
+  or the upper-case code. Every check before it passed, including the published breadcrumb.
 - **From UA0 (2026-10-06): `test:browser:b3` fails at its drag of Sodium.** `helpers/tree.mjs:189`
   waits for the drag preview after pressing on Sodium in the opened Electrolytes branch
   (`b3-tree-lens.mjs:579`); none appears. It fails the same without UA0's changes, so it came

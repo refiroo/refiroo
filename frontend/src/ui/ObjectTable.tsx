@@ -1,15 +1,17 @@
+/**
+ * A list of records in a table (collections, a record's children): `ui/DataTable` with a record on
+ * every row. A row is keyed by its record, opens it on a click or from its identity cell, can be
+ * selected, and carries the record's action menu (by its button, a right click or Shift+F10).
+ */
+
 import { useState, type ReactNode } from "react";
 import type { EngineModel, ObjectItem } from "@/types";
 import type { CursorWindow } from "@/lib/hooks/useCursorWindow";
-import { ScrollWindow } from "@/ui/ScrollWindow";
-import { EmptyState } from "@/ui/EmptyState";
+import { DataTable } from "@/ui/DataTable";
 import { FieldValue } from "@/ui/FieldValue";
 import { attributeName } from "@/model/fields";
 import { objectTypeHue } from "@/model/hues";
-import { ResizeHandle } from "@/ui/ResizeHandle";
-import { SortAnnouncement, SortHeader, headerSort, type TableSort } from "@/ui/TableSort";
-
-const LOADING_ROWS = 6;
+import type { TableSort } from "@/ui/TableSort";
 
 export function ObjectTable({
   compact = false,
@@ -30,7 +32,7 @@ export function ObjectTable({
   emptyIcon,
   emptyAction,
   columnWidths = {},
-  onColumnWidth,
+  onColumnWidths,
 }: {
   compact?: boolean;
   identityColumn?: string;
@@ -58,171 +60,82 @@ export function ObjectTable({
   /** What fills the empty list, or clears a search that emptied it. */
   emptyAction?: ReactNode;
   columnWidths?: Record<string, number>;
-  onColumnWidth?: (column: string, width: number) => void;
+  /** Stores the widths after a resize (`useTableDisplay`); without it the columns do not resize. */
+  onColumnWidths?: (widths: Record<string, number>) => void;
 }) {
-  const [allColumns, setAllColumns] = useState(false);
   const [menuId, setMenuId] = useState<string>();
   const identity = identityColumn ?? (columns.includes("name") ? "name" : columns.includes("id") ? "id" : columns[0]);
-  const mobileColumns = [identity, ...columns.filter((column) => column !== identity)].slice(0, 3);
-  const secondary = (column: string) => (!mobileColumns.includes(column) ? "mobile-secondary-column" : undefined);
-  const objects = list.items;
-  const loading = list.loading;
   return (
-    <>
-      {columns.length > 3 && (
-        <div className="table-controls table-controls-narrow">
-          <button
-            className="secondary mobile-columns-toggle"
-            aria-expanded={allColumns}
-            onClick={() => setAllColumns(!allColumns)}
-          >
-            {allColumns ? "Show fewer columns" : `Show all ${columns.length} columns`}
-          </button>
-        </div>
-      )}
-      {sorting && <SortAnnouncement sorting={sorting} />}
-      <ScrollWindow
-        list={list}
-        label={label}
-        noun={noun}
-        pageSize={pageSize}
-        seekLabel={seekLabel}
-        onAnchorChange={onAnchorChange}
-        className={`table-wrap object-table${compact ? " density-compact" : ""}${allColumns ? " show-all-columns" : ""}`}
-      >
-        <table
-          aria-busy={loading || undefined}
-          aria-rowcount={list.totalCount !== null && objects.length > 0 ? list.totalCount + 1 : undefined}
-        >
-          <caption className="visually-hidden">{label}</caption>
-          <thead>
-            <tr aria-rowindex={1}>
-              {columns.map((column) => (
-                <th
-                  key={column}
-                  className={secondary(column)}
-                  scope="col"
-                  aria-sort={sorting && headerSort(sorting, column)}
-                  style={
-                    columnWidths[column] ? { width: columnWidths[column], minWidth: columnWidths[column] } : undefined
-                  }
-                >
-                  {sorting ? (
-                    <SortHeader field={column} label={attributeName(model, column)} sorting={sorting} />
-                  ) : (
-                    attributeName(model, column)
-                  )}
-                  {onColumnWidth && (
-                    <ResizeHandle
-                      className="column-resizer"
-                      label={`Resize ${attributeName(model, column)} column`}
-                      value={columnWidths[column] ?? 100}
-                      min={120}
-                      max={520}
-                      onChange={(width) => onColumnWidth(column, width)}
-                    />
-                  )}
-                </th>
-              ))}
-              {renderActions && (
-                <th scope="col" className="record-actions-column">
-                  <span className="visually-hidden">Record actions</span>
-                </th>
-              )}
-            </tr>
-          </thead>
-          <tbody>
-            {loading && objects.length === 0 ? (
-              // Rows in the table's own shape while the first page loads; one status announces it.
-              Array.from({ length: LOADING_ROWS }, (_, row) => (
-                <tr key={row} className="loading-row">
-                  {columns.map((column, index) => (
-                    <td key={column} className={secondary(column)}>
-                      {row === 0 && index === 0 && (
-                        <span className="visually-hidden" role="status">
-                          Loading {noun[1]}…
-                        </span>
-                      )}
-                      <span className="skeleton-line" aria-hidden="true" />
-                    </td>
-                  ))}
-                  {renderActions && <td className="record-actions-column" />}
-                </tr>
-              ))
-            ) : objects.length === 0 ? (
-              <tr>
-                <td colSpan={columns.length + Number(Boolean(renderActions))} className="empty-row">
-                  <EmptyState icon={emptyIcon} action={emptyAction}>
-                    {emptyMessage}
-                  </EmptyState>
-                </td>
-              </tr>
-            ) : (
-              objects.map((item, position) => (
-                <tr
-                  key={item.id}
-                  data-row-key={item.id}
-                  data-row-index={list.startIndex + position}
-                  aria-rowindex={list.startIndex + position + 2}
-                  data-hue={objectTypeHue(model, item.objectTypeKey)}
-                  className={`clickable-row${selectedId === item.id ? " selected-record" : ""}`}
-                  onClick={(event) => {
-                    // The identity button is the keyboard path; the row is a larger pointer target.
-                    const target = event.target as HTMLElement;
-                    if (target.closest("button, a, input, select, textarea, [role='menu']")) return;
-                    if (window.getSelection()?.toString()) return;
-                    onOpen(item);
-                  }}
-                  onContextMenu={
-                    renderActions
-                      ? (event) => {
-                          event.preventDefault();
-                          setMenuId(item.id);
-                        }
-                      : undefined
-                  }
-                  onKeyDown={
-                    renderActions
-                      ? (event) => {
-                          if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) {
-                            event.preventDefault();
-                            setMenuId(item.id);
-                          }
-                        }
-                      : undefined
-                  }
-                >
-                  {columns.map((column) => (
-                    <td key={column} className={secondary(column)}>
-                      {column === identity ? (
-                        <button
-                          className="cell-link"
-                          data-record-id={item.id}
-                          data-row-focus
-                          aria-current={selectedId === item.id ? "true" : undefined}
-                          onClick={() => onOpen(item)}
-                        >
-                          <FieldValue item={item} field={column} model={model} />
-                        </button>
-                      ) : (
-                        <FieldValue item={item} field={column} model={model} />
-                      )}
-                    </td>
-                  ))}
-                  {renderActions && (
-                    <td className="record-actions-column">
-                      {renderActions(item, {
-                        isOpen: menuId === item.id,
-                        onOpenChange: (open) => setMenuId(open ? item.id : undefined),
-                      })}
-                    </td>
-                  )}
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </ScrollWindow>
-    </>
+    <DataTable<ObjectItem>
+      columns={columns.map((column) => ({
+        key: column,
+        label: attributeName(model, column),
+        cell: (item) =>
+          column === identity ? (
+            <button
+              className="cell-link"
+              data-record-id={item.id}
+              data-row-focus
+              aria-current={selectedId === item.id ? "true" : undefined}
+              onClick={() => onOpen(item)}
+            >
+              <FieldValue item={item} field={column} model={model} />
+            </button>
+          ) : (
+            <FieldValue item={item} field={column} model={model} />
+          ),
+      }))}
+      identityColumn={identity}
+      list={list}
+      rowKey={(item) => item.id}
+      rowHue={(item) => objectTypeHue(model, item.objectTypeKey)}
+      rowAttributes={(item) => ({
+        className: `clickable-row${selectedId === item.id ? " selected-record" : ""}`,
+        onClick: (event) => {
+          // The identity button is the keyboard path; the row is a larger pointer target.
+          const target = event.target as HTMLElement;
+          if (target.closest("button, a, input, select, textarea, [role='menu']")) return;
+          if (window.getSelection()?.toString()) return;
+          onOpen(item);
+        },
+        ...(renderActions
+          ? {
+              onContextMenu: (event) => {
+                event.preventDefault();
+                setMenuId(item.id);
+              },
+              onKeyDown: (event) => {
+                if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) {
+                  event.preventDefault();
+                  setMenuId(item.id);
+                }
+              },
+            }
+          : {}),
+      })}
+      actions={
+        renderActions && {
+          header: <span className="visually-hidden">Record actions</span>,
+          width: 48,
+          cell: (item) =>
+            renderActions(item, {
+              isOpen: menuId === item.id,
+              onOpenChange: (open) => setMenuId(open ? item.id : undefined),
+            }),
+        }
+      }
+      sorting={sorting}
+      columnWidths={columnWidths}
+      onColumnWidths={onColumnWidths}
+      label={label}
+      noun={noun}
+      pageSize={pageSize}
+      seekLabel={seekLabel}
+      onAnchorChange={onAnchorChange}
+      compact={compact}
+      emptyMessage={emptyMessage}
+      emptyIcon={emptyIcon}
+      emptyAction={emptyAction}
+    />
   );
 }

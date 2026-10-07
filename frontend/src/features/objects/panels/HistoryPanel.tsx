@@ -2,6 +2,7 @@ import { api } from "@/api/client";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { formatServerTime } from "@/lib/dates";
 import { attributeName } from "@/model/fields";
+import type { Hue } from "@/model/hues";
 import type { AuditEventItem, EngineModel } from "@/types";
 import { InlineError } from "@/ui/InlineError";
 
@@ -9,12 +10,15 @@ export function HistoryPanel({
   model,
   objectTypeKey,
   objectId,
+  hue,
   refreshToken = 0,
 }: {
   /** Resolves attribute keys to their model names; keys are shown when absent. */
   model?: EngineModel;
   objectTypeKey: string;
   objectId: string;
+  /** The record type's hue (`model/hues`), which colours the timeline's markers. */
+  hue?: Hue;
   refreshToken?: number;
 }) {
   const { items, loading, error, hasMore, loadMore, retry } = useCursorFeed<AuditEventItem>(
@@ -23,7 +27,7 @@ export function HistoryPanel({
   );
 
   return (
-    <section className="panel surface history-panel">
+    <section className="panel surface history-panel" data-hue={hue}>
       <h2>History</h2>
       {error && <InlineError message={error} onRetry={retry} />}
       {loading && items.length === 0 ? (

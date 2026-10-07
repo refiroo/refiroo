@@ -342,6 +342,19 @@ All notable changes to this project are documented in this file. The format foll
   type's colour, the selected row takes its type's colour, booleans read Yes and No in plain text
   everywhere, the first page loads as rows in the table's shape, and an empty collection shows its
   tile and the Add action.
+- Base 0.9 UA4: the record in the Atlas look. The record's header is a band tinted in its type's
+  colour with the type's tile, the type named in its colour, and the ancestors in the breadcrumb as
+  chips in their types' colours that open them; history markers take the type's colour. In the
+  inspector beside a tree lens the sections are ruled, fields sit beside their labels, and the
+  relationship panels become one **Connected** list of chips in the related types' colours (with
+  **Show more** and a way to manage them on the full page); the full page keeps the tables.
+- Base 0.9 UA4 revision: one table for every list of records in rows (`ui/DataTable`): collections,
+  a record's children and its relationships. Relationship tables gain the Display menu (columns,
+  density, page size, widths), table-shaped loading rows, the empty state, row colours and the phone
+  layout's three columns with **Show all columns**. Columns resize by dragging the edge of their
+  header (it was reachable by keyboard only): a drag starts from the column's drawn width, keeps the
+  other columns as they were, and may make a column narrower than its content, which then ends in an
+  ellipsis. The look of a table that has not been resized is unchanged.
 - Base 0.9 UA2 revision: the record browser's groups sit in frames of their type's colour, nested
   as boxes inside boxes; a group glows in the accent while it scrolls and in teal while the pointer
   is in it; with a pointer, a scrolling group stops at its first and last row; records sit one step

@@ -1288,6 +1288,91 @@ Implemented; waiting for the user's approval of the screenshots.
   site), which UA3 does not touch. Screenshots at 1440 and 390px, light (and the record panel's
   chips in dark), sent to the user. **Not run:** `test:a11y`, `test:visual` (UA7).
 
+#### UA4 record (2026-10-07)
+
+Implemented; waiting for the user's approval of the screenshots.
+
+- **The header** (inspector and full page). The breadcrumb and `PageHeader` sit in a band tinted
+  in the record type's hue (`--hue-N-band`, half the fill over the raised surface, so the type's
+  40px `ui/HueTile` stands out on it), with a 1px line of its marker at 24%. The eyebrow names the
+  type in its ink. The ancestors in the breadcrumb are `ui/RecordChip`s in their own types' hues
+  and open their records (`RecordChip` gained `onOpen`, rendering a button); the application stays
+  a quiet text link and the type plain text, since chips mean records. **Back to list** stays above
+  the band. The history's markers take the record type's marker.
+- **The inspector** (beside a tree lens; also the record view at 390px). Its sections are ruled,
+  not cards, with small capital headings as in the canvas. A one-column field list at least 340px
+  wide puts each label beside its value with Edit and Remove at the row's end (a container query,
+  so a widened side column on the full page does the same); narrower, the label stays above.
+- **Connected** (`panels/ConnectedList`). The inspector shows the record's declared relations
+  panels (main and side) as one list: a row per panel, its title as the label, its related records
+  as chips in their types' hues that open them, first page of 12 by name, **Show N more** appending
+  the next. Where the panel declares an `ancestor:<type>` column, the chip names that ancestor
+  before the record (a system value reads "CRM · …", a translation "Arabic · …"), since the
+  model's author chose it as what tells them apart. The tables, with search, sort, add, edit and
+  delete, stay on the full page; **Manage relationships on the full page** opens it. The canvas
+  showed a read-only list and did not say where the writes go; this is the choice to judge on the
+  dev server. Children, table and hierarchy panels stay as they were.
+- **Generic.** Hues come from `model/hues`; labels from the panels' titles; nothing reads a key.
+  Seen on the operators-and-timetables model (dev server); the runners use the starter model.
+- **Contrast.** `tokens.test.ts` resolves `color-mix` and checks the eight bands in both themes:
+  primary, secondary and tertiary text, a link and the type's ink at 4.5:1; its marker, the focus
+  colour and a control's border at 3:1.
+- **Tests.** `ObjectDetail.test`, on two model configurations (the type order reversed): the header
+  carries the record type's slot and an ancestor chip its own and opens it; the inspector lists a
+  relation as a Connected chip in the related type's slot that opens it, offers the full page, and
+  has no relation table, while the full page has the table and no Connected list; **Show 1 more**
+  appends the next page.
+- **Checks.** `vitest related`: 10 files, 152 tests passed. `format`, `lint` (0 errors, the 7
+  recorded warnings), `build` and the contrast test passed. Runners passed: `test:browser:b3` (30
+  checks, axe on the inspector), `s6`, `wp14`, `wp12`. `test:browser` failed once at the record
+  return in TODO (`wp9-navigation.mjs:383`); `test:browser:b4` failed at its cycle refusal check,
+  a runner pattern that misses the upper-case error code (TODO); its breadcrumb checks passed.
+  Screenshots of the inspector (top and Connected) and the full page at 1440 and 390px, light and
+  dark. **Not run:** `test:a11y`, `test:visual` (UA7).
+
+#### UA4 revision: one table, resizable columns (2026-10-07)
+
+Asked by the user after UA4: resizable columns that leave the tables' look as it is (an earlier
+version had made them look worse), and whether every table of records is one piece of code. It
+was not: `RelationsPanel` drew its own copy of the table. The user chose a shared table that keeps
+the record list and the relationship list apart, and columns that may be narrower than their
+content.
+
+- **`ui/DataTable`** owns the table: sortable, resizable headers; cells as the caller gives them;
+  the scroll window, aria row counts and positions; six loading rows; `EmptyState`; the row's type
+  colour; the phone layout's three columns with **Show all columns**. The caller says what a row is:
+  its key, an optional filter that keeps positions, its hue, its own attributes and its actions
+  column (header, cell, the width it needs).
+- **`ui/ObjectTable`** is the record list over it (key and selection by record, row click, the
+  record menu by button, right click or Shift+F10); its callers are unchanged except
+  `onColumnWidths`. **`RelationsPanel`** keeps its fetch, filters, sort, toolbar and dialogs and
+  draws its rows with `DataTable`, keyed by relationship, so one record reached by two relationships
+  is two rows; the Relationship column is a column of its own and its widths are kept
+  (`useTableDisplay`'s `otherColumns`). It gains the Display menu (widths and columns per record and
+  panel, as a record's child tables have them), loading rows, the empty state and row colours.
+- **Resizing.** The handle is an 8px strip inside its header's right edge (it hung 5px past it, under
+  the next header, so a pointer never reached it; only the keyboard worked). A drag or key starts
+  from the column's drawn width (`ResizeHandle`'s `start`), not 180px. The first resize stores every
+  column's drawn width (rounded up, so no cell starts to clip), so only the dragged column changes;
+  from then on the table uses fixed layout, a column may go down to 48px with an ellipsis, and the
+  actions column (or the table's own width, which scrolls) takes the difference. Below 760px the
+  handles are off and the table lays out by content. Measured on the dev server: Master ID 134→64px
+  and Value code +90px with the other columns unchanged; a translation table's Translated name
+  234→124px likewise. A table that was never resized looks as before.
+- **Changed for phones:** relationship tables show three columns with **Show all columns** at 390px,
+  as record tables do. `s5` sorted a relationship table from its Value code header at 390px; it now
+  opens all columns first (`s5-continuous-lists.mjs`).
+- **Tests.** `ObjectTable.test`: the first resize keeps the other column's width; a sized table is
+  fixed and takes a width below the old 120px minimum. `RelationsPanel.test`: one record on two rows
+  by two relationships, the Relationship and field columns resize, Display is offered; header-name
+  expectations match the start of the name, since the header's name includes its handle's (TODO).
+  `localPreference.test`: `setWidths`.
+- **Checks.** `vitest run` over `ui`, `features/objects`, `lib`, `app`: 28 files, 264 tests passed.
+  `format`, `lint` (0 errors, the 7 recorded warnings), `build` passed. Runners passed:
+  `test:browser`, `wp13c`, `wp14`, `change-sets`, `sc07`, `b3` (30), `s5` (after the 390px change
+  above). `test:browser:authoring` failed on two **Add Domain** buttons, from UA3's empty state
+  (TODO). **Not run:** `test:a11y`, `test:visual` (UA7).
+
 ### Exit by 1.0
 
 - Every administrative, integration and security object a route manages has a settings page, and

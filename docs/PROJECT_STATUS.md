@@ -269,7 +269,10 @@ record in its type's colour; awaiting approval
 collection page's type tile, the green Live strip, record chips in a column that shows a record,
 the selected row in its type's colour, plain-text booleans, and table-shaped loading and empty
 states; no model or backend change; awaiting approval
-([record](SETTINGS_AND_UI_PLAN.md#ua3-record-2026-10-06)).
+([record](SETTINGS_AND_UI_PLAN.md#ua3-record-2026-10-06)). **UA4 is implemented (2026-10-07)**: the
+record's header band in its type's colour with ancestor chips, and the inspector's ruled sections,
+side-by-side fields and **Connected** list; no model or backend change; awaiting approval
+([record](SETTINGS_AND_UI_PLAN.md#ua4-record-2026-10-07)).
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

@@ -46,7 +46,7 @@ describe("local display preferences", () => {
       first.result.current.setDensity("compact");
     });
     act(() => {
-      first.result.current.setWidth("code", 260);
+      first.result.current.setWidths({ code: 260 });
     });
     first.unmount();
 

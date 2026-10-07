@@ -1,8 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError, api } from "@/api/client";
 import { codelistObject, domainObject, testModel } from "@/test/fixtures";
 import { ObjectDetail } from "@/features/objects/ObjectDetail";
+import { objectTypeHue } from "@/model/hues";
+import type { EngineModel, ObjectItem, RelationItem } from "@/types";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -172,4 +174,102 @@ describe("ObjectDetail lifecycle controls", () => {
       expect(screen.queryByRole("menuitem", { name: "Delete record" })).not.toBeInTheDocument();
     },
   );
+});
+
+// UA4: the record's header and the inspector's Connected list, on two model configurations (the
+// type order reversed changes every slot), so no expectation depends on one model's keys.
+const reordered: EngineModel = { ...testModel, objectTypes: [...testModel.objectTypes].reverse() };
+const connectedRelation: RelationItem = {
+  direction: "outgoing",
+  relation: {
+    id: "77777777-7777-4777-8777-777777777777",
+    relationTypeKey: "domain-contains-codelist",
+    fromObjectId: domainObject.id,
+    toObjectId: codelistObject.id,
+    attributes: {},
+    version: 1,
+  },
+  object: codelistObject,
+};
+
+describe.each([
+  ["model order", testModel],
+  ["reversed type order", reordered],
+])("the record in Atlas (UA4), %s", (_, model) => {
+  function show(object: ObjectItem, extra: Partial<React.ComponentProps<typeof ObjectDetail>> = {}) {
+    vi.spyOn(api, "object").mockResolvedValue(object);
+    vi.spyOn(api, "objectHistory").mockResolvedValue({ items: [], nextCursor: null });
+    vi.spyOn(api, "objects").mockResolvedValue({ items: [], nextCursor: null });
+    const onOpen = vi.fn();
+    const view = render(
+      <ObjectDetail
+        model={model}
+        application={model.applications[0]}
+        objectTypeKey={object.objectTypeKey}
+        objectId={object.id}
+        workspaceKey="default"
+        onOpen={onOpen}
+        onBack={vi.fn()}
+        {...extra}
+      />,
+    );
+    return { onOpen, ...view };
+  }
+
+  it("tints the header in the record's type and shows its ancestors as chips in theirs", async () => {
+    vi.spyOn(api, "relations").mockResolvedValue({ items: [], nextCursor: null });
+    const { onOpen, container } = show(codelistObject);
+    await screen.findByRole("heading", { level: 1, name: codelistObject.name });
+    expect(container.querySelector(".record-header")).toHaveAttribute(
+      "data-hue",
+      String(objectTypeHue(model, "codelist")),
+    );
+    const ancestor = within(screen.getByRole("navigation", { name: "Breadcrumb" })).getByRole("button", {
+      name: "Connections",
+    });
+    expect(ancestor).toHaveAttribute("data-hue", String(objectTypeHue(model, "domain")));
+    fireEvent.click(ancestor);
+    expect(onOpen).toHaveBeenCalledWith("domain", domainObject.id);
+  });
+
+  it("lists relations as Connected chips in the inspector and keeps the tables on the full page", async () => {
+    const relations = vi
+      .spyOn(api, "relations")
+      .mockResolvedValue({ items: [connectedRelation], nextCursor: null, totalCount: 1 });
+    const onExpand = vi.fn();
+    const { onOpen, unmount } = show(domainObject, { inspector: true, onExpand });
+    const connected = await screen.findByRole("region", { name: "Connected" });
+    const chip = await within(connected).findByRole("button", { name: codelistObject.name });
+    expect(chip).toHaveAttribute("data-hue", String(objectTypeHue(model, "codelist")));
+    expect(within(connected).getByText("Relationships")).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Search relationships" })).not.toBeInTheDocument();
+    expect(relations).toHaveBeenCalledWith(domainObject.id, expect.objectContaining({ direction: "both" }));
+    fireEvent.click(chip);
+    expect(onOpen).toHaveBeenCalledWith("codelist", codelistObject.id, codelistObject.applicationKey);
+    fireEvent.click(within(connected).getByRole("button", { name: "Manage relationships on the full page" }));
+    expect(onExpand).toHaveBeenCalled();
+    unmount();
+
+    show(domainObject);
+    expect(await screen.findByRole("textbox", { name: "Search relationships" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Connected" })).not.toBeInTheDocument();
+  });
+
+  it("offers further connected records a page at a time", async () => {
+    const more: RelationItem = {
+      ...connectedRelation,
+      relation: { ...connectedRelation.relation, id: "88888888-8888-4888-8888-888888888888" },
+      object: { ...codelistObject, id: "99999999-9999-4999-8999-999999999999", name: "Durations" },
+    };
+    const relations = vi
+      .spyOn(api, "relations")
+      .mockResolvedValueOnce({ items: [connectedRelation], nextCursor: "next", totalCount: 2 })
+      .mockResolvedValueOnce({ items: [more], nextCursor: null });
+    show(domainObject, { inspector: true });
+    const connected = await screen.findByRole("region", { name: "Connected" });
+    fireEvent.click(await within(connected).findByRole("button", { name: "Show 1 more" }));
+    expect(await within(connected).findByRole("button", { name: "Durations" })).toBeInTheDocument();
+    expect(relations).toHaveBeenLastCalledWith(domainObject.id, expect.objectContaining({ cursor: "next" }));
+    expect(within(connected).queryByRole("button", { name: /Show/ })).not.toBeInTheDocument();
+  });
 });

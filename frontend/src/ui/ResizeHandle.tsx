@@ -8,6 +8,7 @@ export function ResizeHandle({
   direction = 1,
   onChange,
   onReset,
+  start,
   className = "",
 }: {
   label: string;
@@ -17,6 +18,8 @@ export function ResizeHandle({
   direction?: 1 | -1;
   onChange: (value: number) => void;
   onReset?: () => void;
+  /** The size a drag or key starts from, when the drawn size can differ from `value` (a table column). */
+  start?: () => number;
   className?: string;
 }) {
   const clamp = (next: number) => Math.min(max, Math.max(min, Math.round(next)));
@@ -27,9 +30,10 @@ export function ResizeHandle({
       return;
     }
     const step = event.shiftKey ? 40 : 10;
+    const current = start?.() ?? value;
     let next: number | undefined;
-    if (event.key === "ArrowLeft") next = value - step * direction;
-    if (event.key === "ArrowRight") next = value + step * direction;
+    if (event.key === "ArrowLeft") next = current - step * direction;
+    if (event.key === "ArrowRight") next = current + step * direction;
     if (event.key === "Home") next = min;
     if (event.key === "End") next = max;
     if (next === undefined) return;
@@ -38,12 +42,12 @@ export function ResizeHandle({
   }
   function pointerDown(event: PointerEvent<HTMLDivElement>) {
     event.preventDefault();
-    const start = event.clientX;
-    const initial = value;
+    const origin = event.clientX;
+    const initial = start?.() ?? value;
     event.currentTarget.setPointerCapture(event.pointerId);
     const target = event.currentTarget;
     const move = (moveEvent: globalThis.PointerEvent) =>
-      onChange(clamp(initial + (moveEvent.clientX - start) * direction));
+      onChange(clamp(initial + (moveEvent.clientX - origin) * direction));
     const finish = () => {
       target.removeEventListener("pointermove", move);
       target.removeEventListener("pointerup", finish);

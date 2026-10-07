@@ -12,8 +12,10 @@ import { FieldValue } from "@/ui/FieldValue";
 import { attributeName, isQueryableField, listSortFields } from "@/model/fields";
 import { InlineError } from "@/ui/InlineError";
 import { Icon } from "@/ui/Icon";
-import { ScrollWindow } from "@/ui/ScrollWindow";
-import { SortAnnouncement, SortHeader, SortMenu, headerSort, useTableSort } from "@/ui/TableSort";
+import { DataTable, type DataColumn } from "@/ui/DataTable";
+import { objectTypeHue } from "@/model/hues";
+import { TableDisplay, useTableDisplay } from "@/ui/TableDisplay";
+import { SortMenu, useTableSort } from "@/ui/TableSort";
 
 const PAGE_SIZE = 50;
 
@@ -35,12 +37,18 @@ export function RelationsPanel({
   const api = useDataApi();
   const { changeSet, publication } = useWorkspaceData();
   const live = !changeSet && !publication;
+  const showRelationshipColumn = panel.config.showRelationshipColumn !== false;
+  const display = useTableDisplay(
+    panel.config.columns,
+    `${object.applicationKey}:${object.id}:${panel.key}`,
+    showRelationshipColumn ? ["relationship"] : [],
+  );
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
   const [searchInput, setSearchInput] = useState("");
   const search = useDebouncedValue(searchInput.trim());
   // Every data column sorts, as does the relationship label; the panel may add fields to the Sort
   // menu (`sortFields`) and choose the initial order (`defaultSort`, schema 0.7), otherwise name.
   const relationTypeKey = panel.config.relationTypeKeys.length === 1 ? panel.config.relationTypeKeys[0] : undefined;
-  const showRelationshipColumn = panel.config.showRelationshipColumn !== false;
   const sortFields = useMemo(
     () =>
       listSortFields(
@@ -118,21 +126,69 @@ export function RelationsPanel({
         search,
         sort: effectiveSort,
         ...selector,
-        pageSize: PAGE_SIZE,
+        pageSize,
       }),
-    [object.id, object.workspaceKey, panel.config.direction, relationTypeKey, search, effectiveSort],
+    [object.id, object.workspaceKey, panel.config.direction, relationTypeKey, search, effectiveSort, pageSize],
   );
-  const { items: relations, loading, error: feedError, retry, reload } = list;
+  const { items: relations, error: feedError, retry, reload } = list;
   // Loading failures belong to the panel; delete failures stay in their confirmation dialog so
   // cancelling that action cannot leave the collection in a persistent feed-error state.
   const error = feedError;
-  const visible = relations.flatMap((item, position) =>
-    panel.config.relationTypeKeys.includes(item.relation.relationTypeKey)
-      ? [{ item, index: list.startIndex + position }]
-      : [],
-  );
-  const tableColumnCount = panel.config.columns.length + 1 + (showRelationshipColumn ? 1 : 0);
-  const linkColumn = panel.config.columns.includes("name") ? "name" : panel.config.columns[0];
+  const linkColumn = display.identity;
+  const columns: DataColumn<RelationItem>[] = [
+    ...(showRelationshipColumn
+      ? [
+          {
+            key: "relationship",
+            label: "Relationship",
+            cell: (item: RelationItem) => {
+              const definition = model.relationTypes.find((relation) => relation.key === item.relation.relationTypeKey);
+              return item.direction === "outgoing" ? definition?.name : definition?.reverseName;
+            },
+          },
+        ]
+      : []),
+    ...display.columns.map((column) => ({
+      key: column,
+      label: attributeName(model, column),
+      cell: (item: RelationItem) =>
+        column === linkColumn ? (
+          <button
+            className="cell-link"
+            data-row-focus
+            onClick={() => onOpen(item.object.objectTypeKey, item.object.id, item.object.applicationKey)}
+          >
+            <FieldValue item={item.object} field={column} model={model} />
+          </button>
+        ) : (
+          <FieldValue item={item.object} field={column} model={model} />
+        ),
+    })),
+  ];
+
+  function actionsFor(item: RelationItem) {
+    const allowed = allowedFor(item);
+    const required = allowed?.required === true;
+    const hasAttributes = Boolean(allowed?.attributeTypeKeys?.length);
+    return (
+      <div className="row-actions">
+        {managed(item) ? (
+          <span className="managed-label">Managed through Parent</span>
+        ) : (
+          <>
+            {!readOnly && hasAttributes && <button onClick={() => setEditing(item)}>Edit</button>}
+            {required ? (
+              <span className="managed-label">Required relationship</span>
+            ) : !readOnly ? (
+              <button className="text-danger" onClick={() => setRemoving(item)}>
+                Delete
+              </button>
+            ) : null}
+          </>
+        )}
+      </div>
+    );
+  }
 
   function allowedFor(item: RelationItem) {
     const fromType = item.direction === "outgoing" ? object.objectTypeKey : item.object.objectTypeKey;
@@ -185,6 +241,14 @@ export function RelationsPanel({
             placeholder="Search related records"
           />
         </label>
+        <TableDisplay
+          model={model}
+          columns={panel.config.columns}
+          display={display}
+          pageSize={pageSize}
+          defaultPageSize={PAGE_SIZE}
+          onPageSize={setPageSize}
+        />
         <SortMenu sorting={sorting} />
         {!readOnly &&
           dependentCreates.map((creation) => (
@@ -204,110 +268,25 @@ export function RelationsPanel({
         )}
       </div>
       {error && <InlineError message={error} onRetry={retry} />}
-      <SortAnnouncement sorting={sorting} />
       {(!error || relations.length > 0) && (
-        <ScrollWindow
+        <DataTable<RelationItem>
+          columns={columns}
+          identityColumn={linkColumn}
           list={list}
+          rowKey={(item) => item.relation.id}
+          rowFilter={(item) => panel.config.relationTypeKeys.includes(item.relation.relationTypeKey)}
+          rowHue={(item) => objectTypeHue(model, item.object.objectTypeKey)}
+          rowAttributes={() => ({ tabIndex: -1 })}
+          actions={{ header: "Actions", width: 168, className: "relation-actions-column", cell: actionsFor }}
+          sorting={sorting}
+          columnWidths={display.widths}
+          onColumnWidths={display.setWidths}
           label={panel.title}
           noun={["relationship", "relationships"]}
-          pageSize={PAGE_SIZE}
-          className="table-wrap"
-        >
-          <table
-            aria-busy={loading || undefined}
-            aria-rowcount={list.totalCount !== null && visible.length > 0 ? list.totalCount + 1 : undefined}
-          >
-            <caption className="visually-hidden">{panel.title}</caption>
-            <thead>
-              <tr aria-rowindex={1}>
-                {showRelationshipColumn && (
-                  <th scope="col" aria-sort={headerSort(sorting, "relationship")}>
-                    <SortHeader field="relationship" label="Relationship" sorting={sorting} />
-                  </th>
-                )}
-                {panel.config.columns.map((column) => (
-                  <th key={column} scope="col" aria-sort={headerSort(sorting, column)}>
-                    <SortHeader field={column} label={attributeName(model, column)} sorting={sorting} />
-                  </th>
-                ))}
-                <th scope="col">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && relations.length === 0 ? (
-                <tr>
-                  <td colSpan={tableColumnCount} className="empty-row">
-                    Loading…
-                  </td>
-                </tr>
-              ) : visible.length === 0 ? (
-                <tr>
-                  <td colSpan={tableColumnCount} className="empty-row">
-                    {search ? "No relationships match this search." : "No relationships yet."}
-                  </td>
-                </tr>
-              ) : (
-                visible.map(({ item, index }) => {
-                  const definition = model.relationTypes.find(
-                    (relation) => relation.key === item.relation.relationTypeKey,
-                  );
-                  const allowed = allowedFor(item);
-                  const immutable = managed(item);
-                  const required = allowed?.required === true;
-                  const hasAttributes = Boolean(allowed?.attributeTypeKeys?.length);
-                  return (
-                    <tr
-                      key={item.relation.id}
-                      data-row-key={item.relation.id}
-                      data-row-index={index}
-                      aria-rowindex={index + 2}
-                      tabIndex={-1}
-                    >
-                      {showRelationshipColumn && (
-                        <td>{item.direction === "outgoing" ? definition?.name : definition?.reverseName}</td>
-                      )}
-                      {panel.config.columns.map((column) => (
-                        <td key={column}>
-                          {column === linkColumn ? (
-                            <button
-                              className="cell-link"
-                              data-row-focus
-                              onClick={() =>
-                                onOpen(item.object.objectTypeKey, item.object.id, item.object.applicationKey)
-                              }
-                            >
-                              <FieldValue item={item.object} field={column} model={model} />
-                            </button>
-                          ) : (
-                            <FieldValue item={item.object} field={column} model={model} />
-                          )}
-                        </td>
-                      ))}
-                      <td>
-                        <div className="row-actions">
-                          {immutable ? (
-                            <span className="managed-label">Managed through Parent</span>
-                          ) : (
-                            <>
-                              {!readOnly && hasAttributes && <button onClick={() => setEditing(item)}>Edit</button>}
-                              {required ? (
-                                <span className="managed-label">Required relationship</span>
-                              ) : !readOnly ? (
-                                <button className="text-danger" onClick={() => setRemoving(item)}>
-                                  Delete
-                                </button>
-                              ) : null}
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </ScrollWindow>
+          pageSize={pageSize}
+          compact={display.compact}
+          emptyMessage={search ? "No relationships match this search." : "No relationships yet."}
+        />
       )}
       {creating && (
         <RelationFormDialog

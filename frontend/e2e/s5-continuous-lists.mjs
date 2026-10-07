@@ -586,6 +586,12 @@ try {
     await phone.goto(`${uiUrl}/apps/rdm-master/objects/${type}/${record.id}?workspaceKey=default`);
     const related = phone.getByRole("region", { name: "System representations", exact: true });
     await related.locator("[data-row-focus]").first().waitFor();
+    // Since the UA4 revision a relationship table collapses to three columns at 390px, as a record
+    // table does; its toggle shows the rest.
+    await phone
+      .locator("section.panel", { has: related })
+      .getByRole("button", { name: /^Show all \d+ columns$/ })
+      .click();
     const header = related.locator("th").filter({ has: phone.getByRole("button", { name: /^Value code/ }) });
     const response = phone.waitForResponse((item) => listedSort(item) === "value-code");
     await header.getByRole("button").focus();

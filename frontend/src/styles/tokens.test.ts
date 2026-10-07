@@ -37,8 +37,26 @@ function resolve(theme: Map<string, string>, name: string, seen: string[] = []):
   if (!value) throw new Error(`--${name} is not defined (via ${seen.join(" → ") || "the pair list"})`);
   const reference = value.match(/^var\(--([a-z0-9-]+)\)$/);
   if (reference) return resolve(theme, reference[1], [...seen, name]);
+  const mixture = value.match(/^color-mix\(in srgb, var\(--([a-z0-9-]+)\) (\d+)%, var\(--([a-z0-9-]+)\)\)$/);
+  if (mixture)
+    return mix(
+      resolve(theme, mixture[1], [...seen, name]),
+      resolve(theme, mixture[3], [...seen, name]),
+      Number(mixture[2]) / 100,
+    );
   if (!/^#[0-9a-f]{6}$/i.test(value)) throw new Error(`--${name} resolves to ${value}, not a #rrggbb colour`);
   return value.toLowerCase();
+}
+
+/** `color-mix(in srgb, a weight, b)`: the encoded channels interpolated, as the browser does. */
+function mix(a: string, b: string, weight: number) {
+  return `#${[1, 3, 5]
+    .map((offset) => {
+      const channel =
+        parseInt(a.slice(offset, offset + 2), 16) * weight + parseInt(b.slice(offset, offset + 2), 16) * (1 - weight);
+      return Math.round(channel).toString(16).padStart(2, "0");
+    })
+    .join("")}`;
 }
 
 function luminance(hex: string) {
@@ -88,6 +106,14 @@ const PAIRS: Array<[string, string, number]> = [
     [`${hue}-ink`, "surface-app", 4.5],
     [`${hue}-ink`, "surface-nav", 4.5],
   ]),
+  // A record's header band carries the page's text, a link, its type's ink and other types' chips (UA4).
+  ...HUES.flatMap((hue): Array<[string, string, number]> => [
+    ["text-primary", `${hue}-band`, 4.5],
+    ["text-secondary", `${hue}-band`, 4.5],
+    ["text-tertiary", `${hue}-band`, 4.5],
+    ["link", `${hue}-band`, 4.5],
+    [`${hue}-ink`, `${hue}-band`, 4.5],
+  ]),
   // Non-text: a control's boundary, the focus indicator, the primary action's fill, and markers.
   ...["surface-app", "surface-nav", "surface-raised", "surface-sunken"].map((surface): [string, string, number] => [
     "border-control",
@@ -109,6 +135,9 @@ const PAIRS: Array<[string, string, number]> = [
   ...HUES.flatMap((hue): Array<[string, string, number]> => [
     [`${hue}-marker`, "surface-app", 3],
     [`${hue}-marker`, "surface-nav", 3],
+    [`${hue}-marker`, `${hue}-band`, 3],
+    ["focus-color", `${hue}-band`, 3],
+    ["border-control", `${hue}-band`, 3],
   ]),
 ];
 

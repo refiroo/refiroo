@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { EngineModel } from "@/types";
 import { attributeName } from "@/model/fields";
 import { ControlPopover } from "@/ui/ControlPopover";
+import { COLUMN_WIDTH } from "@/ui/DataTable";
 import { readLocalPreference, removeLocalPreference, writeLocalPreference } from "@/lib/localPreference";
 import { isTableDensity, readDefaultTableDensity, type TableDensity } from "@/lib/tableDensity";
 
@@ -46,7 +47,11 @@ function readPreference(scope: string): TablePreference {
   return { hidden: stored.hidden, widths: stored.widths, ...(density ? { density } : {}) };
 }
 
-export function useTableDisplay(columns: string[], scope: string) {
+/**
+ * A table's display preferences on this device. `otherColumns` are columns that are not fields (a
+ * relationship's label): they keep a width but are never hidden.
+ */
+export function useTableDisplay(columns: string[], scope: string, otherColumns: string[] = []) {
   const load = () => readPreference(scope);
   const [defaultDensity] = useState(readDefaultTableDensity);
   const [settings, setSettings] = useState<{ scope: string; value: TablePreference }>(() => ({ scope, value: load() }));
@@ -65,10 +70,14 @@ export function useTableDisplay(columns: string[], scope: string) {
     defaultDensity,
     widths: Object.fromEntries(
       Object.entries(current.widths).filter(
-        ([column, width]) => columns.includes(column) && width >= 120 && width <= 520,
+        ([column, width]) =>
+          (columns.includes(column) || otherColumns.includes(column)) &&
+          width >= COLUMN_WIDTH.min &&
+          width <= COLUMN_WIDTH.max,
       ),
     ),
-    setWidth: (column: string, width: number) => update({ ...current, widths: { ...current.widths, [column]: width } }),
+    /** A resize stores every column's width, so the others stay as they were drawn (`ui/DataTable`). */
+    setWidths: (widths: Record<string, number>) => update({ ...current, widths: { ...current.widths, ...widths } }),
     setDensity: (density: ViewDensity) =>
       update({
         hidden: current.hidden,

@@ -4,6 +4,7 @@
 
 /* Link-style buttons inside these containers opt out of the class-less button fallback. */
 .breadcrumbs button,
+.record-chip-link,
 .row-actions button,
 .hierarchy-panel button,
 .diagnostic-list button,
@@ -230,6 +231,25 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* A chip that opens its record: a breadcrumb or a connected record (UA4). */
+.record-chip-link {
+  border: 0;
+  font-family: inherit;
+  line-height: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.record-chip-link:hover {
+  box-shadow: inset 0 0 0 1px var(--hue-marker, var(--border-control));
+}
+/* What tells a connected record apart, named before it (a value's system, a language). */
+.record-chip-context {
+  font-weight: 500;
+}
+.record-chip-context::after {
+  content: "·";
+  margin: 0 5px;
 }
 .tone-live {
   --pill-surface: var(--context-live-surface);
@@ -787,13 +807,49 @@ th[aria-sort] {
 .mobile-columns-toggle {
   display: none;
 }
+/* A column's resize handle (ui/DataTable): an invisible strip inside its own header's right edge,
+   so the next header never covers it; its line shows only on hover and focus (layout.css). */
 .column-resizer {
   position: absolute;
   z-index: 2;
   top: 0;
-  right: -5px;
-  width: 10px;
+  right: 0;
+  width: 8px;
   height: 100%;
+}
+.column-resizer::after {
+  inset: 0 3px;
+}
+/* Once a column is sized the widths are fixed (UA4 revision): a column may be narrower than its
+   content, its cells end in an ellipsis, and the actions column (or the table's own width) takes
+   the difference. Below 760px the handles are off and the table lays out by content again. */
+@media (min-width: 761px) {
+  .object-table table.sized-columns {
+    table-layout: fixed;
+    width: var(--table-width);
+  }
+  .object-table table.sized-columns-fill {
+    width: max(100%, var(--table-width));
+  }
+  .object-table .sized-columns th[style] {
+    box-sizing: border-box;
+    width: var(--column-width);
+  }
+  .object-table .sized-columns td {
+    max-width: none;
+  }
+  .object-table .sized-columns th.actions-column {
+    width: auto;
+    min-width: var(--actions-width);
+  }
+  .object-table .sized-columns .cell-link {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+.relation-actions-column {
+  white-space: nowrap;
 }
 .record-actions-column {
   width: 48px;
@@ -841,7 +897,30 @@ th[aria-sort] {
   align-items: center;
   flex-wrap: wrap;
   gap: 4px 12px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
+}
+/* The record's header (ADR-040, UA4): a band in its type's hue holding the breadcrumb chips, the
+   type's 40px tile, the type in its ink, the title and the record's actions. */
+.record-header {
+  display: grid;
+  gap: 12px;
+  margin-bottom: var(--space-5);
+  padding: 16px 20px 18px;
+  border: 1px solid color-mix(in srgb, var(--hue-marker, var(--border-subtle)) 24%, transparent);
+  border-radius: 8px;
+  background: var(--hue-band, var(--surface-sunken));
+}
+.record-header .detail-header {
+  margin: 0;
+  padding: 0;
+  border-bottom: 0;
+}
+.record-header .page-header .eyebrow {
+  color: var(--hue-ink, var(--text-tertiary));
+  font-weight: 600;
+}
+.record-header .breadcrumbs ol {
+  font-size: var(--text-sm);
 }
 .back-link {
   margin-left: -8px;
@@ -868,19 +947,22 @@ th[aria-sort] {
   content: "›";
   color: var(--faint);
 }
-.breadcrumbs button {
+.breadcrumbs button:not(.record-chip) {
   border: 0;
   padding: 0;
   background: transparent;
   color: var(--muted);
   font-size: inherit;
 }
-.breadcrumbs button:hover {
+.breadcrumbs button:not(.record-chip):hover {
   color: var(--accent);
   text-decoration: underline;
 }
 .breadcrumbs [aria-current] {
   color: var(--ink-2);
+}
+.breadcrumbs .record-chip {
+  max-width: 260px;
 }
 .detail-header {
   padding-bottom: var(--space-4);
@@ -1134,6 +1216,105 @@ th[aria-sort] {
 .hierarchy-panel li > span {
   color: var(--faint);
 }
+/* A one-column field list wide enough for it puts each label beside its value, with the value's
+   actions at the row's end (UA4): the inspector and a widened side column. */
+.record-inspector .attribute-grid,
+.side-panels .attribute-grid {
+  container: fields / inline-size;
+}
+@container fields (min-width: 340px) {
+  .attribute-row {
+    display: grid;
+    grid-template-columns: minmax(96px, 34%) minmax(0, 1fr);
+    column-gap: 12px;
+    align-items: baseline;
+  }
+  .attribute-row dt {
+    padding-right: 0;
+    font-size: var(--text-sm);
+  }
+  .attribute-row dd {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 8px;
+    margin: 0;
+  }
+  .attribute-row dd > .row-actions {
+    position: static;
+    order: 1;
+    flex: none;
+    margin: -4px -6px -4px auto;
+  }
+  .attribute-row dd > .inline-save-status {
+    order: 2;
+    flex-basis: 100%;
+  }
+  .attribute-row dd > .inline-attribute-editor {
+    flex-basis: 100%;
+  }
+}
+/* The inspector's Connected list (UA4): a relation's label beside its records' chips. */
+.connected-panel {
+  container: connected / inline-size;
+}
+.connected-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 4px 16px 12px;
+}
+.connected-row {
+  display: grid;
+  gap: 4px;
+}
+@container connected (min-width: 340px) {
+  .connected-row {
+    grid-template-columns: minmax(96px, 34%) minmax(0, 1fr);
+    column-gap: 12px;
+  }
+}
+.connected-row dt {
+  padding-top: 2px;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+.connected-row dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+}
+.connected-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.connected-chips li {
+  min-width: 0;
+  max-width: 100%;
+}
+.connected-state {
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+}
+.connected-more,
+.connected-manage {
+  min-height: 26px;
+  padding: 0 6px;
+  color: var(--link);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.connected-manage {
+  margin: 0 0 12px -6px;
+}
 .history-timeline {
   list-style: none;
   margin: 0;
@@ -1159,7 +1340,7 @@ th[aria-sort] {
   width: 12px;
   height: 12px;
   margin-top: 3px;
-  border: 2px solid var(--accent);
+  border: 2px solid var(--hue-marker, var(--accent));
   border-radius: 50%;
   background: var(--surface);
 }
@@ -1212,6 +1393,40 @@ th[aria-sort] {
 }
 .record-inspector .side-panels {
   position: static;
+}
+/* In the inspector the record's sections are ruled, not cards, with small capital headings as in
+   the canvas's inspector (UA4); the full page keeps its cards. */
+.record-inspector .detail-grid,
+.record-inspector .panel-column {
+  gap: 0;
+}
+.record-inspector .panel {
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: transparent;
+}
+.record-inspector .panel-column:first-child > .panel:first-child {
+  border-top: 0;
+}
+.record-inspector .panel > h2 {
+  padding: 16px 0 6px;
+  border-bottom: 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.record-inspector .attribute-grid,
+.record-inspector .hierarchy-panel,
+.record-inspector .connected-list,
+.record-inspector .history-timeline {
+  padding-left: 0;
+  padding-right: 0;
+}
+.record-inspector .history-more {
+  margin-left: 0;
 }
 /* A narrow inspector wraps the record's actions below its title rather than squeezing the title. */
 .record-inspector .detail-header .page-title {

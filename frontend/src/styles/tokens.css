@@ -259,6 +259,16 @@
   --hue-8-fill: var(--slate-50);
   --hue-8-ink: var(--slate-800);
   --hue-8-marker: var(--slate-500);
+  /* A record's header band (UA4): half its type's fill over the raised surface, lighter than the
+     fill so the type's tile stands out on it. Mixed from roles, so dark mode follows the fills. */
+  --hue-1-band: color-mix(in srgb, var(--hue-1-fill) 50%, var(--surface-raised));
+  --hue-2-band: color-mix(in srgb, var(--hue-2-fill) 50%, var(--surface-raised));
+  --hue-3-band: color-mix(in srgb, var(--hue-3-fill) 50%, var(--surface-raised));
+  --hue-4-band: color-mix(in srgb, var(--hue-4-fill) 50%, var(--surface-raised));
+  --hue-5-band: color-mix(in srgb, var(--hue-5-fill) 50%, var(--surface-raised));
+  --hue-6-band: color-mix(in srgb, var(--hue-6-fill) 50%, var(--surface-raised));
+  --hue-7-band: color-mix(in srgb, var(--hue-7-fill) 50%, var(--surface-raised));
+  --hue-8-band: color-mix(in srgb, var(--hue-8-fill) 50%, var(--surface-raised));
   /* The tree group under the pointer (UA2 revision); apart from the accent, which marks scrolling. */
   --active-area: var(--teal-500);
 
@@ -494,39 +504,47 @@
   --hue-fill: var(--hue-1-fill);
   --hue-ink: var(--hue-1-ink);
   --hue-marker: var(--hue-1-marker);
+  --hue-band: var(--hue-1-band);
 }
 [data-hue="2"] {
   --hue-fill: var(--hue-2-fill);
   --hue-ink: var(--hue-2-ink);
   --hue-marker: var(--hue-2-marker);
+  --hue-band: var(--hue-2-band);
 }
 [data-hue="3"] {
   --hue-fill: var(--hue-3-fill);
   --hue-ink: var(--hue-3-ink);
   --hue-marker: var(--hue-3-marker);
+  --hue-band: var(--hue-3-band);
 }
 [data-hue="4"] {
   --hue-fill: var(--hue-4-fill);
   --hue-ink: var(--hue-4-ink);
   --hue-marker: var(--hue-4-marker);
+  --hue-band: var(--hue-4-band);
 }
 [data-hue="5"] {
   --hue-fill: var(--hue-5-fill);
   --hue-ink: var(--hue-5-ink);
   --hue-marker: var(--hue-5-marker);
+  --hue-band: var(--hue-5-band);
 }
 [data-hue="6"] {
   --hue-fill: var(--hue-6-fill);
   --hue-ink: var(--hue-6-ink);
   --hue-marker: var(--hue-6-marker);
+  --hue-band: var(--hue-6-band);
 }
 [data-hue="7"] {
   --hue-fill: var(--hue-7-fill);
   --hue-ink: var(--hue-7-ink);
   --hue-marker: var(--hue-7-marker);
+  --hue-band: var(--hue-7-band);
 }
 [data-hue="8"] {
   --hue-fill: var(--hue-8-fill);
   --hue-ink: var(--hue-8-ink);
   --hue-marker: var(--hue-8-marker);
+  --hue-band: var(--hue-8-band);
 }

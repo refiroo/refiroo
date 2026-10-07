@@ -7,11 +7,21 @@ import { changedObjectType, errorMessage } from "@/api/errors";
 import { fallbackDetail } from "@/model/defaults";
 import { fieldValue } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
-import type { ApplicationDefinition, EngineModel, ObjectItem, PanelDefinition } from "@/types";
+import { objectTypeHue } from "@/model/hues";
+import type {
+  ApplicationDefinition,
+  EngineModel,
+  ObjectItem,
+  PanelDefinition,
+  RelationsPanelDefinition,
+} from "@/types";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
 import { ObjectDeleteDialog } from "@/features/objects/ObjectDeleteDialog";
+import { ConnectedList } from "./panels/ConnectedList";
 import { HistoryPanel } from "./panels/HistoryPanel";
-import { Icon, ModelIcon } from "@/ui/Icon";
+import { HueTile } from "@/ui/HueTile";
+import { Icon } from "@/ui/Icon";
+import { RecordChip } from "@/ui/RecordChip";
 import { PageHeader } from "@/ui/PageHeader";
 import { panelComponentRegistry } from "./panels/registry";
 import type { PanelProps } from "./panels/types";
@@ -200,8 +210,16 @@ export function ObjectDetail({
   const currentObject = object;
 
   const panels = detail.panels.filter((panel) => panel.visible);
-  const mainPanels = panels.filter((panel) => panel.region === "main").sort((a, b) => a.order - b.order);
-  const sidePanels = panels.filter((panel) => panel.region === "side").sort((a, b) => a.order - b.order);
+  // The inspector lists the relations panels together as Connected (UA4); the full page shows their tables.
+  const connected = inspector
+    ? panels
+        .filter((panel): panel is RelationsPanelDefinition => panel.type === "relations")
+        .sort((a, b) => (a.region === b.region ? a.order - b.order : a.region === "side" ? -1 : 1))
+    : [];
+  const shown = inspector ? panels.filter((panel) => panel.type !== "relations") : panels;
+  const mainPanels = shown.filter((panel) => panel.region === "main").sort((a, b) => a.order - b.order);
+  const sidePanels = shown.filter((panel) => panel.region === "side").sort((a, b) => a.order - b.order);
+  const hue = objectTypeHue(model, objectType.key);
   const title = fieldValue(object, detail.header.titleField, model);
   const subtitle = detail.header.subtitleField ? fieldValue(object, detail.header.subtitleField, model) : undefined;
 
@@ -237,13 +255,15 @@ export function ObjectDetail({
 
   return (
     <article className={`record-detail${inspector ? " record-inspector" : ""}`} aria-label="Record details">
-      <div className="record-topline">
-        {showBackToList && (
+      {showBackToList && (
+        <div className="record-topline">
           <button className="ghost back-link" onClick={onBack}>
             <Icon name="arrow-left" size={15} />
             Back to list
           </button>
-        )}
+        </div>
+      )}
+      <div className="record-header" data-hue={hue}>
         <nav className="breadcrumbs" aria-label="Breadcrumb">
           <ol>
             {detail.breadcrumbs.showApplication && (
@@ -254,51 +274,56 @@ export function ObjectDetail({
             {detail.breadcrumbs.showAncestors &&
               object.path.slice(0, -1).map((part) => (
                 <li key={part.id}>
-                  <button onClick={() => onOpen(part.objectTypeKey, part.id)}>{part.name}</button>
+                  <RecordChip
+                    hue={objectTypeHue(model, part.objectTypeKey)}
+                    onOpen={() => onOpen(part.objectTypeKey, part.id)}
+                  >
+                    {part.name}
+                  </RecordChip>
                 </li>
               ))}
             {detail.breadcrumbs.showObjectType && <li aria-current="location">{objectType.name}</li>}
           </ol>
         </nav>
+        <PageHeader
+          variant="detail"
+          onContextMenu={(event) => {
+            event.preventDefault();
+            setMenuOpen(true);
+          }}
+          icon={<HueTile hue={hue} icon={objectType.icon} size={40} />}
+          eyebrow={detail.header.showObjectType ? objectType.name : undefined}
+          title={String(title ?? object.name)}
+          titleRef={titleRef}
+          description={subtitle !== undefined && subtitle !== null && subtitle !== "" ? String(subtitle) : undefined}
+          actions={
+            <>
+              <span className="version" title="Record version, used to detect concurrent changes">
+                v{object.version}
+              </span>
+              {!readOnly && (
+                <button className="secondary" onClick={() => setEditing(true)}>
+                  Edit record
+                </button>
+              )}
+              {onExpand && (
+                <button className="secondary expand-record" onClick={onExpand}>
+                  Expand to full page
+                </button>
+              )}
+              <RecordActionMenu
+                object={object}
+                readOnly={readOnly}
+                label="Record actions"
+                isOpen={menuOpen}
+                onOpenChange={setMenuOpen}
+                onEdit={() => setEditing(true)}
+                onDelete={() => setDeleting(true)}
+              />
+            </>
+          }
+        />
       </div>
-      <PageHeader
-        variant="detail"
-        onContextMenu={(event) => {
-          event.preventDefault();
-          setMenuOpen(true);
-        }}
-        icon={<ModelIcon name={objectType.icon} size={20} />}
-        eyebrow={detail.header.showObjectType ? objectType.name : undefined}
-        title={String(title ?? object.name)}
-        titleRef={titleRef}
-        description={subtitle !== undefined && subtitle !== null && subtitle !== "" ? String(subtitle) : undefined}
-        actions={
-          <>
-            <span className="version" title="Record version, used to detect concurrent changes">
-              v{object.version}
-            </span>
-            {!readOnly && (
-              <button className="secondary" onClick={() => setEditing(true)}>
-                Edit record
-              </button>
-            )}
-            {onExpand && (
-              <button className="secondary expand-record" onClick={onExpand}>
-                Expand to full page
-              </button>
-            )}
-            <RecordActionMenu
-              object={object}
-              readOnly={readOnly}
-              label="Record actions"
-              isOpen={menuOpen}
-              onOpenChange={setMenuOpen}
-              onEdit={() => setEditing(true)}
-              onDelete={() => setDeleting(true)}
-            />
-          </>
-        }
-      />
       <div
         key={panelRefresh}
         className={`detail-grid ${sidePanels.length ? "with-side" : ""}`}
@@ -318,12 +343,16 @@ export function ObjectDetail({
           />
         )}
         <div className="panel-column main-panels">
+          {connected.length > 0 && (
+            <ConnectedList model={model} object={object} panels={connected} onOpen={onOpen} onManage={onExpand} />
+          )}
           {mainPanels.map(renderPanel)}
           {!changeSet && !publication && (
             <HistoryPanel
               model={model}
               objectTypeKey={objectTypeKey}
               objectId={objectId}
+              hue={hue}
               refreshToken={historyRefresh}
             />
           )}
