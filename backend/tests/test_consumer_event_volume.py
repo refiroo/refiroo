@@ -8,7 +8,7 @@ deriving the rename of the heavy group, which updates every group and item below
 and ``hierarchy``, and the direct ones' ``parent``), however many there are (C-D82's fan-out, in the
 database); and the pull feed's first page with each payload and a page narrowed by the ``within``
 ancestor parameter; and, since C13, webhook delivery (``volume_baseline.delivery_scenarios``): the
-dispatcher's claim with caught-up subscriptions, one batch of each payload and a coalesced round. A
+dispatcher's claim with caught-up subscriptions, one batch of each payload and one as CloudEvents. A
 read or a delivered batch may materialise at most ``ROWS_PER_LISTED_ROW`` ORM rows per event it lists.
 The whole delivery's statements grow with its batches, so only its batch is held. Wall times at full
 volume come from ``volume_baseline.py --only-events`` and are recorded in POSTGRESQL_BUDGETS §7.

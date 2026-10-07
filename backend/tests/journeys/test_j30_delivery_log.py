@@ -4,8 +4,7 @@ Base 0.9 U5a, C-D115–C-D119).
 As in ``test_j30_delivery``: the application with the subscriptions capability on, a receiver on
 ``localhost`` scripted per test, and the deriver and dispatcher run by the test with a clock it
 moves forward. The log is read through ``/consumer-subscriptions/{id}/deliveries``: one row per
-event of a per-change request, one per notice of a coalesced one, newest first, and each request's
-detail with its body and attempts.
+event a request carried, newest first, and each request's detail with its body and attempts.
 """
 
 import json
@@ -78,13 +77,14 @@ def test_a_subscription_has_a_name_and_renaming_keeps_a_batch_being_retried(worl
 @pytest.mark.settings(**SUBSCRIPTIONS)
 @pytest.mark.structures(*LEDGER)
 def test_the_deliveries_list_each_event_with_what_was_sent_and_answered(world, receiver):
-    """Given a receiver answering 200 with a body. When two records are created and delivered.
+    """Given a receiver answering 200 with a body and a subscription batching up to 10. When two
+    records are created and delivered.
     Then the deliveries list one row per event, newest first, each succeeded after one attempt with
     status 200, the event IDs, events and object IDs the receiver got. The request's detail holds
     the body as the receiver got it and one attempt, started before it completed, with the answer."""
     _activate(world, "events")
     ws = _workspace(world)
-    created = _subscribe(world, ws, receiver.url, events=[EVERY])
+    created = _subscribe(world, ws, receiver.url, events=[EVERY], maxEventsPerBatch=10)
     receiver.answer(200, body=b'{"accepted": true}', **{"Content-Type": "application/json"})
     first = world.made("R", "Ledger One", workspace=ws)
     second = world.made("R", "Ledger Two", workspace=ws)
@@ -108,7 +108,8 @@ def test_the_deliveries_list_each_event_with_what_was_sent_and_answered(world, r
         assert row["sentAt"] and row["nextAttemptAt"] is None
 
     detail = _detail(world, created, rows[0]["deliveryId"])
-    assert (detail["kind"], detail["status"], detail["requestBytes"]) == ("events", "succeeded", len(request["raw"]))
+    assert "kind" not in detail
+    assert (detail["status"], detail["requestBytes"]) == ("succeeded", len(request["raw"]))
     assert detail["requestBody"] == json.loads(request["raw"])
     assert [event["eventId"] for event in detail["events"]] == [event["eventId"] for event in sent]
     (attempt,) = detail["attempts"]
@@ -184,30 +185,6 @@ def test_an_edit_drops_a_retried_request_and_a_day_of_failures_fails_it(world, r
 
 
 @pytest.mark.journey("J30.10")
-@pytest.mark.settings(**SUBSCRIPTIONS)
-@pytest.mark.structures(*LEDGER)
-def test_a_coalesced_subscriptions_deliveries_are_its_notices(world, receiver):
-    """Given a coalesced subscription to two events. When records change and the changes pause.
-    Then its deliveries are one row per notice: the event, no event or object ID, succeeded, with
-    the notice as the request body."""
-    _activate(world, "events")
-    ws = _workspace(world)
-    created = _subscribe(world, ws, receiver.url, events=[WATCHED, EVERY], mode="coalesced", debounceSeconds=60)
-    world.made("R", "Ledger Quiet", workspace=ws)
-    derive_events(world)
-    dispatch(world, _now() + timedelta(seconds=61))
-
-    rows = _deliveries(world, created)
-    notices = {request["body"]["deliveryId"]: request["body"] for request in receiver.requests}
-    assert {row["deliveryId"] for row in rows} == set(notices) and len(rows) == 2
-    for row in rows:
-        assert (row["eventId"], row["objectId"], row["status"]) == (None, None, "succeeded")
-        assert row["event"] == notices[row["deliveryId"]]["event"]
-        detail = _detail(world, created, row["deliveryId"])
-        assert detail["kind"] == "notice" and detail["requestBody"] == notices[row["deliveryId"]]
-
-
-@pytest.mark.journey("J30.10")
 @pytest.mark.settings(**SUBSCRIPTIONS, CONSUMER_WEBHOOK_LOG_RETENTION_DAYS="7")
 @pytest.mark.structures(*LEDGER)
 def test_deliveries_are_kept_for_the_retention_and_a_pending_batch_is_kept_longer(world, receiver):
@@ -268,17 +245,22 @@ def _resend(world, subscription, delivery_id, event_id=None):
     return world.api.post(f"{PATH}/{subscription['id']}/deliveries/{delivery_id}/resend", body)
 
 
+def _cloudevents(request):
+    """The CloudEvents a request carried: the structured event alone, or the batch."""
+    return request["body"] if isinstance(request["body"], list) else [request["body"]]
+
+
 @pytest.mark.journey("J30.10")
 @pytest.mark.settings(**SUBSCRIPTIONS)
 @pytest.mark.structures(*LEDGER)
 def test_a_delivered_event_is_resent_by_hand_as_it_was_sent(world, receiver):
-    """Given an event delivered among others. When the operator resends it. Then the receiver gets
+    """Given an event delivered among others in a batch. When the operator resends it. Then the receiver gets
     one request with a new delivery ID, that event exactly as it was sent, RDM-Redelivery: manual
     and a valid signature; the answer and a new newest row are succeeded and name the delivery
     they repeat; the subscription's position and delivery state are unchanged."""
     _activate(world, "events")
     ws = _workspace(world)
-    created = _subscribe(world, ws, receiver.url, events=[EVERY])
+    created = _subscribe(world, ws, receiver.url, events=[EVERY], maxEventsPerBatch=10)
     world.made("R", "Ledger First", workspace=ws)
     second = world.made("R", "Ledger Second", workspace=ws)
     derive_events(world)
@@ -342,25 +324,54 @@ def test_a_resend_to_a_failing_receiver_fails_once_even_while_suspended(world, r
 @pytest.mark.journey("J30.10")
 @pytest.mark.settings(**SUBSCRIPTIONS)
 @pytest.mark.structures(*LEDGER)
-def test_a_notice_is_resent_and_what_cannot_be_resent_is_refused(world, receiver):
-    """Given a coalesced subscription to two events whose first notice fails, so the second is
-    never sent. A delivered notice is resent as it was; an event ID not in a request is 404
-    EVENT_NOT_IN_DELIVERY; the notice never sent is 409 DELIVERY_NOT_SENT."""
+def test_what_cannot_be_resent_is_refused(world, receiver):
+    """Given a delivered request. A resend naming no event is a request validation error, and an
+    event ID not in the request is 404 EVENT_NOT_IN_DELIVERY; nothing is sent."""
     _activate(world, "events")
     ws = _workspace(world)
-    created = _subscribe(world, ws, receiver.url, events=[WATCHED, EVERY], mode="coalesced", debounceSeconds=60)
-    receiver.then(500)
-    world.made("R", "Ledger Notice", workspace=ws)
+    created = _subscribe(world, ws, receiver.url)
+    world.made("R", "Ledger Refused", workspace=ws)
     derive_events(world)
-    dispatch(world, _now() + timedelta(seconds=61))
-    rows = {row["status"]: row for row in _deliveries(world, created)}
-    assert set(rows) == {"retrying", "queued"}
-    refused(_resend(world, created, rows["queued"]["deliveryId"]), 409, "DELIVERY_NOT_SENT")
-    refused(_resend(world, created, rows["retrying"]["deliveryId"], "no-such-event"), 404, "EVENT_NOT_IN_DELIVERY")
+    dispatch(world)
+    (row,) = _deliveries(world, created)
 
-    failed = receiver.requests[0]["body"]
-    resent = ok(_resend(world, created, rows["retrying"]["deliveryId"]), 201)
-    notice = receiver.requests[-1]
-    assert notice["headers"]["rdm-redelivery"] == "manual"
-    assert {**notice["body"], "deliveryId": failed["deliveryId"]} == failed
-    assert resent["kind"] == "notice" and resent["status"] == "succeeded"
+    refused(_resend(world, created, row["deliveryId"]), 422, "REQUEST_VALIDATION_ERROR")
+    error = refused(_resend(world, created, row["deliveryId"], "no-such-event"), 404, "EVENT_NOT_IN_DELIVERY")
+    assert error["details"]["pointer"] == "/eventId"
+    assert len(receiver.requests) == 1 and len(_deliveries(world, created)) == 1
+
+
+@pytest.mark.journey("J30.10")
+@pytest.mark.settings(**SUBSCRIPTIONS)
+@pytest.mark.structures(*LEDGER)
+@pytest.mark.parametrize("size", [1, 10])
+def test_a_cloudevent_is_resent_alone_in_the_content_mode_it_was_sent_in(world, receiver, size):
+    """Given a CloudEvents subscription sending one event per request, or batching up to 10, and
+    two delivered events. When the operator edits the subscription to RDM JSON and resends the
+    second event. Then the receiver gets that CloudEvent exactly as it was sent, structured, or as
+    a batch of one, in the original content type, with a new delivery ID, ``RDM-Redelivery:
+    manual`` and a valid signature; its row names the event and the delivery it repeats."""
+    _activate(world, "events")
+    ws = _workspace(world)
+    created = _subscribe(world, ws, receiver.url, events=[EVERY], format="cloudevents", maxEventsPerBatch=size)
+    world.made("R", "Ledger Sent", workspace=ws)
+    world.made("R", "Ledger Again", workspace=ws)
+    derive_events(world)
+    dispatch(world)
+    original = receiver.requests[-1]
+    sent = _cloudevents(original)[-1]
+    content_type = original["headers"]["content-type"]
+    current = _read(world, created)
+    ok(world.api.patch(f"{PATH}/{created['id']}", {"expectedVersion": current["version"], "format": "rdm"}))
+
+    delivery_id = original["headers"]["rdm-delivery-id"]
+    resent = ok(_resend(world, created, delivery_id, sent["id"]), 201)
+    request = receiver.requests[-1]
+    assert request["headers"]["content-type"] == content_type
+    assert request["body"] == (sent if size == 1 else [sent])
+    assert request["headers"]["rdm-delivery-id"] == resent["deliveryId"] != delivery_id
+    assert request["headers"]["rdm-redelivery"] == "manual"
+    assert _signed(created["signingSecret"], request)
+    assert (resent["status"], resent["resendOf"]) == ("succeeded", delivery_id)
+    assert [event["eventId"] for event in resent["events"]] == [sent["id"]]
+    assert resent["requestBody"] == request["body"]

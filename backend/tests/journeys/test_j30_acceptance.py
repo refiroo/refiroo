@@ -90,7 +90,7 @@ def _listed(world, workspace, **params):
 @pytest.mark.structures(*LEDGER, "R.u")
 def test_a_publish_reaches_receivers_in_batches_as_the_pull_feed_has_it(world, receiver):
     """Scenarios 4 and 13. Given a full and an identity subscription to the event over every
-    change. When a change set creates 150 records by one batch, renames an existing record twice and
+    change, batching up to 100. When a change set creates 150 records by one batch, renames an existing record twice and
     deletes another, and is published. Then each receiver gets requests of at most 100 events in
     position order, each sent after the previous one was answered; one event per changed object, the
     twice-renamed one once; every event caused by the publication, at or below its eventSequence.
@@ -101,8 +101,10 @@ def test_a_publish_reaches_receivers_in_batches_as_the_pull_feed_has_it(world, r
     renamed = world.made("R", "To rename", workspace=ws)
     removed = world.made("R", "To remove", workspace=ws)
     derive_events(world)
-    full = _subscribe(world, ws, receiver.url + "/full", events=[EVERY])
-    identity = _subscribe(world, ws, receiver.url + "/identity", events=[EVERY], payload="identity")
+    full = _subscribe(world, ws, receiver.url + "/full", events=[EVERY], maxEventsPerBatch=100)
+    identity = _subscribe(
+        world, ws, receiver.url + "/identity", events=[EVERY], payload="identity", maxEventsPerBatch=100
+    )
     start = full["acknowledgedThrough"]
 
     cs = world.change_set(workspace=ws)

@@ -478,8 +478,9 @@ Events can be narrowed like a list. A consumer that fell behind longer than the 
 told which publication to read again.
 
 Where a deployment turns them on, an operator subscribes a web address to some of a consumer API's
-events in a workspace, narrowed like a list, per change or summarised, with the record or only its
-identity. Only addresses on hosts the deployment allows are accepted, over HTTPS. The engine makes
+events in a workspace, narrowed like a list, and chooses how they arrive: one change per request or
+several together (up to a size the operator sets), each with the record or as a notification only,
+in the engine's own JSON or as CloudEvents, the open standard many event tools read. Only addresses on hosts the deployment allows are accepted, over HTTPS. The engine makes
 the key that will sign every delivery and shows it once. The operator can read, list, edit, pause,
 resume and delete subscriptions. A new model release that no longer offers what a subscription asks
 for, or that changes its contract version, pauses it with the reason, as does retiring its
@@ -487,8 +488,9 @@ workspace; resuming checks it again, and after events it missed have expired the
 which publication to read again and can resume from now on instead.
 
 The engine sends each subscription's changes to its address as they happen, in order, signed with
-its key so the receiver can tell the request is genuine: up to 100 changes (and at most 1 MiB) per
-request, or, for a summarised subscription, one short notice once the changes pause. A receiver
+its key so the receiver can tell the request is genuine: one change per request, or, batched, the
+changes waiting, up to the subscription's size and at most 1 MiB per request. Requests go one at a
+time to keep the order, so for bulk changes batching is much faster. A receiver
 that does not answer is tried again, with growing waits, for up to a day, and nothing later is sent
 past the change it missed; the subscription shows the attempts, the last error and when the next try
 is. After a day it is paused with the reason, and resuming sends everything from the first change
@@ -499,13 +501,15 @@ before they could be sent; the operator can then resume from now on and re-read 
 Settings › Integration › **Webhooks** does all of this on a page. A webhook has a name of its
 own. Creating one asks for the name and address, the consumer API and workspace, its events (all,
 or a few chosen from a searchable list) and any filters (added one at a time, their values typed as
-tags), and shows the signing key once. Each webhook's page has two tabs. **Configuration** shows
+tags), and how requests are made (one event per request or batched, with the object or the
+notification only, RDM JSON or CloudEvents 1.0), and shows the signing key once. Each webhook's page has two tabs. **Configuration** shows
 whether it is delivering, retrying or paused, the reason and what fixes it, and edits, pauses,
 resumes (from the first change not taken, or from now on) and deletes it. **Deliveries** lists
 every change sent or being sent, newest first, with its status, attempts, the receiver's answer and
 when it went; opening one shows each attempt with how long it took, the request exactly as sent and
 the receiver's answer, as formatted JSON, and can send it again by hand, as it was sent, whatever
-happened to it (a delivered one only after confirming); the receiver can tell a repeat by a header.
+happened to it (a delivered one only after confirming), in the format it was first sent in; the
+receiver can tell a repeat by a header.
 Deliveries are kept for a week by default. A workspace
 that cannot be deleted because of its subscriptions lists them, each linked to its page.
 

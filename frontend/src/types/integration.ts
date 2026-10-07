@@ -91,9 +91,11 @@ export interface Subscription {
   events: string[];
   filters: Record<string, string[]>;
   url: string;
-  mode: "perChange" | "coalesced";
-  debounceSeconds: number | null;
+  /** The most events a request carries; 1 sends one event per request. */
+  maxEventsPerBatch: number;
+  /** Each event with its object, or the notification only. */
   payload: "full" | "identity";
+  format: "rdm" | "cloudevents";
   status: "active" | "suspended";
   suspension: {
     reason: SuspensionReason;
@@ -133,9 +135,9 @@ export interface SubscriptionSettings {
   events: string[];
   filters: Record<string, string[]>;
   url: string;
-  mode: Subscription["mode"];
-  debounceSeconds?: number;
+  maxEventsPerBatch: number;
   payload: Subscription["payload"];
+  format: Subscription["format"];
 }
 
 export interface SubscriptionCreate extends SubscriptionSettings {
@@ -147,15 +149,15 @@ export type SubscriptionUpdate = Partial<SubscriptionSettings> & { expectedVersi
 
 export type DeliveryStatus = "queued" | "sending" | "retrying" | "succeeded" | "failed" | "dropped";
 
-/** One event of a request, or one notice (`GET /consumer-subscriptions/{id}/deliveries`). Rows of
- * one request share its status, attempts, answer and time. */
+/** One event of a request (`GET /consumer-subscriptions/{id}/deliveries`). Rows of one request
+ * share its status, attempts, answer and time. */
 export interface DeliveryRow {
   deliveryId: string;
-  eventId: string | null;
+  eventId: string;
   event: string;
-  change: string | null;
-  objectType: string | null;
-  objectId: string | null;
+  change: string;
+  objectType: string;
+  objectId: string;
   position: number;
   status: DeliveryStatus;
   attempts: number;
@@ -186,7 +188,6 @@ export interface DeliveryAttempt {
 export interface DeliveryDetail {
   deliveryId: string;
   batchId: string;
-  kind: "events" | "notice";
   status: DeliveryStatus;
   events: Omit<
     DeliveryRow,

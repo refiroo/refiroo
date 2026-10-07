@@ -34,7 +34,7 @@ SUBSCRIPTIONS = {
 PATH = "/consumer-subscriptions"
 # How webhooks are delivered (C12, C-D103, C-D104), reported whether the capability is on or off.
 DELIVERY = {
-    "maxEvents": 100,
+    "maxEventsPerBatch": 1000,
     "maxBytes": 1048576,
     "timeoutSeconds": 10.0,
     "retryWaitsSeconds": [10, 30, 60, 120, 300, 600, 1800],
@@ -121,7 +121,7 @@ def test_an_operator_subscribes_and_manages_the_subscription(world):
     assert (created["status"], created["suspension"], created["contractVersion"]) == ("active", None, 1)
     assert created["acknowledgedThrough"] == head
     assert created["filters"] == {kind: [world.key("Capi.R")], related: [token["name"]]}
-    assert (created["mode"], created["debounceSeconds"], created["payload"]) == ("perChange", None, "identity")
+    assert (created["maxEventsPerBatch"], created["payload"], created["format"]) == (1, "identity", "rdm")
     assert created["events"] == [WATCHED, EVERY] and created["version"] == 1
     assert _read(world, created) == created
     engine = create_engine(world.database, poolclass=NullPool)
@@ -133,9 +133,9 @@ def test_an_operator_subscribes_and_manages_the_subscription(world):
     assert secret.encode() not in bytes(stored) and secret.removeprefix("rdmwh_").encode() not in bytes(stored)
 
     world.made("R", "Later", workspace=ws)
-    earlier = _subscribe(world, ws, startAfter=head - 1, mode="coalesced")
+    earlier = _subscribe(world, ws, startAfter=head - 1, maxEventsPerBatch=1000, format="cloudevents")
     assert earlier["acknowledgedThrough"] == head - 1
-    assert (earlier["mode"], earlier["debounceSeconds"], earlier["payload"]) == ("coalesced", 60, "full")
+    assert (earlier["maxEventsPerBatch"], earlier["payload"], earlier["format"]) == (1000, "full", "cloudevents")
 
     edited = ok(
         world.api.patch(
@@ -180,8 +180,9 @@ def test_a_subscription_the_definition_or_deployment_cannot_serve_is_refused(wor
     Capi's events. Then each of these is refused at its pointer: an unknown consumer API, an
     unknown event, an undeclared filter, a read's own name or a crosswalk target as a filter, an
     unknown type, a filter value no record has, plain HTTP to a host that is not loopback, a host
-    outside the allowlist, a URL with credentials, a retired workspace, a debounce without
-    coalescing, and a start past the feed's head. HTTP to an allowlisted loopback host is accepted.
+    outside the allowlist, a URL with credentials, a retired workspace, and a start past the feed's
+    head. A batch size outside 1–1,000, an unknown format, and the retired ``mode`` and
+    ``debounceSeconds`` are request validation errors. HTTP to an allowlisted loopback host is accepted.
     An edit is checked the same way."""
     ws = _workspace(world)
     error = refused(world.api.post(PATH, _body(world, ws)), 400, "EVENTS_NOT_DECLARED")
@@ -208,7 +209,14 @@ def test_a_subscription_the_definition_or_deployment_cannot_serve_is_refused(wor
     ]:
         error = refused(world.api.post(PATH, _body(world, ws, **changes)), status, code)
         assert error["details"]["pointer"] == pointer, (changes, error)
-    refused(world.api.post(PATH, _body(world, ws, debounceSeconds=30)), 422, "REQUEST_VALIDATION_ERROR")
+    for changes in (
+        {"maxEventsPerBatch": 0},
+        {"maxEventsPerBatch": 1001},
+        {"format": "xml"},
+        {"mode": "perChange"},
+        {"debounceSeconds": 30},
+    ):
+        refused(world.api.post(PATH, _body(world, ws, **changes)), 422, "REQUEST_VALIDATION_ERROR")
 
     local = _subscribe(world, ws, url="http://localhost:9000/hook", filters={related: token["name"]})
     assert local["url"] == "http://localhost:9000/hook"

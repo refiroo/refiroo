@@ -1078,8 +1078,9 @@ from C12; the events accepted end to end in C13 ([CONSUMER_API.md](../CONSUMER_A
   Without a publication nothing expires.
 - **J30.6 Subscribe**: with the deployment's subscriptions capability on, an operator subscribes a
   URL (HTTPS on any host; plain HTTP only to a local host) to some of a consumer API's events in a workspace, narrowed by the
-  definition's parameters as a list applies them, per change or coalesced, with the object or its
-  identity. The subscription starts after the feed's head, or after an earlier position still kept;
+  definition's parameters as a list applies them, and chooses how requests are made: one event per
+  request (the default) or batched up to a size of 2 to 1,000, each event with the object or the
+  notification only, in RDM JSON or CloudEvents 1.0 (0.9 C17). The subscription starts after the feed's head, or after an earlier position still kept;
   its signing key is answered once. It has a name the operator gives it (required, 0.9 U5a); a
   rename alone keeps a batch being retried. The operator reads, lists, edits (with the version read),
   suspends, resumes and deletes it. Off, the routes are not served; the capabilities say which
@@ -1091,10 +1092,11 @@ from C12; the events accepted end to end in C13 ([CONSUMER_API.md](../CONSUMER_A
   re-checks the subscription and lists what to fix; after its unacknowledged events expired it is
   refused `EVENTS_EXPIRED`, naming the lost positions, the publication to re-sync from and `reset`,
   which starts after the feed's head instead (J30.9). A workspace with subscriptions cannot be deleted.
-- **J30.8 Receive**: an active subscription's receiver gets its events in position order: per
-  change, requests of up to 100 events (and at most 1 MiB), each event with the object as get by ID
-  answers it under the subscription's filters, or only its identity; coalesced, one notice per event
-  once the changes pause for the debounce, or after ten minutes of continuous change. Each request
+- **J30.8 Receive**: an active subscription's receiver gets its events in position order: one event
+  per request, or batched, requests of up to the subscription's size and at most 1 MiB holding what
+  is waiting; each event with the object as get by ID answers it under the subscription's filters,
+  or the notification only; as RDM JSON (an envelope with the events, also one) or CloudEvents 1.0
+  (one structured event, or a batched array, each with the RDM event as `data`). Each request
   is signed with the subscription's key over its timestamp and body. A `2xx` answer acknowledges the
   request and the next follows; events outside the subscription's events or filters are not sent,
   and the subscription's position moves past them; so is the change by which a record leaves the
@@ -1109,8 +1111,7 @@ from C12; the events accepted end to end in C13 ([CONSUMER_API.md](../CONSUMER_A
   were delivered, `EVENTS_EXPIRED`. A resume with `reset` starts after the feed's head instead,
   and the receiver re-syncs what it missed itself.
 - **J30.10 Read what was delivered** (0.9 U5a): an operator lists a subscription's deliveries,
-  newest first, one row per event of a per-change request and one per notice of a coalesced one,
-  each with its delivery ID, event, object, status (`queued`, `sending`, `retrying`, `succeeded`,
+  newest first, one row per event a request carried, each with its delivery ID, event, object, status (`queued`, `sending`, `retrying`, `succeeded`,
   `failed`, `dropped`), attempts, the receiver's latest status code, when it was sent and, while a
   retry is due, when; narrowed by status. A request's detail holds the body as sent (its latest
   attempt's) and every attempt with its start, completion, duration, answer or error and up to
@@ -1119,8 +1120,8 @@ from C12; the events accepted end to end in C13 ([CONSUMER_API.md](../CONSUMER_A
   `CONSUMER_WEBHOOK_LOG_RETENTION_DAYS` (reported in capabilities), a batch still pending longer;
   a deleted subscription's go with it. An operator resends an event by hand, whatever its status:
   the event as it was sent, alone in a new request with the same `eventId` and `RDM-Redelivery:
-  manual`, once, during the call, also while suspended; the new request names the one it repeats
-  (a notice is resent as it was). UI: Settings › Integration › Webhooks, Deliveries, where a
+  manual`, once, during the call, also while suspended, in the format it was sent in; the new
+  request names the one it repeats. UI: Settings › Integration › Webhooks, Deliveries, where a
   delivered event is resent only after a confirmation.
 
 **Refusals:** `404 EVENTS_NOT_DECLARED`, `400 UNKNOWN_EVENT`, `400 PARAMETER_NOT_SUPPORTED`

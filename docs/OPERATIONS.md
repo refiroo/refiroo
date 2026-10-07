@@ -226,10 +226,14 @@ A webhook URL may name any host and port. It must use HTTPS; plain HTTP is accep
 - **TLS** is verified against the system's trust store. For receivers with certificates from an
   internal CA, point `SSL_CERT_FILE` at a bundle that includes it. **No outbound proxy** is used in
   0.9: the API process needs direct HTTPS access to the receivers.
-- **Throughput.** Measured at full volume, one subscription receives about 3,500 events a second
-  with the full payload (about 5,000 with `identity`) from a receiver that answers at once: 20,001
-  events from one rename arrive in about 6 seconds, in 201 requests. A receiver's own answer time
-  adds to every request, and a process delivers four subscriptions at a time. Figures in
+- **Throughput.** Requests to one subscription go one at a time, to keep the order, so its speed is
+  set by how many events a request carries and how fast the receiver answers. A subscription sends
+  one event per request by default (0.9 C17): 10,000 changes are then 10,000 requests in a row,
+  about 8 minutes at 50 ms an answer. For bulk changes, batch: measured at full volume with batches
+  of 100, one subscription receives about 3,500 events a second with the full payload (about 5,000
+  with `identity`) from a receiver that answers at once: 20,001 events from one rename arrive in
+  about 6 seconds, in 201 requests. A receiver's own answer time adds to every request, and a
+  process delivers four subscriptions at a time. Figures in
   [POSTGRESQL_BUDGETS §7](POSTGRESQL_BUDGETS.md#webhook-delivery-09-c13).
 - **Several processes** share delivery through a lease per subscription (60 s): each subscription is
   delivered by one process at a time, in order. Turning the capability off stops delivery; stored

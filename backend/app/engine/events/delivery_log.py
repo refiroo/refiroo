@@ -1,8 +1,8 @@
 """The webhook delivery log (Base 0.9 U5a, C-D116–C-D119).
 
-The dispatcher writes it as it works: when a batch is built, a request per body (one for a
-per-change batch, one per notice for a coalesced one) with the events it carries; before each
-send, the attempt's start and the body as sent; after it, the answer and the request's status.
+The dispatcher writes it as it works: when a batch is built, its request with the events it
+carries; before each send, the attempt's start and the body as sent, in the subscription's format;
+after it, the answer and the request's status.
 An edit or resume that drops a batch marks its unfinished requests ``dropped``; a batch given up
 after a day of failures, ``failed``. Entries older than the retention are deleted by one set
 statement, except those of a batch still pending. Each step is a fixed number of statements
@@ -10,7 +10,7 @@ however many events a request carries.
 """
 
 import json
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -30,79 +30,69 @@ from .webhook_client import Answer
 UNFINISHED = ("queued", "sending", "retrying")
 
 
-def rows_of(body: dict[str, Any]) -> list[dict[str, Any]]:
-    """The deliveries rows a body makes: its events, or the notice itself."""
-    if "events" not in body:
-        return [
-            {
-                "ordinal": 0,
-                "event_id": None,
-                "event_key": body["event"],
-                "change": None,
-                "object_type": None,
-                "object_id": None,
-                "position": body["toPosition"],
-            }
-        ]
+def rows_of(events: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """The deliveries rows a request makes: one per event it carries, as the pull feed has them."""
     return [
         {
             "ordinal": index,
             "event_id": event["eventId"],
             "event_key": event["event"],
-            "change": event.get("change"),
-            "object_type": event.get("objectType"),
-            "object_id": event.get("id"),
+            "change": event["change"],
+            "object_type": event["objectType"],
+            "object_id": event["id"],
             "position": event["position"],
         }
-        for index, event in enumerate(body["events"])
+        for index, event in enumerate(events)
     ]
+
+
+def log_request(
+    session: Session,
+    subscription_sequence_id: int,
+    delivery_id: str,
+    events: Sequence[Mapping[str, Any]],
+    now: datetime,
+    resend_of: str | None = None,
+) -> None:
+    """Log a request, queued, with the events it carries; a batch of its own."""
+    created = session.scalar(
+        insert(ConsumerWebhookRequest)
+        .values(
+            subscription_sequence_id=subscription_sequence_id,
+            delivery_id=delivery_id,
+            batch_id=delivery_id,
+            status="queued",
+            attempts=0,
+            created_at=now,
+            resend_of=resend_of,
+        )
+        .returning(ConsumerWebhookRequest.sequence_id)
+    )
+    session.execute(
+        insert(ConsumerWebhookRequestEvent),
+        [{"request_sequence_id": created, **row} for row in rows_of(events)],
+    )
 
 
 def open_batch(
     session: Session,
     subscription_sequence_id: int,
     batch_id: str,
-    bodies: Sequence[tuple[str, dict[str, Any]]],
+    events: Sequence[Mapping[str, Any]],
     now: datetime,
 ) -> None:
-    """Log the batch's requests that are not logged yet (a retried batch's are), queued, with the
-    events each carries."""
+    """Log the batch's request unless it is logged already (a retried batch's is)."""
     request = ConsumerWebhookRequest
-    known = set(
-        session.scalars(
-            select(request.delivery_id).where(
-                request.subscription_sequence_id == subscription_sequence_id, request.batch_id == batch_id
+    known = session.scalar(
+        select(
+            exists().where(
+                request.subscription_sequence_id == subscription_sequence_id,
+                request.batch_id == batch_id,
             )
         )
     )
-    missing = [(delivery_id, body) for delivery_id, body in bodies if delivery_id not in known]
-    if not missing:
-        return
-    created = session.execute(
-        insert(request)
-        .values(
-            [
-                {
-                    "subscription_sequence_id": subscription_sequence_id,
-                    "delivery_id": delivery_id,
-                    "batch_id": batch_id,
-                    "kind": "events" if "events" in body else "notice",
-                    "status": "queued",
-                    "attempts": 0,
-                    "created_at": now,
-                }
-                for delivery_id, body in missing
-            ]
-        )
-        .returning(request.sequence_id, request.delivery_id)
-    ).all()
-    sequence_of = {row.delivery_id: row.sequence_id for row in created}
-    events = [
-        {"request_sequence_id": sequence_of[delivery_id], **row}
-        for delivery_id, body in missing
-        for row in rows_of(body)
-    ]
-    session.execute(insert(ConsumerWebhookRequestEvent), events)
+    if not known:
+        log_request(session, subscription_sequence_id, batch_id, events, now)
 
 
 def start_attempt(
@@ -220,7 +210,7 @@ def _next_attempt(subscription: ConsumerSubscription, batch_id: str, status: str
 def delivery_rows(
     session: Session, subscription: ConsumerSubscription, status: str | None, page: PageRequest, page_size: int
 ) -> tuple[Page[Any], ConsumerSubscription]:
-    """The subscription's deliveries rows, newest first: its requests' events and notices."""
+    """The subscription's deliveries rows, newest first: its requests' events."""
     request, event = ConsumerWebhookRequest, ConsumerWebhookRequestEvent
     statement = (
         select(
@@ -292,4 +282,3 @@ def delivery_detail(session: Session, subscription: ConsumerSubscription, delive
 
 def row_next_attempt(subscription: ConsumerSubscription, row: Any) -> datetime | None:
     return _next_attempt(subscription, row.batch_id, row.status)
-

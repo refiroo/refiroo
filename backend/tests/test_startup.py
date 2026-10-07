@@ -26,7 +26,8 @@ from app.db import DatabaseStartupError, get_engine, migration_config
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261007_02"
+HEAD = "20261007_03"
+RESENDS = "20261007_02"
 DELIVERY_LOG = "20261007_01"
 DELIVERY_STATE = "20261006_03"
 SUBSCRIPTIONS = "20261006_02"
@@ -786,6 +787,83 @@ def test_a_delivery_log_upgrades_to_resends_and_an_interrupted_run_recovers(monk
     assert "resend_of" in {c["name"] for c in inspect(create_engine(url)).get_columns("consumer_webhook_requests")}
     command.downgrade(migration_config(url), DELIVERY_LOG)
     assert _scalar(url, "SELECT version_num FROM alembic_version") == DELIVERY_LOG
+
+
+def test_subscriptions_upgrade_to_the_delivery_choices_and_an_interrupted_run_recovers(monkeypatch, databases):
+    """Base 0.9 C17 on a database at the previous revision holding a coalesced subscription, a
+    logged notice and a logged events request: with ``format`` already there (by hand) the revision
+    rolls back and the start refuses naming it; once cleared, the next start upgrades, the
+    subscription reads back with the defaults (one event per request, RDM JSON, its payload kept),
+    the notice is gone and the events request kept, and the service starts twice. A downgrade keeps
+    the subscription."""
+    url = seeds.create_empty()
+    databases.append(url)
+    command.upgrade(migration_config(url), RESENDS)
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        subscription = connection.scalar(
+            text(
+                "INSERT INTO consumer_subscriptions (public_id, name, consumer_api, contract_version, workspace_key, "
+                "event_keys, filters, url, mode, debounce_seconds, payload, status, acknowledged_position, "
+                "acknowledged_ordinal, signing_key, signing_key_created_at, version, created_at, updated_at) VALUES "
+                "('00000000-0000-4000-8000-000000000003', 'Export', 'rdm', 1, 'default', '[\"changed\"]', '{}', "
+                "'https://hooks.example.test/x', 'coalesced', 60, 'identity', 'active', 3, 2147483647, '\\x00', "
+                "now(), 1, now(), now()) RETURNING sequence_id"
+            )
+        )
+        for delivery_id, kind, event_id in (("n1", "notice", None), ("e1", "events", "ev1")):
+            request = connection.scalar(
+                text(
+                    "INSERT INTO consumer_webhook_requests (subscription_sequence_id, delivery_id, batch_id, kind, "
+                    "status, attempts, created_at) VALUES (:s, :d, :d, :k, 'succeeded', 1, now()) "
+                    "RETURNING sequence_id"
+                ),
+                {"s": subscription, "d": delivery_id, "k": kind},
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO consumer_webhook_request_events (request_sequence_id, ordinal, event_id, "
+                    "event_key, change, object_type, object_id, position) VALUES (:r, 0, :e, 'changed', "
+                    ":c, :t, :o, 3)"
+                ),
+                {
+                    "r": request,
+                    "e": event_id,
+                    "c": event_id and "updated",
+                    "t": event_id and "Ledger",
+                    "o": event_id and "o1",
+                },
+            )
+        connection.execute(text("ALTER TABLE consumer_subscriptions ADD COLUMN format integer"))
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        message = _assert_refused(
+            client,
+            errors,
+            "Database migration failed",
+            f"Current revision: {RESENDS}",
+            f"target revision: {HEAD}",
+            "still at its current revision",
+        )
+        assert "format" in message
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == RESENDS
+    assert "mode" in {c["name"] for c in inspect(engine).get_columns("consumer_subscriptions")}
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE consumer_subscriptions DROP COLUMN format"))
+    engine.dispose()
+    monkeypatch.setenv("CONSUMER_SUBSCRIPTIONS_ENABLED", "true")
+    monkeypatch.setenv("CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY", "a" * 43)
+    for _start in range(2):
+        with serve(monkeypatch, _render(url)) as (client, errors):
+            assert errors == []
+            (item,) = client.get("/api/v1/consumer-subscriptions").json()["items"]
+            assert (item["maxEventsPerBatch"], item["payload"], item["format"]) == (1, "identity", "rdm")
+            assert "mode" not in item and "debounceSeconds" not in item
+            rows = client.get(f"/api/v1/consumer-subscriptions/{item['id']}/deliveries").json()["items"]
+            assert [(row["deliveryId"], row["eventId"]) for row in rows] == [("e1", "ev1")]
+        assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+    command.downgrade(migration_config(url), RESENDS)
+    assert _scalar(url, "SELECT mode FROM consumer_subscriptions") == "perChange"
+    assert _scalar(url, "SELECT kind FROM consumer_webhook_requests") == "events"
 
 
 @pytest.mark.parametrize(

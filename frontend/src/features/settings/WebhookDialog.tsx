@@ -3,7 +3,9 @@
  * by the server as it is saved, in sections: the webhook (its name and URL), its source (consumer
  * API and workspace), its events, its filters and how it is delivered. A consumer API may declare
  * many events and parameters, so events are all of them or a chosen few shown as chips, and a filter
- * is added from a searchable menu only when needed, its values as chips. A refusal at a field (its
+ * is added from a searchable menu only when needed, its values as chips. Delivery is three
+ * independent choices (C17): one event per request or batched up to a size, each event with its
+ * object or the notification only, and RDM JSON or CloudEvents. A refusal at a field (its
  * `pointer`) is shown at that field. An edit sends only what changed, with the version it was based
  * on; the consumer API and workspace are not edited (the API keeps them).
  */
@@ -26,9 +28,12 @@ import { MultiSelect, type PickOption } from "@/ui/MultiSelect";
 import { Notice } from "@/ui/Notice";
 import { SearchMenu } from "@/ui/SearchMenu";
 import { TokenField } from "@/ui/TokenField";
-import { eventDeclaration } from "./webhookText";
+import { CONTENT, FORMAT, eventDeclaration } from "./webhookText";
 
-const DEFAULT_DEBOUNCE = 60;
+/** The batch size offered when an operator first chooses to batch. */
+const DEFAULT_BATCH = 100;
+/** The most a subscription may batch, when the capabilities have not said. */
+const BATCH_LIMIT = 1000;
 
 interface Draft {
   name: string;
@@ -40,9 +45,11 @@ interface Draft {
   /** The filters added, in the order they were added, each with its values. */
   filters: [string, string[]][];
   url: string;
+  /** One event per request, or batched up to `batchSize`. */
+  batched: boolean;
+  batchSize: string;
   payload: Subscription["payload"];
-  mode: Subscription["mode"];
-  debounceSeconds: string;
+  format: Subscription["format"];
 }
 
 /** The definitions a subscription can name: those of the active release that declare events. */
@@ -56,9 +63,9 @@ function settingsOf(draft: Draft, definition?: ConsumerApiDeclaration): Subscrip
     events: draft.allEvents ? declaredEvents(definition) : draft.events,
     filters: Object.fromEntries(draft.filters.filter(([, list]) => list.length)),
     url: draft.url.trim(),
+    maxEventsPerBatch: draft.batched ? Number(draft.batchSize) : 1,
     payload: draft.payload,
-    mode: draft.mode,
-    ...(draft.mode === "coalesced" ? { debounceSeconds: Number(draft.debounceSeconds) } : {}),
+    format: draft.format,
   };
 }
 
@@ -73,10 +80,9 @@ function changes(subscription: Subscription, next: SubscriptionSettings): Omit<S
   if ([...names].some((name) => !sameList(subscription.filters[name] ?? [], next.filters[name] ?? [])))
     update.filters = next.filters;
   if (subscription.url !== next.url) update.url = next.url;
+  if (subscription.maxEventsPerBatch !== next.maxEventsPerBatch) update.maxEventsPerBatch = next.maxEventsPerBatch;
   if (subscription.payload !== next.payload) update.payload = next.payload;
-  if (subscription.mode !== next.mode) update.mode = next.mode;
-  if (next.mode === "coalesced" && subscription.debounceSeconds !== next.debounceSeconds)
-    update.debounceSeconds = next.debounceSeconds;
+  if (subscription.format !== next.format) update.format = next.format;
   return update;
 }
 
@@ -90,9 +96,10 @@ function draftOf(subscription: Subscription, definition?: ConsumerApiDeclaration
     events: subscription.events,
     filters: Object.entries(subscription.filters),
     url: subscription.url,
+    batched: subscription.maxEventsPerBatch > 1,
+    batchSize: String(subscription.maxEventsPerBatch > 1 ? subscription.maxEventsPerBatch : DEFAULT_BATCH),
     payload: subscription.payload,
-    mode: subscription.mode,
-    debounceSeconds: String(subscription.debounceSeconds ?? DEFAULT_DEBOUNCE),
+    format: subscription.format,
   };
 }
 
@@ -130,12 +137,15 @@ function Choice<T extends string>({
 
 export function WebhookDialog({
   model,
+  batchLimit = BATCH_LIMIT,
   subscription,
   onClose,
   onSaved,
   onConflict,
 }: {
   model: EngineModel;
+  /** The most events a subscription may batch (capabilities). */
+  batchLimit?: number;
   /** The subscription to edit; without it the dialog creates one. */
   subscription?: Subscription;
   onClose: () => void;
@@ -159,9 +169,10 @@ export function WebhookDialog({
           events: [],
           filters: [],
           url: "",
+          batched: false,
+          batchSize: String(DEFAULT_BATCH),
           payload: "full",
-          mode: "perChange",
-          debounceSeconds: String(DEFAULT_DEBOUNCE),
+          format: "rdm",
         },
   );
   const [workspaces, setWorkspaces] = useState<Workspace[]>();
@@ -233,7 +244,7 @@ export function WebhookDialog({
         }
       } else {
         const field = fieldOf(cause);
-        const known = ["name", "url", "events", "workspaceKey", "consumerApi", "debounceSeconds"].includes(field);
+        const known = ["name", "url", "events", "workspaceKey", "consumerApi", "maxEventsPerBatch"].includes(field);
         setError({
           field: known || field.startsWith("filter:") ? field : "form",
           message: errorMessage(cause),
@@ -427,58 +438,93 @@ export function WebhookDialog({
 
         <section className="webhook-form-section" aria-labelledby="webhook-form-delivery">
           <h3 id="webhook-form-delivery">Delivery</h3>
+          <FormField
+            label="Requests"
+            group
+            help={
+              draft.batched
+                ? "Each request holds the events waiting, up to this many and 1 MiB; it never waits to fill up."
+                : "Each change is a request of its own, sent one at a time in order. For bulk changes, batch them."
+            }
+          >
+            {() => (
+              <Choice
+                name="webhook-requests"
+                value={draft.batched ? "batched" : "single"}
+                options={[
+                  ["single", "One event per request"],
+                  ["batched", "Batched"],
+                ]}
+                onChange={(choice) => set({ batched: choice === "batched" })}
+              />
+            )}
+          </FormField>
+          {draft.batched && (
+            <FormField
+              label="Up to (events)"
+              help={`From 2 to ${batchLimit.toLocaleString()}.`}
+              error={fieldError("maxEventsPerBatch")}
+            >
+              {(control) => (
+                <input
+                  {...control}
+                  className="webhook-wait"
+                  type="number"
+                  min={2}
+                  max={batchLimit}
+                  required
+                  value={draft.batchSize}
+                  onChange={(event) => set({ batchSize: event.target.value })}
+                />
+              )}
+            </FormField>
+          )}
           <div className="webhook-form-grid">
-            <FormField label="Payload" group>
+            <FormField
+              label="Content"
+              group
+              help={
+                draft.payload === "full"
+                  ? "Each event carries the object as it is when sent."
+                  : "Each event names the change and the object; the receiver reads what it needs."
+              }
+            >
               {() => (
                 <Choice
                   name="webhook-payload"
                   value={draft.payload}
                   options={[
-                    ["full", "Events with objects"],
-                    ["identity", "Events only"],
+                    ["full", CONTENT.full],
+                    ["identity", CONTENT.identity],
                   ]}
                   onChange={(payload) => set({ payload })}
                 />
               )}
             </FormField>
             <FormField
-              label="Sent"
+              label="Format"
               group
               help={
-                draft.mode === "perChange"
-                  ? "Each change as an event, up to 100 a request."
-                  : "One notice per event once changes pause, naming the positions to read."
+                draft.format === "rdm"
+                  ? "The engine's envelope with its events."
+                  : draft.batched
+                    ? "A JSON array of structured CloudEvents (application/cloudevents-batch+json)."
+                    : "One structured CloudEvent (application/cloudevents+json)."
               }
             >
               {() => (
                 <Choice
-                  name="webhook-mode"
-                  value={draft.mode}
+                  name="webhook-format"
+                  value={draft.format}
                   options={[
-                    ["perChange", "Every change"],
-                    ["coalesced", "Coalesced"],
+                    ["rdm", FORMAT.rdm],
+                    ["cloudevents", FORMAT.cloudevents],
                   ]}
-                  onChange={(mode) => set({ mode })}
+                  onChange={(format) => set({ format })}
                 />
               )}
             </FormField>
           </div>
-          {draft.mode === "coalesced" && (
-            <FormField label="Quiet for (seconds)" help="From 1 to 600." error={fieldError("debounceSeconds")}>
-              {(control) => (
-                <input
-                  {...control}
-                  className="webhook-wait"
-                  type="number"
-                  min={1}
-                  max={600}
-                  required
-                  value={draft.debounceSeconds}
-                  onChange={(event) => set({ debounceSeconds: event.target.value })}
-                />
-              )}
-            </FormField>
-          )}
         </section>
 
         {conflict && (

@@ -250,14 +250,14 @@ class ConsumerApiCapabilities(BaseModel):
 
 
 class WebhookDeliveryLimits(BaseModel):
-    """How webhooks are delivered (CONSUMER_API "Delivery", C-D103, C-D104): a per-change request
-    holds at most ``maxEvents`` events and ``maxBytes`` of body (an event alone over it is sent
-    alone); a receiver answers within ``timeoutSeconds``; a failing batch is retried with backoff
+    """How webhooks are delivered (CONSUMER_API "Delivery", C-D103, C-D104, C17): a subscription
+    may batch up to ``maxEventsPerBatch`` events in a request, and a request holds at most
+    ``maxBytes`` of body (an event alone over it is sent alone); a receiver answers within ``timeoutSeconds``; a failing batch is retried with backoff
     (``retryWaitsSeconds``, then every ``laterWaitSeconds``, each ±20 %) for ``retryHours`` after
     its first failure, then the subscription is suspended ``DELIVERY_FAILED``. Constants, not
     settings."""
 
-    maxEvents: int
+    maxEventsPerBatch: int
     maxBytes: int
     timeoutSeconds: float
     retryWaitsSeconds: list[int]

@@ -13,7 +13,7 @@ import { errorMessage, isApiError } from "@/api/errors";
 import { formatServerTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { routePath } from "@/routing/routes";
-import type { DeliveryError, EngineModel, SettingsRoute, Subscription, SubscriptionFinding } from "@/types";
+import type { DeliveryError, EngineModel, RouteState, SettingsRoute, Subscription, SubscriptionFinding } from "@/types";
 import { CatalogueEntry, CatalogueLayout } from "@/ui/CatalogueLayout";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { CopyValue } from "@/ui/CopyValue";
@@ -33,7 +33,17 @@ import { count } from "./limits";
 import { useCapabilities } from "./useSystem";
 import { WebhookDeliveries } from "./WebhookDeliveries";
 import { WebhookDialog, subscribable } from "./WebhookDialog";
-import { FIX, REASON, deliveryErrorText, eventDeclaration, subscriptionState, urlName } from "./webhookText";
+import {
+  CONTENT,
+  FIX,
+  FORMAT,
+  REASON,
+  deliveryErrorText,
+  eventDeclaration,
+  requestsLabel,
+  subscriptionState,
+  urlName,
+} from "./webhookText";
 
 type WebhooksRoute = Extract<SettingsRoute, { page: "webhooks" }>;
 
@@ -46,7 +56,7 @@ export function WebhooksPage({
 }: {
   route: WebhooksRoute;
   model: EngineModel;
-  onNavigate: (route: SettingsRoute) => void;
+  onNavigate: (route: RouteState) => void;
 }) {
   const { capabilities, error, retry } = useCapabilities();
   const subscriptions = capabilities?.consumerSubscriptions;
@@ -91,6 +101,7 @@ export function WebhooksPage({
           route={route}
           model={model}
           retentionDays={subscriptions.logRetentionDays}
+          batchLimit={subscriptions.delivery.maxEventsPerBatch}
           canCreate={canCreate}
           creating={creating}
           onCreateClosed={() => {
@@ -108,6 +119,7 @@ function Subscriptions({
   route,
   model,
   retentionDays,
+  batchLimit,
   canCreate,
   creating,
   onCreateClosed,
@@ -116,10 +128,12 @@ function Subscriptions({
   route: WebhooksRoute;
   model: EngineModel;
   retentionDays: number;
+  /** The most events a subscription may batch (capabilities). */
+  batchLimit: number;
   canCreate: boolean;
   creating: boolean;
   onCreateClosed: () => void;
-  onNavigate: (route: SettingsRoute) => void;
+  onNavigate: (route: RouteState) => void;
 }) {
   const feed = useCursorFeed((cursor) => api.subscriptions({ cursor }), []);
   const toast = useToast();
@@ -189,6 +203,7 @@ function Subscriptions({
               route={{ ...route, subscriptionId: route.subscriptionId }}
               model={model}
               retentionDays={retentionDays}
+              batchLimit={batchLimit}
               onNavigate={onNavigate}
               onChanged={(subscription) =>
                 feed.setItems((items) => items.map((item) => (item.id === subscription.id ? subscription : item)))
@@ -207,6 +222,7 @@ function Subscriptions({
       {creating && (
         <WebhookDialog
           model={model}
+          batchLimit={batchLimit}
           onClose={onCreateClosed}
           onSaved={(subscription) => {
             onCreateClosed();
@@ -260,6 +276,7 @@ function SubscriptionDetail({
   route,
   model,
   retentionDays,
+  batchLimit,
   onNavigate,
   onChanged,
   onDeleted,
@@ -267,7 +284,8 @@ function SubscriptionDetail({
   route: WebhooksRoute & { subscriptionId: string };
   model: EngineModel;
   retentionDays?: number;
-  onNavigate: (route: SettingsRoute) => void;
+  batchLimit?: number;
+  onNavigate: (route: RouteState) => void;
   onChanged: (subscription: Subscription) => void;
   onDeleted: (subscription: Subscription) => void;
 }) {
@@ -407,17 +425,9 @@ function SubscriptionDetail({
         "None: every event of the subscribed kinds"
       ),
     },
-    {
-      term: "Payload",
-      value: subscription.payload === "full" ? "Each event with its object" : "Events without objects",
-    },
-    {
-      term: "Delivery",
-      value:
-        subscription.mode === "perChange"
-          ? "Every change, in batches"
-          : `Coalesced, after ${count(subscription.debounceSeconds ?? 0)} quiet seconds`,
-    },
+    { term: "Requests", value: requestsLabel(subscription.maxEventsPerBatch) },
+    { term: "Content", value: CONTENT[subscription.payload] },
+    { term: "Format", value: FORMAT[subscription.format] },
     { term: "Signing key created", value: formatServerTime(subscription.signingKeyCreatedAt) },
     { term: "Created", value: formatServerTime(subscription.createdAt) },
     { term: "Last changed", value: formatServerTime(subscription.updatedAt) },
@@ -525,13 +535,22 @@ function SubscriptionDetail({
           {
             id: "deliveries",
             label: "Deliveries",
-            content: <WebhookDeliveries route={route} retentionDays={retentionDays} onNavigate={onNavigate} />,
+            content: (
+              <WebhookDeliveries
+                route={route}
+                model={model}
+                subscription={subscription}
+                retentionDays={retentionDays}
+                onNavigate={onNavigate}
+              />
+            ),
           },
         ]}
       />
       {editing && (
         <WebhookDialog
           model={model}
+          batchLimit={batchLimit}
           subscription={subscription}
           onConflict={reload}
           onClose={() => {

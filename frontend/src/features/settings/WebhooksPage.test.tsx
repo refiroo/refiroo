@@ -22,6 +22,7 @@ const model: EngineModel = {
       key: "codes",
       name: "Codes",
       contractVersion: 2,
+      objectTypes: { codelist: { publicName: "Codelist" } },
       parameters: { domain: { kind: "ancestor", objectTypes: ["domain"], matchFields: ["id", "code"] } },
       events: [
         { key: "lists-changed", objectTypes: ["codelist"], changes: ["created", "deleted"] },
@@ -41,9 +42,9 @@ const subscription = (id: string, overrides: Partial<Subscription> = {}): Subscr
   events: ["lists-changed"],
   filters: {},
   url: `https://receiver.example.com/${id}`,
-  mode: "perChange",
-  debounceSeconds: null,
+  maxEventsPerBatch: 1,
   payload: "full",
+  format: "rdm",
   status: "active",
   suspension: null,
   acknowledgedThrough: 120,
@@ -64,6 +65,9 @@ function enabled() {
   return capabilities;
 }
 
+/** Navigations that leave the Webhooks page, such as to a record. */
+const navigatedAway = vi.fn();
+
 /** The page with its address followed, as the settings area does. */
 function Page({ start }: { start: Extract<SettingsRoute, { page: "webhooks" }> }) {
   const [route, setRoute] = useState(start);
@@ -72,7 +76,8 @@ function Page({ start }: { start: Extract<SettingsRoute, { page: "webhooks" }> }
       route={route}
       model={model}
       onNavigate={(next) => {
-        if (next.page === "webhooks") setRoute(next);
+        if (next.kind === "settings" && next.page === "webhooks") setRoute(next);
+        else navigatedAway(next);
       }}
     />
   );
@@ -198,7 +203,12 @@ describe("Webhooks", () => {
     expect(within(dialog).getByRole("row", { name: "d2" })).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "Add filter" })).toBeDisabled();
 
-    fireEvent.click(within(dialog).getByRole("radio", { name: "Events only" }));
+    // Delivery: one event per request by default; the content changed to the notification only.
+    expect(within(dialog).getByRole("radio", { name: "One event per request" })).toBeChecked();
+    expect(within(dialog).getByRole("radio", { name: "RDM JSON" })).toBeChecked();
+    expect(within(dialog).getByText(/For bulk changes, batch them/)).toBeInTheDocument();
+    expect(within(dialog).queryByRole("spinbutton", { name: "Up to (events)" })).not.toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("radio", { name: "Notification only" }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Create webhook" }));
     const key = await screen.findByRole("dialog", { name: "Keep the signing key" });
     expect(api.createSubscription).toHaveBeenCalledWith({
@@ -208,8 +218,9 @@ describe("Webhooks", () => {
       events: ["lists-changed"],
       filters: { domain: ["d1", "d2"] },
       url: "https://receiver.example.com/hook",
+      maxEventsPerBatch: 1,
       payload: "identity",
-      mode: "perChange",
+      format: "rdm",
     });
     expect(key).toHaveTextContent("rdmwh_secret");
     expect(key).toHaveTextContent("it is not shown again");
@@ -307,24 +318,33 @@ describe("Webhooks", () => {
       .mockResolvedValueOnce(subscription("s", { version: 2 }))
       .mockResolvedValue(subscription("s", { version: 3, url: "https://receiver.example.com/moved" }));
     vi.mocked(api.updateSubscription).mockResolvedValue(
-      subscription("s", { version: 3, mode: "coalesced", debounceSeconds: 30 }),
+      subscription("s", { version: 3, maxEventsPerBatch: 50, format: "cloudevents" }),
     );
     renderPage("s");
+    const page = (await screen.findByRole("heading", { name: "Receiver s" })).closest(".webhook-detail") as HTMLElement;
+    expect(page).toHaveTextContent("One event per request");
+    expect(page).toHaveTextContent("With the object");
+    expect(page).toHaveTextContent("RDM JSON");
     fireEvent.click(await screen.findByRole("button", { name: "Edit…" }));
     const dialog = await screen.findByRole("dialog", { name: "Edit webhook" });
     expect(within(dialog).getByRole("button", { name: "Save changes" })).toBeDisabled();
-    fireEvent.click(within(dialog).getByRole("radio", { name: "Coalesced" }));
-    fireEvent.change(within(dialog).getByRole("spinbutton", { name: "Quiet for (seconds)" }), {
-      target: { value: "30" },
-    });
+    fireEvent.click(within(dialog).getByRole("radio", { name: "Batched" }));
+    const size = within(dialog).getByRole("spinbutton", { name: "Up to (events)" });
+    expect(size).toHaveValue(100);
+    expect(size).toHaveAttribute("max", "1000");
+    fireEvent.change(size, { target: { value: "50" } });
+    fireEvent.click(within(dialog).getByRole("radio", { name: "CloudEvents 1.0" }));
+    expect(within(dialog).getByText(/cloudevents-batch\+json/)).toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole("button", { name: "Save changes" }));
     await waitFor(() =>
       expect(api.updateSubscription).toHaveBeenCalledWith("s", {
         expectedVersion: 2,
-        mode: "coalesced",
-        debounceSeconds: 30,
+        maxEventsPerBatch: 50,
+        format: "cloudevents",
       }),
     );
+    expect(await screen.findByText("Batched, up to 50 events")).toBeInTheDocument();
+    expect(screen.getByText("CloudEvents 1.0")).toBeInTheDocument();
     vi.mocked(api.suspendSubscription).mockRejectedValue(
       new ApiError(409, "VERSION_CONFLICT", "Stale", { currentVersion: 4 }),
     );
@@ -347,64 +367,27 @@ describe("Webhooks", () => {
     expect(await screen.findByRole("heading", { name: "Invoices" })).toBeInTheDocument();
   });
 
-  it("shows a request in flight as sending, and a coalesced notice without event or object", async () => {
-    vi.mocked(api.subscription).mockResolvedValue(subscription("s", { mode: "coalesced", debounceSeconds: 1 }));
-    const base = {
-      change: null,
-      objectType: null,
-      position: 40,
-      responseStatus: null,
-      nextAttemptAt: null,
-      resendOf: null,
-    };
+  it("shows a request in flight as sending, with no answer yet", async () => {
+    vi.mocked(api.subscription).mockResolvedValue(subscription("s"));
     vi.mocked(api.deliveries).mockResolvedValue({
       items: [
         {
-          ...base,
           deliveryId: "n2",
-          eventId: null,
+          eventId: "e-2",
           event: "lists-renamed",
-          objectId: null,
+          change: "updated",
+          objectType: "Codelist",
+          objectId: "o-2",
+          position: 40,
           status: "sending",
           attempts: 1,
+          responseStatus: null,
           sentAt: "2026-10-07T08:01:00Z",
-        },
-        {
-          ...base,
-          deliveryId: "n1",
-          eventId: null,
-          event: "lists-changed",
-          objectId: null,
-          status: "succeeded",
-          attempts: 1,
-          responseStatus: 204,
-          sentAt: "2026-10-07T08:00:00Z",
+          nextAttemptAt: null,
+          resendOf: null,
         },
       ],
       nextCursor: null,
-    });
-    vi.mocked(api.delivery).mockResolvedValue({
-      deliveryId: "n1",
-      batchId: "b1",
-      kind: "notice",
-      status: "succeeded",
-      events: [{ eventId: null, event: "lists-changed", change: null, objectType: null, objectId: null, position: 40 }],
-      requestBody: { deliveryId: "n1", event: "lists-changed", fromPosition: 31, toPosition: 40, eventCount: 3 },
-      requestBytes: 90,
-      createdAt: "2026-10-07T08:00:00Z",
-      nextAttemptAt: null,
-      resendOf: null,
-      attempts: [
-        {
-          number: 1,
-          startedAt: "2026-10-07T08:00:00Z",
-          completedAt: "2026-10-07T08:00:00Z",
-          durationMs: 3,
-          responseStatus: 204,
-          error: null,
-          responseBody: "",
-        },
-      ],
     });
     renderPage("s");
     fireEvent.click(await screen.findByRole("tab", { name: "Deliveries" }));
@@ -413,13 +396,6 @@ describe("Webhooks", () => {
     expect(sending).toHaveTextContent("Sending");
     // In flight: one attempt started, no answer yet.
     expect(within(sending).getByText("No answer")).toBeInTheDocument();
-    const notice = within(table).getByRole("row", { name: /lists-changed/ });
-    expect(within(notice).getByRole("link", { name: "Notice" })).toBeInTheDocument();
-    expect(notice).toHaveTextContent("—");
-    fireEvent.click(within(notice).getByRole("link", { name: "Notice" }));
-    const opened = await screen.findByRole("dialog", { name: "lists-changed" });
-    expect(opened).toHaveTextContent("A notice: no event ID");
-    expect(within(opened).getByRole("region", { name: "Request body" })).toHaveTextContent('"eventCount": 3');
   });
 
   it("lists the deliveries on their tab, and opens an event with its attempts and bodies", async () => {
@@ -443,7 +419,6 @@ describe("Webhooks", () => {
     vi.mocked(api.delivery).mockResolvedValue({
       deliveryId: "d1",
       batchId: "d1",
-      kind: "events",
       status: "succeeded",
       events: [
         {
@@ -489,8 +464,19 @@ describe("Webhooks", () => {
     expect(line).toHaveTextContent("Succeeded");
     expect(line).toHaveTextContent("200");
 
-    fireEvent.click(within(line).getByRole("link"));
+    // The object's ID opens its record, in the application showing its type and the webhook's workspace.
+    fireEvent.click(within(line).getByRole("link", { name: `Open record ${row.objectId}` }));
+    expect(navigatedAway).toHaveBeenCalledWith({
+      kind: "detail",
+      applicationKey: "test-app",
+      objectTypeKey: "codelist",
+      objectId: row.objectId,
+      workspaceKey: "default",
+    });
+
+    fireEvent.click(within(line).getByRole("link", { name: /e-1234/ }));
     const opened = await screen.findByRole("dialog", { name: "lists-changed" });
+    expect(within(opened).getByRole("link", { name: `Open record ${row.objectId}` })).toBeInTheDocument();
     expect(api.delivery).toHaveBeenCalledWith("s", "d1");
     expect(opened).toHaveTextContent(row.objectId);
     const request = within(opened).getByRole("region", { name: "Request body" });
@@ -508,7 +494,7 @@ describe("Webhooks", () => {
       deliveryId,
       eventId: `e-${deliveryId}`,
       event: "lists-changed",
-      change: "updated",
+      change: status === "failed" ? "deleted" : "updated",
       objectType: "Codelist",
       objectId: "o-1",
       position: 7,
@@ -522,7 +508,6 @@ describe("Webhooks", () => {
     const detail = (deliveryId: string, status: "succeeded" | "failed", resendOf: string | null = null) => ({
       deliveryId,
       batchId: deliveryId,
-      kind: "events" as const,
       status,
       events: [
         {
@@ -564,7 +549,7 @@ describe("Webhooks", () => {
     const table = await screen.findByRole("group", { name: "Deliveries" });
 
     // Delivered: Resend asks first; declining sends nothing.
-    fireEvent.click(within(within(table).getAllByRole("row")[1]).getByRole("link"));
+    fireEvent.click(within(table).getByRole("link", { name: "e-d1" }));
     let opened = await screen.findByRole("dialog", { name: "lists-changed" });
     fireEvent.click(await within(opened).findByRole("button", { name: "Resend" }));
     let confirm = await screen.findByRole("alertdialog", { name: "Resend a delivered event?" });
@@ -581,7 +566,10 @@ describe("Webhooks", () => {
 
     // Failed: Resend sends at once, without asking.
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "lists-changed" })).not.toBeInTheDocument());
-    fireEvent.click(within(table).getAllByRole("link")[1]);
+    // A deleted record has no record to open.
+    const deleted = within(table).getByRole("row", { name: /e-d2/ });
+    expect(within(deleted).queryByRole("link", { name: /Open record/ })).not.toBeInTheDocument();
+    fireEvent.click(within(table).getByRole("link", { name: "e-d2" }));
     opened = await screen.findByRole("dialog", { name: "lists-changed" });
     fireEvent.click(await within(opened).findByRole("button", { name: "Resend" }));
     await waitFor(() => expect(api.resendDelivery).toHaveBeenLastCalledWith("s", "d2", "e-d2"));
@@ -594,11 +582,11 @@ describe("Webhooks", () => {
       items: [
         {
           deliveryId: "q1",
-          eventId: null,
+          eventId: "e-q1",
           event: "lists-changed",
-          change: null,
-          objectType: null,
-          objectId: null,
+          change: "updated",
+          objectType: "Codelist",
+          objectId: "o-1",
           position: 3,
           status: "queued",
           attempts: 0,
@@ -612,10 +600,18 @@ describe("Webhooks", () => {
     });
     vi.mocked(api.delivery).mockResolvedValue({
       deliveryId: "q1",
-      batchId: "b",
-      kind: "notice",
+      batchId: "q1",
       status: "queued",
-      events: [{ eventId: null, event: "lists-changed", change: null, objectType: null, objectId: null, position: 3 }],
+      events: [
+        {
+          eventId: "e-q1",
+          event: "lists-changed",
+          change: "updated",
+          objectType: "Codelist",
+          objectId: "o-1",
+          position: 3,
+        },
+      ],
       requestBody: null,
       requestBytes: null,
       createdAt: "2026-10-07T08:00:00Z",
@@ -625,7 +621,9 @@ describe("Webhooks", () => {
     });
     renderPage("s");
     fireEvent.click(await screen.findByRole("tab", { name: "Deliveries" }));
-    fireEvent.click(within(await screen.findByRole("group", { name: "Deliveries" })).getByRole("link"));
+    fireEvent.click(
+      within(await screen.findByRole("group", { name: "Deliveries" })).getByRole("link", { name: "e-q1" }),
+    );
     const opened = await screen.findByRole("dialog", { name: "lists-changed" });
     const resend = await within(opened).findByRole("button", { name: "Resend" });
     expect(resend).toBeDisabled();

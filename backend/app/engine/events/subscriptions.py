@@ -1,7 +1,8 @@
 """Webhook subscriptions: create, edit, suspend, resume, delete and list (Base 0.9 C11).
 
 A subscription names a consumer API, a workspace, some of the API's events, filters in the
-definition's own parameters, a URL, a delivery mode and a payload (CONSUMER_API "Subscriptions").
+definition's own parameters, a URL, and how requests are made: how many events each carries, with
+the object or its identity, in RDM JSON or CloudEvents (CONSUMER_API "Subscriptions", C17).
 Create, edit and resume run the same checks, against the active release, the deployment's host
 allowlist and the workspace: the definition serves what it names (``subscription_rules``), each
 filter value matches a record now (C-D100), the URL passes the allowlist (C-D101) and the workspace
@@ -54,7 +55,6 @@ from .subscription_rules import (
 from .webhook_urls import check_webhook_url
 
 SECRET_PREFIX = "rdmwh_"
-DEFAULT_DEBOUNCE_SECONDS = 60
 _KEYS = (integer_key("sequenceId", ConsumerSubscription.sequence_id, "sequence_id", descending=True),)
 
 
@@ -172,9 +172,9 @@ def create_subscription(
         event_keys=list(asked.event_keys),
         filters=dict(asked.filters),
         url=payload.url,
-        mode=payload.mode,
-        debounce_seconds=(payload.debounceSeconds or DEFAULT_DEBOUNCE_SECONDS) if payload.mode == "coalesced" else None,
+        max_events_per_batch=payload.maxEventsPerBatch,
         payload=payload.payload,
+        format=payload.format,
         status=ACTIVE,
         acknowledged_position=start,
         acknowledged_ordinal=AFTER_POSITION,
@@ -236,14 +236,6 @@ def update_subscription(
         events = list(dict.fromkeys(payload.events)) if payload.events is not None else subscription.event_keys
         filters = listed(payload.filters) if payload.filters is not None else subscription.filters
         url = payload.url if payload.url is not None else subscription.url
-        mode = payload.mode or subscription.mode
-        if payload.debounceSeconds is not None and mode != "coalesced":
-            raise api_error(
-                422,
-                "REQUEST_VALIDATION_ERROR",
-                "Request validation failed",
-                [{"loc": ["body", "debounceSeconds"], "msg": "debounceSeconds applies to mode 'coalesced' only"}],
-            )
         asked = Asked(subscription.consumer_api, events, filters)
         findings, _workspace_found = _findings(
             session, model, asked, subscription.workspace_key, url, settings
@@ -255,15 +247,12 @@ def update_subscription(
         subscription.event_keys = events
         subscription.filters = filters
         subscription.url = url
-        subscription.mode = mode
-        if mode == "coalesced":
-            subscription.debounce_seconds = (
-                payload.debounceSeconds or subscription.debounce_seconds or DEFAULT_DEBOUNCE_SECONDS
-            )
-        else:
-            subscription.debounce_seconds = None
+        if payload.maxEventsPerBatch is not None:
+            subscription.max_events_per_batch = payload.maxEventsPerBatch
         if payload.payload is not None:
             subscription.payload = payload.payload
+        if payload.format is not None:
+            subscription.format = payload.format
         if payload.name is not None:
             subscription.name = payload.name
         # A rename changes nothing the receiver sees, so it keeps a batch being retried (C-D115).

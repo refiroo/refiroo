@@ -4,9 +4,8 @@ Each test starts the application with the subscriptions capability on, as J30.6 
 receiver on ``localhost`` (the standard library's HTTP server in a thread) that answers as the test
 scripts it and records each request. The journey application starts neither the deriver's nor the
 dispatcher's thread: a test derives (``derive_events``) and then dispatches (``dispatch``) with a
-clock it moves forward, so no test waits for a retry or a debounce. Expired events (J30.9) need
-entries older than the retention period, and a coalesced notice events older than ten minutes; the
-test moves their times back in the database, as J30.5 does.
+clock it moves forward, so no test waits for a retry. Expired events (J30.9) need entries older
+than the retention period; the test moves their times back in the database, as J30.5 does.
 """
 
 import hashlib
@@ -22,8 +21,6 @@ from uuid import uuid4
 
 import pytest
 from scenario import consumer_events, consumer_object, derive_events, dispatch, ok, refused
-from sqlalchemy import create_engine, text
-from sqlalchemy.pool import NullPool
 from test_j30_consumer_events import (
     EVERY,
     LEDGER,
@@ -168,20 +165,6 @@ def _ledgers(world, workspace, count, prefix):
     assert result["job"]["result"] == "applied", result["job"]
 
 
-def _age_events(world, workspace, minutes, through):
-    """Make the workspace's consumer events up to position ``through`` ``minutes`` older."""
-    engine = create_engine(world.database, poolclass=NullPool)
-    with engine.begin() as connection:
-        connection.execute(
-            text(
-                "UPDATE consumer_events SET occurred_at = occurred_at - make_interval(mins => :m) "
-                "WHERE workspace_key = :w AND position <= :p"
-            ),
-            {"m": minutes, "w": workspace, "p": through},
-        )
-    engine.dispose()
-
-
 def _now():
     return datetime.now(UTC)
 
@@ -190,15 +173,15 @@ def _now():
 @pytest.mark.settings(**SUBSCRIPTIONS)
 @pytest.mark.structures(*LEDGER)
 def test_a_subscription_receives_its_events_signed_and_in_order(world, receiver):
-    """Given a subscription to the watched event with the full payload. When exposed records are
-    created, renamed and deleted. Then one request carries the events in position order, as the
+    """Given a subscription to the watched event with the full payload, batched. When exposed
+    records are created, renamed and deleted. Then one request carries the events in position order, as the
     pull feed has them, each object as get by ID answers it, and none for the deleted record. The
     request is signed with the subscription's key over the timestamp and the body, and a body
     changed by one byte does not verify. The subscription has acknowledged through the last event
     and shows when it last delivered, with nothing pending and its version unchanged."""
     _activate(world, "events")
     ws = _workspace(world)
-    created = _subscribe(world, ws, receiver.url)
+    created = _subscribe(world, ws, receiver.url, maxEventsPerBatch=100)
     secret, start = created["signingSecret"], created["acknowledgedThrough"]
 
     kept = world.made("R", "Ledger A", workspace=ws)
@@ -244,15 +227,17 @@ def test_a_subscription_receives_its_events_signed_and_in_order(world, receiver)
 @pytest.mark.settings(**SUBSCRIPTIONS)
 @pytest.mark.structures(*LEDGER)
 def test_many_events_arrive_in_ordered_batches_within_the_subscriptions_scope(world, receiver):
-    """Given a full and an identity subscription to one event, and one narrowed to a type nothing
-    here creates. When a batch creates 250 exposed records. Then each of the first two receives
+    """Given a full and an identity subscription to one event batching up to 100, and one narrowed
+    to a type nothing here creates. When a batch creates 250 exposed records. Then each of the first two receives
     three requests of 100, 100 and 50 events in position order, each sent after the previous one was
     answered, only of its event; the identity requests carry no objects. The narrowed subscription
     receives nothing and has acknowledged through the feed's head."""
     _activate(world, "events")
     ws = _workspace(world)
-    full = _subscribe(world, ws, receiver.url + "/full", events=[EVERY])
-    identity = _subscribe(world, ws, receiver.url + "/identity", events=[EVERY], payload="identity")
+    full = _subscribe(world, ws, receiver.url + "/full", events=[EVERY], maxEventsPerBatch=100)
+    identity = _subscribe(
+        world, ws, receiver.url + "/identity", events=[EVERY], payload="identity", maxEventsPerBatch=100
+    )
     narrowed = _subscribe(world, ws, receiver.url + "/narrowed", filters={world.key("Capi.kind"): world.key("Capi.R2")})
 
     _ledgers(world, ws, 250, "Bulk")
@@ -274,53 +259,191 @@ def test_many_events_arrive_in_ordered_batches_within_the_subscriptions_scope(wo
     assert _read(world, identity)["acknowledgedThrough"] == _head(world, ws)
 
 
+def _on(receiver, path):
+    return [r for r in receiver.requests if r["path"] == path]
+
+
 @pytest.mark.journey("J30.8")
 @pytest.mark.settings(**SUBSCRIPTIONS)
 @pytest.mark.structures(*LEDGER)
-def test_a_coalesced_subscription_is_told_once_the_changes_pause(world, receiver):
-    """Given a coalesced subscription to two events with a 60 s debounce. When three records are
-    created. Then nothing is sent while the newest event is less than 60 s old; then one notice per
-    event, each with the range, the count and the type. Given changes going on for ten minutes (the
-    oldest event aged), a notice goes at once, and the next only after the following pause."""
+def test_a_subscription_sends_one_event_per_request_by_default(world, receiver):
+    """Given a subscription created without a batch size. When three records are created. Then the
+    receiver gets three requests in position order, each an RDM JSON envelope with one event, each
+    answered before the next is sent. The subscription shows one event per request, and the
+    capabilities the most a subscription may batch."""
     _activate(world, "events")
+    assert ok(world.api.get("/capabilities"))["consumerSubscriptions"]["delivery"]["maxEventsPerBatch"] == 1000
     ws = _workspace(world)
-    created = _subscribe(world, ws, receiver.url, events=[WATCHED, EVERY], mode="coalesced", debounceSeconds=60)
-    start = created["acknowledgedThrough"]
+    created = _subscribe(world, ws, receiver.url)
+    assert (created["maxEventsPerBatch"], created["payload"], created["format"]) == (1, "full", "rdm")
     for name in ("One", "Two", "Three"):
         world.made("R", f"Ledger {name}", workspace=ws)
     derive_events(world)
+    dispatch(world)
 
-    dispatch(world, _now() + timedelta(seconds=30))
-    assert receiver.requests == []
-    dispatch(world, _now() + timedelta(seconds=61))
-    head = _head(world, ws)
-    notices = {r["body"]["event"]: r["body"] for r in receiver.requests}
-    assert set(notices) == {WATCHED, EVERY}
-    for notice in notices.values():
-        assert (notice["fromPosition"], notice["toPosition"], notice["eventCount"]) == (start + 1, head, 3)
-        assert notice["objectTypes"] == [world.key("Capi.R")]
-        assert notice["subscriptionId"] == created["id"] and notice["occurredFrom"] <= notice["occurredTo"]
-    assert notices[WATCHED]["deliveryId"] != notices[EVERY]["deliveryId"]
-    assert _read(world, created)["acknowledgedThrough"] == head
+    expected = _feed(world, ws, created["acknowledgedThrough"], WATCHED)
+    assert len(receiver.requests) == len(expected) == 3
+    for request, event in zip(receiver.requests, expected, strict=True):
+        assert request["headers"]["content-type"] == "application/json"
+        assert request["body"]["subscriptionId"] == created["id"]
+        assert request["headers"]["rdm-delivery-id"] == request["body"]["deliveryId"]
+        assert [e["eventId"] for e in request["body"]["events"]] == [event["eventId"]]
+        assert _signed(created["signingSecret"], request)
+    assert len({r["body"]["deliveryId"] for r in receiver.requests}) == 3
+    assert all(later["arrived"] >= earlier["answered"] for earlier, later in pairwise(receiver.requests))
+    assert _read(world, created)["acknowledgedThrough"] == _head(world, ws)
 
-    ongoing = ok(world.api.patch(f"{PATH}/{created['id']}", {"expectedVersion": 1, "events": [WATCHED]}))
-    world.made("R", "Ledger Early", workspace=ws)
-    derive_events(world)
-    _age_events(world, ws, 11, _head(world, ws))
-    world.made("R", "Ledger Late", workspace=ws)
-    derive_events(world)
-    sent = len(receiver.requests)
-    dispatch(world, _now())
-    assert len(receiver.requests) == sent + 1
-    assert receiver.requests[-1]["body"]["eventCount"] == 2
 
-    world.made("R", "Ledger Again", workspace=ws)
+@pytest.mark.journey("J30.8")
+@pytest.mark.settings(**SUBSCRIPTIONS)
+@pytest.mark.structures(*LEDGER)
+def test_a_batched_subscription_sends_what_is_waiting_up_to_its_size_and_one_mebibyte(world, receiver):
+    """Given a subscription batching up to 2 events. When five records are created, then requests
+    of 2, 2 and 1 events arrive in position order. Given one batching up to 1,000 with the objects,
+    when a batch creates 1,000 records whose events together exceed 1 MiB, then the first request
+    stops before 1 MiB, short of 1,000 events, and every event arrives once, in order."""
+    _activate(world, "events")
+    ws = _workspace(world)
+    pairs = _subscribe(world, ws, receiver.url + "/pairs", events=[EVERY], maxEventsPerBatch=2)
+    _ledgers(world, ws, 5, "Paired")
     derive_events(world)
-    dispatch(world, _now())
-    assert len(receiver.requests) == sent + 1
-    dispatch(world, _now() + timedelta(seconds=61))
-    assert len(receiver.requests) == sent + 2 and receiver.requests[-1]["body"]["eventCount"] == 1
-    assert _read(world, ongoing)["acknowledgedThrough"] == _head(world, ws)
+    dispatch(world)
+    requests = _on(receiver, "/hook/pairs")
+    assert [len(r["body"]["events"]) for r in requests] == [2, 2, 1]
+    expected = [e["eventId"] for e in _feed(world, ws, pairs["acknowledgedThrough"], EVERY)]
+    assert [e["eventId"] for r in requests for e in r["body"]["events"]] == expected
+
+    large = _subscribe(world, ws, receiver.url + "/large", events=[EVERY], maxEventsPerBatch=1000)
+    _ledgers(world, ws, 1000, "L" * 400)
+    derive_events(world)
+    dispatch(world)
+    requests = _on(receiver, "/hook/large")
+    assert sum(len(r["raw"]) for r in requests) > 1024 * 1024
+    assert len(requests) >= 2 and 1 < len(requests[0]["body"]["events"]) < 1000
+    assert all(len(r["raw"]) <= 1024 * 1024 for r in requests)
+    expected = [e["eventId"] for e in _feed(world, ws, large["acknowledgedThrough"], EVERY)]
+    assert [e["eventId"] for r in requests for e in r["body"]["events"]] == expected and len(expected) == 1000
+
+
+@pytest.mark.journey("J30.8")
+@pytest.mark.settings(**SUBSCRIPTIONS)
+@pytest.mark.structures(*LEDGER)
+@pytest.mark.parametrize("size", [1, 3])
+def test_a_notification_carries_no_object_and_a_full_event_the_object_as_read(world, receiver, size):
+    """Given a notification-only and a full subscription, sending one event per request or batching
+    up to 3. When two records are created. Then the notification-only events carry no object and no
+    ``stateAt``, and the full events the object as get by ID answers it."""
+    _activate(world, "events")
+    ws = _workspace(world)
+    for payload in ("identity", "full"):
+        _subscribe(world, ws, receiver.url + f"/{payload}", payload=payload, maxEventsPerBatch=size)
+    world.made("R", "Ledger Told", workspace=ws)
+    world.made("R", "Ledger Shown", workspace=ws)
+    derive_events(world)
+    dispatch(world)
+
+    for payload in ("identity", "full"):
+        events = [e for r in _on(receiver, f"/hook/{payload}") for e in r["body"]["events"]]
+        assert len(events) == 2
+        assert len(_on(receiver, f"/hook/{payload}")) == (2 if size == 1 else 1)
+        for event in events:
+            if payload == "identity":
+                assert "object" not in event and "stateAt" not in event
+            else:
+                assert event["object"] == ok(consumer_object(world, event["id"], workspace=ws))
+
+
+@pytest.mark.journey("J30.8")
+@pytest.mark.settings(**SUBSCRIPTIONS)
+@pytest.mark.structures(*LEDGER)
+def test_cloudevents_are_sent_structured_one_per_request_and_as_an_array_when_batched(world, receiver):
+    """Given an RDM JSON subscription, a CloudEvents one sending one event per request and a
+    CloudEvents one batching up to 10, all to the watched event. When three records are created.
+    Then the single ones arrive as structured CloudEvents, ``application/cloudevents+json``, and the
+    batch as one array in position order, ``application/cloudevents-batch+json``. Each CloudEvent
+    has spec version 1.0, the event ID as ``id``, the definition's events path in the workspace as
+    ``source``, ``rdm.{event}.{change}`` as ``type``, ``{objectType}/{id}`` as ``subject``, the
+    event's time, the subscription, and as ``data`` the event the RDM JSON receiver got for the same
+    change. Every body verifies against its signature."""
+    _activate(world, "events")
+    ws = _workspace(world)
+    rdm = _subscribe(world, ws, receiver.url + "/rdm", maxEventsPerBatch=10)
+    single = _subscribe(world, ws, receiver.url + "/single", format="cloudevents")
+    batched = _subscribe(world, ws, receiver.url + "/batched", format="cloudevents", maxEventsPerBatch=10)
+    for name in ("One", "Two", "Three"):
+        world.made("R", f"Ledger {name}", workspace=ws)
+    derive_events(world)
+    dispatch(world)
+
+    (plain,) = _on(receiver, "/hook/rdm")
+    told = {e["eventId"]: e for e in plain["body"]["events"]}
+    source = f"/api/consumer/{world.key('Capi')}/v1/events?workspace={ws}"
+
+    def check(cloudevent, subscription):
+        event = told[cloudevent["id"]]
+        assert cloudevent == {
+            "specversion": "1.0",
+            "id": event["eventId"],
+            "source": source,
+            "type": f"rdm.{event['event']}.{event['change']}",
+            "subject": f"{event['objectType']}/{event['id']}",
+            "time": event["occurredAt"],
+            "datacontenttype": "application/json",
+            "rdmsubscription": subscription["id"],
+            "data": cloudevent["data"],
+        }
+        # The object is composed when sent, so only its state may differ between the receivers.
+        assert {k: v for k, v in cloudevent["data"].items() if k not in {"object", "stateAt"}} == {
+            k: v for k, v in event.items() if k not in {"object", "stateAt"}
+        }
+        assert "object" in cloudevent["data"] and "object" in event
+
+    singles = _on(receiver, "/hook/single")
+    assert [r["body"]["id"] for r in singles] == list(told)
+    for request in singles:
+        assert request["headers"]["content-type"] == "application/cloudevents+json; charset=utf-8"
+        assert _signed(single["signingSecret"], request)
+        check(request["body"], single)
+    (array,) = _on(receiver, "/hook/batched")
+    assert array["headers"]["content-type"] == "application/cloudevents-batch+json; charset=utf-8"
+    assert _signed(batched["signingSecret"], array)
+    assert [item["id"] for item in array["body"]] == list(told)
+    for item in array["body"]:
+        check(item, batched)
+    assert _read(world, rdm)["acknowledgedThrough"] == _head(world, ws)
+
+
+@pytest.mark.journey("J30.8")
+@pytest.mark.settings(**SUBSCRIPTIONS)
+@pytest.mark.structures(*LEDGER)
+def test_an_edit_of_the_format_drops_a_retried_batch_and_sends_it_anew_in_the_new_format(world, receiver):
+    """Given an RDM JSON subscription whose receiver answers 503. When a record is created and the
+    attempt fails, an edit to CloudEvents drops the batch; a batch size outside 1–1,000 or the
+    retired ``mode`` in an edit is a request validation error. Once the receiver answers, the event
+    arrives as a CloudEvent under a new delivery ID."""
+    _activate(world, "events")
+    ws = _workspace(world)
+    created = _subscribe(world, ws, receiver.url)
+    receiver.then(503)
+    world.made("R", "Ledger Reformatted", workspace=ws)
+    derive_events(world)
+    now = _now()
+    dispatch(world, now)
+    pending = _read(world, created)["delivery"]["pending"]
+    assert pending["attempts"] == 1
+
+    path = f"{PATH}/{created['id']}"
+    for changes in ({"maxEventsPerBatch": 0}, {"maxEventsPerBatch": 1001}, {"mode": "perChange"}, {"format": "xml"}):
+        refused(world.api.patch(path, {"expectedVersion": created["version"], **changes}), 422, "REQUEST_VALIDATION_ERROR")
+    edited = ok(world.api.patch(path, {"expectedVersion": created["version"], "format": "cloudevents"}))
+    assert edited["format"] == "cloudevents" and edited["delivery"]["pending"] is None
+    dispatch(world, now + timedelta(seconds=1))
+
+    failed, sent = receiver.requests
+    assert sent["headers"]["rdm-delivery-id"] != failed["headers"]["rdm-delivery-id"] == pending["deliveryId"]
+    assert sent["headers"]["content-type"] == "application/cloudevents+json; charset=utf-8"
+    assert sent["body"]["id"] == failed["body"]["events"][0]["eventId"]
+    assert _read(world, created)["acknowledgedThrough"] == _head(world, ws)
 
 
 @pytest.mark.journey("J30.9")
@@ -517,12 +640,12 @@ def test_events_expired_while_active_suspend_and_a_reset_starts_from_the_head(wo
 @pytest.mark.settings(**SUBSCRIPTIONS)
 @pytest.mark.structures(*LEDGER)
 def test_two_dispatchers_deliver_each_batch_once_and_in_order(world, receiver):
-    """Given one subscription and two dispatchers on the database (two processes). When a batch
-    creates 300 records and both dispatch at once. Then every event arrives exactly once, in
+    """Given one subscription batching up to 100 and two dispatchers on the database (two
+    processes). When a batch creates 300 records and both dispatch at once. Then every event arrives exactly once, in
     position order, each batch under its own delivery ID."""
     _activate(world, "events")
     ws = _workspace(world)
-    created = _subscribe(world, ws, receiver.url, events=[EVERY], payload="identity")
+    created = _subscribe(world, ws, receiver.url, events=[EVERY], payload="identity", maxEventsPerBatch=100)
     _ledgers(world, ws, 300, "Shared")
     derive_events(world)
     running = world.api.client.app.state.consumer_dispatcher

@@ -242,7 +242,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 27a | [U2](SETTINGS_AND_UI_PLAN.md#u2-the-foundation-and-the-shell) | U1 | UI foundation: token layers, regions, data-context band, `PageHeader`, `StatusPill` and `Card`, the shell (U-D7–U-D9) — **delivered 2026-10-06** ([record](SETTINGS_AND_UI_PLAN.md#u2-delivery-record)) |
 | 27b | [U3](SETTINGS_AND_UI_PLAN.md#u3-the-settings-area) | U2 | Settings area: About, Appearance, Deployment (read-only, U-D2), Workspaces and Model moved; `GET /api/v1/system` (U-D10, U-D11) — **delivered 2026-10-06** ([record](SETTINGS_AND_UI_PLAN.md#u3-delivery-record); [revised the same day](SETTINGS_AND_UI_PLAN.md#u3-revisions-after-delivery-2026-10-06)) |
 | 27c | [UA](SETTINGS_AND_UI_PLAN.md#ua-the-atlas-redesign) | U3 | The Atlas redesign of every surface (ADR-040, U-D12, U-D13), each surface approved by the user from screenshots; today's design tagged `ui-before-atlas`. Comes before U4 and U5 by the user's choice (2026-10-06); folds in U6 — **planned 2026-10-06** |
-| 27d | [C17](#c17-webhook-delivery-choices-batching-payload-and-cloudevents) | U5a | Webhook delivery choices: one event per request or batched, with the object or notification only, RDM JSON or CloudEvents; `coalesced` retired (C-D120–C-D128) — **planned 2026-10-07**, decisions approved |
+| 27d | [C17](#c17-webhook-delivery-choices-batching-payload-and-cloudevents) | U5a | Webhook delivery choices: one event per request or batched, with the object or notification only, RDM JSON or CloudEvents; `coalesced` retired (C-D120–C-D128) — **implemented 2026-10-07**, screenshots await approval ([record](#c17-record-2026-10-07)) |
 | — | _cut line (D9)_ | | _If R is out of reach, 0.9.0 releases here with R-a and Track J moves to 0.9.1_ |
 | 28 | [J1](#j1-export) | Q3, Q4, B2, F1 | Export jobs |
 | 29 | [J2](#j2-import-profiles-and-file-reading) | B3 | Import profiles, XLSX/CSV/JSON Lines reading, rows to items |
@@ -5683,7 +5683,12 @@ gets nothing when the relationship is removed; the type-filtered one gets the up
 
 **Planned 2026-10-07** at the user's request, after a review of the delivery modes against industry
 practice. **Decisions C-D120–C-D128 and the test cases approved by the user the same day**, with
-C-D123 changed: no subscription is in production, so nothing is converted.
+C-D123 changed: no subscription is in production, so nothing is converted. **Checked against the
+code after the U5a resend revision (2026-10-07):** the resend lives in `engine/events/resend.py`
+and branches on the `kind` column this package drops; the dispatcher's branch is `_per_change`, not
+`_batch`; `headers` fixes the content type; a batch's list of requests exists only for coalesced;
+the Deployment page, `WebhookDeliveries` and the U5 runner show coalesced or notice states. The
+Contract, Design and test cases below now say what happens to each; no approved decision changed.
 **Needs:** U5a (webhook names and the delivery log share the subscription, the dispatcher, the
 dialog and the delivery log's rows). **Groups:** `feed`, `consumer`, `contract`, `startup`
 (migration). Amends C-D105 (retired), C-D104 (the event cap becomes a subscription setting) and
@@ -5778,6 +5783,10 @@ that batching is the choice for bulk changes.
   included, which is why structured mode is used rather than binary.
 - **Removed.** The coalesced body, `COALESCE_MAX_SECONDS`, and U5a's notice rows: the delivery
   log's `kind` is always events, so the field is dropped.
+- **Resend** (C-D129–C-D131). `eventId` becomes required: the empty body that resent a notice is
+  `422 REQUEST_VALIDATION_ERROR`, and the "a notice was given one" cause of
+  `404 EVENT_NOT_IN_DELIVERY` goes. C-D129's "a notice is resent as it was" is retired with the
+  notices.
 
 **Design.**
 
@@ -5789,17 +5798,30 @@ that batching is the choice for bulk changes.
   - Drops `mode`, `debounce_seconds` and their check, and `consumer_webhook_requests.kind`
     (U5a's `events`/`notice`) with its check.
 - **Dispatcher.**
-  - `_batch` reads `page_size = max_events_per_batch` events.
-  - `delivery.fitting` measures the body in the subscription's format.
-  - `_coalesced` and `coalesce_due` are deleted.
-  - The delivery log (`engine/events/delivery_log.py`, U5a) loses its notice row in `_rows`, which
-    is built from a notice body's `event` and `toPosition`. `DeliveryDetail.kind` leaves the answer.
-  - **Manual resend** (U5a revision, `POST …/deliveries/{deliveryId}/resend`) rebuilds a request
-    from the stored body: today an RDM envelope with its `events` list, or a notice. Its helper in
-    `delivery_log.py` gains a CloudEvents branch: it finds the event by `eventId` in the structured
-    event or the batched array, and sends it alone in that request's content type (a batched
-    request's event as an array of one) with a new delivery ID. The notice branch goes with `coalesced`. A resend keeps the format of the request it repeats,
-    even when the subscription's format was edited since, because it repeats what was sent.
+  - `_per_change` (the only branch left, renamed `_next_batch`) reads
+    `page_size = max_events_per_batch` events instead of `delivery.MAX_EVENTS`, which becomes the
+    cap of 1,000 (`MAX_EVENTS_PER_BATCH`).
+  - `delivery.fitting` measures the body in the subscription's format: the RDM envelope with its
+    `events`, the CloudEvents array, or (at 1) the single structured event, which always fits alone.
+  - `_coalesced`, `coalesce_due`, `COALESCE_MAX_SECONDS` and `DEFAULT_DEBOUNCE_SECONDS` are deleted.
+    A batch is now always one request, so `_Batch`'s list of `(delivery_id, body)` pairs, which
+    exists only for a coalesced round, becomes one body, and `delivery_log.open_batch` takes one.
+  - `delivery.headers` takes the content type (today it is fixed to `application/json`).
+  - The delivery log (`engine/events/delivery_log.py`, U5a) loses its notice row in `rows_of`,
+    which is built from a notice body's `event` and `toPosition`. `rows_of` takes the RDM events
+    the batch was built from, not the encoded body, so the log rows are the same in both formats.
+    `open_batch` stops writing `kind`, and `DeliveryDetail.kind` leaves the answer.
+  - **Manual resend** (U5a revision, `POST …/deliveries/{deliveryId}/resend`) lives in
+    `engine/events/resend.py`. Its `_body` rebuilds a request from the stored body and today
+    branches on `request.kind`; that branch goes with the column. It tells the stored format from
+    the body itself, which is unambiguous: a JSON array is a CloudEvents batch, an object with
+    `specversion` a structured CloudEvent, an object with `events` an RDM envelope. It finds the
+    event by `eventId` (`id` in a CloudEvent) and sends it alone in that request's content type (a
+    batched request's event as an array of one) with a new delivery ID. A resend keeps the format
+    of the request it repeats, even when the subscription's format was edited since, because it
+    repeats what was sent. `409 DELIVERY_NOT_SENT` stays: with one request per batch a `queued` row
+    lives only between the batch's log and its first attempt, or after a stop in between, which no
+    journey reaches reliably, so a unit test of `_body` holds it (below).
   - Encoding goes in one function per format in `delivery.py`. The CloudEvents encoder builds
     `source`, `type` and `subject` from the subscription and the event alone, so a retry composes
     the same attributes (C-D111).
@@ -5808,6 +5830,10 @@ that batching is the choice for bulk changes.
     "Batched, up to [N] events", with the cost line when one is chosen. **Content**: "With the
     object" / "Notification only". **Format**: "RDM JSON" / "CloudEvents 1.0".
   - The mode and wait fields go. The detail shows the three choices.
+  - `WebhookDeliveries` loses its notice branches (the "A notice" request kind, "A notice: no event
+    ID", the confirmation's "notice" wording) and the row text "per notice".
+  - Settings › Deployment's "Delivery batch" line reads the renamed capability: "up to 1,000
+    events, 1 MiB".
   - Types and capabilities follow the contract.
 - **Not changed.** The pull feed stays RDM JSON (C-D127). Ordering, leases, retries, suspensions,
   `reset` and signing are unchanged.
@@ -5856,9 +5882,17 @@ first and confirmed failing):
 7. **Migration** (AGENTS.md): upgrade from `20261007_02` with an existing subscription, which reads
    back with the defaults; then two starts, and an interrupted run recovering.
 
-The coalesced cases are removed: `test_j30_delivery`'s coalesced test, U5a's case 5, the coalesced
-round in `volume_baseline`, and the frontend's coalesced fields. Unit tests:
-`delivery.fitting` and the two encoders (attribute filling, both content types, the byte cap).
+The coalesced cases are removed: `test_j30_delivery`'s coalesced test, U5a's case 5
+(`test_a_coalesced_subscriptions_deliveries_are_its_notices`), the coalesced round in
+`volume_baseline` and `test_consumer_event_volume`, `coalesce_due`'s unit tests in
+`tests/unit/engine/events/test_delivery.py`, the frontend's coalesced fields, notice rows in
+`WebhooksPage.test`, and `e2e/u5-webhooks.mjs`'s coalesced webhook, notice row and the dialog shot
+with the wait showing. The resend revision's case 3
+(`test_a_notice_is_resent_and_what_cannot_be_resent_is_refused`) is rewritten on a per-change
+subscription: an event ID not in a request is `404 EVENT_NOT_IN_DELIVERY` and a missing `eventId`
+is `422`. Unit tests: `delivery.fitting` and the two encoders (attribute filling, both content
+types, the byte cap), and `resend._body` (its three stored shapes, and `409 DELIVERY_NOT_SENT` for a
+request with no stored body).
 
 **Checks.** The cases above and `--journey J30`, `test_startup` for the migration,
 `test_consumer_event_volume`, `test_openapi_contract` (the subscription schemas and capabilities
@@ -5876,6 +5910,63 @@ UI_ACCEPTANCE's U5-1 row names the three choices. Not run: the full suites (R).
 
 **Composable domains (ADR-032):** the change is to delivery only. Event definitions, the event
 store, identity, audit and the bulk APIs are untouched, so no door is affected.
+
+#### C17 record (2026-10-07)
+
+Implemented as planned, with the amendments from the check against the code; screenshots await the
+user's approval (the dialog's Delivery section at 1440px batched as CloudEvents and at 390px dark,
+the detail with Requests, Content and Format at both widths, a CloudEvents webhook's deliveries and
+an opened event whose request body is the batched array).
+
+- **Backend.** `models/commands.py`: `maxEventsPerBatch` (1–1,000, default 1) and `format` on create
+  and `PATCH`, `mode` and `debounceSeconds` gone (an unknown field, so `422`), `DeliveryResend.eventId`
+  required. `delivery.py`: `RequestFormat` writes a request's body and content type in either
+  format and fits a batch to 1 MiB measured in it; `cloudevent` and `events_source` fill the
+  attributes from the subscription and the event alone; `headers` takes the content type;
+  `coalesce_due` and `COALESCE_MAX_SECONDS` gone. `dispatcher.py`: `_next_batch` (was `_per_change`)
+  reads `max_events_per_batch` events; `_coalesced` gone; `_Batch` is one request (its events, body
+  and content type). `delivery_log.py`: `rows_of` takes the events the batch was built from, so the
+  rows are the same in both formats; `log_request` logs one request (the dispatcher's batch or a
+  resend). `resend.py`: `resend_body` tells the stored format from the body (an array, an object with
+  `specversion`, an object with `events`) and sends the event alone in its content type. Revision
+  `20261007_03` adds the two columns with the defaults, drops `mode`, `debounce_seconds` and
+  `consumer_webhook_requests.kind`, and deletes logged notice requests.
+- **Beyond the plan, stated here.** With notices gone, an event row always has an event ID, change,
+  type and object ID: the migration makes those four columns `NOT NULL`, and `DeliveryRow` and
+  `DeliveryEvent` answer them as strings, never `null` (a narrowing of the U5a contract, which
+  allowed `null` only for notices). In `volume_baseline`, the coalesced round is replaced by a batch
+  of 100 `full` events as CloudEvents, so `test_consumer_event_volume` still holds eleven
+  scenarios; it was not measured at full volume.
+- **Frontend.** `WebhookDialog`'s Delivery section: **Requests** ("One event per request" / "Batched"
+  with "Up to (events)", 2 to the capability's 1,000, and the cost line), **Content** ("With the
+  object" / "Notification only") and **Format** ("RDM JSON" / "CloudEvents 1.0", the help naming
+  the content type). The detail shows Requests, Content and Format (`webhookText` holds the labels
+  for both). `WebhookDeliveries` loses its notice branches; Settings › Deployment reads "Up to
+  1,000 events, 1 MiB". Types, the capabilities fixture and `api.resendDelivery` (an event ID
+  always) follow the contract. Built on the record-link revision another session finished in the
+  same files the same day.
+- **Tests the change made wrong**, changed: the J30 cases that assert batches of 100
+  (`test_j30_delivery`'s first, many-events and two-dispatcher cases, `test_j30_acceptance`'s
+  publish case, `test_j30_delivery_log`'s list and resend cases) subscribe with
+  `maxEventsPerBatch: 100` or 10, which keeps what each is about; J30.6's capability and create
+  assertions; `test_startup`'s head; the OpenAPI lock, re-baselined (renaming `maxEventsPerBatch`
+  back to `maxEvents` with the previous description gives the previous hash exactly, checked);
+  `WebhooksPage.test`'s fixtures, create and edit cases.
+- **Test cases.** All seven are written: 1–5 in `test_j30_delivery` and `test_j30_subscriptions`,
+  6 in `test_j30_delivery_log` (both content modes), 7 in `test_startup` (upgrade from
+  `20261007_02` with a coalesced subscription, a notice and an events request; the interrupted run
+  refused naming `format`; two starts; a downgrade); unit tests for both encoders, the fitting in
+  both formats and `resend_body`'s three shapes and `409`. **They were written beside the code, not
+  before it, so they were not confirmed failing first** as the plan asked. The coalesced and notice
+  cases are removed as listed.
+- **Checks.** Backend: `--journey J30` (86 passed after the acceptance case's batch size, 1 min 8 s),
+  `test_startup`, `test_openapi_contract`, `test_foreign_keys`, `test_boundaries` and
+  `tests/unit/test_config.py` (94 passed, 28 s), `tests/unit/engine/events` (all passed),
+  `test_consumer_event_volume` (2 passed, 19 s: the statements equal at both sizes, the CloudEvents
+  batch included), `ruff check`. Frontend: `vitest run` on settings and ui (79 passed), `tsc`,
+  `lint` (0 errors, the 7 recorded warnings), `build`. Browser: `test:browser:webhooks` (19 checks,
+  axe 0 violations on the list, detail, deliveries and dialog, light and dark), the record-link
+  step included. Not run: the full suites (R).
 
 ## Track V — API reference
 

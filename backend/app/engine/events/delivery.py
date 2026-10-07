@@ -1,11 +1,16 @@
 """What a webhook delivery is made of (Base 0.9 C12, CONSUMER_API "Delivery").
 
-The limits are constants, reported in ``GET /capabilities``: a per-change request holds at most
-``MAX_EVENTS`` events and ``MAX_BYTES`` of body, an event alone over the limit going alone, since
-skipping it would break the order (C-D104); a receiver answers within ``TIMEOUT_SECONDS``. A failed
-batch is retried after ``RETRY_WAITS`` (then hourly), each ±20 %, until ``RETRY_HOURS`` after its
-first failure (C-D103). A coalesced subscription is told once its newest matching event is
-``debounceSeconds`` old, or its oldest ``COALESCE_MAX_SECONDS`` old (C-D105).
+The limits are constants, reported in ``GET /capabilities``: a request holds at most the
+subscription's ``maxEventsPerBatch`` events (1 to ``MAX_EVENTS_PER_BATCH``) and ``MAX_BYTES`` of
+body, an event alone over the limit going alone, since skipping it would break the order (C-D104,
+C-D120, C-D121); a receiver answers within ``TIMEOUT_SECONDS``. A failed batch is retried after
+``RETRY_WAITS`` (then hourly), each ±20 %, until ``RETRY_HOURS`` after its first failure (C-D103).
+
+A request is written in the subscription's format (C17): RDM JSON, an envelope whose ``events``
+holds the batch, even an event alone; or CloudEvents 1.0, one structured event when the subscription
+sends one event per request, otherwise a batched array, also of one event (C-D125). A CloudEvent's
+attributes come from the subscription and the event alone, so a retry writes the same ones, and its
+``data`` is the RDM JSON event unchanged (C-D126).
 
 A request is signed with the subscription's ``signingSecret`` as the HMAC-SHA256 key, over
 ``"{RDM-Timestamp}.{body}"``, and sent as ``RDM-Signature: sha256=<hex>`` (C-D12). The body is the
@@ -17,20 +22,26 @@ import hmac
 import json
 import random
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from typing import Any
+from urllib.parse import quote
 from uuid import UUID
 
-MAX_EVENTS = 100
+from ...models import commands
+
+MAX_EVENTS_PER_BATCH = commands.MAX_EVENTS_PER_BATCH
 MAX_BYTES = 1024 * 1024
 TIMEOUT_SECONDS = 10.0
 RETRY_HOURS = 24
 RETRY_WAITS = (10, 30, 60, 120, 300, 600, 1800)
 LATER_WAIT = 3600
 JITTER = 0.2
-COALESCE_MAX_SECONDS = 600
 USER_AGENT = "rdm-engine"
+RDM_JSON = "application/json"
+CLOUDEVENT = "application/cloudevents+json; charset=utf-8"
+CLOUDEVENTS_BATCH = "application/cloudevents-batch+json; charset=utf-8"
 
 
 def retry_wait(attempts: int, draw: Callable[[], float] = random.random) -> timedelta:
@@ -42,14 +53,6 @@ def retry_wait(attempts: int, draw: Callable[[], float] = random.random) -> time
 def gives_up(failing_since: datetime, now: datetime) -> bool:
     """Whether a batch failing since ``failing_since`` has run out of retries at ``now``."""
     return now - failing_since >= timedelta(hours=RETRY_HOURS)
-
-
-def coalesce_due(oldest: datetime, newest: datetime, debounce_seconds: int, now: datetime) -> bool:
-    """Whether a coalesced subscription is told at ``now`` of events from ``oldest`` to ``newest``:
-    the changes paused for the debounce, or have gone on for the longest wait."""
-    return now - newest >= timedelta(seconds=debounce_seconds) or now - oldest >= timedelta(
-        seconds=COALESCE_MAX_SECONDS
-    )
 
 
 def _value(value: Any) -> Any:
@@ -64,21 +67,71 @@ def _value(value: Any) -> Any:
     raise TypeError(f"{type(value).__name__} is not JSON serializable")
 
 
-def encode(body: Mapping[str, Any]) -> bytes:
+def encode(body: Any) -> bytes:
     return json.dumps(body, default=_value, ensure_ascii=False, separators=(",", ":")).encode()
 
 
-def fitting(envelope: Mapping[str, Any], events: Sequence[Mapping[str, Any]], limit: int = MAX_BYTES) -> int:
-    """How many of ``events``, in order, fit in one body with ``envelope`` within ``limit`` bytes:
-    at least one."""
-    size = len(encode({**envelope, "events": []}))
-    count = 0
-    for event in events:
-        size += len(encode(event)) + (1 if count else 0)
-        if count and size > limit:
-            break
-        count += 1
-    return count
+def events_source(consumer_api: str, contract_version: int, workspace_key: str) -> str:
+    """A CloudEvent's ``source``: the relative path of the definition's events read in the
+    workspace, a URI-reference, since the engine knows no public base URL (C-D126)."""
+    return f"/api/consumer/{consumer_api}/v{contract_version}/events?workspace={quote(workspace_key, safe='')}"
+
+
+def cloudevent(event: Mapping[str, Any], source: str, subscription_id: str) -> dict[str, Any]:
+    """The RDM JSON ``event`` as a structured CloudEvent (C-D126)."""
+    return {
+        "specversion": "1.0",
+        "id": event["eventId"],
+        "source": source,
+        "type": f"rdm.{event['event']}.{event['change']}",
+        "subject": f"{event['objectType']}/{event['id']}",
+        "time": event["occurredAt"],
+        "datacontenttype": "application/json",
+        "rdmsubscription": subscription_id,
+        "data": event,
+    }
+
+
+@dataclass(frozen=True)
+class RequestFormat:
+    """How a subscription's requests are written: ``rdm`` or ``cloudevents``, one event per request
+    or ``batched``; ``envelope`` is the RDM JSON body's fields but the delivery ID and the events, and
+    ``source`` a CloudEvent's."""
+
+    format: str
+    batched: bool
+    envelope: Mapping[str, Any]
+    source: str
+
+    @property
+    def content_type(self) -> str:
+        if self.format == "rdm":
+            return RDM_JSON
+        return CLOUDEVENTS_BATCH if self.batched else CLOUDEVENT
+
+    def _items(self, events: Sequence[Mapping[str, Any]]) -> list[Any]:
+        if self.format == "rdm":
+            return list(events)
+        return [cloudevent(event, self.source, self.envelope["subscriptionId"]) for event in events]
+
+    def body(self, delivery_id: str, events: Sequence[Mapping[str, Any]]) -> Any:
+        """The request's body carrying ``events``: one of them unless ``batched``."""
+        items = self._items(events)
+        if self.format == "rdm":
+            return {"deliveryId": delivery_id, **self.envelope, "events": items}
+        return items if self.batched else items[0]
+
+    def fitting(self, events: Sequence[Mapping[str, Any]], limit: int = MAX_BYTES) -> int:
+        """How many of ``events``, in order, fit in one body within ``limit`` bytes: at least one."""
+        # An RDM envelope's delivery ID is a UUID: its length is the same whichever.
+        size = len(encode(self.body(str(UUID(int=0)), []))) if self.format == "rdm" else 2
+        count = 0
+        for item in self._items(events):
+            size += len(encode(item)) + (1 if count else 0)
+            if count and size > limit:
+                break
+            count += 1
+        return count
 
 
 def sign(secret: str, timestamp: int, body: bytes) -> str:
@@ -86,9 +139,9 @@ def sign(secret: str, timestamp: int, body: bytes) -> str:
     return f"sha256={digest.hexdigest()}"
 
 
-def headers(delivery_id: str, secret: str, timestamp: int, body: bytes) -> dict[str, str]:
+def headers(delivery_id: str, secret: str, timestamp: int, body: bytes, content_type: str = RDM_JSON) -> dict[str, str]:
     return {
-        "Content-Type": "application/json",
+        "Content-Type": content_type,
         "User-Agent": USER_AGENT,
         "RDM-Delivery-Id": delivery_id,
         "RDM-Timestamp": str(timestamp),

@@ -108,7 +108,8 @@ can complete the task in the application; "API" means another system can.
 - In Settings › **Integration**, read each consumer API the active release declares (its version,
   base URL, exposed types, lists and events), follow and cancel jobs beside the batch, job and feed
   limits, and open each API's reference. On **Webhooks**, subscribe a receiver to a consumer API's
-  events, keep the signing key shown once, and see whether delivery is going, why a subscription
+  events, one per request or batched, with the object or as a notification only, in RDM JSON or
+  CloudEvents 1.0; keep the signing key shown once, and see whether delivery is going, why a subscription
   stopped and what fixes it; edit, suspend, resume and delete subscriptions. Each webhook's
   **Deliveries** list what was sent, with each attempt, the request and the receiver's answer.
 

@@ -625,11 +625,13 @@ The audit log is the ordered source of the change feed and of consumer events (A
   subscription is handled by one at a time; four sender threads send them, so a slow receiver
   delays only its own subscription. One step per subscription checks, before sending, that its next
   events have not expired and its filter values still match a record, suspending it otherwise. It then reads the next events through the pull feed's read
-  (`reads/consumer_events.event_page`, which also bounds a read by an end key), cuts the batch at
-  100 events and 1 MiB, and commits it as pending (`pending_delivery_id`, `pending_position`,
+  (`reads/consumer_events.event_page`, which also bounds a read by an end key), at most the
+  subscription's `max_events_per_batch`, cuts the batch at 1 MiB measured in the subscription's
+  format, and commits it as pending (`pending_delivery_id`, `pending_position`,
   `pending_ordinal`) before sending, so a crash retries the same batch under the same ID; a retry
-  reads the range again and composes its objects anew. A coalesced subscription is decided from
-  the event store at each look (counts and times per event key), with no timer. No transaction is
+  reads the range again and composes its objects anew. A batch is one request, written by
+  `delivery.RequestFormat`: an RDM JSON envelope, or CloudEvents (one structured event, or a
+  batched array), whose attributes come from the subscription and the event alone. No transaction is
   open during a request, and no row lock: the row is locked only to record the outcome, under the
   lease. A `2xx` moves the acknowledged key; a failure records `attempts`, `failing_since`,
   `last_error` and `next_attempt_at` (`delivery.retry_wait`), and suspends after 24 hours. Delivery
@@ -638,8 +640,8 @@ The audit log is the ordered source of the change feed and of consumer events (A
   with the host name for TLS, follows no redirect and reads at most 4 KiB of the answer. The
   signing key is unsealed for each send and not kept.
 - **Delivery log** (`engine/events/delivery_log.py`, 0.9 U5a). The dispatcher writes it as it
-  works, each step a fixed number of statements: when a batch is committed as pending, a
-  `consumer_webhook_requests` row per body (`queued`) with its events in
+  works, each step a fixed number of statements: when a batch is committed as pending, its
+  `consumer_webhook_requests` row (`queued`) with its events, as the pull feed has them, in
   `consumer_webhook_request_events` (one multi-row insert); in the lease renewal before each send,
   the request's body and `sending`, and a `consumer_webhook_attempts` row with its start (the
   dispatcher's clock); after the answer, the attempt's completion (start plus the monotonic

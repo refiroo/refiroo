@@ -10,12 +10,12 @@ subscriptions are sent by four senders, each one at a time, so a slow receiver d
 **One step** (``dispatch_one``). A subscription whose next events expired is suspended
 ``EVENTS_EXPIRED`` (C-D110); one with
 a filter value no record matches any longer, ``FILTER_MATCHES_NOTHING``, before anything is sent
-(C-D109). Otherwise it builds the batch: the next events after the acknowledged position, read as
-the pull feed reads them with the subscription's events, filters and payload, at most 100 and 1 MiB
-(per change); or, once the changes paused, one notice per event (coalesced, C-D105). Events none of
-which it takes move the acknowledged position without a request. The batch is stored as pending,
-its delivery ID and the key it ends at, before it is sent, so a crash retries the same batch; each
-attempt reads its range again and composes the objects anew (C-D111).
+(C-D109). Otherwise it builds the batch, one request: the next events after the acknowledged
+position, read as the pull feed reads them with the subscription's events, filters and payload, at
+most its ``maxEventsPerBatch`` and 1 MiB, written in its format (C17). Events none of which it takes
+move the acknowledged position without a request. The batch is stored as pending, its delivery ID
+and the key it ends at, before it is sent, so a crash retries the same batch; each attempt reads its
+range again and composes the objects anew (C-D111).
 
 **Outcome.** A ``2xx`` moves the acknowledged position to the batch's end and clears the failures.
 Anything else records the attempt, the error and the next attempt (C-D103); 24 hours after the
@@ -34,11 +34,11 @@ import time
 import uuid
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import distinct, exists, func, or_, select, tuple_, update
+from sqlalchemy import exists, or_, select, tuple_, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -52,14 +52,7 @@ from ...models.database import (
 )
 from ...models.schema import ConsumerApiDefinition, EngineModel
 from ..model.registry import resolve_model_snapshot
-from ..reads.consumer_events import (
-    AFTER_POSITION,
-    EventsRequest,
-    EventWindow,
-    event_filters,
-    event_page,
-    event_window,
-)
+from ..reads.consumer_events import EventsRequest, EventWindow, event_page, event_window
 from ..reads.consumer_parameters import unmatched_values
 from ..reads.consumer_source import ConsumerSource
 from . import delivery, delivery_log
@@ -71,13 +64,7 @@ from .subscription_rules import (
     SUSPENDED,
     definition_of,
 )
-from .subscriptions import (
-    DEFAULT_DEBOUNCE_SECONDS,
-    SubscriptionSettings,
-    clear_delivery,
-    expired_details,
-    secret_text,
-)
+from .subscriptions import SubscriptionSettings, clear_delivery, expired_details, secret_text
 from .webhook_client import Answer, post
 
 logger = logging.getLogger(__name__)
@@ -93,13 +80,16 @@ PRUNE_EVERY = timedelta(hours=1)
 Key = tuple[int, int]
 
 
-@dataclass
+@dataclass(frozen=True)
 class _Batch:
-    """What one step sends: the requests (each a delivery ID and a body) and where the batch ends."""
+    """What one step sends: one request, its delivery ID, the events it carries (as the pull feed
+    has them), its body and content type, and where the batch ends."""
 
     delivery_id: str
     end: Key
-    bodies: list[tuple[str, dict[str, Any]]] = field(default_factory=list)
+    events: list[dict[str, Any]]
+    body: Any
+    content_type: str
 
 
 class EventDispatcher:
@@ -216,16 +206,13 @@ class EventDispatcher:
             if stopped is not None:
                 reason, message, details = stopped
                 return self._suspend(session, sequence_id, reason, message, details, now)
-            if subscription.mode == "coalesced":
-                batch = self._coalesced(session, subscription, model, definition, workspace, window, now)
-            else:
-                batch = self._per_change(session, subscription, model, definition, workspace)
+            batch = self._next_batch(session, subscription, model, definition, workspace)
             if not isinstance(batch, _Batch):
                 session.commit()
                 return batch
             subscription.pending_delivery_id = batch.delivery_id
             subscription.pending_position, subscription.pending_ordinal = batch.end
-            delivery_log.open_batch(session, sequence_id, batch.delivery_id, batch.bodies, now)
+            delivery_log.open_batch(session, sequence_id, batch.delivery_id, batch.events, now)
             url = subscription.url
             secret = secret_text(
                 unseal(self.settings.encryption_key, subscription.signing_key, subscription.public_id.encode())
@@ -279,7 +266,7 @@ class EventDispatcher:
                 )
         return None
 
-    def _per_change(
+    def _next_batch(
         self,
         session: Session,
         subscription: ConsumerSubscription,
@@ -293,7 +280,7 @@ class EventDispatcher:
         pending = _pending(subscription)
         request = EventsRequest(
             start=start,
-            page_size=delivery.MAX_EVENTS,
+            page_size=subscription.max_events_per_batch,
             payload=subscription.payload,
             event_keys=tuple(subscription.event_keys),
             parameters=subscription.filters,
@@ -310,115 +297,33 @@ class EventDispatcher:
         if not page.items:
             return _acknowledge(subscription, page.last)
         delivery_id = subscription.pending_delivery_id or str(uuid.uuid4())
-        envelope = _envelope(subscription, delivery_id)
-        count = delivery.fitting(envelope, page.items)
+        written = request_format(subscription)
+        count = written.fitting(page.items)
         end = page.last if count == len(page.items) else page.keys[count - 1]
-        return _Batch(delivery_id, end, [(delivery_id, {**envelope, "events": page.items[:count]})])
-
-    def _coalesced(
-        self,
-        session: Session,
-        subscription: ConsumerSubscription,
-        model: EngineModel,
-        definition: ConsumerApiDefinition,
-        workspace: Workspace,
-        window: EventWindow,
-        now: datetime,
-    ) -> _Batch | bool:
-        """One notice per event once the changes paused, through the newest event counted (C-D105);
-        ``False`` while they go on."""
-        event = ConsumerEvent
-        start = (subscription.acknowledged_position, subscription.acknowledged_ordinal)
-        pending = _pending(subscription)
-        ceiling = pending if pending is not None else (window.head, AFTER_POSITION)
-        filters, _narrowed = event_filters(
-            session, model, definition, workspace.key, subscription.event_keys, subscription.filters
-        )
-        scope = (
-            event.workspace_key == workspace.key,
-            event.consumer_api == definition.key,
-            tuple_(event.position, event.ordinal) > tuple_(*start),
-            tuple_(event.position, event.ordinal) <= tuple_(*ceiling),
-            *filters,
-        )
-        counted = session.execute(
-            select(
-                event.event_key,
-                func.count(),
-                func.min(event.position),
-                func.max(event.position),
-                func.min(event.occurred_at),
-                func.max(event.occurred_at),
-                func.array_agg(distinct(event.object_type)),
-            )
-            .where(*scope)
-            .group_by(event.event_key)
-        ).all()
-        if not counted:
-            return _acknowledge(subscription, ceiling)
-        if pending is None:
-            oldest = min(row[4] for row in counted)
-            newest = max(row[5] for row in counted)
-            if not delivery.coalesce_due(oldest, newest, subscription.debounce_seconds or DEFAULT_DEBOUNCE_SECONDS, now):
-                return False
-            last = session.execute(
-                select(event.position, event.ordinal)
-                .where(*scope)
-                .order_by(event.position.desc(), event.ordinal.desc())
-                .limit(1)
-            ).one()
-            end: Key = (last.position, last.ordinal)
-        else:
-            end = pending
-        delivery_id = subscription.pending_delivery_id or str(uuid.uuid4())
-        batch = _Batch(delivery_id, end)
-        for key, count, first, latest, occurred_from, occurred_to, types in sorted(
-            counted, key=lambda row: (row[2], row[0])
-        ):
-            notice_id = str(uuid.uuid5(uuid.UUID(delivery_id), key))
-            envelope = _envelope(subscription, notice_id)
-            batch.bodies.append(
-                (
-                    notice_id,
-                    {
-                        **envelope,
-                        "event": key,
-                        "fromPosition": first,
-                        "toPosition": latest,
-                        "eventCount": count,
-                        "objectTypes": sorted(types),
-                        "occurredFrom": occurred_from,
-                        "occurredTo": occurred_to,
-                    },
-                )
-            )
-        return batch
+        events = page.items[:count]
+        return _Batch(delivery_id, end, events, written.body(delivery_id, events), written.content_type)
 
     # --- sending and recording --------------------------------------------------------------------
 
     def _send(self, sequence_id: int, url: str, secret: str, batch: _Batch, now: datetime) -> Answer:
-        """Send the batch's requests in order, renewing the lease before each; the first failure, or
-        the last success."""
-        answer = Answer(None, None)
-        for delivery_id, body in batch.bodies:
-            # A round's clock may lag behind a long round's later sends; a test's runs ahead.
-            at = max(now, datetime.now(UTC))
-            data = delivery.encode(body)
-            started = self._renew(sequence_id, at, (delivery_id, data))
-            timestamp = int(at.timestamp())
-            clock = time.monotonic()
-            answer = post(
-                url, data, delivery.headers(delivery_id, secret, timestamp, data), timeout=self.timeout_seconds
-            )
-            elapsed = timedelta(seconds=time.monotonic() - clock)
-            if started is not None:
-                with self.session_factory() as session:
-                    delivery_log.finish_attempt(
-                        session, started, answer, at + elapsed, int(elapsed.total_seconds() * 1000)
-                    )
-                    session.commit()
-            if not answer.ok:
-                return answer
+        """Send the batch's request, renewing the lease first; the receiver's answer."""
+        # A round's clock may lag behind a long round's sends; a test's runs ahead.
+        at = max(now, datetime.now(UTC))
+        data = delivery.encode(batch.body)
+        started = self._renew(sequence_id, at, (batch.delivery_id, data))
+        timestamp = int(at.timestamp())
+        clock = time.monotonic()
+        answer = post(
+            url,
+            data,
+            delivery.headers(batch.delivery_id, secret, timestamp, data, batch.content_type),
+            timeout=self.timeout_seconds,
+        )
+        elapsed = timedelta(seconds=time.monotonic() - clock)
+        if started is not None:
+            with self.session_factory() as session:
+                delivery_log.finish_attempt(session, started, answer, at + elapsed, int(elapsed.total_seconds() * 1000))
+                session.commit()
         return answer
 
     def _renew(
@@ -608,14 +513,21 @@ def _acknowledge(subscription: ConsumerSubscription, through: Key) -> bool:
     return moved
 
 
-def _envelope(subscription: ConsumerSubscription, delivery_id: str) -> dict[str, Any]:
-    return {
-        "deliveryId": delivery_id,
-        "subscriptionId": subscription.public_id,
-        "consumerApi": subscription.consumer_api,
-        "contractVersion": subscription.contract_version,
-        "workspaceKey": subscription.workspace_key,
-    }
+def request_format(subscription: ConsumerSubscription) -> delivery.RequestFormat:
+    """How the subscription's requests are written (C17)."""
+    return delivery.RequestFormat(
+        format=subscription.format,
+        batched=subscription.max_events_per_batch > 1,
+        envelope={
+            "subscriptionId": subscription.public_id,
+            "consumerApi": subscription.consumer_api,
+            "contractVersion": subscription.contract_version,
+            "workspaceKey": subscription.workspace_key,
+        },
+        source=delivery.events_source(
+            subscription.consumer_api, subscription.contract_version, subscription.workspace_key
+        ),
+    )
 
 
 def _locked(session: Session, sequence_id: int) -> ConsumerSubscription | None:

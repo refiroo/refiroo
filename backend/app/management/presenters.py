@@ -395,9 +395,9 @@ def subscription_response(item: ConsumerSubscription, secret: str | None = None)
         events=list(item.event_keys),
         filters={name: list(values) for name, values in item.filters.items()},
         url=item.url,
-        mode=item.mode,
-        debounceSeconds=item.debounce_seconds,
+        maxEventsPerBatch=item.max_events_per_batch,
         payload=item.payload,
+        format=item.format,
         status=item.status,
         suspension=None
         if item.suspension_reason is None or item.suspended_at is None
@@ -475,7 +475,6 @@ def delivery_detail_response(found: dict[str, Any]) -> DeliveryDetail:
     return DeliveryDetail(
         deliveryId=request.delivery_id,
         batchId=request.batch_id,
-        kind=request.kind,
         status=request.status,
         events=[
             DeliveryEvent(

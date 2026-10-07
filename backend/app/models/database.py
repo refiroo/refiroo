@@ -1097,8 +1097,11 @@ class ConsumerSubscription(Base):
 
     __tablename__ = "consumer_subscriptions"
     __table_args__ = (
-        CheckConstraint("mode IN ('perChange', 'coalesced')", name="ck_consumer_subscription_mode"),
+        CheckConstraint(
+            "max_events_per_batch BETWEEN 1 AND 1000", name="ck_consumer_subscription_max_events_per_batch"
+        ),
         CheckConstraint("payload IN ('full', 'identity')", name="ck_consumer_subscription_payload"),
+        CheckConstraint("format IN ('rdm', 'cloudevents')", name="ck_consumer_subscription_format"),
         CheckConstraint("status IN ('active', 'suspended')", name="ck_consumer_subscription_status"),
         Index("ix_consumer_subscriptions_api", "consumer_api", "sequence_id"),
         Index("ix_consumer_subscriptions_workspace", "workspace_key", "sequence_id"),
@@ -1119,9 +1122,11 @@ class ConsumerSubscription(Base):
     event_keys: Mapped[list[str]] = mapped_column(JSON, nullable=False)
     filters: Mapped[dict[str, list[str]]] = mapped_column(JSON, nullable=False, default=dict)
     url: Mapped[str] = mapped_column(String(2048), nullable=False)
-    mode: Mapped[str] = mapped_column(String(20), nullable=False)
-    debounce_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # How requests are made (C17): at most this many events each, with each object or its identity,
+    # in RDM JSON or CloudEvents.
+    max_events_per_batch: Mapped[int] = mapped_column(Integer, nullable=False)
     payload: Mapped[str] = mapped_column(String(20), nullable=False)
+    format: Mapped[str] = mapped_column(String(20), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
     suspension_reason: Mapped[str | None] = mapped_column(String(40), nullable=True)
     suspension_message: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -1158,15 +1163,14 @@ WEBHOOK_REQUEST_STATUSES = ("queued", "sending", "retrying", "succeeded", "faile
 
 
 class ConsumerWebhookRequest(Base):
-    """One request of a webhook batch (U5a, C-D116): a per-change batch is one request, a
-    coalesced batch one per notice. ``delivery_id`` is the request's ``RDM-Delivery-Id``,
-    ``batch_id`` the batch's (the subscription's ``pending_delivery_id`` while it is retried).
+    """One request of a webhook batch (U5a, C-D116): a batch is one request, so ``delivery_id``, the
+    request's ``RDM-Delivery-Id``, is also ``batch_id``, the subscription's ``pending_delivery_id``
+    while it is retried; a resend (C-D129) is a batch of its own.
     ``request_body`` is the text of the latest attempt's body exactly as sent. Removed with its
     subscription, and after ``CONSUMER_WEBHOOK_LOG_RETENTION_DAYS`` (C-D118)."""
 
     __tablename__ = "consumer_webhook_requests"
     __table_args__ = (
-        CheckConstraint("kind IN ('events', 'notice')", name="ck_consumer_webhook_request_kind"),
         CheckConstraint(
             "status IN ('queued', 'sending', 'retrying', 'succeeded', 'failed', 'dropped')",
             name="ck_consumer_webhook_request_status",
@@ -1182,7 +1186,6 @@ class ConsumerWebhookRequest(Base):
     )
     delivery_id: Mapped[str] = mapped_column(String(36), nullable=False)
     batch_id: Mapped[str] = mapped_column(String(36), nullable=False)
-    kind: Mapped[str] = mapped_column(String(10), nullable=False)
     status: Mapped[str] = mapped_column(String(10), nullable=False)
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     request_body: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -1195,8 +1198,8 @@ class ConsumerWebhookRequest(Base):
 
 
 class ConsumerWebhookRequestEvent(Base):
-    """An event a request carries, or, for a notice, the notice itself (no event or object ID):
-    one row of a subscription's deliveries (C-D119). ``ordinal`` orders them within the request."""
+    """An event a request carries: one row of a subscription's deliveries (C-D119). ``ordinal``
+    orders them within the request."""
 
     __tablename__ = "consumer_webhook_request_events"
 
@@ -1204,11 +1207,11 @@ class ConsumerWebhookRequestEvent(Base):
         ForeignKey("consumer_webhook_requests.sequence_id", ondelete="CASCADE"), primary_key=True
     )
     ordinal: Mapped[int] = mapped_column(Integer, primary_key=True)
-    event_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    event_id: Mapped[str] = mapped_column(String(36), nullable=False)
     event_key: Mapped[str] = mapped_column(String(160), nullable=False)
-    change: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    object_type: Mapped[str | None] = mapped_column(String(300), nullable=True)
-    object_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    change: Mapped[str] = mapped_column(String(20), nullable=False)
+    object_type: Mapped[str] = mapped_column(String(300), nullable=False)
+    object_id: Mapped[str] = mapped_column(String(36), nullable=False)
     position: Mapped[int] = mapped_column(Integer, nullable=False)
 
 

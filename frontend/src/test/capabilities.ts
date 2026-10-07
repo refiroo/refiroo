@@ -34,7 +34,7 @@ export function capabilitiesFixture({
       manageSubscriptions: false,
       logRetentionDays: 7,
       delivery: {
-        maxEvents: 100,
+        maxEventsPerBatch: 1000,
         maxBytes: 1024 * 1024,
         timeoutSeconds: 10,
         retryWaitsSeconds: [10, 60],

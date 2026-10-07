@@ -2177,6 +2177,14 @@ and `ui` (79), `format`, `lint` (0 errors), `build`; `test:browser:webhooks` (17
 through the confirmation reaching the receiver with the same event, a new delivery ID and
 `RDM-Redelivery: manual`). Not run: the full suites, `test:a11y`, `test:visual`.
 
+**Revision: the object's record (2026-10-07, the user).** The object ID in the deliveries list and
+in the opened event links to the record: the type found from the event's public name through the
+consumer API's `objectTypes`, the first application showing that type, the webhook's workspace.
+No link for a notice, a deleted record or a type the active release no longer exposes. Checks: the
+Webhooks unit tests (14, the link's route and its absence for a deleted record), settings and `ui`
+(79), `lint`, `build`. The runner's new check (the link opening the record) could not run: the
+backend under test was mid-change by C17's session.
+
 ### Exit by 1.0
 
 - Every administrative, integration and security object a route manages has a settings page, and

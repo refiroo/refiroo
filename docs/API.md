@@ -199,7 +199,7 @@ Capabilities return deployment-supported operations explicitly:
   "consumerSubscriptions": {
     "manageSubscriptions": false,
     "delivery": {
-      "maxEvents": 100, "maxBytes": 1048576, "timeoutSeconds": 10.0,
+      "maxEventsPerBatch": 1000, "maxBytes": 1048576, "timeoutSeconds": 10.0,
       "retryWaitsSeconds": [10, 30, 60, 120, 300, 600, 1800], "laterWaitSeconds": 3600,
       "retryHours": 24
     },
@@ -2616,10 +2616,11 @@ deployment data, not part of a model release. [Delivery](#webhook-delivery-base-
 The create body names `name` (1–200 characters once trimmed, not unique, U5a), `consumerApi`,
 `events` (at least one) and `url`, and optionally
 `workspaceKey` (the default workspace, resolved and stored), `filters` (definition parameters, each a
-text or a list of texts), `mode` (`perChange`, default, or `coalesced`), `debounceSeconds`
-(`coalesced` only, 1–600, default 60), `payload` (`full`, default, or `identity`) and `startAfter`.
-`PATCH` takes `expectedVersion` with any of `name`, `events`, `filters`, `url`, `mode`,
-`debounceSeconds` and `payload`; the consumer API and workspace are not edited, and a batch being
+text or a list of texts), how requests are made (C17): `maxEventsPerBatch` (1–1,000, default 1: one
+event per request), `payload` (`full`, default, each event with its object; or `identity`, the
+notification only) and `format` (`rdm`, default, or `cloudevents`), and `startAfter`.
+`PATCH` takes `expectedVersion` with any of `name`, `events`, `filters`, `url`, `maxEventsPerBatch`,
+`payload` and `format`; the consumer API and workspace are not edited, and a batch being
 retried is dropped (the next attempt is at once) unless only the name changed. `suspend` takes `expectedVersion`; `resume` takes `expectedVersion`
 and `reset` (default false).
 
@@ -2628,7 +2629,7 @@ and `reset` (default false).
   "id": "…", "name": "Billing system", "consumerApi": "rdm", "contractVersion": 1, "workspaceKey": "main",
   "events": ["reference-data-changed"], "filters": { "type": ["Location"] },
   "url": "https://integration.example.com/hooks/rdm",
-  "mode": "perChange", "debounceSeconds": null, "payload": "full",
+  "maxEventsPerBatch": 1, "payload": "full", "format": "rdm",
   "status": "suspended",
   "suspension": { "reason": "MODEL_CHANGED", "message": "…", "suspendedAt": "…",
                   "details": { "errors": [{ "code": "UNKNOWN_EVENT", "message": "…", "pointer": "/events/0" }] } },
@@ -2683,15 +2684,14 @@ and `reset` (default false).
 | 409 | `SUBSCRIPTION_ALREADY_SUSPENDED`, `SUBSCRIPTION_NOT_SUSPENDED` | suspend or resume in the wrong state |
 | 409 | `SUBSCRIPTION_NEEDS_EDIT`, `EVENTS_EXPIRED` | resume, above |
 | 409 / 410 | `EVENT_POSITION_AHEAD` / `EVENTS_EXPIRED` | `startAfter`, at `/startAfter` |
-| 422 | `REQUEST_VALIDATION_ERROR` | the body's shape, or `debounceSeconds` without `coalesced` |
+| 422 | `REQUEST_VALIDATION_ERROR` | the body's shape: an unknown field (also the retired `mode` and `debounceSeconds`), `maxEventsPerBatch` outside 1–1,000, an unknown `format` |
 
 Every refusal changes nothing. Edits, suspensions, resumes and deletions write no audit entry.
 
 #### The delivery log (Base 0.9 U5a)
 
-The dispatcher logs every request it sends (C-D116): a per-change batch is one request, a coalesced
-one a request per notice. `GET …/deliveries` lists one row per event of a request, or one per notice
-(`eventId` and `objectId` `null`), newest first; rows of one request share its outcome, since
+The dispatcher logs every request it sends (C-D116); a batch is one request. `GET …/deliveries`
+lists one row per event of a request, newest first; rows of one request share its outcome, since
 delivery is per request (C-D119):
 
 ```json
@@ -2707,9 +2707,9 @@ for a resume), `succeeded`, `failed` (the subscription was suspended `DELIVERY_F
 `sentAt` are the latest attempt's; `nextAttemptAt` is set while the batch waits for a retry. The
 list narrows by `status`.
 
-`GET …/deliveries/{deliveryId}` answers the request: `deliveryId`, `batchId`, `kind` (`events` or
-`notice`), `status`, `events`, `requestBody` (the JSON of the latest attempt as the receiver got
-it, C-D117; `null` before the first), `requestBytes`, `createdAt`, `nextAttemptAt` and `attempts`,
+`GET …/deliveries/{deliveryId}` answers the request: `deliveryId`, `batchId`, `status`, `events`,
+`requestBody` (the JSON of the latest attempt as the receiver got it, in the subscription's format
+then, C-D117; `null` before the first), `requestBytes`, `createdAt`, `nextAttemptAt` and `attempts`,
 each `number`, `startedAt`, `completedAt`, `durationMs`, `responseStatus`, `error` (`kind` and
 `message`, or `null`) and `responseBody` (up to 4 KiB of the answer). An unknown ID is
 `404 DELIVERY_NOT_FOUND`, an unknown subscription `404 SUBSCRIPTION_NOT_FOUND`.
@@ -2720,9 +2720,11 @@ longer. A deleted subscription's go with it.
 
 ##### Resending by hand
 
-`POST …/deliveries/{deliveryId}/resend` with `{"eventId": "…"}` (for a notice, `{}`) sends that
-event again exactly as it was sent in that request, taken from the stored body, alone in a new
-request with a new `deliveryId` and a fresh signature (C-D129). It keeps the `eventId` and adds the
+`POST …/deliveries/{deliveryId}/resend` with `{"eventId": "…"}` (required) sends that event again
+exactly as it was sent in that request, taken from the stored body, alone in a new request with a
+new `deliveryId` and a fresh signature (C-D129). It keeps the request's format, even when the
+subscription's was edited since: an RDM JSON envelope with the one event, a structured CloudEvent,
+or a CloudEvents batch of one (C17). It keeps the `eventId` and adds the
 header `RDM-Redelivery: manual`, so a receiver that deduplicates by `eventId` can decide to process
 it again (C-D130). It is sent during the call, one attempt with no retry, on any subscription,
 suspended ones included; the answer is the new request (`succeeded` or `failed`) with `resendOf`
@@ -2732,7 +2734,7 @@ alone (C-D131). Rows and details carry `resendOf` (`null` for the dispatcher's r
 | Status | Code | When |
 |---|---|---|
 | 404 | `SUBSCRIPTION_NOT_FOUND`, `DELIVERY_NOT_FOUND` | the IDs |
-| 404 | `EVENT_NOT_IN_DELIVERY` | the event was not sent in that request, or an event was named for a notice |
+| 404 | `EVENT_NOT_IN_DELIVERY` | the event was not sent in that request |
 | 409 | `DELIVERY_NOT_SENT` | the request was never sent (`queued`), so nothing can be repeated |
 
 ### Webhook delivery (Base 0.9 C12)
@@ -2741,10 +2743,14 @@ While `CONSUMER_SUBSCRIPTIONS_ENABLED` is on, every active subscription's events
 URL, in position order, one request at a time per subscription; the next goes after the previous is
 acknowledged. [CONSUMER_API "Delivery"](CONSUMER_API.md#delivery) explains each rule.
 
-**Per change** (`mode: perChange`): up to 100 events and at most 1 MiB of body per request; an event
-alone over 1 MiB is sent alone. Each event is the pull feed's item, with the object as get by ID
-answers it under the subscription's filters (`payload: full`) or without it (`identity`); an object
-deleted since it changed has none.
+**Requests** (C17): one event per request (`maxEventsPerBatch: 1`, the default), or batched, up to
+`maxEventsPerBatch` events. A request also stops at 1 MiB of body; an event alone over 1 MiB is
+sent alone. A batch holds what is waiting when it is sent and never waits to fill up. With one event
+per request, a bulk change is that many requests in a row, so batch for bulk changes. Each event is
+the pull feed's item, with the object as get by ID answers it under the subscription's filters
+(`payload: full`) or the notification only (`identity`); an object deleted since it changed has none.
+
+**RDM JSON** (`format: rdm`): an envelope with 1 to `maxEventsPerBatch` events, also for one.
 
 ```json
 {
@@ -2760,17 +2766,19 @@ deleted since it changed has none.
 }
 ```
 
-**Coalesced** (`mode: coalesced`): one request per subscribed event once its newest matching event
-is `debounceSeconds` old, or its oldest 10 minutes old; each with its own `deliveryId`.
+**CloudEvents 1.0** (`format: cloudevents`), in the HTTP binding's structured mode: with one event
+per request, one CloudEvent (`application/cloudevents+json; charset=utf-8`); batched, a JSON array
+of them (`application/cloudevents-batch+json; charset=utf-8`), also when a batch holds one event.
+`data` is the RDM JSON event unchanged.
 
 ```json
 {
-  "deliveryId": "…", "subscriptionId": "…",
-  "consumerApi": "rdm", "contractVersion": 1, "workspaceKey": "main",
-  "event": "reference-data-changed",
-  "fromPosition": 184100, "toPosition": 184223, "eventCount": 124,
-  "objectTypes": ["TimetableType", "Location"],
-  "occurredFrom": "…", "occurredTo": "…"
+  "specversion": "1.0", "id": "<eventId>",
+  "source": "/api/consumer/rdm/v1/events?workspace=main",
+  "type": "rdm.reference-data-changed.updated", "subject": "TimetableType/<id>",
+  "time": "<occurredAt>", "datacontenttype": "application/json",
+  "rdmsubscription": "<subscriptionId>",
+  "data": { "eventId": "…", "position": 184223, "event": "reference-data-changed", "…": "…" }
 }
 ```
 
@@ -2778,12 +2786,12 @@ is `debounceSeconds` old, or its oldest 10 minutes old; each with its own `deliv
 
 | Header | Value |
 |---|---|
-| `Content-Type` | `application/json` (UTF-8, compact) |
+| `Content-Type` | `application/json` (RDM JSON), or the CloudEvents type above; the body is compact UTF-8 JSON |
 | `User-Agent` | `rdm-engine` |
-| `RDM-Delivery-Id` | the body's `deliveryId`; the same on every retry of a batch |
+| `RDM-Delivery-Id` | the request's delivery ID (an RDM JSON body's `deliveryId`); the same on every retry of a batch |
 | `RDM-Timestamp` | Unix seconds, new on every attempt |
 | `RDM-Redelivery` | `manual` on a resend by hand (U5a); absent otherwise |
-| `RDM-Signature` | `sha256=` and the lowercase hex HMAC-SHA256 of `"{RDM-Timestamp}.{body}"`, keyed with the `signingSecret` exactly as the create answered it |
+| `RDM-Signature` | `sha256=` and the lowercase hex HMAC-SHA256 of `"{RDM-Timestamp}.{body}"`, keyed with the `signingSecret` exactly as the create answered it; it covers a CloudEvent's attributes too |
 
 **The receiver's answer:** any `2xx` acknowledges. Anything else fails the attempt: another status, a
 redirect (not followed), no answer within 10 s, a connection or TLS failure, or a refused address

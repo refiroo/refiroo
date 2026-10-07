@@ -530,7 +530,10 @@ Measured once at full volume (110,254 objects; 2026-10-06) with the same run as 
 `localhost` that answers `200` at once, so the times are the engine's, with one local HTTP exchange
 per batch. A batch is the dispatcher's claim, its step and the acknowledgement (warm median of three
 batches · statements · ORM rows). `test_consumer_event_volume` holds the statements of the claim, a
-batch of each payload and the coalesced round at two sizes (C-D113).
+batch of each payload and the coalesced round at two sizes (C-D113). Since 0.9 C17 the batches
+are subscriptions batching up to 100 (a subscription sends one event per request by default), and
+the coalesced round, retired with its mode, is replaced by a batch of 100 `full` events as
+CloudEvents, held for its statements at two sizes; it was not measured at full volume.
 
 | Step | Live | Budget (C-D113) |
 | --- | --- | --- |
@@ -539,7 +542,7 @@ batch of each payload and the coalesced round at two sizes (C-D113).
 | A batch of 100 events, `identity` | 22.4 ms · 20 · 105 | — |
 | The whole rename to one subscription, `full` (201 batches) | 5,755 ms · 4,825 · 20,586 | 30 s |
 | The whole rename to one subscription, `identity` (201 batches) | 4,033 ms · 4,021 · 20,586 | — |
-| A coalesced round over the 20,001 events | 34.6 ms · 15 · 5 | — |
+| A coalesced round over the 20,001 events (retired in C17) | 34.6 ms · 15 · 5 | — |
 
 Every step is within its budget: one subscription takes about 3,500 `full` events a second (about
 5,000 with `identity`). A batch's statements do not grow with the data (24 and 20 at every size); the

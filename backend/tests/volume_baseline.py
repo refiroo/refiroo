@@ -22,7 +22,7 @@ import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -801,8 +801,9 @@ def delivery_scenarios(
     with ``caught_up`` caught-up subscriptions (one statement however many), which every process runs once a second. Then a ``full`` and an
     ``identity`` subscription starting just before the rename: one batch of 100 (the claim, the step
     and the acknowledgement, the receiver's answer included) ``repeat`` times after a warm-up, then
-    the rest of the events, reported with the batches as the whole delivery. Last, one coalesced
-    round over every event. The application's dispatcher thread is off; each step runs here."""
+    the rest of the events, reported with the batches as the whole delivery. Last, one batch of 100
+    ``full`` events as CloudEvents (C17). The application's dispatcher thread is off; each step runs
+    here."""
     dispatcher = client.app.state.consumer_dispatcher
     assert dispatcher is not None, "the delivery scenarios need the subscriptions capability on"
     receiver = _Receiver()
@@ -853,7 +854,7 @@ def delivery_scenarios(
             remove(subscription)
 
         for payload in ("full", "identity"):
-            subscription = subscribe(payload=payload, startAfter=position - 1)
+            subscription = subscribe(payload=payload, maxEventsPerBatch=EVENT_PAGE, startAfter=position - 1)
             sent = receiver.requests
             timings, total_ms, total_statements = [], 0.0, 0
             for run in range(repeat + 1):
@@ -887,13 +888,18 @@ def delivery_scenarios(
             )
             remove(subscription)
 
-        subscription = subscribe(mode="coalesced", debounceSeconds=1, startAfter=position - 1)
+        subscription = subscribe(maxEventsPerBatch=EVENT_PAGE, format="cloudevents", startAfter=position - 1)
         sent = receiver.requests
-        claimed, cost = step(datetime.now(UTC) + timedelta(minutes=11))
+        claimed, cost = step(datetime.now(UTC))
         assert len(claimed) == 1 and receiver.requests == sent + 1
         results.append(
             Measurement(
-                "live", "delivery: a coalesced round over the rename", 200, cost.seconds * 1000, cost.statements, cost.rows_loaded
+                "live",
+                f"delivery: a batch of {EVENT_PAGE}, full, CloudEvents",
+                200,
+                cost.seconds * 1000,
+                cost.statements,
+                cost.rows_loaded,
             )
         )
         remove(subscription)

@@ -36,7 +36,8 @@ export interface IntegrationJobCapabilities {
 }
 
 export interface WebhookDeliveryLimits {
-  maxEvents: number;
+  /** The most events a subscription may batch in a request. */
+  maxEventsPerBatch: number;
   maxBytes: number;
   timeoutSeconds: number;
   retryWaitsSeconds: number[];

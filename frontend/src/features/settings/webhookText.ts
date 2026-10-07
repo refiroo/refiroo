@@ -1,6 +1,7 @@
 /**
  * How the Webhooks page words a subscription: its state, why it is suspended and what fixes it
- * (API.md, "Suspension reasons"), a failed attempt, and an event's declaration from the model.
+ * (API.md, "Suspension reasons"), how its requests are made, a failed attempt, and an event's
+ * declaration from the model.
  */
 
 import type { ConsumerEventDeclaration, DeliveryError, EngineModel, Subscription, SuspensionReason } from "@/types";
@@ -12,6 +13,20 @@ export function subscriptionState(subscription: Subscription): { label: string; 
   if (subscription.delivery.pending) return { label: "Retrying", tone: "warning" };
   return { label: "Active", tone: "success" };
 }
+
+/** How many events a request carries: one, or up to the subscription's batch size. */
+export const requestsLabel = (maxEventsPerBatch: number) =>
+  maxEventsPerBatch === 1 ? "One event per request" : `Batched, up to ${maxEventsPerBatch.toLocaleString()} events`;
+
+export const CONTENT: Record<Subscription["payload"], string> = {
+  full: "With the object",
+  identity: "Notification only",
+};
+
+export const FORMAT: Record<Subscription["format"], string> = {
+  rdm: "RDM JSON",
+  cloudevents: "CloudEvents 1.0",
+};
 
 export const REASON: Record<SuspensionReason, string> = {
   SUSPENDED_BY_USER: "Suspended by a user",

@@ -281,6 +281,8 @@ export interface ConsumerApiDeclaration {
   name: string;
   description?: string;
   contractVersion: number;
+  /** The model types it exposes, each under its public name (`objectType` in events). */
+  objectTypes?: Record<string, { publicName: string }>;
   parameters?: Record<string, ConsumerParameterDeclaration>;
   events?: ConsumerEventDeclaration[];
 }

@@ -1,7 +1,7 @@
 /**
  * A webhook's Deliveries tab (Track U U5a): the events the subscription delivered or is delivering,
- * newest first (`GET /consumer-subscriptions/{id}/deliveries`), one row per event, or per notice
- * for a coalesced subscription. Rows of one request share its status, attempts, answer and time.
+ * newest first (`GET /consumer-subscriptions/{id}/deliveries`), one row per event. Rows of one
+ * request share its status, attempts, answer and time.
  * An event opens at its own address, in a dialog: its facts, the next attempt while one is due,
  * every attempt, and the request and response bodies as formatted JSON. **Resend** sends it again
  * by hand, as it was sent (C-D129–C-D131); a delivered one only after a confirmation.
@@ -13,7 +13,16 @@ import { errorMessage } from "@/api/errors";
 import { formatServerTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { routePath } from "@/routing/routes";
-import type { DeliveryAttempt, DeliveryDetail, DeliveryRow, DeliveryStatus, SettingsRoute } from "@/types";
+import type {
+  DeliveryAttempt,
+  DeliveryDetail,
+  DeliveryRow,
+  DeliveryStatus,
+  EngineModel,
+  RouteState,
+  SettingsRoute,
+  Subscription,
+} from "@/types";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { DescriptionList, type DescriptionItem } from "@/ui/DescriptionList";
 import { EmptyState } from "@/ui/EmptyState";
@@ -46,6 +55,53 @@ const answer = (status: number | null) => (status === null ? "No answer" : Strin
 const duration = (ms: number | null) =>
   ms === null ? "Still sending" : ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`;
 
+/**
+ * Where an event's record opens: its type found by the public name the consumer API gives it, in
+ * the first application that shows that type, in the webhook's workspace. None for a deleted
+ * record or a type the active model no longer exposes.
+ */
+function recordRoute(
+  model: EngineModel,
+  subscription: Subscription,
+  event: { objectType: string; objectId: string; change: string },
+): RouteState | undefined {
+  if (event.change === "deleted") return undefined;
+  const definition = model.consumerApis?.find((item) => item.key === subscription.consumerApi);
+  const objectTypeKey = Object.entries(definition?.objectTypes ?? {}).find(
+    ([, exposed]) => exposed.publicName === event.objectType,
+  )?.[0];
+  const application = objectTypeKey && model.applications.find((item) => item.objectTypeKeys.includes(objectTypeKey));
+  if (!objectTypeKey || !application) return undefined;
+  return {
+    kind: "detail",
+    applicationKey: application.key,
+    objectTypeKey,
+    objectId: event.objectId,
+    workspaceKey: subscription.workspaceKey,
+  };
+}
+
+/** The object's ID, linked to its record where it has one to open. */
+function ObjectLink({
+  id,
+  to,
+  onNavigate,
+  short: shorten = false,
+}: {
+  id: string;
+  to?: RouteState;
+  onNavigate: (route: RouteState) => void;
+  short?: boolean;
+}) {
+  const text = <code title={id}>{shorten ? short(id) : id}</code>;
+  if (!to) return text;
+  return (
+    <RouteLink href={routePath(to)} onNavigate={() => onNavigate(to)} aria-label={`Open record ${id}`}>
+      {text}
+    </RouteLink>
+  );
+}
+
 function DeliveryState({ status }: { status: DeliveryStatus }) {
   const state = DELIVERY_STATUS[status];
   return <StatusPill tone={state.tone}>{state.label}</StatusPill>;
@@ -53,12 +109,16 @@ function DeliveryState({ status }: { status: DeliveryStatus }) {
 
 export function WebhookDeliveries({
   route,
+  model,
+  subscription,
   retentionDays,
   onNavigate,
 }: {
   route: WebhooksRoute & { subscriptionId: string };
+  model: EngineModel;
+  subscription: Subscription;
   retentionDays?: number;
-  onNavigate: (route: SettingsRoute) => void;
+  onNavigate: (route: RouteState) => void;
 }) {
   const { subscriptionId } = route;
   const [status, setStatus] = useState<DeliveryStatus | "">("");
@@ -70,7 +130,7 @@ export function WebhookDeliveries({
   const opened = (row: DeliveryRow): WebhooksRoute => ({
     ...tab,
     deliveryId: row.deliveryId,
-    ...(row.eventId ? { eventId: row.eventId } : {}),
+    eventId: row.eventId,
   });
   const kept = retentionDays ? ` Deliveries are kept for ${count(retentionDays)} days.` : "";
 
@@ -108,23 +168,28 @@ export function WebhookDeliveries({
             columns={["Event ID", "Event", "Object ID", "Status", "Attempts", "Response", "Sent"]}
           >
             {feed.items.map((row) => (
-              <tr key={`${row.deliveryId}:${row.eventId ?? row.event}`}>
+              <tr key={`${row.deliveryId}:${row.eventId}`}>
                 <th scope="row">
                   <RouteLink
                     href={routePath(opened(row))}
                     onNavigate={() => onNavigate(opened(row))}
-                    title={row.eventId ?? `Notice ${row.deliveryId}`}
+                    title={row.eventId}
                   >
-                    <code>{row.eventId ? short(row.eventId) : "Notice"}</code>
+                    <code>{short(row.eventId)}</code>
                   </RouteLink>
                 </th>
                 <td data-label="Event">
                   <code>{row.event}</code>
-                  {row.change && <span className="webhook-change"> {row.change}</span>}
+                  <span className="webhook-change"> {row.change}</span>
                   {row.resendOf && <span className="webhook-change"> · resent</span>}
                 </td>
                 <td data-label="Object ID">
-                  {row.objectId ? <code title={row.objectId}>{short(row.objectId)}</code> : "—"}
+                  <ObjectLink
+                    id={row.objectId}
+                    to={recordRoute(model, subscription, row)}
+                    onNavigate={onNavigate}
+                    short
+                  />
                 </td>
                 <td data-label="Status">
                   <DeliveryState status={row.status} />
@@ -150,11 +215,13 @@ export function WebhookDeliveries({
           deliveryId={route.deliveryId}
           eventId={route.eventId}
           onResent={feed.reload}
+          recordOf={(event) => recordRoute(model, subscription, event)}
+          onNavigate={onNavigate}
           onOpen={(resent) =>
             onNavigate({
               ...tab,
               deliveryId: resent.deliveryId,
-              ...(resent.events[0]?.eventId ? { eventId: resent.events[0].eventId } : {}),
+              ...(resent.events[0] ? { eventId: resent.events[0].eventId } : {}),
             })
           }
           onClose={() => onNavigate(tab)}
@@ -171,6 +238,8 @@ function DeliveryDialog({
   eventId,
   onResent,
   onOpen,
+  recordOf,
+  onNavigate,
   onClose,
 }: {
   subscriptionId: string;
@@ -180,6 +249,8 @@ function DeliveryDialog({
   onResent: () => void;
   /** Open a resend's own delivery. */
   onOpen: (resent: DeliveryDetail) => void;
+  recordOf: (event: DeliveryDetail["events"][number]) => RouteState | undefined;
+  onNavigate: (route: RouteState) => void;
   onClose: () => void;
 }) {
   const [detail, setDetail] = useState<DeliveryDetail>();
@@ -192,13 +263,12 @@ function DeliveryDialog({
   const [resendError, setResendError] = useState("");
 
   async function resend() {
-    if (!detail) return;
+    const shownEvent = detail?.events.find((item) => item.eventId === eventId) ?? detail?.events[0];
+    if (!shownEvent) return;
     setResending(true);
     setResendError("");
     try {
-      const shownEvent = detail.events.find((item) => item.eventId === eventId) ?? detail.events[0];
-      // The event the dialog shows; a notice carries none.
-      const sent = await api.resendDelivery(subscriptionId, deliveryId, shownEvent?.eventId ?? undefined);
+      const sent = await api.resendDelivery(subscriptionId, deliveryId, shownEvent.eventId);
       setResent(sent);
       setConfirming(false);
       onResent();
@@ -231,25 +301,21 @@ function DeliveryDialog({
   const facts: DescriptionItem[] =
     detail && event
       ? [
-          { term: "Event ID", value: event.eventId ? <code>{event.eventId}</code> : "A notice: no event ID" },
+          { term: "Event ID", value: <code>{event.eventId}</code> },
           {
             term: "Event",
             value: (
               <>
-                <code>{event.event}</code>
-                {event.change && ` · ${event.change}`}
+                <code>{event.event}</code> · {event.change}
               </>
             ),
           },
           {
             term: "Object",
-            value: event.objectId ? (
+            value: (
               <>
-                <code>{event.objectId}</code>
-                {event.objectType && ` · ${event.objectType}`}
+                <ObjectLink id={event.objectId} to={recordOf(event)} onNavigate={onNavigate} /> · {event.objectType}
               </>
-            ) : (
-              "—"
             ),
           },
           { term: "Feed position", value: count(event.position) },
@@ -262,10 +328,7 @@ function DeliveryDialog({
           ...(detail.resendOf ? [{ term: "Resend of", value: <code>{detail.resendOf}</code> }] : []),
           {
             term: "Request",
-            value:
-              detail.kind === "events"
-                ? `${count(detail.events.length)} ${detail.events.length === 1 ? "event" : "events"}${detail.requestBytes ? `, ${count(detail.requestBytes)} bytes` : ""}`
-                : "A notice",
+            value: `${count(detail.events.length)} ${detail.events.length === 1 ? "event" : "events"}${detail.requestBytes ? `, ${count(detail.requestBytes)} bytes` : ""}`,
           },
         ]
       : [];
@@ -390,9 +453,8 @@ function DeliveryDialog({
           onConfirm={() => void resend()}
         >
           <p>
-            The receiver already acknowledged this {detail.kind === "notice" ? "notice" : "event"}. It is sent again as
-            it was, with the same event ID and <code>RDM-Redelivery: manual</code>, so the receiver may process it a
-            second time.
+            The receiver already acknowledged this event. It is sent again as it was, with the same event ID and{" "}
+            <code>RDM-Redelivery: manual</code>, so the receiver may process it a second time.
           </p>
         </ConfirmDialog>
       )}

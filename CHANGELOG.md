@@ -12,6 +12,8 @@ All notable changes to this project are documented in this file. The format foll
   exposed object type (`timetable-category-changed`, `timetable-type-changed`, …), each for
   created, updated and deleted, with no watch, so any change to the object's output counts. The
   contract versions stay, as adding events is compatible.
+- Webhooks › Deliveries: an event's object ID opens its record, in the webhook's workspace and the
+  first application showing that type (none for a deleted record).
 - Base 0.9 U5a revision: resend a delivered event by hand. `POST
   /api/v1/consumer-subscriptions/{id}/deliveries/{deliveryId}/resend` sends one event of a request
   again exactly as it was sent (a notice as it was), alone in a new request with the same `eventId`
@@ -377,6 +379,18 @@ All notable changes to this project are documented in this file. The format foll
   - Decisions D35–D39. No migration.
 
 ### Changed
+
+- Base 0.9 C17: webhook delivery choices. A subscription chooses how requests are made, three
+  independent choices: `maxEventsPerBatch` (1–1,000, default 1: one event per request; batched, a
+  request holds what is waiting, up to that many and 1 MiB), `payload` (`full`, "with the object",
+  or `identity`, "notification only") and `format` (`rdm`, default, or `cloudevents`: CloudEvents
+  1.0 in structured mode, one event per request as `application/cloudevents+json`, batched as an
+  `application/cloudevents-batch+json` array, each with the RDM event as `data`). The coalesced mode,
+  `mode` and `debounceSeconds` are removed (C-D105 retired); sending them is `422`. Capabilities'
+  `delivery.maxEvents` is now `maxEventsPerBatch` (1,000). The delivery log has no notice rows and
+  its detail no `kind`; a resend needs `eventId` and repeats the event in the format it was sent in.
+  Revision `20261007_03`: existing subscriptions take the defaults and logged notices are deleted.
+  The webhook dialog's Delivery section has the three choices, and a webhook's page shows them.
 
 - Webhook URLs may name any host (C-D101 revised): HTTPS on any host and port, plain HTTP only to
   `localhost`, `127.0.0.1` or `::1`. `CONSUMER_WEBHOOK_ALLOWED_HOSTS` is removed, with

@@ -160,8 +160,8 @@ def resend(
     subscription_id: str, delivery_id: str, payload: DeliveryResend, request: Request, session: DbSession
 ) -> DeliveryDetail:
     """Send an event of a delivered request again by hand, exactly as it was sent, alone in a new
-    request with the same ``eventId`` and ``RDM-Redelivery: manual``; a notice as it was. One
-    attempt during the call, no retry, on any subscription. The answer is the new request, which
+    request with the same ``eventId``, in the format it was sent in, and ``RDM-Redelivery: manual``.
+    One attempt during the call, no retry, on any subscription. The answer is the new request, which
     names the one it repeats in ``resendOf``; the subscription's position does not move."""
     subscription = load_subscription(session, subscription_id)
     return delivery_detail_response(

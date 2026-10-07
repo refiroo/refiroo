@@ -227,7 +227,8 @@ the loss acknowledged. Nothing is delivered until C12 (C-D96–C-D102,
 
 **C12 is delivered (2026-10-06):** a dispatcher in the API process delivers every active
 subscription's events to its URL in position order: per change in signed requests of up to 100
-events and 1 MiB, or coalesced as one notice per event once changes pause. A failing receiver is
+events and 1 MiB, or coalesced as one notice per event once changes pause (C17 later made the batch
+size a subscription setting and retired the coalesced mode). A failing receiver is
 retried with the same batch for 24 hours, then the subscription is suspended; the subscription shows
 its delivery state. A host no longer allowed, a filter value that matches nothing and events expired
 before delivery also suspend it, and a resume can `reset` to the feed's head instead of resuming
@@ -289,7 +290,11 @@ screenshots await approval ([record](SETTINGS_AND_UI_PLAN.md#u5-record-2026-10-0
 implemented (2026-10-07)**: webhooks have names, every delivery request and attempt is logged
 (`/consumer-subscriptions/{id}/deliveries`, `CONSUMER_WEBHOOK_LOG_RETENTION_DAYS`, revision
 `20261007_01`, C-D115–C-D119), and the Webhooks page has a rebuilt dialog and Configuration and
-Deliveries tabs ([record](SETTINGS_AND_UI_PLAN.md#u5a-record-2026-10-07)).
+Deliveries tabs ([record](SETTINGS_AND_UI_PLAN.md#u5a-record-2026-10-07)). **C17 is implemented
+(2026-10-07)**: a webhook chooses one event per request (the default) or batched up to 1,000, with
+the object or the notification only, in RDM JSON or CloudEvents 1.0; the coalesced mode is retired
+(revision `20261007_03`, C-D120–C-D128); screenshots await approval
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#c17-record-2026-10-07)).
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

@@ -78,9 +78,11 @@ class SubscriptionResponse(BaseModel):
     events: list[str]
     filters: dict[str, list[str]]
     url: str
-    mode: Literal["perChange", "coalesced"]
-    debounceSeconds: int | None
+    # How requests are made (C17): at most this many events each (1: one event per request), with
+    # each object (``full``) or its identity only, in RDM JSON or CloudEvents 1.0.
+    maxEventsPerBatch: int
     payload: Literal["full", "identity"]
+    format: Literal["rdm", "cloudevents"]
     status: Literal["active", "suspended"]
     suspension: SubscriptionSuspension | None
     acknowledgedThrough: int
@@ -102,16 +104,16 @@ DeliveryStatus = Literal["queued", "sending", "retrying", "succeeded", "failed",
 
 
 class DeliveryRow(BaseModel):
-    """One event of a request, or one notice (U5a, C-D119). Rows of one request share its
+    """One event of a request (U5a, C-D119). Rows of one request share its
     ``status``, ``attempts``, ``responseStatus`` and ``sentAt``: delivery is per request.
     ``nextAttemptAt`` is set while the request's batch waits for a retry."""
 
     deliveryId: str
-    eventId: str | None
+    eventId: str
     event: str
-    change: str | None
-    objectType: str | None
-    objectId: str | None
+    change: str
+    objectType: str
+    objectId: str
     position: int
     status: DeliveryStatus
     attempts: int
@@ -145,21 +147,20 @@ class DeliveryAttempt(BaseModel):
 
 
 class DeliveryEvent(BaseModel):
-    eventId: str | None
+    eventId: str
     event: str
-    change: str | None
-    objectType: str | None
-    objectId: str | None
+    change: str
+    objectType: str
+    objectId: str
     position: int
 
 
 class DeliveryDetail(BaseModel):
-    """A request of a webhook batch: the events (or the notice) it carries, the body of its latest
-    attempt as the receiver got it (C-D117), and every attempt."""
+    """A request of a webhook batch: the events it carries, the body of its latest attempt as the
+    receiver got it, in the subscription's format then (C-D117, C17), and every attempt."""
 
     deliveryId: str
     batchId: str
-    kind: Literal["events", "notice"]
     status: DeliveryStatus
     events: list[DeliveryEvent]
     requestBody: Any | None

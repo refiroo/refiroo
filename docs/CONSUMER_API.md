@@ -667,9 +667,9 @@ DELETE /api/v1/consumer-subscriptions/{id}?expectedVersion=…
   "events": ["reference-data-changed"],
   "filters": { "type": "Location", "codelist": ["Country", "Region"] },
   "url": "https://integration.example.com/hooks/rdm",
-  "mode": "perChange",                 // or "coalesced"
-  "debounceSeconds": 60,               // coalesced only, 1–600
-  "payload": "full",                   // or "identity" (C-D7)
+  "maxEventsPerBatch": 1,              // 1–1,000; 1, the default, sends one event per request (C-D120)
+  "payload": "full",                   // or "identity" (C-D7, C-D124)
+  "format": "rdm",                     // or "cloudevents" (C-D125)
   "startAfter": 184100                 // optional (C-D97)
 }
 ```
@@ -687,8 +687,14 @@ DELETE /api/v1/consumer-subscriptions/{id}?expectedVersion=…
   `updated` event is filtered out like any other out of scope. Deletions are told. A receiver that
   must drop records leaving its scope subscribes with the type filter only and applies the narrower
   filter itself, or reconciles now and then from the list with the same parameters.
-- **Payload** (C-D7): `full`, the default, delivers each event with the object as get-by-ID answers
-  it under the subscription's parameters; `identity` delivers the same events without it.
+- **How requests are made** (C17): three independent choices, every combination valid. **Requests:**
+  one event per request (`maxEventsPerBatch: 1`, the default) or batched, up to `maxEventsPerBatch`
+  events (C-D120, C-D122). **Content** (`payload`, C-D7, C-D124): `full`, the default, "with the
+  object", delivers each event with the object as get-by-ID answers it under the subscription's
+  parameters; `identity`, "notification only", the same events without it. These are what Fowler
+  calls event-carried state transfer and event notification, Stripe snapshot and thin events, and
+  Microsoft Graph rich and basic notifications. **Format:** RDM JSON (`rdm`, the default) or
+  CloudEvents 1.0 (`cloudevents`, C-D125).
 - **Where it starts** (C-D97): after the workspace's feed head when it is created, or after an
   earlier position still kept (`startAfter`, such as a publication's `eventSequence`), checked as
   the pull feed's `after`.
@@ -724,14 +730,14 @@ _Delivered in C12 (2026-10-06); the contract is in [API.md](API.md#webhook-deliv
 A dispatcher in the API process delivers every active subscription while
 `CONSUMER_SUBSCRIPTIONS_ENABLED` is on (C-D102).
 
-- **Per-change mode:** one POST carries a batch of up to 100 events in position order, so a bulk job
-  or a large publication becomes a few requests, not thousands. The events are read as the pull
-  feed reads them, with the subscription's events, filters and payload; events it does not take
-  are passed over without a request.
-- **Coalesced mode:** one POST per subscribed event says "this scope changed" once the newest
-  matching event is `debounceSeconds` old, or once the oldest is 10 minutes old during continuous
-  change (C-D105). This fits "run an export when data changes". The body carries no objects, so
-  `payload` does not apply to it.
+- **Requests (C17).** One POST carries one event, or, batched, up to the subscription's
+  `maxEventsPerBatch` events in position order. A batch holds what is waiting when it is sent and
+  never waits to fill up. The events are read as the pull feed reads them, with the subscription's
+  events, filters and payload; events it does not take are passed over without a request. Requests
+  to a subscriber go one at a time to keep the order, so with one event per request 10,000 changes
+  are 10,000 requests in a row (about 8 minutes at 50 ms an answer): batching is the choice for bulk
+  changes. "Run an export when data changes" is a batched, notification-only subscription. (The
+  coalesced mode, a count per event after the changes paused, was retired in C17: C-D105.)
 - **Ordering:** each subscription delivers in feed-position order (INTEGRATION_API F3). A batch goes
   out only after the previous one is acknowledged, and nothing later is sent past a failing batch.
 - **Acknowledgement:** any `2xx` acknowledges the request; the subscription's `acknowledgedThrough`
@@ -757,21 +763,23 @@ A dispatcher in the API process delivers every active subscription while
   `EVENTS_EXPIRED` (C-D93 revised, Base 0.9 C-D110).
 - **At-least-once:** receivers deduplicate by `eventId`. A request the receiver handled but answered
   too late is sent again. The event `position` tells a receiver whether it is behind.
-- **Headers:** `Content-Type: application/json`, `User-Agent: rdm-engine`, `RDM-Delivery-Id` (the
-  body's `deliveryId`, the same on every retry of a batch), `RDM-Timestamp` (Unix seconds, new on
+- **Headers:** `Content-Type` (`application/json` for RDM JSON, or the CloudEvents type below),
+  `User-Agent: rdm-engine`, `RDM-Delivery-Id` (the request's delivery ID, an RDM JSON body's
+  `deliveryId`, the same on every retry of a batch), `RDM-Timestamp` (Unix seconds, new on
   every attempt) and `RDM-Signature: sha256=<hex>`, the HMAC-SHA256 of `"{RDM-Timestamp}.{body}"`
   with the subscription's `signingSecret`, exactly as the create answered it, as the key. Receivers
   verify the signature over the body bytes as received and reject stale timestamps to prevent
   replay (C-D12, revised 2026-10-05: signed from 0.9, since a forged event could otherwise plant
   data). Every request is signed, retries included.
-- **Size (C-D104).** A per-change request holds at most 100 events **and** at most 1 MiB (1,048,576
-  bytes) of body. Events are added in position order while the body stays within 1 MiB; the batch
+- **Size (C-D104, C-D121).** A request holds at most the subscription's `maxEventsPerBatch` events
+  **and** at most 1 MiB (1,048,576 bytes) of body, measured in its format. Events are added in position order while the body stays within 1 MiB; the batch
   ends before the first event that would pass it, and the next batch starts there. An event that is
   alone larger than 1 MiB is sent alone, since skipping it would break the order and lose a change.
   A receiver's server must therefore accept request bodies of 1 MiB, and somewhat more for an
   unusually large single object: nginx's default `client_max_body_size` is exactly 1 MiB, most
-  frameworks allow more. An `identity` batch is small and stops at 100 events. The limits are
-  reported in `GET /api/v1/capabilities` (`consumerSubscriptions.delivery`).
+  frameworks allow more. The 1 MiB cap is fixed, not a subscription setting; with `full` it usually
+  ends a large batch first. The limits are reported in `GET /api/v1/capabilities`
+  (`consumerSubscriptions.delivery`: `maxEventsPerBatch` 1,000, `maxBytes`).
 - **Where requests go (C-D107).** The host is resolved
   at each attempt and the request goes to the address checked. A link-local address
   (`169.254.0.0/16`, `fe80::/10`, where cloud metadata services listen) is always refused, and a
@@ -782,7 +790,8 @@ A dispatcher in the API process delivers every active subscription while
   `FILTER_MATCHES_NOTHING` before they are; its position stays, so after the owner edits the filter
   and resumes, those events, the deletions among them, are delivered.
 
-Per-change body:
+RDM JSON body (`format: rdm`), with one event or, batched, up to `maxEventsPerBatch`; a single
+event still comes in the envelope, so a receiver's code does not change with the batch size:
 
 ```json
 {
@@ -804,18 +813,40 @@ Per-change body:
 With `payload: identity` each event is the same without `stateAt` and `object`. A `deleted` event
 never has an `object`; it says `change: "deleted"` with the `id` and `objectType`.
 
-Coalesced body:
+CloudEvents body (`format: cloudevents`, C-D125, C-D126), in the CloudEvents HTTP binding's
+structured mode: with one event per request a single CloudEvent
+(`Content-Type: application/cloudevents+json; charset=utf-8`), otherwise a JSON array of them
+(`application/cloudevents-batch+json; charset=utf-8`), also when a batch holds one event, so the
+content type depends on the subscription and not on the traffic. Binary mode is not used: it puts
+the attributes in headers, which the signature does not cover.
 
 ```json
 {
-  "deliveryId": "…", "subscriptionId": "…",
-  "consumerApi": "rdm", "contractVersion": 1, "workspaceKey": "main",
-  "event": "reference-data-changed",
-  "fromPosition": 184100, "toPosition": 184223, "eventCount": 124,
-  "objectTypes": ["TimetableType", "Location"],
-  "occurredFrom": "…", "occurredTo": "…"
+  "specversion": "1.0",
+  "id": "<eventId>",
+  "source": "/api/consumer/rdm/v1/events?workspace=main",
+  "type": "rdm.reference-data-changed.updated",
+  "subject": "TimetableType/<id>",
+  "time": "<occurredAt>",
+  "datacontenttype": "application/json",
+  "rdmsubscription": "<subscriptionId>",
+  "data": { "eventId": "…", "position": 184223, "…": "the event exactly as the RDM JSON body carries it" }
 }
 ```
+
+| Attribute | Filled with |
+|---|---|
+| `id` | the `eventId`, a UUID, so `source` + `id` is unique |
+| `source` | the relative path of the definition's events read in the workspace, a URI-reference (the engine has no public base URL setting) |
+| `type` | `rdm.{event}.{change}`; not the reverse-DNS prefix the spec recommends, since the engine owns no domain |
+| `subject` | `{objectType}/{id}` |
+| `time` | `occurredAt` |
+| `rdmsubscription` | the subscription, the one extension, since a batched array has no envelope |
+| `data` | the RDM JSON event unchanged, so a receiver handles it with the same code in either format |
+
+There is no `dataschema`. The CloudEvents *webhook* specification (its `OPTIONS` handshake and
+bearer tokens) is not adopted: receivers are registered by an operator and every request is
+HMAC-signed (C-D128). The pull feed stays RDM JSON (C-D127).
 
 **Events carry the data** (C-D7, revised 2026-10-05). With `payload: full`, the default, each event
 brings the object exactly as get-by-ID answers it with the subscription's parameters (a `projection`
@@ -940,7 +971,7 @@ prerequisite: XREF scores the consumer definition's matches itself, not through 
 5. A rolled-back write makes no event.
 6. Change set edits, validation and discard make no event.
 7. Filters scope deliveries the same way as the matching XREF or list parameters.
-8. Coalesced mode delivers once after the debounce window, and at the maximum wait during
+8. _Retired with the coalesced mode in C17 (C-D105):_ coalesced mode delivers once after the debounce window, and at the maximum wait during
    continuous changes.
 9. A failing receiver gets retries in order, then suspension. Resume delivers everything from the
    first unacknowledged event.
@@ -1098,7 +1129,7 @@ C-D94 revised for C12; C-D112–C-D114 for C13 the same day.
 | C-D102 | What the subscriptions capability gates | **Decided 2026-10-06 (C11).** The whole group: off, no subscription route is served (reads included) and C12 delivers nothing; stored subscriptions are kept |
 | C-D103 | The retry schedule | **Decided 2026-10-06 (C12).** After a failed attempt the next waits 10 s, 30 s, 1 min, 2 min, 5 min, 10 min, 30 min, then every hour, each ±20 %, until 24 hours after the batch's first failure; then `DELIVERY_FAILED` with the delivery ID, attempts and last error. A success resets it. Constants, reported in capabilities; documented in full (the user's request) |
 | C-D104 | The byte limit of a batch | **Decided 2026-10-06 (C12).** 1 MiB of body: events in order while the body stays within it; an event alone over it is sent alone. Documented in full with what a receiver's server must accept (the user's request) |
-| C-D105 | Coalesced mode | **To be retired by C17 (approved 2026-10-07, C-D120–C-D128).** **Decided 2026-10-06 (C12).** Decided from the event store at each look, no timer: send when the newest matching event is `debounceSeconds` old or the oldest 10 minutes old; one POST per event key, in the order of their first positions; the acknowledged position moves once every POST of the round is acknowledged; `payload` does not apply |
+| C-D105 | Coalesced mode | **Retired by C17 (delivered 2026-10-07, C-D120–C-D128): a batched, notification-only subscription serves its use.** **Decided 2026-10-06 (C12).** Decided from the event store at each look, no timer: send when the newest matching event is `debounceSeconds` old or the oldest 10 minutes old; one POST per event key, in the order of their first positions; the acknowledged position moves once every POST of the round is acknowledged; `payload` does not apply |
 | C-D106 | Several processes, and a slow receiver | **Decided 2026-10-06 (C12).** A 60 s lease per subscription in its row, renewed before each send; an acknowledgement is recorded only under the lease. Four senders per process, one subscription each at a time. No row lock during a request |
 | C-D107 | What the dispatcher checks when it connects | **Decided 2026-10-06 (C12).** Resolve at each attempt and connect to the checked address; link-local always refused, loopback only for a loopback URL, private ranges allowed; a refused address is a failed attempt. Redirects not followed. TLS against the system trust store; the standard library's client; no proxy in 0.9 |
 | C-D108 | What the operator sees, and `version` | **Decided 2026-10-06 (C12).** The subscription answers `delivery`: `lastDeliveredAt` and `pending` (delivery ID, end position, attempts, first failure, last and next attempt, last error by kind). Delivery progress changes neither `version` nor `updatedAt`; a suspension does. No attempt history |

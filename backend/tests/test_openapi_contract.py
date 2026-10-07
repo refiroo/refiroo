@@ -80,9 +80,12 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # the allowlist; adding those back gives the previous document exactly.
     # Re-baselined for 0.9 U5a: consumerSubscriptions gains logRetentionDays; removing it gives the
     # previous document exactly (the subscription routes, with name and the deliveries, are gated off).
+    # Re-baselined for 0.9 C17: WebhookDeliveryLimits' maxEvents becomes maxEventsPerBatch, with its
+    # description; renaming it back with the previous description gives the previous document
+    # exactly (the subscription routes, with the delivery choices, are gated off).
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "a1f6be82950284b8ccf244698d25f9de5f3f078f061f49a0927b3d0886a1c93a"
+        "d089ed4ab16e75f7d13b79c087433b104baeb7045f091c62ad559c0626d9f860"
     )
 
 

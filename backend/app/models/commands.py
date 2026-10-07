@@ -401,10 +401,10 @@ class BatchRequest(BaseModel):
 FilterValue = Annotated[str, Field(min_length=1)] | Annotated[
     list[Annotated[str, Field(min_length=1)]], Field(min_length=1)
 ]
-SubscriptionMode = Literal["perChange", "coalesced"]
 SubscriptionPayload = Literal["full", "identity"]
-# The longest a coalesced subscription waits for quiet: the maximum wait during continuous change.
-MAX_DEBOUNCE_SECONDS = 600
+SubscriptionFormat = Literal["rdm", "cloudevents"]
+# The most events a webhook request may carry (C-D120), reported in capabilities.
+MAX_EVENTS_PER_BATCH = 1000
 
 
 # What the operator calls a subscription (U5a, C-D115): 1–200 characters once trimmed, not unique.
@@ -413,8 +413,8 @@ SubscriptionName = Annotated[str, StringConstraints(strip_whitespace=True, min_l
 
 class ConsumerSubscriptionCreate(BaseModel):
     """A webhook subscription (Base 0.9 C11, CONSUMER_API "Subscriptions"). ``workspaceKey`` defaults
-    to the default workspace, resolved and stored; ``debounceSeconds`` is for ``coalesced`` only
-    (default 60); ``startAfter`` an earlier position to start after (C-D97)."""
+    to the default workspace, resolved and stored; ``maxEventsPerBatch`` 1 sends one event per
+    request (C-D120, C-D122); ``startAfter`` an earlier position to start after (C-D97)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -424,16 +424,10 @@ class ConsumerSubscriptionCreate(BaseModel):
     events: list[Annotated[str, Field(min_length=1, max_length=160)]] = Field(min_length=1, max_length=100)
     filters: dict[str, FilterValue] = Field(default_factory=dict)
     url: str = Field(min_length=1)
-    mode: SubscriptionMode = "perChange"
-    debounceSeconds: int | None = Field(default=None, ge=1, le=MAX_DEBOUNCE_SECONDS)
+    maxEventsPerBatch: int = Field(default=1, ge=1, le=MAX_EVENTS_PER_BATCH)
     payload: SubscriptionPayload = "full"
+    format: SubscriptionFormat = "rdm"
     startAfter: int | None = Field(default=None, ge=0)
-
-    @model_validator(mode="after")
-    def debounce_only_when_coalesced(self) -> ConsumerSubscriptionCreate:
-        if self.debounceSeconds is not None and self.mode != "coalesced":
-            raise ValueError("debounceSeconds applies to mode 'coalesced' only")
-        return self
 
 
 class ConsumerSubscriptionUpdate(BaseModel):
@@ -448,25 +442,23 @@ class ConsumerSubscriptionUpdate(BaseModel):
     )
     filters: dict[str, FilterValue] | None = None
     url: str | None = Field(default=None, min_length=1)
-    mode: SubscriptionMode | None = None
-    debounceSeconds: int | None = Field(default=None, ge=1, le=MAX_DEBOUNCE_SECONDS)
+    maxEventsPerBatch: int | None = Field(default=None, ge=1, le=MAX_EVENTS_PER_BATCH)
     payload: SubscriptionPayload | None = None
+    format: SubscriptionFormat | None = None
 
     @model_validator(mode="after")
     def require_subscription_change(self) -> ConsumerSubscriptionUpdate:
         if not self.model_fields_set - {"expectedVersion"}:
             raise ValueError("At least one field besides 'expectedVersion' is required")
-        if self.debounceSeconds is not None and self.mode == "perChange":
-            raise ValueError("debounceSeconds applies to mode 'coalesced' only")
         return self
 
 
 class DeliveryResend(BaseModel):
-    """A resend by hand (C-D129): the event of an events request to send again; none for a notice."""
+    """A resend by hand (C-D129): the event of the request to send again."""
 
     model_config = ConfigDict(extra="forbid")
 
-    eventId: str | None = Field(default=None, min_length=1, max_length=36)
+    eventId: str = Field(min_length=1, max_length=36)
 
 
 class ConsumerSubscriptionVersion(BaseModel):

@@ -86,7 +86,7 @@ def get_capabilities(request: Request) -> CapabilitiesResponse:
             manageSubscriptions=bool(request.app.state.consumer_subscriptions_enabled),
             logRetentionDays=request.app.state.consumer_webhook_log_retention_days,
             delivery=WebhookDeliveryLimits(
-                maxEvents=delivery.MAX_EVENTS,
+                maxEventsPerBatch=delivery.MAX_EVENTS_PER_BATCH,
                 maxBytes=delivery.MAX_BYTES,
                 timeoutSeconds=delivery.TIMEOUT_SECONDS,
                 retryWaitsSeconds=list(delivery.RETRY_WAITS),
