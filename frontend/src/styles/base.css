@@ -234,9 +234,64 @@ button:not([class]):disabled {
   border-color: var(--action-primary);
   box-shadow: var(--focus-ring);
 }
+/* Checkboxes and radios are drawn from the tokens (UA7), so they take the theme as every other
+   control does: the browser's own dark controls are grey discs in which a disabled choice looks
+   like an enabled one. The edge is the control border (3:1), a checked control the primary action. */
 input[type="checkbox"],
 input[type="radio"] {
-  accent-color: var(--action-primary);
+  display: inline-grid;
+  flex: none;
+  place-content: center;
   width: 16px;
   height: 16px;
+  margin: 0;
+  border: 1.5px solid var(--border-control);
+  border-radius: 4px;
+  background: var(--surface-raised);
+  appearance: none;
+  cursor: pointer;
+}
+input[type="radio"] {
+  border-radius: 50%;
+}
+input[type="checkbox"]:hover:not(:disabled),
+input[type="radio"]:hover:not(:disabled) {
+  border-color: var(--border-control-hover);
+}
+input[type="checkbox"]:checked,
+input[type="checkbox"]:indeterminate,
+input[type="radio"]:checked {
+  border-color: var(--action-primary);
+  background: var(--action-primary);
+}
+input[type="checkbox"]:checked::before {
+  content: "";
+  width: 9px;
+  height: 5px;
+  margin-top: -2px;
+  border-bottom: 2px solid var(--text-on-action);
+  border-left: 2px solid var(--text-on-action);
+  transform: rotate(-45deg);
+}
+input[type="checkbox"]:indeterminate::before {
+  content: "";
+  width: 8px;
+  border-top: 2px solid var(--text-on-action);
+}
+input[type="radio"]:checked::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-on-action);
+}
+input[type="checkbox"]:focus-visible,
+input[type="radio"]:focus-visible {
+  outline: 2px solid var(--focus-color);
+  outline-offset: 2px;
+}
+input[type="checkbox"]:disabled,
+input[type="radio"]:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }

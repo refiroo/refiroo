@@ -383,6 +383,13 @@ All notable changes to this project are documented in this file. The format foll
   change set list offers **Start from current live data** as the header does. In **Review changes**
   the kind of change is a pill (Added green, Changed grey, Removed red), a record shows its type's
   tile, and a relationship's two ends are chips in their types' colours.
+- Base 0.9 UA7: dark mode and the gates. Every surface was checked in dark beside its light
+  version. Checkboxes and radios are drawn from the design tokens instead of the browser's own
+  controls, which in dark were grey discs where a disabled choice looked like an enabled one. A
+  table's column resize handles stand outside the header cells, so a column header is named by its
+  label alone (it read "Path Resize Path column"). The visual gate holds 64 baselines, every
+  screen in light and dark, adding the mapping grid and its dialog and a collection and a record at
+  390px; the accessibility gate checks the same pages (73 checks, no violations).
 - Base 0.9 UA6 revision: the settings navigation's group headings are dark and bold, and their pages
   hang one step in from a guide line, so headings and pages no longer look alike. In the 390px
   drawer the navigation keeps the rail's inset and the headings their size (they took the dialog's

@@ -10,6 +10,7 @@ export function ResizeHandle({
   onReset,
   start,
   className = "",
+  style,
 }: {
   label: string;
   value: number;
@@ -21,6 +22,8 @@ export function ResizeHandle({
   /** The size a drag or key starts from, when the drawn size can differ from `value` (a table column). */
   start?: () => number;
   className?: string;
+  /** Placement for a handle that stands outside what it sizes (a table column's, `ui/DataTable`). */
+  style?: CSSProperties;
 }) {
   const clamp = (next: number) => Math.min(max, Math.max(min, Math.round(next)));
   function keyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -75,7 +78,7 @@ export function ResizeHandle({
           ? `${label}. Drag or use arrow keys. Double-click or press Enter to reset.`
           : `${label}. Drag or use arrow keys.`
       }
-      style={{ "--resize-position": `${value}px` } as CSSProperties}
+      style={{ "--resize-position": `${value}px`, ...style } as CSSProperties}
     />
   );
 }

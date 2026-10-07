@@ -22,6 +22,7 @@ import {
   seedChangeReview,
   seedHierarchy,
   seedLongList,
+  seedMappingData,
   seedRestructuring,
   seedTranslationMatrix,
 } from "./helpers/acceptance-data.mjs";
@@ -140,6 +141,24 @@ try {
   await page.goto(`${uiUrl}/apps/rdm-master/views/domains?workspaceKey=default&changeSetId=${changeSet2.id}`);
   await shown(page.getByRole("button", { name: "Domain 00", exact: true }));
   await capture(page, "change-set-editing-dark", output);
+  // UA7: every screen above has its dark twin.
+  await page.goto(
+    `${uiUrl}/apps/rdm-master/objects/domain/${records.domain[0].id}?workspaceKey=default&changeSetId=${changeSet2.id}`,
+  );
+  await shown(page.getByRole("heading", { name: "Domain 00" }));
+  await capture(page, "change-set-detail-dark", output);
+  await page.goto(`${uiUrl}/apps/rdm-systems/views/systems?workspaceKey=default`);
+  await shown(page.getByRole("button", { name: "System 00", exact: true }));
+  await capture(page, "collection-table-system-dark", output);
+  await page.goto(`${uiUrl}/apps/rdm-systems/objects/system/${records.system[0].id}?workspaceKey=default`);
+  await shown(page.getByRole("heading", { name: "System 00" }));
+  await capture(page, "record-detail-system-dark", output);
+  await page.goto(`${uiUrl}/apps/rdm-master/publications?workspaceKey=default`);
+  await shown(page.getByText("Publication 1"));
+  await capture(page, "publications-view-dark", output);
+  await page.goto(`${uiUrl}/settings/model/releases/${activeRelease}`);
+  await shown(page.getByRole("button", { name: "Export JSON" }));
+  await capture(page, "settings-release-detail-dark", output, [page.locator(".release-metadata dd")]);
   await page.emulateMedia({ colorScheme: "light" });
   const changeSet2Detail = await api(`/change-sets/${changeSet2.id}`);
   await api(`/change-sets/${changeSet2.id}?expectedVersion=${changeSet2Detail.version}`, undefined, "DELETE");
@@ -231,6 +250,37 @@ try {
   const restructuringDetail = await api(`/change-sets/${restructuring.id}`);
   await api(`/change-sets/${restructuring.id}?expectedVersion=${restructuringDetail.version}`, undefined, "DELETE");
 
+  // --- 13d. Mapping grid (SC-07, UA6), light and dark: an unmapped, a mapped and an ambiguous
+  // source, and the change dialog of the mapped one ---
+  await seedMappingData(api, records, { alignment: false });
+  for (const scheme of ["light", "dark"]) {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.goto(`${uiUrl}/apps/rdm-systems/views/system-to-master-mapping?workspaceKey=default`);
+    await shown(page.getByRole("button", { name: "Change mapping for MULTI" }));
+    await capture(page, `mapping-grid-${scheme}`, output);
+    await page.getByRole("button", { name: "Change mapping for HOME" }).click();
+    await shown(page.getByRole("dialog", { name: /Change mapping — HOME/ }));
+    await page.mouse.move(0, 0);
+    await capture(page, `mapping-dialog-${scheme}`, output);
+    await page.keyboard.press("Escape");
+    await page.getByRole("dialog").waitFor({ state: "detached" });
+  }
+  await page.emulateMedia({ colorScheme: "light" });
+
+  // --- 13e. Phone width (390px, UA7), light and dark: a collection and a record ---
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const scheme of ["light", "dark"]) {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.goto(`${uiUrl}/apps/rdm-master/views/domains?workspaceKey=default`);
+    await shown(page.getByRole("button", { name: "Domain 00", exact: true }));
+    await capture(page, `narrow-collection-domain-${scheme}`, output);
+    await page.goto(`${uiUrl}/apps/rdm-master/objects/domain/${records.domain[0].id}?workspaceKey=default`);
+    await shown(page.getByRole("heading", { name: "Domain 00" }));
+    await capture(page, `narrow-record-detail-domain-${scheme}`, output);
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ colorScheme: "light" });
+
   // --- 14. Settings (U3): Workspaces and a workspace's page, About, Deployment and Appearance.
   // Last because a second workspace turns every earlier shell's single-workspace label into the
   // selector. Values that change from run to run (times, the harness's ports and paths) are masked.
@@ -244,7 +294,8 @@ try {
     await page.emulateMedia({ colorScheme: scheme });
     await page.goto(`${uiUrl}/settings/workspaces`);
     await shown(page.getByRole("button", { name: /Archive.*Retired/s }));
-    await capture(page, `settings-workspaces-${scheme}`, output);
+    // The selected workspace's panel shows its times, as the workspace's own page does.
+    await capture(page, `settings-workspaces-${scheme}`, output, varying());
     await page.goto(`${uiUrl}/settings/about`);
     await shown(page.getByRole("region", { name: "Database" }));
     await capture(page, `settings-about-${scheme}`, output, varying());
@@ -254,14 +305,14 @@ try {
       ...varying(),
       page.getByRole("region", { name: "Runtime" }).locator("td"),
     ]);
+    await page.goto(`${uiUrl}/settings/workspaces/default`);
+    await shown(page.getByRole("button", { name: "Open workspace" }));
+    await capture(page, `settings-workspace-detail-${scheme}`, output, varying());
+    await page.goto(`${uiUrl}/settings/appearance`);
+    await shown(page.getByRole("group", { name: "Table density" }));
+    await capture(page, `settings-appearance-${scheme}`, output);
   }
   await page.emulateMedia({ colorScheme: "light" });
-  await page.goto(`${uiUrl}/settings/workspaces/default`);
-  await shown(page.getByRole("button", { name: "Open workspace" }));
-  await capture(page, "settings-workspace-detail-light", output, varying());
-  await page.goto(`${uiUrl}/settings/appearance`);
-  await shown(page.getByRole("group", { name: "Table density" }));
-  await capture(page, "settings-appearance-light", output);
 
   // Write report.
   const report = { checks, failures, passed: failures.length === 0 };

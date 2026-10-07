@@ -1596,6 +1596,48 @@ does not. The drawer now keeps the rail's inset. Checks: `Settings.test` and `ap
 `format`, `build`, `test:browser:settings` (10 checks, axe 0 violations). Screenshots at 1440px
 (light and dark) and 390px (drawer).
 
+#### UA7 record (2026-10-07)
+
+Implemented; waiting for the user's approval of the screenshots and of the drawn checkboxes and
+radios. Every surface was checked in dark against its light twin: the tokens already had a dark
+value for every role (the bands and the focus ring are mixed from roles that do), no stylesheet
+holds a literal colour, and the 32 screens below match their light versions in structure, tiles,
+chips, bands and pills.
+
+- **Found in dark: checkboxes and radios.** They were the browser's own controls, which follow
+  `color-scheme` and in dark are grey discs and squares; in the move dialogs the disabled **Top
+  level** looked like the enabled records beside it. They are now drawn from the tokens in
+  `base.css` in both themes: the control border (held to 3:1 by the contrast test), the primary
+  action and `--text-on-action` when checked, a dash when indeterminate, 40% when disabled, the
+  focus colour's outline. Light looks as before (compared side by side); dark now shows rings and a
+  faded disabled choice. Shown to the user for approval, since the canvas did not decide it.
+- **A column header's name is its label alone** (TODO from the UA4 revision). The resize handles
+  left the header cells: `ui/DataTable` draws them in one zero-height layer before the table,
+  sticky at the top of the scroll window, each at its column's right edge measured against the
+  layer (a `ResizeObserver` on the headers), so they stay with the sticky header row and scroll
+  sideways with the table. `ResizeHandle` takes a `style`. Checked in the browser: every handle on
+  its column's edge and at the header's height before and after a drag, after a horizontal scroll
+  and after the rows scroll; the headers named "Name", "Description"… The header no longer
+  contains the handle (`ObjectTable.test`, failed on the previous code).
+- **The gates cover every screen in both themes.** `test:visual`: the seven light-only screens
+  gained dark twins (system collection and record, change set record, publications, release,
+  workspace, Appearance); the mapping grid and its change dialog and a collection and a record at
+  390px were added, light and dark: 64 baselines (32 screens), all re-recorded and inspected. The
+  Workspaces page's capture now masks the selected workspace's times, as the workspace's own page
+  does (it would have failed on the clock on the next run). `test:a11y` gained the same pages: 73
+  checks. `seedMappingData` takes `alignment: false` for the gates, whose model has no alignment
+  relation.
+- **Checks.** `test:a11y`: 73 checks, 0 violations, nothing allowlisted, its 3 planted faults
+  rejected (111 s), run again after the controls changed: the same. `test:visual
+  --update-baselines`, then a compare against the fresh baselines: 64 passed (60 s each).
+  `test:browser:sc07` (9 checks: the keyboard-only mapping save over the drawn radios).
+  `vitest run src/ui src/styles` (56 tests), `format`, `lint` (0 errors, the 7 recorded warnings),
+  `build`. Not run: the other browser runners (no surface of theirs changed beyond the controls'
+  drawing, which `test:a11y` and `test:visual` cover in their dialogs).
+- **Not changed.** The gates' dark captures follow the light ones in one run, so the tree keeps
+  the branch an earlier step opened (Domain 04 in several dark screens); this is the gate's order,
+  not the theme.
+
 ### Exit by 1.0
 
 - Every administrative, integration and security object a route manages has a settings page, and

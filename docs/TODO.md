@@ -96,12 +96,6 @@ Next: UA, the Atlas redesign (ADR-040), before U4 and U5. See [Next — 0.9](#ne
   there, both at the change-set call site (`:383`); the UA2 revision's one run failed there too.
   _UA4 (2026-10-07):_ the one run failed there again (`:383`). _UA4 revision, record ID
   (2026-10-07):_ failed once at the live call site (`:263`), passed on the next run.
-- **From the UA4 revision (2026-10-07): a column header's accessible name includes its resize
-  handle** ("Path Resize Path column"), in every `ui/DataTable` table and in the collection tables
-  before it. Naming the header with `aria-label` fixes the name but makes every header match a
-  label lookup for the same field name (`getByLabelText`, Playwright `getByLabel`), which the form
-  tests and runners rely on. Next: draw the handles outside the header cells (one layer over the
-  header row), for UA7's accessibility gate.
 - **From UA4 (2026-10-07): `test:browser:b4` fails at its cycle refusal check.**
   `b4-hierarchy-acceptance.mjs:136` matches the API's refusal against `/422.*parent_cycle/`, but the
   error code is `PARENT_CYCLE`, so the check fails while the API refuses correctly (422

@@ -22,6 +22,7 @@ import {
   seedChangeReview,
   seedHierarchy,
   seedLongList,
+  seedMappingData,
   seedRestructuring,
   seedTranslationMatrix,
 } from "./helpers/acceptance-data.mjs";
@@ -192,6 +193,10 @@ try {
     ["dark-detail-system", `/apps/rdm-systems/objects/system/${records.system[0].id}?workspaceKey=default`, () => page.getByRole("heading", { name: "System 00" })],
     ["dark-change-sets-list", "/apps/rdm-master/change-sets?workspaceKey=default", () => page.getByText("Second change set")],
     ["dark-model-workbench", "/settings/model", () => page.getByRole("navigation", { name: "Model catalogue" })],
+    ["dark-collection-system", "/apps/rdm-systems/views/systems?workspaceKey=default", () => page.getByRole("button", { name: "System 00", exact: true })],
+    ["dark-change-set-collection", `/apps/rdm-master/views/domains?workspaceKey=default&changeSetId=${changeSet2.id}`, () => page.getByRole("button", { name: "Domain 00", exact: true })],
+    ["dark-change-set-detail", `/apps/rdm-master/objects/domain/${records.domain[0].id}?workspaceKey=default&changeSetId=${changeSet2.id}`, () => page.getByRole("heading", { name: "Domain 00" })],
+    ["dark-publications", "/apps/rdm-master/publications?workspaceKey=default", () => page.getByText("Publication 1")],
   ]) {
     await page.goto(`${uiUrl}${path}`);
     await shown(ready());
@@ -347,6 +352,59 @@ try {
   await page.emulateMedia({ colorScheme: "light" });
   const restructuringDetail = await api(`/change-sets/${restructuring.id}`);
   await api(`/change-sets/${restructuring.id}?expectedVersion=${restructuringDetail.version}`, undefined, "DELETE");
+
+  // --- 13d. Mapping grid (SC-07, UA6), light and dark, and its change dialog ---
+  await seedMappingData(api, records, { alignment: false });
+  for (const scheme of ["light", "dark"]) {
+    const prefix = scheme === "dark" ? "dark-" : "";
+    await page.emulateMedia({ colorScheme: scheme });
+    for (const [name, open] of [
+      [
+        `${prefix}mapping-grid`,
+        async () => {
+          await page.goto(`${uiUrl}/apps/rdm-systems/views/system-to-master-mapping?workspaceKey=default`);
+          await shown(page.getByRole("button", { name: "Change mapping for MULTI" }));
+        },
+      ],
+      [
+        `${prefix}mapping-dialog`,
+        async () => {
+          await page.getByRole("button", { name: "Change mapping for HOME" }).click();
+          await shown(page.getByRole("dialog", { name: /Change mapping — HOME/ }));
+        },
+      ],
+    ]) {
+      await open();
+      await page.waitForLoadState("networkidle");
+      result = await runAxe(page, ALLOWLIST, name);
+      if (result.violations.length > 0) failures.push(`${name}:\n${formatViolations(result.violations)}`);
+      checks.push(`${name}: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+      await page.screenshot({ path: resolve(output, `a11y-${name}.png`), fullPage: true });
+    }
+    await page.keyboard.press("Escape");
+    await page.getByRole("dialog").waitFor({ state: "detached" });
+  }
+
+  // --- 13e. Phone width (390px, UA7), light and dark: a collection and a record ---
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const scheme of ["light", "dark"]) {
+    const prefix = scheme === "dark" ? "dark-" : "";
+    await page.emulateMedia({ colorScheme: scheme });
+    for (const [name, path, ready] of [
+      [`${prefix}narrow-collection-domain`, "/apps/rdm-master/views/domains?workspaceKey=default", () => page.getByRole("button", { name: "Domain 00", exact: true })],
+      [`${prefix}narrow-detail-domain`, `/apps/rdm-master/objects/domain/${records.domain[0].id}?workspaceKey=default`, () => page.getByRole("heading", { name: "Domain 00" })],
+    ]) {
+      await page.goto(`${uiUrl}${path}`);
+      await shown(ready());
+      await page.waitForLoadState("networkidle");
+      result = await runAxe(page, ALLOWLIST, name);
+      if (result.violations.length > 0) failures.push(`${name}:\n${formatViolations(result.violations)}`);
+      checks.push(`${name}: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+      await page.screenshot({ path: resolve(output, `a11y-${name}.png`), fullPage: true });
+    }
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ colorScheme: "light" });
 
   // --- 14. Settings (U3), light and dark: Workspaces with a retired workspace, a workspace's
   // page, About, Appearance, Deployment and a release's page; then the phone's navigation drawer ---

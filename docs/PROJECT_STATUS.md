@@ -272,7 +272,11 @@ states; no model or backend change; awaiting approval
 ([record](SETTINGS_AND_UI_PLAN.md#ua3-record-2026-10-06)). **UA4 is implemented (2026-10-07)**: the
 record's header band in its type's colour with ancestor chips, and the inspector's ruled sections,
 side-by-side fields and **Connected** list; no model or backend change; awaiting approval
-([record](SETTINGS_AND_UI_PLAN.md#ua4-record-2026-10-07)).
+([record](SETTINGS_AND_UI_PLAN.md#ua4-record-2026-10-07)). **UA5–UA7 are implemented (2026-10-07)**:
+change sets and publications, the remaining surfaces, then dark mode and the gates: every screen
+checked in dark, checkboxes and radios drawn from the tokens, column headers named by their label
+alone, and `test:a11y` (73 checks) and `test:visual` (64 baselines, light and dark) passing; UA7
+awaits approval ([record](SETTINGS_AND_UI_PLAN.md#ua7-record-2026-10-07)).
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

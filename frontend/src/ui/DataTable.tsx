@@ -10,9 +10,13 @@
  * sizes one. The first resize keeps every column at the width it had and changes only the one being
  * dragged; from then on the widths are fixed, a column may be narrower than its content (the cell
  * ends in an ellipsis), and the actions column, or the table's own width, takes up the difference.
+ *
+ * The resize handles are not inside the header cells (UA7): a header's name is its content, and a
+ * handle there added "Resize … column" to it. They stand in one layer before the table, sticky
+ * at the top of the scroll window, each at its column's measured right edge.
  */
 
-import { useRef, useState, type CSSProperties, type HTMLAttributes, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties, type HTMLAttributes, type ReactNode } from "react";
 import type { CursorWindow } from "@/lib/hooks/useCursorWindow";
 import type { Hue } from "@/model/hues";
 import { EmptyState } from "@/ui/EmptyState";
@@ -86,6 +90,8 @@ export function DataTable<Row>({
 }) {
   const [allColumns, setAllColumns] = useState(false);
   const headers = useRef(new Map<string, HTMLTableCellElement>());
+  const resizers = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState<{ height: number; ends: Record<string, number> }>({ height: 0, ends: {} });
   const identity = identityColumn ?? columns[0]?.key;
   const mobileColumns = [identity, ...columns.map((column) => column.key).filter((key) => key !== identity)].slice(
     0,
@@ -97,6 +103,34 @@ export function DataTable<Row>({
     !rowFilter || rowFilter(row) ? [{ row, index: list.startIndex + position }] : [],
   );
   const columnCount = columns.length + Number(Boolean(actions));
+
+  // Where each column ends, for its resize handle; measured again whenever a header changes size.
+  const columnKeys = columns.map((column) => column.key).join("\n");
+  useLayoutEffect(() => {
+    if (!onColumnWidths) return;
+    const measure = () =>
+      setEdges((current) => {
+        const nodes = Array.from(headers.current);
+        const origin = resizers.current?.getBoundingClientRect().left ?? 0;
+        const height = nodes[0]?.[1].offsetHeight ?? 0;
+        const ends = Object.fromEntries(
+          nodes.map(([key, node]) => {
+            const box = node.getBoundingClientRect();
+            return [key, box.width ? Math.round(box.right - origin) : 0];
+          }),
+        );
+        const same =
+          height === current.height &&
+          Object.keys(ends).length === Object.keys(current.ends).length &&
+          Object.entries(ends).every(([key, end]) => current.ends[key] === end);
+        return same ? current : { height, ends };
+      });
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    headers.current.forEach((node) => observer.observe(node));
+    return () => observer.disconnect();
+  }, [onColumnWidths, columnKeys]);
 
   /** Every shown column's width as drawn now: stored, or measured from its header. */
   function drawnWidths() {
@@ -132,6 +166,27 @@ export function DataTable<Row>({
         onAnchorChange={onAnchorChange}
         className={`table-wrap object-table${compact ? " density-compact" : ""}${allColumns ? " show-all-columns" : ""}`}
       >
+        {onColumnWidths && (
+          <div
+            ref={resizers}
+            className="column-resizers"
+            style={{ "--header-row-height": `${edges.height}px` } as CSSProperties}
+          >
+            {columns.map((column) => (
+              <ResizeHandle
+                key={column.key}
+                className="column-resizer"
+                label={`Resize ${column.label} column`}
+                value={columnWidths[column.key] ?? 100}
+                min={COLUMN_WIDTH.min}
+                max={COLUMN_WIDTH.max}
+                start={() => drawnWidths()[column.key]}
+                onChange={(next) => onColumnWidths({ ...drawnWidths(), [column.key]: next })}
+                style={{ left: `${(edges.ends[column.key] ?? 0) - 4}px` }}
+              />
+            ))}
+          </div>
+        )}
         <table
           className={sized ? `sized-columns${actions ? " sized-columns-fill" : ""}` : undefined}
           style={
@@ -163,17 +218,6 @@ export function DataTable<Row>({
                     style={width !== undefined ? ({ "--column-width": `${width}px` } as CSSProperties) : undefined}
                   >
                     {sorting ? <SortHeader field={column.key} label={column.label} sorting={sorting} /> : column.label}
-                    {onColumnWidths && (
-                      <ResizeHandle
-                        className="column-resizer"
-                        label={`Resize ${column.label} column`}
-                        value={width ?? 100}
-                        min={COLUMN_WIDTH.min}
-                        max={COLUMN_WIDTH.max}
-                        start={() => drawnWidths()[column.key]}
-                        onChange={(next) => onColumnWidths({ ...drawnWidths(), [column.key]: next })}
-                      />
-                    )}
                   </th>
                 );
               })}

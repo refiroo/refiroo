@@ -57,6 +57,10 @@ describe("ObjectTable", () => {
     // The first resize keeps every other column at the width it was drawn with.
     expect(onColumnWidths).toHaveBeenCalledWith({ name: 190, code: 180 });
     expect(screen.getAllByRole("separator")).toHaveLength(2);
+    // A header is named by its label alone; its handle stands outside it (UA7).
+    expect(screen.getByRole("columnheader", { name: "Name" })).not.toContainElement(
+      screen.getByRole("separator", { name: "Resize Name column" }),
+    );
   });
 
   it("sizes a column narrower than its content once widths are set (UA4 revision)", () => {

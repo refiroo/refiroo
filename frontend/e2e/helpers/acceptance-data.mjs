@@ -99,9 +99,10 @@ export async function installRelease(api, name, model) {
 /**
  * SC-07 records: canonical master values (with enough fillers that some candidates are beyond the
  * first page of 20), and system values that are unmapped (PICKUP), mapped to a different target
- * (HOME) and ambiguous across a set larger than the inline preview (MULTI).
+ * (HOME) and ambiguous across a set larger than the inline preview (MULTI). The alignment
+ * relations need `addAlignmentBinding`'s model; `alignment: false` leaves them out (the UI gates).
  */
-export async function seedMappingData(api, records) {
+export async function seedMappingData(api, records, { alignment: withAlignment = true } = {}) {
   const codelists = await api("/objects/codelist?workspaceKey=default&applicationKey=rdm-master&pageSize=20");
   const codelist = codelists.items.find((item) => item.name === "Codelist Alpha");
   const masters = {};
@@ -147,6 +148,7 @@ export async function seedMappingData(api, records) {
   const multiCollection = await relate(mapping, systemValues.MULTI, masters.Collection);
   for (const filler of fillers) await relate(mapping, systemValues.MULTI, filler);
 
+  if (!withAlignment) return { codelist, masters, fillers, systemValues, multiCollection };
   const alignment = "qa-master-aligns-to-system";
   const aligned = {
     home: await relate(alignment, masters.Collection, systemValues.HOME, { "qa-confidence": 7 }),

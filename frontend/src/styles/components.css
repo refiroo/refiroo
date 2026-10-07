@@ -783,15 +783,21 @@ th[aria-sort] {
 .mobile-columns-toggle {
   display: none;
 }
-/* A column's resize handle (ui/DataTable): an invisible strip inside its own header's right edge,
-   so the next header never covers it; its line shows only on hover and focus (layout.css). */
-.column-resizer {
-  position: absolute;
+/* The columns' resize handles (ui/DataTable, UA7): one layer before the table, outside the header
+   cells so a header's name is only its label. It takes no height, sticks to the top of the scroll
+   window above the sticky headers, and scrolls sideways with the table. Each handle is an invisible
+   strip over its column's right edge; its line shows only on hover and focus (layout.css). */
+.column-resizers {
+  position: sticky;
   z-index: 2;
   top: 0;
-  right: 0;
+  height: 0;
+}
+.column-resizer {
+  position: absolute;
+  top: 0;
   width: 8px;
-  height: 100%;
+  height: var(--header-row-height);
 }
 .column-resizer::after {
   inset: 0 3px;

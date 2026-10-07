@@ -48,7 +48,7 @@
     display: block;
   }
   .navigation-resizer,
-  .column-resizer {
+  .column-resizers {
     display: none;
   }
   /* Two rows: the mark, then Settings with the account; then the applications, scrolling. */
