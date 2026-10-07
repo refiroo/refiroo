@@ -2183,7 +2183,8 @@ consumer API's `objectTypes`, the first application showing that type, the webho
 No link for a notice, a deleted record or a type the active release no longer exposes. Checks: the
 Webhooks unit tests (14, the link's route and its absence for a deleted record), settings and `ui`
 (79), `lint`, `build`. The runner's new check (the link opening the record) could not run: the
-backend under test was mid-change by C17's session.
+backend under test was mid-change by C17's session. It ran in C17's run of `test:browser:webhooks`
+the same day and passed (19 checks).
 
 ### Exit by 1.0
 

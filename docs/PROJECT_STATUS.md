@@ -1,6 +1,6 @@
 # Project status
 
-## Current development baseline — Base 0.8 released 2026-09-29
+## Current development baseline — Base 0.9 in progress (0.9.0-alpha.1 released 2026-10-03)
 
 **Base 0.8 is released (2026-09-29)**: scalable browsing (Track S), workspace terminology and
 capability boundaries (Track W), the relation matrix (Milestone A), the hierarchy editor (Milestone B),
@@ -254,7 +254,7 @@ Workspaces and Model restored to their earlier screens beside the settings navig
 widened, a drawer for phones and the workspace switcher returned to the rail
 ([revisions](SETTINGS_AND_UI_PLAN.md#u3-revisions-after-delivery-2026-10-06)). Finding the UI
 incoherent, the user then chose a new visual direction, **Atlas** (ADR-040): today's shell with a
-colour for every kind of record. Next: **UA**, the Atlas redesign of every surface
+colour for every kind of record. Then **UA**, the Atlas redesign of every surface
 ([plan](SETTINGS_AND_UI_PLAN.md#ua-the-atlas-redesign)), before U4 and U5. **UA0 is implemented
 (2026-10-06)**, awaiting the user's check on the dev server: popovers no longer swallow the first
 click on the page, the workspace switcher lists every workspace when opened while loading, and
@@ -262,7 +262,7 @@ every page, Settings included, has one top bar and one frame, with copied markup
 shared components (U-D14, [record](SETTINGS_AND_UI_PLAN.md#ua0-record-2026-10-06)). **UA1 is implemented (2026-10-06)**: the
 eight-hue type palette and the context strips as tokens under the contrast test, a type's or an
 application's hue from its position in the model (`model/hues`), and `ui/HueTile` in the top bar
-and the rail's Collections; awaiting the user's pick between two palettes (U-D13) and approval
+and the rail's Collections; the user picked palette B (U-D13); awaiting approval
 ([record](SETTINGS_AND_UI_PLAN.md#ua1-record-2026-10-06)). **UA2 is implemented (2026-10-06)**: the record
 browser shows each record's type tile, a branch's guide line, quiet type headings and the selected
 record in its type's colour; awaiting approval
@@ -276,7 +276,7 @@ side-by-side fields and **Connected** list; no model or backend change; awaiting
 ([record](SETTINGS_AND_UI_PLAN.md#ua4-record-2026-10-07)). **UA5–UA7 are implemented (2026-10-07)**:
 change sets and publications, the remaining surfaces, then dark mode and the gates: every screen
 checked in dark, checkboxes and radios drawn from the tokens, column headers named by their label
-alone, and `test:a11y` (73 checks) and `test:visual` (64 baselines, light and dark) passing; UA7
+alone, and `test:a11y` (73 checks) and `test:visual` (64 baselines, light and dark) passing; each
 awaits approval ([record](SETTINGS_AND_UI_PLAN.md#ua7-record-2026-10-07)). **U4 is implemented
 (2026-10-07)**: Settings › Integration with **Consumer APIs** (each definition's version, base URL,
 exposed types, lists and events), **Jobs and feed** (jobs of every workspace, cancel, the limits)
@@ -290,11 +290,15 @@ screenshots await approval ([record](SETTINGS_AND_UI_PLAN.md#u5-record-2026-10-0
 implemented (2026-10-07)**: webhooks have names, every delivery request and attempt is logged
 (`/consumer-subscriptions/{id}/deliveries`, `CONSUMER_WEBHOOK_LOG_RETENTION_DAYS`, revision
 `20261007_01`, C-D115–C-D119), and the Webhooks page has a rebuilt dialog and Configuration and
-Deliveries tabs ([record](SETTINGS_AND_UI_PLAN.md#u5a-record-2026-10-07)). **C17 is implemented
+Deliveries tabs; revised the same day with resending an event by hand (C-D129–C-D131, revision
+`20261007_02`) and an event's object linked to its record; screenshots await approval
+([record](SETTINGS_AND_UI_PLAN.md#u5a-record-2026-10-07)). **C17 is implemented
 (2026-10-07)**: a webhook chooses one event per request (the default) or batched up to 1,000, with
 the object or the notification only, in RDM JSON or CloudEvents 1.0; the coalesced mode is retired
 (revision `20261007_03`, C-D120–C-D128); screenshots await approval
-([record](BASE_0_9_IMPLEMENTATION_PLAN.md#c17-record-2026-10-07)).
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#c17-record-2026-10-07)). Next is **J1, export jobs**
+([plan](BASE_0_9_IMPLEMENTATION_PLAN.md#j1-export)), to be planned in detail before it starts; then
+J2–J4 (import), Track K and R.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter
