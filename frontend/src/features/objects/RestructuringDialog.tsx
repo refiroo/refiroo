@@ -16,6 +16,7 @@
  * applying, it links to the change set's review, which lists every record the operation touched.
  */
 
+import { StatusPill } from "@/ui/StatusPill";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { errorMessage, isApiError } from "@/api/errors";
 import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
@@ -46,6 +47,9 @@ import { Notice } from "@/ui/Notice";
 import { ObjectLookup } from "@/ui/ObjectLookup";
 import { ScrollWindow } from "@/ui/ScrollWindow";
 import { Tabs } from "@/ui/Tabs";
+import { Candidate } from "@/ui/Candidate";
+import { HueTile } from "@/ui/HueTile";
+import { objectTypeTile } from "@/model/hues";
 
 const PAGE_SIZE = 20;
 
@@ -900,6 +904,7 @@ function PlanRecord({
   return (
     <li className="restructuring-record" data-row-key={record.objectId} data-row-index={index}>
       <div className="restructuring-record-head">
+        {(after ?? before) && <HueTile {...objectTypeTile(model, (after ?? before)!)} size={18} />}
         <strong>{record.name}</strong>
         <span className="change-row-type">
           {record.outcomes.includes("created")
@@ -910,7 +915,11 @@ function PlanRecord({
                 ? `${typeName(before)} → ${typeName(after)}`
                 : typeName(before)}
         </span>
-        {status && <span className={`pill${record.refusals.length ? " danger-pill" : ""}`}>{status}</span>}
+        {status && (
+          <StatusPill tone={record.refusals.length ? "error" : "neutral"} marker={false}>
+            {status}
+          </StatusPill>
+        )}
       </div>
       <p className="change-row-path">
         {record.outcomes.includes("removed") ? "Was in " : ""}
@@ -1179,22 +1188,22 @@ function SiblingPicker({
           className="candidate-scroll"
         >
           {siblings.items.map((sibling, position) => (
-            <label
+            <Candidate
               key={sibling.id}
               data-row-key={sibling.id}
               data-row-index={siblings.startIndex + position}
-              className={`candidate${chosen.has(sibling.id) ? " selected" : ""}`}
-            >
-              <input
-                type="checkbox"
-                checked={chosen.has(sibling.id)}
-                onChange={(event) => toggle(sibling, event.target.checked)}
-              />
-              <span className="candidate-text">
-                <span className="candidate-name">{sibling.name}</span>
-                {sibling.id === item.id && <small>The record the level is inserted above</small>}
-              </span>
-            </label>
+              selected={chosen.has(sibling.id)}
+              control={
+                <input
+                  type="checkbox"
+                  checked={chosen.has(sibling.id)}
+                  onChange={(event) => toggle(sibling, event.target.checked)}
+                />
+              }
+              type={objectTypeTile(model, sibling.objectTypeKey)}
+              name={sibling.name}
+              detail={sibling.id === item.id && "The record the level is inserted above"}
+            />
           ))}
           {siblings.loading && !siblings.items.length && <p className="candidate-state">Loading…</p>}
           {!siblings.loading && !siblings.error && !siblings.items.length && (

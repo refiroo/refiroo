@@ -10,6 +10,7 @@ import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import type { ModelDraft, ModelReleaseSummary } from "@/types";
 import { Modal } from "@/ui/Modal";
+import { Notice } from "@/ui/Notice";
 
 export interface CreateDraftSeed {
   name: string;
@@ -126,11 +127,7 @@ export function CreateDraftDialog({
             </label>
           </>
         )}
-        {createError && (
-          <div className="notice error-notice" role="alert">
-            {createError}
-          </div>
-        )}
+        {createError && <Notice tone="error">{createError}</Notice>}
         <div className="dialog-actions">
           <button type="button" className="secondary" disabled={pending} onClick={() => onClose()}>
             Cancel

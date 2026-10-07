@@ -190,7 +190,7 @@ record's detail declares, as chips in their types' colours that open the record;
 the panels' tables on the record's full page, one click away.
 
 A mapping grid shows each source value as mapped, unmapped or ambiguous across the whole list, with
-counts, target previews and a state filter. Choosing, replacing or clearing a target is one atomic
+counts, target previews (chips in the target type's colour) and a state filter. Choosing, replacing or clearing a target is one atomic
 action that keeps the existing relationship's identity and fields; a concurrent change is reported with
 the current mapping instead of overwritten. This works live and in a change set; publishing refuses a
 change set whose mappings diverged from live data.
@@ -211,7 +211,8 @@ and content in one valid operation, and a second active translation for the same
 is refused.
 
 A relation matrix shows records against the values of an ancestor type, for example values by
-language, each cell current, missing, inactive or held only in history. It filters to gaps across the
+language, each cell current, missing, inactive or held only in history, with its record as a chip in
+the record type's colour. It filters to gaps across the
 whole list. From a cell the steward creates, corrects or restores a translation, live or in a change
 set, and the same view links and unlinks system values.
 

@@ -15,6 +15,7 @@ import { PageHeader } from "@/ui/PageHeader";
 import { EmptyState } from "@/ui/EmptyState";
 import { RuledList, RuledListItem } from "@/ui/RuledList";
 import { BelowContextBand } from "@/ui/ContextBandSlot";
+import { Card } from "@/ui/Card";
 
 /** An API message followed by more guidance, so the two read as separate sentences. */
 function asSentence(cause: unknown) {
@@ -80,7 +81,7 @@ export function ChangeSets({
       {feed.loading && <p className="muted-text">Loading change sets…</p>}
       {feed.error && <InlineError message={feed.error} onRetry={feed.retry} />}
       {!feed.loading && !feed.error && !feed.items.length && (
-        <div className="surface">
+        <Card flush>
           <EmptyState
             action={
               !readOnly && (
@@ -93,7 +94,7 @@ export function ChangeSets({
             <strong>No change sets.</strong> Keep editing Live, or start a change set to prepare changes that are
             published together.
           </EmptyState>
-        </div>
+        </Card>
       )}
       {feed.hasMore && !feed.error && (
         <button className="load-more" disabled={feed.loading} onClick={feed.loadMore}>

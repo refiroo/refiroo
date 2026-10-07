@@ -73,20 +73,20 @@
   gap: 8px 12px;
   margin-bottom: 16px;
   padding: 6px 6px 6px 14px;
-  border: 1px solid var(--info-line);
+  border: 1px solid var(--border-strong);
   border-radius: 8px;
-  background: var(--info-soft);
+  background: var(--surface-sunken);
 }
 .context-line {
   margin: 0;
-  color: var(--ink-2);
+  color: var(--text-secondary);
   font-size: 13.5px;
 }
 .collection-lenses {
   display: flex;
   gap: 4px;
   margin-bottom: 16px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border-subtle);
   overflow-x: auto;
 }
 .collection-lenses button {
@@ -98,34 +98,33 @@
   border: 0;
   border-bottom: 2px solid transparent;
   background: transparent;
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 14px;
   font-weight: 550;
   white-space: nowrap;
 }
 .collection-lenses button:hover {
-  color: var(--ink);
+  color: var(--text-primary);
 }
 .collection-lenses button[aria-current="page"] {
-  border-bottom-color: var(--accent);
-  color: var(--ink);
+  border-bottom-color: var(--action-primary);
+  color: var(--text-primary);
   font-weight: 650;
 }
 .collection-lenses button[aria-current="page"] .icon {
-  color: var(--accent);
+  color: var(--action-primary);
 }
 
-/* Surfaces and toolbars */
-/* Today's panels and ui/Card share the card tokens, so U2 shows how cards read in Direction B
-   (U-D8); U6 moves each panel onto Card or onto a ruled section. */
-.surface,
+/* Cards and toolbars */
+/* ui/Card: every panel and collection surface of the content (U-D8, UA6). */
 .card {
+  padding: var(--space-4) var(--space-5);
   background: var(--card-surface);
   border: 1px solid var(--card-border);
   border-radius: var(--card-radius);
 }
-.card {
-  padding: var(--space-4) var(--space-5);
+.card-flush {
+  padding: 0;
 }
 .card-header {
   display: flex;
@@ -298,7 +297,7 @@
   flex-wrap: wrap;
   gap: 8px;
   padding: 10px 12px;
-  border-bottom: 1px solid var(--soft-line);
+  border-bottom: 1px solid var(--border-faint);
 }
 .object-toolbar {
   justify-content: flex-start;
@@ -321,11 +320,11 @@
   border: 1px solid var(--border-control);
   border-radius: var(--radius-control);
   padding: 0 10px;
-  background: var(--surface);
-  color: var(--muted);
+  background: var(--surface-raised);
+  color: var(--text-tertiary);
 }
 .search-box:focus-within {
-  border-color: var(--accent);
+  border-color: var(--action-primary);
   box-shadow: var(--focus-ring);
 }
 .search-box input {
@@ -335,7 +334,7 @@
   outline: 0;
   background: transparent;
   padding: 6px 0;
-  color: var(--ink);
+  color: var(--text-primary);
   font-size: 14px;
 }
 .search-box input:focus-visible {
@@ -345,7 +344,7 @@
   width: 100%;
 }
 .toolbar-button .icon {
-  color: var(--muted);
+  color: var(--text-tertiary);
 }
 .count-badge {
   display: inline-grid;
@@ -354,15 +353,15 @@
   height: 18px;
   padding: 0 5px;
   border-radius: 9px;
-  background: var(--accent);
-  color: var(--on-accent);
+  background: var(--action-primary);
+  color: var(--text-on-action);
   font-size: 11px;
   font-weight: 650;
 }
 .toolbar-field {
   display: grid;
   gap: 5px;
-  color: var(--ink-2);
+  color: var(--text-secondary);
   font-size: 13px;
   font-weight: 550;
 }
@@ -374,7 +373,7 @@
   display: grid;
   grid-template-columns: minmax(110px, 0.9fr) minmax(120px, 1.1fr);
   gap: 5px 6px;
-  color: var(--ink-2);
+  color: var(--text-secondary);
   font-size: 13px;
   font-weight: 550;
 }
@@ -391,7 +390,7 @@
   align-items: center;
   gap: 6px;
   padding: 0 12px 10px;
-  border-bottom: 1px solid var(--soft-line);
+  border-bottom: 1px solid var(--border-faint);
 }
 .filter-chips:empty {
   display: none;
@@ -402,33 +401,25 @@
   gap: 6px;
   min-height: 28px;
   padding: 0 8px 0 10px;
-  border: 1px solid var(--accent-line);
+  border: 1px solid var(--state-selected-line);
   border-radius: 999px;
-  background: var(--accent-soft);
-  color: var(--accent-ink);
+  background: var(--state-selected);
+  color: var(--state-selected-text);
   font-size: 13px;
   font-weight: 550;
   white-space: normal;
   overflow-wrap: anywhere;
 }
 .filter-chip em {
-  color: var(--ink-2);
+  color: var(--text-secondary);
   font-style: normal;
   font-weight: 400;
 }
 .filter-chip:hover {
-  border-color: var(--accent);
+  border-color: var(--action-primary);
 }
 .filter-chips .ghost {
   min-height: 28px;
-  font-size: 13px;
-}
-.collection-meta {
-  display: flex;
-  justify-content: flex-end;
-  padding: 8px 14px;
-  border-bottom: 1px solid var(--soft-line);
-  color: var(--muted);
   font-size: 13px;
 }
 /* Continuous lists (ScrollWindow, ADR-030) */
@@ -462,9 +453,9 @@
   height: 10px;
 }
 .scroll-window-viewport.has-window-scrollbar::-webkit-scrollbar-thumb {
-  border: 2px solid var(--surface);
+  border: 2px solid var(--surface-raised);
   border-radius: 6px;
-  background: var(--line-strong);
+  background: var(--border-strong);
 }
 @supports not selector(::-webkit-scrollbar) {
   .scroll-window-viewport.has-window-scrollbar {
@@ -493,7 +484,7 @@
 }
 .window-scrollbar:hover .window-scrollbar-thumb,
 .window-scrollbar-thumb.is-dragging {
-  background: var(--faint);
+  background: var(--text-tertiary);
 }
 .window-scrollbar-thumb.is-dragging {
   cursor: grabbing;
@@ -504,8 +495,8 @@
   right: 16px;
   padding: 2px 7px;
   border-radius: 5px;
-  background: var(--ink);
-  color: var(--surface);
+  background: var(--text-primary);
+  color: var(--surface-raised);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -518,20 +509,20 @@
   gap: 8px;
   min-height: 34px;
   padding: 6px 14px;
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 12.5px;
 }
 .scroll-window-edge.is-loading {
-  color: var(--muted);
+  color: var(--text-tertiary);
 }
 .scroll-window-edge-error {
-  color: var(--danger);
+  color: var(--status-error-action);
 }
 .scroll-window-spinner {
   width: 12px;
   height: 12px;
-  border: 2px solid var(--line-strong);
-  border-top-color: var(--accent);
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--action-primary);
   border-radius: 50%;
   animation: window-spin 0.8s linear infinite;
 }
@@ -553,8 +544,8 @@
   gap: 8px 12px;
   min-height: 44px;
   padding: 6px 8px 6px 14px;
-  border-top: 1px solid var(--soft-line);
-  color: var(--muted);
+  border-top: 1px solid var(--border-faint);
+  color: var(--text-tertiary);
   font-size: 13px;
 }
 .scroll-window-range {
@@ -610,13 +601,13 @@
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--text-body);
+  font-size: var(--text-md);
 }
 th {
   padding: 9px 14px;
-  border-bottom: 1px solid var(--line);
-  background: var(--surface-subtle);
-  color: var(--muted);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-sunken);
+  color: var(--text-tertiary);
   font-size: 12px;
   font-weight: 600;
   text-align: left;
@@ -625,8 +616,8 @@ th {
 td {
   max-width: 360px;
   padding: 10px 14px;
-  border-bottom: 1px solid var(--soft-line);
-  color: var(--ink-2);
+  border-bottom: 1px solid var(--border-faint);
+  color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -635,7 +626,7 @@ tbody tr:last-child td {
   border-bottom: 0;
 }
 tbody tr:hover {
-  background: var(--surface-subtle);
+  background: var(--surface-sunken);
 }
 .clickable-row {
   cursor: pointer;
@@ -646,7 +637,7 @@ tbody tr:hover {
   text-overflow: ellipsis;
   border: 0;
   background: transparent;
-  color: var(--ink);
+  color: var(--text-primary);
   padding: 0;
   font-weight: 600;
   text-align: left;
@@ -654,13 +645,13 @@ tbody tr:hover {
 }
 .cell-link:hover,
 .clickable-row:hover .cell-link {
-  color: var(--accent);
+  color: var(--action-primary);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 .empty-row {
   padding: 40px 16px;
-  color: var(--muted);
+  color: var(--text-tertiary);
   text-align: center;
   white-space: normal;
 }
@@ -679,26 +670,11 @@ tbody tr:hover {
 .object-table .loading-row td:first-child .skeleton-line {
   width: 82%;
 }
-.pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 1px 8px;
-  border-radius: 999px;
-  background: var(--fill);
-  color: var(--ink-2);
-  font-size: 12px;
-  font-weight: 550;
-}
-.active-pill {
-  background: var(--success-soft);
-  color: var(--success);
-}
 .muted {
-  color: var(--muted);
+  color: var(--text-tertiary);
 }
 .muted-text {
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 13px;
 }
 .object-table th {
@@ -719,10 +695,10 @@ tbody tr:hover {
   text-align: left;
 }
 .column-sort:hover {
-  color: var(--ink);
+  color: var(--text-primary);
 }
 .column-sort:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--action-primary);
   outline-offset: 2px;
 }
 /* A sortable header shows a quiet icon only on hover and focus; the sorted one keeps its arrow.
@@ -737,7 +713,7 @@ tbody tr:hover {
   margin-left: 2px;
   transform: translateY(-50%);
   display: inline-flex;
-  color: var(--muted);
+  color: var(--text-tertiary);
   opacity: 0;
   transition: opacity 120ms ease;
 }
@@ -746,11 +722,11 @@ tbody tr:hover {
   opacity: 1;
 }
 .column-sort.is-sorted .column-sort-icon {
-  color: var(--accent);
+  color: var(--action-primary);
   opacity: 1;
 }
 th[aria-sort] {
-  color: var(--ink);
+  color: var(--text-primary);
 }
 .table-controls {
   display: flex;
@@ -767,8 +743,8 @@ th[aria-sort] {
   max-width: 240px;
   padding: 4px 8px;
   border-radius: 6px;
-  background: var(--ink);
-  color: var(--surface);
+  background: var(--text-primary);
+  color: var(--surface-raised);
   font-size: 12px;
   box-shadow: var(--shadow-md);
 }
@@ -776,20 +752,20 @@ th[aria-sort] {
 .action-menu-section + .action-menu-item {
   margin-top: 4px;
   padding-top: 4px;
-  border-top: 1px solid var(--soft-line);
+  border-top: 1px solid var(--border-faint);
 }
 .action-menu-header {
   padding: 6px 10px 2px;
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 12px;
   font-weight: 600;
 }
 .action-menu-item .icon {
-  color: var(--accent);
+  color: var(--action-primary);
 }
 .object-table tbody tr:hover,
 .object-table tbody tr:focus-within {
-  background: var(--row-hover);
+  background: var(--state-hover);
 }
 .object-table .cell-link:focus-visible {
   outline-offset: 3px;
@@ -799,10 +775,10 @@ th[aria-sort] {
 }
 /* The selected record is filled with its type's soft colour, its marker at the left edge (ADR-040). */
 .object-table tr.selected-record > td {
-  background: var(--hue-fill, var(--accent-soft));
+  background: var(--hue-fill, var(--state-selected));
 }
 .object-table tr.selected-record > td:first-child {
-  box-shadow: inset 3px 0 0 var(--hue-marker, var(--accent));
+  box-shadow: inset 3px 0 0 var(--hue-marker, var(--action-primary));
 }
 .mobile-columns-toggle {
   display: none;
@@ -883,7 +859,7 @@ th[aria-sort] {
   box-shadow: none;
 }
 .record-actions-column .menu-trigger:hover {
-  background: var(--fill);
+  background: var(--surface-fill);
 }
 
 /* Record detail */
@@ -971,7 +947,7 @@ th[aria-sort] {
 .back-link {
   margin-left: -8px;
   padding: 0 8px;
-  color: var(--ink-2);
+  color: var(--text-secondary);
 }
 .breadcrumbs ol {
   display: flex;
@@ -981,7 +957,7 @@ th[aria-sort] {
   margin: 0;
   padding: 0;
   list-style: none;
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 13px;
 }
 .breadcrumbs li {
@@ -991,21 +967,21 @@ th[aria-sort] {
 }
 .breadcrumbs li + li::before {
   content: "›";
-  color: var(--faint);
+  color: var(--text-tertiary);
 }
 .breadcrumbs button:not(.record-chip) {
   border: 0;
   padding: 0;
   background: transparent;
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: inherit;
 }
 .breadcrumbs button:not(.record-chip):hover {
-  color: var(--accent);
+  color: var(--action-primary);
   text-decoration: underline;
 }
 .breadcrumbs [aria-current] {
-  color: var(--ink-2);
+  color: var(--text-secondary);
 }
 .breadcrumbs .record-chip {
   max-width: 260px;
@@ -1020,8 +996,8 @@ th[aria-sort] {
 .version {
   padding: 2px 8px;
   border-radius: 999px;
-  background: var(--fill);
-  color: var(--muted);
+  background: var(--surface-fill);
+  color: var(--text-tertiary);
   font-size: 12px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -1039,7 +1015,7 @@ th[aria-sort] {
 }
 .side-panels {
   position: sticky;
-  top: calc(var(--header-height) + 16px);
+  top: calc(var(--topbar-height) + 16px);
 }
 .record-detail:not(.record-inspector) .detail-grid.with-side {
   grid-template-columns: minmax(0, 1fr) 12px minmax(0, min(var(--properties-width, 300px), 50%));
@@ -1055,10 +1031,10 @@ th[aria-sort] {
 }
 .properties-resizer {
   position: sticky;
-  top: calc(var(--header-height) + 16px);
+  top: calc(var(--topbar-height) + 16px);
   grid-column: 2;
   grid-row: 1;
-  height: calc(100dvh - var(--header-height) - 40px);
+  height: calc(100dvh - var(--topbar-height) - 40px);
 }
 .panel {
   min-width: 0;
@@ -1067,18 +1043,18 @@ th[aria-sort] {
 .panel > h2 {
   margin: 0;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--soft-line);
+  border-bottom: 1px solid var(--border-faint);
   font-size: 14px;
   font-weight: 650;
 }
 .panel-tables {
   display: grid;
   gap: 1px;
-  background: var(--soft-line);
+  background: var(--border-faint);
 }
 .embedded-table {
   min-width: 0;
-  background: var(--surface);
+  background: var(--surface-raised);
 }
 .embedded-toolbar .search-box {
   max-width: 320px;
@@ -1089,7 +1065,7 @@ th[aria-sort] {
 }
 .panel-state {
   padding: 20px 16px;
-  color: var(--muted);
+  color: var(--text-tertiary);
   text-align: center;
   font-size: 13px;
 }
@@ -1110,26 +1086,26 @@ th[aria-sort] {
   position: relative;
   min-width: 0;
   padding: 10px 0;
-  border-bottom: 1px solid var(--soft-line);
+  border-bottom: 1px solid var(--border-faint);
 }
 .attribute-grid > div:last-child {
   border-bottom: 0;
 }
 .attribute-grid dt {
   padding-right: 36px;
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 12px;
   font-weight: 550;
 }
 .attribute-grid dd {
   margin: 3px 0 0;
-  color: var(--ink);
+  color: var(--text-primary);
   font-size: 14px;
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
 .unset-value {
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-style: italic;
 }
 .row-actions {
@@ -1143,18 +1119,18 @@ th[aria-sort] {
   border: 0;
   border-radius: 5px;
   background: transparent;
-  color: var(--accent);
+  color: var(--action-primary);
   font-size: 12.5px;
   font-weight: 600;
 }
 .row-actions button:hover:not(:disabled) {
-  background: var(--accent-soft);
+  background: var(--state-selected);
 }
 .row-actions button:disabled {
   opacity: 0.45;
 }
 .row-actions .text-danger:hover:not(:disabled) {
-  background: var(--danger-soft);
+  background: var(--status-error-surface);
 }
 .attribute-grid .row-actions {
   position: absolute;
@@ -1248,13 +1224,13 @@ th[aria-sort] {
   white-space: nowrap;
 }
 .managed-label {
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 12px;
   white-space: normal;
 }
 .inline-save-status {
   margin: 4px 0 0;
-  color: var(--success);
+  color: var(--status-success-text);
   font-size: 12.5px;
 }
 .inline-attribute-editor {
@@ -1264,7 +1240,7 @@ th[aria-sort] {
   padding: 12px;
   border: 1px solid var(--border-control);
   border-radius: 8px;
-  background: var(--surface-subtle);
+  background: var(--surface-sunken);
 }
 .inline-attribute-editor fieldset {
   min-width: 0;
@@ -1277,7 +1253,7 @@ th[aria-sort] {
 .inline-attribute-editor label {
   display: grid;
   gap: 5px;
-  color: var(--ink-2);
+  color: var(--text-secondary);
   font-size: 13px;
   font-weight: 550;
 }
@@ -1300,11 +1276,11 @@ th[aria-sort] {
   gap: 12px;
   padding-bottom: 10px;
   margin-bottom: 10px;
-  border-bottom: 1px solid var(--soft-line);
+  border-bottom: 1px solid var(--border-faint);
 }
 .hierarchy-panel > div span,
 .hierarchy-note {
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 12.5px;
 }
 .hierarchy-note {
@@ -1314,7 +1290,7 @@ th[aria-sort] {
   border: 0;
   padding: 0;
   background: transparent;
-  color: var(--accent);
+  color: var(--action-primary);
   text-align: left;
   font-size: 13px;
   font-weight: 600;
@@ -1340,7 +1316,7 @@ th[aria-sort] {
   display: none;
 }
 .hierarchy-panel li > span {
-  color: var(--faint);
+  color: var(--text-tertiary);
 }
 /* A one-column field list wide enough for it puts each label beside its value, with the value's
    actions at the row's end (UA4): the inspector and a widened side column. */
@@ -1460,30 +1436,30 @@ th[aria-sort] {
   bottom: -8px;
   left: 5px;
   width: 2px;
-  background: var(--soft-line);
+  background: var(--border-faint);
 }
 .history-marker {
   width: 12px;
   height: 12px;
   margin-top: 3px;
-  border: 2px solid var(--hue-marker, var(--accent));
+  border: 2px solid var(--hue-marker, var(--action-primary));
   border-radius: 50%;
-  background: var(--surface);
+  background: var(--surface-raised);
 }
 .history-timeline strong {
   display: block;
-  color: var(--ink);
+  color: var(--text-primary);
   font-size: 13.5px;
   font-weight: 600;
 }
 .history-timeline p {
   margin: 2px 0;
-  color: var(--ink-2);
+  color: var(--text-secondary);
   font-size: 13px;
   overflow-wrap: anywhere;
 }
 .history-timeline small {
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 12px;
 }
 .history-more {
@@ -1507,11 +1483,11 @@ th[aria-sort] {
 }
 .record-inspector {
   position: sticky;
-  top: calc(var(--header-height) + 16px);
-  max-height: calc(100dvh - var(--header-height) - 32px);
+  top: calc(var(--topbar-height) + 16px);
+  max-height: calc(100dvh - var(--topbar-height) - 32px);
   overflow: auto;
   padding-left: 18px;
-  border-left: 1px solid var(--line);
+  border-left: 1px solid var(--border-subtle);
 }
 .record-inspector .detail-grid.with-side,
 .record-inspector .attribute-grid {
@@ -1570,7 +1546,7 @@ th[aria-sort] {
   right: 2px;
   height: 32px;
   border-radius: 4px;
-  background: var(--line);
+  background: var(--border-subtle);
 }
 
 /* Dialogs */
@@ -1588,7 +1564,7 @@ th[aria-sort] {
   width: min(580px, 100%);
   max-height: calc(100vh - 64px);
   overflow: auto;
-  background: var(--surface);
+  background: var(--surface-raised);
   border-radius: 12px;
   box-shadow: var(--shadow-overlay);
 }
@@ -1603,7 +1579,7 @@ th[aria-sort] {
   justify-content: space-between;
   gap: 16px;
   padding: 18px 22px 14px;
-  border-bottom: 1px solid var(--soft-line);
+  border-bottom: 1px solid var(--border-faint);
 }
 .dialog h2 {
   margin: 0;
@@ -1620,25 +1596,25 @@ th[aria-sort] {
   border: 0;
   border-radius: var(--radius-control);
   background: transparent;
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 22px;
   line-height: 1;
 }
 .close:hover {
-  background: var(--fill);
-  color: var(--ink);
+  background: var(--surface-fill);
+  color: var(--text-primary);
 }
 .dialog form {
   padding: 18px 22px 20px;
 }
 .dialog form > p {
   margin: 0 0 14px;
-  color: var(--ink-2);
+  color: var(--text-secondary);
 }
 .dialog form label {
   display: block;
   margin-bottom: 14px;
-  color: var(--ink-2);
+  color: var(--text-secondary);
   font-size: 13px;
   font-weight: 550;
 }
@@ -1650,11 +1626,11 @@ th[aria-sort] {
   font-size: 13px;
 }
 .dialog form .form-fact > span {
-  color: var(--ink-2);
+  color: var(--text-secondary);
   font-weight: 550;
 }
 .dialog form .form-fact > strong {
-  color: var(--ink);
+  color: var(--text-primary);
   font-size: 14px;
   font-weight: 600;
 }
@@ -1662,7 +1638,7 @@ th[aria-sort] {
 .checkbox small {
   display: block;
   margin-top: 4px;
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 12px;
   font-weight: 400;
   line-height: 1.4;
@@ -1706,7 +1682,7 @@ th[aria-sort] {
 }
 .dialog-body {
   padding: 16px 22px 0;
-  color: var(--ink-2);
+  color: var(--text-secondary);
   font-size: 14px;
   line-height: 1.5;
 }
@@ -1718,7 +1694,7 @@ th[aria-sort] {
 .selection-field {
   display: grid;
   gap: 5px;
-  color: var(--ink-2);
+  color: var(--text-secondary);
   font-size: 13px;
 }
 .selection-field > [slot="label"] {
@@ -1726,7 +1702,7 @@ th[aria-sort] {
 }
 .workspace-selector .selection-field > [slot="label"] {
   margin: 0 6px;
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 11px;
   font-weight: 650;
   letter-spacing: 0.06em;
@@ -1742,15 +1718,15 @@ th[aria-sort] {
   min-height: var(--control-height);
   border: 1px solid var(--border-control);
   border-radius: var(--radius-control);
-  background: var(--surface);
-  color: var(--ink);
+  background: var(--surface-raised);
+  color: var(--text-primary);
 }
 .selection-trigger {
   padding: 6px 10px;
 }
 .selection-trigger[data-focus-visible],
 .combo-control:focus-within {
-  border-color: var(--accent);
+  border-color: var(--action-primary);
   box-shadow: var(--focus-ring);
 }
 .combo-control input {
@@ -1768,17 +1744,17 @@ th[aria-sort] {
   display: grid;
   place-items: center;
   border: 0;
-  border-left: 1px solid var(--line);
+  border-left: 1px solid var(--border-subtle);
   background: transparent;
-  color: var(--muted);
+  color: var(--text-tertiary);
   padding: 0 9px;
 }
 .selection-popover,
 .action-menu-popover {
   min-width: var(--trigger-width);
-  border: 1px solid var(--line);
+  border: 1px solid var(--border-subtle);
   border-radius: 10px;
-  background: var(--surface);
+  background: var(--surface-raised);
   box-shadow: var(--shadow-md);
   overflow: auto;
 }
@@ -1799,7 +1775,7 @@ th[aria-sort] {
   gap: 16px;
   padding: 8px 10px;
   border-radius: 6px;
-  color: var(--ink);
+  color: var(--text-primary);
   font-size: 14px;
   outline: none;
   cursor: default;
@@ -1807,21 +1783,21 @@ th[aria-sort] {
 .selection-option small {
   display: block;
   margin-top: 1px;
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 12px;
 }
 .selection-option[data-focused],
 .action-menu-item[data-focused] {
-  background: var(--accent-soft);
+  background: var(--state-selected);
 }
 .selection-option[data-selected] {
   font-weight: 600;
 }
 .selection-option.selection-action {
   margin-top: 4px;
-  border-top: 1px solid var(--soft-line);
+  border-top: 1px solid var(--border-faint);
   border-radius: 0 0 6px 6px;
-  color: var(--accent-ink);
+  color: var(--state-selected-text);
 }
 .selection-option.selection-action strong {
   font-weight: 600;
@@ -1831,13 +1807,13 @@ th[aria-sort] {
   opacity: 0.45;
 }
 .action-menu-item.danger-item {
-  color: var(--danger);
+  color: var(--status-error-action);
 }
 .action-menu-item.danger-item[data-focused] {
-  background: var(--danger-soft);
+  background: var(--status-error-surface);
 }
 .field-description {
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 12px;
 }
 .control-popover {
@@ -1846,9 +1822,9 @@ th[aria-sort] {
   max-height: min(650px, calc(100dvh - 32px));
   overflow-y: auto;
   padding: 14px 16px 16px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border-subtle);
   border-radius: 10px;
-  background: var(--surface);
+  background: var(--surface-raised);
   box-shadow: var(--shadow-md);
 }
 .control-popover [role="dialog"] {
@@ -1879,7 +1855,7 @@ th[aria-sort] {
 }
 .display-columns legend {
   margin-bottom: 6px;
-  color: var(--ink-2);
+  color: var(--text-secondary);
   font-size: 13px;
   font-weight: 600;
 }
@@ -1898,19 +1874,19 @@ th[aria-sort] {
 .tab-list {
   display: flex;
   gap: 4px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border-subtle);
 }
 .tab-list [role="tab"] {
   padding: 9px 12px;
   border-bottom: 2px solid transparent;
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-weight: 550;
   outline: none;
   cursor: pointer;
 }
 .tab-list [role="tab"][data-selected] {
-  border-bottom-color: var(--accent);
-  color: var(--ink);
+  border-bottom-color: var(--action-primary);
+  color: var(--text-primary);
 }
 .tab-list [role="tab"][data-focus-visible] {
   box-shadow: inset var(--focus-ring);
@@ -1938,10 +1914,10 @@ th[aria-sort] {
   gap: 16px;
   margin: 12px 16px;
   padding: 12px 14px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border-subtle);
   border-radius: 8px;
-  background: var(--surface-subtle);
-  color: var(--ink);
+  background: var(--surface-sunken);
+  color: var(--text-primary);
   font-size: 13.5px;
   line-height: 1.45;
 }
@@ -1957,21 +1933,21 @@ th[aria-sort] {
   font-weight: 650;
 }
 .notice.info-notice {
-  border-color: var(--info-line);
-  background: var(--info-soft);
+  border-color: var(--border-strong);
+  background: var(--surface-sunken);
 }
 .notice.error-notice {
-  border-color: var(--danger-line);
-  background: var(--danger-soft);
-  color: var(--danger-ink);
+  border-color: var(--status-error-line);
+  background: var(--status-error-surface);
+  color: var(--status-error-text);
 }
 .notice.warning-notice {
-  border-color: var(--warning-line);
-  background: var(--warning-soft);
+  border-color: var(--status-warning-line);
+  background: var(--status-warning-surface);
 }
 .notice.success-notice {
-  border-color: var(--success-line);
-  background: var(--success-soft);
+  border-color: var(--status-success-line);
+  background: var(--status-success-surface);
 }
 .notice-actions {
   display: flex;
@@ -1991,10 +1967,10 @@ th[aria-sort] {
   gap: 12px;
   margin: 12px 0;
   padding: 10px 12px;
-  border: 1px solid var(--danger-line);
+  border: 1px solid var(--status-error-line);
   border-radius: 8px;
-  background: var(--danger-soft);
-  color: var(--danger-ink);
+  background: var(--status-error-surface);
+  color: var(--status-error-text);
   font-size: 13.5px;
 }
 .inline-state .secondary {
@@ -2012,17 +1988,17 @@ th[aria-sort] {
   display: grid;
   place-items: center;
   padding: 50px;
-  color: var(--muted);
+  color: var(--text-tertiary);
   text-align: center;
 }
 .empty-state {
   max-width: 640px;
   margin: 64px auto;
   padding: 32px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border-subtle);
   border-radius: 12px;
-  background: var(--surface);
-  color: var(--muted);
+  background: var(--surface-raised);
+  color: var(--text-tertiary);
   text-align: center;
 }
 .error-state h1 {
@@ -2035,13 +2011,13 @@ th[aria-sort] {
 }
 .empty-panel strong {
   display: block;
-  color: var(--ink);
+  color: var(--text-primary);
   font-size: 15px;
 }
 .empty-panel p {
   margin: 6px auto 0;
   max-width: 460px;
-  color: var(--muted);
+  color: var(--text-tertiary);
 }
 
 /* Workspace pages: change sets, the in-change-set bar and publications */
@@ -2054,8 +2030,11 @@ th[aria-sort] {
   justify-self: start;
 }
 /* ui/RuledList: ruled rows on one card (ADR-040). */
+.ruled-list-card {
+  margin-bottom: var(--space-3);
+}
 .ruled-list {
-  margin: 0 0 var(--space-3);
+  margin: 0;
   padding: 0;
   list-style: none;
 }
@@ -2065,7 +2044,7 @@ th[aria-sort] {
 /* Rows take the same grey under the pointer as table rows (tbody tr:hover). */
 .ruled-list > li:hover,
 .change-row:hover {
-  background: var(--surface-subtle);
+  background: var(--surface-sunken);
 }
 .ruled-list > li:first-child {
   border-radius: var(--card-radius) var(--card-radius) 0 0;
@@ -2188,21 +2167,12 @@ th[aria-sort] {
   margin: 0 20px;
   padding: 12px;
   border-radius: 8px;
-  background: var(--warning-soft);
-  color: var(--warning);
+  background: var(--status-warning-surface);
+  color: var(--status-warning-text);
   font-size: 13px;
 }
 
 /* Model workbench */
-.model-workbench {
-  display: grid;
-  gap: 0;
-}
-.model-page-header {
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 24px;
-}
 .model-catalogue {
   display: grid;
   gap: 20px;
@@ -2215,7 +2185,7 @@ th[aria-sort] {
   display: flex;
   justify-content: space-between;
   margin: 0 10px 6px;
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 11px;
   font-weight: 650;
   letter-spacing: 0.06em;
@@ -2233,21 +2203,21 @@ th[aria-sort] {
   border: 0;
   border-radius: var(--radius-control);
   background: transparent;
-  color: var(--ink-2);
+  color: var(--text-secondary);
   text-align: left;
 }
 .model-catalogue section > button:not(.load-more) > .icon {
-  color: var(--faint);
+  color: var(--text-tertiary);
 }
 .model-catalogue section > button:not(.load-more):hover {
-  background: var(--fill);
+  background: var(--surface-fill);
 }
 .model-catalogue section > button.active {
-  background: var(--accent-soft);
-  color: var(--accent-ink);
+  background: var(--state-selected);
+  color: var(--state-selected-text);
 }
 .model-catalogue section > button.active > .icon {
-  color: var(--accent);
+  color: var(--action-primary);
 }
 .catalogue-text {
   display: grid;
@@ -2263,7 +2233,7 @@ th[aria-sort] {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 12px;
 }
 .model-catalogue .load-more {
@@ -2292,9 +2262,9 @@ th[aria-sort] {
   gap: 4px;
   min-width: 0;
   padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-surface);
-  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--card-radius);
+  background: var(--surface-raised);
 }
 .capability-name {
   display: flex;
@@ -2304,17 +2274,17 @@ th[aria-sort] {
   font-size: 13.5px;
 }
 .capability-status small {
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 12.5px;
   overflow-wrap: anywhere;
 }
 .capability-status code {
-  color: var(--ink-2);
+  color: var(--text-secondary);
   font-size: 12px;
 }
 .admin-hint {
   margin: 0 20px;
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 13px;
 }
 .dialog .admin-hint,
@@ -2336,7 +2306,7 @@ form .admin-hint {
   justify-content: space-between;
   gap: 20px;
   padding: 18px 20px 14px;
-  border-bottom: 1px solid var(--soft-line);
+  border-bottom: 1px solid var(--border-faint);
 }
 .model-detail-header h2 {
   margin: 0;
@@ -2346,7 +2316,7 @@ form .admin-hint {
 }
 .model-detail-header p:not(.eyebrow) {
   margin: 4px 0 0;
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 13px;
 }
 .model-name-field,
@@ -2354,7 +2324,7 @@ form .admin-hint {
   display: grid;
   gap: 6px;
   margin: 0 20px;
-  color: var(--ink-2);
+  color: var(--text-secondary);
   font-size: 13px;
   font-weight: 550;
 }
@@ -2377,14 +2347,14 @@ form .admin-hint {
 .model-result {
   margin: 0 20px;
   overflow: hidden;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border-subtle);
   border-radius: 10px;
 }
 .model-result > h3,
 .model-result-heading {
   margin: 0;
   padding: 12px 14px;
-  border-bottom: 1px solid var(--soft-line);
+  border-bottom: 1px solid var(--border-faint);
   font-size: 14px;
 }
 .model-result-heading {
@@ -2401,14 +2371,14 @@ form .admin-hint {
   max-width: 62%;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 12px;
   white-space: nowrap;
 }
 .model-ok {
   margin: 0;
   padding: 12px 14px;
-  color: var(--success);
+  color: var(--status-success-text);
   font-size: 13.5px;
 }
 .diagnostic-list {
@@ -2418,16 +2388,16 @@ form .admin-hint {
 }
 .diagnostic-list li {
   padding: 12px 14px;
-  border-bottom: 1px solid var(--soft-line);
+  border-bottom: 1px solid var(--border-faint);
 }
 .diagnostic-list li:last-child {
   border-bottom: 0;
 }
 .diagnostic-list li.error {
-  box-shadow: inset 3px 0 var(--danger);
+  box-shadow: inset 3px 0 var(--status-error-action);
 }
 .diagnostic-list li.warning {
-  box-shadow: inset 3px 0 var(--warning-accent);
+  box-shadow: inset 3px 0 var(--status-warning-marker);
 }
 .diagnostic-list li > div {
   display: flex;
@@ -2438,7 +2408,7 @@ form .admin-hint {
   font-size: 13px;
 }
 .diagnostic-list small {
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 12px;
 }
 .diagnostic-list button {
@@ -2446,26 +2416,26 @@ form .admin-hint {
   border: 0;
   padding: 0;
   background: transparent;
-  color: var(--accent);
+  color: var(--action-primary);
   font: 12px var(--font-mono);
 }
 .diagnostic-list code {
   display: block;
   margin-top: 6px;
-  color: var(--accent);
+  color: var(--action-primary);
   font-size: 12px;
   overflow-wrap: anywhere;
 }
 .diagnostic-list p {
   margin: 6px 0 0;
-  color: var(--ink-2);
+  color: var(--text-secondary);
   font-size: 13px;
 }
 .model-summary {
   display: grid;
   grid-template-columns: repeat(6, minmax(80px, 1fr));
   margin: 0 20px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border-subtle);
   border-radius: 10px;
   overflow: hidden;
 }
@@ -2473,7 +2443,7 @@ form .admin-hint {
   display: grid;
   gap: 2px;
   padding: 12px;
-  border-right: 1px solid var(--soft-line);
+  border-right: 1px solid var(--border-faint);
 }
 .model-summary div:last-child {
   border-right: 0;
@@ -2483,24 +2453,8 @@ form .admin-hint {
   font-weight: 680;
 }
 .model-summary span {
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 12px;
-}
-.compatibility {
-  display: inline-flex;
-  padding: 2px 9px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-}
-.compatibility.compatible {
-  background: var(--success-soft);
-  color: var(--success);
-}
-.compatibility.migration_required,
-.compatibility.invalid {
-  background: var(--danger-soft);
-  color: var(--danger);
 }
 .model-diff .table-wrap code {
   font-size: 12px;
@@ -2520,7 +2474,7 @@ form .admin-hint {
   min-width: 0;
 }
 .release-metadata dt {
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 12px;
   font-weight: 550;
 }
@@ -2531,18 +2485,18 @@ form .admin-hint {
 }
 .release-technical {
   margin: 0 20px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border-subtle);
   border-radius: 10px;
 }
 .release-technical > summary {
   padding: 10px 14px;
-  color: var(--ink-2);
+  color: var(--text-secondary);
   font-size: 13px;
   font-weight: 550;
   cursor: pointer;
 }
 .release-technical[open] > summary {
-  border-bottom: 1px solid var(--soft-line);
+  border-bottom: 1px solid var(--border-faint);
 }
 .release-technical-body {
   display: grid;
@@ -2552,7 +2506,7 @@ form .admin-hint {
 .release-technical-body p,
 .release-technical-body .release-technical-hint {
   margin: 0;
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 12.5px;
 }
 .release-technical-body dl {
@@ -2561,7 +2515,7 @@ form .admin-hint {
   margin: 0;
 }
 .release-technical-body dt {
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 12px;
   font-weight: 550;
 }
@@ -2578,7 +2532,7 @@ form .admin-hint {
   overflow-wrap: anywhere;
 }
 .release-technical-feedback:not(:empty) {
-  color: var(--ink-2);
+  color: var(--text-secondary);
   font-size: 12.5px;
 }
 .release-comparison-body {
@@ -2595,7 +2549,7 @@ form .admin-hint {
   gap: 6px;
   max-width: 360px;
   min-width: 0;
-  color: var(--ink-2);
+  color: var(--text-secondary);
   font-size: 13px;
   font-weight: 550;
 }
@@ -2614,17 +2568,17 @@ form .admin-hint {
 }
 .release-comparison-direction small {
   flex-basis: 100%;
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 12.5px;
 }
 .release-check-note {
   margin: 0;
   padding: 12px 14px;
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 12.5px;
 }
 .release-comparison-body + .model-diff {
-  border-top: 1px solid var(--soft-line);
+  border-top: 1px solid var(--border-faint);
 }
 
 /* Mapping workbench */
@@ -2635,7 +2589,7 @@ form .admin-hint {
   gap: 6px;
 }
 .mapping-direction .icon {
-  color: var(--faint);
+  color: var(--text-tertiary);
 }
 .mapping-table table {
   min-width: 640px;
@@ -2643,46 +2597,24 @@ form .admin-hint {
 .mapping-row td {
   vertical-align: top;
 }
-.mapping-state-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 1px 9px;
-  border-radius: 999px;
-  font-size: 12.5px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-.mapping-state-badge.state-mapped {
-  background: var(--success-soft);
-  color: var(--success);
-}
-.mapping-state-badge.state-unmapped {
-  background: var(--fill);
-  color: var(--ink-2);
-}
-.mapping-state-badge.state-ambiguous {
-  background: var(--warning-soft);
-  color: var(--warning);
-}
 .state-dot {
   display: inline-block;
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--faint);
+  background: var(--text-tertiary);
 }
 .state-dot.state-mapped {
-  background: var(--success-dot);
+  background: var(--status-success-marker);
 }
 .state-dot.state-ambiguous {
-  background: var(--warning-accent);
+  background: var(--status-warning-marker);
 }
 .state-dot.state-unmapped {
-  background: var(--neutral-dot);
+  background: var(--status-draft-marker);
 }
 .mapping-row.mapping-state-unmapped .mapping-source-name {
-  color: var(--ink);
+  color: var(--text-primary);
 }
 .mapping-targets-cell {
   min-width: 220px;
@@ -2696,28 +2628,28 @@ form .admin-hint {
 }
 .mapping-target {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 4px 8px;
+  min-width: 0;
 }
-.mapping-target-name,
 .mapping-source-name {
-  color: var(--ink);
+  color: var(--text-primary);
   font-weight: 600;
 }
 .mapping-target-field {
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 12.5px;
 }
 .mapping-expand {
   min-height: 26px;
   margin-left: -8px;
   padding: 0 8px;
-  color: var(--accent);
+  color: var(--action-primary);
   font-size: 12.5px;
 }
 .mapping-target-error {
-  color: var(--danger);
+  color: var(--status-error-action);
   font-size: 12.5px;
 }
 .mapping-actions-col {
@@ -2727,24 +2659,21 @@ form .admin-hint {
 }
 .mapping-dialog .mapping-current {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 14px;
   padding: 10px 12px;
   border-radius: 8px;
-  background: var(--surface-subtle);
-  border: 1px solid var(--soft-line);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-faint);
 }
 .mapping-current > span {
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 13px;
 }
-.mapping-current strong {
-  font-weight: 600;
-}
 .mapping-current .muted-strong {
-  color: var(--muted);
+  color: var(--text-tertiary);
 }
 .dialog form .candidate-search {
   /* The dialog form is a column: a shared 100% flex basis would become this box's height. */
@@ -2769,7 +2698,7 @@ form .admin-hint {
   min-width: 0;
   margin: 0 0 8px;
   padding: 4px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border-subtle);
   border-radius: 8px;
 }
 .dialog form .candidate {
@@ -2779,7 +2708,7 @@ form .admin-hint {
   margin: 0;
   padding: 8px 10px;
   border-radius: 6px;
-  color: var(--ink);
+  color: var(--text-primary);
   font-size: 14px;
   font-weight: 400;
   cursor: pointer;
@@ -2788,38 +2717,48 @@ form .admin-hint {
   background: var(--surface-hover);
 }
 .dialog form .candidate.selected {
-  background: var(--accent-soft);
+  background: var(--state-selected);
 }
 .dialog form .candidate-top-level {
-  box-shadow: 0 1px 0 var(--line);
+  box-shadow: 0 1px 0 var(--border-subtle);
   margin-bottom: 3px;
 }
 .candidate input {
   flex: none;
   margin: 0;
 }
+/* A choice that is not a record keeps the tile's room, so names line up (ui/Candidate). */
+.candidate-tile-space {
+  flex: none;
+  width: 18px;
+}
 .candidate-text {
   display: grid;
   flex: 1;
-  min-width: 0;
+  min-width: 8em;
+}
+/* A long note (why a record cannot be chosen) wraps rather than squeezing the record's name. */
+.candidate > .status-pill {
+  flex: 0 1 auto;
+  white-space: normal;
 }
 .candidate-name {
   font-weight: 550;
 }
 .candidate-text small {
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 12.5px;
   overflow-wrap: anywhere;
 }
 .candidate-state {
   margin: 0;
   padding: 14px;
-  color: var(--muted);
+  color: var(--text-tertiary);
   text-align: center;
 }
 .mapping-create-target {
   margin-left: -8px;
-  color: var(--accent);
+  color: var(--action-primary);
 }
 
 .candidate-scroll {
@@ -2832,16 +2771,16 @@ form .admin-hint {
 }
 .object-lookup .scroll-window-viewport {
   max-height: 200px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-control);
 }
 .object-lookup-choice {
   margin: 0;
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 13px;
 }
 .object-lookup-choice strong {
-  color: var(--ink);
+  color: var(--text-primary);
 }
 .object-lookup-options {
   margin: 0;
@@ -2853,7 +2792,7 @@ form .admin-hint {
   gap: 1px;
   padding: 6px 8px;
   border-radius: 6px;
-  color: var(--ink);
+  color: var(--text-primary);
   font-size: 14px;
   font-weight: 400;
   cursor: pointer;
@@ -2862,20 +2801,20 @@ form .admin-hint {
   background: var(--surface-hover);
 }
 .object-lookup-options [role="option"].is-active {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--action-primary);
   outline-offset: -2px;
 }
 .object-lookup-options [role="option"][aria-selected="true"] {
-  background: var(--accent-soft);
+  background: var(--state-selected);
 }
 .object-lookup-options small {
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 12px;
   overflow-wrap: anywhere;
 }
 .object-lookup-state {
   padding: 10px;
-  color: var(--muted);
+  color: var(--text-tertiary);
   text-align: center;
 }
 .lookup-field {
@@ -2886,7 +2825,7 @@ form .admin-hint {
 }
 .lookup-field > legend {
   padding: 0;
-  color: var(--ink-2);
+  color: var(--text-secondary);
   font-size: 13px;
   font-weight: 600;
 }
@@ -2907,18 +2846,18 @@ form .admin-hint {
   z-index: 1;
   min-width: 180px;
   max-width: 260px;
-  background: var(--surface);
-  box-shadow: 1px 0 0 var(--line);
+  background: var(--surface-raised);
+  box-shadow: 1px 0 0 var(--border-subtle);
 }
 .matrix-table thead th:first-child {
   z-index: 2;
-  background: var(--surface-subtle);
+  background: var(--surface-sunken);
 }
 .matrix-table tbody .matrix-row-header {
   padding: 9px 14px;
-  border-bottom: 1px solid var(--soft-line);
-  color: var(--ink);
-  font-size: var(--text-body);
+  border-bottom: 1px solid var(--border-faint);
+  color: var(--text-primary);
+  font-size: var(--text-md);
   font-weight: 400;
   text-align: left;
   white-space: normal;
@@ -2932,7 +2871,7 @@ form .admin-hint {
 .matrix-row-field {
   display: block;
   margin-top: 2px;
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 12.5px;
 }
 .matrix-table thead th:not(:first-child) {
@@ -2940,7 +2879,7 @@ form .admin-hint {
 }
 .matrix-column-label {
   display: block;
-  color: var(--ink);
+  color: var(--text-primary);
 }
 .matrix-column-name {
   display: block;
@@ -2956,49 +2895,51 @@ form .admin-hint {
   background: var(--surface-hover);
 }
 .matrix-table [data-grid-col]:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--action-primary);
   outline-offset: -2px;
 }
 .matrix-cell-state {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: var(--ink-2);
+  color: var(--text-secondary);
   font-size: 12.5px;
   font-weight: 600;
 }
+/* The cell's first record as a chip in its type's colour, with how many more beside it (UA6). */
 .matrix-cell-record {
-  display: block;
-  margin-top: 2px;
-  overflow: hidden;
-  color: var(--ink);
-  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin-top: 4px;
+  font-size: var(--text-sm);
 }
 .matrix-mark {
   display: inline-flex;
   flex: none;
-  color: var(--faint);
+  color: var(--text-tertiary);
 }
 .matrix-mark-one {
-  color: var(--success);
+  color: var(--status-success-text);
 }
 .matrix-mark-several {
-  color: var(--info);
+  color: var(--text-secondary);
 }
 .matrix-mark-conflict,
 .matrix-mark-inactive {
-  color: var(--warning);
+  color: var(--status-warning-text);
 }
 .matrix-mark-historyOnly {
-  color: var(--muted);
+  color: var(--text-tertiary);
 }
 .matrix-state-none .matrix-cell-state,
 .matrix-state-historyOnly .matrix-cell-state {
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-weight: 500;
 }
 .matrix-conflict {
-  background: var(--warning-soft);
+  background: var(--status-warning-surface);
 }
 .matrix-legend {
   display: flex;
@@ -3006,8 +2947,8 @@ form .admin-hint {
   gap: 4px 18px;
   margin: 0;
   padding: 8px 16px;
-  border-bottom: 1px solid var(--soft-line);
-  color: var(--muted);
+  border-bottom: 1px solid var(--border-faint);
+  color: var(--text-tertiary);
   font-size: 12.5px;
   list-style: none;
 }
@@ -3017,7 +2958,7 @@ form .admin-hint {
   gap: 6px;
 }
 .matrix-legend strong {
-  color: var(--ink-2);
+  color: var(--text-secondary);
 }
 .matrix-read-only,
 .matrix-no-columns {
@@ -3044,7 +2985,7 @@ form .admin-hint {
 }
 .matrix-filter legend {
   margin-bottom: 4px;
-  color: var(--ink);
+  color: var(--text-primary);
   font-weight: 600;
 }
 .matrix-filter .muted-text {
@@ -3058,7 +2999,7 @@ form .admin-hint {
 }
 .matrix-column-choices {
   max-height: 220px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-control);
 }
 .matrix-column-choice {
@@ -3066,7 +3007,7 @@ form .admin-hint {
   padding: 6px 10px;
 }
 .matrix-column-choice small {
-  color: var(--muted);
+  color: var(--text-tertiary);
 }
 .matrix-cell-dialog {
   display: grid;
@@ -3098,11 +3039,15 @@ form .admin-hint {
   display: grid;
   gap: 8px;
   padding: 10px 12px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border-subtle);
   border-radius: 8px;
 }
 .matrix-record-name {
-  color: var(--ink);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  color: var(--text-primary);
   font-weight: 600;
 }
 .matrix-record-summary dl {
@@ -3116,7 +3061,7 @@ form .admin-hint {
   display: contents;
 }
 .matrix-record-summary dt {
-  color: var(--muted);
+  color: var(--text-tertiary);
 }
 .matrix-record-summary dd {
   margin: 0;
@@ -3139,12 +3084,12 @@ form .admin-hint {
   font-weight: 600;
 }
 .dialog form .candidate.is-disabled {
-  color: var(--muted);
+  color: var(--text-tertiary);
   cursor: not-allowed;
 }
 .field-error {
   margin: 4px 0 0;
-  color: var(--danger);
+  color: var(--status-error-action);
   font-size: 13px;
 }
 .matrix-table tbody tr:last-child th {
@@ -3177,14 +3122,14 @@ form .admin-hint {
 .tree-lens kbd,
 .action-menu .menu-hint {
   padding: 0 4px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--border-strong);
   border-radius: 4px;
   font: inherit;
   font-size: 11px;
 }
 .action-menu .menu-hint {
   margin-left: auto;
-  color: var(--muted);
+  color: var(--text-tertiary);
 }
 .tree-lens .tree-row {
   grid-template-columns: 22px minmax(0, 1fr) auto;
@@ -3201,7 +3146,7 @@ form .admin-hint {
   width: 24px;
   height: 24px;
   border-radius: 4px;
-  color: var(--muted);
+  color: var(--text-tertiary);
   cursor: pointer;
   opacity: 0;
 }
@@ -3210,11 +3155,11 @@ form .admin-hint {
   opacity: 1;
 }
 .tree-menu-trigger:hover {
-  background: var(--fill);
-  color: var(--ink);
+  background: var(--surface-fill);
+  color: var(--text-primary);
 }
 .tree-availability {
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 11.5px;
   white-space: nowrap;
 }
@@ -3232,7 +3177,7 @@ form .admin-hint {
   height: 15px;
   border: 1px solid var(--border-control);
   border-radius: 999px;
-  background: var(--fill);
+  background: var(--surface-fill);
 }
 .tree-switch::after {
   content: "";
@@ -3242,15 +3187,15 @@ form .admin-hint {
   width: 11px;
   height: 11px;
   border-radius: 50%;
-  background: var(--faint);
+  background: var(--text-tertiary);
   transition: transform 120ms ease;
 }
 .tree-availability.on .tree-switch {
-  border-color: var(--accent);
-  background: var(--accent-soft);
+  border-color: var(--action-primary);
+  background: var(--state-selected);
 }
 .tree-availability.on .tree-switch::after {
-  background: var(--accent);
+  background: var(--action-primary);
   transform: translateX(11px);
 }
 .tree-rename {
@@ -3265,7 +3210,7 @@ form .admin-hint {
   font-size: 13px;
 }
 .tree-rename-error {
-  color: var(--danger);
+  color: var(--status-error-action);
   font-size: 12px;
   white-space: normal;
 }
@@ -3278,11 +3223,11 @@ form .admin-hint {
 /* Dimmed by colour, not opacity, so its text keeps its contrast. */
 .tree-row.dragging {
   border-radius: var(--radius-control);
-  background: var(--surface-subtle);
-  box-shadow: inset 0 0 0 1px var(--line-strong);
+  background: var(--surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
 }
 .tree-row.dragging .tree-node {
-  color: var(--muted);
+  color: var(--text-tertiary);
 }
 .tree-row.dragging .hue-tile {
   opacity: 0.5;
@@ -3290,26 +3235,26 @@ form .admin-hint {
 .tree-row.drop-accepted,
 .tree-row.drop-refused {
   border-radius: var(--radius-control);
-  background: var(--success-soft);
-  box-shadow: inset 0 0 0 1px var(--success-line);
+  background: var(--status-success-surface);
+  box-shadow: inset 0 0 0 1px var(--status-success-line);
 }
 .tree-row.drop-refused {
-  background: var(--danger-soft);
-  box-shadow: inset 0 0 0 1px var(--danger-line);
+  background: var(--status-error-surface);
+  box-shadow: inset 0 0 0 1px var(--status-error-line);
 }
 .tree-drop-line {
   position: fixed;
   z-index: 110;
   height: 4px;
   margin-top: -2px;
-  border: 1px solid var(--success-line);
+  border: 1px solid var(--status-success-line);
   border-radius: 2px;
-  background: var(--success-soft);
+  background: var(--status-success-surface);
   pointer-events: none;
 }
 .tree-drop-line.refused {
-  border-color: var(--danger-line);
-  background: var(--danger-soft);
+  border-color: var(--status-error-line);
+  background: var(--status-error-surface);
 }
 .tree-drag-preview {
   position: fixed;
@@ -3320,21 +3265,21 @@ form .admin-hint {
   gap: 2px;
   max-width: 320px;
   padding: 6px 10px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-control);
-  background: var(--surface);
-  color: var(--ink-2);
+  background: var(--surface-raised);
+  color: var(--text-secondary);
   font-size: 13px;
   box-shadow: var(--shadow-md);
   pointer-events: none;
 }
 .tree-drag-preview.accepted {
-  border-color: var(--success-line);
-  background: var(--success-soft);
+  border-color: var(--status-success-line);
+  background: var(--status-success-surface);
 }
 .tree-drag-preview.refused {
-  border-color: var(--danger-line);
-  background: var(--danger-soft);
+  border-color: var(--status-error-line);
+  background: var(--status-error-surface);
 }
 .tree-drag-record {
   display: flex;
@@ -3343,7 +3288,7 @@ form .admin-hint {
   min-width: 0;
 }
 .tree-drag-type {
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 12px;
   white-space: nowrap;
 }
@@ -3354,13 +3299,13 @@ form .admin-hint {
   color: var(--status-error-text);
 }
 .tree-drag-reason {
-  color: var(--danger-ink);
+  color: var(--status-error-text);
   font-size: 12px;
   font-weight: 600;
 }
 /* An accepted target that changes the record's type (C4) says what it becomes. */
 .tree-drag-note {
-  color: var(--success);
+  color: var(--status-success-text);
   font-size: 12px;
   font-weight: 600;
 }
@@ -3415,14 +3360,14 @@ body.tree-drag-refused * {
 }
 .change-review-filter legend {
   margin-bottom: 4px;
-  color: var(--ink);
+  color: var(--text-primary);
   font-weight: 600;
 }
 .change-review-filter label:not(.checkbox) {
   display: grid;
   gap: 5px;
   margin-bottom: 10px;
-  color: var(--ink);
+  color: var(--text-primary);
   font-weight: 600;
 }
 .change-rows {
@@ -3431,7 +3376,7 @@ body.tree-drag-refused * {
   list-style: none;
 }
 .change-row {
-  border-bottom: 1px solid var(--soft-line);
+  border-bottom: 1px solid var(--border-faint);
 }
 .change-row-summary {
   display: flex;
@@ -3458,13 +3403,13 @@ body.tree-drag-refused * {
   max-width: 100%;
 }
 .change-row-name {
-  color: var(--ink);
+  color: var(--text-primary);
   font-weight: 600;
   overflow-wrap: anywhere;
 }
 .change-row-type,
 .change-row-meta {
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 13px;
 }
 .change-row-meta {
@@ -3476,7 +3421,7 @@ body.tree-drag-refused * {
   overflow-wrap: anywhere;
 }
 .change-row-fields {
-  color: var(--ink-2);
+  color: var(--text-secondary);
 }
 /* The kind of change (a StatusPill) keeps one width, so the names line up. */
 .change-kind {
@@ -3511,27 +3456,27 @@ body.tree-drag-refused * {
 .change-diff td {
   max-width: none;
   padding: 6px 10px;
-  border: 1px solid var(--soft-line);
+  border: 1px solid var(--border-faint);
   text-align: left;
   vertical-align: top;
   white-space: normal;
   overflow-wrap: anywhere;
 }
 .change-diff thead th {
-  background: var(--surface-subtle);
-  color: var(--muted);
+  background: var(--surface-sunken);
+  color: var(--text-tertiary);
   font-weight: 600;
 }
 .change-diff tbody th {
   width: 26%;
-  color: var(--ink-2);
+  color: var(--text-secondary);
   font-weight: 600;
 }
 .inline-link {
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--accent);
+  color: var(--action-primary);
   font: inherit;
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -3565,8 +3510,8 @@ form.restructuring-plan-form .dialog-actions {
   bottom: -20px;
   margin: 0 -22px -20px;
   padding: 12px 22px 20px;
-  border-top: 1px solid var(--soft-line);
-  background: var(--surface);
+  border-top: 1px solid var(--border-faint);
+  background: var(--surface-raised);
 }
 .restructuring-updating {
   margin: -6px 0 10px;
@@ -3584,13 +3529,13 @@ form.restructuring-plan-form .dialog-actions {
 .restructuring-question {
   margin: 0;
   padding: 10px 14px 2px;
-  border: 1px solid var(--warning-line);
+  border: 1px solid var(--status-warning-line);
   border-radius: var(--radius-control);
-  background: var(--warning-soft);
+  background: var(--status-warning-surface);
 }
 .restructuring-question legend {
   padding: 0 4px;
-  color: var(--ink);
+  color: var(--text-primary);
   font-size: 13px;
   font-weight: 600;
 }
@@ -3622,26 +3567,22 @@ form.restructuring-plan-form .dialog-actions {
 }
 .restructuring-record {
   padding: 10px 2px;
-  border-bottom: 1px solid var(--soft-line);
+  border-bottom: 1px solid var(--border-faint);
   font-size: 13px;
 }
 .restructuring-record-head {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   gap: 4px 10px;
 }
 .restructuring-record-head strong {
-  color: var(--ink);
+  color: var(--text-primary);
   overflow-wrap: anywhere;
 }
 .restructuring-record .change-row-path {
   margin: 2px 0 6px;
-  color: var(--muted);
-}
-.danger-pill {
-  background: var(--danger-soft);
-  color: var(--danger-ink);
+  color: var(--text-tertiary);
 }
 .restructuring-values {
   display: grid;
@@ -3653,24 +3594,24 @@ form.restructuring-plan-form .dialog-actions {
   min-width: 0;
 }
 .restructuring-values dt {
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 12px;
 }
 .restructuring-values dd {
   margin: 0;
-  color: var(--ink-2);
+  color: var(--text-secondary);
   overflow-wrap: anywhere;
 }
 .dialog form .restructuring-note,
 .restructuring-note {
   margin: 4px 0;
-  color: var(--ink-2);
+  color: var(--text-secondary);
   font-size: 12.5px;
 }
 .dialog form .restructuring-refusal,
 .restructuring-refusal {
   margin: 4px 0;
-  color: var(--danger-ink);
+  color: var(--status-error-text);
   font-size: 12.5px;
   font-weight: 600;
 }
@@ -3679,7 +3620,7 @@ form.restructuring-plan-form .dialog-actions {
   gap: 4px;
   margin: 8px 0 0;
   padding: 10px 12px 0;
-  border: 1px solid var(--warning-line);
+  border: 1px solid var(--status-warning-line);
   border-radius: var(--radius-control);
 }
 .restructuring-input {
@@ -3691,7 +3632,7 @@ form.restructuring-plan-form .dialog-actions {
 .restructuring-reason {
   display: block;
   margin-bottom: 10px;
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 12px;
 }
 .restructuring-pair {
@@ -3718,7 +3659,7 @@ form.restructuring-plan-form .dialog-actions {
 }
 .restructuring-siblings legend {
   margin-bottom: 6px;
-  color: var(--ink-2);
+  color: var(--text-secondary);
   font-size: 13px;
   font-weight: 550;
 }

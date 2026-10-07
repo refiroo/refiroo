@@ -8,8 +8,7 @@
    3. Component tokens: the shell and the `ui/` components that read a role through a name of
       their own. `[data-hue]` maps a type-hue slot onto `--hue-fill`, `--hue-ink`, `--hue-marker`.
 
-   The older flat names (`--ink`, `--muted`, `--accent`, …) are aliases of the roles, kept in
-   `base.css` until U6 moves each screen onto the roles. */
+   Components read roles and component tokens only; the older flat aliases were removed in UA6. */
 
 :root {
   /* --- 1. Primitives --- */
@@ -307,6 +306,11 @@
 
   /* --- 3. Component tokens --- */
   --topbar-height: 56px;
+  /* The rail's width; `app/ShellFrame` sets it from the user's resize. */
+  --sidebar: 248px;
+  --control-height: 34px;
+  --radius-control: 6px;
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--focus-color) 24%, transparent);
   --topbar-surface: var(--surface-top);
   --rail-surface: var(--surface-nav);
   --band-padding: var(--space-3) var(--space-8);

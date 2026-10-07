@@ -5,12 +5,15 @@
  */
 
 import { useId, type ReactNode } from "react";
+import { Card } from "@/ui/Card";
 
 export function RuledList({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <ul className="surface ruled-list" aria-label={label}>
-      {children}
-    </ul>
+    <Card flush className="ruled-list-card">
+      <ul className="ruled-list" aria-label={label}>
+        {children}
+      </ul>
+    </Card>
   );
 }
 

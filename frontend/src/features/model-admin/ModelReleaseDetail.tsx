@@ -11,10 +11,11 @@ import type {
 } from "@/types";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { ModelDiagnostics } from "@/features/model-admin/ModelDiagnostics";
-import { ModelDiff } from "@/features/model-admin/ModelDiff";
+import { CompatibilityPill, ModelDiff } from "@/features/model-admin/ModelDiff";
 import { downloadJson } from "@/lib/download";
 import { ModelSummary } from "@/features/model-admin/ModelSummary";
 import { Notice } from "@/ui/Notice";
+import { StatusPill } from "@/ui/StatusPill";
 
 /** Where the Before release of a release-history comparison came from. */
 type Baseline = {
@@ -236,7 +237,7 @@ export function ModelReleaseDetail({
             {release.key} · version {release.version} · schema {release.schemaVersion}
           </p>
         </div>
-        {isActive ? <span className="compatibility compatible">Active</span> : <span className="pill">Inactive</span>}
+        {isActive ? <StatusPill tone="success">Active</StatusPill> : <StatusPill tone="neutral">Inactive</StatusPill>}
       </header>
       <dl className="release-metadata">
         <div>
@@ -245,11 +246,7 @@ export function ModelReleaseDetail({
         </div>
       </dl>
       {release.model && <ModelSummary model={release.model} />}
-      {error && (
-        <div className="notice error-notice" role="alert">
-          {error}
-        </div>
-      )}
+      {error && <Notice tone="error">{error}</Notice>}
       <div className="model-actions">
         {release.model && (
           <button
@@ -332,9 +329,7 @@ export function ModelReleaseDetail({
           </div>
           <div className="release-comparison-body">
             {historyError ? (
-              <div className="notice error-notice" role="alert">
-                Release history could not be loaded: {historyError}
-              </div>
+              <Notice tone="error">Release history could not be loaded: {historyError}</Notice>
             ) : !releases ? (
               <p className="panel-state">Loading release history…</p>
             ) : (
@@ -383,11 +378,7 @@ export function ModelReleaseDetail({
               </>
             )}
             {baseline && !current && <p className="panel-state">Comparing releases…</p>}
-            {current?.state === "error" && (
-              <div className="notice error-notice" role="alert">
-                {current.message}
-              </div>
-            )}
+            {current?.state === "error" && <Notice tone="error">{current.message}</Notice>}
             {current?.state === "unsupported" && baselineRelease && (
               <Notice tone="info" title="Comparison unavailable">
                 {releaseLabel(baselineRelease)} uses schema {current.schemaVersion ?? baselineRelease.schemaVersion},
@@ -413,16 +404,10 @@ export function ModelReleaseDetail({
                 Current active release{activeRelease ? ` ${releaseLabel(activeRelease)}` : ""} → this release
               </h3>
             </div>
-            {readiness && (
-              <span className={`compatibility ${readiness.classification}`}>
-                {readiness.classification.replace("_", " ")}
-              </span>
-            )}
+            {readiness && <CompatibilityPill classification={readiness.classification} />}
           </div>
           {check?.state === "error" ? (
-            <div className="notice error-notice" role="alert">
-              Activation readiness could not be checked: {check.message}
-            </div>
+            <Notice tone="error">Activation readiness could not be checked: {check.message}</Notice>
           ) : !readiness ? (
             <p className="panel-state">Checking against the active release and stored data…</p>
           ) : (
@@ -433,7 +418,7 @@ export function ModelReleaseDetail({
               </p>
               {readiness.diagnostics.length > 0 && <ModelDiagnostics diagnostics={readiness.diagnostics} />}
               {readiness.classification === "migration_required" && (
-                <p className="notice">Activation is blocked because stored runtime data requires migration.</p>
+                <Notice tone="warning">Activation is blocked because stored runtime data requires migration.</Notice>
               )}
             </>
           )}

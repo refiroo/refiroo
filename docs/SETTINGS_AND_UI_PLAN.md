@@ -1518,6 +1518,58 @@ strips, the indigo primary, pills for states, ruled rows on a white card, type c
   and a record in a publication at 1440 and 390px, light, and the change set strip in dark.
   **Not run:** `test:a11y`, `test:visual` (UA7).
 
+#### UA6 record (2026-10-07)
+
+Implemented; waiting for the user's approval of the screenshots. No new rule: each surface takes
+the rules UA1–UA5 settled (a type's tile in the page header, a record inside other data as a chip in
+its type's colour, pills only for states, panels on a card).
+
+- **Relation matrix, mapping grid, tree lens.** The page header carries a 40px `ui/HueTile` of the
+  row type (the matrix's rows, the grid's sources, the lens's first root type), as a collection's
+  header does, so switching lenses of one collection keeps the tile. A matrix cell's first record is
+  a `ui/RecordChip` in the cell type's colour, "+N" beside it. A mapping's targets are chips in the
+  target type's colour, their display fields beside them, in the grid and in the dialog's
+  **Currently**; the state is a `StatusPill` (Mapped success, Unmapped neutral, Ambiguous warning),
+  replacing `.mapping-state-badge`. The matrix's "Saves to change set" is the change set's pill.
+- **Dialogs.** The five lists of records to choose from (move, mapping target, matrix link, matrix
+  place, restructuring's siblings) repeated one label's markup; they are now `ui/Candidate`, which
+  shows the record's 18px type tile (`model/hues.objectTypeTile`), keeps the tile's room for a
+  choice that is not a record (**Top level**), and lets a long note wrap instead of the name (found
+  on b3's screenshot: the refusal pill squeezed "Top level" to a few letters a line). The matrix cell
+  dialog's records and the restructuring plan's records show their tile before the name. Dialog
+  shapes are unchanged.
+- **Settings pages.** Already in the look (U3); the Workspaces and Model details move onto
+  `ui/Card`, and their states onto `StatusPill`.
+- **One component, no copies.** Every `.surface` panel (13 and `RuledList`'s) is `ui/Card`, which
+  gained `as` (a `section` its caller names) and `flush` (no padding). The 18 hand-made `.pill`s and
+  the `.compatibility` pills are `StatusPill` (states with their marker; notes such as a refusal
+  without); `ModelDiff` exports `CompatibilityPill` for both its users. Ten hand-made notices in
+  the model screens are `ui/Notice`.
+- **Removed.** The 51 older token aliases in `base.css`: their 423 uses read the roles directly
+  (a mechanical mapping, one alias to one role), and every `var(--…)` resolves (checked by script).
+  `base.css`'s remaining shell tokens (`--sidebar`, `--control-height`, `--radius-control`,
+  `--focus-ring`) moved to `tokens.css`'s component layer; `--header-height` and `--radius-surface`
+  were copies of `--topbar-height` and `--card-radius`. Rules for six classes no code renders
+  (`collection-meta`, `model-workbench`, `model-page-header`, `settings-search`, `sidebar-slot`,
+  `without-sidebar`), and the `.surface`, `.pill`, `.active-pill`, `.danger-pill`, `.compatibility`
+  and mapping badge rules. The other unmatched selectors are built at run time
+  (`${size}-dialog`, `${variant}-header`, `${tone}-notice`).
+- **Generic.** Hues and icons come from `model/hues`; no renderer reads a key.
+- **Tests.** `MappingGridView.test` on two model orders: the header tile, a target's chip and the
+  dialog's choices carry their types' slots, the states their tones. `RelationMatrixView.test` on two
+  views of different row types: the header tile and a cell's chip; the cell dialog's records carry
+  the cell type's tile. All five failed on the previous code. `UIFoundation.test`: an untitled
+  `Card` as a named, flush section. Runners follow the pills: `wp12` (the release's Active and
+  Inactive pills) and `sc07` (a target is a chip).
+- **Checks.** `vitest run` over `ui`, `features`, `app`, `styles`, `model`: 39 files, 407 tests
+  passed. `format`, `lint` (0 errors, the 7 recorded warnings), `build` passed. Runners passed:
+  `a4` (10), `sc07` (9), `b3` (30, twice; the second after the candidate fix), `wp12` (7),
+  `settings`, `w4`, `wp14`, `change-sets`. `c4` failed at its own history call (TODO, known) and
+  once at the volume drag's preview, which passed on the next run (TODO). Screenshots at 1440 and
+  390px, light, of the matrix (live, change set, link dialog), the mapping grid and its dialog, the
+  lens, the move and restructuring dialogs and the settings pages. **Not run:** `test:a11y`,
+  `test:visual` (UA7).
+
 ### Exit by 1.0
 
 - Every administrative, integration and security object a route manages has a settings page, and

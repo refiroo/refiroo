@@ -23,3 +23,11 @@ export function objectTypeHue(model: EngineModel, objectTypeKey: string): Hue | 
 export function applicationHue(model: EngineModel, applicationKey: string): Hue | undefined {
   return slot(model.applications.findIndex((item) => item.key === applicationKey));
 }
+
+/** What a type's tile shows: its hue and the model's icon (`ui/HueTile`, `ui/Candidate`). */
+export function objectTypeTile(model: EngineModel, objectTypeKey: string): { hue?: Hue; icon?: string } {
+  return {
+    hue: objectTypeHue(model, objectTypeKey),
+    icon: model.objectTypes.find((item) => item.key === objectTypeKey)?.icon,
+  };
+}

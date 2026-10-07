@@ -23,6 +23,9 @@
  * the list's totals stay truthful.
  */
 
+import { StatusPill } from "@/ui/StatusPill";
+import { Candidate } from "@/ui/Candidate";
+import { objectTypeTile } from "@/model/hues";
 import { useState } from "react";
 import { errorMessage, isApiError } from "@/api/errors";
 import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
@@ -171,26 +174,35 @@ export function TreeMoveDialog({
         <fieldset className="candidate-list" aria-busy={candidates.loading || undefined} disabled={moving}>
           <legend className="visually-hidden">Choose where to move {label}</legend>
           {topLevel && (
-            <label
-              className={`candidate candidate-top-level${top ? " selected" : ""}${topLevel.refusal ? " is-disabled" : ""}`}
+            <Candidate
+              className="candidate-top-level"
+              selected={top}
+              disabled={Boolean(topLevel.refusal)}
+              control={
+                <input
+                  type="radio"
+                  name="tree-move-target"
+                  value=""
+                  checked={top}
+                  disabled={Boolean(topLevel.refusal)}
+                  onChange={() => setSelected(TOP_LEVEL)}
+                />
+              }
+              type={null}
+              name="Top level"
+              detail="No parent"
             >
-              <input
-                type="radio"
-                name="tree-move-target"
-                value=""
-                checked={top}
-                disabled={Boolean(topLevel.refusal)}
-                onChange={() => setSelected(TOP_LEVEL)}
-              />
-              <span className="candidate-text">
-                <span className="candidate-name">Top level</span>
-                <small>No parent</small>
-              </span>
-              {topLevel.refusal && <span className="pill">{topLevel.refusal}</span>}
-              {!topLevel.refusal && topLevel.becomes && (
-                <span className="pill active-pill">Becomes {typeNames(model, topLevel.becomes)}</span>
+              {topLevel.refusal && (
+                <StatusPill tone="neutral" marker={false}>
+                  {topLevel.refusal}
+                </StatusPill>
               )}
-            </label>
+              {!topLevel.refusal && topLevel.becomes && (
+                <StatusPill tone="success" marker={false}>
+                  Becomes {typeNames(model, topLevel.becomes)}
+                </StatusPill>
+              )}
+            </Candidate>
           )}
           <ScrollWindow
             list={candidates}
@@ -209,29 +221,37 @@ export function TreeMoveDialog({
               const typeName = types.size > 1 ? objectTypeFor(model, candidate.objectTypeKey)?.name : undefined;
               const newTypes = candidate.eligible ? becomes(candidate) : undefined;
               return (
-                <label
+                <Candidate
                   key={candidate.id}
                   data-row-key={candidate.id}
                   data-row-index={candidates.startIndex + position}
-                  className={`candidate${selected?.id === candidate.id ? " selected" : ""}${candidate.eligible ? "" : " is-disabled"}`}
+                  selected={selected?.id === candidate.id}
+                  disabled={!candidate.eligible}
+                  control={
+                    <input
+                      type="radio"
+                      name="tree-move-target"
+                      value={candidate.id}
+                      checked={selected?.id === candidate.id}
+                      disabled={!candidate.eligible}
+                      onChange={() => setSelected(candidate)}
+                    />
+                  }
+                  type={objectTypeTile(model, candidate.objectTypeKey)}
+                  name={candidate.name}
+                  detail={[typeName, ancestors].filter(Boolean).join(" · ")}
                 >
-                  <input
-                    type="radio"
-                    name="tree-move-target"
-                    value={candidate.id}
-                    checked={selected?.id === candidate.id}
-                    disabled={!candidate.eligible}
-                    onChange={() => setSelected(candidate)}
-                  />
-                  <span className="candidate-text">
-                    <span className="candidate-name">{candidate.name}</span>
-                    <small>{[typeName, ancestors].filter(Boolean).join(" · ")}</small>
-                  </span>
                   {!candidate.eligible && candidate.reason && (
-                    <span className="pill">{MOVE_REFUSAL_TEXT[candidate.reason]}</span>
+                    <StatusPill tone="neutral" marker={false}>
+                      {MOVE_REFUSAL_TEXT[candidate.reason]}
+                    </StatusPill>
                   )}
-                  {newTypes && <span className="pill active-pill">Becomes {typeNames(model, newTypes)}</span>}
-                </label>
+                  {newTypes && (
+                    <StatusPill tone="success" marker={false}>
+                      Becomes {typeNames(model, newTypes)}
+                    </StatusPill>
+                  )}
+                </Candidate>
               );
             })}
             {candidates.loading && !candidates.items.length && <p className="candidate-state">Loading…</p>}

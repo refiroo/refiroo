@@ -5,6 +5,7 @@ import { attributeName } from "@/model/fields";
 import type { Hue } from "@/model/hues";
 import type { AuditEventItem, EngineModel } from "@/types";
 import { InlineError } from "@/ui/InlineError";
+import { Card } from "@/ui/Card";
 
 export function HistoryPanel({
   model,
@@ -27,7 +28,7 @@ export function HistoryPanel({
   );
 
   return (
-    <section className="panel surface history-panel" data-hue={hue}>
+    <Card as="section" flush className="panel history-panel" data-hue={hue}>
       <h2>History</h2>
       {error && <InlineError message={error} onRetry={retry} />}
       {loading && items.length === 0 ? (
@@ -58,7 +59,7 @@ export function HistoryPanel({
           {loading ? "Loading…" : "Load older history"}
         </button>
       )}
-    </section>
+    </Card>
   );
 }
 

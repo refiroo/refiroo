@@ -5,10 +5,7 @@
   position: relative;
   min-height: 100vh;
   display: grid;
-  grid-template: var(--header-height) 1fr / var(--sidebar) minmax(0, 1fr);
-}
-.app-shell.without-sidebar {
-  grid-template-columns: minmax(0, 1fr);
+  grid-template: var(--topbar-height) 1fr / var(--sidebar) minmax(0, 1fr);
 }
 .skip-link {
   position: fixed;
@@ -18,8 +15,8 @@
   transform: translateY(-300%);
   padding: 9px 12px;
   border-radius: var(--radius-control);
-  background: var(--surface);
-  color: var(--accent);
+  background: var(--surface-raised);
+  color: var(--action-primary);
   font-weight: 650;
 }
 .skip-link:focus {
@@ -37,7 +34,7 @@
   display: flex;
   align-items: stretch;
   gap: var(--space-5);
-  height: var(--header-height);
+  height: var(--topbar-height);
   padding: 0 var(--space-4) 0 var(--space-5);
   background: var(--topbar-surface);
   border-bottom: 1px solid var(--border-subtle);
@@ -178,9 +175,9 @@
 /* Sidebar */
 .workspace-sidebar {
   position: sticky;
-  top: var(--header-height);
+  top: var(--topbar-height);
   grid-row: 2;
-  height: calc(100vh - var(--header-height));
+  height: calc(100vh - var(--topbar-height));
   min-width: 0;
   overflow-y: auto;
   background: var(--rail-surface);
@@ -198,8 +195,7 @@
   padding: 16px 12px 0;
 }
 
-.explorer,
-.sidebar-slot {
+.explorer {
   margin-bottom: 20px;
 }
 .account-avatar {
@@ -222,13 +218,13 @@
   margin: 0;
   padding: 12px 0 0;
   border: 0;
-  border-top: 1px solid var(--soft-line);
+  border-top: 1px solid var(--border-faint);
 }
 .settings-section h3,
 .settings-section legend {
   margin: 0;
   padding: 0;
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 11px;
   font-weight: 650;
   letter-spacing: 0.06em;
@@ -253,7 +249,7 @@ fieldset.settings-section legend {
 .account-card small,
 .settings-note {
   margin: 0;
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 12px;
 }
 .settings-section > .secondary {
@@ -265,7 +261,7 @@ fieldset.settings-section legend {
   gap: 2px;
   padding: 3px;
   border-radius: 8px;
-  background: var(--fill);
+  background: var(--surface-fill);
 }
 .theme-choice label {
   position: relative;
@@ -275,7 +271,7 @@ fieldset.settings-section legend {
   gap: 6px;
   min-height: 32px;
   border-radius: 6px;
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 13px;
   font-weight: 550;
   cursor: pointer;
@@ -286,13 +282,13 @@ fieldset.settings-section legend {
   pointer-events: none;
 }
 .theme-choice label.selected {
-  background: var(--surface);
-  color: var(--ink);
+  background: var(--surface-raised);
+  color: var(--text-primary);
   font-weight: 650;
   box-shadow: var(--shadow-sm);
 }
 .theme-choice label:has(input:focus-visible) {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--action-primary);
   outline-offset: 1px;
 }
 .resize-handle {
@@ -308,12 +304,12 @@ fieldset.settings-section legend {
 }
 .resize-handle:hover::after,
 .resize-handle:focus-visible::after {
-  border-color: var(--accent);
+  border-color: var(--action-primary);
 }
 .navigation-resizer {
   position: fixed;
   z-index: 21;
-  top: var(--header-height);
+  top: var(--topbar-height);
   bottom: 0;
   left: calc(var(--sidebar) - 5px);
   width: 10px;
@@ -327,7 +323,7 @@ fieldset.settings-section legend {
 }
 .workspace-selector .combo-control {
   min-width: 0;
-  background: var(--surface);
+  background: var(--surface-raised);
 }
 .workspace-selector input {
   width: 100%;
@@ -339,7 +335,7 @@ fieldset.settings-section legend {
   padding: 0 6px;
 }
 .workspace-single-label {
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 11px;
   font-weight: 650;
   letter-spacing: 0.06em;
@@ -356,7 +352,7 @@ fieldset.settings-section legend {
 }
 .nav-label {
   margin: 0 10px 6px;
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 11px;
   font-weight: 650;
   letter-spacing: 0.06em;
@@ -364,7 +360,7 @@ fieldset.settings-section legend {
 }
 .eyebrow {
   margin: 0 0 2px;
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 12px;
   font-weight: 600;
 }
@@ -387,7 +383,7 @@ fieldset.settings-section legend {
   border: 0;
   border-radius: var(--radius-control);
   background: transparent;
-  color: var(--ink-2);
+  color: var(--text-secondary);
   text-align: left;
   font-size: 14px;
   font-weight: 500;
@@ -400,28 +396,28 @@ fieldset.settings-section legend {
   white-space: nowrap;
 }
 .collection-tree button:hover {
-  background: var(--fill);
+  background: var(--surface-fill);
 }
 .collection-tree button.active {
-  background: var(--accent-soft);
-  color: var(--accent-ink);
+  background: var(--state-selected);
+  color: var(--state-selected-text);
   font-weight: 650;
 }
 .collection-hint {
   display: grid;
   place-items: center;
-  color: var(--faint);
+  color: var(--text-tertiary);
 }
 .browse-section {
   display: grid;
   gap: 6px;
   padding-top: 16px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border-subtle);
 }
 .browse-section .search-box {
   width: auto;
   margin: 0 4px 4px;
-  background: var(--surface);
+  background: var(--surface-raised);
 }
 .tree {
   /* Each group scrolls in its own bounded window; a branch's windows are shorter. */
@@ -453,10 +449,10 @@ fieldset.settings-section legend {
     box-shadow 160ms ease;
 }
 .tree-group.is-scrolling {
-  border-color: var(--accent);
+  border-color: var(--action-primary);
   box-shadow:
-    0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent),
-    0 0 16px color-mix(in srgb, var(--accent) 35%, transparent);
+    0 0 0 3px color-mix(in srgb, var(--action-primary) 22%, transparent),
+    0 0 16px color-mix(in srgb, var(--action-primary) 35%, transparent);
 }
 .tree-group .scroll-window-viewport {
   border-radius: 0 0 7px 7px;
@@ -502,7 +498,7 @@ fieldset.settings-section legend {
   outline: none;
 }
 .tree-item:focus-visible > .tree-row {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--action-primary);
   outline-offset: -2px;
   border-radius: var(--radius-control);
 }
@@ -526,12 +522,12 @@ fieldset.settings-section legend {
   border: 0;
   border-radius: 4px;
   background: transparent;
-  color: var(--muted);
+  color: var(--text-tertiary);
   cursor: pointer;
 }
 .tree .tree-toggle:hover {
-  background: var(--fill);
-  color: var(--ink);
+  background: var(--surface-fill);
+  color: var(--text-primary);
 }
 .tree-node {
   display: flex;
@@ -544,7 +540,7 @@ fieldset.settings-section legend {
   border: 0;
   border-radius: var(--radius-control);
   background: transparent;
-  color: var(--ink-2);
+  color: var(--text-secondary);
   text-align: left;
   font-size: 13px;
   cursor: pointer;
@@ -585,7 +581,7 @@ fieldset.settings-section legend {
 }
 .tree-path {
   overflow: hidden;
-  color: var(--muted);
+  color: var(--text-tertiary);
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 11.5px;
@@ -593,19 +589,19 @@ fieldset.settings-section legend {
 }
 .tree-count {
   margin-left: auto;
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 12px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
 .tree-note {
   padding: 4px 8px 6px;
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 12px;
 }
 .explorer-empty {
   padding: 20px 10px;
-  color: var(--muted);
+  color: var(--text-tertiary);
   text-align: center;
   font-size: 13px;
 }
@@ -616,7 +612,7 @@ fieldset.settings-section legend {
   border: 1px dashed var(--border-control);
   border-radius: var(--radius-control);
   background: transparent;
-  color: var(--ink-2);
+  color: var(--text-secondary);
   font-size: 13px;
   font-weight: 550;
 }
@@ -631,9 +627,6 @@ fieldset.settings-section legend {
   grid-column: 2;
   min-width: 0;
   padding: var(--main-pad-top) var(--main-pad-x) 48px;
-}
-.without-sidebar .workspace-main {
-  grid-column: 1;
 }
 .workspace-main > * {
   max-width: 1440px;
@@ -660,7 +653,7 @@ fieldset.settings-section legend {
    own colours on it, so the primary action stays indigo. */
 .data-context-band {
   position: sticky;
-  top: var(--header-height);
+  top: var(--topbar-height);
   z-index: 10;
   display: grid;
   gap: var(--space-3);
@@ -766,7 +759,7 @@ fieldset.settings-section legend {
   gap: 2px;
   padding: 3px;
   border-radius: 8px;
-  background: var(--fill);
+  background: var(--surface-fill);
 }
 .segmented button {
   display: inline-flex;
@@ -777,16 +770,16 @@ fieldset.settings-section legend {
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-size: 13px;
   font-weight: 550;
 }
 .segmented button:hover {
-  color: var(--ink);
+  color: var(--text-primary);
 }
 .segmented button[aria-pressed="true"] {
-  background: var(--surface);
-  color: var(--ink);
+  background: var(--surface-raised);
+  color: var(--text-primary);
   font-weight: 650;
   box-shadow: var(--shadow-sm);
 }

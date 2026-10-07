@@ -14,6 +14,7 @@ import { PublicationBanner, Publications } from "@/features/workspaces/Publicati
 import { Notice } from "@/ui/Notice";
 import { ResizeHandle } from "@/ui/ResizeHandle";
 import { useLocalNumberPreference } from "@/lib/localPreference";
+import { Card } from "@/ui/Card";
 
 export default function App() {
   const router = useRouter();
@@ -288,7 +289,7 @@ function AppContent({
     >
       {message && <Notice tone="success">{message}</Notice>}
       {data.loadingError ? (
-        <div className="surface panel">
+        <Card flush className="panel">
           <Notice
             tone="error"
             title="Could not load this content"
@@ -315,11 +316,11 @@ function AppContent({
           >
             {data.loadingError}
           </Notice>
-        </div>
+        </Card>
       ) : contextLoading ? (
-        <div className="surface panel">
+        <Card flush className="panel">
           <p>Loading {route && routeChangeSetId(route) ? "change set" : "publication"}…</p>
-        </div>
+        </Card>
       ) : (
         <>
           {activeRoute.kind === "changeSetChanges" ? (

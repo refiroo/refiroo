@@ -63,7 +63,11 @@ try {
   // The coverage row for one source, read straight from the API, optionally inside a change set.
   async function coverage(binding, applicationKey, viewKey, direction, name, changeSetId) {
     const query = new URLSearchParams({
-      applicationKey, viewKey, direction, search: name, ...binding,
+      applicationKey,
+      viewKey,
+      direction,
+      search: name,
+      ...binding,
       ...(changeSetId ? { changeSetId: changeSetId } : {}),
     });
     const result = await api(`/workspaces/default/mapping-coverage?${query}`);
@@ -128,7 +132,10 @@ try {
 
   // ---- 2. Existing different mapping: the chosen target is only on the second candidate page ----
   const candidateQuery = new URLSearchParams({
-    applicationKey: "rdm-systems", viewKey: "system-to-master-mapping", objectTypeKey: "master-value", pageSize: "20",
+    applicationKey: "rdm-systems",
+    viewKey: "system-to-master-mapping",
+    objectTypeKey: "master-value",
+    pageSize: "20",
   });
   const firstPage = await api(`/workspaces/default/mapping-candidates?${candidateQuery}`);
   candidateQuery.set("cursor", firstPage.nextCursor);
@@ -138,24 +145,36 @@ try {
   await page.getByRole("button", { name: "Change mapping for HOME" }).click();
   const home = dialogFor("HOME");
   await home.getByText(/Currently\s*Parcel locker/).waitFor();
-  expect((await home.getByRole("button", { name: "Remove mapping" }).count()) === 1, "removal is not offered where empty is allowed");
+  expect(
+    (await home.getByRole("button", { name: "Remove mapping" }).count()) === 1,
+    "removal is not offered where empty is allowed",
+  );
   await home.getByRole("radio", { name: new RegExp(`^${firstPage.items[0].name}`) }).waitFor();
   // The window holds at most five pages of 20; the second page arrives by scrolling on.
   expect((await home.getByRole("radio").count()) <= 100, "the candidate window is not bounded");
   // Candidates scroll continuously (Base 0.8 S5): scrolling on reads the next page.
-  await scrollUntil(page, home.getByRole("region", { name: /to choose from$/ }), home.getByRole("radio", { name: new RegExp(`^${beyond.name}`) }));
+  await scrollUntil(
+    page,
+    home.getByRole("region", { name: /to choose from$/ }),
+    home.getByRole("radio", { name: new RegExp(`^${beyond.name}`) }),
+  );
   await home.getByRole("radio", { name: new RegExp(`^${beyond.name}`) }).check();
   await save(home).click();
   await home.waitFor({ state: "detached" });
   row = await starterRow("HOME");
   expect(targetNames(row).join() === beyond.name, `HOME targets are ${targetNames(row)}`);
   expect(row.mappingVersion > homeBefore.mappingVersion, "replacement did not advance the mapping version");
-  checks.push(`existing different mapping: ${beyond.name}, a candidate beyond page one, replaces the target in one save`);
+  checks.push(
+    `existing different mapping: ${beyond.name}, a candidate beyond page one, replaces the target in one save`,
+  );
 
   // ---- 3. Large ambiguous set: bounded preview, exact count, continuation, then resolve to one ----
   const multiBefore = await starterRow("MULTI");
   expect(multiBefore.state === "ambiguous" && multiBefore.targetCount === 25, "MULTI is not ambiguous with 25 targets");
-  expect(multiBefore.targets.length < multiBefore.targetCount && multiBefore.targetsNextCursor, "ambiguous preview is not bounded");
+  expect(
+    multiBefore.targets.length < multiBefore.targetCount && multiBefore.targetsNextCursor,
+    "ambiguous preview is not bounded",
+  );
   const multiRow = grid.locator("tr", { has: page.getByText("MULTI", { exact: true }) });
   await multiRow.getByText("Ambiguous (25)").waitFor();
   await page.getByRole("button", { name: "Show all 25 targets for MULTI" }).click();
@@ -175,19 +194,31 @@ try {
   await multi.waitFor({ state: "detached" });
   row = await starterRow("MULTI");
   expect(row.state === "mapped" && row.targetCount === 1, "ambiguous row did not resolve to one target");
-  expect(row.targets[0].relationId === data.multiCollection.id, "resolving to an existing target replaced its relation identity");
-  checks.push("large ambiguous set: exact count, bounded preview and continuation to all 25; resolving keeps the chosen edge's identity");
+  expect(
+    row.targets[0].relationId === data.multiCollection.id,
+    "resolving to an existing target replaced its relation identity",
+  );
+  checks.push(
+    "large ambiguous set: exact count, bounded preview and continuation to all 25; resolving keeps the chosen edge's identity",
+  );
 
   // ---- 4. Generic relation write races with the mapping save; attempted choice survives ----
   await page.getByRole("button", { name: "Change mapping for PICKUP" }).click();
   const race = dialogFor("PICKUP");
   await searchCandidates(race, "Search master values", "Home");
   await race.getByRole("radio", { name: /^Home delivery/ }).check();
-  await api("/relations", { relationTypeKey: STARTER.relationTypeKey, fromObjectId: systemValues.PICKUP.id, toObjectId: masters["Parcel locker"].id });
+  await api("/relations", {
+    relationTypeKey: STARTER.relationTypeKey,
+    fromObjectId: systemValues.PICKUP.id,
+    toObjectId: masters["Parcel locker"].id,
+  });
   await save(race).click();
   await race.getByText("Mapping conflict").waitFor();
   await race.getByText(/Current mapping:\s*(Collection, Parcel locker|Parcel locker, Collection)/).waitFor();
-  expect(await race.getByRole("radio", { name: /^Home delivery/ }).isChecked(), "the attempted choice was lost after the conflict");
+  expect(
+    await race.getByRole("radio", { name: /^Home delivery/ }).isChecked(),
+    "the attempted choice was lost after the conflict",
+  );
   expect(await save(race).isDisabled(), "save is enabled before the conflict is reviewed");
   row = await starterRow("PICKUP");
   expect(targetNames(row).join() === "Collection,Parcel locker", "the conflicting save changed data");
@@ -196,7 +227,9 @@ try {
   await race.waitFor({ state: "detached" });
   row = await starterRow("PICKUP");
   expect(targetNames(row).join() === "Home delivery", `PICKUP after reviewed retry: ${targetNames(row)}`);
-  checks.push("a generic relation write racing the mapping save conflicts, shows the current targets and keeps the attempted choice");
+  checks.push(
+    "a generic relation write racing the mapping save conflicts, shows the current targets and keeps the attempted choice",
+  );
 
   // ---- 5. Independent binding, different direction/labels: untouched, then resolved in its own lens ----
   let alignment = await alignmentRow("Collection");
@@ -225,27 +258,43 @@ try {
   await save(align).click();
   await align.waitFor({ state: "detached" });
   alignment = await alignmentRow("Collection");
-  expect(alignment.targetCount === 1 && alignment.targets[0].relationId === data.aligned.home.id, "alignment did not keep the HOME edge");
-  expect(alignment.targets[0].attributes["qa-confidence"] === 7, `typed relation attribute changed: ${JSON.stringify(alignment.targets[0].attributes)}`);
+  expect(
+    alignment.targetCount === 1 && alignment.targets[0].relationId === data.aligned.home.id,
+    "alignment did not keep the HOME edge",
+  );
+  expect(
+    alignment.targets[0].attributes["qa-confidence"] === 7,
+    `typed relation attribute changed: ${JSON.stringify(alignment.targets[0].attributes)}`,
+  );
   const pickupAfterAlignment = await starterRow("PICKUP");
   expect(targetNames(pickupAfterAlignment).join() === "Home delivery", "alignment writes changed the starter mapping");
-  checks.push("independent binding with its own labels: third lens; retained edge keeps its identity and integer attribute; the starter binding is unchanged");
+  checks.push(
+    "independent binding with its own labels: third lens; retained edge keeps its identity and integer attribute; the starter binding is unchanged",
+  );
 
   // ---- 6. Inverse direction of the starter binding sees the same state from the master side ----
   await page.goto(`${uiUrl}/apps/rdm-master/views/master-to-system-mapping?workspaceKey=default`);
   const inverse = await coverage(STARTER, "rdm-master", "master-to-system-mapping", "incoming", "Home delivery");
   expect(targetNames(inverse).join() === "PICKUP", `inverse coverage of Home delivery: ${targetNames(inverse)}`);
   const inverseBeyond = await coverage(STARTER, "rdm-master", "master-to-system-mapping", "incoming", beyond.name);
-  expect(targetNames(inverseBeyond).includes("HOME"), `inverse coverage of ${beyond.name}: ${targetNames(inverseBeyond)}`);
+  expect(
+    targetNames(inverseBeyond).includes("HOME"),
+    `inverse coverage of ${beyond.name}: ${targetNames(inverseBeyond)}`,
+  );
   await searchGrid("Home delivery");
   const inverseRow = grid.locator("tr", { has: page.getByText("Home delivery", { exact: true }) });
-  await inverseRow.locator(".mapping-target-name", { hasText: "PICKUP" }).waitFor();
+  await inverseRow.locator(".mapping-target .record-chip", { hasText: "PICKUP" }).waitFor();
   checks.push("the inverse lens of the starter binding reads the replacements from the other anchor");
 
   // ---- 7. Change set mapping vs a live change to a different edge of the same set before activation ----
   const unrelatedBefore = await starterRow("HOME");
-  const changeSet = await api("/workspaces/default/change-sets", { name: "SC-07 mapping change set", source: "currentLive" });
-  await page.goto(`${uiUrl}/apps/rdm-systems/views/system-to-master-mapping?workspaceKey=default&changeSetId=${changeSet.id}`);
+  const changeSet = await api("/workspaces/default/change-sets", {
+    name: "SC-07 mapping change set",
+    source: "currentLive",
+  });
+  await page.goto(
+    `${uiUrl}/apps/rdm-systems/views/system-to-master-mapping?workspaceKey=default&changeSetId=${changeSet.id}`,
+  );
   await page.getByRole("region", { name: "Change set publication" }).waitFor();
   await page.getByRole("button", { name: "Change mapping for PICKUP" }).click();
   const drafted = dialogFor("PICKUP");
@@ -253,18 +302,30 @@ try {
   await drafted.getByRole("radio", { name: /^Parcel locker/ }).check();
   await save(drafted).click();
   await drafted.waitFor({ state: "detached" });
-  expect(targetNames(await starterRow("PICKUP", changeSet.id)).join() === "Parcel locker", "change set mapping was not saved");
+  expect(
+    targetNames(await starterRow("PICKUP", changeSet.id)).join() === "Parcel locker",
+    "change set mapping was not saved",
+  );
   expect(targetNames(await starterRow("PICKUP")).join() === "Home delivery", "change set mapping reached live");
 
   // A second steward adds a different edge to the same live set, and does unrelated live work in a
   // set the change set does not touch (its targets' incoming sets are touched too, so not Parcel locker).
   const liveEdge = await api("/relations", {
-    relationTypeKey: STARTER.relationTypeKey, fromObjectId: systemValues.PICKUP.id, toObjectId: data.fillers[0].id,
+    relationTypeKey: STARTER.relationTypeKey,
+    fromObjectId: systemValues.PICKUP.id,
+    toObjectId: data.fillers[0].id,
   });
-  await api("/workspaces/default/mappings", {
-    ...STARTER, direction: "outgoing", sourceObjectId: systemValues.HOME.id,
-    targetObjectId: masters.Collection.id, expectedMappingVersion: unrelatedBefore.mappingVersion,
-  }, "PUT");
+  await api(
+    "/workspaces/default/mappings",
+    {
+      ...STARTER,
+      direction: "outgoing",
+      sourceObjectId: systemValues.HOME.id,
+      targetObjectId: masters.Collection.id,
+      expectedMappingVersion: unrelatedBefore.mappingVersion,
+    },
+    "PUT",
+  );
 
   const publication = page.getByRole("region", { name: "Change set publication" });
   async function validateAndActivate() {
@@ -280,24 +341,37 @@ try {
   await page.getByText(/The change set is preserved/).waitFor();
   await shot("sc07-activation-conflict-wide");
   await axe("sc07-activation-conflict");
-  expect(targetNames(await starterRow("PICKUP", changeSet.id)).join() === "Parcel locker", "refused activation lost the change set mapping");
+  expect(
+    targetNames(await starterRow("PICKUP", changeSet.id)).join() === "Parcel locker",
+    "refused activation lost the change set mapping",
+  );
   expect(
     targetNames(await starterRow("PICKUP")).join() === "Filler 01,Home delivery",
     "refused activation changed the live set",
   );
-  expect(targetNames(await starterRow("HOME")).join() === "Collection", "refused activation changed unrelated live work");
-  checks.push("a live edit to a different edge of the change set's touched set refuses activation; change set, live set and unrelated live work are preserved");
+  expect(
+    targetNames(await starterRow("HOME")).join() === "Collection",
+    "refused activation changed unrelated live work",
+  );
+  checks.push(
+    "a live edit to a different edge of the change set's touched set refuses activation; change set, live set and unrelated live work are preserved",
+  );
 
   // The second steward withdraws their edge; the set matches the change set's source again.
   await api(`/relations/${liveEdge.id}?expectedVersion=${liveEdge.version}`, undefined, "DELETE");
   activation = await validateAndActivate();
   expect(activation.status() === 200, `restored-set activation returned ${activation.status()}`);
   await page.getByText(/Reviewed changes are now live/).waitFor();
-  expect(targetNames(await starterRow("PICKUP")).join() === "Parcel locker", "activation did not publish the change set mapping");
+  expect(
+    targetNames(await starterRow("PICKUP")).join() === "Parcel locker",
+    "activation did not publish the change set mapping",
+  );
   expect(targetNames(await starterRow("HOME")).join() === "Collection", "activation overwrote unrelated live work");
   const alignmentAfter = await alignmentRow("Collection");
   expect(alignmentAfter.targets[0].relationId === data.aligned.home.id, "activation changed the independent binding");
-  checks.push("after the conflicting live edge is withdrawn, activation publishes the change set mapping and keeps unrelated live work");
+  checks.push(
+    "after the conflicting live edge is withdrawn, activation publishes the change set mapping and keeps unrelated live work",
+  );
 
   // ---- 8. Narrow layout of the independent lens and its dialog ----
   await page.setViewportSize({ width: 390, height: 844 });
@@ -314,7 +388,9 @@ try {
   await shot("sc07-independent-dialog-narrow");
   await page.keyboard.press("Escape");
   await narrow.waitFor({ state: "detached" });
-  checks.push("the independent lens and its dialog fit 390px without horizontal scroll; Escape closes the clean dialog");
+  checks.push(
+    "the independent lens and its dialog fit 390px without horizontal scroll; Escape closes the clean dialog",
+  );
 
   const report = {
     browser: browser.version(),

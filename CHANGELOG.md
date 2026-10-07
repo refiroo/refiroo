@@ -383,6 +383,17 @@ All notable changes to this project are documented in this file. The format foll
   change set list offers **Start from current live data** as the header does. In **Review changes**
   the kind of change is a pill (Added green, Changed grey, Removed red), a record shows its type's
   tile, and a relationship's two ends are chips in their types' colours.
+- Base 0.9 UA6: the remaining surfaces in the Atlas look. The relation matrix, mapping grid and
+  tree lens carry their row type's tile in the page header, as a collection does; a matrix cell's
+  record and a mapping's targets (in the grid and in its dialog's **Currently**) are chips in their
+  type's colour, and mapping states are pills (Mapped green, Unmapped grey, Ambiguous amber). The
+  dialogs that list records to choose (move, mapping target, matrix link and place, restructuring's
+  siblings) show each record's type tile, through one `ui/Candidate` row; the matrix cell dialog and
+  the restructuring plan show it before each record. Every state tag is a `StatusPill` (release
+  and workspace states, capabilities, diagnostics, model changes, refusals), every panel a
+  `ui/Card`, every notice `ui/Notice`. Removed: the 51 older token aliases in `base.css` (the
+  stylesheets read the roles), the `.surface`, `.pill`, `.compatibility` and mapping badge rules,
+  and six rules no screen used.
 - Base 0.9 UA2 revision: the record browser's groups sit in frames of their type's colour, nested
   as boxes inside boxes; a group glows in the accent while it scrolls and in teal while the pointer
   is in it; with a pointer, a scrolling group stops at its first and last row; records sit one step

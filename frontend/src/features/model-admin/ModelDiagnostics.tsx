@@ -1,4 +1,5 @@
 import type { ModelDiagnostic } from "@/types";
+import { StatusPill } from "@/ui/StatusPill";
 
 export function ModelDiagnostics({
   diagnostics,
@@ -13,7 +14,7 @@ export function ModelDiagnostics({
       {diagnostics.map((item, index) => (
         <li key={`${item.path}:${item.code}:${index}`} className={item.severity}>
           <div>
-            <span className="pill">{item.severity}</span>
+            <StatusPill tone={item.severity}>{item.severity}</StatusPill>
             <strong>{item.code}</strong>
             {item.count !== undefined && <small>{item.count} affected</small>}
           </div>

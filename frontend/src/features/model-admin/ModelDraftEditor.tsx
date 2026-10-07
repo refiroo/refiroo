@@ -3,6 +3,7 @@ import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import type { ModelCompilation, ModelDraft, ModelValidation } from "@/types";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
+import { Notice } from "@/ui/Notice";
 import { downloadJson } from "@/lib/download";
 import { ModelDiagnostics } from "@/features/model-admin/ModelDiagnostics";
 import { ModelDiff } from "@/features/model-admin/ModelDiff";
@@ -227,11 +228,7 @@ export function ModelDraftEditor({
           }}
         />
       </label>
-      {syntaxError && (
-        <div className="notice error-notice" role="alert">
-          JSON syntax: {syntaxError}
-        </div>
-      )}
+      {syntaxError && <Notice tone="error">JSON syntax: {syntaxError}</Notice>}
       {!syntaxError && validation && (
         <section className="model-result">
           <h3>Authoritative validation</h3>
@@ -239,11 +236,7 @@ export function ModelDraftEditor({
         </section>
       )}
       {parsed && <ModelSummary model={parsed} />}
-      {error && (
-        <div className="notice error-notice" role="alert">
-          {error}
-        </div>
-      )}
+      {error && <Notice tone="error">{error}</Notice>}
       {conflict && (
         <div className="conflict-actions">
           <strong>A newer draft version exists. Your local JSON is preserved.</strong>
@@ -302,9 +295,9 @@ export function ModelDraftEditor({
             behavior.
           </p>
           {compilation?.compatibility.classification === "migration_required" && (
-            <p className="notice">
+            <Notice tone="warning">
               The release may be installed, but activation is blocked until its compatibility diagnostics are resolved.
-            </p>
+            </Notice>
           )}
         </ConfirmDialog>
       )}

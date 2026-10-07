@@ -10,6 +10,7 @@
  * each workspace; this screen does not list them.
  */
 
+import { Card } from "@/ui/Card";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
@@ -114,9 +115,9 @@ export function WorkspaceAdmin({
               <small>{workspace.key}</small>
             </span>
             {workspace.key === runtime?.defaultWorkspaceKey ? (
-              <span className="pill active-pill">Default</span>
+              <StatusPill tone="success">Default</StatusPill>
             ) : (
-              workspace.status === "retired" && <span className="pill">Retired</span>
+              workspace.status === "retired" && <StatusPill tone="neutral">Retired</StatusPill>
             )}
           </button>
         ))}
@@ -178,7 +179,7 @@ export function WorkspaceAdmin({
               <Icon name="arrow-left" /> All workspaces
             </button>
           )}
-          <section className="surface model-detail">
+          <Card as="section" flush className="model-detail">
             {selectedKey && capabilities && runtime ? (
               <WorkspaceDetail
                 key={selectedKey}
@@ -202,7 +203,7 @@ export function WorkspaceAdmin({
             ) : (
               !loadError && <div className="panel-state">Choose a workspace.</div>
             )}
-          </section>
+          </Card>
         </div>
       </div>
       {creating && (
@@ -394,9 +395,9 @@ function WorkspaceDetail({
           <p>{workspace.key}</p>
         </div>
         {isDefault ? (
-          <span className="compatibility compatible">Default</span>
+          <StatusPill tone="success">Default</StatusPill>
         ) : (
-          <span className="pill">{active ? "Active" : "Retired"}</span>
+          <StatusPill tone="neutral">{active ? "Active" : "Retired"}</StatusPill>
         )}
       </header>
       <dl className="release-metadata">

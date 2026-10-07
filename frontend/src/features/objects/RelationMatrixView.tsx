@@ -8,6 +8,8 @@
  * offers only the view's `cellActions`, and a save re-reads that one cell.
  */
 
+import { StatusPill } from "@/ui/StatusPill";
+import { Card } from "@/ui/Card";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
@@ -15,6 +17,9 @@ import { InlineError } from "@/ui/InlineError";
 import { ScrollWindow } from "@/ui/ScrollWindow";
 import { Icon } from "@/ui/Icon";
 import { PageHeader } from "@/ui/PageHeader";
+import { HueTile } from "@/ui/HueTile";
+import { RecordChip } from "@/ui/RecordChip";
+import { objectTypeHue, type Hue } from "@/model/hues";
 import { formatValue } from "@/ui/formatValue";
 import { attributeName } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
@@ -238,6 +243,7 @@ export function RelationMatrixView({
   const tabColumn = activeIndex >= 0 ? Math.min(active!.column, columns.length) : 0;
   const filtered = Boolean(state);
   const rowsPlural = rowType.pluralName.toLowerCase();
+  const cellHue = objectTypeHue(model, cellType.key);
 
   function openCellAt(rowId: string, columnId: string) {
     setOpen({ rowId, columnId });
@@ -286,7 +292,7 @@ export function RelationMatrixView({
     <div>
       <PageHeader
         focusTitle
-        icon={<Icon name="matrix" size={20} />}
+        icon={<HueTile hue={objectTypeHue(model, rowType.key)} icon={rowType.icon} size={40} />}
         title={view.name}
         descriptionClassName="mapping-direction"
         description={
@@ -306,7 +312,7 @@ export function RelationMatrixView({
         pluralName={rowType.pluralName}
       />
       {lenses}
-      <section className="surface collection-surface">
+      <Card as="section" flush className="collection-surface">
         <div className="collection-toolbar object-toolbar">
           <DebouncedSearchField
             appliedValue={query.search}
@@ -348,7 +354,11 @@ export function RelationMatrixView({
               </button>
             </div>
           )}
-          {changeSet && <span className="pill matrix-context">Saves to change set {changeSet.name ?? ""}</span>}
+          {changeSet && (
+            <StatusPill tone="changeSet" className="matrix-context">
+              Saves to change set {changeSet.name ?? ""}
+            </StatusPill>
+          )}
         </div>
         <MatrixChips
           query={query}
@@ -465,6 +475,7 @@ export function RelationMatrixView({
                           <MatrixCell
                             key={column.id}
                             cell={cell}
+                            cellHue={cellHue}
                             column={index + 1}
                             tabbable={tabRow === item.row.id && tabColumn === index + 1}
                             onFocus={() => setActive({ rowId: item.row.id, column: index + 1 })}
@@ -484,7 +495,7 @@ export function RelationMatrixView({
             No {columnType.pluralName.toLowerCase()} in this workspace yet, so there are no cells to show.
           </p>
         )}
-      </section>
+      </Card>
       {openRow && openColumn && openCell && (
         <RelationMatrixCellDialog
           key={`${openRow.row.id}:${openColumn.id}`}
@@ -514,12 +525,15 @@ export function RelationMatrixView({
 
 function MatrixCell({
   cell,
+  cellHue,
   column,
   tabbable,
   onFocus,
   onOpen,
 }: {
   cell: RelationMatrixCell | undefined;
+  /** The cell records' type colour: a record in the matrix's data is a chip (ADR-040). */
+  cellHue: Hue | undefined;
   column: number;
   tabbable: boolean;
   onFocus: () => void;
@@ -546,8 +560,8 @@ function MatrixCell({
       </span>
       {summary && (
         <span className="matrix-cell-record">
-          {summary.name}
-          {more > 0 && <span className="muted"> +{more}</span>}
+          <RecordChip hue={cellHue}>{summary.name}</RecordChip>
+          {more > 0 && <span className="muted">+{more}</span>}
         </span>
       )}
     </td>

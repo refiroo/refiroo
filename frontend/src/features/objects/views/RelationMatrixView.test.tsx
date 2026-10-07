@@ -4,6 +4,7 @@ import { api } from "@/api/client";
 import { ApiError } from "@/api/errors";
 import { domainObject, testModel } from "@/test/fixtures";
 import { CollectionView } from "@/features/objects/views/CollectionViewHost";
+import { objectTypeHue } from "@/model/hues";
 import type {
   CollectionQueryState,
   EngineModel,
@@ -259,6 +260,34 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     expect(api.relationMatrix).toHaveBeenCalledWith(
       expect.objectContaining({ applicationKey: "test-app", viewKey: "domain-notes", columnIds: undefined }),
     );
+  });
+
+  it.each([
+    [notesView, "domain", "Connections", "Connections EA"],
+    [tagsView, "codelist", "Sizes", "Size tag"],
+  ])(
+    "colours the header by the row type and a cell's record by its own (UA6): %s",
+    async (view, rowType, rowName, record) => {
+      const { container } = renderMatrix(view);
+      await screen.findByRole("grid");
+      expect(container.querySelector(".page-header .hue-tile")).toHaveAttribute(
+        "data-hue",
+        String(objectTypeHue(model, rowType)),
+      );
+      const chip = within(gridCell(rowName, 1)).getByText(record).closest(".record-chip");
+      expect(chip).toHaveAttribute("data-hue", String(objectTypeHue(model, "note")));
+    },
+  );
+
+  it("shows each record of a cell with its type's tile in the cell dialog (UA6)", async () => {
+    renderMatrix(notesView);
+    await screen.findByRole("grid");
+    fireEvent.click(gridCell("Finance", 1));
+    const records = within(await screen.findByRole("dialog")).getByRole("list", { name: "Notes in this cell" });
+    for (const name of ["Finance A", "Finance B"])
+      expect(
+        within(records).getByText(name, { selector: ".matrix-record-name" }).querySelector(".hue-tile"),
+      ).toHaveAttribute("data-hue", String(objectTypeHue(model, "note")));
   });
 
   it("has no inactive or conflict state for an incoming binding", async () => {

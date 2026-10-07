@@ -93,10 +93,13 @@ try {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.getByRole("button", { name: "Activate…" }).click();
   await page.getByRole("button", { name: "Activate release" }).click();
-  await page.locator(".model-detail-header .compatibility.compatible", { hasText: "Active" }).waitFor();
+  await page.locator(".model-detail-header .status-pill.tone-success", { hasText: "Active" }).waitFor();
   await page.getByText("Default: the active release this one replaced when it was first activated.").waitFor();
   expect((await page.getByRole("button", { name: "Activate…" }).count()) === 0, "Activate offered after activation");
-  expect((await page.locator(".model-detail-header .pill").count()) === 0, "Inactive shown after activation");
+  expect(
+    (await page.locator(".model-detail-header .status-pill", { hasText: "Inactive" }).count()) === 0,
+    "Inactive shown after activation",
+  );
   expect((await page.getByRole("region", { name: /^Current active release/ }).count()) === 0, "stale check");
   await page.getByRole("status").getByText("The release is now the active model.").waitFor();
   expect(new URL(page.url()).pathname === `/settings/model/releases/${pending.id}`, `after activation ${page.url()}`);

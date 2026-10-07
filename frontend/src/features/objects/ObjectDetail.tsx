@@ -26,6 +26,7 @@ import { RecordChip } from "@/ui/RecordChip";
 import { PageHeader } from "@/ui/PageHeader";
 import { panelComponentRegistry } from "./panels/registry";
 import type { PanelProps } from "./panels/types";
+import { Card } from "@/ui/Card";
 
 /**
  * The record a detail followed to its current type (D42). Its next mount is the same record under a
@@ -230,7 +231,7 @@ export function ObjectDetail({
     // this one widening assertion stands in for the per-entry casts the registry used to carry.
     const Component = panelComponentRegistry[panel.type] as React.ComponentType<PanelProps>;
     return (
-      <section className="panel surface" key={panel.key}>
+      <Card as="section" flush className="panel" key={panel.key}>
         <h2>{panel.title}</h2>
         <Component
           model={model}
@@ -250,7 +251,7 @@ export function ObjectDetail({
           onReload={loadObject}
           readOnly={readOnly}
         />
-      </section>
+      </Card>
     );
   }
 

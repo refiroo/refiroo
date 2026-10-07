@@ -14,6 +14,7 @@ import { Notice } from "@/ui/Notice";
 import { PageHeader } from "@/ui/PageHeader";
 import { RuledList, RuledListItem } from "@/ui/RuledList";
 import { StatusPill } from "@/ui/StatusPill";
+import { Card } from "@/ui/Card";
 
 export function Publications({
   workspaceKey,
@@ -146,12 +147,12 @@ export function Publications({
       {feed.loading && feed.items.length === 0 && <p className="muted-text">Loading publications…</p>}
       {feed.error && <InlineError message={feed.error} onRetry={feed.retry} />}
       {!feed.loading && !feed.error && !feed.items.length && (
-        <div className="surface">
+        <Card flush>
           <EmptyState>
             <strong>No publications yet.</strong> Publishing a change set creates a publication here that never changes.
             Live records remain available.
           </EmptyState>
-        </div>
+        </Card>
       )}
       {feed.hasMore && !feed.error && (
         <button className="load-more" disabled={feed.loading} onClick={feed.loadMore}>

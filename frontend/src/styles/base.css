@@ -9,67 +9,6 @@
   background: var(--surface-app);
   font-synthesis: none;
   -webkit-font-smoothing: antialiased;
-
-  /* Older flat names, each an alias of one semantic role (U2). Removed screen by screen in U6;
-     new code reads the roles. */
-  --ink: var(--text-primary);
-  --ink-2: var(--text-secondary);
-  --muted: var(--text-tertiary);
-  --faint: var(--text-tertiary);
-  --line: var(--border-subtle);
-  --line-strong: var(--border-strong);
-  --soft-line: var(--border-faint);
-  --surface: var(--surface-raised);
-  --surface-subtle: var(--surface-sunken);
-  --canvas: var(--surface-app);
-  --sidebar-bg: var(--surface-nav);
-  --fill: var(--surface-fill);
-  --accent: var(--action-primary);
-  --accent-hover: var(--action-primary-hover);
-  --accent-ink: var(--state-selected-text);
-  --accent-soft: var(--state-selected);
-  --accent-line: var(--state-selected-line);
-  --on-accent: var(--text-on-action);
-  --row-hover: var(--state-hover);
-  --placeholder: var(--text-placeholder);
-  --danger: var(--status-error-action);
-  --danger-hover: var(--status-error-action-hover);
-  --danger-ink: var(--status-error-text);
-  --danger-soft: var(--status-error-surface);
-  --danger-line: var(--status-error-line);
-  --warning: var(--status-warning-text);
-  --warning-soft: var(--status-warning-surface);
-  --warning-line: var(--status-warning-line);
-  --warning-accent: var(--status-warning-marker);
-  --success: var(--status-success-text);
-  --success-soft: var(--status-success-surface);
-  --success-line: var(--status-success-line);
-  --success-dot: var(--status-success-marker);
-  --info: var(--text-secondary);
-  --info-soft: var(--surface-sunken);
-  --info-line: var(--border-strong);
-  --neutral-dot: var(--status-draft-marker);
-  --color-canvas: var(--canvas);
-  --color-surface: var(--surface);
-  --color-surface-subtle: var(--surface-subtle);
-  --color-text: var(--ink);
-  --color-text-muted: var(--muted);
-  --color-border: var(--line);
-  --color-accent: var(--accent);
-  --color-accent-hover: var(--accent-hover);
-  --color-danger: var(--danger);
-  --color-danger-soft: var(--danger-soft);
-  --color-warning-soft: var(--warning-soft);
-  --color-success-soft: var(--success-soft);
-  --text-small: var(--text-xs);
-  --text-body: var(--text-md);
-
-  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--focus-color) 24%, transparent);
-  --radius-control: 6px;
-  --radius-surface: 8px;
-  --control-height: 34px;
-  --header-height: var(--topbar-height);
-  --sidebar: 248px;
 }
 
 * {
@@ -79,7 +18,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: var(--canvas);
+  background: var(--surface-app);
 }
 button,
 input,
@@ -97,7 +36,7 @@ button:disabled {
 h1,
 h2,
 h3 {
-  color: var(--ink);
+  color: var(--text-primary);
 }
 button:focus-visible,
 input:focus-visible,
@@ -105,7 +44,7 @@ textarea:focus-visible,
 select:focus-visible,
 summary:focus-visible,
 [role="region"]:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--action-primary);
   outline-offset: 1px;
 }
 /* Headings and landmarks receive programmatic focus for screen-reader orientation only. */
@@ -113,7 +52,7 @@ summary:focus-visible,
   outline: none;
 }
 ::placeholder {
-  color: var(--placeholder);
+  color: var(--text-placeholder);
 }
 
 .visually-hidden {
@@ -161,7 +100,7 @@ button:not([class]) {
   border: 1px solid transparent;
   border-radius: var(--radius-control);
   background: transparent;
-  color: var(--ink-2);
+  color: var(--text-secondary);
   font-size: 13px;
   font-weight: 550;
   line-height: 1.2;
@@ -174,7 +113,7 @@ button:not([class]) {
 .secondary,
 button:not([class]) {
   border-color: var(--border-control);
-  background: var(--surface);
+  background: var(--surface-raised);
   box-shadow: var(--shadow-sm);
 }
 .secondary:hover:not(:disabled),
@@ -187,52 +126,52 @@ button:not([class]):hover:not(:disabled) {
   background: var(--surface-hover);
 }
 .primary {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--on-accent);
+  border-color: var(--action-primary);
+  background: var(--action-primary);
+  color: var(--text-on-action);
   box-shadow: var(--shadow-sm);
 }
 .primary:hover:not(:disabled) {
-  border-color: var(--accent-hover);
-  background: var(--accent-hover);
+  border-color: var(--action-primary-hover);
+  background: var(--action-primary-hover);
 }
 .ghost:hover:not(:disabled) {
-  background: var(--fill);
-  color: var(--ink);
+  background: var(--surface-fill);
+  color: var(--text-primary);
 }
 .accent-outline {
-  border-color: var(--accent-line);
-  color: var(--accent-ink);
+  border-color: var(--state-selected-line);
+  color: var(--state-selected-text);
 }
 .accent-outline:hover:not(:disabled) {
-  background: var(--accent-soft);
+  background: var(--state-selected);
 }
 .danger {
-  border-color: var(--danger);
-  background: var(--danger);
-  color: var(--on-accent);
+  border-color: var(--status-error-action);
+  background: var(--status-error-action);
+  color: var(--text-on-action);
 }
 .danger:hover:not(:disabled) {
-  background: var(--danger-hover);
+  background: var(--status-error-action-hover);
 }
 .danger-outline {
-  border-color: var(--danger-line);
-  background: var(--surface);
-  color: var(--danger);
+  border-color: var(--status-error-line);
+  background: var(--surface-raised);
+  color: var(--status-error-action);
 }
 .danger-outline:hover:not(:disabled),
 .danger-ghost:hover:not(:disabled) {
-  background: var(--danger-soft);
+  background: var(--status-error-surface);
 }
 .danger-ghost {
-  color: var(--danger);
+  color: var(--status-error-action);
 }
 .icon-button {
   width: 32px;
   min-height: 32px;
   padding: 0;
   border-color: var(--border-control);
-  background: var(--surface);
+  background: var(--surface-raised);
 }
 .icon-button:hover:not(:disabled) {
   background: var(--surface-hover);
@@ -249,7 +188,7 @@ button:not([class]):disabled {
   box-shadow: none;
 }
 .text-danger {
-  color: var(--danger) !important;
+  color: var(--status-error-action) !important;
 }
 
 /* Text inputs share one field treatment wherever they appear. */
@@ -272,8 +211,8 @@ button:not([class]):disabled {
   border: 1px solid var(--border-control);
   border-radius: var(--radius-control);
   padding: 7px 10px;
-  background: var(--surface);
-  color: var(--ink);
+  background: var(--surface-raised);
+  color: var(--text-primary);
   font-size: 14px;
   font-weight: 400;
   outline: none;
@@ -292,12 +231,12 @@ button:not([class]):disabled {
 .inline-attribute-editor select:focus,
 .page-jump input:focus,
 .seek-jump input:focus {
-  border-color: var(--accent);
+  border-color: var(--action-primary);
   box-shadow: var(--focus-ring);
 }
 input[type="checkbox"],
 input[type="radio"] {
-  accent-color: var(--accent);
+  accent-color: var(--action-primary);
   width: 16px;
   height: 16px;
 }

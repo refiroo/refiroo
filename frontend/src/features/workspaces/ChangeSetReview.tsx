@@ -7,6 +7,7 @@
  * The screen only reads: publishing stays on the change set bar.
  */
 
+import { Card } from "@/ui/Card";
 import { useId, useState, type ReactNode } from "react";
 import { api } from "@/api/client";
 import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
@@ -74,7 +75,7 @@ export function ChangeSetReview({
   const change = (patch: Partial<ReviewRoute>) => onRouteChange({ ...route, ...patch, anchor: undefined });
 
   const list = (
-    <section className="surface collection-surface">
+    <Card as="section" flush className="collection-surface">
       <div className="collection-toolbar change-review-toolbar">
         <ControlPopover
           label="Filter"
@@ -168,7 +169,7 @@ export function ChangeSetReview({
           onAnchorChange={onAnchorChange}
         />
       )}
-    </section>
+    </Card>
   );
 
   return (

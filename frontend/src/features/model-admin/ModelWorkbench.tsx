@@ -4,6 +4,7 @@
  * without one the active release is shown. Below 760px the catalogue and the selection take turns.
  */
 
+import { Card } from "@/ui/Card";
 import { useEffect, useRef, useState } from "react";
 import { formatServerTime } from "@/lib/dates";
 import { api } from "@/api/client";
@@ -25,6 +26,7 @@ import { EmptyState } from "@/ui/EmptyState";
 import { SettingsLayout } from "@/ui/SettingsLayout";
 import { StatusPill } from "@/ui/StatusPill";
 import { useToast } from "@/ui/Toast";
+import { Notice } from "@/ui/Notice";
 
 type ModelsRoute = Extract<SettingsRoute, { page: "model" }>;
 
@@ -179,7 +181,7 @@ export function ModelWorkbench({
                 {release.key} · {release.version}
               </small>
             </span>
-            {release.active && <span className="pill active-pill">Active</span>}
+            {release.active && <StatusPill tone="success">Active</StatusPill>}
           </button>
         ))}
         {releaseCursor && (
@@ -263,9 +265,9 @@ export function ModelWorkbench({
       {!capabilities && !error && <div className="panel-state">Loading model catalogue…</div>}
       {capabilities && <CapabilityStatus capabilities={capabilities} />}
       {capabilities && !capabilities.modelAdmin.manageDrafts && (
-        <p className="notice info-notice">
+        <Notice>
           Model mutations are disabled. Installed releases remain available for read-only inspection and export.
-        </p>
+        </Notice>
       )}
       <div className={`catalogue-layout${selected ? " has-selection" : ""}`}>
         {catalogue}
@@ -275,7 +277,7 @@ export function ModelWorkbench({
               <Icon name="arrow-left" /> All releases and drafts
             </button>
           )}
-          <section className="surface model-detail">
+          <Card as="section" flush className="model-detail">
             {selectedDraft ? (
               <ModelDraftEditor
                 draft={selectedDraft}
@@ -302,7 +304,7 @@ export function ModelWorkbench({
             ) : (
               <div className="panel-state">Choose an installed release or draft.</div>
             )}
-          </section>
+          </Card>
         </div>
       </div>
       {creating && (

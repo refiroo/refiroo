@@ -7,6 +7,10 @@ import { InlineError } from "@/ui/InlineError";
 import { ScrollWindow } from "@/ui/ScrollWindow";
 import { Icon } from "@/ui/Icon";
 import { PageHeader } from "@/ui/PageHeader";
+import { HueTile } from "@/ui/HueTile";
+import { RecordChip } from "@/ui/RecordChip";
+import { objectTypeHue, objectTypeTile, type Hue } from "@/model/hues";
+import { Candidate } from "@/ui/Candidate";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { formatValue } from "@/ui/formatValue";
@@ -25,6 +29,8 @@ import type {
 } from "@/types";
 import type { ViewComponentProps } from "./views/types";
 import { DebouncedSearchField } from "@/ui/SearchField";
+import { StatusPill, type StatusTone } from "@/ui/StatusPill";
+import { Card } from "@/ui/Card";
 
 const STATE_FILTERS: { value: "" | "unmapped" | "mapped" | "ambiguous"; label: string }[] = [
   { value: "", label: "All" },
@@ -112,6 +118,7 @@ export function MappingGridView({
   const sourceColumns = config.sourceColumns.filter((column) => column !== "name");
   const targetColumns = config.targetDisplayColumns.filter((column) => column !== "name");
   const columnCount = (readOnly ? 3 : 4) + sourceColumns.length;
+  const targetHue = objectTypeHue(model, targetType.key);
   const editingIndex = pages.items.findIndex((row) => row.source.id === editingId);
   const editingRow = editingIndex >= 0 ? pages.items[editingIndex] : undefined;
   const nextRow = editingIndex >= 0 ? pages.items[editingIndex + 1] : undefined;
@@ -120,7 +127,7 @@ export function MappingGridView({
     <div ref={root}>
       <PageHeader
         focusTitle
-        icon={<Icon name="mapping" size={20} />}
+        icon={<HueTile hue={objectTypeHue(model, sourceType.key)} icon={sourceType.icon} size={40} />}
         title={view.name}
         descriptionClassName="mapping-direction"
         description={
@@ -141,7 +148,7 @@ export function MappingGridView({
         pluralName={sourceType.pluralName}
       />
       {lenses}
-      <section className="surface collection-surface">
+      <Card as="section" flush className="collection-surface">
         <div className="collection-toolbar object-toolbar">
           <DebouncedSearchField
             appliedValue={query.search}
@@ -224,6 +231,7 @@ export function MappingGridView({
                       row={row}
                       sourceColumns={sourceColumns}
                       targetColumns={targetColumns}
+                      targetHue={targetHue}
                       workspaceKey={workspaceKey}
                       applicationKey={application.key}
                       viewKey={view.key}
@@ -238,7 +246,7 @@ export function MappingGridView({
             </table>
           </ScrollWindow>
         )}
-      </section>
+      </Card>
       {editingRow && !readOnly && (
         <MappingActionDialog
           key={editingRow.source.id}
@@ -265,6 +273,12 @@ export function MappingGridView({
   );
 }
 
+const STATE_TONES: Record<MappingCoverageRow["state"], StatusTone> = {
+  mapped: "success",
+  unmapped: "neutral",
+  ambiguous: "warning",
+};
+
 const STATE_LABELS: Record<string, string> = {
   mapped: "Mapped",
   unmapped: "Unmapped",
@@ -276,6 +290,7 @@ function CoverageRow({
   row,
   sourceColumns,
   targetColumns,
+  targetHue,
   workspaceKey,
   applicationKey,
   viewKey,
@@ -288,6 +303,7 @@ function CoverageRow({
   row: MappingCoverageRow;
   sourceColumns: string[];
   targetColumns: string[];
+  targetHue: Hue | undefined;
   workspaceKey: string;
   applicationKey: string;
   viewKey: string;
@@ -327,21 +343,20 @@ function CoverageRow({
         </td>
       ))}
       <td>
-        <span className={`mapping-state-badge state-${row.state}`}>
-          <span className={`state-dot state-${row.state}`} aria-hidden="true" />
+        <StatusPill tone={STATE_TONES[row.state]}>
           {STATE_LABELS[row.state]}
           {row.state === "ambiguous" && ` (${row.targetCount})`}
-        </span>
+        </StatusPill>
       </td>
       <td className="mapping-targets-cell">
         {row.state === "unmapped" ? (
           <span className="muted">—</span>
         ) : row.state === "mapped" && inlineTargets.length === 1 ? (
-          <TargetDisplay target={inlineTargets[0]} columns={targetColumns} />
+          <TargetDisplay target={inlineTargets[0]} hue={targetHue} columns={targetColumns} />
         ) : (
           <div className="mapping-targets-list">
             {(expanded ? inlineTargets : inlineTargets.slice(0, 3)).map((target) => (
-              <TargetDisplay key={target.relationId} target={target} columns={targetColumns} />
+              <TargetDisplay key={target.relationId} target={target} hue={targetHue} columns={targetColumns} />
             ))}
             {expanded && hasMore && (
               <TargetContinuation
@@ -354,6 +369,7 @@ function CoverageRow({
                 mappingVersion={row.mappingVersion}
                 nextCursor={row.targetsNextCursor}
                 targetColumns={targetColumns}
+                targetHue={targetHue}
               />
             )}
             {!expanded && (inlineTargets.length > 3 || hasMore) && (
@@ -534,10 +550,14 @@ function MappingActionDialog({
             {targetCount === 0 ? (
               <strong className="muted-strong">Not mapped</strong>
             ) : (
-              <strong>
-                {currentTargets.map((target) => target.object.name).join(", ")}
-                {targetCount > currentTargets.length ? ` and ${targetCount - currentTargets.length} more` : ""}
-              </strong>
+              <>
+                {currentTargets.map((target) => (
+                  <RecordChip key={target.relationId} hue={objectTypeHue(model, targetType.key)}>
+                    {target.object.name}
+                  </RecordChip>
+                ))}
+                {targetCount > currentTargets.length && <span>and {targetCount - currentTargets.length} more</span>}
+              </>
             )}
           </div>
           <label className="search-box candidate-search">
@@ -570,27 +590,30 @@ function MappingActionDialog({
                   ),
                 ];
                 return (
-                  <label
+                  <Candidate
                     key={candidate.id}
                     data-row-key={candidate.id}
                     data-row-index={rowIndex(candidate.id) >= 0 ? rowIndex(candidate.id) : undefined}
-                    className={selectedId === candidate.id ? "candidate selected" : "candidate"}
+                    selected={selectedId === candidate.id}
+                    control={
+                      <input
+                        type="radio"
+                        name="mapping-target"
+                        value={candidate.id}
+                        checked={selectedId === candidate.id}
+                        onChange={() => setSelectedId(candidate.id)}
+                      />
+                    }
+                    type={objectTypeTile(model, candidate.objectTypeKey)}
+                    name={candidate.name}
+                    detail={details.length > 0 && details.join(" · ")}
                   >
-                    <input
-                      type="radio"
-                      name="mapping-target"
-                      value={candidate.id}
-                      checked={selectedId === candidate.id}
-                      onChange={() => setSelectedId(candidate.id)}
-                    />
-                    <span className="candidate-text">
-                      <span className="candidate-name">{candidate.name}</span>
-                      {details.length > 0 && <small>{details.join(" · ")}</small>}
-                    </span>
                     {currentTargets.some((target) => target.object.id === candidate.id) && (
-                      <span className="pill">Current</span>
+                      <StatusPill tone="neutral" marker={false}>
+                        Current
+                      </StatusPill>
                     )}
-                  </label>
+                  </Candidate>
                 );
               })}
               {candidates.loading && !candidates.items.length && <p className="candidate-state">Loading…</p>}
@@ -682,10 +705,19 @@ function MappingActionDialog({
   );
 }
 
-function TargetDisplay({ target, columns }: { target: MappingTargetSummary; columns: string[] }) {
+/** A mapped record: a chip in its type's colour (ADR-040), its display fields beside it. */
+function TargetDisplay({
+  target,
+  hue,
+  columns,
+}: {
+  target: MappingTargetSummary;
+  hue: Hue | undefined;
+  columns: string[];
+}) {
   return (
     <div className="mapping-target">
-      <span className="mapping-target-name">{target.object.name}</span>
+      <RecordChip hue={hue}>{target.object.name}</RecordChip>
       {columns.map((col) => (
         <span key={col} className="mapping-target-field mobile-secondary-column">
           {formatValue(target.object.fields[col])}
@@ -705,6 +737,7 @@ function TargetContinuation({
   mappingVersion,
   nextCursor,
   targetColumns,
+  targetHue,
 }: {
   workspaceKey: string;
   applicationKey: string;
@@ -715,6 +748,7 @@ function TargetContinuation({
   mappingVersion: number;
   nextCursor: string | null;
   targetColumns: string[];
+  targetHue: Hue | undefined;
 }) {
   const api = useDataApi();
   const [targets, setTargets] = useState<MappingTargetSummary[]>([]);
@@ -763,7 +797,7 @@ function TargetContinuation({
   return (
     <>
       {targets.map((target) => (
-        <TargetDisplay key={target.relationId} target={target} columns={targetColumns} />
+        <TargetDisplay key={target.relationId} target={target} hue={targetHue} columns={targetColumns} />
       ))}
       {loading && <span className="muted">Loading more targets…</span>}
       {error && (

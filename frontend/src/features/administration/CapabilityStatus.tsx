@@ -5,6 +5,7 @@
  * The settings are deployment guards, not permissions.
  */
 
+import { StatusPill } from "@/ui/StatusPill";
 import { useId } from "react";
 import type { CapabilitiesResponse } from "@/types";
 
@@ -34,9 +35,9 @@ export function CapabilityStatus({ capabilities }: { capabilities: CapabilitiesR
           <li key={group.name}>
             <span className="capability-name">
               <strong>{group.name}</strong>
-              <span className={group.enabled ? "pill active-pill" : "pill"}>
+              <StatusPill tone={group.enabled ? "success" : "neutral"}>
                 {group.enabled ? "Enabled" : "Disabled"}
-              </span>
+              </StatusPill>
             </span>
             <small>
               {group.enabled ? (

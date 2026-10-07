@@ -11,6 +11,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { domainObject, testModel } from "@/test/fixtures";
 import { CollectionView } from "@/features/objects/views/CollectionViewHost";
+import { objectTypeHue } from "@/model/hues";
 
 vi.mock("@/api/client", () => ({
   ApiError: class ApiError extends Error {
@@ -369,6 +370,46 @@ describe("MappingGridView", () => {
         cursor: "cont-cursor",
       }),
     );
+  });
+});
+
+describe("MappingGridView type colours (UA6)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(api.mappingCoverage).mockResolvedValue(coveragePage);
+    vi.mocked(api.mappingCandidates).mockResolvedValue(candidatePage);
+  });
+
+  const reordered = { ...mappingModel, objectTypes: [...mappingModel.objectTypes].reverse() };
+
+  it.each([
+    ["the model's order", mappingModel],
+    ["the reverse order", reordered],
+  ])("colours the source type, its mapped records and the choices by their types in %s", async (_, model) => {
+    const { container } = renderGrid({ model, application: model.applications[0] });
+    const grid = await screen.findByRole("region", { name: /mapping grid/ });
+
+    expect(container.querySelector(".page-header .hue-tile")).toHaveAttribute(
+      "data-hue",
+      String(objectTypeHue(model, "domain")),
+    );
+    const target = within(grid).getByText("Timetable types").closest(".record-chip");
+    expect(target).toHaveAttribute("data-hue", String(objectTypeHue(model, "codelist")));
+    expect(within(grid).getByText("Mapped").closest(".status-pill")).toHaveClass("tone-success");
+    expect(
+      within(grid)
+        .getByText(/Ambiguous/)
+        .closest(".status-pill"),
+    ).toHaveClass("tone-warning");
+
+    fireEvent.click(screen.getByRole("button", { name: /Change mapping for Connections/ }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Timetable types").closest(".record-chip")).toHaveAttribute(
+      "data-hue",
+      String(objectTypeHue(model, "codelist")),
+    );
+    const choice = (await within(dialog).findByRole("radio", { name: /Candidate X/ })).closest("label");
+    expect(choice?.querySelector(".hue-tile")).toHaveAttribute("data-hue", String(objectTypeHue(model, "codelist")));
   });
 });
 

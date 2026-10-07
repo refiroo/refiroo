@@ -86,8 +86,6 @@ Next: UA, the Atlas redesign (ADR-040), before U4 and U5. See [Next — 0.9](#ne
   needs the record's state before the change for each filter kind, which events do not keep
   (C-D89); how much of it the audit entries already hold was not checked.
 
-- **For U6, from U2 (2026-10-06).** (Booleans are plain text since UA3.) Move each `.surface` panel onto `ui/Card` or a ruled section, whichever reads better in
-  the product (U-D8). Remove the older token names in `styles/base.css` once no screen reads them.
 - **Intermittent: wp9-navigation's record return (seen once in U2; 4 of 10 runs in UA0,
   2026-10-06).** `ui03a-navigation.mjs:144` waits 10 s for the list URL with its anchor after
   **Back to list** following a reload of the record page; seen at both call sites (live,
@@ -137,6 +135,11 @@ Next: UA, the Atlas redesign (ADR-040), before U4 and U5. See [Next — 0.9](#ne
   reads `/objects/system-group/{id}/history?workspaceKey=default` and the API refuses the
   parameter (`422 UNKNOWN_PARAMETER`). The runner, not the UI, sends it; when the history route
   stopped taking `workspaceKey` was not checked.
+- **`test:browser:c4`: the volume drag's preview never appeared (seen once, UA6, 2026-10-07).**
+  `dragFrom` (`helpers/tree.mjs:193`, from `c4-restructuring.mjs:437`) waited 10 s for
+  `.tree-drag-preview`. The next run passed that journey. UA6 changed no tree or drag code (the lens's
+  surface became `ui/Card` with the same classes and padding); one run does not rule it out. Next
+  time: capture the pointer's target at the failure.
 
 - **Publish and change-set creation move the workspace through Python (found 2026-10-03, F1;
   measured and decided in T1).** Publishing 1,000 renamed records in a 26,000-record workspace takes

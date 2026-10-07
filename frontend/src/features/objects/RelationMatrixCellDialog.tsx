@@ -7,6 +7,7 @@
  * entered and says why; a uniqueness conflict links to the record already in the column.
  */
 
+import { StatusPill } from "@/ui/StatusPill";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
@@ -20,6 +21,9 @@ import { InlineError } from "@/ui/InlineError";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { ScrollWindow } from "@/ui/ScrollWindow";
+import { Candidate } from "@/ui/Candidate";
+import { HueTile } from "@/ui/HueTile";
+import { objectTypeTile } from "@/model/hues";
 import { attributeName } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
 import { columnLabel, StateMark, stateLabel, type MatrixBinding } from "@/features/objects/relationMatrixStates";
@@ -174,7 +178,13 @@ export function RelationMatrixCellDialog({
               <ul className="matrix-cell-records" aria-label={`${cellType.pluralName} in this cell`}>
                 {cell.records.map((record) => (
                   <li key={record.id}>
-                    <RecordSummary model={model} record={record} fields={config.cellFields} binding={binding} />
+                    <RecordSummary
+                      model={model}
+                      objectTypeKey={cellType.key}
+                      record={record}
+                      fields={config.cellFields}
+                      binding={binding}
+                    />
                     <div className="matrix-cell-record-actions">
                       {!history && (
                         <button type="button" className="ghost" onClick={() => onOpenRecord(record.id, cellType.key)}>
@@ -311,6 +321,7 @@ export function RelationMatrixCellDialog({
 
         {mode.kind === "link" && (
           <LinkCandidates
+            model={model}
             view={view}
             application={application}
             workspaceKey={workspaceKey}
@@ -400,11 +411,13 @@ export function RelationMatrixCellDialog({
 
 function RecordSummary({
   model,
+  objectTypeKey,
   record,
   fields,
   binding,
 }: {
   model: EngineModel;
+  objectTypeKey: string;
   record: RelationMatrixCellRecord;
   fields: string[];
   binding: MatrixBinding;
@@ -412,8 +425,13 @@ function RecordSummary({
   return (
     <div className="matrix-record-summary">
       <span className="matrix-record-name">
+        <HueTile {...objectTypeTile(model, objectTypeKey)} size={18} />
         {record.name}
-        {binding.conditional && !record.meetsCondition && <span className="pill"> Does not count</span>}
+        {binding.conditional && !record.meetsCondition && (
+          <StatusPill tone="neutral" marker={false}>
+            Does not count
+          </StatusPill>
+        )}
       </span>
       <dl>
         {fields
@@ -662,27 +680,27 @@ function CreateCellRecord({
             className="candidate-scroll"
           >
             {containers.items.map((container, position) => (
-              <label
+              <Candidate
                 key={container.id}
                 data-row-key={container.id}
                 data-row-index={containers.startIndex + position}
-                className={containerId === container.id ? "candidate selected" : "candidate"}
-              >
-                <input
-                  type="radio"
-                  name="matrix-container"
-                  value={container.id}
-                  checked={containerId === container.id}
-                  onChange={() => {
-                    setContainerId(container.id);
-                    setMissingContainer(false);
-                  }}
-                />
-                <span className="candidate-text">
-                  <span className="candidate-name">{container.name}</span>
-                  <small>{pathOf(container)}</small>
-                </span>
-              </label>
+                selected={containerId === container.id}
+                control={
+                  <input
+                    type="radio"
+                    name="matrix-container"
+                    value={container.id}
+                    checked={containerId === container.id}
+                    onChange={() => {
+                      setContainerId(container.id);
+                      setMissingContainer(false);
+                    }}
+                  />
+                }
+                type={objectTypeTile(model, container.objectTypeKey)}
+                name={container.name}
+                detail={pathOf(container)}
+              />
             ))}
             {containers.loading && !containers.items.length && <p className="candidate-state">Loading…</p>}
             {!containers.loading && !containers.error && !containers.items.length && (
@@ -726,6 +744,7 @@ interface ReasonContext {
 }
 
 function LinkCandidates({
+  model,
   view,
   application,
   workspaceKey,
@@ -738,6 +757,7 @@ function LinkCandidates({
   onCancel,
   onLink,
 }: {
+  model: EngineModel;
   view: RelationMatrixViewDefinition;
   application: ApplicationDefinition;
   workspaceKey: string;
@@ -806,28 +826,32 @@ function LinkCandidates({
           className="candidate-scroll"
         >
           {candidates.items.map((candidate, position) => (
-            <label
+            <Candidate
               key={candidate.id}
               data-row-key={candidate.id}
               data-row-index={candidates.startIndex + position}
-              className={`candidate${selectedId === candidate.id ? " selected" : ""}${candidate.eligible ? "" : " is-disabled"}`}
+              selected={selectedId === candidate.id}
+              disabled={!candidate.eligible}
+              control={
+                <input
+                  type="radio"
+                  name="matrix-link"
+                  value={candidate.id}
+                  checked={selectedId === candidate.id}
+                  disabled={!candidate.eligible}
+                  onChange={() => setSelectedId(candidate.id)}
+                />
+              }
+              type={objectTypeTile(model, candidate.objectTypeKey)}
+              name={candidate.name}
+              detail={candidateDetails(candidate)}
             >
-              <input
-                type="radio"
-                name="matrix-link"
-                value={candidate.id}
-                checked={selectedId === candidate.id}
-                disabled={!candidate.eligible}
-                onChange={() => setSelectedId(candidate.id)}
-              />
-              <span className="candidate-text">
-                <span className="candidate-name">{candidate.name}</span>
-                <small>{candidateDetails(candidate)}</small>
-              </span>
               {!candidate.eligible && candidate.reason && (
-                <span className="pill">{REASONS[candidate.reason](context)}</span>
+                <StatusPill tone="neutral" marker={false}>
+                  {REASONS[candidate.reason](context)}
+                </StatusPill>
               )}
-            </label>
+            </Candidate>
           ))}
           {candidates.loading && !candidates.items.length && <p className="candidate-state">Loading…</p>}
           {!candidates.loading && !candidates.error && !candidates.items.length && (

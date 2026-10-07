@@ -101,9 +101,9 @@
     min-height: 44px;
     padding: 0 16px;
     border: 0;
-    border-bottom: 1px solid var(--line);
-    background: var(--sidebar-bg);
-    color: var(--ink);
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--surface-nav);
+    color: var(--text-primary);
     font-weight: 550;
     text-align: left;
   }
@@ -213,7 +213,7 @@
     bottom: 0;
     margin-top: auto;
     padding: 12px 0 0;
-    background: var(--surface);
+    background: var(--surface-raised);
   }
   .dialog-actions-spacer {
     display: none;
@@ -222,7 +222,7 @@
     grid-template-columns: repeat(2, 1fr);
   }
   .model-summary div:nth-child(3) {
-    border-right: 1px solid var(--soft-line);
+    border-right: 1px solid var(--border-faint);
   }
   .model-summary div:nth-child(even) {
     border-right: 0;

@@ -74,8 +74,8 @@ nav.settings-rail {
 }
 .catalogue-layout > .model-catalogue {
   position: sticky;
-  top: calc(var(--header-height) + var(--space-4));
-  max-height: calc(100vh - var(--header-height) - var(--space-8));
+  top: calc(var(--topbar-height) + var(--space-4));
+  max-height: calc(100vh - var(--topbar-height) - var(--space-8));
   overflow-y: auto;
 }
 .catalogue-selection {
@@ -303,7 +303,7 @@ nav.settings-rail {
   background: transparent;
 }
 .settings-table tbody th {
-  border-bottom-color: var(--soft-line);
+  border-bottom-color: var(--border-faint);
   color: var(--text-primary);
   font-size: var(--text-sm);
   font-weight: 500;
@@ -327,9 +327,6 @@ nav.settings-rail {
 }
 .settings-table td:last-child {
   color: var(--text-secondary);
-}
-.settings-search {
-  max-width: 360px;
 }
 
 /* Deployment's capability groups. */

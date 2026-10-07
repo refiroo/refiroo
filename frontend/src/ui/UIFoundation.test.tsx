@@ -145,6 +145,17 @@ describe("RDM UI foundation", () => {
     expect(container.querySelector(".card")).toHaveTextContent("Plain");
   });
 
+  it("renders an untitled card as a section its caller names, without padding when flush (UA6)", () => {
+    render(
+      <Card as="section" flush aria-label="Records" data-hue="3">
+        Rows
+      </Card>,
+    );
+    const card = screen.getByRole("region", { name: "Records" });
+    expect(card).toHaveClass("card", "card-flush");
+    expect(card).toHaveAttribute("data-hue", "3");
+  });
+
   it("lays out a settings page with its eyebrow, title and ruled sections (U3)", () => {
     render(
       <SettingsLayout eyebrow="General" title="About" description="What this deployment runs.">

@@ -31,6 +31,7 @@
  * place refused only for the record's type says that a change set can change it.
  */
 
+import { Card } from "@/ui/Card";
 import { useCallback, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { changedObjectType, errorMessage, isApiError } from "@/api/errors";
 import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
@@ -41,6 +42,8 @@ import { TreeMoveDialog } from "@/features/objects/TreeMoveDialog";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { attributeName, fieldValue, isQueryableField } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
+import { objectTypeHue } from "@/model/hues";
+import { HueTile } from "@/ui/HueTile";
 import { childObjectTypeKeys } from "@/model/placements";
 import { parentTypeOf, placeTypes, restructuringChoices, typeNames, type TreeTypes } from "@/model/restructuring";
 import { moveRefusal, moveRefusalText } from "@/model/treeDrop";
@@ -446,13 +449,15 @@ export function TreeView({
   };
 
   const rootNames = config.objectTypeKeys.map((key) => objectTypeFor(model, key)?.pluralName ?? key);
+  // The header carries the tile of the type the lens starts from, as its collection's page does.
+  const rootType = objectTypeFor(model, config.rootObjectTypeKeys[0]);
   const headingId = `tree-lens-${view.key}`;
   return (
     <div className="tree-lens">
       <PageHeader
         focusTitle
         titleId={headingId}
-        icon={<Icon name="tree" size={20} />}
+        icon={<HueTile hue={rootType && objectTypeHue(model, rootType.key)} icon={rootType?.icon} size={40} />}
         title={view.name}
         descriptionClassName="mapping-direction"
         description={rootNames.map((name, index) => (
@@ -463,7 +468,7 @@ export function TreeView({
         ))}
       />
       {lenses}
-      <section className="surface collection-surface">
+      <Card as="section" flush className="collection-surface">
         <div className="collection-toolbar object-toolbar">
           <SearchField
             value={searchInput}
@@ -520,7 +525,7 @@ export function TreeView({
             }}
           />
         </div>
-      </section>
+      </Card>
       {menu && (
         <AnchoredMenu
           anchorRef={menuAnchor}

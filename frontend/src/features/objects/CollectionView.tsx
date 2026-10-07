@@ -2,6 +2,7 @@
  * The table renderer behind every declared view type. Selected through `views/registry`.
  */
 
+import { Card } from "@/ui/Card";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { RecordActionMenu } from "@/features/objects/RecordActionMenu";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
@@ -165,7 +166,7 @@ export function ObjectCollectionView({
         pluralName={objectType.pluralName}
       />
       {lenses}
-      <section className="surface collection-surface">
+      <Card as="section" flush className="collection-surface">
         <ObjectToolbar
           display={
             <TableDisplay
@@ -221,7 +222,7 @@ export function ObjectCollectionView({
             emptyAction={narrowed ? undefined : add}
           />
         )}
-      </section>
+      </Card>
       {creating && !readOnly && (
         <ObjectFormDialog
           model={model}
