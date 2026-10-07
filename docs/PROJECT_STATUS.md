@@ -306,11 +306,11 @@ the object or the notification only, in RDM JSON or CloudEvents 1.0; the coalesc
   and XLSX share one table layout; a live export is a feed baseline (`410` names it).
 - The whole volume workspace exports in 23 s (JSON Lines), 24 s (CSV) and 32 s (XLSX).
 
-([record](BASE_0_9_IMPLEMENTATION_PLAN.md#j1-record-2026-10-07)). **J1u is implemented
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#j1-record-2026-10-07)). **J1u is delivered
 (2026-10-07)**: Export on a collection page and New export on Jobs and feed, a page per job, and
 notifications that a job started and ended (with Download and View job), pushed over
 `GET /jobs/{id}/events` from a trigger at commit, never polled (D57–D63, revision `20261007_05`);
-screenshots await approval ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#j1u-record-2026-10-07)). Next
+screenshots approved ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#j1u-record-2026-10-07)). Next
 are J2–J4 (import), Track K and R.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).

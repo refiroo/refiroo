@@ -245,7 +245,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 27d | [C17](#c17-webhook-delivery-choices-batching-payload-and-cloudevents) | U5a | Webhook delivery choices: one event per request or batched, with the object or notification only, RDM JSON or CloudEvents; `coalesced` retired (C-D120–C-D128) — **implemented 2026-10-07**, screenshots approved by the user 2026-10-07 ([record](#c17-record-2026-10-07)) |
 | — | _cut line (D9)_ | | _If R is out of reach, 0.9.0 releases here with R-a and Track J moves to 0.9.1_ |
 | 28 | [J1](#j1-export) | Q3, Q4, B2, F1 | Export jobs: JSON Lines, CSV and XLSX, one snapshot, the manifest on the job (D49–D56) — **delivered 2026-10-07** ([record](#j1-record-2026-10-07)) |
-| 28a | [J1u](#j1u-export-in-the-ui-and-job-notifications-outline) | J1 | Export in the UI: the dialog, the job page, notifications pushed over a per-job event stream (D57–D63) — **implemented 2026-10-07**, screenshots await the user's approval ([record](#j1u-record-2026-10-07)) |
+| 28a | [J1u](#j1u-export-in-the-ui-and-job-notifications-outline) | J1 | Export in the UI: the dialog, the job page, notifications pushed over a per-job event stream (D57–D63) — **delivered 2026-10-07**, screenshots approved by the user ([record](#j1u-record-2026-10-07)) |
 | 29 | [J2](#j2-import-profiles-and-file-reading) | B3 | Import profiles, XLSX/CSV/JSON Lines reading, rows to items |
 | 30 | [J3](#j3-import-preview-and-execution) | J2, B2 | Import preview, confirm, execute |
 | 31 | [J4](#j4-import-screen-and-sc-10) | J1u, J3, F2 | The SC-10 screen and SC-10 acceptance |
@@ -6614,7 +6614,7 @@ streams and nothing in the engine uses `LISTEN`/`NOTIFY`. **Needs:** J1 (deliver
 
 | # | Question | Recommendation |
 | --- | --- | --- |
-| D57 | Where does a user start an export? | **Accepted 2026-10-07 by the user.** **On a collection page (prefilled from it) and from Settings › Jobs (New export, any types of a workspace).** The collection is where the user already chose a type, a context, filters and a scope; Jobs is where exports are followed. No export in the record detail or the tree, which are about one record |
+| D57 | Where does a user start an export? | **Accepted 2026-10-07 by the user; kept as delivered after review the same day** (a collection's Export offers its application's types; New export on Jobs and feed offers every type, so several applications export together from there). **On a collection page (prefilled from it) and from Settings › Jobs (New export, any types of a workspace).** The collection is where the user already chose a type, a context, filters and a scope; Jobs is where exports are followed. No export in the record detail or the tree, which are about one record |
 | D58 | How the engine learns a job changed | **Approved 2026-10-07 by the user.** **A trigger on `jobs` with `pg_notify`, delivered at commit.** Notifying from Python would need every path that changes a job to remember it; the trigger cannot be forgotten, and an aborted transaction notifies nothing |
 | D59 | How long the finished notification stays | **Decided 2026-10-07 by the user: 8 seconds, as every notification** (longer while hovered or focused). The recommendation was until dismissed. Only the finished notification of a job this tab started is shown |
 | D60 | The collection's search in an export | **Accepted 2026-10-07 by the user.** **Left out, said in the dialog.** The model query has no full-text search; carrying it as a name criterion would export a different set than the page shows. Filters carry over exactly (the same field, operator and value) |
@@ -6667,7 +6667,7 @@ identity, attribute storage, audit, bulk APIs, `match` and mapping coverage are 
 
 ##### J1u record (2026-10-07)
 
-**Implemented 2026-10-07; the screenshots await the user's approval.** D57–D63 and the test cases
+**Delivered 2026-10-07; the screenshots approved by the user the same day.** D57–D63 and the test cases
 approved by the user before coding (D59 their choice: 8 seconds). The four stream cases were written
 first and failed (no route), then passed.
 

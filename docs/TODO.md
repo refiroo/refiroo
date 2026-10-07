@@ -262,7 +262,7 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 - [x] J1's export budget names "110,000 records"; the volume fixture holds 258,000 since 0.8 A2 (found
   in Q1). Restated in D56 and measured at 258,000 in J1 (2026-10-07, POSTGRESQL_BUDGETS §8).
 - [x] J1u: the export dialog, the job page and notifications pushed over a per-job event stream
-  (implemented 2026-10-07; screenshots await approval).
+  (delivered 2026-10-07; screenshots approved).
 - [ ] R: add J1u's export dialog, notification and job page to `test:a11y` and `test:visual`
   (scenarios and baselines), light and dark; J1u checked them with axe in its runner.
 - [ ] J2 reads an export's CSV and XLSX table layout without a profile, decoding XLSX's `_xHHHH_`
