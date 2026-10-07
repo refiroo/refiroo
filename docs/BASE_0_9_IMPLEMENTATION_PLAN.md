@@ -5728,10 +5728,10 @@ receiver can ignore the details.
 
 **What it costs.** Requests to a subscriber go one at a time, to keep the order (C12). With one
 event per request, 10,000 changes become 10,000 requests in a row: about 8 minutes at 50 ms per
-answer, longer for a slow receiver. The dispatcher starts the next request at once while work
-remains, without the one-second poll, so the receiver's speed is the limit. Each request also costs
-the dispatcher one claim, one events read and one record. The docs and the dialog say that batching
-is the choice for bulk changes.
+answer, longer for a slow receiver. The dispatcher already starts the next request at once while
+work remains, without the one-second poll (C12), so the receiver's speed is the limit. Each request
+also costs the dispatcher one claim, one events read and one record. The docs and the dialog say
+that batching is the choice for bulk changes.
 
 **Contract.**
 
@@ -5781,7 +5781,8 @@ is the choice for bulk changes.
 
 **Design.**
 
-- **Storage.** Revision `20261007_02`, after U5a's `_01`, works on `consumer_subscriptions`:
+- **Storage.** Revision `20261007_03`, after U5a's `_01` (the delivery log) and `_02` (manual
+  resend), works on `consumer_subscriptions`:
   - Adds `max_events_per_batch` (integer, not null, check 1–1,000) and `format` (`rdm` or
     `cloudevents`, not null, default `rdm`).
   - Existing rows take the defaults (1, `rdm`), whatever their mode was (C-D123).
@@ -5793,6 +5794,12 @@ is the choice for bulk changes.
   - `_coalesced` and `coalesce_due` are deleted.
   - The delivery log (`engine/events/delivery_log.py`, U5a) loses its notice row in `_rows`, which
     is built from a notice body's `event` and `toPosition`. `DeliveryDetail.kind` leaves the answer.
+  - **Manual resend** (U5a revision, `POST …/deliveries/{deliveryId}/resend`) rebuilds a request
+    from the stored body: today an RDM envelope with its `events` list, or a notice. Its helper in
+    `delivery_log.py` gains a CloudEvents branch: it finds the event by `eventId` in the structured
+    event or the batched array, and sends it alone in that request's content type (a batched
+    request's event as an array of one) with a new delivery ID. The notice branch goes with `coalesced`. A resend keeps the format of the request it repeats,
+    even when the subscription's format was edited since, because it repeats what was sent.
   - Encoding goes in one function per format in `delivery.py`. The CloudEvents encoder builds
     `source`, `type` and `subject` from the subscription and the event alone, so a retry composes
     the same attributes (C-D111).
@@ -5811,7 +5818,7 @@ is the choice for bulk changes.
 | --- | --- | --- |
 | C-D120 | How is batching set? | **One field, `maxEventsPerBatch`, 1 to 1,000, default 1**; 1 means one event per request. A separate switch plus a size would allow "single with size 50", a combination that means nothing. 1,000 matches the pull feed's identity page. With `full`, the 1 MiB cap usually ends a batch first |
 | C-D121 | Is the 1 MiB cap per subscription? | **No, it stays fixed** and reported in capabilities. It protects the receiver's request-size limit (nginx's default is exactly 1 MiB). Event Grid's own byte setting is only a preference |
-| C-D122 | The default | **One event per request, as the user asked**, with `full` and `rdm`. Existing subscriptions keep 100 (C-D123) |
+| C-D122 | The default | **One event per request, as the user asked**, with `full` and `rdm`. Existing subscriptions take the same defaults (C-D123) |
 | C-D123 | What happens to existing subscriptions? | **Nothing special (the user): no subscription is in production.** The migration gives every existing row the defaults; no conversion, suspension or CHANGELOG note for it |
 | C-D124 | Rename `payload`'s values? | **No: `identity` and `full` stay.** The pull feed shares the parameter, and no single standard pair of names exists (Stripe's thin/snapshot, Graph's basic/rich). The UI says "Notification only" and "With the object"; the docs map them to Fowler, Stripe and Graph |
 | C-D125 | Which CloudEvents content modes? | **Structured for one event per request, batched otherwise; not binary.** Binary mode puts the attributes in headers, which the HMAC signature does not cover, and batched mode is defined only for structured formats |
@@ -5843,7 +5850,10 @@ first and confirmed failing):
 5. **Refusals and edits.** `maxEventsPerBatch` 0 or 1,001, an unknown `format`, or `mode` /
    `debounceSeconds` sent is `422 REQUEST_VALIDATION_ERROR`. A `PATCH` of `format` while a batch is
    retried drops it, and the next request has a new delivery ID in the new format.
-6. **Migration** (AGENTS.md): upgrade from `20261007_01` with an existing subscription, which reads
+6. **Resend in CloudEvents.** A manual resend of an event delivered as CloudEvents, from one
+   request per event and from a batch, arrives as that one event in the original content mode,
+   with a new delivery ID, the same `id` (the event ID) and `RDM-Redelivery: manual`.
+7. **Migration** (AGENTS.md): upgrade from `20261007_02` with an existing subscription, which reads
    back with the defaults; then two starts, and an interrupted run recovering.
 
 The coalesced cases are removed: `test_j30_delivery`'s coalesced test, U5a's case 5, the coalesced

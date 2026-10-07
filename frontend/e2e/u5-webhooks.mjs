@@ -252,6 +252,32 @@ try {
   );
   await event.getByText("The answer had no body.").waitFor();
   await shot("u5-delivered-event-wide");
+
+  // 3b'. Resend the delivered event by hand: a confirmation first, then one request with the same
+  //      event ID, a new delivery ID and RDM-Redelivery: manual; the dialog reports it.
+  const before = received.length;
+  await event.getByRole("button", { name: "Resend" }).click();
+  const confirmResend = page.getByRole("alertdialog", { name: "Resend a delivered event?" });
+  await confirmResend.waitFor();
+  await shot("u5-resend-confirm-wide");
+  await confirmResend.getByRole("button", { name: "Resend event" }).click();
+  await event.getByText("Resent", { exact: true }).waitFor();
+  await shot("u5-resent-wide");
+  const repeat = received[before];
+  const original = delivery && JSON.parse(delivery.body);
+  expect(received.length === before + 1, `the resend reached the receiver ${received.length - before} times`);
+  if (repeat && original) {
+    const body = JSON.parse(repeat.body);
+    expect(repeat.headers["rdm-redelivery"] === "manual", "no RDM-Redelivery: manual header");
+    expect(
+      body.deliveryId !== original.deliveryId &&
+        JSON.stringify(body.events) === JSON.stringify(original.events.slice(0, 1)),
+      `resent body ${repeat.body.slice(0, 200)}`,
+    );
+  }
+  checks.push(
+    "Resend on a delivered event asks first; confirmed, the receiver gets the event again as it was sent, with a new delivery ID and RDM-Redelivery: manual, and the dialog says Resent",
+  );
   checks.push(
     `Deliveries tab: ${rows.length - 1} rows, the dropped 503 batch and the delivered 204 one; the event opened by keyboard at its own address shows the request body exactly as the receiver got it`,
   );

@@ -437,6 +437,11 @@ function SubscriptionDetail({
         <StatusPill tone={state.tone}>{state.label}</StatusPill>
       </header>
       {subscription.suspension && <SuspensionNotice suspension={subscription.suspension} />}
+    </div>
+  );
+
+  const configuration = (
+    <div className="model-editor-stack webhook-panel">
       {conflict && (
         <Notice tone="warning" title="Not saved" focusOnMount>
           {conflict}
@@ -489,11 +494,6 @@ function SubscriptionDetail({
           Delete…
         </button>
       </div>
-    </div>
-  );
-
-  const configuration = (
-    <div className="model-editor-stack webhook-panel">
       <section className="webhook-section" aria-labelledby="webhook-delivery">
         <h3 id="webhook-delivery">Delivery</h3>
         {pendingDelivery && (
@@ -724,7 +724,7 @@ function ResumeDialog({
           void resume();
         }}
       >
-        <p>The subscription is checked again against the active model release, the allowed hosts and its workspace.</p>
+        <p>The subscription is checked again against the active model release and its workspace.</p>
         <fieldset className="form-field">
           <legend>Continue from</legend>
           <div className="webhook-events">

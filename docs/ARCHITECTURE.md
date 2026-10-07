@@ -648,7 +648,9 @@ The audit log is the ordered source of the change feed and of consumer events (A
   marks them `failed`. Each dispatcher deletes entries older than
   `CONSUMER_WEBHOOK_LOG_RETENTION_DAYS` at most hourly, by one `DELETE` that keeps a batch still
   pending; events and attempts follow by `CASCADE`, as the whole log does when its subscription is
-  deleted.
+  deleted. A resend by hand (`engine/events/resend.py`) runs in the API request, not the
+  dispatcher: it logs a request of its own (`resend_of`), commits, sends one attempt with no
+  transaction open and logs the answer; it takes no lease and touches no delivery state.
 - **Outages in the background threads** (`common/outage.OutageLog`, 0.9 C12). The job worker, the
   deriver and the dispatcher retry a failed round every 2 s. A database that cannot be reached
   (`database_unreachable`: a lost or refused connection, SQLSTATE class 08 or 57P01–57P03) is one

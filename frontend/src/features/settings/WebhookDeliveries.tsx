@@ -3,7 +3,8 @@
  * newest first (`GET /consumer-subscriptions/{id}/deliveries`), one row per event, or per notice
  * for a coalesced subscription. Rows of one request share its status, attempts, answer and time.
  * An event opens at its own address, in a dialog: its facts, the next attempt while one is due,
- * every attempt, and the request and response bodies as formatted JSON.
+ * every attempt, and the request and response bodies as formatted JSON. **Resend** sends it again
+ * by hand, as it was sent (C-D129–C-D131); a delivered one only after a confirmation.
  */
 
 import { useEffect, useState } from "react";
@@ -13,11 +14,13 @@ import { formatServerTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { routePath } from "@/routing/routes";
 import type { DeliveryAttempt, DeliveryDetail, DeliveryRow, DeliveryStatus, SettingsRoute } from "@/types";
+import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { DescriptionList, type DescriptionItem } from "@/ui/DescriptionList";
 import { EmptyState } from "@/ui/EmptyState";
 import { InlineError } from "@/ui/InlineError";
 import { JsonView } from "@/ui/JsonView";
 import { Modal } from "@/ui/Modal";
+import { Notice } from "@/ui/Notice";
 import { RouteLink } from "@/ui/RouteLink";
 import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
@@ -118,6 +121,7 @@ export function WebhookDeliveries({
                 <td data-label="Event">
                   <code>{row.event}</code>
                   {row.change && <span className="webhook-change"> {row.change}</span>}
+                  {row.resendOf && <span className="webhook-change"> · resent</span>}
                 </td>
                 <td data-label="Object ID">
                   {row.objectId ? <code title={row.objectId}>{short(row.objectId)}</code> : "—"}
@@ -141,9 +145,18 @@ export function WebhookDeliveries({
       )}
       {route.deliveryId && (
         <DeliveryDialog
+          key={`${route.deliveryId}:${route.eventId ?? ""}`}
           subscriptionId={subscriptionId}
           deliveryId={route.deliveryId}
           eventId={route.eventId}
+          onResent={feed.reload}
+          onOpen={(resent) =>
+            onNavigate({
+              ...tab,
+              deliveryId: resent.deliveryId,
+              ...(resent.events[0]?.eventId ? { eventId: resent.events[0].eventId } : {}),
+            })
+          }
           onClose={() => onNavigate(tab)}
         />
       )}
@@ -156,17 +169,45 @@ function DeliveryDialog({
   subscriptionId,
   deliveryId,
   eventId,
+  onResent,
+  onOpen,
   onClose,
 }: {
   subscriptionId: string;
   deliveryId: string;
   eventId?: string;
+  /** A resend was logged: the list reloads. */
+  onResent: () => void;
+  /** Open a resend's own delivery. */
+  onOpen: (resent: DeliveryDetail) => void;
   onClose: () => void;
 }) {
   const [detail, setDetail] = useState<DeliveryDetail>();
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState<number>();
   const [token, setToken] = useState(0);
+  const [confirming, setConfirming] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resent, setResent] = useState<DeliveryDetail>();
+  const [resendError, setResendError] = useState("");
+
+  async function resend() {
+    if (!detail) return;
+    setResending(true);
+    setResendError("");
+    try {
+      const shownEvent = detail.events.find((item) => item.eventId === eventId) ?? detail.events[0];
+      // The event the dialog shows; a notice carries none.
+      const sent = await api.resendDelivery(subscriptionId, deliveryId, shownEvent?.eventId ?? undefined);
+      setResent(sent);
+      setConfirming(false);
+      onResent();
+    } catch (cause) {
+      setResendError(errorMessage(cause));
+    } finally {
+      setResending(false);
+    }
+  }
 
   useEffect(() => {
     let active = true;
@@ -218,6 +259,7 @@ function DeliveryDialog({
           { term: "Sent", value: last ? formatServerTime(last.startedAt) : "Not yet" },
           ...(detail.nextAttemptAt ? [{ term: "Next attempt", value: formatServerTime(detail.nextAttemptAt) }] : []),
           { term: "Delivery ID", value: <code>{detail.deliveryId}</code> },
+          ...(detail.resendOf ? [{ term: "Resend of", value: <code>{detail.resendOf}</code> }] : []),
           {
             term: "Request",
             value:
@@ -237,6 +279,49 @@ function DeliveryDialog({
           <Skeleton label="Loading the delivery" lines={6} />
         ) : (
           <>
+            <div className="delivery-actions">
+              <button
+                type="button"
+                className="secondary"
+                disabled={resending || detail.requestBody === null}
+                aria-describedby={detail.requestBody === null ? "delivery-not-sent" : undefined}
+                onClick={() => {
+                  setResent(undefined);
+                  setResendError("");
+                  if (detail.status === "succeeded") setConfirming(true);
+                  else void resend();
+                }}
+              >
+                {resending && !confirming ? "Resending…" : "Resend"}
+              </button>
+              {detail.requestBody === null && (
+                <span id="delivery-not-sent" className="admin-hint">
+                  Never sent, so there is nothing to resend yet.
+                </span>
+              )}
+            </div>
+            {resent && (
+              <Notice
+                tone={resent.status === "succeeded" ? "success" : "warning"}
+                title={resent.status === "succeeded" ? "Resent" : "Resent, but the receiver did not accept it"}
+                actions={
+                  <button type="button" className="secondary" onClick={() => onOpen(resent)}>
+                    Open the resend
+                  </button>
+                }
+              >
+                {resent.attempts[0]?.error
+                  ? resent.attempts[0].error.message
+                  : `The receiver answered ${answer(resent.attempts[0]?.responseStatus ?? null)}.`}{" "}
+                It went as a new delivery with the same event ID and <code>RDM-Redelivery: manual</code>; it is not
+                retried.
+              </Notice>
+            )}
+            {resendError && !confirming && (
+              <Notice tone="error" title="The event was not resent">
+                {resendError}
+              </Notice>
+            )}
             <DescriptionList className="compact" items={facts} />
             <section aria-labelledby="delivery-attempts">
               <h3 id="delivery-attempts">Attempts</h3>
@@ -291,6 +376,26 @@ function DeliveryDialog({
           </>
         )}
       </div>
+      {confirming && detail && (
+        <ConfirmDialog
+          title="Resend a delivered event?"
+          confirmLabel="Resend event"
+          dismissLabel="Don't resend"
+          pending={resending}
+          error={resendError}
+          onCancel={() => {
+            setConfirming(false);
+            setResendError("");
+          }}
+          onConfirm={() => void resend()}
+        >
+          <p>
+            The receiver already acknowledged this {detail.kind === "notice" ? "notice" : "event"}. It is sent again as
+            it was, with the same event ID and <code>RDM-Redelivery: manual</code>, so the receiver may process it a
+            second time.
+          </p>
+        </ConfirmDialog>
+      )}
     </Modal>
   );
 }

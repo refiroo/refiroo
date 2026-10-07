@@ -26,7 +26,8 @@ from app.db import DatabaseStartupError, get_engine, migration_config
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261007_01"
+HEAD = "20261007_02"
+DELIVERY_LOG = "20261007_01"
 DELIVERY_STATE = "20261006_03"
 SUBSCRIPTIONS = "20261006_02"
 CONSUMER_EVENTS = "20261006_01"
@@ -749,6 +750,42 @@ def test_an_interrupted_delivery_log_revision_rolls_back_and_the_next_start_reco
         assert errors == []
         assert client.get("/health").json() == {"status": "ok"}
     assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+
+
+def test_a_delivery_log_upgrades_to_resends_and_an_interrupted_run_recovers(monkeypatch, databases):
+    """Base 0.9 U5a revision on a database at the previous revision: the upgrade adds
+    ``resend_of`` and the service starts twice; with the column already there (by hand) the revision
+    rolls back, the start refuses naming it, and once cleared the next start upgrades."""
+    url = seeds.create_empty()
+    databases.append(url)
+    command.upgrade(migration_config(url), DELIVERY_LOG)
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE consumer_webhook_requests ADD COLUMN resend_of integer"))
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        message = _assert_refused(
+            client,
+            errors,
+            "Database migration failed",
+            f"Current revision: {DELIVERY_LOG}",
+            f"target revision: {HEAD}",
+            "still at its current revision",
+        )
+        assert "resend_of" in message
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == DELIVERY_LOG
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE consumer_webhook_requests DROP COLUMN resend_of"))
+    engine.dispose()
+    monkeypatch.setenv("CONSUMER_SUBSCRIPTIONS_ENABLED", "true")
+    monkeypatch.setenv("CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY", "a" * 43)
+    for _start in range(2):
+        with serve(monkeypatch, _render(url)) as (client, errors):
+            assert errors == []
+            assert client.get("/health").json() == {"status": "ok"}
+        assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+    assert "resend_of" in {c["name"] for c in inspect(create_engine(url)).get_columns("consumer_webhook_requests")}
+    command.downgrade(migration_config(url), DELIVERY_LOG)
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == DELIVERY_LOG
 
 
 @pytest.mark.parametrize(

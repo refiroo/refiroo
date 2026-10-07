@@ -269,6 +269,8 @@ def test_base_0_9_c11_c12_enabled_openapi_exposes_the_subscriptions_api(monkeypa
         # U5a: the delivery log.
         "/api/v1/consumer-subscriptions/{subscription_id}/deliveries": frozenset({"get"}),
         "/api/v1/consumer-subscriptions/{subscription_id}/deliveries/{delivery_id}": frozenset({"get"}),
+        # U5a revision: resending an event by hand (C-D129).
+        "/api/v1/consumer-subscriptions/{subscription_id}/deliveries/{delivery_id}/resend": frozenset({"post"}),
     }
     components = schema["components"]["schemas"]
     response = components["SubscriptionResponse"]

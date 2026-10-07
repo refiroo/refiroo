@@ -14,7 +14,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from scenario import derive_events, dispatch, ok, refused
 from test_j30_consumer_events import EVERY, LEDGER, WATCHED, _activate, _workspace
-from test_j30_delivery import Receiver, _read, _subscribe
+from test_j30_delivery import Receiver, _read, _signed, _subscribe
 from test_j30_subscriptions import PATH, SUBSCRIPTIONS
 
 
@@ -261,3 +261,106 @@ def test_unknown_deliveries_are_refused_and_a_deleted_subscription_takes_its_log
     current = _read(world, created)
     assert world.api.delete(f"{PATH}/{created['id']}", expectedVersion=current["version"]).status_code == 204
     refused(world.api.get(f"{PATH}/{created['id']}/deliveries"), 404, "SUBSCRIPTION_NOT_FOUND")
+
+
+def _resend(world, subscription, delivery_id, event_id=None):
+    body = {"eventId": event_id} if event_id else {}
+    return world.api.post(f"{PATH}/{subscription['id']}/deliveries/{delivery_id}/resend", body)
+
+
+@pytest.mark.journey("J30.10")
+@pytest.mark.settings(**SUBSCRIPTIONS)
+@pytest.mark.structures(*LEDGER)
+def test_a_delivered_event_is_resent_by_hand_as_it_was_sent(world, receiver):
+    """Given an event delivered among others. When the operator resends it. Then the receiver gets
+    one request with a new delivery ID, that event exactly as it was sent, RDM-Redelivery: manual
+    and a valid signature; the answer and a new newest row are succeeded and name the delivery
+    they repeat; the subscription's position and delivery state are unchanged."""
+    _activate(world, "events")
+    ws = _workspace(world)
+    created = _subscribe(world, ws, receiver.url, events=[EVERY])
+    world.made("R", "Ledger First", workspace=ws)
+    second = world.made("R", "Ledger Second", workspace=ws)
+    derive_events(world)
+    dispatch(world)
+    (first_request,) = receiver.requests
+    sent = next(event for event in first_request["body"]["events"] if event["id"] == second["id"])
+    before = _read(world, created)
+    original = next(row for row in _deliveries(world, created) if row["eventId"] == sent["eventId"])
+
+    resent = ok(_resend(world, created, original["deliveryId"], sent["eventId"]), 201)
+    request = receiver.requests[-1]
+    assert len(receiver.requests) == 2
+    assert request["headers"]["rdm-redelivery"] == "manual"
+    assert _signed(created["signingSecret"], request)
+    assert request["body"]["deliveryId"] == resent["deliveryId"] != original["deliveryId"]
+    assert request["body"]["events"] == [sent]
+    assert (resent["status"], resent["resendOf"], len(resent["attempts"])) == ("succeeded", original["deliveryId"], 1)
+    newest = _deliveries(world, created)[0]
+    assert (newest["deliveryId"], newest["eventId"], newest["resendOf"], newest["status"]) == (
+        resent["deliveryId"],
+        sent["eventId"],
+        original["deliveryId"],
+        "succeeded",
+    )
+    after = _read(world, created)
+    assert (after["acknowledgedThrough"], after["delivery"]["pending"], after["version"]) == (
+        before["acknowledgedThrough"],
+        before["delivery"]["pending"],
+        before["version"],
+    )
+
+
+@pytest.mark.journey("J30.10")
+@pytest.mark.settings(**SUBSCRIPTIONS)
+@pytest.mark.structures(*LEDGER)
+def test_a_resend_to_a_failing_receiver_fails_once_even_while_suspended(world, receiver):
+    """Given a delivered event and the subscription then suspended. When the operator resends it to
+    a receiver answering 500. Then the resend is failed after one attempt, and the dispatcher does
+    not try it again."""
+    _activate(world, "events")
+    ws = _workspace(world)
+    created = _subscribe(world, ws, receiver.url)
+    world.made("R", "Ledger Resent", workspace=ws)
+    derive_events(world)
+    dispatch(world)
+    (row,) = _deliveries(world, created)
+    current = _read(world, created)
+    ok(world.api.post(f"{PATH}/{created['id']}/suspend", {"expectedVersion": current["version"]}))
+
+    receiver.answer(500)
+    resent = ok(_resend(world, created, row["deliveryId"], row["eventId"]), 201)
+    assert (resent["status"], [a["responseStatus"] for a in resent["attempts"]]) == ("failed", [500])
+    sent = len(receiver.requests)
+    current = _read(world, created)
+    ok(world.api.post(f"{PATH}/{created['id']}/resume", {"expectedVersion": current["version"]}))
+    dispatch(world, _now() + timedelta(hours=1))
+    assert len(receiver.requests) == sent
+    assert _detail(world, created, resent["deliveryId"])["status"] == "failed"
+
+
+@pytest.mark.journey("J30.10")
+@pytest.mark.settings(**SUBSCRIPTIONS)
+@pytest.mark.structures(*LEDGER)
+def test_a_notice_is_resent_and_what_cannot_be_resent_is_refused(world, receiver):
+    """Given a coalesced subscription to two events whose first notice fails, so the second is
+    never sent. A delivered notice is resent as it was; an event ID not in a request is 404
+    EVENT_NOT_IN_DELIVERY; the notice never sent is 409 DELIVERY_NOT_SENT."""
+    _activate(world, "events")
+    ws = _workspace(world)
+    created = _subscribe(world, ws, receiver.url, events=[WATCHED, EVERY], mode="coalesced", debounceSeconds=60)
+    receiver.then(500)
+    world.made("R", "Ledger Notice", workspace=ws)
+    derive_events(world)
+    dispatch(world, _now() + timedelta(seconds=61))
+    rows = {row["status"]: row for row in _deliveries(world, created)}
+    assert set(rows) == {"retrying", "queued"}
+    refused(_resend(world, created, rows["queued"]["deliveryId"]), 409, "DELIVERY_NOT_SENT")
+    refused(_resend(world, created, rows["retrying"]["deliveryId"], "no-such-event"), 404, "EVENT_NOT_IN_DELIVERY")
+
+    failed = receiver.requests[0]["body"]
+    resent = ok(_resend(world, created, rows["retrying"]["deliveryId"]), 201)
+    notice = receiver.requests[-1]
+    assert notice["headers"]["rdm-redelivery"] == "manual"
+    assert {**notice["body"], "deliveryId": failed["deliveryId"]} == failed
+    assert resent["kind"] == "notice" and resent["status"] == "succeeded"

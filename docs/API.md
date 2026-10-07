@@ -2611,6 +2611,7 @@ deployment data, not part of a model release. [Delivery](#webhook-delivery-base-
 | `DELETE /api/v1/consumer-subscriptions/{id}?expectedVersion=N` | `204` |
 | `GET /api/v1/consumer-subscriptions/{id}/deliveries` (`status`, paging) | what it delivered, newest first ([below](#the-delivery-log-base-09-u5a)) |
 | `GET /api/v1/consumer-subscriptions/{id}/deliveries/{deliveryId}` | one request with its body and attempts |
+| `POST /api/v1/consumer-subscriptions/{id}/deliveries/{deliveryId}/resend` | `201`, the new request: an event sent again by hand ([below](#resending-by-hand)) |
 
 The create body names `name` (1–200 characters once trimmed, not unique, U5a), `consumerApi`,
 `events` (at least one) and `url`, and optionally
@@ -2717,6 +2718,23 @@ Entries are kept for `CONSUMER_WEBHOOK_LOG_RETENTION_DAYS` (7), reported as
 `consumerSubscriptions.logRetentionDays` in capabilities; a batch still pending keeps its entries
 longer. A deleted subscription's go with it.
 
+##### Resending by hand
+
+`POST …/deliveries/{deliveryId}/resend` with `{"eventId": "…"}` (for a notice, `{}`) sends that
+event again exactly as it was sent in that request, taken from the stored body, alone in a new
+request with a new `deliveryId` and a fresh signature (C-D129). It keeps the `eventId` and adds the
+header `RDM-Redelivery: manual`, so a receiver that deduplicates by `eventId` can decide to process
+it again (C-D130). It is sent during the call, one attempt with no retry, on any subscription,
+suspended ones included; the answer is the new request (`succeeded` or `failed`) with `resendOf`
+naming the one it repeats, and the subscription's position and any batch being retried are left
+alone (C-D131). Rows and details carry `resendOf` (`null` for the dispatcher's requests).
+
+| Status | Code | When |
+|---|---|---|
+| 404 | `SUBSCRIPTION_NOT_FOUND`, `DELIVERY_NOT_FOUND` | the IDs |
+| 404 | `EVENT_NOT_IN_DELIVERY` | the event was not sent in that request, or an event was named for a notice |
+| 409 | `DELIVERY_NOT_SENT` | the request was never sent (`queued`), so nothing can be repeated |
+
 ### Webhook delivery (Base 0.9 C12)
 
 While `CONSUMER_SUBSCRIPTIONS_ENABLED` is on, every active subscription's events are POSTed to its
@@ -2764,6 +2782,7 @@ is `debounceSeconds` old, or its oldest 10 minutes old; each with its own `deliv
 | `User-Agent` | `rdm-engine` |
 | `RDM-Delivery-Id` | the body's `deliveryId`; the same on every retry of a batch |
 | `RDM-Timestamp` | Unix seconds, new on every attempt |
+| `RDM-Redelivery` | `manual` on a resend by hand (U5a); absent otherwise |
 | `RDM-Signature` | `sha256=` and the lowercase hex HMAC-SHA256 of `"{RDM-Timestamp}.{body}"`, keyed with the `signingSecret` exactly as the create answered it |
 
 **The receiver's answer:** any `2xx` acknowledges. Anything else fails the attempt: another status, a

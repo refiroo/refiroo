@@ -118,6 +118,8 @@ class DeliveryRow(BaseModel):
     responseStatus: int | None
     sentAt: datetime | None
     nextAttemptAt: datetime | None
+    # A resend by hand (C-D130): the delivery ID of the request it repeats.
+    resendOf: str | None
 
 
 class DeliveryPage(CollectionPage[DeliveryRow]):
@@ -164,4 +166,5 @@ class DeliveryDetail(BaseModel):
     requestBytes: int | None
     createdAt: datetime
     nextAttemptAt: datetime | None
+    resendOf: str | None
     attempts: list[DeliveryAttempt]

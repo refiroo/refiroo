@@ -162,6 +162,8 @@ export interface DeliveryRow {
   responseStatus: number | null;
   sentAt: string | null;
   nextAttemptAt: string | null;
+  /** A resend by hand: the delivery ID of the request it repeats. */
+  resendOf: string | null;
 }
 
 export interface DeliveryRowPage {
@@ -186,10 +188,14 @@ export interface DeliveryDetail {
   batchId: string;
   kind: "events" | "notice";
   status: DeliveryStatus;
-  events: Omit<DeliveryRow, "deliveryId" | "status" | "attempts" | "responseStatus" | "sentAt" | "nextAttemptAt">[];
+  events: Omit<
+    DeliveryRow,
+    "deliveryId" | "status" | "attempts" | "responseStatus" | "sentAt" | "nextAttemptAt" | "resendOf"
+  >[];
   requestBody: unknown;
   requestBytes: number | null;
   createdAt: string;
   nextAttemptAt: string | null;
+  resendOf: string | null;
   attempts: DeliveryAttempt[];
 }

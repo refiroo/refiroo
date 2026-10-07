@@ -349,7 +349,14 @@ describe("Webhooks", () => {
 
   it("shows a request in flight as sending, and a coalesced notice without event or object", async () => {
     vi.mocked(api.subscription).mockResolvedValue(subscription("s", { mode: "coalesced", debounceSeconds: 1 }));
-    const base = { change: null, objectType: null, position: 40, responseStatus: null, nextAttemptAt: null };
+    const base = {
+      change: null,
+      objectType: null,
+      position: 40,
+      responseStatus: null,
+      nextAttemptAt: null,
+      resendOf: null,
+    };
     vi.mocked(api.deliveries).mockResolvedValue({
       items: [
         {
@@ -386,6 +393,7 @@ describe("Webhooks", () => {
       requestBytes: 90,
       createdAt: "2026-10-07T08:00:00Z",
       nextAttemptAt: null,
+      resendOf: null,
       attempts: [
         {
           number: 1,
@@ -429,6 +437,7 @@ describe("Webhooks", () => {
       responseStatus: 200,
       sentAt: "2026-10-07T08:01:00Z",
       nextAttemptAt: null,
+      resendOf: null,
     };
     vi.mocked(api.deliveries).mockResolvedValue({ items: [row], nextCursor: null });
     vi.mocked(api.delivery).mockResolvedValue({
@@ -450,6 +459,7 @@ describe("Webhooks", () => {
       requestBytes: 120,
       createdAt: "2026-10-07T08:00:00Z",
       nextAttemptAt: null,
+      resendOf: null,
       attempts: [
         {
           number: 1,
@@ -490,5 +500,135 @@ describe("Webhooks", () => {
     fireEvent.click(within(opened).getByRole("button", { name: "Attempt 1" }));
     expect(within(opened).getByRole("region", { name: /Response body · attempt 1/ })).toHaveTextContent("busy");
     expect(opened).toHaveTextContent("1.2 s");
+  });
+
+  it("resends an event by hand: a delivered one after a confirmation, a failed one at once", async () => {
+    vi.mocked(api.subscription).mockResolvedValue(subscription("s"));
+    const row = (deliveryId: string, status: "succeeded" | "failed") => ({
+      deliveryId,
+      eventId: `e-${deliveryId}`,
+      event: "lists-changed",
+      change: "updated",
+      objectType: "Codelist",
+      objectId: "o-1",
+      position: 7,
+      status,
+      attempts: 1,
+      responseStatus: status === "succeeded" ? 200 : 500,
+      sentAt: "2026-10-07T08:00:00Z",
+      nextAttemptAt: null,
+      resendOf: null,
+    });
+    const detail = (deliveryId: string, status: "succeeded" | "failed", resendOf: string | null = null) => ({
+      deliveryId,
+      batchId: deliveryId,
+      kind: "events" as const,
+      status,
+      events: [
+        {
+          eventId: `e-${deliveryId}`,
+          event: "lists-changed",
+          change: "updated",
+          objectType: "Codelist",
+          objectId: "o-1",
+          position: 7,
+        },
+      ],
+      requestBody: { deliveryId, events: [{ eventId: `e-${deliveryId}` }] },
+      requestBytes: 50,
+      createdAt: "2026-10-07T08:00:00Z",
+      nextAttemptAt: null,
+      resendOf,
+      attempts: [
+        {
+          number: 1,
+          startedAt: "2026-10-07T08:00:00Z",
+          completedAt: "2026-10-07T08:00:00Z",
+          durationMs: 5,
+          responseStatus: status === "succeeded" ? 200 : 500,
+          error: status === "succeeded" ? null : { kind: "status" as const, message: "500 Internal Server Error" },
+          responseBody: null,
+        },
+      ],
+    });
+    vi.mocked(api.deliveries).mockResolvedValue({
+      items: [row("d1", "succeeded"), row("d2", "failed")],
+      nextCursor: null,
+    });
+    vi.mocked(api.delivery).mockImplementation(async (_id, deliveryId) =>
+      detail(deliveryId, deliveryId === "d1" ? "succeeded" : "failed"),
+    );
+    vi.mocked(api.resendDelivery).mockResolvedValue(detail("r1", "succeeded", "d1"));
+    renderPage("s");
+    fireEvent.click(await screen.findByRole("tab", { name: "Deliveries" }));
+    const table = await screen.findByRole("group", { name: "Deliveries" });
+
+    // Delivered: Resend asks first; declining sends nothing.
+    fireEvent.click(within(within(table).getAllByRole("row")[1]).getByRole("link"));
+    let opened = await screen.findByRole("dialog", { name: "lists-changed" });
+    fireEvent.click(await within(opened).findByRole("button", { name: "Resend" }));
+    let confirm = await screen.findByRole("alertdialog", { name: "Resend a delivered event?" });
+    expect(confirm).toHaveTextContent("already acknowledged");
+    fireEvent.click(within(confirm).getByRole("button", { name: "Don't resend" }));
+    expect(api.resendDelivery).not.toHaveBeenCalled();
+    fireEvent.click(within(opened).getByRole("button", { name: "Resend" }));
+    confirm = await screen.findByRole("alertdialog", { name: "Resend a delivered event?" });
+    fireEvent.click(within(confirm).getByRole("button", { name: "Resend event" }));
+    await waitFor(() => expect(api.resendDelivery).toHaveBeenCalledWith("s", "d1", "e-d1"));
+    expect(await within(opened).findByText("Resent")).toBeInTheDocument();
+    expect(api.deliveries).toHaveBeenCalledTimes(2);
+    fireEvent.click(within(opened).getByRole("button", { name: "Close" }));
+
+    // Failed: Resend sends at once, without asking.
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "lists-changed" })).not.toBeInTheDocument());
+    fireEvent.click(within(table).getAllByRole("link")[1]);
+    opened = await screen.findByRole("dialog", { name: "lists-changed" });
+    fireEvent.click(await within(opened).findByRole("button", { name: "Resend" }));
+    await waitFor(() => expect(api.resendDelivery).toHaveBeenLastCalledWith("s", "d2", "e-d2"));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("offers no resend for a request never sent", async () => {
+    vi.mocked(api.subscription).mockResolvedValue(subscription("s"));
+    vi.mocked(api.deliveries).mockResolvedValue({
+      items: [
+        {
+          deliveryId: "q1",
+          eventId: null,
+          event: "lists-changed",
+          change: null,
+          objectType: null,
+          objectId: null,
+          position: 3,
+          status: "queued",
+          attempts: 0,
+          responseStatus: null,
+          sentAt: null,
+          nextAttemptAt: null,
+          resendOf: null,
+        },
+      ],
+      nextCursor: null,
+    });
+    vi.mocked(api.delivery).mockResolvedValue({
+      deliveryId: "q1",
+      batchId: "b",
+      kind: "notice",
+      status: "queued",
+      events: [{ eventId: null, event: "lists-changed", change: null, objectType: null, objectId: null, position: 3 }],
+      requestBody: null,
+      requestBytes: null,
+      createdAt: "2026-10-07T08:00:00Z",
+      nextAttemptAt: null,
+      resendOf: null,
+      attempts: [],
+    });
+    renderPage("s");
+    fireEvent.click(await screen.findByRole("tab", { name: "Deliveries" }));
+    fireEvent.click(within(await screen.findByRole("group", { name: "Deliveries" })).getByRole("link"));
+    const opened = await screen.findByRole("dialog", { name: "lists-changed" });
+    const resend = await within(opened).findByRole("button", { name: "Resend" });
+    expect(resend).toBeDisabled();
+    expect(resend).toHaveAccessibleDescription(/nothing to resend/);
   });
 });

@@ -12,6 +12,13 @@ All notable changes to this project are documented in this file. The format foll
   exposed object type (`timetable-category-changed`, `timetable-type-changed`, …), each for
   created, updated and deleted, with no watch, so any change to the object's output counts. The
   contract versions stay, as adding events is compatible.
+- Base 0.9 U5a revision: resend a delivered event by hand. `POST
+  /api/v1/consumer-subscriptions/{id}/deliveries/{deliveryId}/resend` sends one event of a request
+  again exactly as it was sent (a notice as it was), alone in a new request with the same `eventId`
+  and the header `RDM-Redelivery: manual`; once, during the call, on any subscription; the new
+  request names the one it repeats (`resendOf`). Revision `20261007_02`. In Webhooks › Deliveries,
+  the event's dialog has **Resend**, asking first when the event was already delivered. The edit,
+  suspend and delete buttons are on the Configuration tab only.
 - Base 0.9 U5a: webhook names and the delivery log.
   - A subscription has a `name` (required on create, editable; existing ones are named after their
     URL's host and path). Renaming alone keeps a batch being retried.

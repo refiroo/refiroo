@@ -9,6 +9,7 @@ from typing import Literal
 from fastapi import APIRouter, Query, Request
 
 from ...engine.events.delivery_log import delivery_detail, delivery_rows
+from ...engine.events.resend import resend_event
 from ...engine.events.subscriptions import (
     SubscriptionSettings,
     create_subscription,
@@ -24,6 +25,7 @@ from ...models.commands import (
     ConsumerSubscriptionResume,
     ConsumerSubscriptionUpdate,
     ConsumerSubscriptionVersion,
+    DeliveryResend,
 )
 from ..dependencies import DbSession
 from ..paging import PageQuery
@@ -147,3 +149,21 @@ def get_delivery(subscription_id: str, delivery_id: str, session: DbSession) -> 
     latest attempt as the receiver got it, and every attempt with its start, duration and answer."""
     subscription = load_subscription(session, subscription_id)
     return delivery_detail_response(delivery_detail(session, subscription, delivery_id))
+
+
+@router.post(
+    "/consumer-subscriptions/{subscription_id}/deliveries/{delivery_id}/resend",
+    response_model=DeliveryDetail,
+    status_code=201,
+)
+def resend(
+    subscription_id: str, delivery_id: str, payload: DeliveryResend, request: Request, session: DbSession
+) -> DeliveryDetail:
+    """Send an event of a delivered request again by hand, exactly as it was sent, alone in a new
+    request with the same ``eventId`` and ``RDM-Redelivery: manual``; a notice as it was. One
+    attempt during the call, no retry, on any subscription. The answer is the new request, which
+    names the one it repeats in ``resendOf``; the subscription's position does not move."""
+    subscription = load_subscription(session, subscription_id)
+    return delivery_detail_response(
+        resend_event(session, subscription, delivery_id, payload.eventId, _settings(request))
+    )

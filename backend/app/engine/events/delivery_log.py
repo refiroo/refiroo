@@ -30,7 +30,7 @@ from .webhook_client import Answer
 UNFINISHED = ("queued", "sending", "retrying")
 
 
-def _rows(body: dict[str, Any]) -> list[dict[str, Any]]:
+def rows_of(body: dict[str, Any]) -> list[dict[str, Any]]:
     """The deliveries rows a body makes: its events, or the notice itself."""
     if "events" not in body:
         return [
@@ -100,7 +100,7 @@ def open_batch(
     events = [
         {"request_sequence_id": sequence_of[delivery_id], **row}
         for delivery_id, body in missing
-        for row in _rows(body)
+        for row in rows_of(body)
     ]
     session.execute(insert(ConsumerWebhookRequestEvent), events)
 
@@ -132,9 +132,17 @@ def start_attempt(
     return row.sequence_id, row.attempts
 
 
-def finish_attempt(session: Session, started: tuple[int, int], answer: Answer, completed: datetime, duration_ms: int) -> None:
-    """Log the attempt's answer, and the request's status: ``succeeded``, or ``retrying`` unless an
-    edit dropped it meanwhile. A request the receiver acknowledged is ``succeeded`` even then."""
+def finish_attempt(
+    session: Session,
+    started: tuple[int, int],
+    answer: Answer,
+    completed: datetime,
+    duration_ms: int,
+    failed: str = "retrying",
+) -> None:
+    """Log the attempt's answer, and the request's status: ``succeeded``, or ``failed`` (``retrying``
+    for the dispatcher's batches, ``failed`` for a resend) unless an edit dropped it meanwhile. A
+    request the receiver acknowledged is ``succeeded`` even then."""
     sequence_id, number = started
     error = answer.error
     session.execute(
@@ -155,7 +163,7 @@ def finish_attempt(session: Session, started: tuple[int, int], answer: Answer, c
     if not answer.ok:
         statement = statement.where(request.status == "sending")
     session.execute(
-        statement.values(status="succeeded" if answer.ok else "retrying", last_status=answer.status).execution_options(
+        statement.values(status="succeeded" if answer.ok else failed, last_status=answer.status).execution_options(
             synchronize_session=False
         )
     )
@@ -224,6 +232,7 @@ def delivery_rows(
             request.attempts,
             request.last_status,
             request.sent_at,
+            request.resend_of,
             event.event_id,
             event.event_key,
             event.change,

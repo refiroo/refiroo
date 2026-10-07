@@ -461,6 +461,7 @@ def delivery_page(page: Page[Any], subscription: ConsumerSubscription) -> Delive
                 responseStatus=row.last_status,
                 sentAt=as_utc(row.sent_at) if row.sent_at else None,
                 nextAttemptAt=_utc_or_none(delivery_log.row_next_attempt(subscription, row)),
+                resendOf=row.resend_of,
             )
             for row in page.items
         ],
@@ -491,6 +492,7 @@ def delivery_detail_response(found: dict[str, Any]) -> DeliveryDetail:
         requestBytes=request.request_bytes,
         createdAt=as_utc(request.created_at),
         nextAttemptAt=_utc_or_none(found["next_attempt_at"]),
+        resendOf=request.resend_of,
         attempts=[
             DeliveryAttempt(
                 number=attempt.number,

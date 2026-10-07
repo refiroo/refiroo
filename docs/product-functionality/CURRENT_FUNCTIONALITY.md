@@ -504,7 +504,9 @@ whether it is delivering, retrying or paused, the reason and what fixes it, and 
 resumes (from the first change not taken, or from now on) and deletes it. **Deliveries** lists
 every change sent or being sent, newest first, with its status, attempts, the receiver's answer and
 when it went; opening one shows each attempt with how long it took, the request exactly as sent and
-the receiver's answer, as formatted JSON. Deliveries are kept for a week by default. A workspace
+the receiver's answer, as formatted JSON, and can send it again by hand, as it was sent, whatever
+happened to it (a delivered one only after confirming); the receiver can tell a repeat by a header.
+Deliveries are kept for a week by default. A workspace
 that cannot be deleted because of its subscriptions lists them, each linked to its page.
 
 A consuming system reads one business object through a declared API by its record ID, at the

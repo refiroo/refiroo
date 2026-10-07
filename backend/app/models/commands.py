@@ -461,6 +461,14 @@ class ConsumerSubscriptionUpdate(BaseModel):
         return self
 
 
+class DeliveryResend(BaseModel):
+    """A resend by hand (C-D129): the event of an events request to send again; none for a notice."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    eventId: str | None = Field(default=None, min_length=1, max_length=36)
+
+
 class ConsumerSubscriptionVersion(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

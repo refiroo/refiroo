@@ -1190,6 +1190,8 @@ class ConsumerWebhookRequest(Base):
     last_status: Mapped[int | None] = mapped_column(Integer, nullable=True)
     sent_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    # A resend by hand (C-D129–C-D131): the delivery ID of the request it repeats.
+    resend_of: Mapped[str | None] = mapped_column(String(36), nullable=True)
 
 
 class ConsumerWebhookRequestEvent(Base):

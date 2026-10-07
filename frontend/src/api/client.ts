@@ -347,6 +347,12 @@ export const api = {
     request<DeliveryDetail>(
       `/api/v1/consumer-subscriptions/${encodeURIComponent(id)}/deliveries/${encodeURIComponent(deliveryId)}`,
     ),
+  /** Send an event (or a notice) of a delivered request again, by hand; the new request. */
+  resendDelivery: (id: string, deliveryId: string, eventId?: string) =>
+    request<DeliveryDetail>(
+      `/api/v1/consumer-subscriptions/${encodeURIComponent(id)}/deliveries/${encodeURIComponent(deliveryId)}/resend`,
+      { method: "POST", body: JSON.stringify(eventId ? { eventId } : {}) },
+    ),
   deleteSubscription: (id: string, expectedVersion: number) =>
     request<void>(`/api/v1/consumer-subscriptions/${encodeURIComponent(id)}?expectedVersion=${expectedVersion}`, {
       method: "DELETE",

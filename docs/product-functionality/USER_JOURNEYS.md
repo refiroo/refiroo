@@ -1117,7 +1117,11 @@ from C12; the events accepted end to end in C13 ([CONSUMER_API.md](../CONSUMER_A
   4 KiB of the response. Rows of one request share its outcome. An edit that drops a batch leaves
   it `dropped`; a day of failures, `failed`. Entries are kept for
   `CONSUMER_WEBHOOK_LOG_RETENTION_DAYS` (reported in capabilities), a batch still pending longer;
-  a deleted subscription's go with it. UI: Settings › Integration › Webhooks, Deliveries.
+  a deleted subscription's go with it. An operator resends an event by hand, whatever its status:
+  the event as it was sent, alone in a new request with the same `eventId` and `RDM-Redelivery:
+  manual`, once, during the call, also while suspended; the new request names the one it repeats
+  (a notice is resent as it was). UI: Settings › Integration › Webhooks, Deliveries, where a
+  delivered event is resent only after a confirmation.
 
 **Refusals:** `404 EVENTS_NOT_DECLARED`, `400 UNKNOWN_EVENT`, `400 PARAMETER_NOT_SUPPORTED`
 (`publication`, `asOf`, `to.`), `400 INVALID_PAGE_SIZE` (1–100 with the full payload, 1–1,000 with
@@ -1128,7 +1132,7 @@ refusals. Subscriptions: `400 CONSUMER_API_NOT_FOUND`, `EVENTS_NOT_DECLARED`, `U
 `INVALID_WEBHOOK_URL`, each at its body pointer; `404
 WORKSPACE_NOT_FOUND`, `404 SUBSCRIPTION_NOT_FOUND`; `409 VERSION_CONFLICT`,
 `SUBSCRIPTION_ALREADY_SUSPENDED`, `SUBSCRIPTION_NOT_SUSPENDED`, `SUBSCRIPTION_NEEDS_EDIT`,
-`404 DELIVERY_NOT_FOUND` (J30.10),
+`404 DELIVERY_NOT_FOUND`, `404 EVENT_NOT_IN_DELIVERY`, `409 DELIVERY_NOT_SENT` (J30.10),
 `EVENT_POSITION_AHEAD`, `EVENTS_EXPIRED` (resume), `WORKSPACE_HAS_SUBSCRIPTIONS`; `410
 EVENTS_EXPIRED` (`startAfter`).
 

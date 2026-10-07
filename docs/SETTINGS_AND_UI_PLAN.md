@@ -2121,8 +2121,61 @@ dark, an opened event).
   notice row and body on the page, and takes the dialog scrolled to its buttons with the coalesced
   wait showing (16 checks). The first report had said tests covered both states; for `sending`
   that was not so.
+- **Revised the same day (the user).** Edit, Suspend and Delete, with the notices their actions
+  raise, moved into the Configuration tab; the header above both tabs keeps the name, the state and
+  a suspension notice. The resume dialog no longer says it checks the allowed hosts, which the
+  allowlist removal took away.
 - **Found, not changed.** The request body kept is the latest attempt's: each attempt composes its
   objects anew (C-D111), so an earlier attempt may have sent other object states.
+
+#### U5a revision: resending an event (2026-10-07)
+
+**Asked by the user, 2026-10-07:** a **Resend** button in the delivered event's dialog that sends
+the event again by hand, whatever its status; for a `succeeded` event only after a confirmation that
+it was already delivered. The user also asked what `dropped` means and who drops a request: no
+one does it directly. An edit (other than a rename) or a resume discards a request waiting for a
+retry, and the same events go out again in a new request, unless the resume used `reset` or the
+events no longer belong to the subscription. No "drop" action is added: it would repeat resume with
+`reset`.
+
+| ID | Question | Decision | Why |
+| --- | --- | --- | --- |
+| C-D129 | What does a resend send? | **The user, 2026-10-07: the opened event as it was sent**, taken from the stored body of its request (the object as it was then), alone in a new request with a new `deliveryId` and a fresh signature; a notice is resent as it was. A request never sent (`queued`) has no body to resend: `409 DELIVERY_NOT_SENT` | What the receiver got is what is repeated; resending the whole request would repeat up to 99 other events |
+| C-D130 | How is a resend told apart? | **The user, 2026-10-07: the same `eventId`**, and the header `RDM-Redelivery: manual` on the request; the log's request names the delivery it repeats (`resendOf`) | It is the same change: a new ID would make a repeat look like a new change. A receiver that deduplicates by `eventId` decides with the header whether to process it again |
+| C-D131 | When is it sent, and on which subscriptions? | **The user, 2026-10-07: during the call, on any subscription**, suspended ones included: one attempt, no retry, within the receiver timeout, its result in the answer (`succeeded` or `failed`). It moves no position and leaves a batch being retried alone | An operator testing a receiver wants the answer at once, and may test one before resuming |
+
+**Contract.** `POST /api/v1/consumer-subscriptions/{id}/deliveries/{deliveryId}/resend` with
+`{"eventId": "…"}` for an events request (an empty body for a notice) answers `201` with the new
+request's detail; `404 SUBSCRIPTION_NOT_FOUND`, `404 DELIVERY_NOT_FOUND`, `404 EVENT_NOT_IN_DELIVERY`
+(the event is not in that request, or a notice was given one), `409 DELIVERY_NOT_SENT`. Rows and
+details gain `resendOf`. Revision `20261007_02` adds `consumer_webhook_requests.resend_of`
+(C17's migration follows as `_03`).
+
+**Journey cases (J30.10).** (1) Given a delivered event, a resend sends one request with a new
+delivery ID, the event exactly as before, `RDM-Redelivery: manual` and a valid signature; the answer
+and a new newest row are `succeeded` with `resendOf`; the subscription's position and delivery state
+are unchanged. (2) To a receiver answering `500`, a resend of a suspended subscription's event is
+`failed` after one attempt, and the dispatcher does not retry it. (3) A notice is resent as it was.
+(4) An event not in the request is `404 EVENT_NOT_IN_DELIVERY`; a queued request is `409
+DELIVERY_NOT_SENT`.
+
+**UI.** The dialog's **Resend** (always shown; disabled for a request never sent, with the reason);
+for a `succeeded` event a confirmation, "Resend a delivered event?", first. The result shows in the
+dialog with a link to the new delivery, and the list reloads; a resend's row says "resent".
+
+**Record (2026-10-07).** Implemented as planned; screenshots await approval (the confirmation and
+the result). `engine/events/resend.py` (the route's work, in the API request), `delivery_log`'s
+`finish_attempt` takes the status of a failed attempt (`failed` for a resend), revision
+`20261007_02` (C17's migration renumbered to `_03` by its session). Checks: the three journey cases
+× 2 configurations confirmed failing first, then `test_j30_delivery_log` (20 passed); in parallel
+`test_startup` (a new case: upgrade from `20261007_01`, two starts, an interrupted run recovering),
+`test_openapi_contract` (the gated route listed; the lock unchanged, the routes being off by
+default), `test_foreign_keys`, `test_boundaries`, the other J30 modules and the event unit tests
+(135 passed, 38 s); `ruff check`. Frontend: the Webhooks unit tests (14, two new: confirmation for a
+delivered event, none for a failed one; disabled for a request never sent), `vitest run` on settings
+and `ui` (79), `format`, `lint` (0 errors), `build`; `test:browser:webhooks` (17 checks: the resend
+through the confirmation reaching the receiver with the same event, a new delivery ID and
+`RDM-Redelivery: manual`). Not run: the full suites, `test:a11y`, `test:visual`.
 
 ### Exit by 1.0
 
