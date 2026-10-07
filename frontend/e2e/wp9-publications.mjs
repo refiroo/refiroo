@@ -182,7 +182,7 @@ try {
   await page.getByRole("heading", { name: "Published old domain", exact: true }).waitFor();
   assert.match(await page.locator("main").innerText(), /History count\s*7/i);
   // The publication bar names the pinned model (the top bar's model version left with U3).
-  await page.getByText(new RegExp(`pinned model release \\S+ ${oldModelVersion.replaceAll(".", "\\.")}\\b`)).waitFor();
+  await page.getByText(new RegExp(`published under, \\S+ ${oldModelVersion.replaceAll(".", "\\.")}\\b`)).waitFor();
   await page.getByRole("button", { name: "Record actions", exact: true }).click();
   assert.equal(await page.getByRole("menuitem", { name: "Edit all fields", exact: true }).count(), 0);
   await page.keyboard.press("Escape");
@@ -192,7 +192,8 @@ try {
 
   await page.getByRole("button", { name: "Back to publications" }).click();
   const sourceCard = oldCard;
-  await sourceCard.getByRole("button", { name: "Start a change set from this publication" }).click();
+  await sourceCard.getByRole("button", { name: `More actions for Publication ${oldPublication.publicationNumber}`, exact: true }).click();
+  await page.getByRole("menuitem", { name: "Start a change set from this publication" }).click();
   await page.getByRole("dialog").getByLabel("Change set name").fill("Earlier review");
   await page.getByRole("dialog").getByRole("button", { name: "Create change set" }).click();
   await page.getByRole("region", { name: "Change set publication" }).getByRole("heading", { name: "Earlier review", exact: true }).waitFor();
@@ -205,7 +206,8 @@ try {
   const currentCard = page.locator("article.publication-card").filter({
     has: page.getByRole("heading", { name: `Publication ${currentPublication.publicationNumber} Current`, exact: true }),
   });
-  await currentCard.getByRole("button", { name: "Withdraw publication" }).click();
+  await currentCard.getByRole("button", { name: `More actions for Publication ${currentPublication.publicationNumber}`, exact: true }).click();
+  await page.getByRole("menuitem", { name: "Withdraw publication" }).click();
   const confirmation = page.getByRole("alertdialog");
   assert.match(await confirmation.innerText(), new RegExp(`Withdraw Publication ${currentPublication.publicationNumber}\\?`));
   assert.match(await confirmation.innerText(), /Live records and all publications remain available/);
@@ -224,8 +226,7 @@ try {
   await api(`/workspaces/${workspaceKey}`, { expectedVersion: workspace.version, status: "retired" }, "PATCH");
   await page.reload();
   await page.getByText("Read-only workspace").waitFor();
-  assert.equal(await page.getByRole("button", { name: "Start a change set from this publication" }).count(), 0);
-  assert.equal(await page.getByRole("button", { name: "Withdraw publication" }).count(), 0);
+  assert.equal(await page.getByRole("button", { name: /^More actions for Publication/ }).count(), 0);
   checks.push("Catalogue retirement is a separate read-only state: publications stay visible while change-set and withdrawal actions disappear");
 
   assert.deepEqual(failures, []);

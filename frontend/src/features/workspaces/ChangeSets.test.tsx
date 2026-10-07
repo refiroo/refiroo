@@ -76,7 +76,7 @@ describe("change set creation with model-release selector", () => {
     vi.spyOn(api, "modelReleases").mockResolvedValue({ items: [activeRelease, olderRelease], nextCursor: null });
     vi.spyOn(api, "createChangeSet").mockResolvedValue(baseChangeSet);
     render(<ChangeSets workspaceKey="west" readOnly={false} onOpen={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Start from current live data" }));
+    fireEvent.click((await screen.findAllByRole("button", { name: "Start from current live data" }))[0]);
     expect(await screen.findByRole("combobox", { name: "Model version" })).toBeInTheDocument();
     const select = screen.getByRole("combobox", { name: "Model version" });
     expect(select).toHaveValue("");
@@ -98,7 +98,7 @@ describe("change set creation with model-release selector", () => {
     });
     const onOpen = vi.fn();
     render(<ChangeSets workspaceKey="west" readOnly={false} onOpen={onOpen} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Start from current live data" }));
+    fireEvent.click((await screen.findAllByRole("button", { name: "Start from current live data" }))[0]);
     await screen.findByRole("combobox", { name: "Model version" });
     fireEvent.change(screen.getByRole("combobox", { name: "Model version" }), {
       target: { value: olderRelease.id },
@@ -115,7 +115,7 @@ describe("change set creation with model-release selector", () => {
     vi.spyOn(api, "changeSets").mockResolvedValue({ items: [], nextCursor: null });
     vi.spyOn(api, "modelReleases").mockResolvedValue({ items: [activeRelease], nextCursor: null });
     render(<ChangeSets workspaceKey="west" readOnly={false} onOpen={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Start from current live data" }));
+    fireEvent.click((await screen.findAllByRole("button", { name: "Start from current live data" }))[0]);
     await waitFor(() => expect(api.modelReleases).toHaveBeenCalled());
     expect(screen.queryByRole("combobox", { name: "Model version" })).not.toBeInTheDocument();
   });
@@ -143,6 +143,22 @@ describe("change set list model release display", () => {
   });
 });
 
+describe("an empty change set list", () => {
+  it.each([
+    [false, 2],
+    [true, 0],
+  ])(
+    "says there are none and repeats the header's start action when writable (read-only %s)",
+    async (readOnly, starts) => {
+      vi.spyOn(api, "changeSets").mockResolvedValue({ items: [], nextCursor: null });
+      render(<ChangeSets workspaceKey="west" readOnly={readOnly} onOpen={vi.fn()} />);
+      expect(await screen.findByText("No change sets.")).toBeInTheDocument();
+      expect(screen.queryAllByRole("button", { name: "Start from current live data" })).toHaveLength(starts);
+      expect(screen.queryByRole("list", { name: "Change sets" })).not.toBeInTheDocument();
+    },
+  );
+});
+
 describe("change set creation incompatibility error", () => {
   it("shows server error when change set creation against a non-active release fails", async () => {
     vi.spyOn(api, "changeSets").mockResolvedValue({ items: [], nextCursor: null });
@@ -153,7 +169,7 @@ describe("change set creation incompatibility error", () => {
       }),
     );
     render(<ChangeSets workspaceKey="west" readOnly={false} onOpen={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Start from current live data" }));
+    fireEvent.click((await screen.findAllByRole("button", { name: "Start from current live data" }))[0]);
     await screen.findByRole("combobox", { name: "Model version" });
     fireEvent.change(screen.getByRole("combobox", { name: "Model version" }), {
       target: { value: olderRelease.id },
@@ -172,7 +188,7 @@ it("allows choosing an installed release beyond the first page", async () => {
     .mockResolvedValueOnce({ items: [activeRelease], nextCursor: "page-two" })
     .mockResolvedValueOnce({ items: [olderRelease], nextCursor: null });
   render(<ChangeSets workspaceKey="west" readOnly={false} onOpen={vi.fn()} />);
-  fireEvent.click(screen.getByRole("button", { name: "Start from current live data" }));
+  fireEvent.click(screen.getAllByRole("button", { name: "Start from current live data" })[0]);
   fireEvent.click(await screen.findByRole("button", { name: "Load more model releases" }));
   expect(await screen.findByRole("option", { name: /0.6.0/ })).toHaveValue(olderRelease.id);
   expect(list).toHaveBeenLastCalledWith({ cursor: "page-two" });
@@ -198,8 +214,8 @@ it("keeps the version-change error visible if the saved pin cannot be refreshed"
       onModelChanged={vi.fn().mockRejectedValue(new Error("Pinned model refresh failed"))}
     />,
   );
-  fireEvent.click(screen.getByText("More change set actions"));
-  fireEvent.click(screen.getByRole("button", { name: "Change model version" }));
+  fireEvent.click(screen.getByRole("button", { name: "More change set actions" }));
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Change model version" }));
   await screen.findByRole("option", { name: /0.6.0/ });
   fireEvent.change(screen.getByRole("combobox", { name: "Target release" }), { target: { value: olderRelease.id } });
   fireEvent.click(screen.getByRole("button", { name: "Apply version change" }));
@@ -218,7 +234,8 @@ it("separates an unpunctuated server message from the preserved-change-set guida
     new ApiError(409, "VERSION_CONFLICT", "Change set conflicts with the live active data"),
   );
   render(<ChangeSetActions readOnly={false} onExit={vi.fn()} onModelChanged={vi.fn()} />);
-  fireEvent.click(screen.getByRole("button", { name: "Discard change set" }));
+  fireEvent.click(screen.getByRole("button", { name: "More change set actions" }));
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Discard change set" }));
   fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Discard change set" }));
   expect(
     await screen.findByText(

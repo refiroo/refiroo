@@ -5,11 +5,14 @@ import { errorMessage } from "@/api/errors";
 import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import type { Publication } from "@/types";
+import { ActionMenu } from "@/ui/ActionMenu";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
+import { EmptyState } from "@/ui/EmptyState";
 import { InlineError } from "@/ui/InlineError";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { PageHeader } from "@/ui/PageHeader";
+import { RuledList, RuledListItem } from "@/ui/RuledList";
 import { StatusPill } from "@/ui/StatusPill";
 
 export function Publications({
@@ -59,66 +62,95 @@ export function Publications({
         description="Newest first. Opening a publication or starting a change set from it does not change live data."
       />
       {message && <Notice tone="success">{message}</Notice>}
-      {feed.items.map((publication) => (
-        <article key={publication.id} className="surface publication-card">
-          <h2>
-            Publication {publication.publicationNumber}
-            {publication.status === "active" && (
-              <>
-                {" "}
-                <span className="pill active-pill">Current</span>
-              </>
-            )}
-          </h2>
-          <p className="muted-text">
-            {publicationContext(publication)}
-            {publication.status === "withdrawn" && " · Withdrawn"}
-          </p>
-          <dl className="attribute-grid">
-            <div>
-              <dt>Publication ID</dt>
-              <dd>{publication.id}</dd>
-            </div>
-            <div>
-              <dt>Started from</dt>
-              <dd>
-                {publication.derivedFromPublicationId
-                  ? publicationName(publication.derivedFromPublicationId)
-                  : "Current live data"}
-              </dd>
-            </div>
-            <div>
-              <dt>Replaced as current</dt>
-              <dd>
-                {publication.supersedesPublicationId
-                  ? publicationName(publication.supersedesPublicationId)
-                  : "No earlier publication"}
-              </dd>
-            </div>
-          </dl>
-          <div className="card-actions">
-            <button className="secondary" onClick={() => onOpen(publication.id)}>
-              Open publication
-            </button>
-            {!readOnly && (
-              <button className="secondary" onClick={() => setChangeSetSource(publication)}>
-                Start a change set from this publication
-              </button>
-            )}
-            {!readOnly && publication.status === "active" && (
-              <button className="danger-ghost" onClick={() => setWithdrawing(publication)}>
-                Withdraw publication
-              </button>
-            )}
-          </div>
-        </article>
-      ))}
-      {feed.loading && feed.items.length === 0 && <p>Loading publications…</p>}
+      {feed.items.length > 0 && (
+        <RuledList label="Publications">
+          {feed.items.map((publication) => (
+            <RuledListItem
+              key={publication.id}
+              className="publication-card"
+              marker={<span className="context-dot context-dot-publication" aria-hidden="true" />}
+              title={
+                <>
+                  Publication {publication.publicationNumber}
+                  {publication.status === "active" && (
+                    <>
+                      {" "}
+                      <StatusPill tone="success">Current</StatusPill>
+                    </>
+                  )}
+                </>
+              }
+              meta={
+                <>
+                  {publicationContext(publication)}
+                  {publication.status === "withdrawn" && " · Withdrawn"}
+                </>
+              }
+              actions={
+                <>
+                  <button className="secondary" onClick={() => onOpen(publication.id)}>
+                    Open publication
+                  </button>
+                  {!readOnly && (
+                    <ActionMenu
+                      label={`More actions for Publication ${publication.publicationNumber}`}
+                      tooltip="More actions"
+                      items={[
+                        {
+                          id: "change-set",
+                          label: "Start a change set from this publication",
+                          onAction: () => setChangeSetSource(publication),
+                        },
+                        ...(publication.status === "active"
+                          ? [
+                              {
+                                id: "withdraw",
+                                label: "Withdraw publication",
+                                tone: "danger" as const,
+                                onAction: () => setWithdrawing(publication),
+                              },
+                            ]
+                          : []),
+                      ]}
+                    />
+                  )}
+                </>
+              }
+            >
+              <dl className="ruled-list-facts">
+                <div>
+                  <dt>Publication ID</dt>
+                  <dd>{publication.id}</dd>
+                </div>
+                <div>
+                  <dt>Started from</dt>
+                  <dd>
+                    {publication.derivedFromPublicationId
+                      ? publicationName(publication.derivedFromPublicationId)
+                      : "Current live data"}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Replaced as current</dt>
+                  <dd>
+                    {publication.supersedesPublicationId
+                      ? publicationName(publication.supersedesPublicationId)
+                      : "No earlier publication"}
+                  </dd>
+                </div>
+              </dl>
+            </RuledListItem>
+          ))}
+        </RuledList>
+      )}
+      {feed.loading && feed.items.length === 0 && <p className="muted-text">Loading publications…</p>}
       {feed.error && <InlineError message={feed.error} onRetry={feed.retry} />}
       {!feed.loading && !feed.error && !feed.items.length && (
-        <div className="surface empty-panel">
-          <strong>No publications yet</strong>
-          <p>Publishing a change set creates an immutable publication here. Live records remain available.</p>
+        <div className="surface">
+          <EmptyState>
+            <strong>No publications yet.</strong> Publishing a change set creates a publication here that never changes.
+            Live records remain available.
+          </EmptyState>
         </div>
       )}
       {feed.hasMore && !feed.error && (
@@ -223,11 +255,9 @@ export function PublicationBanner({ onExit }: { onExit: () => void }) {
   return (
     <section className="publication-bar" aria-labelledby="publication-bar-title">
       <div className="publication-bar-main">
-        <StatusPill tone="publication">Publication</StatusPill>
         <h2 id="publication-bar-title">{`Viewing Publication ${publication.publicationNumber}`}</h2>
         <p>
-          Read-only publication, interpreted with its pinned model release {pinned}. Current definitions are not
-          substituted.
+          Shown with the model release it was published under, {pinned}. Current definitions are not substituted.
           {activeModelReleaseId && activeModelReleaseId !== publication.modelReleaseId && (
             <>
               {" "}

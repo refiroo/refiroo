@@ -104,11 +104,6 @@ Next: UA, the Atlas redesign (ADR-040), before U4 and U5. See [Next — 0.9](#ne
   label lookup for the same field name (`getByLabelText`, Playwright `getByLabel`), which the form
   tests and runners rely on. Next: draw the handles outside the header cells (one layer over the
   header row), for UA7's accessibility gate.
-- **Since UA3 (2026-10-06), seen in the UA4 revision: `test:browser:authoring` fails on two
-  "Add Domain" buttons.** An empty collection's `EmptyState` carries **Add {type}** (UA3) beside the
-  page header's button of the same name, and `wp9-authoring` clicks it by exact name (strict mode).
-  Whether an empty list should repeat the header's action under the same name is the user's call;
-  then the runner follows.
 - **From UA4 (2026-10-07): `test:browser:b4` fails at its cycle refusal check.**
   `b4-hierarchy-acceptance.mjs:136` matches the API's refusal against `/422.*parent_cycle/`, but the
   error code is `PARENT_CYCLE`, so the check fails while the API refuses correctly (422

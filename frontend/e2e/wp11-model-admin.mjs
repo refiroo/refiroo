@@ -29,8 +29,8 @@ try {
   await page.goto(
     `${uiUrl}/apps/rdm-master/views/domains?workspaceKey=default&changeSetId=${changeSet.id}`,
   );
-  await page.getByText("More change set actions").click();
-  await page.getByRole("button", { name: "Change model version" }).click();
+  await page.getByRole("button", { name: "More change set actions", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Change model version" }).click();
   const dialog = page.getByRole("dialog", { name: "Change model version" });
   await dialog.waitFor({ state: "visible" });
   console.log("WP-11 browser: dialog open");

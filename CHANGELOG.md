@@ -371,6 +371,18 @@ All notable changes to this project are documented in this file. The format foll
 - Base 0.9 UA4 revision: the record's header shows its ID (the `id` the management and consumer
   APIs return) under the title, in monospace with a copy button (`ui/CopyValue`), in the inspector
   and on the full page.
+- Base 0.9 UA5: change sets and publications in the Atlas look. A change set is the soft amber
+  strip and a publication the soft violet one, as Live is green, each with a line saying what an
+  edit does there; the pill names the context and the change set's bar gives its name, version,
+  source and model with its actions at the end: **Review changes**, **Validate change set**,
+  **Publish change set** (the indigo primary action) and a **More change set actions** menu
+  (`ui/ActionMenu`, in place of a hand-made one) for **Change model version** and **Discard change
+  set**. The change set and publication lists are ruled rows on one card (`ui/RuledList`), grey
+  under the pointer as table rows are; a publication's **Start a change set from this publication**
+  and **Withdraw publication** moved into its row's menu, beside **Open publication**. An empty
+  change set list offers **Start from current live data** as the header does. In **Review changes**
+  the kind of change is a pill (Added green, Changed grey, Removed red), a record shows its type's
+  tile, and a relationship's two ends are chips in their types' colours.
 - Base 0.9 UA2 revision: the record browser's groups sit in frames of their type's colour, nested
   as boxes inside boxes; a group glows in the accent while it scrolls and in teal while the pointer
   is in it; with a pointer, a scrolling group stops at its first and last row; records sit one step

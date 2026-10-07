@@ -655,8 +655,9 @@ fieldset.settings-section legend {
 }
 
 /* The data-context band (ADR-039): across the content's full width, visible while the page
-   scrolls. Live is a green pill on the page; a change set turns the band amber and a publication
-   violet, with their own actions. */
+   scrolls. Each context is a soft strip in its colour, its pill outlined in its line (ADR-040):
+   Live green, a change set amber, a publication violet. The page's text and controls keep their
+   own colours on it, so the primary action stays indigo. */
 .data-context-band {
   position: sticky;
   top: var(--header-height);
@@ -669,37 +670,31 @@ fieldset.settings-section legend {
   background: var(--surface-app);
   border-bottom: 1px solid var(--border-subtle);
 }
-/* Live is a soft green strip; the Live pill keeps its outline on it (ADR-040). */
 .band-live {
-  background: var(--context-live-strip);
-  border-bottom-color: var(--context-live-strip-line);
-}
-.band-live .status-pill {
-  box-shadow: inset 0 0 0 1px var(--context-live-line);
+  --band-strip: var(--context-live-strip);
+  --band-strip-line: var(--context-live-strip-line);
+  --band-line: var(--context-live-line);
 }
 .band-change-set {
-  --band-surface: var(--context-change-set-surface);
-  --band-text: var(--context-change-set-text);
-  --band-marker: var(--context-change-set-marker);
+  --band-strip: var(--context-change-set-strip);
+  --band-strip-line: var(--context-change-set-strip-line);
   --band-line: var(--context-change-set-line);
 }
 .band-publication {
-  --band-surface: var(--context-publication-surface);
-  --band-text: var(--context-publication-text);
-  --band-marker: var(--context-publication-marker);
+  --band-strip: var(--context-publication-strip);
+  --band-strip-line: var(--context-publication-strip-line);
   --band-line: var(--context-publication-line);
 }
+.band-live,
 .band-change-set,
 .band-publication {
-  background: var(--band-surface);
-  border-bottom-color: var(--band-line);
-  color: var(--band-text);
+  background: var(--band-strip);
+  border-bottom-color: var(--band-strip-line);
 }
-.band-change-set .shell-context,
-.band-publication .shell-context,
-.band-change-set .band-note,
-.band-publication .band-note {
-  color: inherit;
+.band-live .shell-context .status-pill,
+.band-change-set .shell-context .status-pill,
+.band-publication .shell-context .status-pill {
+  box-shadow: inset 0 0 0 1px var(--band-line);
 }
 .band-context {
   display: flex;
@@ -711,34 +706,14 @@ fieldset.settings-section legend {
   color: var(--text-secondary);
   font-size: var(--text-sm);
 }
+/* The context's own bar sits under the context line, ruled off by the strip's line. */
 .band-actions {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: var(--space-2) var(--space-4);
-}
-/* Controls on a tinted band take its ink: the outline is the band's marker (3:1, U-D9). */
-.band-change-set .secondary,
-.band-publication .secondary,
-.band-change-set .change-set-secondary-actions summary {
-  border-color: var(--band-marker);
-  background: transparent;
-  color: var(--band-text);
-  box-shadow: none;
-}
-.band-change-set .secondary:hover:not(:disabled),
-.band-publication .secondary:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--band-text) 8%, transparent);
-}
-.band-change-set .primary {
-  border-color: var(--band-text);
-  background: var(--band-text);
-  color: var(--band-surface);
-}
-.band-change-set .primary:hover:not(:disabled) {
-  border-color: var(--band-text);
-  background: var(--band-text);
-  opacity: 0.9;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--band-strip-line);
 }
 .band-details:empty {
   display: none;
@@ -774,23 +749,16 @@ fieldset.settings-section legend {
 .context-dot-publication {
   background: var(--context-publication-marker);
 }
-.band-change-set .data-context-switch button,
-.band-publication .data-context-switch button {
-  color: inherit;
-}
 .data-context-switch button:hover {
   color: var(--text-primary);
   text-decoration: underline;
   text-underline-offset: 4px;
 }
 .data-context-switch button[aria-current="page"] {
-  color: inherit;
+  color: var(--text-primary);
   font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 4px;
-}
-.data-context-band:not(.band-change-set):not(.band-publication) .data-context-switch button[aria-current="page"] {
-  color: var(--text-primary);
 }
 .segmented {
   display: inline-flex;

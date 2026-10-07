@@ -16,6 +16,7 @@ export type ActionMenuItem = {
   id: string;
   label: string;
   tone?: "default" | "danger";
+  disabled?: boolean;
   onAction: () => void;
 };
 
@@ -96,6 +97,7 @@ export function ActionMenu({
               key={item.id}
               id={item.id}
               className={`action-menu-item${item.tone === "danger" ? " danger-item" : ""}`}
+              isDisabled={item.disabled}
               onAction={item.onAction}
             >
               {item.label}

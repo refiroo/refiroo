@@ -93,15 +93,14 @@ try {
     `${uiUrl}/apps/rdm-systems/views/system-values?workspaceKey=default${changeSetId ? `&changeSetId=${changeSetId}` : ""}`;
   async function startChangeSet(name, releaseId) {
     await page.goto(changeSetsUrl);
-    await page.getByRole("button", { name: "Start from current live data", exact: true }).click();
+    await page.locator(".page-header").getByRole("button", { name: "Start from current live data", exact: true }).click();
     const create = page.getByRole("dialog", { name: "Start from current live data" });
     await create.getByLabel("Change set name").fill(name);
     if (releaseId) await create.getByRole("combobox", { name: "Model version" }).selectOption(releaseId);
     return create;
   }
   async function openChangeSetMenu() {
-    const menu = page.locator("details.change-set-secondary-actions");
-    if (!(await menu.evaluate((element) => element.open))) await menu.locator("summary").click();
+    await page.getByRole("button", { name: "More change set actions", exact: true }).click();
   }
   async function columnHeaders() {
     return page.getByRole("columnheader").allTextContents();
@@ -195,7 +194,7 @@ try {
   const changeSet1State = await api(`/change-sets/${changeSet1}`);
   before = await untouched();
   await openChangeSetMenu();
-  await page.getByRole("button", { name: "Change model version" }).click();
+  await page.getByRole("menuitem", { name: "Change model version" }).click();
   const change = page.getByRole("dialog", { name: "Change model version" });
   await change.getByRole("combobox", { name: "Target release" }).selectOption(incompatible.id);
   await change.getByRole("button", { name: "Apply version change" }).click();
@@ -268,7 +267,7 @@ try {
   await page.setViewportSize({ width: 1440, height: 900 });
   before = await untouched();
   await openChangeSetMenu();
-  await page.getByRole("button", { name: "Discard change set", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Discard change set", exact: true }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Discard change set", exact: true }).click();
   await page.getByText("Change set discarded. Live data is unchanged.", { exact: true }).waitFor();
   expect((await fetch(`${apiUrl}/api/v1/change-sets/${changeSet1}`)).status === 404, "draft1 still exists");

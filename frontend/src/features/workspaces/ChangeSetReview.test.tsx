@@ -1,10 +1,11 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { ApiError } from "@/api/errors";
 import * as workspaceContext from "@/features/workspaces/WorkspaceDataContext";
 import { ChangeSetReview } from "@/features/workspaces/ChangeSetReview";
 import { ChangeSetActions } from "@/features/workspaces/ChangeSets";
+import { objectTypeHue } from "@/model/hues";
 import { changeReviewFor } from "@/routing/routes";
 import { testModel } from "@/test/fixtures";
 import type { ChangeSet, EngineModel, ObjectChange, RelationChange, RouteState } from "@/types";
@@ -156,7 +157,7 @@ function page<T>(items: T[]) {
   return { items, nextCursor: null, prevCursor: null, totalCount: items.length, startIndex: 0 };
 }
 
-function renderReview(route: Partial<ReviewRoute> = {}) {
+function renderReview(route: Partial<ReviewRoute> = {}, reviewModel: EngineModel = model) {
   const props = {
     onRouteChange: vi.fn(),
     onAnchorChange: vi.fn(),
@@ -164,7 +165,11 @@ function renderReview(route: Partial<ReviewRoute> = {}) {
     onBack: vi.fn(),
   };
   render(
-    <ChangeSetReview model={model} route={{ ...changeReviewFor("test-app", "west", "cs-1"), ...route }} {...props} />,
+    <ChangeSetReview
+      model={reviewModel}
+      route={{ ...changeReviewFor("test-app", "west", "cs-1"), ...route }}
+      {...props}
+    />,
   );
   return props;
 }
@@ -367,6 +372,32 @@ describe("ChangeSetReview records", () => {
     expect(await screen.findAllByRole("listitem")).toHaveLength(4);
     expect(vi.mocked(api.objectChanges).mock.calls.map((call) => call[1].kinds)).toEqual([["removed"], ["removed"]]);
   });
+});
+
+// The same model with its types in reverse order, so each type takes another colour slot (U-D13).
+const reversed: EngineModel = { ...model, objectTypes: [...model.objectTypes].reverse() };
+
+describe("ChangeSetReview colours", () => {
+  it.each([
+    ["model order", model],
+    ["reversed order", reversed],
+  ])(
+    "marks a record by its type's tile and a relationship's ends as chips in their types' colours (%s)",
+    async (_, reviewModel) => {
+      renderReview({}, reviewModel);
+      const [codelistRow] = await screen.findAllByRole("listitem");
+      expect(codelistRow.querySelector(".hue-tile")).toHaveAttribute(
+        "data-hue",
+        String(objectTypeHue(reviewModel, "codelist")),
+      );
+      cleanup();
+      renderReview({ tab: "relationships" }, reviewModel);
+      const [relation] = await screen.findAllByRole("listitem");
+      const chips = relation.querySelectorAll(".record-chip");
+      expect([...chips].map((chip) => chip.textContent)).toEqual(["Countries", "Currencies"]);
+      chips.forEach((chip) => expect(chip).toHaveAttribute("data-hue", String(objectTypeHue(reviewModel, "codelist"))));
+    },
+  );
 });
 
 describe("ChangeSetReview relationships", () => {

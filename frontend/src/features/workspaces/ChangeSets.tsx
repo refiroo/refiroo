@@ -9,9 +9,11 @@ import { Notice } from "@/ui/Notice";
 import { InlineError } from "@/ui/InlineError";
 import { Modal } from "@/ui/Modal";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
+import { ActionMenu } from "@/ui/ActionMenu";
 import { Icon } from "@/ui/Icon";
 import { PageHeader } from "@/ui/PageHeader";
-import { StatusPill } from "@/ui/StatusPill";
+import { EmptyState } from "@/ui/EmptyState";
+import { RuledList, RuledListItem } from "@/ui/RuledList";
 import { BelowContextBand } from "@/ui/ContextBandSlot";
 
 /** An API message followed by more guidance, so the two read as separate sentences. */
@@ -53,33 +55,44 @@ export function ChangeSets({
         }
       />
       {feed.items.length > 0 && (
-        <div className="change-set-list">
+        <RuledList label="Change sets">
           {feed.items.map((changeSet) => (
-            <article className="surface change-set-card" key={changeSet.id}>
-              <div>
-                <StatusPill tone="changeSet">Change set</StatusPill>
-                <h2>{changeSet.name || "Untitled change set"}</h2>
-                <p>{changeSetSource(changeSet)}</p>
-                <p className="change-set-model-release">
-                  Model: {changeSet.modelReleaseKey} {changeSet.modelReleaseVersion}
-                </p>
-              </div>
-              <div className="change-set-card-actions">
-                <span className="muted-text">Version {changeSet.version}</span>
+            <RuledListItem
+              key={changeSet.id}
+              className="change-set-card"
+              marker={<span className="context-dot context-dot-change-set" aria-hidden="true" />}
+              title={changeSet.name || "Untitled change set"}
+              meta={
+                <>
+                  Version {changeSet.version} · {changeSetSource(changeSet)} · Model {changeSet.modelReleaseKey}{" "}
+                  {changeSet.modelReleaseVersion}
+                </>
+              }
+              actions={
                 <button className="secondary" onClick={() => onOpen(changeSet.id)}>
                   Open change set
                 </button>
-              </div>
-            </article>
+              }
+            />
           ))}
-        </div>
+        </RuledList>
       )}
       {feed.loading && <p className="muted-text">Loading change sets…</p>}
       {feed.error && <InlineError message={feed.error} onRetry={feed.retry} />}
       {!feed.loading && !feed.error && !feed.items.length && (
-        <div className="surface empty-panel">
-          <strong>No change sets</strong>
-          <p>You can continue editing Live, or start a change set to prepare coordinated changes.</p>
+        <div className="surface">
+          <EmptyState
+            action={
+              !readOnly && (
+                <button className="secondary" onClick={() => setCreating(true)}>
+                  <Icon name="plus" /> Start from current live data
+                </button>
+              )
+            }
+          >
+            <strong>No change sets.</strong> Keep editing Live, or start a change set to prepare changes that are
+            published together.
+          </EmptyState>
         </div>
       )}
       {feed.hasMore && !feed.error && (
@@ -383,65 +396,70 @@ export function ChangeSetActions({
   return (
     <>
       <section className="change-set-bar" aria-label="Change set publication">
-        <div className="change-set-bar-row">
-          <div className="change-set-bar-main">
-            <h2>{current.name || "Untitled change set"}</h2>
-            <span className="change-set-bar-meta">
-              <span>Private until published</span>
-              <span>Version {current.version}</span>
-              <span>{changeSetSource(current)}</span>
-              <span>
-                Model {current.modelReleaseKey} {current.modelReleaseVersion}
-              </span>
+        <div className="change-set-bar-main">
+          <h2>{current.name || "Untitled change set"}</h2>
+          <span className="change-set-bar-meta">
+            <span>Version {current.version}</span>
+            <span>{changeSetSource(current)}</span>
+            <span>
+              Model {current.modelReleaseKey} {current.modelReleaseVersion}
             </span>
-          </div>
-          {(!readOnly || (onReview && !reviewing)) && (
-            <div className="change-set-bar-actions">
-              {onReview && !reviewing && (
-                <button className="secondary" onClick={onReview}>
-                  Review changes
-                </button>
-              )}
-              {!readOnly && (
-                <>
-                  <button
-                    className="secondary"
-                    disabled={pending}
-                    onClick={check}
-                    title="Check the full change set graph against the current publication"
-                  >
-                    Validate change set
-                  </button>
-                  <button
-                    className="primary"
-                    disabled={
-                      pending || modelMismatch || !validation?.result.valid || validation.version !== current.version
-                    }
-                    title={
-                      modelMismatch
-                        ? "Change set model version differs from the active release. Change the version or wait until this release is activated."
-                        : "Publishing is available after a successful validation."
-                    }
-                    onClick={() => setConfirm("publish")}
-                  >
-                    Publish change set
-                  </button>
-                  <details className="change-set-secondary-actions">
-                    <summary>More change set actions</summary>
-                    <div className="change-set-secondary-menu">
-                      <button className="secondary" disabled={pending} onClick={openVersionChange}>
-                        Change model version
-                      </button>
-                      <button className="danger-ghost" disabled={pending} onClick={() => setConfirm("discard")}>
-                        Discard change set
-                      </button>
-                    </div>
-                  </details>
-                </>
-              )}
-            </div>
-          )}
+          </span>
         </div>
+        {(!readOnly || (onReview && !reviewing)) && (
+          <div className="change-set-bar-actions">
+            {onReview && !reviewing && (
+              <button className="secondary" onClick={onReview}>
+                Review changes
+              </button>
+            )}
+            {!readOnly && (
+              <>
+                <button
+                  className="secondary"
+                  disabled={pending}
+                  onClick={check}
+                  title="Check the full change set graph against the current publication"
+                >
+                  Validate change set
+                </button>
+                <button
+                  className="primary"
+                  disabled={
+                    pending || modelMismatch || !validation?.result.valid || validation.version !== current.version
+                  }
+                  title={
+                    modelMismatch
+                      ? "Change set model version differs from the active release. Change the version or wait until this release is activated."
+                      : "Publishing is available after a successful validation."
+                  }
+                  onClick={() => setConfirm("publish")}
+                >
+                  Publish change set
+                </button>
+                <ActionMenu
+                  label="More change set actions"
+                  tooltip="More change set actions"
+                  items={[
+                    {
+                      id: "version",
+                      label: "Change model version",
+                      disabled: pending,
+                      onAction: () => void openVersionChange(),
+                    },
+                    {
+                      id: "discard",
+                      label: "Discard change set",
+                      tone: "danger",
+                      disabled: pending,
+                      onAction: () => setConfirm("discard"),
+                    },
+                  ]}
+                />
+              </>
+            )}
+          </div>
+        )}
       </section>
       <BelowContextBand>
         {modelMismatch && (

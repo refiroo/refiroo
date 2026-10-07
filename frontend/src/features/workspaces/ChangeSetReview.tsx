@@ -12,6 +12,7 @@ import { api } from "@/api/client";
 import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorWindow, type CursorWindow } from "@/lib/hooks/useCursorWindow";
 import { attributeName } from "@/model/fields";
+import { objectTypeHue } from "@/model/hues";
 import { objectTypeFor } from "@/model/lookup";
 import type {
   ChangeKind,
@@ -24,19 +25,22 @@ import type {
 } from "@/types";
 import { ControlPopover } from "@/ui/ControlPopover";
 import { formatValue } from "@/ui/formatValue";
+import { HueTile } from "@/ui/HueTile";
 import { Icon } from "@/ui/Icon";
 import { PageHeader } from "@/ui/PageHeader";
+import { RecordChip } from "@/ui/RecordChip";
 import { InlineError } from "@/ui/InlineError";
 import { ScrollWindow } from "@/ui/ScrollWindow";
+import { StatusPill, type StatusTone } from "@/ui/StatusPill";
 import { Tabs } from "@/ui/Tabs";
 
 type ReviewRoute = Extract<RouteState, { kind: "changeSetChanges" }>;
 
 const PAGE_SIZE = 50;
-const KINDS: { key: ChangeKind; label: string }[] = [
-  { key: "added", label: "Added" },
-  { key: "changed", label: "Changed" },
-  { key: "removed", label: "Removed" },
+const KINDS: { key: ChangeKind; label: string; tone: StatusTone }[] = [
+  { key: "added", label: "Added", tone: "success" },
+  { key: "changed", label: "Changed", tone: "neutral" },
+  { key: "removed", label: "Removed", tone: "error" },
 ];
 
 export function ChangeSetReview({
@@ -206,8 +210,23 @@ export function ChangeSetReview({
   );
 }
 
+/** The kind of change is a state, so it is a pill; its text names it and the colour repeats it. */
 function KindBadge({ kind }: { kind: ChangeKind }) {
-  return <span className={`change-kind change-kind-${kind}`}>{KINDS.find((item) => item.key === kind)?.label}</span>;
+  const item = KINDS.find((entry) => entry.key === kind)!;
+  return (
+    <StatusPill tone={item.tone} className="change-kind">
+      {item.label}
+    </StatusPill>
+  );
+}
+
+/** A relationship's end as a chip in its record type's colour (ADR-040). */
+function EndChip({ model, end }: { model: EngineModel; end: RelationChange["fromObject"] }) {
+  return (
+    <RecordChip hue={end.objectTypeKey ? objectTypeHue(model, end.objectTypeKey) : undefined}>
+      {end.name ?? end.objectId}
+    </RecordChip>
+  );
 }
 
 function fieldLabel(model: EngineModel, field: string) {
@@ -432,6 +451,7 @@ function ObjectChanges({
                 <KindBadge kind={item.kind} />
                 <span className="change-row-main">
                   <span className="change-row-title">
+                    <HueTile hue={objectTypeHue(model, ownType)} icon={objectTypeFor(model, ownType)?.icon} size={18} />
                     {item.kind === "removed" ? (
                       <span className="change-row-name">{name}</span>
                     ) : (
@@ -539,12 +559,16 @@ function RelationChanges({
                 <KindBadge kind={item.kind} />
                 <span className="change-row-main">
                   <span className="change-row-title">
-                    <span className="change-row-name">
-                      {from} <span aria-hidden="true">→</span>
-                      <span className="visually-hidden"> to </span> {to}
+                    <span className="change-row-name change-row-ends">
+                      <EndChip model={model} end={item.fromObject} /> <span aria-hidden="true">→</span>
+                      <span className="visually-hidden"> to </span> <EndChip model={model} end={item.toObject} />
                     </span>
                     <span className="change-row-type">{type?.name ?? item.relationTypeKey}</span>
-                    {item.containment && <span className="pill">Parent link</span>}
+                    {item.containment && (
+                      <StatusPill tone="neutral" marker={false}>
+                        Parent link
+                      </StatusPill>
+                    )}
                   </span>
                   <span className="change-row-meta">
                     <span className="change-row-path">

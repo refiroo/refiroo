@@ -230,18 +230,10 @@
   .release-metadata {
     grid-template-columns: 1fr;
   }
-  .change-set-card,
-  .change-set-publication-heading,
-  .change-set-workflow-step {
+  .ruled-list-item {
     align-items: stretch;
     flex-direction: column;
     gap: 10px;
-  }
-  .change-set-card-actions {
-    justify-content: space-between;
-  }
-  .change-set-workflow-step > span {
-    display: none;
   }
 }
 

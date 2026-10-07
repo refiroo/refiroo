@@ -1462,6 +1462,62 @@ dark shades. `vitest` over `features`, `app`, `ui`, `lib`, `styles`: 380 tests, 
 intermittent `RelationMatrixView.test` failure (TODO; passed alone, 14 of 14). `format`, `lint`,
 `build`, `test:browser:settings` (10 checks) passed.
 
+#### UA4 revision: the empty collection's Add kept (2026-10-07)
+
+An empty collection shows **Add {type}** twice: in the page header and in its empty state (UA3).
+Recommended keeping only the header's; the user kept both. `wp9-authoring` now clicks the header's
+button (`.page-header`), and `test:browser:authoring` passes without the workaround the earlier
+runs needed.
+
+#### UA5 record (2026-10-07)
+
+Implemented; waiting for the user's approval of the screenshots. The canvas shows only Live, so the
+change set and publication follow ADR-040's "in the same place" and the rules UA1–UA4 settled (soft
+strips, the indigo primary, pills for states, ruled rows on a white card, type colours on records).
+
+- **The strips.** A change set is the soft amber strip and a publication the soft violet one
+  (`--context-*-strip`, made in UA1 and unused until now), drawn by one rule with Live's; each
+  context's pill is outlined in its line. Each has a line in Live's place: "Edits stay in this
+  change set until it is published." and "Read-only. A publication's records never change." The
+  strong amber and violet fills are gone, and the page's text and controls keep their own colours on
+  the strip, so the band-tinted buttons and the muddy disabled Publish are gone too.
+- **The change set bar** sits under the context line, ruled off by the strip's line: the change
+  set's name (the pill now says only "Change set", so the name is not said twice), version, source
+  and model, then **Review changes**, **Validate change set**, **Publish change set** (indigo) and
+  **More change set actions**, now `ui/ActionMenu` (it gained disabled items) in place of a
+  hand-made `<details>` menu. **The publication bar** names the publication and its model release,
+  with **Back to publications**.
+- **The lists** (`ui/RuledList`, new): change sets and publications are ruled rows on one card, a
+  dot of the context's colour before the name, the facts in one secondary line, actions at the end.
+  The "Change set" pill on every card is gone (the page says it). A publication's **Current** is a
+  `StatusPill`; **Open publication** stays a button and **Start a change set from this publication**
+  and **Withdraw publication** moved into the row's menu, as Discard is in the change set's. Rows
+  take table rows' grey under the pointer (`--surface-subtle`, asked by the user during the slice);
+  so do the review's change rows. The empty lists use `EmptyState`; an empty change set list repeats
+  **Start from current live data**, following the user's decision for empty collections (above).
+- **Review changes.** The kind of change is a `StatusPill` (Added success, Changed neutral, Removed
+  error), replacing `.change-kind`'s own colours; a record row starts with its type's 18px tile; a
+  relationship's ends are `RecordChip`s in their types' colours; **Parent link** is a neutral pill.
+- **Generic.** Hues come from `model/hues`; nothing reads a key.
+- **Contrast.** `tokens.test.ts` adds a control's border, the focus colour and the primary action on
+  each strip at 3:1, in both themes and both palettes.
+- **Tests.** `ChangeSetReview.test`, on two model orders: a record's tile and a relationship's chips
+  carry their types' slots. `ChangeSets.test`: the empty list says so and repeats the start action
+  only when writable; the menu opens Change model version and Discard. `Publications.test`: start
+  and withdraw through the row's menu. `DataContextBand.test` and `App.test` follow the pill and the
+  notes. Runners follow the menu (`wp9-change-sets`, `wp9-publications`, `wp11`, `sc15`), the
+  header's start button (`wp9-change-sets`, `sc15`, `wp13c`), the name in the bar
+  (`wp9-navigation`), the publication bar's wording (`wp9-publications`), and focus returning to the
+  menu's button after Escape on the discard confirmation (`wp9-change-sets`).
+- **Checks.** `vitest run` over `features/workspaces`, `app/App`, `app/DataContextBand`, `ui`,
+  `styles`: 14 files, 152 tests passed. `format`, `lint` (0 errors, the 7 recorded warnings),
+  `build` passed. Runners passed: `test:browser:change-sets`, `publications`, `p2`, `test:browser`,
+  `wp11`, `sc15`, `wp13c`. `test:browser:c5` passed its change set steps and stopped later at its own
+  history call with `workspaceKey` (TODO, known). Screenshots of the change set list (and a row under
+  the pointer), a collection and the review (records and relationships) in a change set, publications
+  and a record in a publication at 1440 and 390px, light, and the change set strip in dark.
+  **Not run:** `test:a11y`, `test:visual` (UA7).
+
 ### Exit by 1.0
 
 - Every administrative, integration and security object a route manages has a settings page, and

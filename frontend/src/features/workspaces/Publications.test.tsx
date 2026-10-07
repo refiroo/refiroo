@@ -73,7 +73,8 @@ describe("workspace publications", () => {
       <Publications workspaceKey="west" readOnly={false} onOpen={vi.fn()} onChangeSetCreated={onChangeSetCreated} />,
     );
 
-    fireEvent.click(await screen.findByRole("button", { name: "Start a change set from this publication" }));
+    fireEvent.click(await screen.findByRole("button", { name: "More actions for Publication 10" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Start a change set from this publication" }));
     expect(screen.getByText(/does not restore or change live data/i)).toBeInTheDocument();
     fireEvent.change(screen.getByRole("textbox", { name: "Change set name" }), { target: { value: "Review history" } });
     fireEvent.click(screen.getByRole("button", { name: "Create change set" }));
@@ -82,10 +83,11 @@ describe("workspace publications", () => {
 
     rendered.unmount();
     render(<Publications workspaceKey="west" readOnly={false} onOpen={vi.fn()} onChangeSetCreated={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Withdraw publication" }));
+    fireEvent.click(await screen.findByRole("button", { name: "More actions for Publication 10" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Withdraw publication" }));
     expect(screen.getByText("Withdraw Publication 10?")).toBeInTheDocument();
     expect(screen.getByText(/Live records and all publications remain available/)).toBeInTheDocument();
-    fireEvent.click(screen.getAllByRole("button", { name: "Withdraw publication" }).at(-1)!);
+    fireEvent.click(screen.getByRole("button", { name: "Withdraw publication" }));
     await waitFor(() => expect(withdraw).toHaveBeenCalledWith(current.id));
     expect(await screen.findByText(/Publication 10 is withdrawn and no longer current/)).toBeInTheDocument();
   });

@@ -1826,7 +1826,8 @@ th[aria-sort] {
 .selection-option.selection-action strong {
   font-weight: 600;
 }
-.selection-option[data-disabled] {
+.selection-option[data-disabled],
+.action-menu-item[data-disabled] {
   opacity: 0.45;
 }
 .action-menu-item.danger-item {
@@ -2052,47 +2053,94 @@ th[aria-sort] {
   width: auto;
   justify-self: start;
 }
-.change-set-list {
-  display: grid;
-  gap: 10px;
-  margin-bottom: 12px;
+/* ui/RuledList: ruled rows on one card (ADR-040). */
+.ruled-list {
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
 }
-.change-set-card {
+.ruled-list > li + li {
+  border-top: 1px solid var(--border-subtle);
+}
+/* Rows take the same grey under the pointer as table rows (tbody tr:hover). */
+.ruled-list > li:hover,
+.change-row:hover {
+  background: var(--surface-subtle);
+}
+.ruled-list > li:first-child {
+  border-radius: var(--card-radius) var(--card-radius) 0 0;
+}
+.ruled-list > li:last-child {
+  border-radius: 0 0 var(--card-radius) var(--card-radius);
+}
+.ruled-list > li:only-child {
+  border-radius: var(--card-radius);
+}
+.ruled-list-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
-  padding: 16px 18px;
+  gap: var(--space-2) var(--space-5);
+  padding: var(--space-4) var(--space-5);
 }
-.change-set-card h2 {
-  margin: 6px 0 2px;
-  font-size: 16px;
-  font-weight: 650;
-}
-.change-set-card p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 13px;
-}
-.change-set-card-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  white-space: nowrap;
-}
-/* The change set's bar inside the amber data-context band (ADR-039). */
-.change-set-bar {
-  flex: 1 1 auto;
+.ruled-list-main {
+  display: grid;
+  gap: 2px;
   min-width: 0;
 }
-.change-set-bar-row {
+.ruled-list-item h2 {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.ruled-list-meta {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+.ruled-list-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+}
+/* A few facts in one line: the term above its value, small. */
+.ruled-list-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-6);
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+}
+.ruled-list-facts dt {
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+}
+.ruled-list-facts dd {
+  margin: 0;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+/* The change set's bar under the band's context line (ADR-039, ADR-040): its name and facts, then
+   its actions at the end. */
+.change-set-bar,
+.publication-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 10px 16px;
+  gap: var(--space-2) var(--space-4);
+  flex: 1 1 auto;
+  min-width: 0;
 }
-.change-set-bar-main {
+.change-set-bar-main,
+.publication-bar-main {
   display: grid;
   gap: 2px;
   min-width: 0;
@@ -2100,14 +2148,16 @@ th[aria-sort] {
 .change-set-bar-main h2,
 .publication-bar-main h2 {
   margin: 0;
-  color: inherit;
+  color: var(--text-primary);
   font-size: var(--text-lg);
   font-weight: 600;
+  overflow-wrap: anywhere;
 }
 .change-set-bar-meta {
   display: inline-flex;
   flex-wrap: wrap;
   gap: 4px;
+  color: var(--text-secondary);
   font-size: var(--text-sm);
 }
 .change-set-bar-meta > span + span::before {
@@ -2118,113 +2168,13 @@ th[aria-sort] {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
-}
-/* The publication's bar inside the violet band. */
-.publication-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-4);
-  flex: 1 1 auto;
-  min-width: 0;
-}
-.publication-bar-main {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-1) var(--space-3);
-  min-width: 0;
+  gap: var(--space-2);
 }
 .publication-bar-main p {
-  flex: 1 1 100%;
+  max-width: 72ch;
   margin: 0;
+  color: var(--text-secondary);
   font-size: var(--text-sm);
-}
-.change-set-secondary-actions {
-  position: relative;
-}
-.change-set-secondary-actions summary {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--control-height);
-  padding: 0 12px;
-  border: 1px solid var(--border-control);
-  border-radius: var(--radius-control);
-  background: var(--surface);
-  color: var(--ink-2);
-  font-size: 13px;
-  font-weight: 550;
-  list-style: none;
-  cursor: pointer;
-}
-.change-set-secondary-actions summary::-webkit-details-marker {
-  display: none;
-}
-.change-set-secondary-actions summary::after {
-  content: "▾";
-  margin-left: 6px;
-  color: var(--muted);
-}
-.change-set-secondary-menu {
-  position: absolute;
-  z-index: 15;
-  top: calc(100% + 6px);
-  right: 0;
-  display: grid;
-  gap: 4px;
-  min-width: 210px;
-  padding: 6px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
-  box-shadow: var(--shadow-md);
-}
-.change-set-secondary-menu button {
-  justify-content: flex-start;
-}
-.change-set-workflow {
-  display: grid;
-  gap: 10px;
-  margin: 16px 0;
-}
-.change-set-workflow-step {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 12px;
-  border: 1px solid var(--soft-line);
-  border-radius: 8px;
-}
-.change-set-publication-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-.change-set-model-release {
-  font-size: 12.5px;
-}
-.publication-card {
-  margin-bottom: 12px;
-  padding: 16px 18px;
-}
-.publication-card h2 {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 0 0 4px;
-  font-size: 15px;
-  font-weight: 650;
-}
-.publication-card .attribute-grid {
-  padding: 0;
-}
-.publication-card .attribute-grid > div {
-  border-bottom: 0;
 }
 .card-actions,
 .conflict-actions {
@@ -3528,34 +3478,22 @@ body.tree-drag-refused * {
 .change-row-fields {
   color: var(--ink-2);
 }
-/* Text names the kind; colour only repeats it. */
+/* The kind of change (a StatusPill) keeps one width, so the names line up. */
 .change-kind {
   flex: none;
-  min-width: 72px;
-  margin-top: 5px;
-  padding: 1px 8px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--fill);
-  color: var(--ink-2);
-  font-size: 12px;
-  font-weight: 600;
-  text-align: center;
+  justify-content: center;
+  min-width: 92px;
+  margin-top: 2px;
 }
-.change-kind-added {
-  border-color: var(--success-line);
-  background: var(--success-soft);
-  color: var(--success);
+.change-row-title .hue-tile {
+  align-self: center;
 }
-.change-kind-changed {
-  border-color: var(--info-line);
-  background: var(--info-soft);
-  color: var(--info);
-}
-.change-kind-removed {
-  border-color: var(--danger-line);
-  background: var(--danger-soft);
-  color: var(--danger-ink);
+.change-row-ends {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  min-width: 0;
 }
 .change-row-detail {
   padding: 0 14px 12px 50px;

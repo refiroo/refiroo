@@ -112,6 +112,12 @@ const PAIRS: Array<[string, string, number]> = [
     ["link", `${tone}-strip`, 4.5],
     [`${tone}-text`, `${tone}-strip`, 4.5],
   ]),
+  // The page's own controls sit on the strip too: a control's border, focus and the primary action (UA5).
+  ...CONTEXTS.flatMap((tone): Array<[string, string, number]> => [
+    ["border-control", `${tone}-strip`, 3],
+    ["focus-color", `${tone}-strip`, 3],
+    ["action-primary", `${tone}-strip`, 3],
+  ]),
   // A type's ink is text on its own fill (a chip, a tile's icon) and on the page (ADR-040).
   ...HUES.flatMap((hue): Array<[string, string, number]> => [
     [`${hue}-ink`, `${hue}-fill`, 4.5],

@@ -254,7 +254,9 @@ Evidence: [history panel](../../frontend/src/features/objects/panels/HistoryPane
 A change set starts from current live data (including edits since the last publication) or from a
 selected publication, and is named, listed, opened and discarded. Records are edited in it through the
 same screens and API as live data. Starting from an earlier publication is not a rollback: only what
-the change set changes is applied when it is published.
+the change set changes is applied when it is published. While one is open, an amber strip at the top
+of the page names it and carries its actions; changing its model version and discarding it are in
+its **More change set actions** menu.
 
 A change set can be prepared against another installed model version than the one live data uses,
 and moved between compatible versions (ADR-028); it can be published only once its version is the
@@ -289,7 +291,8 @@ without losing history.
 Publications are listed newest first; each is a read-only snapshot that can be browsed like live data.
 "Created from" and "superseded by" are kept apart, so starting from older history stays truthful.
 Withdrawing the current publication removes only the designation; live data and earlier publications
-stay. This is different from retiring a workspace.
+stay. This is different from retiring a workspace. Each publication opens from its row, and the row's
+menu starts a change set from it or withdraws it; an open publication is shown under a violet strip.
 
 Evidence: [publications](../../frontend/src/features/workspaces/Publications.tsx),
 [WP9 publications runner](../../frontend/e2e/wp9-publications.mjs).

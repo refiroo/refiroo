@@ -382,7 +382,7 @@ try {
   await page.getByRole("heading", { name: "WP-13C mapping change set" }).waitFor();
   checks.push("change sets list: failed read keeps the page header and Retry loads the change sets");
 
-  await page.getByRole("button", { name: "Start from current live data" }).click();
+  await page.locator(".page-header").getByRole("button", { name: "Start from current live data" }).click();
   const create = page.getByRole("dialog", { name: "Start from current live data" });
   await create.getByLabel("Change set name").fill("WP-13C pinned change set");
   const versionSelect = create.getByRole("combobox", { name: "Model version" });

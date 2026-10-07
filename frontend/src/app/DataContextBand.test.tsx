@@ -42,13 +42,13 @@ describe("DataContextBand", () => {
     expect(switcher().getByRole("button", { name: "Live" })).toHaveAttribute("aria-current", "page");
   });
 
-  it("turns amber in a change set, carries its actions and returns to live", () => {
+  it("is an amber strip in a change set, carries its actions and returns to live", () => {
     const { root, onNavigate } = band(
       { ...list, changeSetId: "cs-1" },
       <button type="button">Validate change set</button>,
     );
     expect(root).toHaveClass("band-change-set");
-    expect(screen.getByRole("group", { name: "Current context" })).toHaveTextContent("Change set · ");
+    expect(screen.getByRole("group", { name: "Current context" })).toHaveTextContent(/^North \/ CatalogueChange set$/);
     expect(screen.queryByText("Edits apply immediately in this workspace.")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Validate change set" })).toBeInTheDocument();
     expect(switcher().getByRole("button", { name: "Change sets" })).toHaveAttribute("aria-current", "page");
@@ -59,11 +59,12 @@ describe("DataContextBand", () => {
     expect(onNavigate.mock.calls[0][0].changeSetId).toBeUndefined();
   });
 
-  it("turns violet in a publication", () => {
+  it("is a violet strip in a publication and says it is read-only", () => {
     const { root } = band({ ...list, publicationId: "p-1" }, <p>Viewing Publication 3</p>);
     expect(root).toHaveClass("band-publication");
     expect(screen.getByRole("group", { name: "Current context" })).toHaveTextContent("Publication");
     expect(screen.getByText("Viewing Publication 3")).toBeInTheDocument();
+    expect(screen.getByText("Read-only. A publication's records never change.")).toBeInTheDocument();
     expect(switcher().getByRole("button", { name: "Publications" })).toHaveAttribute("aria-current", "page");
   });
 

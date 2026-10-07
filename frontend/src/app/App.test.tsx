@@ -636,7 +636,11 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: domainObject.name, level: 1 })).toBeInTheDocument();
     expect(api.model).toHaveBeenCalledWith({ workspaceKey: "west", changeSetId: "change-set-1" });
     expect(api.object).toHaveBeenCalledWith("domain", domainObject.id, "west", "change-set-1");
-    expect(screen.getByRole("group", { name: "Current context" })).toHaveTextContent("Change set · Review");
+    expect(screen.getByRole("group", { name: "Current context" })).toHaveTextContent("Change set");
+    expect(
+      within(screen.getByRole("region", { name: "Change set publication" })).getByRole("heading", { name: "Review" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Edits stay in this change set until it is published.")).toBeInTheDocument();
     expect(
       within(screen.getByRole("region", { name: "Change set publication" })).getByText("Version 8"),
     ).toBeInTheDocument();
@@ -699,8 +703,8 @@ describe("App", () => {
     vi.mocked(api.objects).mockResolvedValue({ items: [], nextCursor: null });
     visit("/apps/test-app/views/domains?workspaceKey=west&changeSetId=change-set-1&cursor=old-page");
     render(<App />);
-    fireEvent.click(await screen.findByText("More change set actions"));
-    fireEvent.click(screen.getByRole("button", { name: "Change model version" }));
+    fireEvent.click(await screen.findByRole("button", { name: "More change set actions" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Change model version" }));
     await screen.findByRole("option", { name: "test 2" });
     fireEvent.change(screen.getByRole("combobox", { name: "Target release" }), { target: { value: "next" } });
     fireEvent.click(screen.getByRole("button", { name: "Apply version change" }));
@@ -749,7 +753,7 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Viewing Publication 2")).toBeInTheDocument();
-    expect(screen.getByText(/interpreted with its pinned model release test 0.3.0\./)).toBeInTheDocument();
+    expect(screen.getByText(/published under, test 0\.3\.0\./)).toBeInTheDocument();
     expect(screen.queryByText(/revision-2/)).not.toBeInTheDocument();
     expect(screen.getByText(/supported model migration/)).toBeInTheDocument();
     fireEvent.click((await screen.findAllByRole("button", { name: "Historical domain" }))[0]);

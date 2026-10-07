@@ -116,12 +116,11 @@ try {
     await shown(page.getByRole("button", { name: "Record actions", exact: true }));
   }
   async function openChangeSetMenu() {
-    const menu = page.locator("details.change-set-secondary-actions");
-    if (!(await menu.evaluate((element) => element.open))) await menu.locator("summary").click();
+    await page.getByRole("button", { name: "More change set actions", exact: true }).click();
   }
   async function startChangeSet(name) {
     await page.getByRole("navigation", { name: "Workspace data context" }).getByRole("button", { name: "Change sets", exact: true }).click();
-    await page.getByRole("button", { name: "Start from current live data", exact: true }).click();
+    await page.locator(".page-header").getByRole("button", { name: "Start from current live data", exact: true }).click();
     await dialog().getByLabel("Change set name").fill(name);
     await dialog().getByRole("button", { name: "Create change set", exact: true }).click();
     await shown(page.getByRole("region", { name: "Change set publication" }).getByRole("heading", { name, exact: true }));
@@ -252,11 +251,11 @@ try {
   assert.equal((await api(`/workspaces/${workspaceKey}/publications`)).items.length, 1);
   checks.push("SC-05 post-publication additions and edits copied; record/aggregate conflict retains form input with explicit retry; SC-06 touched-record activation conflict names identity, preserves change set and publishes no other changes");
   await openChangeSetMenu();
-  await page.getByRole("button", { name: "Discard change set", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Discard change set", exact: true }).click();
   await confirm().getByRole("button", { name: "Cancel", exact: true }).click();
   await api(`/change-sets/${second}`);
   await openChangeSetMenu();
-  await page.getByRole("button", { name: "Discard change set", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Discard change set", exact: true }).click();
   await confirm().getByRole("button", { name: "Discard change set", exact: true }).click();
   await shown(page.getByText("Change set discarded. Live data is unchanged.", { exact: true }));
   assert.equal((await fetch(`${apiUrl}/api/v1/change-sets/${second}`)).status, 404);
@@ -308,10 +307,11 @@ try {
   await get(system); await get(systemValue);
   await page.setViewportSize({ width: 390, height: 844 });
   await openChangeSetMenu();
-  await page.getByRole("button", { name: "Discard change set", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Discard change set", exact: true }).click();
   await page.keyboard.press("Escape");
   await confirm().waitFor({ state: "hidden" });
-  await page.waitForFunction(() => document.activeElement?.textContent === "Discard change set");
+  // Discard is an item of the bar's menu (UA5), so focus returns to the menu's button.
+  await page.waitForFunction(() => document.activeElement?.getAttribute("aria-label") === "More change set actions");
   await page.screenshot({ path: resolve(output, "change-set-narrow.png"), fullPage: true });
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
   checks.push("Change set SC-04 two containment types: signed preview and stale-preview refusal; retry obtains current aggregate and new preview; deleting Master containment retains independent System hierarchy; change set deletions leave live untouched; narrow confirmation Escape/focus restoration");

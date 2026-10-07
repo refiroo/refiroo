@@ -385,13 +385,15 @@ try {
     }
     await page.goto(`${uiUrl}/apps/rdm-master/views/domains?workspaceKey=${workspaceKey}&changeSetId=${changeSet.id}`);
     await shown(page.getByRole("heading", { name: "Domains", level: 1 }));
-    assert.match(await page.getByLabel("Current context").innerText(), new RegExp(`Change set · ${workspaceKey} review`));
+    assert.match(await page.getByLabel("Current context").innerText(), /Change set/);
+    await shown(page.getByRole("region", { name: "Change set publication" }).getByRole("heading", { name: `${workspaceKey} review`, exact: true }));
     await page.screenshot({ path: resolve(output, `mobile-domain-${workspaceKey}-changeSet.png`), fullPage: true });
     await page.getByRole("navigation", { name: "Applications" }).getByRole("button", { name: model.applications.find((app) => app.key === "rdm-systems").name, exact: true }).click();
     await shown(page.getByRole("heading", { name: "Systems", level: 1 }));
     assert.equal(new URL(page.url()).searchParams.get("changeSetId"), changeSet.id);
     assert.equal(new URL(page.url()).searchParams.get("workspaceKey"), workspaceKey);
-    assert.match(await page.getByLabel("Current context").innerText(), new RegExp(`Change set · ${workspaceKey} review`));
+    assert.match(await page.getByLabel("Current context").innerText(), /Change set/);
+    await shown(page.getByRole("region", { name: "Change set publication" }).getByRole("heading", { name: `${workspaceKey} review`, exact: true }));
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.screenshot({ path: resolve(output, `desktop-system-${workspaceKey}-changeSet.png`), fullPage: true });

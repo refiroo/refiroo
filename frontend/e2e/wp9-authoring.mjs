@@ -129,7 +129,8 @@ try {
   const roots = {};
   for (const [type, app, view, label] of [["domain", "rdm-master", "domains", "Domain"], ["system", "rdm-systems", "systems", "System"]]) {
     await page.goto(`${uiUrl}/apps/${app}/views/${view}?workspaceKey=${workspaceKey}`);
-    await page.getByRole("button", { name: `Add ${label}`, exact: true }).click();
+    // The page header's Add; an empty collection repeats it in its empty state (UA3, kept by the user).
+    await page.locator(".page-header").getByRole("button", { name: `Add ${label}`, exact: true }).click();
     assert.equal(await dialog().getByLabel("Name", { exact: true }).evaluate((node) => node === document.activeElement), true);
     await dialog().getByLabel("Name", { exact: true }).fill(`${label} original`);
     await dialog().getByLabel(`${label} code`, { exact: true }).fill(type.toUpperCase());

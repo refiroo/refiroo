@@ -1,9 +1,9 @@
 /**
  * The data-context band at the top of the content (ADR-039, Track U U2): which workspace and
  * application the page is in, and which data it reads and edits. Live is a soft green strip with
- * the Live pill and a one-line explanation (ADR-040). A change set turns the band amber and a
- * publication violet, and the band
- * then carries that context's own bar (`contextActions`: the change set's Review, Validate and
+ * the Live pill and a one-line explanation (ADR-040). A change set is the same strip in amber and a
+ * publication in violet, each with its own line saying what an edit does there, and the band then
+ * carries that context's own bar (`contextActions`: the change set's name, Review, Validate and
  * Publish, or the publication's way back). The Live / Change sets / Publications switch stays at
  * its right end in every context, a dot of each context's colour on its switch; its Live is the
  * way back from a change set. The change set and publication lists are about a context rather
@@ -38,13 +38,22 @@ export function DataContextBand({
   // The change set and publication lists are pages about a context, not in one.
   const listing = route.kind === "changeSets" || route.kind === "publications";
   const tone = changeSetId ? "changeSet" : publicationId ? "publication" : "live";
+  // The pill names the context; a change set's name is its bar's heading, so it is not said twice.
   const status = changeSetId
-    ? `Change set · ${changeSet?.name || "Untitled change set"}`
+    ? "Change set"
     : publicationId
       ? publication
         ? `Publication ${publication.publicationNumber}`
         : "Publication"
       : "Live";
+  const note =
+    tone === "live"
+      ? "Edits apply immediately in this workspace."
+      : tone === "changeSet"
+        ? changeSet
+          ? "Edits stay in this change set until it is published."
+          : undefined
+        : "Read-only. A publication's records never change.";
   const live = () => onNavigate(viewRoute(application, application.defaultView, route.workspaceKey));
 
   return (
@@ -56,7 +65,7 @@ export function DataContextBand({
           <span>{application.name}</span>
           {!listing && <StatusPill tone={tone}>{status}</StatusPill>}
         </div>
-        {tone === "live" && !listing && <span className="band-note">Edits apply immediately in this workspace.</span>}
+        {!listing && note && <span className="band-note">{note}</span>}
         <nav className="data-context-switch" aria-label="Workspace data context">
           <button aria-current={!listing && tone === "live" ? "page" : undefined} onClick={live}>
             Live
