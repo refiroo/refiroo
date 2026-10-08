@@ -1426,13 +1426,13 @@ def test_a_preview_in_a_change_set_leaves_it_and_a_stale_claim_refuses_the_confi
 
 @pytest.mark.journey("J27.12")
 @pytest.mark.structures("R", "R.u", "R.n", "R.b", "R.dt", "R.q", "R.x1")
-@pytest.mark.settings(IMPORT_PREVIEW_MAX_ITEMS="5")
+@pytest.mark.settings(JOB_PREVIEW_MAX_ITEMS="5")
 def test_a_large_file_is_previewed_in_part_and_every_binding_refusal_is_still_reported(world):
     """Given the preview limit at 5 items. When a 12-row file with two rows that cannot be bound is
     previewed. Then 5 items ran, the preview says sample with the rows it covers fully, and both
     binding refusals are reported; the capabilities name the limit."""
     limits = ok(world.api.get("/capabilities"))["integrationJobs"]["limits"]
-    assert limits["importPreviewMaxItems"] == 5
+    assert limits["previewMaxItems"] == 5
     ws = _workspace(world)
     profile = ok(world.api.post("/import-profiles", _ledger_profile(world)), 201)
     rows = [LEDGER_HEADER] + [

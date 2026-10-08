@@ -8592,7 +8592,11 @@ cardinality); no screen knows a type key.
   IDs, the bulk action bar's frame; no writes.
 - **K2: attribute edits and delete.** Set or clear an attribute, delete; a preview of what will
   change; inline or background run with progress, cancel and per-item results linking to each
-  record (the job screens from Track J).
+  record (the job screens from Track J). _Delivered 2026-10-09 as value changes only: every change
+  previewed through a batch preview in the engine (D112), deletion moved to K2b (D116)._
+- **K2b (D116): deleting a selection.** Cascading batch delete items under a confirmation
+  of what each deletes, built on K2's batch preview, with the set-based delete PG-D18 asks for
+  (J11.6); then Delete in the selection bar (J32.3).
 - **K3: relation edits.** For each relation type the model allows: add (`ensureRelation`), remove
   (`deleteRelation`) and replace (`replaceRelationSet`), choosing targets with the record picker.
 - **K4 (not taken in K1's planning, D103): query-scoped batches.** A batch whose items are "every record matching these
@@ -8699,10 +8703,10 @@ is raised (AGENTS.md, API-first).
 | --- | --- | --- |
 | D102 | How a selection meets optimistic concurrency | **Accepted 2026-10-08 by the user.** **Rows picked by hand carry the version the user saw; "all matching" reads its records and versions when the action runs.** A hand-picked row's update claims the version it showed, so a record someone changed since is refused `VERSION_CONFLICT` for that item and the rest apply. "All matching" names no record the user saw: K2 reads the matching records and their versions at the moment of applying, shows the count it found in its preview, and sends each version; a record changed between that read and its write (seconds) is refused per item. No "apply to current values" mode: it would need an overwrite declaration on update items, which the API has only on upserts (D11), and nothing so far needs it |
 | D103 | Enumerated IDs or a query-scoped batch (K4) | **Accepted 2026-10-08 by the user.** **Enumerated by the UI; K4 not taken now.** The list route is the only read that applies the collection's search exactly (D60: the model query cannot), so a query-scoped batch would select a different set than the page shows unless it learned the list's search, a larger change than K4's outline. At 500 records a page, 10,000 matching records are 20 reads. K4 returns to the outline if a selection proves too slow to read, or an integrator needs it, with its own decision |
-| D104 | Limits a selection meets | **Accepted 2026-10-08 by the user, amended: Cmd+A (Ctrl+A) selects all matching, not only the loaded rows, and a refused selection carries a full explanation for people** (behaviour 7). **A range covers the loaded rows only; "all matching" is offered up to `backgroundJobMaxItems` (1,000,000 by default).** A range reaching unloaded rows would need pages read by position for a gesture; "all matching" is the way to select many. K2 runs up to `batchMaxItems` (1,000) inline and more as a background job with the job page (Track J), and refuses an atomic run over `atomicJobMaxItems` (10,000) at the choice, naming the setting |
+| D104 | Limits a selection meets | **Accepted 2026-10-08 by the user, amended: Cmd+A (Ctrl+A) selects all matching, not only the loaded rows, and a refused selection carries a full explanation for people** (behaviour 7). **A range covers the loaded rows only; "all matching" is offered up to `backgroundJobMaxItems` (1,000,000 by default).** A range reaching unloaded rows would need pages read by position for a gesture; "all matching" is the way to select many. K2 runs up to `batchMaxItems` (1,000) inline and more as a background job with the job page (Track J), and refuses an atomic run over `atomicJobMaxItems` (10,000) at the choice, naming the setting. _Amended 2026-10-09 by K2 (D114): every K2 change is a previewed background job; the atomic refusal at the choice stays_ |
 | D105 | Jobs switched off (`INTEGRATION_JOBS_ENABLED`) | **Accepted 2026-10-08 by the user after it was explained.** **No selection column**, as Import is hidden. `POST /batches` does not exist then, and looping single writes from the browser would make the UI a second bulk path, which Track K's outcome rules out. Single edits keep working |
 | D106 | `independent` or `atomic` by default | **Accepted 2026-10-08 by the user.** **`independent` ("Change the records that can change"), with `atomic` one choice away in K2's dialog**, as the import dialog (J4). A bulk edit over many records is expected to meet a few refusals (versions, rules); the per-item results name them |
-| D107 | A change set's version during a long background job | **Accepted 2026-10-08 by the user.** **Kept as the engine does it; no engine change in Track K.** Today any other write to the change set between two chunks fails the job at its next chunk, with applied chunks kept. K2's job page says so and offers **Run again for the rest**: items already applied answer `unchanged` (D24), so a rerun redoes nothing. The alternative, chunks after the first not claiming the change set's version (each record's version still protects it), changes the batch contract (INTEGRATION_API P3) and is raised only if the failure is met in use |
+| D107 | A change set's version during a long background job | **Accepted 2026-10-08 by the user.** **Kept as the engine does it; no engine change in Track K.** Today any other write to the change set between two chunks fails the job at its next chunk, with applied chunks kept. K2's job page says so and offers **Run again for the rest**: items already applied answer `unchanged` (D24), so a rerun redoes nothing. The alternative, chunks after the first not claiming the change set's version (each record's version still protects it), changes the batch contract (INTEGRATION_API P3) and is raised only if the failure is met in use. _Amended 2026-10-09 by K2 (D118): the dialog offers Preview again in place of Run again for the rest, since a finished batch keeps no items to send again; the job page says that applying the same change again changes only the rest_ |
 | D108 | How long a selection lives | **Accepted 2026-10-08 by the user.** **As behaviour 6: kept across sorting, scrolling and opening records; cleared by a change of search, filters, scope or data context; not in the URL.** A selection over a list the user has since narrowed differently would act on records they can no longer see. A URL cannot hold a thousand IDs, and a selection restored after a reload would hold versions of an earlier read |
 | D109 | Unchecking a row under "all matching" | **Accepted 2026-10-08 by the user.** **Allowed, kept as exceptions** ("All 2,345 matching except 3"). Since D103 reads the set when the action runs, an exception is one ID skipped then; without it, the only way to leave out one record is to filter it away |
 | D110 | Where selection appears in K1 | **Accepted 2026-10-08 by the user.** **Table views of collections only.** Record panels' child and relationship tables, the tree, the matrix and the grid are not in Track K's outcome; `ObjectTable` takes the selection optionally, so a panel adopts it later without a copy |
@@ -8800,6 +8804,270 @@ control's grid) and await the user's approval.
 
 **Found.** The e2e runners are not under `npm run format` (`src` only), and the e2e README lists no
 0.9 runner; both left as they are.
+
+#### K2: Changing values of a selection
+
+**Design:** Track K's outcome above. **Needs:** K1, J3 (the preview and confirmation), J4.
+
+**Scope:** setting and clearing attribute values of the selected records, live or in a change set,
+previewed before anything is written; the batch preview this needs in the engine, which integrators
+get too; the outcomes of any batch on its job page. Deletion is K2b (D116).
+
+**Exit:** a user changes the values of a selection in two collections of two applications, live and
+in a change set, by pointer and keyboard, at 1440px and 390px; reads before applying what will
+change, what is already as asked and what will be refused; applies it, reads each record's outcome
+and opens a refused record from it.
+
+##### K2 plan (2026-10-09)
+
+**Planned 2026-10-09. D112–D119 and the test cases accepted by the user the same day.** Delivered the same day ([record](#k2-record-2026-10-09)). Checked
+against the code at `1407d72`.
+
+**What exists.** K1's selection: hand-picked records with the version their row showed, or "all
+matching" as the list's search, filters and scope with exceptions (`lib/recordSelection.ts`,
+`useRecordSelection`), and `SelectionBar`'s empty actions slot. `POST /batches` takes `update`
+items: `target`, `expectedVersion` and `attributes`, where only the given values change and a
+`null` value clears one, as the record form clears a value through `PATCH` today
+(`ObjectFormDialog`). An update whose values equal the record's is `unchanged` before its version is
+checked (D24), and clearing a value the record does not hold is equal (`batches.py`
+`unchanged`), so a repeated change writes nothing twice. **A batch has no preview:** only an import
+has one (`stage: "preview"`, J3): its items run in one transaction that is rolled back, the job
+waits in `awaiting_confirmation` with `preview` (counts, `result`, `coverage`), and
+`POST /jobs/{id}/confirm` runs it. The preview runs over the job's stored items (`job_inputs`),
+which a background batch also has; it is tied to imports in three places: `store.previewing`
+(`kind == "import"`), the worker's stage at claim, and `confirm_preview`, which binds the import's
+file again. Its limit is `IMPORT_PREVIEW_MAX_ITEMS` (10,000), reported as
+`integrationJobs.limits.importPreviewMaxItems`. The worker is woken when a job is queued, so a small
+background job starts at once. A batch's job page shows its state, counts and times, but not its
+item outcomes (only an import's page lists its rows). A rejected outcome carries no record ID, and
+the lists have no `in` filter, so an outcome names its record only through the item's `ref`
+(≤ 200 characters). The per-type list reads at most 500 records a page; a background request body
+is at most `BATCH_BACKGROUND_MAX_BYTES` (50 MB), about 250,000 update items of one short value.
+
+**Behaviour.**
+
+1. **Change values.** The selection bar gains **Change values…** (K1's slot). It opens a dialog over
+   the collection naming what it changes ("12 timetable types", "All 2,345 matching except 3", the
+   model's `pluralName`).
+2. **The fields** (D117). Every attribute the type binds, in the binding order, except read-only
+   and hidden ones; each with **Keep** (the default), **Set to** with the record form's input for
+   its value type, and **Clear**, which a required binding does not offer. One change may set and
+   clear several fields. The name and the parent are not offered.
+3. **How it applies** (D106). **Change the records that can change** (`independent`, the default)
+   or **Change nothing unless every record can** (`atomic`); the second is disabled over
+   `atomicJobMaxItems`, saying how many are selected, the limit and its setting
+   (`ATOMIC_JOB_MAX_ITEMS`).
+4. **Preview** (D112, D114). For "all matching" the dialog first reads the matching records and
+   their versions, page by page with the list's own query, showing "Reading 1,500 of 2,345 records"
+   and **Stop**; exceptions are left out (D102, D109). It then sends one background batch with
+   `stage: "preview"`: one `update` item per record, `expectedVersion` the version the row showed
+   (by hand) or was read (all matching), `ref` the record's name. While the preview runs the dialog
+   says so and offers **Cancel**. Then it shows (D115): how many records will change, how many are
+   already as asked, how many will be refused, and the refused ones with their reasons, each name
+   opening the record; `coverage: sample` says that only the first `previewMaxItems` were tried.
+   Nothing is written yet.
+5. **Apply** confirms the preview. The dialog follows the job: progress, then the result: changed,
+   unchanged and refused, each refused record openable, with **View job** for the full list. Once
+   applying, the dialog may be closed; the job continues and its end is announced (J1u's
+   notifications). The collection reads its rows again when the job ends. _Amended 2026-10-09 by
+   the user (D115):_ leaving a preview not yet applied cancels it, however the dialog is left
+   (Back, Cancel, ✕, Escape, a click outside, opening a record); only **View job** keeps it waiting
+   for its job page.
+6. **The selection after a change** (D118). It is kept. A hand-picked record the change applied to
+   takes the version in its outcome, so a second change over the same selection does not conflict
+   with the first. If the job failed or was cancelled part way (D107), or records were refused,
+   the dialog offers **Preview again**: the same change over the same selection, where records
+   already changed answer `unchanged` (D24) and the rest are tried again.
+7. **Refused before a job exists.** A change set changed between the preview and Apply is refused
+   at Apply (`CHANGE_SET_VERSION_CONFLICT`); the dialog says so and offers **Preview again**. A
+   request over `BATCH_BACKGROUND_MAX_BYTES` (`413 BATCH_TOO_LARGE`) is explained like K1's limit:
+   how many records, the setting, and to narrow the selection or ask the operator. A model release
+   activated meanwhile (`MODEL_RELEASE_CHANGED`) says to reload.
+8. **A batch's job page** (any batch, an integrator's too) lists its item outcomes, paged and
+   filtered by status: the item's `ref`, its status, the action or the refusal's message, and a link
+   to the record where the outcome names one (`id`). A batch waiting for confirmation shows its
+   preview with **Apply** and **Cancel**, as an import's page does, so a preview the dialog left by
+   View job can be applied or cancelled there.
+
+**API: a batch preview** (D112, D113, D119). `POST /batches` takes
+`stage`: `execute` (the default, as today) or `preview`. A preview needs `run: "background"`
+(`422 request_validation_error` otherwise, as a body shape rule, D19): it is queued and run by the
+worker as an import's preview is, every item independently whatever the policy, in a transaction
+rolled back, and waits in `awaiting_confirmation` with `preview` (`coverage`, `items`, `counts`,
+`result`, `previewedAt`; no `rows`, which only an import has). `POST /jobs/{id}/confirm` queues it
+again: the preview's outcomes are removed and the stored items run as `stage: "execute"` would,
+from the first item, so execution is authoritative (a record changed since its preview is refused
+`VERSION_CONFLICT` then). Confirm's refusals, cancel and retention are the import's. The
+`Idempotency-Key` replays the waiting job. `IMPORT_PREVIEW_MAX_ITEMS` becomes
+`JOB_PREVIEW_MAX_ITEMS` and `importPreviewMaxItems` becomes `previewMaxItems` (D119; pre-1.0, no
+alias).
+
+**Design.**
+
+- **Engine** (`engine/jobs/`): `imports/preview.py` moves to `jobs/preview.py` (it never knew the
+  file; the rows count stays the import's); `store.previewing` takes `kind in {"import", "batch"}`;
+  the worker's claim sets `previewing` for a batch preview; `confirm_preview` binds an import's file
+  again and, for a batch, removes the preview's outcomes and resets `processed`, keeping
+  `job_inputs`. `models/commands.py` (the request's `stage` and its rule), `config.py` (the setting),
+  the capabilities schema, the job schema's `preview` (`rows` optional).
+- **`features/objects/BulkChangeDialog`** (new) holds the dialog's steps (fields, reading,
+  previewing, preview, applying, result). Its fields use `ui/AttributeField` and
+  `attributeValueFromForm`, as the record form does; nothing is copied.
+- **`features/objects/bulkChange.ts`** (new, pure): which fields a type offers and how (D117), the
+  items a change makes from a selection and the read records, and the selection's versions after
+  the outcomes (D118).
+- **`lib/readMatching.ts`** (new) reads all matching records of a list query, 500 a page, keeping
+  only each record's ID, name and version, with progress and an `AbortSignal` for Stop. Not
+  `lib/everyPage`, which is for short configuration lists and has neither.
+- **The job screens** (`features/jobs/`): the preview and result sections that `ImportOutcome`
+  holds for an import become a job's (`JobPreview`, `JobResult`), with an import's rows and binding
+  report around them; a new `BatchOutcomes` section pages `GET /jobs/{id}/items`. The dialog and the
+  job page show the same sections; the dialog adds names and links for refused records from the
+  items it sent (outcome `index` to record). The job stream (`useJobStream`) and the notifications
+  (`JobNotifications.follow`) are reused.
+- **Not changed:** the batch items, their rules and refusals, the import's contract (beyond the
+  renamed limit), the selection's rules from K1, the record panels, the tree, matrix and grid views.
+
+**Decisions:**
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D112 | Where the preview is decided | **Accepted 2026-10-09 by the user.** **In the engine: a batch gains the import's preview (`stage: "preview"`, then confirm).** Only the engine knows which records its rules will refuse (a unique value, an `atLeastOneOf` left empty, an effective period ending before it starts, a version changed since the row was read) and which will be unchanged; a preview the browser counted from the values it read would show those only after the change was applied. The import's preview already runs a job's stored items and rolls them back, so the batch reuses it rather than adding a second mechanism, and integrators get a dry run of any batch, which the API-first rule asks for. The alternative, no engine change and a preview the UI counts, keeps K2 frontend-only but can promise less than it shows |
+| D113 | A preview with `run: "inline"` | **Accepted 2026-10-09 by the user.** **Refused (`422`); a preview is a background job.** A waiting preview is a job state that confirmation picks up on the worker; an inline preview would answer outcomes in the request and then need the worker anyway to execute. An integrator wanting a quick dry run sends a background preview and follows the job; the worker starts it at once |
+| D114 | Inline or background for K2's changes | **Accepted 2026-10-09 by the user.** **Every change is a previewed background job; this amends D104's last sentence** ("K2 runs up to `batchMaxItems` inline and more as a background job"). Under D112 the preview exists only for a background batch, and one path for three records and for 100,000 means one behaviour to learn and test. A small job previews and applies within about a second, since the worker is woken when it is queued. The alternative keeps D104: inline without a preview up to 1,000 records, previewed background above, two flows in one dialog |
+| D115 | Where the preview and the result are shown | **Accepted 2026-10-09 by the user.** **In the dialog over the collection, with View job for the full list.** Import shows its preview on the job page (D91), since a file belongs to no screen; a bulk change belongs to the collection the user is in, and the selection must stay in view for Preview again. The job page shows the same sections, so a preview or result reached later from Jobs and feed or a notification reads the same. _Amended 2026-10-09 by the user after delivery: a user who closes the dialog, clicks outside it or goes Back does not expect a change waiting for them, so every way out of a preview not yet applied cancels it; only View job keeps it waiting, since its page is where it is applied or cancelled_ |
+| D116 | Deletion in K2 | **Accepted 2026-10-09 by the user.** **Deletion moves to a package of its own, K2b.** A batch delete item today does not cascade and refuses a record with dependants, which the user ruled out as a realistic path on 2026-10-02 (PG-D18, J11.6: a batch delete must be able to cascade, under a confirmation of what it deletes), and its per-item path must not hold the worker for minutes. K2's preview is that confirmation's natural base: K2b adds cascading delete items whose preview records each item's impact and whose execution refuses an item whose impact changed, as the single delete's token does, with the set-based delete PG-D18 asks for. Bulk deletion in the UI waits for it rather than shipping one that refuses most records with children. The alternative, delete items as they are in K2, ships a delete that refuses every record with children |
+| D117 | What the dialog changes | **Accepted 2026-10-09 by the user.** **Every bound attribute except read-only and hidden ones, each Keep, Set to or Clear; Clear not offered on a required binding; several fields in one change; not the name or the parent.** Read-only and hidden fields are refused or not editable in the record form either; clearing a required value is refused for every record (`MISSING_REQUIRED_ATTRIBUTES`), so offering it only produces refusals. Several fields in one job avoid two jobs and two versions per record. A name is per record and a bulk move is not in Track K's outcome. A unique attribute stays offered: within a scope (`uniqueToAncestorTypeKey`) one value can suit several records, and the preview names the refusals where it cannot |
+| D118 | The selection after a change, and D107's "Run again for the rest" | **Accepted 2026-10-09 by the user.** **The selection is kept; hand-picked records take their new versions from the outcomes; Preview again replaces "Run again for the rest".** A user often makes two changes to one selection (a duration, then a status); without the new versions the second would conflict on every record the first changed. D107 put "Run again for the rest" on the job page, but a finished batch keeps no items to send again (its `job_inputs` are removed), so the job page cannot rebuild it; the dialog can, and sending the whole change again costs nothing for records already changed (`unchanged`, D24) and also retries records refused for a version changed meanwhile, once the user has seen them. The job page says that applying the same change again changes only the rest |
+| D119 | The preview limit's name | **Accepted 2026-10-09 by the user.** **`IMPORT_PREVIEW_MAX_ITEMS` becomes `JOB_PREVIEW_MAX_ITEMS`, and `importPreviewMaxItems` becomes `previewMaxItems`, without an alias.** The limit now bounds every preview, an import's and a batch's, so its import name would mislead an operator setting it for bulk changes. Pre-1.0 a setting and a capability field may be renamed; the CHANGELOG and OPERATIONS say so. The alternative keeps the name and documents that it bounds batch previews too |
+
+**Journeys.** J11.9 (new) *Preview a batch, then apply it* (API; J11's group): a preview writes
+nothing and says what an execution would do; confirm runs it, authoritative; the import's confirm
+refusals apply. J32.2 (new) *Change values of a selection* (UI): behaviour 1–7. J24 gains no variant
+(the job page's item list is J32.2's evidence and J11's read). K2b adds J32.3 (delete) and delivers
+J11.6. USER_JOURNEYS (J11.9, J32.2, the index), API_JOURNEYS (`stage` on `POST /batches`,
+`POST /jobs/{jobId}/confirm` for batches, `JOB_PREVIEW_MAX_ITEMS` and `previewMaxItems` mapped to
+J11.9 and J27), UI_ACCEPTANCE (row K2-1 the bulk change dialog; K2-2 a batch's job page).
+
+**Test cases** (approved by the user 2026-10-09). API journey tests (pytest, `test_j11_batches`, new cases):
+
+1. **A preview changes nothing and says what would.** Given three records, one already holding the
+   value and one whose version has moved on. A background batch with `stage: "preview"` setting
+   that value waits in `awaiting_confirmation`: `preview.counts` 1 updated, 1 unchanged, 1 rejected
+   (`VERSION_CONFLICT`), `coverage` `complete`, `result` `partial`; the records, their versions,
+   the feed head and the audit log are as before. Confirmed, the job completes with the same
+   outcomes and the value is written; the preview's outcomes are gone.
+2. **In a change set, a write between preview and confirm.** The preview leaves the change set's
+   version as it was; a record edited in the change set meanwhile makes confirm
+   `409 CHANGE_SET_VERSION_CONFLICT` and the job keeps waiting; cancel ends it `cancelled`.
+3. **Execution is authoritative.** A record changed live between preview and confirm is
+   `VERSION_CONFLICT` at execution though the preview applied it; under `atomic` nothing is written.
+4. **Refusals of the request.** `stage: "preview"` with `run: "inline"` is
+   `422 request_validation_error`; the renamed limit (`JOB_PREVIEW_MAX_ITEMS` lowered to 2) previews
+   the first two of three items with `coverage: sample`, and `GET /capabilities` reports it as
+   `previewMaxItems`. The import journey tests (J27) run unchanged against the moved preview.
+
+Unit tests (Vitest): `bulkChange.test` (fields offered per binding: read-only, hidden, required;
+items from a hand selection and from read records with exceptions; versions after outcomes, applied
+and refused); `BulkChangeDialog.test` (atomic disabled over the limit with its explanation; the
+reading step's Stop; the preview's counts and a refused record's link; Preview again after a
+`CHANGE_SET_VERSION_CONFLICT` at Apply; the `413` explanation); `JobPage.test` (a batch's outcomes
+paged and filtered, a link only where the outcome names a record; a waiting batch preview with Apply).
+
+Browser runner `test:browser:k2` (real backend; two object types of two applications; keyboard;
+1440px and 390px; the runner's server at `JOB_PREVIEW_MAX_ITEMS` lowered for case 6):
+
+5. **By hand, live.** Select three records in one collection, Change values…, set one field and
+   clear another, Preview: the counts; Apply: the result, the table shows the values; a second
+   change on the same selection applies without a conflict.
+6. **All matching in a change set, with a refusal.** In the other application's collection, filter,
+   Select all matching, uncheck one, set a unique field: the reading progress, the preview names the
+   refused records and opens one; under all or nothing the result writes nothing; under the default
+   it writes the rest. A preview larger than the lowered limit says it is a sample.
+7. **Closed and found again.** Close the dialog while a preview waits; open the job from Jobs and
+   feed, Apply there; the job page lists the outcomes with links.
+8. **Keyboard only at 390px.** The dialog from the bar to Apply and Close by keyboard; the result's
+   status announced.
+
+Axe with 0 violations on the dialog (fields, preview, result) and a batch's job page, light and
+dark; screenshots at 1440px and 390px for the user's approval.
+
+**Checks.** Backend: the `jobs` group (J11, J24, J27 and `tests/unit/engine/jobs/`), and `contract`
+(the request's `stage`, the renamed capability in the OpenAPI document); Ruff. Frontend: Vitest
+`related` over the changed files, `format`, `lint` (0 errors), `build`; `test:browser:k2`;
+`test:browser:j4` (the import screen's preview sections move); `test:browser:k1` (the bar). Not
+run: the full suites, `budget`, `test:a11y`, `test:visual` (R, as D95).
+
+**Docs at delivery.** API.md (the batch's `stage`, preview and confirm for batches, the renamed
+limit), INTEGRATION_API §B (preview), OPERATIONS (the setting), USER_JOURNEYS, API_JOURNEYS,
+UI_ACCEPTANCE, CURRENT_FUNCTIONALITY, PRODUCT (bulk changes from a collection), EXECUTION_GUIDE (the
+runner and the frontend map), CHANGELOG, PROJECT_STATUS; Track K's outline (K2b, D116); D104 and
+D107 amended in their rows (D114, D118).
+
+**Composable domains (ADR-032):** the bulk API gains a preview stage, additive: items, their
+outcomes and audit entries are unchanged, so provenance (the job as cause), identity and the
+inbound-flow door stay as they are; attribute storage, audit, the `match` declaration and mapping
+coverage are untouched.
+
+##### K2 record (2026-10-09)
+
+**Delivered 2026-10-09.** D112–D119 and the test cases as approved with the plan.
+
+**Built.**
+
+- **The engine** (D112, D113, D119): `POST /batches` takes `stage` (`execute` by default, or
+  `preview`, refused with `run: inline` as a body rule); a batch's `parameters` name it. The import's
+  preview moved to `engine/jobs/preview.py` and serves both kinds: `store.previewing` and the
+  worker's claim take a batch, the summary counts rows for an import only, and `confirm_job` keeps
+  a batch's stored items (removing only the preview's outcomes) where an import binds its file
+  again. Confirm's messages name a batch or an import. `IMPORT_PREVIEW_MAX_ITEMS` is
+  `JOB_PREVIEW_MAX_ITEMS`, `importPreviewMaxItems` `previewMaxItems`, the schema `ImportPreview`
+  `JobPreview` with `rows` omitted for a batch. No migration: the job tables were unchanged.
+- **The dialog** (`features/objects/BulkChangeDialog`, pure rules in `bulkChange.ts`): the fields
+  and their modes (D117) over `ui/AttributeField`; the policy, all or nothing hidden over
+  `atomicJobMaxItems` with its setting named; "all matching" read through `lib/readMatching` (500 a
+  page, progress, Stop); one background preview with an idempotency key, the change set's version
+  read at that moment; the preview, Apply, the result, Preview again (which cancels a preview still
+  waiting), each step announced by a status region; refused records open from the outcomes. The
+  selection keeps names with versions now (`lib/recordSelection`), and takes the versions the
+  applied outcomes left (`withVersions`, D118).
+- **The job screens**: `features/jobs/BatchOutcome` (the preview, the result, the items paged and
+  filtered) is shown by the dialog and by a batch's job page (D115), which links an outcome to its
+  record and applies or cancels a waiting preview; `Verdict` is the result line an import's preview
+  shares. The notifications offer a job's page (`view`), and the application reloads the collection
+  when a batch this tab followed ends having applied anything.
+
+**Checks.** Backend: the `jobs` and `contract` groups, 304 passed (the 8 new J11.9 cases among
+them, failing first on the unknown `stage`), J12's settings test (10 passed), Ruff. The OpenAPI
+document was diffed against `1407d72` before its hash was re-locked: `stage`, `JobPreview`,
+`previewMaxItems` and three descriptions, no path. Frontend: Vitest `related` over the changed
+files, 41 files, 407 tests passed (`bulkChange.test` 4, `BulkChangeDialog.test` 5, two batch cases in
+`JobPage.test`, one in `recordSelection.test`); `format`, `lint` (0 errors, the 7 earlier
+warnings), `build`. `test:browser:k2`: 13 checks passed (cases 5–8; axe 0 violations on the dialog's
+fields, preview and result and on a batch's job page, light and dark); `test:browser:j4` 18 and
+`test:browser:k1` 11 passed. Not run: the full suites, `budget`, `test:a11y`, `test:visual` (R).
+
+**Evidence, separately.** Functional: the runner's checks above. Accessibility: axe as above;
+keyboard only at 390px with the status region read back ("Preview ready: 1 would change, 0 would
+be refused", "Applied: 1 changed, 0 refused"). Visual: the screenshots were inspected (the outcome
+view drawn without the dialog's padding and its sections without spacing were fixed) and await the
+user's approval.
+
+**Amended 2026-10-09 (reported by the user).** Leaving the dialog left a preview waiting for
+confirmation whichever way it was left (✕, a click outside, Escape, a record opened from it), and
+Jobs and feed kept a job the user had walked away from. Every way out of a preview not yet applied
+now cancels it (Back did already); only View job keeps it waiting (D115 amended). The runner's case
+7 leaves a preview each way and reads the job back cancelled, then keeps one with View job and
+applies it on its page. Its first run found that Escape did not close the dialog after a preview:
+the pressed Preview button was replaced with the preview, focus fell to the page and Escape no
+longer reached the dialog. Focus now moves into whichever of the two forms is shown. Checks:
+`BulkChangeDialog.test` 6 passed (a new case: ✕ cancels, View job does not); `test:browser:k2` 14
+checks passed; `tsc`, `lint` (0 errors), `format`.
+
+**Found.** At 390px the outcome table scrolls sideways inside its frame, as the import screen's
+rows do (`ui/DataTable`); left as it is. While building, `ruff format` run over the whole backend
+rewrapped 212 files the repository keeps unformatted; they were restored and only K2's changes
+kept.
 
 ## R: Build acceptance and release
 

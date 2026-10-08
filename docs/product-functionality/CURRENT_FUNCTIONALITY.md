@@ -96,7 +96,18 @@ Where a collection's data can be written and the deployment lets jobs be created
 selected in its table: by checkbox, a Shift range, the rows shown, or every record the search and
 filters match (Cmd+A), with single records left out. The bar above the table says what is selected.
 A selection larger than one bulk change may hold is refused with the count, the limit and what to
-do. Changing many records at once from a selection is being built (Track K).
+do.
+
+**Change values…** changes the selected records together: each field (not read-only or hidden ones)
+is kept, set to a value or cleared (never a required one), several in one change, and the change
+either changes the records that can change or nothing unless every one can. Nothing is written
+before a preview says how many records will change, how many already hold what is asked and which
+will be refused and why, each refused record openable; Apply then decides every record again and
+shows the result. Records changed by someone else since they were shown are refused rather than
+overwritten. The selection stays after a change, so a second change follows the first, and Preview
+again repeats a change for what it did not change. Leaving the dialog before applying cancels the
+preview, whether by Back, closing it or clicking outside; View job keeps it waiting, to be applied
+or cancelled on its job page. Deleting a selection and changing its relationships are being built (Track K).
 
 Limits: one sort at a time in the browser; queries across relationships are API-only (F20). Pages are
 always bounded.
@@ -444,7 +455,9 @@ makes sure a relationship exists, changes or removes one, and replaces a record'
 related records with a list, keeping the relationships it already has; a record's relationship list
 names each set's version, so a replacement can claim the set the caller read. The caller chooses all-or-nothing
 or item-by-item; every item goes through the same rules as a single write and gets its own outcome.
-An idempotency key makes a retry return the first result. Background jobs report progress, survive
+An idempotency key makes a retry return the first result. A background batch can be previewed
+first: it runs without writing anything and says what applying would do, item by item, and is then
+applied or cancelled. Background jobs report progress, survive
 restarts without repeating or skipping an item, and can be cancelled. Jobs and their outcomes are
 kept for a configurable retention.
 

@@ -92,7 +92,9 @@ def create_batch(
     ``run: inline`` answers 200 with the finished job and its outcomes, whatever its
     ``job.result``: read ``result`` to learn whether every item applied. ``run: background``
     answers 202 with the queued job; the worker applies it in chunks, and its outcomes page at
-    ``GET /jobs/{jobId}/items``. Retrying a create without an ``id`` and without an
+    ``GET /jobs/{jobId}/items``. A background batch sent with ``stage: preview`` runs its items
+    without writing anything and waits in ``awaiting_confirmation`` with ``preview``; ``POST
+    /jobs/{jobId}/confirm`` applies it (0.9 K2). Retrying a create without an ``id`` and without an
     ``Idempotency-Key`` can create the record twice.
     """
     limits: BatchLimits = request.app.state.batch_limits
@@ -141,11 +143,11 @@ def cancel_job(job_id: str, request: Request, session: DbSession) -> JobResponse
 
 @write_router.post("/jobs/{job_id}/confirm", response_model=JobResponse, status_code=202)
 def confirm_job(job_id: str, request: Request, session: DbSession) -> JobResponse:
-    """Confirm an import previewed with ``stage: preview`` (0.9 J3).
+    """Confirm an import (0.9 J3) or a background batch (0.9 K2) previewed with ``stage: preview``.
 
-    The job is queued again: the worker binds the stored file anew and runs it as ``stage:
-    execute`` would, so data changed since the preview counts, and execution's outcomes are
-    authoritative. Confirming a job already confirmed answers with it unchanged. Refused, leaving
+    The job is queued again and runs as ``stage: execute`` would: an import's stored file is bound
+    anew, a batch's stored items run from the first. Data changed since the preview counts, and
+    execution's outcomes, which replace the preview's, are authoritative. Confirming a job already confirmed answers with it unchanged. Refused, leaving
     the job waiting: ``409 MODEL_RELEASE_CHANGED``, ``404 WORKSPACE_NOT_FOUND``, ``404
     CHANGE_SET_NOT_FOUND``, ``409 CHANGE_SET_VERSION_CONFLICT`` (the change set changed since the
     request's ``expectedChangeSetVersion``). A job not waiting is ``409

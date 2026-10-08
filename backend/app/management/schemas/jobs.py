@@ -84,16 +84,22 @@ class PreviewCounts(BaseModel):
     rejected: int
 
 
-class ImportPreview(BaseModel):
-    """What executing a previewed import would do (0.9 J3, D80–D83). ``coverage`` is ``complete``
-    when every item ran, ``sample`` when only the first ``IMPORT_PREVIEW_MAX_ITEMS`` did (every
-    row was still bound, so every binding refusal is listed). ``result`` is what execution would
-    give under the request's policy: ``rejected`` for an ``atomic`` import with any refusal.
-    Execution is authoritative: data may change before confirmation."""
+class JobPreview(BaseModel):
+    """What executing a previewed import (0.9 J3, D80–D83) or batch (0.9 K2, D112) would do.
+    ``coverage`` is ``complete`` when every item ran, ``sample`` when only the first
+    ``JOB_PREVIEW_MAX_ITEMS`` did (an import's rows were still all bound, so every binding refusal
+    is listed). ``result`` is what execution would give under the request's policy: ``rejected``
+    for an ``atomic`` job with any refusal. ``rows`` is an import's only. Execution is
+    authoritative: data may change before confirmation."""
 
     coverage: Literal["complete", "sample"]
     items: PreviewItems
-    rows: PreviewRows
+    rows: PreviewRows | SkipJsonSchema[None] = Field(
+        default=None,
+        exclude_if=omitted_when_none,
+        json_schema_extra=without_default,
+        description="An import's rows of its file; omitted for a batch",
+    )
     counts: PreviewCounts
     result: Literal["applied", "partial", "rejected"]
     previewedAt: datetime
@@ -188,11 +194,13 @@ class JobResponse(BaseModel):
         default=None, description="A completed export's manifest; null for other jobs and states"
     )
     confirmedAt: datetime | None = Field(
-        default=None, description="When a previewed import was confirmed (0.9 J3)"
-    )
-    preview: ImportPreview | None = Field(
         default=None,
-        description="A previewed import's summary, kept after confirmation; null otherwise",
+        description="When a previewed import (0.9 J3) or batch (0.9 K2) was confirmed",
+    )
+    preview: JobPreview | None = Field(
+        default=None,
+        description="A previewed import's or batch's summary, kept after confirmation; null "
+        "otherwise",
     )
     bindingReport: list[BindingReportSource] | None = Field(
         default=None,

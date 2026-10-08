@@ -22,7 +22,7 @@ export function jobLimitItems(capabilities: CapabilitiesResponse): DescriptionIt
     },
     { term: "Chunk", value: `${count(jobs.chunkItems)} items` },
     { term: "Import file", value: bytes(jobs.importMaxBytes) },
-    { term: "Import preview", value: `${count(jobs.importPreviewMaxItems)} items` },
+    { term: "Preview", value: `${count(jobs.previewMaxItems)} items` },
     { term: "Jobs kept", value: `${count(jobs.retentionDays)} days` },
     { term: "Change feed kept", value: `${count(capabilities.changeFeed.retentionDays)} days` },
   ];

@@ -99,10 +99,13 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # document exactly. Re-baselined for 0.9 J4a: JobResponse.notices with the JobNotice schema;
     # removing those two gives C18's document exactly. Re-baselined for 0.9 J5: otherWorkspaceIds on
     # BatchRequest and ImportRequest and sourceId on JobItemResponse; removing those three gives
-    # J4a's document exactly.
+    # J4a's document exactly. Re-baselined for 0.9 K2: BatchRequest's stage, ImportPreview renamed
+    # JobPreview with rows optional, JobLimits' importPreviewMaxItems renamed previewMaxItems, and
+    # the descriptions of POST /batches, the confirm route and the preview naming a batch's
+    # preview; no path changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "19f247d0e57ea8cc89b5fbe4c00b8f81c28ace4923a84b0f961f3256382b483c"
+        "cba4c12bd9c5b5d961e27b03bbeefe7ccb5f2c29105709d3478e8a20f1394b20"
     )
 
 

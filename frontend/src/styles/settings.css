@@ -458,6 +458,28 @@ p.job-state {
 .rows-filter {
   margin-bottom: var(--space-3);
 }
+/* A bulk change's preview and result in its dialog (0.9 K2): sections spaced as on a settings page. */
+.dialog-form > .section + .section {
+  margin-top: var(--space-6);
+}
+/* A bulk change's fields (0.9 K2): each a group of Keep, Set to and Clear, its value below. */
+.bulk-field {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3) 0;
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  min-width: 0;
+}
+.bulk-field legend {
+  float: left;
+  padding: 0;
+  font-weight: 650;
+}
+.bulk-field legend + * {
+  clear: both;
+}
 .row-problems,
 .field-problems {
   margin: var(--space-1) 0 0;
@@ -741,7 +763,8 @@ td:has(> .row-problems) {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-4);
 }
-.delivery-detail .link-button {
+/* A button that reads as a link: an event in a delivery, a record in a bulk change's outcomes. */
+.link-button {
   padding: 0;
   border: 0;
   background: none;

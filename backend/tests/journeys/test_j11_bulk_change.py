@@ -1,7 +1,9 @@
 """J11 — Submit a bounded bulk change (USER_JOURNEYS.md).
 
 Records are referred to by ID or by R's unique value ``R.u``; R2 stands under R and has its own.
-J11.6 (delete with cascade) is planned (D-6, PG-D18).
+J11.6 (delete with cascade) is planned (D-6, PG-D18, 0.9 K2b). J11.9 previews a batch before it
+runs (0.9 K2, D112, D113); the journey application runs no worker thread, so those tests run the
+engine's job worker themselves (``_run``).
 """
 
 import pytest
@@ -559,3 +561,162 @@ def test_a_unique_value_handed_on_in_one_batch(world):
     ok(world.api.delete(f"/objects/{world.key('R')}/{r2['id']}", expectedVersion=r2["version"]), 204)
     world.made("R", "Third", values={"R.u": "HAND-X"})
     world.made("R", "Elsewhere", values={"R.u": "HAND-X"}, workspace="second-site")
+
+
+# --- J11.9: a batch previewed, then applied (0.9 K2) ---------------------------------------------
+
+
+def _run(world):
+    return world.api.client.app.state.job_worker.run_until_idle()
+
+
+def _job(world, job):
+    return ok(world.api.get(f"/jobs/{job['id']}"))
+
+
+def _items(world, job):
+    page = ok(world.api.get(f"/jobs/{job['id']}/items", pageSize=100))
+    return [
+        (i["status"], i.get("action") or i.get("reason") or i["error"]["code"])
+        for i in page["items"]
+    ]
+
+
+def _previewed(world, items, **body):
+    """A background batch sent with ``stage: preview`` and run until it waits."""
+    job = ok(_batch(world, items, run="background", stage="preview", **body), 202)
+    assert job["state"] == "queued" and job["parameters"]["stage"] == "preview"
+    _run(world)
+    job = _job(world, job)
+    assert job["state"] == "awaiting_confirmation", (job["state"], job["error"])
+    return job
+
+
+def _set_owner(record, owner, world):
+    return {
+        "op": "update",
+        "target": {"id": record["id"]},
+        "expectedVersion": record["version"],
+        "attributes": [{"attributeTypeKey": world.key("R.q"), "value": owner}],
+        "ref": record["name"],
+    }
+
+
+def _feed_head(world):
+    return ok(world.api.get(f"/workspaces/{W1}/feed", pageSize=1))["headPosition"]
+
+
+@pytest.mark.journey("J11.9")
+@pytest.mark.structures("R", "R.u", "R.q")
+def test_a_preview_changes_nothing_and_says_what_applying_would(world):
+    """Given three records: one to change, one already holding the value, and one changed since it
+    was read. When a background batch setting the value on all three is previewed. Then the job
+    waits with a complete preview: one updated, one unchanged, one refused for its version, the
+    result partial; the records, the feed head and the history are as before. When confirmed, the
+    job completes with the same outcomes in place of the preview's, and the value is written."""
+    plain = world.made("R", "Plain", values={"R.u": "PV-1"})
+    holding = world.made("R", "Holding", values={"R.u": "PV-2", "R.q": "Ops"})
+    moved = world.made("R", "Moved on", values={"R.u": "PV-3"})
+    ok(world.update("R", moved["id"], moved["version"], name="Moved on, renamed"))
+    head = _feed_head(world)
+    history = ok(world.api.get(f"/objects/{world.key('R')}/{plain['id']}/history"))["items"]
+
+    items = [_set_owner(record, "Ops", world) for record in (plain, holding, moved)]
+    job = _previewed(world, items)
+    preview = job["preview"]
+    assert preview["coverage"] == "complete" and preview["result"] == "partial"
+    assert preview["items"] == {"total": 3, "previewed": 3} and "rows" not in preview
+    assert preview["counts"] == {
+        "created": 0,
+        "updated": 1,
+        "unchanged": 1,
+        "deleted": 0,
+        "rejected": 1,
+    }
+    expected = [("applied", "updated"), ("applied", "unchanged"), ("rejected", "VERSION_CONFLICT")]
+    assert _items(world, job) == expected
+    unchanged = world.record("R", plain["id"])
+    assert unchanged["version"] == plain["version"]
+    assert world.value(unchanged, "R.q") == world.value(plain, "R.q")
+    assert _feed_head(world) == head
+    assert ok(world.api.get(f"/objects/{world.key('R')}/{plain['id']}/history"))["items"] == history
+
+    confirmed = ok(world.api.post(f"/jobs/{job['id']}/confirm", None), 202)
+    assert confirmed["state"] == "queued" and confirmed["confirmedAt"]
+    assert confirmed["preview"] == preview
+    _run(world)
+    done = _job(world, job)
+    assert done["state"] == "completed" and done["result"] == "partial", done["error"]
+    assert done["progress"] == {"total": 3, "processed": 3}
+    assert _items(world, done) == expected
+    assert world.value(world.record("R", plain["id"]), "R.q") == "Ops"
+
+
+@pytest.mark.journey("J11.9", "J11.3")
+@pytest.mark.structures("R", "R.u", "R.q")
+def test_a_preview_in_a_change_set_and_a_write_before_confirming(world):
+    """Given a change set holding a record. When a batch in it is previewed. Then the change set
+    keeps its version. When the change set is written before confirming. Then confirming is
+    refused as a stale change set and the job keeps waiting; cancelling it ends it cancelled."""
+    cs = world.change_set()
+    staged = world.made("R", "Staged", values={"R.u": "PV-CS"}, change_set=cs)
+    cs = world.current(cs)
+    job = _previewed(
+        world,
+        [_set_owner(staged, "Ops", world)],
+        context={"changeSetId": cs["id"]},
+        expectedChangeSetVersion=cs["version"],
+    )
+    assert job["preview"]["counts"]["updated"] == 1
+    assert world.current(cs)["version"] == cs["version"]
+
+    world.made("R", "Meanwhile", values={"R.u": "PV-CS2"}, change_set=cs)
+    refused(world.api.post(f"/jobs/{job['id']}/confirm", None), 409, "CHANGE_SET_VERSION_CONFLICT")
+    assert _job(world, job)["state"] == "awaiting_confirmation"
+    cancelled = ok(world.api.post(f"/jobs/{job['id']}/cancel", None), 202)
+    assert cancelled["state"] == "cancelled"
+    staged_now = world.record("R", staged["id"], changeSetId=cs["id"])
+    assert world.value(staged_now, "R.q") == world.value(staged, "R.q")
+
+
+@pytest.mark.journey("J11.9", "J11.1")
+@pytest.mark.structures("R", "R.u", "R.q")
+def test_applying_a_preview_is_decided_on_the_data_as_it_is_then(world):
+    """Given two records previewed under atomic, both applying. When one is changed live before
+    confirming. Then execution refuses it for its version and, atomic, writes nothing."""
+    first = world.made("R", "First", values={"R.u": "PV-A"})
+    second = world.made("R", "Second", values={"R.u": "PV-B"})
+    items = [_set_owner(record, "Ops", world) for record in (first, second)]
+    job = _previewed(world, items, policy="atomic")
+    assert job["preview"]["result"] == "applied"
+
+    ok(world.update("R", second["id"], second["version"], name="Second, renamed"))
+    ok(world.api.post(f"/jobs/{job['id']}/confirm", None), 202)
+    _run(world)
+    done = _job(world, job)
+    assert done["state"] == "completed" and done["result"] == "rejected", done["error"]
+    assert _items(world, done) == [
+        ("unprocessed", "BATCH_ROLLED_BACK"),
+        ("rejected", "VERSION_CONFLICT"),
+    ]
+    assert world.value(world.record("R", first["id"]), "R.q") == world.value(first, "R.q")
+
+
+@pytest.mark.journey("J11.9")
+@pytest.mark.structures("R", "R.u", "R.q")
+@pytest.mark.settings(JOB_PREVIEW_MAX_ITEMS="2")
+def test_a_preview_is_a_background_job_bounded_by_its_setting(world):
+    """When a preview is sent to run inline. Then it is refused as a request shape. When three items
+    are previewed with the preview limit at two. Then the first two run, the preview is a sample,
+    and the capabilities report the limit as ``previewMaxItems``."""
+    records = [world.made("R", f"Sampled {n}", values={"R.u": f"PV-S{n}"}) for n in range(3)]
+    items = [_set_owner(record, "Ops", world) for record in records]
+    jobs = _jobs(world)
+    refused(_batch(world, items, stage="preview"), 422, "REQUEST_VALIDATION_ERROR")
+    assert _jobs(world) == jobs
+
+    job = _previewed(world, items)
+    assert job["preview"]["coverage"] == "sample"
+    assert job["preview"]["items"] == {"total": 3, "previewed": 2}
+    limits = ok(world.api.get("/capabilities"))["integrationJobs"]["limits"]
+    assert limits["previewMaxItems"] == 2 and "importPreviewMaxItems" not in limits

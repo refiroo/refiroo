@@ -112,12 +112,13 @@ def request_cancel(session: Session, job_id: str, *, files: JobFiles, retention_
 
 
 def confirm_preview(session: Session, job_id: str) -> Job:
-    """Confirm a previewed import (D87) and commit: it is queued to bind its file again and run as
-    ``stage: execute`` would (D81). A job confirmed before answers unchanged. Its context is
-    checked again as at submission, and a refusal leaves it waiting: a release activated since,
-    a retired workspace, a missing change set, or a change set changed since the request's
-    ``expectedChangeSetVersion``."""
+    """Confirm a previewed import (D87) or batch (0.9 K2) and commit: it is queued to run as
+    ``stage: execute`` would, an import binding its file again (D81), a batch running its stored
+    items. A job confirmed before answers unchanged. Its context is checked again as at submission,
+    and a refusal leaves it waiting: a release activated since, a retired workspace, a missing
+    change set, or a change set changed since the request's ``expectedChangeSetVersion``."""
     job = load_job(session, job_id)
+    sent = "import" if job.kind == "import" else "batch"
 
     def check(job: Job) -> None:
         try:
@@ -129,13 +130,13 @@ def confirm_preview(session: Session, job_id: str) -> Job:
                 409,
                 "MODEL_RELEASE_CHANGED",
                 "The model release this preview ran under is no longer the one its context uses; "
-                "send the import again",
+                f"send the {sent} again",
             ) from None
         if context.change_set is not None and context.change_set.version != job.change_set_version:
             raise api_error(
                 409,
                 "CHANGE_SET_VERSION_CONFLICT",
-                "The change set changed since the import was sent; send it again with the "
+                f"The change set changed since the {sent} was sent; send it again with the "
                 "change set's current version",
                 {"currentVersion": context.change_set.version},
             )

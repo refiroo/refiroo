@@ -38,6 +38,7 @@
     "test:browser:j1u": "node e2e/j1u-export.mjs",
     "test:browser:j4": "node e2e/j4-import.mjs",
     "test:browser:k1": "node e2e/k1-selection.mjs",
+    "test:browser:k2": "node e2e/k2-bulk-change.mjs",
     "test:browser:v1": "node e2e/v1-api-reference.mjs",
     "test:gate-helpers": "node --test e2e/helpers/*.node-test.mjs",
     "test:a11y": "node e2e/accessibility-gate.mjs",

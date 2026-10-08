@@ -86,6 +86,7 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/docs` a
 | `POST /imports` (`multipart/form-data`: `file`, and `request` as JSON: `workspaceKey` or `changeSetId` with `expectedChangeSetVersion`, `profileKey` or an inline `profile` or neither, `format`, `policy`, `onExisting`, `stage`; `Idempotency-Key`); an import job's `parameters.profile` and `parameters.file`, its items' `ref` (`{sheet}!{row}`) (0.9 J2) | J27.8, J27.9, J27.10 |
 | `POST /imports` with `stage: preview`; the job's `preview` (`coverage`, `items`, `rows`, `counts`, `result`, `previewedAt`), `bindingReport` and `confirmedAt`; `POST /jobs/{id}/confirm`; `POST /jobs/{id}/cancel` of a waiting preview; `GET /jobs/{id}/rows` (`status`, paging); `GET /jobs/{id}/items` (`ref`); a row refusal's `details.cells` (0.9 J3) | J27.10, J27.11, J27.12 |
 | The job's `notices` (`RECORD_IDS_OF_ANOTHER_WORKSPACE`); `OBJECT_ALREADY_EXISTS` and `REFERENCE_NOT_FOUND` naming the workspace that holds the ID (`details.workspaceKey`) (0.9 J4a) | J27.10, J27.11 |
+| `stage` (`execute`, `preview`) on `POST /batches`, refused with `run: inline`; a batch's `preview` (`coverage`, `items`, `counts`, `result`, `previewedAt`, no `rows`); `POST /jobs/{id}/confirm` and `POST /jobs/{id}/cancel` of a waiting batch preview (0.9 K2) | J11.9 |
 | `otherWorkspaceIds` (`refuse`, `counterparts`) on `POST /imports` and `POST /batches`; the counterpart derivation; an outcome's `sourceId`; the `RECORD_IDS_AS_COUNTERPARTS` notice; `REFERENCE_NOT_FOUND` for a counterpart not loaded yet (0.9 J5) | J27.14, J11 |
 | `GET /jobs/{id}/events` (server-sent events: the job at once and after each committed change, ending after a final state; 0.9 J1u) | J24.7, J27.6 |
 | `POST /consumer-subscriptions`, `GET /consumer-subscriptions` (`consumerApi`, `workspaceKey`, `status`), `GET`, `PATCH` and `DELETE /consumer-subscriptions/{id}`, `POST /consumer-subscriptions/{id}/suspend`, `POST /consumer-subscriptions/{id}/resume` (`reset`); served with `CONSUMER_SUBSCRIPTIONS_ENABLED`; the subscription's `delivery`; `name` (U5a); `maxEventsPerBatch`, `payload`, `format` (C17; `mode` and `debounceSeconds` retired) | J30.6, J30.7, J30.8, J30.9 |
@@ -158,7 +159,7 @@ documented nowhere; API.md documents them since H4c (D-4).
 | `FEED_RETENTION_DAYS` | J26.6 |
 | `JOB_FILE_DIR` (export files and import uploads; a directory that cannot be written refuses the start with jobs on) | J27, J12.1 |
 | `IMPORT_MAX_BYTES` (an import's largest file, reported as `integrationJobs.limits.importMaxBytes`) | J27.10 |
-| `IMPORT_PREVIEW_MAX_ITEMS` (the items an import's preview runs before it is a sample, reported as `integrationJobs.limits.importPreviewMaxItems`) | J27.12 |
+| `JOB_PREVIEW_MAX_ITEMS` (the items a preview of an import or a batch runs before it is a sample, reported as `integrationJobs.limits.previewMaxItems`) | J27.12, J11.9 |
 | `CONSUMER_RESOLVE_MAX_ITEMS` (reported by `GET /capabilities` as `consumerApi.resolveMaxItems`) | J29.10 |
 | `CONSUMER_SUBSCRIPTIONS_ENABLED` (the subscriptions API and their delivery, reported by `GET /capabilities` as `consumerSubscriptions` with the delivery limits, `maxEventsPerBatch` among them), `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY` (required with the capability on) | J30.6–J30.9 |
 | `python -m app.cli.generate_key` | J30.6 (the encryption key) |

@@ -218,7 +218,7 @@ Capabilities return deployment-supported operations explicitly:
   "integrationJobs": {
     "createJobs": true,
     "runModes": ["inline"],
-    "limits": { "batchMaxItems": 1000, "batchMaxBytes": 5242880, "atomicJobMaxItems": 10000, "importPreviewMaxItems": 10000, "retentionDays": 7 },
+    "limits": { "batchMaxItems": 1000, "batchMaxBytes": 5242880, "atomicJobMaxItems": 10000, "previewMaxItems": 10000, "retentionDays": 7 },
     "setting": "INTEGRATION_JOBS_ENABLED"
   },
   "changeFeed": { "retentionDays": 30 },
@@ -1821,6 +1821,7 @@ replacement.
 ```text
 POST /api/v1/batches                                   (INTEGRATION_JOBS_ENABLED)
 POST /api/v1/jobs/{jobId}/cancel                       (INTEGRATION_JOBS_ENABLED)
+POST /api/v1/jobs/{jobId}/confirm                      (INTEGRATION_JOBS_ENABLED; a previewed batch, 0.9 K2)
 GET  /api/v1/jobs?workspaceKey=…&kind=…&state=…        newest first, ADR-030 paging
 GET  /api/v1/jobs/{jobId}
 GET  /api/v1/jobs/{jobId}/items?status=…&ref=…         outcomes in item order, ADR-030 paging
@@ -1855,6 +1856,9 @@ GET  /api/v1/jobs/{jobId}/items?status=…&ref=…         outcomes in item orde
 - **`run`** (required): `inline` runs the job in the request and answers `200` with its outcomes;
   `background` queues it and answers `202` with the job ([Background jobs](#background-jobs)). The
   size never switches the run.
+- **`stage`** (0.9 K2): `execute` (the default) or `preview`, which runs the items without writing
+  anything and waits for confirmation ([Previewing a batch](#previewing-a-batch-09-k2)). A preview
+  is a background job: with `run: inline` it is `422 REQUEST_VALIDATION_ERROR`.
 - **`onExisting`**: `reject` (default) or `overwrite`, for upserts that find a record and carry no
   `expectedVersion`.
 - **`otherWorkspaceIds`**: `refuse` (default) or `counterparts` (0.9 J5). Record IDs are unique
@@ -2013,6 +2017,24 @@ back completely. An import preview waiting for confirmation (0.9 J3) is cancelle
 `cancelled` with `finishedAt` set, its file removed and its preview's outcomes kept to read until
 retention. Cancelling again changes nothing; a
 finished job is `409 JOB_FINISHED` with `details.state`, an unknown one `404 JOB_NOT_FOUND`.
+
+### Previewing a batch (0.9 K2)
+
+A background batch sent with `stage: "preview"` is queued and run by the worker as an
+[import's preview](#preview-and-confirmation) is: its first `JOB_PREVIEW_MAX_ITEMS` items run
+independently, whatever the policy, in one transaction that is rolled back, so no record,
+relationship, feed entry, audit entry or event is written and a change set keeps its version. The
+job then waits in `awaiting_confirmation` with `preview` (`coverage`, `items`, `counts`, `result`,
+`previewedAt`; no `rows`, which only an import has), and its outcomes read at `/items`, where
+`applied` means it would apply.
+
+`POST /jobs/{jobId}/confirm` queues it again: the preview's outcomes are removed and the stored items
+run from the first as `stage: "execute"` would, so **execution is authoritative**: a record changed
+since its preview is refused `VERSION_CONFLICT` then, and an `atomic` batch with a refusal writes
+nothing. Confirm's
+refusals (`409 CHANGE_SET_VERSION_CONFLICT` when the change set changed since the request's
+`expectedChangeSetVersion`, `409 MODEL_RELEASE_CHANGED`, `410 JOB_EXPIRED`), cancelling a waiting
+preview and retention are the import's. The `Idempotency-Key` answers with the waiting job.
 
 ## Exports (Base 0.9 J1)
 
@@ -2431,7 +2453,8 @@ event is written, and a change set keeps its version. The job's `stage` reads `b
   what execution would give under the request's policy: `rejected` for an `atomic` import with any
   refusal, since nothing would be written.
 - **`coverage`** is `complete` when every item ran and `sample` when only the first
-  `IMPORT_PREVIEW_MAX_ITEMS` did (10,000, reported as `integrationJobs.limits.importPreviewMaxItems`).
+  `JOB_PREVIEW_MAX_ITEMS` did (10,000, reported as `integrationJobs.limits.previewMaxItems`; named
+  `IMPORT_PREVIEW_MAX_ITEMS` and `importPreviewMaxItems` before 0.9 K2, which renamed them).
   Binding still covers every row, so every binding refusal and the whole binding report are there.
   Items run records first and relationships last, so a sample may preview a row's record and not its
   relationships; a row counts in `rows.previewed` only when all its items ran.
@@ -2447,7 +2470,7 @@ answers `202` with it unchanged, so a retried request is safe. Refused, leaving 
 context's codes checked again as at submission (`409 MODEL_RELEASE_CHANGED`,
 `404 WORKSPACE_NOT_FOUND`, `404 CHANGE_SET_NOT_FOUND`, and `409 CHANGE_SET_VERSION_CONFLICT` when
 the change set changed since the request's `expectedChangeSetVersion`). A job that is not a waiting
-preview (an import sent with `execute`, a batch, an export, a cancelled preview) is
+preview (an import or a batch sent with `execute`, an export, a cancelled preview) is
 `409 JOB_NOT_AWAITING_CONFIRMATION` with `details.state`; a preview past its retention
 `410 JOB_EXPIRED`.
 

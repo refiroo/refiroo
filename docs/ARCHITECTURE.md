@@ -459,14 +459,16 @@ its parameters, state, progress and one outcome per item, kept for a retention p
   kept while the rows stream and its match counts are one aggregate over the temporary tables, kept
   on the job (`jobs.report`). Profiles (`engine/imports/profiles.py`) are checked against a model
   release with every problem at its JSON pointer.
-- **Import previews** (`engine/imports/preview.py`, 0.9 J3): after binding, the worker runs the
-  first `IMPORT_PREVIEW_MAX_ITEMS` items through `run_items` independently, in one transaction it
+- **Previews** (`engine/jobs/preview.py`; imports 0.9 J3, batches 0.9 K2): after an import's binding,
+  or once a batch sent with `stage: preview` is claimed, the worker runs the first
+  `JOB_PREVIEW_MAX_ITEMS` items through `run_items` independently, in one transaction it
   rolls back whole, so records, relationships, feed positions, audit entries, matrix states, unique
   values and change-set versions go together and PostgreSQL drops the transaction's notifications;
   a short transaction holding the lease then records the outcomes and the summary, and the job waits
   in `awaiting_confirmation` without a lease, which no worker claims. Confirming (under the job row's
-  lock, after the context is checked again) removes the preview's inputs and outcomes and queues the
-  job, which binds the file again and runs as an execution: one execution path. Cancelling a waiting
+  lock, after the context is checked again) removes the preview's outcomes and queues the job: an
+  import's inputs go too and it binds the file again, while a batch keeps its stored items and runs
+  them from the first; either way it runs as an execution: one execution path. Cancelling a waiting
   job finishes it in the request; retention expires it like a finished one.
 - **Following a job** (0.9 J1u): a trigger on `jobs` sends `pg_notify('rdm_job_events', id)` when
   a change to a job's state, progress, cancel request or output commits, so every path that changes

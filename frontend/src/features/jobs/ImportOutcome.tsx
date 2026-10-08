@@ -20,6 +20,7 @@ import { SettingsTable } from "@/ui/SettingsTable";
 import { StatusPill } from "@/ui/StatusPill";
 import { count } from "@/features/settings/limits";
 import { keyless } from "./importRequest";
+import { Verdict } from "./Verdict";
 import { fileSize } from "./jobText";
 
 const ROWS_PAGE = 50;
@@ -95,12 +96,13 @@ export function ImportNotices({ job }: { job: Job }) {
 export function ImportPreviewSection({ job }: { job: Job }) {
   const preview = job.preview;
   if (!preview) return null;
+  const rows = preview.rows ?? { total: 0, previewed: 0, rejected: 0 };
   const atomic = parametersOf(job).policy === "atomic";
   const outcome =
     preview.result === "applied"
       ? "Loading would apply every row."
       : preview.result === "partial"
-        ? `Loading would apply the rows that can load and refuse ${count(preview.rows.rejected)} ${preview.rows.rejected === 1 ? "row" : "rows"}.`
+        ? `Loading would apply the rows that can load and refuse ${count(rows.rejected)} ${rows.rejected === 1 ? "row" : "rows"}.`
         : atomic
           ? "Loading would write nothing: with Load nothing unless every row loads, one refused row stops the whole file."
           : "Loading would write nothing: every row is refused.";
@@ -113,22 +115,22 @@ export function ImportPreviewSection({ job }: { job: Job }) {
           : "Before loading. The load read the file again, so the result and the rows above are its own."
       }
     >
-      <p className="import-outcome">
-        <StatusPill
-          tone={preview.result === "applied" ? "success" : preview.result === "partial" ? "warning" : "error"}
-        >
-          {preview.result === "applied"
+      <Verdict
+        result={preview.result}
+        label={
+          preview.result === "applied"
             ? "Every row loads"
             : preview.result === "partial"
               ? "Some rows refused"
-              : "Nothing loads"}
-        </StatusPill>
-        <span>{outcome}</span>
-      </p>
+              : "Nothing loads"
+        }
+      >
+        {outcome}
+      </Verdict>
       <DescriptionList
         className="compact"
         items={[
-          { term: "Rows", value: `${count(preview.rows.total)}, of which ${count(preview.rows.rejected)} refused` },
+          { term: "Rows", value: `${count(rows.total)}, of which ${count(rows.rejected)} refused` },
           { term: "Created", value: count(preview.counts.created) },
           { term: "Updated", value: count(preview.counts.updated) },
           { term: "Unchanged", value: count(preview.counts.unchanged) },
@@ -139,9 +141,8 @@ export function ImportPreviewSection({ job }: { job: Job }) {
       {preview.coverage === "sample" && (
         <Notice tone="info" title="A sample">
           The file is larger than one preview runs: the first {count(preview.items.previewed)} of{" "}
-          {count(preview.items.total)} items ran, covering {count(preview.rows.previewed)} of{" "}
-          {count(preview.rows.total)} rows fully. Every row was read and bound, so every refusal found while reading is
-          listed.
+          {count(preview.items.total)} items ran, covering {count(rows.previewed)} of {count(rows.total)} rows fully.
+          Every row was read and bound, so every refusal found while reading is listed.
         </Notice>
       )}
     </Section>
@@ -304,7 +305,7 @@ function actionText(row: JobRow, preview: boolean): string {
 
 export function ImportRowsSection({ job }: { job: Job }) {
   const preview = previewing(job);
-  const refused = preview ? (job.preview?.rows.rejected ?? 0) : job.counts.rejected + job.counts.unprocessed;
+  const refused = preview ? (job.preview?.rows?.rejected ?? 0) : job.counts.rejected + job.counts.unprocessed;
   const [filter, setFilter] = useState<RowFilter>(refused > 0 ? "rejected" : "all");
   // The rows are read again when the preview's outcomes give way to the execution's.
   const list = useCursorWindow<JobRow>(

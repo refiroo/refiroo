@@ -266,6 +266,8 @@ transaction (a record, its required relation and its mapping).
   `202` with the queued job. The caller chooses; the size never switches the response shape silently.
 - **`onExisting`**: `reject` (the default) or `overwrite`, for upserts without `expectedVersion` (P4,
   D11). It applies to the whole request, so an authoritative feed opts in once.
+- **`stage`** (0.9 K2, D112, D113): `execute` (the default) or `preview`, a background batch run
+  without writing and waiting for confirmation ([B8](#b8-previewing-a-batch-09-k2)).
 - **Body size.** A JSON batch is bounded by the request body limit (a setting, 50 MB by default). A
   larger load is an import of a JSON Lines file whose lines are these items (J2), with the background
   job limits.
@@ -391,6 +393,17 @@ first B package confirms the D13 limits on the 0.8 Track S volume fixture and re
 per-item cost of an inline independent batch of 1,000 upserts, an atomic batch of 10,000 creates,
 and a 100,000-item background batch, live and in a change set. B1 recorded the first two in D13; the
 background batch is B2's.
+
+### B8: Previewing a batch (0.9 K2)
+
+A background batch sent with `stage: preview` runs as an import's preview does (§J1, D80, D82,
+D83): its first `JOB_PREVIEW_MAX_ITEMS` items run independently whatever the policy, in one
+transaction rolled back whole, and the job waits in `awaiting_confirmation` with the preview's
+summary and outcomes. `POST /jobs/{jobId}/confirm` removes those outcomes and runs the stored items
+from the first as an execution: one execution path, and execution is authoritative. The preview
+needs a background run (D113): a waiting preview is a job state the worker confirms, so an inline
+one would answer outcomes and then still need the worker. The UI's bulk changes (Track K) send
+every change this way (D114), and an integrator gets a dry run of any batch.
 
 ## F: Change feed
 
@@ -683,7 +696,8 @@ _Amended in J3 (2026-10-07, D80–D87):_
 - **The preview is one transaction rolled back whole**; its outcomes are recorded in a short one
   after (D82).
 - **A sample (D83):** binding covers every row; items run in execution order up to
-  `IMPORT_PREVIEW_MAX_ITEMS`, so a sample previews records before relationships, and a row counts as
+  `JOB_PREVIEW_MAX_ITEMS` (`IMPORT_PREVIEW_MAX_ITEMS` before 0.9 K2), so a sample previews records
+  before relationships, and a row counts as
   previewed only once all its items ran.
 - **Confirm, cancel and expiry (D87):** confirm is idempotent and checks the context again, a refusal
   leaving the job waiting; cancel finishes a waiting job at once (amending D28, where the worker does

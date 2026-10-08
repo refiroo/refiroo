@@ -341,7 +341,12 @@ and batches; the import dialog loads them by default; D96–D101)
 **K1 is delivered (2026-10-08)**: selecting records in a collection by hand, by range and as "all
 matching" (also Cmd+A), with exceptions, the selection bar, and a selection over the bulk limit
 explained; no writes, frontend only; D102–D111 decided; screenshots await the user's approval
-([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k1-record-2026-10-08)). Next is K2.
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k1-record-2026-10-08)). **K2 is delivered (2026-10-09)**:
+changing values of a selection from the collection (Change values…: set or clear fields, previewed,
+applied, refused records named and openable), on a batch preview the engine now offers to any
+background batch (`stage: preview`, then confirm), the limit renamed `JOB_PREVIEW_MAX_ITEMS`;
+deletion moved to K2b; D112–D119; screenshots await the user's approval
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k2-record-2026-10-09)). Next is K2b.
 **C18, the consumer API definition written for readers, is delivered (2026-10-08):** schema 0.9
 writes `consumerApis` as what a definition exposes, offers, looks like and filters by, with defaults
 written out by `GET /api/v1/model/consumer-apis/{consumerApi}`; an operation not offered is

@@ -27,7 +27,7 @@ removes the job files no completed job serves any more (``files.py``).
 (``imports/binding.py``): its rejected rows become its first outcomes and its items its inputs, in
 one commit; a restart before that commit binds the file again. Its chunks then run as a background
 batch's. Its file goes once the job finishes. A preview (0.9 J3) runs its items in one step that is
-rolled back (``imports/preview.py``), records what they would do and waits for confirmation without
+rolled back (``preview.py``), records what they would do and waits for confirmation without
 a lease; a confirmed preview is queued again and binds its file anew (D81).
 
 **Exports** (Base 0.9 J1, D53) run on a worker of their own, which claims only ``export`` jobs while
@@ -58,13 +58,14 @@ from ...errors import ApiError
 from ...models.commands import BatchItem
 from ...models.database import ChangeSet, Job
 from ..imports.binding import ImportLimits, bind_import
-from ..imports.preview import preview_items, record_preview
 from .background import open_job_context
 from .batches import JobCancelled, run_items
 from .exports import ExportCancelled, ExportControl, run_export
 from .files import JobFiles
+from .preview import preview_items, record_preview
 from .store import (
     FINISHED,
+    PREVIEWED_KINDS,
     complete_job,
     expire_jobs,
     finish_export,
@@ -99,7 +100,7 @@ class WorkerSettings:
     # An import's items once its file is bound, under the batch limits (D13).
     atomic_max_items: int = 10_000
     background_max_items: int = 1_000_000
-    # The items an import's preview runs (IMPORT_PREVIEW_MAX_ITEMS, 0.9 J3, D83).
+    # The items a preview runs (JOB_PREVIEW_MAX_ITEMS; 0.9 J3, D83; batches since 0.9 K2).
     preview_max_items: int = 10_000
 
 
@@ -195,7 +196,7 @@ class JobWorker:
                     stage=case(
                         ((Job.kind == "import") & Job.total.is_(None), "binding"),
                         (
-                            (Job.kind == "import")
+                            Job.kind.in_(PREVIEWED_KINDS)
                             & Job.confirmed_at.is_(None)
                             & (Job.parameters["stage"].as_string() == "preview"),
                             "previewing",

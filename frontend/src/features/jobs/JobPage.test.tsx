@@ -3,14 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { ApiError } from "@/api/errors";
 import { testModel } from "@/test/fixtures";
-import type { Job, JobRow } from "@/types";
+import type { Job, JobItemOutcome, JobRow } from "@/types";
 import { ToastProvider } from "@/ui/Toast";
 import { JobNotificationsProvider } from "./JobNotifications";
 import { JobPage } from "./JobPage";
 
 vi.mock("@/api/client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/api/client")>()),
-  api: { job: vi.fn(), jobRows: vi.fn(), confirmJob: vi.fn(), cancelJob: vi.fn() },
+  api: { job: vi.fn(), jobRows: vi.fn(), jobItems: vi.fn(), confirmJob: vi.fn(), cancelJob: vi.fn() },
 }));
 
 class SilentEventSource {
@@ -214,5 +214,109 @@ describe("JobPage of an import (0.9 J4)", () => {
     await waitFor(() => expect(SilentEventSource.opened.length).toBeGreaterThan(0));
     expect(screen.queryByRole("button", { name: "Load the file" })).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: "What the preview said" })).toBeInTheDocument();
+  });
+});
+
+/** A batch a bulk change sent (0.9 K2): applied, one record refused, one changed. */
+const applied: Job = {
+  ...waiting,
+  id: "j8",
+  kind: "batch",
+  state: "completed",
+  changeSetId: null,
+  parameters: { policy: "independent", run: "background", stage: "preview", onExisting: "reject" },
+  confirmedAt: "2026-10-09T09:01:00Z",
+  finishedAt: "2026-10-09T09:01:02Z",
+  result: "partial",
+  progress: { total: 2, processed: 2 },
+  counts: { applied: 1, rejected: 1, unprocessed: 0, created: 0, updated: 1, unchanged: 0, deleted: 0 },
+  preview: {
+    coverage: "complete",
+    items: { total: 2, previewed: 2 },
+    counts: { created: 0, updated: 2, unchanged: 0, deleted: 0, rejected: 0 },
+    result: "applied",
+    previewedAt: "2026-10-09T09:00:00Z",
+  },
+  bindingReport: null,
+};
+
+const outcomes: JobItemOutcome[] = [
+  { index: 0, ref: "Alpha", status: "applied", action: "updated", id: "a", objectTypeKey: "domain", version: 4 },
+  {
+    index: 1,
+    ref: "Beta",
+    status: "rejected",
+    error: { code: "VERSION_CONFLICT", message: "Changed by someone else" },
+  },
+];
+
+function renderBatch(job: Job, onNavigate = vi.fn()) {
+  vi.mocked(api.job).mockResolvedValue(job);
+  render(
+    <ToastProvider>
+      <JobNotificationsProvider model={testModel} onNavigate={vi.fn()}>
+        <JobPage
+          model={testModel}
+          jobId={job.id}
+          canCancel
+          jobsHref="/settings/jobs"
+          onJobs={vi.fn()}
+          onNavigate={onNavigate}
+        />
+      </JobNotificationsProvider>
+    </ToastProvider>,
+  );
+  return onNavigate;
+}
+
+describe("JobPage of a batch (0.9 K2)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    SilentEventSource.opened = [];
+    window.sessionStorage.clear();
+    vi.stubGlobal("EventSource", SilentEventSource);
+    vi.mocked(api.jobItems).mockImplementation(async (_, query) => ({
+      items: outcomes.filter((outcome) => !query?.status || outcome.status === query.status),
+      nextCursor: null,
+    }));
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("lists the items' outcomes, refused first, each linked to its record where it names one", async () => {
+    const onNavigate = renderBatch(applied);
+    const result = await screen.findByRole("region", { name: "The result" });
+    expect(result).toHaveTextContent("1 item changed, 1 refused.");
+    expect(screen.getByRole("region", { name: "What the preview said" })).toBeInTheDocument();
+    await screen.findByText("Changed by someone else");
+    expect(api.jobItems).toHaveBeenCalledWith("j8", expect.objectContaining({ status: "rejected" }));
+    // A refused outcome names no record: its name is not a link.
+    expect(screen.queryByRole("link", { name: "Beta" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("radio", { name: "All items" }));
+    const alpha = await screen.findByRole("link", { name: "Alpha" });
+    fireEvent.click(alpha);
+    expect(onNavigate).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "detail", objectTypeKey: "domain", objectId: "a", workspaceKey: "west" }),
+    );
+  });
+
+  it("applies or cancels a waiting batch preview", async () => {
+    const preview: Job = {
+      ...applied,
+      state: "awaiting_confirmation",
+      confirmedAt: null,
+      result: null,
+      finishedAt: null,
+    };
+    vi.mocked(api.confirmJob).mockResolvedValue({ ...preview, state: "queued", confirmedAt: "2026-10-09T09:01:00Z" });
+    renderBatch(preview);
+    expect(await screen.findByRole("region", { name: "The preview" })).toHaveTextContent(
+      "Applying would change 2 items.",
+    );
+    expect(screen.getByRole("button", { name: "Cancel preview" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    await waitFor(() => expect(api.confirmJob).toHaveBeenCalledWith("j8"));
+    // Applying follows the job again.
+    await waitFor(() => expect(SilentEventSource.opened.some((url) => url.includes("j8"))).toBe(true));
   });
 });

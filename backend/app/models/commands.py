@@ -384,7 +384,9 @@ BatchItem = Annotated[
 
 
 class BatchRequest(BaseModel):
-    """``POST /batches``: items, a failure policy and one context (INTEGRATION_API B1)."""
+    """``POST /batches``: items, a failure policy and one context (INTEGRATION_API B1). ``stage:
+    preview`` runs the items without writing and waits for confirmation (0.9 K2, D112); only a
+    background batch is previewed (D113)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -393,10 +395,17 @@ class BatchRequest(BaseModel):
     expectedChangeSetVersion: int | None = Field(default=None, ge=1)
     policy: Literal["atomic", "independent"]
     run: Literal["inline", "background"]
+    stage: Literal["execute", "preview"] = "execute"
     onExisting: Literal["reject", "overwrite"] = "reject"
     # Whether IDs of another workspace's records stand for this workspace's own (0.9 J5, D96).
     otherWorkspaceIds: Literal["refuse", "counterparts"] = "refuse"
     items: list[BatchItem] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _previewed_in_the_background(self) -> BatchRequest:
+        if self.stage == "preview" and self.run != "background":
+            raise ValueError("a preview runs in the background: send it with run: background")
+        return self
 
 
 # A subscription filter's value: one text or a list of texts, as a batch resolve item holds them.

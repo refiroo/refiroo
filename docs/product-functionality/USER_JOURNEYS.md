@@ -314,7 +314,7 @@ restructuring preview reports instead as problems of its plan, in its `200` answ
 ### J32 — Change many records of a collection at once
 
 **Actor:** steward. **Channel:** UI (its API side is J11 and J24). **Stories:** Track K (0.9).
-**Status:** in progress: selection delivered (0.9 K1); attribute edits, deletion (K2) and
+**Status:** in progress: selection delivered (0.9 K1), value changes (0.9 K2); deletion (K2b) and
 relationship edits (K3) planned.
 
 1. In a collection whose data can be written, select records: by hand, by a range, the loaded rows,
@@ -337,8 +337,20 @@ row showed; "all matching" reads its records and their versions when the change 
   limit, its setting, what to do); kept and cleared as above; absent in a publication or with jobs
   switched off.
 
-**Evidence today:** the browser runner `k1-selection`; `recordSelection.test`, `ObjectTable.test`,
-`CollectionView.test`, `SelectionBar.test`.
+- **J32.2 Change values of a selection** (0.9 K2): Change values… sets or clears one or more
+  fields (not read-only or hidden ones; a required one is never cleared), all or nothing or the
+  records that can change; all matching is read first, with progress and Stop; the preview says how
+  many will change, are already as asked and will be refused, naming each refused record; Apply
+  follows the job to its result, each refused record openable; the selection is kept with the
+  versions the change left, and Preview again repeats the change for what it did not change; a
+  stale change set, a request over `BATCH_BACKGROUND_MAX_BYTES` and a model activated meanwhile are
+  explained. Leaving the dialog before Apply (Back, Cancel, ✕, Escape, a click outside, opening a
+  record) cancels the preview; View job keeps it waiting. A batch's job page lists its items'
+  outcomes and applies or cancels a waiting preview.
+
+**Evidence today:** the browser runners `k1-selection` and `k2-bulk-change`; `recordSelection.test`,
+`ObjectTable.test`, `CollectionView.test`, `SelectionBar.test`, `bulkChange.test`,
+`BulkChangeDialog.test`, `JobPage.test`.
 
 ## Relationship sets and coverage
 
@@ -854,6 +866,13 @@ over single calls.
   everything applies, or a refusal leaves nothing.
 - **J11.6 Delete with cascade** (planned, decided D-6): a delete item removes a record with its
   dependants, as a single delete does, under a confirmation of the impact it deletes (PG-D18).
+- **J11.9 Preview a batch, then apply it** (0.9 K2): a background batch sent with
+  `stage: "preview"` runs its items without writing anything and waits with what applying would do
+  (counts, the result under its policy, whether it covered every item, each item's outcome);
+  confirming it applies the items to the data as it is then, so a record changed since is refused
+  for its version; a change set written meanwhile refuses the confirmation and the preview keeps
+  waiting until cancelled. A preview is a background job, refused inline, and runs at most
+  `JOB_PREVIEW_MAX_ITEMS` items.
 
 **Refusals:** `413 BATCH_TOO_LARGE`, `422 INVALID_BATCH_CONTEXT`, `422 IDEMPOTENCY_KEY_REUSED`,
 `409 IDEMPOTENCY_IN_PROGRESS`, `409 CHANGE_SET_REQUIRED`, `409 MODEL_RELEASE_CHANGED`; per item, the
@@ -1000,7 +1019,7 @@ through the API delivered in 0.9 J2, its preview and confirmation in 0.9 J3, and
   data changed meanwhile counts; a change set changed meanwhile refuses the confirmation and the
   preview keeps waiting. Cancelled, it ends at once; left, it expires with the job's retention.
 - **J27.12 A large file previewed in part**: every row bound and reported, the first items run up
-  to `IMPORT_PREVIEW_MAX_ITEMS`, the preview marked `sample` with the items and rows it covers.
+  to `JOB_PREVIEW_MAX_ITEMS`, the preview marked `sample` with the items and rows it covers.
 - **J27.14 Load another workspace's export**: with counterparts asked for, an export of workspace A
   loads into workspace B as B's own records, each with its counterpart ID (derived from its ID in A
   and B's key) and naming its source ID; parents and relationships arrive whole. Sent again, nothing

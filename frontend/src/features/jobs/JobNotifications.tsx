@@ -28,6 +28,8 @@ interface JobNotifications {
   follow: (job: Job, options?: { announce?: boolean }) => void;
   /** Hear of each followed job that ends; returns the way to stop listening. */
   onEnded: (listener: EndedListener) => () => void;
+  /** Open a job's page in Settings › Jobs and feed, with its address for a link. */
+  view: { href: (job: Pick<Job, "id">) => string; open: (job: Pick<Job, "id">) => void };
 }
 
 const JobNotificationsContext = createContext<JobNotifications | undefined>(undefined);
@@ -90,6 +92,11 @@ export function JobNotificationsProvider({
     [jobPage, model, toast, update],
   );
 
+  const view = {
+    href: (job: Pick<Job, "id">) => routePath({ kind: "settings", page: "jobs", jobId: job.id }),
+    open: (job: Pick<Job, "id">) => onNavigate({ kind: "settings", page: "jobs", jobId: job.id }),
+  };
+
   const onEnded = useCallback((listener: EndedListener) => {
     listeners.current.add(listener);
     return () => {
@@ -130,7 +137,7 @@ export function JobNotificationsProvider({
   );
 
   return (
-    <JobNotificationsContext.Provider value={{ follow, onEnded }}>
+    <JobNotificationsContext.Provider value={{ follow, onEnded, view }}>
       {children}
       {followed.map((id) => (
         <FollowedJob key={id} jobId={id} onEnded={ended} onWaiting={waiting} />

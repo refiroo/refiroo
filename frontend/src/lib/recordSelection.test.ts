@@ -8,6 +8,7 @@ import {
   selectMatching,
   toggle,
   toggleLoaded,
+  withVersions,
   type RecordSelection,
   type SelectableRow,
 } from "@/lib/recordSelection";
@@ -84,11 +85,28 @@ describe("record selection", () => {
 
   it("keeps the version each row showed when picked by hand", () => {
     const selection = range(toggle(emptySelection, loaded[0]), loaded, loaded[2]);
-    expect(selection.mode === "ids" && [...selection.ids]).toEqual([
+    expect(selection.mode === "ids" && [...selection.ids].map(([id, row]) => [id, row.version])).toEqual([
       ["a", 1],
       ["b", 2],
       ["c", 3],
     ]);
+  });
+
+  it("takes the versions a change left for the records picked by hand, and keeps all matching", () => {
+    const picked = toggle(toggle(emptySelection, { id: "a", version: 1, name: "Alpha" }), loaded[1]);
+    const after = withVersions(
+      picked,
+      new Map([
+        ["a", 4],
+        ["z", 9],
+      ]),
+    );
+    expect(after.mode === "ids" && [...after.ids.values()]).toEqual([
+      { id: "a", version: 4, name: "Alpha" },
+      { id: "b", version: 2, name: undefined },
+    ]);
+    const all = selectMatching(6);
+    expect(withVersions(all, new Map([["a", 4]]))).toBe(all);
   });
 
   it("keeps a row unchecked under all matching as an exception", () => {

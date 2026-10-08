@@ -8,6 +8,20 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 K2: changing values of a selection, and previewing a batch (D112–D119). `POST /batches`
+  takes `stage: "preview"` for a background batch (inline is refused): its items run without
+  writing anything, as an import's preview runs, and the job waits in `awaiting_confirmation` with
+  `preview` (no `rows`); `POST /jobs/{id}/confirm` runs the stored items as an execution, which is
+  authoritative. In the browser, **Change values…** in the selection bar sets or clears fields of
+  the selected records (not read-only or hidden ones; a required one is never cleared), all or
+  nothing up to `atomicJobMaxItems` or the records that can change; "all matching" is read with
+  progress and Stop; the preview's counts and refused records, each openable, come before Apply;
+  the result, Preview again and the selection keeping the versions the change left (D118) follow.
+  A batch's job page lists its items' outcomes, linked to their records, and applies or cancels a
+  waiting preview. Leaving the dialog before Apply (Back, Cancel, ✕, Escape, a click outside)
+  cancels the preview; View job keeps it waiting for its page (D115 amended). Every change is a
+  previewed background job (D114, amending D104); deleting a selection moves to K2b (D116).
+
 - Base 0.9 K1: selecting records in a collection (D102–D111). Where the data can be written and jobs
   can be created, a table view has a checkbox column: rows by hand, a Shift range over the loaded
   rows (pointer or Shift+Space), the loaded rows from the header checkbox, then **Select all N
@@ -494,6 +508,11 @@ All notable changes to this project are documented in this file. The format foll
   - Decisions D35–D39. No migration.
 
 ### Changed
+
+- Base 0.9 K2 (D119): `IMPORT_PREVIEW_MAX_ITEMS` is renamed `JOB_PREVIEW_MAX_ITEMS` and
+  `integrationJobs.limits.importPreviewMaxItems` `previewMaxItems`, without an alias, since the
+  limit now bounds a batch's preview too. The OpenAPI schema `ImportPreview` is `JobPreview`, its
+  `rows` an import's only; a batch's `parameters` name its `stage`.
 
 - Base 0.9 C17: webhook delivery choices. A subscription chooses how requests are made, three
   independent choices: `maxEventsPerBatch` (1–1,000, default 1: one event per request; batched, a

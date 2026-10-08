@@ -6,16 +6,19 @@
  * exceptions (D103, D109). The matching records and their versions are read when an action runs,
  * so here "all matching" holds only how many matched and what was left out.
  *
- * A range covers the rows loaded (D104): `rows` is always the loaded window, in its order.
+ * A range covers the rows loaded (D104): `rows` is always the loaded window, in its order. A
+ * hand-picked record keeps its name too, so a bulk change can name it once its row has scrolled
+ * away (0.9 K2).
  */
 
 export interface SelectableRow {
   id: string;
   version: number;
+  name?: string;
 }
 
 export type RecordSelection =
-  | { mode: "ids"; ids: ReadonlyMap<string, number>; anchor?: string }
+  | { mode: "ids"; ids: ReadonlyMap<string, SelectableRow>; anchor?: string }
   | { mode: "matching"; total: number; except: ReadonlySet<string>; anchor?: string };
 
 export const emptySelection: RecordSelection = { mode: "ids", ids: new Map() };
@@ -38,7 +41,7 @@ function setRows(
   if (selection.mode === "ids") {
     const ids = new Map(selection.ids);
     for (const row of rows) {
-      if (selected) ids.set(row.id, row.version);
+      if (selected) ids.set(row.id, { id: row.id, version: row.version, name: row.name });
       else ids.delete(row.id);
     }
     return { mode: "ids", ids, anchor };
@@ -87,4 +90,19 @@ export function toggleLoaded(selection: RecordSelection, rows: readonly Selectab
 
 export function selectMatching(total: number): RecordSelection {
   return total > 0 ? { mode: "matching", total, except: new Set() } : emptySelection;
+}
+
+/**
+ * After a bulk change (0.9 K2, D118): each hand-picked record the change wrote takes the version it
+ * left, so a second change over the same selection claims what the first left rather than
+ * conflicting with it. "All matching" reads its versions when a change runs, so it is kept as it is.
+ */
+export function withVersions(selection: RecordSelection, versions: ReadonlyMap<string, number>): RecordSelection {
+  if (selection.mode !== "ids" || !versions.size) return selection;
+  const ids = new Map(selection.ids);
+  for (const [id, version] of versions) {
+    const row = ids.get(id);
+    if (row) ids.set(id, { ...row, version });
+  }
+  return { ...selection, ids };
 }

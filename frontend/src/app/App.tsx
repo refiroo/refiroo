@@ -76,9 +76,11 @@ function AppContent({
   const [exportStart, setExportStart] = useState<ExportStart>();
   const onExport = capabilities?.integrationJobs.createJobs ? setExportStart : undefined;
   const [importStart, setImportStart] = useState<ImportStart>();
-  // An import this tab started that loaded into the data shown reloads it, and a change set's version.
+  // An import or a bulk change (0.9 K2) this tab started that wrote into the data shown reloads it,
+  // and a change set's version. A bulk change may end after failing part way, its chunks applied.
   useJobEnded((job) => {
-    if (job.kind !== "import" || job.state !== "completed" || job.workspaceKey !== route.workspaceKey) return;
+    if (job.workspaceKey !== route.workspaceKey) return;
+    if (job.kind === "import" ? job.state !== "completed" : job.kind !== "batch" || job.counts.applied === 0) return;
     if ((job.changeSetId ?? undefined) !== routeChangeSetId(route)) return;
     setRefreshToken((value) => value + 1);
     data.refresh?.().catch(() => undefined);

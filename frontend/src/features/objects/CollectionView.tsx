@@ -22,6 +22,8 @@ import { ScopeBanner } from "@/features/objects/CollectionScope";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useRecordSelection } from "@/lib/hooks/useRecordSelection";
 import { SelectionBar, selectionText } from "@/features/objects/SelectionBar";
+import { BulkChangeDialog } from "@/features/objects/BulkChangeDialog";
+import { readMatching } from "@/lib/readMatching";
 import type { ObjectItem, TableViewDefinition } from "@/types";
 import type { ViewComponentProps } from "./views/types";
 
@@ -76,6 +78,7 @@ export function ObjectCollectionView({
         filters: queryableFilters,
       };
   const [creating, setCreating] = useState(false);
+  const [changing, setChanging] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const previousSelection = useRef(selectedId);
   const focusedRow = useRef<string | undefined>(undefined);
@@ -286,7 +289,13 @@ export function ObjectCollectionView({
               pluralName={objectType.pluralName}
               onSelectMatching={() => knownTotal !== undefined && selection.selectMatching(knownTotal)}
               onClear={selection.clear}
-            />
+            >
+              {selection.count > 0 && (
+                <button type="button" className="secondary" onClick={() => setChanging(true)}>
+                  Change values…
+                </button>
+              )}
+            </SelectionBar>
             <p className="visually-hidden selection-status" role="status">
               {announcement}
             </p>
@@ -343,6 +352,37 @@ export function ObjectCollectionView({
           />
         )}
       </Card>
+      {changing && bulkSelection && selection.count > 0 && (
+        <BulkChangeDialog
+          model={model}
+          objectType={objectType}
+          workspaceKey={workspaceKey}
+          selection={selection.selection}
+          selected={selection.count}
+          readMatching={(signal, onProgress) =>
+            readMatching(
+              (selector) =>
+                api.objects(objectType.key, {
+                  applicationKey: application.key,
+                  workspaceKey,
+                  search: query.search,
+                  filters: query.filters,
+                  parentObjectId: query.parentObjectId,
+                  ...selector,
+                }),
+              { signal, onProgress },
+            )
+          }
+          onClose={() => setChanging(false)}
+          onApplied={(_, versions) => {
+            selection.takeVersions(versions);
+            onChanged?.();
+          }}
+          onOpenRecord={(id) =>
+            onOpen({ id, objectTypeKey: objectType.key, applicationKey: application.key, workspaceKey })
+          }
+        />
+      )}
       {creating && !readOnly && (
         <ObjectFormDialog
           model={model}

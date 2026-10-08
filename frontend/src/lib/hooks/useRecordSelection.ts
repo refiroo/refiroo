@@ -17,6 +17,7 @@ import {
   selectMatching,
   toggle,
   toggleLoaded,
+  withVersions,
   type RecordSelection,
   type SelectableRow,
 } from "@/lib/recordSelection";
@@ -55,5 +56,7 @@ export function useRecordSelection(listKey: string, rows: readonly SelectableRow
     selectMatching: (total: number) =>
       total > maxItems ? setHeld({ listKey, selection, refusedTotal: total }) : change(() => selectMatching(total)),
     clear: () => change(() => emptySelection),
+    /** The versions a bulk change left on the records it wrote (0.9 K2, D118). */
+    takeVersions: (versions: ReadonlyMap<string, number>) => change((previous) => withVersions(previous, versions)),
   };
 }

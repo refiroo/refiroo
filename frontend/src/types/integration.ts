@@ -58,10 +58,10 @@ export interface Job {
   /** For a job in a change set, the version it holds: its claim while it waits. */
   changeSetVersion?: number | null;
   policy?: ImportPolicy | null;
-  /** When a waiting preview was confirmed (0.9 J3). */
+  /** When a waiting preview was confirmed (0.9 J3; a batch's, 0.9 K2). */
   confirmedAt?: string | null;
-  /** What a previewed import would do (0.9 J3); kept after it is confirmed. */
-  preview?: ImportPreview | null;
+  /** What a previewed import (0.9 J3) or batch (0.9 K2) would do; kept after it is confirmed. */
+  preview?: JobPreview | null;
   /** Per source and column, what binding made of an import's cells, once bound (0.9 J3, D86). */
   bindingReport?: BindingReportSource[] | null;
   /** What an import's file as a whole means here, once bound (0.9 J4a), such as rows whose IDs
@@ -92,10 +92,11 @@ export interface ImportRequest {
   stage: "preview" | "execute";
 }
 
-export interface ImportPreview {
+export interface JobPreview {
   coverage: "complete" | "sample";
   items: { total: number; previewed: number };
-  rows: { total: number; previewed: number; rejected: number };
+  /** An import's rows of its file; a batch has none. */
+  rows?: { total: number; previewed: number; rejected: number };
   counts: { created: number; updated: number; unchanged: number; deleted: number; rejected: number };
   result: "applied" | "partial" | "rejected";
   previewedAt: string;
@@ -127,15 +128,50 @@ export interface BindingReportSource {
   columns: BindingReportColumn[];
 }
 
-/** An item's outcome (`GET /jobs/{id}/items`); a refused or unprocessed item carries its error. */
+/** An item's outcome (`GET /jobs/{id}/items`): an applied one names its record, a refused one
+ * carries its error and an unprocessed one its reason. */
 export interface JobItemOutcome {
   index: number;
   ref: string | null;
   status: "applied" | "rejected" | "unprocessed";
   action?: "created" | "updated" | "unchanged" | "deleted";
+  id?: string;
+  objectTypeKey?: string;
+  /** The record's version after the item; none after a live delete. */
+  version?: number;
   /** The ID the file gave, when the record written is its counterpart (0.9 J5). */
   sourceId?: string;
   error?: { code: string; message: string; details?: unknown };
+  reason?: string;
+}
+
+export interface JobItemPage {
+  items: JobItemOutcome[];
+  nextCursor: string | null;
+  prevCursor?: string | null;
+  anchor?: string | null;
+  totalCount?: number;
+  startIndex?: number;
+}
+
+/** An update item of `POST /api/v1/batches`: only the values given change, `null` clears one. */
+export interface BatchUpdateItem {
+  op: "update";
+  ref?: string;
+  target: { id: string };
+  expectedVersion: number;
+  attributes: { attributeTypeKey: string; value: unknown }[];
+}
+
+/** `POST /api/v1/batches` as a bulk change sends it (0.9 K2): a background preview (D112–D114). */
+export interface BatchRequest {
+  workspaceKey?: string;
+  changeSetId?: string;
+  expectedChangeSetVersion?: number;
+  policy: ImportPolicy;
+  run: "inline" | "background";
+  stage: "execute" | "preview";
+  items: BatchUpdateItem[];
 }
 
 /** One row of an import's file with its items' outcomes gathered (0.9 J3, D84). */

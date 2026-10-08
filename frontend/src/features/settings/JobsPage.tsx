@@ -54,6 +54,7 @@ export function JobsPage({
         canCancel={capabilities?.integrationJobs.createJobs ?? false}
         jobsHref={routePath(JOBS)}
         onJobs={() => onNavigate(JOBS)}
+        onNavigate={onNavigate}
       />
     );
   return <JobList model={model} onNavigate={onNavigate} />;

@@ -26,7 +26,7 @@ export function capabilitiesFixture({
         chunkItems: 500,
         retentionDays: 7,
         importMaxBytes: 200 * 1024 * 1024,
-        importPreviewMaxItems: 10000,
+        previewMaxItems: 10000,
       },
       setting: "INTEGRATION_JOBS_ENABLED",
     },

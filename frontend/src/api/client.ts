@@ -27,7 +27,10 @@ import type {
   ConsumerApiDefinition,
   ConsumerApiDocument,
   ConsumerApiIndexPage,
+  BatchRequest,
   Job,
+  JobItemOutcome,
+  JobItemPage,
   JobPage,
   JobRow,
   JobRowPage,
@@ -376,8 +379,26 @@ export const api = {
     }),
   cancelJob: (jobId: string) => request<Job>(`/api/v1/jobs/${encodeURIComponent(jobId)}/cancel`, { method: "POST" }),
   job: (jobId: string) => request<Job>(`/api/v1/jobs/${encodeURIComponent(jobId)}`),
-  /** Confirm a waiting import preview (0.9 J3): the file is bound again and loaded. */
+  /** Confirm a waiting preview: an import's file is bound again and loaded (0.9 J3), a batch's items
+   * applied (0.9 K2). */
   confirmJob: (jobId: string) => request<Job>(`/api/v1/jobs/${encodeURIComponent(jobId)}/confirm`, { method: "POST" }),
+  /** A job's item outcomes in item order (`GET /jobs/{id}/items`). */
+  jobItems: (jobId: string, query: PageSelector & { status?: JobItemOutcome["status"]; pageSize?: number } = {}) => {
+    const params = new URLSearchParams({ pageSize: String(query.pageSize ?? 50) });
+    if (query.status) params.set("status", query.status);
+    setPaging(params, query);
+    return request<JobItemPage>(`/api/v1/jobs/${encodeURIComponent(jobId)}/items?${params}`);
+  },
+  /**
+   * Send a batch (0.9 K2: always a background preview); the answer is the queued job. The
+   * idempotency key makes a retried request answer with the job the first one created.
+   */
+  startBatch: (body: BatchRequest, idempotencyKey: string) =>
+    request<Job>("/api/v1/batches", {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: { "Idempotency-Key": idempotencyKey },
+    }),
   /** An import's rows with their outcomes, in sheet and row order (0.9 J3, D84). */
   jobRows: (jobId: string, query: PageSelector & { status?: JobRow["status"]; pageSize?: number } = {}) => {
     const params = new URLSearchParams({ pageSize: String(query.pageSize ?? 50) });

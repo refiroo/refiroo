@@ -353,7 +353,7 @@ def test_an_unsupported_model_schema_is_upgraded_offline(configuration, database
                 "JOB_CHUNK_ITEMS": "4",
                 "JOB_RETENTION_DAYS": "2",
                 "IMPORT_MAX_BYTES": "13000",
-                "IMPORT_PREVIEW_MAX_ITEMS": "14",
+                "JOB_PREVIEW_MAX_ITEMS": "14",
             },
             "integrationJobs",
             {"createJobs": True},
@@ -383,7 +383,7 @@ def test_settings_shape_what_the_service_offers(
                 "backgroundBatchMaxBytes": 12000,
                 "chunkItems": 4,
                 "importMaxBytes": 13000,
-                "importPreviewMaxItems": 14,
+                "previewMaxItems": 14,
                 "retentionDays": 2,
             }
         paths = service.client.get("/openapi.json").json()["paths"]

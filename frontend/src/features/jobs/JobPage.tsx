@@ -6,13 +6,17 @@
  * An import's page is the import screen (0.9 J4, D91): its file and profile, the preview with Load
  * the file and Cancel import while it waits, the binding report and the rows; after loading, the
  * result. A waiting preview is not followed (`isResting`); confirming it follows it again.
+ *
+ * A batch's page (0.9 K2) shows its preview with Apply and Cancel preview while it waits, its result
+ * once applied, and its items' outcomes, each linked to its record where it names one.
  */
 
 import { useEffect, useState } from "react";
 import { api, jobOutputUrl } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import { formatServerTime } from "@/lib/dates";
-import type { EngineModel, Job } from "@/types";
+import { routePath } from "@/routing/routes";
+import type { EngineModel, Job, JobItemOutcome, RouteState } from "@/types";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { DescriptionList, type DescriptionItem } from "@/ui/DescriptionList";
 import { InlineError } from "@/ui/InlineError";
@@ -33,6 +37,7 @@ import {
   ImportResultSection,
   ImportRowsSection,
 } from "./ImportOutcome";
+import { BatchItemsSection, BatchPreviewSection, BatchResultSection } from "./BatchOutcome";
 import { RESULT, STATE, cancellable, fileSize } from "./jobText";
 import { isResting, useJobStream } from "./useJobStream";
 
@@ -44,12 +49,15 @@ export function JobPage({
   canCancel,
   jobsHref,
   onJobs,
+  onNavigate,
 }: {
   model: EngineModel;
   jobId: string;
   canCancel: boolean;
   jobsHref: string;
   onJobs: () => void;
+  /** Opens a record a batch's outcome names. */
+  onNavigate?: (route: RouteState) => void;
 }) {
   const [job, setJob] = useState<Job>();
   const [error, setError] = useState("");
@@ -132,6 +140,8 @@ export function JobPage({
   const output = job.output;
   const waiting = job.state === "awaiting_confirmation";
   const imported = job.kind === "import";
+  const batch = job.kind === "batch";
+  const waitingName = imported ? "import" : "preview";
   return (
     <SettingsLayout
       eyebrow={back}
@@ -146,12 +156,12 @@ export function JobPage({
           )}
           {canCancel && waiting && (
             <button type="button" className="primary" disabled={pending} onClick={() => void confirm()}>
-              {pending && !confirming ? "Loading…" : "Load the file"}
+              {pending && !confirming ? (imported ? "Loading…" : "Applying…") : imported ? "Load the file" : "Apply"}
             </button>
           )}
           {canCancel && (cancellable(job) || waiting) && (
             <button type="button" className="secondary" onClick={() => setConfirming(true)}>
-              {waiting ? "Cancel import" : "Cancel job"}
+              {waiting ? `Cancel ${waitingName}` : "Cancel job"}
             </button>
           )}
         </>
@@ -178,9 +188,11 @@ export function JobPage({
           </Notice>
         )}
         {confirmError && (
-          <Notice tone="error" title="The file was not loaded" focusOnMount>
-            {confirmError} The preview keeps waiting: cancel it and import the file again to preview the data as it is
-            now.
+          <Notice tone="error" title={imported ? "The file was not loaded" : "The change was not applied"} focusOnMount>
+            {confirmError}{" "}
+            {imported
+              ? "The preview keeps waiting: cancel it and import the file again to preview the data as it is now."
+              : "The preview keeps waiting: cancel it and make the change again to preview the data as it is now."}
           </Notice>
         )}
         {!imported && <DescriptionList className="compact" items={times(job)} />}
@@ -197,6 +209,19 @@ export function JobPage({
             <ImportFacts job={job} />
             <DescriptionList className="compact" items={times(job)} />
           </Section>
+        </>
+      )}
+      {batch && (
+        <>
+          {job.preview && !job.confirmedAt ? <BatchPreviewSection job={job} /> : <BatchResultSection job={job} />}
+          {isResting(job) && (
+            <BatchItemsSection
+              key={job.state}
+              job={job}
+              label={(outcome) => recordLink(model, job, outcome, onNavigate)}
+            />
+          )}
+          {job.confirmedAt && <BatchPreviewSection job={job} />}
         </>
       )}
       {output && (
@@ -241,9 +266,9 @@ export function JobPage({
       )}
       {confirming && (
         <ConfirmDialog
-          title={waiting ? "Cancel this import?" : "Cancel this job?"}
-          confirmLabel={waiting ? "Cancel import" : "Cancel job"}
-          dismissLabel={waiting ? "Keep the import" : "Keep the job"}
+          title={waiting ? `Cancel this ${waitingName}?` : "Cancel this job?"}
+          confirmLabel={waiting ? `Cancel ${waitingName}` : "Cancel job"}
+          dismissLabel={waiting ? `Keep the ${waitingName}` : "Keep the job"}
           pending={pending}
           error={cancelError}
           onCancel={() => {
@@ -262,6 +287,35 @@ export function JobPage({
         </ConfirmDialog>
       )}
     </SettingsLayout>
+  );
+}
+
+/**
+ * An outcome's name, linked to its record where the outcome names one that still stands: in the
+ * first application that shows its type, in the job's workspace or change set.
+ */
+function recordLink(
+  model: EngineModel,
+  job: Job,
+  outcome: JobItemOutcome,
+  onNavigate: ((route: RouteState) => void) | undefined,
+) {
+  const name = outcome.ref ?? `Item ${count(outcome.index + 1)}`;
+  const objectTypeKey = outcome.objectTypeKey;
+  const application = objectTypeKey && model.applications.find((item) => item.objectTypeKeys.includes(objectTypeKey));
+  if (!onNavigate || !outcome.id || !objectTypeKey || !application || outcome.action === "deleted") return name;
+  const route: RouteState = {
+    kind: "detail",
+    applicationKey: application.key,
+    objectTypeKey,
+    objectId: outcome.id,
+    workspaceKey: job.workspaceKey,
+    ...(job.changeSetId ? { changeSetId: job.changeSetId } : {}),
+  };
+  return (
+    <RouteLink href={routePath(route)} onNavigate={() => onNavigate(route)}>
+      {name}
+    </RouteLink>
   );
 }
 
@@ -300,7 +354,13 @@ function ProgressLine({
   stage: string | null;
 }) {
   const unit = kind === "export" ? "rows written" : "items processed";
-  const step = kind === "import" && stage ? STAGES[stage] : undefined;
+  // A batch is previewed too (0.9 K2); it applies rather than loads.
+  const step =
+    kind === "import" && stage
+      ? STAGES[stage]
+      : kind === "batch" && stage === "previewing"
+        ? STAGES.previewing
+        : undefined;
   return (
     <div className="job-progress">
       <progress value={total ? processed : undefined} max={total ?? undefined} aria-label="Progress" />

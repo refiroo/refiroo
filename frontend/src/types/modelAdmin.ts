@@ -28,8 +28,8 @@ export interface JobLimits {
   retentionDays: number;
   /** The largest import file (`IMPORT_MAX_BYTES`, 0.9 J2). */
   importMaxBytes: number;
-  /** The most items an import preview runs (`IMPORT_PREVIEW_MAX_ITEMS`, 0.9 J3). */
-  importPreviewMaxItems: number;
+  /** The most items a preview of an import or a batch runs (`JOB_PREVIEW_MAX_ITEMS`; 0.9 J3, K2). */
+  previewMaxItems: number;
 }
 
 export interface IntegrationJobCapabilities {

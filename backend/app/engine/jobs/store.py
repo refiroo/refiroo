@@ -216,10 +216,14 @@ def _foreign_notice(workspace_key: str, rows: int, counterparts: bool) -> dict[s
     }
 
 
+PREVIEWED_KINDS = ("import", "batch")
+
+
 def previewing(job: Job) -> bool:
-    """Whether the import runs as a preview: sent with ``stage: preview`` and not confirmed."""
+    """Whether the job runs as a preview: an import or a batch (0.9 K2) sent with ``stage:
+    preview`` and not confirmed."""
     return (
-        job.kind == "import"
+        job.kind in PREVIEWED_KINDS
         and job.parameters.get("stage") == "preview"
         and job.confirmed_at is None
     )
@@ -329,32 +333,37 @@ def await_confirmation(
 def confirm_job(session: Session, job: Job, check_context: Callable[[Job], None]) -> bool:
     """Confirm a waiting preview (D81, D87) under the job row's lock: its context is checked again
     by ``check_context``, which raises to refuse and leave it waiting; then the preview's outcomes
-    and inputs go, and the job is queued to bind its file again and run as an execution. ``False``
+    go and the job is queued to run as an execution. An import's inputs go too, since it binds its
+    file again; a batch keeps its stored items and runs them from the first (0.9 K2). ``False``
     when the job was confirmed before, which answers unchanged."""
     session.refresh(job, with_for_update=True)
     if job.confirmed_at is not None:
         return False
+    imported = job.kind == "import"
     if job.state == "expired":
         raise api_error(
             410,
             "JOB_EXPIRED",
-            f"Job '{job.id}' passed its retention unconfirmed and its file was removed; send the "
-            "import again",
+            f"Job '{job.id}' passed its retention unconfirmed and its "
+            f"{'file was' if imported else 'items were'} removed; send the "
+            f"{'import' if imported else 'batch'} again",
         )
     if job.state != AWAITING:
         raise api_error(
             409,
             "JOB_NOT_AWAITING_CONFIRMATION",
-            f"Job '{job.id}' is {job.state}; only an import previewed and waiting is confirmed",
+            f"Job '{job.id}' is {job.state}; only a previewed import or batch waiting for "
+            "confirmation is confirmed",
             {"jobId": job.id, "state": job.state},
         )
     check_context(job)
-    for table in (JobItem, JobInput):
+    for table in (JobItem, JobInput) if imported else (JobItem,):
         session.execute(delete(table).where(table.job_id == job.sequence_id))
     job.confirmed_at = datetime.now(UTC)
     job.state = "queued"
     job.stage = None
-    job.total = None
+    if imported:
+        job.total = None
     job.processed = 0
     job.counts = _empty_counts()
     job.result = None
