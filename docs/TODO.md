@@ -251,10 +251,10 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   J1u (2026-10-07); import profiles and imports run directly as J2 (2026-10-07); the preview,
   confirmation, outcomes by row and the binding report as J3 (2026-10-07); the screen as J4
   (2026-10-08).
-- [ ] Plan next (the user, 2026-10-08): load an export of one workspace into another workspace of the
-  same instance, new IDs given and the file's own references (parents, relationship ends) rewritten
-  to them; changes D49 and touches the identity door (ADR-032). J4a made the import say why such a
-  file cannot load today.
+- [ ] 0.9 J5 (planned 2026-10-08, D96–D101 decided): load an export of one workspace into
+  another workspace of the same instance as that workspace's own records (counterpart IDs derived
+  from the file's IDs and the workspace); amends D49 and touches the identity door (ADR-032). J4a
+  made the import say why such a file cannot load today.
 - [ ] If wanted (0.9 J4, D94's alternative): a file of an import's refused rows to download, with
   their cells and reasons. It needs the refused rows' cells kept after binding and a download route,
   an API capability; today the refused rows are listed on the import's page.

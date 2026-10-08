@@ -253,6 +253,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 30 | [J3](#j3-import-preview-and-execution) | J2, B2 | Import preview, confirm, outcomes by row, the binding report; `stage: execute` arrives with J2 (D64) — **delivered 2026-10-07** ([record](#j3-record-2026-10-07)), D80–D88 |
 | 31 | [J4](#j4-import-screen-and-sc-10) | J1u, J3, F2 | The SC-10 screen and SC-10 acceptance; frontend only (D89–D95) — **delivered 2026-10-08** ([record](#j4-record-2026-10-08)) |
 | 31a | [J4a](#j4a-why-another-workspaces-export-cannot-load) | J4 | Amendment: an import says why another workspace's export cannot load (the job's `notices`, refusals naming the workspace) — **delivered 2026-10-08** ([record](#j4a-why-another-workspaces-export-cannot-load)) |
+| 31b | [J5](#j5-another-workspaces-export-loaded-as-this-workspaces-own-records) | J4a | Another workspace's export loaded as this workspace's own records (counterpart IDs, `otherWorkspaceIds`), on imports and batches (D96–D101) — **planned 2026-10-08** ([plan](#j5-plan-2026-10-08)) |
 | 31a | [Track K](#track-k--bulk-selection-and-editing-in-collections) | J4, UA | Bulk selection and bulk edits in collections over `POST /batches`; packages K1–K5 planned in detail when the track starts — **added 2026-10-06** |
 | V | [V3–V9](#v3v9-the-management-api-documented-plan-2026-10-07) | V2 | The management API documented: the starter extended, content and examples beside the document, the error catalogue; V3 first, then V4–V8 in any order, then V9. **Independent fillers; block no release** (V-D9) — **planned 2026-10-07**, V-D1 open |
 | 32 | [R](#r-build-acceptance-and-release) | all except Track V's V3–V9 | Build acceptance and release |
@@ -8373,6 +8374,133 @@ fixed. Not run: the full suites (R).
 **Composable domains (ADR-032):** identity is touched only in wording: IDs stay instance-wide (D49);
 refusals and a notice say where an ID lives. The door for loading with new IDs stays open for the
 package that decides it.
+
+#### J5: Another workspace's export loaded as this workspace's own records
+
+**Asked 2026-10-08 by the user** (problem 2 after J4a): an export of `default` should load smoothly
+into another workspace of the instance, so relationships and further types can be loaded and
+tested there. Today D49 rules it out: record IDs are unique across the instance, so such a file
+loads only into the workspace it came from, and J4a only says why.
+
+##### J5 plan (2026-10-08)
+
+**Planned 2026-10-08. D96–D100 and the test cases accepted by the user the same day (D96 and D100 after they were explained); D101 decided by the user.** Checked against the code after
+J4a. Every file reaches the engine as batch items: an export's tables (`_layout_record`: `upsert`
+keyed by `{id}`, `parent: {id}`, `expectedVersion`; `_layout_relation`: `ensureRelation` with
+`from`/`to` by `{id}` and a version), a JSON Lines file (items as written, the export's being
+those), and a profile's ID key column (`key: {column}`). Their record IDs are read in one place,
+the batch: `_Items.prefetch` gathers every ID a chunk names (targets, parents, ends, initial
+relations, upsert keys, create IDs) and `find`, `resolve` and `upsert` decide over them; a live
+lookup sees only its workspace's records, and `id_taken` refuses an ID any live record holds (the
+J4a refusals). `POST /batches` runs the same path. **Needs:** J4a (delivered). No migration.
+
+**Behaviour.** An import (or a batch) may say that IDs of another workspace's records stand for
+this workspace's own records, their *counterparts*. Then a row naming record `X` of `default`
+loads into workspace `B` as `B`'s counterpart of `X`: created with the counterpart's ID the first
+time, found by it every time after. Its parent, its relationship ends and the records it names are
+translated the same way, so the file's structure arrives whole. The counterpart's ID is derived
+from `X` and `B` alone, so the same file loads again into `B` without copies (every row
+`unchanged`), a corrected file loads only its corrected rows (D94 holds), and a workspace's types
+can be loaded file by file: an export of `default`'s codelists finds the domains an earlier export
+already loaded into `B`. IDs that are `B`'s own records, and IDs no record holds (a file from another
+instance, D49), are used as they are, so `B`'s own export sent back to `B` stays exact. Nothing
+links a counterpart back to its original after the load; the two workspaces then change apart.
+
+**Contract.**
+
+- **`otherWorkspaceIds`** on `POST /imports` (the `request` part) and on `POST /batches`:
+  `"refuse"` (default, today's behaviour with J4a's refusals) or `"counterparts"` (D96). Part of the
+  idempotency fingerprint, as every request field is.
+- **The counterpart ID** (D97): `uuid5(namespace, "{workspaceKey}/{id}")`, with one namespace UUID
+  chosen at delivery, fixed in the engine and documented in API.md, so an integrator can compute
+  where a record went. A change set uses its workspace's key,
+  so loading into a change set and publishing gives the IDs a live load would.
+- **Outcomes**: an item applied to a counterpart reports the counterpart's `id` (as every outcome
+  reports the record it wrote) and gains `sourceId`, the file's ID, so a client can map the two.
+- **Versions** (D98): an item found as a counterpart ignores the file's `expectedVersion` (it is the
+  other workspace's record's); `onExisting` decides, after D24's `unchanged`.
+- **Notices**: with `counterparts`, J4a's `RECORD_IDS_OF_ANOTHER_WORKSPACE` notice becomes
+  `RECORD_IDS_AS_COUNTERPARTS` (same details): "N rows name records of workspace 'default' by
+  their IDs; they load as this workspace's own records." A reference to a counterpart not yet loaded
+  is refused `REFERENCE_NOT_FOUND` saying so: "The parent is record X of workspace 'default', whose
+  counterpart is not in this workspace: load the file holding it first."
+
+**Design.**
+
+- **One translation, in the batch** (`engine/jobs/batches.py`): when the request says
+  `counterparts`, `prefetch` takes the chunk's IDs that are not the context's records and asks once
+  which of them another workspace's live records hold (one statement, beside J4a's
+  `other_workspace`); each becomes its counterpart, and the counterparts are prefetched as the IDs
+  were. `find`, `resolve`, `upsert` and a create's given ID read through that map, so every
+  reference kind is covered by one rule and the decide steps are unchanged. Two statements per
+  chunk at most; nothing per item.
+- **Binding** passes the option through. A profile's `matchBy: {"field": "id"}` is resolved at
+  binding against the context (D68), before the batch: with `counterparts`, each such cell also
+  carries its counterpart, and the resolving statement matches either (D100).
+- **Frontend**: the import dialog gains "Records of another workspace" (Load them as this
+  workspace's own / Refuse them) with D99's default; the import's page shows the counterparts
+  notice; a row's outcome shows its source ID beside the record it wrote. No batch screen exists to
+  change.
+
+**Decisions** (for approval):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D96 | How a load asks for counterparts | **Accepted 2026-10-08 by the user.** **An explicit request field, `otherWorkspaceIds: "refuse" \| "counterparts"`, default `refuse`, on imports and batches.** Turning it on always would make a file sent to the wrong workspace by an integration create copies silently instead of being refused; the explicit field keeps today's answer for every existing client. Batches too, since a JSON Lines export sent back as a batch is a documented journey (J27.3) and the API offers every capability (AGENTS.md) |
+| D97 | What a counterpart's ID is | **Accepted 2026-10-08 by the user.** **Derived: `uuid5` of a fixed, documented namespace and `{workspaceKey}/{id}`.** Deterministic, so a second load finds the first's records, files load type by type, and no mapping table is stored or cleaned up. Random new IDs would make every load a copy and break D94's "send it again". Documented, so an integrator can compute it. A workspace deleted and created again under the same key gets the same counterparts, which is harmless, since its old records are gone |
+| D98 | The file's versions on a counterpart | **Accepted 2026-10-08 by the user.** **Ignored; `onExisting` decides.** The version is the other workspace's record's and says nothing about the counterpart. An unchanged row stays `unchanged` first (D24), so a second load is quiet without `overwrite` |
+| D99 | The import dialog's default | **Accepted 2026-10-08 by the user.** **"Load them as this workspace's own" in the browser; the API's default stays `refuse` (D96).** The person in the browser always sees the preview, whose notice says what will happen before anything is written, which is where a wrong workspace is caught; you expected exactly this load to go smoothly. An integration chooses explicitly |
+| D100 | Which IDs are translated | **Accepted 2026-10-08 by the user, as revised after checking the code:** every record ID**, wherever a file or a batch names a record: upsert keys, create IDs, parents, update and delete targets, relationship ends, initial relations, set anchors and targets, a profile's ID key column, **and a profile's `matchBy: {"field": "id"}`**. The last is resolved while the file is read, in one set statement against the context and the file's rows (D68), not in the batch, so binding adds each ID cell's counterpart as a second candidate (computed in Python as the cell is read; one more `UNION` in the statement). **Not relationship IDs** (`updateRelation`, `deleteRelation` by `relationId`): a relationship created from a file gets a new random ID, so no counterpart can be computed for one, and exports carry none; such an item stays `404 RELATION_NOT_FOUND` as today |
+| D101 | Checks for the cost | **Decided 2026-10-08 by the user: no budget or volume test.** Loading into another workspace runs the same batch path on the same tables; the recommendation (assert the two statements per chunk the translation adds in `test_import_volume` and `test_batch_statements`) is not taken | D88's 110.7 s ran with an 8 % margin, and two statements per 500-item chunk add about 400 statements to 100,000 items |
+
+**Journey.** J27.14 (new) *Load another workspace's export*: with counterparts, an export of
+workspace A loads into B as B's own records, whole (parents and relationships); sent again, nothing
+changes; a later file finds the counterparts an earlier one loaded; B's own export stays exact; a
+reference to a counterpart not loaded is refused saying so. J11 gains the batch option.
+USER_JOURNEYS, API_JOURNEYS (the field, `sourceId`, the notice, the refusal), D49 amended.
+
+**Test cases** (approved by the user 2026-10-08; journey tests on generated A and B through the
+API, written first and confirmed failing):
+
+1. **Loaded whole.** H records `Top` and `Leaf` (child of `Top`) and a `Bnn` relationship from `Leaf`
+   to a K record, exported from workspace A as CSV and imported into B with `counterparts`: all
+   created in B with the counterpart IDs (computed in the test from the documented namespace), each
+   outcome naming its `sourceId`; `Leaf`'s parent is `Top`'s counterpart; the relationship joins the
+   counterparts; A is unchanged; the notice is `RECORD_IDS_AS_COUNTERPARTS`.
+2. **Sent again.** The same file into B again: every item `unchanged`, no record added. With `Top`
+   renamed in the file and `onExisting: overwrite`, only `Top` is updated.
+3. **File by file.** An export of A's H and K records (no relationships) loaded into B; then a JSON
+   Lines export of A's relationships, its lines sent as items of `POST /batches` with
+   `counterparts`: the relationships join B's counterparts.
+4. **B's own export stays exact.** B's records exported and sent back to B with `counterparts`: every
+   item `unchanged`, the IDs B's own.
+5. **A counterpart not loaded.** A file holding only `Leaf`, loaded into a third workspace with
+   `counterparts`: refused `REFERENCE_NOT_FOUND` naming A and saying to load the file holding the
+   parent first.
+6. **Into a change set.** The file of case 1 into a change set of B: the records carry the same
+   counterpart IDs as the live load would; after publishing, live B reads them.
+
+Unit tests where the edge cases are real: the counterpart derivation (stable, different per
+workspace, a free or own ID untouched). Browser (`test:browser:j4`, the J4a case extended): the
+dialog's choice and default, the preview's notice, Load the file, the records in the other
+workspace's collection, the file sent again previewing as unchanged.
+
+**Checks.** The cases above; `--journey J27 --journey J11`; `jobs`, `records`, `change_sets` as the
+guide selects them; `test_rule_parity`; no volume or budget test (D101);
+`test_openapi_contract` (re-baselined: the field, `sourceId`); `test_api_journeys`; `ruff`.
+Frontend `vitest related`, `format`, `lint`, `build`; `test:browser:j4`. No migration. Not run: the
+full suites (R).
+
+**Docs at delivery.** API.md (the field, the derivation and its namespace, `sourceId`, the notice,
+the refusal; D49's paragraph amended), INTEGRATION_API §J4 (the limit), USER_JOURNEYS, API_JOURNEYS,
+CURRENT_FUNCTIONALITY, PRODUCT, UI_ACCEPTANCE, CHANGELOG, PROJECT_STATUS, TODO (the item closed).
+
+**Composable domains (ADR-032):** the identity door is touched and stays open. A counterpart is a
+new record with a derived ID; no record changes identity, so a later retired-ID redirect or merge is
+unaffected. Provenance gains nothing stored: the derivation is recomputable from the file's ID and
+the workspace, and the outcome's `sourceId` reports it. Storing a counterpart's origin (for a
+"copied from" link) would be additive later. Attribute storage, the `match` declaration and
+mapping coverage are untouched.
 
 ## Track K — Bulk selection and editing in collections
 
