@@ -233,6 +233,14 @@ it removes the record and its owned dependants from the candidate graph, visible
 set is published. Neither is retroactive: publications and the audit log keep the former identities.
 Physically purging publications would need a separately authorised retention operation.
 
+One path deletes, for the single `DELETE` and for a batch's delete items alike, live and in a change
+set (`engine/records/deletion.py`, 0.9 K2b). A run of deletions is set work: the closures of all its
+records are computed in one recursive query into temporary tables, each record belonging to the
+earliest item reaching it; each item's impact is counted and digested there and compared with the
+token that confirms it; the accepted items' audit entries, relation-set versions and removals (or a
+change set's tombstones) are written as set statements. The statements of a run do not grow with its
+items or with the size and depth of their impacts.
+
 ## Live data, change sets and publications
 
 ADR-027 sets the authority boundaries:

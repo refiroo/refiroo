@@ -9,7 +9,10 @@ what it read, so each item sees the items before it (D23). The accepted items ar
 together, each kind of row in multi-row statements (``records/bulk.py``). A refused item writes
 nothing, so no item needs a savepoint (PG-D15); a bulk write that fails on something the rules did
 not foresee is redone item by item, each as a batch of one, so the failing item gets its single
-write's answer. A delete item keeps the single delete's path, one item at a time (PG-D18).
+write's answer. A run of delete items is decided and written together by the deletion path the
+single delete shares (``records/deletion.py``; 0.9 K2b, D120–D123): a cascading item is confirmed
+by its token, which a preview gives, and a record an earlier item of the job deleted answers
+``unchanged`` naming that item (D122).
 
 The batch adds what single writes lack (INTEGRATION_API B): records named by a unique key, upsert,
 ``unchanged`` and the failure policies.
@@ -57,7 +60,6 @@ from ...models.database import ChangeSet, RdmObject
 from ...models.schema import EngineModel
 from ..change_sets.access import change_set_model, load_change_set
 from ..change_sets.records import (
-    apply_change_set_object_delete,
     decide_change_set_object_create,
     decide_change_set_object_update,
 )
@@ -70,7 +72,15 @@ from ..records.audit import audit_cause
 from ..records.batch_lookup import BatchLookup, ChangeSetBatchLookup, LiveBatchLookup
 from ..records.bulk import write_change_set, write_live
 from ..records.counterparts import counterpart
-from ..records.deletion import apply_object_delete
+from ..records.deletion import (
+    ChangeSetScope,
+    Deletion,
+    DeletionScope,
+    LiveScope,
+    delete_records,
+    deleted_by_job,
+    deletion_preview_changed,
+)
 from ..records.objects import (
     attributes_to_dict,
     decide_object_create,
@@ -88,7 +98,7 @@ from ..records.relation_writes import (
 from ..records.values import normalize_value, stored_json_value
 from ..records.writes import ChangeSetWrites, LiveWrites
 from ..workspaces.catalogue import resolve_workspace
-from .store import ItemOutcome
+from .store import ItemOutcome, applied_deletions
 
 # A cancel request is looked for before every this many items an atomic job decides, and before
 # its items are written (D28).
@@ -105,6 +115,8 @@ _POINTERS = {
     "RELATION_NOT_FOUND": "id",
     "RELATION_SET_VERSION_CONFLICT": "expectedRelationSetVersion",
     "RELATION_SET_CLAIM_INCOMPLETE": "expectedRelationSetVersion",
+    "DELETION_PREVIEW_REQUIRED": "deletionPreviewToken",
+    "DELETION_PREVIEW_CHANGED": "deletionPreviewToken",
     "UNKNOWN_RELATION_ATTRIBUTES": "attributes",
     "MISSING_REQUIRED_RELATIONS": "initialRelations",
     "DUPLICATE_INITIAL_RELATION": "initialRelations",
@@ -207,9 +219,11 @@ def run_items(
     job_id: str,
     should_stop: Callable[[], bool] | None = None,
     other_workspace_ids: str = "refuse",
+    previewing: bool = False,
 ) -> list[ItemOutcome]:
     """Apply ``items`` (each with its index in the job) under the policy; the caller records the
-    outcomes and commits. An inline batch is one call; a background job one call per chunk.
+    outcomes and commits. An inline batch is one call; a background job one call per chunk; a
+    preview (``previewing``) one call the caller rolls back.
 
     A stale ``expectedChangeSetVersion`` raises before any item runs. ``should_stop`` is asked
     before every ``STOP_CHECK_ITEMS`` items and before the items are written; when it answers
@@ -226,7 +240,15 @@ def run_items(
             )
             with claim:
                 outcomes = _Batch(
-                    session, context, items, policy, on_existing, should_stop, other_workspace_ids
+                    session,
+                    context,
+                    items,
+                    policy,
+                    on_existing,
+                    should_stop,
+                    other_workspace_ids,
+                    job_id=job_id,
+                    previewing=previewing,
                 ).run()
     except JobCancelled:
         outer.rollback()
@@ -267,16 +289,15 @@ class JobCancelled(Exception):
 def _segments(
     items: Sequence[tuple[int, BatchItem]],
 ) -> Iterator[Sequence[tuple[int, BatchItem]]]:
-    """Runs of items decided together, and each delete item on its own (PG-D18)."""
+    """Runs of items decided together: delete items and the others in runs of their own, in
+    order (0.9 K2b)."""
     start = 0
-    for position, (_index, item) in enumerate(items):
-        if isinstance(item, BatchDeleteItem):
-            if position > start:
-                yield items[start:position]
-            yield items[position : position + 1]
-            start = position + 1
-    if start < len(items):
-        yield items[start:]
+    for position in range(1, len(items) + 1):
+        if position == len(items) or isinstance(items[position][1], BatchDeleteItem) != isinstance(
+            items[start][1], BatchDeleteItem
+        ):
+            yield items[start:position]
+            start = position
 
 
 class _Batch:
@@ -289,6 +310,9 @@ class _Batch:
         on_existing: str,
         should_stop: Callable[[], bool] | None,
         other_workspace_ids: str = "refuse",
+        *,
+        job_id: str,
+        previewing: bool = False,
     ) -> None:
         self.writer = (
             _ChangeSetItems(session, context) if context.change_set else _LiveItems(session, context)
@@ -299,12 +323,17 @@ class _Batch:
         self.on_existing = on_existing
         self.should_stop = should_stop
         self.session = session
+        self.job_id = job_id
+        self.previewing = previewing
+        # The record each delete item of this call deleted, by its item: an earlier chunk's are
+        # read from the job's outcomes (D122).
+        self.deleting: dict[str, int] = {}
 
     def run(self) -> list[ItemOutcome]:
         outcomes: list[ItemOutcome] = []
         for segment in _segments(self.items):
-            bulk = not isinstance(segment[0][1], BatchDeleteItem)
-            go_on = self._together(segment, outcomes) if bulk else self._one_by_one(segment, outcomes)
+            deletes = isinstance(segment[0][1], BatchDeleteItem)
+            go_on = self._deletes(segment, outcomes) if deletes else self._together(segment, outcomes)
             if not go_on:
                 break
         return outcomes
@@ -374,6 +403,105 @@ class _Batch:
             outcomes.append(ItemOutcome(index, item.ref, "applied", fields))
         return True
 
+    def _deletes(
+        self, segment: Sequence[tuple[int, BatchItem]], outcomes: list[ItemOutcome]
+    ) -> bool:
+        """A run of delete items, decided and written together by the deletion path (D123);
+        ``False`` when an atomic batch stops at a rejection."""
+        self.writer.translate_ids(_named_ids(item for _index, item in segment))
+        lookup = self.writer.open()
+        lookup.prefetch_objects(
+            {
+                self.writer.translate(str(item.target.id))
+                for _index, item in segment
+                if item.target.id is not None
+            }
+        )
+        found: dict[int, Any] = {}
+        decided: dict[int, ItemOutcome] = {}
+        missing: dict[int, str] = {}
+        for number, (index, item) in enumerate(segment):
+            if number % STOP_CHECK_ITEMS == 0:
+                self._stop_check()
+            at = f"/items/{index}"
+            try:
+                record = self.writer.resolve(item.target, f"{at}/target")
+            except ApiError as error:
+                if error.code == "REFERENCE_NOT_FOUND" and item.target.id is not None:
+                    missing[index] = self.writer.translate(str(item.target.id))
+                decided[index] = _rejected(index, item, error)
+                continue
+            # A counterpart's version is not the file's, which is the other workspace's (D98).
+            claimed = None if self.writer.translated(item.target) else item.expectedVersion
+            if claimed is not None and claimed != record.version:
+                error = (
+                    deletion_preview_changed()
+                    if item.cascade and item.deletionPreviewToken is not None
+                    else self.writer.version_conflict(record)
+                )
+                decided[index] = _rejected(index, item, error)
+                continue
+            # Identity only: the records are deleted and expired by the run.
+            found[index] = (record.object_id, record.object_type_key)
+        # A record this job deleted already, with an earlier item's impact (D122).
+        gone = deleted_by_job(self.session, self.job_id, sorted(set(missing.values())))
+        if gone:
+            earlier = {**applied_deletions(self.session, self.job_id, set(gone.values())), **self.deleting}
+            for index, object_id in missing.items():
+                owner = earlier.get(gone.get(object_id, ""))
+                if owner is not None and owner < index:
+                    item = dict(segment)[index]
+                    decided[index] = ItemOutcome(
+                        index,
+                        item.ref,
+                        "applied",
+                        {"action": "unchanged", "id": object_id, "deletedWithItem": owner},
+                    )
+        first_refused = min(
+            (index for index, outcome in decided.items() if outcome.status == "rejected"),
+            default=None,
+        )
+        atomic = self.policy == "atomic"
+        runs = [
+            Deletion(index, *found[index], item.cascade, item.deletionPreviewToken)
+            for index, item in segment
+            if index in found and not (atomic and first_refused is not None and index > first_refused)
+        ]
+        results = {
+            result.item: result
+            for result in delete_records(
+                self.writer.deletion_scope(),
+                runs,
+                previewing=self.previewing,
+                atomic=atomic,
+            )
+        }
+        items = dict(segment)
+        for result in results.values():
+            item, (object_id, object_type_key) = items[result.item], found[result.item]
+            identity = {"id": object_id, "objectTypeKey": object_type_key}
+            if result.error is not None:
+                decided[result.item] = _rejected(result.item, item, result.error)
+            elif result.deleted_with is not None:
+                decided[result.item] = ItemOutcome(
+                    result.item,
+                    item.ref,
+                    "applied",
+                    {"action": "unchanged", **identity, "deletedWithItem": result.deleted_with},
+                )
+            else:
+                self.deleting[object_id] = result.item
+                decided[result.item] = ItemOutcome(
+                    result.item, item.ref, "applied", {"action": "deleted", **identity, "impact": result.impact}
+                )
+        for index, _item in segment:
+            if index not in decided:
+                break
+            outcomes.append(decided[index])
+            if atomic and decided[index].status == "rejected":
+                return False
+        return True
+
     def apply(self, index: int, item: BatchItem) -> dict[str, Any]:
         at = f"/items/{index}"
         if isinstance(item, BatchCreateItem):
@@ -389,14 +517,6 @@ class _Batch:
             return self.update(item, record, at, claimed)
         if isinstance(item, BatchUpsertItem):
             return self.upsert(item, at)
-        if isinstance(item, BatchDeleteItem):
-            record = self.writer.resolve(item.target, f"{at}/target")
-            self.writer.delete(record, item.expectedVersion)
-            return {
-                "action": "deleted",
-                "id": record.object_id,
-                "objectTypeKey": record.object_type_key,
-            }
         if isinstance(item, RELATION_ITEMS):
             return self.relation_item(item, at)
         if isinstance(item, BatchReplaceRelationSetItem):
@@ -936,7 +1056,12 @@ class _Items:
     ) -> int:
         raise NotImplementedError
 
-    def delete(self, record: Any, expected_version: int) -> None:
+    def deletion_scope(self) -> DeletionScope:
+        """Where a run of delete items deletes (``records/deletion.py``)."""
+        raise NotImplementedError
+
+    def version_conflict(self, record: Any) -> ApiError:
+        """A delete item's stale version, refused as its single delete refuses it."""
         raise NotImplementedError
 
     def write(self) -> None:
@@ -997,14 +1122,14 @@ class _LiveItems(_Items):
         )
         return updated.version
 
-    def delete(self, record: Any, expected_version: int) -> None:
-        apply_object_delete(
-            self.session,
-            self.model,
-            record.object_type_key,
-            record.object_id,
-            expected_version,
-            model_identity=self.context.model_hash or "",
+    def deletion_scope(self) -> DeletionScope:
+        return LiveScope(
+            self.session, self.model, self.context.workspace_key, self.context.model_hash or ""
+        )
+
+    def version_conflict(self, record: Any) -> ApiError:
+        return api_error(
+            409, "VERSION_CONFLICT", "Object version has changed", {"currentVersion": record.version}
         )
 
     def write(self) -> None:
@@ -1086,14 +1211,15 @@ class _ChangeSetItems(_Items):
         )
         return updated.version
 
-    def delete(self, record: Any, expected_version: int) -> None:
-        apply_change_set_object_delete(
-            self.session,
-            self.change_set_id,
-            record.object_type_key,
-            record.object_id,
-            self._claimed_version(),
-            expected_version,
+    def deletion_scope(self) -> DeletionScope:
+        return ChangeSetScope(self.session, self.model, self.context.change_set)
+
+    def version_conflict(self, record: Any) -> ApiError:
+        return api_error(
+            409,
+            "VERSION_CONFLICT",
+            "Object record version has changed",
+            {"currentVersion": record.version},
         )
 
     def write(self) -> None:
@@ -1231,11 +1357,14 @@ def _at(error: ApiError, pointer: str) -> ApiError:
     )
 
 
+def _rejected(index: int, item: BatchItem, error: ApiError) -> ItemOutcome:
+    return ItemOutcome(index, item.ref, "rejected", {"error": _error(index, error)})
+
+
 def _error(index: int, error: ApiError) -> dict[str, Any]:
-    """A rejection in the API error shape, with a pointer into the item (P2). A batch deletes
-    without cascade, so a dependants refusal carries no preview token (§B3)."""
+    """A rejection in the API error shape, with a pointer into the item (P2); a dependants
+    refusal carries the item's ``impact`` with its token (0.9 K2b)."""
     details = _details(error)
-    details.pop("deletionPreviewToken", None)
     if "pointer" not in details:
         field = _POINTERS.get(error.code)
         details["pointer"] = f"/items/{index}/{field}" if field else f"/items/{index}"

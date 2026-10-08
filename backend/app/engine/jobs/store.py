@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import JSON, delete, func, insert, literal, select, update
+from sqlalchemy import JSON, delete, func, insert, literal, select, text, update
 from sqlalchemy.orm import Session
 
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
@@ -357,6 +357,8 @@ def confirm_job(session: Session, job: Job, check_context: Callable[[Job], None]
             {"jobId": job.id, "state": job.state},
         )
     check_context(job)
+    if not imported:
+        _carry_deletion_tokens(session, job)
     for table in (JobItem, JobInput) if imported else (JobItem,):
         session.execute(delete(table).where(table.job_id == job.sequence_id))
     job.confirmed_at = datetime.now(UTC)
@@ -368,6 +370,49 @@ def confirm_job(session: Session, job: Job, check_context: Callable[[Job], None]
     job.counts = _empty_counts()
     job.result = None
     return True
+
+
+# The token a cascading delete item takes from its preview (0.9 K2b, D120); an item the preview did
+# not delete itself (it went with another, or was refused) takes a token no impact matches, so a
+# record standing on its own at execution is refused as changed rather than as never previewed.
+_CARRY_TOKENS = text(
+    """
+    UPDATE job_inputs input
+    SET item = (input.item::jsonb || jsonb_build_object('deletionPreviewToken',
+        coalesce(outcome.outcome -> 'impact' ->> 'deletionPreviewToken', 'not-deleted-in-preview')
+    ))::json
+    FROM job_items outcome
+    WHERE input.job_id = :job AND outcome.job_id = :job
+        AND outcome.item_index = input.item_index
+        AND input.item ->> 'op' = 'delete' AND (input.item ->> 'cascade')::boolean
+        AND input.item ->> 'deletionPreviewToken' IS NULL
+    """
+)
+
+
+def _carry_deletion_tokens(session: Session, job: Job) -> None:
+    session.execute(_CARRY_TOKENS, {"job": job.sequence_id})
+
+
+def applied_deletions(session: Session, job_id: str, object_ids: Iterable[str]) -> dict[str, int]:
+    """The item of the job that deleted each of ``object_ids``, from its outcomes (0.9 K2b)."""
+    wanted = sorted(set(object_ids))
+    if not wanted:
+        return {}
+    object_id = JobItem.outcome["id"].as_string()
+    return {
+        found: index
+        for found, index in session.execute(
+            select(object_id, JobItem.item_index)
+            .join(Job, Job.sequence_id == JobItem.job_id)
+            .where(
+                Job.id == job_id,
+                JobItem.status == "applied",
+                JobItem.outcome["action"].as_string() == "deleted",
+                object_id.in_(wanted),
+            )
+        )
+    }
 
 
 def cancel_waiting(session: Session, job: Job, *, retention_days: int) -> None:

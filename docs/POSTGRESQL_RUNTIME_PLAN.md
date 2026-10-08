@@ -98,7 +98,12 @@ added. D11 accepted 2026-10-01 at the start of PG1. D12–D17 accepted 2026-10-0
 | PG-D16 | History | **Per record, as today:** one audit event per item with the job as its cause, inserted together; the events' sequence numbers come back from the insert (`RETURNING`) for their subjects. Typed value index rows go through `snapshot_values` and matrix notes through `note_rows`/`note_cells`, applied once per chunk as now (ADR-033) |
 | PG-D17 | How the cost is held | **Counted, not timed.** Statements per chunk at two seeded dataset sizes, which must not grow with the data or with the chunk's item count beyond a constant; seconds to run, in the parallel part. The 100,000-item run becomes a measurement at PG5's acceptance, announced and run once. Target: 100,000 items in under a minute in each context, confirmed or restated by that first measurement. **Measured at PG5 (2026-10-03):** 52 s live, met; 64 s in a change set, missed by 4 s and kept as the target, with the cause to find after 1.0 ([POSTGRESQL_BUDGETS E7](POSTGRESQL_BUDGETS.md#e7-pg-d17-in-a-change-set-64-s-for-100000-items-target-under-60-s)) |
 
-**Note (PG-D18, open, to revisit):** batch deletion stays per item in PG3b, and neither today's
+**Note (PG-D18, closed 2026-10-09 by 0.9 K2b, D120–D124):** deletion is now one set-based path for
+the single delete and a batch's delete items, live and in a change set, with cascading items
+confirmed per item by the single delete's token; its statements per run are counted at two sizes
+(`test_batch_statements`), and its timing on the full-size fixture is measured once at R
+([K2b](BASE_0_9_IMPLEMENTATION_PLAN.md#k2b-deleting-a-selection)). The note as it stood:
+batch deletion stays per item in PG3b, and neither today's
 per-item path nor a set-based copy of it is the right answer. A large delete batch is not rare, and
 it must not occupy the job worker for minutes or stall the engine. Revisit after PG3b with the
 deletion path's cascades, subtree impact and signed confirmation in view

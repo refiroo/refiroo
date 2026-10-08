@@ -107,7 +107,16 @@ shows the result. Records changed by someone else since they were shown are refu
 overwritten. The selection stays after a change, so a second change follows the first, and Preview
 again repeats a change for what it did not change. Leaving the dialog before applying cancels the
 preview, whether by Back, closing it or clicking outside; View job keeps it waiting, to be applied
-or cancelled on its job page. Deleting a selection and changing its relationships are being built (Track K).
+or cancelled on its job page.
+
+**Delete…** deletes the selected records, each with the records inside it and the records it owns;
+its relationships to other records are removed and those records stay. Before anything is deleted
+the preview says how many selected records go, how many records go with them by type, how many
+relationships are removed and how many of those reach records that stay, and which selected records
+go with another selected one. The button names the whole ("Delete 352 records"). Deleting removes
+exactly what the preview showed for each record: one changed meanwhile (a child added, a record
+edited) is refused and named, the rest are deleted, and Preview again shows it as it is now. The
+deleted records leave the selection. Changing a selection's relationships is being built (Track K).
 
 Limits: one sort at a time in the browser; queries across relationships are API-only (F20). Pages are
 always bounded.
@@ -449,7 +458,10 @@ Evidence: [effective periods](../API.md#effective-periods-and-asof-base-09-q4),
 retries, instead of looping over single calls.
 
 A batch of create, update, upsert and delete items runs live or in a change set, inline (up to 1,000
-items) or in the background (up to 1,000,000). Records are addressed by ID or by a unique field's
+items) or in the background (up to 1,000,000). A delete item can take a record's dependants with it,
+as a single delete does, confirmed record by record: a preview gives each item's impact, and
+applying deletes exactly that, refusing a record whose impact changed since; large deletes run as
+set operations in the database. Records are addressed by ID or by a unique field's
 value, so a recurring feed and a one-off load use the same contract. The same batch relates records,
 makes sure a relationship exists, changes or removes one, and replaces a record's whole set of
 related records with a list, keeping the relationships it already has; a record's relationship list

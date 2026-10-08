@@ -1,8 +1,9 @@
 /**
  * What a batch's job shows (0.9 K2, J32.2, J11.9): its preview while it waits (what applying would
  * do), its result once applied, and its items' outcomes, paged and filtered by status. The bulk
- * change dialog and the job page show the same sections (D115); the caller names the items
- * ("timetable types", or "items" for any batch) and may link an outcome to its record.
+ * dialogs and the job page show the same sections (D115); the caller names the items ("timetable
+ * types", or "items" for any batch) and may link an outcome to its record. A batch that deletes
+ * shows what its delete items remove with them, in total and per item (0.9 K2b, D121).
  */
 
 import { useState, type ReactNode } from "react";
@@ -29,6 +30,13 @@ const counted = (value: number, [one, many]: Noun) => `${count(value)} ${value =
 /** The preview's outcomes are the job's until it is confirmed; then the execution's replace them. */
 export const previewing = (job: Job) => !job.confirmedAt;
 
+/**
+ * Whether a batch only deletes, so its counts are said in a delete's words (0.9 K2b): its
+ * `unchanged` items are records that went with another item's impact (D122).
+ */
+export const onlyDeletes = ({ created, updated, deleted }: { created: number; updated: number; deleted: number }) =>
+  deleted > 0 && created + updated === 0;
+
 /** What applying the previewed batch would do (D112). */
 export function BatchPreviewSection({ job, noun = ITEMS }: { job: Job; noun?: Noun }) {
   const preview = job.preview;
@@ -36,21 +44,30 @@ export function BatchPreviewSection({ job, noun = ITEMS }: { job: Job; noun?: No
   const { created, updated, unchanged, deleted, rejected } = preview.counts;
   const changed = created + updated + deleted;
   const atomic = job.parameters.policy === "atomic";
+  const deletes = onlyDeletes(preview.counts) || Boolean(preview.deletion);
+  const verb = deletes ? "delete" : "change";
+  const left = deletes ? `, and ${count(unchanged)} go with them` : ` and leave ${count(unchanged)} as they are`;
   const outcome =
     preview.result === "applied"
-      ? `Applying would change ${counted(changed, noun)}${unchanged ? ` and leave ${count(unchanged)} as they are` : ""}.`
+      ? `Applying would ${verb} ${counted(changed, noun)}${unchanged ? left : ""}.`
       : preview.result === "partial"
-        ? `Applying would change ${counted(changed, noun)} and refuse ${count(rejected)}.`
+        ? `Applying would ${verb} ${counted(changed, noun)} and refuse ${count(rejected)}.`
         : atomic
-          ? `Applying would change nothing: with all or nothing, ${counted(rejected, noun)} refused stop${rejected === 1 ? "s" : ""} the whole change.`
-          : `Applying would change nothing: every one is refused.`;
-  const items: DescriptionItem[] = [
-    ...(created ? [{ term: "Would be created", value: count(created) }] : []),
-    { term: "Would change", value: count(updated) },
-    { term: "Already as asked", value: count(unchanged) },
-    ...(deleted ? [{ term: "Would be deleted", value: count(deleted) }] : []),
-    { term: "Would be refused", value: count(rejected) },
-  ];
+          ? `Applying would ${verb} nothing: with all or nothing, ${counted(rejected, noun)} refused stop${rejected === 1 ? "s" : ""} the whole ${deletes ? "delete" : "change"}.`
+          : `Applying would ${verb} nothing: every one is refused.`;
+  const items: DescriptionItem[] = deletes
+    ? [
+        { term: "Would be deleted", value: count(deleted) },
+        ...(unchanged ? [{ term: "Go with another one", value: count(unchanged) }] : []),
+        { term: "Would be refused", value: count(rejected) },
+      ]
+    : [
+        ...(created ? [{ term: "Would be created", value: count(created) }] : []),
+        { term: "Would change", value: count(updated) },
+        { term: "Already as asked", value: count(unchanged) },
+        ...(deleted ? [{ term: "Would be deleted", value: count(deleted) }] : []),
+        { term: "Would be refused", value: count(rejected) },
+      ];
   return (
     <Section
       title={previewing(job) ? "The preview" : "What the preview said"}
@@ -73,10 +90,61 @@ export function BatchPreviewSection({ job, noun = ITEMS }: { job: Job; noun?: No
         {outcome}
       </Verdict>
       <DescriptionList className="compact" items={items} />
-      {preview.coverage === "sample" && (
+      {/* A delete's sample is explained with what deleting removes: only the previewed are deleted. */}
+      {preview.coverage === "sample" && !preview.deletion && (
         <Notice tone="info" title="A sample">
           The change is larger than one preview runs: the first {count(preview.items.previewed)} of{" "}
           {count(preview.items.total)} were tried. Applying decides every one.
+        </Notice>
+      )}
+    </Section>
+  );
+}
+
+/** How a type's records are called by their number; the type's key where nothing better is known. */
+export type TypeName = (objectTypeKey: string, records: number) => string;
+const byKey: TypeName = (key, records) => `${count(records)} ${key}`;
+
+/**
+ * What the preview's delete items would remove together: the records by type, the relationships,
+ * and those reaching records that stay (D121). A sample says that only the previewed records can
+ * be deleted: each one is confirmed by its own preview (D120).
+ */
+export function BatchDeletionSection({
+  job,
+  typeName = byKey,
+  summary,
+}: {
+  job: Job;
+  typeName?: TypeName;
+  /** What the caller can say in words, above the totals. */
+  summary?: ReactNode;
+}) {
+  const totals = job.preview?.deletion;
+  if (!totals) return null;
+  const types = Object.entries(totals.objectsByType).sort(([a], [b]) => a.localeCompare(b));
+  return (
+    <Section
+      title={previewing(job) ? "What deleting removes" : "What the preview said deleting removes"}
+      description="The selected records with the records inside them and the records they own."
+    >
+      {summary}
+      <DescriptionList
+        className="compact"
+        items={[
+          {
+            term: "Records",
+            value: `${count(totals.objectCount)}: ${types.map(([key, value]) => typeName(key, value)).join(", ")}`,
+          },
+          { term: "Relationships removed", value: count(totals.relationshipCount) },
+          { term: "Of them to records that stay", value: count(totals.retainedAssociationCount) },
+        ]}
+      />
+      {job.preview?.coverage === "sample" && (
+        <Notice tone="warning" title="Only the previewed records can be deleted">
+          A delete is confirmed record by record by its preview, and this one tried the first{" "}
+          {count(job.preview.items.previewed)} of {count(job.preview.items.total)}. Applying deletes those and refuses
+          the rest as not previewed; select fewer to delete them all.
         </Notice>
       )}
     </Section>
@@ -89,6 +157,8 @@ export function BatchResultSection({ job, noun = ITEMS }: { job: Job; noun?: Nou
   if (job.state !== "completed" && job.state !== "failed" && job.state !== "cancelled") return null;
   const { applied, rejected, unprocessed, created, updated, unchanged, deleted } = job.counts;
   const changed = created + updated + deleted;
+  const deletes = onlyDeletes(job.counts) || Boolean(job.preview?.deletion);
+  const [done, same] = deletes ? ["deleted", "went with them"] : ["changed", "already as asked"];
   return (
     <Section title="The result">
       {job.result && (
@@ -102,7 +172,7 @@ export function BatchResultSection({ job, noun = ITEMS }: { job: Job; noun?: Nou
                 : "Nothing applied"
           }
         >
-          {`${counted(changed, noun)} changed${unchanged ? `, ${count(unchanged)} already as asked` : ""}${rejected ? `, ${count(rejected)} refused` : ""}${unprocessed ? `, ${count(unprocessed)} not reached` : ""}.`}
+          {`${counted(changed, noun)} ${done}${unchanged ? `, ${count(unchanged)} ${same}` : ""}${rejected ? `, ${count(rejected)} refused` : ""}${unprocessed ? `, ${count(unprocessed)} not reached` : ""}.`}
         </Verdict>
       )}
       <DescriptionList
@@ -110,13 +180,19 @@ export function BatchResultSection({ job, noun = ITEMS }: { job: Job; noun?: Nou
         items={[
           {
             term: "Applied",
-            value: `${count(applied)}: ${count(changed)} changed, ${count(unchanged)} already as asked`,
+            value: `${count(applied)}: ${count(changed)} ${done}, ${count(unchanged)} ${same}`,
           },
           { term: "Refused", value: count(rejected) },
           { term: "Not reached", value: count(unprocessed) },
         ]}
       />
-      {rejected + unprocessed > 0 && (
+      {rejected + unprocessed > 0 && deletes && (
+        <Notice tone="info" title="Deleting the rest">
+          The deleted {noun[1]} are gone; the refused ones stay. Previewing them again shows what deleting each removes
+          now: one whose impact changed since its preview is refused until it is previewed again.
+        </Notice>
+      )}
+      {rejected + unprocessed > 0 && !deletes && (
         <Notice tone="info" title="Changing the rest">
           Applying the same change again changes only what this one did not: {noun[1]} already changed come back as they
           are. Look at the refused ones first; a record changed by someone else since it was read is refused until it is
@@ -147,7 +223,22 @@ const ACTIONS: Record<NonNullable<JobItemOutcome["action"]>, [string, string]> =
 function detail(outcome: JobItemOutcome, preview: boolean): string {
   if (outcome.error) return outcome.error.message;
   if (outcome.reason) return REASONS[outcome.reason] ?? outcome.reason;
-  return outcome.action ? ACTIONS[outcome.action][preview ? 0 : 1] : "";
+  if (outcome.deletedWithItem !== undefined)
+    return `${preview ? "Would go" : "Went"} with item ${count(outcome.deletedWithItem + 1)}`;
+  const action = outcome.action ? ACTIONS[outcome.action][preview ? 0 : 1] : "";
+  return outcome.impact
+    ? `${action} ${withIt(outcome.impact.objectCount - 1, outcome.impact.relationshipCount)}`
+    : action;
+}
+
+/** What goes with a deleted record: "with 34 more records and 5 relationships". */
+function withIt(records: number, relationships: number): string {
+  if (!records && !relationships) return "alone";
+  const parts = [
+    ...(records ? [`${count(records)} more ${records === 1 ? "record" : "records"}`] : []),
+    ...(relationships ? [`${count(relationships)} ${relationships === 1 ? "relationship" : "relationships"}`] : []),
+  ];
+  return `with ${parts.join(" and ")}`;
 }
 
 /**

@@ -23,6 +23,7 @@ import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useRecordSelection } from "@/lib/hooks/useRecordSelection";
 import { SelectionBar, selectionText } from "@/features/objects/SelectionBar";
 import { BulkChangeDialog } from "@/features/objects/BulkChangeDialog";
+import { BulkDeleteDialog } from "@/features/objects/BulkDeleteDialog";
 import { readMatching } from "@/lib/readMatching";
 import type { ObjectItem, TableViewDefinition } from "@/types";
 import type { ViewComponentProps } from "./views/types";
@@ -78,7 +79,8 @@ export function ObjectCollectionView({
         filters: queryableFilters,
       };
   const [creating, setCreating] = useState(false);
-  const [changing, setChanging] = useState(false);
+  // The bulk action open over the selection (0.9 K2, K2b).
+  const [bulkAction, setBulkAction] = useState<"change" | "delete">();
   const root = useRef<HTMLDivElement>(null);
   const previousSelection = useRef(selectedId);
   const focusedRow = useRef<string | undefined>(undefined);
@@ -291,9 +293,14 @@ export function ObjectCollectionView({
               onClear={selection.clear}
             >
               {selection.count > 0 && (
-                <button type="button" className="secondary" onClick={() => setChanging(true)}>
-                  Change values…
-                </button>
+                <>
+                  <button type="button" className="secondary" onClick={() => setBulkAction("change")}>
+                    Change values…
+                  </button>
+                  <button type="button" className="secondary" onClick={() => setBulkAction("delete")}>
+                    Delete…
+                  </button>
+                </>
               )}
             </SelectionBar>
             <p className="visually-hidden selection-status" role="status">
@@ -352,8 +359,10 @@ export function ObjectCollectionView({
           />
         )}
       </Card>
-      {changing && bulkSelection && selection.count > 0 && (
-        <BulkChangeDialog
+      {/* Kept open once opened: a delete empties the selection it acted on (D125). */}
+      {bulkAction && bulkSelection && (
+        <BulkAction
+          action={bulkAction}
           model={model}
           objectType={objectType}
           workspaceKey={workspaceKey}
@@ -373,9 +382,13 @@ export function ObjectCollectionView({
               { signal, onProgress },
             )
           }
-          onClose={() => setChanging(false)}
+          onClose={() => setBulkAction(undefined)}
           onApplied={(_, versions) => {
             selection.takeVersions(versions);
+            onChanged?.();
+          }}
+          onDeleted={(_, deleted) => {
+            selection.dropDeleted(deleted);
             onChanged?.();
           }}
           onOpenRecord={(id) =>
@@ -399,5 +412,21 @@ export function ObjectCollectionView({
         />
       )}
     </div>
+  );
+}
+
+/** The bulk dialog open over the selection: its props are shared, its action is its own. */
+function BulkAction({
+  action,
+  onApplied,
+  onDeleted,
+  ...shared
+}: { action: "change" | "delete" } & Omit<Parameters<typeof BulkChangeDialog>[0], "onApplied"> &
+  Pick<Parameters<typeof BulkChangeDialog>[0], "onApplied"> &
+  Pick<Parameters<typeof BulkDeleteDialog>[0], "onDeleted">) {
+  return action === "change" ? (
+    <BulkChangeDialog {...shared} onApplied={onApplied} />
+  ) : (
+    <BulkDeleteDialog {...shared} onDeleted={onDeleted} />
   );
 }

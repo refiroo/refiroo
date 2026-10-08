@@ -314,13 +314,13 @@ restructuring preview reports instead as problems of its plan, in its `200` answ
 ### J32 — Change many records of a collection at once
 
 **Actor:** steward. **Channel:** UI (its API side is J11 and J24). **Stories:** Track K (0.9).
-**Status:** in progress: selection delivered (0.9 K1), value changes (0.9 K2); deletion (K2b) and
+**Status:** in progress: selection delivered (0.9 K1), value changes (0.9 K2), deletion (0.9 K2b);
 relationship edits (K3) planned.
 
 1. In a collection whose data can be written, select records: by hand, by a range, the loaded rows,
    or every record the search, filters and scope match.
 2. Read what is selected in the bar above the table.
-3. Apply a change to the selection (K2, K3) and read each record's outcome.
+3. Apply a change to the selection (K2, K2b, K3) and read each record's outcome.
 
 Selection is offered where the data can be written and the deployment lets jobs be created, since
 every bulk change is a batch job; it is never offered in a publication. A selection belongs to the
@@ -348,9 +348,20 @@ row showed; "all matching" reads its records and their versions when the change 
   record) cancels the preview; View job keeps it waiting. A batch's job page lists its items'
   outcomes and applies or cancels a waiting preview.
 
-**Evidence today:** the browser runners `k1-selection` and `k2-bulk-change`; `recordSelection.test`,
-`ObjectTable.test`, `CollectionView.test`, `SelectionBar.test`, `bulkChange.test`,
-`BulkChangeDialog.test`, `JobPage.test`.
+- **J32.3 Delete a selection** (0.9 K2b): Delete… deletes each selected record with the records
+  inside it and those it owns, removing its relationships, all or nothing or the records that can be
+  deleted; the preview says how many selected records are deleted, how many records go with them by
+  type, how many relationships are removed and how many of those reach records that stay, and which
+  selected records go with another; Delete N records (the whole) applies exactly what was previewed,
+  refusing a record whose impact changed since and naming it; the deleted records leave the
+  selection, the refused ones stay for Preview again, and all matching is cleared. In a change set
+  any write between the preview and Apply refuses Apply whole, as for a value change. A batch's job
+  page shows what deleting removes and each delete's impact.
+
+**Evidence today:** the browser runners `k1-selection`, `k2-bulk-change` and `k2b-bulk-delete`;
+`recordSelection.test`, `ObjectTable.test`, `CollectionView.test`, `SelectionBar.test`,
+`bulkChange.test`, `bulkDelete.test`, `BulkChangeDialog.test`, `BulkDeleteDialog.test`,
+`JobPage.test`.
 
 ## Relationship sets and coverage
 
@@ -840,7 +851,7 @@ queries over a job's records in live data, a change set and a publication, 0.9 T
 ### J11 — Submit a bounded bulk change
 
 **Actor:** integrator. **Channel:** API. **Stories:** US-I03. **Scenario:** SC-10 (its batch part).
-**Status:** delivered (0.9 B1; relationship items 0.9 B3).
+**Status:** delivered (0.9 B1; relationship items 0.9 B3; previews 0.9 K2; cascading deletes 0.9 K2b).
 
 1. Send items (create, update, upsert, delete; create, ensure, update and delete a relationship;
    replace a record's relationship set) with a policy: `independent` or `atomic`.
@@ -864,8 +875,13 @@ over single calls.
   its single write's code, live and in a change set.
 - **J11.8 A record, its required relationship and its relationship set in one atomic batch**:
   everything applies, or a refusal leaves nothing.
-- **J11.6 Delete with cascade** (planned, decided D-6): a delete item removes a record with its
-  dependants, as a single delete does, under a confirmation of the impact it deletes (PG-D18).
+- **J11.6 Delete with cascade** (0.9 K2b; decided D-6, PG-D18): a delete item with `cascade`
+  removes a record with its dependants, as a single delete does, under a confirmation of its impact:
+  a batch preview gives each item's impact and token and confirming carries them, or the item sends
+  a token itself (the single delete's is the same); an impact changed since refuses that item and
+  the rest are deleted (nothing under `atomic`); a record an earlier item of the job deleted answers
+  `unchanged` naming that item; without `cascade` a record with dependants is refused with its
+  impact; live and in a change set.
 - **J11.9 Preview a batch, then apply it** (0.9 K2): a background batch sent with
   `stage: "preview"` runs its items without writing anything and waits with what applying would do
   (counts, the result under its policy, whether it covered every item, each item's outcome);

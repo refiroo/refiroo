@@ -18,6 +18,7 @@ import {
   toggle,
   toggleLoaded,
   withVersions,
+  withoutDeleted,
   type RecordSelection,
   type SelectableRow,
 } from "@/lib/recordSelection";
@@ -58,5 +59,7 @@ export function useRecordSelection(listKey: string, rows: readonly SelectableRow
     clear: () => change(() => emptySelection),
     /** The versions a bulk change left on the records it wrote (0.9 K2, D118). */
     takeVersions: (versions: ReadonlyMap<string, number>) => change((previous) => withVersions(previous, versions)),
+    /** The records a bulk delete removed leave the selection (0.9 K2b, D125). */
+    dropDeleted: (deleted: ReadonlySet<string>) => change((previous) => withoutDeleted(previous, deleted)),
   };
 }

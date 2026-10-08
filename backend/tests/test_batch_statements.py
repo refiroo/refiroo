@@ -13,11 +13,18 @@ item's citations with two groups, every record named by key.
 The seconds a chunk of 500 items takes are recorded beside the counts: a live write in a background
 job's workspace waits for one chunk at most (PG3), so that is the longest it waits. They are not
 bounded here; PG5's full-size run confirms them.
+
+A run of cascading delete items (0.9 K2b, D124) is counted the same way, as a preview so the seeded
+data stays: two or eight groups, each run holding the heavy group with its items and seven-level
+node hierarchy and groups with matrix cells, so the statements may not grow with the number of
+items, the records their closures hold, or the closures' depth. The count includes the worker's
+claim, the matrix states' upkeep and the preview's record.
 """
 
 from typing import Any
 
 import pytest
+from sqlalchemy import text
 from volume_fixture import (
     APPLICATION,
     CODE,
@@ -39,11 +46,15 @@ CONTEXTS = ("live", "change set")
 # Statements per chunk, measured 2026-10-02 at 30-32 and 44-46 live, 43-44 and 47-49 in the change
 # set (the PG3b record). Before PG3b an item cost about its single write: 20 statements live.
 # Relationship items, measured 2026-10-03 at 33 and 40 live, 36 and 43 in the change set (B3).
+# A previewed run of cascading deletes, measured 2026-10-09 at 47-48 live and 60-64 in the change
+# set (0.9 K2b); the matrix states' upkeep reads a shape's rows only where the run touches them.
 BUDGET = {("live", "creates"): 34, ("live", "upserts"): 48, ("change set", "creates"): 46,
-          ("change set", "upserts"): 52, ("live", "relations"): 44, ("change set", "relations"): 47}
+          ("change set", "upserts"): 52, ("live", "relations"): 44, ("change set", "relations"): 47,
+          ("live", "deletes"): 50, ("change set", "deletes"): 66}
 # How far apart the counts may be: IN lists past 500 values, UPDATE statements per set of columns.
 # A relationship item names two or three records, so 500 of them pass 500 values more often.
-ALLOWANCE = {"creates": 4, "upserts": 4, "relations": 8}
+ALLOWANCE = {"creates": 4, "upserts": 4, "relations": 8, "deletes": 4}
+DELETE_COUNTS = (2, 8)
 
 
 def _parent(index: int) -> dict[str, Any]:
@@ -142,11 +153,54 @@ def measured(tmp_path_factory) -> dict[tuple[str, str, str, int], dict[str, Any]
                         assert response.status_code == 200, response.text
                         results[(size, label, kind, count)] = {"cost": cost, "job": response.json()["job"]}
                     first += count // 2
+            groups = _groups_to_delete(engine, dataset)
+            for label in CONTEXTS:
+                for count in DELETE_COUNTS:
+                    chosen = [groups[0], groups[2]] if count == 2 else groups[:count]
+                    items = [
+                        {
+                            "op": "delete",
+                            "target": {"id": group_id},
+                            "expectedVersion": _version(client, label, dataset, group_id),
+                            "cascade": True,
+                        }
+                        for group_id in chosen
+                    ]
+                    body = {"policy": "independent", "run": "background", "stage": "preview",
+                            "items": items, **context(label)}
+                    queued = client.post("/api/v1/batches", json=body)
+                    assert queued.status_code == 202, queued.text
+                    with measure(engine) as cost:
+                        client.app.state.job_worker.run_until_idle()
+                    job = client.get(f"/api/v1/jobs/{queued.json()['id']}").json()
+                    client.post(f"/api/v1/jobs/{job['id']}/cancel")
+                    results[(size, label, "deletes", count)] = {"cost": cost, "job": job}
     print("\nPG3b statements per chunk (seconds):")
     for (size, label, kind, count), result in sorted(results.items()):
         print(f"  {size:5} {label:10} {kind:7} {count:3} items: {result['cost'].statements} "
               f"({result['cost'].seconds:.2f} s)")
     return results
+
+
+def _groups_to_delete(engine: Any, dataset: Any) -> list[str]:
+    """The heavy group, the small one, and six others, which hold matrix cells."""
+    with engine.connect() as connection:
+        others = connection.execute(
+            text(
+                "SELECT id FROM objects WHERE workspace_key = :workspace AND object_type_key = :type"
+                " AND id NOT IN (:heavy, :cited, :small) ORDER BY id LIMIT 6"
+            ),
+            {"workspace": WORKSPACE, "type": GROUP, "heavy": dataset.heavy_group_id,
+             "cited": dataset.cited_group_id, "small": dataset.small_group_id},
+        ).scalars().all()
+    return [dataset.heavy_group_id, dataset.small_group_id, *others]
+
+
+def _version(client: Any, label: str, dataset: Any, group_id: str) -> int:
+    params = {"workspaceKey": WORKSPACE} if label == "live" else {"changeSetId": dataset.change_set_id}
+    response = client.get(f"/api/v1/objects/{GROUP}/{group_id}", params=params)
+    assert response.status_code == 200, response.text
+    return response.json()["version"]
 
 
 @pytest.mark.parametrize("kind", ["creates", "upserts", "relations"])
@@ -179,3 +233,22 @@ def test_every_item_is_applied(measured, label):
                 count // 2,
                 count // 2,
             ), related
+
+
+@pytest.mark.parametrize("label", CONTEXTS)
+def test_a_run_of_cascading_deletes_costs_a_constant_number_of_statements(measured, label):
+    """0.9 K2b (D124): the same statements for two groups or eight, at both sizes, whatever their
+    closures hold."""
+    counted = {
+        (size, count): measured[(size, label, "deletes", count)]["cost"].statements
+        for size in SIZES
+        for count in DELETE_COUNTS
+    }
+    assert max(counted.values()) - min(counted.values()) <= ALLOWANCE["deletes"], counted
+    assert max(counted.values()) <= BUDGET[(label, "deletes")], counted
+    for size in SIZES:
+        for count in DELETE_COUNTS:
+            job = measured[(size, label, "deletes", count)]["job"]
+            assert job["state"] == "awaiting_confirmation", job
+            assert job["preview"]["counts"]["deleted"] == count, job["preview"]
+            assert job["preview"]["deletion"]["objectCount"] > count, job["preview"]

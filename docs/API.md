@@ -1195,6 +1195,12 @@ duplicate `objectsToRetire` key is retained for legacy compatibility and has the
 not mean that this delete retires records. `retainedAssociationCount` counts incident relationships
 with an endpoint outside the deletion set.
 
+The token is the same a batch's delete item gives and takes for the record in the same context and
+model (0.9 K2b, D120): a token from this refusal confirms a [batch delete
+item](#deleting-with-what-depends-on-it-09-k2b), and one from a batch's preview confirms this
+`DELETE`. The single delete and a batch's delete items run through one deletion path, as set
+statements whatever the impact's size (D123).
+
 ### Cross-type lookup (Base 0.9 Q1)
 
 `GET /api/v1/objects` lists records of every object type in one collection, for a lookup by name,
@@ -1892,7 +1898,7 @@ batch's context as it stands when the item runs.
 | `create` | `applicationKey`, `objectTypeKey`, `name`; optional `id`, `parent` (reference), `attributes`, `initialRelations` (`relationTypeKey`, `direction`, `object` reference, `attributes`) | `POST /objects` |
 | `update` | `target` (reference), `expectedVersion`; optional `name`, `parent` (reference, or `null` for the top level), `attributes` | `PATCH /objects/…`: only the fields given change |
 | `upsert` | `applicationKey`, `objectTypeKey`, `key`, `name`; optional `parent`, `attributes`, `initialRelations`, `expectedVersion` | Finds the record by `key` and updates it as `update`, or creates it as `create`. `key` is `{ "id": "…" }` (the ID a new record gets) or `{ "attributeTypeKey": "…" }`, a unique attribute whose value the item's `attributes` supply. `initialRelations` are used only when it creates; an absent `parent` keeps an existing record where it is |
-| `delete` | `target`, `expectedVersion` | `DELETE` without `cascade`: a record with dependants is `OBJECT_HAS_DEPENDANTS`; delete children first |
+| `delete` | `target`, `expectedVersion`; optional `cascade` (default `false`) and `deletionPreviewToken` | `DELETE /objects/…`: without `cascade` a record with dependants is `OBJECT_HAS_DEPENDANTS` with its `impact`; with it the record goes with its dependants under the impact its token confirms ([deleting with what depends on it](#deleting-with-what-depends-on-it-09-k2b)) |
 | `createRelation` | `relationTypeKey`, `from`, `to` (references); optional `attributes`, `expectedRelationSetVersion` with `relationSetDirection` | `POST /relations` |
 | `ensureRelation` | `relationTypeKey`, `from`, `to`; optional `attributes`, `expectedVersion` | Creates the relationship unless one of the type already joins the two records; then `unchanged` when `attributes` are omitted or equal, otherwise an update of its attributes |
 | `updateRelation` | `id`, `expectedVersion`, `attributes` | `PATCH /relations/{id}`: the attributes are replaced |
@@ -2035,6 +2041,44 @@ nothing. Confirm's
 refusals (`409 CHANGE_SET_VERSION_CONFLICT` when the change set changed since the request's
 `expectedChangeSetVersion`, `409 MODEL_RELEASE_CHANGED`, `410 JOB_EXPIRED`), cancelling a waiting
 preview and retention are the import's. The `Idempotency-Key` answers with the waiting job.
+
+A preview whose delete items would delete anything adds `preview.deletion`: `objectCount`,
+`objectsByType` (`{objectTypeKey: count}`), `relationshipCount` and `retainedAssociationCount`
+over them all (0.9 K2b, D121).
+
+### Deleting with what depends on it (0.9 K2b)
+
+A `delete` item deletes its record as `DELETE /objects/{type}/{id}` does, with its rules (D120):
+
+- **Without `cascade`** a record with dependants (containment descendants, records it owns through a
+  required oriented `one-to-one` or `one-to-many` relation) or a relationship other than its
+  containment edges is refused `409 OBJECT_HAS_DEPENDANTS`, whose `details.impact` gives its counts
+  and token; a record with neither is deleted.
+- **With `cascade`** the item needs `deletionPreviewToken`, the token of the impact the client was
+  shown: without one it is refused `409 DELETION_PREVIEW_REQUIRED`; when the record's version or its
+  impact (a record or relationship added, removed or changed) differs from what the token confirms,
+  `409 DELETION_PREVIEW_CHANGED`, and nothing of that item is deleted.
+- **In a preview** (`stage: "preview"`) a cascading item needs no token: the preview computes each
+  item's impact and token, and `POST /jobs/{jobId}/confirm` puts each token into its stored item, so
+  execution deletes exactly what was previewed and refuses only the items whose impact changed. An
+  item the preview did not delete itself (refused, or gone with another item) is refused
+  `DELETION_PREVIEW_CHANGED` if it stands on its own at execution, and a `sample` preview's
+  unpreviewed items are refused `DELETION_PREVIEW_REQUIRED`: each delete is confirmed by its own
+  preview.
+
+An applied delete's outcome carries `impact`: `objectCount` (the record with those going with it),
+`objectsByType`, `relationshipCount`, `retainedAssociationCount` and `deletionPreviewToken`; counts,
+never lists, since one record may own thousands (D121). The single `DELETE`'s `409` keeps its lists.
+
+**Items are decided in order.** A record reached by several items' impacts belongs to the earliest
+of them, as deleting them one after another would leave it. A record an earlier item of the same job
+deleted (a child selected after its parent, in this chunk or an earlier one) is `applied` with
+`action: "unchanged"` and `deletedWithItem`, that item's index (D122); a record deleted otherwise is
+refused `REFERENCE_NOT_FOUND` as before. A run of consecutive delete items is decided and written
+together as set statements (D123): their statements do not grow with the number of items or the
+size or depth of their impacts. The deletions are audited per record and relationship with the job
+as cause (live: in the feed, each record's relationships before its records; in a change set, a
+`change-set-object` `deleted` entry per record, as its creates and updates have).
 
 ## Exports (Base 0.9 J1)
 

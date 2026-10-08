@@ -30,10 +30,11 @@ from ..records.batch_lookup import ChangeSetBatchLookup, Record, Relation
 from ..records.bulk import write_change_set
 from ..records.context import ChangeSetLookup
 from ..records.deletion import (
+    ChangeSetScope,
+    Deletion,
+    delete_records,
     deletion_preview_changed,
-    deletion_preview_token,
     require_deletion_preview,
-    require_matching_deletion_preview,
 )
 from ..records.refusals import CHANGE_SET
 from ..records.relation_set_versions import (
@@ -425,151 +426,16 @@ def apply_change_set_object_delete(
             raise object_type_changed(object_id, root.object_type_key, object_type_key)
         raise api_error(404, "OBJECT_NOT_FOUND", f"Object '{object_id}' not found in change set")
     if cascade and deletion_preview is not None and expected_record_version != root.version:
-        raise api_error(
-            409,
-            "DELETION_PREVIEW_CHANGED",
-            "The object was modified by another session. Please retry.",
-        )
+        raise deletion_preview_changed()
     require_record_version(expected_record_version, root.version, "Object record")
-
-    # The walk reads the planned subtree level by level: its children, and the records its required
-    # owning relations reach. Its cost is the deleted subtree, not the change set.
-    objects: dict[str, Any] = {object_id: root}
-    reasons: dict[str, str] = {object_id: "root"}
-    frontier = [object_id]
-    while frontier:
-        reached: list[str] = []
-        for child in lookup.children(frontier):
-            if child.object_id not in objects:
-                objects[child.object_id] = child
-                reasons[child.object_id] = "child"
-                reached.append(child.object_id)
-        outgoing = [
-            relation
-            for relation in lookup.relations(frontier, "outgoing")
-            if relation.to_object_id not in objects
-        ]
-        targets = lookup.objects(relation.to_object_id for relation in outgoing)
-        for relation in outgoing:
-            if relation.to_object_id in objects:
-                continue
-            source, target = (
-                objects.get(relation.from_object_id),
-                targets.get(relation.to_object_id),
-            )
-            allowed = next(
-                (
-                    item
-                    for item in model.objectTypeRelations
-                    if source is not None
-                    and target is not None
-                    and item.relationTypeKey == relation.relation_type_key
-                    and item.fromObjectTypeKey == source.object_type_key
-                    and item.toObjectTypeKey == target.object_type_key
-                ),
-                None,
-            )
-            relation_type = model.relation_type(relation.relation_type_key)
-            if (
-                allowed is not None
-                and relation_type is not None
-                and relation_type.isOriented
-                and allowed.required
-                and allowed.cardinality in {"one-to-one", "one-to-many"}
-            ):
-                objects[target.object_id] = target
-                reasons[target.object_id] = "required-ownership"
-                reached.append(target.object_id)
-        frontier = reached
-    planned_ids = set(objects)
-    incident = lookup.relations(planned_ids, "both")
-    # Relations leaving the subtree name records outside it: the set versions need their types.
-    objects.update(
-        lookup.objects(
-            end
-            for relation in incident
-            for end in (relation.from_object_id, relation.to_object_id)
-            if end not in objects
-        )
+    # A run of one through the deletion path every delete shares (0.9 K2b, D123).
+    (result,) = delete_records(
+        ChangeSetScope(session, model, change_set),
+        [Deletion(0, object_id, object_type_key, cascade, deletion_preview)],
+        single=True,
     )
-
-    def is_parent_relation(relation) -> bool:
-        target = objects.get(relation.to_object_id)
-        object_type = model.object_type(target.object_type_key) if target is not None else None
-        return bool(
-            object_type
-            and relation.relation_type_key
-            in (object_type.behavior or {}).get("parentRelationTypeKeys", [])
-        )
-
-    has_non_parent_incident = any(not is_parent_relation(item) for item in incident)
-    context = {
-        "changeSetId": change_set_id,
-        "objectTypeKey": object_type_key,
-        "objectId": object_id,
-        "modelReleaseId": change_set.model_release_id,
-    }
-    planned = [objects[key] for key in sorted(planned_ids)]
-    object_identity = [(item.object_id, item.version, item.parent_object_id) for item in planned]
-    relation_identity = [
-        (
-            item.relation_id,
-            item.version,
-            item.relation_type_key,
-            item.from_object_id,
-            item.to_object_id,
-        )
-        for item in incident
-    ]
-    if not cascade and (len(planned_ids) > 1 or has_non_parent_incident):
-        dependants = [
-            {
-                "id": item.object_id,
-                "name": item.name,
-                "objectTypeKey": item.object_type_key,
-                "applicationKey": item.application_key,
-                "parentObjectId": item.parent_object_id,
-                "reason": reasons[item.object_id],
-            }
-            for item in planned
-            if item.object_id != object_id
-        ]
-        raise api_error(
-            409,
-            "OBJECT_HAS_DEPENDANTS",
-            "Object has dependant records or relationships; repeat with cascade=true",
-            {
-                "objectsToDelete": dependants,
-                "objectsToRetire": dependants,
-                "relationshipsToRemove": [
-                    {"id": item.relation_id, "relationTypeKey": item.relation_type_key}
-                    for item in incident
-                ],
-                "objectCount": len(planned_ids),
-                "relationshipCount": len(incident),
-                "retainedAssociationCount": sum(
-                    1
-                    for relation in incident
-                    if relation.from_object_id not in planned_ids
-                    or relation.to_object_id not in planned_ids
-                ),
-                "deletionPreviewToken": deletion_preview_token(
-                    scope="change-set-deletion",
-                    context=context,
-                    objects=object_identity,
-                    relations=relation_identity,
-                ),
-            },
-        )
-    if cascade:
-        require_matching_deletion_preview(
-            deletion_preview,
-            scope="change-set-deletion",
-            context=context,
-            objects=object_identity,
-            relations=relation_identity,
-        )
-    tombstone_change_set_records(session, change_set, objects, planned_ids, incident)
+    if result.error is not None:
+        raise result.error
 
 
 def tombstone_change_set_records(

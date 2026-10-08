@@ -8596,7 +8596,8 @@ cardinality); no screen knows a type key.
   previewed through a batch preview in the engine (D112), deletion moved to K2b (D116)._
 - **K2b (D116): deleting a selection.** Cascading batch delete items under a confirmation
   of what each deletes, built on K2's batch preview, with the set-based delete PG-D18 asks for
-  (J11.6); then Delete in the selection bar (J32.3).
+  (J11.6); then Delete in the selection bar (J32.3). _Planned and delivered 2026-10-09
+  ([plan](#k2b-plan-2026-10-09), [record](#k2b-record-2026-10-09)), D120–D126 accepted._
 - **K3: relation edits.** For each relation type the model allows: add (`ensureRelation`), remove
   (`deleteRelation`) and replace (`replaceRelationSet`), choosing targets with the record picker.
 - **K4 (not taken in K1's planning, D103): query-scoped batches.** A batch whose items are "every record matching these
@@ -9069,6 +9070,287 @@ rows do (`ui/DataTable`); left as it is. While building, `ruff format` run over 
 rewrapped 212 files the repository keeps unformatted; they were restored and only K2's changes
 kept.
 
+#### K2b: Deleting a selection
+
+**Design:** Track K's outcome above; PG-D18 and its direction (H4a D-6); D116. **Needs:** K2.
+
+**Scope:** batch delete items that cascade under a confirmation of what each deletes, previewed
+through K2's batch preview; deletion as set work in PostgreSQL, live and in a change set, which the
+single delete also runs through; **Delete…** in the selection bar.
+
+**Exit:** a user deletes a selection that holds records with children, owned records and links in
+two collections of two applications, live and in a change set, by pointer and keyboard, at 1440px and
+390px; reads before deleting how many records go with the selection and which links are removed; a
+record whose impact changed since the preview is refused and the rest are deleted; an integrator
+does the same through `POST /batches` (J11.6).
+
+##### K2b plan (2026-10-09)
+
+**Planned 2026-10-09. D120–D126 and the test cases accepted by the user the same day.** Delivered
+the same day ([record](#k2b-record-2026-10-09)). Checked against the code at `381ab3f`.
+
+**What exists.** The single delete (`DELETE /objects/{type}/{id}`) computes the record's closure:
+containment descendants and the targets of an oriented, required `one-to-one` or `one-to-many`
+relation, recursively, plus every relationship incident to them. Without `cascade` a record with
+any of these is refused `409 OBJECT_HAS_DEPENDANTS`, whose details list every record and
+relationship and carry a `deletionPreviewToken`: a signed digest of the closure's records and
+relationships with their versions, bound to the workspace or change set, the record and the model.
+With `cascade=true` the token is required (`DELETION_PREVIEW_REQUIRED`) and must match the closure
+re-read under the lock (`DELETION_PREVIEW_CHANGED`). Two implementations compute the closure: live,
+`records/deletion.py` `build_delete_plan` reads one record at a time (a query per record for its
+children, per outgoing relation for its target), so its cost grows with the subtree in round trips;
+in a change set, `change_sets/records.py` walks level by level through `ChangeSetLookup`. Both build
+audit entries in Python and remove rows through the ORM (`LiveWrites.remove_records` deletes each
+object as an ORM row; a change set tombstones each record with `remove_object`); relation set
+versions advance one relationship at a time (`increment_set_versions`). A batch `delete` item
+(`target`, `expectedVersion`) has no `cascade`: it calls the single delete without it, in a segment
+of its own and a savepoint of its own (`batches._segments`, PG-D18), so it refuses every record with
+dependants, and its refusal drops the token (`batches._error`). K2's preview runs a job's stored
+items in one transaction that is rolled back and records each item's outcome; confirm removes the
+outcomes and runs the stored items again (`jobs/preview.py`, `store.confirm_job`). The export
+already walks a context's tree in SQL with a recursive CTE over a temporary table
+(`jobs/exports.py`, `object_projection` for a change set), the pattern this package follows.
+`ObjectDeleteDialog` shows one record's impact and confirms it; `BulkChangeDialog` holds K2's flow
+(reading all matching, preview, apply, result, a preview cancelled when left, D115).
+
+**Behaviour.**
+
+1. **Delete…** in the selection bar, beside Change values…, opens a dialog naming what it deletes
+   ("12 timetable types", "All 2,345 matching except 3"), with K2's choice of how it applies
+   (D106; all or nothing disabled over `atomicJobMaxItems`, with its explanation).
+2. **Preview** reads all matching as K2 does (progress, Stop, exceptions left out) and sends one
+   background batch with `stage: "preview"`: one `delete` item per record with `cascade: true`,
+   its version (by hand: the row's; all matching: as read) and its name as `ref`.
+3. **The preview** (D121) says, before anything is deleted: how many selected records will be
+   deleted; how many further records go with them, by type ("and 340 records inside or owned by
+   them: 300 timetables, 40 codes"); how many relationships are removed and how many of those
+   link to records that stay; how many selected records go with another selected record (D122); and
+   the refused ones with their reasons, each name opening the record. A sample (`coverage: sample`)
+   says so. The dialog's Apply names the total in a destructive button ("Delete 352 records").
+4. **Apply** confirms the preview; progress and the result follow as in K2 (deleted, refused, each
+   refused record openable, View job). A record whose impact changed since the preview (a child
+   added, a link changed, the record edited) is refused `DELETION_PREVIEW_CHANGED`; under all or
+   nothing nothing is deleted. Leaving a preview not yet applied cancels it (D115).
+5. **The selection after a delete** (D125). Deleted records leave a hand selection; refused ones stay
+   selected, so **Preview again** shows their impact as it is now. A selection of all matching is
+   cleared, since the list it was made over has changed. The collection reads its rows again.
+6. **Refused before a job exists** as in K2 (change set changed at Apply, `413`, a release activated
+   meanwhile).
+7. **A batch's job page** shows a delete item's impact beside its outcome ("with 34 records, 5
+   relationships") and the preview's totals.
+
+**API** (D120, D121, D122). The `delete` item gains `cascade` (default `false`) and
+`deletionPreviewToken`, as the single `DELETE` has them, with its rules: without `cascade`, a record
+with dependants or non-parent relationships is refused `OBJECT_HAS_DEPENDANTS`; with `cascade`, the
+item needs a token whose impact still matches (`DELETION_PREVIEW_REQUIRED`,
+`DELETION_PREVIEW_CHANGED`), except in a preview, which computes it. A delete item's outcome, and
+its `OBJECT_HAS_DEPENDANTS` refusal, carry `impact`: `objectCount`, `objectsByType`
+(`{objectTypeKey: count}`), `relationshipCount`, `retainedAssociationCount` and
+`deletionPreviewToken`; no lists of records. A preview's summary gains `deletion` with the same
+totals over its delete items. Confirming a batch preview puts each previewed delete item's token
+into its stored item before the outcomes are removed, so execution refuses exactly the items whose
+impact changed. A delete item whose record an earlier item of the same job deleted answers
+`unchanged` with `deletedWithItem` (that item's index). Tokens are interchangeable between the
+single `DELETE` and a batch item for the same record and context. No route is added.
+
+**Design.**
+
+- **One deletion path, set-based** (D123), `engine/records/deletion.py` reworked and the change set
+  walk replaced: for the delete items of a run (a run of consecutive delete items is decided
+  together; other items still split runs), (1) claim the roots' versions in one statement; (2)
+  compute every root's closure in one recursive CTE into a temporary table (`delete_closure`:
+  item index, record, reason, ON COMMIT DROP), over live records or a change set's projection
+  (`object_projection`), with the required-ownership edges as a `VALUES` list read from the model;
+  a record reached from several roots belongs to the earliest item, as running them in order would;
+  (3) the incident relationships in a second table; (4) each item's identity digest in SQL
+  (`sha256` over its ordered records and relationships with versions), compared with its token;
+  an item refused at this step releases its records and the walk is redone for the rest (rare,
+  bounded by the refusals); (5) audit entries with `INSERT … SELECT`, feed positions in item order
+  and within an item relationships before records, as today; subjects likewise; (6) remove values,
+  relationships and records live, or write tombstones in a change set, with `INSERT … SELECT … ON
+  CONFLICT`; relation set versions advanced in one grouped upsert; matrix rows noted from the
+  table. The single `DELETE` runs as a batch of one through it (as PG-D12 did for creates); its
+  `409` lists are read from the same tables. The token's digest is redefined (opaque, pre-1.0).
+- **`engine/jobs/batches.py`**: `_segments` groups consecutive delete items; the delete item's
+  outcome and refusal carry `impact`; `deletedWithItem` from the closure table within a run and,
+  across chunks, from this job's own `deleted` audit entries (one query per run). **`jobs/preview.py`**:
+  the summary's `deletion` totals. **`store.confirm_job`**: a batch's previewed delete tokens copied
+  into its `job_inputs` in one `UPDATE … FROM job_items`. **`models/commands.py`**: the item's two
+  fields; the job schema's outcome `impact`, `deletedWithItem` and the summary's `deletion`.
+- **Frontend.** K2's flow after the form (reading, sending, previewing, preview, applying, result,
+  cancel on leave) moves out of `BulkChangeDialog` into one shared `features/objects/BulkJobFlow`;
+  `BulkChangeDialog` keeps its fields and the new `BulkDeleteDialog` its confirmation text, both over
+  it (one component, no copies). `bulkDelete.ts` (pure): the items from a selection, the preview's
+  totals in words, the selection after the outcomes. `features/jobs/BatchOutcome` shows a delete
+  item's impact and the summary's totals. `SelectionBar` gains Delete….
+- **Not changed:** the single `DELETE`'s request and `409` shape, the closure's rules (which records
+  go with a record), K2's update items and preview, the selection's rules, record panels and other
+  views.
+
+**Decisions** (for approval):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D120 | How a batch confirms what a cascading delete removes | **Accepted 2026-10-09 by the user.** **Per item, with the single delete's token: a delete item takes `cascade` and `deletionPreviewToken`; a batch preview computes each item's token, and confirm carries it into the stored item, so execution refuses only the items whose impact changed.** It keeps one confirmation rule for one record and for 10,000, and an integrator can confirm with tokens from a preview or from the single `DELETE`'s `409`. The alternative, one token over the whole batch's impact, would refuse every record when any one subtree changed, which defeats `independent` (D106) |
+| D121 | What a delete item's outcome reports | **Accepted 2026-10-09 by the user.** **Counts, not lists: `objectCount`, `objectsByType`, `relationshipCount`, `retainedAssociationCount` and the token per item, and the same totals over the preview.** One record may own 100,000 others; lists per item would make outcomes and the preview unbounded, and the dialog needs totals by type to be read before a destructive step. The single `DELETE`'s `409` keeps its lists. The alternative, lists per item bounded at some length, adds a cap and a "more" that nobody reads in a bulk confirmation |
+| D122 | A selected record deleted with another selected record | **Accepted 2026-10-09 by the user.** **`unchanged`, with `deletedWithItem` naming that item.** Selecting all matching in a tree selects parents and children together; treating a child already gone with its parent as refused `OBJECT_NOT_FOUND` would show refusals for a delete that did exactly what was asked. Only this job's own deletions count (its closure, or its audit entries across chunks); a record someone else deleted stays `OBJECT_NOT_FOUND` |
+| D123 | How deletion runs (PG-D18) | **Accepted 2026-10-09 by the user.** **As set work in PostgreSQL for a run of delete items, live and in a change set, with the single `DELETE` as a batch of one through it; the two closure walks and the per-row removal go.** PG-D18 asks that a large delete never hold the worker for minutes; today's live walk costs a query per record. One path means one closure rule and one token for both entries, as PG-D12 made one write path for creates. The atomic limit counts items, not the records they cascade to; set work keeps even 10,000 large cascades within the workspace lock's usual seconds. The alternative, a set-based batch path beside the single delete's, keeps two closure implementations whose tokens must agree |
+| D124 | The budget | **Accepted 2026-10-09 by the user.** **Counted and measured once, as PG-D17: statements per run constant in the cascade's depth and size and in the number of delete items, held by a test at two sizes; one announced measurement on the volume fixture: a preview of deleting about 100,000 records live (rolled back, so the seed stays) and a preview and execution in a change set (discarded after), target under 60 s each.** A live execution on the fixture would delete the seed; the statement count covers it _Amended 2026-10-09 by the user: the timed measurement is run once at R, not in K2b; the statement count stays the package's evidence_ |
+| D125 | The selection after a delete | **Accepted 2026-10-09 by the user.** **Deleted records leave a hand selection; refused ones stay for Preview again; all matching is cleared.** Keeping deleted records would make the next action refuse them all; all matching was a list that no longer holds what it held |
+| D126 | What the dialog's Apply says | **Accepted 2026-10-09 by the user.** **The total it deletes, in a destructive button: "Delete 352 records", the selected records plus those going with them, by the preview.** A count of only the selected records understates a cascade; the type breakdown is above it |
+
+**Journeys.** J11.6 *Delete with cascade* (API; planned since H4a D-6) delivered: a delete item
+removes a record with its dependants under a confirmation of its impact, previewed or with a
+token; an impact changed since refuses that item. J32.3 (new) *Delete a selection* (UI): behaviour
+1–7. USER_JOURNEYS (J11.6, J32.3, the index), API_JOURNEYS (the delete item's `cascade` and
+`deletionPreviewToken`, the outcome's `impact` and `deletedWithItem`, the summary's `deletion`,
+mapped to J11.6), UI_ACCEPTANCE (row K2b-1 the delete dialog; K2-2 gains the delete impact).
+
+**Test cases** (approved by the user 2026-10-09). API journey tests (pytest, `test_j11_bulk_change`, new cases):
+
+1. **A cascading delete, previewed, live.** Given a leaf; a record with two children, a required
+   owned record and a link to a record that stays; and a child of it selected after it. A
+   background preview with `cascade` on each: the second item's `impact` (4 records by type, the
+   relationships, 1 retained), the third `unchanged` with `deletedWithItem`, the summary's
+   `deletion` totals; records, feed head and audit log as before. Confirmed: all gone, the linked
+   record stays; audit entries per record with the job as cause, in feed order relationships before
+   records.
+2. **An impact changed between preview and confirm.** A child added live under one previewed root:
+   that item is refused `DELETION_PREVIEW_CHANGED`, the others deleted; under `atomic` nothing is.
+3. **In a change set, and without a preview.** Previewed and confirmed in a change set: the closure
+   tombstoned there, live unchanged. In an execute batch: `cascade` without a token is
+   `DELETION_PREVIEW_REQUIRED`; without `cascade` a record with children is `OBJECT_HAS_DEPENDANTS`
+   with its `impact`; a token from the single `DELETE`'s `409` confirms the batch item.
+4. **One path.** The single delete's tests (`test_cascade_delete`, `test_j04_delete`) run unchanged
+   through the set path; the budget test counts the statements of a run at two cascade sizes and
+   two item counts (D124).
+
+Unit tests (Vitest): `bulkDelete.test` (items from a hand selection and from read records with
+exceptions; the totals in words; the selection after outcomes: deleted, refused, deleted with
+another); `BulkDeleteDialog.test` (the preview's totals by type and the destructive label; a
+`DELETION_PREVIEW_CHANGED` refusal with Preview again); `BulkChangeDialog.test` unchanged over the
+shared flow; one `BatchOutcome` case for a delete item's impact.
+
+Browser runner `test:browser:k2b` (real backend; two collections of two applications; keyboard;
+1440px and 390px):
+
+5. **By hand, live.** Select a leaf and a record with children; Delete…, Preview: the totals by
+   type; Apply: the rows are gone and the selection is empty.
+6. **All matching in a change set, with a changed impact.** Filter, select all matching, uncheck
+   one; preview; the runner adds a child to one previewed record through the API; Apply: that
+   record refused, the rest deleted; Preview again shows it with its new impact. _Amended
+   2026-10-09, accepted by the user: in a change set that write changes the change set, so Apply is
+   refused whole (`CHANGE_SET_VERSION_CONFLICT`, D107) and Preview again shows the new impact before
+   the delete applies; the per-record refusal is checked live with the same steps._
+7. **Keyboard only at 390px**, from the bar to Apply and Close; the result announced; a preview left
+   with Escape reads back cancelled.
+
+Axe with 0 violations on the dialog (preview, result) and a batch's job page with delete outcomes,
+light and dark; screenshots at 1440px and 390px for the user's approval.
+
+**Checks.** Backend: `records` (the single delete through the new path), `jobs`, `change_sets` and
+`mapping` (the guide's expansion for `deletion.py`), `contract` (the item's fields and the outcome
+in the OpenAPI document, diffed before the hash is re-locked); Ruff on the changed files only; the
+D124 measurement once, announced with its expected time. Frontend: Vitest `related` over the
+changed files, `format`, `lint` (0 errors), `build`; `test:browser:k2b`, `test:browser:k2` (the
+flow moves), `test:browser:k1` (the bar); the deletion part of `test:browser` (`ui03b-deletion`,
+the single delete's dialog over the new path). Not run: the full suites, `test:a11y`, `test:visual`
+(R, as D95).
+
+**Docs at delivery.** API.md (the delete item, its outcome, the summary's totals; the single
+delete's token noted as shared), INTEGRATION_API §B (cascading delete items), USER_JOURNEYS,
+API_JOURNEYS, UI_ACCEPTANCE, CURRENT_FUNCTIONALITY, POSTGRESQL_BUDGETS (D124's measurement),
+POSTGRESQL_RUNTIME_PLAN (PG-D18 closed), TODO (the PG-D18 item closed), EXECUTION_GUIDE (the runner,
+the frontend map, the budget test), CHANGELOG, PROJECT_STATUS; Track K's outline.
+
+**Composable domains (ADR-032):** deletion stays physical with its audit entries (per record, the
+job as cause), so history and the erasure door are as before; feed entries carry identity only.
+Identity: no retired-ID redirect is added or closed off. The bulk API gains two item fields and
+outcome fields, additive; attribute storage, the `match` declaration and mapping coverage are
+untouched.
+
+##### K2b record (2026-10-09)
+
+**Delivered 2026-10-09.** D120–D126 and the test cases as approved with the plan; case 6 amended
+and accepted by the user during the work; D124's timing deferred by the user to R.
+
+**Built.**
+
+- **One deletion path** (`engine/records/deletion.py`, D123): a run of deletions is decided in a
+  few statements whatever its size: the closures of all its records in one recursive query (a
+  lateral step over children and required owned records, the owning bindings as a `VALUES` list)
+  into temporary tables, each record belonging to the earliest item reaching it; the relationships
+  they touch with their ends' types; one summary per item with its counts by type and its impact's
+  digest (`sha256` over its records and relationships with their versions), signed into the token.
+  A refused item whose records or relationships a later item touches makes the run be decided again
+  without it. The accepted items are written as set statements: audit entries with subjects and
+  feed positions (`INSERT … SELECT`), relation sets in one grouped upsert, and the rows removed
+  live or tombstoned in the change set (`INSERT … ON CONFLICT`), with the matrix states noted and
+  the snapshot value index cleared. Live data reads every workspace's records so an edge into
+  another is refused (`WORKSPACE_GRAPH_INVALID`); a change set reads its projection
+  (`object_projection`, `relation_projection`). The single `DELETE`, live and in a change set, is a
+  run of one; it checks the version under the workspace lock instead of claiming it first, and its
+  `409` lists are read from the same tables.
+- **Batches** (`engine/jobs/batches.py`): consecutive delete items run together; an item whose
+  record an earlier item of the job deleted answers `unchanged` with `deletedWithItem`, from the
+  run's closure or, across runs and chunks, from the job's own audit entries (D122); outcomes and
+  dependants refusals carry `impact`; pointers name `deletionPreviewToken` for the preview codes. A
+  preview runs with `previewing` (no token needed), adds `deletion` totals (`jobs/preview.py`), and
+  confirming carries each token into the stored items in one `UPDATE … FROM job_items`, marking an
+  item the preview did not delete itself so that it is refused as changed if it stands alone
+  (`store.py`). A change set's deletions are audited per record (`change-set-object`, `deleted`), as
+  its creates and updates are.
+- **The browser**: K2's flow moved out of `BulkChangeDialog` into `features/objects/BulkJobDialog`,
+  which both dialogs use; `BulkDeleteDialog` and `bulkDelete.ts` (items, the totals in words, the
+  records removed); Delete… in the selection bar; the dialog stays open once the delete empties the
+  selection, its heading on what the preview acted on; the deleted records leave a hand selection,
+  all matching is cleared (`recordSelection.withoutDeleted`). `BatchOutcome` says a delete in a
+  delete's words, shows what deleting removes (`BatchDeletionSection`) and each item's impact; the
+  job page shows them and links no record a delete removed. The tests' pushed job stream moved to
+  `src/test/jobStream.ts`.
+
+**Checks.** Backend: the three J11.6 cases failed first on the unknown `cascade` (6 runs, two
+configurations), then passed with J11's others (34); `test_cascade_delete` and J04 (18) passed
+unchanged over the new path; a temporary check of a child deleted in a later chunk (live and in a
+change set, `JOB_CHUNK_ITEMS=1`) passed through the audit path and was removed. The groups
+`records`, `jobs`, `change_sets`, `mapping` and `contract` in parallel: 1,037 passed, 1 failed
+(`test_api_reference::test_docs_serves_the_bundled_script_with_the_management_source`, which passed
+alone in 1 s); their serial part, 3 passed. `test_batch_statements` (10 passed): a previewed run of
+cascading deletes costs 47–48 statements live and 60–64 in the change set for two or eight groups at
+both sizes, the heavy group's seven-level hierarchy among them; the matrix states' upkeep makes the
+difference of up to 4. The OpenAPI document was diffed against `381ab3f` before its hash was
+re-locked: the item's two fields, `DeletionImpact`, `DeletionTotals`, the outcome's two fields, the
+preview's `deletion`, two descriptions; no path. Ruff on the changed files. Frontend: Vitest
+`related` over the changed files, 12 files, 155 tests (`bulkDelete.test` 3, `BulkDeleteDialog.test`
+2, a `JobPage.test` case, `BulkChangeDialog.test` 6 unchanged in substance); `tsc`, `format`,
+`lint` (0 errors, the 7 earlier warnings), `build`. `test:browser:k2b` 12 checks passed;
+`test:browser:k2` 14 and `test:browser:k1` 11 passed; the single delete's browser check
+(`ui03b-deletion`, 2 checks) through a scratch driver, removed. Not run: the full suites, `budget`,
+`test:a11y`, `test:visual` (R), and D124's timing (R, by the user's decision).
+
+**Evidence, separately.** Functional: the runners' checks above. Accessibility: axe 0 violations on
+the dialog's form, preview and result and on a batch's job page with deletes, light and dark;
+keyboard only at 390px with the status region read back ("Preview ready: 1 would be deleted, 0
+would be refused", "Applied: 1 deleted, 0 refused"). Visual: the screenshots were inspected and
+four things fixed: the dialog closed when the delete emptied the selection; the totals sentence sat
+unspaced under the preview's list (now inside "What deleting removes"); the preview and result said
+"change" and "already as asked" for a delete; the policy read "Records that cannot change". They
+await the user's approval.
+
+**Found.**
+
+- D122's text names `OBJECT_NOT_FOUND` for a record deleted by someone else; a batch item names its
+  record by reference, refused `REFERENCE_NOT_FOUND` as before. Left as it is.
+- A `sample` preview confirms only the records it previewed: the rest are refused
+  `DELETION_PREVIEW_REQUIRED` at execution (each delete is confirmed by its own preview, D120). The
+  dialog and the job page say so.
+- The single delete's token is computed differently; a token issued before this change is refused
+  `DELETION_PREVIEW_CHANGED` and previewed again (CHANGELOG).
+- The package's backend groups took 3 min 21 s in parallel, over the 2-minute package ceiling
+  (TEST_HARNESS_PLAN time ceilings); not caused by K2b's tests (`test_batch_statements` takes 12 s).
+  Reported as a harness finding.
+- The bundled-script test of the API reference failed once under parallel load and passed alone.
+
 ## R: Build acceptance and release
 
 **Scope:** after every package in the queue (or R-a at the cut line):
@@ -9079,6 +9361,9 @@ kept.
   restart, interrupted migration, a smoke start on a copy of the development database;
 - a schema 0.8 release installing and activating over schema 0.7 releases;
 - SC-10, SC-11, C8 and C13, the ROADMAP 0.9 exit gate, and every volume budget;
+- the deletion timing K2b deferred (D124): on the full-size volume fixture, previews of deleting
+  about 100,000 records live and in the change set and that deletion executed in the change set,
+  target under 60 s each, announced and run once;
 - PROJECT_STATUS, ROADMAP, TODO, CHANGELOG, API.md and the functionality catalogue updated; residual
   gaps recorded.
 

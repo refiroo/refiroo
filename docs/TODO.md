@@ -167,7 +167,9 @@ log, the page revised, [record](SETTINGS_AND_UI_PLAN.md#u5a-record-2026-10-07));
   engine. Decide a deletion design (cascades, subtree impact, signed confirmation); PG3b is
   delivered (2026-10-02). The user decided on 2026-10-02 (H4a, D-6) that batch delete items must be
   able to cascade (journey J11.6); the design decides how a batch confirms the impact it deletes.
-  _Taken by 0.9 K2b (D116, accepted 2026-10-09), on K2's batch preview._
+  _Taken by 0.9 K2b (D116, accepted 2026-10-09), on K2's batch preview; delivered 2026-10-09
+  (D120–D126): cascading delete items and one set-based deletion path. Left: the timing on the
+  full-size fixture (D124), deferred by the user to R._
 - **Lifecycle audit reads (decided 2026-10-02, H4a D-5).** The engine records workspace, change set
   and publication lifecycle events and model draft events, but no route reads them. Keep recording
   them and add reads (journeys J19.5, J08.9); consider showing a workspace's activity in the UI.

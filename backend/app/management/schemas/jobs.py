@@ -84,6 +84,23 @@ class PreviewCounts(BaseModel):
     rejected: int
 
 
+class DeletionTotals(BaseModel):
+    """What delete items remove together (0.9 K2b, D121): their records by type, the
+    relationships incident to them, and how many of those reach records that stay."""
+
+    objectCount: int
+    objectsByType: dict[str, int]
+    relationshipCount: int
+    retainedAssociationCount: int
+
+
+class DeletionImpact(DeletionTotals):
+    """One delete item's impact: its record with the records that go with it, and the token that
+    confirms exactly this impact (as the single ``DELETE``'s)."""
+
+    deletionPreviewToken: str
+
+
 class JobPreview(BaseModel):
     """What executing a previewed import (0.9 J3, D80–D83) or batch (0.9 K2, D112) would do.
     ``coverage`` is ``complete`` when every item ran, ``sample`` when only the first
@@ -101,6 +118,12 @@ class JobPreview(BaseModel):
         description="An import's rows of its file; omitted for a batch",
     )
     counts: PreviewCounts
+    deletion: DeletionTotals | SkipJsonSchema[None] = Field(
+        default=None,
+        exclude_if=omitted_when_none,
+        json_schema_extra=without_default,
+        description="What the batch's delete items would remove together; omitted when none does",
+    )
     result: Literal["applied", "partial", "rejected"]
     previewedAt: datetime
 
@@ -231,6 +254,8 @@ class JobItemResponse(BaseModel):
 
     ``applied`` carries ``action`` and the record's ``id``, ``objectTypeKey`` and ``version``
     (none after a live delete), and ``previousVersion`` when it overwrote without a version claim.
+    A delete item carries its ``impact``, or ``unchanged`` with ``deletedWithItem``, the earlier
+    item whose impact held its record (0.9 K2b).
     A relation item carries ``relationId`` and the relation's ``version`` (none after a delete),
     and ``relationSetVersion`` when it claimed a set; a set replacement carries the anchor's
     ``relationSetVersion`` and ``relationIds``;
@@ -253,6 +278,8 @@ class JobItemResponse(BaseModel):
     relationId: str | SkipJsonSchema[None] = _by_status()
     relationSetVersion: int | SkipJsonSchema[None] = _by_status()
     relationIds: RelationIds | SkipJsonSchema[None] = _by_status()
+    impact: DeletionImpact | SkipJsonSchema[None] = _by_status()
+    deletedWithItem: int | SkipJsonSchema[None] = _by_status()
     error: ApiErrorBody | SkipJsonSchema[None] = _by_status()
     reason: (
         Literal["BATCH_ROLLED_BACK", "JOB_CANCELLED", "MODEL_RELEASE_CHANGED", "JOB_FAILED"]

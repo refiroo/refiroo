@@ -98,8 +98,23 @@ export interface JobPreview {
   /** An import's rows of its file; a batch has none. */
   rows?: { total: number; previewed: number; rejected: number };
   counts: { created: number; updated: number; unchanged: number; deleted: number; rejected: number };
+  /** What the batch's delete items would remove together (0.9 K2b, D121); none when nothing is deleted. */
+  deletion?: DeletionTotals;
   result: "applied" | "partial" | "rejected";
   previewedAt: string;
+}
+
+/** Records by type, the relationships incident to them, and those reaching records that stay. */
+export interface DeletionTotals {
+  objectCount: number;
+  objectsByType: Record<string, number>;
+  relationshipCount: number;
+  retainedAssociationCount: number;
+}
+
+/** One delete item's impact, with the token that confirms exactly it (0.9 K2b, D120). */
+export interface DeletionImpact extends DeletionTotals {
+  deletionPreviewToken: string;
 }
 
 export type BindingKind =
@@ -141,6 +156,10 @@ export interface JobItemOutcome {
   version?: number;
   /** The ID the file gave, when the record written is its counterpart (0.9 J5). */
   sourceId?: string;
+  /** A delete item's impact (0.9 K2b). */
+  impact?: DeletionImpact;
+  /** A delete item whose record goes with this earlier item's impact (D122). */
+  deletedWithItem?: number;
   error?: { code: string; message: string; details?: unknown };
   reason?: string;
 }
@@ -163,6 +182,15 @@ export interface BatchUpdateItem {
   attributes: { attributeTypeKey: string; value: unknown }[];
 }
 
+/** A record deleted with what depends on it, confirmed by the preview (0.9 K2b, D120). */
+export interface BatchDeleteItem {
+  op: "delete";
+  ref?: string;
+  target: { id: string };
+  expectedVersion: number;
+  cascade: boolean;
+}
+
 /** `POST /api/v1/batches` as a bulk change sends it (0.9 K2): a background preview (D112–D114). */
 export interface BatchRequest {
   workspaceKey?: string;
@@ -171,7 +199,7 @@ export interface BatchRequest {
   policy: ImportPolicy;
   run: "inline" | "background";
   stage: "execute" | "preview";
-  items: BatchUpdateItem[];
+  items: BatchUpdateItem[] | BatchDeleteItem[];
 }
 
 /** One row of an import's file with its items' outcomes gathered (0.9 J3, D84). */

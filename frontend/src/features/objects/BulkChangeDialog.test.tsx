@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { ApiError } from "@/api/errors";
@@ -6,8 +6,9 @@ import { JobNotificationsProvider } from "@/features/jobs/JobNotifications";
 import { ReadStopped } from "@/lib/readMatching";
 import { emptySelection, selectMatching, toggle, type RecordSelection } from "@/lib/recordSelection";
 import { capabilitiesFixture } from "@/test/capabilities";
+import { PushedEventSource } from "@/test/jobStream";
 import { testModel } from "@/test/fixtures";
-import type { Job, JobItemOutcome } from "@/types";
+import type { BatchUpdateItem, Job, JobItemOutcome } from "@/types";
 import { ToastProvider } from "@/ui/Toast";
 import { BulkChangeDialog } from "./BulkChangeDialog";
 
@@ -21,29 +22,6 @@ vi.mock("@/api/client", async (importOriginal) => ({
     jobItems: vi.fn(),
   },
 }));
-
-/** A job stream the test pushes jobs into, as the engine pushes them over server-sent events. */
-class PushedEventSource {
-  static open: PushedEventSource[] = [];
-  private listener?: (event: MessageEvent<string>) => void;
-  constructor(public url: string) {
-    PushedEventSource.open.push(this);
-  }
-  addEventListener(_: string, listener: (event: MessageEvent<string>) => void) {
-    this.listener = listener;
-  }
-  close() {
-    PushedEventSource.open = PushedEventSource.open.filter((source) => source !== this);
-  }
-  /** Pushes once the job's stream is open, as the engine answers a connecting stream. */
-  static async push(job: Job) {
-    await waitFor(() => expect(PushedEventSource.open.some((item) => item.url.includes(job.id))).toBe(true));
-    act(() => {
-      for (const source of PushedEventSource.open.filter((item) => item.url.includes(job.id)))
-        source.listener?.({ data: JSON.stringify(job) } as MessageEvent<string>);
-    });
-  }
-}
 
 const domain = testModel.objectTypes.find((type) => type.key === "domain")!;
 const picked = toggle(toggle(emptySelection, { id: "a", version: 3, name: "Alpha" }), {
@@ -143,7 +121,7 @@ describe("BulkChangeDialog (0.9 K2)", () => {
       ["Alpha", "a", 3],
       ["Beta", "b", 5],
     ]);
-    expect(body.items[0].attributes).toEqual([{ attributeTypeKey: "code", value: "X-1" }]);
+    expect((body.items[0] as BatchUpdateItem).attributes).toEqual([{ attributeTypeKey: "code", value: "X-1" }]);
 
     await PushedEventSource.push(waiting);
     expect(await screen.findByText("Applying would change 1 domain and refuse 1.")).toBeInTheDocument();
@@ -192,7 +170,7 @@ describe("BulkChangeDialog (0.9 K2)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Preview again" }));
     await waitFor(() => expect(api.startBatch).toHaveBeenCalledTimes(2));
     expect(api.cancelJob).toHaveBeenCalledWith("j1");
-    expect(vi.mocked(api.startBatch).mock.calls[1][0].items[0].attributes).toEqual([
+    expect((vi.mocked(api.startBatch).mock.calls[1][0].items[0] as BatchUpdateItem).attributes).toEqual([
       { attributeTypeKey: "code", value: "X-1" },
     ]);
   });

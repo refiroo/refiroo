@@ -37,7 +37,13 @@ import {
   ImportResultSection,
   ImportRowsSection,
 } from "./ImportOutcome";
-import { BatchItemsSection, BatchPreviewSection, BatchResultSection } from "./BatchOutcome";
+import {
+  BatchDeletionSection,
+  BatchItemsSection,
+  BatchPreviewSection,
+  BatchResultSection,
+  type TypeName,
+} from "./BatchOutcome";
 import { RESULT, STATE, cancellable, fileSize } from "./jobText";
 import { isResting, useJobStream } from "./useJobStream";
 
@@ -214,6 +220,7 @@ export function JobPage({
       {batch && (
         <>
           {job.preview && !job.confirmedAt ? <BatchPreviewSection job={job} /> : <BatchResultSection job={job} />}
+          {job.preview && !job.confirmedAt && <BatchDeletionSection job={job} typeName={typeName(model)} />}
           {isResting(job) && (
             <BatchItemsSection
               key={job.state}
@@ -222,6 +229,7 @@ export function JobPage({
             />
           )}
           {job.confirmedAt && <BatchPreviewSection job={job} />}
+          {job.confirmedAt && <BatchDeletionSection job={job} typeName={typeName(model)} />}
         </>
       )}
       {output && (
@@ -290,6 +298,14 @@ export function JobPage({
   );
 }
 
+/** A type's records by their number, named as the model names the type. */
+function typeName(model: EngineModel): TypeName {
+  return (key, records) => {
+    const type = model.objectTypes.find((item) => item.key === key);
+    return `${count(records)} ${type ? (records === 1 ? type.name : type.pluralName).toLowerCase() : key}`;
+  };
+}
+
 /**
  * An outcome's name, linked to its record where the outcome names one that still stands: in the
  * first application that shows its type, in the job's workspace or change set.
@@ -303,7 +319,9 @@ function recordLink(
   const name = outcome.ref ?? `Item ${count(outcome.index + 1)}`;
   const objectTypeKey = outcome.objectTypeKey;
   const application = objectTypeKey && model.applications.find((item) => item.objectTypeKeys.includes(objectTypeKey));
-  if (!onNavigate || !outcome.id || !objectTypeKey || !application || outcome.action === "deleted") return name;
+  // A deleted record, or one gone with another item's, has nothing left to open (0.9 K2b).
+  const gone = outcome.action === "deleted" || outcome.deletedWithItem !== undefined;
+  if (!onNavigate || !outcome.id || !objectTypeKey || !application || gone) return name;
   const route: RouteState = {
     kind: "detail",
     applicationKey: application.key,

@@ -8,6 +8,23 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 K2b: deleting a selection, and cascading batch delete items (D120–D126; J11.6, J32.3;
+  PG-D18). A `delete` item takes `cascade` and `deletionPreviewToken` as the single `DELETE` does:
+  without `cascade` a record with dependants is refused `OBJECT_HAS_DEPENDANTS` with its `impact`;
+  with it the item deletes the record with its dependants under the impact its token confirms. A
+  batch preview gives each delete item's `impact` (records by type, relationships, those reaching
+  records that stay, and the token) and the preview's `deletion` totals; confirming carries each
+  token into the stored item, so execution deletes exactly what was previewed and refuses only an
+  item whose impact changed (`DELETION_PREVIEW_CHANGED`). Items are decided in order: a record an
+  earlier item of the job deleted answers `unchanged` with `deletedWithItem` (D122). Deletion is one
+  path for the single `DELETE` and a batch's delete items, live and in a change set, as set
+  statements in PostgreSQL whatever the impact's size or depth (D123); its token is the same from
+  either. In the browser, **Delete…** in the selection bar previews what deleting removes (the
+  selected records, those going with them by type, the relationships) before a destructive
+  **Delete N records** naming the whole (D126); the deleted records leave the selection, the refused
+  ones stay for Preview again, all matching is cleared (D125). A batch's job page shows what
+  deleting removes and each delete's impact.
+
 - Base 0.9 K2: changing values of a selection, and previewing a batch (D112–D119). `POST /batches`
   takes `stage: "preview"` for a background batch (inline is refused): its items run without
   writing anything, as an import's preview runs, and the job waits in `awaiting_confirmation` with
@@ -508,6 +525,11 @@ All notable changes to this project are documented in this file. The format foll
   - Decisions D35–D39. No migration.
 
 ### Changed
+
+- Base 0.9 K2b: a change set's deletions are audited per record (`change-set-object`, `deleted`), as
+  its creates and updates are; the single delete's preview token is computed differently (it stays
+  opaque), so a token issued before this release is refused `DELETION_PREVIEW_CHANGED` and previewed
+  again. The bulk change dialog's flow is shared by every bulk action (`BulkJobDialog`).
 
 - Base 0.9 K2 (D119): `IMPORT_PREVIEW_MAX_ITEMS` is renamed `JOB_PREVIEW_MAX_ITEMS` and
   `integrationJobs.limits.importPreviewMaxItems` `previewMaxItems`, without an alias, since the

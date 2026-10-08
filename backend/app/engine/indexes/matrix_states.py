@@ -627,6 +627,36 @@ def note_relations_removed(session: Session, relation_ids: Iterable[str]) -> Non
             note_rows(session, (from_id, to_id))
 
 
+def note_removed(
+    session: Session,
+    object_ids: Iterable[str],
+    relations: Iterable[Any],
+    change_set_id: str | None = None,
+) -> None:
+    """Records and relations a Core statement deleted, or tombstoned in a change set, as the ORM
+    would note them (0.9 K2b): a deleted live record's row goes, a tombstone's cells and the rows
+    under it change, and each relation's ends change in shapes of its type."""
+    changes = _changes(session, change_set_id)
+    if change_set_id is None:
+        changes.rows.update(object_ids)
+    else:
+        ids = set(object_ids)
+        changes.cells.update(ids)
+        changes.moved.update(ids)
+    note_relations(session, relations, change_set_id)
+
+
+def has_built(session: Session, owner_kind: str, owner_id: str) -> bool:
+    """Whether any matrix shape keeps stored states for this owner, so a change must be noted."""
+    return bool(
+        session.scalar(
+            select(MatrixStateBuild.sequence_id)
+            .where(MatrixStateBuild.owner_kind == owner_kind, MatrixStateBuild.owner_id == owner_id)
+            .limit(1)
+        )
+    )
+
+
 def note_relations(
     session: Session, relations: Iterable[Any], change_set_id: str | None = None
 ) -> None:

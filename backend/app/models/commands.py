@@ -282,9 +282,16 @@ class BatchUpsertItem(_BatchItem):
 
 
 class BatchDeleteItem(_BatchItem):
+    """As ``DELETE /objects/{type}/{id}``: without ``cascade`` a record with dependants is refused
+    with its impact; with it, the impact confirmed by ``deletionPreviewToken`` is deleted. In a
+    preview the token is not needed: the preview gives it, and confirming carries it (0.9 K2b,
+    D120)."""
+
     op: Literal["delete"]
     target: RecordReference
     expectedVersion: int = Field(ge=1)
+    cascade: bool = False
+    deletionPreviewToken: str | None = Field(default=None, min_length=1, max_length=2000)
 
 
 class _RelationSetClaim(_BatchItem):

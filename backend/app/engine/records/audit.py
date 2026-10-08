@@ -32,6 +32,11 @@ def audit_cause(session: Session, kind: str, cause_id: str) -> Iterator[None]:
         session.info.pop(_CAUSE, None)
 
 
+def audit_cause_of(session: Session) -> tuple[str | None, str | None]:
+    """What ``audit_cause`` names for this session now: the kind and ID, or neither."""
+    return session.info.get(_CAUSE, (None, None))
+
+
 @dataclass(frozen=True)
 class AuditEntry:
     """One audit event a decided write records, with its subjects (0.9.0-alpha.1 PG3b) and, for a

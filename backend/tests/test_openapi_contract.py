@@ -102,10 +102,12 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # J4a's document exactly. Re-baselined for 0.9 K2: BatchRequest's stage, ImportPreview renamed
     # JobPreview with rows optional, JobLimits' importPreviewMaxItems renamed previewMaxItems, and
     # the descriptions of POST /batches, the confirm route and the preview naming a batch's
-    # preview; no path changed.
+    # preview; no path changed. Re-baselined for 0.9 K2b: the delete item's cascade and
+    # deletionPreviewToken, the outcome's impact and deletedWithItem, the preview's deletion
+    # totals (DeletionImpact, DeletionTotals) and their descriptions; no path changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "cba4c12bd9c5b5d961e27b03bbeefe7ccb5f2c29105709d3478e8a20f1394b20"
+        "f6d8a2105f9a05e426a9c953400d82410bdbe65a7338eaf11157d0c1609dbae4"
     )
 
 

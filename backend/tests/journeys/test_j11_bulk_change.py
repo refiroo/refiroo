@@ -1,9 +1,9 @@
 """J11 — Submit a bounded bulk change (USER_JOURNEYS.md).
 
 Records are referred to by ID or by R's unique value ``R.u``; R2 stands under R and has its own.
-J11.6 (delete with cascade) is planned (D-6, PG-D18, 0.9 K2b). J11.9 previews a batch before it
-runs (0.9 K2, D112, D113); the journey application runs no worker thread, so those tests run the
-engine's job worker themselves (``_run``).
+J11.6 deletes records with what depends on them under a confirmation of that impact (0.9 K2b,
+D120–D123). J11.9 previews a batch before it runs (0.9 K2, D112, D113); the journey application runs
+no worker thread, so those tests run the engine's job worker themselves (``_run``).
 """
 
 import pytest
@@ -720,3 +720,181 @@ def test_a_preview_is_a_background_job_bounded_by_its_setting(world):
     assert job["preview"]["items"] == {"total": 3, "previewed": 2}
     limits = ok(world.api.get("/capabilities"))["integrationJobs"]["limits"]
     assert limits["previewMaxItems"] == 2 and "importPreviewMaxItems" not in limits
+
+
+# --- J11.6: deleting records with what depends on them (0.9 K2b) --------------------------------
+
+
+def _remove(record, **extra):
+    return {
+        "op": "delete",
+        "target": {"id": record["id"]},
+        "expectedVersion": record["version"],
+        "ref": record["name"],
+        **extra,
+    }
+
+
+def _owner_of_much(world, name):
+    """An R record with two R2 children, a D record it owns (under a G record) and a link to a K
+    record: what deleting it removes, and the records that stay."""
+    owner = world.made("R", name)
+    children = [world.made("R2", f"{name} child {n}", parent=owner["id"]) for n in range(2)]
+    g = world.made("G", f"Scope of {name}")
+    owned = world.made(
+        "D",
+        f"Owned by {name}",
+        parent=world.dependant_parent(g["id"]),
+        relations=[world.owner("Bown", owner["id"])],
+    )
+    kept = world.made("K", f"Kept by {name}")
+    ok(world.relate("B1n", owner["id"], kept["id"]), 201)
+    return world.record("R", owner["id"]), children, owned, kept
+
+
+def _feed_after(world, after):
+    entries = []
+    while True:
+        page = ok(world.api.get(f"/workspaces/{W1}/feed", after=after, pageSize=100))
+        entries += page["items"]
+        after = page["nextAfter"]
+        if after == page["headPosition"]:
+            return entries
+
+
+@pytest.mark.journey("J11.6", "J11.9")
+@pytest.mark.structures("R", "R2", "G", "D", "Bown", "K", "B1n")
+def test_a_cascading_delete_previewed_then_applied(world):
+    """Given a leaf record; a record with two children, a record it owns and a link to a record that
+    stays; and one of those children, listed after it. When the three are deleted with cascade in a
+    previewed batch. Then the preview deletes nothing and gives each item's impact: the owner's
+    records by type, its relationships and the two that reach records that stay; the child goes with
+    the owner's item; the summary totals them. When confirmed. Then the same outcomes, every record
+    of the impact is gone, the linked record stays, and the feed has the job's entries, each
+    record's relationships before its records."""
+    leaf = world.made("R", "Leaf")
+    owner, children, owned, kept = _owner_of_much(world, "Owner")
+    head = _feed_head(world)
+    items = [
+        _remove(leaf, cascade=True),
+        _remove(owner, cascade=True),
+        _remove(children[0], cascade=True),
+    ]
+
+    job = _previewed(world, items)
+    expected = [("applied", "deleted"), ("applied", "deleted"), ("applied", "unchanged")]
+    assert _items(world, job) == expected
+    outcomes = ok(world.api.get(f"/jobs/{job['id']}/items", pageSize=100))["items"]
+    impact = outcomes[1]["impact"]
+    assert impact["objectCount"] == 4
+    assert impact["objectsByType"] == {world.key("R"): 1, world.key("R2"): 2, world.key("D"): 1}
+    assert impact["retainedAssociationCount"] == 2 and impact["deletionPreviewToken"]
+    assert outcomes[0]["impact"]["objectCount"] == 1
+    assert outcomes[2]["deletedWithItem"] == 1 and "impact" not in outcomes[2]
+    deletion = job["preview"]["deletion"]
+    assert deletion["objectCount"] == 5
+    assert deletion["relationshipCount"] == sum(o["impact"]["relationshipCount"] for o in outcomes[:2])
+    assert job["preview"]["counts"]["deleted"] == 2
+    for structure, record in (("R", owner), ("R2", children[1]), ("D", owned), ("R", leaf)):
+        assert world.record(structure, record["id"])["version"] == record["version"]
+    assert _feed_head(world) == head
+
+    ok(world.api.post(f"/jobs/{job['id']}/confirm", None), 202)
+    _run(world)
+    done = _job(world, job)
+    assert done["state"] == "completed" and done["result"] == "applied", done["error"]
+    assert _items(world, done) == expected
+    for structure, record in (
+        ("R", leaf), ("R", owner), ("R2", children[0]), ("R2", children[1]), ("D", owned),
+    ):
+        refused(world.read(structure, record["id"]), 404, "OBJECT_NOT_FOUND")
+    assert world.record("K", kept["id"])["id"] == kept["id"]
+
+    entries = _feed_after(world, head)
+    assert all(e["cause"] == {"kind": "job", "id": job["id"]} for e in entries)
+    deleted = [e["id"] for e in entries if e["kind"] == "object"]
+    assert set(deleted) == {leaf["id"], owner["id"], *(c["id"] for c in children), owned["id"]}
+    after_leaf = entries[1:]
+    kinds = [e["kind"] for e in after_leaf]
+    assert kinds == sorted(kinds, key=lambda kind: kind != "relation"), kinds
+    assert {(e["kind"], e["action"]) for e in after_leaf} == {
+        ("relation", "deleted"),
+        ("object", "deleted"),
+    }
+
+
+@pytest.mark.journey("J11.6", "J11.1")
+@pytest.mark.structures("R", "R2", "G", "D", "Bown", "K", "B1n")
+def test_an_impact_changed_after_the_preview_refuses_that_item(world):
+    """Given two records with dependants, previewed for a cascading delete. When a child is added
+    under one before confirming. Then that item is refused as a changed preview and the other is
+    deleted. Under all or nothing the same change leaves both."""
+    first, *_ = _owner_of_much(world, "First")
+    second, *_ = _owner_of_much(world, "Second")
+    job = _previewed(world, [_remove(first, cascade=True), _remove(second, cascade=True)])
+    late = world.made("R2", "Late child", parent=second["id"])
+    ok(world.api.post(f"/jobs/{job['id']}/confirm", None), 202)
+    _run(world)
+    done = _job(world, job)
+    assert done["result"] == "partial", done["error"]
+    assert _items(world, done) == [("applied", "deleted"), ("rejected", "DELETION_PREVIEW_CHANGED")]
+    refused(world.read("R", first["id"]), 404, "OBJECT_NOT_FOUND")
+    assert world.record("R2", late["id"])["parentObjectId"] == second["id"]
+
+    third, *_ = _owner_of_much(world, "Third")
+    fourth, *_ = _owner_of_much(world, "Fourth")
+    items = [_remove(third, cascade=True), _remove(fourth, cascade=True)]
+    job = _previewed(world, items, policy="atomic")
+    assert job["preview"]["result"] == "applied"
+    world.made("R2", "Another late child", parent=fourth["id"])
+    ok(world.api.post(f"/jobs/{job['id']}/confirm", None), 202)
+    _run(world)
+    done = _job(world, job)
+    assert done["result"] == "rejected", done["error"]
+    assert _items(world, done) == [
+        ("unprocessed", "BATCH_ROLLED_BACK"),
+        ("rejected", "DELETION_PREVIEW_CHANGED"),
+    ]
+    assert world.record("R", third["id"])["id"] == third["id"]
+
+
+@pytest.mark.journey("J11.6", "J11.3")
+@pytest.mark.structures("R", "R2", "G", "D", "Bown", "K", "B1n")
+def test_a_cascading_delete_in_a_change_set_and_without_a_preview(world):
+    """Given a change set holding a record with dependants. When it is deleted with cascade through
+    a previewed batch in the change set. Then the change set no longer holds it or its dependants
+    and live data still does. In batches sent to execute at once: cascade without a token is refused
+    as needing a preview; without cascade a record with dependants is refused with its impact; the
+    token the single delete's refusal gives confirms the batch item."""
+    owner, children, owned, _kept = _owner_of_much(world, "Staged owner")
+    cs = world.current(world.change_set())
+    job = _previewed(
+        world,
+        [_remove(owner, cascade=True)],
+        context={"changeSetId": cs["id"]},
+        expectedChangeSetVersion=cs["version"],
+    )
+    assert job["preview"]["deletion"]["objectCount"] == 4
+    ok(world.api.post(f"/jobs/{job['id']}/confirm", None), 202)
+    _run(world)
+    done = _job(world, job)
+    assert done["state"] == "completed" and done["result"] == "applied", done["error"]
+    for structure, record in (("R", owner), ("R2", children[0]), ("D", owned)):
+        refused(world.read(structure, record["id"], changeSetId=cs["id"]), 404, "OBJECT_NOT_FOUND")
+        assert world.record(structure, record["id"])["id"] == record["id"]
+
+    no_token = ok(_batch(world, [_remove(owner, cascade=True)]))
+    assert _outcomes(no_token) == [("rejected", "DELETION_PREVIEW_REQUIRED")]
+    plain = ok(_batch(world, [_remove(owner)]))
+    assert _outcomes(plain) == [("rejected", "OBJECT_HAS_DEPENDANTS")]
+    assert plain["items"][0]["error"]["details"]["impact"]["objectCount"] == 4
+
+    single = world.api.delete(
+        f"/objects/{world.key('R')}/{owner['id']}", expectedVersion=owner["version"]
+    )
+    token = refused(single, 409, "OBJECT_HAS_DEPENDANTS")["details"]["deletionPreviewToken"]
+    confirmed = ok(_batch(world, [_remove(owner, cascade=True, deletionPreviewToken=token)]))
+    assert _outcomes(confirmed) == [("applied", "deleted")]
+    assert confirmed["items"][0]["impact"]["objectCount"] == 4
+    for structure, record in (("R", owner), ("R2", children[1]), ("D", owned)):
+        refused(world.read(structure, record["id"]), 404, "OBJECT_NOT_FOUND")

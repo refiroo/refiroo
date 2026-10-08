@@ -298,7 +298,7 @@ a batch never matches by name.
 | `create` | `applicationKey`, `objectTypeKey`, `name` | As `POST /objects`: optional `id`, `parent` (a reference), `attributes`, `initialRelations` (`relationTypeKey`, `direction`, `object`: a reference, `attributes`) |
 | `update` | `target`, `expectedVersion` | As `PATCH /objects/…`: `name`, `parent` (a move, B2 of 0.8), `attributes` merged as a single PATCH merges them, including its treatment of `null` |
 | `upsert` | `objectTypeKey`, `applicationKey`, `key`, `name` | Finds the record by `key`; creates it as `create` when absent; otherwise updates it as `update` under P4. Its `initialRelations` are used only when it creates (D26, B1); an absent `parent` keeps a found record where it is |
-| `delete` | `target`, `expectedVersion` | As `DELETE` without `cascade`: a record with children or non-parent relations is rejected `OBJECT_HAS_DEPENDANTS` (without a preview token). A batch removes dependants itself, children before parents |
+| `delete` | `target`, `expectedVersion` | As `DELETE`, with its optional `cascade` and `deletionPreviewToken` (0.9 K2b): without `cascade` a record with children or non-parent relations is rejected `OBJECT_HAS_DEPENDANTS` with its impact and token; with it the record goes with its dependants under the impact its token confirms |
 
 **Upsert key (D2).** `key` is `{ "id": "…" }` (a client-assigned public ID, used on create) or
 `{ "attributeTypeKey": "…" }`, naming a unique attribute whose value the item's own `attributes`
@@ -310,8 +310,16 @@ another type or application is `REFERENCE_TYPE_MISMATCH`; an upsert never change
 as `unchanged` (P2): no version, audit entry or feed entry. With `onExisting: "overwrite"` the check
 runs first, so re-sending an unchanged feed never needs a version.
 
-**Cascade** stays out of batches in 0.9: its preview token binds one record's confirmed impact, which
-a batch cannot show. Deleting a subtree is a batch of deletes in child-first order.
+**Cascade (0.9 K2b, D120–D123; PG-D18).** A cascading delete item is confirmed per item by the
+single delete's token: a batch preview computes each item's impact and token, and confirming
+carries the tokens into the stored items, so execution deletes exactly what was previewed and
+refuses an item whose impact changed (`DELETION_PREVIEW_CHANGED`); an execute batch sends its tokens
+itself (`DELETION_PREVIEW_REQUIRED` without one). Items are decided in order: a record several
+items reach belongs to the earliest, and a record an earlier item of the job deleted answers
+`unchanged` with `deletedWithItem`. A delete's outcome and its dependants refusal carry `impact`
+(counts by type and the token, never lists); a preview adds `deletion` totals. A run of delete items
+is set work in PostgreSQL, live and in a change set, and the single `DELETE` runs through the same
+path ([API.md](API.md#deleting-with-what-depends-on-it-09-k2b)).
 
 ### B4: Relation items
 

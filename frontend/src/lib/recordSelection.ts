@@ -106,3 +106,16 @@ export function withVersions(selection: RecordSelection, versions: ReadonlyMap<s
   }
   return { ...selection, ids };
 }
+
+/**
+ * After a bulk delete (0.9 K2b, D125): the records it removed leave a hand selection, and the
+ * refused ones stay for Preview again. "All matching" was the list as it stood, which has changed,
+ * so it is cleared.
+ */
+export function withoutDeleted(selection: RecordSelection, deleted: ReadonlySet<string>): RecordSelection {
+  if (selection.mode === "matching") return emptySelection;
+  if (!deleted.size) return selection;
+  const ids = new Map(selection.ids);
+  for (const id of deleted) ids.delete(id);
+  return { mode: "ids", ids, anchor: selection.anchor && ids.has(selection.anchor) ? selection.anchor : undefined };
+}

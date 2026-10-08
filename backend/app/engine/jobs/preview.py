@@ -65,6 +65,7 @@ def preview_items(
         expected_change_set_version=job.change_set_version,
         job_id=job.id,
         should_stop=should_stop,
+        previewing=True,
     )
 
 
@@ -74,7 +75,33 @@ def record_preview(
     """The preview's outcomes and summary, and the job waiting for confirmation; the caller
     commits."""
     record_outcomes(session, job, outcomes)
-    await_confirmation(session, job, preview_summary(session, job), retention_days=retention_days)
+    summary = preview_summary(session, job)
+    deletion = deletion_totals(outcomes)
+    if deletion is not None:
+        summary["deletion"] = deletion
+    await_confirmation(session, job, summary, retention_days=retention_days)
+
+
+def deletion_totals(outcomes: list[ItemOutcome]) -> dict[str, Any] | None:
+    """What the preview's delete items would remove together (0.9 K2b, D121): records by type,
+    relationships, and those reaching records that stay; ``None`` when it deletes nothing."""
+    impacts = [
+        outcome.fields["impact"]
+        for outcome in outcomes
+        if outcome.status == "applied" and "impact" in outcome.fields
+    ]
+    if not impacts:
+        return None
+    by_type: dict[str, int] = {}
+    for impact in impacts:
+        for key, count in impact["objectsByType"].items():
+            by_type[key] = by_type.get(key, 0) + count
+    return {
+        "objectCount": sum(impact["objectCount"] for impact in impacts),
+        "objectsByType": dict(sorted(by_type.items())),
+        "relationshipCount": sum(impact["relationshipCount"] for impact in impacts),
+        "retainedAssociationCount": sum(impact["retainedAssociationCount"] for impact in impacts),
+    }
 
 
 def preview_summary(session: Session, job: Job) -> dict[str, Any]:

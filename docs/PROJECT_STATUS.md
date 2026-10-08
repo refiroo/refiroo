@@ -346,7 +346,13 @@ changing values of a selection from the collection (Change values…: set or cle
 applied, refused records named and openable), on a batch preview the engine now offers to any
 background batch (`stage: preview`, then confirm), the limit renamed `JOB_PREVIEW_MAX_ITEMS`;
 deletion moved to K2b; D112–D119; screenshots await the user's approval
-([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k2-record-2026-10-09)). Next is K2b.
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k2-record-2026-10-09)). **K2b is delivered (2026-10-09)**:
+deleting a selection from the collection (Delete…: previewed with what goes with each record,
+applied exactly as previewed, a record changed meanwhile refused), on cascading batch delete items
+(J11.6) and one set-based deletion path for the single delete and a batch, live and in a change set
+(PG-D18 closed); D120–D126; the deletion timing on the full-size fixture (D124) deferred by the user
+to R; screenshots await the user's approval
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k2b-record-2026-10-09)). Next is K3.
 **C18, the consumer API definition written for readers, is delivered (2026-10-08):** schema 0.9
 writes `consumerApis` as what a definition exposes, offers, looks like and filters by, with defaults
 written out by `GET /api/v1/model/consumer-apis/{consumerApi}`; an operation not offered is

@@ -320,3 +320,74 @@ describe("JobPage of a batch (0.9 K2)", () => {
     await waitFor(() => expect(SilentEventSource.opened.some((url) => url.includes("j8"))).toBe(true));
   });
 });
+
+describe("JobPage of a batch that deletes (0.9 K2b)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    SilentEventSource.opened = [];
+    window.sessionStorage.clear();
+    vi.stubGlobal("EventSource", SilentEventSource);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("shows what deleting removes and each delete item's impact, linking no record it removes", async () => {
+    const deleting: Job = {
+      ...applied,
+      state: "awaiting_confirmation",
+      confirmedAt: null,
+      result: null,
+      finishedAt: null,
+      counts: { applied: 2, rejected: 0, unprocessed: 0, created: 0, updated: 0, unchanged: 1, deleted: 1 },
+      preview: {
+        coverage: "complete",
+        items: { total: 2, previewed: 2 },
+        counts: { created: 0, updated: 0, unchanged: 1, deleted: 1, rejected: 0 },
+        deletion: {
+          objectCount: 4,
+          objectsByType: { domain: 1, codelist: 3 },
+          relationshipCount: 5,
+          retainedAssociationCount: 2,
+        },
+        result: "applied",
+        previewedAt: "2026-10-09T09:00:00Z",
+      },
+    };
+    vi.mocked(api.jobItems).mockResolvedValue({
+      items: [
+        {
+          index: 0,
+          ref: "Alpha",
+          status: "applied",
+          action: "deleted",
+          id: "a",
+          objectTypeKey: "domain",
+          impact: {
+            objectCount: 4,
+            objectsByType: { domain: 1, codelist: 3 },
+            relationshipCount: 5,
+            retainedAssociationCount: 2,
+            deletionPreviewToken: "t",
+          },
+        },
+        {
+          index: 1,
+          ref: "Alpha's codelist",
+          status: "applied",
+          action: "unchanged",
+          id: "c",
+          objectTypeKey: "codelist",
+          deletedWithItem: 0,
+        },
+      ],
+      nextCursor: null,
+    });
+    renderBatch(deleting);
+    const removes = await screen.findByRole("region", { name: "What deleting removes" });
+    expect(removes).toHaveTextContent("4: 3 codelists, 1 domain");
+    expect(removes).toHaveTextContent("Relationships removed5");
+    expect(await screen.findByText("Would be deleted with 3 more records and 5 relationships")).toBeInTheDocument();
+    expect(screen.getByText("Would go with item 1")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Alpha" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Alpha's codelist" })).toBeNull();
+  });
+});

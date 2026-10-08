@@ -87,6 +87,7 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/docs` a
 | `POST /imports` with `stage: preview`; the job's `preview` (`coverage`, `items`, `rows`, `counts`, `result`, `previewedAt`), `bindingReport` and `confirmedAt`; `POST /jobs/{id}/confirm`; `POST /jobs/{id}/cancel` of a waiting preview; `GET /jobs/{id}/rows` (`status`, paging); `GET /jobs/{id}/items` (`ref`); a row refusal's `details.cells` (0.9 J3) | J27.10, J27.11, J27.12 |
 | The job's `notices` (`RECORD_IDS_OF_ANOTHER_WORKSPACE`); `OBJECT_ALREADY_EXISTS` and `REFERENCE_NOT_FOUND` naming the workspace that holds the ID (`details.workspaceKey`) (0.9 J4a) | J27.10, J27.11 |
 | `stage` (`execute`, `preview`) on `POST /batches`, refused with `run: inline`; a batch's `preview` (`coverage`, `items`, `counts`, `result`, `previewedAt`, no `rows`); `POST /jobs/{id}/confirm` and `POST /jobs/{id}/cancel` of a waiting batch preview (0.9 K2) | J11.9 |
+| The `delete` item's `cascade` and `deletionPreviewToken`; an outcome's `impact` (`objectCount`, `objectsByType`, `relationshipCount`, `retainedAssociationCount`, `deletionPreviewToken`) and `deletedWithItem`; a preview's `deletion` totals; `OBJECT_HAS_DEPENDANTS` with `details.impact`, `DELETION_PREVIEW_REQUIRED` and `DELETION_PREVIEW_CHANGED` per item; the single delete's token accepted by a batch item (0.9 K2b) | J11.6 |
 | `otherWorkspaceIds` (`refuse`, `counterparts`) on `POST /imports` and `POST /batches`; the counterpart derivation; an outcome's `sourceId`; the `RECORD_IDS_AS_COUNTERPARTS` notice; `REFERENCE_NOT_FOUND` for a counterpart not loaded yet (0.9 J5) | J27.14, J11 |
 | `GET /jobs/{id}/events` (server-sent events: the job at once and after each committed change, ending after a final state; 0.9 J1u) | J24.7, J27.6 |
 | `POST /consumer-subscriptions`, `GET /consumer-subscriptions` (`consumerApi`, `workspaceKey`, `status`), `GET`, `PATCH` and `DELETE /consumer-subscriptions/{id}`, `POST /consumer-subscriptions/{id}/suspend`, `POST /consumer-subscriptions/{id}/resume` (`reset`); served with `CONSUMER_SUBSCRIPTIONS_ENABLED`; the subscription's `delivery`; `name` (U5a); `maxEventsPerBatch`, `payload`, `format` (C17; `mode` and `debounceSeconds` retired) | J30.6, J30.7, J30.8, J30.9 |
@@ -222,7 +223,7 @@ Raised by the inventory; answered by the user on 2026-10-02.
   ([TODO](../TODO.md#now--product-09)).
 - **D-6. Batch delete with cascade.** *Decided: a batch delete item must be able to cascade*, as a
   single delete can; refusing an item with dependants, or deleting only as one atomic batch, is not
-  a realistic integration path. Journey variant J11.6 (planned). How a batch confirms the impact it
+  a realistic integration path. Journey variant J11.6 (delivered in 0.9 K2b). How a batch confirms the impact it
   deletes (the single delete's signed preview token) is designed with
   [PG-D18](../POSTGRESQL_RUNTIME_PLAN.md#decisions), which now carries this direction.
 - **D-7. The schema upgrade command's help** named schemas 0.5–0.7. *Fixed 2026-10-02:* the help
