@@ -8,6 +8,17 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 J5: another workspace's export loads as this workspace's own records (D96–D101).
+  `otherWorkspaceIds: "counterparts"` on `POST /imports` and `POST /batches` makes an ID held by
+  another workspace's record stand for its counterpart here, whose ID is derived from the original
+  ID and the workspace key (a name-based UUID in a documented namespace, marked as version 4); the
+  same file sent again finds what it created, types load file by file, a change set takes the live
+  IDs, and a workspace's own IDs and free IDs are used as given. Every record ID an item names is
+  translated, a profile's `matchBy: {"field": "id"}` too; relationship IDs are not. The file's
+  versions are ignored on counterparts (`onExisting` decides); outcomes name `sourceId`; the
+  notice reads `RECORD_IDS_AS_COUNTERPARTS`; a reference to a counterpart not loaded yet says to load
+  its file first. The import dialog offers the choice, loading them by default. Amends D49.
+
 - Base 0.9 J4a: an import says why rows cannot load when the file is another workspace's export.
   Record IDs are unique across the instance, so such a file loads only into the workspace it came
   from (D49); until now every row was refused with no reason a user could act on. The job carries

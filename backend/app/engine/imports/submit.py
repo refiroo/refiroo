@@ -120,6 +120,7 @@ def submit_import(
             "policy": request.policy,
             "run": "background",
             "onExisting": request.onExisting,
+            "otherWorkspaceIds": request.otherWorkspaceIds,
             "stage": request.stage,
             "profile": profile,
             "file": {

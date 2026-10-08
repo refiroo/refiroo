@@ -262,6 +262,8 @@ class ImportRequest(BaseModel):
     format: ImportFormat | None = None
     policy: Literal["atomic", "independent"]
     onExisting: Literal["reject", "overwrite"] = "reject"
+    # Whether IDs of another workspace's records stand for this workspace's own (0.9 J5, D96).
+    otherWorkspaceIds: Literal["refuse", "counterparts"] = "refuse"
     stage: Literal["execute", "preview"]
 
     @model_validator(mode="after")

@@ -117,7 +117,12 @@ def submit_inline_batch(
 
 
 def batch_parameters(request: BatchRequest) -> dict[str, str]:
-    return {"policy": request.policy, "run": request.run, "onExisting": request.onExisting}
+    return {
+        "policy": request.policy,
+        "run": request.run,
+        "onExisting": request.onExisting,
+        "otherWorkspaceIds": request.otherWorkspaceIds,
+    }
 
 
 def earlier_job(

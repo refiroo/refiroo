@@ -193,16 +193,27 @@ def _foreign_record_ids(session: Session, job: Job) -> list[dict[str, Any]]:
         .group_by(RdmObject.workspace_key)
         .order_by(RdmObject.workspace_key)
     ).all()
-    return [
-        {
-            "code": "RECORD_IDS_OF_ANOTHER_WORKSPACE",
-            "message": f"{rows} {'row names its record' if rows == 1 else 'rows name their records'} "
-            f"by IDs of workspace '{workspace_key}', so {'it' if rows == 1 else 'they'} cannot load "
-            f"here. {ELSEWHERE}.",
+    counterparts = job.parameters.get("otherWorkspaceIds") == "counterparts"
+    return [_foreign_notice(workspace_key, rows, counterparts) for workspace_key, rows in found]
+
+
+def _foreign_notice(workspace_key: str, rows: int, counterparts: bool) -> dict[str, Any]:
+    named = f"{rows} {'row names its record' if rows == 1 else 'rows name their records'}"
+    if counterparts:
+        # Asked for (0.9 J5, D96): the rows load as this workspace's own records.
+        return {
+            "code": "RECORD_IDS_AS_COUNTERPARTS",
+            "message": f"{named} by IDs of workspace '{workspace_key}'; "
+            f"{'it loads' if rows == 1 else 'they load'} as this workspace's own records, "
+            "created on the first load and found again on the next.",
             "details": {"workspaceKey": workspace_key, "rows": rows},
         }
-        for workspace_key, rows in found
-    ]
+    return {
+        "code": "RECORD_IDS_OF_ANOTHER_WORKSPACE",
+        "message": f"{named} by IDs of workspace '{workspace_key}', so "
+        f"{'it' if rows == 1 else 'they'} cannot load here. {ELSEWHERE}.",
+        "details": {"workspaceKey": workspace_key, "rows": rows},
+    }
 
 
 def previewing(job: Job) -> bool:

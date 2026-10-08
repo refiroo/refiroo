@@ -77,6 +77,8 @@ export interface JobNotice {
 
 export type ImportPolicy = "atomic" | "independent";
 export type ImportOnExisting = "reject" | "overwrite";
+/** Whether IDs of another workspace's records stand for this workspace's own (0.9 J5, D96). */
+export type OtherWorkspaceIds = "refuse" | "counterparts";
 
 /** `POST /api/v1/imports`'s `request` part (0.9 J2, J3): one context, a stored profile or none. */
 export interface ImportRequest {
@@ -86,6 +88,7 @@ export interface ImportRequest {
   profileKey: string | null;
   policy: ImportPolicy;
   onExisting: ImportOnExisting;
+  otherWorkspaceIds: OtherWorkspaceIds;
   stage: "preview" | "execute";
 }
 
@@ -130,6 +133,8 @@ export interface JobItemOutcome {
   ref: string | null;
   status: "applied" | "rejected" | "unprocessed";
   action?: "created" | "updated" | "unchanged" | "deleted";
+  /** The ID the file gave, when the record written is its counterpart (0.9 J5). */
+  sourceId?: string;
   error?: { code: string; message: string; details?: unknown };
 }
 

@@ -83,6 +83,7 @@ describe("ImportDialog (0.9 J4)", () => {
         profileKey: "supplier",
         policy: "independent",
         onExisting: "overwrite",
+        otherWorkspaceIds: "counterparts",
         stage: "preview",
       },
       expect.any(String),
@@ -103,6 +104,7 @@ describe("ImportDialog (0.9 J4)", () => {
       profileKey: null,
       policy: "atomic",
       onExisting: "reject",
+      otherWorkspaceIds: "counterparts",
       stage: "preview",
     });
   });
@@ -121,6 +123,16 @@ describe("ImportDialog (0.9 J4)", () => {
     preview();
     await waitFor(() => expect(api.startImport).toHaveBeenCalledTimes(3));
     expect(vi.mocked(api.startImport).mock.calls[2][2]).not.toBe(first[2]);
+  });
+
+  it("loads another workspace's records as this workspace's own by default, or refuses them when chosen (0.9 J5, D99)", async () => {
+    open({ context: { workspaceKey: "west" } });
+    await chooseFileAndProfile();
+    expect(screen.getByRole("radio", { name: "Load them as this workspace's own" })).toBeChecked();
+    fireEvent.click(screen.getByRole("radio", { name: "Refuse them" }));
+    preview();
+    await waitFor(() => expect(api.startImport).toHaveBeenCalled());
+    expect(vi.mocked(api.startImport).mock.calls[0][1]).toMatchObject({ otherWorkspaceIds: "refuse" });
   });
 
   it("lists a profile no longer valid without letting it be chosen, and warns of a profile without a key", async () => {

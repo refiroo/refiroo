@@ -502,13 +502,18 @@ the file and send it again, and rows already loaded come back unchanged. A notif
 preview is ready or an import finished, unless its page is already open, and a collection reloads
 when an import this tab started loaded into it.
 
-Record IDs are unique across the instance, so a file with record IDs, such as an export, loads only
-into the workspace it came from. Sent to another workspace, the import says so above the preview,
-and each refused row names the workspace its record belongs to.
+Record IDs are unique across the instance, so a file naming records by their IDs, such as an
+export, names another workspace's records when it is sent to a second workspace. Such a file loads
+there as that workspace's own records: each record gets an ID derived from its original ID and the
+workspace, so the file's parents and relationships arrive whole, the same file sent again changes
+nothing, and a workspace's types can be loaded file by file. The browser does this by default and
+says so above the preview; an integration asks for it. Refused instead, the import says why above
+the preview, and each refused row names the workspace its record belongs to. Nothing links the two
+records after the load.
 
 Limits: notifications reach the tab that started the job while it is open; profiles are written
-through the API (their editor is 0.10); an export of one workspace does not load into another of
-the same instance (planned); refused rows are listed, not offered as a file to download;
+through the API (their editor is 0.10); a relationship of another workspace edited or removed by its
+relationship ID is refused (exports carry none); refused rows are listed, not offered as a file to download;
 the relationship view in the browser still saves one related record at a time.
 
 Evidence: [batch contracts](../API.md#batches-and-jobs-base-09-b1-b2-b3),

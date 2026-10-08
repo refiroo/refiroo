@@ -237,6 +237,8 @@ class JobItemResponse(BaseModel):
         _by_status()
     )
     id: str | SkipJsonSchema[None] = _by_status()
+    # The ID the request gave, when the record written is its counterpart (0.9 J5, D97).
+    sourceId: str | SkipJsonSchema[None] = _by_status()
     objectTypeKey: str | SkipJsonSchema[None] = _by_status()
     version: int | SkipJsonSchema[None] = _by_status()
     previousVersion: int | SkipJsonSchema[None] = _by_status()

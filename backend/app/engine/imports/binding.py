@@ -48,6 +48,7 @@ from ...models.imports import ColumnBinding, ImportProfileDefinition, MatchBy, S
 from ...models.schema import EngineModel
 from ..reads.context_sets import record_source, relation_source
 from ..reads.snapshot_reads import SnapshotContext, change_set_context
+from ..records.counterparts import counterpart
 from .cells import attribute_value, cell_text, flag_set, is_empty
 from .profiles import check_profile, invalid_profile, source_order
 from .readers import Area, Table, TabularFile, jsonl_lines, open_tabular
@@ -107,6 +108,9 @@ _TEMPORARY_TABLES = (
         "CREATE TEMPORARY TABLE import_errors (src integer, row_number integer, ref text,"
         " error jsonb) ON COMMIT DROP"
     ),
+    # With counterparts (0.9 J5, D100): a match by ID naming another workspace's record, and the
+    # ID of its counterpart here, derived in Python (PostgreSQL has no SHA-1 of its own).
+    "CREATE TEMPORARY TABLE import_counterparts (match_id integer, object_id text) ON COMMIT DROP",
     # Every match cell the file holds, for the binding report: a refused row's too.
     (
         "CREATE TEMPORARY TABLE import_match_cells (src integer, column_name text, match jsonb)"
@@ -1277,6 +1281,22 @@ class _ProfileBinding:
     def _sql(self, statement: str) -> None:
         self.session.execute(text(statement))
 
+    def _counterpart_matches(self) -> None:
+        """Each match by ID naming another workspace's live record, with its counterpart here
+        (0.9 J5, D100): one statement finds them, one ``COPY`` stores the counterparts."""
+        workspace_key = self.job.workspace_key
+        held = self.session.execute(
+            text(
+                "SELECT m.match_id, o.id FROM import_matches m JOIN objects o"
+                " ON o.id = m.value #>> '{}' WHERE m.field = 'id' AND o.workspace_key <> :workspace"
+            ),
+            {"workspace": workspace_key},
+        ).all()
+        counterparts = _Copy(self.session, "import_counterparts", ("match_id", "object_id"))
+        for match_id, object_id in held:
+            counterparts.add(match_id, counterpart(workspace_key, object_id))
+        counterparts.flush()
+
     def _duplicates(self) -> None:
         """D69: rows of one source with one key are one record when their own values agree; when
         they differ, every such row is rejected naming the others."""
@@ -1367,6 +1387,8 @@ class _ProfileBinding:
             """
         )
         self._sql("ANALYZE import_matches")
+        if self.job.parameters.get("otherWorkspaceIds") == "counterparts":
+            self._counterpart_matches()
         self._sql(
             """
             WITH candidates AS (
@@ -1376,6 +1398,10 @@ class _ProfileBinding:
                 UNION SELECT m.match_id, c.object_id FROM import_matches m
                 JOIN import_context c ON c.object_type_key = m.object_type_key
                     AND m.field = 'id' AND c.object_id = m.value #>> '{}'
+                UNION SELECT m.match_id, c.object_id FROM import_matches m
+                JOIN import_counterparts k ON k.match_id = m.match_id
+                JOIN import_context c ON c.object_type_key = m.object_type_key
+                    AND c.object_id = k.object_id
                 UNION SELECT m.match_id, c.object_id FROM import_matches m
                 JOIN import_context c ON c.object_type_key = m.object_type_key
                     AND m.attr <> '' AND c.attributes -> m.attr = m.value

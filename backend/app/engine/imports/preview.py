@@ -59,6 +59,7 @@ def preview_items(
         [(index, _ITEM.validate_python(item)) for index, item in inputs],
         policy="independent",
         on_existing=job.parameters.get("onExisting", "reject"),
+        other_workspace_ids=job.parameters.get("otherWorkspaceIds", "refuse"),
         expected_change_set_version=job.change_set_version,
         job_id=job.id,
         should_stop=should_stop,

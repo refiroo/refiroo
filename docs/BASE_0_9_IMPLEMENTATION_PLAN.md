@@ -253,7 +253,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 30 | [J3](#j3-import-preview-and-execution) | J2, B2 | Import preview, confirm, outcomes by row, the binding report; `stage: execute` arrives with J2 (D64) — **delivered 2026-10-07** ([record](#j3-record-2026-10-07)), D80–D88 |
 | 31 | [J4](#j4-import-screen-and-sc-10) | J1u, J3, F2 | The SC-10 screen and SC-10 acceptance; frontend only (D89–D95) — **delivered 2026-10-08** ([record](#j4-record-2026-10-08)) |
 | 31a | [J4a](#j4a-why-another-workspaces-export-cannot-load) | J4 | Amendment: an import says why another workspace's export cannot load (the job's `notices`, refusals naming the workspace) — **delivered 2026-10-08** ([record](#j4a-why-another-workspaces-export-cannot-load)) |
-| 31b | [J5](#j5-another-workspaces-export-loaded-as-this-workspaces-own-records) | J4a | Another workspace's export loaded as this workspace's own records (counterpart IDs, `otherWorkspaceIds`), on imports and batches (D96–D101) — **planned 2026-10-08** ([plan](#j5-plan-2026-10-08)) |
+| 31b | [J5](#j5-another-workspaces-export-loaded-as-this-workspaces-own-records) | J4a | Another workspace's export loaded as this workspace's own records (counterpart IDs, `otherWorkspaceIds`), on imports and batches (D96–D101) — **delivered 2026-10-08** ([record](#j5-record-2026-10-08)) |
 | 31a | [Track K](#track-k--bulk-selection-and-editing-in-collections) | J4, UA | Bulk selection and bulk edits in collections over `POST /batches`; packages K1–K5 planned in detail when the track starts — **added 2026-10-06** |
 | V | [V3–V9](#v3v9-the-management-api-documented-plan-2026-10-07) | V2 | The management API documented: the starter extended, content and examples beside the document, the error catalogue; V3 first, then V4–V8 in any order, then V9. **Independent fillers; block no release** (V-D9) — **planned 2026-10-07**, V-D1 open |
 | 32 | [R](#r-build-acceptance-and-release) | all except Track V's V3–V9 | Build acceptance and release |
@@ -8502,6 +8502,76 @@ the workspace, and the outcome's `sourceId` reports it. Storing a counterpart's 
 "copied from" link) would be additive later. Attribute storage, the `match` declaration and
 mapping coverage are untouched.
 
+##### J5 record (2026-10-08)
+
+**Delivered 2026-10-08.** D96–D101 and the test cases accepted with the plan. The journey cases were
+written first and failed (`otherWorkspaceIds` refused as an unknown field), then passed.
+
+**Built.**
+
+- **The derivation** (`engine/records/counterparts.py`): `counterpart(workspace_key, id)`, the
+  name-based UUID of `{workspaceKey}/{id}` in the namespace `2218e355-f627-4a22-a009-bebe5423891c`,
+  documented in API.md.
+- **The request field** `otherWorkspaceIds` (`refuse`, `counterparts`) on `BatchRequest` and
+  `ImportRequest`, kept in the job's parameters and passed by the inline run, the worker and the
+  preview to `run_items`.
+- **One translation in the batch** (`engine/jobs/batches.py`): before each segment, one statement
+  finds which of the record IDs its items name (`_named_ids`) another workspace's live records hold,
+  and maps each to its counterpart; the prefetch, `resolve`, upserts and creates read through the
+  map. An item found as a counterpart claims no version of the file's (D98: upserts, updates and
+  `ensureRelation` between counterparts); its outcome names `sourceId`. A reference whose
+  counterpart is not here is `REFERENCE_NOT_FOUND` naming the other workspace and saying to load the
+  file holding it first.
+- **A profile's match by ID** (`engine/imports/binding.py`): with counterparts, one statement finds
+  the matches naming another workspace's records, their counterparts are copied into
+  `import_counterparts`, and the resolving statement takes them as one more candidate (D100).
+- **The notice** reads `RECORD_IDS_AS_COUNTERPARTS` when counterparts were asked for
+  (`engine/jobs/store.py`); `JobItemResponse.sourceId` in the contract.
+- **Frontend**: the import dialog's "Records of another workspace" (Load them as this workspace's
+  own, the default, D99 / Refuse them); the import's page shows the counterparts notice as
+  information ("Another workspace's records") and the refused notice with how to load them; "This
+  import" lists the choice.
+
+**Where it differs from the plan.**
+
+- **The counterpart is marked as a version-4 UUID** (D97 said `uuid5`). Every record ID the API
+  accepts is checked as version 4 (`UUID4` on every request model), so a plain `uuid5` would be
+  refused as soon as a client sent it back, which the first test run showed (a create refused
+  `uuid_version`). The derivation is unchanged in substance: the same name-based SHA-1 bytes, with
+  the version marked 4; deterministic and documented. The alternative, accepting any UUID version
+  across the API, would be a far wider contract change.
+- **A row's source ID is not shown on the import's page.** The rows read lists the outcomes of
+  refused and unprocessed items only, so an applied item's `sourceId` is not there; it is in
+  `/items` and the API. Showing it would need the rows read to carry applied outcomes, a contract
+  change the plan did not intend.
+- **A delete of a counterpart keeps its version claim**: D98 is applied to upserts, updates and
+  `ensureRelation`; a delete item names the version it deletes, which a file of another workspace
+  cannot know, so it is refused as a version conflict unless the two versions happen to agree. Exports write no delete items.
+- **The test cases**: case 3 gained a step for D100 as revised (a profile matching a parent by A's
+  ID finds its counterpart), since the revision came after the cases were written; the profile has
+  no key, as `H.code` is not unique in every configuration.
+- **An older test made wrong by the change**: `test_worker` pins a batch job's parameters, which now
+  hold `otherWorkspaceIds`; updated.
+
+**Checks.** The seven J5 cases on generated A and B (12 passed with J4a's case); the counterpart
+unit tests (2); `--journey J27 J03 J11 J24` (132 passed); `jobs` without `volume` and `budget` (209
+passed); `records` and `change_sets` without `jobs`, `volume` and `budget` (645 passed in 2 min 39 s,
+over the 2-minute ceiling as J3 recorded for these groups); `tests/unit`, `test_boundaries`,
+`test_api`, `test_wp8_review_regressions`, `test_rule_parity`, `test_openapi_contract`
+(re-baselined: removing `otherWorkspaceIds` from `BatchRequest` and `ImportRequest` and `sourceId`
+from `JobItemResponse` gives J4a's document exactly) and `test_api_journeys` (426 passed; the one
+failure, `test_worker`, was fixed as above and passes); `ruff` clean. Frontend: the job tests (20 passed; the dialog's two request cases
+gained the field, two cases added); `vitest related` (49 passed); `format`, `lint` (0 errors),
+`build`. Browser `test:browser:j4`, 18 checks: the export of `default` into another workspace,
+refused with "Refuse them" (J4a), then loaded with the default (every row loads, the notice as
+information, the domain in the other workspace's collection, `default` untouched), then sent again
+previewing 0 created; axe 0 violations as before. Screenshot inspected. No volume or budget test
+(D101). Not run: the full suites (R).
+
+**Composable domains (ADR-032):** the identity door is touched and stays open: a counterpart is a
+new record with a derived ID; no record changes identity, and the outcome's `sourceId` reports the
+derivation. Storing a counterpart's origin would be additive later.
+
 ## Track K — Bulk selection and editing in collections
 
 **Added 2026-10-06 by the user**, after Track J, which brings the job screens it reuses. The
@@ -8638,7 +8708,7 @@ D31–D34 raised by F1 (2026-10-03), D35–D39 raised by B3 (2026-10-03), and D4
 | D46 | Index the attribute values or store a sort key per record (Base 0.8 D26)? | **Approved 2026-10-04 (C3a).** Index the values now; 0.8 D26's stored key stays after 0.9 for few distinct values and deep positions | Q, C |
 | D47 | Which contexts C3a's sort covers | **Approved 2026-10-04 (C3a).** Live only; change sets and publications are a task of C6. _Amended 2026-10-05 by C-D67 (C6a):_ publications gained it; change sets stay as they are (TODO) | C |
 | D48 | Which lists C3a's sort covers | **Approved 2026-10-04 (C3a).** The shared live attribute sort (consumer lists and the management per-type list); not the `ancestor:<type>` sort | Q, C |
-| D49 | What a JSON Lines export line is | **Accepted 2026-10-07 by the user (J1).** `upsert` items keyed by `{id}` (required relationships also as `initialRelations`), then `ensureRelation` items, instead of §J4's `create` and `createRelation`, so a re-import changes nothing. Each record line carries its version as `expectedVersion` (amended the same day by the user), so an edited file updates only rows nobody changed since the export. The file loads into the same workspace or another instance, not a second workspace of the same instance (object IDs are instance-wide) | J |
+| D49 | What a JSON Lines export line is | **Accepted 2026-10-07 by the user (J1).** `upsert` items keyed by `{id}` (required relationships also as `initialRelations`), then `ensureRelation` items, instead of §J4's `create` and `createRelation`, so a re-import changes nothing. Each record line carries its version as `expectedVersion` (amended the same day by the user), so an edited file updates only rows nobody changed since the export. The file loads into the same workspace or another instance, not a second workspace of the same instance (object IDs are instance-wide). _Amended 2026-10-08 by 0.9 J5 (D96, D97):_ into a second workspace it loads with `otherWorkspaceIds: "counterparts"`, as that workspace's own records with derived IDs | J |
 | D50 | The export scope's shape | **Accepted 2026-10-07 by the user (J1).** `where` per type; `parentObjectId` and `asOf` shared, `asOf` dating only the types with a period (as C-D76–C-D80, named in `asOfApplied`) and refused only when none has one; `include.relations` `none`, `withinScope` (default) or `all` | J |
 | D51 | Export formats and the table layout | **Formats decided by the user, layout approved, 2026-10-07 (J1).** JSON Lines, CSV and XLSX. CSV and XLSX share one table layout: records and relationships keyed by column keys, `#{attributeTypeKey}` attribute columns (attribute types are global), `~` orientation columns an import ignores, each record's `version`; CSV both tables in one file, XLSX two named tables with typed cells | J |
 | D52 | Where an export's manifest lives | **Accepted 2026-10-07 by the user (J1).** On the job only (`output`), never in the file; the checksum also in `Repr-Digest` and `ETag` on the download | J |

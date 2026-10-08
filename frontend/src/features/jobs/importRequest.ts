@@ -2,11 +2,20 @@
  * What the import dialog sends (0.9 J4): the context, the profile, the policy and what happens to
  * records the file finds, always as a preview (D90). Without a choice of its own, records the file
  * finds are updated when a profile reads the file, and only where unchanged since an export when
- * none does (D92): a supplier file carries no versions, an exported table does.
+ * none does (D92): a supplier file carries no versions, an exported table does. Records of another
+ * workspace named by their IDs (its export) load as this workspace's own by default (0.9 J5, D99):
+ * the preview shows it before anything is written.
  */
 
 import { isApiError } from "@/api/errors";
-import type { EngineModel, ImportOnExisting, ImportPolicy, ImportProfile, ImportRequest } from "@/types";
+import type {
+  EngineModel,
+  ImportOnExisting,
+  ImportPolicy,
+  ImportProfile,
+  ImportRequest,
+  OtherWorkspaceIds,
+} from "@/types";
 
 /** Where the file loads: a workspace's live data, or one of its change sets at the version read. */
 export interface ImportContext {
@@ -21,6 +30,7 @@ export function importRequest(
   profileKey: string | null,
   policy: ImportPolicy,
   onExisting: ImportOnExisting,
+  otherWorkspaceIds: OtherWorkspaceIds = "counterparts",
 ): ImportRequest {
   return {
     // One context only: live data by its workspace, or a change set with its version claim.
@@ -30,6 +40,7 @@ export function importRequest(
     profileKey,
     policy,
     onExisting,
+    otherWorkspaceIds,
     stage: "preview",
   };
 }

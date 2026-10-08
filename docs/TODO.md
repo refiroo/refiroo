@@ -251,7 +251,7 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   J1u (2026-10-07); import profiles and imports run directly as J2 (2026-10-07); the preview,
   confirmation, outcomes by row and the binding report as J3 (2026-10-07); the screen as J4
   (2026-10-08).
-- [ ] 0.9 J5 (planned 2026-10-08, D96–D101 decided): load an export of one workspace into
+- [x] 0.9 J5 (delivered 2026-10-08, D96–D101): load an export of one workspace into
   another workspace of the same instance as that workspace's own records (counterpart IDs derived
   from the file's IDs and the workspace); amends D49 and touches the identity door (ADR-032). J4a
   made the import say why such a file cannot load today.

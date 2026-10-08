@@ -972,6 +972,13 @@ through the API delivered in 0.9 J2, its preview and confirmation in 0.9 J3, and
   preview keeps waiting. Cancelled, it ends at once; left, it expires with the job's retention.
 - **J27.12 A large file previewed in part**: every row bound and reported, the first items run up
   to `IMPORT_PREVIEW_MAX_ITEMS`, the preview marked `sample` with the items and rows it covers.
+- **J27.14 Load another workspace's export**: with counterparts asked for, an export of workspace A
+  loads into workspace B as B's own records, each with its counterpart ID (derived from its ID in A
+  and B's key) and naming its source ID; parents and relationships arrive whole. Sent again, nothing
+  changes; a later file, a batch or a profile matching by ID finds the counterparts an earlier one
+  loaded; B's own export stays exact; into a change set the IDs are those a live load gives. A row
+  whose record names a counterpart not loaded yet is refused, saying to load the file holding it
+  first. Without the option, J27.10's explained refusal stands.
 - **J27.13 Import a file in the browser**: Import on a collection page loads into the data the page
   shows (live or its change set); New import on Settings › Jobs chooses a workspace and its live
   data or one of its change sets. The user picks a file, a stored profile or none, the policy and

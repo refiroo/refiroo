@@ -23,11 +23,12 @@ applies nothing leaves the version as it was. A live batch holds the workspace l
 batch or the chunk (PG-D14).
 """
 
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -52,7 +53,7 @@ from ...models.commands import (
     ObjectUpdate,
     RecordReference,
 )
-from ...models.database import ChangeSet
+from ...models.database import ChangeSet, RdmObject
 from ...models.schema import EngineModel
 from ..change_sets.access import change_set_model, load_change_set
 from ..change_sets.records import (
@@ -68,6 +69,7 @@ from ..records import rules
 from ..records.audit import audit_cause
 from ..records.batch_lookup import BatchLookup, ChangeSetBatchLookup, LiveBatchLookup
 from ..records.bulk import write_change_set, write_live
+from ..records.counterparts import counterpart
 from ..records.deletion import apply_object_delete
 from ..records.objects import (
     attributes_to_dict,
@@ -188,6 +190,7 @@ def run_batch(
         list(enumerate(request.items)),
         policy=request.policy,
         on_existing=request.onExisting,
+        other_workspace_ids=request.otherWorkspaceIds,
         expected_change_set_version=request.expectedChangeSetVersion,
         job_id=job_id,
     )
@@ -203,6 +206,7 @@ def run_items(
     expected_change_set_version: int | None,
     job_id: str,
     should_stop: Callable[[], bool] | None = None,
+    other_workspace_ids: str = "refuse",
 ) -> list[ItemOutcome]:
     """Apply ``items`` (each with its index in the job) under the policy; the caller records the
     outcomes and commits. An inline batch is one call; a background job one call per chunk.
@@ -221,7 +225,9 @@ def run_items(
                 else nullcontext()
             )
             with claim:
-                outcomes = _Batch(session, context, items, policy, on_existing, should_stop).run()
+                outcomes = _Batch(
+                    session, context, items, policy, on_existing, should_stop, other_workspace_ids
+                ).run()
     except JobCancelled:
         outer.rollback()
         raise
@@ -282,10 +288,12 @@ class _Batch:
         policy: str,
         on_existing: str,
         should_stop: Callable[[], bool] | None,
+        other_workspace_ids: str = "refuse",
     ) -> None:
         self.writer = (
             _ChangeSetItems(session, context) if context.change_set else _LiveItems(session, context)
         )
+        self.writer.counterparts = other_workspace_ids == "counterparts"
         self.items = items
         self.policy = policy
         self.on_existing = on_existing
@@ -310,6 +318,7 @@ class _Batch:
     ) -> bool:
         """Decide the items in order and write the accepted ones together; ``False`` when an
         atomic batch stops at a rejection."""
+        self.writer.translate_ids(_named_ids(item for _index, item in segment))
         lookup = self.writer.open()
         self.writer.prefetch([item for _index, item in segment])
         decided: list[ItemOutcome] = []
@@ -345,6 +354,7 @@ class _Batch:
     ) -> bool:
         """Apply each item as a batch of one in a savepoint of its own; ``False`` when an atomic
         batch stops at a rejection."""
+        self.writer.translate_ids(_named_ids(item for _index, item in segment))
         for index, item in segment:
             self._stop_check()
             try:
@@ -367,10 +377,16 @@ class _Batch:
     def apply(self, index: int, item: BatchItem) -> dict[str, Any]:
         at = f"/items/{index}"
         if isinstance(item, BatchCreateItem):
-            return self.create(item, at, object_id=str(item.id) if item.id else None)
+            if item.id is None:
+                return self.create(item, at, object_id=None)
+            return self.writer.sourced(
+                str(item.id), self.create(item, at, object_id=self.writer.translate(str(item.id)))
+            )
         if isinstance(item, BatchUpdateItem):
             record = self.writer.resolve(item.target, f"{at}/target")
-            return self.update(item, record, at, item.expectedVersion)
+            # The file's version is the other workspace's record's (D98).
+            claimed = None if self.writer.translated(item.target) else item.expectedVersion
+            return self.update(item, record, at, claimed)
         if isinstance(item, BatchUpsertItem):
             return self.upsert(item, at)
         if isinstance(item, BatchDeleteItem):
@@ -434,7 +450,9 @@ class _Batch:
                 "version": created.version,
                 **_claimed(claim),
             }
-        return self.ensure(item, at, source, target, existing)
+        # A relationship between counterparts claims no version of the other workspace's (D98).
+        claimed = not (self.writer.translated(item.from_) or self.writer.translated(item.to))
+        return self.ensure(item, at, source, target, existing, claimed)
 
     def replace_set(self, item: BatchReplaceRelationSetItem, at: str) -> dict[str, Any]:
         """A set replacement (§B4): the mapping PUT's step with any number of targets."""
@@ -478,7 +496,9 @@ class _Batch:
             raise _type_mismatch(pointer, record, object_type_key)
         return record
 
-    def ensure(self, item: Any, at: str, source: Any, target: Any, existing: Any) -> dict[str, Any]:
+    def ensure(
+        self, item: Any, at: str, source: Any, target: Any, existing: Any, claimed: bool = True
+    ) -> dict[str, Any]:
         """An ``ensureRelation`` that found its relation: ``unchanged`` first, then P4 (D24)."""
         lookup, model = self.writer.lookup, self.writer.model
         rules.mutable_relation(model, item.relationTypeKey, target.object_type_key, lookup.refusals)
@@ -494,7 +514,7 @@ class _Batch:
             wanted = rules.relation_attributes(model, binding, item.attributes)
         if item.attributes is None or wanted == dict(existing.attributes or {}):
             return {"action": "unchanged", **identity, "version": existing.version}
-        expected, audit = item.expectedVersion, {}
+        expected, audit = (item.expectedVersion if claimed else None), {}
         if expected is None:
             if self.on_existing != "overwrite":
                 raise api_error(
@@ -575,8 +595,11 @@ class _Batch:
         rules.object_identity(
             self.writer.model, item.applicationKey, item.objectTypeKey, self.writer.refusals
         )
+        source_id = None
         if item.key.id is not None:
-            object_id = str(item.key.id)
+            object_id = self.writer.translate(str(item.key.id))
+            if object_id != str(item.key.id):
+                source_id = str(item.key.id)
             record = self.writer.find(object_id)
         else:
             key = item.key.attributeTypeKey
@@ -602,13 +625,17 @@ class _Batch:
             holder = self.writer.holder(definition, value, f"{at}/attributes")
             record = self.writer.find(holder) if holder else None
         if record is None:
-            return self.create(item, at, object_id=object_id)
-        if (record.object_type_key, record.application_key) != (
-            item.objectTypeKey,
-            item.applicationKey,
-        ):
-            raise _type_mismatch(f"{at}/key", record, item.objectTypeKey)
-        return self.update(item, record, at, item.expectedVersion)
+            outcome = self.create(item, at, object_id=object_id)
+        else:
+            if (record.object_type_key, record.application_key) != (
+                item.objectTypeKey,
+                item.applicationKey,
+            ):
+                raise _type_mismatch(f"{at}/key", record, item.objectTypeKey)
+            # A counterpart's version is not the file's, which is the other workspace's (D98).
+            claimed = None if source_id else item.expectedVersion
+            outcome = self.update(item, record, at, claimed)
+        return {**outcome, "sourceId": source_id} if source_id else outcome
 
 
 class _Items:
@@ -625,6 +652,44 @@ class _Items:
 
     def open(self) -> BatchLookup:
         raise NotImplementedError
+
+    # With counterparts (0.9 J5, D96): the segment's IDs another workspace's records hold, each
+    # with its counterpart here and that workspace, read once per segment by ``translate_ids``.
+    counterparts = False
+    counterpart_of: dict[str, tuple[str, str]]
+
+    def translate_ids(self, object_ids: Iterable[str]) -> None:
+        """Which of ``object_ids`` are another workspace's records: one statement per segment."""
+        self.counterpart_of = {}
+        if not self.counterparts:
+            return
+        workspace_key = self.context.workspace_key
+        ids = sorted(set(object_ids))
+        for start in range(0, len(ids), 1000):
+            for object_id, holder in self.session.execute(
+                select(RdmObject.id, RdmObject.workspace_key).where(
+                    RdmObject.id.in_(ids[start : start + 1000]),
+                    RdmObject.workspace_key != workspace_key,
+                )
+            ):
+                self.counterpart_of[object_id] = (counterpart(workspace_key, object_id), holder)
+
+    def translate(self, object_id: str) -> str:
+        """The ID an item's ID stands for here: its counterpart when another workspace's record
+        holds it, otherwise itself (this workspace's own, or no record's)."""
+        found = self.counterpart_of.get(object_id)
+        return found[0] if found else object_id
+
+    def translated(self, reference: RecordReference | None) -> bool:
+        return (
+            reference is not None
+            and reference.id is not None
+            and str(reference.id) in self.counterpart_of
+        )
+
+    def sourced(self, source_id: str, outcome: dict[str, Any]) -> dict[str, Any]:
+        """An outcome naming the file's ID when the record written is its counterpart."""
+        return {**outcome, "sourceId": source_id} if source_id in self.counterpart_of else outcome
 
     def find(self, object_id: str) -> Any | None:
         return self.lookup.object(object_id)
@@ -644,10 +709,13 @@ class _Items:
     def resolve(self, reference: RecordReference, pointer: str) -> Any:
         """The record a reference names (§B2), against the context as it stands now."""
         if reference.id is not None:
-            record = self.find(str(reference.id))
+            given = str(reference.id)
+            record = self.find(self.translate(given))
             if record is None:
-                elsewhere = self.lookup.other_workspace(str(reference.id))
-                raise _not_found(pointer, {"id": str(reference.id)}, elsewhere)
+                if given in self.counterpart_of:
+                    raise _counterpart_missing(pointer, given, self.counterpart_of[given][1])
+                elsewhere = self.lookup.other_workspace(given)
+                raise _not_found(pointer, {"id": given}, elsewhere)
             return record
         key = reference.key
         definition = self.unique_key(
@@ -742,7 +810,7 @@ class _Items:
             if reference is None:
                 return
             if reference.id is not None:
-                ids[role].add(str(reference.id))
+                ids[role].add(self.translate(str(reference.id)))
             else:
                 named_by_key[role].append((reference.key.attributeTypeKey, reference.key.value))
                 keyed.setdefault(reference.key.attributeTypeKey, []).append(reference.key.value)
@@ -751,10 +819,10 @@ class _Items:
             if isinstance(item, BatchUpdateItem):
                 name("target", item.target)
             if isinstance(item, BatchCreateItem) and item.id is not None:
-                ids["own"].add(str(item.id))
+                ids["own"].add(self.translate(str(item.id)))
             if isinstance(item, BatchUpsertItem):
                 if item.key.id is not None:
-                    ids["target"].add(str(item.key.id))
+                    ids["target"].add(self.translate(str(item.key.id)))
                 else:
                     value = next(
                         (
@@ -1056,6 +1124,49 @@ def _canonical(definition: Any, value: Any) -> Any:
     if value is None or value == "":
         return None
     return stored_json_value(normalize_value(definition, value))
+
+
+def _named_ids(items: Iterable[BatchItem]) -> set[str]:
+    """Every record ID the items name by ID: the records they create or upsert, their targets,
+    parents, relationship ends, initial relations and set members (0.9 J5, D100). Relationship IDs
+    are not record IDs and have no counterpart."""
+    found: set[str] = set()
+
+    def add(reference: RecordReference | None) -> None:
+        if reference is not None and reference.id is not None:
+            found.add(str(reference.id))
+
+    for item in items:
+        if isinstance(item, BatchCreateItem) and item.id is not None:
+            found.add(str(item.id))
+        if isinstance(item, BatchUpsertItem):
+            add(item.key)
+        add(getattr(item, "target", None))
+        add(getattr(item, "parent", None))
+        add(getattr(item, "from_", None))
+        add(getattr(item, "to", None))
+        add(getattr(item, "anchor", None))
+        for relation in getattr(item, "initialRelations", None) or ():
+            add(relation.object)
+        for member in getattr(item, "targets", None) or ():
+            add(member.object)
+    return found
+
+
+def _counterpart_missing(pointer: str, given: str, workspace_key: str) -> ApiError:
+    """A reference to another workspace's record whose counterpart is not here yet (0.9 J5)."""
+    parts = [part for part in pointer.split("/") if part and not part.isdigit()]
+    field = next(
+        (_REFERENCE_FIELDS[part] for part in reversed(parts) if part in _REFERENCE_FIELDS),
+        "reference",
+    )
+    return api_error(
+        404,
+        "REFERENCE_NOT_FOUND",
+        f"The {field} is record '{given}' of workspace '{workspace_key}', whose counterpart is not "
+        "in this workspace: load the file holding it first",
+        {"pointer": pointer, "id": given, "workspaceKey": workspace_key},
+    )
 
 
 # What an item's reference is for, by the field its pointer ends in (0.9 J4a).

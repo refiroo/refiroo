@@ -181,6 +181,20 @@ describe("JobPage of an import (0.9 J4)", () => {
     expect(notice.closest(".notice") ?? notice.parentElement).toHaveTextContent(message);
   });
 
+  it("says another workspace's records load as this workspace's own, as information (0.9 J5)", async () => {
+    const message =
+      "3 rows name their records by IDs of workspace 'default'; they load as this workspace's own records, created on the first load and found again on the next.";
+    vi.mocked(api.job).mockResolvedValue({
+      ...waiting,
+      notices: [{ code: "RECORD_IDS_AS_COUNTERPARTS", message, details: { workspaceKey: "default", rows: 3 } }],
+    });
+    renderPage();
+    const title = await screen.findByText("Another workspace's records");
+    expect(title.closest(".notice")).toHaveClass("info-notice");
+    expect(title.closest(".notice")).toHaveTextContent(message);
+    expect(screen.queryByText("Why rows cannot load here")).not.toBeInTheDocument();
+  });
+
   it("keeps the preview waiting when the confirm is refused, saying why", async () => {
     vi.mocked(api.confirmJob).mockRejectedValue(
       new ApiError(409, "CHANGE_SET_VERSION_CONFLICT", "The change set changed since the import was sent."),

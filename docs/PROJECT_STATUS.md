@@ -334,9 +334,10 @@ by row and column and the binding report, loads on confirmation and says how to 
 reported by the user: an export of one workspace previewed into another refused every row with no
 reason; the job now says its rows' IDs are another workspace's (`notices`), and each refusal names
 that workspace ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#j4a-why-another-workspaces-export-cannot-load)).
-**J5 is planned (2026-10-08)**: another workspace's export loaded as this workspace's own records,
-with counterpart IDs derived from the file's IDs and the workspace (`otherWorkspaceIds`, D96–D101
-decided) ([plan](BASE_0_9_IMPLEMENTATION_PLAN.md#j5-plan-2026-10-08)). Then Track K and R.
+**J5 is delivered (2026-10-08)**: another workspace's export loads as this workspace's own records,
+with counterpart IDs derived from the file's IDs and the workspace (`otherWorkspaceIds` on imports
+and batches; the import dialog loads them by default; D96–D101)
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#j5-record-2026-10-08)). Then Track K and R.
 **C18, the consumer API definition written for readers, is delivered (2026-10-08):** schema 0.9
 writes `consumerApis` as what a definition exposes, offers, looks like and filters by, with defaults
 written out by `GET /api/v1/model/consumer-apis/{consumerApi}`; an operation not offered is

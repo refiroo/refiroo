@@ -394,6 +394,8 @@ class BatchRequest(BaseModel):
     policy: Literal["atomic", "independent"]
     run: Literal["inline", "background"]
     onExisting: Literal["reject", "overwrite"] = "reject"
+    # Whether IDs of another workspace's records stand for this workspace's own (0.9 J5, D96).
+    otherWorkspaceIds: Literal["refuse", "counterparts"] = "refuse"
     items: list[BatchItem] = Field(min_length=1)
 
 

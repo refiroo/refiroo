@@ -293,8 +293,10 @@ try {
   expect(live.items.length === 0, "change set: the import reached live data");
   checks.push("New import from Jobs and feed into a change set (XLSX): left, Review brought the user back, reopened from Jobs and feed after a reload, loaded into the change set only");
 
-  // 10. The export of one workspace previewed into another (0.9 J4a): the page says why rows cannot
-  // load, and each refused row names the workspace its record belongs to.
+  // 10. The export of one workspace previewed into another. Refused (0.9 J4a): the page says why rows
+  // cannot load, and each refused row names the workspace its record belongs to. Loaded as this
+  // workspace's own, the default (0.9 J5, D99): created there, then the same file sent again
+  // previews as unchanged.
   await api("/workspaces", { key: "j4-other", label: "J4 other" });
   const exported = await api("/exports", {
     workspaceKey: "default",
@@ -315,14 +317,19 @@ try {
   }
   const exportPath = resolve(output, "export-default.csv");
   await writeFile(exportPath, Buffer.from(await (await fetch(`${apiUrl}/api/v1/jobs/${exported.id}/output`)).arrayBuffer()));
-  await page.goto(`${uiUrl}/settings/jobs`);
-  await page.getByRole("button", { name: "New import" }).click();
-  const crossDialog = page.getByRole("dialog", { name: "Import" });
-  await crossDialog.getByLabel("Load into", { exact: true }).and(page.locator(":enabled")).waitFor();
-  await crossDialog.getByLabel("Workspace", { exact: true }).selectOption("j4-other");
-  await crossDialog.getByLabel("File", { exact: true }).setInputFiles(exportPath);
-  await crossDialog.getByRole("button", { name: "Preview" }).click();
-  await page.getByRole("region", { name: "The preview", exact: true }).waitFor({ timeout: 30000 });
+  /** New import of the export into the other workspace, with the choice for another workspace's records. */
+  async function previewElsewhere(choice) {
+    await page.goto(`${uiUrl}/settings/jobs`);
+    await page.getByRole("button", { name: "New import" }).click();
+    const crossDialog = page.getByRole("dialog", { name: "Import" });
+    await crossDialog.getByLabel("Load into", { exact: true }).and(page.locator(":enabled")).waitFor();
+    await crossDialog.getByLabel("Workspace", { exact: true }).selectOption("j4-other");
+    await crossDialog.getByLabel("File", { exact: true }).setInputFiles(exportPath);
+    if (choice) await crossDialog.locator("label", { hasText: choice }).click();
+    await crossDialog.getByRole("button", { name: "Preview" }).click();
+    await page.getByRole("region", { name: "The preview", exact: true }).waitFor({ timeout: 30000 });
+  }
+  await previewElsewhere("Refuse them");
   const notice = await page.locator(".notice", { hasText: "Why rows cannot load here" }).innerText();
   expect(/workspace 'default'/.test(notice), `cross-workspace: the page's notice says "${notice}"`);
   await page.getByRole("region", { name: "Rows in the preview", exact: true }).getByText("Refused", { exact: true }).first().waitFor();
@@ -332,7 +339,24 @@ try {
     `cross-workspace: the rows say "${crossRows.slice(0, 600)}"`,
   );
   await shot("j4-preview-cross-workspace");
-  checks.push("an export of 'default' previewed into another workspace: the page and every refused row say the records belong to 'default'");
+  checks.push("an export of 'default' previewed into another workspace, refused: the page and every refused row say the records belong to 'default'");
+
+  const domain = await api(`/objects/domain/${list.parentObjectId}?workspaceKey=default`);
+  await previewElsewhere();
+  const loading = await page.locator(".notice", { hasText: "Another workspace's records" }).innerText();
+  expect(/workspace 'default'/.test(loading), `counterparts: the page's notice says "${loading}"`);
+  let crossPreview = await regionText("The preview");
+  expect(crossPreview.includes("Loading would apply every row."), `counterparts: the preview says "${crossPreview}"`);
+  await shot("j4-preview-counterparts");
+  await load();
+  await page.goto(`${uiUrl}/apps/rdm-master/views/domains?workspaceKey=j4-other`);
+  await page.locator(".record-collection").getByText(domain.name, { exact: true }).first().waitFor();
+  const original = await api(`/objects/domain/${list.parentObjectId}?workspaceKey=default`);
+  expect(original.version === domain.version, "counterparts: the original in 'default' changed");
+  await previewElsewhere();
+  crossPreview = await regionText("The preview");
+  expect(/Created 0/.test(crossPreview) && /Unchanged [1-9]/.test(crossPreview), `counterparts, sent again: "${crossPreview}"`);
+  checks.push(`the same export loaded into another workspace as its own records (default choice): ${domain.name} in its Domains collection, 'default' untouched; sent again it previews as unchanged`);
 
   // 9. A file over the limit, refused at the file field.
   await page.goto(`${uiUrl}${collections.values.path}`);

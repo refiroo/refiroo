@@ -281,6 +281,7 @@ class JobWorker:
             [(index, _ITEM.validate_python(item)) for index, item in inputs],
             policy=job.parameters["policy"],
             on_existing=job.parameters.get("onExisting", "reject"),
+            other_workspace_ids=job.parameters.get("otherWorkspaceIds", "refuse"),
             expected_change_set_version=job.change_set_version,
             job_id=job.id,
             should_stop=_cancel_requested(session, job.sequence_id) if atomic else None,

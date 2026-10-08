@@ -9,7 +9,7 @@ import csv
 import io
 import json
 from datetime import date, datetime, timedelta
-from uuid import uuid4
+from uuid import UUID, uuid4, uuid5
 
 import pytest
 from openpyxl import Workbook
@@ -561,11 +561,16 @@ def test_the_same_content_as_csv_loads_the_same_and_into_a_change_set_only_there
     assert _named(world, "R", third) == {}
 
 
-def _export(world, ws, types, fmt):
+def _export(world, ws, types, fmt, relations="withinScope", where=None):
     request = {
         "workspaceKey": ws,
-        "scope": {"types": [{"objectTypeKey": world.key(t)} for t in types]},
-        "include": {"relations": "withinScope"},
+        "scope": {
+            "types": [
+                {"objectTypeKey": world.key(t), **({"where": where[t]} if where and t in where else {})}
+                for t in types
+            ]
+        },
+        "include": {"relations": relations},
         "format": fmt,
     }
     job = ok(world.api.post("/exports", request), 202)
@@ -664,6 +669,233 @@ def test_an_export_previewed_into_another_workspace_says_whose_records_they_are(
     assert taken["details"]["workspaceKey"] == source and f"'{source}'" in taken["message"]
     assert parent["details"]["workspaceKey"] == source and f"'{source}'" in parent["message"]
     assert "parent" in parent["message"]
+
+
+# The counterpart derivation API.md documents (0.9 J5, D97): a record of another workspace loads into
+# workspace W as the record whose ID is uuid5(namespace, "W/{its ID}") marked as version 4.
+COUNTERPARTS = UUID("2218e355-f627-4a22-a009-bebe5423891c")
+
+
+def _counterpart(workspace, object_id):
+    return str(UUID(bytes=uuid5(COUNTERPARTS, f"{workspace}/{object_id}").bytes, version=4))
+
+
+def _source(world):
+    """Workspace A: H records Top and Leaf (below Top), a K record and a Bnn from Leaf to it."""
+    a = _workspace(world)
+    top = world.made("H", "Top", workspace=a, values={"H.code": "T"})
+    leaf = world.made("H", "Leaf", parent=top["id"], workspace=a, values={"H.code": "L"})
+    token = world.made("K", "Token", workspace=a, values={"K.code": "K1"})
+    ok(world.relate("Bnn", leaf["id"], token["id"], {"Bnn.weight": 2}), 201)
+    return a, top, leaf, token
+
+
+def _joined(world, source_id, workspace, **context):
+    page = ok(
+        world.api.get(
+            "/relations",
+            objectId=source_id,
+            relationTypeKey=world.key("Bnn"),
+            workspaceKey=workspace,
+            pageSize=100,
+            **context,
+        )
+    )
+    return {item["object"]["id"] for item in page["items"]}
+
+
+@pytest.mark.journey("J27.14")
+@pytest.mark.structures("H", "H.code", "K", "K.code", "Bnn", "Bnn.weight")
+def test_another_workspaces_export_loads_whole_as_this_workspaces_own_records(world):
+    """Given Top, Leaf below it, Token and a relationship in workspace A. When A's export is
+    imported into B with counterparts. Then each record is created in B with its counterpart ID and
+    names its source ID; Leaf stands below Top's counterpart and the relationship joins the
+    counterparts; A is unchanged; the job says the rows load as B's own records (0.9 J5)."""
+    a, top, leaf, token = _source(world)
+    b = _workspace(world)
+    content = _export(world, a, ("H", "K"), "csv")
+
+    job = _imported(world, "from-a.csv", content, _request(b, otherWorkspaceIds="counterparts"))
+    assert job["state"] == "completed" and job["result"] == "applied", job["error"]
+    assert job["notices"] == [
+        {
+            "code": "RECORD_IDS_AS_COUNTERPARTS",
+            "message": job["notices"][0]["message"],
+            "details": {"workspaceKey": a, "rows": 3},
+        }
+    ]
+    created = {
+        item["sourceId"]: item
+        for item in _outcomes(world, job)
+        if item.get("action") == "created" and "sourceId" in item
+    }
+    for record in (top, leaf, token):
+        assert created[record["id"]]["id"] == _counterpart(b, record["id"])
+    assert world.record("H", _counterpart(b, leaf["id"]), workspaceKey=b)["parentObjectId"] == (
+        _counterpart(b, top["id"])
+    )
+    assert _joined(world, _counterpart(b, leaf["id"]), b) == {_counterpart(b, token["id"])}
+    assert world.record("H", leaf["id"], workspaceKey=a)["parentObjectId"] == top["id"]
+    assert set(_named(world, "H", a)) == {"Top", "Leaf"}
+
+
+@pytest.mark.journey("J27.14")
+@pytest.mark.structures("H", "H.code", "K", "K.code", "Bnn", "Bnn.weight")
+def test_another_workspaces_export_sent_again_changes_nothing_and_an_edit_overwrites(world):
+    """Given A's export loaded into B with counterparts. When the same file is sent again. Then
+    every item is unchanged and B holds no further record. When Top is renamed in the file and it
+    is sent with onExisting overwrite. Then only Top's counterpart is updated (D98: the file's
+    versions are A's and are not claimed)."""
+    a, top, _leaf, _token = _source(world)
+    b = _workspace(world)
+    content = _export(world, a, ("H", "K"), "csv")
+    first = _imported(world, "a.csv", content, _request(b, otherWorkspaceIds="counterparts"))
+    assert first["result"] == "applied", first["error"]
+
+    again = _imported(
+        world, "a.csv", content, _request(b, otherWorkspaceIds="counterparts", onExisting="reject")
+    )
+    assert {(i["status"], i.get("action")) for i in _outcomes(world, again)} == {
+        ("applied", "unchanged")
+    }
+    assert set(_named(world, "H", b)) == {"Top", "Leaf"}
+
+    rows = list(csv.reader(io.StringIO(content.decode("utf-8-sig"))))
+    column = {name: rows[0].index(name) for name in rows[0]}
+    for row in rows[1:]:
+        if row[column["id"]] == top["id"]:
+            row[column["name"]] = "Top renamed"
+    edited = _imported(
+        world, "edited.csv", _csv(rows), _request(b, otherWorkspaceIds="counterparts")
+    )
+    actions = {(i.get("sourceId"), i.get("action")) for i in _outcomes(world, edited)}
+    assert (top["id"], "updated") in actions
+    assert {action for source, action in actions if source != top["id"]} == {"unchanged"}
+    assert world.record("H", _counterpart(b, top["id"]), workspaceKey=b)["name"] == "Top renamed"
+
+
+@pytest.mark.journey("J27.14", "J11")
+@pytest.mark.structures("H", "H.code", "K", "K.code", "Bnn", "Bnn.weight")
+def test_another_workspaces_records_load_file_by_file(world):
+    """Given A's H and K records exported without relationships and loaded into B with
+    counterparts. When A's relationships, from a JSON Lines export, are sent to B as a batch with
+    counterparts. Then they join B's counterparts. When a supplier file read through a profile
+    names a new record's parent by A's ID. Then it stands below that parent's counterpart (D100)."""
+    a, top, leaf, token = _source(world)
+    b = _workspace(world)
+    records = _export(world, a, ("H", "K"), "csv", relations="none")
+    loaded = _imported(world, "records.csv", records, _request(b, otherWorkspaceIds="counterparts"))
+    assert loaded["result"] == "applied", loaded["error"]
+    assert _joined(world, _counterpart(b, leaf["id"]), b) == set()
+
+    lines = _export(world, a, ("H", "K"), "jsonl").decode().splitlines()
+    relations = [item for item in map(json.loads, lines) if item["op"] == "ensureRelation"]
+    batch = ok(
+        world.api.post(
+            "/batches",
+            {
+                "workspaceKey": b,
+                "policy": "atomic",
+                "run": "inline",
+                "otherWorkspaceIds": "counterparts",
+                "items": relations,
+            },
+        )
+    )
+    assert batch["job"]["result"] == "applied", batch["items"]
+    assert _joined(world, _counterpart(b, leaf["id"]), b) == {_counterpart(b, token["id"])}
+
+    profile = {
+        "key": f"children-{uuid4().hex[:8]}",
+        "name": "Children",
+        "sources": [
+            {
+                "applicationKey": world.app("H"),
+                "objectTypeKey": world.key("H"),
+                "columns": [
+                    {"column": "Code", "attributeTypeKey": world.key("H.code")},
+                    {"column": "Name", "field": "name"},
+                    {
+                        "column": "Parent",
+                        "parent": {"objectTypeKey": world.key("H"), "matchBy": {"field": "id"}},
+                    },
+                ],
+            }
+        ],
+    }
+    ok(world.api.post("/import-profiles", profile), 201)
+    supplier = _csv([("Code", "Name", "Parent"), ("C2", "Second child", top["id"])])
+    job = _imported(
+        world,
+        "children.csv",
+        supplier,
+        _request(b, profileKey=profile["key"], otherWorkspaceIds="counterparts"),
+    )
+    assert job["result"] == "applied", _outcomes(world, job)
+    child = _named(world, "H", b)["Second child"]
+    assert child["parentObjectId"] == _counterpart(b, top["id"])
+
+
+@pytest.mark.journey("J27.14", "J27.3")
+@pytest.mark.structures("H", "H.code", "K", "K.code", "Bnn", "Bnn.weight")
+def test_a_workspaces_own_export_with_counterparts_stays_exact(world):
+    """Given records made in B. When B's export is sent back to B with counterparts. Then every
+    item is unchanged under B's own IDs, with no source ID: only another workspace's IDs are
+    translated."""
+    b, top, leaf, token = _source(world)
+    content = _export(world, b, ("H", "K"), "csv")
+    job = _imported(world, "own.csv", content, _request(b, otherWorkspaceIds="counterparts"))
+    outcomes = _outcomes(world, job)
+    assert {(i["status"], i.get("action")) for i in outcomes} == {("applied", "unchanged")}
+    assert {i["id"] for i in outcomes if "id" in i} == {top["id"], leaf["id"], token["id"]}
+    assert not any("sourceId" in i for i in outcomes)
+    assert job["notices"] == []
+
+
+@pytest.mark.journey("J27.14", "J27.10")
+@pytest.mark.structures("H", "H.code")
+def test_a_counterpart_not_loaded_yet_is_refused_saying_what_to_load_first(world):
+    """Given A's export holding only Leaf. When it is imported into C with counterparts. Then Leaf's
+    row is refused: its parent is a record of A whose counterpart is not in C, and the refusal says
+    to load the file holding it first."""
+    a = _workspace(world)
+    top = world.made("H", "Top", workspace=a, values={"H.code": "T"})
+    world.made("H", "Leaf", parent=top["id"], workspace=a, values={"H.code": "L"})
+    c = _workspace(world)
+    only_leaf = {"H": [{"field": "name", "op": "eq", "value": "Leaf"}]}
+    content = _export(world, a, ("H",), "csv", where=only_leaf)
+
+    job = _imported(world, "leaf.csv", content, _request(c, otherWorkspaceIds="counterparts"))
+    [refused] = [i for i in _outcomes(world, job) if i["status"] == "rejected"]
+    assert refused["error"]["code"] == "REFERENCE_NOT_FOUND"
+    assert refused["error"]["details"]["workspaceKey"] == a
+    assert f"'{a}'" in refused["error"]["message"]
+    assert "load the file holding it first" in refused["error"]["message"]
+
+
+@pytest.mark.journey("J27.14")
+@pytest.mark.structures("H", "H.code", "K", "K.code", "Bnn", "Bnn.weight")
+def test_another_workspaces_export_into_a_change_set_takes_the_live_counterparts(world):
+    """Given A's export. When it is imported into a change set of B with counterparts. Then the
+    records carry the counterpart IDs a live load would give; after publishing, live B reads them."""
+    a, top, leaf, _token = _source(world)
+    b = _workspace(world)
+    cs = world.change_set(workspace=b)
+    content = _export(world, a, ("H", "K"), "csv")
+    request = {
+        "changeSetId": cs["id"],
+        "expectedChangeSetVersion": cs["version"],
+        "policy": "independent",
+        "onExisting": "overwrite",
+        "stage": "execute",
+        "otherWorkspaceIds": "counterparts",
+    }
+    job = _imported(world, "a.csv", content, request)
+    assert job["result"] == "applied", job["error"]
+    in_set = world.record("H", _counterpart(b, leaf["id"]), workspaceKey=b, changeSetId=cs["id"])
+    assert in_set["parentObjectId"] == _counterpart(b, top["id"])
+    world.publish(cs, workspace=b)
+    assert world.record("H", _counterpart(b, top["id"]), workspaceKey=b)["name"] == "Top"
 
 
 def _sc10_rows():

@@ -10,7 +10,7 @@ import { useState } from "react";
 import { api } from "@/api/client";
 import { attributeName } from "@/model/fields";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
-import type { BindingReportColumn, EngineModel, ImportProfile, Job, JobItemOutcome, JobRow } from "@/types";
+import type { BindingReportColumn, EngineModel, ImportProfile, Job, JobItemOutcome, JobNotice, JobRow } from "@/types";
 import { Choice } from "@/ui/Choice";
 import { DataTable, type DataColumn } from "@/ui/DataTable";
 import { DescriptionList, type DescriptionItem } from "@/ui/DescriptionList";
@@ -27,6 +27,7 @@ const ROWS_PAGE = 50;
 interface ImportParameters {
   policy?: "atomic" | "independent";
   onExisting?: "reject" | "overwrite";
+  otherWorkspaceIds?: "refuse" | "counterparts";
   file?: { name: string; format: string; bytes: number };
   profile?: { key: string | null; version: number | null; definition?: Pick<ImportProfile, "sources"> } | null;
 }
@@ -57,6 +58,10 @@ export function ImportFacts({ job }: { job: Job }) {
       term: "Records the file finds",
       value: parameters.onExisting === "overwrite" ? "Updated" : "Refused unless unchanged",
     },
+    {
+      term: "Records of another workspace",
+      value: parameters.otherWorkspaceIds === "counterparts" ? "Loaded as this workspace's own" : "Refused",
+    },
     { term: "Into", value: job.changeSetId ? "A change set" : "Live data" },
   ];
   return <DescriptionList className="compact" items={items} />;
@@ -65,12 +70,25 @@ export function ImportFacts({ job }: { job: Job }) {
 /** What the file as a whole means here, before its rows are read one by one (0.9 J4a). */
 export function ImportNotices({ job }: { job: Job }) {
   if (!job.notices?.length) return null;
+  // Loaded as this workspace's own (0.9 J5) is information; refused is a reason rows cannot load.
+  const loaded = job.notices.filter((notice) => notice.code === "RECORD_IDS_AS_COUNTERPARTS");
+  const refused = job.notices.filter((notice) => notice.code !== "RECORD_IDS_AS_COUNTERPARTS");
+  const lines = (notices: JobNotice[]) =>
+    notices.map((notice) => <p key={notice.code + JSON.stringify(notice.details)}>{notice.message}</p>);
   return (
-    <Notice tone="warning" title="Why rows cannot load here">
-      {job.notices.map((notice) => (
-        <p key={notice.code + JSON.stringify(notice.details)}>{notice.message}</p>
-      ))}
-    </Notice>
+    <>
+      {loaded.length > 0 && (
+        <Notice tone="info" title="Another workspace's records">
+          {lines(loaded)}
+        </Notice>
+      )}
+      {refused.length > 0 && (
+        <Notice tone="warning" title="Why rows cannot load here">
+          {lines(refused)}
+          <p>To load them as this workspace's own records, import the file again and choose so.</p>
+        </Notice>
+      )}
+    </>
   );
 }
 

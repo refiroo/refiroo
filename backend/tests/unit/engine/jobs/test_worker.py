@@ -126,6 +126,7 @@ def test_a_job_in_a_change_set_follows_the_version_each_chunk_leaves(seeded):
         "policy": "independent",
         "run": "background",
         "onExisting": "reject",
+        "otherWorkspaceIds": "refuse",
     }
     with SessionLocal() as session:
         assert (

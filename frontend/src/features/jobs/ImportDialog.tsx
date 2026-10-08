@@ -10,7 +10,16 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import { everyPage } from "@/lib/everyPage";
-import type { ChangeSet, EngineModel, ImportOnExisting, ImportPolicy, ImportProfile, Job, Workspace } from "@/types";
+import type {
+  ChangeSet,
+  EngineModel,
+  ImportOnExisting,
+  ImportPolicy,
+  ImportProfile,
+  Job,
+  OtherWorkspaceIds,
+  Workspace,
+} from "@/types";
 import { Choice } from "@/ui/Choice";
 import { FileField } from "@/ui/FileField";
 import { FormField } from "@/ui/FormField";
@@ -38,6 +47,11 @@ export interface ImportStart {
 const ACCEPT = ".xlsx,.csv,.jsonl,.ndjson";
 const LIVE = "live";
 
+const OTHER_WORKSPACE: readonly (readonly [OtherWorkspaceIds, string])[] = [
+  ["counterparts", "Load them as this workspace's own"],
+  ["refuse", "Refuse them"],
+];
+
 const POLICIES: readonly (readonly [ImportPolicy, string])[] = [
   ["independent", "Load the rows that can load"],
   ["atomic", "Load nothing unless every row loads"],
@@ -60,6 +74,7 @@ export function ImportDialog({
   const [profileKey, setProfileKey] = useState("");
   const [policy, setPolicy] = useState<ImportPolicy>("independent");
   const [onExisting, setOnExisting] = useState<ImportOnExisting>(defaultOnExisting(null));
+  const [otherWorkspace, setOtherWorkspace] = useState<OtherWorkspaceIds>("counterparts");
   const [workspaces, setWorkspaces] = useState<Workspace[]>();
   const [workspaceKey, setWorkspaceKey] = useState(start.context?.workspaceKey ?? "");
   const [changeSets, setChangeSets] = useState<ChangeSet[]>();
@@ -126,7 +141,7 @@ export function ImportDialog({
 
   async function submit() {
     if (!file || !context) return;
-    const body = importRequest(context, profileKey || null, policy, onExisting);
+    const body = importRequest(context, profileKey || null, policy, onExisting, otherWorkspace);
     const signature = JSON.stringify([body, file.name, file.size, file.lastModified]);
     if (attempt.current?.signature !== signature) attempt.current = { signature, key: newIdempotencyKey() };
     setPending(true);
@@ -281,6 +296,20 @@ export function ImportDialog({
                   ["reject", profileKey ? "Refuse their rows" : "Only if unchanged since the export"],
                 ]}
                 onChange={setOnExisting}
+              />
+            )}
+          </FormField>
+          <FormField
+            label="Records of another workspace"
+            help="A file may name records of another workspace by their IDs, as its export does. Loaded as this workspace's own, each becomes a record here, found again when the file is sent again."
+            group
+          >
+            {() => (
+              <Choice
+                name="import-other-workspace"
+                value={otherWorkspace}
+                options={OTHER_WORKSPACE}
+                onChange={setOtherWorkspace}
               />
             )}
           </FormField>

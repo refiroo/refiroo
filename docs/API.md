@@ -1857,6 +1857,13 @@ GET  /api/v1/jobs/{jobId}/items?status=…&ref=…         outcomes in item orde
   size never switches the run.
 - **`onExisting`**: `reject` (default) or `overwrite`, for upserts that find a record and carry no
   `expectedVersion`.
+- **`otherWorkspaceIds`**: `refuse` (default) or `counterparts` (0.9 J5). Record IDs are unique
+  across the instance, so an ID another workspace's record holds names nothing here and creating a
+  record with it is refused (`OBJECT_ALREADY_EXISTS`, `REFERENCE_NOT_FOUND`, both naming that
+  workspace). With `counterparts` such an ID stands for its **counterpart**, this workspace's own
+  record derived from it ([Counterparts](#counterparts-base-09-j5)): created with the counterpart's
+  ID the first time, found by it after. IDs this workspace's records hold, and IDs no record holds,
+  are used as given.
 - **`Idempotency-Key`** header (optional, 1–200 printable characters), scoped to the route and the
   workspace. The same key with the same request answers the original job's response again with
   `Idempotent-Replayed: true` and runs nothing (a background job: `202` with the job as it is now);
@@ -1956,8 +1963,8 @@ release activated while it ran (`409 MODEL_RELEASE_CHANGED`, nothing saved).
 ```
 
 An outcome carries only its status's fields. `applied`: `action` (`created`, `updated`,
-`unchanged`, `deleted`), `id`, `objectTypeKey`, `version` (none after a live delete) and, after an
-overwrite, `previousVersion`. A relationship item's has `relationId`, the relationship's `version`
+`unchanged`, `deleted`), `id`, `objectTypeKey`, `version` (none after a live delete), after an
+overwrite `previousVersion` and, when the record written is a counterpart, `sourceId` (0.9 J5). A relationship item's has `relationId`, the relationship's `version`
 (none after a delete) and, when it claimed a set, the set's new `relationSetVersion`. A
 `replaceRelationSet`'s has `action` `updated` or `unchanged`, the anchor's `relationSetVersion` and
 `relationIds` (`created`, `kept`, `removed`). `rejected`: `error` with the single write's code, or one of
@@ -2093,9 +2100,11 @@ file, then the model's type order, then ID); the same data gives the same bytes.
   the export; a record changed meanwhile is `VERSION_CONFLICT`.
 - `initialRelations` carries the relationships the record's type requires (a required binding into
   it), so a record that requires one can be created from the file.
-- Object IDs are unique across the instance: the file loads into the workspace it came from or into
-  another instance, not into a second workspace of the same instance. Relationship IDs and history
-  are not carried.
+- Object IDs are unique across the instance: as they are, the file loads into the workspace it came
+  from or into another instance. Into a second workspace of the same instance it loads with
+  `otherWorkspaceIds: "counterparts"`, as that workspace's own records
+  ([Counterparts](#counterparts-base-09-j5); D49 amended by 0.9 J5). Relationship IDs and history are
+  not carried.
 
 **CSV and XLSX** (D51) share one table layout, read back by the import (0.9 J2):
 
@@ -2271,16 +2280,20 @@ as a parameter. Refusals: `409 IMPORT_PROFILE_EXISTS`, `404 IMPORT_PROFILE_NOT_F
   an export's tables.
 - `format`: `xlsx`, `csv` or `jsonl`; otherwise from the file name (`.xlsx`, `.csv`, `.jsonl`,
   `.ndjson`). A legacy `.xls` workbook is refused: save it as XLSX.
-- `policy` and `onExisting` as on [batches](#batches-and-jobs-base-09-b1-b2-b3). A file without
-  versions updates found records only with `onExisting: "overwrite"` (audited with the version it
-  replaced); a row equal to its record is `unchanged` either way.
+- `policy`, `onExisting` and `otherWorkspaceIds` as on
+  [batches](#batches-and-jobs-base-09-b1-b2-b3). A file without versions updates found records only
+  with `onExisting: "overwrite"` (audited with the version it replaced); a row equal to its record is
+  `unchanged` either way. With `otherWorkspaceIds: "counterparts"` another workspace's export loads
+  as this workspace's own records ([Counterparts](#counterparts-base-09-j5)), and a profile's
+  `matchBy: {"field": "id"}` finds a counterpart too.
 - `stage: "execute"` runs the import as soon as its file is bound; `stage: "preview"` runs it
   without writing anything and waits for confirmation ([below](#preview-and-confirmation)).
 - `Idempotency-Key` as on batches: it covers the request and the file's SHA-256, so a retry answers
   with the first job (`Idempotent-Replayed: true`) and another file under the same key is
   `422 IDEMPOTENCY_KEY_REUSED`.
 
-It answers `202` with the queued job. Its `parameters` hold `policy`, `onExisting`, `stage`, the
+It answers `202` with the queued job. Its `parameters` hold `policy`, `onExisting`,
+`otherWorkspaceIds`, `stage`, the
 `profile` as the job uses it (`key` and `version`, or the inline one, and its `definition`) and the
 `file` (`name`, `format`, `bytes`, `sha256`). Refused before a job is stored: `413 IMPORT_TOO_LARGE`
 (`details.setting` `IMPORT_MAX_BYTES`, `maximum`, `bytes`), `422 UNSUPPORTED_FILE_FORMAT`,
@@ -2320,6 +2333,8 @@ each `{code, message, details}`, empty when there is nothing to say (null before
 other jobs). `RECORD_IDS_OF_ANOTHER_WORKSPACE` (`details.workspaceKey`, `details.rows`) counts the
 rows that name their records by IDs of another workspace's records, such as an export of that
 workspace: those rows cannot load here, and each is refused naming that workspace (0.9 J4a, D49).
+With `otherWorkspaceIds: "counterparts"` the notice is `RECORD_IDS_AS_COUNTERPARTS` (the same
+details): the rows load as this workspace's own records (0.9 J5).
 
 **A file that does not fit** fails the job before an item runs, writing nothing:
 `IMPORT_FILE_MISMATCH` with `details.problems` (`SHEET_NOT_FOUND`, `HEADER_ROW_NOT_FOUND`,
@@ -2340,6 +2355,33 @@ known type is `INVALID_CELL`. An unchanged export sent back changes nothing.
 **Files.** XLSX cells are read as stored values, never formulas (a formula's cached value), dates
 from date cells or ISO 8601 text, Excel's `_xHHHH_` escapes decoded. CSV is UTF-8 with or without a
 BOM, RFC 4180, the profile's delimiter (a comma by default), a header row.
+
+### Counterparts (Base 0.9 J5)
+
+A record of workspace `A` loaded into workspace `B` with `otherWorkspaceIds: "counterparts"` becomes
+`B`'s **counterpart** of it. Its ID depends on the original ID and `B`'s key alone: the name-based
+UUID (SHA-1, as `uuid5`) of `{workspaceKey}/{id}` in the namespace
+`2218e355-f627-4a22-a009-bebe5423891c`, marked as version 4 (every record ID the API accepts is a
+version-4 UUID). In Python: `UUID(bytes=uuid5(NAMESPACE, f"{workspace_key}/{object_id}").bytes,
+version=4)`. So:
+
+- the same file sent again finds what its first load created: every row `unchanged`, and a
+  corrected file loads only its corrected rows;
+- a workspace's types load file by file, and a batch, an import or a profile matching by ID finds
+  the counterparts an earlier load created;
+- a change set of `B` uses `B`'s key, so publishing it gives the IDs a live load would;
+- `B`'s own records, and IDs no record holds (a file from another instance), are used as given.
+
+Translated: every record ID an item names (an upsert key, a create's ID, a parent, an update or
+delete target, a relationship's ends, initial relations, a set's anchor and targets, a profile's ID
+key column and `matchBy: {"field": "id"}`). Not translated: relationship IDs (`updateRelation`,
+`deleteRelation`), since a relationship loaded from a file gets a new ID, so it has no counterpart.
+
+An item applied to a counterpart reports the counterpart's `id` and the ID it was given as
+`sourceId`. The file's `expectedVersion` is ignored on an item found as a counterpart (it is the
+other workspace's record's version): `onExisting` decides, after `unchanged`. A reference to a
+counterpart not loaded yet is `REFERENCE_NOT_FOUND`, naming the other workspace and saying to load
+the file holding it first. Nothing links a counterpart to its original after the load.
 
 ### The binding report
 

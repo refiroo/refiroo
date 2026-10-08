@@ -777,6 +777,8 @@ POST /api/v1/exports
   _Delivered in J1 (2026-10-07):_ the contract is in [API.md](API.md#exports-base-09-j1); `format`
   also takes `xlsx`; `scope.types` carries a `where` per type, and `asOf` dates the types with a
   period (D50); exports run on a worker of their own from one snapshot (D53).
+  _Amended in J5 (2026-10-08, D96, D97):_ an export loads into a second workspace of the instance with
+  `otherWorkspaceIds: "counterparts"`, as that workspace's own records with derived IDs.
 
 ### J5: The SC-10 screen
 
