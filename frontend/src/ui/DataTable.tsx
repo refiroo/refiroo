@@ -43,6 +43,7 @@ export function DataTable<Row>({
   rowFilter,
   rowHue,
   rowAttributes,
+  selection,
   actions,
   sorting,
   columnWidths = {},
@@ -69,6 +70,11 @@ export function DataTable<Row>({
   rowHue?: (row: Row) => Hue | undefined;
   /** The row's own attributes: its class, pointer and keyboard handlers. */
   rowAttributes?: (row: Row) => HTMLAttributes<HTMLTableRowElement>;
+  /**
+   * The leading selection column (0.9 K1): its header, each row's cell and its width. It is not
+   * resized, and it stays on narrow screens.
+   */
+  selection?: { header: ReactNode; cell: (row: Row) => ReactNode; width: number };
   /**
    * The trailing actions column: its header (which may be visually hidden), each row's cell and the
    * width it needs. Once columns are sized it takes up whatever width the others leave.
@@ -102,7 +108,7 @@ export function DataTable<Row>({
   const rows = list.items.flatMap((row, position) =>
     !rowFilter || rowFilter(row) ? [{ row, index: list.startIndex + position }] : [],
   );
-  const columnCount = columns.length + Number(Boolean(actions));
+  const columnCount = columns.length + Number(Boolean(actions)) + Number(Boolean(selection));
 
   // Where each column ends, for its resize handle; measured again whenever a header changes size.
   const columnKeys = columns.map((column) => column.key).join("\n");
@@ -192,7 +198,10 @@ export function DataTable<Row>({
           style={
             sized
               ? ({
-                  "--table-width": `${columns.reduce((sum, column) => sum + (columnWidths[column.key] ?? 100), actions?.width ?? 0)}px`,
+                  "--table-width": `${columns.reduce(
+                    (sum, column) => sum + (columnWidths[column.key] ?? 100),
+                    (actions?.width ?? 0) + (selection?.width ?? 0),
+                  )}px`,
                 } as CSSProperties)
               : undefined
           }
@@ -202,6 +211,15 @@ export function DataTable<Row>({
           <caption className="visually-hidden">{label}</caption>
           <thead>
             <tr aria-rowindex={1}>
+              {selection && (
+                <th
+                  scope="col"
+                  className="selection-column"
+                  style={{ "--selection-width": `${selection.width}px` } as CSSProperties}
+                >
+                  {selection.header}
+                </th>
+              )}
               {columns.map((column) => {
                 // Once any column is sized, every column is: one without a stored width takes the default.
                 const width = columnWidths[column.key] ?? (sized ? 100 : undefined);
@@ -237,6 +255,7 @@ export function DataTable<Row>({
               // Rows in the table's own shape while the first page loads; one status announces it.
               Array.from({ length: LOADING_ROWS }, (_, row) => (
                 <tr key={row} className="loading-row">
+                  {selection && <td className="selection-column" />}
                   {columns.map((column, index) => (
                     <td key={column.key} className={secondary(column.key)}>
                       {row === 0 && index === 0 && (
@@ -270,6 +289,7 @@ export function DataTable<Row>({
                     data-hue={rowHue?.(row)}
                     {...rowAttributes?.(row)}
                   >
+                    {selection && <td className="selection-column">{selection.cell(row)}</td>}
                     {columns.map((column) => (
                       <td key={column.key} className={secondary(column.key)}>
                         {column.cell(row)}

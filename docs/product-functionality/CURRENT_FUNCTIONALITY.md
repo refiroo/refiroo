@@ -92,6 +92,12 @@ place. The same works in live data, in a change set and in a publication.
 Filters cover text equality, contains and starts-with, numeric and date comparisons, booleans, null
 checks and the difference between a missing optional field and a stored null.
 
+Where a collection's data can be written and the deployment lets jobs be created, records can be
+selected in its table: by checkbox, a Shift range, the rows shown, or every record the search and
+filters match (Cmd+A), with single records left out. The bar above the table says what is selected.
+A selection larger than one bulk change may hold is refused with the count, the limit and what to
+do. Changing many records at once from a selection is being built (Track K).
+
 Limits: one sort at a time in the browser; queries across relationships are API-only (F20). Pages are
 always bounded.
 

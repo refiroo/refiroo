@@ -42,7 +42,7 @@ background jobs are J24, the change feed J26 and supplier files J27.
 
 | Group | Journeys |
 | --- | --- |
-| Records and structure | J01 find, J02 correct, J03 add, J04 delete, J13 relate, J14 hierarchy, J15 reshape across types |
+| Records and structure | J01 find, J02 correct, J03 add, J04 delete, J13 relate, J14 hierarchy, J15 reshape across types, J32 change many at once |
 | Relationship sets and coverage | J10 replace a record's related records, J16 coverage across ancestors (J09 retired) |
 | Change sets and history (designer) | J05 prepare and publish, J06 live beside a change set, J07 withdraw and restart from history, J17 review changes, J18 next model version |
 | Administration | J08 model release, J19 workspaces, J25 consumer API definition |
@@ -310,6 +310,35 @@ restructuring preview reports instead as problems of its plan, in its `200` answ
 
 **Evidence today:** `c4-restructuring`, `c5-restructuring-acceptance`; `test_restructuring_api`,
 `test_restructuring_planner`, `test_type_changes`.
+
+### J32 — Change many records of a collection at once
+
+**Actor:** steward. **Channel:** UI (its API side is J11 and J24). **Stories:** Track K (0.9).
+**Status:** in progress: selection delivered (0.9 K1); attribute edits, deletion (K2) and
+relationship edits (K3) planned.
+
+1. In a collection whose data can be written, select records: by hand, by a range, the loaded rows,
+   or every record the search, filters and scope match.
+2. Read what is selected in the bar above the table.
+3. Apply a change to the selection (K2, K3) and read each record's outcome.
+
+Selection is offered where the data can be written and the deployment lets jobs be created, since
+every bulk change is a batch job; it is never offered in a publication. A selection belongs to the
+list it was made over: sorting, scrolling and opening records keep it, a new search, filter, scope
+or data context clears it, and a reload clears it. Records picked by hand carry the version their
+row showed; "all matching" reads its records and their versions when the change runs.
+
+**Variants:**
+
+- **J32.1 Select records** (0.9 K1): by checkbox, Space and Shift for a range over the loaded rows;
+  the header checkbox for the loaded rows; **Select all N matching** once they are all selected;
+  Cmd+A (Ctrl+A) in the table for all matching; a row unchecked under all matching kept as an
+  exception; a selection over `backgroundJobMaxItems` refused and explained (how many match, the
+  limit, its setting, what to do); kept and cleared as above; absent in a publication or with jobs
+  switched off.
+
+**Evidence today:** the browser runner `k1-selection`; `recordSelection.test`, `ObjectTable.test`,
+`CollectionView.test`, `SelectionBar.test`.
 
 ## Relationship sets and coverage
 

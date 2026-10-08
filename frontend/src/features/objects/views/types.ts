@@ -35,6 +35,12 @@ export interface ViewComponentProps {
    * written while the deployment lets jobs be created. A view without it offers no import.
    */
   onImport?: () => void;
+  /**
+   * Lets records be selected for a bulk change (0.9 K1); given only where the data can be written
+   * while the deployment lets jobs be created (D105). `maxItems` is the most one bulk change may
+   * hold (`backgroundJobMaxItems`, D104).
+   */
+  bulkSelection?: { maxItems: number };
   /** Sibling lenses of the same source collection, placed by the renderer below its heading. */
   lenses?: ReactNode;
   /**

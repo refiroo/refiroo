@@ -20,6 +20,8 @@ import { SortMenu, useTableSort } from "@/ui/TableSort";
 import { ObjectToolbar } from "@/features/objects/ObjectToolbar";
 import { ScopeBanner } from "@/features/objects/CollectionScope";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
+import { useRecordSelection } from "@/lib/hooks/useRecordSelection";
+import { SelectionBar, selectionText } from "@/features/objects/SelectionBar";
 import type { ObjectItem, TableViewDefinition } from "@/types";
 import type { ViewComponentProps } from "./views/types";
 
@@ -39,6 +41,7 @@ export function ObjectCollectionView({
   lenses,
   onExport,
   onImport,
+  bulkSelection,
 }: ViewComponentProps) {
   const declaredView = rawView as TableViewDefinition;
   const api = useDataApi();
@@ -114,6 +117,46 @@ export function ObjectCollectionView({
     { anchor: query.anchor, refreshToken },
   );
   const { loading, error } = pages;
+  // The selection belongs to the list its search, filters and scope define (K1, D108).
+  const listKey = JSON.stringify([query.search, query.filters, query.parentObjectId ?? null]);
+  const selection = useRecordSelection(listKey, pages.items, bulkSelection?.maxItems ?? 0);
+  const more = pages.hasNext || pages.hasPrevious;
+  // How many records the list matches: read once per list at the first selection gesture, so the
+  // bar can offer "all matching" as soon as every loaded row is selected.
+  const countKey = `${listKey}#${refreshToken}`;
+  const [counted, setCounted] = useState<{ key: string; total: number }>();
+  const knownTotal = !more
+    ? pages.items.length
+    : (pages.totalCount ?? (counted?.key === countKey ? counted.total : undefined));
+  const offerMatching =
+    Boolean(bulkSelection) && selection.selection.mode === "ids" && selection.loaded === "all" && more;
+  async function readTotal(): Promise<number | undefined> {
+    if (knownTotal !== undefined) return knownTotal;
+    if (!objectType) return undefined;
+    const page = await api.objects(objectType.key, {
+      applicationKey: application.key,
+      workspaceKey,
+      search: query.search,
+      filters: query.filters,
+      parentObjectId: query.parentObjectId,
+      pageSize: 1,
+      includeTotal: true,
+    });
+    if (page.totalCount === undefined) return undefined;
+    setCounted({ key: countKey, total: page.totalCount });
+    return page.totalCount;
+  }
+  const countMatching = () => {
+    if (knownTotal === undefined) void readTotal().catch(() => undefined);
+  };
+  /** Cmd+A (Ctrl+A) in the table: every record the list matches (D104 amended). */
+  async function selectAll() {
+    if (!more) return selection.selectLoaded();
+    const total = await readTotal().catch(() => undefined);
+    if (total !== undefined) selection.selectMatching(total);
+  }
+  // Said by the status region at each change of count.
+  const announcement = selection.count > 0 ? selectionText(selection.selection, selection.count) : "Nothing selected";
   useEffect(() => {
     if (
       focusedRow.current &&
@@ -199,7 +242,20 @@ export function ObjectCollectionView({
         pluralName={objectType.pluralName}
       />
       {lenses}
-      <Card as="section" flush className="collection-surface">
+      <Card
+        as="section"
+        flush
+        className="collection-surface"
+        onKeyDown={(event) => {
+          if (!bulkSelection || !(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "a") return;
+          const target = event.target as HTMLElement;
+          // Text fields keep Cmd+A for their text; only the table selects records with it.
+          if (target.closest("input:not([type='checkbox']), textarea, select, [contenteditable='true']")) return;
+          if (!target.closest(".object-table")) return;
+          event.preventDefault();
+          void selectAll();
+        }}
+      >
         <ObjectToolbar
           display={
             <TableDisplay
@@ -219,6 +275,23 @@ export function ObjectCollectionView({
           onChange={(next) => onQueryChange({ ...next, anchor: undefined })}
           placeholder={`Search ${objectType.pluralName.toLowerCase()}`}
         />
+        {bulkSelection && (
+          <>
+            <SelectionBar
+              selection={selection.selection}
+              selected={selection.count}
+              matchingTotal={offerMatching ? knownTotal : undefined}
+              limit={bulkSelection.maxItems}
+              refusedTotal={selection.refusedTotal}
+              pluralName={objectType.pluralName}
+              onSelectMatching={() => knownTotal !== undefined && selection.selectMatching(knownTotal)}
+              onClear={selection.clear}
+            />
+            <p className="visually-hidden selection-status" role="status">
+              {announcement}
+            </p>
+          </>
+        )}
         {error && <InlineError message={error} onRetry={pages.retry} />}
         {(!error || pages.items.length > 0) && (
           <ObjectTable
@@ -235,6 +308,20 @@ export function ObjectCollectionView({
             onAnchorChange={onAnchorChange}
             onOpen={onOpen}
             selectedId={selectedId}
+            selection={
+              bulkSelection && {
+                isSelected: selection.isSelected,
+                loaded: selection.loaded,
+                onToggle: (item, extend) => {
+                  selection.toggle(item, extend);
+                  countMatching();
+                },
+                onToggleLoaded: () => {
+                  selection.toggleLoaded();
+                  countMatching();
+                },
+              }
+            }
             renderActions={(item, menu) => (
               <RecordActionMenu
                 object={item}

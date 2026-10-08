@@ -780,6 +780,39 @@ th[aria-sort] {
 .object-table tr.selected-record > td:first-child {
   box-shadow: inset 3px 0 0 var(--hue-marker, var(--action-primary));
 }
+/* Records selected for a bulk change (0.9 K1): a leading checkbox column, the checked rows tinted
+   less than the record open in the inspector, and the bar above the table that says what is held. */
+.object-table .selection-column {
+  width: 44px;
+  padding: 4px 4px 4px 14px;
+}
+.object-table .selection-checkbox {
+  vertical-align: middle;
+}
+.object-table tr.checked-row:not(.selected-record) > td {
+  background: var(--state-selected);
+}
+.selection-bar {
+  display: grid;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-faint);
+  background: var(--state-selected);
+}
+.selection-bar-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.selection-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.selection-clear {
+  margin-left: auto;
+}
 .mobile-columns-toggle {
   display: none;
 }
@@ -819,6 +852,9 @@ th[aria-sort] {
   }
   .object-table .sized-columns td {
     max-width: none;
+  }
+  .object-table .sized-columns th.selection-column {
+    width: var(--selection-width);
   }
   .object-table .sized-columns th.actions-column {
     width: auto;

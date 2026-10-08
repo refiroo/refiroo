@@ -1,7 +1,8 @@
 /**
  * A list of records in a table (collections, a record's children): `ui/DataTable` with a record on
  * every row. A row is keyed by its record, opens it on a click or from its identity cell, can be
- * selected, and carries the record's action menu (by its button, a right click or Shift+F10).
+ * selected, and carries the record's action menu (by its button, a right click or Shift+F10). Given
+ * a `selection`, a leading checkbox column selects records for a bulk action (0.9 K1).
  */
 
 import { useState, type ReactNode } from "react";
@@ -9,9 +10,20 @@ import type { EngineModel, ObjectItem } from "@/types";
 import type { CursorWindow } from "@/lib/hooks/useCursorWindow";
 import { DataTable } from "@/ui/DataTable";
 import { FieldValue } from "@/ui/FieldValue";
+import { SelectionCheckbox } from "@/ui/SelectionCheckbox";
 import { attributeName } from "@/model/fields";
 import { objectTypeHue } from "@/model/hues";
 import type { TableSort } from "@/ui/TableSort";
+
+/** The checkboxes' view of a selection; `useRecordSelection` gives one. */
+export interface TableSelection {
+  isSelected: (id: string) => boolean;
+  /** The header checkbox's state over the loaded rows. */
+  loaded: "all" | "some" | "none";
+  /** `extend` (Shift held) selects the range from the last row checked. */
+  onToggle: (item: ObjectItem, extend: boolean) => void;
+  onToggleLoaded: () => void;
+}
 
 export function ObjectTable({
   compact = false,
@@ -26,6 +38,7 @@ export function ObjectTable({
   onAnchorChange,
   onOpen,
   selectedId,
+  selection,
   renderActions,
   label = "Objects",
   emptyMessage = "Nothing to show yet.",
@@ -52,6 +65,7 @@ export function ObjectTable({
   onAnchorChange?: (anchor: string | undefined) => void;
   onOpen: (item: ObjectItem) => void;
   selectedId?: string;
+  selection?: TableSelection;
   renderActions?: (item: ObjectItem, menu: { isOpen: boolean; onOpenChange: (open: boolean) => void }) => ReactNode;
   label?: string;
   emptyMessage?: ReactNode;
@@ -90,7 +104,9 @@ export function ObjectTable({
       rowKey={(item) => item.id}
       rowHue={(item) => objectTypeHue(model, item.objectTypeKey)}
       rowAttributes={(item) => ({
-        className: `clickable-row${selectedId === item.id ? " selected-record" : ""}`,
+        className: `clickable-row${selectedId === item.id ? " selected-record" : ""}${
+          selection?.isSelected(item.id) ? " checked-row" : ""
+        }`,
         onClick: (event) => {
           // The identity button is the keyboard path; the row is a larger pointer target.
           const target = event.target as HTMLElement;
@@ -113,6 +129,26 @@ export function ObjectTable({
             }
           : {}),
       })}
+      selection={
+        selection && {
+          width: 44,
+          header: (
+            <SelectionCheckbox
+              label={`Select the ${noun[1]} shown`}
+              state={selection.loaded}
+              onSelect={() => selection.onToggleLoaded()}
+            />
+          ),
+          cell: (item) => (
+            <SelectionCheckbox
+              label={`Select ${item.name}`}
+              state={selection.isSelected(item.id) ? "all" : "none"}
+              onSelect={(extend) => selection.onToggle(item, extend)}
+              gridColumn="selection"
+            />
+          ),
+        }
+      }
       actions={
         renderActions && {
           header: <span className="visually-hidden">Record actions</span>,

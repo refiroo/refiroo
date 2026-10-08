@@ -254,7 +254,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 31 | [J4](#j4-import-screen-and-sc-10) | J1u, J3, F2 | The SC-10 screen and SC-10 acceptance; frontend only (D89–D95) — **delivered 2026-10-08** ([record](#j4-record-2026-10-08)) |
 | 31a | [J4a](#j4a-why-another-workspaces-export-cannot-load) | J4 | Amendment: an import says why another workspace's export cannot load (the job's `notices`, refusals naming the workspace) — **delivered 2026-10-08** ([record](#j4a-why-another-workspaces-export-cannot-load)) |
 | 31b | [J5](#j5-another-workspaces-export-loaded-as-this-workspaces-own-records) | J4a | Another workspace's export loaded as this workspace's own records (counterpart IDs, `otherWorkspaceIds`), on imports and batches (D96–D101) — **delivered 2026-10-08** ([record](#j5-record-2026-10-08)) |
-| 31a | [Track K](#track-k--bulk-selection-and-editing-in-collections) | J4, UA | Bulk selection and bulk edits in collections over `POST /batches`; packages K1–K5 planned in detail when the track starts — **added 2026-10-06** |
+| 31a | [Track K](#track-k--bulk-selection-and-editing-in-collections) | J4, UA | Bulk selection and bulk edits in collections over `POST /batches`; packages K1–K5 planned in detail when the track starts — **added 2026-10-06**; [K1](#k1-plan-2026-10-08) selection **delivered 2026-10-08** (D102–D111, [record](#k1-record-2026-10-08)) |
 | V | [V3–V9](#v3v9-the-management-api-documented-plan-2026-10-07) | V2 | The management API documented: the starter extended, content and examples beside the document, the error catalogue; V3 first, then V4–V8 in any order, then V9. **Independent fillers; block no release** (V-D9) — **planned 2026-10-07**, V-D1 open |
 | 32 | [R](#r-build-acceptance-and-release) | all except Track V's V3–V9 | Build acceptance and release |
 
@@ -8595,7 +8595,7 @@ cardinality); no screen knows a type key.
   record (the job screens from Track J).
 - **K3: relation edits.** For each relation type the model allows: add (`ensureRelation`), remove
   (`deleteRelation`) and replace (`replaceRelationSet`), choosing targets with the record picker.
-- **K4 (if decided): query-scoped batches.** A batch whose items are "every record matching these
+- **K4 (not taken in K1's planning, D103): query-scoped batches.** A batch whose items are "every record matching these
   criteria", decided in the engine, so a large selection is neither paged through nor sent as IDs;
   an API capability integrators get too.
 - **K5 (if decided): relation columns.** A view may declare a relation as a column, shown as record
@@ -8607,6 +8607,199 @@ enumerated IDs or K4; the limits a UI selection meets (`integrationJobs.limits`)
 when `INTEGRATION_JOBS_ENABLED` is off; `independent` or `atomic` as the UI's default; a change set's
 version claim for a long job. Composable-domains line (ADR-032): bulk APIs are used, not changed,
 unless K4 is taken.
+
+#### K1: Selection
+
+**Design:** Track K's outcome above. **Needs:** J4, UA (delivered).
+
+**Scope:** selecting records in a collection by hand, by range and as "all matching", the selection
+bar, and the decisions K2 and K3 build on; no writes.
+
+**Exit:** a user can select, extend, narrow and clear a selection in two collections, by pointer and
+keyboard, at 1440px and 390px, and the bar states exactly what is selected.
+
+##### K1 plan (2026-10-08)
+
+**Planned 2026-10-08. D102–D111 accepted by the user the same day: D104 with an amendment (Cmd+A
+selects all matching; a refused selection explained in full), D105 after it was explained. The test
+cases approved by the user the same day.** Checked against the
+code at `f0917f3`.
+
+**What exists.** `ui/ObjectTable` over `ui/DataTable` draws every collection; its only "selection"
+is the record open in the inspector (`selectedId`), and no list in the UI selects several rows. The
+collection reads the per-type list (`GET /objects/{type}` with `search`, `filters`,
+`parentObjectId`, `sort`; pages of at most 500; `includeTotal` counts under the same filters), in
+live data, a change set or a publication. Each item carries its `version`. Rows move with ↑ and ↓
+(`ScrollWindow`, `data-row-focus`); the window holds a bounded run of pages, so a far jump unloads
+rows. The collection stays mounted while a record is open beside it (`App.tsx`, the
+`record-collection` element), so state held in it survives opening records. `POST /batches` is
+registered only when `INTEGRATION_JOBS_ENABLED` is on (`routers/jobs.py`, `write_router`); the UI
+reads it as `capabilities.integrationJobs.createJobs`, as Import does. A background batch in a
+change set claims the change set's version at its first chunk, and each later chunk claims the
+version the previous one left (`worker._apply_chunk`); any other write to that change set between
+two chunks makes the next claim fail, and the job ends `failed` (`JOB_FAILED`) with its applied
+chunks kept (D29). The model query and the export cannot express the list's `search` (D60).
+**No backend change** and no contract change; an API gap found while building stops the package and
+is raised (AGENTS.md, API-first).
+
+**Behaviour.**
+
+1. Where the collection's data can be written (live data or a change set of an active workspace)
+   and the deployment lets jobs be created, the table gains a selection column before the identity
+   column: a checkbox per row, labelled with the record's name, and one in the header (D105, D110).
+   A publication, a read-only context or jobs switched off shows no column.
+2. **By hand.** A row's checkbox (pointer, or Space when it has focus) adds or removes that record.
+   Shift with a click or Space selects the range from the last checked row to this one over the rows
+   loaded (D104). Clicking the row elsewhere still opens the record, as today.
+3. **The header checkbox** selects or clears the loaded rows; it shows checked, partly checked or
+   unchecked for them.
+4. **All matching.** Once every loaded row is selected and the list holds more, the bar offers
+   **Select all 2,345 matching** (the count read with `includeTotal`). **Cmd+A** (Ctrl+A off macOS),
+   with focus in the table and not in a text field, selects all matching at once (D104). The selection is then the
+   collection's search, filters and scope, not IDs (D102, D103). Unchecking a row then keeps
+   "all matching" and lists the row as an exception: "All 2,345 matching except 1" (D109).
+5. **The bar** stands above the table while anything is selected: the count ("3 selected", "All
+   2,345 matching selected", "… except 3"), **Clear selection**, and the slot where K2 and K3 put
+   their actions. A polite status region announces each change of count. At 390px it wraps under
+   the toolbar and the checkbox column stays, as the actions column does.
+6. **Lifetime** (D108). Sorting, scrolling, jumping, resizing columns and opening or closing a record
+   keep the selection. Changing the search, a filter, the parent scope or the data context clears
+   it, since the selection was made over the list they define. A reload clears it; it is not in the
+   URL. A record deleted meanwhile leaves a hand selection when K2 runs (K2 reports it per item).
+7. **A selection over the limit is refused with an explanation** (D104). When the list holds more
+   than `backgroundJobMaxItems` records, Select all matching and Cmd+A select nothing more, and the
+   bar explains in words: how many records match, the most one bulk change may hold on this
+   deployment, that the operator sets it (`BACKGROUND_JOB_MAX_ITEMS`), and what to do (narrow the
+   list with the search or filters, select fewer, or ask the operator). It stays until the selection
+   or the list changes. K2 decides inline or background from the count.
+
+**Design.**
+
+- **`ui/useRecordSelection`** (new, React-free reducer plus hook): state `{ mode: "ids", ids:
+  Map<id, version> } | { mode: "matching", query, total, except: Set<id> }`, the range anchor, and
+  the operations toggle, range (over the given loaded rows), selectLoaded, selectMatching, clear;
+  `reset` when the list's query key changes. Hand-picked rows keep the version the row showed
+  (D102). Unit-tested, with combinations generated.
+- **`ui/DataTable`** gains an optional leading `selection` column slot (its header cell, each row's
+  cell, its width), beside the trailing `actions` slot, kept out of resizing and of the narrow
+  layout's column count. **`ui/ObjectTable`** passes the checkboxes into it when given a selection;
+  so `CollectionPanelTable` can take it later without another copy (U-D14), though K1 does not
+  wire it there (D110).
+- **`features/objects/SelectionBar`** (new) inside the collection surface under `ObjectToolbar`;
+  its actions slot is empty in K1. Labels from the model's `pluralName`; no type key named.
+- **`CollectionView`** owns the selection, keyed by the query (search, filters, parent) and the
+  data context; reads the total for "all matching" with one `includeTotal` page of 1 when the
+  window has none; passes `selectable` only per behaviour 1.
+- **Not changed:** the engine, the routes, the OpenAPI document, the record panel tables, the tree,
+  matrix and grid views.
+
+**Decisions** (for approval; D102, D103, D106 and D107 decide K2's and K3's ground, the rest K1's):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D102 | How a selection meets optimistic concurrency | **Accepted 2026-10-08 by the user.** **Rows picked by hand carry the version the user saw; "all matching" reads its records and versions when the action runs.** A hand-picked row's update claims the version it showed, so a record someone changed since is refused `VERSION_CONFLICT` for that item and the rest apply. "All matching" names no record the user saw: K2 reads the matching records and their versions at the moment of applying, shows the count it found in its preview, and sends each version; a record changed between that read and its write (seconds) is refused per item. No "apply to current values" mode: it would need an overwrite declaration on update items, which the API has only on upserts (D11), and nothing so far needs it |
+| D103 | Enumerated IDs or a query-scoped batch (K4) | **Accepted 2026-10-08 by the user.** **Enumerated by the UI; K4 not taken now.** The list route is the only read that applies the collection's search exactly (D60: the model query cannot), so a query-scoped batch would select a different set than the page shows unless it learned the list's search, a larger change than K4's outline. At 500 records a page, 10,000 matching records are 20 reads. K4 returns to the outline if a selection proves too slow to read, or an integrator needs it, with its own decision |
+| D104 | Limits a selection meets | **Accepted 2026-10-08 by the user, amended: Cmd+A (Ctrl+A) selects all matching, not only the loaded rows, and a refused selection carries a full explanation for people** (behaviour 7). **A range covers the loaded rows only; "all matching" is offered up to `backgroundJobMaxItems` (1,000,000 by default).** A range reaching unloaded rows would need pages read by position for a gesture; "all matching" is the way to select many. K2 runs up to `batchMaxItems` (1,000) inline and more as a background job with the job page (Track J), and refuses an atomic run over `atomicJobMaxItems` (10,000) at the choice, naming the setting |
+| D105 | Jobs switched off (`INTEGRATION_JOBS_ENABLED`) | **Accepted 2026-10-08 by the user after it was explained.** **No selection column**, as Import is hidden. `POST /batches` does not exist then, and looping single writes from the browser would make the UI a second bulk path, which Track K's outcome rules out. Single edits keep working |
+| D106 | `independent` or `atomic` by default | **Accepted 2026-10-08 by the user.** **`independent` ("Change the records that can change"), with `atomic` one choice away in K2's dialog**, as the import dialog (J4). A bulk edit over many records is expected to meet a few refusals (versions, rules); the per-item results name them |
+| D107 | A change set's version during a long background job | **Accepted 2026-10-08 by the user.** **Kept as the engine does it; no engine change in Track K.** Today any other write to the change set between two chunks fails the job at its next chunk, with applied chunks kept. K2's job page says so and offers **Run again for the rest**: items already applied answer `unchanged` (D24), so a rerun redoes nothing. The alternative, chunks after the first not claiming the change set's version (each record's version still protects it), changes the batch contract (INTEGRATION_API P3) and is raised only if the failure is met in use |
+| D108 | How long a selection lives | **Accepted 2026-10-08 by the user.** **As behaviour 6: kept across sorting, scrolling and opening records; cleared by a change of search, filters, scope or data context; not in the URL.** A selection over a list the user has since narrowed differently would act on records they can no longer see. A URL cannot hold a thousand IDs, and a selection restored after a reload would hold versions of an earlier read |
+| D109 | Unchecking a row under "all matching" | **Accepted 2026-10-08 by the user.** **Allowed, kept as exceptions** ("All 2,345 matching except 3"). Since D103 reads the set when the action runs, an exception is one ID skipped then; without it, the only way to leave out one record is to filter it away |
+| D110 | Where selection appears in K1 | **Accepted 2026-10-08 by the user.** **Table views of collections only.** Record panels' child and relationship tables, the tree, the matrix and the grid are not in Track K's outcome; `ObjectTable` takes the selection optionally, so a panel adopts it later without a copy |
+| D111 | What K1 ships with no action | **Accepted 2026-10-08 by the user.** **The bar with its count and Clear selection; K2's actions fill its slot.** 0.9 releases with K2 and K3, so no build shows the empty bar to users. The alternative, an **Export selection** action in K1, works for hand-picked rows (repeated `id` criteria in the export's `where`) but not for "all matching" with a search (D60), so the two kinds of selection would export differently; not recommended |
+
+**Journey.** J32 (new) *Change many records of a collection at once* (UI channel; group "Records and
+structure"), whose API side is J11 and J24. K1 adds J32.1 *Select records* (by hand, a range,
+the loaded rows, all matching with exceptions; kept and cleared as D108; absent as behaviour 1).
+K2 adds the attribute and delete variants, K3 the relationship ones. USER_JOURNEYS (J32, the index),
+UI_ACCEPTANCE (row K1-1 the selection column and bar; reference pattern: the collection table,
+UA4), API_JOURNEYS (no change: no route or parameter is added).
+
+**Test cases** (approved by the user 2026-10-08). No API journey test: no API behaviour changes. Unit tests (Vitest):
+
+1. **The selection reducer**, combinations generated: toggle, range over loaded rows (either
+   direction, anchor moved by a toggle), select loaded, select all matching, an exception under all
+   matching and its removal, the count in each mode, reset on a new query key and not on a new sort.
+2. **The table**: the header checkbox's three states; Space toggles a focused row's checkbox and
+   Shift+Space extends; a click on the row outside the checkbox still opens the record; no column
+   without `selectable`.
+3. **The collection**: no column in a publication or with `createJobs` false; "Select all N
+   matching" offered only when every loaded row is selected and more exist, and not over
+   `backgroundJobMaxItems`; Cmd+A in the table selects all matching, and in the search field selects
+   its text; over the limit, both select nothing more and the bar's explanation names the count, the
+   limit, its setting and what to do; a filter change clears the selection, a sort change keeps it.
+
+Browser runner `test:browser:k1` (real backend, two object types of the starter in two
+applications, keyboard, 1440px and 390px):
+
+4. **By hand and by range.** Select three rows by click, extend with Shift+click; the bar says 5
+   selected; open a record and close it, the selection stays; sort, it stays.
+5. **All matching with an exception.** Filter, select the loaded rows, Select all N matching, uncheck
+   one: the bar says "All N matching except 1"; change the search, the selection is cleared; Cmd+A
+   selects all matching again. Over a lowered `BACKGROUND_JOB_MAX_ITEMS` on the runner's server, Cmd+A
+   shows the explanation and selects nothing more.
+6. **Keyboard only and narrow.** Reach a row with ↓, Space; two rows down, Shift+Space; Clear
+   selection, at 390px; the status region announces each count.
+7. **Where it is absent.** A publication of the same collection shows no selection column.
+
+Axe with 0 violations on a collection with a selection, light and dark; screenshots at 1440px and
+390px for the user's approval.
+
+**Checks.** Vitest `related` over the changed files, `format`, `lint` (0 errors), `build`;
+`test:browser:k1`; `test:browser:j4` (the collection header and table are shared). No backend run,
+as no backend file changes. Not run: the full suites, `test:a11y`, `test:visual` (R, as D95).
+
+**Docs at delivery.** USER_JOURNEYS, UI_ACCEPTANCE, CURRENT_FUNCTIONALITY, EXECUTION_GUIDE and the e2e
+README (the runner), CHANGELOG, PROJECT_STATUS; Track K's outline updated by D103 (K4) and D111.
+
+**Composable domains (ADR-032):** a screen over existing reads; identity, attribute storage, audit,
+the bulk APIs, the `match` declaration and mapping coverage are untouched.
+
+##### K1 record (2026-10-08)
+
+**Delivered 2026-10-08.** D102–D111 and the test cases as approved with the plan. Frontend only; no
+backend file, route or contract changed.
+
+**Built.**
+
+- **The rules** (`lib/recordSelection.ts`, pure): hand-picked rows keep the version their row showed
+  (D102); "all matching" holds the total and its exceptions (D103, D109); a range covers the loaded
+  rows from the anchor and sets them to the state the clicked row takes (D104); the header selects
+  or clears the loaded rows, and under all matching clears everything.
+- **The hook** (`lib/hooks/useRecordSelection.ts`): the selection held per list key (search, filters,
+  scope), so a new key starts empty and a sort keeps it (D108); "all matching" over `maxItems`
+  refused and the matched count kept for the explanation. The plan named `ui/useRecordSelection`; a
+  hook without markup belongs in `lib/hooks`, beside `useCursorWindow`.
+- **The table:** `ui/DataTable` gains a leading `selection` slot (not resized, kept at narrow widths,
+  counted in a sized table's width); `ui/SelectionCheckbox` (checked, unchecked, partly checked;
+  Shift known from a click or from Space); `ui/ObjectTable` draws them from an optional
+  `selection`. `ui/ScrollWindow` lets ↑ and ↓ leave a checkbox, so they move between the rows'
+  checkboxes (`data-grid-col`).
+- **The collection:** `features/objects/SelectionBar` (the count, Select all N matching, Clear
+  selection, the explanation as a warning `Notice`, the empty actions slot, D111) and a polite
+  status region; `CollectionView` reads the total with one `includeTotal` page of 1 at the first
+  selection gesture when the window has none (a read in an effect would add a
+  `set-state-in-effect` site), and takes Cmd+A (Ctrl+A) in the table, never in a text field
+  (D104 amended). `App` gives `bulkSelection` through `bulkSelectionFor`: only where the data can be
+  written and jobs can be created (D105).
+
+**Checks.** Vitest: `recordSelection.test` (every sequence of three of eleven gestures against the
+rules written over plain sets, 1,331 sequences; a planted fault in the range rule was caught), the
+selection cases of `ObjectTable.test` (4) and `views/CollectionView.test` (5), `SelectionBar.test`;
+`vitest related` over the changed files: 20 files, 244 tests passed. `format`, `lint` (0 errors, the
+7 earlier warnings), `build`. `test:browser:k1`: 11 checks passed (the cases 4–7 at 1440px and 390px
+on Domains and Systems; axe 0 violations, light and dark). `test:browser:j4`: 18 checks passed.
+Not run: the full suites, `test:a11y`, `test:visual` (R, as D95); no backend run, as no backend file
+changed.
+
+**Evidence, separately.** Functional: the runner's checks above. Accessibility: axe on a collection
+with a selection, light and dark, 0 violations; keyboard only at 390px (Space, ↓, Shift+Space,
+Clear selection) with the status region read back. Visual: the screenshots were inspected (a
+checkbox drawn without its tick in the first run was fixed, a `display: block` overriding the
+control's grid) and await the user's approval.
+
+**Found.** The e2e runners are not under `npm run format` (`src` only), and the e2e README lists no
+0.9 runner; both left as they are.
 
 ## R: Build acceptance and release
 

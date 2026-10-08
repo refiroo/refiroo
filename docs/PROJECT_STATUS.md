@@ -338,6 +338,10 @@ that workspace ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#j4a-why-another-workspa
 with counterpart IDs derived from the file's IDs and the workspace (`otherWorkspaceIds` on imports
 and batches; the import dialog loads them by default; D96–D101)
 ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#j5-record-2026-10-08)). Then Track K and R.
+**K1 is delivered (2026-10-08)**: selecting records in a collection by hand, by range and as "all
+matching" (also Cmd+A), with exceptions, the selection bar, and a selection over the bulk limit
+explained; no writes, frontend only; D102–D111 decided; screenshots await the user's approval
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k1-record-2026-10-08)). Next is K2.
 **C18, the consumer API definition written for readers, is delivered (2026-10-08):** schema 0.9
 writes `consumerApis` as what a definition exposes, offers, looks like and filters by, with defaults
 written out by `GET /api/v1/model/consumer-apis/{consumerApi}`; an operation not offered is

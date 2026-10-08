@@ -8,6 +8,16 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 K1: selecting records in a collection (D102–D111). Where the data can be written and jobs
+  can be created, a table view has a checkbox column: rows by hand, a Shift range over the loaded
+  rows (pointer or Shift+Space), the loaded rows from the header checkbox, then **Select all N
+  matching**, also with Cmd+A (Ctrl+A) in the table; a row unchecked under all matching stays an
+  exception. A bar above the table states the selection and clears it; a polite status region
+  announces each count. A selection over `backgroundJobMaxItems` is refused with an explanation
+  naming the count, the limit, `BACKGROUND_JOB_MAX_ITEMS` and what to do. Sorting, scrolling and
+  opening records keep it; a new search, filter, scope or data context clears it. No writes yet
+  (K2, K3); no backend or contract change.
+
 - Base 0.9 J5: another workspace's export loads as this workspace's own records (D96–D101).
   `otherWorkspaceIds: "counterparts"` on `POST /imports` and `POST /batches` makes an ID held by
   another workspace's record stand for its counterpart here, whose ID is derived from the original

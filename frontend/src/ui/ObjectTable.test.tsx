@@ -276,4 +276,90 @@ describe("ObjectTable", () => {
     expect(screen.getByTestId("tile").closest(".empty-message-icon")).toHaveAttribute("aria-hidden", "true");
     expect(screen.getByRole("button", { name: "Add Domain" })).toBeInTheDocument();
   });
+
+  describe("selection (0.9 K1)", () => {
+    const rows = ["Alpha", "Beta", "Gamma"].map((name, index) => ({
+      ...domainObject,
+      id: `id-${index}`,
+      name,
+      version: index + 1,
+    }));
+
+    function Selecting({ onOpen = () => {} }: { onOpen?: () => void }) {
+      const [selected, setSelected] = useState<string[]>([]);
+      const [anchor, setAnchor] = useState<string>();
+      const loaded = selected.length === rows.length ? "all" : selected.length ? "some" : "none";
+      return (
+        <ObjectTable
+          model={testModel}
+          columns={["name"]}
+          list={staticWindow(rows)}
+          pageSize={20}
+          onOpen={onOpen}
+          selection={{
+            isSelected: (id) => selected.includes(id),
+            loaded,
+            onToggle: (item, extend) => {
+              const from = rows.findIndex((row) => row.id === anchor);
+              const to = rows.findIndex((row) => row.id === item.id);
+              const ids =
+                extend && from >= 0
+                  ? rows.slice(Math.min(from, to), Math.max(from, to) + 1).map((row) => row.id)
+                  : [item.id];
+              setSelected((current) =>
+                current.includes(item.id)
+                  ? current.filter((id) => !ids.includes(id))
+                  : [...new Set([...current, ...ids])],
+              );
+              setAnchor(item.id);
+            },
+            onToggleLoaded: () => setSelected(loaded === "all" ? [] : rows.map((row) => row.id)),
+          }}
+        />
+      );
+    }
+
+    it("shows the header checkbox checked, partly checked or unchecked over the rows", () => {
+      render(<Selecting />);
+      const header = screen.getByRole("checkbox", { name: "Select the records shown" });
+      expect(header).not.toBeChecked();
+      expect((header as HTMLInputElement).indeterminate).toBe(false);
+      fireEvent.click(screen.getByRole("checkbox", { name: "Select Beta" }));
+      expect((header as HTMLInputElement).indeterminate).toBe(true);
+      fireEvent.click(header);
+      expect(header).toBeChecked();
+      expect((header as HTMLInputElement).indeterminate).toBe(false);
+      expect(screen.getAllByRole("checkbox", { checked: true })).toHaveLength(4);
+      fireEvent.click(header);
+      expect(screen.queryAllByRole("checkbox", { checked: true })).toHaveLength(0);
+    });
+
+    it("toggles a focused row with Space and extends the range with Shift+Space", () => {
+      render(<Selecting />);
+      const alpha = screen.getByRole("checkbox", { name: "Select Alpha" });
+      alpha.focus();
+      fireEvent.keyDown(alpha, { key: " " });
+      expect(alpha).toBeChecked();
+      fireEvent.keyDown(screen.getByRole("checkbox", { name: "Select Gamma" }), { key: " ", shiftKey: true });
+      expect(screen.getByRole("checkbox", { name: "Select Beta" })).toBeChecked();
+      expect(screen.getByRole("checkbox", { name: "Select Gamma" })).toBeChecked();
+      expect(screen.getByRole("row", { name: /Beta/ })).toHaveClass("checked-row");
+    });
+
+    it("still opens the record from the row outside its checkbox", () => {
+      const onOpen = vi.fn();
+      render(<Selecting onOpen={onOpen} />);
+      fireEvent.click(screen.getByRole("checkbox", { name: "Select Alpha" }));
+      expect(onOpen).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole("row", { name: /Alpha/ }).querySelectorAll("td")[1]);
+      expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ name: "Alpha" }));
+    });
+
+    it("has no selection column without a selection", () => {
+      render(
+        <ObjectTable model={testModel} columns={["name"]} list={staticWindow(rows)} pageSize={20} onOpen={() => {}} />,
+      );
+      expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    });
+  });
 });

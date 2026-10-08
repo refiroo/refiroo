@@ -333,7 +333,9 @@ export function ScrollWindow<T>({
     const target = event.target as HTMLElement;
     // A window nested in one of the rows handled the key first.
     if (event.defaultPrevented) return;
-    if (target.closest("input, select, textarea, [contenteditable='true'], [role='menu']")) return;
+    // A row's selection checkbox takes no arrow keys, so ↑ and ↓ move to the next row's (0.9 K1).
+    if (target.closest("input:not([type='checkbox']), select, textarea, [contenteditable='true'], [role='menu']"))
+      return;
     if ((event.ctrlKey || event.metaKey) && (event.key === "Home" || event.key === "End")) {
       event.preventDefault();
       if (event.key === "Home") list.jumpToStart(true);

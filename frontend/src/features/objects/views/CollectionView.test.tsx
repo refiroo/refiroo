@@ -457,3 +457,101 @@ describe("relation matrix lens grouping (Base 0.8 A1, A4)", () => {
     expect(onViewChange).toHaveBeenCalledWith(table.toLowerCase());
   });
 });
+
+describe("selecting records in a collection (0.9 K1)", () => {
+  const rows = ["Alpha", "Beta"].map((name, index) => ({ ...domainObject, id: `id-${index}`, name, version: 1 }));
+  const query: CollectionQueryState = { search: "", sort: "name", pageSize: 20, filters: [] };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Two records loaded of three matching: the list holds more.
+    vi.mocked(api.objects).mockImplementation(async (_type, request) => ({
+      items: request.pageSize === 1 ? rows.slice(0, 1) : rows,
+      nextCursor: "next",
+      ...(request.includeTotal ? { totalCount: 3 } : {}),
+    }));
+  });
+
+  function renderCollection(maxItems = 1000, initial = query) {
+    const props = {
+      model: testModel,
+      application: testModel.applications[0],
+      view: testModel.applications[0].views[0],
+      workspaceKey: "west",
+      onQueryChange: vi.fn(),
+      onOpen: vi.fn(),
+      readOnly: false,
+      bulkSelection: { maxItems },
+    };
+    const view = render(<CollectionView {...props} query={initial} />);
+    return { rerender: (next: CollectionQueryState) => view.rerender(<CollectionView {...props} query={next} />) };
+  }
+
+  it("offers no selection without a bulk selection", async () => {
+    render(
+      <CollectionView
+        model={testModel}
+        application={testModel.applications[0]}
+        view={testModel.applications[0].views[0]}
+        workspaceKey="west"
+        query={query}
+        onQueryChange={vi.fn()}
+        onOpen={vi.fn()}
+        readOnly={false}
+      />,
+    );
+    await screen.findByRole("button", { name: "Alpha" });
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+  });
+
+  it("offers every matching record once the loaded ones are selected, and keeps exceptions", async () => {
+    renderCollection();
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Select Alpha" }));
+    expect(screen.getByRole("group", { name: "Selection" })).toHaveTextContent("1 selected");
+    expect(screen.queryByRole("button", { name: /Select all/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select the records shown" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Select all 3 matching" }));
+    expect(screen.getByRole("group", { name: "Selection" })).toHaveTextContent("All 3 matching selected");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select Beta" }));
+    expect(screen.getByRole("group", { name: "Selection" })).toHaveTextContent("All 3 matching except 1");
+    expect(document.querySelector(".selection-status")).toHaveTextContent("All 3 matching except 1");
+    fireEvent.click(screen.getByRole("button", { name: "Clear selection" }));
+    expect(screen.queryByRole("group", { name: "Selection" })).not.toBeInTheDocument();
+    expect(document.querySelector(".selection-status")).toHaveTextContent("Nothing selected");
+  });
+
+  it("selects every matching record with Cmd+A in the table, and leaves the search field's Cmd+A alone", async () => {
+    renderCollection();
+    const alpha = await screen.findByRole("checkbox", { name: "Select Alpha" });
+    fireEvent.keyDown(screen.getByPlaceholderText("Search domains"), { key: "a", metaKey: true });
+    expect(screen.queryByRole("group", { name: "Selection" })).not.toBeInTheDocument();
+    fireEvent.keyDown(alpha, { key: "a", metaKey: true });
+    expect(await screen.findByRole("group", { name: "Selection" })).toHaveTextContent("All 3 matching selected");
+  });
+
+  it("explains a selection over the limit and selects nothing more", async () => {
+    renderCollection(2);
+    const alpha = await screen.findByRole("checkbox", { name: "Select Alpha" });
+    fireEvent.keyDown(alpha, { key: "a", ctrlKey: true });
+    const notice = await screen.findByText(/3 domains match this list/);
+    expect(notice).toHaveTextContent(
+      "3 domains match this list, but one bulk change on this deployment can hold at most 2 records, so nothing more was selected. Narrow the list with the search or filters, or select fewer domains. The operator sets this limit with BACKGROUND_JOB_MAX_ITEMS and can raise it.",
+    );
+    expect(screen.queryAllByRole("checkbox", { checked: true })).toHaveLength(0);
+    // The loaded rows selected by hand: the offer is replaced by the same explanation.
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select the records shown" }));
+    expect(screen.getByRole("group", { name: "Selection" })).toHaveTextContent("2 selected");
+    expect(screen.queryByRole("button", { name: /Select all/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/3 domains match this list/)).toBeInTheDocument();
+  });
+
+  it("clears the selection when a filter changes and keeps it when the sort does", async () => {
+    const { rerender } = renderCollection();
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Select Alpha" }));
+    rerender({ ...query, sort: "-name" });
+    expect(await screen.findByRole("checkbox", { name: "Select Alpha" })).toBeChecked();
+    rerender({ ...query, sort: "-name", filters: [{ field: "code", operator: "startsWith", value: "A" }] });
+    expect(await screen.findByRole("checkbox", { name: "Select Alpha" })).not.toBeChecked();
+    expect(screen.queryByRole("group", { name: "Selection" })).not.toBeInTheDocument();
+  });
+});

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { bulkSelectionFor } from "@/features/objects/SelectionBar";
 import { CollectionView } from "@/features/objects/views/CollectionViewHost";
 import { ObjectDetail } from "@/features/objects/ObjectDetail";
 import { changeReviewFor, defaultRoute, isSettingsRoute, routeChangeSetId, viewRoute } from "@/routing/routes";
@@ -127,6 +128,8 @@ function AppContent({
     activeRoute.kind === "list" || activeRoute.kind === "detail" ? activeRoute.publicationId : undefined;
   const readOnly =
     Boolean(publicationId) || workspace?.key !== activeRoute.workspaceKey || workspace?.status !== "active";
+  // Records are selected for a bulk change where the data can be written and jobs created (K1, D105).
+  const bulkSelection = bulkSelectionFor(capabilities, readOnly);
   // Import loads into the data the page shows, so it is offered where that data can be written (D89).
   const onImport =
     capabilities?.integrationJobs.createJobs && !readOnly
@@ -444,6 +447,7 @@ function AppContent({
                     query={collection}
                     onExport={onExport}
                     onImport={onImport}
+                    bulkSelection={bulkSelection}
                     onQueryChange={(query: CollectionQueryState) =>
                       navigate(
                         activeRoute.kind === "detail"
