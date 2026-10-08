@@ -8,6 +8,29 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 J4a: an import says why rows cannot load when the file is another workspace's export.
+  Record IDs are unique across the instance, so such a file loads only into the workspace it came
+  from (D49); until now every row was refused with no reason a user could act on. The job carries
+  `notices` once bound (`RECORD_IDS_OF_ANOTHER_WORKSPACE`, with the workspace and the rows),
+  `OBJECT_ALREADY_EXISTS` names the workspace holding the ID (`details.workspaceKey`, live and in a
+  change set), and `REFERENCE_NOT_FOUND` names what the reference is for and that workspace. The
+  import's page shows the notices above the preview, and a row's reasons wrap instead of being cut
+  off. Loading another workspace's export into a workspace is planned separately.
+
+- Base 0.9 J4: the import screen (SC-10 in the browser, D89–D95). **Import** on a collection page
+  that can be written loads into its data; **New import** on Settings › Jobs and feed chooses a
+  workspace and its live data or a change set. The dialog takes a file, a stored profile (one no
+  longer valid listed and not choosable, a keyless one warned) or none, the policy, and whether
+  records the file finds are updated (by default with a profile, not without one, D92); it always
+  previews (D90) and opens the import's page at once (D91). The job page of an import shows the
+  preview with **Load the file** and **Cancel import**, the refused rows paged with every failing cell
+  and its column, the binding report per source and column, then the result and how to load refused
+  rows (D94); a refused confirmation keeps the preview waiting. Notifications say Preview ready with
+  Review, and none shows while the job's own page is open; a waiting preview's stream is closed until
+  it is confirmed. A collection reloads after an import this tab started loaded into it. Jobs and
+  feed's limits list the import file size and preview items. `ui/FileField` is the one file input
+  (the model draft dialog uses it). No backend or contract change. New runner `test:browser:j4`.
+
 - Base 0.9 C18: consumer API definitions written for readers, as schema 0.9 (CONSUMER_API
   C-D132–C-D141). A definition names what it `exposes` (public names default to the key in
   PascalCase), the `operations` it offers (`objects`, `xref`, `resolve`, `lists`, `events`: listed

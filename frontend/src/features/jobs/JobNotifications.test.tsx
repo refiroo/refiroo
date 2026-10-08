@@ -92,4 +92,25 @@ describe("JobNotifications (0.9 J1u)", () => {
     FakeEventSource.opened[0].push(exportJob("cancelled"));
     expect(screen.getByRole("status")).toHaveTextContent("Export of Domains was cancelled.");
   });
+
+  it("says an import's preview is ready with Review, and stops following it while it waits (0.9 J4)", () => {
+    const importJob = (state: Job["state"]) =>
+      ({
+        id: "j2",
+        kind: "import",
+        state,
+        parameters: { file: { name: "codes.csv" } },
+        output: null,
+      }) as unknown as Job;
+    const onNavigate = renderWith(importJob("queued"));
+    fireEvent.click(screen.getByRole("button", { name: "Start" }));
+    const [stream] = FakeEventSource.opened;
+    stream.push(importJob("running"));
+    stream.push(importJob("awaiting_confirmation"));
+    expect(stream.closed).toBe(true);
+    expect(screen.getByRole("status")).toHaveTextContent("Import of codes.csv: the preview is ready.");
+    expect(JSON.parse(window.sessionStorage.getItem("rdm.followedJobs")!)).toEqual([]);
+    fireEvent.click(screen.getByRole("link", { name: "Review" }));
+    expect(onNavigate).toHaveBeenCalledWith({ kind: "settings", page: "jobs", jobId: "j2" });
+  });
 });

@@ -1,0 +1,308 @@
+/**
+ * Start an import (0.9 J4, J27.13). From a collection the file loads into the page's data: its
+ * workspace's live data or the change set shown (D89). From Settings › Jobs a workspace and its
+ * live data or one of its change sets are chosen. The user picks a file, a stored profile or none,
+ * the policy and what happens to records the file finds (D92); the import is always previewed
+ * (D90), and the caller opens its job page (D91).
+ */
+
+import { useEffect, useRef, useState } from "react";
+import { api } from "@/api/client";
+import { errorMessage } from "@/api/errors";
+import { everyPage } from "@/lib/everyPage";
+import type { ChangeSet, EngineModel, ImportOnExisting, ImportPolicy, ImportProfile, Job, Workspace } from "@/types";
+import { Choice } from "@/ui/Choice";
+import { FileField } from "@/ui/FileField";
+import { FormField } from "@/ui/FormField";
+import { Modal } from "@/ui/Modal";
+import { Notice } from "@/ui/Notice";
+import { bytes } from "@/features/settings/limits";
+import { useCapabilities } from "@/features/settings/useSystem";
+import {
+  defaultOnExisting,
+  importField,
+  importRequest,
+  keyless,
+  newIdempotencyKey,
+  profileProblems,
+  profileSummary,
+  type ImportContext,
+  type ImportField,
+} from "./importRequest";
+
+export interface ImportStart {
+  /** The page's data; none lets the user choose a workspace and its data. */
+  context?: ImportContext;
+}
+
+const ACCEPT = ".xlsx,.csv,.jsonl,.ndjson";
+const LIVE = "live";
+
+const POLICIES: readonly (readonly [ImportPolicy, string])[] = [
+  ["independent", "Load the rows that can load"],
+  ["atomic", "Load nothing unless every row loads"],
+];
+
+export function ImportDialog({
+  model,
+  start,
+  onClose,
+  onStarted,
+}: {
+  model: EngineModel;
+  start: ImportStart;
+  onClose: () => void;
+  onStarted: (job: Job) => void;
+}) {
+  const { capabilities } = useCapabilities();
+  const [file, setFile] = useState<File>();
+  const [profiles, setProfiles] = useState<ImportProfile[]>();
+  const [profileKey, setProfileKey] = useState("");
+  const [policy, setPolicy] = useState<ImportPolicy>("independent");
+  const [onExisting, setOnExisting] = useState<ImportOnExisting>(defaultOnExisting(null));
+  const [workspaces, setWorkspaces] = useState<Workspace[]>();
+  const [workspaceKey, setWorkspaceKey] = useState(start.context?.workspaceKey ?? "");
+  const [changeSets, setChangeSets] = useState<ChangeSet[]>();
+  const [data, setData] = useState(LIVE);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<{ field: ImportField; message: string; problems: string[] }>();
+  // One key per distinct request, so a retried submission answers with the job the first created.
+  const attempt = useRef<{ signature: string; key: string }>(undefined);
+
+  useEffect(() => {
+    let current = true;
+    everyPage(api.importProfiles)
+      .then((items) => current && setProfiles(items))
+      .catch((cause) => current && setError({ field: "profile", message: errorMessage(cause), problems: [] }));
+    return () => {
+      current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (start.context) return;
+    let current = true;
+    everyPage((cursor) => api.workspaces({ cursor }))
+      .then((items) => {
+        if (!current) return;
+        setWorkspaces(items);
+        setWorkspaceKey((key) => key || items[0]?.key || "");
+      })
+      .catch((cause) => current && setError({ field: "form", message: errorMessage(cause), problems: [] }));
+    return () => {
+      current = false;
+    };
+  }, [start.context]);
+
+  useEffect(() => {
+    if (start.context || !workspaceKey) return;
+    let current = true;
+    everyPage((cursor) => api.changeSets(workspaceKey, cursor))
+      .then((items) => current && setChangeSets(items))
+      .catch((cause) => current && setError({ field: "form", message: errorMessage(cause), problems: [] }));
+    return () => {
+      current = false;
+    };
+  }, [start.context, workspaceKey]);
+
+  const chosenChangeSet = changeSets?.find((item) => item.id === data);
+  const context: ImportContext | undefined =
+    start.context ??
+    (workspaceKey
+      ? {
+          workspaceKey,
+          ...(chosenChangeSet
+            ? { changeSet: { id: chosenChangeSet.id, name: chosenChangeSet.name, version: chosenChangeSet.version } }
+            : {}),
+        }
+      : undefined);
+  const profile = profiles?.find((item) => item.key === profileKey);
+
+  function chooseProfile(key: string) {
+    setProfileKey(key);
+    // The default follows the file's kind: a profile's file carries no versions (D92).
+    setOnExisting(defaultOnExisting(key || null));
+  }
+
+  async function submit() {
+    if (!file || !context) return;
+    const body = importRequest(context, profileKey || null, policy, onExisting);
+    const signature = JSON.stringify([body, file.name, file.size, file.lastModified]);
+    if (attempt.current?.signature !== signature) attempt.current = { signature, key: newIdempotencyKey() };
+    setPending(true);
+    setError(undefined);
+    try {
+      onStarted(await api.startImport(file, body, attempt.current.key));
+    } catch (cause) {
+      setError({ field: importField(cause), message: errorMessage(cause), problems: profileProblems(cause) });
+    } finally {
+      setPending(false);
+    }
+  }
+
+  const fieldError = (field: ImportField) =>
+    error?.field === field ? (
+      <>
+        {error.message}
+        {error.problems.length > 0 && (
+          <ul className="field-problems">
+            {error.problems.map((problem) => (
+              <li key={problem}>{problem}</li>
+            ))}
+          </ul>
+        )}
+      </>
+    ) : undefined;
+  const limit = capabilities ? `, up to ${bytes(capabilities.integrationJobs.limits.importMaxBytes)}` : "";
+  const where = !context
+    ? ""
+    : context.changeSet
+      ? `the change set “${context.changeSet.name ?? "Unnamed"}”`
+      : `live data in workspace “${context.workspaceKey}”`;
+
+  return (
+    <Modal title="Import" size="wide" busy={pending} onClose={onClose}>
+      <form
+        className="dialog-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void submit();
+        }}
+      >
+        <section className="dialog-form-section" aria-labelledby="import-file">
+          <h3 id="import-file">The file</h3>
+          {!start.context && (
+            <>
+              <FormField label="Workspace">
+                {(control) => (
+                  <select
+                    {...control}
+                    value={workspaceKey}
+                    disabled={!workspaces}
+                    onChange={(event) => {
+                      // Only another workspace reads its change sets; the same one keeps those read.
+                      if (event.target.value === workspaceKey) return;
+                      setWorkspaceKey(event.target.value);
+                      setChangeSets(undefined);
+                      setData(LIVE);
+                    }}
+                  >
+                    {(workspaces ?? []).map((workspace) => (
+                      <option key={workspace.key} value={workspace.key}>
+                        {workspace.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </FormField>
+              <FormField
+                label="Load into"
+                help="A change set keeps the import apart from live data until it is published."
+              >
+                {(control) => (
+                  <select
+                    {...control}
+                    value={data}
+                    disabled={!changeSets}
+                    onChange={(event) => setData(event.target.value)}
+                  >
+                    <option value={LIVE}>Live data</option>
+                    {(changeSets ?? []).map((changeSet) => (
+                      <option key={changeSet.id} value={changeSet.id}>
+                        Change set “{changeSet.name ?? "Unnamed"}”
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </FormField>
+            </>
+          )}
+          <FormField
+            label="File"
+            help={`XLSX, CSV or JSON Lines${limit}. Loads into ${where || "the data chosen above"}.`}
+            error={fieldError("file")}
+          >
+            {(control) => <FileField control={control} accept={ACCEPT} onFile={setFile} disabled={pending} />}
+          </FormField>
+          <FormField
+            label="Profile"
+            help={
+              profile
+                ? `Reads ${profileSummary(model, profile)}.`
+                : "Without a profile: a JSON Lines file of batch items, or a table an export wrote."
+            }
+            error={fieldError("profile")}
+          >
+            {(control) => (
+              <select
+                {...control}
+                value={profileKey}
+                disabled={!profiles}
+                onChange={(event) => chooseProfile(event.target.value)}
+              >
+                <option value="">None</option>
+                {(profiles ?? []).map((item) => (
+                  <option key={item.key} value={item.key} disabled={!item.valid}>
+                    {item.valid
+                      ? item.name
+                      : `${item.name} (no longer valid: ${item.problems.length} ${item.problems.length === 1 ? "problem" : "problems"})`}
+                  </option>
+                ))}
+              </select>
+            )}
+          </FormField>
+          {profile && keyless(profile) && (
+            <Notice tone="warning" title="This profile has no key">
+              Rows are not matched to records already there, so sending the file twice creates its records twice.
+            </Notice>
+          )}
+        </section>
+
+        <section className="dialog-form-section" aria-labelledby="import-loading">
+          <h3 id="import-loading">Loading</h3>
+          <FormField label="Rows that cannot load" group>
+            {() => <Choice name="import-policy" value={policy} options={POLICIES} onChange={setPolicy} />}
+          </FormField>
+          <FormField
+            label="Records the file finds"
+            help={
+              profileKey
+                ? "A supplier file carries no versions: updating overwrites the record as it is now."
+                : "An exported table carries each record's version: records changed since the export are refused unless updated anyway."
+            }
+            group
+          >
+            {() => (
+              <Choice
+                name="import-existing"
+                value={onExisting}
+                options={[
+                  ["overwrite", profileKey ? "Update them" : "Update them anyway"],
+                  ["reject", profileKey ? "Refuse their rows" : "Only if unchanged since the export"],
+                ]}
+                onChange={setOnExisting}
+              />
+            )}
+          </FormField>
+          <p className="admin-hint">
+            Nothing is written yet: the preview shows what loading would do, then you confirm it.
+          </p>
+        </section>
+
+        {error?.field === "form" && (
+          <Notice tone="error" title="The import was not started">
+            {error.message}
+          </Notice>
+        )}
+        <div className="dialog-actions">
+          <button type="button" className="secondary" disabled={pending} onClick={onClose}>
+            Cancel
+          </button>
+          <button className="primary" disabled={pending || !file || !context}>
+            {pending ? "Sending…" : "Preview"}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}

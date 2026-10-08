@@ -80,7 +80,7 @@ def decide_object_create(
 
     public_id = str(payload.id) if payload.id is not None else None
     if public_id is not None and lookup.id_taken(public_id):
-        raise LIVE.object_exists(public_id)
+        raise LIVE.object_exists(public_id, lookup.other_workspace(public_id))
 
     parent, parent_relation = rules.parent(
         lookup,

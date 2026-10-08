@@ -2,6 +2,10 @@
  * One job's page (0.9 J1u, D62, `/settings/jobs/{jobId}`): its state and progress as they change,
  * its error, Cancel while it can be cancelled, and for a completed export what the file holds and
  * Download. The page follows the job's event stream while it is shown; nothing is polled.
+ *
+ * An import's page is the import screen (0.9 J4, D91): its file and profile, the preview with Load
+ * the file and Cancel import while it waits, the binding report and the rows; after loading, the
+ * result. A waiting preview is not followed (`isResting`); confirming it follows it again.
  */
 
 import { useEffect, useState } from "react";
@@ -20,9 +24,17 @@ import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
 import { count } from "@/features/settings/limits";
-import { jobTitle } from "./JobNotifications";
+import { jobTitle, useJobNotifications } from "./JobNotifications";
+import {
+  BindingReportSection,
+  ImportFacts,
+  ImportNotices,
+  ImportPreviewSection,
+  ImportResultSection,
+  ImportRowsSection,
+} from "./ImportOutcome";
 import { RESULT, STATE, cancellable, fileSize } from "./jobText";
-import { isFinal, useJobStream } from "./useJobStream";
+import { isResting, useJobStream } from "./useJobStream";
 
 const FORMAT_NAMES = { jsonl: "JSON Lines", csv: "CSV", xlsx: "Excel (XLSX)" } as const;
 
@@ -45,6 +57,8 @@ export function JobPage({
   const [confirming, setConfirming] = useState(false);
   const [pending, setPending] = useState(false);
   const [cancelError, setCancelError] = useState("");
+  const [confirmError, setConfirmError] = useState("");
+  const notifications = useJobNotifications();
 
   useEffect(() => {
     let current = true;
@@ -56,8 +70,24 @@ export function JobPage({
       current = false;
     };
   }, [jobId, attempt]);
-  // While the job runs, its changes arrive over its stream.
-  useJobStream(job && !isFinal(job) ? jobId : undefined, setJob);
+  // While the job runs, its changes arrive over its stream; a waiting preview is not followed.
+  useJobStream(job && !isResting(job) ? jobId : undefined, setJob);
+
+  async function confirm() {
+    setPending(true);
+    setConfirmError("");
+    try {
+      const confirmed = await api.confirmJob(jobId);
+      setJob(confirmed);
+      // Followed from here on, so its end is announced wherever the user goes.
+      notifications.follow(confirmed, { announce: false });
+    } catch (cause) {
+      // The job keeps waiting; the refusal says why (a change set changed, the model changed).
+      setConfirmError(errorMessage(cause));
+    } finally {
+      setPending(false);
+    }
+  }
 
   async function cancel() {
     setPending(true);
@@ -100,6 +130,8 @@ export function JobPage({
 
   const state = STATE[job.state];
   const output = job.output;
+  const waiting = job.state === "awaiting_confirmation";
+  const imported = job.kind === "import";
   return (
     <SettingsLayout
       eyebrow={back}
@@ -112,9 +144,14 @@ export function JobPage({
               Download
             </a>
           )}
-          {canCancel && cancellable(job) && (
+          {canCancel && waiting && (
+            <button type="button" className="primary" disabled={pending} onClick={() => void confirm()}>
+              {pending && !confirming ? "Loading…" : "Load the file"}
+            </button>
+          )}
+          {canCancel && (cancellable(job) || waiting) && (
             <button type="button" className="secondary" onClick={() => setConfirming(true)}>
-              Cancel job
+              {waiting ? "Cancel import" : "Cancel job"}
             </button>
           )}
         </>
@@ -126,16 +163,42 @@ export function JobPage({
           {job.result && <span>{RESULT[job.result]}</span>}
           {job.cancelRequestedAt && job.state !== "cancelled" && <span>Cancel requested</span>}
         </p>
-        {!isFinal(job) && (
-          <ProgressLine processed={job.progress.processed} total={job.progress.total} kind={job.kind} />
+        {!isResting(job) && (
+          <ProgressLine
+            processed={job.progress.processed}
+            total={job.progress.total}
+            kind={job.kind}
+            stage={job.stage}
+          />
         )}
         {job.error && (
           <Notice tone="error" title={job.state === "failed" ? "Why it failed" : "What stopped it"}>
             {job.error.message}
+            <ErrorProblems details={job.error.details} />
           </Notice>
         )}
-        <DescriptionList className="compact" items={times(job)} />
+        {confirmError && (
+          <Notice tone="error" title="The file was not loaded" focusOnMount>
+            {confirmError} The preview keeps waiting: cancel it and import the file again to preview the data as it is
+            now.
+          </Notice>
+        )}
+        {!imported && <DescriptionList className="compact" items={times(job)} />}
+        {imported && <ImportNotices job={job} />}
       </Section>
+      {imported && (
+        // What to act on first: the result or the preview, then the rows; how it was read, then its facts.
+        <>
+          {job.confirmedAt ? <ImportResultSection job={job} /> : <ImportPreviewSection job={job} />}
+          {isResting(job) && (job.preview || job.bindingReport) && <ImportRowsSection key={job.state} job={job} />}
+          {job.confirmedAt && <ImportPreviewSection job={job} />}
+          <BindingReportSection model={model} job={job} />
+          <Section title="This import">
+            <ImportFacts job={job} />
+            <DescriptionList className="compact" items={times(job)} />
+          </Section>
+        </>
+      )}
       {output && (
         <Section title="The file" description="Everything in it was read at one instant.">
           <DescriptionList
@@ -178,9 +241,9 @@ export function JobPage({
       )}
       {confirming && (
         <ConfirmDialog
-          title="Cancel this job?"
-          confirmLabel="Cancel job"
-          dismissLabel="Keep the job"
+          title={waiting ? "Cancel this import?" : "Cancel this job?"}
+          confirmLabel={waiting ? "Cancel import" : "Cancel job"}
+          dismissLabel={waiting ? "Keep the import" : "Keep the job"}
           pending={pending}
           error={cancelError}
           onCancel={() => {
@@ -190,9 +253,11 @@ export function JobPage({
           onConfirm={cancel}
         >
           <p>
-            {job.kind === "export"
-              ? "The export stops at its next check and leaves no file."
-              : "The job stops at its next chunk; chunks already committed stay applied."}
+            {waiting
+              ? "Nothing was written and nothing will be. The preview stays readable until the job expires."
+              : job.kind === "export"
+                ? "The export stops at its next check and leaves no file."
+                : "The job stops at its next chunk; chunks already committed stay applied."}
           </p>
         </ConfirmDialog>
       )}
@@ -200,12 +265,47 @@ export function JobPage({
   );
 }
 
-function ProgressLine({ processed, total, kind }: { processed: number; total: number | null; kind: Job["kind"] }) {
+/** The problems a job's error lists (`details.problems`), each at its path: a file that does not fit. */
+function ErrorProblems({ details }: { details: unknown }) {
+  const problems = (details as { problems?: { path?: string; message?: string }[] } | undefined)?.problems;
+  if (!Array.isArray(problems) || !problems.length) return null;
+  return (
+    <ul className="field-problems">
+      {problems.map((problem, position) => (
+        <li key={position}>
+          {problem.message}
+          {problem.path && <> ({problem.path})</>}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** An import's stages as people read them (0.9 J3: binding, previewing, applying). */
+const STAGES: Record<string, string> = {
+  binding: "Reading the file",
+  previewing: "Previewing",
+  applying: "Loading",
+};
+
+function ProgressLine({
+  processed,
+  total,
+  kind,
+  stage,
+}: {
+  processed: number;
+  total: number | null;
+  kind: Job["kind"];
+  stage: string | null;
+}) {
   const unit = kind === "export" ? "rows written" : "items processed";
+  const step = kind === "import" && stage ? STAGES[stage] : undefined;
   return (
     <div className="job-progress">
       <progress value={total ? processed : undefined} max={total ?? undefined} aria-label="Progress" />
       <span>
+        {step && `${step}: `}
         {count(processed)}
         {total !== null && ` of ${count(total)}`} {unit}
       </span>

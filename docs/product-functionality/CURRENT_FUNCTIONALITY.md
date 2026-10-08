@@ -31,7 +31,7 @@ backend coverage is not mistaken for a complete user experience. Reviewed 2026-1
 | F19 | Operate and recover the service | Operator messages | Available | Production hardening is 0.11 |
 | F20 | Query and look up across the data | Not applicable | Available | 0.9 Q1–Q3 |
 | F21 | Read by business date (`asOf`) | Fields only | Available | 0.9 Q4, C16 |
-| F22 | Load data in bulk as jobs | Jobs listed and cancelled in Settings | Available | 0.9 B1–B2; import screen 0.9 J4 |
+| F22 | Load data in bulk as jobs | Validated: imports previewed and loaded from a collection or Jobs and feed; jobs listed and cancelled in Settings | Available | 0.9 B1–B2; import screen 0.9 J4 |
 | F23 | Declare consumer APIs and read through them | JSON model editing; each shown in Settings | Definitions; reading one business object; reading lists; looking up by code; reading a publication; an index and a typed document per API; following change events; subscribing to them | 0.9 C1–C6, C10, C11; Webhooks page U5 |
 | F24 | Read the API reference | Available at `/docs`, each source linked from Settings | Not applicable | 0.9 V1, V2 |
 | F25 | Follow changes in order | Not applicable | Available | 0.9 F1; retention and recovery 0.9 F2 |
@@ -490,9 +490,26 @@ read row by row. A very large file is previewed in part, saying how much was tri
 import loads the file as it stands then, so data changed meanwhile counts; cancelled or left, it
 ends without writing.
 
-Limits: notifications reach the tab that started the job while it is open; the import and its
-preview are available through the API only, the import screen follows in 0.9; the relationship view
-in the browser still saves one related record at a time.
+In the browser, **Import** on a collection page loads a file into the data the page shows, live or
+its change set, and **New import** on Settings › Integration › Jobs and feed loads one into a chosen
+workspace's live data or one of its change sets. The user picks the file, a stored profile or none,
+whether the rows that can load load or nothing does unless every row loads, and whether records the
+file finds are updated; the import is always previewed first, and its page opens at once. It shows
+what loading would do, the refused rows with each failing cell and its column, and how each column
+was read, with columns worth checking marked; **Load the file** loads it and **Cancel import** ends
+it. After loading, the page shows what was applied and how to load the refused rows: correct them in
+the file and send it again, and rows already loaded come back unchanged. A notification says when a
+preview is ready or an import finished, unless its page is already open, and a collection reloads
+when an import this tab started loaded into it.
+
+Record IDs are unique across the instance, so a file with record IDs, such as an export, loads only
+into the workspace it came from. Sent to another workspace, the import says so above the preview,
+and each refused row names the workspace its record belongs to.
+
+Limits: notifications reach the tab that started the job while it is open; profiles are written
+through the API (their editor is 0.10); an export of one workspace does not load into another of
+the same instance (planned); refused rows are listed, not offered as a file to download;
+the relationship view in the browser still saves one related record at a time.
 
 Evidence: [batch contracts](../API.md#batches-and-jobs-base-09-b1-b2-b3),
 [exports](../API.md#exports-base-09-j1),

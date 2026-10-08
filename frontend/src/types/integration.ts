@@ -45,7 +45,7 @@ export interface Job {
     deleted: number;
   };
   result: "applied" | "partial" | "rejected" | null;
-  error: { code: string; message: string } | null;
+  error: { code: string; message: string; details?: unknown } | null;
   createdAt: string;
   startedAt: string | null;
   finishedAt: string | null;
@@ -55,6 +55,122 @@ export interface Job {
   parameters: Record<string, unknown>;
   /** A completed export's manifest (0.9 J1, D52); null for other jobs and states. */
   output: ExportOutput | null;
+  /** For a job in a change set, the version it holds: its claim while it waits. */
+  changeSetVersion?: number | null;
+  policy?: ImportPolicy | null;
+  /** When a waiting preview was confirmed (0.9 J3). */
+  confirmedAt?: string | null;
+  /** What a previewed import would do (0.9 J3); kept after it is confirmed. */
+  preview?: ImportPreview | null;
+  /** Per source and column, what binding made of an import's cells, once bound (0.9 J3, D86). */
+  bindingReport?: BindingReportSource[] | null;
+  /** What an import's file as a whole means here, once bound (0.9 J4a), such as rows whose IDs
+   * are another workspace's records. */
+  notices?: JobNotice[] | null;
+}
+
+export interface JobNotice {
+  code: string;
+  message: string;
+  details: Record<string, unknown>;
+}
+
+export type ImportPolicy = "atomic" | "independent";
+export type ImportOnExisting = "reject" | "overwrite";
+
+/** `POST /api/v1/imports`'s `request` part (0.9 J2, J3): one context, a stored profile or none. */
+export interface ImportRequest {
+  workspaceKey: string | null;
+  changeSetId: string | null;
+  expectedChangeSetVersion: number | null;
+  profileKey: string | null;
+  policy: ImportPolicy;
+  onExisting: ImportOnExisting;
+  stage: "preview" | "execute";
+}
+
+export interface ImportPreview {
+  coverage: "complete" | "sample";
+  items: { total: number; previewed: number };
+  rows: { total: number; previewed: number; rejected: number };
+  counts: { created: number; updated: number; unchanged: number; deleted: number; rejected: number };
+  result: "applied" | "partial" | "rejected";
+  previewedAt: string;
+}
+
+export type BindingKind =
+  "field" | "attributeTypeKey" | "key" | "parent" | "relation" | "relationFlags" | "relatedRecord";
+
+/** One column's counts: value columns count conversions, match columns what their values found. */
+export interface BindingReportColumn {
+  column: string;
+  binding: BindingKind;
+  target: string | null;
+  cells: number;
+  empty: number;
+  refused: number;
+  converted?: number;
+  valueMapped?: number;
+  resolved?: number;
+  notFound?: number;
+  ambiguous?: number;
+}
+
+export interface BindingReportSource {
+  sheet: string;
+  objectTypeKey: string | null;
+  rows: number;
+  rejectedRows: number;
+  columns: BindingReportColumn[];
+}
+
+/** An item's outcome (`GET /jobs/{id}/items`); a refused or unprocessed item carries its error. */
+export interface JobItemOutcome {
+  index: number;
+  ref: string | null;
+  status: "applied" | "rejected" | "unprocessed";
+  action?: "created" | "updated" | "unchanged" | "deleted";
+  error?: { code: string; message: string; details?: unknown };
+}
+
+/** One row of an import's file with its items' outcomes gathered (0.9 J3, D84). */
+export interface JobRow {
+  ref: string;
+  sheet: string | null;
+  row: number;
+  status: "applied" | "rejected" | "unprocessed";
+  actions: { created: number; updated: number; unchanged: number; deleted: number };
+  outcomes: JobItemOutcome[];
+}
+
+export interface JobRowPage {
+  items: JobRow[];
+  nextCursor: string | null;
+  prevCursor?: string | null;
+  anchor?: string | null;
+  totalCount?: number;
+  startIndex?: number;
+}
+
+/** A stored import profile as the dialog reads it; the column bindings are left untyped. */
+export interface ImportProfile {
+  key: string;
+  name: string;
+  version: number;
+  valid: boolean;
+  problems: { path: string; code: string; message: string }[];
+  sources: {
+    sheet?: string | null;
+    applicationKey: string;
+    objectTypeKey: string;
+    record?: "upsert" | "existing";
+    key?: { attributeTypeKey?: string | null; column?: string | null } | null;
+  }[];
+}
+
+export interface ImportProfilePage {
+  items: ImportProfile[];
+  nextCursor: string | null;
 }
 
 export type ExportFormat = "jsonl" | "csv" | "xlsx";

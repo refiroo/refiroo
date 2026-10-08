@@ -139,6 +139,16 @@ class BindingReportSource(BaseModel):
     columns: list[BindingReportColumn]
 
 
+class JobNotice(BaseModel):
+    """Something about an import's file as a whole, found once it is bound (0.9 J4a): for example
+    ``RECORD_IDS_OF_ANOTHER_WORKSPACE`` (``details``: ``workspaceKey``, ``rows``), rows naming their
+    records by IDs another workspace's records hold, which cannot load here."""
+
+    code: str
+    message: str
+    details: dict[str, Any]
+
+
 class JobResponse(BaseModel):
     """A job. ``result`` says whether every item applied: a ``completed`` job may be ``partial``.
 
@@ -188,6 +198,11 @@ class JobResponse(BaseModel):
         default=None,
         description="An import's binding report per source and column once its file is bound; "
         "null before, for a JSON Lines file and for other jobs",
+    )
+    notices: list[JobNotice] | None = Field(
+        default=None,
+        description="An import's notices about its file as a whole once bound (0.9 J4a), empty "
+        "when there are none; null before and for other jobs",
     )
 
 

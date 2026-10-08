@@ -21,6 +21,8 @@ export function jobLimitItems(capabilities: CapabilitiesResponse): DescriptionIt
       value: `${count(jobs.backgroundJobMaxItems)} items, ${bytes(jobs.backgroundBatchMaxBytes)}`,
     },
     { term: "Chunk", value: `${count(jobs.chunkItems)} items` },
+    { term: "Import file", value: bytes(jobs.importMaxBytes) },
+    { term: "Import preview", value: `${count(jobs.importPreviewMaxItems)} items` },
     { term: "Jobs kept", value: `${count(jobs.retentionDays)} days` },
     { term: "Change feed kept", value: `${count(capabilities.changeFeed.retentionDays)} days` },
   ];

@@ -96,10 +96,11 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # route's description names a waiting preview; no other path or schema changed. Re-baselined
     # for 0.9 C18: GET /model/consumer-apis/{consumerApi} with ConsumerApiDocument and the schema
     # 0.9 definition parts it names; removing the path and the schemas only it reaches gives J3's
-    # document exactly.
+    # document exactly. Re-baselined for 0.9 J4a: JobResponse.notices with the JobNotice schema;
+    # removing those two gives C18's document exactly.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "aa18ca68f1cfed549a4822e29308d2d15fe896eb260da698f4cdbafde7f8cfd2"
+        "44318ba8be359c9eb27a7e88d9e623fda0216aa692de1ed9c90116883ef49fd9"
     )
 
 

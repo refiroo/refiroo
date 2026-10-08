@@ -214,7 +214,12 @@ with outcomes by row and field, an invalid number and a duplicate key refused an
 key creating nothing twice (Base 0.9 J2, `test_j27_import`); the import half passes at API level
 with the preview (Base 0.9 J3, `test_j27_import`: the preview reports errors by row and every failing
 field and changes nothing, execution follows the chosen policy, an interrupted import resumes and a
-retry with its key creates nothing twice); the screen follows (J4).
+retry with its key creates nothing twice); **SC-10 passes in the browser (Base 0.9 J4,
+`test:browser:j4`)**: the operator chooses the destination and a profile, previews, reads errors by
+row and field with no live data changed, loads under the chosen policy and reads applied, refused and
+unprocessed rows; a waiting or interrupted import is reopened from Jobs and feed. The simplicity
+check is met as D94 reads it: refused rows are corrected in the file and the whole file sent again,
+and the preview shows the rows already loaded as unchanged, so nothing is redone blindly.
 
 An operator receives a supplier code file containing a new value, an existing value, an invalid
 number and a duplicate business key. They select the destination, identify the columns and preview

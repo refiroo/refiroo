@@ -3,11 +3,13 @@
  * (`GET /jobs`), with their state and outcome counts, and a cancel for a queued or running job while
  * jobs can be created (`POST /jobs/{id}/cancel`, J24.2); then the job limits and the change feed's
  * retention from `GET /capabilities`. Each job opens its own page, and New export starts an export
- * of any types of a workspace (0.9 J1u, D57, D62).
+ * of any types of a workspace (0.9 J1u, D57, D62). New import loads a file into a workspace's live
+ * data or one of its change sets, and opens the import's page (0.9 J4, D89, D91).
  */
 
 import { useState } from "react";
 import { ExportDialog } from "@/features/jobs/ExportDialog";
+import { ImportDialog } from "@/features/jobs/ImportDialog";
 import { JobPage } from "@/features/jobs/JobPage";
 import { useJobNotifications } from "@/features/jobs/JobNotifications";
 import { routePath } from "@/routing/routes";
@@ -61,6 +63,7 @@ function JobList({ model, onNavigate }: { model: EngineModel; onNavigate: (route
   const feed = useCursorFeed((cursor) => api.jobs(cursor), []);
   const notifications = useJobNotifications();
   const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
   const { capabilities, error: capabilityError, retry: retryCapabilities } = useCapabilities();
   const [cancelling, setCancelling] = useState<Job>();
   const [pending, setPending] = useState(false);
@@ -98,12 +101,17 @@ function JobList({ model, onNavigate }: { model: EngineModel; onNavigate: (route
     <SettingsLayout
       eyebrow="Integration"
       title="Jobs and feed"
-      description="Bulk writes and exports run as jobs. Jobs of every workspace are listed newest first; finished jobs are kept for the retention below."
+      description="Bulk writes, imports and exports run as jobs. Jobs of every workspace are listed newest first; finished jobs are kept for the retention below."
       actions={
         canCancel && (
-          <button type="button" className="primary" onClick={() => setExporting(true)}>
-            New export
-          </button>
+          <>
+            <button type="button" className="secondary" onClick={() => setImporting(true)}>
+              New import
+            </button>
+            <button type="button" className="primary" onClick={() => setExporting(true)}>
+              New export
+            </button>
+          </>
         )
       }
     >
@@ -133,7 +141,7 @@ function JobList({ model, onNavigate }: { model: EngineModel; onNavigate: (route
           <Skeleton label="Loading jobs" lines={5} />
         ) : feed.items.length === 0 ? (
           <EmptyState>
-            No jobs yet. A job is created by an export, or when a batch is submitted to{" "}
+            No jobs yet. A job is created by an import or an export, or when a batch is submitted to{" "}
             <code>POST /api/v1/batches</code>.
           </EmptyState>
         ) : (
@@ -175,6 +183,19 @@ function JobList({ model, onNavigate }: { model: EngineModel; onNavigate: (route
             setExporting(false);
             notifications.follow(job);
             feed.setItems((items) => [job, ...items]);
+          }}
+        />
+      )}
+      {importing && (
+        <ImportDialog
+          model={model}
+          start={{}}
+          onClose={() => setImporting(false)}
+          onStarted={(job) => {
+            setImporting(false);
+            notifications.follow(job, { announce: false });
+            // The preview is the screen the user came for: its page opens at once (D91).
+            onNavigate({ ...JOBS, jobId: job.id });
           }}
         />
       )}

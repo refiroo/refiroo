@@ -158,6 +158,15 @@ class BatchLookup(Ancestors):
 
     # --- deciding ---------------------------------------------------------------------------------
 
+    def other_workspace(self, object_id: str) -> str | None:
+        """The workspace whose live record has the ID, when it is another one (0.9 J4a). Record IDs
+        are unique across the instance, so a file's IDs from another workspace are taken there and
+        name nothing here; a refusal says where they are. Read only when a write is refused."""
+        holder = self.session.scalar(
+            select(RdmObject.workspace_key).where(RdmObject.id == object_id)
+        )
+        return holder if holder is not None and holder != self._set_scope()[0] else None
+
     @contextmanager
     def deciding(self) -> Iterator[None]:
         """Decide one item: what it lays over is kept when the block ends, and discarded when a

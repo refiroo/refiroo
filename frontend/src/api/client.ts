@@ -29,6 +29,10 @@ import type {
   ConsumerApiIndexPage,
   Job,
   JobPage,
+  JobRow,
+  JobRowPage,
+  ImportProfilePage,
+  ImportRequest,
   ExportRequest,
   DeliveryDetail,
   DeliveryRowPage,
@@ -86,9 +90,11 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 /** A request to an address the API gave whole, such as a document the consumer API index names. */
 async function requestUrl<T>(url: string, path: string, init?: RequestInit): Promise<T> {
+  // A form body (a file upload) sets its own multipart content type with its boundary.
+  const json = !(init?.body instanceof FormData);
   const response = await fetch(url, {
     ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
+    headers: { ...(json ? { "Content-Type": "application/json" } : {}), ...init?.headers },
   });
   if (!response.ok) {
     const body = await response.text();
@@ -370,6 +376,35 @@ export const api = {
     }),
   cancelJob: (jobId: string) => request<Job>(`/api/v1/jobs/${encodeURIComponent(jobId)}/cancel`, { method: "POST" }),
   job: (jobId: string) => request<Job>(`/api/v1/jobs/${encodeURIComponent(jobId)}`),
+  /** Confirm a waiting import preview (0.9 J3): the file is bound again and loaded. */
+  confirmJob: (jobId: string) => request<Job>(`/api/v1/jobs/${encodeURIComponent(jobId)}/confirm`, { method: "POST" }),
+  /** An import's rows with their outcomes, in sheet and row order (0.9 J3, D84). */
+  jobRows: (jobId: string, query: PageSelector & { status?: JobRow["status"]; pageSize?: number } = {}) => {
+    const params = new URLSearchParams({ pageSize: String(query.pageSize ?? 50) });
+    if (query.status) params.set("status", query.status);
+    setPaging(params, query);
+    return request<JobRowPage>(`/api/v1/jobs/${encodeURIComponent(jobId)}/rows?${params}`);
+  },
+  /** Stored import profiles in key order, one page (0.9 J2). */
+  importProfiles: (cursor?: string) => {
+    const params = new URLSearchParams({ pageSize: "100" });
+    if (cursor) params.set("cursor", cursor);
+    return request<ImportProfilePage>(`/api/v1/import-profiles?${params}`);
+  },
+  /**
+   * Send a file to import (0.9 J2, J3); the answer is the queued job. The idempotency key makes a
+   * retried request answer with the job the first one created.
+   */
+  startImport: (file: File, body: ImportRequest, idempotencyKey: string) => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("request", JSON.stringify(body));
+    return request<Job>("/api/v1/imports", {
+      method: "POST",
+      body: form,
+      headers: { "Idempotency-Key": idempotencyKey },
+    });
+  },
   /** Queue an export (0.9 J1); the answer is the queued job. */
   createExport: (body: ExportRequest) =>
     request<Job>("/api/v1/exports", { method: "POST", body: JSON.stringify(body) }),

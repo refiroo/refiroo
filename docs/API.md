@@ -1616,6 +1616,12 @@ read again before retrying (decided 2026-10-03, H4c).
 }
 ```
 
+Record IDs are unique across the instance. When the ID a create gives belongs to a record of
+another workspace, `OBJECT_ALREADY_EXISTS` says so, live and in a change set alike: the message names
+that workspace and `details.workspaceKey` holds it (0.9 J4a). The common cause is a file with record
+IDs, such as an export, sent to a second workspace of the instance; it loads only into the workspace
+it came from (D49).
+
 Internal error example:
 
 ```json
@@ -1956,7 +1962,10 @@ overwrite, `previousVersion`. A relationship item's has `relationId`, the relati
 `replaceRelationSet`'s has `action` `updated` or `unchanged`, the anchor's `relationSetVersion` and
 `relationIds` (`created`, `kept`, `removed`). `rejected`: `error` with the single write's code, or one of
 `INVALID_RECORD_KEY`, `MISSING_RECORD_KEY`, `REFERENCE_NOT_FOUND`, `REFERENCE_TYPE_MISMATCH` and
-`VERSION_REQUIRED`; `details.pointer` is a JSON pointer into the request. `unprocessed`: `reason`.
+`VERSION_REQUIRED`; `details.pointer` is a JSON pointer into the request. A `REFERENCE_NOT_FOUND`
+whose ID is a record of another workspace says so: the message names what the reference is for (the
+parent, the target, a relationship's start or end) and the workspace, and `details.workspaceKey`
+holds it (0.9 J4a). `unprocessed`: `reason`.
 Every audit entry an item writes names the job as its cause (`cause: {"kind": "job", "id"}` in object
 history). A job's outcomes and idempotency key are kept for `JOB_RETENTION_DAYS` (7) after it
 finishes; `expiresAt` says until when. Then the job is `expired`: its summary (`counts`, `result`,
@@ -2305,6 +2314,12 @@ relationship columns add up, D69), `REFERENCE_CYCLE` (rows whose parent columns 
 under `independent` the other rows load, under `atomic` nothing does and every item is
 `unprocessed` with `BATCH_ROLLED_BACK`. A cell left empty, or mapped to `null`, gives no value: an
 import never clears a value.
+
+**Notices.** Once bound, an import's job carries `notices`: what the file as a whole means here,
+each `{code, message, details}`, empty when there is nothing to say (null before binding and for
+other jobs). `RECORD_IDS_OF_ANOTHER_WORKSPACE` (`details.workspaceKey`, `details.rows`) counts the
+rows that name their records by IDs of another workspace's records, such as an export of that
+workspace: those rows cannot load here, and each is refused naming that workspace (0.9 J4a, D49).
 
 **A file that does not fit** fails the job before an item runs, writing nothing:
 `IMPORT_FILE_MISMATCH` with `details.problems` (`SHEET_NOT_FOUND`, `HEADER_ROW_NOT_FOUND`,

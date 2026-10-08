@@ -30,6 +30,11 @@ export interface ViewComponentProps {
    * jobs be created. A view without it offers no export.
    */
   onExport?: (start: ExportStart) => void;
+  /**
+   * Offers Import into the data the page shows (0.9 J4, D89); given only where that data can be
+   * written while the deployment lets jobs be created. A view without it offers no import.
+   */
+  onImport?: () => void;
   /** Sibling lenses of the same source collection, placed by the renderer below its heading. */
   lenses?: ReactNode;
   /**

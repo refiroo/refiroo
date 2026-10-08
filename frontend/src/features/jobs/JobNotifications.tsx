@@ -4,20 +4,30 @@
  * tab (`sessionStorage`), so a reload follows them again. When a job ends, a notification says so:
  * a completed export links to its file and its job page, a failed or cancelled job to its page,
  * which shows why. A closed browser is told nothing.
+ *
+ * An import preview that waits for confirmation (0.9 J4) is told as Preview ready, with Review
+ * opening its page, and is no longer followed: it may wait for days, and each stream holds a
+ * connection. Confirming it follows it again. Pages that show data hear when a job ends
+ * (`useJobEnded`), so a collection reloads after an import into it.
  */
 
-import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { jobOutputUrl } from "@/api/client";
 import { routePath } from "@/routing/routes";
 import type { EngineModel, Job, RouteState } from "@/types";
 import { useToast, type ToastAction } from "@/ui/Toast";
+import { importTitle } from "./ImportOutcome";
 import { isFinal, useJobStream } from "./useJobStream";
 
 const STORAGE_KEY = "rdm.followedJobs";
 
+type EndedListener = (job: Job) => void;
+
 interface JobNotifications {
-  /** Follow a job this tab started, saying it started. */
-  follow: (job: Job) => void;
+  /** Follow a job this tab started, saying it started unless `announce` is false. */
+  follow: (job: Job, options?: { announce?: boolean }) => void;
+  /** Hear of each followed job that ends; returns the way to stop listening. */
+  onEnded: (listener: EndedListener) => () => void;
 }
 
 const JobNotificationsContext = createContext<JobNotifications | undefined>(undefined);
@@ -50,6 +60,7 @@ export function JobNotificationsProvider({
 }) {
   const toast = useToast();
   const [followed, setFollowed] = useState<string[]>(remembered);
+  const listeners = useRef(new Set<EndedListener>());
 
   const update = useCallback((change: (ids: string[]) => string[]) => {
     setFollowed((ids) => {
@@ -58,6 +69,10 @@ export function JobNotificationsProvider({
       return next;
     });
   }, []);
+
+  // A job's own page shows what a notification would say: none is shown while it is open.
+  const onItsPage = (job: Job) =>
+    window.location.pathname === routePath({ kind: "settings", page: "jobs", jobId: job.id });
 
   const jobPage = useCallback(
     (job: Job): ToastAction => {
@@ -68,9 +83,27 @@ export function JobNotificationsProvider({
   );
 
   const follow = useCallback(
-    (job: Job) => {
-      toast(`${jobTitle(model, job)} started.`, { actions: [jobPage(job)] });
+    (job: Job, options: { announce?: boolean } = {}) => {
+      if (options.announce !== false) toast(`${jobTitle(model, job)} started.`, { actions: [jobPage(job)] });
       if (!isFinal(job)) update((ids) => (ids.includes(job.id) ? ids : [...ids, job.id]));
+    },
+    [jobPage, model, toast, update],
+  );
+
+  const onEnded = useCallback((listener: EndedListener) => {
+    listeners.current.add(listener);
+    return () => {
+      listeners.current.delete(listener);
+    };
+  }, []);
+
+  const waiting = useCallback(
+    (job: Job) => {
+      update((ids) => ids.filter((id) => id !== job.id));
+      if (onItsPage(job)) return;
+      toast(`${jobTitle(model, job)}: the preview is ready.`, {
+        actions: [{ ...jobPage(job), label: "Review" }],
+      });
     },
     [jobPage, model, toast, update],
   );
@@ -78,6 +111,8 @@ export function JobNotificationsProvider({
   const ended = useCallback(
     (job: Job) => {
       update((ids) => ids.filter((id) => id !== job.id));
+      listeners.current.forEach((listener) => listener(job));
+      if (onItsPage(job)) return;
       const title = jobTitle(model, job);
       if (job.state === "completed") {
         const download: ToastAction[] = job.output
@@ -95,18 +130,27 @@ export function JobNotificationsProvider({
   );
 
   return (
-    <JobNotificationsContext.Provider value={{ follow }}>
+    <JobNotificationsContext.Provider value={{ follow, onEnded }}>
       {children}
       {followed.map((id) => (
-        <FollowedJob key={id} jobId={id} onEnded={ended} />
+        <FollowedJob key={id} jobId={id} onEnded={ended} onWaiting={waiting} />
       ))}
     </JobNotificationsContext.Provider>
   );
 }
 
-function FollowedJob({ jobId, onEnded }: { jobId: string; onEnded: (job: Job) => void }) {
+function FollowedJob({
+  jobId,
+  onEnded,
+  onWaiting,
+}: {
+  jobId: string;
+  onEnded: (job: Job) => void;
+  onWaiting: (job: Job) => void;
+}) {
   useJobStream(jobId, (job) => {
     if (isFinal(job)) onEnded(job);
+    else if (job.state === "awaiting_confirmation") onWaiting(job);
   });
   return null;
 }
@@ -117,9 +161,20 @@ export function useJobNotifications(): JobNotifications {
   return value;
 }
 
-/** "Export of Codelists, Codes", or the job's kind for other jobs. */
+/** Calls `listener` with each job this tab followed when it ends. */
+export function useJobEnded(listener: EndedListener) {
+  const { onEnded } = useJobNotifications();
+  const latest = useRef(listener);
+  useEffect(() => {
+    latest.current = listener;
+  });
+  useEffect(() => onEnded((job) => latest.current(job)), [onEnded]);
+}
+
+/** "Export of Codelists, Codes", "Import of codes.csv", or "Batch". */
 export function jobTitle(model: EngineModel, job: Job): string {
-  if (job.kind !== "export") return job.kind === "batch" ? "Batch" : "Import";
+  if (job.kind === "import") return importTitle(job);
+  if (job.kind !== "export") return "Batch";
   const scope = job.parameters.scope as { types?: { objectTypeKey: string }[] } | undefined;
   const names = (scope?.types ?? []).map(
     (item) => model.objectTypes.find((type) => type.key === item.objectTypeKey)?.pluralName ?? item.objectTypeKey,

@@ -325,9 +325,16 @@ the result under the policy, `complete` or `sample`), a binding report per colum
 (`GET /jobs/{id}/rows`) and every failing cell of a row; confirming binds the file again and
 executes it (D80–D88, revision `20261007_08`, `IMPORT_PREVIEW_MAX_ITEMS`). A 10,000-row preview
 takes 10.6 s and a 100,000-row execution 110.7 s
-([record](BASE_0_9_IMPLEMENTATION_PLAN.md#j3-record-2026-10-07)). **J4 is planned (2026-10-08)**:
-the import screen over J2's and J3's routes, frontend only; D89–D95 settled
-([plan](BASE_0_9_IMPLEMENTATION_PLAN.md#j4-plan-2026-10-08)). Then Track K and R.
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#j3-record-2026-10-07)). **J4 is delivered (2026-10-08)**:
+the import screen, SC-10 in the browser. Import on a writable collection and New import on Jobs and
+feed preview a file through a profile or none; the import's page shows the preview, the refused rows
+by row and column and the binding report, loads on confirmation and says how to load refused rows
+(D89–D95; frontend only, `test:browser:j4`)
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#j4-record-2026-10-08)). **J4a is delivered (2026-10-08)**,
+reported by the user: an export of one workspace previewed into another refused every row with no
+reason; the job now says its rows' IDs are another workspace's (`notices`), and each refusal names
+that workspace ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#j4a-why-another-workspaces-export-cannot-load)).
+Loading another workspace's export is to be planned next. Then Track K and R.
 **C18, the consumer API definition written for readers, is delivered (2026-10-08):** schema 0.9
 writes `consumerApis` as what a definition exposes, offers, looks like and filters by, with defaults
 written out by `GET /api/v1/model/consumer-apis/{consumerApi}`; an operation not offered is

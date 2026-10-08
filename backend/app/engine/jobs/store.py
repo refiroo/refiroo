@@ -17,12 +17,13 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import JSON, delete, insert, literal, select, update
+from sqlalchemy import JSON, delete, func, insert, literal, select, update
 from sqlalchemy.orm import Session
 
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
 from ...errors import api_error
-from ...models.database import IdempotencyKey, Job, JobInput, JobItem, ModelRelease
+from ...models.database import IdempotencyKey, Job, JobInput, JobItem, ModelRelease, RdmObject
+from ..records.refusals import ELSEWHERE
 
 ACTIONS = ("created", "updated", "unchanged", "deleted")
 FINISHED = frozenset({"completed", "failed", "cancelled", "expired"})
@@ -172,7 +173,36 @@ def record_binding(
     job.total = rejected + items
     job.processed = rejected
     job.stage = "applying"
-    job.report = {**(job.report or {}), "bindingReport": report}
+    job.report = {
+        **(job.report or {}),
+        "bindingReport": report,
+        "notices": _foreign_record_ids(session, job),
+    }
+
+
+def _foreign_record_ids(session: Session, job: Job) -> list[dict[str, Any]]:
+    """Rows naming their records by IDs another workspace's records hold (0.9 J4a): an export
+    sent to a second workspace of the instance. Record IDs are unique across the instance, so such
+    rows cannot load here (D49); the job says so once, before its rows are read one by one. One
+    statement over the job's inputs."""
+    item_id = func.coalesce(JobInput.item["key"]["id"].as_string(), JobInput.item["id"].as_string())
+    found = session.execute(
+        select(RdmObject.workspace_key, func.count(func.distinct(JobInput.ref)))
+        .join(RdmObject, RdmObject.id == item_id)
+        .where(JobInput.job_id == job.sequence_id, RdmObject.workspace_key != job.workspace_key)
+        .group_by(RdmObject.workspace_key)
+        .order_by(RdmObject.workspace_key)
+    ).all()
+    return [
+        {
+            "code": "RECORD_IDS_OF_ANOTHER_WORKSPACE",
+            "message": f"{rows} {'row names its record' if rows == 1 else 'rows name their records'} "
+            f"by IDs of workspace '{workspace_key}', so {'it' if rows == 1 else 'they'} cannot load "
+            f"here. {ELSEWHERE}.",
+            "details": {"workspaceKey": workspace_key, "rows": rows},
+        }
+        for workspace_key, rows in found
+    ]
 
 
 def previewing(job: Job) -> bool:

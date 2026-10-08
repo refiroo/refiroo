@@ -16,8 +16,9 @@ import { ResizeHandle } from "@/ui/ResizeHandle";
 import { useLocalNumberPreference } from "@/lib/localPreference";
 import { Card } from "@/ui/Card";
 import { ToastProvider } from "@/ui/Toast";
-import { JobNotificationsProvider, useJobNotifications } from "@/features/jobs/JobNotifications";
+import { JobNotificationsProvider, useJobEnded, useJobNotifications } from "@/features/jobs/JobNotifications";
 import { ExportDialog, type ExportStart } from "@/features/jobs/ExportDialog";
+import { ImportDialog, type ImportStart } from "@/features/jobs/ImportDialog";
 import { useCapabilities } from "@/features/settings/useSystem";
 
 export default function App() {
@@ -73,6 +74,14 @@ function AppContent({
   const notifications = useJobNotifications();
   const [exportStart, setExportStart] = useState<ExportStart>();
   const onExport = capabilities?.integrationJobs.createJobs ? setExportStart : undefined;
+  const [importStart, setImportStart] = useState<ImportStart>();
+  // An import this tab started that loaded into the data shown reloads it, and a change set's version.
+  useJobEnded((job) => {
+    if (job.kind !== "import" || job.state !== "completed" || job.workspaceKey !== route.workspaceKey) return;
+    if ((job.changeSetId ?? undefined) !== routeChangeSetId(route)) return;
+    setRefreshToken((value) => value + 1);
+    data.refresh?.().catch(() => undefined);
+  });
   const contextLoading =
     !data.model &&
     !data.loadingError &&
@@ -118,6 +127,19 @@ function AppContent({
     activeRoute.kind === "list" || activeRoute.kind === "detail" ? activeRoute.publicationId : undefined;
   const readOnly =
     Boolean(publicationId) || workspace?.key !== activeRoute.workspaceKey || workspace?.status !== "active";
+  // Import loads into the data the page shows, so it is offered where that data can be written (D89).
+  const onImport =
+    capabilities?.integrationJobs.createJobs && !readOnly
+      ? () =>
+          setImportStart({
+            context: {
+              workspaceKey: activeRoute.workspaceKey,
+              ...(data.changeSet
+                ? { changeSet: { id: data.changeSet.id, name: data.changeSet.name, version: data.changeSet.version } }
+                : {}),
+            },
+          })
+      : undefined;
 
   function selectApplication(selected: ApplicationDefinition) {
     const workspaceKey = activeRoute.workspaceKey;
@@ -421,6 +443,7 @@ function AppContent({
                     }}
                     query={collection}
                     onExport={onExport}
+                    onImport={onImport}
                     onQueryChange={(query: CollectionQueryState) =>
                       navigate(
                         activeRoute.kind === "detail"
@@ -509,6 +532,19 @@ function AppContent({
           onStarted={(job) => {
             setExportStart(undefined);
             notifications.follow(job);
+          }}
+        />
+      )}
+      {importStart && (
+        <ImportDialog
+          model={model}
+          start={importStart}
+          onClose={() => setImportStart(undefined)}
+          onStarted={(job) => {
+            setImportStart(undefined);
+            // The preview is the screen the user came for: its page opens at once (D91).
+            notifications.follow(job, { announce: false });
+            navigate({ kind: "settings", page: "jobs", jobId: job.id });
           }}
         />
       )}

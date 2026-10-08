@@ -26,6 +26,10 @@ export interface JobLimits {
   backgroundBatchMaxBytes: number;
   chunkItems: number;
   retentionDays: number;
+  /** The largest import file (`IMPORT_MAX_BYTES`, 0.9 J2). */
+  importMaxBytes: number;
+  /** The most items an import preview runs (`IMPORT_PREVIEW_MAX_ITEMS`, 0.9 J3). */
+  importPreviewMaxItems: number;
 }
 
 export interface IntegrationJobCapabilities {

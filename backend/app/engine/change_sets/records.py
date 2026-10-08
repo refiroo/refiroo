@@ -202,7 +202,7 @@ def decide_new_change_set_object(
     ``initial_relations`` are ``(relationTypeKey, direction, otherObjectId, attributes)``.
     """
     if object_id is not None and lookup.id_taken(object_id):
-        raise CHANGE_SET.object_exists(object_id)
+        raise CHANGE_SET.object_exists(object_id, lookup.other_workspace(object_id))
     record = Record(
         object_id=object_id or str(uuid4()),
         application_key=application_key,

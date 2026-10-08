@@ -8,6 +8,7 @@
 import { useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
+import { FileField } from "@/ui/FileField";
 import type { ModelDraft, ModelReleaseSummary } from "@/types";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
@@ -112,11 +113,9 @@ export function CreateDraftDialog({
             </label>
             <label>
               Or choose a JSON file
-              <input
-                type="file"
+              <FileField
                 accept="application/json,.json"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
+                onFile={(file) => {
                   if (file)
                     file
                       .text()

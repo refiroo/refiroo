@@ -913,8 +913,8 @@ background job across a restart, its publish and its cancellation, 0.9 T1).
 
 **Actor:** exchange operator; data owner. **Channel:** API, UI. **Stories:** US-I04, US-I07, US-I08.
 **Scenario:** SC-10. **Status:** export delivered in 0.9 J1 (API) and J1u (browser); import
-through the API delivered in 0.9 J2, its preview and confirmation in 0.9 J3; its screen (J4)
-planned.
+through the API delivered in 0.9 J2, its preview and confirmation in 0.9 J3, and in the browser in
+0.9 J4.
 
 1. Choose the destination and identify the file's columns.
 2. Preview proposed additions, updates and errors by row and field; nothing changes.
@@ -961,6 +961,9 @@ planned.
   under `atomic` nothing does. A file that does not fit its profile fails before anything is
   written; an unsupported or oversized file is refused before a job is stored. An import stopped
   midway resumes where it stopped, and a retry with its `Idempotency-Key` creates nothing twice.
+  A file whose rows name records by IDs of another workspace (an export of it) says so before its
+  rows are read, and each such row is refused naming that workspace: record IDs are unique across
+  the instance, so such a file loads only into the workspace it came from.
 - **J27.11 Preview before loading**: a file previewed live or in a change set changes nothing; the
   counts, the result under the policy, the binding report (per column: cells read, empty,
   converted, value-mapped, refused; for a match column resolved, not found, ambiguous) and the
@@ -969,6 +972,14 @@ planned.
   preview keeps waiting. Cancelled, it ends at once; left, it expires with the job's retention.
 - **J27.12 A large file previewed in part**: every row bound and reported, the first items run up
   to `IMPORT_PREVIEW_MAX_ITEMS`, the preview marked `sample` with the items and rows it covers.
+- **J27.13 Import a file in the browser**: Import on a collection page loads into the data the page
+  shows (live or its change set); New import on Settings › Jobs chooses a workspace and its live
+  data or one of its change sets. The user picks a file, a stored profile or none, the policy and
+  what happens to records the file finds, and previews; the import's page opens at once and shows
+  the counts, the result under the policy, the refused rows with each failing cell and the binding
+  report, then **Load the file** or **Cancel import**, then the result. Refused rows are corrected
+  in the file and the file sent again: rows already loaded come back unchanged. A user who left is
+  brought back by Preview ready, or by Jobs and feed.
 
 **Refusals:** `422 INVALID_QUERY`, `422 AS_OF_NOT_SUPPORTED`, `422 WORKSPACE_CONTEXT_MISMATCH`,
 `404 PARENT_NOT_FOUND`, `404 WORKSPACE_NOT_FOUND`, `404 CHANGE_SET_NOT_FOUND`,
@@ -986,6 +997,8 @@ a job's `IMPORT_FILE_MISMATCH`, `IMPORT_FILE_UNREADABLE`, `IMPORT_TOO_MANY_ITEMS
 **Evidence today:** the J27 journey tests (`test_j27_export`, 0.9 J1; `test_j27_import`, 0.9 J2 and
 J3, the preview);
 J27.6 in the browser runner `j1u-export` and `ExportDialog.test`, `JobNotifications.test` (0.9 J1u);
+J27.13 in the browser runner `j4-import` and `ImportDialog.test`, `JobPage.test`,
+`JobNotifications.test` (0.9 J4);
 unit tests of `engine/imports/` (cells, profiles, readers, the binding report) and of the row read,
 `test_import_volume` and the budget `test_import_budget`.
 

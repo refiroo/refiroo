@@ -38,6 +38,7 @@ export function ObjectCollectionView({
   selectedId,
   lenses,
   onExport,
+  onImport,
 }: ViewComponentProps) {
   const declaredView = rawView as TableViewDefinition;
   const api = useDataApi();
@@ -180,6 +181,11 @@ export function ObjectCollectionView({
         description={objectType.description ?? application.description}
         actions={
           <>
+            {onImport && (
+              <button type="button" className="secondary" onClick={onImport}>
+                Import
+              </button>
+            )}
             {exportAction}
             {add}
           </>

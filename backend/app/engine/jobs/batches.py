@@ -75,7 +75,7 @@ from ..records.objects import (
     decide_object_update,
     duplicate_relation,
 )
-from ..records.refusals import CHANGE_SET, LIVE
+from ..records.refusals import CHANGE_SET, ELSEWHERE, LIVE
 from ..records.relation_set_versions import SetClaim, set_claim
 from ..records.relation_sets import SetBinding, SetTarget, decide_set_replacement
 from ..records.relation_writes import (
@@ -646,7 +646,8 @@ class _Items:
         if reference.id is not None:
             record = self.find(str(reference.id))
             if record is None:
-                raise _not_found(pointer, {"id": str(reference.id)})
+                elsewhere = self.lookup.other_workspace(str(reference.id))
+                raise _not_found(pointer, {"id": str(reference.id)}, elsewhere)
             return record
         key = reference.key
         definition = self.unique_key(
@@ -1057,12 +1058,39 @@ def _canonical(definition: Any, value: Any) -> Any:
     return stored_json_value(normalize_value(definition, value))
 
 
-def _not_found(pointer: str, reference: dict[str, Any]) -> ApiError:
+# What an item's reference is for, by the field its pointer ends in (0.9 J4a).
+_REFERENCE_FIELDS = {
+    "parent": "parent",
+    "target": "target",
+    "from": "relationship's start",
+    "to": "relationship's end",
+    "object": "related record",
+    "anchor": "set's record",
+}
+
+
+def _not_found(pointer: str, reference: dict[str, Any], elsewhere: str | None = None) -> ApiError:
+    """A reference that names no record of the context. When its ID is a record of another
+    workspace, the refusal says so: a file's IDs from another workspace are the common cause, and
+    every row naming such a record is refused for it (0.9 J4a)."""
+    if elsewhere is None:
+        return api_error(
+            404,
+            "REFERENCE_NOT_FOUND",
+            "No record matches the reference in this batch's context",
+            {"pointer": pointer, **reference},
+        )
+    parts = [part for part in pointer.split("/") if part and not part.isdigit()]
+    field = next(
+        (_REFERENCE_FIELDS[part] for part in reversed(parts) if part in _REFERENCE_FIELDS),
+        "reference",
+    )
     return api_error(
         404,
         "REFERENCE_NOT_FOUND",
-        "No record matches the reference in this batch's context",
-        {"pointer": pointer, **reference},
+        f"The {field} is record '{reference['id']}' of workspace '{elsewhere}', not of this one. "
+        f"{ELSEWHERE}",
+        {"pointer": pointer, **reference, "workspaceKey": elsewhere},
     )
 
 

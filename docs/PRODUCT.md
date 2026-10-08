@@ -158,7 +158,9 @@ can complete the task in the application; "API" means another system can.
   bulk items, or an export sent back. Each row's outcome names its sheet and row; a row that cannot
   load is refused with every failing cell, and the rest load or, all-or-nothing, none. A preview
   tries the file against the data without changing anything and says what loading it would do, row
-  by row and column by column, before it is confirmed.
+  by row and column by column, before it is confirmed. In the browser, Import on a collection page or
+  on Jobs and feed previews a file, shows its refused rows and how its columns were read, and loads it
+  on confirmation.
 - Declare consumer APIs in the model: the read-only contracts other systems will use, written as
   what each one exposes, offers, looks like and filters by, with defaults for what is left out, and
   checked so that a breaking change needs a new contract version. Another system reads one business object through

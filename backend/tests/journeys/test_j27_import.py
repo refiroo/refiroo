@@ -636,6 +636,36 @@ def test_an_export_sent_back_without_a_profile_changes_nothing_and_an_edited_one
     assert world.value(world.record("H", added_record["id"], workspaceKey=ws), "H.code") == "ADD"
 
 
+@pytest.mark.journey("J27.10", "J27.11")
+@pytest.mark.structures("H", "H.code")
+def test_an_export_previewed_into_another_workspace_says_whose_records_they_are(world):
+    """Given a parent and a child exported from one workspace. When the file is previewed into a
+    second workspace of the instance. Then the job says before anything runs that its rows name
+    records of the first workspace; the parent's row is refused as an ID taken there and the
+    child's because its parent is there, each naming that workspace (0.9 J4a; D49's limit, said)."""
+    source, target = _workspace(world), _workspace(world)
+    top = world.made("H", "Top", workspace=source, values={"H.code": "T"})
+    world.made("H", "Leaf", parent=top["id"], workspace=source, values={"H.code": "L"})
+    content = _export(world, source, ("H",), "csv")
+
+    job = _imported(world, "from-elsewhere.csv", content, _request(target, stage="preview"))
+    assert job["state"] == "awaiting_confirmation", job["error"]
+    assert job["notices"] == [
+        {
+            "code": "RECORD_IDS_OF_ANOTHER_WORKSPACE",
+            "message": job["notices"][0]["message"],
+            "details": {"workspaceKey": source, "rows": 2},
+        }
+    ]
+    assert f"'{source}'" in job["notices"][0]["message"]
+
+    refusals = {_code(item): item["error"] for item in _outcomes(world, job)}
+    taken, parent = refusals["OBJECT_ALREADY_EXISTS"], refusals["REFERENCE_NOT_FOUND"]
+    assert taken["details"]["workspaceKey"] == source and f"'{source}'" in taken["message"]
+    assert parent["details"]["workspaceKey"] == source and f"'{source}'" in parent["message"]
+    assert "parent" in parent["message"]
+
+
 def _sc10_rows():
     return [
         LEDGER_HEADER,

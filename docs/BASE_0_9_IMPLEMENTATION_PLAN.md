@@ -251,7 +251,8 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 29 | [J2](#j2-import-profiles-and-file-reading) | B3 | Import profiles, XLSX/CSV/JSON Lines reading, rows to items, `POST /imports` with `stage: execute` (D64–D74) — **delivered 2026-10-07** ([record](#j2-record-2026-10-07)) |
 | 29a | [J2a](#j2a-database-backed-uniqueness-for-unique-attributes) | J2 | Database-backed uniqueness for `unique` attributes (TODO, C-D24, D74, D75–D78) — **delivered 2026-10-07** ([record](#j2a-record-2026-10-07)) |
 | 30 | [J3](#j3-import-preview-and-execution) | J2, B2 | Import preview, confirm, outcomes by row, the binding report; `stage: execute` arrives with J2 (D64) — **delivered 2026-10-07** ([record](#j3-record-2026-10-07)), D80–D88 |
-| 31 | [J4](#j4-import-screen-and-sc-10) | J1u, J3, F2 | The SC-10 screen and SC-10 acceptance; frontend only (D89–D95) — **planned 2026-10-08** ([plan](#j4-plan-2026-10-08)) |
+| 31 | [J4](#j4-import-screen-and-sc-10) | J1u, J3, F2 | The SC-10 screen and SC-10 acceptance; frontend only (D89–D95) — **delivered 2026-10-08** ([record](#j4-record-2026-10-08)) |
+| 31a | [J4a](#j4a-why-another-workspaces-export-cannot-load) | J4 | Amendment: an import says why another workspace's export cannot load (the job's `notices`, refusals naming the workspace) — **delivered 2026-10-08** ([record](#j4a-why-another-workspaces-export-cannot-load)) |
 | 31a | [Track K](#track-k--bulk-selection-and-editing-in-collections) | J4, UA | Bulk selection and bulk edits in collections over `POST /batches`; packages K1–K5 planned in detail when the track starts — **added 2026-10-06** |
 | V | [V3–V9](#v3v9-the-management-api-documented-plan-2026-10-07) | V2 | The management API documented: the starter extended, content and examples beside the document, the error catalogue; V3 first, then V4–V8 in any order, then V9. **Independent fillers; block no release** (V-D9) — **planned 2026-10-07**, V-D1 open |
 | 32 | [R](#r-build-acceptance-and-release) | all except Track V's V3–V9 | Build acceptance and release |
@@ -8253,6 +8254,125 @@ J4's surfaces; a refused-rows download if D94's alternative is wanted).
 **Composable domains (ADR-032):** a screen over existing routes; identity, attribute storage,
 audit, the bulk APIs, the `match` declaration and mapping coverage are untouched. Inbound flow is
 used, not changed.
+
+##### J4 record (2026-10-08)
+
+**Delivered 2026-10-08**; the screenshots await the user's approval. D89 decided by the user, D90–D95
+and the test cases accepted with the plan. No backend file changed.
+
+**Built.**
+
+- **Client and types**: `api.importProfiles`, `startImport` (multipart, `Idempotency-Key`; the client
+  no longer sets a JSON content type on a form body), `confirmJob`, `jobRows`; the job's
+  `confirmedAt`, `preview`, `bindingReport`, `changeSetVersion`, `policy` and `error.details`; the
+  limits `importMaxBytes` and `importPreviewMaxItems`. `lib/everyPage` reads a short configuration
+  list to its end (profiles, workspaces, change sets).
+- **`ui/FileField`**, extracted from the model draft dialog, which uses it (U-D14).
+- **`features/jobs/ImportDialog`** and `importRequest.ts`: one context (a collection's data, or a
+  workspace and its live data or a change set chosen on Jobs and feed, D89), the profile (an invalid
+  one listed and disabled, a keyless one warned), the policy and `onExisting` with D92's defaults;
+  always `stage: preview` (D90); one idempotency key per distinct request, so a retried send answers
+  with the first job; refusals at the file or the profile field.
+- **The import's job page** (`ImportOutcome.tsx` in `JobPage`): the stage while it binds and
+  previews; the preview (or, once loaded, the result and D94's way to load refused rows); the rows in
+  `ui/DataTable` filtered Refused, Not loaded or All, each failing cell with its column; what the
+  preview said, after loading; the binding report per source and column with columns to check; the
+  file, settings and times last. **Load the file** and **Cancel import** while it waits; a refused
+  confirmation is shown and the preview keeps waiting. A failed job lists its error's
+  `details.problems` (a file that does not fit its profile).
+- **Streams and notifications**: `isResting` closes a waiting preview's stream (D63) and the page
+  opens one again after confirming; Preview ready with Review; the jobs this tab follows are told
+  to the shell (`useJobEnded`), which reloads the collection and the change set's version when an
+  import into them completes.
+- **Entry points**: Import in a writable collection's header (passed by the shell as `onImport`, as
+  `onExport` is); New import on Jobs and feed; both open the import's page at once (D91). Jobs and
+  feed's limits list the import file size and preview items (TODO, J4).
+
+**Where it differs from the plan.**
+
+- **No notification while the job's own page is open.** Screenshots showed Preview ready, and then
+  Completed, over the page that already said so; the notifications now stay quiet there.
+- **The page's order.** The plan listed facts, preview, report and rows; the screenshots put the
+  preview below the facts and the result below the preview. The page now shows what to act on first:
+  the preview or the result, the rows, then the report and the facts.
+- **A defect found by the runner, fixed**: choosing the workspace already chosen in New import emptied
+  its change sets and left Load into disabled, since the list was cleared and the same key read
+  nothing again. Fixed, with a unit regression (it fails without the fix).
+- **The runner's setup.** The starter seed holds no master value, so the runner creates the existing
+  one through the API; to leave a page while its import still runs (cases 8 and the theme pass), it
+  queues a 6,000-item batch ahead, as J1u's runner does to cancel behind. Case 9 checks the file over
+  the limit; the unsupported extension is left to the engine's tests.
+- **Test cases as written**: case 1 as three unit tests (live, change set, the retry's key), case 2
+  as two plus the Jobs and feed case (with the regression), case 3 as three, case 4 as one.
+
+**Checks.**
+
+- Frontend: the job tests (`src/features/jobs`, 17 passed: `ImportDialog.test` 6, `JobPage.test` 3,
+  `JobNotifications.test` 4, `ExportDialog.test` 4); `vitest related` over every changed file (37
+  files, 381 passed); `tsc`; `format`; `lint` (0 errors; the 7 warnings are in files this package did
+  not touch); `build`.
+- Browser: `test:browser:j4`, 16 checks in 24 s: SC-10 previewed by keyboard and loaded on Master
+  values at 1440px and Systems at 390px (1 created, 1 updated, rows 4–6 refused with their columns,
+  the data unchanged until loading, the new record in the collection); the corrected file previewing
+  2 unchanged and 2 created; all or nothing previewing as writing nothing, then cancelled with nothing
+  written; New import into a change set with an XLSX file, Preview ready's Review, reopened from Jobs
+  and feed after a reload, loaded into the change set only; a file over a lowered `IMPORT_MAX_BYTES`
+  at the file field; axe 0 violations on the dialog, the waiting and loaded page and the
+  notifications, light and dark. `test:browser:j1u`, 12 checks (the job page, notifications and
+  collection header are shared). Screenshots inspected (dialog, waiting page, result, notifications,
+  1440px and 390px, light and dark); three findings fixed as above, and the CSV source named "The
+  CSV file" instead of `csv`.
+- Backend: none run; no backend file changed, and the OpenAPI document is unchanged.
+
+**Not run.** The full suites, `test:a11y` and `test:visual` (R, D95; TODO).
+
+**Composable domains (ADR-032):** a screen over existing routes; identity, attribute storage, audit,
+the bulk APIs, the `match` declaration and mapping coverage untouched.
+
+#### J4a: Why another workspace's export cannot load
+
+**Reported 2026-10-08 by the user; delivered the same day.** An export of `default` previewed into a
+second workspace refused every row: the first with "An object with ID … already exists", the rest
+with "No record matches the reference in this batch's context", and nothing said why. **Cause**
+(checked in the code): a live import looks a record up in its own workspace (`_LiveItems.find`), so
+the export's IDs find nothing there; creating the record with its ID is refused because record IDs
+are unique across the instance and the ID is `default`'s (`id_taken`), and every row naming that
+record (its parent) finds nothing. This is D49's limit, documented in API.md but said nowhere a user
+could see. Loading another workspace's export (new IDs, references rewritten) is a separate package,
+to plan with its decisions (TODO); this amendment makes the import say why.
+
+**Built.**
+
+- `BatchLookup.other_workspace(id)`: the workspace holding a live record with the ID when it is
+  another, read only on a refusal.
+- `OBJECT_ALREADY_EXISTS` for an ID of another workspace names it, live and in a change set alike
+  (`refusals.id_of_another_workspace`, `details.workspaceKey`); the same-workspace wording, pinned by
+  `test_rule_parity`, is unchanged.
+- `REFERENCE_NOT_FOUND` whose ID is another workspace's record names what the reference is for (the
+  parent, the target, a relationship's start or end, a related record, a set's record) and the
+  workspace (`details.workspaceKey`); otherwise unchanged.
+- The job's `notices` (new, additive): at binding, one statement over the job's inputs counts the
+  rows whose record IDs belong to another workspace, per workspace
+  (`RECORD_IDS_OF_ANOTHER_WORKSPACE`, `details.workspaceKey`, `details.rows`); `JobNotice` in the
+  OpenAPI document.
+- The import's page shows the notices above the preview ("Why rows cannot load here"); a row's
+  reasons wrap in full instead of ending in an ellipsis at 360px.
+
+**Checks.** The journey case written first and failing (`KeyError: 'notices'`), then passing on
+generated A and B (`test_an_export_previewed_into_another_workspace_says_whose_records_they_are`,
+J27.10, J27.11); `--journey J27 J03 J11 J24` (120 passed); `tests/unit`, `test_boundaries`,
+`test_api`, `test_wp8_review_regressions` (403 passed); `test_rule_parity` and
+`test_openapi_contract` (re-baselined: removing `JobNotice` and `JobResponse.notices` gives C18's
+document exactly; 16 passed with parity); `test_api_journeys` (5 passed); `ruff` clean. Frontend:
+`JobPage.test` gains the notices case (the job tests 18 passed; `vitest related` 41 passed);
+`format`, `lint` (0 errors), `build`; `test:browser:j4` gains the user's flow (an export of `default`
+previewed into another workspace through New import: the page's notice and every refused row name
+`default`), 17 checks; `test:browser:j1u` 12 checks. Screenshot inspected: the reasons were cut off,
+fixed. Not run: the full suites (R).
+
+**Composable domains (ADR-032):** identity is touched only in wording: IDs stay instance-wide (D49);
+refusals and a notice say where an ID lives. The door for loading with new IDs stays open for the
+package that decides it.
 
 ## Track K — Bulk selection and editing in collections
 

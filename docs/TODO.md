@@ -246,10 +246,18 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   outcomes and safe retry; do not require a change set merely because several records change (0.9).
   Object items run inline delivered as 0.9 B1 (2026-10-01) and in the background as B2
   (2026-10-01); relation and relation-set items as B3 (2026-10-03).
-- [ ] Asynchronous CSV/XLSX import and export with validation previews; import runs an import profile
+- [x] Asynchronous CSV/XLSX import and export with validation previews; import runs an import profile
   (revised D3, [MODEL_AUTHORING A1](MODEL_AUTHORING.md#delivery)). Export delivered as 0.9 J1 and
   J1u (2026-10-07); import profiles and imports run directly as J2 (2026-10-07); the preview,
-  confirmation, outcomes by row and the binding report as J3 (2026-10-07); the screen is J4.
+  confirmation, outcomes by row and the binding report as J3 (2026-10-07); the screen as J4
+  (2026-10-08).
+- [ ] Plan next (the user, 2026-10-08): load an export of one workspace into another workspace of the
+  same instance, new IDs given and the file's own references (parents, relationship ends) rewritten
+  to them; changes D49 and touches the identity door (ADR-032). J4a made the import say why such a
+  file cannot load today.
+- [ ] If wanted (0.9 J4, D94's alternative): a file of an import's refused rows to download, with
+  their cells and reasons. It needs the refused rows' cells kept after binding and a download route,
+  an API capability; today the refused rows are listed on the import's page.
 - [x] Ordered change feed and retryable webhooks. The feed read with positions in commit order is
   delivered as 0.9 F1 (2026-10-03), retention and recovery as F2 (2026-10-03), event definitions
   as C9 (2026-10-05), the events and their pull feed as C10 (2026-10-06), subscriptions with their
@@ -272,17 +280,18 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   in Q1). Restated in D56 and measured at 258,000 in J1 (2026-10-07, POSTGRESQL_BUDGETS §8).
 - [x] J1u: the export dialog, the job page and notifications pushed over a per-job event stream
   (delivered 2026-10-07; screenshots approved).
-- [ ] R: add J1u's export dialog, notification and job page to `test:a11y` and `test:visual`
-  (scenarios and baselines), light and dark; J1u checked them with axe in its runner.
+- [ ] R: add J1u's export dialog, notification and job page, and J4's import dialog, the import's
+  job page (waiting and loaded) and its notifications, to `test:a11y` and `test:visual` (scenarios
+  and baselines), light and dark; J1u and J4 checked them with axe in their runners (D95).
 - [x] J2 reads an export's CSV and XLSX table layout without a profile, decoding XLSX's `_xHHHH_`
   escapes (INTEGRATION_API §J2); the round trip of CSV and XLSX is tested there. Delivered in J2
   (2026-10-07), with `applicationKey` added to the records table (D71).
 - [x] J2a (D74): database-backed uniqueness for `unique` attributes (the item below), delivered
   2026-10-07 (D75–D78).
-- [ ] J4: Settings › Integration's limits list shows `IMPORT_MAX_BYTES` and
+- [x] J4: Settings › Integration's limits list shows `IMPORT_MAX_BYTES` and
   `IMPORT_PREVIEW_MAX_ITEMS` (`integrationJobs.limits.importMaxBytes`, `importPreviewMaxItems`,
   added in J2 and J3), and the job page an import's file and profile, its preview, binding report
-  and rows; J2 and J3 changed no screen.
+  and rows (delivered 2026-10-08).
 - [x] Built-in Scalar API reference at `/docs` replacing Swagger UI and ReDoc: delivered as 0.9 V1
   (2026-09-30) with the management API as its source; pinned script bundled, CDN by setting, outside
   the OpenAPI document.

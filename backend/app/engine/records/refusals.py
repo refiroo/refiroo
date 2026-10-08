@@ -23,6 +23,23 @@ def duplicate_value(key: str, name: str, holder: str) -> ApiError:
     )
 
 
+ELSEWHERE = (
+    "Record IDs are unique across the instance: a file with record IDs, such as an export, loads "
+    "only into the workspace it came from"
+)
+
+
+def id_of_another_workspace(object_id: str, workspace_key: str) -> ApiError:
+    """A record ID taken by a record of another workspace: worded alike live and in a change set,
+    naming the workspace, since a file sent to the wrong workspace is the common cause (0.9 J4a)."""
+    return api_error(
+        409,
+        "OBJECT_ALREADY_EXISTS",
+        f"Record '{object_id}' belongs to workspace '{workspace_key}'. {ELSEWHERE}",
+        {"workspaceKey": workspace_key},
+    )
+
+
 @dataclass(frozen=True)
 class Refusals:
     unknown_object_type: Callable[[str], ApiError]
@@ -37,7 +54,8 @@ class Refusals:
     required_relation: Callable[[], ApiError]
     # (attribute type key, attribute name, the record holding the value)
     duplicate_value: Callable[[str, str, str], ApiError]
-    object_exists: Callable[[str], ApiError]
+    # (record ID, the other workspace holding it, if that is why it is taken)
+    object_exists: Callable[[str, str | None], ApiError]
     # Whether a write may stage a breach of a binding's ancestor scope, which validation then
     # reports and publishing refuses (a change set is a draft: decided in H4c, deviation 9).
     holds_scope_breaches: bool
@@ -70,8 +88,12 @@ LIVE = Refusals(
         422, "REQUIRED_RELATION", "A required relationship cannot be deleted independently"
     ),
     duplicate_value=duplicate_value,
-    object_exists=lambda object_id: api_error(
-        409, "OBJECT_ALREADY_EXISTS", f"An object with ID '{object_id}' already exists"
+    object_exists=lambda object_id, elsewhere=None: (
+        id_of_another_workspace(object_id, elsewhere)
+        if elsewhere
+        else api_error(
+            409, "OBJECT_ALREADY_EXISTS", f"An object with ID '{object_id}' already exists"
+        )
     ),
     holds_scope_breaches=False,
 )
@@ -107,8 +129,10 @@ CHANGE_SET = Refusals(
         422, "REQUIRED_RELATION", "Required relationships cannot be deleted directly"
     ),
     duplicate_value=duplicate_value,
-    object_exists=lambda object_id: api_error(
-        409, "OBJECT_ALREADY_EXISTS", f"Object '{object_id}' already exists"
+    object_exists=lambda object_id, elsewhere=None: (
+        id_of_another_workspace(object_id, elsewhere)
+        if elsewhere
+        else api_error(409, "OBJECT_ALREADY_EXISTS", f"Object '{object_id}' already exists")
     ),
     holds_scope_breaches=True,
 )
