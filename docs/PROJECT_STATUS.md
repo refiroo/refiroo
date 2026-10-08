@@ -325,7 +325,9 @@ the result under the policy, `complete` or `sample`), a binding report per colum
 (`GET /jobs/{id}/rows`) and every failing cell of a row; confirming binds the file again and
 executes it (D80–D88, revision `20261007_08`, `IMPORT_PREVIEW_MAX_ITEMS`). A 10,000-row preview
 takes 10.6 s and a 100,000-row execution 110.7 s
-([record](BASE_0_9_IMPLEMENTATION_PLAN.md#j3-record-2026-10-07)). Next are J4, Track K and R.
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#j3-record-2026-10-07)). **J4 is planned (2026-10-08)**:
+the import screen over J2's and J3's routes, frontend only; D89–D95 settled
+([plan](BASE_0_9_IMPLEMENTATION_PLAN.md#j4-plan-2026-10-08)). Then Track K and R.
 **C18, the consumer API definition written for readers, is delivered (2026-10-08):** schema 0.9
 writes `consumerApis` as what a definition exposes, offers, looks like and filters by, with defaults
 written out by `GET /api/v1/model/consumer-apis/{consumerApi}`; an operation not offered is

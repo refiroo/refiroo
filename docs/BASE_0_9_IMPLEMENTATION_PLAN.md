@@ -251,7 +251,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 29 | [J2](#j2-import-profiles-and-file-reading) | B3 | Import profiles, XLSX/CSV/JSON Lines reading, rows to items, `POST /imports` with `stage: execute` (D64–D74) — **delivered 2026-10-07** ([record](#j2-record-2026-10-07)) |
 | 29a | [J2a](#j2a-database-backed-uniqueness-for-unique-attributes) | J2 | Database-backed uniqueness for `unique` attributes (TODO, C-D24, D74, D75–D78) — **delivered 2026-10-07** ([record](#j2a-record-2026-10-07)) |
 | 30 | [J3](#j3-import-preview-and-execution) | J2, B2 | Import preview, confirm, outcomes by row, the binding report; `stage: execute` arrives with J2 (D64) — **delivered 2026-10-07** ([record](#j3-record-2026-10-07)), D80–D88 |
-| 31 | [J4](#j4-import-screen-and-sc-10) | J1u, J3, F2 | The SC-10 screen and SC-10 acceptance |
+| 31 | [J4](#j4-import-screen-and-sc-10) | J1u, J3, F2 | The SC-10 screen and SC-10 acceptance; frontend only (D89–D95) — **planned 2026-10-08** ([plan](#j4-plan-2026-10-08)) |
 | 31a | [Track K](#track-k--bulk-selection-and-editing-in-collections) | J4, UA | Bulk selection and bulk edits in collections over `POST /batches`; packages K1–K5 planned in detail when the track starts — **added 2026-10-06** |
 | V | [V3–V9](#v3v9-the-management-api-documented-plan-2026-10-07) | V2 | The management API documented: the starter extended, content and examples beside the document, the error catalogue; V3 first, then V4–V8 in any order, then V9. **Independent fillers; block no release** (V-D9) — **planned 2026-10-07**, V-D1 open |
 | 32 | [R](#r-build-acceptance-and-release) | all except Track V's V3–V9 | Build acceptance and release |
@@ -8101,6 +8101,158 @@ in the accessibility and visual gates, light and dark.
 
 **Exit:** SC-10 passes, with its simplicity check (failed rows acted on without redoing successful
 work).
+
+##### J4 plan (2026-10-08)
+
+**Planned 2026-10-08. D89 decided by the user the same day (New import on Jobs and feed too); D90,
+D91 (after its flow was explained), D92–D95 and the test cases accepted by the user.** Checked against the code at
+`4daeeef`. The API already serves every step of the screen: `GET /import-profiles` (with `valid` and
+`problems` under the active release), `POST /imports` with `stage: preview` and `Idempotency-Key`,
+the job's `parameters.file`, `parameters.profile`, `preview`, `bindingReport` and `confirmedAt`,
+`POST /jobs/{id}/confirm` and `/cancel`, `GET /jobs/{id}/rows` (ADR-030 `PageQuery`, so positions
+too) and `/items?ref=`, the job's event stream (J1u), `GET /jobs?workspaceKey=&kind=import`, and
+`integrationJobs.limits.importMaxBytes` and `importPreviewMaxItems`. The frontend has none of it:
+no import client, no import types (the `Job` type lacks `preview`, `bindingReport`,
+`confirmedAt`), and the job page shows an export's file only. J1u's pieces are reused: `JobPage`
+(`/settings/jobs/{jobId}`, D62), `useJobStream`, `JobNotificationsProvider`, the dialog form
+(`ui/Modal`, `dialog-form`, `ui/Choice`, `ui/FormField`) and the collection header's action slot.
+The one file input today is in `model-admin/CreateDraftDialog`. **Needs:** J1u, J3, F2 (delivered).
+**No backend change** and no contract change; if building finds an API gap, it stops and is raised
+(AGENTS.md, API-first).
+
+**Behaviour.**
+
+1. On a collection page that can be written (live data, or a change set, while the deployment lets
+   jobs be created), **Import** beside Export opens a dialog (D89). The data context is shown as a
+   read-only line: the workspace, live or the change set. Settings › Jobs and feed has **New import**
+   beside New export: the same dialog with a choice of an active workspace and of its data, live or
+   one of its change sets (D89), as New export offers a workspace.
+2. The user chooses a file (`.xlsx`, `.csv`, `.jsonl`, `.ndjson`; the size limit stated beside the
+   field) and a stored profile, or **None** for a JSON Lines file or an exported table. Each profile
+   says what it loads (each source's sheet and type); one no longer valid under the active release
+   is listed but cannot be chosen, with its problem count. A profile without a key carries a
+   warning: sending the file twice creates its records twice.
+3. The user picks the policy: **Load the rows that can load** (`independent`, default) or **Load
+   nothing unless every row loads** (`atomic`); and what happens to records the file finds (D92).
+4. **Preview** sends the import with `stage: preview` (D90) and an idempotency key made when the
+   dialog opened, so a retried submit answers the same job. The browser goes to the job's page
+   (D91).
+5. **The job page of an import** shows, as the stream pushes them: the file and profile; the stage
+   while it binds and previews; then the preview (counts by action, rows refused, the result under
+   the chosen policy, `complete` or `sample` and what a sample covers), the binding report per
+   source (one row per column: what it is bound to by the model's names, and its counts, a column
+   with every cell refused or nothing resolved marked), and the rows (D94). **Load the file**
+   confirms; **Cancel import** ends it. A refusal of the confirm (the change set changed, the model
+   release changed) is shown on the page, and the job keeps waiting.
+6. After confirming, the page follows the execution and then shows its result: applied, rejected
+   and unprocessed counts, and the execution's rows, which replace the preview's.
+7. Notifications as J1u's: started; **Preview ready** with **Review** when the preview waits; the
+   finished notification with **View job**. The collection of the context the import loaded into
+   reloads when an import this tab started completes.
+8. Settings › Jobs and feed lists imports as it lists every job (D93), and its limits list gains
+   the largest import file and the preview's item limit (TODO, J4).
+
+**Design.**
+
+- **Client and types** (`api/client.ts`, `types/integration.ts`): `importProfiles` (paged),
+  `startImport` (multipart `file` and `request`, the `Idempotency-Key` header), `confirmJob`,
+  `jobRows` (paged, `status`); `Job` gains `confirmedAt`, `preview`, `bindingReport`; types for the
+  import request, profile summary, binding report and row.
+- **`ui/FileField`** extracted from `CreateDraftDialog`'s file input, used by both (U-D14).
+- **`features/jobs/ImportDialog`** on `ui/Modal` with the dialog form. Profiles are read page by page
+  into the select (instance configuration, few, as the export dialog's workspaces). A refusal shows
+  at its field: `413 IMPORT_TOO_LARGE` and `422 UNSUPPORTED_FILE_FORMAT` at the file,
+  `INVALID_IMPORT_PROFILE` and `IMPORT_PROFILE_NOT_FOUND` at the profile with its problems, the
+  context's codes (`CHANGE_SET_VERSION_CONFLICT`, `MODEL_RELEASE_CHANGED`) as a notice. Started from
+  Jobs and feed, it reads the workspaces (active ones offered, as a collection can write only in an
+  active workspace) and the chosen workspace's change sets (`api.changeSets`, page by page), and
+  takes `expectedChangeSetVersion` from the chosen change set as read; selects disabled while they
+  load, the choosers laid out as the export dialog's workspace chooser (one form, U-D14).
+  `importRequest.ts` builds the request (context, `expectedChangeSetVersion` from the page's change
+  set, policy, `onExisting`) and is unit-tested.
+- **`JobPage`** gains an import part (`ImportOutcome`): the preview, `BindingReport` and `JobRows`.
+  Rows page with `lib/hooks/useCursorWindow` in `ui/ScrollWindow` (a rejected-row list can be long);
+  a status filter (Refused, Not loaded, All); each row its sheet and row, its actions, and each
+  failing cell with its column and message (`details.cells`, else the error's column). Labels come
+  from the model and `jobText`; nothing names a type key.
+- **Notifications:** `JobNotificationsProvider` treats `awaiting_confirmation` as a stop: it shows
+  Preview ready and closes the stream (a waiting preview may wait days, and each stream holds a
+  connection, D63); confirming from the page reopens it. `useJobStream` closes at that state too.
+- **Collection header:** the shell passes `onImport` beside `onExport` when jobs can be created and
+  the context can be written, as J1u did for Export; a view without it shows no Import.
+- **Not changed:** the engine, the routes, the OpenAPI document, the export dialog's behaviour.
+
+**Decisions** (for approval):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D89 | Where an import starts | **Decided 2026-10-08 by the user: on a collection page and on Jobs and feed (New import), as export is**, since a profile may load types of several applications and so of several collections. The recommendation was the collection page only. On a collection, live data or a change set it can write, never a publication, the context taken from the page; on Jobs and feed, an active workspace and its live data or one of its change sets chosen in the dialog. A profile chooses its own types, so neither entry narrows the profiles |
+| D90 | Preview or execute from the screen | **Accepted 2026-10-08 by the user.** **Always preview; the UI never sends `stage: execute`.** SC-10 is preview, then confirm, and confirming is one click on the job page. Direct execution stays an API choice for integrations |
+| D91 | Where the user goes after Preview | **Accepted 2026-10-08 by the user after the flow was explained.** **To the import's job page at once** (unlike Export, where the user stays). The preview is the screen the user came for; the Preview ready notification brings back a user who left it |
+| D92 | Defaults for records the file finds (`onExisting`) | **Accepted 2026-10-08 by the user.** **With a profile: Update them (`overwrite`), the default. Without a profile: Update only records unchanged since the export (`reject`, the versions decide), the default.** A supplier file carries no versions, so without `overwrite` every existing row is refused `VERSION_REQUIRED` and SC-10's "existing value" cannot load. An exported table carries versions, and they protect edits made since. The other choice stays one click away in both cases |
+| D93 | "The workspace's recent imports" (§J5) | **Accepted 2026-10-08 by the user.** **No list of its own: Jobs and feed lists every job, imports included, and opens each page.** That page did not exist when §J5 was written (U4). A kind or workspace filter on it waits for a request |
+| D94 | Acting on refused rows (SC-10's simplicity check) | **Accepted 2026-10-08 by the user.** **Correct the refused rows in the file and send the whole file again; the screen says how.** With a profile key, rows already loaded preview as `unchanged` (D24), so nothing is redone blindly and the counts show it; the page names each refused row's sheet, row, column and reason. Without a key, the dialog warns before the preview. Not built: a file of the refused rows to download. The file is removed when the job finishes and the outcomes keep no cells, so it would be a new API capability (keeping refused rows' cells, a download route); a TODO if wanted |
+| D95 | The accessibility and visual gates | **Accepted 2026-10-08 by the user.** **J4 checks its surfaces with axe and screenshots in its runner, as J1u did; the gate scenarios and baselines for J4's and J1u's surfaces are added at R** (TODO). AGENTS.md keeps `test:a11y` and `test:visual` for build acceptance; this amends J4's "Groups" above |
+
+**Journey.** J27.13 (new) *Import a file in the browser*: the UI channel of J27.8, J27.10 and
+J27.11. Start on a collection or with New import on Jobs and feed, choose a file and a profile, preview, read the counts, the binding
+report and the refused rows, confirm or cancel, read the result; leave and come back through the
+notification or Jobs and feed. USER_JOURNEYS (J27.13, J27's status), UI_ACCEPTANCE (rows J4-1 the
+dialog, J4-2 the import's job page, J4-3 the Preview ready notification), and API_JOURNEYS (no
+change: no route or parameter is added).
+
+**Test cases** (approved by the user 2026-10-08). No API journey test: no API behaviour changes, and J27.8–J27.12 already hold the
+engine. Unit tests (Vitest):
+
+1. **The request from a collection**: live and in a change set (with its version), each policy, D92's
+   defaults with and without a profile, one idempotency key for retries of one dialog.
+2. **The dialog**: an invalid profile listed and not choosable; a keyless profile's warning;
+   `IMPORT_TOO_LARGE` at the file field; `INVALID_IMPORT_PROFILE` at the profile with its problems;
+   from Jobs and feed, a workspace and one of its change sets chosen give the request that change
+   set with its version (D89).
+3. **The import's job page**: a waiting preview shows its counts, result, coverage, the binding
+   report (a column with every cell refused marked) and its refused rows with each failing cell; a
+   confirm refused `CHANGE_SET_VERSION_CONFLICT` shows the refusal and keeps Load the file.
+4. **Notifications**: a preview reaching `awaiting_confirmation` gives Preview ready with Review and
+   closes the stream.
+
+Browser runner `test:browser:j4` (real backend, two object types of the starter in two
+applications, each keyed by a unique attribute, as J1u's runner used two; the runner saves a profile
+for each through the API as an integrator would and deletes them after; keyboard; 1440px and
+390px), SC-10 end to end:
+
+5. **SC-10's file previewed and loaded.** A CSV with a new value, an existing value, an invalid
+   number and two rows with one key and different names, under Load the rows that can load: the
+   preview shows 1 created, 1 updated and the refused rows by row and column; the collection is
+   unchanged; Load the file; the result names applied and refused rows; the collection shows the new
+   and updated records.
+6. **Acting on refused rows (D94).** The file corrected and sent again: the preview shows the loaded
+   rows `unchanged` and the corrected rows loading.
+7. **All or nothing, and cancel.** The same file under Load nothing unless every row loads previews
+   as rejected; Cancel import ends it and nothing changed.
+8. **Into a change set from Jobs and feed, leave and return.** New import, a workspace and one of its
+   change sets chosen (D89), an XLSX previewed there; the user leaves for
+   another page, Preview ready's Review brings them back; after a reload, Jobs and feed opens the
+   waiting job; loaded, the change set shows the records.
+9. **A refusal at the dialog**: a file over the limit (a lowered `IMPORT_MAX_BYTES` on the runner's
+   server, or an unsupported extension) shown at the file field.
+
+Axe with 0 violations on the dialog, the import's job page (waiting and completed) and the
+notification, light and dark; screenshots of the same at 1440px and 390px for the user's approval.
+
+**Checks.** Vitest `related` over the changed files, `format`, `lint` (0 errors), `build`;
+`test:browser:j4`; `test:browser:j1u` (the job page, the notifications and the collection header are
+shared). No backend run, as no backend file changes; `test_openapi_contract` unchanged. Not run: the
+full suites, `test:a11y`, `test:visual` (R, D95).
+
+**Docs at delivery.** USER_JOURNEYS, UI_ACCEPTANCE, ACCEPTANCE_SCENARIOS (SC-10 passes, with its
+simplicity check as D94 reads it), CURRENT_FUNCTIONALITY, PRODUCT, EXECUTION_GUIDE and the e2e README
+(the runner), CHANGELOG, PROJECT_STATUS, TODO (J4's limits item closed; the R gate item extended to
+J4's surfaces; a refused-rows download if D94's alternative is wanted).
+
+**Composable domains (ADR-032):** a screen over existing routes; identity, attribute storage,
+audit, the bulk APIs, the `match` declaration and mapping coverage are untouched. Inbound flow is
+used, not changed.
 
 ## Track K — Bulk selection and editing in collections
 
