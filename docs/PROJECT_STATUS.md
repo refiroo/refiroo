@@ -351,7 +351,7 @@ deleting a selection from the collection (Delete…: previewed with what goes wi
 applied exactly as previewed, a record changed meanwhile refused), on cascading batch delete items
 (J11.6) and one set-based deletion path for the single delete and a batch, live and in a change set
 (PG-D18 closed); D120–D126; the deletion timing on the full-size fixture (D124) deferred by the user
-to R; screenshots await the user's approval
+to R; screenshots approved by the user
 ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k2b-record-2026-10-09)). Next is K3.
 **C18, the consumer API definition written for readers, is delivered (2026-10-08):** schema 0.9
 writes `consumerApis` as what a definition exposes, offers, looks like and filters by, with defaults

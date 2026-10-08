@@ -9334,8 +9334,8 @@ keyboard only at 390px with the status region read back ("Preview ready: 1 would
 would be refused", "Applied: 1 deleted, 0 refused"). Visual: the screenshots were inspected and
 four things fixed: the dialog closed when the delete emptied the selection; the totals sentence sat
 unspaced under the preview's list (now inside "What deleting removes"); the preview and result said
-"change" and "already as asked" for a delete; the policy read "Records that cannot change". They
-await the user's approval.
+"change" and "already as asked" for a delete; the policy read "Records that cannot change".
+Approved by the user on 2026-10-09.
 
 **Found.**
 
