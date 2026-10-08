@@ -32,7 +32,7 @@ def _events(world):
             "changes": ["created", "updated", "deleted"],
             "watch": {
                 "fields": [world.key("Capi.code"), world.key("Capi.name"), world.key("Capi.parent")],
-                "projections": [world.key("Capi.B11")],
+                "related": [world.key("Capi.B11")],
             },
         },
         {"key": CHURN, "objectTypes": [world.key("D")], "changes": ["created", "deleted"]},
@@ -50,7 +50,9 @@ def _activate(world, suffix, events=None, change=None):
     model = copy.deepcopy(world.configuration.model)
     model["release"]["version"] += f"-{suffix}"
     (definition,) = [d for d in model["consumerApis"] if d["key"] == world.key("Capi")]
-    definition["events"] = _events(world) if events is None else events
+    declared = _events(world) if events is None else events
+    if declared:
+        definition["operations"]["events"] = {"custom": declared}
     if change is not None:
         change(model, definition)
     release = world.install(model)
@@ -316,8 +318,8 @@ def test_a_type_change_is_told_as_the_three_kinds(world):
     expose, deleted."""
 
     def expose(_model, definition):
-        definition["objectTypes"][world.key("L1")] = {"publicName": "Top"}
-        definition["objectTypes"][world.key("L2")] = {"publicName": "Middle"}
+        definition["exposes"] += [world.key("L1"), world.key("L2")]
+        definition["publicNames"].update({world.key("L1"): "Top", world.key("L2"): "Middle"})
 
     events = [
         {"key": "tops", "objectTypes": [world.key("L1")], "changes": ["created", "updated", "deleted"]},

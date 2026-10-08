@@ -326,9 +326,13 @@ the result under the policy, `complete` or `sample`), a binding report per colum
 executes it (D80–D88, revision `20261007_08`, `IMPORT_PREVIEW_MAX_ITEMS`). A 10,000-row preview
 takes 10.6 s and a 100,000-row execution 110.7 s
 ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#j3-record-2026-10-07)). Next are J4, Track K and R.
-**C18, the consumer API definition written for readers**, is planned 2026-10-07 (schema 0.9 syntax,
-nothing a consumer sees changes; C-D132–C-D141 decided;
-[plan](BASE_0_9_IMPLEMENTATION_PLAN.md#c18-plan-2026-10-07)). It is independent of Track J.
+**C18, the consumer API definition written for readers, is delivered (2026-10-08):** schema 0.9
+writes `consumerApis` as what a definition exposes, offers, looks like and filters by, with defaults
+written out by `GET /api/v1/model/consumer-apis/{consumerApi}`; an operation not offered is
+`404 OPERATION_NOT_OFFERED`; a new 0.8 document with `consumerApis` is refused, stored 0.8 releases
+read as before; the starter is 0.9.3 and the operators model 0.9.0 on schema 0.9, active on the
+development instance, and every converted definition compiles to the same internal form as before
+(C-D132–C-D141; [record](BASE_0_9_IMPLEMENTATION_PLAN.md#c18-record-2026-10-08)).
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

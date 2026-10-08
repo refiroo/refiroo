@@ -93,10 +93,13 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # ImportPreview, Preview* and BindingReport* schemas; JobResponse gains confirmedAt, preview and
     # bindingReport, JobLimits importPreviewMaxItems (and its description), ImportRequest's stage
     # takes preview (and its description), GET /jobs/{job_id}/items gains ref and the cancel
-    # route's description names a waiting preview; no other path or schema changed.
+    # route's description names a waiting preview; no other path or schema changed. Re-baselined
+    # for 0.9 C18: GET /model/consumer-apis/{consumerApi} with ConsumerApiDocument and the schema
+    # 0.9 definition parts it names; removing the path and the schemas only it reaches gives J3's
+    # document exactly.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "16d2abc017418129a7d334b739b2bd529817647b0c513eebf86ce190867d6689"
+        "aa18ca68f1cfed549a4822e29308d2d15fe896eb260da698f4cdbafde7f8cfd2"
     )
 
 

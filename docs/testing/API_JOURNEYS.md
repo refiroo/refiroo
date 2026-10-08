@@ -37,8 +37,9 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/docs` a
 | `GET /capabilities` | J20, J12.7, J26.6 (`changeFeed.retentionDays`) |
 | `GET /system` | J31, J31.1–J31.3 |
 | `GET /model`, `GET /model/placements` | J20, J20.1, J03, J14 |
+| `GET /model/consumer-apis/{consumerApi}` (the definition expanded, C18) | J20.6 |
 | `GET /model-runtime-state` | J08 (fresh version for activation), J20.2 |
-| `POST /model-validations` | J08.1 |
+| `POST /model-validations` | J08.1, J25.6 |
 | `GET /applications`, `GET /applications/{key}`, `GET /attribute-types`, `GET /attribute-types/{key}`, `GET /object-types`, `GET /object-types/{key}`, `GET /relation-types`, `GET /relation-types/{key}` | J20 |
 | `GET /object-type-relations` (`fromObjectType`, `toObjectType`) | J20, J13 |
 | `GET /model-releases` (`releaseKey`, `active`), `GET /model-releases/{id}` (`includeModel`) | J08, J08.7, J20.2 |
@@ -100,10 +101,10 @@ deployment's, each answer checked against the API's own document.
 
 | Operation | Journeys |
 | --- | --- |
-| `GET /{consumerApi}/v{contractVersion}/objects/{id}` (`workspace`, `publication`, `asOf`, the definition's parameters, `to.{parameter}`) | J28, J28.1–J28.5, J28.9, J28.11–J28.14, J29.12, J29.14, J29.15, J23.6, J23.8 |
+| `GET /{consumerApi}/v{contractVersion}/objects/{id}` (`workspace`, `publication`, `asOf`, the definition's parameters, `to.{parameter}`) | J28, J28.1–J28.5, J28.9, J28.11–J28.14, J29.12, J29.14, J29.15, J23.6, J23.8, J25.5, J25.7 |
 | `GET /{consumerApi}/v{contractVersion}/lists/{listKey}` (`workspace`, `publication`, `asOf`, the list's parent parameter, the definition's parameters, `to.{parameter}`, `pageSize`, `cursor`, `position`, `from`, `seek`, `includeTotal`) | J28.6–J28.13, J29.12, J29.14, J23.6, J23.8 |
-| `GET /{consumerApi}/v{contractVersion}/xref` (`query`, `expect`, `workspace`, `publication`, `asOf`, the definition's parameters, `to.{parameter}`, `pageSize`, `cursor`, `position`, `from`) | J29, J29.1–J29.7, J29.11, J29.12, J29.14, J29.15, J23.7, J23.8 |
-| `POST /{consumerApi}/v{contractVersion}/resolve` (`workspace`, `publication`, `asOf`; the body's `defaults` and `items`, each with `ref`, `query` or `id`, the definition's parameters and `to.{parameter}`) | J28.13, J28.14, J29.8–J29.10, J29.13, J29.14, J29.15, J23.7, J23.8 |
+| `GET /{consumerApi}/v{contractVersion}/xref` (`query`, `expect`, `workspace`, `publication`, `asOf`, the definition's parameters, `to.{parameter}`, `pageSize`, `cursor`, `position`, `from`) | J29, J29.1–J29.7, J29.11, J29.12, J29.14, J29.15, J23.7, J23.8, J25.5, J25.7 |
+| `POST /{consumerApi}/v{contractVersion}/resolve` (`workspace`, `publication`, `asOf`; the body's `defaults` and `items`, each with `ref`, `query` or `id`, the definition's parameters and `to.{parameter}`) | J28.13, J28.14, J29.8–J29.10, J29.13, J29.14, J29.15, J23.7, J23.8, J25.5, J25.7 |
 | `GET /{consumerApi}/v{contractVersion}/publications` (`workspace`, `pageSize`, `cursor`, `position`, `from`, `includeTotal`) | J28.14, J30.3, J30.5 |
 | `GET /{consumerApi}/v{contractVersion}/events` (`workspace`, `event`, `after`, `cursor`, `pageSize`, `payload`, the definition's parameters) | J30, J30.1–J30.5 |
 | `GET /` (the API index: `pageSize`, `cursor`, `position`, `from`, `includeTotal`) | J20.3 |
@@ -125,7 +126,9 @@ documented nowhere; API.md documents them since H4c (D-4).
 | J15 | `RESTRUCTURING_NOT_READY`, `RESTRUCTURING_TOO_LARGE`, `RESTRUCTURING_PLAN_CHANGED`, `INVALID_TYPE_MAPPING`, `OBJECT_TYPE_UNCHANGED`, `OBJECT_TYPE_CHANGED`, `TYPE_CHANGES_NEED_CHANGE_SET`, `CHILD_TYPE_NOT_ALLOWED`, `REQUIRED_RELATION_WITHOUT_PLACE`, `RELATION_ALREADY_EXISTS` |
 | J16 | `RELATION_MATRIX_VIEW_NOT_FOUND`, `RELATION_MATRIX_ROW_NOT_FOUND`, `RELATION_MATRIX_COLUMN_NOT_FOUND`, `RELATION_MATRIX_PARENT_NOT_FOUND`, `RELATION_MATRIX_ACTION_NOT_ALLOWED`, `RELATION_MATRIX_PARENT_SCOPE_MISMATCH`, `RELATION_MATRIX_STATE_REQUIRES_COLUMNS`, `TOO_MANY_COLUMNS`, `DUPLICATE_COLUMN_IDS`, `CONFLICTING_COLUMN_PARAMETERS` |
 | J18 | `CHANGE_SET_CONTENT_INCOMPATIBLE`, `CHANGE_SET_MODEL_RELEASE_CONFLICT`, `PINNED_MODEL_UNAVAILABLE`, `PINNED_MODEL_INVALID`, `UNSUPPORTED_PINNED_MODEL_SCHEMA`, `INVALID_INSTALLED_MODEL` |
-| J08, J25 | `INVALID_MODEL`, `RELEASE_IDENTITY_CONFLICT`, `MODEL_MIGRATION_REQUIRED`, `MODEL_RELEASE_NOT_FOUND`, `MODEL_DRAFT_NOT_FOUND`, `UNSUPPORTED_SCHEMA_VERSION`, `MODEL_REGISTRY_REFRESH_FAILED`, `CONSUMER_CONTRACT_VERSION_REQUIRED`; diff findings `CONSUMER_API_REMOVED`, `CONSUMER_CONTRACT_VERSION_DECREASED` |
+| J08, J25 | `INVALID_MODEL`, `RELEASE_IDENTITY_CONFLICT`, `MODEL_MIGRATION_REQUIRED`, `MODEL_RELEASE_NOT_FOUND`, `MODEL_DRAFT_NOT_FOUND`, `UNSUPPORTED_SCHEMA_VERSION` (also a schema 0.8 document declaring `consumerApis`, J25.6), `MODEL_REGISTRY_REFRESH_FAILED`, `CONSUMER_CONTRACT_VERSION_REQUIRED`; diff findings `CONSUMER_API_REMOVED`, `CONSUMER_CONTRACT_VERSION_DECREASED` |
+| J25.7 | `OPERATION_NOT_OFFERED` (`404`, on `objects`, `xref` and `resolve` of a definition that does not list the operation) |
+| J20.6 | `CONSUMER_API_NOT_FOUND` (`404`, the expanded read of a definition the context's model does not declare) |
 | J08, J11, J24 | `MODEL_RELEASE_CHANGED` |
 | J19 | `WORKSPACE_ALREADY_EXISTS`, `DEFAULT_WORKSPACE_CANNOT_BE_RETIRED`, `WORKSPACE_IS_DEFAULT`, `WORKSPACE_HAS_PUBLICATIONS`, `WORKSPACE_NOT_EMPTY` |
 | J23 | `AS_OF_NOT_SUPPORTED`, `INVALID_EFFECTIVE_PERIOD`; on the consumer API both answer `400`: `AS_OF_NOT_SUPPORTED` (J23.6, J23.7) and `INVALID_AS_OF` (J23.8) |

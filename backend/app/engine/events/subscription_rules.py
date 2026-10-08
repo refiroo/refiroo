@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 from ...errors import ApiError, api_error
 from ...models.database import ConsumerSubscription
 from ...models.schema import ConsumerApiDefinition, EngineModel, ProjectionParameter
+from ..model.consumer_definitions import consumer_api as declared_api
 from ..model.validation.consumer_api_rules import RESERVED_PARAMETERS
 
 ACTIVE, SUSPENDED = "active", "suspended"
@@ -50,7 +51,7 @@ class Asked:
 
 
 def definition_of(model: EngineModel, consumer_api: str) -> ConsumerApiDefinition | None:
-    return next((item for item in model.consumerApis or () if item.key == consumer_api), None)
+    return declared_api(model, consumer_api)
 
 
 def definition_findings(model: EngineModel, asked: Asked) -> list[ApiError]:

@@ -14,6 +14,7 @@ import { formatServerTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { routePath } from "@/routing/routes";
 import type {
+  ConsumerApiDefinition,
   DeliveryAttempt,
   DeliveryDetail,
   DeliveryRow,
@@ -62,13 +63,13 @@ const duration = (ms: number | null) =>
  */
 function recordRoute(
   model: EngineModel,
+  definition: ConsumerApiDefinition | undefined,
   subscription: Subscription,
   event: { objectType: string; objectId: string; change: string },
 ): RouteState | undefined {
   if (event.change === "deleted") return undefined;
-  const definition = model.consumerApis?.find((item) => item.key === subscription.consumerApi);
-  const objectTypeKey = Object.entries(definition?.objectTypes ?? {}).find(
-    ([, exposed]) => exposed.publicName === event.objectType,
+  const objectTypeKey = Object.entries(definition?.publicNames ?? {}).find(
+    ([, publicName]) => publicName === event.objectType,
   )?.[0];
   const application = objectTypeKey && model.applications.find((item) => item.objectTypeKeys.includes(objectTypeKey));
   if (!objectTypeKey || !application) return undefined;
@@ -110,12 +111,15 @@ function DeliveryState({ status }: { status: DeliveryStatus }) {
 export function WebhookDeliveries({
   route,
   model,
+  definition,
   subscription,
   retentionDays,
   onNavigate,
 }: {
   route: WebhooksRoute & { subscriptionId: string };
   model: EngineModel;
+  /** The subscription's consumer API, expanded (C18); none when the active release lacks it. */
+  definition?: ConsumerApiDefinition;
   subscription: Subscription;
   retentionDays?: number;
   onNavigate: (route: RouteState) => void;
@@ -186,7 +190,7 @@ export function WebhookDeliveries({
                 <td data-label="Object ID">
                   <ObjectLink
                     id={row.objectId}
-                    to={recordRoute(model, subscription, row)}
+                    to={recordRoute(model, definition, subscription, row)}
                     onNavigate={onNavigate}
                     short
                   />
@@ -215,7 +219,7 @@ export function WebhookDeliveries({
           deliveryId={route.deliveryId}
           eventId={route.eventId}
           onResent={feed.reload}
-          recordOf={(event) => recordRoute(model, subscription, event)}
+          recordOf={(event) => recordRoute(model, definition, subscription, event)}
           onNavigate={onNavigate}
           onOpen={(resent) =>
             onNavigate({

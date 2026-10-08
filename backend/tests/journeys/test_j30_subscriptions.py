@@ -262,7 +262,7 @@ def test_a_model_activation_suspends_the_subscriptions_it_leaves_behind(world):
 
     def version_two(_model, definition):
         definition["contractVersion"] = 2
-        del definition["parameters"][related]
+        del definition["filters"][related]
 
     _activate(world, "v2", events=[e for e in _events(world) if e["key"] != WATCHED], change=version_two)
     first, second, third, fourth = (_read(world, s) for s in (watched, narrowed, churn, paused))

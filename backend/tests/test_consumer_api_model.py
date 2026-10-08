@@ -1,16 +1,17 @@
-"""Base 0.9 C1: consumer API definitions in schema 0.8 (CONSUMER_API "Definition shape").
+"""Base 0.9 C1 and C18: consumer API definitions (CONSUMER_API "Definition shape"), in schema 0.9.
 
-Schema 0.8 accepts ``consumerApis`` and nothing else yet; every reference a definition makes is
-checked against its release and refused at its JSON pointer; the definition compiles into the
-immutable release; and a candidate release that changes what an active definition's consumers read
-is reported by draft compile and release diff and refused at activation until the definition's
-``contractVersion`` is raised (C-D2, C-D4, C-D17–C-D20). Model checks run on the starter and on a
-copy with every key renamed, so no rule depends on a key.
+Every reference a definition makes is checked against its release and refused at its JSON pointer
+in the authored document; the definition compiles into the immutable release; and a candidate
+release that changes what an active definition's consumers read is reported by draft compile and
+release diff and refused at activation until the definition's ``contractVersion`` is raised (C-D2,
+C-D4, C-D17–C-D20, C-D132). Model checks run on the starter and on a copy with every key renamed, so
+no rule depends on a key.
 """
 
 import copy
 import json
 from collections.abc import Callable, Iterator
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -20,15 +21,26 @@ from model_support import MODEL_PATH, renamed_model
 from app.config import reload_settings
 from app.db import SessionLocal, get_engine
 from app.engine.model.bootstrap import ensure_bootstrap_release
-from app.engine.model.compiler import compile_model, parse_model
+from app.engine.model.compiler import compile_authored_model, compile_model, parse_model
 from app.engine.model.consumer_contract import contract_diagnostics, output_contract
+from app.engine.model.consumer_definitions import consumer_apis
+from app.engine.model.consumer_expansion import expand
+from app.engine.model.consumer_openapi import consumer_openapi
+from app.engine.model.consumer_rendering import expanded_definition
 from app.engine.model.registry import model_registry
 from app.main import create_app
 from app.models.database import ModelRuntimeState
-from app.models.schema import EngineModel
+from app.models.schema import ConsumerApiDocument, EngineModel
 
 Keys = Callable[[str], str]
 API = "/consumerApis/rdm"
+FIXTURES_08 = Path(__file__).parent / "fixtures" / "consumer_08"
+STARTER_08 = FIXTURES_08 / "rdm-starter-0.9.2.json"
+# The shipped models and their schema 0.8 originals, kept as C18 rewrote them (C-D138).
+SHIPPED = [
+    (MODEL_PATH, STARTER_08),
+    (MODEL_PATH.parent / "rdm-operators-timetables.json", FIXTURES_08 / "rdm-operators-timetables-0.8.0.json"),
+]
 
 
 def definition(k: Keys) -> dict[str, Any]:
@@ -38,102 +50,99 @@ def definition(k: Keys) -> dict[str, Any]:
         "key": "rdm",
         "name": "RDM consumer API",
         "contractVersion": 1,
-        "objectTypes": {
-            k("master-value"): {"publicName": "CodelistValue"},
-            k("codelist"): {"publicName": "Codelist"},
-            k("domain"): {"publicName": "Domain"},
-        },
+        "exposes": [k("master-value"), k("codelist"), k("domain")],
+        "publicNames": {k("master-value"): "CodelistValue", k("codelist"): "Codelist", k("domain"): "Domain"},
         "object": {
-            "id": {"output": "masterId", "source": ["id"]},
-            "code": {"output": "code", "source": [k("value-code"), k("codelist-code"), k("domain-code")]},
-            "name": {"output": "name", "source": ["name"]},
-            "active": {"output": "isActive", "source": [k("active")], "default": True},
-            "validFrom": {"output": "validFrom", "source": [k("valid-from")]},
-            "validTo": {"output": "validTo", "source": [k("valid-to")]},
-            "attributes": {
-                "valueName": {"source": [k("value-name")]},
-                "sortOrder": {"source": [k("sort-order")], "default": 0},
-                "description": {"source": [k("description")]},
+            "fields": {
+                "masterId": {"role": "id"},
+                "code": {"role": "code", "from": [k("value-code"), k("codelist-code"), k("domain-code")]},
+                "name": {"role": "name", "from": "name"},
+                "isActive": {"role": "active", "from": k("active"), "default": True},
+                "validFrom": {"role": "validFrom", "from": k("valid-from")},
+                "validTo": {"role": "validTo", "from": k("valid-to")},
+                "valueName": k("value-name"),
+                "sortOrder": {"from": k("sort-order"), "default": 0},
+                "description": k("description"),
             },
-            "parent": {"output": "parent", "fields": ["objectType", "id", "code", "name"]},
-            "path": "path",
-            "hierarchy": "hierarchy",
-        },
-        "projections": {
-            "systemVariants": {
-                "from": {"relation": k("system-value-maps-to-master"), "direction": "incoming"},
-                "fields": {
-                    "system": f"ancestor:{system}.name",
-                    "value": "name",
-                    "valueCode": k("value-code"),
-                    "externalId": k("external-id"),
-                    "isActive": k("active"),
+            "parent": ["objectType", "id", "code", "name"],
+            "path": True,
+            "hierarchy": True,
+            "related": {
+                "systemVariants": {
+                    "via": k("master-value-represented-by-system-value"),
+                    "fields": {
+                        "system": f"ancestor:{system}.name",
+                        "value": "name",
+                        "valueCode": k("value-code"),
+                        "externalId": k("external-id"),
+                        "isActive": k("active"),
+                    },
+                },
+                "translations": {
+                    "via": k("object-has-translation"),
+                    "fields": {
+                        "languageCode": f"ancestor:{language}.{k('language-code')}",
+                        "translatedName": k("translated-name"),
+                    },
                 },
             },
-            "translations": {
-                "from": {"relation": k("object-has-translation"), "direction": "outgoing"},
-                "fields": {
-                    "languageCode": f"ancestor:{language}.{k('language-code')}",
-                    "translatedName": k("translated-name"),
-                },
+        },
+        "operations": {
+            "objects": {},
+            "xref": {
+                "matchOn": [
+                    {"field": k("master-id"), "exact": 1000},
+                    {"field": k("value-code"), "exact": 500, "contains": 40},
+                    {"field": "name", "exact": 200, "contains": 30},
+                ],
+                "alsoMatchThrough": [
+                    {
+                        "related": "systemVariants",
+                        "firstOf": [{"field": "name", "exact": 80}, {"field": k("external-id"), "exact": 75}],
+                        "preferTypes": [k("master-value")],
+                    }
+                ],
+            },
+            "resolve": {},
+            "lists": {
+                "codelists": {"of": k("codelist"), "within": {"filter": "domain", "types": [k("domain")]}},
+                "values": {"of": k("master-value"), "within": {"filter": "codelist"}},
+                "all-values": {"of": k("master-value")},
             },
         },
-        "match": {
-            "own": [
-                {"field": k("master-id"), "exact": 1000},
-                {"field": k("value-code"), "exact": 500, "contains": 40},
-                {"field": "name", "exact": 200, "contains": 30},
-            ],
-            "promoted": [
-                {
-                    "projection": "systemVariants",
-                    "firstMatch": [{"field": "name", "exact": 80}, {"field": k("external-id"), "exact": 75}],
-                    "preferTargetTypes": [k("master-value")],
-                }
-            ],
-        },
-        "parameters": {
-            "type": {"kind": "objectType"},
+        "filters": {
+            "type": {"byType": True},
             "system": {
-                "kind": "projection",
-                "projection": "systemVariants",
-                "matchFields": [f"ancestor:{system}.name", f"ancestor:{system}.{k('system-code')}"],
-                "scoresFrom": True,
-                "requireMatch": True,
-                "targetable": True,
+                "onRelated": "systemVariants",
+                "matchOn": [f"ancestor:{system}.name", f"ancestor:{system}.{k('system-code')}"],
+                "keepOnlyMatching": True,
+                "scoreOnlyMatching": True,
+                "crosswalk": True,
             },
-            "codelist": {"kind": "ancestor", "objectTypes": [k("codelist")], "matchFields": ["name", k("codelist-code")]},
+            "codelist": {"under": [k("codelist")], "matchOn": ["name", k("codelist-code")]},
             "sameSystem": {
-                "kind": "related",
-                "objectTypes": [k("master-value")],
-                "matchFields": [k("master-id")],
-                "via": ["self", "sharedProjection:systemVariants"],
+                "linkedTo": [k("master-value")],
+                "through": ["itself", "sharedWith:systemVariants"],
+                "matchOn": [k("master-id")],
             },
             "language": {
-                "kind": "projection",
-                "projection": "translations",
-                "matchFields": [f"ancestor:{language}.{k('language-code')}"],
-                "requireMatch": True,
+                "onRelated": "translations",
+                "matchOn": [f"ancestor:{language}.{k('language-code')}"],
+                "keepOnlyMatching": True,
             },
         },
-        "lists": [
-            {"key": "codelists", "objectType": k("codelist"), "parentParameter": {"name": "domain", "objectTypes": [k("domain")]}},
-            {"key": "values", "objectType": k("master-value"), "parentParameter": {"name": "codelist", "objectTypes": [k("codelist")]}},
-            {"key": "all-values", "objectType": k("master-value")},
-        ],
     }
 
 
 @pytest.fixture(params=["starter", "renamed"])
 def base(request) -> tuple[dict[str, Any], Keys]:
-    """The starter on schema 0.8 without its own consumer API, as it is or with every key renamed,
-    and its key map; each test declares the definition it needs."""
+    """The starter without its own consumer API, as it is or with every key renamed, and its key
+    map; each test declares the definition it needs."""
     source = json.loads(MODEL_PATH.read_text())
     source.pop("consumerApis", None)
     names: dict[str, str] = {}
     if request.param == "renamed":
         source, names = renamed_model(source)
-    source["schemaVersion"] = "0.8"
     return source, lambda key: names.get(key, key)
 
 
@@ -148,15 +157,13 @@ def test_definition_compiles_into_the_release_with_its_output_contract(base):
     compiled = compile_model(with_definition(source, definition(k)))
     assert compiled.valid, compiled.diagnostics
     canonical = compiled.canonical_model
-    # The canonical document keeps the definition's own spelling, `from` included, and reparses to
-    # the same hash; a model without definitions has none in its document.
-    projection = canonical["consumerApis"][0]["projections"]["systemVariants"]
-    assert projection["from"] == {"relation": k("system-value-maps-to-master"), "direction": "incoming"}
-    assert "from_" not in projection
+    # The canonical document is the definition as written, `from` included, and reparses to the
+    # same hash; a model without definitions has none in its document.
+    assert canonical["consumerApis"][0] == definition(k)
     assert compile_model(canonical).model_hash == compiled.model_hash
     assert "consumerApis" not in compile_model(source).canonical_model
 
-    contract = output_contract(compiled.model, compiled.model.consumerApis[0])
+    contract = output_contract(compiled.model, consumer_apis(compiled.model)[0])
     assert contract.types == {k("master-value"): "CodelistValue", k("codelist"): "Codelist", k("domain"): "Domain"}
     assert contract.fields == {
         "masterId": "text",
@@ -188,15 +195,45 @@ def test_definition_compiles_into_the_release_with_its_output_contract(base):
     }
 
 
-def test_consumer_apis_need_schema_0_8(base):
-    source, k = base
-    older = with_definition(source, definition(k))
-    older["schemaVersion"] = "0.7"
-    for object_type in older["objectTypes"]:
-        object_type.pop("effectivePeriod", None)
-    diagnostic = compile_model(older).diagnostics[0]
-    assert (diagnostic.code, diagnostic.path) == ("INVALID_MODEL", "/consumerApis")
-    assert "0.8" in diagnostic.message
+@pytest.mark.parametrize(("shipped", "original"), SHIPPED, ids=["starter", "operators"])
+def test_the_shipped_models_rewritten_in_schema_0_9_are_the_same_definitions(shipped, original):
+    """C18's proof of no change: each shipped model's definitions and its 0.8 original's compile to
+    the same internal form, so every reader serves them alike, and each definition's OpenAPI
+    document is the same apart from the release it names. Expanding the expanded read of either
+    gives the definition back (C-D137)."""
+    rewritten = parse_model(json.loads(shipped.read_text()))
+    before = parse_model(json.loads(original.read_text()))
+    assert (rewritten.schemaVersion, before.schemaVersion) == ("0.9", "0.8")
+    assert consumer_apis(rewritten) == consumer_apis(before)
+
+    def document(model, definition):
+        built = consumer_openapi(model, definition, root_path="", resolve_max_items=1000)
+        release = f"{model.release.name} {model.release.version}"
+        built["info"]["description"] = built["info"]["description"].replace(release, "<release>")
+        return built
+
+    for new, old in zip(consumer_apis(rewritten), consumer_apis(before), strict=True):
+        assert document(rewritten, new) == document(before, old), new.key
+        for model, definition in ((rewritten, new), (before, old)):
+            read = ConsumerApiDocument.model_validate(expanded_definition(model, definition))
+            assert expand(model, read)[0] == definition
+
+
+def test_schema_0_8_definitions_are_read_as_stored_and_never_written_again():
+    """C-D134: a stored 0.8 release compiles as it was, every operation offered; an author's 0.8
+    document that declares consumerApis is refused at /schemaVersion, naming schema 0.9."""
+    stored = json.loads(STARTER_08.read_text())
+    compiled = compile_model(stored)
+    assert compiled.valid, compiled.diagnostics
+    (served,) = consumer_apis(compiled.model)
+    assert all(served.offers(name) for name in ("objects", "xref", "resolve", "lists", "events"))
+    assert compiled.canonical_model == compile_model(compiled.canonical_model).canonical_model
+
+    refused = compile_authored_model(stored)
+    assert [(d.code, d.path) for d in refused.diagnostics] == [("UNSUPPORTED_SCHEMA_VERSION", "/schemaVersion")]
+    assert "schema 0.9" in refused.diagnostics[0].message
+    stored.pop("consumerApis")
+    assert compile_authored_model(stored).valid
 
 
 def test_events_round_trip_and_leave_definitions_without_them_unchanged(base):
@@ -204,18 +241,20 @@ def test_events_round_trip_and_leave_definitions_without_them_unchanged(base):
     has none in its document, so releases made before C9 keep their hash."""
     source, k = base
     without = compile_model(with_definition(source, definition(k)))
-    assert "events" not in without.canonical_model["consumerApis"][0]
+    assert "events" not in without.canonical_model["consumerApis"][0]["operations"]
 
     event = {
         "key": "reference-data-changed",
         "objectTypes": [k("master-value"), k("codelist")],
         "changes": ["created", "updated", "deleted"],
-        "watch": {"fields": ["masterId", "code", "isActive"], "projections": ["systemVariants"]},
+        "watch": {"fields": ["masterId", "code", "isActive"], "related": ["systemVariants"]},
     }
     unwatched = {"key": "domains", "objectTypes": [k("domain")], "changes": ["created"]}
-    compiled = compile_model(with_definition(source, definition(k) | {"events": [event, unwatched]}))
+    item = definition(k)
+    item["operations"]["events"] = {"custom": [event, unwatched]}
+    compiled = compile_model(with_definition(source, item))
     assert compiled.valid, compiled.diagnostics
-    assert compiled.canonical_model["consumerApis"][0]["events"] == [event, unwatched]
+    assert compiled.canonical_model["consumerApis"][0]["operations"]["events"] == {"custom": [event, unwatched]}
     assert compile_model(compiled.canonical_model).model_hash == compiled.model_hash
     assert compiled.model_hash != without.model_hash
 
@@ -252,33 +291,51 @@ def _drop(path: str) -> Mutation:
     return mutate
 
 
+def _append(path: str, value: Any) -> Mutation:
+    def mutate(item: dict[str, Any], k: Keys) -> None:
+        target: Any = item
+        for part in path.split("/"):
+            target = target[part]
+        target.append(value(k) if callable(value) else value)
+
+    return mutate
+
+
+def _rename_list(old: str, new: str) -> Mutation:
+    def mutate(item: dict[str, Any], _k: Keys) -> None:
+        lists = item["operations"]["lists"]
+        item["operations"]["lists"] = {new if key == old else key: value for key, value in lists.items()}
+
+    return mutate
+
+
 REFUSALS: list[tuple[str, Mutation, str, str]] = [
-    ("unknown exposed type", _set("objectTypes/unknown-type", {"publicName": "X"}), "UNKNOWN_OBJECT_TYPE", "/objectTypes/unknown-type"),
-    ("repeated public name", _set("objectTypes/@domain", {"publicName": "Codelist"}), "DUPLICATE_KEY", "/objectTypes/{domain}/publicName"),
+    ("unknown exposed type", _append("exposes", "unknown-type"), "UNKNOWN_OBJECT_TYPE", "/exposes/3"),
+    ("repeated public name", _set("publicNames/@domain", "Codelist"), "DUPLICATE_KEY", "/publicNames/{domain}"),
     ("key outside the URL alphabet", _set("key", "RDM"), "INVALID_MODEL", "/consumerApis/RDM/key"),
-    ("unknown source", _set("object/code/source/1", "no-such-attribute"), "INVALID_REFERENCE", "/object/code/source/1"),
-    ("source no exposed type binds", _set("object/code/source/1", lambda k: k("system-code")), "INVALID_REFERENCE", "/object/code/source/1"),
-    ("sources of different types (C-D19)", _set("object/code/source/1", lambda k: k("sort-order")), "INVALID_MODEL", "/object/code/source"),
-    ("default of another type", _set("object/active/default", "yes"), "INVALID_MODEL", "/object/active/default"),
-    ("identity other than the object ID (C-D24)", _set("object/id/source/0", lambda k: k("value-code")), "INVALID_MODEL", "/object/id/source"),
-    ("reserved output name", _set("object/attributes/matchScore", lambda k: {"source": [k("value-name")]}), "INVALID_MODEL", "/object/attributes/matchScore"),
-    ("output name used twice", _set("object/attributes/name", lambda k: {"source": [k("value-name")]}), "DUPLICATE_KEY", "/object/attributes/name"),
-    ("parent code without a code role", _drop("object/code"), "INVALID_MODEL", "/object/parent/fields"),
-    ("projection over an unknown relation", _set("projections/systemVariants/from/relation", "no-such-relation"), "INVALID_REFERENCE", "/projections/systemVariants/from/relation"),
-    ("projection route no exposed type has", _set("projections/systemVariants/from/direction", "outgoing"), "INVALID_REFERENCE", "/projections/systemVariants/from"),
-    ("projection field of a type that is no ancestor", _set("projections/systemVariants/fields/system", lambda k: f"ancestor:{k('domain')}.name"), "INVALID_REFERENCE", "/projections/systemVariants/fields/system"),
-    ("projection named like an output field", _set("projections/name", lambda k: {"from": {"relation": k("object-has-translation"), "direction": "outgoing"}, "fields": {"n": "name"}}), "DUPLICATE_KEY", "/projections/name"),
-    ("match on a field neither searchable nor unique (C-D20)", _set("match/own/0/field", lambda k: k("sort-order")), "INVALID_MODEL", "/match/own/0/field"),
-    ("promotion from an unknown projection", _set("match/promoted/0/projection", "nothing"), "INVALID_REFERENCE", "/match/promoted/0/projection"),
-    ("preferred target type not exposed", _set("match/promoted/0/preferTargetTypes/0", lambda k: k("system")), "INVALID_REFERENCE", "/match/promoted/0/preferTargetTypes/0"),
-    ("reserved parameter name", _set("parameters/query", {"kind": "objectType"}), "INVALID_MODEL", "/parameters/query"),
-    ("crosswalk-like parameter name", _set("parameters/to.system", {"kind": "objectType"}), "INVALID_MODEL", "/parameters/to.system"),
-    ("ancestor parameter over a type that is no ancestor", _set("parameters/codelist/objectTypes/0", lambda k: k("system")), "INVALID_REFERENCE", "/parameters/codelist/objectTypes/0"),
-    ("related parameter over an unknown route", _set("parameters/sameSystem/via/1", "sharedProjection:nothing"), "INVALID_REFERENCE", "/parameters/sameSystem/via/1"),
-    ("projection parameter on a field the projection lacks", _set("parameters/system/matchFields/1", lambda k: k("codelist-code")), "INVALID_REFERENCE", "/parameters/system/matchFields/1"),
-    ("list key outside the URL alphabet", _set("lists/2/key", "All_Values"), "INVALID_MODEL", "/lists/All_Values/key"),
-    ("list of a type not exposed", _set("lists/2/objectType", lambda k: k("system")), "INVALID_REFERENCE", "/lists/all-values/objectType"),
-    ("list parent that cannot contain the type", _set("lists/0/parentParameter/objectTypes/0", lambda k: k("master-value")), "INVALID_REFERENCE", "/lists/codelists/parentParameter/objectTypes/0"),
+    ("unknown source", _set("object/fields/code/from/1", "no-such-attribute"), "INVALID_REFERENCE", "/object/fields/code/from/1"),
+    ("source no exposed type binds", _set("object/fields/code/from/1", lambda k: k("system-code")), "INVALID_REFERENCE", "/object/fields/code/from/1"),
+    ("sources of different types (C-D19)", _set("object/fields/code/from/1", lambda k: k("sort-order")), "INVALID_MODEL", "/object/fields/code/from"),
+    ("default of another type", _set("object/fields/isActive/default", "yes"), "INVALID_MODEL", "/object/fields/isActive/default"),
+    ("identity other than the object ID (C-D24)", _set("object/fields/masterId/from", lambda k: k("value-code")), "INVALID_MODEL", "/object/fields/masterId/from"),
+    ("reserved output name", _set("object/fields/matchScore", lambda k: k("value-name")), "INVALID_MODEL", "/object/fields/matchScore"),
+    ("output name used twice", _set("object/fields/path", lambda k: k("value-name")), "DUPLICATE_KEY", "/object/path"),
+    ("parent code without a code role", _drop("object/fields/code"), "INVALID_MODEL", "/object/parent"),
+    ("related records over an unknown relation", _set("object/related/systemVariants/via", "no-such-relation"), "INVALID_REFERENCE", "/object/related/systemVariants/via"),
+    ("related route no exposed type has", _set("object/related/systemVariants/via", lambda k: k("system-value-maps-to-master")), "INVALID_REFERENCE", "/object/related/systemVariants/via"),
+    ("related field of a type that is no ancestor", _set("object/related/systemVariants/fields/system", lambda k: f"ancestor:{k('domain')}.name"), "INVALID_REFERENCE", "/object/related/systemVariants/fields/system"),
+    ("related block named like an output field", _set("object/related/name", lambda k: {"via": k("object-has-translation"), "fields": {"n": "name"}}), "DUPLICATE_KEY", "/object/related/name"),
+    ("match on a field neither searchable nor unique (C-D20)", _set("operations/xref/matchOn/0/field", lambda k: k("sort-order")), "INVALID_MODEL", "/operations/xref/matchOn/0/field"),
+    ("match through an unknown related block", _set("operations/xref/alsoMatchThrough/0/related", "nothing"), "INVALID_REFERENCE", "/operations/xref/alsoMatchThrough/0/related"),
+    ("preferred type not exposed", _set("operations/xref/alsoMatchThrough/0/preferTypes/0", lambda k: k("system")), "INVALID_REFERENCE", "/operations/xref/alsoMatchThrough/0/preferTypes/0"),
+    ("reserved filter name", _set("filters/query", {"byType": True}), "INVALID_MODEL", "/filters/query"),
+    ("crosswalk-like filter name", _set("filters/to.system", {"byType": True}), "INVALID_MODEL", "/filters/to.system"),
+    ("under filter over a type that is no ancestor", _set("filters/codelist/under/0", lambda k: k("system")), "INVALID_REFERENCE", "/filters/codelist/under/0"),
+    ("linkedTo filter over an unknown route", _set("filters/sameSystem/through/1", "sharedWith:nothing"), "INVALID_REFERENCE", "/filters/sameSystem/through/1"),
+    ("onRelated filter on a field the related records lack", _set("filters/system/matchOn/1", lambda k: k("codelist-code")), "INVALID_REFERENCE", "/filters/system/matchOn/1"),
+    ("list key outside the URL alphabet", _rename_list("all-values", "All_Values"), "INVALID_MODEL", "/operations/lists/All_Values"),
+    ("list of a type not exposed", _set("operations/lists/all-values/of", lambda k: k("system")), "INVALID_REFERENCE", "/operations/lists/all-values/of"),
+    ("list within a type that cannot contain it", _set("operations/lists/codelists/within/types/0", lambda k: k("master-value")), "INVALID_REFERENCE", "/operations/lists/codelists/within/types/0"),
 ]
 
 
@@ -298,9 +355,10 @@ def test_every_reference_is_refused_at_its_pointer(base, label, mutate, code, pa
 def test_shape_errors_name_the_body_part(base):
     source, k = base
     for mutate, path in (
-        (_set("match/own/0/exact", 0), "/consumerApis/0/match/own/0/exact"),
-        (_set("match/own/1", {"field": "name"}), "/consumerApis/0/match/own/1"),
-        (_set("parameters/system/kind", "location"), "/consumerApis/0/parameters/system"),
+        (_set("operations/xref/matchOn/0/exact", 0), "/consumerApis/0/operations/xref/matchOn/0/exact"),
+        (_set("operations/xref/matchOn/1", {"field": "name"}), "/consumerApis/0/operations/xref/matchOn/1"),
+        (_set("filters/system/kind", "location"), "/consumerApis/0/filters/system"),
+        (_set("object/fields/code/role", "label"), "/consumerApis/0/object/fields/code/role"),
         (_set("contractVersion", 0), "/consumerApis/0/contractVersion"),
     ):
         item = definition(k)
@@ -319,31 +377,40 @@ def _both(*mutations: Mutation) -> Mutation:
     return mutate
 
 
+def _stop_exposing(type_key: str) -> Mutation:
+    def mutate(item: dict[str, Any], k: Keys) -> None:
+        item["exposes"].remove(k(type_key))
+        del item["publicNames"][k(type_key)]
+
+    return mutate
+
+
 BREAKING: list[tuple[str, Mutation, list[str]]] = [
-    ("removes an output field", _drop("object/attributes/sortOrder"), ["/object"]),
-    ("retypes an output field", _set("object/attributes/sortOrder", lambda k: {"source": [k("value-name")]}), ["/object"]),
-    ("removes a parent field", _set("object/parent/fields", ["objectType", "id", "name"]), ["/object"]),
-    ("renames a public type", _set("objectTypes/@domain", {"publicName": "Area"}), ["/objectTypes/{domain}/publicName"]),
+    ("removes an output field", _drop("object/fields/sortOrder"), ["/object"]),
+    ("retypes an output field", _set("object/fields/sortOrder", lambda k: k("value-name")), ["/object"]),
+    ("removes a parent field", _set("object/parent", ["objectType", "id", "name"]), ["/object"]),
+    ("renames a public type", _set("publicNames/@domain", "Area"), ["/publicNames/{domain}"]),
     (
         "stops exposing a type",
-        _both(_drop("objectTypes/@domain"), _set("object/code/source", lambda k: [k("value-code"), k("codelist-code")])),
-        ["/objectTypes"],
+        _both(_stop_exposing("domain"), _set("object/fields/code/from", lambda k: [k("value-code"), k("codelist-code")])),
+        ["/exposes"],
     ),
     (
-        "removes a projection and the parameter over it",
-        _both(_drop("projections/translations"), _drop("parameters/language")),
-        ["/projections", "/parameters"],
+        "removes related records and the filter over them",
+        _both(_drop("object/related/translations"), _drop("filters/language")),
+        ["/object/related", "/filters"],
     ),
-    ("removes a projection field", _drop("projections/systemVariants/fields/externalId"), ["/projections/systemVariants/fields"]),
-    ("changes a weight (C-D4)", _set("match/own/0/exact", 999), ["/match"]),
-    ("removes the lists (C-D18)", _set("lists", []), ["/lists"] * 3),
-    ("changes a list's parent parameter (C-D18)", _drop("lists/1/parentParameter"), ["/lists"]),
-    ("removes a parameter (C-D18)", _drop("parameters/type"), ["/parameters"]),
+    ("removes a related field", _drop("object/related/systemVariants/fields/externalId"), ["/object/related/systemVariants/fields"]),
+    ("changes a weight (C-D4)", _set("operations/xref/matchOn/0/exact", 999), ["/operations/xref"]),
+    ("removes the lists (C-D18)", _drop("operations/lists"), ["/operations/lists"] * 3),
+    ("changes a list's within (C-D18)", _drop("operations/lists/values/within"), ["/operations/lists"]),
+    ("removes a filter (C-D18)", _drop("filters/type"), ["/filters"]),
     (
-        "changes a parameter's kind (C-D18)",
-        _set("parameters/type", lambda k: {"kind": "ancestor", "objectTypes": [k("codelist")], "matchFields": ["name"]}),
-        ["/parameters/type/kind"],
+        "changes a filter's verb (C-D18)",
+        _set("filters/type", lambda k: {"under": [k("codelist")], "matchOn": ["name"]}),
+        ["/filters/type"],
     ),
+    ("stops offering an operation (C-D132)", _drop("operations/resolve"), ["/operations"]),
 ]
 
 
@@ -367,12 +434,17 @@ def test_additions_are_compatible_and_lower_versions_or_removals_are_reported(ba
     source, k = base
     active = parse_model(with_definition(source, definition(k)))
     item = definition(k)
-    item["object"]["attributes"]["validity"] = {"source": [k("valid-to")]}
-    item["projections"]["systemVariants"]["fields"]["valueName"] = k("value-name")
-    item["parameters"]["domain"] = {"kind": "ancestor", "objectTypes": [k("domain")], "matchFields": ["name"]}
-    item["lists"].append({"key": "domains", "objectType": k("domain")})
-    item["objectTypes"][k("language")] = {"publicName": "Language"}
+    item["object"]["fields"]["validity"] = k("valid-to")
+    item["object"]["related"]["systemVariants"]["fields"]["valueName"] = k("value-name")
+    item["filters"]["domain"] = {"under": [k("domain")], "matchOn": ["name"]}
+    item["operations"]["lists"]["domains"] = {"of": k("domain")}
+    item["exposes"].append(k("language"))
+    item["publicNames"][k("language")] = "Language"
     assert contract_diagnostics(active, parse_model(with_definition(source, item))) == []
+    # Offering one more operation is compatible too (C-D132).
+    fewer = definition(k)
+    del fewer["operations"]["resolve"]
+    assert contract_diagnostics(parse_model(with_definition(source, fewer)), active) == []
 
     lower = definition(k) | {"contractVersion": 1}
     higher_active = parse_model(with_definition(source, definition(k) | {"contractVersion": 3}))
@@ -392,10 +464,10 @@ def test_a_cardinality_change_in_the_model_changes_a_projection_shape(base):
             binding["cardinality"] = "one-to-many"
     candidate = parse_model(changed)
     # One system value per master value now: the projection becomes an object or null.
-    assert output_contract(candidate, candidate.consumerApis[0]).projections["systemVariants"]["shape"] == "one"
+    assert output_contract(candidate, consumer_apis(candidate)[0]).projections["systemVariants"]["shape"] == "one"
     diagnostics = contract_diagnostics(active, candidate)
     assert [(d.code, d.path) for d in diagnostics] == [
-        ("CONSUMER_CONTRACT_VERSION_REQUIRED", f"{API}/projections/systemVariants")
+        ("CONSUMER_CONTRACT_VERSION_REQUIRED", f"{API}/object/related/systemVariants")
     ]
     assert "from an array to an object or null" in diagnostics[0].message
 
@@ -441,7 +513,6 @@ def test_compile_diff_and_activation_hold_the_active_contract(admin_client):
     The active model's own definitions stay as they are beside the test's, under a key of its own."""
     client = admin_client
     source = client.get("/api/v1/model").json()
-    source["schemaVersion"] = "0.8"
     keys: Keys = lambda key: key
     api = "/consumerApis/c1"
 
@@ -455,7 +526,7 @@ def test_compile_diff_and_activation_hold_the_active_contract(admin_client):
     assert activated.status_code == 200, activated.text
 
     broken_definition = definition(keys)
-    del broken_definition["object"]["attributes"]["sortOrder"]
+    del broken_definition["object"]["fields"]["sortOrder"]
     broken = with_own(broken_definition)
     broken["release"]["version"] = "0.9.0-c1-broken"
     draft = client.post("/api/v1/model-drafts", json={"name": "C1 break", "model": broken})

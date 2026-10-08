@@ -13,7 +13,15 @@ import { errorMessage, isApiError } from "@/api/errors";
 import { formatServerTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { routePath } from "@/routing/routes";
-import type { DeliveryError, EngineModel, RouteState, SettingsRoute, Subscription, SubscriptionFinding } from "@/types";
+import type {
+  ConsumerApiDefinition,
+  DeliveryError,
+  EngineModel,
+  RouteState,
+  SettingsRoute,
+  Subscription,
+  SubscriptionFinding,
+} from "@/types";
 import { CatalogueEntry, CatalogueLayout } from "@/ui/CatalogueLayout";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { CopyValue } from "@/ui/CopyValue";
@@ -32,7 +40,8 @@ import { useToast } from "@/ui/Toast";
 import { count } from "./limits";
 import { useCapabilities } from "./useSystem";
 import { WebhookDeliveries } from "./WebhookDeliveries";
-import { WebhookDialog, subscribable } from "./WebhookDialog";
+import { WebhookDialog } from "./WebhookDialog";
+import { subscribable, useConsumerDefinitions } from "./consumerDefinitions";
 import {
   CONTENT,
   FIX,
@@ -58,11 +67,14 @@ export function WebhooksPage({
   model: EngineModel;
   onNavigate: (route: RouteState) => void;
 }) {
-  const { capabilities, error, retry } = useCapabilities();
+  const { capabilities, error: capabilitiesError, retry: retryCapabilities } = useCapabilities();
+  const consumer = useConsumerDefinitions(model);
   const subscriptions = capabilities?.consumerSubscriptions;
   const [creating, setCreating] = useState(false);
   const newButtonRef = useRef<HTMLButtonElement>(null);
-  const canCreate = subscribable(model).length > 0;
+  const canCreate = subscribable(consumer.definitions ?? []).length > 0;
+  const error = capabilitiesError || consumer.error;
+  const retry = capabilitiesError ? retryCapabilities : consumer.retry;
 
   return (
     <SettingsLayout
@@ -79,7 +91,7 @@ export function WebhooksPage({
     >
       {error ? (
         <InlineError message={error} onRetry={retry} />
-      ) : !subscriptions ? (
+      ) : !subscriptions || !consumer.definitions ? (
         <Skeleton label="Loading webhooks" lines={6} />
       ) : !subscriptions.manageSubscriptions ? (
         <EmptyState
@@ -100,6 +112,7 @@ export function WebhooksPage({
         <Subscriptions
           route={route}
           model={model}
+          definitions={consumer.definitions}
           retentionDays={subscriptions.logRetentionDays}
           batchLimit={subscriptions.delivery.maxEventsPerBatch}
           canCreate={canCreate}
@@ -118,6 +131,7 @@ export function WebhooksPage({
 function Subscriptions({
   route,
   model,
+  definitions,
   retentionDays,
   batchLimit,
   canCreate,
@@ -127,6 +141,7 @@ function Subscriptions({
 }: {
   route: WebhooksRoute;
   model: EngineModel;
+  definitions: ConsumerApiDefinition[];
   retentionDays: number;
   /** The most events a subscription may batch (capabilities). */
   batchLimit: number;
@@ -202,6 +217,7 @@ function Subscriptions({
               key={route.subscriptionId}
               route={{ ...route, subscriptionId: route.subscriptionId }}
               model={model}
+              definitions={definitions}
               retentionDays={retentionDays}
               batchLimit={batchLimit}
               onNavigate={onNavigate}
@@ -222,6 +238,7 @@ function Subscriptions({
       {creating && (
         <WebhookDialog
           model={model}
+          definitions={definitions}
           batchLimit={batchLimit}
           onClose={onCreateClosed}
           onSaved={(subscription) => {
@@ -275,6 +292,7 @@ function SigningKeyDialog({ subscription, onClose }: { subscription: Subscriptio
 function SubscriptionDetail({
   route,
   model,
+  definitions,
   retentionDays,
   batchLimit,
   onNavigate,
@@ -283,6 +301,7 @@ function SubscriptionDetail({
 }: {
   route: WebhooksRoute & { subscriptionId: string };
   model: EngineModel;
+  definitions: ConsumerApiDefinition[];
   retentionDays?: number;
   batchLimit?: number;
   onNavigate: (route: RouteState) => void;
@@ -356,7 +375,7 @@ function SubscriptionDetail({
   if (loadError) return <InlineError message={loadError} onRetry={() => setLoadToken((token) => token + 1)} />;
   if (!subscription) return <div className="panel-state">Loading subscription…</div>;
   const state = subscriptionState(subscription);
-  const definition = model.consumerApis?.find((item) => item.key === subscription.consumerApi);
+  const definition = definitions.find((item) => item.key === subscription.consumerApi);
   const consumerApisRoute: SettingsRoute = { kind: "settings", page: "consumer-apis" };
   const pendingDelivery = subscription.delivery.pending;
 
@@ -400,7 +419,7 @@ function SubscriptionDetail({
       value: (
         <ul className="webhook-event-list">
           {subscription.events.map((key) => {
-            const event = definition?.events?.find((item) => item.key === key);
+            const event = definition?.operations.events?.custom.find((item) => item.key === key);
             return (
               <li key={key}>
                 <code>{key}</code>
@@ -539,6 +558,7 @@ function SubscriptionDetail({
               <WebhookDeliveries
                 route={route}
                 model={model}
+                definition={definition}
                 subscription={subscription}
                 retentionDays={retentionDays}
                 onNavigate={onNavigate}
@@ -550,6 +570,7 @@ function SubscriptionDetail({
       {editing && (
         <WebhookDialog
           model={model}
+          definitions={definitions}
           batchLimit={batchLimit}
           subscription={subscription}
           onConflict={reload}

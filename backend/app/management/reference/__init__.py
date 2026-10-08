@@ -19,6 +19,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from sqlalchemy.orm import Session
 
 from ...config import ApiReferenceScript
+from ...engine.model.consumer_definitions import consumer_apis
 from ...engine.model.consumer_openapi import consumer_openapi_path
 from ...engine.model.registry import (
     ModelRegistryUnavailable,
@@ -108,7 +109,7 @@ def consumer_sources(session: Session, root_path: str) -> list[dict]:
             "slug": f"consumer-{definition.key}-v{definition.contractVersion}",
             "url": f"{root_path}{consumer_openapi_path(definition)}",
         }
-        for definition in sorted(model.consumerApis or (), key=lambda item: item.key)
+        for definition in sorted(consumer_apis(model), key=lambda item: item.key)
     ]
 
 

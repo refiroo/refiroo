@@ -28,14 +28,18 @@ const SECOND = {
   key: "area-feed",
   name: "Area feed",
   contractVersion: 3,
-  objectTypes: { domain: { publicName: "Area" } },
+  exposes: ["domain"],
+  publicNames: { domain: "Area" },
   object: {
-    id: { output: "id", source: ["id"] },
-    code: { output: "code", source: ["domain-code"] },
-    name: { output: "label", source: ["name"] },
+    fields: { id: { role: "id" }, code: { role: "code", from: "domain-code" }, label: { role: "name", from: "name" } },
   },
-  lists: [{ key: "areas", objectType: "domain" }],
-  events: [{ key: "areas-changed", objectTypes: ["domain"], changes: ["created", "updated", "deleted"] }],
+  operations: {
+    objects: {},
+    xref: {},
+    resolve: {},
+    lists: { areas: { of: "domain" } },
+    events: { custom: [{ key: "areas-changed", objectTypes: ["domain"], changes: ["created", "updated", "deleted"] }] },
+  },
 };
 
 // A receiver on this machine: it refuses (503) until told to accept, and keeps what it accepted.

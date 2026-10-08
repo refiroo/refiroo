@@ -6,6 +6,7 @@ from pathlib import Path
 from openapi_spec_validator import validate as validate_openapi
 
 from app.engine.model.compiler import parse_model
+from app.engine.model.consumer_definitions import consumer_api
 from app.engine.model.consumer_openapi import consumer_openapi
 from app.engine.model.loader import load_model
 
@@ -13,12 +14,12 @@ EXAMPLE = Path(__file__).resolve().parents[5] / "model" / "rdm-operators-timetab
 
 
 def test_the_operators_model_gives_one_valid_document_over_every_type():
-    """The model's one consumer API exposes every object type, so its XREF looks up across the whole
-    model, and its document is valid OpenAPI 3.1. A list whose parent parameter shares a definition
-    parameter's name (codelists and domain) lists that name once, as the parent, which is what the
-    route reads it as; the other routes keep the definition parameter."""
+    """The model's ``rdm`` consumer API exposes every object type, so its XREF looks up across the
+    whole model, and its document is valid OpenAPI 3.1. A list ``within`` a filter (codelists and
+    domain) lists that name once, as the parent, which is what the route reads it as; the other
+    routes keep the filter."""
     model = load_model(EXAMPLE)
-    (rdm,) = model.consumerApis
+    rdm = consumer_api(model, "rdm")
     assert rdm.key == "rdm"
     assert set(rdm.objectTypes) == {item.key for item in model.objectTypes}
     document = consumer_openapi(model, rdm, root_path="", resolve_max_items=1000)
@@ -37,7 +38,7 @@ def test_as_of_is_documented_where_a_read_can_return_a_dated_type():
     types, and on the list of a dated type, not on the list of an undated one; the refusals, the
     ``RDM-As-Of-Applied`` header and an optional ``asOfApplied`` on the envelopes."""
     model = load_model(EXAMPLE)
-    (rdm,) = model.consumerApis
+    rdm = consumer_api(model, "rdm")
     document = consumer_openapi(model, rdm, root_path="", resolve_max_items=1000)
     base = "/api/consumer/rdm/v1"
 
@@ -63,21 +64,22 @@ def test_a_definition_with_events_documents_its_pull_feed():
     parameters without ``to.`` names (the pull feed takes no crosswalk), the event and page schemas
     with the object as get by ID answers it, and ``410``; one without events has no such path."""
     document = json.loads(EXAMPLE.read_text())
-    (definition,) = document["consumerApis"]
+    (definition,) = [item for item in document["consumerApis"] if item["key"] == "rdm"]
+    del definition["operations"]["events"]
     model = parse_model(document)
-    plain = consumer_openapi(model, model.consumerApis[0], root_path="", resolve_max_items=1000)
+    plain = consumer_openapi(model, consumer_api(model, "rdm"), root_path="", resolve_max_items=1000)
     assert "/api/consumer/rdm/v1/events" not in plain["paths"]
 
-    definition["events"] = [
-        {"key": "reference-data-changed", "objectTypes": list(definition["objectTypes"])[:2], "changes": ["created", "deleted"]}
-    ]
+    definition["operations"]["events"] = {
+        "custom": [{"key": "reference-data-changed", "objectTypes": definition["exposes"][:2], "changes": ["created", "deleted"]}]
+    }
     model = parse_model(document)
-    built = consumer_openapi(model, model.consumerApis[0], root_path="", resolve_max_items=1000)
+    built = consumer_openapi(model, consumer_api(model, "rdm"), root_path="", resolve_max_items=1000)
     validate_openapi(built)
     events = built["paths"]["/api/consumer/rdm/v1/events"]["get"]
     names = {item["name"] for item in events["parameters"]}
     assert {"workspace", "event", "after", "cursor", "pageSize", "payload"} <= names
-    assert set(definition.get("parameters", {})) <= names
+    assert set(definition.get("filters", {})) <= names
     assert not any(name.startswith("to.") for name in names)
     assert "410" in events["responses"] and "409" in events["responses"]
     schemas = built["components"]["schemas"]

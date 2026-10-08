@@ -148,6 +148,7 @@ value, which sort last, follow the seeked rows. A seek value that does not parse
 - `GET /api/v1/relation-types`
 - `GET /api/v1/relation-types/{relationTypeKey}`
 - `GET /api/v1/object-type-relations`
+- `GET /api/v1/model/consumer-apis/{consumerApi}`
 
 URL paths use stable model keys. Every response body includes the entity `id` (UUID) alongside the
 `key`. Internal metadata sequence IDs are never part of the contract.
@@ -158,6 +159,32 @@ allowed source and target object type and supplies cardinality, required status,
 binding features. Relation-type responses include these bindings under `allowedPairs`; the flat
 `object-type-relations` endpoint remains available for discovery and compatibility and can be
 filtered with `fromObjectType` and `toObjectType` query parameters.
+
+**A consumer API definition expanded (Base 0.9 C18).** `GET /api/v1/model/consumer-apis/{consumerApi}`
+answers one definition of the context's model (the same context parameters and `ETag` as
+`GET /model`) in schema 0.9 with every default written out (CONSUMER_API C-D137): `exposes` and a
+public name for every exposed type, each operation offered, the events `perType` makes written out
+under `custom` (with `perType: false`), every rule of `matchOn` (`field: "code"` written as the
+code field's sources), each filter with its verb and `matchOn`, each list's `within.types`, every
+field written out with `from` as a list. A schema 0.8 release's definitions read the same way.
+Expanding the answer gives the same definition. An unknown `consumerApi` is
+`404 CONSUMER_API_NOT_FOUND` (`details.consumerApi`). The UI's Webhooks page reads events, filters
+and public names from it, never from the model document.
+
+```json
+{
+  "key": "rdm", "name": "RDM API", "contractVersion": 1,
+  "exposes": ["domain", "codelist", "master-value"],
+  "publicNames": { "domain": "Domain", "codelist": "Codelist", "master-value": "CodelistValue" },
+  "object": { "fields": { "id": { "role": "id", "from": ["id"] }, "…": "…" }, "parent": { "output": "parent", "fields": ["objectType", "id", "code", "name"] }, "path": "path", "related": { "…": "…" } },
+  "operations": {
+    "objects": {}, "xref": { "matchOn": ["…"], "alsoMatchThrough": ["…"] }, "resolve": {},
+    "lists": { "codelists": { "of": "codelist", "within": { "filter": "domain", "types": ["domain"] } } },
+    "events": { "perType": false, "custom": [{ "key": "values-changed", "…": "…" }] }
+  },
+  "filters": { "domain": { "under": ["domain"], "matchOn": ["id", "domain-code", "name"] } }
+}
+```
 
 ### Base 0.5 model-lifecycle contract
 
@@ -357,7 +384,7 @@ an unsupported schema, diff returns `422 UNSUPPORTED_SCHEMA_VERSION` with detail
 affected release. Missing releases return `404 MODEL_RELEASE_NOT_FOUND`.
 
 **Consumer API contracts (Base 0.9 C1).** Diff and draft compile also return `consumerContracts`:
-the candidate's consumer API definitions (schema 0.8 `consumerApis`) checked against the **active**
+the candidate's consumer API definitions (`consumerApis`) checked against the **active**
 release's, which is what consumers read (CONSUMER_API C-D17):
 
 ```json
@@ -377,9 +404,10 @@ release's, which is what consumers read (CONSUMER_API C-D17):
 
 `classification` is `compatible` or `version_required`. A definition that keeps its
 `contractVersion` must not remove or retype an output field (a parent field included), rename or stop
-exposing a type, remove a projection or change its shape or fields, change scoring weights, or remove
-or change a list or a parameter's kind (C-D2, C-D4, C-D18); each such change is an error at the part of
-the definition it concerns. A lower `contractVersion` than the active one is
+exposing a type, remove a related block or change its shape or fields, change scoring weights, remove
+or change a list or a filter's verb, or stop offering an operation (C-D2, C-D4, C-D18, C-D132); each
+such change is an error at the part of the definition the author wrote (C-D141). Weights compare only
+while both releases offer XREF, so offering it again is an addition. A lower `contractVersion` than the active one is
 `CONSUMER_CONTRACT_VERSION_DECREASED`. Additions are compatible, and a raised `contractVersion`
 releases any change. A definition the candidate no longer declares is a `CONSUMER_API_REMOVED`
 warning and does not change the classification.
@@ -530,7 +558,11 @@ are not mutation-gated. Lifecycle errors use:
   participant;
 - `409 VERSION_CONFLICT` for a stale draft version;
 - `409 RELEASE_IDENTITY_CONFLICT` for the same release key/version with different content;
-- `422 INVALID_MODEL` when installation recompilation fails;
+- `422 INVALID_MODEL` when installation recompilation fails, also for a schema 0.8 document that
+  declares `consumerApis`, whose diagnostic is `UNSUPPORTED_SCHEMA_VERSION` at `/schemaVersion`
+  naming schema 0.9; draft compile and `POST /model-validations` report the same diagnostic with
+  `valid: false` (Base 0.9 C18, CONSUMER_API C-D134), and startup refuses such a file named by
+  `RDM_MODEL_PATH`. A stored 0.8 release still activates and reads;
 - `422 UNSUPPORTED_SCHEMA_VERSION` when diff, compilation or activation involves a release whose schema
   is not supported by the runtime (details include `releaseId`, `schemaVersion`,
   `supportedSchemaVersions` and `operation`; the schema value comes from the stored model document
@@ -1332,7 +1364,7 @@ is not after their start: with any, activation is refused as `409 MODEL_MIGRATIO
 (the release diff and draft compile classify it `migration_required`) with a diagnostic
 `INVALID_EFFECTIVE_PERIOD` at `/objectTypes/<type>/effectivePeriod` and its `count`
 (D20). A consumer API definition that exposes a type whose period is removed needs a higher
-`contractVersion` (`CONSUMER_CONTRACT_VERSION_REQUIRED` at `/consumerApis/<key>/objectTypes/<type>`).
+`contractVersion` (`CONSUMER_CONTRACT_VERSION_REQUIRED` at `/consumerApis/<key>/exposes/<index>`).
 
 ### Create request
 
@@ -2548,7 +2580,7 @@ Returns the definition's shared object for the record whose **object ID** is `{i
 ### Lists
 
 ```text
-GET /api/consumer/{consumerApi}/v{contractVersion}/lists/{listKey}?{parentParameter}=…&{parameters}&workspace=…
+GET /api/consumer/{consumerApi}/v{contractVersion}/lists/{listKey}?{within}=…&{filters}&workspace=…
     &pageSize=…&cursor=…|position=…|from=end|seek=…&includeTotal=true
 ```
 
@@ -2556,7 +2588,7 @@ A page of the definition's list: the records of the list's `objectType` in the w
 the shared object above (equal to get by ID's answer for the same record and parameters).
 
 - **Without a parent value** the list holds every record of its type, each showing its `parent`.
-- **With a parent value** (the list's `parentParameter`, by object ID only) it keeps the records of its
+- **With a parent value** (the name the list is `within`, by object ID only) it keeps the records of its
   type anywhere below that record, at any depth: cities filtered on a country include those under one
   of its regions, whose `parent` stays the region. Several IDs, repeated or comma-separated, keep the
   records below any of them.
@@ -2608,12 +2640,12 @@ same record) with `matchScore`, an integer, after the declared fields.
 - **Parameters.** The definition's [parameters](#parameters) narrow the lookup with their meaning on
   lists: an object is a result when it scored and every parameter keeps it, with the score it has
   without them. `totalCount`, the pages and `expect=one` (its top result and tie) follow the narrowed
-  set, so a parameter can resolve an `AMBIGUOUS_MATCH`. A `projection` parameter limits that
-  projection's items in each result; with `requireMatch` it also drops the objects left with none.
-- **`scoresFrom`.** A `projection` parameter declaring `scoresFrom`, when the request gives it, also
-  limits promotion: in every `match.promoted` entry over its projection, only the related records it
-  matches pass their weight. The objects' own scores are untouched, and `preferTargetTypes` chooses
-  among the owners of the records that pass.
+  set, so a parameter can resolve an `AMBIGUOUS_MATCH`. An `onRelated` filter limits that related
+  block's items in each result; with `keepOnlyMatching` it also drops the objects left with none.
+- **`scoreOnlyMatching`.** An `onRelated` filter declaring `scoreOnlyMatching`, when the request
+  gives it, also limits promotion: in every `alsoMatchThrough` entry over its related block, only the
+  related records it matches pass their weight. The objects' own scores are untouched, and
+  `preferTypes` chooses among the owners of the records that pass.
 - **Paging** as on lists, without `seek` (a score is not something a caller seeks) and without
   `includeTotal`: `totalCount` and `startIndex` are always given. A cursor binds the terms, the
   parameter values, the workspace and the contract version.
@@ -2719,15 +2751,15 @@ The API and workspace refusals are those of the [parameters](#parameters) table.
 
 ### Parameters
 
-Every definition parameter applies to get by ID, to every list (C-D31), to [XREF](#xref) and to
-[batch resolve](#batch-resolve)'s items:
+Every filter the definition declares is a query parameter of the same name, and applies to get by ID,
+to every list (C-D31), to [XREF](#xref) and to [batch resolve](#batch-resolve)'s items:
 
-| Kind | Effect |
+| Filter | Effect |
 | --- | --- |
-| `objectType` | Keeps records of the named public types; an unknown name is `400 UNKNOWN_OBJECT_TYPE` |
-| `ancestor` | Keeps records below a matching record of its `objectTypes`, at any depth |
-| `related` | Keeps records linked to a matching record of its `objectTypes` through its `via` routes: a projection, `self` (the record itself matches), or `sharedProjection:<projection>` (both relate to one projected record; the matching record itself is kept only by `self`) |
-| `projection` | Limits the projection's items to those matching on `matchFields` (`ancestor:<type>.<field>` included); `requireMatch` also drops records left with none; on XREF, `scoresFrom` also limits which related records pass scores through the projection |
+| `byType` | Keeps records of the named public types; an unknown name is `400 UNKNOWN_OBJECT_TYPE` |
+| `under` | Keeps records below a matching record of its types, at any depth |
+| `linkedTo` | Keeps records linked to a matching record of its types through its `through` routes: a related block, `itself` (the record itself matches), or `sharedWith:<related>` (both relate to one related record; the matching record itself is kept only by `itself`) |
+| `onRelated` | Limits the related block's items to those matching on `matchOn` (`ancestor:<type>.<field>` included); `keepOnlyMatching` also drops records left with none; on XREF, `scoreOnlyMatching` also limits which related records pass scores through the block |
 
 - A value matches a field when it equals it: text ignoring case, typed values by their type. A value
   that does not parse for a typed field does not match that field.
@@ -2737,13 +2769,14 @@ Every definition parameter applies to get by ID, to every list (C-D31), to [XREF
   or separated by a literal comma in the URL. A comma inside a value is percent-encoded as `%2C`, as
   every HTTP library sends it: `token=Bonds%2C%20Notes` is one value, `token=Bonds,Notes` two. A
   backslash has no special meaning.
-- `scoresFrom` matters only to XREF; `asOf` arrives in C16 (until then `400 UNKNOWN_PARAMETER`).
+- `scoreOnlyMatching` matters only to XREF; `asOf` arrives in C16 (until then `400 UNKNOWN_PARAMETER`).
   `workspace` and `publication` are reserved names on every read.
 
 | Status | Code | When |
 | --- | --- | --- |
 | 404 | `CONSUMER_API_NOT_FOUND` | No definition has this `consumerApi` in the active release |
 | 404 | `CONTRACT_VERSION_NOT_FOUND` | The definition serves another contract version; `details.contractVersion` names it |
+| 404 | `OPERATION_NOT_OFFERED` | Get by ID, XREF or batch resolve on a definition that does not list the operation under `operations` (C18, C-D132); `details.operation` names it |
 | 404 | `WORKSPACE_NOT_FOUND` | Unknown or retired workspace |
 | 404 | `OBJECT_NOT_FOUND` | No record with this object ID in the workspace, one of a type the definition does not expose, or one the parameters filter out |
 | 404 | `LIST_NOT_FOUND` | The definition declares no list `{listKey}` |
@@ -2761,8 +2794,8 @@ Every definition parameter applies to get by ID, to every list (C-D31), to [XREF
 ### Crosswalk
 
 "Code X in system A: what is it in system B?" in one read. On get by ID, lists, XREF and batch
-resolve, `to.{name}` names a `projection` parameter the definition declares `"targetable": true`,
-with values matched by that parameter's `matchFields`:
+resolve, `to.{name}` names an `onRelated` filter the definition declares `"crosswalk": true`,
+with values matched by that filter's `matchOn`:
 
 ```text
 GET …/xref?query=CHF&system=SAP&to.system=Oracle&expect=one
@@ -2770,7 +2803,7 @@ GET …/objects/{id}?to.language=es
 ```
 
 - **It changes no object, score, order or total.** The plain parameter (`system=SAP`) keeps its
-  meaning, `requireMatch` and `scoresFrom` included, and `to.system` may be sent without it. Cursors
+  meaning, `keepOnlyMatching` and `scoreOnlyMatching` included, and `to.system` may be sent without it. Cursors
   do not bind `to.` values, so a cursor from a page without it reads the next page with it.
 - **The output.** The projection shows the items `to.system` matches in place of the plain
   parameter's (another parameter's limit over the same projection still applies), and each object
@@ -2783,9 +2816,9 @@ GET …/objects/{id}?to.language=es
   array (empty where an object has none), or an object or `null` for a projection of one.
 - **One target per read.** A second `to.` name is `400 MULTIPLE_TARGETS`; several values of one are
   alternatives, so `to.system=Oracle,SAP` with `expect=one` is ambiguous where both exist. A `to.`
-  name of an unknown, non-projection or non-targetable parameter is `400 UNKNOWN_PARAMETER`, its
-  message naming the targetable ones.
-- Turning `targetable` off in a later release needs a new contract version; turning it on does not.
+  name of an unknown filter, or one without `crosswalk`, is `400 UNKNOWN_PARAMETER`, its message
+  naming the filters that have it.
+- Turning `crosswalk` off in a later release needs a new contract version; turning it on does not.
 
 ```jsonc
 // GET …/xref?query=LX&to.watchRegion=South&expect=one
@@ -2928,9 +2961,11 @@ Each API's **document** is OpenAPI 3.1 and describes that API at its contract ve
   deployment's root path, and the index's `openapi` URL does too.
 - **`info`**: `title` is the definition's `name`, `version` the contract version as a string
   (`"2"`), and `description` names the model release that declares it.
-- **Operations**: get by ID, each list (with its parent parameter), XREF, batch resolve, the
-  publications list and, for a definition that declares events, the events read, each with the parameters it applies (definition parameters as arrays,
-  `style: form`; each targetable parameter's `to.` name; `asOf` where the read can return a dated
+- **Operations**: the operations the definition offers (get by ID, XREF and batch resolve when it
+  lists them, C18), each list (with the name it is `within`), the publications list and, for a
+  definition that declares events, the events read, each with the parameters it applies (filters as
+  arrays, `style: form`, an author's `description` before the engine's; each crosswalk filter's `to.`
+  name; `asOf` where the read can return a dated
   type, on a list only when its type is dated), the `ETag`, `RDM-Workspace`, `RDM-Publication` and
   `RDM-As-Of-Applied` headers, `304`, and its refusal codes.
 - **Schemas** come from the contract the breaking-change check compares: the shared object with every

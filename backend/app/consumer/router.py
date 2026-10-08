@@ -26,6 +26,8 @@ from sqlalchemy.orm import Session
 from ..common.cursors import decode_cursor, signed_scope
 from ..common.pagination import PageRequest, paginate_sequence
 from ..db import SessionLocal
+from ..engine.model.consumer_definitions import consumer_api as declared_api
+from ..engine.model.consumer_definitions import consumer_apis
 from ..engine.model.consumer_openapi import consumer_openapi, consumer_openapi_path
 from ..engine.model.registry import ModelSnapshot, resolve_model_snapshot, resolve_pinned_release
 from ..engine.reads.consumer_events import (
@@ -147,7 +149,7 @@ def _reading(
             return _Read(active.model, definition, ConsumerSource(workspace.key), parameters, tag)
         publication = _publication(session, workspace, value, parameters.single("cursor"))
         pinned = resolve_pinned_release(session, publication.model_release_id)
-        declared = next((item for item in pinned.model.consumerApis or () if item.key == definition.key), None)
+        declared = declared_api(pinned.model, definition.key)
         if declared is None or declared.contractVersion != definition.contractVersion:
             declared_version = declared.contractVersion if declared is not None else None
             raise api_error(
@@ -209,6 +211,7 @@ def get_object(
     definition's parameters (C-D31)."""
     active = resolve_model_snapshot(session)
     definition = consumer_definition(active.model, consumer_api, contract_version)
+    _offered(definition, "objects")
 
     def check(declared: ConsumerApiDefinition) -> _Parameters:
         return _Parameters.check(request, declared, serves=_OBJECT)
@@ -274,6 +277,7 @@ def get_xref(
     narrowed by its parameters, a page of them or with ``expect=one`` the single best (C-D34–C-D43)."""
     active = resolve_model_snapshot(session)
     definition = consumer_definition(active.model, consumer_api, contract_version)
+    _offered(definition, "xref")
     expect = request.query_params.getlist("expect")
     expect_one = _expect_one(expect[-1] if expect else None)
 
@@ -316,6 +320,7 @@ def post_resolve(
     to ``GET`` only (C-D65)."""
     active = resolve_model_snapshot(session)
     definition = consumer_definition(active.model, consumer_api, contract_version)
+    _offered(definition, "resolve")
 
     def check(declared: ConsumerApiDefinition) -> _Parameters:
         return _Parameters.check(request, declared, serves=_OBJECT, applies_definition=False)
@@ -404,6 +409,18 @@ def get_events(
             retention_days=request.app.state.feed_retention_days,
         ),
     )
+
+
+def _offered(definition: ConsumerApiDefinition, operation: str) -> None:
+    """Refuse an operation the definition does not list (C-D132)."""
+    if not definition.offers(operation):
+        raise api_error(
+            404,
+            "OPERATION_NOT_OFFERED",
+            f"Consumer API '{definition.key}' does not offer the '{operation}' operation at contract"
+            f" version {definition.contractVersion}",
+            {"operation": operation},
+        )
 
 
 def _events_request(parameters: _Parameters, definition: ConsumerApiDefinition, workspace_key: str) -> EventsRequest:
@@ -495,7 +512,7 @@ def get_index(request: Request, response: Response, session: DbSession) -> dict[
             "contractVersion": item.contractVersion,
             "openapi": f"{root_path}{consumer_openapi_path(item)}",
         }
-        for item in active.model.consumerApis or ()
+        for item in consumer_apis(active.model)
     ]
 
     def read() -> dict[str, Any]:

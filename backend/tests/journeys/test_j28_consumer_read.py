@@ -657,7 +657,7 @@ def test_the_publications_list_and_etag(world):
     model = copy.deepcopy(world.configuration.model)
     model["release"]["version"] += "-added"
     (definition,) = [d for d in model["consumerApis"] if d["key"] == world.key("Capi")]
-    definition["object"]["attributes"]["addedCopy"] = {"source": [world.key("R.u")]}
+    definition["object"]["fields"]["addedCopy"] = world.key("R.u")
     ok(world.activate(world.install(model)["id"]))
     current = changed.headers["ETag"]
     after = _get(world, path, current)

@@ -61,10 +61,10 @@ def _diagnostic(source: dict[str, Any]) -> tuple[str, str]:
 
 
 @pytest.mark.parametrize("renamed", [False, True], ids=["starter", "renamed"])
-def test_the_starter_declares_its_period_on_schema_0_8(renamed):
+def test_the_starter_declares_its_period(renamed):
     source, k = starter_source(renamed)
     model = parse_model(source)
-    assert (model.schemaVersion, model.release.version) == ("0.8", "0.9.2")
+    assert (model.schemaVersion, model.release.version) == ("0.9", "0.9.3")
     declared = {item.key: item.effectivePeriod for item in model.objectTypes if item.effectivePeriod}
     assert list(declared) == [k("master-value")]
     period = declared[k("master-value")]
@@ -123,7 +123,7 @@ def test_removing_an_exposed_types_period_is_a_contract_change(renamed):
     del _object_type(without, k("master-value"))["effectivePeriod"]
     diagnostics = contract_diagnostics(active, parse_model(without))
     assert [(d.code, d.path) for d in diagnostics] == [
-        ("CONSUMER_CONTRACT_VERSION_REQUIRED", f"{API}/objectTypes/{k('master-value')}")
+        ("CONSUMER_CONTRACT_VERSION_REQUIRED", f"{API}/exposes/0")
     ]
     assert "no longer declares an effective period" in diagnostics[0].message
     # Adding one back is compatible, and so is a higher contract version.

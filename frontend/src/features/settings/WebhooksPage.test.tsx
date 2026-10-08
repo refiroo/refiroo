@@ -6,7 +6,7 @@ import { ApiError } from "@/api/errors";
 import { WebhooksPage } from "@/features/settings/WebhooksPage";
 import { capabilitiesFixture } from "@/test/capabilities";
 import { testModel } from "@/test/fixtures";
-import type { EngineModel, SettingsRoute, Subscription } from "@/types";
+import type { ConsumerApiDefinition, EngineModel, SettingsRoute, Subscription } from "@/types";
 import { ToastProvider } from "@/ui/Toast";
 
 vi.mock("@/api/client", async (load) => {
@@ -14,23 +14,46 @@ vi.mock("@/api/client", async (load) => {
   return { ...actual, api: Object.fromEntries(Object.keys(actual.api).map((key) => [key, vi.fn()])) };
 });
 
-// Two consumer APIs: one declares an event and a parameter, the other declares no event.
+// Two consumer APIs: one declares an event and a filter, the other declares no event. The model
+// names them; the page reads each expanded (C18).
 const model: EngineModel = {
   ...testModel,
   consumerApis: [
-    {
-      key: "codes",
-      name: "Codes",
-      contractVersion: 2,
-      objectTypes: { codelist: { publicName: "Codelist" } },
-      parameters: { domain: { kind: "ancestor", objectTypes: ["domain"], matchFields: ["id", "code"] } },
-      events: [
-        { key: "lists-changed", objectTypes: ["codelist"], changes: ["created", "deleted"] },
-        { key: "lists-renamed", objectTypes: ["codelist"], changes: ["updated"], watch: { fields: ["name"] } },
-      ],
-    },
+    { key: "codes", name: "Codes", contractVersion: 2 },
     { key: "plain", name: "Plain", contractVersion: 1 },
   ],
+};
+
+const definitions: Record<string, ConsumerApiDefinition> = {
+  codes: {
+    key: "codes",
+    name: "Codes",
+    contractVersion: 2,
+    exposes: ["codelist"],
+    publicNames: { codelist: "Codelist" },
+    operations: {
+      objects: {},
+      xref: {},
+      resolve: {},
+      events: {
+        perType: false,
+        custom: [
+          { key: "lists-changed", objectTypes: ["codelist"], changes: ["created", "deleted"] },
+          { key: "lists-renamed", objectTypes: ["codelist"], changes: ["updated"], watch: { fields: ["name"] } },
+        ],
+      },
+    },
+    filters: { domain: { under: ["domain"], matchOn: ["id", "code"] } },
+  },
+  plain: {
+    key: "plain",
+    name: "Plain",
+    contractVersion: 1,
+    exposes: ["domain"],
+    publicNames: { domain: "Domain" },
+    operations: { objects: {}, xref: {}, resolve: {} },
+    filters: {},
+  },
 };
 
 const subscription = (id: string, overrides: Partial<Subscription> = {}): Subscription => ({
@@ -93,6 +116,7 @@ const renderPage = (subscriptionId?: string) =>
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(api.capabilities).mockResolvedValue(enabled());
+  vi.mocked(api.consumerApiDefinition).mockImplementation(async (key) => definitions[key]);
   vi.mocked(api.subscriptions).mockResolvedValue({ items: [], nextCursor: null });
   vi.mocked(api.workspaces).mockResolvedValue({
     items: [

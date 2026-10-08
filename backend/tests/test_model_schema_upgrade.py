@@ -22,7 +22,7 @@ from app.models.database import ModelRelease, ModelRuntimeState
 
 def _candidate_model_path(tmp_path: Path, schema_version: str) -> Path:
     """The starter as a transition candidate at ``schema_version``."""
-    if schema_version == "0.8":
+    if schema_version == "0.9":
         return MODEL_PATH
     path = tmp_path / f"rdm-starter-{schema_version}.json"
     path.write_text(json.dumps(starter_at_schema(schema_version)))
@@ -184,7 +184,7 @@ def test_schema_04_release_remains_listable_and_exportable_as_history():
         assert detail.json()["model"] == {"schemaVersion": "0.4", "historical": True}
 
 
-@pytest.mark.parametrize("candidate_schema", ["0.5", "0.6", "0.7", "0.8"])
+@pytest.mark.parametrize("candidate_schema", ["0.5", "0.6", "0.7", "0.8", "0.9"])
 def test_actual_startup_recovery_command_selects_supported_candidate_and_restarts(
     tmp_path, monkeypatch, candidate_schema, migrated_database
 ):

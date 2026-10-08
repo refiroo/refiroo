@@ -1,16 +1,20 @@
 from typing import Any
 
 from fastapi import APIRouter, Query, Request, Response
+from fastapi.responses import JSONResponse
 
 from ...common.cursors import METADATA_CURSOR_MESSAGE
 from ...common.pagination import paginate_sequence
 from ...common.time import as_utc
 from ...engine.events import delivery
-from ...engine.model.compiler import compile_model
+from ...engine.model.compiler import compile_authored_model
+from ...engine.model.consumer_definitions import consumer_api
+from ...engine.model.consumer_rendering import expanded_definition
 from ...engine.model.placements import model_placements
 from ...engine.model.runtime import load_runtime_state
 from ...engine.records.rules import get_application, get_object_type
 from ...errors import api_error
+from ...models.schema import ConsumerApiDocument
 from ..dependencies import DbSession, RequestModelSnapshot
 from ..paging import PageQuery
 from ..presenters import diagnostic_response
@@ -132,6 +136,38 @@ def get_model_placements(response: Response, snapshot: RequestModelSnapshot) -> 
     return ModelPlacements.model_validate(model_placements(snapshot.model))
 
 
+@router.get(
+    "/model/consumer-apis/{consumerApi}",
+    response_model=ConsumerApiDocument,
+    responses={
+        200: {
+            "headers": {
+                "ETag": {
+                    "description": "Quoted SHA-256 entity tag of the context's model, as GET /model answers",
+                    "schema": {"type": "string"},
+                }
+            }
+        }
+    },
+)
+def get_consumer_api_definition(consumerApi: str, snapshot: RequestModelSnapshot) -> Response:
+    """A consumer API definition of the context's model written out in schema 0.9 with every
+    default (Base 0.9 C18, C-D137): its public names, operations, generated events, every
+    ``matchOn`` and ``within.types``. A schema 0.8 release's definitions read the same way. With the
+    model's ETag, as ``GET /model``."""
+    definition = consumer_api(snapshot.model, consumerApi)
+    if definition is None:
+        raise api_error(
+            404,
+            "CONSUMER_API_NOT_FOUND",
+            f"Consumer API '{consumerApi}' not found in model release {snapshot.release_id}",
+            {"consumerApi": consumerApi},
+        )
+    return JSONResponse(
+        expanded_definition(snapshot.model, definition), headers={"ETag": f'"{snapshot.model_hash}"'}
+    )
+
+
 @router.get("/model-runtime-state", response_model=ModelRuntimeStateResponse)
 def get_model_runtime_state(session: DbSession) -> ModelRuntimeStateResponse:
     runtime_state, active_release = load_runtime_state(session)
@@ -149,7 +185,7 @@ def get_model_runtime_state(session: DbSession) -> ModelRuntimeStateResponse:
     response_model_exclude_none=True,
 )
 def validate_model(payload: ModelDocumentRequest) -> ModelValidationResponse:
-    compiled = compile_model(payload.model)
+    compiled = compile_authored_model(payload.model)
     return ModelValidationResponse(
         valid=compiled.valid,
         diagnostics=[diagnostic_response(item) for item in compiled.diagnostics],

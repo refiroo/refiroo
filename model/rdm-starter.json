@@ -1,9 +1,9 @@
 {
-  "schemaVersion": "0.8",
+  "schemaVersion": "0.9",
   "release": {
     "key": "rdm-starter",
     "name": "RDM Starter Model",
-    "version": "0.9.2"
+    "version": "0.9.3"
   },
   "product": {
     "name": "RDM Engine",
@@ -544,99 +544,97 @@
       "name": "RDM API",
       "description": "The master data: domains, their codelists and the codelists' values, with the systems' codes mapped to each value and its translations. Lists read each level under its parent. XREF and batch resolve look a record up by its ID, master ID, code or name, or by a mapped system code or a translated name. The values-changed event reports values created, changed or deleted.",
       "contractVersion": 1,
-      "objectTypes": {
-        "domain": { "publicName": "Domain" },
-        "codelist": { "publicName": "Codelist" },
-        "master-value": { "publicName": "CodelistValue" }
-      },
+      "exposes": ["domain", "codelist", "master-value"],
+      "publicNames": { "master-value": "CodelistValue" },
       "object": {
-        "id": { "output": "id", "source": ["id"] },
-        "code": { "output": "code", "source": ["value-code", "codelist-code", "domain-code"] },
-        "name": { "output": "name", "source": ["name"] },
-        "active": { "output": "isActive", "source": ["active"], "default": true },
-        "validFrom": { "output": "validFrom", "source": ["valid-from"] },
-        "validTo": { "output": "validTo", "source": ["valid-to"] },
-        "attributes": {
-          "description": { "source": ["description"] },
-          "masterId": { "source": ["master-id"] },
-          "valueName": { "source": ["value-name"] },
-          "sortOrder": { "source": ["sort-order"] }
+        "fields": {
+          "id": { "role": "id" },
+          "code": { "role": "code", "from": ["value-code", "codelist-code", "domain-code"] },
+          "name": { "role": "name", "from": "name" },
+          "isActive": { "role": "active", "from": "active", "default": true },
+          "validFrom": { "role": "validFrom", "from": "valid-from" },
+          "validTo": { "role": "validTo", "from": "valid-to" },
+          "description": "description",
+          "masterId": "master-id",
+          "valueName": "value-name",
+          "sortOrder": "sort-order"
         },
-        "parent": { "output": "parent", "fields": ["objectType", "id", "code", "name"] },
-        "path": "path"
-      },
-      "projections": {
-        "systemVariants": {
-          "from": { "relation": "system-value-maps-to-master", "direction": "incoming" },
-          "fields": {
-            "system": "ancestor:system.name",
-            "systemCode": "ancestor:system.system-code",
-            "value": "name",
-            "valueCode": "value-code",
-            "valueName": "value-name",
-            "externalId": "external-id",
-            "isActive": "active"
-          }
-        },
-        "translations": {
-          "from": { "relation": "object-has-translation", "direction": "outgoing" },
-          "fields": {
-            "languageCode": "ancestor:language.language-code",
-            "languageName": "ancestor:language.name",
-            "translatedName": "translated-name",
-            "translatedValue": "translated-value",
-            "isActive": "active"
-          }
-        }
-      },
-      "match": {
-        "own": [
-          { "field": "id", "exact": 1000 },
-          { "field": "master-id", "exact": 900 },
-          { "field": "value-code", "exact": 500, "contains": 40 },
-          { "field": "codelist-code", "exact": 500, "contains": 40 },
-          { "field": "domain-code", "exact": 500, "contains": 40 },
-          { "field": "name", "exact": 200, "contains": 30 },
-          { "field": "value-name", "exact": 200, "contains": 30 }
-        ],
-        "promoted": [
-          {
-            "projection": "systemVariants",
-            "firstMatch": [
-              { "field": "external-id", "exact": 90 },
-              { "field": "value-code", "exact": 80 },
-              { "field": "name", "exact": 75 },
-              { "field": "value-name", "exact": 75 },
-              { "field": "value-code", "contains": 10 },
-              { "field": "name", "contains": 10 }
-            ]
+        "parent": ["objectType", "id", "code", "name"],
+        "path": true,
+        "related": {
+          "systemVariants": {
+            "via": "master-value-represented-by-system-value",
+            "fields": {
+              "system": "ancestor:system.name",
+              "systemCode": "ancestor:system.system-code",
+              "value": "name",
+              "valueCode": "value-code",
+              "valueName": "value-name",
+              "externalId": "external-id",
+              "isActive": "active"
+            }
           },
-          {
-            "projection": "translations",
-            "firstMatch": [
-              { "field": "translated-name", "exact": 60 },
-              { "field": "translated-name", "contains": 12 }
-            ]
+          "translations": {
+            "via": "object-has-translation",
+            "fields": {
+              "languageCode": "ancestor:language.language-code",
+              "languageName": "ancestor:language.name",
+              "translatedName": "translated-name",
+              "translatedValue": "translated-value",
+              "isActive": "active"
+            }
           }
-        ]
-      },
-      "parameters": {
-        "domain": { "kind": "ancestor", "objectTypes": ["domain"], "matchFields": ["id", "domain-code", "name"] },
-        "codelist": { "kind": "ancestor", "objectTypes": ["codelist"], "matchFields": ["id", "codelist-code", "name"] }
-      },
-      "lists": [
-        { "key": "domains", "objectType": "domain" },
-        { "key": "codelists", "objectType": "codelist", "parentParameter": { "name": "domain", "objectTypes": ["domain"] } },
-        { "key": "values", "objectType": "master-value", "parentParameter": { "name": "codelist", "objectTypes": ["codelist"] }, "sortBy": "sort-order" }
-      ],
-      "events": [
-        {
-          "key": "values-changed",
-          "objectTypes": ["master-value"],
-          "changes": ["created", "updated", "deleted"],
-          "watch": { "fields": ["code", "name", "isActive", "validFrom", "validTo"] }
         }
-      ]
+      },
+      "operations": {
+        "objects": {},
+        "xref": {
+          "matchOn": [
+            { "field": "id", "exact": 1000 },
+            { "field": "master-id", "exact": 900 },
+            { "field": "code", "exact": 500, "contains": 40 },
+            { "field": "name", "exact": 200, "contains": 30 },
+            { "field": "value-name", "exact": 200, "contains": 30 }
+          ],
+          "alsoMatchThrough": [
+            {
+              "related": "systemVariants",
+              "firstOf": [
+                { "field": "external-id", "exact": 90 },
+                { "field": "value-code", "exact": 80 },
+                { "field": "name", "exact": 75 },
+                { "field": "value-name", "exact": 75 },
+                { "field": "value-code", "contains": 10 },
+                { "field": "name", "contains": 10 }
+              ]
+            },
+            {
+              "related": "translations",
+              "firstOf": [
+                { "field": "translated-name", "exact": 60 },
+                { "field": "translated-name", "contains": 12 }
+              ]
+            }
+          ]
+        },
+        "resolve": {},
+        "lists": {
+          "domains": { "of": "domain" },
+          "codelists": { "of": "codelist", "within": { "filter": "domain" } },
+          "values": { "of": "master-value", "within": { "filter": "codelist" }, "sortBy": "sort-order" }
+        },
+        "events": {
+          "custom": [
+            {
+              "key": "values-changed",
+              "objectTypes": ["master-value"],
+              "changes": ["created", "updated", "deleted"],
+              "watch": { "fields": ["code", "name", "isActive", "validFrom", "validTo"] }
+            }
+          ]
+        }
+      },
+      "filters": { "domain": { "under": ["domain"] }, "codelist": { "under": ["codelist"] } }
     }
   ]
 }

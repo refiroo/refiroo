@@ -6,7 +6,11 @@ from ...common.cursors import METADATA_CURSOR_MESSAGE
 from ...common.pagination import datetime_key, paginate_statement, text_key
 from ...common.time import as_utc
 from ...engine.model.compatibility import analyze_compatibility
-from ...engine.model.compiler import SUPPORTED_SCHEMA_VERSIONS, compile_model
+from ...engine.model.compiler import (
+    SUPPORTED_SCHEMA_VERSIONS,
+    compile_authored_model,
+    compile_model,
+)
 from ...engine.model.diff import semantic_diff
 from ...engine.model.drafts import (
     base_release_public_id,
@@ -238,7 +242,7 @@ def compile_model_draft(
 ) -> ModelCompilationResponse:
     draft = load_draft(session, draft_id)
     require_draft_version(draft, payload.expectedVersion)
-    compiled = compile_model(draft.model_json)
+    compiled = compile_authored_model(draft.model_json)
     if not compiled.valid or compiled.model is None:
         return ModelCompilationResponse(
             valid=False,
@@ -319,7 +323,7 @@ def install_model_draft(
     with model_installation_lock:
         draft = load_draft_for_update(session, draft_id)
         require_draft_version(draft, payload.expectedVersion)
-        compiled = compile_model(draft.model_json)
+        compiled = compile_authored_model(draft.model_json)
         if not compiled.valid or compiled.model is None:
             raise api_error(
                 422,

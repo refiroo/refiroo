@@ -8,6 +8,24 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 C18: consumer API definitions written for readers, as schema 0.9 (CONSUMER_API
+  C-D132–C-D141). A definition names what it `exposes` (public names default to the key in
+  PascalCase), the `operations` it offers (`objects`, `xref`, `resolve`, `lists`, `events`: listed
+  means offered), `object.fields` with roles, `related` blocks by a relation's `key` or
+  `reverseKey` (role fields may stand anywhere and are output first), `operations.xref.matchOn` and
+  `alsoMatchThrough` (`field: "code"` for each code source), `filters` with one verb each (`byType`, `under`, `linkedTo`, `onRelated`), lists `within`
+  a filter, events `perType` or `custom` (watching outputs and `related` blocks), and optional descriptions carried into the OpenAPI
+  document. Every reader works on one internal form, so for a definition offering every operation
+  nothing a consumer reads changes. An operation not offered answers `404 OPERATION_NOT_OFFERED`
+  and leaves the OpenAPI document; dropping one needs a new `contractVersion`. Mistakes are refused at
+  the pointer the author wrote. `GET /api/v1/model/consumer-apis/{consumerApi}` answers a definition
+  with every default written out, for 0.8 and 0.9 releases; the Webhooks page reads it. Install,
+  draft compile and `POST /model-validations` refuse a new schema 0.8 document that declares
+  `consumerApis` (`UNSUPPORTED_SCHEMA_VERSION` at `/schemaVersion`), and startup refuses such a file
+  named by `RDM_MODEL_PATH`; stored 0.8 releases read and
+  activate as stored. The starter is content release 0.9.3 and the operators and timetables example
+  0.9.0, both on schema 0.9.
+
 - Base 0.9 J3: import preview and confirmation. `POST /api/v1/imports` takes `stage: "preview"`:
   the file is bound, its first `IMPORT_PREVIEW_MAX_ITEMS` (10,000) items run independently against
   the data in a transaction rolled back whole, and the job waits in `awaiting_confirmation` with

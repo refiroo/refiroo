@@ -20,6 +20,7 @@ from app.engine.events.plan import (
     Reach,
 )
 from app.engine.model.compiler import parse_model
+from app.engine.model.consumer_definitions import consumer_apis
 
 CONFIGURATION = all_configurations()["generated-a"]
 
@@ -27,13 +28,13 @@ CONFIGURATION = all_configurations()["generated-a"]
 def _plan(change=None):
     document = copy.deepcopy(CONFIGURATION.model)
     (definition,) = document["consumerApis"]
-    definition["events"] = [
-        {"key": "every", "objectTypes": list(definition["objectTypes"]), "changes": ["created", "updated", "deleted"]}
-    ]
+    definition["operations"]["events"] = {
+        "custom": [{"key": "every", "objectTypes": definition["exposes"], "changes": ["created", "updated", "deleted"]}]
+    }
     if change is not None:
         change(document, definition)
     model = parse_model(document)
-    return EventPlan(model, model.consumerApis[0])
+    return EventPlan(model, consumer_apis(model)[0])
 
 
 def k(structure):
@@ -112,10 +113,7 @@ def test_a_projection_over_a_containment_relation_reaches_both_parents():
     (containment,) = model.containment_relation_keys(k("R2"))
 
     def children(_document, definition):
-        definition["projections"]["entries"] = {
-            "from": {"relation": containment, "direction": "outgoing"},
-            "fields": {"entryName": "name"},
-        }
+        definition["object"]["related"]["entries"] = {"via": containment, "fields": {"entryName": "name"}}
 
     plan = _plan(children)
     created = _object("created", type_key="R2", parent_id="p")

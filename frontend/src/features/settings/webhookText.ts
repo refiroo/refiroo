@@ -80,7 +80,7 @@ export function eventDeclaration(model: EngineModel, event: ConsumerEventDeclara
     .map((key) => model.objectTypes.find((type) => type.key === key)?.pluralName ?? key)
     .join(", ");
   const changes = event.changes.map((change) => CHANGE[change]).join(", ");
-  const watched = [...(event.watch?.fields ?? []), ...(event.watch?.projections ?? [])];
+  const watched = [...(event.watch?.fields ?? []), ...(event.watch?.related ?? [])];
   return `${types}: ${changes}. ${watched.length ? `An update counts when ${watched.join(", ")} change.` : "Any change to the output counts."}`;
 }
 

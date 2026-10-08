@@ -6,6 +6,10 @@ one output type (C-D19) and a default has that type; a match rule reads a field 
 ``id``, or ``searchable`` or ``unique`` (C-D20), and a ``contains`` weight a text field (0.9 C4);
 output, parameter and list names do not collide; an event names exposed types and watches declared
 outputs (0.9 C9, C-D84). A failure is refused at the pointer ``/consumerApis/<key>/…`` of the part that is wrong.
+
+The rules run on the internal form (``ConsumerApiDefinition``) and name its parts; for a schema 0.9
+definition each pointer is taken back to the node the author wrote, and the messages use the 0.9
+vocabulary, the only one an author writes (C18, C-D141).
 """
 
 import re
@@ -36,6 +40,8 @@ from ..consumer_contract import (
     source_type,
     split_ancestor_reference,
 )
+from ..consumer_definitions import authored_pointer, consumer_apis
+from ..consumer_expansion import authored_through
 from ..diagnostics import ModelReferenceError
 from ..traversal import ancestor_type_keys
 from .fields import require_schema
@@ -76,7 +82,7 @@ def check(model: EngineModel, _index: ModelIndex) -> None:
         return
     require_schema(model, "0.8", "/consumerApis", "consumerApis")
     seen: set[str] = set()
-    for definition in model.consumerApis:
+    for definition in consumer_apis(model):
         base = f"/consumerApis/{pointer_segment(definition.key)}"
         if definition.key in seen:
             raise ModelReferenceError("DUPLICATE_KEY", base, f"Duplicate consumer API key '{definition.key}'")
@@ -87,7 +93,12 @@ def check(model: EngineModel, _index: ModelIndex) -> None:
                 f"{base}/key",
                 f"Consumer API key '{definition.key}' must use lowercase letters, digits and hyphens",
             )
-        _Definition(model, definition, base).check()
+        try:
+            _Definition(model, definition, base).check()
+        except ModelReferenceError as exc:
+            raise ModelReferenceError(
+                exc.code, authored_pointer(model, definition.key, exc.path), exc.message
+            ) from None
 
 
 class _Definition:
@@ -151,8 +162,8 @@ class _Definition:
             self._fail(
                 "INVALID_MODEL",
                 "/object/id/source",
-                "the identity's source is the object ID: ['id']; publish another identifier as an"
-                " attribute field",
+                "the field with role 'id' reads the object ID ('id'); publish another identifier as"
+                " a field of its own",
             )
         for name, attribute in shape.attributes.items():
             path = f"/object/attributes/{pointer_segment(name)}"
@@ -161,7 +172,7 @@ class _Definition:
         if shape.parent is not None:
             claim(shape.parent.output, "/object/parent/output")
             if "code" in shape.parent.fields and shape.code is None:
-                self._fail("INVALID_MODEL", "/object/parent/fields", "parent field 'code' needs an object 'code' role")
+                self._fail("INVALID_MODEL", "/object/parent/fields", "parent field 'code' needs a field with role 'code'")
             if len(set(shape.parent.fields)) != len(shape.parent.fields):
                 self._fail("DUPLICATE_KEY", "/object/parent/fields", "parent fields repeat")
         for role in ("path", "hierarchy"):
@@ -176,12 +187,13 @@ class _Definition:
                 self._fail(
                     "INVALID_REFERENCE",
                     f"{path}/source/{index}",
-                    f"source '{source}' is neither 'id', 'name' nor an attribute an exposed type binds",
+                    f"'from' names '{source}', which is neither 'id', 'name' nor an attribute an exposed"
+                    " type binds",
                 )
         value_type = source_type(self.model, self.types, sources)
         if value_type is None:
             kinds = sorted({str(field_value_type(self.model, self.types, item)) for item in sources})
-            self._fail("INVALID_MODEL", f"{path}/source", f"sources have different value types {kinds}")
+            self._fail("INVALID_MODEL", f"{path}/source", f"the sources in 'from' have different value types {kinds}")
         if default is not None and not _matches_type(default, value_type):
             self._fail("INVALID_MODEL", f"{path}/default", f"default must be a {value_type} value")
 
@@ -189,23 +201,23 @@ class _Definition:
         for name, projection in self.definition.projections.items():
             path = f"/projections/{pointer_segment(name)}"
             if name in outputs or name in RESERVED_OUTPUTS:
-                self._fail("DUPLICATE_KEY", path, f"projection '{name}' collides with an output field")
+                self._fail("DUPLICATE_KEY", path, f"related block '{name}' has the name of an output field")
             route = projection.from_
             if self.model.relation_type(route.relation) is None:
-                self._fail("INVALID_REFERENCE", f"{path}/from/relation", f"unknown relation type '{route.relation}'")
+                self._fail("INVALID_REFERENCE", f"{path}/from/relation", f"'via' names unknown relation type '{route.relation}'")
             targets = projection_targets(self.model, self.definition, route.relation, route.direction)
             if not targets:
                 self._fail(
                     "INVALID_REFERENCE",
                     f"{path}/from",
-                    f"no exposed type has a {route.direction} binding of '{route.relation}'",
+                    f"no exposed type has a {route.direction} binding of relation '{route.relation}'",
                 )
             for output, source in projection.fields.items():
                 if projection_field_type(self.model, self.definition, targets, source) is None:
                     self._fail(
                         "INVALID_REFERENCE",
                         f"{path}/fields/{pointer_segment(output)}",
-                        f"field '{source}' is not 'id', 'name', an attribute of the related types,"
+                        f"field '{source}' is not 'id', 'name', an attribute of the related records' types,"
                         " 'ancestor:<type>.<field>' of an ancestor they can sit under, or 'objectType'"
                         " where the definition exposes every related type",
                     )
@@ -221,7 +233,7 @@ class _Definition:
             path = f"/match/promoted/{index}"
             projection = self.definition.projections.get(promoted.projection)
             if projection is None:
-                self._fail("INVALID_REFERENCE", f"{path}/projection", f"unknown projection '{promoted.projection}'")
+                self._fail("INVALID_REFERENCE", f"{path}/projection", f"unknown related block '{promoted.projection}'")
             route = projection.from_
             targets = projection_targets(self.model, self.definition, route.relation, route.direction)
             for rule_index, rule in enumerate(promoted.firstMatch):
@@ -232,7 +244,7 @@ class _Definition:
                     self._fail(
                         "INVALID_REFERENCE",
                         f"{path}/preferTargetTypes/{type_index}",
-                        f"preferred target type '{key}' is not exposed",
+                        f"preferred type '{key}' is not exposed",
                     )
 
     def _require_matchable(self, field: str, types: Sequence[ObjectTypeDefinition], path: str) -> None:
@@ -283,12 +295,13 @@ class _Definition:
                         self._fail(
                             "INVALID_REFERENCE",
                             f"{path}/via/{via_index}",
-                            f"route '{via}' is not 'self', a projection or 'sharedProjection:<projection>'",
+                            f"'through' route '{authored_through(via)}' is not 'itself', a related block or"
+                            " 'sharedWith:<related>'",
                         )
             elif isinstance(parameter, ProjectionParameter):
                 projection = self.definition.projections.get(parameter.projection)
                 if projection is None:
-                    self._fail("INVALID_REFERENCE", f"{path}/projection", f"unknown projection '{parameter.projection}'")
+                    self._fail("INVALID_REFERENCE", f"{path}/projection", f"unknown related block '{parameter.projection}'")
                 route = projection.from_
                 targets = projection_targets(self.model, self.definition, route.relation, route.direction)
                 for field_index, field in enumerate(parameter.matchFields):
@@ -296,14 +309,14 @@ class _Definition:
                         self._fail(
                             "INVALID_REFERENCE",
                             f"{path}/matchFields/{field_index}",
-                            f"match field '{field}' is not a field of projection '{parameter.projection}'",
+                            f"'matchOn' field '{field}' is not a field of related block '{parameter.projection}'",
                         )
                 if parameter.scoresFrom and not self._promotes(parameter.projection):
                     self._fail(
                         "INVALID_MODEL",
                         f"{path}/scoresFrom",
-                        f"no match.promoted entry reads projection '{parameter.projection}', so"
-                        " 'scoresFrom' could never limit a score",
+                        f"no alsoMatchThrough entry reads related block '{parameter.projection}', so"
+                        " 'scoreOnlyMatching' could never limit a score",
                     )
 
     def _promotes(self, projection: str) -> bool:
@@ -313,7 +326,7 @@ class _Definition:
 
     def _check_parameter_name(self, name: str, path: str) -> None:
         if name in RESERVED_PARAMETERS or name.startswith("to."):
-            self._fail("INVALID_MODEL", path, f"parameter name '{name}' is reserved")
+            self._fail("INVALID_MODEL", path, f"filter name '{name}' is reserved")
 
     def _parameter_types(self, keys: Sequence[str], path: str) -> list[ObjectTypeDefinition]:
         types = []
@@ -329,7 +342,7 @@ class _Definition:
     ) -> None:
         for index, field in enumerate(fields):
             if split_ancestor_reference(field) is not None:
-                self._fail("INVALID_MODEL", f"{path}/matchFields/{index}", "an ancestor field is matched by an 'ancestor' parameter")
+                self._fail("INVALID_MODEL", f"{path}/matchFields/{index}", "an ancestor field is matched by an 'under' filter")
             self._require_matchable(field, types, f"{path}/matchFields/{index}")
 
     def _check_lists(self) -> None:
@@ -348,8 +361,8 @@ class _Definition:
             parent = list_definition.parentParameter
             if parent is None:
                 continue
-            # A parent parameter may share a definition parameter's name, as CONSUMER_API's example
-            # does for its parent list: on its list the name addresses the parent.
+            # ``within`` may name a filter, as CONSUMER_API's example does for its parent list: on
+            # its list the name addresses the parent.
             self._check_parameter_name(parent.name, f"{path}/parentParameter/name")
             ancestors = ancestor_type_keys(self.model, list_definition.objectType)
             for index, key in enumerate(parent.objectTypes):
@@ -384,7 +397,7 @@ class _Definition:
             if watch is None:
                 continue
             if not watch.fields and not watch.projections:
-                self._fail("INVALID_MODEL", f"{path}/watch", "a watch names at least one output or projection")
+                self._fail("INVALID_MODEL", f"{path}/watch", "a watch names at least one output or related block")
             if "updated" not in event.changes:
                 self._fail(
                     "INVALID_MODEL",
@@ -398,7 +411,7 @@ class _Definition:
                 self._require_listed(names, f"{path}/watch/{part}", "name", allow_empty=True)
                 for index, name in enumerate(names):
                     if name not in declared:
-                        kind = "an output" if part == "fields" else "a projection"
+                        kind = "an output" if part == "fields" else "a related block"
                         self._fail(
                             "INVALID_REFERENCE",
                             f"{path}/watch/{part}/{index}",

@@ -34,6 +34,7 @@ from ..model.consumer_contract import (
     source_type,
     split_ancestor_reference,
 )
+from ..model.consumer_definitions import consumer_api as declared_api
 from ..records.values import VALUE_COLUMNS, canonical_decimal, stored_json_value
 from .consumer_parameters import NO_FILTER, ConsumerFilter, Predicate, Target, as_of_not_supported
 from .consumer_source import ConsumerSource
@@ -44,7 +45,7 @@ AMBIGUOUS_TARGETS = 10
 
 def consumer_definition(model: EngineModel, consumer_api: str, contract_version: str) -> ConsumerApiDefinition:
     """The active release's definition ``consumer_api`` at ``contract_version``, the one it declares (C-D3)."""
-    definition = next((item for item in model.consumerApis or () if item.key == consumer_api), None)
+    definition = declared_api(model, consumer_api)
     if definition is None:
         raise api_error(404, "CONSUMER_API_NOT_FOUND", f"Consumer API '{consumer_api}' not found")
     if contract_version != str(definition.contractVersion):

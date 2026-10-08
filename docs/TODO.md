@@ -172,6 +172,13 @@ log, the page revised, [record](SETTINGS_AND_UI_PLAN.md#u5a-record-2026-10-07));
   them and add reads (journeys J19.5, J08.9); consider showing a workspace's activity in the UI.
   To plan as its own package. F1's feed now gives publications (`published`, `withdrawn`) positions.
 
+- **Consumer API definitions after C18 (2026-10-08)**, from the
+  [C18 record](BASE_0_9_IMPLEMENTATION_PLAN.md#c18-record-2026-10-08):
+  - **A `code` role on object types.** An object type naming its code attribute in the model, after
+    which a consumer API's `code` field may leave out `from` and `parent.code` is unchanged: an
+    application-model change of its own.
+
+## Open decisions
 ## Open decisions
 
 No 0.8 decision is open ([0.8 decisions](BASE_0_8_IMPLEMENTATION_PLAN.md#decisions-summary)). The

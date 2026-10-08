@@ -40,7 +40,10 @@ def _candidate_without_language_attribute(client, version: str) -> tuple[EngineM
         if isinstance(value, list):
             return [scrub(item) for item in value if item != binding]
         if isinstance(value, dict):
-            result = {key: scrub(item) for key, item in value.items()}
+            # A consumer API's related field reading the attribute through the language ancestor.
+            result = {
+                key: scrub(item) for key, item in value.items() if item != f"ancestor:language.{binding}"
+            }
             if result.get("displayAttributeTypeKey") == binding:
                 result["displayAttributeTypeKey"] = "locale-code"
             # A relation matrix labels its columns with one field (A1).
@@ -493,7 +496,7 @@ def test_0_unsupported_pinned_change_set_model_is_explicit_and_never_uses_active
             "details": {
                 "modelReleaseId": body["error"]["details"]["modelReleaseId"],
                 "schemaVersion": "0.4",
-                "supportedSchemaVersions": ["0.5", "0.6", "0.7", "0.8"],
+                "supportedSchemaVersions": ["0.5", "0.6", "0.7", "0.8", "0.9"],
             },
         }
         historical = client.get(

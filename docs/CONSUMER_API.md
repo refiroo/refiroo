@@ -201,7 +201,10 @@ it: the caller sent it in the URL (C-D59).
 
 ### Definition shape
 
-_Schema 0.8. Replaced in schema 0.9 by the syntax of [C18](BASE_0_9_IMPLEMENTATION_PLAN.md#c18-plan-2026-10-07) (C-D132–C-D141), which keeps every capability below; this section is rewritten when C18 is delivered._
+_Schema 0.9 (Base 0.9 C18, C-D132–C-D141). A definition is organised by what a reader asks: what is
+exposed, which operations exist, what an object looks like, how it is found, how it is filtered and
+which changes are announced. Schema 0.8's shape, which a stored 0.8 release still holds, is mapped to
+this one at the end of the section._
 
 ```jsonc
 "consumerApis": [{
@@ -209,192 +212,223 @@ _Schema 0.8. Replaced in schema 0.9 by the syntax of [C18](BASE_0_9_IMPLEMENTATI
   "name": "RDM consumer API",
   "contractVersion": 1,
 
-  // Public object type names and which types are exposed.
-  "objectTypes": {
-    "master-value": { "publicName": "CodelistValue" },
-    "codelist":     { "publicName": "Codelist" },
-    "location":     { "publicName": "Location" }
-    // …
-  },
+  // What is exposed. A public name defaults to the key in PascalCase (codelist → Codelist).
+  "exposes": ["master-value", "codelist", "domain", "location"],
+  "publicNames": { "master-value": "CodelistValue" },
 
-  // The common object: fixed roles, output names chosen by the definition.
+  // What an object looks like: its fields, role fields output first in role order (C-D140).
   "object": {
-    "id":        { "output": "masterId",  "source": ["id"] },   // always the object ID (C-D24)
-    "code":      { "output": "code",      "source": ["operator-code", "value-code", "codelist-code", "domain-code"] },
-    "name":      { "output": "name",      "source": ["name"] },
-    "active":    { "output": "isActive",  "source": ["active"], "default": true },
-    "validFrom": { "output": "validFrom", "source": ["valid-from"] },
-    "validTo":   { "output": "validTo",   "source": ["valid-to"] },
-    "attributes": {
-      "formerId":     { "source": ["master-id"] },   // a former system's ID, found with XREF
-      "valueName":    { "source": ["value-name"] },
-      "sortOrder":    { "source": ["sort-order"], "default": 0 },
-      "internalOnly": { "source": ["internal-only"], "default": false },
-      "description":  { "source": ["description"] }
+    "fields": {
+      "masterId":     { "role": "id" },                     // always the object ID (C-D24)
+      "code":         { "role": "code", "from": ["operator-code", "value-code", "codelist-code", "domain-code"] },
+      "name":         { "role": "name", "from": "name" },
+      "isActive":     { "role": "active", "from": "active", "default": true },
+      "validFrom":    { "role": "validFrom", "from": "valid-from" },
+      "validTo":      { "role": "validTo", "from": "valid-to" },
+      "formerId":     "master-id",                          // a former system's ID, found with XREF
+      "valueName":    "value-name",
+      "sortOrder":    { "from": "sort-order", "default": 0 },
+      "internalOnly": { "from": "internal-only", "default": false },
+      "description":  "description"
     },
-    "parent": { "output": "parent", "fields": ["objectType", "id", "code", "name"] },   // keyed masterId, code, name (C-D75)
-    "path": "path", "hierarchy": "hierarchy"
-  },
-
-  // Named related-object blocks.
-  "projections": {
-    "systemVariants": {
-      "from": { "relation": "system-value-maps-to-master", "direction": "incoming" },
-      "fields": {
-        "system":     "ancestor:system.name",
-        "value":      "name",
-        "valueCode":  "value-code",
-        "valueName":  "value-name",
-        "externalId": "external-id",
-        "isActive":   "active"
-      }
-    },
-    "translations": {
-      "from": { "relation": "object-has-translation", "direction": "outgoing" },
-      "fields": {
-        "languageCode":          "ancestor:language.language-code",
-        "languageName":          "ancestor:language.name",
-        "translatedName":        "translated-name",
-        "translatedDescription": "translated-description",
-        "isActive":              "active"
-      }
-    },
-    "availableAt": {
-      "from": { "relation": "available-at-location", "direction": "outgoing" },
-      "fields": { "locationId": "master-id", "locationName": "name", "locationValueCode": "value-code", "locationValueName": "value-name" }
-    },
-    "duration": {
-      "from": { "relation": "has-duration", "direction": "outgoing" },
-      "fields": { "durationId": "id", "durationCode": "value-code", "durationName": "name" }
-    },
-    "alternative": {   // a one-to-one relation: an object or null
-      "from": { "relation": "alternative-for", "direction": "outgoing" },
-      "fields": { "objectType": "objectType", "masterId": "id", "code": "value-code", "name": "name" }   // objectType: C-D73
+    "parent": ["objectType", "id", "code", "name"],         // output parent, keyed masterId, code, name (C-D75)
+    "path": true, "hierarchy": true,
+    // Related records, by a relation's key (outgoing) or reverseKey (incoming).
+    "related": {
+      "systemVariants": { "via": "master-value-represented-by-system-value",
+        "fields": { "system": "ancestor:system.name", "value": "name", "valueCode": "value-code",
+                    "valueName": "value-name", "externalId": "external-id", "isActive": "active" } },
+      "translations": { "via": "object-has-translation",
+        "fields": { "languageCode": "ancestor:language.language-code", "languageName": "ancestor:language.name",
+                    "translatedName": "translated-name", "translatedDescription": "translated-description", "isActive": "active" } },
+      "availableAt": { "via": "available-at-location",
+        "fields": { "locationId": "master-id", "locationName": "name", "locationValueCode": "value-code", "locationValueName": "value-name" } },
+      "duration": { "via": "has-duration", "fields": { "durationId": "id", "durationCode": "value-code", "durationName": "name" } },
+      "alternative": { "via": "alternative-for",   // a one-to-one relation: an object or null
+        "fields": { "objectType": "objectType", "masterId": "id", "code": "value-code", "name": "name" } }   // objectType: C-D73
     }
   },
 
-  // XREF matching.
-  "match": {
-    "own": [
-      { "field": "master-id",  "exact": 1000 },
-      { "field": "value-code", "exact": 500, "contains": 40 },
-      { "field": "operator-code", "exact": 500, "contains": 40 },
-      { "field": "name",       "exact": 200, "contains": 30 },
-      { "field": "value-name", "exact": 200, "contains": 30 }
-    ],
-    "promoted": [
-      { "projection": "systemVariants", "firstMatch": [
-          { "field": "name", "exact": 80 }, { "field": "value-code", "exact": 70 },
-          { "field": "external-id", "exact": 75 }, { "field": "value-name", "exact": 75 },
-          { "field": "name", "contains": 15 }, { "field": "value-code", "contains": 10 },
-          { "field": "external-id", "contains": 10 }, { "field": "value-name", "contains": 10 } ],
-        "preferTargetTypes": ["location"] },
-      { "projection": "translations", "firstMatch": [
-          { "field": "translated-name", "exact": 60 }, { "field": "translated-name", "contains": 12 } ] }
-    ]
+  // Which operations exist: listed means offered (C-D132).
+  "operations": {
+    "objects": {},
+    "xref": {
+      "matchOn": [
+        { "field": "master-id",  "exact": 1000 },
+        { "field": "value-code", "exact": 500, "contains": 40 },
+        { "field": "operator-code", "exact": 500, "contains": 40 },
+        { "field": "name",       "exact": 200, "contains": 30 },
+        { "field": "value-name", "exact": 200, "contains": 30 }
+      ],
+      "alsoMatchThrough": [
+        { "related": "systemVariants", "firstOf": [
+            { "field": "name", "exact": 80 }, { "field": "value-code", "exact": 70 },
+            { "field": "external-id", "exact": 75 }, { "field": "value-name", "exact": 75 },
+            { "field": "name", "contains": 15 }, { "field": "value-code", "contains": 10 },
+            { "field": "external-id", "contains": 10 }, { "field": "value-name", "contains": 10 } ],
+          "preferTypes": ["location"] },
+        { "related": "translations", "firstOf": [
+            { "field": "translated-name", "exact": 60 }, { "field": "translated-name", "contains": 12 } ] }
+      ]
+    },
+    "resolve": {},
+    "lists": {
+      "codelists":  { "of": "codelist", "within": { "filter": "domain" } },      // types: the under filter's
+      "values":     { "of": "master-value", "within": { "filter": "codelist" } },
+      "all-values": { "of": "master-value" }                                       // every object of the type
+    },
+    "events": { "custom": [ /* Event definitions, below */ ] }
   },
 
-  // Request parameters, each bound to a generic filter kind.
-  "parameters": {
-    "type":     { "kind": "objectType" },
-    "system":   { "kind": "projection", "projection": "systemVariants", "matchFields": ["ancestor:system.name", "ancestor:system.system-code"],
-                  "scoresFrom": true, "requireMatch": true, "targetable": true },
-    "codelist": { "kind": "ancestor", "objectTypes": ["codelist"], "matchFields": ["name", "codelist-code"] },
-    "domain":   { "kind": "ancestor", "objectTypes": ["domain"], "matchFields": ["name", "domain-code"] },
-    "location": { "kind": "related", "objectTypes": ["location"], "matchFields": ["master-id", "name", "value-code", "value-name"],
-                  "via": ["availableAt", "self", "sharedProjection:systemVariants"] },
-    "language": { "kind": "projection", "projection": "translations", "matchFields": ["ancestor:language.language-code"], "requireMatch": true,
-                  "targetable": true }
-  },
-
-  // Lists.
-  "lists": [
-    { "key": "codelists", "objectType": "codelist", "parentParameter": { "name": "domain", "objectTypes": ["domain"] } },
-    { "key": "values",    "objectType": "master-value", "parentParameter": { "name": "codelist", "objectTypes": ["codelist"] } },
-    { "key": "all-values", "objectType": "master-value" }   // no parent: every object of the type
-    // …
-  ]
+  // How it is filtered: each filter one verb.
+  "filters": {
+    "type":     { "byType": true },
+    "system":   { "onRelated": "systemVariants", "matchOn": ["ancestor:system.name", "ancestor:system.system-code"],
+                  "keepOnlyMatching": true, "scoreOnlyMatching": true, "crosswalk": true },
+    "codelist": { "under": ["codelist"], "matchOn": ["name", "codelist-code"] },
+    "domain":   { "under": ["domain"], "matchOn": ["name", "domain-code"] },
+    "location": { "linkedTo": ["location"], "through": ["availableAt", "itself", "sharedWith:systemVariants"],
+                  "matchOn": ["master-id", "name", "value-code", "value-name"] },
+    "language": { "onRelated": "translations", "matchOn": ["ancestor:language.language-code"],
+                  "keepOnlyMatching": true, "crosswalk": true }
+  }
 }]
 ```
 
-The example is the reference deployment's definition. Every key, projection and parameter name in it
+The example is the reference deployment's definition. Every key, related block and filter name in it
 is that deployment's choice, not something the engine requires. Keys missing from `rdm-starter.json`
 (`available-at-location`, `has-duration`, `alternative-for`, `location`, `operator-code`,
 `internal-only`) come from a model that extends the starter, as the source deployment's does. The
-parity fixture (C8, `backend/tests/journeys/configurations.py`) is such a model, and this definition,
-written out, answers the C8 scenarios on it.
+parity fixture (C8, `backend/tests/journeys/configurations.py`) is such a model, and this definition
+answers the C8 scenarios on it. The shipped starter's `rdm` is the same shape, shorter.
 
-The engine supplies only these parameter kinds. A definition names its parameters and binds each one
-to a kind:
+**Fields.** A field is one source (`"description"`), a list of sources read as the first non-empty
+value (which replaces the reference `code` fallback chain), or written out as `{from, default, role,
+description}`. A role (`id`, `code`, `name`, `active`, `validFrom`, `validTo`) gives the field its
+place in the shared object: role fields are output first, in that order, wherever they are written,
+and the other fields follow in written order. A tool that sorts JSON keys therefore changes at most
+the order of the other fields in an answer, never what a definition means. `{ "role": "id" }` reads
+the object ID.
 
-| Kind | Effect |
-| --- | --- |
-| `objectType` | Keeps objects of the named public types |
-| `ancestor` | Keeps objects that have an ancestor of the listed types matching on `matchFields` |
-| `related` | Keeps objects linked to a matching object through the `via` routes: a projection, the object itself, or a shared projection (both objects relate to the same projected object) |
-| `projection` | Limits a projection to the items that match on `matchFields`. `requireMatch` also drops objects left with no matching item. `scoresFrom` means only the matching items pass scores on to their objects |
+**Operations** are keyed by their route names: `objects` (get by ID), `xref`, `resolve` (batch
+resolve, which needs `objects` and `xref`), `lists` and `events`. An operation the definition does
+not list does not exist: `objects`, `xref` and `resolve` answer `404 OPERATION_NOT_OFFERED` and leave
+the definition's OpenAPI document, an unlisted list is an unknown list, and a definition without
+events answers `404 EVENTS_NOT_DECLARED`. `publications` and `openapi.json` describe the API and are
+always there. No longer offering an operation needs a new `contractVersion` (C-D2); offering one more
+is compatible. `xref` without `matchOn` is offered and finds nothing.
 
-In the example, `system` and `language` are both `projection` parameters. The engine does not treat
-them as a system or a language.
+**Filters.** The engine supplies four verbs; a definition names its filters and gives each one:
 
-Rules the validator enforces:
+| Verb | With | Effect |
+| --- | --- | --- |
+| `byType: true` | — | Keeps objects of the named public types |
+| `under: [types]` | `matchOn` | Keeps objects that have an ancestor of the listed types matching on `matchOn` |
+| `linkedTo: [types]` | `through`, `matchOn` | Keeps objects linked to a matching object through the `through` routes: a related block, the object `itself`, or `sharedWith:<related>` (both objects relate to the same related record) |
+| `onRelated: <related>` | `matchOn`, `keepOnlyMatching`, `scoreOnlyMatching`, `crosswalk` | Limits a related block to the items that match on `matchOn`. `keepOnlyMatching` also drops objects left with no matching item; `scoreOnlyMatching` means only the matching items pass scores on to their objects; `crosswalk` enables `to.{filter}` (see Crosswalk) |
 
-- **Sources:** every `source`, `field` and `ancestor:<type>.<field>` reference resolves in the release.
-  A source list means "first non-empty value", which replaces the reference `code` fallback chain.
+In the example, `system` and `language` are both `onRelated` filters. The engine does not treat them
+as a system or a language.
+
+**Defaults** (C-D136), each written out by `GET /api/v1/model/consumer-apis/{consumerApi}` (C-D137):
+a public name is the key in PascalCase; `perType: true` under `events` declares `<type>-changed` for
+each exposed type, in `exposes` order, with `created`, `updated` and `deleted` and no watch, before
+`custom`; `under` and `linkedTo` match on `id`, the `code` field's sources their types bind, and
+`name`; a list `within` an `under` filter takes its types; `parent: [fields]` outputs `parent`, and
+`path: true` and `hierarchy: true` output `path` and `hierarchy`. `field: "code"` in `matchOn` stands
+for one rule per source of the `code` field, with the same weights, in place, so every code
+attribute scores on its own (C-D135); `code` in a filter's `matchOn` stands for the sources its types
+bind.
+
+**Descriptions** (C-D139): an optional `description` on operations, lists, filters, related blocks
+and fields is carried into the definition's OpenAPI document. Without one the document is as before.
+
+Rules the validator enforces, each refused at its pointer in the authored document with the codes
+below (C-D141):
+
+- **The syntax:** a filter has exactly one verb, and only the parts its verb takes; a `via` is a
+  relation's `key` or `reverseKey` (the two share one namespace, so a `via` names one route at most,
+  `DUPLICATE_KEY` at `/relationTypes/<key>/reverseKey` otherwise); a role is given to one field
+  only, and one has role `id`; `resolve` needs `objects` and `xref`; an `events` declares `perType` or
+  `custom`; `field: "code"` needs a field with role `code`; a public name names an exposed type; a
+  list `within` a filter that is not `under` gives `types`.
+- **Sources:** every source, `field` and `ancestor:<type>.<field>` reference resolves in the release.
 - **Scalar values** keep their declared attribute type; `default` must match that type.
-- **Projection shape:** a projection is an object or `null` when the relation, in that direction,
+- **Related shape:** a related block is an object or `null` when the relation, in that direction,
   allows at most one related object, and an array otherwise. This is derived, never declared, so a
   model cardinality change becomes a contract change the validator can see.
-- **Projection fields** read the related record's `id`, `name`, an attribute of the related types,
+- **Related fields** read the related record's `id`, `name`, an attribute of the related types,
   `ancestor:<type>.<field>`, or `objectType`: its public type name, allowed where the definition
-  exposes every type the projection reaches (C-D73). The `parent` block's fields are keyed by the
-  roles' output names (C-D75).
+  exposes every type the block reaches (C-D73). The `parent` block's fields are keyed by the roles'
+  output names (C-D75).
 - **Match fields** must be `searchable` or explicitly listed as identifiers; weights are positive
   integers.
-- **Parameter names** are unique per definition and cannot shadow reserved names (`query`, `expect`,
+- **Filter names** are unique per definition and cannot shadow reserved names (`query`, `expect`,
   `pageSize`, `cursor`, `position`, `from`, `seek`, `includeTotal`, `publication`, `asOf`,
   `workspace`, `ref`, `id`, and the pull feed's `event`, `after` and `payload`, C-D86, C-D7) or start
   with `to.`.
 - **List order (C3):** a list's optional `sortBy` names a scalar attribute (not JSON) its type binds,
-  refused otherwise at `/consumerApis/<key>/lists/<list>/sortBy`; changing it is a breaking change.
-- **Crosswalk targets:** a `projection` parameter may declare `"targetable": true`, which enables
-  `to.{parameter}` on reads (see Crosswalk). Only a `projection` parameter can be targetable.
-- **Lists without a parent** omit `parentParameter` and list every object of the type.
-
-_Delivered in C1 (2026-09-30), with these rules settled on the way:_
-
-- **Keys:** a definition's `key` (the `consumerApi`) and each list `key` use lowercase letters, digits and
-  hyphens, since they appear in URLs; public type names are unique within a definition.
+  refused otherwise at `/consumerApis/<key>/operations/lists/<list>/sortBy`; changing it is a
+  breaking change.
+- **Crosswalk targets:** only an `onRelated` filter can declare `crosswalk`.
+- **Keys:** a definition's `key` (the `consumerApi`) and each list `key` use lowercase letters, digits
+  and hyphens, since they appear in URLs; public type names are unique within a definition.
 - **Source types (C-D19):** a field's sources share one value type (`text` and `longText` count as
-  one), which is the field's output type; a mixed list is refused at the field's `source`.
-- **Identity:** the `id` role's source is the built-in `id`, the object ID (narrowed in C2, C-D24);
-  another source is refused at `/consumerApis/<key>/object/id/source`. A former system's ID is
-  published as an ordinary attribute field and found with XREF. A migration that wants to keep a
-  former ID as the object ID assigns it as the object ID when it creates the record (a UUID).
-- **Output names** are unique across roles, attributes, `parent`, `path`, `hierarchy` and projections,
-  and `objectType`, `matchScore` and `target` are reserved for the engine. A `parent` field `code`
-  needs the object's `code` role.
-- **Match fields (C-D20):** a match rule, and an `ancestor` or `related` parameter's `matchFields`,
-  read `name`, `id` or an attribute of the relevant types that is `searchable` or `unique`; a
-  `projection` parameter's `matchFields` are fields of the projection, `ancestor:` references included.
-- **Routes:** a projection's relation must be bound, in its direction, to at least one exposed type; an
-  `ancestor` parameter's types must be ancestors of an exposed type; a `related` parameter's `via` is
-  `self`, a projection or `sharedProjection:<projection>`; a list's parent types must be able to
-  contain its type. A list's parent parameter may share a definition parameter's name.
+  one), which is the field's output type; a mixed list is refused at the field's `from`.
+- **Identity:** the `id` field reads the built-in `id`, the object ID (C-D24); another source is
+  refused at `/consumerApis/<key>/object/fields/<field>/from`. A former system's ID is published as a
+  field of its own and found with XREF. A migration that wants to keep a former ID as the object ID
+  assigns it as the object ID when it creates the record (a UUID).
+- **Output names** are unique across fields, `parent`, `path`, `hierarchy` and related blocks, and
+  `objectType`, `matchScore` and `target` are reserved for the engine. A `parent` field `code` needs
+  a field with role `code`.
+- **Match fields (C-D20):** a `matchOn` rule, and an `under` or `linkedTo` filter's `matchOn`, read
+  `name`, `id` or an attribute of the relevant types that is `searchable` or `unique`; an `onRelated`
+  filter's `matchOn` are fields of the related block, `ancestor:` references included.
+- **Routes:** a related block's relation must be bound, in its direction, to at least one exposed
+  type; an `under` filter's types must be ancestors of an exposed type; a list's `within` types must
+  be able to contain its type. A list may be `within` a name that is a filter's.
 - **Events (C9):** see [Event definitions](#event-definitions-model).
+
+**Schema 0.8.** A new schema 0.8 document that declares `consumerApis` is refused by install, draft
+compile and model validation (`UNSUPPORTED_SCHEMA_VERSION` at `/schemaVersion`, C-D134). A stored 0.8
+release is read as stored, every operation offered, and `GET /model/consumer-apis/{consumerApi}`
+answers its definitions in 0.9. The shapes map completely:
+
+| Schema 0.8 | Schema 0.9 |
+| --- | --- |
+| `key`, `name`, `description`, `contractVersion` | unchanged |
+| `objectTypes: {type: {publicName}}` | `exposes: [type, …]` + `publicNames` for names that are not the key in PascalCase |
+| `object.id/code/name/active/validFrom/validTo` (`output`, `source`, `default`) + `object.attributes` | `object.fields: {output: …}`; `role` names the role, role fields output first |
+| `object.parent: {output, fields}` | `object.parent: [fields]` (output `parent`) or `{output, fields}` |
+| `object.path`, `object.hierarchy` (output name) | `true` (output `path` / `hierarchy`) or the output name |
+| `projections: {name: {from: {relation, direction}, fields}}` | `object.related: {name: {via, fields}}`, `via` the relation's `key` (outgoing) or `reverseKey` (incoming) |
+| `match.own` | `operations.xref.matchOn` (`field: "code"` for the code field's sources) |
+| `match.promoted: [{projection, firstMatch, preferTargetTypes}]` | `operations.xref.alsoMatchThrough: [{related, firstOf, preferTypes}]` |
+| `parameters: {name: {kind: objectType}}` | `filters: {name: {byType: true}}` |
+| `{kind: ancestor, objectTypes, matchFields}` | `{under: [types], matchOn}` |
+| `{kind: related, objectTypes, matchFields, via}` | `{linkedTo: [types], through, matchOn}`; `self` is `itself`, `sharedProjection:` is `sharedWith:` |
+| `{kind: projection, projection, matchFields, requireMatch, scoresFrom, targetable}` | `{onRelated, matchOn, keepOnlyMatching, scoreOnlyMatching, crosswalk}` |
+| `lists: [{key, objectType, parentParameter: {name, objectTypes}, sortBy}]` | `operations.lists: {key: {of, within: {filter, types}, sortBy}}` |
+| `events: [...]` | `operations.events: {perType, custom: [...]}`; an event's `watch.projections` is `watch.related` |
+| (all operations always on) | `operations.objects`, `.xref`, `.resolve`, `.lists`, `.events`: listed means offered |
 
 ### Endpoints
 
 ```text
 GET /api/consumer/{consumerApi}/v{contractVersion}/xref?query=…&{parameters}&expect=one|any&pageSize=…
 GET /api/consumer/{consumerApi}/v{contractVersion}/objects/{id}?{parameters}
-GET /api/consumer/{consumerApi}/v{contractVersion}/lists/{listKey}?{parentParameter}=…&{parameters}&position=…&pageSize=…
+GET /api/consumer/{consumerApi}/v{contractVersion}/lists/{listKey}?{within}=…&{filters}&position=…&pageSize=…
 GET /api/consumer/{consumerApi}/v{contractVersion}/openapi.json
 POST /api/consumer/{consumerApi}/v{contractVersion}/resolve
 GET /api/consumer/{consumerApi}/v{contractVersion}/publications?pageSize=…
 GET /api/consumer
 ```
 
+- **Operations a definition offers** (C18, C-D132): `objects` (get by ID), `xref` and `resolve` are
+  served when the definition lists them under `operations`, and answer `404 OPERATION_NOT_OFFERED`
+  (`details.operation`) otherwise; the definition's OpenAPI document then leaves their paths out. A
+  list is served when the definition declares it, the events when it declares some.
 - **XREF** keeps the reference request and response shape, with `results`, `query` and `totalCount`
   plus the paging fields of ADR-030. `expect=one` returns the single top result, `404` when nothing
   matched, and `409 AMBIGUOUS_MATCH` naming the tied candidates when the top score is shared. Flows
@@ -603,22 +637,26 @@ to records no definition exposes or projects make no event.
 
 ### Event definitions (model)
 
-Each consumer API definition declares its events next to its object, projections and parameters:
+Each consumer API definition declares its events among its operations, `perType` for one event per
+exposed type (`<type>-changed`, every change, no watch) and `custom` for its own:
 
 ```jsonc
-"events": [{
-  "key": "reference-data-changed",
-  "objectTypes": ["master-value", "codelist", "location"],
-  "changes": ["created", "updated", "deleted"],
-  "watch": {
-    "fields": ["masterId", "code", "name", "isActive", "validFrom", "validTo", "valueName"],
-    "projections": ["systemVariants", "translations"]
-  }
-}]
+"events": {
+  "custom": [{
+    "key": "reference-data-changed",
+    "objectTypes": ["master-value", "codelist", "location"],
+    "changes": ["created", "updated", "deleted"],
+    "watch": {
+      "fields": ["masterId", "code", "name", "isActive", "validFrom", "validTo", "valueName"],
+      "related": ["systemVariants", "translations"]
+    }
+  }]
+}
 ```
 
 - `objectTypes` must be exposed by the definition; `changes` is any of `created`, `updated`, `deleted`.
-- `watch` limits `updated`. Only changes to the listed output fields or projections count, so edits
+- `watch` limits `updated`. Only changes to the listed output fields or related blocks
+  (`watch.related`, names in `object.related`) count, so edits
   to unexposed attributes make no event. When `watch` is omitted, any change to the object's output
   counts. `watch.fields` names outputs as consumers read them (`masterId`, `isActive`, an attribute
   field's name, `parent`, `path`, `hierarchy`, `objectType`), the names an event's `changed` reports
@@ -634,8 +672,10 @@ Each consumer API definition declares its events next to its object, projections
   with `objectType` among the changed outputs (C-D83).
 - **Rules (C-D84):** event keys are unique in a definition and use lowercase letters, digits and
   hyphens; `objectTypes` and `changes` list at least one entry each, none twice; a `watch` names at
-  least one declared output or projection, none twice, and needs `updated` among the changes. Each is
-  refused at `/consumerApis/<key>/events/<event>/…`.
+  least one declared output or related block, none twice, and needs `updated` among the changes. Each
+  is refused at `/consumerApis/<key>/operations/events/custom/<index>/…`, a generated one at
+  `…/operations/events/perType`. `perType` makes event keys from type keys, so it needs type keys that
+  are URL keys too.
 - **Events are part of the contract** (C-D2, C-D85): an event that tells its consumers less (removed;
   a type or a change kind removed; a watched output removed, or a watch added) needs a new
   `contractVersion`. One that tells them more (an event, a type, a change kind or a watched output
@@ -1152,11 +1192,11 @@ C-D94 revised for C12; C-D112–C-D114 for C13 the same day.
 | C-D128 | The CloudEvents webhook spec (C17) | **Approved 2026-10-07.** Not adopted (handshake, bearer tokens); requests stay HMAC-signed (C-D12) |
 | C-D132 | Operations in the definition (C18) | **Decided 2026-10-07 by the user.** A definition lists its operations under `operations`, keyed by their route names: `objects`, `xref`, `resolve`, `lists`, `events`. Listed means offered; an unlisted `objects`, `xref` or `resolve` answers `404 OPERATION_NOT_OFFERED` and leaves the OpenAPI; an unlisted `events` keeps `404 EVENTS_NOT_DECLARED`. `resolve` needs `objects` and `xref`. `publications` and `openapi.json` describe the API and are always there. Dropping an operation needs a new `contractVersion` (C-D2); adding one is compatible |
 | C-D133 | The definition's vocabulary (C18) | **Decided 2026-10-07 by the user**, as in the [C18 mapping table](BASE_0_9_IMPLEMENTATION_PLAN.md#c18-plan-2026-10-07): `exposes` and `publicNames`, `object.fields` with roles, `from`, `object.related` with `via`, `operations.xref.matchOn` and `alsoMatchThrough` (`related`, `firstOf`, `preferTypes`), `filters` with `byType`, `under`, `linkedTo` (`through`: `itself`, a related name, `sharedWith:`), `onRelated` (`keepOnlyMatching`, `scoreOnlyMatching`, `crosswalk`), `matchOn` defaulting to `id`, code and `name`, `operations.lists` with `of` and `within`, `operations.events` with `perType` |
-| C-D134 | One syntax to write (C18) | **Decided 2026-10-07 by the user.** The new syntax is schema 0.9. Install and draft compile refuse a schema-0.8 document that declares `consumerApis`, naming schema 0.9. Installed releases are immutable and publications are read with their release (C-D60), so stored 0.8 releases stay readable as stored and are never rewritten |
+| C-D134 | One syntax to write (C18) | **Decided 2026-10-07 by the user.** The new syntax is schema 0.9. Install and draft compile refuse a schema-0.8 document that declares `consumerApis`, naming schema 0.9; _amended 2026-10-07 by the user (C18 B2):_ so does `POST /model-validations`; _and 2026-10-08:_ so does startup, for a model file named by `RDM_MODEL_PATH`. Installed releases are immutable and publications are read with their release (C-D60), so stored 0.8 releases stay readable as stored and are never rewritten |
 | C-D135 | `code` in a match or filter (C18) | **Decided 2026-10-07 by the user.** `field: "code"` in `matchOn` stands for one rule per source of the `code` field with the same weights, in place, so every code attribute still scores on its own and exact scores add up as today; `code` in a filter's `matchOn` stands for the sources the filter's types bind. Never the first non-empty value, which would leave a second code unsearchable |
 | C-D136 | Defaults and shorthands (C18) | **Approved 2026-10-07 by the user.** A public name defaults to the key in PascalCase (`timetable-type` → `TimetableType`); `perType: true` declares `<type>-changed` per exposed type in `exposes` order with all three changes and no watch, before `custom`; `within.types` defaults to the named `under` filter's types; `parent: [fields]` outputs `parent`, and `path: true` and `hierarchy: true` output `path` and `hierarchy`; a field as a string or list is its sources. Each is written out by the expanded read (C-D137). Every consumer response stays the same; only the `ETag` values and the release line of the OpenAPI's description change, once, because the converted model is a new release |
 | C-D137 | Reading a definition expanded (C18) | **Approved 2026-10-07 by the user**; _amended the same day:_ the API index is unchanged (no `operations` field), so no consumer response differs. `GET /api/v1/model/consumer-apis/{consumerApi}` answers the context model's definition in the 0.9 vocabulary with every default written out, with the model's ETag (as `/model/placements`), for 0.8 and 0.9 releases alike. The Webhooks page reads events, filters, public names and the offered operations from it instead of the model document, so the UI never repeats the expansion |
 | C-D138 | Converting the existing models (C18) | **Decided 2026-10-07 by the user.** No converter is shipped: nobody else uses the engine yet. The starter and the operators and timetables model are rewritten once in 0.9 and installed on the development instance; the test configurations are rewritten with them, since a 0.8 install is refused. A throwaway script outside the engine does it and checks that each original and its rewrite compile to the same internal definition. The two models' 0.8 originals stay as test fixtures for the equivalence test |
 | C-D139 | Descriptions (C18) | **Approved 2026-10-07 by the user.** An optional `description` on operations, lists, filters, related blocks and fields, carried into the per-definition OpenAPI (operation, parameter and property descriptions). Without one the OpenAPI is as today |
-| C-D140 | Field order (C18) | **Approved 2026-10-07 by the user.** Role fields come first, in the order `id`, `code`, `name`, `active`, `validFrom`, `validTo`, and a definition that puts one later is refused at that field. The output keeps today's order (roles, then the other fields), so written order is output order |
-| C-D141 | Where a 0.9 mistake is reported (C18) | **Approved 2026-10-07 by the user.** At its pointer in the authored document, with today's codes and the new vocabulary in the message. The rules run on the expanded form, which keeps each node's authored pointer. A relation whose `key` equals another's `reverseKey` makes a `via` naming it ambiguous and is refused there |
+| C-D140 | Field order (C18) | **Approved 2026-10-07 by the user.** Role fields come first, in the order `id`, `code`, `name`, `active`, `validFrom`, `validTo`, and a definition that puts one later is refused at that field. The output keeps today's order (roles, then the other fields), so written order is output order. _Amended 2026-10-08 by the user:_ role fields may be written anywhere; they are output first, in role order, and the other fields follow in written order. JSON object keys are unordered for many tools (`jq -S`, Go maps, `JSONB`), and C18's own test harness broke on sorted keys; a role given to two fields is still refused |
+| C-D141 | Where a 0.9 mistake is reported (C18) | **Approved 2026-10-07 by the user.** At its pointer in the authored document, with today's codes and the new vocabulary in the message. The rules run on the expanded form, which keeps each node's authored pointer. _Amended 2026-10-07 by the user (C18 B3):_ a `via` is never ambiguous, because relation keys and reverse keys share one namespace and a repeat is already refused at `/relationTypes/<key>/reverseKey` (`DUPLICATE_KEY`); no separate check is built |

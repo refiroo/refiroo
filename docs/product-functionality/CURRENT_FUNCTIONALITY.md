@@ -504,10 +504,15 @@ Evidence: [batch contracts](../API.md#batches-and-jobs-base-09-b1-b2-b3),
 **User outcome:** A model administrator defines the read-only contract other systems will use, and
 cannot break it by accident.
 
-The model (schema 0.8) declares consumer APIs: their public names, exposed record types and fields,
-lookup parameters and lists, each with a contract version. Every reference is validated. Comparing
+The model (schema 0.9) declares consumer APIs in the order a reader asks about them: which record
+types they expose and under which public names, which operations they offer (reading by ID,
+looking up, resolving in a batch, lists, events), what a business object looks like, how it is
+looked up, how reads are filtered, and a contract version. Whatever an author leaves out takes a
+sensible default, and an integrator or the UI can read a definition with every default written out.
+Every reference is validated, and a mistake is reported at the place the author wrote it. Comparing
 releases reports contract changes, and activation refuses a breaking change without a higher contract
-version.
+version, such as no longer offering an operation. A definition written for the earlier model language
+can no longer be submitted; releases installed with one keep working unchanged.
 
 A consumer API also declares the change events its consumers will be told about: which record types,
 whether creations, updates or deletions, and which of the fields and related-record blocks count as

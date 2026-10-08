@@ -313,6 +313,9 @@ has no composed test yet; multi-node operation is 0.11 work. Its known caveats a
 `RDM_MODEL_PATH` is bootstrap input, not the active-model setting. Startup validates the file and
 installs its content when that release is missing; an existing database keeps the release it selects
 in `model_runtime_state`, even when the file holds a newer one. Changing the file never activates it.
+A schema 0.8 file that declares `consumerApis` refuses to start, naming the file: rewrite its
+consumer API definitions in schema 0.9 or point `RDM_MODEL_PATH` at a 0.9 model such as
+`model/rdm-starter.json` (0.9 C18). Releases already installed are not affected.
 
 The model lifecycle is staged: save a draft, validate and compile it (no side effects), install it as
 an immutable inactive release, then activate it with the current runtime version and active-release

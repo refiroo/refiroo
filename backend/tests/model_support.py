@@ -8,21 +8,24 @@ from typing import Any
 MODEL_PATH = Path(__file__).resolve().parents[2] / "model" / "rdm-starter.json"
 
 # The starter content release that each schema version shipped with.
-_STARTER_RELEASES = {"0.5": "0.6.0", "0.6": "0.7.0", "0.7": "0.8.0"}
+_STARTER_RELEASES = {"0.5": "0.6.0", "0.6": "0.7.0", "0.7": "0.8.0", "0.8": "0.9.2"}
 
 
 def starter_at_schema(schema_version: str, source: dict[str, Any] | None = None) -> dict[str, Any]:
     """The starter (or ``source``) without the features ``schema_version`` predates.
 
-    Schema 0.8 added effective periods and consumer API definitions, 0.7 relations-panel sort
-    options and the ``relationMatrix`` and ``tree`` view types, and 0.6 the ``mappingGrid`` view type.
+    Schema 0.9 wrote consumer API definitions in their present syntax, and a new 0.8 document may no
+    longer declare them (C18; ``tests/fixtures/consumer_08`` keeps the 0.8 starter as it was). Schema
+    0.8 added effective periods, 0.7 relations-panel sort options and the ``relationMatrix`` and
+    ``tree`` view types, and 0.6 the ``mappingGrid`` view type.
     """
     result = copy.deepcopy(source) if source is not None else json.loads(MODEL_PATH.read_text())
     if schema_version in _STARTER_RELEASES:
         result["release"]["version"] = _STARTER_RELEASES[schema_version]
     result["schemaVersion"] = schema_version
-    if schema_version < "0.8":
+    if schema_version < "0.9":
         result.pop("consumerApis", None)
+    if schema_version < "0.8":
         for object_type in result["objectTypes"]:
             object_type.pop("effectivePeriod", None)
     for application in result["applications"]:
@@ -86,7 +89,9 @@ def renamed_model(
         if isinstance(value, dict):
             return {
                 (names.get(key, key) if keyed else key): (
-                    item if key in _LOCAL_NAMES else rename(item, keyed=key in _KEYED_MAPS)
+                    item
+                    if key in _LOCAL_NAMES and not isinstance(item, dict)
+                    else rename(item, keyed=key in _KEYED_MAPS)
                 )
                 for key, item in value.items()
             }
@@ -96,7 +101,9 @@ def renamed_model(
 
 
 # Properties whose value is a map keyed by model keys: a sort per child type, and a consumer API's
-# exposed types (the model's own ``objectTypes`` is a list, so it is not touched).
-_KEYED_MAPS = {"childSort", "objectTypes"}
-# Properties naming something local to a consumer API, never a model key: a match rule's projection.
-_LOCAL_NAMES = {"projection"}
+# public names.
+_KEYED_MAPS = {"childSort", "publicNames"}
+# Properties naming something local to a consumer API, never a model key: a field's role, a related
+# block or filter a part refers to by name, and a filter's routes (``object.related`` itself is a
+# map, renamed within).
+_LOCAL_NAMES = {"role", "related", "onRelated", "filter", "through"}

@@ -609,10 +609,11 @@ US-I01. **Scenario:** SC-14, SC-08. **Status:** delivered (0.8 W).
 definition is read on Settings › Integration › Consumer APIs, 0.9 U4).
 **Stories:** US-I09 (consumer side), US-P04. **Status:** definitions delivered (0.9 C1); the
 consumer tier's reads in C2–C16 ([CONSUMER_API.md](../CONSUMER_API.md)); event declarations in C9,
-their events produced from C10 (J30).
+their events produced from C10 (J30); written in schema 0.9 since C18.
 
-1. Declare a consumer API in the model: exposed types and their public names, fields with their
-   sources, projections, parameters and lists, and a contract version.
+1. Declare a consumer API in the model (schema 0.9): the exposed types and their public names, the
+   operations it offers, the object's fields with their sources and roles, related records, how
+   XREF matches, its filters, lists and events, and a contract version.
 2. Validate and compile it with the release; every reference is checked at its JSON pointer.
 3. Compare with the active release: breaking changes need a higher contract version.
 4. Activate; a break without a higher version is refused.
@@ -621,23 +622,42 @@ their events produced from C10 (J30).
 
 - **J25.1 Additions are compatible**; removals and lower versions are reported.
 - **J25.2 A model change** (a cardinality) changes a projection's shape and is reported.
-- **J25.3 Declare events**: a definition names its change events (`events`): the exposed types, the
-  kinds of change (`created`, `updated`, `deleted`) and, for an update, the outputs and projections
-  it watches, by the names consumers read. Each mistake is refused at its pointer under
-  `/consumerApis/<key>/events/<event>`; `event` and `after` are reserved parameter names (C9).
+- **J25.3 Declare events**: a definition names its change events (`operations.events`): one per
+  exposed type with `perType`, or its own under `custom` with the exposed types, the kinds of change
+  (`created`, `updated`, `deleted`) and, for an update, the outputs and related blocks it watches,
+  by the names consumers read. Each mistake is refused at its pointer under
+  `/consumerApis/<key>/operations/events/custom/<index>`; `event` and `after` are reserved filter
+  names (C9).
 - **J25.4 Events in the contract**: a release that tells consumers less (an event, a type, a change
   kind or a watched output removed, a watch added) needs a higher contract version; one that tells
   them more is compatible (C-D85).
+- **J25.5 Rewriting a definition changes nothing it serves**: a workspace active on a model whose
+  definitions are in schema 0.8 installs and activates the same definitions rewritten in 0.9. No
+  consumer contract change is reported and no subscription is suspended; get by ID, a list with a
+  parent and filters, XREF (a page, `expect=one`, a crosswalk), batch resolve, the pull feed and the
+  API index answer the same bodies and headers apart from the `ETag` values, and the definition's
+  OpenAPI document is the same apart from the release it names (C18).
+- **J25.6 Schema 0.8 refused for new definitions**: installing, compiling or validating a schema 0.8
+  document that declares `consumerApis` is refused at `/schemaVersion`, naming schema 0.9; a 0.8
+  document without them installs, and a stored 0.8 release stays readable (C-D134).
+- **J25.7 Operations a definition offers**: an operation the definition does not list answers
+  `404 OPERATION_NOT_OFFERED` and is left out of its OpenAPI document; no longer offering one needs
+  a higher contract version, offering one more is compatible; `resolve` without `xref` is refused at
+  `/consumerApis/<key>/operations/resolve` (C-D132).
+- **J25.8 Mistakes at the author's pointers**: a `via` naming no relation, a filter with two verbs,
+  a role given to two fields and an `alsoMatchThrough` naming no related block are each
+  refused at their pointer in the 0.9 document (C-D141).
 
-The identity (`id` role) reads the object ID: its source is `["id"]`, and any other source is
-refused at `/consumerApis/<key>/object/id/source` (C-D24). Another identifier, such as a former
-system's ID, is published as an attribute field.
+The identity (the field with role `id`) reads the object ID, and any other source is refused at
+`/consumerApis/<key>/object/fields/<field>/from` (C-D24). Another identifier, such as a former
+system's ID, is published as a field of its own.
 
 A list may name a `sortBy` attribute: a scalar attribute its type binds, refused otherwise at
-`/consumerApis/<key>/lists/<list>/sortBy`; changing it is a breaking change. `from`, `seek` and
-`includeTotal` are reserved parameter names, as the other paging names are (C3).
+`/consumerApis/<key>/operations/lists/<list>/sortBy`; changing it is a breaking change. `from`,
+`seek` and `includeTotal` are reserved filter names, as the other paging names are (C3).
 
-**Refusals:** `422 INVALID_MODEL` (with the pointer), `409 CONSUMER_CONTRACT_VERSION_REQUIRED`.
+**Refusals:** `422 INVALID_MODEL` (with the pointer), `422 UNSUPPORTED_SCHEMA_VERSION` (a 0.8
+document with `consumerApis`), `409 CONSUMER_CONTRACT_VERSION_REQUIRED`.
 
 **Evidence today:** `test_consumer_api_model`; the J25 journey tests.
 
@@ -675,8 +695,13 @@ read names the release it was read under (`X-Model-Release-Id`).
   it, one source per consumer API of the active release, labelled `{name} · v{contractVersion}`
   and read from the document the index names. A release adding, removing or re-versioning a
   definition shows on the next page load.
+- **J20.6 A consumer API definition expanded**: `GET /api/v1/model/consumer-apis/{consumerApi}`
+  answers the context model's definition in schema 0.9 with every default written out: each public
+  name, the operations, the events `perType` generates, every `matchOn` and each list's
+  `within.types`; with the model's `ETag`. A schema 0.8 release's definitions read the same way
+  (C18, C-D137).
 
-**Refusals:** `404 CHANGE_SET_NOT_FOUND`, `422 MUTUALLY_EXCLUSIVE_CONTEXT`,
+**Refusals:** `404 CHANGE_SET_NOT_FOUND`, `404 CONSUMER_API_NOT_FOUND`, `422 MUTUALLY_EXCLUSIVE_CONTEXT`,
 `503 MODEL_REGISTRY_UNAVAILABLE`, `503 MODEL_RUNTIME_STATE_UNAVAILABLE`.
 
 **Evidence today:** `v1-api-reference` (with a consumer API source); `u4-integration` (the

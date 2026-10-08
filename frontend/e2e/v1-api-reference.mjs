@@ -43,9 +43,9 @@ try {
     key: "codes",
     name: "Codelists",
     contractVersion: 1,
-    objectTypes: { codelist: { publicName: "Codelist" } },
-    object: { id: { output: "codelistId", source: ["id"] }, name: { output: "name", source: ["name"] } },
-    lists: [{ key: "codelists", objectType: "codelist" }],
+    exposes: ["codelist"],
+    object: { fields: { codelistId: { role: "id" }, name: { role: "name", from: "name" } } },
+    operations: { objects: {}, xref: {}, resolve: {}, lists: { codelists: { of: "codelist" } } },
   }];
   await writeFile(modelPath, JSON.stringify(starter));
   backend = spawn(

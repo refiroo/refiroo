@@ -17,12 +17,14 @@ from typing import Any
 
 from ...common.json_pointer import pointer_segment
 from ...models.schema import (
+    OBJECT_ROLES,
     ConsumerApiDefinition,
     ConsumerField,
     EngineModel,
     ObjectTypeDefinition,
     ProjectionParameter,
 )
+from .consumer_definitions import authored_pointer, consumer_apis
 from .diagnostics import ModelDiagnostic
 from .traversal import ancestor_type_keys, related_object_types
 
@@ -31,12 +33,12 @@ BUILT_IN_FIELDS = {"id": "text", "name": "text"}
 # A projection field's source naming the related record's public type name (C-D73).
 PROJECTION_TYPE_SOURCE = "objectType"
 ANCESTOR_REFERENCE_PREFIX = "ancestor:"
-# Roles of the shared object, in output order.
-OBJECT_ROLES = ("id", "code", "name", "active", "validFrom", "validTo")
 # Value types that compare as one output type (C-D19).
 _TEXT_TYPES = {"text", "longText"}
 
 BREAKING = "CONSUMER_CONTRACT_VERSION_REQUIRED"
+# A filter's internal kind as the author's verb names it (C18).
+FILTER_VERB = {"objectType": "byType", "ancestor": "under", "related": "linkedTo", "projection": "onRelated"}
 
 
 def output_type(value_type: str) -> str:
@@ -196,6 +198,8 @@ class OutputContract:
     as_of: frozenset[str] = frozenset()
     # The declared events, which consumers rely on to be told (C9, C-D85).
     events: dict[str, EventContract] = field(default_factory=dict)
+    # The operations among ``objects``, ``xref`` and ``resolve`` the definition offers (C-D132).
+    operations: frozenset[str] = frozenset()
 
 
 
@@ -278,6 +282,7 @@ def output_contract(model: EngineModel, definition: ConsumerApiDefinition) -> Ou
             )
             for event in definition.events
         },
+        operations=frozenset(name for name in ("objects", "xref", "resolve") if definition.offers(name)),
     )
 
 
@@ -287,8 +292,8 @@ def contract_diagnostics(active: EngineModel, candidate: EngineModel) -> list[Mo
     An error for each change a definition's consumers would notice without a higher
     ``contractVersion``, and a warning for each definition ``candidate`` no longer declares.
     """
-    before = {item.key: item for item in active.consumerApis or ()}
-    after = {item.key: item for item in candidate.consumerApis or ()}
+    before = {item.key: item for item in consumer_apis(active)}
+    after = {item.key: item for item in consumer_apis(candidate)}
     diagnostics: list[ModelDiagnostic] = []
     for key in sorted(set(before) - set(after)):
         diagnostics.append(
@@ -325,7 +330,7 @@ def contract_diagnostics(active: EngineModel, candidate: EngineModel) -> list[Mo
             ModelDiagnostic(
                 severity="error",
                 code=BREAKING,
-                path=f"{base}{path}",
+                path=authored_pointer(candidate, key, f"{base}{path}"),
                 message=(
                     f"Consumer API '{key}' {change}; raise contractVersion above"
                     f" {old.contractVersion} to release it"
@@ -338,7 +343,9 @@ def contract_diagnostics(active: EngineModel, candidate: EngineModel) -> list[Mo
 
 def _breaking_changes(old: OutputContract, new: OutputContract) -> list[tuple[str, str]]:
     """``(path within the definition, what changed)`` for each breaking change."""
-    changes: list[tuple[str, str]] = []
+    changes: list[tuple[str, str]] = [
+        ("/operations", f"no longer offers the '{name}' operation") for name in sorted(old.operations - new.operations)
+    ]
     for key, public_name in old.types.items():
         if key not in new.types:
             changes.append(("/objectTypes", f"no longer exposes object type '{key}'"))
@@ -353,30 +360,31 @@ def _breaking_changes(old: OutputContract, new: OutputContract) -> list[tuple[st
     for name, projection in old.projections.items():
         path = f"/projections/{pointer_segment(name)}"
         if name not in new.projections:
-            changes.append(("/projections", f"removes projection '{name}'"))
+            changes.append(("/projections", f"removes related block '{name}'"))
             continue
         if new.projections[name]["shape"] != projection["shape"]:
             before, after = _shape(projection["shape"]), _shape(new.projections[name]["shape"])
-            changes.append((path, f"changes projection '{name}' from {before} to {after}"))
+            changes.append((path, f"changes related block '{name}' from {before} to {after}"))
         changes += _field_changes(
-            f"{path}/fields", f"field of projection '{name}'", projection["fields"],
+            f"{path}/fields", f"field of related block '{name}'", projection["fields"],
             new.projections[name]["fields"],
         )
-    if old.match != new.match:
+    # Weights are read only through XREF and batch resolve: offering XREF again is an addition.
+    if "xref" in old.operations & new.operations and old.match != new.match:
         changes.append(("/match", "changes its scoring weights"))
     for key, item in old.lists.items():
         if key not in new.lists:
             changes.append(("/lists", f"removes list '{key}'"))
         elif new.lists[key] != item:
-            changes.append(("/lists", f"changes the type, sort or parent parameter of list '{key}'"))
+            changes.append(("/lists", f"changes the type, sort or 'within' of list '{key}'"))
     for name, kind in old.parameters.items():
         if name not in new.parameters:
-            changes.append(("/parameters", f"removes parameter '{name}'"))
+            changes.append(("/parameters", f"removes filter '{name}'"))
         elif new.parameters[name] != kind:
             changes.append(
                 (
                     f"/parameters/{pointer_segment(name)}/kind",
-                    f"changes parameter '{name}' from kind '{kind}' to '{new.parameters[name]}'",
+                    f"changes filter '{name}' from '{FILTER_VERB[kind]}' to '{FILTER_VERB[new.parameters[name]]}'",
                 )
             )
         elif (name in old.scores_from) != (name in new.scores_from):
@@ -384,7 +392,7 @@ def _breaking_changes(old: OutputContract, new: OutputContract) -> list[tuple[st
             changes.append(
                 (
                     f"/parameters/{pointer_segment(name)}/scoresFrom",
-                    f"turns scoresFrom {turned} for parameter '{name}', which changes its ranking",
+                    f"turns scoreOnlyMatching {turned} for filter '{name}', which changes its ranking",
                 )
             )
         # Turning targetable on adds a capability, as adding a field does (C-D2).
@@ -392,7 +400,7 @@ def _breaking_changes(old: OutputContract, new: OutputContract) -> list[tuple[st
             changes.append(
                 (
                     f"/parameters/{pointer_segment(name)}/targetable",
-                    f"turns targetable off for parameter '{name}', so its to.{name} reads are refused",
+                    f"turns crosswalk off for filter '{name}', so its to.{name} reads are refused",
                 )
             )
     # A type still exposed without its period would refuse the asOf its consumers send.

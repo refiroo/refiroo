@@ -10,6 +10,7 @@ import hashlib
 import json
 import time
 from collections.abc import Iterator
+from pathlib import Path
 
 import pytest
 import seeds
@@ -484,3 +485,24 @@ def test_the_database_goes_away_while_running(configuration, databases):
             assert time.monotonic() < deadline
             time.sleep(0.05)
     assert down == 503
+
+
+@pytest.mark.journey("J12.7")
+def test_a_model_file_with_schema_0_8_consumer_apis_refuses_to_start(configuration, databases, tmp_path):
+    """When the service starts with RDM_MODEL_PATH naming a schema 0.8 model that declares
+    consumerApis. Then it refuses to start with a message naming the setting, the file and schema
+    0.9 (C18, C-D134). The same file without them starts."""
+    legacy = json.loads((Path(__file__).parents[1] / "fixtures" / "consumer_08" / "rdm-starter-0.9.2.json").read_text())
+    path = tmp_path / "legacy.json"
+    path.write_text(json.dumps(legacy))
+    with (
+        pytest.raises(RuntimeError) as refusal,
+        serve(configuration, _clone(databases), RDM_MODEL_PATH=str(path)),
+    ):
+        pass
+    assert "RDM_MODEL_PATH" in str(refusal.value) and str(path) in str(refusal.value)
+    assert "schema 0.9" in str(refusal.value)
+    del legacy["consumerApis"]
+    path.write_text(json.dumps(legacy))
+    with serve(configuration, _clone(databases), RDM_MODEL_PATH=str(path)) as service:
+        assert service.health() == 200

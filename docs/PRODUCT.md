@@ -159,8 +159,9 @@ can complete the task in the application; "API" means another system can.
   load is refused with every failing cell, and the rest load or, all-or-nothing, none. A preview
   tries the file against the data without changing anything and says what loading it would do, row
   by row and column by column, before it is confirmed.
-- Declare consumer APIs in the model: the read-only contracts other systems will use, checked so that a
-  breaking change needs a new contract version. Another system reads one business object through
+- Declare consumer APIs in the model: the read-only contracts other systems will use, written as
+  what each one exposes, offers, looks like and filters by, with defaults for what is left out, and
+  checked so that a breaking change needs a new contract version. Another system reads one business object through
   such an API by its record ID, in the declared shape, or reads its declared lists page by page,
   narrowed by the API's parameters, or looks business objects up by a code, ID or name, its own or a
   related record's, scored and ordered by the API's declared weights.

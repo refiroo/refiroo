@@ -81,12 +81,27 @@ validation in SQL is deferred until after 1.0.
 - Containment: which types may stand at the top level and which may contain which
 - Views (`table`, `mappingGrid`, `relationMatrix`, `tree`) and detail panels
 - An object type's effective period over two of its date attributes (schema 0.8, ADR-038)
-- Consumer API definitions (schema 0.8): exposed types and public names, fields and their sources,
-  projections, parameters, lists and a contract version
+- Consumer API definitions (schema 0.9): exposed types and public names, the operations offered,
+  fields and their sources, related records, XREF matching, filters, lists, events and a contract
+  version
 
-The engine reads schema versions 0.5 to 0.8; `python -m app.cli.model_schema_upgrade` transitions an
+The engine reads schema versions 0.5 to 0.9; `python -m app.cli.model_schema_upgrade` transitions an
 older installed model offline. Definition objects are frozen recursively, so a cached model cannot
 change without installing and selecting another release.
+
+**Consumer API definitions have one internal form.** A model document holds its definitions as the
+author wrote them, which is also its canonical document and `modelHash`: schema 0.9's syntax, or a
+stored 0.8 release's own shape (`engine/model/consumer_legacy.py` reads such a document with its own
+classes, so its hash holds). Every reader works on `ConsumerApiDefinition`, the internal form:
+`engine/model/consumer_definitions.py` expands a 0.9 definition once per parsed model
+(`engine/model/consumer_expansion.py`, every default written out) and takes a 0.8 one as it is, every
+operation offered, and `consumer_apis(model)` is the only way code reads them. The expansion keeps a
+map from each internal pointer to the authored one, so the reference rules, which run on the
+internal form, and the contract check report at the node the author wrote.
+`engine/model/consumer_rendering.py` writes the internal form back as a 0.9 definition with every
+default, which `GET /model/consumer-apis/{consumerApi}` answers; expanding it gives the same
+definition. Install, draft compile and validation refuse a new 0.8 document with `consumerApis`
+(`compile_authored_model`); loading, activating and diffing stored releases never do.
 
 ### Releases and runtime selection
 
@@ -623,7 +638,8 @@ The audit log is the ordered source of the change feed and of consumer events (A
   records and their values, one per projection, and for the ancestors one recursive walk by ID and
   one read of the walked records by their list (a single statement misestimated the walk, C14b).
   Field resolution and projection shapes come from `engine/model/consumer_contract.py`, the module
-  the contract check uses. XREF (`engine/reads/consumer_xref.py`) scores at read time in one
+  the contract check uses. The router refuses an operation the definition does not offer
+  (`OPERATION_NOT_OFFERED`) before it reads anything. XREF (`engine/reads/consumer_xref.py`) scores at read time in one
   statement built from the definition's `match`. The terms of every lookup are one relation
   `(item, term)` bound as arrays; a rule's exact matches of every term are read through a `LATERAL`
   over the `lower(name)` and `lower(text_value)` indexes (revision `20261005_01`), and its contains

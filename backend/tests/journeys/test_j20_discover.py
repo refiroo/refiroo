@@ -366,3 +366,48 @@ def test_the_api_reference_lists_the_consumer_apis(world):
     assert document["info"]["version"] == "2"
     assert all(path.startswith(f"/api/consumer/{capi}/v2/") for path in document["paths"])
     refused(world.api.get(f"/api/consumer/{capi}/v1/openapi.json"), 404, "CONTRACT_VERSION_NOT_FOUND")
+
+
+@pytest.mark.journey("J20.6")
+@pytest.mark.structures("Capi")
+def test_a_consumer_api_definition_expanded(world):
+    """Given Capi written with its defaults left out and an event per exposed type. When an integrator
+    reads it expanded. Then every exposed type has its public name, the operations are listed, the
+    events perType makes are written out as events of their own, every filter that matches has its
+    matchOn and every list within a filter its types; the read carries the model's ETag. An unknown
+    definition is 404 CONSUMER_API_NOT_FOUND."""
+    capi = world.key("Capi")
+    model = copy.deepcopy(world.configuration.model)
+    model["release"]["version"] += "-expanded"
+    (definition,) = [item for item in model["consumerApis"] if item["key"] == capi]
+    container = world.key("Capi.container")
+    del definition["filters"][container]["matchOn"]
+    definition["operations"]["events"] = {"perType": True}
+    # The event keys perType makes are the type keys, which must then be URL keys too.
+    url_keys = all(re.fullmatch(r"[a-z0-9]+(-[a-z0-9]+)*", key) for key in definition["exposes"])
+    if not url_keys:
+        draft = ok(world.api.post("/model-drafts", {"name": "Expanded", "model": model}), 201)
+        compiled = ok(world.api.post(f"/model-drafts/{draft['id']}/compile", {"expectedVersion": draft["version"]}))
+        assert [d["path"] for d in compiled["diagnostics"]] == [f"/consumerApis/{capi}/operations/events/perType"]
+        definition["operations"]["events"] = {"custom": [{"key": "every", "objectTypes": definition["exposes"], "changes": ["created"]}]}
+    ok(world.activate(world.install(model)["id"]))
+
+    response = world.api.get(f"/model/consumer-apis/{capi}")
+    expanded = ok(response)
+    assert response.headers["ETag"] == world.api.get("/model").headers["ETag"]
+    assert expanded["exposes"] == definition["exposes"]
+    assert expanded["publicNames"] == definition["publicNames"]
+    assert set(expanded["operations"]) == {"objects", "xref", "resolve", "lists", "events"}
+    events = expanded["operations"]["events"]
+    assert events["perType"] is False
+    if url_keys:
+        assert events["custom"] == [
+            {"key": f"{key}-changed", "objectTypes": [key], "changes": ["created", "updated", "deleted"]}
+            for key in definition["exposes"]
+        ]
+    filters = expanded["filters"]
+    assert filters[container] == {"under": [world.key("M")], "matchOn": ["id", "name"]}
+    assert all("matchOn" in item for item in filters.values() if "byType" not in item)
+    assert all("types" in item["within"] for item in expanded["operations"]["lists"].values() if "within" in item)
+    assert expanded["object"]["fields"][world.key("Capi.id")] == {"role": "id", "from": ["id"]}
+    refused(world.api.get("/model/consumer-apis/no-such-api"), 404, "CONSUMER_API_NOT_FOUND")

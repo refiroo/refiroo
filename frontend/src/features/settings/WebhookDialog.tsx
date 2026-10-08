@@ -14,7 +14,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import type {
-  ConsumerApiDeclaration,
+  ConsumerApiDefinition,
   EngineModel,
   Subscription,
   SubscriptionSettings,
@@ -29,6 +29,7 @@ import { MultiSelect, type PickOption } from "@/ui/MultiSelect";
 import { Notice } from "@/ui/Notice";
 import { SearchMenu } from "@/ui/SearchMenu";
 import { TokenField } from "@/ui/TokenField";
+import { subscribable } from "./consumerDefinitions";
 import { CONTENT, FORMAT, eventDeclaration } from "./webhookText";
 
 /** The batch size offered when an operator first chooses to batch. */
@@ -53,12 +54,10 @@ interface Draft {
   format: Subscription["format"];
 }
 
-/** The definitions a subscription can name: those of the active release that declare events. */
-export const subscribable = (model: EngineModel) => (model.consumerApis ?? []).filter((item) => item.events?.length);
+const eventsOf = (definition?: ConsumerApiDefinition) => definition?.operations.events?.custom ?? [];
+const declaredEvents = (definition?: ConsumerApiDefinition) => eventsOf(definition).map((event) => event.key);
 
-const declaredEvents = (definition?: ConsumerApiDeclaration) => definition?.events?.map((event) => event.key) ?? [];
-
-function settingsOf(draft: Draft, definition?: ConsumerApiDeclaration): SubscriptionSettings {
+function settingsOf(draft: Draft, definition?: ConsumerApiDefinition): SubscriptionSettings {
   return {
     name: draft.name.trim(),
     events: draft.allEvents ? declaredEvents(definition) : draft.events,
@@ -87,7 +86,7 @@ function changes(subscription: Subscription, next: SubscriptionSettings): Omit<S
   return update;
 }
 
-function draftOf(subscription: Subscription, definition?: ConsumerApiDeclaration): Draft {
+function draftOf(subscription: Subscription, definition?: ConsumerApiDefinition): Draft {
   const declared = declaredEvents(definition);
   return {
     name: subscription.name,
@@ -114,6 +113,7 @@ function fieldOf(cause: unknown) {
 
 export function WebhookDialog({
   model,
+  definitions: declared,
   batchLimit = BATCH_LIMIT,
   subscription,
   onClose,
@@ -121,6 +121,8 @@ export function WebhookDialog({
   onConflict,
 }: {
   model: EngineModel;
+  /** The active model's consumer API definitions, expanded (C18). */
+  definitions: ConsumerApiDefinition[];
   /** The most events a subscription may batch (capabilities). */
   batchLimit?: number;
   /** The subscription to edit; without it the dialog creates one. */
@@ -130,7 +132,7 @@ export function WebhookDialog({
   /** Reload the subscription after a stale edit; the dialog stays open on the current version. */
   onConflict?: () => Promise<Subscription>;
 }) {
-  const definitions = subscribable(model);
+  const definitions = subscribable(declared);
   const editing = !!subscription;
   const [draft, setDraft] = useState<Draft>(() =>
     subscription
@@ -157,22 +159,21 @@ export function WebhookDialog({
   const [error, setError] = useState<{ field: string; message: string }>();
   const [conflict, setConflict] = useState("");
   const definition = definitions.find((item) => item.key === draft.consumerApi);
-  const parameters = definition?.parameters ?? {};
+  const parameters = definition?.filters ?? {};
   const next = settingsOf(draft, definition);
   const update = subscription ? changes(subscription, next) : undefined;
   const dirty = editing ? Object.keys(update ?? {}).length > 0 : !!(draft.url || draft.name);
-  const eventOptions: PickOption[] =
-    definition?.events?.map((event) => ({
-      id: event.key,
-      label: event.key,
-      description: eventDeclaration(model, event),
-    })) ?? [];
+  const eventOptions: PickOption[] = eventsOf(definition).map((event) => ({
+    id: event.key,
+    label: event.key,
+    description: eventDeclaration(model, event),
+  }));
   const unusedParameters: PickOption[] = Object.entries(parameters)
     .filter(([name]) => !draft.filters.some(([added]) => added === name))
     .map(([name, parameter]) => ({
       id: name,
       label: name,
-      description: parameter.matchFields ? `Matches ${parameter.matchFields.join(", ")}` : undefined,
+      description: parameter.description ?? (parameter.matchOn ? `Matches ${parameter.matchOn.join(", ")}` : undefined),
     }));
 
   useEffect(() => {
@@ -383,8 +384,8 @@ export function WebhookDialog({
                   <FormField
                     label={name}
                     help={
-                      parameters[name]?.matchFields
-                        ? `Each value matches a record's ${parameters[name].matchFields.join(", ")}; several are alternatives.`
+                      parameters[name]?.matchOn
+                        ? `Each value matches a record's ${parameters[name].matchOn.join(", ")}; several are alternatives.`
                         : "Several values are alternatives."
                     }
                     error={fieldError(`filter:${name}`)}

@@ -604,7 +604,7 @@ def generated(variant: str) -> Configuration:
     ]
     applications.append(lens)
     model = {
-        "schemaVersion": "0.8",
+        "schemaVersion": "0.9",
         "release": {
             "key": f"journeys-{variant}",
             "name": f"Journey model {variant.upper()}",
@@ -683,125 +683,110 @@ def _consumer_names(variant: str) -> dict[str, str]:
 
 
 def _consumer_api(variant: str, k: dict[str, str]) -> dict[str, Any]:
-    """``Capi``: a consumer API exposing R, R2 and D, with lists and parameters (J28), and E and F,
-    one dated and one not (J23)."""
+    """``Capi``: a consumer API exposing R, R2 and D, with lists and filters (J28), and E and F, one
+    dated and one not (J23)."""
     n = _consumer_names(variant)
     return {
         "key": n["Capi"],
         "name": "Capi",
         "contractVersion": 1,
-        "objectTypes": {
-            k["R"]: {"publicName": n["Capi.R"]},
-            k["R2"]: {"publicName": n["Capi.R2"]},
-            k["D"]: {"publicName": n["Capi.D"]},
-            k["E"]: {"publicName": n["Capi.E"]},
-            k["F"]: {"publicName": n["Capi.F"]},
+        "exposes": [k["R"], k["R2"], k["D"], k["E"], k["F"]],
+        "publicNames": {
+            k["R"]: n["Capi.R"],
+            k["R2"]: n["Capi.R2"],
+            k["D"]: n["Capi.D"],
+            k["E"]: n["Capi.E"],
+            k["F"]: n["Capi.F"],
         },
         "object": {
-            "id": {"output": n["Capi.id"], "source": ["id"]},
-            "code": {"output": n["Capi.code"], "source": [k["R2.u"], k["R.u"]]},
-            "name": {"output": n["Capi.name"], "source": ["name"]},
-            "active": {"output": n["Capi.active"], "source": [k["R.b"]], "default": True},
-            "attributes": {
-                n["Capi.n"]: {"source": [k["R.n"]], "default": 50},
-                n["Capi.dt"]: {"source": [k["R.dt"]]},
+            "fields": {
+                n["Capi.id"]: {"role": "id"},
+                n["Capi.code"]: {"role": "code", "from": [k["R2.u"], k["R.u"]]},
+                n["Capi.name"]: {"role": "name", "from": "name"},
+                n["Capi.active"]: {"role": "active", "from": k["R.b"], "default": True},
+                n["Capi.n"]: {"from": k["R.n"], "default": 50},
+                n["Capi.dt"]: k["R.dt"],
             },
-            "parent": {
-                "output": n["Capi.parent"],
-                "fields": ["objectType", "id", "code", "name"],
-            },
+            "parent": {"output": n["Capi.parent"], "fields": ["objectType", "id", "code", "name"]},
             "path": n["Capi.path"],
             "hierarchy": n["Capi.hierarchy"],
-        },
-        "projections": {
-            n["Capi.B11"]: {
-                "from": {"relation": k["B11"], "direction": "outgoing"},
-                "fields": {n["Capi.B11.name"]: "name", n["Capi.B11.code"]: k["K.code"]},
-            },
-            n["Capi.Bown"]: {
-                "from": {"relation": k["Bown"], "direction": "outgoing"},
-                "fields": {
-                    n["Capi.Bown.name"]: "name",
-                    n["Capi.Bown.G"]: f"ancestor:{k['G']}.name",
+            "related": {
+                n["Capi.B11"]: {
+                    "via": k["B11"],
+                    "fields": {n["Capi.B11.name"]: "name", n["Capi.B11.code"]: k["K.code"]},
                 },
-            },
-            n["Capi.Bscope"]: {
-                "from": {"relation": k["Bscope"], "direction": "outgoing"},
-                "fields": {n["Capi.Bscope.name"]: "name"},
+                n["Capi.Bown"]: {
+                    "via": k["Bown"],
+                    "fields": {
+                        n["Capi.Bown.name"]: "name",
+                        n["Capi.Bown.G"]: f"ancestor:{k['G']}.name",
+                    },
+                },
+                n["Capi.Bscope"]: {"via": k["Bscope"], "fields": {n["Capi.Bscope.name"]: "name"}},
             },
         },
-        "match": {
-            "own": [
-                {"field": "id", "exact": 1000},
-                {"field": k["R.u"], "exact": 500, "contains": 40},
-                {"field": k["R2.u"], "exact": 500, "contains": 40},
-                {"field": "name", "exact": 200, "contains": 30},
-            ],
-            "promoted": [
-                {
-                    "projection": n["Capi.B11"],
-                    "firstMatch": [
-                        {"field": k["K.code"], "exact": 80},
-                        {"field": "name", "exact": 75},
-                        {"field": k["K.code"], "contains": 10},
-                    ],
-                },
-                {
-                    "projection": n["Capi.Bscope"],
-                    "firstMatch": [{"field": "name", "exact": 60}],
-                    "preferTargetTypes": [k["R2"]],
-                },
-            ],
-        },
-        "parameters": {
-            n["Capi.container"]: {
-                "kind": "ancestor",
-                "objectTypes": [k["M"]],
-                "matchFields": ["name"],
+        "operations": {
+            "objects": {},
+            "xref": {
+                "matchOn": [
+                    {"field": "id", "exact": 1000},
+                    {"field": k["R.u"], "exact": 500, "contains": 40},
+                    {"field": k["R2.u"], "exact": 500, "contains": 40},
+                    {"field": "name", "exact": 200, "contains": 30},
+                ],
+                "alsoMatchThrough": [
+                    {
+                        "related": n["Capi.B11"],
+                        "firstOf": [
+                            {"field": k["K.code"], "exact": 80},
+                            {"field": "name", "exact": 75},
+                            {"field": k["K.code"], "contains": 10},
+                        ],
+                    },
+                    {
+                        "related": n["Capi.Bscope"],
+                        "firstOf": [{"field": "name", "exact": 60}],
+                        "preferTypes": [k["R2"]],
+                    },
+                ],
             },
+            "resolve": {},
+            "lists": {
+                n["Capi.all"]: {"of": k["R"], "sortBy": k["R.n"]},
+                n["Capi.entries"]: {
+                    "of": k["R2"],
+                    "within": {"filter": n["Capi.entries.parent"], "types": [k["R"]]},
+                },
+                n["Capi.permits"]: {
+                    "of": k["D"],
+                    "within": {"filter": n["Capi.permits.parent"], "types": [k["G"]]},
+                },
+                n["Capi.rates"]: {"of": k["E"]},
+                n["Capi.fees"]: {"of": k["F"]},
+            },
+        },
+        "filters": {
+            n["Capi.container"]: {"under": [k["M"]], "matchOn": ["name"]},
             n["Capi.permit"]: {
-                "kind": "projection",
-                "projection": n["Capi.Bown"],
-                "matchFields": [f"ancestor:{k['G']}.name"],
-                "requireMatch": True,
-                "targetable": True,
+                "onRelated": n["Capi.Bown"],
+                "matchOn": [f"ancestor:{k['G']}.name"],
+                "keepOnlyMatching": True,
+                "crosswalk": True,
             },
-            n["Capi.token"]: {
-                "kind": "related",
-                "objectTypes": [k["K"]],
-                "matchFields": ["name"],
-                "via": [n["Capi.B11"]],
-            },
+            n["Capi.token"]: {"linkedTo": [k["K"]], "through": [n["Capi.B11"]], "matchOn": ["name"]},
             n["Capi.peer"]: {
-                "kind": "related",
-                "objectTypes": [k["R"]],
-                "matchFields": ["name"],
-                "via": ["self", f"sharedProjection:{n['Capi.Bscope']}"],
+                "linkedTo": [k["R"]],
+                "through": ["itself", f"sharedWith:{n['Capi.Bscope']}"],
+                "matchOn": ["name"],
             },
-            n["Capi.kind"]: {"kind": "objectType"},
+            n["Capi.kind"]: {"byType": True},
             n["Capi.watch"]: {
-                "kind": "projection",
-                "projection": n["Capi.Bscope"],
-                "matchFields": [f"ancestor:{k['G']}.name"],
-                "scoresFrom": True,
-                "targetable": True,
+                "onRelated": n["Capi.Bscope"],
+                "matchOn": [f"ancestor:{k['G']}.name"],
+                "scoreOnlyMatching": True,
+                "crosswalk": True,
             },
         },
-        "lists": [
-            {"key": n["Capi.all"], "objectType": k["R"], "sortBy": k["R.n"]},
-            {
-                "key": n["Capi.entries"],
-                "objectType": k["R2"],
-                "parentParameter": {"name": n["Capi.entries.parent"], "objectTypes": [k["R"]]},
-            },
-            {
-                "key": n["Capi.permits"],
-                "objectType": k["D"],
-                "parentParameter": {"name": n["Capi.permits.parent"], "objectTypes": [k["G"]]},
-            },
-            {"key": n["Capi.rates"], "objectType": k["E"]},
-            {"key": n["Capi.fees"], "objectType": k["F"]},
-        ],
     }
 
 
@@ -927,151 +912,150 @@ def parity() -> Configuration:
 def _reference_definition() -> dict[str, Any]:
     """CONSUMER_API "Definition shape", its ``…`` written out: ``domain`` exposed, the ``values`` and
     ``all-values`` lists, ``alternative`` with the related record's ``objectType`` (C-D73) and
-    ``duration`` as the reference object has them, ``language`` targetable for a crosswalk to a
-    translation, and its event (C9)."""
+    ``duration`` as the reference object has them, ``language`` crosswalked to a translation, and its
+    event (C9)."""
     return {
         "key": "rdm",
         "name": "RDM consumer API",
         "contractVersion": 1,
-        "objectTypes": {
-            "master-value": {"publicName": "CodelistValue"},
-            "codelist": {"publicName": "Codelist"},
-            "domain": {"publicName": "Domain"},
-            "location": {"publicName": "Location"},
-        },
+        "exposes": ["master-value", "codelist", "domain", "location"],
+        "publicNames": {"master-value": "CodelistValue"},
         "object": {
-            "id": {"output": "masterId", "source": ["id"]},
-            "code": {"output": "code", "source": ["operator-code", "value-code", "codelist-code", "domain-code"]},
-            "name": {"output": "name", "source": ["name"]},
-            "active": {"output": "isActive", "source": ["active"], "default": True},
-            "validFrom": {"output": "validFrom", "source": ["valid-from"]},
-            "validTo": {"output": "validTo", "source": ["valid-to"]},
-            "attributes": {
-                "formerId": {"source": ["master-id"]},
-                "valueName": {"source": ["value-name"]},
-                "sortOrder": {"source": ["sort-order"], "default": 0},
-                "internalOnly": {"source": ["internal-only"], "default": False},
-                "description": {"source": ["description"]},
+            "fields": {
+                "masterId": {"role": "id"},
+                "code": {"role": "code", "from": ["operator-code", "value-code", "codelist-code", "domain-code"]},
+                "name": {"role": "name", "from": "name"},
+                "isActive": {"role": "active", "from": "active", "default": True},
+                "validFrom": {"role": "validFrom", "from": "valid-from"},
+                "validTo": {"role": "validTo", "from": "valid-to"},
+                "formerId": "master-id",
+                "valueName": "value-name",
+                "sortOrder": {"from": "sort-order", "default": 0},
+                "internalOnly": {"from": "internal-only", "default": False},
+                "description": "description",
             },
-            "parent": {"output": "parent", "fields": ["objectType", "id", "code", "name"]},
-            "path": "path",
-            "hierarchy": "hierarchy",
+            "parent": ["objectType", "id", "code", "name"],
+            "path": True,
+            "hierarchy": True,
+            "related": {
+                "systemVariants": {
+                    "via": "master-value-represented-by-system-value",
+                    "fields": {
+                        "system": "ancestor:system.name",
+                        "value": "name",
+                        "valueCode": "value-code",
+                        "valueName": "value-name",
+                        "externalId": "external-id",
+                        "isActive": "active",
+                    },
+                },
+                "translations": {
+                    "via": "object-has-translation",
+                    "fields": {
+                        "languageCode": "ancestor:language.language-code",
+                        "languageName": "ancestor:language.name",
+                        "translatedName": "translated-name",
+                        "translatedDescription": "translated-description",
+                        "isActive": "active",
+                    },
+                },
+                "availableAt": {
+                    "via": "available-at-location",
+                    "fields": {
+                        "locationId": "master-id",
+                        "locationName": "name",
+                        "locationValueCode": "value-code",
+                        "locationValueName": "value-name",
+                    },
+                },
+                "duration": {
+                    "via": "has-duration",
+                    "fields": {"durationId": "id", "durationCode": "value-code", "durationName": "name"},
+                },
+                "alternative": {
+                    "via": "alternative-for",
+                    "fields": {"objectType": "objectType", "masterId": "id", "code": "value-code", "name": "name"},
+                },
+            },
         },
-        "projections": {
-            "systemVariants": {
-                "from": {"relation": "system-value-maps-to-master", "direction": "incoming"},
-                "fields": {
-                    "system": "ancestor:system.name",
-                    "value": "name",
-                    "valueCode": "value-code",
-                    "valueName": "value-name",
-                    "externalId": "external-id",
-                    "isActive": "active",
-                },
+        "operations": {
+            "objects": {},
+            "xref": {
+                "matchOn": [
+                    {"field": "master-id", "exact": 1000},
+                    {"field": "value-code", "exact": 500, "contains": 40},
+                    {"field": "operator-code", "exact": 500, "contains": 40},
+                    {"field": "name", "exact": 200, "contains": 30},
+                    {"field": "value-name", "exact": 200, "contains": 30},
+                ],
+                "alsoMatchThrough": [
+                    {
+                        "related": "systemVariants",
+                        "firstOf": [
+                            {"field": "name", "exact": 80},
+                            {"field": "value-code", "exact": 70},
+                            {"field": "external-id", "exact": 75},
+                            {"field": "value-name", "exact": 75},
+                            {"field": "name", "contains": 15},
+                            {"field": "value-code", "contains": 10},
+                            {"field": "external-id", "contains": 10},
+                            {"field": "value-name", "contains": 10},
+                        ],
+                        "preferTypes": ["location"],
+                    },
+                    {
+                        "related": "translations",
+                        "firstOf": [
+                            {"field": "translated-name", "exact": 60},
+                            {"field": "translated-name", "contains": 12},
+                        ],
+                    },
+                ],
             },
-            "translations": {
-                "from": {"relation": "object-has-translation", "direction": "outgoing"},
-                "fields": {
-                    "languageCode": "ancestor:language.language-code",
-                    "languageName": "ancestor:language.name",
-                    "translatedName": "translated-name",
-                    "translatedDescription": "translated-description",
-                    "isActive": "active",
-                },
+            "resolve": {},
+            "lists": {
+                "codelists": {"of": "codelist", "within": {"filter": "domain"}},
+                "values": {"of": "master-value", "within": {"filter": "codelist"}},
+                "all-values": {"of": "master-value"},
             },
-            "availableAt": {
-                "from": {"relation": "available-at-location", "direction": "outgoing"},
-                "fields": {
-                    "locationId": "master-id",
-                    "locationName": "name",
-                    "locationValueCode": "value-code",
-                    "locationValueName": "value-name",
-                },
-            },
-            "duration": {
-                "from": {"relation": "has-duration", "direction": "outgoing"},
-                "fields": {"durationId": "id", "durationCode": "value-code", "durationName": "name"},
-            },
-            "alternative": {
-                "from": {"relation": "alternative-for", "direction": "outgoing"},
-                "fields": {"objectType": "objectType", "masterId": "id", "code": "value-code", "name": "name"},
+            # CONSUMER_API "Event definitions": watched outputs by the names consumers read (C-D81).
+            "events": {
+                "custom": [
+                    {
+                        "key": "reference-data-changed",
+                        "objectTypes": ["master-value", "codelist", "location"],
+                        "changes": ["created", "updated", "deleted"],
+                        "watch": {
+                            "fields": ["masterId", "code", "name", "isActive", "validFrom", "validTo", "valueName"],
+                            "related": ["systemVariants", "translations"],
+                        },
+                    }
+                ]
             },
         },
-        "match": {
-            "own": [
-                {"field": "master-id", "exact": 1000},
-                {"field": "value-code", "exact": 500, "contains": 40},
-                {"field": "operator-code", "exact": 500, "contains": 40},
-                {"field": "name", "exact": 200, "contains": 30},
-                {"field": "value-name", "exact": 200, "contains": 30},
-            ],
-            "promoted": [
-                {
-                    "projection": "systemVariants",
-                    "firstMatch": [
-                        {"field": "name", "exact": 80},
-                        {"field": "value-code", "exact": 70},
-                        {"field": "external-id", "exact": 75},
-                        {"field": "value-name", "exact": 75},
-                        {"field": "name", "contains": 15},
-                        {"field": "value-code", "contains": 10},
-                        {"field": "external-id", "contains": 10},
-                        {"field": "value-name", "contains": 10},
-                    ],
-                    "preferTargetTypes": ["location"],
-                },
-                {
-                    "projection": "translations",
-                    "firstMatch": [
-                        {"field": "translated-name", "exact": 60},
-                        {"field": "translated-name", "contains": 12},
-                    ],
-                },
-            ],
-        },
-        "parameters": {
-            "type": {"kind": "objectType"},
+        "filters": {
+            "type": {"byType": True},
             "system": {
-                "kind": "projection",
-                "projection": "systemVariants",
-                "matchFields": ["ancestor:system.name", "ancestor:system.system-code"],
-                "scoresFrom": True,
-                "requireMatch": True,
-                "targetable": True,
+                "onRelated": "systemVariants",
+                "matchOn": ["ancestor:system.name", "ancestor:system.system-code"],
+                "keepOnlyMatching": True,
+                "scoreOnlyMatching": True,
+                "crosswalk": True,
             },
-            "codelist": {"kind": "ancestor", "objectTypes": ["codelist"], "matchFields": ["name", "codelist-code"]},
-            "domain": {"kind": "ancestor", "objectTypes": ["domain"], "matchFields": ["name", "domain-code"]},
+            "codelist": {"under": ["codelist"], "matchOn": ["name", "codelist-code"]},
+            "domain": {"under": ["domain"], "matchOn": ["name", "domain-code"]},
             "location": {
-                "kind": "related",
-                "objectTypes": ["location"],
-                "matchFields": ["master-id", "name", "value-code", "value-name"],
-                "via": ["availableAt", "self", "sharedProjection:systemVariants"],
+                "linkedTo": ["location"],
+                "through": ["availableAt", "itself", "sharedWith:systemVariants"],
+                "matchOn": ["master-id", "name", "value-code", "value-name"],
             },
             "language": {
-                "kind": "projection",
-                "projection": "translations",
-                "matchFields": ["ancestor:language.language-code"],
-                "requireMatch": True,
-                "targetable": True,
+                "onRelated": "translations",
+                "matchOn": ["ancestor:language.language-code"],
+                "keepOnlyMatching": True,
+                "crosswalk": True,
             },
         },
-        "lists": [
-            {"key": "codelists", "objectType": "codelist", "parentParameter": {"name": "domain", "objectTypes": ["domain"]}},
-            {"key": "values", "objectType": "master-value", "parentParameter": {"name": "codelist", "objectTypes": ["codelist"]}},
-            {"key": "all-values", "objectType": "master-value"},
-        ],
-        # CONSUMER_API "Event definitions": watched outputs by the names consumers read (C-D81).
-        "events": [
-            {
-                "key": "reference-data-changed",
-                "objectTypes": ["master-value", "codelist", "location"],
-                "changes": ["created", "updated", "deleted"],
-                "watch": {
-                    "fields": ["masterId", "code", "name", "isActive", "validFrom", "validTo", "valueName"],
-                    "projections": ["systemVariants", "translations"],
-                },
-            }
-        ],
     }
 
 

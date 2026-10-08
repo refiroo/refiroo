@@ -100,15 +100,23 @@ class _Document:
     def build(self) -> dict[str, Any]:
         definition = self.definition
         release = self.model.release
-        paths: dict[str, Any] = {
-            f"{self.base}/objects/{{id}}": {"get": self._get_by_id()},
-            **{f"{self.base}/lists/{item.key}": {"get": self._list(item.key)} for item in definition.lists},
-            f"{self.base}/xref": {"get": self._xref()},
-            f"{self.base}/resolve": {"post": self._resolve()},
-            f"{self.base}/publications": {"get": self._publications()},
+        # The operations the definition offers (C-D132), each described as its author wrote (C-D139).
+        offered = {
+            f"{self.base}/objects/{{id}}": ("objects", "get", self._get_by_id),
+            **{
+                f"{self.base}/lists/{item.key}": ("lists", "get", lambda key=item.key: self._list(key))
+                for item in definition.lists
+            },
+            f"{self.base}/xref": ("xref", "get", self._xref),
+            f"{self.base}/resolve": ("resolve", "post", self._resolve),
+            f"{self.base}/publications": (None, "get", self._publications),
+            f"{self.base}/events": ("events", "get", self._events),
         }
-        if definition.events:
-            paths[f"{self.base}/events"] = {"get": self._events()}
+        paths: dict[str, Any] = {
+            path: {method: build()}
+            for path, (operation, method, build) in offered.items()
+            if operation is None or definition.offers(operation)
+        }
         intro = f"{definition.description}\n\n" if definition.description else ""
         return {
             "openapi": OPENAPI_VERSION,
@@ -137,7 +145,7 @@ class _Document:
         found = []
         for name, parameter in self.definition.parameters.items():
             if name != parent:
-                found.append(_query(name, _parameter_description(parameter), _LISTED))
+                found.append(_query(name, self._filter_description(name, parameter), _LISTED))
         for name in self.targets if crosswalk else ():
             projection = self.definition.parameters[name]
             assert isinstance(projection, ProjectionParameter)
@@ -167,12 +175,23 @@ class _Document:
             dated = bool(self.contract.as_of)
         return "INVALID_AS_OF, AS_OF_NOT_SUPPORTED" if dated else None
 
+    def _described(self, part: str, text: str) -> str:
+        """``text`` after the author's description of ``part``, when there is one (C-D139)."""
+        authored = self.definition.described(part)
+        return f"{authored}\n\n{text}" if authored else text
+
+    def _filter_description(self, name: str, parameter: Any) -> str:
+        authored = self.definition.described(f"filter:{name}")
+        text = _parameter_description(parameter)
+        return f"{authored} {text}" if authored else text
+
     def _get_by_id(self) -> dict[str, Any]:
         return {
             "summary": "Get by ID",
-            "description": (
+            "description": self._described(
+                "operation:objects",
                 "The shared object of the record with this object ID. The definition's parameters filter"
-                " it (`404 OBJECT_NOT_FOUND` when filtered out) and limit its projections."
+                " it (`404 OBJECT_NOT_FOUND` when filtered out) and limit its projections.",
             ),
             "parameters": [
                 {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}},
@@ -207,10 +226,11 @@ class _Document:
         dated = declared.objectType in self.contract.as_of
         return {
             "summary": f"List {key}",
-            "description": (
+            "description": self._described(
+                f"list:{key}",
                 f"Every {public} record, ordered by {order}, then creation order (in a publication, object ID)."
                 f" Paged with cursors both ways, `position`, `from=end`, `seek` and `includeTotal`;"
-                f" `pageSize` {PAGE_SIZE[0]}–{PAGE_SIZE[1]}, default {PAGE_SIZE[2]}."
+                f" `pageSize` {PAGE_SIZE[0]}–{PAGE_SIZE[1]}, default {PAGE_SIZE[2]}.",
             ),
             "parameters": [
                 *parent,
@@ -233,14 +253,15 @@ class _Document:
     def _xref(self) -> dict[str, Any]:
         return {
             "summary": "XREF lookup",
-            "description": (
+            "description": self._described(
+                "operation:xref",
                 "The exposed records the query's terms match, scored by the definition's match rules, best"
                 " first (score, public type name, name, object ID); with `expect=one`, the single best one."
                 f" Matching part of a value (contains) needs a term of at least {MIN_CONTAINS} characters; a"
                 f" shorter term matches whole values only. A query whose terms match more than"
                 f" {MATCH_LIMIT:,} records is refused as `400 QUERY_TOO_BROAD`, whatever parameters narrow"
                 f" it. A query holds at most {MAX_TERMS} terms. The definition's parameters narrow the"
-                " scored records without changing their scores."
+                " scored records without changing their scores.",
             ),
             "parameters": [
                 {
@@ -284,10 +305,11 @@ class _Document:
         }
         return {
             "summary": "Batch resolve",
-            "description": (
+            "description": self._described(
+                "operation:resolve",
                 f"Up to {self.resolve_max_items} lookups in one read, each answered as the single read it"
                 " stands for: by `query` as XREF with `expect=one`, by `id` as get by ID. Outcomes come in"
-                " item order. Answers no `ETag`."
+                " item order. Answers no `ETag`.",
             ),
             "parameters": self._reads(),
             "requestBody": {"required": True, "content": {"application/json": {"schema": _ref("ResolveRequest")}}},
@@ -309,7 +331,8 @@ class _Document:
         declared = ", ".join(f"`{event.key}`" for event in self.definition.events)
         return {
             "summary": "Events",
-            "description": (
+            "description": self._described(
+                "operation:events",
                 f"The changes this API tells its consumers about ({declared}), in position order: `created`,"
                 " `updated` naming the watched outputs that changed, `deleted`. Start after a position"
                 " (`after`: `0`, or a publication's `eventSequence`) and continue by `cursor`, a lasting"
@@ -318,7 +341,7 @@ class _Document:
                 " the same parameters, at the feed position `stateAt`; `payload=identity` leaves it out. A"
                 " parameter filters as on a list, against live data; an event whose object no longer exists"
                 " passes every parameter but the type. Events are kept as long as the change feed's"
-                " entries: an older position is `410 EVENTS_EXPIRED`, naming the publication to re-read."
+                " entries: an older position is `410 EVENTS_EXPIRED`, naming the publication to re-read.",
             ),
             "parameters": [
                 _WORKSPACE,
@@ -346,7 +369,10 @@ class _Document:
         properties = {
             "objectType": {"type": "string", "enum": sorted(set(self.contract.types.values()))},
             **self._fields(),
-            **{name: self._projection(name) for name in self.contract.projections},
+            **{
+                name: _with_description(self._projection(name), self.definition.described(f"related:{name}"))
+                for name in self.contract.projections
+            },
         }
         target = self._target()
         shared = {**properties, **({"target": target} if target else {})}
@@ -394,7 +420,10 @@ class _Document:
                 **{name: value for name, value in page.items() if name != "publication"},
             }
         )
-        names = {name: {**_STRINGS, "description": _parameter_description(item)} for name, item in self.definition.parameters.items()}
+        names = {
+            name: {**_STRINGS, "description": self._filter_description(name, item)}
+            for name, item in self.definition.parameters.items()
+        }
         names.update({f"to.{name}": _STRINGS for name in self.targets})
         schemas["ResolveDefaults"] = {"type": "object", "properties": names, "additionalProperties": False}
         schemas["ResolveItem"] = {
@@ -514,7 +543,10 @@ class _Document:
                 found[name] = schema
             else:
                 found[name] = _nullable(schema)
-        return found
+        return {
+            name: _with_description(schema, self.definition.described(f"field:{name}"))
+            for name, schema in found.items()
+        }
 
     def _projection_item(self, name: str) -> dict[str, Any]:
         fields = self.contract.projections[name]["fields"]
@@ -547,6 +579,10 @@ class _Document:
             ),
             "anyOf": [*shapes, {"type": "null"}],
         }
+
+
+def _with_description(schema: dict[str, Any], description: str | None) -> dict[str, Any]:
+    return {**schema, "description": description} if description else schema
 
 
 def _parameter_description(parameter: Any) -> str:

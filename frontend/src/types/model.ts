@@ -258,8 +258,16 @@ export interface EngineModel {
   relationTypes: RelationTypeDefinition[];
   objectTypeRelations: ObjectTypeRelationDefinition[];
   applications: ApplicationDefinition[];
-  /** The consumer APIs the release declares (schema 0.8); the parts the Webhooks page reads. */
-  consumerApis?: ConsumerApiDeclaration[];
+  /** The consumer APIs the release declares, as written (schema 0.8 or 0.9): only what both share is
+   * read from the document; the rest from `ConsumerApiDefinition`, the definition expanded (C18). */
+  consumerApis?: ConsumerApiSummary[];
+}
+
+export interface ConsumerApiSummary {
+  key: string;
+  name: string;
+  description?: string;
+  contractVersion: number;
 }
 
 /** A change event a consumer API declares: the types it covers, the changes, what an update watches. */
@@ -267,24 +275,39 @@ export interface ConsumerEventDeclaration {
   key: string;
   objectTypes: string[];
   changes: ("created" | "updated" | "deleted")[];
-  watch?: { fields?: string[]; projections?: string[] };
+  /** Watched outputs and related blocks (`object.related`), by the names consumers read. */
+  watch?: { fields?: string[]; related?: string[] };
 }
 
-/** A consumer API parameter, which a webhook subscription may use as a filter. */
-export interface ConsumerParameterDeclaration {
-  kind: "objectType" | "ancestor" | "related" | "projection";
-  objectTypes?: string[];
-  matchFields?: string[];
-  projection?: string;
-}
-
-export interface ConsumerApiDeclaration {
-  key: string;
-  name: string;
+/** A consumer API filter, which a webhook subscription may use: one verb and what it takes. */
+export interface ConsumerFilterDefinition {
+  byType?: boolean;
+  under?: string[];
+  linkedTo?: string[];
+  through?: string[];
+  onRelated?: string;
+  matchOn?: string[];
+  keepOnlyMatching?: boolean;
+  scoreOnlyMatching?: boolean;
+  crosswalk?: boolean;
   description?: string;
-  contractVersion: number;
-  /** The model types it exposes, each under its public name (`objectType` in events). */
-  objectTypes?: Record<string, { publicName: string }>;
-  parameters?: Record<string, ConsumerParameterDeclaration>;
-  events?: ConsumerEventDeclaration[];
+}
+
+/**
+ * A consumer API definition expanded (`GET /model/consumer-apis/{consumerApi}`, C18): schema 0.9
+ * with every default written out, so a client never repeats the expansion. The parts the UI reads.
+ */
+export interface ConsumerApiDefinition extends ConsumerApiSummary {
+  exposes: string[];
+  /** Every exposed type's public name (`objectType` in events). */
+  publicNames: Record<string, string>;
+  operations: {
+    objects?: { description?: string };
+    xref?: { description?: string };
+    resolve?: { description?: string };
+    lists?: Record<string, { of: string; within?: { filter: string; types: string[] }; sortBy?: string }>;
+    /** The events, those `perType` makes written out under `custom`. */
+    events?: { perType: boolean; custom: ConsumerEventDeclaration[]; description?: string };
+  };
+  filters: Record<string, ConsumerFilterDefinition>;
 }

@@ -34,8 +34,8 @@ def test_starter_model_is_valid():
     ]
     assert model.applications[0].details[0].panels[0].type == "children"
     assert model.applications[0].details[1].panels[0].type == "children"
-    assert model.schemaVersion == "0.8"
-    assert model.release.version == "0.9.2"
+    assert model.schemaVersion == "0.9"
+    assert model.release.version == "0.9.3"
     assert {view.type for app in model.applications for view in app.views} == {
         "table",
         "mappingGrid",
@@ -745,11 +745,11 @@ def test_panel_sort_fields_must_not_be_empty():
 
 def test_generated_volume_model_validates_with_its_relation_matrices_and_tree():
     """The generated model holds a matrix in each direction since Base 0.8 A2, a tree since B1 and an
-    effective period on items since 0.9 T1 (schema 0.8)."""
+    effective period on items since 0.9 T1 (schema 0.8), on schema 0.9 since C18."""
     from volume_fixture import volume_model
 
     source = volume_model()
-    assert source["schemaVersion"] == "0.8"
+    assert source["schemaVersion"] == "0.9"
     views = [view for application in source["applications"] for view in application["views"]]
     assert {view["config"]["direction"] for view in views if view["type"] == "relationMatrix"} == {
         "outgoing",

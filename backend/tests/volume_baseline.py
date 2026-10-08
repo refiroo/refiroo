@@ -680,9 +680,11 @@ def activate_events(client) -> None:
     model = volume_model()
     model["release"]["version"] += "-events"
     (definition,) = model["consumerApis"]
-    definition["events"] = [
-        {"key": "catalogue-changed", "objectTypes": [GROUP, ITEM], "changes": ["created", "updated", "deleted"]}
-    ]
+    definition["operations"]["events"] = {
+        "custom": [
+            {"key": "catalogue-changed", "objectTypes": [GROUP, ITEM], "changes": ["created", "updated", "deleted"]}
+        ]
+    }
     draft = client.post("/api/v1/model-drafts", json={"name": "Events", "model": model}).json()
     release = client.post(
         f"/api/v1/model-drafts/{draft['id']}/installation", json={"expectedVersion": draft["version"]}

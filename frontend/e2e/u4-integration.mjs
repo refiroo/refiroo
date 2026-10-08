@@ -24,14 +24,17 @@ const SECOND = {
   key: "systems-feed",
   name: "Systems feed",
   contractVersion: 3,
-  objectTypes: { system: { publicName: "SourceSystem" }, "system-value": { publicName: "SourceCode" } },
+  exposes: ["system", "system-value"],
+  publicNames: { system: "SourceSystem", "system-value": "SourceCode" },
   object: {
-    id: { output: "id", source: ["id"] },
-    code: { output: "code", source: ["value-code", "system-code"] },
-    name: { output: "label", source: ["name"] },
+    fields: {
+      id: { role: "id" },
+      code: { role: "code", from: ["value-code", "system-code"] },
+      label: { role: "name", from: "name" },
+    },
     parent: { output: "owner", fields: ["id", "name"] },
   },
-  lists: [{ key: "source-systems", objectType: "system" }],
+  operations: { objects: {}, xref: {}, resolve: {}, lists: { "source-systems": { of: "system" } } },
 };
 
 const PAGES = [

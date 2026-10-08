@@ -244,7 +244,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 27b | [U3](SETTINGS_AND_UI_PLAN.md#u3-the-settings-area) | U2 | Settings area: About, Appearance, Deployment (read-only, U-D2), Workspaces and Model moved; `GET /api/v1/system` (U-D10, U-D11) — **delivered 2026-10-06** ([record](SETTINGS_AND_UI_PLAN.md#u3-delivery-record); [revised the same day](SETTINGS_AND_UI_PLAN.md#u3-revisions-after-delivery-2026-10-06)) |
 | 27c | [UA](SETTINGS_AND_UI_PLAN.md#ua-the-atlas-redesign) | U3 | The Atlas redesign of every surface (ADR-040, U-D12, U-D13), each surface approved by the user from screenshots; today's design tagged `ui-before-atlas`. Comes before U4 and U5 by the user's choice (2026-10-06); folds in U6 — **implemented 2026-10-06–07** (UA0–UA7 and their revisions), approved by the user 2026-10-07 ([records](SETTINGS_AND_UI_PLAN.md#ua0-record-2026-10-06)) |
 | 27d | [C17](#c17-webhook-delivery-choices-batching-payload-and-cloudevents) | U5a | Webhook delivery choices: one event per request or batched, with the object or notification only, RDM JSON or CloudEvents; `coalesced` retired (C-D120–C-D128) — **implemented 2026-10-07**, screenshots approved by the user 2026-10-07 ([record](#c17-record-2026-10-07)) |
-| 27e | [C18](#c18-the-consumer-api-definition-written-for-readers) | C17, U5a | The consumer API definition written for readers: schema 0.9 syntax (listed operations, `exposes`, `fields`, `related` by `via`, `filters`, defaults), the expanded read, the two models converted; nothing a consumer sees changes (C-D132–C-D141) — **planned 2026-10-07** ([plan](#c18-plan-2026-10-07)); independent of Track J |
+| 27e | [C18](#c18-the-consumer-api-definition-written-for-readers) | C17, U5a | The consumer API definition written for readers: schema 0.9 syntax (listed operations, `exposes`, `fields`, `related` by `via`, `filters`, defaults), the expanded read, the two models converted; nothing a consumer sees changes (C-D132–C-D141) — **delivered 2026-10-08** ([record](#c18-record-2026-10-08)); independent of Track J |
 | — | _cut line (D9)_ | | _If R is out of reach, 0.9.0 releases here with R-a and Track J moves to 0.9.1_ |
 | 28 | [J1](#j1-export) | Q3, Q4, B2, F1 | Export jobs: JSON Lines, CSV and XLSX, one snapshot, the manifest on the job (D49–D56) — **delivered 2026-10-07** ([record](#j1-record-2026-10-07)) |
 | 28a | [J1u](#j1u-export-in-the-ui-and-job-notifications-outline) | J1 | Export in the UI: the dialog, the job page, notifications pushed over a per-job event stream (D57–D63) — **delivered 2026-10-07**, screenshots approved by the user ([record](#j1u-record-2026-10-07)) |
@@ -6020,8 +6020,8 @@ release and their tags.
   `404 EVENTS_NOT_DECLARED`, and an unlisted list keeps today's unknown-list `404`. The per-definition
   OpenAPI leaves out the paths of operations not offered. The API index is unchanged.
 - Management API: `GET /api/v1/model/consumer-apis/{consumerApi}`, the expanded definition of the
-  context's model, with the model's ETag (as `/model/placements`). Model install and draft compile
-  refuse a schema-0.8 document with `consumerApis` (`422`, `UNSUPPORTED_SCHEMA_VERSION` at
+  context's model, with the model's ETag (as `/model/placements`). Model install, draft compile and
+  `POST /model-validations` (B2) refuse a schema-0.8 document with `consumerApis` (`422`, `UNSUPPORTED_SCHEMA_VERSION` at
   `/schemaVersion`, the message naming schema 0.9 and CONSUMER_API "Definition shape"). OpenAPI lock re-baselined.
 - Model contract (C-D2): no longer offering an operation is a breaking change that needs a new
   `contractVersion`; offering one more is compatible.
@@ -6133,9 +6133,10 @@ The starter's `rdm` in schema 0.9 (today 157 lines in 0.8):
 - **Validation** runs the existing rules on the expanded form. Expansion keeps the authored pointer of
   every node, so each diagnostic points into the authored 0.9 document with today's codes, worded in
   the new vocabulary (C-D141). Checks of the syntax itself come first: exactly one of `byType`, `under`,
-  `linkedTo`, `onRelated`; a `via` that is neither a relation's `key` nor its `reverseKey`; a relation
-  whose `key` equals another's `reverseKey` (ambiguous, refused at the `via`); role fields first;
+  `linkedTo`, `onRelated`; a `via` that is neither a relation's `key` nor its `reverseKey`; role fields first (C-D140 amended 2026-10-08: a role given twice);
   `resolve` without `objects` and `xref`; an empty `events`; a `field: "code"` without a `code` field.
+  A `via` is never ambiguous: relation keys and reverse keys share one namespace (`DUPLICATE_KEY`;
+  C-D141 amended, B3).
 - **Converting once, no tool shipped** (C-D138). The starter (0.9.2 → 0.9.3) and the operators and
   timetables model (0.8.0 → 0.9.0) are rewritten in 0.9, using a default wherever it is equal. The
   test configurations that install a consumer API (`journeys/configurations.py`, the volume fixture,
@@ -6208,6 +6209,223 @@ settings, `tsc`, `lint`, `build`, and `test:browser:webhooks` unchanged. Not run
 **Composable domains (ADR-032):** the consumer API `match` declaration is touched. It moves to
 `operations.xref.matchOn` with the same rules and stays independent of `mappingGrid` vocabulary; no
 door is affected.
+
+##### C18 build steps (2026-10-07)
+
+**Planned 2026-10-07. Checked against the working tree with J3 delivered but not committed.** No
+consumer, model or event module has changed since `1e8d3ea`, so the plan above holds. The findings
+below amend it where the code says otherwise. B1–B3 were decided by the user the same day.
+
+**Findings in the code.**
+
+- **F1. A `via` can't be ambiguous.** `check_relation_type_keys` (`validation/relation_rules.py`)
+  already puts relation keys and reverse keys in one namespace and refuses a repeat with
+  `DUPLICATE_KEY` at `/relationTypes/<key>/reverseKey`. The ambiguity check in C-D141 could never
+  fire, so it is not built (B3).
+- **F2. The internal form gains descriptions as well.** The OpenAPI builder reads the internal form,
+  so C-D139's descriptions have to be carried on it: an optional `description` on operations, lists,
+  filters, related blocks and fields, beside the offered operations. A 0.8 definition has none, so its
+  OpenAPI is unchanged.
+- **F3. Only 0.9 authors see consumer diagnostics.** Stored 0.8 releases are valid, and authoring in
+  0.8 is refused before validation runs. The rules' messages are reworded once to the 0.9 vocabulary,
+  with no wording per schema. Pointers are translated through the expansion's pointer map. That also
+  covers the activation contract check (`consumer_contract.py`), whose pointers go into the candidate
+  document.
+- **F4. The activation and diff paths compile stored documents too** (`releases.py:124`,
+  `model_releases.py:168`, the baseline in `model_management.py:266`). That is why the 0.8 refusal is a
+  separate check in the authoring routes, not part of `compile_model`.
+
+**How the two shapes are held.** `schemaVersion` gains `"0.9"`, and `SUPPORTED_SCHEMA_VERSIONS` gains
+it too. `EngineModel.consumerApis` takes the 0.9 authored classes, which live in a new
+`models/consumer_schema.py`. `LegacyEngineModel` (`engine/model/consumer_legacy.py`, beside
+`legacy.py`) narrows the field to today's classes, and `compile_model` picks the class by
+`schemaVersion`. Each version's shape errors therefore point into its own syntax, and a stored 0.8
+release dumps to the same canonical document, so its `modelHash` holds. After the shape check,
+`engine/model/consumer_expansion.py` expands a 0.9 definition into the internal classes, together
+with a map from internal paths to authored pointers. It runs the syntax checks of the plan and leaves
+unknown references to the existing rules. A 0.8 definition is taken as it is, with every operation
+offered. The internal definitions are kept on the model as a private attribute, as
+`_object_types_by_key` is. `engine/model/consumer_definitions.py` reads them through one accessor
+(`consumer_apis(model)`, `consumer_api(model, key)`), and `validate_references` runs the consumer
+rules on them.
+
+**Steps.** Each step ends green on the groups it names before the next one starts.
+
+1. **Specification first.** Add J25.5–J25.8 and J20.x to USER_JOURNEYS. Add the route,
+   `OPERATION_NOT_OFFERED` and the 0.8 refusal to API_JOURNEYS. Write test cases 2–5 in
+   `test_j25_consumer_api.py` and `test_j20_discover.py` and confirm they fail.
+2. **Schema 0.9 and the expansion.** Add the authored classes, `LegacyEngineModel`, the expansion
+   and its pointer map, the descriptions (F2), the accessor, and the rules' messages in the new
+   vocabulary (F3). Switch the 14 modules that read `model.consumerApis` or a definition's parts to
+   the accessor (the consumer router, `reads/consumer_*`, `events/{plan,worker,dispatcher,
+   subscription_rules}`, `consumer_openapi`, `consumer_contract`, `consumer_api_rules`,
+   `management/reference`). Add unit tests for the expansion
+   (`tests/unit/engine/model/test_consumer_expansion.py`), covering each default, `code` expanded in
+   place and `via` resolved from both keys. Checks: `model` and the new unit module.
+3. **Offered operations.** The router answers `404 OPERATION_NOT_OFFERED` on `objects`, `xref` and
+   `resolve`. `consumer_openapi` leaves out their paths. `consumer_contract` reports a dropped
+   operation as `version_required` and an added one as compatible.
+4. **The 0.8 refusal** in draft install and draft compile (`model_management.py`), and in
+   `/model-validations` (B2): a schema ≤ 0.8 document with `consumerApis` is refused with
+   `422 UNSUPPORTED_SCHEMA_VERSION` at `/schemaVersion`. Bootstrap installs the starter from its
+   file, which is 0.9 after step 5, so it is unaffected.
+5. **Conversion (C-D138).** The 0.8 originals of both models go to `tests/fixtures/consumer_08/`.
+   A throwaway script in the session's scratch directory writes `model/rdm-starter.json` (0.9.3) and
+   `model/rdm-operators-timetables.json` (0.9.0) in 0.9. The test definitions are rewritten by hand:
+   the generator in `journeys/configurations.py`, `journeys/scenario.py`, `volume_fixture.py`,
+   `volume_baseline.py`, `model_support.py`, `test_consumer_api_model.py` and the two unit modules.
+   The script then compiles every original next to its rewrite and compares their internal forms:
+   both models, and each generated configuration from the generator at `HEAD` and the new one. Its
+   result goes into the record. The seeded test databases are rebuilt once. Checks: `consumer`,
+   `feed`, `model`, `model_admin`, the regression proof, with test edits limited as B1 decides.
+6. **The expanded read.** Add `GET /api/v1/model/consumer-apis/{consumerApi}`, which renders the
+   internal form as a 0.9 definition with every default written out and is validated as the 0.9
+   class. It carries the model's ETag, like `/model/placements`. Add a round-trip unit test: expanding
+   the rendered definition gives back the same internal form, for both models and both fixtures. Add
+   test case 1 (equivalence) and J20.x. Re-baseline the OpenAPI lock. Checks: `contract`.
+7. **Frontend.** Changes as in the plan's Design: `types/model.ts`, `WebhookDialog`, `WebhooksPage`,
+   `WebhookDeliveries`, and their tests' mocks (`WebhooksPage.test.tsx`, `IntegrationPages.test.tsx`)
+   moved to the expanded read. Checks: `vitest run` on settings, `tsc`, `lint`, `build`,
+   `test:browser:webhooks`.
+8. **Development instance.** Install both converted models and activate the 0.9 version of whichever
+   one is active at delivery (`GET /model-runtime-state`). Then check that a consumer read and the
+   Webhooks page work.
+9. **Docs and record** as in the plan's Design.
+
+**Decided 2026-10-07 by the user.**
+
+- **B1. Which existing test lines may change.** The plan says the existing consumer and events tests
+  keep their assertions unchanged. In the code, 26 assertions name 0.8 pointers (18 in
+  `test_j25_consumer_api.py`, 8 in `test_consumer_api_model.py`). One example is
+  `/consumerApis/<key>/parameters/<p>/scoresFrom`, which C-D141 moves into the 0.9 document as
+  `/filters/<p>/scoreOnlyMatching`. Several tests (J20, J23, J25, J28, J30) also edit a definition in
+  the 0.8 shape before installing it, for example `object.attributes.<x>.source`. **Decided:**
+  assertions on anything the consumer API serves stay as they are. The only edits allowed are the
+  definition documents, the edits tests make to them, and the pointer or message of a model
+  diagnostic. Each edit maps one-to-one from old to new and is listed in the record.
+- **B2. `POST /model-validations`.** It compiles an authored document but is not named in C-D134.
+  Left as it is, it calls a 0.8 document with `consumerApis` valid, and install then refuses that
+  document. **Decided:** it refuses the same way (C-D134 amended).
+- **B3. C-D141's ambiguity check.** Per F1 it can never fire, because such a model is already
+  refused at `/relationTypes/<key>/reverseKey` (`DUPLICATE_KEY`). **Decided:** C-D141 amended to
+  say that the shared key namespace is what guarantees it, and no check is built.
+
+##### C18 record (2026-10-08)
+
+**Delivered 2026-10-08.** Built as the build steps say; the code is in
+`engine/model/consumer_{definitions,expansion,legacy,rendering}.py`, the schema 0.9 classes in
+`models/schema.py` (`ConsumerApiDocument` and its parts), `compile_authored_model` in the compiler,
+the offered-operation check in `consumer/router.py`, the expanded read in
+`management/routers/model.py`, and the frontend's `consumerDefinitions.ts`.
+
+**Where it differs from the plan** (each amends the plan above):
+
+- **`lists` and `events` are offered when declared.** The plan stores every listed operation. A
+  0.8 definition with no lists then offered `lists` and its 0.9 rewrite did not, so the two were not
+  the same internal form, though both answer an unknown list the same way. `ConsumerApiDefinition`
+  now keeps only `objects`, `xref` and `resolve` as offered operations; `offers("lists")` and
+  `offers("events")` read whether it declares any.
+- **Scoring weights are compared only while both releases offer XREF.** J25.7 found that offering
+  XREF again was reported as "changes its scoring weights" (`version_required`), because the release
+  without it has no weights. Consumers never read weights of an XREF that was not there, so offering
+  it again is an addition, as C-D132 says.
+- **The internal form carries descriptions** (F2) as `_descriptions`, by part (`operation:`,
+  `list:`, `filter:`, `related:`, `field:`), beside `_operations`. Both are private attributes, so a
+  0.8 document's canonical form and hash are unchanged and `==` compares them.
+- **The test harness writes models in the order they are built.** `journeys/scenario.model_path`
+  wrote each configuration's model with `sort_keys=True`. That reordered `object.fields`, and since
+  C-D140 then made field order significant (role fields first, written order is output order),
+  every journey world failed to load. The file is now written as built; the seed's hash input is
+  unchanged. C-D140 was amended after delivery (below), so sorted keys no longer break a
+  definition.
+- **Test edits under B1.** Assertions on what the consumer API serves are unchanged. The edits are
+  the definitions themselves (`journeys/configurations.py`, `journeys/scenario.py`,
+  `volume_fixture.py`, `volume_baseline.py`, the e2e runners `u4-integration`, `u5-webhooks` and
+  `v1-api-reference`, and the module-level definitions in `test_consumer_api_model.py`), the edits
+  tests make to them (J20, J25, J28, J30, `test_plan.py`, `test_consumer_openapi.py`,
+  `test_effective_periods.py`), and diagnostic pointers moved to the authored nodes, one-to-one:
+  `/objectTypes/<t>` → `/exposes/<i>`, `…/publicName` → `/publicNames/<t>`,
+  `/object/<role>/source` → `/object/fields/<field>/from`, `/object/attributes/<f>` →
+  `/object/fields/<f>`, `/projections/<p>/…` → `/object/related/<p>/…` (`from` → `via`),
+  `/match/own/<i>` → `/operations/xref/matchOn/<i>`, `/match/promoted/<i>/{projection,firstMatch,preferTargetTypes}` →
+  `/operations/xref/alsoMatchThrough/<i>/{related,firstOf,preferTypes}`, `/parameters/<n>/…` →
+  `/filters/<n>/…` (`scoresFrom` → `scoreOnlyMatching`, `targetable` → `crosswalk`, `objectTypes` →
+  the verb, `matchFields` → `matchOn`, `via` → `through`), `/lists/<k>/…` →
+  `/operations/lists/<k>/…` (`parentParameter` → `within`), `/events/<e>/…` →
+  `/operations/events/custom/<i>/…`. `targetable` on an ancestor parameter was a shape error at
+  `/consumerApis/<index>/…`; `crosswalk` on an `under` filter is now refused by the syntax check at
+  `/consumerApis/<key>/filters/<name>/crosswalk`. Facts that changed with the release: the starter's
+  schema and version (`test_model`, `test_api`, `test_effective_periods`), `0.9` in
+  `supportedSchemaVersions` (`test_build07_wp11`, `test_wp81a_context`, `test_model_lifecycle`) and
+  a 0.9 candidate in the startup recovery test (`test_model_schema_upgrade`).
+- **Two tests that failed before C18 were fixed on the way.** `tests/unit/engine/model/test_consumer_openapi.py`
+  (3 cases) read "the model's one consumer API" while the operators model declares four;
+  `test_wp81a_context` (2 cases) removes the language type's code attribute that the starter's
+  consumer API reads. Both failed at `480bd8d` (run 2026-10-08).
+- **Test cases written after the code.** J25.6–J25.8 and J20.6 were written once the code they
+  cover was in place, so they were not seen failing first. J25.5 and case 1 prove the opposite
+  (nothing changes) and could not fail before the conversion.
+
+**Conversion (C-D138).** The throwaway script (in the session's scratch directory, not kept)
+rewrote both models and compared each original with its rewrite through the engine: the starter's
+`rdm` (0.9.2 → 0.9.3), the operators model's `rdm`, `rdm-master`, `rdm-system` and `rdm-translation`
+(0.8.0 → 0.9.0; `rdm` from 1,113 lines to 615), the generated configurations A and B, the parity
+fixture, the example and the volume fixture: **every internal form equal**, private parts included.
+The 0.8 originals are `tests/fixtures/consumer_08/`. On the development instance the reloading
+server installed the starter 0.9.3 at its restart, and operators 0.9.0 was installed and activated
+through the API (a temporary server with model administration on, stopped afterwards):
+`consumerContracts` compatible with no diagnostic, the runtime state at version 7, both webhooks
+still active, the expanded read and the consumer reads answering.
+
+**Checks.**
+
+- `consumer`, `model`, `model_admin`, `feed` and `contract` together, not `volume`, not `budget`:
+  **858 passed** in 1 min 43 s (`-n auto`; no serial test is in these groups outside `volume`).
+  This includes J25.5 (`test_j28_j29_parity`), J25.6–J25.8, J20.6, case 1 and the 18 cases of
+  `tests/unit/engine/model/test_consumer_expansion.py`.
+- `startup`: **160 passed** in 1 min 12 s, run because the compiler, which bootstrap uses, and
+  `model_support` changed (the plan expected no run).
+- `ruff`: clean. The OpenAPI lock re-baselined: removing the new path and the 16 schemas only it
+  reaches gives J3's document exactly.
+- Frontend: `vitest run src/features/settings` 34 passed; `tsc -b`, `eslint` (no error, the 7
+  warnings that were there before) and `vite build` pass; `test:browser:webhooks` 19 checks,
+  `test:browser:integration` 14 checks and `v1-api-reference` all pass (its three axe findings are
+  in Scalar's markup, as before). Homebrew's `node` cannot load `libsimdjson.33.dylib` since simdjson
+  5.0.2 was linked, so the tools were run with `node` and `DYLD_LIBRARY_PATH` set to the 4.6.11
+  keg; the machine was not changed.
+- Not run: `volume` (38 tests; no read, statement or ordering changes, and the volume fixture's
+  definition compiles to the same internal form), the other groups and the full suites (R).
+
+**Startup refuses a 0.8 model file with `consumerApis`** (decided by the user 2026-10-08, C-D134
+amended): `load_model` refuses such a file before anything is installed, with a message naming
+`RDM_MODEL_PATH`, the file, schema 0.9 and the recovery (J12.7,
+`test_a_model_file_with_schema_0_8_consumer_apis_refuses_to_start`); the same file without them
+starts. The offline schema upgrade's candidate file is read the same way. The development instance
+starts: the reloading server and a cold start answer `/health` 200 on the development database, and
+Vite serves. `startup`, `model` and `model_admin`: 663 passed.
+
+**Settled after delivery (2026-10-08, by the user):**
+
+- **`perType` keeps its refusal.** Event keys are `<type>-changed` and must be URL keys, so a model
+  whose type keys are not (`x_ledger_7`) is refused at `…/operations/events/perType` and declares
+  its events under `custom`; CONSUMER_API "Event definitions" says so.
+- **`watch.related`.** A custom event's watch names related blocks as `watch.related` (schema 0.9's
+  own `EventSpec` and `EventWatch`); the internal form keeps `projections`, so nothing a consumer
+  reads changes. The rules' pointer into it is `…/custom/<index>/watch/related/<i>`. The UI's event
+  description reads it.
+- **C-D140 amended: role fields stand anywhere.** They are output first, in role order, and the other
+  fields in written order, so sorting a definition's keys changes nothing it means (a unit test
+  expands a definition with sorted keys to the same internal form). The order refusal is gone; a
+  role given to two fields is still refused (`DUPLICATE_KEY` at `…/fields/<field>/role`), which
+  replaces the role-order case in J25.8 and the unit tests.
+- Checks for these: `consumer`, `model`, `model_admin`, `feed` and `contract` 857 passed and one
+  `test_api_reference` case failed once (`test_docs_serves_the_bundled_script_with_the_management_source`)
+  that passed in the two `contract` runs after it and alone, so it is recorded as seen once; the
+  OpenAPI lock re-baselined again (`EventSpec` and `EventWatch` in place of the shared event
+  schemas; removing the path and the schemas only it reaches still gives J3's document exactly);
+  frontend settings tests 34, `tsc`, `eslint`, `build` and `test:browser:webhooks` (19 checks) pass.
+
+**Open point, recorded in TODO:** a `code` role on object types.
 
 ## Track V — API reference
 

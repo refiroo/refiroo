@@ -47,7 +47,8 @@ LARGE_SUBTREE = 520  # L2 records under one L1: moving it under an L1 retypes 52
 def model_path(configuration: Configuration) -> Path:
     MODELS.mkdir(exist_ok=True)
     path = MODELS / f"{configuration.name}.json"
-    text_ = json.dumps(configuration.model, sort_keys=True)
+    # As built: a consumer API's fields are read in the order written (C-D140).
+    text_ = json.dumps(configuration.model)
     if not path.exists() or path.read_text() != text_:
         path.write_text(text_)
     return path
@@ -388,44 +389,36 @@ class World:
         extra: bool = False,
     ) -> dict[str, Any]:
         """``model`` declaring one consumer API over R besides the ones it has: an ID, a name, R's
-        unique value and (unless dropped) its boolean as fields, a projection over B1n to K and a
+        unique value and (unless dropped) its boolean as fields, related records over B1n to K and a
         list; ``extra`` adds a field and a second list."""
-        attributes = {"number": {"source": [self.key("R.u")]}}
+        fields: dict[str, Any] = {"id": {"role": "id"}, "name": {"role": "name", "from": "name"}}
+        fields["number"] = self.key("R.u")
         if not drop_flag:
-            attributes["flag"] = {"source": [self.key("R.b")]}
+            fields["flag"] = self.key("R.b")
         if extra:
-            attributes["due"] = {"source": [self.key("R.dt")]}
-        lists = [{"key": "ledgers", "objectType": self.key("R")}]
+            fields["due"] = self.key("R.dt")
+        lists = {"ledgers": {"of": self.key("R")}}
         if extra:
-            lists.append({"key": "tokens", "objectType": self.key("K")})
+            lists["tokens"] = {"of": self.key("K")}
+        relation = next(item for item in model["relationTypes"] if item["key"] == self.key("B1n"))
         others = [item for item in model.get("consumerApis", []) if item["key"] != "journey-api"]
         model["consumerApis"] = others + [
             {
                 "key": "journey-api",
                 "name": "Journey API",
                 "contractVersion": version,
-                "objectTypes": {
-                    self.key("R"): {"publicName": "Ledger"},
-                    self.key("K"): {"publicName": "Token"},
-                },
+                "exposes": [self.key("R"), self.key("K")],
+                "publicNames": {self.key("R"): "Ledger", self.key("K"): "Token"},
                 "object": {
-                    "id": {"output": "id", "source": ["id"]},
-                    "name": {"output": "name", "source": ["name"]},
-                    "attributes": attributes,
-                },
-                "projections": {
-                    "tokens": {
-                        "from": {"relation": self.key("B1n"), "direction": "outgoing"},
-                        "fields": {"tokenName": "name"},
-                    },
-                    # From K a one-to-many relationship gives one ledger; many-to-many, a list.
-                    "ledger": {
-                        "from": {"relation": self.key("B1n"), "direction": "incoming"},
-                        "fields": {"ledgerName": "name"},
+                    "fields": fields,
+                    "related": {
+                        "tokens": {"via": relation["key"], "fields": {"tokenName": "name"}},
+                        # From K a one-to-many relationship gives one ledger; many-to-many, a list.
+                        "ledger": {"via": relation["reverseKey"], "fields": {"ledgerName": "name"}},
                     },
                 },
-                "parameters": {"type": {"kind": "objectType"}},
-                "lists": lists,
+                "operations": {"objects": {}, "xref": {}, "resolve": {}, "lists": lists},
+                "filters": {"type": {"byType": True}},
             }
         ]
         return model

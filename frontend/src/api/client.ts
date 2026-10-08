@@ -24,6 +24,7 @@ import type {
   CollectionFilter,
   CapabilitiesResponse,
   SystemResponse,
+  ConsumerApiDefinition,
   ConsumerApiDocument,
   ConsumerApiIndexPage,
   Job,
@@ -303,6 +304,9 @@ export const api = {
   },
   capabilities: () => request<CapabilitiesResponse>("/api/v1/capabilities"),
   system: () => request<SystemResponse>("/api/v1/system"),
+  /** A consumer API definition of the active model, expanded with every default (C18). */
+  consumerApiDefinition: (consumerApi: string) =>
+    request<ConsumerApiDefinition>(`/api/v1/model/consumer-apis/${encodeURIComponent(consumerApi)}`),
   /** The consumer API index (`GET /api/consumer`), one page. */
   consumerApis: (cursor?: string) => {
     const params = new URLSearchParams({ pageSize: "100" });

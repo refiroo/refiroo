@@ -10,10 +10,12 @@ from pydantic import ValidationError
 
 from ...common.json_pointer import pointer_segment
 from ...models.schema import EngineModel
-from .diagnostics import ModelDiagnostic, ModelValidationError
+from .consumer_definitions import compiled_consumer_apis
+from .consumer_legacy import LegacyEngineModel, is_legacy, legacy_consumer_apis_refusal
+from .diagnostics import ModelDiagnostic, ModelReferenceError, ModelValidationError
 from .validation import validate_references
 
-SUPPORTED_SCHEMA_VERSIONS: frozenset[str] = frozenset({"0.5", "0.6", "0.7", "0.8"})
+SUPPORTED_SCHEMA_VERSIONS: frozenset[str] = frozenset({"0.5", "0.6", "0.7", "0.8", "0.9"})
 
 __all__ = [
     "SUPPORTED_SCHEMA_VERSIONS",
@@ -21,6 +23,7 @@ __all__ = [
     "ModelDiagnostic",
     "ModelValidationError",
     "canonical_model",
+    "compile_authored_model",
     "compile_model",
     "parse_model",
 ]
@@ -37,7 +40,11 @@ class CompilationResult:
 
 
 def compile_model(source: Any) -> CompilationResult:
-    """Validate shape, then references, then canonicalize."""
+    """Validate shape, then expand consumer API definitions, then references, then canonicalize.
+
+    A document of schema 0.8 or earlier is read with its own consumer API shape (C18). It compiles
+    as stored: refusing a new one is the authoring routes' check (``legacy_consumer_apis_refusal``).
+    """
     if isinstance(source, dict) and source.get("schemaVersion") not in {None, *SUPPORTED_SCHEMA_VERSIONS}:
         supplied = source.get("schemaVersion")
         return _invalid(
@@ -52,9 +59,13 @@ def compile_model(source: Any) -> CompilationResult:
             unsupported_schema_version=str(supplied),
         )
     try:
-        model = EngineModel.model_validate(source)
+        model = (LegacyEngineModel if is_legacy(source) else EngineModel).model_validate(source)
     except ValidationError as exc:
         return _invalid(tuple(_shape_diagnostic(error, source) for error in exc.errors()))
+    try:
+        compiled_consumer_apis(model)
+    except ModelReferenceError as exc:
+        return _invalid((exc.as_diagnostic(),))
 
     reference_diagnostics = validate_references(model)
     if reference_diagnostics:
@@ -68,6 +79,15 @@ def compile_model(source: Any) -> CompilationResult:
         model_hash=model_hash,
         diagnostics=(),
     )
+
+
+def compile_authored_model(source: Any) -> CompilationResult:
+    """:func:`compile_model` for a document an author submits (install, draft compile, validation):
+    schema 0.8 consumer API definitions are no longer written (C18, C-D134)."""
+    refusal = legacy_consumer_apis_refusal(source)
+    if refusal is not None:
+        return _invalid((refusal,))
+    return compile_model(source)
 
 
 def parse_model(source: Any) -> EngineModel:
@@ -121,13 +141,17 @@ def _shape_diagnostic(error: dict[str, Any], source: Any) -> ModelDiagnostic:
 def document_location(location: Sequence[Any], source: Any) -> list[Any]:
     """``location`` without the tags Pydantic inserts for a tagged union (``…/zone/ancestor/…`` for a
     parameter of kind ``ancestor``): a segment before the last that is no key of its object but one
-    of its values names the union member, not a node of the document (0.9 C15)."""
+    of its values names the union member, not a node of the document (0.9 C15); so does one before
+    a key of its object, or a name inside a list (a consumer API field's form, C18)."""
     node, kept = source, []
     for position, item in enumerate(location):
+        inner = position < len(location) - 1
         if isinstance(node, dict):
-            if item not in node and position < len(location) - 1 and item in node.values():
+            if item not in node and inner and (item in node.values() or location[position + 1] in node):
                 continue
             node = node.get(item)
+        elif isinstance(node, list) and isinstance(item, str) and inner:
+            continue
         elif isinstance(node, list) and isinstance(item, int) and 0 <= item < len(node):
             node = node[item]
         else:

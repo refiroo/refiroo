@@ -4,7 +4,12 @@ import copy
 import json
 
 import pytest
-from scenario import ok, refused
+from scenario import consumer_object, consumer_resolve, consumer_xref, ok, refused
+
+from app.db import SessionLocal
+from app.engine.model.bootstrap import ensure_bootstrap_release
+from app.engine.model.compiler import parse_model
+from app.engine.model.consumer_definitions import consumer_apis
 
 API = ("R", "R.u", "R.b", "R.dt", "K", "B1n")
 
@@ -56,10 +61,10 @@ def test_declare_validate_compare_and_activate_a_consumer_api(world):
     assert compiled["consumerContracts"]["classification"] == "compatible"
 
     broken = _model(world, "broken")
-    broken["consumerApis"][-1]["object"]["attributes"]["number"]["source"] = ["no-such-attribute"]
+    broken["consumerApis"][-1]["object"]["fields"]["number"] = "no-such-attribute"
     broken_draft, broken_compiled = _compile(world, broken)
     assert broken_compiled["valid"] is False
-    pointer = "/consumerApis/journey-api/object/attributes/number/source"
+    pointer = "/consumerApis/journey-api/object/fields/number"
     assert any(d["path"].startswith(pointer) for d in broken_compiled["diagnostics"]), (
         broken_compiled["diagnostics"]
     )
@@ -123,7 +128,7 @@ def test_a_model_change_that_changes_a_projection_needs_a_new_version(world):
     draft, compiled = _compile(world, model)
     assert compiled["consumerContracts"]["classification"] == "version_required"
     assert any(
-        "projections/ledger" in d["path"] for d in compiled["consumerContracts"]["diagnostics"]
+        "related/ledger" in d["path"] for d in compiled["consumerContracts"]["diagnostics"]
     )
     release = ok(_install(world, draft), 201)
     diff = ok(world.api.get(f"/model-releases/{release['id']}/diff", againstReleaseId=active["id"]))
@@ -134,15 +139,15 @@ def test_a_model_change_that_changes_a_projection_needs_a_new_version(world):
 @pytest.mark.journey("J25")
 @pytest.mark.structures("Capi", "R", "R.u")
 def test_the_identity_reads_the_object_id(world):
-    """A definition whose id source is an attribute is refused with 422 INVALID_MODEL at
-    /consumerApis/<key>/object/id/source."""
+    """A definition whose id field reads an attribute is refused with 422 INVALID_MODEL at
+    /consumerApis/<key>/object/fields/<id field>/from."""
     model = copy.deepcopy(world.configuration.model)
     model["release"]["version"] += "-former-id"
     (definition,) = [d for d in model["consumerApis"] if d["key"] == world.key("Capi")]
-    definition["object"]["id"]["source"] = [world.key("R.u")]
+    definition["object"]["fields"][world.key("Capi.id")]["from"] = world.key("R.u")
     draft, _compiled = _compile(world, model)
     error = refused(_install(world, draft), 422, "INVALID_MODEL")
-    pointer = f"/consumerApis/{world.key('Capi')}/object/id/source"
+    pointer = f"/consumerApis/{world.key('Capi')}/object/fields/{world.key('Capi.id')}/from"
     assert any(d["path"] == pointer for d in error["details"]), error["details"]
 
 
@@ -161,47 +166,45 @@ def _capi_model(world, suffix):
 @pytest.mark.structures("Capi", "R", "R.n", "K.code")
 def test_a_list_sorts_by_a_scalar_attribute_of_its_type(world):
     """An unknown attribute, a JSON attribute and an attribute the list's type does not bind are each
-    refused at /consumerApis/<key>/lists/<list>/sortBy. Changing sortBy is reported as
-    version_required. A parameter named from, seek or includeTotal is refused as reserved."""
-    pointer = f"/consumerApis/{world.key('Capi')}/lists/{world.key('Capi.all')}/sortBy"
+    refused at /consumerApis/<key>/operations/lists/<list>/sortBy. Changing sortBy is reported as
+    version_required. A filter named from, seek or includeTotal is refused as reserved."""
+    pointer = f"/consumerApis/{world.key('Capi')}/operations/lists/{world.key('Capi.all')}/sortBy"
     json_key = "consumer-notes"
     for sort_by in ("no-such-attribute", json_key, world.key("K.code")):
         model, definition = _capi_model(world, f"sort-{sort_by}")
         model["attributeTypes"].append({"key": json_key, "name": "Notes", "valueType": "json"})
         r_type = next(t for t in model["objectTypes"] if t["key"] == world.key("R"))
         r_type["attributes"].append({"attributeTypeKey": json_key, "order": 900})
-        (all_,) = [item for item in definition["lists"] if item["key"] == world.key("Capi.all")]
-        all_["sortBy"] = sort_by
+        definition["operations"]["lists"][world.key("Capi.all")]["sortBy"] = sort_by
         _draft, compiled = _compile(world, model)
         assert compiled["valid"] is False, sort_by
         assert any(d["path"] == pointer for d in compiled["diagnostics"]), compiled["diagnostics"]
 
     model, definition = _capi_model(world, "sort-name")
-    (all_,) = [item for item in definition["lists"] if item["key"] == world.key("Capi.all")]
-    del all_["sortBy"]
+    del definition["operations"]["lists"][world.key("Capi.all")]["sortBy"]
     _draft, compiled = _compile(world, model)
     assert compiled["consumerContracts"]["classification"] == "version_required"
     assert any(
-        d["path"].startswith(f"/consumerApis/{world.key('Capi')}/lists")
+        d["path"].startswith(f"/consumerApis/{world.key('Capi')}/operations/lists")
         for d in compiled["consumerContracts"]["diagnostics"]
     )
 
     for name in ("from", "seek", "includeTotal"):
         model, definition = _capi_model(world, f"reserved-{name}")
-        definition["parameters"][name] = {"kind": "objectType"}
+        definition["filters"][name] = {"byType": True}
         _draft, compiled = _compile(world, model)
         assert compiled["valid"] is False, name
-        reserved = f"/consumerApis/{world.key('Capi')}/parameters/{name}"
+        reserved = f"/consumerApis/{world.key('Capi')}/filters/{name}"
         assert any(d["path"] == reserved for d in compiled["diagnostics"]), compiled["diagnostics"]
 
 
 @pytest.mark.journey("J25")
 @pytest.mark.structures("Capi", "R", "R.u", "K.code", "B11")
 def test_contains_reads_text_only(world):
-    """A contains weight on id, or on an integer attribute, is refused at its /match/…/contains
-    pointer: it could never match."""
+    """A contains weight on id, or on an integer attribute, is refused at its
+    /operations/xref/…/contains pointer: it could never match."""
     number = "consumer-serial"
-    base = f"/consumerApis/{world.key('Capi')}/match"
+    base = f"/consumerApis/{world.key('Capi')}/operations/xref"
     for where in ("own-id", "own-integer", "promoted-id"):
         model, definition = _capi_model(world, f"contains-{where}")
         model["attributeTypes"].append(
@@ -210,13 +213,14 @@ def test_contains_reads_text_only(world):
         r_type = next(t for t in model["objectTypes"] if t["key"] == world.key("R"))
         r_type["attributes"].append({"attributeTypeKey": number, "order": 900})
         if where == "promoted-id":
-            definition["match"]["promoted"][0]["firstMatch"].append({"field": "id", "contains": 5})
-            index = len(definition["match"]["promoted"][0]["firstMatch"]) - 1
-            pointer = f"{base}/promoted/0/firstMatch/{index}/contains"
+            first_of = definition["operations"]["xref"]["alsoMatchThrough"][0]["firstOf"]
+            first_of.append({"field": "id", "contains": 5})
+            pointer = f"{base}/alsoMatchThrough/0/firstOf/{len(first_of) - 1}/contains"
         else:
             field = "id" if where == "own-id" else number
-            definition["match"]["own"].append({"field": field, "exact": 5, "contains": 5})
-            pointer = f"{base}/own/{len(definition['match']['own']) - 1}/contains"
+            match_on = definition["operations"]["xref"]["matchOn"]
+            match_on.append({"field": field, "exact": 5, "contains": 5})
+            pointer = f"{base}/matchOn/{len(match_on) - 1}/contains"
         draft, compiled = _compile(world, model)
         assert compiled["valid"] is False, where
         assert any(d["path"] == pointer for d in compiled["diagnostics"]), compiled["diagnostics"]
@@ -227,13 +231,14 @@ def test_contains_reads_text_only(world):
 @pytest.mark.journey("J25")
 @pytest.mark.structures("Capi", "Bown", "Bscope", "G")
 def test_scores_from_needs_a_promoted_entry_and_is_contract(world):
-    """scoresFrom on a parameter over a projection no match.promoted entry reads is refused at its
-    /parameters/<name>/scoresFrom pointer; turning a parameter's scoresFrom off is version_required."""
+    """scoreOnlyMatching on a filter over related records no alsoMatchThrough entry reads is refused at
+    its /filters/<name>/scoreOnlyMatching pointer; turning a filter's scoreOnlyMatching off is
+    version_required."""
     permit = world.key("Capi.permit")
     model, definition = _capi_model(world, "scores-from-bown")
-    definition["parameters"][permit]["scoresFrom"] = True
+    definition["filters"][permit]["scoreOnlyMatching"] = True
     draft, compiled = _compile(world, model)
-    pointer = f"/consumerApis/{world.key('Capi')}/parameters/{permit}/scoresFrom"
+    pointer = f"/consumerApis/{world.key('Capi')}/filters/{permit}/scoreOnlyMatching"
     assert compiled["valid"] is False
     assert any(d["path"] == pointer for d in compiled["diagnostics"]), compiled["diagnostics"]
     error = refused(_install(world, draft), 422, "INVALID_MODEL")
@@ -241,11 +246,11 @@ def test_scores_from_needs_a_promoted_entry_and_is_contract(world):
 
     watch = world.key("Capi.watch")
     model, definition = _capi_model(world, "scores-from-off")
-    definition["parameters"][watch]["scoresFrom"] = False
+    definition["filters"][watch]["scoreOnlyMatching"] = False
     _draft, compiled = _compile(world, model)
     assert compiled["valid"] is True
     assert compiled["consumerContracts"]["classification"] == "version_required"
-    changed = f"/consumerApis/{world.key('Capi')}/parameters/{watch}/scoresFrom"
+    changed = f"/consumerApis/{world.key('Capi')}/filters/{watch}/scoreOnlyMatching"
     assert any(d["path"] == changed for d in compiled["consumerContracts"]["diagnostics"]), compiled[
         "consumerContracts"
     ]["diagnostics"]
@@ -254,13 +259,13 @@ def test_scores_from_needs_a_promoted_entry_and_is_contract(world):
 @pytest.mark.journey("J25")
 @pytest.mark.structures("Capi", "Bown", "Bscope", "G", "M")
 def test_targetable_is_contract(world):
-    """A candidate turning targetable off for a parameter is version_required at
-    /parameters/<name>/targetable; turning it back on needs no new version. targetable on an ancestor
-    parameter is refused at its pointer."""
+    """A candidate turning crosswalk off for a filter is version_required at
+    /filters/<name>/crosswalk; turning it back on needs no new version. crosswalk on an under filter
+    is refused at its pointer."""
     watch = world.key("Capi.watch")
-    changed = f"/consumerApis/{world.key('Capi')}/parameters/{watch}/targetable"
+    changed = f"/consumerApis/{world.key('Capi')}/filters/{watch}/crosswalk"
     model, definition = _capi_model(world, "targetable-off")
-    definition["parameters"][watch]["targetable"] = False
+    definition["filters"][watch]["crosswalk"] = False
     draft, compiled = _compile(world, model)
     assert compiled["valid"] is True
     assert compiled["consumerContracts"]["classification"] == "version_required"
@@ -280,11 +285,10 @@ def test_targetable_is_contract(world):
 
     container = world.key("Capi.container")
     model, definition = _capi_model(world, "targetable-ancestor")
-    definition["parameters"][container]["targetable"] = True
+    definition["filters"][container]["crosswalk"] = True
     _draft, compiled = _compile(world, model)
     assert compiled["valid"] is False
-    index = model["consumerApis"].index(definition)
-    pointer = f"/consumerApis/{index}/parameters/{container}/targetable"
+    pointer = f"/consumerApis/{world.key('Capi')}/filters/{container}/crosswalk"
     assert [d["path"] for d in compiled["diagnostics"]] == [pointer], compiled["diagnostics"]
 
 
@@ -297,16 +301,16 @@ def test_a_projection_names_its_items_type_where_the_types_are_exposed(world):
     again is version_required at the projection's fields."""
     key, paired, permits = world.key("Capi"), world.key("Capi.B11"), world.key("Capi.Bown")
     model, definition = _capi_model(world, "type-of-unexposed")
-    definition["projections"][paired]["fields"]["tokenType"] = "objectType"
+    definition["object"]["related"][paired]["fields"]["tokenType"] = "objectType"
     draft, compiled = _compile(world, model)
-    pointer = f"/consumerApis/{key}/projections/{paired}/fields/tokenType"
+    pointer = f"/consumerApis/{key}/object/related/{paired}/fields/tokenType"
     assert compiled["valid"] is False
     assert [d["path"] for d in compiled["diagnostics"]] == [pointer], compiled["diagnostics"]
     error = refused(_install(world, draft), 422, "INVALID_MODEL")
     assert pointer in json.dumps(error["details"])
 
     model, definition = _capi_model(world, "type-added")
-    definition["projections"][permits]["fields"]["permitType"] = "objectType"
+    definition["object"]["related"][permits]["fields"]["permitType"] = "objectType"
     draft, compiled = _compile(world, model)
     assert compiled["valid"] is True
     assert compiled["consumerContracts"]["classification"] == "compatible"
@@ -315,7 +319,7 @@ def test_a_projection_names_its_items_type_where_the_types_are_exposed(world):
     model, definition = _capi_model(world, "type-removed")
     _draft, compiled = _compile(world, model)
     assert compiled["consumerContracts"]["classification"] == "version_required"
-    changed = f"/consumerApis/{key}/projections/{permits}/fields"
+    changed = f"/consumerApis/{key}/object/related/{permits}/fields"
     assert any(d["path"] == changed for d in compiled["consumerContracts"]["diagnostics"]), compiled[
         "consumerContracts"
     ]["diagnostics"]
@@ -331,7 +335,7 @@ def _events(world):
             "changes": ["created", "updated", "deleted"],
             "watch": {
                 "fields": [world.key("Capi.code"), world.key("Capi.name"), world.key("Capi.parent")],
-                "projections": [world.key("Capi.B11")],
+                "related": [world.key("Capi.B11")],
             },
         },
         {"key": "permit-churn", "objectTypes": [world.key("D")], "changes": ["created", "deleted"]},
@@ -340,7 +344,7 @@ def _events(world):
 
 def _with_events(world, suffix, events=None):
     model, definition = _capi_model(world, suffix)
-    definition["events"] = _events(world) if events is None else events
+    definition["operations"]["events"] = {"custom": _events(world) if events is None else events}
     return model, definition
 
 
@@ -357,19 +361,19 @@ def test_declare_events(world):
     release = ok(_install(world, draft), 201)
     ok(world.activate(release["id"]))
     read = ok(world.api.get(f"/model-releases/{release['id']}", includeModel=True))
-    assert _capi(read["model"], world)["events"] == _events(world)
+    assert _capi(read["model"], world)["operations"]["events"] == {"custom": _events(world)}
 
 
 @pytest.mark.journey("J25.3")
 @pytest.mark.structures("Capi", "R", "R2", "D", "K", "B11")
 def test_event_mistakes_are_refused_at_their_pointer(world):
     """Each mistake in an event is refused with 422 INVALID_MODEL at its pointer under
-    /consumerApis/<Capi>/events/<event>: a type not exposed or unknown, a repeated or upper-case key,
-    no change or a repeated one, a watch naming a role rather than its output or an unknown output,
-    an unknown projection, an empty watch, a watch on an event without updates. An unknown change
-    kind is a shape error at its position. A parameter named event or after is reserved."""
+    /consumerApis/<Capi>/operations/events/custom/<index>: a type not exposed or unknown, a repeated
+    or upper-case key, no change or a repeated one, a watch naming a role rather than its output or an
+    unknown output, an unknown related block, an empty watch, a watch on an event without updates. An
+    unknown change kind is a shape error at its position. A filter named event or after is reserved."""
     base = f"/consumerApis/{world.key('Capi')}"
-    first = f"{base}/events/ledger-changed"
+    first = f"{base}/operations/events/custom/0"
 
     def first_event(change):
         def mutate(events):
@@ -382,15 +386,15 @@ def test_event_mistakes_are_refused_at_their_pointer(world):
         "not-exposed": (first_event(lambda e: e["objectTypes"].append(world.key("K"))), f"{first}/objectTypes"),
         "unknown-type": (first_event(lambda e: e["objectTypes"].append("no-such-type")), f"{first}/objectTypes"),
         "repeated-type": (first_event(lambda e: e["objectTypes"].append(world.key("R"))), f"{first}/objectTypes"),
-        "repeated-key": (lambda events: events + [copy.deepcopy(events[0])], first),
-        "upper-key": (first_event(lambda e: e.update(key="Ledger-changed")), f"{base}/events/Ledger-changed/key"),
+        "repeated-key": (lambda events: events + [copy.deepcopy(events[0])], f"{base}/operations/events/custom/2"),
+        "upper-key": (first_event(lambda e: e.update(key="Ledger-changed")), f"{first}/key"),
         "no-change": (first_event(lambda e: e.update(changes=[])), f"{first}/changes"),
         "repeated-change": (first_event(lambda e: e["changes"].append("deleted")), f"{first}/changes"),
         "role-name": (first_event(lambda e: e["watch"]["fields"].append("active")), f"{first}/watch/fields"),
         "unknown-output": (first_event(lambda e: e["watch"]["fields"].append("no-such-output")), f"{first}/watch/fields"),
         "unknown-projection": (
-            first_event(lambda e: e["watch"]["projections"].append("noSuchProjection")),
-            f"{first}/watch/projections",
+            first_event(lambda e: e["watch"]["related"].append("noSuchBlock")),
+            f"{first}/watch/related",
         ),
         "empty-watch": (first_event(lambda e: e.update(watch={})), f"{first}/watch"),
         "watch-without-updates": (
@@ -411,14 +415,14 @@ def test_event_mistakes_are_refused_at_their_pointer(world):
     model, _definition = _with_events(world, "event-renamed", events)
     _draft, compiled = _compile(world, model)
     assert compiled["valid"] is False
-    assert any(d["path"].endswith("/events/0/changes/3") for d in compiled["diagnostics"]), compiled["diagnostics"]
+    assert any(d["path"].endswith("/operations/events/custom/0/changes/3") for d in compiled["diagnostics"]), compiled["diagnostics"]
 
     for name in ("event", "after"):
         model, definition = _capi_model(world, f"reserved-{name}")
-        definition["parameters"][name] = {"kind": "objectType"}
+        definition["filters"][name] = {"byType": True}
         _draft, compiled = _compile(world, model)
         assert compiled["valid"] is False, name
-        reserved = f"{base}/parameters/{name}"
+        reserved = f"{base}/filters/{name}"
         assert any(d["path"] == reserved for d in compiled["diagnostics"]), compiled["diagnostics"]
 
 
@@ -433,8 +437,8 @@ def test_events_are_contract(world):
     model, _definition = _with_events(world, "events")
     draft, _compiled = _compile(world, model)
     ok(world.activate(ok(_install(world, draft), 201)["id"]))
-    events = f"/consumerApis/{world.key('Capi')}/events"
-    first, second = f"{events}/ledger-changed", f"{events}/permit-churn"
+    events = f"/consumerApis/{world.key('Capi')}/operations/events"
+    first, second = f"{events}/custom/0", f"{events}/custom/1"
 
     def drop_second(e):
         del e[1]
@@ -519,3 +523,134 @@ def test_events_are_contract(world):
             name,
             compiled["consumerContracts"]["diagnostics"],
         )
+
+
+# --- schema 0.9 (C18) ----------------------------------------------------------------------------
+
+
+def _in_schema_0_8(world, suffix):
+    """The configuration's model in schema 0.8, its definitions in the 0.8 shape (the engine's
+    internal form written out), as a release stored before C18 holds them."""
+    model = copy.deepcopy(world.configuration.model)
+    model["schemaVersion"] = "0.8"
+    model["release"]["version"] += f"-{suffix}"
+    model["consumerApis"] = [
+        item.model_dump(mode="json") for item in consumer_apis(parse_model(world.configuration.model))
+    ]
+    return model
+
+
+@pytest.mark.journey("J25.6")
+@pytest.mark.structures("Capi")
+def test_schema_0_8_is_refused_for_new_definitions(world):
+    """Given the configuration's definitions written in schema 0.8. When the document is validated,
+    compiled as a draft and installed. Then each is refused at /schemaVersion naming schema 0.9. The
+    same document without consumerApis installs, and a release stored in 0.8 before reads as
+    stored."""
+    legacy = _in_schema_0_8(world, "legacy")
+    validated = ok(world.api.post("/model-validations", {"model": legacy}))
+    assert validated["valid"] is False
+    ((code, path, message),) = [(d["code"], d["path"], d["message"]) for d in validated["diagnostics"]]
+    assert (code, path) == ("UNSUPPORTED_SCHEMA_VERSION", "/schemaVersion")
+    assert "schema 0.9" in message
+    draft, compiled = _compile(world, legacy)
+    assert compiled["valid"] is False
+    assert [(d["code"], d["path"]) for d in compiled["diagnostics"]] == [("UNSUPPORTED_SCHEMA_VERSION", "/schemaVersion")]
+    error = refused(_install(world, draft), 422, "INVALID_MODEL")
+    assert "UNSUPPORTED_SCHEMA_VERSION" in json.dumps(error["details"])
+
+    without = copy.deepcopy(legacy)
+    del without["consumerApis"]
+    without["release"]["version"] += "-without"
+    ok(_install(world, _compile(world, without)[0]), 201)
+
+    with SessionLocal() as session:
+        stored = ensure_bootstrap_release(session, parse_model(_in_schema_0_8(world, "stored")))
+        session.commit()
+        stored_id = stored.public_id
+    read = ok(world.api.get(f"/model-releases/{stored_id}", includeModel=True))
+    assert read["schemaVersion"] == "0.8"
+    assert _capi(read["model"], world) == _capi(_in_schema_0_8(world, "stored"), world)
+
+
+@pytest.mark.journey("J25.7")
+@pytest.mark.structures("Capi", "R")
+def test_a_definition_offers_the_operations_it_lists(world):
+    """Given the active Capi offering every operation. When a draft lists objects only (no filter left
+    scoring XREF), at the same contract version. Then a new version is required at /operations and
+    activation is refused. At
+    version 2 it activates: get by ID answers, XREF and batch resolve are 404 OPERATION_NOT_OFFERED,
+    and its OpenAPI document leaves them out. Listing them again is compatible. resolve listed
+    without xref is refused at /operations/resolve."""
+    record = world.made("R", "Offered ledger")
+    model, definition = _capi_model(world, "objects-only")
+    del definition["operations"]["xref"], definition["operations"]["resolve"]
+    del definition["filters"][world.key("Capi.watch")]["scoreOnlyMatching"]
+    draft, compiled = _compile(world, model)
+    assert compiled["consumerContracts"]["classification"] == "version_required"
+    paths = [d["path"] for d in compiled["consumerContracts"]["diagnostics"]]
+    assert f"/consumerApis/{world.key('Capi')}/operations" in paths, paths
+    refused(world.activate(ok(_install(world, draft), 201)["id"]), 409, "CONSUMER_CONTRACT_VERSION_REQUIRED")
+
+    definition["contractVersion"] = 2
+    model["release"]["version"] += "-v2"
+    ok(world.activate(world.install(model)["id"]))
+    assert ok(consumer_object(world, record["id"], version=2))[world.key("Capi.id")] == record["id"]
+    for operation, response in (
+        ("xref", consumer_xref(world, version=2, query="Offered")),
+        ("resolve", consumer_resolve(world, {"items": [{"query": "Offered"}]}, version=2)),
+    ):
+        error = refused(response, 404, "OPERATION_NOT_OFFERED")
+        assert error["details"] == {"operation": operation}
+    document = ok(world.api.get(f"/api/consumer/{world.key('Capi')}/v2/openapi.json"))
+    base = f"/api/consumer/{world.key('Capi')}/v2"
+    assert f"{base}/objects/{{id}}" in document["paths"]
+    assert f"{base}/xref" not in document["paths"] and f"{base}/resolve" not in document["paths"]
+
+    model, definition = _capi_model(world, "all-again")
+    definition["contractVersion"] = 2
+    del definition["filters"][world.key("Capi.watch")]["scoreOnlyMatching"]
+    _draft, compiled = _compile(world, model)
+    assert compiled["consumerContracts"]["classification"] == "compatible", compiled["consumerContracts"]
+
+    model, definition = _capi_model(world, "resolve-alone")
+    del definition["operations"]["xref"]
+    _draft, compiled = _compile(world, model)
+    assert compiled["valid"] is False
+    assert [d["path"] for d in compiled["diagnostics"]] == [f"/consumerApis/{world.key('Capi')}/operations/resolve"]
+
+
+@pytest.mark.journey("J25.8")
+@pytest.mark.structures("Capi", "B11", "M")
+def test_mistakes_are_refused_at_the_authors_pointers(world):
+    """A via naming no relation, a filter with two verbs, a role given to two fields and an
+    alsoMatchThrough naming no related block are each refused at their pointer in the 0.9 document,
+    by compile and by install."""
+    base = f"/consumerApis/{world.key('Capi')}"
+    paired, kind = world.key("Capi.B11"), world.key("Capi.kind")
+
+    def via(definition):
+        definition["object"]["related"][paired]["via"] = "no-such-relation"
+        return f"{base}/object/related/{paired}/via", "INVALID_REFERENCE"
+
+    def two_verbs(definition):
+        definition["filters"][kind] = {"byType": True, "under": [world.key("M")]}
+        return f"{base}/filters/{kind}", "INVALID_MODEL"
+
+    def role_twice(definition):
+        fields = definition["object"]["fields"]
+        fields["alsoName"] = {"role": "name", "from": "name"}
+        return f"{base}/object/fields/alsoName/role", "DUPLICATE_KEY"
+
+    def unknown_related(definition):
+        definition["operations"]["xref"]["alsoMatchThrough"][0]["related"] = "noSuchBlock"
+        return f"{base}/operations/xref/alsoMatchThrough/0/related", "INVALID_REFERENCE"
+
+    for mistake in (via, two_verbs, role_twice, unknown_related):
+        model, definition = _capi_model(world, mistake.__name__.replace("_", "-"))
+        pointer, code = mistake(definition)
+        draft, compiled = _compile(world, model)
+        assert compiled["valid"] is False, mistake.__name__
+        assert [(d["code"], d["path"]) for d in compiled["diagnostics"]] == [(code, pointer)], compiled["diagnostics"]
+        error = refused(_install(world, draft), 422, "INVALID_MODEL")
+        assert pointer in json.dumps(error["details"]), mistake.__name__

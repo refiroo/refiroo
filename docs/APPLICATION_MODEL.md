@@ -539,52 +539,75 @@ An object type may declare one business validity period:
 
 ### Consumer API definitions (`consumerApis`)
 
-A new optional top-level array of read-only consumer API definitions. Their shape, validation and
-contract rules are specified in [CONSUMER_API.md](CONSUMER_API.md#definition-shape); in summary:
+Opened in schema 0.8 and written in schema 0.9's syntax since Base 0.9 C18 ([below](#schema-09-product-09)).
 
-- Each definition has a `key` (`consumerApi` in routes and contracts), a `name` and its own `contractVersion`, and declares the
-  exposed object types, output fields, projections, lists, XREF parameters and scoring, and events.
-- A `projection` parameter may declare `"targetable": true`, which enables crosswalk reads
-  (`to.{parameter}`). Only a `projection` parameter can be targetable. It is part of the contract:
-  turning it off is `version_required` at `/consumerApis/<key>/parameters/<name>/targetable`,
-  turning it on is compatible (C-D58).
-- A `projection` parameter may declare `"scoresFrom": true`: on XREF, only the related records it
-  matches pass scores through its projection. It needs a `match.promoted` entry over that
-  projection, refused otherwise at `/consumerApis/<key>/parameters/<name>/scoresFrom` (C-D45).
-- A projection field reads `id`, `name`, an attribute of the related types or
-  `ancestor:<type>.<field>`, or `objectType`: the related record's public type name, allowed only
-  where the definition exposes every type the projection reaches, refused otherwise at
-  `/consumerApis/<key>/projections/<name>/fields/<field>` (C-D73). The `parent` block's fields are
-  keyed by the roles' output names (C-D75).
-- An event (`events`, 0.9 C9) names exposed `objectTypes`, `changes` (`created`, `updated`,
-  `deleted`) and an optional `watch` of output names and projections, by the names consumers read
-  (C-D81); each mistake is refused at `/consumerApis/<key>/events/<event>/…` (C-D84). An event that
-  tells consumers less needs a higher `contractVersion` (C-D85). `event` and `after` are reserved
-  parameter names (C-D86).
-- A list (`key`, `objectType`, optional `parentParameter`) may name `sortBy`: a scalar attribute (not
-  JSON) its type binds, refused otherwise at `/consumerApis/<key>/lists/<list>/sortBy` (C-D29).
-  Records without a value come last, then name, then creation order. `from`, `seek` and
-  `includeTotal` are reserved parameter names besides the paging names (C-D30).
-- Every reference to a type, attribute, relation binding or ancestor is validated against the same
-  release, with the model's path-and-reason errors.
-- Each definition is compared with the **active** release's (C-D17): draft compile and release diff
-  report the result as `consumerContracts`, and activation refuses a breaking change that does not
-  raise `contractVersion` (C-D2): removing or retyping an output field, renaming or no longer exposing
-  a type, changing a projection's shape or fields, changing scoring weights (C-D4), removing or changing
-  a list (its type, `sortBy` or parent parameter) or a parameter's kind (C-D18), turning a parameter's
-  `scoresFrom` on or off (C-D46), or (from C9) removing or narrowing an event. Removing a whole
-  definition is a warning. Installing a release without activating it is not checked.
-- A field's sources share one value type (`text` and `longText` count as one), which is its output
-  type (C-D19); the identity's source is `id`, the object ID (C-D24, narrowed in C2); a match rule or match field reads
-  `name`, `id` or a `searchable` or `unique` attribute (C-D20). A `contains` weight reads text only:
-  `name` or a `text` or `longText` attribute; on `id` or a typed attribute it is refused at its
-  `/match/…/contains` pointer, since it could never match (0.9 C4).
-- Definitions change no stored data and no management API behaviour.
-
+### Upsert keys
 ### Upsert keys
 
 Schema 0.8 adds no declaration for upsert keys. A batch or import upserts by public ID or by an
 attribute already declared `unique` (D2); the uniqueness declaration is the key declaration.
+
+## Schema 0.9 (Product 0.9)
+
+**Delivered in Base 0.9 C18 (2026-10-08).** Schema 0.9 changes one thing: `consumerApis`, the
+optional top-level array of read-only consumer API definitions, is written in a syntax organised by
+what a reader asks (CONSUMER_API C-D132–C-D141). Every other part of a 0.9 document is as in 0.8. A
+new 0.8 document that declares `consumerApis` is refused by install, draft compile and validation
+with `UNSUPPORTED_SCHEMA_VERSION` at `/schemaVersion` (C-D134); a 0.8 document without them installs,
+and a stored 0.8 release keeps reading and activating as stored, its definitions offering every
+operation. The starter is content release 0.9.3 on schema 0.9.
+
+### Consumer API definitions in schema 0.9
+
+Their shape, defaults, validation and contract rules are specified in
+[CONSUMER_API.md](CONSUMER_API.md#definition-shape), with the mapping from schema 0.8; in summary:
+
+- Each definition has a `key` (`consumerApi` in routes and contracts), a `name` and its own
+  `contractVersion`. It names the types it `exposes` (public names default to the key in
+  PascalCase), the `operations` it offers (`objects`, `xref`, `resolve`, `lists`, `events`: listed
+  means offered, C-D132), what an object looks like (`object.fields` with roles, `parent`, `path`,
+  `hierarchy`, `related` blocks reached by a relation's `key` or `reverseKey`), how XREF matches
+  (`operations.xref.matchOn`, `alsoMatchThrough`) and its `filters` (`byType`, `under`, `linkedTo`,
+  `onRelated`).
+- An `onRelated` filter may declare `crosswalk: true`, which enables crosswalk reads (`to.{filter}`).
+  It is part of the contract: turning it off is `version_required` at
+  `/consumerApis/<key>/filters/<name>/crosswalk`, turning it on is compatible (C-D58).
+- An `onRelated` filter may declare `scoreOnlyMatching: true`: on XREF, only the related records it
+  matches pass scores through its block. It needs an `alsoMatchThrough` entry over that block,
+  refused otherwise at `/consumerApis/<key>/filters/<name>/scoreOnlyMatching` (C-D45).
+- A related field reads `id`, `name`, an attribute of the related types or
+  `ancestor:<type>.<field>`, or `objectType`: the related record's public type name, allowed only
+  where the definition exposes every type the block reaches, refused otherwise at
+  `/consumerApis/<key>/object/related/<name>/fields/<field>` (C-D73). The `parent` block's fields
+  are keyed by the roles' output names (C-D75).
+- Events (`operations.events`, 0.9 C9): `perType` declares one per exposed type, and `custom` events
+  name exposed `objectTypes`, `changes` (`created`, `updated`, `deleted`) and an optional `watch` of
+  output names and related blocks, by the names consumers read (C-D81); each mistake is refused at
+  `/consumerApis/<key>/operations/events/custom/<index>/…` (C-D84). An event that tells consumers
+  less needs a higher `contractVersion` (C-D85). `event` and `after` are reserved filter names
+  (C-D86).
+- A list (`operations.lists.<key>`: `of`, optional `within`) may name `sortBy`: a scalar attribute
+  (not JSON) its type binds, refused otherwise at `/consumerApis/<key>/operations/lists/<list>/sortBy`
+  (C-D29). Records without a value come last, then name, then creation order. `from`, `seek` and
+  `includeTotal` are reserved filter names besides the paging names (C-D30).
+- Every reference to a type, attribute, relation binding or ancestor is validated against the same
+  release, with the model's path-and-reason errors at the pointer the author wrote (C-D141).
+- Each definition is compared with the **active** release's (C-D17): draft compile and release diff
+  report the result as `consumerContracts`, and activation refuses a breaking change that does not
+  raise `contractVersion` (C-D2): removing or retyping an output field, renaming or no longer exposing
+  a type, changing a related block's shape or fields, changing scoring weights (C-D4), removing or
+  changing a list (its type, `sortBy` or `within`) or a filter's verb (C-D18), turning a filter's
+  `scoreOnlyMatching` on or off (C-D46), removing or narrowing an event, or no longer offering an
+  operation (C-D132). Removing a whole definition is a warning. Installing a release without
+  activating it is not checked.
+- A field's sources share one value type (`text` and `longText` count as one), which is its output
+  type (C-D19); the `id` field reads `id`, the object ID (C-D24); a match rule or match field reads
+  `name`, `id` or a `searchable` or `unique` attribute (C-D20). A `contains` weight reads text only:
+  `name` or a `text` or `longText` attribute; on `id` or a typed attribute it is refused at its
+  `/operations/xref/…/contains` pointer, since it could never match (0.9 C4).
+- `GET /api/v1/model/consumer-apis/{consumerApi}` answers a definition expanded, every default
+  written out (C-D137).
+- Definitions change no stored data and no management API behaviour.
 
 ## Versioning
 
@@ -593,7 +616,8 @@ Schema 0.4 added object-level cross-field validation, required initial relations
 relationship uniqueness to the 0.3 detail-composition contract. Schema 0.5 adds strict typed table
 views. Schema 0.6 adds the `mappingGrid` view type. Schema 0.7 adds relations-panel sort options
 (`sortFields`, `defaultSort`) and the `relationMatrix` and `tree` view types. Schema 0.8 (Product
-0.9) adds `consumerApis` (Base 0.9 C1) and `effectivePeriod` (Q4) ([above](#schema-08-additions-product-09)). `release.version` versions one model package.
+0.9) adds `consumerApis` (Base 0.9 C1) and `effectivePeriod` (Q4) ([above](#schema-08-additions-product-09)), and
+schema 0.9 writes `consumerApis` in its present syntax (C18, [above](#schema-09-product-09)). `release.version` versions one model package.
 Each distinct
 validated model is installed as an immutable database release identified by its content hash.
 

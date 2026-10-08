@@ -891,7 +891,7 @@ def test_activation_rejects_a_historical_schema_release_without_mutation(monkeyp
             "details": {
                 "releaseId": historical_id,
                 "schemaVersion": "0.4",
-                "supportedSchemaVersions": ["0.5", "0.6", "0.7", "0.8"],
+                "supportedSchemaVersions": ["0.5", "0.6", "0.7", "0.8", "0.9"],
                 "operation": "activation",
             },
         }
