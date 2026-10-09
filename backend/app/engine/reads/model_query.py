@@ -27,9 +27,14 @@ from sqlalchemy.orm import aliased
 
 from ...errors import ApiError, api_error
 from ...models.database import ObjectRelation, RdmObject
-from ...models.queries import ModelQuery, QueryCriterion, QueryExpansion
+from ...models.queries import ModelQuery, QueryCriterion, QueryExpansion, RelatedCriterion
 from ...models.schema import EngineModel, ObjectTypeDefinition
-from ..model.related_columns import RelatedKeyError, related_field_column
+from ..model.related_columns import (
+    RELATED_FIELD_PREFIX,
+    RelatedKeyError,
+    is_related_field,
+    related_field_column,
+)
 from ..model.traversal import ancestor_type_keys, related_object_types
 from ..model.validation.fields import ANCESTOR_FIELD_PREFIX
 from .object_query import (
@@ -405,7 +410,8 @@ def _related_predicate(
     """
     hop = criterion.related
     assert hop is not None
-    if criterion.field is not None or criterion.op is not None or "value" in criterion.model_fields_set:
+    # By value, not by what was sent: an export's stored request carries every field, null ones too.
+    if criterion.field is not None or criterion.op is not None or criterion.value is not None:
         _invalid("A related criterion names no field, operator or value", f"{pointer}/related")
     targets = _binding_targets(model, object_type, hop.relationTypeKey, hop.direction, f"{pointer}/related")
     criteria = []
@@ -562,6 +568,107 @@ def list_expansions(
             )
         )
     return tuple(result)
+
+
+@dataclass(frozen=True)
+class RelationFilters:
+    """The per-type list's relationship filters (0.9 K6): one condition on the listed record's ID,
+    and their normalized form, which a cursor binds."""
+
+    id_filter: Callable[[Any], Any] | None
+    normalized: tuple[tuple[str, str, str], ...]
+
+
+def split_relation_filters(
+    filters: Sequence[tuple[str, str, str]],
+) -> tuple[list[tuple[str, str, str]], list[tuple[str, str, str]]]:
+    """The list's ``filter.<field>.<operator>`` parameters as (relationship filters, the others)."""
+    related = [item for item in filters if is_related_field(item[0])]
+    return related, [item for item in filters if not is_related_field(item[0])]
+
+
+def list_relation_filters(
+    model: EngineModel,
+    object_type_key: str,
+    filters: Sequence[tuple[str, str, str]],
+    *,
+    workspace_key: str,
+    context: SnapshotContext | None,
+) -> RelationFilters:
+    """``filter.related:<key>.eq=<id>`` (repeatable: related to any of them) and ``.isNull``
+    (``true``: related to none, ``false``: to any), as conditions on the listed record's ID built by
+    Q3's hop (D155, D156), so the list and the query mean the same in every context. Filters on one
+    relationship are alternatives when they name records; different relationships combine with AND.
+    Anything else is ``INVALID_FILTER``.
+    """
+    if not filters:
+        return RelationFilters(None, ())
+    object_type = model.object_type(object_type_key)
+    if object_type is None:
+        # The list refuses the unknown type itself (UNKNOWN_OBJECT_TYPE).
+        return RelationFilters(None, ())
+    by_key: dict[str, list[tuple[str, str]]] = {}
+    for field, operator, value in filters:
+        parameter = f"filter.{field}.{operator}"
+        key = field.removeprefix(RELATED_FIELD_PREFIX)
+        try:
+            column = related_field_column(model, object_type_key, key)
+        except RelatedKeyError as error:
+            _invalid_filter(f"Cannot filter by '{field}': {error}", parameter)
+        if column.field is not None or column.key != key:
+            _invalid_filter(
+                f"Cannot filter by '{field}': a relationship filter names the relationship, not a"
+                " field of its records",
+                parameter,
+            )
+        if operator not in {"eq", "isNull"}:
+            _invalid_filter(
+                f"Operator '{operator}' is not supported for relationship '{key}': eq or isNull",
+                parameter,
+            )
+        if operator == "isNull" and value not in {"true", "false"}:
+            _invalid_filter(f"isNull takes true or false, not '{value}'", parameter)
+        by_key.setdefault(key, []).append((operator, value))
+    conditions = []
+    for key, items in by_key.items():
+        column = related_field_column(model, object_type_key, key)
+        ids = [value for operator, value in items if operator == "eq"]
+        flags = {value for operator, value in items if operator == "isNull"}
+        hop = RelatedCriterion(
+            relationTypeKey=column.relation_type_key,
+            direction=column.direction,
+            where=[QueryCriterion(field="id", op="eq", value=value) for value in ids],
+        )
+        if ids:
+            conditions.append(_hop_condition(model, object_type, hop, False, workspace_key, context))
+        for flag in sorted(flags):
+            plain = hop.model_copy(update={"where": []})
+            conditions.append(
+                _hop_condition(model, object_type, plain, flag == "true", workspace_key, context)
+            )
+
+    def id_filter(column: Any) -> Any:
+        return and_(*(condition(column) for condition in conditions))
+
+    return RelationFilters(id_filter, tuple(sorted((f, o, v) for f, o, v in filters)))
+
+
+def _hop_condition(
+    model: EngineModel,
+    object_type: ObjectTypeDefinition,
+    hop: RelatedCriterion,
+    inverted: bool,
+    workspace_key: str,
+    context: SnapshotContext | None,
+) -> Callable[[Any], Any]:
+    criterion = QueryCriterion(related=hop, **{"not": inverted})
+    return _related_predicate(
+        model, object_type, criterion, "/filter", workspace_key, context
+    ).predicate
+
+
+def _invalid_filter(message: str, parameter: str) -> NoReturn:
+    raise api_error(422, "INVALID_FILTER", message, {"path": f"/query/{parameter}"})
 
 
 def _invalid_expand(message: str, value: str) -> NoReturn:

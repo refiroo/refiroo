@@ -75,7 +75,10 @@ describe("ExportDialog (0.9 J1u)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start export" }));
     await waitFor(() => expect(api.createExport).toHaveBeenCalled());
     const body = vi.mocked(api.createExport).mock.calls[0][0];
-    expect(body.scope.types[0].where.map((item) => item.field)).toEqual(["code", "active"]);
+    expect(body.scope.types[0].where.map((item) => ("field" in item ? item.field : "related"))).toEqual([
+      "code",
+      "active",
+    ]);
     expect(body.include.relations).toBe("none");
     expect(body.format).toBe("csv");
   });

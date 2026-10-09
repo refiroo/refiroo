@@ -287,6 +287,7 @@ export function ObjectCollectionView({
           query={query}
           onChange={(next) => onQueryChange({ ...next, anchor: undefined })}
           placeholder={`Search ${objectType.pluralName.toLowerCase()}`}
+          workspaceKey={workspaceKey}
         />
         {bulkSelection && (
           <>

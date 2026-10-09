@@ -35,7 +35,7 @@ def test_starter_model_is_valid():
     assert model.applications[0].details[0].panels[0].type == "children"
     assert model.applications[0].details[1].panels[0].type == "children"
     assert model.schemaVersion == "0.9"
-    assert model.release.version == "0.9.4"
+    assert model.release.version == "0.9.5"
     assert {view.type for app in model.applications for view in app.views} == {
         "table",
         "mappingGrid",

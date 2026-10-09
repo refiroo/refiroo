@@ -111,7 +111,6 @@ def test_a_live_export_holds_the_stated_scope_parents_first_with_its_manifest(wo
         [{**_type(world, "R"), "where": [criterion]}, _type(world, "H"), _type(world, "K")],
         include={"relations": "withinScope"},
     )
-    assert job["state"] == "completed", job
     lines = _lines(world, job)
     records = [line for line in lines if line["op"] == "upsert"]
     relations = [line for line in lines if line["op"] == "ensureRelation"]
@@ -517,3 +516,35 @@ def _expire(world, job_id):
             {"id": job_id},
         )
     engine.dispose()
+
+
+@pytest.mark.journey("J27.6")
+@pytest.mark.structures("H", "K", "Bnn")
+def test_an_export_carries_a_relationship_filter_as_the_list_applies_it(world):
+    """Given H records of a workspace related through the many-to-many to K a, to K b and to neither.
+    When the H list is filtered to those related to a, and an export of H carries the same filter as
+    the browser sends it (a related criterion naming a by ID). Then the file holds exactly the
+    records the list gives."""
+    workspace = _workspace(world)
+    tokens = {name: world.made("K", f"Token {name}", workspace=workspace, values={"K.code": f"T-{name}"})["id"] for name in ("a", "b")}
+    holders = {name: world.made("H", f"Holder {name}", workspace=workspace)["id"] for name in ("a", "b", "none")}
+    for name in ("a", "b"):
+        ok(world.relate("Bnn", holders[name], tokens[name], {"Bnn.weight": 1}), 201)
+    listed = ok(
+        world.api.get(
+            f"/objects/{world.key('H')}",
+            workspaceKey=workspace,
+            **{f"filter__related:{world.key('Bnn')}__eq": tokens["a"]},
+        )
+    )
+    criterion = {
+        "related": {
+            "relationTypeKey": world.key("Bnn"),
+            "direction": "outgoing",
+            "where": [{"field": "id", "op": "eq", "value": tokens["a"]}],
+        }
+    }
+    job = _finished(world, workspace, [{"objectTypeKey": world.key("H"), "where": [criterion]}])
+    exported = {line["key"]["id"] for line in _lines(world, job) if line["op"] == "upsert"}
+    assert exported == {item["id"] for item in listed["items"]} == {holders["a"]}
+

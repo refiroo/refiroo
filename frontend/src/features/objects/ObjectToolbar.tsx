@@ -1,5 +1,7 @@
 import { useState, type ReactNode } from "react";
+import { RelationFilterControl, relationFilterText, useRelationFilterNames } from "@/features/objects/RelationFilter";
 import { attributeName } from "@/model/fields";
+import { RELATED_FIELD_PREFIX } from "@/model/lookup";
 import type { CollectionQueryState, EngineModel, TableViewDefinition, ValueType } from "@/types";
 import { Icon } from "@/ui/Icon";
 import { ControlPopover } from "@/ui/ControlPopover";
@@ -25,6 +27,7 @@ export function ObjectToolbar({
   onChange,
   display,
   sortMenu,
+  workspaceKey,
 }: {
   display: ReactNode;
   /** The sort menu, when a declared sort field has no visible column header. */
@@ -34,7 +37,13 @@ export function ObjectToolbar({
   query: CollectionQueryState;
   placeholder: string;
   onChange: (query: CollectionQueryState) => void;
+  /** Where a relationship filter's record picker searches. */
+  workspaceKey?: string;
 }) {
+  const objectTypeKey = view.objectTypeKey ?? "";
+  const names = useRelationFilterNames(model, objectTypeKey, query.filters, workspaceKey);
+  // A relationship filter is several entries of one field (0.9 K6); it counts, and shows, as one.
+  const fields = [...new Set(query.filters.map((filter) => filter.field))];
   function applyFilter(field: string, input: { operator: string; value: string }) {
     const remaining = query.filters.filter((filter) => filter.field !== field);
     const filters = input.value === "" ? remaining : [...remaining, { field, ...input }];
@@ -51,9 +60,28 @@ export function ObjectToolbar({
           onApply={(search) => onChange({ ...query, search })}
         />
         {view.config.filterFields.length > 0 && (
-          <ControlPopover label="Filter" icon="filter" count={query.filters.length}>
+          <ControlPopover label="Filter" icon="filter" count={fields.length}>
             <div className="filter-fields">
               {view.config.filterFields.map((field) => {
+                if (field.startsWith(RELATED_FIELD_PREFIX))
+                  return (
+                    <RelationFilterControl
+                      key={field}
+                      model={model}
+                      objectTypeKey={objectTypeKey}
+                      field={field}
+                      label={attributeName(model, field)}
+                      entries={query.filters.filter((filter) => filter.field === field)}
+                      names={names}
+                      workspaceKey={workspaceKey}
+                      onApply={(entries) =>
+                        onChange({
+                          ...query,
+                          filters: [...query.filters.filter((filter) => filter.field !== field), ...entries],
+                        })
+                      }
+                    />
+                  );
                 const type = valueType(model, field);
                 const current = query.filters.find((filter) => filter.field === field);
                 return (
@@ -79,20 +107,43 @@ export function ObjectToolbar({
         {sortMenu}
       </div>
       <div className="filter-chips" aria-label="Applied filters">
-        {query.filters.map((filter, index) => (
-          <button
-            className="filter-chip"
-            key={`${filter.field}:${filter.operator}:${index}`}
-            aria-label={`Remove ${attributeName(model, filter.field)} ${OPERATOR_LABELS[filter.operator] ?? filter.operator} ${filter.value}`}
-            onClick={() => onChange({ ...query, filters: query.filters.filter((_, position) => position !== index) })}
-          >
-            <span>
-              {attributeName(model, filter.field)} <em>{OPERATOR_LABELS[filter.operator] ?? filter.operator}</em>{" "}
-              {filter.value}
-            </span>
-            <Icon name="close" size={13} />
-          </button>
-        ))}
+        {fields
+          .filter((field) => field.startsWith(RELATED_FIELD_PREFIX))
+          .map((field) => {
+            const entries = query.filters.filter((filter) => filter.field === field);
+            const text = relationFilterText(entries, names);
+            return (
+              <button
+                className="filter-chip"
+                key={field}
+                aria-label={`Remove ${attributeName(model, field)} ${text}`}
+                onClick={() =>
+                  onChange({ ...query, filters: query.filters.filter((filter) => filter.field !== field) })
+                }
+              >
+                <span>
+                  {attributeName(model, field)} <em>{text}</em>
+                </span>
+                <Icon name="close" size={13} />
+              </button>
+            );
+          })}
+        {query.filters.map((filter, index) =>
+          filter.field.startsWith(RELATED_FIELD_PREFIX) ? null : (
+            <button
+              className="filter-chip"
+              key={`${filter.field}:${filter.operator}:${index}`}
+              aria-label={`Remove ${attributeName(model, filter.field)} ${OPERATOR_LABELS[filter.operator] ?? filter.operator} ${filter.value}`}
+              onClick={() => onChange({ ...query, filters: query.filters.filter((_, position) => position !== index) })}
+            >
+              <span>
+                {attributeName(model, filter.field)} <em>{OPERATOR_LABELS[filter.operator] ?? filter.operator}</em>{" "}
+                {filter.value}
+              </span>
+              <Icon name="close" size={13} />
+            </button>
+          ),
+        )}
         {(query.search !== "" || query.filters.length > 0) && (
           <button className="ghost" onClick={() => onChange({ ...query, search: "", filters: [] })}>
             Clear filters

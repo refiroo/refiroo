@@ -50,12 +50,14 @@ def starter_at_schema(schema_version: str, source: dict[str, Any] | None = None)
 
 
 def without_relation_columns(model: dict[str, Any]) -> dict[str, Any]:
-    """``model`` without its table views' ``related:<key>`` columns (schema 0.9, K5), in place."""
+    """``model`` without its table views' ``related:<key>`` columns and filters (schema 0.9, K5,
+    K6), in place."""
     for application in model["applications"]:
         for view in application["views"]:
             if view["type"] == "table":
-                columns = view["config"]["columns"]
-                view["config"]["columns"] = [c for c in columns if not c.startswith("related:")]
+                for name in ("columns", "filterFields", "sortFields"):
+                    fields = view["config"][name]
+                    view["config"][name] = [f for f in fields if not f.startswith("related:")]
     return model
 
 

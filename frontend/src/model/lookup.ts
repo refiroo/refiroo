@@ -175,6 +175,21 @@ export function relatedColumn(model: EngineModel, field: string): RelatedColumn 
   };
 }
 
+/** The object types at the other end of a `related:<key>` field for records of `objectTypeKey`. */
+export function relatedTargetTypes(model: EngineModel, objectTypeKey: string, field: string): ObjectTypeDefinition[] {
+  const column = relatedColumn(model, field);
+  if (!column) return [];
+  const keys = model.objectTypeRelations
+    .filter((relation) => relation.relationTypeKey === column.relationTypeKey)
+    .filter((relation) =>
+      column.direction === "outgoing"
+        ? relation.fromObjectTypeKey === objectTypeKey
+        : relation.toObjectTypeKey === objectTypeKey,
+    )
+    .map((relation) => (column.direction === "outgoing" ? relation.toObjectTypeKey : relation.fromObjectTypeKey));
+  return [...new Set(keys)].flatMap((key) => objectTypeFor(model, key) ?? []);
+}
+
 /**
  * The label of a related records' field (D152): an attribute's name; for `ancestor:<type>.<field>`
  * the ancestor type's name for its name, otherwise the field's own label.

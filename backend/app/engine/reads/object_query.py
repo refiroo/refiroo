@@ -977,17 +977,17 @@ def _query_attribute(
 ):
     bound = {item.attributeTypeKey for object_type in object_types for item in object_type.attributes}
     if field not in bound:
-        query_error(f"invalid_{parameter}", f"Unknown field '{field}'", parameter)
+        query_error(f"INVALID_{parameter.upper()}", f"Unknown field '{field}'", parameter)
     if len(object_types) != 1:
         query_error(
-            f"invalid_{parameter}",
+            f"INVALID_{parameter.upper()}",
             f"Field '{field}' needs one object type; this list holds several",
             parameter,
         )
     definition = model.attribute_type(field)
     if definition is None or definition.valueType == "json" or not definition.features.get(capability):
         query_error(
-            f"invalid_{parameter}",
+            f"INVALID_{parameter.upper()}",
             f"Field '{field}' is not {capability}",
             parameter,
         )

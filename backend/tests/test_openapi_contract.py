@@ -111,9 +111,11 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # expand and expandLimit and answers TypedObjectPage (QueryObject items, with expanded), its
     # sort description names related:<key>, and QueryObject's description; no other path changed.
     # Re-baselined for 0.9 K5a: ExpandedRelations.field and the expand description's <key>.<field>.
+    # Re-baselined for 0.9 K6: the per-type list's filter description names the relationship filter;
+    # no schema or path changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "44ec041cbd8476e853b360bee2d32840b0d07f65bdabf813bdd03ae76dfeccba"
+        "9c03a248f499034987282f85ddbd1e461e9f76b7e25323b6386520b2d6041f4f"
     )
 
 

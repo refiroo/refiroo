@@ -106,6 +106,11 @@ try {
   // 5. All matching with an exception; a new search clears it; Cmd+A; over the limit.
   await page.setViewportSize({ width: 1440, height: 900 });
   await open(collections[0]);
+  // The list fills the window with a second page after the first; select once the rows settle.
+  for (let last = -1, now = await page.locator("tbody tr").count(); now !== last; ) {
+    await page.waitForTimeout(300);
+    [last, now] = [now, await page.locator("tbody tr").count()];
+  }
   await page.getByRole("checkbox", { name: "Select the records shown" }).click();
   const loadedCount = await page.locator("tbody tr").count();
   await barSays(`${loadedCount} selected`, "domains loaded rows");

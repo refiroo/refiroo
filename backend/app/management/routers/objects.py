@@ -10,7 +10,12 @@ from ...engine.change_sets.records import (
     update_change_set_object,
 )
 from ...engine.model.registry import resolve_change_set_snapshot, resolve_model_snapshot
-from ...engine.reads.model_query import Expansion, list_expansions
+from ...engine.reads.model_query import (
+    Expansion,
+    list_expansions,
+    list_relation_filters,
+    split_relation_filters,
+)
 from ...engine.reads.object_lookup import (
     build_live_lookup_query,
     build_snapshot_lookup_query,
@@ -239,7 +244,10 @@ _EXPAND = Query(
                 "required": False,
                 "description": (
                     "Repeatable schema 0.5 typed filter. Operators and lexical values depend on "
-                    "the model-declared field type and filterable capability."
+                    "the model-declared field type and filterable capability. A relationship "
+                    "(0.9 K6): filter.related:<key>.eq=<record ID>, repeatable, keeps records "
+                    "related to any of them; filter.related:<key>.isNull=true those related to "
+                    "none, =false those related to any."
                 ),
                 "schema": {"type": "string"},
             }
@@ -285,6 +293,7 @@ def list_objects(
 ) -> TypedObjectPage:
     model = snapshot.model
     expansions = list_expansions(model, object_type_key, expand or [], expand_limit)
+    related_filters, field_filters = split_relation_filters(_field_filters(request))
     if change_set_id and publication_id:
         raise api_error(
             422,
@@ -304,6 +313,13 @@ def list_objects(
             if change_set_id
             else publication_context(session, publication_id)
         )
+        relations = list_relation_filters(
+            model,
+            object_type_key,
+            related_filters,
+            workspace_key=context.workspace_key,
+            context=context,
+        )
         query = build_snapshot_object_query(
             model,
             context,
@@ -312,8 +328,9 @@ def list_objects(
             parent_object_id=parent_object_id or None,
             search=search or None,
             sort=sort,
-            field_filters=_field_filters(request),
+            field_filters=field_filters,
             top_level=top_level,
+            id_filter=relations.id_filter,
             as_of=as_of,
             session=session,
         )
@@ -322,7 +339,7 @@ def list_objects(
             query.statement,
             keys=query.keys,
             scope=object_scope(context),
-            filters=query.filters,
+            filters=_bound(query.filters, relations.normalized),
             page=paging,
             page_size=page_size,
             message="Object cursor is invalid",
@@ -343,6 +360,9 @@ def list_objects(
         )
     workspace = resolve_workspace(session, workspace_key)
     workspace_key = workspace.key
+    relations = list_relation_filters(
+        model, object_type_key, related_filters, workspace_key=workspace_key, context=None
+    )
     query = build_object_query(
         model,
         object_type_key=object_type_key,
@@ -351,8 +371,9 @@ def list_objects(
         parent_object_id=parent_object_id or None,
         search=search or None,
         sort=sort,
-        field_filters=_field_filters(request),
+        field_filters=field_filters,
         top_level=top_level,
+        id_filter=relations.id_filter,
         as_of=as_of,
         session=session,
     )
@@ -361,7 +382,7 @@ def list_objects(
         query.statement,
         keys=query.keys,
         scope="objects",
-        filters=query.filters,
+        filters=_bound(query.filters, relations.normalized),
         page=paging,
         page_size=page_size,
         message="Object cursor is invalid",
@@ -370,6 +391,11 @@ def list_objects(
     )
     records = build_object_responses(session, model, page.items)
     return _typed_page(session, model, None, workspace_key, records, expansions, page.links())
+
+
+def _bound(filters: dict[str, Any], relations: tuple[tuple[str, str, str], ...]) -> dict[str, Any]:
+    """What a cursor binds: the list's filters and, when any, its relationship filters (0.9 K6)."""
+    return {**filters, "relationFilters": [list(item) for item in relations]} if relations else filters
 
 
 def _typed_page(

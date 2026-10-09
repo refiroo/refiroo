@@ -256,6 +256,11 @@ refused at the field list's pointer.
 "columns": ["name", "value-code", "related:system-value-maps-to-master", "active"]
 ```
 
+A table view's `filterFields` may name `related:<key>` (Base 0.9 K6): its Filter menu then offers
+the relationship, to keep the records related to any of chosen records, to none, or to any. A filter
+names the relationship alone; `related:<key>.<field>` is refused there, and a column showing a field
+of the related records offers no filter.
+
 A relation column may show a field of the related records instead of their name (Base 0.9 K5a):
 `related:<key>.<field>`, the field written as in a consumer API definition: `name`, an attribute one
 of the types at the other end binds, or `ancestor:<type>.<field>` (`name` or an attribute of an

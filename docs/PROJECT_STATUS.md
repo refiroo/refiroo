@@ -386,9 +386,12 @@ accepted by the user 2026-10-10
 ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k5a-record-2026-10-10)). **K5b is delivered (2026-10-10)**,
 D143 revised by the user: a relation cell shows as many related records as its column's width holds
 and "+N more" for the rest, none when all fit; screenshots await the user's approval
-([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k5b-record-2026-10-10)). **K6, filtering a list by its records'
-relationships, is planned (2026-10-10)**, D153–D159 and its test cases accepted by the user
-([plan](BASE_0_9_IMPLEMENTATION_PLAN.md#k6-plan-2026-10-10)). Then R.
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k5b-record-2026-10-10)). **K6 is delivered (2026-10-10)**: filtering a
+list by its records' relationships (any of chosen records, none, any) from the Filter menu and
+`filter.related:<key>…` on the per-type list, carried into selection, bulk actions and Export; the
+starter 0.9.5; two defects found and fixed (lower-case filter and sort codes; exports with a related
+criterion failing in the worker); D153–D159; screenshots await the user's approval
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k6-record-2026-10-10)). Then R.
 **C18, the consumer API definition written for readers, is delivered (2026-10-08):** schema 0.9
 writes `consumerApis` as what a definition exposes, offers, looks like and filters by, with defaults
 written out by `GET /api/v1/model/consumer-apis/{consumerApi}`; an operation not offered is

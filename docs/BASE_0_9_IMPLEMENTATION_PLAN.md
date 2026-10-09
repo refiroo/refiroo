@@ -254,7 +254,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 31 | [J4](#j4-import-screen-and-sc-10) | J1u, J3, F2 | The SC-10 screen and SC-10 acceptance; frontend only (D89–D95) — **delivered 2026-10-08** ([record](#j4-record-2026-10-08)) |
 | 31a | [J4a](#j4a-why-another-workspaces-export-cannot-load) | J4 | Amendment: an import says why another workspace's export cannot load (the job's `notices`, refusals naming the workspace) — **delivered 2026-10-08** ([record](#j4a-why-another-workspaces-export-cannot-load)) |
 | 31b | [J5](#j5-another-workspaces-export-loaded-as-this-workspaces-own-records) | J4a | Another workspace's export loaded as this workspace's own records (counterpart IDs, `otherWorkspaceIds`), on imports and batches (D96–D101) — **delivered 2026-10-08** ([record](#j5-record-2026-10-08)) |
-| 31a | [Track K](#track-k--bulk-selection-and-editing-in-collections) | J4, UA | Bulk selection and bulk edits in collections over `POST /batches`; packages K1–K5 planned in detail when the track starts — **added 2026-10-06**; [K1](#k1-plan-2026-10-08) selection **delivered 2026-10-08** (D102–D111, [record](#k1-record-2026-10-08)); [K3a](#k3a-many-to-one-relationships) many-to-one relationships **added and delivered 2026-10-09** (D136–D139, [record](#k3a-record-2026-10-09)), after K3 and before K5; [K5](#k5-relation-columns) relation columns **delivered 2026-10-09** (D140–D147, [record](#k5-record-2026-10-09)), screenshots approved 2026-10-10; [K5a](#k5a-a-field-of-the-related-records-in-a-relation-column) a field of the related records **added and delivered 2026-10-10** (D148–D152 accepted, [record](#k5a-record-2026-10-10)); [K5b](#k5b-relation-cells-as-wide-as-their-column) cells as wide as their column **added and delivered 2026-10-10** (D143 revised, [record](#k5b-record-2026-10-10)), screenshots awaiting approval; [K6](#k6-filtering-a-list-by-its-records-relationships) filtering by relationships **planned 2026-10-10** (D153–D159 accepted) |
+| 31a | [Track K](#track-k--bulk-selection-and-editing-in-collections) | J4, UA | Bulk selection and bulk edits in collections over `POST /batches`; packages K1–K5 planned in detail when the track starts — **added 2026-10-06**; [K1](#k1-plan-2026-10-08) selection **delivered 2026-10-08** (D102–D111, [record](#k1-record-2026-10-08)); [K3a](#k3a-many-to-one-relationships) many-to-one relationships **added and delivered 2026-10-09** (D136–D139, [record](#k3a-record-2026-10-09)), after K3 and before K5; [K5](#k5-relation-columns) relation columns **delivered 2026-10-09** (D140–D147, [record](#k5-record-2026-10-09)), screenshots approved 2026-10-10; [K5a](#k5a-a-field-of-the-related-records-in-a-relation-column) a field of the related records **added and delivered 2026-10-10** (D148–D152 accepted, [record](#k5a-record-2026-10-10)); [K5b](#k5b-relation-cells-as-wide-as-their-column) cells as wide as their column **added and delivered 2026-10-10** (D143 revised, [record](#k5b-record-2026-10-10)), screenshots awaiting approval; [K6](#k6-filtering-a-list-by-its-records-relationships) filtering by relationships **delivered 2026-10-10** (D153–D159, [record](#k6-record-2026-10-10)), screenshots awaiting approval |
 | 31c | [UA8](SETTINGS_AND_UI_PLAN.md#ua8-actions-in-place-on-the-record) | UA, K3a | A relationship row's actions as icon buttons; the record header's title and subtitle edited in place through one shared field editor; Edit record only in the ⋯ menu (U-D15–U-D20) — **implemented 2026-10-09**, screenshots awaiting the user's approval ([record](SETTINGS_AND_UI_PLAN.md#ua8-record-2026-10-09)) |
 | 31d | [UA9](SETTINGS_AND_UI_PLAN.md#ua9-the-record-tree-scrolled-as-one-several-records-selected-and-dragged) | UA8 | The record tree scrolls as one list and starts folded; several records selected and dragged, in the sidebar too (U-D21–U-D28) — **implemented 2026-10-09**, screenshots awaiting the user's approval ([record](SETTINGS_AND_UI_PLAN.md#ua9-record-2026-10-09)) |
 | V | [V3–V9](#v3v9-the-management-api-documented-plan-2026-10-07) | V2 | The management API documented: the starter extended, content and examples beside the document, the error catalogue; V3 first, then V4–V8 in any order, then V9. **Independent fillers; block no release** (V-D9) — **planned 2026-10-07**, V-D1 open |
@@ -8623,8 +8623,13 @@ cardinality); no screen knows a type key.
   _Planned and delivered 2026-10-10 ([plan](#k5b-relation-cells-as-wide-as-their-column), [record](#k5b-record-2026-10-10)); screenshots await approval._
 - **K6 (added 2026-10-10 by the user): filtering by relationships.** A collection's Filter menu, and
   the per-type list, narrow to records related to any of chosen records, to none or to any, carried
-  into selection, bulk actions and export. _Planned 2026-10-10 ([plan](#k6-plan-2026-10-10)),
-  D153–D159 and the test cases accepted._
+  into selection, bulk actions and export. _Planned and delivered 2026-10-10 ([plan](#k6-plan-2026-10-10),
+  [record](#k6-record-2026-10-10)), D153–D159 accepted; screenshots await approval._
+- **K6a (added 2026-10-10 by the user): collection filters redesigned.** Active filters as pills,
+  ＋ Filter's field menu, one compact editor per field, a bottom sheet at 390px; frontend only.
+  Extended the same day to the shared controls, the selection bar and both bulk dialogs.
+  _Planned 2026-10-10 ([plan](#k6a-collection-filters-shared-controls-and-the-bulk-dialogs-redesigned));
+  D160–D167 and the test cases accepted._
 
 **Decisions for K1's planning:** how "all matching" meets optimistic concurrency (versions read at
 selection, or an explicit "apply to current values" that the invariant allows only when stated);
@@ -10518,6 +10523,181 @@ the snapshot builder; Ruff. Frontend: Vitest `related`, format, lint, build; `te
 
 **Composable domains (ADR-032):** a read only; the bulk APIs, identity, attribute storage, audit,
 the consumer API's `match` and mapping coverage are untouched.
+
+##### K6 record (2026-10-10)
+
+**Delivered 2026-10-10.** D153–D159 and the test cases as approved. Screenshots await the user's
+approval.
+
+**Built.**
+
+- **The engine.** `model_query.list_relation_filters` turns the list's `filter.related:<key>.eq` and
+  `.isNull` into conditions on the listed record's ID through Q3's own hop (`_related_predicate`, so
+  one function decides both, D156): the chosen IDs as `id eq` alternatives on the far end, `isNull`
+  as the plain hop or its inversion; refusals are `INVALID_FILTER` with the parameter's path. The list
+  route splits them from the typed filters (`split_relation_filters`), passes them to both builders
+  as their `id_filter`, so each part of a change set's union is narrowed alike, and binds them in the
+  cursor (`relationFilters`). Validation: `filterFields` takes `related:<key>`, never the field form.
+- **The browser.** `features/objects/RelationFilter`: the row (is any of, has none, has any; a
+  `ui/RecordListField` per type at the other end, below the operator at full width), the entries it
+  stores in `query.filters` (one `eq` per record, one `isNull`), the chip's words, and
+  `useRelationFilterNames`, reading the chosen records' names by ID, once per set. `ObjectToolbar`
+  shows one row and one chip per relationship and counts it once; `exportRequest.criteriaFromFilters`
+  maps them to Q3's `related` criterion (`ExportCriterion` gains that form); `relatedTargetTypes`.
+- **The starter 0.9.5**: system values filter by Maps to master value and Represents reference
+  structure, master values by Is represented by system value.
+
+**Checks.** Backend: the J01.10, J08.12 and J27.6 cases failed first on both generated configurations
+(10 runs: `INVALID_FILTER` for the unknown field, the column refused), then passed. `queries`,
+`model`, `contract` and `jobs`: 892 passed, 1 failed, the OpenAPI lock: diffed against `eb1eb6d`,
+only the list's filter description; re-locked. `change_sets`: 362 passed in 2 min 16 s, over the
+2-minute ceiling. Ruff on `app/` and `tests/`. Frontend: Vitest `related` over the changed files, 37
+files, 432 passed (`RelationFilter.test` 3, `ExportDialog.test`); `tsc`, `format`, `lint` (0 errors,
+the 7 recorded warnings), `build`. Runners, by exit code and `report.json`: `test:browser:k6` 8 checks,
+`k2` 14, `k5` 10, `j1u` 12, `k1` 11 (four runs after the fix below).
+
+**Cost, measured once** (0.1 volume fixture, 10,000 items, a 100-row page with its total): items of
+the heavy group (2,000 at this scale, the plan's 20,000 being full volume) 18 ms live, 48 ms in the
+change set, 16 ms in the publication; items citing the cited group (150) 20, 32, 11 ms; items citing
+none (9,850) 26, 54, 25 ms.
+
+**Evidence, separately.** Functional: the checks above. Accessibility: axe 0 violations on the Filter
+menu with a relationship row (light, dark), the filtered list and master values at 390px; the menu
+and the chip operated by keyboard. Visual, inspected: the first runs drew the operator select as tall
+as the record picker beside it; the operator now stands on its line and the picker below it at the
+row's width.
+
+**Differences from the plan.**
+
+- The chip's names are read through the per-type list's `id` filter, one read per type at the other
+  end, since the browser has no client for the cross-type lookup (D157 named it); the result is the
+  same.
+- A K5 J08.12 line asserted `related:<key>` refused in `filterFields`; D154 now allows it, so the line
+  asserts the field form refused instead.
+- The plan's Vitest case on the selection's list key was not written: the key is the list's filters
+  as JSON (K1), and the runner's scenario 9 shows the selection and the bulk preview counting the
+  filtered records.
+
+**Found and fixed.**
+
+- `_query_attribute` built its codes as `invalid_filter` and `invalid_sort`, in lower case, against
+  T1b's one pattern; now upper case, with a J01.3 regression test that failed before the fix.
+- An export with a `related` criterion failed in the worker: the stored request is read back with
+  `"value": null` on every criterion, and Q3 refused a hop whose `value` was *set*; it now checks the
+  value. Found by test case 4.
+- `test:browser:k1` failed about half its runs (here and in K5b): it selected "the records shown"
+  while the list was still loading its second page. It now waits for the rows to settle; four runs
+  passed.
+
+#### K6a: Collection filters, shared controls and the bulk dialogs redesigned
+
+**Added 2026-10-10 by the user**, who found the Filter menu unusable: every filterable field an open
+form row, technical operator selects, a record picker whose list stays open inside a narrow popover,
+and filters applying at different moments. **Design:** the mockup the user approved on 2026-10-10
+(the design canvas "Collection filters redesign": desktop, clickable, and 390px); this entry.
+**Needs:** K6. The filters' data (`query.filters`, the page address, the list's
+`filter.<field>.<operator>` parameters, selection, bulk actions, Export) does not change.
+
+**Extended 2026-10-10 by the user**, after the same review found the bulk dialogs and the shared
+controls as heavy: the segmented choice drawn as three equal grey slabs whatever its options,
+secondary buttons with dark outlines and no icons, a Change values dialog with a Keep / Set to /
+Clear row for every field, and a Change relationships dialog whose Remove offers every record of the
+other type instead of those the selection holds. The second mockup (the same canvas: "Shared
+controls: now and proposed", "Change values", "Change relationships"), approved by the user the same
+day, is the design. One read is added to the engine for Remove (D165).
+
+**Behaviour.**
+
+1. **The toolbar shows only active filters**, each a pill "field · value" ("Requires role · Driver,
+   Nurse", "Value code contains · 06-RE", "Active · Yes"); the pill reopens its editor, × removes it;
+   **Clear all** beside them. A dashed **＋ Filter** pill opens the field menu.
+2. **The field menu** lists the view's `filterFields` in two groups, *Fields* and *Relationships*,
+   each with an icon for its kind (text, number, date, yes/no, relationship), a search once there
+   are more than eight, and *Active* on a field that has a filter; choosing one opens its editor.
+3. **One compact editor per field**, by type (D162 for the conditions):
+   - text, number, date: the condition as a segmented control, one input, Cancel and **Apply**;
+   - yes/no: *Yes · No · Any*, applied as chosen;
+   - relationship: *Is any of · Has none · Has any*; for *Is any of* a search and a checklist of the
+     records at the other end (a heading per type when there are several), the ticked ones pinned on
+     top, "N selected", Cancel and **Apply**; *Has none* and *Has any* say in a sentence what they
+     show.
+4. **When filters apply** (D161): Apply for text, number, date and record checklists; at once for
+   yes/no. The list is read once per Apply.
+5. **At 390px** the editor is a bottom sheet (D163): a handle, the title and Close, 44–48px targets,
+   and a sticky **Show N records** that counts the draft before applying, **Clear** beside it.
+6. **Keyboard**: ＋ Filter, arrows and Enter in the menu, Tab through the editor, Space to tick,
+   Enter to apply, Escape to close and return focus to the pill or ＋ Filter.
+7. **Shared controls, everywhere** (D166): the segmented choice (`ui/Choice`) as wide as its words,
+   28px, on a light track, with optional icons and any number of options; secondary buttons with a
+   soft outline, ghost buttons inside bars, an icon beside every action, red only for destructive
+   ones. Every page and dialog using them changes with them (Export, Import, webhooks, job outcomes).
+8. **The selection bar** (D166): a compact bar with the count as a badge, Select all N matching
+   beside it when offered, the actions as icon buttons with their words (Values, Relationships,
+   Delete) and a × that clears the selection.
+9. **Change values** (D167): no row per field; **＋ Change a field** adds a card per field you change,
+   with *Set to · Clear* (Clear only where the field may be emptied), its input, and × to stop
+   changing it; fields not added keep their values. The footer: *If a record is refused: Change the
+   rest · Change none*, a one-line summary, **Preview →**. Preview, Apply, the result and the
+   refusals are K2's.
+10. **Change relationships** (D167): the relationship as pills (its name, the other type); the
+    action as *Add · Remove · Replace · Clear* with icons, as the binding allows (D128); a record
+    checklist (`ui/RecordChecklist`) for the records: **Add** and **Replace** list the other type's
+    records, marking those some selected records already hold ("already on 9"); **Remove** lists only
+    the records the selection holds, each with how many hold it ("on 4 of 12") (D165); **Clear** says
+    how many relationships go. The footer's summary counts what changes ("Removes 5
+    relationships"). Preview onwards is K3's.
+
+**Design.** The shared controls restyle in place: `ui/Choice` (content width, icons, any count),
+the button classes in `styles/base.css`, `ui/IconButton`; `features/objects/SelectionBar` takes the
+bar's new form. `BulkChangeDialog` and `BulkRelationDialog` keep `BulkJobDialog`'s flow and change
+their form: the change cards and ＋ Change a field reuse `ui/FilterFieldMenu`; the relationship's
+records use `ui/RecordChecklist`, which replaces `ui/RecordListField` there. For Remove (D165),
+`GET /api/v1/relations/held` (new): for one relationship and direction, the records at the other end
+of a set of records, each with how many of them hold it, paged, in any context. One generic component per piece, used by every collection (U-D14): `ui/FilterBar` (the
+pills, ＋ Filter, Clear all), `ui/FilterFieldMenu`, `ui/FilterEditor` with its type parts, and
+`ui/RecordChecklist` (search, ticks, pinned selection; the bulk dialogs' record picker may move onto
+it later), over `ui/ControlPopover` and, at 390px, a sheet form of `ui/Modal`. `ObjectToolbar` keeps
+the search, Display and the sort menu and hosts `FilterBar`; `features/objects/RelationFilter` keeps
+the entries, words and names it has and drops its row. The chip and the filter row of K6 go.
+
+**Decisions.**
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D160 | The layout | **Accepted 2026-10-10 by the user (the mockup): active filters as pills, ＋ Filter's field menu, one editor per field.** |
+| D161 | When a filter applies | **Accepted 2026-10-10 by the user (the mockup): Apply for text, number, date and record checklists; at once for yes/no.** |
+| D162 | Which conditions an editor shows | **Accepted 2026-10-10 by the user.** **The common ones in the segmented control, the rest under "More" at its end, so no condition the menu has today is lost:** text *Contains · Is · Starts with*, More: *Is empty* (`isNull`), *Not set* (`isUnset`, attributes only); number and date *Is · Before/Less than · After/More than*, More: *at most*, *at least*, *Is empty*, *Not set*. The alternative, a plain select of every condition, is what the user found unusable |
+| D163 | Phones | **Accepted 2026-10-10 by the user (the mockup): a bottom sheet with Show N records.** Counting the draft is one total read of the list, at most one per 300 ms of changes |
+| D164 | The field menu's search | **Accepted 2026-10-10 by the user, "for now": to be revisited when used.** **Shown when the view offers more than eight filter fields**; fewer fit at a glance. _Open: the user asked for the reasoning (given 2026-10-10: with eight or fewer the whole list is visible without scrolling; the alternative, always shown, keeps the menu the same everywhere and lets keyboard users type at once)._ |
+| D165 | What Remove lists for a selection | **Accepted 2026-10-10 by the user.** **Only the records the selection holds, with how many hold each, read by a new `GET /api/v1/relations/held` (`relationTypeKey`, `direction`, `objectId` repeatable or in the body, context, paged by the far record's name, `count` per item).** A hand-picked selection sends its IDs; "All N matching" reads its IDs first, as the bulk preview already does (K2, `readMatching`), then the same read in pages of 500 IDs, merged in the browser. A set statement grouped by the far record (PostgreSQL, as every set read). An integrator gets "what do these records hold" too. The alternative, Remove listing every record of the other type (today), offers 200 records to remove one |
+| D166 | Shared controls and the selection bar | **Accepted 2026-10-10 by the user (the second mockup).** |
+| D167 | Change values and Change relationships | **Accepted 2026-10-10 by the user (the second mockup).** |
+
+**Test cases** (approved by the user 2026-10-10). Vitest: `FilterBar` (pills from `query.filters`, a relationship's
+entries as one pill, × and Clear all); `FilterFieldMenu` (groups, *Active*, search over eight,
+keyboard); `FilterEditor` per type (the conditions of D162 including More, Apply and Cancel, yes/no
+applied at once); `RecordChecklist` (search, pinned ticks, several types under headings). Browser
+runner `test:browser:k6` reworked for the new flow: a relationship filter added through ＋ Filter
+with two records ticked and applied once; a text filter with Contains; Active Yes at once; a pill
+reopened and changed; the address round trip; at 390px the sheet with Show N counting the draft; by
+keyboard; axe on the bar, the menu, each editor and the sheet, light and dark. `test:browser:k1`,
+`k2`, `j1u` again (they use the Filter menu), by exit code and `report.json`.
+
+**Test cases added with the extension** (approved by the user 2026-10-10). API journey test (J32.7, new, *See what a
+selection holds before removing it*; `test_j13_relate`): records related to K a (three of them), K b
+(one) and none: `relations/held` for the four gives a with 3 and b with 1, in name order, paged by 1
+with a cursor; in a change set its staged relationship counts; an unknown relationship or one the
+type has no binding of is `INVALID_QUERY`-style refused with its parameter; more than 500 IDs
+refused naming the limit. Vitest: `Choice` with two and four options and icons; `SelectionBar`'s
+actions as icon buttons with their names; `BulkChangeDialog` (＋ Change a field, the card's modes,
+× drops it, only Clear where allowed); `BulkRelationDialog` (the pills, the actions per cardinality as
+D128, Remove listing the held records with counts, Add marking "already on"). Runners:
+`test:browser:k2`, `k2b` and `k3` reworked for the new forms (their journeys unchanged: K2's values,
+K2b's delete, K3's add, remove and set to), Remove choosing from the held records; `k6` as above;
+`j1u`, `j4` and `webhooks` (they use `Choice`) by exit code and `report.json`.
+
+**Checks.** Backend: J32.7 confirmed failing first, `mapping`, `queries`, `contract` (the OpenAPI
+diff before the lock); Ruff. Frontend: Vitest `related`, format, lint, build; the runners above.
 
 ## R: Build acceptance and release
 

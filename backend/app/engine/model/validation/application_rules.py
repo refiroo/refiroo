@@ -131,7 +131,7 @@ def _check_table_view(
             index.object_types,
             label=f"View '{application.key}.{view.key}'",
             path=f"{view_path}/config/{purpose}Fields",
-            related_model=model if purpose == "sort" else None,
+            related_model=model,
         )
         for field in fields:
             _check_query_capability(model, view, field, purpose, view_path, index)
@@ -166,10 +166,19 @@ def _check_query_capability(
     if field in built_in or (purpose == "sort" and field == "objectType"):
         return
     if is_related_field(field):
-        # check_fields resolved it; only a column whose row holds at most one sorts (D145).
-        column = related_field_column(
-            model, view.objectTypeKey, field.removeprefix(RELATED_FIELD_PREFIX)
-        )
+        # check_fields resolved it; only a column whose row holds at most one sorts (D145), and a
+        # filter names the relationship alone (0.9 K6, D154).
+        text = field.removeprefix(RELATED_FIELD_PREFIX)
+        column = related_field_column(model, view.objectTypeKey, text)
+        if purpose == "filter":
+            if column.field is not None or column.key != text:
+                raise ModelReferenceError(
+                    "INVALID_MODEL",
+                    f"{view_path}/config/filterFields",
+                    f"Relationship filter '{field}' names a field of the related records; a"
+                    " filter names the relationship alone (related:<key>)",
+                )
+            return
         if column.field is not None:
             raise ModelReferenceError(
                 "INVALID_MODEL",

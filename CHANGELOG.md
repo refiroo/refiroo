@@ -6,6 +6,25 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- Base 0.9 K6: filtering a list by its records' relationships (D153–D159; J01.10, J32.6, J27.6,
+  J08.12). A table view's `filterFields` may name `related:<key>`; its Filter menu then keeps the
+  records related to any of chosen records (picked with the record search), to none or to any, the
+  chip naming the records, also after a reload. The per-type list takes
+  `filter.related:<key>.eq=<record ID>` (repeatable) and `.isNull=true|false` for any relationship
+  the type has, built by Q3's relationship hop in every context; `INVALID_FILTER` otherwise. The
+  selection's "all matching", the bulk actions and Export carry it. The starter is content release
+  0.9.5 with these filters on system values and master values. Browser runner `test:browser:k6`.
+
+### Fixed
+
+- A filter or sort naming an attribute the type does not bind answered `invalid_filter` and
+  `invalid_sort` in lower case; they are `INVALID_FILTER` and `INVALID_SORT` (found in 0.9 K6).
+- An export with a `related` criterion failed in the worker (`INVALID_QUERY`, "A related criterion
+  names no field, operator or value"): the stored request carries every field, null ones too, and
+  the check counted a null value as named. It now checks values (found in 0.9 K6).
+
 ### Changed
 
 - Base 0.9 K5b: a relation column shows as many related records as its width holds (D143 revised by

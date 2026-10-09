@@ -523,3 +523,113 @@ def test_a_list_shows_a_field_of_each_rows_related_records(world):
         error = refused(world.api.get(r_list, expand=f"{bscope}.{field}"), 422, "INVALID_EXPAND")
         assert error["details"]["value"] == f"{bscope}.{field}"
     refused(world.api.get(r_list, sort=f"related:{bscope}.ancestor:{g_key}.name"), 422, "INVALID_SORT")
+
+
+def _filtered(world, tag, **params):
+    """The ids of the tagged H records the list gives with ``params``, read to the end two at a time."""
+    ids, cursor, total = [], None, None
+    while True:
+        page = ok(
+            world.api.get(
+                f"/objects/{world.key('H')}",
+                search=tag,
+                pageSize=2,
+                cursor=cursor,
+                includeTotal="true" if cursor is None else None,
+                **params,
+            )
+        )
+        total = page.get("totalCount", total)
+        ids += [item["id"] for item in page["items"]]
+        cursor = page.get("nextCursor")
+        if not cursor:
+            assert total == len(ids) and len(set(ids)) == len(ids)
+            return ids
+
+
+def _related_holders(world):
+    tag = uuid4().hex[:6]
+    k = _tokens(world, tag, ["Alpha", "Bravo"])
+    holders = {name: world.made("H", f"{tag} {name}", values={"H.code": f"{tag}-{name}"})["id"] for name in ("Aonly", "Bonly", "Both", "Neither")}
+    for holder, tokens in (("Aonly", ["Alpha"]), ("Bonly", ["Bravo"]), ("Both", ["Alpha", "Bravo"])):
+        for token in tokens:
+            ok(world.relate("Bnn", holders[holder], k[token], {"Bnn.weight": 1}), 201)
+    return tag, k, holders
+
+
+@pytest.mark.journey("J01.10")
+@pytest.mark.structures("H", "K", "Bnn", "H.code")
+def test_a_list_filtered_to_records_related_to_any_of_chosen_records(world):
+    """Given H records related through the many-to-many to K a, to K b, to both and to neither. When
+    the H list is filtered to those related to a, then to a or b, beside a typed filter, read two at a
+    time to the end with totals and by position. Then the rows are exactly those, each once."""
+    tag, k, holders = _related_holders(world)
+    field = f"filter__related:{world.key('Bnn')}__eq"
+    assert set(_filtered(world, tag, **{field: k["Alpha"]})) == {holders["Aonly"], holders["Both"]}
+    any_of = _filtered(world, tag, **{field: [k["Alpha"], k["Bravo"]]})
+    assert set(any_of) == {holders["Aonly"], holders["Bonly"], holders["Both"]}
+    code = f"filter__{world.key('H.code')}__eq"
+    narrowed = _filtered(world, tag, **{field: [k["Alpha"], k["Bravo"]], code: f"{tag}-Bonly"})
+    assert narrowed == [holders["Bonly"]]
+    at = ok(
+        world.api.get(
+            f"/objects/{world.key('H')}", search=tag, pageSize=1, position=2, includeTotal="true",
+            **{field: [k["Alpha"], k["Bravo"]]},
+        )
+    )
+    assert at["totalCount"] == 3 and [item["id"] for item in at["items"]] == [any_of[2]]
+
+
+@pytest.mark.journey("J01.10")
+@pytest.mark.structures("H", "K", "Bnn", "H.code")
+def test_a_list_filtered_to_records_related_to_none_or_any_in_every_context(world):
+    """Given the same records. When the list is filtered to those related to none and to any, live,
+    after a relationship is staged in a change set for the record related to neither, and in a
+    publication taken before. Then live and the publication give the record without one; the change
+    set gives none, and its record among those with any."""
+    tag, k, holders = _related_holders(world)
+    none, some = (f"filter__related:{world.key('Bnn')}__isNull", "true"), (f"filter__related:{world.key('Bnn')}__isNull", "false")
+    published = world.publish(world.change_set(name=f"{tag} before"))
+    cs1 = world.change_set(name=f"{tag} staged")
+    ok(
+        world.relate(
+            "Bnn", holders["Neither"], k["Alpha"], {"Bnn.weight": 1},
+            changeSetId=cs1["id"], expectedChangeSetVersion=world.current(cs1)["version"],
+        ),
+        201,
+    )
+    three = {holders["Aonly"], holders["Bonly"], holders["Both"]}
+    assert _filtered(world, tag, **{none[0]: none[1]}) == [holders["Neither"]]
+    assert set(_filtered(world, tag, **{some[0]: some[1]})) == three
+    assert _filtered(world, tag, changeSetId=cs1["id"], **{none[0]: none[1]}) == []
+    assert set(_filtered(world, tag, changeSetId=cs1["id"], **{some[0]: some[1]})) == three | {holders["Neither"]}
+    assert _filtered(world, tag, publicationId=published["id"], **{none[0]: none[1]}) == [holders["Neither"]]
+
+
+@pytest.mark.journey("J01.10")
+@pytest.mark.structures("H", "K", "Bnn", "R", "B1n")
+def test_a_relationship_filter_the_list_cannot_answer_is_refused(world):
+    """When the H list names an unknown relationship, one H has no binding of, the contains operator
+    or a field of the related records in a relationship filter. Then each is refused INVALID_FILTER."""
+    h_list = f"/objects/{world.key('H')}"
+    bnn = world.key("Bnn")
+    for name, value in (
+        ("filter.related:no-such.eq", "x"),
+        (f"filter.related:{world.key('B1n')}.eq", "x"),
+        (f"filter.related:{bnn}.contains", "x"),
+        (f"filter.related:{bnn}.name.eq", "x"),
+        (f"filter.related:{bnn}.isNull", "maybe"),
+    ):
+        refused(world.api.get(h_list, **{name.replace(".", "__"): value}), 422, "INVALID_FILTER")
+
+
+@pytest.mark.journey("J01.3")
+@pytest.mark.structures("H", "K.code")
+def test_a_filter_or_sort_on_a_field_the_type_lacks_is_refused_in_upper_case(world):
+    """Found in 0.9 K6: a filter or sort naming an attribute the type does not bind answered
+    `invalid_filter` and `invalid_sort` in lower case, against T1b's one pattern. When the H list is
+    filtered and sorted by K's code. Then each is refused INVALID_FILTER and INVALID_SORT."""
+    h_list = f"/objects/{world.key('H')}"
+    code = world.key("K.code")
+    refused(world.api.get(h_list, **{f"filter__{code}__eq": "x"}), 422, "INVALID_FILTER")
+    refused(world.api.get(h_list, sort=code), 422, "INVALID_SORT")

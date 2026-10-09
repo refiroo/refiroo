@@ -19,8 +19,8 @@ ANCESTOR_FIELD_PREFIX = "ancestor:"
 
 # Where a relation column may stand (Base 0.9 K5, D141, D145).
 RELATED_COLUMN_PLACES = (
-    "a table view's columns, a children or table panel's columns, or (where a row holds at most"
-    " one) a table view's sort fields"
+    "a table view's columns, a children or table panel's columns, a table view's filter fields"
+    " (the relationship alone, 0.9 K6), or (where a row holds at most one) its sort fields"
 )
 
 

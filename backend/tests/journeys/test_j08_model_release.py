@@ -405,7 +405,8 @@ def test_a_relation_column_where_the_model_allows_it(world):
     """Given the configuration's model. When H's table view shows the many-to-many and the
     many-to-one relationship, sorts by the many-to-one, K's view shows the many-to-many read
     backwards and a detail's table panel shows one. Then it validates. When a relation column is
-    put where it is not offered (a relations panel, a mapping grid, filter fields, a many-valued sort),
+    put where it is not offered (a relations panel, a mapping grid, a field form in filter fields, a
+    many-valued sort),
     names an unknown relationship or one H is at neither end of, or the model is schema 0.8. Then
     each is refused at its pointer."""
     h, k = world.key("H"), world.key("K")
@@ -481,7 +482,8 @@ def test_a_relation_column_where_the_model_allows_it(world):
 
     refused_at(relations_panel, f"{detail_path}/related")
     refused_at(mapping_grid, f"/applications/{application}/views/{world.key('Vnn')}/config/sourceColumns")
-    refused_at(lambda m: h_config(m)["filterFields"].append(f"related:{bn1}"), f"{h_path}/config/filterFields")
+    # Since 0.9 K6 (D154) a filter may name the relationship; a field of its records stays refused.
+    refused_at(lambda m: h_config(m)["filterFields"].append(f"related:{bn1}.name"), f"{h_path}/config/filterFields")
     refused_at(lambda m: h_config(m)["sortFields"].append(f"related:{bnn}"), f"{h_path}/config/sortFields")
     refused_at(lambda m: h_config(m)["columns"].append("related:no-such"), f"{h_path}/config/columns")
     refused_at(lambda m: h_config(m)["columns"].append(f"related:{b1n}"), f"{h_path}/config/columns")
@@ -530,4 +532,29 @@ def test_a_relation_column_naming_a_field(world):
     view["config"]["sortFields"].append(column)
     result = _validation(world, model)
     assert result["valid"] is False and result["diagnostics"][0]["path"] == f"{path}/sortFields"
+
+
+@pytest.mark.journey("J08.12")
+@pytest.mark.structures("H", "K", "Bnn")
+def test_a_relationship_in_a_views_filter_fields(world):
+    """Given the configuration's model. When H's table view offers its many-to-many as a filter. Then
+    it validates. When it offers a field of the related records or an unknown relationship as a
+    filter. Then each is refused at the view's filterFields."""
+    h, bnn = world.key("H"), world.key("Bnn")
+
+    def with_filter(field):
+        model = copy.deepcopy(world.configuration.model)
+        for application in model["applications"]:
+            for view in application["views"]:
+                if view["type"] == "table" and view["objectTypeKey"] == h:
+                    view["config"]["filterFields"].append(field)
+                    return model, f"/applications/{application['key']}/views/{view['key']}/config/filterFields"
+        raise AssertionError(h)
+
+    model, _path = with_filter(f"related:{bnn}")
+    assert _validation(world, model)["valid"] is True
+    for field in (f"related:{bnn}.name", "related:no-such"):
+        model, path = with_filter(field)
+        result = _validation(world, model)
+        assert result["valid"] is False and result["diagnostics"][0]["path"] == path, field
 

@@ -1099,6 +1099,18 @@ with. A field that does not resolve, or holds JSON, is `INVALID_EXPAND`; a sort 
 A page of 100 with two keys took 45 ms live, 31 ms in a change set and 21 ms in a publication on the
 0.1 volume fixture: one statement per key for the whole page.
 
+**Relationship filters (Base 0.9 K6, D153–D158).** `filter.related:<key>.eq=<record ID>`
+(repeatable) keeps the records related, through the relationship `<key>` names, to any of those
+records; `filter.related:<key>.isNull=true` those related to none, `=false` those related to any. Any
+relationship the type has a binding of may be named, whatever a view offers; several relationships
+combine with AND, and with the search and the other filters. An ID no record has matches nothing.
+Totals, positions and cursors hold, and a cursor binds the filter. Another operator, an unknown key,
+a key the type has no binding of or a field form (`related:<key>.<field>`) is `422 INVALID_FILTER`.
+The condition is the [model-aware query](#model-aware-query-base-09-q3)'s `related` hop, so the list
+and the query, and an export with that criterion, select the same records in every context. On the
+0.1 volume fixture a 100-row page with its total took 11–26 ms live and in a publication and 32–54 ms
+in a change set.
+
 `sort=related:<key>` (or `-related:<key>`) orders by the related record's name where the key is
 single-valued for the type: exactly one binding stands behind it and the type's end of it holds at
 most one relationship (`one-to-one`, `one-to-many` read from `to`, `many-to-one` read from `from`).

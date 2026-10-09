@@ -294,12 +294,16 @@ export interface ImportProfilePage {
 export type ExportFormat = "jsonl" | "csv" | "xlsx";
 export type ExportRelations = "none" | "withinScope" | "all";
 
-/** One criterion of the model-aware query (`where`), as an export's type carries it. */
-export interface ExportCriterion {
-  field: string;
-  op: string;
-  value: unknown;
-}
+/**
+ * One criterion of the model-aware query (`where`), as an export's type carries it: a field's, or a
+ * relationship hop (`related`, 0.9 K6) inverted by `not`.
+ */
+export type ExportCriterion =
+  | { field: string; op: string; value: unknown }
+  | {
+      related: { relationTypeKey: string; direction: "outgoing" | "incoming"; where: ExportCriterion[] };
+      not?: boolean;
+    };
 
 /** `POST /api/v1/exports` (0.9 J1). */
 export interface ExportRequest {

@@ -90,7 +90,10 @@ Search, filters, sort and position live in the page address, so a link or a relo
 place. The same works in live data, in a change set and in a publication.
 
 Filters cover text equality, contains and starts-with, numeric and date comparisons, booleans, null
-checks and the difference between a missing optional field and a stored null.
+checks and the difference between a missing optional field and a stored null. Where the view offers
+a relationship, the Filter menu keeps the records related to any of chosen records (picked with the
+record search), to none, or to any; its chip names the chosen records, also after a reload. The
+selection's "all matching", every bulk change and Export read the same filtered records.
 
 A collection or a record's table may show, where the model declares it, a column of each row's
 related records of one relationship as chips in their type's colour, on one line: as many as the

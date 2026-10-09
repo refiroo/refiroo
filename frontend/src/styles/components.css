@@ -412,6 +412,15 @@
   font-size: 13px;
   font-weight: 550;
 }
+/* A relationship filter (0.9 K6): the operator on its own line, the record pickers below it at the
+   row's full width. */
+.relation-filter > select {
+  grid-column: 1;
+  align-self: start;
+}
+.relation-filter .record-list-field {
+  grid-column: 1 / -1;
+}
 .toolbar-filter > span {
   grid-column: 1 / -1;
 }

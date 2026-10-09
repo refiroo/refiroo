@@ -107,6 +107,11 @@ empty result, not an error. A failed page or panel can retry without losing succ
   related records or of a record above them (`related:<key>.<field>`, the field as the consumer API
   writes it: `name`, an attribute, `ancestor:<type>.<field>`), and each chip shows that value, "—"
   where a record has none; such a column does not sort.
+- **J01.10 Filter a list by its records' relationships** (0.9 K6): the records related, through one
+  relationship, to any of chosen records, to none, or to any (`filter.related:<key>.eq` and
+  `.isNull`); with the search and other filters, in every context, paged with totals; in the
+  browser from the view's `filterFields`, the chip naming the chosen records after a reload. A column
+  showing a field of the related records offers no filter.
 
 **Refusals:** `404 WORKSPACE_NOT_FOUND`, `404 OBJECT_NOT_FOUND`, `404 UNKNOWN_OBJECT_TYPE`,
 `422 INVALID_FILTER`, `422 INVALID_SORT`, `422 INVALID_EXPAND`, `422 MUTUALLY_EXCLUSIVE_CONTEXT`,
@@ -391,6 +396,8 @@ row showed; "all matching" reads its records and their versions when the change 
   relationships… offers Set to and Clear. On one record, the Relationships panel offers Set when the
   record holds none of that kind and Change and Remove when it holds one, never an Add the write
   would refuse (D139).
+- **J32.6 Change every record a relationship filter matches** (0.9 K6): under a relationship filter,
+  Select all N matching and a bulk change preview and apply exactly the filtered records.
 
 **Evidence today:** the browser runners `k1-selection`, `k2-bulk-change`, `k2b-bulk-delete` and
 `k3-bulk-relations`; `recordSelection.test`, `ObjectTable.test`, `CollectionView.test`,
@@ -659,7 +666,7 @@ selects nothing. Read-only inspection and export stay available when administrat
   row holds at most one; anywhere else, with an unknown key, a key the listed type is at neither end
   of, or below schema 0.9, it is refused at its pointer. Since 0.9 K5a the same holds for
   `related:<key>.<field>`, refused too with a field the related records do not have and in sort
-  fields.
+  fields. Since 0.9 K6 `filterFields` takes `related:<key>`, never the field form.
 
 **Refusals:** `422 INVALID_MODEL` (with the JSON pointer), `409 RELEASE_IDENTITY_CONFLICT`,
 `409 MODEL_MIGRATION_REQUIRED`, `409 ACTIVATION_CONFLICT` (stale runtime state),
@@ -1066,7 +1073,7 @@ through the API delivered in 0.9 J2, its preview and confirmation in 0.9 J3, and
   is dated by, an unknown parent, two contexts at once, a type named twice; with job creation
   turned off the route is absent.
 - **J27.6 In the browser**: Export on a collection page opens a dialog prefilled with its type,
-  context, filters and scope (the search is not carried); New export on Settings › Jobs exports
+  context, filters (a relationship filter included, 0.9 K6) and scope (the search is not carried); New export on Settings › Jobs exports
   any types of a workspace. A notification says the export started; another says it finished,
   with Download and View job, or that it failed or was cancelled, with View job. The job's page
   shows its state, progress, error and, once completed, what the file holds and Download.
