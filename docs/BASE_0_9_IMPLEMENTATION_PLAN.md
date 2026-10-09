@@ -8601,11 +8601,11 @@ cardinality); no screen knows a type key.
   (`deleteRelation`) and replace (`replaceRelationSet`), choosing targets with the record picker.
   _Planned and delivered 2026-10-09 ([plan](#k3-plan-2026-10-09), [record](#k3-record-2026-10-09)),
   D127–D135 accepted (D135: relation columns are K5): removal by ends (`ensureNoRelation`, D129)
-  and replacement claims carried from the preview (D130)._
+  and replacement claims carried from the preview (D130); screenshots approved 2026-10-09._
 - **K3a (added 2026-10-09 by the user): many-to-one relationships.** A fourth cardinality,
   `many-to-one`, so a model can say "a record holds at most one value of this kind, and a value
   serves many records" in the relation's natural direction; K3's Set to offers it.
-  _Planned 2026-10-09 ([plan](#k3a-many-to-one-relationships)), D136–D139 accepted by the user the same day._
+  _Planned 2026-10-09 ([plan](#k3a-many-to-one-relationships)), D136–D139 and the test cases accepted by the user the same day; ready to deliver._
 - **K4 (not taken in K1's planning, D103): query-scoped batches.** A batch whose items are "every record matching these
   criteria", decided in the engine, so a large selection is neither paged through nor sent as IDs;
   an API capability integrators get too.
@@ -9572,8 +9572,8 @@ coverage are untouched.
 
 ##### K3 record (2026-10-09)
 
-**Delivered 2026-10-09.** D127–D135 and the test cases as approved with the plan. Screenshots await
-the user's approval.
+**Delivered 2026-10-09.** D127–D135 and the test cases as approved with the plan. Screenshots
+approved by the user 2026-10-09.
 
 **Built.**
 
@@ -9653,7 +9653,7 @@ now); the preview counted relationships as created and deleted (now added and re
 
 **Added 2026-10-09 by the user.** **Design:** this entry; [APPLICATION_MODEL](APPLICATION_MODEL.md)
 (`objectTypeRelations`). **Needs:** K3 (its D128 actions are where the new cardinality shows).
-**Planned 2026-10-09; D136–D139 accepted by the user the same day.** Checked against the code at `9a3933f` with K3 in the
+**Planned 2026-10-09; D136–D139 and the test cases accepted by the user the same day.** Checked against the code at `9a3933f` with K3 in the
 working tree.
 
 **Why.** A record often holds one value of a kind, where the value is itself a reference record:
@@ -9741,7 +9741,7 @@ replacement with two targets refused; the activation refused while data has two,
 they are fixed. J32.5 (new) *Set one value on the selected records* (UI): K3's Set to on a `many-to-one`
 binding; the panel's Set, Change and Remove on one record.
 
-**Test cases** (for approval; ≤ a quarter of the package):
+**Test cases** (approved by the user 2026-10-09; ≤ a quarter of the package):
 
 1. **API, `test_j11_bulk_change`:** a test model in schema 0.9 with a `many-to-one` binding. A
    second `ensureRelation` from the same record is `CARDINALITY_VIOLATION`; two records relate to the
