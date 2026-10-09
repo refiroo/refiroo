@@ -368,6 +368,11 @@ row showed; "all matching" reads its records and their versions when the change 
   as asked and names each refused record; Apply refuses a record whose relationships of that kind
   changed since the preview. The selection is kept, and Preview again repeats the change. A batch's
   job page says each relationship outcome in words.
+- **J32.5 Set one value on the selected records** (0.9 K3a): where each selected record may hold
+  only one related record of a kind (`many-to-one` from its side, `one-to-many` to it), Change
+  relationships… offers Set to and Clear. On one record, the Relationships panel offers Set when the
+  record holds none of that kind and Change and Remove when it holds one, never an Add the write
+  would refuse (D139).
 
 **Evidence today:** the browser runners `k1-selection`, `k2-bulk-change`, `k2b-bulk-delete` and
 `k3-bulk-relations`; `recordSelection.test`, `ObjectTable.test`, `CollectionView.test`,
@@ -628,6 +633,9 @@ selects nothing. Read-only inspection and export stay available when administrat
 - **J08.9 Read a model draft's history** (planned, decided D-5).
 - **J08.10 A release dropping and restoring `unique`**: records may share a value while the
   attribute is not unique; restoring it is refused while they do, and holds the value once active.
+- **J08.11 A binding tightened to many-to-one** (0.9 K3a): a release that makes a binding
+  `many-to-one` needs a migration while a record at its `from` end holds more than one such
+  relationship, counted at the binding's `cardinality`; activation is refused until the data fits.
 
 **Refusals:** `422 INVALID_MODEL` (with the JSON pointer), `409 RELEASE_IDENTITY_CONFLICT`,
 `409 MODEL_MIGRATION_REQUIRED`, `409 ACTIVATION_CONFLICT` (stale runtime state),
@@ -913,6 +921,11 @@ over single calls.
   changed between the preview and confirming is refused `RELATION_SET_VERSION_CONFLICT` and the
   others apply (nothing under `atomic`). Executed without a preview, a replacement still needs a
   claim.
+- **J11.12 A record holds one of a kind** (0.9 K3a, D136): on a `many-to-one` binding a record at
+  the `from` end holds at most one relationship, and a record at the `to` end serves any number. A
+  second one is refused `CARDINALITY_VIOLATION` by the single write, a batch item, a set replacement
+  with two targets and a change set's write; a set of one replaces the one held. The value needs
+  schema 0.9, and a required `many-to-one` binding is refused at validation (D137).
 
 **Refusals:** `413 BATCH_TOO_LARGE`, `422 INVALID_BATCH_CONTEXT`, `422 IDEMPOTENCY_KEY_REUSED`,
 `409 IDEMPOTENCY_IN_PROGRESS`, `409 CHANGE_SET_REQUIRED`, `409 MODEL_RELEASE_CHANGED`; per item, the

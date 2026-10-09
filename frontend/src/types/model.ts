@@ -55,7 +55,7 @@ export interface ObjectTypeRelationDefinition {
   relationTypeKey: string;
   fromObjectTypeKey: string;
   toObjectTypeKey: string;
-  cardinality: "one-to-one" | "one-to-many" | "many-to-many";
+  cardinality: "one-to-one" | "one-to-many" | "many-to-one" | "many-to-many";
   required?: boolean;
   attributeTypeKeys?: string[];
   features?: Record<string, unknown>;

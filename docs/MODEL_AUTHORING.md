@@ -252,7 +252,7 @@ evidence, and offers the alternatives when the evidence is not decisive.
 | Repeated parent | Low-cardinality column(s) whose values group rows, with columns that are constant per group (sort order, ID) | A parent type holding those columns; containment |
 | Level columns | Level 1, 2, 3 columns, or a parent-code column referring to the key column | A recursive or multi-type hierarchy |
 | Text lookup | A low-cardinality text column | A list type and a relation, or a plain attribute (asked) |
-| Reference to another sheet | Values that resolve to another sheet's key, with the rate shown | A relation between the two types |
+| Reference to another sheet | Values that resolve to another sheet's key, with the rate shown | A relation between the two types; `many-to-one` when each row names one record that many rows share |
 | Multi-valued cell | A delimiter that splits most filled cells into known values | A many-valued relation |
 | Flag columns | Several true/false or Y/N columns that name members of one set | One relation to a list whose values are the column names |
 | Translations, one row per language | A language column and a key repeated once per language | Translations of the named fields |

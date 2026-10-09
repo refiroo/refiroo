@@ -360,3 +360,36 @@ def test_a_release_dropping_and_restoring_unique(world):
         )
     )
     assert result["items"][0]["error"]["code"] == "DUPLICATE_ATTRIBUTE_VALUE"
+
+
+@pytest.mark.journey("J08.11")
+@pytest.mark.structures("L1", "K", "Ll1k")
+def test_a_binding_tightened_to_many_to_one_waits_for_its_data(world):
+    """Given an L1 record related to two K records by a many-to-many binding. When a release makes
+    the binding many-to-one. Then comparing needs a migration, counting one record at the binding's
+    cardinality, and activation is refused. When one of the two relationships is removed. Then the
+    release activates."""
+    holder = world.made("L1", "Holds two")["id"]
+    first = ok(world.relate("Ll1k", holder, world.ids["k01"]), 201)
+    ok(world.relate("Ll1k", holder, world.ids["k02"]), 201)
+    identity = (world.key("Ll1k"), world.key("L1"), world.key("K"))
+    model = copy.deepcopy(world.configuration.model)
+    for binding in model["objectTypeRelations"]:
+        if (binding["relationTypeKey"], binding["fromObjectTypeKey"]) == identity[:2]:
+            binding["cardinality"] = "many-to-one"
+    model["release"]["version"] += "-one"
+    state = _active(world)
+
+    release = world.install(model)["id"]
+    diff = ok(
+        world.api.get(f"/model-releases/{release}/diff", againstReleaseId=state["activeReleaseId"])
+    )
+    assert diff["compatibility"]["classification"] == "migration_required"
+    (diagnostic,) = diff["compatibility"]["diagnostics"]
+    assert diagnostic["path"] == "/objectTypeRelations/" + "/".join(identity) + "/cardinality"
+    assert diagnostic["count"] == 1
+    refused(world.activate(release), 409, "MODEL_MIGRATION_REQUIRED")
+
+    ok(world.api.delete(f"/relations/{first['id']}", expectedVersion=first["version"]), 204)
+    ok(world.activate(release))
+    assert _model_release(world) == release

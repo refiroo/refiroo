@@ -142,10 +142,7 @@ def projection_shape(
         own = binding.fromObjectTypeKey if direction == "outgoing" else binding.toObjectTypeKey
         if own not in exposed:
             continue
-        at_most_one = binding.cardinality == "one-to-one" or (
-            binding.cardinality == "one-to-many" and direction == "incoming"
-        )
-        single = single and at_most_one
+        single = single and binding.holds_one("from" if direction == "outgoing" else "to")
     return "one" if single else "many"
 
 

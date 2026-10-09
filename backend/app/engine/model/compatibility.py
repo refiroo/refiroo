@@ -318,8 +318,8 @@ def _check_relations(
 
     for identity, pair in sorted(candidate_pairs.items()):
         active_pair = active_pairs.get(identity)
-        active_restrictions = _cardinality_restrictions(active_pair.cardinality) if active_pair else set()
-        candidate_restrictions = _cardinality_restrictions(pair.cardinality)
+        active_restrictions = _cardinality_restrictions(active_pair) if active_pair else set()
+        candidate_restrictions = _cardinality_restrictions(pair)
         if candidate_restrictions - active_restrictions:
             _check_cardinality(session, identity, pair, diagnostics)
         active_scope = active_pair.features.get("uniqueToAncestorTypeKey") if active_pair else None
@@ -408,38 +408,26 @@ def _check_cardinality(
     pair: ObjectTypeRelationDefinition,
     diagnostics: list[ModelDiagnostic],
 ) -> None:
-    if pair.cardinality == "many-to-many":
-        return
     count = 0
-    target = aliased(RdmObject)
-    target_conflicts = (
-        select(ObjectRelation.to_object_id)
-        .join(target, target.id == ObjectRelation.to_object_id)
-        .where(
-            ObjectRelation.relation_type_key == pair.relationTypeKey,
-            target.object_type_key == pair.toObjectTypeKey,
-            _is_in_active_workspace(target),
-        )
-        .group_by(ObjectRelation.to_object_id)
-        .having(func.count() > 1)
-        .subquery()
-    )
-    count += int(session.scalar(select(func.count()).select_from(target_conflicts)) or 0)
-    if pair.cardinality == "one-to-one":
-        source = aliased(RdmObject)
-        source_conflicts = (
-            select(ObjectRelation.from_object_id)
-            .join(source, source.id == ObjectRelation.from_object_id)
+    for end in ("from", "to"):
+        if not pair.holds_one(end):
+            continue
+        record = aliased(RdmObject)
+        end_id = ObjectRelation.from_object_id if end == "from" else ObjectRelation.to_object_id
+        end_type = pair.fromObjectTypeKey if end == "from" else pair.toObjectTypeKey
+        conflicts = (
+            select(end_id)
+            .join(record, record.id == end_id)
             .where(
                 ObjectRelation.relation_type_key == pair.relationTypeKey,
-                source.object_type_key == pair.fromObjectTypeKey,
-                _is_in_active_workspace(source),
+                record.object_type_key == end_type,
+                _is_in_active_workspace(record),
             )
-            .group_by(ObjectRelation.from_object_id)
+            .group_by(end_id)
             .having(func.count() > 1)
             .subquery()
         )
-        count += int(session.scalar(select(func.count()).select_from(source_conflicts)) or 0)
+        count += int(session.scalar(select(func.count()).select_from(conflicts)) or 0)
     _append_counted(
         diagnostics,
         count,
@@ -756,12 +744,8 @@ def _relation_identity(item: ObjectTypeRelationDefinition) -> tuple[str, str, st
     return item.relationTypeKey, item.fromObjectTypeKey, item.toObjectTypeKey
 
 
-def _cardinality_restrictions(cardinality: str) -> set[str]:
-    if cardinality == "one-to-one":
-        return {"from", "to"}
-    if cardinality == "one-to-many":
-        return {"to"}
-    return set()
+def _cardinality_restrictions(pair: ObjectTypeRelationDefinition) -> set[str]:
+    return {end for end in ("from", "to") if pair.holds_one(end)}
 
 
 def is_parent_pair(model: EngineModel, pair: ObjectTypeRelationDefinition) -> bool:

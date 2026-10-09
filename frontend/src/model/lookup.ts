@@ -77,6 +77,23 @@ export interface RelationActions {
   clear: boolean;
 }
 
+/** Whether a record at `end` holds at most one relationship of the binding (0.9 K3a, D138). */
+export function holdsOne(relation: ObjectTypeRelationDefinition, end: "from" | "to"): boolean {
+  return (
+    relation.cardinality === "one-to-one" || relation.cardinality === (end === "from" ? "many-to-one" : "one-to-many")
+  );
+}
+
+/** Whether the record a choice starts from holds at most one relationship of its kind. */
+export function holdsOneHere(choice: RelationChoice): boolean {
+  return holdsOne(choice.relation, choice.direction === "outgoing" ? "from" : "to");
+}
+
+/** A required-ownership binding: required, and one owner per owned record. */
+export function isRequiredOwnership(relation: ObjectTypeRelationDefinition): boolean {
+  return Boolean(relation.required) && holdsOne(relation, "to");
+}
+
 export interface BulkRelationChoice extends RelationChoice {
   actions: RelationActions;
 }
@@ -93,7 +110,7 @@ export function bulkRelationChoices(model: EngineModel, objectTypeKey: string): 
   const choices: BulkRelationChoice[] = [];
   for (const relation of model.objectTypeRelations) {
     if (isManagedRelation(model, relation)) continue;
-    if (relation.required && relation.cardinality !== "many-to-many") continue;
+    if (isRequiredOwnership(relation)) continue;
     const definition = model.relationTypes.find((item) => item.key === relation.relationTypeKey);
     if (!definition) continue;
     const ends = [
@@ -102,10 +119,8 @@ export function bulkRelationChoices(model: EngineModel, objectTypeKey: string): 
     ] as const;
     for (const [direction, own, other, label] of ends) {
       if (own !== objectTypeKey) continue;
-      const oneHere =
-        relation.cardinality === "one-to-one" || (relation.cardinality === "one-to-many" && direction === "incoming");
-      const oneThere =
-        relation.cardinality === "one-to-one" || (relation.cardinality === "one-to-many" && direction === "outgoing");
+      const oneHere = holdsOne(relation, direction === "outgoing" ? "from" : "to");
+      const oneThere = holdsOne(relation, direction === "outgoing" ? "to" : "from");
       const removable = !relation.required;
       const actions: RelationActions = {
         add: !oneHere && !oneThere,

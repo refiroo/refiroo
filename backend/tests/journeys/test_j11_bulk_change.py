@@ -6,6 +6,8 @@ D120–D123). J11.9 previews a batch before it runs (0.9 K2, D112, D113); the jo
 no worker thread, so those tests run the engine's job worker themselves (``_run``).
 """
 
+import copy
+
 import pytest
 from scenario import W1, ok, refused
 
@@ -1061,3 +1063,107 @@ def test_relationships_added_and_removed_together_and_sent_again(world):
 
     again = ok(_batch(world, items))
     assert _outcomes(again) == [("applied", "unchanged")] * 4
+
+
+# --- J11.12: a record holds one of a kind (0.9 K3a) ------------------------------------------------
+
+
+def _held(world, source, **params):
+    """The K records ``source`` holds through ``Bn1``, by ID."""
+    page = ok(
+        world.api.get(
+            "/relations",
+            objectId=source,
+            direction="outgoing",
+            relationTypeKey=world.key("Bn1"),
+            pageSize=100,
+            **params,
+        )
+    )
+    return {item["object"]["id"] for item in page["items"]}
+
+
+def _bn1_set(world, anchor, targets, **extra):
+    """A ``replaceRelationSet`` item of ``anchor``'s outgoing ``Bn1`` set; the batch overwrites."""
+    return {
+        "op": "replaceRelationSet",
+        "relationTypeKey": world.key("Bn1"),
+        "fromObjectTypeKey": world.key("H"),
+        "toObjectTypeKey": world.key("K"),
+        "direction": "outgoing",
+        "anchor": {"id": anchor},
+        "targets": [{"object": {"id": target}} for target in targets],
+        **extra,
+    }
+
+
+@pytest.mark.journey("J11.12")
+@pytest.mark.structures("H", "K", "Bn1")
+def test_a_record_holds_one_of_a_kind(world):
+    """Given a many-to-one binding from H to K, H record h1 holding k1. When h1 is given a second K
+    by the single write, by a batch item, by a set of two and in a change set. Then each is refused
+    for cardinality, and h1 still holds k1. When h2 also takes k1, and h1's set becomes k2. Then
+    both are written: a K serves many H, and a set of one replaces the one held."""
+    k1, k2, k3 = (world.ids[f"k0{n}"] for n in (1, 2, 3))
+    h1, h2 = (world.made("H", f"Holder {n}")["id"] for n in (1, 2))
+    ok(world.relate("Bn1", h1, k1), 201)
+
+    refused(world.relate("Bn1", h1, k2), 409, "CARDINALITY_VIOLATION")
+    second = {
+        "op": "ensureRelation",
+        "relationTypeKey": world.key("Bn1"),
+        "from": {"id": h1},
+        "to": {"id": k2},
+    }
+    assert _outcomes(ok(_batch(world, [second]))) == [("rejected", "CARDINALITY_VIOLATION")]
+    assert _outcomes(ok(_batch(world, [_bn1_set(world, h1, (k1, k2))], onExisting="overwrite"))) == [
+        ("rejected", "CARDINALITY_VIOLATION")
+    ]
+    cs = world.change_set()
+    staged = ok(
+        _batch(
+            world,
+            [{**second, "to": {"id": k3}}],
+            context={"changeSetId": cs["id"]},
+            expectedChangeSetVersion=cs["version"],
+        )
+    )
+    assert _outcomes(staged) == [("rejected", "CARDINALITY_VIOLATION")]
+    assert _held(world, h1) == {k1}
+    assert _held(world, h1, changeSetId=cs["id"]) == {k1}
+
+    ok(world.relate("Bn1", h2, k1), 201)
+    replaced = ok(_batch(world, [_bn1_set(world, h1, (k2,))], onExisting="overwrite"))
+    assert _outcomes(replaced) == [("applied", "updated")]
+    assert (_held(world, h1), _held(world, h2)) == ({k2}, {k1})
+
+
+@pytest.mark.journey("J11.12", "J08.1")
+@pytest.mark.structures("H", "K", "Bn1")
+def test_many_to_one_needs_schema_0_9_and_is_never_required(world):
+    """Given the configuration's model. When it is validated in schema 0.8, and in 0.9 with its
+    many-to-one binding required. Then both are invalid at that binding: many-to-one needs schema
+    0.9, and a required many-to-one is not offered."""
+    identity = (world.key("Bn1"), world.key("H"), world.key("K"))
+    path = "/objectTypeRelations/" + "/".join(identity)
+
+    def diagnostic(model):
+        answer = ok(world.api.post("/model-validations", {"model": model}))
+        assert answer["valid"] is False
+        return answer["diagnostics"][0]
+
+    def binding(model):
+        return next(
+            b
+            for b in model["objectTypeRelations"]
+            if (b["relationTypeKey"], b["fromObjectTypeKey"], b["toObjectTypeKey"]) == identity
+        )
+
+    older = copy.deepcopy(world.configuration.model)
+    older["schemaVersion"] = "0.8"
+    older.pop("consumerApis", None)
+    assert diagnostic(older)["path"] == f"{path}/cardinality"
+
+    required = copy.deepcopy(world.configuration.model)
+    binding(required)["required"] = True
+    assert diagnostic(required)["path"] == f"{path}/required"

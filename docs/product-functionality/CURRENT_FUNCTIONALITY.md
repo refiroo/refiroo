@@ -221,7 +221,11 @@ Evidence: [tree lens](../../frontend/src/features/objects/TreeView.tsx),
 resolves system values to their shared meaning.
 
 Relationships are listed in both directions, created, edited (their own fields) and removed, with the
-record types, direction, cardinality, requiredness and field types validated. Parent relationships are
+record types, direction, cardinality, requiredness and field types validated. Where a record may hold
+only one relationship of a kind (a `many-to-one` binding from its side, `one-to-many` to it), its
+panel offers **Set** while it holds none and **Change** and **Delete** on the one it holds, never an
+Add that would be refused; Change replaces it in one write and is refused if the relationship
+changed after the list was read. Parent relationships are
 shown but changed only by moving the record (F07). Related records are found by server-side search.
 A record opened beside a tree lens lists them under **Connected**, one row per relationship panel the
 record's detail declares, as chips in their types' colours that open the record; they are managed in

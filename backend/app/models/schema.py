@@ -15,7 +15,15 @@ ValueType = Literal[
     "dateTime",
     "json",
 ]
-Cardinality = Literal["one-to-one", "one-to-many", "many-to-many"]
+Cardinality = Literal["one-to-one", "one-to-many", "many-to-one", "many-to-many"]
+RelationEnd = Literal["from", "to"]
+# The ends at which a record holds at most one relationship of a binding (0.9 K3a, D138).
+_HOLDS_ONE: dict[str, frozenset[str]] = {
+    "one-to-one": frozenset({"from", "to"}),
+    "one-to-many": frozenset({"to"}),
+    "many-to-one": frozenset({"from"}),
+    "many-to-many": frozenset(),
+}
 
 BUILT_IN_COLUMNS = {"id", "name", "path", "createdAt", "updatedAt"}
 DETAIL_FIELD_KEYS = BUILT_IN_COLUMNS | {"objectType"}
@@ -118,6 +126,10 @@ class ObjectTypeRelationDefinition(ModelDefinition):
     required: bool = False
     attributeTypeKeys: tuple[str, ...] = ()
     features: Mapping[str, Any] = Field(default_factory=dict)
+
+    def holds_one(self, end: RelationEnd) -> bool:
+        """Whether a record at ``end`` holds at most one relationship of this binding."""
+        return end in _HOLDS_ONE[self.cardinality]
 
 
 class TableViewConfig(ModelDefinition):

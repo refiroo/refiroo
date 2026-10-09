@@ -289,11 +289,9 @@ def relation_cardinality(
             for row in lookup.relations([object_id], direction, [binding.relationTypeKey])
         )
 
-    if binding.cardinality == "one-to-one" and (
-        taken(from_id, "outgoing") or taken(to_id, "incoming")
+    if (binding.holds_one("from") and taken(from_id, "outgoing")) or (
+        binding.holds_one("to") and taken(to_id, "incoming")
     ):
-        raise api_error(409, "CARDINALITY_VIOLATION", "Relation cardinality would be violated")
-    if binding.cardinality == "one-to-many" and taken(to_id, "incoming"):
         raise api_error(409, "CARDINALITY_VIOLATION", "Relation cardinality would be violated")
 
 

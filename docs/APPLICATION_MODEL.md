@@ -88,6 +88,13 @@ itself decide which object types may participate.
 This is deliberately separate because one reusable relation type can be permitted between several
 object-type pairs.
 
+`cardinality` says at which ends a record holds at most one relationship of the binding, counted by
+relation type at that end: `one-to-one` both ends, `one-to-many` the `to` end (a `to` record has one
+`from`), `many-to-one` the `from` end (a `from` record has one `to`, which may serve many), and
+`many-to-many` neither. A write that would give such a record a second one is
+`409 CARDINALITY_VIOLATION`. `many-to-one` needs schema 0.9 and cannot be `required`: `required` means
+the `to` record is created with its relationship (Base 0.9 K3a, D136, D137).
+
 An allowed triple's `attributeTypeKeys` enumerates the global attribute types that relation instances
 may store. Relation create and update reject undeclared keys and validate each supplied value using its
 declared type and numeric bounds before persistence. An empty list therefore means the relation carries

@@ -254,7 +254,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 31 | [J4](#j4-import-screen-and-sc-10) | J1u, J3, F2 | The SC-10 screen and SC-10 acceptance; frontend only (D89–D95) — **delivered 2026-10-08** ([record](#j4-record-2026-10-08)) |
 | 31a | [J4a](#j4a-why-another-workspaces-export-cannot-load) | J4 | Amendment: an import says why another workspace's export cannot load (the job's `notices`, refusals naming the workspace) — **delivered 2026-10-08** ([record](#j4a-why-another-workspaces-export-cannot-load)) |
 | 31b | [J5](#j5-another-workspaces-export-loaded-as-this-workspaces-own-records) | J4a | Another workspace's export loaded as this workspace's own records (counterpart IDs, `otherWorkspaceIds`), on imports and batches (D96–D101) — **delivered 2026-10-08** ([record](#j5-record-2026-10-08)) |
-| 31a | [Track K](#track-k--bulk-selection-and-editing-in-collections) | J4, UA | Bulk selection and bulk edits in collections over `POST /batches`; packages K1–K5 planned in detail when the track starts — **added 2026-10-06**; [K1](#k1-plan-2026-10-08) selection **delivered 2026-10-08** (D102–D111, [record](#k1-record-2026-10-08)); [K3a](#k3a-many-to-one-relationships) many-to-one relationships **added 2026-10-09**, after K3 and before K5 |
+| 31a | [Track K](#track-k--bulk-selection-and-editing-in-collections) | J4, UA | Bulk selection and bulk edits in collections over `POST /batches`; packages K1–K5 planned in detail when the track starts — **added 2026-10-06**; [K1](#k1-plan-2026-10-08) selection **delivered 2026-10-08** (D102–D111, [record](#k1-record-2026-10-08)); [K3a](#k3a-many-to-one-relationships) many-to-one relationships **added and delivered 2026-10-09** (D136–D139, [record](#k3a-record-2026-10-09)), after K3 and before K5 |
 | V | [V3–V9](#v3v9-the-management-api-documented-plan-2026-10-07) | V2 | The management API documented: the starter extended, content and examples beside the document, the error catalogue; V3 first, then V4–V8 in any order, then V9. **Independent fillers; block no release** (V-D9) — **planned 2026-10-07**, V-D1 open |
 | 32 | [R](#r-build-acceptance-and-release) | all except Track V's V3–V9 | Build acceptance and release |
 
@@ -8605,7 +8605,8 @@ cardinality); no screen knows a type key.
 - **K3a (added 2026-10-09 by the user): many-to-one relationships.** A fourth cardinality,
   `many-to-one`, so a model can say "a record holds at most one value of this kind, and a value
   serves many records" in the relation's natural direction; K3's Set to offers it.
-  _Planned 2026-10-09 ([plan](#k3a-many-to-one-relationships)), D136–D139 and the test cases accepted by the user the same day; ready to deliver._
+  _Planned and delivered 2026-10-09 ([plan](#k3a-many-to-one-relationships), [record](#k3a-record-2026-10-09)),
+  D136–D139 accepted; screenshots await the user's approval._
 - **K4 (not taken in K1's planning, D103): query-scoped batches.** A batch whose items are "every record matching these
   criteria", decided in the engine, so a large selection is neither paged through nor sent as IDs;
   an API capability integrators get too.
@@ -9768,6 +9769,74 @@ required many-to-one), Track K's outline.
 **Composable domains (ADR-032):** a structural capability with no domain names. Any binding may be
 `many-to-one`, the example model is one configuration of it, and relation storage, identity and the
 `match` declaration are untouched.
+
+##### K3a record (2026-10-09)
+
+**Delivered 2026-10-09.** D136–D139 and the test cases as approved with the plan. Screenshots await
+the user's approval.
+
+**Built.**
+
+- **The engine.** `Cardinality` gains `many-to-one`, and `ObjectTypeRelationDefinition.holds_one(end)`
+  says at which ends a record holds one (D138). The write rule (`rules.relation_cardinality`, so the
+  single write, every batch relation item and each target a set replacement adds), change-set
+  validation, the compatibility check (conflicts counted at each end that holds one), the relation
+  matrix's refusals, the mapping grid's exclusive candidates and the consumer field's arity
+  (`projection_shape`) read it; required ownership stays listed by value. Model validation
+  (`relation_rules._check_many_to_one`) refuses the value before schema 0.9 at
+  `…/cardinality` and with `required` at `…/required` (D137). The management schema's `cardinality`
+  is a free string, so the OpenAPI document is unchanged. No migration.
+- **The browser.** `model/lookup.holdsOne` (and `holdsOneHere`, `isRequiredOwnership`), used by
+  `bulkRelationChoices`, so K3's dialog offers Set to and Clear from the `from` side and Remove and
+  Clear from the other with no change of its own. `RelationsPanel` (D139): Add relationship only for
+  kinds the record may hold many of; Set relationship for a kind it holds none of (read with one
+  `pageSize=1` request per kind, again after every change); Change beside Delete on the one held.
+  `RelationFormDialog` gains the Set and Change modes: Change reads the record's set of that kind,
+  goes on only while it holds exactly the relationship the row showed at that version, and replaces
+  it through the mapping replacement (`PUT …/mappings`) claiming the set's version, so a change made
+  meanwhile is refused, never overwritten. `RelationPage.relationSets` is typed.
+- **The example model** 0.9.1 adopts `many-to-one` where a record holds one value of a kind; its
+  `rdm` consumer API moves to contract version 2, as the contract check requires.
+
+**Where it differs from the plan.**
+
+- The panel keeps its existing **Delete** for the one held (D139 said Remove): one word for the same
+  action across every relationship row.
+- Test case 3 is a unit test of `projection_shape` over the starter with one added binding, for the
+  four values in both directions; that function types both the OpenAPI document's field and the read
+  (`consumer_objects`), and a test on the example model would test the example (AGENTS).
+- Test case 1's schema 0.8 refusal is its own test in the same module, which also checks D137's
+  refusal at `…/required`.
+- Older tests the package made wrong, changed: J25.6's 0.8 rewrite writes a `many-to-one` binding
+  as `many-to-many` (0.8 cannot say it); `test_consumer_openapi` builds its paths from the
+  definition's contract version; `test_consumer_api_model`'s C18 conversion proof keeps the starter
+  only, since the example left its 0.8 form (its proof stood when C18 made it), and the example's
+  0.8 original under `tests/fixtures/consumer_08/` is removed, unused; a docstring in
+  `consumer_expansion.py` held a starter key (`test_model_independence`).
+- `test:browser:k3`: scenario 6b read the refused records before they loaded; it now waits for them.
+
+**Journeys.** J08.11, J11.12, J32.5 (USER_JOURNEYS); API_JOURNEYS rows for the cardinality and the
+validation, diff and activation routes; UI_ACCEPTANCE K3a-1; the structure `Bn1` (H→K many-to-one)
+in the generated configurations.
+
+**Checks.** Backend, the plan's groups (`model`, `records`, `jobs`, `change_sets`, `matrix`,
+`mapping`, `consumer`, `contract`) in parallel: 1,689 passed and 8 failed on the first run, every
+failure from this package (above) and fixed; the failing modules again, 99 passed, plus
+`test_model_independence` and J25.6, 3 passed; the serial part, 3 passed. The new cases: J11.12 (2
+tests) and J08.11 on generated A and B, 6 passed, confirmed failing first; the unit test, 4 passed.
+`test_api_reference.py::test_docs_serves_the_bundled_script_with_the_management_source` failed once
+in the parallel run and passed alone; this package does not touch it. The parallel run took 4 min
+44 s, over the 2-minute ceiling: the generated seeds were rebuilt for `Bn1`, and the eight groups
+are wide. `ruff check` on the changed files clean. Frontend: `vitest related` over the changed
+files, 32 files, 393 passed; `format`; `lint`, 0 errors (the 7 recorded warnings); `build`;
+`test:browser:k3`, 16 checks, 0 failures, axe 0 violations on every surface it checks, the Change
+dialog included. Screenshots inspected: the panel holding one (Change, Delete, no Add) and holding
+none (Set relationship) at 1440px and 390px, the Change dialog at both, and the bulk Set to result;
+at 390px the held row's actions scroll inside the table, as every two-action row does, with no page
+overflow. Not run: the full suites, `budget`, `test:a11y`, `test:visual` (R, as D95).
+
+**Found on the way.** A uvicorn on port 61380 started 2026-10-07 by an earlier session is still
+running; this package did not start it and left it.
 
 ## R: Build acceptance and release
 

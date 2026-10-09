@@ -13,6 +13,11 @@ from app.engine.model.loader import load_model
 EXAMPLE = Path(__file__).resolve().parents[5] / "model" / "rdm-operators-timetables.json"
 
 
+def _base(definition) -> str:
+    """The definition's routes, under the contract version it serves."""
+    return f"/api/consumer/{definition.key}/v{definition.contractVersion}"
+
+
 def test_the_operators_model_gives_one_valid_document_over_every_type():
     """The model's ``rdm`` consumer API exposes every object type, so its XREF looks up across the
     whole model, and its document is valid OpenAPI 3.1. A list ``within`` a filter (codelists and
@@ -25,10 +30,10 @@ def test_the_operators_model_gives_one_valid_document_over_every_type():
     document = consumer_openapi(model, rdm, root_path="", resolve_max_items=1000)
     validate_openapi(document)
 
-    codelists = document["paths"]["/api/consumer/rdm/v1/lists/codelists"]["get"]["parameters"]
+    codelists = document["paths"][f"{_base(rdm)}/lists/codelists"]["get"]["parameters"]
     (domain,) = [item for item in codelists if item["name"] == "domain"]
     assert domain["description"].startswith("Object IDs of Domain records")
-    xref = document["paths"]["/api/consumer/rdm/v1/xref"]["get"]["parameters"]
+    xref = document["paths"][f"{_base(rdm)}/xref"]["get"]["parameters"]
     (domain,) = [item for item in xref if item["name"] == "domain"]
     assert not domain["description"].startswith("Object IDs")
 
@@ -40,7 +45,7 @@ def test_as_of_is_documented_where_a_read_can_return_a_dated_type():
     model = load_model(EXAMPLE)
     rdm = consumer_api(model, "rdm")
     document = consumer_openapi(model, rdm, root_path="", resolve_max_items=1000)
-    base = "/api/consumer/rdm/v1"
+    base = _base(rdm)
 
     def names(path: str, method: str = "get") -> set[str]:
         return {item["name"] for item in document["paths"][f"{base}{path}"][method]["parameters"]}
@@ -68,7 +73,7 @@ def test_a_definition_with_events_documents_its_pull_feed():
     del definition["operations"]["events"]
     model = parse_model(document)
     plain = consumer_openapi(model, consumer_api(model, "rdm"), root_path="", resolve_max_items=1000)
-    assert "/api/consumer/rdm/v1/events" not in plain["paths"]
+    assert f"{_base(consumer_api(model, 'rdm'))}/events" not in plain["paths"]
 
     definition["operations"]["events"] = {
         "custom": [{"key": "reference-data-changed", "objectTypes": definition["exposes"][:2], "changes": ["created", "deleted"]}]
@@ -76,7 +81,7 @@ def test_a_definition_with_events_documents_its_pull_feed():
     model = parse_model(document)
     built = consumer_openapi(model, consumer_api(model, "rdm"), root_path="", resolve_max_items=1000)
     validate_openapi(built)
-    events = built["paths"]["/api/consumer/rdm/v1/events"]["get"]
+    events = built["paths"][f"{_base(consumer_api(model, 'rdm'))}/events"]["get"]
     names = {item["name"] for item in events["parameters"]}
     assert {"workspace", "event", "after", "cursor", "pageSize", "payload"} <= names
     assert set(definition.get("filters", {})) <= names

@@ -203,27 +203,26 @@ def graph_diagnostics(
         return counts.total() > counts[relation_id]
 
     for relation, allowed in valid_relations:
-        if allowed.cardinality in {"one-to-one", "one-to-many", "many-to-one"}:
-            if allowed.cardinality in {"one-to-one", "many-to-one"} and another(
-                leaving[(allowed.relationTypeKey, relation.from_object_id)], relation.relation_id
-            ):
-                errors.append(
-                    {
-                        "code": "RELATION_CARDINALITY_VIOLATION",
-                        "message": f"Relation '{allowed.relationTypeKey}' exceeds source cardinality",
-                        "details": {"relationId": relation.relation_id},
-                    }
-                )
-            if allowed.cardinality in {"one-to-one", "one-to-many"} and another(
-                entering[(allowed.relationTypeKey, relation.to_object_id)], relation.relation_id
-            ):
-                errors.append(
-                    {
-                        "code": "RELATION_CARDINALITY_VIOLATION",
-                        "message": f"Relation '{allowed.relationTypeKey}' exceeds target cardinality",
-                        "details": {"relationId": relation.relation_id},
-                    }
-                )
+        if allowed.holds_one("from") and another(
+            leaving[(allowed.relationTypeKey, relation.from_object_id)], relation.relation_id
+        ):
+            errors.append(
+                {
+                    "code": "RELATION_CARDINALITY_VIOLATION",
+                    "message": f"Relation '{allowed.relationTypeKey}' exceeds source cardinality",
+                    "details": {"relationId": relation.relation_id},
+                }
+            )
+        if allowed.holds_one("to") and another(
+            entering[(allowed.relationTypeKey, relation.to_object_id)], relation.relation_id
+        ):
+            errors.append(
+                {
+                    "code": "RELATION_CARDINALITY_VIOLATION",
+                    "message": f"Relation '{allowed.relationTypeKey}' exceeds target cardinality",
+                    "details": {"relationId": relation.relation_id},
+                }
+            )
     # Ancestor-scoped uniqueness (language/target uniqueness for translations): a scoped relation may
     # appear once per source object per ancestor scope while the optional target-attribute condition
     # holds. Mirrors the change set write path in validate_change_set_relation. Only relations of the

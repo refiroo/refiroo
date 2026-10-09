@@ -8,6 +8,21 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 K3a: many-to-one relationships (D136–D139; J08.11, J11.12, J32.5). A binding may declare
+  `"cardinality": "many-to-one"` in schema 0.9: each `from` record holds at most one relationship of
+  it, and a `to` record serves any number. A second one is `409 CARDINALITY_VIOLATION` on every write
+  path; a release tightening a binding to it needs a migration while a `from` record holds more than
+  one (`RELATION_CARDINALITY_VIOLATED` at the binding's `cardinality`, with the count). It cannot be
+  `required` (D137, in TODO), and is refused in schema 0.8. Which end holds one is one rule in the
+  engine and one in the browser (D138); the relation matrix, the mapping grid's candidates and the
+  consumer API read it, so a field `via` a many-to-one binding answers one object or `null`. On a
+  record, where it may hold only one relationship of a kind, its Relationships panel offers **Set**
+  while it holds none and **Change** and **Delete** on the one it holds (D139); Change replaces it in
+  one write through the mapping replacement, claiming the set as read, and is refused if the
+  relationship changed after the list was read. The selection's Change relationships… offers Set to
+  and Clear from that side. The example model 0.9.1 uses it (its `rdm` consumer API at contract
+  version 2).
+
 - Base 0.9 K3: changing the relationships of a selection, and relationships named by their ends
   (D127–D135; J11.10, J11.11, J32.4). A batch item **`ensureNoRelation`** (`relationTypeKey`,
   `from`, `to`, optional `expectedVersion`) deletes the relationship of that type joining the two

@@ -390,6 +390,12 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   relationship's values is an update needing its `expectedVersion`, the preview carrying each
   relationship's version into confirm as D130 carries a set's. Needs a shipped model that declares
   relationship values to show it.
+- [ ] **When a model needs it: a required many-to-one relationship (0.9 D137).** K3a refuses
+  `required` on a `many-to-one` binding, because `required` means the `to` record is created with its
+  relationship. "Every `from` record holds one" is a rule at the other end: the record is created with
+  it (initial relations), cannot clear it, imports and batches supply it, a `to` record still serving
+  records that require it cannot be deleted, and a release making a binding required counts `from`
+  records without one. Its own package, planned when a model asks for it.
 - [ ] **After 1.0: creating change sets and publishing for 250,000 records and more (deferred by the
   user, 2026-10-03; revisit when MDM is taken up).** T1a sizes both for the volume fixture at 0.1
   scale. At the full fixture, a copy by `INSERT … SELECT` took about 33 s, most of it maintaining 17

@@ -1,10 +1,13 @@
 import { useNavigationGuard } from "@/routing/navigationGuard";
 /**
- * Creates a relationship to another object, or edits the attributes carried by an existing one.
+ * Creates a relationship to another object, edits the attributes carried by an existing one, or
+ * changes the one record a record holds of a kind.
  *
  * The relationship choices come from the model: which relation types the panel permits, in which
- * direction, and between which object types. Editing is limited to relationship attributes, since
- * changing an endpoint is a delete and a create.
+ * direction, and between which object types. Editing is limited to relationship attributes. Where
+ * the record holds at most one of a kind (0.9 K3a, D139), creating it is Set, and Change replaces
+ * the one held in one write (the mapping replacement), claiming the record's set as it was read
+ * when the dialog saved, and only while the record still holds the relationship the row showed.
  */
 
 import { useState } from "react";
@@ -25,6 +28,8 @@ export function RelationFormDialog({
   object,
   choices,
   existing,
+  replacing,
+  setting = false,
   onClose,
   onSaved,
 }: {
@@ -32,6 +37,10 @@ export function RelationFormDialog({
   object: ObjectItem;
   choices: RelationChoice[];
   existing?: RelationItem;
+  /** The relationship Change replaces; `choices` then holds its kind only. */
+  replacing?: RelationItem;
+  /** Creating a relationship of a kind the record holds one of (Set). */
+  setting?: boolean;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -46,6 +55,7 @@ export function RelationFormDialog({
     );
   const [choiceIndex, setChoiceIndex] = useState(Math.max(0, existingChoice ? choices.indexOf(existingChoice) : 0));
   const [candidate, setCandidate] = useState<ObjectItem | undefined>(existing?.object);
+  const choosing = !existing;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [dirty, setDirty] = useState(false);
@@ -68,6 +78,7 @@ export function RelationFormDialog({
       );
       if (existing)
         await api.updateRelation(existing.relation.id, { attributes: values, expectedVersion: relationVersion });
+      else if (replacing) await replaceHeld(candidate!, values);
       else
         await api.createRelation({
           relationTypeKey: choice.relation.relationTypeKey,
@@ -91,44 +102,95 @@ export function RelationFormDialog({
       setSaving(false);
     }
   }
+  async function replaceHeld(target: ObjectItem, values: Record<string, unknown>) {
+    const { relationTypeKey, fromObjectTypeKey, toObjectTypeKey } = choice.relation;
+    const direction = replacing!.direction;
+    const page = await api.relations(object.id, {
+      workspaceKey: object.workspaceKey,
+      direction,
+      relationTypeKey,
+      pageSize: 2,
+    });
+    const set = page.relationSets?.find(
+      (item) =>
+        item.direction === direction &&
+        item.relationTypeKey === relationTypeKey &&
+        item.fromObjectTypeKey === fromObjectTypeKey &&
+        item.toObjectTypeKey === toObjectTypeKey,
+    );
+    const [held] = page.items;
+    if (
+      !set ||
+      page.items.length !== 1 ||
+      held.relation.id !== replacing!.relation.id ||
+      held.relation.version !== replacing!.relation.version
+    )
+      throw new Error("This relationship changed after the list was read. Close the dialog to see it as it is now.");
+    await api.replaceMapping(object.workspaceKey, {
+      relationTypeKey,
+      fromObjectTypeKey,
+      toObjectTypeKey,
+      direction,
+      sourceObjectId: object.id,
+      targetObjectId: target.id,
+      expectedMappingVersion: set.relationSetVersion,
+      ...(attributes.length ? { attributes: values } : {}),
+    });
+  }
+
   if (!choice) return null;
   return (
     <Modal
-      title={existing ? choice.label : "Connect an object"}
-      eyebrow={existing ? "Edit relationship" : "Create relationship"}
+      title={existing || replacing ? choice.label : setting ? `Set ${choice.label.toLowerCase()}` : "Connect an object"}
+      eyebrow={
+        existing
+          ? "Edit relationship"
+          : replacing
+            ? "Change relationship"
+            : setting
+              ? "Set relationship"
+              : "Create relationship"
+      }
       busy={saving}
       dirty={dirty}
       onClose={onClose}
     >
       <form onSubmit={submit} onChange={() => setDirty(true)}>
-        {!existing && (
+        {replacing && (
+          <p>
+            Now: <strong>{replacing.object.name}</strong>. Choose the record that replaces it.
+          </p>
+        )}
+        {choosing && (
           <>
-            <label>
-              Relationship
-              <select
-                value={choiceIndex}
-                onChange={(event) => {
-                  setChoiceIndex(Number(event.target.value));
-                  setCandidate(undefined);
-                }}
-              >
-                {choices.map((item, index) => (
-                  <option
-                    key={`${item.direction}:${item.relation.relationTypeKey}:${item.otherObjectTypeKey}`}
-                    value={index}
-                  >
-                    {item.label} ({item.direction})
-                  </option>
-                ))}
-              </select>
-            </label>
+            {!replacing && (
+              <label>
+                Relationship
+                <select
+                  value={choiceIndex}
+                  onChange={(event) => {
+                    setChoiceIndex(Number(event.target.value));
+                    setCandidate(undefined);
+                  }}
+                >
+                  {choices.map((item, index) => (
+                    <option
+                      key={`${item.direction}:${item.relation.relationTypeKey}:${item.otherObjectTypeKey}`}
+                      value={index}
+                    >
+                      {item.label} ({item.direction})
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <fieldset className="lookup-field">
               <legend>Object</legend>
               <ObjectLookup
                 label="Object"
                 objectTypeKey={choice.otherObjectTypeKey}
                 workspaceKey={object.workspaceKey}
-                excludeId={object.id}
+                excludeId={replacing?.object.id ?? object.id}
                 value={candidate}
                 required
                 onChange={(item) => {
@@ -174,7 +236,7 @@ export function RelationFormDialog({
             Cancel
           </button>
           <button className="primary" disabled={saving || (!existing && !candidate)}>
-            {saving ? "Saving…" : existing ? "Save" : "Create"}
+            {saving ? "Saving…" : existing ? "Save" : replacing ? "Change" : setting ? "Set" : "Create"}
           </button>
         </div>
       </form>

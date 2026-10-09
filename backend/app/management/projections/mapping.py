@@ -455,9 +455,8 @@ def object_page(
             statement = statement.where(target_count == 1)
         else:
             statement = statement.where(target_count > 1)
-    exclusive_target = candidates and (
-        allowed.cardinality == "one-to-one"
-        or (allowed.cardinality == "one-to-many" and read.config.direction == "outgoing")
+    exclusive_target = candidates and allowed.holds_one(
+        "to" if read.config.direction == "outgoing" else "from"
     )
     if exclusive_target:
         edges = read.edge_statement().subquery()

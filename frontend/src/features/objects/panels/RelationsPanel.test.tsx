@@ -3,10 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { codelistObject, domainObject, testModel } from "@/test/fixtures";
 import * as workspaceContext from "@/features/workspaces/WorkspaceDataContext";
-import type { RelationsPanelDefinition, ChangeSet } from "@/types";
+import type { EngineModel, RelationsPanelDefinition, ChangeSet } from "@/types";
 import { RelationsPanel } from "@/features/objects/panels/RelationsPanel";
 
-vi.mock("@/api/client", () => ({ api: { relations: vi.fn(), deleteRelation: vi.fn() } }));
+vi.mock("@/api/client", () => ({
+  api: { relations: vi.fn(), deleteRelation: vi.fn(), objects: vi.fn(), replaceMapping: vi.fn() },
+}));
 
 const panel: RelationsPanelDefinition = {
   key: "relations",
@@ -360,6 +362,112 @@ describe("RelationsPanel", () => {
       expect(lastSort()).toBe("name");
       expect(within(screen.getByRole("columnheader", { name: /^Updated/ })).queryByRole("button")).toBeNull();
       expect(screen.getByRole("columnheader", { name: /Name/ })).toHaveAttribute("aria-sort", "ascending");
+    });
+  });
+
+  describe("where the record holds one of a kind (0.9 K3a, D139)", () => {
+    // The test model with `domain` → `codelist` many-to-one: a domain holds one, a codelist serves many.
+    const model: EngineModel = {
+      ...testModel,
+      relationTypes: [
+        ...testModel.relationTypes,
+        {
+          key: "grades",
+          name: "Graded by",
+          reverseName: "Grades",
+          features: {},
+        } as EngineModel["relationTypes"][number],
+      ],
+      objectTypeRelations: [
+        ...testModel.objectTypeRelations,
+        {
+          relationTypeKey: "grades",
+          fromObjectTypeKey: "domain",
+          toObjectTypeKey: "codelist",
+          cardinality: "many-to-one",
+        },
+      ],
+    };
+    const graded = { ...panel, config: { ...panel.config, relationTypeKeys: ["grades"] } };
+    const other = { ...codelistObject, id: "other-codelist", name: "Other list" };
+    const held = (version: number) => ({
+      direction: "outgoing" as const,
+      relation: {
+        id: "held",
+        relationTypeKey: "grades",
+        fromObjectId: domainObject.id,
+        toObjectId: codelistObject.id,
+        attributes: {},
+        version,
+      },
+      object: codelistObject,
+    });
+    const set = {
+      relationTypeKey: "grades",
+      fromObjectTypeKey: "domain",
+      toObjectTypeKey: "codelist",
+      direction: "outgoing" as const,
+      relationSetVersion: 7,
+    };
+
+    it("offers Set while it holds none, and no Add", async () => {
+      vi.mocked(api.relations).mockResolvedValue({ items: [], nextCursor: null, relationSets: [set] });
+      vi.mocked(api.objects).mockResolvedValue({ items: [other], nextCursor: null });
+      render(<RelationsPanel model={model} object={domainObject} panel={graded} onOpen={vi.fn()} />);
+      fireEvent.click(await screen.findByRole("button", { name: "Set relationship" }));
+      expect(screen.queryByRole("button", { name: "Add relationship" })).toBeNull();
+      expect(within(screen.getByRole("dialog")).getByRole("button", { name: "Set" })).toBeInTheDocument();
+    });
+
+    async function changeTo(name: string, meanwhile: () => void = () => undefined) {
+      vi.mocked(api.objects).mockResolvedValue({ items: [other], nextCursor: null });
+      render(<RelationsPanel model={model} object={domainObject} panel={graded} onOpen={vi.fn()} />);
+      fireEvent.click(await screen.findByRole("button", { name: "Change" }));
+      const dialog = screen.getByRole("dialog");
+      expect(within(dialog).getByText(codelistObject.name)).toBeInTheDocument();
+      fireEvent.click(await within(dialog).findByRole("option", { name: new RegExp(name) }));
+      meanwhile();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Change" }));
+      return dialog;
+    }
+
+    it("offers Change on the one it holds, and replaces it claiming the set as read", async () => {
+      vi.mocked(api.relations).mockResolvedValue({ items: [held(2)], nextCursor: null, relationSets: [set] });
+      vi.mocked(api.replaceMapping).mockResolvedValue({
+        sourceObjectId: domainObject.id,
+        mappingVersion: 8,
+        state: "mapped",
+        relationId: "new",
+        changeSetVersion: null,
+      });
+      await changeTo("Other list");
+      await waitFor(() =>
+        expect(api.replaceMapping).toHaveBeenCalledWith(domainObject.workspaceKey, {
+          relationTypeKey: "grades",
+          fromObjectTypeKey: "domain",
+          toObjectTypeKey: "codelist",
+          direction: "outgoing",
+          sourceObjectId: domainObject.id,
+          targetObjectId: other.id,
+          expectedMappingVersion: 7,
+        }),
+      );
+      expect(screen.queryByRole("button", { name: "Set relationship" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Add relationship" })).toBeNull();
+    });
+
+    it("refuses Change when the record no longer holds what the row showed", async () => {
+      vi.mocked(api.replaceMapping).mockClear();
+      let version = 2;
+      vi.mocked(api.relations).mockImplementation(async () => ({
+        items: [held(version)],
+        nextCursor: null,
+        relationSets: [set],
+      }));
+      // Someone else edits the relationship after the list was read.
+      const dialog = await changeTo("Other list", () => (version = 3));
+      expect(await within(dialog).findByText(/changed after the list was read/)).toBeInTheDocument();
+      expect(api.replaceMapping).not.toHaveBeenCalled();
     });
   });
 });

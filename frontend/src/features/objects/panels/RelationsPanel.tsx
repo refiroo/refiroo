@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { errorMessage, isApiError } from "@/api/errors";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import type { EngineModel, ObjectItem, RelationItem, RelationsPanelDefinition } from "@/types";
-import { isManagedRelation, relatedObjectTypes, relationChoices } from "@/model/lookup";
+import { holdsOne, holdsOneHere, isManagedRelation, relatedObjectTypes, relationChoices } from "@/model/lookup";
+import type { RelationChoice } from "@/model/lookup";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { RelationFormDialog } from "./RelationFormDialog";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
@@ -18,6 +19,11 @@ import { TableDisplay, useTableDisplay } from "@/ui/TableDisplay";
 import { SortMenu, useTableSort } from "@/ui/TableSort";
 
 const PAGE_SIZE = 50;
+
+/** A kind of relationship as the engine counts it at the record's end: a relation type, a direction. */
+function kindOf(choice: RelationChoice) {
+  return `${choice.direction} ${choice.relation.relationTypeKey}`;
+}
 
 export function RelationsPanel({
   model,
@@ -78,12 +84,44 @@ export function RelationsPanel({
     relationTypeKey: string;
   }>();
   const [editing, setEditing] = useState<RelationItem>();
+  const [changing, setChanging] = useState<RelationItem>();
+  const [setting, setSetting] = useState(false);
   const [removing, setRemoving] = useState<RelationItem>();
   const [pending, setPending] = useState(false);
   const choices = useMemo(
     () => relationChoices(model, object.objectTypeKey, panel),
     [model, object.objectTypeKey, panel],
   );
+  // Where the record holds at most one of a kind (0.9 K3a, D139) it is set, not added to: Set while
+  // it holds none, Change and Delete on the one it holds.
+  const adding = useMemo(() => choices.filter((choice) => !holdsOneHere(choice)), [choices]);
+  const singles = useMemo(() => choices.filter(holdsOneHere), [choices]);
+  const [heldToken, setHeldToken] = useState(0);
+  const [held, setHeld] = useState<{ token: number; kinds: Set<string> }>();
+  useEffect(() => {
+    if (readOnly || singles.length === 0) return;
+    let current = true;
+    const kinds = [...new Set(singles.map(kindOf))];
+    Promise.all(
+      kinds.map((kind) => {
+        const [direction, relationTypeKey] = kind.split(" ") as ["outgoing" | "incoming", string];
+        return api
+          .relations(object.id, { workspaceKey: object.workspaceKey, direction, relationTypeKey, pageSize: 1 })
+          .then((page) => (page.items.length ? kind : undefined));
+      }),
+    )
+      .then(
+        (found) =>
+          current &&
+          setHeld({ token: heldToken, kinds: new Set(found.filter((kind): kind is string => kind !== undefined)) }),
+      )
+      // Unknown is treated as held: Set is offered only where the record is known to hold none.
+      .catch(() => current && setHeld({ token: heldToken, kinds: new Set(kinds) }));
+    return () => {
+      current = false;
+    };
+  }, [api, object.id, object.workspaceKey, singles, readOnly, heldToken]);
+  const settable = held?.token === heldToken ? singles.filter((choice) => !held.kinds.has(kindOf(choice))) : [];
   const dependentCreates = useMemo(
     () =>
       model.objectTypeRelations.flatMap((allowed) => {
@@ -131,6 +169,11 @@ export function RelationsPanel({
     [object.id, object.workspaceKey, panel.config.direction, relationTypeKey, search, effectiveSort, pageSize],
   );
   const { items: relations, error: feedError, retry, reload } = list;
+  function changed() {
+    onChanged();
+    reload();
+    setHeldToken((token) => token + 1);
+  }
   // Loading failures belong to the panel; delete failures stay in their confirmation dialog so
   // cancelling that action cannot leave the collection in a persistent feed-error state.
   const error = feedError;
@@ -177,6 +220,7 @@ export function RelationsPanel({
         ) : (
           <>
             {!readOnly && hasAttributes && <button onClick={() => setEditing(item)}>Edit</button>}
+            {!readOnly && !required && changeChoice(item) && <button onClick={() => setChanging(item)}>Change</button>}
             {required ? (
               <span className="managed-label">Required relationship</span>
             ) : !readOnly ? (
@@ -200,6 +244,17 @@ export function RelationsPanel({
         allowed.toObjectTypeKey === toType,
     );
   }
+  /** The kind a row's relationship is, where the record holds only one of it. */
+  function changeChoice(item: RelationItem) {
+    const allowed = allowedFor(item);
+    if (!allowed || !holdsOne(allowed, item.direction === "outgoing" ? "from" : "to")) return undefined;
+    return choices.find(
+      (choice) =>
+        choice.direction === item.direction &&
+        choice.relation.relationTypeKey === item.relation.relationTypeKey &&
+        choice.otherObjectTypeKey === item.object.objectTypeKey,
+    );
+  }
   function managed(item: RelationItem) {
     const allowed = allowedFor(item);
     return allowed ? isManagedRelation(model, allowed) : true;
@@ -212,8 +267,7 @@ export function RelationsPanel({
     try {
       await api.deleteRelation(removing.relation.id, removing.relation.version);
       setRemoving(undefined);
-      onChanged();
-      reload();
+      changed();
     } catch (cause) {
       setRemoveError(errorMessage(cause));
       if (isApiError(cause, "VERSION_CONFLICT") || isApiError(cause, "CHANGE_SET_VERSION_CONFLICT")) {
@@ -261,7 +315,12 @@ export function RelationsPanel({
               {model.objectTypes.find((item) => item.key === creation.objectTypeKey)?.name ?? creation.objectTypeKey}
             </button>
           ))}
-        {!readOnly && choices.length > 0 && (
+        {!readOnly && settable.length > 0 && (
+          <button className="secondary" onClick={() => setSetting(true)}>
+            <Icon name="plus" /> Set relationship
+          </button>
+        )}
+        {!readOnly && adding.length > 0 && (
           <button className="secondary" onClick={() => setCreating(true)}>
             <Icon name="plus" /> Add relationship
           </button>
@@ -292,12 +351,37 @@ export function RelationsPanel({
         <RelationFormDialog
           model={model}
           object={object}
-          choices={choices}
+          choices={adding}
           onClose={() => setCreating(false)}
           onSaved={() => {
             setCreating(false);
-            onChanged();
-            reload();
+            changed();
+          }}
+        />
+      )}
+      {setting && (
+        <RelationFormDialog
+          model={model}
+          object={object}
+          choices={settable}
+          setting
+          onClose={() => setSetting(false)}
+          onSaved={() => {
+            setSetting(false);
+            changed();
+          }}
+        />
+      )}
+      {changing && (
+        <RelationFormDialog
+          model={model}
+          object={object}
+          choices={[changeChoice(changing)!]}
+          replacing={changing}
+          onClose={() => setChanging(undefined)}
+          onSaved={() => {
+            setChanging(undefined);
+            changed();
           }}
         />
       )}
@@ -312,8 +396,7 @@ export function RelationsPanel({
           onClose={() => setCreatingDependent(undefined)}
           onSaved={() => {
             setCreatingDependent(undefined);
-            onChanged();
-            reload();
+            changed();
           }}
         />
       )}
@@ -326,8 +409,7 @@ export function RelationsPanel({
           onClose={() => setEditing(undefined)}
           onSaved={() => {
             setEditing(undefined);
-            onChanged();
-            reload();
+            changed();
           }}
         />
       )}

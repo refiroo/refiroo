@@ -1125,7 +1125,7 @@ def _link_refusals(
     pairs = {(edge.from_object_id, edge.to_object_id) for edge in edges}
     sources = {edge.from_object_id for edge in edges}
     targets = {edge.to_object_id for edge in edges}
-    cardinality = read.binding.cardinality
+    binding = read.binding
     scope_taken = False
     if read.conflict_scope:
         held = _cells(read, [row_id], [column_id]).get((row_id, column_id))
@@ -1134,9 +1134,9 @@ def _link_refusals(
     for item in candidates:
         from_id, to_id = (row_id, item.object_id) if read.outgoing else (item.object_id, row_id)
         taken = set()
-        if cardinality == "one-to-one" and from_id in sources:
+        if binding.holds_one("from") and from_id in sources:
             taken.add(from_id)
-        if cardinality in {"one-to-one", "one-to-many"} and to_id in targets:
+        if binding.holds_one("to") and to_id in targets:
             taken.add(to_id)
         if (from_id, to_id) in pairs:
             reason = "alreadyLinked"

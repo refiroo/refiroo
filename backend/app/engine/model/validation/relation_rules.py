@@ -3,6 +3,7 @@
 from ....common.json_pointer import pointer_segment, relation_path
 from ....models.schema import EngineModel, ObjectTypeRelationDefinition
 from ..diagnostics import ModelReferenceError
+from .fields import require_schema
 from .index import ModelIndex
 
 
@@ -27,6 +28,7 @@ def check_object_type_relations(model: EngineModel, index: ModelIndex) -> None:
         path = relation_path(identity)
         _check_references(allowed, identity, path, index)
         _check_unique_features(allowed, path, index)
+        _check_many_to_one(model, allowed, path)
         if identity in identities:
             raise ModelReferenceError(
                 "DUPLICATE_KEY", path, f"Duplicate object-type relation {identity}"
@@ -50,6 +52,23 @@ def check_parent_relations(model: EngineModel, _index: ModelIndex) -> None:
                     f"Object type '{object_type.key}' has incompatible parent relation "
                     f"'{parent_relation}'",
                 )
+
+
+def _check_many_to_one(
+    model: EngineModel, allowed: ObjectTypeRelationDefinition, path: str
+) -> None:
+    """``many-to-one`` is schema 0.9 and optional only (0.9 K3a, D136, D137): ``required`` means the
+    ``to`` record is created with its relationship, not that every ``from`` record holds one."""
+    if allowed.cardinality != "many-to-one":
+        return
+    require_schema(model, "0.9", f"{path}/cardinality", "Cardinality 'many-to-one'")
+    if allowed.required:
+        raise ModelReferenceError(
+            "INVALID_MODEL",
+            f"{path}/required",
+            f"Object-type relation '{allowed.relationTypeKey}' cannot be required with "
+            "cardinality 'many-to-one'",
+        )
 
 
 def _identity(allowed: ObjectTypeRelationDefinition) -> tuple[str, str, str]:

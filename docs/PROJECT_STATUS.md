@@ -358,8 +358,14 @@ relationship the model allows the type, the actions its cardinality allows, the 
 the record picker, previewed and applied), on an `ensureNoRelation` batch item (removal by the two
 records, J11.10) and set replacements claiming what their preview showed (J11.11); D127–D135;
 screenshots approved by the user 2026-10-09
-([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k3-record-2026-10-09)). Next is K3a, many-to-one
-relationships (planned and approved the same day, ready to deliver), then K5, relation columns (D135), then R.
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k3-record-2026-10-09)). **K3a is delivered (2026-10-09)**:
+many-to-one relationships, a fourth cardinality in schema 0.9 (a `from` record holds one, a `to`
+record serves many), enforced on every write path and at activation, read through one rule by the
+matrix, the mapping grid and the consumer API (a single object), never `required` (D137, in TODO);
+on a record, Set while none is held and Change (one write) and Delete on the one held; D136–D139;
+screenshots await the user's approval
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k3a-record-2026-10-09)). Next is K5, relation columns
+(D135), then R.
 **C18, the consumer API definition written for readers, is delivered (2026-10-08):** schema 0.9
 writes `consumerApis` as what a definition exposes, offers, looks like and filters by, with defaults
 written out by `GET /api/v1/model/consumer-apis/{consumerApi}`; an operation not offered is

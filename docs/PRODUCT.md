@@ -53,7 +53,8 @@ can complete the task in the application; "API" means another system can.
   directions, show their totals and jump to a page, a value, the start or the end.
 - Switch between the views a collection offers: a table, a mapping grid, a relation matrix or a tree.
 - Open a record to see its fields, its place in the hierarchy, its children, its relationships and its
-  change history, and return to the list where you left it.
+  change history, and return to the list where you left it. Where a record may hold only one
+  relationship of a kind, you set it or change it rather than adding another.
 - Browse a hierarchy of any depth in the sidebar tree, and search it to find a record with its path.
 - Export what a collection page shows, with its filters, as an Excel workbook, CSV or JSON Lines; a
   notification says when the file is ready, with Download and the job's page.

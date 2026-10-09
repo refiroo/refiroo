@@ -39,13 +39,13 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/docs` a
 | `GET /model`, `GET /model/placements` | J20, J20.1, J03, J14 |
 | `GET /model/consumer-apis/{consumerApi}` (the definition expanded, C18) | J20.6 |
 | `GET /model-runtime-state` | J08 (fresh version for activation), J20.2 |
-| `POST /model-validations` | J08.1, J25.6 |
+| `POST /model-validations` | J08.1, J25.6, J11.12 |
 | `GET /applications`, `GET /applications/{key}`, `GET /attribute-types`, `GET /attribute-types/{key}`, `GET /object-types`, `GET /object-types/{key}`, `GET /relation-types`, `GET /relation-types/{key}` | J20 |
 | `GET /object-type-relations` (`fromObjectType`, `toObjectType`) | J20, J13 |
 | `GET /model-releases` (`releaseKey`, `active`), `GET /model-releases/{id}` (`includeModel`) | J08, J08.7, J20.2 |
 | `GET /model-releases/{id}/activations` | J08.8 |
-| `GET /model-releases/{id}/diff` (`againstReleaseId`) | J08.2, J25 |
-| `POST /model-releases/{id}/activation` | J08, J08.3, J08.5, J08.6, J08.10 |
+| `GET /model-releases/{id}/diff` (`againstReleaseId`) | J08.2, J25, J08.11 |
+| `POST /model-releases/{id}/activation` | J08, J08.3, J08.5, J08.6, J08.10, J08.11 |
 | `GET/POST /model-drafts`, `GET/PATCH/DELETE /model-drafts/{id}` | J08 |
 | `POST /model-drafts/{id}/compile`, `POST /model-drafts/{id}/installation` | J08, J25 |
 | `GET/POST /workspaces` (`search`, `status`) | J19, J19.3 |
@@ -88,6 +88,7 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/docs` a
 | The job's `notices` (`RECORD_IDS_OF_ANOTHER_WORKSPACE`); `OBJECT_ALREADY_EXISTS` and `REFERENCE_NOT_FOUND` naming the workspace that holds the ID (`details.workspaceKey`) (0.9 J4a) | J27.10, J27.11 |
 | `stage` (`execute`, `preview`) on `POST /batches`, refused with `run: inline`; a batch's `preview` (`coverage`, `items`, `counts`, `result`, `previewedAt`, no `rows`); `POST /jobs/{id}/confirm` and `POST /jobs/{id}/cancel` of a waiting batch preview (0.9 K2) | J11.9 |
 | The `delete` item's `cascade` and `deletionPreviewToken`; an outcome's `impact` (`objectCount`, `objectsByType`, `relationshipCount`, `retainedAssociationCount`, `deletionPreviewToken`) and `deletedWithItem`; a preview's `deletion` totals; `OBJECT_HAS_DEPENDANTS` with `details.impact`, `DELETION_PREVIEW_REQUIRED` and `DELETION_PREVIEW_CHANGED` per item; the single delete's token accepted by a batch item (0.9 K2b) | J11.6 |
+| `many-to-one` cardinality: a second relationship from a `from` record refused `CARDINALITY_VIOLATION` by `POST /relations`, an `ensureRelation` item, a `replaceRelationSet` with two targets and a change set's batch; the value refused in schema 0.8 and with `required` at validation; a release tightening a binding to it counted at `…/cardinality` by the diff and refused at activation until the data fits (0.9 K3a, D136–D138) | J11.12, J08.11 |
 | The `ensureNoRelation` item (`relationTypeKey`, `from`, `to`, optional `expectedVersion`): `deleted` with `relationId` or `unchanged` without it; `IMMUTABLE_RELATION`, `REQUIRED_RELATION`, `VERSION_CONFLICT` per item (0.9 K3, D129) | J11.10 |
 | A set replacement's `previousRelationSetVersion` and its refusals' `details.relationSetVersion`; `replaceRelationSet` without a claim in a preview; the claim carried at `POST /jobs/{id}/confirm` and `RELATION_SET_VERSION_CONFLICT` at execution for a set changed since (0.9 K3, D130) | J11.11 |
 | `otherWorkspaceIds` (`refuse`, `counterparts`) on `POST /imports` and `POST /batches`; the counterpart derivation; an outcome's `sourceId`; the `RECORD_IDS_AS_COUNTERPARTS` notice; `REFERENCE_NOT_FOUND` for a counterpart not loaded yet (0.9 J5) | J27.14, J11 |

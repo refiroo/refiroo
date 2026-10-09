@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SelectableRow } from "@/lib/recordSelection";
-import { bulkRelationChoices, type RelationActions } from "@/model/lookup";
+import { bulkRelationChoices, holdsOne, type RelationActions } from "@/model/lookup";
 import { testModel } from "@/test/fixtures";
 import type { EngineModel, ObjectTypeRelationDefinition } from "@/types";
 import { claimedByPreview, itemCount, pairRef, relationItems } from "./bulkRelations";
@@ -41,6 +41,7 @@ function expected(cardinality: Cardinality, end: "from" | "to", required: boolea
       ? { ...NONE, add: true, replace: true }
       : { add: true, remove: true, replace: true, set: false, clear: true };
   if (cardinality === "one-to-many" && end === "to") return { ...NONE, set: true, clear: true };
+  if (cardinality === "many-to-one" && end === "from") return { ...NONE, set: true, clear: true };
   return { ...NONE, remove: true, clear: true };
 }
 
@@ -51,10 +52,22 @@ const rows: SelectableRow[] = [
 const x = { id: "x", name: "Ex" };
 const y = { id: "y", name: "Why" };
 
-describe("the relationships a bulk change offers (0.9 K3, D127, D128)", () => {
+describe("the relationships a bulk change offers (0.9 K3, D127, D128; K3a)", () => {
+  it("holds one at the ends each cardinality limits (D138)", () => {
+    const at = (cardinality: Cardinality) =>
+      (["from", "to"] as const).filter((end) =>
+        holdsOne({ ...withBinding({}).objectTypeRelations.at(-1)!, cardinality }, end),
+      );
+    expect(at("one-to-one")).toEqual(["from", "to"]);
+    expect(at("one-to-many")).toEqual(["to"]);
+    expect(at("many-to-one")).toEqual(["from"]);
+    expect(at("many-to-many")).toEqual([]);
+  });
+
   it("offers each binding's actions by cardinality, end and required, for every combination", () => {
-    for (const cardinality of ["one-to-one", "one-to-many", "many-to-many"] as const)
-      for (const required of [false, true]) {
+    for (const cardinality of ["one-to-one", "one-to-many", "many-to-one", "many-to-many"] as const)
+      // A required many-to-one is refused by model validation (D137).
+      for (const required of cardinality === "many-to-one" ? [false] : [false, true]) {
         const model = withBinding({ cardinality, required });
         for (const [end, type, direction, label] of [
           ["from", "domain", "outgoing", "Cites"],

@@ -14,8 +14,13 @@
 //    representation; no translation relationship is offered anywhere.
 // 8. Keyboard only at 390px: from the bar through the record picker to Apply and Done, the result
 //    announced; a preview left with Escape reads back cancelled.
+// 9. K3a, a many-to-one relationship: the run adds one the starter does not declare, domain → system
+//    (Kept by), with a Relationships panel on the domain's record. Three domains are set to one
+//    system (Set to and Clear only); systems offer Remove and Clear only; on one domain's record the
+//    panel offers Change and Delete on the system it holds, no Add, and Set once it holds none; at
+//    1440px and 390px.
 // Axe on the dialog (form with the picker, preview, result) and a batch's job page with relationship
-// outcomes, light and dark; screenshots.
+// outcomes, light and dark, and on the record with the panel; screenshots.
 //
 // The runner adds its records and the one relationship it starts from through POST /batches, as an
 // integrator would.
@@ -23,6 +28,33 @@ import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
+
+// K3a: a many-to-one binding the starter does not declare, for this run only.
+const keptBy = "domain-kept-by-system";
+function withKeptBy(model) {
+  model.relationTypes.push({
+    key: keptBy,
+    reverseKey: "system-keeps-domain",
+    name: "Kept by",
+    reverseName: "Keeps",
+    features: { searchable: true },
+  });
+  model.objectTypeRelations.push({
+    relationTypeKey: keptBy,
+    fromObjectTypeKey: "domain",
+    toObjectTypeKey: "system",
+    cardinality: "many-to-one",
+  });
+  const domain = model.applications.find((app) => app.key === "rdm-master").details.find((d) => d.objectTypeKey === "domain");
+  domain.panels.push({
+    key: "kept-by",
+    title: "Kept by",
+    type: "relations",
+    region: "main",
+    order: 25,
+    config: { relationTypeKeys: [keptBy], direction: "outgoing", columns: ["name", "system-code"], showRelationshipColumn: false },
+  });
+}
 
 let harness;
 const checks = [];
@@ -36,7 +68,7 @@ const pad = (n) => String(n).padStart(3, "0");
 const text = async (locator) => (await locator.innerText()).replace(/\s+/g, " ").trim();
 
 try {
-  harness = await bootHarness();
+  harness = await bootHarness({ transformModel: withKeptBy });
   const { page, browser, uiUrl, api, output } = harness;
   page.on("pageerror", (error) => failures.push(error.message));
   const shot = (name) => page.screenshot({ path: resolve(output, `${name}.png`), fullPage: false });
@@ -211,7 +243,10 @@ try {
   await batch([{ op: "createRelation", relationTypeKey: represents, from: { id: listB.id }, to: { id: values[4].id } }]);
   const partly = await applied();
   expect(partly.includes("2 system values changed") && partly.includes("1 refused"), `changed set: the result says "${partly}"`);
-  const refusal = await text(dialog.getByRole("region", { name: "The system values", exact: true }));
+  const refused = dialog.getByRole("region", { name: "The system values", exact: true });
+  // The outcomes load after the result: read them once the refused record is listed.
+  await refused.getByText("K3 Value 005").first().waitFor({ timeout: 10000 }).catch(() => undefined);
+  const refusal = await text(refused);
   expect(refusal.includes("K3 Value 005") && refusal.includes("changed since it was read"), `changed set: ${refusal}`);
   await shot("k3-refused-wide");
   await dialog.getByRole("button", { name: "Preview again" }).click();
@@ -299,6 +334,70 @@ try {
   const domainOf = await related(values[6].id, represents, "incoming");
   expect(domainOf.join() === "K3 Domain", `keyboard: K3 Value 007 represents ${domainOf}`);
   checks.push(`system values at 390px, keyboard only: Space, Change relationships…, the picker (type, ↓, Enter), Preview, Escape (the preview cancelled), again to Apply and Done; announced "${ready}" and "${done}"`);
+
+  // 9. K3a: a many-to-one relationship, set on a selection and changed on one record.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const keptDomains = await batch(
+    [1, 2, 3].map((n) => create("rdm-master", "domain", `K3a Domain ${n}`, { "domain-code": `K3a-D-${n}` })),
+  );
+  await batch(["K3a System A", "K3a System B"].map((name) => create("rdm-systems", "system", name, { "system-code": code(name) })));
+  await open("/apps/rdm-master/views/domains?workspaceKey=default&search=K3a%20Domain", "Domains", "K3a Domain 1");
+  for (const n of [1, 2, 3]) await box(`K3a Domain ${n}`).click();
+  await startChange("Kept by · Systems");
+  const keptModes = await modes();
+  expect(keptModes.join("|") === "Set to|Clear", `many-to-one: the domains' modes are ${keptModes}`);
+  await pick("Set to system", "K3a System A");
+  const keptPreview = await previewed();
+  expect(keptPreview.includes("Applying would change 3 domains."), `many-to-one: the preview says ${keptPreview}`);
+  const keptResult = await applied();
+  expect(keptResult.includes("3 domains changed"), `many-to-one: the result says "${keptResult}"`);
+  await shot("k3a-set-to-wide");
+  await dialog.getByRole("button", { name: "Done" }).click();
+  for (const domain of keptDomains) {
+    const keeper = await related(domain.id, keptBy, "outgoing");
+    expect(keeper.join() === "K3a System A", `many-to-one: ${domain.name} is kept by ${keeper}`);
+  }
+  await open("/apps/rdm-systems/views/systems?workspaceKey=default&search=K3a%20System", "Systems", "K3a System A");
+  await box("K3a System A").click();
+  await startChange("Keeps · Domains");
+  const keeperModes = await modes();
+  expect(keeperModes.join("|") === "Remove|Clear", `many-to-one: the systems' modes are ${keeperModes}`);
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  checks.push("many-to-one (Kept by, domain → system): 3 domains set to K3a System A (Set to and Clear only, 3 changed); systems offer Remove and Clear only");
+
+  const keptPanel = page.locator("section.panel").filter({ has: page.getByRole("heading", { name: "Kept by", exact: true }) });
+  for (const [width, height, suffix] of [[1440, 900, "wide"], [390, 844, "narrow"]]) {
+    await page.setViewportSize({ width, height });
+    const domain = suffix === "wide" ? "K3a Domain 1" : "K3a Domain 2";
+    await open("/apps/rdm-master/views/domains?workspaceKey=default&search=K3a%20Domain", "Domains", domain);
+    await page.getByRole("row", { name: new RegExp(domain) }).getByText(domain, { exact: true }).first().click();
+    await keptPanel.getByRole("button", { name: "Change" }).waitFor({ timeout: 10000 });
+    const offered = await keptPanel.getByRole("button").allInnerTexts();
+    expect(
+      !offered.some((label) => /Add relationship|Set relationship/.test(label)),
+      `panel ${suffix}: holding one, it offers ${offered.join(", ")}`,
+    );
+    await keptPanel.getByRole("button", { name: "Change" }).click();
+    const change = page.getByRole("dialog");
+    await change.getByText("Now:").waitFor();
+    await change.getByRole("combobox", { name: "Search: Object" }).fill("K3a System B");
+    await change.getByRole("listbox", { name: "Object" }).getByRole("option", { name: /K3a System B/ }).click();
+    await shot(`k3a-panel-change-${suffix}`);
+    if (suffix === "wide") checks.push(`the Change dialog: axe ${await axe("k3a-panel-change-light")} violations`);
+    await change.getByRole("button", { name: "Change", exact: true }).click();
+    await change.waitFor({ state: "detached", timeout: 10000 });
+    await keptPanel.getByText("K3a System B", { exact: true }).waitFor({ timeout: 10000 });
+    const scroll = await overflow();
+    expect(scroll <= 0, `panel ${suffix}: the page scrolls horizontally by ${scroll}px`);
+    await shot(`k3a-panel-held-${suffix}`);
+    await keptPanel.getByRole("button", { name: "Delete" }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Delete relationship" }).click();
+    await keptPanel.getByRole("button", { name: "Set relationship" }).waitFor({ timeout: 10000 });
+    await shot(`k3a-panel-none-${suffix}`);
+    const keeper = await related(keptDomains[suffix === "wide" ? 0 : 1].id, keptBy, "outgoing");
+    expect(!keeper.length, `panel ${suffix}: after Delete the domain is kept by ${keeper}`);
+  }
+  checks.push("one domain's Kept by panel at 1440px and 390px: Change and Delete on the system it holds, no Add or Set; changed to K3a System B in one write; after Delete, Set relationship");
 
   // Axe in the dark theme: the dialog's form, preview and result, and a batch's job page.
   await page.setViewportSize({ width: 1440, height: 900 });

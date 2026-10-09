@@ -37,10 +37,9 @@ API = "/consumerApis/rdm"
 FIXTURES_08 = Path(__file__).parent / "fixtures" / "consumer_08"
 STARTER_08 = FIXTURES_08 / "rdm-starter-0.9.2.json"
 # The shipped models and their schema 0.8 originals, kept as C18 rewrote them (C-D138).
-SHIPPED = [
-    (MODEL_PATH, STARTER_08),
-    (MODEL_PATH.parent / "rdm-operators-timetables.json", FIXTURES_08 / "rdm-operators-timetables-0.8.0.json"),
-]
+# The example model left its 0.8 form in 0.9 K3a (a many-to-one binding, which 0.8 cannot say); its
+# conversion was proved equal when C18 made it.
+SHIPPED = [(MODEL_PATH, STARTER_08)]
 
 
 def definition(k: Keys) -> dict[str, Any]:
@@ -195,7 +194,7 @@ def test_definition_compiles_into_the_release_with_its_output_contract(base):
     }
 
 
-@pytest.mark.parametrize(("shipped", "original"), SHIPPED, ids=["starter", "operators"])
+@pytest.mark.parametrize(("shipped", "original"), SHIPPED, ids=["starter"])
 def test_the_shipped_models_rewritten_in_schema_0_9_are_the_same_definitions(shipped, original):
     """C18's proof of no change: each shipped model's definitions and its 0.8 original's compile to
     the same internal form, so every reader serves them alike, and each definition's OpenAPI

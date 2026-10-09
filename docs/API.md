@@ -155,8 +155,9 @@ URL paths use stable model keys. Every response body includes the entity `id` (U
 
 Relation types and object-type relations are separate resources. A **relation type** defines reusable
 forward/reverse semantics and orientation. An **object-type relation** binds one relation type to an
-allowed source and target object type and supplies cardinality, required status, attributes and
-binding features. Relation-type responses include these bindings under `allowedPairs`; the flat
+allowed source and target object type and supplies cardinality (`one-to-one`, `one-to-many`,
+`many-to-one` or `many-to-many`; [APPLICATION_MODEL](APPLICATION_MODEL.md#relation-types) says which end
+each limits), required status, attributes and binding features. Relation-type responses include these bindings under `allowedPairs`; the flat
 `object-type-relations` endpoint remains available for discovery and compatibility and can be
 filtered with `fromObjectType` and `toObjectType` query parameters.
 
@@ -3563,8 +3564,9 @@ the preview. A candidate page is `{items: [object-summary, ...], nextCursor}`.
   (`422 REQUIRED_OWNERSHIP_BINDING`). Clearing a required relation is `422 REQUIRED_RELATION`, and
   so is replacing a required relation whose other record has no other one (D36, Base 0.9 B3), with
   `details.objectId` naming that record.
-- Direction-aware cross-cardinality is enforced: one-to-one always; one-to-many on outgoing
-  direction only. Violations return `409 CARDINALITY_VIOLATION`. Ancestor-scoped uniqueness is
+- Direction-aware cross-cardinality is enforced at the target's end: one-to-one always; one-to-many
+  on the outgoing direction, many-to-one on the incoming direction (Base 0.9 K3a). Violations return
+  `409 CARDINALITY_VIOLATION`. Ancestor-scoped uniqueness is
   validated against the final graph, excluding edges being replaced. Duplicate scopes return
   `409 DUPLICATE_RELATION_SCOPE`; a missing required ancestor returns `422 RELATION_ANCESTOR_REQUIRED`
   in both mapping and generic relation writes, live or change set.

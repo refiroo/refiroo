@@ -108,8 +108,19 @@ export interface RelationItem {
   object: ObjectItem;
 }
 
+/** A relation set the listed record anchors and its version, which a claimed write names (0.9 B3). */
+export interface RelationSetVersion {
+  relationTypeKey: string;
+  fromObjectTypeKey: string;
+  toObjectTypeKey: string;
+  direction: "outgoing" | "incoming";
+  relationSetVersion: number;
+}
+
 export interface RelationPage extends PageNavigation {
   items: RelationItem[];
+  /** Live and in a change set: every set the record anchors in the listed direction and types. */
+  relationSets?: RelationSetVersion[];
 }
 
 export interface AttributeValueResponse extends ObjectAttributeValue {

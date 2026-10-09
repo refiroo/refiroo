@@ -34,7 +34,8 @@ Structures:
 - ``L1`` (root), ``L2`` under ``L1``, ``L3`` under ``L2`` or ``L3``: the restructuring ladder; ``L1``
   never contains ``L1``. ``L.only1`` and ``Ll1k`` (to ``K``) only ``L1`` has, ``Ll2k`` (to ``K``) only
   ``L2``; ``L2`` requires ``L.extra``, which ``L1`` lacks.
-- Relationships: ``B11`` R→K one-to-one, ``B1n`` R→K one-to-many, ``Bnn`` H→K many-to-many with
+- Relationships: ``B11`` R→K one-to-one, ``B1n`` R→K one-to-many, ``Bn1`` H→K many-to-one (an H
+  holds one K, a K serves many H; 0.9 K3a), ``Bnn`` H→K many-to-many with
   ``Bnn.weight`` (integer, minimum 1) and ``Bnn.note``; ``Bown`` R→D required one-to-many (D a
   dependant of R), unique per R within a ``G`` while ``D.active`` is true; ``Bscope`` R→D optional
   many-to-many with the same scope rule, and from ``R2`` to ``D`` without it; ``Hparent`` the
@@ -158,6 +159,7 @@ def _naming(variant: str) -> dict[str, str]:
         "R2.u": "entry-number",
         "Bee": "tariff-follows-tariff",
         "Vnn": "branch-token-links",
+        "Bn1": "branch-grades-token",
     }
     if variant == "a":
         return a
@@ -354,6 +356,7 @@ def generated(variant: str) -> Configuration:
         for name in (
             "B11",
             "B1n",
+            "Bn1",
             "Bnn",
             "Bown",
             "Bscope",
@@ -389,6 +392,12 @@ def generated(variant: str) -> Configuration:
             "fromObjectTypeKey": k["R"],
             "toObjectTypeKey": k["K"],
             "cardinality": "one-to-many",
+        },
+        {
+            "relationTypeKey": k["Bn1"],
+            "fromObjectTypeKey": k["H"],
+            "toObjectTypeKey": k["K"],
+            "cardinality": "many-to-one",
         },
         {
             "relationTypeKey": k["Bnn"],
