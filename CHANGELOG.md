@@ -8,6 +8,24 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 K3: changing the relationships of a selection, and relationships named by their ends
+  (D127–D135; J11.10, J11.11, J32.4). A batch item **`ensureNoRelation`** (`relationTypeKey`,
+  `from`, `to`, optional `expectedVersion`) deletes the relationship of that type joining the two
+  records as `DELETE /relations/{id}` does, with its refusals, or answers `unchanged` when there is
+  none, so a removal sent again changes nothing (D129). A `replaceRelationSet` in a preview needs no
+  `expectedRelationSetVersion`: its outcome names the version it found
+  (`previousRelationSetVersion`, also in its refusals' details), and confirming carries it into the
+  stored item, so execution refuses `RELATION_SET_VERSION_CONFLICT` only the sets changed since the
+  preview (D130). In the browser, **Change relationships…** in the selection bar offers every
+  relationship the model allows the type, in both directions, except containment and required
+  ownership (D127), with the actions its cardinality allows: Add and Remove together, Replace with,
+  Set to, Clear; never Remove or Clear on a required one (D128, D133). The other records are chosen
+  with the record picker (`ui/RecordListField`); the dialog states how many changes the selection
+  makes and explains a change over `BACKGROUND_JOB_MAX_ITEMS`, or a replacement over
+  `JOB_PREVIEW_MAX_ITEMS`, before sending (D131, D134); relationship values are not edited (D132,
+  after 1.0 in TODO). A batch's job page says relationship outcomes in a relationship's words.
+  Relation columns in collections are K5 (D135).
+
 - Base 0.9 K2b: deleting a selection, and cascading batch delete items (D120–D126; J11.6, J32.3;
   PG-D18). A `delete` item takes `cascade` and `deletionPreviewToken` as the single `DELETE` does:
   without `cascade` a record with dependants is refused `OBJECT_HAS_DEPENDANTS` with its `impact`;
@@ -98,7 +116,7 @@ All notable changes to this project are documented in this file. The format foll
   draft compile and `POST /model-validations` refuse a new schema 0.8 document that declares
   `consumerApis` (`UNSUPPORTED_SCHEMA_VERSION` at `/schemaVersion`), and startup refuses such a file
   named by `RDM_MODEL_PATH`; stored 0.8 releases read and
-  activate as stored. The starter is content release 0.9.3 and the operators and timetables example
+  activate as stored. The starter is content release 0.9.3 and the example model
   0.9.0, both on schema 0.9.
 
 - Base 0.9 J3: import preview and confirmation. `POST /api/v1/imports` takes `stage: "preview"`:
@@ -154,8 +172,8 @@ All notable changes to this project are documented in this file. The format foll
   their own. New setting `JOB_FILE_DIR` (default `var/job-files`); revision `20261007_04` adds
   `jobs.output`. The feed's `410 FEED_POSITION_EXPIRED` names the export route beside the
   publication (`details.export`).
-- Example model `rdm-operators-timetables` 0.8.0 declares events on its consumer APIs: one per
-  exposed object type (`timetable-category-changed`, `timetable-type-changed`, …), each for
+- The example model 0.8.0 declares events on its consumer APIs: one per
+  exposed object type (`<type>-changed`), each for
   created, updated and deleted, with no watch, so any change to the object's output counts. The
   contract versions stay, as adding events is compatible.
 - Webhooks › Deliveries: an event's object ID opens its record, in the webhook's workspace and the
@@ -664,9 +682,9 @@ All notable changes to this project are documented in this file. The format foll
   The reference deployment's parent has these names, and a flow reading a field from an object and
   then from its parent uses one name.
 
-- Example model `rdm-operators-timetables` 0.6.0 declares one consumer API, `rdm`, over every object
-  type of the model, so one XREF looks up any ID, code or name across master data, operators and
-  locations, the timetable catalogue, systems and translations; `type` narrows it, and `system` and
+- The example model 0.6.0 declares one consumer API, `rdm`, over every object
+  type of the model, so one XREF looks up any ID, code or name across every type, systems and
+  translations; `type` narrows it, and `system` and
   `language` resolve and translate codes (crosswalk). Lists per type. It replaces 0.5.0's four
   APIs split by audience, whose XREFs each searched only their own types.
 - Base 0.9 CN1: the consumer API's name is written `consumerApi` in public contracts, not

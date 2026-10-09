@@ -95,7 +95,7 @@ export function BulkChangeDialog({
         const chosen = readChanges(element);
         if (!Array.isArray(chosen)) return chosen;
         setChanges(chosen);
-        return (rows) => bulkItems(rows, chosen);
+        return (rows) => ({ items: bulkItems(rows, chosen) });
       }}
       sections={(editable) => (
         <section className="dialog-form-section" aria-labelledby="bulk-fields">

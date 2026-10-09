@@ -314,8 +314,8 @@ restructuring preview reports instead as problems of its plan, in its `200` answ
 ### J32 — Change many records of a collection at once
 
 **Actor:** steward. **Channel:** UI (its API side is J11 and J24). **Stories:** Track K (0.9).
-**Status:** in progress: selection delivered (0.9 K1), value changes (0.9 K2), deletion (0.9 K2b);
-relationship edits (K3) planned.
+**Status:** delivered: selection (0.9 K1), value changes (0.9 K2), deletion (0.9 K2b),
+relationship changes (0.9 K3); relation columns (K5) planned.
 
 1. In a collection whose data can be written, select records: by hand, by a range, the loaded rows,
    or every record the search, filters and scope match.
@@ -358,9 +358,21 @@ row showed; "all matching" reads its records and their versions when the change 
   any write between the preview and Apply refuses Apply whole, as for a value change. A batch's job
   page shows what deleting removes and each delete's impact.
 
-**Evidence today:** the browser runners `k1-selection`, `k2-bulk-change` and `k2b-bulk-delete`;
-`recordSelection.test`, `ObjectTable.test`, `CollectionView.test`, `SelectionBar.test`,
-`bulkChange.test`, `bulkDelete.test`, `BulkChangeDialog.test`, `BulkDeleteDialog.test`,
+- **J32.4 Change the relationships of a selection** (0.9 K3): Change relationships… offers every
+  relationship the model allows the type, in both directions, except containment and
+  required-ownership ones; by its cardinality, Add and Remove records (together), Replace with, Set
+  to one record, or Clear; a required relationship is never removed or cleared. The other records
+  are chosen with the record picker. The dialog states how many changes the selection makes and
+  explains a change over the deployment's limits (Replace with, Set to and Clear over the preview
+  limit too) before sending; the preview says how many relationships are added, removed and already
+  as asked and names each refused record; Apply refuses a record whose relationships of that kind
+  changed since the preview. The selection is kept, and Preview again repeats the change. A batch's
+  job page says each relationship outcome in words.
+
+**Evidence today:** the browser runners `k1-selection`, `k2-bulk-change`, `k2b-bulk-delete` and
+`k3-bulk-relations`; `recordSelection.test`, `ObjectTable.test`, `CollectionView.test`,
+`SelectionBar.test`, `bulkChange.test`, `bulkDelete.test`, `bulkRelations.test`,
+`BulkChangeDialog.test`, `BulkDeleteDialog.test`, `BulkRelationDialog.test`, `RecordListField.test`,
 `JobPage.test`.
 
 ## Relationship sets and coverage
@@ -851,9 +863,11 @@ queries over a job's records in live data, a change set and a publication, 0.9 T
 ### J11 — Submit a bounded bulk change
 
 **Actor:** integrator. **Channel:** API. **Stories:** US-I03. **Scenario:** SC-10 (its batch part).
-**Status:** delivered (0.9 B1; relationship items 0.9 B3; previews 0.9 K2; cascading deletes 0.9 K2b).
+**Status:** delivered (0.9 B1; relationship items 0.9 B3; previews 0.9 K2; cascading deletes 0.9 K2b;
+removal by ends and carried set claims 0.9 K3).
 
-1. Send items (create, update, upsert, delete; create, ensure, update and delete a relationship;
+1. Send items (create, update, upsert, delete; create, ensure, update and delete a relationship, or
+   ensure two records are not related;
    replace a record's relationship set) with a policy: `independent` or `atomic`.
 2. Refer to records by ID or by a unique key, including records created earlier in the batch.
 3. Read each item's outcome: applied, rejected with its single write's code, or unprocessed.
@@ -889,6 +903,16 @@ over single calls.
   for its version; a change set written meanwhile refuses the confirmation and the preview keeps
   waiting until cancelled. A preview is a background job, refused inline, and runs at most
   `JOB_PREVIEW_MAX_ITEMS` items.
+- **J11.10 Keep two records apart** (0.9 K3, D129): an `ensureNoRelation` item names a relationship
+  by its type and its two records and deletes it, with the single delete's refusals (a required or
+  containment relationship, a stale `expectedVersion` when one is sent); when the records are not
+  related it is `unchanged`, so sending it again changes nothing. Live and in a change set.
+- **J11.11 A previewed set replacement claims what it showed** (0.9 K3, D130): in a preview a
+  `replaceRelationSet` needs no `expectedRelationSetVersion`; its outcome names the set's version it
+  found (`previousRelationSetVersion`), and confirming carries that version into the item, so a set
+  changed between the preview and confirming is refused `RELATION_SET_VERSION_CONFLICT` and the
+  others apply (nothing under `atomic`). Executed without a preview, a replacement still needs a
+  claim.
 
 **Refusals:** `413 BATCH_TOO_LARGE`, `422 INVALID_BATCH_CONTEXT`, `422 IDEMPOTENCY_KEY_REUSED`,
 `409 IDEMPOTENCY_IN_PROGRESS`, `409 CHANGE_SET_REQUIRED`, `409 MODEL_RELEASE_CHANGED`; per item, the
@@ -896,7 +920,7 @@ single writes' codes.
 
 **Evidence today:** the J11 journey tests; unit tests of `engine/jobs/batches.py` and `inline.py`;
 `test_rule_parity` (batch context), `test_pg3b_batch_writes`,
-`test_batch_statements` (object and relationship items).
+`test_batch_statements` (object, relationship and `ensureNoRelation` items).
 
 ### J24 — Run a large background job and recover
 

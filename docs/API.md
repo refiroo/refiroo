@@ -1141,7 +1141,7 @@ request performs no deletion and returns `409 OBJECT_HAS_DEPENDANTS` with a stru
       "objectsToDelete": [
         {
           "id": "...",
-          "name": "Timetables",
+          "name": "Delivery methods",
           "objectTypeKey": "codelist",
           "applicationKey": "rdm-master",
           "parentObjectId": "...",
@@ -1151,7 +1151,7 @@ request performs no deletion and returns `409 OBJECT_HAS_DEPENDANTS` with a stru
       "objectsToRetire": [
         {
           "id": "...",
-          "name": "Timetables",
+          "name": "Delivery methods",
           "objectTypeKey": "codelist",
           "applicationKey": "rdm-master",
           "parentObjectId": "...",
@@ -1419,7 +1419,7 @@ version; for example, a Translation with its target can be created in a selected
   "changeSetId": "change-set-uuid",
   "expectedChangeSetVersion": 4,
   "parentObjectId": "translation-group-uuid",
-  "name": "Czech timetable type",
+  "name": "Czech delivery method",
   "attributes": [
     { "attributeTypeKey": "translated-value", "value": "Spoj" }
   ],
@@ -1844,8 +1844,8 @@ GET  /api/v1/jobs/{jobId}/items?status=…&ref=…         outcomes in item orde
   "items": [
     { "ref": "row-2", "op": "upsert", "applicationKey": "rdm-master", "objectTypeKey": "codelist",
       "key": { "attributeTypeKey": "codelist-code" },
-      "name": "Timetable types",
-      "parent": { "objectTypeKey": "domain", "key": { "attributeTypeKey": "domain-code", "value": "CONNECTIONS" } },
+      "name": "Delivery methods",
+      "parent": { "objectTypeKey": "domain", "key": { "attributeTypeKey": "domain-code", "value": "LOGISTICS" } },
       "attributes": [ { "attributeTypeKey": "codelist-code", "value": "MOT" } ] }
   ]
 }
@@ -1901,6 +1901,7 @@ batch's context as it stands when the item runs.
 | `delete` | `target`, `expectedVersion`; optional `cascade` (default `false`) and `deletionPreviewToken` | `DELETE /objects/…`: without `cascade` a record with dependants is `OBJECT_HAS_DEPENDANTS` with its `impact`; with it the record goes with its dependants under the impact its token confirms ([deleting with what depends on it](#deleting-with-what-depends-on-it-09-k2b)) |
 | `createRelation` | `relationTypeKey`, `from`, `to` (references); optional `attributes`, `expectedRelationSetVersion` with `relationSetDirection` | `POST /relations` |
 | `ensureRelation` | `relationTypeKey`, `from`, `to`; optional `attributes`, `expectedVersion` | Creates the relationship unless one of the type already joins the two records; then `unchanged` when `attributes` are omitted or equal, otherwise an update of its attributes |
+| `ensureNoRelation` | `relationTypeKey`, `from`, `to`; optional `expectedVersion` | Deletes the relationship of the type joining the two records, as `DELETE /relations/{id}` does; `unchanged` when none joins them ([relationships by their ends](#relationships-by-their-ends-09-k3)) |
 | `updateRelation` | `id`, `expectedVersion`, `attributes` | `PATCH /relations/{id}`: the attributes are replaced |
 | `deleteRelation` | `id`, `expectedVersion`; optional `expectedRelationSetVersion` with `relationSetDirection` | `DELETE /relations/{id}` |
 | `replaceRelationSet` | `relationTypeKey`, `fromObjectTypeKey`, `toObjectTypeKey`, `direction`, `anchor` (reference), `targets` (each `{ "object": reference, "attributes"?: {…} }`, possibly empty); optional `expectedRelationSetVersion` | The anchor's set of that binding in that direction becomes the targets, as `PUT /mappings` replaces one |
@@ -1976,8 +1977,10 @@ An outcome carries only its status's fields. `applied`: `action` (`created`, `up
 `unchanged`, `deleted`), `id`, `objectTypeKey`, `version` (none after a live delete), after an
 overwrite `previousVersion` and, when the record written is a counterpart, `sourceId` (0.9 J5). A relationship item's has `relationId`, the relationship's `version`
 (none after a delete) and, when it claimed a set, the set's new `relationSetVersion`. A
-`replaceRelationSet`'s has `action` `updated` or `unchanged`, the anchor's `relationSetVersion` and
-`relationIds` (`created`, `kept`, `removed`). `rejected`: `error` with the single write's code, or one of
+`replaceRelationSet`'s has `action` `updated` or `unchanged`, the anchor's `relationSetVersion`, the
+version it found (`previousRelationSetVersion`, 0.9 K3) and `relationIds` (`created`, `kept`,
+`removed`); its refusals name that version too (`details.relationSetVersion`). An `ensureNoRelation`
+that found no relationship is `unchanged` without `relationId`. `rejected`: `error` with the single write's code, or one of
 `INVALID_RECORD_KEY`, `MISSING_RECORD_KEY`, `REFERENCE_NOT_FOUND`, `REFERENCE_TYPE_MISMATCH` and
 `VERSION_REQUIRED`; `details.pointer` is a JSON pointer into the request. A `REFERENCE_NOT_FOUND`
 whose ID is a record of another workspace says so: the message names what the reference is for (the
@@ -2079,6 +2082,26 @@ together as set statements (D123): their statements do not grow with the number 
 size or depth of their impacts. The deletions are audited per record and relationship with the job
 as cause (live: in the feed, each record's relationships before its records; in a change set, a
 `change-set-object` `deleted` entry per record, as its creates and updates have).
+
+### Relationships by their ends (0.9 K3)
+
+**`ensureNoRelation`** removes a relationship named by its type and its two records, so a client
+removing many need not read each relationship's ID and version first, and sending the item again
+answers `unchanged` (D129). When a relationship of that type joins `from` to `to`, it is deleted with
+the single delete's rules, audit and feed entries and codes: `IMMUTABLE_RELATION` for a containment,
+`REQUIRED_RELATION` for a required binding, and `VERSION_CONFLICT` when `expectedVersion` is sent and
+stale (without it the relationship found is removed whatever its version). An item whose ends' types
+the binding does not allow is `INVALID_RELATION_PAIR`. Its outcome is `deleted` with `relationId`,
+or `unchanged` when the records are not related.
+
+**A previewed set replacement claims what it showed** (D130). In a preview a `replaceRelationSet`
+needs no `expectedRelationSetVersion`: it runs as if it claimed the set's version as found, and its
+outcome or refusal names that version (`previousRelationSetVersion`, or `details.relationSetVersion`).
+`POST /jobs/{jobId}/confirm` puts that version into each stored replacement that had no claim, in the
+same step that carries delete tokens, so execution refuses `RELATION_SET_VERSION_CONFLICT` exactly the
+sets changed since the preview and applies the rest (nothing under `atomic`). A `sample` preview's
+unpreviewed replacements have no claim and are refused `VERSION_REQUIRED`; the UI therefore never
+sends a replacement larger than one preview (D131). Without a preview the claim rules are as before.
 
 ## Exports (Base 0.9 J1)
 
@@ -3342,7 +3365,7 @@ the pull feed's item, with the object as get by ID answers it under the subscrip
   "events": [{
     "eventId": "…", "position": 184223, "occurredAt": "2026-10-06T10:14:03.512000+00:00",
     "event": "reference-data-changed", "change": "updated", "contractVersion": 1,
-    "objectType": "TimetableType", "id": "…", "code": "…", "name": "…",
+    "objectType": "MasterValue", "id": "…", "code": "…", "name": "…",
     "changed": ["systemVariants"], "cause": { "kind": "publication", "id": "…" },
     "stateAt": 184230, "object": { … }
   }]
@@ -3358,7 +3381,7 @@ of them (`application/cloudevents-batch+json; charset=utf-8`), also when a batch
 {
   "specversion": "1.0", "id": "<eventId>",
   "source": "/api/consumer/rdm/v1/events?workspace=main",
-  "type": "rdm.reference-data-changed.updated", "subject": "TimetableType/<id>",
+  "type": "rdm.reference-data-changed.updated", "subject": "MasterValue/<id>",
   "time": "<occurredAt>", "datacontenttype": "application/json",
   "rdmsubscription": "<subscriptionId>",
   "data": { "eventId": "…", "position": 184223, "event": "reference-data-changed", "…": "…" }

@@ -1,9 +1,10 @@
 /**
  * What a batch's job shows (0.9 K2, J32.2, J11.9): its preview while it waits (what applying would
  * do), its result once applied, and its items' outcomes, paged and filtered by status. The bulk
- * dialogs and the job page show the same sections (D115); the caller names the items ("timetable
- * types", or "items" for any batch) and may link an outcome to its record. A batch that deletes
- * shows what its delete items remove with them, in total and per item (0.9 K2b, D121).
+ * dialogs and the job page show the same sections (D115); the caller names the items ("master
+ * values", or "items" for any batch) and may link an outcome to its record. A batch that deletes
+ * shows what its delete items remove with them, in total and per item (0.9 K2b, D121); a
+ * relationship item's outcome is said in a relationship's words (0.9 K3).
  */
 
 import { useState, type ReactNode } from "react";
@@ -37,14 +38,32 @@ export const previewing = (job: Job) => !job.confirmedAt;
 export const onlyDeletes = ({ created, updated, deleted }: { created: number; updated: number; deleted: number }) =>
   deleted > 0 && created + updated === 0;
 
-/** What applying the previewed batch would do (D112). */
-export function BatchPreviewSection({ job, noun = ITEMS }: { job: Job; noun?: Noun }) {
+/**
+ * Whether a batch deletes records, so it is said in a delete's words. A preview knows it from what
+ * its delete items remove (D121), so a batch removing relationships is not called a delete (0.9 K3);
+ * a batch run without a preview is judged by its counts.
+ */
+export const deletesRecords = (job: Job) => (job.preview ? Boolean(job.preview.deletion) : onlyDeletes(job.counts));
+
+/**
+ * What applying the previewed batch would do (D112). With `relationships` its items add and remove
+ * relationships, so they are counted in those words (0.9 K3).
+ */
+export function BatchPreviewSection({
+  job,
+  noun = ITEMS,
+  relationships = false,
+}: {
+  job: Job;
+  noun?: Noun;
+  relationships?: boolean;
+}) {
   const preview = job.preview;
   if (!preview) return null;
   const { created, updated, unchanged, deleted, rejected } = preview.counts;
   const changed = created + updated + deleted;
   const atomic = job.parameters.policy === "atomic";
-  const deletes = onlyDeletes(preview.counts) || Boolean(preview.deletion);
+  const deletes = deletesRecords(job);
   const verb = deletes ? "delete" : "change";
   const left = deletes ? `, and ${count(unchanged)} go with them` : ` and leave ${count(unchanged)} as they are`;
   const outcome =
@@ -62,10 +81,10 @@ export function BatchPreviewSection({ job, noun = ITEMS }: { job: Job; noun?: No
         { term: "Would be refused", value: count(rejected) },
       ]
     : [
-        ...(created ? [{ term: "Would be created", value: count(created) }] : []),
+        ...(created ? [{ term: relationships ? "Would be added" : "Would be created", value: count(created) }] : []),
         { term: "Would change", value: count(updated) },
         { term: "Already as asked", value: count(unchanged) },
-        ...(deleted ? [{ term: "Would be deleted", value: count(deleted) }] : []),
+        ...(deleted ? [{ term: relationships ? "Would be removed" : "Would be deleted", value: count(deleted) }] : []),
         { term: "Would be refused", value: count(rejected) },
       ];
   return (
@@ -157,7 +176,7 @@ export function BatchResultSection({ job, noun = ITEMS }: { job: Job; noun?: Nou
   if (job.state !== "completed" && job.state !== "failed" && job.state !== "cancelled") return null;
   const { applied, rejected, unprocessed, created, updated, unchanged, deleted } = job.counts;
   const changed = created + updated + deleted;
-  const deletes = onlyDeletes(job.counts) || Boolean(job.preview?.deletion);
+  const deletes = deletesRecords(job);
   const [done, same] = deletes ? ["deleted", "went with them"] : ["changed", "already as asked"];
   return (
     <Section title="The result">
@@ -220,9 +239,38 @@ const ACTIONS: Record<NonNullable<JobItemOutcome["action"]>, [string, string]> =
   deleted: ["Would be deleted", "Deleted"],
 };
 
+/**
+ * A relationship item's outcome in words (0.9 K3): added, removed, already related or not related,
+ * and for a set replaced what it added and removed; `undefined` for a record's outcome.
+ */
+function relationDetail(outcome: JobItemOutcome, preview: boolean): string | undefined {
+  if (outcome.relationIds) {
+    if (outcome.action !== "updated") return "Already as asked";
+    const added = outcome.relationIds.created.length;
+    const removed = outcome.relationIds.removed.length;
+    const parts = [
+      ...(added ? [`${preview ? "add" : "added"} ${count(added)}`] : []),
+      ...(removed ? [`${preview ? "remove" : "removed"} ${count(removed)}`] : []),
+    ];
+    const said = parts.length ? parts.join(", ") : preview ? "change values" : "changed values";
+    return `${preview ? "Would " : ""}${said}`.replace(/^./, (first) => first.toUpperCase());
+  }
+  if (outcome.relationId === undefined)
+    return outcome.id === undefined && outcome.action === "unchanged" ? "Not related" : undefined;
+  const words: Record<NonNullable<JobItemOutcome["action"]>, [string, string]> = {
+    created: ["Would be added", "Added"],
+    updated: ["Would change", "Changed"],
+    unchanged: ["Already related", "Already related"],
+    deleted: ["Would be removed", "Removed"],
+  };
+  return outcome.action ? words[outcome.action][preview ? 0 : 1] : undefined;
+}
+
 function detail(outcome: JobItemOutcome, preview: boolean): string {
   if (outcome.error) return outcome.error.message;
   if (outcome.reason) return REASONS[outcome.reason] ?? outcome.reason;
+  const related = relationDetail(outcome, preview);
+  if (related) return related;
   if (outcome.deletedWithItem !== undefined)
     return `${preview ? "Would go" : "Went"} with item ${count(outcome.deletedWithItem + 1)}`;
   const action = outcome.action ? ACTIONS[outcome.action][preview ? 0 : 1] : "";

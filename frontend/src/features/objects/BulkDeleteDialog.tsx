@@ -83,7 +83,7 @@ export function BulkDeleteDialog({
       policyLabel="Records that cannot be deleted"
       applyingHint="Nothing is deleted yet: the preview shows everything deleting removes, then you delete it."
       nothing="Nothing to delete"
-      prepare={() => deleteItems}
+      prepare={() => (rows) => ({ items: deleteItems(rows) })}
       sections={() => (
         <section className="dialog-form-section" aria-labelledby="bulk-deleting">
           <h3 id="bulk-deleting">What is deleted</h3>

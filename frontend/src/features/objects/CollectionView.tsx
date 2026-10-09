@@ -24,6 +24,7 @@ import { useRecordSelection } from "@/lib/hooks/useRecordSelection";
 import { SelectionBar, selectionText } from "@/features/objects/SelectionBar";
 import { BulkChangeDialog } from "@/features/objects/BulkChangeDialog";
 import { BulkDeleteDialog } from "@/features/objects/BulkDeleteDialog";
+import { BulkRelationDialog, hasBulkRelations } from "@/features/objects/BulkRelationDialog";
 import { readMatching } from "@/lib/readMatching";
 import type { ObjectItem, TableViewDefinition } from "@/types";
 import type { ViewComponentProps } from "./views/types";
@@ -80,7 +81,7 @@ export function ObjectCollectionView({
       };
   const [creating, setCreating] = useState(false);
   // The bulk action open over the selection (0.9 K2, K2b).
-  const [bulkAction, setBulkAction] = useState<"change" | "delete">();
+  const [bulkAction, setBulkAction] = useState<BulkActionKind>();
   const root = useRef<HTMLDivElement>(null);
   const previousSelection = useRef(selectedId);
   const focusedRow = useRef<string | undefined>(undefined);
@@ -297,6 +298,11 @@ export function ObjectCollectionView({
                   <button type="button" className="secondary" onClick={() => setBulkAction("change")}>
                     Change values…
                   </button>
+                  {hasBulkRelations(model, objectType) && (
+                    <button type="button" className="secondary" onClick={() => setBulkAction("relations")}>
+                      Change relationships…
+                    </button>
+                  )}
                   <button type="button" className="secondary" onClick={() => setBulkAction("delete")}>
                     Delete…
                   </button>
@@ -391,6 +397,7 @@ export function ObjectCollectionView({
             selection.dropDeleted(deleted);
             onChanged?.();
           }}
+          onRelated={() => onChanged?.()}
           onOpenRecord={(id) =>
             onOpen({ id, objectTypeKey: objectType.key, applicationKey: application.key, workspaceKey })
           }
@@ -415,18 +422,19 @@ export function ObjectCollectionView({
   );
 }
 
+type BulkActionKind = "change" | "relations" | "delete";
+
 /** The bulk dialog open over the selection: its props are shared, its action is its own. */
 function BulkAction({
   action,
   onApplied,
   onDeleted,
+  onRelated,
   ...shared
-}: { action: "change" | "delete" } & Omit<Parameters<typeof BulkChangeDialog>[0], "onApplied"> &
+}: { action: BulkActionKind; onRelated: () => void } & Omit<Parameters<typeof BulkChangeDialog>[0], "onApplied"> &
   Pick<Parameters<typeof BulkChangeDialog>[0], "onApplied"> &
   Pick<Parameters<typeof BulkDeleteDialog>[0], "onDeleted">) {
-  return action === "change" ? (
-    <BulkChangeDialog {...shared} onApplied={onApplied} />
-  ) : (
-    <BulkDeleteDialog {...shared} onDeleted={onDeleted} />
-  );
+  if (action === "change") return <BulkChangeDialog {...shared} onApplied={onApplied} />;
+  if (action === "relations") return <BulkRelationDialog {...shared} onApplied={onRelated} />;
+  return <BulkDeleteDialog {...shared} onDeleted={onDeleted} />;
 }

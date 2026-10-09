@@ -352,12 +352,19 @@ applied exactly as previewed, a record changed meanwhile refused), on cascading 
 (J11.6) and one set-based deletion path for the single delete and a batch, live and in a change set
 (PG-D18 closed); D120–D126; the deletion timing on the full-size fixture (D124) deferred by the user
 to R; screenshots approved by the user
-([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k2b-record-2026-10-09)). Next is K3.
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k2b-record-2026-10-09)). **K3 is delivered (2026-10-09)**:
+changing the relationships of a selection from the collection (Change relationships…: every
+relationship the model allows the type, the actions its cardinality allows, the other records from
+the record picker, previewed and applied), on an `ensureNoRelation` batch item (removal by the two
+records, J11.10) and set replacements claiming what their preview showed (J11.11); D127–D135;
+screenshots await the user's approval
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k3-record-2026-10-09)). Next is K3a, many-to-one
+relationships (planned the same day), then K5, relation columns (D135), then R.
 **C18, the consumer API definition written for readers, is delivered (2026-10-08):** schema 0.9
 writes `consumerApis` as what a definition exposes, offers, looks like and filters by, with defaults
 written out by `GET /api/v1/model/consumer-apis/{consumerApi}`; an operation not offered is
 `404 OPERATION_NOT_OFFERED`; a new 0.8 document with `consumerApis` is refused, stored 0.8 releases
-read as before; the starter is 0.9.3 and the operators model 0.9.0 on schema 0.9, active on the
+read as before; the starter is 0.9.3 and the example model 0.9.0 on schema 0.9, active on the
 development instance, and every converted definition compiles to the same internal form as before
 (C-D132–C-D141; [record](BASE_0_9_IMPLEMENTATION_PLAN.md#c18-record-2026-10-08)).
 

@@ -9,7 +9,9 @@
  * (D118).
  *
  * The action gives its form's sections, reads them into the items it sends for the records, and may
- * add to the preview and name its Apply button; `BulkChangeDialog` and `BulkDeleteDialog` are the two.
+ * add to the preview and name its Apply button; `BulkChangeDialog`, `BulkDeleteDialog` and
+ * `BulkRelationDialog` are the three. An action may send several items for one record (0.9 K3); it
+ * names the record each item is for, so a refused item still opens its record.
  */
 
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
@@ -19,7 +21,7 @@ import {
   BatchItemsSection,
   BatchPreviewSection,
   BatchResultSection,
-  onlyDeletes,
+  deletesRecords,
   type Noun,
 } from "@/features/jobs/BatchOutcome";
 import { useJobNotifications } from "@/features/jobs/JobNotifications";
@@ -49,12 +51,18 @@ export interface Problem {
   again?: boolean;
 }
 
-/** The items an action sends for the records it is previewed for. */
-export type ItemsFor = (rows: readonly SelectableRow[]) => BatchRequest["items"];
+/**
+ * The items an action sends for the records it is previewed for, and the record each item is for,
+ * by its index in `rows`; without `rowOf`, item i is for record i.
+ */
+export type ItemsFor = (rows: readonly SelectableRow[]) => { items: BatchRequest["items"]; rowOf?: readonly number[] };
 
 export function BulkJobDialog({
   title,
   noun,
+  itemNoun = noun,
+  itemCount,
+  relationshipItems = false,
   target,
   selection,
   selected,
@@ -75,6 +83,12 @@ export function BulkJobDialog({
 }: {
   title: string;
   noun: Noun;
+  /** How the items are called where they differ from the records, such as relationships (0.9 K3). */
+  itemNoun?: Noun;
+  /** How many items the form's change makes, where that differs from the records (D134). */
+  itemCount?: number;
+  /** Whether the items add and remove relationships, counted in those words (0.9 K3). */
+  relationshipItems?: boolean;
   /** What the action applies to, as `targetText` words it. */
   target: string;
   selection: RecordSelection;
@@ -111,6 +125,7 @@ export function BulkJobDialog({
   const [step, setStep] = useState<Step>("form");
   const [progress, setProgress] = useState<{ read: number; total?: number }>();
   const [rows, setRows] = useState<SelectableRow[]>([]);
+  const [rowOf, setRowOf] = useState<readonly number[]>();
   const [itemsFor, setItemsFor] = useState<ItemsFor>();
   const [job, setJob] = useState<Job>();
   const [problem, setProblem] = useState<Problem>();
@@ -130,7 +145,8 @@ export function BulkJobDialog({
   }, [onForm]);
 
   const atomicLimit = capabilities?.integrationJobs.limits.atomicJobMaxItems;
-  const atomicRefused = atomicLimit !== undefined && selected > atomicLimit;
+  const size = itemCount ?? selected;
+  const atomicRefused = atomicLimit !== undefined && size > atomicLimit;
 
   /** After the job: the collection reads its rows again, and the action takes the applied outcomes. */
   async function finished(ended: Job) {
@@ -198,6 +214,7 @@ export function BulkJobDialog({
       return;
     }
     setStep("sending");
+    const built = build(sent);
     try {
       // The change set's version as it is now: the preview claims it, and confirming checks it.
       const current = changeSet && refresh ? await refresh() : undefined;
@@ -207,11 +224,12 @@ export function BulkJobDialog({
           policy,
           run: "background",
           stage: "preview",
-          items: build(sent),
+          items: built.items,
         },
         newIdempotencyKey(),
       );
       setRows(sent);
+      setRowOf(built.rowOf);
       setActedOn(target);
       setJob(started);
       setStep("previewing");
@@ -299,18 +317,24 @@ export function BulkJobDialog({
     onClose();
   }
 
+  /** The selected record an item is for. */
+  const rowFor = (outcome: JobItemOutcome) => rows[rowOf ? (rowOf[outcome.index] ?? -1) : outcome.index];
+
   function open(outcome: JobItemOutcome) {
-    const row = rows[outcome.index];
+    const row = rowFor(outcome);
     if (!row) return;
     close();
     onOpenRecord(row.id);
   }
 
   const label = (outcome: JobItemOutcome) => {
-    const name = outcome.ref ?? rows[outcome.index]?.name ?? `Item ${outcome.index + 1}`;
-    // A record a delete removed has nothing left to open once the action applied.
-    const gone = outcome.action === "deleted" || (outcome.deletedWithItem !== undefined && step === "result");
-    if (!rows[outcome.index] || gone) return name;
+    const name = outcome.ref ?? rowFor(outcome)?.name ?? `Item ${outcome.index + 1}`;
+    // A record a delete removed has nothing left to open once the action applied; a removed
+    // relationship leaves its record.
+    const gone =
+      (outcome.action === "deleted" && outcome.relationId === undefined) ||
+      (outcome.deletedWithItem !== undefined && step === "result");
+    if (!rowFor(outcome) || gone) return name;
     return (
       <button type="button" className="link-button" onClick={() => open(outcome)}>
         {name}
@@ -331,8 +355,7 @@ export function BulkJobDialog({
   );
   const busy = step === "sending" || step === "applying";
   // Said by the status region as the action moves on, so a screen reader hears each step.
-  const [would, did] =
-    job && onlyDeletes(job.preview?.counts ?? job.counts) ? ["be deleted", "deleted"] : ["change", "changed"];
+  const [would, did] = job && deletesRecords(job) ? ["be deleted", "deleted"] : ["change", "changed"];
   const announcement =
     step === "reading"
       ? `Reading the ${noun[1]}`
@@ -367,7 +390,9 @@ export function BulkJobDialog({
               label={policyLabel}
               help={
                 atomicRefused
-                  ? `All or nothing holds at most ${count(atomicLimit!)} records on this deployment (ATOMIC_JOB_MAX_ITEMS), and ${count(selected)} are selected.`
+                  ? itemCount === undefined
+                    ? `All or nothing holds at most ${count(atomicLimit!)} records on this deployment (ATOMIC_JOB_MAX_ITEMS), and ${count(selected)} are selected.`
+                    : `All or nothing holds at most ${count(atomicLimit!)} changes on this deployment (ATOMIC_JOB_MAX_ITEMS), and this one makes ${count(size)}.`
                   : undefined
               }
               group
@@ -434,15 +459,15 @@ export function BulkJobDialog({
               />
               <span>
                 {step === "previewing" ? "Previewing" : "Applying"}: {count(job.progress.processed)}
-                {job.progress.total !== null && ` of ${count(job.progress.total)}`} {noun[1]}
+                {job.progress.total !== null && ` of ${count(job.progress.total)}`} {itemNoun[1]}
               </span>
             </div>
           )}
           {job && step === "preview" && (
             <>
-              <BatchPreviewSection job={job} noun={noun} />
+              <BatchPreviewSection job={job} noun={itemNoun} relationships={relationshipItems} />
               {previewExtra?.(job)}
-              <BatchItemsSection key="preview" job={job} label={label} noun={noun} />
+              <BatchItemsSection key="preview" job={job} label={label} noun={itemNoun} />
             </>
           )}
           {job && step === "result" && (
@@ -453,13 +478,13 @@ export function BulkJobDialog({
                 </Notice>
               )}
               {job.confirmedAt || job.parameters.stage !== "preview" ? (
-                <BatchResultSection job={job} noun={noun} />
+                <BatchResultSection job={job} noun={itemNoun} />
               ) : (
                 <Notice tone="info" title="Nothing was applied">
                   The preview ended before it was applied.
                 </Notice>
               )}
-              <BatchItemsSection key="result" job={job} label={label} noun={noun} />
+              <BatchItemsSection key="result" job={job} label={label} noun={itemNoun} />
             </>
           )}
           {problem && (
@@ -517,7 +542,7 @@ export function BulkJobDialog({
   );
 }
 
-/** What the action applies to: "12 timetable types", "All 2,345 matching timetable types except 3". */
+/** What the action applies to: "12 master values", "All 2,345 matching master values except 3". */
 export function targetText(selection: RecordSelection, selected: number, [one, many]: Noun): string {
   if (selection.mode === "ids") return `${count(selected)} ${selected === 1 ? one : many}`;
   const except = selection.except.size ? ` except ${count(selection.except.size)}` : "";

@@ -29,9 +29,9 @@ const records = (value: number) => `${count(value)} ${value === 1 ? "record" : "
 export interface DeletionWords {
   /** Everything the delete removes: the selected records and those going with them (D126). */
   total: number;
-  /** "Deletes 12 selected timetable types". */
+  /** "Deletes 12 selected master values". */
   selected: string;
-  /** "and 340 records inside or owned by them: 300 timetables, 40 codes", or none. */
+  /** "and 340 records inside or owned by them: 300 values, 40 translations", or none. */
   withThem?: string;
   /** "Removes 52 relationships; 18 of them link to records that stay." */
   relationships: string;

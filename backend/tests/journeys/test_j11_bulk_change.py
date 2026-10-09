@@ -898,3 +898,166 @@ def test_a_cascading_delete_in_a_change_set_and_without_a_preview(world):
     assert confirmed["items"][0]["impact"]["objectCount"] == 4
     for structure, record in (("R", owner), ("R2", children[1]), ("D", owned)):
         refused(world.read(structure, record["id"]), 404, "OBJECT_NOT_FOUND")
+
+
+# --- J11.10, J11.11: relationships of many records changed by their ends (0.9 K3) ---------------
+
+
+def _apart(world, source, target, structure="Bnn", **extra):
+    """An ``ensureNoRelation`` item between records named by ID (D129)."""
+    return {
+        "op": "ensureNoRelation",
+        "relationTypeKey": world.key(structure),
+        "from": {"id": source},
+        "to": {"id": target},
+        **extra,
+    }
+
+
+def _replaced(world, anchor, targets, **extra):
+    """A ``replaceRelationSet`` item of ``anchor``'s outgoing ``Bnn`` set, without a claim."""
+    return {
+        "op": "replaceRelationSet",
+        "relationTypeKey": world.key("Bnn"),
+        "fromObjectTypeKey": world.key("H"),
+        "toObjectTypeKey": world.key("K"),
+        "direction": "outgoing",
+        "anchor": {"id": anchor},
+        "targets": [{"object": {"id": target}} for target in targets],
+        **extra,
+    }
+
+
+@pytest.mark.journey("J11.10")
+@pytest.mark.structures("H", "K", "Bnn", "N", "Breq", "Hparent")
+def test_two_records_kept_apart_by_their_ends(world):
+    """Given H records a related to K record x, b not, c related to x, an N record needing a, and a
+    child of h1. When a batch keeps a and x apart, b and x, a and its notice, h1 and its child, and
+    c and x claiming a stale relationship version. Then a–x is deleted with its relationship's ID
+    and audited with the job as cause, b–x is unchanged, the required relationship, the
+    containment and the stale version are refused with the single delete's codes. Sent again, a–x
+    and b–x are both unchanged. In a change set c–x is removed there and stays live."""
+    a, b, c = (world.made("H", f"Apart {n}") for n in "ABC")
+    x = world.ids["k01"]
+    ax = ok(world.relate("Bnn", a["id"], x), 201)
+    cx = ok(world.relate("Bnn", c["id"], x), 201)
+    notice = world.made("N", "Needed by A", relations=[world.owner("Breq", a["id"])])
+    child = world.made("H", "Held child", parent=world.ids["h1"])
+
+    items = [
+        _apart(world, a["id"], x),
+        _apart(world, b["id"], x),
+        _apart(world, a["id"], notice["id"], "Breq"),
+        _apart(world, world.ids["h1"], child["id"], "Hparent"),
+        _apart(world, c["id"], x, expectedVersion=cx["version"] + 1),
+    ]
+    result = ok(_batch(world, items))
+    assert _outcomes(result) == [
+        ("applied", "deleted"),
+        ("applied", "unchanged"),
+        ("rejected", "REQUIRED_RELATION"),
+        ("rejected", "IMMUTABLE_RELATION"),
+        ("rejected", "VERSION_CONFLICT"),
+    ]
+    assert result["items"][0]["relationId"] == ax["id"]
+    assert "relationId" not in result["items"][1]
+    assert set(_bnn(world, a["id"])[0]) == set()
+    history = ok(world.api.get(f"/objects/{world.key('H')}/{a['id']}/history"))["items"]
+    assert {"kind": "job", "id": result["job"]["id"]} in [item.get("cause") for item in history]
+
+    again = ok(_batch(world, items[:2]))
+    assert _outcomes(again) == [("applied", "unchanged"), ("applied", "unchanged")]
+
+    cs = world.change_set()
+    staged = ok(
+        _batch(
+            world,
+            [_apart(world, c["id"], x)],
+            context={"changeSetId": cs["id"]},
+            expectedChangeSetVersion=cs["version"],
+        )
+    )
+    assert _outcomes(staged) == [("applied", "deleted")]
+    assert set(_bnn(world, c["id"], changeSetId=cs["id"])[0]) == set()
+    assert set(_bnn(world, c["id"])[0]) == {x}
+
+
+@pytest.mark.journey("J11.11", "J11.9")
+@pytest.mark.structures("H", "K", "Bnn")
+def test_a_previewed_set_replacement_claims_what_it_showed(world):
+    """Given H records h1 related to k1, h2 to k2 and h3 to both. When a background preview makes
+    each set k1 and k2 without a claim. Then h1 and h2 would be updated and h3 is unchanged, each
+    with the set's version it found, and nothing is written. When h2's set changes before
+    confirming. Then h2 is refused for its set's version and the others apply. Under atomic, such a
+    change writes nothing. Executed without a preview or a claim, a replacement still needs one."""
+    k1, k2, k3 = (world.ids[f"k0{n}"] for n in (1, 2, 3))
+
+    def anchors(label):
+        h1, h2, h3 = (world.made("H", f"{label} {n}")["id"] for n in (1, 2, 3))
+        for source, target in ((h1, k1), (h2, k2), (h3, k1), (h3, k2)):
+            ok(world.relate("Bnn", source, target), 201)
+        return h1, h2, h3
+
+    h1, h2, h3 = anchors("Claimed")
+    found = {h: _bnn(world, h)[1][world.key("Bnn")] for h in (h1, h2, h3)}
+    items = [_replaced(world, h, (k1, k2), ref=f"set {n}") for n, h in enumerate((h1, h2, h3))]
+    job = _previewed(world, items)
+    assert _items(world, job) == [
+        ("applied", "updated"),
+        ("applied", "updated"),
+        ("applied", "unchanged"),
+    ]
+    outcomes = ok(world.api.get(f"/jobs/{job['id']}/items"))["items"]
+    assert [o["previousRelationSetVersion"] for o in outcomes] == [found[h] for h in (h1, h2, h3)]
+    assert set(_bnn(world, h1)[0]) == {k1}
+
+    ok(world.relate("Bnn", h2, k3), 201)
+    ok(world.api.post(f"/jobs/{job['id']}/confirm", None), 202)
+    _run(world)
+    done = _job(world, job)
+    assert done["result"] == "partial", done["error"]
+    assert _items(world, done) == [
+        ("applied", "updated"),
+        ("rejected", "RELATION_SET_VERSION_CONFLICT"),
+        ("applied", "unchanged"),
+    ]
+    assert set(_bnn(world, h1)[0]) == {k1, k2}
+    assert set(_bnn(world, h2)[0]) == {k2, k3}
+
+    a1, a2, a3 = anchors("Atomic")
+    job = _previewed(world, [_replaced(world, h, (k1, k2)) for h in (a1, a2, a3)], policy="atomic")
+    ok(world.relate("Bnn", a2, k3), 201)
+    ok(world.api.post(f"/jobs/{job['id']}/confirm", None), 202)
+    _run(world)
+    assert _job(world, job)["result"] == "rejected"
+    assert set(_bnn(world, a1)[0]) == {k1}
+
+    executed = ok(_batch(world, [_replaced(world, a1, (k1, k2))]))
+    assert _outcomes(executed) == [("rejected", "VERSION_REQUIRED")]
+
+
+@pytest.mark.journey("J11.10", "J11.9")
+@pytest.mark.structures("H", "K", "Bnn")
+def test_relationships_added_and_removed_together_and_sent_again(world):
+    """Given H records h1 and h2 each related to k2. When a preview relates both to k1 and keeps
+    both apart from k2, and is confirmed. Then two relationships are created and two deleted. Sent
+    again, every item is unchanged."""
+    k1, k2 = world.ids["k01"], world.ids["k02"]
+    hs = [world.made("H", f"Swapped {n}")["id"] for n in (1, 2)]
+    for h in hs:
+        ok(world.relate("Bnn", h, k2), 201)
+    items = [
+        item
+        for h in hs
+        for item in (_relation(world, "ensureRelation", h, k1), _apart(world, h, k2))
+    ]
+    job = _previewed(world, items)
+    counts = job["preview"]["counts"]
+    assert (counts["created"], counts["deleted"], counts["rejected"]) == (2, 2, 0)
+    ok(world.api.post(f"/jobs/{job['id']}/confirm", None), 202)
+    _run(world)
+    assert _job(world, job)["result"] == "applied"
+    assert all(set(_bnn(world, h)[0]) == {k1} for h in hs)
+
+    again = ok(_batch(world, items))
+    assert _outcomes(again) == [("applied", "unchanged")] * 4

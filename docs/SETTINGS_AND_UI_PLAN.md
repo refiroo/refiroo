@@ -152,7 +152,7 @@ individual screens:
 [ADR-023](DECISIONS.md#adr-023--build-rdm-ui-components-on-react-aria-behavior) stays: React Aria behind `ui/` wrappers, and RDM owns every style through
 tokens (no pre-styled design system). The fixup works within it:
 
-1. **Three token layers.** Primitive scales (neutral, operator and status hues, 50–900) feed semantic
+1. **Three token layers.** Primitive scales (neutral, brand and status hues, 50–900) feed semantic
    roles (`surface.app`, `surface.nav`, `surface.raised`, `surface.sunken`, `text.primary`,
    `text.secondary`, `border.subtle`, `border.strong`, `action.primary`, `state.selected`,
    `status.{draft, live, published, conflict, error, warning, success}`, `context.{live,
@@ -161,7 +161,7 @@ tokens (no pre-styled design system). The fixup works within it:
 2. **Distinct regions.** The rail sits on its own toned surface, the content on the canvas, and
    panels and the record inspector are raised (border and shadow). The header carries the
    workspace and data context.
-3. **Colour carries meaning.** The operator accent is used only for the primary action and the current
+3. **Colour carries meaning.** The brand accent is used only for the primary action and the current
    location. Selection has its own tint. Status hues appear only for states. The data context gets
    a persistent coloured bar: live, change set and publication are distinguishable at a glance and
    by text.
@@ -236,7 +236,7 @@ can tell live data, a change set and a publication apart at a glance and by text
 #### Scope
 
 1. **Token layers** in a new `styles/tokens.css`, imported first:
-   - *Primitives*: neutral (warm grey), indigo (operator), green, amber, violet and red scales,
+   - *Primitives*: neutral (warm grey), indigo (brand), green, amber, violet and red scales,
      50–900, taken from the mockup's values.
    - *Semantic roles* (light, then dark, which redefines this layer only): `surface.{app, nav, top,
      sunken, raised}`, `text.{primary, secondary, tertiary, on-action}`, `border.{subtle, strong,
@@ -868,9 +868,8 @@ indigo accent for the primary action and links; ruled tables on a white card.
 
 **Colour for kinds of record.**
 - Every object type gets one hue from a fixed palette of eight: a soft fill, a dark ink of the same
-  hue (4.5:1 on the fill and on white) and a marker. The canvas uses teal (timetable type), amber
-  (category), blue (duration), rose (role), violet (catalogue) and coral (system value); cyan and
-  slate complete the palette.
+  hue (4.5:1 on the fill and on white) and a marker. The canvas uses six of the hues for its six types; the other two
+  complete the palette.
 - How a type gets its hue is U-D13 (decided: automatically from the model's order, so any model
   is coloured and no renderer knows a type key; whether the palette uses other shades of the
   context colours or leaves them out is shown on the real app in UA1).
@@ -1003,7 +1002,7 @@ looked or felt right):
   tiles and the rail's Collections tiles use it. (The tabs' 36px after the product name, asked by
   the user on 2026-10-06, was done in UA0.)
 - **UA2: the record browser.** The tree as described above, on two models, by keyboard and at
-  390px (drawer). The user's screenshot of the timetables tree (type groups, folders and records
+  390px (drawer). The user's screenshot of the example model's tree (type groups, folders and records
   alike) is the case to fix.
 - **UA3: the collection page.** Page header tile, the context strip, the table (a column showing a
   record as a chip in its type's colour), toolbar, empty and loading states.
@@ -1136,14 +1135,15 @@ approval of the screenshots.
   outside the three context families. A is in the tokens; B was shown by overriding the slot-3 and
   slot-4 roles on the dev server (light values `#fbe6f6`/`#972178`/`#cf4fae` and
   `#eef2d4`/`#525d10`/`#7a8c18`, all passing the same pairs; dark values follow when B is chosen).
-  Seen on the operators-and-timetables model: B's magenta (Master values) sits close to rose
-  (Operators); A's gold and plum read as amber and violet only beside the Live chip, since no change
+  Seen on the example model: B's magenta (Master values) sits close to rose
+  (another type's hue); A's gold and plum read as amber and violet only beside the Live chip, since no change
   set or publication was open.
   _Switched to B by the user (2026-10-06)_ after seeing both beside a change set: slots 3 and 4
   are magenta and olive in the tokens, with their dark values, under the same contrast test; the
   gold and plum primitives are removed (they are in commit `226beb2` if A is wanted back).
-- **Hues repeat** after eight types: the operators-and-timetables model has 18, and RDM Master's 12
-  collections show Domains and Timetable types both teal, Codelists and Durations both blue. This
+- **Hues repeat** after eight types: the example model has 18, and RDM Master's 12
+  collections show two pairs of types in one hue (Domains with another type in teal, Codelists with
+  another in blue). This
   is U-D13's rule (position over eight hues); a later schema may let a model name a hue.
 - **Checks.** `vitest related` on the changed files: 5 files, 55 tests passed. `format`, `lint`
   (0 errors, the 7 recorded warnings), `build` passed. Runners passed: `test:browser:settings`
@@ -1157,8 +1157,8 @@ approval of the screenshots.
 Implemented; waiting for the user's approval of the screenshots. The tokens hold UA1's palette B
 (magenta and olive), to which the user switched.
 
-- **The case.** On the dev server (operators and timetables), the type headings ("Timetable
-  categories 15"), the folders and the records all drew one grey icon at nearly one weight, and
+- **The case.** On the dev server (the example model), the type headings ("Codelists
+  15"), the folders and the records all drew one grey icon at nearly one weight, and
   nothing showed what contains what.
 - **Records** show their type's 18px `ui/HueTile` (`model/hues`); the selected record is filled
   with its type's soft colour in its ink, its tile turning white so it stays visible. The drag
@@ -1169,10 +1169,10 @@ Implemented; waiting for the user's approval of the screenshots. The tokens hold
   (`--tree-guide` on the branch's group); hover uses `--surface-hover`.
 - **The variant not taken.** The canvas drew groups with their type's tile in bold, like records.
   Shown on the dev server as variant B: groups and records then differ only by weight, and the
-  longer headings are cut off ("Timetable catalog…"). A is in the code; both screenshots were
+  longer headings are cut off. A is in the code; both screenshots were
   sent.
 - **Generic.** One tree for the sidebar and the tree lens; no key is read. Checked on the
-  operators-and-timetables model (dev server) and the starter and volume models (runners).
+  example model (dev server) and the starter and volume models (runners).
 - **Tests.** `Explorer.test`: a record's tile and its selected fill carry its own type's slot, a
   heading has no tile, a branch's guide sits below its toggle.
 - **Checks.** `vitest related`: 6 files, 119 tests passed. `format`, `lint` (0 errors), `build`
@@ -1183,7 +1183,7 @@ Implemented; waiting for the user's approval of the screenshots. The tokens hold
 
 #### UA2 revision: framed groups (2026-10-06)
 
-Asked by the user after UA3, from the timetable hierarchy lens: nested scrolling groups ran into
+Asked by the user after UA3, from the example model's hierarchy lens: nested scrolling groups ran into
 each other with no sign of which part scrolls, and a scrolled window could line up rows of
 different groups as if they were one. The user keeps the nested windows and asked for frames.
 
@@ -1229,7 +1229,7 @@ different groups as if they were one. The user keeps the nested windows and aske
   nothing moves when it lights up. The teal glow on the group under the pointer (the item below on
   the area under the pointer) is removed with its `--active-area` token: only scrolling shows a
   frame. Nesting now shows by indentation alone, since the frame's edge had replaced the guide
-  line. Checked on the dev server (timetable hierarchy, light and dark): no frame at rest, the
+  line. Checked on the dev server (the example model's hierarchy lens, light and dark): no frame at rest, the
   categories window's frame while it scrolled and gone a second later. The contrast test, `format`,
   `lint` (0 errors), `build` passed; `test:visual` passed (the resting frames were under its
   tolerance) and its baselines were re-recorded, 48 of them showing a tree.
@@ -1258,8 +1258,8 @@ different groups as if they were one. The user keeps the nested windows and aske
   Right into its rows). The records' extra step in, the frames, the glows and the stops stay.
   Setting it to `true` brings back everything described in the next item. Checks: 151 tests in
   `src/features/objects`, `lint` (0 errors), `build`, `s6`, `wp14`, `b3` (30 checks) passed.
-- **Type groups fold** (asked by the user, 2026-10-07, after seeing why the timetable
-  hierarchy's "Durations 6" looked like a stray label beside folding categories; the model was
+- **Type groups fold** (asked by the user, 2026-10-07, after seeing why a type group heading
+  in the example model's hierarchy looked like a stray label beside folding categories; the model was
   kept as it is). Every type group's heading has a chevron and folds like a record; groups start
   open and a fold persists per browser like a record's. The heading now holds its records, which
   sit one step in from it, so a record's chevron starts inside the heading's line (headings at
@@ -1284,8 +1284,8 @@ different groups as if they were one. The user keeps the nested windows and aske
 
 Implemented; waiting for the user's approval of the screenshots.
 
-- **The table column (decided by the user, 2026-10-06).** The canvas's Timetable types table had a
-  Category column. No collection table in either example model declares a column that shows a
+- **The table column (decided by the user, 2026-10-06).** The canvas's table had a
+  column showing each row's parent record. No collection table in either example model declares a column that shows a
   record, and table views cannot: model validation allows only built-in fields and the type's own
   attributes there (`application_rules.py`), while record panels and matrix rows take
   `ancestor:<type>`. Adding such columns would change the models and the engine's rule only to
@@ -1300,8 +1300,8 @@ Implemented; waiting for the user's approval of the screenshots.
 - **The table.** `ui/FieldValue` renders a record's field as a cell shows it: an `ancestor:<type>`
   column as `ui/RecordChip` (the parent's name on its type's fill, in its ink, after a 6px marker;
   ellipsis when long), anything else through `formatValue`. `ObjectTable` and the record panels'
-  relation tables use it, so a value's System and Language columns show chips (seen on an
-  timetable type's System mappings and Translations). A row carries its record's hue; the
+  relation tables use it, so a value's System and Language columns show chips (seen on a
+  record's System mappings and Translations). A row carries its record's hue; the
   selected row is filled with it, its marker as a 3px line at the left. Cells have 10px of
   vertical padding, as in the canvas.
 - **Values.** `formatValue` renders booleans as plain Yes and No everywhere, as ADR-039 says;
@@ -1353,7 +1353,7 @@ Implemented; waiting for the user's approval of the screenshots.
   showed a read-only list and did not say where the writes go; this is the choice to judge on the
   dev server. Children, table and hierarchy panels stay as they were.
 - **Generic.** Hues come from `model/hues`; labels from the panels' titles; nothing reads a key.
-  Seen on the operators-and-timetables model (dev server); the runners use the starter model.
+  Seen on the example model (dev server); the runners use the starter model.
 - **Contrast.** `tokens.test.ts` resolves `color-mix` and checks the eight bands in both themes:
   primary, secondary and tertiary text, a link and the type's ink at 4.5:1; its marker, the focus
   colour and a control's border at 3:1.

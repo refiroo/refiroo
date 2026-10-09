@@ -73,8 +73,7 @@ log, the page revised, [record](SETTINGS_AND_UI_PLAN.md#u5a-record-2026-10-07));
   UI_ACCEPTANCE U4-1. A 0.9.1 installed on a database stays beside 0.9.2 and is never activated.
 - **Rework the type palettes so A and B differ visibly (the user, 2026-10-07).** A and B differ
   only in slots 3 and 4 (magenta and olive against plum and gold), and side by side the user could
-  not tell them apart: in the operators model only Master values, Resources, Regions, Roles and the
-  RDM Translations tile change, and pink against purple, olive against gold, read as near shades.
+  not tell them apart: in the example model only five types' tiles change, and pink against purple, olive against gold, read as near shades.
   Rework them into two palettes a person tells apart at a glance, keeping what both must hold: eight
   hues distinguishable from each other and from the Live, change-set and publication colours (green,
   amber, violet; ADR-040), ink at 4.5:1 on its fill and the page, markers at 3:1, in light and dark
@@ -383,6 +382,14 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   history-only matrix filter (108 ms), E5 change-set seek and position near the limit (91–99 ms), E6
   plans on a just-captured base before statistics exist, E7 a 100,000-item background batch in a
   change set (64 s, target 60 s).
+- [ ] **After 1.0: relationship values in a bulk relationship change (0.9 D132, deferred by the user,
+  2026-10-09).** K3's dialog adds, removes and replaces relationships without their values: new
+  relationships carry none, kept ones keep theirs, and values are edited one relationship at a time in
+  the record's Relationships panel. Taking it up means the binding's `attributeTypeKeys` as fields in
+  the dialog (Keep, Set to, Clear, as D117) and, because an `ensureRelation` that changes an existing
+  relationship's values is an update needing its `expectedVersion`, the preview carrying each
+  relationship's version into confirm as D130 carries a set's. Needs a shipped model that declares
+  relationship values to show it.
 - [ ] **After 1.0: creating change sets and publishing for 250,000 records and more (deferred by the
   user, 2026-10-03; revisit when MDM is taken up).** T1a sizes both for the volume fixture at 0.1
   scale. At the full fixture, a copy by `INSERT … SELECT` took about 33 s, most of it maintaining 17
@@ -509,8 +516,8 @@ Each becomes work only if the user decides it is needed.
   (`POST …/queries/objects`) to take groups (deferred by D4 until a second real case), the
   collection to read through it, and the URL to keep the filter tree. Per-row AND/OR is ambiguous
   once mixed ("A and B or C"); groups that match all or any, nested when needed, avoid that. The
-  query's `related` criterion would also let a row filter through a relation (timetable types
-  whose duration is 45 min), which fits Track K's "select all filtered". _Open:_ whether today's
+  query's `related` criterion would also let a row filter through a relation (records
+  whose related reference value is a given one), which fits Track K's "select all filtered". _Open:_ whether today's
   filter already covers what users need.
 
 ## Known accessibility exceptions

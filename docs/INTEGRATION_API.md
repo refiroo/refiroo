@@ -247,9 +247,9 @@ transaction (a record, its required relation and its mapping).
   "items": [
     { "ref": "row-2", "op": "upsert", "objectTypeKey": "codelist", "applicationKey": "rdm-master",
       "key": { "attributeTypeKey": "codelist-code" },
-      "name": "Timetable types",
-      "parent": { "objectTypeKey": "domain", "key": { "attributeTypeKey": "domain-code", "value": "CONNECTIONS" } },
-      "attributes": [ { "attributeTypeKey": "codelist-code", "value": "MOT" } ] },
+      "name": "Delivery methods",
+      "parent": { "objectTypeKey": "domain", "key": { "attributeTypeKey": "domain-code", "value": "LOGISTICS" } },
+      "attributes": [ { "attributeTypeKey": "codelist-code", "value": "DLV" } ] },
     { "ref": "row-2/map", "op": "replaceRelationSet", "relationTypeKey": "system-value-maps-to-master",
       "fromObjectTypeKey": "system-value", "toObjectTypeKey": "master-value", "direction": "outgoing",
       "anchor": { "id": "…" }, "targets": [ { "object": { "id": "…" } } ],
@@ -329,6 +329,7 @@ path ([API.md](API.md#deleting-with-what-depends-on-it-09-k2b)).
 | `ensureRelation` | `relationTypeKey`, `from`, `to` | Idempotent create: when a relation of that type already joins the two ends, `unchanged` if its attributes equal the item's (or the item has none), otherwise an update under P4 with the relation's `expectedVersion` |
 | `updateRelation` | `id`, `expectedVersion`, `attributes` | As `PATCH /relations/{id}` |
 | `deleteRelation` | `id`, `expectedVersion` | As `DELETE /relations/{id}`; optional relation-set claim |
+| `ensureNoRelation` | `relationTypeKey`, `from`, `to` | Idempotent delete (0.9 K3, D129): the relation of that type joining the ends is deleted as `DELETE /relations/{id}` deletes it, with its refusals; `unchanged` when none joins them; optional `expectedVersion` |
 | `replaceRelationSet` | binding (`relationTypeKey`, `fromObjectTypeKey`, `toObjectTypeKey`, `direction`), `anchor`, `targets` | The complete directional set of one anchor becomes `targets`, under `expectedRelationSetVersion` (ADR-022) |
 
 `replaceRelationSet` is the mapping operation generalised from one target to a set: `targets` is a
@@ -412,6 +413,12 @@ from the first as an execution: one execution path, and execution is authoritati
 needs a background run (D113): a waiting preview is a job state the worker confirms, so an inline
 one would answer outcomes and then still need the worker. The UI's bulk changes (Track K) send
 every change this way (D114), and an integrator gets a dry run of any batch.
+
+What a preview confirmed becomes the execution's claim (0.9 K2b, K3): confirming puts each cascading
+delete's token (D120) and each set replacement's previewed set version (D130) into its stored item,
+so execution refuses exactly the items whose impact or set changed since the preview. In a preview a
+`replaceRelationSet` needs no `expectedRelationSetVersion`; its outcome reports the version it found
+(`previousRelationSetVersion`).
 
 ## F: Change feed
 

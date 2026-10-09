@@ -66,8 +66,9 @@ can complete the task in the application; "API" means another system can.
 - Deleting a record first shows what else it would remove or disconnect, and asks for confirmation.
 - Mark a value unavailable through its availability field, as an ordinary edit.
 - Select records in a collection (by hand, a range, or every record the search and filters match)
-  and set or clear fields on all of them at once, after a preview of what will change and what will
-  be refused; records someone else changed meanwhile are refused, not overwritten.
+  and, after a preview of what will change and what will be refused, set or clear fields on all of
+  them at once, add, remove, replace or clear their relationships of one kind, or delete them with
+  what depends on them; records someone else changed meanwhile are refused, not overwritten.
 
 ### Prepare changes together — browser and API
 
@@ -139,8 +140,9 @@ can complete the task in the application; "API" means another system can.
   returned and including related records.
 - Declare a business validity period on a record type and read the records valid on a date (`asOf`).
 - Load up to a million records in one bulk request, run inline or in the background: create, update,
-  upsert by a unique key, and delete records; create, ensure, change and remove relationships, and
-  replace a record's whole set of related records; each item with its own outcome. Choose all-or-nothing or
+  upsert by a unique key, and delete records; create, ensure, change and remove relationships (by
+  their ID, or by their two records, so a removal sent again changes nothing), and replace a
+  record's whole set of related records; each item with its own outcome. Choose all-or-nothing or
   item-by-item, preview a background load without writing anything before applying it, retry safely
   with an idempotency key, follow progress and cancel.
 - Follow a workspace's changes in order: every change to live data has the next number in the

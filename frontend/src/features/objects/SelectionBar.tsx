@@ -1,6 +1,7 @@
 /**
  * What a collection's selection holds, above its table (0.9 K1): the count, Select all matching
- * once every loaded row is selected, Clear selection, and the slot K2 and K3 fill with actions.
+ * once every loaded row is selected, Clear selection, and the slot K2, K2b and K3 fill with actions:
+ * Change values…, Change relationships… and Delete….
  * A selection the deployment cannot change at once is explained, not silently capped (D104).
  */
 

@@ -104,10 +104,13 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # the descriptions of POST /batches, the confirm route and the preview naming a batch's
     # preview; no path changed. Re-baselined for 0.9 K2b: the delete item's cascade and
     # deletionPreviewToken, the outcome's impact and deletedWithItem, the preview's deletion
-    # totals (DeletionImpact, DeletionTotals) and their descriptions; no path changed.
+    # totals (DeletionImpact, DeletionTotals) and their descriptions; no path changed. Re-baselined
+    # for 0.9 K3: the ensureNoRelation item (BatchEnsureNoRelationItem, in BatchRequest's items),
+    # the outcome's previousRelationSetVersion and the descriptions of the set replacement and the
+    # outcome; no path changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "f6d8a2105f9a05e426a9c953400d82410bdbe65a7338eaf11157d0c1609dbae4"
+        "9d9995c26f54f7a82e46ea940ba4a770bb6cb3c02fe54ba2210e615209a4cd10"
     )
 
 

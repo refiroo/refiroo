@@ -8,7 +8,8 @@ a value saved again unchanged), which depends on what the items find. Counted on
 fixture, live and in the fixture's change set, for creates whose parent is named by key and for
 upserts of which half update an existing record, most of them moving it to another group, and
 relationship items (0.9 B3, D35): half relate a created item to a group, half replace a created
-item's citations with two groups, every record named by key.
+item's citations with two groups, every record named by key; and ``ensureNoRelation`` items over
+them (0.9 K3, D129), half removing a relationship and half finding none.
 
 The seconds a chunk of 500 items takes are recorded beside the counts: a live write in a background
 job's workspace waits for one chunk at most (PG3), so that is the longest it waits. They are not
@@ -48,12 +49,14 @@ CONTEXTS = ("live", "change set")
 # Relationship items, measured 2026-10-03 at 33 and 40 live, 36 and 43 in the change set (B3).
 # A previewed run of cascading deletes, measured 2026-10-09 at 47-48 live and 60-64 in the change
 # set (0.9 K2b); the matrix states' upkeep reads a shape's rows only where the run touches them.
+# ensureNoRelation items, measured 2026-10-09 at 32 and 36 live, 36 and 41 in the change set (K3).
 BUDGET = {("live", "creates"): 34, ("live", "upserts"): 48, ("change set", "creates"): 46,
           ("change set", "upserts"): 52, ("live", "relations"): 44, ("change set", "relations"): 47,
-          ("live", "deletes"): 50, ("change set", "deletes"): 66}
+          ("live", "deletes"): 50, ("change set", "deletes"): 66, ("live", "apart"): 40,
+          ("change set", "apart"): 45}
 # How far apart the counts may be: IN lists past 500 values, UPDATE statements per set of columns.
 # A relationship item names two or three records, so 500 of them pass 500 values more often.
-ALLOWANCE = {"creates": 4, "upserts": 4, "relations": 8, "deletes": 4}
+ALLOWANCE = {"creates": 4, "upserts": 4, "relations": 8, "deletes": 4, "apart": 8}
 DELETE_COUNTS = (2, 8)
 
 
@@ -120,6 +123,20 @@ def relations(count: int, prefix: str) -> list[dict[str, Any]]:
     ]
 
 
+def apart(count: int, prefix: str) -> list[dict[str, Any]]:
+    """``ensureNoRelation`` items over the records ``relations(count, prefix)`` related (0.9 K3):
+    half remove a relationship it made, half name a group the record is not related to."""
+
+    def item(index: int) -> dict[str, Any]:
+        return {"objectTypeKey": ITEM, "key": {"attributeTypeKey": CODE, "value": f"{prefix}-{index:06d}"}}
+
+    return [
+        {"op": "ensureNoRelation", "relationTypeKey": ITEM_CITES_GROUP, "from": item(index),
+         "to": _parent(index + 3 if index % 2 == 0 else index + 9)}
+        for index in range(count)
+    ]
+
+
 @pytest.fixture(scope="module")
 def measured(tmp_path_factory) -> dict[tuple[str, str, str, int], dict[str, Any]]:
     results: dict[tuple[str, str, str, int], dict[str, Any]] = {}
@@ -145,6 +162,7 @@ def measured(tmp_path_factory) -> dict[tuple[str, str, str, int], dict[str, Any]
                         ("creates", creates(count, f"C{tag}")),
                         ("upserts", upserts(count, f"U{tag}", first)),
                         ("relations", relations(count, f"C{tag}")),
+                        ("apart", apart(count, f"C{tag}")),
                     ):
                         body = {"policy": "independent", "run": "inline", "onExisting": "overwrite",
                                 "items": items, **context(label)}
@@ -203,7 +221,7 @@ def _version(client: Any, label: str, dataset: Any, group_id: str) -> int:
     return response.json()["version"]
 
 
-@pytest.mark.parametrize("kind", ["creates", "upserts", "relations"])
+@pytest.mark.parametrize("kind", ["creates", "upserts", "relations", "apart"])
 @pytest.mark.parametrize("label", CONTEXTS)
 def test_a_chunk_costs_a_constant_number_of_statements(measured, label, kind):
     counted = {
@@ -233,6 +251,12 @@ def test_every_item_is_applied(measured, label):
                 count // 2,
                 count // 2,
             ), related
+            kept_apart = measured[(size, label, "apart", count)]["job"]
+            assert kept_apart["result"] == "applied", kept_apart
+            assert (kept_apart["counts"]["deleted"], kept_apart["counts"]["unchanged"]) == (
+                count // 2,
+                count // 2,
+            ), kept_apart
 
 
 @pytest.mark.parametrize("label", CONTEXTS)

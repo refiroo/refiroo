@@ -258,7 +258,9 @@ class JobItemResponse(BaseModel):
     item whose impact held its record (0.9 K2b).
     A relation item carries ``relationId`` and the relation's ``version`` (none after a delete),
     and ``relationSetVersion`` when it claimed a set; a set replacement carries the anchor's
-    ``relationSetVersion`` and ``relationIds``;
+    ``relationSetVersion``, the version it found (``previousRelationSetVersion``, which confirming a
+    preview carries into the item, 0.9 K3) and ``relationIds``; an ``ensureNoRelation`` that found
+    no relation is ``unchanged`` without ``relationId``;
     ``rejected`` carries ``error`` with the single write's code and a JSON ``pointer`` into the
     request in its ``details``; ``unprocessed`` carries ``reason``.
     """
@@ -277,6 +279,7 @@ class JobItemResponse(BaseModel):
     previousVersion: int | SkipJsonSchema[None] = _by_status()
     relationId: str | SkipJsonSchema[None] = _by_status()
     relationSetVersion: int | SkipJsonSchema[None] = _by_status()
+    previousRelationSetVersion: int | SkipJsonSchema[None] = _by_status()
     relationIds: RelationIds | SkipJsonSchema[None] = _by_status()
     impact: DeletionImpact | SkipJsonSchema[None] = _by_status()
     deletedWithItem: int | SkipJsonSchema[None] = _by_status()

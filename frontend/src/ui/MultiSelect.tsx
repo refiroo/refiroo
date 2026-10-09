@@ -8,12 +8,10 @@ import {
   ListBoxItem,
   Popover,
   SearchField,
-  Tag,
-  TagGroup,
-  TagList,
   useFilter,
   type Selection,
 } from "react-aria-components";
+import { ChipList } from "@/ui/ChipList";
 import { Icon } from "@/ui/Icon";
 
 export interface PickOption {
@@ -54,26 +52,13 @@ export function MultiSelect({
   const chosen = options.filter((option) => selected.includes(option.id));
   return (
     <div className="multi-select">
-      <TagGroup
-        aria-label={label}
-        aria-describedby={describedBy}
+      <ChipList
+        label={label}
+        describedBy={describedBy}
+        chips={chosen}
+        emptyLabel={emptyLabel}
         onRemove={(keys) => onChange(selected.filter((id) => !keys.has(id)))}
-      >
-        <TagList
-          className="chip-list"
-          items={chosen}
-          renderEmptyState={() => <span className="chip-empty">{emptyLabel}</span>}
-        >
-          {(option) => (
-            <Tag id={option.id} textValue={option.label} className="chip">
-              <span className="chip-label">{option.label}</span>
-              <Button slot="remove" className="chip-remove" aria-label={`Remove ${option.label}`}>
-                <Icon name="close" size={12} />
-              </Button>
-            </Tag>
-          )}
-        </TagList>
-      </TagGroup>
+      />
       <DialogTrigger>
         <Button className="secondary chip-add">
           <Icon name="plus" size={14} /> {addLabel}

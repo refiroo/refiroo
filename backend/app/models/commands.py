@@ -329,6 +329,16 @@ class BatchEnsureRelationItem(_RelationEnds, _BatchItem):
     expectedVersion: int | None = Field(default=None, ge=1)
 
 
+class BatchEnsureNoRelationItem(_RelationEnds, _BatchItem):
+    """Deletes the relation of the type joining the ends, as ``DELETE /relations/{id}`` does, or is
+    ``unchanged`` when none joins them; ``expectedVersion``, when given, claims the relation's
+    version (0.9 K3, D129)."""
+
+    op: Literal["ensureNoRelation"]
+    relationTypeKey: str
+    expectedVersion: int | None = Field(default=None, ge=1)
+
+
 class BatchUpdateRelationItem(_BatchItem):
     """As ``PATCH /relations/{id}``: the relation's attributes, replaced."""
 
@@ -357,7 +367,9 @@ class RelationSetTarget(BaseModel):
 
 class BatchReplaceRelationSetItem(_BatchItem):
     """The anchor's directional set of one binding becomes ``targets`` (possibly empty), under
-    ``expectedRelationSetVersion`` or the request's ``onExisting: "overwrite"`` (§B4)."""
+    ``expectedRelationSetVersion`` or the request's ``onExisting: "overwrite"`` (§B4). In a preview
+    no claim is needed: the outcome names the version found, and confirming carries it (0.9 K3,
+    D130)."""
 
     op: Literal["replaceRelationSet"]
     relationTypeKey: str
@@ -372,6 +384,7 @@ class BatchReplaceRelationSetItem(_BatchItem):
 RELATION_ITEMS = (
     BatchCreateRelationItem,
     BatchEnsureRelationItem,
+    BatchEnsureNoRelationItem,
     BatchUpdateRelationItem,
     BatchDeleteRelationItem,
 )
@@ -383,6 +396,7 @@ BatchItem = Annotated[
     | BatchDeleteItem
     | BatchCreateRelationItem
     | BatchEnsureRelationItem
+    | BatchEnsureNoRelationItem
     | BatchUpdateRelationItem
     | BatchDeleteRelationItem
     | BatchReplaceRelationSetItem,

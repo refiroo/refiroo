@@ -358,7 +358,7 @@ def confirm_job(session: Session, job: Job, check_context: Callable[[Job], None]
         )
     check_context(job)
     if not imported:
-        _carry_deletion_tokens(session, job)
+        _carry_preview_claims(session, job)
     for table in (JobItem, JobInput) if imported else (JobItem,):
         session.execute(delete(table).where(table.job_id == job.sequence_id))
     job.confirmed_at = datetime.now(UTC)
@@ -390,8 +390,35 @@ _CARRY_TOKENS = text(
 )
 
 
-def _carry_deletion_tokens(session: Session, job: Job) -> None:
+# The set version a replacement takes from its preview (0.9 K3, D130): the version the preview found,
+# from its outcome or its refusal, so execution refuses exactly the sets changed since.
+_CARRY_SET_VERSIONS = text(
+    """
+    UPDATE job_inputs input
+    SET item = (input.item::jsonb || jsonb_build_object('expectedRelationSetVersion',
+        coalesce(
+            outcome.outcome ->> 'previousRelationSetVersion',
+            outcome.outcome -> 'error' -> 'details' ->> 'relationSetVersion'
+        )::integer
+    ))::json
+    FROM job_items outcome
+    WHERE input.job_id = :job AND outcome.job_id = :job
+        AND outcome.item_index = input.item_index
+        AND input.item ->> 'op' = 'replaceRelationSet'
+        AND input.item ->> 'expectedRelationSetVersion' IS NULL
+        AND coalesce(
+            outcome.outcome ->> 'previousRelationSetVersion',
+            outcome.outcome -> 'error' -> 'details' ->> 'relationSetVersion'
+        ) IS NOT NULL
+    """
+)
+
+
+def _carry_preview_claims(session: Session, job: Job) -> None:
+    """What a batch's preview confirmed becomes each stored item's claim: a cascading delete's
+    token (D120) and a set replacement's version (D130)."""
     session.execute(_CARRY_TOKENS, {"job": job.sequence_id})
+    session.execute(_CARRY_SET_VERSIONS, {"job": job.sequence_id})
 
 
 def applied_deletions(session: Session, job_id: str, object_ids: Iterable[str]) -> dict[str, int]:

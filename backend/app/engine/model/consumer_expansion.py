@@ -44,8 +44,8 @@ _VERB_PARTS = {
 
 
 def public_name(type_key: str) -> str:
-    """The default public name of a type: its key in PascalCase (``timetable-type`` →
-    ``TimetableType``)."""
+    """The default public name of a type: its key in PascalCase (``master-value`` →
+    ``MasterValue``)."""
     return "".join(part[:1].upper() + part[1:] for part in re.split(r"[^0-9A-Za-z]+", type_key) if part)
 
 

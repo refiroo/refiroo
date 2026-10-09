@@ -117,7 +117,7 @@ describe("BulkChangeDialog (0.9 K2)", () => {
     await waitFor(() => expect(api.startBatch).toHaveBeenCalled());
     const [body] = vi.mocked(api.startBatch).mock.calls[0];
     expect(body).toMatchObject({ workspaceKey: "west", policy: "independent", run: "background", stage: "preview" });
-    expect(body.items.map((item) => [item.ref, item.target.id, item.expectedVersion])).toEqual([
+    expect((body.items as BatchUpdateItem[]).map((item) => [item.ref, item.target.id, item.expectedVersion])).toEqual([
       ["Alpha", "a", 3],
       ["Beta", "b", 5],
     ]);

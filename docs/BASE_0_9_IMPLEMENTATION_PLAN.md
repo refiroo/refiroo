@@ -254,7 +254,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 31 | [J4](#j4-import-screen-and-sc-10) | J1u, J3, F2 | The SC-10 screen and SC-10 acceptance; frontend only (D89–D95) — **delivered 2026-10-08** ([record](#j4-record-2026-10-08)) |
 | 31a | [J4a](#j4a-why-another-workspaces-export-cannot-load) | J4 | Amendment: an import says why another workspace's export cannot load (the job's `notices`, refusals naming the workspace) — **delivered 2026-10-08** ([record](#j4a-why-another-workspaces-export-cannot-load)) |
 | 31b | [J5](#j5-another-workspaces-export-loaded-as-this-workspaces-own-records) | J4a | Another workspace's export loaded as this workspace's own records (counterpart IDs, `otherWorkspaceIds`), on imports and batches (D96–D101) — **delivered 2026-10-08** ([record](#j5-record-2026-10-08)) |
-| 31a | [Track K](#track-k--bulk-selection-and-editing-in-collections) | J4, UA | Bulk selection and bulk edits in collections over `POST /batches`; packages K1–K5 planned in detail when the track starts — **added 2026-10-06**; [K1](#k1-plan-2026-10-08) selection **delivered 2026-10-08** (D102–D111, [record](#k1-record-2026-10-08)) |
+| 31a | [Track K](#track-k--bulk-selection-and-editing-in-collections) | J4, UA | Bulk selection and bulk edits in collections over `POST /batches`; packages K1–K5 planned in detail when the track starts — **added 2026-10-06**; [K1](#k1-plan-2026-10-08) selection **delivered 2026-10-08** (D102–D111, [record](#k1-record-2026-10-08)); [K3a](#k3a-many-to-one-relationships) many-to-one relationships **added 2026-10-09**, after K3 and before K5 |
 | V | [V3–V9](#v3v9-the-management-api-documented-plan-2026-10-07) | V2 | The management API documented: the starter extended, content and examples beside the document, the error catalogue; V3 first, then V4–V8 in any order, then V9. **Independent fillers; block no release** (V-D9) — **planned 2026-10-07**, V-D1 open |
 | 32 | [R](#r-build-acceptance-and-release) | all except Track V's V3–V9 | Build acceptance and release |
 
@@ -307,7 +307,7 @@ Track C:  C1 ─ C2 ─┬─ C3 ───────────────�
           ── cut line (D9) ──
 Track J:  J1 ─ J1u                                 J1 needs Q3, Q4, B2, F1
           B3 ─ J2 ─ J2a ─ J3 ─ J4                  J3 needs B2; J4 needs J1u, F2; J2a if D74
-Track K:  J4, UA ─ K1 ─ K2 ─ K3                    K4 and K5 as decided in K1's planning
+Track K:  J4, UA ─ K1 ─ K2 ─ K2b ─ K3 ─ K3a ─ K5    K4 not taken (D103); K5 by D135; K3a many-to-one
 Release:  Q2, T1, C8, C13, C16, V2, J4 → R          (R-a without J at the cut line)
 ```
 
@@ -3855,7 +3855,7 @@ documents read only the model), `startup` (no migration), the frontend (unchange
 name, which C1 allows and CONSUMER_API's reference definition does (`domain`, `codelist`), listed the
 name twice on that list's operation, so the document was not valid OpenAPI (`Duplicate parameter`).
 The route reads the name as the parent there, so the document now lists it once, as the parent.
-Found while adding consumer APIs to the operators example model; held by
+Found while adding consumer APIs to the example model; held by
 `tests/unit/engine/model/test_consumer_openapi.py` over that model, which failed before the fix.
 
 #### C8: Parity acceptance
@@ -3902,7 +3902,7 @@ one to three fields from it.
   too-broad refusal (133/162 ms), each recorded in C6a's record.
   Since C6a, no file under `engine/reads/` changed; `consumer/router.py` gained C6b's two document
   routes and nothing on a read's path. The figures sit in five delivery records, not in one table.
-- **The operators example model** (`model/rdm-operators-timetables.json` 0.6.0) has every structure the
+- **The example model** (0.6.0) has every structure the
   fixture needs, but its one `rdm` API is a different design on purpose: every type exposed, `id`
   output as `id`, system values and translations as objects of their own, so a bare `expect=one` on a
   code is ambiguous there ([DOCUMENTATION_PLAN](DOCUMENTATION_PLAN.md)). It does not reproduce the
@@ -3949,8 +3949,8 @@ one to three fields from it.
 
 | # | Question | Decision |
 | --- | --- | --- |
-| C-D72 | Which model the parity scenarios run on | **Approved 2026-10-05.** A test-only fixture, the starter plus a small extension and CONSUMER_API's printed definition (as CONSUMER_API's C8 row says), not the operators example model. The operators model's API is a deliberately different design (every type exposed, `id` not `masterId`, system values as objects), so it would need a second definition written to match the reference, and the example would then carry a test's needs; a later edit to the example would break acceptance. The fixture also proves that the definition CONSUMER_API prints is valid and answers as documented. The operators model keeps its OpenAPI test |
-| C-D73 | The reference's `objectType` inside projection items (`alternative`) | **Approved 2026-10-05.** Allow `objectType` as a projection field source, the related record's public type name, only where every type the projection reaches is exposed by the definition (otherwise there is no public name; refused at the field). Two real cases: the reference's `alternative`, and a projection over a relation with several target types (the operators model's `mapsTo`, where an item is a value or a location). The alternative, a new row in "does not carry over", would leave a mixed projection whose items cannot be told apart |
+| C-D72 | Which model the parity scenarios run on | **Approved 2026-10-05.** A test-only fixture, the starter plus a small extension and CONSUMER_API's printed definition (as CONSUMER_API's C8 row says), not the example model. The example model's API is a deliberately different design (every type exposed, `id` not `masterId`, system values as objects), so it would need a second definition written to match the reference, and the example would then carry a test's needs; a later edit to the example would break acceptance. The fixture also proves that the definition CONSUMER_API prints is valid and answers as documented. The example model keeps its OpenAPI test |
+| C-D73 | The reference's `objectType` inside projection items (`alternative`) | **Approved 2026-10-05.** Allow `objectType` as a projection field source, the related record's public type name, only where every type the projection reaches is exposed by the definition (otherwise there is no public name; refused at the field). Two real cases: the reference's `alternative`, and a projection over a relation with several target types (the example model's `mapsTo`, where an item is a value or a record of another type). The alternative, a new row in "does not carry over", would leave a mixed projection whose items cannot be told apart |
 | C-D74 | The C8 volume budgets | **Approved 2026-10-05.** No new full-volume run. Every consumer read was measured at full volume by its package, and nothing on a read's path changed since C6a, so a rerun would repeat C6a's figures. C8 collects them into one consumer table in POSTGRESQL_BUDGETS (each row with the package that measured it) and runs the `volume` group, whose statement counts at two sizes hold them. C-D73 adds a field, not a statement, which `test_consumer_xref_volume` confirms. CONSUMER_API's "Budgets are set against the 0.8 Track S volume fixture (C8)" becomes "set per package, collected in C8" |
 | C-D75 | The parent's keys (raised during delivery) | **Approved 2026-10-05.** The parity shape check found that the reference's parent is `{objectType, name, code, masterId}`, the object's own field names, while the engine keyed it by role (`id`, `code`, `name`), so a flow that reads `masterId` from the object and then from `parent` found it only on the object. The parent's fields are now keyed by the roles' output names, as the object's own fields; `objectType` stays. Pre-1.0, so the shape changes for every definition whose `id`, `code` or `name` output is not the role name (generated A and B's `ledgerId`); the alternative, a row in "does not carry over", was not taken |
 
@@ -4126,8 +4126,7 @@ POST …/resolve?asOf=2026-07-01                  every item as its single read 
   a period on `master-value` (public `CodelistValue`) and none on `location`. The volume fixture's
   `Item` is dated and `Group` is not, both exposed by its definition, so dated consumer reads can be
   measured without changing it.
-- **The example model.** `rdm-operators-timetables.json` dates `master-value`, `operator` and
-  `location`, all exposed by its `rdm` API.
+- **The example model** dates three of its types, all exposed by its `rdm` API.
 
 **Design.**
 
@@ -4169,7 +4168,7 @@ POST …/resolve?asOf=2026-07-01                  every item as its single read 
 
 | # | Question | Decision |
 | --- | --- | --- |
-| C-D76 | Which records `asOf` dates | **Approved 2026-10-05.** The objects the read returns, and nothing they are found through or carry: projection items, the parent and `path`, the records a parameter matches (`location=CEN`) and the records that promote an XREF score are read as without `asOf`. This is D22's answer for the model query and CONSUMER_API's text ("keeps only objects"). The cost is real in the operators example: `availableAt` there can list a location whose period has ended; a consumer that needs it can output the location's `validFrom`/`validTo` as projection fields. Dating every record of a dated type the read touches would answer "the world on that date", but needs its own decision for each of the four places above, and a declaration that turns it on can be added later without breaking this one |
+| C-D76 | Which records `asOf` dates | **Approved 2026-10-05.** The objects the read returns, and nothing they are found through or carry: projection items, the parent and `path`, the records a parameter matches (`location=CEN`) and the records that promote an XREF score are read as without `asOf`. This is D22's answer for the model query and CONSUMER_API's text ("keeps only objects"). The cost is real in the example model: a projection there can list a related record whose period has ended; a consumer that needs it can output that record's `validFrom`/`validTo` as projection fields. Dating every record of a dated type the read touches would answer "the world on that date", but needs its own decision for each of the four places above, and a declaration that turns it on can be added later without breaking this one |
 | C-D77 | Refuse or filter, route by route | **Approved 2026-10-05.** As CONSUMER_API states, with three cases it leaves open. Lists: an undated list type is `400 AS_OF_NOT_SUPPORTED` before reading. Get by ID: an unknown ID is `404 OBJECT_NOT_FOUND`; a record of an undated type is `400 AS_OF_NOT_SUPPORTED`; a dated record not effective that day is `404 OBJECT_NOT_FOUND`, as a parameter that narrows it out is (C-D31). XREF: C-D14 over the types the read can return (narrowed by an `objectType` parameter); when none of them is dated, `400 AS_OF_NOT_SUPPORTED`, since an undated answer would look dated (D21's reason). Batch resolve: `asOf` is the request's query parameter and applies to every item (CONSUMER_API); each item answers as its single read, so a by-ID item of an undated type is `rejected` with `AS_OF_NOT_SUPPORTED` while a by-query item is filtered as XREF is (C-D48). A pinned read dates by the publication's release. Details: `objectTypes` (public names) and `path` `/query/asOf`. `400`, the consumer tier's status for a request error, not the management API's `422` |
 | C-D78 | How a read says what was dated | **Approved 2026-10-05.** `asOfApplied` (the dated public names, sorted) in the list, XREF and batch resolve bodies, and the `RDM-As-Of-Applied` header (the same names, comma-separated) on every answer to a read that sent `asOf`, including get by ID and XREF `expect=one`, whose bodies are the bare object, as C-D23 names the workspace. Both are absent when `asOf` is not sent, so undated reads are unchanged. CONSUMER_API names `asOfApplied` for XREF only; on a list or a get by ID it holds the one type and is there so a client reads every route the same way |
 | C-D79 | A malformed date | **Approved 2026-10-05.** `400 INVALID_AS_OF` at `/query/asOf` for anything but one `YYYY-MM-DD` calendar date: a time, a time zone, an impossible date, two values (several values are alternatives elsewhere, C3b, but one read has one date), as `INVALID_EXPECT` is for `expect`. In batch resolve `asOf` in `defaults` or an item is refused as `publication` there is (C-D49): the date belongs to the request |
@@ -4399,7 +4398,7 @@ yet: C9 is the declaration only, as C1 was for the reads.
   the reference definition the roles' outputs are `masterId` and `isActive`, so the example cannot
   mean both (C-D81).
 - **No route, migration or frontend** reads a consumer definition's events; the frontend reads no
-  `consumerApis` at all. The operators example model declares a consumer API without events.
+  `consumerApis` at all. The example model declares a consumer API without events.
 
 **Design.**
 
@@ -4500,7 +4499,7 @@ coverage are untouched; audit stays the outbox C10 reads (C-D8).
 - **Shape** (`models/schema.py`): `ConsumerEvent` (`key`, `objectTypes`, `changes`, optional
   `watch`) and `ConsumerEventWatch` (`fields`, `projections`); `ConsumerApiDefinition.events`. Empty
   `events`, `fields` and `projections` are left out of the canonical document, so a definition
-  without events keeps its hash (the operators example and every installed release).
+  without events keeps its hash (the example model and every installed release).
 - **Rules** (`consumer_api_rules._Definition._check_events`): C-D84 over the outputs `_check_object`
   returns, plus `objectType`; `event` and `after` in `RESERVED_PARAMETERS` (C-D86).
 - **Contract** (`consumer_contract`): `OutputContract.events` of `EventContract`s;
@@ -5560,7 +5559,7 @@ Also found:
 
 | # | Question | Decision |
 | --- | --- | --- |
-| C-D112 | How C13 proves the scenarios | **Approved 2026-10-06.** As C8 and T1 did: a scenario a journey test already walks is cited in the table above, not tested again; the gaps get one composed module through a real receiver on generated A and B, compared with the pull feed and the lists. Not on C8's `parity` fixture or the operators model: events have no reference behaviour to reproduce, and scenario 2's "system value" is the example of a projected record, which J30.2 walks on both configurations. The cases test delivered behaviour, so except case 3's leaving-the-scope step (C-D114) they are expected to pass on the first run; that is recorded, not engineered around |
+| C-D112 | How C13 proves the scenarios | **Approved 2026-10-06.** As C8 and T1 did: a scenario a journey test already walks is cited in the table above, not tested again; the gaps get one composed module through a real receiver on generated A and B, compared with the pull feed and the lists. Not on C8's `parity` fixture or the example model: events have no reference behaviour to reproduce, and scenario 2's "system value" is the example of a projected record, which J30.2 walks on both configurations. The cases test delivered behaviour, so except case 3's leaving-the-scope step (C-D114) they are expected to pass on the first run; that is recorded, not engineered around |
 | C-D113 | The bulk-volume delivery budget | **Approved 2026-10-06.** The rename of the heavy group (20,001 events at one position, C10's fan-out) delivered to one subscription with a receiver that answers at once. **A batch of 100 `full` events within 100 ms** of engine time (claim, step and acknowledgement, the receiver's time excluded), the read budget: the pull feed's `full` page takes 25.5 ms (C10), and the send and two commits are added. **The whole delivery within 30 s** (about 670 events a second for one subscription); estimated at about 10 s (201 batches at about 45 ms), not measured. **The claim with 100 caught-up subscriptions within 10 ms**, since every process runs it once a second. Statements per batch and per claim equal at both sizes. One full-volume run, announced at delivery: about 6 minutes if the volume seed is rebuilt after C12's migration, about 2 otherwise. A figure over its budget is recorded with its cause, as C16's were; fixing it is the user's call |
 | C-D114 | A record that leaves a subscription's filter | **Approved 2026-10-06.** Keep C-D90's rule in 0.9 and state its consequence where a receiver's author reads it (CONSUMER_API Subscriptions and Pull feed, OPERATIONS Delivery, USER_JOURNEYS J30.4 and J30.8): a filtered subscription is told of the records in its scope, and of deletions; it is not told when a record moves out of the scope or an edit stops it matching. A receiver that must drop such records subscribes with the type filter only and applies the narrower filter itself, or reconciles from the list with the same parameters. Case 3 pins the behaviour. Not fixed now because telling "left the scope" needs the object's state before the change, which events do not keep (C-D89), while filters are read at send time; checking each filter kind (`ancestor`, `related`, `projection`) against a before state is a design of its own. Not checked: how much of a before state the audit entries already hold. A TODO for the user to place; the alternative is an amendment package before R |
 
@@ -5774,8 +5773,8 @@ that batching is the choice for bulk changes.
       "specversion": "1.0",
       "id": "<eventId>",
       "source": "/api/consumer/rdm/v1/events?workspace=main",
-      "type": "rdm.timetable-type-changed.updated",
-      "subject": "TimetableType/<id>",
+      "type": "rdm.master-value-changed.updated",
+      "subject": "MasterValue/<id>",
       "time": "<occurredAt>",
       "datacontenttype": "application/json",
       "rdmsubscription": "<subscriptionId>",
@@ -5988,7 +5987,7 @@ Checked against the code at `1e8d3ea`.
 
 **Why.** Today a `consumerApis` entry is organised around the engine's internal parts (roles, projections,
 match weights, parameter kinds). A reader can't tell from it which operations the API offers, what an
-operation returns or which filters apply. It also says one fact several times: the operators model's
+operation returns or which filters apply. It also says one fact several times: the example model's
 definition is 1,113 lines, with 18 `publicName` entries that are the key in PascalCase, 18 identical
 `<type>-changed` events, and the eight code attributes repeated in `object.code`, `match.own` and the
 parameters' `matchFields`. Every link between the model and the routes lives in the docs and the engine.
@@ -6139,8 +6138,8 @@ The starter's `rdm` in schema 0.9 (today 157 lines in 0.8):
   `resolve` without `objects` and `xref`; an empty `events`; a `field: "code"` without a `code` field.
   A `via` is never ambiguous: relation keys and reverse keys share one namespace (`DUPLICATE_KEY`;
   C-D141 amended, B3).
-- **Converting once, no tool shipped** (C-D138). The starter (0.9.2 → 0.9.3) and the operators and
-  timetables model (0.8.0 → 0.9.0) are rewritten in 0.9, using a default wherever it is equal. The
+- **Converting once, no tool shipped** (C-D138). The starter (0.9.2 → 0.9.3) and the example
+  model (0.8.0 → 0.9.0) are rewritten in 0.9, using a default wherever it is equal. The
   test configurations that install a consumer API (`journeys/configurations.py`, the volume fixture,
   the model tests) are rewritten too, since a 0.8 install is refused. A throwaway script in the
   session's scratch directory does the rewriting and checks that each original and its rewrite compile
@@ -6167,7 +6166,7 @@ The starter's `rdm` in schema 0.9 (today 157 lines in 0.8):
 
 **Journey.** J25 gains four variants and J20 one:
 
-- **J25.5 Rewriting a definition changes nothing it serves.** A workspace active on the operators model
+- **J25.5 Rewriting a definition changes nothing it serves.** A workspace active on the example model
   in 0.8 (the fixture) installs and activates its 0.9 conversion. The diff reports no consumer contract
   change, no subscription is suspended, and get by ID, a list with a parent and filters, XREF
   (`expect=one` and a page, a crosswalk), batch resolve, the pull feed and the API index answer
@@ -6273,7 +6272,7 @@ rules on them.
    file, which is 0.9 after step 5, so it is unaffected.
 5. **Conversion (C-D138).** The 0.8 originals of both models go to `tests/fixtures/consumer_08/`.
    A throwaway script in the session's scratch directory writes `model/rdm-starter.json` (0.9.3) and
-   `model/rdm-operators-timetables.json` (0.9.0) in 0.9. The test definitions are rewritten by hand:
+   the example model (0.9.0) in 0.9. The test definitions are rewritten by hand:
    the generator in `journeys/configurations.py`, `journeys/scenario.py`, `volume_fixture.py`,
    `volume_baseline.py`, `model_support.py`, `test_consumer_api_model.py` and the two unit modules.
    The script then compiles every original next to its rewrite and compares their internal forms:
@@ -6361,7 +6360,7 @@ the offered-operation check in `consumer/router.py`, the expanded read in
   `supportedSchemaVersions` (`test_build07_wp11`, `test_wp81a_context`, `test_model_lifecycle`) and
   a 0.9 candidate in the startup recovery test (`test_model_schema_upgrade`).
 - **Two tests that failed before C18 were fixed on the way.** `tests/unit/engine/model/test_consumer_openapi.py`
-  (3 cases) read "the model's one consumer API" while the operators model declares four;
+  (3 cases) read "the model's one consumer API" while the example model declares four;
   `test_wp81a_context` (2 cases) removes the language type's code attribute that the starter's
   consumer API reads. Both failed at `480bd8d` (run 2026-10-08).
 - **Test cases written after the code.** J25.6–J25.8 and J20.6 were written once the code they
@@ -6370,11 +6369,11 @@ the offered-operation check in `consumer/router.py`, the expanded read in
 
 **Conversion (C-D138).** The throwaway script (in the session's scratch directory, not kept)
 rewrote both models and compared each original with its rewrite through the engine: the starter's
-`rdm` (0.9.2 → 0.9.3), the operators model's `rdm`, `rdm-master`, `rdm-system` and `rdm-translation`
+`rdm` (0.9.2 → 0.9.3), the example model's `rdm`, `rdm-master`, `rdm-system` and `rdm-translation`
 (0.8.0 → 0.9.0; `rdm` from 1,113 lines to 615), the generated configurations A and B, the parity
 fixture, the example and the volume fixture: **every internal form equal**, private parts included.
 The 0.8 originals are `tests/fixtures/consumer_08/`. On the development instance the reloading
-server installed the starter 0.9.3 at its restart, and operators 0.9.0 was installed and activated
+server installed the starter 0.9.3 at its restart, and the example model 0.9.0 was installed and activated
 through the API (a temporary server with model administration on, stopped afterwards):
 `consumerContracts` compatible with no diagnostic, the runtime state at version 7, both webhooks
 still active, the expanded read and the consumer reads answering.
@@ -6580,7 +6579,7 @@ and the documents disagree, see V-D7.
 | # | Question | Decision |
 | --- | --- | --- |
 | V-D1 | Where does the text live? | **Open; the user asked for a minimal footprint in the code (2026-10-07).** Recommendation: **the code holds no documentation text and no examples.** One function merges a content directory into the generated OpenAPI document when the app builds it, the way FastAPI's documented `app.openapi()` override does. The directory is `backend/app/management/reference/content/`, shipped as package data like the bundled Scalar script. It holds an `index.md` for the document's conventions and, per tag, one Markdown file with the area overview and a section for each operation, headed by its method and path (`POST /api/v1/objects`) and holding the purpose, behaviour, limitations, errors and parameter notes. It also holds `errors.md`, the code catalogue (V-D5), and `examples/`, one JSON file per operation with its named example requests and responses, written by the recording (V-D3). Keys are method and path, the public contract, not FastAPI's generated `operationId`, which follows Python function names. The in-code descriptions that already exist (15 operations, 151 parameters, 75 schemas) stay. New field text goes in the code only where the field is otherwise undescribed and a sentence is enough. A section naming a route that no longer exists fails the V-D6 check. API.md remains the builders' contract record (DOCUMENTATION_PLAN "Not included"). API.md says what was decided and why, and `/docs` says how to use it |
-| V-D2 | Which model and data do the examples use? | **Decided by the user 2026-10-07: the bundled starter, extended until it holds every capability the documentation must show, both for the examples and for demonstrating the engine.** The extension is a new content release of the starter, shipped to every new deployment, so a reader can repeat every example on a fresh install. The starter has no transport content (domains, codelists, master values such as delivery methods, systems and translations). Today it holds only part of the structures the journey tests name (checked in `configurations.py`, `example()`): a root type with a unique code, and languages, translation groups and translations with a scoped uniqueness rule. It lacks a self-hierarchy, a many-to-many relation with its own attributes, a one-to-one relation, a type ladder to restructure across, the integer range, required, read-only-with-default and at-least-one rules, and a consumer API with match rules and every parameter kind. V3 lists every capability the documented operations need, maps each to the starter type that shows it or to the smallest addition in the same domain, and adds them. The journey tests on the `example` configuration then cover more structures, because the starter holds more. `rdm-operators-timetables` is not used, because timetables, resources and roles read as a transport domain |
+| V-D2 | Which model and data do the examples use? | **Decided by the user 2026-10-07: the bundled starter, extended until it holds every capability the documentation must show, both for the examples and for demonstrating the engine.** The extension is a new content release of the starter, shipped to every new deployment, so a reader can repeat every example on a fresh install. The starter has no domain-specific content (domains, codelists, master values such as delivery methods, systems and translations). Today it holds only part of the structures the journey tests name (checked in `configurations.py`, `example()`): a root type with a unique code, and languages, translation groups and translations with a scoped uniqueness rule. It lacks a self-hierarchy, a many-to-many relation with its own attributes, a one-to-one relation, a type ladder to restructure across, the integer range, required, read-only-with-default and at-least-one rules, and a consumer API with match rules and every parameter kind. V3 lists every capability the documented operations need, maps each to the starter type that shows it or to the smallest addition in the same domain, and adds them. The journey tests on the `example` configuration then cover more structures, because the starter holds more. The example model is not used, because its content reads as one business domain |
 | V-D3 | Where do the examples come from? | **Decided by the user 2026-10-07: recorded from a run, and kept current by a rule, not by a comparison check.** A reference scenario calls the public API on the extended starter's seed, built once and reused. Each step records a request and its response into the operation's example file, normalised: IDs become stable readable placeholders (consistent across steps, so a created ID reappears in the next request) and times are fixed. Each step asserts only the status and code it records. The rule (V-D8): a change to a route's behaviour or shape regenerates that route's examples in the same change, and the git diff of the example files shows the change for review. There is no committed-versus-rerun comparison |
 | V-D4 | How many cases? | **Decided by the user 2026-10-07: one example per operation to start**, the operation's main successful use. The errors are described in text (V-D5), not shown as examples. After V3, the user looks at how the examples read, how much space they take and how manageable they are, and decides whether more are added (more use cases, error examples) |
 | V-D5 | How are errors documented? | **Decided by the user 2026-10-07: a few sentences for every error code**, in the code catalogue `errors.md`, written once per code: what the code means, why it happens with a hint at the usual root cause, and what the client does about it. Today a code carries a short message at the place it is raised; the catalogue explains it. Each operation lists its statuses as OpenAPI responses with the codes each can carry, linked to the catalogue, from reading the operation's code path. One check: every code the backend raises (the set `test_api_journeys` already collects) has a catalogue entry and is listed on at least one operation |
@@ -7570,8 +7569,8 @@ were written first and failed (20 cases, every route `404`), then passed.
 - **openpyxl judges a workbook by its file name**: it refused the stored `{jobId}.source` as not an
   XLSX file. The reader opens the file and hands openpyxl the file object.
 - **Pre-existing failures, not touched:** `tests/unit/engine/model/test_consumer_openapi.py` (three
-  cases) unpacks one consumer API from `model/rdm-operators-timetables.json`, which declares four
-  since `46ebc08` (operators model 0.7.0, per-application APIs). They fail on `HEAD` as well; the
+  cases) unpacks one consumer API from the example model, which declares four
+  since `46ebc08` (example model 0.7.0, per-application APIs). They fail on `HEAD` as well; the
   `model` group selection found them.
 - `model/Objects_2026-10-07-15-48-38.xlsx` (the source system's export) is untracked in the
   repository's `model/` directory; vendor exports stay outside the repository (AGENTS.md).
@@ -7779,7 +7778,7 @@ not exist).
 - **The activation measurement ran on 5,802 values**, the 0.02 volume seed's codes, not 10,000.
 
 **Found on the way.** Nothing new. The three `test_consumer_openapi` cases J2 recorded as failing on
-`HEAD` (the operators model's four consumer APIs) still fail, untouched.
+`HEAD` (the example model's four consumer APIs) still fail, untouched.
 
 **Checks.**
 
@@ -8076,7 +8075,7 @@ re-baselined (9 passed; the difference is stated in the test: two paths, the new
 three fields, `importPreviewMaxItems`, `stage`'s `preview`, `ref` and the cancel description);
 `test_api_journeys` (5 passed); `test_import_volume` (2 passed); the unit tests (`tests/unit` and
 `test_boundaries`, 335 passed, 3 failed: `test_consumer_openapi` expects one consumer API in the
-operators model, which has four; neither the model file nor that code differs from `d1cd3b7`, so it
+example model, which has four; neither the model file nor that code differs from `d1cd3b7`, so it
 fails without J3 and is left to the user); `ruff check app/ tests/` clean. No frontend change.
 D88's budgets, once, live on the volume fixture at the batch budgets' 0.005 shape: a 10,000-row
 preview in 10.6 s (binding 2.5 s; budget 30 s) and a 100,000-row execution in 110.7 s (binding
@@ -8580,7 +8579,7 @@ track starts.
 
 **Outcome.** In a collection a user selects records (by hand, a range, or every record a search and
 filters match) and changes them together: attribute values, and the relations the table does not
-show, such as setting the duration of the selected timetable types or adding a role to all of
+show, such as relating every selected record to one reference value or adding a relationship to all of
 them, in live data or a change set. The UI writes through `POST /batches` (B1–B3), so it is one
 client of the bulk API rather than a second write path, and every action the model allows for the
 type is offered, read from the model (the relation types a type may have, their direction and
@@ -8600,10 +8599,17 @@ cardinality); no screen knows a type key.
   ([plan](#k2b-plan-2026-10-09), [record](#k2b-record-2026-10-09)), D120–D126 accepted._
 - **K3: relation edits.** For each relation type the model allows: add (`ensureRelation`), remove
   (`deleteRelation`) and replace (`replaceRelationSet`), choosing targets with the record picker.
+  _Planned and delivered 2026-10-09 ([plan](#k3-plan-2026-10-09), [record](#k3-record-2026-10-09)),
+  D127–D135 accepted (D135: relation columns are K5): removal by ends (`ensureNoRelation`, D129)
+  and replacement claims carried from the preview (D130)._
+- **K3a (added 2026-10-09 by the user): many-to-one relationships.** A fourth cardinality,
+  `many-to-one`, so a model can say "a record holds at most one value of this kind, and a value
+  serves many records" in the relation's natural direction; K3's Set to offers it.
+  _Planned 2026-10-09 ([plan](#k3a-many-to-one-relationships)), D136–D139 accepted by the user the same day._
 - **K4 (not taken in K1's planning, D103): query-scoped batches.** A batch whose items are "every record matching these
   criteria", decided in the engine, so a large selection is neither paged through nor sent as IDs;
   an API capability integrators get too.
-- **K5 (if decided): relation columns.** A view may declare a relation as a column, shown as record
+- **K5 (D135, decided 2026-10-09): relation columns.** A view may declare a relation as a column, shown as record
   chips (`ui/RecordChip`), so the result of a bulk relation edit is visible in the list.
 
 **Decisions for K1's planning:** how "all matching" meets optimistic concurrency (versions read at
@@ -8848,7 +8854,7 @@ is at most `BATCH_BACKGROUND_MAX_BYTES` (50 MB), about 250,000 update items of o
 **Behaviour.**
 
 1. **Change values.** The selection bar gains **Change values…** (K1's slot). It opens a dialog over
-   the collection naming what it changes ("12 timetable types", "All 2,345 matching except 3", the
+   the collection naming what it changes ("12 master values", "All 2,345 matching except 3", the
    model's `pluralName`).
 2. **The fields** (D117). Every attribute the type binds, in the binding order, except read-only
    and hidden ones; each with **Keep** (the default), **Set to** with the record form's input for
@@ -8939,7 +8945,7 @@ alias).
 | D115 | Where the preview and the result are shown | **Accepted 2026-10-09 by the user.** **In the dialog over the collection, with View job for the full list.** Import shows its preview on the job page (D91), since a file belongs to no screen; a bulk change belongs to the collection the user is in, and the selection must stay in view for Preview again. The job page shows the same sections, so a preview or result reached later from Jobs and feed or a notification reads the same. _Amended 2026-10-09 by the user after delivery: a user who closes the dialog, clicks outside it or goes Back does not expect a change waiting for them, so every way out of a preview not yet applied cancels it; only View job keeps it waiting, since its page is where it is applied or cancelled_ |
 | D116 | Deletion in K2 | **Accepted 2026-10-09 by the user.** **Deletion moves to a package of its own, K2b.** A batch delete item today does not cascade and refuses a record with dependants, which the user ruled out as a realistic path on 2026-10-02 (PG-D18, J11.6: a batch delete must be able to cascade, under a confirmation of what it deletes), and its per-item path must not hold the worker for minutes. K2's preview is that confirmation's natural base: K2b adds cascading delete items whose preview records each item's impact and whose execution refuses an item whose impact changed, as the single delete's token does, with the set-based delete PG-D18 asks for. Bulk deletion in the UI waits for it rather than shipping one that refuses most records with children. The alternative, delete items as they are in K2, ships a delete that refuses every record with children |
 | D117 | What the dialog changes | **Accepted 2026-10-09 by the user.** **Every bound attribute except read-only and hidden ones, each Keep, Set to or Clear; Clear not offered on a required binding; several fields in one change; not the name or the parent.** Read-only and hidden fields are refused or not editable in the record form either; clearing a required value is refused for every record (`MISSING_REQUIRED_ATTRIBUTES`), so offering it only produces refusals. Several fields in one job avoid two jobs and two versions per record. A name is per record and a bulk move is not in Track K's outcome. A unique attribute stays offered: within a scope (`uniqueToAncestorTypeKey`) one value can suit several records, and the preview names the refusals where it cannot |
-| D118 | The selection after a change, and D107's "Run again for the rest" | **Accepted 2026-10-09 by the user.** **The selection is kept; hand-picked records take their new versions from the outcomes; Preview again replaces "Run again for the rest".** A user often makes two changes to one selection (a duration, then a status); without the new versions the second would conflict on every record the first changed. D107 put "Run again for the rest" on the job page, but a finished batch keeps no items to send again (its `job_inputs` are removed), so the job page cannot rebuild it; the dialog can, and sending the whole change again costs nothing for records already changed (`unchanged`, D24) and also retries records refused for a version changed meanwhile, once the user has seen them. The job page says that applying the same change again changes only the rest |
+| D118 | The selection after a change, and D107's "Run again for the rest" | **Accepted 2026-10-09 by the user.** **The selection is kept; hand-picked records take their new versions from the outcomes; Preview again replaces "Run again for the rest".** A user often makes two changes to one selection (a category, then a status); without the new versions the second would conflict on every record the first changed. D107 put "Run again for the rest" on the job page, but a finished batch keeps no items to send again (its `job_inputs` are removed), so the job page cannot rebuild it; the dialog can, and sending the whole change again costs nothing for records already changed (`unchanged`, D24) and also retries records refused for a version changed meanwhile, once the user has seen them. The job page says that applying the same change again changes only the rest |
 | D119 | The preview limit's name | **Accepted 2026-10-09 by the user.** **`IMPORT_PREVIEW_MAX_ITEMS` becomes `JOB_PREVIEW_MAX_ITEMS`, and `importPreviewMaxItems` becomes `previewMaxItems`, without an alias.** The limit now bounds every preview, an import's and a batch's, so its import name would mislead an operator setting it for bulk changes. Pre-1.0 a setting and a capability field may be renamed; the CHANGELOG and OPERATIONS say so. The alternative keeps the name and documents that it bounds batch previews too |
 
 **Journeys.** J11.9 (new) *Preview a batch, then apply it* (API; J11's group): a preview writes
@@ -9116,14 +9122,14 @@ already walks a context's tree in SQL with a recursive CTE over a temporary tabl
 **Behaviour.**
 
 1. **Delete…** in the selection bar, beside Change values…, opens a dialog naming what it deletes
-   ("12 timetable types", "All 2,345 matching except 3"), with K2's choice of how it applies
+   ("12 master values", "All 2,345 matching except 3"), with K2's choice of how it applies
    (D106; all or nothing disabled over `atomicJobMaxItems`, with its explanation).
 2. **Preview** reads all matching as K2 does (progress, Stop, exceptions left out) and sends one
    background batch with `stage: "preview"`: one `delete` item per record with `cascade: true`,
    its version (by hand: the row's; all matching: as read) and its name as `ref`.
 3. **The preview** (D121) says, before anything is deleted: how many selected records will be
    deleted; how many further records go with them, by type ("and 340 records inside or owned by
-   them: 300 timetables, 40 codes"); how many relationships are removed and how many of those
+   them: 300 values, 40 translations"); how many relationships are removed and how many of those
    link to records that stay; how many selected records go with another selected record (D122); and
    the refused ones with their reasons, each name opening the record. A sample (`coverage: sample`)
    says so. The dialog's Apply names the total in a destructive button ("Delete 352 records").
@@ -9350,6 +9356,418 @@ Approved by the user on 2026-10-09.
   (TEST_HARNESS_PLAN time ceilings); not caused by K2b's tests (`test_batch_statements` takes 12 s).
   Reported as a harness finding.
 - The bundled-script test of the API reference failed once under parallel load and passed alone.
+
+#### K3: Changing the relationships of a selection
+
+**Design:** Track K's outcome above; B3 (relation items, ADR-022). **Needs:** K2b (the shared
+`BulkJobDialog`, the preview's carried claims).
+
+**Scope:** adding, removing, replacing and clearing the relationships of the selected records, for
+every relationship the model allows the type, live or in a change set, previewed before anything is
+written; the item and the preview claim this needs in the engine, which integrators get too.
+
+**Exit:** a user changes the relationships of a selection in two collections of two applications,
+live and in a change set, by pointer and keyboard, at 1440px and 390px, choosing the other records
+with the record picker; reads before applying how many relationships are added, removed or already
+as asked and which records are refused; applies it and opens a record to see the result; an
+integrator does the same through `POST /batches`.
+
+##### K3 plan (2026-10-09)
+
+**Planned 2026-10-09. D127–D135 and the test cases accepted by the user the same day (D132 with its TODO item for after 1.0; D135 after K5 was sized: relation columns are K5). Delivered the same day
+([record](#k3-record-2026-10-09)).** Checked against the code at
+`9a3933f`.
+
+**What exists.** `POST /batches` takes the five relation items of B3. `ensureRelation` (type, `from`,
+`to` by reference) creates a relationship unless one of the type joins the two records, and is
+`unchanged` otherwise when it carries no attributes; it needs no version. `deleteRelation` names a
+relationship by its `id` with its `expectedVersion`, so a client must first read each relationship
+it removes, and sending it again after it applied is refused (the relationship is gone).
+`replaceRelationSet` makes an anchor's set of one binding and direction exactly the targets; an
+equal set is `unchanged` before any claim (D37), otherwise it needs the set's version
+(`expectedRelationSetVersion`) or `onExisting: "overwrite"` (`VERSION_REQUIRED`); the set's version
+is readable only per record (`GET /relations?objectId=…`, `relationSets`). A relationship write
+advances the relationship's and the sets' versions, never a record's (`relation_writes.py`), so
+K2's selection versions (D118) are unaffected. The rules (`rules.py`): `one-to-many` lets the `to`
+end hold one relationship of the binding, `one-to-one` both ends; a relationship of a `required`
+binding cannot be deleted on its own (`REQUIRED_RELATION`), and a replacement may remove it only
+while the record keeps another (D36); a required-ownership binding (`required` with `one-to-one` or
+`one-to-many`) is never replaced (`REQUIRED_OWNERSHIP_BINDING`); containment is never an item
+(`IMMUTABLE_RELATION`); `uniqueToAncestorTypeKey` scopes refuse with their codes. K2b's confirm
+carries each previewed delete's token into its stored item in one `UPDATE … FROM job_items`
+(`store.py`), the mechanism D130 reuses. The UI: `BulkJobDialog` holds the flow every bulk action
+shares (reading all matching, preview, apply, result, cancel on leave); `RelationFormDialog` relates
+one record through `ui/ObjectLookup`, which picks one record of a type; no field picks several
+(`ui/TokenField` holds typed text chips). `model/lookup.relationChoices` lists a panel's relation
+choices, filtered by the panel's configuration. No model in the repository declares relationship
+attributes on a binding except test models built in the tests. The starter has `system-value-maps-to-master` (system value → master value,
+many-to-many), `reference-has-system-representation` (domain or codelist → system value,
+one-to-many: a system value has one) and the required-ownership `object-has-translation`.
+
+**Behaviour.**
+
+1. **Change relationships…** in the selection bar, beside Change values… and Delete…, where the type
+   has at least one relationship it may change (D127). It opens a dialog naming what it changes
+   ("12 system values", "All 2,345 matching except 3").
+2. **The relationship** (D127). A choice of every relationship the model allows the type, in both
+   directions, named by the relation type's name in that direction and the other type ("Maps to ·
+   Master values", "Represented by · Codelists"); containment and required-ownership bindings are
+   not offered.
+3. **What to do with it** (D128, D133), offered by the binding's cardinality and `required`:
+   - **Add** and **Remove** records, together in one change (either list may be empty): each
+     selected record gains a relationship to every record under Add and loses any to a record under
+     Remove;
+   - **Replace with**: each selected record's relationships of this kind become exactly the records
+     listed;
+   - **Set to** one record, where each selected record may hold only one of these;
+   - **Clear**: each selected record's relationships of this kind are removed.
+   The other records are chosen with the record picker (`ui/RecordListField`: search, pick, a chip
+   per chosen record with a remove button, keyboard throughout). Relationship values are not edited
+   here (D132).
+4. **How it applies** (D106): K2's two policies; all or nothing disabled over `atomicJobMaxItems`,
+   counted in items (D134).
+5. **The size before sending** (D134). The dialog says how many changes the selection makes ("12
+   system values × 3 master values: 36 changes"). Over `backgroundJobMaxItems`, or for Replace with,
+   Set to and Clear over `previewMaxItems` (D131), it explains as K1's refusal does (the count, the
+   limit, its setting, what to do) and sends nothing.
+6. **Preview** reads all matching as K2 does and sends one background batch with `stage: "preview"`:
+   for Add one `ensureRelation` per record and record added, for Remove one `ensureNoRelation`
+   (D129) per record and record removed, for Replace with, Set to and Clear one `replaceRelationSet`
+   per record without a version claim (D130); each item's `ref` is "selected record → other record"
+   or the selected record's name. The preview says how many relationships will be added, how many
+   removed, how many are already as asked, and the refused records with their reasons, each name
+   opening the record; a sample (Add and Remove only) says so.
+7. **Apply** confirms the preview; progress and result as in K2, each refused record openable, View
+   job. A record whose set changed since the preview is refused `RELATION_SET_VERSION_CONFLICT`
+   (D130); leaving a preview not yet applied cancels it (D115).
+8. **The selection after a change** is kept, with its versions (a relationship write moves no
+   record's version); **Preview again** sends the same change, where everything already done answers
+   `unchanged`. The collection is not reloaded for its rows (it shows no relationships until K5, D135); a
+   record open in the inspector reads its relationships again.
+9. **Refused before a job exists** as in K2 (change set changed at Apply, `413`, a release activated
+   meanwhile).
+10. **A batch's job page** says a relation item's outcome in words: "added", "removed", "already
+    related", "not related", and for a replacement "2 added, 1 removed" from its `relationIds`.
+
+**API** (D129, D130). A batch item **`ensureNoRelation`**: `relationTypeKey`, `from`, `to`
+(references), optional `expectedVersion`. When a relationship of that type joins the two records it
+is deleted as `deleteRelation` deletes it, with that route's refusals and audit entry
+(`IMMUTABLE_RELATION`, `REQUIRED_RELATION`, `VERSION_CONFLICT` when `expectedVersion` is given and
+stale); its outcome is `deleted` with `relationId`. When none joins them it is `unchanged`, with no
+`relationId`. The ends' types must allow the binding (`INVALID_RELATION_PAIR`,
+`REFERENCE_TYPE_MISMATCH` as `ensureRelation`). **A previewed set replacement carries its claim:** a
+`replaceRelationSet` in a preview needs no `expectedRelationSetVersion`; its outcome gains
+`previousRelationSetVersion`, the version the item found (on `updated` and `unchanged`); confirming
+copies it into each stored item that had no claim, in the same statement that carries delete tokens,
+so execution refuses exactly the records whose set changed since the preview. Without a preview the
+claim rules are as before. No route is added.
+
+**Design.**
+
+- **Engine.** `records/relation_writes.py`: removal by ends finds the relationship over the batch
+  lookup (`lookup.relations` of the `from` record, by type, to the `to` record) and runs the existing
+  delete decide step, or answers unchanged; `jobs/batches.py` dispatches the item in the relation
+  segments (constant statements per chunk, as D35); `records/relation_sets.py` accepts no claim while
+  previewing (the flag K2b passes) and reports the version it found; `jobs/store.confirm_job`'s
+  `UPDATE … FROM job_items` also sets `expectedRelationSetVersion` from the outcome for
+  `replaceRelationSet` inputs without one. `models/commands.py` (the item), the job schemas (the
+  outcome field), `refusals.py` unchanged (no new code).
+- **`model/lookup.bulkRelationChoices`** (new, beside `relationChoices`, pure): every binding the type
+  is an end of, both directions, without containment (`isManagedRelation`) or required ownership,
+  with the actions D128 allows. Not filtered by a panel's configuration: panels are views, the bulk
+  action reads the model (Track K's outcome).
+- **`ui/RecordListField`** (new): `ui/ObjectLookup` for the search and a `TagGroup` of chosen records
+  as `ui/TokenField` draws its chips (react-aria), each removable, with a hidden input for native
+  `required`. One component, used twice in the dialog; `ObjectLookup` is not copied.
+- **`features/objects/BulkRelationDialog`** (new) over `BulkJobDialog`: the relationship, the action,
+  the pickers and the size line; **`bulkRelations.ts`** (new, pure): the items from a selection and
+  the chosen records, refs (≤ 200 characters), the item count, the preview in words.
+- **`features/jobs/BatchOutcome`**: relation outcomes in words (behaviour 10). **`SelectionBar`**:
+  the third action.
+- **Not changed:** the other relation items, the single relation routes, the mapping PUT, the
+  selection's rules, the record panels, the tree, matrix and grid views.
+
+**Decisions** (for approval):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D127 | Which relationships the dialog offers | **Accepted 2026-10-09 by the user.** **Every binding the model declares with the type at either end, in both directions, except containment and required-ownership bindings; not limited by any relations panel.** Containment is the parent (not in Track K's outcome) and is never a relation item; a required-ownership relationship belongs to its owning record, is created with it and is never replaced (`REQUIRED_OWNERSHIP_BINDING`). A panel decides what one record's page shows; Track K's outcome says every action the model allows is offered, read from the model. The alternative, the bindings of the type's relations panels, would hide a relationship a model declares but no panel shows |
+| D128 | Which actions a binding offers | **Accepted 2026-10-09 by the user.** **From cardinality and `required`, seen from the selected type's end:** both ends may hold many (`many-to-many`): Add, Remove, Replace with, Clear. The selected end holds one (`one-to-many` with the selected type at `to`): Set to, Clear. The other end holds one (`one-to-many` with the selected type at `from`, or `one-to-one`): Remove and Clear only, since one record added to several selected records would be refused for all but the first (`CARDINALITY_VIOLATION`). A `required` binding drops Remove and Clear: the single delete refuses them always and a replacement keeps the last one (D36). The alternative, every action on every binding with the preview naming the refusals, offers changes that cannot succeed |
+| D129 | How Remove names a relationship | **Accepted 2026-10-09 by the user.** **A new batch item, `ensureNoRelation`, by its ends: deleted when present, `unchanged` when absent.** `deleteRelation` needs each relationship's ID and version, so the dialog would first read every chosen record's relationships, and Preview again (D118) would refuse every relationship already removed. `ensureNoRelation` is `ensureRelation`'s counterpart, decided in the engine in bulk, and an integrator keeping two records apart gets an idempotent call for the same reason. `expectedVersion` is optional, as on `ensureRelation`: the item names what to remove by its ends, not by values it could overwrite. The alternative, the UI reading the relationships of each chosen record (`GET /relations?objectId=…`, paged) and sending `deleteRelation`, keeps K3 off the engine at the cost of those reads and the reruns' refusals |
+| D130 | How Replace with, Set to and Clear meet a set's version | **Accepted 2026-10-09 by the user.** **The preview takes each set's version and confirm carries it into the stored item, as D120 carries a delete's token; a preview needs no claim.** The selection carries record versions, not set versions, and reading each record's sets is one request per record. Carried claims refuse exactly the records whose set someone changed after the preview, the per-item conflict D102 gives value changes. The alternative, `onExisting: "overwrite"`, replaces a set someone changed after the preview without telling anyone, which the concurrency invariant rules out |
+| D131 | Replace with, Set to and Clear over the preview limit | **Accepted 2026-10-09 by the user.** **Explained and not sent, as K1's refusal is (D104), not sampled.** Only previewed items carry a claim (D130); a sampled replacement would refuse every record after the sample `VERSION_REQUIRED`, and Preview again would preview the same first records again. Add and Remove need no claim, so they sample as K2 does. The alternative, a sample with the rest refused, ships a change that cannot finish on a large selection |
+| D132 | Relationship attribute values | **Accepted 2026-10-09 by the user, with the item in TODO for after 1.0.** **Not edited by K3: new relationships carry no values, kept ones keep theirs; values stay in the record's Relationships panel.** No shipped model (the starter, the example model) declares relationship attributes, only test models, so the fields would be built without a configuration to show them (AGENTS: generalise after two real cases); the items already take them for integrators. The alternative, the binding's attributes as Keep, Set to or Clear (as D117), returns when a model needs it |
+| D133 | How much one change holds | **Accepted 2026-10-09 by the user.** **One relationship per change; Add and Remove together on it.** Replacing one related record by another on many records ("swap role A for B") is the common bulk edit, and Replace with would drop the others. Several relationships in one change (as K2's several fields) would make a preview hard to read and has no case yet |
+| D134 | How the limits count | **Accepted 2026-10-09 by the user.** **In items: Add and Remove make one per selected record and chosen record, a replacement one per selected record; the dialog states the product before sending.** `atomicJobMaxItems`, `backgroundJobMaxItems`, `previewMaxItems` and the request size count items, so 4,000 records × 3 roles is 12,000 items. K1's selection limit counts records and stays |
+| D135 | Relation columns (K5) | **Accepted 2026-10-09 by the user, after K5 was sized: relation columns are package K5 of 0.9, after K3 and before R; not built in K3.** Without them a bulk relationship change is seen only in each record's Relationships panel, the preview and the job's outcomes, not in the list. K5 follows the `ancestor:<type>` column: a table column naming a binding and direction in schema 0.9 (unreleased, as C18 extended it), a parameter on the per-type list returning each row's first related records and their total under a documented limit, read per page as a set in live data, a change set and a publication, and record chips with "+N more" in `ObjectTable`. Planned in detail when it starts, with its own decisions (the column's syntax, how many records a cell shows, sorting and filtering by it left out, record panels' tables or collections only). K5 amends K3's behaviour 8: the rows are read again after a relationship change |
+
+**Journeys.** J11.10 (new) *Keep two records apart* (API; J11's group): `ensureNoRelation` deletes
+when related, is `unchanged` otherwise, with the single delete's refusals, live and in a change set.
+J11.11 (new) *A previewed set replacement claims what it showed*: no claim needed in a preview, the
+claim carried at confirm, a set changed meanwhile refused per record. J32.4 (new) *Change the
+relationships of a selection* (UI): behaviour 1–10. USER_JOURNEYS (J11.10, J11.11, J32.4, the
+index), API_JOURNEYS (`ensureNoRelation`, `previousRelationSetVersion`, the carried claim, mapped to
+J11.10 and J11.11), UI_ACCEPTANCE (row K3-1 the relationships dialog; K2-2 gains relation outcomes).
+
+**Test cases** (approved by the user 2026-10-09). API journey tests (pytest, `test_j11_bulk_change`, new cases):
+
+1. **Keep two records apart.** Given A related to X and B not, by a many-to-many binding. A batch
+   of `ensureNoRelation` A–X and B–X: A–X `deleted` with its `relationId` and audit entry (the job as
+   cause), B–X `unchanged`; sent again, both `unchanged`. A required binding's relationship is
+   `REQUIRED_RELATION`, a containment `IMMUTABLE_RELATION`, a stale `expectedVersion`
+   `VERSION_CONFLICT`. The same in a change set, live unchanged.
+2. **A previewed replacement claims what it showed.** Three anchors; a background preview of
+   `replaceRelationSet` without claims: two `updated`, one `unchanged`, each with
+   `previousRelationSetVersion`, nothing written. One anchor's set changed live before confirm: that
+   item `RELATION_SET_VERSION_CONFLICT`, the others applied; under `atomic` nothing is. An execute
+   batch without a preview or a claim is still `VERSION_REQUIRED`.
+3. **Add and remove in one batch, rerun.** `ensureRelation` and `ensureNoRelation` items over
+   several records previewed and confirmed; the same batch again answers every item `unchanged`.
+4. **Cost.** `test_batch_statements` gains `ensureNoRelation` items at both sizes: statements per
+   chunk constant, as B3's relation items.
+
+Unit tests (Vitest): `bulkRelations.test` (the actions per binding over every combination of
+cardinality, end and `required`, generated, with ownership and containment absent; items and refs
+from a hand selection and from read records with exceptions; the item count); `lookup` cases for
+`bulkRelationChoices` on two types; `RecordListField.test` (pick, remove, keyboard, `required`);
+`BulkRelationDialog.test` (the actions shown per binding; the size line and the explanations over
+the limits; the preview's words; a `RELATION_SET_VERSION_CONFLICT` with Preview again); a
+`BatchOutcome` case for relation outcomes.
+
+Browser runner `test:browser:k3` (real backend; the starter; system values of Systems and master
+values of RDM Master; keyboard; 1440px and 390px):
+
+5. **Add and remove by hand, live.** Select three system values; Change relationships…, Maps to ·
+   Master values, Add two master values (one already related to one of them): the preview says 5
+   added, 1 already related; Apply; open a record, its Relationships panel shows them. Then Remove
+   one of the two: 3 removed.
+6. **Set to over all matching, in a change set.** Filter system values, Select all matching, uncheck
+   one; Represented by · Codelists offers Set to and Clear only; Set to one codelist, preview, Apply
+   in the change set; live unchanged. Live, the same with one previewed record's set changed through
+   the API before Apply: that record refused, the rest set, Preview again shows it.
+7. **From the other side and what is not offered.** In master values, Maps to (reverse) · System
+   values offers Add, Remove, Replace with and Clear; on codelists, Represents · System values offers
+   Remove and Clear only; no Translations relationship is offered anywhere.
+8. **Keyboard only at 390px**: from the bar through the picker to Apply and Close; the result
+   announced; a preview left by Escape reads back cancelled.
+
+Axe with 0 violations on the dialog (form with the picker, preview, result) and a batch's job page
+with relation outcomes, light and dark; screenshots at 1440px and 390px for the user's approval.
+
+**Checks.** Backend: `jobs`, `mapping`, `records`, `matrix` and `contract` (B3's groups; the OpenAPI
+document diffed before its hash is re-locked); Ruff on the changed files only. Frontend: Vitest
+`related` over the changed files, `format`, `lint` (0 errors), `build`; `test:browser:k3`;
+`test:browser:k2` and `test:browser:k2b` (the shared flow and `BatchOutcome`); `test:browser:k1` (the
+bar). Not run: the full suites, `budget`, `test:a11y`, `test:visual` (R, as D95).
+
+**Docs at delivery.** API.md (the item, the outcome field, the carried claim), INTEGRATION_API §B4
+and §B8, USER_JOURNEYS, API_JOURNEYS, UI_ACCEPTANCE, CURRENT_FUNCTIONALITY, PRODUCT (relationships
+of a selection), EXECUTION_GUIDE (the runner, the frontend map), CHANGELOG,
+PROJECT_STATUS; Track K's outline.
+
+**Composable domains (ADR-032):** the bulk API gains one item and one outcome field, additive;
+relationships keep their audit entries per relationship with the job as cause, so history and the
+inbound-flow door are as before. Identity, attribute storage, the `match` declaration and mapping
+coverage are untouched.
+
+##### K3 record (2026-10-09)
+
+**Delivered 2026-10-09.** D127–D135 and the test cases as approved with the plan. Screenshots await
+the user's approval.
+
+**Built.**
+
+- **The engine.** `ensureNoRelation` (`models/commands.py`) is a relation item: `batches.apart`
+  checks the binding (`INVALID_RELATION_PAIR`), finds the relationship joining the ends over the
+  batch lookup and deletes it through the single delete's step (`decide_relation_delete`, with its
+  refusals and audit), or answers `unchanged`; its `expectedVersion` is claimed only when sent. The
+  prefetch already read both ends' relationships for items with `from` and `to`, so the item adds no
+  statement per item. A set replacement reads the set's version it finds before deciding: in a
+  preview it runs with that version as its claim, its outcome reports it
+  (`previousRelationSetVersion`) and its refusals name it (`details.relationSetVersion`).
+  Confirming carries it into each stored replacement without a claim
+  (`store._carry_preview_claims`, beside K2b's tokens, one `UPDATE … FROM job_items`). No migration.
+- **The browser.** `model/lookup.bulkRelationChoices` (D127, D128) and `bulkRelations.ts` (the items,
+  a pair's `ref`, the item count, D129–D131, D134); `BulkRelationDialog` over the shared
+  `BulkJobDialog`, which now takes an item-to-record map (`rowOf`), so a refused "record → other
+  record" opens its record, the item count for the atomic limit, a noun for its items, and counts a
+  removed relationship as no record deleted; `ui/RecordListField` (the record search with the chosen
+  records as chips) over `ui/ObjectLookup`, which takes `chosenIds`, and `ui/ChipList`, the chip
+  markup extracted from `TokenField` and `MultiSelect`, which now use it (one component, no copies);
+  `BatchOutcome` says a relationship outcome in a relationship's words and decides a delete's words
+  from the preview's deletion totals (`deletesRecords`); Change relationships… in the selection bar
+  where the type has a relationship to change.
+
+**Checks.** Backend: the three new journey tests failed first on the unknown item and on
+`VERSION_REQUIRED` in a preview (6 runs, two configurations), then passed. The groups `jobs`,
+`mapping`, `records`, `matrix` and `contract` in parallel: 840 passed, 2 failed; both passed alone
+(see Found); their serial part, 1 passed. `test_batch_statements` (12 passed): `ensureNoRelation`
+items cost 32–36 statements live and 36–41 in the change set for 100 or 500 items at both sizes,
+budget 40 and 45. The OpenAPI document was diffed against `9a3933f` before its hash was re-locked:
+`BatchEnsureNoRelationItem` and its two places in the item union, the outcome's
+`previousRelationSetVersion`, two descriptions; no path. Ruff on the changed files. Frontend: Vitest
+`related` over the changed files, 37 files, 408 tests (`bulkRelations.test` 6, the actions over every
+cardinality, end and `required` against D128 written out as a table; `BulkRelationDialog.test` 4;
+`RecordListField.test` 2; a `JobPage.test` case); `tsc`, `format`, `lint` (0 errors, the 7 earlier
+warnings), `build`. Runners: `test:browser:k3` 13 checks; `test:browser:k2` 14, `test:browser:k2b`
+12, `test:browser:k1` 11, `test:browser:j4` 18 (the preview sections), `test:browser:webhooks` 19
+(`ChipList` in `MultiSelect` and `TokenField`). Not run: the full suites, `budget`, `test:a11y`,
+`test:visual` (R).
+
+**Evidence, separately.** Functional: the runners' checks above. Accessibility: axe 0 violations on
+the dialog's form with the picker, preview and result and on a batch's job page, light and dark;
+keyboard only at 390px through the picker (type, ↓, Enter) with the status region read back
+("Preview ready: 1 would change, 0 would be refused", "Applied: 1 changed, 0 refused"). Visual: the
+screenshots were inspected and three things fixed: "Relationship" stood twice (the section and the
+field, now "Which relationship"); a "Change" heading repeated "What to do" (the form is one section
+now); the preview counted relationships as created and deleted (now added and removed).
+
+**Differences from the plan.**
+
+- Behaviour 8 said the collection is not read again after a change; it is, through the same
+  `onChanged` as K2 and K2b, which is also what makes an open record read its relationships again.
+- The generated table caught Remove offered where the selected end holds one; D128 offers Set to and
+  Clear there, and the code now does.
+- An `ensureNoRelation` whose ends' types the binding does not allow is `INVALID_RELATION_PAIR`, as
+  an `ensureRelation` that would create is; the plan also named `REFERENCE_TYPE_MISMATCH`, which only
+  the set replacement's typed ends use.
+- A set replacement's refusals name the version found (`details.relationSetVersion`), so a
+  replacement the preview refused carries its claim too: execution decides it again under that
+  claim, refusing it with its own code or applying it if the cause went away meanwhile.
+
+**Found.**
+
+- `test_mapping_coverage::test_coverage_query_count_does_not_grow_per_source[False]` failed once in
+  the parallel run and passed alone: it counts every statement on the shared engine while the request
+  runs, so a poll of the application's job worker in that moment adds one. Not caused by K3 (no
+  mapping read or worker code changed); a harness finding.
+- The groups took 2 min 40 s in parallel, over the 2-minute package ceiling, as in K2b.
+- The bundled-script test of the API reference failed once under parallel load and passed alone, as
+  in K2b.
+- The record search keeps its list open (`ObjectLookup`'s design), so with Add and Remove both shown
+  the form is long and scrolls; left as it is.
+- A set changed since the preview is refused with the engine's message ("refresh it before
+  retrying"), integrator wording beside the dialog's Preview again; left as it is.
+
+#### K3a: Many-to-one relationships
+
+**Added 2026-10-09 by the user.** **Design:** this entry; [APPLICATION_MODEL](APPLICATION_MODEL.md)
+(`objectTypeRelations`). **Needs:** K3 (its D128 actions are where the new cardinality shows).
+**Planned 2026-10-09; D136–D139 accepted by the user the same day.** Checked against the code at `9a3933f` with K3 in the
+working tree.
+
+**Why.** A record often holds one value of a kind, where the value is itself a reference record:
+it has its own IDs in each system, is mapped to system values and is exposed by the consumer API, so
+it cannot be an attribute. The binding needs "the `from` record holds at most one; the `to` record
+may serve many". Today a binding can say that only from the other side, with the relation turned
+around (value → record, `one-to-many`). The record would then hold its value as an incoming
+relationship, and every panel, view, consumer field and import profile would read it backwards.
+
+**What exists.** `models/schema.py`: `Cardinality = Literal["one-to-one", "one-to-many",
+"many-to-many"]`, so a model with `many-to-one` is refused. Every reader decides "which end holds one"
+on its own:
+- `records/rules.relation_cardinality`: the write rule;
+- `management/projections/relation_matrix` (`rowCardinality`, `candidateCardinality`) and
+  `projections/mapping` (`exclusive_target`): the projections;
+- `model/consumer_contract`: the consumer field's arity, `one` or `many`;
+- `model/compatibility._cardinality_restrictions` and `_check_cardinality`: the second counts `to`
+  conflicts for every binding that is not `many-to-many`;
+- `change_sets/validation`: this one already handles `many-to-one` (source end), but the code never
+  runs today;
+- frontend `types/model.ts` and `model/lookup.bulkRelationChoices`.
+
+Required ownership (`required` with `one-to-one` or `one-to-many`: deletion cascade,
+`REQUIRED_OWNERSHIP_BINDING`, mapping-grid validation, publish) is listed explicitly by value, so
+`many-to-one` is never ownership without a change. `required` today means the `to` record is created
+with the relationship (`rules.py`, `MISSING_REQUIRED_RELATIONS`, incoming initial relations). The single-record
+Relationships panel does not read cardinality: adding a second relationship where the record's end
+holds one is refused `CARDINALITY_VIOLATION` after the fact.
+
+**Behaviour.**
+
+1. A model in schema 0.9 may declare `"cardinality": "many-to-one"` on a binding: each `from` record
+   holds at most one relationship of that binding, and a `to` record may hold any number (D136).
+   Schema 0.5–0.8 models refuse it at validation with the path and the minimum version, the same way
+   other 0.9 syntax is refused.
+2. A write that would give a `from` record a second relationship is refused `CARDINALITY_VIOLATION` (single
+   route, batch item, change-set validation `RELATION_CARDINALITY_VIOLATION`). `replaceRelationSet`
+   on the `from` end accepts at most one target. The codes are the same as today.
+3. Activating a release that changes a binding to `many-to-one` is refused while any `from` record
+   holds more than one. The diagnostic gives the count, as `one-to-many` does today for its `to` end. The
+   user fixes the data first, for example with K3's Set to on a selection.
+4. K3's dialog, by its D128 rule with "which end holds one" now read from the new cardinality: with
+   records at the `from` end selected, the binding offers **Set to** and **Clear**; with records at
+   the `to` end selected, **Remove** and **Clear** only, as D128 already decides for "the other end holds one". No new
+   decision is needed.
+5. The single-record Relationships panel, where the record's end holds one (D139): the panel shows
+   **Set** when the record has none, and **Change** and **Remove** when it has one. It no longer offers
+   an Add that the write rule then refuses. The same applies to the existing `one-to-many` incoming and
+   `one-to-one` ends.
+6. The relation matrix and mapping grid treat the `from` end of a `many-to-one` binding as holding
+   one, exactly as they treat the `to` end of `one-to-many` today.
+7. Consumer API: a `related` field `via` a `many-to-one` binding in the outgoing direction answers one
+   object or `null`, not a list, derived as `consumer_contract` derives arity today.
+8. The example model adopts `many-to-one` where a record holds one value of a kind.
+
+**Design.**
+
+- **One rule, read everywhere** (D138). The engine model gains `holds_one(binding, end)` (`end` is
+  `"from"` or `"to"`), which `rules.relation_cardinality`, `relation_matrix`, `mapping`,
+  `consumer_contract`, `compatibility` and `change_sets/validation` call instead of their own
+  branches. The frontend gets the same as `model/lookup.holdsOne`, used by `bulkRelationChoices`
+  and the Relationships panel. Required ownership stays as is, listed by value; `many-to-one` is not in it.
+- `models/schema.py` (`Cardinality`), the version check in `model/validation` (`many-to-one` needs
+  0.9), `management/schemas/model.py` and the OpenAPI enum (the lock re-baselined after the diff).
+  The `cardinality` column is already free text (`String(40)`), so no migration is needed.
+- `compatibility._check_cardinality` counts conflicts at each end that holds one, so `many-to-one`
+  counts `from` conflicts. The 0.9 `one-to-one`/`one-to-many` results are unchanged.
+- Frontend: `types/model.ts`, `model/lookup`, `features/objects/panels/RelationsPanel` (behaviour 5).
+  `BulkRelationDialog` takes its actions from `bulkRelationChoices` and does not change.
+- **Not changed:** relation storage, relation routes and items, required-ownership rules, deletion
+  cascade, the starter (it has no case for this).
+
+**Decisions** (accepted by the user 2026-10-09):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D136 | How a model says "the `from` record holds at most one" | **Accepted 2026-10-09 by the user.** **A fourth cardinality value, `many-to-one`, in schema 0.9 only.** With it, the cardinality covers all four combinations of one and many at the two ends, and each binding keeps the direction its relation type reads in ("record has value"). The alternative, per-end limits (`fromMax`, `toMax`, or minimum and maximum counts), is more general, but no model needs a limit other than one or many. The alternative of turning the relation around (value → record with `one-to-many`) works today, but reads backwards in every panel, view and consumer field |
+| D137 | `required` with `many-to-one` | **Accepted 2026-10-09 by the user.** **Refused by model validation in K3a; listed in TODO as its own package when a model needs it.** `required` today means the `to` record is created with its relationship (incoming initial relations), which is what translations and ownership rely on. "Every record must hold one" is a different rule at the `from` end: the record is created with its value, it cannot clear it, and a value still serving records that require it cannot be deleted. Defining that properly touches creation, imports, deletion and change-set validation. The case at hand is optional: a record *can* hold one value. The alternative, giving `required` this meaning on `many-to-one` in K3a, roughly doubles the package |
+| D138 | Where "which end holds one" is decided | **Accepted 2026-10-09 by the user.** **One function in the engine model and one in the frontend's `model/lookup`, used by every reader.** Six places in the backend each branch on the values today, and one of them (`_check_cardinality`) is already wrong for a fourth value. With a fourth value, every new reader would otherwise need the same four-way branch. Required ownership stays a separate rule, listed by value |
+| D139 | The single-record Relationships panel where the record's end holds one | **Accepted 2026-10-09 by the user.** **Set when there is none; Change and Remove when there is one; no Add.** Today the panel offers Add and the write refuses the second relationship. The fix also applies to the `to` end of `one-to-many` and to both ends of `one-to-one`. The alternative, leaving the panel as it is, lets the user click Add and only then see the refusal |
+
+**Journeys.** J11.12 (new) *A record holds one of a kind* (API): a many-to-one binding; a second
+relationship from the same record refused at each write surface; the target serving many; a set
+replacement with two targets refused; the activation refused while data has two, accepted after
+they are fixed. J32.5 (new) *Set one value on the selected records* (UI): K3's Set to on a `many-to-one`
+binding; the panel's Set, Change and Remove on one record.
+
+**Test cases** (for approval; ≤ a quarter of the package):
+
+1. **API, `test_j11_bulk_change`:** a test model in schema 0.9 with a `many-to-one` binding. A
+   second `ensureRelation` from the same record is `CARDINALITY_VIOLATION`; two records relate to the
+   same target; `replaceRelationSet` from the `from` end with one target is `updated`, with two it is
+   refused; the same in a change set at its validation. A schema 0.8 model with the value is refused.
+2. **Model, the compatibility check:** activating `many-to-many` → `many-to-one` with one `from` record
+   holding two is refused with the count; after the record is fixed, it is accepted.
+3. **Consumer:** a field `via` a `many-to-one` binding is one object in the definition's
+   answer and its OpenAPI.
+4. **Frontend:** Vitest over `holdsOne` and `bulkRelationChoices` (the four values × both ends) and
+   the panel's Set/Change. `test:browser:k3` gains the Set to journey on a `many-to-one` binding. Screenshots of the
+   panel at 1440px and 390px for the user's approval.
+
+**Checks.** Backend: `model`, `records`, `jobs`, `change_sets`, `matrix`, `mapping`, `consumer` and
+`contract` (the OpenAPI enum diffed before re-lock); Ruff on the changed files. Frontend: Vitest
+`related`, `format`, `lint`, `build`, `test:browser:k3`. Not run: the full suites, `budget`,
+`test:a11y`, `test:visual` (R, as D95).
+
+**Docs at delivery.** APPLICATION_MODEL (`cardinality` values and which end each limits),
+MODEL_AUTHORING (choosing a cardinality; when a relation is many-to-one), API.md (the enum),
+USER_JOURNEYS, UI_ACCEPTANCE, CURRENT_FUNCTIONALITY, CHANGELOG, PROJECT_STATUS, TODO (D137's
+required many-to-one), Track K's outline.
+
+**Composable domains (ADR-032):** a structural capability with no domain names. Any binding may be
+`many-to-one`, the example model is one configuration of it, and relation storage, identity and the
+`match` declaration are untouched.
 
 ## R: Build acceptance and release
 

@@ -116,7 +116,19 @@ relationships are removed and how many of those reach records that stay, and whi
 go with another selected one. The button names the whole ("Delete 352 records"). Deleting removes
 exactly what the preview showed for each record: one changed meanwhile (a child added, a record
 edited) is refused and named, the rest are deleted, and Preview again shows it as it is now. The
-deleted records leave the selection. Changing a selection's relationships is being built (Track K).
+deleted records leave the selection.
+
+**Change relationships…** changes the selected records' relationships of one kind: any the model
+allows the type, in either direction, except a parent and a record's owner. What it offers follows
+how many each side may hold: add and remove records together, replace them with the records chosen,
+set the one record each selected record holds, or clear them; a required relationship is never
+removed or cleared. The other records are picked with a record search, each shown as a removable
+chip. The dialog says how many changes the selection makes and explains, before sending, a change
+larger than the deployment allows. The preview counts the relationships added, removed and already
+as asked and names each refused record; Apply refuses a record whose relationships of that kind
+changed since the preview and applies the rest. Relationship values are not changed here; a
+record's relationships page changes them. The list does not show relationships yet; the record's
+page does.
 
 Limits: one sort at a time in the browser; queries across relationships are API-only (F20). Pages are
 always bounded.

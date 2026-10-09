@@ -160,6 +160,14 @@ export interface JobItemOutcome {
   impact?: DeletionImpact;
   /** A delete item whose record goes with this earlier item's impact (D122). */
   deletedWithItem?: number;
+  /** A relationship item's relationship; absent when an `ensureNoRelation` found none (0.9 K3). */
+  relationId?: string;
+  /** The claimed or replaced set's version after the item. */
+  relationSetVersion?: number;
+  /** The set's version a replacement found, which confirming a preview claims (0.9 K3, D130). */
+  previousRelationSetVersion?: number;
+  /** A set replacement's relationships. */
+  relationIds?: { created: string[]; kept: string[]; removed: string[] };
   error?: { code: string; message: string; details?: unknown };
   reason?: string;
 }
@@ -191,6 +199,38 @@ export interface BatchDeleteItem {
   cascade: boolean;
 }
 
+/** A relationship ensured between two records; without values an existing one is unchanged (0.9 K3). */
+export interface BatchEnsureRelationItem {
+  op: "ensureRelation";
+  ref?: string;
+  relationTypeKey: string;
+  from: { id: string };
+  to: { id: string };
+}
+
+/** The relationship between two records removed, or unchanged when there is none (0.9 K3, D129). */
+export interface BatchEnsureNoRelationItem {
+  op: "ensureNoRelation";
+  ref?: string;
+  relationTypeKey: string;
+  from: { id: string };
+  to: { id: string };
+}
+
+/** A record's relationships of one binding and direction made exactly the targets (0.9 K3, D130). */
+export interface BatchReplaceRelationSetItem {
+  op: "replaceRelationSet";
+  ref?: string;
+  relationTypeKey: string;
+  fromObjectTypeKey: string;
+  toObjectTypeKey: string;
+  direction: "outgoing" | "incoming";
+  anchor: { id: string };
+  targets: { object: { id: string } }[];
+}
+
+export type BatchRelationItem = BatchEnsureRelationItem | BatchEnsureNoRelationItem | BatchReplaceRelationSetItem;
+
 /** `POST /api/v1/batches` as a bulk change sends it (0.9 K2): a background preview (D112–D114). */
 export interface BatchRequest {
   workspaceKey?: string;
@@ -199,7 +239,7 @@ export interface BatchRequest {
   policy: ImportPolicy;
   run: "inline" | "background";
   stage: "execute" | "preview";
-  items: BatchUpdateItem[] | BatchDeleteItem[];
+  items: BatchUpdateItem[] | BatchDeleteItem[] | BatchRelationItem[];
 }
 
 /** One row of an import's file with its items' outcomes gathered (0.9 J3, D84). */

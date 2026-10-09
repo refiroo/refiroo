@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { Button, Tag, TagGroup, TagList } from "react-aria-components";
 import type { FieldControlProps } from "@/ui/FormField";
-import { Icon } from "@/ui/Icon";
+import { ChipList } from "@/ui/ChipList";
 
 /** The values in typed text: separated by commas, trimmed, empties dropped. */
 const split = (text: string) =>
@@ -37,18 +36,11 @@ export function TokenField({
   return (
     <div className="token-field">
       {values.length > 0 && (
-        <TagGroup aria-label={`${label}: values`} onRemove={(keys) => onChange(values.filter((v) => !keys.has(v)))}>
-          <TagList className="chip-list" items={values.map((value) => ({ id: value }))}>
-            {(item) => (
-              <Tag id={item.id} textValue={item.id} className="chip">
-                <span className="chip-label">{item.id}</span>
-                <Button slot="remove" className="chip-remove" aria-label={`Remove ${item.id}`}>
-                  <Icon name="close" size={12} />
-                </Button>
-              </Tag>
-            )}
-          </TagList>
-        </TagGroup>
+        <ChipList
+          label={`${label}: values`}
+          chips={values.map((value) => ({ id: value, label: value }))}
+          onRemove={(keys) => onChange(values.filter((v) => !keys.has(v)))}
+        />
       )}
       <input
         {...control}

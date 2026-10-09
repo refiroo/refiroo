@@ -13,7 +13,8 @@ const PAGE_SIZE = 20;
  *
  * The field is a combobox: arrow keys move the active option across page boundaries, Enter
  * chooses it, Ctrl+Home and Ctrl+End go to the start and end. A hidden required input keeps
- * native form validation where a choice is required.
+ * native form validation where a choice is required. With `chosenIds` it serves a field holding
+ * several records (`RecordListField`): those are marked selected, and the field says what it holds.
  */
 export function ObjectLookup({
   objectTypeKey,
@@ -23,6 +24,7 @@ export function ObjectLookup({
   value,
   selectedId,
   selectedLabel,
+  chosenIds,
   required,
   label = "Select object",
   onChange,
@@ -34,6 +36,7 @@ export function ObjectLookup({
   value?: ObjectItem;
   selectedId?: string | null;
   selectedLabel?: string;
+  chosenIds?: ReadonlySet<string>;
   required?: boolean;
   label?: string;
   onChange: (item: ObjectItem | undefined) => void;
@@ -131,23 +134,27 @@ export function ObjectLookup({
           }
         }}
       />
-      <p className="object-lookup-choice" aria-live="polite">
-        {chosenLabel ? (
-          <>
-            Selected: <strong>{chosenLabel}</strong>
-          </>
-        ) : (
-          "Nothing selected"
-        )}
-      </p>
-      <input
-        className="visually-hidden"
-        tabIndex={-1}
-        aria-hidden="true"
-        required={required}
-        value={chosenId ?? ""}
-        onChange={() => undefined}
-      />
+      {!chosenIds && (
+        <>
+          <p className="object-lookup-choice" aria-live="polite">
+            {chosenLabel ? (
+              <>
+                Selected: <strong>{chosenLabel}</strong>
+              </>
+            ) : (
+              "Nothing selected"
+            )}
+          </p>
+          <input
+            className="visually-hidden"
+            tabIndex={-1}
+            aria-hidden="true"
+            required={required}
+            value={chosenId ?? ""}
+            onChange={() => undefined}
+          />
+        </>
+      )}
       {list.error && <InlineError message={list.error} onRetry={list.retry} />}
       <ScrollWindow
         list={list}
@@ -163,7 +170,7 @@ export function ObjectLookup({
               key={item.id}
               id={optionId(item.id)}
               role="option"
-              aria-selected={item.id === chosenId}
+              aria-selected={chosenIds ? chosenIds.has(item.id) : item.id === chosenId}
               aria-setsize={list.totalCount ?? -1}
               aria-posinset={index + 1}
               data-row-key={item.id}

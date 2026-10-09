@@ -3879,6 +3879,20 @@ form.restructuring-plan-form .dialog-actions {
   color: var(--text-tertiary);
   font-size: var(--text-sm);
 }
+/* RecordListField (0.9 K3): the chosen records as chips above the record search. */
+.record-list-field {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.record-list-field > legend {
+  margin-bottom: var(--space-1);
+  padding: 0;
+  font-weight: 600;
+}
 .token-field {
   display: flex;
   flex-wrap: wrap;

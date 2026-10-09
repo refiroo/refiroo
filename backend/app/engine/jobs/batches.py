@@ -42,6 +42,7 @@ from ...models.commands import (
     BatchCreateRelationItem,
     BatchDeleteItem,
     BatchDeleteRelationItem,
+    BatchEnsureNoRelationItem,
     BatchInitialRelation,
     BatchItem,
     BatchReplaceRelationSetItem,
@@ -560,6 +561,10 @@ class _Batch:
                 ),
                 None,
             )
+        # A relationship between counterparts claims no version of the other workspace's (D98).
+        claimed = not (self.writer.translated(item.from_) or self.writer.translated(item.to))
+        if isinstance(item, BatchEnsureNoRelationItem):
+            return self.apart(item, source, target, existing, claimed)
         if existing is None:
             created = decide_relation_create(
                 lookup, model, item.relationTypeKey, source, target, item.attributes or {}, claim
@@ -570,9 +575,28 @@ class _Batch:
                 "version": created.version,
                 **_claimed(claim),
             }
-        # A relationship between counterparts claims no version of the other workspace's (D98).
-        claimed = not (self.writer.translated(item.from_) or self.writer.translated(item.to))
         return self.ensure(item, at, source, target, existing, claimed)
+
+    def apart(
+        self,
+        item: BatchEnsureNoRelationItem,
+        source: Any,
+        target: Any,
+        existing: Any | None,
+        claimed: bool,
+    ) -> dict[str, Any]:
+        """An ``ensureNoRelation`` (0.9 K3, D129): the relation joining the ends deleted by the
+        single delete's step, with its refusals; ``unchanged`` when none joins them."""
+        lookup, model = self.writer.lookup, self.writer.model
+        rules.relation_binding(
+            model, item.relationTypeKey, source.object_type_key, target.object_type_key,
+            lookup.refusals,
+        )
+        if existing is None:
+            return {"action": "unchanged"}
+        expected = item.expectedVersion if claimed and item.expectedVersion else existing.version
+        decide_relation_delete(lookup, model, existing, expected)
+        return {"action": "deleted", "relationId": existing.relation_id}
 
     def replace_set(self, item: BatchReplaceRelationSetItem, at: str) -> dict[str, Any]:
         """A set replacement (§B4): the mapping PUT's step with any number of targets."""
@@ -583,6 +607,28 @@ class _Batch:
             item.fromObjectTypeKey if item.direction == "outgoing" else item.toObjectTypeKey
         )
         anchor = self._typed(item.anchor, f"{at}/anchor", anchor_type)
+        # The set's version as this item finds it: a preview needs no claim and reports it, and
+        # confirming carries it into the item (0.9 K3, D130).
+        found = self.writer.lookup.set_version(set_.key(anchor.object_id))
+        expected = item.expectedRelationSetVersion
+        if expected is None and self.previewing:
+            expected = found
+        try:
+            return self._replace(item, at, set_, anchor, expected, found)
+        except ApiError as error:
+            # A refusal names the version found too, so a refused preview item carries its claim.
+            error.details = {"relationSetVersion": found, **_details(error)}
+            raise
+
+    def _replace(
+        self,
+        item: BatchReplaceRelationSetItem,
+        at: str,
+        set_: SetBinding,
+        anchor: Any,
+        expected: int | None,
+        found: int,
+    ) -> dict[str, Any]:
         targets = [
             SetTarget(
                 self._typed(target.object, f"{at}/targets/{number}/object", set_.other_type),
@@ -596,13 +642,14 @@ class _Batch:
             set_,
             anchor,
             targets,
-            expected=item.expectedRelationSetVersion,
+            expected=expected,
             on_existing=self.on_existing,
             pointer=at,
         )
         return {
             "action": "updated" if replaced.changed else "unchanged",
             "relationSetVersion": replaced.version,
+            "previousRelationSetVersion": found,
             "relationIds": {
                 "created": replaced.created,
                 "kept": replaced.kept,

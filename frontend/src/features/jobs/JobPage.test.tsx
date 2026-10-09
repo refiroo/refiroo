@@ -391,3 +391,52 @@ describe("JobPage of a batch that deletes (0.9 K2b)", () => {
     expect(screen.queryByRole("link", { name: "Alpha's codelist" })).toBeNull();
   });
 });
+
+describe("JobPage of a batch that changes relationships (0.9 K3)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    SilentEventSource.opened = [];
+    window.sessionStorage.clear();
+    vi.stubGlobal("EventSource", SilentEventSource);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("says relationship outcomes in a relationship's words, and a removal is not a delete of records", async () => {
+    const removed: Job = {
+      ...applied,
+      result: "applied",
+      counts: { applied: 3, rejected: 0, unprocessed: 0, created: 0, updated: 1, unchanged: 1, deleted: 1 },
+      preview: {
+        coverage: "complete",
+        items: { total: 3, previewed: 3 },
+        counts: { created: 0, updated: 1, unchanged: 1, deleted: 1, rejected: 0 },
+        result: "applied",
+        previewedAt: "2026-10-09T09:00:00Z",
+      },
+    };
+    vi.mocked(api.jobItems).mockResolvedValue({
+      items: [
+        { index: 0, ref: "Alpha → Colours", status: "applied", action: "deleted", relationId: "r1" },
+        { index: 1, ref: "Alpha → Sizes", status: "applied", action: "unchanged" },
+        {
+          index: 2,
+          ref: "Beta",
+          status: "applied",
+          action: "updated",
+          relationSetVersion: 4,
+          previousRelationSetVersion: 3,
+          relationIds: { created: ["r2", "r3"], kept: [], removed: ["r4"] },
+        },
+      ],
+      nextCursor: null,
+    });
+    renderBatch(removed);
+    const result = await screen.findByRole("region", { name: "The result" });
+    expect(result).toHaveTextContent("2 items changed, 1 already as asked.");
+    expect(await screen.findByText("Removed")).toBeInTheDocument();
+    expect(screen.getByText("Not related")).toBeInTheDocument();
+    expect(screen.getByText("Added 2, removed 1")).toBeInTheDocument();
+    // A relationship's outcome names no record to open.
+    expect(screen.queryByRole("link", { name: "Alpha → Colours" })).toBeNull();
+  });
+});
