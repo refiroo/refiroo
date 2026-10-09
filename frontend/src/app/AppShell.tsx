@@ -36,6 +36,7 @@ export function AppShell({
   onWorkspaceResolved,
   onHome,
   onOpenObject,
+  onChanged,
   contextActions,
   children,
 }: {
@@ -50,6 +51,8 @@ export function AppShell({
   onWorkspaceResolved: (workspace: Workspace) => void;
   onHome: () => void;
   onOpenObject: (item: Pick<ObjectItem, "applicationKey" | "objectTypeKey" | "id" | "workspaceKey">) => void;
+  /** Records were written from the shell itself, such as moved in the sidebar (UA9). */
+  onChanged?: () => void;
   /** The change set's or publication's own bar, shown inside the band once its context has loaded. */
   contextActions?: ReactNode;
   children: ReactNode;
@@ -111,6 +114,8 @@ export function AppShell({
               activeObjectTypeKey={activeRoute.kind === "detail" ? activeRoute.objectTypeKey : undefined}
               activeViewKey={activeRoute.kind === "list" ? activeRoute.viewKey : undefined}
               refreshToken={refreshToken}
+              readOnly={workspace?.status === "retired"}
+              onChanged={onChanged}
               onOpen={(item) => {
                 onOpenObject(item);
                 close();

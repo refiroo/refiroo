@@ -55,7 +55,8 @@ can complete the task in the application; "API" means another system can.
 - Open a record to see its fields, its place in the hierarchy, its children, its relationships and its
   change history, and return to the list where you left it. Where a record may hold only one
   relationship of a kind, you set it or change it rather than adding another.
-- Browse a hierarchy of any depth in the sidebar tree, and search it to find a record with its path.
+- Browse a hierarchy of any depth in the sidebar tree, and search it to find a record with its path;
+  select several records there and drag them to a new parent together.
 - Export what a collection page shows, with its filters, as an Excel workbook, CSV or JSON Lines; a
   notification says when the file is ready, with Download and the job's page.
 

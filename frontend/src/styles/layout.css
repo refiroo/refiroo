@@ -438,6 +438,23 @@ fieldset.settings-section legend {
 .tree-group .scroll-window {
   --window-height: var(--tree-window);
 }
+/* Flat-scroll experiment (2026-10-09): a group's rows scroll with the tree; an edge that loads the
+   next or previous page shows its state, and a failed one its retry. */
+.tree-flat-edge {
+  min-height: 1px;
+  padding-left: var(--tree-indent, 0);
+}
+.tree-flat-loading {
+  display: block;
+  padding: 4px 8px;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+}
+.tree-flat-retry,
+.tree-flat-earlier {
+  min-height: 28px;
+  font-size: var(--text-sm);
+}
 /* Each type group sits in a frame that shows only while its own window scrolls: then it glows in
    the accent, a state rather than a kind, showing which part is moving (UA2 revision). At rest the
    frame is transparent but keeps its width, so nothing moves when it lights up. */
@@ -546,6 +563,23 @@ fieldset.settings-section legend {
 }
 .tree-node.active .hue-tile {
   background: var(--surface-raised);
+}
+/* A record in the selection (UA9): the same fill, outlined in its type's marker, with a check mark,
+   so it reads apart from the record the page shows. */
+.tree-node.selected {
+  background: var(--hue-fill, var(--state-selected));
+  color: var(--hue-ink, var(--state-selected-text));
+  box-shadow: inset 0 0 0 1px var(--hue-marker, var(--border-control));
+}
+.tree-node.selected .hue-tile {
+  background: var(--surface-raised);
+}
+.tree-check {
+  display: inline-flex;
+  flex: none;
+  margin-left: auto;
+  padding-left: 6px;
+  color: var(--hue-ink, var(--state-selected-text));
 }
 /* A type group's heading is a quiet label with its count, never drawn like a record. */
 .tree-collection {

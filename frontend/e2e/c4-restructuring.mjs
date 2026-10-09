@@ -20,7 +20,7 @@ import { bootHarness } from "./helpers/harness.mjs";
 import { cloneDatabase } from "./helpers/database.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
 import { seedHierarchy } from "./helpers/acceptance-data.mjs";
-import { dragFrom, dragOver, dragState, escapeRegExp as escape, treeDriver } from "./helpers/tree.mjs";
+import { dragFrom, dragOver, dragState, escapeRegExp as escape, treeDriver, openFoldedGroups } from "./helpers/tree.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const scale = process.env.C4_VOLUME_SCALE ?? "0.02";
@@ -119,6 +119,8 @@ try {
   const inChangeSet = `changeSetId=${changeSet.id}`;
   await page.goto(`${uiUrl}/apps/rdm-master/views/domain-hierarchy?workspaceKey=default&${inChangeSet}`);
   await page.getByRole("tree", { name: "Domain hierarchy" }).waitFor();
+  // UA9 (U-D21): the lens starts folded; open its groups as a user would.
+  await openFoldedGroups(page, page.locator(".tree-lens"));
   await h.item("Domain 01").waitFor();
 
   // A master value dragged onto a domain becomes a codelist.
@@ -169,6 +171,8 @@ try {
   checks.push("review: Review the change set lists Pickup point as Master value → Codelist with Type first among its changes");
   await page.goBack();
   await page.getByRole("tree", { name: "Domain hierarchy" }).waitFor();
+  // UA9 (U-D21): the lens starts folded; open its groups as a user would.
+  await openFoldedGroups(page, page.locator(".tree-lens"));
 
   // Dragged back under a codelist, its values come back from history.
   await h.focusRecord("Pickup point");
@@ -292,6 +296,8 @@ try {
   const inSystems = `changeSetId=${systems.id}`;
   await page.goto(`${uiUrl}/apps/rdm-systems/views/system-hierarchy?workspaceKey=default&${inSystems}`);
   await page.getByRole("tree", { name: "System hierarchy" }).waitFor();
+  // UA9 (U-D21): the lens starts folded; open its groups as a user would.
+  await openFoldedGroups(page, page.locator(".tree-lens"));
   await h.item("System 00").waitFor();
 
   await h.focusRecord("Boat");
@@ -333,7 +339,7 @@ try {
     const published = await readAs(api, "system-group", id, "workspaceKey=default");
     expect(published.record?.objectTypeKey === "system-group", `publish: ${name} is not a system group live (${JSON.stringify(published)})`);
   }
-  const history = await api(`/objects/system-group/${seed.sodium.id}/history?workspaceKey=default`);
+  const history = await api(`/objects/system-group/${seed.sodium.id}/history`);
   expect(history.items.some((event) => event.action === "reclassified"), "publish: Sodium's history has no reclassified event");
   checks.push("publish: live holds Sodium, Ferry and X-ray as system groups, and Sodium's history lists the reclassification");
 
@@ -398,6 +404,8 @@ try {
   });
   await page.goto(`${uiUrl}/apps/vol-catalogue/views/hierarchy?${inChangeSet}`);
   await page.getByRole("tree", { name: "hierarchy" }).waitFor();
+  // UA9 (U-D21): the lens starts folded; open its groups as a user would.
+  await openFoldedGroups(page, page.locator(".tree-lens"));
   await page.locator(".tree-lens [role='treeitem'][data-object-id]").first().waitFor();
 
   // Move to… by keyboard: an item under a node, which cannot hold items, becomes a node.
@@ -456,6 +464,8 @@ try {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${uiUrl}/apps/vol-catalogue/views/hierarchy?${inChangeSet}`);
   await page.getByRole("tree", { name: "hierarchy" }).waitFor();
+  // UA9 (U-D21): the lens starts folded; open its groups as a user would.
+  await openFoldedGroups(page, page.locator(".tree-lens"));
   await h.lens.getByRole("textbox", { name: /^Search / }).fill(target.name);
   const row = h.lens.getByRole("treeitem", { name: new RegExp(`^${escape(target.name)}, in `) }).first();
   await row.waitFor();

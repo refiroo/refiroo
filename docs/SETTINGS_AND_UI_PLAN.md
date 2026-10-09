@@ -187,6 +187,7 @@ The user chose Direction B, "Open" (U-D6, ADR-039), which sets the values for po
 | U3 | 0.9 | U2 | **Delivered 2026-10-06** ([record](#u3-delivery-record); U-D10 and U-D11). Settings area: `/settings` routes and layout; About, Appearance and Deployment; Workspaces and Model moved under Administration (old URLs redirect); the popover reduced to account and theme with a link to Settings; `GET /api/v1/system` |
 | UA | 0.9 | U3 | **Planned 2026-10-06** ([plan](#ua-the-atlas-redesign); ADR-040, U-D12, U-D13). The Atlas redesign of every surface in one pass, the record browser first, each surface approved by the user from screenshots; replaces the older styles; folds in U6 |
 | UA8 | 0.9 | UA, K3a | **Implemented 2026-10-09** ([plan](#ua8-actions-in-place-on-the-record), [record](#ua8-record-2026-10-09); U-D15–U-D20), screenshots awaiting approval. A relationship row's actions as icon buttons; the record header's title and subtitle edited in place, through the one field editor the details panel uses; the header's Edit record button removed, the menu's Edit all fields renamed Edit record |
+| UA9 | 0.9 | UA8 | **Implemented 2026-10-09** ([plan](#ua9-the-record-tree-scrolled-as-one-several-records-selected-and-dragged), [record](#ua9-record-2026-10-09); U-D21–U-D28), screenshots awaiting approval. The record tree (sidebar and hierarchy lens) scrolls as one list and starts folded; several records selected with Cmd/Ctrl and Shift and dragged together; the sidebar drags |
 | U4 | 0.9 | UA, C6b, V2 | **Implemented 2026-10-07** ([plan](#u4-the-integration-pages), [record](#u4-record-2026-10-07)), screenshots awaiting approval. Integration pages: Consumer APIs, Jobs and feed, API reference. Starter consumer API per U-D5 |
 | U5 | 0.9 | U4, C12 | **Implemented 2026-10-07** ([plan](#u5-the-webhooks-page), [record](#u5-record-2026-10-07)), screenshots approved by the user 2026-10-07. Webhooks page over the subscriptions API (C12 delivered 2026-10-06: `delivery`, the four dispatcher reasons, `reset`) |
 | U5a | 0.9 | U5 | **Implemented 2026-10-07** ([plan](#u5a-webhook-names-the-delivery-log-and-the-webhooks-page-revised), [record](#u5a-record-2026-10-07)), screenshots approved by the user 2026-10-07. Webhook names, the delivery log and its routes, the dialog rebuilt, the Configuration and Deliveries tabs |
@@ -1802,6 +1803,192 @@ inspected: the header at rest, on hover, editing the title, with Add Description
 A first look showed the row icons in the action colour: `.row-actions button`, the old text-button
 rule, outranked the quiet icon's; the icon rules now name both classes, and the details panel's
 remove keeps its red. Not run: the full suites, `test:a11y`, `test:visual` (R).
+
+### UA9: the record tree scrolled as one, several records selected and dragged
+
+**Asked by the user 2026-10-09.** First as an experiment: the sidebar's record browser and the
+hierarchy lens scroll as one list, without a window per type group, and start folded; the user
+kept it the same day. Then: drag and drop in the sidebar too, and several records selected with the
+usual controls (Cmd or Ctrl to add or remove one, Shift for a range) and dragged together. Selecting
+in the sidebar does not change the record on the main page; the selection is only for the tree's
+drag. **Planned 2026-10-09; U-D21–U-D25 decided by the user the same day, U-D26–U-D28 and the test
+cases approved by the user the same day.** Checked against the code at `8b6d482` with the experiment in the working tree.
+
+**What exists.**
+
+- **One tree, two places.** `RecordTree` is the sidebar's browser (`Explorer`) and, configured, the
+  hierarchy lens (`TreeView`). A record row opens its record; the tree follows the WAI-ARIA tree
+  pattern with one tab stop and one active record, the one the page shows.
+- **The flat-scroll experiment** (2026-10-09, in the working tree): each type group's rows are drawn
+  in the sidebar's or the page's own scroll (`FlatRows`, loading the next or previous page as an end
+  comes near) instead of a `ScrollWindow`; type headings fold again (`FOLDING_GROUPS`, turned off
+  on 2026-10-07) and start folded, except in search results; the open path to the active record
+  still opens; the wheel routing between windows (`useTreeWheel`) is off; its open branches are
+  saved under a key of their own (`v2-flat`). The replaced code is kept as comments, at the user's
+  request. 33 Vitest cases (`Explorer.test`, `TreeView.test`, `App.test`) still expect open groups.
+- **Drag in the lens** (0.8 B5, D34–D36, C4): `useTreeDrag` with a configuration from `TreeView`
+  (whether a row drags, why a target refuses, `model/treeDrop`'s `moveRefusal` over the engine's
+  placements, D45; in a change set what a record becomes); a drop opens `TreeMoveDialog` with the
+  target, which sends the record's `PATCH` with `parentObjectId`, or in a change set the
+  restructuring preview where the type changes. Near a window's edge the window scrolls. Move to…
+  in the node menu (Shift+F10) is the keyboard path. One record at a time. The sidebar passes no
+  drag (0.8 B5's scope: "the sidebar tree is for navigation only").
+- **Batches** take `update` items with `parent` and `expectedVersion` (B1), live or in a change set,
+  `atomic` or `independent`: several records move in one request with no new route.
+
+**Behaviour.**
+
+1. **Scrolling and folding** (U-D21): the experiment as it stands, kept. Its tests are rewritten
+   for groups that start folded; the commented `ScrollWindow` code stays, as the user asked.
+2. **Selecting several records** (U-D23, U-D26), in the sidebar and in the lens alike:
+   - a click on a record opens it, as today, and makes it the selection's only record;
+   - **Cmd** (macOS) or **Ctrl** with a click adds or removes that record; **Shift** with a click
+     selects the loaded rows from the last record clicked to this one, within one group; neither
+     opens a record nor changes the main page;
+   - by keyboard: **Shift+↑/↓** extends the selection, **Ctrl/Cmd+Space** adds or removes the
+     focused record, **Escape** clears it;
+   - selected rows are filled in their type's soft colour, as the active record is, with a check
+     mark; the tree says how many are selected (a polite announcement, and `aria-selected` on each
+     row with `aria-multiselectable` on the tree);
+   - the selection lasts while the tree scrolls, pages and opens branches; it is cleared by Escape,
+     a plain click, a new search or another context; a record hidden by folding its branch leaves
+     it.
+3. **Dragging** (U-D22, U-D24, U-D25, U-D27): in the sidebar as in the lens, with mouse or pen,
+   live and in a change set, never in a publication or from touch (D35). Dragging a selected
+   record drags the whole selection, shown beside the pointer as "3 records"; dragging an
+   unselected record drags that one alone, as today. A target accepts only if it takes **every**
+   dragged record (D34's rule for each); otherwise it glows red and names the first record it
+   cannot take and why, and nothing moves. With several records, a target that would change a
+   record's type (C4) refuses with "Move records that change type one at a time". One record keeps
+   today's flow exactly (`TreeMoveDialog`, the restructuring preview).
+4. **Moving several** (U-D27): the drop opens a confirmation naming the target and the records
+   (all, or the first ten and how many more), and Move sends one `atomic` batch of `update` items,
+   each with `parent` and the version its row was read at, live or in the change set. A record
+   someone changed meanwhile refuses the whole move by name (`VERSION_CONFLICT`), and the tree
+   reads again; nothing is half moved. After a move the moved records stay selected in their new
+   place.
+5. **The keyboard path** (U-D28, WCAG 2.5.7): Move to… moves the whole selection where one is
+   made: in the lens from the node menu as today, and in the sidebar from the same node menu,
+   which the sidebar gains (right click, Shift+F10) with Move to… only.
+6. While dragging, nearing the top or bottom edge of the sidebar, or of the page for the lens,
+   scrolls it, faster towards the edge (today's rule, now on the enclosing scroll).
+
+**Design.**
+
+- `RecordTree`: a selection beside the active record (`Set` of IDs, the anchor for Shift), the
+  click and key handling above, `aria-multiselectable`; it does not route. `useTreeDrag` drags a
+  list of records: `refusal` and `note` are asked per record and the first refusal names the
+  target's; the drag image counts. Its edge scrolling finds the nearest scrolling ancestor instead
+  of a group's window.
+- **One drag rule for both trees:** the configuration `TreeView` builds today (`canDrag`,
+  `refusal`, `note`, the context's read-only state, placements) moves into a hook both `TreeView`
+  and `Explorer` use; the lens adds its view's `move` action, the sidebar allows a move wherever the
+  context allows writes.
+- `TreeMoveDialog` stays for one record; `TreeMoveManyDialog` (new) confirms several and sends the
+  batch through the data API (live or the change set's context), with the batch's per-item
+  refusals shown as K2's are.
+- The node menu (`TreeView`'s) is extracted so the sidebar renders it with Move to… only; Move to…
+  takes the selection.
+- **Not changed:** the engine and API, the single-record move and restructuring, the collection
+  table's selection (K1), touch (D35).
+
+**Decisions:**
+
+| # | Question | Decision or recommendation |
+| --- | --- | --- |
+| U-D21 | The record tree's scrolling | **Decided 2026-10-09 by the user: one list**, the flat-scroll experiment kept, its groups starting folded; the windowed code stays commented in the source |
+| U-D22 | Drag in the sidebar | **Decided 2026-10-09 by the user: yes.** Revises 0.8 B5's scope ("the sidebar tree is for navigation only") |
+| U-D23 | Several records selected in the tree | **Decided 2026-10-09 by the user: yes, in the sidebar and the lens**, for dragging; selecting does not change the main page. Revises the tree's single selection (S6, B3) |
+| U-D24 | A target that takes only some of the dragged records | **Decided 2026-10-09 by the user, as recommended: the whole drop is refused**, naming the first record it cannot take |
+| U-D25 | Several records whose type a target would change | **Decided 2026-10-09 by the user, as recommended: one at a time**; a multi-record drop that changes a type is refused. Restructuring several records together would be an engine capability of its own |
+| U-D26 | The selection's controls | **Accepted 2026-10-09 by the user:** as behaviour 2 (Finder's and the collection table's conventions: click opens and selects one, Cmd/Ctrl toggles, Shift selects a range, Shift+arrows, Ctrl/Cmd+Space, Escape). A range stays within one group, since rows of different groups and levels are not one ordered list |
+| U-D27 | How several records move | **Accepted 2026-10-09 by the user: a confirmation, then one atomic batch of `update` items with each row's version.** All or nothing matches U-D24 and needs no new route; an `independent` batch could leave half a selection moved |
+| U-D28 | The keyboard path to move several | **Accepted 2026-10-09 by the user: Move to… takes the selection, and the sidebar gains the lens's node menu with Move to… only.** WCAG 2.5.7 asks for a single-pointer path wherever dragging is offered; the sidebar has none today |
+
+**Journeys.** J14 (build and change a hierarchy) gains J14.x *Move several records at once*: by
+dragging in the sidebar or the lens, or Move to…, live and in a change set; a target refusing one
+refuses all; a type-changing target refuses several. USER_JOURNEYS, UI_ACCEPTANCE (the tree row
+gains the selection and the sidebar's drag).
+
+**Test cases** (approved by the user 2026-10-09):
+
+1. Vitest, `RecordTree` on two trees (sidebar and lens): click opens and selects one; Cmd/Ctrl+click
+   toggles without routing; Shift+click selects a range within a group; Shift+↓, Ctrl+Space and
+   Escape; `aria-selected` and the count announced; a folded branch's records leave the selection.
+2. Vitest, the drag: several selected records dropped on a target taking them all open the
+   confirmation, and Move sends one atomic batch of `update` items with `parent` and each version;
+   a target refusing one glows red naming it and sends nothing; a type-changing target refuses
+   several; one record keeps `TreeMoveDialog`; the sidebar now drags, never in a publication or
+   from touch (replacing `Explorer.test`'s "never starts a drag").
+3. The experiment's 33 cases rewritten for groups that start folded, by opening the group first; no
+   case dropped.
+4. Browser: `test:browser:b3` (lens) and `test:browser:s6` (sidebar) gain: three records selected
+   with Cmd/Ctrl and Shift and dragged onto another parent, live and in a change set; a refusing
+   target; Move to… by keyboard for a selection; the sidebar scrolling while dragging; 390px keeps
+   selection with no drag; axe and screenshots of the selection and the drag, light and dark.
+
+**Checks.** Vitest `related`, `format`, `lint`, `build`; `test:browser:b3`, `s6`, `b4`, `c4` and
+`test:browser` (the tree runners); `test:browser:ua8`. Not run: the full suites, `test:a11y`,
+`test:visual` (R).
+
+#### UA9 record (2026-10-09)
+
+Implemented; screenshots await the user's approval. Delivered as planned, with these differences and
+findings:
+
+- **The browser evidence has a runner of its own**, `ua9-tree-selection` (`test:browser:ua9`),
+  rather than scenarios added to `b3` and `s6`; those two were rewritten for the folded, flat tree.
+- **The sidebar does not change types.** A move there never offers a place where a record's type
+  would change (live or in a change set); the lens keeps that, with its preview. U-D25 already keeps
+  several records from changing type; for one record the sidebar refuses such a place with its
+  reason, and the lens does it.
+- **Flat scrolling needed four fixes found by the runners** (each in `RecordTree`, the old lines
+  kept commented as the user asked for this change):
+  - a group that opens reports its rows, so a record waiting for focus (just created, revealed) is
+    reached once its group opens (before, focus was lost after Add child under a folded group);
+  - opening and folding build on the latest choices, so a reveal opening several groups at once no
+    longer drops all but one, and a focus request saves the type groups on its path with its
+    branches, so the path shows again when the tree returns;
+  - earlier rows load only from **Show earlier records** (or by keyboard): loading upward by itself
+    ran on from a revealed record until the window dropped the record's page; later rows load as
+    the end comes into view, telling the window where the reader is, so a sixth page drops the far
+    one;
+  - the keyboard behaviour a `ScrollWindow` gave is back: a jump (crossing a page edge, End) focuses
+    the row it lands on, and Ctrl/Cmd+Home and +End move within the record's own group.
+- **Runner fixes beside UA9**, stale before it: `c4` read history with a `workspaceKey` the route
+  refuses; `b4` matched the error code in lower case (T1b made it upper case); `s7` expected the
+  levels before the UA2 revision put records at even levels. `b3`'s volume pass now scrolls down to
+  the record after returning, since a flat list reads its next page as its end comes into view
+  (the windowed version read a page ahead).
+- **Measured at HEAD in a throwaway worktree** (the nested version, `8b6d482`): `b3` passed three
+  times out of three. With UA9, one early run showed a lost focus after a move to the top level in
+  a change set; it was not seen again in the eleven runs after it, the last four on the final code.
+  Recorded, not explained. The volume pass's check after returning at 390px is decided by the
+  record's own top-level group, since the record can show for a moment from the view that is
+  leaving.
+
+**Built.** `RecordTree`: the selection (by ID, kept per search, workspace and application; read
+from the rows as drawn so a move claims current versions), the click and key handling,
+`aria-multiselectable` and `aria-selected`, the count announced, folding pruning the selection, the
+drag of the selection, the selected rows' fill, outline and check mark, `onSelectionChange`, a row
+`onItemContextMenu`; `useTreeDrag`: several records, judged together (U-D24, U-D25), the edge
+scrolling the nearest scroller; `useTreeMoves` (new): the move rule extracted from `TreeView`, used
+by it and by `Explorer`; `TreeMoveDialog`: `others` and `refusalOf`, one atomic batch
+(`api.runBatch`, new); `Explorer`: the drag, the Move to… menu and dialog, `onChanged` up to `App`.
+
+**Tests.** `Explorer.test`: the selection by pointer and keyboard (U-D26), the sidebar's drag and
+batch, no drag from touch or in a publication, the Move to… menu; `TreeView.test`: several dragged
+and moved in one batch, a refusing target naming the record, a change set refusing several that
+change type, Move to… for a selection; the 33 cases written for open groups rewritten by opening
+the group first (`src/test/tree.ts`: `findTreeItem`, `openFoldedGroups`), none dropped.
+
+**Checks.** `vitest related` over the changed files: 42 files, 429 passed. `format`; `lint`, 0
+errors (the 7 recorded warnings); `build`. Runners, each passing: `test:browser:ua9` (8 checks, axe
+0 violations light and dark), `s6` (10), `b3` (30), `b4`
+(13), `c4` (12), `s7` (14), `wp14`, `test:browser`, `test:browser:ua8` (7); `b3` four clean runs in a row on the final
+code. Screenshots inspected:
+the selection light and dark, a drag of three accepted, a refused drop naming its record, the
+drawer at 390px. Not run: the full suites, `test:a11y`, `test:visual` (R).
 
 ### U4: the integration pages
 

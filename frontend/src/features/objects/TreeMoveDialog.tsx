@@ -21,6 +21,12 @@
  * the restructuring preview, which shows what changes before anything is written. A caller that shows
  * only some types keeps the candidates to them (`withinObjectTypeKeys`), and the server filters, so
  * the list's totals stay truthful.
+ *
+ * Several records move together (UA9, U-D27): given the tree's selection (`others` beside `item`),
+ * the candidates are read for `item` and every other record is judged by the tree's own rule
+ * (`refusalOf`); a place that refuses one is refused with its name, and no place changes a type
+ * (U-D25). Moving sends one atomic batch of `update` items, each with its record's version, live or
+ * in the change set, so nothing is half moved.
  */
 
 import { StatusPill } from "@/ui/StatusPill";
@@ -28,7 +34,8 @@ import { Candidate } from "@/ui/Candidate";
 import { objectTypeTile } from "@/model/hues";
 import { useState } from "react";
 import { errorMessage, isApiError } from "@/api/errors";
-import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
+import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { newIdempotencyKey } from "@/features/jobs/importRequest";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { objectTypeFor } from "@/model/lookup";
@@ -49,6 +56,8 @@ const TOP_LEVEL = "top-level";
 export function TreeMoveDialog({
   model,
   item: initial,
+  others = [],
+  refusalOf,
   label,
   workspaceKey,
   target,
@@ -61,6 +70,10 @@ export function TreeMoveDialog({
 }: {
   model: EngineModel;
   item: ObjectItem;
+  /** The rest of the tree's selection, moved with `item` (UA9). */
+  others?: ObjectItem[];
+  /** The tree's rule: why a record cannot move into a parent (`null` the top level), in words. */
+  refusalOf?: (item: ObjectItem, parent: ObjectItem | null) => string | undefined;
   label: string;
   workspaceKey: string;
   /** A parent chosen before the dialog opens, such as a drop target; `null` is the top level. */
@@ -80,7 +93,11 @@ export function TreeMoveDialog({
   onTypeChange?: (parent: ParentCandidate | null) => void;
 }) {
   const api = useDataApi();
+  const { changeSet, refresh } = useWorkspaceData();
   const [item, setItem] = useState(initial);
+  const several = others.length > 0;
+  // A type changes one record at a time (U-D25).
+  const offersTypeChanges = typeChanges && !several;
   const [search, setSearch] = useState(target?.name ?? "");
   const debounced = useDebouncedValue(search.trim());
   const [chosen, setSelected] = useState<ParentCandidate | typeof TOP_LEVEL | undefined>(
@@ -102,12 +119,12 @@ export function TreeMoveDialog({
       api.parentCandidates(item.objectTypeKey, item.id, {
         workspaceKey,
         search: debounced || undefined,
-        includeTypeChanges: typeChanges || undefined,
+        includeTypeChanges: offersTypeChanges || undefined,
         withinObjectTypeKeys,
         ...selector,
         pageSize: PAGE_SIZE,
       }),
-    [item.objectTypeKey, item.id, workspaceKey, debounced, typeChanges, withinObjectTypeKeys?.join(",")],
+    [item.objectTypeKey, item.id, workspaceKey, debounced, offersTypeChanges, withinObjectTypeKeys?.join(",")],
   );
   /** The types the record would become under a candidate, when its own cannot stand there. */
   const becomes = (candidate: ParentCandidate) =>
@@ -117,8 +134,25 @@ export function TreeMoveDialog({
   const top = chosen === TOP_LEVEL;
   const selected =
     chosen === TOP_LEVEL ? undefined : (candidates.items.find((candidate) => candidate.id === chosen?.id) ?? chosen);
-  const eligible = top ? Boolean(topLevel && !topLevel.refusal) : Boolean(selected?.eligible);
-  const changesType = top ? Boolean(topLevel?.becomes) : Boolean(selected && becomes(selected));
+  /** The first other record a place refuses, by name and reason (U-D24). */
+  const othersRefusal = () => {
+    if (!several || !refusalOf || (!top && !selected)) return undefined;
+    const parent = top
+      ? null
+      : ({
+          ...selected!,
+          applicationKey: item.applicationKey,
+          parentObjectId: selected!.path.at(-2)?.id ?? null,
+        } as unknown as ObjectItem);
+    for (const other of others) {
+      const refusal = refusalOf(other, parent);
+      if (refusal) return `${other.name}: ${refusal}`;
+    }
+    return undefined;
+  };
+  const refusedOther = othersRefusal();
+  const eligible = !refusedOther && (top ? Boolean(topLevel && !topLevel.refusal) : Boolean(selected?.eligible));
+  const changesType = !several && (top ? Boolean(topLevel?.becomes) : Boolean(selected && becomes(selected)));
   const types = new Set(candidates.items.map((candidate) => candidate.objectTypeKey));
   const where = item.path
     .slice(0, -1)
@@ -133,6 +167,10 @@ export function TreeMoveDialog({
     }
     setMoving(true);
     setError("");
+    if (several) {
+      await moveSeveral();
+      return;
+    }
     try {
       const moved = await api.updateObject(item.objectTypeKey, item.id, {
         expectedVersion: item.version,
@@ -150,8 +188,49 @@ export function TreeMoveDialog({
     }
   }
 
+  /** Moves every record in one atomic batch, each claiming the version it was read at. */
+  async function moveSeveral() {
+    const parent = top ? null : { id: selected!.id };
+    try {
+      const current = changeSet ? ((await refresh?.()) ?? changeSet) : undefined;
+      const result = await api.runBatch(
+        {
+          ...(current ? { changeSetId: current.id, expectedChangeSetVersion: current.version } : { workspaceKey }),
+          policy: "atomic",
+          run: "inline",
+          stage: "execute",
+          items: [item, ...others].map((record) => ({
+            op: "update" as const,
+            ref: record.name,
+            target: { id: record.id },
+            expectedVersion: record.version,
+            parent,
+          })),
+        },
+        newIdempotencyKey(),
+      );
+      if (result.job.result !== "applied") {
+        const refused = result.items.find((outcome) => outcome.status === "rejected" && outcome.error);
+        setError(
+          refused?.error
+            ? `${refused.ref ?? "A record"}: ${refused.error.message}`
+            : (result.job.error?.message ?? "The records were not moved."),
+        );
+        setMoving(false);
+        return;
+      }
+      onMoved({ ...item, parentObjectId: parent?.id ?? null });
+    } catch (cause) {
+      setError(errorMessage(cause));
+      setMoving(false);
+    }
+  }
+
+  const count = others.length + 1;
+  const title = several ? `Move ${count} records` : `Move ${label}`;
+  const names = [item, ...others].map((record) => record.name);
   return (
-    <Modal title={`Move ${label}`} eyebrow="Move to" onClose={onClose} busy={moving}>
+    <Modal title={title} eyebrow="Move to" onClose={onClose} busy={moving}>
       <form
         className="mapping-dialog tree-move"
         onSubmit={(event) => {
@@ -159,7 +238,14 @@ export function TreeMoveDialog({
           void move();
         }}
       >
-        <p className="muted">{where ? `Now in ${where}.` : "Now at the top of the hierarchy."}</p>
+        {several ? (
+          <p className="muted">
+            {names.slice(0, 10).join(", ")}
+            {names.length > 10 ? ` and ${names.length - 10} more` : ""}.
+          </p>
+        ) : (
+          <p className="muted">{where ? `Now in ${where}.` : "Now at the top of the hierarchy."}</p>
+        )}
         <label className="search-box candidate-search">
           <Icon name="search" />
           <input
@@ -267,18 +353,24 @@ export function TreeMoveDialog({
           </ScrollWindow>
           {candidates.error && <InlineError message={candidates.error} onRetry={candidates.retry} />}
         </fieldset>
+        {refusedOther && (
+          <Notice tone="warning" title="Not every record can move there">
+            {refusedOther}
+          </Notice>
+        )}
         {error && (
-          <Notice tone="error" title={`Could not move ${label}`}>
+          <Notice tone="error" title={several ? `Could not move the ${count} records` : `Could not move ${label}`}>
             {error}
           </Notice>
         )}
         <p className="visually-hidden" role="status">
-          {moving ? `Moving ${label}…` : ""}
+          {moving ? (several ? `Moving ${count} records…` : `Moving ${label}…`) : ""}
         </p>
         <div className="dialog-actions">
           {moving && (
             <span className="muted tree-move-progress" aria-hidden="true">
-              Moving {label} and everything in it; a large branch can take a few seconds.
+              Moving {several ? `${count} records` : label} and everything in them; a large branch can take a few
+              seconds.
             </span>
           )}
           <span className="dialog-actions-spacer" />

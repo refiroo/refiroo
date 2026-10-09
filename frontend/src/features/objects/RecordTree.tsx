@@ -22,6 +22,13 @@
  * ancestor's branch at that record with `seek`, so a record deep in a large branch is reached
  * without loading the rows before it; unrelated branches stay as they are.
  *
+ * Several records can be selected (UA9, U-D23, U-D26): Cmd or Ctrl with a click adds or removes one,
+ * Shift with a click selects the loaded rows from the last one clicked within its group, Shift+↑/↓
+ * extends and Ctrl/Cmd+Space toggles by keyboard, Escape clears. Selecting opens nothing; a plain
+ * click still opens its record and makes it the only one selected. A drag from a selected record
+ * moves them all. The selection lasts while the tree scrolls and opens branches, and records hidden
+ * by folding their branch leave it; a new search, workspace or application starts it empty.
+ *
  * The `tree` lens (Base 0.8 B3) configures the same tree: its own root and node types, a sort and
  * page size per type, labels, per-row extras and item key handling, and (B5) dragging a record to a
  * new parent with mouse or pen (`useTreeDrag`), including (B5b) to the top level. The sidebar passes
@@ -52,9 +59,11 @@ import type { ApplicationDefinition, EngineModel, ObjectItem } from "@/types";
 import { HueTile } from "@/ui/HueTile";
 import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
-import { ScrollWindow } from "@/ui/ScrollWindow";
+// Flat-scroll experiment (2026-10-09, asked by the user): the groups no longer scroll in windows of their own.
+// import { ScrollWindow } from "@/ui/ScrollWindow";
 import { useTreeDrag, type TreeDragConfiguration, type TreeDragState } from "./useTreeDrag";
-import { useTreeWheel } from "./useTreeWheel";
+// Flat-scroll experiment (2026-10-09, asked by the user): no nested windows, so no wheel routing between them.
+// import { useTreeWheel } from "./useTreeWheel";
 
 /** Rows a tree group reads per request; its window holds at most five pages (D2). */
 export const TREE_PAGE_SIZE = 50;
@@ -66,7 +75,9 @@ const SCROLL_GLOW_MS = 700;
  * chevron and its name starts where the chevron was, and the arrow keys pass over it as an open
  * parent (`aria-expanded="true"`, Left to the record above, Right into its rows).
  */
-const FOLDING_GROUPS = false;
+// const FOLDING_GROUPS = false;
+// Flat-scroll experiment (2026-10-09, asked by the user): headings fold again, so the tree can start folded.
+const FOLDING_GROUPS = true;
 
 const numberFormat = new Intl.NumberFormat();
 
@@ -120,6 +131,8 @@ export interface TreeConfiguration {
   describe?: (item: ObjectItem) => string;
   /** Runs first for a key on a record's item; preventing the default skips the tree's handling. */
   onItemKeyDown?: (event: KeyboardEvent<HTMLElement>, item: ObjectItem) => void;
+  /** A right click on a record's row, such as the sidebar's Move to… menu (UA9). */
+  onItemContextMenu?: (event: React.MouseEvent<HTMLElement>, item: ObjectItem) => void;
   /** Moving records by dragging them onto a new parent; without it no row drags. */
   drag?: TreeDragConfiguration;
 }
@@ -153,6 +166,14 @@ interface TreeState {
   records: Map<string, ObjectItem>;
   drag?: TreeDragState;
   startDrag?: (event: React.PointerEvent<HTMLElement>, item: ObjectItem) => void;
+  /** Whether the record is in the selection (UA9). */
+  isSelected: (objectId: string) => boolean;
+  /** A click on a record: Cmd/Ctrl toggles, Shift selects a range in `groupKey`, else it opens. */
+  choose: (
+    item: ObjectItem,
+    modifiers: { metaKey: boolean; ctrlKey: boolean; shiftKey: boolean },
+    groupKey: string,
+  ) => void;
 }
 
 const TreeContext = createContext<TreeState | null>(null);
@@ -200,6 +221,7 @@ export function RecordTree({
   focusRequest,
   onOpen,
   onOpenCollection,
+  onSelectionChange,
 }: {
   model: EngineModel;
   application: ApplicationDefinition;
@@ -213,13 +235,26 @@ export function RecordTree({
   focusRequest?: TreeFocusRequest;
   onOpen: (item: ObjectItem) => void;
   onOpenCollection?: (viewKey: string, parent?: ObjectItem) => void;
+  /** The selected records, in tree order, whenever they change (UA9). */
+  onSelectionChange?: (items: ObjectItem[]) => void;
 }) {
   const api = useDataApi();
-  const storageKey = `rdm:${config.storageScope ?? "hierarchy"}:v2:${JSON.stringify([workspaceKey, application.key])}`;
+  // const storageKey = `rdm:${config.storageScope ?? "hierarchy"}:v2:${JSON.stringify([workspaceKey, application.key])}`;
+  // Flat-scroll experiment (2026-10-09, asked by the user): its own saved state, so it starts folded and leaves the
+  // nested version's saved branches as they were.
+  const storageKey = `rdm:${config.storageScope ?? "hierarchy"}:v2-flat:${JSON.stringify([workspaceKey, application.key])}`;
   const [branchState, setBranchState] = useState(() => ({ key: storageKey, choices: readChoices(storageKey) }));
   if (branchState.key !== storageKey) {
     setBranchState({ key: storageKey, choices: readChoices(storageKey) });
   }
+  // The selection (UA9): the records by ID, kept for one search in one workspace and application.
+  const selectionKey = JSON.stringify([workspaceKey, application.key, search]);
+  const [selectionState, setSelectionState] = useState(() => ({
+    key: selectionKey,
+    items: new Map<string, ObjectItem>(),
+  }));
+  const selected = selectionState.key === selectionKey ? selectionState.items : NO_SELECTION;
+  const selectionAnchor = useRef<{ id: string; groupKey: string } | undefined>(undefined);
   const { childTypesOf: configuredChildTypes, sortOf } = config;
   const childTypesOf = useCallback(
     (objectTypeKey: string) =>
@@ -270,11 +305,20 @@ export function RecordTree({
         if (focusing) {
           // A focus request opens every branch above its record, whatever was chosen before.
           if (moveFocus) pendingFocus.current = item.id;
+          // Folding groups (UA9, U-D21): the type groups on the path open with the branches, so the
+          // path is shown again when the tree returns, not only while the reveal runs.
+          const groups = FOLDING_GROUPS
+            ? item.path.map(
+                (part, index) => `group:${index === 0 ? "top" : item.path[index - 1].id}:${part.objectTypeKey}`,
+              )
+            : [];
+          const opened = [...ancestors, ...groups];
           setBranchState((previous) => {
-            if (previous.key !== storageKey || [...ancestors].every((id) => previous.choices.get(id) === true))
-              return previous;
+            // if (previous.key !== storageKey || [...ancestors].every((id) => previous.choices.get(id) === true))
+            if (previous.key !== storageKey || opened.every((id) => previous.choices.get(id) === true)) return previous;
             const choices = new Map(previous.choices);
-            for (const id of ancestors) choices.set(id, true);
+            // for (const id of ancestors) choices.set(id, true);
+            for (const id of opened) choices.set(id, true);
             try {
               window.localStorage.setItem(storageKey, JSON.stringify(Object.fromEntries(choices)));
             } catch {
@@ -316,24 +360,55 @@ export function RecordTree({
     (objectId: string) => branchState.choices.get(objectId) ?? activeAncestors?.has(objectId) ?? false,
     [branchState, activeAncestors],
   );
-  const isGroupOpen = useCallback((groupKey: string) => branchState.choices.get(groupKey) ?? true, [branchState]);
+  // const isGroupOpen = useCallback((groupKey: string) => branchState.choices.get(groupKey) ?? true, [branchState]);
+  // Flat-scroll experiment (2026-10-09, asked by the user): a type group starts folded, except in search results.
+  const isGroupOpen = useCallback(
+    (groupKey: string) => branchState.choices.get(groupKey) ?? Boolean(search),
+    [branchState, search],
+  );
   const toggle = useCallback(
     (objectId: string, expanded: boolean) => {
-      const choices = new Map(branchState.choices);
-      choices.set(objectId, expanded);
-      setBranchState({ key: storageKey, choices });
-      try {
-        window.localStorage.setItem(storageKey, JSON.stringify(Object.fromEntries(choices)));
-      } catch {
-        // Storage may be unavailable; keep this session's navigation usable.
+      // Folding hides records, and a hidden record leaves the selection (UA9).
+      if (!expanded && selected.size) {
+        const fold = /^group:(.*):([^:]*)$/.exec(objectId);
+        const hidden = (item: ObjectItem) =>
+          fold
+            ? item.objectTypeKey === fold[2] && (item.parentObjectId ?? "top") === fold[1]
+            : item.path.slice(0, -1).some((part) => part.id === objectId);
+        if ([...selected.values()].some(hidden))
+          setSelectionState({
+            key: selectionKey,
+            items: new Map([...selected].filter(([, item]) => !hidden(item))),
+          });
       }
+      // const choices = new Map(branchState.choices);
+      // choices.set(objectId, expanded);
+      // setBranchState({ key: storageKey, choices });
+      // try {
+      //   window.localStorage.setItem(storageKey, JSON.stringify(Object.fromEntries(choices)));
+      // } catch {
+      //   // Storage may be unavailable; keep this session's navigation usable.
+      // }
+      // With folding groups (UA9, U-D21) a reveal opens several groups and records at once, so each
+      // choice builds on the latest one, not on the state this render read.
+      setBranchState((previous) => {
+        const choices = new Map(previous.key === storageKey ? previous.choices : readChoices(storageKey));
+        choices.set(objectId, expanded);
+        try {
+          window.localStorage.setItem(storageKey, JSON.stringify(Object.fromEntries(choices)));
+        } catch {
+          // Storage may be unavailable; keep this session's navigation usable.
+        }
+        return { key: storageKey, choices };
+      });
     },
-    [branchState, storageKey],
+    [storageKey, selected, selectionKey],
   );
 
   const tree = useRef<HTMLDivElement>(null);
   // The group under the pointer owns a wheel step, heading included (treeWheel, useTreeWheel).
-  useTreeWheel(tree);
+  // Flat-scroll experiment (2026-10-09, asked by the user): see the import.
+  // useTreeWheel(tree);
   const lists = useRef(new Map<string, CursorWindow<ObjectItem>>());
   const pending = useRef<{ key: string; step: 1 | -1 } | undefined>(undefined);
   const [focusKey, setFocusKey] = useState<string>();
@@ -346,6 +421,60 @@ export function RecordTree({
   const [announcement, setAnnouncement] = useState("");
 
   const [records] = useState(() => new Map<string, ObjectItem>());
+  /**
+   * The selected records in tree order, each as its row reads it now (so a move claims the current
+   * version); one no longer drawn keeps the copy it was selected with.
+   */
+  const selectedItems = useCallback(() => {
+    if (!selected.size) return [];
+    const drawn = new Map([...records.values()].map((item) => [item.id, item]));
+    const order = Array.from(
+      tree.current?.querySelectorAll<HTMLElement>("[role='treeitem'][data-object-id]") ?? [],
+    ).map((element) => element.dataset.objectId ?? "");
+    const position = (id: string) => (order.includes(id) ? order.indexOf(id) : order.length);
+    return [...selected.keys()]
+      .sort((a, b) => position(a) - position(b))
+      .map((id) => drawn.get(id) ?? selected.get(id)!);
+  }, [selected, records]);
+  const select = useCallback(
+    (items: Map<string, ObjectItem>, say = true) => {
+      setSelectionState({ key: selectionKey, items });
+      if (say)
+        setAnnouncement(
+          items.size === 0 ? "Selection cleared" : `${items.size} ${items.size === 1 ? "record" : "records"} selected`,
+        );
+    },
+    [selectionKey],
+  );
+  const latestSelection = useRef(onSelectionChange);
+  useLayoutEffect(() => {
+    latestSelection.current = onSelectionChange;
+  });
+  useEffect(() => latestSelection.current?.(selectedItems()), [selectedItems]);
+  const choose = useCallback(
+    (item: ObjectItem, modifiers: { metaKey: boolean; ctrlKey: boolean; shiftKey: boolean }, groupKey: string) => {
+      if (modifiers.metaKey || modifiers.ctrlKey) {
+        const next = new Map(selected);
+        if (next.has(item.id)) next.delete(item.id);
+        else next.set(item.id, item);
+        selectionAnchor.current = { id: item.id, groupKey };
+        select(next);
+        return;
+      }
+      if (modifiers.shiftKey) {
+        const rows = lists.current.get(groupKey)?.items ?? [];
+        const anchor = selectionAnchor.current?.groupKey === groupKey ? selectionAnchor.current.id : item.id;
+        const [from, to] = [rows.findIndex((row) => row.id === anchor), rows.findIndex((row) => row.id === item.id)];
+        const range = from < 0 || to < 0 ? [item] : rows.slice(Math.min(from, to), Math.max(from, to) + 1);
+        select(new Map(range.map((row) => [row.id, row])));
+        return;
+      }
+      selectionAnchor.current = { id: item.id, groupKey };
+      select(new Map([[item.id, item]]), false);
+      onOpen(item);
+    },
+    [selected, select, onOpen],
+  );
   const { drag, startDrag, preview } = useTreeDrag({
     tree,
     config: config.drag,
@@ -354,6 +483,9 @@ export function RecordTree({
     // A search lists matches from every level, so only the tree itself has a top level to drop into.
     topLevelRows: search ? undefined : (item) => [`root|${item.objectTypeKey}#`],
     expand: (objectId) => toggle(objectId, true),
+    // A drag from a selected record moves the whole selection (UA9).
+    draggedWith: (item) => (selected.size > 1 && selected.has(item.id) ? selectedItems() : [item]),
+    labelOf: config.labelOf,
   });
 
   const treeItems = useCallback(
@@ -460,6 +592,33 @@ export function RecordTree({
     const item = event.target as HTMLElement;
     if (item.getAttribute("role") !== "treeitem") return;
     pending.current = undefined;
+    // The selection by keyboard (UA9, U-D26).
+    const record = item.dataset.treeKey ? records.get(item.dataset.treeKey) : undefined;
+    if (event.key === " " && (event.ctrlKey || event.metaKey)) {
+      if (record) {
+        const next = new Map(selected);
+        if (next.has(record.id)) next.delete(record.id);
+        else next.set(record.id, record);
+        select(next);
+      }
+      event.preventDefault();
+      return;
+    }
+    if (event.shiftKey && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+      move(item, event.key === "ArrowDown" ? 1 : -1);
+      const now = document.activeElement as HTMLElement | null;
+      const reached = now?.dataset.treeKey ? records.get(now.dataset.treeKey) : undefined;
+      const next = new Map(selected);
+      for (const one of [record, reached]) if (one) next.set(one.id, one);
+      select(next);
+      event.preventDefault();
+      return;
+    }
+    if (event.key === "Escape" && selected.size) {
+      select(new Map());
+      event.preventDefault();
+      return;
+    }
     if (
       event.key.length === 1 &&
       (event.key !== " " || typing()) &&
@@ -498,12 +657,30 @@ export function RecordTree({
         }
         break;
       }
-      case "Home": {
-        const first = treeItems()[0];
-        if (first) focusItem(first);
-        break;
-      }
+      case "Home":
       case "End": {
+        const toStart = event.key === "Home";
+        // Ctrl/Cmd+Home and +End move within the record's own group (a ScrollWindow did this before
+        // flat scrolling, UA9); its first or last row is loaded first where the window lacks it.
+        if ((event.ctrlKey || event.metaKey) && item.dataset.objectId) {
+          const group = groupsAround(item)[0];
+          const list = group && lists.current.get(group.dataset.treeGroup ?? "");
+          if (!list || !group) return;
+          if (toStart ? list.hasPrevious : list.hasNext) {
+            if (toStart) list.jumpToStart(true);
+            else list.jumpToEnd(true);
+          } else {
+            const rows = ownRowsOf(group);
+            const row = toStart ? rows[0] : rows.at(-1);
+            if (row) focusItem(row);
+          }
+          break;
+        }
+        if (toStart) {
+          const first = treeItems()[0];
+          if (first) focusItem(first);
+          break;
+        }
         const last = treeItems().at(-1);
         if (!last) return;
         const unfinished = groupsAround(last)
@@ -545,6 +722,8 @@ export function RecordTree({
       records,
       drag,
       startDrag,
+      isSelected: (objectId: string) => selected.has(objectId),
+      choose,
     }),
     [
       model,
@@ -569,6 +748,8 @@ export function RecordTree({
       records,
       drag,
       startDrag,
+      selected,
+      choose,
     ],
   );
 
@@ -590,6 +771,7 @@ export function RecordTree({
             role="tree"
             className="tree"
             aria-labelledby={labelledBy}
+            aria-multiselectable="true"
             hidden={!shown}
             onKeyDown={onKeyDown}
             onFocus={(event) => {
@@ -627,10 +809,16 @@ export function RecordTree({
                   icon={objectTypeFor(model, drag.item.objectTypeKey)?.icon}
                   size={18}
                 />
-                <span className="tree-name">{config.labelOf?.(drag.item) ?? drag.item.name}</span>
-                <span className="tree-drag-type">
-                  {objectTypeFor(model, drag.item.objectTypeKey)?.name ?? drag.item.objectTypeKey}
-                </span>
+                {drag.items.length > 1 ? (
+                  <span className="tree-name">{drag.items.length} records</span>
+                ) : (
+                  <>
+                    <span className="tree-name">{config.labelOf?.(drag.item) ?? drag.item.name}</span>
+                    <span className="tree-drag-type">
+                      {objectTypeFor(model, drag.item.objectTypeKey)?.name ?? drag.item.objectTypeKey}
+                    </span>
+                  </>
+                )}
               </span>
               {drag.target?.refusal && <span className="tree-drag-reason">{drag.target.refusal}</span>}
               {drag.target?.note && <span className="tree-drag-note">{drag.target.note}</span>}
@@ -774,12 +962,15 @@ function TreeGroup({
   );
   useLayoutEffect(() => register(groupKey, list));
   useLayoutEffect(() => () => register(groupKey, undefined), [groupKey, register]);
-  useLayoutEffect(() => rowsChanged(), [list.items, rowsChanged]);
 
   const scrolling = useScrolling();
   // A heading folds like a record. A reveal passing through a folded group opens it, once per reveal.
   const foldKey = `group:${parent?.id ?? "top"}:${objectTypeKey}`;
   const groupOpen = !FOLDING_GROUPS || tree.isGroupOpen(foldKey);
+  // useLayoutEffect(() => rowsChanged(), [list.items, rowsChanged]);
+  // A folded group draws no rows, so opening it reports them too: a record waiting for focus (a
+  // reveal, a record just created) is reached once its group opens (UA9, U-D21).
+  useLayoutEffect(() => rowsChanged(), [list.items, groupOpen, rowsChanged]);
   const { toggle, revealToken } = tree;
   const unfolded = useRef("");
   useEffect(() => {
@@ -848,6 +1039,7 @@ function TreeGroup({
             <span className="tree-name">{plural}</span>
           </span>
         </div>
+        {/* Flat-scroll experiment (2026-10-09): the group's rows scroll with the tree, not in a window.
         {groupOpen && (
           <ScrollWindow
             list={list}
@@ -875,7 +1067,155 @@ function TreeGroup({
             </ul>
           </ScrollWindow>
         )}
+        */}
+        {groupOpen && (
+          <FlatRows list={list} label={label}>
+            <ul role="none" className="tree-rows">
+              {list.items.map((item, position) => (
+                <TreeNode
+                  key={item.id}
+                  item={item}
+                  index={list.startIndex + position}
+                  level={level}
+                  setSize={total}
+                  parentKey={groupKey}
+                  match={!parent && Boolean(search)}
+                />
+              ))}
+            </ul>
+          </FlatRows>
+        )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Flat-scroll experiment (2026-10-09, asked by the user): a group's rows drawn in the tree's own
+ * scroll instead of a `ScrollWindow`. The group still holds its rows in a `useCursorWindow`; the
+ * next or previous page loads when an edge of the group comes within a short distance of the view,
+ * and an edge that failed offers its retry. The `ScrollWindow` version is kept, commented, above.
+ */
+// The first version, which loaded earlier rows by itself as well (kept for comparison):
+// function FlatRows<T>({ list, label, children }: { list: CursorWindow<T>; label: string; children: ReactNode }) {
+//   const top = useRef<HTMLDivElement>(null);
+//   const bottom = useRef<HTMLDivElement>(null);
+//   const { hasNext, hasPrevious, loadNext, loadPrevious, before, after } = list;
+//   useEffect(() => {
+//     if (typeof IntersectionObserver === "undefined") return undefined;
+//     const observer = new IntersectionObserver(
+//       (entries) => {
+//         for (const entry of entries) {
+//           if (!entry.isIntersecting) continue;
+//           if (entry.target === bottom.current && hasNext && !after.loading && !after.error) loadNext();
+//           if (entry.target === top.current && hasPrevious && !before.loading && !before.error) loadPrevious();
+//         }
+//       },
+//       { rootMargin: "200px 0px" },
+//     );
+//     if (top.current) observer.observe(top.current);
+//     if (bottom.current) observer.observe(bottom.current);
+//     return () => observer.disconnect();
+//   }, [hasNext, hasPrevious, loadNext, loadPrevious, before.loading, before.error, after.loading, after.error]);
+//   const edge = (status: { loading: boolean; error: string }, retry: () => void) =>
+//     status.error ? (
+//       <button type="button" className="ghost tree-flat-retry" onClick={retry}>
+//         Could not load more. Try again
+//       </button>
+//     ) : status.loading ? (
+//       <span className="tree-flat-loading">Loading…</span>
+//     ) : null;
+//   return (
+//     <div role="group" aria-label={label} className="tree-flat-rows">
+//       {hasPrevious && (
+//         <div ref={top} className="tree-flat-edge">
+//           {edge(before, list.retry)}
+//         </div>
+//       )}
+//       {children}
+//       {hasNext && (
+//         <div ref={bottom} className="tree-flat-edge">
+//           {edge(after, list.retry)}
+//         </div>
+//       )}
+//     </div>
+//   );
+// }
+
+function FlatRows<T>({ list, label, children }: { list: CursorWindow<T>; label: string; children: ReactNode }) {
+  const bottom = useRef<HTMLDivElement>(null);
+  const rows = useRef<HTMLDivElement>(null);
+  // A jump lands on a row (the keyboard crossing a page edge, Ctrl+Home or End): it is brought into
+  // view and, when asked, focused, as a ScrollWindow did.
+  const landed = useRef(0);
+  const { landing, loading } = list;
+  useLayoutEffect(() => {
+    if (!landing || landing.token === landed.current || loading) return;
+    const index =
+      landing.target === "start"
+        ? list.startIndex
+        : landing.target === "end"
+          ? list.startIndex + list.items.length - 1
+          : landing.target;
+    const row = rows.current?.querySelector<HTMLElement>(`:scope > ul > [data-row-index="${index}"]`);
+    if (!row) return;
+    landed.current = landing.token;
+    row.querySelector<HTMLElement>(".tree-row")?.scrollIntoView?.({ block: "nearest" });
+    if (landing.focus) row.focus({ preventScroll: true });
+  });
+  const { hasNext, hasPrevious, loadNext, loadPrevious, before, after, setViewportIndex } = list;
+  const last = list.startIndex + list.items.length - 1;
+  // Later rows load as the group's end comes into view. The window is told the reader is at that
+  // end, so a sixth page drops the one furthest from it. Earlier rows load only when asked (a group
+  // opened at a revealed record keeps that record; loading upward by itself never stopped there).
+  useEffect(() => {
+    if (typeof IntersectionObserver === "undefined") return undefined;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        if (!hasNext || after.loading || after.error) return;
+        setViewportIndex(last);
+        loadNext();
+      },
+      { rootMargin: "200px 0px" },
+    );
+    if (bottom.current) observer.observe(bottom.current);
+    return () => observer.disconnect();
+  }, [hasNext, loadNext, after.loading, after.error, setViewportIndex, last]);
+  const edge = (status: { loading: boolean; error: string }) =>
+    status.error ? (
+      <button type="button" className="ghost tree-flat-retry" onClick={list.retry}>
+        Could not load more. Try again
+      </button>
+    ) : status.loading ? (
+      <span className="tree-flat-loading">Loading…</span>
+    ) : null;
+  return (
+    <div className="tree-flat">
+      {hasPrevious && (
+        <div className="tree-flat-edge">
+          {edge(before) ?? (
+            <button
+              type="button"
+              className="ghost tree-flat-earlier"
+              onClick={() => {
+                setViewportIndex(list.startIndex);
+                loadPrevious();
+              }}
+            >
+              Show earlier records
+            </button>
+          )}
+        </div>
+      )}
+      <div ref={rows} role="group" aria-label={label} className="tree-flat-rows">
+        {children}
+      </div>
+      {hasNext && (
+        <div ref={bottom} className="tree-flat-edge">
+          {edge(after)}
+        </div>
+      )}
     </div>
   );
 }
@@ -925,6 +1265,7 @@ function TreeNode({
   const expandable = childTypes.length > 0;
   const expanded = expandable && tree.isExpanded(item.id);
   const active = item.id === tree.activeObjectId;
+  const selected = tree.isSelected(item.id);
   const { records, startDrag } = tree;
   useLayoutEffect(() => {
     records.set(key, item);
@@ -951,6 +1292,7 @@ function TreeNode({
       aria-posinset={index + 1}
       aria-expanded={expandable ? expanded : undefined}
       aria-current={active ? "page" : undefined}
+      aria-selected={selected}
       aria-label={[label, ancestors && `in ${ancestors}`, description].filter(Boolean).join(", ")}
       data-type-ahead={label.toLowerCase()}
       tabIndex={tree.focusKey === key ? 0 : -1}
@@ -959,14 +1301,17 @@ function TreeNode({
         config.onItemKeyDown?.(event, item);
         if (event.defaultPrevented || (event.key !== "Enter" && event.key !== " ")) return;
         if (event.key === " " && tree.typing()) return;
+        // Ctrl/Cmd+Space selects (UA9), handled by the tree.
+        if (event.key === " " && (event.ctrlKey || event.metaKey)) return;
         event.preventDefault();
         tree.onOpen(item);
       }}
     >
       <div
-        className={`tree-row${tree.drag?.item.id === item.id ? " dragging" : ""}${dropClass(tree.drag, key)}`}
+        className={`tree-row${tree.drag?.items.some((dragged) => dragged.id === item.id) ? " dragging" : ""}${dropClass(tree.drag, key)}`}
         style={recordIndent(level)}
         onPointerDown={startDrag && ((event) => startDrag(event, item))}
+        onContextMenu={config.onItemContextMenu && ((event) => config.onItemContextMenu?.(event, item))}
       >
         {expandable ? (
           <span
@@ -981,16 +1326,21 @@ function TreeNode({
           <span className="tree-branch" />
         )}
         <span
-          className={`tree-node${active ? " active" : ""}`}
+          className={`tree-node${active ? " active" : ""}${selected ? " selected" : ""}`}
           data-hue={objectTypeHue(tree.model, item.objectTypeKey)}
           title={`${item.name} · ${type?.name ?? item.objectTypeKey}`}
-          onClick={() => tree.onOpen(item)}
+          onClick={(event) => tree.choose(item, event, parentKey)}
         >
           <HueTile hue={objectTypeHue(tree.model, item.objectTypeKey)} icon={type?.icon} size={18} />
           <span className="tree-label">
             {config.renderLabel ? config.renderLabel(item, label) : <span className="tree-name">{label}</span>}
             {ancestors && <span className="tree-path">{ancestors}</span>}
           </span>
+          {selected && (
+            <span className="tree-check" aria-hidden="true">
+              <Icon name="check" size={13} />
+            </span>
+          )}
         </span>
         {config.renderExtras?.(item)}
       </div>
@@ -1032,7 +1382,15 @@ function groupsAround(element: HTMLElement) {
 
 /** A group's own scrolling window, before any nested group's in document order. */
 function windowOf(group: HTMLElement) {
-  return group.querySelector<HTMLElement>(".scroll-window-viewport");
+  // return group.querySelector<HTMLElement>(".scroll-window-viewport");
+  // Flat scrolling (UA9, U-D21): a group's rows sit in its `FlatRows`, not in a window.
+  return group.querySelector<HTMLElement>(".tree-flat-rows");
+}
+
+/** A group's own record rows, leaving out those of branches drawn inside them. */
+function ownRowsOf(group: HTMLElement) {
+  const rows = windowOf(group);
+  return rows ? Array.from(rows.querySelectorAll<HTMLElement>(":scope > ul > [role='treeitem']")) : [];
 }
 
 function focusItem(item: HTMLElement) {
@@ -1041,6 +1399,7 @@ function focusItem(item: HTMLElement) {
   item.querySelector<HTMLElement>(".tree-row")?.scrollIntoView?.({ block: "nearest" });
 }
 
+const NO_SELECTION = new Map<string, ObjectItem>();
 const NO_CONFIGURATION: TreeConfiguration = {};
 
 /** How long after a letter the next one extends the same type-ahead. */

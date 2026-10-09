@@ -323,6 +323,7 @@ function AppContent({
       application={application}
       activeRoute={activeRoute}
       refreshToken={refreshToken}
+      onChanged={() => setRefreshToken((value) => value + 1)}
       onNavigate={navigate}
       onSelectApplication={selectApplication}
       onChangeWorkspace={changeWorkspace}

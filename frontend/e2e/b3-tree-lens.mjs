@@ -21,7 +21,7 @@ import { bootHarness } from "./helpers/harness.mjs";
 import { cloneDatabase } from "./helpers/database.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
 import { openSystemHierarchy, seedHierarchy } from "./helpers/acceptance-data.mjs";
-import { cancelDrag, dragFrom, dragOver, dragState, escapeRegExp as escape, treeDriver } from "./helpers/tree.mjs";
+import { cancelDrag, dragFrom, dragOver, dragState, escapeRegExp as escape, treeDriver, openFoldedGroups } from "./helpers/tree.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const scale = process.env.B3_VOLUME_SCALE ?? "0.02";
@@ -157,6 +157,8 @@ try {
   // ---- 1. System hierarchy, live, 1440px ----
   await page.goto(`${uiUrl}/apps/rdm-systems/views/system-hierarchy?workspaceKey=default`);
   await page.getByRole("tree", { name: "System hierarchy" }).waitFor();
+  // UA9 (U-D21): the lens starts folded; open its groups as a user would.
+  await openFoldedGroups(page, page.locator(".tree-lens"));
   await page.locator(".tree-lens").getByRole("treeitem", { name: /^System 00/ }).waitFor();
   await h.axe("b3-system-tree");
   await h.findBySearch("Sodium", "Sodium");
@@ -211,6 +213,8 @@ try {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${uiUrl}/apps/rdm-master/views/domain-hierarchy?workspaceKey=default&changeSetId=${changeSet.id}`);
   await page.getByRole("tree", { name: "Domain hierarchy" }).waitFor();
+  // UA9 (U-D21): the lens starts folded; open its groups as a user would.
+  await openFoldedGroups(page, page.locator(".tree-lens"));
   await page.locator(".tree-lens").getByRole("treeitem", { name: /^Domain 00/ }).waitFor();
   await h.noHorizontalScroll("domain 390px");
   const domains = records.domain;
@@ -310,6 +314,8 @@ try {
     page.on("request", listen);
     await page.goto(`${uiUrl}/apps/vol-catalogue/views/hierarchy?workspaceKey=vol-workspace${suffix}`);
     await page.getByRole("tree", { name: "hierarchy" }).waitFor();
+    // UA9 (U-D21): the lens starts folded; open its groups as a user would.
+    await openFoldedGroups(page, page.locator(".tree-lens"));
     await page.locator(".tree-lens [role='treeitem'][data-object-id]").first().waitFor();
     await h.findBySearch(deep.name, deep.name);
     if (width < 400) {
@@ -317,6 +323,18 @@ try {
       await page.goBack();
     }
     const node = page.locator(`.tree-lens [role='treeitem'][data-object-id="${deep.id}"]`);
+    // Flat scrolling (UA9, U-D21): a list reads its next page as its end comes into view, not ahead
+    // of a window, so the returning reader scrolls down to the record's branch.
+    // The record's own top-level group decides it: during the page change the record can show for
+    // a moment from the view that is leaving.
+    await page.waitForLoadState("networkidle");
+    const topGroup = page.locator(`.tree-lens [role='treeitem'][data-object-id="${deep.path[0].id}"]`);
+    const lensBox = await page.locator(".tree-lens").boundingBox();
+    if (lensBox) await page.mouse.move(lensBox.x + lensBox.width / 2, Math.min(lensBox.y + 200, 600));
+    for (let step = 0; step < 12 && !(await topGroup.isVisible()); step++) {
+      await page.mouse.wheel(0, 2500);
+      await page.waitForTimeout(400);
+    }
     await node.waitFor();
     for (const part of deep.path.slice(0, -1))
       expect(
@@ -388,6 +406,8 @@ try {
       (await api(`/relations?objectId=${nested.id}&direction=incoming&relationTypeKey=vol-group-has-child&workspaceKey=vol-workspace${suffix}`)).items;
     await page.goto(`${uiUrl}/apps/vol-catalogue/views/hierarchy?workspaceKey=vol-workspace${suffix}`);
     await page.getByRole("tree", { name: "hierarchy" }).waitFor();
+    // UA9 (U-D21): the lens starts folded; open its groups as a user would.
+    await openFoldedGroups(page, page.locator(".tree-lens"));
     await page.locator(".tree-lens [role='treeitem'][data-object-id]").first().waitFor();
     await h.findBySearch(name, name);
     // The search's matches give way to the tree, revealing the group in its parent's branch.
@@ -401,6 +421,8 @@ try {
 
     // An item: not a root of this tree. Live, the top level refuses it with its reason; in a change
     // set it becomes a group there (C4), which c4-restructuring covers, so here the drag is cancelled.
+    // UA9 (U-D21): the small group's items sit in a folded type group; open it as a user would.
+    await openFoldedGroups(page, page.locator(`.tree-lens [role='treeitem'][data-object-id="${dataset.small_group_id}"]`));
     const item = page
       .locator(`.tree-lens [role='treeitem'][data-object-id="${dataset.small_group_id}"] [data-tree-group$='|vol-item'] [role='treeitem'][data-object-id]`)
       .first();
@@ -535,6 +557,9 @@ try {
         ),
       name,
     );
+    // UA9 (U-D21): the branch's type groups start folded; open them, once drawn, as a user would.
+    await h.item(name).locator(".tree-heading").first().waitFor();
+    await openFoldedGroups(page, h.item(name));
   };
   /** Releases over an accepted target and confirms the dialog it opens with Enter, `target` chosen. */
   const dropAndConfirm = async (label, name, target) => {
@@ -574,7 +599,11 @@ try {
   checks.push("drag (system, live, 1440px): Haematology dragged onto collapsed Boat glows green and opens Boat after a rest; the drop opens Move Haematology with Boat chosen, nothing written until Enter moves it (API parent Boat), focus on the moved row");
 
   await openBranch("Electrolytes");
+  // UA9 (U-D21): a record in a folded type group is reached by opening it.
+  await openFoldedGroups(page, page.locator(".tree-lens"));
   await h.item("Sodium").waitFor();
+  // UA9 (U-D21): a record in a folded type group is reached by opening it.
+  await openFoldedGroups(page, page.locator(".tree-lens"));
   await h.item("X-ray").waitFor();
   await dragFrom(page, h.item("Sodium"));
   await dragOver(page, h.item("Ferry"), "below");
@@ -619,6 +648,8 @@ try {
   // ---- 2. Domain hierarchy, change set, 1440px ----
   const changeSet = await api("/workspaces/default/change-sets", { name: "B5 drag", source: "currentLive" });
   await page.goto(`${uiUrl}/apps/rdm-master/views/domain-hierarchy?workspaceKey=default&changeSetId=${changeSet.id}`);
+  // UA9 (U-D21): a record in a folded type group is reached by opening it.
+  await openFoldedGroups(page, page.locator(".tree-lens"));
   await h.item("Domain 00").waitFor();
   for (const name of ["Domain 00", "Codelist Alpha", "Courier", "Codelist Beta"]) await openBranch(name);
   for (const name of ["Same day", "Pickup point", "Parcel locker"]) await h.item(name).waitFor();

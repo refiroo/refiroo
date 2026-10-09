@@ -6,6 +6,7 @@ import { codelistObject, domainObject, testModel } from "@/test/fixtures";
 import type { ApplicationDefinition } from "@/types";
 import { TREE_PAGE_SIZE } from "@/features/objects/RecordTree";
 import { capabilitiesFixture } from "@/test/capabilities";
+import { findTreeItem } from "@/test/tree";
 import App from "./App";
 
 vi.mock("@/api/client", () => ({
@@ -195,13 +196,14 @@ describe("App", () => {
     const first = render(<App />);
     const explorer = await screen.findByRole("region", { name: "Test App explorer" });
     expect(within(explorer).getByRole("navigation", { name: "Test App collections" })).toBeInTheDocument();
-    expect(await within(explorer).findByRole("treeitem", { name: domainObject.name })).toBeInTheDocument();
+    // UA9: the tree's groups start folded; the lookup opens them as a user would.
+    expect(within(explorer).getByRole("tree")).toContainElement(await findTreeItem(domainObject.name));
     expect(within(explorer).queryByRole("group", { name: "Navigation mode" })).not.toBeInTheDocument();
     const location = window.location.href;
     first.unmount();
     render(<App />);
     expect(await screen.findByRole("navigation", { name: "Test App collections" })).toBeInTheDocument();
-    expect(await screen.findByRole("treeitem", { name: domainObject.name })).toBeInTheDocument();
+    expect(await findTreeItem(domainObject.name)).toBeInTheDocument();
     expect(window.location.href).toBe(location);
   });
 
@@ -222,9 +224,10 @@ describe("App", () => {
     expect(await screen.findByRole("article", { name: "Record details" })).not.toHaveClass("record-inspector");
     const explorer = await screen.findByRole("region", { name: "Test App explorer" });
     // The active domain's branch opens on its own chevron, then the child opens as a full record.
-    const domain = await within(explorer).findByRole("treeitem", { name: domainObject.name });
+    const domain = await findTreeItem(domainObject.name);
+    expect(explorer).toContainElement(domain);
     fireEvent.click(domain.querySelector(".tree-toggle")!);
-    const child = await within(explorer).findByRole("treeitem", { name: codelistObject.name });
+    const child = await findTreeItem(codelistObject.name);
     fireEvent.click(child.querySelector(".tree-node")!);
     await screen.findByRole("heading", { name: codelistObject.name, level: 1 });
     expect(screen.getByRole("article", { name: "Record details" })).not.toHaveClass("record-inspector");

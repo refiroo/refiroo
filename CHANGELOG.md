@@ -8,6 +8,17 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 UA9: the record tree scrolled as one list, several records selected and moved together
+  (U-D21–U-D28; J14.9). The sidebar's tree and the hierarchy lens scroll with the sidebar or the
+  page, their type groups start folded and open like records, and a long group reads more as its
+  end comes into view (**Show earlier records** above a group opened partway down; Ctrl+Home and
+  Ctrl+End within a group). Records are selected with Cmd/Ctrl, Shift, Ctrl+Space and Shift+arrows,
+  without changing the page, and dragged together onto a new parent, in the sidebar as well as the
+  lens, or moved with **Move to…**: one confirmation, one atomic batch (`update` items with `parent`
+  and each record's version, live or in the change set). A target that cannot take one refuses them
+  all, naming it; several records are never moved where their type would change. Browser runner
+  `test:browser:ua9`.
+
 - Base 0.9 UA8: actions in place on the record (U-D15–U-D20; J02.6). A record's header edits its
   title (usually the name) and subtitle in place, as its details fields are, on the full page and in
   the inspector, and offers Add for an empty subtitle; one component, `EditableField`, draws and

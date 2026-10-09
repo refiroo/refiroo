@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
+import { openFoldedGroups } from "./helpers/tree.mjs";
 
 const harness = await bootHarness();
 const { page, uiUrl, api, cleanup } = harness;
@@ -34,6 +35,8 @@ try {
 
   await page.goto(`${uiUrl}/apps/rdm-systems/views/systems?workspaceKey=default`);
   const browser = page.getByRole("region", { name: "RDM Systems explorer" });
+  // UA9 (U-D21): the tree starts folded; open its root group as a user would.
+  await openFoldedGroups(page, browser.getByRole("tree"), 1);
   await browser.getByRole("treeitem", { name: "System 00", exact: true }).locator(".tree-toggle").first().click();
   // The heading's own node; its records are drawn inside it.
   await browser.getByRole("treeitem", { name: /^System values within System 00, / }).locator(":scope > .tree-row .tree-node").click();

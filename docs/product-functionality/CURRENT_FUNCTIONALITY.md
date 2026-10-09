@@ -197,7 +197,13 @@ Creating or moving a contained record updates its parent and its typed parent re
 A wrong parent type, a cycle or a separate edit of the engine-managed parent relationship is refused.
 
 The sidebar tree reads any hierarchy by parent at any size and depth, by keyboard or pointer, and its
-search lists matching records of every type with their path. A model-declared tree view adds editing:
+search lists matching records of every type with their path. It scrolls as one list with the page
+or the sidebar, its type groups start folded and open like records, and a long group reads more as
+its end comes into view (with **Show earlier records** above a group opened partway down). Several
+records can be selected (Cmd or Ctrl to add or remove one, Shift for a range, Ctrl+Space and
+Shift+arrows by keyboard, Escape to clear) without changing the page, and dragged together onto a
+new parent, in the sidebar as in a tree view, or moved with **Move to…** (right click or Shift+F10);
+one confirmation moves them all or none. A model-declared tree view adds editing:
 from a node's menu, add a child of any type the node may contain, rename, set availability and move
 through a searchable list of valid parents, or drag and drop, including to the top level. Invalid
 destinations are listed disabled with the reason. A move is live, or staged in a selected change set;

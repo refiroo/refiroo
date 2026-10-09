@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { createServer } from "node:net";
 import { chromium } from "playwright";
 import { goToPage } from "./helpers/lists.mjs";
+import { openFoldedGroups } from "./helpers/tree.mjs";
 import { checkRecordReturn } from "./ui03a-navigation.mjs";
 import { checkInspectorDeletion } from "./ui03b-deletion.mjs";
 import { checkHierarchySelection } from "./ui03b-hierarchy.mjs";
@@ -237,7 +238,9 @@ try {
     const pageTwo = page.url();
     assert.equal(new URL(pageTwo).searchParams.getAll("cursor").length, 0);
     const explorer = page.getByRole("region", { name: `${model.applications.find((item) => item.key === app).name} explorer` });
-    // The sidebar tree scrolls its root group (S6); nothing asks for more and the route stays put.
+    // The sidebar tree lists its root group (S6), which starts folded (UA9, U-D21) and is opened as
+    // a user would; nothing asks for more and the route stays put.
+    await openFoldedGroups(page, explorer.getByRole("tree"), 1);
     await shown(explorer.getByRole("treeitem", { name: "Record 31", exact: true }));
     assert.equal(await explorer.getByRole("button", { name: "Load more objects" }).count(), 0);
     assert.equal(page.url(), pageTwo);

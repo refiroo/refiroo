@@ -39,14 +39,14 @@ import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
 import { RecordTree, type TreeConfiguration, type TreeFocusRequest } from "@/features/objects/RecordTree";
 import { RestructuringDialog, type RestructuringSetup } from "@/features/objects/RestructuringDialog";
 import { TreeMoveDialog } from "@/features/objects/TreeMoveDialog";
+import { useTreeMoves } from "@/features/objects/useTreeMoves";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { attributeName, fieldValue, isQueryableField } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
 import { objectTypeHue } from "@/model/hues";
 import { HueTile } from "@/ui/HueTile";
 import { childObjectTypeKeys } from "@/model/placements";
-import { parentTypeOf, placeTypes, restructuringChoices, typeNames, type TreeTypes } from "@/model/restructuring";
-import { moveRefusal, moveRefusalText } from "@/model/treeDrop";
+import { parentTypeOf, placeTypes, restructuringChoices, type TreeTypes } from "@/model/restructuring";
 import type { AttributeTypeDefinition, ObjectItem, ObjectTypeDefinition, TreeViewDefinition } from "@/types";
 import { parseAttributeValue } from "@/ui/attributeForm";
 import { AnchoredMenu } from "@/ui/AnchoredMenu";
@@ -95,7 +95,17 @@ export function TreeView({
   const [menu, setMenu] = useState<{ item: ObjectItem }>();
   const menuAnchor = useRef<HTMLElement | null>(null);
   const [adding, setAdding] = useState<{ parent: ObjectItem; objectType: ObjectTypeDefinition }>();
-  const [moving, setMoving] = useState<{ item: ObjectItem; target?: ObjectItem | null }>();
+  const [moving, setMoving] = useState<{ item: ObjectItem; others?: ObjectItem[]; target?: ObjectItem | null }>();
+  // The records selected in the tree, which a drag or Move to… from one of them moves (UA9).
+  const [selection, setSelection] = useState<ObjectItem[]>([]);
+  /** The records Move to… moves from `item`: the selection it belongs to, in tree order, or just `item`. */
+  const movingFrom = useCallback(
+    (item: ObjectItem) =>
+      selection.length > 1 && selection.some((selected) => selected.id === item.id)
+        ? { item: selection[0], others: selection.slice(1) }
+        : { item },
+    [selection],
+  );
   const [restructuring, setRestructuring] = useState<RestructuringSetup>();
   const restructured = useRef(false);
   // A request to focus a record the lens just wrote, kept only while the same record stays open.
@@ -115,56 +125,16 @@ export function TreeView({
       childObjectTypeKeys(model, application, objectTypeKey).filter((key) => nodeTypes.has(key)),
     [model, application, nodeTypes],
   );
-  /**
-   * Whether a record of the type can move at all: some type of the application contains it, or, where
-   * types can change, it can become one that stands somewhere.
-   */
-  const movable = useCallback(
-    (objectTypeKey: string) =>
-      typeChanges ||
-      application.objectTypeKeys.some((key) => childObjectTypeKeys(model, application, key).includes(objectTypeKey)),
-    [model, application, typeChanges],
-  );
-  /**
-   * The types the record would become under `parent` (`null` is the top level), where its own type
-   * cannot stand there but another type of the tree can; undefined otherwise.
-   */
-  const typeChangeAt = useCallback(
-    (item: ObjectItem, parent: ObjectItem | null) => {
-      const reason = moveRefusal(model, application, item, parent, config.rootObjectTypeKeys);
-      if (reason !== "type" && reason !== "notRoot") return undefined;
-      const types = placeTypes(model, application, treeTypes, parent?.objectTypeKey ?? null);
-      return types.length ? types : undefined;
-    },
-    [model, application, config.rootObjectTypeKeys, treeTypes],
-  );
-  const becomesAt = useCallback(
-    (item: ObjectItem, parent: ObjectItem | null) => (typeChanges ? typeChangeAt(item, parent) : undefined),
-    [typeChanges, typeChangeAt],
-  );
-  /**
-   * Why the record cannot move into `parent` (`null` is the top level), in words; undefined allows it.
-   * Live, a place refused only for the record's type says a change set could change it (D38).
-   */
-  const refusalOf = useCallback(
-    (item: ObjectItem, parent: ObjectItem | null) => {
-      if (becomesAt(item, parent)) return undefined;
-      const reason = moveRefusal(model, application, item, parent, config.rootObjectTypeKeys);
-      if (!reason) return undefined;
-      const text = moveRefusalText(model, reason, item);
-      return live && actions.has("move") && typeChangeAt(item, parent)
-        ? `${text} · a change set can change its type`
-        : text;
-    },
-    [model, application, config.rootObjectTypeKeys, becomesAt, typeChangeAt, live, actions],
-  );
-  const becomesText = useCallback(
-    (item: ObjectItem, parent: ObjectItem | null) => {
-      const types = becomesAt(item, parent);
-      return types && `Becomes ${typeNames(model, types)}`;
-    },
-    [becomesAt, model],
-  );
+  // The one move rule the lens and the sidebar share (UA9).
+  const { movable, becomesAt, refusalOf, becomesText } = useTreeMoves({
+    model,
+    application,
+    treeTypes,
+    rootObjectTypeKeys: config.rootObjectTypeKeys,
+    canMove: actions.has("move"),
+    typeChanges,
+    live,
+  });
   const labelAttribute =
     config.labelField === "name" ? undefined : model.attributeTypes.find((item) => item.key === config.labelField);
   const availabilityName = config.availabilityField ? attributeName(model, config.availabilityField) : "";
@@ -260,7 +230,7 @@ export function TreeView({
         run: () => void toggleAvailability(item),
       });
     if (actions.has("move") && movable(item.objectTypeKey))
-      entries.push({ id: "move", label: "Move to…", run: () => setMoving({ item }) });
+      entries.push({ id: "move", label: "Move to…", run: () => setMoving(movingFrom(item)) });
     if (typeChanges) {
       const choices = restructuringChoices(model, application, treeTypes, item);
       if (choices.changeType.length)
@@ -440,10 +410,10 @@ export function TreeView({
           canDrag: (item) => movable(item.objectTypeKey) && renaming !== item.id && busy !== item.id,
           refusal: refusalOf,
           note: becomesText,
-          onDrop: (item, parent) =>
-            becomesAt(item, parent)
+          onDrop: ([item, ...others], parent) =>
+            !others.length && becomesAt(item, parent)
               ? setRestructuring({ kind: "move", item, parent })
-              : setMoving({ item, target: parent }),
+              : setMoving({ item, others, target: parent }),
         }
       : undefined,
   };
@@ -508,6 +478,7 @@ export function TreeView({
             labelledBy={headingId}
             config={treeConfig}
             focusRequest={focusRequest?.selectedId === selectedId ? focusRequest : undefined}
+            onSelectionChange={setSelection}
             onOpen={(item) => {
               if (search) {
                 // A search result is revealed where it sits, and the tree returns in place of the
@@ -568,6 +539,8 @@ export function TreeView({
         <TreeMoveDialog
           model={model}
           item={moving.item}
+          others={moving.others}
+          refusalOf={refusalOf}
           label={labelOf(moving.item)}
           workspaceKey={workspaceKey}
           target={moving.target}

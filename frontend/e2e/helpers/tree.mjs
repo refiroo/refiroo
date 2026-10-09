@@ -5,6 +5,22 @@
 export const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /**
+ * Opens every type group folded inside `scope` (a locator, by default the page), one chevron at a
+ * time as a user would, until none is left or `limit` clicks are made. The record tree's groups
+ * start folded (UA9, U-D21).
+ */
+export async function openFoldedGroups(page, scope = page.locator("body"), limit = 40) {
+  // A tree that is still loading has no heading yet: wait for its first one, briefly.
+  await scope.locator(".tree-heading").first().waitFor({ timeout: 10000 }).catch(() => undefined);
+  for (let step = 0; step < limit; step++) {
+    const chevron = scope.locator('.tree-heading[aria-expanded="false"] > .tree-row > .tree-toggle').first();
+    if (!(await chevron.count())) return;
+    await chevron.click();
+    await page.waitForTimeout(60);
+  }
+}
+
+/**
  * The tree lens's keyboard helpers over `page`. `fail` records a failed expectation without
  * stopping the journey; a helper that cannot continue throws instead.
  */
@@ -39,6 +55,17 @@ export function treeDriver(page, fail) {
       const at = await focused();
       if (at.role !== "treeitem") throw new Error(`focus left the tree looking for ${name}`);
       if (at.label.startsWith(name)) return;
+      // A folded type group opens with Right before its records can be reached (UA9, U-D21).
+      if (
+        await page.evaluate(
+          () =>
+            document.activeElement?.classList.contains("tree-heading") &&
+            document.activeElement.getAttribute("aria-expanded") === "false",
+        )
+      ) {
+        await page.keyboard.press("ArrowRight");
+        await page.waitForTimeout(60);
+      }
       const below = await page.evaluate((prefix) => {
         const target = Array.from(document.querySelectorAll(".tree-lens [role='treeitem']")).find((item) =>
           (item.getAttribute("aria-label") ?? "").startsWith(prefix),
@@ -193,7 +220,9 @@ export async function dragFrom(page, item) {
   await preview.waitFor();
   const name = (await item.getAttribute("aria-label"))?.split(",")[0] ?? "";
   const dragged = (await preview.textContent()) ?? "";
-  if (!dragged.startsWith(name)) throw new Error(`pressed on ${name}, but the drag is of ${dragged}`);
+  // A selected record drags the whole selection, which the preview counts (UA9).
+  if (!dragged.startsWith(name) && !/^\d+ records/.test(dragged))
+    throw new Error(`pressed on ${name}, but the drag is of ${dragged}`);
 }
 
 /**

@@ -1,6 +1,6 @@
 // Base 0.7 WP-9 acceptance data: model variants and records for SC-07 and SC-15, created through
 // the real API on top of the harness seed. The browser runners use starter keys as fixtures only.
-import { dragFrom, dragOver } from "./tree.mjs";
+import { dragFrom, dragOver, openFoldedGroups } from "./tree.mjs";
 
 /**
  * An independent relation binding with its own labels, direction and typed relation attribute
@@ -335,6 +335,9 @@ export async function seedHierarchy(api, records) {
 export async function openSystemHierarchy(page, uiUrl) {
   await page.goto(`${uiUrl}/apps/rdm-systems/views/system-hierarchy?workspaceKey=default`);
   const lens = page.locator(".tree-lens");
+  await lens.getByRole("tree").waitFor();
+  // UA9 (U-D21): the lens starts folded; open its groups as a user would.
+  await openFoldedGroups(page, lens);
   await lens.getByRole("treeitem", { name: /^System 00/ }).waitFor();
   await lens.getByRole("textbox", { name: /^Search / }).fill("Electrolytes");
   await lens.getByRole("treeitem", { name: /^Electrolytes, in / }).click();

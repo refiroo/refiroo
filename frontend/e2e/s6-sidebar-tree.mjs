@@ -14,6 +14,7 @@ import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
 import { cloneDatabase } from "./helpers/database.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
+import { openFoldedGroups } from "./helpers/tree.mjs";
 
 const root = resolve(import.meta.dirname, "..", "..");
 const scale = process.env.S6_VOLUME_SCALE ?? "0.1";
@@ -34,13 +35,13 @@ async function assertAccessible(page, name) {
   assert.equal(result.violations.length, 0, formatViolations(result.violations));
 }
 
-/** The rows a group's own window holds (not those of branches nested in them). */
+/** The rows a group holds (not those of branches nested in them). */
 function windowRows(group) {
   return group.evaluate((element) => {
-    // The named group is the window's viewport.
+    // UA9 (U-D21): the named group holds its rows in the tree's own scroll, not a window.
     const viewport = element;
     const rows = [...viewport.querySelectorAll("[data-row-key]")].filter(
-      (row) => row.closest(".scroll-window-viewport") === viewport,
+      (row) => row.closest(".tree-flat-rows") === viewport,
     );
     return {
       names: rows.map((row) => row.getAttribute("aria-label")),
@@ -63,6 +64,16 @@ async function focusedItem(page) {
       setsize: Number(item?.getAttribute("aria-setsize")),
     };
   });
+}
+
+/** UA9 (U-D21): a focused type group heading that is folded opens with Right. */
+async function openIfFolded(page) {
+  const folded = await page.evaluate(
+    () =>
+      document.activeElement?.classList.contains("tree-heading") &&
+      document.activeElement.getAttribute("aria-expanded") === "false",
+  );
+  if (folded) await page.keyboard.press("ArrowRight");
 }
 
 async function waitForFocus(page, label) {
@@ -119,6 +130,7 @@ try {
     const tree = explorer.getByRole("tree", { name: "Browse records", exact: true });
     const roots = await list("vol-group", "topLevel=true", suffix);
     await tree.getByRole("treeitem", { name: `vol-groups, ${format(roots.totalCount)}`, exact: true }).waitFor();
+    await openFoldedGroups(page, tree);
     const rootGroup = tree.getByRole("group", { name: "vol-groups", exact: true });
     let rows = await windowRows(rootGroup);
     // The window reads ahead of the viewport, so it holds the first page and possibly the next.
@@ -140,6 +152,7 @@ try {
     await tree
       .getByRole("treeitem", { name: `vol-items within ${small.name}, ${format(smallItems.totalCount)}`, exact: true })
       .waitFor();
+    await openFoldedGroups(page, smallRow);
     assert.deepEqual(
       (await windowRows(smallGroup)).names,
       smallItems.items.map((item) => item.name),
@@ -157,6 +170,7 @@ try {
     await tree
       .getByRole("treeitem", { name: `vol-nodes within ${heavy.name}, ${format(heavyNodes.totalCount)}`, exact: true })
       .waitFor();
+    await openFoldedGroups(page, heavyRow);
     const itemsGroup = tree.getByRole("group", { name: `vol-items within ${heavy.name}`, exact: true });
     rows = await windowRows(itemsGroup);
     assert.deepEqual(
@@ -166,9 +180,9 @@ try {
     );
     assert.equal(rows.setSize, String(heavyItems.totalCount));
 
-    // The heavy group's items scroll end to end in a bounded window.
-    const viewport = itemsGroup;
-    const box = await viewport.boundingBox();
+    // The heavy group's items scroll end to end in the sidebar, the group holding at most five pages
+    // (UA9, U-D21: one list, no window of its own).
+    const box = await page.locator(".workspace-sidebar").boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     let most = 0;
     for (let step = 0; step < 4000 && rows.last < heavyItems.totalCount - 1; step++) {
@@ -179,7 +193,6 @@ try {
         most = Math.max(most, rows.count);
       }
     }
-    await itemsGroup.getByText(`End · ${format(heavyItems.totalCount)} records`, { exact: true }).waitFor();
     rows = await windowRows(itemsGroup);
     assert.equal(rows.last, heavyItems.totalCount - 1, `${context}: scrolled to the last item`);
     assert.ok(Math.max(most, rows.count) <= 5 * TREE_PAGE_SIZE, `${context}: window held ${most} rows`);
@@ -188,15 +201,14 @@ try {
       scrolledRequests.some((url) => url.searchParams.has("cursor")),
       `${context}: scrolled with cursors`,
     );
-    // …and back to the start by keyboard, within the window (Ctrl+Home).
+    // …and back to the start by keyboard, within the group (Ctrl+Home).
     await itemsGroup.locator("[data-row-key]").first().focus();
     await page.keyboard.press("Control+Home");
     await waitForFocus(page, heavyItems.items[0].name);
-    await itemsGroup.getByText("Start of list", { exact: true }).waitFor();
     rows = await windowRows(itemsGroup);
     assert.equal(rows.first, 0);
     checks.push(
-      `volume ${context}: the root pages ${format(roots.totalCount)} top-level groups; the 5-item and ${format(heavyItems.totalCount)}-item groups show exactly their own children and counts per child type; the heavy branch scrolls end to end holding ≤${5 * TREE_PAGE_SIZE} rows and returns by Ctrl+Home`,
+      `volume ${context}: the root pages ${format(roots.totalCount)} top-level groups; the 5-item and ${format(heavyItems.totalCount)}-item groups show exactly their own children and counts per child type; the heavy branch scrolls end to end in the sidebar holding ≤${5 * TREE_PAGE_SIZE} rows and returns by Ctrl+Home`,
     );
 
     // An eight-level path (group and seven node levels) opens by keyboard alone. Ctrl+End jumps to
@@ -208,6 +220,7 @@ try {
     let parentName = heavy.name;
     for (let depth = 1; depth <= 7; depth++) {
       await waitForFocus(page, `vol-nodes within ${parentName}, 2`);
+      await openIfFolded(page);
       await page.keyboard.press("ArrowDown");
       await page.keyboard.press("ArrowDown");
       const node = deep.path[depth];
@@ -258,7 +271,7 @@ try {
       );
     requests.stop();
     checks.push(
-      `volume ${context}: an eight-level path to the deep node opens by keyboard (Ctrl+End, Down into the next window, Down/Right per level, aria-level/posinset/setsize checked, Enter opens it and it is marked current); collapsing releases ${held - after} items; every tree read is top-level, by parent or by search`,
+      `volume ${context}: an eight-level path to the deep node opens by keyboard (Ctrl+End, Down to the next group, Right opening a folded group, Down/Right per level, aria-level/posinset/setsize checked, Enter opens it and it is marked current); collapsing releases ${held - after} items; every tree read is top-level, by parent or by search`,
     );
   }
 
@@ -276,18 +289,20 @@ try {
   await drawer.getByRole("textbox", { name: "Search this explorer" }).fill(heavy.name);
   const phoneHeavy = phoneTree.getByRole("treeitem", { name: heavy.name, exact: true });
   await phoneHeavy.locator(".tree-toggle").first().tap();
+  await openFoldedGroups(phone, phoneHeavy);
   const phoneItems = phoneTree.getByRole("group", { name: `vol-items within ${heavy.name}`, exact: true });
   await phoneItems.locator("[data-row-key]").first().waitFor();
-  const phoneBox = await phoneItems.boundingBox();
-  await phone.mouse.move(phoneBox.x + phoneBox.width / 2, phoneBox.y + phoneBox.height / 2);
-  for (let step = 0; step < 12; step++) {
-    await phone.mouse.wheel(0, 1200);
-    await phone.waitForTimeout(80);
+  // A swipe to the end of the group, as the reader does: its last row comes into view and the next
+  // page loads (UA9, U-D21: the drawer's tree scrolls as one list).
+  let phoneRows = await windowRows(phoneItems);
+  for (let step = 0; step < 12 && phoneRows.last < TREE_PAGE_SIZE; step++) {
+    await phoneItems.locator(":scope > ul > [data-row-key]").last().scrollIntoViewIfNeeded();
+    await phone.waitForTimeout(300);
+    phoneRows = await windowRows(phoneItems);
   }
-  await phone.waitForTimeout(400);
-  const phoneRows = await windowRows(phoneItems);
   assert.ok(phoneRows.last >= TREE_PAGE_SIZE, `390px: scrolled into the second page (${phoneRows.last})`);
   await phoneTree.getByRole("treeitem", { name: new RegExp(`^vol-nodes within ${heavy.name}, `) }).focus();
+  await openIfFolded(phone);
   await phone.keyboard.press("ArrowDown");
   await phone.keyboard.press("ArrowDown");
   await waitForFocus(phone, deep.path[1].name);
@@ -329,11 +344,13 @@ try {
         .join() === "Domains, 5",
   );
   await domains.focus();
+  await openIfFolded(page);
   await page.keyboard.press("ArrowDown");
   await waitForFocus(page, domain.name);
   await page.keyboard.press("ArrowRight");
   await tree.getByRole("treeitem", { name: `Codelists within ${domain.name}, 2`, exact: true }).waitFor();
   await page.keyboard.press("ArrowRight");
+  await openIfFolded(page);
   await page.keyboard.press("ArrowDown");
   await waitForFocus(page, "Codelist Alpha");
   assert.deepEqual(
@@ -375,10 +392,12 @@ try {
   await page.goto(`${uiUrl}/apps/rdm-systems/views/systems?workspaceKey=default`);
   explorer = page.getByRole("region", { name: "RDM Systems explorer" });
   tree = explorer.getByRole("tree", { name: "Browse records", exact: true });
+  await openFoldedGroups(page, tree);
   const systemRow = tree.getByRole("treeitem", { name: system.name, exact: true });
   await systemRow.focus();
   await page.keyboard.press("ArrowRight");
   await tree.getByRole("treeitem", { name: `System values within ${system.name}, 1`, exact: true }).waitFor();
+  await openFoldedGroups(page, systemRow);
   await tree.getByRole("treeitem", { name: "Value Alpha", exact: true }).waitFor();
   assert.equal(await tree.getByRole("group", { name: `System groups within ${system.name}` }).count(), 0);
   await assertAccessible(page, "s6-starter-systems-tree");
@@ -397,11 +416,13 @@ try {
   await phone.getByRole("button", { name: "Browse application", exact: true }).tap();
   const drawer = phone.getByRole("dialog", { name: "Application navigation" });
   const phoneTree = drawer.getByRole("tree", { name: "Browse records", exact: true });
+  await openFoldedGroups(phone, phoneTree);
   const phoneDomain = phoneTree.getByRole("treeitem", { name: domain.name, exact: true });
   await phoneDomain.focus();
   await phone.keyboard.press("ArrowRight");
   await phoneTree.getByRole("treeitem", { name: `Codelists within ${domain.name}, 2`, exact: true }).waitFor();
   await phone.keyboard.press("ArrowRight");
+  await openIfFolded(phone);
   await phone.keyboard.press("ArrowDown");
   await waitForFocus(phone, "Codelist Alpha");
   assert.equal(await phone.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);

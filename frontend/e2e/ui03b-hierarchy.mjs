@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { resolve } from "node:path";
+import { openFoldedGroups } from "./helpers/tree.mjs";
 
 export async function checkHierarchySelection({ page, api, uiUrl, output, checks }) {
   const domain = await api("/objects", { objectTypeKey: "domain", applicationKey: "rdm-master", workspaceKey: "warehouse", name: "Hierarchy domain", attributes: [{ attributeTypeKey: "domain-code", value: "UI03-HIERARCHY" }] });
@@ -24,6 +25,7 @@ export async function checkHierarchySelection({ page, api, uiUrl, output, checks
     // The previous width's pass leaves the branch open; this browser remembers it.
     if ((await list.getAttribute("aria-expanded")) === "false") {
       await list.locator(".tree-toggle").first().click();
+      await openFoldedGroups(page, list);
       await branchValue.waitFor();
     }
     await list.locator(".tree-toggle").first().click();
@@ -35,6 +37,8 @@ export async function checkHierarchySelection({ page, api, uiUrl, output, checks
     assert.equal(await list.getAttribute("aria-expanded"), "false");
     await list.focus();
     await page.keyboard.press("ArrowRight");
+    // UA9 (U-D21): the branch's type group starts folded; open it as a user would.
+    await openFoldedGroups(page, list);
     await branchValue.waitFor();
     await page.reload();
     if (width === 390) await page.getByRole("button", { name: "Browse application", exact: true }).click();

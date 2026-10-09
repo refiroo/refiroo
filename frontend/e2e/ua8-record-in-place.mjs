@@ -18,6 +18,7 @@ import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
+import { openFoldedGroups } from "./helpers/tree.mjs";
 
 const keptBy = "domain-kept-by-system";
 function withKeptBy(model) {
@@ -150,6 +151,8 @@ try {
 
   // 4. The domain in the inspector beside the domain hierarchy.
   await page.goto(`${uiUrl}/apps/rdm-master/views/domain-hierarchy?workspaceKey=default`);
+  // UA9 (U-D21): the lens starts folded; open its groups as a user would.
+  await openFoldedGroups(page, page.locator(".tree-lens"));
   await page.locator(".tree-lens").getByRole("treeitem", { name: /^UA8 Domain renamed/ }).click();
   const inspector = page.locator(".record-inspector");
   await inspector.getByRole("heading", { level: 1, name: "UA8 Domain renamed" }).waitFor({ timeout: 10000 });

@@ -4,8 +4,10 @@ import { ApiError, api, type ObjectQuery } from "@/api/client";
 import { CollectionView } from "@/features/objects/views/CollectionViewHost";
 import * as workspaceContext from "@/features/workspaces/WorkspaceDataContext";
 import { codelistObject, domainObject, testModel } from "@/test/fixtures";
+import { findTreeItem } from "@/test/tree";
 import { applicationPlacements } from "@/test/placements";
 import type {
+  Job,
   ChangeSet,
   EngineModel,
   ObjectItem,
@@ -209,7 +211,8 @@ function nestedRootsModel(): EngineModel {
   return model;
 }
 
-const item = (name: string | RegExp) => screen.findByRole("treeitem", { name });
+// UA9: groups start folded; a lookup opens them as a user would.
+const item = findTreeItem;
 const toggle = (element: HTMLElement) => fireEvent.click(element.querySelector(".tree-toggle")!);
 const key = (element: HTMLElement, name: string, init: KeyboardEventInit = {}) =>
   fireEvent.keyDown(element, { key: name, ...init });
@@ -237,6 +240,7 @@ describe("TreeView", () => {
     const read = serve();
     render(lens({ viewKey: "units" }));
     toggle(await item("CONNECTIONS"));
+    await item(/^Units within Connections/);
     const group = await screen.findByRole("group", { name: "Units within Connections" });
     expect(
       within(group)
@@ -465,6 +469,39 @@ describe("TreeView", () => {
     for (const letter of "timetable t") key(document.activeElement as HTMLElement, letter);
     expect(document.activeElement).toBe(screen.getByRole("treeitem", { name: /^Timetable types/ }));
     expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it("moves a selection with Move to… from the node menu, the keyboard path (UA9, U-D28)", async () => {
+    serve();
+    vi.spyOn(api, "parentCandidates").mockResolvedValue({
+      items: [
+        { id: finance.id, objectTypeKey: "domain", name: "Finance", path: finance.path, eligible: true, reason: null },
+      ],
+      nextCursor: null,
+      totalCount: 1,
+      startIndex: 0,
+    });
+    const batch = vi.spyOn(api, "runBatch").mockResolvedValue({
+      job: { id: "job-2", result: "applied" } as Job,
+      items: [],
+      nextCursor: null,
+    });
+    render(lens());
+    toggle(await item(/^Connections/));
+    const first = await item(/^Timetable types/);
+    const second = await item(/^Tariffs/);
+    fireEvent.click(first.querySelector(".tree-node")!, { ctrlKey: true });
+    fireEvent.click(second.querySelector(".tree-node")!, { ctrlKey: true });
+    key(second, "F10", { shiftKey: true });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Move to…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Move 2 records" });
+    fireEvent.click(await within(dialog).findByRole("radio", { name: /Finance/ }));
+    await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "Move to Finance" })));
+    await waitFor(() => expect(batch).toHaveBeenCalled());
+    expect(batch.mock.calls[0][0].items.map((entry) => ("target" in entry ? entry.target.id : ""))).toEqual([
+      timetables.id,
+      tariffs.id,
+    ]);
   });
 
   it("names the view's root type when the workspace holds none", async () => {
@@ -786,6 +823,102 @@ describe("TreeView dragging", () => {
       }),
     );
     expect(candidates).not.toHaveBeenCalled();
+  });
+
+  // UA9 (U-D23–U-D27): several records selected with Cmd/Ctrl and dragged together.
+  const moved = (...records: ObjectItem[]) => ({
+    job: { id: "job-1", result: "applied" } as Job,
+    items: records.map((record, index) => ({
+      index,
+      ref: record.name,
+      status: "applied" as const,
+      action: "updated" as const,
+    })),
+    nextCursor: null,
+  });
+  const select = (node: HTMLElement) => fireEvent.click(node.querySelector(".tree-node")!, { metaKey: true });
+
+  it("drags several selected records onto a target that takes them all and moves them in one atomic batch", async () => {
+    serve();
+    vi.spyOn(api, "parentCandidates").mockResolvedValue(candidatePage(finance));
+    const batch = vi.spyOn(api, "runBatch").mockResolvedValue(moved(timetables, tariffs));
+    const onChanged = vi.fn();
+    const onOpen = vi.fn();
+    render(lens({ onChanged, onOpen }));
+    toggle(await item(/^Connections/));
+    const first = await item(/^Timetable types/);
+    const second = await item(/^Tariffs/);
+    select(first);
+    select(second);
+    expect(onOpen).not.toHaveBeenCalled();
+    expect([first, second].map((node) => node.getAttribute("aria-selected"))).toEqual(["true", "true"]);
+
+    press(first);
+    moveOver(screen.getByRole("treeitem", { name: /^Finance/ }));
+    expect(preview()).toHaveClass("accepted");
+    expect(preview()).toHaveTextContent("2 records");
+    release();
+    const dialog = await screen.findByRole("dialog", { name: "Move 2 records" });
+    expect(await within(dialog).findByRole("radio", { name: /Finance/ })).toBeChecked();
+    await act(async () =>
+      fireEvent.submit(within(dialog).getByRole("button", { name: "Move to Finance" }).closest("form")!),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(batch).toHaveBeenCalledWith(
+      {
+        workspaceKey: "west",
+        policy: "atomic",
+        run: "inline",
+        stage: "execute",
+        items: [timetables, tariffs].map((record) => ({
+          op: "update",
+          ref: record.name,
+          target: { id: record.id },
+          expectedVersion: record.version,
+          parent: { id: finance.id },
+        })),
+      },
+      expect.any(String),
+    );
+    expect(onChanged).toHaveBeenCalled();
+  });
+
+  it("refuses the whole drop where the target cannot take one of the records, naming it", async () => {
+    serve();
+    const batch = vi.spyOn(api, "runBatch");
+    render(lens());
+    toggle(await item(/^Connections/));
+    const list = await item(/^Timetable types/);
+    // Tariffs can take Timetable types, but not itself.
+    const tariffsItem = await item(/^Tariffs/);
+    select(list);
+    select(tariffsItem);
+    press(list);
+    moveOver(tariffsItem);
+    expect(row(tariffsItem)).toHaveClass("drop-refused");
+    expect(preview()).toHaveClass("refused");
+    expect(preview()).toHaveTextContent(/Tariffs: /);
+    release();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(batch).not.toHaveBeenCalled();
+  });
+
+  it("in a change set, refuses several records where the target would change a type", async () => {
+    serve();
+    inChangeSet();
+    render(lens());
+    toggle(await item(/^Connections/));
+    // Under Tariffs, the codelist stands as it is and the domain Finance would become a codelist.
+    const codelist = await item(/^Timetable types/);
+    const domain = await item(/^Finance/);
+    select(codelist);
+    select(domain);
+    press(domain);
+    moveOver(screen.getByRole("treeitem", { name: /^Tariffs/ }));
+    expect(preview()).toHaveClass("refused");
+    expect(preview()).toHaveTextContent("Move records that change type one at a time");
+    release();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("live, starts no drag of a record no place holds without a type change (D38)", async () => {

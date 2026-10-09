@@ -3,8 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, type ObjectQuery } from "@/api/client";
 import { Explorer } from "@/features/objects/Explorer";
 import { codelistObject, domainObject, testModel } from "@/test/fixtures";
+import { findTreeItem, openFoldedGroups } from "@/test/tree";
 import { applicationPlacements } from "@/test/placements";
-import type { EngineModel, ObjectItem, ObjectPage } from "@/types";
+import * as workspaceContext from "@/features/workspaces/WorkspaceDataContext";
+import type { EngineModel, Job, ObjectItem, ObjectPage, Publication } from "@/types";
 
 beforeEach(() => {
   const values = new Map<string, string>();
@@ -109,7 +111,8 @@ function explorer(props: Partial<Parameters<typeof Explorer>[0]> = {}) {
   );
 }
 
-const item = (name: string | RegExp) => screen.findByRole("treeitem", { name });
+// UA9: groups start folded; a lookup opens them as a user would.
+const item = findTreeItem;
 const toggle = (element: HTMLElement) => fireEvent.click(element.querySelector(".tree-toggle")!);
 
 describe("Explorer", () => {
@@ -192,9 +195,10 @@ describe("Explorer", () => {
     expect(screen.getByRole("treeitem", { name: "Connections" })).toHaveAttribute("aria-expanded", "true");
     const model = treeModel();
     again.rerender(explorer({ model, workspaceKey: "east" }));
-    await waitFor(() =>
-      expect(screen.getByRole("treeitem", { name: "Connections" })).toHaveAttribute("aria-expanded", "false"),
-    );
+    await waitFor(() => {
+      openFoldedGroups();
+      expect(screen.getByRole("treeitem", { name: "Connections" })).toHaveAttribute("aria-expanded", "false");
+    });
     // Another application with the same shape, as the engine would serve its placements.
     const [places] = model.placements!.applications;
     const other = {
@@ -202,9 +206,10 @@ describe("Explorer", () => {
       placements: { applications: [places, { ...places, applicationKey: "another-app" }] },
     };
     again.rerender(explorer({ model: other, application: { ...model.applications[0], key: "another-app" } }));
-    await waitFor(() =>
-      expect(screen.getByRole("treeitem", { name: "Connections" })).toHaveAttribute("aria-expanded", "false"),
-    );
+    await waitFor(() => {
+      openFoldedGroups();
+      expect(screen.getByRole("treeitem", { name: "Connections" })).toHaveAttribute("aria-expanded", "false");
+    });
   });
 
   it("opens the branches that lead to the active record", async () => {
@@ -265,11 +270,15 @@ describe("Explorer", () => {
         : { items: [connections], nextCursor: "second", totalCount: 2, startIndex: 0 };
     });
     render(explorer({ onOpen }));
-    const heading = await item("Domains, 2");
+    const heading = await screen.findByRole("treeitem", { name: "Domains, 2" });
     await waitFor(() => expect(heading).toHaveAttribute("tabindex", "0"));
     const press = (key: string) => fireEvent.keyDown(document.activeElement!, { key });
 
     act(() => heading.focus());
+    // UA9 (U-D21): a type group starts folded and opens with Right, as a record does.
+    expect(heading).toHaveAttribute("aria-expanded", "false");
+    press("ArrowRight");
+    expect(heading).toHaveAttribute("aria-expanded", "true");
     press("ArrowDown");
     expect(document.activeElement).toBe(screen.getByRole("treeitem", { name: "Connections" }));
     expect(screen.getByRole("treeitem", { name: "Connections" })).toHaveAttribute("tabindex", "0");
@@ -286,18 +295,22 @@ describe("Explorer", () => {
 
     press("ArrowUp");
     press("ArrowRight");
-    const firstChild = await item("Codelists within Connections, 2");
+    const firstChild = await screen.findByRole("treeitem", { name: "Codelists within Connections, 2" });
     press("ArrowRight");
     expect(document.activeElement).toBe(firstChild);
+    press("ArrowRight");
+    expect(firstChild).toHaveAttribute("aria-expanded", "true");
     press("ArrowDown");
     expect(document.activeElement).toBe(screen.getByRole("treeitem", { name: "Timetable types" }));
-    // Left returns to the record's type group heading, an open parent that does not fold
-    // (FOLDING_GROUPS is off), then to the record above.
+    // Left returns to the record's type group heading; Left again folds the heading (UA9, headings
+    // fold again), and once more goes to the record above.
     press("ArrowLeft");
     expect(document.activeElement).toBe(firstChild);
     expect(firstChild).toHaveAttribute("aria-expanded", "true");
     press("ArrowLeft");
-    expect(firstChild).toHaveAttribute("aria-expanded", "true");
+    expect(firstChild).toHaveAttribute("aria-expanded", "false");
+    expect(document.activeElement).toBe(firstChild);
+    press("ArrowLeft");
     expect(document.activeElement).toBe(screen.getByRole("treeitem", { name: "Connections" }));
     press("ArrowLeft");
     expect(screen.getByRole("treeitem", { name: "Connections" })).toHaveAttribute("aria-expanded", "false");
@@ -347,25 +360,155 @@ describe("Explorer", () => {
     expect(read).toHaveBeenCalledTimes(2);
   });
 
-  it("never starts a drag, since the sidebar tree is for navigation only", async () => {
+  // UA9 (U-D23, U-D26): several records selected; selecting never changes the main page.
+  it("selects several records with Cmd/Ctrl, Shift and the keyboard without opening them", async () => {
     serve();
     const onOpen = vi.fn();
     render(explorer({ onOpen }));
+    const tree = await screen.findByRole("tree", { name: "Browse records" });
+    expect(tree).toHaveAttribute("aria-multiselectable", "true");
     const connectionsItem = await item("Connections");
+    const financeItem = await item("Finance");
+    const node = (element: HTMLElement) => element.querySelector(".tree-node")!;
+    const selected = () =>
+      within(tree)
+        .getAllByRole("treeitem")
+        .filter((element) => element.getAttribute("aria-selected") === "true")
+        .map((element) => element.getAttribute("aria-label"));
+
+    // A plain click opens the record and makes it the only one selected.
+    fireEvent.click(node(connectionsItem));
+    expect(onOpen).toHaveBeenCalledWith(connections);
+    expect(selected()).toEqual(["Connections"]);
+    // Cmd (or Ctrl) adds and removes, without opening.
+    fireEvent.click(node(financeItem), { metaKey: true });
+    expect(selected()).toEqual(["Connections", "Finance"]);
+    expect(await screen.findByText("2 records selected")).toBeInTheDocument();
+    fireEvent.click(node(financeItem), { ctrlKey: true });
+    expect(selected()).toEqual(["Connections"]);
+    expect(onOpen).toHaveBeenCalledTimes(1);
+
+    // Shift selects the range within one group, from the last record clicked.
     toggle(connectionsItem);
-    const node = await item("Timetable types");
+    const first = await item("Timetable types");
+    const second = await item("Tariffs");
+    fireEvent.click(node(first), { metaKey: true });
+    fireEvent.click(node(second), { shiftKey: true });
+    expect(selected()).toEqual(["Timetable types", "Tariffs"]);
+    expect(onOpen).toHaveBeenCalledTimes(1);
+
+    // By keyboard: Shift+↓ extends, Ctrl+Space toggles, Escape clears.
+    act(() => first.focus());
+    fireEvent.keyDown(first, { key: " ", ctrlKey: true });
+    expect(selected()).toEqual(["Tariffs"]);
+    act(() => first.focus());
+    fireEvent.keyDown(first, { key: "ArrowDown", shiftKey: true });
+    expect(selected()).toEqual(["Timetable types", "Tariffs"]);
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    expect(selected()).toEqual([]);
+    expect(onOpen).toHaveBeenCalledTimes(1);
+
+    // A record hidden by folding its branch leaves the selection.
+    fireEvent.click(node(first), { metaKey: true });
+    fireEvent.click(node(financeItem), { metaKey: true });
+    toggle(connectionsItem);
+    expect(selected()).toEqual(["Finance"]);
+  });
+
+  // UA9 (U-D22, U-D27): the sidebar drags, as the lens does.
+  it("drags a selection onto another parent and moves it in one atomic batch, never from touch", async () => {
+    serve();
+    vi.spyOn(api, "parentCandidates").mockResolvedValue({
+      items: [
+        { id: finance.id, objectTypeKey: "domain", name: "Finance", path: finance.path, eligible: true, reason: null },
+      ],
+      nextCursor: null,
+      totalCount: 1,
+      startIndex: 0,
+    });
+    const batch = vi.spyOn(api, "runBatch").mockResolvedValue({
+      job: { id: "job-1", result: "applied" } as Job,
+      items: [],
+      nextCursor: null,
+    });
+    const onChanged = vi.fn();
+    render(explorer({ onChanged }));
+    toggle(await item("Connections"));
+    const first = await item("Timetable types");
+    const second = await item("Tariffs");
     const target = screen.getByRole("treeitem", { name: "Finance" });
+    let hit: Element | null = null;
+    Object.defineProperty(document, "elementFromPoint", { configurable: true, value: () => hit });
+    const rect = { top: 50, bottom: 70, left: 0, right: 300, height: 20, width: 300, x: 0, y: 50 };
+    target.querySelector(".tree-row")!.getBoundingClientRect = () => ({ ...rect, toJSON: () => rect });
+    const pointer = (pointerType = "mouse") => ({ pointerId: 1, pointerType, button: 0 });
+
+    // From touch, nothing drags (D35).
+    fireEvent.pointerDown(first.querySelector(".tree-node")!, { ...pointer("touch"), clientX: 10, clientY: 10 });
+    hit = target.querySelector(".tree-node");
+    fireEvent.pointerMove(window, { ...pointer("touch"), clientX: 200, clientY: 60 });
+    expect(document.querySelector(".tree-drag-preview")).toBeNull();
+    fireEvent.pointerUp(window, { ...pointer("touch"), clientX: 200, clientY: 60 });
+
+    fireEvent.click(first.querySelector(".tree-node")!, { metaKey: true });
+    fireEvent.click(second.querySelector(".tree-node")!, { metaKey: true });
+    fireEvent.pointerDown(second.querySelector(".tree-node")!, { ...pointer(), clientX: 10, clientY: 10 });
+    fireEvent.pointerMove(window, { ...pointer(), clientX: 200, clientY: 60 });
+    expect(document.querySelector(".tree-drag-preview")).toHaveTextContent("2 records");
+    expect(target.querySelector(".tree-row")).toHaveClass("drop-accepted");
+    fireEvent.pointerUp(window, { ...pointer(), clientX: 200, clientY: 60 });
+    Reflect.deleteProperty(document, "elementFromPoint");
+
+    const dialog = await screen.findByRole("dialog", { name: "Move 2 records" });
+    expect(await within(dialog).findByRole("radio", { name: /Finance/ })).toBeChecked();
+    await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "Move to Finance" })));
+    await waitFor(() => expect(batch).toHaveBeenCalled());
+    expect(batch.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        workspaceKey: "west",
+        policy: "atomic",
+        run: "inline",
+        items: [timetables, tariffs].map((record) =>
+          expect.objectContaining({ target: { id: record.id }, parent: { id: finance.id } }),
+        ),
+      }),
+    );
+    await waitFor(() => expect(onChanged).toHaveBeenCalled());
+  });
+
+  it("starts no drag in a publication, and offers Move to… from the record's menu (U-D28)", async () => {
+    serve();
+    vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
+      api,
+      warning: "",
+      publication: { id: "p1" } as Publication,
+    });
+    const view = render(explorer());
+    toggle(await item("Connections"));
+    const node = await item("Timetable types");
     Object.defineProperty(document, "elementFromPoint", {
       configurable: true,
-      value: () => target.querySelector(".tree-node"),
+      value: () => screen.getByRole("treeitem", { name: "Finance" }).querySelector(".tree-node"),
     });
     const pointer = { pointerId: 1, pointerType: "mouse", button: 0 };
     fireEvent.pointerDown(node.querySelector(".tree-node")!, { ...pointer, clientX: 10, clientY: 10 });
     fireEvent.pointerMove(window, { ...pointer, clientX: 200, clientY: 60 });
     expect(document.querySelector(".tree-drag-preview")).toBeNull();
-    expect(node.querySelector(".tree-row")).not.toHaveClass("dragging");
     fireEvent.pointerUp(window, { ...pointer, clientX: 200, clientY: 60 });
-    expect(document.body).not.toHaveClass("tree-dragging");
     Reflect.deleteProperty(document, "elementFromPoint");
+    fireEvent.keyDown(node, { key: "F10", shiftKey: true });
+    expect(screen.queryByRole("menuitem", { name: "Move to…" })).not.toBeInTheDocument();
+    view.unmount();
+    vi.mocked(workspaceContext.useWorkspaceData).mockRestore();
+
+    // Live again: Connections's branch is still open, as the browser remembered it.
+    render(explorer());
+    fireEvent.keyDown(await item("Timetable types"), { key: "F10", shiftKey: true });
+    const menu = await screen.findByRole("menu");
+    expect(
+      within(menu)
+        .getAllByRole("menuitem")
+        .map((entry) => entry.textContent),
+    ).toEqual(["Move to…"]);
   });
 });

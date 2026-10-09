@@ -28,6 +28,7 @@ import type {
   ConsumerApiDocument,
   ConsumerApiIndexPage,
   BatchRequest,
+  BatchResult,
   Job,
   JobItemOutcome,
   JobItemPage,
@@ -393,6 +394,13 @@ export const api = {
    * Send a batch (0.9 K2: always a background preview); the answer is the queued job. The
    * idempotency key makes a retried request answer with the job the first one created.
    */
+  /** Run a batch inline and answer with its outcomes (UA9: moving several records at once). */
+  runBatch: (body: BatchRequest, idempotencyKey: string) =>
+    request<BatchResult>("/api/v1/batches", {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: { "Idempotency-Key": idempotencyKey },
+    }),
   startBatch: (body: BatchRequest, idempotencyKey: string) =>
     request<Job>("/api/v1/batches", {
       method: "POST",

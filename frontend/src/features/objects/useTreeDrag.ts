@@ -11,6 +11,12 @@
  * Hovering over a collapsed branch opens it; near a window's top or bottom edge the window scrolls,
  * faster towards the edge. Escape, a cancelled pointer or a release outside an accepted target ends
  * the drag without a drop.
+ *
+ * Several records drag together (UA9, U-D23–U-D25): the tree names them when a drag starts from one
+ * of them. A target accepts only if it takes every one; otherwise its refusal names the first it
+ * cannot take, and a target that would change a record's type refuses them all, since a type
+ * changes one record at a time. With flat scrolling (U-D21) the edge scrolls the tree's nearest
+ * scrolling ancestor.
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type RefObject } from "react";
@@ -28,8 +34,8 @@ export interface TreeDragConfiguration {
   refusal: (item: ObjectItem, parent: ObjectItem | null) => string | undefined;
   /** What an accepted target does beyond a move, in words beside the pointer (C4: “Becomes …”). */
   note?: (item: ObjectItem, parent: ObjectItem | null) => string | undefined;
-  /** A release over a target that accepts. */
-  onDrop: (item: ObjectItem, parent: ObjectItem | null) => void;
+  /** A release over a target that accepts every dragged record (one, or the tree's selection). */
+  onDrop: (items: ObjectItem[], parent: ObjectItem | null) => void;
 }
 
 /** The target under the pointer: the parent it names and the rows that show it. */
@@ -49,9 +55,15 @@ export interface TreeDropTarget {
 }
 
 export interface TreeDragState {
+  /** The record the drag started from. */
   item: ObjectItem;
+  /** Every record dragged: the selection when the drag started from one of it, else `item`. */
+  items: ObjectItem[];
   target?: TreeDropTarget;
 }
+
+/** Said of several records whose type a target would change (U-D25). */
+export const SEVERAL_CHANGE_TYPE = "Move records that change type one at a time";
 
 /** Distance a pressed pointer travels before a drag starts, so a click still opens. */
 const THRESHOLD = 5;
@@ -63,6 +75,7 @@ const MAX_STEP = 16;
 
 interface Session {
   item: ObjectItem;
+  items: ObjectItem[];
   pointerId: number;
   from: { x: number; y: number };
   at: { x: number; y: number };
@@ -85,6 +98,8 @@ export function useTreeDrag({
   indentOf,
   topLevelRows,
   expand,
+  draggedWith,
+  labelOf,
 }: {
   tree: RefObject<HTMLElement | null>;
   config?: TreeDragConfiguration;
@@ -95,18 +110,22 @@ export function useTreeDrag({
   /** The rows that show the top level for a dragged record; without it the top level takes no drop. */
   topLevelRows?: (item: ObjectItem) => string[];
   expand: (objectId: string) => void;
+  /** The records a drag from `item` moves: the selection it belongs to, or just `item`. */
+  draggedWith?: (item: ObjectItem) => ObjectItem[];
+  /** A record's label, which a refusal of several names it by. */
+  labelOf?: (item: ObjectItem) => string;
 }) {
   const [state, setState] = useState<TreeDragState>();
   const preview = useRef<HTMLDivElement>(null);
   const session = useRef<Session | undefined>(undefined);
-  const latest = useRef({ config, expand, indentOf, topLevelRows });
+  const latest = useRef({ config, expand, indentOf, topLevelRows, draggedWith, labelOf });
   useLayoutEffect(() => {
-    latest.current = { config, expand, indentOf, topLevelRows };
+    latest.current = { config, expand, indentOf, topLevelRows, draggedWith, labelOf };
   });
 
   /** The target at a point, or undefined outside the tree's rows or at a top level it cannot take. */
   const targetAt = useCallback(
-    (x: number, y: number, dragged: ObjectItem): TreeDropTarget | undefined => {
+    (x: number, y: number, dragged: ObjectItem, moving: ObjectItem[]): TreeDropTarget | undefined => {
       const root = tree.current;
       const under = document.elementFromPoint?.(x, y);
       if (!root || !under || !root.contains(under)) return undefined;
@@ -122,8 +141,18 @@ export function useTreeDrag({
         line?: TreeDropTarget["line"],
       ): TreeDropTarget | undefined => {
         const judge = (parent: ObjectItem | null) => {
-          const refusal = latest.current.config?.refusal(dragged, parent);
-          return { refusal, note: refusal ? undefined : latest.current.config?.note?.(dragged, parent) };
+          const rule = latest.current.config;
+          if (moving.length <= 1) {
+            const refusal = rule?.refusal(dragged, parent);
+            return { refusal, note: refusal ? undefined : rule?.note?.(dragged, parent) };
+          }
+          // Several: every record must go there, and none may change its type (U-D24, U-D25).
+          for (const record of moving) {
+            const refusal = rule?.refusal(record, parent);
+            if (refusal) return { refusal: `${latest.current.labelOf?.(record) ?? record.name}: ${refusal}` };
+          }
+          if (moving.some((record) => rule?.note?.(record, parent))) return { refusal: SEVERAL_CHANGE_TYPE };
+          return { refusal: undefined, note: undefined };
         };
         if (!parentItem) {
           // No parent item: the top level, where the tree shows one.
@@ -169,7 +198,7 @@ export function useTreeDrag({
   const update = useCallback(() => {
     const current = session.current;
     if (!current?.started) return;
-    const target = targetAt(current.at.x, current.at.y, current.item);
+    const target = targetAt(current.at.x, current.at.y, current.item, current.items);
     const signature = JSON.stringify(
       target ? [target.rows, target.refusal ?? "", target.note ?? "", target.line ?? ""] : "",
     );
@@ -177,13 +206,13 @@ export function useTreeDrag({
       current.signature = signature;
       current.target = target;
       document.body.classList.toggle("tree-drag-refused", Boolean(target?.refusal));
-      setState({ item: current.item, target });
+      setState({ item: current.item, items: current.items, target });
     }
     // Resting on a collapsed branch opens it, unless it is the dragged record.
     const node = target?.parent && !target.line && target.rows.length === 1 ? target : undefined;
     const collapsed =
       node?.parent &&
-      node.parent.id !== current.item.id &&
+      !current.items.some((record) => record.id === node.parent?.id) &&
       tree.current
         ?.querySelector(`${ITEM}[data-tree-key="${CSS.escape(node.rows[0])}"]`)
         ?.getAttribute("aria-expanded") === "false"
@@ -212,8 +241,13 @@ export function useTreeDrag({
         viewport = viewport.parentElement?.closest<HTMLElement>(".scroll-window-viewport") ?? null;
       }
       if (!viewports.length && current.viewport) viewports.push(current.viewport);
+      // Flat scrolling (UA9, U-D21): no window of its own, so the tree's nearest scroller moves.
+      if (!viewports.length) viewports.push(scrollerOf(root));
       for (const viewport of viewports) {
-        const rect = viewport.getBoundingClientRect();
+        const rect =
+          viewport === document.scrollingElement
+            ? { top: 0, bottom: window.innerHeight }
+            : viewport.getBoundingClientRect();
         const up = rect.top + EDGE - current.at.y;
         const down = current.at.y - (rect.bottom - EDGE);
         const step = (depth: number) => Math.min(MAX_STEP, Math.ceil((depth / EDGE) * MAX_STEP));
@@ -238,7 +272,8 @@ export function useTreeDrag({
       if (!drag || session.current || event.button !== 0 || event.pointerType === "touch") return;
       if ((event.target as HTMLElement).closest("input, textarea, select, button, form, .tree-extras, .tree-toggle"))
         return;
-      if (!drag.canDrag(item)) return;
+      const items = latest.current.draggedWith?.(item) ?? [item];
+      if (!items.every((record) => drag.canDrag(record))) return;
       const tick = () => {
         const current = session.current;
         if (!current?.started) return;
@@ -254,7 +289,7 @@ export function useTreeDrag({
           current.started = true;
           document.body.classList.add("tree-dragging");
           window.getSelection?.()?.removeAllRanges();
-          setState({ item: current.item });
+          setState({ item: current.item, items: current.items });
           current.frame = window.requestAnimationFrame(tick);
         }
         update();
@@ -297,10 +332,11 @@ export function useTreeDrag({
         window.setTimeout(() => window.removeEventListener("click", swallow, { capture: true }), 0);
         setState(undefined);
         const target = current.target;
-        if (drop && target && !target.refusal) latest.current.config?.onDrop(current.item, target.parent);
+        if (drop && target && !target.refusal) latest.current.config?.onDrop(current.items, target.parent);
       };
       session.current = {
         item,
+        items,
         pointerId: event.pointerId,
         from: { x: event.clientX, y: event.clientY },
         at: { x: event.clientX, y: event.clientY },
@@ -320,6 +356,15 @@ export function useTreeDrag({
   useEffect(() => () => session.current?.end(false), []);
 
   return { drag: state, startDrag: config ? start : undefined, preview };
+}
+
+/** The nearest ancestor of the tree that scrolls vertically, else the document's scroller. */
+function scrollerOf(root: HTMLElement): HTMLElement {
+  for (let element = root.parentElement; element; element = element.parentElement) {
+    const overflow = getComputedStyle(element).overflowY;
+    if ((overflow === "auto" || overflow === "scroll") && element.scrollHeight > element.clientHeight) return element;
+  }
+  return (document.scrollingElement as HTMLElement | null) ?? document.documentElement;
 }
 
 function keyOf(item: HTMLElement) {

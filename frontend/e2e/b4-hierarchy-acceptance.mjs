@@ -17,7 +17,7 @@ import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
 import { seedHierarchy } from "./helpers/acceptance-data.mjs";
-import { escapeRegExp, treeDriver } from "./helpers/tree.mjs";
+import { escapeRegExp, treeDriver, openFoldedGroups } from "./helpers/tree.mjs";
 
 const checks = [];
 const failures = [];
@@ -133,7 +133,7 @@ try {
       () => "accepted",
       (error) => error.message,
     );
-    expect(/422.*parent_cycle/.test(refusal), `${label}: the API did not refuse the move beneath the descendant (${refusal})`);
+    expect(/422.*parent_cycle/i.test(refusal), `${label}: the API did not refuse the move beneath the descendant (${refusal})`);
     expect((await read(created.id)).parentObjectId === nested.id, `${label}: the refused move changed the parent`);
     checks.push(`${label}: moving ${child.name} lists its descendant ${grandchild.name} disabled as inside the record; the API refuses it with parent_cycle and the parent is unchanged`);
 
@@ -185,6 +185,8 @@ try {
 
   // ---- 1. System hierarchy, live, 1440px ----
   await page.goto(`${uiUrl}/apps/rdm-systems/views/system-hierarchy?workspaceKey=default`);
+  // UA9 (U-D21): the lens starts folded; open its groups as a user would.
+  await openFoldedGroups(page, page.locator(".tree-lens"));
   await tree.item("System 00").waitFor();
   await page.waitForLoadState("networkidle");
   const systemReads = await branchReads(async () => {
@@ -219,6 +221,8 @@ try {
   // ---- 2. Domain hierarchy, live, 390px ----
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${uiUrl}/apps/rdm-master/views/domain-hierarchy?workspaceKey=default`);
+  // UA9 (U-D21): the lens starts folded; open its groups as a user would.
+  await openFoldedGroups(page, page.locator(".tree-lens"));
   await tree.item("Domain 00").waitFor();
   await page.waitForLoadState("networkidle");
   const domainReads = await branchReads(async () => {
@@ -275,6 +279,8 @@ try {
   await page.setViewportSize({ width: 1440, height: 900 });
   const changeSet = await api("/workspaces/default/change-sets", { name: "Hierarchy staged", source: "currentLive" });
   await page.goto(`${uiUrl}/apps/rdm-systems/views/system-hierarchy?workspaceKey=default&changeSetId=${changeSet.id}`);
+  // UA9 (U-D21): the lens starts folded; open its groups as a user would.
+  await openFoldedGroups(page, page.locator(".tree-lens"));
   await tree.item("System 00").waitFor();
   await tree.findBySearch("Haematology", "Haematology");
   await page.getByRole("heading", { level: 1, name: "Haematology" }).waitFor();
@@ -331,6 +337,10 @@ try {
   checks.push("change set: validated and published by keyboard from the change set screen; live and the new publication hold System 01 as parent, and the only containment edge is System 01's");
 
   await page.goto(`${uiUrl}/apps/rdm-systems/views/system-hierarchy?workspaceKey=default`);
+
+  // UA9 (U-D21): the lens starts folded; open its groups as a user would.
+
+  await openFoldedGroups(page, page.locator(".tree-lens"));
   await tree.item("System 00").waitFor();
   await tree.findBySearch("Haematology", "Haematology");
   await tree.item("Haematology").waitFor();

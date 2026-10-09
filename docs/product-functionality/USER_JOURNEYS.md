@@ -274,12 +274,18 @@ The containment relationship is not edited here: it follows the record's parent 
   moved records, from inside and outside the subtree, stay and are read in the new place.
 - **J14.7 In a change set**, with the moved subtree's paths, candidates and relationships following.
 - **J14.8 Two moves racing into a cycle**: one is refused.
+- **J14.9 Move several records at once** (UI, Base 0.9 UA9): in the sidebar's tree or a tree lens,
+  records selected with Cmd/Ctrl and Shift (or Ctrl+Space and Shift+arrows) are dragged together
+  onto a new parent, or moved with Move to…, live or in a change set; one confirmation and one
+  all-or-nothing batch, each record claiming its version. A target that cannot take one refuses
+  them all and names it; several records whose type a target would change are refused (one at a
+  time). Selecting opens nothing on the page.
 
 **Refusals:** `422 PARENT_CYCLE`, `422 INVALID_PARENT_TYPE`, `422 PARENT_WRONG_SCOPE`,
 `409 DUPLICATE_RELATION_SCOPE`, `409 VERSION_CONFLICT`.
 
-**Evidence today:** `b3-tree-lens`, `b4-hierarchy-acceptance`, `s6-sidebar-tree`,
-`ui03b-hierarchy`; `test_parent_candidates`, `test_pg3_concurrency`.
+**Evidence today:** `b3-tree-lens`, `b4-hierarchy-acceptance`, `s6-sidebar-tree`, `ua9-tree-selection`,
+`ui03b-hierarchy`; `Explorer.test`, `TreeView.test`; `test_parent_candidates`, `test_pg3_concurrency`.
 
 ### J15 — Reshape a hierarchy across types, and change a record back
 

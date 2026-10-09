@@ -16,6 +16,7 @@ import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
 import { cloneDatabase } from "./helpers/database.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
+import { openFoldedGroups } from "./helpers/tree.mjs";
 
 const root = resolve(import.meta.dirname, "..", "..");
 const scale = process.env.S7_VOLUME_SCALE ?? "0.1";
@@ -388,11 +389,23 @@ try {
     const treeReads = watchReads(page);
     const explorer = page.getByRole("region", { name: "RDM Master explorer" });
     const tree = explorer.getByRole("tree", { name: "Browse records", exact: true });
+    // UA9 (U-D21): the tree starts folded; its root group is opened as a user would, and a folded
+    // heading reached by keyboard opens with Right.
+    await openFoldedGroups(page, tree, 1);
+    const openIfFolded = async () => {
+      const folded = await page.evaluate(
+        () =>
+          document.activeElement?.classList.contains("tree-heading") &&
+          document.activeElement.getAttribute("aria-expanded") === "false",
+      );
+      if (folded) await page.keyboard.press("ArrowRight");
+    };
     const domainRow = tree.getByRole("treeitem", { name: domain.name, exact: true });
     await domainRow.focus();
     if ((await domainRow.getAttribute("aria-expanded")) === "false") await page.keyboard.press("ArrowRight");
     await tree.getByRole("treeitem", { name: `Codelists within ${domain.name}, 72`, exact: true }).waitFor();
     await page.keyboard.press("ArrowRight");
+    await openIfFolded();
     await page.keyboard.press("ArrowDown");
     await waitForFocus(page, "Bulk codelist 000");
     await page.keyboard.press("Control+End");
@@ -400,6 +413,7 @@ try {
     await page.keyboard.press("ArrowRight");
     await tree.getByRole("treeitem", { name: "Master values within Codelist Beta, 3", exact: true }).waitFor();
     await page.keyboard.press("ArrowRight");
+    await openIfFolded();
     await page.keyboard.press("ArrowDown");
     await page.keyboard.press("ArrowDown");
     await waitForFocus(page, "Deep value 1");
@@ -408,7 +422,9 @@ try {
       Number(document.activeElement.getAttribute("aria-posinset")),
       Number(document.activeElement.getAttribute("aria-setsize")),
     ]);
-    assert.deepEqual(level, [3, 3, 4], `${context}: the deep value's level, position and set size`);
+    // Records sit at even levels below their type's heading, which is not in their set (UA2
+    // revision): the domain at 2, the codelist at 4, the value at 6, the second of three values.
+    assert.deepEqual(level, [6, 2, 3], `${context}: the deep value's level, position and set size`);
     await page.keyboard.press("Enter");
     await page.getByRole("heading", { name: "Deep value 1", level: 1 }).waitFor();
     if (suffix) assert.ok(page.url().includes(suffix.slice(1)), `${context}: the record keeps its context`);

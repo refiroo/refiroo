@@ -187,7 +187,9 @@ export interface BatchUpdateItem {
   ref?: string;
   target: { id: string };
   expectedVersion: number;
-  attributes: { attributeTypeKey: string; value: unknown }[];
+  attributes?: { attributeTypeKey: string; value: unknown }[];
+  /** The new parent; `null` moves the record to the top level (UA9). */
+  parent?: { id: string } | null;
 }
 
 /** A record deleted with what depends on it, confirmed by the preview (0.9 K2b, D120). */
@@ -232,6 +234,13 @@ export interface BatchReplaceRelationSetItem {
 export type BatchRelationItem = BatchEnsureRelationItem | BatchEnsureNoRelationItem | BatchReplaceRelationSetItem;
 
 /** `POST /api/v1/batches` as a bulk change sends it (0.9 K2): a background preview (D112–D114). */
+/** A batch run inline: the finished job and the first page of its items' outcomes (UA9). */
+export interface BatchResult {
+  job: Job;
+  items: JobItemOutcome[];
+  nextCursor: string | null;
+}
+
 export interface BatchRequest {
   workspaceKey?: string;
   changeSetId?: string;

@@ -369,8 +369,11 @@ instance
 (2026-10-09)**: the record header's title and subtitle edited in place through the details panel's
 own field component, Edit record only in the ⋯ menu, and a relationship row's actions as icons;
 U-D15–U-D20; screenshots await the user's approval
-([record](SETTINGS_AND_UI_PLAN.md#ua8-record-2026-10-09)). Next is K5, relation columns (D135), then
-R.
+([record](SETTINGS_AND_UI_PLAN.md#ua8-record-2026-10-09)). **UA9 is implemented (2026-10-09)**: the
+record tree scrolled as one list and folded at the start (the user's experiment, kept), several
+records selected and moved together by drag or Move to…, in the sidebar too; U-D21–U-D28;
+screenshots await the user's approval ([record](SETTINGS_AND_UI_PLAN.md#ua9-record-2026-10-09)).
+Next is K5, relation columns (D135), then R.
 **C18, the consumer API definition written for readers, is delivered (2026-10-08):** schema 0.9
 writes `consumerApis` as what a definition exposes, offers, looks like and filters by, with defaults
 written out by `GET /api/v1/model/consumer-apis/{consumerApi}`; an operation not offered is
