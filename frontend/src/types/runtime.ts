@@ -31,6 +31,22 @@ export interface ObjectItem {
   /** Null in change sets and history, which do not record timestamps. */
   createdAt: string | null;
   updatedAt: string | null;
+  /** The list's relation columns, one per `expand` in its order (0.9 K5); absent when none. */
+  expanded?: ExpandedRelations[];
+}
+
+/** A row's first related records of one relationship in name order, and how many there are. */
+export interface ExpandedRelations {
+  relationTypeKey: string;
+  direction: "outgoing" | "incoming";
+  /** The field each record shows beside its name, when the column names one (0.9 K5a). */
+  field?: string;
+  count: number;
+  items: Array<{
+    relationId: string;
+    object: { id: string; objectTypeKey: string; version: number; fields: { name: string } & Record<string, unknown> };
+  }>;
+  nextCursor: string | null;
 }
 
 export interface Workspace {

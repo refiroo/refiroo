@@ -31,6 +31,7 @@ from uuid import uuid4
 import pytest
 import seeds
 from configurations import parity
+from model_support import without_relation_columns
 from openapi_schema_validator import OAS31Validator
 from scenario import SOURCE, W1, application, derive_events, ok, refused
 from sqlalchemy import URL
@@ -549,6 +550,7 @@ def _stored_in_schema_0_8(model: dict[str, Any]) -> str:
     takes such a document (C-D134), as the release was installed when it could."""
     legacy = copy.deepcopy(model)
     legacy["schemaVersion"] = "0.8"
+    without_relation_columns(legacy)
     legacy["release"]["version"] += "-schema-0.8"
     legacy["consumerApis"] = [item.model_dump(mode="json") for item in consumer_apis(parse_model(model))]
     with SessionLocal() as session:

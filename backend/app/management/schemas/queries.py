@@ -46,6 +46,10 @@ class ExpandedRelations(BaseModel):
 
     relationTypeKey: str
     direction: Literal["outgoing", "incoming"]
+    # The per-type list's field of each record, beside its name (0.9 K5a); omitted when none.
+    field: str | SkipJsonSchema[None] = Field(
+        default=None, exclude_if=omitted_when_none, json_schema_extra=without_default
+    )
     count: int
     items: list[ExpandedRecord]
     nextCursor: str | None
@@ -56,7 +60,7 @@ def _expanded() -> Any:
 
 
 class QueryObject(ObjectResponse):
-    """An item without ``select``: the object list's item."""
+    """An item without ``select``: the object list's item, with its expansions when asked for."""
 
     expanded: list[ExpandedRelations] | SkipJsonSchema[None] = _expanded()
 
@@ -65,6 +69,11 @@ class QuerySelectedObject(SelectedRecord):
     """An item with ``select``."""
 
     expanded: list[ExpandedRelations] | SkipJsonSchema[None] = _expanded()
+
+
+class TypedObjectPage(CollectionPage[QueryObject]):
+    """One page of a type's records (``GET /objects/{objectTypeKey}``), each with ``expanded`` when
+    the list's ``expand`` named relation columns (0.9 K5, D142)."""
 
 
 class ObjectQueryPage(CollectionPage[QueryObject | QuerySelectedObject]):

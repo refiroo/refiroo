@@ -276,7 +276,10 @@ Each change was decided from a plan except where noted. "Before" is PostgreSQL b
    the two columns independent) and, to produce 20 rows in name order, walked `ix_objects_name` over
    157,191 records probing each, because the group's items sort late. The anchor's relations are now a
    `MATERIALIZED` CTE joined to their records by ID and sorted top-20: **70 ms** (20,000 record lookups
-   by ID at ~2.5 µs each; SQLite 44 ms).
+   by ID at ~2.5 µs each; SQLite 44 ms). _Since 0.9 K5 the anchors of a page are one statement: each reads
+   its relations behind an `OFFSET 0` fence inside a `LATERAL` subquery, in place of a `UNION ALL`
+   arm with its own CTE per anchor, which took 611 ms for a list page of 100 with two expansions
+   (45 ms after; on the 0.1 fixture this expansion took 18.6 ms; not re-measured at full volume)._
 2. **SQLite-era planner constructs removed** (`common/sql.py` `CrossJoin`; `unindexed`, `found`, the
    `CASE` wrappers and `MATERIALIZED` in `matrix_cells.py`, `relation_matrix.py`, `change_lists.py`,
    `snapshot_reads.py`, `matrix_states.py`; `_rows_of`; `id_rows` as a `VALUES` list; the model query's

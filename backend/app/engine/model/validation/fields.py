@@ -13,8 +13,15 @@ from ....models.schema import (
     ObjectTypeDefinition,
 )
 from ..diagnostics import ModelReferenceError
+from ..related_columns import RelatedKeyError, is_related_field, related_field_column
 
 ANCESTOR_FIELD_PREFIX = "ancestor:"
+
+# Where a relation column may stand (Base 0.9 K5, D141, D145).
+RELATED_COLUMN_PLACES = (
+    "a table view's columns, a children or table panel's columns, or (where a row holds at most"
+    " one) a table view's sort fields"
+)
 
 
 def require_schema(model: EngineModel, minimum: str, path: str, feature: str) -> None:
@@ -39,8 +46,13 @@ def check_fields(
     *,
     label: str,
     path: str,
+    related_model: EngineModel | None = None,
 ) -> None:
-    """Every named field must be built in, an attached attribute, or a known ancestor reference."""
+    """Every named field must be built in, an attached attribute, or a known ancestor reference.
+
+    With ``related_model``, a ``related:<key>`` relation column is allowed too, resolved for every
+    listed type against that model (schema 0.9); without it, one is refused.
+    """
     present = [field for field in fields if field is not None]
     if len(present) != len(set(present)):
         raise ModelReferenceError("DUPLICATE_KEY", path, f"{label} has duplicate fields")
@@ -61,11 +73,41 @@ def check_fields(
                 path,
                 f"{label} references unknown ancestor object type '{ancestor_type_key}'",
             )
-    unknown = set(present) - ancestor_fields - attached - DETAIL_FIELD_KEYS
+    related_fields = [field for field in present if is_related_field(field)]
+    if related_fields:
+        _check_related_fields(related_fields, object_types, related_model, label=label, path=path)
+    unknown = set(present) - ancestor_fields - set(related_fields) - attached - DETAIL_FIELD_KEYS
     if unknown:
         raise ModelReferenceError(
             "INVALID_MODEL", path, f"{label} references unavailable fields: {sorted(unknown)}"
         )
+
+
+def _check_related_fields(
+    fields: Sequence[str],
+    object_types: Sequence[ObjectTypeDefinition],
+    model: EngineModel | None,
+    *,
+    label: str,
+    path: str,
+) -> None:
+    if model is None:
+        raise ModelReferenceError(
+            "INVALID_MODEL",
+            path,
+            f"{label} cannot show relation column '{fields[0]}': a relation column is allowed only"
+            f" in {RELATED_COLUMN_PLACES}",
+        )
+    require_schema(model, "0.9", path, f"{label} relation column '{fields[0]}'")
+    for field in fields:
+        key = field.removeprefix("related:")
+        for object_type in object_types:
+            try:
+                related_field_column(model, object_type.key, key)
+            except RelatedKeyError as error:
+                raise ModelReferenceError(
+                    "INVALID_REFERENCE", path, f"{label} relation column '{field}': {error}"
+                ) from None
 
 
 def check_panel_object_types(

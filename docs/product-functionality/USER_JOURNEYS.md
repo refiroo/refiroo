@@ -98,9 +98,18 @@ empty result, not an error. A failed page or panel can retry without losing succ
 - **J01.6 History**: a record's audit history, newest first, with the events of its relationships.
 - **J01.7 Related records of another application**: the relationships of a record list records of
   any application, searched and sorted by their fields.
+- **J01.8 Related records in a list** (0.9 K5): a list's rows show their first related records of
+  a relationship (three in the UI, `expandLimit` through the API) in name order, and how many there
+  are, live, in a change set and in a publication; the model's view or panel declares the column
+  (`related:<key>`), an integrator names it with `expand`. A column whose row holds at most one
+  related record sorts by its name, rows without one last; a hidden column is not read.
+- **J01.9 A field of the related records in a list** (0.9 K5a): the column names a field of the
+  related records or of a record above them (`related:<key>.<field>`, the field as the consumer API
+  writes it: `name`, an attribute, `ancestor:<type>.<field>`), and each chip shows that value, "—"
+  where a record has none; such a column does not sort.
 
 **Refusals:** `404 WORKSPACE_NOT_FOUND`, `404 OBJECT_NOT_FOUND`, `404 UNKNOWN_OBJECT_TYPE`,
-`422 INVALID_FILTER`, `422 INVALID_SORT`, `422 MUTUALLY_EXCLUSIVE_CONTEXT`,
+`422 INVALID_FILTER`, `422 INVALID_SORT`, `422 INVALID_EXPAND`, `422 MUTUALLY_EXCLUSIVE_CONTEXT`,
 `404 CHANGE_SET_NOT_FOUND`, `404 PUBLICATION_NOT_FOUND`.
 
 **Evidence today:** `wp9-navigation`, `ui03a-navigation`, `s5-continuous-lists`,
@@ -324,7 +333,7 @@ restructuring preview reports instead as problems of its plan, in its `200` answ
 
 **Actor:** steward. **Channel:** UI (its API side is J11 and J24). **Stories:** Track K (0.9).
 **Status:** delivered: selection (0.9 K1), value changes (0.9 K2), deletion (0.9 K2b),
-relationship changes (0.9 K3); relation columns (K5) planned.
+relationship changes (0.9 K3); relation columns showing the result in the list (0.9 K5, J01.8).
 
 1. In a collection whose data can be written, select records: by hand, by a range, the loaded rows,
    or every record the search, filters and scope match.
@@ -645,6 +654,12 @@ selects nothing. Read-only inspection and export stay available when administrat
 - **J08.11 A binding tightened to many-to-one** (0.9 K3a): a release that makes a binding
   `many-to-one` needs a migration while a record at its `from` end holds more than one such
   relationship, counted at the binding's `cardinality`; activation is refused until the data fits.
+- **J08.12 A relation column where the model allows it** (0.9 K5): `related:<key>` validates in a
+  table view's columns and a children or table panel's, and in a table view's sort fields where a
+  row holds at most one; anywhere else, with an unknown key, a key the listed type is at neither end
+  of, or below schema 0.9, it is refused at its pointer. Since 0.9 K5a the same holds for
+  `related:<key>.<field>`, refused too with a field the related records do not have and in sort
+  fields.
 
 **Refusals:** `422 INVALID_MODEL` (with the JSON pointer), `409 RELEASE_IDENTITY_CONFLICT`,
 `409 MODEL_MIGRATION_REQUIRED`, `409 ACTIVATION_CONFLICT` (stale runtime state),

@@ -9,7 +9,7 @@ import { useState } from "react";
 import { RecordActionMenu } from "@/features/objects/RecordActionMenu";
 import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
-import { attributeName, listSortFields } from "@/model/fields";
+import { attributeName, listSortFields, relatedKeys } from "@/model/fields";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { objectTypeFor } from "@/model/lookup";
 import type { ObjectItem } from "@/types";
@@ -51,6 +51,8 @@ export function CollectionPanelTable({
   // Panels list by name, as every list does without a sort, until the user sorts by another column.
   const [sort, setSort] = useState("name");
   const sortFields = objectType ? listSortFields(model, [objectType], columns, [], !changeSet && !publication) : [];
+  // Only the shown relation columns are read (0.9 K5, D146).
+  const expand = relatedKeys(display.columns);
   const pages = useCursorWindow<ObjectItem>(
     objectType
       ? (selector) =>
@@ -62,9 +64,19 @@ export function CollectionPanelTable({
             ...selector,
             pageSize: selectedPageSize,
             parentObjectId,
+            expand,
           })
       : null,
-    [application.key, object.workspaceKey, objectTypeKey, selectedPageSize, parentObjectId, search, sort],
+    [
+      application.key,
+      object.workspaceKey,
+      objectTypeKey,
+      selectedPageSize,
+      parentObjectId,
+      search,
+      sort,
+      expand.join(" "),
+    ],
   );
   const { error } = pages;
   const sorting = useTableSort({

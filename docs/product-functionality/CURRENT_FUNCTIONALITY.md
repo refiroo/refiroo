@@ -92,6 +92,16 @@ place. The same works in live data, in a change set and in a publication.
 Filters cover text equality, contains and starts-with, numeric and date comparisons, booleans, null
 checks and the difference between a missing optional field and a stored null.
 
+A collection or a record's table may show, where the model declares it, a column of each row's
+related records of one relationship: up to three as chips in their type's colour, then "+N more",
+on one line. It shows the relationships of the data being viewed (live, a change set or a
+publication). Where a row can hold only one such record, the column sorts by its name, rows without
+one last; a column that can hold several does not sort, and none filters. A column hidden in the
+table's display settings is not read. A column may also show a field of the related records, or of a
+record above them, instead of their names: a translation by its language's code, for example ("ar
+cs en +4 more"); such a column does not sort. Through the API, any list of a type can carry the same
+related records (`expand`), with such a field, for any relationship the type has.
+
 Where a collection's data can be written and the deployment lets jobs be created, records can be
 selected in its table: by checkbox, a Shift range, the rows shown, or every record the search and
 filters match (Cmd+A), with single records left out. The bar above the table says what is selected.
@@ -127,8 +137,8 @@ chip. The dialog says how many changes the selection makes and explains, before 
 larger than the deployment allows. The preview counts the relationships added, removed and already
 as asked and names each refused record; Apply refuses a record whose relationships of that kind
 changed since the preview and applies the rest. Relationship values are not changed here; a
-record's relationships page changes them. The list does not show relationships yet; the record's
-page does.
+record's relationships page changes them. Where the list shows the relationship as a column, the
+rows show the change once applied.
 
 Limits: one sort at a time in the browser; queries across relationships are API-only (F20). Pages are
 always bounded.

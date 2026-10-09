@@ -52,6 +52,8 @@ can complete the task in the application; "API" means another system can.
 - Search, filter by typed fields and sort lists of any size. Lists scroll continuously in both
   directions, show their totals and jump to a page, a value, the start or the end.
 - Switch between the views a collection offers: a table, a mapping grid, a relation matrix or a tree.
+- See in a list which records each row is related to, where the model shows a relationship as a
+  column, and sort by it where each row holds at most one.
 - Open a record to see its fields, its place in the hierarchy, its children, its relationships and its
   change history, and return to the list where you left it. Where a record may hold only one
   relationship of a kind, you set it or change it rather than adding another.

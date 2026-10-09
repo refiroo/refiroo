@@ -100,6 +100,7 @@ def _check_panels(
                 index.object_types,
                 label=label,
                 path=panel_path,
+                related_model=model,
             )
 
 
@@ -121,7 +122,12 @@ def _check_children_panel(
     )
     child_types = [index.object_types[key] for key in panel.config.objectTypeKeys]
     check_fields(
-        panel.config.columns, child_types, index.object_types, label=label, path=panel_path
+        panel.config.columns,
+        child_types,
+        index.object_types,
+        label=label,
+        path=panel_path,
+        related_model=model,
     )
     for child_type in child_types:
         parent_keys = set(child_type.behavior.get("parentRelationTypeKeys", []))

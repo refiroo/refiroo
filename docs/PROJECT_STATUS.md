@@ -373,7 +373,17 @@ U-D15–U-D20; screenshots await the user's approval
 record tree scrolled as one list and folded at the start (the user's experiment, kept), several
 records selected and moved together by drag or Move to…, in the sidebar too; U-D21–U-D28;
 screenshots await the user's approval ([record](SETTINGS_AND_UI_PLAN.md#ua9-record-2026-10-09)).
-Next is K5, relation columns (D135), then R.
+**K5 is delivered (2026-10-09)**: relation columns, `related:<key>` in a table view's or a children
+or table panel's columns in schema 0.9, each row's first three related records as chips with "+N
+more", sorted by the related name where a row holds at most one; `expand` and `expandLimit` on the
+per-type list (Q3's `expanded` shape, `INVALID_EXPAND`) and `sort=related:<key>`; Q3's expansions
+read in one `LATERAL` statement per expansion; the starter 0.9.4; D140–D147 (D143 and D145 amended
+by the user); screenshots approved by the user 2026-10-10
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k5-record-2026-10-09)). **K5a is delivered (2026-10-10)**,
+added by the user: a relation column may show a field of the related records or of a record above
+them (`related:<key>.<field>`, the consumer API's field form), and `expand` reads it; D148–D152
+accepted by the user 2026-10-10
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k5a-record-2026-10-10)). Next is R.
 **C18, the consumer API definition written for readers, is delivered (2026-10-08):** schema 0.9
 writes `consumerApis` as what a definition exposes, offers, looks like and filters by, with defaults
 written out by `GET /api/v1/model/consumer-apis/{consumerApi}`; an operation not offered is

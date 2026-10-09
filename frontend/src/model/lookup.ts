@@ -137,6 +137,75 @@ export function bulkRelationChoices(model: EngineModel, objectTypeKey: string): 
   return choices;
 }
 
+/** A list column of each row's related records, `related:<key>` (0.9 K5, D140). */
+export const RELATED_FIELD_PREFIX = "related:";
+
+export interface RelatedColumn {
+  relationTypeKey: string;
+  direction: "outgoing" | "incoming";
+  /** The relation's name read in that direction: its header. */
+  name: string;
+  /** The field each related record shows (0.9 K5a); absent: its name. */
+  field?: string;
+}
+
+/**
+ * What a `related:<key>` or `related:<key>.<field>` column reads: `<key>` is a relation type's key
+ * (read outgoing) or reverse key (read incoming); the two share one namespace, so the key alone names
+ * the direction. A key may contain a dot, so the text is the whole key when it is one, otherwise the
+ * longest key it starts with, then a dot and the field (D148), as the engine resolves it.
+ */
+export function relatedColumn(model: EngineModel, field: string): RelatedColumn | undefined {
+  if (!field.startsWith(RELATED_FIELD_PREFIX)) return undefined;
+  const text = field.slice(RELATED_FIELD_PREFIX.length);
+  const keys = model.relationTypes.flatMap((item) => [item.key, item.reverseKey]);
+  const key = keys.includes(text)
+    ? text
+    : keys.filter((candidate) => text.startsWith(`${candidate}.`)).sort((a, b) => b.length - a.length)[0];
+  if (!key) return undefined;
+  const relationType = model.relationTypes.find((item) => item.key === key || item.reverseKey === key);
+  if (!relationType) return undefined;
+  const outgoing = relationType.key === key;
+  const shown = text === key ? undefined : text.slice(key.length + 1);
+  return {
+    relationTypeKey: relationType.key,
+    direction: outgoing ? "outgoing" : "incoming",
+    name: outgoing ? relationType.name : relationType.reverseName || relationType.name,
+    ...(shown && shown !== "name" ? { field: shown } : {}),
+  };
+}
+
+/**
+ * The label of a related records' field (D152): an attribute's name; for `ancestor:<type>.<field>`
+ * the ancestor type's name for its name, otherwise the field's own label.
+ */
+export function relatedFieldLabel(model: EngineModel, field: string): string {
+  const attributeName = (key: string) => model.attributeTypes.find((item) => item.key === key)?.name ?? key;
+  if (!field.startsWith("ancestor:")) return field === "id" ? "ID" : attributeName(field);
+  const reference = field.slice("ancestor:".length);
+  const dot = reference.indexOf(".");
+  const typeKey = reference.slice(0, dot);
+  const name = reference.slice(dot + 1);
+  if (name === "name") return objectTypeFor(model, typeKey)?.name ?? typeKey;
+  return name === "id" ? "ID" : attributeName(name);
+}
+
+/**
+ * Whether a row of `objectTypeKey` holds at most one record in a `related:` column, so the column
+ * sorts (D145): exactly one binding stands behind it, and the listed end of it holds one.
+ */
+export function isSingleValuedRelatedColumn(model: EngineModel, objectTypeKey: string, field: string): boolean {
+  const column = relatedColumn(model, field);
+  if (!column || column.field) return false;
+  const end = column.direction === "outgoing" ? "from" : "to";
+  const bindings = model.objectTypeRelations.filter(
+    (relation) =>
+      relation.relationTypeKey === column.relationTypeKey &&
+      (end === "from" ? relation.fromObjectTypeKey : relation.toObjectTypeKey) === objectTypeKey,
+  );
+  return bindings.length === 1 && holdsOne(bindings[0], end);
+}
+
 export function applicationFor(model: EngineModel, key: string) {
   return model.applications.find((item) => item.key === key);
 }

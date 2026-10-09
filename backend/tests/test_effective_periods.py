@@ -15,7 +15,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from model_support import MODEL_PATH, renamed_model
+from model_support import MODEL_PATH, renamed_model, without_relation_columns
 from sqlalchemy import select
 from test_consumer_api_model import API, definition, with_definition
 from test_context_read_parity import APP, ENTRY, FOLDER, parity_model
@@ -64,7 +64,7 @@ def _diagnostic(source: dict[str, Any]) -> tuple[str, str]:
 def test_the_starter_declares_its_period(renamed):
     source, k = starter_source(renamed)
     model = parse_model(source)
-    assert (model.schemaVersion, model.release.version) == ("0.9", "0.9.3")
+    assert (model.schemaVersion, model.release.version) == ("0.9", "0.9.4")
     declared = {item.key: item.effectivePeriod for item in model.objectTypes if item.effectivePeriod}
     assert list(declared) == [k("master-value")]
     period = declared[k("master-value")]
@@ -84,6 +84,7 @@ def test_a_period_is_refused_at_its_path(renamed):
     older = copy.deepcopy(source)
     older["schemaVersion"] = "0.7"
     older.pop("consumerApis", None)
+    without_relation_columns(older)
     assert _diagnostic(older) == ("INVALID_MODEL", path)
     unbound = with_period(startAttributeTypeKey=k("valid-from"), endAttributeTypeKey=k("domain-code"))
     assert _diagnostic(unbound) == ("UNKNOWN_ATTRIBUTE_TYPE", f"{path}/endAttributeTypeKey")
@@ -110,6 +111,7 @@ def test_a_model_without_a_period_keeps_its_canonical_form():
     older = copy.deepcopy(source)
     older["schemaVersion"] = "0.7"
     older.pop("consumerApis", None)
+    without_relation_columns(older)
     for item in (source, older):
         model_json, _hash = canonical_model(parse_model(item))
         assert all("effectivePeriod" not in item for item in model_json["objectTypes"])

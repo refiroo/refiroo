@@ -8,6 +8,27 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 K5a: a field of the related records in a relation column (D148–D152; J01.9, J08.12).
+  `related:<key>.<field>` shows each related record's value of a field instead of its name: `name`,
+  an attribute the types at the other end bind, or `ancestor:<type>.<field>`, written as in a
+  consumer API definition ("Has translation · Language code": `ar` `cs` `en` +4 more). A record
+  without a value shows "—"; such a column never sorts. `expand` takes the same text; the entry names
+  its `field` and each record carries the value beside its name (`INVALID_EXPAND` for a field that
+  does not resolve). Q3's answers are unchanged.
+
+- Base 0.9 K5: relation columns (D140–D147; J01.8, J08.12). A table view's columns, and a children
+  or table panel's, may name `related:<key>` in schema 0.9, `<key>` a relation type's key (read
+  outgoing) or reverse key (read incoming): each row shows its first three related records as chips
+  in name order, then "+N more", kept on one line; a column hidden in the table's display settings is
+  not read. Where a row holds at most one (one binding, whose listed end holds one), the column sorts
+  by the related name, rows without one last; elsewhere it is refused in `sortFields`, and it is never
+  a filter. `GET /objects/{objectTypeKey}` takes `expand` (repeatable, at most 5) and `expandLimit`
+  (1–20, default 3), answering each item's `expanded` in Q3's shape, `422 INVALID_EXPAND` otherwise,
+  and `sort=related:<key>`; the list's response is now `TypedObjectPage` (`QueryObject` items). The
+  starter is content release 0.9.4 with relation columns on system values and master values. Q3's
+  expansions read a page in one `LATERAL` statement per expansion (a page of 100 with two keys: 45 ms
+  live, was 611 ms). Browser runner `test:browser:k5`.
+
 - Base 0.9 UA9: the record tree scrolled as one list, several records selected and moved together
   (U-D21–U-D28; J14.9). The sidebar's tree and the hierarchy lens scroll with the sidebar or the
   page, their type groups start folded and open like records, and a long group reads more as its

@@ -174,6 +174,8 @@ export interface ObjectQuery extends PageSelector {
   topLevel?: boolean;
   sort?: ObjectSort;
   filters?: CollectionFilter[];
+  /** Relation keys or reverse keys whose related records each row carries (0.9 K5, D142). */
+  expand?: string[];
 }
 
 export interface ChangeListQuery extends PageSelector {
@@ -293,6 +295,7 @@ function objectQueryPath(objectTypeKey: string, query: ObjectQuery) {
   if (query.topLevel) params.set("topLevel", "true");
   if (query.sort) params.set("sort", query.sort);
   query.filters?.forEach(({ field, operator, value }) => params.append(`filter.${field}.${operator}`, value));
+  query.expand?.forEach((key) => params.append("expand", key));
   return `/api/v1/objects/${encodeURIComponent(objectTypeKey)}?${params}`;
 }
 

@@ -70,3 +70,47 @@ describe("embedded collection reads", () => {
     );
   });
 });
+
+describe("relation columns in a panel (0.9 K5)", () => {
+  it("asks for the shown relation columns only (D146)", async () => {
+    const read = vi.spyOn(api, "objects").mockResolvedValue({ items: [domainObject], nextCursor: null });
+    render(
+      <CollectionPanelTable
+        model={testModel}
+        application={testModel.applications[0]}
+        object={{ ...domainObject, workspaceKey: "west" }}
+        objectTypeKey="domain"
+        panel={{
+          key: "table",
+          title: "Domains",
+          type: "table",
+          region: "main",
+          visible: true,
+          order: 1,
+          config: {
+            objectTypeKey: "domain",
+            columns: ["name", "related:domain-contains-codelist"],
+            filterByParent: false,
+            pageSize: 5,
+          },
+        }}
+        columns={["name", "related:domain-contains-codelist"]}
+        pageSize={5}
+        allowCreate={false}
+        onOpen={vi.fn()}
+        onChanged={vi.fn()}
+        onObjectChanged={vi.fn()}
+        onReload={vi.fn()}
+        readOnly
+      />,
+    );
+    await screen.findByRole("columnheader", { name: "Contains" });
+    expect(read.mock.calls[0][1].expand).toEqual(["domain-contains-codelist"]);
+    fireEvent.click(screen.getByRole("button", { name: "Display" }));
+    const display = await screen.findByRole("dialog", { name: "Display" });
+    fireEvent.click(within(display).getByLabelText("Contains"));
+    fireEvent.click(within(display).getByRole("button", { name: "Done" }));
+    await waitFor(() => expect(read.mock.calls.at(-1)?.[1].expand).toEqual([]));
+    expect(screen.queryByRole("columnheader", { name: "Contains" })).not.toBeInTheDocument();
+  });
+});

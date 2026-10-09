@@ -23,6 +23,7 @@ from sqlalchemy import (
     and_,
     case,
     exists,
+    func,
     literal,
     select,
     union_all,
@@ -57,6 +58,7 @@ from .object_query import (
     name_contains,
     query_error,
     refine_object_query,
+    relation_ends,
     search_candidates,
     searchable_attribute_keys,
     top_level_filter,
@@ -536,7 +538,39 @@ def snapshot_object_columns(
         ),
         search_values=_value_candidates(projection, context) if search_index else None,
         search_names=_name_candidates(projection, context) if search_index else None,
+        related=_related_name(projection, context),
     )
+
+
+def _related_name(
+    projection: Subquery, context: SnapshotContext
+) -> Callable[[Select[Any], str, str, Sequence[str]], tuple[Select[Any], Any, Callable[[Any], Any]]]:
+    """Each listed row's related name in the context (0.9 K5, D145): the context's relations of the
+    type to its records of the types at the other end, read once and grouped by the listed end, then
+    joined to the list. A lookup per row would read the context's projections once per row (0.1
+    volume fixture: 4.8 s for 10,000 records in a change set)."""
+
+    def related(
+        statement: Select[Any], relation_type_key: str, direction: str, target_type_keys: Sequence[str]
+    ) -> tuple[Select[Any], Any, Callable[[Any], Any]]:
+        relations = relation_projection(context, relation_type_keys=[relation_type_key])
+        # Named apart from the listed projection, which is an object projection too.
+        others = object_projection(context, object_type_keys=target_type_keys).alias("related_objects")
+        own, far = relation_ends(relations.c.from_object_id, relations.c.to_object_id, direction)
+        names = (
+            select(own.label("owner_id"), func.min(others.c.name).label("name"))
+            .select_from(relations)
+            .join(others, others.c.object_id == far)
+            .group_by(own)
+            .subquery("related_names")
+        )
+        return (
+            statement.outerjoin(names, names.c.owner_id == projection.c.object_id),
+            names.c.name,
+            lambda row: select(names.c.name).where(names.c.owner_id == row.object_id),
+        )
+
+    return related
 
 
 def _owners(context: SnapshotContext) -> list[tuple[Any, str, str]]:

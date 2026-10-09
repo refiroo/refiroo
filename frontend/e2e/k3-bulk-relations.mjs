@@ -193,7 +193,8 @@ try {
   const kept = await bar.locator(".selection-count").innerText();
   expect(kept === "3 selected", `add: the selection after the change is "${kept}"`);
   await page.getByRole("row", { name: /K3 Value 002/ }).getByText("K3 Value 002", { exact: true }).first().click();
-  await page.getByText("K3 Master 002", { exact: true }).first().waitFor({ timeout: 10000 }).catch(() =>
+  // Visible text only: since K5 the list behind the record shows the same name in a relation column.
+  await page.locator(':text-is("K3 Master 002"):visible').first().waitFor({ timeout: 10000 }).catch(() =>
     failures.push("add: the opened record's relationships do not show K3 Master 002"),
   );
   await shot("k3-record-wide");

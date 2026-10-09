@@ -18,7 +18,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import Select, String, case, func, literal, or_, select, union_all
+from sqlalchemy import ARRAY, Select, String, case, func, literal, or_, select, true
 from sqlalchemy.orm import Session, aliased
 
 from ...common.cursors import encode_cursor
@@ -320,22 +320,49 @@ def expansion_rows(
     """The first ``limit`` relations of each anchor in one direction, in one statement (0.9 Q3).
 
     Each anchor's rows are those ``GET /relations`` lists first for it, with that direction and
-    relation type, in name order: the related record's name, then the relation's unique key. Each
-    anchor is one arm of a ``UNION ALL`` that orders its own rows and keeps ``limit``, as that list
-    does, so an arm keeps a ``limit``-row sort however many relations the anchor has; numbering
-    them all in a window sorted every one (20,000 children: 111 ms against 30). An arm also counts
-    the anchor's relations. A page of anchors costs one statement whatever its size.
+    relation type, in name order: the related record's name, then the relation's unique key. The
+    anchors are a list the statement unnests; each reads its own rows and its total through two
+    ``LATERAL`` subqueries, so an anchor keeps a ``limit``-row sort however many relations it has
+    (numbering them all in a window sorted every one: 20,000 children, 111 ms against 30), and a
+    page of anchors is one statement planned once (0.9 K5: a ``UNION ALL`` arm per anchor took
+    600 ms for a page of 100 with two expansions).
     """
     if not anchor_ids:
         return []
-    arms = [
-        _expansion_arm(context, workspace_key, anchor_id, direction, relation_type_key, limit, index)
-        for index, anchor_id in enumerate(dict.fromkeys(anchor_ids))
-    ]
+    ids = list(dict.fromkeys(anchor_ids))
+    anchors = select(func.unnest(literal(ids, ARRAY(String))).label("anchor_id")).subquery("anchors")
+    anchor = anchors.c.anchor_id
+    # In a context, the page's relations are read once, for every anchor, and each anchor's
+    # subqueries filter them: the projection's union arms sit too deep to correlate to the anchor.
+    relations = (
+        None
+        if context is None
+        else relation_projection(
+            context, endpoint_ids=ids, direction=direction, relation_type_keys=[relation_type_key]
+        ).element.cte("expansion_relations")
+    )
+    page = (
+        _expansion_page(context, relations, workspace_key, anchor, direction, relation_type_key)
+        .limit(limit)
+        .lateral("expansion_page")
+    )
+    total = _expansion_total(relations, anchor, direction, relation_type_key).lateral(
+        "expansion_total"
+    )
     # Ordered by the database, so names follow its collation as the list's own order does.
-    rows = (union_all(*arms) if len(arms) > 1 else arms[0]).subquery("expansion_rows")
     ordered = session.execute(
-        select(rows).order_by(rows.c.anchor_id, rows.c.related_name, rows.c.tiebreak)
+        select(
+            anchor.label("anchor_id"),
+            page.c.relation_id,
+            page.c.related_id,
+            page.c.related_name,
+            page.c.tiebreak,
+            total.c.total,
+        )
+        .select_from(anchors)
+        .join(page, true())
+        .join(total, true())
+        .order_by(anchor, page.c.related_name, page.c.tiebreak)
     )
     return [
         ExpansionRow(
@@ -350,82 +377,83 @@ def expansion_rows(
     ]
 
 
-def _expansion_arm(
+def _expansion_page(
     context: SnapshotContext | None,
+    relations: Any,
     workspace_key: str,
-    anchor_id: str,
+    anchor: Any,
     direction: str,
     relation_type_key: str,
-    limit: int,
-    index: int,
 ) -> Select[Any]:
-    """One anchor's first ``limit`` relations in name order, each with the anchor's total.
+    """One anchor's relations with their records, in name order (limited by the caller).
 
-    Live, the total counts the anchor's relations alone: a relation joins records of one
-    workspace, so the anchor's workspace bounds them without reading the other ends. The
-    anchor's relations are read first, as a materialized set, and their records looked up by ID:
-    PostgreSQL would otherwise walk the name index over every record of the workspace until
-    ``limit`` of them belong to the anchor, which reads most of them when the anchor's records
-    sort late (0.9.0-alpha.1 PG5: 20,000 children, 400 ms against 65 ms).
+    Live, the anchor's relations are read first, behind an ``OFFSET 0`` fence, and their records
+    looked up by ID: PostgreSQL would otherwise walk the name index over every record of the
+    workspace until enough of them belong to the anchor, which reads most of them when the anchor's
+    records sort late (0.9.0-alpha.1 PG5: 20,000 children, 400 ms against 65 ms). In a change set or
+    publication, the related record is read as the relation list reads it, from ``relations``, the
+    context's relations of every anchor.
     """
-    anchor = literal(anchor_id, String).label("anchor_id")
     if context is None:
         relation, related = aliased(ObjectRelation), aliased(RdmObject, name="expanded")
         own, other = _relation_ends(relation.from_object_id, relation.to_object_id, direction)
         edges = (
             select(relation.id, relation.sequence_id, other.label("other_id"))
-            .where(own == anchor_id, relation.relation_type_key == relation_type_key)
-            .cte(f"expansion_edges_{index}")
-            .prefix_with("MATERIALIZED")
+            .where(own == anchor, relation.relation_type_key == relation_type_key)
+            # The anchor is two levels up; automatic correlation reaches one.
+            .correlate_except(relation)
+            .offset(0)
+            .lateral("expansion_edges")
         )
-        counted = aliased(ObjectRelation)
-        counted_own, _ = _relation_ends(counted.from_object_id, counted.to_object_id, direction)
-        total = (
-            select(func.count())
-            .select_from(counted)
-            .where(counted_own == anchor_id, counted.relation_type_key == relation_type_key)
-            .scalar_subquery()
-        )
-        page = (
+        return (
             select(
-                anchor,
                 edges.c.id.label("relation_id"),
                 edges.c.other_id.label("related_id"),
                 related.name.label("related_name"),
                 edges.c.sequence_id.label("tiebreak"),
-                total.label("total"),
             )
             .select_from(edges)
             .join(related, related.id == edges.c.other_id)
             .where(related.workspace_key == workspace_key)
             .order_by(related.name, edges.c.sequence_id)
         )
-    else:
-        def anchored() -> Any:
-            return relation_projection(
-                context, object_id=anchor_id, direction=direction, relation_type_keys=[relation_type_key]
-            )
-
-        # The related record is read as the relation list reads it. The total counts relations
-        # alone: the list leaves out one whose other end is missing, and a valid change set or a
-        # publication holds none, so reading every other end again would count the same.
-        relations = anchored()
-        related = effective_record(context, relations.c.related_id)
-        statement = related.join(select(relations)).where(related.present)
-        total = select(func.count()).select_from(anchored()).scalar_subquery()
-        name = related.column("name")
-        page = statement.with_only_columns(
-            anchor,
+    own, other = _relation_ends(relations.c.from_object_id, relations.c.to_object_id, direction)
+    related = effective_record(context, other)
+    name = related.column("name")
+    return (
+        related.join(select(relations).where(own == anchor))
+        .where(related.present)
+        .with_only_columns(
             relations.c.relation_id.label("relation_id"),
-            relations.c.related_id.label("related_id"),
+            other.label("related_id"),
             name.label("related_name"),
             relations.c.relation_id.label("tiebreak"),
-            total.label("total"),
             maintain_column_froms=True,
-        ).order_by(name, relations.c.relation_id)
-    # A compound's arm keeps its own ORDER BY and LIMIT inside a subquery.
-    limited = page.limit(limit).subquery()
-    return select(limited)
+        )
+        .order_by(name, relations.c.relation_id)
+    )
+
+
+def _expansion_total(
+    relations: Any, anchor: Any, direction: str, relation_type_key: str
+) -> Select[Any]:
+    """How many relations of the type the anchor has in the direction.
+
+    Live, the anchor's relations alone: a relation joins records of one workspace, so the anchor's
+    workspace bounds them without reading the other ends. In a context, relations alone too: the
+    list leaves out one whose other end is missing, and a valid change set or a publication holds
+    none, so reading every other end again would count the same.
+    """
+    if relations is None:
+        counted = aliased(ObjectRelation)
+        own, _ = _relation_ends(counted.from_object_id, counted.to_object_id, direction)
+        return (
+            select(func.count().label("total"))
+            .select_from(counted)
+            .where(own == anchor, counted.relation_type_key == relation_type_key)
+        )
+    own, _ = _relation_ends(relations.c.from_object_id, relations.c.to_object_id, direction)
+    return select(func.count().label("total")).select_from(relations).where(own == anchor)
 
 
 def _relation_ends(from_column: Any, to_column: Any, direction: str) -> tuple[Any, Any]:

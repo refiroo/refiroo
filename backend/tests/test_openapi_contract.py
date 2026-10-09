@@ -107,10 +107,13 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # totals (DeletionImpact, DeletionTotals) and their descriptions; no path changed. Re-baselined
     # for 0.9 K3: the ensureNoRelation item (BatchEnsureNoRelationItem, in BatchRequest's items),
     # the outcome's previousRelationSetVersion and the descriptions of the set replacement and the
-    # outcome; no path changed.
+    # outcome; no path changed. Re-baselined for 0.9 K5: GET /objects/{object_type_key} takes
+    # expand and expandLimit and answers TypedObjectPage (QueryObject items, with expanded), its
+    # sort description names related:<key>, and QueryObject's description; no other path changed.
+    # Re-baselined for 0.9 K5a: ExpandedRelations.field and the expand description's <key>.<field>.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "9d9995c26f54f7a82e46ea940ba4a770bb6cb3c02fe54ba2210e615209a4cd10"
+        "44ec041cbd8476e853b360bee2d32840b0d07f65bdabf813bdd03ae76dfeccba"
     )
 
 
@@ -259,7 +262,7 @@ def test_wp6_openapi_keeps_bounded_active_object_reads_and_structured_errors():
     schema = app.openapi()
     response = schema["paths"]["/api/v1/objects/{object_type_key}"]["get"]["responses"]
     assert response["200"]["content"]["application/json"]["schema"] == {
-        "$ref": "#/components/schemas/ObjectPage"
+        "$ref": "#/components/schemas/TypedObjectPage"
     }
     error_content = response["default"]["content"]["application/json"]
     assert error_content["schema"] == {"$ref": "#/components/schemas/ApiErrorResponse"}

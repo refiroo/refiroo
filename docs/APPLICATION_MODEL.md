@@ -240,6 +240,30 @@ declared sort fields and a `pageSize` from 1 to 100. Every column sorts regardle
 the declared fields add further fields (such as ones without a column) to the list's Sort menu. A sort
 field is a built-in (`id`, `name`, `objectType`, live timestamps) or a non-JSON attribute of the type.
 
+**Relation columns (schema 0.9, Base 0.9 K5).** A column `related:<key>` shows each row's related
+records of one relationship: up to three as record chips in name order, then "+N more". `<key>` is a
+relation type's `key` (the listed type at the `from` end) or `reverseKey` (at the `to` end), and its
+header is the relation's name in that direction. Every binding of that relation type with the listed
+type at that end shows in the one column. A relation column may stand in a table view's `columns` and
+in a children or table panel's `columns`; in a table view's `sortFields` and `defaultSort` only where
+it is single-valued (one binding behind it, whose listed end holds at most one relationship), and
+never in `filterFields`, a relations panel, a mapping grid, a relation matrix, a tree or a detail
+header. An unknown key, a key the listed type is at neither end of, or a model below schema 0.9 is
+refused at the field list's pointer.
+
+```json
+"columns": ["name", "value-code", "related:system-value-maps-to-master", "active"]
+```
+
+A relation column may show a field of the related records instead of their name (Base 0.9 K5a):
+`related:<key>.<field>`, the field written as in a consumer API definition: `name`, an attribute one
+of the types at the other end binds, or `ancestor:<type>.<field>` (`name` or an attribute of an
+ancestor type they can sit under). Its header is the relation's name and the field's label ("Has
+translation · Language code"); each chip shows the record's value, "—" where it has none. Such a
+column never sorts. An unknown field, an attribute no type at the other end binds, a JSON attribute
+or an ancestor type they cannot sit under is refused at the field list's pointer. A key may contain a
+dot: the text is the whole key when it is one, otherwise the longest key it starts with.
+
 ### Mapping grid view (`type: "mappingGrid"`, schema 0.6)
 
 A mapping grid displays coverage for a configured relation binding and supports atomic mapping
@@ -563,6 +587,10 @@ new 0.8 document that declares `consumerApis` is refused by install, draft compi
 with `UNSUPPORTED_SCHEMA_VERSION` at `/schemaVersion` (C-D134); a 0.8 document without them installs,
 and a stored 0.8 release keeps reading and activating as stored, its definitions offering every
 operation. The starter is content release 0.9.3 on schema 0.9.
+
+Base 0.9 K5 adds relation columns to schema 0.9 (`related:<key>`, [above](#table-view-type-table)),
+and K3a the `many-to-one` cardinality. The starter is content release 0.9.4: its system values and
+master values show relation columns.
 
 ### Consumer API definitions in schema 0.9
 

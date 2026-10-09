@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { RecordActionMenu } from "@/features/objects/RecordActionMenu";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
 import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
-import { attributeName, isQueryableField, listSortFields } from "@/model/fields";
+import { attributeName, isQueryableField, listSortFields, relatedKeys } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
 import { InlineError } from "@/ui/InlineError";
 import { Icon } from "@/ui/Icon";
@@ -96,6 +96,14 @@ export function ObjectCollectionView({
     previousSelection.current = selectedId;
   }, [selectedId]);
   const objectType = view.objectTypeKey ? objectTypeFor(model, view.objectTypeKey) : undefined;
+  const columns = view.config.columns ?? [
+    "name",
+    ...(objectType?.attributes.slice(0, 4).map((item) => item.attributeTypeKey) ?? []),
+  ];
+  const display = useTableDisplay(columns, `${application.key}:${view.key}`);
+  // Only the shown relation columns are read (0.9 K5, D146).
+  const expand = relatedKeys(display.columns);
+  const expandKey = expand.join(" ");
   const pages = useCursorWindow<ObjectItem>(
     objectType
       ? (selector) =>
@@ -106,6 +114,7 @@ export function ObjectCollectionView({
             sort: query.sort,
             filters: query.filters,
             parentObjectId: query.parentObjectId,
+            expand,
             ...selector,
             pageSize: query.pageSize,
           })
@@ -119,6 +128,7 @@ export function ObjectCollectionView({
       query.pageSize,
       query.filters,
       query.parentObjectId,
+      expandKey,
     ],
     { anchor: query.anchor, refreshToken },
   );
@@ -175,11 +185,6 @@ export function ObjectCollectionView({
     }
   }, [loading, error, pages]);
 
-  const columns = view.config.columns ?? [
-    "name",
-    ...(objectType?.attributes.slice(0, 4).map((item) => item.attributeTypeKey) ?? []),
-  ];
-  const display = useTableDisplay(columns, `${application.key}:${view.key}`);
   const sorting = useTableSort({
     sort: query.sort,
     fields: objectType ? listSortFields(model, [objectType], columns, view.config.sortFields, live) : [],

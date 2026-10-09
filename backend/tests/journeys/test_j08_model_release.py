@@ -393,3 +393,141 @@ def test_a_binding_tightened_to_many_to_one_waits_for_its_data(world):
     ok(world.api.delete(f"/relations/{first['id']}", expectedVersion=first["version"]), 204)
     ok(world.activate(release))
     assert _model_release(world) == release
+
+
+def _validation(world, model):
+    return ok(world.api.post("/model-validations", {"model": model}))
+
+
+@pytest.mark.journey("J08.12")
+@pytest.mark.structures("H", "K", "Bnn", "Bn1", "B1n", "Vnn")
+def test_a_relation_column_where_the_model_allows_it(world):
+    """Given the configuration's model. When H's table view shows the many-to-many and the
+    many-to-one relationship, sorts by the many-to-one, K's view shows the many-to-many read
+    backwards and a detail's table panel shows one. Then it validates. When a relation column is
+    put where it is not offered (a relations panel, a mapping grid, filter fields, a many-valued sort),
+    names an unknown relationship or one H is at neither end of, or the model is schema 0.8. Then
+    each is refused at its pointer."""
+    h, k = world.key("H"), world.key("K")
+    bnn, bn1, b1n = world.key("Bnn"), world.key("Bn1"), world.key("B1n")
+    reverse = next(
+        r["reverseKey"] for r in world.configuration.model["relationTypes"] if r["key"] == bnn
+    )
+
+    def view_of(model, type_key):
+        for a, application in enumerate(model["applications"]):
+            for v, view in enumerate(application["views"]):
+                if view["type"] == "table" and view["objectTypeKey"] == type_key:
+                    return view, f"/applications/{application['key']}/views/{view['key']}", a
+        raise AssertionError(type_key)
+
+    def allowed():
+        model = copy.deepcopy(world.configuration.model)
+        view, _path, a = view_of(model, h)
+        view["config"]["columns"] += [f"related:{bnn}", f"related:{bn1}"]
+        view["config"]["sortFields"] += [f"related:{bn1}"]
+        view["config"]["defaultSort"] = f"-related:{bn1}"
+        view_of(model, k)[0]["config"]["columns"].append(f"related:{reverse}")
+        model["applications"][a].setdefault("details", []).append(
+            {
+                "objectTypeKey": h,
+                "panels": [
+                    {
+                        "key": "listed",
+                        "title": "Listed",
+                        "type": "table",
+                        "config": {"objectTypeKey": h, "columns": ["name", f"related:{bn1}"]},
+                    }
+                ],
+            }
+        )
+        return model
+
+    assert _validation(world, allowed())["valid"] is True
+
+    def refused_at(change, pointer):
+        model = allowed()
+        change(model)
+        result = _validation(world, model)
+        assert result["valid"] is False, pointer
+        assert result["diagnostics"][0]["path"] == pointer, result["diagnostics"]
+
+    _view, h_path, a = view_of(world.configuration.model, h)
+    application = world.configuration.model["applications"][a]["key"]
+    detail_path = f"/applications/{application}/details/{h}/panels"
+
+    def relations_panel(model):
+        details = model["applications"][a]["details"]
+        details[-1]["panels"].append(
+            {
+                "key": "related",
+                "title": "Related",
+                "type": "relations",
+                "config": {
+                    "relationTypeKeys": [bnn],
+                    "direction": "outgoing",
+                    "columns": ["name", f"related:{reverse}"],
+                },
+            }
+        )
+
+    def mapping_grid(model):
+        for view in model["applications"][a]["views"]:
+            if view["key"] == world.key("Vnn"):
+                view["config"]["sourceColumns"].append(f"related:{bn1}")
+
+    def h_config(model):
+        return view_of(model, h)[0]["config"]
+
+    refused_at(relations_panel, f"{detail_path}/related")
+    refused_at(mapping_grid, f"/applications/{application}/views/{world.key('Vnn')}/config/sourceColumns")
+    refused_at(lambda m: h_config(m)["filterFields"].append(f"related:{bn1}"), f"{h_path}/config/filterFields")
+    refused_at(lambda m: h_config(m)["sortFields"].append(f"related:{bnn}"), f"{h_path}/config/sortFields")
+    refused_at(lambda m: h_config(m)["columns"].append("related:no-such"), f"{h_path}/config/columns")
+    refused_at(lambda m: h_config(m)["columns"].append(f"related:{b1n}"), f"{h_path}/config/columns")
+
+    def schema_08(model):
+        model["schemaVersion"] = "0.8"
+        model.pop("consumerApis", None)
+        for binding in model["objectTypeRelations"]:
+            if binding["cardinality"] == "many-to-one":
+                binding["cardinality"] = "many-to-many"
+        h_config(model)["sortFields"].remove(f"related:{bn1}")
+        h_config(model)["defaultSort"] = "name"
+
+    refused_at(schema_08, f"{h_path}/config/columns")
+
+
+@pytest.mark.journey("J08.12")
+@pytest.mark.structures("R", "G", "D", "K", "Bscope", "K.code")
+def test_a_relation_column_naming_a_field(world):
+    """Given the configuration's model. When R's table view shows the scoped relationship by its
+    records' G ancestor's code. Then it validates. When the field names an ancestor D cannot sit
+    under, an attribute no D binds, or the column is put in sortFields. Then each is refused at its
+    pointer."""
+    r, g, k = world.key("R"), world.key("G"), world.key("K")
+    column = f"related:{world.key('Bscope')}.ancestor:{g}.{world.key('K.code')}"
+
+    def with_column(change):
+        model = copy.deepcopy(world.configuration.model)
+        for application in model["applications"]:
+            for view in application["views"]:
+                if view["type"] == "table" and view["objectTypeKey"] == r:
+                    view["config"]["columns"].append(change(column))
+                    path = f"/applications/{application['key']}/views/{view['key']}/config"
+                    return model, view, path
+        raise AssertionError(r)
+
+    model, view, _path = with_column(lambda c: c)
+    assert _validation(world, model)["valid"] is True
+
+    for bad in (column.replace(f"ancestor:{g}.", f"ancestor:{k}."), f"related:{world.key('Bscope')}.no-such-field"):
+        model, _view, path = with_column(lambda _c, bad=bad: bad)
+        result = _validation(world, model)
+        assert result["valid"] is False and result["diagnostics"][0]["path"] == f"{path}/columns", bad
+
+    model, view, path = with_column(lambda c: c)
+    view["config"]["sortFields"].append(column)
+    result = _validation(world, model)
+    assert result["valid"] is False and result["diagnostics"][0]["path"] == f"{path}/sortFields"
+

@@ -254,7 +254,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 31 | [J4](#j4-import-screen-and-sc-10) | J1u, J3, F2 | The SC-10 screen and SC-10 acceptance; frontend only (D89–D95) — **delivered 2026-10-08** ([record](#j4-record-2026-10-08)) |
 | 31a | [J4a](#j4a-why-another-workspaces-export-cannot-load) | J4 | Amendment: an import says why another workspace's export cannot load (the job's `notices`, refusals naming the workspace) — **delivered 2026-10-08** ([record](#j4a-why-another-workspaces-export-cannot-load)) |
 | 31b | [J5](#j5-another-workspaces-export-loaded-as-this-workspaces-own-records) | J4a | Another workspace's export loaded as this workspace's own records (counterpart IDs, `otherWorkspaceIds`), on imports and batches (D96–D101) — **delivered 2026-10-08** ([record](#j5-record-2026-10-08)) |
-| 31a | [Track K](#track-k--bulk-selection-and-editing-in-collections) | J4, UA | Bulk selection and bulk edits in collections over `POST /batches`; packages K1–K5 planned in detail when the track starts — **added 2026-10-06**; [K1](#k1-plan-2026-10-08) selection **delivered 2026-10-08** (D102–D111, [record](#k1-record-2026-10-08)); [K3a](#k3a-many-to-one-relationships) many-to-one relationships **added and delivered 2026-10-09** (D136–D139, [record](#k3a-record-2026-10-09)), after K3 and before K5 |
+| 31a | [Track K](#track-k--bulk-selection-and-editing-in-collections) | J4, UA | Bulk selection and bulk edits in collections over `POST /batches`; packages K1–K5 planned in detail when the track starts — **added 2026-10-06**; [K1](#k1-plan-2026-10-08) selection **delivered 2026-10-08** (D102–D111, [record](#k1-record-2026-10-08)); [K3a](#k3a-many-to-one-relationships) many-to-one relationships **added and delivered 2026-10-09** (D136–D139, [record](#k3a-record-2026-10-09)), after K3 and before K5; [K5](#k5-relation-columns) relation columns **delivered 2026-10-09** (D140–D147, [record](#k5-record-2026-10-09)), screenshots approved 2026-10-10; [K5a](#k5a-a-field-of-the-related-records-in-a-relation-column) a field of the related records **added and delivered 2026-10-10** (D148–D152 accepted, [record](#k5a-record-2026-10-10)) |
 | 31c | [UA8](SETTINGS_AND_UI_PLAN.md#ua8-actions-in-place-on-the-record) | UA, K3a | A relationship row's actions as icon buttons; the record header's title and subtitle edited in place through one shared field editor; Edit record only in the ⋯ menu (U-D15–U-D20) — **implemented 2026-10-09**, screenshots awaiting the user's approval ([record](SETTINGS_AND_UI_PLAN.md#ua8-record-2026-10-09)) |
 | 31d | [UA9](SETTINGS_AND_UI_PLAN.md#ua9-the-record-tree-scrolled-as-one-several-records-selected-and-dragged) | UA8 | The record tree scrolls as one list and starts folded; several records selected and dragged, in the sidebar too (U-D21–U-D28) — **implemented 2026-10-09**, screenshots awaiting the user's approval ([record](SETTINGS_AND_UI_PLAN.md#ua9-record-2026-10-09)) |
 | V | [V3–V9](#v3v9-the-management-api-documented-plan-2026-10-07) | V2 | The management API documented: the starter extended, content and examples beside the document, the error catalogue; V3 first, then V4–V8 in any order, then V9. **Independent fillers; block no release** (V-D9) — **planned 2026-10-07**, V-D1 open |
@@ -8614,6 +8614,10 @@ cardinality); no screen knows a type key.
   an API capability integrators get too.
 - **K5 (D135, decided 2026-10-09): relation columns.** A view may declare a relation as a column, shown as record
   chips (`ui/RecordChip`), so the result of a bulk relation edit is visible in the list.
+  _Planned and delivered 2026-10-09 ([plan](#k5-plan-2026-10-09), [record](#k5-record-2026-10-09)), D140–D147 accepted (D143 and D145 amended); screenshots approved 2026-10-10._
+- **K5a (added 2026-10-10 by the user): a field of the related records.** `related:<key>.<field>`
+  shows each related record's value of a field, or of an ancestor's, instead of its name.
+  _Planned and delivered 2026-10-10 ([plan](#k5a-a-field-of-the-related-records-in-a-relation-column), [record](#k5a-record-2026-10-10)), D148–D152 accepted 2026-10-10._
 
 **Decisions for K1's planning:** how "all matching" meets optimistic concurrency (versions read at
 selection, or an explicit "apply to current values" that the invariant allows only when stated);
@@ -9841,6 +9845,445 @@ overflow. Not run: the full suites, `budget`, `test:a11y`, `test:visual` (R, as 
 
 **Found on the way.** A uvicorn on port 61380 started 2026-10-07 by an earlier session is still
 running; this package did not start it and left it.
+
+#### K5: Relation columns
+
+**Design:** Track K's outcome above; D135; Q3's `expand` (INTEGRATION_API §Q3). **Needs:** K3, K3a.
+
+**Scope:** a list's column may show each row's related records of one relationship, as record
+chips with "+N more", in a table view and in a record's children and table panels, live, in a change
+set and in a publication; the per-type list returns them for a page in one read per column, which
+integrators get too.
+
+**Exit:** a user sees in two collections of two applications, live, in a change set and in a
+publication, the records each row is related to, at 1440px and 390px; changes the relationships of a
+selection (K3) and sees the rows show the result; hides the column and the list stops reading it; an
+integrator reads the same through `GET /objects/{objectTypeKey}?expand=…`; a model declaring such a
+column where it is not allowed is refused at its pointer.
+
+##### K5 plan (2026-10-09)
+
+**Planned 2026-10-09. D140–D147 and the test cases accepted by the user the same day, D143 and D145
+as amended after the user's questions (D143: "+N more" stays at the end of the cell; D145: a
+single-valued column sorts).** Checked against the code at `2047295`.
+
+**What exists.** A list column is a field key, checked by `engine/model/validation/fields.check_fields`
+(built-in, attached attribute or `ancestor:<type>`); table view columns additionally refuse anything
+outside `BUILT_IN_COLUMNS` and the type's attributes (`application_rules.py`), so `ancestor:` columns
+exist only in panels today. An `ancestor:` cell is drawn from the item's `path`
+(`ui/FieldValue`, `model/fields`) as a `ui/RecordChip`; no read is added for it. Table views
+(`CollectionView`) and children and table panels (`CollectionPanelTable`) read the per-type list
+`GET /objects/{objectTypeKey}` (`management/routers/objects.py`), whose items have no relationships.
+Q3's model query already reads "each row's first N related records and how many there are" as a set:
+`engine/reads/relation_queries.expansion_rows` (one statement per expansion and page, a `UNION ALL`
+arm per row, live, change set and publication; measured at full volume in POSTGRESQL_BUDGETS: 20-row
+expansion of 20,000 children 41–71 ms), answered as `ExpandedRelations` (`relationTypeKey`,
+`direction`, `count`, `items`, `nextCursor` continuing on `GET /relations`) in
+`management/projections/model_query.py`. Relation keys and reverse keys share one namespace
+(`relation_rules.check_relation_type_keys`), and the consumer API's `related` blocks are already
+reached by a relation's `key` or `reverseKey` (C18). The table's column display (`ui/TableDisplay`,
+`useTableDisplay`) hides columns per user. After a K3 change the collection is read again (K3
+record, "Differences from the plan"), so the rows' new relationships appear once they are read.
+
+**Behaviour.**
+
+1. **A model declares a relation column** in schema 0.9 as `related:<key>` in a table view's
+   `columns`, or a children or table panel's `columns`, where `<key>` is a relation type's `key`
+   (the listed type at the `from` end) or `reverseKey` (at the `to` end) (D140, D141). Its header is
+   the relation's name in that direction ("Maps to master value", "Represents reference structure").
+   Every binding of that relation type with the listed type at that end shows in the one column.
+2. **The cell** shows up to three related records as record chips in their type's colour, in name
+   order, then "+N more" in muted text when the row has more; one line; "+N more" stays at the end of
+   the cell and the chips are clipped before it at the column's width; empty when the row has none,
+   as an empty attribute is (D143). The chips are not links; the row opens as
+   before and its Relationships panel lists them all (D144).
+3. **In every context.** Live, a change set (its staged relationships) and a publication (its
+   relationships); with `asOf`, the rows are dated and the related records are not (as D22).
+4. **Hidden is not read.** A relation column the user hid in the table's display settings is not
+   requested (D146).
+5. **After a change.** A K3 change, a relationship added or removed in a record's panel or a K2b
+   deletion: the rows read again show it (amends K3's behaviour 8, D135).
+6. **Sorted where a row holds one, never a filter** (D145). A column is **single-valued** when its
+   key has exactly one binding with the listed type at that end and that end holds at most one
+   (`one-to-one` either end, `one-to-many` at `to`, `many-to-one` at `from`). A single-valued column
+   sorts by the related record's name, rows without one last in both directions, as an attribute
+   sort does; its header sorts, and a table view's `sortFields` and `defaultSort` may name it. A
+   many-valued column has no sort control and is refused in `sortFields`; no relation column is a
+   filter.
+7. **Refused where it is not offered** (D141): `related:` in a relations panel's columns, a mapping
+   grid, a relation matrix, a tree, a detail header, a view's filter fields or (many-valued) its sort
+   fields, an unknown key,
+   a key whose listed type is at neither end of a binding of it, or a schema 0.5–0.8 model, each
+   refused at validation with its pointer and reason.
+
+**API** (D142). `GET /objects/{objectTypeKey}` takes **`expand`**, repeatable, each a relation key or
+reverse key the type has a binding of (at most 5), and **`expandLimit`** (1–20, default 3). Each
+item then carries **`expanded`**: one `ExpandedRelations` per `expand`, in the request's order, with
+each related record as a `SelectedRecord` of `name` (with its `id`, `objectTypeKey` and `version`),
+the count of all of them and the cursor continuing on `GET /relations`; omitted without `expand`, so
+no existing response changes. An unknown key, a key the type has no binding of, the same key twice or
+more than 5 is `422 INVALID_EXPAND` naming the parameter and value, as `INVALID_FILTER` and
+`INVALID_SORT` do on the same route. **`sort=related:<key>`** (or `-related:<key>`) orders by a
+single-valued column's related name (D145), `422 INVALID_SORT` for a many-valued one. In every
+context the list reads (`changeSetId`,
+`publicationId`, `asOf`). No other route changes; `GET /objects` (across types) is not extended.
+
+**Design.**
+
+- **Model.** `fields.py`: `RELATED_FIELD_PREFIX = "related:"` and a check that resolves `<key>` to a
+  relation type and a direction and requires a binding with the listed type at that end
+  (`related_object_types`, as Q3's `_binding_targets`). `application_rules.py` and
+  `detail_view_rules.py`: accepted in table view columns and children and table panel columns
+  (`require_schema(…, "0.9", …)`), refused in every other field list at its pointer. No change to
+  `models/schema.py` (columns are strings).
+- **Engine.** `engine/reads/model_query.py`: the key-to-(relation type, direction) resolution shared
+  by Q3's `expand` and the list's, so one function decides both; the read is
+  `relation_queries.expansion_rows` unchanged.
+- **Management.** `routers/objects.list_objects`: `expand` and `expandLimit`, registered so J21.8's
+  unknown-parameter check knows them; after the page is read, one `expansion_rows` per `expand` over
+  the page's IDs, and the related records' names rendered in one batch, through the helpers of
+  `projections/model_query.py` moved where both use them (no copy). `schemas/records.py`:
+  `ObjectResponse` gains `expanded`, omitted when none (`omitted_when_none`).
+- **Frontend.** `model/fields`: `attributeName` names a `related:` column by the relation's name in
+  its direction; `isSortableField` false for it; a `relatedColumns(columns)` helper returning the
+  keys to request. `api.objects` passes `expand` and `expandLimit`; `CollectionView` and
+  `CollectionPanelTable` ask for the visible relation columns (`display.columns`). `ui/FieldValue`
+  draws a `related:` cell as `ui/RecordChip`s plus "+N more" through a `ui/ChipList`-style line, with
+  the cell's accessible text naming every shown record and the remainder. `types/runtime.ts`:
+  `ObjectItem.expanded`.
+- **Starter** content release 0.9.4 (D147): system values' table view gains
+  `related:system-value-maps-to-master` and `related:system-value-represents-reference`; master
+  values' gains `related:master-value-represented-by-system-value`.
+- **Not changed:** relations panels, the mapping grid, the matrix, the tree, exports, imports, the
+  consumer API, the model query's `expand` body (only its resolution is shared), every write path.
+
+**Decisions** (for approval):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D140 | How a column names a relationship | **Accepted 2026-10-09 by the user.** **`related:<key>`, where `<key>` is a relation type's `key` or `reverseKey`.** Keys and reverse keys share one namespace, so one key names the relation type and the direction, as the consumer API's `related` blocks already do (C18), and the column reads like `ancestor:<type>`. Every binding of that relation type with the listed type at that end shows in the column (a type represented by two kinds of record shows both in one "Represents" column). The alternatives, naming the relation type and direction separately (`related:<relationTypeKey>:incoming`) or a binding's three keys, are longer and add no case a key cannot express |
+| D141 | Where a relation column is allowed | **Accepted 2026-10-09 by the user.** **Table view columns and children and table panel columns, in schema 0.9; refused everywhere else at its pointer.** Those three are one list path (the per-type list) and one component (`ObjectTable` through `CollectionView` and `CollectionPanelTable`). A relations panel's rows are already relationships (a column there would be a second hop); the mapping grid, matrix and tree have their own reads; sort and filter fields are D145. Containment and required-ownership keys are allowed: they are relationships of the type, and a parent type listing its children by name is a real case |
+| D142 | How the list returns related records | **Accepted 2026-10-09 by the user.** **`expand` (repeatable, at most 5) and `expandLimit` (1–20, default 3) on `GET /objects/{objectTypeKey}`; items gain `expanded`, Q3's `ExpandedRelations` with each record's `name`; `422 INVALID_EXPAND`.** One contract shape for "a row's first related records" in both reads, read by the same set statement; the limit and the maximum of 5 are documented, as every cap must be. `count` gives "+N more" without a second read and `nextCursor` continues on the relationships list. The alternative, a separate slim shape (`id`, `name`, `objectTypeKey` only) under a new name, is smaller per item but is a second contract for the same thing |
+| D143 | How many records a cell shows | **Accepted 2026-10-09 by the user, amended after the user's question: "+N more" is muted text that stays at the end of the cell, the chips clipped before it.** **Three chips, then "+N more"; one line, clipped at the column's width.** Rows have one height in a scrolling window (ADR-030), so the cell cannot grow; three fit a default column and say most rows completely (a many-to-one or one-to-many end holds one). The alternative, as many as fit the width, needs a measure per cell and changes with every resize |
+| D144 | Whether a chip opens its record | **Accepted 2026-10-09 by the user.** **No: chips are not links, as `ancestor:` chips are not; the row opens as before.** A button inside a row competes with the row's click, its selection (K1, Shift and Cmd) and keyboard focus moving by row; the record's Relationships panel lists every related record with its link. The alternative, each chip opening its record, needs a cell focus model the table does not have |
+| D145 | Sorting and filtering by a relation column | **Accepted 2026-10-09 by the user as amended: a single-valued column sorts; no relation column filters.** A column is single-valued when its key has one binding with the listed type at that end and that end holds one; it sorts by the related record's name, rows without one last, in every context, as an `ancestor:` column sorts a relation list. A many-valued row has no single value to sort by, and "rows related to X" is a filter capability of its own (Q3's relation hop already serves integrators). The planned recommendation, no sorting at all in K5, was changed by the user |
+| D146 | A hidden relation column | **Accepted 2026-10-09 by the user.** **Not requested.** Hiding a column in the table's display settings removes its `expand`, so a user who does not want the column does not pay its read. The display's preference is per browser, so the request follows it |
+| D147 | Which shipped model shows relation columns | **Accepted 2026-10-09 by the user.** **The starter, as content release 0.9.4, on system values and master values (behaviour list above); the example model unchanged in K5.** The starter is what the runner and a new installation use; two types in two applications show both directions. Whether the example model gains one is the user's choice when it next changes |
+
+**Journeys.** J01.8 (new) *Related records in a list* (UI, API): a list's rows with their first
+related records of a relationship and how many, in every context; the model's view decides the
+columns, the integrator's `expand` the API. J08.12 (new) *A relation column where it is not
+allowed* (API): the refusals of behaviour 7. J32's status line: relation columns delivered.
+USER_JOURNEYS (J01.8, J08.12, the index), API_JOURNEYS (`expand`, `expandLimit`, `expanded`,
+`INVALID_EXPAND`, mapped to J01.8), UI_ACCEPTANCE (row K5-1, the relation column), APPLICATION_MODEL
+(`related:` in schema 0.9).
+
+**Test cases** (approved by the user 2026-10-09; 2a added with D145's amendment). API journey tests (pytest; generated configurations A and B):
+
+1. **Related records on a page** (`test_j01_find_and_inspect`). Given rows related to 0, 1 and 4
+   records of one relationship and a second relationship read backwards: a page with `expand` of both
+   gives each row its first 3 in name order, `count` 0, 1 and 4, and `nextCursor` only on the row
+   with 4, which continues on `GET /relations` to the fourth. Without `expand` the items are as
+   before.
+2. **In a change set and a publication** (`test_j01_find_and_inspect`). A relationship added and one
+   removed in a change set: the change set's list shows them, live does not; a publication's list
+   shows its own; with `asOf` the rows are dated, the related records are not.
+2a. **Sorted by a single-valued column** (`test_j01_find_and_inspect`). Rows holding one related
+   record through a single-valued binding sort by its name, rows without one last, both
+   directions, across pages by cursor; live and in a change set. A many-valued key is
+   `422 INVALID_SORT`.
+3. **Refused expand** (`test_j01_find_and_inspect`). An unknown key, a key the type has no binding
+   of, a key twice and six keys: `422 INVALID_EXPAND`, naming the parameter and value;
+   `expandLimit` 21 refused as the route refuses any out-of-bounds parameter.
+4. **A relation column where it is not allowed** (`test_j08_model_release`). A draft with `related:`
+   in a table view and a panel compiles; in a relations panel, a mapping grid, `sortFields`,
+   `filterFields`, a many-valued key in `sortFields`, with an unknown key, with a key the type is at
+   neither end of, or in a 0.8 model: refused, each at its pointer; a single-valued key in
+   `sortFields` and `defaultSort` compiles.
+5. **Cost.** One measurement at the 0.1 volume fixture, reported in the record, not a new budget
+   test: a 100-row page with two `expand` keys, live, change set and publication, against 100 ms.
+
+Unit tests (Vitest): `model/fields` cases for a `related:` column's name in both directions and its
+sortability; `FieldValue` for 0, 1, 3 and 5 related records ("+2 more") and the accessible text;
+`CollectionPanelTable` (or `CollectionView`) requesting only visible relation columns.
+
+Browser runner `test:browser:k5` (real backend; the starter 0.9.4; system values of Systems and master
+values of RDM Master; 1440px and 390px; keyboard):
+
+6. **Both directions, live.** System values show Maps to master value with chips and "+N more" for a
+   value with more than three; master values show Represented by system value; a row with none shows
+   an empty cell.
+7. **After a bulk change.** Select three system values, Change relationships…, Add a master value,
+   Apply: the three rows show it without reloading the page.
+8. **In a change set and a publication**: a relationship staged in a change set shows there and not
+   live; a publication shows its own.
+9. **Hidden column**: hiding Maps to master value removes it and its `expand` from the request; shown
+   again, it returns.
+10. **390px and keyboard**: the cell clips on one line with "+N more" visible, no page overflow; rows
+    move and open by keyboard as before.
+
+Axe with 0 violations on both tables with relation columns, light and dark; screenshots at 1440px
+and 390px for the user's approval.
+
+**Checks.** Backend: the J01 and J08 journey tests above (confirmed failing first), the `records`,
+`model` and `contract` groups (the OpenAPI document diffed before its hash is re-locked), Q3's
+`test_j22_precise_dataset` (the shared key resolution); Ruff on the changed files. Frontend: Vitest
+`related` over the changed files, `format`, `lint` (0 errors), `build`; `test:browser:k5`;
+`test:browser:k3` (behaviour 5) and `test:browser:k1` (the table). Not run: the full suites,
+`budget`, `test:a11y`, `test:visual` (R, as D95).
+
+**Docs at delivery.** APPLICATION_MODEL (`related:` columns in schema 0.9), API.md (`expand`,
+`expandLimit`, `expanded`, `INVALID_EXPAND`), MODEL_AUTHORING, USER_JOURNEYS, API_JOURNEYS,
+UI_ACCEPTANCE, CURRENT_FUNCTIONALITY, PRODUCT, EXECUTION_GUIDE (the runner), CHANGELOG,
+PROJECT_STATUS; Track K's outline.
+
+**Composable domains (ADR-032):** a read only; identity, attribute storage, audit and history, the
+bulk APIs, the consumer API's `match` declaration and mapping coverage are untouched.
+
+##### K5 record (2026-10-09)
+
+**Delivered 2026-10-09.** D140–D147 and the test cases as approved, D143 and D145 as amended by the
+user. Screenshots approved by the user 2026-10-10.
+
+**Built.**
+
+- **The model.** `engine/model/related_columns.py` resolves `related:<key>` for a type (relation
+  type, direction, the bindings behind it, whether it is single-valued) for every reader: validation,
+  the list's `expand` and its sort. `check_fields` takes `related_model` where a caller allows
+  relation columns (table view columns and sort fields, children and table panel columns), requires
+  schema 0.9 and resolves the key for each listed type; everywhere else a relation column is refused
+  naming where it may stand. A table view's sort field must be single-valued.
+- **The list.** `GET /objects/{objectTypeKey}` takes `expand` and `expandLimit`
+  (`model_query.list_expansions`, `422 INVALID_EXPAND`), renders them through Q3's step, now shared
+  (`projections/model_query.expand_records`), and answers `TypedObjectPage` with `QueryObject` items.
+  `sort=related:<key>` reads the related name through a `related` reader on `ObjectColumns`: live a
+  lookup per row by the relation's own-end index, in a change set or publication the context's
+  relations of the type joined once, grouped by the listed end; a many-valued key is `INVALID_SORT`.
+- **Q3's expansion, rewritten.** `expansion_rows` built one `UNION ALL` arm per anchor, each with its
+  own CTE and count: 611 ms for a list page of 100 with two keys. Each anchor now reads its rows and
+  its total through two `LATERAL` subqueries over the unnested page (live, the relations behind an
+  `OFFSET 0` fence, as PG5's CTE was; in a context, the page's relations read once as a CTE and
+  filtered per anchor, since the projection's arms sit too deep to correlate).
+- **The browser.** `model/lookup.relatedColumn` and `isSingleValuedRelatedColumn`; `model/fields`
+  names a relation column, reads its records (`relatedRecords`), lists the keys to request
+  (`relatedKeys`) and sorts it only where single-valued; `ui/FieldValue` draws the chips and "+N more"
+  (`.related-records`: "+N more" fixed at the end, the second chip shrinking 8 times and later ones 64
+  times faster than the first, so the first name stays readable); `CollectionView` and
+  `CollectionPanelTable` ask for the shown relation columns only. `CollectionView` computes its columns
+  and display before its read, which now depends on them.
+- **The starter 0.9.4**: Maps to master value and Represents reference structure on system values,
+  Is represented by system value on master values. Test helpers drop relation columns when they lower
+  the starter below schema 0.9 (`model_support.without_relation_columns`) and rename `related:<key>`
+  with the keys (`renamed_model`).
+
+**Checks.** Backend: the five new journey tests failed first (10 runs, generated A and B: unknown
+`expand`, a refused `related:` column), then passed. `queries`, `model` and `contract` in parallel:
+634 passed, 7 failed first (the lowered and renamed starters, the list's response schema, the API
+inventory, the lock), fixed as above; then the failed modules, 317 passed; `queries` again after the
+expansion rewrite, 255 passed. `change_sets` (the snapshot row): 362 passed in 2 min 15 s, over the
+2-minute ceiling. The serial part of the four groups: 2 passed. The OpenAPI document was diffed
+against `2047295` before its hash was re-locked: `expand` and `expandLimit` on the per-type list,
+`TypedObjectPage` as its response, its sort description and `QueryObject`'s description; no other
+path. A scratch check (deleted) confirmed position jumps and `from=end` in a change set under the
+relation sort, both directions. Ruff on `app/` and the changed tests. Frontend: Vitest `related` over
+the changed files, 51 files, 530 passed, 1 failed (see Found); the 11 new cases (`model/fields.test`,
+`FieldValue.test`, a `CollectionPanelTable.test` case); `tsc`, `format`, `lint` (0 errors, the 7
+recorded warnings), `build`. Runners: `test:browser:k5` 8 checks, `test:browser:k3` 16,
+`test:browser:k1` 11. _Corrected 2026-10-10 (K5a): the K3 run reported here had failed; its output
+was read through a filter that did not show the runner's failure lines. The starter's relation
+column put "K3 Master 002" in the list behind the opened record, so the runner's text wait found that
+hidden chip first. The runner now waits for visible text and passes (exit 0); every runner since is
+judged by its exit code and `report.json`._ Not run: the full suites, `budget`, `test:a11y`, `test:visual` (R).
+
+**Cost, measured once** (0.1 volume fixture, 10,000 items, median of three, a page of 100):
+
+| | live | change set | publication |
+| --- | --- | --- | --- |
+| plain page | 11 ms · 5 statements | 15 ms · 6 | 9 ms · 5 |
+| two `expand` keys | 45 ms · 9 (611 ms before the rewrite) | 31 ms · 9 (860) | 21 ms · 8 (289) |
+| sorted by a single-valued column | 95 ms · 9 | 39 ms · 10 (4.8 s with a lookup per row) | 31 ms · 9 |
+| sorted descending, two keys | 107 ms · 13 | 52 ms · 13 | 43 ms · 12 |
+
+Q3's 20-row expansions on the same fixture: 12.4 ms (1,500 citations) and 18.6 ms (20,000 children).
+Not measured at full volume; R's budget run covers the list.
+
+**Evidence, separately.** Functional: the runners' checks above. Accessibility: axe 0 violations on
+both tables at 1440px light and dark and at 390px; rows move by ArrowDown as before; chips are not
+focusable (D144). Visual: the screenshots were inspected. At the default column width the first two
+chips were clipped alike ("K5 Mast…" three times); later chips now give way first ("K5 Master Alp…",
+"K5 Master Br…", "K", "+2 more"). At 390px the column is narrow: the first chip shows "K5 …" and the
+later ones only their markers before "+2 more", as D143 has it.
+
+**Differences from the plan.**
+
+- D145 amended by the user: a single-valued column sorts (behaviour 6, test case 2a).
+- The plan said the key resolution would be shared with Q3's `expand`; Q3 names a relation type and
+  a direction, not a key, so the list resolves keys in `related_columns` and both read through Q3's
+  `Expansion` and `expansion_rows`.
+- The plan's checks named `records`; the execution guide maps the changed files to `queries`,
+  `model`, `contract` and `change_sets`, which ran instead.
+- `expansion_rows` was rewritten (not planned): the measurement showed the list page with `expand`
+  six times over budget.
+- At 390px the table starts with its first columns (existing behaviour); the runner shows all
+  columns before checking the cell.
+- MODEL_AUTHORING is unchanged: it plans the model editor, whose column choice will offer relation
+  columns when it is built.
+
+**Found.**
+
+- `App.test` "shows collections and records in one application browser…" failed once in the 51-file
+  Vitest run (a synchronous `getByRole("tree")`) and passed alone and in its file twice; timing under
+  load.
+- `test_api_reference.py::test_docs_serves_the_bundled_script_with_the_management_source` failed
+  once in the parallel run and passed alone, as in K2b and K3.
+- The `change_sets` group took 2 min 15 s, over the 2-minute package ceiling.
+- The dev instance's active model is not changed by this package; the starter 0.9.4 applies where the
+  starter is installed.
+
+#### K5a: A field of the related records in a relation column
+
+**Added 2026-10-09 by the user**, to show a type's translations by their language codes in the
+example model. **Design:** this entry; K5 (D140–D147); the consumer API's
+`ancestor:<type>.<field>` reference (C18). **Needs:** K5.
+
+**Why.** A K5 column shows the name of the record at the other end of one relationship. What a
+reader wants is sometimes a field of that record, or of a record above it: a translation is known by
+the code of the language it sits under, a related value by its code. The example model names its
+translations "`<value code> · <language code>`", so a translations column repeats the row's own code
+in every chip and fits three of seven; the language codes alone ("ar cs en +4 more") say the same in
+a third of the width.
+
+**What exists.** K5's `related:<key>` (`engine/model/related_columns.py`), the list's `expand` with
+Q3's `Expansion` and `expansion_rows`, and `projections/model_query.expand_records`, which renders
+every related record of the page in one batch with its attributes and its `path` (ancestors by ID,
+name and type). The consumer API validates `ancestor:<type>.<field>` against the related types
+(`consumer_contract.reference_value_type`: a built-in field or an attribute one of the types binds, of
+the record or of an ancestor of a type one of them can sit under). Model keys other than consumer
+API keys may contain a dot.
+
+**Behaviour.**
+
+1. **A column names a field**: `related:<key>.<field>`, where `<field>` is `name`, an attribute one
+   of the types at the other end binds, or `ancestor:<type>.<field>` (`name` or an attribute of that
+   type), the type one they can sit under (D148). `related:<key>` stays the name. Because a key may
+   contain a dot, the column resolves against the model: the whole text after `related:` when it is a
+   key, otherwise the longest key it starts with followed by a dot.
+2. **Its header** is the relation's name in its direction and the field's label: "Has translation ·
+   Language code" (D152).
+3. **Its cell** shows each related record's value of the field as a chip in that record's type
+   colour, up to three in the related records' name order, then "+N more"; a record without a value
+   shows "—" in its chip, so the count stays true (D149).
+4. **Refused** at validation, with its pointer: an unknown field, an attribute no type at the other
+   end binds, a JSON attribute, an ancestor type none of them can sit under, below schema 0.9; and in
+   `sortFields` (D151).
+5. **API**: `expand=<key>.<field>` (D150). The entry is the K5 entry with `field` naming it, and each
+   record's `fields` holds `name` and the field's value (typed as stored; an ancestor's `name` or
+   attribute); `INVALID_EXPAND` for a field that does not resolve. A sort by such a column is
+   `INVALID_SORT`.
+
+**Design.** `related_columns`: `related_field_column(model, type, text)` resolves the key and the
+field (with `reference_value_type`), shared by validation, the list's `expand` and the sort's refusal.
+`model_query.Expansion` gains `field`; `expand_records` reads the field's values for the page's
+related records: a record's own field from its rendered attributes, an ancestor's name from its path,
+an ancestor's attribute by reading those ancestors once for the page (live or in the context).
+`ExpandedRelations` gains `field`, omitted when none, so Q3's answers do not change. Frontend:
+`model/lookup.relatedColumn` resolves the field and names it; `ui/FieldValue` draws the field's value;
+`relatedRecords` matches the entry by its field too.
+
+**Decisions** (taken by the agent at the user's request to plan and implement in one step;
+**accepted by the user 2026-10-10** with the delivery):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D148 | How a column names a field | **`related:<key>.<field>`, the field as the consumer API writes it (`name`, an attribute, `ancestor:<type>.<field>`), resolved against the model since a key may contain a dot.** One reference form for "a field of a related record" across the engine. The alternative, a separate property on the view (`relatedFields`), splits one column over two places |
+| D149 | A record without the field's value | **Its chip shows "—".** The chips stand for records, so the count and "+N more" stay true; leaving it out would show fewer chips than records |
+| D150 | The API | **`expand` takes the same text; the entry names its `field`, each record's `fields` carries it beside `name`.** One parameter for both forms; `field` is omitted when none, so K5 and Q3 answers are unchanged |
+| D151 | Sorting by such a column | **Not in K5a**: refused in `sortFields` and as `sort`. A single-valued column sorts by the related name (D145); sorting by an ancestor's attribute needs that ancestor read for every listed record, which waits for a real case |
+| D152 | The header | **The relation's name, then the field's label: an attribute's name, or for an ancestor field the ancestor type's name with the field's label when it is not `name`** ("Has translation · Language code", "Has translation · Language") |
+
+The chips keep the related records' name order (the relationships list's default, so `nextCursor`
+continues it), not the order of the shown values.
+
+**Journeys.** J01.9 (new) *A field of the related records in a list* (UI, API). J08.12 gains the
+field form's refusals. USER_JOURNEYS, API_JOURNEYS, UI_ACCEPTANCE (K5-1 extended).
+
+**Test cases.**
+
+1. **An ancestor's name and attribute** (`test_j01_find_and_inspect`, J01.9). R records related by
+   the scoped many-to-many binding to D records under two G records: `expand` of the binding with
+   `ancestor:G.name` and with G's attribute gives each record's G name and attribute value, with
+   `field` on the entry; with the D attribute, its typed value; plain `expand` of the key unchanged.
+2. **Refused** (J01.9): an ancestor type D cannot sit under, an attribute no D binds, as `sort`:
+   `INVALID_EXPAND`, `INVALID_SORT`.
+3. **The model** (J08.12): `related:<key>.ancestor:<G>.<attribute>` validates in a table view;
+   refused with an unknown field, an ancestor D cannot sit under, and in `sortFields`.
+
+Vitest: the header and the chip's value, "—" for a record without one; the runner `test:browser:k5`
+gains the master values' "Is represented by system value · System" column read through the API
+(the starter keeps its columns).
+
+**Checks.** The journey tests above, `queries`, `model` and `contract` (OpenAPI diffed, lock
+re-baselined), Ruff; Vitest `related`, format, lint, build; `test:browser:k5`.
+
+**Composable domains (ADR-032):** a read only; no door is affected.
+
+##### K5a record (2026-10-10)
+
+**Delivered 2026-10-10.** D148–D152 taken by the agent at the user's request to plan and implement
+in one step, accepted by the user 2026-10-10 with the screenshots. Test cases as planned, written and confirmed failing
+before the code.
+
+**Built.**
+
+- **The engine.** `related_columns.related_field_column` resolves `<key>` or `<key>.<field>` (the whole
+  text when it is a key, otherwise the longest key it starts with) and checks the field with the
+  consumer API's `reference_value_type`, refusing JSON; validation, the list's `expand` and the
+  sort's refusal all read it. `Expansion` gains `field`; `expand_records` reads each field's values
+  for the page's related records once: a record's own value from its rendered attributes, an
+  ancestor's name or ID from its `path`, an ancestor's attribute by rendering the page's ancestors in
+  one batch (`_field_values`). `ExpandedRelations.field`, omitted when none, so K5's and Q3's answers
+  are unchanged.
+- **The browser.** `relatedColumn` resolves the field as the engine does; `relatedFieldLabel` names it
+  (D152); `relatedText` gives a chip's text ("—" for none, booleans as Yes and No); a field column is
+  never sortable.
+- **The example model 0.9.3**: one type's collection shows its translations'
+  language codes (`related:<translations>.ancestor:<language>.<code>`), installed and activated on the
+  development instance, where its rows read `ar` `cs` `en` +4 more. The 0.9.2 step the user asked for
+  before (relation columns of four relationships, the single-valued one sortable) is in the same file.
+
+**Checks.** Backend: the J01.9 case and the J08.12 field case failed first on both generated
+configurations (an unresolved key; the column refused), then passed with J01, J08 and J22's files
+(62 passed). `queries`, `model` and `contract`: 642 passed, 1 failed, the OpenAPI lock; the document
+was diffed against `2047295`: beyond K5's changes, `ExpandedRelations.field` and the `expand`
+description; re-locked, the contract modules pass. Ruff on `app/` and `tests/`. Frontend: Vitest
+`related` over the changed model and cell files, 35 files, 425 passed (the K5a cases in
+`model/fields.test` and `FieldValue.test`); `tsc`, `format`, `lint` (0 errors, the 7 recorded
+warnings), `build`. Runners, judged by exit code and `report.json`: `test:browser:k5` 9 checks
+(scenario 11 added), `test:browser:k3` 16 (after the locator fix above), `test:browser:k1` 11; at the
+user's request, the nine runners that open the two collections the starter's columns changed: `a4`,
+`b4`, `j4`, `p2`, `s5`, `sc07`, `sc15` and `wp14` pass; `a5` fails (see Found). Not run: the full
+suites, `budget`, `test:a11y`, `test:visual` (R).
+
+**Evidence, separately.** Functional: the checks above and the development instance's list.
+Accessibility: axe 0 violations on both tables in K5's runner, light and dark, with the field column
+present on the master values. Visual: the master values' field column inspected at 1440px (Bravo's two
+values each "K5-System"). The runner's screenshots for the user's approval, K5's included, are in the
+final run's output folder.
+
+**Differences from the plan.**
+
+- The plan's runner check named the starter keeping its columns and a column "read through the API";
+  the runner adds the field column to the master values' view for its run instead, so the browser
+  draws it.
+- The K3 runner's locator was fixed (see the K5 record's correction).
+
+**Found.**
+
+- `test:browser:a5` (relation matrix acceptance) fails at its starter part: a cell dialog "… · de" is
+  not closed within 10 s. It fails the same way on `2047295` without K5 and K5a, so it predates them;
+  for R.
+- Cleaning up runner output this session removed every `rdm-ui07-gate-*` folder in the temporary
+  directory, including ones other sessions may have left; they held screenshots and reports only.
 
 ## R: Build acceptance and release
 

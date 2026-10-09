@@ -1076,6 +1076,36 @@ in every context (S4R4); before 0.8 it listed live records in creation order and
 records by ID. Page size defaults to 100 and has a documented
 maximum of 500. `nextCursor` is null only when that traversal is complete.
 
+**Relation columns (Base 0.9 K5, D140–D145).** `expand=<key>` (repeatable, at most 5) adds to each
+item the records at the other end of one relationship: `<key>` is a relation type's `key` (the
+type's outgoing relationships) or `reverseKey` (its incoming ones), which share one namespace, and
+the type must have a binding of it at that end. Each item then carries `expanded`, one entry per
+`expand` in the request's order, in the shape of the [model-aware query](#model-aware-query-base-09-q3)'s
+expansions: `relationTypeKey`, `direction`, `count` (how many related records the item has), `items`
+(the first `expandLimit`, 1–20, default 3, in name order, each `{relationId, object: {id,
+objectTypeKey, version, fields: {name}}}`) and `nextCursor`, which continues on `GET /relations` with
+the item as `objectId`, or is null when `items` holds them all. Without `expand` the items are as
+before and carry no `expanded`. An unknown key, a key the type has no binding of, the same key twice
+or more than five are `422 INVALID_EXPAND` with `details.parameter` `expand` and the `value`.
+Every context reads its own relationships; `asOf` dates the listed records, not the related ones.
+`expand=<key>.<field>` (Base 0.9 K5a, D148, D150) also reads a field of each related record, written
+as in a consumer API definition: `name`, an attribute one of the types at the other end binds, or
+`ancestor:<type>.<field>` (`name` or an attribute of that ancestor, the one nearest the root). The
+entry then names it in `field`, and each record's `fields` holds its value beside `name`, typed as
+stored, `null` where the record has none; the records keep their name order. A key may contain a
+dot, so the text resolves as the whole key when it is one, otherwise as the longest key it starts
+with. A field that does not resolve, or holds JSON, is `INVALID_EXPAND`; a sort by such a column is
+`INVALID_SORT` (D151).
+A page of 100 with two keys took 45 ms live, 31 ms in a change set and 21 ms in a publication on the
+0.1 volume fixture: one statement per key for the whole page.
+
+`sort=related:<key>` (or `-related:<key>`) orders by the related record's name where the key is
+single-valued for the type: exactly one binding stands behind it and the type's end of it holds at
+most one relationship (`one-to-one`, `one-to-many` read from `to`, `many-to-one` read from `from`).
+Records without one sort last in both directions, as with an attribute, and every paging mode
+works over it. A key a record can hold several of is `422 INVALID_SORT`. 10,000 records sorted by
+it: 95 ms live, 39 ms in a change set, 31 ms in a publication (0.1 volume fixture).
+
 `topLevel=true` (Base 0.8 S4) lists only records without a parent, so a tree can page a root type
 without loading its descendants; it holds in change-set and publication contexts too. It cannot be combined
 with `parentObjectId` (`422 MUTUALLY_EXCLUSIVE_SCOPE`). A branch whose children have several types

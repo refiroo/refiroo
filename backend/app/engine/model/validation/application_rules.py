@@ -20,6 +20,7 @@ from ....models.schema import (
     ViewDefinition,
 )
 from ..diagnostics import ModelReferenceError
+from ..related_columns import RELATED_FIELD_PREFIX, is_related_field, related_field_column
 from ..traversal import ancestor_type_keys, parent_type_keys
 from .detail_view_rules import check_details
 from .fields import check_fields, require_schema
@@ -41,7 +42,7 @@ def check(model: EngineModel, index: ModelIndex) -> None:
         for view in application.views:
             view_path = f"{application_path}/views/{pointer_segment(view.key)}"
             if isinstance(view, TableViewDefinition):
-                _check_table_view(application, view, view_path, index)
+                _check_table_view(model, application, view, view_path, index)
             elif isinstance(view, MappingGridViewDefinition):
                 require_schema(model, "0.6", f"{view_path}/type", "The mappingGrid view type")
                 _check_mapping_grid_view(application, view, view_path, model, index)
@@ -85,6 +86,7 @@ def _view_map(
 
 
 def _check_table_view(
+    model: EngineModel,
     application: ApplicationDefinition,
     view: TableViewDefinition,
     view_path: str,
@@ -103,11 +105,13 @@ def _check_table_view(
         index.object_types,
         label=f"View '{application.key}.{view.key}'",
         path=f"{view_path}/config/columns",
+        related_model=model,
     )
     attached = {
         binding.attributeTypeKey for binding in index.object_types[view.objectTypeKey].attributes
     }
-    unsupported_columns = set(view.config.columns) - BUILT_IN_COLUMNS - attached
+    related = {column for column in view.config.columns if is_related_field(column)}
+    unsupported_columns = set(view.config.columns) - BUILT_IN_COLUMNS - attached - related
     if unsupported_columns:
         raise ModelReferenceError(
             "INVALID_MODEL",
@@ -127,9 +131,10 @@ def _check_table_view(
             index.object_types,
             label=f"View '{application.key}.{view.key}'",
             path=f"{view_path}/config/{purpose}Fields",
+            related_model=model if purpose == "sort" else None,
         )
         for field in fields:
-            _check_query_capability(view, field, purpose, view_path, index)
+            _check_query_capability(model, view, field, purpose, view_path, index)
     default_field = view.config.defaultSort.removeprefix("-")
     if default_field not in view.config.sortFields:
         raise ModelReferenceError(
@@ -149,6 +154,7 @@ def _check_unique_fields(fields: tuple[str, ...], view_path: str, name: str) -> 
 
 
 def _check_query_capability(
+    model: EngineModel,
     view: TableViewDefinition,
     field: str,
     purpose: str,
@@ -158,6 +164,26 @@ def _check_query_capability(
     built_in = {"id", "name", "createdAt", "updatedAt"}
     # Any list sorts by its records' object type name; filters take stored fields only.
     if field in built_in or (purpose == "sort" and field == "objectType"):
+        return
+    if is_related_field(field):
+        # check_fields resolved it; only a column whose row holds at most one sorts (D145).
+        column = related_field_column(
+            model, view.objectTypeKey, field.removeprefix(RELATED_FIELD_PREFIX)
+        )
+        if column.field is not None:
+            raise ModelReferenceError(
+                "INVALID_MODEL",
+                f"{view_path}/config/{purpose}Fields",
+                f"Relation column '{field}' shows a field of the related records and cannot be used"
+                f" to {purpose}; only one showing their name sorts (D151)",
+            )
+        if not column.single_valued:
+            raise ModelReferenceError(
+                "INVALID_MODEL",
+                f"{view_path}/config/{purpose}Fields",
+                f"Relation column '{field}' can hold several records in a row and cannot be used"
+                f" to {purpose}; only one whose row holds at most one sorts",
+            )
         return
     object_type = index.object_types[view.objectTypeKey]
     if field not in {binding.attributeTypeKey for binding in object_type.attributes}:

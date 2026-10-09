@@ -29,6 +29,7 @@ from ...errors import ApiError, api_error
 from ...models.database import ObjectRelation, RdmObject
 from ...models.queries import ModelQuery, QueryCriterion, QueryExpansion
 from ...models.schema import EngineModel, ObjectTypeDefinition
+from ..model.related_columns import RelatedKeyError, related_field_column
 from ..model.traversal import ancestor_type_keys, related_object_types
 from ..model.validation.fields import ANCESTOR_FIELD_PREFIX
 from .object_query import (
@@ -75,6 +76,8 @@ class Expansion:
     direction: str
     select: tuple[str, ...] | None
     limit: int
+    # The per-type list's field of each related record beside its name (0.9 K5a); Q3 names none.
+    field: str | None = None
 
 
 @dataclass(frozen=True)
@@ -521,6 +524,48 @@ def _expansions(
         )
         result.append(Expansion(item.relationTypeKey, item.direction, select_fields, item.limit))
     return tuple(result)
+
+
+# The per-type list's relation columns (0.9 K5, D142): at most this many per request, each record
+# shown by its name.
+MAX_LIST_EXPANSIONS = 5
+LIST_EXPANSION_SELECT = ("name",)
+
+
+def list_expansions(
+    model: EngineModel, object_type_key: str, keys: Sequence[str], limit: int
+) -> tuple[Expansion, ...]:
+    """The per-type list's ``expand``: relation keys or reverse keys of the listed type, each read
+    as Q3 reads an ``expand`` of that relation type and direction, its records narrowed to ``name``,
+    and to a field beside it when the key names one (``<key>.<field>``, 0.9 K5a).
+    """
+    if len(keys) > MAX_LIST_EXPANSIONS:
+        _invalid_expand(
+            f"expand names at most {MAX_LIST_EXPANSIONS} relationships; {len(keys)} were named",
+            keys[MAX_LIST_EXPANSIONS],
+        )
+    result: list[Expansion] = []
+    for key in keys:
+        if key in keys[: len(result)]:
+            _invalid_expand(f"expand names '{key}' twice", key)
+        try:
+            column = related_field_column(model, object_type_key, key)
+        except RelatedKeyError as error:
+            _invalid_expand(str(error), key)
+        result.append(
+            Expansion(
+                column.relation_type_key,
+                column.direction,
+                LIST_EXPANSION_SELECT,
+                limit,
+                column.field,
+            )
+        )
+    return tuple(result)
+
+
+def _invalid_expand(message: str, value: str) -> NoReturn:
+    raise api_error(422, "INVALID_EXPAND", message, {"parameter": "expand", "value": value})
 
 
 def _as_of(object_type: ObjectTypeDefinition, as_of: str | None) -> date | None:

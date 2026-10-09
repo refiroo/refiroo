@@ -1,4 +1,7 @@
+from typing import Any
+
 from fastapi import APIRouter, Query, Request, Response, status
+from sqlalchemy.orm import Session
 
 from ...common.pagination import paginate_statement
 from ...engine.change_sets.records import (
@@ -7,6 +10,7 @@ from ...engine.change_sets.records import (
     update_change_set_object,
 )
 from ...engine.model.registry import resolve_change_set_snapshot, resolve_model_snapshot
+from ...engine.reads.model_query import Expansion, list_expansions
 from ...engine.reads.object_lookup import (
     build_live_lookup_query,
     build_snapshot_lookup_query,
@@ -15,6 +19,7 @@ from ...engine.reads.object_lookup import (
 )
 from ...engine.reads.object_query import build_object_query
 from ...engine.reads.snapshot_reads import (
+    SnapshotContext,
     build_snapshot_object_query,
     change_set_context,
     find_object,
@@ -36,6 +41,7 @@ from ...models.commands import (
     ObjectCreate,
     ObjectUpdate,
 )
+from ...models.schema import EngineModel
 from ..dependencies import DbSession, RequestModelSnapshot
 from ..paging import PageQuery, SeekablePageQuery
 from ..presenters import (
@@ -43,9 +49,11 @@ from ..presenters import (
     build_object_responses,
     change_set_object_response,
 )
+from ..projections.model_query import expand_records
 from ..projections.parent_candidates import parent_candidates
 from ..query_parameters import accepts_field_filters
 from ..schemas.common import CalendarDate
+from ..schemas.queries import QueryObject, TypedObjectPage
 from ..schemas.records import AuditEventPage, ObjectPage, ObjectResponse, ParentCandidatePage
 
 router = APIRouter(prefix="/api/v1", tags=["objects"])
@@ -207,9 +215,22 @@ _AS_OF = Query(
 )
 
 
+_EXPAND = Query(
+    default=None,
+    description=(
+        "Repeatable, at most 5: a relation type's key (its outgoing relationships) or reverse key"
+        " (its incoming ones) that the type has a binding of, optionally followed by '.' and a"
+        " field of the related records (name, an attribute, or ancestor:<type>.<field>). Each item"
+        " then carries `expanded`, one entry per key in this order: the first `expandLimit` related"
+        " records in name order (each with its name, and the field's value under `field`) and how"
+        " many there are; INVALID_EXPAND otherwise"
+    ),
+)
+
+
 @router.get(
     "/objects/{object_type_key}",
-    response_model=ObjectPage,
+    response_model=TypedObjectPage,
     openapi_extra={
         "parameters": [
             {
@@ -248,13 +269,22 @@ def list_objects(
         default=None,
         description=(
             "One field: name, id, objectType, (live only) createdAt or updatedAt, a scalar"
-            " attribute of the type, or ancestor:<type>; prefix '-' for descending; name when"
-            " omitted"
+            " attribute of the type, ancestor:<type>, or related:<key> where a record holds at most"
+            " one such relationship; prefix '-' for descending; name when omitted"
         ),
     ),
     as_of: CalendarDate | None = _AS_OF,
-) -> ObjectPage:
+    expand: list[str] | None = _EXPAND,
+    expand_limit: int = Query(
+        default=3,
+        ge=1,
+        le=20,
+        alias="expandLimit",
+        description="How many related records each `expand` entry shows per item",
+    ),
+) -> TypedObjectPage:
     model = snapshot.model
+    expansions = list_expansions(model, object_type_key, expand or [], expand_limit)
     if change_set_id and publication_id:
         raise api_error(
             422,
@@ -302,14 +332,14 @@ def list_objects(
             parts=query.parts,
         )
         paths = object_paths(session, context, page.items)
-        return ObjectPage(
-            items=[
-                change_set_object_response(
-                    row, context.id, model, path=paths[row.object_id]
-                ).model_copy(update={"workspaceKey": context.workspace_key})
-                for row in page.items
-            ],
-            **page.links(),
+        records = [
+            change_set_object_response(
+                row, context.id, model, path=paths[row.object_id]
+            ).model_copy(update={"workspaceKey": context.workspace_key})
+            for row in page.items
+        ]
+        return _typed_page(
+            session, model, context, context.workspace_key, records, expansions, page.links()
         )
     workspace = resolve_workspace(session, workspace_key)
     workspace_key = workspace.key
@@ -338,7 +368,35 @@ def list_objects(
         seek=query.seek,
         parts=query.parts,
     )
-    return ObjectPage(items=build_object_responses(session, model, page.items), **page.links())
+    records = build_object_responses(session, model, page.items)
+    return _typed_page(session, model, None, workspace_key, records, expansions, page.links())
+
+
+def _typed_page(
+    session: Session,
+    model: EngineModel,
+    context: SnapshotContext | None,
+    workspace_key: str,
+    records: list[ObjectResponse],
+    expansions: tuple[Expansion, ...],
+    links: dict[str, Any],
+) -> TypedObjectPage:
+    """The per-type list's page, each record with its relation columns when ``expand`` named any."""
+    expanded = expand_records(
+        session,
+        model,
+        context,
+        workspace_key=workspace_key,
+        anchor_ids=[record.id for record in records],
+        expansions=expansions,
+    )
+    return TypedObjectPage(
+        items=[
+            QueryObject(**record.model_dump(), expanded=expanded.get(record.id))
+            for record in records
+        ],
+        **links,
+    )
 
 
 _LOOKUP_OBJECT_TYPE_KEYS = Query(

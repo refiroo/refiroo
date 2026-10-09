@@ -280,3 +280,246 @@ def test_related_records_of_another_application_searched_and_sorted(world):
     ranks = [world.value(r, "K.rank") for r in records]
     present = [value for value in ranks if value is not None]
     assert present == sorted(present) and ranks[len(present) :] == [None] * (30 - len(present))
+
+
+def _reverse_key(world, structure):
+    """The reverse key of a relationship's type, which names it read from its ``to`` end."""
+    key = world.key(structure)
+    return next(r["reverseKey"] for r in world.configuration.model["relationTypes"] if r["key"] == key)
+
+
+def _shown(expanded):
+    return [item["object"]["fields"]["name"] for item in expanded["items"]]
+
+
+def _tokens(world, tag, names):
+    return {
+        name: world.made("K", f"{tag} {name}", values={"K.code": f"{tag}-{name}"})["id"]
+        for name in names
+    }
+
+
+@pytest.mark.journey("J01.8")
+@pytest.mark.structures("H", "K", "Bnn", "Bn1")
+def test_a_list_shows_each_rows_related_records(world):
+    """Given H records related to 0, 1 and 4 K records by a many-to-many relationship, one of them
+    also holding one K by a many-to-one relationship. When the H list is read with both
+    relationships expanded, and the K list with the many-to-many read from its other end. Then each
+    row carries, in the request's order, its first 3 related records in name order and how many
+    there are; only a row with more continues, on the relationships list; without expand the items
+    are as before."""
+    tag = uuid4().hex[:6]
+    k = _tokens(world, tag, ["Alpha", "Bravo", "Charlie", "Delta"])
+    h0, h1, h4 = (world.made("H", f"{tag} H{n}")["id"] for n in (0, 1, 4))
+    ok(world.relate("Bnn", h1, k["Bravo"], {"Bnn.weight": 1}), 201)
+    for name in ("Delta", "Charlie", "Bravo", "Alpha"):
+        ok(world.relate("Bnn", h4, k[name], {"Bnn.weight": 1}), 201)
+    ok(world.relate("Bn1", h1, k["Delta"]), 201)
+    bnn, bn1 = world.key("Bnn"), world.key("Bn1")
+
+    page = ok(world.api.get(f"/objects/{world.key('H')}", search=tag, expand=[bnn, bn1]))
+    rows = {item["id"]: item["expanded"] for item in page["items"]}
+    assert set(rows) == {h0, h1, h4}
+    for expanded in rows.values():
+        assert [(e["relationTypeKey"], e["direction"]) for e in expanded] == [
+            (bnn, "outgoing"),
+            (bn1, "outgoing"),
+        ]
+    assert [(e["count"], _shown(e), e["nextCursor"]) for e in rows[h0]] == [(0, [], None)] * 2
+    assert [(e["count"], _shown(e)) for e in rows[h1]] == [
+        (1, [f"{tag} Bravo"]),
+        (1, [f"{tag} Delta"]),
+    ]
+    many = rows[h4][0]
+    assert many["count"] == 4
+    assert _shown(many) == [f"{tag} {name}" for name in ("Alpha", "Bravo", "Charlie")]
+    assert rows[h1][0]["nextCursor"] is None and many["nextCursor"]
+    rest = ok(
+        world.api.get(
+            "/relations",
+            objectId=h4,
+            direction="outgoing",
+            relationTypeKey=bnn,
+            cursor=many["nextCursor"],
+        )
+    )
+    assert [item["object"]["name"] for item in rest["items"]] == [f"{tag} Delta"]
+
+    backwards = ok(
+        world.api.get(
+            f"/objects/{world.key('K')}", search=tag, expand=_reverse_key(world, "Bnn"), expandLimit=1
+        )
+    )
+    bravo = next(item for item in backwards["items"] if item["id"] == k["Bravo"])
+    [served] = bravo["expanded"]
+    assert (served["relationTypeKey"], served["direction"], served["count"]) == (bnn, "incoming", 2)
+    assert _shown(served) == [f"{tag} H1"] and served["nextCursor"]
+
+    plain = ok(world.api.get(f"/objects/{world.key('H')}", search=tag))
+    assert all("expanded" not in item for item in plain["items"])
+
+
+@pytest.mark.journey("J01.8")
+@pytest.mark.structures("H", "K", "Bnn")
+def test_a_lists_related_records_follow_its_context(world):
+    """Given H record h related to K records a and b. When a change set relates h to c and removes
+    a, and live is read, the change set, and a publication taken before. Then each list shows its
+    own context's related records."""
+    tag = uuid4().hex[:6]
+    k = _tokens(world, tag, ["Alpha", "Bravo", "Charlie"])
+    h = world.made("H", f"{tag} Holder")["id"]
+    first = ok(world.relate("Bnn", h, k["Alpha"], {"Bnn.weight": 1}), 201)
+    ok(world.relate("Bnn", h, k["Bravo"], {"Bnn.weight": 1}), 201)
+    published = world.publish(world.change_set(name=f"{tag} before"))
+    cs1 = world.change_set(name=f"{tag} staged")
+    ok(
+        world.relate(
+            "Bnn",
+            h,
+            k["Charlie"],
+            {"Bnn.weight": 1},
+            changeSetId=cs1["id"],
+            expectedChangeSetVersion=world.current(cs1)["version"],
+        ),
+        201,
+    )
+    ok(
+        world.api.delete(
+            f"/relations/{first['id']}",
+            expectedVersion=first["version"],
+            changeSetId=cs1["id"],
+            expectedChangeSetVersion=world.current(cs1)["version"],
+        ),
+        204,
+    )
+    bnn = world.key("Bnn")
+
+    def shown(**context):
+        page = ok(world.api.get(f"/objects/{world.key('H')}", search=tag, expand=bnn, **context))
+        [item] = page["items"]
+        [expanded] = item["expanded"]
+        return expanded["count"], _shown(expanded)
+
+    assert shown() == (2, [f"{tag} Alpha", f"{tag} Bravo"])
+    assert shown(changeSetId=cs1["id"]) == (2, [f"{tag} Bravo", f"{tag} Charlie"])
+    assert shown(publicationId=published["id"]) == (2, [f"{tag} Alpha", f"{tag} Bravo"])
+
+
+@pytest.mark.journey("J01.8")
+@pytest.mark.structures("H", "K", "Bn1", "Bnn")
+def test_a_list_sorts_by_a_single_valued_relationship(world):
+    """Given H records each holding one K by a many-to-one relationship, and H records holding none.
+    When the H list is sorted by that relationship, ascending and descending, two rows a page, live
+    and in a change set. Then the rows follow their K's name, those without one last in both
+    directions, every row once across the pages; a many-to-many relationship is refused as a
+    sort."""
+    tag = uuid4().hex[:6]
+    k = _tokens(world, tag, ["Alpha", "Bravo", "Charlie"])
+    holders = {}
+    for name, token in (("One", "Charlie"), ("Two", "Alpha"), ("Three", "Bravo"), ("Four", None)):
+        holders[name] = world.made("H", f"{tag} {name}")["id"]
+        if token:
+            ok(world.relate("Bn1", holders[name], k[token]), 201)
+    world.made("H", f"{tag} Five")
+    bn1 = world.key("Bn1")
+    cs1 = world.change_set(name=f"{tag} sorted")
+
+    def read(sort, **context):
+        items, cursor = [], None
+        while True:
+            page = ok(
+                world.api.get(
+                    f"/objects/{world.key('H')}",
+                    search=tag,
+                    sort=sort,
+                    pageSize=2,
+                    cursor=cursor,
+                    expand=bn1,
+                    **context,
+                )
+            )
+            items += page["items"]
+            cursor = page.get("nextCursor")
+            if not cursor:
+                return items
+
+    for context in ({}, {"changeSetId": cs1["id"]}):
+        ascending = read(f"related:{bn1}", **context)
+        held = [_shown(item["expanded"][0]) for item in ascending]
+        assert held[:3] == [[f"{tag} Alpha"], [f"{tag} Bravo"], [f"{tag} Charlie"]]
+        assert held[3:] == [[], []] and len({item["id"] for item in ascending}) == 5
+        descending = read(f"-related:{bn1}", **context)
+        held = [_shown(item["expanded"][0]) for item in descending]
+        assert held[:3] == [[f"{tag} Charlie"], [f"{tag} Bravo"], [f"{tag} Alpha"]]
+        assert held[3:] == [[], []]
+
+    refused(
+        world.api.get(f"/objects/{world.key('H')}", sort=f"related:{world.key('Bnn')}"),
+        422,
+        "INVALID_SORT",
+    )
+
+
+@pytest.mark.journey("J01.8")
+@pytest.mark.structures("H", "K", "Bnn", "Bn1", "R", "B1n")
+def test_an_expand_the_list_cannot_answer_is_refused(world):
+    """When the H list names an unknown key, a relationship H has no binding of, one key twice or
+    six keys in expand, or an expandLimit past 20. Then each is refused, naming the parameter."""
+    h_list = f"/objects/{world.key('H')}"
+    bnn = world.key("Bnn")
+    six = [bnn, world.key("Bn1"), *(f"other-{n}" for n in range(4))]
+    for expand in (["no-such-relation"], [world.key("B1n")], [bnn, bnn], six):
+        error = refused(world.api.get(h_list, expand=expand), 422, "INVALID_EXPAND")
+        assert error["details"]["parameter"] == "expand"
+    assert "at most 5" in refused(world.api.get(h_list, expand=six), 422, "INVALID_EXPAND")["message"]
+    assert world.api.get(h_list, expand=bnn, expandLimit=21).status_code == 422
+
+
+@pytest.mark.journey("J01.9")
+@pytest.mark.structures("R", "G", "D", "D.active", "Bown", "Bscope", "K.code")
+def test_a_list_shows_a_field_of_each_rows_related_records(world):
+    """Given R record r related by the scoped many-to-many relationship to D records under two G
+    records, one D inactive. When the R list expands that relationship with the G ancestor's name,
+    with G's code attribute and with D's own active flag. Then each entry names its field and each
+    record carries its name and that value, typed; the plain key answers as before. An ancestor D
+    cannot sit under, an attribute D does not bind, and a sort by such a column are refused."""
+    tag = uuid4().hex[:6]
+    bscope, g_key, code, active = (world.key(s) for s in ("Bscope", "G", "K.code", "D.active"))
+    regions = [
+        world.made("G", f"{tag} G{n}", values={"K.code": f"{tag}-G{n}"}) for n in (1, 2)
+    ]
+    ds = [
+        world.made(
+            "D",
+            f"{tag} D{n}",
+            parent=world.dependant_parent(region["id"]),
+            values={"D.active": n == 1},
+            relations=[world.owner("Bown", world.made("R", f"{tag} Owner {n}")["id"])],
+        )
+        for n, region in ((1, regions[0]), (2, regions[1]))
+    ]
+    r = world.made("R", f"{tag} Watcher")
+    for d in ds:
+        ok(world.relate("Bscope", r["id"], d["id"]), 201)
+    fields = [f"ancestor:{g_key}.name", f"ancestor:{g_key}.{code}", active]
+
+    page = ok(
+        world.api.get(
+            f"/objects/{world.key('R')}",
+            search=f"{tag} Watcher",
+            expand=[bscope, *(f"{bscope}.{field}" for field in fields)],
+        )
+    )
+    [item] = page["items"]
+    plain, *named = item["expanded"]
+    assert "field" not in plain and _shown(plain) == [f"{tag} D1", f"{tag} D2"]
+    assert [entry["field"] for entry in named] == fields
+    values = [[record["object"]["fields"][entry["field"]] for record in entry["items"]] for entry in named]
+    assert values == [[f"{tag} G1", f"{tag} G2"], [f"{tag}-G1", f"{tag}-G2"], [True, False]]
+    assert all(_shown(entry) == [f"{tag} D1", f"{tag} D2"] for entry in named)
+
+    r_list = f"/objects/{world.key('R')}"
+    for field in (f"ancestor:{world.key('K')}.name", world.key("H.code")):
+        error = refused(world.api.get(r_list, expand=f"{bscope}.{field}"), 422, "INVALID_EXPAND")
+        assert error["details"]["value"] == f"{bscope}.{field}"
+    refused(world.api.get(r_list, sort=f"related:{bscope}.ancestor:{g_key}.name"), 422, "INVALID_SORT")

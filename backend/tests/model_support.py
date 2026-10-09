@@ -15,7 +15,8 @@ def starter_at_schema(schema_version: str, source: dict[str, Any] | None = None)
     """The starter (or ``source``) without the features ``schema_version`` predates.
 
     Schema 0.9 wrote consumer API definitions in their present syntax, and a new 0.8 document may no
-    longer declare them (C18; ``tests/fixtures/consumer_08`` keeps the 0.8 starter as it was). Schema
+    longer declare them (C18; ``tests/fixtures/consumer_08`` keeps the 0.8 starter as it was); it
+    also added relation columns (``related:<key>``, K5). Schema
     0.8 added effective periods, 0.7 relations-panel sort options and the ``relationMatrix`` and
     ``tree`` view types, and 0.6 the ``mappingGrid`` view type.
     """
@@ -25,6 +26,7 @@ def starter_at_schema(schema_version: str, source: dict[str, Any] | None = None)
     result["schemaVersion"] = schema_version
     if schema_version < "0.9":
         result.pop("consumerApis", None)
+        without_relation_columns(result)
     if schema_version < "0.8":
         for object_type in result["objectTypes"]:
             object_type.pop("effectivePeriod", None)
@@ -47,6 +49,16 @@ def starter_at_schema(schema_version: str, source: dict[str, Any] | None = None)
     return result
 
 
+def without_relation_columns(model: dict[str, Any]) -> dict[str, Any]:
+    """``model`` without its table views' ``related:<key>`` columns (schema 0.9, K5), in place."""
+    for application in model["applications"]:
+        for view in application["views"]:
+            if view["type"] == "table":
+                columns = view["config"]["columns"]
+                view["config"]["columns"] = [c for c in columns if not c.startswith("related:")]
+    return model
+
+
 def starter_keys(source: dict[str, Any]) -> set[str]:
     """Every key the model declares: applications, views, details, types and reverse keys."""
     keys = set()
@@ -67,8 +79,8 @@ def renamed_model(
 ) -> tuple[dict[str, Any], dict[str, str]]:
     """The starter (or ``source``) with every declared key renamed, and the old-to-new key map.
 
-    String values naming a key are renamed wherever they appear, as are ``ancestor:<type>`` and
-    ``ancestor:<type>.<field>`` references and the keys of maps keyed by a model key; JSON property names are left alone.
+    String values naming a key are renamed wherever they appear, as are ``ancestor:<type>``,
+    ``ancestor:<type>.<field>`` and ``related:<key>`` references and the keys of maps keyed by a model key; JSON property names are left alone.
     """
     source = copy.deepcopy(source) if source is not None else json.loads(MODEL_PATH.read_text())
     names = {key: f"{prefix}{key}" for key in starter_keys(source)}
@@ -78,6 +90,8 @@ def renamed_model(
             if value in names:
                 return names[value]
             head, _, tail = value.partition(":")
+            if head == "related" and tail in names:
+                return f"{head}:{names[tail]}"
             if head == "ancestor":
                 # ``ancestor:<type>`` or, in a consumer projection, ``ancestor:<type>.<field>``.
                 type_key, dot, field = tail.partition(".")
