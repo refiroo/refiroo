@@ -161,7 +161,7 @@ try {
 
   // The candidate's rule (Priority 1–5) applies only in draft2; refused input stays in the form.
   await page.goto(`${uiUrl}/apps/rdm-systems/objects/system-value/${value.id}?workspaceKey=default&changeSetId=${changeSet2}`);
-  await recordAction(page, "Edit all fields");
+  await recordAction(page, "Edit record");
   const priorityField = dialog().getByLabel("Priority", { exact: true });
   let patched = false;
   const onRequest = (request) => { if (request.method() === "PATCH") patched = true; };
@@ -184,7 +184,7 @@ try {
 
   // draft1 prepares an ordinary edit under the active release.
   await page.goto(`${uiUrl}/apps/rdm-systems/objects/system-value/${value.id}?workspaceKey=default&changeSetId=${changeSet1}`);
-  await recordAction(page, "Edit all fields");
+  await recordAction(page, "Edit record");
   expect((await dialog().getByLabel("Priority", { exact: true }).count()) === 0, "draft1 offers the candidate's field");
   await dialog().getByLabel("Name", { exact: true }).fill("Value Alpha prepared");
   await dialog().getByRole("button", { name: "Save changes", exact: true }).click();

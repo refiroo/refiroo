@@ -61,7 +61,8 @@ can complete the task in the application; "API" means another system can.
 
 ### Keep data accurate — browser and API
 
-- Add, edit and delete records, edit a field in place, connect and disconnect related records.
+- Add, edit and delete records, edit a field in place (the name and subtitle in the record's header
+  too), connect and disconnect related records.
 - A save is live immediately and recorded in the record's history. If someone else changed the record
   meanwhile, nothing is overwritten: your input is kept and the newer version is shown.
 - Deleting a record first shows what else it would remove or disconnect, and asks for confirmation.

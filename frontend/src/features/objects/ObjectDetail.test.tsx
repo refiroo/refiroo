@@ -163,14 +163,22 @@ describe("ObjectDetail lifecycle controls", () => {
         onBack: vi.fn(),
       };
       const { rerender } = render(<ObjectDetail {...props} readOnly={false} />);
+      // UA8 (U-D17): no Edit record button; Edit record is the menu's first item.
       fireEvent.click(await screen.findByRole("button", { name: "Record actions" }));
-      fireEvent.click(await screen.findByRole("menuitem", { name: "Edit all fields" }));
+      expect(screen.queryByRole("button", { name: "Edit record" })).not.toBeInTheDocument();
+      expect(screen.getAllByRole("menuitem")[0]).toHaveAccessibleName("Edit record");
+      fireEvent.click(screen.getByRole("menuitem", { name: "Edit record" }));
       expect(screen.getByLabelText("Name")).toHaveValue(object.name);
       fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      rerender(<ObjectDetail {...props} readOnly={false} inspector onExpand={vi.fn()} />);
+      fireEvent.click(await screen.findByRole("button", { name: "Record actions" }));
+      expect(screen.queryByRole("button", { name: "Edit record" })).not.toBeInTheDocument();
+      expect(screen.getAllByRole("menuitem")[0]).toHaveAccessibleName("Edit record");
+      fireEvent.keyDown(screen.getAllByRole("menuitem")[0], { key: "Escape" });
       rerender(<ObjectDetail {...props} readOnly />);
       fireEvent.click(screen.getByRole("button", { name: "Record actions" }));
       expect(await screen.findByRole("menuitem", { name: "Copy link" })).toBeInTheDocument();
-      expect(screen.queryByRole("menuitem", { name: "Edit all fields" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("menuitem", { name: "Edit record" })).not.toBeInTheDocument();
       expect(screen.queryByRole("menuitem", { name: "Delete record" })).not.toBeInTheDocument();
     },
   );

@@ -371,13 +371,13 @@ try {
     const domain = suffix === "wide" ? "K3a Domain 1" : "K3a Domain 2";
     await open("/apps/rdm-master/views/domains?workspaceKey=default&search=K3a%20Domain", "Domains", domain);
     await page.getByRole("row", { name: new RegExp(domain) }).getByText(domain, { exact: true }).first().click();
-    await keptPanel.getByRole("button", { name: "Change" }).waitFor({ timeout: 10000 });
+    await keptPanel.getByRole("button", { name: /^Change Kept by:/ }).waitFor({ timeout: 10000 });
     const offered = await keptPanel.getByRole("button").allInnerTexts();
     expect(
       !offered.some((label) => /Add relationship|Set relationship/.test(label)),
       `panel ${suffix}: holding one, it offers ${offered.join(", ")}`,
     );
-    await keptPanel.getByRole("button", { name: "Change" }).click();
+    await keptPanel.getByRole("button", { name: /^Change Kept by:/ }).click();
     const change = page.getByRole("dialog");
     await change.getByText("Now:").waitFor();
     await change.getByRole("combobox", { name: "Search: Object" }).fill("K3a System B");
@@ -390,7 +390,7 @@ try {
     const scroll = await overflow();
     expect(scroll <= 0, `panel ${suffix}: the page scrolls horizontally by ${scroll}px`);
     await shot(`k3a-panel-held-${suffix}`);
-    await keptPanel.getByRole("button", { name: "Delete" }).click();
+    await keptPanel.getByRole("button", { name: /^Delete Kept by:/ }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Delete relationship" }).click();
     await keptPanel.getByRole("button", { name: "Set relationship" }).waitFor({ timeout: 10000 });
     await shot(`k3a-panel-none-${suffix}`);

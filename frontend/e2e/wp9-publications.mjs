@@ -184,7 +184,7 @@ try {
   // The publication bar names the pinned model (the top bar's model version left with U3).
   await page.getByText(new RegExp(`published under, \\S+ ${oldModelVersion.replaceAll(".", "\\.")}\\b`)).waitFor();
   await page.getByRole("button", { name: "Record actions", exact: true }).click();
-  assert.equal(await page.getByRole("menuitem", { name: "Edit all fields", exact: true }).count(), 0);
+  assert.equal(await page.getByRole("menuitem", { name: "Edit record", exact: true }).count(), 0);
   await page.keyboard.press("Escape");
   assert(historicalReads.some((url) => url.includes(`publicationId=${oldPublication.id}`)));
   await page.screenshot({ path: resolve(output, "earlier-publication.png"), fullPage: true });

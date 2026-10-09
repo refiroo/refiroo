@@ -41,7 +41,8 @@
   line-height: 1.15;
   overflow-wrap: anywhere;
 }
-.page-header p {
+.page-header p,
+.page-header .page-description {
   max-width: 760px;
   margin: var(--space-1) 0 0;
   color: var(--text-secondary);
@@ -937,6 +938,18 @@ th[aria-sort] {
   color: var(--hue-ink, var(--text-tertiary));
   font-weight: 600;
 }
+/* The header's title and subtitle edited in place (UA8): the value keeps the title's or the
+   subtitle's type, and the title's editor its size. */
+.attribute-edit-title {
+  font-weight: inherit;
+}
+.field-editor-title {
+  margin: 0 0 var(--space-2);
+}
+.field-editor-title .inline-attribute-editor input:not([type="checkbox"]):not([type="radio"]) {
+  font-size: var(--text-xl);
+  font-weight: 600;
+}
 /* The record's ID under its title, in the header band (UA4 revision). */
 .record-meta {
   margin: -4px 0 0 52px;
@@ -1185,10 +1198,11 @@ th[aria-sort] {
 /* A field's value is its edit control (UA4 revision): it reads as text, shows a soft fill and a
    pencil (or a plus where nothing is set) on hover and focus, and its text can still be selected
    for copying. With `data-edit-hint="always"` the pencil also shows faintly at rest. */
-.attribute-grid {
+.attribute-edit {
   --edit-hint-rest: 0;
 }
-.attribute-grid[data-edit-hint="always"] {
+.attribute-grid[data-edit-hint="always"],
+.attribute-edit[data-edit-hint="always"] {
   --edit-hint-rest: 0.4;
 }
 .attribute-edit {
@@ -1233,8 +1247,9 @@ th[aria-sort] {
 .attribute-edit:disabled .attribute-edit-hint {
   opacity: 0;
 }
-/* Remove: a small icon at the row's end, shown with the row's hover or focus; always on touch. */
-.row-actions .attribute-remove {
+/* Remove: a small icon at the row's end, shown with the row's hover or focus; always on touch.
+   An `IconButton` (UA8), red at rest as before; its classes beat the quiet icon's. */
+.row-actions .icon-button.attribute-remove {
   display: inline-grid;
   place-items: center;
   width: 28px;
@@ -1264,6 +1279,42 @@ th[aria-sort] {
 }
 .table-wrap .row-actions {
   white-space: nowrap;
+}
+/* Icon actions repeated on every row (UA8): borderless and quiet until the row or the icon is
+   hovered or focused; Delete turns red. The tooltip names the action. */
+/* Doubled class: wins over a container's link-style button rules (`.row-actions button`). */
+.icon-button.icon-button-quiet {
+  width: 32px;
+  min-height: 32px;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-tertiary);
+}
+.icon-button.icon-button-quiet:hover:not(:disabled),
+.icon-button.icon-button-quiet:focus-visible,
+tr:hover .icon-button.icon-button-quiet,
+tr:focus-within .icon-button.icon-button-quiet {
+  color: var(--text-secondary);
+}
+.icon-button.icon-button-quiet:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+.icon-button.icon-button-danger:hover:not(:disabled),
+.icon-button.icon-button-danger:focus-visible {
+  color: var(--status-error-action);
+}
+.relation-row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.relation-row-lock {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  min-height: 32px;
+  color: var(--text-tertiary);
 }
 .managed-label {
   color: var(--text-tertiary);

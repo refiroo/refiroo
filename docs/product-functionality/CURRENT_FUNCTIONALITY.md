@@ -177,7 +177,12 @@ missing optional value is kept distinct from a stored false, zero, empty or null
 (or Enter on it) opens its editor, clicking an empty field adds a value, and an optional value is
 removed by its trash icon after a confirmation; saving is always explicit (Save or Enter, Escape
 cancels), and selecting a value's text to copy it does not open the editor. The record's header
-shows its ID, the `id` every API returns, with a button that copies it.
+edits its title (usually the name) and subtitle the same way, on the full page and beside a tree,
+and offers Add for an empty subtitle; **Edit record**, the form with every field, is in the record's
+⋯ menu. The header shows its ID, the `id` every API returns, with a button that copies it. In a
+record's relationship tables each row's actions are icons, each with a tooltip: change to another
+record, edit the relationship's values, delete; a row that is managed through the parent or
+required shows a lock saying so.
 
 Evidence: [inline editor](../../frontend/src/features/objects/panels/InlineAttributeEditor.tsx),
 [attribute panel](../../frontend/src/features/objects/panels/AttributesPanel.tsx),

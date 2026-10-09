@@ -6,9 +6,13 @@ import type { HTMLAttributes, ReactNode, Ref } from "react";
  *
  * `focusTitle` makes the title a programmatic focus target (route changes move focus to it);
  * `variant="detail"` lets the title take the free width and wraps the actions under it when narrow.
+ * A title edited in place (UA8) passes `titleLabel`, so the heading is named by the title and not
+ * by its control, and `titleEditor`, which takes the heading's place while it is open.
  */
 export function PageHeader({
   title,
+  titleLabel,
+  titleEditor,
   titleRef,
   titleId,
   focusTitle = false,
@@ -22,6 +26,10 @@ export function PageHeader({
   ...rest
 }: {
   title: ReactNode;
+  /** The heading's accessible name, where `title` is a control. */
+  titleLabel?: string;
+  /** Shown instead of the heading while the title is edited. */
+  titleEditor?: ReactNode;
   titleRef?: Ref<HTMLHeadingElement>;
   /** Lets a region elsewhere on the page name itself after the title. */
   titleId?: string;
@@ -44,12 +52,19 @@ export function PageHeader({
         )}
         <div className="page-title-text">
           {eyebrow && <p className="eyebrow">{eyebrow}</p>}
-          <h1 ref={titleRef} id={titleId} tabIndex={focusTitle || titleRef ? -1 : undefined}>
-            {title}
-          </h1>
-          {description !== undefined && description !== null && description !== "" && (
-            <p className={descriptionClassName}>{description}</p>
+          {titleEditor ?? (
+            <h1 ref={titleRef} id={titleId} aria-label={titleLabel} tabIndex={focusTitle || titleRef ? -1 : undefined}>
+              {title}
+            </h1>
           )}
+          {description !== undefined &&
+            description !== null &&
+            description !== "" &&
+            (typeof description === "string" ? (
+              <p className={descriptionClassName}>{description}</p>
+            ) : (
+              <div className={["page-description", descriptionClassName].filter(Boolean).join(" ")}>{description}</div>
+            ))}
         </div>
       </div>
       {actions && <div className="page-actions">{actions}</div>}

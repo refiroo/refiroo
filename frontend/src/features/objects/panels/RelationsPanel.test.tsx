@@ -80,8 +80,9 @@ describe("RelationsPanel", () => {
   it("shows direction-correct labels and protects managed containment rows", async () => {
     render(<RelationsPanel model={testModel} object={domainObject} panel={panel} onOpen={vi.fn()} />);
     expect(await screen.findByText("Contains")).toBeInTheDocument();
+    // UA8 (U-D19): a lock whose accessible text gives the reason; no Delete on a containment row.
     expect(screen.getByText("Managed through Parent")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Delete / })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Add relationship/ })).not.toBeInTheDocument();
   });
 
@@ -268,7 +269,7 @@ describe("RelationsPanel", () => {
     vi.mocked(api.deleteRelation).mockRejectedValueOnce(new Error("Relationship delete unavailable"));
 
     render(<RelationsPanel model={model} object={domainObject} panel={panel} onOpen={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    fireEvent.click(await screen.findByRole("button", { name: `Delete Contains: ${codelistObject.name}` }));
     fireEvent.click(screen.getByRole("button", { name: "Delete relationship" }));
     expect(await screen.findByText("Relationship delete unavailable")).toBeInTheDocument();
 
@@ -422,7 +423,7 @@ describe("RelationsPanel", () => {
     async function changeTo(name: string, meanwhile: () => void = () => undefined) {
       vi.mocked(api.objects).mockResolvedValue({ items: [other], nextCursor: null });
       render(<RelationsPanel model={model} object={domainObject} panel={graded} onOpen={vi.fn()} />);
-      fireEvent.click(await screen.findByRole("button", { name: "Change" }));
+      fireEvent.click(await screen.findByRole("button", { name: `Change Graded by: ${codelistObject.name}` }));
       const dialog = screen.getByRole("dialog");
       expect(within(dialog).getByText(codelistObject.name)).toBeInTheDocument();
       fireEvent.click(await within(dialog).findByRole("option", { name: new RegExp(name) }));
@@ -454,6 +455,30 @@ describe("RelationsPanel", () => {
       );
       expect(screen.queryByRole("button", { name: "Set relationship" })).toBeNull();
       expect(screen.queryByRole("button", { name: "Add relationship" })).toBeNull();
+    });
+
+    // UA8 (U-D15): the row's actions are icon buttons, each named for the record and with a tooltip.
+    it("offers a row's actions as icon buttons named for the record", async () => {
+      const valued: EngineModel = {
+        ...model,
+        objectTypeRelations: model.objectTypeRelations.map((item) =>
+          item.relationTypeKey === "grades" ? { ...item, attributeTypeKeys: ["code"] } : item,
+        ),
+      };
+      vi.mocked(api.relations).mockResolvedValue({ items: [held(2)], nextCursor: null, relationSets: [set] });
+      render(<RelationsPanel model={valued} object={domainObject} panel={graded} onOpen={vi.fn()} />);
+      const name = codelistObject.name;
+      const change = await screen.findByRole("button", { name: `Change Graded by: ${name}` });
+      const edit = screen.getByRole("button", { name: `Edit values of Graded by: ${name}` });
+      const remove = screen.getByRole("button", { name: `Delete Graded by: ${name}` });
+      expect([change, edit, remove].map((button) => button.getAttribute("title"))).toEqual([
+        "Change to another record",
+        "Edit values",
+        "Delete relationship",
+      ]);
+      expect([change, edit, remove].every((button) => !button.textContent?.trim())).toBe(true);
+      fireEvent.click(edit);
+      expect(within(screen.getByRole("dialog")).getByText("Edit relationship")).toBeInTheDocument();
     });
 
     it("refuses Change when the record no longer holds what the row showed", async () => {

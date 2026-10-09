@@ -1,6 +1,7 @@
 import { useNavigationGuard } from "@/routing/navigationGuard";
 /**
- * Sets or replaces one attribute value on an object.
+ * Sets or replaces one attribute value on an object, or, given `save`, one of its built-in fields
+ * (the name, UA8).
  *
  * The write carries the object version, so a value edited against a stale object is rejected
  * rather than silently overwriting a newer one; on that rejection the caller reloads.
@@ -21,6 +22,7 @@ export function InlineAttributeEditor({
   binding,
   attribute,
   stored,
+  save,
   onClose,
   onSaved,
   onConflict,
@@ -28,7 +30,9 @@ export function InlineAttributeEditor({
   object: ObjectItem;
   binding: ObjectTypeAttributeDefinition;
   attribute: AttributeTypeDefinition;
-  stored?: ObjectAttributeValue;
+  stored?: Pick<ObjectAttributeValue, "value">;
+  /** Saves a built-in field instead of the attribute routes; `stored` then holds its value. */
+  save?: (value: unknown) => Promise<ObjectItem>;
   onClose: () => void;
   onSaved: (object: ObjectItem) => void;
   onConflict: () => Promise<void>;
@@ -63,9 +67,11 @@ export function InlineAttributeEditor({
           ? String(raw ?? "")
           : attributeValueFromForm(event.currentTarget, attribute);
       if (!nullValue && value === null) throw new Error("Enter a value or explicitly select Set null.");
-      const saved = object.attributes.some((item) => item.attributeTypeKey === attribute.key)
-        ? await api.updateAttribute(object.objectTypeKey, object.id, attribute.key, value, object.version)
-        : await api.createAttribute(object.objectTypeKey, object.id, attribute.key, value, object.version);
+      const saved = save
+        ? await save(value)
+        : object.attributes.some((item) => item.attributeTypeKey === attribute.key)
+          ? await api.updateAttribute(object.objectTypeKey, object.id, attribute.key, value, object.version)
+          : await api.createAttribute(object.objectTypeKey, object.id, attribute.key, value, object.version);
       finishNavigation();
       onSaved(saved);
     } catch (cause) {
@@ -106,9 +112,11 @@ export function InlineAttributeEditor({
       </fieldset>
       {conflict && (
         <Notice title="Current saved value">
-          {object.attributes.some((item) => item.attributeTypeKey === attribute.key)
-            ? formatValue(object.attributes.find((item) => item.attributeTypeKey === attribute.key)?.value)
-            : "Not set"}{" "}
+          {save
+            ? formatValue(stored?.value)
+            : object.attributes.some((item) => item.attributeTypeKey === attribute.key)
+              ? formatValue(object.attributes.find((item) => item.attributeTypeKey === attribute.key)?.value)
+              : "Not set"}{" "}
           (v
           {object.version}). Your input is preserved. Review before saving again.
         </Notice>

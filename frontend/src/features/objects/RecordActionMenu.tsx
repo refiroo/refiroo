@@ -48,7 +48,7 @@ export function RecordActionMenu({
         isOpen={isOpen}
         onOpenChange={onOpenChange}
         items={[
-          ...(!readOnly ? [{ id: "edit", label: "Edit all fields", onAction: onEdit }] : []),
+          ...(!readOnly ? [{ id: "edit", label: "Edit record", onAction: onEdit }] : []),
           { id: "copy", label: "Copy link", onAction: () => void copyLink() },
           ...(!readOnly ? [{ id: "delete", label: "Delete record", tone: "danger" as const, onAction: onDelete }] : []),
         ]}

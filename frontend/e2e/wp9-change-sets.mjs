@@ -129,7 +129,7 @@ try {
   }
   async function edit(object, changeSetId, fields) {
     await open(object, changeSetId);
-    await recordAction(page, "Edit all fields");
+    await recordAction(page, "Edit record");
     for (const [key, val] of Object.entries(fields)) {
       const control = dialog().getByLabel(key, { exact: true });
       if (typeof val === "boolean") await control.setChecked(val); else await control.fill(val);
@@ -227,7 +227,7 @@ try {
   assert.equal((await api(`/workspaces/${workspaceKey}/publications`)).items.length, 1);
   // Record and aggregate conflict: preserve entered controls and require explicit retry.
   await open(domain, second);
-  await recordAction(page, "Edit all fields");
+  await recordAction(page, "Edit record");
   await dialog().getByLabel("Name", { exact: true }).fill("My preserved input");
   const latestChangeSet = await api(`/change-sets/${second}`);
   const latestObject = await get(domain, second);

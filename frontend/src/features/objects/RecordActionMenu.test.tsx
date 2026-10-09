@@ -19,7 +19,7 @@ describe("record actions", () => {
     });
     render(<RecordActionMenu object={domainObject} readOnly onEdit={vi.fn()} onDelete={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: `Actions for ${domainObject.name}` }));
-    expect(screen.queryByRole("menuitem", { name: "Edit all fields" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Edit record" })).not.toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: "Delete record" })).not.toBeInTheDocument();
     fireEvent.click(await screen.findByRole("menuitem", { name: "Copy link" }));
     await waitFor(() =>

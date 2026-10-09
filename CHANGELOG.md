@@ -8,6 +8,15 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 UA8: actions in place on the record (U-D15–U-D20; J02.6). A record's header edits its
+  title (usually the name) and subtitle in place, as its details fields are, on the full page and in
+  the inspector, and offers Add for an empty subtitle; one component, `EditableField`, draws and
+  edits a field in both places. The header's Edit record button is gone; **Edit record** (was Edit
+  all fields) is the first item of the record's ⋯ menu, also on every collection row. A relationship
+  row's actions are icon buttons with tooltips (change to another record, edit values, delete,
+  `ui/IconButton`), and a row managed through the parent or required shows a lock with the reason.
+  Browser runner `test:browser:ua8`.
+
 - Base 0.9 K3a: many-to-one relationships (D136–D139; J08.11, J11.12, J32.5). A binding may declare
   `"cardinality": "many-to-one"` in schema 0.9: each `from` record holds at most one relationship of
   it, and a `to` record serves any number. A second one is `409 CARDINALITY_VIOLATION` on every write

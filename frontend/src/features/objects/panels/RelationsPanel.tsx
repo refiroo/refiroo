@@ -13,6 +13,7 @@ import { FieldValue } from "@/ui/FieldValue";
 import { attributeName, isQueryableField, listSortFields } from "@/model/fields";
 import { InlineError } from "@/ui/InlineError";
 import { Icon } from "@/ui/Icon";
+import { IconButton } from "@/ui/IconButton";
 import { DataTable, type DataColumn } from "@/ui/DataTable";
 import { objectTypeHue } from "@/model/hues";
 import { TableDisplay, useTableDisplay } from "@/ui/TableDisplay";
@@ -209,27 +210,50 @@ export function RelationsPanel({
     })),
   ];
 
+  /** A row's actions as icon buttons (UA8, U-D15), each named for the record it acts on; a row
+   * that cannot be changed here shows a lock giving the reason (U-D19). */
   function actionsFor(item: RelationItem) {
     const allowed = allowedFor(item);
     const required = allowed?.required === true;
     const hasAttributes = Boolean(allowed?.attributeTypeKeys?.length);
+    const definition = model.relationTypes.find((relation) => relation.key === item.relation.relationTypeKey);
+    const kind = `${(item.direction === "outgoing" ? definition?.name : definition?.reverseName) ?? item.relation.relationTypeKey}: ${item.object.name}`;
+    const locked = managed(item) ? "Managed through Parent" : required ? "Required relationship" : undefined;
     return (
-      <div className="row-actions">
-        {managed(item) ? (
-          <span className="managed-label">Managed through Parent</span>
-        ) : (
-          <>
-            {!readOnly && hasAttributes && <button onClick={() => setEditing(item)}>Edit</button>}
-            {!readOnly && !required && changeChoice(item) && <button onClick={() => setChanging(item)}>Change</button>}
-            {required ? (
-              <span className="managed-label">Required relationship</span>
-            ) : !readOnly ? (
-              <button className="text-danger" onClick={() => setRemoving(item)}>
-                Delete
-              </button>
-            ) : null}
-          </>
+      <div className="row-actions relation-row-actions">
+        {!readOnly && !locked && changeChoice(item) && (
+          <IconButton
+            icon="swap"
+            label={`Change ${kind}`}
+            tooltip="Change to another record"
+            quiet
+            onClick={() => setChanging(item)}
+          />
         )}
+        {!readOnly && !managed(item) && hasAttributes && (
+          <IconButton
+            icon="pencil"
+            label={`Edit values of ${kind}`}
+            tooltip="Edit values"
+            quiet
+            onClick={() => setEditing(item)}
+          />
+        )}
+        {locked ? (
+          <span className="relation-row-lock" title={locked}>
+            <Icon name="lock" size={14} />
+            <span className="visually-hidden">{locked}</span>
+          </span>
+        ) : !readOnly ? (
+          <IconButton
+            icon="trash"
+            label={`Delete ${kind}`}
+            tooltip="Delete relationship"
+            tone="danger"
+            quiet
+            onClick={() => setRemoving(item)}
+          />
+        ) : null}
       </div>
     );
   }

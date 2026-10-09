@@ -142,7 +142,7 @@ try {
     assert.equal(value(item, "qa-count"), 0);
     assert.equal(value(item, "active"), false);
     await shown(page.getByRole("button", { name: "Record actions", exact: true }));
-    await recordAction(page, "Edit all fields");
+    await recordAction(page, "Edit record");
     await dialog().getByLabel("Name", { exact: true }).fill(`${label} mine`);
     await dialog().getByLabel("Count", { exact: true }).fill("1");
     await api(`/objects/${type}/${item.id}`, { expectedVersion: item.version, name: `${label} theirs`, attributes: [{ attributeTypeKey: "description", value: "Unrelated concurrent content" }] }, "PATCH");
@@ -157,7 +157,7 @@ try {
     assert.equal(value(fresh, "qa-count"), 0);
     assert.equal(value(fresh, "active"), false);
     assert.equal(value(fresh, "description"), "Unrelated concurrent content");
-    await recordAction(page, "Edit all fields");
+    await recordAction(page, "Edit record");
     await dialog().getByLabel("Name", { exact: true }).fill("Cancelled");
     await page.keyboard.press("Escape");
     await dialog().waitFor({ state: "hidden" });
@@ -219,11 +219,11 @@ try {
   const parentRelations = await api(`/relations?objectId=${master.id}&workspaceKey=${workspaceKey}`);
   assert(parentRelations.items.some((item) => item.relation.relationTypeKey === "codelist-contains-value"));
   await open(master);
-  await recordAction(page, "Edit all fields");
+  await recordAction(page, "Edit record");
   await chooseObject(dialog(), otherList.id);
   await save();
   assert.equal((await get(master)).parentObjectId, otherList.id);
-  await recordAction(page, "Edit all fields");
+  await recordAction(page, "Edit record");
   await chooseObject(dialog(), codelist.id);
   await save();
   checks.push("Master and System containment: one-save child creates and managed parent links; coherent parent move");
@@ -237,7 +237,7 @@ try {
   await dialog().waitFor({ state: "hidden" });
   await shown(panel(page, "System representations").getByRole("button", { name: "Independent representation", exact: true }));
   const representation = (await api(`/relations?objectId=${codelist.id}&workspaceKey=${workspaceKey}`)).items.find((item) => item.relation.relationTypeKey === "reference-has-system-representation").relation;
-  await panel(page, "System representations").getByRole("button", { name: "Edit", exact: true }).click();
+  await panel(page, "System representations").getByRole("button", { name: /^Edit values of / }).click();
   await dialog().getByLabel("Count", { exact: true }).fill("0");
   await api(`/relations/${representation.id}`, { expectedVersion: representation.version, attributes: { "qa-count": 8 } }, "PATCH");
   response = page.waitForResponse((response) => response.url().includes(`/api/v1/relations/${representation.id}`) && response.request().method() === "PATCH");
@@ -251,7 +251,7 @@ try {
   assert.equal((await response).status(), 200);
   await dialog().waitFor({ state: "hidden" });
   assert.equal((await api(`/relations/${representation.id}?workspaceKey=${workspaceKey}`)).attributes["qa-count"], 0);
-  await panel(page, "System representations").getByRole("button", { name: "Delete", exact: true }).click();
+  await panel(page, "System representations").getByRole("button", { name: /^Delete / }).click();
   response = page.waitForResponse((response) => response.url().includes("/api/v1/relations/") && response.request().method() === "DELETE");
   await confirm().getByRole("button", { name: "Delete relationship" }).click();
   assert.equal((await response).status(), 204);
@@ -325,7 +325,7 @@ try {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "Record actions", exact: true }).focus();
   await page.keyboard.press("Enter");
-  await page.getByRole("menuitem", { name: "Edit all fields", exact: true }).focus();
+  await page.getByRole("menuitem", { name: "Edit record", exact: true }).focus();
   await page.keyboard.press("Enter");
   assert.equal(await dialog().getByLabel("Name", { exact: true }).evaluate((node) => node === document.activeElement), true);
   await dialog().getByRole("button", { name: "Save changes" }).focus();
@@ -387,7 +387,7 @@ try {
     await shown(page.getByText("Read-only workspace", { exact: true }));
     await shown(page.getByRole("heading", { name: "Domain mine", exact: true }));
     await page.getByRole("button", { name: "Record actions", exact: true }).click();
-    assert.equal(await page.getByRole("menuitem", { name: "Edit all fields", exact: true }).count(), 0);
+    assert.equal(await page.getByRole("menuitem", { name: "Edit record", exact: true }).count(), 0);
     assert.equal(await page.getByRole("menuitem", { name: "Delete record", exact: true }).count(), 0);
     await page.keyboard.press("Escape");
     assert.equal(await page.locator("section.panel").getByRole("button", { name: /^Add |^Edit$|^Remove$/ }).count(), 0);

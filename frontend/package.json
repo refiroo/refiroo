@@ -41,6 +41,7 @@
     "test:browser:k2": "node e2e/k2-bulk-change.mjs",
     "test:browser:k2b": "node e2e/k2b-bulk-delete.mjs",
     "test:browser:k3": "node e2e/k3-bulk-relations.mjs",
+    "test:browser:ua8": "node e2e/ua8-record-in-place.mjs",
     "test:browser:v1": "node e2e/v1-api-reference.mjs",
     "test:gate-helpers": "node --test e2e/helpers/*.node-test.mjs",
     "test:a11y": "node e2e/accessibility-gate.mjs",

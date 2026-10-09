@@ -247,8 +247,13 @@
     top: 2px;
     right: -8px;
   }
-  .row-actions .attribute-remove {
+  .row-actions .icon-button.attribute-remove {
     width: 40px;
+  }
+  .icon-button.icon-button-quiet,
+  .relation-row-lock {
+    width: 40px;
+    min-height: 40px;
   }
   .attribute-grid dt {
     padding-right: 40px;

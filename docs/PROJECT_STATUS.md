@@ -365,8 +365,12 @@ matrix, the mapping grid and the consumer API (a single object), never `required
 on a record, Set while none is held and Change (one write) and Delete on the one held; D136–D139;
 screenshots approved by the user 2026-10-09; the example model 0.9.1 active on the development
 instance
-([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k3a-record-2026-10-09)). Next is K5, relation columns
-(D135), then R.
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k3a-record-2026-10-09)). **UA8 is implemented
+(2026-10-09)**: the record header's title and subtitle edited in place through the details panel's
+own field component, Edit record only in the ⋯ menu, and a relationship row's actions as icons;
+U-D15–U-D20; screenshots await the user's approval
+([record](SETTINGS_AND_UI_PLAN.md#ua8-record-2026-10-09)). Next is K5, relation columns (D135), then
+R.
 **C18, the consumer API definition written for readers, is delivered (2026-10-08):** schema 0.9
 writes `consumerApis` as what a definition exposes, offers, looks like and filters by, with defaults
 written out by `GET /api/v1/model/consumer-apis/{consumerApi}`; an operation not offered is

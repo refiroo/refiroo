@@ -140,7 +140,7 @@ describe("App", () => {
       );
       expect(table.closest("[hidden]")).not.toBeNull();
       fireEvent.click(screen.getByRole("button", { name: "Record actions" }));
-      fireEvent.click(await screen.findByRole("menuitem", { name: "Edit all fields" }));
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Edit record" }));
       fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Updated record" } });
       fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
       await within(table).findByRole("button", { name: "Updated record", hidden: true });
@@ -172,7 +172,7 @@ describe("App", () => {
     const table = await screen.findByRole("region", { name: "Domains table" });
     fireEvent.click(await within(table).findByRole("button", { name: domainObject.name }));
     fireEvent.click(await screen.findByRole("button", { name: "Record actions" }));
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Edit all fields" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Edit record" }));
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Uncommitted input" } });
     fireEvent.click(within(table).getByRole("button", { name: other.name, hidden: true }));
     expect(screen.getByLabelText("Name")).toHaveValue("Uncommitted input");

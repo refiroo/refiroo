@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useLocalNumberPreference } from "@/lib/localPreference";
 import { ResizeHandle } from "@/ui/ResizeHandle";
 import { RecordActionMenu } from "@/features/objects/RecordActionMenu";
+import { EditableField, fieldEditing, type FieldLayout } from "@/features/objects/EditableField";
 import { useWorkspaceData, useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { changedObjectType, errorMessage } from "@/api/errors";
 import { fallbackDetail } from "@/model/defaults";
@@ -78,6 +79,9 @@ export function ObjectDetail({
   const [deleting, setDeleting] = useState(initialAction === "delete");
   const titleRef = useRef<HTMLHeadingElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  // The header field open for editing in place (UA8), and the one whose value takes focus back.
+  const [headerField, setHeaderField] = useState<string>();
+  const [headerReturn, setHeaderReturn] = useState<string>();
   const [panelRefresh, setPanelRefresh] = useState(0);
   const [object, setObject] = useState<ObjectItem>();
   const [loading, setLoading] = useState(true);
@@ -224,6 +228,44 @@ export function ObjectDetail({
   const hue = objectTypeHue(model, objectType.key);
   const title = fieldValue(object, detail.header.titleField, model);
   const subtitle = detail.header.subtitleField ? fieldValue(object, detail.header.subtitleField, model) : undefined;
+  const subtitleField = detail.header.subtitleField;
+  const subtitleShown =
+    subtitleField !== undefined &&
+    (fieldEditing(model, object, subtitleField, readOnly) !== undefined ||
+      (subtitle !== undefined && subtitle !== null && subtitle !== ""));
+
+  /** The header's title or subtitle, edited in place as a details-panel field is (UA8, U-D16). */
+  function headerValue(field: string, layout: FieldLayout) {
+    const close = () => {
+      setHeaderField(undefined);
+      setHeaderReturn(field);
+    };
+    return (
+      <EditableField
+        model={model}
+        object={currentObject!}
+        field={field}
+        layout={layout}
+        readOnly={readOnly}
+        editing={headerField === field}
+        disabled={headerField !== undefined && headerField !== field}
+        focusOnMount={headerReturn === field}
+        onEdit={() => {
+          setHeaderReturn(undefined);
+          setHeaderField(field);
+        }}
+        onClose={close}
+        onSaved={(saved) => {
+          setObject(saved);
+          onChanged();
+          setHistoryRefresh((value) => value + 1);
+          close();
+        }}
+        onConflict={loadObject}
+      />
+    );
+  }
+  const titleField = detail.header.titleField;
 
   function renderPanel(panel: PanelDefinition) {
     // The registry is keyed by the union discriminant, so each entry is narrower than the union
@@ -295,19 +337,16 @@ export function ObjectDetail({
           }}
           icon={<HueTile hue={hue} icon={objectType.icon} size={40} />}
           eyebrow={detail.header.showObjectType ? objectType.name : undefined}
-          title={String(title ?? object.name)}
+          title={headerField === titleField ? undefined : headerValue(titleField, "title")}
+          titleLabel={String(title ?? object.name)}
+          titleEditor={headerField === titleField ? headerValue(titleField, "title") : undefined}
           titleRef={titleRef}
-          description={subtitle !== undefined && subtitle !== null && subtitle !== "" ? String(subtitle) : undefined}
+          description={subtitleShown ? headerValue(subtitleField!, "subtitle") : undefined}
           actions={
             <>
               <span className="version" title="Record version, used to detect concurrent changes">
                 v{object.version}
               </span>
-              {!readOnly && (
-                <button className="secondary" onClick={() => setEditing(true)}>
-                  Edit record
-                </button>
-              )}
               {onExpand && (
                 <button className="secondary expand-record" onClick={onExpand}>
                   Expand to full page

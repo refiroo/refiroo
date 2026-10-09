@@ -132,6 +132,9 @@ coherent edit is one save; the record keeps its identity, its place and its rela
 - **J02.5 Attribute rules**: a value outside its bounds, a unique value already taken, removing a
   required value, emptying the last of an at-least-one-of set, and changing a read-only value are
   each refused with the rule named.
+- **J02.6 Correct it from the header** (UI, Base 0.9 UA8): the record's title (usually its name) and
+  subtitle are edited in place in its header, on the full page and in the inspector, as a details
+  field is; an empty editable subtitle offers Add; saving claims the record's version.
 
 **Refusals:** `409 VERSION_CONFLICT`, `409 DUPLICATE_ATTRIBUTE_VALUE`, `422 INVALID_ATTRIBUTE_VALUE`
 (a value of the wrong type), `422 ATTRIBUTE_BELOW_MINIMUM`, `422 ATTRIBUTE_ABOVE_MAXIMUM`,
@@ -139,8 +142,8 @@ coherent edit is one save; the record keeps its identity, its place and its rela
 `422 CANNOT_DELETE_REQUIRED_ATTRIBUTE`, `422 READ_ONLY_ATTRIBUTES`, `409 ATTRIBUTE_ALREADY_EXISTS`,
 `404 ATTRIBUTE_NOT_FOUND`, `409 WORKSPACE_RETIRED`.
 
-**Evidence today:** `wp9-authoring`; `test_api`, `test_attributes`, `test_rule_parity`,
-`test_pg3_concurrency`.
+**Evidence today:** `wp9-authoring`, `ua8-record-in-place`; `EditableField.test`; `test_api`,
+`test_attributes`, `test_rule_parity`, `test_pg3_concurrency`.
 
 ### J03 — Add a record where it belongs
 

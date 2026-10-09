@@ -38,7 +38,7 @@ export async function checkRecordReturn({ page, table, name, origin, output, tag
     await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
     assert.equal(await table.isVisible(), false);
     await page.screenshot({ path: resolve(output, `ui03b-${tag}-${width}-record.png`), fullPage: true });
-    await recordAction(page, "Edit all fields");
+    await recordAction(page, "Edit record");
     const editor = page.getByRole("dialog");
     const input = editor.getByLabel("Name", { exact: true });
     await input.fill(`${name} unsaved`);
@@ -75,7 +75,7 @@ export async function checkRecordReturn({ page, table, name, origin, output, tag
   }
 
   // Delay a real save to prove Back cannot abandon the request and successful completion is not blocked.
-  await recordAction(page, "Edit all fields");
+  await recordAction(page, "Edit record");
   const savedInput = page.getByRole("dialog").getByLabel("Name", { exact: true });
   await savedInput.fill(`${name} pending`);
   await savedInput.fill(`${name} saved`);
@@ -114,7 +114,7 @@ export async function checkRecordReturn({ page, table, name, origin, output, tag
   await page.unroute("**/api/v1/objects/**", delaySave);
   await page.getByRole("heading", { name: `${name} saved`, level: 1, exact: true }).waitFor();
   assert.equal((await refreshed).status(), 200);
-  await recordAction(page, "Edit all fields");
+  await recordAction(page, "Edit record");
   await page.getByRole("dialog").getByLabel("Name", { exact: true }).fill(name);
   await page.getByRole("dialog").getByRole("button", { name: "Save changes", exact: true }).click();
   await page.getByRole("dialog").waitFor({ state: "hidden" });
@@ -125,7 +125,7 @@ export async function checkRecordReturn({ page, table, name, origin, output, tag
   await page.waitForURL(origin);
   await page.goBack();
   await heading.waitFor();
-  await recordAction(page, "Edit all fields");
+  await recordAction(page, "Edit record");
   await page.getByRole("dialog").getByLabel("Name", { exact: true }).fill("Forward input");
   const forwardCancelled = page.waitForEvent("dialog").then((dialog) => dialog.dismiss());
   await page.evaluate(() => history.forward());
@@ -147,9 +147,9 @@ export async function checkRecordReturn({ page, table, name, origin, output, tag
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   const row = table.getByRole("button", { name, exact: true });
   await row.click({ button: "right" });
-  await page.getByRole("menuitem", { name: "Edit all fields", exact: true }).waitFor();
+  await page.getByRole("menuitem", { name: "Edit record", exact: true }).waitFor();
   await page.screenshot({ path: resolve(output, `ui03b-${tag}-row-menu.png`), fullPage: true });
-  await page.getByRole("menuitem", { name: "Edit all fields", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Edit record", exact: true }).click();
   assert.equal(await page.getByRole("dialog").getByLabel("Name", { exact: true }).inputValue(), name);
   await page.getByRole("dialog").getByRole("button", { name: "Cancel", exact: true }).click();
   await page.getByRole("button", { name: "Back to list", exact: true }).click();

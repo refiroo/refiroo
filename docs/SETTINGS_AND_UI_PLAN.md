@@ -186,6 +186,7 @@ The user chose Direction B, "Open" (U-D6, ADR-039), which sets the values for po
 | U2 | 0.9 | U1 | **Delivered 2026-10-06** ([record](#u2-delivery-record)). Foundation: the token layers, the type and spacing scale, the components above, the rail and header, the data-context bar. Applied to the shell. Contrast test over the tokens. Shell baselines re-recorded |
 | U3 | 0.9 | U2 | **Delivered 2026-10-06** ([record](#u3-delivery-record); U-D10 and U-D11). Settings area: `/settings` routes and layout; About, Appearance and Deployment; Workspaces and Model moved under Administration (old URLs redirect); the popover reduced to account and theme with a link to Settings; `GET /api/v1/system` |
 | UA | 0.9 | U3 | **Planned 2026-10-06** ([plan](#ua-the-atlas-redesign); ADR-040, U-D12, U-D13). The Atlas redesign of every surface in one pass, the record browser first, each surface approved by the user from screenshots; replaces the older styles; folds in U6 |
+| UA8 | 0.9 | UA, K3a | **Implemented 2026-10-09** ([plan](#ua8-actions-in-place-on-the-record), [record](#ua8-record-2026-10-09); U-D15–U-D20), screenshots awaiting approval. A relationship row's actions as icon buttons; the record header's title and subtitle edited in place, through the one field editor the details panel uses; the header's Edit record button removed, the menu's Edit all fields renamed Edit record |
 | U4 | 0.9 | UA, C6b, V2 | **Implemented 2026-10-07** ([plan](#u4-the-integration-pages), [record](#u4-record-2026-10-07)), screenshots awaiting approval. Integration pages: Consumer APIs, Jobs and feed, API reference. Starter consumer API per U-D5 |
 | U5 | 0.9 | U4, C12 | **Implemented 2026-10-07** ([plan](#u5-the-webhooks-page), [record](#u5-record-2026-10-07)), screenshots approved by the user 2026-10-07. Webhooks page over the subscriptions API (C12 delivered 2026-10-06: `delivery`, the four dispatcher reasons, `reset`) |
 | U5a | 0.9 | U5 | **Implemented 2026-10-07** ([plan](#u5a-webhook-names-the-delivery-log-and-the-webhooks-page-revised), [record](#u5a-record-2026-10-07)), screenshots approved by the user 2026-10-07. Webhook names, the delivery log and its routes, the dialog rebuilt, the Configuration and Deliveries tabs |
@@ -1652,6 +1653,155 @@ chips, bands and pills.
 - **Not changed.** The gates' dark captures follow the light ones in one run, so the tree keeps
   the branch an earlier step opened (Domain 04 in several dark screens); this is the gate's order,
   not the theme.
+
+### UA8: actions in place on the record
+
+**Asked by the user 2026-10-09**, after K3a's screenshots: the text buttons in a relationship row
+(Edit, Change, Delete) should look like the rest of the record; the header's title and subtitle
+should be edited in place as the details panel's fields are; the header's **Edit record** button
+goes and the menu's **Edit all fields** becomes **Edit record**. Every change is made once, in the
+shared component, and every view that shows it follows. **Planned 2026-10-09; U-D15–U-D17 decided by
+the user the same day; U-D18–U-D20 and the test cases accepted with the user's instruction to
+deliver UA8, the same day.** Checked against the code at
+`d4a8ff2`.
+
+**What exists.**
+
+- **Relationship rows** (`panels/RelationsPanel`) end in text buttons: **Edit** (the
+  relationship's own values, where the binding declares attributes), **Change** (K3a, where the
+  record holds one of the kind) and **Delete**; a containment row says "Managed through Parent" and
+  a required one "Required relationship" in muted text. No other table in the record uses text
+  buttons in its rows.
+- **Fields edited in place** ([UA4 revision](#ua4-revision-fields-edited-in-place-2026-10-07)): in
+  `panels/AttributesPanel` an editable value is the control, with a pencil (or a plus when empty)
+  shown as Settings › Appearance › **Edit pencil** says, `panels/InlineAttributeEditor` as the
+  editor, and a trash icon to remove an optional value. The logic is written inside the panel, so
+  nothing else can reuse it, and the editor saves attributes only.
+- **The record header** is one component, `ObjectDetail`, on the full page and in the inspector
+  beside a tree lens. Its title and subtitle are the detail view's `header.titleField` and
+  `subtitleField`: the title usually the built-in `name` (saved by `PATCH /objects/{type}/{id}` with
+  the record's version), the subtitle an attribute or a computed field. Its actions are the version,
+  **Edit record** (opens the all-fields form), **Expand to full page** in the inspector, and
+  `RecordActionMenu` (⋯, also opened by a right click on the header) with **Edit all fields**,
+  **Copy link** and **Delete record**. The same `RecordActionMenu` is every collection row's ⋯.
+- Icons come from `ui/Icon` (lucide); there is no icon-button component. `ui/ActionMenu` is the ⋯ menu.
+
+**Behaviour.**
+
+1. **Relationship rows** (U-D15): the actions column holds icon buttons, in this order:
+   **Change** (two arrows, "Change to another record"), **Edit values** (pencil) and **Delete**
+   (trash, danger on hover), each only where it applies today. Each has a tooltip and an accessible
+   name naming the record ("Change Kept by: K3a System B"), keyboard focus and a 32px target (40px
+   on touch). A containment or required row shows a lock with the same reason as its tooltip and
+   accessible text (U-D19).
+2. **The header's title and subtitle** (U-D16) are edited in place exactly as a details-panel
+   field: the value is the control, the pencil or plus as the Edit pencil setting says, Save or
+   Enter, Escape cancels, focus returns, a conflict reloads and says so. The title's editor keeps
+   the title's size. A field that cannot be edited (a publication, a read-only binding, a computed
+   or built-in field other than `name`) reads as plain text. An empty editable subtitle shows
+   **Add {field}** (U-D20); the header never removes a value (removal stays in the details panel).
+3. **The header's actions** (U-D17): **Edit record** is no longer a button; the ⋯ menu's first item
+   is **Edit record** (was Edit all fields), on the header and on every collection row, since both
+   are `RecordActionMenu`. The version, Expand to full page and the right click stay.
+4. Everything else about editing (the all-fields form, the details panel's remove, saving to Live or
+   a change set, the publication's read-only view) is unchanged.
+
+**Design** (U-D18).
+
+- **`ui/IconButton`** (new): an icon, a label (the accessible name and the tooltip), a tone
+  (`default`, `danger`), the 32/40px target; no copy of button markup anywhere else. The details
+  panel's trash moves onto it.
+- **`features/objects/EditableField`** (new, extracted from `AttributesPanel`): one field of one
+  record, shown and edited in place. It takes the field key and how it is laid out (a details row or
+  the header's title or subtitle), decides from the model whether it can be edited, and saves `name`
+  through `updateObject` and an attribute through `InlineAttributeEditor`'s routes, with the
+  version claim and conflict handling they have today. `AttributesPanel` renders its rows with it;
+  `ObjectDetail` renders the title and subtitle with it. The pencil setting (`lib/editHint`) is read
+  in this one place.
+- `RecordActionMenu`: the item renamed. `ObjectDetail`: the Edit record button removed.
+  `RelationsPanel`: the actions column over `ui/IconButton`. `ui/Icon` gains the two-arrows and
+  lock icons.
+- **Not changed:** the API, the model, the all-fields form, `ui/ActionMenu`, the collection table.
+
+**Decisions:**
+
+| # | Question | Decision or recommendation |
+| --- | --- | --- |
+| U-D15 | How a relationship row offers its actions | **Decided 2026-10-09 by the user: icon buttons** (the user's choice over a ⋯ menu per row, recommended for consistency with collection rows, and over a mix of the two) |
+| U-D16 | Which header fields are edited in place | **Decided 2026-10-09 by the user, as recommended: the title and the subtitle**, whatever fields the detail view declares for them, each only where it can be edited |
+| U-D17 | The header's edit actions | **Decided 2026-10-09 by the user:** the Edit record button removed; Edit all fields renamed Edit record and kept in the ⋯ menu only |
+| U-D18 | Where the in-place editing lives | **Accepted 2026-10-09 (the user's instruction to deliver): one component, `features/objects/EditableField`, extracted from `AttributesPanel`, which the details panel and the header both render; and `ui/IconButton` for every icon action.** The user asked for one component that every view follows (U-D14). The alternative, a header editor written beside the panel's, would be a copy |
+| U-D19 | A containment or required row's label | **Accepted 2026-10-09 (the user's instruction to deliver): a lock icon whose tooltip and accessible name give today's reason.** The column then holds only icons. The alternative keeps the muted text, which is longer than the icons and wraps at 390px |
+| U-D20 | An empty editable subtitle, and removing a value in the header | **Accepted 2026-10-09 (the user's instruction to deliver): an empty editable subtitle shows Add {field} with a plus; the header has no remove.** Without it a record with no code could not get one from the header, which is the point of the change; clearing an identity field from the header would be easy to do by accident, and the details panel keeps remove with its confirmation |
+
+**Journeys.** J02 (correct a record) gains a variant: the name and the header's subtitle corrected
+in place from the header. J13's relationship rows change look only. USER_JOURNEYS records both. UI_ACCEPTANCE
+row UA8-1 (the record header) and K3a-1 (the row's icons).
+
+**Test cases** (accepted with U-D18–U-D20):
+
+1. `EditableField.test` (new): on two record types, the name edited in place saves through the
+   record update with its version and the title shows the new name; an attribute subtitle saves
+   through the attribute route; Escape cancels and returns focus; a conflict reloads and says so; a
+   computed subtitle and a publication show plain text; an empty editable subtitle offers Add.
+2. `ObjectDetail.test`: no Edit record button; the ⋯ menu's first item is Edit record and opens the
+   form; the same in the inspector. `RecordActionMenu.test` follows the rename.
+3. `AttributesPanel.test` still passes on the extracted component (its cases unchanged).
+4. `RelationsPanel.test`: a row's icon buttons by their accessible names (Change, Edit values,
+   Delete) open what the text buttons opened; a containment row's lock names its reason.
+5. Browser: `test:browser:k3` scenario 9 by the new names; the runners that press Edit record or
+   Edit all fields (`wp9-authoring`, `wp9-change-sets`, `wp9-publications`, `sc15`, `ui03a`) by the
+   menu item; screenshots of the header (rest, hover, editing the title, an empty subtitle) and a
+   relationship row, on the full page and in the inspector, at 1440px and 390px, light and dark; axe
+   on both.
+
+**Checks.** Vitest `related` over the changed files, `format`, `lint`, `build`; the five runners
+above and `test:browser:k3`. Not run: the full suites, `test:a11y`, `test:visual` (R).
+
+#### UA8 record (2026-10-09)
+
+Implemented; screenshots await the user's approval. Delivered as planned, with these differences:
+
+- **The screenshots and axe have a runner of their own**, `ua8-record-in-place` (`test:browser:ua8`),
+  rather than a scenario in another: it adds K3a's Kept by binding to the starter for the run, with
+  a relationship value, so one row shows all three icons, and covers domains and systems, the full
+  page and the inspector, 390px and dark.
+- **The pencil setting** is read by `EditableField` for every field it draws; the details panel's
+  `<dl>` keeps its own `data-edit-hint`, which `AttributesPanel.test` pins, so the panel reads it in
+  two places. Both say the same value.
+- **`ui/IconButton`** is used by the relationship rows and the details panel's remove. The other
+  icon-only buttons (the ⋯ trigger in `ui/ActionMenu`, `ScrollWindow`, `SettingsMenu`, the webhook
+  dialog, the change-set review) keep the existing `.icon-button` class with their own markup; moving
+  them onto the component was not in the plan.
+- **`InlineAttributeEditor`** takes a `save` for a built-in field, so the name uses the same editor
+  and conflict handling as every attribute; nothing was copied.
+
+**Built.** `features/objects/EditableField` (with `fieldEditing`, which says whether and how a field
+is edited); `AttributesPanel` renders its rows with it and keeps removal; `ObjectDetail` renders the
+header's title and subtitle with it (the subtitle shown when it has a value or can be edited) and
+drops the Edit record button; `ui/PageHeader` gains `titleLabel` and `titleEditor`, and a non-text
+description renders in a `div`; `RecordActionMenu`'s item is **Edit record**; `RelationsPanel`'s
+actions column is Change (two arrows), Edit values (pencil) and Delete (trash) over `ui/IconButton`
+(quiet, red on Delete's hover), with a lock and its reason where a row cannot be changed; `ui/Icon`
+gains `swap` and `lock`.
+
+**Tests.** `EditableField.test` (new, 12 on two record types), `ObjectDetail.test` (the header's
+actions on the page and in the inspector), `RecordActionMenu.test` and `App.test` (the item's name),
+`RelationsPanel.test` (the icon buttons by name and tooltip; the K3a cases by the new names);
+`AttributesPanel.test` unchanged and passing. The runners `wp9-authoring`, `wp9-change-sets`,
+`wp9-publications`, `sc15` and `ui03a-navigation` press Edit record in the menu, and
+`wp9-authoring` a relationship row's Edit values and Delete by their new names; `k3-bulk-relations`
+the same for Kept by.
+
+**Checks.** `vitest related` over the changed files: 40 files, 425 passed. `format`; `lint`, 0
+errors (the 7 recorded warnings); `build`. Runners: `test:browser:ua8` (7 checks, axe 0 violations
+on the record page light and dark and on the inspector), `test:browser:k3` (16 checks), and
+`authoring`, `change-sets`, `publications`, `sc15`, `ui03a-navigation`, each passed. Screenshots
+inspected: the header at rest, on hover, editing the title, with Add Description, at 1440px and
+390px and in the inspector; a system's header; the Kept by row at rest and hovered, light and dark.
+A first look showed the row icons in the action colour: `.row-actions button`, the old text-button
+rule, outranked the quiet icon's; the icon rules now name both classes, and the details panel's
+remove keeps its red. Not run: the full suites, `test:a11y`, `test:visual` (R).
 
 ### U4: the integration pages
 
