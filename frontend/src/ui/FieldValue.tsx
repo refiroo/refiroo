@@ -1,8 +1,9 @@
 /**
  * One field of a record as a table cell shows it. A column that shows other records renders each as
  * a `RecordChip` in that record's type colour: an `ancestor:<type>` column its ancestor, a
- * `related:<key>` column the row's first related records and "+N more" for the rest (0.9 K5, D143),
- * each by its name or, in a `related:<key>.<field>` column, by that field's value (0.9 K5a).
+ * `related:<key>` column the row's related records, as many as its width holds, and "+N more" for
+ * the rest (0.9 K5, K5b: `RelatedRecordChips`), each by its name or, in a `related:<key>.<field>`
+ * column, by that field's value (0.9 K5a).
  * Every other field is a value, rendered by `formatValue`.
  */
 
@@ -11,6 +12,7 @@ import { objectTypeHue } from "@/model/hues";
 import { RELATED_FIELD_PREFIX } from "@/model/lookup";
 import { formatValue } from "@/ui/formatValue";
 import { RecordChip } from "@/ui/RecordChip";
+import { RelatedRecordChips } from "@/ui/RelatedRecordChips";
 import type { EngineModel, ObjectItem } from "@/types";
 
 const ANCESTOR = "ancestor:";
@@ -24,18 +26,15 @@ export function FieldValue({ item, field, model }: { item: ObjectItem; field: st
   if (field.startsWith(RELATED_FIELD_PREFIX)) {
     const related = relatedRecords(item, field, model);
     if (related?.items.length) {
-      const names = related.items.map((entry) => relatedText(entry, related.field));
-      const more = related.count - related.items.length;
-      // One line: "+N more" keeps its place at the end, the chips are clipped before it (D143).
       return (
-        <span className="related-records" title={more > 0 ? `${names.join(", ")} and ${more} more` : names.join(", ")}>
-          {related.items.map((entry) => (
-            <RecordChip key={entry.relationId} hue={objectTypeHue(model, entry.object.objectTypeKey)}>
-              {relatedText(entry, related.field)}
-            </RecordChip>
-          ))}
-          {more > 0 && <span className="related-records-more">+{more} more</span>}
-        </span>
+        <RelatedRecordChips
+          total={related.count}
+          chips={related.items.map((entry) => ({
+            key: entry.relationId,
+            text: relatedText(entry, related.field),
+            hue: objectTypeHue(model, entry.object.objectTypeKey),
+          }))}
+        />
       );
     }
   }

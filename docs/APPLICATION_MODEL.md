@@ -241,7 +241,8 @@ the declared fields add further fields (such as ones without a column) to the li
 field is a built-in (`id`, `name`, `objectType`, live timestamps) or a non-JSON attribute of the type.
 
 **Relation columns (schema 0.9, Base 0.9 K5).** A column `related:<key>` shows each row's related
-records of one relationship: up to three as record chips in name order, then "+N more". `<key>` is a
+records of one relationship as record chips in name order: as many as the column's width holds, then
+"+N more" for the rest (Base 0.9 K5b). `<key>` is a
 relation type's `key` (the listed type at the `from` end) or `reverseKey` (at the `to` end), and its
 header is the relation's name in that direction. Every binding of that relation type with the listed
 type at that end shows in the one column. A relation column may stand in a table view's `columns` and

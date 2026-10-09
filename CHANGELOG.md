@@ -6,6 +6,13 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- Base 0.9 K5b: a relation column shows as many related records as its width holds (D143 revised by
+  the user): whole chips, then "+N more" for the rest, and no "+N more" when they all fit; resizing a
+  column shows more or fewer at once without reading the list again. Lists ask for up to 20 related
+  records per row (`expandLimit=20`); a 20-row page costs 11–34 ms on the 0.1 volume fixture.
+
 ### Added
 
 - Base 0.9 K5a: a field of the related records in a relation column (D148–D152; J01.9, J08.12).

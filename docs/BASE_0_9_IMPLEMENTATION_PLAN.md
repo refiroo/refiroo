@@ -254,7 +254,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 31 | [J4](#j4-import-screen-and-sc-10) | J1u, J3, F2 | The SC-10 screen and SC-10 acceptance; frontend only (D89–D95) — **delivered 2026-10-08** ([record](#j4-record-2026-10-08)) |
 | 31a | [J4a](#j4a-why-another-workspaces-export-cannot-load) | J4 | Amendment: an import says why another workspace's export cannot load (the job's `notices`, refusals naming the workspace) — **delivered 2026-10-08** ([record](#j4a-why-another-workspaces-export-cannot-load)) |
 | 31b | [J5](#j5-another-workspaces-export-loaded-as-this-workspaces-own-records) | J4a | Another workspace's export loaded as this workspace's own records (counterpart IDs, `otherWorkspaceIds`), on imports and batches (D96–D101) — **delivered 2026-10-08** ([record](#j5-record-2026-10-08)) |
-| 31a | [Track K](#track-k--bulk-selection-and-editing-in-collections) | J4, UA | Bulk selection and bulk edits in collections over `POST /batches`; packages K1–K5 planned in detail when the track starts — **added 2026-10-06**; [K1](#k1-plan-2026-10-08) selection **delivered 2026-10-08** (D102–D111, [record](#k1-record-2026-10-08)); [K3a](#k3a-many-to-one-relationships) many-to-one relationships **added and delivered 2026-10-09** (D136–D139, [record](#k3a-record-2026-10-09)), after K3 and before K5; [K5](#k5-relation-columns) relation columns **delivered 2026-10-09** (D140–D147, [record](#k5-record-2026-10-09)), screenshots approved 2026-10-10; [K5a](#k5a-a-field-of-the-related-records-in-a-relation-column) a field of the related records **added and delivered 2026-10-10** (D148–D152 accepted, [record](#k5a-record-2026-10-10)) |
+| 31a | [Track K](#track-k--bulk-selection-and-editing-in-collections) | J4, UA | Bulk selection and bulk edits in collections over `POST /batches`; packages K1–K5 planned in detail when the track starts — **added 2026-10-06**; [K1](#k1-plan-2026-10-08) selection **delivered 2026-10-08** (D102–D111, [record](#k1-record-2026-10-08)); [K3a](#k3a-many-to-one-relationships) many-to-one relationships **added and delivered 2026-10-09** (D136–D139, [record](#k3a-record-2026-10-09)), after K3 and before K5; [K5](#k5-relation-columns) relation columns **delivered 2026-10-09** (D140–D147, [record](#k5-record-2026-10-09)), screenshots approved 2026-10-10; [K5a](#k5a-a-field-of-the-related-records-in-a-relation-column) a field of the related records **added and delivered 2026-10-10** (D148–D152 accepted, [record](#k5a-record-2026-10-10)); [K5b](#k5b-relation-cells-as-wide-as-their-column) cells as wide as their column **added and delivered 2026-10-10** (D143 revised, [record](#k5b-record-2026-10-10)), screenshots awaiting approval; [K6](#k6-filtering-a-list-by-its-records-relationships) filtering by relationships **planned 2026-10-10** (D153–D159 accepted) |
 | 31c | [UA8](SETTINGS_AND_UI_PLAN.md#ua8-actions-in-place-on-the-record) | UA, K3a | A relationship row's actions as icon buttons; the record header's title and subtitle edited in place through one shared field editor; Edit record only in the ⋯ menu (U-D15–U-D20) — **implemented 2026-10-09**, screenshots awaiting the user's approval ([record](SETTINGS_AND_UI_PLAN.md#ua8-record-2026-10-09)) |
 | 31d | [UA9](SETTINGS_AND_UI_PLAN.md#ua9-the-record-tree-scrolled-as-one-several-records-selected-and-dragged) | UA8 | The record tree scrolls as one list and starts folded; several records selected and dragged, in the sidebar too (U-D21–U-D28) — **implemented 2026-10-09**, screenshots awaiting the user's approval ([record](SETTINGS_AND_UI_PLAN.md#ua9-record-2026-10-09)) |
 | V | [V3–V9](#v3v9-the-management-api-documented-plan-2026-10-07) | V2 | The management API documented: the starter extended, content and examples beside the document, the error catalogue; V3 first, then V4–V8 in any order, then V9. **Independent fillers; block no release** (V-D9) — **planned 2026-10-07**, V-D1 open |
@@ -309,7 +309,7 @@ Track C:  C1 ─ C2 ─┬─ C3 ───────────────�
           ── cut line (D9) ──
 Track J:  J1 ─ J1u                                 J1 needs Q3, Q4, B2, F1
           B3 ─ J2 ─ J2a ─ J3 ─ J4                  J3 needs B2; J4 needs J1u, F2; J2a if D74
-Track K:  J4, UA ─ K1 ─ K2 ─ K2b ─ K3 ─ K3a ─ K5    K4 not taken (D103); K5 by D135; K3a many-to-one
+Track K:  J4, UA ─ K1 ─ K2 ─ K2b ─ K3 ─ K3a ─ K5 ─ K5a ─ K5b ─ K6    K4 not taken (D103); K5 by D135; K6 filters
 Release:  Q2, T1, C8, C13, C16, V2, J4 → R          (R-a without J at the cut line)
 ```
 
@@ -8618,6 +8618,13 @@ cardinality); no screen knows a type key.
 - **K5a (added 2026-10-10 by the user): a field of the related records.** `related:<key>.<field>`
   shows each related record's value of a field, or of an ancestor's, instead of its name.
   _Planned and delivered 2026-10-10 ([plan](#k5a-a-field-of-the-related-records-in-a-relation-column), [record](#k5a-record-2026-10-10)), D148–D152 accepted 2026-10-10._
+- **K5b (added 2026-10-10 by the user): cells as wide as their column.** D143 revised: as many related
+  records as the width holds, "+N more" for the rest, none when all fit.
+  _Planned and delivered 2026-10-10 ([plan](#k5b-relation-cells-as-wide-as-their-column), [record](#k5b-record-2026-10-10)); screenshots await approval._
+- **K6 (added 2026-10-10 by the user): filtering by relationships.** A collection's Filter menu, and
+  the per-type list, narrow to records related to any of chosen records, to none or to any, carried
+  into selection, bulk actions and export. _Planned 2026-10-10 ([plan](#k6-plan-2026-10-10)),
+  D153–D159 and the test cases accepted._
 
 **Decisions for K1's planning:** how "all matching" meets optimistic concurrency (versions read at
 selection, or an explicit "apply to current values" that the invariant allows only when stated);
@@ -9964,7 +9971,7 @@ context the list reads (`changeSetId`,
 | D140 | How a column names a relationship | **Accepted 2026-10-09 by the user.** **`related:<key>`, where `<key>` is a relation type's `key` or `reverseKey`.** Keys and reverse keys share one namespace, so one key names the relation type and the direction, as the consumer API's `related` blocks already do (C18), and the column reads like `ancestor:<type>`. Every binding of that relation type with the listed type at that end shows in the column (a type represented by two kinds of record shows both in one "Represents" column). The alternatives, naming the relation type and direction separately (`related:<relationTypeKey>:incoming`) or a binding's three keys, are longer and add no case a key cannot express |
 | D141 | Where a relation column is allowed | **Accepted 2026-10-09 by the user.** **Table view columns and children and table panel columns, in schema 0.9; refused everywhere else at its pointer.** Those three are one list path (the per-type list) and one component (`ObjectTable` through `CollectionView` and `CollectionPanelTable`). A relations panel's rows are already relationships (a column there would be a second hop); the mapping grid, matrix and tree have their own reads; sort and filter fields are D145. Containment and required-ownership keys are allowed: they are relationships of the type, and a parent type listing its children by name is a real case |
 | D142 | How the list returns related records | **Accepted 2026-10-09 by the user.** **`expand` (repeatable, at most 5) and `expandLimit` (1–20, default 3) on `GET /objects/{objectTypeKey}`; items gain `expanded`, Q3's `ExpandedRelations` with each record's `name`; `422 INVALID_EXPAND`.** One contract shape for "a row's first related records" in both reads, read by the same set statement; the limit and the maximum of 5 are documented, as every cap must be. `count` gives "+N more" without a second read and `nextCursor` continues on the relationships list. The alternative, a separate slim shape (`id`, `name`, `objectTypeKey` only) under a new name, is smaller per item but is a second contract for the same thing |
-| D143 | How many records a cell shows | **Accepted 2026-10-09 by the user, amended after the user's question: "+N more" is muted text that stays at the end of the cell, the chips clipped before it.** **Three chips, then "+N more"; one line, clipped at the column's width.** Rows have one height in a scrolling window (ADR-030), so the cell cannot grow; three fit a default column and say most rows completely (a many-to-one or one-to-many end holds one). The alternative, as many as fit the width, needs a measure per cell and changes with every resize |
+| D143 | How many records a cell shows | **Revised 2026-10-10 by the user (K5b): as many whole chips as the column's width holds, up to 20, then "+N more" counting the rest; no "+N more" when every record fits.** _Before: accepted 2026-10-09 by the user, amended after the user's question: "+N more" is muted text that stays at the end of the cell, the chips clipped before it._ **Three chips, then "+N more"; one line, clipped at the column's width.** Rows have one height in a scrolling window (ADR-030), so the cell cannot grow; three fit a default column and say most rows completely (a many-to-one or one-to-many end holds one). The alternative, as many as fit the width, needs a measure per cell and changes with every resize |
 | D144 | Whether a chip opens its record | **Accepted 2026-10-09 by the user.** **No: chips are not links, as `ancestor:` chips are not; the row opens as before.** A button inside a row competes with the row's click, its selection (K1, Shift and Cmd) and keyboard focus moving by row; the record's Relationships panel lists every related record with its link. The alternative, each chip opening its record, needs a cell focus model the table does not have |
 | D145 | Sorting and filtering by a relation column | **Accepted 2026-10-09 by the user as amended: a single-valued column sorts; no relation column filters.** A column is single-valued when its key has one binding with the listed type at that end and that end holds one; it sorts by the related record's name, rows without one last, in every context, as an `ancestor:` column sorts a relation list. A many-valued row has no single value to sort by, and "rows related to X" is a filter capability of its own (Q3's relation hop already serves integrators). The planned recommendation, no sorting at all in K5, was changed by the user |
 | D146 | A hidden relation column | **Accepted 2026-10-09 by the user.** **Not requested.** Hiding a column in the table's display settings removes its `expand`, so a user who does not want the column does not pay its read. The display's preference is per browser, so the request follows it |
@@ -10284,6 +10291,233 @@ final run's output folder.
   for R.
 - Cleaning up runner output this session removed every `rdm-ui07-gate-*` folder in the temporary
   directory, including ones other sessions may have left; they held screenshots and reports only.
+
+#### K5b: Relation cells as wide as their column
+
+**Added 2026-10-10 by the user**, revising D143: a relation column shows as many related records as
+its width holds, and "+N more" counts the rest; when every record fits there is no "+N more".
+**Needs:** K5, K5a. An amendment of K5's cell; no engine or model change.
+
+**What exists.** The cell (`ui/FieldValue`) draws the first three records the list returned
+(`expandLimit` 3, the default) and "+N more" from the entry's `count`; the chips shrink, later ones
+first, so a narrow column clips them. Column widths come from the view's defaults, the user's
+resizing (`ui/DataTable`, stored per table in `ui/TableDisplay`) and the 390px layout.
+
+**Behaviour.**
+
+1. The list asks for up to 20 related records per row (`expandLimit=20`, D142's maximum) for each
+   shown relation column.
+2. A cell shows whole chips, as many as fit its width beside the "+N more" they leave, in the
+   records' order; "+N more" counts every record not shown, the ones the list did not return
+   included. When every record fits, there is no "+N more".
+3. A column too narrow for one whole chip shows the first chip clipped with an ellipsis, then "+N
+   more".
+4. Resizing a column, the window or the inspector shows more or fewer chips at once; the list is not
+   read again.
+5. The cell's tooltip lists the names it holds and how many more there are, as before.
+
+**Design.** `ui/RelatedRecordChips` (new): renders every chip once to measure its natural width,
+then only those that fit; a `ResizeObserver` on the cell recomputes how many fit from the measured
+widths without measuring again, and records that change are measured again. `fittingChips` (pure,
+`ui/relatedFit.ts`): given the chips' widths, the gap, the width available and the width of "+N
+more", how many to show. `CollectionView` and `CollectionPanelTable` send `expandLimit=20` with
+`expand`. The shrink weights of K5 are removed; only a lone first chip shrinks.
+
+**Cost, measured 2026-10-10** (0.1 volume fixture, two keys or a 20,000-child relationship): a
+20-row page with `expandLimit` 20 took 11–34 ms in every context (3: 9–46 ms); a 100-row page of
+records with many relationships 61–80 ms (3: 50–66 ms).
+
+**Test cases.** Vitest: `fittingChips` over widths, available width and counts (all fit, some fit,
+none fits, every returned one fits but more exist); `FieldValue` with no "+N more" when all are
+returned and fit. Runner `test:browser:k5`: with the column set wide, a value with five master
+values shows five chips and no "+N more"; set narrow, fewer whole chips and "+N more" adding up to
+five; resized by the user's stored width, without the list being read again.
+
+**Checks.** Vitest `related`, format, lint, build; `test:browser:k5`, `test:browser:k3` (its record
+view reads the same lists), `test:browser:k1`, judged by exit code and `report.json`.
+
+##### K5b record (2026-10-10)
+
+**Delivered 2026-10-10.** D143 as revised by the user; screenshots await the user's approval.
+
+**Built.** `ui/relatedFit.fittingChips` (pure) and `ui/RelatedRecordChips`: the chips are drawn once at
+their natural width with an unseen widest "+N more" and measured; then only those that fit are drawn,
+and a `ResizeObserver` on the chips and their table cell recomputes from the measured widths. The room
+is the table cell's content box, since in the narrow layout's content-sized table the chips' own box
+grows while the cell clips it; a cell first drawn hidden (a column the narrow layout hides until
+"Show all columns") measures nothing and is measured once shown. `CollectionView` and
+`CollectionPanelTable` send `expandLimit=20` with `expand` (`RELATED_EXPAND_LIMIT`). K5's shrink
+weights are gone; a lone first chip shrinks and clips.
+
+**Checks.** Vitest: `relatedFit.test` (5 cases), `FieldValue.test` as before; `related` over the
+changed files, 49 files, 517 passed; `tsc`, `format`, `lint` (0 errors, the 7 recorded warnings),
+`build`. Runners, by exit code and `report.json`: `test:browser:k5` 10 checks (scenario 6 rewritten),
+`test:browser:k3` 16, `test:browser:k1` 11. Cost measured once (0.1 volume fixture): see the plan.
+
+**Evidence, separately.** Functional: the checks above. Accessibility: axe 0 violations on both
+tables, light and dark, and at 390px. Visual, inspected: at the widest the five chips and no "+N
+more"; at 368px two whole chips and "+3 more"; at 390px one chip, clipped, and "+4 more" or "+1 more".
+
+**Differences from the plan.** The cell measures the table cell, not its own box, and re-measures a
+cell first drawn hidden; both found at 390px, where the first runs drew a second chip cut at the
+column's edge.
+
+**Found.** `test:browser:k1` failed once ("20 selected", expected 40, on domains, which have no
+relation column) and passed on the next run; timing.
+
+#### K6: Filtering a list by its records' relationships
+
+**Added 2026-10-10 by the user**, after K5's relation columns, which cannot filter (D145). **Design:**
+this entry; Q3's `related` criterion (INTEGRATION_API §Q3, D18). **Needs:** K5b.
+
+**Scope:** a collection's Filter menu, and the per-type list it reads, narrow the records to those
+related, through one relationship, to any of chosen records, or to none, or to at least one; in live
+data, a change set and a publication; carried by everything that reads "the records this list
+matches": paging and totals, the page address, "Select all N matching" and the bulk actions, and
+Export.
+
+**Exit:** a user filters system values to those mapped to two chosen master values, and to those
+mapped to none, in two collections of two applications, live and in a change set, by pointer and
+keyboard at 1440px and 390px; reloads the page from its address and sees the same filter with the
+records' names; selects all matching and changes them, the preview counting exactly the filtered
+records; exports the list with the filter; an integrator does the same with `filter.related:<key>…`
+on `GET /objects/{objectTypeKey}`.
+
+##### K6 plan (2026-10-10)
+
+**Planned 2026-10-10. D153–D159 and the test cases accepted by the user the same day (D153 with the
+user's addition: a column showing a field of the related records, an ancestor's included, offers no
+filter in the UI).** Checked against the
+code at `e31df44` with K5b in the working tree.
+
+**What exists.**
+- **The list's filters.** `GET /objects/{objectTypeKey}` reads `filter.<field>.<operator>=<value>`
+  (`routers/objects._field_filters`, split at the last dot, so a field may contain dots) into
+  `object_query.typed_filter_predicates`: built-in fields and `filterable` attributes, operators by
+  value type (`eq`, `contains`, `lt`…, `isNull`, `isUnset`), several `eq` on one field as
+  alternatives, everything else ANDed; the same builder serves change sets and publications.
+- **Q3's hop.** `model_query._related_predicate` already turns "related, through one binding and
+  direction, to a record matching criteria" into a set condition on the listed record's ID, live and
+  in a context, inverted with `not`; export uses Q3's criteria (`ExportType.where`).
+- **The browser.** The collection's filters are `CollectionFilter {field, operator, value}` in the
+  page address (`query.filters`), offered from the view's `filterFields` (`ObjectToolbar`). The same
+  `query.filters` go to the list read, the selection's list key (K1, D108), the bulk actions' read of
+  all matching (`readMatching`), and Export (`exportRequest.criteriaFromFilters` turns them into Q3
+  criteria). The record picker is `ui/RecordListField` (K3).
+- **The model.** A view's `filterFields` refuses `related:` (D145); K5's resolver
+  (`related_columns.related_field_column`) names the relation type, direction and bindings of a key.
+
+**Behaviour.**
+
+1. **The model offers it** (D154): a table view's `filterFields` may name `related:<key>` (the name
+   form; a K5a field form is refused, and a column showing a field of the related records, an
+   ancestor's included, offers no filter in the UI, D153). The Filter menu then lists the relationship by its column's
+   header ("Maps to master value").
+2. **What the filter asks** (D153), for that relationship:
+   - **is any of** chosen records: rows related to at least one of them;
+   - **has none**: rows with no such relationship;
+   - **has any**: rows with at least one.
+   The records are chosen with the record picker (`ui/RecordListField`), limited to the types at the
+   other end. Several relationship filters, and the type's other filters and the search, combine with
+   AND.
+3. **The filter chip** says the relationship and the records' names ("Maps to master value: Alpha,
+   Bravo"); opened from a link or a reload, the names are read back by the records' IDs (D157).
+4. **Everything that reads the list's records carries it** (D158): paging, positions and totals;
+   "Select all N matching" and every bulk action's preview and apply; Export (as Q3's `related`
+   criterion). A selection made under one filter is cleared when the filter changes, as today.
+5. **In every context**: live, a change set (its staged relationships), a publication.
+6. **API** (D155): `filter.related:<key>.eq=<recordId>` (repeatable: any of), and
+   `filter.related:<key>.isNull=true` (has none) or `=false` (has any), on the per-type list, for any
+   relationship the type has a binding of; `422 INVALID_FILTER` for an unknown key, a key the type has
+   no binding of, a field form or another operator. An ID no record has matches nothing, as an `eq` on
+   any field does. The cross-type lookup keeps refusing model fields.
+
+**Design.**
+
+- **Engine** (D156): `typed_filter_predicates` sets `related:` filters apart and turns each field's
+  group into one set condition on the listed record's ID through the predicate Q3's hop builds, moved
+  into a function both use (`object_query` for the list, `model_query` for Q3): `eq` values as
+  `id IN (…)` on the record at the other end, `isNull` as the hop or its inversion with no criteria.
+  `ObjectColumns` already knows live and context reads; the filter joins nothing to the listed rows,
+  so positions and totals hold. Normalized filters (the cursor binding) include it.
+- **Model validation**: `filterFields` accepts `related:<key>` through `related_field_column`, refuses
+  the field form; `_check_query_capability` accepts it for `filter`.
+- **Frontend:** `ObjectToolbar`'s filter row for a `related:` field offers the three operators, the
+  record picker for "is any of" (one `CollectionFilter` per chosen record, `eq`, as the URL already
+  stores repeated values), none for the other two; `model/fields` labels it; a hook reads the chosen
+  records' names by ID through `GET /objects` (`filter.id.eq`) for the chip, once per filter set;
+  `exportRequest.criteriaFromFilters` maps `related:` filters to a `related` criterion (`eq` IDs as
+  `id eq` alternatives in its `where`; `isNull=true` as `not` with no criteria).
+- **The starter** content release 0.9.5: system values filter by Maps to master value and Represents
+  reference structure; master values by Is represented by system value (D159).
+- **Not changed:** the cross-type lookup, Q3's request shape, the relation panels' search, the
+  mapping grid and matrix filters.
+
+**Decisions** (accepted by the user 2026-10-10):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D153 | What the filter asks | **Accepted 2026-10-10 by the user, who added: a column showing a field of the related records (K5a's form, an ancestor's field included) offers no filtering in the UI.** **Related to any of chosen records, related to none, related to any; through one relationship.** These are the questions a steward asks of a list ("mapped to these", "not mapped yet") and the ones Q3's hop answers. Filtering by a field of the related records (K5a's form: "translated into `en`") is left for a later need: Q3's hop takes the far end's own fields but no ancestor field, so it needs an engine change of its own |
+| D154 | How the model offers it | **Accepted 2026-10-10 by the user.** **`related:<key>` in a table view's `filterFields`, the name form only; D145 revised to allow it.** The view decides what its Filter menu offers, as for attributes |
+| D155 | The API | **Accepted 2026-10-10 by the user.** **`filter.related:<key>.eq` (repeatable, any of) and `.isNull` (true: none, false: any) on the per-type list, for every relationship the type has; `INVALID_FILTER` otherwise.** The list's existing filter family, its alternatives rule and its parsing (split at the last dot) need no new parameter; the API offers every relationship, as `expand` does, while a view offers only those it declares |
+| D156 | Where the condition is built | **Accepted 2026-10-10 by the user.** **One function shared by the list's filter and Q3's hop, set-based in PostgreSQL**, so both mean the same in every context. The alternative, the collection moving onto the Q3 query, would redo its paging, positions, seek, totals and address state |
+| D157 | The chip's names after a reload | **Accepted 2026-10-10 by the user.** **Read back by ID through the cross-type lookup, once per filter set**; the address keeps only IDs, which stay stable when a name changes |
+| D158 | Selection, bulk actions and export | **Accepted 2026-10-10 by the user.** **Carried as part of `query.filters`, with no separate state**; export converts it to Q3's `related` criterion. A bulk change must read exactly the set on screen (K1, D104) |
+| D159 | Which shipped model offers it | **Accepted 2026-10-10 by the user.** **The starter, as content release 0.9.5, on system values and master values**; the example model when the user next asks for it |
+
+**Journeys.** J01.10 (new) *Filter a list by its records' relationships* (UI, API): behaviour 1–6.
+J32.6 (new) *Change all records a relationship filter matches*: the selection and the bulk preview
+count exactly the filtered records. J27.6 gains the filter carried into Export. J08.12 gains
+`filterFields`. USER_JOURNEYS, API_JOURNEYS (the filter, `INVALID_FILTER`), UI_ACCEPTANCE (K6-1).
+
+**Test cases** (approved by the user 2026-10-10). API journey tests (pytest; generated
+configurations A and B):
+
+1. **Any of** (`test_j01_find_and_inspect`, J01.10). H records related through the many-to-many to
+   K a, K b, both, and neither: `eq` a gives the first and third; `eq` a and `eq` b gives the first
+   three; with a typed filter or a search beside it, the intersection; paged by 2 to the end and by
+   position with totals, every row once.
+2. **None and any, in every context** (J01.10). `isNull=true` gives the record related to neither;
+   `false` the other three. A relationship staged in a change set moves a record between the two in
+   the change set's list, not live; a publication answers as it was published.
+3. **Refused** (J01.10): an unknown key, a key the type has no binding of, `contains`, a field form
+   (`related:<key>.name`): `422 INVALID_FILTER`, naming the parameter.
+4. **Export carries it** (J27.6, `test_j27_export`): an export of the type with the `related`
+   criterion the browser sends holds exactly the records the list filter gives.
+5. **The model** (J08.12): `related:<key>` in `filterFields` validates; the field form and an unknown
+   key are refused at `/…/config/filterFields`.
+6. **Cost.** Measured once on the 0.1 volume fixture, reported in the record: a 100-row page of items
+   filtered to one group's 20,000 children and to items citing one group, with totals, live, in a
+   change set and in a publication.
+
+Vitest: the filter row for a relationship (operators, the picker, keyboard); the chip's names read
+back and the address round trip; `criteriaFromFilters` for the three operators; the selection's list
+key changing with the filter.
+
+Browser runner `test:browser:k6` (real backend; the starter 0.9.5; system values of RDM Systems and
+master values of RDM Master; 1440px and 390px; keyboard):
+
+7. **Any of, live**: system values filtered to two master values; the rows are exactly those mapped to
+   either; the chip names both; reloaded from the address, the same rows and chip.
+8. **None, in a change set**: a mapping staged in the change set removes a value from "has none"
+   there, not live.
+9. **All matching, then a bulk change**: under the filter, Select all N matching, Change values…: the
+   preview counts N.
+10. **Export** from the filtered list: the dialog carries the filter; the job's file holds N records.
+11. **From the other side, and keyboard only at 390px**: master values filtered by Is represented by
+    system value; the filter built and cleared by keyboard.
+
+Axe with 0 violations on the Filter menu with a relationship row and on the filtered list, light and
+dark; screenshots for the user's approval.
+
+**Checks.** Backend: the journey tests above confirmed failing first; `queries`, `model`, `jobs`
+(export), `contract` (the OpenAPI document diffed before the lock is re-baselined), `change_sets` for
+the snapshot builder; Ruff. Frontend: Vitest `related`, format, lint, build; `test:browser:k6`; `k1`,
+`k2`, `k5` and `j1u` (export), judged by exit code and `report.json`. Not run: the full suites,
+`budget`, `test:a11y`, `test:visual` (R).
+
+**Composable domains (ADR-032):** a read only; the bulk APIs, identity, attribute storage, audit,
+the consumer API's `match` and mapping coverage are untouched.
 
 ## R: Build acceptance and release
 

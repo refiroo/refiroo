@@ -9,7 +9,7 @@ import { useState } from "react";
 import { RecordActionMenu } from "@/features/objects/RecordActionMenu";
 import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
-import { attributeName, listSortFields, relatedKeys } from "@/model/fields";
+import { attributeName, listSortFields, RELATED_EXPAND_LIMIT, relatedKeys } from "@/model/fields";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { objectTypeFor } from "@/model/lookup";
 import type { ObjectItem } from "@/types";
@@ -65,6 +65,8 @@ export function CollectionPanelTable({
             pageSize: selectedPageSize,
             parentObjectId,
             expand,
+            // As many as a wide column can show; the cell draws what fits (K5b).
+            expandLimit: expand.length ? RELATED_EXPAND_LIMIT : undefined,
           })
       : null,
     [

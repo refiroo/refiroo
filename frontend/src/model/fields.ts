@@ -57,6 +57,9 @@ export function relatedText(entry: ExpandedRelations["items"][number], field?: s
   return typeof value === "object" ? JSON.stringify(value) : String(value);
 }
 
+/** How many related records a list asks for per row and relation column: the API's maximum (K5b). */
+export const RELATED_EXPAND_LIMIT = 20;
+
 /** The `related:` columns among `columns`, as the list's `expand` names them (D146: the shown ones). */
 export function relatedKeys(columns: readonly string[]): string[] {
   return columns

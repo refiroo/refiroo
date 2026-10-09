@@ -2,9 +2,12 @@
 // values (RDM Systems, Maps to master value and Represents reference structure) and master values
 // (RDM Master, Is represented by system value), at 1440px and 390px.
 //
-// 6. Both directions, live: a value related to five master values shows three chips and "+2 more",
-//    one related to one shows it, one related to none an empty cell; the master values show the
-//    system values backwards.
+// 6. Both directions, live: a value related to five master values shows them in name order, as many
+//    as its column's width holds and "+N more" for the rest (K5b); widened to the maximum by
+//    keyboard, all five and no "+N more"; at the minimum, the first clipped and "+4 more"; at 360px,
+//    whole chips and "+N more" adding up to five; the list not read again while resizing. One
+//    related to one shows it, one related to none an empty cell; the master values show the system
+//    values backwards.
 // 7. After a bulk change: three values given one more master value through Change relationships…
 //    show it in their rows without the page being reloaded.
 // 8. In a change set and a publication: a relationship staged in a change set shows there and not
@@ -117,9 +120,45 @@ try {
       headers.some((header) => header.includes("Represents reference structure")),
     `values: the headers are ${headers}`,
   );
-  const first = await chips(masterCell("K5 Value 001"));
-  const firstMore = await text(masterCell("K5 Value 001").locator(".related-records-more"));
-  expect(first.join("|") === masterNames.slice(0, 3).join("|") && firstMore === "+2 more", `value 001 shows ${first} ${firstMore}`);
+  // K5b: the cell shows what its width holds. Shown chips and "+N more" always add up to five.
+  const shownOf = async () => {
+    const names = await chips(masterCell("K5 Value 001"));
+    const more = masterCell("K5 Value 001").locator(".related-records-more");
+    const hidden = (await more.count()) ? Number((await text(more)).match(/\d+/)[0]) : 0;
+    return { names, hidden };
+  };
+  const first = await shownOf();
+  expect(
+    first.names.join("|") === masterNames.slice(0, first.names.length).join("|") && first.names.length + first.hidden === 5,
+    `value 001 at the default width shows ${first.names} and ${first.hidden} more`,
+  );
+  const handle = page.getByRole("separator", { name: "Resize Maps to master value column" }).or(page.getByLabel("Resize Maps to master value column"));
+  const requestsBefore = listRequests.length;
+  await handle.first().focus();
+  await page.keyboard.press("End");
+  await page.waitForTimeout(150);
+  const wide = await shownOf();
+  expect(wide.names.length === 5 && wide.hidden === 0, `value 001 at the widest shows ${wide.names} and ${wide.hidden} more`);
+  await shot("k5b-values-widest");
+  await page.keyboard.press("Home");
+  await page.waitForTimeout(150);
+  const narrowest = await shownOf();
+  expect(narrowest.names.length === 1 && narrowest.hidden === 4, `value 001 at the narrowest shows ${narrowest.names} and ${narrowest.hidden} more`);
+  for (let step = 0; step < 8; step += 1) await page.keyboard.press("Shift+ArrowRight");
+  await page.waitForTimeout(150);
+  const middle = await shownOf();
+  const whole = await masterCell("K5 Value 001")
+    .locator(".record-chip-name")
+    .evaluateAll((names) => names.every((name) => name.scrollWidth <= name.clientWidth + 1));
+  expect(
+    middle.names.length > 1 && middle.names.length < 5 && middle.names.length + middle.hidden === 5 && whole,
+    `value 001 at 368px shows ${middle.names} and ${middle.hidden} more (whole chips: ${whole})`,
+  );
+  await shot("k5b-values-368");
+  expect(listRequests.length === requestsBefore, `resizing read the list ${listRequests.length - requestsBefore} times`);
+  checks.push(
+    `K5b: value 001 shows ${first.names.length} + ${first.hidden} more at the default width, all 5 at the widest, 1 + 4 more at the narrowest, ${middle.names.length} whole + ${middle.hidden} more at 368px; the list not read again`,
+  );
   const second = await chips(masterCell("K5 Value 002"));
   expect(second.join() === "K5 Master Bravo", `value 002 shows ${second}`);
   const none = await row("K5 Value 003").locator(".related-records").count();
@@ -127,7 +166,7 @@ try {
   const sortable = await page.getByRole("columnheader", { name: /Maps to master value/ }).getByRole("button").count();
   expect(sortable === 0, "values: Maps to master value offers a sort, though a value maps to many");
   await shot("k5-values-wide");
-  checks.push(`system values, live: three chips and "+2 more", one chip, an empty cell; no sort on a many-valued column; axe ${await axe("k5-values-light")} violations`);
+  checks.push(`system values, live: five related records by width, one chip, an empty cell; no sort on a many-valued column; axe ${await axe("k5-values-light")} violations`);
 
   await open("/apps/rdm-master/views/master-values?workspaceKey=default&search=K5%20Master", "Master values", "K5 Master Alpha");
   const backwards = await row("K5 Master Bravo")
@@ -227,10 +266,15 @@ try {
   await page.getByRole("button", { name: /^Show all \d+ columns$/ }).click();
   const cell = masterCell("K5 Value 001");
   await cell.scrollIntoViewIfNeeded();
-  const [cellBox, moreBox] = await Promise.all([cell.boundingBox(), cell.locator(".related-records-more").boundingBox()]);
+  // The narrow layout sizes columns to their content, so the cell may hold every record.
+  const narrowMore = cell.locator(".related-records-more");
+  const cellBox = await cell.boundingBox();
+  const moreBox = (await narrowMore.count()) ? await narrowMore.boundingBox() : null;
+  const narrowChips = await cell.locator(".record-chip-name").count();
+  expect(narrowChips + (moreBox ? 1 : 0) >= 1, "390px: the cell is empty");
   expect(
-    cellBox && moreBox && moreBox.x + moreBox.width <= cellBox.x + cellBox.width + 1 && moreBox.height < 30,
-    `390px: "+2 more" lies outside its cell (${JSON.stringify(moreBox)} in ${JSON.stringify(cellBox)})`,
+    cellBox && (!moreBox || (moreBox.x + moreBox.width <= cellBox.x + cellBox.width + 1 && moreBox.height < 30)),
+    `390px: "+N more" lies outside its cell (${JSON.stringify(moreBox)} in ${JSON.stringify(cellBox)})`,
   );
   const lines = await cell.locator(".related-records").evaluate((element) => element.getBoundingClientRect().height);
   expect(lines < 30, `390px: the cell is ${lines}px high, more than one line`);
@@ -241,7 +285,7 @@ try {
   await page.keyboard.press("ArrowDown");
   const focused = await page.evaluate(() => document.activeElement?.textContent ?? "");
   expect(focused.includes("K5 Value 002"), `keyboard: ArrowDown moved to "${focused}"`);
-  checks.push(`390px: "+2 more" inside its one-line cell, no page overflow; ArrowDown moves to the next row; axe ${await axe("k5-values-390")} violations`);
+  checks.push(`390px: the cell on one line (${narrowChips} chips${moreBox ? " and +N more inside it" : ", every record"}), no page overflow; ArrowDown moves to the next row; axe ${await axe("k5-values-390")} violations`);
 
   // Axe in the dark theme on both tables.
   await page.setViewportSize({ width: 1440, height: 900 });

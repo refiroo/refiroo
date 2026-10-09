@@ -93,8 +93,9 @@ Filters cover text equality, contains and starts-with, numeric and date comparis
 checks and the difference between a missing optional field and a stored null.
 
 A collection or a record's table may show, where the model declares it, a column of each row's
-related records of one relationship: up to three as chips in their type's colour, then "+N more",
-on one line. It shows the relationships of the data being viewed (live, a change set or a
+related records of one relationship as chips in their type's colour, on one line: as many as the
+column's width holds, then "+N more" for the rest, and no "+N more" when they all fit; resizing the
+column shows more or fewer at once. It shows the relationships of the data being viewed (live, a change set or a
 publication). Where a row can hold only one such record, the column sorts by its name, rows without
 one last; a column that can hold several does not sort, and none filters. A column hidden in the
 table's display settings is not read. A column may also show a field of the related records, or of a

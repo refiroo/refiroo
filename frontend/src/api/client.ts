@@ -176,6 +176,8 @@ export interface ObjectQuery extends PageSelector {
   filters?: CollectionFilter[];
   /** Relation keys or reverse keys whose related records each row carries (0.9 K5, D142). */
   expand?: string[];
+  /** How many related records each `expand` entry carries, 1–20 (3 when omitted). */
+  expandLimit?: number;
 }
 
 export interface ChangeListQuery extends PageSelector {
@@ -296,6 +298,7 @@ function objectQueryPath(objectTypeKey: string, query: ObjectQuery) {
   if (query.sort) params.set("sort", query.sort);
   query.filters?.forEach(({ field, operator, value }) => params.append(`filter.${field}.${operator}`, value));
   query.expand?.forEach((key) => params.append("expand", key));
+  if (query.expandLimit != null) params.set("expandLimit", String(query.expandLimit));
   return `/api/v1/objects/${encodeURIComponent(objectTypeKey)}?${params}`;
 }
 

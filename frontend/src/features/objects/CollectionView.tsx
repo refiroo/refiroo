@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { RecordActionMenu } from "@/features/objects/RecordActionMenu";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
 import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
-import { attributeName, isQueryableField, listSortFields, relatedKeys } from "@/model/fields";
+import { attributeName, isQueryableField, listSortFields, RELATED_EXPAND_LIMIT, relatedKeys } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
 import { InlineError } from "@/ui/InlineError";
 import { Icon } from "@/ui/Icon";
@@ -115,6 +115,8 @@ export function ObjectCollectionView({
             filters: query.filters,
             parentObjectId: query.parentObjectId,
             expand,
+            // As many as a wide column can show; the cell draws what fits (K5b).
+            expandLimit: expand.length ? RELATED_EXPAND_LIMIT : undefined,
             ...selector,
             pageSize: query.pageSize,
           })

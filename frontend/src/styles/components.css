@@ -243,32 +243,39 @@
 .record-chip-link:hover {
   box-shadow: inset 0 0 0 1px var(--hue-marker, var(--border-control));
 }
-/* A row's related records in a list column (0.9 K5, D143): one line, "+N more" kept at the end
-   while the chips shrink and clip before it. */
+/* A row's related records in a list column (0.9 K5, K5b): as many whole chips as the cell holds
+   (`ui/RelatedRecordChips` measures them), then "+N more"; a lone first chip shrinks and clips. */
 .related-records {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 4px;
+  width: 100%;
   min-width: 0;
-  max-width: 100%;
   overflow: hidden;
 }
-.related-records .record-chip {
-  flex: 0 1 auto;
+.related-records-chip {
+  display: inline-flex;
+  flex: none;
   min-width: 0;
 }
-/* Later chips give way first, so the first name stays readable in a narrow column. */
-.related-records .record-chip:nth-child(2) {
-  flex-shrink: 8;
+.related-records-chip .record-chip {
+  min-width: 0;
 }
-.related-records .record-chip:nth-child(n + 3) {
-  flex-shrink: 64;
+.related-records-one .related-records-chip {
+  flex: 0 1 auto;
 }
-.related-records-more {
+.related-records-more,
+.related-records-measure {
   flex: none;
   color: var(--text-tertiary);
   font-size: var(--text-sm);
   white-space: nowrap;
+}
+/* The widest "+N more", drawn unseen once so the cell knows the room it needs. */
+.related-records-measure {
+  position: absolute;
+  visibility: hidden;
 }
 /* What tells a connected record apart, named before it (a value's system, a language). */
 .record-chip-context {
