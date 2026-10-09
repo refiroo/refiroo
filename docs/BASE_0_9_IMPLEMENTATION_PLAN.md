@@ -8606,7 +8606,7 @@ cardinality); no screen knows a type key.
   `many-to-one`, so a model can say "a record holds at most one value of this kind, and a value
   serves many records" in the relation's natural direction; K3's Set to offers it.
   _Planned and delivered 2026-10-09 ([plan](#k3a-many-to-one-relationships), [record](#k3a-record-2026-10-09)),
-  D136–D139 accepted; screenshots await the user's approval._
+  D136–D139 accepted; screenshots approved 2026-10-09._
 - **K4 (not taken in K1's planning, D103): query-scoped batches.** A batch whose items are "every record matching these
   criteria", decided in the engine, so a large selection is neither paged through nor sent as IDs;
   an API capability integrators get too.
@@ -9772,8 +9772,10 @@ required many-to-one), Track K's outline.
 
 ##### K3a record (2026-10-09)
 
-**Delivered 2026-10-09.** D136–D139 and the test cases as approved with the plan. Screenshots await
-the user's approval.
+**Delivered 2026-10-09.** D136–D139 and the test cases as approved with the plan. Screenshots
+approved by the user 2026-10-09. The example model 0.9.1 was installed and activated on the
+development instance the same day at the user's request (compatible, no diagnostic; its data
+already fitted).
 
 **Built.**
 

@@ -363,7 +363,8 @@ many-to-one relationships, a fourth cardinality in schema 0.9 (a `from` record h
 record serves many), enforced on every write path and at activation, read through one rule by the
 matrix, the mapping grid and the consumer API (a single object), never `required` (D137, in TODO);
 on a record, Set while none is held and Change (one write) and Delete on the one held; D136–D139;
-screenshots await the user's approval
+screenshots approved by the user 2026-10-09; the example model 0.9.1 active on the development
+instance
 ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k3a-record-2026-10-09)). Next is K5, relation columns
 (D135), then R.
 **C18, the consumer API definition written for readers, is delivered (2026-10-08):** schema 0.9
