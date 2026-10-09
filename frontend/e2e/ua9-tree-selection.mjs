@@ -78,6 +78,8 @@ try {
   await node("UA9 Group 1").click();
   await page.getByRole("heading", { level: 1, name: "UA9 Group 1" }).waitFor();
   await node("UA9 Group 3").click({ modifiers: ["Shift"] });
+  const text = await page.evaluate(() => window.getSelection()?.toString() ?? "");
+  expect(text === "", `sidebar: Shift+click selected the page's text too ("${text.slice(0, 60)}")`);
   const three = await selected(tree);
   expect(three.join("|") === "UA9 Group 1|UA9 Group 2|UA9 Group 3", `sidebar: Shift+click selected ${three}`);
   expect(page.url().includes(groups[0].id), `sidebar: selecting changed the record on the page (${page.url()})`);

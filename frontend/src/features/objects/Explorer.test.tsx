@@ -393,6 +393,10 @@ describe("Explorer", () => {
     const first = await item("Timetable types");
     const second = await item("Tariffs");
     fireEvent.click(node(first), { metaKey: true });
+    // Shift or Cmd with the press selects records, not the text between them.
+    expect(fireEvent.mouseDown(node(second), { shiftKey: true })).toBe(false);
+    expect(fireEvent.mouseDown(node(second), { metaKey: true })).toBe(false);
+    expect(fireEvent.mouseDown(node(second))).toBe(true);
     fireEvent.click(node(second), { shiftKey: true });
     expect(selected()).toEqual(["Timetable types", "Tariffs"]);
     expect(onOpen).toHaveBeenCalledTimes(1);

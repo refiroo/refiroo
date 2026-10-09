@@ -1990,6 +1990,15 @@ code. Screenshots inspected:
 the selection light and dark, a drag of three accepted, a refused drop naming its record, the
 drawer at 390px. Not run: the full suites, `test:a11y`, `test:visual` (R).
 
+#### UA9 revision: no text selected by Shift+click (2026-10-09)
+
+Reported by the user: Shift+click selected the page's text between the two records as well, as a
+browser does. A press on a record with Shift, Cmd or Ctrl no longer starts a text selection
+(`RecordTree`, the record's `mousedown`); a plain press and drag still selects a name to copy.
+`Explorer.test` asserts the press is prevented with each modifier and not without; `ua9-tree-selection`
+asserts no text is selected after Shift+click. Checks: `Explorer.test`, `TreeView.test` (45 passed),
+`format`, `lint` (0 errors), `build`, `test:browser:ua9` (8 checks).
+
 ### U4: the integration pages
 
 **Planned and approved 2026-10-07** (the user: as written, with the starter's one event, and the

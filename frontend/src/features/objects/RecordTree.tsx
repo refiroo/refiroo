@@ -1330,6 +1330,10 @@ function TreeNode({
           data-hue={objectTypeHue(tree.model, item.objectTypeKey)}
           title={`${item.name} · ${type?.name ?? item.objectTypeKey}`}
           onClick={(event) => tree.choose(item, event, parentKey)}
+          // Shift, Cmd or Ctrl with a click selects records (UA9), never the page's text between them.
+          onMouseDown={(event) => {
+            if (event.shiftKey || event.metaKey || event.ctrlKey) event.preventDefault();
+          }}
         >
           <HueTile hue={objectTypeHue(tree.model, item.objectTypeKey)} icon={type?.icon} size={18} />
           <span className="tree-label">
