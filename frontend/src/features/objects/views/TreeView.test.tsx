@@ -381,6 +381,59 @@ describe("TreeView", () => {
     expect(onChanged).toHaveBeenCalled();
   });
 
+  // Found in the b3 runner (UA9): after a move, the record's reveal could finish before the lists
+  // were read again, focus its old row, still drawn under its old parent, and lose focus when that
+  // row went.
+  it("focuses a moved record at its new place, not at its old row still drawn", async () => {
+    const records = [...all];
+    serve(records);
+    const moved = {
+      ...timetables,
+      parentObjectId: finance.id,
+      path: [...finance.path, { id: timetables.id, name: timetables.name, objectTypeKey: "codelist" }],
+      version: 2,
+    };
+    vi.spyOn(api, "parentCandidates").mockResolvedValue({
+      items: [
+        { id: finance.id, objectTypeKey: "domain", name: "Finance", path: finance.path, eligible: true, reason: null },
+      ],
+      nextCursor: null,
+      totalCount: 1,
+      startIndex: 0,
+    });
+    vi.spyOn(api, "updateObject").mockImplementation(async () => {
+      records[records.indexOf(timetables)] = moved;
+      return moved;
+    });
+    vi.spyOn(api, "object").mockResolvedValue(moved);
+    const onChanged = vi.fn();
+    const view = render(lens({ onChanged }));
+    toggle(await item(/^Connections/));
+    key(await item(/^Timetable types/), "ContextMenu");
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Move to…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Move Timetable types" });
+    fireEvent.click(await within(dialog).findByRole("radio", { name: /Finance/ }));
+    await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "Move to Finance" })));
+    await waitFor(() => expect(onChanged).toHaveBeenCalled());
+    // The reveal has read the moved record; the lists still show it under Connections, and that old row
+    // is not the one to focus.
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 50)));
+    const old = screen
+      .getByRole("treeitem", { name: /^Connections/ })
+      .querySelector(`[data-object-id="${timetables.id}"]`);
+    expect(old).not.toBeNull();
+    expect(document.activeElement).not.toBe(old);
+    // The parent's refresh arrives: the lists are read again with the record under Finance.
+    view.rerender(lens({ onChanged, refreshToken: 1 }));
+    await waitFor(() => {
+      const focused = document.activeElement as HTMLElement | null;
+      expect(focused?.dataset.objectId).toBe(timetables.id);
+      expect(focused?.parentElement?.closest<HTMLElement>("[role='treeitem'][data-object-id]")?.dataset.objectId).toBe(
+        finance.id,
+      );
+    });
+  });
+
   it("offers the top level above the candidates for a nested record of a root type", async () => {
     serve();
     const onChanged = vi.fn();

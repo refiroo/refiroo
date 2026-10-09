@@ -223,6 +223,36 @@ describe("Explorer", () => {
     expect(screen.queryByRole("treeitem", { name: "Urgent tariffs" })).not.toBeInTheDocument();
   });
 
+  // Reported by the user (2026-10-09): clicking another record in an open branch closed and
+  // reopened it for a moment, its groups read again behind a "Loading…" note.
+  it("keeps the active record's branches open while the next record's path is read", async () => {
+    const read = serve();
+    let release: (item: ObjectItem) => void = () => undefined;
+    vi.spyOn(api, "object")
+      .mockResolvedValueOnce(urgent)
+      .mockImplementationOnce(() => new Promise<ObjectItem>((resolve) => (release = resolve)));
+    const view = render(explorer({ activeObjectId: urgent.id, activeObjectTypeKey: "codelist" }));
+    await item("Urgent tariffs");
+    const connectionsItem = screen.getByRole("treeitem", { name: "Connections" });
+    const tariffsItem = screen.getByRole("treeitem", { name: "Tariffs" });
+    expect([connectionsItem, tariffsItem].map((element) => element.getAttribute("aria-expanded"))).toEqual([
+      "true",
+      "true",
+    ]);
+    const readsBefore = read.mock.calls.length;
+
+    // Another record under the same branch becomes active; its path has not arrived yet.
+    view.rerender(explorer({ activeObjectId: timetables.id, activeObjectTypeKey: "codelist" }));
+    expect(screen.getByRole("treeitem", { name: "Connections" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("treeitem", { name: "Tariffs" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.queryByText("Loading…")).not.toBeInTheDocument();
+    expect(read.mock.calls.length).toBe(readsBefore);
+
+    await act(async () => release(timetables));
+    expect(await item("Timetable types")).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("treeitem", { name: "Connections" })).toHaveAttribute("aria-expanded", "true");
+  });
+
   it("draws each record in its type's hue and a type group as a label, never like a record", async () => {
     serve();
     vi.spyOn(api, "object").mockResolvedValue(urgent);

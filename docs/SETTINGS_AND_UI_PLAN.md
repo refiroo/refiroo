@@ -1961,9 +1961,8 @@ findings:
   the record after returning, since a flat list reads its next page as its end comes into view
   (the windowed version read a page ahead).
 - **Measured at HEAD in a throwaway worktree** (the nested version, `8b6d482`): `b3` passed three
-  times out of three. With UA9, one early run showed a lost focus after a move to the top level in
-  a change set; it was not seen again in the eleven runs after it, the last four on the final code.
-  Recorded, not explained. The volume pass's check after returning at 390px is decided by the
+  times out of three. With UA9, b3 sometimes lost focus after a move to the top level in a change
+  set; explained and fixed in the revision below (the moved record's old row). The volume pass's check after returning at 390px is decided by the
   record's own top-level group, since the record can show for a moment from the view that is
   leaving.
 
@@ -1998,6 +1997,26 @@ browser does. A press on a record with Shift, Cmd or Ctrl no longer starts a tex
 `Explorer.test` asserts the press is prevented with each modifier and not without; `ua9-tree-selection`
 asserts no text is selected after Shift+click. Checks: `Explorer.test`, `TreeView.test` (45 passed),
 `format`, `lint` (0 errors), `build`, `test:browser:ua9` (8 checks).
+
+#### UA9 revision: no flicker on a click, focus at a moved record's new place (2026-10-09)
+
+- **Reported by the user:** every click on a record in an open branch showed "Loading…" under the
+  branch for half a second, moving the list down a row and back. A branch the user had not opened
+  stood open only as an ancestor of the record on the page; when another record was clicked, its path
+  was read first, and meanwhile no record's ancestors counted, so the branch closed and opened again,
+  reading its groups anew. While the next record's path is read, the branches of the one revealed
+  last now stay open (`RecordTree`, `activeAncestors`; with no active record none stays). The old
+  line is kept commented. `Explorer.test` holds it: a second active record under the same branch,
+  its path held back, leaves the branch open with no "Loading…" and no list read; it failed before.
+  Checked on the user's dev server: clicking four records under one branch, no
+  "Loading…" and no row moving.
+- **Found in `b3`:** after a move, the record's reveal could finish before the lists were read
+  again; it focused the record's old row, still drawn under its old parent, and focus was lost when
+  that row went. A focus request now waits for the record's row under the parent its revealed path
+  names (or at the top of the tree). `TreeView.test` holds it: during the move the old row is not
+  focused, and the new one is; it failed before.
+- **Checks.** `vitest related` (6 files, 137 passed), `format`, `lint` (0 errors), `build`;
+  `test:browser:s6` (10), `ua9` (8), `b3` three runs in a row (30 each, no focus lost).
 
 ### U4: the integration pages
 

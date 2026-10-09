@@ -279,7 +279,9 @@ export function RecordTree({
     steps: RevealStep[];
     path: ObjectItem["path"];
   }>();
-  const pendingFocus = useRef<string | undefined>(undefined);
+  // The record a focus request waits to focus, and the parent its revealed path puts it under: a
+  // row of it elsewhere (its old place, still drawn just after a move) is not the one to focus.
+  const pendingFocus = useRef<{ id: string; parentId?: string } | undefined>(undefined);
   useEffect(() => {
     if (!revealId || !revealType) return;
     let current = true;
@@ -304,7 +306,7 @@ export function RecordTree({
         const ancestors = new Set(item.path.slice(0, -1).map((part) => part.id));
         if (focusing) {
           // A focus request opens every branch above its record, whatever was chosen before.
-          if (moveFocus) pendingFocus.current = item.id;
+          if (moveFocus) pendingFocus.current = { id: item.id, parentId: item.path.at(-2)?.id };
           // Folding groups (UA9, U-D21): the type groups on the path open with the branches, so the
           // path is shown again when the tree returns, not only while the reveal runs.
           const groups = FOLDING_GROUPS
@@ -337,7 +339,11 @@ export function RecordTree({
     };
   }, [api, revealId, revealType, revealToken, focusing, moveFocus, storageKey, workspaceKey, sortOf, model]);
   const shownReveal = reveal?.id === revealId && reveal?.token === revealToken ? reveal : undefined;
-  const activeAncestors = shownReveal && !target ? shownReveal.ancestors : undefined;
+  // const activeAncestors = shownReveal && !target ? shownReveal.ancestors : undefined;
+  // While the next active record's path is read, the branches of the one revealed last stay open, so
+  // a branch both share never closes and reopens (its groups read again behind "Loading…"; reported
+  // by the user, 2026-10-09). With no active record, none stays open.
+  const activeAncestors = !target && revealId ? (shownReveal ?? reveal)?.ancestors : undefined;
 
   const revealIn = useCallback(
     (parentId: string, objectTypeKey: string) => {
@@ -532,7 +538,16 @@ export function RecordTree({
 
   const rowsChanged = useCallback(() => {
     const all = treeItems();
-    const wanted = pendingFocus.current && all.find((item) => item.dataset.objectId === pendingFocus.current);
+    // const wanted = pendingFocus.current && all.find((item) => item.dataset.objectId === pendingFocus.current);
+    const pendingRow = pendingFocus.current;
+    const wanted =
+      pendingRow &&
+      all.find((item) => {
+        if (item.dataset.objectId !== pendingRow.id) return false;
+        // At the top of the tree (no record above it), any revealed parent stands outside the tree.
+        const above = item.parentElement?.closest<HTMLElement>("[role='treeitem'][data-object-id]");
+        return !above || above.dataset.objectId === pendingRow.parentId;
+      });
     if (wanted) {
       pendingFocus.current = undefined;
       pending.current = undefined;
