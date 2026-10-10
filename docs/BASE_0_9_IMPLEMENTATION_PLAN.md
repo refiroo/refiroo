@@ -18,7 +18,8 @@ read, D31), [B3](#b3-relation-and-relation-set-items) (2026-10-03, D35–D39),
 [C14](#c14-batch-resolve) (2026-10-05, C-D47–C-D53), [C15](#c15-crosswalk) (2026-10-05, C-D54–C-D58),
 [CN1](#cn1-the-consumer-apis-name-in-public-contracts) (2026-10-05, C-D59), [C6a](#c6a-publications) (2026-10-05, C-D60–C-D68), [C6b](#c6b-the-contract-documents) (2026-10-05, C-D69–C-D70), [V2](#v2-consumer-sources) (2026-10-05), [C8](#c8-parity-acceptance) (2026-10-05, C-D72–C-D75), [C16](#c16-asof-in-the-consumer-tier) (2026-10-05, C-D76–C-D80), [C9](#c9-event-definitions) (2026-10-05, C-D81–C-D86), [C10](#c10-event-deriver-event-store-and-pull-feed) (2026-10-06, C-D87–C-D92, C-D95), [U2](SETTINGS_AND_UI_PLAN.md#u2-delivery-record) (2026-10-06, U-D7–U-D9), [C11](#c11-subscriptions) (2026-10-06, C-D96–C-D102), [C12](#c12-the-dispatcher) (2026-10-06, C-D103–C-D111), [C13](#c13-event-acceptance) (2026-10-06, C-D112–C-D114), [U3](SETTINGS_AND_UI_PLAN.md#u3-delivery-record) (2026-10-06, U-D10–U-D11).
 **J2, import profiles and imports, is delivered (2026-10-07)** ([record](#j2-record-2026-10-07)).
-**U5, the Webhooks page, is implemented (2026-10-07)** ([record](SETTINGS_AND_UI_PLAN.md#u5-record-2026-10-07)), and so is **U5a**, webhook names and the delivery log with the page revised ([record](SETTINGS_AND_UI_PLAN.md#u5a-record-2026-10-07)). The screenshots of UA (the Atlas redesign, ADR-040), U5, U5a and C17 were approved by the user on 2026-10-07; U4's (the Integration pages, [record](SETTINGS_AND_UI_PLAN.md#u4-record-2026-10-07)) await approval.
+**U5, the Webhooks page, is implemented (2026-10-07)** ([record](SETTINGS_AND_UI_PLAN.md#u5-record-2026-10-07)), and so is **U5a**, webhook names and the delivery log with the page revised ([record](SETTINGS_AND_UI_PLAN.md#u5a-record-2026-10-07)). The screenshots of UA (the Atlas redesign, ADR-040), U5, U5a and C17 were approved by the user on 2026-10-07; U4's (the Integration pages, [record](SETTINGS_AND_UI_PLAN.md#u4-record-2026-10-07)) on 2026-10-10, with those of UA8, UA9, K5b, K6, K6a, K7, J6 and J6a.
+**Tracks J and K are delivered (2026-10-07–10):** [J1](#j1-record-2026-10-07)–[J5](#j5-record-2026-10-08), [J6](#j6-record-2026-10-10) and [J6a](#j6a-record-2026-10-10); [K1](#k1-record-2026-10-08)–[K3a](#k3a-record-2026-10-09), [K5](#k5-record-2026-10-09)–[K5b](#k5b-record-2026-10-10), [K6](#k6-record-2026-10-10), [K6a](#k6a-record-2026-10-10) and [K7](#k7-record-2026-10-10) (K4 not taken, D103). Every package's screenshots are approved (J4, K1 and K2 on 2026-10-10). Track V's V3–V9 and the rework of the type palettes moved to [Base 0.14](BASE_0_14_IMPLEMENTATION_PLAN.md) on 2026-10-10 by the user. Next: [R](#r-build-acceptance-and-release).
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
 Effective dates and consumer API definitions extend the model, so the starter becomes content release
@@ -230,7 +231,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 19 | [C6a](#c6a-publications) | C3, C4, F1, CN1 | `publication` reads with `latest`, the publications list with `eventSequence`, ETag, publication indexes and D47's sort (C-D60–C-D68) — **delivered 2026-10-05** ([record](#c6a-delivery-record)) |
 | 19a | [C6b](#c6b-the-contract-documents) | C6a | OpenAPI per definition, the API index (C-D69, C-D70) — **delivered 2026-10-05** ([record](#c6b-delivery-record)) |
 | 20 | [V2](#v2-consumer-sources) | V1, C6b | Consumer contracts as reference sources — **delivered 2026-10-05** ([record](#v2-delivery-record)) |
-| 20a | [U4](SETTINGS_AND_UI_PLAN.md#u4-the-integration-pages) | UA, C6b, V2 | Settings › Integration: Consumer APIs, Jobs and feed, API reference; a starter consumer API (U-D5) — **implemented 2026-10-07**, screenshots awaiting the user's approval ([record](SETTINGS_AND_UI_PLAN.md#u4-record-2026-10-07)) |
+| 20a | [U4](SETTINGS_AND_UI_PLAN.md#u4-the-integration-pages) | UA, C6b, V2 | Settings › Integration: Consumer APIs, Jobs and feed, API reference; a starter consumer API (U-D5) — **implemented 2026-10-07**, screenshots approved by the user 2026-10-10 ([record](SETTINGS_AND_UI_PLAN.md#u4-record-2026-10-07)) |
 | 21 | [C8](#c8-parity-acceptance) | C3–C6, C14, C15 | Parity acceptance; the consumer read line's checkpoint; `objectType` in projections, the parent keyed by output names (C-D72–C-D75) — **delivered 2026-10-05** ([record](#c8-delivery-record)) |
 | 22 | [C16](#c16-asof-in-the-consumer-tier) | C2, Q4 | `asOf` in the consumer tier; SC-11 (consumer) (C-D76–C-D80) — **delivered 2026-10-05** ([record](#c16-delivery-record)) |
 | 23 | [C9](#c9-event-definitions) | C2 | Event definitions (C-D81–C-D86) — **delivered 2026-10-05** ([record](#c9-delivery-record)) |
@@ -254,11 +255,13 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 31 | [J4](#j4-import-screen-and-sc-10) | J1u, J3, F2 | The SC-10 screen and SC-10 acceptance; frontend only (D89–D95) — **delivered 2026-10-08** ([record](#j4-record-2026-10-08)) |
 | 31a | [J4a](#j4a-why-another-workspaces-export-cannot-load) | J4 | Amendment: an import says why another workspace's export cannot load (the job's `notices`, refusals naming the workspace) — **delivered 2026-10-08** ([record](#j4a-why-another-workspaces-export-cannot-load)) |
 | 31b | [J5](#j5-another-workspaces-export-loaded-as-this-workspaces-own-records) | J4a | Another workspace's export loaded as this workspace's own records (counterpart IDs, `otherWorkspaceIds`), on imports and batches (D96–D101) — **delivered 2026-10-08** ([record](#j5-record-2026-10-08)) |
-| 31a | [Track K](#track-k--bulk-selection-and-editing-in-collections) | J4, UA | Bulk selection and bulk edits in collections over `POST /batches`; packages K1–K5 planned in detail when the track starts — **added 2026-10-06**; [K1](#k1-plan-2026-10-08) selection **delivered 2026-10-08** (D102–D111, [record](#k1-record-2026-10-08)); [K3a](#k3a-many-to-one-relationships) many-to-one relationships **added and delivered 2026-10-09** (D136–D139, [record](#k3a-record-2026-10-09)), after K3 and before K5; [K5](#k5-relation-columns) relation columns **delivered 2026-10-09** (D140–D147, [record](#k5-record-2026-10-09)), screenshots approved 2026-10-10; [K5a](#k5a-a-field-of-the-related-records-in-a-relation-column) a field of the related records **added and delivered 2026-10-10** (D148–D152 accepted, [record](#k5a-record-2026-10-10)); [K5b](#k5b-relation-cells-as-wide-as-their-column) cells as wide as their column **added and delivered 2026-10-10** (D143 revised, [record](#k5b-record-2026-10-10)), screenshots awaiting approval; [K6](#k6-filtering-a-list-by-its-records-relationships) filtering by relationships **delivered 2026-10-10** (D153–D159, [record](#k6-record-2026-10-10)), screenshots awaiting approval |
-| 31c | [UA8](SETTINGS_AND_UI_PLAN.md#ua8-actions-in-place-on-the-record) | UA, K3a | A relationship row's actions as icon buttons; the record header's title and subtitle edited in place through one shared field editor; Edit record only in the ⋯ menu (U-D15–U-D20) — **implemented 2026-10-09**, screenshots awaiting the user's approval ([record](SETTINGS_AND_UI_PLAN.md#ua8-record-2026-10-09)) |
-| 31d | [UA9](SETTINGS_AND_UI_PLAN.md#ua9-the-record-tree-scrolled-as-one-several-records-selected-and-dragged) | UA8 | The record tree scrolls as one list and starts folded; several records selected and dragged, in the sidebar too (U-D21–U-D28) — **implemented 2026-10-09**, screenshots awaiting the user's approval ([record](SETTINGS_AND_UI_PLAN.md#ua9-record-2026-10-09)) |
-| V | [V3–V9](#v3v9-the-management-api-documented-plan-2026-10-07) | V2 | The management API documented: the starter extended, content and examples beside the document, the error catalogue; V3 first, then V4–V8 in any order, then V9. **Independent fillers; block no release** (V-D9) — **planned 2026-10-07**, V-D1 open |
-| 32 | [R](#r-build-acceptance-and-release) | all except Track V's V3–V9 | Build acceptance and release |
+| 31e | [J6](#j6-a-workbook-for-people-read-back-as-it-was-written) | K7 | A workbook for people exported from a collection (`layout: "people"`) and read back through the profile it carries (D179–D190) — **added and delivered 2026-10-10**, screenshots approved by the user 2026-10-10 ([record](#j6-record-2026-10-10)) |
+| 31f | [J6a](#j6a-workbooks-people-fill-in--columns-per-parent-lists-to-choose-from-borders) | J6 | Workbooks people fill in: columns per parent, lists to choose from, borders (D191–D199) — **added and delivered 2026-10-10**, screenshots approved by the user 2026-10-10 ([record](#j6a-record-2026-10-10)) |
+| 31a | [Track K](#track-k--bulk-selection-and-editing-in-collections) | J4, UA | Bulk selection and bulk edits in collections over `POST /batches`; packages K1–K5 planned in detail when the track starts — **added 2026-10-06**; [K1](#k1-plan-2026-10-08) selection **delivered 2026-10-08** (D102–D111, [record](#k1-record-2026-10-08)); [K2](#k2-changing-values-of-a-selection) value changes **delivered 2026-10-09** (D112–D119, [record](#k2-record-2026-10-09)); [K2b](#k2b-deleting-a-selection) deleting a selection **delivered 2026-10-09** (D120–D126, [record](#k2b-record-2026-10-09)); [K3](#k3-changing-the-relationships-of-a-selection) relationship changes **delivered 2026-10-09** (D127–D135, [record](#k3-record-2026-10-09)); [K3a](#k3a-many-to-one-relationships) many-to-one relationships **added and delivered 2026-10-09** (D136–D139, [record](#k3a-record-2026-10-09)), after K3 and before K5; [K5](#k5-relation-columns) relation columns **delivered 2026-10-09** (D140–D147, [record](#k5-record-2026-10-09)), screenshots approved 2026-10-10; [K5a](#k5a-a-field-of-the-related-records-in-a-relation-column) a field of the related records **added and delivered 2026-10-10** (D148–D152 accepted, [record](#k5a-record-2026-10-10)); [K5b](#k5b-relation-cells-as-wide-as-their-column) cells as wide as their column **added and delivered 2026-10-10** (D143 revised, [record](#k5b-record-2026-10-10)), screenshots approved 2026-10-10; [K6](#k6-filtering-a-list-by-its-records-relationships) filtering by relationships **delivered 2026-10-10** (D153–D159, [record](#k6-record-2026-10-10)), screenshots approved 2026-10-10; [K6a](#k6a-collection-filters-shared-controls-and-the-bulk-dialogs-redesigned) filters, shared controls and the bulk dialogs redesigned **added and delivered 2026-10-10** (D160–D167, [record](#k6a-record-2026-10-10)), screenshots approved 2026-10-10; [K7](#k7-which-records-a-relationship-may-choose) which records a relationship may choose **added and delivered 2026-10-10** (D168–D178, [record](#k7-record-2026-10-10)), screenshots approved 2026-10-10 |
+| 31c | [UA8](SETTINGS_AND_UI_PLAN.md#ua8-actions-in-place-on-the-record) | UA, K3a | A relationship row's actions as icon buttons; the record header's title and subtitle edited in place through one shared field editor; Edit record only in the ⋯ menu (U-D15–U-D20) — **implemented 2026-10-09**, screenshots approved by the user 2026-10-10 ([record](SETTINGS_AND_UI_PLAN.md#ua8-record-2026-10-09)) |
+| 31d | [UA9](SETTINGS_AND_UI_PLAN.md#ua9-the-record-tree-scrolled-as-one-several-records-selected-and-dragged) | UA8 | The record tree scrolls as one list and starts folded; several records selected and dragged, in the sidebar too (U-D21–U-D28) — **implemented 2026-10-09**, screenshots approved by the user 2026-10-10 ([record](SETTINGS_AND_UI_PLAN.md#ua9-record-2026-10-09)) |
+| V | [V3–V9](#v3v9-the-management-api-documented-moved-to-014) | V2 | The management API documented — **moved to [Base 0.14](BASE_0_14_IMPLEMENTATION_PLAN.md#track-v--the-management-api-documented) on 2026-10-10 by the user** |
+| 32 | [R](#r-build-acceptance-and-release) | all | Build acceptance and release |
 
 **Order revised 2026-09-30, after Q3.** The queue delivers first what later packages build on, while
 little depends on it yet, and keeps self-contained packages as fillers:
@@ -294,7 +297,7 @@ when V2 is done, U4 waits for it. Above the cut line (D9).
 ```text
 Track P:  inside B1 (§P1–P5, P7) and B2 (§P6); no package of its own
 Track Q:  Q1 ─ Q3 ─ Q4            Q2 (alone)          Q4 also needs C1 (schema 0.8)
-Track V:  V1 ────────────────── V2 ─ V3 ─ V4…V8 ─ V9     V2 needs C6b; V3–V9 block no release (V-D9)
+Track V:  V1 ────────────────── V2                    V2 needs C6b; V3–V9 moved to 0.14
 Track B:  B1 ─┬─ B2
               └─ B3
 Track F:  B1 ─ F1 ─ F2                                F1 before B2 (lock order)
@@ -308,9 +311,10 @@ Track C:  C1 ─ C2 ─┬─ C3 ───────────────�
           C17, U5a ─ C18                          the definition syntax (schema 0.9)
           ── cut line (D9) ──
 Track J:  J1 ─ J1u                                 J1 needs Q3, Q4, B2, F1
-          B3 ─ J2 ─ J2a ─ J3 ─ J4                  J3 needs B2; J4 needs J1u, F2; J2a if D74
-Track K:  J4, UA ─ K1 ─ K2 ─ K2b ─ K3 ─ K3a ─ K5 ─ K5a ─ K5b ─ K6    K4 not taken (D103); K5 by D135; K6 filters
-Release:  Q2, T1, C8, C13, C16, V2, J4 → R          (R-a without J at the cut line)
+          B3 ─ J2 ─ J2a ─ J3 ─ J4 ─ J4a ─ J5       J3 needs B2; J4 needs J1u, F2; J2a if D74
+          K7 ─ J6 ─ J6a                            workbooks for people, after Track K
+Track K:  J4, UA ─ K1 ─ K2 ─ K2b ─ K3 ─ K3a ─ K5 ─ K5a ─ K5b ─ K6 ─ K6a ─ K7    K4 not taken (D103); K5 by D135
+Release:  Q2, T1, C8, C13, C16, V2, J6a, K7 → R          (R-a without J at the cut line)
 ```
 
 ## Track Q — Queries
@@ -6542,78 +6546,10 @@ origin, and the V1 checks still pass. Screenshots inspected at both widths. `ruf
 clean. Not run: `volume` and `startup` (no read or migration changed), frontend format, lint and
 build (only the runner changed), the full suites (R).
 
-#### V3–V9: The management API documented (plan, 2026-10-07)
+#### V3–V9: The management API documented (moved to 0.14)
 
-**Status:** planned at the user's request (2026-10-07). V-D2–V-D10 decided by the user 2026-10-07;
-V-D1 (where the text lives) is open. Independent of every release (V-D9).
-
-**Why.** `/docs` shows every management operation, but the document behind it says very little.
-Measured on `create_app()` on 2026-10-07: 74 operations by default (about 91 with model
-administration and webhooks enabled). 74 have a summary and 15 a description. No operation documents
-an error response besides the shared default envelope. 151 of 373 parameters and 75 of 176 schemas are
-described. `info.description` is one line, and the eleven tags have no text. The document has three
-examples. The behaviour is recorded in API.md, INTEGRATION_API, CONSUMER_API and the code. API.md is
-written for builders and organised by delivery, so an integrator reading `/docs` cannot learn from it
-what an operation is for, how it behaves, what it refuses, or what a real exchange looks like.
-
-**Outcome.** For every management operation, `/docs` states:
-
-- **what it is for**, with the use cases;
-- **how it behaves**: contexts (workspace, change set, publication, `asOf`), versions and optimistic
-  concurrency, paging, ordering, defaults and side effects (audit, feed, events);
-- **its limitations**: limits, what it does not do, and the operation to use instead;
-- **its errors**: each status with the codes it can carry, what each code means and what the client
-  should do;
-- **an example request and response**, recorded from a run against the extended starter's seeded
-  database (V-D3), not written by hand: one per operation to start (V-D4).
-
-Each tag gets an area overview: the concepts, how its operations fit together, and the common
-sequences, for example "create a change set, edit, validate, publish". The document's own
-description covers the conventions every operation shares: identifiers, contexts, versions, paging,
-the error envelope, idempotency, and the optional surfaces with the settings that enable them.
-
-**Sources, in order of authority:** the code (what the API does), then API.md, INTEGRATION_API and
-CONSUMER_API (what was decided), then the journey catalogue (what the use cases are). Where the code
-and the documents disagree, see V-D7.
-
-##### Decisions
-
-| # | Question | Decision |
-| --- | --- | --- |
-| V-D1 | Where does the text live? | **Open; the user asked for a minimal footprint in the code (2026-10-07).** Recommendation: **the code holds no documentation text and no examples.** One function merges a content directory into the generated OpenAPI document when the app builds it, the way FastAPI's documented `app.openapi()` override does. The directory is `backend/app/management/reference/content/`, shipped as package data like the bundled Scalar script. It holds an `index.md` for the document's conventions and, per tag, one Markdown file with the area overview and a section for each operation, headed by its method and path (`POST /api/v1/objects`) and holding the purpose, behaviour, limitations, errors and parameter notes. It also holds `errors.md`, the code catalogue (V-D5), and `examples/`, one JSON file per operation with its named example requests and responses, written by the recording (V-D3). Keys are method and path, the public contract, not FastAPI's generated `operationId`, which follows Python function names. The in-code descriptions that already exist (15 operations, 151 parameters, 75 schemas) stay. New field text goes in the code only where the field is otherwise undescribed and a sentence is enough. A section naming a route that no longer exists fails the V-D6 check. API.md remains the builders' contract record (DOCUMENTATION_PLAN "Not included"). API.md says what was decided and why, and `/docs` says how to use it |
-| V-D2 | Which model and data do the examples use? | **Decided by the user 2026-10-07: the bundled starter, extended until it holds every capability the documentation must show, both for the examples and for demonstrating the engine.** The extension is a new content release of the starter, shipped to every new deployment, so a reader can repeat every example on a fresh install. The starter has no domain-specific content (domains, codelists, master values such as delivery methods, systems and translations). Today it holds only part of the structures the journey tests name (checked in `configurations.py`, `example()`): a root type with a unique code, and languages, translation groups and translations with a scoped uniqueness rule. It lacks a self-hierarchy, a many-to-many relation with its own attributes, a one-to-one relation, a type ladder to restructure across, the integer range, required, read-only-with-default and at-least-one rules, and a consumer API with match rules and every parameter kind. V3 lists every capability the documented operations need, maps each to the starter type that shows it or to the smallest addition in the same domain, and adds them. The journey tests on the `example` configuration then cover more structures, because the starter holds more. The example model is not used, because its content reads as one business domain |
-| V-D3 | Where do the examples come from? | **Decided by the user 2026-10-07: recorded from a run, and kept current by a rule, not by a comparison check.** A reference scenario calls the public API on the extended starter's seed, built once and reused. Each step records a request and its response into the operation's example file, normalised: IDs become stable readable placeholders (consistent across steps, so a created ID reappears in the next request) and times are fixed. Each step asserts only the status and code it records. The rule (V-D8): a change to a route's behaviour or shape regenerates that route's examples in the same change, and the git diff of the example files shows the change for review. There is no committed-versus-rerun comparison |
-| V-D4 | How many cases? | **Decided by the user 2026-10-07: one example per operation to start**, the operation's main successful use. The errors are described in text (V-D5), not shown as examples. After V3, the user looks at how the examples read, how much space they take and how manageable they are, and decides whether more are added (more use cases, error examples) |
-| V-D5 | How are errors documented? | **Decided by the user 2026-10-07: a few sentences for every error code**, in the code catalogue `errors.md`, written once per code: what the code means, why it happens with a hint at the usual root cause, and what the client does about it. Today a code carries a short message at the place it is raised; the catalogue explains it. Each operation lists its statuses as OpenAPI responses with the codes each can carry, linked to the catalogue, from reading the operation's code path. One check: every code the backend raises (the set `test_api_journeys` already collects) has a catalogue entry and is listed on at least one operation |
-| V-D6 | How does completeness stay visible? | **Approved by the user 2026-10-07.** A contract test from V3 on lists every operation without a content section or example, every parameter and schema field without a description, every content section or example naming a route that does not exist, and every code without a catalogue entry. It compares them with a committed gap list that may only shrink. Each package empties the list for its area, and V9 deletes the list. The text is written for integrators: no package or decision IDs and no history (DOCUMENTATION_PLAN principle 1). Each statement can be checked against the code |
-| V-D7 | What if the code and API.md disagree? | **Decided by the user 2026-10-07: logged, highlighted and decided separately.** The package documents what the code does, records the discrepancy in TODO under "API documentation discrepancies" (the route, what API.md says, what the code does, where) and lists it at the top of its record and its report, so it is not missed. The decision (fix the code or correct API.md) is taken separately. API.md is read on every prompt, so few discrepancies are expected |
-| V-D8 | How does the documentation stay current? | **Approved by the user 2026-10-07, as part of the coding-agent guide.** V3 adds the rule to AGENTS.md (working method, the documentation step) and to "How a package is delivered", step 3: a change that adds or changes a management route updates its content section, its error listing and catalogue entries, and regenerates its examples, in the same change |
-| V-D9 | Where in the queue? | **Decided by the user 2026-10-07: Track V's V3–V9 are independent and block no release, neither 0.9.0 nor 1.0.** They are fillers taken when chosen. R and R-a do not wait for them. DOC2's audit of the OpenAPI descriptions is done here instead, and DOC2 keeps the settings, limits and model language references; DOCUMENTATION_PLAN gets a pointer in V3 |
-| V-D10 | Document size | **Approved by the user 2026-10-07.** Examples stay short: pages of two or three items, and long arrays trimmed in the recording with a note saying so. The document is 290 KB today. V3 measures it with V3's examples, projects the full size and reports. If the projection is over about 2 MB, examples are served as separate files that the document references, not inline. Measured once and not tuned in a loop |
-
-##### Packages
-
-Each package documents one area completely by V-D1–V-D6 and empties its part of the gap list. Its
-tests are the `reference` group (new in V3: the recording run, whose steps assert their status and
-code) and `contract` (the OpenAPI lock, re-baselined for each package by diffing the document). Each
-package covers about 10–25 operations.
-
-| Package | Needs | Area (operations) |
-| --- | --- | --- |
-| **V3** Foundation and the service | V2 | The starter extended (V-D2: the capability inventory, the additions, a new content release, the `example` configuration's structure map updated). The mechanism: the content directory and its merge (V-D1), the scenario harness and recording (V-D3), the error catalogue and per-operation responses (V-D5), the gap list and its check (V-D6), and the size measurement (V-D10). The V-D8 rule in AGENTS.md and the delivery steps. Text: the document's conventions, every error code's catalogue entry, and the `system`, `health`, `capabilities`, `workspaces` and workspace runtime state operations (about 12). Ends with the user's review of how the examples look (V-D4) |
-| **V4** Records | V3 | Objects: create, read, update, delete, the per-type list and the cross-type lookup, the model-aware query, attribute values, history and parent candidates (15). Contexts, `asOf`, filters and sorts, uniqueness and required rules, moving a record |
-| **V5** Relations and mappings | V3 | Relations (5), the edge list and the mapping reads and replacement (5), and the relation matrix (3). Relation rules, cardinality, containment as a relation, coverage |
-| **V6** Change sets and publications | V3 | Change sets (list, create, read, update, delete, model release, object and relation changes, validation, publication), restructuring preview and apply, publications (read, list, withdrawal) (17). How a change set merges onto live data, conflicts, publication snapshots |
-| **V7** Bulk and following changes | V3 | `POST /batches` with every item kind, jobs (read, list, items, cancel), the feed, and the export routes once J1 is delivered (about 8). Idempotency, failure policies, item outcomes, background runs, feed positions, retention and `410` |
-| **V8** The model | V3 | Model reads (applications, types, relations, placements, the model, runtime state), releases, diffs and activations, validations, and the model administration surface when enabled (about 25). The model is the bulk of the area overview: the operations are simple reads, but what they describe is the whole engine |
-| **V9** Webhooks, and close-out | V3, V4–V8 | Consumer subscriptions: create, read, update, suspend, resume, delete, deliveries and resend (10). Retries, batching and signing, as DOCUMENTATION_PLAN's points require. Then the close-out: the gap list empty and deleted, the V-D5 check passing over the whole document, the API.md pointer to `/docs` added, and the DOC2 audit item marked done |
-
-**Not included:** the consumer read API (`/consumer/...`). Its documents are generated per
-definition from the model, and their descriptions are a separate question (TODO once V-D1 is
-approved). Also excluded: tutorials and how-to guides (DOCUMENTATION_PLAN 0.13) and translations.
-
-**Composable domains (ADR-032):** no door is affected. The text describes contracts and does not change
-them. The examples use one configuration of generic capabilities and are presented as such.
+Planned here on 2026-10-07 and moved unchanged to [Base 0.14](BASE_0_14_IMPLEMENTATION_PLAN.md#track-v--the-management-api-documented)
+on 2026-10-10 by the user, with V-D1–V-D10. V-D9 is amended there.
 
 ## Track J — Import and export
 
@@ -8259,7 +8195,7 @@ used, not changed.
 
 ##### J4 record (2026-10-08)
 
-**Delivered 2026-10-08**; the screenshots await the user's approval. D89 decided by the user, D90–D95
+**Delivered 2026-10-08**; the screenshots approved by the user 2026-10-10. D89 decided by the user, D90–D95
 and the test cases accepted with the plan. No backend file changed.
 
 **Built.**
@@ -8719,8 +8655,7 @@ technical one. Frontend: Vitest `related`, format, lint, build; `j6`, and `j1u`,
 
 ##### J6 record (2026-10-10)
 
-**Delivered 2026-10-10.** D179–D190 and the test cases as accepted. Screenshots await the user's
-approval.
+**Delivered 2026-10-10.** D179–D190 and the test cases as accepted. Screenshots approved by the user 2026-10-10.
 
 **Built.**
 
@@ -8933,8 +8868,7 @@ owning relationship, otherwise said so. Frontend: Vitest `related`, format, lint
 
 ##### J6a record (2026-10-10)
 
-**Delivered 2026-10-10.** D191–D199 and the test cases as accepted. Screenshots await the user's
-approval.
+**Delivered 2026-10-10.** D191–D199 and the test cases as accepted. Screenshots approved by the user 2026-10-10.
 
 **Built.**
 
@@ -9042,21 +8976,21 @@ cardinality); no screen knows a type key.
   _Planned and delivered 2026-10-10 ([plan](#k5a-a-field-of-the-related-records-in-a-relation-column), [record](#k5a-record-2026-10-10)), D148–D152 accepted 2026-10-10._
 - **K5b (added 2026-10-10 by the user): cells as wide as their column.** D143 revised: as many related
   records as the width holds, "+N more" for the rest, none when all fit.
-  _Planned and delivered 2026-10-10 ([plan](#k5b-relation-cells-as-wide-as-their-column), [record](#k5b-record-2026-10-10)); screenshots await approval._
+  _Planned and delivered 2026-10-10 ([plan](#k5b-relation-cells-as-wide-as-their-column), [record](#k5b-record-2026-10-10)); screenshots approved 2026-10-10._
 - **K6 (added 2026-10-10 by the user): filtering by relationships.** A collection's Filter menu, and
   the per-type list, narrow to records related to any of chosen records, to none or to any, carried
   into selection, bulk actions and export. _Planned and delivered 2026-10-10 ([plan](#k6-plan-2026-10-10),
-  [record](#k6-record-2026-10-10)), D153–D159 accepted; screenshots await approval._
+  [record](#k6-record-2026-10-10)), D153–D159 accepted; screenshots approved 2026-10-10._
 - **K6a (added 2026-10-10 by the user): collection filters redesigned.** Active filters as pills,
   ＋ Filter's field menu, one compact editor per field, a bottom sheet at 390px; frontend only.
   Extended the same day to the shared controls, the selection bar and both bulk dialogs.
   _Planned and delivered 2026-10-10 ([plan](#k6a-collection-filters-shared-controls-and-the-bulk-dialogs-redesigned),
-  [record](#k6a-record-2026-10-10)); D160–D167 and the test cases accepted; screenshots await approval._
+  [record](#k6a-record-2026-10-10)); D160–D167 and the test cases accepted; screenshots approved 2026-10-10._
 - **K7 (added 2026-10-10 by the user): which records a relationship may choose.** A binding may
   limit the records at either end by criteria over their fields and their ancestors' fields; every
   picker offers only those, the API lists them and refuses new relationships outside them, and
   relationships made before are kept. _Planned and delivered 2026-10-10 ([plan](#k7-plan-2026-10-10),
-  [record](#k7-record-2026-10-10)); D168–D178 and the test cases accepted; screenshots await approval._
+  [record](#k7-record-2026-10-10)); D168–D178 and the test cases accepted; screenshots approved 2026-10-10._
 
 **Decisions for K1's planning:** how "all matching" meets optimistic concurrency (versions read at
 selection, or an explicit "apply to current values" that the invariant allows only when stated);
@@ -9253,7 +9187,7 @@ changed.
 with a selection, light and dark, 0 violations; keyboard only at 390px (Space, ↓, Shift+Space,
 Clear selection) with the status region read back. Visual: the screenshots were inspected (a
 checkbox drawn without its tick in the first run was fixed, a `display: block` overriding the
-control's grid) and await the user's approval.
+control's grid) and were approved by the user 2026-10-10.
 
 **Found.** The e2e runners are not under `npm run format` (`src` only), and the e2e README lists no
 0.9 runner; both left as they are.
@@ -9464,7 +9398,8 @@ coverage are untouched.
 
 ##### K2 record (2026-10-09)
 
-**Delivered 2026-10-09.** D112–D119 and the test cases as approved with the plan.
+**Delivered 2026-10-09.** D112–D119 and the test cases as approved with the plan. Screenshots
+approved by the user 2026-10-10.
 
 **Built.**
 
@@ -10770,7 +10705,7 @@ view reads the same lists), `test:browser:k1`, judged by exit code and `report.j
 
 ##### K5b record (2026-10-10)
 
-**Delivered 2026-10-10.** D143 as revised by the user; screenshots await the user's approval.
+**Delivered 2026-10-10.** D143 as revised by the user; screenshots approved by the user 2026-10-10.
 
 **Built.** `ui/relatedFit.fittingChips` (pure) and `ui/RelatedRecordChips`: the chips are drawn once at
 their natural width with an unseen widest "+N more" and measured; then only those that fit are drawn,
@@ -10953,8 +10888,7 @@ the consumer API's `match` and mapping coverage are untouched.
 
 ##### K6 record (2026-10-10)
 
-**Delivered 2026-10-10.** D153–D159 and the test cases as approved. Screenshots await the user's
-approval.
+**Delivered 2026-10-10.** D153–D159 and the test cases as approved. Screenshots approved by the user 2026-10-10.
 
 **Built.**
 
@@ -11129,7 +11063,7 @@ diff before the lock); Ruff. Frontend: Vitest `related`, format, lint, build; th
 ##### K6a record (2026-10-10)
 
 **Delivered 2026-10-10.** D160–D167 and the test cases as accepted (D164 "for now"). Screenshots
-await the user's approval.
+approved by the user 2026-10-10.
 
 **Built.**
 
@@ -11337,8 +11271,7 @@ format, lint, build; `k7`, and `k3`, `k6` (shared pickers) by exit code and `rep
 
 ##### K7 record (2026-10-10)
 
-**Delivered 2026-10-10.** D168–D178 and the test cases as accepted. Screenshots await the user's
-approval.
+**Delivered 2026-10-10.** D168–D178 and the test cases as accepted. Screenshots approved by the user 2026-10-10.
 
 **Built.**
 
@@ -11404,9 +11337,14 @@ picker, the panel's reason under its toolbar, the dialog's notes; the checklist 
 - the full backend `pytest` suite, frontend `npm run test`, Ruff, format, lint and build, every
   browser runner, `test:a11y` and `test:visual`;
 - migration checks for every 0.9 table and column (jobs, outcomes, idempotency keys, feed positions,
-  profiles, consumer events, subscriptions): clean bootstrap, upgrade from the 0.8.0 head with data,
-  restart, interrupted migration, a smoke start on a copy of the development database;
-- a schema 0.8 release installing and activating over schema 0.7 releases;
+  consumer events, subscriptions, deliveries and the webhook delivery log, export output, job
+  notifications, import profiles, unique attribute values, import previews): clean bootstrap,
+  upgrade with data from the 0.9.0-alpha.1 head (`20261003_01`; 0.8.0 ran on SQLite and its data
+  was moved by hand, PG-D10), restart, interrupted migration, a smoke start on a copy of the
+  development database;
+- a schema 0.8 release installing and activating over schema 0.7 releases, and a schema 0.9 release
+  (C18's definition syntax, K5's relation columns, K7's candidates) over schema 0.8 releases, with an
+  installed 0.8 release still readable as stored (C-D134);
 - SC-10, SC-11, C8 and C13, the ROADMAP 0.9 exit gate, and every volume budget;
 - the deletion timing K2b deferred (D124): on the full-size volume fixture, previews of deleting
   about 100,000 records live and in the change set and that deletion executed in the change set,

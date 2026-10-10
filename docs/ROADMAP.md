@@ -515,6 +515,29 @@ Composable domains (ADR-032): audit identity touches the provenance door. The au
 recorded beside the existing `cause`, not in place of it, so a later value source stays additive; an
 OAuth client writing for a source system is the natural name of that source.
 
+## Product release 0.14 — Management API reference and UI refinements
+
+_Created 2026-10-10 by the user_ for the work left open when 0.9 closes. Planned before 1.0 for now;
+expected to move after 1.0 later. The documentation release 0.13 is planned in
+[DOCUMENTATION_PLAN](DOCUMENTATION_PLAN.md). Plan: [BASE_0_14_IMPLEMENTATION_PLAN](BASE_0_14_IMPLEMENTATION_PLAN.md).
+
+### Product outcome
+
+An integrator reading `/docs` learns what every management operation is for, how it behaves, what it
+refuses and what a real exchange looks like; a person tells the two type palettes apart at a glance.
+
+### Delivery scope
+
+- Track V's V3–V9, moved from 0.9: every management operation documented on `/docs` with its
+  purpose, behaviour, limitations, errors and a recorded example, an overview per area and an error
+  catalogue (V-D1–V-D10; V-D1 open)
+- The type palettes A and B reworked to differ visibly (UP1, moved from TODO)
+
+### Exit gate
+
+- No management operation is on the V-D6 gap list, and every error code has a catalogue entry.
+- Both palettes keep the contrast test in light and dark and are approved by the user on the real app.
+
 ## Product release 1.0 — Self-service model authoring and extensions
 
 ### Product outcome

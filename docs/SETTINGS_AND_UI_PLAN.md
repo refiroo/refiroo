@@ -186,9 +186,9 @@ The user chose Direction B, "Open" (U-D6, ADR-039), which sets the values for po
 | U2 | 0.9 | U1 | **Delivered 2026-10-06** ([record](#u2-delivery-record)). Foundation: the token layers, the type and spacing scale, the components above, the rail and header, the data-context bar. Applied to the shell. Contrast test over the tokens. Shell baselines re-recorded |
 | U3 | 0.9 | U2 | **Delivered 2026-10-06** ([record](#u3-delivery-record); U-D10 and U-D11). Settings area: `/settings` routes and layout; About, Appearance and Deployment; Workspaces and Model moved under Administration (old URLs redirect); the popover reduced to account and theme with a link to Settings; `GET /api/v1/system` |
 | UA | 0.9 | U3 | **Planned 2026-10-06** ([plan](#ua-the-atlas-redesign); ADR-040, U-D12, U-D13). The Atlas redesign of every surface in one pass, the record browser first, each surface approved by the user from screenshots; replaces the older styles; folds in U6 |
-| UA8 | 0.9 | UA, K3a | **Implemented 2026-10-09** ([plan](#ua8-actions-in-place-on-the-record), [record](#ua8-record-2026-10-09); U-D15–U-D20), screenshots awaiting approval. A relationship row's actions as icon buttons; the record header's title and subtitle edited in place, through the one field editor the details panel uses; the header's Edit record button removed, the menu's Edit all fields renamed Edit record |
-| UA9 | 0.9 | UA8 | **Implemented 2026-10-09** ([plan](#ua9-the-record-tree-scrolled-as-one-several-records-selected-and-dragged), [record](#ua9-record-2026-10-09); U-D21–U-D28), screenshots awaiting approval. The record tree (sidebar and hierarchy lens) scrolls as one list and starts folded; several records selected with Cmd/Ctrl and Shift and dragged together; the sidebar drags |
-| U4 | 0.9 | UA, C6b, V2 | **Implemented 2026-10-07** ([plan](#u4-the-integration-pages), [record](#u4-record-2026-10-07)), screenshots awaiting approval. Integration pages: Consumer APIs, Jobs and feed, API reference. Starter consumer API per U-D5 |
+| UA8 | 0.9 | UA, K3a | **Implemented 2026-10-09** ([plan](#ua8-actions-in-place-on-the-record), [record](#ua8-record-2026-10-09); U-D15–U-D20), screenshots approved by the user 2026-10-10. A relationship row's actions as icon buttons; the record header's title and subtitle edited in place, through the one field editor the details panel uses; the header's Edit record button removed, the menu's Edit all fields renamed Edit record |
+| UA9 | 0.9 | UA8 | **Implemented 2026-10-09** ([plan](#ua9-the-record-tree-scrolled-as-one-several-records-selected-and-dragged), [record](#ua9-record-2026-10-09); U-D21–U-D28), screenshots approved by the user 2026-10-10. The record tree (sidebar and hierarchy lens) scrolls as one list and starts folded; several records selected with Cmd/Ctrl and Shift and dragged together; the sidebar drags |
+| U4 | 0.9 | UA, C6b, V2 | **Implemented 2026-10-07** ([plan](#u4-the-integration-pages), [record](#u4-record-2026-10-07)), screenshots approved by the user 2026-10-10. Integration pages: Consumer APIs, Jobs and feed, API reference. Starter consumer API per U-D5 |
 | U5 | 0.9 | U4, C12 | **Implemented 2026-10-07** ([plan](#u5-the-webhooks-page), [record](#u5-record-2026-10-07)), screenshots approved by the user 2026-10-07. Webhooks page over the subscriptions API (C12 delivered 2026-10-06: `delivery`, the four dispatcher reasons, `reset`) |
 | U5a | 0.9 | U5 | **Implemented 2026-10-07** ([plan](#u5a-webhook-names-the-delivery-log-and-the-webhooks-page-revised), [record](#u5a-record-2026-10-07)), screenshots approved by the user 2026-10-07. Webhook names, the delivery log and its routes, the dialog rebuilt, the Configuration and Deliveries tabs |
 | U6 | — | — | **Folded into UA (2026-10-06):** the remaining surfaces are redesigned in UA, in 0.9. 0.10's editor (A4) builds on UA |
@@ -898,6 +898,8 @@ the product name.
 both themes.
 
 ### Type palettes A and B
+
+_Their rework, so that they differ visibly, is [Base 0.14 UP1](BASE_0_14_IMPLEMENTATION_PLAN.md#up1-type-palettes-a-and-b-reworked) (2026-10-10)._
 
 The eight type hues (U-D13) differ between the two palettes only in slots 3 and 4. **B is in the
 tokens** (chosen by the user, 2026-10-06, after seeing both beside a change set); **A** keeps both
@@ -1761,7 +1763,7 @@ above and `test:browser:k3`. Not run: the full suites, `test:a11y`, `test:visual
 
 #### UA8 record (2026-10-09)
 
-Implemented; screenshots await the user's approval. Delivered as planned, with these differences:
+Implemented; screenshots approved by the user 2026-10-10. Delivered as planned, with these differences:
 
 - **The screenshots and axe have a runner of their own**, `ua8-record-in-place` (`test:browser:ua8`),
   rather than a scenario in another: it adds K3a's Kept by binding to the starter for the run, with
@@ -1933,7 +1935,7 @@ gains the selection and the sidebar's drag).
 
 #### UA9 record (2026-10-09)
 
-Implemented; screenshots await the user's approval. Delivered as planned, with these differences and
+Implemented; screenshots approved by the user 2026-10-10. Delivered as planned, with these differences and
 findings:
 
 - **The browser evidence has a runner of its own**, `ua9-tree-selection` (`test:browser:ua9`),
@@ -2144,8 +2146,8 @@ or contract change.
 
 #### U4 record (2026-10-07)
 
-Implemented as planned; waiting for the user's approval of the screenshots (the three pages at
-1440px, 390px and dark, and the cancel dialog).
+Implemented as planned; the screenshots (the three pages at 1440px, 390px and dark, and the cancel
+dialog) approved by the user 2026-10-10.
 
 - **Pages.** `features/settings/ConsumerApisPage`, `JobsPage` and `ApiReferencePage`, under a new
   **Integration** group (`/settings/consumer-apis`, `/settings/jobs`, `/settings/api-reference`).

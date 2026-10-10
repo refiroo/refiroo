@@ -55,8 +55,8 @@ records leaving a filter's scope documented (C-D112–C-D114). **U3 is delivered
 Settings area and `GET /api/v1/system` ([record](SETTINGS_AND_UI_PLAN.md#u3-delivery-record)), revised the same day.
 UA, the Atlas redesign (ADR-040), is implemented and approved (2026-10-07). **U4 is implemented
 (2026-10-07)**: Settings › Integration (Consumer APIs, Jobs and feed, API reference) and the
-starter's consumer API ([record](SETTINGS_AND_UI_PLAN.md#u4-record-2026-10-07)); screenshots await
-approval. **U5 is implemented (2026-10-07)**: Settings › Integration › Webhooks
+starter's consumer API ([record](SETTINGS_AND_UI_PLAN.md#u4-record-2026-10-07)); screenshots
+approved by the user 2026-10-10. **U5 is implemented (2026-10-07)**: Settings › Integration › Webhooks
 ([record](SETTINGS_AND_UI_PLAN.md#u5-record-2026-10-07)), and **U5a** (webhook names, the delivery
 log, the page revised, [record](SETTINGS_AND_UI_PLAN.md#u5a-record-2026-10-07)); screenshots approved
 2026-10-07. **J1 is delivered (2026-10-07)**: export jobs in JSON Lines, CSV and XLSX
@@ -71,7 +71,8 @@ log, the page revised, [record](SETTINGS_AND_UI_PLAN.md#u5a-record-2026-10-07));
   records, lookup rules (or a warning when there are none) and parameters. Still to update:
   EXAMPLE_MODEL (the starter's `rdm`), CURRENT_FUNCTIONALITY F23, CHANGELOG, the U4 record and
   UI_ACCEPTANCE U4-1. A 0.9.1 installed on a database stays beside 0.9.2 and is never activated.
-- **Rework the type palettes so A and B differ visibly (the user, 2026-10-07).** A and B differ
+- **Rework the type palettes so A and B differ visibly (the user, 2026-10-07). Moved on 2026-10-10 to
+  [Base 0.14 UP1](BASE_0_14_IMPLEMENTATION_PLAN.md#up1-type-palettes-a-and-b-reworked).** A and B differ
   only in slots 3 and 4 (magenta and olive against plum and gold), and side by side the user could
   not tell them apart: in the example model only five types' tiles change, and pink against purple, olive against gold, read as near shades.
   Rework them into two palettes a person tells apart at a glance, keeping what both must hold: eight

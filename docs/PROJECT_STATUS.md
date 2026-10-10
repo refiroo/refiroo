@@ -281,7 +281,7 @@ alone, and `test:a11y` (73 checks) and `test:visual` (64 baselines, light and da
 (2026-10-07)**: Settings › Integration with **Consumer APIs** (each definition's version, base URL,
 exposed types, lists and events), **Jobs and feed** (jobs of every workspace, cancel, the limits)
 and **API reference** (each `/docs` source), over existing routes; the starter is content 0.9.2
-with a small consumer API `rdm` and one event (U-D5); screenshots await approval
+with a small consumer API `rdm` and one event (U-D5); screenshots approved by the user 2026-10-10
 ([record](SETTINGS_AND_UI_PLAN.md#u4-record-2026-10-07)). **U5 is implemented (2026-10-07)**:
 Settings › Integration › **Webhooks** over the subscriptions API (create with the signing key shown
 once, delivery state, each suspension reason with its fix, edit, suspend, resume with or without
@@ -340,12 +340,12 @@ and batches; the import dialog loads them by default; D96–D101)
 ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#j5-record-2026-10-08)). Then Track K and R.
 **K1 is delivered (2026-10-08)**: selecting records in a collection by hand, by range and as "all
 matching" (also Cmd+A), with exceptions, the selection bar, and a selection over the bulk limit
-explained; no writes, frontend only; D102–D111 decided; screenshots await the user's approval
+explained; no writes, frontend only; D102–D111 decided; screenshots approved by the user 2026-10-10
 ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k1-record-2026-10-08)). **K2 is delivered (2026-10-09)**:
 changing values of a selection from the collection (Change values…: set or clear fields, previewed,
 applied, refused records named and openable), on a batch preview the engine now offers to any
 background batch (`stage: preview`, then confirm), the limit renamed `JOB_PREVIEW_MAX_ITEMS`;
-deletion moved to K2b; D112–D119; screenshots await the user's approval
+deletion moved to K2b; D112–D119; screenshots approved by the user 2026-10-10
 ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k2-record-2026-10-09)). **K2b is delivered (2026-10-09)**:
 deleting a selection from the collection (Delete…: previewed with what goes with each record,
 applied exactly as previewed, a record changed meanwhile refused), on cascading batch delete items
@@ -368,11 +368,11 @@ instance
 ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k3a-record-2026-10-09)). **UA8 is implemented
 (2026-10-09)**: the record header's title and subtitle edited in place through the details panel's
 own field component, Edit record only in the ⋯ menu, and a relationship row's actions as icons;
-U-D15–U-D20; screenshots await the user's approval
+U-D15–U-D20; screenshots approved by the user 2026-10-10
 ([record](SETTINGS_AND_UI_PLAN.md#ua8-record-2026-10-09)). **UA9 is implemented (2026-10-09)**: the
 record tree scrolled as one list and folded at the start (the user's experiment, kept), several
 records selected and moved together by drag or Move to…, in the sidebar too; U-D21–U-D28;
-screenshots await the user's approval ([record](SETTINGS_AND_UI_PLAN.md#ua9-record-2026-10-09)).
+screenshots approved by the user 2026-10-10 ([record](SETTINGS_AND_UI_PLAN.md#ua9-record-2026-10-09)).
 **K5 is delivered (2026-10-09)**: relation columns, `related:<key>` in a table view's or a children
 or table panel's columns in schema 0.9, each row's first three related records as chips with "+N
 more", sorted by the related name where a row holds at most one; `expand` and `expandLimit` on the
@@ -385,12 +385,12 @@ them (`related:<key>.<field>`, the consumer API's field form), and `expand` read
 accepted by the user 2026-10-10
 ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k5a-record-2026-10-10)). **K5b is delivered (2026-10-10)**,
 D143 revised by the user: a relation cell shows as many related records as its column's width holds
-and "+N more" for the rest, none when all fit; screenshots await the user's approval
+and "+N more" for the rest, none when all fit; screenshots approved by the user 2026-10-10
 ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k5b-record-2026-10-10)). **K6 is delivered (2026-10-10)**: filtering a
 list by its records' relationships (any of chosen records, none, any) from the Filter menu and
 `filter.related:<key>…` on the per-type list, carried into selection, bulk actions and Export; the
 starter 0.9.5; two defects found and fixed (lower-case filter and sort codes; exports with a related
-criterion failing in the worker); D153–D159; screenshots await the user's approval
+criterion failing in the worker); D153–D159; screenshots approved by the user 2026-10-10
 ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k6-record-2026-10-10)). **K6a is delivered (2026-10-10)**:
 collection filters as pills with a field menu and one editor per field, a bottom sheet on phones;
 the selection bar and both bulk dialogs redesigned; `GET /relations/held` so Remove lists only what a
@@ -400,15 +400,16 @@ found and fixed (the checklist's layout inside a dialog's form)
 a binding's `candidates` limit which records a relationship may choose, applied by every picker,
 listed and enforced by the API, relationships made before kept; Q3's ancestor field criterion;
 D168–D178 ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k7-record-2026-10-10)). Screenshots of both
-await the user's approval. **J6 is delivered (2026-10-10)**: a workbook for people exported from a
+approved by the user 2026-10-10. **J6 is delivered (2026-10-10)**: a workbook for people exported from a
 collection (the table's columns, relation columns as lists, a sheet per chosen relationship, the
 type hues) and read back without a profile through the one it carries, rows claiming their versions;
 `layout: "people"` on `POST /exports`; import profiles gain version, name and relationship-row
 bindings; D179–D190 ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#j6-record-2026-10-10)). Screenshots
-await the user's approval. **J6a is delivered (2026-10-10)**: owned records as columns per parent
+approved by the user 2026-10-10. **J6a is delivered (2026-10-10)**: owned records as columns per parent
 (a new language filled in one column), dropdowns from reference sheets of the records a relationship
 may choose, borders; D191–D199 ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#j6a-record-2026-10-10)).
-Screenshots await the user's approval. Then R.
+Screenshots approved by the user 2026-10-10. Then R. Track V's V3–V9 and the palette rework moved to
+a new release, [0.14](BASE_0_14_IMPLEMENTATION_PLAN.md), before 1.0 for now (2026-10-10).
 **C18, the consumer API definition written for readers, is delivered (2026-10-08):** schema 0.9
 writes `consumerApis` as what a definition exposes, offers, looks like and filters by, with defaults
 written out by `GET /api/v1/model/consumer-apis/{consumerApi}`; an operation not offered is
