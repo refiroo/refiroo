@@ -537,10 +537,12 @@ def _in_schema_0_8(world, suffix):
     model["consumerApis"] = [
         item.model_dump(mode="json") for item in consumer_apis(parse_model(world.configuration.model))
     ]
-    # Schema 0.8 has no many-to-one (0.9 K3a): such a binding is written as 0.8 could say it.
+    # Schema 0.8 has no many-to-one (0.9 K3a) and no candidates (0.9 K7): such a binding is written
+    # as 0.8 could say it.
     for binding in model["objectTypeRelations"]:
         if binding["cardinality"] == "many-to-one":
             binding["cardinality"] = "many-to-many"
+        binding.pop("candidates", None)
     return model
 
 

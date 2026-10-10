@@ -190,6 +190,69 @@ translatable object types are enabled by adding another explicit allowed triple 
 | `uniqueToAncestorTypeKey` | Makes a relation unique per source object and the target object's named containment ancestor |
 | `uniqueWhenToAttributeEquals` | Applies scoped relation uniqueness only when the target attribute equals the configured value |
 
+### Which records a relationship may choose (schema 0.9, Base 0.9 K7)
+
+A binding (an entry of `objectTypeRelations`) may limit which records may be chosen at its ends with
+`candidates`: criteria for the records at the `from` end, the `to` end, or both. An end without
+criteria takes any record, as before.
+
+```json
+{
+  "relationTypeKey": "service-uses-slot",
+  "fromObjectTypeKey": "service",
+  "toObjectTypeKey": "slot",
+  "cardinality": "many-to-one",
+  "candidates": {
+    "to": [{ "field": "ancestor:slot-group.name", "op": "contains", "value": "reserved" }],
+    "from": [{ "field": "bookable", "op": "eq", "value": true }]
+  }
+}
+```
+
+Here a service may use only a slot under a slot group whose name contains "reserved" (any case),
+and only a bookable service may use one.
+
+**What a criterion may name** (D170):
+
+| `field` | Compares | Example |
+| --- | --- | --- |
+| `name` | the record's name | `{"field": "name", "op": "startsWith", "value": "EU-"}` |
+| an attribute key | any non-JSON attribute the end's type binds, filterable or not | `{"field": "bookable", "op": "eq", "value": true}` |
+| `ancestor:<type>.name` | the name of an ancestor of that type, at any depth | `{"field": "ancestor:region.name", "op": "contains", "value": "north"}` |
+| `ancestor:<type>.<attribute>` | an attribute of such an ancestor | `{"field": "ancestor:region.region-code", "op": "eq", "value": "N1"}` |
+
+The operators are the list filter's for the field's value type: text takes `eq`, `contains` and
+`startsWith` (the last two ignore case); numbers and dates `eq`, `lt`, `lte`, `gt` and `gte`; yes/no
+`eq`; every field `isNull` (`true`: empty) and an attribute `isUnset` (`true`: no value held). Criteria
+are combined with AND; several `eq` on one field are alternatives (`"code" eq "A"` and `"code" eq
+"B"`: either). Criteria on one ancestor type are met by one ancestor, and any ancestor of that type
+counts, so a type that nests matches at each of its levels. Validation refuses an unknown field, an
+attribute the end's type does not bind, a JSON attribute, an ancestor type the end's type cannot sit
+under, an operator the field's value type lacks, or a value of the wrong JSON type, at the
+criterion's pointer (`/objectTypeRelations/<key>/<from>/<to>/candidates/to/0/field`).
+
+**What it does** (D171–D177):
+
+- Every place that offers records for the relationship offers only those that meet the criteria: the
+  record picker of the relations panel, a new record's required relationship, Change relationships'
+  Add, Replace with and Set to, the relationship view's and relation matrix's candidates, and the
+  relationship filter's picker. Each says what it offers ("Offers only slots under a Slot group whose
+  name contains “reserved”."). Remove lists what the records hold, whether it matches or not.
+- A record that does not meet its own end is not offered the relationship on its panel, which says
+  why ("Only bookable services can have this relationship."); in Change relationships the preview
+  refuses such records by name.
+- The API lists the same candidates (`candidateFor` and `anchorTypeKey` on the per-type list) and
+  refuses a new relationship that does not meet the criteria (`422 RELATION_CANDIDATE_REFUSED`), alone,
+  in a batch, in an import row and as a set replacement's addition.
+- A relationship made before stays when the data changes so it no longer meets the criteria (a
+  renamed group, a changed flag, a moved record, a new release with criteria): it is not flagged,
+  blocks neither validation nor publishing, and can be changed or removed as any other.
+- Adding, changing or removing `candidates` in a release is compatible; installing checks no data.
+
+Choosing the criteria is the model administrator's responsibility: a criterion on a name or a free
+text attribute follows that text when it is changed. Where the data allows, a yes/no attribute set
+for the purpose ("reserved") is the sturdier criterion.
+
 ## Hierarchy
 
 An object type may declare `behavior.parentRelationTypeKeys`. When an object is created with a parent,
@@ -624,7 +687,8 @@ operation. The starter is content release 0.9.3 on schema 0.9.
 
 Base 0.9 K5 adds relation columns to schema 0.9 (`related:<key>`, [above](#table-view-type-table)),
 and K3a the `many-to-one` cardinality. The starter is content release 0.9.4: its system values and
-master values show relation columns.
+master values show relation columns. Base 0.9 K7 adds a binding's `candidates`
+([above](#which-records-a-relationship-may-choose-schema-09-base-09-k7)).
 
 ### Consumer API definitions in schema 0.9
 

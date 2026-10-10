@@ -4158,9 +4158,12 @@ form.restructuring-plan-form .dialog-actions {
   gap: 8px;
   min-width: 0;
 }
-.record-checklist-search {
+/* Inside a dialog's form the checklist keeps its own layout over the form's labels and fields. */
+.record-checklist-search,
+.dialog form label.record-checklist-search {
   position: relative;
   display: block;
+  margin: 0;
 }
 .record-checklist-search .icon {
   position: absolute;
@@ -4168,7 +4171,9 @@ form.restructuring-plan-form .dialog-actions {
   left: 10px;
   color: var(--text-tertiary);
 }
-.record-checklist-search input {
+.record-checklist-search input,
+.dialog form .record-checklist-search input:not([type="checkbox"]):not([type="radio"]) {
+  margin: 0;
   width: 100%;
   box-sizing: border-box;
   min-height: 36px;
@@ -4193,8 +4198,10 @@ form.restructuring-plan-form .dialog-actions {
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
-.record-checklist-row {
+.record-checklist-row,
+.dialog form label.record-checklist-row {
   display: flex;
+  margin: 0;
   align-items: center;
   gap: 10px;
   min-height: 40px;

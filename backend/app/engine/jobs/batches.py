@@ -1061,6 +1061,30 @@ class _Items:
                 }
                 lookup.prefetch_ancestors(far)
                 lookup.prefetch_values(lookup.objects(far).values())
+        # Which named records meet the candidate criteria of the bindings the items relate them
+        # through, one statement per restricted end (0.9 K7, D177).
+        restricted = [
+            binding
+            for binding in self.model.objectTypeRelations
+            if binding.relationTypeKey in relation_types and binding.candidates
+        ]
+        if restricted and ids["other"]:
+            # Whether a record is under one the chunk lays is read up its ancestors.
+            lookup.prefetch_ancestors(ids["other"] | ids["target"])
+            named = list(lookup.objects(ids["other"] | ids["target"]).values())
+            for binding in restricted:
+                for end, type_key in (
+                    ("from", binding.fromObjectTypeKey),
+                    ("to", binding.toObjectTypeKey),
+                ):
+                    criteria = binding.candidates_at(end)
+                    if criteria:
+                        lookup.prefetch_candidates(
+                            self.model,
+                            type_key,
+                            criteria,
+                            [record.object_id for record in named if record.object_type_key == type_key],
+                        )
         lookup.prefetch_relation_ids(
             str(item.id)
             for item in items

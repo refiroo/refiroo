@@ -496,3 +496,59 @@ describe("RelationsPanel", () => {
     });
   });
 });
+
+describe("a relationship the record does not meet its own end of (0.9 K7, D172)", () => {
+  const model: EngineModel = {
+    ...testModel,
+    relationTypes: [
+      ...testModel.relationTypes,
+      {
+        key: "domain-cites-codelist",
+        reverseKey: "codelist-cited-by-domain",
+        name: "Cites",
+        reverseName: "Cited by",
+        isOriented: true,
+        features: {},
+      },
+    ],
+    objectTypeRelations: [
+      ...testModel.objectTypeRelations,
+      {
+        relationTypeKey: "domain-cites-codelist",
+        fromObjectTypeKey: "domain",
+        toObjectTypeKey: "codelist",
+        cardinality: "many-to-many",
+        candidates: { from: [{ field: "name", op: "startsWith", value: "Res" }] },
+      },
+    ],
+  };
+  const citing: RelationsPanelDefinition = {
+    ...panel,
+    config: { relationTypeKeys: ["domain-cites-codelist"], direction: "outgoing", columns: ["name"] },
+  };
+  beforeEach(() => vi.mocked(api.relations).mockResolvedValue({ items: [], nextCursor: null }));
+
+  it("offers no Add and says why, asking whether the record is a candidate from the other end", async () => {
+    vi.mocked(api.objects).mockResolvedValue({ items: [], nextCursor: null });
+    render(<RelationsPanel model={model} object={domainObject} panel={citing} onOpen={vi.fn()} />);
+    expect(
+      await screen.findByText("Only domains whose name starts with “Res” can have this relationship."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add relationship" })).toBeNull();
+    expect(api.objects).toHaveBeenCalledWith(
+      "domain",
+      expect.objectContaining({
+        candidateFor: "codelist-cited-by-domain",
+        anchorTypeKey: "codelist",
+        filters: [{ field: "id", operator: "eq", value: domainObject.id }],
+      }),
+    );
+  });
+
+  it("offers Add when the record meets it", async () => {
+    vi.mocked(api.objects).mockResolvedValue({ items: [domainObject], nextCursor: null });
+    render(<RelationsPanel model={model} object={domainObject} panel={citing} onOpen={vi.fn()} />);
+    expect(await screen.findByRole("button", { name: "Add relationship" })).toBeInTheDocument();
+    expect(screen.queryByText(/can have this relationship/)).toBeNull();
+  });
+});

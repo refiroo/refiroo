@@ -90,10 +90,14 @@ Search, filters, sort and position live in the page address, so a link or a relo
 place. The same works in live data, in a change set and in a publication.
 
 Filters cover text equality, contains and starts-with, numeric and date comparisons, booleans, null
-checks and the difference between a missing optional field and a stored null. Where the view offers
-a relationship, the Filter menu keeps the records related to any of chosen records (picked with the
-record search), to none, or to any; its chip names the chosen records, also after a reload. The
-selection's "all matching", every bulk change and Export read the same filtered records.
+checks and the difference between a missing optional field and a stored null. Each active filter is
+a pill beside the search, opening its editor or removed with ×; ＋ Filter lists the view's fields by
+group and opens one editor per field: the common conditions to choose from and the rest under More,
+a yes/no applied as it is chosen, a relationship as is any of, has none or has any with the records
+ticked in a list. On a phone the editor is a sheet whose button says how many records it will show.
+Where the view offers a relationship, the filter keeps the records related to any of chosen records,
+to none, or to any; its pill names the chosen records, also after a reload. The selection's "all
+matching", every bulk change and Export read the same filtered records.
 
 A collection or a record's table may show, where the model declares it, a column of each row's
 related records of one relationship as chips in their type's colour, on one line: as many as the
@@ -108,7 +112,8 @@ related records (`expand`), with such a field, for any relationship the type has
 
 Where a collection's data can be written and the deployment lets jobs be created, records can be
 selected in its table: by checkbox, a Shift range, the rows shown, or every record the search and
-filters match (Cmd+A), with single records left out. The bar above the table says what is selected.
+filters match (Cmd+A), with single records left out. The bar above the table says what is selected
+and offers Change values, Change relationships and Delete.
 A selection larger than one bulk change may hold is refused with the count, the limit and what to
 do.
 
@@ -136,13 +141,23 @@ deleted records leave the selection.
 allows the type, in either direction, except a parent and a record's owner. What it offers follows
 how many each side may hold: add and remove records together, replace them with the records chosen,
 set the one record each selected record holds, or clear them; a required relationship is never
-removed or cleared. The other records are picked with a record search, each shown as a removable
-chip. The dialog says how many changes the selection makes and explains, before sending, a change
-larger than the deployment allows. The preview counts the relationships added, removed and already
+removed or cleared. The relationship is chosen from pills and what to do from a segmented choice;
+the other records are ticked in a searchable list. Remove lists only the records the selection
+holds, each with how many selected records hold it; Add marks those already held. The dialog says
+how many changes the selection makes and explains, before sending, a change larger than the
+deployment allows. The preview counts the relationships added, removed and already
 as asked and names each refused record; Apply refuses a record whose relationships of that kind
 changed since the preview and applies the rest. Relationship values are not changed here; a
 record's relationships page changes them. Where the list shows the relationship as a column, the
 rows show the change once applied.
+
+Where the model limits which records a relationship may choose (a binding's `candidates`: by the
+records' names or attributes, or an ancestor's), every place that offers records for it offers only
+those and says so: the relation form, a new record's required relationship, Change relationships,
+the relationship filter, the relationship view and the matrix. A record that does not meet its own
+end of the relationship is not offered it, and its panel says why. A new relationship outside the
+criteria is refused through the API, alone, in a batch or in an import; one made before stays when
+the data changes so it no longer meets them, and can be removed as any other.
 
 Limits: one sort at a time in the browser; queries across relationships are API-only (F20). Pages are
 always bounded.

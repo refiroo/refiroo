@@ -637,3 +637,57 @@ def test_a_filter_or_sort_on_a_field_the_type_lacks_is_refused_in_upper_case(wor
     code = world.key("K.code")
     refused(world.api.get(h_list, **{f"filter__{code}__eq": "x"}), 422, "INVALID_FILTER")
     refused(world.api.get(h_list, sort=code), 422, "INVALID_SORT")
+
+
+@pytest.mark.journey("J01.11")
+@pytest.mark.structures("R", "G", "M", "D", "Bown", "K.code")
+def test_a_query_keeps_the_records_under_an_ancestor_with_a_field(world):
+    """Given D records under a G named "… Reserved …" coded RES and under a G named "… Open …", in B
+    two levels down. When the model-aware query asks for the D records under a G whose name contains
+    "reserved", whose code is RES, and both, live and in a change set that renames the open G. Then
+    each answers the records under the matching G only, and the change set's rename counts there."""
+    tag = uuid4().hex[:6]
+    g_key, code = world.key("G"), world.key("K.code")
+
+    def permit(region, region_code):
+        g = world.made("G", f"{tag} {region}", values={"K.code": region_code})
+        owner = world.made("R", f"{tag} owner in {region}")
+        world.made(
+            "D", f"{tag} permit in {region}", parent=world.dependant_parent(g["id"]),
+            relations=[world.owner("Bown", owner["id"])],
+        )
+        return g
+
+    permit("Reserved Hill", f"RES-{tag}")
+    open_g = permit("Open Vale", f"OPN-{tag}")
+    named = {"field": "name", "op": "contains", "value": tag}
+
+    def query(where, **context):
+        body = {"objectTypeKey": world.key("D"), "where": [named, *where]}
+        if context:
+            body["context"] = context
+        page = ok(world.api.post(f"/workspaces/{W1}/queries/objects", body))
+        return sorted(item["fields"]["name"] if "fields" in item else item["name"] for item in page["items"])
+
+    by_name = {"field": f"ancestor:{g_key}.name", "op": "contains", "value": "reserved"}
+    by_code = {"field": f"ancestor:{g_key}.{code}", "op": "eq", "value": f"RES-{tag}"}
+    reserved = [f"{tag} permit in Reserved Hill"]
+    assert query([by_name]) == reserved
+    assert query([by_code]) == reserved
+    assert query([by_name, by_code]) == reserved
+    cs = world.change_set(name=f"{tag} reserve the vale")
+    ok(world.api.patch(
+        f"/objects/{g_key}/{open_g['id']}",
+        {"name": f"{tag} Reserved Vale", "expectedVersion": open_g["version"], "changeSetId": cs["id"],
+         "expectedChangeSetVersion": cs["version"]},
+    ))
+    assert query([by_name], changeSetId=cs["id"]) == [f"{tag} permit in Open Vale", *reserved]
+    error = refused(
+        world.api.post(
+            f"/workspaces/{W1}/queries/objects",
+            {"objectTypeKey": world.key("D"), "where": [{**by_name, "field": "ancestor:no-such.name"}]},
+        ),
+        422,
+        "INVALID_QUERY",
+    )
+    assert error["details"]["path"] == "/where/0/field"

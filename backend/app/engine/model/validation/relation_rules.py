@@ -2,6 +2,7 @@
 
 from ....common.json_pointer import pointer_segment, relation_path
 from ....models.schema import EngineModel, ObjectTypeRelationDefinition
+from ..candidates import CandidateCriterionError, check_candidate_criteria
 from ..diagnostics import ModelReferenceError
 from .fields import require_schema
 from .index import ModelIndex
@@ -29,6 +30,7 @@ def check_object_type_relations(model: EngineModel, index: ModelIndex) -> None:
         _check_references(allowed, identity, path, index)
         _check_unique_features(allowed, path, index)
         _check_many_to_one(model, allowed, path)
+        _check_candidates(model, allowed, path)
         if identity in identities:
             raise ModelReferenceError(
                 "DUPLICATE_KEY", path, f"Duplicate object-type relation {identity}"
@@ -69,6 +71,25 @@ def _check_many_to_one(
             f"Object-type relation '{allowed.relationTypeKey}' cannot be required with "
             "cardinality 'many-to-one'",
         )
+
+
+def _check_candidates(
+    model: EngineModel, allowed: ObjectTypeRelationDefinition, path: str
+) -> None:
+    """``candidates`` (0.9 K7, D168–D170): schema 0.9, each end's criteria resolving on that end's
+    type, refused at the criterion's field, operator or value."""
+    if allowed.candidates is None:
+        return
+    require_schema(model, "0.9", f"{path}/candidates", "A binding's candidates")
+    for end, type_key in (("from", allowed.fromObjectTypeKey), ("to", allowed.toObjectTypeKey)):
+        object_type = model.object_type(type_key)
+        assert object_type is not None
+        try:
+            check_candidate_criteria(model, object_type, allowed.candidates_at(end))
+        except CandidateCriterionError as error:
+            raise ModelReferenceError(
+                "INVALID_REFERENCE", f"{path}/candidates/{end}/{error.index}/{error.part}", str(error)
+            ) from error
 
 
 def _identity(allowed: ObjectTypeRelationDefinition) -> tuple[str, str, str]:

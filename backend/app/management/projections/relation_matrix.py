@@ -72,6 +72,7 @@ from ...engine.reads.matrix_cells import (
     id_rows,
     view_binding,
 )
+from ...engine.reads.model_query import candidate_ids
 from ...engine.reads.object_query import build_object_query, live_object_paths
 from ...engine.reads.snapshot_reads import (
     build_snapshot_object_query,
@@ -990,6 +991,18 @@ def matrix_link_candidates(
         walk.c.owner,
         meets.label("meets"),
     ).where(walk.c.object_type_key == read.config.cellObjectTypeKey)
+    criteria = read.binding.candidates_at("to" if read.outgoing else "from")
+    if criteria:
+        # The binding's candidate criteria (0.9 K7, D171): only cells the model lets be chosen.
+        cell_type = read.model.object_type(read.config.cellObjectTypeKey)
+        assert cell_type is not None
+        statement = statement.where(
+            walk.c.object_id.in_(
+                candidate_ids(
+                    read.model, cell_type, criteria, workspace_key=read.workspace_key, context=read.context
+                )
+            )
+        )
     if search:
         statement = statement.where(func.lower(walk.c.name).contains(search.lower(), autoescape=True))
     found = paginate_statement(

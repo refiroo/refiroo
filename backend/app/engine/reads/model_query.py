@@ -9,6 +9,9 @@ ID must be in (:class:`SetFilter`), which the builders apply to every part of a 
 * ``ancestor:<type>`` with ``eq`` on an ancestor's ID, read from the containment path: the records
   under that ancestor at any depth, as those whose parent is the ancestor or one of the containers
   below it. The walk goes down from the ancestor through containers only.
+* ``ancestor:<type>.<field>`` (0.9 K7, D178): the records under an ancestor of that type whose
+  field meets the criterion, by the list's operators. Criteria on one ancestor type are met by one
+  ancestor; the walk starts from every ancestor that meets them.
 * one ``related`` hop: records with at least one record at the other end of a binding that matches
   the hop's own criteria (``not`` inverts it). It reads the binding's relations once, as a set,
   never once per listed record.
@@ -22,17 +25,20 @@ from dataclasses import dataclass, replace
 from datetime import date
 from typing import Any, NoReturn
 
-from sqlalchemy import and_, select
+from sqlalchemy import Select, and_, select
 from sqlalchemy.orm import aliased
 
 from ...errors import ApiError, api_error
 from ...models.database import ObjectRelation, RdmObject
 from ...models.queries import ModelQuery, QueryCriterion, QueryExpansion, RelatedCriterion
-from ...models.schema import EngineModel, ObjectTypeDefinition
+from ...models.schema import CandidateCriterion, EngineModel, ObjectTypeDefinition
+from ..model.candidates import filter_operators
+from ..model.consumer_contract import split_ancestor_reference
 from ..model.related_columns import (
     RELATED_FIELD_PREFIX,
     RelatedKeyError,
     is_related_field,
+    related_column,
     related_field_column,
 )
 from ..model.traversal import ancestor_type_keys, related_object_types
@@ -41,7 +47,6 @@ from .object_query import (
     LIVE_OBJECT_COLUMNS,
     ObjectColumns,
     ObjectQuery,
-    filter_operators,
     filter_value_type,
     parse_filter_value,
     refine_object_query,
@@ -57,6 +62,8 @@ from .snapshot_reads import (
     snapshot_object_query,
 )
 
+# The fields of an ancestor a criterion may compare besides its attributes (0.9 K7).
+ANCESTOR_FILTER_FIELDS = ("name",)
 # Built-in fields a criterion may name, on the queried records and at the other end of a hop.
 FILTER_FIELDS = ("id", "name", "parentObjectId", "createdAt", "updatedAt")
 # Built-in fields ``select`` may name besides attributes and ``ancestor:<type>``; every item also
@@ -124,18 +131,24 @@ def plan_model_query(
     as_of = _as_of(object_type, request.asOf)
     field_filters: list[tuple[str, str, str]] = []
     sets: list[SetFilter] = []
+    ancestor_fields: list[tuple[QueryCriterion, str]] = []
     for index, criterion in enumerate(request.where):
         pointer = f"/where/{index}"
         if criterion.related is not None:
             sets.append(
                 _related_predicate(model, object_type, criterion, pointer, workspace_key, context)
             )
+        elif is_ancestor_field(criterion.field):
+            ancestor_fields.append((criterion, pointer))
         elif criterion.field is not None and criterion.field.startswith(ANCESTOR_FIELD_PREFIX):
             sets.append(
                 _ancestor_predicate(model, object_type, criterion, pointer, workspace_key, context)
             )
         else:
             field_filters.append(_field_filter(model, (object_type,), criterion, pointer, context))
+    sets.extend(
+        ancestor_field_sets(model, object_type, ancestor_fields, workspace_key=workspace_key, context=context)
+    )
     _check_sort(request.sort)
     select_fields = (
         None if request.select is None else _selected(model, (object_type,), request.select, "/select")
@@ -269,9 +282,12 @@ def _field_filter(
     criterion: QueryCriterion,
     pointer: str,
     context: SnapshotContext | None,
+    *,
+    capability: str | None = "filterable",
 ) -> tuple[str, str, str]:
     """A field criterion as the list's ``(field, operator, lexical value)``, checked as the list
-    checks it and refused at the part of the criterion that is wrong."""
+    checks it and refused at the part of the criterion that is wrong. ``capability`` as
+    :func:`typed_filter_predicates` takes it."""
     if criterion.not_:
         _invalid("'not' applies to a related criterion only", f"{pointer}/not")
     if criterion.field is None:
@@ -286,7 +302,9 @@ def _field_filter(
         )
     builtin = dict.fromkeys(FILTER_FIELDS)
     try:
-        value_type, is_attribute = filter_value_type(model, builtin, object_types, field)
+        value_type, is_attribute = filter_value_type(
+            model, builtin, object_types, field, capability=capability
+        )
     except ApiError as error:
         _invalid(error.message, f"{pointer}/field")
     if operator not in filter_operators(value_type, attribute=is_attribute):
@@ -354,18 +372,42 @@ def _ancestor_predicate(
     if not isinstance(criterion.value, str):
         _invalid(f"Criterion '{field} eq' needs the ancestor's ID as a string", f"{pointer}/value")
     ancestor_id = criterion.value
-    through = sorted(
-        key
-        for key in ancestor_type_keys(model, object_type.key)
-        if ancestor_type_key in ancestor_type_keys(model, key)
-    )
     if context is None:
         start = select(RdmObject.id.label("id")).where(
             RdmObject.id == ancestor_id,
             RdmObject.object_type_key == ancestor_type_key,
             RdmObject.workspace_key == workspace_key,
         )
-        walk = start.cte("ancestor_descendants", recursive=True)
+    else:
+        origin = object_projection(
+            context, object_ids=[ancestor_id], object_type_key=ancestor_type_key
+        )
+        start = select(origin.c.object_id.label("id"))
+    containers = _containers_below(
+        model, object_type.key, ancestor_type_key, start, workspace_key=workspace_key, context=context
+    )
+    return SetFilter("parent", lambda column: column.in_(containers))
+
+
+def _containers_below(
+    model: EngineModel,
+    object_type_key: str,
+    ancestor_type_key: str,
+    start: Select[Any],
+    *,
+    workspace_key: str,
+    context: SnapshotContext | None,
+) -> Select[Any]:
+    """The ancestors ``start`` selects (as ``id``) and the containers below them of the types that
+    can stand between ``ancestor_type_key`` and ``object_type_key``: a record of that type is under
+    one of the ancestors when its parent is one of these."""
+    through = sorted(
+        key
+        for key in ancestor_type_keys(model, object_type_key)
+        if ancestor_type_key in ancestor_type_keys(model, key)
+    )
+    walk = start.cte("ancestor_descendants", recursive=True)
+    if context is None:
         child = aliased(RdmObject, name="descendant")
         # UNION, not UNION ALL: a record met twice ends the walk, whatever the data holds. Each
         # step probes the (workspace, parent, type) index with the queued record.
@@ -379,20 +421,125 @@ def _ancestor_predicate(
             )
         )
     else:
-        origin = object_projection(
-            context, object_ids=[ancestor_id], object_type_key=ancestor_type_key
-        )
-        walk = select(origin.c.object_id.label("id")).cte(
-            "ancestor_descendants", recursive=True
-        )
         children = object_projection(context, object_type_keys=through)
         walk = walk.union(
             select(children.c.object_id)
             .select_from(walk)
             .join(children, children.c.parent_object_id == walk.c.id)
         )
-    containers = select(walk.c.id)
-    return SetFilter("parent", lambda column: column.in_(containers))
+    return select(walk.c.id)
+
+
+def is_ancestor_field(field: str | None) -> bool:
+    """Whether ``field`` is ``ancestor:<type>.<field>``, a field of an ancestor (0.9 K7)."""
+    return field is not None and split_ancestor_reference(field) not in (None, ("", ""))
+
+
+def ancestor_field_sets(
+    model: EngineModel,
+    object_type: ObjectTypeDefinition,
+    criteria: Sequence[tuple[QueryCriterion, str]],
+    *,
+    workspace_key: str,
+    context: SnapshotContext | None,
+    capability: str | None = "filterable",
+) -> list[SetFilter]:
+    """``ancestor:<type>.<field>`` criteria (0.9 K7, D178), each with its pointer, as one set per
+    ancestor type: the records under an ancestor of that type meeting all of that type's criteria,
+    at any depth. The ancestors are matched with the list's own predicates over the ancestor type,
+    then walked down through containers only, so the listed records are never read one by one."""
+    by_type: dict[str, list[tuple[str, str, str]]] = {}
+    for criterion, pointer in criteria:
+        if criterion.not_:
+            _invalid("'not' applies to a related criterion only", f"{pointer}/not")
+        reference = split_ancestor_reference(criterion.field or "")
+        assert reference is not None
+        ancestor_type_key, field = reference
+        ancestor = model.object_type(ancestor_type_key)
+        if ancestor is None or ancestor_type_key not in ancestor_type_keys(model, object_type.key):
+            _invalid(
+                f"Object type '{object_type.key}' has no ancestor of type '{ancestor_type_key}'",
+                f"{pointer}/field",
+            )
+        if field not in ANCESTOR_FILTER_FIELDS and model.attribute_type(field) is None:
+            _invalid(f"'{field}' is no field an ancestor criterion can compare", f"{pointer}/field")
+        nested = criterion.model_copy(update={"field": field})
+        by_type.setdefault(ancestor_type_key, []).append(
+            _field_filter(model, (ancestor,), nested, pointer, context, capability=capability)
+        )
+    sets = []
+    for ancestor_type_key, filters in by_type.items():
+        ancestor = model.object_type(ancestor_type_key)
+        assert ancestor is not None
+        if context is None:
+            other = aliased(RdmObject, name="matched_ancestor")
+            _normalized, predicates = typed_filter_predicates(
+                model, _live_columns(other), (ancestor,), filters, capability=capability
+            )
+            start = select(other.id.label("id")).where(
+                other.object_type_key == ancestor_type_key,
+                other.workspace_key == workspace_key,
+                *predicates,
+            )
+        else:
+            others = object_projection(context, object_type_keys=[ancestor_type_key])
+            columns = snapshot_object_columns(others, context, search_index=False)
+            _normalized, predicates = typed_filter_predicates(
+                model, columns, (ancestor,), filters, capability=capability
+            )
+            start = select(others.c.object_id.label("id")).select_from(others).where(*predicates)
+        containers = _containers_below(
+            model, object_type.key, ancestor_type_key, start, workspace_key=workspace_key, context=context
+        )
+        sets.append(SetFilter("parent", lambda column, containers=containers: column.in_(containers)))
+    return sets
+
+
+def candidate_ids(
+    model: EngineModel,
+    object_type: ObjectTypeDefinition,
+    criteria: Sequence[CandidateCriterion],
+    *,
+    workspace_key: str,
+    context: SnapshotContext | None,
+) -> Select[Any]:
+    """The IDs (as ``id``) of the records of ``object_type`` that meet a binding end's candidate
+    criteria in the context (0.9 K7, D177): its own fields with the list's predicates, any non-JSON
+    attribute, and its ancestors' fields through :func:`ancestor_field_sets`. One statement; the
+    candidate read narrows a list to it and the write rule asks which records it holds."""
+    own: list[tuple[str, str, str]] = []
+    ancestors: list[tuple[QueryCriterion, str]] = []
+    for index, item in enumerate(criteria):
+        criterion = QueryCriterion(field=item.field, op=item.op, value=item.value)
+        if is_ancestor_field(criterion.field):
+            ancestors.append((criterion, f"/{index}"))
+        else:
+            own.append(_field_filter(model, (object_type,), criterion, f"/{index}", context, capability=None))
+    parents = [
+        item.predicate
+        for item in ancestor_field_sets(
+            model, object_type, ancestors, workspace_key=workspace_key, context=context, capability=None
+        )
+    ]
+    if context is None:
+        record = aliased(RdmObject, name="candidate")
+        _normalized, predicates = typed_filter_predicates(
+            model, _live_columns(record), (object_type,), own, capability=None
+        )
+        return select(record.id.label("id")).where(
+            record.object_type_key == object_type.key,
+            record.workspace_key == workspace_key,
+            *predicates,
+            *(predicate(record.parent_object_id) for predicate in parents),
+        )
+    records = object_projection(context, object_type_keys=[object_type.key])
+    columns = snapshot_object_columns(records, context, search_index=False)
+    _normalized, predicates = typed_filter_predicates(model, columns, (object_type,), own, capability=None)
+    return (
+        select(records.c.object_id.label("id"))
+        .select_from(records)
+        .where(*predicates, *(predicate(records.c.parent_object_id) for predicate in parents))
+    )
 
 
 def _related_predicate(
@@ -659,6 +806,66 @@ def _hop_condition(
     return _related_predicate(
         model, object_type, criterion, "/filter", workspace_key, context
     ).predicate
+
+
+@dataclass(frozen=True)
+class CandidateFilter:
+    """The per-type list's ``candidateFor`` (0.9 K7, D173): a condition on the listed record's ID,
+    ``None`` when the end is unrestricted, and what a cursor binds."""
+
+    id_filter: Callable[[Any], Any] | None
+    bound: tuple[str, str] | None
+
+
+def list_candidate_filter(
+    model: EngineModel,
+    object_type_key: str,
+    candidate_for: str | None,
+    anchor_type_key: str | None,
+    *,
+    workspace_key: str,
+    context: SnapshotContext | None,
+) -> CandidateFilter:
+    """``candidateFor=<key>&anchorTypeKey=<type>``: the listed records a record of the anchor type
+    may choose through that relationship (``key`` a relation key or reverse key read from the
+    anchor's type), by the criteria the binding sets at the listed records' end."""
+    if candidate_for is None and anchor_type_key is None:
+        return CandidateFilter(None, None)
+    if not candidate_for or not anchor_type_key:
+        _invalid_filter("candidateFor and anchorTypeKey come together", "candidateFor")
+    try:
+        column = related_column(model, anchor_type_key, candidate_for)
+    except RelatedKeyError as error:
+        _invalid_filter(str(error), "candidateFor")
+    end = "to" if column.direction == "outgoing" else "from"
+    binding = next(
+        (
+            item
+            for item in column.bindings
+            if (item.toObjectTypeKey if end == "to" else item.fromObjectTypeKey) == object_type_key
+        ),
+        None,
+    )
+    object_type = model.object_type(object_type_key)
+    if binding is None or object_type is None:
+        _invalid_filter(
+            f"'{candidate_for}' from '{anchor_type_key}' records reaches no '{object_type_key}' records",
+            "candidateFor",
+        )
+    criteria = binding.candidates_at(end)
+    if not criteria:
+        return CandidateFilter(None, (candidate_for, anchor_type_key))
+    ids = candidate_ids(model, object_type, criteria, workspace_key=workspace_key, context=context)
+    return CandidateFilter(lambda column: column.in_(ids), (candidate_for, anchor_type_key))
+
+
+def both_filters(
+    first: Callable[[Any], Any] | None, second: Callable[[Any], Any] | None
+) -> Callable[[Any], Any] | None:
+    """Two optional conditions on one column as one."""
+    if first is None or second is None:
+        return first or second
+    return lambda column: and_(first(column), second(column))
 
 
 def _invalid_filter(message: str, parameter: str) -> NoReturn:

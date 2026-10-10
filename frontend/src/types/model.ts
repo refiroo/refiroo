@@ -51,6 +51,13 @@ export interface RelationTypeDefinition {
   features: Record<string, unknown>;
 }
 
+/** One criterion a record at a binding's end must meet to be chosen (0.9 K7, D169). */
+export interface CandidateCriterion {
+  field: string;
+  op: string;
+  value?: unknown;
+}
+
 export interface ObjectTypeRelationDefinition {
   relationTypeKey: string;
   fromObjectTypeKey: string;
@@ -59,6 +66,8 @@ export interface ObjectTypeRelationDefinition {
   required?: boolean;
   attributeTypeKeys?: string[];
   features?: Record<string, unknown>;
+  /** Which records may be chosen at each end (0.9 K7, D168); an end without criteria takes any. */
+  candidates?: { from?: CandidateCriterion[]; to?: CandidateCriterion[] };
 }
 
 export interface TableViewDefinition {

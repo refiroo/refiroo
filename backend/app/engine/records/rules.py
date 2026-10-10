@@ -12,6 +12,7 @@ from datetime import date, datetime
 from typing import Any
 
 from ...common.encoding import to_jsonable
+from ...common.json_pointer import relation_path
 from ...errors import ApiError, api_error
 from ...models.schema import (
     ApplicationDefinition,
@@ -374,4 +375,34 @@ def relation(
     mutable_relation(model, relation_type_key, target.object_type_key, refusals)
     relation_cardinality(lookup, binding, source.object_id, target.object_id, excluded)
     relation_scope(lookup, binding, source.object_id, target, excluded)
+    relation_candidates(lookup, model, binding, source, target)
     return relation_attributes(model, binding, attributes)
+
+
+def relation_candidates(
+    lookup: Any, model: EngineModel, binding: ObjectTypeRelationDefinition, source: Any, target: Any
+) -> None:
+    """A binding's ``candidates`` (0.9 K7, D174): each end of a new relationship must meet its
+    end's criteria. Only relationships a write adds come here; one a record already holds is kept
+    whatever the criteria say now (D175)."""
+    for end, record in (("from", source), ("to", target)):
+        criteria = binding.candidates_at(end)
+        if not criteria:
+            continue
+        if record.object_id in lookup.candidates_meeting(
+            model, record.object_type_key, criteria, [record.object_id]
+        ):
+            continue
+        identity = (binding.relationTypeKey, binding.fromObjectTypeKey, binding.toObjectTypeKey)
+        raise api_error(
+            422,
+            "RELATION_CANDIDATE_REFUSED",
+            f"'{record.name}' cannot be chosen at the {end} end of '{binding.relationTypeKey}': it"
+            " does not meet the criteria the model sets there",
+            {
+                "relationTypeKey": binding.relationTypeKey,
+                "end": end,
+                "objectId": record.object_id,
+                "criteria": f"{relation_path(identity)}/candidates/{end}",
+            },
+        )

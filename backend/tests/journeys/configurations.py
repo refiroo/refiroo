@@ -39,8 +39,12 @@ Structures:
   ``Bnn.weight`` (integer, minimum 1) and ``Bnn.note``; ``Bown`` R→D required one-to-many (D a
   dependant of R), unique per R within a ``G`` while ``D.active`` is true; ``Bscope`` R→D optional
   many-to-many with the same scope rule, and from ``R2`` to ``D`` without it; ``Hparent`` the
-  self-hierarchy's containment.
-- Views: ``Vnn`` a relationship view (``mappingGrid``) over ``Bnn``, read from ``H``.
+  self-hierarchy's containment. Candidates (0.9 K7): ``Bcand`` H→K many-to-many whose ``to`` end takes a
+  ``K`` whose ``K.code`` starts with "OK"; ``Banc`` R→D many-to-many whose ``from`` end takes an ``R``
+  with ``R.b`` true and whose ``to`` end a ``D`` under a ``G`` whose name contains "reserved" (any
+  case).
+- Views: ``Vnn`` a relationship view (``mappingGrid``) over ``Bnn``, read from ``H``; ``Vcand`` over
+  ``Bcand``; the matrix ``Mcand`` over ``Banc`` (R rows, G columns, D cells).
 - ``Capi``: a consumer API exposing ``R``, ``R2`` and ``D`` (generated only): the ``id`` role,
   ``code`` (``R2.u``, then ``R.u``), ``name``, ``active`` (``R.b``, default true), ``R.n`` (default
   50) and ``R.dt``, ``parent``, ``path`` and ``hierarchy``; projections ``B11`` outgoing (one),
@@ -160,6 +164,10 @@ def _naming(variant: str) -> dict[str, str]:
         "Bee": "tariff-follows-tariff",
         "Vnn": "branch-token-links",
         "Bn1": "branch-grades-token",
+        "Bcand": "branch-picks-token",
+        "Banc": "ledger-reserves-permit",
+        "Vcand": "branch-token-picks",
+        "Mcand": "reserves-by-region",
     }
     if variant == "a":
         return a
@@ -370,6 +378,8 @@ def generated(variant: str) -> Configuration:
             "Brev",
             "Bvk",
             "Bee",
+            "Bcand",
+            "Banc",
         )
     ]
     allowed = [
@@ -413,6 +423,24 @@ def generated(variant: str) -> Configuration:
             "cardinality": "one-to-many",
             "required": True,
             "features": scope,
+        },
+        # Which records may be chosen (0.9 K7): a K by its code, a D by its G's name, an R by a flag.
+        {
+            "relationTypeKey": k["Bcand"],
+            "fromObjectTypeKey": k["H"],
+            "toObjectTypeKey": k["K"],
+            "cardinality": "many-to-many",
+            "candidates": {"to": [{"field": k["K.code"], "op": "startsWith", "value": "OK"}]},
+        },
+        {
+            "relationTypeKey": k["Banc"],
+            "fromObjectTypeKey": k["R"],
+            "toObjectTypeKey": k["D"],
+            "cardinality": "many-to-many",
+            "candidates": {
+                "from": [{"field": k["R.b"], "op": "eq", "value": True}],
+                "to": [{"field": f"ancestor:{k['G']}.name", "op": "contains", "value": "reserved"}],
+            },
         },
         {
             "relationTypeKey": k["Bscope"],
@@ -578,6 +606,7 @@ def generated(variant: str) -> Configuration:
         }
 
     h_application["views"].append(mapping("V2", "Bh1n", "H", "K", "outgoing"))
+    h_application["views"].append(mapping("Vcand", "Bcand", "H", "K", "outgoing"))
     second_application["views"].append(mapping("Vnnr", "Bnn", "H", "K", "incoming"))
 
     # A3 lists records the other applications own: relation matrices of R rows, G columns, D cells.
@@ -610,6 +639,7 @@ def generated(variant: str) -> Configuration:
         matrix("Mrev", "Brev", "incoming", ["link", "unlink"]),
         matrix("Mscope", "Bscope", "outgoing", ["link", "unlink"]),
         matrix("Mone", "Bone", "outgoing", ["link", "unlink"]),
+        matrix("Mcand", "Banc", "outgoing", ["link", "unlink"]),
     ]
     applications.append(lens)
     model = {

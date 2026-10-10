@@ -8573,6 +8573,150 @@ previewing 0 created; axe 0 violations as before. Screenshot inspected. No volum
 new record with a derived ID; no record changes identity, and the outcome's `sourceId` reports the
 derivation. Storing a counterpart's origin would be additive later.
 
+#### J6: A workbook for people, read back as it was written
+
+**Added 2026-10-10 by the user**, after K7: an export of a collection as a workbook people can work
+in (the columns the collection shows, its relation columns flattened, a sheet per relationship,
+formatted and coloured as the collection is) that loads back as it was written, beside the existing
+technical export, which stays. **Design:** this entry; J1's export (§J4, D49–D53), J2's import
+profiles (MODEL_AUTHORING A1), K5 and K5a's relation columns. **Needs:** K7.
+
+**Exit:** a user exports a collection from its page as a workbook for people: the main sheet holds
+the columns the table shows, in its order and labels, relation columns as names (or the field the
+column shows), coloured by type; a sheet per chosen relationship holds its records or its
+relationships. The user edits values, a single relationship's name, a list of names and a row of a
+relationship sheet, and imports the file back from the page or Jobs and feed without choosing a
+profile: the preview shows exactly those changes; an untouched file previews as unchanged; a record
+changed by someone else since the export is refused. An integrator asks for the same workbook through
+`POST /exports`.
+
+##### J6 plan (2026-10-10)
+
+**Planned 2026-10-10. D179–D190 and the test cases accepted by the user the same day (D182 with the user's words "owned records, so one relationtype one sheet").** Checked against the
+code at `32461cd` with K7 in the working tree.
+
+**What exists.**
+- **The export** (J1, J1u): `POST /exports` (`ExportRequest`: context, `scope.types` with Q3
+  criteria, `include.relations`, `format` `jsonl`/`csv`/`xlsx`), run as a background job over one
+  snapshot. Its XLSX (`engine/jobs/xlsx.py`, a streaming writer with two cell styles) holds two
+  technical sheets, `Records` and `Relationships`, headed by keys (`#language-code`), with IDs and
+  versions, dropdowns from a hidden `Lists` sheet. The collection page's Export dialog
+  (`features/jobs/ExportDialog`, `exportRequest`) sends the page's type, search-free filters
+  (D60) and a format.
+- **The import** (J2–J5): a profile maps sheets to types (`Source`: sheet, header row, key) and
+  columns to fields, a parent by match, a relationship by match (`RelationBinding`: `matchBy` name, ID
+  or a unique attribute, `split` for a list in one cell, `replace` for the whole set), flag columns,
+  related records (`RelatedRecordBinding`), `ignore`. Without a profile an XLSX must be the technical
+  layout. Only the technical layout claims each record's version (`expectedVersion`); a profile's
+  rows do not, so an existing record is refused or overwritten by `onExisting`.
+- **The collection** (K5–K6a): the view's columns, the user's Display (shown columns, order),
+  `related:<key>` and `related:<key>.<field>` columns, type hues (a type's position in `objectTypes`
+  over eight slots, `model/hues.ts`).
+
+**Behaviour.**
+
+1. **Two kinds of workbook** (D179): the export dialog offers **For people** (new; one type, the
+   collection's) and **Technical** (today's XLSX, CSV or JSON Lines, unchanged). For people is XLSX only.
+2. **The main sheet** (D180): one row per exported record; the columns the table shows now, in its
+   order, headed by their labels; values formatted as the table formats them (dates as dates, yes/no
+   as Yes/No, numbers as numbers); hidden columns at the end hold each record's ID and version. The
+   header row is frozen and filtered (Excel's AutoFilter), columns sized to their content, the name
+   column and relation columns filled in the type's colour (D184).
+3. **Relation columns on the main sheet** (D181): a relationship shown as names writes every related
+   record's name in one cell, separated by "; " (never "+N more"); a column showing a field of the
+   related records (`related:<key>.<field>`) writes those values. In the Advanced section a relation
+   column may show another field instead (a unique code, say), as K5a's columns do.
+4. **Sheets per relationship** (D182): in Advanced the user ticks the relationships that get a sheet
+   of their own (default: those the table shows as columns); one relation type has one sheet. A relationship whose records are owned by
+   the exported records (a required binding into the related type: translations of a value) gets a
+   sheet of **those records**: their fields, their parent (by name or code) and their owner (by name,
+   with a hidden ID). Any other relationship gets a sheet of **the relationships**: one row per pair,
+   the exported record and the related record by name (hidden IDs), the relationship's own values,
+   and the related record's shown fields for orientation.
+5. **What loads back** (D183): editable are the main sheet's values and relation columns of names or
+   of a unique field; a sheet's records (owned) or rows (relationships). A relation column showing a
+   field that does not identify the related record (a translation's language code), or one whose
+   relationship also has its own sheet, is a **summary**: written, marked in its header note, and
+   ignored on import. A list of names replaces the record's set of that relationship (as
+   `RelationBinding.replace`); a relationship sheet adds and changes relationships and their values,
+   and removes nothing (D187).
+6. **The workbook carries its own profile** (D185): a hidden sheet holds the import profile that
+   reads it (sheets, header rows, the hidden ID and version columns as keys, each column's binding,
+   the summary columns as `ignore`). An XLSX imported without a profile is read through it when
+   present, otherwise as today's technical layout; the import page says which ("Read as exported
+   from System values on 10 Oct 2026").
+7. **Versions** (D186): a for-people row claims its record's version, so a record changed since the
+   export is refused (`VERSION_CONFLICT`), as the technical export's rows are; the hidden version
+   column is bound by the profile.
+8. **API** (D188): `POST /exports` takes `layout: "people"` with `format: "xlsx"`, one scope type,
+   and `columns` (the main sheet's, as a view's column list), `sheets` (relation keys) and
+   `columnFields` (a relation column's shown field); `422 INVALID_EXPORT_LAYOUT` otherwise.
+9. **Limits** (D189): as the technical export's (one sheet past 1,048,576 rows continues on the
+   next); a relation cell past Excel's 32,767 characters is written in full on the relationship's
+   sheet and marked as a summary on the main sheet.
+
+**Design.**
+
+- **Model of the request:** `ExportRequest.layout` (`technical` default, `people`) with
+  `PeopleLayout {columns, sheets, columnFields}`, checked against the model with K5's resolver
+  (`related_field_column`) and the view rules (a column a table may show).
+- **Reading:** one snapshot, as today: the records with Q3's selection and the main sheet's relation
+  columns through the list's `expand` (`expansion_rows`, no limit per row for the export, D190);
+  relationship sheets through `relation_projection` per chosen key, owned records through
+  `object_projection`; every read set-based, streamed to the writer.
+- **Writing:** `engine/jobs/xlsx.py` gains a style table (header, the eight hue fills and inks as
+  cell styles, Yes/No, dates), column widths, a frozen pane, AutoFilter, hidden columns and the hidden
+  profile sheet. The hues mirror `tokens.css`'s light theme (`--hue-N-fill`, `--hue-N-ink`), the slot
+  by the type's position as `model/hues.ts` (D184).
+- **The profile:** built from the layout by `engine/imports/profiles.py`'s own types (one `Source`
+  per sheet), validated as a stored profile is, serialized into the hidden sheet; `readers.py`
+  finds it; `binding.py` reads its version column (D186), the new `SourceKey.versionColumn`.
+- **Frontend:** `ExportDialog` gains the kind (For people / Technical) and an Advanced section: the
+  shown columns (from the table's Display, reorderable as Display is), each relation column's field,
+  the relationship sheets; `exportRequest` builds `layout`. `ImportDialog` and the import page say
+  when a workbook carries its profile. Jobs and feed: the export job's kind reads "Workbook for
+  people".
+- **Not changed:** the technical export and import, stored profiles, `POST /batches`.
+
+**Decisions** (accepted by the user 2026-10-10):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D179 | The two kinds | **Accepted 2026-10-10 by the user.** **For people (XLSX, one type) beside Technical (unchanged).** The technical file stays the integrator's exact round trip of several types; the new one is shaped by one collection |
+| D180 | The main sheet's columns | **Accepted 2026-10-10 by the user.** **The table's shown columns, in its order and labels, then hidden ID and version columns.** What the user sees is what they get; the hidden columns make the round trip exact without cluttering the sheet |
+| D181 | A relation column's cell | **Accepted 2026-10-10 by the user.** **Every related name in one cell, "; " between them; or the column's field (K5a), or another field chosen in Advanced.** "; " reads well and is rare in names; a cell holds all, not "+N more" |
+| D182 | What a relationship's sheet holds | **Accepted 2026-10-10 by the user: "owned records, so one relationtype one sheet" — one sheet per relation type, an owning relationship's sheet holding the owned records.** **The owned records for an owning relationship (translations), the relationship rows for any other**, each with names shown and IDs hidden. Owned records exist only through the relationship, so they are edited there; independent records (roles, locations) are edited in their own collection, so their sheet edits who is related |
+| D183 | Which main-sheet columns load back | **Accepted 2026-10-10 by the user.** **Values; names or a unique field of the related records; a column whose relationship has its own sheet, or showing a non-identifying field, is a summary, marked and ignored.** A summary cannot say what to change ("ar cs" does not say which translation to delete); one place to edit a relationship avoids two edits disagreeing |
+| D184 | Colours | **Accepted 2026-10-10 by the user.** **The type's hue as in the app: the name column and relation columns filled with the type's light fill and ink, the header with the main type's.** The hue slot is the type's position in the model, as `model/hues.ts`; the eight fills and inks mirror `tokens.css` in one engine table (Excel has no dark theme) |
+| D185 | How the workbook is read back | **Accepted 2026-10-10 by the user.** **Its own import profile on a hidden sheet, used when an XLSX is imported without a profile.** Nothing to choose or keep; the profile is validated as any profile is, so a model change since the export is reported as for a stored profile |
+| D186 | Versions | **Accepted 2026-10-10 by the user.** **A for-people row claims its record's version (a hidden column bound by the profile, `SourceKey.versionColumn`)**, so a record changed meanwhile is refused, as the technical file's. Without it a later export's edits would silently overwrite |
+| D187 | Removing relationships from a sheet | **Accepted 2026-10-10 by the user.** **A relationship sheet adds and changes, never removes; a main-sheet list of names replaces the set.** A row missing from a sheet is easily a filtered or deleted-by-mistake row; removal stays explicit (the list column, the app) |
+| D188 | The API | **Accepted 2026-10-10 by the user.** **`layout: "people"` on `POST /exports` with `columns`, `sheets`, `columnFields`.** The UI is one client; an integrator producing a workbook for a business user gets the same |
+| D189 | Limits | **Accepted 2026-10-10 by the user.** **The technical export's limits; an over-long relation cell becomes a summary pointing to its sheet** |
+| D190 | Related records per row | **Accepted 2026-10-10 by the user.** **All of them in an export** (the list's `expandLimit` does not apply); one set-based read per column |
+
+**Test cases** (accepted by the user 2026-10-10). API journeys, on the generated configurations:
+- J27.15 (new): a for-people export of `H` with columns of values, a single relationship (`Bn1`), a
+  list (`Bnn`) and a field column: the main sheet's labels, order, typed cells, hidden ID and version,
+  "; " lists, the summary marked; a relationship sheet for `Bnn` and an owned-records sheet for `Bown`
+  (from `R`); the hidden profile valid.
+- J27.16 (new): the untouched workbook imported without a profile previews as all unchanged; edited
+  (a value, `Bn1`'s name, `Bnn`'s list with one name removed and one added, a summary cell, a
+  relationship sheet's value and new row, an owned record's field) it changes exactly those, the
+  summary ignored, the removed name's relationship removed, nothing removed through the sheet; a
+  record changed after the export refused `VERSION_CONFLICT`; an ambiguous name refused by row.
+- J27.17 (new): `layout: "people"` refused for several types, CSV, an unknown column or sheet key.
+Vitest: `ExportDialog` (the kind, Advanced's columns, fields and sheets, the request), `ImportDialog`
+(a workbook with its own profile). Runner `test:browser:j6` on the starter: system values exported
+for people from the collection with a relation column and a sheet, the file read back with
+`openpyxl` (sheets, fills, frozen header, hidden columns), edited and imported from the page,
+previewed and applied; 390px; axe on the dialog's Advanced section (light, dark).
+
+**Checks.** Backend: the journeys failing first, then `jobs`, `queries`, `contract` (the OpenAPI diff
+before the lock); a for-people export of the 0.1 volume fixture's items timed once beside the
+technical one. Frontend: Vitest `related`, format, lint, build; `j6`, and `j1u`, `j4` by exit code and
+`report.json`.
+
 ## Track K — Bulk selection and editing in collections
 
 **Added 2026-10-06 by the user**, after Track J, which brings the job screens it reuses. The
@@ -8628,8 +8772,13 @@ cardinality); no screen knows a type key.
 - **K6a (added 2026-10-10 by the user): collection filters redesigned.** Active filters as pills,
   ＋ Filter's field menu, one compact editor per field, a bottom sheet at 390px; frontend only.
   Extended the same day to the shared controls, the selection bar and both bulk dialogs.
-  _Planned 2026-10-10 ([plan](#k6a-collection-filters-shared-controls-and-the-bulk-dialogs-redesigned));
-  D160–D167 and the test cases accepted._
+  _Planned and delivered 2026-10-10 ([plan](#k6a-collection-filters-shared-controls-and-the-bulk-dialogs-redesigned),
+  [record](#k6a-record-2026-10-10)); D160–D167 and the test cases accepted; screenshots await approval._
+- **K7 (added 2026-10-10 by the user): which records a relationship may choose.** A binding may
+  limit the records at either end by criteria over their fields and their ancestors' fields; every
+  picker offers only those, the API lists them and refuses new relationships outside them, and
+  relationships made before are kept. _Planned and delivered 2026-10-10 ([plan](#k7-plan-2026-10-10),
+  [record](#k7-record-2026-10-10)); D168–D178 and the test cases accepted; screenshots await approval._
 
 **Decisions for K1's planning:** how "all matching" meets optimistic concurrency (versions read at
 selection, or an explicit "apply to current values" that the invariant allows only when stated);
@@ -10698,6 +10847,278 @@ K2b's delete, K3's add, remove and set to), Remove choosing from the held record
 
 **Checks.** Backend: J32.7 confirmed failing first, `mapping`, `queries`, `contract` (the OpenAPI
 diff before the lock); Ruff. Frontend: Vitest `related`, format, lint, build; the runners above.
+
+##### K6a record (2026-10-10)
+
+**Delivered 2026-10-10.** D160–D167 and the test cases as accepted (D164 "for now"). Screenshots
+await the user's approval.
+
+**Built.**
+
+- **The engine.** `relation_queries.held_records_query` and `GET /relations/held` (D165): the records
+  at the other end of one relationship from up to 500 named records, each with how many of them hold
+  it, one grouped statement in live data, a change set or a publication, in name order and paged;
+  `422 TOO_MANY_RECORDS` past 500.
+- **Shared controls.** `ui/FieldMenu` (grouped fields, the applied ones marked, a search from nine,
+  D164), `ui/RecordChecklist` (search, ticks pinned on top, a heading per type, "N selected"),
+  `ui/Choice` with icons, `ui/ControlPopover` without its own header, `ui/Modal` with an icon and a
+  description, new icons.
+- **Filters.** `features/objects/filters/FilterBar`: the pills, ＋ Filter, one editor per field type
+  (D161, D162; "Has a value" and "Is set" under More beside "Is empty" and "Not set"), the 390px sheet
+  counting its records (D163). `ObjectToolbar` holds the search, the bar and Display; the old Filter
+  menu and chips are gone.
+- **The selection bar and dialogs** (D166, D167): icon actions, Clear as ×, the light theme's indigo
+  tint (`--selection-bar-*` tokens); `BulkJobDialog`'s header, policy section and live summary;
+  Change values as cards; Change relationships as pills, actions and a checklist, Remove reading the
+  holdings of hand-picked or all matching records through `/relations/held` in batches of 200.
+
+**Checks.** Backend: J32.7 (`test_j13_relate`); `queries`, `mapping` and `contract`: 499 passed, 1
+failed (the paging inventory's count, now 29 with the new route); the OpenAPI lock diffed against
+`fef595b` (only the route and its three schemas) and re-locked; `contract` 76 passed; Ruff check.
+Frontend: Vitest over `src/ui`, `src/features/objects`, `src/api`, `src/features/workspaces`: 45 files,
+409 passed (one earlier run had 4 failures under load that three reruns did not repeat); format; lint
+0 errors and the 7 recorded warnings; build. Runners by exit code and `report.json`: `k2` 14, `k2b` 12,
+`k3` 16, `k5` 10, `k6` 8, `j1u` 12, `webhooks` 19, `k1` 11 and `j4` 18 (each failed once on a timing
+wait, "Loading rows…" and the selection bar, and passed when run again).
+
+**Defect found and fixed (in K7).** Inside a dialog's form, `.dialog form label` and `.dialog form
+input` outranked the checklist's rules: Change relationships' rows lost their layout and the search
+icon covered the text. The checklist's rules now hold inside a dialog's form, as the candidate
+search's do.
+
+**Differences from the plan.** D133 revised by D167 (Add and Remove separate). `/relations/held` takes
+`objectTypeKey` beside the relationship. `FilterBar` lives in `features/objects/filters`, not `ui/`
+(it knows collection filters). The field menu searches from nine fields. The selection bar is an
+indigo tint on the light theme, not black, at the user's request. The K1, K2, K2b, K3, K5 and K6
+runners were reworked for the new controls. D142 revised by the user during the package: no fixed
+number of `expand` keys.
+
+#### K7: Which records a relationship may choose
+
+**Added 2026-10-10 by the user.** **Design:** this entry; Q3's criteria (INTEGRATION_API §Q3, D4,
+D18); the consumer API's `ancestor` parameter (C3), which already matches ancestors by a field.
+**Needs:** K6a.
+
+**Scope:** a model may limit, per relationship binding and per end, which records may be chosen at
+that end, by criteria over the records' own fields and their ancestors' fields. Every place that
+offers records for that relationship offers only those (the record picker, a new record's initial
+relationships, Change relationships, the relations panel, the mapping grid, the relation matrix and
+the relationship filter's picker); the API offers the same candidate list and refuses a new
+relationship that does not meet them. Relationships that stop meeting the criteria later (a renamed
+ancestor, a changed flag) are kept until someone changes them.
+
+**Exit:** a model administrator limits one end of a relationship to records under an ancestor whose
+name contains a word, and another to records with a yes/no attribute set; a user choosing records
+for those relationships, by pointer and keyboard at 1440px and 390px, in live data and a change set,
+is offered only the matching records in every picker; an integrator reads the same candidates from
+the API and has a non-matching relationship refused, alone, in a batch and in an import row;
+renaming the ancestor keeps the relationships made before, which the user can still see, filter by
+and remove.
+
+##### K7 plan (2026-10-10)
+
+**Planned 2026-10-10. D168–D178 and the test cases accepted by the user the same day (D171 and D175 in the discussion before planning).** Checked against the
+code at `32461cd`.
+
+**What exists.**
+- **Bindings.** `objectTypeRelations[]` (`ObjectTypeRelationDefinition`: relation type, `from` and
+  `to` types, cardinality, `required`, `attributeTypeKeys`, `features`). `features` already carries a
+  per-binding rule over the records: `uniqueToAncestorTypeKey` with `uniqueWhenToAttributeEquals`.
+- **One rule for every relationship write.** `records/rules.relation` checks the binding,
+  cardinality and ancestor scope for a single create (`relation_writes`), a new record's
+  `initialRelations` (`records/objects`), a set replacement (`relation_sets`), change-set writes
+  (`change_sets/records`) and batches and imports (through `batch_lookup`, which prefetches values
+  and ancestors). The mapping grid's and matrix's link actions are relation creates.
+- **Criteria.** Q3's `where`: field criteria over built-in fields and `filterable` attributes with
+  the list's operators, `ancestor:<type>` with `eq` on the ancestor's **ID** only
+  (`model_query._ancestor_predicate`, a walk over containers only), one `related` hop. The consumer
+  API's `ancestor` parameter matches ancestors **by a field's value** and then takes the records
+  below them (`consumer_parameters.ancestor` → `below`), the shape K7 needs.
+- **Pickers.** Every picker reads candidates from one of three lists: the per-type list
+  `GET /objects/{type}` (`ui/ObjectLookup` in the relation form, the object form's initial
+  relationships, restructuring and the K6 picker; `ui/RecordChecklist` in Change relationships and
+  the filter bar), `GET /workspaces/{key}/mapping-candidates` (mapping grid) and the matrix's
+  `link-candidates`.
+
+**Behaviour.**
+
+1. **The model declares it** (D168, D169): a binding may carry `candidates`, criteria for the
+   records at its `from` end, its `to` end, or both:
+   ```json
+   { "relationTypeKey": "slot-for", "fromObjectTypeKey": "item", "toObjectTypeKey": "item",
+     "cardinality": "one-to-many",
+     "candidates": {
+       "from": [ { "field": "ancestor:category.name", "op": "contains", "value": "Reserved" } ]
+     } }
+   ```
+   A record at that end may be chosen only when it meets every criterion. An end without criteria
+   is unrestricted, as today.
+2. **What criteria may say** (D170): Q3's field criteria, ANDed, several `eq` on one field as
+   alternatives: `name`, any non-JSON attribute the end's types bind (filterable or not), and
+   `ancestor:<type>.<field>`, the name or an attribute of an ancestor of that type at any depth (a
+   type that nests matches at each level), with the operators of the field's value type (`eq`,
+   `contains`, `startsWith`, `lt`…, `isNull`, `isUnset`). Validation refuses an unknown field, an
+   attribute no type at that end binds, a JSON attribute, an ancestor type the end's types cannot sit
+   under, or an operator the value type lacks, at the criterion's pointer.
+3. **Every picker offers only candidates** (D171): the relation form, a new record's initial
+   relationships, Change relationships' Add, Replace and Set to, the mapping grid, the relation
+   matrix, and the relationship filter's picker (K6, the user's decision). Records already chosen
+   stay shown (pinned, as today). Remove, and Change relationships' Remove list (D165), list what is
+   held, matching or not, so a relationship that no longer meets the criteria can be removed.
+4. **The anchor's own end** (D172): when the record a user starts from is at a restricted end and
+   does not meet its criteria, the relationship is not offered as Add on that record's panel and in
+   Change relationships for a selection holding only such records, with the reason ("Only records
+   under a category containing 'Reserved' can be a slot"); a mixed selection adds to the matching
+   records and the preview refuses the rest by name, as a refused item.
+5. **The API offers the candidates** (D173): the per-type list takes `candidateFor=<key>` with
+   `anchorTypeKey=<type>`, the relation key or reverse key read from the anchor's type, and lists
+   the path type's records that meet that end's criteria, in every context, with search, filters,
+   sort and paging unchanged; the mapping and matrix candidate reads apply their binding's criteria
+   without a parameter. `422 INVALID_FILTER` (parameter `candidateFor`) when the key, anchor and
+   path type name no binding.
+6. **New relationships are refused when they do not meet the criteria** (D174): every write path
+   through `rules.relation`, live and in a change set: `422 RELATION_CANDIDATE_REFUSED` with
+   `details` `relationTypeKey`, `end` (`from`/`to`), `objectId` and the criteria's pointer; a batch
+   item and an import row are refused with that code, under the request's failure policy.
+7. **Existing relationships are kept** (D175, the user's decision): a relationship that stops
+   meeting the criteria (a renamed ancestor, a changed attribute, a moved record, a new model
+   release with criteria) stays valid, is not flagged, and blocks neither change-set validation nor
+   publishing. Re-stating it is not a new relationship: `ensureRelation` answers `unchanged`, and a
+   set replacement keeping it passes; only relationships the write adds are checked.
+8. **Model releases** (D176): adding, changing or removing `candidates` is compatible; installing a
+   release checks no data.
+
+**Design.**
+
+- **Model** (`models/schema.py`): `ObjectTypeRelationDefinition.candidates: {from?, to?}` of Q3
+  criteria (schema 0.9; pre-1.0, D169); validation in `model/validation/relation_rules`, resolving
+  fields as K5a's `related_field_column` resolves `<field>` and `ancestor:<type>.<field>`; the
+  compiled binding keeps the criteria.
+- **One predicate** (D177): `reads/candidate_criteria.py` builds a set condition on a record ID
+  from an end's criteria, live and in a context, from Q3's field predicate and a new
+  `ancestor:<type>.<field>` predicate: ancestors of the type matching the field, then the records
+  below them through Q3's container walk (the consumer `below` shape). Q3's `where` gains the same
+  `ancestor:<type>.<field>` criterion, so integrators can ask it directly (D178).
+- **Reads:** the per-type list's `candidateFor` adds that condition; `mapping-candidates` and the
+  matrix's `link-candidates` add their binding's; the cursor binds `candidateFor`.
+- **Writes:** `rules.relation` gains `relation_candidates(lookup, binding, source, target, added)`;
+  it asks the lookup which of the ends meet the criteria, one statement per write; `BatchLookup`
+  answers a chunk's targets with one statement before the items run (set-based, as its other
+  prefetches), so a 10,000-item import does not check row by row.
+- **Frontend:** `model/` exposes a binding's candidate end; `ObjectLookup`, `RecordChecklist` and
+  the bulk relation dialog pass `candidateFor`/`anchorTypeKey`; the relations panel and Change
+  relationships hide Add on a non-matching anchor with the reason (the anchor's match read once with
+  the panel); the filter bar's relationship picker passes them too (D171).
+- **The example model** content release 0.9.7: one end of its alternative relationship limited to
+  records under a category whose name contains a word (the user's case), and the docs' example a
+  neutral one.
+- **Not changed:** existing relationships, change-set validation and publishing, the relationship
+  filter's has any / has none, the held-records read (D165), cardinality and scope rules.
+
+**Decisions** (accepted by the user 2026-10-10):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D168 | Where the criteria live | **Accepted 2026-10-10 by the user.** **On the binding (`objectTypeRelations[]`), per end.** A relation type can join several pairs of types, and criteria name fields of one end's types; a per-end rule lets the two directions differ, as the user's example needs (the slot end restricted, the other end free) |
+| D169 | Its shape | **Accepted 2026-10-10 by the user.** **`candidates: {from: [criteria], to: [criteria]}`, Q3's criterion grammar, in schema 0.9.** One grammar for model, API and pickers; pre-1.0 the schema takes it without a new version |
+| D170 | What criteria may name | **Accepted 2026-10-10 by the user.** **`name`, every non-JSON attribute of the end's types (filterable or not, the user's decision), and `ancestor:<type>.<field>` at any depth; Q3's operators by value type; AND, `eq` alternatives.** Free text in names is the model administrator's responsibility (the user, 2026-10-10: reference data changes deliberately). OR groups wait (D4) |
+| D171 | Where the criteria apply in the UI | **Accepted 2026-10-10 by the user.** **Every picker for that relationship, the relationship filter's included (the user's decision); not the lists of what is held (Remove, D165)**, so a relationship outside the criteria can always be removed |
+| D172 | A starting record that does not meet its own end | **Accepted 2026-10-10 by the user.** **Add not offered on its panel, with the reason; a mixed selection refuses those records in the preview** |
+| D173 | The API's candidate read | **Accepted 2026-10-10 by the user.** **`candidateFor=<key>&anchorTypeKey=<type>` on the per-type list; mapping and matrix candidates apply it implicitly.** The pickers already read the per-type list, so search, sort, paging and positions come for free; a separate route would repeat them |
+| D174 | Writes that do not meet the criteria | **Accepted 2026-10-10 by the user.** **Refused, `422 RELATION_CANDIDATE_REFUSED`, on every write path, live and in change sets** (the user, 2026-10-10: model level, applied by the API) |
+| D175 | Relationships that stop meeting the criteria | **Kept: valid, not flagged, not blocking validation or publishing; only added relationships are checked** (accepted by the user 2026-10-10: they stay until someone changes them, through the bulk tools or the API) |
+| D176 | Model releases | **Accepted 2026-10-10 by the user.** **Changing `candidates` is compatible; installation checks no data** (follows from D175) |
+| D177 | Where the condition is built | **Accepted 2026-10-10 by the user.** **One set predicate for reads and writes, in PostgreSQL; batches check a chunk's targets in one statement** |
+| D178 | Q3 | **Accepted 2026-10-10 by the user.** **Q3's `where` gains `ancestor:<type>.<field>` with any operator of the field's type.** The engine capability comes first, the binding's criteria are one use of it |
+
+**Test cases** (accepted by the user 2026-10-10). API journeys, on the generated configurations:
+- J13.9 (new): a binding whose `to` end is limited by an attribute, and one whose `from` end by an
+  ancestor's name: the candidate read lists only matching records, live and in a change set (a name
+  changed only there); a non-matching create refused with `RELATION_CANDIDATE_REFUSED`, a matching
+  one created; a batch with both, `independent`, one refused; a set replacement keeping a held
+  non-matching record passes, adding one is refused.
+- J13.10 (new): the ancestor renamed after relationships were made: they are kept, the change set
+  publishes, and the candidate read no longer lists them.
+- J03.9 (new): a new record's `initialRelations` with a non-matching record refused.
+- J22.5 (new) and J10.11 (new): mapping and matrix candidates apply the criteria; a matrix link to a
+  non-matching record refused.
+- Q3 (J01.11, new): `ancestor:<type>.name contains` and an attribute of an ancestor, in a query.
+- Model validation: each refusal of D170 at its pointer; a release changing `candidates` installs.
+- One import row refused with the code (J-import's existing journey extended).
+
+Vitest: `ObjectLookup` and `RecordChecklist` passing `candidateFor`; the relations panel without Add
+on a non-matching anchor, with its reason. Runner `test:browser:k7` on the starter with criteria added
+for the run: the relation form, Change relationships, the filter picker, the mapping grid and the
+matrix offering only candidates; a refused anchor's reason; a held non-matching relationship shown,
+filtered by and removed; keyboard at 390px; axe light and dark.
+
+**Checks.** Backend: the new journeys failing first, then `model`, `records`, `mapping`, `queries`,
+`change_sets`, `jobs`, `contract` (the OpenAPI diff before the lock); one measured check of a
+batch's candidate statement at two sizes (`test_batch_statements`). Frontend: Vitest `related`,
+format, lint, build; `k7`, and `k3`, `k6` (shared pickers) by exit code and `report.json`.
+
+##### K7 record (2026-10-10)
+
+**Delivered 2026-10-10.** D168–D178 and the test cases as accepted. Screenshots await the user's
+approval.
+
+**Built.**
+
+- **The model** (D168–D170): `ObjectTypeRelationDefinition.candidates` (`BindingCandidates`, `from` and
+  `to` lists of `CandidateCriterion`), omitted from the dump when absent so existing models hash the
+  same; `engine/model/candidates.py` checks each criterion (field, operator by value type, the
+  value's JSON type) and `relation_rules._check_candidates` reports it at its pointer. The list
+  filter's operator table moved there, shared by the reads.
+- **Q3** (D178): `ancestor:<type>.<field>` matches the ancestors first (the list's predicates on the
+  ancestor type, criteria on one type met by one ancestor), then walks down through containers only
+  (`_containers_below`, shared with the ID form).
+- **One predicate** (D177): `model_query.candidate_ids`, the IDs of an end's records meeting its
+  criteria, live or in a context; the per-type list's `candidateFor` with `anchorTypeKey`
+  (`list_candidate_filter`, bound in the cursor), and the mapping and matrix candidate reads use it.
+- **Writes** (D174, D175): `rules.relation_candidates` in `rules.relation`, so only added
+  relationships are checked; the lookups answer `candidates_meeting` in one statement; the batch
+  prefetches a chunk's named records' ancestors and answers per restricted end in one statement.
+- **The browser** (D171, D172): `model/candidates.ts` (scopes, the criteria in words); `ObjectLookup`
+  and `RecordChecklist` take `candidates`; the relation form, the object form's required
+  relationship, Change relationships and the filter bar pass them and say what they offer; the
+  relations panel asks once per limited relationship whether the record meets its own end and, if
+  not, offers no Add and says why.
+- **The example model** 0.9.7 (installed on the dev instance): its alternative relationship takes as
+  a slot only a record under a category whose name contains "reserved" (13 records).
+
+**Checks.** Backend: J13.9 (candidates live and in a change set, single, batch, a record the batch
+creates, set replacement), J13.10 (a rename keeps the relationship and publishes), J03.9, J10.11,
+J01.11, J08.1's candidates case and J13.9's import row, on both generated configurations;
+`model`, `records`, `mapping`, `queries`, `change_sets`, `jobs`, `contract`: 1,492 passed, 6 failed
+(J25's 0.8 downgrade kept `candidates`; API_JOURNEYS lacked the parameters and code; the OpenAPI lock;
+`test_api_reference`), each fixed; the OpenAPI document diffed against `32461cd` (only the two list
+parameters) and re-locked. `test_api_reference` expected the docs page to list the management API
+alone, which holds only on a database no test has activated a release on: run in parallel after a
+journey test it listed the starter's consumer API too. It now checks the management source first and
+any others are consumer sources. A second run also failed `test_coverage_query_count_does_not_grow_per_source`
+once (passing alone; K7 does not touch the coverage read); the final run: 1,498 passed. `test_batch_statements` with candidates on both ends of
+the citation binding: relationship items 35 and 42 statements live (33 and 40 before), 38 and 45 in
+the change set (36 and 43), at both seeded sizes, within the budgets. Frontend: Vitest over the
+changed areas, 51 files, 449 passed (`candidates.test`, `RelationsPanel.test` 2 more,
+`RecordChecklist.test` 1 more); lint 0 errors, the 7 recorded warnings; build. Runners: `k7` 8 checks,
+`k3` 16, `k6` 8, by exit code and `report.json`.
+
+**Evidence, separately.** Accessibility: axe 0 violations on the relation form (light, and dark at
+390px), the refused panel and Change relationships. Visual, inspected: the form's hint under the
+picker, the panel's reason under its toolbar, the dialog's notes; the checklist layout defect above.
+
+**Differences from the plan.**
+- Records a batch has itself created or changed, or that sit under one it changed, are judged from
+  the batch's state in memory (`candidates.meets_criteria`), since the database does not hold them
+  until the chunk is written; every other record is judged by the one statement per end. Values are
+  read only when a criterion names an attribute.
+- Q3's `ancestor:<type>.<field>` takes an attribute the ancestor type binds as filterable, as Q3's own
+  criteria do; a binding's criteria take any non-JSON attribute (D170).
+- J22.5 was folded into J10.11, which covers the relationship view and the matrix.
+- D172 in Change relationships: the dialog says that records not meeting their end are refused, and
+  the preview refuses them by name; Add is not hidden for a selection of only such records.
+- The browser runner checks the relationship view's candidates; the matrix's are checked through the
+  API (J10.11).
 
 ## R: Build acceptance and release
 

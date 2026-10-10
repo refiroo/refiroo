@@ -114,10 +114,11 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # Re-baselined for 0.9 K6: the per-type list's filter description names the relationship filter;
     # no schema or path changed. Re-baselined for 0.9 K6a: GET /relations/held with HeldRecordPage,
     # HeldRecord and HeldObject, and expand's description losing "at most 5" (D142 revised); removing
-    # those and restoring the phrase gives K6's document exactly.
+    # those and restoring the phrase gives K6's document exactly. Re-baselined for 0.9 K7: candidateFor
+    # and anchorTypeKey on GET /objects/{object_type_key}; no other path or schema changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "cbe5f994b2232bf5e19a59f452d467606069d290e88dd49a2ba518ff5ccc66bf"
+        "65d6de7e676e4835020fdc9a51b0c6771242e0054c25b2d80395acbae025aff1"
     )
 
 

@@ -57,3 +57,24 @@ describe("the record checklist (0.9 K6a)", () => {
     expect(screen.getByText("Colours")).toBeInTheDocument();
   });
 });
+
+describe("a checklist for a relationship's candidates (0.9 K7)", () => {
+  it("searches only the records the relationship may choose", async () => {
+    const objects = vi.spyOn(api, "objects").mockResolvedValue({ items: [domainObject], nextCursor: null });
+    render(
+      <RecordChecklist
+        model={testModel}
+        label="Domains"
+        objectTypeKeys={["domain"]}
+        candidates={{ candidateFor: "codelist-belongs-to-domain", anchorTypeKey: "codelist" }}
+        chosen={[]}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(await screen.findByText(domainObject.name)).toBeInTheDocument();
+    expect(objects).toHaveBeenCalledWith(
+      "domain",
+      expect.objectContaining({ candidateFor: "codelist-belongs-to-domain", anchorTypeKey: "codelist" }),
+    );
+  });
+});

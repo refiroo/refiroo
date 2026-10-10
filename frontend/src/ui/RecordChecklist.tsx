@@ -10,6 +10,7 @@ import { useEffect, useId, useState } from "react";
 import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { objectTypeHue } from "@/model/hues";
+import type { CandidateScope } from "@/model/candidates";
 import { objectTypeFor } from "@/model/lookup";
 import type { EngineModel } from "@/types";
 import { Icon } from "@/ui/Icon";
@@ -34,6 +35,7 @@ export function RecordChecklist({
   chosen,
   hintFor,
   emptyText,
+  candidates,
   onChange,
 }: {
   model: EngineModel;
@@ -47,6 +49,8 @@ export function RecordChecklist({
   /** A hint for a searched record, such as how many selected records already hold it. */
   hintFor?: (id: string) => string | undefined;
   emptyText?: string;
+  /** Only the records a relationship may choose, when searching (0.9 K7). */
+  candidates?: CandidateScope;
   onChange: (chosen: ChecklistRecord[]) => void;
 }) {
   const api = useDataApi();
@@ -55,19 +59,28 @@ export function RecordChecklist({
   const search = useDebouncedValue(query.trim());
   const [found, setFound] = useState<{ of: string; records: ChecklistRecord[] }>();
   const typesKey = objectTypeKeys.join(" ");
+  const candidateFor = candidates?.candidateFor;
+  const anchorTypeKey = candidates?.anchorTypeKey;
 
   useEffect(() => {
     if (records) return;
     let cancelled = false;
     Promise.all(
-      typesKey
-        .split(" ")
-        .map((type) => api.objects(type, { workspaceKey, search: search || undefined, pageSize: PAGE, sort: "name" })),
+      typesKey.split(" ").map((type) =>
+        api.objects(type, {
+          workspaceKey,
+          search: search || undefined,
+          pageSize: PAGE,
+          sort: "name",
+          candidateFor,
+          anchorTypeKey,
+        }),
+      ),
     )
       .then((pages) => {
         if (cancelled) return;
         setFound({
-          of: `${typesKey}|${search}`,
+          of: `${typesKey}|${search}|${candidateFor ?? ""}`,
           records: pages.flatMap((page) =>
             page.items.map((item) => ({ id: item.id, name: item.name, objectTypeKey: item.objectTypeKey })),
           ),
@@ -77,12 +90,12 @@ export function RecordChecklist({
     return () => {
       cancelled = true;
     };
-  }, [api, records, search, typesKey, workspaceKey]);
+  }, [anchorTypeKey, api, candidateFor, records, search, typesKey, workspaceKey]);
 
   const term = query.trim().toLowerCase();
   const listed = records
     ? records.filter((record) => !term || record.name.toLowerCase().includes(term))
-    : found?.of === `${typesKey}|${search}`
+    : found?.of === `${typesKey}|${search}|${candidateFor ?? ""}`
       ? found.records
       : undefined;
   const chosenIds = new Set(chosen.map((record) => record.id));

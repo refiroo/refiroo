@@ -116,6 +116,30 @@ class RelationTypeDefinition(ModelDefinition):
     features: Mapping[str, Any] = Field(default_factory=dict)
 
 
+class CandidateCriterion(ModelDefinition):
+    """One criterion a record at a binding's end must meet to be chosen (0.9 K7, D169): Q3's
+    field criterion, over the record's own fields or an ancestor's (``ancestor:<type>.<field>``)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    field: str
+    op: str
+    value: Any = None
+
+
+class BindingCandidates(ModelDefinition):
+    """Which records may be chosen at each end of a binding (0.9 K7, D168): criteria combined with
+    AND, several ``eq`` on one field as alternatives; an end without criteria is unrestricted."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, serialize_by_alias=True, validate_by_name=True)
+
+    from_: tuple[CandidateCriterion, ...] = Field(default=(), alias="from")
+    to: tuple[CandidateCriterion, ...] = ()
+
+    def at(self, end: RelationEnd) -> tuple[CandidateCriterion, ...]:
+        return self.from_ if end == "from" else self.to
+
+
 class ObjectTypeRelationDefinition(ModelDefinition):
     model_config = ConfigDict(extra="allow")
 
@@ -126,10 +150,15 @@ class ObjectTypeRelationDefinition(ModelDefinition):
     required: bool = False
     attributeTypeKeys: tuple[str, ...] = ()
     features: Mapping[str, Any] = Field(default_factory=dict)
+    candidates: BindingCandidates | None = Field(default=None, exclude_if=lambda value: value is None)
 
     def holds_one(self, end: RelationEnd) -> bool:
         """Whether a record at ``end`` holds at most one relationship of this binding."""
         return end in _HOLDS_ONE[self.cardinality]
+
+    def candidates_at(self, end: RelationEnd) -> tuple[CandidateCriterion, ...]:
+        """The criteria a record at ``end`` must meet to be chosen; empty when unrestricted."""
+        return self.candidates.at(end) if self.candidates else ()
 
 
 class TableViewConfig(ModelDefinition):

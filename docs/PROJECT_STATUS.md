@@ -391,7 +391,18 @@ list by its records' relationships (any of chosen records, none, any) from the F
 `filter.related:<key>…` on the per-type list, carried into selection, bulk actions and Export; the
 starter 0.9.5; two defects found and fixed (lower-case filter and sort codes; exports with a related
 criterion failing in the worker); D153–D159; screenshots await the user's approval
-([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k6-record-2026-10-10)). Then R.
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k6-record-2026-10-10)). **K6a is delivered (2026-10-10)**:
+collection filters as pills with a field menu and one editor per field, a bottom sheet on phones;
+the selection bar and both bulk dialogs redesigned; `GET /relations/held` so Remove lists only what a
+selection holds; D160–D167, with D142 revised (no fixed number of relation columns); one defect
+found and fixed (the checklist's layout inside a dialog's form)
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k6a-record-2026-10-10)). **K7 is delivered (2026-10-10)**:
+a binding's `candidates` limit which records a relationship may choose, applied by every picker,
+listed and enforced by the API, relationships made before kept; Q3's ancestor field criterion;
+D168–D178 ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k7-record-2026-10-10)). Screenshots of both
+await the user's approval. **J6 is planned (2026-10-10)**: a workbook for people exported from a
+collection and read back through the profile it carries; D179–D190 accepted
+([plan](BASE_0_9_IMPLEMENTATION_PLAN.md#j6-plan-2026-10-10)). Then R.
 **C18, the consumer API definition written for readers, is delivered (2026-10-08):** schema 0.9
 writes `consumerApis` as what a definition exposes, offers, looks like and filters by, with defaults
 written out by `GET /api/v1/model/consumer-apis/{consumerApi}`; an operation not offered is

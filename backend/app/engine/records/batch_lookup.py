@@ -27,6 +27,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ...models.database import AttributeValue, ChangeSetObject, RdmObject, RelationSetVersion
+from ...models.schema import CandidateCriterion, EngineModel
+from ..model.candidates import meets_criteria
 from .audit import AuditEntry
 from .context import Ancestors, ChangeSetLookup, LiveLookup
 from .refusals import Refusals
@@ -155,6 +157,8 @@ class BatchLookup(Ancestors):
         self._holders: dict[tuple[str, Any], set[str]] = {}
         self._set_versions: dict[SetKey, int] = {}
         self._relation_rows: dict[str, Any] = {}
+        # (type, criteria) -> record -> whether the base's record meets them (0.9 K7).
+        self._candidates: dict[tuple[str, tuple[Any, ...]], dict[str, bool]] = {}
 
     # --- deciding ---------------------------------------------------------------------------------
 
@@ -456,6 +460,68 @@ class BatchLookup(Ancestors):
             if record is None or canonical(record.attributes.get(attribute_type_key)) == key[1]:
                 holders.append(object_id)
         return min(holders) if holders else None
+
+    # --- candidates (0.9 K7) ----------------------------------------------------------------------
+
+    def candidates_meeting(
+        self,
+        model: EngineModel,
+        object_type_key: str,
+        criteria: tuple[CandidateCriterion, ...],
+        object_ids: Iterable[str],
+    ) -> set[str]:
+        """Which of the records meet a binding end's candidate criteria. A record the chunk has
+        laid, or one under a record it has laid, is judged from what the items left; the others
+        from the base, read once per chunk (``prefetch_candidates``) and kept."""
+        ids = [item for item in dict.fromkeys(object_ids) if item]
+        laid = {item for item in ids if self._under_laid(item)}
+        known = self._candidates.setdefault((object_type_key, criteria), {})
+        missing = [item for item in ids if item not in laid and item not in known]
+        if missing:
+            self.prefetch_candidates(model, object_type_key, criteria, missing)
+        meeting = {item for item in ids if item not in laid and known.get(item)}
+        for object_id in laid:
+            record = self.object(object_id)
+            if record is None or record.object_type_key != object_type_key:
+                continue
+            ancestors = []
+            parent = self.object(record.parent_object_id)
+            while parent is not None:
+                ancestors.append(
+                    (parent.object_type_key, parent.name, lambda parent=parent: self.values(parent))
+                )
+                parent = self.object(parent.parent_object_id)
+            own = (record.name, lambda record=record: self.values(record))
+            if meets_criteria(model, criteria, own, ancestors):
+                meeting.add(object_id)
+        return meeting
+
+    def prefetch_candidates(
+        self,
+        model: EngineModel,
+        object_type_key: str,
+        criteria: tuple[CandidateCriterion, ...],
+        object_ids: Iterable[str],
+    ) -> None:
+        """Read in one statement which of the base's records meet the criteria."""
+        known = self._candidates.setdefault((object_type_key, criteria), {})
+        ids = [item for item in dict.fromkeys(object_ids) if item and item not in known]
+        if not ids:
+            return
+        meeting = self.base.candidates_meeting(model, object_type_key, criteria, ids)
+        known.update({item: item in meeting for item in ids})
+
+    def _under_laid(self, object_id: str) -> bool:
+        """Whether the record, or a record above it, is one the chunk has laid."""
+        seen: set[str] = set()
+        current: str | None = object_id
+        while current and current not in seen:
+            if self._record(current) is not None:
+                return True
+            seen.add(current)
+            record = self.object(current)
+            current = record.parent_object_id if record is not None else None
+        return False
 
     # --- prefetching ------------------------------------------------------------------------------
 

@@ -178,6 +178,10 @@ export interface ObjectQuery extends PageSelector {
   expand?: string[];
   /** How many related records each `expand` entry carries, 1–20 (3 when omitted). */
   expandLimit?: number;
+  /** Only the records a record of `anchorTypeKey` may choose through this relation key or reverse
+   * key, by the binding's candidates (0.9 K7, D173). */
+  candidateFor?: string;
+  anchorTypeKey?: string;
 }
 
 export interface ChangeListQuery extends PageSelector {
@@ -299,6 +303,8 @@ function objectQueryPath(objectTypeKey: string, query: ObjectQuery) {
   query.filters?.forEach(({ field, operator, value }) => params.append(`filter.${field}.${operator}`, value));
   query.expand?.forEach((key) => params.append("expand", key));
   if (query.expandLimit != null) params.set("expandLimit", String(query.expandLimit));
+  if (query.candidateFor) params.set("candidateFor", query.candidateFor);
+  if (query.anchorTypeKey) params.set("anchorTypeKey", query.anchorTypeKey);
   return `/api/v1/objects/${encodeURIComponent(objectTypeKey)}?${params}`;
 }
 

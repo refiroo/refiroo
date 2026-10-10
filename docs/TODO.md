@@ -193,6 +193,11 @@ No 0.8 decision is open ([0.8 decisions](BASE_0_8_IMPLEMENTATION_PLAN.md#decisio
 - **User documentation is not scheduled in any release yet.** API.md, CONSUMER_API and
   CURRENT_FUNCTIONALITY describe contracts and capabilities, but no guide for integrators or users
   exists. When it is planned, it must state these points very clearly, as the user asked:
+  - **Which records a relationship may choose (0.9 K7, 2026-10-10).** A binding's `candidates`, with
+    examples of each kind of criterion (a name, a yes/no attribute, an ancestor's name), what the
+    pickers then offer and say, why a record is not offered a relationship, that relationships made
+    before are kept when the data changes, and that free-text criteria are the model administrator's
+    responsibility ([APPLICATION_MODEL](APPLICATION_MODEL.md#which-records-a-relationship-may-choose-schema-09-base-09-k7)).
   - **How many relation columns a table view may show (D142 revised, 0.9 K6a, 2026-10-10).** No fixed
     number: as many as the type has relationships (and fields of them), each column read only for the
     rows on the page and dropped when hidden in Display. Explain it with examples, a view of a type

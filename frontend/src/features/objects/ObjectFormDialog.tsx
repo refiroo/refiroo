@@ -10,6 +10,7 @@ import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { CurrentObjectContent } from "@/features/objects/CurrentObjectContent";
 import { parentObjectTypeKeys } from "@/model/placements";
+import { candidateScope } from "@/model/candidates";
 import { ObjectLookup } from "@/ui/ObjectLookup";
 
 export function ObjectFormDialog({
@@ -280,6 +281,7 @@ export function ObjectFormDialog({
           requiredRelationGroups.map((group) => {
             const definition = model.relationTypes.find((relation) => relation.key === group.relationTypeKey);
             const selectedType = requiredRelationTypes[group.relationTypeKey] ?? group.relations[0]?.fromObjectTypeKey;
+            const selectedBinding = group.relations.find((relation) => relation.fromObjectTypeKey === selectedType);
             const locked = lockedInitialRelationKeys.includes(group.relationTypeKey);
             return (
               <fieldset key={group.relationTypeKey}>
@@ -321,6 +323,7 @@ export function ObjectFormDialog({
                       workspaceKey={activeWorkspaceKey}
                       required
                       label={definition?.reverseName ?? group.relationTypeKey}
+                      candidates={selectedBinding && candidateScope(model, selectedBinding, "incoming", objectType.key)}
                       value={requiredRelationObjects[group.relationTypeKey]}
                       onChange={(item) => {
                         setDirty(true);

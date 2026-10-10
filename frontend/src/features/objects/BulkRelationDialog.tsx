@@ -16,6 +16,7 @@ import { count } from "@/features/settings/limits";
 import { useCapabilities } from "@/features/settings/useSystem";
 import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import type { RecordSelection, SelectableRow } from "@/lib/recordSelection";
+import { candidateHint, candidateScope, ownEndReason } from "@/model/candidates";
 import { bulkRelationChoices, objectTypeFor, type BulkRelationChoice } from "@/model/lookup";
 import type { EngineModel, ObjectTypeDefinition } from "@/types";
 import { Choice } from "@/ui/Choice";
@@ -281,6 +282,15 @@ export function BulkRelationDialog({
                 }}
               />
               <p className="bulk-change-note">{explain} Relationship values are kept.</p>
+              {action !== "remove" && action !== "clear" && ownEndReason(model, choice.relation, choice.direction) && (
+                <p className="bulk-change-note">
+                  {ownEndReason(model, choice.relation, choice.direction)} The preview refuses the other selected{" "}
+                  {noun[1]}.
+                </p>
+              )}
+              {action !== "remove" && action !== "clear" && candidateHint(model, choice.relation, choice.direction) && (
+                <p className="bulk-change-note">{candidateHint(model, choice.relation, choice.direction)}</p>
+              )}
               {action !== "clear" &&
                 (action === "remove" && !holdings ? (
                   <p className="record-checklist-empty">Reading what the selected {noun[1]} hold…</p>
@@ -299,6 +309,11 @@ export function BulkRelationDialog({
                         : undefined
                     }
                     emptyText={action === "remove" ? `The selected ${noun[1]} hold none.` : undefined}
+                    candidates={
+                      action === "remove"
+                        ? undefined
+                        : candidateScope(model, choice.relation, choice.direction, objectType.key)
+                    }
                     hintFor={(id) => {
                       const record = holdings?.find((item) => item.id === id);
                       return record ? `already on ${count(record.count)}` : undefined;

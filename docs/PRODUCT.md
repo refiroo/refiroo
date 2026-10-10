@@ -66,7 +66,8 @@ can complete the task in the application; "API" means another system can.
 ### Keep data accurate — browser and API
 
 - Add, edit and delete records, edit a field in place (the name and subtitle in the record's header
-  too), connect and disconnect related records.
+  too), connect and disconnect related records. Where the model limits which records a relationship
+  may choose, only those are offered, everywhere it can be chosen.
 - A save is live immediately and recorded in the record's history. If someone else changed the record
   meanwhile, nothing is overwritten: your input is kept and the newer version is shown.
 - Deleting a record first shows what else it would remove or disconnect, and asks for confirmation.
@@ -142,8 +143,10 @@ can complete the task in the application; "API" means another system can.
 
 - Look up records of every type at once, or list every relationship in a workspace, in live data, a
   change set or a publication.
-- Query one record type by field values, by ancestor and by a related record, choosing the fields
-  returned and including related records.
+- Query one record type by field values, by ancestor (by its ID, or by its name or a field) and by a
+  related record, choosing the fields returned and including related records.
+- Ask which records a relationship may choose, as the model limits them, and have a relationship
+  outside those refused.
 - Declare a business validity period on a record type and read the records valid on a date (`asOf`).
 - Load up to a million records in one bulk request, run inline or in the background: create, update,
   upsert by a unique key, and delete records; create, ensure, change and remove relationships (by

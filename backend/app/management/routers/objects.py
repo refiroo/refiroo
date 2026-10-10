@@ -12,6 +12,8 @@ from ...engine.change_sets.records import (
 from ...engine.model.registry import resolve_change_set_snapshot, resolve_model_snapshot
 from ...engine.reads.model_query import (
     Expansion,
+    both_filters,
+    list_candidate_filter,
     list_expansions,
     list_relation_filters,
     split_relation_filters,
@@ -290,6 +292,21 @@ def list_objects(
         alias="expandLimit",
         description="How many related records each `expand` entry shows per item",
     ),
+    candidate_for: str | None = Query(
+        default=None,
+        alias="candidateFor",
+        description=(
+            "A relation key or reverse key, read from anchorTypeKey's records: only the records"
+            " such a record may choose through that relationship, by the criteria the model's"
+            " binding sets at this end (its candidates); every record when it sets none."
+            " INVALID_FILTER when the two do not name a binding reaching this type"
+        ),
+    ),
+    anchor_type_key: str | None = Query(
+        default=None,
+        alias="anchorTypeKey",
+        description="The type of the record choosing, with candidateFor",
+    ),
 ) -> TypedObjectPage:
     model = snapshot.model
     expansions = list_expansions(model, object_type_key, expand or [], expand_limit)
@@ -320,6 +337,14 @@ def list_objects(
             workspace_key=context.workspace_key,
             context=context,
         )
+        candidates = list_candidate_filter(
+            model,
+            object_type_key,
+            candidate_for,
+            anchor_type_key,
+            workspace_key=context.workspace_key,
+            context=context,
+        )
         query = build_snapshot_object_query(
             model,
             context,
@@ -330,7 +355,7 @@ def list_objects(
             sort=sort,
             field_filters=field_filters,
             top_level=top_level,
-            id_filter=relations.id_filter,
+            id_filter=both_filters(relations.id_filter, candidates.id_filter),
             as_of=as_of,
             session=session,
         )
@@ -339,7 +364,7 @@ def list_objects(
             query.statement,
             keys=query.keys,
             scope=object_scope(context),
-            filters=_bound(query.filters, relations.normalized),
+            filters=_bound(query.filters, relations.normalized, candidates.bound),
             page=paging,
             page_size=page_size,
             message="Object cursor is invalid",
@@ -363,6 +388,9 @@ def list_objects(
     relations = list_relation_filters(
         model, object_type_key, related_filters, workspace_key=workspace_key, context=None
     )
+    candidates = list_candidate_filter(
+        model, object_type_key, candidate_for, anchor_type_key, workspace_key=workspace_key, context=None
+    )
     query = build_object_query(
         model,
         object_type_key=object_type_key,
@@ -373,7 +401,7 @@ def list_objects(
         sort=sort,
         field_filters=field_filters,
         top_level=top_level,
-        id_filter=relations.id_filter,
+        id_filter=both_filters(relations.id_filter, candidates.id_filter),
         as_of=as_of,
         session=session,
     )
@@ -382,7 +410,7 @@ def list_objects(
         query.statement,
         keys=query.keys,
         scope="objects",
-        filters=_bound(query.filters, relations.normalized),
+        filters=_bound(query.filters, relations.normalized, candidates.bound),
         page=paging,
         page_size=page_size,
         message="Object cursor is invalid",
@@ -393,9 +421,17 @@ def list_objects(
     return _typed_page(session, model, None, workspace_key, records, expansions, page.links())
 
 
-def _bound(filters: dict[str, Any], relations: tuple[tuple[str, str, str], ...]) -> dict[str, Any]:
-    """What a cursor binds: the list's filters and, when any, its relationship filters (0.9 K6)."""
-    return {**filters, "relationFilters": [list(item) for item in relations]} if relations else filters
+def _bound(
+    filters: dict[str, Any],
+    relations: tuple[tuple[str, str, str], ...],
+    candidates: tuple[str, str] | None = None,
+) -> dict[str, Any]:
+    """What a cursor binds: the list's filters and, when any, its relationship filters (0.9 K6) and
+    its candidateFor with the anchor's type (0.9 K7)."""
+    bound = {**filters, "relationFilters": [list(item) for item in relations]} if relations else dict(filters)
+    if candidates:
+        bound["candidateFor"] = list(candidates)
+    return bound
 
 
 def _typed_page(

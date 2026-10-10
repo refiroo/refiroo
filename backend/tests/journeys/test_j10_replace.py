@@ -652,3 +652,49 @@ def test_a_replacement_keeps_a_required_relationship_its_record_needs(world):
     saved = ok(_replace(world, binding, h["id"], n2, version))
     assert saved["state"] == "mapped" and saved["mappingVersion"] == version + 1
     assert set(_anchored(world, h["id"], "Breq", "outgoing")[0]) == {n2}
+
+
+@pytest.mark.journey("J10.11")
+@pytest.mark.structures(
+    "H", "K", "K.code", "Bcand", "Vcand", "A3", "R", "R.b", "G", "M", "D", "Bown", "Banc", "Mcand"
+)
+def test_a_view_offers_only_the_candidates_its_relationship_allows(world):
+    """Given K records coded "OK…" and "NO…", and D records under a G named "Reserved …" and one named
+    "Open …". When the relationship view over Bcand searches its candidates, and the matrix over Banc
+    lists the link candidates of a flagged R under each G. Then only the "OK" K and the D under the
+    reserved G are offered."""
+    tag = uuid4().hex[:6]
+    world.made("K", f"{tag} good", values={"K.code": f"OK-{tag}"})
+    world.made("K", f"{tag} bad", values={"K.code": f"NO-{tag}"})
+    page = ok(
+        world.api.get(
+            f"/workspaces/{W1}/mapping-candidates",
+            **_view_identity(world, "Vcand"),
+            objectTypeKey=world.key("K"),
+            search=tag,
+        )
+    )
+    assert [item["name"] for item in page["items"]] == [f"{tag} good"]
+
+    row = world.made("R", f"{tag} flagged", values={"R.b": True})
+
+    def cells(region):
+        g = world.made("G", f"{tag} {region}")
+        owner = world.made("R", f"{tag} owner in {region}")
+        world.made(
+            "D", f"{tag} permit in {region}", parent=world.dependant_parent(g["id"]),
+            relations=[world.owner("Bown", owner["id"])],
+        )
+        found = ok(
+            world.api.get(
+                f"/workspaces/{W1}/relation-matrix/link-candidates",
+                applicationKey=world.key("A3"),
+                viewKey=world.key("Mcand"),
+                rowId=row["id"],
+                columnId=g["id"],
+            )
+        )
+        return [item["name"] for item in found["items"]]
+
+    assert cells("Reserved South") == [f"{tag} permit in Reserved South"]
+    assert cells("Open South") == []

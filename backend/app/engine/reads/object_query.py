@@ -41,6 +41,7 @@ from ...errors import api_error
 from ...models.database import AttributeValue, ObjectRelation, RdmObject
 from ...models.schema import EffectivePeriodDefinition, EngineModel, ObjectTypeDefinition
 from ...models.search_index import LIVE_VALUES, MIN_INDEXED_LENGTH, SearchIndex
+from ..model.candidates import filter_operators
 from ..model.related_columns import (
     RELATED_FIELD_PREFIX,
     RelatedKeyError,
@@ -882,12 +883,18 @@ def typed_filter_predicates(
     columns: ObjectColumns,
     object_types: Sequence[ObjectTypeDefinition],
     filters: list[tuple[str, str, str]],
+    *,
+    capability: str | None = "filterable",
 ) -> tuple[list[dict[str, str]], list[Any]]:
     """Parse ``(field, operator, lexical value)`` filters and return them normalized with their
-    predicates: equalities on one field are alternatives, everything else is combined with AND."""
+    predicates: equalities on one field are alternatives, everything else is combined with AND.
+    ``capability`` is the feature an attribute must have; ``None`` takes any non-JSON attribute
+    (a binding's candidate criteria, 0.9 K7, D170)."""
     parsed: list[tuple[str, str, Any, str, Any]] = []
     for field, operator, lexical in filters:
-        value_type, is_attribute = filter_value_type(model, columns.builtin, object_types, field)
+        value_type, is_attribute = filter_value_type(
+            model, columns.builtin, object_types, field, capability=capability
+        )
         column = (
             getattr(columns.values, VALUE_COLUMNS[value_type])
             if is_attribute
@@ -933,15 +940,17 @@ def filter_value_type(
     builtin: dict[str, Any],
     object_types: Sequence[ObjectTypeDefinition],
     field: str,
+    *,
+    capability: str | None = "filterable",
 ) -> tuple[str, bool]:
     """The value type a filter on ``field`` compares, and whether the field is an attribute.
 
-    A built-in field is one of ``builtin``; an attribute must be bound, filterable and not JSON,
-    on a list of one object type.
+    A built-in field is one of ``builtin``; an attribute must be bound, not JSON and, unless
+    ``capability`` is ``None``, have that feature, on a list of one object type.
     """
     if field in builtin:
         return _built_in_value_type(field), False
-    return _query_attribute(model, object_types, field, "filterable", "filter").valueType, True
+    return _query_attribute(model, object_types, field, capability, "filter").valueType, True
 
 
 def _filter_predicate(
@@ -972,7 +981,7 @@ def _query_attribute(
     model: EngineModel,
     object_types: Sequence[ObjectTypeDefinition],
     field: str,
-    capability: str,
+    capability: str | None,
     parameter: str,
 ):
     bound = {item.attributeTypeKey for object_type in object_types for item in object_type.attributes}
@@ -985,10 +994,14 @@ def _query_attribute(
             parameter,
         )
     definition = model.attribute_type(field)
-    if definition is None or definition.valueType == "json" or not definition.features.get(capability):
+    if (
+        definition is None
+        or definition.valueType == "json"
+        or (capability is not None and not definition.features.get(capability))
+    ):
         query_error(
             f"INVALID_{parameter.upper()}",
-            f"Field '{field}' is not {capability}",
+            f"Field '{field}' is not {capability or 'comparable'}",
             parameter,
         )
     return definition
@@ -998,17 +1011,6 @@ def _built_in_value_type(field: str) -> str:
     if field in {"createdAt", "updatedAt"}:
         return "dateTime"
     return "text"
-
-
-def filter_operators(value_type: str, *, attribute: bool) -> set[str]:
-    suffix = {"isUnset"} if attribute else set()
-    if value_type in {"text", "longText"}:
-        return {"eq", "contains", "startsWith", "isNull"} | suffix
-    if value_type in {"integer", "decimal", "date", "dateTime"}:
-        return {"eq", "lt", "lte", "gt", "gte", "isNull"} | suffix
-    if value_type == "boolean":
-        return {"eq", "isNull"} | suffix
-    return set()
 
 
 def parse_filter_value(value_type: str, operator: str, lexical: str, field: str) -> Any:

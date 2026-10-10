@@ -14,6 +14,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { errorMessage, isApiError } from "@/api/errors";
+import { candidateHint, candidateScope } from "@/model/candidates";
 import type { RelationChoice } from "@/model/lookup";
 import type { AttributeTypeDefinition, EngineModel, ObjectItem, RelationItem, RelationRecord } from "@/types";
 import { AttributeField } from "@/ui/AttributeField";
@@ -193,11 +194,15 @@ export function RelationFormDialog({
                 excludeId={replacing?.object.id ?? object.id}
                 value={candidate}
                 required
+                candidates={candidateScope(model, choice.relation, choice.direction, object.objectTypeKey)}
                 onChange={(item) => {
                   setDirty(true);
                   setCandidate(item);
                 }}
               />
+              {candidateHint(model, choice.relation, choice.direction) && (
+                <p className="admin-hint">{candidateHint(model, choice.relation, choice.direction)}</p>
+              )}
             </fieldset>
           </>
         )}

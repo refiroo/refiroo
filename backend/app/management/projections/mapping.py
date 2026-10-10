@@ -22,6 +22,8 @@ from ...engine.reads.mapping_projection import (
     change_set_mapping_projection,
     publication_mapping_projection,
 )
+from ...engine.reads.model_query import candidate_ids
+from ...engine.reads.snapshot_reads import change_set_context, publication_context
 from ...engine.records.attributes import load_attribute_values
 from ...engine.records.values import VALUE_COLUMNS
 from ...engine.workspaces.catalogue import resolve_workspace
@@ -464,6 +466,10 @@ def object_page(
             edges.c.to_object_id if read.config.direction == "outgoing" else edges.c.from_object_id
         )
         statement = statement.where(~read.objects.c.id.in_(select(other)))
+    criteria = allowed.candidates_at("to" if read.config.direction == "outgoing" else "from")
+    if candidates and criteria:
+        # The binding's candidate criteria (0.9 K7, D171): only records the model lets be chosen.
+        statement = statement.where(read.objects.c.id.in_(_meeting(read, object_type, criteria)))
     if search:
         clauses = []
         for field in fields:
@@ -581,6 +587,21 @@ def coverage(
             )
         )
     return MappingCoveragePage(items=rows, **source_page.links())
+
+
+def _meeting(read: MappingRead, object_type: str, criteria: tuple[Any, ...]) -> Select[Any]:
+    """The records of ``object_type`` meeting ``criteria`` in the mapping's context."""
+    session, model = read.session, read.snapshot.model
+    context = (
+        change_set_context(session, read.change_set_id)
+        if read.change_set_id
+        else publication_context(session, read.publication_id)
+        if read.publication_id
+        else None
+    )
+    definition = model.object_type(object_type)
+    assert definition is not None
+    return candidate_ids(model, definition, criteria, workspace_key=read.workspace_key, context=context)
 
 
 def candidates(

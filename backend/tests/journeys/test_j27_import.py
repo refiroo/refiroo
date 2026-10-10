@@ -1531,3 +1531,51 @@ def test_an_interrupted_import_resumes_and_a_retry_with_its_key_creates_nothing_
     assert ok(replay, 202)["id"] == job["id"] and replay.headers["idempotent-replayed"] == "true"
     _run(world)
     assert len(_named(world, "R", ws)) == 10
+
+
+@pytest.mark.journey("J13.9")
+@pytest.mark.structures("H", "H.code", "K", "K.code", "Bcand")
+def test_an_import_row_relating_a_record_that_is_no_candidate_is_refused(world):
+    """Given K records coded "OK…" and "NO…" and a relationship whose K end takes only codes
+    starting "OK". When a file of H records relates one row to each through that relationship, run
+    independent. Then the row naming the "NO" K is refused with RELATION_CANDIDATE_REFUSED and the
+    other is loaded with its relationship (0.9 K7, D174)."""
+    ws = _workspace(world)
+    tag = uuid4().hex[:6]
+    good = world.made("K", f"{tag} good", values={"K.code": f"OK-{tag}"}, workspace=ws)
+    world.made("K", f"{tag} bad", values={"K.code": f"NO-{tag}"}, workspace=ws)
+    profile = {
+        "key": f"picks-{tag}",
+        "name": "Picks",
+        "sources": [
+            {
+                "applicationKey": world.app("H"),
+                "objectTypeKey": world.key("H"),
+                "columns": [
+                    {"column": "Code", "attributeTypeKey": world.key("H.code")},
+                    {"column": "Name", "field": "name"},
+                    {
+                        "column": "Token",
+                        "relation": {
+                            "relationTypeKey": world.key("Bcand"),
+                            "objectTypeKey": world.key("K"),
+                            "matchBy": {"field": "name"},
+                        },
+                    },
+                ],
+            }
+        ],
+    }
+    ok(world.api.post("/import-profiles", profile), 201)
+    content = _csv(
+        [
+            ("Code", "Name", "Token"),
+            ("G1", f"{tag} takes good", f"{tag} good"),
+            ("B1", f"{tag} takes bad", f"{tag} bad"),
+        ]
+    )
+    job = _imported(world, "picks.csv", content, _request(ws, profileKey=profile["key"]))
+    codes = sorted(filter(None, (_code(item) for item in _outcomes(world, job))))
+    assert codes == ["RELATION_CANDIDATE_REFUSED"], _outcomes(world, job)
+    loaded = _named(world, "H", ws)
+    assert _related(world, loaded[f"{tag} takes good"]["id"], "Bcand", ws) == {good["id"]}

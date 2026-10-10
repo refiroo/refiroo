@@ -558,3 +558,37 @@ def test_a_relationship_in_a_views_filter_fields(world):
         result = _validation(world, model)
         assert result["valid"] is False and result["diagnostics"][0]["path"] == path, field
 
+
+
+@pytest.mark.journey("J08.1")
+@pytest.mark.structures("H", "K", "K.code", "Bcand", "R", "G", "D")
+def test_a_bindings_candidates_are_checked_and_change_compatibly(world):
+    """Given the model's Bcand binding, whose K end takes codes starting "OK". When it is validated
+    with a criterion on an unknown field, an ancestor type K cannot sit under, an
+    operator its field lacks and a value of the wrong type, and compiled with its criterion changed.
+    Then each is invalid at the criterion's field, operator or value; the changed one is compatible
+    (0.9 K7, D170, D176)."""
+    bcand = world.key("Bcand")
+
+    def with_criteria(criterion):
+        model = copy.deepcopy(world.configuration.model)
+        binding = next(b for b in model["objectTypeRelations"] if b["relationTypeKey"] == bcand)
+        binding["candidates"] = {"to": [criterion]}
+        model["release"]["version"] += "-candidates"
+        return model
+
+    code = world.key("K.code")
+    cases = [
+        ({"field": "no-such-field", "op": "eq", "value": "x"}, "field"),
+        ({"field": f"ancestor:{world.key('G')}.name", "op": "eq", "value": "x"}, "field"),
+        ({"field": code, "op": "lt", "value": "x"}, "op"),
+        ({"field": code, "op": "eq", "value": 3}, "value"),
+    ]
+    prefix = f"/objectTypeRelations/{bcand}/{world.key('H')}/{world.key('K')}/candidates/to/0/"
+    for criterion, part in cases:
+        answer = ok(world.api.post("/model-validations", {"model": with_criteria(criterion)}))
+        assert answer["valid"] is False
+        assert [d["path"] for d in answer["diagnostics"]] == [prefix + part]
+    changed = with_criteria({"field": code, "op": "contains", "value": "K"})
+    compiled = _compile(world, _draft(world, changed, name="Candidates changed"))
+    assert compiled["valid"] is True and compiled["compatibility"]["classification"] == "compatible"

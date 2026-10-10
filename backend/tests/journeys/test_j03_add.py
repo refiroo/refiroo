@@ -248,3 +248,25 @@ def test_two_creates_racing_for_one_unique_value(world):
     u = world.key("R.u")
     page = ok(world.api.get(f"/objects/{world.key('R')}", **{f"filter.{u}.eq": "RACE"}))
     assert len(page["items"]) == 1
+
+
+@pytest.mark.journey("J03.9")
+@pytest.mark.structures("H", "K", "K.code", "Bcand")
+def test_an_initial_relationship_must_be_a_candidate(world):
+    """Given K records coded "OK…" and "NO…", and a relationship whose K end takes only codes
+    starting "OK". When an H record is created related to each. Then the one related to the "NO" K
+    is refused with RELATION_CANDIDATE_REFUSED and not created; the other is."""
+    tag = uuid4().hex[:6]
+    good = world.made("K", f"{tag} good", values={"K.code": f"OK-{tag}"})
+    bad = world.made("K", f"{tag} bad", values={"K.code": f"NO-{tag}"})
+
+    def initial(target):
+        return [{"relationTypeKey": world.key("Bcand"), "direction": "outgoing", "otherObjectId": target}]
+
+    error = refused(
+        world.create("H", f"{tag} refused", relations=initial(bad["id"])), 422, "RELATION_CANDIDATE_REFUSED"
+    )
+    assert error["details"]["objectId"] == bad["id"]
+    page = ok(world.api.get(f"/objects/{world.key('H')}", search=f"{tag} refused"))
+    assert page["items"] == []
+    world.made("H", f"{tag} created", relations=initial(good["id"]))

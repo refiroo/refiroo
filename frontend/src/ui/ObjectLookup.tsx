@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
+import type { CandidateScope } from "@/model/candidates";
 import type { ObjectItem } from "@/types";
 import { InlineError } from "@/ui/InlineError";
 import { ScrollWindow } from "@/ui/ScrollWindow";
@@ -27,6 +28,7 @@ export function ObjectLookup({
   chosenIds,
   required,
   label = "Select object",
+  candidates,
   onChange,
 }: {
   objectTypeKey: string;
@@ -39,6 +41,8 @@ export function ObjectLookup({
   chosenIds?: ReadonlySet<string>;
   required?: boolean;
   label?: string;
+  /** Only the records a relationship may choose (0.9 K7). */
+  candidates?: CandidateScope;
   onChange: (item: ObjectItem | undefined) => void;
 }) {
   const api = useDataApi();
@@ -47,8 +51,15 @@ export function ObjectLookup({
   const search = useDebouncedValue(input.trim());
   const list = useCursorWindow<ObjectItem>(
     (selector) =>
-      api.objects(objectTypeKey, { applicationKey, workspaceKey, search, ...selector, pageSize: PAGE_SIZE }),
-    [applicationKey, objectTypeKey, search, workspaceKey],
+      api.objects(objectTypeKey, {
+        applicationKey,
+        workspaceKey,
+        search,
+        ...candidates,
+        ...selector,
+        pageSize: PAGE_SIZE,
+      }),
+    [applicationKey, objectTypeKey, search, workspaceKey, candidates?.candidateFor, candidates?.anchorTypeKey],
   );
   const [active, setActive] = useState<string>();
   const pendingStep = useRef<{ from: string; step: 1 | -1 } | undefined>(undefined);

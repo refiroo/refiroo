@@ -112,6 +112,9 @@ empty result, not an error. A failed page or panel can retry without losing succ
   `.isNull`); with the search and other filters, in every context, paged with totals; in the
   browser from the view's `filterFields`, the chip naming the chosen records after a reload. A column
   showing a field of the related records offers no filter.
+- **J01.11 Records under an ancestor with a field** (0.9 K7, D178): the model-aware query keeps the
+  records under an ancestor of a type whose name or attribute meets a criterion
+  (`ancestor:<type>.<field>`, the list's operators), at any depth, in every context.
 
 **Refusals:** `404 WORKSPACE_NOT_FOUND`, `404 OBJECT_NOT_FOUND`, `404 UNKNOWN_OBJECT_TYPE`,
 `422 INVALID_FILTER`, `422 INVALID_SORT`, `422 INVALID_EXPAND`, `422 MUTUALLY_EXCLUSIVE_CONTEXT`,
@@ -185,6 +188,8 @@ them do.
 - **J03.6 With a supplied ID**, which the integrator keeps.
 - **J03.7 In a change set**, invisible to live readers until published.
 - **J03.8 Two creates racing for one unique value**: one is refused.
+- **J03.9 An initial relationship to a record the model does not let be chosen** (0.9 K7) is refused
+  with `422 RELATION_CANDIDATE_REFUSED`, and the record is not created.
 
 **Refusals:** `422 PARENT_REQUIRED`, `422 INVALID_PARENT_TYPE`, `422 PARENT_WRONG_SCOPE`,
 `422 MISSING_REQUIRED_ATTRIBUTES`, `422 MISSING_REQUIRED_RELATIONS`,
@@ -255,12 +260,20 @@ The containment relationship is not edited here: it follows the record's parent 
 - **J13.6 A required relationship** cannot be removed while its dependant needs it.
 - **J13.7 In a change set.**
 - **J13.8 Two relationships racing for one cardinality limit**: one is refused.
+- **J13.9 Only the records a relationship may choose** (0.9 K7, D168–D177): the model limits a
+  binding's ends by criteria over the records' fields and their ancestors' fields; the per-type list
+  offers a record of the anchor's type only those (`candidateFor`, `anchorTypeKey`), live and in a
+  change set; a new relationship to any other, alone, in a batch or as a set replacement's addition,
+  is refused naming the end; a record the set already holds is kept.
+- **J13.10 A relationship outlives its criteria** (D175): when the data changes so a related record
+  no longer meets them, the relationship is kept, the change set publishes, and the record is no
+  longer offered.
 
 **Refusals:** `422 UNKNOWN_RELATION_TYPE`, `422 INVALID_RELATION_PAIR`, `422 RELATION_ENDPOINT_MISSING`,
 `422 RELATION_WRONG_SCOPE`, `422 UNKNOWN_RELATION_ATTRIBUTES`, `422 IMMUTABLE_RELATION`,
 `409 CARDINALITY_VIOLATION`, `409 DUPLICATE_RELATION_SCOPE`, `409 RELATION_SET_VERSION_CONFLICT`,
 `422 RELATION_SET_CLAIM_INCOMPLETE`, `422 REQUIRED_RELATION`, `409 VERSION_CONFLICT`,
-`409 DUPLICATE_RELATION`, `404 RELATION_NOT_FOUND`.
+`409 DUPLICATE_RELATION`, `404 RELATION_NOT_FOUND`, `422 RELATION_CANDIDATE_REFUSED` (0.9 K7).
 
 **Evidence today:** `test_relations`, `test_relation_set_versions`, `test_rule_parity`,
 `test_translations`, `test_pg3_concurrency`.
@@ -445,6 +458,8 @@ item (J10.10), through the same replacement.
   record keeping its relationship and values unless new values are given, under the set's version
   (or a declared overwrite); a set already equal answers unchanged; the cardinality, scope,
   required and containment rules refuse it with the single writes' codes.
+- **J10.11 Only the candidates a relationship allows** (0.9 K7): a relationship view's candidates and
+  a relation matrix's link candidates list only the records the binding's `candidates` let be chosen.
 
 **Refusals:** `409 MAPPING_VERSION_CONFLICT`, `422 INVALID_CLEAR_ATTRIBUTES`,
 `422 REQUIRED_OWNERSHIP_BINDING`, `422 RELATION_ANCESTOR_REQUIRED`, `422 REQUIRED_RELATION`,

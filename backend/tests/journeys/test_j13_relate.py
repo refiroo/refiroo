@@ -394,3 +394,142 @@ def test_what_a_set_of_records_holds_through_a_relationship(world):
     refused(_held(world, hs, relationTypeKey=world.key("B1n")), 422, "INVALID_RELATION_PAIR")
     error = refused(_held(world, [str(uuid4()) for _ in range(501)]), 422, "TOO_MANY_RECORDS")
     assert "500" in error["message"]
+
+
+def _candidates(world, listed, key, anchor, search, **params):
+    """The names the per-type list offers ``anchor`` records through ``key`` (0.9 K7, D173)."""
+    page = ok(
+        world.api.get(
+            f"/objects/{world.key(listed)}",
+            candidateFor=key,
+            anchorTypeKey=world.key(anchor),
+            search=search,
+            pageSize=50,
+            **params,
+        )
+    )
+    return sorted(item["name"] for item in page["items"])
+
+
+def _batch(world, items, **body):
+    request = {"policy": "independent", "run": "inline", "workspaceKey": W1, "items": items, **body}
+    return world.api.client.post("/api/v1/batches", json=request)
+
+
+def _reserve(world, tag, region):
+    """A ``D`` under a new ``G`` named ``region``, held by a new ``R`` (``Bown`` is required)."""
+    g = world.made("G", f"{tag} {region}")
+    owner = world.made("R", f"{tag} owner of {region}")
+    return world.made(
+        "D", f"{tag} permit in {region}", parent=world.dependant_parent(g["id"]),
+        relations=[world.owner("Bown", owner["id"])],
+    ), g
+
+
+@pytest.mark.journey("J13.9")
+@pytest.mark.structures("H", "K", "K.code", "Bcand", "R", "R.b", "G", "M", "D", "Bown", "Banc")
+def test_a_relationship_offers_and_takes_only_its_candidates(world):
+    """Given a relationship whose K end takes only codes starting "OK", and one whose R end takes only
+    flagged records and whose D end only records under a G named "…reserved…". When the integrator
+    reads the candidates, live and in a change set where a code changes, and relates records alone,
+    in a batch and by replacing a set. Then only matching records are offered and related, the others
+    refused with RELATION_CANDIDATE_REFUSED naming the end; a record already held stays when the set
+    is replaced, while one added must match."""
+    tag = uuid4().hex[:6]
+    bcand = world.key("Bcand")
+    h = world.made("H", f"{tag} chooser")
+    good = world.made("K", f"{tag} good", values={"K.code": f"OK-{tag}"})
+    also = world.made("K", f"{tag} also good", values={"K.code": f"ok-{tag}-2"})
+    bad = world.made("K", f"{tag} bad", values={"K.code": f"NO-{tag}"})
+    # "startsWith" ignores case, as the list's filter does.
+    assert _candidates(world, "K", bcand, "H", tag) == [f"{tag} also good", f"{tag} good"]
+
+    cs = world.change_set(name=f"{tag} recode")
+    ok(world.api.patch(
+        f"/objects/{world.key('K')}/{bad['id']}",
+        {"attributes": [{"attributeTypeKey": world.key("K.code"), "value": f"OK-{tag}-3"}],
+         "expectedVersion": bad["version"], "changeSetId": cs["id"],
+         "expectedChangeSetVersion": cs["version"]},
+    ))
+    assert _candidates(world, "K", bcand, "H", tag, changeSetId=cs["id"]) == [
+        f"{tag} also good", f"{tag} bad", f"{tag} good"
+    ]
+    assert _candidates(world, "K", bcand, "H", tag) == [f"{tag} also good", f"{tag} good"]
+
+    error = refused(world.relate("Bcand", h["id"], bad["id"]), 422, "RELATION_CANDIDATE_REFUSED")
+    assert (error["details"]["end"], error["details"]["objectId"]) == ("to", bad["id"])
+    assert error["details"]["criteria"].endswith("/candidates/to")
+    ok(world.relate("Bcand", h["id"], good["id"]), 201)
+
+    def item(op, target):
+        return {"op": op, "relationTypeKey": bcand, "from": {"id": h["id"]}, "to": {"id": target}}
+
+    result = ok(_batch(world, [item("ensureRelation", also["id"]), item("ensureRelation", bad["id"])]))
+    assert [i["status"] for i in result["items"]] == ["applied", "rejected"]
+    assert result["items"][1]["error"]["code"] == "RELATION_CANDIDATE_REFUSED"
+
+    # Records the same batch creates are judged as the batch leaves them.
+    def create_k(code):
+        record_id = str(uuid4())
+        return record_id, {
+            "op": "create", "id": record_id, "applicationKey": world.app("K"),
+            "objectTypeKey": world.key("K"), "name": f"{tag} new {code}",
+            "attributes": [{"attributeTypeKey": world.key("K.code"), "value": f"{code}-{tag}"}],
+        }
+
+    new_ok, create_ok = create_k("OK")
+    new_no, create_no = create_k("NO")
+    result = ok(_batch(world, [create_ok, create_no, item("ensureRelation", new_ok), item("ensureRelation", new_no)]))
+    assert [i["status"] for i in result["items"]] == ["applied", "applied", "applied", "rejected"]
+    assert result["items"][3]["error"]["code"] == "RELATION_CANDIDATE_REFUSED"
+
+    # good stops matching; replacing the set keeps it, and refuses bad as an addition.
+    current = world.record("K", good["id"])
+    ok(world.update("K", good["id"], current["version"], values={"K.code": f"NO-{tag}-4"}))
+    replace = {
+        "op": "replaceRelationSet", "relationTypeKey": bcand, "fromObjectTypeKey": world.key("H"),
+        "toObjectTypeKey": world.key("K"), "direction": "outgoing", "anchor": {"id": h["id"]},
+    }
+    kept = ok(_batch(world, [{**replace, "targets": [{"object": {"id": good["id"]}}]}], onExisting="overwrite"))
+    assert kept["items"][0]["status"] == "applied"
+    added = ok(_batch(world, [{**replace, "targets": [{"object": {"id": bad["id"]}}]}], onExisting="overwrite"))
+    assert added["items"][0]["error"]["code"] == "RELATION_CANDIDATE_REFUSED"
+
+    # Banc: the R end must be flagged, the D end under a reserved G.
+    banc = world.key("Banc")
+    plain_r = world.made("R", f"{tag} unflagged", values={"R.b": False})
+    flagged = world.made("R", f"{tag} flagged", values={"R.b": True})
+    reserved, _g = _reserve(world, tag, "Reserved West")
+    open_d, _g2 = _reserve(world, tag, "Open North")
+    assert _candidates(world, "D", banc, "R", tag) == [f"{tag} permit in Reserved West"]
+    error = refused(world.relate("Banc", plain_r["id"], reserved["id"]), 422, "RELATION_CANDIDATE_REFUSED")
+    assert error["details"]["end"] == "from"
+    error = refused(world.relate("Banc", flagged["id"], open_d["id"]), 422, "RELATION_CANDIDATE_REFUSED")
+    assert error["details"]["end"] == "to"
+    ok(world.relate("Banc", flagged["id"], reserved["id"]), 201)
+    assert world.api.get(f"/objects/{world.key('D')}", candidateFor=banc).status_code == 422
+
+
+@pytest.mark.journey("J13.10")
+@pytest.mark.structures("R", "R.b", "G", "M", "D", "Bown", "Banc")
+def test_a_relationship_outlives_the_criteria_it_was_chosen_by(world):
+    """Given a flagged R related to a D under a G named "Reserved …". When a change set renames the G
+    so it no longer matches and is published. Then the relationship is kept and the change set
+    publishes; the D is no longer offered as a candidate."""
+    tag = uuid4().hex[:6]
+    banc = world.key("Banc")
+    flagged = world.made("R", f"{tag} flagged", values={"R.b": True})
+    reserved, g = _reserve(world, tag, "Reserved East")
+    relation = ok(world.relate("Banc", flagged["id"], reserved["id"]), 201)
+    cs = world.change_set(name=f"{tag} rename")
+    ok(world.api.patch(
+        f"/objects/{world.key('G')}/{g['id']}",
+        {"name": f"{tag} Plain East", "expectedVersion": g["version"], "changeSetId": cs["id"],
+         "expectedChangeSetVersion": cs["version"]},
+    ))
+    world.publish(world.current(cs))
+    held = _relations(world, flagged["id"], relationTypeKey=banc, direction="outgoing")
+    assert [(item["relation"]["id"], item["object"]["id"]) for item in held] == [
+        (relation["id"], reserved["id"])
+    ]
+    assert _candidates(world, "D", banc, "R", tag) == []

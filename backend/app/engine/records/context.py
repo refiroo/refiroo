@@ -24,6 +24,8 @@ from sqlalchemy.orm import Session
 
 from ...errors import api_error
 from ...models.database import AttributeValue, ObjectRelation, RdmObject, SnapshotAttributeValue
+from ...models.schema import CandidateCriterion, EngineModel
+from ..reads.model_query import candidate_ids
 from ..reads.snapshot_reads import (
     SnapshotContext,
     change_set_context,
@@ -61,6 +63,28 @@ def load_active_projection(
 
 # Bounds the IDs bound into one statement.
 _CHUNK = 500
+
+
+def _candidates_meeting(
+    session: Session,
+    model: EngineModel,
+    object_type_key: str,
+    criteria: tuple[CandidateCriterion, ...],
+    object_ids: Iterable[str],
+    workspace_key: str,
+    context: SnapshotContext | None,
+) -> set[str]:
+    ids = sorted({item for item in object_ids if item})
+    object_type = model.object_type(object_type_key)
+    if not ids or object_type is None:
+        return set()
+    matching = candidate_ids(
+        model, object_type, criteria, workspace_key=workspace_key, context=context
+    ).subquery("meeting")
+    found: set[str] = set()
+    for chunk in _chunks(ids):
+        found.update(session.scalars(select(matching.c.id).where(matching.c.id.in_(chunk))))
+    return found
 
 
 def _chunks(ids: Sequence[Any]) -> Iterable[list[Any]]:
@@ -122,6 +146,18 @@ class LiveLookup(Ancestors):
     @classmethod
     def of(cls, session: Session, workspace_key: str) -> LiveLookup:
         return cls(session, workspace_key)
+
+    def candidates_meeting(
+        self,
+        model: EngineModel,
+        object_type_key: str,
+        criteria: tuple[CandidateCriterion, ...],
+        object_ids: Iterable[str],
+    ) -> set[str]:
+        """Which of the records meet a binding end's candidate criteria (0.9 K7), in one statement."""
+        return _candidates_meeting(
+            self.session, model, object_type_key, criteria, object_ids, self.workspace_key, None
+        )
 
     def object(self, object_id: str | None) -> RdmObject | None:
         if not object_id:
@@ -263,6 +299,25 @@ class ChangeSetLookup(Ancestors):
     @classmethod
     def of(cls, session: Session, change_set_id: str) -> ChangeSetLookup:
         return cls(session, change_set_context(session, change_set_id))
+
+    def candidates_meeting(
+        self,
+        model: EngineModel,
+        object_type_key: str,
+        criteria: tuple[CandidateCriterion, ...],
+        object_ids: Iterable[str],
+    ) -> set[str]:
+        """Which of the records meet a binding end's candidate criteria (0.9 K7), in one statement
+        over the change set's records."""
+        return _candidates_meeting(
+            self.session,
+            model,
+            object_type_key,
+            criteria,
+            object_ids,
+            self.context.workspace_key,
+            self.context,
+        )
 
     def object(self, object_id: str | None) -> Row | None:
         if not object_id:

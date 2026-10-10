@@ -1113,6 +1113,31 @@ and the query, and an export with that criterion, select the same records in eve
 0.1 volume fixture a 100-row page with its total took 11–26 ms live and in a publication and 32–54 ms
 in a change set.
 
+**The records a relationship may choose (Base 0.9 K7, D168–D177).** A model may limit, per
+relationship binding and end, which records may be chosen there (the binding's `candidates`,
+[APPLICATION_MODEL](APPLICATION_MODEL.md#which-records-a-relationship-may-choose-schema-09-base-09-k7)).
+`candidateFor=<key>&anchorTypeKey=<type>` on `GET /objects/{objectTypeKey}` lists the records a
+record of `anchorTypeKey` may choose through `<key>`, a relation key (the anchor at the `from` end)
+or reverse key (at the `to` end): the path type's records that meet the criteria the binding sets at
+their end, in live data, a change set or a publication, with the search, filters, sort and paging
+unchanged; every record when the end sets none. The two come together; a key the anchor's type has
+no binding of, or one whose other end is not the path type, is `422 INVALID_FILTER` with
+`details.path` `/query/candidateFor`. The relationship view's `mapping-candidates` and the relation
+matrix's `link-candidates` apply their binding's criteria without a parameter.
+
+```http
+GET /api/v1/objects/permit?candidateFor=ledger-reserves-permit&anchorTypeKey=ledger&search=west
+```
+
+A new relationship whose end does not meet that end's criteria is refused on every write path, live
+and in a change set: `POST /relations`, a new record's `initialRelations`, a set replacement's
+added records, and batch and import items (`createRelation`, `ensureRelation`,
+`replaceRelationSet`): `422 RELATION_CANDIDATE_REFUSED` with `details` `relationTypeKey`, `end`
+(`from` or `to`), `objectId` and `criteria`, the JSON pointer of the criteria in the model. Only
+relationships a write adds are checked: one a record already holds is kept when the data changes so
+it no longer meets the criteria, an `ensureRelation` finding it answers `unchanged`, and a set
+replacement may keep it (D175).
+
 `sort=related:<key>` (or `-related:<key>`) orders by the related record's name where the key is
 single-valued for the type: exactly one binding stands behind it and the type's end of it holds at
 most one relationship (`one-to-one`, `one-to-many` read from `to`, `many-to-one` read from `from`).
@@ -1324,6 +1349,11 @@ records each item returns. It is a read with a body: it changes nothing and need
   from the containment path. Any ancestor of that type counts, so with a type that nests, each of
   its levels matches. The type must be one the queried type can sit under. An ID of another type,
   or none, matches nothing.
+- **`ancestor:<type>.<field>`** (0.9 K7, D178): records under an ancestor of that type, at any depth,
+  whose `name` or attribute meets the criterion with the operators of the field's value type (the
+  attribute filterable on the ancestor's type, as for the queried type's own). Criteria on one
+  ancestor type are met by one ancestor; any ancestor of that type counts. The ancestors are matched
+  first and the walk goes down from them through containers only.
 - **`related`**: one relation hop over a binding the queried type has in that `direction`, true
   when at least one record at the other end matches the hop's own `where`; `"not": true` inverts
   it (no such record). The hop's criteria are field criteria over the types the binding allows at
@@ -1705,6 +1735,7 @@ refused by a single write's rule carries the same code in its outcome.
 | `DUPLICATE_INITIAL_RELATION` | 422 | `POST /objects`, batch creates | `initialRelations` repeats one relationship (type, direction and record), live and in a change set alike (J03.4) |
 | `INVALID_RELATION_PAIR` | 422 | relation create, `initialRelations` | The model allows no relationship of that type between the two records' types (J13.3) |
 | `RELATION_WRONG_SCOPE` | 422 | relation create, `initialRelations` | The two records are in different workspaces (J13) |
+| `RELATION_CANDIDATE_REFUSED` | 422 | relation create, `initialRelations`, set replacement, batch and import items | An end of a new relationship does not meet the criteria the model's binding sets there (`candidates`); `details` `relationTypeKey`, `end`, `objectId`, `criteria` (0.9 K7, J13.9, J03.9) |
 | `RELATION_ENDPOINT_MISSING` | 422 | relation create, `initialRelations` | An end names a record the context does not hold, live and in a change set alike (decided 2026-10-03, H4c); change-set validation reports it as a diagnostic (J13.3, J05) |
 | `CHANGE_SET_SOURCE_INVALID` | 422 | `POST /workspaces/{key}/change-sets` | `source` is not `currentLive` or `publication`, a publication source lacks `sourcePublicationId`, or a current-live source names one (J05) |
 | `CHANGE_SET_BASE_INVALID` | 409 | mapping reads in a change set | The change set's base, or its base publication, is missing or belongs to another workspace: a damaged change set (J10) |

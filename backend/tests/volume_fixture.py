@@ -258,6 +258,12 @@ def volume_model() -> dict[str, Any]:
                 "fromObjectTypeKey": ITEM,
                 "toObjectTypeKey": GROUP,
                 "cardinality": "many-to-many",
+                # Candidates every seeded record meets (0.9 K7), so a batch's counts include the
+                # check: a group with a name, an item under a group with one.
+                "candidates": {
+                    "from": [{"field": f"ancestor:{GROUP}.name", "op": "isNull", "value": False}],
+                    "to": [{"field": "name", "op": "isNull", "value": False}],
+                },
             },
             {
                 "relationTypeKey": COLUMN_CONTAINS_SHELF,

@@ -8,6 +8,18 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 K7: which records a relationship may choose (D168–D178; J13.9, J13.10, J03.9, J10.11,
+  J01.11). A binding may carry `candidates`, criteria for the records at its `from` end, its `to`
+  end or both, over their name, any non-JSON attribute, and an ancestor's name or attribute
+  (`ancestor:<type>.<field>`), with the list filter's operators. Every picker for the relationship
+  offers only those and says so; a record that does not meet its own end is not offered the
+  relationship, with the reason. The per-type list takes `candidateFor` with `anchorTypeKey`; the
+  relationship view's and matrix's candidates apply the criteria. A new relationship outside them is
+  refused with `422 RELATION_CANDIDATE_REFUSED` on every write path (batches check a chunk's targets
+  in one statement per restricted end); relationships made before are kept. The model-aware query
+  takes `ancestor:<type>.<field>` criteria. Browser runner `test:browser:k7`.
+- Base 0.9 K6a: `GET /relations/held`, the records a set of records holds through one relationship,
+  each with how many of them hold it (D165; J32.7), which Change relationships' Remove lists.
 - Base 0.9 K6: filtering a list by its records' relationships (D153–D159; J01.10, J32.6, J27.6,
   J08.12). A table view's `filterFields` may name `related:<key>`; its Filter menu then keeps the
   records related to any of chosen records (picked with the record search), to none or to any, the
@@ -27,6 +39,14 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
+- Base 0.9 K6a: collection filters redesigned (D160–D164): active filters as pills, ＋ Filter's field
+  menu, one compact editor per field type, a bottom sheet with "Show N records" on phones. The
+  selection bar's actions are icon buttons with an indigo tint on the light theme, and Change values
+  and Change relationships were redesigned (D166, D167): Change values as cards per field, Change
+  relationships with pills, a segmented action and a checklist whose Remove lists only what the
+  selection holds. D133 revised by D167: Add and Remove are separate actions.
+- D142 revised (0.9 K6a): the per-type list's `expand` takes as many keys as the type has
+  relationships, each once; the fixed maximum of 5 is gone.
 - Base 0.9 K5b: a relation column shows as many related records as its width holds (D143 revised by
   the user): whole chips, then "+N more" for the rest, and no "+N more" when they all fit; resizing a
   column shows more or fewer at once without reading the list again. Lists ask for up to 20 related

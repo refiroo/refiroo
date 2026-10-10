@@ -50,6 +50,8 @@ CONTEXTS = ("live", "change set")
 # A previewed run of cascading deletes, measured 2026-10-09 at 47-48 live and 60-64 in the change
 # set (0.9 K2b); the matrix states' upkeep reads a shape's rows only where the run touches them.
 # ensureNoRelation items, measured 2026-10-09 at 32 and 36 live, 36 and 41 in the change set (K3).
+# Relationship items with the citation binding's candidates on both ends, measured 2026-10-10 at 35
+# and 42 live, 38 and 45 in the change set (0.9 K7): one statement per restricted end and chunk.
 BUDGET = {("live", "creates"): 34, ("live", "upserts"): 48, ("change set", "creates"): 46,
           ("change set", "upserts"): 52, ("live", "relations"): 44, ("change set", "relations"): 47,
           ("live", "deletes"): 50, ("change set", "deletes"): 66, ("live", "apart"): 40,

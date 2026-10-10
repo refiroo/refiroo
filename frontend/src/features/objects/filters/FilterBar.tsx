@@ -10,6 +10,7 @@
  * entries of one field (K6).
  */
 
+import { keyScope } from "@/model/candidates";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { relationFilterEntries, relationFilterMode, type NamedRecord } from "@/features/objects/RelationFilter";
 import { attributeName } from "@/model/fields";
@@ -416,6 +417,7 @@ function FilterEditor({
             label={targets.length === 1 ? targets[0].pluralName : "Records"}
             objectTypeKeys={targets.map((type) => type.key)}
             workspaceKey={workspaceKey}
+            candidates={keyScope(model, spec.field.slice(RELATED_FIELD_PREFIX.length), objectTypeKey)}
             chosen={chosen}
             onChange={(next) => {
               setPicked(next);

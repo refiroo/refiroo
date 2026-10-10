@@ -48,14 +48,15 @@ def test_docs_serves_the_bundled_script_with_the_management_source(monkeypatch):
     # Nothing on the page names another host: the script, the source and the options are local.
     assert "http://" not in page.text and "https://" not in page.text
     configuration = _configuration(page.text)
-    assert configuration["sources"] == [
-        {
-            "title": "Management API",
-            "slug": "management",
-            "url": "/openapi.json",
-            "default": True,
-        }
-    ]
+    # The management API comes first and is the default; any other source is a consumer API of the
+    # active release, which depends on what ran before on this database (none on a fresh one).
+    assert configuration["sources"][0] == {
+        "title": "Management API",
+        "slug": "management",
+        "url": "/openapi.json",
+        "default": True,
+    }
+    assert all(item["slug"].startswith("consumer-") for item in configuration["sources"][1:])
     assert OFFLINE_OPTIONS == {
         "withDefaultFonts": False,
         "telemetry": False,
