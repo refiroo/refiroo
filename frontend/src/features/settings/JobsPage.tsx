@@ -29,7 +29,7 @@ import { SettingsLayout } from "@/ui/SettingsLayout";
 import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
-import { KIND, RESULT, STATE, cancellable } from "@/features/jobs/jobText";
+import { RESULT, STATE, cancellable, kindOf } from "@/features/jobs/jobText";
 import { count, jobLimitItems } from "./limits";
 import { useCapabilities } from "./useSystem";
 
@@ -239,7 +239,7 @@ function JobRow({
     <tr>
       <th scope="row">
         <RouteLink className="job-name" {...link}>
-          {KIND[job.kind]}
+          {kindOf(job)}
           <code>{job.id}</code>
         </RouteLink>
       </th>

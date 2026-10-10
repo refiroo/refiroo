@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, BinaryIO
 
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -26,6 +27,7 @@ from ..jobs.batches import check_batch_context, open_batch_context
 from ..jobs.files import JobFiles
 from ..jobs.store import remember_key, replayed_job, request_fingerprint, start_job
 from .profiles import check_profile, invalid_profile, load_profile, parsed
+from .readers import PROFILE_SHEET, carried_profile, unreadable
 
 IMPORTS_SCOPE = "POST /imports"
 SUFFIXES = {".xlsx": "xlsx", ".csv": "csv", ".jsonl": "jsonl", ".ndjson": "jsonl"}
@@ -109,7 +111,7 @@ def submit_import(
         and context.change_set.version != request.expectedChangeSetVersion
     ):
         raise api_error(409, "CHANGE_SET_VERSION_CONFLICT", "Change set version has changed")
-    profile = _profile(session, request, context.model, found_format)
+    profile = _profile(session, request, context.model, found_format, upload)
     job = start_job(
         session,
         kind="import",
@@ -172,12 +174,32 @@ def submit_import(
 
 
 def _profile(
-    session: Session, request: ImportRequest, model: Any, found_format: str
+    session: Session, request: ImportRequest, model: Any, found_format: str, upload: Upload
 ) -> dict[str, Any] | None:
     """The profile as the job will use it, checked against the context's release: a stored one
-    with its key and version, or the inline one; none for JSON Lines or an export's tables."""
+    with its key and version, the inline one, or the one a workbook for people carries (0.9 J6,
+    D185) with what the workbook says it is; none for JSON Lines or an export's tables."""
     if request.profileKey is None and request.profile is None:
-        return None
+        carried = carried_profile(upload.file) if found_format == "xlsx" else None
+        if carried is None:
+            return None
+        description, body = carried
+        try:
+            definition = ImportProfileDefinition.model_validate(body)
+        except ValidationError:
+            raise unreadable(
+                f"The workbook's sheet '{PROFILE_SHEET}' holds no import profile this engine "
+                "reads; export the workbook again, or name a profile"
+            ) from None
+        problems = check_profile(model, definition)
+        if problems:
+            raise invalid_profile(problems)
+        return {
+            "key": None,
+            "version": None,
+            "embedded": description,
+            "definition": definition.model_dump(mode="json", exclude_none=True),
+        }
     if found_format == "jsonl":
         raise api_error(
             422,

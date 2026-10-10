@@ -244,7 +244,7 @@ export function ImportDialog({
             help={
               profile
                 ? `Reads ${profileSummary(model, profile)}.`
-                : "Without a profile: a JSON Lines file of batch items, or a table an export wrote."
+                : "Without a profile: a workbook exported for people, read as it was written; a JSON Lines file of batch items; or a table an export wrote."
             }
             error={fieldError("profile")}
           >

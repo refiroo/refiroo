@@ -80,7 +80,7 @@ from ..reads.snapshot_reads import (
     publication_context,
 )
 from ..workspaces.catalogue import resolve_workspace
-from . import xlsx
+from . import people, xlsx
 from .store import start_job
 
 CHECK_ROWS = 10_000
@@ -175,7 +175,10 @@ def submit_export(session: Session, request: ExportRequest, *, retention_days: i
         session, workspace.key, plan.change_set_id, plan.publication_id
     )
     plan = _plan(snapshot.model, request, workspace.key)
+    layout = people.plan_people(snapshot.model, request)
     context = _context(session, plan)
+    if layout is not None:
+        people.check_parents(session, snapshot.model, layout, workspace.key, context)
     _scope_ids(snapshot.model, plan, context)
     if request.scope.parentObjectId is not None:
         _require_parent(session, plan, context)
@@ -417,6 +420,9 @@ def run_export(session: Session, job: Job, path: Path, control: ExportControl) -
     for statement in _TEMPORARY_TABLES:
         session.execute(text(statement))
     _fill_records(session, model, plan, context)
+    layout = people.plan_people(model, request)
+    if layout is not None:
+        return _run_people(session, job, path, control, model, plan, layout, context, position)
     tabular = request.format != "jsonl"
     if tabular:
         _fill_paths(session, plan, context)
@@ -455,6 +461,7 @@ def run_export(session: Session, job: Job, path: Path, control: ExportControl) -
     return ExportOutcome(
         output={
             "format": request.format,
+            "layout": "technical",
             "contentType": content_type,
             "counts": {
                 "records": {key: record_counts.get(key, 0) for key in plan.types},
@@ -474,6 +481,63 @@ def run_export(session: Session, job: Job, path: Path, control: ExportControl) -
             "sha256": digest,
         },
         extension=extension,
+    )
+
+
+def _run_people(
+    session: Session,
+    job: Job,
+    path: Path,
+    control: ExportControl,
+    model: EngineModel,
+    plan: ExportPlan,
+    layout: people.PeoplePlan,
+    context: SnapshotContext | None,
+    position: int | None,
+) -> ExportOutcome:
+    """A workbook for people (0.9 J6) over the scope's records, from the same snapshot."""
+    if any(column.key == "path" for column in layout.columns):
+        _fill_paths(session, plan, context)
+    session.execute(text("ANALYZE export_records"))
+    control.total = session.scalar(select(func.count()).select_from(_RECORDS)) or 0
+    _checkpoint(control)
+    snapshot = resolve_request_model(
+        session, job.workspace_key, plan.change_set_id, plan.publication_id
+    )
+    written = people.write_people(
+        session,
+        model,
+        layout,
+        workspace_key=job.workspace_key,
+        context=context,
+        path=path,
+        on_row=lambda: _counted(control),
+        checkpoint=lambda: _checkpoint(control),
+        description=people.described(model, layout, job.id, job.workspace_key),
+    )
+    digest, size = _digest(path)
+    change_set = context.change_set if context is not None else None
+    return ExportOutcome(
+        output={
+            "format": "xlsx",
+            "layout": people.LAYOUT,
+            "sheets": written.titles,
+            "contentType": XLSX_TYPE,
+            "counts": {"records": written.counts, "relations": written.relations},
+            "context": {
+                "workspaceKey": job.workspace_key,
+                "changeSetId": plan.change_set_id,
+                "changeSetVersion": change_set.version if change_set is not None else None,
+                "publicationId": plan.publication_id,
+            },
+            "feedPosition": position,
+            "asOf": plan.request.scope.asOf,
+            "asOfApplied": list(plan.dated),
+            "modelReleaseId": snapshot.release_id,
+            "bytes": size,
+            "sha256": digest,
+        },
+        extension="xlsx",
     )
 
 

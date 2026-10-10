@@ -30,7 +30,13 @@ interface ImportParameters {
   onExisting?: "reject" | "overwrite";
   otherWorkspaceIds?: "refuse" | "counterparts";
   file?: { name: string; format: string; bytes: number };
-  profile?: { key: string | null; version: number | null; definition?: Pick<ImportProfile, "sources"> } | null;
+  profile?: {
+    key: string | null;
+    version: number | null;
+    definition?: Pick<ImportProfile, "sources">;
+    /** What a workbook for people says it is, when its own profile read it (0.9 J6, D185). */
+    embedded?: { collection?: string; exportedAt?: string };
+  } | null;
 }
 
 const parametersOf = (job: Job) => job.parameters as ImportParameters;
@@ -39,6 +45,18 @@ const parametersOf = (job: Job) => job.parameters as ImportParameters;
 export function importTitle(job: Job): string {
   const name = parametersOf(job).file?.name;
   return name ? `Import of ${name}` : "Import";
+}
+
+/** The profile that read the file: a stored one's key, the one a workbook for people carries ("Read as
+ * exported from Values on 10 Oct 2026"), or none. */
+export function profileText(profile: ImportParameters["profile"]) {
+  if (profile?.key) return <code>{profile.key}</code>;
+  const embedded = profile?.embedded;
+  if (!embedded) return profile?.definition ? "Given with the request" : "None";
+  const day = embedded.exportedAt
+    ? new Date(embedded.exportedAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })
+    : undefined;
+  return `Read as exported from ${embedded.collection ?? "a collection"}${day ? ` on ${day}` : ""}`;
 }
 
 /** The preview's outcomes are the job's until it is confirmed; then the execution's replace them. */
@@ -50,7 +68,7 @@ export function ImportFacts({ job }: { job: Job }) {
     ...(parameters.file
       ? [{ term: "File", value: `${parameters.file.name} (${fileSize(parameters.file.bytes)})` }]
       : []),
-    { term: "Profile", value: parameters.profile?.key ? <code>{parameters.profile.key}</code> : "None" },
+    { term: "Profile", value: profileText(parameters.profile) },
     {
       term: "Rows that cannot load",
       value: parameters.policy === "atomic" ? "Load nothing unless every row loads" : "Load the rows that can load",

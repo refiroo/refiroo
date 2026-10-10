@@ -14,6 +14,8 @@ from .queries import QueryContext, QueryCriterion
 
 ExportFormat = Literal["jsonl", "csv", "xlsx"]
 RelationInclusion = Literal["none", "withinScope", "all"]
+# The technical tables (J1) or a workbook for people shaped by one collection (0.9 J6, D179).
+ExportLayout = Literal["technical", "people"]
 
 
 class ExportContext(QueryContext):
@@ -70,6 +72,46 @@ class ExportInclude(BaseModel):
     )
 
 
+class OwnedColumns(BaseModel):
+    """An owned relationship's sheet as columns per parent (0.9 J6a, D191, D192): the parents added
+    to those already holding an owned record of an exported one, and the owned records' fields
+    (``name`` or an attribute), each parent getting one column per field."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    parents: list[UUID4] = Field(default_factory=list)
+    fields: list[str] | None = Field(
+        default=None, min_length=1, description="The owned type's writable attributes when omitted"
+    )
+
+
+class PeopleLayout(BaseModel):
+    """What a workbook for people holds (0.9 J6, D180–D182, D188): the main sheet's columns as a
+    table view names them, the relationships that get a sheet of their own (relation keys or reverse
+    keys), and the field a ``related:<key>`` column shows instead of the related records' names."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    columns: list[str] | None = Field(
+        default=None,
+        min_length=1,
+        description="As a table view's columns; the name and the type's attributes when omitted",
+    )
+    sheets: list[str] = Field(default_factory=list)
+    columnFields: dict[str, str] = Field(default_factory=dict)
+    ownedColumns: dict[str, OwnedColumns] = Field(
+        default_factory=dict,
+        description="Sheets of owned records laid out as columns per parent, by their relation key",
+    )
+    referenceLists: list[str] | None = Field(
+        default=None,
+        description=(
+            "Relation keys whose pointer cells offer a list of the records they may choose; every"
+            " relationship the workbook names when omitted (0.9 J6a, D196, D197)"
+        ),
+    )
+
+
 class ExportRequest(BaseModel):
     """An export of a stated scope of one workspace, run as a background job."""
 
@@ -80,3 +122,5 @@ class ExportRequest(BaseModel):
     scope: ExportScope
     include: ExportInclude = Field(default_factory=ExportInclude)
     format: ExportFormat
+    layout: ExportLayout = "technical"
+    people: PeopleLayout | None = None

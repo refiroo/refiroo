@@ -2321,6 +2321,118 @@ or `id` apart from the built-in columns. `~` columns are for orientation and an 
   columns and boolean columns offer dropdowns from a hidden `Lists` sheet. A table past a sheet's
   1,048,576 rows continues on `Records 2` (table `records_2`) and so on.
 
+### A workbook for people (Base 0.9 J6)
+
+`layout: "people"` (the default is `technical`, the tables above) asks for a workbook people work
+in, shaped by one type's collection, which an import reads back as it was written (D179–D190):
+
+```json
+{
+  "workspaceKey": "main",
+  "scope": {"types": [{"objectTypeKey": "system-value", "where": []}]},
+  "format": "xlsx",
+  "layout": "people",
+  "people": {
+    "columns": ["name", "value-code", "related:system-value-maps-to-master", "active"],
+    "sheets": ["system-value-maps-to-master"],
+    "columnFields": {}
+  }
+}
+```
+
+- **`people.columns`**: the main sheet's columns as a table view names them (`name`, `id`, `path`,
+  `createdAt`, `updatedAt`, an attribute the type binds, `related:<key>` or
+  `related:<key>.<field>`), in that order; the name and the type's attributes when left out.
+- **`people.sheets`**: relation keys or reverse keys of the type, each given a sheet of its own; a
+  parent relationship is refused (a parent is the record's own field).
+- **`people.columnFields`**: for a `related:<key>` column, the field its cells show instead of the
+  related records' names (as `related:<key>.<field>` would).
+- `include` is not read; one type, `xlsx` only. `output.layout` is `people` and `output.sheets` names
+  the sheets in order (the hidden profile sheet left out); `counts.records` counts the main sheet's
+  records and the owned records of a sheet, `counts.relations` the rows of relationship sheets.
+
+**The main sheet**, titled with the type's plural name: one header row of the columns' labels
+(frozen, with an AutoFilter), one row per record by name; values typed as the table shows them
+(numbers, date cells, Yes or No for a boolean, offered as a dropdown, other text as text); then hidden
+columns: each editable relation column's set version, `Record ID` and `Record version`. A relation
+column holds every related record's name, or the field, in name order, `"; "` between them (no limit
+per row, D190). The name column is filled in the type's hue and each relation column in its related
+type's, the header in the type's, bold (the eight hues of the app's light theme, the slot the type's
+position in the model, D184).
+
+**What loads back** (D183). The name, the writable values, and a relation column of names or of a
+unique field its one related type requires: its list replaces the record's set of that relationship,
+under the set version written beside it. Every other column is a **summary**, its header marked
+`(not imported)`: `id`, `path`, the timestamps, a read-only value, a field that identifies nothing, a
+relationship over several types or a parent one, one with a sheet of its own, one reaching the type a
+sheet of owned records holds, and one whose longest cell passes Excel's 32,767 characters (cut there,
+and given a sheet of its own, D189). An empty cell never clears a value or a set, as for any import.
+
+**A relationship's sheet** (D182), titled with the relationship's name:
+
+- An **owning** relationship (one binding, from the type, required: the far records exist only
+  through it) holds **those records**: their name and values, their parent by name (one column per
+  type they may stand under), the owner by name, and hidden `Record ID`, `Record version` and
+  `Owner ID`. A row edits its record; a row without an ID creates one under its parent, owned by its
+  owner.
+- Any other holds **the relationships**: the exported record and the related record by name, the
+  relationship's values, the related type's display field for orientation (`(not imported)`), and
+  hidden `Record ID`, `Related record ID` and `Relationship version`. A row adds a relationship or
+  changes its values, never removes one (D187); a row without IDs names both records by name. A
+  relationship over several types is written read-only.
+
+**Its own profile** (D185, D186). A hidden sheet `Import profile` holds the import profile that reads
+the workbook (A1 `rdm-engine import profile`, B1 what the workbook is as JSON: `objectTypeKey`,
+`collection`, `workspaceKey`, `exportJobId`, `exportedAt`; column A from row 2 the profile's JSON),
+checked when it is written. Every row claims its version, so a record or relationship changed since
+the export is refused `VERSION_CONFLICT`, and a set changed since `RELATION_SET_VERSION_CONFLICT`.
+
+**Columns per parent** (0.9 J6a, D191–D195). `people.ownedColumns` lays an owned relationship's sheet
+out as one row per exported record and, for each parent, a column per field:
+
+```json
+"ownedColumns": {"object-has-translation": {"parents": ["<a translation group's ID>"], "fields": ["translated-name"]}}
+```
+
+- **`parents`**: records added to those already holding an owned record of an exported one (a new
+  language's group), each one the owned type can stand under, in the exported context.
+- **`fields`**: `name` or the owned type's writable attributes; those attributes when omitted.
+- A header names its field and parent, and the parent's ancestor of the type the binding declares
+  its records unique within (`uniqueToAncestorTypeKey`) when that is higher ("Translated name ·
+  DE-MASTER · German"); the columns go by that ancestor's name, then the parent's. Hidden: a version
+  per parent (`Version · …`) and `Record ID`.
+- A cell holds its row's owned record under that parent. Filled where empty, the import creates one
+  under the parent, owned by the row's record; edited, it updates it under the row's version claim;
+  cleared, nothing changes. A pair with several owned records (possible outside a conditional
+  uniqueness scope) holds their values joined by "; " and its version cell `not loaded`, so the
+  import leaves it out and the rest of the row loads (D195).
+- More than a sheet's 16,384 columns (parents × (fields + 1) + 2) fails the job with
+  `INVALID_EXPORT_LAYOUT` at `/people/ownedColumns/<key>`.
+
+**Lists to choose from** (0.9 J6a, D196–D198). A cell naming one other record offers a dropdown (an
+Excel list rule) of the records its relationship may choose, from a sheet `List · <types>` (with the
+relationship's name when its candidates narrow it): the records meeting the binding end's
+candidates (K7, "The records a relationship may choose") in the context, by the value the cells hold, with
+the name, the display field and the path; not imported. Such cells are: a main column of one
+relationship holding one record, a relationship sheet's related record, an owned record row's
+parent and owner. A pointer cell holds the name, or the field chosen for that relationship's main
+column when it identifies its records (D198); IDs stay the hidden keys of the rows. A list rule
+checks what is typed, not what is pasted: the import still refuses a value that finds no record.
+`people.referenceLists` names the relationships whose cells get lists (relation keys of a column or a
+sheet); every one when omitted, none with `[]`.
+
+**Borders** (D199). Every written cell, header included, has a thin grey border.
+
+**Refusals.** `422 INVALID_EXPORT_LAYOUT` with `details.path`: several types (`/scope/types`), a
+format other than `xlsx` (`/format`), a column the type's table cannot show or named twice
+(`/people/columns/{i}`), a relationship the type does not have, a parent one or named twice
+(`/people/sheets/{i}`), a field for a column that is not a relation column of names or that the far
+types lack (`/people/columnFields/{column}`), and `people` without `layout: "people"` (`/people`);
+columns per parent for a relationship that owns nothing or has no sheet
+(`/people/ownedColumns/{key}`), a parent the owned type cannot stand under or not in the context
+(`…/parents/{i}`), a field that is not `name` or a writable attribute, or named twice (`…/fields/{i}`);
+a list for a relationship the workbook does not name (`/people/referenceLists/{i}`).
+
 **Following a job.** `GET /api/v1/jobs/{jobId}/events` (0.9 J1u) is a server-sent event stream for
 any job: `event: job` with the job as `GET /jobs/{jobId}` answers it, sent at once and again after
 each committed change of its state, progress, cancel request or output; the stream ends after the
@@ -2426,6 +2538,19 @@ fixed values it matches. A list pages in key order (ADR-030).
   first value. A translation and a system mapping are profiles of this binding (ADR-032).
 - **`valueMaps`** map a cell's text to another value (`null`: no value) before it is converted or
   matched; a column names one with `valueMap`.
+- **One relationship per row** (0.9 J6): a `relation` binding's `idColumn` holds the related
+  record's ID, which finds it when the cell is filled (the binding's own cell is matched otherwise);
+  `attributes` (`[{"column", "attributeTypeKey"}]`, attributes the binding carries) are the
+  relationship's values, written with it (an `ensureRelation` with `attributes`). Neither goes with
+  `split` or `replace`. `versionColumn` claims a version: with `replace` the set's
+  (`expectedRelationSetVersion`, from 0), otherwise the relationship's (`expectedVersion`).
+- **`key.versionColumn`** (0.9 J6, D186) holds the version a row claims for the record its key finds
+  (`expectedVersion`), so a record changed since the file was written is `VERSION_CONFLICT`.
+  **`key.nameColumn`**, beside a `key.column` and with `record: "existing"`, finds a row's record by
+  its name when its ID cell is empty (none: `REFERENCE_NOT_FOUND`; several: `REFERENCE_AMBIGUOUS`).
+- **`relatedRecord.versionColumn`** (0.9 J6a, D194) holds the version a row claims for the related
+  record it finds (`expectedVersion` on its upsert); the text `not loaded` leaves that related record
+  out of the row (D195).
 - **Sources run in order** of their references: a source whose parent, relationship or related
   record's parent names a type another source loads runs after it. Sources that reference each
   other are refused (`SOURCE_CYCLE`).
@@ -2464,8 +2589,10 @@ as a parameter. Refusals: `409 IMPORT_PROFILE_EXISTS`, `404 IMPORT_PROFILE_NOT_F
 
 - The context as a batch's: `workspaceKey` for live data, or `changeSetId` with
   `expectedChangeSetVersion`.
-- `profileKey` names a stored profile, `profile` gives one inline; neither for a JSON Lines file or
-  an export's tables.
+- `profileKey` names a stored profile, `profile` gives one inline; neither for a JSON Lines file, an
+  export's tables or a [workbook for people](#a-workbook-for-people-base-09-j6), which is read through
+  the profile it carries (0.9 J6, D185): checked against the context's release as an inline one, and
+  stored on the job as `parameters.profile` with `embedded`, what the workbook says it is.
 - `format`: `xlsx`, `csv` or `jsonl`; otherwise from the file name (`.xlsx`, `.csv`, `.jsonl`,
   `.ndjson`). A legacy `.xls` workbook is refused: save it as XLSX.
 - `policy`, `onExisting` and `otherWorkspaceIds` as on

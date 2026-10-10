@@ -12,7 +12,7 @@ import zipfile
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, BinaryIO, Protocol
 
 from openpyxl import load_workbook
 from openpyxl.utils import column_index_from_string
@@ -23,6 +23,10 @@ from .cells import cell_text, decode_excel_text, is_empty
 
 CSV_SHEET = "csv"
 JSONL_SHEET = "jsonl"
+# The hidden sheet a workbook for people carries its import profile on (0.9 J6, D185): A1 the
+# mark, B1 what the workbook is (JSON), column A from row 2 the profile's JSON in pieces.
+PROFILE_SHEET = "Import profile"
+PROFILE_MARK = "rdm-engine import profile"
 
 
 @dataclass(frozen=True)
@@ -172,6 +176,36 @@ def jsonl_lines(path: Path) -> Iterator[tuple[int, Any]]:
         raise unreadable(
             f"The JSON Lines file is not UTF-8 text (byte {error.start} cannot be read)"
         ) from None
+
+
+def carried_profile(file: BinaryIO) -> tuple[dict[str, Any], Any] | None:
+    """The description and import profile a workbook for people carries (0.9 J6, D185), or
+    ``None`` for any other workbook; ``file`` is read from its start and left there."""
+    file.seek(0)
+    try:
+        book = load_workbook(file, read_only=True, data_only=True)
+    except (zipfile.BadZipFile, InvalidFileException, KeyError, OSError, ValueError) as error:
+        raise unreadable(
+            f"The file is not an XLSX workbook that can be read ({type(error).__name__})"
+        ) from None
+    try:
+        if PROFILE_SHEET not in book.sheetnames:
+            return None
+        rows = book[PROFILE_SHEET].iter_rows(max_col=2, values_only=True)
+        first = next(rows, None)
+        if not first or first[0] != PROFILE_MARK:
+            return None
+        pieces = "".join(str(row[0]) for row in rows if row and row[0] is not None)
+        try:
+            return json.loads(first[1] or "{}"), json.loads(pieces)
+        except ValueError:
+            raise unreadable(
+                f"The workbook's sheet '{PROFILE_SHEET}' does not hold an import profile that can "
+                "be read; export the workbook again, or name a profile"
+            ) from None
+    finally:
+        book.close()
+        file.seek(0)
 
 
 def open_tabular(path: Path, file_format: str, delimiter: str = ",") -> TabularFile:

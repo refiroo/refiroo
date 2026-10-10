@@ -62,6 +62,12 @@ can complete the task in the application; "API" means another system can.
   select several records there and drag them to a new parent together.
 - Export what a collection page shows, with its filters, as an Excel workbook, CSV or JSON Lines; a
   notification says when the file is ready, with Download and the job's page.
+- Export a collection as a workbook for people: the table's columns, its relationship columns as
+  lists of names, a sheet per chosen relationship, coloured as the app is; edit it in Excel and
+  import it back without a profile, changing exactly what was edited, refused where someone else
+  changed a record meanwhile. Records that belong to the exported ones, such as translations, can be
+  laid out as a column per parent (a language's group): fill a new language's column to add every
+  translation at once. Cells naming another record choose from a list of the records allowed.
 
 ### Keep data accurate — browser and API
 

@@ -448,6 +448,18 @@ its parameters, state, progress and one outcome per item, kept for a retention p
   and streamed to the file. XLSX is written as SpreadsheetML straight into its ZIP container
   (`engine/jobs/xlsx.py`), its values extracted as canonical text by PostgreSQL as for CSV and
   typed per cell, row by row.
+  A **workbook for people** (`engine/jobs/people.py`, 0.9 J6) shares the snapshot and the scope's
+  table; each relationship a column or sheet shows goes into a temporary table with its far records
+  and their ancestors, each relation column's cells are one `string_agg` per column, and each sheet
+  streams from those through a server-side cursor into `xlsx.Workbook.plain` (one header row, frozen
+  and filtered, widths from one `max(length())` statement, hidden columns, cell styles from the
+  workbook's style table with the eight type hues). The import profile that reads the workbook back
+  is built with its sheets, checked as any profile, and written on a hidden sheet, which
+  `engine/imports/readers.carried_profile` finds when an XLSX is imported without one.
+  Columns per parent (0.9 J6a) build each row's cells per parent as one JSON value in one grouped
+  statement (`people_grid`), so the sheet reads a row by one join; reference lists are each one
+  insert from K7's `candidate_ids`, their sheet titles reserved before the sheets whose list rules
+  name them are written.
   Cancel requests, the lease and progress go through a short session of the worker's own every
   10,000 rows, because the snapshot cannot see later commits. Files live in `JOB_FILE_DIR`
   (`engine/jobs/files.py`), named after their job; a file is kept only while its job is completed.

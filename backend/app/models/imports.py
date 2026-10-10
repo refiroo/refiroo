@@ -38,10 +38,23 @@ class ParentBinding(BaseModel):
     matchBy: MatchBy
 
 
+class RelationValue(BaseModel):
+    """A column holding one of the relationship's own values."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    column: str = Field(min_length=1)
+    attributeTypeKey: str
+
+
 class RelationBinding(BaseModel):
     """A relationship from the row's record (``outgoing``) or to it (``incoming``) to each record a
     cell matches; ``split`` cuts the cell into several values; ``replace`` makes the matched records
-    the whole set instead of adding to it."""
+    the whole set instead of adding to it.
+
+    For a row that is one relationship (0.9 J6): ``idColumn`` holds the related record's ID, which
+    finds it when filled, the cell's match otherwise; ``attributes`` are the relationship's values;
+    ``versionColumn`` claims a version: the set's with ``replace``, the relationship's without."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -51,6 +64,17 @@ class RelationBinding(BaseModel):
     matchBy: MatchBy
     split: str | None = Field(default=None, min_length=1)
     replace: bool = False
+    idColumn: str | None = Field(default=None, min_length=1)
+    versionColumn: str | None = Field(default=None, min_length=1)
+    attributes: list[RelationValue] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def one_relationship_per_row(self) -> RelationBinding:
+        if self.split is not None and (self.idColumn is not None or self.attributes):
+            raise ValueError("idColumn and attributes describe one relationship per row, not a split")
+        if self.replace and (self.idColumn is not None or self.attributes):
+            raise ValueError("idColumn and attributes describe one relationship, not a whole set")
+        return self
 
 
 class FlagsBinding(BaseModel):
@@ -110,6 +134,14 @@ class RelatedRecordBinding(BaseModel):
     matchBy: RelatedMatch | None = Field(
         default=None,
         description="Narrows which related record the row means, by one of its own values",
+    )
+    versionColumn: str | None = Field(
+        default=None,
+        min_length=1,
+        description=(
+            "Holds the version the row claims for the related record it finds (0.9 J6a, D194);"
+            " the text 'not loaded' leaves the related record out of the row (D195)"
+        ),
     )
 
     @model_validator(mode="after")
@@ -176,17 +208,25 @@ class Block(BaseModel):
 
 class SourceKey(BaseModel):
     """What finds a row's existing record: one unique attribute (its value from the column that
-    binds it) or a column holding the public ID (D2)."""
+    binds it) or a column holding the public ID (D2).
+
+    ``versionColumn`` holds the version the row claims for the record it finds, so a record changed
+    since the file was written is refused (0.9 J6, D186). ``nameColumn``, with an ID column and
+    ``record: existing``, finds a row's record by its name when the ID cell is empty."""
 
     model_config = ConfigDict(extra="forbid")
 
     attributeTypeKey: str | None = None
     column: str | None = Field(default=None, min_length=1)
+    versionColumn: str | None = Field(default=None, min_length=1)
+    nameColumn: str | None = Field(default=None, min_length=1)
 
     @model_validator(mode="after")
     def one_form(self) -> SourceKey:
         if (self.attributeTypeKey is None) == (self.column is None):
             raise ValueError("A source key is either {attributeTypeKey} or {column}")
+        if self.nameColumn is not None and self.column is None:
+            raise ValueError("nameColumn finds a record whose ID column is empty")
         return self
 
 
@@ -210,6 +250,8 @@ class Source(BaseModel):
     def existing_needs_key(self) -> Source:
         if self.record == "existing" and self.key is None:
             raise ValueError("record: existing finds each row's record by its key")
+        if self.key is not None and self.key.nameColumn is not None and self.record != "existing":
+            raise ValueError("key.nameColumn finds existing records only (record: existing)")
         return self
 
 

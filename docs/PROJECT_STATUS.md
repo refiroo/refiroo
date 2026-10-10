@@ -400,9 +400,15 @@ found and fixed (the checklist's layout inside a dialog's form)
 a binding's `candidates` limit which records a relationship may choose, applied by every picker,
 listed and enforced by the API, relationships made before kept; Q3's ancestor field criterion;
 D168–D178 ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#k7-record-2026-10-10)). Screenshots of both
-await the user's approval. **J6 is planned (2026-10-10)**: a workbook for people exported from a
-collection and read back through the profile it carries; D179–D190 accepted
-([plan](BASE_0_9_IMPLEMENTATION_PLAN.md#j6-plan-2026-10-10)). Then R.
+await the user's approval. **J6 is delivered (2026-10-10)**: a workbook for people exported from a
+collection (the table's columns, relation columns as lists, a sheet per chosen relationship, the
+type hues) and read back without a profile through the one it carries, rows claiming their versions;
+`layout: "people"` on `POST /exports`; import profiles gain version, name and relationship-row
+bindings; D179–D190 ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#j6-record-2026-10-10)). Screenshots
+await the user's approval. **J6a is delivered (2026-10-10)**: owned records as columns per parent
+(a new language filled in one column), dropdowns from reference sheets of the records a relationship
+may choose, borders; D191–D199 ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#j6a-record-2026-10-10)).
+Screenshots await the user's approval. Then R.
 **C18, the consumer API definition written for readers, is delivered (2026-10-08):** schema 0.9
 writes `consumerApis` as what a definition exposes, offers, looks like and filters by, with defaults
 written out by `GET /api/v1/model/consumer-apis/{consumerApi}`; an operation not offered is

@@ -58,6 +58,8 @@ CHUNK_ROWS = 5_000
 # A cancel request and the lease are looked at after this many rows are read.
 CHECK_ROWS = 10_000
 MAX_NAME = 500
+# A related record's version cell holding this leaves the record out of its row (0.9 J6a, D195).
+NOT_LOADED = "not loaded"
 _ITEM = TypeAdapter(BatchItem)
 _RECORD_COLUMNS = ("objectTypeKey", "applicationKey", "id", "version", "name", "parentObjectId")
 
@@ -68,14 +70,15 @@ _TEMPORARY_TABLES = (
         " mode text, key_kind text, key_attr text, key_value jsonb, key_column text, name text,"
         " attributes jsonb NOT NULL DEFAULT '{}', parent jsonb, error jsonb, rep_id integer,"
         " record_id text, existing boolean NOT NULL DEFAULT false, current_name text, parent_id text,"
-        " depth integer NOT NULL DEFAULT -1) ON COMMIT DROP"
+        " depth integer NOT NULL DEFAULT -1, expected_version integer) ON COMMIT DROP"
     ),
     "CREATE INDEX ON import_rows (object_type_key, name)",
     "CREATE INDEX ON import_rows (record_id)",
     (
         "CREATE TEMPORARY TABLE import_links (row_id integer NOT NULL, link_no integer NOT NULL,"
         " relation_type_key text, direction text, object_type_key text, match jsonb, column_name text,"
-        " replace boolean, required boolean, candidates integer, target_id text) ON COMMIT DROP"
+        " replace boolean, required boolean, candidates integer, target_id text,"
+        " expected_version integer, attributes jsonb) ON COMMIT DROP"
     ),
     (
         "CREATE TEMPORARY TABLE import_related (entry_id integer PRIMARY KEY, row_id integer NOT NULL,"
@@ -84,7 +87,7 @@ _TEMPORARY_TABLES = (
         " attributes jsonb NOT NULL DEFAULT '{}', required boolean, column_name text,"
         " parent_candidates integer, parent_id text, related_candidates integer, related_id text,"
         " existing boolean NOT NULL"
-        " DEFAULT false, current_name text) ON COMMIT DROP"
+        " DEFAULT false, current_name text, expected_version integer) ON COMMIT DROP"
     ),
     (
         "CREATE TEMPORARY TABLE import_matches (match_id serial PRIMARY KEY, object_type_key text,"
@@ -496,13 +499,15 @@ def _uuid(value: Any, column_name: str) -> str:
         ) from None
 
 
-def _version(value: Any, column_name: str) -> int:
+def _version(value: Any, column_name: str, lowest: int = 1) -> int:
+    """A version cell: a record's or a relationship's from 1, a relation set's from 0 (a set no
+    write has touched yet)."""
     text_value = cell_text(value).strip()
-    if not text_value.isdigit() or int(text_value) < 1:
+    if not text_value.isdigit() or int(text_value) < lowest:
         raise _RowError(
             _error(
                 "INVALID_CELL",
-                f"Column {column_name} must hold a version (1 or more)",
+                f"Column {column_name} must hold a version ({lowest} or more)",
                 column=column_name,
             )
         )
@@ -732,6 +737,7 @@ class _ProfileBinding:
                 "attributes",
                 "parent",
                 "error",
+                "expected_version",
             ),
         )
         self.links = _Copy(
@@ -747,6 +753,8 @@ class _ProfileBinding:
                 "column_name",
                 "replace",
                 "required",
+                "expected_version",
+                "attributes",
             ),
         )
         self.related = _Copy(
@@ -767,6 +775,7 @@ class _ProfileBinding:
                 "attributes",
                 "required",
                 "column_name",
+                "expected_version",
             ),
         )
 
@@ -866,6 +875,16 @@ class _ProfileBinding:
                     False,
                     lambda raw: _uuid(raw, key_column),
                 )
+                if key_value is None and source.key.nameColumn is not None:
+                    key_column = source.key.nameColumn
+                    entry = self.report.cell(plan.order, key_column, "key", "name")
+                    key_value = _tally(
+                        entry,
+                        _cell(plan.columns, cells, key_column),
+                        False,
+                        lambda raw: _name(raw, key_column),
+                    )
+                    key_kind = "name"
                 if key_value is None:
                     key_kind = None
                     if source.record == "existing":
@@ -878,6 +897,19 @@ class _ProfileBinding:
                         )
         except _RowError as rejected:
             failures.append(rejected.body)
+        expected_version = None
+        if source.key is not None and source.key.versionColumn is not None:
+            version_column = source.key.versionColumn
+            entry = self.report.cell(plan.order, version_column, "key", "version")
+            try:
+                expected_version = _tally(
+                    entry,
+                    _cell(plan.columns, cells, version_column),
+                    False,
+                    lambda raw: _version(raw, version_column),
+                )
+            except _RowError as rejected:
+                failures.append(rejected.body)
         error = None
         if failures:
             error = _cells_error(failures)
@@ -899,11 +931,12 @@ class _ProfileBinding:
             state.attributes,
             state.parent,
             error,
+            expected_version if key_value is not None else None,
         )
         for link_no, link in enumerate(state.links):
             self.links.add(row_id, link_no, *link)
         for group, entry in state.related.items():
-            if not entry["attributes"] and entry["name"] is None:
+            if entry["skip"] or (not entry["attributes"] and entry["name"] is None):
                 continue
             self.entry_id += 1
             self.related.add(
@@ -921,6 +954,7 @@ class _ProfileBinding:
                 entry["attributes"],
                 entry["required"],
                 entry["column"],
+                entry["version"],
             )
 
     def _binding(
@@ -955,7 +989,7 @@ class _ProfileBinding:
                 entry, src, parent.objectTypeKey, parent.matchBy, raw, binding.column
             )
         elif binding.relation is not None:
-            state.links += self._relations(plan, binding, raw)
+            state.links += self._relations(plan, binding, raw, cells)
         elif binding.relatedRecord is not None:
             self._related(plan, binding, raw, mapped, cells, state.related)
 
@@ -1025,11 +1059,51 @@ class _ProfileBinding:
         )
         return binding is not None and binding.required
 
-    def _relations(self, plan: _Plan, binding: ColumnBinding, raw: Any) -> list[tuple[Any, ...]]:
+    def _relations(
+        self, plan: _Plan, binding: ColumnBinding, raw: Any, cells: list[Any]
+    ) -> list[tuple[Any, ...]]:
         relation = binding.relation
         entry = self.report.cell(
             plan.order, binding.column, "relation", relation.relationTypeKey, matched=True
         )
+        match_by = relation.matchBy
+        if relation.idColumn is not None:
+            # One relationship per row (0.9 J6): its record's ID, when the row holds one, finds it.
+            held = _cell(plan.columns, cells, relation.idColumn)
+            if held is not None:
+                raw, match_by = held, MatchBy(field="id")
+        version, attributes, failures = None, None, []
+        if relation.versionColumn is not None:
+            try:
+                version = _tally(
+                    self.report.cell(plan.order, relation.versionColumn, "key", "version"),
+                    _cell(plan.columns, cells, relation.versionColumn),
+                    False,
+                    lambda raw: _version(raw, relation.versionColumn, 0 if relation.replace else 1),
+                )
+            except _RowError as error:
+                failures.append(error.body)
+        if relation.attributes:
+            attributes = {}
+            for value in relation.attributes:
+                try:
+                    converted = _tally(
+                        self.report.cell(
+                            plan.order, value.column, "attributeTypeKey", value.attributeTypeKey
+                        ),
+                        _cell(plan.columns, cells, value.column),
+                        False,
+                        lambda raw, value=value: self._value(
+                            value.attributeTypeKey, raw, value.column
+                        ),
+                    )
+                except _RowError as error:
+                    failures.append(error.body)
+                    continue
+                if converted is not None:
+                    attributes[value.attributeTypeKey] = converted
+        if failures:
+            raise _RowError(failures[0] if len(failures) == 1 else _cells_error(failures))
         pieces = [] if raw is None else [raw]
         if raw is not None and relation.split is not None:
             mapping = self.profile.valueMaps.get(binding.valueMap or "", {})
@@ -1055,13 +1129,15 @@ class _ProfileBinding:
                     entry,
                     plan.order,
                     relation.objectTypeKey,
-                    relation.matchBy,
+                    match_by,
                     piece,
                     binding.column,
                 ),
                 binding.column,
                 relation.replace,
                 required,
+                version,
+                attributes,
             )
             for piece in pieces
         ]
@@ -1095,6 +1171,8 @@ class _ProfileBinding:
                     column_name,
                     False,
                     required,
+                    None,
+                    None,
                 )
             )
         return links
@@ -1159,8 +1237,12 @@ class _ProfileBinding:
                 "attributes": {},
                 "required": bool(relation and relation.required and backward),
                 "column": binding.column,
+                "version": None,
+                "skip": False,
             }
             entries[group] = entry
+        if spec.versionColumn is not None and entry["version"] is None and not entry["skip"]:
+            self._related_version(plan, spec.versionColumn, cells, entry)
         counts = self.report.cell(plan.order, binding.column, "relatedRecord", spec.objectTypeKey)
         if spec.field == "name":
             name = _tally(counts, raw, mapped, cell_text)
@@ -1187,6 +1269,22 @@ class _ProfileBinding:
                     column=parent.column or binding.column,
                 )
             )
+
+    def _related_version(
+        self, plan: _Plan, column_name: str, cells: list[Any], entry: dict[str, Any]
+    ) -> None:
+        """The version a row claims for a related record (0.9 J6a, D194); ``not loaded`` marks a
+        pair the file cannot show in one cell, which the row leaves out (D195)."""
+        raw = _cell(plan.columns, cells, column_name)
+        if raw is not None and cell_text(raw).strip() == NOT_LOADED:
+            entry["skip"] = True
+            return
+        entry["version"] = _tally(
+            self.report.cell(plan.order, column_name, "key", "version"),
+            raw,
+            False,
+            lambda raw: _version(raw, column_name),
+        )
 
     def _flush(self) -> None:
         self.rows.flush()
@@ -1338,6 +1436,24 @@ class _ProfileBinding:
                 existing = EXISTS (SELECT 1 FROM import_context c WHERE c.object_id = r.key_value #>> '{}'),
                 current_name = (SELECT c.name FROM import_context c WHERE c.object_id = r.key_value #>> '{}')
             WHERE r.error IS NULL AND r.rep_id IS NULL AND r.key_kind = 'id'
+            """
+        )
+        self._sql(
+            """
+            WITH found AS (
+                SELECT r.row_id, count(c.object_id) AS n, min(c.object_id) AS one, min(c.name) AS name
+                FROM import_rows r LEFT JOIN import_context c
+                    ON c.object_type_key = r.object_type_key AND c.name = r.key_value #>> '{}'
+                WHERE r.error IS NULL AND r.rep_id IS NULL AND r.key_kind = 'name'
+                GROUP BY r.row_id)
+            UPDATE import_rows r SET
+                record_id = CASE WHEN f.n = 1 THEN f.one END, existing = f.n = 1,
+                current_name = CASE WHEN f.n = 1 THEN f.name END,
+                error = CASE WHEN f.n > 1 THEN jsonb_build_object(
+                    'code', 'REFERENCE_AMBIGUOUS',
+                    'message', format('%s %s records are named %s', f.n, r.object_type_key, r.key_value),
+                    'details', jsonb_build_object('column', r.key_column, 'count', f.n)) END
+            FROM found f WHERE f.row_id = r.row_id
             """
         )
         self._sql(
@@ -1580,6 +1696,9 @@ class _ProfileBinding:
                 jsonb_build_object('op', 'upsert', 'ref', r.ref, 'applicationKey', r.application_key,
                     'objectTypeKey', r.object_type_key, 'key', jsonb_build_object('id', r.record_id),
                     'name', coalesce(r.name, r.current_name), 'attributes', {attributes.format(s="r")})
+                || CASE WHEN r.expected_version IS NOT NULL AND r.existing
+                    THEN jsonb_build_object('expectedVersion', r.expected_version)
+                    ELSE '{{}}'::jsonb END
                 || CASE WHEN r.parent_id IS NOT NULL
                     THEN jsonb_build_object('parent', jsonb_build_object('id', r.parent_id))
                     ELSE '{{}}'::jsonb END
@@ -1603,6 +1722,9 @@ class _ProfileBinding:
                     'name', left(coalesce(d.name, d.current_name, d.fallback_name), {MAX_NAME}),
                     'parent', jsonb_build_object('id', d.parent_id),
                     'attributes', {attributes.format(s="d")})
+                || CASE WHEN d.expected_version IS NOT NULL AND d.existing
+                    THEN jsonb_build_object('expectedVersion', d.expected_version)
+                    ELSE '{{}}'::jsonb END
                 || CASE WHEN d.required AND NOT d.existing THEN jsonb_build_object('initialRelations',
                     jsonb_build_array(jsonb_build_object('relationTypeKey', d.relation_type_key,
                         'direction', 'incoming', 'object', jsonb_build_object('id', r.record_id))))
@@ -1639,9 +1761,14 @@ class _ProfileBinding:
                         THEN l.record_id ELSE l.target_id END),
                     'to', jsonb_build_object('id', CASE WHEN l.direction = 'outgoing'
                         THEN l.target_id ELSE l.record_id END))
+                || CASE WHEN l.attributes IS NOT NULL
+                    THEN jsonb_build_object('attributes', l.attributes) ELSE '{}'::jsonb END
+                || CASE WHEN l.expected_version IS NOT NULL
+                    THEN jsonb_build_object('expectedVersion', l.expected_version)
+                    ELSE '{}'::jsonb END
             FROM (SELECT DISTINCT ON (r.record_id, l.relation_type_key, l.direction, l.target_id)
                     r.src, r.row_number, r.ref, r.record_id, l.link_no, l.relation_type_key,
-                    l.direction, l.target_id
+                    l.direction, l.target_id, l.attributes, l.expected_version
                   FROM import_links l JOIN import_rows r ON r.row_id = l.row_id AND r.error IS NULL
                   WHERE NOT l.replace
                   ORDER BY r.record_id, l.relation_type_key, l.direction, l.target_id, r.row_id,
@@ -1662,6 +1789,9 @@ class _ProfileBinding:
                     'anchor', jsonb_build_object('id', r.record_id),
                     'targets', jsonb_agg(DISTINCT jsonb_build_object(
                         'object', jsonb_build_object('id', l.target_id))))
+                || CASE WHEN min(l.expected_version) IS NOT NULL
+                    THEN jsonb_build_object('expectedRelationSetVersion', min(l.expected_version))
+                    ELSE '{}'::jsonb END
             FROM import_links l JOIN import_rows r ON r.row_id = l.row_id AND r.error IS NULL
             WHERE l.replace
             GROUP BY r.record_id, l.relation_type_key, l.direction, l.object_type_key
@@ -1699,14 +1829,28 @@ def _area(source: Source) -> Area:
 
 def _named_columns(source: Source, at: str) -> Iterator[tuple[str, str]]:
     """Every column the source names, with its pointer."""
-    if source.key is not None and source.key.column is not None:
-        yield f"{at}/key/column", source.key.column
+    if source.key is not None:
+        for name in ("column", "versionColumn", "nameColumn"):
+            if getattr(source.key, name) is not None:
+                yield f"{at}/key/{name}", getattr(source.key, name)
     for index, binding in enumerate(source.columns):
         if binding.columns is not None:
             for position, name in enumerate(binding.columns):
                 yield f"{at}/columns/{index}/columns/{position}", name
         elif binding.column is not None:
             yield f"{at}/columns/{index}/column", binding.column
+        if binding.relation is not None:
+            relation = binding.relation
+            for name in ("idColumn", "versionColumn"):
+                if getattr(relation, name) is not None:
+                    yield f"{at}/columns/{index}/relation/{name}", getattr(relation, name)
+            for position, value in enumerate(relation.attributes):
+                yield f"{at}/columns/{index}/relation/attributes/{position}/column", value.column
+        if binding.relatedRecord is not None and binding.relatedRecord.versionColumn is not None:
+            yield (
+                f"{at}/columns/{index}/relatedRecord/versionColumn",
+                binding.relatedRecord.versionColumn,
+            )
         if binding.relatedRecord is not None and binding.relatedRecord.parent.column is not None:
             yield (
                 f"{at}/columns/{index}/relatedRecord/parent/column",

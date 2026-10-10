@@ -116,9 +116,14 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # HeldRecord and HeldObject, and expand's description losing "at most 5" (D142 revised); removing
     # those and restoring the phrase gives K6's document exactly. Re-baselined for 0.9 K7: candidateFor
     # and anchorTypeKey on GET /objects/{object_type_key}; no other path or schema changed.
+    # Re-baselined for 0.9 J6: ExportRequest's layout and people (PeopleLayout), ExportOutput's
+    # layout and sheets, SourceKey's versionColumn and nameColumn, RelationBinding's idColumn,
+    # versionColumn and attributes (RelationValue); no path or other schema changed.
+    # Re-baselined for 0.9 J6a: PeopleLayout's ownedColumns (OwnedColumns) and referenceLists,
+    # RelatedRecordBinding's versionColumn; no path or other schema changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "65d6de7e676e4835020fdc9a51b0c6771242e0054c25b2d80395acbae025aff1"
+        "2d6ac8786d543918f72f70088bcffec8c00669929b671d3950fb1c233d5b0caf"
     )
 
 

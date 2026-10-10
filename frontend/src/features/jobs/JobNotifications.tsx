@@ -17,6 +17,7 @@ import { routePath } from "@/routing/routes";
 import type { EngineModel, Job, RouteState } from "@/types";
 import { useToast, type ToastAction } from "@/ui/Toast";
 import { importTitle } from "./ImportOutcome";
+import { forPeople } from "./jobText";
 import { isFinal, useJobStream } from "./useJobStream";
 
 const STORAGE_KEY = "rdm.followedJobs";
@@ -186,5 +187,6 @@ export function jobTitle(model: EngineModel, job: Job): string {
   const names = (scope?.types ?? []).map(
     (item) => model.objectTypes.find((type) => type.key === item.objectTypeKey)?.pluralName ?? item.objectTypeKey,
   );
+  if (forPeople(job)) return names.length ? `Workbook for people of ${names.join(", ")}` : "Workbook for people";
   return names.length ? `Export of ${names.join(", ")}` : "Export";
 }

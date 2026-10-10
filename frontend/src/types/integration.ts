@@ -292,6 +292,25 @@ export interface ImportProfilePage {
 }
 
 export type ExportFormat = "jsonl" | "csv" | "xlsx";
+/** The technical tables, or a workbook for people shaped by one collection (0.9 J6). */
+export type ExportLayout = "technical" | "people";
+
+/** What a workbook for people holds (0.9 J6, D188). */
+export interface PeopleLayout {
+  /** The main sheet's columns, as a table view names them. */
+  columns: string[];
+  /** The relationships (relation keys or reverse keys) that get a sheet of their own. */
+  sheets: string[];
+  /** A `related:<key>` column's field shown instead of the related records' names. */
+  columnFields: Record<string, string>;
+  /**
+   * Owned records' sheets laid out as columns per parent (0.9 J6a): the parents added to those
+   * already holding one, and the fields each parent gets a column of.
+   */
+  ownedColumns?: Record<string, { parents: string[]; fields?: string[] }>;
+  /** The relationships whose cells offer a list to choose from; every one when omitted (D197). */
+  referenceLists?: string[];
+}
 export type ExportRelations = "none" | "withinScope" | "all";
 
 /**
@@ -316,11 +335,16 @@ export interface ExportRequest {
   };
   include: { relations: ExportRelations };
   format: ExportFormat;
+  layout?: ExportLayout;
+  people?: PeopleLayout;
 }
 
 /** What a completed export's file holds. */
 export interface ExportOutput {
   format: ExportFormat;
+  layout?: ExportLayout;
+  /** A workbook for people's sheets, in order. */
+  sheets?: string[];
   contentType: string;
   counts: { records: Record<string, number>; relations: Record<string, number> };
   context: {

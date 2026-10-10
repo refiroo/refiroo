@@ -808,6 +808,16 @@ POST /api/v1/exports
   period (D50); exports run on a worker of their own from one snapshot (D53).
   _Amended in J5 (2026-10-08, D96, D97):_ an export loads into a second workspace of the instance with
   `otherWorkspaceIds: "counterparts"`, as that workspace's own records with derived IDs.
+  _Added in J6 (2026-10-10, D179–D190):_ `layout: "people"` with `people` (`columns`, `sheets`,
+  `columnFields`) exports one type's collection as a workbook for people, which an import without a
+  profile reads through the profile it carries on a hidden sheet. Profiles gain `key.versionColumn`,
+  `key.nameColumn` and a relation binding's `idColumn`, `versionColumn` and `attributes`, so such a
+  workbook's rows claim versions and a relationship row carries its values
+  ([API.md](API.md#a-workbook-for-people-base-09-j6)).
+  _Added in J6a (2026-10-10, D191–D199):_ `people.ownedColumns` lays owned records out as columns per
+  parent, `people.referenceLists` the relationships whose cells offer a list from a reference sheet of
+  the records they may choose; every cell bordered; `relatedRecord.versionColumn` claims a related
+  record's version.
 
 ### J5: The SC-10 screen
 

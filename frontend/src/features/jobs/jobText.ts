@@ -6,6 +6,12 @@ import type { StatusTone } from "@/ui/StatusPill";
 
 export const KIND: Record<Job["kind"], string> = { batch: "Batch", import: "Import", export: "Export" };
 
+/** Whether a job is an export of a workbook for people (0.9 J6). */
+export const forPeople = (job: Job) => job.kind === "export" && job.parameters.layout === "people";
+
+/** A job's kind as the jobs list names it: an export of a workbook for people reads so. */
+export const kindOf = (job: Job) => (forPeople(job) ? "Workbook for people" : KIND[job.kind]);
+
 export const STATE: Record<Job["state"], { label: string; tone: StatusTone }> = {
   queued: { label: "Queued", tone: "draft" },
   running: { label: "Running", tone: "draft" },

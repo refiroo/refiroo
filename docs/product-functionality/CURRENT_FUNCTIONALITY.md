@@ -553,6 +553,34 @@ job has its own page showing its state and progress as they change, its error, C
 export what the file holds and Download. An integration follows any job the same way through the
 API: the engine pushes each change as it commits.
 
+From a collection page, Export also makes a **workbook for people**: one Excel workbook shaped by
+the table. Its main sheet holds the columns the table shows, in its order and with its labels, the
+values formatted as the table shows them, and each relationship column as every related record's
+name (or a field of theirs, such as a unique code) separated by "; ". Under Advanced the user picks
+the columns and their order, the field a relationship column shows, and which relationships get a
+sheet of their own: the records the exported ones own (their translations, say), or the
+relationships themselves with their values. The header stays in view and can be filtered, the name
+and relationship columns are coloured as their kinds of record are in the app, and the record's ID
+and version sit in hidden columns. A column that cannot say what to change (a relationship edited on
+its own sheet, a field that identifies nothing) is marked "(not imported)". Imported back from the
+page or Jobs and feed without choosing a profile, the workbook is read as it was written, and the
+import's page says so ("Read as exported from System values on 10 Oct 2026"): an untouched workbook
+changes nothing; edited values, names and rows change exactly those; a list of names replaces the
+record's relationships of that kind, a relationship sheet adds and changes relationships but never
+removes one; a record changed by someone else since the export is refused. Clearing a cell clears
+nothing, as for any import. An integration asks for the same workbook through the API.
+
+The workbook is also made for filling in. Under Advanced, a relationship whose records belong to the
+exported ones (translations, say) can be laid out as **columns per parent**: one row per record and,
+for each parent those records stand under (each translation group), a column per chosen field,
+headed with the parent and the higher level the records are unique within (its language). Parents
+holding records come by themselves, and others are added with the record search, so a new language's
+group arrives as an empty column: filled in and imported, it creates every translation in that
+language, each under the group and belonging to its row's record. Cells that name one other record
+(a single relationship, a relationship sheet's related record, a parent or an owner) offer a list to
+choose from, taken from a sheet of the records that relationship may choose; and every cell has a
+border.
+
 An integration imports a file the same way, as a job, into live data or a change set: an Excel
 workbook or a CSV file through an import profile, or a JSON Lines file of bulk items, or an export's
 CSV or workbook sent back. A profile is kept in the engine, under a version, and says how the file's

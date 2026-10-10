@@ -52,6 +52,16 @@ class ExportOutput(BaseModel):
     names the types ``asOf`` dated."""
 
     format: Literal["jsonl", "csv", "xlsx"]
+    layout: Literal["technical", "people"] = Field(
+        default="technical",
+        description="The technical tables, or a workbook for people (0.9 J6)",
+    )
+    sheets: list[str] | SkipJsonSchema[None] = Field(
+        default=None,
+        exclude_if=omitted_when_none,
+        json_schema_extra=without_default,
+        description="A workbook for people's sheets in order, the hidden profile sheet left out",
+    )
     contentType: str
     counts: ExportCounts
     context: ExportedContext

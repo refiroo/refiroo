@@ -6,6 +6,7 @@ import { capabilitiesFixture } from "@/test/capabilities";
 import { testModel } from "@/test/fixtures";
 import type { ChangeSet, ImportProfile, Job } from "@/types";
 import { ImportDialog, type ImportStart } from "./ImportDialog";
+import { ImportFacts } from "./ImportOutcome";
 
 vi.mock("@/api/client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/api/client")>()),
@@ -197,5 +198,31 @@ describe("ImportDialog (0.9 J4)", () => {
       changeSetId: "cs9",
       expectedChangeSetVersion: 7,
     });
+  });
+
+  it("says a workbook for people is read without a profile, and the job names the workbook (0.9 J6, D185)", async () => {
+    open({ context: { workspaceKey: "west" } });
+    await chooseFileAndProfile();
+    expect(screen.getByText(/a workbook exported for people, read as it was written/)).toBeInTheDocument();
+    render(
+      <ImportFacts
+        job={
+          {
+            ...queued,
+            changeSetId: null,
+            parameters: {
+              file: { name: "values.xlsx", format: "xlsx", bytes: 2048 },
+              profile: {
+                key: null,
+                version: null,
+                embedded: { collection: "Values", exportedAt: "2026-10-10T09:00:00Z" },
+                definition: { sources: [] },
+              },
+            },
+          } as unknown as Job
+        }
+      />,
+    );
+    expect(screen.getByText(/^Read as exported from Values on /)).toHaveTextContent("2026");
   });
 });

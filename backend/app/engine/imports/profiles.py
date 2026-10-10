@@ -225,6 +225,10 @@ def _source_problems(
                 problems += _match_problems(
                     model, relation.objectTypeKey, relation.matchBy, f"{at}/{name}/matchBy"
                 )
+            if binding.relation is not None and binding.relation.attributes:
+                problems += _relation_value_problems(
+                    model, source.objectTypeKey, binding.relation, f"{at}/relation/attributes"
+                )
             if binding.relationFlags is not None:
                 missing = [
                     c for c in binding.columns or [] if c not in binding.relationFlags.targets
@@ -333,6 +337,30 @@ def _relation_problems(
             )
         ]
     return []
+
+
+def _relation_value_problems(
+    model: EngineModel, own_type: str, relation: Any, path: str
+) -> list[Problem]:
+    """A relationship's value columns name attributes its binding carries (0.9 J6)."""
+    source, target = (
+        (own_type, relation.objectTypeKey)
+        if relation.direction == "outgoing"
+        else (relation.objectTypeKey, own_type)
+    )
+    binding = model.allowed_relation(relation.relationTypeKey, source, target)
+    if binding is None:
+        return []
+    return [
+        Problem(
+            f"{path}/{index}/attributeTypeKey",
+            "ATTRIBUTE_NOT_BOUND",
+            f"Relationship '{relation.relationTypeKey}' from '{source}' to '{target}' carries no "
+            f"attribute '{value.attributeTypeKey}'",
+        )
+        for index, value in enumerate(relation.attributes)
+        if value.attributeTypeKey not in binding.attributeTypeKeys
+    ]
 
 
 def _match_problems(

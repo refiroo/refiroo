@@ -237,7 +237,14 @@ export function JobPage({
           <DescriptionList
             className="compact"
             items={[
-              { term: "Format", value: FORMAT_NAMES[output.format] },
+              {
+                term: "Format",
+                value:
+                  output.layout === "people"
+                    ? `${FORMAT_NAMES[output.format]}, a workbook for people`
+                    : FORMAT_NAMES[output.format],
+              },
+              ...(output.sheets?.length ? [{ term: "Sheets", value: output.sheets.join(", ") }] : []),
               { term: "Size", value: fileSize(output.bytes) },
               {
                 term: "Data",

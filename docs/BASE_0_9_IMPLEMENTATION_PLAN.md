@@ -8717,6 +8717,284 @@ before the lock); a for-people export of the 0.1 volume fixture's items timed on
 technical one. Frontend: Vitest `related`, format, lint, build; `j6`, and `j1u`, `j4` by exit code and
 `report.json`.
 
+##### J6 record (2026-10-10)
+
+**Delivered 2026-10-10.** D179–D190 and the test cases as accepted. Screenshots await the user's
+approval.
+
+**Built.**
+
+- **The request** (D188): `ExportRequest.layout` (`technical`, `people`) and `people`
+  (`PeopleLayout`: `columns`, `sheets`, `columnFields`), checked by `engine/jobs/people.plan_people`
+  with K5's resolver; `422 INVALID_EXPORT_LAYOUT` at its pointer. `ExportOutput.layout` and `sheets`.
+- **The workbook** (`engine/jobs/people.py`, D180–D184, D189, D190): the scope's records as the
+  technical export selects them; each column's and sheet's relationships, their far records and
+  ancestors into temporary tables; one `string_agg` per relation column; every sheet streamed by a
+  server-side cursor. `xlsx.py` gained `Styles` (fills, inks, bold, the date format), `PlainSheet`
+  (one header row, frozen, AutoFilter with its defined name, widths, hidden columns), exact-title
+  text sheets and `sheet_title`. The eight hues mirror `tokens.css`'s light theme.
+- **Reading back** (D185, D186): the profile is built with the sheets, checked as any profile and
+  written on the hidden `Import profile` sheet; `readers.carried_profile` finds it when an XLSX is
+  imported without a profile, and the job stores it with `embedded` (what the workbook is).
+  `binding.py`: `key.versionColumn` (`expectedVersion` on the upsert), `key.nameColumn` (a row's
+  record by name when its ID is empty, `record: existing`), a relation's `idColumn`, `versionColumn`
+  (`expectedRelationSetVersion` from 0 with `replace`, else `expectedVersion`) and `attributes` (the
+  relationship's values on its `ensureRelation`).
+- **The browser**: the Export dialog's Kind of file (Technical, the default; For people from a
+  collection) and the workbook section with Advanced (columns shown and moved, a relation column's
+  field, the sheets, by default the relationships shown as columns); the collection passes its
+  Display's columns. The import dialog names the workbook case; the import page's Profile reads
+  "Read as exported from … on …"; Jobs and feed and the notifications name "Workbook for people".
+
+**Checks.** Backend: J27.15–J27.17 written first and failing (6 cases on generated A and B), then
+passing; `jobs`, `queries`, `contract` in parallel: 559 passed, 2 failed (the OpenAPI lock;
+API_JOURNEYS lacked `INVALID_EXPORT_LAYOUT`), both fixed and rerun (14 passed), the serial part
+passed; 2 min 4 s, over the 2-minute ceiling as J3 recorded for these groups. The OpenAPI document
+diffed against `bb0cf6f`: no path changed, only `ExportOutput`, `ExportRequest`, `PeopleLayout`,
+`RelationBinding`, `RelationValue`, `SourceKey`; re-locked. `test_xlsx` (2 new: sheet titles; a
+people sheet's frozen header, filter, widths, hidden column, styles). `ruff` clean. Timed once on the
+0.1 volume fixture (10,000 items, 150 citations): technical XLSX 0.48 s, for people with the
+citations as a column and a sheet 0.32 s, with the list column only 0.32 s. Frontend: `vitest
+related` over the changed files, 14 files, 175 passed (`ExportDialog.test` 3 new, `ImportDialog.test`
+1 new); format; lint 0 errors, the 7 recorded warnings; build. Runners: `j6` 6 checks, `j1u` 12,
+`j4` 18, by exit code and `report.json`.
+
+**Evidence, separately.** Functional: `j6` on the starter's System values: exported for people by
+keyboard, read with openpyxl (sheets, hidden profile sheet, frozen and filtered header, the name
+column's fill, hidden ID and version), edited, imported from the page without a profile, previewed
+(1 updated, 1 created, 2 unchanged) and loaded, checked through the API. Accessibility: axe 0
+violations on the dialog with Advanced open, light and dark. Visual, inspected: the dialog at 1440px
+(light, dark) and 390px (no horizontal scroll; the field select first wrapped the move buttons under
+it at 390px and floated far from its label at 1440px, so it moved below its column's label), the
+import's preview page. Not verified: the workbook opened in Excel or LibreOffice (read with openpyxl
+only).
+
+**Differences from the plan.**
+- **The profile language grew beyond `SourceKey.versionColumn`**, all optional and additive:
+  `key.nameColumn`, and a relation binding's `idColumn`, `versionColumn` and `attributes`. Without
+  them a relationship sheet could not carry its values (D182), claim a relationship's version, or take
+  a row a person added without IDs. A main-sheet list also claims its relation set's version (a
+  hidden column), so a set changed since the export is `RELATION_SET_VERSION_CONFLICT` rather than
+  needing `onExisting: "overwrite"`.
+- **More summaries than D183 names**, each because the profile could not load it: a relation column
+  over several types or a parent relationship; a column or relationship sheet reaching the type an
+  owned-records sheet holds (its source and the sheet's would reference each other, `SOURCE_CYCLE`);
+  a relationship sheet over several types is written read-only.
+- **The summary mark is the header's text** "(not imported)", as the technical export's orientation
+  columns are, not a cell comment, which needs drawing parts the streaming writer does not write.
+- **Advanced's column order** has its own move buttons: the table's Display hides and sizes columns
+  but has no order to reuse.
+- **The dialog stays Technical by default**, so the technical export from a collection is unchanged.
+- **A relationship sheet's orientation** is the related type's display attribute; an owned-records
+  sheet is titled with the owned type's plural name and has one parent column per type its records
+  may stand under.
+- A cleared cell or list clears nothing, as for every import (INTEGRATION_API §J2).
+- My first drafts of the J27.15 and J27.16 tests had three setup mistakes (two active owned records
+  in one scope, a renamed record named by a new row, a loop that stopped before an edit) and one
+  wrong response path; fixed before implementation was judged, the cases' given/when/then unchanged.
+
+#### J6a: Workbooks people fill in — columns per parent, lists to choose from, borders
+
+**Added 2026-10-10 by the user**, after J6: a workbook for people that makes bulk administration
+intuitive, on any model. Its motivating case: giving every record of a collection its records under a
+new parent (in the example model, translations in a new language) by filling one column, and choosing
+related records from lists instead of typing names. **Design:** this entry; J6 (D179–D190), J2's
+related records (D70), K7's candidates (D168–D178). **Needs:** J6.
+
+**Exit:** a user exports a collection for people with an owned relationship laid out as **columns per
+parent** (one row per exported record, a column per chosen parent and field, a parent with no records
+yet included), fills an empty column and imports the workbook: the preview creates exactly those
+records, each under its column's parent and owned by its row's record; edited cells update their
+records, a record changed since the export is refused. Relation cells that point at another record
+offer a **dropdown** of the records the relationship may choose, from a **reference sheet**; every
+written cell has a thin border. An integrator asks for the same through `POST /exports`. It holds on
+any model: the layout is read from the model's bindings, containment and uniqueness scopes, never a
+type key.
+
+##### J6a plan (2026-10-10)
+
+**Planned 2026-10-10.** D192, D195 and D198 accepted by the user the same day, then the other
+decisions and the test cases ("approve the rest"). Checked against the working tree after J6.
+
+**What exists.**
+- **J6's workbook:** a main sheet, a sheet per chosen relationship (owned records as rows, D182, or
+  relationships as rows), hidden IDs and versions, the profile on a hidden sheet. Pointer cells (an
+  owner, a parent, a related record) name records by name; the related type's display field is
+  written for orientation. An owned record's sheet shows its **parent** only, so where the meaningful
+  grouping sits higher (a translation stands under a group, which stands under a language) a person
+  cannot see it.
+- **J2's `relatedRecord` binding** (D70): a column fills one field of the record of a type, under a
+  fixed parent (`parent.value` with a `matchBy`, `{"field": "id"}` allowed), that a relationship joins
+  to the row's record: found when one exists, created (with the required relationship) when none.
+  Columns naming the same relationship and parent fill one record. Its items **claim no version**, so
+  an edited existing record needs `onExisting: "overwrite"` today.
+- **The model's signals:** an owning binding (outgoing, required, D182); a binding's
+  `uniqueToAncestorTypeKey` (optionally conditional, `uniqueWhenToAttributeEquals`): at most one
+  related record per record within one ancestor of that type; containment (`parent_type_keys`);
+  K7's `candidate_ids` for the records an end may choose.
+- **The writer** already writes list rules, from a range of another sheet (the technical export's
+  `Lists`) or inline (Yes/No).
+
+**Behaviour.**
+
+1. **Columns per parent** (D191, D192): in Advanced, an owned relationship's sheet may be laid out as
+   **columns per parent** instead of rows. One row per exported record (its name, hidden ID); for each
+   chosen parent record of the owned type, one column per chosen field of the owned records (name or
+   an attribute). By default the parents already holding an owned record of an exported one; the user
+   adds others with the record search (the new language's group). Headers name the field and the
+   parent, and the parent's ancestor of the binding's uniqueness type when that is higher ("Translated
+   name · DE-MASTER · German").
+2. **What a cell does** (D193): an empty cell filled creates the owned record under its column's
+   parent, owned by the row's record; a filled cell edited updates it; a hidden version per row and
+   parent claims it (D194); a cleared cell clears nothing, as for every import. An owner with several
+   owned records under one parent (possible only outside a conditional uniqueness scope) cannot show
+   them in one cell: such a pair is written as a summary cell and its records stay editable in the app
+   (D195).
+3. **Reference sheets** (D196): for each relationship a pointer cell names (a single-valued main
+   column, a relationship sheet's related record, an owned sheet's parent, the owner), a sheet of the
+   records it may choose: the far type's records meeting K7's candidates for that end, with the value
+   cells hold, the name, the display field and the ancestor path for orientation, marked as not
+   imported. One sheet per far type and choice criteria, shared by every cell using it.
+4. **Dropdowns** (D197): those cells take a list rule over the reference sheet's value column. Typing
+   or pasting past it remains possible in Excel; the import stays the authority (a value finding no
+   record or several refuses its row, as now). A multi-valued main column stays a list or a summary;
+   its choices are made on its relationship sheet, one row each (as J6).
+5. **The value a pointer cell holds** (D198): the record's name by default; the field chosen for the
+   relationship in Advanced (a unique code), as `columnFields` does for a main column, applies to its
+   sheet, its reference sheet and its dropdown alike. IDs stay hidden keys of the rows a sheet holds,
+   never of pointer cells: a dropdown cell holds the text chosen, never a hidden ID beside it.
+6. **Borders** (D199): every written cell, header included, a thin neutral border.
+7. **API**: `people.ownedColumns` (`{"<sheet key>": {"parents": [<record IDs>], "fields": [...]}}`)
+   and `people.referenceLists` (relation keys whose pointer cells get a list; by default every
+   relationship the workbook names); `422 INVALID_EXPORT_LAYOUT` for a sheet that is not owned, a
+   parent the owned type cannot stand under or not in the context, a field the owned type lacks, an
+   unknown key.
+
+**Design.**
+
+- **Profile:** the columns-per-parent sheet is a source of the exported type with `record:
+  "existing"` (key: the hidden ID, then the name) whose columns are `relatedRecord` bindings, the
+  parent fixed by ID; `RelatedRecordBinding.versionColumn` (new) claims the related record's version
+  (`expectedVersion` on its upsert). Nothing else in the import changes.
+- **Reading:** the owned records under the chosen parents for the exported records, in one statement
+  into `people_links`/`people_records` as J6; the cells pivoted by PostgreSQL (one aggregate per
+  parent and field, the parents a fixed list), streamed as J6's sheets.
+- **Reference sheets:** `candidate_ids` per far type and end into a temporary table, the sheet
+  streamed from it; a list rule `'Sheet'!$A$2:$A$n` per pointer column (`xlsx.PlainSheet.lists`).
+- **Borders:** a border in `xlsx.Styles` (one more element per style); every J6 style gains it.
+- **Frontend:** Advanced gains, per owned relationship, Rows or Columns per parent with a parent
+  list (prefilled, `ObjectLookup` to add, constrained to the owned type's parent types) and its
+  fields; a tick for lists. `exportRequest` builds `ownedColumns` and `referenceLists`.
+- **Composable domains (ADR-032):** no door is affected; the layout is read from bindings, scopes and
+  containment, and translation is one configuration of an owned relationship under a scope.
+
+**Decisions** (accepted 2026-10-10 by the user):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D191 | How an owned relationship is laid out | **Accepted 2026-10-10 by the user.** **Rows (J6) or columns per parent, chosen per sheet in Advanced; rows by default.** Rows suit editing many fields of few records; columns suit filling one field for many records under a new parent |
+| D192 | Which parents get columns | **Accepted 2026-10-10 by the user.** **Those already holding an owned record of an exported one, plus any the user adds; parents of every type the owned type may stand under.** A new language's group has no records yet, so it must be addable; listing every parent of a large type by default would make the sheet unusable |
+| D193 | What a cell does | **Accepted 2026-10-10 by the user.** **Empty filled: create under the column's parent, owned by the row; filled edited: update; cleared: nothing.** J2's related record does exactly this; clearing stays explicit, as for every import |
+| D194 | Versions | **Accepted 2026-10-10 by the user.** **A hidden version per row and parent, claimed by the new `RelatedRecordBinding.versionColumn`.** Without it an edited owned record needs "overwrite", and a change made meanwhile would be lost |
+| D195 | Several owned records under one parent | **Accepted 2026-10-10 by the user.** **Written as a summary cell (the values, "; "), not loaded back; the rest of the row loads.** One cell cannot say which record to change; a declared uniqueness scope makes this rare |
+| D196 | What a reference sheet holds | **Accepted 2026-10-10 by the user.** **The records the relationship's end may choose (K7's candidates), one sheet per far type and criteria, with the value cells hold, name, display field and ancestor path; not imported.** The same set the import accepts, so a dropdown never offers a record the write would refuse |
+| D197 | Which cells get a dropdown | **Accepted 2026-10-10 by the user.** **Single-valued pointer cells: a main column of one relationship holding one record, a relationship sheet's related record, an owned sheet's parent and owner.** Excel picks one value per cell; multi-valued choices are rows on the relationship's sheet |
+| D198 | What a pointer cell holds | **Accepted 2026-10-10 by the user.** **The name, or the field chosen for the relationship in Advanced, the same in the cell, the reference sheet and the dropdown; no IDs in pointer cells.** A dropdown cell stores only the chosen text; an ID beside it needs formulas that break on added rows |
+| D199 | Borders | **Accepted 2026-10-10 by the user.** **A thin neutral border on every written cell.** The user's choice |
+
+**Test cases** (accepted 2026-10-10 by the user). API journeys, on generated A and B (in B, `D` stands under `M` under `G`:
+a parent below the uniqueness scope):
+- J27.18 (new): `R` exported for people with `Bown` as columns per parent (two parents holding `D`
+  records of the exported `R`s, one added with none) and fields name and `K.code`: one row per `R`, a
+  column per parent and field, headers naming the parent and, in B, its `G`; hidden versions; the
+  profile valid.
+- J27.19 (new): that workbook imported untouched previews as unchanged; with the added parent's column
+  filled for two `R`s, an existing cell edited and one cleared, it creates two `D`s under that parent
+  owned by their rows' `R`, updates the edited one, clears nothing; a `D` changed since the export is
+  refused `VERSION_CONFLICT`.
+- J27.20 (new): `H` exported with `Bn1` as a column, a `Bcand` sheet and `R`'s `Bown` rows: a reference
+  sheet of `K` for `Bn1`, one of the `K`s `Bcand` may choose (only codes starting "OK"), one of the
+  parents for `Bown`; each pointer column carries a list rule over its sheet; every written cell has a
+  border; a pointer cell holding a value outside its list is refused by row on import.
+- J27.21 (new): `ownedColumns` for a sheet that is not owned, a parent the owned type cannot stand
+  under, a field it lacks; `referenceLists` with an unknown key: `422 INVALID_EXPORT_LAYOUT` at each
+  pointer.
+Unit: `xlsx` (a border style; a list rule over another sheet). Vitest: `ExportDialog` (rows or
+columns per parent, a parent added, fields, lists; the request). Runner `test:browser:j6a` on the
+starter: master values exported with their translations as columns per translation group, a group of
+a new language added in Advanced, the file read with openpyxl (the headers naming group and language,
+the list rules, borders), the new column filled, imported from the page, previewed as created and
+loaded; 390px; axe on Advanced (light, dark).
+
+**Checks.** Backend: the journeys failing first, then `jobs`, `contract` (the OpenAPI diff before the
+lock); a columns-per-parent export timed once beside J6's rows on the volume fixture if it holds an
+owning relationship, otherwise said so. Frontend: Vitest `related`, format, lint, build; `j6a`, and
+`j6`, `j1u`, `j4` by exit code and `report.json`.
+
+##### J6a record (2026-10-10)
+
+**Delivered 2026-10-10.** D191–D199 and the test cases as accepted. Screenshots await the user's
+approval.
+
+**Built.**
+
+- **The request**: `PeopleLayout.ownedColumns` (`OwnedColumns`: `parents`, `fields`) and
+  `referenceLists`, checked by `plan_people` (`_owned_layouts`) and, for the parents, against the
+  context by `check_parents` at submission.
+- **Columns per parent** (D191–D195): the parents holding an owned record of an exported one plus
+  those added, ordered by the name of their ancestor of the binding's `uniqueToAncestorTypeKey`,
+  then their own; each row's cells per parent built as one JSON value by one grouped statement
+  (`people_grid`) and read by one join. The profile's source is the exported type, `record:
+  existing`, with a `relatedRecord` binding per parent and field (the parent fixed by ID).
+  `RelatedRecordBinding.versionColumn` (new) claims the related record's version; `not loaded`
+  leaves a pair out (D195).
+- **Lists** (D196–D198): one list per far type, criteria and field (`_list_specs`), each filled by
+  one insert from K7's `candidate_ids`, the records and their ancestors read with the far records,
+  the titles reserved (`Workbook.reserve`) before the sheets whose list rules name them.
+- **Borders** (D199): `Styles.xf(border=True)`; every people cell written with a bordered style,
+  empty ones too.
+- **The browser**: under a ticked owned relationship, Rows or Columns per parent, the parents to
+  add per parent type (`ui/RecordListField`, the types from the served placements) and the fields;
+  a tick for lists. `peopleLayout` builds `ownedColumns` and `referenceLists`.
+
+**Checks.** Backend: J27.18–J27.21 written first and failing (8 cases on generated A and B), then
+passing with J27.15–J27.17 (14); `jobs`, `contract` in parallel: 332 passed, 1 failed (the OpenAPI
+lock), the document diffed against `bb0cf6f` (no path; beyond J6's schemas only `OwnedColumns`,
+`PeopleLayout`'s new fields and `RelatedRecordBinding`) and re-locked, the contract tests rerun (14
+passed), the serial part passed; 1 min 16 s. `test_xlsx` (1 new: a border, a list rule over a sheet
+reserved and written later), `tests/unit/engine/imports` passed; `ruff` clean. Timed on the 0.1
+volume fixture (1,000 groups owning 14,666 cells): rows 0.76 s; columns per parent first 18.7 s, a
+query per cell, so the cells were rebuilt as one grouped statement and timed once more: 0.80 s.
+Frontend: `vitest related` 4 files, 44 passed (`ExportDialog.test` 2 new); format; lint 0 errors,
+the 7 recorded warnings; build. Runners by exit code and `report.json`: `j6a` 6 checks, `j6` 6,
+`j1u` 12, `j4` 18 (the first `j4` run failed reading an import's rows while they still loaded and
+passed unchanged on the rerun: a timing flake, not J6a's).
+
+**Evidence, separately.** Functional: `j6a` on the starter: translations of master values exported
+as columns per translation group with a new language's group added, the headers naming group and
+language, the new column empty, filled, imported from the page without a profile, previewed as two
+created and loaded, each translation checked through the API under the new group and owned by its
+master value. Accessibility: axe 0 violations on the dialog with columns per parent open, light and
+dark. Visual, inspected: the dialog at 1440px and 390px (no horizontal scroll). Not verified: the
+workbook's list rules in Excel or LibreOffice (read with openpyxl only).
+
+**Differences from the plan.**
+- **A job past a sheet's 16,384 columns** (parents × (fields + 1) + 2) fails with
+  `INVALID_EXPORT_LAYOUT` at `/people/ownedColumns/<key>`, since the number of parents holding
+  records is known only at the run.
+- **A columns-per-parent sheet replaces the rows sheet** for that relationship, so a record has one
+  place to be edited.
+- **A relationship sheet's related record holds the field its main column shows** when that field
+  identifies the records (D198), the name otherwise; the record's own name cell on that sheet gets no
+  list (D197 names the related record only).
+- **J6's runner** expected J6's sheets exactly; J6a's default lists add a `List · …` sheet, so it now
+  finds the sheets by name and checks the relationship sheet's list rule.
+- My first draft of J27.18 asserted the scope's name in generated A, where the parent is the scope
+  record itself, and its list helper read the inline Yes/No list as a sheet; both fixed before the
+  implementation was judged, the cases' given/when/then unchanged.
+- Observed, not changed: the record search in `ui/RecordListField` keeps its list open after a pick
+  (as everywhere it is used).
+
 ## Track K — Bulk selection and editing in collections
 
 **Added 2026-10-06 by the user**, after Track J, which brings the job screens it reuses. The

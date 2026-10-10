@@ -1130,6 +1130,38 @@ through the API delivered in 0.9 J2, its preview and confirmation in 0.9 J3, and
   loaded; B's own export stays exact; into a change set the IDs are those a live load gives. A row
   whose record names a counterpart not loaded yet is refused, saying to load the file holding it
   first. Without the option, J27.10's explained refusal stands.
+- **J27.15 A workbook for people**: one type's collection exported as a workbook people work in:
+  the main sheet holds the columns the table shows, in its order and labels, with typed cells,
+  relation columns as "; "-separated names (or the field the column shows, or another field chosen
+  for it) and the record's ID and version in hidden columns; a sheet per chosen relationship holds
+  the records the exported ones own, or the relationships with their values. A column that cannot
+  say what to change (a relationship with its own sheet, a field that identifies nothing) is marked
+  "(not imported)". Header frozen and filtered, name and relation columns in their types' colours,
+  and a hidden import profile that reads the workbook back.
+- **J27.16 A workbook for people read back**: the workbook imported without a profile is read
+  through the profile it carries: untouched, every item is unchanged; edited, exactly the edited
+  values, names and relationship rows change, a list of names replaces the record's set, a sheet adds
+  and changes relationships and never removes one, a summary column is ignored; a record changed
+  since the export is refused (`VERSION_CONFLICT`), a name matching several records refuses its row.
+- **J27.17 Refusals of a workbook for people**: several types, a format other than XLSX, a column
+  the type's table cannot show or a relationship the type does not have: `422
+  INVALID_EXPORT_LAYOUT` at its pointer, no job stored.
+- **J27.18 Owned records as columns per parent**: a workbook for people lays an owned relationship
+  out as one row per exported record and a column per chosen parent and field (the parents holding
+  owned records, and any added); each header names its field and parent, and the ancestor the owned
+  records are unique within when that is higher; a hidden version per row and parent.
+- **J27.19 A parent's column filled**: an empty cell filled creates the owned record under its
+  column's parent, owned by its row's record; an edited cell updates its record; a cleared cell
+  changes nothing; a record changed since the export is refused (`VERSION_CONFLICT`); untouched,
+  nothing changes.
+- **J27.20 Lists to choose from**: cells naming one other record (a single relationship's column, a
+  relationship sheet's related record, an owned record's parent and owner) offer a dropdown of the
+  records that relationship may choose, from a reference sheet of them; every written cell has a
+  border; a value outside the list is refused by row on import.
+- **J27.21 Refusals of columns and lists**: columns per parent for a relationship that owns nothing
+  or has no sheet, a parent the owned type cannot stand under or not in the context, a field it
+  lacks, a list for a relationship the workbook does not name: `422 INVALID_EXPORT_LAYOUT` at its
+  pointer.
 - **J27.13 Import a file in the browser**: Import on a collection page loads into the data the page
   shows (live or its change set); New import on Settings › Jobs chooses a workspace and its live
   data or one of its change sets. The user picks a file, a stored profile or none, the policy and
@@ -1155,6 +1187,8 @@ a job's `IMPORT_FILE_MISMATCH`, `IMPORT_FILE_UNREADABLE`, `IMPORT_TOO_MANY_ITEMS
 **Evidence today:** the J27 journey tests (`test_j27_export`, 0.9 J1; `test_j27_import`, 0.9 J2 and
 J3, the preview);
 J27.6 in the browser runner `j1u-export` and `ExportDialog.test`, `JobNotifications.test` (0.9 J1u);
+J27.15–J27.17 in `test_j27_people_workbook` and the browser runner `j6-people-workbook`, `ExportDialog.test`, `ImportDialog.test` (0.9 J6);
+J27.18–J27.21 in `test_j27_people_columns` and the browser runner `j6a-people-columns`, `ExportDialog.test` (0.9 J6a);
 J27.13 in the browser runner `j4-import` and `ImportDialog.test`, `JobPage.test`,
 `JobNotifications.test` (0.9 J4);
 unit tests of `engine/imports/` (cells, profiles, readers, the binding report) and of the row read,

@@ -694,6 +694,99 @@ td:has(> .row-problems) {
 .dialog-form .dialog-actions {
   padding-top: var(--space-4);
 }
+/* The export dialog's Advanced section for a workbook for people (0.9 J6): the main sheet's
+   columns with their order and shown field, and the relationships with a sheet of their own. */
+.export-advanced {
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+}
+.export-advanced > summary {
+  padding: 10px 14px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 550;
+  cursor: pointer;
+}
+.export-advanced[open] > summary {
+  border-bottom: 1px solid var(--border-faint);
+}
+.export-advanced-body {
+  display: grid;
+  gap: var(--space-4);
+  padding: 12px 14px;
+}
+.export-advanced-body fieldset {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.export-advanced-body legend {
+  margin-bottom: var(--space-2);
+  padding: 0;
+  font-size: var(--text-sm);
+  font-weight: 650;
+}
+.export-columns {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* A column: its checkbox and moves on one line, the field a relation column shows below it. */
+.export-columns li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-2);
+  row-gap: var(--space-1);
+  min-width: 0;
+}
+.export-columns li .checkbox {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.dialog form .export-columns select {
+  grid-column: 1 / -1;
+  width: auto;
+  max-width: min(16rem, 100%);
+  margin: 0 0 0 24px;
+}
+/* An owned relationship's sheet and, ticked, its layout below it (0.9 J6a). */
+.export-sheet {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.export-owned {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  margin-left: 24px;
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--border-faint);
+}
+.export-owned fieldset {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.export-owned legend {
+  margin-bottom: var(--space-2);
+  padding: 0;
+  font-size: var(--text-sm);
+  font-weight: 650;
+}
+.export-column-moves {
+  display: inline-flex;
+  gap: 2px;
+}
 .webhook-wait {
   max-width: 120px;
 }

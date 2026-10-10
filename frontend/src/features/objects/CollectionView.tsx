@@ -234,6 +234,11 @@ export function ObjectCollectionView({
           filters: { objectTypeKey: objectType.key, filters: query.filters },
           search: query.search || undefined,
           parentObjectId: query.parentObjectId,
+          // The table as its Display shows it, for a workbook for people (0.9 J6).
+          columns: {
+            shown: display.columns,
+            hidden: columns.filter((column) => !display.columns.includes(column)),
+          },
         })
       }
     >

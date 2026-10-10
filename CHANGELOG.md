@@ -8,6 +8,25 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 J6a: workbooks people fill in (D191–D199; J27.18–J27.21). `people.ownedColumns` lays an
+  owned relationship out as a row per record and a column per parent and field (parents holding
+  records plus those added; headers naming the parent and the ancestor the records are unique
+  within); a filled cell creates the record under its parent, owned by its row's record, an edited
+  one updates it under a version claim. Cells naming one record offer an Excel list from a reference
+  sheet of the records the relationship may choose (`people.referenceLists`); every cell has a
+  border. Import profiles gain `relatedRecord.versionColumn`. The Export dialog's Advanced offers
+  Rows or Columns per parent, the parents to add and the fields, and the lists. Browser runner
+  `test:browser:j6a`.
+- Base 0.9 J6: a workbook for people (D179–D190; J27.15–J27.17). `POST /exports` takes
+  `layout: "people"` with `people` (`columns`, `sheets`, `columnFields`) for one type as XLSX: the
+  table's columns and labels, typed cells, relation columns as "; " lists of names or a field,
+  hidden ID and version, a sheet per chosen relationship (owned records, or relationships with their
+  values), the type hues, a frozen, filtered header, and the import profile that reads it on a hidden
+  sheet; `422 INVALID_EXPORT_LAYOUT` otherwise. An XLSX imported without a profile is read through
+  the profile it carries (`parameters.profile.embedded`). Import profiles gain `key.versionColumn`,
+  `key.nameColumn` and a relation binding's `idColumn`, `versionColumn` and `attributes`. The Export
+  dialog offers For people with an Advanced section; the import page names the workbook; the job
+  reads "Workbook for people". Browser runner `test:browser:j6`.
 - Base 0.9 K7: which records a relationship may choose (D168–D178; J13.9, J13.10, J03.9, J10.11,
   J01.11). A binding may carry `candidates`, criteria for the records at its `from` end, its `to`
   end or both, over their name, any non-JSON attribute, and an ancestor's name or attribute
