@@ -1,23 +1,8 @@
-import { useState, type ReactNode } from "react";
-import { RelationFilterControl, relationFilterText, useRelationFilterNames } from "@/features/objects/RelationFilter";
-import { attributeName } from "@/model/fields";
-import { RELATED_FIELD_PREFIX } from "@/model/lookup";
-import type { CollectionQueryState, EngineModel, TableViewDefinition, ValueType } from "@/types";
-import { Icon } from "@/ui/Icon";
-import { ControlPopover } from "@/ui/ControlPopover";
+import type { ReactNode } from "react";
+import { FilterBar, filterFields } from "@/features/objects/filters/FilterBar";
+import { useRelationFilterNames } from "@/features/objects/RelationFilter";
+import type { CollectionFilter, CollectionQueryState, EngineModel, TableViewDefinition } from "@/types";
 import { DebouncedSearchField } from "@/ui/SearchField";
-
-const OPERATOR_LABELS: Record<string, string> = {
-  eq: "is",
-  contains: "contains",
-  startsWith: "starts with",
-  lt: "is less than",
-  lte: "is at most",
-  gt: "is greater than",
-  gte: "is at least",
-  isNull: "is null",
-  isUnset: "is unset",
-};
 
 export function ObjectToolbar({
   model,
@@ -28,6 +13,8 @@ export function ObjectToolbar({
   display,
   sortMenu,
   workspaceKey,
+  noun,
+  countDraft,
 }: {
   display: ReactNode;
   /** The sort menu, when a declared sort field has no visible column header. */
@@ -39,17 +26,13 @@ export function ObjectToolbar({
   onChange: (query: CollectionQueryState) => void;
   /** Where a relationship filter's record picker searches. */
   workspaceKey?: string;
+  /** The listed records' names, singular and plural, for the phone sheet's Show N. */
+  noun: readonly [string, string];
+  /** How many records the list shows with these filters, for the phone sheet (D163). */
+  countDraft: (filters: CollectionFilter[]) => Promise<number | undefined>;
 }) {
   const objectTypeKey = view.objectTypeKey ?? "";
   const names = useRelationFilterNames(model, objectTypeKey, query.filters, workspaceKey);
-  // A relationship filter is several entries of one field (0.9 K6); it counts, and shows, as one.
-  const fields = [...new Set(query.filters.map((filter) => filter.field))];
-  function applyFilter(field: string, input: { operator: string; value: string }) {
-    const remaining = query.filters.filter((filter) => filter.field !== field);
-    const filters = input.value === "" ? remaining : [...remaining, { field, ...input }];
-    onChange({ ...query, filters });
-  }
-
   return (
     <>
       <div className="collection-toolbar object-toolbar">
@@ -59,193 +42,29 @@ export function ObjectToolbar({
           placeholder={placeholder}
           onApply={(search) => onChange({ ...query, search })}
         />
-        {view.config.filterFields.length > 0 && (
-          <ControlPopover label="Filter" icon="filter" count={fields.length}>
-            <div className="filter-fields">
-              {view.config.filterFields.map((field) => {
-                if (field.startsWith(RELATED_FIELD_PREFIX))
-                  return (
-                    <RelationFilterControl
-                      key={field}
-                      model={model}
-                      objectTypeKey={objectTypeKey}
-                      field={field}
-                      label={attributeName(model, field)}
-                      entries={query.filters.filter((filter) => filter.field === field)}
-                      names={names}
-                      workspaceKey={workspaceKey}
-                      onApply={(entries) =>
-                        onChange({
-                          ...query,
-                          filters: [...query.filters.filter((filter) => filter.field !== field), ...entries],
-                        })
-                      }
-                    />
-                  );
-                const type = valueType(model, field);
-                const current = query.filters.find((filter) => filter.field === field);
-                return (
-                  <FilterControl
-                    key={field}
-                    label={attributeName(model, field)}
-                    type={type}
-                    attribute={!isBuiltIn(field)}
-                    initial={current ?? { operator: defaultOperator(type), value: "" }}
-                    onApply={(input) => applyFilter(field, input)}
-                  />
-                );
-              })}
-            </div>
-            {query.filters.length > 0 && (
-              <button type="button" className="ghost" onClick={() => onChange({ ...query, filters: [] })}>
-                Clear all filters
-              </button>
-            )}
-          </ControlPopover>
-        )}
-        {display}
-        {sortMenu}
+        <FilterBar
+          model={model}
+          objectTypeKey={objectTypeKey}
+          fields={filterFields(model, view.config.filterFields)}
+          filters={query.filters}
+          names={names}
+          workspaceKey={workspaceKey}
+          noun={noun}
+          countDraft={countDraft}
+          onChange={(filters) => onChange({ ...query, filters })}
+        />
+        <div className="object-toolbar-end">
+          {display}
+          {sortMenu}
+        </div>
       </div>
-      <div className="filter-chips" aria-label="Applied filters">
-        {fields
-          .filter((field) => field.startsWith(RELATED_FIELD_PREFIX))
-          .map((field) => {
-            const entries = query.filters.filter((filter) => filter.field === field);
-            const text = relationFilterText(entries, names);
-            return (
-              <button
-                className="filter-chip"
-                key={field}
-                aria-label={`Remove ${attributeName(model, field)} ${text}`}
-                onClick={() =>
-                  onChange({ ...query, filters: query.filters.filter((filter) => filter.field !== field) })
-                }
-              >
-                <span>
-                  {attributeName(model, field)} <em>{text}</em>
-                </span>
-                <Icon name="close" size={13} />
-              </button>
-            );
-          })}
-        {query.filters.map((filter, index) =>
-          filter.field.startsWith(RELATED_FIELD_PREFIX) ? null : (
-            <button
-              className="filter-chip"
-              key={`${filter.field}:${filter.operator}:${index}`}
-              aria-label={`Remove ${attributeName(model, filter.field)} ${OPERATOR_LABELS[filter.operator] ?? filter.operator} ${filter.value}`}
-              onClick={() => onChange({ ...query, filters: query.filters.filter((_, position) => position !== index) })}
-            >
-              <span>
-                {attributeName(model, filter.field)} <em>{OPERATOR_LABELS[filter.operator] ?? filter.operator}</em>{" "}
-                {filter.value}
-              </span>
-              <Icon name="close" size={13} />
-            </button>
-          ),
-        )}
-        {(query.search !== "" || query.filters.length > 0) && (
+      {query.search !== "" && query.filters.length > 0 && (
+        <div className="filter-chips" aria-label="Applied search">
           <button className="ghost" onClick={() => onChange({ ...query, search: "", filters: [] })}>
-            Clear filters
+            Clear search and filters
           </button>
-        )}
-      </div>
+        </div>
+      )}
     </>
   );
-}
-
-function FilterControl({
-  label,
-  type,
-  attribute,
-  initial,
-  onApply,
-}: {
-  label: string;
-  type: ValueType;
-  attribute: boolean;
-  initial: { operator: string; value: string };
-  onApply: (input: { operator: string; value: string }) => void;
-}) {
-  const [input, setInput] = useState(initial);
-  const [applied, setApplied] = useState(initial);
-  if (applied.operator !== initial.operator || applied.value !== initial.value) {
-    setApplied(initial);
-    setInput(initial);
-  }
-  const operators = filterOperators(type, attribute);
-  const booleanValue = type === "boolean" || input.operator === "isNull" || input.operator === "isUnset";
-  return (
-    <div className="toolbar-filter">
-      <span>{label}</span>
-      <select
-        aria-label={`${label} operator`}
-        value={input.operator}
-        onChange={(event) => {
-          const next = { operator: event.target.value, value: "" };
-          setInput(next);
-        }}
-      >
-        {operators.map((operator) => (
-          <option key={operator} value={operator}>
-            {OPERATOR_LABELS[operator]}
-          </option>
-        ))}
-      </select>
-      {booleanValue ? (
-        <select
-          aria-label={`${label} value`}
-          value={input.value}
-          onChange={(event) => {
-            const next = { ...input, value: event.target.value };
-            setInput(next);
-            onApply(next);
-          }}
-        >
-          <option value="">Any</option>
-          <option value="true">Yes</option>
-          <option value="false">No</option>
-        </select>
-      ) : (
-        <input
-          aria-label={`${label} value`}
-          type={inputType(type)}
-          value={input.value}
-          onChange={(event) => setInput({ ...input, value: event.target.value })}
-          onBlur={(event) => onApply({ ...input, value: event.target.value.trim() })}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") onApply({ ...input, value: event.currentTarget.value.trim() });
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
-function isBuiltIn(field: string) {
-  return ["id", "name", "createdAt", "updatedAt"].includes(field);
-}
-
-function valueType(model: EngineModel, field: string): ValueType {
-  if (["createdAt", "updatedAt"].includes(field)) return "dateTime";
-  return model.attributeTypes.find((attribute) => attribute.key === field)?.valueType ?? "text";
-}
-
-function defaultOperator(type: ValueType) {
-  return type === "text" || type === "longText" ? "contains" : "eq";
-}
-
-function filterOperators(type: ValueType, attribute: boolean) {
-  const unset = attribute ? ["isUnset"] : [];
-  if (type === "text" || type === "longText") return ["eq", "contains", "startsWith", "isNull", ...unset];
-  if (["integer", "decimal", "date", "dateTime"].includes(type))
-    return ["eq", "lt", "lte", "gt", "gte", "isNull", ...unset];
-  return ["eq", "isNull", ...unset];
-}
-
-function inputType(type: ValueType) {
-  if (type === "integer" || type === "decimal") return "number";
-  if (type === "date") return "date";
-  if (type === "dateTime") return "datetime-local";
-  return "text";
 }

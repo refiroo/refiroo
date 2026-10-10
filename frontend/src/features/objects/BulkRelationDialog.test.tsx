@@ -15,6 +15,7 @@ vi.mock("@/api/client", async (importOriginal) => ({
   api: {
     capabilities: vi.fn(),
     objects: vi.fn(),
+    heldRecords: vi.fn(),
     startBatch: vi.fn(),
     confirmJob: vi.fn(),
     cancelJob: vi.fn(),
@@ -86,11 +87,12 @@ function open(selected = 2) {
   return { onOpenRecord };
 }
 
-async function pick(field: string, name: RegExp) {
-  const search = screen.getByRole("combobox", { name: `Search: ${field}` });
-  const listbox = screen.getByRole("listbox", { name: field });
-  fireEvent.click(await within(listbox).findByRole("option", { name }));
-  return search;
+/** A record ticked in the dialog's record checklist (K6a). */
+async function tick(name: string) {
+  const list = await screen.findByRole("group", { name: "Codelists" });
+  const row = (await within(list).findByText(name)).closest("label")!;
+  fireEvent.click(within(row).getByRole("checkbox"));
+  return row;
 }
 
 const modes = () =>
@@ -105,6 +107,11 @@ describe("BulkRelationDialog (0.9 K3)", () => {
     vi.stubGlobal("EventSource", PushedEventSource);
     vi.mocked(api.capabilities).mockResolvedValue(capabilitiesFixture());
     vi.mocked(api.objects).mockResolvedValue({ items: codelists, nextCursor: null });
+    // Alpha holds Sizes (D165).
+    vi.mocked(api.heldRecords).mockResolvedValue({
+      items: [{ object: { id: "c2", name: "Sizes", objectTypeKey: "codelist" }, count: 1 }],
+      nextCursor: null,
+    });
     vi.mocked(api.startBatch).mockResolvedValue(job({}));
     vi.mocked(api.cancelJob).mockResolvedValue(job({ state: "cancelled" }));
   });
@@ -112,19 +119,45 @@ describe("BulkRelationDialog (0.9 K3)", () => {
 
   it("offers each relationship's actions from its cardinality", () => {
     open();
-    const relationship = screen.getByRole("combobox", { name: "Which relationship" });
+    const relationship = screen.getByRole("radiogroup", { name: "Which relationship" });
     expect(
       within(relationship)
-        .getAllByRole("option")
-        .map((option) => option.textContent),
+        .getAllByRole("radio")
+        .map((radio) => radio.textContent),
     ).toEqual(["Cites · Codelists", "Filed under · Codelists"]);
-    expect(modes()).toEqual(["Add or remove", "Replace with", "Clear"]);
-    fireEvent.change(relationship, { target: { value: "1" } });
+    expect(modes()).toEqual(["Add", "Remove", "Replace with", "Clear"]);
+    fireEvent.click(within(relationship).getByRole("radio", { name: /^Filed under/ }));
     // A domain is filed under one codelist: it is set, not added to (D128).
     expect(modes()).toEqual(["Set to", "Clear"]);
   });
 
-  it("adds and removes by the two records, states the changes it makes and says the preview in relationships", async () => {
+  it("removes only what the selection holds, each with how many hold it; Add marks those held (K6a, D165)", async () => {
+    open();
+    fireEvent.click(screen.getByRole("radio", { name: "Remove" }));
+    const row = await tick("Sizes");
+    expect(row).toHaveTextContent("on 1 of 2");
+    expect(within(screen.getByRole("group", { name: "Codelists" })).queryByText("Colours")).toBeNull();
+    expect(api.heldRecords).toHaveBeenCalledWith(
+      expect.objectContaining({
+        objectTypeKey: "domain",
+        relationTypeKey: "cites",
+        direction: "outgoing",
+        objectIds: ["a", "b"],
+      }),
+    );
+    expect(screen.getByText("Removes 1 relationship")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    await waitFor(() => expect(api.startBatch).toHaveBeenCalled());
+    const items = vi.mocked(api.startBatch).mock.calls[0][0].items as BatchRelationItem[];
+    expect(items.map((item) => [item.op, item.ref])).toEqual([
+      ["ensureNoRelation", "Alpha → Sizes"],
+      ["ensureNoRelation", "Beta → Sizes"],
+    ]);
+    // The preview follows its job's stream; the test ends once it is open.
+    await waitFor(() => expect(PushedEventSource.open.length).toBeGreaterThan(0));
+  });
+
+  it("adds by the two records, states the changes it makes and says the preview in relationships", async () => {
     vi.mocked(api.jobItems).mockResolvedValue({
       items: [
         { index: 0, ref: "Alpha → Colours", status: "applied", action: "created", relationId: "r1" },
@@ -142,17 +175,17 @@ describe("BulkRelationDialog (0.9 K3)", () => {
       nextCursor: null,
     });
     const { onOpenRecord } = open();
-    await pick("Add codelists", /Colours/);
-    await pick("Remove codelists", /Sizes/);
-    expect(screen.getByText("2 domains × 2 codelists: 4 changes.")).toBeInTheDocument();
+    expect(await tick("Sizes")).toHaveTextContent("already on 1");
+    await tick("Colours");
+    expect(screen.getByText("2 domains × 2 codelists: up to 4 changes")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Preview" }));
     await waitFor(() => expect(api.startBatch).toHaveBeenCalled());
     const items = vi.mocked(api.startBatch).mock.calls[0][0].items as BatchRelationItem[];
     expect(items.map((item) => [item.op, item.ref])).toEqual([
+      ["ensureRelation", "Alpha → Sizes"],
       ["ensureRelation", "Alpha → Colours"],
-      ["ensureNoRelation", "Alpha → Sizes"],
+      ["ensureRelation", "Beta → Sizes"],
       ["ensureRelation", "Beta → Colours"],
-      ["ensureNoRelation", "Beta → Sizes"],
     ]);
 
     await PushedEventSource.push(
@@ -220,8 +253,8 @@ describe("BulkRelationDialog (0.9 K3)", () => {
     vi.mocked(api.confirmJob).mockResolvedValue({ ...waiting, state: "queued", confirmedAt: "2026-10-09T09:01:00Z" });
     open();
     fireEvent.click(screen.getByRole("radio", { name: "Replace with" }));
-    await pick("Replace with codelists", /Colours/);
-    expect(screen.getByText("One change for each selected domain: 2 changes.")).toBeInTheDocument();
+    await tick("Colours");
+    expect(screen.getByText("One change for each selected domain: 2 changes")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Preview" }));
     await PushedEventSource.push(waiting);
     fireEvent.click(await screen.findByRole("button", { name: "Apply" }));

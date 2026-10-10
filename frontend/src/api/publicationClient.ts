@@ -8,6 +8,7 @@ export function createPublicationClient(publicationId: string): typeof api {
     object: (type, id, workspace) => api.object(type, id, workspace, undefined, publicationId),
     attribute: (type, id, key) => api.attribute(type, id, key, undefined, publicationId),
     relations: (id, options) => api.relations(id, { ...options, changeSetId: undefined, publicationId: publicationId }),
+    heldRecords: (query) => api.heldRecords({ ...query, changeSetId: undefined, publicationId: publicationId }),
     relation: (id, workspace) => api.relation(id, workspace, undefined, publicationId),
     mappingCoverage: (query) => api.mappingCoverage({ ...query, changeSetId: undefined, publicationId: publicationId }),
     mappingTargets: (query) => api.mappingTargets({ ...query, changeSetId: undefined, publicationId: publicationId }),

@@ -68,16 +68,16 @@ describe("CollectionView", () => {
         onOpen={vi.fn()}
       />,
     );
+    // ＋ Filter lists the view's filter fields (K6a); one opens its editor.
     fireEvent.click(screen.getByRole("button", { name: "Filter" }));
     const filters = await screen.findByRole("dialog", { name: "Filter" });
-    expect(within(filters).getByRole("combobox", { name: "Code operator" })).toBeInTheDocument();
-    expect(within(filters).getByRole("combobox", { name: "Active value" })).toBeInTheDocument();
-    expect(screen.queryByLabelText("States")).not.toBeInTheDocument();
-    fireEvent.change(screen.getByRole("combobox", { name: "Code operator" }), {
-      target: { value: "startsWith" },
-    });
-    fireEvent.change(screen.getByRole("textbox", { name: "Code value" }), { target: { value: "CLI" } });
-    fireEvent.blur(screen.getByRole("textbox", { name: "Code value" }));
+    expect(within(filters).getByRole("button", { name: "Code" })).toBeInTheDocument();
+    expect(within(filters).getByRole("button", { name: "Active" })).toBeInTheDocument();
+    expect(within(filters).queryByRole("button", { name: "States" })).not.toBeInTheDocument();
+    fireEvent.click(within(filters).getByRole("button", { name: "Code" }));
+    fireEvent.click(await screen.findByRole("radio", { name: "Starts with" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Code" }), { target: { value: "CLI" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
     expect(onQueryChange).toHaveBeenLastCalledWith(
       expect.objectContaining({ filters: [{ field: "code", operator: "startsWith", value: "CLI" }] }),
     );
@@ -102,7 +102,7 @@ describe("CollectionView", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear search and filters" }));
 
     expect(onQueryChange).toHaveBeenCalledWith({
       search: "",
@@ -210,17 +210,30 @@ it.each(["domain", "codelist"])("preserves typed filters and query/display owner
   }
   render(<Harness />);
   await screen.findByRole("button", { name: "Connections" });
-  expect(screen.queryByLabelText("Count value")).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Filter" }));
-  await screen.findByRole("dialog", { name: "Filter" });
-  fireEvent.change(screen.getByLabelText("Count value"), { target: { value: "0" } });
-  fireEvent.keyDown(screen.getByLabelText("Count value"), { key: "Enter" });
-  fireEvent.change(screen.getByLabelText("Active value"), { target: { value: "false" } });
-  fireEvent.change(screen.getByLabelText("Date operator"), { target: { value: "gte" } });
-  fireEvent.change(screen.getByLabelText("Date value"), { target: { value: "2026-01-01" } });
-  fireEvent.blur(screen.getByLabelText("Date value"));
-  fireEvent.change(screen.getByLabelText("Code operator"), { target: { value: "isUnset" } });
-  fireEvent.change(screen.getByLabelText("Code value"), { target: { value: "true" } });
+  // Each filter is added from ＋ Filter's menu into its own editor (K6a, D160–D162).
+  const add = async (field: string) => {
+    fireEvent.click(screen.getByRole("button", { name: "Filter" }));
+    const menu = await screen.findByRole("dialog", { name: "Filter" });
+    fireEvent.click(within(menu).getByRole("button", { name: field }));
+    return screen.findByLabelText(`Filter by ${field}`);
+  };
+  expect(screen.queryByRole("form", { name: "Filter by Count" })).not.toBeInTheDocument();
+  let editor = await add("Count");
+  fireEvent.change(within(editor).getByRole("spinbutton", { name: "Count" }), { target: { value: "0" } });
+  fireEvent.click(within(editor).getByRole("button", { name: "Apply" }));
+  editor = await add("Active");
+  fireEvent.click(within(editor).getByRole("radio", { name: "No" }));
+  editor = await add("Date");
+  fireEvent.change(within(editor).getByRole("combobox", { name: "More conditions for Date" }), {
+    target: { value: "gte" },
+  });
+  fireEvent.change(within(editor).getByLabelText("Date"), { target: { value: "2026-01-01" } });
+  fireEvent.click(within(editor).getByRole("button", { name: "Apply" }));
+  editor = await add("Code");
+  fireEvent.change(within(editor).getByRole("combobox", { name: "More conditions for Code" }), {
+    target: { value: "isUnset" },
+  });
+  fireEvent.click(within(editor).getByRole("button", { name: "Apply" }));
   expect(latest!.filters).toEqual([
     { field: "count", operator: "eq", value: "0" },
     { field: "active", operator: "eq", value: "false" },
@@ -228,12 +241,18 @@ it.each(["domain", "codelist"])("preserves typed filters and query/display owner
     { field: "code", operator: "isUnset", value: "true" },
   ]);
   expect(latest!.anchor).toBeUndefined();
-  fireEvent.change(screen.getByLabelText("Code operator"), { target: { value: "isNull" } });
-  fireEvent.change(screen.getByLabelText("Code value"), { target: { value: "false" } });
+  // The pill reopens its editor: Code has a value.
+  fireEvent.click(screen.getByRole("button", { name: /^Code: not set/ }));
+  editor = await screen.findByRole("form", { name: "Filter by Code" });
+  fireEvent.change(within(editor).getByRole("combobox", { name: "More conditions for Code" }), {
+    target: { value: "isNull:false" },
+  });
+  fireEvent.click(within(editor).getByRole("button", { name: "Apply" }));
   expect(latest!.filters.at(-1)).toEqual({ field: "code", operator: "isNull", value: "false" });
-  fireEvent.click(screen.getByRole("button", { name: "Done" }));
-  expect(screen.getByRole("button", { name: "Filter, 4 applied" })).toBeVisible();
-  fireEvent.click(screen.getByRole("button", { name: "Remove Count is 0" }));
+  expect(
+    within(screen.getByRole("group", { name: "Filters" })).getAllByRole("button", { name: /^Remove the/ }),
+  ).toHaveLength(4);
+  fireEvent.click(screen.getByRole("button", { name: "Remove the Count filter" }));
   expect(latest!.filters.map((filter) => filter.field)).toEqual(["active", "date", "code"]);
   fireEvent.click(screen.getByRole("button", { name: "Display" }));
   const display = await screen.findByRole("dialog", { name: "Display" });
@@ -317,8 +336,9 @@ describe("timestamps outside live data (WP-10K)", () => {
         expect.objectContaining({ sort: "-updatedAt", filters: timestampQuery.filters }),
       ),
     );
-    fireEvent.click(screen.getByRole("button", { name: /^Filter/ }));
-    expect(await screen.findByRole("combobox", { name: "Created operator" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Filter" }));
+    const menu = await screen.findByRole("dialog", { name: "Filter" });
+    expect(within(menu).getByRole("button", { name: "Created, applied" })).toBeInTheDocument();
   });
 
   it.each([
@@ -333,10 +353,11 @@ describe("timestamps outside live data (WP-10K)", () => {
     // An unrecorded timestamp column reads as absent, never as a date.
     const row = (await screen.findByRole("button", { name: "Connections" })).closest("tr")!;
     expect(within(row).getByText("—")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /^Filter/ }));
-    await screen.findByRole("combobox", { name: "Code operator" });
-    expect(screen.queryByRole("combobox", { name: "Created operator" })).not.toBeInTheDocument();
-    fireEvent.keyDown(screen.getByRole("dialog", { name: "Filter" }), { key: "Escape" });
+    fireEvent.click(screen.getByRole("button", { name: "Filter" }));
+    const menu = await screen.findByRole("dialog", { name: "Filter" });
+    expect(within(menu).getByRole("button", { name: "Code" })).toBeInTheDocument();
+    expect(within(menu).queryByRole("button", { name: "Created" })).not.toBeInTheDocument();
+    fireEvent.keyDown(menu, { key: "Escape" });
     // Name still sorts from its header and the menu; the unrecorded timestamp column is a plain
     // header and absent from the menu.
     expect(screen.getByRole("columnheader", { name: /Name/ })).toHaveAttribute("aria-sort", "ascending");
@@ -507,7 +528,12 @@ describe("selecting records in a collection (0.9 K1)", () => {
   it("offers every matching record once the loaded ones are selected, and keeps exceptions", async () => {
     renderCollection();
     fireEvent.click(await screen.findByRole("checkbox", { name: "Select Alpha" }));
-    expect(screen.getByRole("group", { name: "Selection" })).toHaveTextContent("1 selected");
+    const bar = screen.getByRole("group", { name: "Selection" });
+    expect(bar).toHaveTextContent("1 selected");
+    // The actions as icon buttons with their names, the clear as × (K6a, D166).
+    for (const name of ["Change values", "Delete"])
+      expect(within(bar).getByRole("button", { name }).querySelector("svg")).not.toBeNull();
+    expect(within(bar).getByRole("button", { name: "Clear selection" })).not.toHaveTextContent("Clear selection");
     expect(screen.queryByRole("button", { name: /Select all/ })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("checkbox", { name: "Select the records shown" }));
     fireEvent.click(await screen.findByRole("button", { name: "Select all 3 matching" }));

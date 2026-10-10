@@ -1,0 +1,147 @@
+/**
+ * Choosing records by ticking them (0.9 K6a): a search, then a list of records with a checkbox each,
+ * the ticked ones pinned on top and counted. The records are either searched in the data context
+ * (every record of `objectTypeKeys`, by name) or given (`records`, such as the ones a selection
+ * holds, searched in place). Several types are listed under a heading each. Ticking changes nothing
+ * until the caller applies it.
+ */
+
+import { useEffect, useId, useState } from "react";
+import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
+import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
+import { objectTypeHue } from "@/model/hues";
+import { objectTypeFor } from "@/model/lookup";
+import type { EngineModel } from "@/types";
+import { Icon } from "@/ui/Icon";
+import { RecordChip } from "@/ui/RecordChip";
+
+export interface ChecklistRecord {
+  id: string;
+  name: string;
+  objectTypeKey: string;
+  /** Said at the row's end: "on 4 of 12", "already on 9". */
+  hint?: string;
+}
+
+const PAGE = 50;
+
+export function RecordChecklist({
+  model,
+  label,
+  objectTypeKeys,
+  workspaceKey,
+  records,
+  chosen,
+  hintFor,
+  emptyText,
+  onChange,
+}: {
+  model: EngineModel;
+  /** What the records are, as the search and the list name them ("Master values"). */
+  label: string;
+  objectTypeKeys: readonly string[];
+  workspaceKey?: string;
+  /** The records to choose from; omitted, every record of the types is searched. */
+  records?: readonly ChecklistRecord[];
+  chosen: readonly ChecklistRecord[];
+  /** A hint for a searched record, such as how many selected records already hold it. */
+  hintFor?: (id: string) => string | undefined;
+  emptyText?: string;
+  onChange: (chosen: ChecklistRecord[]) => void;
+}) {
+  const api = useDataApi();
+  const id = useId();
+  const [query, setQuery] = useState("");
+  const search = useDebouncedValue(query.trim());
+  const [found, setFound] = useState<{ of: string; records: ChecklistRecord[] }>();
+  const typesKey = objectTypeKeys.join(" ");
+
+  useEffect(() => {
+    if (records) return;
+    let cancelled = false;
+    Promise.all(
+      typesKey
+        .split(" ")
+        .map((type) => api.objects(type, { workspaceKey, search: search || undefined, pageSize: PAGE, sort: "name" })),
+    )
+      .then((pages) => {
+        if (cancelled) return;
+        setFound({
+          of: `${typesKey}|${search}`,
+          records: pages.flatMap((page) =>
+            page.items.map((item) => ({ id: item.id, name: item.name, objectTypeKey: item.objectTypeKey })),
+          ),
+        });
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [api, records, search, typesKey, workspaceKey]);
+
+  const term = query.trim().toLowerCase();
+  const listed = records
+    ? records.filter((record) => !term || record.name.toLowerCase().includes(term))
+    : found?.of === `${typesKey}|${search}`
+      ? found.records
+      : undefined;
+  const chosenIds = new Set(chosen.map((record) => record.id));
+  // The ticked records stay on top, whether or not the search finds them.
+  const rows = [
+    ...chosen.filter((record) => !term || record.name.toLowerCase().includes(term)),
+    ...(listed ?? []).filter((record) => !chosenIds.has(record.id)),
+  ];
+  const groups = objectTypeKeys.length > 1 ? objectTypeKeys : [undefined];
+
+  function toggle(record: ChecklistRecord) {
+    onChange(chosenIds.has(record.id) ? chosen.filter((item) => item.id !== record.id) : [...chosen, record]);
+  }
+
+  return (
+    <div className="record-checklist">
+      <label className="record-checklist-search">
+        <Icon name="search" size={15} />
+        <input
+          type="search"
+          aria-label={`Search ${label.toLowerCase()}`}
+          placeholder={`Search ${label.toLowerCase()}`}
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+      </label>
+      <div className="record-checklist-list" role="group" aria-label={label} aria-describedby={`${id}-count`}>
+        {groups.map((type) => {
+          const inGroup = type ? rows.filter((record) => record.objectTypeKey === type) : rows;
+          if (type && !inGroup.length) return null;
+          return (
+            <div key={type ?? "all"}>
+              {type && <p className="record-checklist-heading">{objectTypeFor(model, type)?.pluralName ?? type}</p>}
+              {inGroup.map((record) => {
+                const hint = record.hint ?? hintFor?.(record.id);
+                return (
+                  <label
+                    key={record.id}
+                    className={chosenIds.has(record.id) ? "record-checklist-row chosen" : "record-checklist-row"}
+                  >
+                    <input type="checkbox" checked={chosenIds.has(record.id)} onChange={() => toggle(record)} />
+                    <RecordChip hue={objectTypeHue(model, record.objectTypeKey)}>{record.name}</RecordChip>
+                    {hint && <span className="record-checklist-hint">{hint}</span>}
+                  </label>
+                );
+              })}
+            </div>
+          );
+        })}
+        {listed !== undefined && !rows.length && (
+          <p className="record-checklist-empty">
+            {term ? `Nothing matches “${query.trim()}”.` : (emptyText ?? "Nothing to choose.")}
+          </p>
+        )}
+        {listed === undefined && <p className="record-checklist-empty">Searching…</p>}
+      </div>
+      <p id={`${id}-count`} className="record-checklist-count" aria-live="polite">
+        {chosen.length === 1 ? "1 selected" : `${chosen.length} selected`}
+      </p>
+    </div>
+  );
+}

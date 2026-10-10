@@ -16,8 +16,8 @@ import { BulkJobDialog, targetText } from "./BulkJobDialog";
 import { deletedIds, deleteItems, deleteLabel, deletionWords } from "./bulkDelete";
 
 const POLICIES = [
-  ["independent", "Delete the records that can be deleted"],
-  ["atomic", "Delete nothing unless every record can"],
+  ["independent", "Delete the rest"],
+  ["atomic", "Delete none"],
 ] as const;
 
 export function BulkDeleteDialog({
@@ -74,13 +74,14 @@ export function BulkDeleteDialog({
   return (
     <BulkJobDialog
       title="Delete"
+      icon="trash"
       noun={noun}
       target={targetText(selection, selected, noun)}
       selection={selection}
       selected={selected}
       workspaceKey={workspaceKey}
       policies={POLICIES}
-      policyLabel="Records that cannot be deleted"
+      policyLabel="If a record cannot be deleted"
       applyingHint="Nothing is deleted yet: the preview shows everything deleting removes, then you delete it."
       nothing="Nothing to delete"
       prepare={() => (rows) => ({ items: deleteItems(rows) })}

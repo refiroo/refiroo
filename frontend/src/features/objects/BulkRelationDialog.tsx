@@ -1,43 +1,52 @@
 /**
- * Change the relationships of the selected records (0.9 K3, J32.4). The user picks one relationship
- * the model allows the type (D127) and what to do with it, as its cardinality allows (D128): Add and
- * Remove records together (D133), Replace with, Set to one record, or Clear; the other records come
- * from the record picker. Relationship values are not edited here (D132). The dialog says how many
- * changes the selection makes and explains a change over the deployment's limits before sending
- * (D131, D134); the preview, Apply and the result are the flow every bulk action shares
- * (`BulkJobDialog`). A relationship write moves no record's version, so the selection stays as it is.
+ * Change the relationships of the selected records (0.9 K3, J32.4; K6a, D165, D167). The user picks
+ * one relationship the model allows the type (D127), as pills, and an action its cardinality allows
+ * (D128): Add, Remove, Replace with, Set to one record, or Clear, each on its own (D133 revised by
+ * D167). The records come from a record checklist; Remove lists only the records the selection
+ * holds, each with how many hold it (`GET /relations/held`), and Add marks those some already hold.
+ * Relationship values are not edited here (D132). The dialog says how many changes the selection
+ * makes and explains a change over the deployment's limits before sending (D131, D134); the
+ * preview, Apply and the result are the flow every bulk action shares (`BulkJobDialog`). A
+ * relationship write moves no record's version, so the selection stays as it is.
  */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Noun } from "@/features/jobs/BatchOutcome";
 import { count } from "@/features/settings/limits";
 import { useCapabilities } from "@/features/settings/useSystem";
+import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import type { RecordSelection, SelectableRow } from "@/lib/recordSelection";
 import { bulkRelationChoices, objectTypeFor, type BulkRelationChoice } from "@/model/lookup";
 import type { EngineModel, ObjectTypeDefinition } from "@/types";
 import { Choice } from "@/ui/Choice";
-import { ObjectLookup } from "@/ui/ObjectLookup";
-import { RecordListField, type ChosenRecord } from "@/ui/RecordListField";
-import { claimedByPreview, itemCount, relationItems, type RelationChange, type RelationMode } from "./bulkRelations";
+import type { IconName } from "@/ui/Icon";
+import { RecordChecklist, type ChecklistRecord } from "@/ui/RecordChecklist";
+import { claimedByPreview, itemCount, relationItems, type RelationChange } from "./bulkRelations";
 import { BulkJobDialog, targetText, type Problem } from "./BulkJobDialog";
 
 const POLICIES = [
-  ["independent", "Change the records that can change"],
-  ["atomic", "Change nothing unless every record can"],
+  ["independent", "Change the rest"],
+  ["atomic", "Change none"],
 ] as const;
 
 const RELATIONSHIPS: Noun = ["relationship", "relationships"];
 
-/** The modes a relationship offers, in the order shown. */
-function modesOf(choice: BulkRelationChoice): (readonly [RelationMode, string])[] {
+type Action = "add" | "remove" | "replace" | "set" | "clear";
+
+/** The actions a relationship offers, in the order shown, each with its glyph (D128, D167). */
+function actionsOf(choice: BulkRelationChoice): (readonly [Action, string, IconName])[] {
   const { add, remove, replace, set, clear } = choice.actions;
   return [
-    ...(add || remove ? [["change", add && remove ? "Add or remove" : add ? "Add" : "Remove"] as const] : []),
-    ...(replace ? [["replace", "Replace with"] as const] : []),
-    ...(set ? [["set", "Set to"] as const] : []),
-    ...(clear ? [["clear", "Clear"] as const] : []),
+    ...(add ? [["add", "Add", "plus"] as const] : []),
+    ...(remove ? [["remove", "Remove", "minus"] as const] : []),
+    ...(replace ? [["replace", "Replace with", "replace"] as const] : []),
+    ...(set ? [["set", "Set to", "check"] as const] : []),
+    ...(clear ? [["clear", "Clear", "close"] as const] : []),
   ];
 }
+
+/** How many of the read IDs one held-records request names (an address the server accepts). */
+const HELD_BATCH = 200;
 
 /** Whether the type's records have any relationship a bulk change may change (D127). */
 export function hasBulkRelations(model: EngineModel, objectType: ObjectTypeDefinition): boolean {
@@ -71,38 +80,84 @@ export function BulkRelationDialog({
   onOpenRecord: (id: string) => void;
 }) {
   const { capabilities } = useCapabilities();
+  const api = useDataApi();
   const choices = bulkRelationChoices(model, objectType.key);
   const noun: Noun = [objectType.name.toLowerCase(), objectType.pluralName.toLowerCase()];
   const [chosen, setChosen] = useState(0);
   const choice = choices[chosen];
-  const modes = choice ? modesOf(choice) : [];
-  const [picked, setPicked] = useState<RelationMode>();
-  const mode = modes.some(([value]) => value === picked) ? picked! : (modes[0]?.[0] ?? "clear");
-  const [add, setAdd] = useState<ChosenRecord[]>([]);
-  const [remove, setRemove] = useState<ChosenRecord[]>([]);
-  const [targets, setTargets] = useState<ChosenRecord[]>([]);
-  const [one, setOne] = useState<ChosenRecord>();
+  const actions = choice ? actionsOf(choice) : [];
+  const [picked, setPicked] = useState<Action>();
+  const action = actions.some(([value]) => value === picked) ? picked! : (actions[0]?.[0] ?? "clear");
+  const [records, setRecords] = useState<ChecklistRecord[]>([]);
   const other = choice ? objectTypeFor(model, choice.otherObjectTypeKey) : undefined;
   const otherNoun: Noun = other ? [other.name.toLowerCase(), other.pluralName.toLowerCase()] : ["record", "records"];
   const counted = (value: number, [single, many]: Noun) => `${count(value)} ${value === 1 ? single : many}`;
 
+  // What the selection holds through the relationship (D165): read for Remove and Clear and, for a
+  // hand selection, for Add's "already on" marks. The latest reader of all matching, for the effect.
+  const readAll = useRef(readMatching);
+  useEffect(() => {
+    readAll.current = readMatching;
+  }, [readMatching]);
+  const [held, setHeld] = useState<{ of: string; records: (ChecklistRecord & { count: number })[] }>();
+  const handIds = selection.mode === "ids" ? [...selection.ids.keys()].join(",") : "";
+  const relationTypeKey = choice?.relation.relationTypeKey ?? "";
+  const direction = choice?.direction ?? "outgoing";
+  const otherKey = choice?.otherObjectTypeKey ?? "";
+  const heldKey = `${relationTypeKey}:${direction}:${otherKey}:${handIds || `matching ${selected}`}`;
+  const wantHeld = Boolean(choice) && (action === "remove" || action === "clear" || handIds !== "");
+  useEffect(() => {
+    if (!wantHeld) return;
+    const stop = new AbortController();
+    void (async () => {
+      const ids = handIds
+        ? handIds.split(",")
+        : (await readAll.current(stop.signal, () => undefined)).map((row) => row.id);
+      const counts = new Map<string, ChecklistRecord & { count: number }>();
+      for (let start = 0; start < ids.length; start += HELD_BATCH) {
+        let cursor: string | undefined;
+        do {
+          const page = await api.heldRecords({
+            objectTypeKey: objectType.key,
+            relationTypeKey,
+            direction,
+            objectIds: ids.slice(start, start + HELD_BATCH),
+            workspaceKey,
+            cursor,
+          });
+          for (const item of page.items) {
+            if (item.object.objectTypeKey !== otherKey) continue;
+            const known = counts.get(item.object.id);
+            counts.set(item.object.id, { ...item.object, count: (known?.count ?? 0) + item.count });
+          }
+          cursor = page.nextCursor ?? undefined;
+        } while (cursor && !stop.signal.aborted);
+      }
+      if (!stop.signal.aborted)
+        setHeld({ of: heldKey, records: [...counts.values()].sort((a, b) => a.name.localeCompare(b.name)) });
+    })().catch(() => undefined);
+    return () => stop.abort();
+  }, [api, direction, handIds, heldKey, objectType.key, otherKey, relationTypeKey, wantHeld, workspaceKey]);
+  const holdings = held?.of === heldKey ? held.records : undefined;
+  const heldCount = (ids?: readonly string[]) =>
+    holdings?.filter((record) => !ids || ids.includes(record.id)).reduce((sum, record) => sum + record.count, 0);
+
   const change: RelationChange =
-    mode === "change"
-      ? { mode, add: choice?.actions.add ? add : [], remove: choice?.actions.remove ? remove : [] }
-      : mode === "replace"
-        ? { mode, targets }
-        : mode === "set"
-          ? { mode, targets: one ? [one] : [] }
-          : { mode: "clear" };
+    action === "add"
+      ? { mode: "change", add: records, remove: [] }
+      : action === "remove"
+        ? { mode: "change", add: [], remove: records }
+        : action === "replace"
+          ? { mode: "replace", targets: records }
+          : action === "set"
+            ? { mode: "set", targets: records.slice(-1) }
+            : { mode: "clear" };
   const items = itemCount(selected, change);
 
   function chooseRelationship(index: number) {
     setChosen(index);
     setPicked(undefined);
-    setAdd([]);
-    setRemove([]);
-    setTargets([]);
-    setOne(undefined);
+    setRecords([]);
   }
 
   /** What stops this change before it is sent, if anything (D131, D134). */
@@ -110,7 +165,7 @@ export function BulkRelationDialog({
     if (!choice)
       return { title: "Nothing to change", message: `${objectType.pluralName} have no relationships to change.` };
     if (change.mode === "change" && !change.add.length && !change.remove.length)
-      return { title: "Nothing to change", message: `Choose ${otherNoun[1]} to add or to remove.` };
+      return { title: "Nothing to change", message: `Tick the ${otherNoun[1]} to ${action}.` };
     if ((change.mode === "replace" || change.mode === "set") && !change.targets.length)
       return {
         title: "Nothing chosen",
@@ -128,7 +183,7 @@ export function BulkRelationDialog({
           `${count(limits.backgroundJobMaxItems)}. Select fewer ${noun[1]} or choose fewer ${otherNoun[1]}. The operator ` +
           `sets this limit with BACKGROUND_JOB_MAX_ITEMS and can raise it.`,
       };
-    if (limits && claimedByPreview(mode) && items > limits.previewMaxItems)
+    if (limits && claimedByPreview(change.mode) && items > limits.previewMaxItems)
       return {
         title: "Too many records to preview",
         message:
@@ -140,18 +195,40 @@ export function BulkRelationDialog({
     return undefined;
   }
 
+  const removing = action === "remove" ? heldCount(records.map((record) => record.id)) : undefined;
+  const clearing = action === "clear" ? heldCount() : undefined;
   const size =
-    change.mode === "change"
-      ? `${counted(selected, noun)} × ${counted(change.add.length + change.remove.length, otherNoun)}: ${counted(items, ["change", "changes"])}.`
-      : `One change for each selected ${noun[0]}: ${counted(items, ["change", "changes"])}.`;
+    action === "add"
+      ? `${counted(selected, noun)} × ${counted(records.length, otherNoun)}: up to ${counted(items, ["change", "changes"])}`
+      : action === "remove"
+        ? removing !== undefined
+          ? `Removes ${counted(removing, ["relationship", "relationships"])}`
+          : `${counted(selected, noun)} × ${counted(records.length, otherNoun)}: up to ${counted(items, ["change", "changes"])}`
+        : action === "clear"
+          ? clearing !== undefined
+            ? `Removes ${counted(clearing, ["relationship", "relationships"])}`
+            : `Clears it on ${counted(selected, noun)}`
+          : `One change for each selected ${noun[0]}: ${counted(items, ["change", "changes"])}`;
+  const explain =
+    action === "add"
+      ? `Each selected ${noun[0]} gains the ${otherNoun[1]} you tick; ones it already has stay as they are.`
+      : action === "remove"
+        ? `Only the ${otherNoun[1]} the selected ${noun[1]} hold are listed, with how many hold each.`
+        : action === "replace"
+          ? `Each selected ${noun[0]} ends with exactly the ${otherNoun[1]} you tick.`
+          : action === "set"
+            ? `Each selected ${noun[0]} holds one of these; it becomes the ${otherNoun[0]} you tick.`
+            : `Every ${choice?.label.toLowerCase() ?? ""} relationship of the selected ${noun[1]} is removed; the ${otherNoun[1]} stay.`;
 
   return (
     <BulkJobDialog
       title="Change relationships"
+      icon="link"
+      summary={choice ? size : undefined}
       noun={noun}
-      itemNoun={mode === "change" ? RELATIONSHIPS : noun}
+      itemNoun={change.mode === "change" ? RELATIONSHIPS : noun}
       itemCount={items}
-      relationshipItems={mode === "change"}
+      relationshipItems={change.mode === "change"}
       target={targetText(selection, selected, noun)}
       selection={selection}
       selected={selected}
@@ -167,93 +244,70 @@ export function BulkRelationDialog({
         return (rows) => relationItems(rows, choice!, current);
       }}
       sections={(editable) => (
-        <section className="dialog-form-section" aria-labelledby="bulk-relationship">
-          <h3 id="bulk-relationship">Relationship</h3>
+        <section className="bulk-relations" aria-label="Relationship">
           {choices.length === 0 ? (
             <p>{objectType.pluralName} have no relationships that can be changed here.</p>
           ) : (
-            <label>
-              Which relationship
-              <select
-                value={chosen}
-                disabled={!editable}
-                onChange={(event) => chooseRelationship(Number(event.target.value))}
-              >
-                {choices.map((item, index) => (
-                  <option
-                    key={`${item.direction}:${item.relation.relationTypeKey}:${item.otherObjectTypeKey}`}
-                    value={index}
-                  >
-                    {item.label} ·{" "}
+            <div className="relation-pills" role="radiogroup" aria-label="Which relationship">
+              {choices.map((item, index) => (
+                <button
+                  key={`${item.direction}:${item.relation.relationTypeKey}:${item.otherObjectTypeKey}`}
+                  type="button"
+                  role="radio"
+                  aria-checked={index === chosen}
+                  className={index === chosen ? "relation-pill chosen" : "relation-pill"}
+                  disabled={!editable}
+                  onClick={() => chooseRelationship(index)}
+                >
+                  <span className="relation-pill-name">{item.label}</span>
+                  <span className="relation-pill-other">
+                    <span className="visually-hidden"> · </span>
                     {objectTypeFor(model, item.otherObjectTypeKey)?.pluralName ?? item.otherObjectTypeKey}
-                  </option>
-                ))}
-              </select>
-            </label>
+                  </span>
+                </button>
+              ))}
+            </div>
           )}
           {choice && (
-            <>
-              <fieldset className="bulk-field" disabled={!editable}>
-                <legend>What to do</legend>
-                <Choice name="bulk-relationship-mode" value={mode} options={modes} onChange={setPicked} />
-              </fieldset>
-              {mode === "change" && choice.actions.add && (
-                <RecordListField
-                  label={`Add ${otherNoun[1]}`}
-                  objectTypeKey={choice.otherObjectTypeKey}
-                  workspaceKey={workspaceKey}
-                  values={add}
-                  disabled={!editable}
-                  onChange={setAdd}
-                />
-              )}
-              {mode === "change" && choice.actions.remove && (
-                <RecordListField
-                  label={`Remove ${otherNoun[1]}`}
-                  objectTypeKey={choice.otherObjectTypeKey}
-                  workspaceKey={workspaceKey}
-                  values={remove}
-                  disabled={!editable}
-                  onChange={setRemove}
-                />
-              )}
-              {mode === "replace" && (
-                <RecordListField
-                  label={`Replace with ${otherNoun[1]}`}
-                  objectTypeKey={choice.otherObjectTypeKey}
-                  workspaceKey={workspaceKey}
-                  values={targets}
-                  disabled={!editable}
-                  onChange={setTargets}
-                />
-              )}
-              {mode === "set" && (
-                <fieldset className="record-list-field" disabled={!editable}>
-                  <legend>Set to</legend>
-                  <ObjectLookup
-                    label={`Set to ${otherNoun[0]}`}
-                    objectTypeKey={choice.otherObjectTypeKey}
+            <fieldset className="bulk-relation-action" disabled={!editable}>
+              <legend className="visually-hidden">What to do</legend>
+              <Choice
+                name="bulk-relationship-action"
+                value={action}
+                options={actions}
+                onChange={(next) => {
+                  setPicked(next);
+                  setRecords([]);
+                }}
+              />
+              <p className="bulk-change-note">{explain} Relationship values are kept.</p>
+              {action !== "clear" &&
+                (action === "remove" && !holdings ? (
+                  <p className="record-checklist-empty">Reading what the selected {noun[1]} hold…</p>
+                ) : (
+                  <RecordChecklist
+                    model={model}
+                    label={other?.pluralName ?? "Records"}
+                    objectTypeKeys={[choice.otherObjectTypeKey]}
                     workspaceKey={workspaceKey}
-                    selectedId={one?.id}
-                    selectedLabel={one?.name}
-                    onChange={(item) => setOne(item && { id: item.id, name: item.name })}
+                    records={
+                      action === "remove"
+                        ? holdings?.map((record) => ({
+                            ...record,
+                            hint: `on ${count(record.count)} of ${count(selected)}`,
+                          }))
+                        : undefined
+                    }
+                    emptyText={action === "remove" ? `The selected ${noun[1]} hold none.` : undefined}
+                    hintFor={(id) => {
+                      const record = holdings?.find((item) => item.id === id);
+                      return record ? `already on ${count(record.count)}` : undefined;
+                    }}
+                    chosen={action === "set" ? records.slice(-1) : records}
+                    onChange={(next) => setRecords(action === "set" ? next.slice(-1) : next)}
                   />
-                </fieldset>
-              )}
-              <p className="admin-hint">
-                {mode === "change"
-                  ? `Each selected ${noun[0]} is related to every ${otherNoun[0]} under Add and loses its relationship to every one under Remove; its other relationships stay.`
-                  : mode === "replace"
-                    ? `Each selected ${noun[0]}'s ${choice.label.toLowerCase()} relationships become exactly the ${otherNoun[1]} chosen.`
-                    : mode === "set"
-                      ? `Each selected ${noun[0]} holds one of these; it becomes the ${otherNoun[0]} chosen.`
-                      : `Each selected ${noun[0]}'s ${choice.label.toLowerCase()} relationships are removed; the ${otherNoun[1]} stay.`}{" "}
-                Relationship values are kept; change them on a record's relationships.
-              </p>
-              <p className="bulk-size" aria-live="polite">
-                {size}
-              </p>
-            </>
+                ))}
+            </fieldset>
           )}
         </section>
       )}

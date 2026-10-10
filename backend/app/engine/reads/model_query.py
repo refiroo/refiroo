@@ -532,9 +532,8 @@ def _expansions(
     return tuple(result)
 
 
-# The per-type list's relation columns (0.9 K5, D142): at most this many per request, each record
-# shown by its name.
-MAX_LIST_EXPANSIONS = 5
+# The per-type list's relation columns (0.9 K5, D142): each record shown by its name. Their number is
+# bounded by the model, the relationships the type has, each named once (D142 revised in K6a).
 LIST_EXPANSION_SELECT = ("name",)
 
 
@@ -545,11 +544,6 @@ def list_expansions(
     as Q3 reads an ``expand`` of that relation type and direction, its records narrowed to ``name``,
     and to a field beside it when the key names one (``<key>.<field>``, 0.9 K5a).
     """
-    if len(keys) > MAX_LIST_EXPANSIONS:
-        _invalid_expand(
-            f"expand names at most {MAX_LIST_EXPANSIONS} relationships; {len(keys)} were named",
-            keys[MAX_LIST_EXPANSIONS],
-        )
     result: list[Expansion] = []
     for key in keys:
         if key in keys[: len(result)]:

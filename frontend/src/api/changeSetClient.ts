@@ -59,6 +59,7 @@ export function createChangeSetClient(
     object: (type, id, workspace) => api.object(type, id, workspace, initial.id),
     attribute: (type, id, key) => api.attribute(type, id, key, initial.id),
     relations: (id, options) => api.relations(id, { ...options, changeSetId: initial.id }),
+    heldRecords: (query) => api.heldRecords({ ...query, changeSetId: initial.id }),
     relation: (id, workspace) => api.relation(id, workspace, initial.id),
     mappingCoverage: (query) => api.mappingCoverage({ ...query, changeSetId: initial.id }),
     mappingTargets: (query) => api.mappingTargets({ ...query, changeSetId: initial.id }),

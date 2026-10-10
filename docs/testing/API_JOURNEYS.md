@@ -22,7 +22,7 @@ parameter or code missing here fails it.
 | `search`, `sort`, `filter.<field>.<operator>` | per-type list, lookup (built-in fields), relations, coverage | J01, J01.3, J22, J22.3 |
 | `filter.related:<key>.eq`, `filter.related:<key>.isNull` (relationship filters; 0.9 K6) | per-type list | J01.10, J32.6 |
 | `parentObjectId`, `topLevel` | per-type list, lookup, coverage, matrix | J01, J14 |
-| `expand`, `expandLimit` (relation columns: a relation key or reverse key, optionally `.<field>` (0.9 K5a), at most 5; 1–20 records each, 3 by default; 0.9 K5) | per-type list | J01.8, J01.9 |
+| `expand`, `expandLimit` (relation columns: a relation key or reverse key, optionally `.<field>` (0.9 K5a), each once, as many as the type has (D142 revised in K6a); 1–20 records each, 3 by default; 0.9 K5) | per-type list | J01.8, J01.9 |
 | `asOf` | per-type list, query body; on the lookup it is refused (D21); on the consumer API: get by ID, lists, XREF, batch resolve's URL | J23, J22.4, J23.6–J23.8 |
 | `applicationKey`, `viewKey` | lookup, mapping and matrix reads | J01, J10, J16, J22.1 |
 | `relationTypeKey`, `fromObjectTypeKey`, `toObjectTypeKey`, `direction` | relations, edge list, mapping reads | J10, J13, J22.2, J22.3 |
@@ -74,6 +74,7 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/docs` a
 | `GET/POST/PATCH/DELETE /objects/{type}/{id}/attributes/{key}` | J01.5, J02.4 |
 | `POST /relations`, `PATCH/DELETE /relations/{id}` (`expectedRelationSetVersion`, `relationSetDirection`) | J13, J13.3, J13.5, J16 |
 | `GET /relations` (`objectId`), `GET /relations/{id}` | J01, J22.3; `relationSets` (each anchored set's version) J13.5 |
+| `GET /relations/held` (`objectTypeKey`, `relationTypeKey`, `direction`, `objectId` repeatable up to 500, a context, paging) | J32.7 |
 | `GET /workspaces/{key}/mapping-coverage` (`state`) | J10 |
 | `GET /workspaces/{key}/mapping-candidates`, `GET /workspaces/{key}/mapping-targets` (`sourceObjectId`, `mappingVersion`) | J10, J10.3 |
 | `PUT /workspaces/{key}/mappings` | J10 |
@@ -127,6 +128,7 @@ documented nowhere; API.md documents them since H4c (D-4).
 | Journeys | Codes |
 | --- | --- |
 | Every route | `REQUEST_VALIDATION_ERROR`, `UNKNOWN_PARAMETER` (J21.8), `INTERNAL_ERROR` (with a correlation ID), `INVALID_CURSOR`, `INVALID_POSITION`, `CONFLICTING_PAGE_PARAMETERS`, `INVALID_SEEK`, `MUTUALLY_EXCLUSIVE_CONTEXT`, `WORKSPACE_NOT_FOUND`, `CHANGE_SET_NOT_FOUND`, `PUBLICATION_NOT_FOUND`, `WORKSPACE_CONTEXT_MISMATCH`, `MODEL_REGISTRY_UNAVAILABLE`, `MODEL_RUNTIME_STATE_UNAVAILABLE`, `WORKSPACE_RUNTIME_STATE_MISSING` |
+| J32.7 | `UNKNOWN_RELATION_TYPE`, `INVALID_RELATION_PAIR`, `TOO_MANY_RECORDS` |
 | J01, J21, J22 | `OBJECT_NOT_FOUND`, `UNKNOWN_OBJECT_TYPE`, `INVALID_FILTER`, `INVALID_SORT`, `INVALID_EXPAND` (J01.8), `INVALID_FILTER` for a relationship filter (J01.10), `INVALID_QUERY`, `MUTUALLY_EXCLUSIVE_SCOPE`, `WORKSPACE_KEY_REQUIRED`, `ATTRIBUTE_NOT_FOUND` |
 | J02, J03, J13, J14 (the write rules) | `VERSION_CONFLICT`, `VERSION_REQUIRED`, `INVALID_ATTRIBUTE_VALUE`, `ATTRIBUTE_BELOW_MINIMUM`, `ATTRIBUTE_ABOVE_MAXIMUM`, `UNKNOWN_ATTRIBUTES`, `UNKNOWN_ATTRIBUTE_TYPE`, `DUPLICATE_ATTRIBUTE`, `DUPLICATE_ATTRIBUTE_VALUE`, `MISSING_REQUIRED_ATTRIBUTES`, `OBJECT_ATTRIBUTE_RULE_VIOLATION`, `CANNOT_DELETE_REQUIRED_ATTRIBUTE`, `READ_ONLY_ATTRIBUTES`, `ATTRIBUTE_ALREADY_EXISTS`, `OBJECT_ALREADY_EXISTS`, `UNKNOWN_APPLICATION`, `INVALID_OBJECT_TYPE_FOR_APPLICATION`, `OBJECT_TYPE_NOT_IN_APPLICATION`, `PARENT_REQUIRED`, `INVALID_PARENT_TYPE`, `PARENT_WRONG_SCOPE`, `PARENT_CYCLE`, `MISSING_REQUIRED_RELATIONS`, `DUPLICATE_INITIAL_RELATION`, `DUPLICATE_RELATION`, `DUPLICATE_RELATION_SCOPE`, `UNKNOWN_RELATION_TYPE`, `INVALID_RELATION_PAIR`, `RELATION_ENDPOINT_MISSING`, `RELATION_WRONG_SCOPE`, `UNKNOWN_RELATION_ATTRIBUTES`, `IMMUTABLE_RELATION`, `REQUIRED_RELATION`, `CARDINALITY_VIOLATION`, `RELATION_NOT_FOUND`, `RELATION_SET_VERSION_CONFLICT`, `RELATION_SET_CLAIM_INCOMPLETE`, `WORKSPACE_RETIRED` |
 | J04 | `DELETION_PREVIEW_REQUIRED`, `DELETION_PREVIEW_CHANGED`, `OBJECT_HAS_DEPENDANTS` |

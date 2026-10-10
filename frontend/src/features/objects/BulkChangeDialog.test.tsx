@@ -88,10 +88,17 @@ function open(selection: RecordSelection, selected: number, readMatching = vi.fn
   return { readMatching, onOpenRecord };
 }
 
-/** Code set to a value, then Preview. */
-function setCodeAndPreview(value = "X-1") {
-  const code = screen.getByRole("group", { name: "Code" });
-  fireEvent.click(within(code).getByRole("radio", { name: "Set to" }));
+/** A field added with ＋ Change a field (K6a, D167): its card. */
+async function addField(name: string) {
+  fireEvent.click(screen.getByRole("button", { name: "Change a field" }));
+  const menu = await screen.findByRole("dialog", { name: "Change a field" });
+  fireEvent.click(within(menu).getByRole("button", { name: new RegExp(`^${name}`) }));
+  return screen.findByRole("group", { name });
+}
+
+/** Code added and set to a value, then Preview. */
+async function setCodeAndPreview(value = "X-1") {
+  const code = screen.queryByRole("group", { name: "Code" }) ?? (await addField("Code"));
   fireEvent.change(within(code).getByLabelText("Code"), { target: { value } });
   fireEvent.click(screen.getByRole("button", { name: "Preview" }));
 }
@@ -112,8 +119,8 @@ describe("BulkChangeDialog (0.9 K2)", () => {
     const { onOpenRecord } = open(picked, 2);
     expect(screen.getByText("2 domains")).toBeInTheDocument();
     // Code is required: it is set, never cleared (D117).
-    expect(within(screen.getByRole("group", { name: "Code" })).queryByRole("radio", { name: "Clear" })).toBeNull();
-    setCodeAndPreview();
+    expect(within(await addField("Code")).queryByRole("radio", { name: "Clear" })).toBeNull();
+    await setCodeAndPreview();
     await waitFor(() => expect(api.startBatch).toHaveBeenCalled());
     const [body] = vi.mocked(api.startBatch).mock.calls[0];
     expect(body).toMatchObject({ workspaceKey: "west", policy: "independent", run: "background", stage: "preview" });
@@ -137,7 +144,7 @@ describe("BulkChangeDialog (0.9 K2)", () => {
     expect(await screen.findByText(/All or nothing holds at most 1,000 records/)).toHaveTextContent(
       "ATOMIC_JOB_MAX_ITEMS",
     );
-    expect(screen.queryByRole("radio", { name: "Change nothing unless every record can" })).toBeNull();
+    expect(screen.queryByRole("radio", { name: "Change none" })).toBeNull();
     expect(screen.getByText("All 2,345 matching domains")).toBeInTheDocument();
   });
 
@@ -150,7 +157,7 @@ describe("BulkChangeDialog (0.9 K2)", () => {
         }),
     );
     open(selectMatching(2345), 2345, readMatching);
-    setCodeAndPreview();
+    await setCodeAndPreview();
     expect(await screen.findByText("Reading 500 of 2,345 domains")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Stop" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Preview" })).toBeEnabled());
@@ -162,7 +169,7 @@ describe("BulkChangeDialog (0.9 K2)", () => {
       new ApiError(409, "CHANGE_SET_VERSION_CONFLICT", "The change set changed since the batch was sent"),
     );
     open(picked, 2);
-    setCodeAndPreview();
+    await setCodeAndPreview();
     await waitFor(() => expect(api.startBatch).toHaveBeenCalledTimes(1));
     await PushedEventSource.push(waiting);
     fireEvent.click(await screen.findByRole("button", { name: "Apply" }));
@@ -177,7 +184,7 @@ describe("BulkChangeDialog (0.9 K2)", () => {
 
   it("cancels the preview when the dialog is left, but keeps it waiting for View job", async () => {
     open(picked, 2);
-    setCodeAndPreview();
+    await setCodeAndPreview();
     await PushedEventSource.push(waiting);
     await screen.findByRole("button", { name: "Apply" });
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
@@ -185,7 +192,7 @@ describe("BulkChangeDialog (0.9 K2)", () => {
 
     vi.mocked(api.cancelJob).mockClear();
     open(picked, 2);
-    setCodeAndPreview();
+    await setCodeAndPreview();
     await PushedEventSource.push(waiting);
     fireEvent.click(await screen.findByRole("link", { name: "View job" }));
     expect(api.cancelJob).not.toHaveBeenCalled();
@@ -199,9 +206,33 @@ describe("BulkChangeDialog (0.9 K2)", () => {
       }),
     );
     open(picked, 2);
-    setCodeAndPreview();
+    await setCodeAndPreview();
     const notice = await screen.findByText(/more than one bulk change may hold/);
     expect(notice).toHaveTextContent("BATCH_BACKGROUND_MAX_BYTES");
     expect(notice).toHaveTextContent("Narrow the list");
+  });
+
+  it("adds only the fields being changed, each a card that sets or clears it (K6a, D167)", async () => {
+    open(picked, 2);
+    expect(screen.getByText("Fields you do not add keep their values.")).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Code" })).toBeNull();
+    const active = await addField("Active");
+    expect(
+      within(active)
+        .getAllByRole("radio")
+        .map((radio) => radio.closest("label")?.textContent),
+    ).toEqual(["Set to", "Clear"]);
+    fireEvent.click(within(active).getByRole("radio", { name: "Clear" }));
+    expect(within(active).getByText("Active is emptied on every selected domain.")).toBeInTheDocument();
+    expect(screen.getByText("Changes 1 field on 2 domains")).toBeInTheDocument();
+    // The menu offers only the fields not yet added, with their kinds.
+    fireEvent.click(screen.getByRole("button", { name: "Change a field" }));
+    const menu = await screen.findByRole("dialog", { name: "Change a field" });
+    expect(within(menu).queryByRole("button", { name: /^Active/ })).toBeNull();
+    expect(within(menu).getByRole("button", { name: /^Code/ })).toHaveTextContent("Text");
+    fireEvent.keyDown(menu, { key: "Escape" });
+    fireEvent.click(within(active).getByRole("button", { name: "Do not change Active" }));
+    expect(screen.queryByRole("group", { name: "Active" })).toBeNull();
+    expect(screen.getByText("Add a field to change")).toBeInTheDocument();
   });
 });

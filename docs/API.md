@@ -1076,7 +1076,7 @@ in every context (S4R4); before 0.8 it listed live records in creation order and
 records by ID. Page size defaults to 100 and has a documented
 maximum of 500. `nextCursor` is null only when that traversal is complete.
 
-**Relation columns (Base 0.9 K5, D140–D145).** `expand=<key>` (repeatable, at most 5) adds to each
+**Relation columns (Base 0.9 K5, D140–D145).** `expand=<key>` (repeatable) adds to each
 item the records at the other end of one relationship: `<key>` is a relation type's `key` (the
 type's outgoing relationships) or `reverseKey` (its incoming ones), which share one namespace, and
 the type must have a binding of it at that end. Each item then carries `expanded`, one entry per
@@ -1085,8 +1085,10 @@ expansions: `relationTypeKey`, `direction`, `count` (how many related records th
 (the first `expandLimit`, 1–20, default 3, in name order, each `{relationId, object: {id,
 objectTypeKey, version, fields: {name}}}`) and `nextCursor`, which continues on `GET /relations` with
 the item as `objectId`, or is null when `items` holds them all. Without `expand` the items are as
-before and carry no `expanded`. An unknown key, a key the type has no binding of, the same key twice
-or more than five are `422 INVALID_EXPAND` with `details.parameter` `expand` and the `value`.
+before and carry no `expanded`. An unknown key, a key the type has no binding of, or the same key
+twice are `422 INVALID_EXPAND` with `details.parameter` `expand` and the `value`. There is no fixed
+number of keys: the type's relationships bound them, and the page size and `expandLimit` bound the
+response (D142, revised in 0.9 K6a).
 Every context reads its own relationships; `asOf` dates the listed records, not the related ones.
 `expand=<key>.<field>` (Base 0.9 K5a, D148, D150) also reads a field of each related record, written
 as in a consumer API definition: `name`, an attribute one of the types at the other end binds, or
@@ -1729,6 +1731,8 @@ refused by a single write's rule carries the same code in its outcome.
 - `POST /api/v1/relations`
 - `GET /api/v1/relations?objectId={id}&direction={outgoing|incoming|both}&relationTypeKey={key}` (`relationTypeKey` repeatable)
 - `GET /api/v1/relations/{relationId}`
+- `GET /api/v1/relations/held?objectTypeKey={type}&relationTypeKey={key}&direction={outgoing|incoming}&objectId={id}`
+  (`objectId` repeatable): what a set of records holds through one relationship ([below](#what-a-set-of-records-holds-09-k6a))
 - `GET /api/v1/workspaces/{workspaceKey}/relations`: every edge in a workspace, in live data, a change
   set or a publication ([workspace edge list](#workspace-edge-list-mapping-list-base-09-q2))
 - `PATCH /api/v1/relations/{relationId}`
@@ -1842,6 +1846,27 @@ Decided 2026-10-03 (H4c).
 A required non-parent relation returns `422 REQUIRED_RELATION` when independently deleted. It is part
 of the dependent graph's validity and ownership semantics; delete or replace the dependent object
 through the owning workflow instead.
+
+### What a set of records holds (0.9 K6a)
+
+`GET /api/v1/relations/held` answers what a selection's Remove offers (D165): the records at the other
+end of one relationship type from the named records, each once, with `count`, how many of the named
+records hold it. `objectTypeKey` is the named records' type and `direction` reads from them
+(`outgoing` when they are the relationship's from end). `objectId` repeats, at most 500 per read; the
+records come in name order and page by the [collection paging](#collection-paging) parameters with
+`pageSize` 1–500 (default 100), in live data, a change set (`changeSetId`) or a publication
+(`publicationId`). A named record the context does not hold, or one holding nothing, adds nothing.
+Each item is `{object: {id, objectTypeKey, name}, count}`.
+
+A selection larger than one read is asked in batches and the counts added up per record; the UI
+names 200 records a read, which keeps the address within common URL limits.
+
+| Code | Status | When |
+| --- | --- | --- |
+| `UNKNOWN_RELATION_TYPE` | 422 | `relationTypeKey` is not in the model |
+| `INVALID_RELATION_PAIR` | 422 | The type has no binding of the relationship in that direction |
+| `TOO_MANY_RECORDS` | 422 | More than 500 `objectId`; `details.limit` |
+| `MUTUALLY_EXCLUSIVE_CONTEXT` | 422 | Both `changeSetId` and `publicationId` |
 
 ## Object audit history
 

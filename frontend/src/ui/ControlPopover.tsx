@@ -21,6 +21,7 @@ export function ControlPopover({
   triggerClassName,
   className,
   placement = "bottom end",
+  header = true,
   children,
 }: {
   label: string;
@@ -31,7 +32,9 @@ export function ControlPopover({
   trigger?: ReactNode;
   triggerClassName?: string;
   className?: string;
-  placement?: "bottom end" | "top start";
+  placement?: "bottom end" | "bottom start" | "top start";
+  /** Whether the popover draws its own title and Done; an editor with its own header turns it off. */
+  header?: boolean;
   children: ReactNode | ((close: () => void) => ReactNode);
 }) {
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -91,15 +94,17 @@ export function ControlPopover({
         placement={placement}
         UNSTABLE_portalContainer={container}
       >
-        <Dialog>
+        <Dialog aria-label={header ? undefined : label}>
           {({ close }) => (
             <>
-              <header>
-                <Heading slot="title">{label}</Heading>
-                <Button className="ghost" onPress={close}>
-                  Done
-                </Button>
-              </header>
+              {header && (
+                <header>
+                  <Heading slot="title">{label}</Heading>
+                  <Button className="ghost" onPress={close}>
+                    Done
+                  </Button>
+                </header>
+              )}
               {typeof children === "function" ? children(close) : children}
             </>
           )}

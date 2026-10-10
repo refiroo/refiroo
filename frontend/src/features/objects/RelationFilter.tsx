@@ -4,14 +4,14 @@
  * (`related:<key>`). The filter is part of the list's `query.filters`, so the list, its selection,
  * the bulk actions and Export all read it: "is any of" is one `eq` entry per chosen record, "has
  * none" and "has any" one `isNull` entry. The address keeps the records' IDs; their names are read
- * back by ID for the chip (D157).
+ * back by ID for the pill (D157). Its editor is the filter bar's (K6a, `filters/FilterBar`).
  */
 
 import { useEffect, useState } from "react";
 import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { relatedTargetTypes } from "@/model/lookup";
 import type { CollectionFilter, EngineModel } from "@/types";
-import { RecordListField, type ChosenRecord } from "@/ui/RecordListField";
+import type { ChosenRecord } from "@/ui/RecordListField";
 
 type Mode = "any" | "none" | "some";
 
@@ -88,73 +88,4 @@ export function useRelationFilterNames(
     };
   }, [signature, api, model, objectTypeKey, workspaceKey]);
   return names?.of === signature ? names.map : new Map();
-}
-
-export function RelationFilterControl({
-  model,
-  objectTypeKey,
-  field,
-  label,
-  entries,
-  names,
-  workspaceKey,
-  onApply,
-}: {
-  model: EngineModel;
-  objectTypeKey: string;
-  field: string;
-  label: string;
-  entries: readonly CollectionFilter[];
-  names: ReadonlyMap<string, NamedRecord>;
-  workspaceKey?: string;
-  onApply: (entries: CollectionFilter[]) => void;
-}) {
-  const [mode, setMode] = useState<Mode>(relationFilterMode(entries));
-  const [shownMode, setShownMode] = useState(relationFilterMode(entries));
-  if (shownMode !== relationFilterMode(entries)) {
-    setShownMode(relationFilterMode(entries));
-    setMode(relationFilterMode(entries));
-  }
-  const chosen: NamedRecord[] = entries
-    .filter((entry) => entry.operator === "eq")
-    .map((entry) => names.get(entry.value) ?? { id: entry.value, name: "…", objectTypeKey: "" });
-  const targets = relatedTargetTypes(model, objectTypeKey, field);
-  return (
-    <div className="toolbar-filter relation-filter">
-      <span>{label}</span>
-      <select
-        aria-label={`${label} operator`}
-        value={mode}
-        onChange={(event) => {
-          const next = event.target.value as Mode;
-          setMode(next);
-          onApply(relationFilterEntries(field, next, next === "any" ? chosen : []));
-        }}
-      >
-        {(Object.keys(MODE_LABELS) as Mode[]).map((item) => (
-          <option key={item} value={item}>
-            {MODE_LABELS[item]}
-          </option>
-        ))}
-      </select>
-      {mode === "any" &&
-        targets.map((target) => (
-          <RecordListField
-            key={target.key}
-            label={targets.length > 1 ? `${label}: ${target.pluralName}` : target.pluralName}
-            objectTypeKey={target.key}
-            workspaceKey={workspaceKey}
-            values={chosen.filter((record) => (record.objectTypeKey || target.key) === target.key)}
-            onChange={(values) =>
-              onApply(
-                relationFilterEntries(field, "any", [
-                  ...chosen.filter((record) => record.objectTypeKey && record.objectTypeKey !== target.key),
-                  ...values,
-                ]),
-              )
-            }
-          />
-        ))}
-    </div>
-  );
 }

@@ -1,13 +1,14 @@
 /**
  * What a collection's selection holds, above its table (0.9 K1): the count, Select all matching
- * once every loaded row is selected, Clear selection, and the slot K2, K2b and K3 fill with actions:
- * Change values…, Change relationships… and Delete….
+ * once every loaded row is selected, Clear selection (×), and the slot K2, K2b and K3 fill with
+ * actions: Change values, Change relationships and Delete, each with its glyph (K6a, D166).
  * A selection the deployment cannot change at once is explained, not silently capped (D104).
  */
 
 import type { ReactNode } from "react";
 import type { RecordSelection } from "@/lib/recordSelection";
 import type { CapabilitiesResponse } from "@/types";
+import { Icon } from "@/ui/Icon";
 import { Notice } from "@/ui/Notice";
 
 const count = (value: number) => value.toLocaleString("en");
@@ -74,14 +75,20 @@ export function SelectionBar({
           {selected > 0 ? selectionText(selection, selected) : "Nothing selected"}
         </strong>
         {matchingTotal !== undefined && overLimit === undefined && (
-          <button type="button" className="secondary" onClick={onSelectMatching}>
+          <button type="button" className="ghost selection-matching" onClick={onSelectMatching}>
             Select all {count(matchingTotal)} matching
           </button>
         )}
         {children && <div className="selection-actions">{children}</div>}
         {selected > 0 && (
-          <button type="button" className="ghost selection-clear" onClick={onClear}>
-            Clear selection
+          <button
+            type="button"
+            className="ghost selection-clear"
+            aria-label="Clear selection"
+            title="Clear selection"
+            onClick={onClear}
+          >
+            <Icon name="close" size={15} />
           </button>
         )}
       </div>

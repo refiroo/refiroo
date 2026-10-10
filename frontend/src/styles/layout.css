@@ -255,26 +255,35 @@ fieldset.settings-section legend {
 .settings-section > .secondary {
   justify-self: start;
 }
+/* `ui/Choice`: a segmented control as wide as its words, any number of options (0.9 K6a, D166). */
 .theme-choice {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-self: flex-start;
+  max-width: 100%;
   gap: 2px;
-  padding: 3px;
+  padding: 2px;
+  border: 1px solid var(--border-subtle);
   border-radius: 8px;
-  background: var(--surface-fill);
+  background: var(--surface-sunken);
 }
 .theme-choice label {
   position: relative;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 32px;
+  min-height: 28px;
+  padding: 0 12px;
   border-radius: 6px;
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   font-size: 13px;
-  font-weight: 550;
+  font-weight: 500;
+  white-space: nowrap;
   cursor: pointer;
+}
+.theme-choice label:hover:not(.selected) {
+  color: var(--text-primary);
 }
 .theme-choice input {
   position: absolute;
@@ -284,8 +293,8 @@ fieldset.settings-section legend {
 .theme-choice label.selected {
   background: var(--surface-raised);
   color: var(--text-primary);
-  font-weight: 650;
-  box-shadow: var(--shadow-sm);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(29, 28, 26, 0.12);
 }
 .theme-choice label:has(input:focus-visible) {
   outline: 2px solid var(--action-primary);

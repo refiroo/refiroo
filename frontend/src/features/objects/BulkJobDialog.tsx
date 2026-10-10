@@ -35,6 +35,7 @@ import type { RecordSelection, SelectableRow } from "@/lib/recordSelection";
 import type { BatchRequest, Job, JobItemOutcome } from "@/types";
 import { Choice } from "@/ui/Choice";
 import { FormField } from "@/ui/FormField";
+import { Icon, type IconName } from "@/ui/Icon";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { RouteLink } from "@/ui/RouteLink";
@@ -59,6 +60,8 @@ export type ItemsFor = (rows: readonly SelectableRow[]) => { items: BatchRequest
 
 export function BulkJobDialog({
   title,
+  icon,
+  summary,
   noun,
   itemNoun = noun,
   itemCount,
@@ -68,7 +71,7 @@ export function BulkJobDialog({
   selected,
   workspaceKey,
   policies,
-  policyLabel = "Records that cannot change",
+  policyLabel = "If a record is refused",
   sections,
   applyingHint,
   prepare,
@@ -82,6 +85,10 @@ export function BulkJobDialog({
   onOpenRecord,
 }: {
   title: string;
+  /** The action's glyph in the dialog's header (0.9 K6a). */
+  icon?: IconName;
+  /** One line beside Preview saying what the form's change makes ("Changes 2 fields on 12 …"). */
+  summary?: string;
   noun: Noun;
   /** How the items are called where they differ from the records, such as relationships (0.9 K3). */
   itemNoun?: Noun;
@@ -371,7 +378,14 @@ export function BulkJobDialog({
   const applying = job && applyButton ? applyButton(job) : { label: "Apply", className: "primary" as const };
 
   return (
-    <Modal title={title} eyebrow={onForm ? target : actedOn} size="wide" busy={busy} onClose={() => close()}>
+    <Modal
+      title={title}
+      icon={icon}
+      description={onForm ? target : actedOn}
+      size="wide"
+      busy={busy}
+      onClose={() => close()}
+    >
       <p className="visually-hidden bulk-status" role="status">
         {announcement}
       </p>
@@ -384,8 +398,7 @@ export function BulkJobDialog({
           onSubmit={(event) => void preview(event)}
         >
           {sections(step === "form")}
-          <section className="dialog-form-section" aria-labelledby="bulk-applying">
-            <h3 id="bulk-applying">Applying</h3>
+          <section className="bulk-applying" aria-label="Applying">
             <FormField
               label={policyLabel}
               help={
@@ -406,7 +419,7 @@ export function BulkJobDialog({
                 />
               )}
             </FormField>
-            <p className="admin-hint">{applyingHint}</p>
+            <p className="bulk-hint">{applyingHint}</p>
           </section>
           {step === "reading" && progress && (
             <div className="job-progress" role="status">
@@ -422,18 +435,24 @@ export function BulkJobDialog({
               {problem.message}
             </Notice>
           )}
-          <div className="dialog-actions">
+          <div className="dialog-actions bulk-actions">
+            {summary && (
+              <span className="bulk-summary" aria-live="polite">
+                {summary}
+              </span>
+            )}
             {step === "reading" ? (
               <button type="button" className="secondary" onClick={() => stop.current?.abort()}>
                 Stop
               </button>
             ) : (
-              <button type="button" className="secondary" disabled={busy} onClick={() => close()}>
+              <button type="button" className="ghost" disabled={busy} onClick={() => close()}>
                 Cancel
               </button>
             )}
             <button className="primary" disabled={step !== "form" || !canPreview}>
               {step === "sending" ? "Sending…" : "Preview"}
+              {step !== "sending" && <Icon name="arrow-right" size={15} />}
             </button>
           </div>
         </form>

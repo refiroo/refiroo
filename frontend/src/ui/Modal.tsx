@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from "react";
 import type { ReactNode, RefObject } from "react";
 import { Dialog, Heading, Modal as AriaModal, ModalOverlay } from "react-aria-components";
-import { Icon } from "@/ui/Icon";
+import { Icon, type IconName } from "@/ui/Icon";
 
 /**
  * RDM's dialog contract. React Aria owns the portal, focus scope, outside interaction and Escape;
@@ -11,6 +11,8 @@ import { Icon } from "@/ui/Icon";
 export function Modal({
   title,
   eyebrow,
+  icon,
+  description,
   children,
   onClose,
   busy = false,
@@ -24,6 +26,10 @@ export function Modal({
   title: string;
   /** Small label above the title, naming the action rather than its subject. */
   eyebrow?: string;
+  /** A glyph in a tile beside the title, naming the kind of action (0.9 K6a). */
+  icon?: IconName;
+  /** A line under the title, naming what the dialog acts on ("12 system values"). */
+  description?: string;
   children: ReactNode;
   onClose: () => void;
   /** While true the dialog refuses to close, so an in-flight write is not abandoned half way. */
@@ -61,9 +67,15 @@ export function Modal({
       <AriaModal className={`dialog${size ? ` ${size}-dialog` : ""}`}>
         <Dialog role={role}>
           <div className="dialog-header">
-            <div>
+            {icon && (
+              <span className="dialog-icon" aria-hidden="true">
+                <Icon name={icon} size={18} />
+              </span>
+            )}
+            <div className="dialog-heading">
               {eyebrow && <p className="eyebrow">{eyebrow}</p>}
               <Heading slot="title">{title}</Heading>
+              {description && <p className="dialog-description">{description}</p>}
             </div>
             {showClose && (
               <button

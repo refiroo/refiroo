@@ -774,6 +774,34 @@ export const api = {
         method: "DELETE",
       },
     ),
+  /** What a set of records holds through one relationship, with counts (0.9 K6a, D165). */
+  heldRecords: (query: {
+    objectTypeKey: string;
+    relationTypeKey: string;
+    direction: "outgoing" | "incoming";
+    objectIds: readonly string[];
+    workspaceKey?: string;
+    changeSetId?: string;
+    publicationId?: string;
+    cursor?: string;
+    pageSize?: number;
+  }) => {
+    const params = new URLSearchParams({
+      objectTypeKey: query.objectTypeKey,
+      relationTypeKey: query.relationTypeKey,
+      direction: query.direction,
+      pageSize: String(query.pageSize ?? 500),
+    });
+    query.objectIds.forEach((id) => params.append("objectId", id));
+    if (query.workspaceKey) params.set("workspaceKey", query.workspaceKey);
+    if (query.changeSetId) params.set("changeSetId", query.changeSetId);
+    if (query.publicationId) params.set("publicationId", query.publicationId);
+    if (query.cursor) params.set("cursor", query.cursor);
+    return request<{
+      items: { object: { id: string; name: string; objectTypeKey: string }; count: number }[];
+      nextCursor: string | null;
+    }>(`/api/v1/relations/held?${params}`);
+  },
   relations: (
     objectId: string,
     options: PageSelector & {

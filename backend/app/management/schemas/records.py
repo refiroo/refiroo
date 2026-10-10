@@ -184,3 +184,21 @@ class FeedPage(BaseModel):
     nextAfter: int
     headPosition: int
     earliestPosition: int
+
+
+class HeldObject(BaseModel):
+    id: str
+    name: str
+    objectTypeKey: str
+
+
+class HeldRecord(BaseModel):
+    """A record at the other end of a relationship and how many of the named records hold it."""
+
+    object: HeldObject
+    count: int
+
+
+class HeldRecordPage(CollectionPage[HeldRecord]):
+    """What a set of records holds through one relationship (0.9 K6a, D165), in name order."""
+

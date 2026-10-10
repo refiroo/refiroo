@@ -270,6 +270,34 @@ column never sorts. An unknown field, an attribute no type at the other end bind
 or an ancestor type they cannot sit under is refused at the field list's pointer. A key may contain a
 dot: the text is the whole key when it is one, otherwise the longest key it starts with.
 
+**How many relation columns a view may show (D142, revised in Base 0.9 K6a).** There is no fixed
+number. The model bounds them: each `related:<key>` must name a relationship the listed type has, and
+each column is named once. A type with nine relationships may show all nine, and a column per field
+besides (`related:<key>` and `related:<key>.<field>` are two columns). What a column costs is one more
+read of the related records for the rows on the page: the table asks for its page (20 rows by
+default) and the first few related records of each row, so a view with many relation columns stays
+cheap however many records the type has. A user who does not need a column hides it in Display, and
+the table stops reading it (D146).
+
+Choose the columns for the people reading the view rather than to save reads. For example, a type
+with four many-to-many relationships, one many-to-one relationship and a translation could show:
+
+```json
+"columns": [
+  "name", "code",
+  "related:has-tag", "related:uses-component", "related:available-in-region",
+  "related:sold-through-channel", "related:replaced-by",
+  "related:has-translation.ancestor:language.language-code",
+  "active"
+]
+```
+
+The single-valued one (`replaced-by`) may also stand in `sortFields`; the others are listed in
+name order in each cell, as many as the column's width holds. Measured once on a small data set (200
+records, every one of a type's nine relationships expanded, 500 rows a page, 20 related records each:
+2,682 related records, about 1 MB, 0.3–0.4 s), the largest read an integrator can ask for is bounded
+by the page size and `expandLimit`, not by the number of columns.
+
 ### Mapping grid view (`type: "mappingGrid"`, schema 0.6)
 
 A mapping grid displays coverage for a configured relation binding and supports atomic mapping

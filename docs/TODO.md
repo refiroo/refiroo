@@ -193,6 +193,12 @@ No 0.8 decision is open ([0.8 decisions](BASE_0_8_IMPLEMENTATION_PLAN.md#decisio
 - **User documentation is not scheduled in any release yet.** API.md, CONSUMER_API and
   CURRENT_FUNCTIONALITY describe contracts and capabilities, but no guide for integrators or users
   exists. When it is planned, it must state these points very clearly, as the user asked:
+  - **How many relation columns a table view may show (D142 revised, 0.9 K6a, 2026-10-10).** No fixed
+    number: as many as the type has relationships (and fields of them), each column read only for the
+    rows on the page and dropped when hidden in Display. Explain it with examples, a view of a type
+    with several relationships and one with a field of the related records, as in
+    [APPLICATION_MODEL](APPLICATION_MODEL.md#table-view-type-table), and say what the integrator's
+    `expand` costs (page size × columns × `expandLimit`).
   - **Reading an older publication after a model release (C-D60, 2026-10-05).** A publication is
     read with the definition of the model release it was published under, and only when that
     release declares the same consumer API at the requested contract version. After a release that

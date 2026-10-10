@@ -101,38 +101,42 @@ try {
     await page.locator("tbody tr").first().waitFor();
   };
   const filterMenu = page.getByRole("dialog", { name: "Filter" });
-  const chips = page.getByRole("group", { name: "Applied filters" }).or(page.locator('[aria-label="Applied filters"]'));
 
-  // 7. Any of, live, through the Filter menu.
+  // 7. Any of, live, through ＋ Filter: the records ticked, applied once (K6a, D160, D161).
   await page.setViewportSize({ width: 1440, height: 900 });
   await open(valuesPath(), "System values");
   await page.getByRole("button", { name: "Filter", exact: true }).click();
   await filterMenu.waitFor();
-  const pick = async (name) => {
-    await filterMenu.getByRole("combobox", { name: "Search: Master values" }).fill(name);
-    await filterMenu.getByRole("listbox", { name: "Master values" }).getByRole("option", { name: new RegExp(name) }).first().click();
+  await filterMenu.getByRole("button", { name: /^Maps to master value/ }).click();
+  const editor = page.getByLabel("Filter by Maps to master value");
+  const tick = async (name) => {
+    await editor.getByRole("searchbox").fill(name);
+    const row = editor.locator(".record-checklist-row", { hasText: name }).first();
+    await row.waitFor({ timeout: 10000 });
+    await row.getByRole("checkbox").check();
   };
-  await pick("K6 Master Alpha");
-  const alpha = await settle(["K6 Value 1", "K6 Value 3"]);
-  expect(alpha.join() === "K6 Value 1,K6 Value 3", `any of Alpha: rows ${alpha}`);
-  await pick("K6 Master Bravo");
+  await tick("K6 Master Alpha");
+  await tick("K6 Master Bravo");
+  const unapplied = await rows();
+  expect(unapplied.length === 5, `ticking applied the filter already: rows ${unapplied}`);
+  await shot("k6-filter-menu-wide");
+  checks.push(`the relationship editor with two ticked: axe ${await axe("k6-filter-menu-light")} violations`);
+  await editor.getByRole("button", { name: "Apply" }).click();
   const either = await settle(["K6 Value 1", "K6 Value 2", "K6 Value 3"]);
   expect(either.join() === "K6 Value 1,K6 Value 2,K6 Value 3", `any of Alpha, Bravo: rows ${either}`);
-  await shot("k6-filter-menu-wide");
-  checks.push(`Filter menu with a relationship row: axe ${await axe("k6-filter-menu-light")} violations`);
-  await filterMenu.getByRole("button", { name: "Done" }).click();
-  const chip = await text(chips.first());
-  expect(chip.includes("Maps to master value is any of K6 Master Alpha, K6 Master Bravo"), `the chip says "${chip}"`);
+  const pill = page
+    .getByRole("group", { name: "Filters" })
+    .getByRole("button", { name: /^Maps to master value: K6 Master Alpha, K6 Master Bravo/ });
+  await pill.waitFor({ timeout: 10000 }).catch(() => failures.push("the pill does not name both master values"));
   await page.reload();
   await page.getByRole("heading", { level: 1, name: "System values" }).waitFor();
   const reloaded = await settle(["K6 Value 1", "K6 Value 2", "K6 Value 3"]);
-  await chips.first().getByText(/K6 Master Alpha, K6 Master Bravo/).waitFor({ timeout: 10000 }).catch(() => undefined);
-  const chipAfter = await text(chips.first());
-  expect(reloaded.join() === either.join() && chipAfter.includes("K6 Master Alpha, K6 Master Bravo"), `after a reload: rows ${reloaded}, chip "${chipAfter}"`);
+  await pill.waitFor({ timeout: 10000 }).catch(() => failures.push("after a reload the pill does not name both master values"));
+  expect(reloaded.join() === either.join(), `after a reload: rows ${reloaded}`);
   const address = new URL(page.url());
   expect(address.searchParams.getAll(`filter.related:${mapsTo}.eq`).length === 2, `the address holds ${address.search}`);
   await shot("k6-filtered-wide");
-  checks.push(`any of two master values: rows 1–3 of 5; the chip names both; reloaded from the address, the same; axe ${await axe("k6-filtered-light")} violations`);
+  checks.push(`any of two master values, applied once: rows 1–3 of 5; the pill names both; reloaded from the address, the same; axe ${await axe("k6-filtered-light")} violations`);
 
   // 8. None, in a change set and live.
   const changeSet = await api("/workspaces/default/change-sets", { name: "K6 staged", source: "currentLive" });
@@ -159,17 +163,18 @@ try {
   expect(loaded < 42, `bulk: all ${loaded} rows were loaded, so all matching was not reached`);
   await bar.getByRole("button", { name: "Select all 42 matching" }).click();
   await bar.getByText("All 42 matching selected").waitFor({ timeout: 5000 });
-  await bar.getByRole("button", { name: "Change values…" }).click();
+  await bar.getByRole("button", { name: "Change values", exact: true }).click();
   const change = page.getByRole("dialog", { name: "Change values" });
   await change.waitFor();
   const said = await text(change);
-  await change.getByRole("group", { name: "Value name", exact: true }).locator("label", { hasText: "Set to" }).click();
-  await change.getByRole("group", { name: "Value name", exact: true }).getByLabel("Value name").fill("K6 checked");
+  await change.getByRole("button", { name: "Change a field" }).click();
+  await page.getByRole("dialog", { name: "Change a field" }).getByRole("button", { name: /^Value name/ }).click();
+  await change.getByRole("group", { name: "Value name", exact: true }).getByRole("textbox", { name: "Value name", exact: true }).fill("K6 checked");
   await change.getByRole("button", { name: "Preview", exact: true }).click();
   const preview = await text(await change.getByRole("region", { name: "The preview", exact: true }).waitFor({ timeout: 20000 }).then(() => change.getByRole("region", { name: "The preview", exact: true })));
   expect(said.includes("All 42 matching") && preview.includes("Applying would change 42 system values."), `bulk: the dialog says "${said.slice(0, 80)}", the preview "${preview}"`);
   await change.getByRole("button", { name: /Cancel|Close/ }).first().click();
-  checks.push(`under the filter (42 matching, ${loaded} rows loaded): Select all 42 matching; Change values… and its preview count 42`);
+  checks.push(`under the filter (42 matching, ${loaded} rows loaded): Select all 42 matching; Change values and its preview count 42`);
 
   // 10. Export carries the filter.
   await open(valuesPath(`&${filterParam("eq")}=${masters[1].id}`), "System values");
@@ -187,29 +192,40 @@ try {
   expect(/System values? 2\b/.test(counted), `export: the job counts "${counted}"`);
   checks.push(`Export from the filtered list: the job counts "${counted}"`);
 
-  // 11. Master values, keyboard only at 390px: represented by no system value, then cleared.
+  // 11. Master values, keyboard only at 390px: the editor as a bottom sheet counting its draft (D163).
   await page.setViewportSize({ width: 390, height: 844 });
   await open("/apps/rdm-master/views/master-values?workspaceKey=default&search=K6%20Master", "Master values");
   await page.getByRole("button", { name: "Filter", exact: true }).focus();
   await page.keyboard.press("Enter");
   await filterMenu.waitFor();
-  const operator = filterMenu.getByRole("combobox", { name: "Is represented by system value operator" });
-  await operator.focus();
-  await operator.selectOption("none");
-  const unmapped = (await page.locator("tbody tr").allInnerTexts()).map((row) => row.match(/K6 Master \w+/)?.[0]).filter(Boolean);
-  await page.waitForTimeout(300);
-  const unmappedNow = (await page.locator("tbody tr").allInnerTexts()).map((row) => row.match(/K6 Master \w+/)?.[0]).filter(Boolean);
-  expect(unmappedNow.join() === "K6 Master Charlie", `master values with none: ${unmappedNow} (first read ${unmapped})`);
+  await filterMenu.getByRole("button", { name: /^Is represented by system value/ }).focus();
+  await page.keyboard.press("Enter");
+  const sheet = page.getByLabel("Filter by Is represented by system value");
+  await sheet.getByRole("radio", { name: "Has none" }).focus();
+  await page.keyboard.press("Space");
+  const show = sheet.getByRole("button", { name: "Show 1 master value" });
+  await show.waitFor({ timeout: 10000 }).catch(() => failures.push("the sheet does not count its draft (Show 1 master value)"));
+  const sheetBox = await page.locator(".filter-popover").boundingBox();
+  expect(sheetBox && Math.round(sheetBox.x) === 0 && Math.round(sheetBox.width) === 390, `390px: the editor is not a bottom sheet (${JSON.stringify(sheetBox)})`);
+  await shot("k6-sheet-390");
+  checks.push(`master values at 390px by keyboard: the editor a bottom sheet, Has none, "Show 1 master value"; axe ${await axe("k6-sheet-390")} violations`);
+  await show.focus();
+  await page.keyboard.press("Enter");
+  let unmapped = [];
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    unmapped = (await page.locator("tbody tr").allInnerTexts()).map((row) => row.match(/K6 Master \w+/)?.[0]).filter(Boolean);
+    if (unmapped.join() === "K6 Master Charlie") break;
+    await page.waitForTimeout(100);
+  }
+  expect(unmapped.join() === "K6 Master Charlie", `master values with none: ${unmapped}`);
   await shot("k6-masters-390");
-  checks.push(`master values at 390px by keyboard: has none gives K6 Master Charlie; axe ${await axe("k6-masters-390")} violations`);
-  await page.keyboard.press("Escape");
-  const remove = page.getByRole("button", { name: /^Remove Is represented by system value has none/ });
+  const remove = page.getByRole("button", { name: "Remove the Is represented by system value filter" });
   await remove.focus();
   await page.keyboard.press("Enter");
   await remove.waitFor({ state: "detached" });
   const scroll = await overflow();
   expect(scroll <= 0, `390px: the page scrolls horizontally by ${scroll}px`);
-  checks.push("the chip removed by keyboard; no page overflow at 390px");
+  checks.push("the pill removed by keyboard; no page overflow at 390px");
 
   // Axe in the dark theme.
   await page.setViewportSize({ width: 1440, height: 900 });

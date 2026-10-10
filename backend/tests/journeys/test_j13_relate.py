@@ -341,3 +341,56 @@ def test_two_relationships_racing_for_one_cardinality_limit(world):
     assert sorted(response.status_code for response in responses) == [201, 409]
     refused(next(r for r in responses if r.status_code == 409), 409, "CARDINALITY_VIOLATION")
     assert len(_relations(world, k, direction="incoming", relationTypeKey=world.key("B11"))) == 1
+
+
+def _held(world, ids, **params):
+    query = {
+        "objectTypeKey": world.key("H"),
+        "relationTypeKey": world.key("Bnn"),
+        "direction": "outgoing",
+        "objectId": ids,
+        **params,
+    }
+    return world.api.get("/relations/held", **query)
+
+
+@pytest.mark.journey("J32.7")
+@pytest.mark.structures("H", "K", "Bnn", "R", "B1n")
+def test_what_a_set_of_records_holds_through_a_relationship(world):
+    """Given four H records: three related to K a, one of them also to K b, one related to none. When
+    the records K the four hold through the many-to-many are read. Then a with 3 and b with 1, in name
+    order, paged one at a time by cursor; in a change set that relates the fourth to b, b with 2 there
+    and 1 live. An unknown relationship, one H has no binding of and more than 500 records are
+    refused."""
+    tag = uuid4().hex[:6]
+    a = world.made("K", f"{tag} Alpha", values={"K.code": f"{tag}-A"})["id"]
+    b = world.made("K", f"{tag} Bravo", values={"K.code": f"{tag}-B"})["id"]
+    hs = [world.made("H", f"{tag} H{n}")["id"] for n in range(4)]
+    for h in hs[:3]:
+        ok(world.relate("Bnn", h, a, {"Bnn.weight": 1}), 201)
+    ok(world.relate("Bnn", hs[0], b, {"Bnn.weight": 1}), 201)
+
+    page = ok(_held(world, hs))
+    assert [(item["object"]["id"], item["count"]) for item in page["items"]] == [(a, 3), (b, 1)]
+    assert page["items"][0]["object"]["name"] == f"{tag} Alpha"
+    first = ok(_held(world, hs, pageSize=1))
+    second = ok(_held(world, hs, pageSize=1, cursor=first["nextCursor"]))
+    assert [item["object"]["id"] for item in first["items"] + second["items"]] == [a, b]
+    assert second["nextCursor"] is None
+
+    cs1 = world.change_set()
+    ok(
+        world.relate(
+            "Bnn", hs[3], b, {"Bnn.weight": 1},
+            changeSetId=cs1["id"], expectedChangeSetVersion=world.current(cs1)["version"],
+        ),
+        201,
+    )
+    staged = ok(_held(world, hs, changeSetId=cs1["id"]))
+    assert [(item["object"]["id"], item["count"]) for item in staged["items"]] == [(a, 3), (b, 2)]
+    assert [item["count"] for item in ok(_held(world, hs))["items"]] == [3, 1]
+
+    refused(_held(world, hs, relationTypeKey="no-such-relation"), 422, "UNKNOWN_RELATION_TYPE")
+    refused(_held(world, hs, relationTypeKey=world.key("B1n")), 422, "INVALID_RELATION_PAIR")
+    error = refused(_held(world, [str(uuid4()) for _ in range(501)]), 422, "TOO_MANY_RECORDS")
+    assert "500" in error["message"]

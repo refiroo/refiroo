@@ -135,27 +135,43 @@ try {
     await page.getByRole("heading", { level: 1, name: heading }).waitFor();
     await box(first).waitFor();
   };
+  // K6a (D167): the relationship is a pill, the action a segmented choice, the records a checklist.
+  const escape = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const startChange = async (relationship) => {
-    await bar.getByRole("button", { name: "Change relationships…" }).click();
+    await bar.getByRole("button", { name: "Change relationships", exact: true }).click();
     await dialog.waitFor();
-    if (relationship) await dialog.getByRole("combobox", { name: "Which relationship" }).selectOption({ label: relationship });
+    if (relationship) {
+      const [label, other] = relationship.split(" · ");
+      await dialog
+        .getByRole("radiogroup", { name: "Which relationship" })
+        .getByRole("radio", { name: new RegExp(`^${escape(label)}.*${escape(other)}$`) })
+        .click();
+    }
   };
+  const relationships = () =>
+    dialog
+      .getByRole("radiogroup", { name: "Which relationship" })
+      .getByRole("radio")
+      .evaluateAll((radios) => radios.map((radio) => radio.textContent.replace(/\s+/g, " ").trim()));
   const modes = async () =>
     (await dialog.getByRole("group", { name: "What to do" }).getByRole("radio").evaluateAll((radios) =>
       radios.map((radio) => radio.closest("label")?.textContent?.trim()),
     ));
+  const row = (name) => dialog.locator(".record-checklist-row", { hasText: name }).first();
+  // "Add master values", "Remove master values", "Set to codelist", "Replace with …": the action, then the record.
   const pick = async (field, name) => {
-    await dialog.getByRole("combobox", { name: `Search: ${field}` }).fill(name);
-    await dialog.getByRole("listbox", { name: field }).getByRole("option", { name: new RegExp(name) }).click();
+    const action = ["Add", "Remove", "Replace with", "Set to"].find((word) => field.startsWith(word));
+    const radio = dialog.getByRole("group", { name: "What to do" }).getByRole("radio", { name: action, exact: true });
+    if (!(await radio.isChecked()))
+      await dialog
+        .getByRole("group", { name: "What to do" })
+        .locator("label")
+        .filter({ hasText: new RegExp(`^\\s*${action}\\s*$`) })
+        .click();
+    if (action !== "Remove") await dialog.getByRole("searchbox").fill(name);
+    await row(name).waitFor({ timeout: 10000 });
+    await row(name).getByRole("checkbox").check();
   };
-  // The search answers after its pause: wait until the list is the one typed for.
-  const firstOption = (field, name) =>
-    dialog
-      .getByRole("listbox", { name: field })
-      .getByRole("option")
-      .first()
-      .filter({ hasText: name })
-      .waitFor({ timeout: 10000 });
   const previewed = async () => {
     await dialog.getByRole("button", { name: "Preview", exact: true }).click();
     await dialog.getByRole("region", { name: "The preview", exact: true }).waitFor({ timeout: 20000 });
@@ -173,11 +189,11 @@ try {
   for (const n of [1, 2, 3]) await box(`K3 Value ${pad(n)}`).click();
   await startChange("Maps to master value · Master values");
   const offered = await modes();
-  expect(offered.join("|") === "Add or remove|Replace with|Clear", `values: the modes are ${offered}`);
+  expect(offered.join("|") === "Add|Remove|Replace with|Clear", `values: the modes are ${offered}`);
   await pick("Add master values", "K3 Master 001");
   await pick("Add master values", "K3 Master 002");
-  const size = await text(dialog.locator(".bulk-size"));
-  expect(size === "3 system values × 2 master values: 6 changes.", `values: the size line says "${size}"`);
+  const size = await text(dialog.locator(".bulk-summary"));
+  expect(size === "3 system values × 2 master values: up to 6 changes", `values: the size line says "${size}"`);
   await shot("k3-form-wide");
   checks.push(`form with the picker: axe ${await axe("k3-dialog-form-light")} violations`);
   const preview = await previewed();
@@ -204,6 +220,14 @@ try {
   expect(back === "3 selected", `add: the selection after the record is "${back}"`);
   await startChange("Maps to master value · Master values");
   await pick("Remove master values", "K3 Master 002");
+  // Remove lists only what the selection holds, with how many hold it (D165).
+  const held = await dialog.locator(".record-checklist-row").allInnerTexts();
+  expect(
+    held.length === 2 && held.some((line) => /K3 Master 002\s*on 3 of 3/.test(line)) && held.some((line) => /K3 Master 001\s*on 3 of 3/.test(line)),
+    `remove: the held records are ${held.join(" | ")}`,
+  );
+  const removing = await text(dialog.locator(".bulk-summary"));
+  expect(removing === "Removes 3 relationships", `remove: the summary says "${removing}"`);
   const removal = await previewed();
   expect(removal.includes("Applying would change 3 relationships."), `remove: the preview says ${removal}`);
   const removed = await applied();
@@ -263,38 +287,41 @@ try {
   await open("/apps/rdm-master/views/master-values?workspaceKey=default&search=K3%20Master", "Master values", "K3 Master 001");
   await box("K3 Master 001").click();
   await startChange();
-  const masterOptions = await dialog.getByRole("combobox", { name: "Which relationship" }).locator("option").allInnerTexts();
+  const masterOptions = await relationships();
   expect(masterOptions.join("|") === "Is represented by system value · System values", `masters: the options are ${masterOptions}`);
   const masterModes = await modes();
-  expect(masterModes.join("|") === "Add or remove|Replace with|Clear", `masters: the modes are ${masterModes}`);
+  expect(masterModes.join("|") === "Add|Remove|Replace with|Clear", `masters: the modes are ${masterModes}`);
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await open("/apps/rdm-master/views/codelists?workspaceKey=default&search=K3%20List", "Codelists", "K3 List A");
   await box("K3 List A").click();
   await startChange();
-  const listOptions = await dialog.getByRole("combobox", { name: "Which relationship" }).locator("option").allInnerTexts();
+  const listOptions = await relationships();
   expect(listOptions.join("|") === "Has system representation · System values", `codelists: the options are ${listOptions}`);
   const listModes = await modes();
   expect(listModes.join("|") === "Remove|Clear", `codelists: the modes are ${listModes}`);
   await dialog.getByRole("button", { name: "Cancel" }).click();
   expect(![...masterOptions, ...listOptions].some((option) => /translat/i.test(option)), "a translation relationship is offered");
-  checks.push("master values offer Add or remove, Replace with and Clear on Is represented by system value; codelists offer Remove and Clear only on Has system representation; no translation relationship is offered");
+  checks.push("master values offer Add, Remove, Replace with and Clear on Is represented by system value; codelists offer Remove and Clear only on Has system representation; no translation relationship is offered");
 
   // 8. Keyboard only at 390px; a preview left with Escape is cancelled.
   await page.setViewportSize({ width: 390, height: 844 });
   await open(valuesPath(), "System values", "K3 Value 007");
   await box("K3 Value 007").focus();
   await page.keyboard.press("Space");
-  await bar.getByRole("button", { name: "Change relationships…" }).focus();
+  await bar.getByRole("button", { name: "Change relationships", exact: true }).focus();
   await page.keyboard.press("Enter");
   await dialog.waitFor();
-  // The first relationship is the domain a value represents: Set to, one domain from the picker.
-  const search = dialog.getByRole("combobox", { name: "Search: Set to domain" });
-  await search.focus();
-  await page.keyboard.type("K3 Domain");
-  await firstOption("Set to domain", "K3 Domain");
-  await page.keyboard.press("ArrowDown");
-  await page.keyboard.press("Enter");
-  await dialog.getByText("Selected: K3 Domain").waitFor();
+  // The first relationship is the domain a value represents: Set to, one domain ticked in the checklist.
+  const search = dialog.getByRole("searchbox");
+  const tickByKeyboard = async () => {
+    await search.focus();
+    await page.keyboard.type("K3 Domain");
+    await row("K3 Domain").waitFor({ timeout: 10000 });
+    await row("K3 Domain").getByRole("checkbox").focus();
+    await page.keyboard.press("Space");
+    await dialog.getByText("1 selected").waitFor();
+  };
+  await tickByKeyboard();
   await dialog.getByRole("button", { name: "Preview", exact: true }).focus();
   await page.keyboard.press("Enter");
   await dialog.getByRole("button", { name: "Apply", exact: true }).waitFor({ timeout: 20000 });
@@ -307,14 +334,10 @@ try {
     if (state !== "cancelled") await page.waitForTimeout(100);
   }
   expect(state === "cancelled", `Escape: the preview left is ${state}`);
-  await bar.getByRole("button", { name: "Change relationships…" }).focus();
+  await bar.getByRole("button", { name: "Change relationships", exact: true }).focus();
   await page.keyboard.press("Enter");
   await dialog.waitFor();
-  await search.focus();
-  await page.keyboard.type("K3 Domain");
-  await firstOption("Set to domain", "K3 Domain");
-  await page.keyboard.press("ArrowDown");
-  await page.keyboard.press("Enter");
+  await tickByKeyboard();
   await dialog.getByRole("button", { name: "Preview", exact: true }).focus();
   await page.keyboard.press("Enter");
   await dialog.getByRole("button", { name: "Apply", exact: true }).waitFor({ timeout: 20000 });
@@ -334,7 +357,7 @@ try {
   await dialog.waitFor({ state: "detached" });
   const domainOf = await related(values[6].id, represents, "incoming");
   expect(domainOf.join() === "K3 Domain", `keyboard: K3 Value 007 represents ${domainOf}`);
-  checks.push(`system values at 390px, keyboard only: Space, Change relationships…, the picker (type, ↓, Enter), Preview, Escape (the preview cancelled), again to Apply and Done; announced "${ready}" and "${done}"`);
+  checks.push(`system values at 390px, keyboard only: Space, Change relationships, the checklist (type, Tab, Space), Preview, Escape (the preview cancelled), again to Apply and Done; announced "${ready}" and "${done}"`);
 
   // 9. K3a: a many-to-one relationship, set on a selection and changed on one record.
   await page.setViewportSize({ width: 1440, height: 900 });

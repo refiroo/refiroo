@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session, aliased
 
 from ...common.cursors import encode_cursor
 from ...common.pagination import SortKey, text_key
+from ...errors import api_error
 from ...models.database import AttributeValue, ObjectRelation, RdmObject, SnapshotAttributeValue
 from ...models.schema import EngineModel
 from ..model.traversal import related_object_types
@@ -32,6 +33,7 @@ from .snapshot_reads import (
     SnapshotContext,
     effective_object_value,
     effective_record,
+    object_projection,
     relation_projection,
 )
 
@@ -496,3 +498,110 @@ def _relation_types_filter(relation_type_keys: Sequence[str] | None) -> dict[str
 def _search_filter(search: str | None) -> dict[str, Any]:
     """Bind ``search`` into a cursor only when set, so cursors issued before it stay valid."""
     return {"search": search} if search else {}
+
+
+# How many records one read of what a set holds may name (0.9 K6a, D165).
+HELD_MAX_RECORDS = 500
+
+
+@dataclass(frozen=True)
+class HeldQuery:
+    """What a set of records holds through one relationship: the statement and its keyset."""
+
+    statement: Select[Any]
+    keys: tuple[SortKey, ...]
+    filters: dict[str, Any]
+
+
+def held_records_query(
+    model: EngineModel,
+    context: SnapshotContext | None,
+    *,
+    workspace_key: str,
+    object_type_key: str,
+    relation_type_key: str,
+    direction: str,
+    object_ids: Sequence[str],
+) -> HeldQuery:
+    """The records at the other end of ``relation_type_key`` from ``object_ids`` (records of
+    ``object_type_key``, read ``direction`` from them), each with how many of them hold it, in the
+    far record's name order (0.9 K6a, D165). One grouped set statement, live or in a context.
+    """
+    if model.relation_type(relation_type_key) is None:
+        raise api_error(
+            422,
+            "UNKNOWN_RELATION_TYPE",
+            f"Relation type '{relation_type_key}' not found",
+            {"parameter": "relationTypeKey"},
+        )
+    targets = related_object_types(model, object_type_key, direction, [relation_type_key])
+    if not targets:
+        raise api_error(
+            422,
+            "INVALID_RELATION_PAIR",
+            f"Object type '{object_type_key}' has no {direction} binding of relation type"
+            f" '{relation_type_key}'",
+            {"parameter": "relationTypeKey"},
+        )
+    ids = sorted(set(object_ids))
+    if len(ids) > HELD_MAX_RECORDS:
+        raise api_error(
+            422,
+            "TOO_MANY_RECORDS",
+            f"Name at most {HELD_MAX_RECORDS} records in one read; {len(ids)} were named",
+            {"parameter": "objectId", "limit": HELD_MAX_RECORDS},
+        )
+    target_keys = [item.key for item in targets]
+    if context is None:
+        relation = aliased(ObjectRelation)
+        own, far = _relation_ends(relation.from_object_id, relation.to_object_id, direction)
+        held = (
+            select(far.label("far_id"), func.count().label("held"))
+            .where(own.in_(ids), relation.relation_type_key == relation_type_key)
+            .group_by(far)
+            .subquery("held")
+        )
+        other = aliased(RdmObject, name="held_record")
+        statement = (
+            select(
+                other.id.label("id"),
+                other.name.label("name"),
+                other.object_type_key.label("object_type_key"),
+                held.c.held,
+            )
+            .join(held, held.c.far_id == other.id)
+            .where(other.workspace_key == workspace_key, other.object_type_key.in_(target_keys))
+        )
+        name, identity = other.name, other.id
+    else:
+        relations = relation_projection(
+            context, endpoint_ids=ids, direction=direction, relation_type_keys=[relation_type_key]
+        )
+        own, far = _relation_ends(relations.c.from_object_id, relations.c.to_object_id, direction)
+        held = (
+            select(far.label("far_id"), func.count().label("held"))
+            .select_from(relations)
+            .where(own.in_(ids))
+            .group_by(far)
+            .subquery("held")
+        )
+        others = object_projection(context, object_type_keys=target_keys).alias("held_records")
+        statement = select(
+            others.c.object_id.label("id"),
+            others.c.name.label("name"),
+            others.c.object_type_key.label("object_type_key"),
+            held.c.held,
+        ).join(held, held.c.far_id == others.c.object_id)
+        name, identity = others.c.name, others.c.object_id
+    return HeldQuery(
+        statement=statement,
+        keys=(text_key("name", name, "name"), text_key("id", identity, "id")),
+        filters={
+            "objectTypeKey": object_type_key,
+            "relationTypeKey": relation_type_key,
+            "direction": direction,
+            "objectIds": ids,
+            **({"workspaceKey": workspace_key} if context is None else {"context": context.id}),
+        },
+    )
+

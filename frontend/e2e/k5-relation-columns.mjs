@@ -194,10 +194,12 @@ try {
   const bar = page.getByRole("group", { name: "Selection" });
   const dialog = page.getByRole("dialog", { name: "Change relationships", exact: true });
   for (const n of [2, 3, 4]) await page.getByRole("checkbox", { name: `Select K5 Value ${pad(n)}`, exact: true }).click();
-  await bar.getByRole("button", { name: "Change relationships…" }).click();
-  await dialog.getByRole("combobox", { name: "Which relationship" }).selectOption({ label: "Maps to master value · Master values" });
-  await dialog.getByRole("combobox", { name: "Search: Add master values" }).fill("K5 Master Foxtrot");
-  await dialog.getByRole("listbox", { name: "Add master values" }).getByRole("option", { name: /K5 Master Foxtrot/ }).click();
+  await bar.getByRole("button", { name: "Change relationships", exact: true }).click();
+  await dialog.getByRole("radiogroup", { name: "Which relationship" }).getByRole("radio", { name: /^Maps to master value/ }).click();
+  await dialog.getByRole("searchbox").fill("K5 Master Foxtrot");
+  const foxtrot = dialog.locator(".record-checklist-row", { hasText: "K5 Master Foxtrot" }).first();
+  await foxtrot.waitFor({ timeout: 10000 });
+  await foxtrot.getByRole("checkbox").check();
   await dialog.getByRole("button", { name: "Preview", exact: true }).click();
   await dialog.getByRole("region", { name: "The preview", exact: true }).waitFor({ timeout: 20000 });
   await dialog.getByRole("button", { name: "Apply", exact: true }).click();
@@ -210,7 +212,7 @@ try {
       .waitFor({ timeout: 10000 })
       .catch(() => failures.push(`bulk: K5 Value ${pad(n)} does not show K5 Master Foxtrot`));
   await shot("k5-after-bulk-wide");
-  checks.push("after Change relationships… adding K5 Master Foxtrot to three values, their rows show it without a reload");
+  checks.push("after Change relationships adding K5 Master Foxtrot to three values, their rows show it without a reload");
 
   // 8. In a change set, then the publication made from it.
   const changeSet = await api("/workspaces/default/change-sets", { name: "K5 staged", source: "currentLive" });

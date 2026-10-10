@@ -112,10 +112,12 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # sort description names related:<key>, and QueryObject's description; no other path changed.
     # Re-baselined for 0.9 K5a: ExpandedRelations.field and the expand description's <key>.<field>.
     # Re-baselined for 0.9 K6: the per-type list's filter description names the relationship filter;
-    # no schema or path changed.
+    # no schema or path changed. Re-baselined for 0.9 K6a: GET /relations/held with HeldRecordPage,
+    # HeldRecord and HeldObject, and expand's description losing "at most 5" (D142 revised); removing
+    # those and restoring the phrase gives K6's document exactly.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "9c03a248f499034987282f85ddbd1e461e9f76b7e25323b6386520b2d6041f4f"
+        "cbe5f994b2232bf5e19a59f452d467606069d290e88dd49a2ba518ff5ccc66bf"
     )
 
 
@@ -146,13 +148,14 @@ def test_paging_openapi_inventory():
         assert {"totalCount", "startIndex"}.isdisjoint(document["components"]["schemas"][name]["required"])
         assert properties["totalCount"]["type"] == properties["startIndex"]["type"] == "integer"
     # 0.9 B1 added the job list and a job's outcomes; H4c removed GET /workspaces/{key}/mappings (D-1);
-    # 0.9 J2 added the import profiles; 0.9 J3 an import's rows.
-    assert seekable <= paged and len(paged) == 28
+    # 0.9 J2 added the import profiles; 0.9 J3 an import's rows; 0.9 K6a what records hold.
+    assert seekable <= paged and len(paged) == 29
     assert {
         "/api/v1/jobs",
         "/api/v1/jobs/{job_id}/items",
         "/api/v1/jobs/{job_id}/rows",
         "/api/v1/import-profiles",
+        "/api/v1/relations/held",
     } <= paged
     objects = {item["name"] for item in document["paths"]["/api/v1/objects/{object_type_key}"]["get"]["parameters"]}
     relations = {item["name"] for item in document["paths"]["/api/v1/relations"]["get"]["parameters"]}

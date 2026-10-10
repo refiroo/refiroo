@@ -102,7 +102,7 @@ try {
     await box(first).waitFor();
   };
   const startDelete = async () => {
-    await bar.getByRole("button", { name: "Delete…" }).click();
+    await bar.getByRole("button", { name: "Delete", exact: true }).click();
     await dialog.waitFor();
   };
   const previewed = async () => {
@@ -216,7 +216,7 @@ try {
   await open(domainsPath("K2b Keyed"), "Domains", "K2b Keyed 001");
   await box("K2b Keyed 001").focus();
   await page.keyboard.press("Space");
-  await bar.getByRole("button", { name: "Delete…" }).focus();
+  await bar.getByRole("button", { name: "Delete", exact: true }).focus();
   await page.keyboard.press("Enter");
   await dialog.waitFor();
   await dialog.getByRole("button", { name: "Preview", exact: true }).focus();
@@ -231,7 +231,7 @@ try {
     if (state !== "cancelled") await page.waitForTimeout(100);
   }
   expect(state === "cancelled", `Escape: the preview left is ${state}`);
-  await bar.getByRole("button", { name: "Delete…" }).focus();
+  await bar.getByRole("button", { name: "Delete", exact: true }).focus();
   await page.keyboard.press("Enter");
   await dialog.waitFor();
   await dialog.getByRole("button", { name: "Preview", exact: true }).focus();

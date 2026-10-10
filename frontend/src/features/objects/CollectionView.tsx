@@ -3,7 +3,7 @@
  */
 
 import { Card } from "@/ui/Card";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RecordActionMenu } from "@/features/objects/RecordActionMenu";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
 import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
@@ -26,7 +26,7 @@ import { BulkChangeDialog } from "@/features/objects/BulkChangeDialog";
 import { BulkDeleteDialog } from "@/features/objects/BulkDeleteDialog";
 import { BulkRelationDialog, hasBulkRelations } from "@/features/objects/BulkRelationDialog";
 import { readMatching } from "@/lib/readMatching";
-import type { ObjectItem, TableViewDefinition } from "@/types";
+import type { CollectionFilter, ObjectItem, TableViewDefinition } from "@/types";
 import type { ViewComponentProps } from "./views/types";
 
 export function ObjectCollectionView({
@@ -96,6 +96,24 @@ export function ObjectCollectionView({
     previousSelection.current = selectedId;
   }, [selectedId]);
   const objectType = view.objectTypeKey ? objectTypeFor(model, view.objectTypeKey) : undefined;
+  // The phone sheet's count of a filter draft (K6a, D163): the list's own read, totalled.
+  const countDraft = useCallback(
+    async (filters: CollectionFilter[]) =>
+      objectType
+        ? (
+            await api.objects(objectType.key, {
+              applicationKey: application.key,
+              workspaceKey,
+              search: query.search,
+              parentObjectId: query.parentObjectId,
+              filters,
+              pageSize: 1,
+              includeTotal: true,
+            })
+          ).totalCount
+        : undefined,
+    [api, objectType, application.key, workspaceKey, query.search, query.parentObjectId],
+  );
   const columns = view.config.columns ?? [
     "name",
     ...(objectType?.attributes.slice(0, 4).map((item) => item.attributeTypeKey) ?? []),
@@ -288,6 +306,8 @@ export function ObjectCollectionView({
           onChange={(next) => onQueryChange({ ...next, anchor: undefined })}
           placeholder={`Search ${objectType.pluralName.toLowerCase()}`}
           workspaceKey={workspaceKey}
+          noun={[objectType.name, objectType.pluralName]}
+          countDraft={countDraft}
         />
         {bulkSelection && (
           <>
@@ -303,16 +323,16 @@ export function ObjectCollectionView({
             >
               {selection.count > 0 && (
                 <>
-                  <button type="button" className="secondary" onClick={() => setBulkAction("change")}>
-                    Change values…
+                  <button type="button" className="ghost" onClick={() => setBulkAction("change")}>
+                    <Icon name="pencil" size={15} /> Change values
                   </button>
                   {hasBulkRelations(model, objectType) && (
-                    <button type="button" className="secondary" onClick={() => setBulkAction("relations")}>
-                      Change relationships…
+                    <button type="button" className="ghost" onClick={() => setBulkAction("relations")}>
+                      <Icon name="link" size={15} /> Change relationships
                     </button>
                   )}
-                  <button type="button" className="secondary" onClick={() => setBulkAction("delete")}>
-                    Delete…
+                  <button type="button" className="ghost danger-action" onClick={() => setBulkAction("delete")}>
+                    <Icon name="trash" size={15} /> Delete
                   </button>
                 </>
               )}

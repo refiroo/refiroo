@@ -40,7 +40,17 @@ try {
   const dialog = page.getByRole("dialog", { name: "Change values" });
   const box = (name) => page.getByRole("checkbox", { name: `Select ${name}`, exact: true });
   const field = (name) => dialog.getByRole("group", { name, exact: true });
-  const choose = (name, option) => field(name).locator("label", { hasText: option }).click();
+  // K6a (D167): a field is added with ＋ Change a field, then set or cleared on its card.
+  const addField = async (name) => {
+    if (await field(name).count()) return;
+    await dialog.getByRole("button", { name: "Change a field" }).click();
+    await page.getByRole("dialog", { name: "Change a field" }).getByRole("button", { name: new RegExp(`^${name}`) }).click();
+    await field(name).waitFor();
+  };
+  const choose = async (name, option) => {
+    await addField(name);
+    await field(name).locator("label", { hasText: option }).click();
+  };
   const status = dialog.locator(".bulk-status");
   const axe = async (label) => {
     const result = await runAxe(page, [], label);
@@ -81,7 +91,7 @@ try {
     await box(first).waitFor();
   };
   const startChange = async () => {
-    await bar.getByRole("button", { name: "Change values…" }).click();
+    await bar.getByRole("button", { name: "Change values", exact: true }).click();
     await dialog.waitFor();
   };
   const previewed = async () => {
@@ -105,9 +115,11 @@ try {
   for (const n of [1, 2, 3]) await box(`K2 Domain ${pad(n)}`).click();
   await startChange();
   expect((await text(dialog)).includes("3 domains"), "by hand: the dialog does not say 3 domains");
+  await addField("Domain code");
   expect(!(await field("Domain code").locator("label", { hasText: "Clear" }).count()), "by hand: a required field offers Clear");
+  await field("Domain code").getByRole("button", { name: "Do not change Domain code" }).click();
   await choose("Description", "Set to");
-  await field("Description").getByLabel("Description").fill("Checked by K2");
+  await field("Description").getByRole("textbox", { name: "Description", exact: true }).fill("Checked by K2");
   await choose("Active", "Clear");
   await shot("k2-fields-wide");
   checks.push(`fields: axe ${await axe("k2-dialog-fields-light")} violations`);
@@ -130,7 +142,7 @@ try {
   await barSays("3 selected", "by hand after the change");
   await startChange();
   await choose("Description", "Set to");
-  await field("Description").getByLabel("Description").fill("Checked twice");
+  await field("Description").getByRole("textbox", { name: "Description", exact: true }).fill("Checked twice");
   await previewed();
   const second = await applied();
   expect(second.includes("3 domains changed") && !second.includes("refused"), `second change: "${second}"`);
@@ -151,8 +163,8 @@ try {
   await barSays("All 80 matching except 1", "systems exception");
   await startChange();
   await choose("System code", "Set to");
-  await field("System code").getByLabel("System code").fill("K2-SAME");
-  await dialog.locator("label", { hasText: "Change nothing unless every record can" }).click();
+  await field("System code").getByRole("textbox", { name: "System code", exact: true }).fill("K2-SAME");
+  await dialog.locator("label", { hasText: "Change none" }).click();
   const atomic = await previewed();
   for (const part of ["Applying would change nothing", "A sample", "the first 50 of 79"])
     expect(atomic.includes(part), `systems atomic: the preview lacks "${part}": ${atomic}`);
@@ -166,7 +178,7 @@ try {
   await dialog.getByRole("button", { name: "Preview again" }).click().catch(() => undefined);
   await dialog.getByRole("region", { name: "The preview", exact: true }).waitFor({ timeout: 20000 });
   await dialog.getByRole("button", { name: "Back" }).click();
-  await dialog.locator("label", { hasText: "Change the records that can change" }).click();
+  await dialog.locator("label", { hasText: "Change the rest" }).click();
   await previewed();
   const independent = await applied();
   expect(independent.includes("1 system changed") && independent.includes("78 refused"), `systems independent: "${independent}"`);
@@ -184,7 +196,7 @@ try {
   const previewLater = async () => {
     await startChange();
     await choose("Description", "Set to");
-    await field("Description").getByLabel("Description").fill("Applied from the job page");
+    await field("Description").getByRole("textbox", { name: "Description", exact: true }).fill("Applied from the job page");
     await previewed();
     return (await api("/jobs?pageSize=1")).items[0];
   };
@@ -245,12 +257,15 @@ try {
   await open(domainsPath("K2 Domain"), "Domains", "K2 Domain 001");
   await box("K2 Domain 001").focus();
   await page.keyboard.press("Space");
-  await bar.getByRole("button", { name: "Change values…" }).focus();
+  await bar.getByRole("button", { name: "Change values", exact: true }).focus();
   await page.keyboard.press("Enter");
   await dialog.waitFor();
-  await field("Description").getByRole("radio", { name: "Set to" }).focus();
-  await page.keyboard.press("Space");
-  await field("Description").getByLabel("Description").focus();
+  await dialog.getByRole("button", { name: "Change a field" }).focus();
+  await page.keyboard.press("Enter");
+  const fieldMenu = page.getByRole("dialog", { name: "Change a field" });
+  await fieldMenu.getByRole("button", { name: /^Description/ }).focus();
+  await page.keyboard.press("Enter");
+  await field("Description").getByRole("textbox", { name: "Description", exact: true }).focus();
   await page.keyboard.type("Typed at 390px");
   await dialog.getByRole("button", { name: "Preview" }).focus();
   await page.keyboard.press("Enter");
@@ -269,7 +284,7 @@ try {
   await dialog.getByRole("button", { name: "Done" }).focus();
   await page.keyboard.press("Enter");
   await dialog.waitFor({ state: "detached" });
-  checks.push(`domains at 390px, keyboard only: Space, Change values…, Set to, typed, Preview, Apply, Done; announced "${ready}" and "${done}"`);
+  checks.push(`domains at 390px, keyboard only: Space, Change values, Change a field, Description, typed, Preview, Apply, Done; announced "${ready}" and "${done}"`);
 
   // Axe in the dark theme: the dialog's preview and a batch's job page.
   await page.setViewportSize({ width: 1440, height: 900 });

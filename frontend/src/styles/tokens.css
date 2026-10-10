@@ -215,6 +215,14 @@
   --border-faint: var(--neutral-150);
   --border-subtle: var(--neutral-200);
   --border-strong: var(--neutral-300);
+  /* The selection bar (0.9 K6a): a soft tint of the action colour, its actions in it (the user, 2026-10-10). */
+  --selection-bar-surface: color-mix(in srgb, var(--action-primary) 8%, var(--surface-raised));
+  --selection-bar-border: color-mix(in srgb, var(--action-primary) 28%, transparent);
+  --selection-bar-text: var(--text-primary);
+  --selection-bar-action: var(--action-primary);
+  --selection-bar-hover: color-mix(in srgb, var(--action-primary) 12%, transparent);
+  --selection-bar-danger: #b4261a;
+  --selection-bar-muted: var(--text-secondary);
   --border-control: var(--neutral-450);
   --border-control-hover: var(--neutral-600);
 
@@ -346,6 +354,13 @@
   --border-faint: var(--night-150);
   --border-subtle: var(--night-200);
   --border-strong: var(--night-300);
+  --selection-bar-surface: var(--night-200);
+  --selection-bar-border: var(--night-300);
+  --selection-bar-text: var(--night-900);
+  --selection-bar-action: var(--night-900);
+  --selection-bar-hover: rgba(255, 255, 255, 0.1);
+  --selection-bar-danger: #ffb4a8;
+  --selection-bar-muted: var(--night-700);
   --border-control: var(--night-450);
   --border-control-hover: var(--night-600);
   --action-primary: var(--indigo-dark-300);
@@ -439,6 +454,13 @@
     --border-faint: var(--night-150);
     --border-subtle: var(--night-200);
     --border-strong: var(--night-300);
+    --selection-bar-surface: var(--night-200);
+    --selection-bar-border: var(--night-300);
+    --selection-bar-text: var(--night-900);
+    --selection-bar-action: var(--night-900);
+    --selection-bar-hover: rgba(255, 255, 255, 0.1);
+    --selection-bar-danger: #ffb4a8;
+    --selection-bar-muted: var(--night-700);
     --border-control: var(--night-450);
     --border-control-hover: var(--night-600);
     --action-primary: var(--indigo-dark-300);

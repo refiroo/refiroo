@@ -836,12 +836,47 @@ th[aria-sort] {
 .object-table tr.checked-row:not(.selected-record) > td {
   background: var(--state-selected);
 }
+/* The selection bar (0.9 K1; K6a, D166): a compact dark bar with the count, icon actions and ×. */
 .selection-bar {
   display: grid;
   gap: 8px;
   padding: 8px 12px;
   border-bottom: 1px solid var(--border-faint);
-  background: var(--state-selected);
+}
+.selection-bar-row {
+  padding: 4px 4px 4px 12px;
+  border: 1px solid var(--selection-bar-border);
+  border-radius: 10px;
+  background: var(--selection-bar-surface);
+  color: var(--selection-bar-text);
+  box-shadow: var(--shadow-sm);
+}
+.selection-bar .selection-count {
+  font-size: 13px;
+  font-weight: 600;
+}
+.selection-bar-row button {
+  min-height: 32px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--selection-bar-action);
+}
+.selection-bar-row button:hover:not(:disabled) {
+  background: var(--selection-bar-hover);
+}
+.selection-bar-row .selection-matching {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.selection-bar-row .danger-action {
+  color: var(--selection-bar-danger);
+}
+.selection-bar-row .selection-clear {
+  margin-left: auto;
+  width: 32px;
+  padding: 0;
+  color: var(--selection-bar-muted);
 }
 .selection-bar-row {
   display: flex;
@@ -1709,11 +1744,31 @@ tr:focus-within .icon-button.icon-button-quiet {
 .dialog [role="alertdialog"] {
   outline: none;
 }
+/* A dialog's kind as a glyph in a tile, its subject under the title (0.9 K6a). */
+.dialog-icon {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--action-primary) 12%, transparent);
+  color: var(--action-primary);
+}
+.dialog-heading {
+  flex: 1;
+  min-width: 0;
+}
+.dialog-description {
+  margin: 3px 0 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
 .dialog-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   padding: 18px 22px 14px;
   border-bottom: 1px solid var(--border-faint);
 }
@@ -4056,4 +4111,457 @@ form.restructuring-plan-form .dialog-actions {
 }
 .json-literal {
   color: var(--status-warning-text);
+}
+
+/* The bulk dialogs' shared footer (0.9 K6a, D167): what happens to a refused record as a compact
+   choice beside its question, a one-line summary beside Cancel and Preview. */
+.bulk-applying {
+  display: grid;
+  gap: 6px;
+  padding: 14px 22px 0;
+  border-top: 1px solid var(--border-faint);
+}
+.bulk-applying > .form-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.bulk-applying > .form-field > legend {
+  float: left;
+  padding: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+}
+.bulk-hint {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+.bulk-actions {
+  align-items: center;
+}
+.bulk-summary {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+/* `ui/RecordChecklist` (0.9 K6a): a search, then records with a checkbox each, the ticked on top. */
+.record-checklist {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.record-checklist-search {
+  position: relative;
+  display: block;
+}
+.record-checklist-search .icon {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  color: var(--text-tertiary);
+}
+.record-checklist-search input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 36px;
+  padding: 0 10px 0 32px;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  background: var(--surface-raised);
+  color: var(--text-primary);
+}
+.record-checklist-list {
+  max-height: 260px;
+  overflow: auto;
+  padding: 4px;
+  border: 1px solid var(--border-faint);
+  border-radius: 10px;
+}
+.record-checklist-heading {
+  margin: 8px 8px 4px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.record-checklist-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 0 10px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.record-checklist-row:hover,
+.record-checklist-row.chosen {
+  background: var(--surface-sunken);
+}
+.record-checklist-row input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--action-primary);
+}
+.record-checklist-row .record-chip {
+  min-width: 0;
+}
+.record-checklist-hint {
+  margin-left: auto;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.record-checklist-empty {
+  margin: 10px 8px;
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+.record-checklist-count {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+/* The filter bar (0.9 K6a, D160–D164): active filters as pills, ＋ Filter, Clear all. */
+.object-toolbar {
+  flex-wrap: wrap;
+}
+.object-toolbar-end {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.filter-bar {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.filter-pill {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-height: 32px;
+  border: 1px solid color-mix(in srgb, var(--action-primary) 28%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--action-primary) 8%, var(--surface-raised));
+}
+.filter-pill:has([aria-expanded="true"]) {
+  border-color: var(--action-primary);
+}
+.filter-pill-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 30px;
+  padding: 0 4px 0 12px;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.filter-pill-label {
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.filter-pill-value {
+  overflow: hidden;
+  max-width: 240px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.filter-pill-remove {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin-right: 3px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.filter-pill-remove:hover {
+  background: color-mix(in srgb, var(--action-primary) 12%, transparent);
+}
+.filter-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface-raised);
+  color: var(--action-primary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.filter-add:hover {
+  border-color: var(--action-primary);
+}
+.filter-clear {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ＋ Filter's menu and the editors, in a popover (a bottom sheet at phone width). */
+.filter-popover {
+  width: 340px;
+  max-width: calc(100vw - 24px);
+  padding: 0;
+}
+.filter-menu {
+  display: grid;
+  gap: 2px;
+  padding: 8px;
+}
+.filter-menu-heading {
+  margin: 8px 8px 4px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.filter-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 36px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.filter-menu-item:hover,
+.filter-menu-item:focus-visible {
+  background: var(--surface-sunken);
+}
+.filter-menu-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+}
+.filter-menu-label {
+  flex: 1;
+}
+.filter-menu-active {
+  color: var(--action-primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+.filter-menu-hint {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+.filter-editor {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px 16px;
+}
+.filter-editor-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.filter-editor-header h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.filter-editor-header span,
+.filter-editor-explain {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+.filter-editor-explain {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.filter-editor-conditions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.filter-more {
+  min-height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+}
+.filter-more.chosen {
+  border-color: var(--action-primary);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.filter-editor-input {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font: inherit;
+}
+.filter-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-faint);
+}
+@media (max-width: 600px) {
+  /* The editor as a bottom sheet over a dimmed page (D163). */
+  .filter-popover {
+    position: fixed !important;
+    inset: auto 0 0 0 !important;
+    width: 100% !important;
+    max-width: none;
+    max-height: 85vh;
+    overflow: auto;
+    border-radius: 16px 16px 0 0;
+    box-shadow:
+      0 -12px 40px rgba(29, 28, 26, 0.2),
+      0 0 0 100vmax rgba(29, 28, 26, 0.38);
+  }
+  .filter-editor-actions .primary,
+  .filter-editor-actions .ghost {
+    min-height: 44px;
+  }
+  .filter-editor-actions .primary {
+    flex: 2;
+  }
+  .filter-editor-actions .ghost {
+    flex: 1;
+  }
+  .record-checklist-row {
+    min-height: 48px;
+  }
+  .filter-pill-value {
+    max-width: 160px;
+  }
+}
+
+/* Change values (0.9 K6a, D167): a card per field being changed, then ＋ Change a field. */
+.bulk-changes {
+  display: grid;
+  gap: 10px;
+  padding: 4px 22px 14px;
+}
+.bulk-change-card {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 12px 12px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+}
+.bulk-change-card > legend {
+  float: left;
+  padding: 0;
+  font-weight: 600;
+}
+.bulk-change-head {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: -2px;
+}
+.bulk-change-card > legend + .bulk-change-head {
+  margin-top: -28px;
+}
+.bulk-change-note {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.icon-only {
+  width: 30px;
+  min-height: 30px;
+  padding: 0;
+}
+.bulk-changes > .filter-add {
+  justify-self: start;
+}
+
+/* Change relationships (0.9 K6a, D167): the relationship as pills, then its action and records. */
+.bulk-relations {
+  display: grid;
+  gap: 12px;
+  padding: 4px 22px 14px;
+}
+.relation-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.relation-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.relation-pill.chosen {
+  border-color: var(--action-primary);
+  background: color-mix(in srgb, var(--action-primary) 8%, var(--surface-raised));
+}
+.relation-pill-name {
+  font-weight: 600;
+}
+.relation-pill-other {
+  color: var(--text-tertiary);
+}
+.bulk-relation-action {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 0 0;
+  border: 0;
+  border-top: 1px solid var(--border-faint);
 }

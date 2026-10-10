@@ -223,7 +223,7 @@ _AS_OF = Query(
 _EXPAND = Query(
     default=None,
     description=(
-        "Repeatable, at most 5: a relation type's key (its outgoing relationships) or reverse key"
+        "Repeatable, each once: a relation type's key (its outgoing relationships) or reverse key"
         " (its incoming ones) that the type has a binding of, optionally followed by '.' and a"
         " field of the related records (name, an attribute, or ancestor:<type>.<field>). Each item"
         " then carries `expanded`, one entry per key in this order: the first `expandLimit` related"

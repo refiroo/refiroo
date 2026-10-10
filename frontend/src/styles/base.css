@@ -110,10 +110,12 @@ button:not([class]) {
     border-color 120ms ease,
     color 120ms ease;
 }
+/* A soft outline: the words and icon say what the button does (0.9 K6a, D166). */
 .secondary,
 button:not([class]) {
-  border-color: var(--border-control);
+  border-color: var(--border-strong);
   background: var(--surface-raised);
+  color: var(--text-primary);
   box-shadow: var(--shadow-sm);
 }
 .secondary:hover:not(:disabled),

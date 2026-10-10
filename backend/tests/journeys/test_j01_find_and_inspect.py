@@ -461,18 +461,22 @@ def test_a_list_sorts_by_a_single_valued_relationship(world):
 
 
 @pytest.mark.journey("J01.8")
-@pytest.mark.structures("H", "K", "Bnn", "Bn1", "R", "B1n")
+@pytest.mark.structures("H", "K", "K.code", "Bnn", "Bn1", "R", "B1n")
 def test_an_expand_the_list_cannot_answer_is_refused(world):
-    """When the H list names an unknown key, a relationship H has no binding of, one key twice or
-    six keys in expand, or an expandLimit past 20. Then each is refused, naming the parameter."""
+    """When the H list names an unknown key, a relationship H has no binding of, one key twice, or
+    an expandLimit past 20, each is refused, naming the parameter. When it names six columns its
+    relationships have, the read answers all six: the model bounds them, not a count (D142 revised
+    in K6a)."""
     h_list = f"/objects/{world.key('H')}"
-    bnn = world.key("Bnn")
-    six = [bnn, world.key("Bn1"), *(f"other-{n}" for n in range(4))]
-    for expand in (["no-such-relation"], [world.key("B1n")], [bnn, bnn], six):
+    bnn, bn1, code = world.key("Bnn"), world.key("Bn1"), world.key("K.code")
+    for expand in (["no-such-relation"], [world.key("B1n")], [bnn, bnn]):
         error = refused(world.api.get(h_list, expand=expand), 422, "INVALID_EXPAND")
         assert error["details"]["parameter"] == "expand"
-    assert "at most 5" in refused(world.api.get(h_list, expand=six), 422, "INVALID_EXPAND")["message"]
     assert world.api.get(h_list, expand=bnn, expandLimit=21).status_code == 422
+    world.made("H", f"{uuid4().hex[:6]} Six columns")
+    six = [bnn, bn1, f"{bnn}.name", f"{bn1}.name", f"{bnn}.{code}", f"{bn1}.{code}"]
+    page = ok(world.api.get(h_list, expand=six, pageSize=1))
+    assert len(page["items"][0]["expanded"]) == 6
 
 
 @pytest.mark.journey("J01.9")

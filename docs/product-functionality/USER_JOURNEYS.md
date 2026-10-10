@@ -398,6 +398,10 @@ row showed; "all matching" reads its records and their versions when the change 
   would refuse (D139).
 - **J32.6 Change every record a relationship filter matches** (0.9 K6): under a relationship filter,
   Select all N matching and a bulk change preview and apply exactly the filtered records.
+- **J32.7 See what a selection holds before removing it** (0.9 K6a, D165): for a set of records and
+  one relationship, the records at the other end with how many of the set hold each
+  (`GET /relations/held`), in name order, paged, in any context; Change relationships' Remove lists
+  only those.
 
 **Evidence today:** the browser runners `k1-selection`, `k2-bulk-change`, `k2b-bulk-delete` and
 `k3-bulk-relations`; `recordSelection.test`, `ObjectTable.test`, `CollectionView.test`,

@@ -13,6 +13,7 @@ from ...engine.model.registry import resolve_model_snapshot
 from ...engine.reads.relation_queries import (
     build_relation_query,
     build_snapshot_relation_query,
+    held_records_query,
     relation_scope,
 )
 from ...engine.reads.snapshot_reads import (
@@ -41,9 +42,12 @@ from ...models.commands import (
 )
 from ...models.database import RdmObject
 from ..dependencies import DbSession, RequestModelSnapshot
-from ..paging import SeekablePageQuery
+from ..paging import PageQuery, SeekablePageQuery
 from ..presenters import build_object_responses, build_relation_response, change_set_object_response
 from ..schemas.records import (
+    HeldObject,
+    HeldRecord,
+    HeldRecordPage,
     RelationExpansion,
     RelationPage,
     RelationResponse,
@@ -148,6 +152,69 @@ def list_relations(
     related = {item.id: item for item in build_object_responses(session, snapshot.model, related_rows)}
     relation_sets = _relation_sets(session, snapshot.model, workspace_key=anchor.workspace_key, change_set_id=None, anchor_type_key=anchor.object_type_key, anchor_id=object_id, direction=direction, relation_type_keys=relation_type_keys)
     return RelationPage(items=[RelationExpansion(direction="outgoing" if row.ObjectRelation.from_object_id == object_id else "incoming", relation=build_relation_response(row.ObjectRelation), object=related[row.related_id]) for row in page.items], relationSets=relation_sets, **page.links())
+
+@router.get("/relations/held", response_model=HeldRecordPage)
+def list_held_records(
+    session: DbSession,
+    snapshot: RequestModelSnapshot,
+    paging: PageQuery,
+    object_type_key: str = Query(alias="objectTypeKey", description="The named records' type"),
+    relation_type_key: str = Query(alias="relationTypeKey"),
+    direction: Literal["outgoing", "incoming"] = Query(
+        description="Read from the named records: outgoing when they are the relationship's from end"
+    ),
+    object_ids: Annotated[
+        list[str],
+        Query(alias="objectId", description="Repeatable, at most 500: the records whose holdings are read"),
+    ] = [],  # noqa: B006
+    workspace_key: str | None = Query(default=None, alias="workspaceKey"),
+    change_set_id: str | None = Query(default=None, alias="changeSetId"),
+    publication_id: str | None = Query(default=None, alias="publicationId"),
+    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+) -> HeldRecordPage:
+    """The records the named records hold through one relationship, each with how many of them
+    hold it, in name order (0.9 K6a, D165): what a selection's Remove offers."""
+    if change_set_id and publication_id:
+        raise api_error(422, "MUTUALLY_EXCLUSIVE_CONTEXT", "Workspace contexts cannot be combined")
+    context = (
+        change_set_context(session, change_set_id)
+        if change_set_id
+        else publication_context(session, publication_id)
+        if publication_id
+        else None
+    )
+    workspace = context.workspace_key if context else resolve_workspace(session, workspace_key).key
+    query = held_records_query(
+        snapshot.model,
+        context,
+        workspace_key=workspace,
+        object_type_key=object_type_key,
+        relation_type_key=relation_type_key,
+        direction=direction,
+        object_ids=object_ids,
+    )
+    page = paginate_statement(
+        session,
+        query.statement,
+        keys=query.keys,
+        scope="relations-held",
+        filters=query.filters,
+        page=paging,
+        page_size=page_size,
+        message="Cursor is invalid",
+        rows=True,
+    )
+    return HeldRecordPage(
+        items=[
+            HeldRecord(
+                object=HeldObject(id=row.id, name=row.name, objectTypeKey=row.object_type_key),
+                count=row.held,
+            )
+            for row in page.items
+        ],
+        **page.links(),
+    )
+
 
 @router.get("/relations/{relation_id}", response_model=RelationResponse)
 def get_relation(relation_id: str, session: DbSession, snapshot: RequestModelSnapshot, workspace_key: str | None = Query(default=None, alias="workspaceKey"), change_set_id: str | None = Query(default=None, alias="changeSetId"), publication_id: str | None = Query(default=None, alias="publicationId")) -> RelationResponse:
