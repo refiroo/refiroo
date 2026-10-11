@@ -346,6 +346,53 @@ class ModelDraftPage(CollectionPage[ModelDraftResponse]):
     pass
 
 
+class ModelDraftOperationsRequest(BaseModel):
+    """One step of a draft's history: operations applied in order, all or none (0.10 A2)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    expectedVersion: int = Field(ge=1)
+    operations: list[dict[str, Any]] = Field(min_length=1)
+
+
+class ModelDraftUndoRequest(BaseModel):
+    """Undo the latest step not yet undone, or ``step``, or the ``steps`` together (D8)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    expectedVersion: int = Field(ge=1)
+    step: int | None = Field(default=None, ge=1)
+    steps: list[int] | None = Field(default=None, min_length=1)
+
+
+class ModelDraftOperationEntry(BaseModel):
+    """One operation in a draft's history (D4, ADR-041)."""
+
+    sequence: int
+    step: int
+    kind: str
+    parameters: dict[str, Any]
+    inverse: dict[str, Any]
+    draftVersion: int
+    author: str | None
+    at: datetime
+    undone: bool
+    origin: dict[str, Any]
+
+
+class ModelDraftOperationPage(CollectionPage[ModelDraftOperationEntry]):
+    pass
+
+
+class ModelDraftStepResponse(BaseModel):
+    """The draft after a step: its version, the step's entries and the compiler's diagnostics."""
+
+    version: int
+    entries: list[ModelDraftOperationEntry]
+    valid: bool
+    diagnostics: list[ModelDiagnosticResponse]
+
+
 class ModelCompilationResponse(BaseModel):
     valid: bool
     model: dict[str, Any] | None = None

@@ -398,6 +398,8 @@ try {
     assert.match(await page.getByLabel("Current context").innerText(), /Change set/);
     await shown(page.getByRole("region", { name: "Change set publication" }).getByRole("heading", { name: `${workspaceKey} review`, exact: true }));
     await page.screenshot({ path: resolve(output, `mobile-domain-${workspaceKey}-changeSet.png`), fullPage: true });
+    // On a phone the band chooses the application (0.10 N1).
+    await page.getByLabel("Current context").getByRole("button", { name: `Application: ${model.applications.find((app) => app.key === "rdm-master").name}`, exact: true }).click();
     await page.getByRole("navigation", { name: "Applications" }).getByRole("button", { name: model.applications.find((app) => app.key === "rdm-systems").name, exact: true }).click();
     await shown(page.getByRole("heading", { name: "Systems", level: 1 }));
     assert.equal(new URL(page.url()).searchParams.get("changeSetId"), changeSet.id);

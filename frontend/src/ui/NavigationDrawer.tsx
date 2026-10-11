@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
+import { PHONE_WIDTH, useMediaQuery } from "@/lib/hooks/useMediaQuery";
 import { createPortal } from "react-dom";
 import { Modal } from "@/ui/Modal";
 
@@ -16,19 +17,13 @@ export function NavigationDrawer({
   children: ReactNode;
 }) {
   const [host] = useState(() => document.createElement("div"));
-  const [mobile, setMobile] = useState(() => window.matchMedia("(max-width: 760px)").matches);
+  const mobile = useMediaQuery(PHONE_WIDTH);
   const attach = useCallback(
     (node: HTMLDivElement | null) => {
       if (node) node.appendChild(host);
     },
     [host],
   );
-  useEffect(() => {
-    const query = window.matchMedia("(max-width: 760px)");
-    const update = () => setMobile(query.matches);
-    query.addEventListener("change", update);
-    return () => query.removeEventListener("change", update);
-  }, []);
   return (
     <>
       {mobile && open ? (

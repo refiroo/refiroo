@@ -7,7 +7,7 @@ from fastapi import APIRouter, Request
 
 from ...common.time import as_utc
 from ...config import ENGINE_VERSION
-from ...engine.model.compiler import SUPPORTED_SCHEMA_VERSIONS
+from ...engine.model.compiler import SCHEMA_VERSIONS
 from ...engine.reads.system import read_system_state
 from ..dependencies import DbSession
 from ..schemas.system import (
@@ -27,7 +27,7 @@ def get_system(request: Request, session: DbSession) -> SystemResponse:
     release = state.active_release
     return SystemResponse(
         engine=EngineInfo(version=ENGINE_VERSION, managementApi="v1"),
-        schemaLanguages=sorted(SUPPORTED_SCHEMA_VERSIONS),
+        schemaLanguages=list(SCHEMA_VERSIONS),
         activeModelRelease=ActiveModelRelease(
             id=release.public_id,
             key=release.release_key,

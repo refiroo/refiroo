@@ -50,7 +50,7 @@ try {
       const from = page.url();
       const tabs = page.getByRole("navigation", { name: "Applications" }).getByRole("button");
       const appTabs = await tabs.allInnerTexts();
-      const current = await page.locator('nav[aria-label="Applications"] [aria-current="page"]').innerText();
+      const current = await page.locator('nav[aria-label="Applications"] [aria-current="page"]').evaluate((tab) => tab.textContent.trim());
       const appBar = await page.getByRole("banner").boundingBox();
       const mark = (element) => {
         const style = getComputedStyle(element);
@@ -98,9 +98,10 @@ try {
         (await back.count()) === 1 && new URL(await back.getAttribute("href"), page.url()).href === from,
         `${suffix}: Back does not return to ${from}`,
       );
-      await tabs.filter({ hasText: current }).click();
+      // On a phone the top bar has no tabs in any area (0.10 N1): Settings returns through Back.
+      await (width === 390 ? back : tabs.filter({ hasText: current })).click();
       await page.getByRole("button", { name: record, exact: true }).waitFor();
-      expect(page.url() === from, `${suffix}: the tab returned to ${page.url()}, not ${from}`);
+      expect(page.url() === from, `${suffix}: the way back returned to ${page.url()}, not ${from}`);
     }
     checks.push(
       `${suffix}: the gear opens Settings in the same top bar (same tabs and height, tabs 36px after the product name at 1440px, none current, Settings a current tab marked as the application's is) from two applications; each application's tab returns to its view with its query`,

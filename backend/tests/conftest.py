@@ -83,6 +83,7 @@ GROUP_DESCRIPTIONS = {
     "consumer": "consumer API definitions, reads, XREF, batch resolve, crosswalk, publications, parity",
     "jobs": "jobs, outcomes, idempotency, batches, background execution, import profiles, imports and exports",
     "feed": "feed positions, publish entries and the feed read, retention, consumer events (C10)",
+    "authoring": "model draft operations, their history, undo and redo, generated layout (0.10 A2)",
 }
 TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_model.py": ("model",),
@@ -178,6 +179,7 @@ UNIT_GROUPS: dict[str, tuple[str, ...]] = {
     "engine/events/": ("feed", "consumer"),
     "engine/jobs/": ("jobs",),
     "engine/model/": ("model",),
+    "engine/model/authoring/": ("authoring", "model"),
     "engine/reads/": ("consumer",),
     "engine/records/test_audit.py": ("records", "jobs"),
     "models/test_commands.py": ("jobs",),
@@ -215,6 +217,7 @@ JOURNEY_GROUPS: dict[str, tuple[str, ...]] = {
     "J29": ("consumer",),
     "J30": ("feed", "consumer"),
     "J31": ("startup",),
+    "J33": ("authoring", "model", "model_admin"),
 }
 
 

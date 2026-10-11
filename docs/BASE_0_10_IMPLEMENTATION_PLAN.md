@@ -9,7 +9,7 @@ D17–D21 and A-D5–A-D9 were accepted with the [A0 plan](#a0-plan-2026-10-11) 
 T1, A3, A5–A8 and R are specified below at package level; each package's detailed plan, test cases
 and decisions are written and accepted when it starts, and it is delivered in the order of the
 [delivery queue](#delivery-queue), each by the [delivery steps](#how-a-package-is-delivered).
-**Delivered:** A0 (2026-10-11).
+**Delivered:** A0, N1, A2 (2026-10-11).
 
 **Target:** Product 0.10.0, [model authoring and spreadsheet onboarding](ROADMAP.md#product-release-010--model-authoring-and-spreadsheet-onboarding).
 The `navigation` declaration (A-D2) extends the model, so 0.10 opens the next schema language version
@@ -226,8 +226,8 @@ migration), `contract` (every route change) and `volume` (every budget).
 | --- | --- | --- | --- |
 | 0 | — | 0.9.0 released | **Met 2026-10-11**, tag `v0.9.0` |
 | 1 | [A0](#a0-design-pass) | — | **Delivered 2026-10-11.** Decisions D1–D10 and A-D5–A-D9; API design; operation vocabulary; journeys; mock-ups of the editor; workbook shapes |
-| 2 | [N1](#n1-navigation-groups-and-schema-010) | A0 | Schema 0.10 with `navigation`; sidebar groups and the group page |
-| 3 | [A2](#a2-operation-api-on-model-drafts) | A0, N1 | `POST …/operations`, history, undo and redo; the model-side catalogue; generated defaults for new types |
+| 2 | [N1](#n1-navigation-groups-and-schema-010) | A0 | **Delivered 2026-10-11.** Schema 0.10 with `navigation`; sidebar groups and the group page; the phone band |
+| 3 | [A2](#a2-operation-api-on-model-drafts) | A0, N1 | **Delivered 2026-10-11.** `POST …/operations`, history, undo and redo; the model-side catalogue; generated defaults for new types |
 | 4 | [A4a](#a4a-editor--model-pane) | A2 | The editor frame and model pane, relationship matrix, issues, history, install and activate |
 | 5 | [A4b](#a4b-editor--preview-and-layout-editing) | A4a | Preview with existing records; views, panels and fields laid out in place |
 | 6 | [T1](#t1-designer-checkpoint) | A4b | US-P05 composed in the browser on two models; the designer's gates; tagged `v0.10.0-alpha.1` (D14) |
@@ -525,6 +525,174 @@ expand, the group page and its search, keyboard alone, 1440px and 390px.
 
 **Exit:** schema 0.10 accepted by the compiler; the sidebar and group page approved from screenshots.
 
+##### N1 plan (2026-10-11)
+
+**Planned 2026-10-11; accepted by the user the same day ("yes"), D22–D27 and the test cases as
+recommended.** Checked against the code at `4afb570`:
+
+- **Schema versions** are listed in two places, `EngineModel.schemaVersion` (`models/schema.py`) and
+  `SUPPORTED_SCHEMA_VERSIONS` (`engine/model/compiler.py`); `require_schema`
+  (`validation/fields.py`) compares versions as numbers, so `0.10` sorts after `0.9` there. The one
+  string sort is the `UNSUPPORTED_SCHEMA_VERSION` message (`sorted(...)` would list `0.10` first);
+  N1 sorts it by number. Nothing in the frontend names a schema version.
+- **Applications** allow extra members (`ApplicationDefinition`, `extra="allow"`), so today a
+  `navigation` member at any version is kept and ignored (D1's reason to refuse it below 0.10).
+- **A collection** is the sidebar's entry per view source type: `collectionGroups` in
+  `frontend/src/model/collections.ts` groups an application's views by `table.objectTypeKey`,
+  `relationMatrix.rowObjectTypeKey`, `tree.rootObjectTypeKeys[0]` and a mapping grid's side by its
+  direction (ADR-029). The backend has no such rule today; N1 adds the same one to the application
+  rules, so "a collection of the application" means the same on both sides.
+- **The sidebar** is `features/objects/Explorer.tsx`: a flat `nav.collection-tree` under the label
+  **Collections**, then **Browse records**. `RecordTree` already remembers folded type groups in the
+  browser's storage, and `lib/localPreference` is the helper for it.
+- **Routes** (`routing/routes.ts`) are `/apps/{app}/views/{view}`, `/objects/…`, `/change-sets…` and
+  `/publications`; there is no group route. The served model (`GET /model`) is the compiled model,
+  so a typed `navigation` field reaches the browser without a new route.
+- **Test models:** `generated-a`, `generated-b` and the example are schema 0.9
+  (`tests/journeys/configurations.py`); a journey raises its configuration to 0.10 and adds groups
+  from the configuration's own collections, naming no keys.
+
+**What is built:**
+
+1. **Backend.** `NavigationDefinition` (`groups`) and `NavigationGroupDefinition` (`key`, `label`,
+   `collections`, `collapsed`, default `false`), both `extra="forbid"`, as the optional
+   `ApplicationDefinition.navigation`, left out of the canonical document when absent so every
+   earlier model's hash holds. Schema `0.10` in both lists. Rules in `application_rules.py`, each at
+   its pointer `/applications/{app}/navigation/…`: below 0.10 refused (`require_schema`); a group key
+   twice; an entry that is not a collection of the application; a collection in a second group.
+2. **Frontend.** The type `navigation?` on `ApplicationDefinition`; `model/collections.ts` gains
+   `navigationSections(application)`: the ungrouped collections in their order, then each declared
+   group with its collections in declared order. The explorer draws each group as a collapsible
+   section in the collections navigation; the group page is a new route kind `group` at
+   `/apps/{app}/groups/{group}` carrying the workspace, change set and publication as the list route
+   does. The page is a `ui/PageHeader` (the group's label, its application as the eyebrow) over a
+   `ui/Card` listing the collections (tile, plural name, the type's description, its lenses), a
+   `ui/SearchField` that narrows them by name in the browser (model data, bounded by the model), and
+   `ui/EmptyState` for no collections or no match.
+3. **Documents.** APPLICATION_MODEL (schema 0.10, `navigation`), API.md (the served model's
+   `navigation`), CURRENT_FUNCTIONALITY and PRODUCT (groups in plain words), UI_ACCEPTANCE (the
+   state-inventory rows), USER_JOURNEYS J33.9's status, CHANGELOG, PROJECT_STATUS, TODO.
+
+No migration, no new route, no new error code. The starter and example models stay on schema 0.9
+(D3): their applications have three to six collections, which no group improves.
+
+**Reference patterns** (UI_ACCEPTANCE §1): the sidebar groups reuse the **Tree** pattern's quiet
+type group heading and its remembered fold, inside the **Shell** rail; the group page is a **Page
+surface** (`PageHeader`, `Card`) with the **Empty state** pattern and `ui/SearchField`.
+
+**Decisions** (D22 onward):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D22 | Where groups stand in the sidebar | **The ungrouped collections first, in their current order, then the groups in declared order**, each listing its collections in declared order. A model without groups looks exactly as today, and the main work areas stay on top, which is what groups are for (A-D2). Placing a group where its first collection was would move sections whenever a group is edited |
+| D23 | Folded or open | **`collapsed` is the starting state; a reader's fold or unfold is remembered in their browser per application and group,** as `RecordTree` remembers its folded type groups. A folded group holding the open collection shows its header marked as current, so the reader sees where they are without the group springing open |
+| D24 | The group header's controls | **Two controls: the label is a link to the group page, and a toggle beside it folds and unfolds the section** (`aria-expanded`, `aria-controls`). One control doing both would make the page unreachable by keyboard without folding, or the fold unreachable without leaving the page |
+| D25 | The group page | **`/apps/{app}/groups/{group}`, listing the group's collections with a name search done in the browser;** each entry opens the collection's default lens in the current data context (Live, a change set, a publication). No record counts (A-D12). An unknown group key in a URL falls back to the application's default route, as an unknown view does |
+| D26 | Error codes | **No new codes.** A group key twice is `DUPLICATE_KEY`; an entry that is not a collection of the application is `INVALID_REFERENCE`; a collection in a second group and `navigation` below 0.10 are `INVALID_MODEL`, each a diagnostic at its pointer. All four are diagnostic codes the model rules already use, and an install still answers `422 INVALID_MODEL` with them in its details |
+| D27 | An empty group | **Valid.** A2's `addNavigationGroup` creates a group before `placeCollection` fills it, and a draft step that leaves an empty group must not be an error. The sidebar shows its header; its page says it has no collections |
+
+**Journey test cases** (J33.9; through the API, on two configurations each: generated-a and the
+example where it holds the structures, otherwise generated-b):
+
+1. **Groups are served.** Given A1 at schema 0.10 with a group holding two of its collections
+   (`collapsed: true`) and its other collections ungrouped. When validated, installed and activated.
+   Then it is valid, `GET /model` serves the application's `navigation` exactly as written, and the
+   other application has no `navigation` member.
+2. **A collection of another application** named in A1's group is refused `INVALID_REFERENCE` at
+   `/applications/{A1}/navigation/groups/{g}/collections/{i}`; a key that is no type at all likewise.
+3. **A collection in two groups** is refused `INVALID_MODEL` at the second group's entry.
+4. **A group key twice** is refused `DUPLICATE_KEY` at the second group.
+5. **`navigation` below 0.10:** the same document at schema 0.9 is refused `INVALID_MODEL` at
+   `/applications/{A1}/navigation`; an unknown member inside a group is refused at its pointer.
+6. **Earlier models unchanged:** the configuration's 0.9 model compiles to the same hash as before
+   N1 and activates; raised to 0.10 without `navigation`, it is valid and compatible with it.
+
+**Unit tests:** `navigationSections` (ungrouped order, declared group order, an empty group, a model
+without groups); the schema version order in the unsupported-version message. Explorer component
+tests for fold, the remembered fold and the current marker.
+
+**Browser** (`test:browser:authoring-n1`, a starter variant with its keys renamed and groups added
+to one application, the other left ungrouped): the grouped and ungrouped applications in the
+sidebar; fold and unfold by pointer and keyboard, kept after reload; the group page from its header,
+its search narrowing and its no-match state, an entry opening its collection; keyboard alone; 1440px
+and 390px (the drawer); axe on the sidebar and the group page; screenshots for approval.
+
+**Groups:** `model`, `contract` (no route changes, but the served model's shape), `startup` (schema
+activation); Vitest for the changed modules; `npm run format`, `lint`, `build`.
+
+**Composable domains (ADR-032):** presentation only; no door is affected.
+
+##### N1 record (2026-10-11)
+
+**Delivered 2026-10-11.** The user approved the screenshots and D28 the same day ("they are
+approved"); the group heading stays as shown in them. Built as planned, with these differences:
+
+- **The version order was wider than the plan found.** Seven places sorted the supported versions
+  as text, two of them in API answers (`GET /system`'s `schemaLanguages`, a refusal's
+  `supportedSchemaVersions`) and the startup and upgrade messages. `SCHEMA_VERSIONS` in
+  `engine/model/compiler.py` now lists them oldest first and every place reads it.
+- **The rule for a collection** is `collection_keys` in `validation/application_rules.py`, the same
+  rule as the frontend's `viewSourceObjectTypeKey`.
+- **One route read, not three copies:** which publication a route shows is `routePublicationId` in
+  `routing/routes.ts`, used by `App`, `AppShell` and `DataContextBand` (U-D14); the group route
+  joins it and `routeChangeSetId`.
+- **Tests the change made wrong:** J31's `schemaLanguages` assertion compared with a text sort and
+  now asserts the order; three older modules (`test_build07_wp11`, `test_wp81a_context`,
+  `test_model_lifecycle`) pin the version list and gained `0.10`. `J33` maps to `model` and
+  `model_admin` in `JOURNEY_GROUPS` until A2 adds `authoring`.
+- **The browser runner** starts the renamed starter on the `schema` seed, since the starter seed's
+  records carry the original keys; the sidebar and the group page need no records.
+- **Two layout defects found in the screenshots and fixed:** the group page's descriptions did not
+  wrap at 390px, and its empty states had no padding.
+
+**Amended the same day at the user's request, after the first screenshots** (scope added to N1 by
+the user, "n1"):
+
+- **The group page's rows** show a chevron and a pressed state, so they read as something to tap.
+- **The phone band.** Below 760px the band is one line: the workspace, the application in its tile,
+  and the data context's pill, each opening its choice in a `ControlPopover` (the workspace
+  selector; the applications through `ApplicationButtons`, extracted from the top bar; the band's
+  own switch with the line saying what an edit does). The rail's workspace selector is left out on
+  a phone. `lib/hooks/useMediaQuery` replaces the two copies of the width check (the drawer's and
+  the filter bar's).
+- **D28, the top bar on a phone: no application tabs in any area,** so the top bar stays one and the
+  same across areas (U-D14) and one row high; Settings returns through its existing **Back to
+  {application}** link. The alternative, tabs kept on Settings only, made the bar change height
+  between areas. **Accepted by the user 2026-10-11** with the screenshots.
+- **Desktop is unchanged.** A design proposal for the desktop band comes before any change there
+  (the user, 2026-10-11): [proposal](https://claude.ai/artifact/BQf1M8edotaquqTXcknrjz); the topic was
+  dropped by the user for now the same day, and desktop stays as it is.
+- **Older runners the change made wrong:** `wp9-navigation` switched application at 390px through
+  the tabs and now does so through the band; `u3-settings` returned from Settings at 390px through a
+  tab and now through Back.
+- At 390px a long workspace and application name together are cut with an ellipsis (a change set's
+  "Wareho…" / "RDM Mast…"); the full names are in the popovers' titles.
+
+**Checks of the amendment:** `DataContextBand.test` (phone case added), `vitest related` over the
+changed files (148 and 42 tests passed); `test:browser:authoring-n1`, 8 checks with the band's three
+choices and axe on the band; `test:browser`, `change-sets`, `w4`, `wp13c`, `s6`, `ua9`, `j1u`, `j4`,
+`settings`, `webhooks`, `integration` and `wp14`, all passed after the two runner updates; format,
+lint (0 errors), build.
+
+**Checks:**
+
+- Journey J33.9, `tests/journeys/test_j33_design.py`: seen failing first (10 of 10, schema 0.10
+  unsupported), then 10 passed on generated-a and the example.
+- Backend groups `model`, `contract`, `model_admin` (the model routers' version lists) and
+  `startup`, by EXECUTION_GUIDE §2: 744 passed in 1 min 21 s, parallel. The serial part selects
+  none of these groups. `ruff check app/ tests/` clean. `test_api_journeys`: 5 passed.
+- Unit: `tests/unit/engine/model/test_compiler.py`, 4 passed (the version order).
+- Vitest: `Explorer.test`, `model.test` and `routes.test`, 65 passed; `vitest related` over every
+  changed file, 23 files and 332 tests passed. `npm run format`; `npm run lint`, 0 errors (the 7
+  warnings are in unchanged files); `npm run build` succeeds.
+- Browser: `test:browser:authoring-n1`, 7 checks passed, with axe on the open sidebar and the group
+  page at 1440px and 390px. The guide's expansion for `Explorer.tsx`, `collections.ts` and
+  `src/routing`: `test:browser` (53 s), `test:browser:wp14`, `test:browser:s6` (10 checks) and
+  `test:browser:ua9`, all passed.
+- **Not run:** the full suites, `test:a11y` and `test:visual` (build acceptance; N1's surfaces join
+  the gates at T1, TODO). Dark mode is uninspected. No migration, so no startup migration checks.
+- **Appearance:** inspected at 1440px and 390px in the light theme; approved by the user.
+
 ### A2: Operation API on model drafts
 
 **Design:** [MODEL_AUTHORING operation catalogue](MODEL_AUTHORING.md#operation-catalogue), A0's API
@@ -566,6 +734,200 @@ operation kind and its inverse.
 
 **Exit:** every model-side kind in API.md with its inverse; a draft built only through operations
 installs.
+
+##### A2 plan (2026-10-11)
+
+**Planned 2026-10-11; accepted by the user the same day ("yes"), D29–D35 and the test cases as
+recommended.** The request for acceptance listed the decisions by subject only; the user accepted
+while saying they could not judge them from that, and each was then explained in plain words; any
+may still be changed before the code that uses it is built. Checked
+against the code at `4afb570` (with N1's uncommitted changes in the working tree):
+
+- **Drafts** (`engine/model/drafts.py`): `update_draft` writes `model_json` at `expectedVersion`
+  with a conditional `UPDATE` and an audit event; the routes (`management/routers/model_management.py`)
+  are under `MODEL_ADMIN_MUTATIONS_ENABLED`. Installation (`install_model_draft`) takes the draft
+  `FOR UPDATE` under `model_installation_lock` and leaves `base_model_release_id` unchanged.
+- **The compile route** already finds "the base release, or the active one" and diffs against it;
+  A2 moves that lookup into the engine (`drafts.base_release`) so the class check and the compile
+  read one rule.
+- **The model document** (`models/schema.py`) orders attribute bindings and panels by an `order`
+  integer as well as by list position; containment is a type's `behavior.parentRelationTypeKeys`
+  naming relation types with `features.parentOf`, bound from each parent type; a top-level type
+  needs `features.rootCreatable`. A table view's `filterFields` and `sortFields` need one field
+  each, and `name` serves both.
+- **Keys of different kinds can be equal** (a panel and a view, an attribute and a column), so
+  `tests/model_support.renamed_model`'s string replacement, which renames every key at once with
+  one prefix, cannot rename one element. A2 needs a **reference index**: for each element kind,
+  every pointer in the document that names it, by the document's structure.
+- **Impact counts:** `engine/model/compatibility.py` already counts records of a type, values of
+  an attribute and relationships of a binding in live data (`_count_objects`,
+  `_count_attribute_values`, `_count_relation_pair`); A2 reuses them with a limit, plus the open
+  change sets' rows.
+- **Journey worlds** are clones of a seed holding the configuration's records (`scenario.world_for`).
+  A model built from an empty draft installs, but activating it there would be refused
+  `MODEL_MIGRATION_REQUIRED` (the configuration's records lose their types); so J33.1 installs, and
+  activation with records is walked by J33.2 on a draft of the active release.
+- Migration head `20261007_08_import_preview`; the OpenAPI lock is `tests/test_openapi_contract.py`;
+  `J33` maps to `model`, `model_admin` in `JOURNEY_GROUPS`.
+
+**What is built:**
+
+1. **Migration** `20261011_01_model_draft_operations`: table `model_draft_operations` (`id`,
+   `draft_id` → `model_drafts` `ON DELETE CASCADE`, `sequence`, `step`, `kind`, `parameters`
+   JSON, `inverse` JSON, `draft_version`, `author` nullable, `origin` JSON, `effects` JSON (added in
+   the build: the elements an entry created, re-keyed and named, for D8), `undone_by_step`
+   nullable, `created_at`; unique `(draft_id, sequence)`, index `(draft_id, step)`). No backfill:
+   an existing draft starts with an empty history.
+2. **Engine package `engine/model/authoring/`** (no FastAPI, no API schemas):
+   - `references.py`, the reference index: element kinds (application, object type, attribute type,
+     relation type, attribute binding, relation binding, view, detail, panel, navigation group) and,
+     for each, the pointers naming it, including `ancestor:<type>`, `related:<key>`, `childSort`'s
+     keys and `atLeastOneOf`. Used by `setKey` (rewrite), removals (what goes with an element) and
+     D8 (which elements a step names).
+   - `keys.py`, A-D6's key from a label.
+   - `layout.py`, the generated table view, detail page and placements (A0's "Generated layout").
+   - `kinds.py`, one function per kind: it validates its parameters against the document, applies
+     the change to a working copy, and returns the inverse and the elements it created, re-keyed and
+     named. `INVALID_OPERATION` carries `index`, `pointer` (into the request) and `reason`.
+   - `released.py`, the class check against the base release and the impact counts (D17, D33).
+   - `history.py`, applying a request as one step at `expectedVersion`, writing the draft through
+     `update_draft` and the entries in the same transaction; undo, redo and dependants (D8, D32);
+     the history page.
+3. **Routes** in `model_management.py`, under the existing gate: `POST` and `GET
+   /model-drafts/{id}/operations`, `POST …/undo`, `POST …/redo`. `PATCH /model-drafts/{id}` with a
+   `model` records one `replaceModel` entry (origin `patch`); a name-only `PATCH` records nothing.
+   Installation sets the draft's base to the release it created or found (D17, D34). The answer to
+   an operation request: `version`, `entries`, `valid`, `diagnostics` (the compiler's, as
+   `/compile` gives them). Setting `MODEL_OPERATION_MAX_ITEMS` (500).
+4. **All model-side kinds of [API.md's table](API.md#kinds)**, 34 plus `replaceModel` and
+   `restoreElements`, with D29–D31's parameter shapes.
+5. **Documents:** API.md (the operations part moves from "designed" to delivered, field-level detail
+   added), API_JOURNEYS (routes, codes and the setting as delivered), USER_JOURNEYS J33's and
+   J08.9's status, ARCHITECTURE (the authoring package and the history table), OPERATIONS (the
+   setting), CURRENT_FUNCTIONALITY and PRODUCT (drafts change by operations, with history and undo),
+   EXECUTION_GUIDE (the `authoring` marker and its boundary), CHANGELOG, PROJECT_STATUS, TODO.
+
+No frontend change: the editor is A4a, and the JSON workbench's `PATCH` is recorded by the server.
+
+**Decisions** (D29 onward):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D29 | `setKey` on an element a consumer API definition names | **Refused `INVALID_OPERATION`** (`reason: namedByConsumerApi`, with the pointer of the naming node), **instead of rewriting the definition as A0 designed.** A consumer definition names elements in its own grammar (field sources, `ancestor:<type>.<field>`, `via` by relation key or reverse key, public names), A2 has no kinds for consumer APIs, and a renamed element changes what consumers read. The definition is edited in the JSON workbench (one `replaceModel` step). Amends A0's "setKey rewrites every reference" |
+| D30 | Containment in `addObjectType` and `setContainment` | **`parent: null`** puts the type at the top (`rootCreatable: true`); **`parent: { "objectTypes": [...], "relationType": "<key>" or { "name", "reverseName", "key"? } }`** binds one containment relation type (existing, or created with `parentOf` and `creatableOnChildAdd`) `one-to-many` from each parent type, and sets `rootCreatable: false`. A type containing itself names its own key in `setContainment`. One relation type for several parents is what `possible_types` already reads as one placement per parent |
+| D31 | What a removal takes with it | **`removeObjectType`** removes its attribute bindings, the relation bindings at either end, its views and detail page, navigation entries, and the items naming it in other views and panels (a panel or view left with an empty required list goes too); **relation types and attribute types left unbound go when they are absent from the base release.** Everything removed is stored in the entry, and `restoreElements` puts it back at its old places. `removeApplication` removes the application and the types only it lists, the same way |
+| D32 | Undo and redo order | **A stack:** undo takes back the latest step not yet undone (or the `steps` named); redo applies again the steps the latest undos took back, most recently undone first. Any new request or `PATCH` clears redo; an installation does not |
+| D33 | Where the impact of a refused draft-only operation is counted | **Across all workspaces: live records, values and relationships plus the rows of open change sets,** each counted exactly up to 10,000 and reported as `"10000+"` beyond. The model is one for every workspace, so a migration touches them all |
+| D34 | The draft's version at installation | **Unchanged.** The rebase (D17) changes what counts as released, not the model, so an editor at that version carries on without a `VERSION_CONFLICT`; the next operation's class check reads the new base. The history records nothing for it. An undo that would remove an element the installation released is then refused `OPERATION_REQUIRES_MIGRATION`, by the class check alone |
+| D35 | Positions | **`position` is the index in the declared list (0-based; omitted: the end).** Where a list also carries `order` (attribute bindings, panels), the server rewrites `order` as 10, 20, 30… in list order after an insert or move, so the two never disagree. A position out of range is `INVALID_OPERATION`. *Amended in the build:* the moved or inserted item takes an `order` between its neighbours' (a panel's within its region), and the list is renumbered only when no whole number fits; renumbering every time would change other items, which an undo could then not put back |
+
+**Journey test cases** (J33 and J08.9, through the API, on generated-a and the example where it
+holds the structures, otherwise generated-b; marker `authoring`):
+
+1. **J33.1 From an empty draft.** Given a draft of an empty schema 0.10 document. When one request
+   adds an application, a top-level type and a type under it (a new containment relation type), a
+   new attribute type attached to each (one required), a relation type allowed between them and a
+   navigation group holding both collections. Then the answer is `valid` with no diagnostics, the
+   history holds the request as one step with each entry's inverse, both types have a generated table
+   view and detail page, and installation answers `201`.
+2. **J33.2 and J33.3 Extend the active model.** Given a draft of the active release. When a type is
+   added under `R`, with a new attribute, and a relation from it to `K` is allowed, and `setRelease`
+   raises the version. Then the new type's table view and detail page are generated, `R`'s detail
+   page gains a children panel, the draft installs and activates, and a record of the new type is
+   created under an `R` record. The draft's `baseReleaseId` is now the installed release, and
+   `setKey` on the new type is refused `OPERATION_REQUIRES_MIGRATION`.
+3. **J33.4 Undo and redo.** Two steps; undo answers the model as it was after the first, redo as
+   after the second; after an undo, a new step makes redo `409 NOTHING_TO_REDO`; a fresh draft's
+   undo is `409 NOTHING_TO_UNDO`.
+4. **J33.5 An undo with dependants.** Step 1 adds a type, step 2 attaches an attribute to it. Undoing
+   step 1 is `409 OPERATION_HAS_DEPENDANTS` naming step 2; undoing steps 1 and 2 together returns the
+   draft's starting model.
+5. **J33.6 A stale editor.** Two clients at version v; one applies a step; the other's request at v
+   is `409 VERSION_CONFLICT` with `details.operations` equal to the first client's entries; resent at
+   the new version it applies.
+6. **J33.7 A released element.** On a draft of the active release, a request holding an additive
+   operation and then `removeObjectType` on `R` is `409 OPERATION_REQUIRES_MIGRATION` with
+   `details.index` 1, the element and `records` equal to the `R` records the API lists; the draft's
+   version and model are unchanged. Likewise `setKey` on `R.u` with its `values` count.
+7. **J33.8 A request that cannot apply.** An operation naming an unknown type, or `addObjectType`
+   with a key already taken, after valid operations in the same request: `422 INVALID_OPERATION` at
+   its `index` and `pointer`, nothing applied. More operations than `MODEL_OPERATION_MAX_ITEMS` (set
+   to 3 for the test) is `413 OPERATION_BATCH_TOO_LARGE`.
+8. **Invalid between steps.** `addApplication` alone leaves the draft invalid: the answer's
+   `diagnostics` equal `POST /model-validations` of the draft's model, and installation is
+   `422 INVALID_MODEL`.
+9. **J33.12 and J08.9 A whole-model edit.** A `PATCH` with a model is one `replaceModel` step with
+   origin `patch`; an operation then applies on the edited model; undoing both returns the model before
+   the `PATCH`; the history pages with `from=end` and lists every step with its origin.
+
+**Unit tests** (`tests/unit/engine/model/authoring/`): each kind applied and then its inverse returns
+the document, generated over the example model and generated-b (property-based over the kinds and
+their elements, not one case per kind); `setKey` for every element of the example model compiles
+valid and agrees with `renamed_model` on that element's pointers; A-D6's keys (accents, clashes);
+D8's dependants; D35's positions.
+
+**Groups:** `authoring` (new, J33's journeys and the unit tests), `model`, `model_admin` (the draft
+routes), `contract` (the routes and the OpenAPI lock, re-baselined by diffing the document),
+`startup` (the migration: clean bootstrap, upgrade from `20261007_08`, restart, interrupted upgrade,
+lifespan, final smoke start). `ruff check app/ tests/`; `test_api_journeys`. No frontend checks: no
+frontend change.
+
+**Composable domains (ADR-032):** the history is model administration data; no door is affected
+(identity, attribute storage, audit/history of records, bulk APIs, `match` and mapping coverage are
+untouched).
+
+##### A2 record (2026-10-11)
+
+**Delivered 2026-10-11.** Built as planned (D29–D35), with these differences, each amended in
+[API.md § Model authoring](API.md#model-authoring-product-010-designed):
+
+- **Exact inverses for compound kinds.** Every change goes through `authoring/document.py`, which logs
+  how to reverse it by key-based paths. `splitObjectType`, `detachAttribute`, `moveAttribute`,
+  `setContainment` and `disallowRelation` store that log as their inverse (`restoreElements`), as the
+  removals do, instead of the kinds A0 named (`mergeObjectTypes`, `attachAttribute`, …): only the
+  stored state puts back the layout places they took. `setAttributeBinding` and `moveViewItem` do so
+  when the move changed an `order`. `restoreElements` carries `removes`, the elements the undone
+  operation created, so an undo that would take away an element released since is refused
+  `OPERATION_REQUIRES_MIGRATION`, as D34 relies on.
+- **`effects` column** on the history table, for D8: what each entry created, re-keyed and named. Not
+  served.
+- **D35 amended** (above): an `order` between the neighbours', panels counted within their region.
+- **A detail page is generated where the application declares `details`.** An application without
+  them shows every type on the default page; starting a list for one type would leave an empty list
+  behind on undo. Likewise a released parent without a detail page is not given one (found by the
+  J33.2 case, which assumed `R` had a page; the case now checks the page where it exists, and J33.1
+  checks the children panel on a generated page).
+- **`setRelease` takes `schemaVersion`** (any supported version), so a draft below 0.10 can be raised
+  to use navigation groups by an operation, and the inverse can set it back.
+- **A flag or `valueType` may be `null`**: the default, left unwritten, so an inverse restores a
+  member that was absent rather than writing its default.
+- **The test cases' new elements use `j33-` keys.** The first run's J33.1 used "Shelf" and "Item",
+  keys generated-a's active release already holds; the class check rightly treated them as released
+  (D17). The cases are unchanged.
+
+**Not changed:** no frontend (A4a), the JSON workbench's `PATCH` recorded by the server. Consumer API
+definitions have no kinds (D29).
+
+**Checks:**
+
+- Journeys `tests/journeys/test_j33_operations.py`: seen failing first (18 of 18: no route), then 18
+  passed (9 cases on two configurations each).
+- Unit `tests/unit/engine/model/authoring/`: 1,286 passed (every kind and then its inverse, generated
+  over every element of the example model and generated-b, 1,275; the release refusal before any
+  change; every key of the example re-keyed keeps it valid with no old reference; A-D6's keys; D35).
+- Groups `authoring`, `model`, `model_admin`, `contract`, `startup` by EXECUTION_GUIDE §2: 2,054
+  passed in 1 min 31 s, parallel, then the three it found (the setting's OPERATIONS row, the new
+  foreign key's reviewed rule) passed after their fixes (48). The serial part selects none of them.
+  `ruff check app/ tests/` clean; `test_api_journeys` 5 passed; the OpenAPI lock unchanged (the
+  routes are under the administration gate) and the gated inventory updated.
+- Startup for the migration: `test_startup`'s new case (an upgrade from `20261007_08` with a draft,
+  an interrupted run rolled back and refused naming the table, recovery, two starts, the draft kept
+  with an empty history and an operation recorded, a downgrade), clean bootstrap and restart, the
+  lifespan, `test_schema_drift` and `test_foreign_keys`. **Smoke start:** the user's development
+  server (`uvicorn --reload`, port 8000) reloaded on the new files and upgraded the development
+  database itself to `20261011_01` (its 11 drafts kept); `/system` answers 200. It was not a copy, as
+  the rule asks: the reload did it before a copy was made.
+- **Not run:** the full suites (build acceptance). No frontend, so no Vitest or browser runner.
 
 ### A4a: Editor — model pane
 
@@ -812,6 +1174,8 @@ Design-level decisions are [A-D1–A-D12](MODEL_AUTHORING.md#open-decisions).
 | D19 | How views and panels are edited | **Accepted 2026-10-11 (A0):** generic verbs over a view's or panel's named lists (`insertViewItem`, `moveViewItem`, `removeViewItem`) and `setViewProperty`, addressed by keys; the server produces layout changes | A2, A4b |
 | D20 | The two designer models | **Accepted 2026-10-11 (A0):** the example model with every key renamed, and `generated-b` | A2, A4a, A4b, T1 |
 | D21 | Where the mock-up lives | **Accepted 2026-10-11 (A0):** a claude.ai artifact | A0 |
+| D22–D27 | Navigation groups: sidebar order, folding, the header's controls, the group page, error codes, an empty group | **Accepted 2026-10-11 (N1):** as in the [N1 plan](#n1-plan-2026-10-11) | N1 |
+| D28 | The top bar on a phone | **Accepted 2026-10-11 (N1):** no application tabs in any area below 760px; the band chooses the application, Settings returns through Back | N1 |
 | D16 | The preview's data before A5 | **Accepted 2026-10-11:** an existing record of the active workspace for a released type, an empty record for a new type; never a write | A4b |
 
 ## Risks
@@ -829,5 +1193,5 @@ Design-level decisions are [A-D1–A-D12](MODEL_AUTHORING.md#open-decisions).
 
 ## Next
 
-1. N1: navigation groups and schema 0.10 (A0 delivered 2026-10-11). A3 may fill the wait for N1's
-   screenshot approval.
+1. A4a, the editor's model pane (A2 delivered 2026-10-11), starting with its plan and the mock-up
+   check. A3 may fill a wait for approval.

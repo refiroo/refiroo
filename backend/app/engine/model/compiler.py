@@ -15,9 +15,12 @@ from .consumer_legacy import LegacyEngineModel, is_legacy, legacy_consumer_apis_
 from .diagnostics import ModelDiagnostic, ModelReferenceError, ModelValidationError
 from .validation import validate_references
 
-SUPPORTED_SCHEMA_VERSIONS: frozenset[str] = frozenset({"0.5", "0.6", "0.7", "0.8", "0.9"})
+# Oldest first: versions compare as numbers, so a text sort would put 0.10 before 0.5.
+SCHEMA_VERSIONS: tuple[str, ...] = ("0.5", "0.6", "0.7", "0.8", "0.9", "0.10")
+SUPPORTED_SCHEMA_VERSIONS: frozenset[str] = frozenset(SCHEMA_VERSIONS)
 
 __all__ = [
+    "SCHEMA_VERSIONS",
     "SUPPORTED_SCHEMA_VERSIONS",
     "CompilationResult",
     "ModelDiagnostic",
@@ -53,7 +56,7 @@ def compile_model(source: Any) -> CompilationResult:
                     severity="error",
                     code="UNSUPPORTED_SCHEMA_VERSION",
                     path="/schemaVersion",
-                    message=f"Schema version '{supplied}' is unsupported; supported versions: {sorted(SUPPORTED_SCHEMA_VERSIONS)}",
+                    message=f"Schema version '{supplied}' is unsupported; supported versions: {list(SCHEMA_VERSIONS)}",
                 ),
             ),
             unsupported_schema_version=str(supplied),

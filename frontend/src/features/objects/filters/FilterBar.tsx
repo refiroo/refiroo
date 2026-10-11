@@ -11,7 +11,8 @@
  */
 
 import { keyScope } from "@/model/candidates";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
+import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
 import { relationFilterEntries, relationFilterMode, type NamedRecord } from "@/features/objects/RelationFilter";
 import { attributeName } from "@/model/fields";
 import { RELATED_FIELD_PREFIX, relatedTargetTypes } from "@/model/lookup";
@@ -159,20 +160,8 @@ export function pillText(
   return { label: `${spec.label} ${conditionWord(spec.kind, entry.operator)}`, value: entry.value };
 }
 
+/** Below this width the editors are drawn as a bottom sheet (D163). */
 const NARROW = "(max-width: 600px)";
-function subscribeNarrow(update: () => void) {
-  const query = window.matchMedia?.(NARROW);
-  query?.addEventListener("change", update);
-  return () => query?.removeEventListener("change", update);
-}
-/** Whether the editors are drawn as a bottom sheet (D163). */
-function useNarrow() {
-  return useSyncExternalStore(
-    subscribeNarrow,
-    () => window.matchMedia?.(NARROW).matches === true,
-    () => false,
-  );
-}
 
 export function FilterBar({
   model,
@@ -347,7 +336,7 @@ function FilterEditor({
   onApply: (entries: CollectionFilter[]) => void;
   onCancel: () => void;
 }) {
-  const narrow = useNarrow();
+  const narrow = useMediaQuery(NARROW);
   const [draft, setDraft] = useState<CollectionFilter[]>(() => entries.slice());
   // The relationship editor's ticked records, with their names for the checklist.
   const [picked, setPicked] = useState<ChecklistRecord[]>(() =>

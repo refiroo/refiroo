@@ -230,6 +230,16 @@ export interface ApplicationDefinition {
   views: ViewDefinition[];
   details: DetailViewDefinition[];
   settings: Record<string, unknown>;
+  /** Sidebar sections of its collections (schema 0.10, 0.10 N1); presentation only. */
+  navigation?: { groups: NavigationGroupDefinition[] };
+}
+
+/** A labelled, foldable sidebar section naming collections (object type keys) of its application. */
+export interface NavigationGroupDefinition {
+  key: string;
+  label: string;
+  collections: string[];
+  collapsed?: boolean;
 }
 
 /** A type of an application as a parent (Base 0.8 C4, `GET /model/placements`). */

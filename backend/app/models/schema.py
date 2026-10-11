@@ -386,6 +386,24 @@ class DetailViewDefinition(ModelDefinition):
     panels: tuple[PanelDefinition, ...]
 
 
+class NavigationGroupDefinition(ModelDefinition):
+    """A labelled, collapsible sidebar section of an application's collections (schema 0.10, 0.10
+    N1): presentation only, carrying no data, validation or permission."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str
+    label: str
+    collections: tuple[str, ...] = ()
+    collapsed: bool = False
+
+
+class NavigationDefinition(ModelDefinition):
+    model_config = ConfigDict(extra="forbid")
+
+    groups: tuple[NavigationGroupDefinition, ...] = ()
+
+
 class ApplicationDefinition(ModelDefinition):
     model_config = ConfigDict(extra="allow")
 
@@ -400,6 +418,8 @@ class ApplicationDefinition(ModelDefinition):
     views: tuple[ViewDefinition, ...]
     details: tuple[DetailViewDefinition, ...] = ()
     settings: Mapping[str, Any] = Field(default_factory=dict)
+    # Schema 0.10 (0.10 N1); omitted from the canonical document when absent, so earlier hashes hold.
+    navigation: NavigationDefinition | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 def _omitted() -> Any:
@@ -805,7 +825,7 @@ class ModelReleaseDefinition(ModelDefinition):
 class EngineModel(ModelDefinition):
     model_config = ConfigDict(extra="forbid")
 
-    schemaVersion: Literal["0.5", "0.6", "0.7", "0.8", "0.9"]
+    schemaVersion: Literal["0.5", "0.6", "0.7", "0.8", "0.9", "0.10"]
     release: ModelReleaseDefinition
     product: ProductDefinition
     attributeTypes: tuple[AttributeTypeDefinition, ...]

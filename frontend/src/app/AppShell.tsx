@@ -16,7 +16,7 @@ import { api } from "@/api/client";
 import type { ReactNode } from "react";
 import { Explorer } from "@/features/objects/Explorer";
 import { WorkspaceSelector } from "@/features/workspaces/WorkspaceSelector";
-import { routeChangeSetId, viewRoute } from "@/routing/routes";
+import { routeChangeSetId, routePublicationId, viewRoute } from "@/routing/routes";
 import type { ApplicationDefinition, ApplicationRoute, EngineModel, ObjectItem, RouteState, Workspace } from "@/types";
 import { Notice } from "@/ui/Notice";
 import { ContextBandSlotContext } from "@/ui/ContextBandSlot";
@@ -72,8 +72,7 @@ export function AppShell({
     };
   }, []);
   const changeSetId = routeChangeSetId(activeRoute);
-  const publicationId =
-    activeRoute.kind === "list" || activeRoute.kind === "detail" ? activeRoute.publicationId : undefined;
+  const publicationId = routePublicationId(activeRoute);
 
   return (
     <ShellFrame
@@ -89,6 +88,7 @@ export function AppShell({
       rail={{
         id: "workspace-navigation",
         as: "aside",
+        className: "application-rail",
         label: "Workspace navigation",
         toggleLabel: "Browse application",
         drawerTitle: "Application navigation",
@@ -113,11 +113,23 @@ export function AppShell({
               activeObjectId={activeRoute.kind === "detail" ? activeRoute.objectId : undefined}
               activeObjectTypeKey={activeRoute.kind === "detail" ? activeRoute.objectTypeKey : undefined}
               activeViewKey={activeRoute.kind === "list" ? activeRoute.viewKey : undefined}
+              activeGroupKey={activeRoute.kind === "group" ? activeRoute.groupKey : undefined}
               refreshToken={refreshToken}
               readOnly={workspace?.status === "retired"}
               onChanged={onChanged}
               onOpen={(item) => {
                 onOpenObject(item);
+                close();
+              }}
+              onOpenGroup={(groupKey) => {
+                onNavigate({
+                  kind: "group",
+                  applicationKey: application.key,
+                  groupKey,
+                  workspaceKey: activeRoute.workspaceKey,
+                  changeSetId,
+                  publicationId,
+                });
                 close();
               }}
               onOpenCollection={(viewKey, parent) => {
@@ -135,11 +147,19 @@ export function AppShell({
       }}
     >
       <DataContextBand
+        model={model}
         application={application}
         route={activeRoute}
         workspaceLabel={workspace?.key === activeRoute.workspaceKey ? workspace.label : activeRoute.workspaceKey}
         contextActions={contextActions}
         onNavigate={onNavigate}
+        onSelectApplication={onSelectApplication}
+        onChangeWorkspace={onChangeWorkspace}
+        onManageWorkspaces={
+          manageWorkspaces
+            ? () => onNavigate({ kind: "settings", page: "workspaces", workspaceKey: activeRoute.workspaceKey })
+            : undefined
+        }
       />
       <div ref={setBandSlot} className="band-details" />
       {workspace?.key === activeRoute.workspaceKey && workspace.status === "retired" && (

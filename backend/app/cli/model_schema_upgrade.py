@@ -10,7 +10,7 @@ from sqlalchemy import update
 
 from ..db import SessionLocal, create_database
 from ..engine.model.compatibility import analyze_compatibility
-from ..engine.model.compiler import SUPPORTED_SCHEMA_VERSIONS
+from ..engine.model.compiler import SCHEMA_VERSIONS, SUPPORTED_SCHEMA_VERSIONS
 from ..engine.model.diagnostics import ModelValidationError
 from ..engine.model.legacy import parse_schema_04_for_transition
 from ..engine.model.loader import load_model
@@ -24,7 +24,7 @@ def transition(model_path: Path) -> str:
     if candidate.schemaVersion not in SUPPORTED_SCHEMA_VERSIONS:
         raise RuntimeError(
             "The transition candidate must use schema version "
-            + ", ".join(sorted(SUPPORTED_SCHEMA_VERSIONS))
+            + ", ".join(SCHEMA_VERSIONS)
         )
     create_database()
     with SessionLocal() as session:
@@ -88,7 +88,7 @@ def transition(model_path: Path) -> str:
         return candidate_release.public_id
 
 
-_SCHEMAS = ", ".join(sorted(SUPPORTED_SCHEMA_VERSIONS))
+_SCHEMAS = ", ".join(SCHEMA_VERSIONS)
 
 
 def main() -> None:

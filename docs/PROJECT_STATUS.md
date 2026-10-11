@@ -16,7 +16,16 @@ version strings and the tag (`v0.9.0`) follow the user's instruction (D207). Nex
 2026-10-11 ([plan](BASE_0_10_IMPLEMENTATION_PLAN.md)): the model designer first, then spreadsheet
 onboarding, starting with the A0 design pass. **A0 is delivered (2026-10-11):** its decisions
 accepted, the API design, ADR-041, journeys J33–J35, and the editor mock-up and W1 sample approved
-by the user. Next is N1, navigation groups and schema 0.10.
+by the user. **N1, navigation groups and schema 0.10, is delivered (2026-10-11)**: schema 0.10
+opened with an application's optional `navigation.groups`, validated at their pointers; the
+sidebar's foldable group sections and the group page with its search; on a phone a one-line band
+choosing workspace, application and data context, with no top-bar tabs (D28); supported schema
+versions listed oldest first by number. **A2, the operation API on model drafts, is delivered
+(2026-10-11)**: a draft changes by typed operations through the API (34 model-side kinds), each
+request one step of a readable history with undo and redo; a change that would need a migration of
+released structure is refused with its impact; the server generates the layout of new types; a JSON
+edit is recorded as one step, and installation makes the installed release the draft's base. Next is
+A4a, the editor's model pane.
 
 ### How 0.9 was built
 

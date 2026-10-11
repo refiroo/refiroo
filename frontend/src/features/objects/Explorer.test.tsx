@@ -545,4 +545,67 @@ describe("Explorer", () => {
         .map((entry) => entry.textContent),
     ).toEqual(["Move to…"]);
   });
+
+  describe("navigation groups (0.10 N1)", () => {
+    /** The tree model with a Units view, and Codelists and Units in one group. */
+    function groupedModel(collapsed: boolean) {
+      const model = treeModel();
+      const application = model.applications[0];
+      const domains = application.views[0];
+      if (domains.type !== "table") throw new Error("Expected table fixture");
+      application.views.push({ ...domains, key: "units", name: "Units", objectTypeKey: "unit" });
+      application.navigation = {
+        groups: [{ key: "lists", label: "Lists", collections: ["unit", "codelist"], collapsed }],
+      };
+      return model;
+    }
+    const collections = () => screen.getByRole("navigation", { name: "Test App collections" });
+
+    it("shows ungrouped collections first, then the group's in its order, opening the group page", async () => {
+      serve();
+      const onOpenGroup = vi.fn();
+      const onOpenCollection = vi.fn();
+      render(explorer({ model: groupedModel(false), onOpenGroup, onOpenCollection }));
+      await screen.findByRole("tree", { name: "Browse records" });
+      expect(
+        within(collections())
+          .getAllByRole("button")
+          .map((button) => button.getAttribute("aria-label") ?? button.textContent),
+      ).toEqual(["Domains", "Hide Lists", "Lists", "Units", "Codelists"]);
+      fireEvent.click(within(collections()).getByRole("button", { name: "Lists" }));
+      expect(onOpenGroup).toHaveBeenCalledWith("lists");
+      fireEvent.click(within(collections()).getByRole("button", { name: "Units" }));
+      expect(onOpenCollection).toHaveBeenCalledWith("units");
+    });
+
+    it("starts as the model declares and remembers the reader's fold", async () => {
+      serve();
+      const { unmount } = render(explorer({ model: groupedModel(true) }));
+      await screen.findByRole("tree", { name: "Browse records" });
+      const show = within(collections()).getByRole("button", { name: "Show Lists" });
+      expect(show).toHaveAttribute("aria-expanded", "false");
+      expect(within(collections()).queryByRole("button", { name: "Units" })).not.toBeInTheDocument();
+      fireEvent.click(show);
+      expect(within(collections()).getByRole("button", { name: "Hide Lists" })).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      );
+      expect(within(collections()).getByRole("button", { name: "Units" })).toBeVisible();
+      unmount();
+
+      render(explorer({ model: groupedModel(true) }));
+      await screen.findByRole("tree", { name: "Browse records" });
+      expect(within(collections()).getByRole("button", { name: "Units" })).toBeVisible();
+    });
+
+    it("marks a folded group holding the open collection, and the group whose page is open", async () => {
+      serve();
+      const { rerender } = render(explorer({ model: groupedModel(true), activeViewKey: "units" }));
+      await screen.findByRole("tree", { name: "Browse records" });
+      const label = within(collections()).getByRole("button", { name: /^Lists\s*\(holds the open collection\)$/ });
+      expect(label.closest(".nav-group-header")).toHaveClass("holds-current");
+      rerender(explorer({ model: groupedModel(true), activeGroupKey: "lists" }));
+      expect(within(collections()).getByRole("button", { name: "Lists" })).toHaveAttribute("aria-current", "page");
+    });
+  });
 });

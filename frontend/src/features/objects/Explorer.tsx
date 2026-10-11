@@ -5,7 +5,8 @@ import { useTreeMoves } from "@/features/objects/useTreeMoves";
 import { AnchoredMenu } from "@/ui/AnchoredMenu";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { objectTypeFor } from "@/model/lookup";
-import { collectionGroups, rootObjectTypeKeys } from "@/model/collections";
+import { navigationSections, rootObjectTypeKeys, type CollectionGroup } from "@/model/collections";
+import { readLocalPreference, writeLocalPreference } from "@/lib/localPreference";
 import { objectTypeHue } from "@/model/hues";
 import type { ApplicationDefinition, EngineModel, ObjectItem } from "@/types";
 import { HueTile } from "@/ui/HueTile";
@@ -19,10 +20,12 @@ export function Explorer({
   activeObjectId,
   activeObjectTypeKey,
   activeViewKey,
+  activeGroupKey,
   refreshToken,
   readOnly = false,
   onOpen,
   onOpenCollection,
+  onOpenGroup,
   onChanged,
 }: {
   model: EngineModel;
@@ -31,17 +34,21 @@ export function Explorer({
   activeObjectId?: string;
   activeObjectTypeKey?: string;
   activeViewKey?: string;
+  /** The navigation group whose page is open (0.10 N1). */
+  activeGroupKey?: string;
   refreshToken: number;
   /** A retired workspace: records are browsed, never moved. */
   readOnly?: boolean;
   onOpen: (item: ObjectItem) => void;
   onOpenCollection?: (viewKey: string, parent?: ObjectItem) => void;
+  onOpenGroup?: (groupKey: string) => void;
   /** Records were moved, so what shows them reads again. */
   onChanged?: () => void;
 }) {
   const [searchInput, setSearchInput] = useState("");
   const search = useDebouncedValue(searchInput.trim());
-  const groups = collectionGroups(application);
+  const sections = navigationSections(application);
+  const [folded, toggleFolded] = useFoldedGroups(application);
 
   // The sidebar drags and moves as the lens does (UA9, U-D22, U-D28), by the one move rule; a type
   // changes only in the lens, which previews it.
@@ -100,27 +107,57 @@ export function Explorer({
 
   return (
     <section className="explorer" aria-label={`${application.name} explorer`}>
-      {groups.length > 0 && (
+      {(sections.ungrouped.length > 0 || sections.groups.length > 0) && (
         <nav className="collection-tree" aria-label={`${application.name} collections`}>
           <p className="nav-label">Collections</p>
-          {groups.map((group) => {
-            const type = objectTypeFor(model, group.objectTypeKey);
-            const active = group.views.some((view) => view.key === activeViewKey);
+          {sections.ungrouped.map((group) => (
+            <CollectionEntry
+              key={group.objectTypeKey}
+              model={model}
+              group={group}
+              activeViewKey={activeViewKey}
+              onOpen={onOpenCollection}
+            />
+          ))}
+          {sections.groups.map(({ group, collections }) => {
+            const isFolded = folded(group.key, group.collapsed === true);
+            const holdsCurrent = collections.some((item) => item.views.some((view) => view.key === activeViewKey));
+            const bodyId = `${application.key}-navigation-group-${group.key}`;
             return (
-              <button
-                key={group.objectTypeKey}
-                className={active ? "active" : ""}
-                aria-current={active ? "page" : undefined}
-                onClick={() => onOpenCollection?.(group.defaultView.key)}
-              >
-                <HueTile hue={objectTypeHue(model, group.objectTypeKey)} icon={type?.icon} />
-                <span className="collection-name">{type?.pluralName ?? group.objectTypeKey}</span>
-                {group.views.some((view) => view.type === "mappingGrid") && (
-                  <span className="collection-hint" title="Includes a mapping view">
-                    <Icon name="mapping" size={13} label="Includes a mapping view" />
-                  </span>
-                )}
-              </button>
+              <div key={group.key} className="nav-group">
+                <div className={`nav-group-header${isFolded && holdsCurrent ? " holds-current" : ""}`}>
+                  <button
+                    type="button"
+                    className="nav-group-toggle"
+                    aria-expanded={!isFolded}
+                    aria-controls={bodyId}
+                    aria-label={`${isFolded ? "Show" : "Hide"} ${group.label}`}
+                    onClick={() => toggleFolded(group.key, !isFolded)}
+                  >
+                    <Icon name={isFolded ? "chevron-right" : "chevron-down"} size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className={`nav-group-label${activeGroupKey === group.key ? " active" : ""}`}
+                    aria-current={activeGroupKey === group.key ? "page" : undefined}
+                    onClick={() => onOpenGroup?.(group.key)}
+                  >
+                    <span className="collection-name">{group.label}</span>
+                    {isFolded && holdsCurrent && <span className="visually-hidden"> (holds the open collection)</span>}
+                  </button>
+                </div>
+                <div id={bodyId} className="nav-group-body" hidden={isFolded}>
+                  {collections.map((item) => (
+                    <CollectionEntry
+                      key={item.objectTypeKey}
+                      model={model}
+                      group={item}
+                      activeViewKey={activeViewKey}
+                      onOpen={onOpenCollection}
+                    />
+                  ))}
+                </div>
+              </div>
             );
           })}
         </nav>
@@ -190,4 +227,62 @@ export function Explorer({
       )}
     </section>
   );
+}
+
+/** A collection in the sidebar: its type's tile and plural name, opening its default lens. */
+function CollectionEntry({
+  model,
+  group,
+  activeViewKey,
+  onOpen,
+}: {
+  model: EngineModel;
+  group: CollectionGroup;
+  activeViewKey?: string;
+  onOpen?: (viewKey: string) => void;
+}) {
+  const type = objectTypeFor(model, group.objectTypeKey);
+  const active = group.views.some((view) => view.key === activeViewKey);
+  return (
+    <button
+      type="button"
+      className={active ? "active" : ""}
+      aria-current={active ? "page" : undefined}
+      onClick={() => onOpen?.(group.defaultView.key)}
+    >
+      <HueTile hue={objectTypeHue(model, group.objectTypeKey)} icon={type?.icon} />
+      <span className="collection-name">{type?.pluralName ?? group.objectTypeKey}</span>
+      {group.views.some((view) => view.type === "mappingGrid") && (
+        <span className="collection-hint" title="Includes a mapping view">
+          <Icon name="mapping" size={13} label="Includes a mapping view" />
+        </span>
+      )}
+    </button>
+  );
+}
+
+const isFoldMap = (value: unknown): value is Record<string, boolean> =>
+  typeof value === "object" &&
+  value !== null &&
+  !Array.isArray(value) &&
+  Object.values(value).every((item) => typeof item === "boolean");
+
+/**
+ * Which navigation groups a reader folded (D23): the model's `collapsed` until the reader folds or
+ * unfolds a group, then their choice, remembered in this browser per application.
+ */
+function useFoldedGroups(application: ApplicationDefinition) {
+  const storageKey = `rdm:navigation-groups:v1:${JSON.stringify(application.key)}`;
+  const [choices, setChoices] = useState(() => ({
+    key: storageKey,
+    value: readLocalPreference(storageKey, {}, isFoldMap),
+  }));
+  const current = choices.key === storageKey ? choices.value : readLocalPreference(storageKey, {}, isFoldMap);
+  const folded = (groupKey: string, declared: boolean) => current[groupKey] ?? declared;
+  const toggle = (groupKey: string, fold: boolean) => {
+    const value = { ...current, [groupKey]: fold };
+    setChoices({ key: storageKey, value });
+    writeLocalPreference(storageKey, value);
+  };
+  return [folded, toggle] as const;
 }

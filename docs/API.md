@@ -153,6 +153,11 @@ value, which sort last, follow the seeked rows. A seek value that does not parse
 URL paths use stable model keys. Every response body includes the entity `id` (UUID) alongside the
 `key`. Internal metadata sequence IDs are never part of the contract.
 
+An application of a schema 0.10 model may carry `navigation` (`groups`, each with `key`, `label`,
+`collections` and `collapsed`), served by `GET /model` and the application routes as written, and
+left out when the model declares none (0.10 N1, [APPLICATION_MODEL](APPLICATION_MODEL.md#navigation-groups-navigation-schema-010)).
+It is presentation only: no route reads or filters by it.
+
 Relation types and object-type relations are separate resources. A **relation type** defines reusable
 forward/reverse semantics and orientation. An **object-type relation** binds one relation type to an
 allowed source and target object type and supplies cardinality (`one-to-one`, `one-to-many`,
@@ -262,7 +267,7 @@ Read-only and behind no capability, like `/capabilities` (for administrators onc
 ```json
 {
   "engine": { "version": "0.9.0", "managementApi": "v1" },
-  "schemaLanguages": ["0.5", "0.6", "0.7", "0.8"],
+  "schemaLanguages": ["0.5", "0.6", "0.7", "0.8", "0.9", "0.10"],
   "activeModelRelease": {
     "id": "…", "key": "rdm-starter", "name": "RDM Starter Model", "version": "0.9.0",
     "schemaVersion": "0.8", "activatedAt": "2026-10-06T08:00:00Z"
@@ -466,9 +471,13 @@ returned).
 - `POST /api/v1/model-validations`
 - `POST /api/v1/model-drafts/{draftId}/compile`
 - `POST /api/v1/model-drafts/{draftId}/installation`
+- `POST /api/v1/model-drafts/{draftId}/operations`, `GET /api/v1/model-drafts/{draftId}/operations`,
+  `POST /api/v1/model-drafts/{draftId}/undo`, `POST /api/v1/model-drafts/{draftId}/redo` (0.10 A2,
+  [below](#draft-operations))
 
 Create accepts `name`, optional `baseReleaseId` and an inline `model`. Patch accepts
-`expectedVersion` plus at least one of `name` or `model`. Draft responses use:
+`expectedVersion` plus at least one of `name` or `model`; a `model` is recorded in the draft's
+history as one `replaceModel` step of origin `patch` (0.10 A2, ADR-041). Draft responses use:
 
 ```json
 {
@@ -3642,7 +3651,9 @@ Designed in the [Base 0.10 A0 plan](BASE_0_10_IMPLEMENTATION_PLAN.md#a0-plan-202
 [MODEL_AUTHORING.md](MODEL_AUTHORING.md) and [ADR-041](DECISIONS.md#adr-041--model-drafts-change-through-recorded-operations).
 Each part moves into "delivered" with its package: operations, history and undo with A2, source files
 and the dry-run summary with A3, a draft's profiles and the mapping kinds with A5, inferences with A6.
-Field-level detail not fixed here is finished in that package's plan.
+Field-level detail not fixed here is finished in that package's plan. **Delivered by A2
+(2026-10-11):** [draft operations](#draft-operations), the [kinds](#kinds) of the model side and the
+[history, undo and redo](#history-undo-and-redo). The rest of this section is designed.
 
 - `POST /api/v1/model-drafts/{draftId}/operations`, `GET /api/v1/model-drafts/{draftId}/operations`
 - `POST /api/v1/model-drafts/{draftId}/undo`, `POST /api/v1/model-drafts/{draftId}/redo`
@@ -3674,9 +3685,9 @@ are registered with `INTEGRATION_JOBS_ENABLED` as well (D6).
 
 - The operations of one request are applied in order, **all or none**, to the draft's model, and are
   one step of the history: one undo takes back the whole request. The answer (`200`) holds the new
-  `version`, the stored entries (each with its `sequence` and `inverse`), the model's `valid` flag
-  and its `diagnostics`, the same list `POST …/compile` gives, and from A3 the dry-run summary of each
-  attached source file.
+  `version`, the stored entries (each with its `sequence` and `inverse`, as the history lists them),
+  the model's `valid` flag and its `diagnostics`, the same list `POST /model-validations` gives for
+  the draft's model, and from A3 the dry-run summary of each attached source file.
 - **A draft may be invalid between operations.** An operation is refused only when it cannot be
   applied (an unknown element, a key already taken, a list position out of range, a class it may not
   have); a model that does not yet validate (a type without a view, a required attribute no view
@@ -3691,61 +3702,99 @@ are registered with `INTEGRATION_JOBS_ENABLED` as well (D6).
 - **Class** (MODEL_AUTHORING): an additive kind is always applied. A draft-only kind applies while
   every element it touches is absent from the draft's **base release** (the active release when the
   draft has none, D17); otherwise it is refused `409 OPERATION_REQUIRES_MIGRATION` with
-  `details.index`, the element and its impact in live data and open change sets (`records`, `values`,
-  `relationships`, counted exactly up to 10,000 each and reported as `10000+` beyond), and nothing of
-  the request is applied.
+  `details.index`, `details.kind`, `details.element` (named as operations name it, e.g.
+  `{"objectType": "unit"}` or `{"objectType": "unit", "attributeType": "code"}`),
+  `details.baseReleaseId` and `details.impact`: `records`, `values` and `relationships` in live data of
+  every workspace and in every change set (D33), each counted exactly up to 10,000 and reported as
+  `"10000+"` beyond. Nothing of the request is applied. A key that the active release holds counts as
+  released for a draft without a base, even when the draft created it again: its records would carry
+  over.
 - **The server keeps the model whole.** `setKey` rewrites every reference to the key (bindings,
-  views, panels, navigation, consumer API definitions); `addObjectType` adds the type to its
-  application with a generated table view and detail page (below); `attachAttribute` and
-  `allowRelation` add the attribute or relation to the type's generated layout unless `"layout":
-  false`; `removeObjectType` removes what only it used and reports what it removed in the entry.
+  views, panels, fields such as `ancestor:<type>` and `related:<key>`, navigation); an element a
+  consumer API definition names is refused `INVALID_OPERATION` with `reason: namedByConsumerApi` and
+  the naming node's pointer, and is renamed there first in the JSON workbench (D29). `addObjectType`
+  adds the type to its application with a generated table view, and a detail page where the
+  application declares its `details` (below); `attachAttribute` and `allowRelation` add the
+  attribute or relation to the type's layout unless `"layout": false`. A removal takes with it what
+  exists only for the removed element (D31): its bindings, views and detail page, navigation
+  entries, the items naming it in other views and panels (a children or relations panel or a tree
+  left without its list goes too), and relation types and attribute types it alone used that the
+  base release does not hold. The entry's inverse stores what it took.
+- **Positions** (D35) are the index in the declared list, 0-based; omitted, the end; out of range,
+  `INVALID_OPERATION` (`outOfRange`). Where a list's items carry `order` (attribute bindings, and
+  panels within their region), the moved or inserted item takes an `order` between its neighbours',
+  and the list is renumbered 10, 20, 30… only when no whole number fits.
 - Refusals: `422 INVALID_OPERATION` (`details.index`, `details.pointer` into the request,
-  `details.reason`), `409 OPERATION_REQUIRES_MIGRATION`, `409 VERSION_CONFLICT` with
-  `details.operations`, the history entries since `expectedVersion` (at most 100, then
-  `details.more: true` and the history route to page), `404 MODEL_DRAFT_NOT_FOUND`,
-  `413 OPERATION_BATCH_TOO_LARGE` over `MODEL_OPERATION_MAX_ITEMS` (500).
+  `details.reason`: `unknownKind`, `internalKind`, `unknownParameter`, `missingParameter`,
+  `invalidValue`, `unknownElement`, `keyTaken`, `alreadyAttached`, `alreadyAllowed`,
+  `alreadyPresent`, `stillBound`, `outOfRange`, `namedByConsumerApi`, `conflict`),
+  `409 OPERATION_REQUIRES_MIGRATION`, `409 VERSION_CONFLICT` with `details.operations`, the history
+  entries since `expectedVersion` (at most 100, then `details.more: true` and the history route to
+  page), `404 MODEL_DRAFT_NOT_FOUND`, `413 OPERATION_BATCH_TOO_LARGE` over
+  `MODEL_OPERATION_MAX_ITEMS` (500, `details.limit` and `details.received`).
 
-**Generated layout** for a new object type: a table view (`name`, the display attribute, the attached
-attributes in order; filter and sort fields from the attributes' features; `defaultSort` `name`;
-`pageSize` 50) and a detail page (an attributes panel in `main`; a hierarchy panel in `side` when it
-has a parent; a children panel when it contains types; a relations panel when a binding names it).
-The same operation from any client gives the same layout.
+**Generated layout** for a new object type: a table view keyed from its plural name (`name`, the
+attached attributes in order; filter and sort fields `name` and the attributes the features make
+filterable or sortable; `defaultSort` `name`; `pageSize` 50), the application's default view when it
+has none, and, where the application declares `details`, a detail page (an attributes panel in
+`main`; a hierarchy panel in `side` when it has a parent; a children panel when it contains types; a
+relations panel, `outgoing`, when a binding names it at its `from` end). A new child type joins its
+parent's children panel, or a new one, on each detail page the parent has; the server does not
+create a detail page for a type that has none. An attached attribute joins the type's table views
+(columns, and filter and sort fields as its features allow) and its first attributes panel; an
+allowed relation joins its `from` type's outgoing relations panel. The same operation from any
+client gives the same layout.
+
+**Parameters** not in the table: an element named by `setLabel` and `setKey` is `element`, one of
+`{"applicationKey"}`, `{"objectType"}`, `{"attributeType"}`, `{"relationType"}`,
+`{"applicationKey", "view"}`, `{"applicationKey", "detail", "panel"}` (`detail` is the page's object
+type) and `{"applicationKey", "group"}`. A containment `parent` (D30) is `null` (the top level,
+`rootCreatable: true`) or `{"objectTypes": [...], "relationType": "<key>" or {"name",
+"reverseName", "key"?, "reverseKey"?}}`: one containment relation type (`parentOf`,
+`creatableOnChildAdd`), existing or new, bound `one-to-many` from each parent type. A view or panel
+target is `applicationKey` with `view`, with `detail` (the page; its list is `panels`) or with
+`detail` and `panel`. A flag (`required`, `readOnly`) and `valueType` may be `null`: the default,
+left unwritten, as an inverse writes it back.
 
 #### Kinds
 
-Model side (A2). The inverse is another kind of the table, or the element's prior declaration where a
-kind removes or replaces it.
+Model side (A2, delivered). The inverse is another kind of the table, or, for a kind that removes or
+reshapes several elements, `restoreElements` with the stored prior state of what it changed: those
+inverses are exact, so an undo puts back each place, list position and `order` as it was. Where the
+A0 design named another kind as the inverse (`splitObjectType`, `detachAttribute`, `moveAttribute`,
+`setContainment`, `disallowRelation`), the stored state replaced it in A2, because only it brings back
+the layout places the change took.
 
 | Kind | Parameters | Class | Inverse |
 | --- | --- | --- | --- |
 | `setLabel` | element; any of `name`, `pluralName`, `reverseName`, `description`, `icon`, `color`, `title` | additive | `setLabel` with the old values |
-| `setKey` | element, `key` (and `reverseKey` for a relation type) | draft-only | `setKey` back |
-| `setRelease` | `key`, `name`, `version` (D18) | additive | `setRelease` back |
+| `setKey` | `element`, `key` (and `reverseKey` for a relation type) | draft-only for an application, type or relation type; additive for a view, panel or group | `setKey` back |
+| `setRelease` | any of `key`, `name`, `version` (D18), and `schemaVersion` (a supported version) | additive | `setRelease` back |
 | `addApplication` | `key`?, `name`, `description`, `icon`, `color` | additive | `removeApplication` |
 | `removeApplication` | `applicationKey` | draft-only | `restoreElements` |
 | `addObjectType` | `applicationKey`, `key`?, `name`, `pluralName`, `parent` (`null` or parent type keys and a containment relation type, new or existing), `displayAttribute`? | additive | `removeObjectType` |
 | `removeObjectType` | `objectType` | draft-only | `restoreElements` |
-| `splitObjectType` | `objectType`, the new type's `name` and `key`?, the attributes to move, the relation type joining them and its cardinality | draft-only | `mergeObjectTypes` of the two |
+| `splitObjectType` | `objectType`, the new type's `name`, `pluralName`? and `key`?, `attributes` (keys to move), `relationType` (key or new) and `cardinality` (default `many-to-many`) joining the type to the new one | draft-only | `restoreElements` |
 | `mergeObjectTypes` | `into`, `from` (attributes, bindings and layout of `from` joined into `into`) | draft-only | `restoreElements` |
-| `convertAttributeToListType` | `objectType`, `attributeType`, the list type's `name` and `key`?, the relation type | draft-only | `restoreElements` |
+| `convertAttributeToListType` | `objectType`, `attributeType`, the list type's `name`, `pluralName`? and `key`?, `relationType` (key or new; bound `many-to-many` from the type) | draft-only | `restoreElements` |
 | `addAttributeType` | `key`?, `name`, `valueType`, `features` (`searchable`, `filterable`, `sortable`, `unique`), `validation` | additive | `removeAttributeType` |
 | `removeAttributeType` | `attributeType` (not bound anywhere) | draft-only | `restoreElements` |
 | `setAttributeTypeFeatures` | `attributeType`, features to set | additive; draft-only to add `unique` | `setAttributeTypeFeatures` back |
-| `setValueType` | `attributeType`, `valueType`, `validation` | draft-only | `setValueType` back |
+| `setValueType` | `attributeType`, `valueType`, `validation`? | draft-only | `setValueType` back |
 | `attachAttribute` | `objectType`, `attributeType`, `required`, `readOnly`, `position`, `layout` | additive; draft-only when `required` on a released type | `detachAttribute` |
-| `detachAttribute` | `objectType`, `attributeType` | draft-only | `attachAttribute` with its binding and layout places |
-| `moveAttribute` | `attributeType`, `from`, `to` (a type), `layout` | draft-only | `moveAttribute` back |
-| `setAttributeBinding` | `objectType`, `attributeType`; `required`, `readOnly`, `position` | additive for `position`; draft-only otherwise | `setAttributeBinding` back |
-| `setContainment` | `objectType`, its parent types and containment relation types (the `parentOf` relation type, its bindings and the type's `parentRelationTypeKeys` changed together) | draft-only | `setContainment` back |
+| `detachAttribute` | `objectType`, `attributeType` | draft-only | `restoreElements` |
+| `moveAttribute` | `attributeType`, `from`, `to` (a type), `layout` | draft-only | `restoreElements` |
+| `setAttributeBinding` | `objectType`, `attributeType`; `required`, `readOnly`, `position` | additive for `position`; draft-only otherwise | `setAttributeBinding` back; `restoreElements` when the move changed an `order` |
+| `setContainment` | `objectType`, `parent` (D30; the `parentOf` relation type, its bindings, the type's `parentRelationTypeKeys` and the parents' children panels changed together) | draft-only | `restoreElements` |
 | `addRelationType` | `key`?, `reverseKey`?, `name`, `reverseName`, `isOriented` | additive | `removeRelationType` |
 | `removeRelationType` | `relationType` (no binding left) | draft-only | `restoreElements` |
 | `allowRelation` | `relationType`, `from`, `to`, `cardinality`, `required`, `layout` | additive | `disallowRelation` |
-| `disallowRelation` | relation binding | draft-only | `allowRelation` with its declaration |
+| `disallowRelation` | relation binding | draft-only | `restoreElements` |
 | `setRelationRule` | relation binding; `cardinality`, `required`, `candidates`, `uniqueToAncestorTypeKey` | draft-only | `setRelationRule` back |
-| `addView` | `applicationKey`, a view declaration (a table view may give only `objectType`; the rest is generated) | additive | `removeView` |
+| `addView` | `applicationKey`, `view` (a declaration; a table view may give only `objectTypeKey`, with `key` and `name` optional, and the rest is generated), `position`, `default` | additive | `removeView` |
 | `removeView` | view | additive | `addView` with its declaration |
 | `insertViewItem` | view or panel, `list` (`columns`, `filterFields`, `sortFields`, `fields`, `panels`, …), `item`, `position` (D19) | additive | `removeViewItem` |
-| `moveViewItem` | view or panel, `list`, `item`, `position` | additive | `moveViewItem` back |
+| `moveViewItem` | view or panel, `list`, `item`, `position` | additive | `moveViewItem` back; `restoreElements` when the move changed a panel's `order` |
 | `removeViewItem` | view or panel, `list`, `item` | additive | `insertViewItem` at its old position |
 | `setViewProperty` | view or panel, `property` (`name`, `defaultSort`, `pageSize`, `region`, `visible`, `title`, …), `value` | additive | `setViewProperty` back |
 | `addNavigationGroup` | `applicationKey`, `key`?, `label`, `collapsed`, `position` | additive | `removeNavigationGroup` |
@@ -3753,7 +3802,7 @@ kind removes or replaces it.
 | `setNavigationGroup` | group; `label`, `collapsed`, `position` | additive | `setNavigationGroup` back |
 | `placeCollection` | `applicationKey`, `collection`, `group` (`null`: top level), `position` | additive | `placeCollection` back |
 | `replaceModel` | the whole model; written by `PATCH /model-drafts/{id}`, refused in a request | — | `replaceModel` with the previous model |
-| `restoreElements` | declarations to put back, as stored in the entry it undoes; refused in a request | — | the kind it undid |
+| `restoreElements` | `undoes` (the operation it takes back), `removes` (the elements that operation created, which putting things back takes away: refused `OPERATION_REQUIRES_MIGRATION` once released) and `changes` (the stored prior state); refused in a request | — | the kind it undid |
 
 Mapping and value kinds (A5, named here and specified in A5's plan): `mapColumn`,
 `setColumnReading` (text, lookup, relation, relation flag), `splitColumn`, `unpivotColumns`,
@@ -3779,17 +3828,24 @@ whole-model `PATCH`, recorded as `replaceModel`) or, from A6, `proposal` with it
 keeps none. It answers J08.9.
 
 - **`POST …/undo`** `{ "expectedVersion": 8, "step": 5 }` applies the inverses of a step, last
-  entry first, as a new step with origin `undo`. Without `step` it undoes the latest step not yet
-  undone. A step a later, not undone step depends on (D8: one names an element the earlier one
-  created or re-keyed) is refused `409 OPERATION_HAS_DEPENDANTS` with `details.dependants` (their
-  steps); the client may undo them first, or send them in `steps` together.
-- **`POST …/redo`** `{ "expectedVersion": 9 }` applies again the step the latest undo took back.
-  Any new request clears what can be redone.
+  entry first, as a new step with origin `undo` (`{"type": "undo", "steps": [5]}`), and marks the
+  step's entries `undone`. Without `step` it undoes the latest step not yet undone (an undo step is
+  never itself undone; redo takes it back). A step a later, not undone step depends on (D8: one names
+  an element the earlier one created or re-keyed) is refused `409 OPERATION_HAS_DEPENDANTS` with
+  `details.steps` and `details.dependants` (their steps); the client may undo them first, or send them
+  together in `steps` (`{ "expectedVersion": 8, "steps": [5, 6] }`, applied latest first as one step).
+  A step already undone, or an undo step, named in `step` or `steps` is `409 NOTHING_TO_UNDO` with
+  `details.step`. An inverse that would take away an element released since (an installation, D17)
+  is refused `OPERATION_REQUIRES_MIGRATION` as any draft-only operation is.
+- **`POST …/redo`** `{ "expectedVersion": 9 }` takes back the latest undo step not yet taken back
+  (origin `{"type": "redo", "step": 9}`), so undos are redone most recent first (D32). A request or
+  `PATCH` after an undo leaves nothing to redo; an installation does not.
 - Refusals: `409 NOTHING_TO_UNDO`, `409 NOTHING_TO_REDO`, `409 OPERATION_HAS_DEPENDANTS`,
   `409 VERSION_CONFLICT` (as above).
 
-**Installation** keeps its route. A successful installation makes the release it created the draft's
-base (D17), so what the draft held becomes released. The editor's "install and activate" is the
+**Installation** keeps its route. A successful installation makes the release it created, or the
+identical one it found, the draft's base (D17), so what the draft held becomes released. The draft's
+`version` is unchanged (D34): the model did not change, and an editor at that version carries on. The editor's "install and activate" is the
 existing installation then activation (`POST /model-releases/{id}/activation`), confirmed once by the
 user (A-D8); an activation refused after the installation leaves the installed release, and the
 editor says so. No combined route: an integrator has both steps already.

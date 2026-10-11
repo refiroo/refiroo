@@ -5,7 +5,7 @@ from ...common.cursors import METADATA_CURSOR_MESSAGE
 from ...common.pagination import datetime_key, integer_key, paginate_statement, text_key
 from ...common.time import as_utc
 from ...engine.model.compatibility import analyze_compatibility
-from ...engine.model.compiler import SUPPORTED_SCHEMA_VERSIONS, compile_model
+from ...engine.model.compiler import SCHEMA_VERSIONS, compile_model
 from ...engine.model.diff import semantic_diff
 from ...errors import api_error
 from ...models.database import AuditEvent, ModelRelease
@@ -182,7 +182,7 @@ def diff_model_release(
                     {
                         "releaseId": release.public_id,
                         "schemaVersion": compilation.unsupported_schema_version,
-                        "supportedSchemaVersions": sorted(SUPPORTED_SCHEMA_VERSIONS),
+                        "supportedSchemaVersions": list(SCHEMA_VERSIONS),
                         "operation": "diff",
                     },
                 )

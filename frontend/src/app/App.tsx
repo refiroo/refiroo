@@ -2,7 +2,14 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { bulkSelectionFor } from "@/features/objects/SelectionBar";
 import { CollectionView } from "@/features/objects/views/CollectionViewHost";
 import { ObjectDetail } from "@/features/objects/ObjectDetail";
-import { changeReviewFor, defaultRoute, isSettingsRoute, routeChangeSetId, viewRoute } from "@/routing/routes";
+import {
+  changeReviewFor,
+  defaultRoute,
+  isSettingsRoute,
+  routeChangeSetId,
+  routePublicationId,
+  viewRoute,
+} from "@/routing/routes";
 import { applicationFor } from "@/model/lookup";
 import type { ApplicationDefinition, ApplicationRoute, CollectionQueryState, ObjectItem, Workspace } from "@/types";
 import { AppShell } from "./AppShell";
@@ -12,6 +19,7 @@ import { WorkspaceDataProvider, useWorkspaceData } from "@/features/workspaces/W
 import { ChangeSetActions, ChangeSets } from "@/features/workspaces/ChangeSets";
 import { ChangeSetReview } from "@/features/workspaces/ChangeSetReview";
 import { PublicationBanner, Publications } from "@/features/workspaces/Publications";
+import { NavigationGroupPage } from "@/features/objects/NavigationGroupPage";
 import { Notice } from "@/ui/Notice";
 import { ResizeHandle } from "@/ui/ResizeHandle";
 import { useLocalNumberPreference } from "@/lib/localPreference";
@@ -49,9 +57,6 @@ export default function App() {
     </ToastProvider>
   );
 }
-
-const routePublicationId = (route: ApplicationRoute) =>
-  route.kind === "list" || route.kind === "detail" ? route.publicationId : undefined;
 
 function AppContent({
   router,
@@ -126,8 +131,7 @@ function AppContent({
   const activeModel = model;
 
   const changeSetId = routeChangeSetId(activeRoute);
-  const publicationId =
-    activeRoute.kind === "list" || activeRoute.kind === "detail" ? activeRoute.publicationId : undefined;
+  const publicationId = routePublicationId(activeRoute);
   const readOnly =
     Boolean(publicationId) || workspace?.key !== activeRoute.workspaceKey || workspace?.status !== "active";
   // Records are selected for a bulk change where the data can be written and jobs created (K1, D105).
@@ -258,6 +262,8 @@ function AppContent({
       );
     } else if (activeRoute.kind === "changeSets" || activeRoute.kind === "publications") {
       changed = navigate({ ...activeRoute, workspaceKey });
+    } else if (activeRoute.kind === "group") {
+      changed = navigate({ ...activeRoute, workspaceKey, changeSetId: undefined, publicationId: undefined });
     } else if (activeRoute.kind === "changeSetChanges") {
       // A change set belongs to one workspace; another workspace opens its live data.
       changed = navigate(viewRoute(application, application.defaultView, workspaceKey));
@@ -403,6 +409,20 @@ function AppContent({
                 navigate({
                   ...viewRoute(application, application.defaultView, activeRoute.workspaceKey),
                   changeSetId: id,
+                })
+              }
+            />
+          ) : activeRoute.kind === "group" ? (
+            <NavigationGroupPage
+              key={`${application.key}:${activeRoute.groupKey}`}
+              model={model}
+              application={application}
+              groupKey={activeRoute.groupKey}
+              onOpenCollection={(viewKey) =>
+                navigate({
+                  ...viewRoute(application, viewKey, activeRoute.workspaceKey),
+                  changeSetId,
+                  publicationId,
                 })
               }
             />

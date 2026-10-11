@@ -26,7 +26,8 @@ from app.db import DatabaseStartupError, get_engine, migration_config
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261007_08"
+HEAD = "20261011_01"
+IMPORT_PREVIEW = "20261007_08"
 UNIQUE_VALUES = "20261007_07"
 IMPORT_PROFILES = "20261007_06"
 JOB_NOTIFICATIONS = "20261007_05"
@@ -1090,6 +1091,62 @@ def test_upgrade_to_import_preview_keeps_jobs_and_an_interrupted_run_recovers(
     assert _scalar(url, "SELECT count(*) FROM job_items WHERE source_index IS NOT NULL") == 0
     command.downgrade(migration_config(url), UNIQUE_VALUES)
     assert {"report", "confirmed_at"}.isdisjoint(_job_columns(url))
+    engine.dispose()
+
+
+def test_upgrade_to_draft_operations_keeps_drafts_and_an_interrupted_run_recovers(
+    monkeypatch, databases
+):
+    """0.10 A2 on a database with a model draft, taken back to the previous revision: with a
+    ``model_draft_operations`` table already there (by hand) the revision rolls back and the start
+    refuses naming it; once dropped, the next start creates the history and the service starts
+    twice. The draft is kept with an empty history, and an operation on it is recorded. A downgrade
+    removes the table again."""
+    url = seeds.create_empty()
+    databases.append(url)
+    monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        assert errors == []
+        state = client.get("/api/v1/model-runtime-state").json()
+        release = client.get(
+            f"/api/v1/model-releases/{state['activeReleaseId']}", params={"includeModel": "true"}
+        ).json()
+        response = client.post("/api/v1/model-drafts", json={"name": "Kept", "model": release["model"]})
+        assert response.status_code == 201, response.text
+        draft = response.json()
+    command.downgrade(migration_config(url), IMPORT_PREVIEW)
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        connection.execute(text("CREATE TABLE model_draft_operations (id integer)"))
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        message = _assert_refused(
+            client,
+            errors,
+            "Database migration failed",
+            f"Current revision: {IMPORT_PREVIEW}",
+            f"target revision: {HEAD}",
+            "still at its current revision",
+        )
+        assert "model_draft_operations" in message
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == IMPORT_PREVIEW
+    with engine.begin() as connection:
+        connection.execute(text("DROP TABLE model_draft_operations"))
+    for _start in range(2):
+        with serve(monkeypatch, _render(url)) as (client, errors):
+            assert errors == []
+            assert client.get(f"/api/v1/model-drafts/{draft['id']}").json()["version"] == draft["version"]
+            assert client.get(f"/api/v1/model-drafts/{draft['id']}/operations").json()["items"] == []
+        assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        body = {
+            "expectedVersion": draft["version"],
+            "operations": [{"kind": "addAttributeType", "key": "a2-upgrade", "name": "After the upgrade"}],
+        }
+        response = client.post(f"/api/v1/model-drafts/{draft['id']}/operations", json=body)
+        assert response.status_code == 200, response.text
+    assert _scalar(url, "SELECT count(*) FROM model_draft_operations") == 1
+    command.downgrade(migration_config(url), IMPORT_PREVIEW)
+    assert _scalar(url, "SELECT to_regclass('model_draft_operations') IS NULL") is True
     engine.dispose()
 
 

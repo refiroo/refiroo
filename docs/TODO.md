@@ -374,8 +374,15 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   - [x] A1 import profile contract and execution: delivered by 0.9 J2 and J3 (2026-10-07).
   - [x] A0 design pass: decisions, API design, operation vocabulary, journeys, ADR-041, the editor
     mock-up and the W1 sample, approved by the user (2026-10-11).
-  - [ ] N1 navigation groups and schema 0.10.
-  - [ ] A2 operation API on model drafts: model-side operations, history, undo, default views.
+  - [x] N1 navigation groups and schema 0.10, with the phone band: delivered and approved by the
+    user (2026-10-11).
+  - [ ] N1's surfaces (the sidebar groups, the group page, the phone band) into the accessibility
+    and visual gates, light and dark, at T1, re-recording the phone shell baselines; dark mode is
+    uninspected until then.
+  - [x] Desktop data-context band: proposal made ([proposal](https://claude.ai/artifact/BQf1M8edotaquqTXcknrjz));
+    the topic dropped by the user for now (2026-10-11), desktop unchanged.
+  - [x] A2 operation API on model drafts: model-side operations, history, undo and redo, generated
+    layout (2026-10-11).
   - [ ] A4a editor: model pane, relationship matrix, install and activate.
   - [ ] A4b editor: preview and layout editing.
   - [ ] T1 designer checkpoint (US-P05), released as 0.10.0-alpha.1 (D14).
@@ -385,6 +392,10 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   - [ ] A7 model-description sheets and matching across files (below the cut line).
   - [ ] A8 list blocks in sheets laid out for reading (below the cut line).
   - [ ] R build acceptance and release.
+  - [ ] A-D1 revision, deferred by the user (2026-10-11) until the designer works: reuse one object
+    type for similar reference data in a similar hierarchy while it fits, with attributes switched
+    on or off per type so flat types are easier to share; a separate type only where relations
+    clearly differ. Not decided; to be written up for acceptance before A6.
   - [ ] Non-blocking open items: A-D11 nested navigation groups (one level in 0.10); A-D12 record
     counts on the group page (none in 0.10, later only as a bounded read).
 

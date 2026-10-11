@@ -116,6 +116,35 @@ class ModelDraft(Base):
     )
 
 
+class ModelDraftOperation(Base):
+    """One operation applied to a model draft, in its history (0.10 A2, ADR-041)."""
+
+    __tablename__ = "model_draft_operations"
+    __table_args__ = (
+        UniqueConstraint("draft_id", "sequence", name="uq_model_draft_operations_sequence"),
+        Index("ix_model_draft_operations_step", "draft_id", "step"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    draft_id: Mapped[int] = mapped_column(
+        ForeignKey("model_drafts.id", ondelete="CASCADE"), nullable=False
+    )
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    step: Mapped[int] = mapped_column(Integer, nullable=False)
+    kind: Mapped[str] = mapped_column(String(60), nullable=False)
+    parameters: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    inverse: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    draft_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    author: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    origin: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    # The elements the entry created, re-keyed and named, as element atoms (D8's dependants).
+    effects: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    undone_by_step: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+
+
 class Workspace(Base):
     __tablename__ = "workspaces"
     __table_args__ = (

@@ -74,6 +74,8 @@ class Settings(BaseModel):
     # The items a preview runs, an import's or a batch's; beyond them it is a sample (0.9 J3,
     # D83; 0.9 K2, D119).
     job_preview_max_items: int = Field(default=10_000, ge=1)
+    # Operations in one request to a model draft (0.10 A2).
+    model_operation_max_items: int = Field(default=500, ge=1)
     # Export files and, from J2, uploads (D12, D55): one directory, created at start.
     job_file_dir: Path = DEFAULT_JOB_FILE_DIR
     # How long the change feed answers a position (D8, INTEGRATION_API F5); reported by
@@ -130,6 +132,7 @@ class Settings(BaseModel):
             job_lease_seconds=_positive(env, "JOB_LEASE_SECONDS", 120),
             import_max_bytes=_positive(env, "IMPORT_MAX_BYTES", 200 * 1024 * 1024),
             job_preview_max_items=_positive(env, "JOB_PREVIEW_MAX_ITEMS", 10_000),
+            model_operation_max_items=_positive(env, "MODEL_OPERATION_MAX_ITEMS", 500),
             job_file_dir=Path(env.get("JOB_FILE_DIR", "").strip() or DEFAULT_JOB_FILE_DIR),
             feed_retention_days=_positive(env, "FEED_RETENTION_DAYS", 30),
             consumer_resolve_max_items=_positive(env, "CONSUMER_RESOLVE_MAX_ITEMS", 1_000),
@@ -348,6 +351,12 @@ SETTINGS_CATALOGUE: tuple[CatalogueEntry, ...] = (
         "job_preview_max_items",
         "limits",
         "Items a preview of an import or a batch runs before it is a sample",
+    ),
+    CatalogueEntry(
+        "MODEL_OPERATION_MAX_ITEMS",
+        "model_operation_max_items",
+        "limits",
+        "Operations in one request to a model draft",
     ),
     CatalogueEntry(
         "JOB_LEASE_SECONDS",

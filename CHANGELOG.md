@@ -14,6 +14,44 @@ All notable changes to this project are documented in this file. The format foll
   change through recorded operations; journeys J33–J35 and their planned routes in the API
   inventory; the synthetic workbooks W1–W3 defined in test terms; the editor mock-up and the W1
   sample approved.
+- Base 0.10 N1: schema language 0.10, opened with navigation groups (D1, D22–D27; J33.9). An
+  application may declare `navigation.groups` (key, label, collections, `collapsed`); the sidebar
+  shows the collections in no group first, then each group as a foldable section whose fold a
+  reader's browser remembers, marks a folded group holding the open collection, and opens a group's
+  page (`/apps/{app}/groups/{group}`) listing its collections with a search by name. A group naming
+  no collection of its application (`INVALID_REFERENCE`), a collection in two groups
+  (`INVALID_MODEL`), a group key twice (`DUPLICATE_KEY`) and `navigation` below schema 0.10
+  (`INVALID_MODEL`) are refused at their pointers; a 0.9 model is unchanged, with the same hash. The
+  browser runner `test:browser:authoring-n1`.
+- Base 0.10 N1, at the user's request: on a phone (below 760px) the data-context band is one line
+  whose workspace, application (with its tile) and data context (Live, change sets, publications,
+  with the line saying what an edit does) each open their choice; the top bar shows no application
+  tabs in any area and the drawer no workspace selector. A group page's rows show a chevron and a
+  pressed state.
+- Base 0.10 A2: model drafts change through recorded operations (ADR-041, D29–D35; J33.1–J33.8,
+  J33.12, J08.9). `POST /model-drafts/{id}/operations` applies a request of typed operations all or
+  none at `expectedVersion` as one step of the draft's history, answering the new version, the
+  entries with their inverses and the compiler's diagnostics (a draft may be invalid between steps).
+  34 model-side kinds: names and keys (every reference rewritten; an element a consumer API names is
+  refused, D29), the release identity and schema version, applications, object types (with a
+  generated table view and detail page, containment by `parent`, D30), split, merge and conversion to
+  a list type, attribute types and bindings, relation types and the relations allowed between types,
+  views, panels and their lists, navigation groups. A removal takes what exists only for the removed
+  element (D31). `GET …/operations` pages the history; `POST …/undo` (a step, or `steps` together)
+  and `POST …/redo` apply stored inverses as new steps (D32); a step later steps build on is refused
+  `OPERATION_HAS_DEPENDANTS`. A draft-only change of an element of the draft's base release is
+  refused `OPERATION_REQUIRES_MIGRATION` with the records, values and relationships it would touch,
+  live and in change sets (D33). A whole-model `PATCH` is recorded as one `replaceModel` step;
+  installation makes the installed release the draft's base, leaving its version (D17, D34). New
+  codes `INVALID_OPERATION`, `OPERATION_REQUIRES_MIGRATION`, `OPERATION_HAS_DEPENDANTS`,
+  `NOTHING_TO_UNDO`, `NOTHING_TO_REDO`, `OPERATION_BATCH_TOO_LARGE`; setting
+  `MODEL_OPERATION_MAX_ITEMS` (500); migration `20261011_01` (`model_draft_operations`).
+
+### Fixed
+
+- Supported schema versions are listed oldest first by number (`0.10` after `0.9`), in
+  `GET /system`'s `schemaLanguages`, a refusal's `supportedSchemaVersions` and the startup and
+  upgrade messages; a text sort would have put `0.10` first (0.10 N1).
 
 ## [0.9.0] - 2026-10-11
 

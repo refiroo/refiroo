@@ -48,7 +48,8 @@ can complete the task in the application; "API" means another system can.
 
 ### Find and understand data — browser and API
 
-- Choose a workspace, then an application, and browse its collections.
+- Choose a workspace, then an application, and browse its collections; where the model groups them,
+  fold and unfold the groups in the sidebar and open a group's page to find a collection by name.
 - Search, filter by typed fields and sort lists of any size. Lists scroll continuously in both
   directions, show their totals and jump to a page, a value, the start or the end.
 - Switch between the views a collection offers: a table, a mapping grid, a relation matrix or a tree.
@@ -144,6 +145,8 @@ can complete the task in the application; "API" means another system can.
 - In Settings › **Model**, inspect installed model releases, compare them and export them.
 - Edit a model draft as JSON, validate it, install it as a new release and activate it. Activation is
   refused when existing data would not fit; the previous release stays available to roll back to.
+- Through the API, change a draft by typed operations with a readable history, undo and redo; a
+  change that would need a migration of released structure is refused with its impact.
 
 ### Integrate other systems — API
 

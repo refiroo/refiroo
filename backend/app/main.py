@@ -24,7 +24,7 @@ from .engine.jobs.files import JobFiles
 from .engine.jobs.inline import BatchLimits
 from .engine.jobs.worker import EXPORT_KINDS, EXPORT_THREAD_NAME, JobWorker, WorkerSettings
 from .engine.model.bootstrap import bootstrap_model
-from .engine.model.compiler import SUPPORTED_SCHEMA_VERSIONS
+from .engine.model.compiler import SCHEMA_VERSIONS
 from .engine.model.loader import load_bootstrap_model
 from .engine.model.registry import UnsupportedSelectedModelSchema, model_registry
 from .errors import ApiError
@@ -103,7 +103,7 @@ async def lifespan(application: FastAPI):
             model_registry.mark_unhealthy()
             logger.error(
                 "RDM Engine cannot serve model-backed requests: the database selects schema %s, "
-                f"but this version supports schema {', '.join(sorted(SUPPORTED_SCHEMA_VERSIONS))}.\n"
+                f"but this version supports schema {', '.join(SCHEMA_VERSIONS)}.\n"
                 "Stop all RDM Engine processes using this database, run this exact command in the "
                 "same configured environment, then restart the API:\n  %s\n"
                 "Until the transition succeeds, /health returns HTTP 503.",
@@ -244,6 +244,7 @@ def create_app() -> FastAPI:
     # The in-process job worker (P6): none with the capability off. Tests that drive the worker
     # themselves set ``run_job_worker`` to False before the application starts.
     # Export files (0.9 J1, D55); served by GET /jobs/{id}/output whatever the capability.
+    application.state.model_operation_max_items = settings.model_operation_max_items
     application.state.job_files = JobFiles(settings.job_file_dir)
     worker_settings = WorkerSettings(
         chunk_items=settings.job_chunk_items,

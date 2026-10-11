@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DataContextBand } from "@/app/DataContextBand";
 import { viewRoute } from "@/routing/routes";
-import type { ApplicationDefinition } from "@/types";
+import type { ApplicationDefinition, EngineModel } from "@/types";
 
 const application = {
   key: "catalogue",
@@ -16,18 +16,25 @@ const application = {
   settings: {},
 } as unknown as ApplicationDefinition;
 
+const other = { ...application, key: "registry", name: "Registry" } as ApplicationDefinition;
+const model = { applications: [application, other] } as unknown as EngineModel;
+
 function band(route: Parameters<typeof DataContextBand>[0]["route"], contextActions?: ReactNode) {
   const onNavigate = vi.fn();
+  const onSelectApplication = vi.fn();
   const { container } = render(
     <DataContextBand
+      model={model}
       application={application}
       route={route}
       workspaceLabel="North"
       contextActions={contextActions}
       onNavigate={onNavigate}
+      onSelectApplication={onSelectApplication}
+      onChangeWorkspace={vi.fn()}
     />,
   );
-  return { onNavigate, root: container.firstElementChild as HTMLElement };
+  return { onNavigate, onSelectApplication, root: container.firstElementChild as HTMLElement };
 }
 
 const list = viewRoute(application, "items", "north");
@@ -74,5 +81,43 @@ describe("DataContextBand", () => {
     expect(screen.getByRole("group", { name: "Current context" })).toHaveTextContent(/^North \/ Catalogue$/);
     expect(switcher().getByRole("button", { name: "Change sets" })).toHaveAttribute("aria-current", "page");
     expect(switcher().getByRole("button", { name: "Live" })).not.toHaveAttribute("aria-current");
+  });
+
+  describe("on a phone (0.10 N1)", () => {
+    beforeEach(() => {
+      vi.stubGlobal(
+        "matchMedia",
+        (query: string) =>
+          ({
+            matches: true,
+            media: query,
+            addEventListener: vi.fn(),
+            removeEventListener: vi.fn(),
+          }) as unknown as MediaQueryList,
+      );
+    });
+    afterEach(() => vi.unstubAllGlobals());
+
+    it("is one line whose workspace, application and data context each open their choice", async () => {
+      const { onNavigate, onSelectApplication } = band(list);
+      const line = within(screen.getByRole("group", { name: "Current context" }));
+      expect(line.getByRole("button", { name: "Workspace: North" })).toBeVisible();
+      expect(screen.queryByText("Edits apply immediately in this workspace.")).not.toBeInTheDocument();
+
+      fireEvent.click(line.getByRole("button", { name: "Application: Catalogue" }));
+      const applications = within(await screen.findByRole("navigation", { name: "Applications" }));
+      expect(applications.getByRole("button", { name: "Catalogue" })).toHaveAttribute("aria-current", "page");
+      fireEvent.click(applications.getByRole("button", { name: "Registry" }));
+      expect(onSelectApplication).toHaveBeenCalledWith(other);
+
+      fireEvent.click(line.getByRole("button", { name: "Data: Live" }));
+      expect(await screen.findByText("Edits apply immediately in this workspace.")).toBeVisible();
+      fireEvent.click(switcher().getByRole("button", { name: /Change sets/ }));
+      expect(onNavigate).toHaveBeenCalledWith({
+        kind: "changeSets",
+        applicationKey: "catalogue",
+        workspaceKey: "north",
+      });
+    });
   });
 });

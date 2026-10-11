@@ -126,7 +126,21 @@ and parsers for every permitted schema version; it cannot be workspace pinning a
 
 Model authoring has three explicit stages (ADR-016):
 
-1. **Drafts** are mutable, versioned database records with optimistic concurrency.
+1. **Drafts** are mutable, versioned database records with optimistic concurrency. A draft changes
+   through recorded operations (ADR-041, `engine/model/authoring/`): a request of typed operations
+   is applied all or none to a copy of the draft's JSON document and written as one step of the
+   draft's history (`model_draft_operations`, deleted with the draft), each entry with its parameters,
+   its inverse and the elements it created, re-keyed and named. A whole-model `PATCH` is recorded as
+   one `replaceModel` step. Operations name elements by key; a **reference index**
+   (`authoring/references.py`) finds every place in the document that names an element by its
+   structure, never by text, so a key change rewrites them and a removal takes them out
+   (`authoring/cascade.py`). Every change goes through `authoring/document.py`, which logs how to
+   reverse it, so a compound operation's inverse (`restoreElements`) puts back exactly what it
+   changed. A draft-only operation is checked against the draft's base release, or the active
+   release without one (`authoring/released.py`), and refused with its impact counted in
+   PostgreSQL; installation makes the installed release the draft's base. The server produces the
+   layout of new elements (`authoring/layout.py`). A draft may be invalid between steps; the
+   compiler's diagnostics are returned with each step and installation still refuses it.
 2. **Validation and compilation** are free of side effects: diagnostics with JSON pointers, canonical
    compilation, a key-based semantic diff, compatibility analysis against stored data and, from schema
    0.8, the consumer contract comparison.
@@ -530,7 +544,11 @@ The URL is the route (`routing/routes.ts`). Every route renders in one frame, `a
 content), under one top bar, `app/TopBar` (product mark to home, the applications as tabs,
 Settings, the account; U-D14). Application routes fill it in `AppShell`: the workspace switcher
 above the collection and hierarchy browser in the rail, and the data-context band (live, change
-set or publication) above the content. Settings routes (`/settings/…`) fill it in `SettingsShell`,
+set or publication) above the content. Below 760px (0.10 N1) the top bar shows no application tabs
+in any area, the rail's workspace switcher is left out, and the band is one line whose workspace,
+application and data context each open their choice in a popover, reusing `WorkspaceSelector`,
+`ApplicationButtons` (the top bar's tabs) and the band's own switch; `lib/hooks/useMediaQuery`
+holds the width check the drawer and the band share. Settings routes (`/settings/…`) fill it in `SettingsShell`,
 with no workspace or data context: no application is current and Settings reads as the current tab, the rail holds the settings
 navigation, and each page is a `SettingsLayout`. From Settings, the tab of the application last
 looked at returns to that route of the session, another application's tab to its last collection

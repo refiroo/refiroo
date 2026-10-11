@@ -288,13 +288,44 @@ groups views by their source object type and presents them as lenses of one cont
 This is a backwards-compatible presentation rule, not a new model field. It lets an arbitrary
 application expose several configured tasks for one collection without multiplying primary navigation.
 The engine does not infer a translation, mapping or other domain workflow from keys. A genuinely new
-interaction still requires a typed generic view contract and renderer. Explicit collection/lens
-composition is deferred until real models show that source-type grouping is insufficient.
+interaction still requires a typed generic view contract and renderer. Collections are never
+declared one by one; from schema 0.10 an application may arrange them in navigation groups
+([below](#navigation-groups-navigation-schema-010)).
 
 Schema 0.5 supports the strict `table` contract. Schema 0.6 adds the `mappingGrid` contract for
 mapping coverage views, and schema 0.7 the `relationMatrix` and `tree` contracts. Each view type has an extra-forbidden configuration that rejects unknown
 properties. Configuration refers to stable object, attribute and relation keys—never backend URLs or
 database IDs.
+
+### Navigation groups (`navigation`, schema 0.10)
+
+An application may arrange its collections in labelled, foldable sidebar sections (0.10 N1, A-D2):
+
+```json
+"navigation": {
+  "groups": [
+    { "key": "lists", "label": "Lists", "collections": ["unit", "size", "colour"], "collapsed": true }
+  ]
+}
+```
+
+- `groups` lists the sections in the order the sidebar shows them, after the collections in no
+  group, which keep their own order. Without `navigation` the sidebar is as in schema 0.9.
+- A group has a `key` unique within its application, a `label`, its `collections` in their order,
+  and `collapsed` (default `false`), the state a reader first sees; a reader's own fold is kept in
+  their browser. A group may be empty.
+- Each entry of `collections` is a collection of the application: the source type of one of its
+  views, by the rule above.
+- A group also opens as a page (`/apps/{app}/groups/{group}`) listing its collections, with a search
+  over their names.
+- Groups are presentation only: they change no API, data, record validation or permission, and a
+  change to them is compatible.
+
+Validation, each refusal at its pointer under `/applications/{app}/navigation`: `navigation` in a
+document below schema 0.10 (`INVALID_MODEL`); a group key twice (`DUPLICATE_KEY`, at the second
+group); an entry that is no collection of the application (`INVALID_REFERENCE`, at
+`…/groups/{group}/collections/{index}`); a collection in a second group (`INVALID_MODEL`, at its
+entry there). A member a group or `navigation` does not define is refused by shape.
 
 ### Table view (`type: "table"`)
 
@@ -745,6 +776,20 @@ Their shape, defaults, validation and contract rules are specified in
   written out (C-D137).
 - Definitions change no stored data and no management API behaviour.
 
+## Schema 0.10 (Product 0.10)
+
+Schema 0.10 is opened by Base 0.10 N1 (2026-10-11) and grows with 0.10's packages until 0.10.0 is
+released. It adds to 0.9:
+
+- `navigation` on an application ([above](#navigation-groups-navigation-schema-010)).
+
+Every other part of a 0.10 document is as in 0.9, and a 0.9 document is valid unchanged, with the
+same content hash. A 0.9 document that declares `navigation` is refused with `INVALID_MODEL` at the
+application's `navigation`, naming schema 0.10; before 0.10 the member was ignored. The starter and
+the example model stay on schema 0.9 (D3). Supported versions are listed oldest first by number
+(`0.5` … `0.9`, `0.10`), in `GET /system`'s `schemaLanguages` and in a refusal's
+`supportedSchemaVersions`.
+
 ## Versioning
 
 `schemaVersion` versions the model language; the starter content release `0.9.5` uses schema `0.9`.
@@ -754,7 +799,8 @@ views. Schema 0.6 adds the `mappingGrid` view type. Schema 0.7 adds relations-pa
 (`sortFields`, `defaultSort`) and the `relationMatrix` and `tree` view types. Schema 0.8 (Product
 0.9) adds `consumerApis` (Base 0.9 C1) and `effectivePeriod` (Q4) ([above](#schema-08-additions-product-09)), and
 schema 0.9, released with 0.9.0, writes `consumerApis` in its present syntax and adds relation
-columns, `many-to-one` and `candidates` ([above](#schema-09-product-09)). `release.version` versions one model package.
+columns, `many-to-one` and `candidates` ([above](#schema-09-product-09)). Schema 0.10 (Product 0.10)
+adds navigation groups ([above](#schema-010-product-010)). `release.version` versions one model package.
 Each distinct
 validated model is installed as an immutable database release identified by its content hash.
 
@@ -794,6 +840,6 @@ environment so it targets the same `DATABASE_URL`; `/health` remains HTTP `503` 
 has succeeded and the API is restarted.
 
 The command reads the selected schema 0.4 release without starting the request runtime, validates and
-installs a supported schema 0.5 to 0.9 candidate, runs the normal compatibility analysis and atomically
+installs a supported schema 0.5 to 0.10 candidate, runs the normal compatibility analysis and atomically
 changes runtime state.
 Any validation, compatibility or concurrency failure rolls the transaction back.

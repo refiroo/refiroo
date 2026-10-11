@@ -1,13 +1,14 @@
-from fastapi import APIRouter, Query, Response, status
+from fastapi import APIRouter, Query, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ...common.cursors import METADATA_CURSOR_MESSAGE
-from ...common.pagination import datetime_key, paginate_statement, text_key
+from ...common.pagination import datetime_key, integer_key, paginate_statement, text_key
 from ...common.time import as_utc
+from ...engine.model.authoring import history
 from ...engine.model.compatibility import analyze_compatibility
 from ...engine.model.compiler import (
-    SUPPORTED_SCHEMA_VERSIONS,
+    SCHEMA_VERSIONS,
     compile_authored_model,
     compile_model,
 )
@@ -36,7 +37,7 @@ from ...engine.model.releases import (
     model_installation_lock,
 )
 from ...errors import api_error
-from ...models.database import AuditEvent, ModelDraft, ModelRelease
+from ...models.database import AuditEvent, ModelDraft, ModelDraftOperation, ModelRelease
 from ..dependencies import ActiveModelSnapshot, DbSession
 from ..paging import PageQuery
 from ..presenters import (
@@ -50,8 +51,13 @@ from ..schemas.model import (
     ModelCompatibilityResponse,
     ModelCompilationResponse,
     ModelDraftCreate,
+    ModelDraftOperationEntry,
+    ModelDraftOperationPage,
+    ModelDraftOperationsRequest,
     ModelDraftPage,
     ModelDraftResponse,
+    ModelDraftStepResponse,
+    ModelDraftUndoRequest,
     ModelDraftUpdate,
     ModelDraftVersionRequest,
     ModelReleaseResponse,
@@ -67,6 +73,8 @@ _DRAFT_KEYS = (
     datetime_key("updatedAt", ModelDraft.updated_at, "updated_at", descending=True),
     text_key("publicId", ModelDraft.public_id, "public_id"),
 )
+# A draft's history in the order it was written (0.10 A2).
+_OPERATION_KEYS = (integer_key("sequence", ModelDraftOperation.sequence, "sequence"),)
 
 
 @router.post(
@@ -108,7 +116,7 @@ def activate_release(
                 {
                     "releaseId": exc.release_id,
                     "schemaVersion": exc.schema_version,
-                    "supportedSchemaVersions": sorted(SUPPORTED_SCHEMA_VERSIONS),
+                    "supportedSchemaVersions": list(SCHEMA_VERSIONS),
                     "operation": "activation",
                 },
             ) from exc
@@ -207,6 +215,7 @@ def save_model_draft(payload: ModelDraftCreate, session: DbSession) -> ModelDraf
 def patch_model_draft(
     draft_id: str, payload: ModelDraftUpdate, session: DbSession
 ) -> ModelDraftResponse:
+    previous = load_draft_for_update(session, draft_id).model_json if payload.model is not None else None
     draft = update_draft(
         session,
         draft_id,
@@ -214,8 +223,79 @@ def patch_model_draft(
         name=payload.name,
         model=payload.model,
     )
+    if previous is not None:
+        history.record_patch(session, draft, previous)
     session.commit()
     return draft_response(session, draft)
+
+
+@router.post("/model-drafts/{draft_id}/operations", response_model=ModelDraftStepResponse, response_model_exclude_unset=True)
+def apply_model_draft_operations(
+    draft_id: str, payload: ModelDraftOperationsRequest, session: DbSession, request: Request
+) -> ModelDraftStepResponse:
+    result = history.apply_request(
+        session,
+        draft_id,
+        payload.expectedVersion,
+        payload.operations,
+        request.app.state.model_operation_max_items,
+    )
+    return _step_response(session, result)
+
+
+@router.get("/model-drafts/{draft_id}/operations", response_model=ModelDraftOperationPage)
+def list_model_draft_operations(
+    draft_id: str,
+    session: DbSession,
+    paging: PageQuery,
+    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+) -> ModelDraftOperationPage:
+    draft = load_draft(session, draft_id)
+    page = paginate_statement(
+        session,
+        select(ModelDraftOperation).where(ModelDraftOperation.draft_id == draft.id),
+        keys=_OPERATION_KEYS,
+        scope=f"model-draft-operations:{draft.public_id}",
+        filters={},
+        page=paging,
+        page_size=page_size,
+        cursor_sort_tokens=("sequence",),
+        message=METADATA_CURSOR_MESSAGE,
+    )
+    return ModelDraftOperationPage(
+        items=[_entry(row) for row in page.items], **page.links()
+    )
+
+
+@router.post("/model-drafts/{draft_id}/undo", response_model=ModelDraftStepResponse, response_model_exclude_unset=True)
+def undo_model_draft_step(
+    draft_id: str, payload: ModelDraftUndoRequest, session: DbSession
+) -> ModelDraftStepResponse:
+    result = history.undo(session, draft_id, payload.expectedVersion, payload.step, payload.steps)
+    return _step_response(session, result)
+
+
+@router.post("/model-drafts/{draft_id}/redo", response_model=ModelDraftStepResponse, response_model_exclude_unset=True)
+def redo_model_draft_step(
+    draft_id: str, payload: ModelDraftVersionRequest, session: DbSession
+) -> ModelDraftStepResponse:
+    result = history.redo(session, draft_id, payload.expectedVersion)
+    return _step_response(session, result)
+
+
+def _step_response(session: Session, result: history.StepResult) -> ModelDraftStepResponse:
+    response = ModelDraftStepResponse(
+        version=result.draft.version,
+        entries=[_entry(row) for row in result.entries],
+        valid=result.valid,
+        diagnostics=[diagnostic_response(item) for item in result.diagnostics],
+    )
+    session.commit()
+    return response
+
+
+def _entry(row: ModelDraftOperation) -> ModelDraftOperationEntry:
+    return ModelDraftOperationEntry(**history.entry_response(row))
 
 
 @router.delete("/model-drafts/{draft_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -278,7 +358,7 @@ def compile_model_draft(
                 {
                     "releaseId": baseline_release.public_id,
                     "schemaVersion": baseline.unsupported_schema_version,
-                    "supportedSchemaVersions": sorted(SUPPORTED_SCHEMA_VERSIONS),
+                    "supportedSchemaVersions": list(SCHEMA_VERSIONS),
                     "operation": "compile",
                 },
             )
@@ -340,6 +420,8 @@ def install_model_draft(
                 "RELEASE_IDENTITY_CONFLICT",
                 f"Release '{exc.release_key}@{exc.release_version}' is already installed with different content",
             ) from exc
+        # D17: what the draft held is now released; its version is unchanged (D34).
+        draft.base_model_release_id = release.id
         if created:
             session.add(
                 AuditEvent(

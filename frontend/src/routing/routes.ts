@@ -15,6 +15,7 @@ import type {
 import { DEFAULT_COLLECTION_QUERY, DEFAULT_WORKSPACE } from "@/model/defaults";
 import { applicationFor, objectTypeFor } from "@/model/lookup";
 import { listSortFields } from "@/model/fields";
+import { navigationGroupFor } from "@/model/collections";
 
 const MATRIX_STATES = ["one", "several", "inactive", "historyOnly", "none"] as const;
 /** The relation matrix shows at most this many named columns at once (D10). */
@@ -79,9 +80,14 @@ export function changeReviewFor(
 
 /** The change set a route shows its data in, if any. */
 export function routeChangeSetId(route: RouteState) {
-  return route.kind === "list" || route.kind === "detail" || route.kind === "changeSetChanges"
+  return route.kind === "list" || route.kind === "detail" || route.kind === "group" || route.kind === "changeSetChanges"
     ? route.changeSetId
     : undefined;
+}
+
+/** The publication a route shows its data in, if any. */
+export function routePublicationId(route: RouteState) {
+  return route.kind === "list" || route.kind === "detail" || route.kind === "group" ? route.publicationId : undefined;
 }
 
 export function isSettingsRoute(route: RouteState): route is SettingsRoute {
@@ -188,6 +194,20 @@ export function parseRoute(
     return { kind: "changeSets", applicationKey: parts[1], workspaceKey };
   if (parts[0] === "apps" && parts[2] === "publications" && applicationFor(model, parts[1]))
     return { kind: "publications", applicationKey: parts[1], workspaceKey };
+  if (
+    parts[0] === "apps" &&
+    parts[2] === "groups" &&
+    parts[3] &&
+    navigationGroupFor(applicationFor(model, parts[1]), parts[3])
+  )
+    return {
+      kind: "group",
+      applicationKey: parts[1],
+      groupKey: parts[3],
+      workspaceKey,
+      ...(changeSetId ? { changeSetId } : {}),
+      ...(publicationId ? { publicationId } : {}),
+    };
   const settings = settingsRoute(parts, query);
   if (settings) return settings;
   if (parts[0] === "apps" && parts[2] === "views" && parts[3]) {
@@ -280,6 +300,7 @@ export function routePath(route: RouteState) {
   if (route.kind === "publications") return `/apps/${app}/publications?${query}`;
   if (route.changeSetId) query.set("changeSetId", route.changeSetId);
   if (route.publicationId) query.set("publicationId", route.publicationId);
+  if (route.kind === "group") return `/apps/${app}/groups/${encodeURIComponent(route.groupKey)}?${query}`;
   if (route.kind === "list") {
     if (route.search) query.set("search", route.search);
     route.filters.forEach(({ field, operator, value }) => query.append(`filter.${field}.${operator}`, value));

@@ -1,5 +1,5 @@
 import { childObjectTypeKeys } from "@/model/placements";
-import type { ApplicationDefinition, EngineModel, ViewDefinition } from "@/types";
+import type { ApplicationDefinition, EngineModel, NavigationGroupDefinition, ViewDefinition } from "@/types";
 
 export interface CollectionGroup {
   objectTypeKey: string;
@@ -28,6 +28,36 @@ export function collectionGroups(application: ApplicationDefinition): Collection
       views.find((view) => view.type === "table") ??
       views[0],
   }));
+}
+
+/** A declared navigation group with the collections it names, in its order. */
+export interface NavigationSection {
+  group: NavigationGroupDefinition;
+  collections: CollectionGroup[];
+}
+
+/**
+ * The sidebar's collections (0.10 N1, D22): those in no group first, in their own order, then each
+ * declared group in declared order with its collections in its order. Without groups, every
+ * collection is ungrouped, as before schema 0.10.
+ */
+export function navigationSections(application: ApplicationDefinition): {
+  ungrouped: CollectionGroup[];
+  groups: NavigationSection[];
+} {
+  const collections = collectionGroups(application);
+  const byType = new Map(collections.map((collection) => [collection.objectTypeKey, collection]));
+  const groups = (application.navigation?.groups ?? []).map((group) => ({
+    group,
+    collections: group.collections.flatMap((key) => byType.get(key) ?? []),
+  }));
+  const grouped = new Set(groups.flatMap((section) => section.collections.map((item) => item.objectTypeKey)));
+  return { ungrouped: collections.filter((item) => !grouped.has(item.objectTypeKey)), groups };
+}
+
+/** The application's navigation group with this key, if it declares one. */
+export function navigationGroupFor(application: ApplicationDefinition | undefined, groupKey: string) {
+  return application?.navigation?.groups.find((group) => group.key === groupKey);
 }
 
 /** Object types of the application whose records may stand without a parent (`rootCreatable`). */

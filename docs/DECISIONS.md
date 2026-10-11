@@ -1494,7 +1494,10 @@ screens. The user chose B, "Open", over A, "Framed" (a dark frame with raised pa
   applications as underlined tabs, with Settings and the account at the right. Settings uses the
   same frame and the same top bar (no tab current, Settings current) with a grouped side
   navigation in the rail. _Revised 2026-10-06 (U-D14): Settings first had a top bar of its own
-  ("{product} / Settings", "Back to applications")._
+  ("{product} / Settings", "Back to applications"). Revised 2026-10-11 (0.10 N1, the user's
+  request): below 760px the top bar shows no application tabs in any area; an application page's
+  band is one line whose workspace, application and data context each open their choice, and
+  Settings returns through its Back link._
 
 ### Consequences
 

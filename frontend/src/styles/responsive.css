@@ -93,6 +93,17 @@
   .application-tab {
     min-height: 44px;
   }
+  /* One row, no tabs (0.10 N1): the band chooses the application, Settings goes back. */
+  .global-header {
+    grid-template-areas: "mark back actions";
+  }
+  .global-header .application-nav {
+    display: none;
+  }
+  /* …and the workspace, so the drawer holds the collections and records only. */
+  .application-rail .workspace-selector {
+    display: none;
+  }
   .navigation-toggle {
     display: flex;
     align-items: center;

@@ -75,6 +75,15 @@ export type RouteState =
       anchor?: string;
     }
   | { kind: "publications"; applicationKey: string; workspaceKey: string }
+  | {
+      /** A navigation group's page: its collections with a search over their names (0.10 N1). */
+      kind: "group";
+      applicationKey: string;
+      groupKey: string;
+      workspaceKey: string;
+      changeSetId?: string;
+      publicationId?: string;
+    }
   | SettingsRoute;
 
 /**

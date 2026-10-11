@@ -72,6 +72,8 @@ RULES = {
     # An import profile names the release it was last checked against (0.9 J2).
     ("import_profiles", "checked_release_id"): ("model_releases", "RESTRICT"),
     ("model_drafts", "base_model_release_id"): ("model_releases", "SET NULL"),
+    # A draft's history goes with its draft (0.10 A2, D4).
+    ("model_draft_operations", "draft_id"): ("model_drafts", "CASCADE"),
     ("model_applications", "model_release_id"): ("model_releases", "CASCADE"),
     ("model_application_object_types", "model_release_id"): ("model_releases", "CASCADE"),
     ("model_attribute_types", "model_release_id"): ("model_releases", "CASCADE"),

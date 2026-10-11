@@ -51,9 +51,9 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/docs` a
 | `POST /model-releases/{id}/activation` | J08, J08.3, J08.5, J08.6, J08.10, J08.11 |
 | `GET/POST /model-drafts`, `GET/PATCH/DELETE /model-drafts/{id}` | J08 |
 | `POST /model-drafts/{id}/compile`, `POST /model-drafts/{id}/installation` | J08, J25 |
-| *Planned (0.10, [API.md § Model authoring](../API.md#model-authoring-product-010-designed)):* `POST /model-drafts/{id}/operations` (`expectedVersion`, `operations`, the kinds, `proposalId` from A6), `GET /model-drafts/{id}/operations` (paging) | J33, J33.1–J33.8, J33.12, J08.9 |
-| *Planned (0.10 A2):* `POST /model-drafts/{id}/undo` (`step`, `steps`), `POST /model-drafts/{id}/redo` | J33.4, J33.5 |
-| *Planned (0.10 A2):* `POST /model-drafts/{id}/installation` making the new release the draft's base (D17) | J33, J33.7 |
+| `POST /model-drafts/{id}/operations` (`expectedVersion`, `operations`, the model-side kinds; `proposalId` planned for A6), `GET /model-drafts/{id}/operations` (paging) (0.10 A2, [API.md § Draft operations](../API.md#draft-operations)) | J33, J33.1–J33.8, J33.12, J08.9 |
+| `POST /model-drafts/{id}/undo` (`step`, `steps`), `POST /model-drafts/{id}/redo` (0.10 A2) | J33.4, J33.5, J33.12 |
+| `POST /model-drafts/{id}/installation` making the new release the draft's base (0.10 A2, D17); `PATCH /model-drafts/{id}` with a `model` recorded as one `replaceModel` step | J33.2, J33.12 |
 | *Planned (0.10 A3):* `POST /source-files` (`owner`), `GET /source-files` (`draftId`, `profileKey`, paging), `GET /source-files/{id}`, `DELETE /source-files/{id}` (`expectedVersion`), `GET /source-files/{id}/profile/sheets`, `GET /source-files/{id}/profile/sheets/{sheet}/columns` (paging); `sourceFileId` on `POST /imports` | J34.1, J35 |
 | *Planned (0.10 A3):* `GET` and `POST /model-drafts/{id}/dry-run` (`full`), `GET /model-drafts/{id}/dry-run/rows` (`source`, `status`, `code`, paging) | J34.3 |
 | *Planned (0.10 A5, A6):* `GET /model-drafts/{id}/profiles`; `POST /model-drafts/{id}/inferences` (`sourceFileId`, `mode`, `applicationKey`), `GET /model-drafts/{id}/inferences/{inferenceId}/proposals` (paging) | J34.2, J34.4–J34.7 |
@@ -162,7 +162,7 @@ documented nowhere; API.md documents them since H4c (D-4).
 | J30.8, J30.9 | Webhook delivery (no route of its own; the receiver's requests and the subscription's state): suspension reasons `DELIVERY_FAILED`, `FILTER_MATCHES_NOTHING`, `EVENTS_EXPIRED`; a failed attempt's `kind` `status`, `redirect`, `timeout`, `connection`, `tls`, `address`; resume `409 EVENTS_EXPIRED` naming `reset` |
 | J28 | `CONSUMER_API_NOT_FOUND`, `CONTRACT_VERSION_NOT_FOUND`, `PARAMETER_NOT_SUPPORTED`, `LIST_NOT_FOUND`, `PARENT_NOT_FOUND`, `INVALID_PAGE_SIZE`, `INVALID_PAGE_PARAMETER`; on the consumer API `UNKNOWN_PARAMETER`, `UNKNOWN_OBJECT_TYPE` and the paging codes are `400` (J28.4, J28.8, J28.10), and an unknown or retired workspace `404 WORKSPACE_NOT_FOUND` (J28.3); a pinned read: `PUBLICATION_NOT_FOUND` (`404`: an unknown publication, another workspace's, `latest` with none current) and `PUBLICATION_CONTRACT_MISMATCH` (`409`) (J28.12, J28.13) |
 | J29 | `QUERY_REQUIRED`, `TOO_MANY_TERMS`, `QUERY_TOO_BROAD` (`test_consumer_xref_volume`), `INVALID_EXPECT`, `NO_MATCH`, `AMBIGUOUS_MATCH` (J29.3, J29.5, J29.6), `UNKNOWN_OBJECT_TYPE` (J29.6); batch resolve: each item's outcome carries the single read's code, plus `QUERY_OR_ID_REQUIRED`; the request is refused as `400 REQUEST_VALIDATION_ERROR` (a body of the wrong shape), `400 UNKNOWN_PARAMETER` or `PARAMETER_NOT_SUPPORTED` (`defaults`, the URL) and `413 BATCH_TOO_LARGE` (J29.10); crosswalk: `TARGET_NOT_FOUND`, `AMBIGUOUS_TARGET` (J29.11–J29.13), `MULTIPLE_TARGETS` and `UNKNOWN_PARAMETER` for a `to.` name (J29.14) |
-| J33 (planned, 0.10) | `INVALID_OPERATION` (`422`, with `index` and `pointer`), `OPERATION_REQUIRES_MIGRATION` (`409`, with the impact), `OPERATION_HAS_DEPENDANTS`, `NOTHING_TO_UNDO`, `NOTHING_TO_REDO` (`409`), `VERSION_CONFLICT` (`409`, with the steps since), `OPERATION_BATCH_TOO_LARGE` (`413`), `MODEL_DRAFT_NOT_FOUND` |
+| J33 (0.10 A2) | `INVALID_OPERATION` (`422`, with `index` and `pointer`), `OPERATION_REQUIRES_MIGRATION` (`409`, with the impact), `OPERATION_HAS_DEPENDANTS`, `NOTHING_TO_UNDO`, `NOTHING_TO_REDO` (`409`), `VERSION_CONFLICT` (`409`, with the steps since), `OPERATION_BATCH_TOO_LARGE` (`413`), `MODEL_DRAFT_NOT_FOUND` |
 | J34, J35 (planned, 0.10) | `SOURCE_FILE_NOT_FOUND` (`404`), `SOURCE_FILE_PROFILE_NOT_READY` (`409`), `IMPORT_TOO_LARGE` (`413`), `UNSUPPORTED_FILE_FORMAT`; J27's import codes for the load |
 | J11, J24 | `BATCH_TOO_LARGE`, `INVALID_BATCH_CONTEXT`, `IDEMPOTENCY_KEY_REUSED`, `IDEMPOTENCY_IN_PROGRESS`, `MISSING_RECORD_KEY`, `INVALID_RECORD_KEY`, `REFERENCE_NOT_FOUND`, `REFERENCE_TYPE_MISMATCH`, `JOB_NOT_FOUND`, `JOB_FINISHED`, `JOB_FAILED` |
 
@@ -178,7 +178,7 @@ documented nowhere; API.md documents them since H4c (D-4).
 | `FEED_RETENTION_DAYS` | J26.6 |
 | `JOB_FILE_DIR` (export files and import uploads; a directory that cannot be written refuses the start with jobs on) | J27, J12.1 |
 | `IMPORT_MAX_BYTES` (an import's largest file, reported as `integrationJobs.limits.importMaxBytes`) | J27.10 |
-| *Planned (0.10 A2):* `MODEL_OPERATION_MAX_ITEMS` (the operations one request may hold, 500) | J33.8 |
+| `MODEL_OPERATION_MAX_ITEMS` (the operations one request may hold, 500; 0.10 A2) | J33.8 |
 | `JOB_PREVIEW_MAX_ITEMS` (the items a preview of an import or a batch runs before it is a sample, reported as `integrationJobs.limits.previewMaxItems`) | J27.12, J11.9 |
 | `CONSUMER_RESOLVE_MAX_ITEMS` (reported by `GET /capabilities` as `consumerApi.resolveMaxItems`) | J29.10 |
 | `CONSUMER_SUBSCRIPTIONS_ENABLED` (the subscriptions API and their delivery, reported by `GET /capabilities` as `consumerSubscriptions` with the delivery limits, `maxEventsPerBatch` among them), `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY` (required with the capability on) | J30.6–J30.9 |
@@ -239,7 +239,8 @@ Raised by the inventory; answered by the user on 2026-10-02.
 - **D-5. Lifecycle audit.** *Decided: keep capturing it and add reads*, and consider showing it in
   the UI. Journey variants J19.5 (a workspace's activity: change sets created, renamed, discarded,
   published, withdrawn) and J08.9 (a model draft's history), planned as their own package
-  ([TODO](../TODO.md#now--product-09)).
+  ([TODO](../TODO.md#now--product-09)). J08.9 is delivered by 0.10 A2 as the draft's operation
+  history.
 - **D-6. Batch delete with cascade.** *Decided: a batch delete item must be able to cascade*, as a
   single delete can; refusing an item with dependants, or deleting only as one atomic batch, is not
   a realistic integration path. Journey variant J11.6 (delivered in 0.9 K2b). How a batch confirms the impact it

@@ -675,8 +675,8 @@ selects nothing. Read-only inspection and export stay available when administrat
   after activation is refused; activation does not wait for the workspace lock.
 - **J08.7 Export a release** (with its model) to reuse elsewhere.
 - **J08.8 Read the activation history** of a release.
-- **J08.9 Read a model draft's history** (planned, decided D-5): the draft's operation history
-  (0.10 A2, ADR-041), every step with its kind, parameters, inverse and time.
+- **J08.9 Read a model draft's history** (decided D-5; delivered by 0.10 A2): the draft's operation
+  history (ADR-041), every step with its kind, parameters, inverse, origin and time.
 - **J08.10 A release dropping and restoring `unique`**: records may share a value while the
   attribute is not unique; restoring it is refused while they do, and holds the value once active.
 - **J08.11 A binding tightened to many-to-one** (0.9 K3a): a release that makes a binding
@@ -800,7 +800,9 @@ and W2.
 
 **Actor:** model administrator. **Channel:** UI (Settings › Model › Open in editor), API.
 **Stories:** US-P05 (additive and draft-only operations). **Scenario:** SC-12.
-**Status:** planned: navigation groups N1, operations A2, editor A4a and A4b.
+**Status:** J33.9 delivered by N1 (2026-10-11), with groups declared in the model document; the
+operation API (J33.1–J33.8, J33.12 through the API) delivered by A2 (2026-10-11); the editor (A4a,
+A4b; J33.10, J33.11 and the browser side of every variant) planned.
 
 1. Open a draft of the active release, or an empty one, in the editor.
 2. Change the model by operations: applications, object types in their containment tree, attributes,
@@ -829,7 +831,9 @@ invalid between steps; installation refuses an invalid draft as J08 does.
   `OPERATION_REQUIRES_MIGRATION` with its impact; nothing of the request applies.
 - **J33.8 A request that cannot apply** (an unknown element, a key taken) applies nothing.
 - **J33.9 Group collections**: groups declared on an application show as sidebar sections and a
-  group page with a search; collections in no group keep their place (N1).
+  group page with a search; collections in no group keep their place (N1). A group naming no
+  collection of its application, a collection in two groups, a group key twice, or `navigation`
+  below schema 0.10 is refused at its pointer; a 0.9 model is unchanged.
 - **J33.10 Lay out a type** in the preview: panels ordered, shown or hidden; a table view's columns,
   filters and sort; field order. The record screen shows the same layout after activation (A4b).
 - **J33.11 Keyboard alone and 390px**: every drag has its Move to… path; the panes become tabs.
@@ -841,7 +845,11 @@ invalid between steps; installation refuses an invalid draft as J08 does.
 `413 OPERATION_BATCH_TOO_LARGE`, `404 MODEL_DRAFT_NOT_FOUND`; J08's refusals at installation and
 activation; with administration disabled the routes are absent.
 
-**Evidence today:** none (planned).
+**Evidence today:** J33.9: `test_j33_design` (the `navigation` contract on two configurations),
+`test:browser:authoring-n1` (sidebar groups and the group page), `Explorer.test`, `model.test`,
+`routes.test`. J33.1–J33.8, J33.12 and J08.9 through the API: `test_j33_operations` (on two
+configurations each); every kind and its inverse: `tests/unit/engine/model/authoring/`. J33.10 and
+J33.11 are planned.
 
 ### J34 — Onboard a workbook
 

@@ -3,7 +3,12 @@ import { codelistObject, domainObject, testModel } from "@/test/fixtures";
 import { fallbackDetail } from "@/model/defaults";
 import { attributeName, fieldValue } from "@/model/fields";
 import { isManagedRelation, objectTypeFor, relationChoices } from "@/model/lookup";
-import { childCollectionGroups, collectionGroups, viewSourceObjectTypeKey } from "@/model/collections";
+import {
+  childCollectionGroups,
+  collectionGroups,
+  navigationSections,
+  viewSourceObjectTypeKey,
+} from "@/model/collections";
 
 describe("objectTypeFor", () => {
   it("resolves a known object type and returns undefined for an unknown key", () => {
@@ -212,5 +217,38 @@ describe("fallbackDetail", () => {
     expect(domain.panels.find((panel) => panel.type === "relations")?.config).toMatchObject({ direction: "both" });
     expect(domain.header.titleField).toBe("name");
     expect(codelist.panels[0].type).toBe("attributes");
+  });
+
+  it("orders navigation sections: ungrouped collections, then groups as declared (0.10 N1, D22)", () => {
+    const application = structuredClone(testModel.applications[0]);
+    const domains = application.views[0];
+    if (domains.type !== "table") throw new Error("Expected table fixture");
+    application.views = [
+      domains,
+      { ...domains, key: "codelists", name: "Codelists", objectTypeKey: "codelist" },
+      { ...domains, key: "units", name: "Units", objectTypeKey: "unit" },
+    ];
+    const keys = (sections: ReturnType<typeof navigationSections>) => ({
+      ungrouped: sections.ungrouped.map((item) => item.objectTypeKey),
+      groups: sections.groups.map((section) => [
+        section.group.key,
+        section.collections.map((item) => item.objectTypeKey),
+      ]),
+    });
+    expect(keys(navigationSections(application))).toEqual({ ungrouped: ["domain", "codelist", "unit"], groups: [] });
+
+    application.navigation = {
+      groups: [
+        { key: "second", label: "Second", collections: ["unit", "domain"] },
+        { key: "empty", label: "Empty", collections: [] },
+      ],
+    };
+    expect(keys(navigationSections(application))).toEqual({
+      ungrouped: ["codelist"],
+      groups: [
+        ["second", ["unit", "domain"]],
+        ["empty", []],
+      ],
+    });
   });
 });

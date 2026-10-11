@@ -15,7 +15,7 @@ from scenario import ok, scenario_seed
 from service import serve
 
 from app.db import migration_config
-from app.engine.model.compiler import SUPPORTED_SCHEMA_VERSIONS
+from app.engine.model.compiler import SCHEMA_VERSIONS
 
 HEAD = ScriptDirectory.from_config(migration_config()).get_current_head()
 GROUPS = {"runtime", "capabilities", "limits", "webhooks"}
@@ -46,7 +46,9 @@ def test_read_what_the_deployment_runs(world):
     system = ok(world.api.get("/system"))
     document = ok(world.api.get("/openapi.json"))
     assert system["engine"] == {"version": document["info"]["version"], "managementApi": "v1"}
-    assert system["schemaLanguages"] == sorted(SUPPORTED_SCHEMA_VERSIONS)
+    # Oldest first, by number: 0.10 after 0.9 (0.10 N1).
+    assert system["schemaLanguages"] == list(SCHEMA_VERSIONS)
+    assert system["schemaLanguages"][-2:] == ["0.9", "0.10"]
     state = ok(world.api.get("/model-runtime-state"))
     release = ok(world.api.get(f"/model-releases/{state['activeReleaseId']}"))
     assert system["activeModelRelease"] == {

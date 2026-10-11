@@ -5,7 +5,7 @@ and its field; the document has no such node. J25 meets one tag; here the tag, a
 equals a value of its object, and list indexes are checked.
 """
 
-from app.engine.model.compiler import document_location
+from app.engine.model.compiler import SCHEMA_VERSIONS, compile_model, document_location
 
 
 def test_a_union_tag_is_left_out():
@@ -23,3 +23,12 @@ def test_a_key_is_kept_and_a_path_below_a_missing_node_is_kept_whole():
     source = {"items": [{"name": "a"}], "name": "items"}
     assert document_location(("items", 0, "name"), source) == ["items", 0, "name"]
     assert document_location(("other", "inner", "leaf"), source) == ["other", "inner", "leaf"]
+
+
+def test_schema_versions_are_listed_oldest_first_by_number():
+    """0.10 N1: ``0.10`` follows ``0.9``; a text sort would place it before ``0.5``."""
+    numbers = [tuple(int(part) for part in version.split(".")) for version in SCHEMA_VERSIONS]
+    assert numbers == sorted(numbers) and SCHEMA_VERSIONS[-1] == "0.10"
+    (diagnostic,) = compile_model({"schemaVersion": "9.9"}).diagnostics
+    assert diagnostic.code == "UNSUPPORTED_SCHEMA_VERSION"
+    assert diagnostic.message.endswith(str(list(SCHEMA_VERSIONS)))

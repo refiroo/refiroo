@@ -53,6 +53,65 @@ def check(model: EngineModel, index: ModelIndex) -> None:
                 require_schema(model, "0.7", f"{view_path}/type", "The tree view type")
                 _check_tree_view(application, view, view_path, model, index)
         check_details(model, application, application_path, index)
+        if application.navigation is not None:
+            _check_navigation(model, application, f"{application_path}/navigation")
+
+
+def collection_keys(application: ApplicationDefinition) -> list[str]:
+    """The application's collections, first seen first: each view's source type, as the sidebar
+    groups lenses (ADR-029)."""
+    result: list[str] = []
+    for view in application.views:
+        if isinstance(view, TableViewDefinition):
+            source = view.objectTypeKey
+        elif isinstance(view, RelationMatrixViewDefinition):
+            source = view.config.rowObjectTypeKey
+        elif isinstance(view, TreeViewDefinition):
+            source = view.config.rootObjectTypeKeys[0]
+        elif view.config.direction == "outgoing":
+            source = view.config.fromObjectTypeKey
+        else:
+            source = view.config.toObjectTypeKey
+        if source not in result:
+            result.append(source)
+    return result
+
+
+def _check_navigation(
+    model: EngineModel, application: ApplicationDefinition, navigation_path: str
+) -> None:
+    """Schema 0.10 navigation groups (0.10 N1): unique keys, each entry a collection of the
+    application, a collection in at most one group. An empty group is valid (D27)."""
+    require_schema(model, "0.10", navigation_path, "An application's navigation")
+    collections = set(collection_keys(application))
+    group_of: dict[str, str] = {}
+    keys: set[str] = set()
+    for group in application.navigation.groups if application.navigation else ():
+        group_path = f"{navigation_path}/groups/{pointer_segment(group.key)}"
+        if group.key in keys:
+            raise ModelReferenceError(
+                "DUPLICATE_KEY",
+                group_path,
+                f"Application '{application.key}' declares navigation group '{group.key}' twice",
+            )
+        keys.add(group.key)
+        for position, entry in enumerate(group.collections):
+            entry_path = f"{group_path}/collections/{position}"
+            if entry not in collections:
+                raise ModelReferenceError(
+                    "INVALID_REFERENCE",
+                    entry_path,
+                    f"Navigation group '{group.key}' names '{entry}', which is no collection of "
+                    f"application '{application.key}'; its collections are {sorted(collections)}",
+                )
+            if entry in group_of:
+                raise ModelReferenceError(
+                    "INVALID_MODEL",
+                    entry_path,
+                    f"Collection '{entry}' is already in navigation group '{group_of[entry]}'; a "
+                    "collection stands in at most one group",
+                )
+            group_of[entry] = group.key
 
 
 def _check_object_type_keys(

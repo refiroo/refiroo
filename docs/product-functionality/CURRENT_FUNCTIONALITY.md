@@ -52,9 +52,19 @@ the views declared over its record type as lenses: table, mapping grid, relation
 record's detail page is composed of configured panels (fields, children, relationships, tables,
 hierarchy, history), with a sensible default when the model declares none.
 
-Limits: dedicated form and dashboard views do not exist; structured model design is 0.10.
+An application with many collections can arrange them in labelled groups. The sidebar shows the
+collections in no group first, then each group as a section that folds and unfolds; the model says
+whether a group starts folded, and each reader's own choice is remembered in their browser. A folded
+group holding the open collection is marked. A group's name opens its page, which lists its
+collections with a search by name; each opens in the data the reader is looking at (live, a change
+set or a publication).
+
+Limits: dedicated form and dashboard views do not exist; structured model design is 0.10; groups
+have one level and their page shows no record counts.
 
 Evidence: [application shell](../../frontend/src/app/AppShell.tsx),
+[sidebar](../../frontend/src/features/objects/Explorer.tsx),
+[group page](../../frontend/src/features/objects/NavigationGroupPage.tsx),
 [view registry](../../frontend/src/features/objects/views/registry.ts),
 [model language](../APPLICATION_MODEL.md).
 
@@ -395,7 +405,18 @@ never activates. Activation is refused when existing data would not fit, and als
 contract changes incompatibly without a new contract version (F23). Releases on unsupported older
 schemas stay inspectable and exportable.
 
-Limits: the structured editor and spreadsheet onboarding are 0.10.
+Through the API, a draft can also be changed step by step with typed operations instead of whole
+JSON: add, rename, re-key, split, merge or remove applications, types, attributes and relation
+types, set where a type sits in the containment tree, allow relations between types, lay out views
+and detail pages, and group an application's collections. New types get a table view and a detail
+page from the server. Each request is one step of the draft's history, which can be read, undone and
+redone; a step that later steps build on is undone together with them. A key change, removal or
+other change that would need a migration of something already released is refused, saying how many
+records, values and relationships it would touch. A JSON edit in the workbench is recorded as one
+step too.
+
+Limits: the structured editor (which will use these operations) and spreadsheet onboarding are
+later 0.10 work.
 
 Evidence: [model workbench](../../frontend/src/features/model-admin/ModelWorkbench.tsx),
 [draft editor](../../frontend/src/features/model-admin/ModelDraftEditor.tsx),
@@ -437,7 +458,10 @@ Evidence: [WP9 authoring runner](../../frontend/e2e/wp9-authoring.mjs),
 
 The interface has a skip link, labelled regions, semantic tables and trees, visible focus, keyboard
 menus and shortcuts, managed dialog focus, dirty-input guards, narrow-screen navigation, light and dark
-mode, resizable panels and display preferences. Settings › **Appearance** sets the theme and the table
+mode, resizable panels and display preferences. On a phone the band under the top bar is one line:
+tapping the workspace, the application (with its icon) or Live, the change set or the publication
+opens that choice, so the top bar has no application tabs and the navigation drawer holds only the
+collections and records; Settings returns to the application through its Back link. Settings › **Appearance** sets the theme and the table
 density every table starts from; a view's own density choice overrides it. It also sets the palette
 of the record type colours (B, magenta and olive, or A, plum and gold) and when a record's editable
 fields show their pencil: on hover and focus (the default), or faintly all the time. An automated accessibility gate (axe) and a visual

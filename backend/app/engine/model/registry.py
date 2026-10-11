@@ -10,7 +10,7 @@ from ...db import SessionLocal
 from ...errors import api_error
 from ...models.database import ChangeSet, ModelRelease, ModelRuntimeState, Publication
 from ...models.schema import EngineModel
-from .compiler import SUPPORTED_SCHEMA_VERSIONS, parse_model
+from .compiler import SCHEMA_VERSIONS, SUPPORTED_SCHEMA_VERSIONS, parse_model
 from .diagnostics import ModelValidationError
 from .metadata import clear_metadata_cache
 from .runtime import require_runtime_state
@@ -72,7 +72,7 @@ class ModelRegistry:
                 {
                     "modelReleaseId": release.public_id,
                     "schemaVersion": release.schema_version,
-                    "supportedSchemaVersions": sorted(SUPPORTED_SCHEMA_VERSIONS),
+                    "supportedSchemaVersions": list(SCHEMA_VERSIONS),
                 },
             )
         cache_key = (release.public_id, release.model_hash)

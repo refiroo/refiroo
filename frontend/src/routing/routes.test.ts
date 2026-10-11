@@ -261,3 +261,20 @@ it("round-trips publication discovery and immutable collection/detail contexts",
   }
   window.history.replaceState({}, "", "/");
 });
+it("round-trips a navigation group's page in its data context, and falls back for an unknown group", () => {
+  const model = structuredClone(testModel);
+  model.applications[0].navigation = { groups: [{ key: "lists", label: "Lists", collections: ["domain"] }] };
+  const route: RouteState = {
+    kind: "group",
+    applicationKey: "test-app",
+    groupKey: "lists",
+    workspaceKey: "west",
+    changeSetId: "cs-1",
+  };
+  const [pathname, search] = routePath(route).split("?");
+  expect(pathname).toBe("/apps/test-app/groups/lists");
+  expect(parseRoute(model, "main", { pathname, search: `?${search}` })).toEqual(route);
+  expect(parseRoute(model, "main", { pathname: "/apps/test-app/groups/other", search: "" })).toEqual(
+    defaultRoute(model, "main"),
+  );
+});
