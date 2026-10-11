@@ -366,20 +366,24 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 
 ## Next after 0.9 — 0.10 model authoring and spreadsheet onboarding
 
-- [ ] 0.10 design ([MODEL_AUTHORING.md](MODEL_AUTHORING.md), ADR-035) and provisional
-  [plan](BASE_0_10_IMPLEMENTATION_PLAN.md) (2026-09-29, A0–A8 and R; review after 0.9 Track J): direction accepted 2026-09-29;
-  A-D1–A-D3 decided 2026-09-29 (A-D2: declared navigation groups); others open; packages A1–A8 to specify after 0.9 Track J's import contract.
-  - [ ] A0 design pass: A-D4–A-D10, plan D1–D10, API design, operation vocabulary.
-  - [ ] A1 import profile contract and execution (delivered inside 0.9 Track J): the contract and
-    direct execution in J2 (2026-10-07); the dry run is J3's preview (delivered 2026-10-07).
-  - [ ] A2 operation API on model drafts: additive and draft-only operations, history, undo.
-  - [ ] A3 source profiling and the dry-run summary after each operation.
-  - [ ] A4 editor: model pane, relationship matrix, preview, layout editing.
+- [ ] 0.10 design ([MODEL_AUTHORING.md](MODEL_AUTHORING.md), ADR-035) and
+  [plan](BASE_0_10_IMPLEMENTATION_PLAN.md) (2026-10-11, replacing the provisional one): the designer
+  line first, then the spreadsheet line (D11, the user's request). A-D1–A-D3 decided; A-D4 and A-D10
+  taken by 0.9 J2; plan D11–D16 accepted 2026-10-11 (D14: interim release after T1); D1–D10 and
+  A-D5–A-D9 open, settled in A0.
+  - [x] A1 import profile contract and execution: delivered by 0.9 J2 and J3 (2026-10-07).
+  - [ ] A0 design pass: decisions, API design, operation vocabulary, journeys, the editor mock-up.
+  - [ ] N1 navigation groups and schema 0.10.
+  - [ ] A2 operation API on model drafts: model-side operations, history, undo, default views.
+  - [ ] A4a editor: model pane, relationship matrix, install and activate.
+  - [ ] A4b editor: preview and layout editing.
+  - [ ] T1 designer checkpoint (US-P05), released as 0.10.0-alpha.1 (D14).
+  - [ ] A3 source profiling and the dry-run summary; the synthetic workbooks W1–W3.
   - [ ] A5 editor with a source file: source and mapping panes, saved and re-run profiles.
   - [ ] A6 inference over the table patterns.
-  - [ ] A7 model-description sheets and matching across files (may move to 0.10.x).
-  - [ ] A8 list blocks in sheets laid out for reading (may move to 0.10.x).
-  - [ ] Synthetic acceptance workbooks with the shapes of the private samples.
+  - [ ] A7 model-description sheets and matching across files (below the cut line).
+  - [ ] A8 list blocks in sheets laid out for reading (below the cut line).
+  - [ ] R build acceptance and release.
   - [ ] Non-blocking open items: A-D11 nested navigation groups (one level in 0.10); A-D12 record
     counts on the group page (none in 0.10, later only as a bounded read).
 

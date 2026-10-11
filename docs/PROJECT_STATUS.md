@@ -12,7 +12,9 @@ found by a browser runner, and six by the full-volume runs, among them a deletio
 that could not finish and now takes under a minute live and in a change set. What stays open is in
 TODO: the backend suite's time over its 5-minute ceiling, three browser runner flakes, two `NOT IN`
 subqueries to measure, and the recorded read exceptions. Schema 0.9 is released with it (D206). The
-version strings and the tag (`v0.9.0`) follow the user's instruction (D207). Next is 0.10.
+version strings and the tag (`v0.9.0`) follow the user's instruction (D207). Next is 0.10, planned on
+2026-10-11 ([plan](BASE_0_10_IMPLEMENTATION_PLAN.md)): the model designer first, then spreadsheet
+onboarding, starting with the A0 design pass.
 
 ### How 0.9 was built
 

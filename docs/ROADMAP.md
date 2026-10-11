@@ -386,25 +386,28 @@ writing a model file or an import script. One editor proposes a model and an imp
 uploaded workbook, lets the administrator rename, remap and reorganize both freely with the effect on the
 real rows shown after every change, and saves the mapping so the next version of the workbook loads as a
 reviewed upsert. Opened without a workbook, the same editor is the structured model designer. Design:
-[MODEL_AUTHORING.md](MODEL_AUTHORING.md) (ADR-035); packages and sequence: the provisional
-[Base 0.10 plan](BASE_0_10_IMPLEMENTATION_PLAN.md).
+[MODEL_AUTHORING.md](MODEL_AUTHORING.md) (ADR-035); packages and sequence: the
+[Base 0.10 plan](BASE_0_10_IMPLEMENTATION_PLAN.md) (2026-10-11). The designer (the editor without a
+workbook) is built first, then the spreadsheet functionality (the plan's D11).
 
 ### Delivery scope
 
 1. Import profiles: a declarative mapping from sheets and columns to model elements, executed by the
-   0.9 import job, with XLSX and several sheets (A1, delivered inside 0.9 Track J).
-2. An operation API on model drafts: typed, validated operations with history, undo and version checks;
-   additive and draft-only operations (A2).
-3. Source profiling and a dry-run summary after every operation (A3).
-4. The editor: model pane with the relationship matrix, a preview rendered by the generic renderers,
-   and layout editing of views and panels (A4); source and mapping panes, saved and re-run profiles
-   (A5). Every drag has a keyboard path.
-5. Inference over the table patterns of the catalogue, extending an existing model or starting a new
+   0.9 import job, with XLSX and several sheets (A1, delivered by 0.9 J2 and J3).
+2. Navigation groups in schema 0.10: labelled sidebar sections and a group page (N1).
+3. An operation API on model drafts: typed, validated operations with history, undo and version checks;
+   additive and draft-only operations, and default views for new types (A2).
+4. The editor as designer: model pane with the relationship matrix (A4a), a preview rendered by the
+   generic renderers and layout editing of views and panels (A4b), checked on its own (T1) and
+   released as the interim release 0.10.0-alpha.1. Every drag has a keyboard path.
+5. Source profiling and a dry-run summary after every operation (A3).
+6. The editor with a workbook: source and mapping panes, saved and re-run profiles (A5).
+7. Inference over the table patterns of the catalogue, extending an existing model or starting a new
    application (A6).
-6. Model-description sheets and matching across files (A7), and list blocks in sheets laid out for
+8. Model-description sheets and matching across files (A7), and list blocks in sheets laid out for
    reading (A8); both may move to a 0.10.x release.
-7. _Approved 2026-10-05:_ the remaining surfaces on the 0.9 UI foundation (U6), first
-   in 0.10 and before the editor (A4), which is built on it ([SETTINGS_AND_UI_PLAN.md](SETTINGS_AND_UI_PLAN.md)).
+
+The editor builds on the Atlas UI foundation delivered in 0.9 (UA, which absorbed U6).
 
 Changes to released structure (key renames, splits, merges, cardinality) are shown with their impact
 and blocked; they are enabled in 1.0 on the 0.11 migration boundary.

@@ -1,8 +1,8 @@
 # Model authoring and spreadsheet onboarding (Product 0.10)
 
 Status: design direction accepted 2026-09-29 ([ADR-035](DECISIONS.md#adr-035--model-authoring-is-an-editor-of-operations-on-a-model-draft-a-spreadsheet-is-one-way-to-start-it)).
-Decisions are listed at the end (A-D1 to A-D3 decided; A-D11 and A-D12 open but non-blocking; the others open). The packages, sequence and acceptance are in the provisional
-[Base 0.10 plan](BASE_0_10_IMPLEMENTATION_PLAN.md); the
+Decisions are listed at the end (A-D1 to A-D3 decided; A-D4 and A-D10 taken by 0.9 J2; A-D11 and A-D12 open but non-blocking; the others open). The packages, sequence and acceptance are in the
+[Base 0.10 plan](BASE_0_10_IMPLEMENTATION_PLAN.md) (2026-10-11, the designer first); the
 [roadmap](ROADMAP.md#product-release-010--model-authoring-and-spreadsheet-onboarding) places the
 release after 0.9, whose import jobs (Track J) this design builds on.
 
@@ -368,18 +368,23 @@ to a draft changed by a whole-model patch works on the patched model.
 
 | Package | Delivers | Depends on |
 | --- | --- | --- |
-| A1 | Import profile contract, executed by the 0.9 import job; XLSX and several sheets; the acceptance workbook loaded by a hand-written profile. Delivered inside 0.9 Track J | 0.9 B, J |
-| A2 | Operation API on model drafts: the catalogue's additive and draft-only operations, history, undo, version checks | — |
+| A1 | Import profile contract, executed by the 0.9 import job; XLSX and several sheets. **Delivered by 0.9 J2 and J3** | 0.9 B, J |
+| N1 | The navigation group contract (schema 0.10), its validation, sidebar sections and group page | — |
+| A2 | Operation API on model drafts: the catalogue's additive and draft-only model operations, history, undo, version checks, default views for new types | N1 |
+| A4a | Editor: model pane, relationship matrix, issues, history, install and activate | A2 |
+| A4b | Editor: preview with generated views and panels, layout editing | A4a |
+| T1 | The designer checked on its own (US-P05); released as 0.10.0-alpha.1 | A4b |
 | A3 | Source profiling and the dry-run summary after each operation | A1 |
-| A4 | Editor: model pane, relationship matrix, preview with generated views and panels, layout editing; the navigation group contract, its validation, sidebar sections and group page | A2 |
-| A5 | Editor with a source file: source and mapping panes, mapping operations, profiles saved and re-run | A3, A4 |
+| A5 | Editor with a source file: source and mapping panes, mapping operations, the profile side of model operations, profiles saved and re-run | A3, T1 |
 | A6 | Inference: the table patterns of the catalogue; extending an existing model | A5 |
 | A7 | Model description sheets and matching across files | A6 |
 | A8 | List blocks in sheets laid out for reading | A6 |
 | R | Acceptance | All |
 
-A1 and A2 can proceed in parallel. A7 and A8 may move to a 0.10.x release if R is not in reach. The
-migration class of operations is enabled in 1.0, on the 0.11 migration boundary.
+The designer line (N1 to T1) comes before the spreadsheet line (A3 onward), at the user's request
+(plan D11); A3 has no dependency on the editor and may fill a gap. A7 and A8 may move to a 0.10.x
+release if R is not in reach. The migration class of operations is enabled in 1.0, on the 0.11
+migration boundary.
 
 ## Exit gate
 
@@ -423,13 +428,13 @@ The recommendation is the planning default.
 | A-D1 | Lists: one type per list, or scoping a shared list type | **Decided 2026-09-29:** one type per list. Scoping from the model would reference runtime data |
 | A-D2 | Navigation with many small list types | **Decided 2026-09-29:** model-declared navigation groups on the application ([Navigation groups](#navigation-groups)); not a container record type, a separate application or automatic grouping. One level, no record counts on the group page (A-D11, A-D12); optional field in 0.10's first schema language version |
 | A-D3 | Where profiles live | **Decided 2026-09-29:** stored resources that name a model release and are re-checked on use; not part of the model release, so a changed mapping needs no model release |
-| A-D4 | File formats | XLSX, CSV and JSON Lines. No legacy `.xls` (convert first). Values as stored, formulas not evaluated |
+| A-D4 | File formats | **Taken by 0.9 J2 (D64–D74):** XLSX, CSV and JSON Lines. No legacy `.xls` (convert first). Values as stored, formulas not evaluated |
 | A-D5 | Optional assistant | Off by default and pluggable. It receives headers and a bounded sample only when configured; its output is proposals |
 | A-D6 | Keys of new elements | Generated from labels, editable until the element is installed |
 | A-D7 | Records missing from a new version | Reported; retire or delete only when the profile says so, in a change set |
 | A-D8 | Install and activate from the editor | One confirmed step running both, refused on any diagnostic, with the compatibility check shown |
 | A-D9 | Sheets laid out for reading (A8) | Blocks detected and proposed; the administrator confirms each block. Colour and formatting carry no meaning |
-| A-D10 | XLSX reader | `openpyxl` (MIT), read-only mode, values not formulas; licence recorded in LICENSING_TODO |
+| A-D10 | XLSX reader | **Taken by 0.9 J2:** `openpyxl` (MIT), read-only mode, values not formulas; licence recorded in LICENSING_TODO |
 | A-D11 | Nested navigation groups | **Open, non-blocking.** One level in 0.10; nesting only when a real model needs it beyond a group page and search |
 | A-D12 | Record counts on the group page | **Open, non-blocking.** None in 0.10; later only as a bounded read, since a count per collection on every page view has a cost |
 
