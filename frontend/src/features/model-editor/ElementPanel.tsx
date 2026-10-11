@@ -127,6 +127,7 @@ export function ElementPanel({
   onOperation,
   onSelect,
   run,
+  onPreview,
 }: {
   outline: ModelDraftOutline;
   selection: EditorSelection;
@@ -140,6 +141,8 @@ export function ElementPanel({
   onSelect: (selection: EditorSelection) => void;
   /** Applies a step at the draft's version (the editor's). */
   run: RunStep;
+  /** Opens the selected type's preview in the centre (0.10 A4b). */
+  onPreview: () => void;
 }) {
   const editing = { outline, run };
   /** A relation's editable rules, the same in a type's Relations and a relation type's pairs. */
@@ -236,6 +239,9 @@ export function ElementPanel({
           mark={type.mark}
           facts={keyFacts(type.key, type.mark)}
         >
+          <button type="button" className="secondary" onClick={onPreview}>
+            <Icon name="monitor" /> Preview
+          </button>
           {menu(`Operations for ${type.name}`, target)}
         </Header>
         <p className="element-place">

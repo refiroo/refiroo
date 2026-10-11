@@ -4,7 +4,7 @@ import { ApiError, api } from "@/api/client";
 import { outlineFixture } from "@/test/draftOutline";
 import { ModelEditor } from "@/features/model-editor/ModelEditor";
 import { ToastProvider } from "@/ui/Toast";
-import type { ModelDraftOperationEntry } from "@/types";
+import type { EngineModel, ModelDraftOperationEntry } from "@/types";
 
 vi.mock("@/api/client", async (load) => {
   const actual = await load<typeof import("@/api/client")>();
@@ -25,8 +25,20 @@ const entry = (step: number, kind: string, parameters: Record<string, unknown>):
   origin: { type: "request" },
 });
 
+/** The running model the preview reads records through; these tests do not reach its records. */
+const activeModel = {
+  attributeTypes: [],
+  objectTypes: [],
+  relationTypes: [],
+  objectTypeRelations: [],
+  applications: [],
+} as unknown as EngineModel;
+
 beforeEach(() => {
   vi.clearAllMocks();
+  // The preview reads the draft compiled; these tests leave it uncompiled, so it renders no record.
+  vi.mocked(api.modelDraftModel).mockResolvedValue({ version: 4, valid: false, diagnostics: [] });
+  vi.mocked(api.workspaces).mockResolvedValue({ items: [], nextCursor: null });
   vi.mocked(api.modelDraftOutline).mockResolvedValue(outlineFixture());
   vi.mocked(api.modelDraft).mockResolvedValue({
     id: "d1",
@@ -54,6 +66,8 @@ function renderEditor(selection: Parameters<typeof ModelEditor>[0]["selection"] 
         onNavigate={vi.fn()}
         onActivated={vi.fn()}
         onOpenApplication={vi.fn()}
+        activeModel={activeModel}
+        workspaceKey="default"
       />
     </ToastProvider>,
   );
@@ -139,6 +153,8 @@ describe("ModelEditor", () => {
           onNavigate={vi.fn()}
           onActivated={vi.fn()}
           onOpenApplication={vi.fn()}
+          activeModel={activeModel}
+          workspaceKey="default"
         />
       </ToastProvider>,
     );
@@ -177,6 +193,8 @@ describe("ModelEditor", () => {
           onNavigate={vi.fn()}
           onActivated={vi.fn()}
           onOpenApplication={vi.fn()}
+          activeModel={activeModel}
+          workspaceKey="default"
         />
       </ToastProvider>,
     );

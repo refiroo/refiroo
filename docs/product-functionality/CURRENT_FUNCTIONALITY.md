@@ -431,11 +431,25 @@ differences and whether stored data is affected; a refused activation leaves the
 and says so. On a phone the panes are tabs. The JSON workbench stays one click away (**Open as
 JSON**).
 
-Limits: laying out views and detail pages in the editor's preview is the next 0.10 step; spreadsheet
-onboarding is later 0.10 work. Consumer API definitions are edited in the JSON workbench.
+**Preview** in a type's header shows the type's record page and its table as they will look once the
+draft is active, drawn from the draft before it is installed, over a real record of a workspace you
+choose (or an empty record for a new type). The page's buttons and fields are shown but disabled:
+the preview changes no data. **Edit layout** opens the layout editor over the whole editor, with
+**Back to the model editor**: move panels up and down or between the main column and the side, hide
+or show them, rename them and choose their columns and sort; move fields, group them into new field
+groups and add missing ones; choose a table's columns, filters and default sort. Every change is a
+step with undo and redo; each has a menu that works by keyboard, and with a mouse it can be dragged.
+A type the model gives no detail page of its own can be given one in a step. After install and
+activate, the record screen shows the same layout. A draft with errors is not previewed until they
+are fixed or undone.
+
+Limits: a field's editor cannot be chosen (each value type has one); spreadsheet onboarding is later
+0.10 work. Consumer API definitions are edited in the JSON workbench.
 
 Evidence: [model editor](../../frontend/src/features/model-editor/ModelEditor.tsx),
 [A4a runner](../../frontend/e2e/authoring-a4a-model-editor.mjs),
+[preview and layout editor](../../frontend/src/features/model-editor/TypePreview.tsx),
+[A4b runner](../../frontend/e2e/authoring-a4b-preview-layout.mjs),
 [model workbench](../../frontend/src/features/model-admin/ModelWorkbench.tsx),
 [draft editor](../../frontend/src/features/model-admin/ModelDraftEditor.tsx),
 [WP11 runner](../../frontend/e2e/wp11-model-admin.mjs),

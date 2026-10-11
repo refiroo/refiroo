@@ -158,6 +158,16 @@ describe("the editor's operation descriptors (D38)", () => {
     });
   });
 
+  it("removes a relation type in use with the pairs that allow it, in one step", () => {
+    const remove = operationById("relation-type-remove")!;
+    const target = { on: "relationType", relationType: "stores" } as never;
+    expect(remove.build({}, target, outline)).toEqual([
+      { kind: "disallowRelation", relationType: "stores", from: "shelf", to: "bin" },
+      { kind: "removeRelationType", relationType: "stores" },
+    ]);
+    expect(remove.confirm!(target, outline)).toBe("Remove Stores, and stop allowing it between Shelf → Bin?");
+  });
+
   it("removes a relationship's criteria when none is left", () => {
     expect(
       operationById("relation-candidates")!.build(
@@ -235,7 +245,7 @@ describe("the editor's operation descriptors (D38)", () => {
     expect(ids({ on: "attributeType", attributeType: "code" })).not.toContain("attribute-type-remove");
     expect(ids({ on: "attributeType", attributeType: "colour" })).toContain("attribute-type-remove");
     expect(ids({ on: "relation", relationType: "holds", from: "area", to: "shelf" })).not.toContain("relation-remove");
-    expect(ids({ on: "relationType", relationType: "stores" })).not.toContain("relation-type-remove");
+    expect(ids({ on: "relationType", relationType: "stores" })).toContain("relation-type-remove");
   });
 });
 

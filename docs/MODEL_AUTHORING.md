@@ -290,7 +290,9 @@ attributes; detail panels for attributes, children, relations, translations and 
 bindings allow; picklists limited by the relation bindings. The administrator never writes view or panel
 JSON for the normal case.
 
-The preview pane edits them in place:
+The editor's preview shows them as the record screen will, and its layout editor edits them in place
+(0.10 A4b: the preview opens in the editor's centre from a type's header, the layout editor over the
+whole editor, each marked by a band of its own):
 
 - reorder panels within the `main` and `side` regions, show or hide them, choose their columns and
   default sort;

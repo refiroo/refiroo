@@ -61,6 +61,36 @@ describe("the history's steps", () => {
     );
   });
 
+  it("reads a layout change in words: panels, fields, columns and the default sort (A4b)", () => {
+    const page = { applicationKey: "shop", detail: "shelf" };
+    expect(
+      describeOperation("setViewProperty", { ...page, panel: "hierarchy", property: "visible", value: false }, names),
+    ).toBe("Hid panel hierarchy on the page of Shelf");
+    expect(
+      describeOperation("setViewProperty", { ...page, panel: "related", property: "region", value: "side" }, names),
+    ).toBe("Moved panel related on the page of Shelf to the side region");
+    expect(
+      describeOperation("insertViewItem", { ...page, list: "panels", item: { key: "more", title: "More" } }, names),
+    ).toBe("Added panel More to the page of Shelf");
+    expect(
+      describeOperation(
+        "moveViewItem",
+        { ...page, panel: "details", list: "fields", item: "depth", position: 0 },
+        names,
+      ),
+    ).toBe("Moved Depth to place 1 in the fields of panel details on the page of Shelf");
+    expect(
+      describeOperation(
+        "setViewProperty",
+        { applicationKey: "shop", view: "shelves", property: "defaultSort", value: "-depth" },
+        names,
+      ),
+    ).toBe("Sorted view shelves by Depth, descending");
+    expect(describeOperation("addDetailPage", { applicationKey: "shop", objectType: "bin" }, names)).toBe(
+      "Added a detail page for Bin",
+    );
+  });
+
   it("offers undo on a change not undone yet, never on an undo (D32)", () => {
     const [undoStep, change] = historySteps([
       entry(1, "addApplication", request),

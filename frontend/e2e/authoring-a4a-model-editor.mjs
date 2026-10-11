@@ -439,6 +439,28 @@ async function journey(label, source, { emptyDraft = false } = {}) {
       `${label}: a relation type's panel lists its pairs with their menus, allows another, and a pair's type opens it`,
     );
 
+    // A relation type in use is removed with its pairs in one step, and the step undone.
+    await page.getByRole("button", { name: "Add to the model" }).click();
+    await chooseMenu("Relation type");
+    await dialog().getByLabel("Name", { exact: true }).fill("Lists A4a");
+    await dialog().getByLabel("Reverse name").fill("Listed by A4a");
+    await apply();
+    await pane.getByRole("treeitem", { name: /^Lists A4a/ }).click();
+    await page.getByRole("button", { name: "Allow between two types…" }).click();
+    await dialog().getByLabel("From").selectOption({ label: "Shelf A4a" });
+    await dialog().getByLabel("To").selectOption({ label: "Bin A4a" });
+    await apply();
+    await operations("Lists A4a").click();
+    await chooseMenu("Remove relation type");
+    const removal = page.getByRole("alertdialog");
+    await removal.getByText(/stop allowing it between Shelf A4a → Bin A4a/).waitFor();
+    await removal.getByRole("button", { name: "Remove relation type" }).click();
+    await removal.waitFor({ state: "hidden" });
+    assert.equal(await pane.getByRole("treeitem", { name: /^Lists A4a/ }).count(), 0);
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await pane.getByRole("treeitem", { name: /^Lists A4a/ }).waitFor();
+    checks.push(`${label}: a relation type in use is removed with its pairs in one step, and undone as one`);
+
     // An attribute type's panel: where it is attached, and attaching it to another type.
     const attributeTypes = pane.getByRole("treeitem", { name: /^Attribute types/ });
     if ((await attributeTypes.getAttribute("aria-expanded")) === "false") await attributeTypes.click();

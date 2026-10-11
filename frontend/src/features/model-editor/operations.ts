@@ -1028,9 +1028,22 @@ export const OPERATIONS: OperationSpec[] = [
     on: "relationType",
     label: "Remove relation type",
     draftOnly: true,
-    available: (t, o) => !o.relations.some((r) => r.relationType === t.relationType),
-    confirm: (t, o) => `Remove ${relationTypeOf(o, t.relationType)?.name ?? t.relationType}? No type pair allows it.`,
-    build: (_, t) => [{ kind: "removeRelationType", relationType: t.relationType }],
+    // In use, it goes with the pairs that allow it, in one step (the user, after A4a).
+    confirm: (t, o) => {
+      const name = relationTypeOf(o, t.relationType)?.name ?? t.relationType;
+      const pairs = o.relations
+        .filter((r) => r.relationType === t.relationType)
+        .map((r) => `${typeName(o, r.from)} → ${typeName(o, r.to)}`);
+      return pairs.length
+        ? `Remove ${name}, and stop allowing it between ${pairs.join(", ")}?`
+        : `Remove ${name}? No type pair allows it.`;
+    },
+    build: (_, t, o) => [
+      ...o.relations
+        .filter((r) => r.relationType === t.relationType)
+        .map((r) => ({ kind: "disallowRelation", relationType: r.relationType, from: r.from, to: r.to })),
+      { kind: "removeRelationType", relationType: t.relationType },
+    ],
   }),
 
   // --- a relation allowed between two types ---
@@ -1107,7 +1120,7 @@ export const OPERATIONS: OperationSpec[] = [
   spec<On<"relation">>({
     id: "relation-remove",
     on: "relation",
-    label: "Remove",
+    label: "Remove relation",
     draftOnly: (t, o) => isReleased(relationOf(t, o)?.mark),
     available: (t, o) => !relationOf(t, o)?.containment,
     confirm: (t, o) =>

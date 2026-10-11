@@ -3654,11 +3654,13 @@ and the dry-run summary with A3, a draft's profiles and the mapping kinds with A
 Field-level detail not fixed here is finished in that package's plan. **Delivered by A2
 (2026-10-11):** [draft operations](#draft-operations), the [kinds](#kinds) of the model side and the
 [history, undo and redo](#history-undo-and-redo). **Delivered by A4a (2026-10-11):** [the draft's
-outline](#the-drafts-outline). The rest of this section is designed.
+outline](#the-drafts-outline). **Delivered by A4b (2026-10-11):** [the draft's model](#the-drafts-model)
+and the detail page kinds. The rest of this section is designed.
 
 - `POST /api/v1/model-drafts/{draftId}/operations`, `GET /api/v1/model-drafts/{draftId}/operations`
 - `POST /api/v1/model-drafts/{draftId}/undo`, `POST /api/v1/model-drafts/{draftId}/redo`
 - `GET /api/v1/model-drafts/{draftId}/outline` (A4a)
+- `GET /api/v1/model-drafts/{draftId}/model` (A4b)
 - `POST /api/v1/source-files`, `GET /api/v1/source-files`, `GET /api/v1/source-files/{sourceFileId}`,
   `DELETE /api/v1/source-files/{sourceFileId}?expectedVersion=`
 - `GET /api/v1/source-files/{sourceFileId}/profile/sheets`,
@@ -3800,6 +3802,8 @@ the layout places the change took.
 | `moveViewItem` | view or panel, `list`, `item`, `position` | additive | `moveViewItem` back; `restoreElements` when the move changed a panel's `order` |
 | `removeViewItem` | view or panel, `list`, `item` | additive | `insertViewItem` at its old position |
 | `setViewProperty` | view or panel, `property` (`name`, `defaultSort`, `pageSize`, `region`, `visible`, `title`, …), `value` | additive | `setViewProperty` back |
+| `addDetailPage` | `applicationKey`, `objectType` (a type of the application without a page); `page` and `position` only as `removeDetailPage`'s inverse | additive | `removeDetailPage`; `restoreElements` when it started the application's list of pages |
+| `removeDetailPage` | `applicationKey`, `objectType` | additive | `addDetailPage` with its declaration and position |
 | `addNavigationGroup` | `applicationKey`, `key`?, `label`, `collapsed`, `position` | additive | `removeNavigationGroup` |
 | `removeNavigationGroup` | group (its collections return to the top level) | additive | `addNavigationGroup` with its collections |
 | `setNavigationGroup` | group; `label`, `collapsed`, `position` | additive | `setNavigationGroup` back |
@@ -3908,6 +3912,35 @@ can be read, beside its diagnostics.
   `null` for a pointer in no element (the release, a consumer API definition).
 - Refusals: `404 MODEL_DRAFT_NOT_FOUND`. The route is registered with `MODEL_ADMIN_MUTATIONS_ENABLED`,
   as the other draft routes.
+
+### The draft's model
+
+`GET /api/v1/model-drafts/{draftId}/model` answers the draft compiled as `GET /model` serves the active
+model, with its placements as `GET /model/placements` gives them, so a client renders the draft with its
+own renderers before installing it (A4b, D43). The editor's preview reads it after every step.
+
+```json
+{ "version": 9, "valid": true, "diagnostics": [],
+  "model": { "schemaVersion": "0.10", "release": { "…": "…" }, "objectTypes": ["…"], "applications": ["…"] },
+  "placements": { "applications": [{ "applicationKey": "catalogue", "topLevelObjectTypeKeys": ["category"],
+                                     "parents": ["…"] }] } }
+```
+
+- A draft that does not compile answers `200` with `valid: false`, its `diagnostics` (each with its
+  `element`, as the outline's) and no `model` or `placements`.
+- It reads only: the draft's version and history are unchanged, and no lock is taken.
+- Records are not part of it. A client previewing records reads them through the usual routes, which
+  serve the active model; the editor shows records of released types that way, and an empty record for
+  a type the draft adds (D44).
+- Refusals: `404 MODEL_DRAFT_NOT_FOUND`. Registered with `MODEL_ADMIN_MUTATIONS_ENABLED`, as the other
+  draft routes.
+
+**A type without a detail page** shows the page the browser falls back to and cannot be laid out by the
+view verbs, which name a declared page. `addDetailPage` declares the page a new type gets (an attributes
+panel in `main`, a hierarchy panel in `side` when it has a parent, a children panel when it contains
+types, a relations panel when a binding names it at its `from` end); the editor's layout editor sends it
+as a step of its own (**Declare its page**), since the fallback page names its panels differently. On a
+type with a page it is refused `INVALID_OPERATION` (`alreadyPresent`).
 
 ### Source files and their profiles
 

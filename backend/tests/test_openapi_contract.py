@@ -308,6 +308,8 @@ def test_base_0_5_enabled_openapi_exposes_guarded_activation(monkeypatch):
         "/api/v1/model-drafts/{draft_id}/redo": frozenset({"post"}),
         # 0.10 A4a: the outline the editor reads (D36).
         "/api/v1/model-drafts/{draft_id}/outline": frozenset({"get"}),
+        # 0.10 A4b: the draft compiled, for the preview (D43).
+        "/api/v1/model-drafts/{draft_id}/model": frozenset({"get"}),
     }
 
 

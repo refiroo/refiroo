@@ -149,7 +149,13 @@ Model authoring has three explicit stages (ADR-016):
    (`frontend/src/features/model-editor/`) is one client of it: it sends operation steps and reads
    the outline back after each, so no containment or class rule is written in TypeScript. Its
    operations are one descriptor table (`operations.ts`) rendered by one dialog; it lives under
-   Settings in `ShellFrame` without a rail (D37).
+   Settings in `ShellFrame` without a rail (D37). Its **preview** (0.10 A4b) reads the draft compiled
+   (`GET /model-drafts/{id}/model`, the model and its placements as the runtime routes serve the
+   active one) and renders it with the record screen's own renderers. Their data comes through
+   `PreviewDataProvider` and `api/previewClient`: the reads go to the runtime routes, which serve
+   the active model, and every other call is refused in the browser before a request, so the preview
+   cannot write; reads the active model cannot answer (a new type, a field it lacks) are answered or
+   adjusted there. Layout changes are the view verbs (`model-editor/layout.ts`), one step each.
 2. **Validation and compilation** are free of side effects: diagnostics with JSON pointers, canonical
    compilation, a key-based semantic diff, compatibility analysis against stored data and, from schema
    0.8, the consumer contract comparison.

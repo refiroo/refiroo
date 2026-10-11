@@ -152,8 +152,12 @@ function editorSelection(query: URLSearchParams): EditorSelection {
   const key = query.get("key")?.trim();
   if (show === "matrix") return { show };
   const element = EDITOR_ELEMENTS.find((item) => item === show);
-  return element && key ? { show: element, key } : {};
+  if (!element || !key) return {};
+  const mode = EDITOR_MODES.find((item) => item === query.get("mode"));
+  return element === "type" && mode ? { show: element, key, mode } : { show: element, key };
 }
+
+const EDITOR_MODES = ["preview", "layout"] as const;
 
 function settingsPath(route: SettingsRoute) {
   if (route.page === "workspaces" && route.workspaceKey)
@@ -171,7 +175,8 @@ function settingsPath(route: SettingsRoute) {
     const { show } = route.editor;
     if (!show) return base;
     if (show === "matrix") return `${base}?show=matrix`;
-    return `${base}?show=${show}&key=${encodeURIComponent(route.editor.key)}`;
+    const mode = route.editor.show === "type" && route.editor.mode ? `&mode=${route.editor.mode}` : "";
+    return `${base}?show=${show}&key=${encodeURIComponent(route.editor.key)}${mode}`;
   }
   if (route.page === "model" && route.draftId) return `/settings/model/drafts/${encodeURIComponent(route.draftId)}`;
   if (route.page === "model" && route.releaseId)

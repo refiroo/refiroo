@@ -1359,6 +1359,56 @@ def remove_view(context: Context, raw: dict[str, Any]) -> Applied:
     )
 
 
+@kind("addDetailPage")
+def add_detail_page(context: Context, raw: dict[str, Any]) -> Applied:
+    """A detail page for a type of the application that has none (0.10 A4b, D48): the page a new
+    type gets, or, as ``removeDetailPage``'s inverse, the ``page`` it removed at its ``position``."""
+    params = Params(raw, ("applicationKey", "objectType", "page", "position"))
+    app = params.text("applicationKey")
+    application = context.application(app)
+    type_key = params.text("objectType")
+    context.object_type(type_key)
+    if type_key not in (application.get("objectTypeKeys") or []):
+        raise Refusal("objectType", "invalidValue", f"'{type_key}' is not a type of '{app}'")
+    details = application.get("details") if isinstance(application.get("details"), list) else []
+    if any(d.get("objectTypeKey") == type_key for d in details):
+        raise Refusal("objectType", "alreadyPresent", f"'{type_key}' already has a detail page in '{app}'")
+    stored = params.optional("page", dict)
+    page = copy.deepcopy(stored) if stored is not None else detail_page(context.document, type_key)
+    page["objectTypeKey"] = type_key
+    starts_list = not isinstance(application.get("details"), list)
+    if starts_list:
+        context.document.set(application_path(app), "details", [])
+    context.document.insert(application_path(app) + ["details"], page, _position(params, details))
+    applied = Applied(
+        {**raw, "page": page} if stored is None else raw,
+        {"kind": "removeDetailPage", "applicationKey": app, "objectType": type_key},
+        created={atom("detail", app, type_key)},
+        named={atom("application", app), atom("objectType", type_key)},
+    )
+    # The first page starts the application's list of pages, which the undo takes away again.
+    return restoring(context, {"kind": "addDetailPage", **raw}, applied) if starts_list else applied
+
+
+@kind("removeDetailPage")
+def remove_detail_page(context: Context, raw: dict[str, Any]) -> Applied:
+    Params(raw, ("applicationKey", "objectType"))
+    app = raw.get("applicationKey")
+    context.application(app)
+    path = application_path(app) + ["details", {"objectTypeKey": raw.get("objectType")}]
+    if not isinstance(raw.get("objectType"), str) or context.document.find(path) is None:
+        raise Refusal("objectType", "unknownElement", f"No detail page of '{raw.get('objectType')}' in '{app}'")
+    position = next(
+        i for i, d in enumerate(context.document.at(path[:-1])) if d.get("objectTypeKey") == raw["objectType"]
+    )
+    removed = context.document.remove(path[:-1], path[-1])
+    return Applied(
+        raw,
+        {"kind": "addDetailPage", "applicationKey": app, "objectType": raw["objectType"], "page": removed, "position": position},
+        named={atom("detail", app, raw["objectType"])},
+    )
+
+
 # --- navigation groups ---
 
 

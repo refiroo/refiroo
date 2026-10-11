@@ -151,6 +151,8 @@ can complete the task in the application; "API" means another system can.
   tree, attributes, relation types, the relationship matrix and navigation groups, each marked new,
   changed or released; move attributes and types by drag or Move to…; read the issues and the history,
   undo and redo; install and activate in one confirmed step.
+- Preview a type's record page and table from the draft over real records before installing it, and
+  lay out its panels, fields, columns, filters and sort in place, each change a step with undo.
 
 ### Integrate other systems — API
 

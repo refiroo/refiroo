@@ -30,6 +30,47 @@ function elementWords(element: unknown, names: Names): string {
   return "an element";
 }
 
+/** A view, a detail page or a panel, as a layout operation names it (D19). */
+function layoutTarget(p: Record<string, unknown>, names: Names): string {
+  if (p.view) return `view ${str(p.view)}`;
+  const page = `the page of ${names("objectType", str(p.detail))}`;
+  return p.panel ? `panel ${str(p.panel)} on ${page}` : page;
+}
+
+/** A list item: a field or column by its name, a panel by its title. */
+function itemWords(item: unknown, names: Names): string {
+  if (item && typeof item === "object")
+    return `panel ${str((item as { title?: string }).title) || str((item as { key?: string }).key)}`;
+  const key = str(item);
+  if (key === "name") return "Name";
+  return names("attributeType", key);
+}
+
+const LISTS: Record<string, string> = {
+  columns: "the columns of",
+  filterFields: "the filters of",
+  sortFields: "the sort fields of",
+  fields: "the fields of",
+};
+
+function listWords(p: Record<string, unknown>, names: Names): string {
+  if (str(p.list) === "panels") return layoutTarget(p, names);
+  return `${LISTS[str(p.list)] ?? `${str(p.list)} of`} ${layoutTarget(p, names)}`;
+}
+
+function propertyWords(p: Record<string, unknown>, names: Names): string {
+  const target = layoutTarget(p, names);
+  const value = p.value;
+  if (p.property === "visible") return `${value === false ? "Hid" : "Showed"} ${target}`;
+  if (p.property === "region") return `Moved ${target} to the ${str(value)} region`;
+  if (p.property === "title" || p.property === "name") return `Renamed ${target} to ${str(value)}`;
+  if (p.property === "defaultSort") {
+    const field = str(value).replace(/^-/, "");
+    return `Sorted ${target} by ${itemWords(field, names)}${str(value).startsWith("-") ? ", descending" : ""}`;
+  }
+  return `Set ${str(p.property)} of ${target}`;
+}
+
 /** One operation in words. Unknown kinds fall back to their name, so a later kind still reads. */
 export function describeOperation(kind: string, p: Record<string, unknown>, names: Names): string {
   const type = (key: unknown) => names("objectType", str(key));
@@ -108,6 +149,22 @@ export function describeOperation(kind: string, p: Record<string, unknown>, name
       return p.group
         ? `Placed ${type(p.collection)} in group ${names("group", str(p.group), str(p.applicationKey))}`
         : `Placed ${type(p.collection)} at the top of the sidebar`;
+    case "addView":
+      return `Added view ${str((p.view as { name?: string } | undefined)?.name) || str((p.view as { key?: string } | undefined)?.key)}`;
+    case "removeView":
+      return `Removed view ${str(p.view)}`;
+    case "addDetailPage":
+      return `Added a detail page for ${type(p.objectType)}`;
+    case "removeDetailPage":
+      return `Removed the detail page of ${type(p.objectType)}`;
+    case "insertViewItem":
+      return `Added ${itemWords(p.item, names)} to ${listWords(p, names)}`;
+    case "moveViewItem":
+      return `Moved ${itemWords(p.item, names)} to place ${Number(p.position) + 1} in ${listWords(p, names)}`;
+    case "removeViewItem":
+      return `Removed ${itemWords(p.item, names)} from ${listWords(p, names)}`;
+    case "setViewProperty":
+      return propertyWords(p, names);
     case "replaceModel":
       return "Edited the whole model as JSON";
     case "restoreElements":

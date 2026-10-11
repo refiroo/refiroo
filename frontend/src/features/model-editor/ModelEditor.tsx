@@ -10,12 +10,14 @@
  * apply it again on the newer version (D41).
  */
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import type {
   DraftOperation,
+  EditorMode,
   EditorSelection,
+  EngineModel,
   ModelDraftOperationEntry,
   ModelDraftOutline,
   ModelDraftStep,
@@ -50,6 +52,7 @@ import { type FieldValues, type OperationSpec, type OperationTarget } from "@/fe
 import { applicationOf, attributeTypeOf, nameOf, relationTypeOf, typeName } from "@/features/model-editor/outline";
 import { RelationshipMatrix } from "@/features/model-editor/RelationshipMatrix";
 import { OperationsMenu } from "@/features/model-editor/OperationsMenu";
+import { TypePreview } from "@/features/model-editor/TypePreview";
 
 type Send = (version: number) => Promise<ModelDraftStep>;
 
@@ -72,6 +75,8 @@ export function ModelEditor({
   onNavigate,
   onActivated,
   onOpenApplication,
+  activeModel,
+  workspaceKey,
 }: {
   draftId: string;
   selection: EditorSelection;
@@ -80,6 +85,10 @@ export function ModelEditor({
   /** Reloads the active model after an activation. */
   onActivated: () => Promise<unknown>;
   onOpenApplication: (applicationKey: string) => void;
+  /** The running model: the preview reads its records through it (0.10 A4b, D44). */
+  activeModel: EngineModel;
+  /** The workspace the preview reads records from first. */
+  workspaceKey: string;
 }) {
   const toast = useToast();
   const phone = useMediaQuery(PHONE_WIDTH);
@@ -98,6 +107,7 @@ export function ModelEditor({
   const [menuOpen, setMenuOpen] = useState(false);
   const version = useRef(0);
   const paneWidth = useLocalNumberPreference("rdm:model-editor:pane-width:v1", 300, 220, 560);
+
   const [bottomOpen, setBottomOpen] = useState(() =>
     readLocalPreference(BOTTOM_KEY, false, (value): value is boolean => typeof value === "boolean"),
   );
@@ -290,12 +300,51 @@ export function ModelEditor({
       />
     </section>
   );
+  /** The selected type's preview or its layout editor (0.10 A4b), marked by a band of their own. */
+  const typeKey = selection.show === "type" ? selection.key : undefined;
+  const mode = selection.show === "type" ? selection.mode : undefined;
+  const showType = (next?: EditorMode) =>
+    typeKey && onSelect({ show: "type", key: typeKey, ...(next ? { mode: next } : {}) });
+  const typePreview = (shown: EditorMode, actions: ReactNode) =>
+    typeKey && (
+      <TypePreview
+        mode={shown}
+        draftId={draftId}
+        version={outline.version}
+        objectTypeKey={typeKey}
+        activeModel={activeModel}
+        workspaceKey={workspaceKey}
+        send={(operations) => guarded(() => run(operations))}
+        onDialog={(operation, objectType) =>
+          setDialog({ kind: "operation", operation, target: { on: "objectType", objectType } })
+        }
+        onShowIssues={() => {
+          if (shown === "layout") showType();
+          setBottomTab("issues");
+          if (phone) setPhoneTab("issues");
+          else toggleBottom(true);
+        }}
+        actions={actions}
+      />
+    );
   const centre = (
     <section
       className="model-editor-centre"
       aria-label={selection.show === "matrix" ? "Relationship matrix" : "Selected element"}
     >
-      {selection.show === "matrix" ? (
+      {mode === "preview" ? (
+        typePreview(
+          "preview",
+          <>
+            <button type="button" className="primary" onClick={() => showType("layout")}>
+              <Icon name="pencil" /> Edit layout
+            </button>
+            <button type="button" className="secondary" onClick={() => showType()}>
+              <Icon name="arrow-left" /> Back to definition
+            </button>
+          </>,
+        )
+      ) : selection.show === "matrix" ? (
         <>
           <header className="element-header">
             <div className="element-title">
@@ -317,6 +366,7 @@ export function ModelEditor({
           onOperation={operate}
           onSelect={select}
           run={run}
+          onPreview={() => showType("preview")}
         />
       )}
     </section>
@@ -362,104 +412,106 @@ export function ModelEditor({
   );
 
   return (
-    <div className="model-editor">
-      <PageHeader
-        className="model-editor-bar"
-        variant="detail"
-        icon={<Icon name="model" size={20} />}
-        eyebrow={
-          <RouteLink
-            className="model-editor-crumb"
-            href={routePath({ kind: "settings", page: "model" })}
-            onNavigate={() => onNavigate({ kind: "settings", page: "model" })}
-          >
-            Settings › Model
-          </RouteLink>
-        }
-        title={name || "Model draft"}
-        description={
-          <Facts
-            label="About this draft"
-            facts={[
-              base && ownBase
-                ? {
-                    icon: "model",
-                    label: (
-                      <>
-                        Draft of <strong>{[base.key, base.version].filter(Boolean).join(" ")}</strong>
-                      </>
-                    ),
-                  }
-                : { icon: "model", label: "A new model" },
-              {
-                icon: "state-history",
-                label: (
-                  <>
-                    Version <strong>{outline.version}</strong>
-                  </>
-                ),
-                title: "The draft's version: one more with every step",
-              },
-              { icon: "check", label: "Saved after every step" },
-              {
-                icon: errors ? "state-conflict" : "check",
-                label: errors
-                  ? `${errors} ${errors === 1 ? "error" : "errors"}`
-                  : warnings
-                    ? `${warnings} warnings`
-                    : "Valid",
-              },
-            ]}
-          />
-        }
-        actions={
-          <div className="model-editor-actions">
-            {phone ? (
-              <>
-                <IconButton
-                  icon="undo"
-                  label="Undo the last step"
-                  disabled={busy || !undoAvailable}
-                  onClick={() => void undo()}
-                />
-                <IconButton icon="redo" label="Redo" disabled={busy || !redoAvailable} onClick={() => void redo()} />
-                <ActionMenu
-                  label="More: Open as JSON, Install and activate"
-                  items={[
-                    { id: "json", label: "Open as JSON", onAction: () => onNavigate(workbench) },
-                    { id: "install", label: "Install and activate…", onAction: () => setDialog({ kind: "install" }) },
-                  ]}
-                />
-              </>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  className="secondary"
-                  disabled={busy || !undoAvailable}
-                  onClick={() => void undo()}
-                >
-                  <Icon name="undo" /> Undo
-                </button>
-                <button
-                  type="button"
-                  className="secondary"
-                  disabled={busy || !redoAvailable}
-                  onClick={() => void redo()}
-                >
-                  <Icon name="redo" /> Redo
-                </button>
-                <RouteLink className="secondary" href={routePath(workbench)} onNavigate={() => onNavigate(workbench)}>
-                  Open as JSON
-                </RouteLink>
-                <button type="button" className="primary" onClick={() => setDialog({ kind: "install" })}>
-                  Install and activate…
-                </button>
-              </>
-            )}
-          </div>
-        }
-      />
+    <div className={`model-editor${mode === "layout" ? " model-editor-layout" : ""}`}>
+      {mode !== "layout" && (
+        <PageHeader
+          className="model-editor-bar"
+          variant="detail"
+          icon={<Icon name="model" size={20} />}
+          eyebrow={
+            <RouteLink
+              className="model-editor-crumb"
+              href={routePath({ kind: "settings", page: "model" })}
+              onNavigate={() => onNavigate({ kind: "settings", page: "model" })}
+            >
+              Settings › Model
+            </RouteLink>
+          }
+          title={name || "Model draft"}
+          description={
+            <Facts
+              label="About this draft"
+              facts={[
+                base && ownBase
+                  ? {
+                      icon: "model",
+                      label: (
+                        <>
+                          Draft of <strong>{[base.key, base.version].filter(Boolean).join(" ")}</strong>
+                        </>
+                      ),
+                    }
+                  : { icon: "model", label: "A new model" },
+                {
+                  icon: "state-history",
+                  label: (
+                    <>
+                      Version <strong>{outline.version}</strong>
+                    </>
+                  ),
+                  title: "The draft's version: one more with every step",
+                },
+                { icon: "check", label: "Saved after every step" },
+                {
+                  icon: errors ? "state-conflict" : "check",
+                  label: errors
+                    ? `${errors} ${errors === 1 ? "error" : "errors"}`
+                    : warnings
+                      ? `${warnings} warnings`
+                      : "Valid",
+                },
+              ]}
+            />
+          }
+          actions={
+            <div className="model-editor-actions">
+              {phone ? (
+                <>
+                  <IconButton
+                    icon="undo"
+                    label="Undo the last step"
+                    disabled={busy || !undoAvailable}
+                    onClick={() => void undo()}
+                  />
+                  <IconButton icon="redo" label="Redo" disabled={busy || !redoAvailable} onClick={() => void redo()} />
+                  <ActionMenu
+                    label="More: Open as JSON, Install and activate"
+                    items={[
+                      { id: "json", label: "Open as JSON", onAction: () => onNavigate(workbench) },
+                      { id: "install", label: "Install and activate…", onAction: () => setDialog({ kind: "install" }) },
+                    ]}
+                  />
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="secondary"
+                    disabled={busy || !undoAvailable}
+                    onClick={() => void undo()}
+                  >
+                    <Icon name="undo" /> Undo
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    disabled={busy || !redoAvailable}
+                    onClick={() => void redo()}
+                  >
+                    <Icon name="redo" /> Redo
+                  </button>
+                  <RouteLink className="secondary" href={routePath(workbench)} onNavigate={() => onNavigate(workbench)}>
+                    Open as JSON
+                  </RouteLink>
+                  <button type="button" className="primary" onClick={() => setDialog({ kind: "install" })}>
+                    Install and activate…
+                  </button>
+                </>
+              )}
+            </div>
+          }
+        />
+      )}
       {stale && (
         <Notice
           tone="warning"
@@ -510,7 +562,25 @@ export function ModelEditor({
           {notice.text}
         </Notice>
       )}
-      {phone ? (
+      {mode === "layout" ? (
+        typePreview(
+          "layout",
+          <>
+            <button type="button" className="secondary" disabled={busy || !undoAvailable} onClick={() => void undo()}>
+              <Icon name="undo" /> Undo
+            </button>
+            <button type="button" className="secondary" disabled={busy || !redoAvailable} onClick={() => void redo()}>
+              <Icon name="redo" /> Redo
+            </button>
+            <button type="button" className="secondary" onClick={() => showType("preview")}>
+              Preview
+            </button>
+            <button type="button" className="primary" onClick={() => showType()}>
+              <Icon name="arrow-left" /> Back to the model editor
+            </button>
+          </>,
+        )
+      ) : phone ? (
         <div className="model-editor-tabs">
           <Tabs
             label="Editor panes"

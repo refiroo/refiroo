@@ -30,7 +30,13 @@ dialogs, menus and layout: a draft opens in the model editor from Settings › M
 selected element and its operations, the relationship matrix, issues and history with undo and redo,
 Move to… and drags, the stale-version question and install and activate in one step; the server serves
 the draft's outline. The user added **A4c, a consumer API editor** beside the model
-editor, before T1 (2026-10-11). Next is A4b, the preview and layout editing, then A4c.
+editor, before T1 (2026-10-11). **A4b, the preview and layout editing, is delivered (2026-10-12)**, approved by the user: **Preview** in a type's header shows its record page and
+table from the draft over records read live, its controls shown and disabled, in the editor's centre
+under a band of its own; **Edit layout** opens the layout editor over the whole editor, where panels,
+fields and table columns are moved by menu, keyboard or drag, grouped, hidden and sorted, one step
+each; `GET /model-drafts/{id}/model` and the kinds `addDetailPage` and `removeDetailPage`. The user
+moved the preview from a side pane into the centre while it was built; the side pane is kept in
+SAVED_UI_PATTERNS. Next is A4c.
 
 ### How 0.9 was built
 

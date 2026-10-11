@@ -49,6 +49,7 @@ import type {
   DraftOperation,
   ModelDraft,
   ModelDraftOperationPage,
+  ModelDraftModel,
   ModelDraftOutline,
   ModelDraftPage,
   ModelDraftStep,
@@ -607,6 +608,9 @@ export const api = {
     }),
   modelDraftOutline: (draftId: string) =>
     request<ModelDraftOutline>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/outline`),
+  /** The draft compiled as `model` serves the active one, with its placements (0.10 A4b, D43). */
+  modelDraftModel: (draftId: string) =>
+    request<ModelDraftModel>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/model`),
   applyModelDraftOperations: (draftId: string, expectedVersion: number, operations: DraftOperation[]) =>
     request<ModelDraftStep>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/operations`, {
       method: "POST",

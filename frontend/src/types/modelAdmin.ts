@@ -3,6 +3,8 @@
  * compilation diagnostics, semantic diffs and runtime activation state.
  */
 
+import type { EngineModel, ModelPlacements } from "./model";
+
 export interface ModelAdminCapabilities {
   readReleases: boolean;
   manageDrafts: boolean;
@@ -303,6 +305,18 @@ export interface OutlineRelation {
 
 export interface OutlineDiagnostic extends ModelDiagnostic {
   element: OutlineElement | null;
+}
+
+/**
+ * A draft compiled as `GET /model` serves the active model, with its placements
+ * (`GET /model-drafts/{id}/model`, 0.10 A4b, D43); no model when the draft does not compile.
+ */
+export interface ModelDraftModel {
+  version: number;
+  valid: boolean;
+  diagnostics: OutlineDiagnostic[];
+  model?: EngineModel;
+  placements?: ModelPlacements;
 }
 
 /** A draft's structure as the editor shows it (`GET /model-drafts/{id}/outline`, 0.10 A4a, D36). */

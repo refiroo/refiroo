@@ -803,7 +803,8 @@ and W2.
 **Status:** J33.9 delivered by N1 (2026-10-11), with groups declared in the model document; the
 operation API (J33.1–J33.8, J33.12 through the API) delivered by A2 (2026-10-11); the editor's
 model pane (A4a, 2026-10-11): the browser side of J33.1–J33.7 and
-J33.11 except layout; laying out in the preview (A4b, J33.10, and J33.11 for layout) planned.
+J33.11 except layout; the preview and layout editing (A4b, 2026-10-12): J33.10 and J33.11 for
+layout, delivered.
 
 1. Open a draft of the active release, or an empty one, in the editor.
 2. Change the model by operations: applications, object types in their containment tree, attributes,
@@ -853,8 +854,11 @@ configurations each); every kind and its inverse: `tests/unit/engine/model/autho
 outline: `test_j33_outline` (two configurations each). In the browser: `test:browser:authoring-a4a`
 (the renamed example and generated-b: a type, an attribute, a relation from the matrix, a group,
 undo and redo, Move to… by keyboard, a drag, a released element refused, a stale version, install
-and activate, a record in the new collection, an application from an empty draft, 390px). J33.10 is
-planned.
+and activate, a record in the new collection, an application from an empty draft, 390px). J33.10:
+`test_j33_layout` (the draft's model, a layout laid out step by step and found after activation,
+`addDetailPage`; two configurations each) and `test:browser:authoring-a4b` (the renamed example and
+generated-b: the preview, the layout editor, by menu, keyboard and drag, a new type, an invalid
+draft, no write from the preview, the record screen after activation, 390px).
 
 ### J34 — Onboard a workbook
 

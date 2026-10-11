@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 from ....models.database import ModelDraft
 from ..compiler import compile_authored_model
 from ..diagnostics import ModelDiagnostic
+from ..placements import model_placements
 from .document import Document
 from .kinds import atom
 from .layout import contained_types
@@ -41,6 +42,23 @@ def draft_outline(session: Session, draft: ModelDraft) -> dict[str, Any]:
         "valid": compiled.valid,
         "diagnostics": [diagnostic_with_element(data, item) for item in compiled.diagnostics],
     }
+
+
+def draft_model(draft: ModelDraft) -> dict[str, Any]:
+    """The draft compiled as ``GET /model`` serves the active model, with its placements, for a
+    client that renders it before installing (0.10 A4b, D43); without a model when it does not
+    compile. A read: nothing is written."""
+    data = draft.model_json if isinstance(draft.model_json, dict) else {}
+    compiled = compile_authored_model(draft.model_json)
+    answer: dict[str, Any] = {
+        "version": draft.version,
+        "valid": compiled.valid,
+        "diagnostics": [diagnostic_with_element(data, item) for item in compiled.diagnostics],
+    }
+    if compiled.valid and compiled.model is not None:
+        answer["model"] = compiled.canonical_model
+        answer["placements"] = model_placements(compiled.model)
+    return answer
 
 
 def build_outline(data: dict[str, Any], base: dict[str, Any] | None) -> dict[str, Any]:

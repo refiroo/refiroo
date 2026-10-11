@@ -53,6 +53,14 @@ describe("routes", () => {
       "/settings/model/drafts/d1/editor?show=matrix",
       { kind: "settings", page: "model", draftId: "d1", editor: { show: "matrix" } },
     ],
+    [
+      "/settings/model/drafts/d1/editor?show=type&key=shelf&mode=preview",
+      { kind: "settings", page: "model", draftId: "d1", editor: { show: "type", key: "shelf", mode: "preview" } },
+    ],
+    [
+      "/settings/model/drafts/d1/editor?show=type&key=shelf&mode=layout",
+      { kind: "settings", page: "model", draftId: "d1", editor: { show: "type", key: "shelf", mode: "layout" } },
+    ],
   ])("round-trips the settings page %s (U3, 0.10 A4a)", (path, route) => {
     expect(at(path)).toEqual(route);
     expect(routePath(route)).toBe(path);
@@ -67,6 +75,13 @@ describe("routes", () => {
     ["/models?releaseId=r1&draftId=d1", "/settings/model/drafts/d1"],
     ["/settings/model/drafts/d1/editor?show=type", "/settings/model/drafts/d1/editor"],
     ["/settings/model/drafts/d1/editor?show=nothing&key=k", "/settings/model/drafts/d1/editor"],
+    // A mode belongs to a type; an unknown one is dropped.
+    ["/settings/model/drafts/d1/editor?show=matrix&mode=layout", "/settings/model/drafts/d1/editor?show=matrix"],
+    ["/settings/model/drafts/d1/editor?show=type&key=k&mode=other", "/settings/model/drafts/d1/editor?show=type&key=k"],
+    [
+      "/settings/model/drafts/d1/editor?show=application&key=k&mode=preview",
+      "/settings/model/drafts/d1/editor?show=application&key=k",
+    ],
     ["/workspaces", "/settings/workspaces"],
     ["/workspaces/central-europe", "/settings/workspaces/central-europe"],
   ])("reads %s as the settings page at %s, so the old address redirects (U3)", (path, canonical) => {

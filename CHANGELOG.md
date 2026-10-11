@@ -60,6 +60,19 @@ All notable changes to this project are documented in this file. The format foll
   release and the diagnostics with their elements. **New draft** from an empty model now starts a
   document of the newest schema language with a release identity, instead of `{}`. The browser
   runner `test:browser:authoring-a4a`.
+- Base 0.10 A4b: the preview and layout editing (D43–D50; J33.10). **Preview** in a type's header
+  shows its record page and table in the editor's centre, drawn by the record screen's own renderers
+  from the draft before it is installed, over a record read live in a workspace and record chosen in
+  the band (or an empty record for a new type); the page's controls are shown and disabled, and
+  nothing the preview shows writes. **Edit layout** opens the layout editor over the whole editor,
+  marked by its own band with Undo, Redo and **Back to the model editor**: panels moved within and
+  between `main` and `side`, hidden or shown, renamed, their columns and sort; fields moved, grouped
+  into new field groups and added; a table view's columns, filters and default sort; by menu and
+  keyboard, or by dragging with mouse or pen. Each change is one step of the draft. A draft that does
+  not compile is not previewed. `GET /model-drafts/{id}/model` answers a draft compiled as
+  `GET /model` serves the active model, with its placements; the operations `addDetailPage` and
+  `removeDetailPage` give a type without a declared detail page the page a new type gets. The
+  browser runner `test:browser:authoring-a4b`.
 
 ### Fixed
 

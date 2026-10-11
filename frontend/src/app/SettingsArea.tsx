@@ -63,6 +63,8 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
           onSelect={(selection) => navigate({ ...editing, editor: selection })}
           onNavigate={(next) => navigate(next)}
           onActivated={router.reloadModel}
+          activeModel={model}
+          workspaceKey={workspaceKey}
           onOpenApplication={(applicationKey) => {
             // The active model was just reloaded; read it again so the new application is known here.
             void api.model().then((active) => {

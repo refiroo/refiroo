@@ -35,6 +35,14 @@ const Context = createContext<DataContext>({ api, warning: "" });
 export const useWorkspaceData = () => useContext(Context);
 export const useDataApi = () => useContext(Context).api;
 
+/**
+ * The data of the model editor's preview (0.10 A4b, D44): live records read through a client that
+ * refuses every write (`api/previewClient`), under a model the server is not running.
+ */
+export function PreviewDataProvider({ client, children }: { client: typeof api; children: ReactNode }) {
+  return <Context.Provider value={{ api: client, warning: "" }}>{children}</Context.Provider>;
+}
+
 export function WorkspaceDataProvider({
   changeSetId,
   publicationId,

@@ -398,7 +398,12 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
     styles (every dialog's field spacing, every `ActionMenu`); re-record at T1 after review.
   - [ ] A4a's surfaces (the editor, the matrix, Move to…, the operation and install dialogs) into the
     accessibility and visual gates, light and dark, at T1; dark mode is uninspected until then.
-  - [ ] A4b editor: preview and layout editing.
+  - [x] A4b editor: preview and layout editing (delivered 2026-10-12).
+  - [ ] A4b: one runner run on the renamed example ended with the application a test step adds still
+    in the draft although the preview had come back after Undo; not seen again in two runs. The runner
+    prints the draft's history when it happens; look at it then.
+  - [ ] A4b's surfaces (the preview, the layout editor, the field group and sort dialogs) into the
+    accessibility and visual gates, light and dark, at T1; dark mode is uninspected until then.
   - [ ] A4c editor: consumer APIs, a Consumer APIs tab beside Model; consumer API definitions changed
     by operations (added by the user 2026-10-11, before T1; design pass and plan when it comes).
   - [ ] T1 designer checkpoint (US-P05), released as 0.10.0-alpha.1 (D14).

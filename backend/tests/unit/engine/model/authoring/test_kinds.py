@@ -41,6 +41,16 @@ def _operations(model: dict[str, Any]) -> Iterator[dict[str, Any]]:
                 yield {"kind": "removeViewItem", "applicationKey": app, "view": view["key"], "list": "columns", "item": columns[-1]}
                 if len(columns) > 1:
                     yield {"kind": "moveViewItem", "applicationKey": app, "view": view["key"], "list": "columns", "item": columns[-1], "position": 0}
+        paged = {detail["objectTypeKey"] for detail in application.get("details", [])}
+        for type_key in application["objectTypeKeys"]:
+            kind = "removeDetailPage" if type_key in paged else "addDetailPage"
+            yield {"kind": kind, "applicationKey": app, "objectType": type_key}
+        paged = {d["objectTypeKey"] for d in application.get("details", [])}
+        for type_key in application["objectTypeKeys"]:
+            if type_key in paged:
+                yield {"kind": "removeDetailPage", "applicationKey": app, "objectType": type_key}
+            else:
+                yield {"kind": "addDetailPage", "applicationKey": app, "objectType": type_key}
         for detail in application.get("details", []):
             for panel in detail["panels"]:
                 yield {"kind": "removeViewItem", "applicationKey": app, "detail": detail["objectTypeKey"], "list": "panels", "item": panel["key"]}

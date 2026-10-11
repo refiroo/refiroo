@@ -510,6 +510,17 @@ class ModelDraftOutlineResponse(BaseModel):
     diagnostics: list[OutlineDiagnostic]
 
 
+class ModelDraftModelResponse(BaseModel):
+    """A draft compiled as ``GET /model`` serves the active model, with its placements (0.10 A4b,
+    D43); ``model`` and ``placements`` are absent when the draft does not compile."""
+
+    version: int
+    valid: bool
+    diagnostics: list[OutlineDiagnostic]
+    model: dict[str, Any] | None = None
+    placements: ModelPlacements | None = None
+
+
 class ModelCompilationResponse(BaseModel):
     valid: bool
     model: dict[str, Any] | None = None

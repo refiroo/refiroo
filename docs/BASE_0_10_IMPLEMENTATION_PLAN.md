@@ -230,7 +230,7 @@ migration), `contract` (every route change) and `volume` (every budget).
 | 2 | [N1](#n1-navigation-groups-and-schema-010) | A0 | **Delivered 2026-10-11.** Schema 0.10 with `navigation`; sidebar groups and the group page; the phone band |
 | 3 | [A2](#a2-operation-api-on-model-drafts) | A0, N1 | **Delivered 2026-10-11.** `POST …/operations`, history, undo and redo; the model-side catalogue; generated defaults for new types |
 | 4 | [A4a](#a4a-editor--model-pane) | A2 | **Delivered 2026-10-11.** The editor frame and model pane, relationship matrix, issues, history, install and activate |
-| 5 | [A4b](#a4b-editor--preview-and-layout-editing) | A4a | Preview with existing records; views, panels and fields laid out in place |
+| 5 | [A4b](#a4b-editor--preview-and-layout-editing) | A4a | **Delivered 2026-10-12.** Preview with existing records; views, panels and fields laid out in place |
 | 6 | [A4c](#a4c-editor--consumer-apis) | A4a, A4b | **Added by the user 2026-10-11.** The consumer API editor: a Consumer APIs tab beside Model in the editor; consumer API definitions changed by operations. Planned in detail when it comes |
 | 7 | [T1](#t1-designer-checkpoint) | A4b, A4c | US-P05 composed in the browser on two models; the designer's gates; tagged `v0.10.0-alpha.1` (D14) |
 | 8 | [A3](#a3-source-profiling-and-the-dry-run-summary) | A0 | Source files, profiles of sheets and columns, the dry-run summary; W1–W3 generators. May be taken earlier as a filler |
@@ -1290,6 +1290,229 @@ draft's compiled model and writes nothing.
 **Groups:** `authoring`, `model` if the compile path changes; frontend unit tests.
 
 **Exit:** screenshots approved.
+
+##### A4b plan (2026-10-11)
+
+**Planned 2026-10-11; accepted by the user the same day ("looks cool, above is ok"): D43–D50 as
+recommended, the test cases and the mock-up** ([preview and layout mock-up](https://claude.ai/artifact/R7BReAfCDnKMAwqioxA5s6), six
+boards, 1440px and 390px, light and dark; private until shared). Checked against the code at
+`c6ad770`:
+
+- **The draft's model.** `compile_model` returns `canonical_model`, the same `EngineModel` dump
+  `GET /model` serves, so the generic renderers can take a compiled draft as they are. Only
+  `POST …/compile` serves it today, and that route is a write-shaped request (`expectedVersion`)
+  that refuses an invalid draft and also works out the differences, compatibility and consumer
+  contracts, which is too much to run after every step. Placements (`GET /model/placements`, 0.8
+  D45) are served for the active model only.
+- **The renderers** take the model as a prop (`ObjectDetail`, the panel registry, `ObjectCollectionView`)
+  and read data through `useDataApi()` from `WorkspaceDataContext`. A record screen already renders
+  a change set under a model other than the active one, so rendering under a model the server is not
+  running is an existing pattern. The reads the renderers make are `object`, `objects`,
+  `relations`, `relation` and `objectHistory`; their writes (`createAttribute`, `updateAttribute`,
+  `createRelation`, …) are reached only when `readOnly` is off.
+- **Pickers** limit candidates on the server (`candidateFor`, 0.9 K7) by the **active** model's
+  relation binding, so a relation the draft adds or whose choice rule it changes cannot be checked by
+  the existing read.
+- **The view verbs** (A2, D19) cover every layout change in scope: `moveViewItem` on a page's
+  `panels` (keeping `order`) and on a panel's `fields` or a view's `columns`, `filterFields` and
+  `sortFields`; `insertViewItem` and `removeViewItem` on the same lists; `setViewProperty` for a
+  panel's `region`, `visible` and `title`, a view's `defaultSort` and `pageSize`, a relations panel's
+  `defaultSort`. **No kind adds a detail page**: `_detail_path` refuses a type without one, and the
+  example model has such types (one in one application, five in two of the starter's), which the
+  browser shows through `model/defaults.fallbackDetail`. `layout.detail_page` already generates the
+  page `addObjectType` adds.
+- **Field editors.** The attribute registry has one editor per value type, and no model hint chooses
+  one (`ui` carries `helpText` and `hidden` only), so "a field's editor where the registry declares
+  more than one" has nothing to choose from (D49).
+
+**What is built:**
+
+1. **Backend: the draft's model** (D43). `GET /model-drafts/{id}/model` under the model
+   administration gate: `version`, `valid`, `diagnostics` (as the outline's), and, when the draft
+   compiles, `model` (the dump `GET /model` gives) and `placements` (as `GET /model/placements`
+   gives, from the same model). An invalid draft answers `200` with `valid: false` and no model. It
+   reads; it writes nothing and takes no lock. Response schema in `management/schemas/model.py`.
+2. **Backend: `addDetailPage` and `removeDetailPage`** (D48), additive, each the other's inverse
+   (`removeDetailPage`'s inverse carries the page's declaration, as `removeView`'s does). `addDetailPage`
+   (`applicationKey`, `objectType`) writes the page `layout.detail_page` generates;
+   `alreadyPresent` when the type has one. API.md's kinds table and the history's words gain both.
+3. **The preview pane** (D44, D45, D46): a right-hand pane of the editor for the selected type,
+   resizable like the model pane, folded away by the reader, a fourth tab **Preview** at 390px. Its
+   head chooses the **workspace** (the default first), the **record** (the first by name, or any one
+   through a search) or **Empty record**; a new type has only the empty record. Below it, two tabs:
+   **Record** (`ObjectDetail` with the draft's model, read-only) and **Table** (the type's table views,
+   one at a time, by `ObjectCollectionView` with the draft's model, first page). The renderers get a
+   preview data context: reads go to the server, every write is refused in the browser before it is
+   sent, and an empty record answers its own reads with nothing. Pickers open from a relations
+   panel's **Add…** and list candidates (D45). When the draft does not compile, the pane says so with
+   the issue count and a link to Issues, and renders nothing (D47).
+4. **Layout editing in place** (D46): **Edit layout** in the preview's head turns each panel into a
+   frame with a grip, its title, its region and a **⋯** menu: Move up, Move down, Move to side /
+   main, Hide / Show (a hidden panel stays in the frame, struck through), Rename…, Columns…, Sort…,
+   Remove from page. In an attributes panel each field has a grip and a menu (Move up, Move down,
+   Move to panel…, Remove from panel); **Add field…** lists the type's attributes not on the page;
+   **New field group** inserts an attributes panel (D50). In the Table tab each column header has a
+   grip and a menu (Move left, Move right, Remove column), with **Columns…**, **Filters…** and
+   **Default sort…** in the head. Each choice is one operation request, so one step in the history,
+   undone by the bar's Undo. Drags (mouse and pen) reorder panels, fields and columns and move a
+   panel between regions; the menus are the keyboard and phone path, as in A4a (D40). A type with no
+   declared page shows the page the browser falls back to, and its first layout change sends
+   `addDetailPage` with the change in the same request.
+5. **Shared, not copied:** the panel and field frames are one `LayoutFrame` component; the list
+   dialogs (Columns…, Filters…, Add field…) are one `ListChoiceDialog` over `ui/Modal`; the menus are
+   `OperationsMenu`. The operation descriptors gain the view verbs (A4a left them out, D38) with
+   their history words.
+6. **Documents:** API.md (the draft's model, the two kinds), API_JOURNEYS (the route), USER_JOURNEYS
+   (J33.10's status and evidence), UI_ACCEPTANCE (rows A4b-1 to A4b-3), CURRENT_FUNCTIONALITY and
+   PRODUCT, ARCHITECTURE (the preview's data context), CHANGELOG, PROJECT_STATUS, TODO. The scope line
+   on field editors is amended (D49).
+
+No migration. **Reference patterns:** the record screen (`ObjectDetail`) and the collection's table
+as they are; **Actions** (`ActionMenu`) for the frames' menus; **Dialog** for the list choices; the
+tree lens's Move to… (B5) and A4a's drags for reordering; **Notice** for an invalid draft.
+
+**Decisions** (D43 onward):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D43 | How the preview gets the draft's model | **A read, `GET /model-drafts/{id}/model`**, with the compiled model and its placements, or `valid: false` and the diagnostics. The compile route is a POST that refuses an invalid draft and computes differences and compatibility the preview does not need, and the browser cannot compile the model itself. Cost: one route in the `authoring` and `contract` groups. An integrator gets the model their client would render before installing |
+| D44 | What data the preview shows | **Records of the active model, read live through the existing routes, in a workspace the reader picks; an empty record for a new type; nothing written.** Only the layout comes from the draft. A field the active model does not hold shows empty, which is true: no record has a value for it yet. Reading records through the draft's model on the server would put a model that is not running into every data read; the record screen already renders under a model other than the active one (change sets) |
+| D45 | Pickers with the candidates they would offer | **The existing per-type list, limited by the active rule where the draft keeps it; otherwise the far type's records, unlimited, with a line saying the draft's choice rule applies after activation.** A far type that is new has no records ("New type: no records yet"). A draft-aware candidate read on the server is the alternative; it puts a draft into live reads for a hint the reader gets after activation anyway. Recorded for after 1.0 if a client needs it |
+| D46 | Where layout is edited | **In the preview, on the rendered page, behind Edit layout**, as MODEL_AUTHORING says: the reader sees the page change after every step. Menus on every frame are the keyboard and phone path; drags are mouse and pen. The alternative, a Layout tab in the centre listing panels and columns as tables, is easier to build but shows a list, not the page; the mock-up shows the in-place version for approval |
+| D47 | The preview while the draft does not compile | **Say so and render nothing**, with the issue count and a link to Issues. Keeping the last valid render would show a layout that is no longer the draft's, and layout editing on it would send operations against a model the reader is not looking at |
+| D48 | A type without a declared detail page | **Two additive kinds, `addDetailPage` and `removeDetailPage`; the editor sends `addDetailPage` with the first layout change of such a type.** Without them, a type the model declares no page for cannot be laid out, and the browser's fallback page would stay the only one. The server generates the page, as for a new type (principle 2) |
+| D49 | A field's editor | **Not built in A4b.** The registry has one editor per value type and no model hint chooses one; a choice comes with a second editor for a value type, after two real cases (AGENTS.md). The scope line is amended to say so |
+| D50 | Grouping fields | **A group is an attributes panel**: New field group adds one with a title, Move to panel… moves a field between groups (one request: remove from one list, insert into the other). No new model structure; a page already declares several attributes panels |
+
+**Journey test cases** (backend, J33.10 through the API, on generated-a and the example where they
+hold the structures, otherwise generated-b; marker `authoring`):
+
+1. **The draft's model.** Given a draft of the active release with a type added under `R`, when the
+   draft's model is read, then it is `valid`, holds the new type with its generated table view and
+   detail page, its placements list it under `R`'s type, its `version` equals the draft's, and the
+   draft's version and history are unchanged by the read.
+2. **Invalid between steps.** After `addApplication` alone, the read answers `200` with `valid:
+   false`, no model, and the diagnostics the step answered.
+3. **Lay out a type, then activate.** Given a type with a detail page and a table view, when panels
+   are reordered, one moved to `side`, one hidden, a field moved to a new attributes panel in one
+   request, a table column moved and one removed and the default sort set, then each is one step;
+   after one undo the layout is the previous step's; after install and activate, `GET /model`
+   answers the same page and view as the draft's model read before installing.
+4. **A type without a page.** `addDetailPage` on such a type writes the page a new type would get;
+   undo removes it; on a type with a page it is refused `INVALID_OPERATION` (`alreadyPresent`) and
+   nothing applies.
+5. **Not found and gated:** an unknown draft is `404 MODEL_DRAFT_NOT_FOUND`; with administration
+   disabled the route is absent.
+
+**Browser** (`test:browser:authoring-a4b`, on both designer models, D20, naming no key): select a
+released type and see an existing record and its table in the preview; Edit layout: move a panel to
+the side, hide one, move a field to a new field group, reorder table columns and remove one, set the
+default sort, by drag and by menu; undo one; a new type's empty record laid out the same way; an
+invalid step shows the notice; install and activate; open the record screen and the collection and
+find the same layout. Keyboard alone for one pass; 1440px and 390px (the Preview tab); axe on the
+preview, Edit layout and a list dialog; screenshots for approval. No write reaches the server from
+the preview (the runner counts requests).
+
+**Unit tests:** backend, `addDetailPage` and `removeDetailPage` and their inverses; frontend, the view
+verb descriptors (each builds the request API.md defines) and their history words, the preview data
+context (writes refused, an empty record's reads), and the candidate line of D45.
+
+**Groups:** `authoring`, `contract`, `model_admin`; Vitest for the new and changed modules (`vitest
+related`); `npm run format`, `lint`, `build`; `test:browser:authoring-a4b` and `-a4a`, and the
+record screen's runners the guide selects for `ObjectDetail` and the collection view, since the
+renderers are reused (no change to them is planned beyond the data context). **Deferred to T1:**
+visual baselines and the accessibility gate's scenarios, as A4a deferred its own.
+
+**Composable domains (ADR-032):** model administration only; no door is affected.
+
+
+##### A4b record (2026-10-12)
+
+**Delivered 2026-10-12.** The user approved it ("okay cool, can be committed"). The
+user reviewed it on the development server while it was built and changed where the preview and the
+layout editor stand; what is below is the built state. Built as planned (D43, D44, D47–D50), with
+these differences:
+
+- **Where the preview stands (the user, 2026-10-12, amending the mock-up and D46).** No pane at the
+  right: a **Preview** button in the selected type's header, between its name and its ⋯ menu, opens
+  the preview in the editor's centre, beside the model pane. **Edit layout** opens the layout editor
+  over the whole editor (the bar, the panes and the drawer give way), with **Back to the model
+  editor**. Each has its own address (`?show=type&key=…&mode=preview|layout`), so the browser's Back
+  goes back too. A band in the data-context band's way (ADR-039) says which one shows: the preview is
+  marked as a publication is (a read-only view), the layout editor as a change set is (an edit under
+  way), so neither is taken for the live record screen. The band holds the type's name, the mark, the
+  **workspace** and the **record** as choices that open their lists (as the phone band's choices do),
+  a note, and the actions: Edit layout and Back to definition in the preview; Undo, Redo, Preview and
+  Back to the model editor in the layout editor. The band stays in place; the page under it scrolls.
+- **The first build's right-hand pane** (resizable, folded to a strip and opened again, both
+  remembered) was liked by the user and is kept for later in
+  [SAVED_UI_PATTERNS.md](SAVED_UI_PATTERNS.md#a-folding-side-pane); it is not in the product.
+- **The preview's controls are shown and disabled (the user, 2026-10-12), amending D45.** The record
+  page and the table render with their editing controls, inside a disabled fieldset, so every button,
+  field and menu is there and none can be pressed, and links are not followed. A relationship's picker
+  therefore does not open in the preview; the preview client still leaves out a choice rule the draft
+  adds or changes (D45's rule), unused by the editor until a picker opens there.
+- **D48 as a step of its own.** A type with no declared page shows, in the layout editor, a notice and
+  **Declare its page**, which sends `addDetailPage` alone; the page's frames are then the server's.
+  The plan said the first layout change carries it, but the page the browser falls back to
+  (`fallbackDetail`) names its panels differently from the page the server writes, so a change made on
+  it would name panels the declared page does not have.
+- **`addDetailPage`'s undo.** When the page starts the application's list of pages, its inverse is
+  `restoreElements`, which takes the list away again; otherwise `removeDetailPage`. Removing an
+  application's last page keeps its empty list (two sessions had built both ways; one was kept).
+- **Table columns** are frames in a bar above the table, each with its grip and menu, with Columns…,
+  Filters… and Default sort… beside them; the mock-up drew the menus in the header cells. Listed for
+  the user's review.
+- **No field editor choice** (D49), as accepted.
+- **A defect found by the user, fixed:** a table column's grip started a drag, but no drop moved it;
+  the column's frame took the drop and did nothing. A column dropped on another now takes its place,
+  and the runner drags a column on both models (it had dragged only panels).
+- **Shared, not copied:** the layout dialogs are descriptors on the editor's one `OperationDialog`
+  (`model-editor/layout.ts`); the band reuses the data-context band's classes, `ui/ControlPopover`,
+  `features/workspaces/WorkspaceSelector` and `ui/ObjectLookup`; the preview's renderers are the
+  record screen's (`ObjectDetail`, the panel registry, `ObjectCollectionView`) under
+  `PreviewDataProvider`, a provider beside `WorkspaceDataProvider`.
+- **Built across sessions.** The backend was started in this session, carried on for a while in a
+  second session that also took up A4b, and finished here once the user chose one session. A4a's
+  follow-up from a third session (`operations.ts`, its test and the A4a runner: "Remove relation"
+  and a relation type removed with its pairs) is in the same working tree and is A4a's, not this
+  package's.
+
+**Checks:**
+
+- Journeys `tests/journeys/test_j33_layout.py`: seen failing first (10 of 12; the two "absent when
+  disabled" cases pass either way), then 12 passed (6 cases on two configurations); with the route
+  inventory, 17 passed.
+- Unit `tests/unit/engine/model/authoring/test_kinds.py` with `addDetailPage` and `removeDetailPage`
+  generated for every type of both models: 1,350 passed. Its first run found the empty `details` list
+  an undo left behind, fixed as above.
+- Groups `authoring`, `model_admin`, `contract` by EXECUTION_GUIDE §2: 1,762 passed in 61 s,
+  parallel; the serial part selected none. `ruff check app/ tests/` clean. No migration, so no startup
+  checks. The OpenAPI lock is unchanged (the route is gated); the gated inventory lists it.
+- Vitest: `previewClient.test` (writes refused before a request, the empty record answered here, a
+  type, sort, filter or relation column the active model lacks, D45's rule), `layout.test` (every
+  layout change's request), `history.test` (the layout words), `routes.test` (the mode in the
+  address); `src/features/model-editor`, `src/routing` and the client 146 passed; `vitest related`
+  over every changed source file, 52 files and 602 tests passed. `npm run format`; `npm run lint`, 0
+  errors (the 7 earlier warnings; two this package would have added were removed); `npm run build`
+  succeeds.
+- Browser: `test:browser:authoring-a4b`, 29 checks on both designer models (the preview from the
+  header under its band, the record choice, the disabled controls, the layout editor over the whole
+  editor and Back, a declared page, a panel moved by menu, by keyboard and by drag, a field group,
+  undo and redo, the table's columns moved by menu and by drag and its sort, a new type's empty record, an invalid draft, no write
+  from the preview, install and activate and the record screen, 390px; axe on the preview, the layout
+  editor and the field group dialog). `test:browser:authoring-a4a` (43) and `test:browser:settings`
+  passed for the shared editor and frame.
+- **Observed once, not reproduced:** one run on the renamed example ended with the application a
+  test step adds (to make the draft invalid) still in the draft, although the preview had come back
+  after Undo; the next two runs on that model passed. The runner now prints the history when it
+  happens. Listed in TODO.
+- **Not run:** the full suites, `test:a11y` and `test:visual` (build acceptance; the editor joins the
+  gates at T1). Dark mode is uninspected.
+- **Appearance:** inspected at 1440px in the light theme from the runner's screenshots, three
+  revisions with the user (the centre's width, the band staying in place, the workspace and record
+  choices); 390px and the layout editor's table checked in the screenshots only. Screenshots wait for
+  the user's approval, given 2026-10-12.
 
 ### A4c: Editor — consumer APIs
 

@@ -563,6 +563,218 @@
   gap: var(--space-2);
 }
 
+/* The preview and the layout editor (0.10 A4b): the selected type's record page and table from the
+   draft, under a band in the data-context band's way (a preview as a publication, the layout editor
+   as a change set). The preview fills the centre; the layout editor the whole editor. */
+/* The band stays where it is; only the page under it scrolls. */
+.type-preview {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+.model-editor-centre:has(> .type-preview) {
+  padding: 0;
+  overflow: hidden;
+}
+.model-editor-layout > .type-preview {
+  flex: 1 1 auto;
+}
+.data-context-band.editor-mode-band {
+  position: static;
+  flex: none;
+  margin: 0;
+  padding: var(--space-3) var(--space-6);
+}
+.editor-mode-band .band-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.editor-mode-title {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+.type-preview-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
+  min-width: 0;
+}
+.type-preview-body > .empty-message,
+.type-preview-body > .inline-error {
+  margin: var(--space-5) 0;
+}
+.preview-invalid {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface-raised);
+}
+.preview-invalid p {
+  margin: 0;
+}
+.preview-invalid-title {
+  font-weight: 600;
+}
+/* What the page shows, in the band: the workspace and the record, each a choice with its list. */
+.editor-mode-choices {
+  min-width: 0;
+}
+.preview-record-popover {
+  width: min(420px, calc(100vw - 32px));
+}
+.preview-record-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+.preview-record-choice > .object-lookup {
+  align-self: stretch;
+}
+
+.preview-note {
+  margin: 0;
+  font-size: var(--text-xs);
+}
+.preview-body {
+  padding-top: var(--space-4);
+  min-width: 0;
+}
+.layout-canvas {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.layout-record-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface-raised);
+}
+.layout-record-head strong {
+  font-size: var(--text-xl);
+}
+.layout-regions {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: start;
+}
+.layout-region {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 64px;
+  padding: var(--space-2);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-control);
+}
+.layout-region-label {
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.layout-add {
+  align-self: flex-start;
+}
+.layout-frame {
+  border: 1px solid color-mix(in srgb, var(--action-primary) 35%, var(--border-subtle));
+  border-radius: var(--radius-control);
+  background: var(--surface-raised);
+  min-width: 0;
+}
+.layout-frame.layout-hidden {
+  opacity: 0.6;
+}
+.layout-frame.layout-hidden > .layout-frame-head .layout-frame-title {
+  text-decoration: line-through;
+}
+.layout-frame-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--border-faint);
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+.layout-frame-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.layout-frame-note {
+  font-weight: 400;
+  font-size: var(--text-xs);
+}
+.layout-grip {
+  display: inline-flex;
+  color: var(--text-tertiary);
+  cursor: grab;
+}
+.layout-frame-body {
+  padding: var(--space-2);
+  min-width: 0;
+}
+.layout-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.layout-field .layout-frame-head {
+  font-weight: 400;
+  color: var(--text-secondary);
+  border-bottom: 0;
+}
+.layout-value {
+  display: block;
+  padding: 0 var(--space-2) var(--space-2) calc(var(--space-2) + 22px);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+.layout-empty {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.table-preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.table-preview-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+.layout-columns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.layout-column .layout-frame-head {
+  border-bottom: 0;
+}
+
 @media (max-width: 760px) {
   .model-editor {
     height: auto;
@@ -588,6 +800,13 @@
     flex: 1 1 0;
     min-height: 44px;
     justify-content: center;
+  }
+  .data-context-band.editor-mode-band,
+  .type-preview-body {
+    padding: var(--space-3) var(--space-4);
+  }
+  .layout-regions {
+    grid-template-columns: minmax(0, 1fr);
   }
   .model-editor-model,
   .model-editor-centre,
@@ -767,4 +986,21 @@
 }
 .editor-table table:not(.sized-columns) th {
   white-space: normal;
+}
+/* While something is dragged over it, a frame or a region shows it would take the drop (as the model
+   pane's rows do). */
+.layout-frame.drop-target,
+.layout-region:has(> .layout-region-label:hover) {
+  outline: 2px solid var(--action-primary);
+  outline-offset: 1px;
+}
+/* The preview's page: its controls shown and disabled (a disabled fieldset), links not followed. */
+.preview-controls {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.preview-controls a {
+  pointer-events: none;
 }

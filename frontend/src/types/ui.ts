@@ -114,11 +114,19 @@ export type SettingsRoute =
       editor?: EditorSelection;
     };
 
-/** What the model editor's centre shows: an element by its key, or the relationship matrix. */
+/**
+ * What the model editor's centre shows: an element by its key, or the relationship matrix. A type
+ * may be shown as its preview, or laid out in the layout editor, which takes the whole editor
+ * (0.10 A4b).
+ */
 export type EditorSelection =
   | { show?: undefined }
   | { show: "matrix" }
-  | { show: "type" | "application" | "relationType" | "attributeType"; key: string };
+  | { show: "type"; key: string; mode?: EditorMode }
+  | { show: "application" | "relationType" | "attributeType"; key: string };
+
+/** How a type is shown in the model editor: its definition (the default), its preview, its layout. */
+export type EditorMode = "preview" | "layout";
 
 export type SettingsPage = SettingsRoute["page"];
 
