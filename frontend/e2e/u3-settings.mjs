@@ -239,6 +239,7 @@ try {
     "navigation:Model",
     "navigation:Deployment",
     "navigation:Consumer APIs",
+    "navigation:Webhooks",
     "navigation:Jobs and feed",
     "navigation:API reference",
     "navigation:Resize settings navigation",
@@ -264,8 +265,8 @@ try {
     expected.every((item, index) => order[index] === item) && order[expected.length].startsWith("main:"),
     `keyboard order: ${order.join(" → ")}`,
   );
-  // Back past the resize handle, Integration's three pages and Deployment to Model, and open it.
-  for (let index = 0; index < 6; index += 1) await page.keyboard.press("Shift+Tab");
+  // Back past the resize handle, Integration's four pages and Deployment to Model, and open it.
+  for (let index = 0; index < 7; index += 1) await page.keyboard.press("Shift+Tab");
   await page.keyboard.press("Enter");
   await page.getByRole("heading", { level: 1, name: "Model" }).waitFor();
   checks.push(`keyboard order: ${order.join(" → ")}; Enter on a navigation link opens its page`);

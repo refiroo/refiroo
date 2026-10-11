@@ -10,6 +10,7 @@ restart binds it again. It goes when the job finishes.
 """
 
 import logging
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -24,6 +25,9 @@ PARTIAL = "partial"
 SOURCE = "source"
 # The states in which an import still reads its file.
 READS_SOURCE = frozenset({"queued", "running", "awaiting_confirmation"})
+# A file of no job stays this long after it was last written (0.9 R-F10): an import writes its file
+# just before the commit that stores its job, so a sweep in between would see no job yet.
+UNCOMMITTED_SECONDS = 600
 
 
 @dataclass(frozen=True)
@@ -47,7 +51,8 @@ class JobFiles:
     def reconcile(self, session: Session) -> int:
         """Remove each file whose job neither runs nor is completed (expired, cancelled, failed,
         unknown), each partial file of a completed job, and each import's file whose job no
-        longer reads it; the number removed."""
+        longer reads it; the number removed. A file of no job written in the last
+        :data:`UNCOMMITTED_SECONDS` is left for a later sweep: its job may not be committed yet."""
         if not self.directory.is_dir():
             return 0
         paths = [path for path in self.directory.iterdir() if path.is_file() and "." in path.name]
@@ -56,9 +61,12 @@ class JobFiles:
         ids = {path.name.split(".", 1)[0] for path in paths}
         states = dict(session.execute(select(Job.id, Job.state).where(Job.id.in_(ids))).all())
         removed = 0
+        recent = time.time() - UNCOMMITTED_SECONDS
         for path in paths:
             job_id, extension = path.name.split(".", 1)
             state = states.get(job_id)
+            if state is None and _modified(path) > recent:
+                continue
             # A running export's file is renamed into place just before the commit that completes
             # its job, so a running job keeps its file under either name.
             if extension == SOURCE:
@@ -71,3 +79,10 @@ class JobFiles:
         if removed:
             logger.info("Removed %d job file(s) whose job no longer serves them", removed)
         return removed
+
+
+def _modified(path: Path) -> float:
+    try:
+        return path.stat().st_mtime
+    except FileNotFoundError:
+        return 0.0

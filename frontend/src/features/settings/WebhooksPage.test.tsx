@@ -253,6 +253,28 @@ describe("Webhooks", () => {
     expect(screen.queryByText("rdmwh_secret")).not.toBeInTheDocument();
   });
 
+  it("offers every active workspace, read to the last page (0.9 R-F19)", async () => {
+    const workspace = (key: string) => ({
+      key,
+      label: key,
+      status: "active",
+      version: 1,
+      createdAt: "",
+      updatedAt: "",
+    });
+    vi.mocked(api.workspaces).mockImplementation(
+      async (query) =>
+        (query?.cursor === "next"
+          ? { items: [workspace("later")], nextCursor: null }
+          : { items: [workspace("default")], nextCursor: "next" }) as never,
+    );
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "New webhook" }));
+    const dialog = await screen.findByRole("dialog", { name: "New webhook" });
+    const select = within(dialog).getByRole("combobox", { name: "Workspace" });
+    await waitFor(() => expect(within(select).getByRole("option", { name: "later (later)" })).toBeInTheDocument());
+  });
+
   it("shows a refusal at the field it names", async () => {
     vi.mocked(api.capabilities).mockResolvedValue(enabled());
     vi.mocked(api.createSubscription).mockRejectedValue(

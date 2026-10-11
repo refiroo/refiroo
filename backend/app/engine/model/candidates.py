@@ -181,7 +181,9 @@ def _met(
     if item.op == "isUnset":
         return held != bool(item.value)
     if item.op == "isNull":
-        return (held and value is None) == bool(item.value)
+        # A value held empty, or (false) held with a value: a record holding none is neither, as
+        # the list's predicate reads it (0.9 R-F4).
+        return held and (value is None) == bool(item.value)
     if value is None:
         return False
     if item.op in {"contains", "startsWith"}:

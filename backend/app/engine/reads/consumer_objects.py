@@ -361,10 +361,10 @@ def _projected(record: _Record, source: str | tuple[str, str], ancestors: dict[s
     if isinstance(source, str):
         return record.field(source)
     type_key, name = source
-    for item in _chain(record.parent_id, ancestors):
-        if item.type_key == type_key:
-            return item.field(name)
-    return None
+    # The ancestor of that type nearest the root, as ``path`` and the management reads show it
+    # (D209): the chain runs from the parent up, so the last match.
+    found = [item for item in _chain(record.parent_id, ancestors) if item.type_key == type_key]
+    return found[-1].field(name) if found else None
 
 
 def _chain(parent_id: str | None, ancestors: dict[str, _Record]) -> list[_Record]:

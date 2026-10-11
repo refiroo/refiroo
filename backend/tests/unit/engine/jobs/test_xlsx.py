@@ -159,11 +159,11 @@ def test_a_sheet_for_people_is_frozen_filtered_sized_hidden_and_styled(tmp_path)
 
 def test_a_cell_has_a_border_and_a_column_chooses_from_a_sheet_written_later(tmp_path):
     """0.9 J6a: a bordered style; a list rule naming a sheet whose title was reserved first and
-    which is written after it."""
+    which is written after it. The title holds characters XML escapes (0.9 R-F7)."""
     path = tmp_path / "lists.xlsx"
     book = xlsx.Workbook(path, lambda: None)
     bordered = book.styles.xf(border=True)
-    title = book.reserve("List · Tokens")
+    title = book.reserve("List · R&D <units>")
     book.plain(
         xlsx.PlainSheet(
             title="Values",
@@ -192,12 +192,12 @@ def test_a_cell_has_a_border_and_a_column_chooses_from_a_sheet_written_later(tmp
     )
     book.close()
     workbook = load_workbook(path)
-    assert workbook.sheetnames == ["Values", "List · Tokens"]
+    assert workbook.sheetnames == ["Values", "List · R&D <units>"]
     sheet = workbook["Values"]
     assert sheet["A2"].border.left.style == "thin" and sheet["A1"].border.bottom.style == "thin"
     (rule,) = sheet.data_validations.dataValidation
-    assert rule.type == "list" and rule.formula1 == "'List · Tokens'!$A$2:$A$3"
-    assert [row[0].value for row in workbook["List · Tokens"].iter_rows(min_row=2)] == [
+    assert rule.type == "list" and rule.formula1 == "'List · R&D <units>'!$A$2:$A$3"
+    assert [row[0].value for row in workbook["List · R&D <units>"].iter_rows(min_row=2)] == [
         "Alpha",
         "Beta",
     ]

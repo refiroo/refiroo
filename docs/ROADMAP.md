@@ -10,15 +10,17 @@ model and the import mapping, ADR-035), 0.11 for production hardening and staged
 0.12 for security (authentication and authorization across the backend, frontend and APIs), and 1.0 for
 migration-class model changes, protected publishing and extensions.
 
-## Current development baseline — Base 0.8 released, Base 0.9 next
+## Current development baseline — Base 0.9 complete, Base 0.10 next
 
-Base 0.8 is released (2026-09-29): collections at any size (ADR-030), one name per concept and
-capability boundaries (ADR-031), the relation matrix (ADR-033), the hierarchy editor with drag and
-drop, the change set review, and hierarchy restructuring with a preview and history as the way back
-(ADR-034), on schema language 0.7. Next is 0.9, integration-grade APIs. Its first packages (Q1–Q4,
-C1, V1, B1, B2) are delivered. Before F1, the interim release
-[0.9.0-alpha.1](#interim-release-090-alpha1--postgresql-runtime) moves the engine to PostgreSQL only,
-with a test harness that seeds once and runs in parallel ([TEST_HARNESS_PLAN](TEST_HARNESS_PLAN.md)).
+Base 0.9 is complete (2026-10-11; build acceptance R in
+[its plan](BASE_0_9_IMPLEMENTATION_PLAN.md#r-build-acceptance-and-release)): integration-grade APIs
+on PostgreSQL. Model-aware queries and effective dates, bounded and background batches with
+previews, imports and exports (a workbook for people among them), the ordered change feed, the
+consumer API with events and signed webhooks, the API reference at `/docs`, the settings area, and
+the collection screens' selection, filters, relation columns and bulk dialogs. Its schema language
+is 0.9, released with it and fixed from now on. Base 0.8 was released on 2026-09-29 and the interim
+[0.9.0-alpha.1](#interim-release-090-alpha1--postgresql-runtime) on 2026-10-03. Next is 0.10, model
+authoring and spreadsheet onboarding.
 
 Base 0.5 delivered the operational and model-release foundation. Base 0.7 is released (2026-09-25):
 core mapping as a lens of one contextual application browser, schema 0.6 `mappingGrid` views,
@@ -309,7 +311,14 @@ existing development databases carry over. API, model contract and UI are unchan
   parallel. A cancel request never waits for a job's chunk (0.9 D28).
 - The OpenAPI lock is unchanged, and every volume budget is restated on PostgreSQL.
 
-## Product release 0.9 — Integration-grade APIs
+## Product release 0.9 — Integration-grade APIs (complete)
+
+**Complete 2026-10-11.** Build acceptance (R) ran every suite, the 38 browser runners, the
+accessibility and visual gates with the 0.9 surfaces added, the upgrade from 0.9.0-alpha.1 and the
+schema 0.7 → 0.8 → 0.9 activations, and every volume budget at full volume; the exit gate below was
+walked item by item with its evidence ([R's record](BASE_0_9_IMPLEMENTATION_PLAN.md#r-build-acceptance-and-release)).
+It found and fixed 28 defects (R-F1–R-F28), among them a deletion of 100,000 records, which now
+previews and runs in under a minute live and in a change set.
 
 ### Product outcome
 

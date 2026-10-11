@@ -443,12 +443,18 @@ def effective_object_value(context: SnapshotContext, object_id: Any, column: str
     )
 
 
+# IDs per statement: the projection binds each ID once per part (base and change set), and a
+# statement binds at most 65,535 parameters (0.9 R, R-F24).
+FIND_CHUNK = 10_000
+
+
 def find_objects(session: Session, context: SnapshotContext, object_ids: Iterable[str]) -> dict[str, Row]:
     ids = list(dict.fromkeys(object_ids))
-    if not ids:
-        return {}
-    projection = object_projection(context, object_ids=ids)
-    return {row.object_id: row for row in session.execute(select(projection))}
+    found: dict[str, Row] = {}
+    for start in range(0, len(ids), FIND_CHUNK):
+        projection = object_projection(context, object_ids=ids[start : start + FIND_CHUNK])
+        found.update({row.object_id: row for row in session.execute(select(projection))})
+    return found
 
 
 def find_object(

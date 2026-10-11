@@ -51,17 +51,17 @@ terms.
 
 ### XREF lookup
 
-`GET /xref?query=…&type=…&codelist=…&domain=…&system=…&location=…`
+`GET /xref?query=…&type=…&codelist=…&domain=…&system=…&site=…`
 
 - `query` is required. A comma-separated value is several terms, and an object's score is its best
   score across the terms.
-- Candidates are master-data objects of every type, locations included.
+- Candidates are master-data objects of every type, sites included.
 - **Scoring for one term** (case-insensitive):
 
   | Where the term matches | Exact | Contains |
   | --- | ---: | ---: |
   | Object: global ID (master ID) | 1000 | — |
-  | Object: value code, operator code | 500 each | 40 each |
+  | Object: value code, owner code | 500 each | 40 each |
   | Object: name, value name | 200 each | 30 each |
   | System value: name | 80 | 15 |
   | System value: external ID, system value name | 75 | 10 |
@@ -73,14 +73,14 @@ terms.
   contains on the same four. So a value whose code and external ID both match scores 70, not 75.
   Translations work the same way.
 - **Promotion:** a matching system value or translation passes its score to the objects it relates to
-  (highest score wins). When a system value relates to a location and to something else, only the
-  location gets the score. This is what lets a location-only system value be found by external ID.
+  (highest score wins). When a system value relates to a site and to something else, only the
+  site gets the score. This is what lets a site-only system value be found by external ID.
 - **Filters**, applied after scoring:
   - `type`: object type.
   - `system`: keep only objects mapped by a system value of that system. Also limits which system
     values score and which appear in `systemVariants`.
   - `codelist` and `domain`: an ancestor's name or code.
-  - `location`: a location matched by ID, name, code or value name. Keeps the location itself, objects
+  - `site`: a site matched by ID, name, code or value name. Keeps the site itself, objects
     available at it, and objects sharing a system value with it.
 - **Cap:** results stop at `max(20, number of terms)`. `totalCount` is the number returned, not the
   number matched.
@@ -88,11 +88,11 @@ terms.
 ### Lists
 
 One list per object type, on hierarchical routes such as `/domains/{domainId}/codelists`,
-`/codelists/{codelist}/values` and `/stations/{stationId}/locations`.
+`/codelists/{codelist}/values` and `/site-groups/{groupId}/sites`.
 
 - The parent segment accepts a global ID, an internal ID, or a name or code.
 - Paging uses `page` and `pageSize`. `language` keeps only objects that have a translation in that
-  language and limits `translations` to it. `locationId` filters by availability.
+  language and limits `translations` to it. `siteId` filters by availability.
 - The envelope is `page`, `pageSize`, `totalCount`, `returnedCount`, `items`.
 
 ### The shared object
@@ -101,23 +101,23 @@ XREF results and list items use the same object:
 
 ```json
 {
-  "objectType": "TimetableType",
+  "objectType": "ServiceType",
   "masterId": "…", "code": "…", "name": "…", "valueName": "…",
   "sortOrder": 0, "isActive": true, "internalOnly": false,
   "validFrom": "", "validTo": "",
   "matchScore": 60,
   "systemVariants": [{ "system": "…", "value": "…", "valueCode": "…", "valueName": "…", "externalId": "…", "isActive": true }],
   "translations":   [{ "name": "…", "languageCode": "es", "languageName": "Spanish", "translatedName": "…", "translatedDescription": "…", "isActive": "true" }],
-  "availableAt":    [{ "locationId": "…", "locationName": "…", "locationValueCode": "…", "locationValueName": "…" }],
-  "duration":       [{ "durationId": "…", "durationCode": "…", "durationName": "…" }],
-  "alternative":   [{ "objectType": "…", "masterId": "…", "code": "…", "name": "…" }],
+  "availableAt":    [{ "siteId": "…", "siteName": "…", "siteValueCode": "…", "siteValueName": "…" }],
+  "unit":       [{ "unitId": "…", "unitCode": "…", "unitName": "…" }],
+  "slot":   [{ "objectType": "…", "masterId": "…", "code": "…", "name": "…" }],
   "path": "A/B/C", "parent": { "objectType": "…", "name": "…", "code": "…", "masterId": "…" },
   "hierarchy": ["A", "B", "C"]
 }
 ```
 
-`code` takes the first non-empty value of operator code, value code, codelist code, domain code and
-station code. List items also carry `description`. Stations also carry `operatorCode` in XREF results.
+`code` takes the first non-empty value of owner code, value code, codelist code, domain code and
+site group code. List items also carry `description`. Site groups also carry `ownerCode` in XREF results.
 
 ### How flows call it
 
@@ -140,16 +140,16 @@ Each item below is observed in the reference policies. The engine either fixes i
 | Booleans and dates as strings (`"isActive": "true"` in translations, `validFrom: ""`) | Declared types kept: booleans, ISO dates, `null` |
 | XREF omits `parent` for top-level objects; lists send a parent with empty strings | `parent` is always present; `null` when there is none |
 | Lists build `hierarchy` by splitting `path` on `/`; XREF walks parents | Always walks parents, so names containing `/` stay one element |
-| `operatorCode` exists only for one type; `description` only in lists | Fields come from the definition, not from type checks. XREF and lists return the same object |
-| `alternative` is documented as an object or null but returned as an array | Single-valued relations project as an object or `null`, many-valued ones as an array (from relation cardinality) |
-| The list `locationId` filter keeps items with no availability and compares a field that does not exist | Filter semantics are defined and tested |
+| `ownerCode` exists only for one type; `description` only in lists | Fields come from the definition, not from type checks. XREF and lists return the same object |
+| `slot` is documented as an object or null but returned as an array | Single-valued relations project as an object or `null`, many-valued ones as an array (from relation cardinality) |
+| The list `siteId` filter keeps items with no availability and compares a field that does not exist | Filter semantics are defined and tested |
 | Cache invalidation by `X-Reset-Cache` and TTL | No manual reset: responses carry an ETag derived from the data and definition versions |
 
 ## Engine design
 
 ### Principle
 
-The engine gets **no runtime knowledge** of locations, durations, alternatives, stations, system
+The engine gets **no runtime knowledge** of sites, units, slots, site groups, system
 values or translations (AGENTS.md). In this document they are examples from the reference deployment,
 not requirements. Everything the reference policies hard-code (attribute and relation IDs, type
 names, scoring weights, filter behavior, output field names) becomes a **consumer API definition** in
@@ -188,9 +188,9 @@ Examples:
 
 | `consumerApi` | What it is | Example request |
 | --- | --- | --- |
-| `rdm` | The reference deployment's API: XREF over codelist values, locations and system variants | `GET /api/consumer/rdm/v1/xref?query=CHF&system=SAP&expect=one` |
+| `rdm` | The reference deployment's API: XREF over codelist values, sites and system variants | `GET /api/consumer/rdm/v1/xref?query=CHF&system=SAP&expect=one` |
 | `rdm` | The same API after a breaking change | `GET /api/consumer/rdm/v2/objects/7f3c…` |
-| `locations` | A second definition on the same model exposing only locations and their availability, for a scheduling system | `GET /api/consumer/locations/v1/lists/station-locations?station=NORTH` |
+| `sites` | A second definition on the same model exposing only sites and their availability, for a scheduling system | `GET /api/consumer/sites/v1/lists/group-sites?site group=NORTH` |
 | `catalogue` | A product catalogue model's API (COMPOSABLE_DOMAINS) | `GET /api/consumer/catalogue/v1/lists/products?category=tools&position=40` |
 
 In a subscription the same name says which API's events to deliver: `"consumerApi": "rdm"`.
@@ -213,14 +213,14 @@ this one at the end of the section._
   "contractVersion": 1,
 
   // What is exposed. A public name defaults to the key in PascalCase (codelist → Codelist).
-  "exposes": ["master-value", "codelist", "domain", "location"],
+  "exposes": ["master-value", "codelist", "domain", "site"],
   "publicNames": { "master-value": "CodelistValue" },
 
   // What an object looks like: its fields, role fields output first in role order (C-D140).
   "object": {
     "fields": {
       "masterId":     { "role": "id" },                     // always the object ID (C-D24)
-      "code":         { "role": "code", "from": ["operator-code", "value-code", "codelist-code", "domain-code"] },
+      "code":         { "role": "code", "from": ["owner-code", "value-code", "codelist-code", "domain-code"] },
       "name":         { "role": "name", "from": "name" },
       "isActive":     { "role": "active", "from": "active", "default": true },
       "validFrom":    { "role": "validFrom", "from": "valid-from" },
@@ -241,10 +241,10 @@ this one at the end of the section._
       "translations": { "via": "object-has-translation",
         "fields": { "languageCode": "ancestor:language.language-code", "languageName": "ancestor:language.name",
                     "translatedName": "translated-name", "translatedDescription": "translated-description", "isActive": "active" } },
-      "availableAt": { "via": "available-at-location",
-        "fields": { "locationId": "master-id", "locationName": "name", "locationValueCode": "value-code", "locationValueName": "value-name" } },
-      "duration": { "via": "has-duration", "fields": { "durationId": "id", "durationCode": "value-code", "durationName": "name" } },
-      "alternative": { "via": "alternative-for",   // a one-to-one relation: an object or null
+      "availableAt": { "via": "available-at-site",
+        "fields": { "siteId": "master-id", "siteName": "name", "siteValueCode": "value-code", "siteValueName": "value-name" } },
+      "unit": { "via": "has-unit", "fields": { "unitId": "id", "unitCode": "value-code", "unitName": "name" } },
+      "slot": { "via": "slot-for",   // a one-to-one relation: an object or null
         "fields": { "objectType": "objectType", "masterId": "id", "code": "value-code", "name": "name" } }   // objectType: C-D73
     }
   },
@@ -256,7 +256,7 @@ this one at the end of the section._
       "matchOn": [
         { "field": "master-id",  "exact": 1000 },
         { "field": "value-code", "exact": 500, "contains": 40 },
-        { "field": "operator-code", "exact": 500, "contains": 40 },
+        { "field": "owner-code", "exact": 500, "contains": 40 },
         { "field": "name",       "exact": 200, "contains": 30 },
         { "field": "value-name", "exact": 200, "contains": 30 }
       ],
@@ -266,7 +266,7 @@ this one at the end of the section._
             { "field": "external-id", "exact": 75 }, { "field": "value-name", "exact": 75 },
             { "field": "name", "contains": 15 }, { "field": "value-code", "contains": 10 },
             { "field": "external-id", "contains": 10 }, { "field": "value-name", "contains": 10 } ],
-          "preferTypes": ["location"] },
+          "preferTypes": ["site"] },
         { "related": "translations", "firstOf": [
             { "field": "translated-name", "exact": 60 }, { "field": "translated-name", "contains": 12 } ] }
       ]
@@ -287,7 +287,7 @@ this one at the end of the section._
                   "keepOnlyMatching": true, "scoreOnlyMatching": true, "crosswalk": true },
     "codelist": { "under": ["codelist"], "matchOn": ["name", "codelist-code"] },
     "domain":   { "under": ["domain"], "matchOn": ["name", "domain-code"] },
-    "location": { "linkedTo": ["location"], "through": ["availableAt", "itself", "sharedWith:systemVariants"],
+    "site": { "linkedTo": ["site"], "through": ["availableAt", "itself", "sharedWith:systemVariants"],
                   "matchOn": ["master-id", "name", "value-code", "value-name"] },
     "language": { "onRelated": "translations", "matchOn": ["ancestor:language.language-code"],
                   "keepOnlyMatching": true, "crosswalk": true }
@@ -297,7 +297,7 @@ this one at the end of the section._
 
 The example is the reference deployment's definition. Every key, related block and filter name in it
 is that deployment's choice, not something the engine requires. Keys missing from `rdm-starter.json`
-(`available-at-location`, `has-duration`, `alternative-for`, `location`, `operator-code`,
+(`available-at-site`, `has-unit`, `slot-for`, `site`, `owner-code`,
 `internal-only`) come from a model that extends the starter, as the source deployment's does. The
 parity fixture (C8, `backend/tests/journeys/configurations.py`) is such a model, and this definition
 answers the C8 scenarios on it. The shipped starter's `rdm` is the same shape, shorter.
@@ -358,8 +358,10 @@ below (C-D141):
   allows at most one related object, and an array otherwise. This is derived, never declared, so a
   model cardinality change becomes a contract change the validator can see.
 - **Related fields** read the related record's `id`, `name`, an attribute of the related types,
-  `ancestor:<type>.<field>`, or `objectType`: its public type name, allowed where the definition
-  exposes every type the block reaches (C-D73). The `parent` block's fields are keyed by the roles'
+  `ancestor:<type>.<field>` (the ancestor of that type nearest the root, as `path` shows it, and as
+  the management API shows such a field; Base 0.9 D209), or `objectType`: its public type name,
+  allowed where the definition exposes every type the block reaches (C-D73). A filter's `matchOn`
+  of `ancestor:<type>.<field>` is a criterion: any ancestor of that type may match. The `parent` block's fields are keyed by the roles'
   output names (C-D75).
 - **Match fields** must be `searchable` or explicitly listed as identifiers; weights are positive
   integers.
@@ -588,7 +590,7 @@ contract version (SETTINGS_AND_UI_PLAN "Versions in the documentation"), its sch
 `output_contract`, checked against real answers (C-D70).
 
 The existing gateway can stay in front and map the reference routes (`/xref`,
-`/stations/{stationId}/locations`, …) onto these endpoints, so current consumers move without changes
+`/site-groups/{groupId}/sites`, …) onto these endpoints, so current consumers move without changes
 (C-D5).
 
 ### Read index
@@ -644,7 +646,7 @@ exposed type (`<type>-changed`, every change, no watch) and `custom` for its own
 "events": {
   "custom": [{
     "key": "reference-data-changed",
-    "objectTypes": ["master-value", "codelist", "location"],
+    "objectTypes": ["master-value", "codelist", "site"],
     "changes": ["created", "updated", "deleted"],
     "watch": {
       "fields": ["masterId", "code", "name", "isActive", "validFrom", "validTo", "valueName"],
@@ -707,7 +709,7 @@ DELETE /api/v1/consumer-subscriptions/{id}?expectedVersion=…
   "consumerApi": "rdm",
   "workspaceKey": "main",              // optional: the default workspace, resolved and stored
   "events": ["reference-data-changed"],
-  "filters": { "type": "Location", "codelist": ["Country", "Region"] },
+  "filters": { "type": "Site", "codelist": ["Country", "Region"] },
   "url": "https://integration.example.com/hooks/rdm",
   "maxEventsPerBatch": 1,              // 1–1,000; 1, the default, sends one event per request (C-D120)
   "payload": "full",                   // or "identity" (C-D7, C-D124)
@@ -983,7 +985,7 @@ dispatcher (C12) will run beside it. Multi-node coordination is 0.11 work.
 | C5 | XREF's use of C3's parameter kinds, with `scoresFrom` (C-D33, C-D42–C-D46) — **delivered 2026-10-05** |
 | C6 | ETag / `If-None-Match`, `publication` reads including `latest`, the publications list with `eventSequence`, per-definition OpenAPI, the API index. Split in two (C-D71): **C6a** (publications, ETag; C-D60–C-D68) and **C6b** (OpenAPI per definition, API index; C-D69, C-D70) **delivered 2026-10-05** |
 | C7 | _Moved to 0.12 (C-D1):_ OAuth 2.0 client access per definition, webhook signing-key rotation, UI administration of both (webhook signing itself is in 0.9, C-D12 revised) |
-| C8 | Parity acceptance: a test-only fixture model extending the starter with locations, availability and a single-valued self relation (fixture content, not product scope), a fixture dataset, and a definition that reproduces the reference response for the scenarios below; volume budgets; `objectType` in projections (C-D73) and the parent keyed by output names (C-D75) (C-D72–C-D75) — **delivered 2026-10-05** |
+| C8 | Parity acceptance: a test-only fixture model extending the starter with sites, availability and a single-valued self relation (fixture content, not product scope), a fixture dataset, and a definition that reproduces the reference response for the scenarios below; volume budgets; `objectType` in projections (C-D73) and the parent keyed by output names (C-D75) (C-D72–C-D75) — **delivered 2026-10-05** |
 | C9 | Event definitions: `events` schema and validation, contract rules for events (C-D81–C-D86) — **delivered 2026-10-05** |
 | C10 | Event deriver over the workspace change feed (INTEGRATION_API F6): owning-object resolution through projections, `watch` evaluation, event store, retention, pull feed (C-D87–C-D92, C-D95) — **delivered 2026-10-06** |
 | C11 | Subscription administration: API, filters through definition parameters, host allowlist, suspension on model change and retirement, `payload` (C-D7), the signing key generated on create and sealed at rest (C-D12, C-D96; rotation in 0.12), resume after expired events (C-D93) (C-D96–C-D102) — **delivered 2026-10-06** |
@@ -1029,12 +1031,12 @@ table under "Behavior the engine does not carry over" says otherwise:
 
 1. an exact global ID; an exact code; a partial name;
 2. an external ID with and without `system`;
-3. a system value that maps only to a location, found by its external ID;
+3. a system value that maps only to a site, found by its external ID;
 4. a translated name;
 5. a multi-term query;
 6. `codelist` and `domain` by name and by code;
-7. `location` via availability, via the location itself, and via a shared system value;
-8. `system` combined with `location`;
+7. `site` via availability, via the site itself, and via a shared system value;
+8. `system` combined with `site`;
 9. a tie at the top score with `expect=one`;
 10. a list with a parent given by ID, with and without `language`; the name and code cases go through
     an `ancestor` parameter declared on a list without a parent (C-D28).

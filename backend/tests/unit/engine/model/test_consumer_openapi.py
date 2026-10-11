@@ -1,4 +1,4 @@
-"""The consumer API document builder over the operators example model's definitions."""
+"""The consumer API document builder over the example model's definitions."""
 
 import json
 from pathlib import Path
@@ -9,8 +9,11 @@ from app.engine.model.compiler import parse_model
 from app.engine.model.consumer_definitions import consumer_api
 from app.engine.model.consumer_openapi import consumer_openapi
 from app.engine.model.loader import load_model
+from app.engine.reads import consumer_lists, consumer_xref
+from app.models.search_index import MIN_INDEXED_LENGTH
 
 EXAMPLE = Path(__file__).resolve().parents[5] / "model" / "rdm-operators-timetables.json"
+STARTER = EXAMPLE.with_name("rdm-starter.json")
 
 
 def _base(definition) -> str:
@@ -18,7 +21,7 @@ def _base(definition) -> str:
     return f"/api/consumer/{definition.key}/v{definition.contractVersion}"
 
 
-def test_the_operators_model_gives_one_valid_document_over_every_type():
+def test_the_example_model_gives_one_valid_document_over_every_type():
     """The model's ``rdm`` consumer API exposes every object type, so its XREF looks up across the
     whole model, and its document is valid OpenAPI 3.1. A list ``within`` a filter (codelists and
     domain) lists that name once, as the parent, which is what the route reads it as; the other
@@ -90,3 +93,18 @@ def test_a_definition_with_events_documents_its_pull_feed():
     schemas = built["components"]["schemas"]
     assert schemas["Event"]["properties"]["object"] == {"$ref": "#/components/schemas/Object"}
     assert schemas["Event"]["properties"]["event"]["enum"] == ["reference-data-changed"]
+
+
+def test_the_document_states_the_limits_the_reads_apply():
+    """0.9 R-F21, C-D37: the page sizes, the shortest contains term, the match limit and the term
+    limit the document states are the engine's own, so a changed limit changes the document."""
+    model = load_model(STARTER)
+    rdm = consumer_api(model, "rdm")
+    document = consumer_openapi(model, rdm, root_path="", resolve_max_items=1000)
+    xref = document["paths"][f"{_base(rdm)}/xref"]["get"]
+    (size,) = [item for item in xref["parameters"] if item["name"] == "pageSize"]
+    smallest, largest, default = consumer_lists.PAGE_SIZE
+    assert size["schema"] == {"type": "integer", "minimum": smallest, "maximum": largest, "default": default}
+    assert f"at least {MIN_INDEXED_LENGTH} characters" in xref["description"]
+    assert f"{consumer_xref.MATCH_LIMIT:,} records" in xref["description"]
+    assert f"at most {consumer_xref.MAX_TERMS} terms" in xref["description"]

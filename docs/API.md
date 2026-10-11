@@ -261,7 +261,7 @@ Read-only and behind no capability, like `/capabilities` (for administrators onc
 
 ```json
 {
-  "engine": { "version": "0.9.0-alpha.1", "managementApi": "v1" },
+  "engine": { "version": "0.9.0", "managementApi": "v1" },
   "schemaLanguages": ["0.5", "0.6", "0.7", "0.8"],
   "activeModelRelease": {
     "id": "…", "key": "rdm-starter", "name": "RDM Starter Model", "version": "0.9.0",
@@ -1181,7 +1181,9 @@ or publications”) instead of matching nothing. Live responses always carry bot
 Text filters support `eq`, `contains`, `startsWith` and `isNull`; number, date and datetime filters
 support `eq`, `lt`, `lte`, `gt`, `gte` and `isNull`; booleans support `eq` and `isNull`. Attribute
 fields also support `isUnset`. `isNull` and `isUnset` take `true` or `false`; boolean values use the
-same lexical form, while dates and datetimes use ISO 8601. Exact equality is case-sensitive and the
+same lexical form, while dates and datetimes use ISO 8601; a datetime filter also takes a date
+(`YYYY-MM-DD`), compared by that whole day in UTC: `eq` within the day, `lt` before it, `lte` up to
+its end, `gt` after it, `gte` from its start (0.9 R-F6). Exact equality is case-sensitive and the
 two text matching operators are case-insensitive. Different filters combine with AND; repeated `eq`
 for one field combines with OR. Invalid grammar, capability, operator or typed input returns
 `422 INVALID_FILTER` (or `INVALID_SORT`) with `details.path` identifying the query parameter.
@@ -3421,7 +3423,9 @@ GET /api/consumer/{consumerApi}/v{contractVersion}/events?workspace=…&event=�
   (`{id, eventSequence}`, or `null`): read that publication's lists, then the events after its
   `eventSequence`. Without a publication nothing expires. A workspace that existed at the upgrade to
   this release has events from its active publication's position on.
-- **Caching.** The `ETag` changes when a new event is derived; `304` to a matching `If-None-Match`.
+- **Caching.** The `ETag` changes when a new event is derived and when live data changes (a full
+  object, or a parameter read against live data, may differ before the event is derived; 0.9 R-F13);
+  `304` to a matching `If-None-Match`.
 - A definition without events answers `404 EVENTS_NOT_DECLARED`; an unknown or retired workspace
   `404 WORKSPACE_NOT_FOUND`.
 

@@ -6,6 +6,11 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-11
+
+Base 0.9, integration-grade APIs, and its schema language 0.9. Build acceptance (R) reviewed every
+change since 0.8.0 and ran every gate; its fixes are under Fixed (R-F1–R-F28).
+
 ### Added
 
 - Base 0.9 J6a: workbooks people fill in (D191–D199; J27.18–J27.21). `people.ownedColumns` lays an
@@ -50,6 +55,59 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Fixed
 
+Found by the 0.9 release review (R step 0, D200):
+
+- A workspace deleted and created again under its key could never be written: its old feed entries
+  kept their positions. Deleting a workspace now takes its feed with it: its audit entries stay
+  as history without a feed position, and its idempotency keys go (R-F1, D208).
+- Activating a release could deadlock with a webhook delivery, a subscription change, or a write of
+  an attribute whose `unique` the release changes. Activation now locks the active subscriptions,
+  and when `unique` changes the unique values, before the runtime state (R-F2, R-F3).
+- A relationship's candidate criteria (K7) treated a record a batch had just created without a value
+  as meeting `isNull: false` (R-F4).
+- An import column with `replace: true` whose cell was empty left the relationships in place; the
+  set is now replaced with none, as in a workbook for people whose relation cell is emptied (R-F5).
+- A filter on `createdAt`, `updatedAt` or a date-time attribute takes a day (`YYYY-MM-DD`), compared
+  by the whole day in UTC; the collection's date filter sent one and was refused (R-F6).
+- A workbook for people whose type or relationship name held `&` or `<` was reported damaged by
+  Excel: the list rules are now escaped (R-F7).
+- A webhook's `stateAt` and its object are read in one snapshot, as the pull feed reads them (R-F8).
+- A preview past its retention was confirmed until the hourly sweep marked it; it is now refused
+  `410 JOB_EXPIRED`, and the sweep skips a job a confirmation holds (R-F9).
+- A file sweep could remove an import's file before its job was committed; a file of no job is
+  kept for ten minutes (R-F10).
+- One workspace whose events cannot be derived no longer holds up the others (R-F11).
+- An atomic job's chunk, a preview and an export's set statements renew the job's lease while they
+  run, so a second process never takes a running job (R-F12).
+- The pull feed's `ETag` changes with live data as well as with derived events (R-F13).
+- Three route descriptions named error codes in lower case (R-F14).
+- An `ancestor:<type>.<field>` value shows the ancestor of that type nearest the root everywhere:
+  the workbook for people and consumer API projections now agree with lists and Q3 (R-F15, R-F16,
+  D209).
+- New webhook offered only the first 100 active workspaces (R-F19).
+- Three colours were written outside the tokens, skipping the dark theme's shadows (R-F20).
+- Each consumer API's document states the engine's own read limits rather than copies (R-F21).
+
+Found by the 0.9 release's browser runners (R step 3):
+
+- In a relation matrix cell, Create pressed before the cell's containers had loaded did nothing and
+  said nothing: once a single container loaded, the notice that none was chosen was not shown. The
+  button now waits for the containers (R-F22).
+
+Found by the 0.9 release's deletion timing (R step 8, D124):
+
+- Deleting a large selection, about 100,000 records, could not finish: three statements stopped
+  scaling once a run's IDs no longer fit in PostgreSQL's `work_mem`. The run's relationships are
+  found through its joins, not `IN (run) OR IN (run)` (R-F23); a change set's matrix walk leaves
+  out the rows the change set replaces with `NOT EXISTS`, not `NOT IN` (R-F25); and reading the
+  records of a change set takes any number of IDs, a statement at a time, where more than about
+  32,000 failed with "number of parameters must be between 0 and 65535" (R-F24). In a change set
+  the closure's walk finds a record's required owned records by their keys, where it read every
+  record of their type for each record reached (R-F26), and the matrix states' upkeep no longer
+  walks the cells under the records the change set just deleted (R-F27). Deleting 100,000 records
+  now previews in 49 s live and in a change set, and runs in a change set in 51 s.
+- A query's or a list's expansion in a publication counted its total once per row of its page:
+  20,000 related records expanded took 103 ms, now 68 ms (R-F28).
 - A filter or sort naming an attribute the type does not bind answered `invalid_filter` and
   `invalid_sort` in lower case; they are `INVALID_FILTER` and `INVALID_SORT` (found in 0.9 K6).
 - An export with a `related` criterion failed in the worker (`INVALID_QUERY`, "A related criterion
@@ -57,6 +115,20 @@ All notable changes to this project are documented in this file. The format foll
   the check counted a null value as named. It now checks values (found in 0.9 K6).
 
 ### Changed
+
+- The record tree's leftovers from UA9's flat scrolling are removed: the windowed version kept in
+  comments, the unused wheel routing (`useTreeWheel`, `treeWheel`) and the group frame's glow
+  (R-F17). Documentation and comments name no example-model content (R-F18, D210).
+- 0.9 R: the accessibility and visual gates cover every 0.9 surface approved by screenshot (D202),
+  light and dark, on a harness of their own with webhooks on: Settings › Integration, a webhook's
+  configuration and deliveries, relation columns, the filter editor, the selection bar, the three
+  bulk dialogs, exporting and importing with their notifications and job pages (36 new baselines).
+  34 baselines were re-recorded for changes delivered since UA7 (UA8, UA9, K1, K6a, J1u, J4, U4,
+  U5). The browser runners that had drifted from later packages were brought up to date, and the
+  comprehensive command set names all 38. `volume_baseline.py --only-deletion` times deleting about
+  100,000 records (D124).
+- Schema 0.9 is the released schema language from 0.9.0 (D206): APPLICATION_MODEL describes it as
+  such, with what it adds to 0.8 and how a 0.8 document using it is refused.
 
 - Base 0.9 K6a: collection filters redesigned (D160–D164): active filters as pills, ＋ Filter's field
   menu, one compact editor per field type, a bottom sheet with "Show N records" on phones. The

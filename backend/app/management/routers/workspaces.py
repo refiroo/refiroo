@@ -87,7 +87,7 @@ def get_feed(
 ) -> FeedPage:
     """Every change to the workspace's live data in commit order, after a stored position
     (INTEGRATION_API F4). A filtered page scans at most ten pages' worth of positions. A position
-    older than ``FEED_RETENTION_DAYS`` is ``410 feed_position_expired``, naming the active
+    older than ``FEED_RETENTION_DAYS`` is ``410 FEED_POSITION_EXPIRED``, naming the active
     publication to re-read (F5)."""
     return feed_page(
         session,

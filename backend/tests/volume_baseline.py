@@ -26,7 +26,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
@@ -41,6 +41,7 @@ from volume_fixture import (
     CONSUMER_API,
     GROUP,
     GROUP_CONTAINS_ITEM,
+    GROUP_HAS_CELL,
     GROUP_PARENT,
     ITEM,
     ITEM_CITES_GROUP,
@@ -1177,6 +1178,90 @@ def publish_scenario(client, engine: Engine, dataset: VolumeDataset) -> list[Mea
     ]
 
 
+def deletion_scenarios(client, engine: Engine, dataset: VolumeDataset) -> list[Measurement]:
+    """0.9 K2b, D124, run once at R (``--only-deletion``): previews of deleting about as many records
+    as the items (100,000 at full volume, the groups' owned matrix cells counted) live, rolled back so the seed stays, and in the change set,
+    then that deletion executed in the change set, each timed once (target under 60 s). The largest
+    top-level groups are deleted with what they hold, by cascading items. The worker's own thread is
+    stopped and the job is run in this thread, so its statements are counted."""
+    worker = client.app.state.job_worker
+    worker.stop()
+    with engine.connect() as connection:
+        sizes = connection.execute(
+            text(
+                "WITH RECURSIVE tree(root, id) AS ("
+                " SELECT id, id FROM objects WHERE workspace_key = :workspace"
+                "  AND object_type_key = :group AND parent_object_id IS NULL"
+                " UNION ALL SELECT tree.root, child.id FROM objects child"
+                "  JOIN tree ON child.parent_object_id = tree.id),"
+                # The matrix cells a group owns go with it.
+                " owned AS (SELECT tree.root, count(*) AS n FROM tree JOIN object_relations r"
+                "  ON r.from_object_id = tree.id AND r.relation_type_key = :cell GROUP BY tree.root)"
+                " SELECT tree.root, count(*) + coalesce(max(owned.n), 0) AS n FROM tree"
+                "  LEFT JOIN owned ON owned.root = tree.root GROUP BY tree.root ORDER BY n DESC, tree.root"
+            ),
+            {"workspace": WORKSPACE, "group": GROUP, "cell": GROUP_HAS_CELL},
+        ).all()
+    chosen, total = [], 0
+    for root, size in sizes:
+        if total >= dataset.shape.items:
+            break
+        chosen.append(root)
+        total += size
+
+    def items(params: dict[str, str]) -> list[dict[str, Any]]:
+        return [
+            {
+                "op": "delete",
+                "target": {"id": group_id},
+                "expectedVersion": client.get(f"/api/v1/objects/{GROUP}/{group_id}", params=params).json()["version"],
+                "cascade": True,
+            }
+            for group_id in chosen
+        ]
+
+    def run(job_id: str, scenario: str, context: str) -> tuple[Measurement, dict[str, Any]]:
+        with measure(engine) as cost:
+            worker.run_until_idle()
+        job = client.get(f"/api/v1/jobs/{job_id}").json()
+        return (
+            Measurement(context, scenario, 200, cost.seconds * 1000, cost.statements, cost.rows_loaded),
+            job,
+        )
+
+    results = []
+    live = client.post(
+        "/api/v1/batches",
+        json={"workspaceKey": WORKSPACE, "policy": "independent", "run": "background", "stage": "preview",
+              "items": items({"workspaceKey": WORKSPACE})},
+    )
+    assert live.status_code == 202, live.text
+    measurement, job = run(live.json()["id"], "", "live")
+    deleted = job["preview"]["deletion"]["objectCount"]
+    results.append(Measurement(**{**measurement.__dict__, "scenario": f"delete preview: {len(chosen)} groups, {deleted:,} records"}))
+    client.post(f"/api/v1/jobs/{job['id']}/cancel")
+
+    in_change_set = {"changeSetId": dataset.change_set_id}
+    version = client.get(f"/api/v1/change-sets/{dataset.change_set_id}").json()["version"]
+    staged = client.post(
+        "/api/v1/batches",
+        json={"changeSetId": dataset.change_set_id, "expectedChangeSetVersion": version, "policy": "independent",
+              "run": "background", "stage": "preview", "items": items(in_change_set)},
+    )
+    assert staged.status_code == 202, staged.text
+    measurement, job = run(staged.json()["id"], "", "change_set")
+    deleted = job["preview"]["deletion"]["objectCount"]
+    results.append(Measurement(**{**measurement.__dict__, "scenario": f"delete preview: {len(chosen)} groups, {deleted:,} records"}))
+    confirmed = client.post(f"/api/v1/jobs/{job['id']}/confirm")
+    assert confirmed.status_code in (200, 202), confirmed.text
+    measurement, job = run(job["id"], "", "change_set")
+    assert job["state"] == "completed", job
+    results.append(
+        Measurement(**{**measurement.__dict__, "scenario": f"delete executed: {job['counts']['deleted']:,} items applied"})
+    )
+    return results
+
+
 EXPORT_FORMATS = ("jsonl", "csv", "xlsx")
 
 
@@ -1361,6 +1446,11 @@ def main() -> None:
         help="measure only the 0.9 J1 exports of the whole live workspace, once per format",
     )
     parser.add_argument(
+        "--only-deletion",
+        action="store_true",
+        help="measure only the 0.9 K2b deletion of about 100,000 records (D124), once",
+    )
+    parser.add_argument(
         "--only-consumer",
         action="store_true",
         help="measure only the 0.9 C3 consumer list reads, C4 XREF lookups and C14 batch resolve",
@@ -1397,6 +1487,8 @@ def main() -> None:
                 elif arguments.only_events:
                     results, told = event_scenarios(client, engine, dataset, repeat=arguments.repeat)
                     dataset.counts["events told by the heavy group's rename"] = told
+                elif arguments.only_deletion:
+                    results = deletion_scenarios(client, engine, dataset)
                 elif arguments.only_exports:
                     results = [item for item, _rows in export_scenarios(client, engine, dataset)]
                 elif arguments.only_dated:

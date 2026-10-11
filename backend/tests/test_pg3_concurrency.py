@@ -11,6 +11,7 @@ background job holds the lock for one chunk only, answers a cancel request while
 hands its job to another worker through the lease (D28).
 """
 
+import base64
 import threading
 import time
 from collections.abc import Callable, Iterator
@@ -45,6 +46,8 @@ RUNTIME_STATE_LOCK = "%FROM model_runtime_state%FOR UPDATE%"
 def client(monkeypatch, migrated_database) -> Iterator[TestClient]:
     monkeypatch.setenv("DATABASE_URL", migrated_database("pg3.db"))
     monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
+    monkeypatch.setenv("CONSUMER_SUBSCRIPTIONS_ENABLED", "true")
+    monkeypatch.setenv("CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY", base64.urlsafe_b64encode(b"k" * 32).decode())
     model_registry.clear()
     application = create_app()
     application.state.run_job_worker = False
@@ -477,6 +480,66 @@ def test_an_activation_waits_for_a_write_committing_under_the_old_release(
         finally:
             at_commit.release()
         created(pending.result(HOLD_TIMEOUT))
+        assert activation.result(HOLD_TIMEOUT).status_code == 200
+
+
+def _domain_code_not_unique(source: dict) -> None:
+    attribute = next(item for item in source["attributeTypes"] if item["key"] == "domain-code")
+    attribute["features"]["unique"] = False
+
+
+def test_an_activation_waits_for_a_subscription_row_a_delivery_holds(client, workspace):
+    """0.9 R-F2: a dispatcher step changes its subscription's row and then, as it commits, takes the
+    runtime state's share lock. The activation locks the active subscriptions before the runtime
+    state, so it waits for that row, the step commits, and neither deadlocks."""
+    created_subscription = client.post(
+        "/api/v1/consumer-subscriptions",
+        json={
+            "name": "Receiver",
+            "consumerApi": "rdm",
+            "workspaceKey": workspace,
+            "events": ["values-changed"],
+            "url": "https://hooks.example.test/rdm",
+        },
+    )
+    assert created_subscription.status_code == 201, created_subscription.text
+    release = _candidate(client, lambda _source: None)
+    with SessionLocal() as holder, ThreadPoolExecutor(max_workers=1) as pool:
+        holder.execute(
+            text("UPDATE consumer_subscriptions SET updated_at = updated_at WHERE public_id = :id"),
+            {"id": created_subscription.json()["id"]},
+        )
+        activation = pool.submit(_activate, client, release)
+        try:
+            assert waiting_on("%FROM consumer_subscriptions%FOR UPDATE%")
+            holder.execute(text("SET LOCAL lock_timeout = '3s'"))
+            holder.execute(text("SELECT id FROM model_runtime_state WHERE id = 1 FOR SHARE"))
+        finally:
+            holder.commit()
+        assert activation.result(HOLD_TIMEOUT).status_code == 200
+
+
+def test_an_activation_changing_unique_waits_for_a_write_of_those_values(client, workspace):
+    """0.9 R-F3: a live write's values reach the unique values' rows through a trigger before it
+    takes the runtime state's share lock at commit. An activation changing ``unique`` locks those
+    rows' table before the runtime state, so it waits for the write, which commits."""
+    record = created(post_object(client, workspace, "domain", domain_code=unique_key("d")))
+    release = _candidate(client, _domain_code_not_unique)
+    with SessionLocal() as holder, ThreadPoolExecutor(max_workers=1) as pool:
+        holder.execute(
+            text(
+                "UPDATE attribute_values SET text_value = text_value"
+                " WHERE object_id = :id AND attribute_type_key = 'domain-code'"
+            ),
+            {"id": record["id"]},
+        )
+        activation = pool.submit(_activate, client, release)
+        try:
+            assert waiting_on("%LOCK TABLE unique_attribute_values%")
+            holder.execute(text("SET LOCAL lock_timeout = '3s'"))
+            holder.execute(text("SELECT id FROM model_runtime_state WHERE id = 1 FOR SHARE"))
+        finally:
+            holder.commit()
         assert activation.result(HOLD_TIMEOUT).status_code == 200
 
 

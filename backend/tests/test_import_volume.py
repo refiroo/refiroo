@@ -34,6 +34,9 @@ PREVIEW_ORM_ROWS = 8
 # items: relation and record lookups, record, relationship, value and audit inserts, audit
 # subjects, relation set versions, outcomes.
 PAGED_STATEMENTS = 10
+# A stop check renews the job's lease in a short transaction of its own (0.9 R-F12): the job row
+# locked, its lease moved on.
+CHECK_STATEMENTS = 2
 
 
 def _profile():
@@ -157,7 +160,7 @@ def test_the_preview_grows_only_by_its_paged_statements_and_cancel_checks(measur
     few_items, many_items = SIZES[0] * 3, SIZES[1] * 3
     checks = many_items // STOP_CHECK_ITEMS - few_items // STOP_CHECK_ITEMS
     pages = -(-many_items // 1_000) - -(-few_items // 1_000)
-    assert many.statements - few.statements <= checks + PAGED_STATEMENTS * pages, (few, many)
+    assert many.statements - few.statements <= CHECK_STATEMENTS * checks + PAGED_STATEMENTS * pages, (few, many)
     assert max(few.rows_loaded, many.rows_loaded) <= PREVIEW_ORM_ROWS, (few, many)
 
 

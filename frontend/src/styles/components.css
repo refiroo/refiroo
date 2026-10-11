@@ -3288,12 +3288,6 @@ form .admin-hint {
 }
 
 /* Tree lens (Base 0.8 B3): the S6 tree with room for a whole hierarchy and per-row actions. */
-.tree-lens .tree {
-  --tree-window: max(320px, calc(100vh - 330px));
-}
-.tree-lens .tree-children {
-  --tree-window: min(480px, calc(100vh - 360px));
-}
 .tree-lens-body {
   padding: 6px 8px 10px;
 }
@@ -4465,8 +4459,8 @@ form.restructuring-plan-form .dialog-actions {
     overflow: auto;
     border-radius: 16px 16px 0 0;
     box-shadow:
-      0 -12px 40px rgba(29, 28, 26, 0.2),
-      0 0 0 100vmax rgba(29, 28, 26, 0.38);
+      var(--shadow-sheet),
+      0 0 0 100vmax var(--backdrop);
   }
   .filter-editor-actions .primary,
   .filter-editor-actions .ghost {

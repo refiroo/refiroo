@@ -460,6 +460,7 @@ function CellRecordForm({
   values,
   submitLabel,
   saving,
+  ready = true,
   children,
   extra,
   cancelLabel = "Cancel",
@@ -473,6 +474,8 @@ function CellRecordForm({
   values: Record<string, unknown>;
   submitLabel: string;
   saving: boolean;
+  /** False while what the submit needs is still loading: the submit button waits. */
+  ready?: boolean;
   /** Fields placed before the cell fields. */
   children?: ReactNode;
   /** Further actions beside Cancel. */
@@ -527,7 +530,7 @@ function CellRecordForm({
         <button type="button" className="secondary" disabled={saving} onClick={onCancel}>
           {cancelLabel}
         </button>
-        <button className="primary" disabled={saving}>
+        <button className="primary" disabled={saving || !ready}>
           {saving ? "Saving…" : submitLabel}
         </button>
       </div>
@@ -608,6 +611,9 @@ function CreateCellRecord({
       values={prefill ?? {}}
       submitLabel={`Create ${cellType.name.toLowerCase()}`}
       saving={saving}
+      // A submit before the containers answer would have no container; once they do, a single one
+      // is shown without the list that says one is missing, and the submit was lost (0.9 R).
+      ready={defaults !== undefined}
       onDirty={onDirty}
       onCancel={onCancel}
       cancelLabel="Back"

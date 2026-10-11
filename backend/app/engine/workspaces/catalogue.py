@@ -10,7 +10,9 @@ from sqlalchemy.orm import Session
 from ...errors import ApiError, api_error
 from ...models.commands import WorkspaceCreate, WorkspaceUpdate
 from ...models.database import (
+    AuditEvent,
     ChangeSet,
+    IdempotencyKey,
     Publication,
     RdmObject,
     RelationSetVersion,
@@ -251,6 +253,12 @@ def delete_workspace(session: Session, key: str, expected_version: int) -> None:
     naming the workspace takes a key share lock on it through its foreign key, so a write adding
     one commits first or waits and then fails its foreign key. Relation-set versions cascade with the
     workspace; they are deleted here first, as are its matrix states, which have no foreign key.
+
+    Its feed leaves with it (0.9 D208): the audit entries stay as history but lose their workspace
+    and feed position, so a workspace created again under the key starts a clean feed at 1 and its
+    readers never see the deleted one's changes; its consumer events and deriver checkpoint cascade
+    with the row. Its idempotency keys go too, so a retried request under the new workspace never
+    replays the deleted one's job.
     """
     try:
         _require_deletable(session, key, expected_version)
@@ -259,6 +267,13 @@ def delete_workspace(session: Session, key: str, expected_version: int) -> None:
         raise
     session.execute(delete(RelationSetVersion).where(RelationSetVersion.workspace_key == key))
     matrix_states.drop_workspace(session, key)
+    session.execute(
+        update(AuditEvent)
+        .where(AuditEvent.workspace_key == key)
+        .values(workspace_key=None, feed_position=None)
+        .execution_options(synchronize_session=False)
+    )
+    session.execute(delete(IdempotencyKey).where(IdempotencyKey.workspace_key == key))
     session.execute(delete(Workspace).where(Workspace.key == key))
     session.commit()
 

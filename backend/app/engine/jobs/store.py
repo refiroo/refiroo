@@ -340,7 +340,8 @@ def confirm_job(session: Session, job: Job, check_context: Callable[[Job], None]
     if job.confirmed_at is not None:
         return False
     imported = job.kind == "import"
-    if job.state == "expired":
+    # Past its retention it is expired, whether or not the hourly sweep has marked it (0.9 R-F9).
+    if job.state == "expired" or (job.state == AWAITING and job.expires_at <= datetime.now(UTC)):
         raise api_error(
             410,
             "JOB_EXPIRED",
@@ -490,8 +491,12 @@ def expire_jobs(session: Session, now: datetime) -> int:
     becomes ``expired``, keeping its summary (counts, result, error, report) while its outcomes,
     inputs and idempotency keys are removed. Keys past their own expiry go too. Returns the number
     of jobs expired."""
+    # Locked, skipping a job a confirmation holds (0.9 R-F9): one that commits first is then
+    # queued and no longer expirable, and one that waits finds it expired.
     expired = session.scalars(
-        select(Job.sequence_id).where(Job.state.in_(EXPIRABLE), Job.expires_at <= now)
+        select(Job.sequence_id)
+        .where(Job.state.in_(EXPIRABLE), Job.expires_at <= now)
+        .with_for_update(skip_locked=True)
     ).all()
     for start in range(0, len(expired), _INSERT_ROWS):
         ids = expired[start : start + _INSERT_ROWS]

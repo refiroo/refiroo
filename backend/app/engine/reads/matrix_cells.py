@@ -232,12 +232,19 @@ class CellScope:
         if base is not None:
             owner_column, owner_id = base.owner_column, base.owner_id
             replaced = aliased(overlay)
-            overridden = select(getattr(replaced, identity)).where(replaced.change_set_id == context.id)
 
             def base_where(row: Any) -> list[Any]:
                 where = [getattr(row, owner_column) == owner_id]
                 if context.kind == "change_set":
-                    where.append(~getattr(row, identity).in_(overridden))
+                    # Correlated, so PostgreSQL anti-joins on the overlay's key. `NOT IN (the change
+                    # set's rows)` is a subplan it hashes only while they fit in `work_mem`; past that
+                    # it scans them for every base row (0.9 R, R-F25).
+                    where.append(
+                        ~exists().where(
+                            replaced.change_set_id == context.id,
+                            getattr(replaced, identity) == getattr(row, identity),
+                        )
+                    )
                 return where
 
             arms.append(_Arm(base_entity, identity, base_where, literal(owner_id, String)))

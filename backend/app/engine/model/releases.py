@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from threading import Lock
+from typing import Any
 
-from sqlalchemy import select, update
+from sqlalchemy import select, text, update
 from sqlalchemy.orm import Session
 
 from ...models.database import (
@@ -10,6 +11,7 @@ from ...models.database import (
     ApplicationObjectTypeMeta,
     AttributeTypeMeta,
     AuditEvent,
+    ConsumerSubscription,
     ModelRelease,
     ModelRuntimeState,
     ObjectTypeAttributeMeta,
@@ -78,6 +80,45 @@ class ActivatedRuntimeState:
     updated_at: datetime
 
 
+def _lock_what_activation_changes(
+    session: Session, release_id: str, expected_active_release_id: str
+) -> None:
+    """Lock, before the runtime state, the rows activation changes after its check (0.9 R-F2,
+    R-F3): the active subscriptions it may suspend, and the unique attribute values when the
+    releases declare different ``unique`` attributes (the runtime state's trigger then rewrites
+    them). A write holding such a row takes the runtime state's share lock only as it commits; had
+    the activation held the runtime state first, each would wait for the other. Locked first, the
+    activation waits for that write, which commits, and the lock order is runtime state's
+    (ARCHITECTURE): workspace, change set, runtime state, records. The releases are read unlocked:
+    an activation that changed the active one meanwhile is refused below as a conflict."""
+    session.execute(
+        select(ConsumerSubscription.sequence_id)
+        .where(ConsumerSubscription.status == "active")
+        .order_by(ConsumerSubscription.sequence_id)
+        .with_for_update()
+    ).all()
+    sources = dict(
+        session.execute(
+            select(ModelRelease.public_id, ModelRelease.model_json).where(
+                ModelRelease.public_id.in_([release_id, expected_active_release_id])
+            )
+        ).all()
+    )
+    if _unique_keys(sources.get(release_id)) != _unique_keys(sources.get(expected_active_release_id)):
+        session.execute(text("LOCK TABLE unique_attribute_values IN SHARE ROW EXCLUSIVE MODE"))
+
+
+def _unique_keys(source: Any) -> frozenset[str]:
+    """The attribute types a model source declares ``unique``."""
+    if not isinstance(source, dict):
+        return frozenset()
+    return frozenset(
+        item.get("key")
+        for item in source.get("attributeTypes", [])
+        if isinstance(item, dict) and (item.get("features") or {}).get("unique")
+    )
+
+
 def activate_model_release(
     session: Session,
     release_id: str,
@@ -92,6 +133,7 @@ def activate_model_release(
     a share lock on the same row before it commits (``registry._require_resolved_release``), so it
     waits for the activation and is then refused if its release is no longer active.
     """
+    _lock_what_activation_changes(session, release_id, expected_active_release_id)
     row = session.execute(
         select(ModelRuntimeState, ModelRelease)
         .join(

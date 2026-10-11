@@ -191,7 +191,7 @@ export function FilterBar({
   filters: readonly CollectionFilter[];
   names: ReadonlyMap<string, NamedRecord>;
   workspaceKey?: string;
-  /** The listed records' names, singular and plural, for "Show 3 timetable types" (D163). */
+  /** The listed records' names, singular and plural, for "Show 3 master values" (D163). */
   noun: readonly [string, string];
   /** How many records the list shows with these filters (the sheet's Apply). */
   countDraft: (filters: CollectionFilter[]) => Promise<number | undefined>;

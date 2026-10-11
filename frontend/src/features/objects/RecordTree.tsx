@@ -2,16 +2,16 @@
  * The sidebar's record tree, read by parent (Base 0.8 S6, ADR-030).
  *
  * Each root type of the application pages its records without a parent (`topLevel`) in its own
- * bounded, scrolling group. Expanding a record mounts one group per child type, paged with
- * `parentObjectId`; collapsing it unmounts them and releases their pages. A search lists matching
- * records of every type with their ancestor path. Every group is a `useCursorWindow` in a
- * `ScrollWindow`, headed by an item that names the type and opens its collection; its count is in
- * the heading's accessible name only.
+ * group. Expanding a record mounts one group per child type, paged with `parentObjectId`;
+ * collapsing it unmounts them and releases their pages. A search lists matching records of every
+ * type with their ancestor path. Every group is a `useCursorWindow` whose rows scroll with the tree
+ * as one list (`FlatRows`, UA9, U-D21), headed by an item that names the type, folds the group and
+ * opens its collection; its count is in the heading's accessible name only. Groups start folded,
+ * except in search results.
  *
  * Every record shows its type's tile (`model/hues`, ADR-040) and the selected one is filled with
- * its type's soft colour; a group's heading is a quiet label, never drawn like a record. Each
- * group sits in a frame that shows only while its own window scrolls, and an open branch's groups
- * start below its record's toggle.
+ * its type's soft colour; a group's heading is a quiet label, never drawn like a record. An open
+ * branch's groups start below its record's toggle.
  *
  * The tree follows the WAI-ARIA tree pattern with one tab stop. Positions and set sizes come from
  * the groups' totals, and arrow keys that cross the edge of a group's window load the next page
@@ -59,24 +59,16 @@ import type { ApplicationDefinition, EngineModel, ObjectItem } from "@/types";
 import { HueTile } from "@/ui/HueTile";
 import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
-// Flat-scroll experiment (2026-10-09, asked by the user): the groups no longer scroll in windows of their own.
-// import { ScrollWindow } from "@/ui/ScrollWindow";
 import { useTreeDrag, type TreeDragConfiguration, type TreeDragState } from "./useTreeDrag";
-// Flat-scroll experiment (2026-10-09, asked by the user): no nested windows, so no wheel routing between them.
-// import { useTreeWheel } from "./useTreeWheel";
 
 /** Rows a tree group reads per request; its window holds at most five pages (D2). */
 export const TREE_PAGE_SIZE = 50;
-/** How long a group's frame keeps glowing after its window last moved. */
-const SCROLL_GLOW_MS = 700;
 /**
- * Whether a type group's heading folds like a record (UA2 revision, 2026-10-07). Turned off by the
- * user the same day, kept to turn back on: with `false` every group stays open, its heading shows no
- * chevron and its name starts where the chevron was, and the arrow keys pass over it as an open
- * parent (`aria-expanded="true"`, Left to the record above, Right into its rows).
+ * Whether a type group's heading folds like a record (UA2 revision; on again in UA9, U-D21, so the
+ * tree can start folded). With `false` every group stays open, its heading shows no chevron and its
+ * name starts where the chevron was, and the arrow keys pass over it as an open parent
+ * (`aria-expanded="true"`, Left to the record above, Right into its rows).
  */
-// const FOLDING_GROUPS = false;
-// Flat-scroll experiment (2026-10-09, asked by the user): headings fold again, so the tree can start folded.
 const FOLDING_GROUPS = true;
 
 const numberFormat = new Intl.NumberFormat();
@@ -239,9 +231,7 @@ export function RecordTree({
   onSelectionChange?: (items: ObjectItem[]) => void;
 }) {
   const api = useDataApi();
-  // const storageKey = `rdm:${config.storageScope ?? "hierarchy"}:v2:${JSON.stringify([workspaceKey, application.key])}`;
-  // Flat-scroll experiment (2026-10-09, asked by the user): its own saved state, so it starts folded and leaves the
-  // nested version's saved branches as they were.
+  // Saved apart from the earlier tree's choices (`v2`), so the tree starts folded (UA9).
   const storageKey = `rdm:${config.storageScope ?? "hierarchy"}:v2-flat:${JSON.stringify([workspaceKey, application.key])}`;
   const [branchState, setBranchState] = useState(() => ({ key: storageKey, choices: readChoices(storageKey) }));
   if (branchState.key !== storageKey) {
@@ -339,7 +329,6 @@ export function RecordTree({
     };
   }, [api, revealId, revealType, revealToken, focusing, moveFocus, storageKey, workspaceKey, sortOf, model]);
   const shownReveal = reveal?.id === revealId && reveal?.token === revealToken ? reveal : undefined;
-  // const activeAncestors = shownReveal && !target ? shownReveal.ancestors : undefined;
   // While the next active record's path is read, the branches of the one revealed last stay open, so
   // a branch both share never closes and reopens (its groups read again behind "Loading…"; reported
   // by the user, 2026-10-09). With no active record, none stays open.
@@ -366,8 +355,7 @@ export function RecordTree({
     (objectId: string) => branchState.choices.get(objectId) ?? activeAncestors?.has(objectId) ?? false,
     [branchState, activeAncestors],
   );
-  // const isGroupOpen = useCallback((groupKey: string) => branchState.choices.get(groupKey) ?? true, [branchState]);
-  // Flat-scroll experiment (2026-10-09, asked by the user): a type group starts folded, except in search results.
+  // A type group starts folded, except in search results (UA9).
   const isGroupOpen = useCallback(
     (groupKey: string) => branchState.choices.get(groupKey) ?? Boolean(search),
     [branchState, search],
@@ -387,14 +375,6 @@ export function RecordTree({
             items: new Map([...selected].filter(([, item]) => !hidden(item))),
           });
       }
-      // const choices = new Map(branchState.choices);
-      // choices.set(objectId, expanded);
-      // setBranchState({ key: storageKey, choices });
-      // try {
-      //   window.localStorage.setItem(storageKey, JSON.stringify(Object.fromEntries(choices)));
-      // } catch {
-      //   // Storage may be unavailable; keep this session's navigation usable.
-      // }
       // With folding groups (UA9, U-D21) a reveal opens several groups and records at once, so each
       // choice builds on the latest one, not on the state this render read.
       setBranchState((previous) => {
@@ -412,9 +392,6 @@ export function RecordTree({
   );
 
   const tree = useRef<HTMLDivElement>(null);
-  // The group under the pointer owns a wheel step, heading included (treeWheel, useTreeWheel).
-  // Flat-scroll experiment (2026-10-09, asked by the user): see the import.
-  // useTreeWheel(tree);
   const lists = useRef(new Map<string, CursorWindow<ObjectItem>>());
   const pending = useRef<{ key: string; step: 1 | -1 } | undefined>(undefined);
   const [focusKey, setFocusKey] = useState<string>();
@@ -538,7 +515,6 @@ export function RecordTree({
 
   const rowsChanged = useCallback(() => {
     const all = treeItems();
-    // const wanted = pendingFocus.current && all.find((item) => item.dataset.objectId === pendingFocus.current);
     const pendingRow = pendingFocus.current;
     const wanted =
       pendingRow &&
@@ -978,11 +954,9 @@ function TreeGroup({
   useLayoutEffect(() => register(groupKey, list));
   useLayoutEffect(() => () => register(groupKey, undefined), [groupKey, register]);
 
-  const scrolling = useScrolling();
   // A heading folds like a record. A reveal passing through a folded group opens it, once per reveal.
   const foldKey = `group:${parent?.id ?? "top"}:${objectTypeKey}`;
   const groupOpen = !FOLDING_GROUPS || tree.isGroupOpen(foldKey);
-  // useLayoutEffect(() => rowsChanged(), [list.items, rowsChanged]);
   // A folded group draws no rows, so opening it reports them too: a record waiting for focus (a
   // reveal, a record just created) is reached once its group opens (UA9, U-D21).
   useLayoutEffect(() => rowsChanged(), [list.items, groupOpen, rowsChanged]);
@@ -1005,10 +979,9 @@ function TreeGroup({
   const headingKey = `${groupKey}#`;
   return (
     <div
-      className={`tree-group${scrolling.active ? " is-scrolling" : ""}`}
+      className="tree-group"
       data-tree-group={groupKey}
       data-hue={objectTypeHue(model, objectTypeKey)}
-      onScrollCapture={scrolling.onScrollCapture}
       // The window's start and end markers line up with its rows' names.
       style={{ "--tree-indent": `${rowStart(level) - boxStart(level)}px` } as React.CSSProperties}
     >
@@ -1054,35 +1027,6 @@ function TreeGroup({
             <span className="tree-name">{plural}</span>
           </span>
         </div>
-        {/* Flat-scroll experiment (2026-10-09): the group's rows scroll with the tree, not in a window.
-        {groupOpen && (
-          <ScrollWindow
-            list={list}
-            label={label}
-            noun={["record", "records"]}
-            pageSize={pageSize}
-            rowNavigation={false}
-            footer={false}
-            role="group"
-            edgeMarkers="partial"
-            onAnnounce={tree.announce}
-          >
-            <ul role="none" className="tree-rows">
-              {list.items.map((item, position) => (
-                <TreeNode
-                  key={item.id}
-                  item={item}
-                  index={list.startIndex + position}
-                  level={level}
-                  setSize={total}
-                  parentKey={groupKey}
-                  match={!parent && Boolean(search)}
-                />
-              ))}
-            </ul>
-          </ScrollWindow>
-        )}
-        */}
         {groupOpen && (
           <FlatRows list={list} label={label}>
             <ul role="none" className="tree-rows">
@@ -1106,57 +1050,10 @@ function TreeGroup({
 }
 
 /**
- * Flat-scroll experiment (2026-10-09, asked by the user): a group's rows drawn in the tree's own
- * scroll instead of a `ScrollWindow`. The group still holds its rows in a `useCursorWindow`; the
- * next or previous page loads when an edge of the group comes within a short distance of the view,
- * and an edge that failed offers its retry. The `ScrollWindow` version is kept, commented, above.
+ * A group's rows drawn in the tree's own scroll (UA9, U-D21). The group still holds its rows in a
+ * `useCursorWindow`; the next or previous page loads when an edge of the group comes within a short
+ * distance of the view, and an edge that failed offers its retry.
  */
-// The first version, which loaded earlier rows by itself as well (kept for comparison):
-// function FlatRows<T>({ list, label, children }: { list: CursorWindow<T>; label: string; children: ReactNode }) {
-//   const top = useRef<HTMLDivElement>(null);
-//   const bottom = useRef<HTMLDivElement>(null);
-//   const { hasNext, hasPrevious, loadNext, loadPrevious, before, after } = list;
-//   useEffect(() => {
-//     if (typeof IntersectionObserver === "undefined") return undefined;
-//     const observer = new IntersectionObserver(
-//       (entries) => {
-//         for (const entry of entries) {
-//           if (!entry.isIntersecting) continue;
-//           if (entry.target === bottom.current && hasNext && !after.loading && !after.error) loadNext();
-//           if (entry.target === top.current && hasPrevious && !before.loading && !before.error) loadPrevious();
-//         }
-//       },
-//       { rootMargin: "200px 0px" },
-//     );
-//     if (top.current) observer.observe(top.current);
-//     if (bottom.current) observer.observe(bottom.current);
-//     return () => observer.disconnect();
-//   }, [hasNext, hasPrevious, loadNext, loadPrevious, before.loading, before.error, after.loading, after.error]);
-//   const edge = (status: { loading: boolean; error: string }, retry: () => void) =>
-//     status.error ? (
-//       <button type="button" className="ghost tree-flat-retry" onClick={retry}>
-//         Could not load more. Try again
-//       </button>
-//     ) : status.loading ? (
-//       <span className="tree-flat-loading">Loading…</span>
-//     ) : null;
-//   return (
-//     <div role="group" aria-label={label} className="tree-flat-rows">
-//       {hasPrevious && (
-//         <div ref={top} className="tree-flat-edge">
-//           {edge(before, list.retry)}
-//         </div>
-//       )}
-//       {children}
-//       {hasNext && (
-//         <div ref={bottom} className="tree-flat-edge">
-//           {edge(after, list.retry)}
-//         </div>
-//       )}
-//     </div>
-//   );
-// }
-
 function FlatRows<T>({ list, label, children }: { list: CursorWindow<T>; label: string; children: ReactNode }) {
   const bottom = useRef<HTMLDivElement>(null);
   const rows = useRef<HTMLDivElement>(null);
@@ -1233,25 +1130,6 @@ function FlatRows<T>({ list, label, children }: { list: CursorWindow<T>; label: 
       )}
     </div>
   );
-}
-
-/**
- * Whether a group's own window is scrolling, so its frame can glow while it moves. Scrolls of the
- * groups nested inside it are theirs, not its.
- */
-function useScrolling() {
-  const [active, setActive] = useState(false);
-  const timer = useRef<number | undefined>(undefined);
-  useEffect(() => () => window.clearTimeout(timer.current), []);
-  return {
-    active,
-    onScrollCapture: (event: React.UIEvent<HTMLElement>) => {
-      if ((event.target as HTMLElement).closest(".tree-group") !== event.currentTarget) return;
-      setActive(true);
-      window.clearTimeout(timer.current);
-      timer.current = window.setTimeout(() => setActive(false), SCROLL_GLOW_MS);
-    },
-  };
 }
 
 function TreeNode({
@@ -1399,10 +1277,8 @@ function groupsAround(element: HTMLElement) {
   return groups;
 }
 
-/** A group's own scrolling window, before any nested group's in document order. */
+/** A group's own rows' container (its `FlatRows`, UA9), before any nested group's in document order. */
 function windowOf(group: HTMLElement) {
-  // return group.querySelector<HTMLElement>(".scroll-window-viewport");
-  // Flat scrolling (UA9, U-D21): a group's rows sit in its `FlatRows`, not in a window.
   return group.querySelector<HTMLElement>(".tree-flat-rows");
 }
 

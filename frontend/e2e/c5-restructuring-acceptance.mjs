@@ -26,7 +26,7 @@ import { bootHarness } from "./helpers/harness.mjs";
 import { cloneDatabase } from "./helpers/database.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
 import { openDomainHierarchy, seedRestructuring, settledPlan } from "./helpers/acceptance-data.mjs";
-import { dragFrom, dragOver, dragState, escapeRegExp as escape, treeDriver } from "./helpers/tree.mjs";
+import { dragFrom, dragOver, dragState, escapeRegExp as escape, openFoldedGroups, treeDriver } from "./helpers/tree.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const scale = process.env.C5_VOLUME_SCALE ?? "0.02";
@@ -185,7 +185,7 @@ try {
   const domain01 = records.domain[1];
   const containers = ["domain-contains-codelist", "codelist-contains-value", "master-value-has-child"];
   const live = "workspaceKey=default";
-  const history = async (type, id) => (await api(`/objects/${type}/${id}/history?${live}`)).items;
+  const history = async (type, id) => (await api(`/objects/${type}/${id}/history`)).items;
 
   const changeSet = await api("/workspaces/default/change-sets", { name: "Logistics reshape", source: "currentLive" });
   const inChangeSet = `changeSetId=${changeSet.id}`;
@@ -365,7 +365,8 @@ try {
   await h.item("Carriers").waitFor();
   const crumbs = (await page.getByRole("navigation", { name: "Breadcrumb" }).last().getByRole("button").allTextContents()).slice(1);
   expect(crumbs.join(" › ") === "Domain 00 › Logistics", `publish: the live breadcrumb reads ${crumbs.join(" › ")}`);
-  expect((await h.item("Logistics").getAttribute("aria-level")) === "2", "publish: Logistics is not drawn under Domain 00 in the live tree");
+  // A record under a top-level record: its type group is level 3, the record level 4 (UA2 revision).
+  expect((await h.item("Logistics").getAttribute("aria-level")) === "4", "publish: Logistics is not drawn under Domain 00 in the live tree");
   await page.goto(`${uiUrl}/apps/rdm-master/objects/master-value/${seed.carriers.id}?${live}`);
   const historyPanel = page.locator(".history-panel");
   await historyPanel.getByText("Record reclassified").first().waitFor();
@@ -461,6 +462,8 @@ try {
   const openTree = async (id) => {
     await page.goto(`${uiUrl}/apps/vol-catalogue/views/hierarchy?${live}&changeSetId=${id}`);
     await page.getByRole("tree", { name: "hierarchy" }).waitFor();
+    // UA9 (U-D21): the lens starts folded; open its groups as a user would.
+    await openFoldedGroups(page, page.locator(".tree-lens"));
     await h.item(outer.name).waitFor();
   };
   await openTree(changeSet.id);
@@ -541,9 +544,9 @@ try {
   expect((await readAs(api, "vol-node", outer.id, live)).record?.parentObjectId === target.id, "volume publish: live does not hold the group as a node under the target");
   expect((await readAs(api, "vol-node", cited.id, `publicationId=${publication.id}`)).record?.parentObjectId === outer.id, "volume publish: the publication does not hold the citing record as a node");
   expect((await citations(live)).length === 0, "volume publish: live still holds the citation");
-  const citedHistory = (await api(`/objects/vol-node/${cited.id}/history?${live}`)).items;
+  const citedHistory = (await api(`/objects/vol-node/${cited.id}/history`)).items;
   expect(citedHistory.some((event) => event.action === "reclassified" && event.changedFields.includes("relationships")), `volume publish: the citing record's history has no reclassification naming its relationships (${JSON.stringify(citedHistory.map((event) => [event.action, event.changedFields]))})`);
-  const groupHistory = (await api(`/objects/vol-group/${dataset.cited_group_id}/history?${live}`)).items;
+  const groupHistory = (await api(`/objects/vol-group/${dataset.cited_group_id}/history`)).items;
   expect(groupHistory.some((event) => event.action === "reclassified"), "volume publish: the cited group's history does not show the reclassification that removed its citation");
   checks.push("volume publish: published by keyboard from the change set screen; live and the new publication hold the nodes, live no citation, and both the citing record's and the cited group's histories list the reclassification");
 

@@ -269,6 +269,13 @@ def test_timestamps_filter_and_sort_live_and_are_refused_where_unrecorded(lookup
     assert [item["id"] for item in _walk(client, LOOKUP, {**live, "sort": "-updatedAt"})] != []
     since = _walk(client, LOOKUP, {**live, "filter.createdAt.gte": stamps[2], "sort": "createdAt"})
     assert [item["id"] for item in since] == [item["id"] for item in created if item["createdAt"] >= stamps[2]]
+    # A day for a date-time field is that whole day in UTC (0.9 R-F6): the records were made today.
+    today = stamps[0][:10]
+    on_the_day = _walk(client, LOOKUP, {**live, "filter.createdAt.eq": today, "sort": "createdAt"})
+    assert [item["id"] for item in on_the_day] == [item["id"] for item in created]
+    assert _walk(client, LOOKUP, {**live, "filter.createdAt.lt": today}) == []
+    assert len(_walk(client, LOOKUP, {**live, "filter.createdAt.lte": today})) == 8
+    assert _walk(client, LOOKUP, {**live, "filter.createdAt.gt": today}) == []
     for name, context in seeded["contexts"].items():
         if name == "live":
             continue

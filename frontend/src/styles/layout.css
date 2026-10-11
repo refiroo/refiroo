@@ -294,7 +294,7 @@ fieldset.settings-section legend {
   background: var(--surface-raised);
   color: var(--text-primary);
   font-weight: 600;
-  box-shadow: 0 1px 2px rgba(29, 28, 26, 0.12);
+  box-shadow: var(--shadow-sm);
 }
 .theme-choice label:has(input:focus-visible) {
   outline: 2px solid var(--action-primary);
@@ -429,8 +429,6 @@ fieldset.settings-section legend {
   background: var(--surface-raised);
 }
 .tree {
-  /* Each group scrolls in its own bounded window; a branch's windows are shorter. */
-  --tree-window: min(520px, calc(100vh - 340px));
   display: grid;
   gap: 8px;
 }
@@ -439,16 +437,12 @@ fieldset.settings-section legend {
 }
 /* An open branch's groups sit in frames that start below its record's toggle (ADR-040). */
 .tree-children {
-  --tree-window: 300px;
   display: grid;
   gap: 6px;
   padding: 4px 6px 6px 0;
 }
-.tree-group .scroll-window {
-  --window-height: var(--tree-window);
-}
-/* Flat-scroll experiment (2026-10-09): a group's rows scroll with the tree; an edge that loads the
-   next or previous page shows its state, and a failed one its retry. */
+/* A group's rows scroll with the tree (UA9, U-D21); an edge that loads the next or previous page
+   shows its state, and a failed one its retry. */
 .tree-flat-edge {
   min-height: 1px;
   padding-left: var(--tree-indent, 0);
@@ -464,29 +458,11 @@ fieldset.settings-section legend {
   min-height: 28px;
   font-size: var(--text-sm);
 }
-/* Each type group sits in a frame that shows only while its own window scrolls: then it glows in
-   the accent, a state rather than a kind, showing which part is moving (UA2 revision). At rest the
-   frame is transparent but keeps its width, so nothing moves when it lights up. */
+/* Each type group keeps the transparent frame its window had (UA2 revision), so the spacing is as
+   approved in UA9. */
 .tree-group {
   border: 1px solid transparent;
   border-radius: 8px;
-  transition:
-    border-color 160ms ease,
-    box-shadow 160ms ease;
-}
-.tree-group.is-scrolling {
-  border-color: var(--action-primary);
-  box-shadow:
-    0 0 0 3px color-mix(in srgb, var(--action-primary) 22%, transparent),
-    0 0 16px color-mix(in srgb, var(--action-primary) 35%, transparent);
-}
-.tree-group .scroll-window-viewport {
-  border-radius: 0 0 7px 7px;
-}
-@media (prefers-reduced-motion: reduce) {
-  .tree-group {
-    transition: none;
-  }
 }
 .tree .scroll-window-viewport {
   /* On touch, reaching a branch's end scrolls the enclosing list on, as a finger expects. */

@@ -398,7 +398,13 @@ budgets run only at a release's acceptance (§1).
   && npm run test:browser:s5 && npm run test:browser:s6 && npm run test:browser:s7 \
   && npm run test:browser:w4 && npm run test:browser:a4 && npm run test:browser:a5 \
   && npm run test:browser:b3 && npm run test:browser:b4 && npm run test:browser:p2 \
-  && npm run test:browser:c4 && npm run test:browser:c5 && npm run test:browser:v1)
+  && npm run test:browser:c4 && npm run test:browser:c5 && npm run test:browser:v1 \
+  && npm run test:browser:settings && npm run test:browser:integration \
+  && npm run test:browser:webhooks && npm run test:browser:j1u && npm run test:browser:j4 \
+  && npm run test:browser:j6 && npm run test:browser:j6a && npm run test:browser:k1 \
+  && npm run test:browser:k2 && npm run test:browser:k2b && npm run test:browser:k3 \
+  && npm run test:browser:k5 && npm run test:browser:k6 && npm run test:browser:k7 \
+  && npm run test:browser:ua8 && npm run test:browser:ua9)
 (cd frontend && npm run test:a11y && npm run test:visual)
 ```
 

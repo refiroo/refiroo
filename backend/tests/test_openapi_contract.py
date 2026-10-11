@@ -121,9 +121,13 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # versionColumn and attributes (RelationValue); no path or other schema changed.
     # Re-baselined for 0.9 J6a: PeopleLayout's ownedColumns (OwnedColumns) and referenceLists,
     # RelatedRecordBinding's versionColumn; no path or other schema changed.
+    # Re-baselined for 0.9 R-F14: three route descriptions name their codes in upper case (the
+    # cancel route's JOB_FINISHED, the feed's FEED_POSITION_EXPIRED, the query's INVALID_QUERY);
+    # diffed against HEAD, nothing else changed. Re-baselined for 0.9.0 (R, D207): info.version
+    # 0.9.0; diffed against the previous document, nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "2d6ac8786d543918f72f70088bcffec8c00669929b671d3950fb1c233d5b0caf"
+        "ff38735f2c88545c6f6482d84f09e631666ccd386efd14f2ddff2c7c7d640522"
     )
 
 

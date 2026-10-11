@@ -420,6 +420,8 @@ def run_export(session: Session, job: Job, path: Path, control: ExportControl) -
     for statement in _TEMPORARY_TABLES:
         session.execute(text(statement))
     _fill_records(session, model, plan, context)
+    # Between the set statements too: a large scope's fill phases outlast a lease (0.9 R-F12).
+    _checkpoint(control)
     layout = people.plan_people(model, request)
     if layout is not None:
         return _run_people(session, job, path, control, model, plan, layout, context, position)
@@ -428,6 +430,7 @@ def run_export(session: Session, job: Job, path: Path, control: ExportControl) -
         _fill_paths(session, plan, context)
     if request.include.relations != "none":
         _fill_relations(session, model, plan, context, tabular=tabular)
+        _checkpoint(control)
     _fill_initial(session, model, plan, context)
     session.execute(text("ANALYZE export_records"))
     record_counts = dict(

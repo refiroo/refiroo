@@ -42,9 +42,11 @@ The [product overview](docs/PRODUCT.md) describes these capabilities and what is
 
 ## Status
 
-The interim release 0.9.0-alpha.1 (2026-10-03) moves the engine to PostgreSQL; Base 0.8 was released
-on 2026-09-29. Base 0.9, integration-grade APIs, continues. See the [roadmap](docs/ROADMAP.md), the
-[project status](docs/PROJECT_STATUS.md) and the [changelog](CHANGELOG.md).
+Base 0.9, integration-grade APIs, is complete (2026-10-11): queries, batches, imports and exports,
+the change feed, the consumer API with webhooks, and the API reference, on PostgreSQL since the
+interim release 0.9.0-alpha.1 (2026-10-03). Base 0.8 was released on 2026-09-29. Next is 0.10. See
+the [roadmap](docs/ROADMAP.md), the [project status](docs/PROJECT_STATUS.md) and the
+[changelog](CHANGELOG.md).
 
 The engine is not yet for production use: authentication arrives in 0.12, and every API is
 unauthenticated until then.

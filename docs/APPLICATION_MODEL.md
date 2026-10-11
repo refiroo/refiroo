@@ -10,7 +10,7 @@ control presentation.
 
 ```json
 {
-  "schemaVersion": "0.7",
+  "schemaVersion": "0.9",
   "release": {},
   "product": {},
   "attributeTypes": [],
@@ -677,18 +677,21 @@ attribute already declared `unique` (D2); the uniqueness declaration is the key 
 
 ## Schema 0.9 (Product 0.9)
 
-**Delivered in Base 0.9 C18 (2026-10-08).** Schema 0.9 changes one thing: `consumerApis`, the
-optional top-level array of read-only consumer API definitions, is written in a syntax organised by
-what a reader asks (CONSUMER_API C-D132–C-D141). Every other part of a 0.9 document is as in 0.8. A
-new 0.8 document that declares `consumerApis` is refused by install, draft compile and validation
-with `UNSUPPORTED_SCHEMA_VERSION` at `/schemaVersion` (C-D134); a 0.8 document without them installs,
-and a stored 0.8 release keeps reading and activating as stored, its definitions offering every
-operation. The starter is content release 0.9.3 on schema 0.9.
+Schema 0.9 is the schema language released with 0.9.0. From 0.9.0 on it is fixed: a later change to
+the language is schema 0.10. It adds to 0.8:
 
-Base 0.9 K5 adds relation columns to schema 0.9 (`related:<key>`, [above](#table-view-type-table)),
-and K3a the `many-to-one` cardinality. The starter is content release 0.9.4: its system values and
-master values show relation columns. Base 0.9 K7 adds a binding's `candidates`
-([above](#which-records-a-relationship-may-choose-schema-09-base-09-k7)).
+- `consumerApis`, the optional top-level array of read-only consumer API definitions, written in a
+  syntax organised by what a reader asks (CONSUMER_API C-D132–C-D141; [below](#consumer-api-definitions-in-schema-09));
+- relation columns in table views (`related:<key>`, [above](#table-view-type-table));
+- the `many-to-one` cardinality ([above](#relation-types));
+- a binding's `candidates` ([above](#which-records-a-relationship-may-choose-schema-09-base-09-k7)).
+
+Every other part of a 0.9 document is as in 0.8. Install, draft compile and validation refuse a
+0.8 document that declares `consumerApis` with `UNSUPPORTED_SCHEMA_VERSION` at `/schemaVersion`
+(C-D134), and one that uses any of the other three with `INVALID_MODEL` at the feature's path,
+naming schema 0.9. A 0.8 document without them installs, and a stored 0.8 release keeps reading and
+activating as stored, its consumer API definitions offering every operation. The starter
+is content release 0.9.5 on schema 0.9.
 
 ### Consumer API definitions in schema 0.9
 
@@ -744,13 +747,14 @@ Their shape, defaults, validation and contract rules are specified in
 
 ## Versioning
 
-`schemaVersion` versions the model language; the starter content release `0.8.0` uses schema `0.7`.
+`schemaVersion` versions the model language; the starter content release `0.9.5` uses schema `0.9`.
 Schema 0.4 added object-level cross-field validation, required initial relationships and scoped
 relationship uniqueness to the 0.3 detail-composition contract. Schema 0.5 adds strict typed table
 views. Schema 0.6 adds the `mappingGrid` view type. Schema 0.7 adds relations-panel sort options
 (`sortFields`, `defaultSort`) and the `relationMatrix` and `tree` view types. Schema 0.8 (Product
 0.9) adds `consumerApis` (Base 0.9 C1) and `effectivePeriod` (Q4) ([above](#schema-08-additions-product-09)), and
-schema 0.9 writes `consumerApis` in its present syntax (C18, [above](#schema-09-product-09)). `release.version` versions one model package.
+schema 0.9, released with 0.9.0, writes `consumerApis` in its present syntax and adds relation
+columns, `many-to-one` and `candidates` ([above](#schema-09-product-09)). `release.version` versions one model package.
 Each distinct
 validated model is installed as an immutable database release identified by its content hash.
 
@@ -790,6 +794,6 @@ environment so it targets the same `DATABASE_URL`; `/health` remains HTTP `503` 
 has succeeded and the API is restarted.
 
 The command reads the selected schema 0.4 release without starting the request runtime, validates and
-installs a supported schema 0.5, 0.6 or 0.7 candidate, runs the normal compatibility analysis and atomically
+installs a supported schema 0.5 to 0.9 candidate, runs the normal compatibility analysis and atomically
 changes runtime state.
 Any validation, compatibility or concurrency failure rolls the transaction back.

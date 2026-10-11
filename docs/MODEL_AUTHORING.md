@@ -203,9 +203,9 @@ binding; profiles are instance-wide). This is the outline as first written:
         { "column": "Service_Name", "field": "name" },
         { "column": "Category", "parent": {
             "objectTypeKey": "category", "matchBy": { "field": "name" } } },
-        { "column": "Duration", "relation": {
-            "relationTypeKey": "has-duration", "objectTypeKey": "duration",
-            "matchBy": { "field": "name" }, "valueMap": "duration-values" } },
+        { "column": "Unit", "relation": {
+            "relationTypeKey": "has-unit", "objectTypeKey": "unit",
+            "matchBy": { "field": "name" }, "valueMap": "unit-values" } },
         { "columns": ["Room_A", "Room_B"], "relationFlags": {
             "relationTypeKey": "uses-room", "objectTypeKey": "room",
             "targets": { "Room_A": "room-a", "Room_B": "room-b" } } },
@@ -221,7 +221,7 @@ binding; profiles are instance-wide). This is the outline as first written:
         "languageColumn": "Language", "fields": { "Service_Name": "name" } }
     }
   ],
-  "valueMaps": { "duration-values": { "N/A": null } }
+  "valueMaps": { "unit-values": { "N/A": null } }
 }
 ```
 
@@ -271,7 +271,7 @@ accepted operation passes the same validation.
 
 ## Lists as object types
 
-A list of values (durations, resources, roles, statuses) becomes an object type of its own, created by
+A list of values (units, sizes, colours, statuses) becomes an object type of its own, created by
 inference or by one operation. This replaces the pattern of one generic "reference value" type holding
 several lists and picklists filtered by the parent's name: the relation binding itself limits a picklist
 to the right list, with no filter configuration and no string match, and each list can carry its own
@@ -312,7 +312,7 @@ An application may declare navigation groups:
 "navigation": {
   "groups": [
     { "key": "calendar-lists", "label": "Calendar lists",
-      "collections": ["duration", "resource", "room"], "collapsed": true }
+      "collections": ["unit", "size", "colour"], "collapsed": true }
   ]
 }
 ```

@@ -27,6 +27,7 @@ import {
   seedTranslationMatrix,
 } from "./helpers/acceptance-data.mjs";
 import { cancelDrag } from "./helpers/tree.mjs";
+import { visitReleaseSurfaces } from "./helpers/release-surfaces.mjs";
 
 // Permitted known violations with tracked issue references.
 // Each entry must state the axe rule id and a tracking reference.
@@ -452,6 +453,16 @@ try {
   // Discard the leftover change set.
   const changeSet2Detail = await api(`/change-sets/${changeSet2.id}`);
   await api(`/change-sets/${changeSet2.id}?expectedVersion=${changeSet2Detail.version}`, undefined, "DELETE");
+
+  // --- 15. Base 0.9 surfaces (0.9 R, D202), light and dark, on a harness of their own: Settings ›
+  // Integration, a webhook's configuration and deliveries, relation columns, the filter editor, the
+  // selection bar and the bulk dialogs, exporting and importing with their notifications and job pages ---
+  await visitReleaseSurfaces(async ({ page: surface, name }) => {
+    const found = await runAxe(surface, ALLOWLIST, name);
+    if (found.violations.length > 0) failures.push(`${name}:\n${formatViolations(found.violations)}`);
+    checks.push(`${name}: ${found.violations.length} violations, ${found.allowed.length} allowed`);
+    await surface.screenshot({ path: resolve(output, `a11y-${name}.png`), fullPage: true });
+  });
 
   // Write report.
   const report = { checks, regressionChecks, failures, passed: failures.length === 0 };

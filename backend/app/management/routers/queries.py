@@ -18,7 +18,7 @@ def query_workspace_objects(
 ) -> ObjectQueryPage:
     """Records of one object type matching criteria over their fields, their ancestors and one
     relation hop, with the fields and related records each item returns. A read: it changes
-    nothing. Model-dependent mistakes are ``422 invalid_query`` with ``details.path``, a JSON
+    nothing. Model-dependent mistakes are ``422 INVALID_QUERY`` with ``details.path``, a JSON
     pointer into the body."""
     workspace = resolve_workspace(session, workspace_key)
     snapshot = resolve_request_model(

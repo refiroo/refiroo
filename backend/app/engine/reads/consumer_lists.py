@@ -25,6 +25,9 @@ from .consumer_source import ConsumerSource, cursor_scope
 from .object_query import as_of_filter, build_object_query
 from .snapshot_reads import SnapshotBase, SnapshotContext, build_snapshot_object_query
 
+# A list's and XREF's pages (C-D30): the smallest, the largest and the default size.
+PAGE_SIZE = (1, 100, 20)
+
 
 def consumer_list(definition: ConsumerApiDefinition, list_key: str) -> ConsumerList:
     """The definition's list ``list_key``, or ``404 LIST_NOT_FOUND``."""

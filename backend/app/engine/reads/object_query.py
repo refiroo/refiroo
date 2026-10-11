@@ -2,7 +2,7 @@
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
-from datetime import date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -963,6 +963,15 @@ def _filter_predicate(
         return not_(present) if value else present
     if operator == "isNull":
         comparison = column.is_(None) if value else column.is_not(None)
+    elif isinstance(value, Day):
+        start, end = value.bounds()
+        comparison = {
+            "eq": and_(column >= start, column < end),
+            "lt": column < start,
+            "lte": column < end,
+            "gt": column >= end,
+            "gte": column >= start,
+        }[operator]
     elif operator == "eq":
         comparison = column == value
     elif operator == "contains":
@@ -1013,11 +1022,31 @@ def _built_in_value_type(field: str) -> str:
     return "text"
 
 
+@dataclass(frozen=True)
+class Day:
+    """A day given for a date-time field: the whole day in UTC (0.9 R-F6). ``eq`` holds the day,
+    ``lt`` before it, ``lte`` up to its end, ``gt`` after it, ``gte`` from its start."""
+
+    day: date
+
+    def isoformat(self) -> str:
+        return self.day.isoformat()
+
+    def bounds(self) -> tuple[datetime, datetime]:
+        start = datetime(self.day.year, self.day.month, self.day.day, tzinfo=UTC)
+        return start, start + timedelta(days=1)
+
+
 def parse_filter_value(value_type: str, operator: str, lexical: str, field: str) -> Any:
     if operator in {"isNull", "isUnset"}:
         if lexical not in {"true", "false"}:
             query_error("INVALID_FILTER", f"Filter '{operator}' requires true or false", f"filter.{field}.{operator}")
         return lexical == "true"
+    if value_type == "dateTime" and len(lexical) == 10:
+        try:
+            return Day(date.fromisoformat(lexical))
+        except ValueError:
+            pass
     try:
         return parse_typed(value_type, lexical)
     except ValueError:
@@ -1092,7 +1121,7 @@ def _parse_cursor_value(value_type: str, token: str) -> Any:
 def _format_typed_value(value: Any) -> str:
     if isinstance(value, bool):
         return "true" if value else "false"
-    if isinstance(value, (date, datetime)):
+    if isinstance(value, (date, datetime, Day)):
         return value.isoformat()
     return str(value)
 

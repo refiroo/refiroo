@@ -891,16 +891,41 @@ def _resolve(scope: CellScope, cells: set[str], moved: set[str]) -> set[str]:
     candidates = cells | moved
     # Only a container or a cell can change the column of the cells under it: a column record
     # takes its cells with it, and a record of any other type holds no cell below a column (B2:
-    # moving it walks none of its children, however many). A record not found, such as a
-    # tombstone, is walked from.
+    # moving it walks none of its children, however many). A record not found is walked from,
+    # except a change set's tombstone: nothing is left under it in the change set, since what it
+    # held was deleted with it or moved, and each of those is a candidate itself (0.9 R, R-F27:
+    # a run deleting 100,000 records walked from each of them and found nothing).
     types = _object_types(scope, moved)
-    walk_from = {key for key in moved if types.get(key, shape.cell_type) in shape.walk_types}
+    deleted = _tombstones(scope, moved - types.keys())
+    walk_from = {
+        key
+        for key in moved
+        if key not in deleted and types.get(key, shape.cell_type) in shape.walk_types
+    }
     for chunk in _chunks(walk_from):
         candidates |= set(session.scalars(descendants(scope, chunk, shape.walk_types)))
     rows: set[str] = set()
     for chunk in _chunks(candidates):
         rows |= set(session.scalars(related_rows(scope, chunk)))
     return rows
+
+
+def _tombstones(scope: CellScope, ids: set[str]) -> set[str]:
+    """Which of ``ids`` the scope's change set holds as deleted; none outside a change set."""
+    if scope.context is None or scope.context.kind != "change_set" or not ids:
+        return set()
+    deleted: set[str] = set()
+    for chunk in _chunks(ids):
+        deleted.update(
+            scope.session.scalars(
+                select(ChangeSetObject.object_id).where(
+                    ChangeSetObject.change_set_id == scope.context.id,
+                    ChangeSetObject.object_id.in_(chunk),
+                    ChangeSetObject.is_deleted.is_(True),
+                )
+            )
+        )
+    return deleted
 
 
 def _object_types(scope: CellScope, ids: set[str]) -> dict[str, str]:

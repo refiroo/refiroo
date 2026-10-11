@@ -16,8 +16,8 @@ def starter_at_schema(schema_version: str, source: dict[str, Any] | None = None)
 
     Schema 0.9 wrote consumer API definitions in their present syntax, and a new 0.8 document may no
     longer declare them (C18; ``tests/fixtures/consumer_08`` keeps the 0.8 starter as it was); it
-    also added relation columns (``related:<key>``, K5). Schema
-    0.8 added effective periods, 0.7 relations-panel sort options and the ``relationMatrix`` and
+    also added relation columns (``related:<key>``, K5), the ``many-to-one`` cardinality (K3a) and a
+    binding's ``candidates`` (K7). Schema 0.8 added effective periods, 0.7 relations-panel sort options and the ``relationMatrix`` and
     ``tree`` view types, and 0.6 the ``mappingGrid`` view type.
     """
     result = copy.deepcopy(source) if source is not None else json.loads(MODEL_PATH.read_text())
@@ -27,6 +27,11 @@ def starter_at_schema(schema_version: str, source: dict[str, Any] | None = None)
     if schema_version < "0.9":
         result.pop("consumerApis", None)
         without_relation_columns(result)
+        for binding in result.get("objectTypeRelations", []):
+            # Schema 0.9 added many-to-one (K3a) and candidates (K7); many-to-many allows the same.
+            binding.pop("candidates", None)
+            if binding.get("cardinality") == "many-to-one":
+                binding["cardinality"] = "many-to-many"
     if schema_version < "0.8":
         for object_type in result["objectTypes"]:
             object_type.pop("effectivePeriod", None)

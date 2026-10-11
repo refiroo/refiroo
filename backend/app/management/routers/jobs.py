@@ -131,7 +131,7 @@ def cancel_job(job_id: str, request: Request, session: DbSession) -> JobResponse
     The worker carries it out at the job's next chunk: items not reached become ``unprocessed``
     with ``JOB_CANCELLED``, chunks committed before stay applied, and an ``atomic`` job rolls back
     completely. An import preview awaiting confirmation is cancelled at once, its file removed and
-    its preview's outcomes kept to read. A finished job answers ``409 job_finished``.
+    its preview's outcomes kept to read. A finished job answers ``409 JOB_FINISHED``.
     """
     limits: BatchLimits = request.app.state.batch_limits
     job = request_cancel(

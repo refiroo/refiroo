@@ -20,14 +20,17 @@ from ...models.schema import (
     ProjectionParameter,
     RelatedParameter,
 )
+from ...models.search_index import MIN_INDEXED_LENGTH
 from ..model.consumer_contract import OutputContract, output_contract, parent_keys
+from ..reads.consumer_events import FULL, IDENTITY
+from ..reads.consumer_events import PAGE_SIZES as EVENT_PAGE_SIZES
+from ..reads.consumer_lists import PAGE_SIZE
+from ..reads.consumer_xref import MATCH_LIMIT, MAX_TERMS
 
 OPENAPI_VERSION = "3.1.0"
-# The read limits the document states (CONSUMER_API C-D30, C-D37, C-D38).
-PAGE_SIZE = (1, 100, 20)
-MIN_CONTAINS = 3
-MATCH_LIMIT = 10_000
-MAX_TERMS = 100
+# The read limits the document states (CONSUMER_API C-D30, C-D37, C-D38), the engine's own
+# (0.9 R-F21): the document cannot state one the reads do not apply.
+MIN_CONTAINS = MIN_INDEXED_LENGTH
 _TYPES: dict[str, dict[str, Any]] = {
     "text": {"type": "string"},
     "integer": {"type": "integer"},
@@ -684,8 +687,12 @@ _EVENT_CURSOR = {
 _EVENT_PAGE_SIZE = {
     "name": "pageSize",
     "in": "query",
-    "description": "1–100 with `payload=full` (default 100), 1–1,000 with `payload=identity` (default 500).",
-    "schema": {"type": "integer", "minimum": 1, "maximum": 1000},
+    "description": (
+        f"1–{EVENT_PAGE_SIZES[FULL][0]:,} with `payload=full` (default {EVENT_PAGE_SIZES[FULL][1]:,}),"
+        f" 1–{EVENT_PAGE_SIZES[IDENTITY][0]:,} with `payload=identity`"
+        f" (default {EVENT_PAGE_SIZES[IDENTITY][1]:,})."
+    ),
+    "schema": {"type": "integer", "minimum": 1, "maximum": max(size for size, _ in EVENT_PAGE_SIZES.values())},
 }
 _PAYLOAD = {
     "name": "payload",

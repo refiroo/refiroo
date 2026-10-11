@@ -17,7 +17,7 @@ import logging
 import pytest
 import test_relation_matrix as reads
 import test_relation_matrix_writes as writes
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, event, func, select
 from test_relation_matrix import MASTER_SYSTEMS, TRANSLATIONS, attr, create, translation
 from test_relation_matrix import delete as delete_record
 from test_relation_matrix_writes import (
@@ -33,7 +33,7 @@ from test_relation_matrix_writes import (
 )
 from wp8_support import create_change_set, create_workspace, publish_change_set
 
-from app.db import SessionLocal
+from app.db import SessionLocal, get_engine
 from app.engine.indexes import matrix_states
 from app.engine.model.bootstrap import ensure_bootstrap_release
 from app.management.projections import relation_matrix
@@ -269,6 +269,37 @@ def _without_codelist_systems(source: dict) -> None:
 def admin_client(tmp_path, monkeypatch, migrated_database):
     monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
     yield from serve(json.loads(STARTER.read_text()), tmp_path, monkeypatch, migrated_database("a3b-admin.db"))
+
+
+def test_a_change_sets_walk_anti_joins_the_rows_it_replaces(client, translations, stored_only):
+    """0.9 R (R-F25): deleting about 100,000 records in a change set held one walk of the cells
+    under a moved container for more than 5 minutes. Its base rows left out the change set's rows
+    by `NOT IN`, a subplan PostgreSQL hashes only while they fit in `work_mem`; past that it scans
+    them for every base row. Moving a container in a change set walks without a subplan."""
+    change_set = translations["change_set"]
+    version = client.get(f"/api/v1/change-sets/{change_set['id']}").json()["version"]
+    group = client.get(
+        "/api/v1/objects/translation-group", params={"workspaceKey": "default", "search": "Group cs"}
+    ).json()["items"][0]
+    plans = []
+
+    def explain(connection, cursor, statement, parameters, context, executemany):
+        if statement.lstrip().startswith("WITH RECURSIVE matrix_descendants"):
+            with cursor.connection.cursor() as probe:
+                probe.execute("EXPLAIN " + statement, parameters)
+                plans.append("\n".join(row[0] for row in probe.fetchall()))
+
+    event.listen(get_engine(), "before_cursor_execute", explain)
+    try:
+        patch(
+            client, group, parentObjectId=translations["languages"]["de"]["id"],
+            changeSetId=change_set["id"], expectedChangeSetVersion=version,
+        )
+    finally:
+        event.remove(get_engine(), "before_cursor_execute", explain)
+    assert plans, "moving a container in the change set walked nothing"
+    assert all("SubPlan" not in plan for plan in plans), plans
+    check(client, TRANSLATIONS, translations["columns"], {"changeSetId": change_set["id"]})
 
 
 def test_activation_and_release_change_follow_the_model(admin_client, stored_only):

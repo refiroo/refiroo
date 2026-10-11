@@ -13,6 +13,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
+import { everyPage } from "@/lib/everyPage";
 import type {
   ConsumerApiDefinition,
   EngineModel,
@@ -179,11 +180,12 @@ export function WebhookDialog({
   useEffect(() => {
     if (editing) return;
     let active = true;
-    Promise.all([api.workspaces({ status: "active", pageSize: 100 }), api.workspaceRuntimeState()])
-      .then(([page, runtime]) => {
+    Promise.all([everyPage((cursor) => api.workspaces({ status: "active", cursor })), api.workspaceRuntimeState()])
+      .then(([all, runtime]) => {
         if (!active) return;
-        // The default first, as a subscription without a workspace would take it.
-        const items = [...page.items].sort(
+        // Every active workspace (0.9 R-F19), the default first, as a subscription without a
+        // workspace would take it.
+        const items = [...all].sort(
           (a, b) => Number(b.key === runtime.defaultWorkspaceKey) - Number(a.key === runtime.defaultWorkspaceKey),
         );
         setWorkspaces(items);

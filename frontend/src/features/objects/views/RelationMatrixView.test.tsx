@@ -440,6 +440,36 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     expect(gridCell("Finance", 2)).toHaveTextContent("History only");
   });
 
+  it("waits for the cell's containers before Create can be submitted (0.9 R)", async () => {
+    // A Create pressed before the containers answered had no container; once they answered with a
+    // single one, the message saying so was not shown, and the submit was lost.
+    let answer: (page: Awaited<ReturnType<typeof api.relationMatrixContainers>>) => void = () => {};
+    vi.mocked(api.relationMatrixContainers).mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    vi.mocked(api.createObject).mockResolvedValue({} as never);
+    renderMatrix(notesView);
+    await screen.findByRole("grid");
+    fireEvent.click(gridCell("Connections", 2));
+    const dialog = await screen.findByRole("dialog", { name: "Connections · WE" });
+    fireEvent.click(within(dialog).getByRole("button", { name: /Create note/ }));
+    const create = await within(dialog).findByRole("button", { name: "Create note" });
+    expect(create).toBeDisabled();
+    fireEvent.click(create);
+    expect(api.createObject).not.toHaveBeenCalled();
+    answer({
+      items: [{ id: "g1", objectTypeKey: "region", name: "Region West", path: [] }],
+      nextCursor: null,
+      defaultContainerId: "g1",
+      totalCount: 1,
+      startIndex: 0,
+    });
+    await waitFor(() => expect(create).toBeEnabled());
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Code" }), { target: { value: "CL-WE" } });
+    fireEvent.click(create);
+    await waitFor(() =>
+      expect(api.createObject).toHaveBeenCalledWith("note", expect.objectContaining({ parentObjectId: "g1" })),
+    );
+  });
+
   it("lets a reload replace cells re-read after earlier saves", async () => {
     vi.mocked(api.relationMatrixContainers).mockResolvedValue({
       items: [{ id: "g1", objectTypeKey: "region", name: "Region West", path: [] }],

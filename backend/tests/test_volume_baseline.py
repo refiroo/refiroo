@@ -13,6 +13,7 @@ position jump cost the same statements at both scales and meet the 100 ms budget
 """
 
 import json
+import threading
 from pathlib import Path
 
 import pytest
@@ -99,6 +100,10 @@ def _largest_parameter_list(client, engine, dataset) -> dict[str, int]:
     step = "capture"
 
     def on_execute(_conn, _cursor, _statement, parameters, _context, executemany) -> None:
+        # The requests' statements only: the engine's background threads (``rdm-…``) poll the same
+        # engine, and under load one more poll fell inside a step (0.9 R).
+        if threading.current_thread().name.startswith("rdm-"):
+            return
         largest[f"{step}_statements"] += 1
         rows = parameters if executemany else [parameters]
         largest[step] = max(largest[step], *(len(row or ()) for row in rows))

@@ -14,6 +14,7 @@ from uuid import UUID, uuid4, uuid5
 import pytest
 from openpyxl import Workbook
 from scenario import ok, refused
+from sqlalchemy import text
 
 from app.db import SessionLocal
 from app.engine.jobs.worker import JobWorker, WorkerSettings
@@ -1455,7 +1456,7 @@ def test_a_large_file_is_previewed_in_part_and_every_binding_refusal_is_still_re
 def test_a_waiting_preview_ends_by_cancel_or_retention_and_only_a_preview_confirms(world):
     """Given a waiting preview. When it is cancelled. Then it is cancelled at once, its file is gone
     and its outcomes still read. Given another, past its retention after the sweep, it is expired
-    and confirm is refused as expired. Confirming an executed import or a batch is refused as not
+    and confirm is refused as expired, as it is past its retention before the sweep. Confirming an executed import or a batch is refused as not
     awaiting confirmation, naming its state."""
     ws = _workspace(world)
     profile = ok(world.api.post("/import-profiles", _ledger_profile(world)), 201)
@@ -1470,6 +1471,16 @@ def test_a_waiting_preview_ends_by_cancel_or_retention_and_only_a_preview_confir
     assert not files.source(job["id"]).is_file()
     assert [r["ref"] for r in _rows(world, job)] == ["csv!2"]
     refused(_confirm(world, job), 409, "JOB_NOT_AWAITING_CONFIRMATION")
+
+    # Past its retention before the hourly sweep has run, it is expired all the same (0.9 R-F9).
+    late = _previewed(world, "l.csv", _csv(rows), request)
+    with SessionLocal() as session:
+        session.execute(
+            text("UPDATE jobs SET expires_at = now() - interval '1 second' WHERE id = :id"),
+            {"id": late["id"]},
+        )
+        session.commit()
+    refused(_confirm(world, late), 410, "JOB_EXPIRED")
 
     waiting = _previewed(world, "l.csv", _csv(rows), request)
     expires = datetime.fromisoformat(waiting["expiresAt"])

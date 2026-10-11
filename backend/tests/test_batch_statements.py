@@ -22,14 +22,16 @@ items, the records their closures hold, or the closures' depth. The count includ
 claim, the matrix states' upkeep and the preview's record.
 """
 
+import json
 from typing import Any
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import event, text
 from volume_fixture import (
     APPLICATION,
     CODE,
     GROUP,
+    GROUP_HAS_CELL,
     ITEM,
     ITEM_CITES_GROUP,
     RANK,
@@ -278,3 +280,79 @@ def test_a_run_of_cascading_deletes_costs_a_constant_number_of_statements(measur
             assert job["state"] == "awaiting_confirmation", job
             assert job["preview"]["counts"]["deleted"] == count, job["preview"]
             assert job["preview"]["deletion"]["objectCount"] > count, job["preview"]
+
+
+# The closure's walk at two sizes where its owned records are many: four times the data, and in
+# the change set about four times the matrix cells its groups own.
+WALK_SIZES = {"small": scaled_shape(0.01), "large": scaled_shape(0.04)}
+
+
+@pytest.fixture(scope="module")
+def walked(tmp_path_factory) -> dict[str, tuple[int, int, int]]:
+    """Per size: the buffers a change set's deletion walk of eight cell-owning groups read, the
+    records it reached, and the walks of matrix cells its upkeep ran. The walk runs once more under EXPLAIN in a savepoint on the raw cursor."""
+    results = {}
+    for size, shape in WALK_SIZES.items():
+        with volume_app(tmp_path_factory.mktemp(f"deletion-walk-{size}"), shape) as (client, dataset):
+            engine = get_engine()
+            client.app.state.job_worker.stop()
+            with engine.connect() as connection:
+                groups = connection.execute(
+                    text(
+                        "SELECT DISTINCT from_object_id FROM object_relations"
+                        " WHERE relation_type_key = :cell ORDER BY from_object_id LIMIT 8"
+                    ),
+                    {"cell": GROUP_HAS_CELL},
+                ).scalars().all()
+            version = client.get(f"/api/v1/change-sets/{dataset.change_set_id}").json()["version"]
+            items = [
+                {"op": "delete", "target": {"id": group}, "cascade": True,
+                 "expectedVersion": _version(client, "change set", dataset, group)}
+                for group in groups
+            ]
+            body = {"changeSetId": dataset.change_set_id, "expectedChangeSetVersion": version,
+                    "policy": "independent", "run": "background", "stage": "preview", "items": items}
+            walks: list[tuple[int, int]] = []
+            matrix_walks: list[str] = []
+
+            def walk(
+                connection, cursor, statement, parameters, context, executemany,
+                walks=walks, matrix_walks=matrix_walks,
+            ):
+                if statement.lstrip().startswith("WITH RECURSIVE matrix_descendants"):
+                    matrix_walks.append(statement)
+                if statement.lstrip().startswith("WITH RECURSIVE reach"):
+                    with cursor.connection.cursor() as probe:
+                        probe.execute("SAVEPOINT walk")
+                        probe.execute("EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) " + statement, parameters)
+                        plan = probe.fetchone()[0]
+                        probe.execute("ROLLBACK TO SAVEPOINT walk")
+                    plan = (json.loads(plan) if isinstance(plan, str) else plan)[0]["Plan"]
+                    walks.append((plan["Shared Hit Blocks"] + plan["Shared Read Blocks"], plan["Plans"][0]["Actual Rows"]))
+
+            queued = client.post("/api/v1/batches", json=body)
+            assert queued.status_code == 202, queued.text
+            event.listen(engine, "before_cursor_execute", walk)
+            try:
+                client.app.state.job_worker.run_until_idle()
+            finally:
+                event.remove(engine, "before_cursor_execute", walk)
+            assert walks, f"{size}: the preview did not walk"
+            results[size] = (*map(sum, zip(*walks, strict=True)), len(matrix_walks))
+    return results
+
+
+def test_the_closures_walk_reads_per_record_reached_whatever_the_data(walked):
+    """0.9 R (R-F26): deleting about 100,000 records in a change set spent over 3 minutes in the
+    closure's walk: for each record reached, its required owned records were found by reading every
+    record of the owned type in the change set, which grows with the data. Deleting eight groups
+    reads about the same buffers at four times the data (measured +4 %; before the fix +48 %)."""
+    (small, _, _), (large, _, _) = walked["small"], walked["large"]
+    assert large <= 1.25 * small, walked
+
+
+def test_a_change_sets_deletion_walks_no_matrix_cells_under_its_tombstones(walked):
+    """0.9 R (R-F27): deleting about 100,000 records in a change set spent 105 s walking the matrix
+    cells under each deleted record, chunk by chunk, and found none: what a tombstone held was
+    deleted with it, each a candidate itself. A deletion walks from no tombstone."""
+    assert [matrix_walks for _blocks, _reached, matrix_walks in walked.values()] == [0, 0], walked

@@ -494,6 +494,8 @@ def test_a_relation_column_where_the_model_allows_it(world):
         for binding in model["objectTypeRelations"]:
             if binding["cardinality"] == "many-to-one":
                 binding["cardinality"] = "many-to-many"
+            # Schema 0.9 as well (0.9 K7): left in, it would be refused before the column.
+            binding.pop("candidates", None)
         h_config(model)["sortFields"].remove(f"related:{bn1}")
         h_config(model)["defaultSort"] = "name"
 

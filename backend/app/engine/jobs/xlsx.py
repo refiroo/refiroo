@@ -345,7 +345,7 @@ class Workbook:
 
         validations = "".join(
             f'<dataValidation type="list" allowBlank="1" showErrorMessage="1" '
-            f'sqref="{letter}3:{letter}{last_row}"><formula1>{source}</formula1></dataValidation>'
+            f'sqref="{letter}3:{letter}{last_row}"><formula1>{source.translate(_MARKUP)}</formula1></dataValidation>'
             for letter, source in sheet.lists
         )
         after = (
@@ -380,7 +380,7 @@ class Workbook:
         filtered = f"A1:{letters[-1]}{last_row}"
         validations = "".join(
             f'<dataValidation type="list" allowBlank="1" showErrorMessage="1" '
-            f'sqref="{letter}2:{letter}{last_row}"><formula1>{source}</formula1></dataValidation>'
+            f'sqref="{letter}2:{letter}{last_row}"><formula1>{source.translate(_MARKUP)}</formula1></dataValidation>'
             for letter, source in sheet.lists
         )
         after = f'<autoFilter ref="{filtered}"/>' + (

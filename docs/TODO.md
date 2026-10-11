@@ -248,12 +248,14 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 
 - [x] Foreign keys enforced and every `ondelete` rule checked against its service: delivered by
   0.9.0-alpha.1 PG2 (2026-10-01, PG-D4; `test_foreign_keys`), superseding the SQLite item from 0.8 W6.
-- [ ] 0.9 planning ([plan](BASE_0_9_IMPLEMENTATION_PLAN.md), [integration design](INTEGRATION_API.md)): document
+- [x] 0.9 planning ([plan](BASE_0_9_IMPLEMENTATION_PLAN.md), [integration design](INTEGRATION_API.md)): document
   set accepted 2026-09-28; decisions D1–D16 and CONSUMER_API C-D1–C-D16 accepted 2026-09-29;
   INTEGRATION_API sections P, B, F, Q and J, the schema 0.8 section and ADR-036–038 drafted
   2026-09-29; work packages and the delivery queue specified 2026-09-29. Open: review of the F and J
   drafts. Implementation started 2026-09-29 with Q1 and Q2 (delivered); Q3 delivered 2026-09-30 with
   D17–D19, C1 with C-D17–C-D20 and Q4 with D20–D22; B1 2026-10-01 with D23–D26, B2 with D27–D30.
+  Closed at R (2026-10-11): 0.9 is complete; F and J were delivered on their sections, which their
+  packages amended (INTEGRATION_API's state table).
 - [x] Integration-grade query expressions beyond daily-use filters: delivered as 0.9 Q3 (2026-09-30),
   the model-aware query; `asOf` with effective periods in Q4 (2026-09-30).
 - [x] Bounded live bulk object/relation/mapping operations with explicit optional staging, per-item
@@ -294,9 +296,30 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   in Q1). Restated in D56 and measured at 258,000 in J1 (2026-10-07, POSTGRESQL_BUDGETS §8).
 - [x] J1u: the export dialog, the job page and notifications pushed over a per-job event stream
   (delivered 2026-10-07; screenshots approved).
-- [ ] R: add J1u's export dialog, notification and job page, and J4's import dialog, the import's
+- [x] **Flake (0.9 R step 0, 2026-10-10):** `test_mapping_coverage::test_coverage_query_count_does_not_grow_per_source[False]`
+  failed once in a parallel run of nine groups and passed alone; `[True]` failed once in R step 2.
+  Cause: the count took every statement on the engine, the background threads' polls included.
+  Fixed in R step 2: it counts the request's statements only, as `volume_fixture.measure` does.
+- [ ] **Flakes (0.9 R step 3, 2026-10-10)**, each failed once and passed on its rerun (D201):
+  `test:browser:c4` (focus left the tree after the lens search's Tab, looking for Pickup point, on the
+  second search after `goBack`); `test:browser:k6` (Select all 42 matching not offered: the list may
+  have loaded every row before the check); `test:browser` (`checkRecordReturn` after a reload: Back to
+  list did not reach the systems list's address with its anchor). Look at each when it recurs.
+- [ ] **`NOT IN` subqueries that may outgrow `work_mem` (0.9 R, after R-F23 and R-F25):**
+  `jobs/people.py` `_walk_ids` (`wanted NOT IN the workbook's records`, which can reach a whole
+  type at full volume) and `management/projections/mapping.py` exclusive targets (`id NOT IN` the
+  mapping's edges). PostgreSQL hashes such a subplan only while it fits; past that it scans it per
+  row. Not measured at that size; the mapping read's budgets passed. Rewrite as `NOT EXISTS` or a
+  join when either is measured large.
+- [ ] **Budget (0.9 R step 2, 2026-10-10):** the full backend suite without `budget` took 6 min 19 s
+  in parallel (2,201 cases), over the 5-minute ceiling (TEST_HARNESS_PLAN). Not a regression per case:
+  H3 measured 2 min 41 s for 1,032 cases (0.16 s each), R 0.17 s each. The suite doubled in 0.9. The
+  slowest are volume statement counts and journey parametrisations (the run's list of tests over 10 s).
+  Revisit the ceiling or the slowest modules before 1.0.
+- [x] R: add J1u's export dialog, notification and job page, and J4's import dialog, the import's
   job page (waiting and loaded) and its notifications, to `test:a11y` and `test:visual` (scenarios
-  and baselines), light and dark; J1u and J4 checked them with axe in their runners (D95).
+  and baselines), light and dark; J1u and J4 checked them with axe in their runners (D95). Done in
+  R step 4 (2026-10-11) with the other D202 surfaces.
 - [x] J2 reads an export's CSV and XLSX table layout without a profile, decoding XLSX's `_xHHHH_`
   escapes (INTEGRATION_API §J2); the round trip of CSV and XLSX is tested there. Delivered in J2
   (2026-10-07), with `applicationKey` added to the records table (D71).

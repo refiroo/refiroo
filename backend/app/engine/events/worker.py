@@ -96,8 +96,17 @@ class EventDeriver:
                 raise
 
     def run_once(self) -> bool:
-        """A page for each workspace that is behind, every one in turn; whether any was derived."""
-        derived = [self.derive(key) for key in self.pending()]
+        """A page for each workspace that is behind, every one in turn; whether any was derived. A
+        workspace that fails does not hold up the others (0.9 R-F11): they are derived, then its
+        error is raised for the loop to log."""
+        derived, failure = [], None
+        for key in self.pending():
+            try:
+                derived.append(self.derive(key))
+            except Exception as exc:  # noqa: BLE001 - raised again once the others are derived
+                failure = failure or exc
+        if failure is not None:
+            raise failure
         return any(derived)
 
     def run_until_idle(self) -> int:

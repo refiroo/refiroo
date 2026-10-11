@@ -361,9 +361,11 @@ def expansion_rows(
             page.c.tiebreak,
             total.c.total,
         )
+        # The total before the page: it depends on the anchor alone, and joined after the page a
+        # publication's plan counted it again for every row of the page (0.9 R, R-F28).
         .select_from(anchors)
-        .join(page, true())
         .join(total, true())
+        .join(page, true())
         .order_by(anchor, page.c.related_name, page.c.tiebreak)
     )
     return [

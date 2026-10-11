@@ -382,7 +382,7 @@ def test_read_filter_page_and_shape_the_events(world):
     each narrowing keeps what a list would, a deleted R's events pass the related filter; the position is
     read whole by cursor, and a caught-up cursor later returns the next events; each full item's
     object is what get by ID answers with the same parameters, and identity items are the same
-    without it; the tag answers 304 until a new event is derived. Every refusal names its code."""
+    without it; the tag answers 304 until a live write or a new event. Every refusal names its code."""
     refused(consumer_events(world), 404, "EVENTS_NOT_DECLARED")
     _activate(world, "events")
     ws = _workspace(world)
@@ -437,6 +437,10 @@ def test_read_filter_page_and_shape_the_events(world):
     tagged = world.api.client.get(path)
     tag = tagged.headers["ETag"]
     assert world.api.client.get(path, headers={"If-None-Match": tag}).status_code == 304
+    # A live write changes the full objects before its event is derived (0.9 R-F13, C-D65).
+    _rename(world, "R", r["id"], ws, "Ledger renamed again")
+    assert world.api.client.get(path, headers={"If-None-Match": tag}).status_code == 200
+    tag = world.api.client.get(path).headers["ETag"]
     world.made("R", "Newest", workspace=ws)
     derive_events(world)
     assert world.api.client.get(path, headers={"If-None-Match": tag}).status_code == 200

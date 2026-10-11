@@ -19,7 +19,7 @@ read, D31), [B3](#b3-relation-and-relation-set-items) (2026-10-03, D35–D39),
 [CN1](#cn1-the-consumer-apis-name-in-public-contracts) (2026-10-05, C-D59), [C6a](#c6a-publications) (2026-10-05, C-D60–C-D68), [C6b](#c6b-the-contract-documents) (2026-10-05, C-D69–C-D70), [V2](#v2-consumer-sources) (2026-10-05), [C8](#c8-parity-acceptance) (2026-10-05, C-D72–C-D75), [C16](#c16-asof-in-the-consumer-tier) (2026-10-05, C-D76–C-D80), [C9](#c9-event-definitions) (2026-10-05, C-D81–C-D86), [C10](#c10-event-deriver-event-store-and-pull-feed) (2026-10-06, C-D87–C-D92, C-D95), [U2](SETTINGS_AND_UI_PLAN.md#u2-delivery-record) (2026-10-06, U-D7–U-D9), [C11](#c11-subscriptions) (2026-10-06, C-D96–C-D102), [C12](#c12-the-dispatcher) (2026-10-06, C-D103–C-D111), [C13](#c13-event-acceptance) (2026-10-06, C-D112–C-D114), [U3](SETTINGS_AND_UI_PLAN.md#u3-delivery-record) (2026-10-06, U-D10–U-D11).
 **J2, import profiles and imports, is delivered (2026-10-07)** ([record](#j2-record-2026-10-07)).
 **U5, the Webhooks page, is implemented (2026-10-07)** ([record](SETTINGS_AND_UI_PLAN.md#u5-record-2026-10-07)), and so is **U5a**, webhook names and the delivery log with the page revised ([record](SETTINGS_AND_UI_PLAN.md#u5a-record-2026-10-07)). The screenshots of UA (the Atlas redesign, ADR-040), U5, U5a and C17 were approved by the user on 2026-10-07; U4's (the Integration pages, [record](SETTINGS_AND_UI_PLAN.md#u4-record-2026-10-07)) on 2026-10-10, with those of UA8, UA9, K5b, K6, K6a, K7, J6 and J6a.
-**Tracks J and K are delivered (2026-10-07–10):** [J1](#j1-record-2026-10-07)–[J5](#j5-record-2026-10-08), [J6](#j6-record-2026-10-10) and [J6a](#j6a-record-2026-10-10); [K1](#k1-record-2026-10-08)–[K3a](#k3a-record-2026-10-09), [K5](#k5-record-2026-10-09)–[K5b](#k5b-record-2026-10-10), [K6](#k6-record-2026-10-10), [K6a](#k6a-record-2026-10-10) and [K7](#k7-record-2026-10-10) (K4 not taken, D103). Every package's screenshots are approved (J4, K1 and K2 on 2026-10-10). Track V's V3–V9 and the rework of the type palettes moved to [Base 0.14](BASE_0_14_IMPLEMENTATION_PLAN.md) on 2026-10-10 by the user. Next: [R](#r-build-acceptance-and-release).
+**Tracks J and K are delivered (2026-10-07–10):** [J1](#j1-record-2026-10-07)–[J5](#j5-record-2026-10-08), [J6](#j6-record-2026-10-10) and [J6a](#j6a-record-2026-10-10); [K1](#k1-record-2026-10-08)–[K3a](#k3a-record-2026-10-09), [K5](#k5-record-2026-10-09)–[K5b](#k5b-record-2026-10-10), [K6](#k6-record-2026-10-10), [K6a](#k6a-record-2026-10-10) and [K7](#k7-record-2026-10-10) (K4 not taken, D103). Every package's screenshots are approved (J4, K1 and K2 on 2026-10-10). Track V's V3–V9 and the rework of the type palettes moved to [Base 0.14](BASE_0_14_IMPLEMENTATION_PLAN.md) on 2026-10-10 by the user. [R](#r-build-acceptance-and-release), build acceptance, is done (2026-10-11): Base 0.9 is complete.
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
 Effective dates and consumer API definitions extend the model, so the starter becomes content release
@@ -261,7 +261,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 31c | [UA8](SETTINGS_AND_UI_PLAN.md#ua8-actions-in-place-on-the-record) | UA, K3a | A relationship row's actions as icon buttons; the record header's title and subtitle edited in place through one shared field editor; Edit record only in the ⋯ menu (U-D15–U-D20) — **implemented 2026-10-09**, screenshots approved by the user 2026-10-10 ([record](SETTINGS_AND_UI_PLAN.md#ua8-record-2026-10-09)) |
 | 31d | [UA9](SETTINGS_AND_UI_PLAN.md#ua9-the-record-tree-scrolled-as-one-several-records-selected-and-dragged) | UA8 | The record tree scrolls as one list and starts folded; several records selected and dragged, in the sidebar too (U-D21–U-D28) — **implemented 2026-10-09**, screenshots approved by the user 2026-10-10 ([record](SETTINGS_AND_UI_PLAN.md#ua9-record-2026-10-09)) |
 | V | [V3–V9](#v3v9-the-management-api-documented-moved-to-014) | V2 | The management API documented — **moved to [Base 0.14](BASE_0_14_IMPLEMENTATION_PLAN.md#track-v--the-management-api-documented) on 2026-10-10 by the user** |
-| 32 | [R](#r-build-acceptance-and-release) | all | Build acceptance and release |
+| 32 | [R](#r-build-acceptance-and-release) | all | Build acceptance and release — **done 2026-10-11**: every gate passed or explained, 28 defects fixed (R-F1–R-F28); versions 0.9.0; commit and tag `v0.9.0` on the user's instruction (D207) |
 
 **Order revised 2026-09-30, after Q3.** The queue delivers first what later packages build on, while
 little depends on it yet, and keeps self-contained packages as fillers:
@@ -1847,7 +1847,7 @@ read live, from the active release's definition. Change sets are never read (C-D
 - **Projections.** Each projection reads the records related through its relation and direction.
   Its shape comes from cardinality (C1's `projection_shape`): an object or `null`, or an array,
   `[]` when empty. A field reads `name`, `id`, an attribute, or `ancestor:<type>.<field>` (the
-  nearest ancestor of that type). Array items are ordered by the related record's name, then its
+  nearest ancestor of that type; _amended by D209 (2026-10-10): the one nearest the root_). Array items are ordered by the related record's name, then its
   ID. The related records need not be exposed types.
 - **Workspace (C-D16, C-D23).** `workspace` selects the workspace, defaulting to the deployment's
   default. Get by ID answers the bare shared object, the shape XREF items have, and names the
@@ -3876,23 +3876,23 @@ response must be reproducible from a definition alone": a consumer of the produc
 move to the engine by a definition, with only the documented differences ("Behavior the engine does
 not carry over"). Each C package proved its own mechanism on generated A and B, whose shapes are
 abstract (`R`, `Bscope`, `watch`). C8 proves the whole on a model shaped like the reference
-deployment's (codelists, locations, availability, systems, translations, a single-valued self
+deployment's (codelists, sites, availability, systems, translations, a single-valued self
 relation), through the calls integration flows make: XREF with `system`, take the top result, read
 one to three fields from it.
 
 **What exists today** (checked 2026-10-05):
 
-- **The documented definition validates.** A scratch probe (not kept): the starter plus a `location`
-  type below a codelist, `operator-code` and `internal-only`, `available-at-location`
-  (value → location, many-to-many), `alternative-for` (value → value, one-to-one) and
-  `system-value-maps-to-master` also bound to `location`; with CONSUMER_API's "Definition shape"
+- **The documented definition validates.** A scratch probe (not kept): the starter plus a `site`
+  type below a codelist, `owner-code` and `internal-only`, `available-at-site`
+  (value → site, many-to-many), `slot-for` (value → value, one-to-one) and
+  `system-value-maps-to-master` also bound to `site`; with CONSUMER_API's "Definition shape"
   written out (its `…` filled with `domain`, the `values` and `all-values` lists) the release
   compiles with no diagnostic.
-- **One field of the reference object cannot be declared.** The reference's `alternative` items
+- **One field of the reference object cannot be declared.** The reference's `slot` items
   carry `objectType` (`{ "objectType", "masterId", "code", "name" }`). A projection field reads `id`,
   `name`, an attribute or `ancestor:<type>.<field>` of the related record, not its type: adding
-  `"objectType": "objectType"` to the probe's `alternative` is refused at
-  `/consumerApis/rdm/projections/alternative/fields/objectType`. C-D73.
+  `"objectType": "objectType"` to the probe's `slot` is refused at
+  `/consumerApis/rdm/projections/slot/fields/objectType`. C-D73.
 - **Scenario coverage on generated A and B.** Scenarios 1, 2, 5, 9 (J29, J29.3), 3 (J29.1
   `preferTargetTypes`), 6–8 (J29.6, J28.8), 10 (J28.7, J28.8), 11 (J29.8), 12 (J29.11–J29.13), 13
   (J28.12) and 16 (J20.3) each have a journey test of the mechanism. Not covered anywhere: the
@@ -3918,30 +3918,30 @@ one to three fields from it.
 
 - **Fixture** (`tests/journeys/configurations.py`, `parity()`; C-D72): the starter model, read from
   `rdm-starter.json` so it follows the starter, plus the extension of the probe above (fixture content,
-  not product scope), plus CONSUMER_API's definition with `alternative` (with `objectType`, C-D73)
-  and `duration` added and `language` declared `targetable`. Not in `all_configurations()`, so no
+  not product scope), plus CONSUMER_API's definition with `slot` (with `objectType`, C-D73)
+  and `unit` added and `language` declared `targetable`. Not in `all_configurations()`, so no
   generic journey runs on it. One model-only seed, built once (seed once, reuse).
 - **Dataset**, written by one `POST /batches` per module (records and relationships, inline), about
   40 records:
-  - Domain Transport (`HC`) › codelist Timetable types (`MOT`) › Train (`CONS`), Follow-up
-    (`FUP`), Tram (`VAC`), Standard (`STD`); Train's alternative is Follow-up.
-  - Codelist Stations (`CLIN`) › locations Central Station (`CEN`, operator `BR1`) and North Station
+  - Domain Operations (`OPS`) › codelist Service types (`SRV`) › Basic (`BAS`), Extended
+    (`EXT`), Premium (`PRE`), Standard (`STD`); Basic's slot is Extended.
+  - Codelist Site groups (`SGRP`) › sites Central Site (`CEN`, owner `OW1`) and North Site
     (`NOR`).
   - Domain Finance (`FIN`) › codelist Currencies (`CUR`) › Swiss franc (`CHF`, master ID
     `MV-0001`), Euro (`EUR`), Standard (`STD`).
   - Systems SAP and Oracle. SAP `CHF` (external ID `1001`) and Oracle `SFR` (`O-77`) map to Swiss
-    franc; SAP `LOC-9` (`9001`) maps only to North Station; SAP `FU-1` maps to Follow-up and to
-    Central Station.
-  - Train is available at Central Station, Tram at North Station. So each `location`
-    route has a record of its own: Train by availability only, Follow-up by the shared system
+    franc; SAP `SITE-9` (`9001`) maps only to North Site; SAP `EX-1` maps to Extended and to
+    Central Site.
+  - Basic is available at Central Site, Premium at North Site. So each `site`
+    route has a record of its own: Basic by availability only, Extended by the shared system
     value only.
-  - German (`de`): Eisenbahn for Train, Schweizer Franken for Swiss franc. (No translation is a
+  - German (`de`): Grundangebot for Basic, Schweizer Franken for Swiss franc. (No translation is a
     substring of its object's name, so a translation's score is never hidden by the object's own
     contains score.)
 - **Shape check**, on every answer: valid against the definition's own OpenAPI document (C6b's
   validator, C-D70). On one XREF result and one list item: the keys are the reference shared object's
   keys, mapped by the "does not carry over" table (`masterId` is the object ID and the former ID is
-  `formerId`; `parent` always present; `description` in both; `alternative` an object or `null`;
+  `formerId`; `parent` always present; `description` in both; `slot` an object or `null`;
   booleans and dates typed; no `page` or `returnedCount`).
 - **`objectType` in a projection** (C-D73): `engine/model/validation/consumer_api_rules.py` accepts
   the source `objectType` when every type the projection reaches is exposed, and refuses it at the
@@ -3956,7 +3956,7 @@ one to three fields from it.
 | # | Question | Decision |
 | --- | --- | --- |
 | C-D72 | Which model the parity scenarios run on | **Approved 2026-10-05.** A test-only fixture, the starter plus a small extension and CONSUMER_API's printed definition (as CONSUMER_API's C8 row says), not the example model. The example model's API is a deliberately different design (every type exposed, `id` not `masterId`, system values as objects), so it would need a second definition written to match the reference, and the example would then carry a test's needs; a later edit to the example would break acceptance. The fixture also proves that the definition CONSUMER_API prints is valid and answers as documented. The example model keeps its OpenAPI test |
-| C-D73 | The reference's `objectType` inside projection items (`alternative`) | **Approved 2026-10-05.** Allow `objectType` as a projection field source, the related record's public type name, only where every type the projection reaches is exposed by the definition (otherwise there is no public name; refused at the field). Two real cases: the reference's `alternative`, and a projection over a relation with several target types (the example model's `mapsTo`, where an item is a value or a record of another type). The alternative, a new row in "does not carry over", would leave a mixed projection whose items cannot be told apart |
+| C-D73 | The reference's `objectType` inside projection items (`slot`) | **Approved 2026-10-05.** Allow `objectType` as a projection field source, the related record's public type name, only where every type the projection reaches is exposed by the definition (otherwise there is no public name; refused at the field). Two real cases: the reference's `slot`, and a projection over a relation with several target types (the example model's `mapsTo`, where an item is a value or a record of another type). The alternative, a new row in "does not carry over", would leave a mixed projection whose items cannot be told apart |
 | C-D74 | The C8 volume budgets | **Approved 2026-10-05.** No new full-volume run. Every consumer read was measured at full volume by its package, and nothing on a read's path changed since C6a, so a rerun would repeat C6a's figures. C8 collects them into one consumer table in POSTGRESQL_BUDGETS (each row with the package that measured it) and runs the `volume` group, whose statement counts at two sizes hold them. C-D73 adds a field, not a statement, which `test_consumer_xref_volume` confirms. CONSUMER_API's "Budgets are set against the 0.8 Track S volume fixture (C8)" becomes "set per package, collected in C8" |
 | C-D75 | The parent's keys (raised during delivery) | **Approved 2026-10-05.** The parity shape check found that the reference's parent is `{objectType, name, code, masterId}`, the object's own field names, while the engine keyed it by role (`id`, `code`, `name`), so a flow that reads `masterId` from the object and then from `parent` found it only on the object. The parent's fields are now keyed by the roles' output names, as the object's own fields; `objectType` stays. Pre-1.0, so the shape changes for every definition whose `id`, `code` or `name` output is not the role name (generated A and B's `ledgerId`); the alternative, a row in "does not carry over", was not taken |
 
@@ -3976,42 +3976,42 @@ named by its CONSUMER_API scenario:
 2. **Scenario 2.** `query=1001` finds Swiss franc with 75 (the SAP value's external ID, promoted);
    with `system=SAP` the same, `systemVariants` holding only the SAP item; with `system=Oracle`
    nothing, since only Oracle values may score (`scoresFrom`).
-3. **Scenario 3.** `query=9001&expect=one` answers North Station; `query=FU-1` scores Central Station
-   and not Follow-up (`preferTargetTypes`).
-4. **Scenario 4.** `query=Eisenbahn` finds Train with 60; `query=Berat` with 12.
-5. **Scenario 6.** `query=STD` with `codelist=MOT`, `codelist=Timetable types`, `domain=HC` or
-   `domain=Transport` keeps the timetable Standard only.
-6. **Scenarios 7 and 8.** On `lists/all-values`, `location=CEN` keeps Train (availability)
-   and Follow-up (shared system value), not Tram or Standard; `location=North Station` keeps
-   Tram; `query=CEN&location=CEN` keeps Central Station itself (`self`). With `system=SAP`
-   added, `location=CEN` keeps Follow-up only.
+3. **Scenario 3.** `query=9001&expect=one` answers North Site; `query=EX-1` scores Central Site
+   and not Extended (`preferTargetTypes`).
+4. **Scenario 4.** `query=Grundangebot` finds Basic with 60; `query=Berat` with 12.
+5. **Scenario 6.** `query=STD` with `codelist=SRV`, `codelist=Service types`, `domain=OPS` or
+   `domain=Operations` keeps the service Standard only.
+6. **Scenarios 7 and 8.** On `lists/all-values`, `site=CEN` keeps Basic (availability)
+   and Extended (shared system value), not Premium or Standard; `site=North Site` keeps
+   Premium; `query=CEN&site=CEN` keeps Central Site itself (`self`). With `system=SAP`
+   added, `site=CEN` keeps Extended only.
 7. **Scenario 9.** `query=STD&expect=one` is `409 AMBIGUOUS_MATCH` naming both Standards in the
    documented order (score, public type, name, ID); with `codelist=CUR` it answers the currency.
-8. **Scenario 10.** `lists/values?codelist=<MOT's ID>` holds the four timetable types; with
-   `language=de` only Train, its `translations` limited to German; `lists/all-values` with
-   `codelist=MOT` or `codelist=Timetable types` (the `ancestor` parameter, C-D28) the same four;
-   `lists/values?codelist=MOT` is `404 PARENT_NOT_FOUND` (a code is no parent, C-D28).
+8. **Scenario 10.** `lists/values?codelist=<SRV's ID>` holds the four service types; with
+   `language=de` only Basic, its `translations` limited to German; `lists/all-values` with
+   `codelist=SRV` or `codelist=Service types` (the `ancestor` parameter, C-D28) the same four;
+   `lists/values?codelist=SRV` is `404 PARENT_NOT_FOUND` (a code is no parent, C-D28).
 9. **Scenario 11.** Batch resolve, items `CHF` with `system=SAP`, `9001` with `system=SAP`,
    `nothing`, `STD`, and one with both `query` and `id`: `found`, `found`, `not_found`, `ambiguous`,
    `rejected`, in item order; each `found` equals its `xref?expect=one` answer.
 10. **Scenario 12.** `query=CHF&system=SAP&to.system=Oracle&expect=one` answers Swiss franc with
     `target` the `SFR` item; `query=EUR&to.system=Oracle&expect=one` is `404 TARGET_NOT_FOUND`;
     after a second Oracle value is mapped to Swiss franc, the first read is `409 AMBIGUOUS_TARGET`;
-    `query=CONS&to.language=de&expect=one` answers `target` the Eisenbahn item.
+    `query=BAS&to.language=de&expect=one` answers `target` the Grundangebot item.
 11. **Scenario 13.** A change set is published; `lists/all-values?publication=latest&pageSize=2`
     names the resolved publication; a second change set adding a value is published between pages;
     following the cursor reads every value of the first publication once and not the new one.
 12. **Scenario 16.** `GET /api/consumer` lists `rdm` with its OpenAPI URL, and that document
     validates.
 13. **The reference shape** (beside every case: each answer valid against the document). Get by ID
-    of Train has `alternative` the object `{objectType: "CodelistValue", masterId, code,
-    name}` of Follow-up, `availableAt` an array with Central Station, `parent` the codelist, `path`
-    and `hierarchy` from the walk; Swiss franc's `alternative` is `null`, Transport's `parent`
+    of Basic has `slot` the object `{objectType: "CodelistValue", masterId, code,
+    name}` of Extended, `availableAt` an array with Central Site, `parent` the codelist, `path`
+    and `hierarchy` from the walk; Swiss franc's `slot` is `null`, Operations's `parent`
     `null`, `isActive` a boolean, `validFrom` `null`; the XREF result and the list item for
-    Train are the same object apart from `matchScore`.
+    Basic are the same object apart from `matchScore`.
 14. **J25 (changed, C-D73).** A candidate release with `objectType` in a projection that reaches a
     type the definition does not expose is refused at that field; removing `objectType` from
-    `alternative` is `version_required` at its path, adding it is not. These fail first.
+    `slot` is `version_required` at its path, adding it is not. These fail first.
 
 No unit tests: C-D73's rule is walked by J25 and case 13. **Checks:** the parity module and J25,
 J28 and J29 on their configurations; then the C8 groups together once, `consumer`, `model`,
@@ -4021,8 +4021,8 @@ J28 and J29 on their configurations; then the C8 groups together once, `consumer
 **Exit:** scenarios 1–13 and 16 pass on the fixture, or each failure is fixed as an amendment or
 recorded against its package, before C16.
 
-**Docs at delivery:** CONSUMER_API: the C8 row delivered, "Definition shape" gains `alternative`
-with `objectType`, `duration` and `targetable` on `language` (so the crosswalk example's
+**Docs at delivery:** CONSUMER_API: the C8 row delivered, "Definition shape" gains `slot`
+with `objectType`, `unit` and `targetable` on `language` (so the crosswalk example's
 `to.language=es` matches the printed definition), the "Budgets" sentence (C-D74), C-D72–C-D74
 recorded; APPLICATION_MODEL notes `objectType` as a projection source; API.md the field;
 POSTGRESQL_BUDGETS the consumer table; USER_JOURNEYS (J28, J29 evidence) and API_JOURNEYS;
@@ -4039,9 +4039,9 @@ and mapping coverage are untouched.
 **Delivered 2026-10-05**, with C-D72–C-D74 as approved, C-D75 raised and approved during delivery,
 and the approved cases.
 
-- **Fixture** (`tests/journeys/configurations.py`, `parity()`): the starter with `location` below a
-  codelist, `operator-code`, `internal-only`, `available-at-location`, `has-duration`,
-  `alternative-for` (one-to-one) and `system-value-maps-to-master` bound to `location`; and
+- **Fixture** (`tests/journeys/configurations.py`, `parity()`): the starter with `site` below a
+  codelist, `owner-code`, `internal-only`, `available-at-site`, `has-unit`,
+  `slot-for` (one-to-one) and `system-value-maps-to-master` bound to `site`; and
   CONSUMER_API's definition written out (`_reference_definition`). Not in `all_configurations()`.
   Its dataset (29 records and 12 relationships, one atomic `POST /batches`) is the seed
   `scenario-parity`, built once.
@@ -4129,7 +4129,7 @@ POST …/resolve?asOf=2026-07-01                  every item as its single read 
   OpenAPI document does not mention `asOf`.
 - **Fixtures.** Generated A and B have `E` (period over `E.from`/`E.to`) and `F` (the same
   attributes, no period), used by J23; `Capi` exposes neither. The parity fixture's starter declares
-  a period on `master-value` (public `CodelistValue`) and none on `location`. The volume fixture's
+  a period on `master-value` (public `CodelistValue`) and none on `site`. The volume fixture's
   `Item` is dated and `Group` is not, both exposed by its definition, so dated consumer reads can be
   measured without changing it.
 - **The example model** dates three of its types, all exposed by its `rdm` API.
@@ -4174,7 +4174,7 @@ POST …/resolve?asOf=2026-07-01                  every item as its single read 
 
 | # | Question | Decision |
 | --- | --- | --- |
-| C-D76 | Which records `asOf` dates | **Approved 2026-10-05.** The objects the read returns, and nothing they are found through or carry: projection items, the parent and `path`, the records a parameter matches (`location=CEN`) and the records that promote an XREF score are read as without `asOf`. This is D22's answer for the model query and CONSUMER_API's text ("keeps only objects"). The cost is real in the example model: a projection there can list a related record whose period has ended; a consumer that needs it can output that record's `validFrom`/`validTo` as projection fields. Dating every record of a dated type the read touches would answer "the world on that date", but needs its own decision for each of the four places above, and a declaration that turns it on can be added later without breaking this one |
+| C-D76 | Which records `asOf` dates | **Approved 2026-10-05.** The objects the read returns, and nothing they are found through or carry: projection items, the parent and `path`, the records a parameter matches (`site=CEN`) and the records that promote an XREF score are read as without `asOf`. This is D22's answer for the model query and CONSUMER_API's text ("keeps only objects"). The cost is real in the example model: a projection there can list a related record whose period has ended; a consumer that needs it can output that record's `validFrom`/`validTo` as projection fields. Dating every record of a dated type the read touches would answer "the world on that date", but needs its own decision for each of the four places above, and a declaration that turns it on can be added later without breaking this one |
 | C-D77 | Refuse or filter, route by route | **Approved 2026-10-05.** As CONSUMER_API states, with three cases it leaves open. Lists: an undated list type is `400 AS_OF_NOT_SUPPORTED` before reading. Get by ID: an unknown ID is `404 OBJECT_NOT_FOUND`; a record of an undated type is `400 AS_OF_NOT_SUPPORTED`; a dated record not effective that day is `404 OBJECT_NOT_FOUND`, as a parameter that narrows it out is (C-D31). XREF: C-D14 over the types the read can return (narrowed by an `objectType` parameter); when none of them is dated, `400 AS_OF_NOT_SUPPORTED`, since an undated answer would look dated (D21's reason). Batch resolve: `asOf` is the request's query parameter and applies to every item (CONSUMER_API); each item answers as its single read, so a by-ID item of an undated type is `rejected` with `AS_OF_NOT_SUPPORTED` while a by-query item is filtered as XREF is (C-D48). A pinned read dates by the publication's release. Details: `objectTypes` (public names) and `path` `/query/asOf`. `400`, the consumer tier's status for a request error, not the management API's `422` |
 | C-D78 | How a read says what was dated | **Approved 2026-10-05.** `asOfApplied` (the dated public names, sorted) in the list, XREF and batch resolve bodies, and the `RDM-As-Of-Applied` header (the same names, comma-separated) on every answer to a read that sent `asOf`, including get by ID and XREF `expect=one`, whose bodies are the bare object, as C-D23 names the workspace. Both are absent when `asOf` is not sent, so undated reads are unchanged. CONSUMER_API names `asOfApplied` for XREF only; on a list or a get by ID it holds the one type and is there so a client reads every route the same way |
 | C-D79 | A malformed date | **Approved 2026-10-05.** `400 INVALID_AS_OF` at `/query/asOf` for anything but one `YYYY-MM-DD` calendar date: a time, a time zone, an impossible date, two values (several values are alternatives elsewhere, C3b, but one read has one date), as `INVALID_EXPECT` is for `expect`. In batch resolve `asOf` in `defaults` or an item is refused as `publication` there is (C-D49): the date belongs to the request |
@@ -4221,7 +4221,7 @@ rate" from 2026-06-15 to 2026-07-15; an `F` "Flat rate"; an `R` "Rate ledger".
    2026-07-01 and a replacement value "Swiss franc 2026" starts that day; an overlapping value runs
    across it. `lists/all-values?codelist=CUR&asOf=…` on each side, at the boundary and across the
    overlap; `xref?query=CHF&asOf=…` answers the value effective that day, `asOfApplied`
-   `["CodelistValue"]`, with a location still found undated; get by ID of a location with `asOf` is
+   `["CodelistValue"]`, with a site still found undated; get by ID of a site with `asOf` is
    `400 AS_OF_NOT_SUPPORTED` (SC-11's "an unconfigured list must not invent effective-date
    behaviour"). Every `200` validates against the definition's OpenAPI document, which now declares
    `asOf`.
@@ -4373,7 +4373,7 @@ yet: C9 is the declaration only, as C1 was for the reads.
 ```jsonc
 "events": [{
   "key": "reference-data-changed",
-  "objectTypes": ["master-value", "codelist", "location"],
+  "objectTypes": ["master-value", "codelist", "site"],
   "changes": ["created", "updated", "deleted"],
   "watch": {
     "fields": ["masterId", "code", "name", "isActive", "validFrom", "validTo", "valueName"],
@@ -4868,7 +4868,7 @@ DELETE /api/v1/consumer-subscriptions/{id}?expectedVersion=…
   "consumerApi": "rdm",
   "workspaceKey": "main",                 // optional: the default workspace, resolved and stored
   "events": ["reference-data-changed"],   // required, at least one
-  "filters": { "type": "Location", "codelist": ["Country", "Region"] },
+  "filters": { "type": "Site", "codelist": ["Country", "Region"] },
   "url": "https://integration.example.com/hooks/rdm",
   "mode": "perChange",                    // or "coalesced"
   "debounceSeconds": 60,                  // coalesced only, 1–600
@@ -6607,7 +6607,7 @@ since the export. A cancelled or failed export has no file.
     "context": { "changeSetId": null, "publicationId": null },
     "scope": {
       "types": [
-        { "objectTypeKey": "codelist", "where": [ { "field": "codelist-code", "op": "eq", "value": "MOT" } ] },
+        { "objectTypeKey": "codelist", "where": [ { "field": "codelist-code", "op": "eq", "value": "SRV" } ] },
         { "objectTypeKey": "code" }
       ],
       "parentObjectId": null,
@@ -8621,7 +8621,7 @@ code at `32461cd` with K7 in the working tree.
 | D179 | The two kinds | **Accepted 2026-10-10 by the user.** **For people (XLSX, one type) beside Technical (unchanged).** The technical file stays the integrator's exact round trip of several types; the new one is shaped by one collection |
 | D180 | The main sheet's columns | **Accepted 2026-10-10 by the user.** **The table's shown columns, in its order and labels, then hidden ID and version columns.** What the user sees is what they get; the hidden columns make the round trip exact without cluttering the sheet |
 | D181 | A relation column's cell | **Accepted 2026-10-10 by the user.** **Every related name in one cell, "; " between them; or the column's field (K5a), or another field chosen in Advanced.** "; " reads well and is rare in names; a cell holds all, not "+N more" |
-| D182 | What a relationship's sheet holds | **Accepted 2026-10-10 by the user: "owned records, so one relationtype one sheet" — one sheet per relation type, an owning relationship's sheet holding the owned records.** **The owned records for an owning relationship (translations), the relationship rows for any other**, each with names shown and IDs hidden. Owned records exist only through the relationship, so they are edited there; independent records (roles, locations) are edited in their own collection, so their sheet edits who is related |
+| D182 | What a relationship's sheet holds | **Accepted 2026-10-10 by the user: "owned records, so one relationtype one sheet" — one sheet per relation type, an owning relationship's sheet holding the owned records.** **The owned records for an owning relationship (translations), the relationship rows for any other**, each with names shown and IDs hidden. Owned records exist only through the relationship, so they are edited there; independent records (sizes, sites) are edited in their own collection, so their sheet edits who is related |
 | D183 | Which main-sheet columns load back | **Accepted 2026-10-10 by the user.** **Values; names or a unique field of the related records; a column whose relationship has its own sheet, or showing a non-identifying field, is a summary, marked and ignored.** A summary cannot say what to change ("ar cs" does not say which translation to delete); one place to edit a relationship avoids two edits disagreeing |
 | D184 | Colours | **Accepted 2026-10-10 by the user.** **The type's hue as in the app: the name column and relation columns filled with the type's light fill and ink, the header with the main type's.** The hue slot is the type's position in the model, as `model/hues.ts`; the eight fills and inks mirror `tokens.css` in one engine table (Excel has no dark theme) |
 | D185 | How the workbook is read back | **Accepted 2026-10-10 by the user.** **Its own import profile on a hidden sheet, used when an XLSX is imported without a profile.** Nothing to choose or keep; the profile is validated as any profile is, so a model change since the export is reported as for a stored profile |
@@ -11160,7 +11160,7 @@ code at `32461cd`.
    { "relationTypeKey": "slot-for", "fromObjectTypeKey": "item", "toObjectTypeKey": "item",
      "cardinality": "one-to-many",
      "candidates": {
-       "from": [ { "field": "ancestor:category.name", "op": "contains", "value": "Reserved" } ]
+       "from": [ { "field": "ancestor:group.name", "op": "contains", "value": "Reserved" } ]
      } }
    ```
    A record at that end may be chosen only when it meets every criterion. An end without criteria
@@ -11180,7 +11180,7 @@ code at `32461cd`.
 4. **The anchor's own end** (D172): when the record a user starts from is at a restricted end and
    does not meet its criteria, the relationship is not offered as Add on that record's panel and in
    Change relationships for a selection holding only such records, with the reason ("Only records
-   under a category containing 'Reserved' can be a slot"); a mixed selection adds to the matching
+   under a group containing 'Reserved' can be a slot"); a mixed selection adds to the matching
    records and the preview refuses the rest by name, as a refused item.
 5. **The API offers the candidates** (D173): the per-type list takes `candidateFor=<key>` with
    `anchorTypeKey=<type>`, the relation key or reverse key read from the anchor's type, and lists
@@ -11221,8 +11221,8 @@ code at `32461cd`.
   the bulk relation dialog pass `candidateFor`/`anchorTypeKey`; the relations panel and Change
   relationships hide Add on a non-matching anchor with the reason (the anchor's match read once with
   the panel); the filter bar's relationship picker passes them too (D171).
-- **The example model** content release 0.9.7: one end of its alternative relationship limited to
-  records under a category whose name contains a word (the user's case), and the docs' example a
+- **The example model** content release 0.9.7: one end of its slot relationship limited to
+  records under a group whose name contains a word (the user's case), and the docs' example a
   neutral one.
 - **Not changed:** existing relationships, change-set validation and publishing, the relationship
   filter's has any / has none, the held-records read (D165), cardinality and scope rules.
@@ -11294,8 +11294,8 @@ format, lint, build; `k7`, and `k3`, `k6` (shared pickers) by exit code and `rep
   relationship, Change relationships and the filter bar pass them and say what they offer; the
   relations panel asks once per limited relationship whether the record meets its own end and, if
   not, offers no Add and says why.
-- **The example model** 0.9.7 (installed on the dev instance): its alternative relationship takes as
-  a slot only a record under a category whose name contains "reserved" (13 records).
+- **The example model** 0.9.7 (installed on the dev instance): its slot relationship takes as
+  a slot only a record under a group whose name contains "reserved" (13 records).
 
 **Checks.** Backend: J13.9 (candidates live and in a change set, single, batch, a record the batch
 creates, set replacement), J13.10 (a rename keeps the relationship and publishes), J03.9, J10.11,
@@ -11356,6 +11356,436 @@ picker, the panel's reason under its toolbar, the dialog's notes; the checklist 
 0.9.1 with their own acceptance.
 
 **Exit:** all gates pass, or each failure is explained and tracked; Base 0.9.0 is ready to release.
+
+### R plan (2026-10-10)
+
+**Status: done 2026-10-11**, steps 0–10 (step 10: the version strings set to 0.9.0 and the OpenAPI
+lock re-baselined for `info.version` alone; the commit and the tag `v0.9.0` on the user's
+instruction, D207). Each step's record follows the decisions below. Planned 2026-10-10 at the
+user's request; D200–D207 decided by the user the same day
+(D200: R starts with a full review; the recommendation against it was withdrawn). The scope
+above stands; this plan says in what order it runs, what it costs, which decisions it needs first,
+and what a failure means. R-a is not needed: Track J is delivered.
+
+**What was checked for this plan (2026-10-10).**
+
+- **Runners.** `package.json` has 38 browser runners. The comprehensive command set (EXECUTION_GUIDE
+  §3) lists 22 of them (with 0.9's `v1`); the other 16 added in 0.9 (`settings`, `integration`,
+  `webhooks`, `j1u`, `j4`, `j6`, `j6a`, `k1`, `k2`, `k2b`, `k3`, `k5`, `k6`, `k7`, `ua8`, `ua9`) are
+  each a package's own evidence and have not run together since. No 0.9 runner ran on a later package's
+  build unless its boundary was selected.
+- **Visual and accessibility gates.** The 64 baselines (`e2e/baselines/`) were last re-recorded on
+  2026-10-07 (UA7, revised in UA2's revision). Every UI package since (U4, U5, U5a, C17, J1u, J4,
+  K1–K7, UA8, UA9, J6, J6a) ran axe and screenshots in its own runner only ("not run: `test:a11y`,
+  `test:visual` (R)"), so screens that changed since will differ from their baselines (UA9's folded
+  tree, K5's relation columns, K6a's filter bar at least). The gates hold no 0.9 surface: TODO names
+  J1u's and J4's (D95); the Integration pages, Webhooks, the selection bar, the bulk dialogs and the
+  filter bar are not in them either.
+- **Deletion timing (D124).** `volume_baseline.py` has no deletion scenario; R adds one
+  (`--only-deletion`), as each earlier budget was added.
+- **Migrations.** 23 revisions since 0.8.0. 0.8.0 ran on SQLite and PG4's copy command was dropped
+  (PG-D10), so the upgrade starts at the 0.9.0-alpha.1 head `20261003_01` (tag `v0.9.0-alpha.1`) and
+  runs 20 revisions to `20261007_08`.
+- **Versions.** `0.9.0-alpha.1` in `backend/app/config.py` (`ENGINE_VERSION`), `backend/pyproject.toml`
+  and `frontend/package.json`; CHANGELOG `[Unreleased]` holds everything since alpha.1. The starter
+  is content release 0.9.5 on schema 0.9; `SUPPORTED_SCHEMA_VERSIONS` is 0.5–0.9.
+- **Not checked:** whether anything fails today; the browser runners' total time (not measured);
+  whether the volume seed rebuilds (it does when its inputs changed, which the K packages' model
+  changes may have caused).
+
+**Steps.** Each step's failures are handled by D201 before the next starts.
+
+0. **Full review** (D200), before any gate runs: every change since `v0.8.0` in `backend/app`,
+   `frontend/src` and the migrations (475 files, about 72,600 lines added), and the tests and runners
+   for whether they check what they claim. Read area by area (engine writes, batches and jobs; reads,
+   queries and paging; the consumer tier, events and webhooks; imports and exports; migrations and
+   startup; the shared UI components, the collection and bulk screens) against each package's
+   decisions, the invariants and the composable-domains doors, and across packages, where a later
+   package changed what an earlier one built. Migrations, concurrency (the workspace lock, the job
+   worker, the dispatcher) and the public contracts also get one independent reviewer of the final
+   code (AGENTS.md, agent orchestration). Findings handled by D201, each listed in R's record with
+   its outcome.
+1. **Static and unit gates** (minutes): Ruff, frontend format check, lint, `tsc -b && vite build`,
+   Vitest, gate helpers.
+2. **Backend suite** (5-minute ceiling): `pytest -n auto -q`, then `pytest -m serial -q`.
+3. **Browser runners**, all 38, one at a time; `s5`, `s6`, `s7` at their default scale (10 %), as 0.8
+   R1 did (D203). EXECUTION_GUIDE §3 gains the 16 missing runners in the same step.
+4. **Accessibility and visual gates** by D202: new scenarios added first, then `test:a11y` light and
+   dark, then `test:visual`; every baseline that differs is opened, compared with the approved
+   package screenshot, and re-recorded only when the difference is a delivered change.
+5. **Migration checks** by D204: a database built with `v0.9.0-alpha.1` (a worktree of the tag) and
+   filled through its own API (live values of every value type, relationships, a publication, an
+   open change set), upgraded by the current backend at startup; restart; an upgrade stopped midway
+   resumed; clean bootstrap and lifespan by `test_startup` and `test_migrations`; the smoke start on
+   a copy of the development database (the example model 0.9.1 active).
+6. **Schema checks:** a schema 0.8 release installed and activated over schema 0.7 releases, and a
+   schema 0.9 release over schema 0.8 releases, with an installed 0.8 release still readable as
+   stored (C-D134), on the step 5 database.
+7. **Acceptance:** SC-10 (`test_j27_import`, `test:browser:j4`), SC-11 (`test_effective_periods`,
+   the C16 consumer cases), C8 and C13 (their groups), each confirmed by its named tests in steps 2–3;
+   the ROADMAP 0.9 exit gate walked item by item with the evidence for each.
+8. **Long runs**, one announced block by D205 (estimates from POSTGRESQL_BUDGETS, this machine):
+   `pytest -m budget` (batch and import budgets, about 5 min); the full-volume read table
+   (`--scale 1 --repeat 5`, about 3.5 min, plus about 3 min if the seed rebuilds); consumer, events
+   and exports at `--scale 1` (about 2, 6 and 7 min with their seed rebuilds); the new deletion
+   timing (three runs under 60 s each, about 5 min). About 35 minutes in all, nothing in parallel.
+9. **Documents:** PROJECT_STATUS, ROADMAP (0.9 complete), TODO (R items ticked, residual gaps
+   added), CHANGELOG (`[Unreleased]` becomes `[0.9.0]`), API.md, CURRENT_FUNCTIONALITY, and
+   "unreleased" removed where schema 0.9 is meant (D206); R's record with every gate's figures.
+10. **Version and tag** by D207: the three version strings set to `0.9.0`, the R record committed,
+    and the tag and commands given when the user asks.
+
+**Decisions**
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D200 | Is a code review pass part of R? | **Decided 2026-10-10 by the user: yes, a full and complete review; a release always has one.** The recommendation against it (each package was reviewed and approved on delivery) was withdrawn: a package's review sees its own diff only, not what later packages changed in it or how the packages meet, and 0.9 holds migrations, concurrency and public contracts that AGENTS.md gives independent review. Step 0; its findings are handled by D201 |
+| D201 | What does a failure mean? | **Accepted 2026-10-10 by the user.** **A product defect is fixed in R** as a named amendment with its regression test, and only its boundary's groups are rerun. **A runner that drifted** from a later package's model or screen (as `sc15` and `wp13c` in 0.8 R1) is fixed in the runner, recorded, and not treated as a defect. **A budget over its target** is recorded as an exception in TODO with its figure and cause, as at PG5, unless it is a regression against its own earlier measurement, which is a defect. **A run that fails once and passes on one rerun** is a flake: recorded with the runner, a TODO item, no release block. Anything else stops R and goes to the user |
+| D202 | Which surfaces join `test:a11y` and `test:visual`? | **Accepted 2026-10-10 by the user.** **Every 0.9 surface the user approved by screenshot**, light and dark at 1440px: Settings › Integration (Consumer APIs, Jobs and feed, API reference), Webhooks (Configuration and Deliveries), the export dialog and its job page, the import dialog and its job page, the selection bar, the Change values, Delete and relationships dialogs, the filter bar with an open editor, and a collection with relation columns. About 13 scenarios and 26 baselines. TODO's J1u and J4 list (D95) is the minimum; the rest keeps ROADMAP 1.0's "every surface passes the gates" from growing a backlog |
+| D203 | At what scale do the volume browser runners run? | **Accepted 2026-10-10 by the user.** **Their default 10 %**, as 0.8 R1 and R2; the full-volume reads are measured by step 8, not through the browser |
+| D204 | Where does the upgrade's source database come from? | **Accepted 2026-10-10 by the user.** **Built from the tag** in a scratch database, filled through alpha.1's API, dropped after; the development database is used only as a copy for the smoke start. Repeatable, and the user's data is never the upgrade's subject |
+| D205 | When do the long runs happen? | **Accepted 2026-10-10 by the user.** **One block of about 35 minutes, announced with its estimate before it starts**, after steps 1–7 pass, so a defect found there does not invalidate measured figures. Measured once (no reruns); a figure out of line is reported with its cause before any rerun |
+| D206 | Does schema 0.9 become a released schema language at 0.9.0? | **Accepted 2026-10-10 by the user.** **Yes.** The schema language version is `0.9` (`schemaVersion`); 0.9.0–0.9.5 are the starter's content releases on it, not schema versions. The starter, C18's syntax, K5's columns and K7's candidates ship on it; from 0.9.0 on it is fixed, and a later change to the language is schema 0.10, which 0.10 already plans (0.10 D1) |
+| D207 | Version numbers | **Accepted 2026-10-10 by the user.** **Engine, backend and frontend `0.9.0`; the starter stays content release 0.9.5** (a content release is independent of the engine's version, and renumbering it would install a new release on every database). Tag `v0.9.0` on the user's instruction, as with alpha.1 |
+| D208 | R-F1: what a deleted workspace's feed becomes | **Decided 2026-10-10 by the user.** **The feed leaves with the workspace:** its audit entries stay as history but lose their feed position and workspace, and its consumer events and deriver checkpoint are deleted. A workspace created again under the key starts a clean feed at position 1 (ADR-019: a mistyped key is corrected) |
+| D209 | R-F16: which ancestor `ancestor:<type>.<field>` means | **Decided 2026-10-10 by the user.** **Everything that shows a value takes the ancestor nearest the root**, as `path` does: lists, Q3, K5a's relation columns, the workbook for people, and consumer projections (which change; pre-1.0). **Criteria that filter** (K7's candidates, Q3's `where`) keep "an ancestor of that type matches", documented as a filter's meaning |
+| D210 | R-F18: older example-model mentions | **Decided 2026-10-10 by the user.** **Rewritten too:** besides the source comment, the mentions in CONSUMER_API, MODEL_AUTHORING and this plan's C4/C5 scenarios take generic or starter wording |
+
+**Groups:** R runs everything (the full suites by AGENTS.md); "targeted tests only" does not apply to
+build acceptance. Test work added: the deletion scenario and the gate scenarios of D202.
+
+#### R step 0: the review (2026-10-10)
+
+**Done 2026-10-10**, before any gate (D200); 21 findings. Read, nothing run. The primary review covered the
+new engine logic area by area. One independent reviewer covered migrations, concurrency and the
+public contracts (AGENTS.md). Its findings marked confirmed were checked again in the code (R-F1,
+R-F2, R-F9, R-F11, R-F14). Nothing is fixed yet: by D201, each product defect becomes an amendment
+with its regression test.
+
+| # | Severity | Where | Finding |
+| --- | --- | --- | --- |
+| R-F1 | high | `engine/workspaces/catalogue.py` `delete_workspace`, `records/feed.py`, `uq_audit_event_feed_position` | A deleted workspace's audit entries stay, with their `workspace_key` and feed positions (no foreign key, no cleanup). A workspace created again under the same key starts at position 0, so its first live write collides with the unique constraint. It is answered `409 DUPLICATE_RELATION`, and the workspace can never be written again. The deriver would also read the old entries. Confirmed by tracing |
+| R-F2 | medium | `model/releases.py` activation with `events/subscription_rules.suspend_left_behind`; `events/dispatcher._step`, `subscriptions.update/resume`; `registry._require_resolved_release` | Lock order inverted. Activation holds the runtime state, then locks active subscriptions. A dispatcher step or subscription write updates its subscription row, and at commit flushes, then waits for the runtime-state share lock. The two deadlock (40P01): the activation answers 500, or the dispatcher logs an outage. Confirmed by tracing, not run |
+| R-F3 | medium | J2a triggers (`20261007_07`) with activation | The same inversion through `unique_attribute_values`. A write's flush locks those rows before its commit-time share lock. An activation that adds or drops `unique` on that attribute then waits for them while holding the runtime state. Plausible, traced from lock modes |
+| R-F4 | medium | `engine/model/candidates.py` `_met` | K7: a record laid in the same batch chunk meets `isNull: false` without holding the value. The SQL path needs a stored non-null value. A relationship to a record created in the batch without the value is accepted, while one to an existing record without it is refused. Confirmed |
+| R-F5 | medium | `engine/imports/binding.py` `_relations` and `_items` | A `relation` binding with `replace: true` whose cell is empty makes no `replaceRelationSet`, so every relationship stays; removing some names works. API.md: `replace` "makes the matched records the whole set"; D187 for the workbook for people, whose relation columns use it. The test removes one name of several only. Confirmed by tracing |
+| R-F6 | medium | `features/objects/filters/FilterBar.tsx` `filterKind`; `reads/object_query.parse_typed` | `createdAt`, `updatedAt` and dateTime attributes, which a view may declare as filters, get a date input. Its value has no time, and the API refuses it `INVALID_FILTER`. Neither shipped model declares one. Confirmed by tracing |
+| R-F7 | medium | `engine/jobs/xlsx.py` `_plain_page` and `_data_page` | A list rule's `<formula1>` is written unescaped. A sheet title from a plural name or relationship label holding `&` or `<` makes the sheet XML invalid: Excel reports the workbook damaged. Sheet names and defined names are escaped. Confirmed |
+| R-F8 | low | `events/dispatcher._step` | A webhook's `stateAt` is read at READ COMMITTED, before the objects are composed, so the objects may show later writes. The pull feed reads both in REPEATABLE READ. Contradicts CONSUMER_API "Events carry the data" |
+| R-F9 | low | `jobs/store.confirm_job`, `expire_jobs` | A preview past `expires_at` but not yet swept (the sweep runs hourly) is confirmed, though the route promises `410 JOB_EXPIRED`. A confirm landing between the sweep's select and update is accepted, and its inputs are then deleted. Confirmed |
+| R-F10 | low | `imports/submit.py` with `jobs/files.reconcile` | The source file is written before the job commits. A reconcile sweep in that window removes it, and the job fails at binding. Small window |
+| R-F11 | low | `events/worker.run_once` | One workspace whose derivation keeps failing stops derivation for the workspaces listed after it (only 40001 is caught). Confirmed; no concrete poison input found |
+| R-F12 | low | `jobs/exports.run_export`, atomic chunks | The lease is not renewed during an export's fill phases or an atomic chunk. Past `JOB_LEASE_SECONDS`, a second process may take the job: two writers of one file, or an atomic chunk taken back and forth. Only with several processes per database. Plausible |
+| R-F13 | low | `consumer/router.py` pull feed ETag | Built from the derived head only. A `payload=full` body changes with underived live writes, so `304` may answer a changed body during deriver lag. Against C-D65 |
+| R-F14 | low | route docstrings in `routers/workspaces.py:90`, `jobs.py:134`, `queries.py:21` | Published OpenAPI descriptions name lower-case codes (`feed_position_expired`, `job_finished`, `invalid_query`); the API answers upper case (T1b). Confirmed |
+| R-F15 | low | `engine/jobs/people.py` `_field_sql`, `owned_columns` | `ancestor:` cells take an arbitrary ancestor (`LIMIT 1` without order) when a type nests in itself. The list and Q3 show the one nearest the root (D17) |
+| R-F16 | low, design | consumer projections, lists, K7 | `ancestor:<type>.<field>` means the nearest ancestor in consumer projections (C2), the one nearest the root in lists, Q3, K5a and the workbook, and any ancestor in K7 criteria. These agree unless a type nests in itself, and no document says they differ. Needs a decision |
+| R-F17 | low | `features/objects/RecordTree.tsx` | UA9's kept experiment still carries commented-out code: imports, `useTreeWheel`, the `ScrollWindow` group, a first `FlatRows`, several statements. It also has "experiment" comments, a stale module docstring, and unused `useTreeWheel.ts`, `treeWheel.ts` and its test (262 lines) |
+| R-F18 | low, rule | `FilterBar.tsx:194` | A comment names an example-model type. Older mentions (CONSUMER_API, MODEL_AUTHORING, this plan's C4/C5 scenarios) predate the rule and belong to the parity fixture. The user decides whether they count |
+| R-F19 | low | `features/settings/WebhookDialog.tsx:182` | New webhook reads one page of active workspaces (`pageSize: 100`) and no more: past 100, the rest cannot be chosen and nothing says so. Other configuration lists read every page (`everyPage`) |
+| R-F20 | low | `styles/components.css:4468–4469`, `layout.css:297` | Three colours written outside the tokens (the filter sheet's shadow and page dim, the theme choice's shadow), in the light theme's shade; the dark theme defines its own shadows (`--shadow-*`), which these skip. Against U2's token layers |
+| R-F21 | low | `engine/model/consumer_openapi.py:26–30` | The limits each consumer API's document states (`MIN_CONTAINS`, `MATCH_LIMIT`, `MAX_TERMS`, `PAGE_SIZE`) are copies of the engine's (`search_index.MIN_INDEXED_LENGTH`, `object_query.INDEXED_MATCH_LIMIT`, `consumer_xref.MAX_TERMS`), with no test tying them: a changed limit leaves the published document stating the old one (C-D37 asks the limits be stated exactly) |
+
+**Checked and found sound.**
+- Migrations `20261003_02`–`20261007_08`: backfills, NOT NULL order, decimal rounding, code rewrite, the J2a triggers, and the upgrade in one transaction.
+- Startup checks.
+- Feed positions: gapless and in commit order.
+- Feed read and retention; the deriver's checkpoint; the export snapshot.
+- Lock order in publish, change-set writes, job checkpoint, cancel and confirm; job and dispatcher leases.
+- No transaction is held across a webhook call.
+- Idempotency races; cursor binding; limits reported in refusals; webhook signing and CloudEvents.
+- The batch path: item decisions, fallback one by one, upserts, relation and set items, counterparts.
+- The batch lookup's layers.
+- Set-based deletion: it always makes progress, and its feed order and set versions are right.
+- The K5–K7 list route.
+- Many-to-one everywhere a cardinality is compared.
+- The import binding's matching and ordering.
+- The bulk dialogs' selection and item building.
+- Secrets not shown or stored in the browser.
+
+Several suspected issues were checked against recorded decisions and left: D171 (the filter picker applies candidates), K2b's sample preview, cardinality counted per relation type at both installation and write.
+
+**Completed 2026-10-10 at the user's request, after the first pass.**
+- Read as well: the consumer parameters, lists, resolve and XREF, and the definition rules and OpenAPI generator.
+- K7's reach into the mapping and matrix candidate reads; the presenters.
+- The import profile and import refusals against API.md, and every one of the 100 management route paths (each is in API.md).
+- The frontend's webhook dialog and deliveries, job pages, Integration pages, record panels and the relationships panel; the stylesheets' colours.
+- Two edge checks:
+  - nested codes in jobs stored before T1b are moot, since items are kept for 7 days (D14) and T1b landed on 2026-10-04;
+  - `cli/model_schema_upgrade.py` changes the active release through `model_runtime_state`, so the unique-values trigger runs.
+- The `services` package no longer exists: E1–E3 moved it into the modules reviewed above.
+
+**Fixed 2026-10-10** (D201: each with its regression test; D208–D210 decided by the user first).
+
+| # | Fix | Regression test |
+| --- | --- | --- |
+| R-F1 | `delete_workspace` clears the workspace's audit entries' workspace and feed position and removes its idempotency keys (D208) | `test_w6_workspace_deletion`: written, deleted, created again, written; its feed holds position 1 only |
+| R-F2, R-F3 | `activate_model_release` locks the active subscriptions, and the unique values' table when the releases' `unique` attributes differ, before the runtime state. The writers are unchanged, so an activation still does not wait for a write's workspace lock (PG3) | `test_pg3_concurrency`: a held subscription row, and a held unique value, each with the holder then taking the share lock |
+| R-F4 | `candidates._met`: `isNull` needs a held value | `tests/unit/engine/model/test_candidates.py` |
+| R-F5 | An empty `replace` cell makes a link with no record; the set replacement takes it as no target | `test_j27_people_workbook`: an emptied list cell |
+| R-F6 | A date for a date-time filter compares by the whole day in UTC (`object_query.Day`); API.md | `test_cross_type_lookup`: `createdAt` `eq`, `lt`, `lte`, `gt` by day |
+| R-F7 | List rules escaped (`_MARKUP`) | `test_xlsx`: a list sheet titled with `&` and `<` |
+| R-F8 | The dispatcher's step reads at REPEATABLE READ; a serialization failure is retried next round | `test_j30_delivery`: a rename while the event is composed |
+| R-F9 | Confirm refuses past `expires_at`; the sweep locks what it expires, skipping a held job | `test_j27_import`: a late preview before the sweep |
+| R-F10 | A file of no job is kept for `UNCOMMITTED_SECONDS` (600) | `tests/unit/engine/jobs/test_files.py` |
+| R-F11 | The deriver derives every pending workspace, then raises the first failure | `tests/unit/engine/events/test_worker.py` |
+| R-F12 | Atomic chunks and previews renew the lease at each stop check (`_chunk_check`); exports check between their fill statements | `tests/unit/engine/jobs/test_worker.py`; `test_import_volume`'s bound counts a check as two statements |
+| R-F13 | The pull feed's tag includes the live feed head; API.md | `test_j30_consumer_events`: a live write changes the tag before derivation |
+| R-F14 | Three route descriptions; OpenAPI lock re-baselined (diffed against HEAD: those three only) | `test_openapi_contract` |
+| R-F15, R-F16 | Displayed `ancestor:` values take the ancestor nearest the root in the workbook and consumer projections (D209); CONSUMER_API and C2's record amended | `tests/unit/engine/jobs/test_people.py`, `tests/unit/engine/reads/test_consumer_objects.py` |
+| R-F17 | The commented and unused tree code, the glow hook and its CSS, `useTreeWheel.ts`, `treeWheel.ts` and its test removed; the module docstring rewritten | `test:browser:ua9` (8 checks), Vitest |
+| R-F18 | The comment and the documents (CONSUMER_API, MODEL_AUTHORING, this plan's C8, C16 and K7 passages, D182) in generic wording (D210). The parity fixture's test data keeps its names | — |
+| R-F19 | New webhook reads every page of workspaces | `WebhooksPage.test`: workspaces on two pages |
+| R-F20 | `--shadow-sheet` (light and dark), `--backdrop` and `--shadow-sm` in place of the three colours | `tokens.test`: no stylesheet but the tokens writes a colour |
+| R-F21 | The document imports the engine's limits; the list page sizes moved into the engine (`consumer_lists.PAGE_SIZE`) | `test_consumer_openapi`: the stated limits equal the engine's |
+
+**Checks run** (D201: the changed boundaries' groups). Backend: `consumer` and `contract` (490
+passed), their serial part, then `records`, `queries`, `workspaces`, `change_sets`, `mapping`,
+`jobs`, `feed`, `model_admin` and `matrix` (1,526 passed, 3 failed). Two failures were test drift,
+fixed in the tests: `test_import_volume`'s statement bound (R-F12's checks cost two statements) and
+`test_j08_model_release`'s schema 0.8 model, which kept K7's schema 0.9 `candidates`.
+`test_mapping_coverage::test_coverage_query_count_does_not_grow_per_source[False]` failed once in
+the parallel run and passed alone: a flake by D201, in TODO. Ruff clean. Frontend: format, lint (0
+errors), build, Vitest 641 passed, `test:browser:ua9`. The full suites run in step 2.
+
+#### R steps 1 and 2: static, unit and backend gates (2026-10-10)
+
+**Step 1 passed.** Ruff check clean (`ruff format` is not a gate: CI and EXECUTION_GUIDE §3 run
+`ruff check` only). Prettier clean. ESLint: 0 errors, 7 warnings, all `react-hooks` warnings in
+files older than 0.9's review fixes (model draft editor, model workbench, object detail and form,
+`useCursorFeed`). `tsc -b && vite build` built. Vitest: 641 passed. Gate helpers: 5 passed.
+
+**Step 2 passed after two runner fixes.** `pytest -n auto -q`: 2,199 passed, 2 failed, in 6 min 19 s.
+The serial part passed (3). Both failures were test drift or the test itself, not product defects
+(D201):
+
+| Failure | Cause | Fix |
+| --- | --- | --- |
+| `test_j12_run_the_service::test_an_unsupported_model_schema_is_upgraded_offline[generated-a]` | `starter_at_schema` did not strip K3a's `many-to-one` (schema 0.9), which the generated configuration's `Bn1` uses since K3a. The schema 0.4 release it built was invalid, so the offline upgrade refused it. K3a's groups did not select `startup` | `tests/model_support.starter_at_schema` widens `many-to-one` to `many-to-many` and drops K7's `candidates` below schema 0.9; both parametrisations pass |
+| `test_mapping_coverage::test_coverage_query_count_does_not_grow_per_source[True]` | The step 0 flake (`[False]` then). The count took every statement on the engine, including the background threads' polls (job and export workers, deriver, dispatcher) | It counts statements from threads not named `rdm-…`, as `volume_fixture.measure` leaves out the workers; TODO's flake item closed |
+
+The wall time is over the 5-minute ceiling: a budget exception in TODO (D201). Per case it is
+0.17 s against H3's 0.16 s; the suite grew from 1,032 to 2,201 cases.
+
+#### R step 3: the browser runners (2026-10-10)
+
+**Passed.** All 38 runners, one at a time, `s5`–`s7` at 10 % (D203). The first pass: 32 passed and 6
+failed. EXECUTION_GUIDE §3 lists all 38 now.
+
+| Runner | Cause | Outcome (D201) |
+| --- | --- | --- |
+| `test:browser` | Drift: it drove the Filter dialog K6a replaced | Runner rewritten for the filter bar (＋ Filter, field menu, condition, More, value; a pill reopens its field; Remove the … filter), keeping its checks: each typed filter, the no-value conditions, the address, one filter removed with the rest kept, focus back in the bar. Its rerun failed once at `checkRecordReturn` and passed on the next: a flake |
+| `test:browser:settings` | Drift: U5 added Webhooks to the settings navigation; the expected keyboard order and the Shift+Tab count back to Model predate it | Runner fixed |
+| `test:browser:c5` | Drift, three times: UA9's folded lens (`c5`'s own tree and the shared `openDomainHierarchy`, which the accessibility and visual gates also use), `workspaceKey` sent to the record history route (refused as an unknown parameter), and the `aria-level` UA2's framed groups changed (a record under a top-level record is level 4) | Runner and helper fixed |
+| `test:browser:c4` | Failed once, passed on its rerun | Flake, in TODO |
+| `test:browser:k6` | Failed once, passed on its rerun | Flake, in TODO |
+| `test:browser:a5` | **Product defect R-F22.** In a relation matrix cell, Create submitted before the cell's containers answered had no container. The containers then answered with a single one, which hides the list that says none was chosen, and the submit was lost without a word. The runner's keyboard path pressed Enter within that window twice | Fixed: the dialog's Create waits for the containers (`CellRecordForm` `ready`). Regression test in `RelationMatrixView.test` (fails without the fix); `a5` and `a4` passed, Vitest 642, lint, format and build |
+
+#### R step 4: the accessibility and visual gates (2026-10-11)
+
+**D202's surfaces added** as one module both gates call (`e2e/helpers/release-surfaces.mjs`), on a
+harness of its own with webhook subscriptions on, so the gates' other pages keep their baselines
+(Settings › Deployment names that capability). 18 surfaces, light and dark at 1440px: Settings ›
+Integration (Consumer APIs, Jobs and feed, API reference), a webhook's Configuration and Deliveries
+(one delivery to a receiver the helper serves), a collection with relation columns, the filter bar
+with the relationship editor open, the selection bar, Change values, Change relationships and
+Delete, the export dialog, its notification and job page, the import dialog, its preview, its
+notification and its loaded page. Masked: the receiver's port, times, IDs, an export's checksum and
+the jobs table's rows. Two masked runs differ by at most 0.06 % on any of them.
+
+**Drift fixed on the way:** `openLongList` (both gates) predates UA9's folded tree and the
+domain's folded type group.
+
+**`test:a11y` passed:** 109 checks (36 new), 0 violations, light and dark.
+
+**`test:visual`:** of the 64 baselines, 30 match and 34 differ; the 36 new have none yet. Each of
+the 34 was opened beside its baseline. Every difference is a delivered change: UA8's record header
+(edited in place, no Edit record button), UA9's folded tree groups (sidebar and lens), K1's
+selection checkboxes, K6a's ＋ Filter and compact segmented choices, J1u and J4's Import and Export
+buttons and import limits, U4 and U5's Integration navigation. The restructuring dialogs and the
+publications list differ behind or beside the dialog (the sidebar tree; the publication's time and
+ID). No regression. With the user's go-ahead the 34 were re-recorded and the 36 new recorded, from
+the second masked run; the 30 that matched were left as they were. **`test:visual` passed:** 100
+checks, the largest difference 0.39 % (an unchanged baseline).
+
+#### R steps 5 and 6: migrations and schema languages (2026-10-11)
+
+**Step 5 passed** (D204). A scratch database on the development server was built and filled by
+`v0.9.0-alpha.1` itself (its backend and model from the tag, started at `20261003_01`), through
+its API: live records holding every value type (text, longText, boolean, integer, a decimal
+`12.345` and a dateTime on a copy of its starter, date), a relationship, a publication, a live
+change after it, an open change set holding an edit and a create, and a completed background
+batch. The current backend then started on it.
+
+| Check | Outcome |
+| --- | --- |
+| Upgrade at startup | `20261003_01` → `20261007_08`, healthy, no error logged. Every record live, in the publication and in the change set, the relationship, the job's state and counts and the change set's version read identical before and after |
+| Feed | Empty after the upgrade, as `20261003_02` says (no backfill); the first live write takes position 1 |
+| Restart | Reads identical, but for that write |
+| Interrupted upgrade | The startup's upgrade held at J1's `ALTER TABLE jobs` by a lock in another session, after F1's revisions had run in the same transaction, and killed (`kill -9`): the database stayed at `20261003_01` with none of their columns and no session left. The next start upgraded it; reads identical |
+| Upgrade stopped between revisions | `alembic upgrade 20261004_03` (through T1a's decimal encoding), then a start finished it; reads identical, the decimal included |
+| Clean bootstrap and lifespan | `test_startup` and `test_migrations`, in step 2 |
+| Smoke start | A copy of the development database (the example model 0.9.7 on schema 0.9, `20261007_08`, two workspaces): healthy, `/system` and the cross-type lookup answered, no error logged |
+
+**Step 6 passed**, on the step 5 database, through the API with model administration on. Releases
+derived by `tests/model_support.starter_at_schema`: a schema 0.7 release activated over the
+alpha.1 starter (schema 0.8), a schema 0.8 release over it, and the current starter (schema 0.9,
+with the scratch attributes) over that, each `200`. Under schema 0.9 the domains read with their
+decimal. Both schema 0.8 releases, alpha.1's own (installed before the upgrade) and the later one,
+read back with `includeModel=true` at schema 0.8, their models hashing to the `modelHash` stored
+at installation: kept as stored (C-D134).
+
+The scratch databases, servers and files were removed. A leftover browser clone and its servers,
+left by a debug script that exited before its cleanup, were found and removed too.
+
+#### R step 7: acceptance (2026-10-11)
+
+**Passed.** Every test named here ran and passed in step 2 (the backend suite) or step 3 (the
+browser runners); none ran again for this step.
+
+| Scenario | Evidence |
+| --- | --- |
+| SC-10, import with a preview | `test_j27_import`, `test_j27_people_workbook`, `test_j27_people_columns`; `test:browser:j4`, `j6`, `j6a` |
+| SC-11, effective periods and `asOf` | `test_effective_periods`, `test_j23_business_date`, `test_model_query`; the C16 consumer cases: dated lists and XREF in `test_j28_j29_parity` (`asOfApplied`, a dated top result, `AS_OF_NOT_SUPPORTED` on get by ID) and their statement budgets in `test_consumer_list_volume` and `test_consumer_xref_volume` |
+| C8, consumer API parity | `test_j28_j29_parity` (the reference deployment's XREF and list answers from a definition, each valid against the definition's own OpenAPI document) |
+| C13, events and webhooks | `test_j30_acceptance`, `test_j30_delivery`, `test_j30_subscriptions`, `test_j30_delivery_log`, `test_j30_consumer_events`; `test:browser:webhooks` |
+
+**ROADMAP 0.9 exit gate, item by item:**
+
+| Item | Evidence |
+| --- | --- |
+| Every collection and job result is bounded or resumable | `test_paging_contract` and `test_j21_read_completely` (cursors both ways, positions, seek, totals, a cursor bound to its query); `test_j24_background_job` (a job resumes after a restart and a lost lease; outcomes paged); a limit is named in its refusal (`test_j11_bulk_change`: a batch over `BATCH_MAX_ITEMS` refused with the setting and its maximum; a preview past its limit a sample) |
+| Partial failures and lifecycle stages are machine-readable | Per-item outcomes and job states and stages in `test_j24_background_job`, `test_j11_bulk_change`, `test_j27_import` (refused rows by row and column); upper-case error codes pinned by `test_openapi_contract` |
+| Bulk contracts are first-class services | `POST /batches`, imports and exports run in the engine's own set statements: `test_batch_statements` (a chunk's statements constant as it grows), `test_import_volume`, `test_export_volume`; the UI's bulk dialogs call the same routes (`test:browser:k2`, `k2b`, `k3`) |
+| The API reference serves every published document, bundled and offline, or from the CDN when set | `test_api_reference` (bundled script and sources, CDN setting with its pinned version and integrity, an unknown setting refused); `test:browser:v1` aborts every request leaving the engine and fails on one |
+| A definition alone reproduces the reference XREF and list responses, with no runtime branch on model keys | `test_j28_j29_parity`; R's scan of `backend/app` outside the migrations for the 117 hyphenated keys the shipped models declare and the plain-word type keys found none quoted (one `"system"` is an OpenAPI tag) |
+| Each consumer API's namespace, contract version and base URL is on a settings page, its reference showing that version without a placeholder | `test:browser:integration` (each definition's base URL read from the page answering on its list, its reference link); `test_consumer_openapi` (namespace and version in paths and `info.version`, no placeholder) |
+
+#### R step 8: the long runs (2026-10-11, stopped at the deletion timing)
+
+Announced as one block of about 35 minutes (D205), run 00:45–01:33, one at a time, each once.
+
+| Run | Time | Outcome |
+| --- | --- | --- |
+| `pytest -m budget` | 5 min 9 s | 8 passed |
+| Read table, `--scale 1 --repeat 5` | 13 min 30 s (the seed rebuilt, 350 s; the table has grown since PG5's 3.5 min estimate) | 71 rows (12 new since PG5), see below |
+| `--only-consumer --scale 1` | 4 min 41 s | Every row over 100 ms is a recorded exception (C6a, C16), most of them faster now; "a parameter set per item" 35.3 s (C14a 35.9 s) |
+| `--only-events --scale 1` | 22 s | Within C-D113: a batch of 100 `full` 62.5 ms (100 ms), the whole rename 6.3 s (30 s). Statements per batch 24 → 33 since C13 (C17's batching and CloudEvents, R-F8's snapshot read) |
+| `--only-exports --scale 1` | 1 min 30 s | JSON Lines 23.4 s, CSV 26.9 s, XLSX 31.7 s (J1: 23.1, 24.4, 31.5; target 60 s); 4 statements more each (R-F12's lease checks) |
+| `--only-deletion --scale 1` (new, D124) | **cancelled after 21 min** | **Budget missed:** the live preview of deleting the largest groups (target about 100,000 records) ran one statement, `_incident`'s `INSERT INTO deletion_relations … SELECT`, for over 20 minutes at full CPU; cancelled with `pg_cancel_backend`. At scale 0.04 the same preview took 1.8 s for 7,133 records; at 0.04 the change set preview and execution took 3.1 s and 3.0 s. The growth is about quadratic. Likely cause, not yet verified: the temporary tables are never analysed (PostgreSQL does not auto-analyse temporary tables), so the planner joins the run's ~100,000 records to the relationships by nested loop. Goes to the user (D201: anything else stops R) |
+
+**Read table against PG5's close (POSTGRESQL_BUDGETS §3).** Same dataset (110,254 live records).
+
+- Over 100 ms: the recorded exceptions (E1–E5, E8), the reads below, and the change set's position
+  ¾ deep with a total, 98.7 → 111.2 ms (E5, now over the line); capture and publish of 10,000 renamed records on the freshly built seed 61.5 s
+  and 151.7 s (C6a 48.7 s and 137.1 s on a fresh seed; same 20,154 statements; no gate at that size).
+- **Slower by half or more, at the same statement count:** relations of the heavy parent by rank
+  (live 58.1 → 100.8 ms) and by group (live 61.2 → 143.0 ms); the matrix's history-only filter
+  (live 108.0 → 178.9 ms, change set 96.6 → 148.2 ms); the query's 20-row expansion of 20,000
+  children (change set 45.8 → 90.9 ms, history 40.9 → 107.4 ms). Also deriving 500 live creations
+  42.2 → 101.0 ms (C10). Not explained yet: the seed was analysed when built, so E6 does not apply.
+  Measured once (D205); by D201 a regression against its own earlier measurement is a defect.
+- One statement more on every anchored relations read (B3's `relationSets`, D38) and on the two
+  single-record writes; the budget is that counts do not grow with the data, which the volume tests
+  hold.
+
+#### R step 8, continued: the deletion fixed (2026-10-11)
+
+The user asked for the deletion to be fixed in R. Three defects, each found at full volume, each
+with a regression test that fails without its fix:
+
+| # | Defect | Fix | Regression test |
+| --- | --- | --- | --- |
+| R-F23 | The run's relationships were found by `IN (run) OR IN (run)`: a subplan PostgreSQL hashes only while the run's IDs fit in `work_mem`; past that it scanned them for every relationship (over 20 minutes live) | `deletion._incident` keeps a relationship when its joins to the run's records found an end | `test_cascade_delete`: the statement's plan has no subplan |
+| R-F24 | In a change set the run failed: a read of its records' types bound every ID twice, and over about 32,000 records PostgreSQL refused (`number of parameters must be between 0 and 65535`) | `snapshot_reads.find_objects` reads 10,000 IDs per statement (`FIND_CHUNK`) | `tests/unit/engine/reads/test_snapshot_reads.py`: 40,000 IDs in a change set |
+| R-F25 | In a change set the matrix's walk under the run's records left out the change set's rows by `NOT IN`, the same subplan (over 5 minutes for one chunk) | `matrix_cells._snapshot_arms` uses a correlated `NOT EXISTS`, as `snapshot_reads` already did | `test_matrix_states`: the walk's plan under a container moved in a change set has no subplan |
+
+The scenario first chose groups by their subtrees only and deleted 197,289 records (their owned
+matrix cells go with them); it now counts those, and deletes about 100,000. Checks: `records` and
+`jobs` (645 and 1 serial), `change_sets`, `matrix`, `queries`, `records`, `mapping` (922 and 2), the
+reads unit tests, `matrix` and `change_sets` again after R-F25 (524 and 2).
+
+**The timing, once, full volume (D124, target under 60 s each):**
+
+| Run | Time · statements · ORM rows | Target |
+| --- | --- | --- |
+| Live preview: 1,994 groups, 100,008 records | **42.2 s** · 469 · 1,998 | met |
+| Change set preview: 100,271 records | **178.7 s** · 1,410 · 7 | missed, 3× |
+| Change set execution | **198.5 s** · 1,567 · 28 | missed, 3× |
+
+Both complete; where the change set's time goes is not measured yet.
+
+**Two more, found by timing every statement of the change set's run** (one diagnostic run each,
+announced), each with a regression test that fails without its fix:
+
+| # | Defect | Fix | Regression test |
+| --- | --- | --- | --- |
+| R-F26 | The closure's walk found a reached record's required owned records by joining every record of the owned type in the context; a change set's projection could not narrow that join, so each record reached read the whole type (202 s of the change set's run) | `deletion._reach` reads the owned record's type by its key (`DeletionScope.object_type_of`: live, the objects' key; a change set, `effective_object_value`) | `test_batch_statements`: deleting eight cell-owning groups in a change set reads about the same buffers at four times the data (+4 %; before, +48 %) |
+| R-F27 | The matrix states' upkeep walked the cells under each record the change set had just deleted, 500 at a time, and found none (105 s of the run): what a tombstone held was deleted with it or moved, each a candidate itself | `matrix_states._resolve` walks from no change-set tombstone (`_tombstones`); a record not found otherwise is still walked from | `test_batch_statements`: a change set's deletion runs no matrix walk (before, one per chunk) |
+
+`matrix_states.py` is a volume seed input: the seeds were rebuilt in place, under the same names.
+Checks after both: `records`, `jobs`, `change_sets`, `matrix`, `volume` (1,024 passed and 1 failed,
+3 serial). The failure, `test_volume_baseline::test_capturing_and_publishing_a_whole_workspace_bind_no_parameter_per_record`,
+came in the run that rebuilt the seeds and passed alone and in the `volume` group's next parallel
+run (85 passed); it failed again later and was found to count the background threads' statements
+(see below).
+
+**The timing, once, full volume (D124), after R-F23–R-F27: met.**
+
+| Run | Time · statements · ORM rows | Target |
+| --- | --- | --- |
+| Live preview: 1,994 groups, 100,008 records | **49.1 s** · 469 · 1,998 | met |
+| Change set preview: 100,271 records | **49.5 s** · 1,410 · 7 | met |
+| Change set execution | **51.3 s** · 1,567 · 28 | met |
+
+#### R step 8, continued: the slower reads (2026-10-11)
+
+The read table run again once (announced, the seed reused), after R-F23–R-F27:
+
+| Read | PG5 | R step 8 | Again |
+| --- | --- | --- | --- |
+| relations: heavy parent by rank (live) | 58.1 | 100.8 | 56.0 |
+| relations: heavy parent by group (live) | 61.2 | 143.0 | 58.5 |
+| matrix: history only in 20 columns (live) | 108.0 | 178.9 | 105.1 |
+| matrix: history only in 20 columns (change set) | 96.6 | 148.2 | 92.9 |
+| query: 20-row expansion of 20,000 children (change set) | 45.8 | 90.9 | 78.0 |
+| query: 20-row expansion of 20,000 children (history) | 40.9 | 107.4 | 109.9 |
+
+Four were step 8's noise: back at PG5's figures. The expansion was slower in both runs. Its plan, at
+full volume: every context reads the anchor's 20,000 related records to keep the first 20 by name
+(K5's one statement for a page of anchors; live 50 ms), and in a publication the total was joined
+after the page and counted again for every row of it (20 × 2.2 ms).
+
+| # | Defect | Fix | Regression test |
+| --- | --- | --- | --- |
+| R-F28 | A query's or list's expansion counted its total again for every row of its page in a publication | `relation_queries.expansion_rows` joins the total before the page | `tests/unit/engine/reads/test_relation_queries.py`: the statement joins the total first (smaller data plans it once either way, so the shape is pinned) |
+
+At full volume the publication's expansion is now 68 ms (was 103), the change set's 83 ms; both
+within 100 ms. What remains above PG5 is K5's design (one statement for a page of 100 anchors), as
+recorded there.
+
+One more test defect: `test_volume_baseline::test_capturing_and_publishing_a_whole_workspace_bind_no_parameter_per_record`
+counted the background threads' statements, so under load a poll fell inside a step (85 against 87
+statements); it counts the requests' statements only, as R step 2's mapping coverage fix does.
+Checks: `queries`, `volume`, `records`, `consumer` in parallel (1,024 passed, under the load that
+failed it before), their serial part, the reads unit tests.
+
+#### R steps 9 and 10: documents and version (2026-10-11)
+
+**Step 9.** PROJECT_STATUS (0.9 complete, with what stays open), ROADMAP (the current baseline and
+0.9 complete), README's status, INTEGRATION_API's state table (P, B, J, F and Q delivered),
+APPLICATION_MODEL's schema 0.9 as the released language (D206, with the current refusals: a 0.8
+document declaring `consumerApis` is `UNSUPPORTED_SCHEMA_VERSION`, one using relation columns,
+`many-to-one` or `candidates` is `INVALID_MODEL` at the feature's path; the offline transition takes
+schema 0.5–0.9), CURRENT_FUNCTIONALITY's header, POSTGRESQL_BUDGETS §10 (R's figures), TODO (R's
+items closed, R's open ones added), CHANGELOG (`[Unreleased]` became `[0.9.0] - 2026-10-11`).
+API.md needed no change from R's fixes beyond step 0's.
+
+**Step 10.** `ENGINE_VERSION`, `backend/pyproject.toml` and `frontend/package.json` (and its lock)
+are `0.9.0`; the starter stays content release 0.9.5 (D207). The OpenAPI document changed in
+`info.version` alone (diffed), and its lock was re-baselined; `contract` and `startup` passed (239).
+`test:visual` passed after the change (Settings › About within its threshold, 0.14 %). Not done, by
+the user's instruction only: the commit and the tag `v0.9.0`.
 
 ## Composable domains check (ADR-032)
 

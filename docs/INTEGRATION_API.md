@@ -1,8 +1,8 @@
 # Integration API (Product 0.9)
 
-Status: design drafted 2026-09-29. The management-side integration contracts of
-[Base 0.9](BASE_0_9_IMPLEMENTATION_PLAN.md). All sections are drafted on the accepted decisions
-(D1–D16); each track's packages reference them and amend them when delivery finds a gap.
+Status: delivered with Base 0.9 (complete 2026-10-11). Drafted 2026-09-29 on the accepted decisions
+(D1–D16), the management-side integration contracts of [Base 0.9](BASE_0_9_IMPLEMENTATION_PLAN.md);
+each track's packages referenced them and amended them where delivery found a gap.
 
 The [consumer API](CONSUMER_API.md) is a separate, read-only tier with its own contract versions.
 [API.md](API.md) remains the reference for delivered endpoints: each package moves its contract there
@@ -12,9 +12,9 @@ when it is delivered, and this document keeps the design and its reasons.
 | --- | --- | --- | --- |
 | [P](#p-shared-primitives) | Items and outcomes, failure policies, per-item concurrency, idempotency, jobs, limits | P | P1–P5 and P7 delivered in B1, P6's background run in B2 ([API.md](API.md#background-jobs)); job files with J |
 | [B](#b-bulk-writes) | Bulk object create, update, upsert and delete; record references and upsert keys; bulk relations and relation-set replacement | B | Object items delivered in B1 (inline) and B2 (background) ([API.md](API.md#batches-and-jobs-base-09-b1-b2-b3)); B4 in B3 |
-| [J](#j-import-and-export) | Import (file contract as an import profile per [MODEL_AUTHORING](MODEL_AUTHORING.md#import-profile), preview, execute) and export (scope, context, output) | J | Draft |
-| [F](#f-change-feed) | Raw change feed: entries, per-workspace position, retention, recovery, consumer events | F | Draft |
-| [Q](#q-queries) | Cross-type lookup (0.8 P1), workspace edge list (0.8 P3), model-aware query, effective periods and `asOf` | Q | Draft; Q1 delivered |
+| [J](#j-import-and-export) | Import (file contract as an import profile per [MODEL_AUTHORING](MODEL_AUTHORING.md#import-profile), preview, execute) and export (scope, context, output) | J | Delivered in J1–J6 ([exports](API.md#exports-base-09-j1), [imports](API.md#imports-base-09-j2-j3)) |
+| [F](#f-change-feed) | Raw change feed: entries, per-workspace position, retention, recovery, consumer events | F | Delivered in F1, F2 ([API.md](API.md#change-feed-base-09-f1-f2)); consumer events in C10–C17 ([CONSUMER_API](CONSUMER_API.md)) |
+| [Q](#q-queries) | Cross-type lookup (0.8 P1), workspace edge list (0.8 P3), model-aware query, effective periods and `asOf` | Q | Delivered in Q1–Q4 ([API.md](API.md#model-aware-query-base-09-q3)) |
 
 ## P: Shared primitives
 

@@ -54,7 +54,12 @@ from ...errors import ApiError, api_error
 from ...models.database import AuditEvent, ChangeSet, ObjectRelation, RdmObject
 from ...models.schema import EngineModel
 from ..indexes import matrix_states
-from ..reads.snapshot_reads import change_set_context, object_projection, relation_projection
+from ..reads.snapshot_reads import (
+    change_set_context,
+    effective_object_value,
+    object_projection,
+    relation_projection,
+)
 from ..workspaces.catalogue import resolve_workspace
 from .audit import audit_cause_of
 from .context import load_object
@@ -382,6 +387,11 @@ class DeletionScope:
         ``from_object_id``, ``to_object_id``, ``attributes`` and ``version``."""
         raise NotImplementedError
 
+    def object_type_of(self, object_id: Any) -> Any:
+        """The type of the context's record ``object_id`` (an expression), as a keyed lookup;
+        null when the context does not hold it."""
+        raise NotImplementedError
+
     def token_context(self, deletion: Deletion) -> dict[str, object]:
         raise NotImplementedError
 
@@ -414,6 +424,14 @@ class LiveScope(DeletionScope):
             RdmObject.version,
             RdmObject.workspace_key,
         ).subquery()
+
+    def object_type_of(self, object_id: Any) -> Any:
+        return (
+            select(RdmObject.object_type_key)
+            .where(RdmObject.id == object_id)
+            .correlate_except(RdmObject)
+            .scalar_subquery()
+        )
 
     def relations(self) -> Any:
         return select(
@@ -483,6 +501,9 @@ class ChangeSetScope(DeletionScope):
             projection.c.version,
             literal(self.workspace_key, String).label("workspace_key"),
         ).subquery()
+
+    def object_type_of(self, object_id: Any) -> Any:
+        return effective_object_value(self.context, object_id, "object_type_key")[0]
 
     def relations(self) -> Any:
         projection = relation_projection(self.context)
@@ -676,7 +697,10 @@ def _reach(scope: DeletionScope) -> Any:
     ]
     if owning:
         relation = scope.relations()
-        target = scope.objects()
+        # The owned record's type by its key, per relationship: joining the context's records
+        # instead read every record of the owned type for each record reached, which a change set's
+        # projection could not narrow (0.9 R, R-F26).
+        target_type = scope.object_type_of(relation.c.to_object_id)
         owned = values(
             column("relation_type_key", String),
             column("from_type", String),
@@ -685,21 +709,20 @@ def _reach(scope: DeletionScope) -> Any:
         ).data(owning)
         arms.append(
             select(
-                target.c.object_id,
-                target.c.object_type_key,
+                relation.c.to_object_id.label("object_id"),
+                target_type.label("object_type_key"),
                 literal("required-ownership", String).label("reason"),
             )
             .select_from(
-                relation.join(target, target.c.object_id == relation.c.to_object_id).join(
+                relation.join(
                     owned,
                     and_(
                         owned.c.relation_type_key == relation.c.relation_type_key,
                         owned.c.from_type == reach.c.object_type_key,
-                        owned.c.to_type == target.c.object_type_key,
                     ),
                 )
             )
-            .where(relation.c.from_object_id == reach.c.object_id)
+            .where(relation.c.from_object_id == reach.c.object_id, owned.c.to_type == target_type)
         )
     step = (union_all(*arms) if len(arms) > 1 else arms[0]).lateral("step")
     reach = reach.union(
@@ -754,7 +777,6 @@ def _incident(scope: DeletionScope) -> Any:
     """Every relationship touching a record of the run, with the earliest item holding an end, its
     ends' types and workspaces, and whether it is a containment edge."""
     relation = scope.relations()
-    ends = select(_OBJECTS.c.object_id)
     near_from = _OBJECTS.alias("near_from")
     near_to = _OBJECTS.alias("near_to")
     source = scope.objects()
@@ -797,7 +819,10 @@ def _incident(scope: DeletionScope) -> Any:
                 ),
             )
         )
-        .where(or_(relation.c.from_object_id.in_(ends), relation.c.to_object_id.in_(ends)))
+        # An end of the run is one its join to the run's records found. Not `IN (run) OR IN (run)`:
+        # PostgreSQL hashes such a subplan only while the run's IDs fit in `work_mem`; past that it
+        # scans them for every relationship (0.9 R, R-F23).
+        .where(or_(near_from.c.object_id.is_not(None), near_to.c.object_id.is_not(None)))
     )
     return insert(_RELATIONS).from_select(
         [

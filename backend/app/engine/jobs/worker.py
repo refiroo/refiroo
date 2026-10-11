@@ -285,7 +285,7 @@ class JobWorker:
             other_workspace_ids=job.parameters.get("otherWorkspaceIds", "refuse"),
             expected_change_set_version=job.change_set_version,
             job_id=job.id,
-            should_stop=_cancel_requested(session, job.sequence_id) if atomic else None,
+            should_stop=self._chunk_check(job.sequence_id) if atomic else None,
         )
         self._hold_lease(session, job.sequence_id)
         record_outcomes(session, job, outcomes)
@@ -360,7 +360,7 @@ class JobWorker:
             job,
             context,
             limit=self.settings.preview_max_items,
-            should_stop=_cancel_requested(session, sequence_id),
+            should_stop=self._chunk_check(sequence_id),
         )
         session.rollback()
         self._hold_lease(session, sequence_id)
@@ -370,6 +370,18 @@ class JobWorker:
 
     def _binding_check(self, sequence_id: int) -> None:
         """While a file is bound: renew the lease, and stop for a cancel request or a lost lease."""
+        if self._renewed(sequence_id):
+            raise JobCancelled
+
+    def _chunk_check(self, sequence_id: int) -> Callable[[], bool]:
+        """An atomic chunk's or a preview's stop check (D28), asked every few hundred items: it
+        also renews the lease in a short session of its own, so a long chunk keeps its job
+        (0.9 R-F12); a lost lease stops it."""
+        return lambda: self._renewed(sequence_id)
+
+    def _renewed(self, sequence_id: int) -> bool:
+        """Renew the job's lease in a short transaction; ``True`` when a cancel was requested.
+        Raises ``_LeaseLost`` when another worker holds the job."""
         with self.session_factory() as session:
             row = session.execute(
                 select(Job.lease_owner, Job.cancel_requested_at)
@@ -389,8 +401,7 @@ class JobWorker:
                 .execution_options(synchronize_session=False)
             )
             session.commit()
-        if row.cancel_requested_at is not None:
-            raise JobCancelled
+        return row.cancel_requested_at is not None
 
     def _finished_import(self, job: Job) -> None:
         if job.kind == "import" and job.state in FINISHED and self.files is not None:
@@ -591,16 +602,6 @@ class JobWorker:
                     wait = min(wait, next_sweep - time.monotonic())
                 self._wake.wait(max(0.0, wait))
                 self._wake.clear()
-
-
-def _cancel_requested(session: Session, sequence_id: int) -> Callable[[], bool]:
-    def requested() -> bool:
-        return (
-            session.scalar(select(Job.cancel_requested_at).where(Job.sequence_id == sequence_id))
-            is not None
-        )
-
-    return requested
 
 
 def _error_body(error: ApiError) -> dict[str, Any]:

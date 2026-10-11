@@ -7,6 +7,11 @@
  */
 import { describe, expect, it } from "vitest";
 import css from "./tokens.css?raw";
+import base from "./base.css?raw";
+import components from "./components.css?raw";
+import layout from "./layout.css?raw";
+import responsive from "./responsive.css?raw";
+import settings from "./settings.css?raw";
 
 /** The declarations of the first block opened by `selector {`. */
 function block(selector: string, from = 0): Map<string, string> {
@@ -203,4 +208,12 @@ describe("design tokens", () => {
       for (const rule of EXEMPT) expect(resolve(theme, rule)).toMatch(/^#/);
     });
   }
+
+  it("leaves every colour to the tokens: no other stylesheet writes one (0.9 R-F20)", () => {
+    const sheets = { base, components, layout, responsive, settings };
+    for (const [name, sheet] of Object.entries(sheets)) {
+      const code = sheet.replace(/\/\*[\s\S]*?\*\//g, "");
+      expect(code.match(/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/gi), name).toBeNull();
+    }
+  });
 });

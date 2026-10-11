@@ -39,7 +39,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import exists, or_, select, tuple_, update
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from ...common.outage import OutageLog
@@ -181,11 +181,20 @@ class EventDispatcher:
         the position moved, a suspension)."""
         try:
             return self._step(sequence_id, now)
+        except OperationalError as exc:
+            # The subscription changed after the step's snapshot began (an edit, a suspension):
+            # nothing was written, and the next round reads it as it is.
+            if getattr(exc.orig, "sqlstate", None) == "40001":
+                return False
+            raise
         finally:
             self._release(sequence_id, now)
 
     def _step(self, sequence_id: int, now: datetime) -> bool:
         with self.session_factory() as session:
+            # One snapshot, as the pull feed reads: an event's ``stateAt`` is the feed position its
+            # object shows (CONSUMER_API "Events carry the data", 0.9 R-F8).
+            session.connection(execution_options={"isolation_level": "REPEATABLE READ"})
             subscription = session.scalar(
                 select(ConsumerSubscription).where(
                     ConsumerSubscription.sequence_id == sequence_id, ConsumerSubscription.lease_owner == self.owner

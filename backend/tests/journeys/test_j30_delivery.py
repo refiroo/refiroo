@@ -33,6 +33,9 @@ from test_j30_consumer_events import (
 )
 from test_j30_subscriptions import PATH, SUBSCRIPTIONS, _feed_head
 
+from app.engine.reads.consumer_objects import ConsumerObjects
+from app.engine.reads.consumer_parameters import NO_FILTER
+
 
 class Receiver:
     """A webhook receiver on ``localhost``: answers each request with the next scripted answer
@@ -351,6 +354,37 @@ def test_a_notification_carries_no_object_and_a_full_event_the_object_as_read(wo
                 assert "object" not in event and "stateAt" not in event
             else:
                 assert event["object"] == ok(consumer_object(world, event["id"], workspace=ws))
+
+
+@pytest.mark.journey("J30.8")
+@pytest.mark.settings(**SUBSCRIPTIONS)
+@pytest.mark.structures(*LEDGER)
+def test_a_full_event_shows_its_object_as_of_its_state_position(world, receiver, monkeypatch):
+    """Given a full subscription and a created record. When the record is renamed while its event's
+    object is being composed for delivery. Then the event shows the object as it stood at its
+    ``stateAt``, the feed head before the rename: one snapshot, as the pull feed reads (0.9 R-F8)."""
+    _activate(world, "events")
+    ws = _workspace(world)
+    _subscribe(world, ws, receiver.url + "/full", payload="full")
+    record = world.made("R", "Ledger Before", workspace=ws)
+    derive_events(world)
+    before = ok(consumer_object(world, record["id"], workspace=ws))
+    head = _feed_head(world, ws)
+    original = ConsumerObjects.compose
+    renamed = []
+
+    def compose(self, session, source, object_ids, narrowed=NO_FILTER):
+        if not renamed:
+            version = world.record("R", record["id"], workspaceKey=ws)["version"]
+            renamed.append(ok(world.update("R", record["id"], version, name="Ledger After")))
+        return original(self, session, source, object_ids, narrowed)
+
+    monkeypatch.setattr(ConsumerObjects, "compose", compose)
+    dispatch(world)
+    (event,) = [e for r in _on(receiver, "/hook/full") for e in r["body"]["events"]]
+    assert renamed
+    assert event["stateAt"] == head
+    assert event["object"] == before
 
 
 @pytest.mark.journey("J30.8")

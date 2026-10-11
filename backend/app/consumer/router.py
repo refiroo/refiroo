@@ -40,7 +40,7 @@ from ..engine.reads.consumer_events import (
     derived_head,
     read_consumer_events,
 )
-from ..engine.reads.consumer_lists import consumer_list, read_consumer_list
+from ..engine.reads.consumer_lists import PAGE_SIZE, consumer_list, read_consumer_list
 from ..engine.reads.consumer_objects import consumer_definition, read_consumer_object
 from ..engine.reads.consumer_parameters import TARGET_PREFIX, consumer_filter, target_names
 from ..engine.reads.consumer_publications import read_publications
@@ -78,8 +78,7 @@ _ROUTE_NAMES = _LIST | _XREF | _EVENTS
 # The names a batch resolve item holds besides the definition's parameters (C-D47).
 _ITEM = frozenset({"ref", "query", "id"})
 _REF_LENGTH = (1, 200)
-_DEFAULT_PAGE_SIZE = 20
-_MAX_PAGE_SIZE = 100
+_MIN_PAGE_SIZE, _MAX_PAGE_SIZE, _DEFAULT_PAGE_SIZE = PAGE_SIZE
 # The shared paging refusals answer 400 here, the consumer tier's status for a request error.
 _PAGING_CODES = frozenset({"INVALID_CURSOR", "CONFLICTING_PAGE_PARAMETERS", "INVALID_POSITION", "INVALID_SEEK"})
 
@@ -392,7 +391,12 @@ def get_events(
     derived, _start = derived_head(session, workspace.key)
 
     def live() -> _Read:
-        tag = entity_tag(("events", workspace.key, str(derived), active.release_id), definition.contractVersion)
+        # The derived head and the live one: full objects and parameters read live data, which a
+        # write changes before its event is derived (0.9 R-F13, C-D65).
+        tag = entity_tag(
+            ("events", workspace.key, str(derived), str(workspace.feed_position), active.release_id),
+            definition.contractVersion,
+        )
         return _Read(active.model, definition, ConsumerSource(workspace.key), parameters, tag)
 
     return _answer(
@@ -926,7 +930,7 @@ def _page(parameters: _Parameters) -> tuple[int, PageRequest]:
         page_size = _DEFAULT_PAGE_SIZE if raw_size is None else int(raw_size)
     except ValueError:
         page_size = 0
-    if not 1 <= page_size <= _MAX_PAGE_SIZE:
+    if not _MIN_PAGE_SIZE <= page_size <= _MAX_PAGE_SIZE:
         raise api_error(
             400,
             "INVALID_PAGE_SIZE",

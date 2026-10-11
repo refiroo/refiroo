@@ -1,6 +1,20 @@
 # Project status
 
-## Current development baseline — Base 0.9 in progress (0.9.0-alpha.1 released 2026-10-03)
+## Current development baseline — Base 0.9 complete (2026-10-11)
+
+**Base 0.9 is complete**, build acceptance R included ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#r-build-acceptance-and-release)).
+R reviewed every change since 0.8.0 and ran every gate: the backend suite (2,201 cases), Vitest
+(642), the 38 browser runners, the accessibility (109 checks) and visual (100 baselines) gates with
+every 0.9 surface added, the upgrade of a database built by 0.9.0-alpha.1 (with an interrupted and a
+resumed upgrade), schema 0.7 → 0.8 → 0.9 activations, the ROADMAP exit gate, and every budget at
+full volume. It fixed 28 defects (R-F1–R-F28), each with its regression test: the review's 21, one
+found by a browser runner, and six by the full-volume runs, among them a deletion of 100,000 records
+that could not finish and now takes under a minute live and in a change set. What stays open is in
+TODO: the backend suite's time over its 5-minute ceiling, three browser runner flakes, two `NOT IN`
+subqueries to measure, and the recorded read exceptions. Schema 0.9 is released with it (D206). The
+version strings and the tag (`v0.9.0`) follow the user's instruction (D207). Next is 0.10.
+
+### How 0.9 was built
 
 **Base 0.8 is released (2026-09-29)**: scalable browsing (Track S), workspace terminology and
 capability boundaries (Track W), the relation matrix (Milestone A), the hierarchy editor (Milestone B),

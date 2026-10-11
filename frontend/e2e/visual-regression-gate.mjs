@@ -27,6 +27,7 @@ import {
   seedTranslationMatrix,
 } from "./helpers/acceptance-data.mjs";
 import { cancelDrag } from "./helpers/tree.mjs";
+import { visitReleaseSurfaces } from "./helpers/release-surfaces.mjs";
 
 let harness;
 const checks = [];
@@ -313,6 +314,9 @@ try {
     await capture(page, `settings-appearance-${scheme}`, output);
   }
   await page.emulateMedia({ colorScheme: "light" });
+
+  // --- 15. Base 0.9 surfaces (0.9 R, D202), light and dark, on a harness of their own ---
+  await visitReleaseSurfaces(({ page: surface, name, mask }) => capture(surface, name, output, mask));
 
   // Write report.
   const report = { checks, failures, passed: failures.length === 0 };

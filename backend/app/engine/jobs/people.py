@@ -744,9 +744,11 @@ def _field_sql(model: EngineModel, alias: str, field_: str | None) -> sql.Compos
         return sql.SQL("{}.object_id").format(sql.Identifier(alias))
     if field_.startswith("ancestor:"):
         type_key, _, name = field_.removeprefix("ancestor:").partition(".")
+        # The ancestor of that type nearest the root, as a list and ``path`` show it (D209).
         return sql.SQL(
             "(SELECT {} FROM people_ancestors u JOIN people_records a ON a.object_id = u.ancestor_id"
-            " WHERE u.object_id = {}.object_id AND a.object_type_key = {} LIMIT 1)"
+            " WHERE u.object_id = {}.object_id AND a.object_type_key = {}"
+            " ORDER BY u.level DESC LIMIT 1)"
         ).format(_field_sql(model, "a", name), sql.Identifier(alias), sql.Literal(type_key))
     attribute = model.attribute_type(field_)
     value_type = attribute.valueType if attribute else "text"
@@ -1348,7 +1350,7 @@ class _Writer:
                     " SELECT p.object_id, p.name, p.object_type_key,"
                     " (SELECT a.name FROM people_ancestors u JOIN people_records a"
                     "  ON a.object_id = u.ancestor_id WHERE u.object_id = p.object_id"
-                    "  AND a.object_type_key = {scope} LIMIT 1)"
+                    "  AND a.object_type_key = {scope} ORDER BY u.level DESC LIMIT 1)"
                     " FROM chosen c JOIN people_records p ON p.object_id = c.id"
                     " ORDER BY 4 NULLS FIRST, p.name, p.object_id"
                 ).format(

@@ -1,7 +1,9 @@
 from uuid import uuid4
 
+from sqlalchemy import event
 from test_api import ChangeSetTestClient
 
+from app.db import get_engine
 from app.main import app
 
 TestClient = ChangeSetTestClient
@@ -235,3 +237,32 @@ def test_cascade_deletes_required_single_valued_fk_dependent():
         )
         assert deleted.status_code == 204
         assert client.get(f"/api/v1/objects/translation/{translation['id']}").status_code == 404
+
+
+def test_the_run_finds_its_relationships_by_join_not_by_a_list_of_its_records():
+    """0.9 R (R-F23): a deletion of about 100,000 records ran its relationships' statement for more
+    than 20 minutes. ``IN (run) OR IN (run)`` is a subplan, which PostgreSQL hashes only while the
+    run's IDs fit in ``work_mem``; past that it scans them for every relationship. The statement
+    finds a relationship's ends through its joins to the run's records, whatever the run's size."""
+    plans = []
+
+    def explain(connection, cursor, statement, parameters, context, executemany):
+        if statement.lstrip().startswith("INSERT INTO deletion_relations"):
+            with cursor.connection.cursor() as probe:
+                probe.execute("EXPLAIN " + statement, parameters)
+                plans.append("\n".join(row[0] for row in probe.fetchall()))
+
+    with TestClient(app) as client:
+        domain, *_rest = _create_graph(client)
+        event.listen(get_engine(), "before_cursor_execute", explain)
+        try:
+            response = client.delete(
+                f"/api/v1/objects/domain/{domain['id']}", params={"expectedVersion": 1}
+            )
+        finally:
+            event.remove(get_engine(), "before_cursor_execute", explain)
+
+    assert response.status_code == 409, response.text
+    assert response.json()["error"]["details"]["objectCount"] == 3
+    assert plans, "the impact did not collect its relationships"
+    assert all("SubPlan" not in plan for plan in plans), plans

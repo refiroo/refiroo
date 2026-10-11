@@ -117,6 +117,25 @@ def test_empty_workspace_is_deleted_and_its_key_can_be_created_again(client):
     assert recreated["version"] == 1
 
 
+def test_a_written_workspace_deleted_and_created_again_starts_a_clean_feed(client):
+    """0.9 R-F1, D208: a workspace whose records were written and removed is deleted; created
+    again under its key, it is written to, and its feed holds only its own entries from 1."""
+    key = unique_key("w6-feed")
+    create_workspace(client, key)
+    item = _live_object(client, key, "system", "Typo", **{"system-code": unique_key("sys")})
+    _delete_object(client, item)
+    assert _delete(client, key, _detail(client, key)["version"]).status_code == 204
+
+    create_workspace(client, key)
+    again = _live_object(client, key, "system", "Again", **{"system-code": unique_key("sys")})
+    feed = client.get(f"/api/v1/workspaces/{key}/feed")
+    assert feed.status_code == 200, feed.text
+    body = feed.json()
+    assert body["headPosition"] == 1
+    assert [entry["position"] for entry in body["items"]] == [1]
+    assert body["items"][0]["id"] == again["id"]
+
+
 def test_retired_workspace_is_deleted_under_the_same_rule(client):
     key = unique_key("w6-retired")
     created = create_workspace(client, key)

@@ -249,10 +249,10 @@ def test_a_workbook_for_people_reads_back_exactly_the_changes_a_person_made(worl
     """Given H records with Bn1, Bnn and Bh1n (with a quantity) relationships. When H is exported
     for people with a sheet for Bh1n and imported untouched without a profile. Then the preview says
     every item is unchanged. When a value, a Bn1 name, Bnn's list (one name out, one in), a summary
-    cell, a Bh1n quantity and a new Bh1n row are edited, a Bh1n row deleted, a record renamed in the
+    cell, a Bh1n quantity and a new Bh1n row are edited, another Bnn list emptied, a Bh1n row deleted, a record renamed in the
     app since the export is edited in the file, and a Bn1 cell names two records of one name. Then
     exactly those changes are applied, the summary is ignored, the removed name's relationship is
-    gone, the deleted row's relationship remains, the renamed record is refused VERSION_CONFLICT
+    gone, the emptied list's too, the deleted row's relationship remains, the renamed record is refused VERSION_CONFLICT
     and the ambiguous one REFERENCE_AMBIGUOUS. An owned record's value edited on R's Bown sheet is
     applied."""
     ws = _workspace(world)
@@ -270,6 +270,7 @@ def test_a_workbook_for_people_reads_back_exactly_the_changes_a_person_made(worl
     ok(world.relate("Bn1", second["id"], token["Beta token"]), 201)
     ok(world.relate("Bnn", first["id"], token["Alpha token"]), 201)
     ok(world.relate("Bnn", first["id"], token["Beta token"]), 201)
+    ok(world.relate("Bnn", second["id"], token["Gamma token"]), 201)
     ok(world.relate("Bh1n", second["id"], token["Gamma token"], {"Bh1n.qty": 4}), 201)
     ok(world.relate("Bh1n", first["id"], token["Delta token"], {"Bh1n.qty": 2}), 201)
     columns = [
@@ -308,6 +309,8 @@ def test_a_workbook_for_people_reads_back_exactly_the_changes_a_person_made(worl
             cell(summary).value = "ignored"
         elif name == "Second branch":
             cell(bn1).value = "Gamma token"
+            # Every name taken out: the list replaces the set with none (0.9 R-F5, D187).
+            cell(bnn_list).value = None
         elif name == "Third branch":
             cell("H.code").value = "T2"
         elif name == "Fourth branch":
@@ -336,6 +339,7 @@ def test_a_workbook_for_people_reads_back_exactly_the_changes_a_person_made(worl
     assert set(_relations(world, ws, second["id"], "Bn1")) == {"Gamma token"}
     assert set(_relations(world, ws, fourth["id"], "Bn1")) == set()
     assert set(_relations(world, ws, first["id"], "Bnn")) == {"Alpha token", "Echo token"}
+    assert set(_relations(world, ws, second["id"], "Bnn")) == set()
     quantities = {
         name: item["relation"]["attributes"].get(world.key("Bh1n.qty"))
         for name, item in _relations(world, ws, second["id"], "Bh1n").items()

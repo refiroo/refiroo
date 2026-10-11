@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from threading import Event, Thread
+from threading import Event, Thread, current_thread
 
 import pytest
 from fastapi.testclient import TestClient
@@ -556,7 +556,10 @@ def test_coverage_query_count_does_not_grow_per_source(client, change_set_contex
         def capture(
             connection, cursor, statement, parameters, context, executemany, statements=statements
         ):
-            statements.append(statement)
+            # The request's statements only: the engine's background threads (``rdm-…``) poll the
+            # same engine while the app runs.
+            if not current_thread().name.startswith("rdm-"):
+                statements.append(statement)
 
         event.listen(get_engine(), "before_cursor_execute", capture)
         try:

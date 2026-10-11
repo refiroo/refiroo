@@ -1114,12 +1114,28 @@ class _ProfileBinding:
                     piece = mapping[piece]
                 if not is_empty(piece):
                     pieces.append(piece)
-        if not pieces:
-            entry["empty"] += 1
-            return []
         required = self._required(
             plan, relation.relationTypeKey, relation.direction, relation.objectTypeKey
         )
+        if not pieces:
+            entry["empty"] += 1
+            if not relation.replace:
+                return []
+            # An empty cell makes the set empty (0.9 R-F5, D187): a link that names no record,
+            # which the set replacement takes as no target.
+            return [
+                (
+                    relation.relationTypeKey,
+                    relation.direction,
+                    relation.objectTypeKey,
+                    None,
+                    binding.column,
+                    True,
+                    required,
+                    version,
+                    attributes,
+                )
+            ]
         return [
             (
                 relation.relationTypeKey,
@@ -1497,7 +1513,7 @@ class _ProfileBinding:
             INSERT INTO import_matches (object_type_key, field, attr, value)
             SELECT DISTINCT m ->> 'type', m ->> 'field', m ->> 'attr', m -> 'value' FROM (
                 SELECT parent AS m FROM import_rows WHERE parent IS NOT NULL AND error IS NULL
-                UNION ALL SELECT match FROM import_links
+                UNION ALL SELECT match FROM import_links WHERE match IS NOT NULL
                 UNION ALL SELECT parent FROM import_related WHERE parent IS NOT NULL
                 UNION ALL SELECT match FROM import_match_cells) found
             """
@@ -1787,8 +1803,9 @@ class _ProfileBinding:
                         THEN l.object_type_key ELSE min(r.object_type_key) END,
                     'direction', l.direction,
                     'anchor', jsonb_build_object('id', r.record_id),
-                    'targets', jsonb_agg(DISTINCT jsonb_build_object(
-                        'object', jsonb_build_object('id', l.target_id))))
+                    'targets', coalesce(jsonb_agg(DISTINCT jsonb_build_object(
+                        'object', jsonb_build_object('id', l.target_id)))
+                        FILTER (WHERE l.target_id IS NOT NULL), '[]'::jsonb))
                 || CASE WHEN min(l.expected_version) IS NOT NULL
                     THEN jsonb_build_object('expectedRelationSetVersion', min(l.expected_version))
                     ELSE '{}'::jsonb END

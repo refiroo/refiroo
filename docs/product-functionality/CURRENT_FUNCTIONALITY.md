@@ -2,8 +2,9 @@
 
 What the product does today, function by function, with the browser and the API kept apart so that
 backend coverage is not mistaken for a complete user experience. Reviewed 2026-10-02 against Base 0.8
-(released 2026-09-29) and the 0.9 packages delivered since (Q1–Q4, C1, V1, B1, B2 and the
-0.9.0-alpha.1 PostgreSQL work PG1–PG3b). Statuses use the
+(released 2026-09-29) and the 0.9 packages delivered by then (Q1–Q4, C1, V1, B1, B2 and the
+0.9.0-alpha.1 PostgreSQL work PG1–PG3b); each later 0.9 package updated it on delivery, up to Base
+0.9's completion (2026-10-11). Statuses use the
 [status vocabulary](README.md#status-vocabulary). The overview is [PRODUCT.md](../PRODUCT.md).
 
 ## Summary

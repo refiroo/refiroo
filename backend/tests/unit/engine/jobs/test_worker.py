@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 from scenario import W1
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.exc import OperationalError
 
 from app.common import outage as outage_module
@@ -149,6 +149,36 @@ def test_an_atomic_job_runs_as_one_chunk_and_a_rejection_rolls_it_back(seeded):
         ("rejected", "DUPLICATE_ATTRIBUTE_VALUE")
     ]
     assert live(world, "B") == 0
+
+
+def test_an_atomic_chunk_renews_its_lease_while_it_runs(seeded, monkeypatch):
+    """0.9 R-F12: an atomic job is one chunk, however long; each stop check renews the lease in a
+    transaction of its own, so another worker never takes a job that is still running."""
+    world = seeded
+    job_id = queue(world, items(world, 3, "L"), policy="atomic")
+    original = worker_module.run_items
+    renewed = []
+
+    def run_items(session, context, chunk, **options):
+        with SessionLocal() as other:
+            other.execute(
+                text("UPDATE jobs SET lease_expires_at = now() - interval '1 second' WHERE id = :id"),
+                {"id": job_id},
+            )
+            other.commit()
+        assert options["should_stop"]() is False
+        with SessionLocal() as other:
+            renewed.append(
+                other.scalar(
+                    text("SELECT lease_expires_at > now() FROM jobs WHERE id = :id"), {"id": job_id}
+                )
+            )
+        return original(session, context, chunk, **options)
+
+    monkeypatch.setattr(worker_module, "run_items", run_items)
+    worker().run_until_idle()
+    assert renewed == [True]
+    assert job(job_id).result == "applied" and live(world, "L") == 3
 
 
 def test_a_stopping_worker_releases_its_leases_and_a_finished_job_leaves_no_inputs(seeded):

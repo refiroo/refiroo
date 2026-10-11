@@ -604,3 +604,33 @@ relationships of the type loads those relationships into the ORM (1,000 rows for
 1,000 items, seen in `test_import_volume` when a preview followed an execution citing the same
 groups). It is the batch path's relation lookup, shared by batches and imports; a candidate for the
 post-1.0 fixes if a budget needs it.
+
+## 10. At 0.9.0's acceptance (R, 2026-10-11)
+
+Measured once each at full volume (D205), on the same machine, with the seed rebuilt where its
+inputs had changed ([R's record](BASE_0_9_IMPLEMENTATION_PLAN.md#r-build-acceptance-and-release)).
+
+- **Batch budgets** (`pytest -m budget`): 8 passed in 5 min 9 s; every bound the tests assert held.
+  Their per-scenario seconds are not printed by the run and were not recorded.
+- **Reads** (§3's table, 71 rows): the recorded exceptions (E1–E5, E8) stay the only reads over
+  100 ms, with the change set's position ¾ deep with a total now 105.7 ms (E5, 98.7 at PG5). A first
+  run had six reads 1.5–2.3× slower than PG5; run again, four were back at PG5's figures. The fifth,
+  the query's 20-row expansion of 20,000 children, counted its total once per row in a publication
+  (R-F28, fixed: 103 → 68 ms); in a change set it is 78–83 ms against 46 ms at PG5, the cost of K5's
+  one statement for a page of anchors. An anchored relations read costs one statement more than at
+  PG5 (B3's `relationSets`, D38). Capture and publish of 10,000 renamed records on a freshly built
+  seed: 61.1 s and 135.0 s (C6a: 48.7 s and 137.1 s), 20,154 statements; no gate at that size.
+- **Consumer reads** (§7): each read over 100 ms is a recorded exception (C6a, C16), most of them
+  faster than recorded; batch resolve with a parameter set per item 35.3 s (C14a: 35.9 s).
+- **Events and webhooks** (§7): a batch of 100 `full` 62.5 ms (budget 100 ms), the whole rename
+  6.3 s (budget 30 s). A batch costs 33 statements, 24 at C13: C17's batching and CloudEvents and
+  R-F8's snapshot read.
+- **Exports** (§8): JSON Lines 23.4 s, CSV 26.9 s, XLSX 31.7 s (60 s each), four statements more
+  than at J1 (R-F12's lease checks).
+- **Deletion** (D124, new: `volume_baseline.py --only-deletion`): deleting 1,994 groups with what
+  they hold, about 100,000 records. Live preview 49.1 s, change set preview 49.5 s, change set
+  execution 51.3 s (60 s each). The first run did not finish: R-F23 (a subplan past `work_mem`),
+  R-F24 (over 65,535 parameters), R-F25 (the same subplan in the matrix walk), R-F26 (the
+  closure's walk reading every owned record of a type per record) and R-F27 (the matrix walk under
+  tombstones) were fixed first, each with its regression test.
+

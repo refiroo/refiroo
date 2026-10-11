@@ -190,11 +190,18 @@ export async function openLongList(page, uiUrl, domain) {
   await field.press("Enter");
   await table.getByRole("button", { name: "Long codelist 18", exact: true }).waitFor();
   const tree = page.getByRole("tree", { name: "Browse records", exact: true }).first();
+  // UA9 (U-D21): the tree starts folded; open its groups as a user would.
+  await openFoldedGroups(page, tree);
   const row = tree.getByRole("treeitem", { name: domain.name, exact: true });
+  await row.waitFor();
   await row.focus();
   if ((await row.getAttribute("aria-expanded")) === "false") await page.keyboard.press("ArrowRight");
   await tree.getByRole("treeitem", { name: `Codelists within ${domain.name}, 60`, exact: true }).waitFor();
   await page.keyboard.press("ArrowRight");
+  // The domain's type group starts folded too (UA9): Right opens it before Down reaches its rows.
+  await page.waitForFunction(() => document.activeElement?.classList.contains("tree-heading"));
+  if ((await page.evaluate(() => document.activeElement.getAttribute("aria-expanded"))) === "false")
+    await page.keyboard.press("ArrowRight");
   await page.keyboard.press("ArrowDown");
   await page.waitForFunction(() => document.activeElement?.getAttribute("aria-label") === "Long codelist 00");
   await page.waitForLoadState("networkidle");
@@ -490,6 +497,9 @@ export async function seedRestructuring(api) {
 export async function openDomainHierarchy(page, uiUrl, changeSet) {
   await page.goto(`${uiUrl}/apps/rdm-master/views/domain-hierarchy?workspaceKey=default&changeSetId=${changeSet.id}`);
   const lens = page.locator(".tree-lens");
+  await lens.getByRole("tree").waitFor();
+  // UA9 (U-D21): the lens starts folded; open its groups as a user would.
+  await openFoldedGroups(page, lens);
   await lens.getByRole("treeitem", { name: /^Logistics(,|$)/ }).waitFor();
   await page.waitForLoadState("networkidle");
   return lens;
