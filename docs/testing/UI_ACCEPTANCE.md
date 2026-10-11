@@ -222,6 +222,24 @@ gate scenarios (light and dark) for the preview and the refactoring dialogs are 
 Dark mode was not inspected for N1's surfaces; they use the semantic tokens only. The phone shell's
 visual baselines (`*-390`) change with N1-3 and are re-recorded at T1's gates.
 
+### Surfaces added in 0.10 A4a
+
+| # | Surface (package) | Navigation | Reference | Load | Populated / empty | Pending | Success | Invalid / refused | Conflict | Dependency failure → retry | Narrow | Keyboard / focus | Evidence |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| A4a-1 | The model editor's frame and bar (0.10 A4a, D7, D37): `/settings/model/drafts/{id}/editor` in `ShellFrame` without a rail; Settings › Model, the draft's name, its base release and version, the issue pill, Undo, Redo, Open as JSON, Install and activate…; at 390px Undo, Redo and a ⋯ menu | Settings › Model › a draft › **Open in editor**, or **New draft** | **Settings layout**'s frame and top bar without its rail | B (`Skeleton`) | **B** (a draft of the active release; an empty draft) | — (each step's own) | **B** | — | — (A4a-5) | C (InlineError on a failed load) | **B** (390px tabs Model, the element, Issues) | **B** | `test:browser:authoring-a4a`; axe on the opened editor |
+| A4a-2 | The model pane (D36): applications, types in their containment tree, groups, relation types, attribute types (folded), Relationship matrix; marks New, Changed, Released; one `role="tree"` with one tab stop; drags of a type and an attribute (D40) | the editor's left pane | **Tree** pattern; drags after the tree lens's B5 | — (the outline's) | **B** (renamed example, generated-b, an empty draft) | — | **B** (select by pointer and keyboard; a drag opens Move to… with its target) | — | — | — | **B** (390px: the Model tab; no drag) | **B** (Up, Down, Enter); C (Shift+F10 opens the element's menu: `ModelEditor.test`) | `test:browser:authoring-a4a` |
+| A4a-3 | The selected element and the operation dialogs (D38, D39): a type's Attributes and Relations, an application's types and groups, a relation type, an attribute type; the ⋯ menus; one `OperationDialog` for every kind; Move to… (combobox over a listbox) | a pane row | **Page surface**, **Actions** (`ActionMenu`), **Dialog**, **Confirmation**; Move to… after B3 | — | **B** | B (`Applying…`) | **B** (add type, attribute, relation, group; place; move; rename) | **B** (a released type's key change refused with its impact, nothing applied) | — | — | **B** (390px: the table stacks; the row menu stays) | **B** (Move to… by keyboard alone) | `test:browser:authoring-a4a`, `ModelEditor.test`, `operations.test`; axe on Move to… and the refusal |
+| A4a-4 | The relationship matrix: types × types, relations per cell, containment marked; the selected pair's relations with their menus, Allow a relation… | **Relationship matrix** in the pane | the relation matrix lens's grid (`lib/gridNavigation`) | — | **B** | — | **B** (allow from a cell) | — | — | — | C (one column at 390px; unasserted) | **B** (arrow keys, Enter) | `test:browser:authoring-a4a`; axe on the matrix |
+| A4a-5 | Issues, history, undo and redo, the stale version (D8, D41), install and activate (D42, A-D8) | the bottom pane; the bar; Install and activate… | **Notice**, **Confirmation**, `useCursorFeed` | C | **B** (no issues; steps newest first, undone struck through) | B (`Installing…`) | **B** (undo, redo; install and activate; Open {application}; a record created) | C (an invalid draft's install blocked; an activation refused leaves the release installed: `InstallDialog.test`) | **B** (another client's step: the steps named, Apply mine again) | gap (the history's InlineError with Retry has no test) | **B** (390px: the Issues tab) | C (dependants offered together: `ModelEditor.test`) | `test:browser:authoring-a4a`, `ModelEditor.test`, `InstallDialog.test`, `history.test`; axe on the install dialog |
+
+A4a's runner measures every dialog it opens and the editor's surface (`e2e/helpers/layout-checks.mjs`:
+buttons clear of the frame, labels nearer their controls than the field before, the editor full
+width at 1440px and 1920px with no page scroll). Issues and history is a drawer opened and closed by
+hand only; the model pane and the matrix's side panel resize (`ui/ResizeHandle`).
+
+Dark mode was not inspected for A4a's surfaces; they use the semantic tokens only. Visual baselines
+and the gates' scenarios for the editor are recorded at T1 (the A4a plan).
+
 W1, W3, W4, S12 and S13 above describe these pages before U3. W3's capability status is replaced by
 Deployment's capability groups and a notice on a disabled page naming its setting.
 

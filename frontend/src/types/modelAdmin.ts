@@ -188,3 +188,129 @@ export interface ModelRuntimeState {
   version: number;
   updatedAt: string;
 }
+
+/** One operation of a draft's history (0.10 A2, ADR-041). */
+export interface ModelDraftOperationEntry {
+  sequence: number;
+  step: number;
+  kind: string;
+  parameters: Record<string, unknown>;
+  inverse: Record<string, unknown>;
+  draftVersion: number;
+  author: string | null;
+  at: string;
+  undone: boolean;
+  origin: { type: "request" | "undo" | "redo" | "patch" | "proposal"; steps?: number[]; step?: number };
+}
+
+export interface ModelDraftOperationPage {
+  items: ModelDraftOperationEntry[];
+  nextCursor: string | null;
+  prevCursor: string | null;
+}
+
+/** A typed operation on a draft's model: its `kind` and parameters (API.md § Kinds). */
+export type DraftOperation = { kind: string } & Record<string, unknown>;
+
+/** The draft after a step: its version, the step's entries and the compiler's diagnostics. */
+export interface ModelDraftStep {
+  version: number;
+  entries: ModelDraftOperationEntry[];
+  valid: boolean;
+  diagnostics: ModelDiagnostic[];
+}
+
+/** Whether an element is absent from the draft's base release, declared differently, or as it was. */
+export type OutlineMark = "new" | "changed" | "released";
+
+/** An element as operations name it: `{objectType}`, `{objectType, attributeType}`, `{applicationKey, group}`… */
+export type OutlineElement = Record<string, string>;
+
+export interface OutlineTypeNode {
+  objectType: string;
+  children: OutlineTypeNode[];
+}
+
+export interface OutlineApplication {
+  key: string;
+  name: string;
+  icon?: string | null;
+  color?: string | null;
+  objectTypeKeys: string[];
+  tree: OutlineTypeNode[];
+  navigation: {
+    groups: { key: string; label: string; collapsed: boolean; collections: string[]; mark: OutlineMark }[];
+    ungrouped: string[];
+  };
+  mark: OutlineMark;
+}
+
+export interface OutlineAttribute {
+  attributeType: string;
+  name: string;
+  valueType?: string | null;
+  required: boolean;
+  readOnly: boolean;
+  unique: boolean;
+  sharedWith: string[];
+  mark: OutlineMark;
+}
+
+export interface OutlineObjectType {
+  key: string;
+  name: string;
+  pluralName: string;
+  icon?: string | null;
+  description?: string | null;
+  rootCreatable: boolean;
+  parents: string[];
+  attributes: OutlineAttribute[];
+  mark: OutlineMark;
+}
+
+export interface OutlineAttributeType {
+  key: string;
+  name: string;
+  valueType?: string | null;
+  features: Record<string, unknown>;
+  boundBy: string[];
+  mark: OutlineMark;
+}
+
+export interface OutlineRelationType {
+  key: string;
+  reverseKey?: string | null;
+  name: string;
+  reverseName?: string | null;
+  containment: boolean;
+  mark: OutlineMark;
+}
+
+export interface OutlineRelation {
+  relationType: string;
+  from: string;
+  to: string;
+  cardinality?: string | null;
+  required: boolean;
+  containment: boolean;
+  mark: OutlineMark;
+}
+
+export interface OutlineDiagnostic extends ModelDiagnostic {
+  element: OutlineElement | null;
+}
+
+/** A draft's structure as the editor shows it (`GET /model-drafts/{id}/outline`, 0.10 A4a, D36). */
+export interface ModelDraftOutline {
+  version: number;
+  baseReleaseId: string | null;
+  release: { key?: string | null; name?: string | null; version?: string | null; schemaVersion?: string | null };
+  baseRelease: { key?: string | null; name?: string | null; version?: string | null } | null;
+  applications: OutlineApplication[];
+  objectTypes: OutlineObjectType[];
+  attributeTypes: OutlineAttributeType[];
+  relationTypes: OutlineRelationType[];
+  relations: OutlineRelation[];
+  valid: boolean;
+  diagnostics: OutlineDiagnostic[];
+}

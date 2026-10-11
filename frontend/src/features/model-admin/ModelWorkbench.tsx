@@ -270,6 +270,7 @@ export function ModelWorkbench({
             onSaved={updateDraft}
             onReload={() => reloadDraft(selectedDraft.id)}
             onInstalled={installed}
+            onOpenEditor={() => onRouteChange({ ...MODEL, draftId: selectedDraft.id, editor: {} })}
             onDeleted={() => {
               setDrafts((items) => items.filter((item) => item.id !== selectedDraft.id));
               toast(`Draft ${selectedDraft.name} was deleted.`);
@@ -298,7 +299,7 @@ export function ModelWorkbench({
           onCreated={(draft) => {
             setDrafts((items) => [draft, ...items]);
             setCreating(undefined);
-            onRouteChange({ ...MODEL, draftId: draft.id });
+            onRouteChange({ ...MODEL, draftId: draft.id, editor: {} });
           }}
         />
       )}

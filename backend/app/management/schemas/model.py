@@ -393,6 +393,121 @@ class ModelDraftStepResponse(BaseModel):
     diagnostics: list[ModelDiagnosticResponse]
 
 
+OutlineMark = Literal["new", "changed", "released"]
+
+
+class OutlineReleaseIdentity(BaseModel):
+    key: str | None = None
+    name: str | None = None
+    version: str | None = None
+    schemaVersion: str | None = None
+
+
+class OutlineTypeNode(BaseModel):
+    objectType: str
+    children: list[OutlineTypeNode]
+
+
+class OutlineNavigationGroup(BaseModel):
+    key: str
+    label: str
+    collapsed: bool
+    collections: list[str]
+    mark: OutlineMark
+
+
+class OutlineNavigation(BaseModel):
+    groups: list[OutlineNavigationGroup]
+    ungrouped: list[str]
+
+
+class OutlineApplication(BaseModel):
+    key: str
+    name: str
+    icon: str | None = None
+    color: str | None = None
+    objectTypeKeys: list[str]
+    tree: list[OutlineTypeNode]
+    navigation: OutlineNavigation
+    mark: OutlineMark
+
+
+class OutlineAttribute(BaseModel):
+    attributeType: str
+    name: str
+    valueType: str | None = None
+    required: bool
+    readOnly: bool
+    unique: bool
+    sharedWith: list[str]
+    mark: OutlineMark
+
+
+class OutlineObjectType(BaseModel):
+    key: str
+    name: str
+    pluralName: str
+    icon: str | None = None
+    description: str | None = None
+    rootCreatable: bool
+    parents: list[str]
+    attributes: list[OutlineAttribute]
+    mark: OutlineMark
+
+
+class OutlineAttributeType(BaseModel):
+    key: str
+    name: str
+    valueType: str | None = None
+    features: dict[str, Any]
+    boundBy: list[str]
+    mark: OutlineMark
+
+
+class OutlineRelationType(BaseModel):
+    key: str
+    reverseKey: str | None = None
+    name: str
+    reverseName: str | None = None
+    containment: bool
+    mark: OutlineMark
+
+
+class OutlineRelation(BaseModel):
+    relationType: str
+    from_: str = Field(alias="from")
+    to: str
+    cardinality: str | None = None
+    required: bool
+    containment: bool
+    mark: OutlineMark
+
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+
+class OutlineDiagnostic(ModelDiagnosticResponse):
+    """A diagnostic with the element its pointer falls in, named as operations name it, or ``null``."""
+
+    element: dict[str, str] | None
+
+
+class ModelDraftOutlineResponse(BaseModel):
+    """A draft's structure as the editor shows it, each element marked against the base release
+    (0.10 A4a, D36)."""
+
+    version: int
+    baseReleaseId: str | None
+    release: OutlineReleaseIdentity
+    baseRelease: OutlineReleaseIdentity | None
+    applications: list[OutlineApplication]
+    objectTypes: list[OutlineObjectType]
+    attributeTypes: list[OutlineAttributeType]
+    relationTypes: list[OutlineRelationType]
+    relations: list[OutlineRelation]
+    valid: bool
+    diagnostics: list[OutlineDiagnostic]
+
+
 class ModelCompilationResponse(BaseModel):
     valid: bool
     model: dict[str, Any] | None = None

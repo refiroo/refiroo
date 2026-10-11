@@ -46,8 +46,12 @@ import type {
   SubscriptionPage,
   SubscriptionUpdate,
   ModelCompilation,
+  DraftOperation,
   ModelDraft,
+  ModelDraftOperationPage,
+  ModelDraftOutline,
   ModelDraftPage,
+  ModelDraftStep,
   ModelRelease,
   ModelReleaseActivationPage,
   ModelReleaseDiff,
@@ -598,6 +602,33 @@ export const api = {
     }),
   installModelDraft: (draftId: string, expectedVersion: number) =>
     request<ModelRelease>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/installation`, {
+      method: "POST",
+      body: JSON.stringify({ expectedVersion }),
+    }),
+  modelDraftOutline: (draftId: string) =>
+    request<ModelDraftOutline>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/outline`),
+  applyModelDraftOperations: (draftId: string, expectedVersion: number, operations: DraftOperation[]) =>
+    request<ModelDraftStep>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/operations`, {
+      method: "POST",
+      body: JSON.stringify({ expectedVersion, operations }),
+    }),
+  /** The draft's history read from its end: `cursor` is a page's `prevCursor`, towards older steps. */
+  modelDraftOperations: (draftId: string, options: { cursor?: string; pageSize?: number } = {}) => {
+    const params = new URLSearchParams({ pageSize: String(options.pageSize ?? 100) });
+    if (options.cursor) params.set("cursor", options.cursor);
+    else params.set("from", "end");
+    return request<ModelDraftOperationPage>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/operations?${params}`);
+  },
+  undoModelDraftStep: (draftId: string, expectedVersion: number, steps?: number[]) =>
+    request<ModelDraftStep>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/undo`, {
+      method: "POST",
+      body: JSON.stringify({
+        expectedVersion,
+        ...(steps?.length === 1 ? { step: steps[0] } : steps?.length ? { steps } : {}),
+      }),
+    }),
+  redoModelDraftStep: (draftId: string, expectedVersion: number) =>
+    request<ModelDraftStep>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/redo`, {
       method: "POST",
       body: JSON.stringify({ expectedVersion }),
     }),

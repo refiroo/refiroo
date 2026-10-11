@@ -105,7 +105,20 @@ export type SettingsRoute =
       deliveryId?: string;
       eventId?: string;
     }
-  | { kind: "settings"; page: "model"; releaseId?: string; draftId?: string };
+  | {
+      kind: "settings";
+      page: "model";
+      releaseId?: string;
+      draftId?: string;
+      /** The draft opened in the model editor (0.10 A4a, D7), with what its centre shows. */
+      editor?: EditorSelection;
+    };
+
+/** What the model editor's centre shows: an element by its key, or the relationship matrix. */
+export type EditorSelection =
+  | { show?: undefined }
+  | { show: "matrix" }
+  | { show: "type" | "application" | "relationType" | "attributeType"; key: string };
 
 export type SettingsPage = SettingsRoute["page"];
 

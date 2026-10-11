@@ -12,6 +12,8 @@ import { DeploymentPage } from "@/features/settings/DeploymentPage";
 import { JobsPage } from "@/features/settings/JobsPage";
 import { WebhooksPage } from "@/features/settings/WebhooksPage";
 import { ModelWorkbench } from "@/features/model-admin/ModelWorkbench";
+import { ModelEditor } from "@/features/model-editor/ModelEditor";
+import { api } from "@/api/client";
 import { WorkspaceAdmin } from "@/features/workspaces/WorkspaceAdmin";
 import { applicationFor } from "@/model/lookup";
 import { defaultRoute, routePath, viewRoute } from "@/routing/routes";
@@ -42,16 +44,34 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
   // A workspace opens in the application the user last worked in.
   const application = applicationFor(model, lastApplicationRoute()?.applicationKey ?? "") ?? model.applications[0];
 
+  const editing = route.page === "model" && route.draftId && route.editor ? route : undefined;
   return (
     <SettingsShell
       model={model}
       page={route.page}
+      fullWidth={Boolean(editing)}
       onHome={() => navigate(defaultRoute(model, workspaceKey))}
       onSelectApplication={selectApplication}
       onNavigate={(next) => navigate(next)}
       back={back}
     >
-      {route.page === "about" ? (
+      {editing?.page === "model" && editing.draftId ? (
+        <ModelEditor
+          key={editing.draftId}
+          draftId={editing.draftId}
+          selection={editing.editor ?? {}}
+          onSelect={(selection) => navigate({ ...editing, editor: selection })}
+          onNavigate={(next) => navigate(next)}
+          onActivated={router.reloadModel}
+          onOpenApplication={(applicationKey) => {
+            // The active model was just reloaded; read it again so the new application is known here.
+            void api.model().then((active) => {
+              const opened = applicationFor(active, applicationKey);
+              if (opened) navigate(viewRoute(opened, opened.defaultView, workspaceKey));
+            });
+          }}
+        />
+      ) : route.page === "about" ? (
         <AboutPage onNavigate={(next) => navigate(next)} />
       ) : route.page === "appearance" ? (
         <AppearancePage />

@@ -140,6 +140,7 @@ describe("ModelDraftEditor", () => {
         onSaved={vi.fn()}
         onReload={vi.fn()}
         onInstalled={vi.fn()}
+        onOpenEditor={vi.fn()}
         onDeleted={vi.fn()}
       />,
     );
@@ -170,6 +171,7 @@ describe("ModelDraftEditor", () => {
         onSaved={vi.fn()}
         onReload={vi.fn()}
         onInstalled={vi.fn()}
+        onOpenEditor={vi.fn()}
         onDeleted={vi.fn()}
       />,
     );
@@ -195,6 +197,7 @@ describe("ModelDraftEditor", () => {
         onSaved={vi.fn()}
         onReload={onReload}
         onInstalled={vi.fn()}
+        onOpenEditor={vi.fn()}
         onDeleted={vi.fn()}
       />,
     );

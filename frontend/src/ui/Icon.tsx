@@ -1,5 +1,8 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  Undo2,
+  Redo2,
+  GripVertical,
   ArrowDown,
   ArrowDownToLine,
   ArrowLeft,
@@ -104,6 +107,9 @@ const icons = {
   sun: Sun,
   table: Table2,
   trash: Trash2,
+  undo: Undo2,
+  redo: Redo2,
+  grip: GripVertical,
   tree: ListTree,
   user: UserRound,
   webhook: Webhook,

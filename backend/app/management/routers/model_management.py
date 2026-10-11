@@ -6,6 +6,7 @@ from ...common.cursors import METADATA_CURSOR_MESSAGE
 from ...common.pagination import datetime_key, integer_key, paginate_statement, text_key
 from ...common.time import as_utc
 from ...engine.model.authoring import history
+from ...engine.model.authoring.outline import draft_outline
 from ...engine.model.compatibility import analyze_compatibility
 from ...engine.model.compiler import (
     SCHEMA_VERSIONS,
@@ -54,6 +55,7 @@ from ..schemas.model import (
     ModelDraftOperationEntry,
     ModelDraftOperationPage,
     ModelDraftOperationsRequest,
+    ModelDraftOutlineResponse,
     ModelDraftPage,
     ModelDraftResponse,
     ModelDraftStepResponse,
@@ -265,6 +267,17 @@ def list_model_draft_operations(
     return ModelDraftOperationPage(
         items=[_entry(row) for row in page.items], **page.links()
     )
+
+
+@router.get(
+    "/model-drafts/{draft_id}/outline",
+    response_model=ModelDraftOutlineResponse,
+    response_model_by_alias=True,
+    response_model_exclude_unset=True,
+)
+def get_model_draft_outline(draft_id: str, session: DbSession) -> ModelDraftOutlineResponse:
+    """The draft's structure as the editor shows it (0.10 A4a, D36)."""
+    return ModelDraftOutlineResponse.model_validate(draft_outline(session, load_draft(session, draft_id)))
 
 
 @router.post("/model-drafts/{draft_id}/undo", response_model=ModelDraftStepResponse, response_model_exclude_unset=True)

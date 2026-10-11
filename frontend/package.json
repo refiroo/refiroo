@@ -14,6 +14,7 @@
     "test:browser": "node e2e/wp9-navigation.mjs",
     "test:browser:authoring": "node e2e/wp9-authoring.mjs",
     "test:browser:authoring-n1": "node e2e/authoring-n1-navigation-groups.mjs",
+    "test:browser:authoring-a4a": "node e2e/authoring-a4a-model-editor.mjs",
     "test:browser:change-sets": "node e2e/wp9-change-sets.mjs",
     "test:browser:publications": "node e2e/wp9-publications.mjs",
     "test:browser:wp11": "node e2e/wp11-model-admin.mjs",

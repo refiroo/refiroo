@@ -53,6 +53,7 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/docs` a
 | `POST /model-drafts/{id}/compile`, `POST /model-drafts/{id}/installation` | J08, J25 |
 | `POST /model-drafts/{id}/operations` (`expectedVersion`, `operations`, the model-side kinds; `proposalId` planned for A6), `GET /model-drafts/{id}/operations` (paging) (0.10 A2, [API.md § Draft operations](../API.md#draft-operations)) | J33, J33.1–J33.8, J33.12, J08.9 |
 | `POST /model-drafts/{id}/undo` (`step`, `steps`), `POST /model-drafts/{id}/redo` (0.10 A2) | J33.4, J33.5, J33.12 |
+| `GET /model-drafts/{id}/outline`: the draft's structure as the editor shows it, each element marked against the base release, diagnostics tied to elements (0.10 A4a, D36, [API.md § The draft's outline](../API.md#the-drafts-outline)) | J33, J33.1, J33.2 |
 | `POST /model-drafts/{id}/installation` making the new release the draft's base (0.10 A2, D17); `PATCH /model-drafts/{id}` with a `model` recorded as one `replaceModel` step | J33.2, J33.12 |
 | *Planned (0.10 A3):* `POST /source-files` (`owner`), `GET /source-files` (`draftId`, `profileKey`, paging), `GET /source-files/{id}`, `DELETE /source-files/{id}` (`expectedVersion`), `GET /source-files/{id}/profile/sheets`, `GET /source-files/{id}/profile/sheets/{sheet}/columns` (paging); `sourceFileId` on `POST /imports` | J34.1, J35 |
 | *Planned (0.10 A3):* `GET` and `POST /model-drafts/{id}/dry-run` (`full`), `GET /model-drafts/{id}/dry-run/rows` (`source`, `status`, `code`, paging) | J34.3 |

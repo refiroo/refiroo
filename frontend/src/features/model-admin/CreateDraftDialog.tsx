@@ -1,5 +1,7 @@
 /**
- * Creates a model draft from an installed release, an empty document, or an imported JSON file.
+ * Creates a model draft from an installed release, an empty model, or an imported JSON file. An empty
+ * model is a document of the newest schema language with a release identity and no elements, so the
+ * editor's first operation has something to build on (0.10 A4a).
  *
  * Import and export happen in the browser: the engine reads no server filesystem, so a draft
  * enters the system either by copying a release or by the user handing over a document.
@@ -9,6 +11,7 @@ import { useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import { FileField } from "@/ui/FileField";
+import { keyFromLabel } from "@/features/model-editor/outline";
 import type { ModelDraft, ModelReleaseSummary } from "@/types";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
@@ -16,6 +19,20 @@ import { Notice } from "@/ui/Notice";
 export interface CreateDraftSeed {
   name: string;
   releaseId: string;
+}
+
+/** A model with nothing in it yet, in the newest schema language the deployment reads. */
+export function emptyModel(name: string, schemaLanguages: string[]): Record<string, unknown> {
+  return {
+    schemaVersion: schemaLanguages[schemaLanguages.length - 1],
+    release: { key: keyFromLabel(name, new Set()), name, version: "1.0.0" },
+    product: { name },
+    attributeTypes: [],
+    objectTypes: [],
+    relationTypes: [],
+    objectTypeRelations: [],
+    applications: [],
+  };
 }
 
 export function CreateDraftDialog({
@@ -42,6 +59,7 @@ export function CreateDraftDialog({
     try {
       let model: Record<string, unknown> = {};
       let baseReleaseId: string | undefined;
+      if (createSource === "empty") model = emptyModel(createName.trim(), (await api.system()).schemaLanguages);
       if (createSource === "release") {
         const release = await api.modelRelease(createReleaseId, true);
         model = release.model ?? {};
@@ -88,7 +106,7 @@ export function CreateDraftDialog({
           Starting document
           <select value={createSource} onChange={(event) => setCreateSource(event.target.value as typeof createSource)}>
             <option value="release">Installed release</option>
-            <option value="empty">Empty JSON object</option>
+            <option value="empty">Empty model</option>
             <option value="import">Import JSON</option>
           </select>
         </label>

@@ -7,6 +7,7 @@
 import type {
   ApplicationDefinition,
   ChangeKind,
+  EditorSelection,
   EngineModel,
   RouteState,
   SettingsRoute,
@@ -135,10 +136,23 @@ function settingsRoute(parts: string[], query: URLSearchParams): SettingsRoute |
   }
   if (page === "model") {
     if (kind === "releases" && id) return { kind: "settings", page, releaseId: id };
+    if (kind === "drafts" && id && parts[4] === "editor") {
+      return { kind: "settings", page, draftId: id, editor: editorSelection(query) };
+    }
     if (kind === "drafts" && id) return { kind: "settings", page, draftId: id };
     return { kind: "settings", page };
   }
   return { kind: "settings", page: "about" };
+}
+
+const EDITOR_ELEMENTS = ["type", "application", "relationType", "attributeType"] as const;
+
+function editorSelection(query: URLSearchParams): EditorSelection {
+  const show = query.get("show");
+  const key = query.get("key")?.trim();
+  if (show === "matrix") return { show };
+  const element = EDITOR_ELEMENTS.find((item) => item === show);
+  return element && key ? { show: element, key } : {};
 }
 
 function settingsPath(route: SettingsRoute) {
@@ -152,6 +166,13 @@ function settingsPath(route: SettingsRoute) {
     return route.eventId ? `${opened}/${encodeURIComponent(route.eventId)}` : opened;
   }
   if (route.page === "jobs" && route.jobId) return `/settings/jobs/${encodeURIComponent(route.jobId)}`;
+  if (route.page === "model" && route.draftId && route.editor) {
+    const base = `/settings/model/drafts/${encodeURIComponent(route.draftId)}/editor`;
+    const { show } = route.editor;
+    if (!show) return base;
+    if (show === "matrix") return `${base}?show=matrix`;
+    return `${base}?show=${show}&key=${encodeURIComponent(route.editor.key)}`;
+  }
   if (route.page === "model" && route.draftId) return `/settings/model/drafts/${encodeURIComponent(route.draftId)}`;
   if (route.page === "model" && route.releaseId)
     return `/settings/model/releases/${encodeURIComponent(route.releaseId)}`;

@@ -1,0 +1,454 @@
+// Base 0.10 A4a: the model editor's model pane against a real backend (J33 in the browser).
+//
+// Runs on both designer models (D20): the starter with every key renamed, and the journey
+// configuration generated-b, each raised to schema 0.10 on the migrated empty database. It names no
+// key: the application and types it starts from are read from the model, and what it adds has names
+// of its own. On each: a draft of the active release opened in the editor; a type added under a
+// top-level type with a new attribute; a relation allowed from the matrix by keyboard; a group and a
+// collection placed in it; undo and redo; the attribute moved by keyboard (Move to…); the type
+// dragged to the top level; a draft-only operation on a released type refused with its impact; a
+// stale version answered by applying again; install and activate; the new collection opened and a
+// record created. On generated-b also an application built from an empty draft. Keyboard alone for
+// the pane, the matrix and Move to…; 1440px and 390px; axe on the editor's main states.
+import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
+import { bootHarness } from "./helpers/harness.mjs";
+import { cloneDatabase } from "./helpers/database.mjs";
+import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
+import { assertDialogLayout, assertFullSurface } from "./helpers/layout-checks.mjs";
+
+const root = resolve(import.meta.dirname, "..", "..");
+const checks = [];
+
+function python(code) {
+  return JSON.parse(
+    execFileSync(resolve(root, "backend/.venv/bin/python"), ["-c", code], { cwd: resolve(root, "backend") }).toString(),
+  );
+}
+
+const renamed = python(
+  "import json; from tests.model_support import renamed_model; print(json.dumps(renamed_model()[0]))",
+);
+const generatedB = python(
+  "import json, sys; sys.path.insert(0, 'tests/journeys'); from configurations import generated; print(json.dumps(generated('b').model))",
+);
+
+async function assertAccessible(target, name) {
+  const result = await runAxe(target, [], name);
+  assert.equal(result.violations.length, 0, formatViolations(result.violations));
+}
+
+async function noPageOverflow(target) {
+  assert.equal(await target.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+}
+
+/** The application the journey works in and its first top-level type, read from the model. */
+function startingPoint(model) {
+  for (const application of model.applications) {
+    const top = application.objectTypeKeys
+      .map((key) => model.objectTypes.find((type) => type.key === key))
+      .find((type) => type?.features?.rootCreatable);
+    if (top) return { application, top };
+  }
+  throw new Error("the model has no top-level type");
+}
+
+async function journey(label, source, { emptyDraft = false } = {}) {
+  const model = structuredClone(source);
+  model.schemaVersion = "0.10";
+  const { application, top } = startingPoint(model);
+  const harness = await bootHarness({
+    prepare: async (output) => {
+      const modelPath = resolve(output, "model.json");
+      await writeFile(modelPath, JSON.stringify(model));
+      return { modelPath, database: cloneDatabase("schema") };
+    },
+  });
+  const { page } = harness;
+  const shot = (name) => page.screenshot({ path: resolve(harness.output, `a4a-${label}-${name}.png`), fullPage: true });
+  const pane = page.getByRole("tree", { name: "Model" });
+  const row = (name) => pane.getByRole("treeitem", { name: new RegExp(`^${name}`) }).first();
+  const dialog = () => page.getByRole("dialog").last();
+  const dialogsChecked = new Set();
+  /** Every dialog the journey opens is measured once (helpers/layout-checks). */
+  const measure = async () => {
+    const title = (await dialog().getByRole("heading").first().textContent()).trim();
+    const kind = title.split(" ")[0];
+    if (dialogsChecked.has(title)) return;
+    dialogsChecked.add(title);
+    await assertDialogLayout(page, `${label}: ${title}`);
+    if (!dialogsChecked.has(`shot:${kind}`)) {
+      dialogsChecked.add(`shot:${kind}`);
+      await shot(`dialog-${kind.toLowerCase()}-1440`);
+    }
+  };
+  const apply = async () => {
+    await measure();
+    await dialog().getByRole("button", { name: "Apply", exact: true }).click();
+    await dialog().waitFor({ state: "hidden" });
+  };
+  const operations = (name) => page.getByRole("button", { name: `Operations for ${name}`, exact: true });
+  const chooseMenu = async (item) => page.getByRole("menuitem", { name: new RegExp(`^${item}`) }).click();
+
+  try {
+    // Open a draft of the active release in the editor (D7).
+    await page.goto(`${harness.uiUrl}/settings/model`);
+    await page.getByRole("button", { name: "New draft" }).click();
+    await dialog().getByLabel("Draft name").fill("A4a design");
+    await measure();
+    await dialog().getByRole("button", { name: "Create draft" }).click();
+    await page.waitForURL(/\/editor$/);
+    await row(application.name).waitFor();
+    assert.match(await row(top.name).textContent(), /Released/);
+    await assertAccessible(page, `a4a-${label}-opened`);
+    await shot("opened-1440");
+    await assertFullSurface(page, ".model-editor", [".model-editor-model", ".model-editor-centre"], `${label} opened`);
+    checks.push(`${label}: a draft of the active release opens in the editor, every element released`);
+
+    // A type that contains itself stands twice; the inner row is chosen and shown selected.
+    const items = pane.getByRole("treeitem");
+    const rows = await items.evaluateAll((nodes) =>
+      nodes.map((node) => ({
+        text: node.querySelector(".model-pane-label")?.textContent,
+        level: Number(node.getAttribute("aria-level")),
+      })),
+    );
+    const inner = rows.findIndex(
+      (row, index) => index > 0 && row.text === rows[index - 1].text && row.level > rows[index - 1].level,
+    );
+    assert.ok(inner > 0, "the model holds a type that contains itself");
+    await items.nth(inner).click();
+    assert.equal(await items.nth(inner).getAttribute("aria-selected"), "true");
+    assert.equal(await items.nth(inner - 1).getAttribute("aria-selected"), "false");
+    checks.push(`${label}: a type under itself can be chosen at its inner place in the tree`);
+
+    // A type under the top-level type, with a new attribute (the pane by keyboard, the Add menu).
+    await page.getByRole("button", { name: "Add to the model" }).click();
+    await chooseMenu("Object type");
+    await dialog().getByLabel("Application").selectOption({ label: application.name });
+    await dialog().getByLabel("Name", { exact: true }).fill("Shelf A4a");
+    await dialog()
+      .getByLabel("Stands")
+      .selectOption({ label: `Under ${top.name}` });
+    await dialog().getByLabel("Relation name (from the parent)").fill("Holds shelf");
+    await dialog().getByLabel("Reverse name (from the child)").fill("Shelf of");
+    await apply();
+    await row("Shelf A4a").waitFor();
+    assert.match(await row("Shelf A4a").textContent(), /New/);
+    assert.match(await row(top.name).textContent(), /Changed/);
+    // Keyboard: the tree has one tab stop; Down reaches the new type and Enter selects it.
+    await row(application.name).focus();
+    for (let step = 0; step < 40; step += 1) {
+      if ((await page.evaluate(() => document.activeElement?.textContent ?? "")).startsWith("Shelf A4a")) break;
+      await page.keyboard.press("ArrowDown");
+    }
+    await page.keyboard.press("Enter");
+    await page.waitForURL(/show=type&key=shelf-a4a/);
+    await page.getByRole("heading", { name: /Shelf A4a/, level: 2 }).waitFor();
+    await page.getByRole("button", { name: "New attribute" }).click();
+    await dialog().getByLabel("Name", { exact: true }).fill("Shelf code");
+    await apply();
+    await page.getByRole("rowheader", { name: /Shelf code/ }).waitFor();
+    checks.push(`${label}: a type added under a top-level type, marked new, its parent changed; a new attribute on it`);
+
+    // A second new type at the top level, the target of the moves below.
+    await page.getByRole("button", { name: "Add to the model" }).click();
+    await chooseMenu("Object type");
+    await dialog().getByLabel("Application").selectOption({ label: application.name });
+    await dialog().getByLabel("Name", { exact: true }).fill("Bin A4a");
+    await apply();
+    await row("Bin A4a").waitFor();
+
+    // The relationship matrix by keyboard: from Shelf's row to Bin's column, Enter, allow.
+    await row("Relationship matrix").click();
+    await page.waitForURL(/show=matrix/);
+    const grid = page.getByRole("grid");
+    const names = await grid.locator("thead th").allTextContents();
+    const shelfIndex = names.findIndex((name) => name.includes("Shelf A4a")) - 1;
+    const binIndex = names.findIndex((name) => name.includes("Bin A4a")) - 1;
+    await grid.locator('[data-cell="0-0"]').focus();
+    for (let step = 0; step < shelfIndex; step += 1) await page.keyboard.press("ArrowDown");
+    for (let step = 0; step < binIndex; step += 1) await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("Enter");
+    const pair = page.getByRole("complementary", { name: "Selected pair" });
+    await pair.getByRole("heading", { name: "Shelf A4a → Bin A4a" }).waitFor();
+    await pair.getByRole("button", { name: "Allow a relation…" }).click();
+    await dialog()
+      .getByLabel(/^Name \(from/)
+      .fill("Stores in");
+    await dialog().getByLabel("Reverse name").fill("Stored on");
+    await apply();
+    await pair.getByText("Stores in").waitFor();
+    await assertAccessible(page, `a4a-${label}-matrix`);
+    await assertFullSurface(page, ".model-editor", [".model-editor-model", ".model-editor-centre"], `${label} matrix`);
+    await shot("matrix-1440");
+    checks.push(`${label}: the matrix, by arrow keys and Enter, allows a relation between the new types`);
+
+    // A navigation group and the new collection placed in it.
+    await page.getByRole("button", { name: "Add to the model" }).click();
+    await chooseMenu("Navigation group");
+    await dialog().getByLabel("Application").selectOption({ label: application.name });
+    await dialog().getByLabel("Label").fill("Storage A4a");
+    await apply();
+    await row("Shelf A4a").click();
+    await operations("Shelf A4a").click();
+    await chooseMenu("Move to group");
+    await dialog().getByLabel("Group").selectOption({ label: "Storage A4a" });
+    await apply();
+    await pane.getByRole("treeitem", { name: /^Storage A4a/ }).waitFor();
+    assert.equal(await pane.getByRole("treeitem", { name: /^Shelf A4a/ }).count(), 2);
+    checks.push(`${label}: a navigation group added and the new collection placed in it`);
+
+    // Undo and redo. The issues and history pane opens only by hand, and undo leaves it as it was.
+    const drawer = page.getByRole("button", { name: /^Issues and history/ });
+    assert.equal(await drawer.getAttribute("aria-expanded"), "false");
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await page.getByRole("button", { name: "Redo", exact: true, disabled: false }).waitFor();
+    assert.equal(await drawer.getAttribute("aria-expanded"), "false");
+    await drawer.click();
+    await page.getByRole("tab", { name: "History" }).click();
+    await page.locator(".editor-history-list li.undone").first().waitFor();
+    assert.equal(await pane.getByRole("treeitem", { name: /^Shelf A4a/ }).count(), 1);
+    await page.getByRole("button", { name: "Redo", exact: true }).click();
+    await page.getByText(/^Redid step/).waitFor();
+    assert.equal(await pane.getByRole("treeitem", { name: /^Shelf A4a/ }).count(), 2);
+    await shot("history-1440");
+    await drawer.click();
+    assert.equal(await drawer.getAttribute("aria-expanded"), "false");
+    checks.push(`${label}: undo takes the placement back and redo applies it again, both in the history`);
+
+    // Move to… by keyboard: the attribute from Shelf to Bin.
+    await row("Shelf A4a").click();
+    const attributeMenu = operations("Shelf code");
+    await attributeMenu.focus();
+    await page.keyboard.press("Enter");
+    await page.getByRole("menuitem", { name: /^Move to…/ }).waitFor();
+    for (let step = 0; step < 10; step += 1) {
+      if ((await page.evaluate(() => document.activeElement?.textContent ?? "")).startsWith("Move to…")) break;
+      await page.keyboard.press("ArrowDown");
+    }
+    await page.keyboard.press("Enter");
+    await dialog().getByRole("combobox").waitFor();
+    await page.keyboard.type("Bin A4a");
+    await assertDialogLayout(page, `${label}: Move to…`);
+    await assertAccessible(page, `a4a-${label}-move-to`);
+    await shot("move-to-1440");
+    await page.keyboard.press("Enter");
+    await dialog().waitFor({ state: "hidden" });
+    await row("Bin A4a").click();
+    await page.getByRole("rowheader", { name: /Shelf code/ }).waitFor();
+    checks.push(`${label}: by keyboard alone, Move to… moves the attribute to the other type`);
+
+    // Drag: Shelf onto the application row, the top level; Move to… opens with it chosen.
+    // As a person drags: press on the row in view, start moving, then go to the target; the pane
+    // scrolls under the pointer during the drag.
+    await row("Shelf A4a").scrollIntoViewIfNeeded();
+    const start = await row("Shelf A4a").boundingBox();
+    await page.mouse.move(start.x + start.width / 2, start.y + start.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(start.x + start.width / 2, start.y + start.height / 2 - 12, { steps: 3 });
+    await row(application.name).hover();
+    await page.mouse.up();
+    await dialog()
+      .getByRole("option", { name: /The top level/, selected: true })
+      .waitFor();
+    await assertDialogLayout(page, `${label}: Move to… from a drop`);
+    await dialog().getByRole("button", { name: "Move to the top level" }).click();
+    await dialog().waitFor({ state: "hidden" });
+    await page.waitForFunction(
+      () => document.querySelector('[data-row^="type:"][aria-level="2"]')?.closest("ul") !== null,
+    );
+    const shelfLevel = await pane
+      .getByRole("treeitem", { name: /^Shelf A4a/ })
+      .first()
+      .getAttribute("aria-level");
+    assert.equal(shelfLevel, "2");
+    checks.push(`${label}: dragging a type to its application opens Move to… with the top level chosen, and moves it`);
+
+    // A draft-only operation on a released type is refused with its impact; nothing applies.
+    await row(top.name).click();
+    await operations(top.name).click();
+    await page.getByRole("menuitem", { name: /^Change key…/ }).waitFor();
+    await page.getByText("Needs a migration: the server says what it affects").first().waitFor();
+    await shot("menu-1440");
+    await chooseMenu("Change key…");
+    await dialog().getByLabel("Key").fill("a4a-renamed");
+    await dialog().getByRole("button", { name: "Apply", exact: true }).click();
+    await dialog()
+      .getByText(
+        /needs a migration .* It would affect \d+ records, \d+ values and \d+ relationships\. Nothing was applied\./,
+      )
+      .waitFor();
+    await assertAccessible(page, `a4a-${label}-refused`);
+    await assertDialogLayout(page, `${label}: a refused key change`);
+    await shot("refused-1440");
+    await dialog().getByRole("button", { name: "Cancel" }).click();
+    checks.push(`${label}: a key change of a released type is refused with the records it would affect`);
+
+    // A stale editor: another client applies a step first; the editor asks and applies again (D41).
+    const draftId = new URL(page.url()).pathname.split("/")[4];
+    const outline = await (await fetch(`${harness.apiUrl}/api/v1/model-drafts/${draftId}/outline`)).json();
+    const other = await fetch(`${harness.apiUrl}/api/v1/model-drafts/${draftId}/operations`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        expectedVersion: outline.version,
+        operations: [{ kind: "setLabel", element: { objectType: "bin-a4a" }, description: "Set by another editor" }],
+      }),
+    });
+    assert.equal(other.status, 200, await other.text());
+    await row("Shelf A4a").click();
+    await page.getByRole("button", { name: "Rename", exact: true }).click();
+    await dialog().getByLabel("Plural name").fill("Shelves A4a");
+    await apply();
+    const stale = page.getByRole("status").filter({ hasText: "Another change came first" });
+    await stale.waitFor();
+    await shot("stale-1440");
+    await stale.getByRole("button", { name: "Apply mine again" }).click();
+    await stale.waitFor({ state: "hidden" });
+    checks.push(
+      `${label}: a step at a stale version is held, the steps since are named, and Apply mine again applies it`,
+    );
+
+    // Install and activate (D42), then the new collection holds a record.
+    await page.getByRole("button", { name: "Install and activate…" }).click();
+    await dialog().getByText("Valid", { exact: true }).waitFor();
+    await dialog().getByText("Compatible with stored data").waitFor();
+    await assertAccessible(page, `a4a-${label}-install`);
+    await assertDialogLayout(page, `${label}: Install and activate`);
+    await shot("install-1440");
+    await dialog()
+      .getByRole("button", { name: /^Install .* and activate$/ })
+      .click();
+    const done = page.getByRole("status").filter({ hasText: "is installed and active" });
+    await done.waitFor({ timeout: 30_000 });
+    await done.getByRole("button", { name: `Open ${application.name}` }).click();
+    await page.waitForURL(new RegExp(`/apps/${application.key}/`));
+    await page
+      .getByRole("navigation", { name: `${application.name} collections` })
+      .getByRole("button", { name: /Shelves A4a/ })
+      .click();
+    // The collection's title is its generated view's name, made from the plural the type was added with.
+    await page.getByRole("heading", { name: "Shelf A4as", level: 1 }).waitFor();
+    await page.locator(".page-header").getByRole("button", { name: "Add Shelf A4a", exact: true }).click();
+    await page.getByRole("dialog").getByLabel("Name", { exact: true }).fill("First shelf");
+    await assertDialogLayout(page, `${label}: a record's create dialog`);
+    const [created] = await Promise.all([
+      page.waitForResponse(
+        (response) => response.request().method() === "POST" && response.url().includes("/api/v1/objects"),
+      ),
+      page.getByRole("dialog").getByRole("button", { name: "Create", exact: true }).click(),
+    ]);
+    assert.equal(created.status(), 201, await created.text());
+    checks.push(`${label}: install and activate in one confirmed step; the new collection opens and holds a record`);
+
+    const measured = [...dialogsChecked].filter((item) => !item.startsWith("shot:"));
+    checks.push(
+      `${label}: ${measured.length + 5} dialogs measured (buttons clear of the frame, labels on their fields): ${measured.join(", ")}, Move to… twice, the refusal, Install, a record's create dialog`,
+    );
+
+    // A wide window: the editor takes all of it.
+    const wide = await harness.browser.newContext({ viewport: { width: 1920, height: 1080 } });
+    const widePage = await wide.newPage();
+    await widePage.goto(`${harness.uiUrl}/settings/model/drafts/${draftId}/editor?show=matrix`);
+    await widePage.getByRole("grid").waitFor();
+    await assertFullSurface(
+      widePage,
+      ".model-editor",
+      [".model-editor-model", ".model-editor-centre"],
+      `${label} at 1920px`,
+    );
+    await widePage.screenshot({ path: resolve(harness.output, `a4a-${label}-matrix-1920.png`) });
+    await wide.close();
+    checks.push(`${label}: at 1920px the editor and its matrix take the whole width, and the page does not scroll`);
+
+    // 390px: the panes are tabs.
+    const narrow = await harness.browser.newContext({ hasTouch: true, viewport: { width: 390, height: 844 } });
+    const phone = await narrow.newPage();
+    await phone.goto(`${harness.uiUrl}/settings/model/drafts/${draftId}/editor`);
+    const tabs = phone.getByRole("tablist", { name: "Editor panes" });
+    await tabs.waitFor();
+    assert.deepEqual(
+      (await tabs.getByRole("tab").allTextContents()).map((text) => text.replace(/\d+$/, "").trim()),
+      ["Model", "Selection", "Issues"],
+    );
+    await phone
+      .getByRole("tree", { name: "Model" })
+      .getByRole("treeitem", { name: /^Bin A4a/ })
+      .first()
+      .tap();
+    await phone.getByRole("tab", { name: "Bin A4a", selected: true }).waitFor();
+    await phone.getByRole("rowheader", { name: /Shelf code/ }).waitFor();
+    await noPageOverflow(phone);
+    await assertAccessible(phone, `a4a-${label}-390`);
+    await phone.screenshot({ path: resolve(harness.output, `a4a-${label}-390.png`), fullPage: true });
+    await narrow.close();
+    checks.push(`${label}: at 390px the panes are tabs; choosing a type opens its tab; no page overflow`);
+
+    if (emptyDraft) {
+      // From an empty draft: an application with two types, installed.
+      await page.goto(`${harness.uiUrl}/settings/model`);
+      await page.getByRole("button", { name: "New draft" }).click();
+      await dialog().getByLabel("Draft name").fill("From empty A4a");
+      await dialog().getByLabel("Starting document").selectOption({ label: "Empty model" });
+      await dialog().getByRole("button", { name: "Create draft" }).click();
+      await page.waitForURL(/\/editor$/);
+      await page.getByText("The draft is empty. Add an application to start.").waitFor();
+      await shot("empty-1440");
+      await page.getByRole("button", { name: "Add to the model" }).click();
+      await chooseMenu("Application");
+      await dialog().getByLabel("Name", { exact: true }).fill("Depot A4a");
+      await apply();
+      for (const [name, stands] of [
+        ["Room A4a", "At the top level"],
+        ["Rack A4a", "Under Room A4a"],
+      ]) {
+        await page.getByRole("button", { name: "Add to the model" }).click();
+        await chooseMenu("Object type");
+        await dialog().getByLabel("Name", { exact: true }).fill(name);
+        await dialog().getByLabel("Stands").selectOption({ label: stands });
+        if (stands !== "At the top level") {
+          await dialog().getByLabel("Relation name (from the parent)").fill("Holds rack");
+          await dialog().getByLabel("Reverse name (from the child)").fill("In room");
+        }
+        await apply();
+      }
+      assert.equal(await row("Rack A4a").getAttribute("aria-level"), "3");
+      const issues = page.getByRole("button", { name: /^Issues and history/ });
+      if ((await issues.getAttribute("aria-expanded")) === "false") await issues.click();
+      await page.getByRole("tab", { name: /Issues/ }).click();
+      await page.getByText("No issues: the draft is valid and can be installed.").waitFor();
+      await shot("empty-built-1440");
+      await page.getByRole("button", { name: "Install and activate…" }).click();
+      await dialog().getByText("Valid", { exact: true }).waitFor();
+      await dialog()
+        .getByRole("button", { name: /^Install .* and activate$/ })
+        .click();
+      await page
+        .getByRole("status")
+        .filter({ hasText: /installed/ })
+        .first()
+        .waitFor({ timeout: 30_000 });
+      checks.push(`${label}: an application with two types built from an empty draft, valid, and installed`);
+    }
+  } catch (error) {
+    await page
+      .screenshot({ path: resolve(harness.output, `a4a-${label}-failure.png`), fullPage: true })
+      .catch(() => {});
+    console.error(harness.log().slice(-3000));
+    throw error;
+  } finally {
+    harness.cleanup();
+  }
+  console.log(`Screenshots (${label}): ${harness.output}`);
+}
+
+// `A4A_ONLY=renamed-example` or `generated-b` runs one model while iterating.
+const only = process.env.A4A_ONLY;
+if (!only || only === "renamed-example") await journey("renamed-example", renamed);
+if (!only || only === "generated-b") await journey("generated-b", generatedB, { emptyDraft: true });
+
+console.log(`A4a model editor: ${checks.length} checks passed`);
+for (const check of checks) console.log(`- ${check}`);

@@ -1,0 +1,276 @@
+/**
+ * Install and activate from the editor (0.10 A4a, A-D8, D18, D42): one confirmed step running the
+ * existing installation and activation. It shows the release identity, its version proposed from
+ * the base release and editable, the differences from the base release, validity and the
+ * compatibility with stored data. A changed identity is a `setRelease` step first. A refused
+ * activation leaves the installed release, and the dialog says so.
+ */
+
+import { useEffect, useState } from "react";
+import { api } from "@/api/client";
+import { errorMessage, isApiError } from "@/api/errors";
+import type { ModelChange, ModelCompilation, ModelDraftOutline, ModelRelease } from "@/types";
+import { FormField } from "@/ui/FormField";
+import { Modal } from "@/ui/Modal";
+import { Notice } from "@/ui/Notice";
+import { Skeleton } from "@/ui/Skeleton";
+import type { RunStep } from "@/features/model-editor/OperationDialog";
+import { suggestedVersion, typeName } from "@/features/model-editor/outline";
+
+const COLLECTIONS: Record<string, string> = {
+  objectTypes: "Object types",
+  attributeTypes: "Attribute types",
+  relationTypes: "Relation types",
+  objectTypeRelations: "Allowed relations",
+  applications: "Applications",
+};
+
+/** The differences in a line per collection and kind: "Object types added: Unit, Pack". */
+export function summarizeChanges(
+  changes: ModelChange[],
+  outline: ModelDraftOutline,
+): { label: string; names: string[] }[] {
+  const lines = new Map<string, Set<string>>();
+  for (const change of changes) {
+    const parts = change.path
+      .split("/")
+      .slice(1)
+      .map((part) => part.replaceAll("~1", "/").replaceAll("~0", "~"));
+    const collection = parts[0];
+    if (!collection || !(collection in COLLECTIONS)) continue;
+    const width = collection === "objectTypeRelations" ? 4 : 2;
+    if (parts.length < width) continue;
+    const whole = parts.length === width;
+    const kind = whole ? change.kind : "changed";
+    const name =
+      collection === "objectTypes"
+        ? typeName(outline, parts[1])
+        : collection === "objectTypeRelations"
+          ? `${typeName(outline, parts[2])} → ${typeName(outline, parts[3])}`
+          : collection === "applications"
+            ? (outline.applications.find((a) => a.key === parts[1])?.name ?? parts[1])
+            : collection === "attributeTypes"
+              ? (outline.attributeTypes.find((a) => a.key === parts[1])?.name ?? parts[1])
+              : (outline.relationTypes.find((r) => r.key === parts[1])?.name ?? parts[1]);
+    const label = `${COLLECTIONS[collection]} ${kind}`;
+    lines.set(label, (lines.get(label) ?? new Set()).add(name));
+  }
+  return [...lines].map(([label, names]) => ({ label, names: [...names] }));
+}
+
+type Outcome = { kind: "installed"; release: ModelRelease; reason: string } | { kind: "active"; release: ModelRelease };
+
+export function InstallDialog({
+  draftId,
+  outline,
+  run,
+  latestVersion,
+  onActivated,
+  onInstalledOnly,
+  onClose,
+}: {
+  draftId: string;
+  outline: ModelDraftOutline;
+  run: RunStep;
+  /** The draft's version now, after any step this dialog ran. */
+  latestVersion: () => number;
+  onActivated: (release: ModelRelease) => Promise<void>;
+  onInstalledOnly: () => void;
+  onClose: () => void;
+}) {
+  const [compilation, setCompilation] = useState<ModelCompilation>();
+  const [loadError, setLoadError] = useState("");
+  const [key, setKey] = useState(outline.release.key ?? "");
+  const [name, setName] = useState(outline.release.name ?? "");
+  const [version, setVersion] = useState(() => suggestedVersion(outline));
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+  const [outcome, setOutcome] = useState<Outcome>();
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .compileModelDraft(draftId, outline.version)
+      .then((result) => {
+        if (!cancelled) setCompilation(result);
+      })
+      .catch((cause) => {
+        if (!cancelled) setLoadError(errorMessage(cause));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [draftId, outline.version]);
+
+  const identityChanged =
+    key.trim() !== (outline.release.key ?? "") ||
+    name.trim() !== (outline.release.name ?? "") ||
+    version.trim() !== (outline.release.version ?? "");
+  const blocked = !compilation?.valid || !key.trim() || !version.trim() || !name.trim();
+
+  async function confirm() {
+    setPending(true);
+    setError("");
+    try {
+      if (identityChanged) {
+        const outcome = await run([
+          { kind: "setRelease", key: key.trim(), name: name.trim(), version: version.trim() },
+        ]);
+        if (outcome === "stale") {
+          onClose();
+          return;
+        }
+      }
+      const release = await api.installModelDraft(draftId, latestVersion());
+      try {
+        const state = await api.modelRuntimeState();
+        await api.activateModelRelease(release.id, state);
+      } catch (cause) {
+        setOutcome({ kind: "installed", release, reason: activationRefusal(cause) });
+        onInstalledOnly();
+        return;
+      }
+      setOutcome({ kind: "active", release });
+      await onActivated(release);
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  if (outcome?.kind === "installed")
+    return (
+      <Modal title="Installed, not active" eyebrow="Install and activate" size="compact" onClose={onClose}>
+        <div className="dialog-body">
+          <Notice
+            tone="warning"
+            title={`${outcome.release.name} ${outcome.release.version} is installed but not active`}
+          >
+            {outcome.reason} The active model is unchanged. Activate the release later from Settings › Model.
+          </Notice>
+          <div className="dialog-actions">
+            <button type="button" className="primary" onClick={onClose}>
+              Close
+            </button>
+          </div>
+        </div>
+      </Modal>
+    );
+
+  const lines = compilation ? summarizeChanges(compilation.changes, outline) : [];
+  const errors = compilation?.diagnostics.filter((item) => item.severity === "error") ?? [];
+  const compatible = compilation?.compatibility.classification === "compatible";
+  return (
+    <Modal
+      title="Install and activate"
+      eyebrow="Release the draft"
+      description="Creates an immutable release from this draft, then makes it the active model. This draft continues as the next version."
+      busy={pending}
+      onClose={onClose}
+    >
+      <form
+        className="dialog-body install-dialog"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!pending && !blocked) void confirm();
+        }}
+      >
+        <div className="install-identity">
+          <FormField label="Release key">
+            {(control) => (
+              <input {...control} className="mono" value={key} onChange={(event) => setKey(event.target.value)} />
+            )}
+          </FormField>
+          <FormField
+            label="Version"
+            help={outline.baseRelease?.version ? `Base release ${outline.baseRelease.version}` : undefined}
+          >
+            {(control) => (
+              <input
+                {...control}
+                className="mono"
+                value={version}
+                onChange={(event) => setVersion(event.target.value)}
+              />
+            )}
+          </FormField>
+          <FormField label="Name">
+            {(control) => <input {...control} value={name} onChange={(event) => setName(event.target.value)} />}
+          </FormField>
+        </div>
+        {loadError && <Notice tone="error">{loadError}</Notice>}
+        {!compilation && !loadError && <Skeleton lines={3} label="Comparing with the base release" />}
+        {compilation && (
+          <>
+            <section aria-labelledby="install-changes">
+              <h3 id="install-changes" className="install-heading">
+                {outline.baseRelease?.version
+                  ? `What changes against ${outline.baseRelease.version}`
+                  : "What the release holds"}
+              </h3>
+              {compilation.valid ? (
+                lines.length ? (
+                  <dl className="install-changes">
+                    {lines.map((line) => (
+                      <div key={line.label}>
+                        <dt>{line.label}</dt>
+                        <dd>{line.names.join(", ")}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                ) : (
+                  <p className="muted">No model element changes.</p>
+                )
+              ) : null}
+            </section>
+            <div className="install-verdicts">
+              {compilation.valid ? (
+                <Notice tone="success" title="Valid">
+                  No issues.
+                </Notice>
+              ) : (
+                <Notice tone="error" title="Not valid">
+                  {errors.length} {errors.length === 1 ? "issue stops" : "issues stop"} this step. Each is in the Issues
+                  list.
+                </Notice>
+              )}
+              {compilation.valid &&
+                (compatible ? (
+                  <Notice tone="success" title="Compatible with stored data">
+                    No record, value or relationship needs a migration.
+                  </Notice>
+                ) : (
+                  <Notice tone="warning" title="Activation needs a migration">
+                    {compilation.compatibility.diagnostics.map((item) => item.message).join(" ")} The release would be
+                    installed but not activated.
+                  </Notice>
+                ))}
+            </div>
+          </>
+        )}
+        {error && (
+          <Notice tone="error" title="Not installed">
+            {error}
+          </Notice>
+        )}
+        <div className="dialog-actions">
+          <button type="button" className="secondary" onClick={onClose} disabled={pending}>
+            Cancel
+          </button>
+          <button type="submit" className="primary" disabled={pending || blocked}>
+            {pending ? "Installing…" : `Install ${version.trim()} and activate`}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function activationRefusal(cause: unknown): string {
+  if (isApiError(cause)) {
+    const diagnostics = ((cause.details ?? {}) as { diagnostics?: { message: string }[] }).diagnostics ?? [];
+    return [cause.message, ...diagnostics.map((item) => item.message)].join(" ");
+  }
+  return errorMessage(cause);
+}

@@ -6,6 +6,7 @@ import {
   MenuSection,
   MenuTrigger,
   Popover,
+  Text,
   Tooltip,
   TooltipTrigger,
   type Selection,
@@ -15,10 +16,27 @@ import { Icon, type IconName } from "@/ui/Icon";
 export type ActionMenuItem = {
   id: string;
   label: string;
+  /** A glyph before the label, naming the kind of action. */
+  icon?: IconName;
+  /** A second line under the label: a consequence or condition ("Needs a migration"). */
+  description?: string;
+  /** The heading of the group the item belongs to; consecutive items with one heading form a section. */
+  section?: string;
   tone?: "default" | "danger";
   disabled?: boolean;
   onAction: () => void;
 };
+
+/** Consecutive items grouped by their section heading, in order. */
+function sectionsOf(items: readonly ActionMenuItem[]) {
+  const sections: { heading?: string; items: ActionMenuItem[] }[] = [];
+  for (const item of items) {
+    const last = sections[sections.length - 1];
+    if (last && last.heading === item.section) last.items.push(item);
+    else sections.push({ heading: item.section, items: [item] });
+  }
+  return sections;
+}
 
 /** A group of radio items: exactly one is selected, and choosing another reports its id. */
 export type ActionMenuChoice = {
@@ -28,6 +46,29 @@ export type ActionMenuChoice = {
   options: readonly { id: string; label: string }[];
   onSelect: (id: string) => void;
 };
+
+function renderItem(item: ActionMenuItem) {
+  return (
+    <MenuItem
+      key={item.id}
+      id={item.id}
+      className={`action-menu-item${item.tone === "danger" ? " danger-item" : ""}${item.icon || item.description ? " rich-item" : ""}`}
+      isDisabled={item.disabled}
+      onAction={item.onAction}
+      textValue={item.label}
+    >
+      {item.icon && <Icon name={item.icon} size={15} />}
+      <span className="action-menu-text">
+        <Text slot="label">{item.label}</Text>
+        {item.description && (
+          <Text slot="description" className="action-menu-description">
+            {item.description}
+          </Text>
+        )}
+      </span>
+    </MenuItem>
+  );
+}
 
 export function ActionMenu({
   label = "More actions",
@@ -92,17 +133,16 @@ export function ActionMenu({
               ))}
             </MenuSection>
           ))}
-          {items.map((item) => (
-            <MenuItem
-              key={item.id}
-              id={item.id}
-              className={`action-menu-item${item.tone === "danger" ? " danger-item" : ""}`}
-              isDisabled={item.disabled}
-              onAction={item.onAction}
-            >
-              {item.label}
-            </MenuItem>
-          ))}
+          {sectionsOf(items).map((section, index) =>
+            section.heading ? (
+              <MenuSection key={`${section.heading}-${index}`} className="action-menu-section">
+                <Header className="action-menu-header">{section.heading}</Header>
+                {section.items.map(renderItem)}
+              </MenuSection>
+            ) : (
+              section.items.map(renderItem)
+            ),
+          )}
         </Menu>
       </Popover>
     </MenuTrigger>

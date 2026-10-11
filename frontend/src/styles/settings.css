@@ -615,17 +615,9 @@ td:has(> .row-problems) {
   font-size: 12px;
   font-weight: 400;
 }
-.dialog-form .form-field {
-  margin-bottom: var(--space-4);
-}
-.dialog form.dialog-form .form-field > label {
-  margin-bottom: 0;
-}
+
 .webhook-section .admin-hint {
   margin: 0;
-}
-.dialog-form .form-field .form-field {
-  margin: var(--space-2) 0 0;
 }
 /* One row of equal options, however many the choice has. */
 .dialog-form .theme-choice {

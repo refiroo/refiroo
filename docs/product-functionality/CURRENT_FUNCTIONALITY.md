@@ -415,10 +415,28 @@ other change that would need a migration of something already released is refuse
 records, values and relationships it would touch. A JSON edit in the workbench is recorded as one
 step too.
 
-Limits: the structured editor (which will use these operations) and spreadsheet onboarding are
-later 0.10 work.
+The **model editor** makes the same changes in the browser. A draft opens in it from Settings ›
+Model (**Open in editor**, or straight after **New draft**, which can start from a release or from an
+empty model). The model pane shows each application with its types in their containment tree, its
+navigation groups, the relation types and the attribute types, each marked new, changed or released.
+Choosing an element shows it with its operations: a type's attributes and relations, an application's
+types and groups, where a relation type or an attribute type is used. The relationship matrix shows
+which relations each type may start to each other type, and a cell allows one. Attributes and types
+move with **Move to…**, or by dragging them in the model pane. The issues list links each problem to
+its element; the history lists every step in plain words, and any step can be undone from it, with
+the steps that depend on it when there are some. If another administrator changed the draft first,
+the editor names their steps and asks whether to apply the change again. **Install and activate**
+does both in one confirmed step, showing the release version (proposed from the base release), the
+differences and whether stored data is affected; a refused activation leaves the release installed
+and says so. On a phone the panes are tabs. The JSON workbench stays one click away (**Open as
+JSON**).
 
-Evidence: [model workbench](../../frontend/src/features/model-admin/ModelWorkbench.tsx),
+Limits: laying out views and detail pages in the editor's preview is the next 0.10 step; spreadsheet
+onboarding is later 0.10 work. Consumer API definitions are edited in the JSON workbench.
+
+Evidence: [model editor](../../frontend/src/features/model-editor/ModelEditor.tsx),
+[A4a runner](../../frontend/e2e/authoring-a4a-model-editor.mjs),
+[model workbench](../../frontend/src/features/model-admin/ModelWorkbench.tsx),
 [draft editor](../../frontend/src/features/model-admin/ModelDraftEditor.tsx),
 [WP11 runner](../../frontend/e2e/wp11-model-admin.mjs),
 [ADR-016](../DECISIONS.md#adr-016--separate-mutable-drafts-immutable-installation-and-activation).

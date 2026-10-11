@@ -799,9 +799,11 @@ th[aria-sort] {
   border-top: 1px solid var(--border-faint);
 }
 .action-menu-header {
-  padding: 6px 10px 2px;
+  padding: 8px 10px 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 11px;
   color: var(--text-tertiary);
-  font-size: 12px;
   font-weight: 600;
 }
 .action-menu-item .icon {
@@ -1877,6 +1879,34 @@ tr:focus-within .icon-button.icon-button-quiet {
   font-size: 14px;
   line-height: 1.5;
 }
+/* A body that holds its own actions ends the dialog, so it keeps the dialog's bottom margin. */
+.dialog-body:last-child {
+  padding-bottom: 20px;
+}
+/* A labelled field (ui/FormField) in any dialog: its label right above its control, the next field
+   a clear step below (0.10 A4a; was the webhook dialog's own rule). */
+.dialog form .form-field {
+  margin: 0 0 var(--space-4);
+}
+.dialog form .form-field > label,
+.dialog form .form-field > legend {
+  margin-bottom: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+.dialog form .form-field input:not([type="checkbox"]):not([type="radio"]),
+.dialog form .form-field select,
+.dialog form .form-field textarea {
+  margin-top: 0;
+}
+.dialog form .form-field .form-field {
+  margin: var(--space-2) 0 0;
+}
+.dialog form .checkbox {
+  margin-bottom: var(--space-3);
+  color: var(--text-primary);
+}
 .confirm-dialog .dialog-actions {
   padding: 16px 22px 20px;
 }
@@ -1950,7 +1980,8 @@ tr:focus-within .icon-button.icon-button-quiet {
   overflow: auto;
 }
 .action-menu-popover {
-  min-width: 170px;
+  min-width: 220px;
+  max-width: min(340px, calc(100vw - 24px));
 }
 .selection-list,
 .action-menu {
@@ -1997,11 +2028,58 @@ tr:focus-within .icon-button.icon-button-quiet {
 .action-menu-item[data-disabled] {
   opacity: 0.45;
 }
+.action-menu-item {
+  min-height: 34px;
+  cursor: pointer;
+}
+.action-menu-item[data-hovered] {
+  background: var(--surface-hover);
+}
+.action-menu-item[data-focused] {
+  background: var(--state-selected);
+  color: var(--state-selected-text);
+}
+.action-menu-item[data-disabled] {
+  cursor: default;
+}
 .action-menu-item.danger-item {
   color: var(--status-error-action);
 }
+.action-menu-item.danger-item[data-hovered],
 .action-menu-item.danger-item[data-focused] {
   background: var(--status-error-surface);
+  color: var(--status-error-action);
+}
+/* An item with a glyph or a second line (0.10 A4a): the glyph first, the label above its condition. */
+.action-menu-item.rich-item {
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 10px;
+}
+.action-menu-item.rich-item > .icon {
+  flex: none;
+  margin-top: 2px;
+  color: var(--text-secondary);
+}
+.action-menu-item.danger-item.rich-item > .icon {
+  color: inherit;
+}
+.action-menu-item[data-focused].rich-item > .icon {
+  color: inherit;
+}
+.action-menu-text {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.action-menu-description {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.action-menu-item[data-focused] .action-menu-description {
+  color: inherit;
+  opacity: 0.8;
 }
 .field-description {
   color: var(--text-tertiary);

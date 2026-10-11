@@ -13,6 +13,7 @@ import { Card } from "@/ui/Card";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
+import { nextGridCell } from "@/lib/gridNavigation";
 import { InlineError } from "@/ui/InlineError";
 import { ScrollWindow } from "@/ui/ScrollWindow";
 import { Icon } from "@/ui/Icon";
@@ -264,17 +265,18 @@ export function RelationMatrixView({
     const rowElement = cell?.closest<HTMLElement>("[data-row-key]");
     if (!cell || !rowElement || target !== cell) return;
     const column = Number(cell.dataset.gridCol);
-    const last = columns.length;
-    let next: number | undefined;
-    if (event.key === "ArrowRight") next = Math.min(last, column + 1);
-    else if (event.key === "ArrowLeft") next = Math.max(0, column - 1);
-    else if (event.key === "Home" && !event.ctrlKey && !event.metaKey) next = 0;
-    else if (event.key === "End" && !event.ctrlKey && !event.metaKey) next = last;
-    else if (event.key === "Enter" || event.key === " ") {
+    if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       cell.click();
       return;
     }
+    // The rows scroll in their own window, which moves between them.
+    const next = nextGridCell(
+      event.key,
+      { row: 0, column },
+      { columns: columns.length + 1 },
+      event.ctrlKey || event.metaKey,
+    )?.column;
     if (next === undefined) return;
     event.preventDefault();
     const nextCell = rowElement.querySelector<HTMLElement>(`[data-grid-col="${next}"]`);

@@ -147,6 +147,10 @@ can complete the task in the application; "API" means another system can.
   refused when existing data would not fit; the previous release stays available to roll back to.
 - Through the API, change a draft by typed operations with a readable history, undo and redo; a
   change that would need a migration of released structure is refused with its impact.
+- In the model editor, change a draft without writing JSON: applications, types in their containment
+  tree, attributes, relation types, the relationship matrix and navigation groups, each marked new,
+  changed or released; move attributes and types by drag or Move to…; read the issues and the history,
+  undo and redo; install and activate in one confirmed step.
 
 ### Integrate other systems — API
 

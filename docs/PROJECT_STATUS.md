@@ -24,8 +24,13 @@ versions listed oldest first by number. **A2, the operation API on model drafts,
 (2026-10-11)**: a draft changes by typed operations through the API (34 model-side kinds), each
 request one step of a readable history with undo and redo; a change that would need a migration of
 released structure is refused with its impact; the server generates the layout of new types; a JSON
-edit is recorded as one step, and installation makes the installed release the draft's base. Next is
-A4a, the editor's model pane.
+edit is recorded as one step, and installation makes the installed release the draft's base. **A4a,
+the editor's model pane, is delivered (2026-10-11)**, approved by the user after a revision of its
+dialogs, menus and layout: a draft opens in the model editor from Settings › Model, with the model pane, the
+selected element and its operations, the relationship matrix, issues and history with undo and redo,
+Move to… and drags, the stale-version question and install and activate in one step; the server serves
+the draft's outline. The user added **A4c, a consumer API editor** beside the model
+editor, before T1 (2026-10-11). Next is A4b, the preview and layout editing, then A4c.
 
 ### How 0.9 was built
 

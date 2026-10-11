@@ -983,3 +983,11 @@ fieldset.settings-section legend {
 .navigation-dialog #workspace-navigation {
   padding: 16px 8px;
 }
+
+/* A frame without a rail (the model editor, 0.10 A4a, D37): the content takes the full width. */
+.app-shell-full {
+  grid-template-columns: minmax(0, 1fr);
+}
+.app-shell-full > .workspace-main {
+  grid-column: 1;
+}

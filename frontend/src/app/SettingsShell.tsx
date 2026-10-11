@@ -3,7 +3,8 @@
  * the application pages, with the Settings link current and no application tab, the settings
  * navigation in the rail, and the page. Settings are not workspace data, so there is no workspace
  * switcher and no data-context band. Below 760px the navigation moves into the drawer, opened from
- * a bar naming the current page.
+ * a bar naming the current page. A page with panes of its own (the model editor) asks for the
+ * full width: no settings navigation, the top bar the same (0.10 A4a, D37).
  */
 
 import type { ReactNode } from "react";
@@ -21,6 +22,7 @@ export function SettingsShell({
   onSelectApplication,
   onNavigate,
   back,
+  fullWidth = false,
   children,
 }: {
   model: EngineModel;
@@ -30,6 +32,7 @@ export function SettingsShell({
   onNavigate: (route: RouteState) => void;
   /** Back to the page the user opened Settings from. */
   back: TopBarBack;
+  fullWidth?: boolean;
   children: ReactNode;
 }) {
   const current = SETTINGS_NAVIGATION.flatMap((group) => group.pages).find((item) => item.page === page);
@@ -45,39 +48,43 @@ export function SettingsShell({
           onNavigate={onNavigate}
         />
       }
-      rail={{
-        id: "settings-navigation",
-        as: "nav",
-        label: "Settings",
-        className: "settings-rail",
-        toggleLabel: `Settings: ${current?.label ?? ""}`,
-        drawerTitle: "Settings navigation",
-        resizeLabel: "Resize settings navigation",
-        content: (close) =>
-          SETTINGS_NAVIGATION.map((group) => (
-            <div key={group.label} className="settings-nav-group">
-              <h2 className="nav-label">{group.label}</h2>
-              <ul>
-                {group.pages.map((item) => (
-                  <li key={item.page}>
-                    <RouteLink
-                      className="settings-nav-link"
-                      href={routePath({ kind: "settings", page: item.page })}
-                      aria-current={item.page === page ? "page" : undefined}
-                      onNavigate={() => {
-                        close();
-                        onNavigate({ kind: "settings", page: item.page });
-                      }}
-                    >
-                      {item.label}
-                    </RouteLink>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )),
-      }}
-      main={{ className: "settings-main" }}
+      rail={
+        fullWidth
+          ? undefined
+          : {
+              id: "settings-navigation",
+              as: "nav",
+              label: "Settings",
+              className: "settings-rail",
+              toggleLabel: `Settings: ${current?.label ?? ""}`,
+              drawerTitle: "Settings navigation",
+              resizeLabel: "Resize settings navigation",
+              content: (close) =>
+                SETTINGS_NAVIGATION.map((group) => (
+                  <div key={group.label} className="settings-nav-group">
+                    <h2 className="nav-label">{group.label}</h2>
+                    <ul>
+                      {group.pages.map((item) => (
+                        <li key={item.page}>
+                          <RouteLink
+                            className="settings-nav-link"
+                            href={routePath({ kind: "settings", page: item.page })}
+                            aria-current={item.page === page ? "page" : undefined}
+                            onNavigate={() => {
+                              close();
+                              onNavigate({ kind: "settings", page: item.page });
+                            }}
+                          >
+                            {item.label}
+                          </RouteLink>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )),
+            }
+      }
+      main={{ className: fullWidth ? "settings-main model-editor-main" : "settings-main" }}
     >
       {children}
     </ShellFrame>

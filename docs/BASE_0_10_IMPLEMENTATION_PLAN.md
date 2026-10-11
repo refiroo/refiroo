@@ -129,13 +129,14 @@ live co-editing (D10).
 
 ## Tracks overview
 
-**The designer line — N1, A2, A4a, A4b, T1.** The editor opened on a model. N1 opens schema 0.10 with
+**The designer line — N1, A2, A4a, A4b, A4c, T1.** The editor opened on a model. N1 opens schema 0.10 with
 navigation groups. A2 is the operation API: typed, validated operations on a draft with history,
 undo and version checks, covering the catalogue's model-side operations. A4a is the editor's model
 pane over that API: types in their containment tree, attributes, relation types, the relationship
 matrix, issues, history, install and activate. A4b adds the preview, rendered by the generic renderers
 from the draft with existing records, where views and panels are laid out. T1 accepts US-P05 on its
-own.
+own. A4c, added by the user after A4a, puts a consumer API editor beside the
+model editor, as a second tab of the editor's left pane.
 
 **The spreadsheet line — A3, A5, A6, then A7 and A8.** The editor with a workbook. A3 profiles an
 uploaded file and runs the dry-run summary after each operation. A5 adds the source and mapping panes,
@@ -183,7 +184,7 @@ As in 0.9: each package is one vertical slice, delivered on the instruction **"d
 2. **Plan** under the package (`##### <package> plan (date)`): what is built, checked against the code
    at the current commit; the decisions it raises (D17 onward) with a recommendation; the journey test
    cases. The user accepts the decisions and the test cases before coding.
-3. **Mock up first for a new surface.** A package that adds or reshapes a screen (A4a, A4b, A5, A6)
+3. **Mock up first for a new surface.** A package that adds or reshapes a screen (A4a, A4b, A4c, A5, A6)
    shows a sample in the browser first and builds on the shape the user approves; it is complete when
    the user approves its screenshots, as 0.9's UI packages were.
 4. **Build** the slice: migration when the package names one, service, route, OpenAPI lock
@@ -228,22 +229,23 @@ migration), `contract` (every route change) and `volume` (every budget).
 | 1 | [A0](#a0-design-pass) | — | **Delivered 2026-10-11.** Decisions D1–D10 and A-D5–A-D9; API design; operation vocabulary; journeys; mock-ups of the editor; workbook shapes |
 | 2 | [N1](#n1-navigation-groups-and-schema-010) | A0 | **Delivered 2026-10-11.** Schema 0.10 with `navigation`; sidebar groups and the group page; the phone band |
 | 3 | [A2](#a2-operation-api-on-model-drafts) | A0, N1 | **Delivered 2026-10-11.** `POST …/operations`, history, undo and redo; the model-side catalogue; generated defaults for new types |
-| 4 | [A4a](#a4a-editor--model-pane) | A2 | The editor frame and model pane, relationship matrix, issues, history, install and activate |
+| 4 | [A4a](#a4a-editor--model-pane) | A2 | **Delivered 2026-10-11.** The editor frame and model pane, relationship matrix, issues, history, install and activate |
 | 5 | [A4b](#a4b-editor--preview-and-layout-editing) | A4a | Preview with existing records; views, panels and fields laid out in place |
-| 6 | [T1](#t1-designer-checkpoint) | A4b | US-P05 composed in the browser on two models; the designer's gates; tagged `v0.10.0-alpha.1` (D14) |
-| 7 | [A3](#a3-source-profiling-and-the-dry-run-summary) | A0 | Source files, profiles of sheets and columns, the dry-run summary; W1–W3 generators. May be taken earlier as a filler |
-| 8 | [A5](#a5-editor-with-a-source-file) | A3, T1 | Source and mapping panes, mapping operations, profiles following the model, load, saved profiles and re-runs |
-| 9 | [A6](#a6-inference-over-table-patterns) | A5 | Proposals from the table patterns; new application or extending the active model; pinned decisions |
+| 6 | [A4c](#a4c-editor--consumer-apis) | A4a, A4b | **Added by the user 2026-10-11.** The consumer API editor: a Consumer APIs tab beside Model in the editor; consumer API definitions changed by operations. Planned in detail when it comes |
+| 7 | [T1](#t1-designer-checkpoint) | A4b, A4c | US-P05 composed in the browser on two models; the designer's gates; tagged `v0.10.0-alpha.1` (D14) |
+| 8 | [A3](#a3-source-profiling-and-the-dry-run-summary) | A0 | Source files, profiles of sheets and columns, the dry-run summary; W1–W3 generators. May be taken earlier as a filler |
+| 9 | [A5](#a5-editor-with-a-source-file) | A3, T1 | Source and mapping panes, mapping operations, profiles following the model, load, saved profiles and re-runs |
+| 10 | [A6](#a6-inference-over-table-patterns) | A5 | Proposals from the table patterns; new application or extending the active model; pinned decisions |
 | — | _cut line (D2)_ | | _If R is out of reach, 0.10.0 releases here and A7, A8 move to 0.10.x_ |
-| 10 | [A7](#a7-model-description-sheets-and-matching-across-files) | A6 | Model-description sheets; matching records across files |
-| 11 | [A8](#a8-list-blocks-in-sheets-laid-out-for-reading) | A6 | List blocks detected, confirmed and loaded |
-| 12 | [R](#r-build-acceptance-and-release) | all | Build acceptance and release |
+| 11 | [A7](#a7-model-description-sheets-and-matching-across-files) | A6 | Model-description sheets; matching records across files |
+| 12 | [A8](#a8-list-blocks-in-sheets-laid-out-for-reading) | A6 | List blocks detected, confirmed and loaded |
+| 13 | [R](#r-build-acceptance-and-release) | all | Build acceptance and release |
 
 ## Sequence and dependencies
 
 ```text
 Design:       A0
-Designer:     A0 ─ N1 ─ A2 ─ A4a ─ A4b ─ T1
+Designer:     A0 ─ N1 ─ A2 ─ A4a ─ A4b ─ A4c ─ T1
 Spreadsheet:  A0 ─ A3 ─────────────────────┐          A3 may fill a gap in the designer line
                               T1 ──────────┴─ A5 ─ A6 ─┬─ A7
                                                        └─ A8
@@ -957,6 +959,268 @@ axe on the editor's main states; visual baselines.
 
 **Exit:** screenshots approved; the JSON workbench is no longer needed for a normal additive change.
 
+##### A4a plan (2026-10-11)
+
+**Planned 2026-10-11; accepted by the user the same day ("ok"), D36–D42 and the test cases as
+recommended.** Checked
+against the code at `5a5684a`:
+
+- **Settings › Model** (`features/model-admin/ModelWorkbench.tsx`) is the catalogue of releases and
+  drafts beside the selection; a draft opens `ModelDraftEditor`, the JSON workbench (save by
+  `PATCH`, validate, compile and compare, install). The routes are `/settings/model`,
+  `…/releases/{id}` and `…/drafts/{id}` (`routing/routes.ts`); `CreateDraftDialog` creates a draft
+  from a release, an empty document (`{}`) or a file.
+- **The frame:** `SettingsShell` puts every settings page in `ShellFrame` with the settings rail;
+  `ShellFrame` always has a rail, which goes into the drawer below 760px.
+- **The operation API** (A2) answers a step with `version`, `entries`, `valid` and `diagnostics`;
+  diagnostics carry a JSON pointer into the draft's document. Which elements are released is
+  `authoring/released.released_atoms` over the base release (D17); containment is read from parent
+  relations by `engine/model/placements` for an `EngineModel`, which a draft that does not validate
+  does not have. **No route serves a draft's structure or its released marks**, so the editor would
+  have to re-derive both from the JSON, against 0.8's D45 rule that the browser does not derive
+  containment.
+- **Compile** (`POST …/compile`) gives the differences against the base release and the
+  compatibility with the active one, but only for a valid draft; installation and activation are two
+  routes, as A-D8 and API.md keep them.
+- **Reusable pieces:** the relation matrix lens (`RelationMatrixView`) is a record grid with paged
+  rows and columns; its table styles and its cell keyboard handling (`onGridKeyDown`) fit a grid of
+  types, its paging does not (the types are bounded by the model). `TreeMoveDialog` and
+  `useTreeDrag` are the tree lens's Move to… and drag (B5): the pattern to follow, not components to
+  reuse, since they move records. `ui/ActionMenu`, `ui/Modal`, `ui/ConfirmDialog`, `ui/Tabs`,
+  `ui/HueTile`, `ui/StatusPill`, `lib/hooks/useCursorFeed` (the history) are reused as they are.
+- **Browser models:** N1's runner builds the renamed starter at schema 0.10 on the `schema` seed;
+  `generated-b` is printed from `tests/journeys/configurations.py` the same way.
+
+**What is built:**
+
+1. **Backend: the draft's outline** (D36). Engine `authoring/outline.py` and
+   `GET /model-drafts/{id}/outline` under the model administration gate: the draft's `version`;
+   per application its types as a containment tree (the parents each type's parent relations bind,
+   by the placements' rule read over the document), its navigation groups with their collections and
+   the collections in no group; per type its attribute bindings (value type, required, unique,
+   read-only, the other types sharing the attribute type); the relation types; the allowed relations
+   (relation type, from, to, cardinality, required, containment); every element marked `new`,
+   `changed` or `released` against the base release, by `released_atoms`; and the compiler's
+   diagnostics, each with the element its pointer falls in. It reads the raw document, so a draft
+   that does not validate is outlined with what can be read and its diagnostics. Response schema in
+   `management/schemas/model.py`; OpenAPI inventory updated (the route is gated, as A2's are).
+2. **Frontend: the editor route** (D7, D37). `/settings/model/drafts/{id}/editor`, with the selected
+   element in the query (`?type=`, `?matrix`), rendered in `ShellFrame` under `TopBar` with no rail:
+   `ShellFrame`'s `rail` becomes optional. The editor bar: Settings › Model, the draft's name, its
+   base release and version, the issue count, Undo, Redo, **Open as JSON** (the draft's workbench
+   page) and **Install and activate…**. **Open in editor** on the draft page; **New draft** opens the
+   editor after creating an empty or release-based draft.
+3. **The model pane** (left): each application, its ungrouped types in their containment tree, then
+   its navigation groups with their types; the relation types; **Relationship matrix**. Each row
+   shows its type's `HueTile` and its `new` / `changed` / `released` mark, has a `⋯` menu (also
+   Shift+F10 and the context-menu key) and an **Add** menu at the top (application, type, attribute
+   type, relation type, group). The pane is a `role="tree"` with one tab stop, as the Tree pattern.
+4. **The selected type** (centre): name, key and where it stands; tabs **Attributes** and
+   **Relations** (Layout is A4b's); attribute rows with value type, rules, shared with, mark and
+   their menu; **New attribute** and **Attach an existing one…**.
+5. **Operations** (D38): one descriptor per model-side kind A4a offers (every kind in API.md's table
+   except the view and panel verbs, which are A4b's, and `replaceModel` and `restoreElements`,
+   which no client sends): its menu label, the element it applies to, its form fields and its
+   history text. One `OperationDialog` renders any descriptor in `ui/Modal`, sends the step and
+   shows a refusal in place (D39).
+6. **Move to… and drag** (D40): Move to… on an attribute (`moveAttribute`) and on a type
+   (`setContainment`, including the top level), a dialog with a searchable list of targets; drag in
+   the model pane, with mouse or pen only, opens the same dialog with the target chosen, as B5 does.
+7. **The relationship matrix** (centre, when chosen): types × types, each cell listing the allowed
+   relations from the row's type to the column's, containment marked "contains"; arrow keys move
+   between cells, Enter selects; the side panel shows the selected pair's relations (rule, remove)
+   or the form to allow one. `onGridKeyDown` moves into one shared helper used by both matrices.
+8. **Issues and history** (bottom): Issues lists the diagnostics, each linking to its element;
+   History pages the draft's operations newest first (`useCursorFeed`, `from=end`), each step one
+   line in plain words with its time and whether it is undone; any step can be undone from its line
+   (`step`), with `OPERATION_HAS_DEPENDANTS` answered by offering to undo them together.
+9. **A stale version** (D41): a `VERSION_CONFLICT` reloads the outline and asks: the steps applied
+   since, in plain words, and **Apply mine again** (the same operations at the new version) or
+   **Discard mine**.
+10. **Install and activate** (D42, A-D8, D18): one dialog with the release key, version (suggested
+    from the base release, last number raised) and name, the differences (compile's changes grouped
+    by element), validity and compatibility; confirming sends `setRelease` when the identity changed,
+    then installation, then activation. A refused activation leaves the release installed and the
+    dialog says so; success reloads the active model and offers to open the application.
+11. **Narrow** (below 760px): the panes become tabs **Model**, the selected type, **Issues** (with
+    History); the editor bar keeps Undo, Redo and a menu with Open as JSON and Install. No drag on a
+    phone; Move to… is the path.
+12. **Documents:** API.md (the outline), API_JOURNEYS (the route), USER_JOURNEYS (J33's status,
+    J33.11 in part), UI_ACCEPTANCE (state rows A4a-1 to A4a-5), CURRENT_FUNCTIONALITY and PRODUCT
+    (the editor in plain words), ARCHITECTURE (the outline, the editor's module), CHANGELOG,
+    PROJECT_STATUS, TODO.
+
+No migration. **Reference patterns:** the **Settings layout**'s frame and top bar without its rail;
+the **Tree** pattern for the model pane; **Dialog** and **Confirmation** for the operations and
+install; **Actions** (`ActionMenu`) for the menus; the tree lens's Move to… (B3, B5) for moving;
+the relation matrix lens for the grid; **Notice** for refusals and the stale version.
+
+**Decisions** (D36 onward):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D36 | How the editor reads a draft's structure and what is released | **A server read, `GET /model-drafts/{id}/outline`,** giving the containment tree, bindings, allowed relations, groups, each element's mark against the base release, and diagnostics tied to elements. The alternative, the browser reading the draft's JSON and the base release's, would write the containment rule and the class rule a second time in TypeScript (0.8 D45, D17); an API client gets the same picture the editor shows. Cost: one route and its schema, in the `authoring` and `contract` groups |
+| D37 | Where the editor stands in the frame | **A route under Settings › Model, in `ShellFrame` with no rail,** `rail` made optional. The mock-up's phone board has the panes as tabs; a rail would go into the drawer instead. The alternative, the model pane as the rail, gives the drawer on a phone against the approved board |
+| D38 | Which operations A4a offers, and how | **Every model-side kind except the view and panel verbs (A4b),** through one descriptor table and one dialog. A dialog per kind would be some 28 components; the descriptor keeps one component (U-D14) and one place for the history's plain words |
+| D39 | A draft-only operation on a released element | **Listed in the menu with "needs a migration", sent when chosen, and the server's refusal shown in the dialog with its impact; nothing applies.** The mock-up shows the verdict before Move, but only the server knows the counts and the class rule, and a refused request applies nothing, so sending it is the check. Pre-disabling from the marks would copy the class rule into the browser |
+| D40 | Drags in A4a | **An attribute onto another type, and a type onto another parent or the top level,** both opening Move to… with the target chosen; Move to… is the keyboard and phone path. Dropping a type into a navigation group is a menu action (**Move to group…**, `placeCollection`), since groups are presentation, not structure |
+| D41 | A stale version | **Ask, never replay silently:** reload, list the steps applied since in plain words, then **Apply mine again** or **Discard mine**. Another editor's step may make mine wrong (a type renamed or removed), which an automatic replay would hide or turn into an error the user did not see coming |
+| D42 | After install and activate | **The editor stays open on the draft,** now based on the new release (D17), with a notice offering to open the application. A refused activation keeps the installed release and says so in the dialog, with its diagnostics, as the mock-up's note |
+
+**Journey test cases** (backend, J33 through the API, on generated-a and the example where they hold
+the structures, otherwise generated-b; marker `authoring`):
+
+1. **J33.2 The outline of a draft of the active release.** Given a draft of the active release, when
+   a type is added under `R` with a new attribute and a relation from it to `K` is allowed, then
+   the outline shows the new type under `R`'s place with mark `new`, `R` as `changed`, `K` and the
+   released attributes as `released`, the new relation among the allowed relations, and the
+   outline's `version` equal to the step's.
+2. **J33.1 The outline of a draft built from empty.** Given J33.1's empty draft and its one request,
+   the outline's tree, groups and allowed relations equal what the request built, every element
+   `new`.
+3. **Invalid between steps.** After `addApplication` alone, the outline answers `200` with the
+   application and the diagnostics equal to the step's, each carrying the element its pointer falls
+   in.
+4. **Not found and gated:** an unknown draft is `404 MODEL_DRAFT_NOT_FOUND`; with administration
+   disabled the route is absent.
+
+**Browser** (`test:browser:authoring-a4a`, on both designer models, D20; the renamed example and
+generated-b, each at schema 0.10 on the `schema` seed, naming no key): open the active model's
+draft in the editor; add a type under a top-level type with a new attribute; allow a relation from
+it in the matrix; add a group and move the new type's collection into it; undo and redo; move the
+attribute to another new type by keyboard (Move to…) and a type under another parent by drag; a
+released element's draft-only operation refused with its impact; a stale version from a second
+client answered by **Apply mine again**; install and activate; open the new collection and create a
+record. From an empty draft (generated-b only): an application with two types, installed. Keyboard
+alone for one full pass; 1440px and 390px (the tabs); axe on the editor, the matrix, an operation
+dialog and the install dialog; screenshots for approval.
+
+**Unit tests:** backend, the outline's element for a diagnostic pointer and the marks (`changed`
+when a released element's declaration differs); frontend, the descriptors (each produces the
+request API.md defines), the history's plain words, the suggested version, and the editor's
+component states (refusal with impact, the stale version question, dependants).
+
+**Groups:** `authoring`, `contract`, `model_admin` (the new route); Vitest for the new and changed
+modules (`vitest related`); `npm run format`, `lint`, `build`; the browser runners the guide selects
+for `ShellFrame` and `routing/` (the expansion N1 ran). **Deferred to T1:** visual baselines and the
+accessibility gate's scenarios for the editor, as N1 deferred its own; the package's **Tests** line
+named baselines, and recording them before the surface is approved would record a layout still
+changing.
+
+**Composable domains (ADR-032):** model administration only; no door is affected.
+
+##### A4a record (2026-10-11)
+
+**Delivered 2026-10-11.** The user approved the editor after the revisions below ("otherwise the
+model editor looks good", 2026-10-11). Built as
+planned (D36–D42), with these differences:
+
+- **The editor's address** names any selected element, `?show=type|application|relationType|attributeType&key=…`
+  or `?show=matrix`, instead of the plan's `?type=` and `?matrix`: the centre also shows applications,
+  relation types and attribute types.
+- **No ⋯ button on the model pane's rows.** A button inside a tree item is a nested control, which the
+  Tree pattern avoids. A row's operations are the selected element's menu in the centre; Shift+F10, the
+  context-menu key or a right click on a row selects it and opens that menu.
+- **The mock-up's preview pane and workbook rail are not drawn**: the preview is A4b's, the source and
+  mapping panes A5's; each adds its pane to this layout.
+- **Keys named by the editor** where one request creates an element and refers to it (a new attribute
+  attached at once, a new relation type allowed at once): the editor makes the key from the label by
+  A-D6's rule (`keyFromLabel`, the server's: accents and characters without an ASCII form dropped) and
+  the server still checks it. Elsewhere the server generates keys.
+- **An empty draft** from **New draft** is now a document of the newest schema language with a release
+  identity (key from the draft's name, version `1.0.0`) and empty lists, instead of `{}`, on which no
+  operation could build. Its bar says "A new model", not the active release its class check falls back
+  to (D17).
+- **`changed` for a type** includes a relation allowed from it (its outgoing relations, as its panel
+  and the matrix's rows show); a relation allowed to it leaves it `released`. In API.md.
+- **Shared, not copied:** `ShellFrame`'s rail became optional and `SettingsShell` takes `fullWidth`;
+  the relation matrix lens's cell keys moved into `lib/gridNavigation.nextGridCell`, used by both
+  matrices; the name lookup for the history is one function (`nameOf`); the attribute and group tables
+  are `ui/SettingsTable`. Icons `undo`, `redo` and `grip` were added to `ui/Icon`.
+- **Observed, not changed:** a type renamed after it was added keeps its generated view's name, so its
+  collection's title shows the plural it was added with while the sidebar shows the new plural (A2's
+  `setLabel` renames the type, not the views). Listed for the user; no change made.
+
+**Checks:**
+
+- Journeys `tests/journeys/test_j33_outline.py`: seen failing first without the route (8 of 10; the
+  two "absent when disabled" cases pass either way), then 10 passed (5 cases on two configurations).
+- Unit `tests/unit/engine/model/authoring/test_outline.py`: 19 passed (a pointer's element, by key and
+  by index; the marks; no base; a containment cycle; an unreadable document).
+- Groups `authoring`, `model_admin`, `contract` by EXECUTION_GUIDE §2: 1,673 passed and 1 failed in
+  60 s, parallel; the failure was the API inventory missing the new route, added, then
+  `test_api_journeys` 5 passed. The serial part selected none. `ruff check app/ tests/` clean. The
+  OpenAPI lock is unchanged (the route is gated); the gated inventory gained it. No migration, so no
+  startup checks.
+- Vitest: `src/features/model-editor` 75 passed (`operations.test`: every descriptor builds requests
+  of known kinds, the composed steps, the migration marks; `history.test`; `InstallDialog.test`;
+  `ModelEditor.test`: the refusal with its impact, the stale version, dependants, Shift+F10, an
+  issue's link); `routes.test`; `vitest related` over every changed file, 56 files and 627 tests
+  passed before the last two test files were added. `npm run format`; `npm run lint`, 0 errors (the 7
+  warnings are in unchanged lines; one this package added was removed); `npm run build` succeeds.
+- Browser: `test:browser:authoring-a4a`, 23 checks passed on both designer models (11 on the renamed
+  example, 12 on generated-b with the empty draft), axe clean on the opened editor, the matrix, Move
+  to…, the refusal, the install dialog and 390px. The guide's expansion: `test:browser:settings`,
+  `test:browser:wp11` (5 checks) and `test:browser:wp12` (7) passed; `test:browser:a4` (10) and
+  `test:browser` each timed out once and passed on the rerun, unchanged (TODO's flakes).
+- **Not run:** the full suites, `test:a11y` and `test:visual` (build acceptance; the editor joins the
+  gates at T1). Dark mode is uninspected. Shift+F10 and the refused activation are checked in
+  components only; the history's retry after a failed load has no test.
+- **Appearance:** inspected at 1440px and 390px in the light theme from the runner's screenshots;
+  three defects found and fixed (the row menus drawn as a dot by a class shared with another
+  rule, a group's name cut by its note, the install dialog's fields out of line); approved by the
+  user after the revision below.
+
+**Revised 2026-10-11 after the user's review of the first screenshots**, then approved:
+
+- **Dialogs, every one in the application.** A labelled field's label stood 14px above its own
+  control and right under the field before it, because the general `.dialog form label` rule also
+  spaced `ui/FormField`'s label; the webhook dialog had worked around it with its own class. One rule
+  now spaces every dialog's fields (the label 6px above its control, 16px between fields) and the
+  webhook class's copy is gone. A dialog whose actions sit inside its body keeps a bottom margin (Move
+  to…'s buttons touched the frame). Move to… and Install and activate are forms, so their fields take
+  the dialog style.
+- **Menus, every `ui/ActionMenu`.** Items may carry a glyph, a second line and a section heading;
+  every menu gained hover, a wider popover and clearer sections. The editor's menus are one
+  `OperationsMenu` (the matrix had a copy), sectioned Change, Move, Add, Reshape and Remove, and a
+  released element's draft-only operation says "Needs a migration" on its second line instead of in
+  its label.
+- **The editor's frame.** Full width (the frame's 1440px page width no longer applies to it) and the
+  viewport's height, each pane scrolling on its own, so a large matrix no longer moves the page. The
+  model pane and the matrix's side panel resize by dragging or the keyboard, remembered in the
+  browser (`ui/ResizeHandle`, as the rail). Issues and history is a drawer at the bottom, closed
+  until the reader opens it and closed only by the reader; undo, redo and an issue's link never open
+  or close it (the user, 2026-10-11).
+- **Headers.** The editor's title is `ui/PageHeader`, its base release, version, save and validity as
+  chips; an element's key and whether it can change are chips too (`Facts`). The empty centre is
+  `ui/EmptyState` with Object type, Application and Relationship matrix as buttons.
+- **A type under itself** appears twice in the pane; the row chosen is the one shown selected (the
+  inner one could not be chosen before).
+- **The matrix scrolls inside a frame** (the user, after the second screenshots): a bordered, rounded
+  box instead of open white sides, with the type column and the header row staying in place while it
+  scrolls; checked by `test:browser:authoring-a4a` (14 checks on the renamed example).
+- **Measured layout checks** (`e2e/helpers/layout-checks.mjs`): every dialog the runner opens
+  (thirteen per model, the record and draft dialogs among them) is measured, buttons clear of the
+  frame, each label nearer its control than the field before; the editor is as wide as the window at
+  1440px and 1920px, the page does not scroll and the panes end on one line.
+- **A2 defect found by the user, fixed in their database:** every history read and operation on the
+  development database answered 500, `column model_draft_operations.effects does not exist`. The
+  development server's reload had upgraded that database to `20261011_01` while A2 was still building
+  it, and `effects` was added to the migration afterwards, so the database stayed at the head revision
+  without the column. Fresh databases (every test) had it. The table held no rows; it was dropped and
+  recreated by a downgrade to `20261007_08` and an upgrade, with the user's 12 drafts kept, and the
+  history route answers 200 on the development server. No release carries the migration, so the file
+  is unchanged. TODO holds the question of a startup check for this.
+
+**Checks of the revision:** `test:browser:authoring-a4a` 29 checks on both models (the dialog
+measurements, the full surface at 1440px and 1920px, the type under itself, the drawer opened and
+closed by hand only); `src/features/model-editor` and `routes` 115 Vitest tests; `vitest related` over
+`ui/ActionMenu`, `ShellFrame` and the editor, 28 files and 367 tests; `test:browser:webhooks` (19),
+`test:browser:authoring`, `test:browser:ua8` (7) and `test:browser:settings` (10) for the shared dialog
+and menu change; format, lint (0 errors, the 7 earlier warnings), build. The webhook dialog's
+appearance was not inspected (its runner keeps no screenshot); the visual gate's dialog and menu
+baselines will change with this at T1.
+
 ### A4b: Editor — preview and layout editing
 
 **Design:** [MODEL_AUTHORING views and layouts](MODEL_AUTHORING.md#views-and-layouts), UI_MODEL.md.
@@ -980,13 +1244,41 @@ draft's compiled model and writes nothing.
 
 **Exit:** screenshots approved.
 
+### A4c: Editor — consumer APIs
+
+**Added by the user 2026-10-11** (after A4a), before T1; planned in detail when it comes. **Design:**
+[CONSUMER_API.md](CONSUMER_API.md), 0.9's consumer API decisions (C1, C18), MODEL_AUTHORING's
+principles. **Needs:** A4a (the editor frame), A4b (placed after it: A4b is designed and can start
+at once, while this package needs its design pass first; the order can be swapped).
+
+**Intent (the user's words, 2026-10-11):** beside the model editor, a consumer API editor that puts
+the consumer APIs together in the same form. The editor's left pane gets a second tab: **Model**
+(the pane A4a built) and **Consumer APIs**, placed before the pane's ＋ button; ＋ adds within the
+open tab. The Model tab brings the model editor; the Consumer APIs tab brings the API editor.
+
+**Outline of the scope, to be settled in its plan:**
+
+- The Consumer APIs pane: the draft's consumer API definitions, and per definition what it exposes
+  (types, fields with their public names and sources, relations followed, the operations offered,
+  the contract version), each marked new, changed or released, as the model pane marks elements.
+- Every change an operation on the draft, recorded in its history with undo and redo (MODEL_AUTHORING
+  principle 3, ADR-041). A2 has no consumer API kinds (D29), so the package adds them to the
+  operation API and the draft's outline: a backend part, like A2, before the pane.
+- Install and activate shows the consumer contract result (an incompatible change without a new
+  contract version is refused at activation, F23), as it shows compatibility today.
+- Questions for its plan: the kind vocabulary for consumer definitions; whether `setKey` on a model
+  element then rewrites the definitions that name it instead of refusing (revisits D29); what the
+  editor shows of a definition's served shape (a sample read, or the shape only); the journeys
+  (J33 or a journey of its own) and the browser runner; a mock-up approved before building (a new
+  surface).
+
 ### T1: Designer checkpoint
 
-**Needs:** A4b.
+**Needs:** A4b, A4c.
 
 US-P05 composed in the browser over the real backend on both designer models: an application
 designed from an empty draft and the starter model extended, through to records created in the new
-types. Keyboard alone, 1440px and 390px, the accessibility and visual gates for the editor's
+types, and a consumer API defined for them in the editor (A4c). Keyboard alone, 1440px and 390px, the accessibility and visual gates for the editor's
 surfaces, and the `authoring` and `model` groups together. As 0.9's T1 did for Q, B and F, it confirms
 the line before the next one builds on it, so R confirms rather than discovers.
 
@@ -1193,5 +1485,6 @@ Design-level decisions are [A-D1–A-D12](MODEL_AUTHORING.md#open-decisions).
 
 ## Next
 
-1. A4a, the editor's model pane (A2 delivered 2026-10-11), starting with its plan and the mock-up
-   check. A3 may fill a wait for approval.
+1. A4b, the preview and layout editing (A4a delivered 2026-10-11), starting with its plan; then
+   A4c, the consumer API editor (added by the user 2026-10-11), with its design pass. A3 may fill a
+   wait for approval.

@@ -141,6 +141,15 @@ Model authoring has three explicit stages (ADR-016):
    PostgreSQL; installation makes the installed release the draft's base. The server produces the
    layout of new elements (`authoring/layout.py`). A draft may be invalid between steps; the
    compiler's diagnostics are returned with each step and installation still refuses it.
+   A client reads the draft's structure as its **outline** (`authoring/outline.py`, `GET
+   /model-drafts/{id}/outline`): the containment tree by the rule the layout uses, the bindings, the
+   allowed relations and the groups, each element marked against the base release by the same atoms
+   the class check reads, and each diagnostic tied to the element its pointer falls in. It reads the
+   raw document, so a draft that does not validate is outlined too. The browser's **model editor**
+   (`frontend/src/features/model-editor/`) is one client of it: it sends operation steps and reads
+   the outline back after each, so no containment or class rule is written in TypeScript. Its
+   operations are one descriptor table (`operations.ts`) rendered by one dialog; it lives under
+   Settings in `ShellFrame` without a rail (D37).
 2. **Validation and compilation** are free of side effects: diagnostics with JSON pointers, canonical
    compilation, a key-based semantic diff, compatibility analysis against stored data and, from schema
    0.8, the consumer contract comparison.

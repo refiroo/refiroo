@@ -3653,10 +3653,12 @@ Each part moves into "delivered" with its package: operations, history and undo 
 and the dry-run summary with A3, a draft's profiles and the mapping kinds with A5, inferences with A6.
 Field-level detail not fixed here is finished in that package's plan. **Delivered by A2
 (2026-10-11):** [draft operations](#draft-operations), the [kinds](#kinds) of the model side and the
-[history, undo and redo](#history-undo-and-redo). The rest of this section is designed.
+[history, undo and redo](#history-undo-and-redo). **Delivered by A4a (2026-10-11):** [the draft's
+outline](#the-drafts-outline). The rest of this section is designed.
 
 - `POST /api/v1/model-drafts/{draftId}/operations`, `GET /api/v1/model-drafts/{draftId}/operations`
 - `POST /api/v1/model-drafts/{draftId}/undo`, `POST /api/v1/model-drafts/{draftId}/redo`
+- `GET /api/v1/model-drafts/{draftId}/outline` (A4a)
 - `POST /api/v1/source-files`, `GET /api/v1/source-files`, `GET /api/v1/source-files/{sourceFileId}`,
   `DELETE /api/v1/source-files/{sourceFileId}?expectedVersion=`
 - `GET /api/v1/source-files/{sourceFileId}/profile/sheets`,
@@ -3849,6 +3851,60 @@ identical one it found, the draft's base (D17), so what the draft held becomes r
 existing installation then activation (`POST /model-releases/{id}/activation`), confirmed once by the
 user (A-D8); an activation refused after the installation leaves the installed release, and the
 editor says so. No combined route: an integrator has both steps already.
+
+### The draft's outline
+
+`GET /api/v1/model-drafts/{draftId}/outline` answers the draft's structure as an editor shows it
+(A4a, D36), so a client never works out containment or what is released from the JSON itself. It reads
+the draft's document as it is, so a draft that does not validate between steps is outlined with what
+can be read, beside its diagnostics.
+
+```json
+{
+  "version": 9, "baseReleaseId": "…",
+  "release": { "key": "catalogue", "name": "Catalogue", "version": "1.2.0", "schemaVersion": "0.10" },
+  "baseRelease": { "key": "catalogue", "name": "Catalogue", "version": "1.2.0" },
+  "applications": [{ "key": "catalogue", "name": "Catalogue", "objectTypeKeys": ["category", "item", "unit"],
+    "tree": [{ "objectType": "category", "children": [{ "objectType": "item", "children": [] }] },
+             { "objectType": "unit", "children": [] }],
+    "navigation": { "groups": [{ "key": "lists", "label": "Lists", "collapsed": false,
+                                 "collections": ["unit"], "mark": "new" }],
+                    "ungrouped": ["category", "item"] },
+    "mark": "changed" }],
+  "objectTypes": [{ "key": "item", "name": "Item", "pluralName": "Items", "rootCreatable": false,
+    "parents": ["category"], "mark": "changed",
+    "attributes": [{ "attributeType": "code", "name": "Code", "valueType": "text", "required": true,
+                     "readOnly": false, "unique": true, "sharedWith": ["category"], "mark": "released" }] }],
+  "attributeTypes": [{ "key": "code", "name": "Code", "valueType": "text", "features": { "unique": true },
+                       "boundBy": ["category", "item"], "mark": "released" }],
+  "relationTypes": [{ "key": "contains-item", "reverseKey": "in-category", "name": "Contains item",
+                      "reverseName": "In category", "containment": true, "mark": "released" }],
+  "relations": [{ "relationType": "measured-in", "from": "item", "to": "unit", "cardinality": "many-to-one",
+                  "required": false, "containment": false, "mark": "new" }],
+  "valid": false,
+  "diagnostics": [{ "severity": "error", "code": "INVALID_REFERENCE", "path": "/applications/catalogue/views/units",
+                    "message": "…", "element": { "applicationKey": "catalogue", "view": "units" } }]
+}
+```
+
+- **`tree`** is the application's types by containment, as the placements read it: each type no type
+  of the application contains, with the types it contains below it, in the application's order. A type
+  with several parents appears under each; a containment cycle stops where a type would repeat.
+- **`mark`** is `new` when the draft's base release (the active release when the draft has none, D17)
+  does not declare the element, `changed` when it declares it differently, and `released` otherwise,
+  for applications, types, attribute bindings, attribute types, relation types, allowed relations and
+  navigation groups. A type is also `changed` when a relation allowed **from** it was added, changed or
+  removed: the relations a type starts are part of it, as its outgoing relations panel shows. The marks
+  are those the class check reads, so a draft-only operation is refused on exactly the elements marked
+  `released` or `changed`.
+- **`navigation.ungrouped`** lists the application's collections in no group, in their sidebar order.
+- **`diagnostics`** are the compiler's, as `POST /model-validations` gives them for the draft's model,
+  each with **`element`**: the element its pointer falls in, named as operations name elements
+  (`{"objectType"}`, `{"objectType", "attributeType"}`, `{"relationType", "from", "to"}`,
+  `{"applicationKey", "view"}`, `{"applicationKey", "detail"}`, `{"applicationKey", "group"}`, …), or
+  `null` for a pointer in no element (the release, a consumer API definition).
+- Refusals: `404 MODEL_DRAFT_NOT_FOUND`. The route is registered with `MODEL_ADMIN_MUTATIONS_ENABLED`,
+  as the other draft routes.
 
 ### Source files and their profiles
 

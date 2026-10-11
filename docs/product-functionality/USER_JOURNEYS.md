@@ -801,8 +801,9 @@ and W2.
 **Actor:** model administrator. **Channel:** UI (Settings › Model › Open in editor), API.
 **Stories:** US-P05 (additive and draft-only operations). **Scenario:** SC-12.
 **Status:** J33.9 delivered by N1 (2026-10-11), with groups declared in the model document; the
-operation API (J33.1–J33.8, J33.12 through the API) delivered by A2 (2026-10-11); the editor (A4a,
-A4b; J33.10, J33.11 and the browser side of every variant) planned.
+operation API (J33.1–J33.8, J33.12 through the API) delivered by A2 (2026-10-11); the editor's
+model pane (A4a, 2026-10-11): the browser side of J33.1–J33.7 and
+J33.11 except layout; laying out in the preview (A4b, J33.10, and J33.11 for layout) planned.
 
 1. Open a draft of the active release, or an empty one, in the editor.
 2. Change the model by operations: applications, object types in their containment tree, attributes,
@@ -848,8 +849,12 @@ activation; with administration disabled the routes are absent.
 **Evidence today:** J33.9: `test_j33_design` (the `navigation` contract on two configurations),
 `test:browser:authoring-n1` (sidebar groups and the group page), `Explorer.test`, `model.test`,
 `routes.test`. J33.1–J33.8, J33.12 and J08.9 through the API: `test_j33_operations` (on two
-configurations each); every kind and its inverse: `tests/unit/engine/model/authoring/`. J33.10 and
-J33.11 are planned.
+configurations each); every kind and its inverse: `tests/unit/engine/model/authoring/`. The
+outline: `test_j33_outline` (two configurations each). In the browser: `test:browser:authoring-a4a`
+(the renamed example and generated-b: a type, an attribute, a relation from the matrix, a group,
+undo and redo, Move to… by keyboard, a drag, a released element refused, a stale version, install
+and activate, a record in the new collection, an application from an empty draft, 390px). J33.10 is
+planned.
 
 ### J34 — Onboard a workbook
 

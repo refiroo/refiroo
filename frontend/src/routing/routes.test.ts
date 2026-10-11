@@ -44,7 +44,16 @@ describe("routes", () => {
     ["/settings/model", { kind: "settings", page: "model" }],
     ["/settings/model/releases/release%2Fid", { kind: "settings", page: "model", releaseId: "release/id" }],
     ["/settings/model/drafts/d1", { kind: "settings", page: "model", draftId: "d1" }],
-  ])("round-trips the settings page %s (U3)", (path, route) => {
+    ["/settings/model/drafts/d1/editor", { kind: "settings", page: "model", draftId: "d1", editor: {} }],
+    [
+      "/settings/model/drafts/d1/editor?show=type&key=a%20b",
+      { kind: "settings", page: "model", draftId: "d1", editor: { show: "type", key: "a b" } },
+    ],
+    [
+      "/settings/model/drafts/d1/editor?show=matrix",
+      { kind: "settings", page: "model", draftId: "d1", editor: { show: "matrix" } },
+    ],
+  ])("round-trips the settings page %s (U3, 0.10 A4a)", (path, route) => {
     expect(at(path)).toEqual(route);
     expect(routePath(route)).toBe(path);
   });
@@ -56,6 +65,8 @@ describe("routes", () => {
     ["/models?releaseId=release%2Fid", "/settings/model/releases/release%2Fid"],
     ["/models?draftId=d1", "/settings/model/drafts/d1"],
     ["/models?releaseId=r1&draftId=d1", "/settings/model/drafts/d1"],
+    ["/settings/model/drafts/d1/editor?show=type", "/settings/model/drafts/d1/editor"],
+    ["/settings/model/drafts/d1/editor?show=nothing&key=k", "/settings/model/drafts/d1/editor"],
     ["/workspaces", "/settings/workspaces"],
     ["/workspaces/central-europe", "/settings/workspaces/central-europe"],
   ])("reads %s as the settings page at %s, so the old address redirects (U3)", (path, canonical) => {

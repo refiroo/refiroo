@@ -26,6 +26,7 @@ export function ModelDraftEditor({
   onSaved,
   onReload,
   onInstalled,
+  onOpenEditor,
   onDeleted,
 }: {
   draft: ModelDraft;
@@ -33,6 +34,8 @@ export function ModelDraftEditor({
   onSaved: (draft: ModelDraft) => void;
   onReload: () => Promise<void>;
   onInstalled: (releaseId: string) => void;
+  /** Opens the draft in the model editor (0.10 A4a, D7); the workbench stays for whole-model JSON edits. */
+  onOpenEditor: () => void;
   onDeleted: () => void;
 }) {
   const [name, setName] = useState(draft.name);
@@ -200,9 +203,14 @@ export function ModelDraftEditor({
           <p className="eyebrow">Editable draft · version {draft.version}</p>
           <h2>{draft.name}</h2>
         </div>
-        <button className="danger-outline" onClick={() => setConfirm("delete")}>
-          Delete draft
-        </button>
+        <div className="model-detail-actions">
+          <button className="primary" onClick={onOpenEditor}>
+            Open in editor
+          </button>
+          <button className="danger-outline" onClick={() => setConfirm("delete")}>
+            Delete draft
+          </button>
+        </div>
       </header>
       <label className="model-name-field">
         Draft name

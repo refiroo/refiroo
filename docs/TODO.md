@@ -305,6 +305,9 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   second search after `goBack`); `test:browser:k6` (Select all 42 matching not offered: the list may
   have loaded every row before the check); `test:browser` (`checkRecordReturn` after a reload: Back to
   list did not reach the systems list's address with its anchor). Look at each when it recurs.
+  Seen again in 0.10 A4a (2026-10-11): `test:browser` and `test:browser:a4` each timed out once in a
+  run of the guide's runners after the package's changes and passed on their rerun, unchanged; the
+  first runs' logs were not kept.
 - [ ] **`NOT IN` subqueries that may outgrow `work_mem` (0.9 R, after R-F23 and R-F25):**
   `jobs/people.py` `_walk_ids` (`wanted NOT IN the workbook's records`, which can reach a whole
   type at full volume) and `management/projections/mapping.py` exclusive targets (`id NOT IN` the
@@ -383,8 +386,21 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
     the topic dropped by the user for now (2026-10-11), desktop unchanged.
   - [x] A2 operation API on model drafts: model-side operations, history, undo and redo, generated
     layout (2026-10-11).
-  - [ ] A4a editor: model pane, relationship matrix, install and activate.
+  - [x] A4a editor: model pane, relationship matrix, install and activate; delivered and approved by
+    the user after a revision (2026-10-11).
+  - [ ] **Startup check for a migration changed after it was applied (found in A4a, 2026-10-11).**
+    A database at the head revision whose tables differ from the models (the development database
+    lacked `model_draft_operations.effects` after A2's migration was edited post-apply) starts and then
+    answers 500 on every read of the table. A startup comparison of the live columns with the models,
+    refusing with the table and column, would catch it; it costs a catalogue read per start and a
+    startup test. Not done; for the user to decide.
+  - [ ] The visual gate's baselines for dialogs and menus change with A4a's shared dialog and menu
+    styles (every dialog's field spacing, every `ActionMenu`); re-record at T1 after review.
+  - [ ] A4a's surfaces (the editor, the matrix, Move to…, the operation and install dialogs) into the
+    accessibility and visual gates, light and dark, at T1; dark mode is uninspected until then.
   - [ ] A4b editor: preview and layout editing.
+  - [ ] A4c editor: consumer APIs, a Consumer APIs tab beside Model; consumer API definitions changed
+    by operations (added by the user 2026-10-11, before T1; design pass and plan when it comes).
   - [ ] T1 designer checkpoint (US-P05), released as 0.10.0-alpha.1 (D14).
   - [ ] A3 source profiling and the dry-run summary; the synthetic workbooks W1–W3.
   - [ ] A5 editor with a source file: source and mapping panes, saved and re-run profiles.

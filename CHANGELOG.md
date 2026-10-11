@@ -46,9 +46,28 @@ All notable changes to this project are documented in this file. The format foll
   codes `INVALID_OPERATION`, `OPERATION_REQUIRES_MIGRATION`, `OPERATION_HAS_DEPENDANTS`,
   `NOTHING_TO_UNDO`, `NOTHING_TO_REDO`, `OPERATION_BATCH_TOO_LARGE`; setting
   `MODEL_OPERATION_MAX_ITEMS` (500); migration `20261011_01` (`model_draft_operations`).
+- Base 0.10 A4a: the model editor's model pane (D36–D42; J33 in the browser). A draft opens in the
+  editor from Settings › Model (**Open in editor**; **New draft** opens it too), full width under
+  the top bar: the model pane (applications with their types in their containment tree, navigation
+  groups, relation types, attribute types, each marked new, changed or released), the selected
+  element with its operations, the relationship matrix, the issues linked to their elements and the
+  history in plain words with undo and redo. Every model-side operation is in a menu, through one
+  dialog; Move to… moves an attribute or a type, and a drag in the model pane opens it with its
+  target. A released element's draft-only change is refused with what it would affect; a step on a
+  draft another editor moved on is held and offered again. Install and activate in one confirmed
+  step, with the proposed version, the differences and the compatibility. On a phone the panes are
+  tabs. `GET /model-drafts/{id}/outline` serves the draft's structure, the marks against the base
+  release and the diagnostics with their elements. **New draft** from an empty model now starts a
+  document of the newest schema language with a release identity, instead of `{}`. The browser
+  runner `test:browser:authoring-a4a`.
 
 ### Fixed
 
+- Every dialog's labelled fields: a label stood further from its own control than from the field
+  before it; the label now sits right above its control with a clear step to the next field, and a
+  dialog's buttons keep a margin from its bottom edge (0.10 A4a).
+- Every menu (`⋯` and the like): items show hover, may carry a glyph, a second line and a section
+  heading (0.10 A4a).
 - Supported schema versions are listed oldest first by number (`0.10` after `0.9`), in
   `GET /system`'s `schemaLanguages`, a refusal's `supportedSchemaVersions` and the startup and
   upgrade messages; a text sort would have put `0.10` first (0.10 N1).
