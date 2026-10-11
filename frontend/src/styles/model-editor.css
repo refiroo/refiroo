@@ -255,7 +255,7 @@
 .element-panel-empty .element-tab-actions {
   justify-content: center;
 }
-.draggable-row th {
+.draggable-row > td:first-child {
   cursor: grab;
 }
 .drag-grip {
@@ -263,10 +263,6 @@
   margin-right: var(--space-1);
   color: var(--text-tertiary);
   vertical-align: middle;
-}
-.element-row-menu {
-  width: 1%;
-  text-align: right;
 }
 .model-editor-bottom {
   flex: none;
@@ -305,7 +301,7 @@
   overflow: auto;
 }
 /* An attribute's key on its own line under its name. */
-.element-panel .settings-table th .element-key {
+.editor-table .element-key {
   display: block;
 }
 .editor-issues,
@@ -620,7 +616,6 @@
 }
 
 /* A row's operations: the quiet icon trigger of the record lists' actions column. */
-.element-row-menu .menu-trigger,
 .matrix-pair-heading .menu-trigger {
   width: 32px;
   min-width: 32px;
@@ -631,7 +626,6 @@
   box-shadow: none;
   color: var(--text-secondary);
 }
-.element-row-menu .menu-trigger:hover,
 .matrix-pair-heading .menu-trigger:hover {
   background: var(--surface-fill);
 }
@@ -646,4 +640,131 @@
 }
 .install-identity input {
   width: 100%;
+}
+
+/* A type named in a table: its tile and name, choosing it shows the type. */
+.link-button.type-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-primary);
+  font-weight: 500;
+  text-align: left;
+}
+.link-button.type-link:hover {
+  color: var(--link);
+}
+.type-links {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+}
+/* A relation type's two names, each with its direction. */
+.element-names {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+.element-names > div {
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--card-radius);
+  background: var(--surface-raised);
+}
+.element-names dt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+.element-names dd {
+  margin: var(--space-1) 0 0;
+  font-weight: 600;
+}
+
+/* A cell edited in place: the form may be wider than the column and wraps, the row grows. */
+.editor-table td:has(.cell-editor) {
+  overflow: visible;
+  white-space: normal;
+}
+/* The open editor stands above the cells beside it, which it may cover until it closes. */
+.cell-editor {
+  position: relative;
+  z-index: 4;
+}
+.cell-editor .inline-attribute-editor {
+  min-width: 220px;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-md);
+}
+.cell-editor-field {
+  display: block;
+  margin: 0;
+}
+.cell-editor-field select,
+.cell-editor-field input {
+  width: 100%;
+}
+.editor-table .attribute-edit-row {
+  max-width: 100%;
+}
+
+/* Which records a relationship may choose: a row per criterion, per end. */
+.candidates-field {
+  display: grid;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.candidates-end {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--card-radius);
+}
+.candidates-end legend {
+  padding: 0 var(--space-1);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+.candidates-end p {
+  margin: 0;
+}
+.dialog form .candidate-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  align-items: center;
+}
+.dialog form .candidate-row select,
+.dialog form .candidate-row input {
+  margin-top: 0;
+}
+.candidate-add {
+  justify-self: start;
+}
+@media (max-width: 760px) {
+  .dialog form .candidate-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
+
+/* An editor table fits its pane until a column is sized by hand: cells wrap instead of widening the
+   table past the window (the user, after A4a). A sized table keeps its widths and cuts, with the
+   cut-off value shown on hover (ui/CellReveal). */
+.editor-table table:not(.sized-columns) {
+  width: 100%;
+}
+.editor-table table:not(.sized-columns) td {
+  max-width: none;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.editor-table table:not(.sized-columns) th {
+  white-space: normal;
 }

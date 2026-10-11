@@ -15,6 +15,7 @@ import type { AttributeTypeDefinition, ObjectAttributeValue, ObjectItem, ObjectT
 import { AttributeField } from "@/ui/AttributeField";
 import { attributeValueFromForm } from "@/ui/attributeForm";
 import { Notice } from "@/ui/Notice";
+import { InlineEditForm } from "@/ui/EditInPlace";
 import { formatValue } from "@/ui/formatValue";
 
 export function InlineAttributeEditor({
@@ -83,62 +84,53 @@ export function InlineAttributeEditor({
     }
   }
   return (
-    <form
-      className="inline-attribute-editor"
-      aria-label={`Edit ${attribute.name}`}
+    <InlineEditForm
+      label={`Edit ${attribute.name}`}
+      saving={saving}
       onSubmit={submit}
+      onClose={onClose}
       onChange={() => setDirty(true)}
-      onKeyDown={(event) => {
-        if (event.key === "Escape" && !saving) {
-          event.preventDefault();
-          event.stopPropagation();
-          onClose();
-        }
-      }}
-    >
-      <fieldset disabled={saving}>
-        <AttributeField
-          attribute={attribute}
-          binding={nullValue ? { ...binding, readOnly: true, required: false } : binding}
-          value={stored?.value}
-          autoFocus
-        />
-        {!binding.required && (
-          <label className="checkbox">
-            <input type="checkbox" checked={nullValue} onChange={(event) => setNullValue(event.target.checked)} />
-            Set null
-          </label>
-        )}
-      </fieldset>
-      {conflict && (
-        <Notice title="Current saved value">
-          {save
-            ? formatValue(stored?.value)
-            : object.attributes.some((item) => item.attributeTypeKey === attribute.key)
-              ? formatValue(object.attributes.find((item) => item.attributeTypeKey === attribute.key)?.value)
-              : "Not set"}{" "}
-          (v
-          {object.version}). Your input is preserved. Review before saving again.
-        </Notice>
-      )}
-      {error && (
-        <Notice tone="error" title="The value was not saved" focusOnMount>
-          {error}
-        </Notice>
-      )}
-      <div className="dialog-actions">
-        <button type="button" className="secondary" disabled={saving} onClick={onClose}>
-          Cancel
-        </button>
-        {reloadFailed && (
+      canSave={!reloadFailed}
+      extraActions={
+        reloadFailed && (
           <button type="button" onClick={reload}>
             Reload current value
           </button>
-        )}
-        <button className="primary" disabled={saving || reloadFailed}>
-          {saving ? "Saving…" : "Save"}
-        </button>
-      </div>
-    </form>
+        )
+      }
+      notices={
+        <>
+          {conflict && (
+            <Notice title="Current saved value">
+              {save
+                ? formatValue(stored?.value)
+                : object.attributes.some((item) => item.attributeTypeKey === attribute.key)
+                  ? formatValue(object.attributes.find((item) => item.attributeTypeKey === attribute.key)?.value)
+                  : "Not set"}{" "}
+              (v
+              {object.version}). Your input is preserved. Review before saving again.
+            </Notice>
+          )}
+          {error && (
+            <Notice tone="error" title="The value was not saved" focusOnMount>
+              {error}
+            </Notice>
+          )}
+        </>
+      }
+    >
+      <AttributeField
+        attribute={attribute}
+        binding={nullValue ? { ...binding, readOnly: true, required: false } : binding}
+        value={stored?.value}
+        autoFocus
+      />
+      {!binding.required && (
+        <label className="checkbox">
+          <input type="checkbox" checked={nullValue} onChange={(event) => setNullValue(event.target.checked)} />
+          Set null
+        </label>
+      )}
+    </InlineEditForm>
   );
 }

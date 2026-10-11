@@ -66,6 +66,13 @@ All notable changes to this project are documented in this file. The format foll
 - Every dialog's labelled fields: a label stood further from its own control than from the field
   before it; the label now sits right above its control with a clear step to the next field, and a
   dialog's buttons keep a margin from its bottom edge (0.10 A4a).
+- `setRelationRule` refused a change of which records a released relationship may choose
+  (`candidates`) as needing a migration; it is compatible (0.9 K7) and now applies (0.10 A4a).
+- A relation allowed on a model draft joined a relations panel set up for other records (a
+  translations panel sorted by its language) and made the draft invalid; it now joins only a plain
+  relations panel or gets its own (0.10 A4a, A2's generated layout).
+- Every table's cut-off cell shows its whole value, wrapped, on hover, focus or a long press (0.10
+  A4a).
 - Every menu (`⋯` and the like): items show hover, may carry a glyph, a second line and a section
   heading (0.10 A4a).
 - Supported schema versions are listed oldest first by number (`0.10` after `0.9`), in

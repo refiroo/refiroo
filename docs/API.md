@@ -3744,7 +3744,8 @@ relations panel, `outgoing`, when a binding names it at its `from` end). A new c
 parent's children panel, or a new one, on each detail page the parent has; the server does not
 create a detail page for a type that has none. An attached attribute joins the type's table views
 (columns, and filter and sort fields as its features allow) and its first attributes panel; an
-allowed relation joins its `from` type's outgoing relations panel. The same operation from any
+allowed relation joins its `from` type's plain outgoing relations panel (relation types and
+direction only; a panel with columns, sorts or filters of its own is left alone), or a new one. The same operation from any
 client gives the same layout.
 
 **Parameters** not in the table: an element named by `setLabel` and `setKey` is `element`, one of
@@ -3792,7 +3793,7 @@ the layout places the change took.
 | `removeRelationType` | `relationType` (no binding left) | draft-only | `restoreElements` |
 | `allowRelation` | `relationType`, `from`, `to`, `cardinality`, `required`, `layout` | additive | `disallowRelation` |
 | `disallowRelation` | relation binding | draft-only | `restoreElements` |
-| `setRelationRule` | relation binding; `cardinality`, `required`, `candidates`, `uniqueToAncestorTypeKey` | draft-only | `setRelationRule` back |
+| `setRelationRule` | relation binding; `cardinality`, `required`, `candidates`, `uniqueToAncestorTypeKey` | draft-only; additive for `candidates` alone (compatible in a release, 0.9 K7; corrected in A4a) | `setRelationRule` back |
 | `addView` | `applicationKey`, `view` (a declaration; a table view may give only `objectTypeKey`, with `key` and `name` optional, and the rest is generated), `position`, `default` | additive | `removeView` |
 | `removeView` | view | additive | `addView` with its declaration |
 | `insertViewItem` | view or panel, `list` (`columns`, `filterFields`, `sortFields`, `fields`, `panels`, …), `item`, `position` (D19) | additive | `removeViewItem` |
@@ -3898,6 +3899,8 @@ can be read, beside its diagnostics.
   are those the class check reads, so a draft-only operation is refused on exactly the elements marked
   `released` or `changed`.
 - **`navigation.ungrouped`** lists the application's collections in no group, in their sidebar order.
+- **`relations[].candidates`**: which records the relationship may choose at each end (0.9 K7), as the
+  model declares it; absent when it has none.
 - **`diagnostics`** are the compiler's, as `POST /model-validations` gives them for the draft's model,
   each with **`element`**: the element its pointer falls in, named as operations name elements
   (`{"objectType"}`, `{"objectType", "attributeType"}`, `{"relationType", "from", "to"}`,

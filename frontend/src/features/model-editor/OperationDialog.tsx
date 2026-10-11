@@ -21,6 +21,7 @@ import {
   type OperationTarget,
 } from "@/features/model-editor/operations";
 import { elementLabel } from "@/features/model-editor/outline";
+import { CandidatesField } from "@/features/model-editor/CandidatesField";
 
 /** What the editor did with a step: applied, or held back because the draft moved on (D41). */
 export type StepOutcome = "applied" | "stale";
@@ -123,6 +124,18 @@ export function OperationDialog({
                 {field.label}
               </label>
             );
+          if (field.type === "criteria") {
+            const current = values[field.name];
+            return (
+              <CandidatesField
+                key={field.name}
+                outline={outline}
+                ends={field.ends}
+                value={current && typeof current === "object" && !Array.isArray(current) ? current : {}}
+                onChange={(next) => set(field.name, next)}
+              />
+            );
+          }
           if (field.type === "checkboxes") {
             const chosen = Array.isArray(values[field.name]) ? (values[field.name] as string[]) : [];
             return (

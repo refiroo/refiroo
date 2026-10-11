@@ -131,6 +131,22 @@ def test_a_draft_only_kind_on_a_released_element_is_refused_before_anything_chan
     assert data == MODELS["example"]
 
 
+def test_which_records_a_released_relationship_may_choose_changes_without_a_migration():
+    """``candidates`` is compatible in a release (0.9 K7): set on a released binding, it applies;
+    its cardinality on the same binding still needs a migration (found in A4a)."""
+    data = copy.deepcopy(MODELS["example"])
+    binding = data["objectTypeRelations"][0]
+    triple = {"relationType": binding["relationTypeKey"], "from": binding["fromObjectTypeKey"], "to": binding["toObjectTypeKey"]}
+    released = lambda atom: atom.startswith("relationBinding:")
+    criteria = {"to": [{"field": "name", "op": "startsWith", "value": "A"}]}
+    before = copy.deepcopy(binding.get("candidates"))
+    applied = apply_operation(Context(Document(data), released), {"kind": "setRelationRule", **triple, "candidates": criteria})
+    assert data["objectTypeRelations"][0]["candidates"] == criteria
+    assert applied.inverse["candidates"] == before
+    with pytest.raises(MigrationRequired):
+        apply_operation(Context(Document(data), released), {"kind": "setRelationRule", **triple, "cardinality": "one-to-one"})
+
+
 def test_every_key_of_the_example_renamed_keeps_it_valid_and_leaves_no_old_reference():
     data = copy.deepcopy(MODELS["example"])
     data.pop("consumerApis", None)

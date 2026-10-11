@@ -83,3 +83,12 @@ def test_a_containment_cycle_keeps_every_type_in_the_tree():
 
 def test_an_unreadable_document_is_outlined_empty():
     assert build_outline({"objectTypes": "nonsense", "applications": [1]}, None)["objectTypes"] == []
+
+
+def test_a_relation_carries_which_records_it_may_choose():
+    draft = copy.deepcopy(DOCUMENT)
+    criteria = {"to": [{"field": "name", "op": "startsWith", "value": "A"}]}
+    draft["objectTypeRelations"][0]["candidates"] = criteria
+    (relation,) = build_outline(draft, None)["relations"]
+    assert relation["candidates"] == criteria
+    assert "candidates" not in build_outline(DOCUMENT, None)["relations"][0]

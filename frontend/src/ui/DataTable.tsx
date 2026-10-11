@@ -19,6 +19,7 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties, type HTMLAttributes, type ReactNode } from "react";
 import type { CursorWindow } from "@/lib/hooks/useCursorWindow";
 import type { Hue } from "@/model/hues";
+import { useCellReveal } from "@/ui/CellReveal";
 import { EmptyState } from "@/ui/EmptyState";
 import { ResizeHandle } from "@/ui/ResizeHandle";
 import { ScrollWindow } from "@/ui/ScrollWindow";
@@ -57,6 +58,7 @@ export function DataTable<Row>({
   emptyMessage,
   emptyIcon,
   emptyAction,
+  whole = false,
 }: {
   columns: DataColumn<Row>[];
   /** The column that names a row; it stays on narrow screens. Defaults to the first. */
@@ -93,8 +95,15 @@ export function DataTable<Row>({
   emptyMessage: ReactNode;
   emptyIcon?: ReactNode;
   emptyAction?: ReactNode;
+  /**
+   * The list is held whole and short (the model editor's tables): no start and end markers and no
+   * footer, which serve a list that pages.
+   */
+  whole?: boolean;
 }) {
   const [allColumns, setAllColumns] = useState(false);
+  // A cut-off cell shows its whole value on hover, focus or a long press (ui/CellReveal).
+  const reveal = useCellReveal();
   const headers = useRef(new Map<string, HTMLTableCellElement>());
   const resizers = useRef<HTMLDivElement>(null);
   const [edges, setEdges] = useState<{ height: number; ends: Record<string, number> }>({ height: 0, ends: {} });
@@ -170,6 +179,7 @@ export function DataTable<Row>({
         pageSize={pageSize}
         seekLabel={seekLabel}
         onAnchorChange={onAnchorChange}
+        {...(whole ? { edgeMarkers: "partial" as const, footer: false } : {})}
         className={`table-wrap object-table${compact ? " density-compact" : ""}${allColumns ? " show-all-columns" : ""}`}
       >
         {onColumnWidths && (
@@ -250,7 +260,7 @@ export function DataTable<Row>({
               )}
             </tr>
           </thead>
-          <tbody>
+          <tbody {...reveal.handlers}>
             {list.loading && list.items.length === 0 ? (
               // Rows in the table's own shape while the first page loads; one status announces it.
               Array.from({ length: LOADING_ROWS }, (_, row) => (
@@ -291,7 +301,7 @@ export function DataTable<Row>({
                   >
                     {selection && <td className="selection-column">{selection.cell(row)}</td>}
                     {columns.map((column) => (
-                      <td key={column.key} className={secondary(column.key)}>
+                      <td key={column.key} className={secondary(column.key)} data-reveal="">
                         {column.cell(row)}
                       </td>
                     ))}
@@ -307,6 +317,7 @@ export function DataTable<Row>({
           </tbody>
         </table>
       </ScrollWindow>
+      {reveal.overlay}
     </>
   );
 }

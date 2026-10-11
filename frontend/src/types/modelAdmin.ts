@@ -293,6 +293,11 @@ export interface OutlineRelation {
   cardinality?: string | null;
   required: boolean;
   containment: boolean;
+  /** Which records may be chosen at each end (0.9 K7); absent without criteria. */
+  candidates?: {
+    from?: { field: string; op: string; value: string | number | boolean }[];
+    to?: { field: string; op: string; value: string | number | boolean }[];
+  } | null;
   mark: OutlineMark;
 }
 

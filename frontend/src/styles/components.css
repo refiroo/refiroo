@@ -4644,3 +4644,25 @@ form.restructuring-plan-form .dialog-actions {
   border: 0;
   border-top: 1px solid var(--border-faint);
 }
+
+/* A cut-off cell's whole value (ui/CellReveal): below the cell, wrapped over several lines. */
+.cell-reveal {
+  position: fixed;
+  z-index: 60;
+  max-height: min(50vh, 320px);
+  overflow: auto;
+  padding: 8px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-md);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+.cell-reveal-above {
+  transform: translateY(-100%);
+}

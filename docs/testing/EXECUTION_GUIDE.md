@@ -357,6 +357,7 @@ frontend format/lint/build as [AGENTS.md](../../AGENTS.md) requires.
 | `src/features/model-admin/**` | `src/features/model-admin` | `wp12-release-identity.mjs`, `wp11-model-admin.mjs` |
 | `src/features/model-editor/**`, the `editor` route in `src/routing/routes.ts`, `ShellFrame` without a rail (0.10 A4a) | `src/features/model-editor`, `routes.test`, `vitest related` | `test:browser:authoring-a4a`; `test:browser:settings` and `test:browser` when `ShellFrame` or `SettingsShell` change |
 | `ui/ActionMenu.tsx`, `ui/Modal.tsx` and the dialog and menu rules in `styles/components.css` (shared by every dialog and menu; 0.10 A4a) | `vitest related` | `test:browser:authoring-a4a` (its dialog measurements, `e2e/helpers/layout-checks.mjs`), `test:browser:webhooks`, `test:browser:authoring`, `test:browser:ua8`; the gates' dialog and menu baselines at build acceptance |
+| `ui/EditInPlace.tsx` (the record fields' and the model editor's in-place editing), `ui/CellReveal.tsx` and `ui/DataTable.tsx`'s `whole` (0.10 A4a) | `CellReveal.test`, `EditableField.test`, `InlineAttributeEditor.test`, `vitest related` | `test:browser:ua8` (record fields in place), `test:browser:s5` and `test:browser` (lists), `test:browser:authoring-a4a` |
 | `src/lib/gridNavigation.ts` (0.10 A4a) | `vitest related` | `test:browser:a4` (the relation matrix lens) and `test:browser:authoring-a4a` (the model's matrix) |
 | `src/styles*`, theme tokens | none at T1 | focused a11y/visual scenarios for affected pages, plus dark variants |
 

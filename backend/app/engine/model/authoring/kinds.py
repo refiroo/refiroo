@@ -1133,7 +1133,10 @@ def set_relation_rule(context: Context, raw: dict[str, Any]) -> Applied:
     relation_key, source, target = params.text("relationType"), params.text("from"), params.text("to")
     binding = context.relation_binding(relation_key, source, target)
     path = ["objectTypeRelations", identity(binding)]
-    context.unreleased(atom("relationBinding", relation_key, source, target))
+    # Which records may be chosen (0.9 K7) is compatible in a release: installing checks no data, and
+    # a relationship made before stays. Every other rule changes what stored data must hold.
+    if set(raw) - {"kind", "relationType", "from", "to", "candidates"}:
+        context.unreleased(atom("relationBinding", relation_key, source, target))
     inverse: dict[str, Any] = {"kind": "setRelationRule", "relationType": relation_key, "from": source, "to": target}
     if "cardinality" in raw:
         cardinality = params.text("cardinality")

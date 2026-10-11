@@ -150,8 +150,69 @@ async function journey(label, source, { emptyDraft = false } = {}) {
     await page.getByRole("button", { name: "New attribute" }).click();
     await dialog().getByLabel("Name", { exact: true }).fill("Shelf code");
     await apply();
-    await page.getByRole("rowheader", { name: /Shelf code/ }).waitFor();
+    await page
+      .getByRole("cell", { name: /Shelf code/ })
+      .first()
+      .waitFor();
     checks.push(`${label}: a type added under a top-level type, marked new, its parent changed; a new attribute on it`);
+
+    // By default an editor table fits its pane: its cells wrap rather than widen it past the window.
+    const fits = await page
+      .getByRole("region", { name: "Attributes of Shelf A4a" })
+      .evaluate((region) => region.scrollWidth <= region.clientWidth + 1);
+    assert.ok(fits, "the attributes table fits its pane at 1440px");
+    // A narrow cell's editor stands above its neighbours: at each of its corners it is the form that
+    // a pointer reaches, not the next cell's control. A cell that fits shows no cut-off box.
+    const attributes = page.getByRole("region", { name: "Attributes of Shelf A4a" });
+    await attributes
+      .getByRole("button", { name: /^Edit Value type:/ })
+      .first()
+      .click();
+    const valueForm = page.getByRole("form", { name: "Edit Value type" });
+    await valueForm.waitFor();
+    const covered = await valueForm.evaluate((form) => {
+      const box = form.getBoundingClientRect();
+      const points = [
+        [box.left + 4, box.top + 4],
+        [box.right - 4, box.top + 4],
+        [box.left + 4, box.bottom - 4],
+        [box.right - 4, box.bottom - 4],
+      ];
+      return points.every(([x, y]) => document.elementFromPoint(x, y)?.closest("form") === form);
+    });
+    assert.ok(covered, "the open cell editor is above the cells beside it");
+    await attributes
+      .getByRole("button", { name: /^Edit Unique:/ })
+      .first()
+      .hover({ force: true });
+    assert.equal(await page.locator(".cell-reveal").count(), 0, "a cell that fits shows no cut-off box");
+    await shot("cell-editor-on-top-1440");
+    await page.keyboard.press("Escape");
+    await valueForm.waitFor({ state: "hidden" });
+    checks.push(`${label}: an open cell editor covers the cells beside it, and a cell that fits shows no cut-off box`);
+
+    // The editor's tables are the record lists' table: a column resizes by keyboard, and a value it
+    // then cuts off shows whole, wrapped, on hover.
+    const attributeTable = page.getByRole("region", { name: "Attributes of Shelf A4a" });
+    const resize = page.getByRole("separator", { name: "Resize Attribute column" });
+    await resize.focus();
+    await page.keyboard.press("Home");
+    const cut = attributeTable.locator("td[data-reveal]").first();
+    assert.ok(await cut.evaluate((cell) => cell.scrollWidth > cell.clientWidth), "the narrowed column cuts its value");
+    await cut.hover();
+    const whole = page.locator(".cell-reveal");
+    await whole.waitFor();
+    assert.match(await whole.textContent(), /Shelf code/);
+    await shot("cell-reveal-1440");
+    // Back to the widths the content gives: the stored width is this browser's preference.
+    await page.evaluate(() =>
+      Object.keys(localStorage)
+        .filter((key) => key.includes("model-editor:attributes"))
+        .forEach((key) => localStorage.removeItem(key)),
+    );
+    await page.reload();
+    await page.getByRole("heading", { name: /Shelf A4a/, level: 2 }).waitFor();
+    checks.push(`${label}: an editor table's column resizes by keyboard, and a value it cuts off shows whole on hover`);
 
     // A second new type at the top level, the target of the moves below.
     await page.getByRole("button", { name: "Add to the model" }).click();
@@ -238,7 +299,10 @@ async function journey(label, source, { emptyDraft = false } = {}) {
     await page.keyboard.press("Enter");
     await dialog().waitFor({ state: "hidden" });
     await row("Bin A4a").click();
-    await page.getByRole("rowheader", { name: /Shelf code/ }).waitFor();
+    await page
+      .getByRole("cell", { name: /Shelf code/ })
+      .first()
+      .waitFor();
     checks.push(`${label}: by keyboard alone, Move to… moves the attribute to the other type`);
 
     // Drag: Shelf onto the application row, the top level; Move to… opens with it chosen.
@@ -300,7 +364,8 @@ async function journey(label, source, { emptyDraft = false } = {}) {
     });
     assert.equal(other.status, 200, await other.text());
     await row("Shelf A4a").click();
-    await page.getByRole("button", { name: "Rename", exact: true }).click();
+    await operations("Shelf A4a").click();
+    await chooseMenu("Rename…");
     await dialog().getByLabel("Plural name").fill("Shelves A4a");
     await apply();
     const stale = page.getByRole("status").filter({ hasText: "Another change came first" });
@@ -310,6 +375,103 @@ async function journey(label, source, { emptyDraft = false } = {}) {
     await stale.waitFor({ state: "hidden" });
     checks.push(
       `${label}: a step at a stale version is held, the steps since are named, and Apply mine again applies it`,
+    );
+
+    // A relation type's panel: its names, the pairs it is allowed between, and allowing one more.
+    await pane.getByRole("treeitem", { name: /^Stores in/ }).click();
+    await page.getByRole("heading", { name: /Stores in/, level: 2 }).waitFor();
+    const pairs = page.getByRole("region", { name: "Types Stores in is allowed between" });
+    assert.equal(await pairs.getByRole("row").count(), 2);
+    await page.getByRole("button", { name: "Allow between two types…" }).click();
+    await dialog().getByLabel("From").selectOption({ label: "Bin A4a" });
+    await dialog().getByLabel("To").selectOption({ label: "Shelf A4a" });
+    await apply();
+    await pairs.getByRole("row").nth(2).waitFor();
+    await assertAccessible(page, `a4a-${label}-relation-type`);
+    await shot("relation-type-1440");
+    // Table-like editing: the first pair's cardinality in its cell, by keyboard.
+    await pairs
+      .getByRole("button", { name: /^Edit Cardinality:/ })
+      .first()
+      .focus();
+    await page.keyboard.press("Enter");
+    const cellForm = page.getByRole("form", { name: "Edit Cardinality" });
+    await cellForm.getByRole("combobox").selectOption("one-to-one");
+    await shot("cell-edit-1440");
+    await cellForm.getByRole("button", { name: "Save" }).click();
+    await pairs
+      .getByRole("button", { name: /^Edit Cardinality: One to one/ })
+      .first()
+      .waitFor();
+    // Required from the pair's menu.
+    await pairs.getByRole("button", { name: /^Operations for Stores in from Shelf A4a/ }).click();
+    await chooseMenu("Make required");
+    await pairs
+      .getByRole("button", { name: /^Edit Required: Yes/ })
+      .first()
+      .waitFor();
+    // The reverse name in place.
+    await page.getByRole("button", { name: /^Edit Reverse name:/ }).click();
+    await page.getByRole("form", { name: "Edit Reverse name" }).getByRole("textbox").fill("Stored in");
+    await page.keyboard.press("Enter");
+    await page.getByRole("button", { name: /^Edit Reverse name: Stored in/ }).waitFor();
+    // Which records may be chosen, from its cell: a criterion on the "to" end.
+    await pairs
+      .getByRole("button", { name: /^Edit Which records: Any/ })
+      .first()
+      .click();
+    await dialog().getByRole("button", { name: "Add a criterion" }).first().click();
+    await dialog().getByLabel("Operator of criterion 1").selectOption("startsWith");
+    await dialog().getByLabel("Value of criterion 1").fill("B");
+    await assertDialogLayout(page, `${label}: which records may be chosen`);
+    await shot("dialog-candidates-1440");
+    await apply();
+    await pairs
+      .getByRole("button", { name: /^Edit Which records: To: Name starts with “B”/ })
+      .first()
+      .waitFor();
+    checks.push(
+      `${label}: a pair's cardinality is edited in its cell, required from its menu, the reverse name in place, and which records it may choose in its dialog`,
+    );
+    await pairs.getByRole("button", { name: "Bin A4a" }).first().click();
+    await page.getByRole("heading", { name: /Bin A4a/, level: 2 }).waitFor();
+    checks.push(
+      `${label}: a relation type's panel lists its pairs with their menus, allows another, and a pair's type opens it`,
+    );
+
+    // An attribute type's panel: where it is attached, and attaching it to another type.
+    const attributeTypes = pane.getByRole("treeitem", { name: /^Attribute types/ });
+    if ((await attributeTypes.getAttribute("aria-expanded")) === "false") await attributeTypes.click();
+    await pane.getByRole("treeitem", { name: /^Shelf code/ }).click();
+    await page.getByRole("heading", { name: /Shelf code/, level: 2 }).waitFor();
+    const attached = page.getByRole("region", { name: "Types Shelf code is attached to" });
+    assert.equal(await attached.getByRole("row").count(), 2);
+    await page.getByRole("button", { name: "Attach to a type…" }).click();
+    await dialog().getByLabel("Type", { exact: true }).selectOption({ label: "Shelf A4a" });
+    await apply();
+    await attached.getByRole("row").nth(2).waitFor();
+    await assertAccessible(page, `a4a-${label}-attribute-type`);
+    await shot("attribute-type-1440");
+    checks.push(
+      `${label}: an attribute type's panel lists the types it is attached to with their menus, and attaches it to another`,
+    );
+
+    // A name edited in place by keyboard, as a record's title is: the pencil, the field, Enter.
+    await pane
+      .getByRole("treeitem", { name: /^Bin A4a/ })
+      .first()
+      .click();
+    const nameControl = page.getByRole("button", { name: /^Edit Name: Bin A4a/ });
+    await nameControl.focus();
+    await page.keyboard.press("Enter");
+    const nameField = page.getByRole("form", { name: "Edit Name" }).getByRole("textbox");
+    await nameField.fill("Bin A4a renamed");
+    await shot("name-in-place-1440");
+    await page.keyboard.press("Enter");
+    await page.getByRole("heading", { name: /^Bin A4a renamed/, level: 2 }).waitFor();
+    assert.equal(await page.getByRole("button", { name: "Rename", exact: true }).count(), 0);
+    checks.push(
+      `${label}: a name is edited in place by keyboard, with the record title's pencil, and no Rename button`,
     );
 
     // Install and activate (D42), then the new collection holds a record.
@@ -380,7 +542,10 @@ async function journey(label, source, { emptyDraft = false } = {}) {
       .first()
       .tap();
     await phone.getByRole("tab", { name: "Bin A4a", selected: true }).waitFor();
-    await phone.getByRole("rowheader", { name: /Shelf code/ }).waitFor();
+    await phone
+      .getByRole("cell", { name: /Shelf code/ })
+      .first()
+      .waitFor();
     await noPageOverflow(phone);
     await assertAccessible(phone, `a4a-${label}-390`);
     await phone.screenshot({ path: resolve(harness.output, `a4a-${label}-390.png`), fullPage: true });

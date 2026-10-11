@@ -133,6 +133,41 @@ describe("the editor's operation descriptors (D38)", () => {
     ]);
   });
 
+  it("turns an attribute into a list type with which of its records may be chosen, in one step", () => {
+    const [convert, rule] = operationById("attribute-list")!.build(
+      {
+        name: "Colour",
+        relationName: "Has colour",
+        reverseName: "Colour of",
+        candidates: { to: [{ field: "name", op: "startsWith", value: "R" }] },
+      },
+      { on: "attribute", objectType: "shelf", attributeType: "depth" } as never,
+      outline,
+    );
+    expect(convert).toMatchObject({
+      kind: "convertAttributeToListType",
+      key: "colour-2",
+      relationType: { key: "has-colour", reverseKey: "colour-of", name: "Has colour", reverseName: "Colour of" },
+    });
+    expect(rule).toEqual({
+      kind: "setRelationRule",
+      relationType: "has-colour",
+      from: "shelf",
+      to: "colour-2",
+      candidates: { to: [{ field: "name", op: "startsWith", value: "R" }] },
+    });
+  });
+
+  it("removes a relationship's criteria when none is left", () => {
+    expect(
+      operationById("relation-candidates")!.build(
+        { candidates: {} },
+        { on: "relation", relationType: "stores", from: "shelf", to: "bin" } as never,
+        outline,
+      ),
+    ).toEqual([{ kind: "setRelationRule", relationType: "stores", from: "shelf", to: "bin", candidates: null }]);
+  });
+
   it("places a type under a parent with a new containment relation, or at the top level", () => {
     const build = operationById("add-type")!.build;
     expect(

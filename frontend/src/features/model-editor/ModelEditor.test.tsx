@@ -95,11 +95,12 @@ describe("ModelEditor", () => {
       )
       .mockResolvedValueOnce(step(6));
     renderEditor();
-    fireEvent.click(await screen.findByRole("button", { name: "Rename" }));
-    const dialog = await screen.findByRole("dialog", { name: "Rename Shelf" });
-    fireEvent.change(within(dialog).getByLabelText("Plural name"), { target: { value: "Racks" } });
+    // The name is edited in place, as a record's title is.
+    fireEvent.click(await screen.findByRole("button", { name: /^Edit Name:/ }));
+    const form = await screen.findByRole("form", { name: "Edit Name" });
+    fireEvent.change(within(form).getByLabelText(/Name/), { target: { value: "Rack" } });
     vi.mocked(api.modelDraftOutline).mockResolvedValue({ ...outlineFixture(), version: 5 });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Apply" }));
+    fireEvent.click(within(form).getByRole("button", { name: "Save" }));
     const notice = (await screen.findByText(/Another change came first/)).closest(".notice") as HTMLElement;
     expect(within(notice).getByText(/Applied since: Renamed Bin to Crate\./)).toBeTruthy();
     expect(screen.queryByRole("dialog")).toBeNull();
@@ -107,7 +108,7 @@ describe("ModelEditor", () => {
     await waitFor(() => expect(api.applyModelDraftOperations).toHaveBeenCalledTimes(2));
     expect(vi.mocked(api.applyModelDraftOperations).mock.calls.map((call) => call[1])).toEqual([4, 5]);
     expect(vi.mocked(api.applyModelDraftOperations).mock.calls[1][2]).toEqual([
-      { kind: "setLabel", element: { objectType: "shelf" }, name: "Shelf", pluralName: "Racks" },
+      { kind: "setLabel", element: { objectType: "shelf" }, name: "Rack" },
     ]);
     await waitFor(() => expect(screen.queryByText(/Another change came first/)).toBeNull());
   });
@@ -148,6 +149,21 @@ describe("ModelEditor", () => {
     fireEvent.keyDown(row, { key: "F10", shiftKey: true });
     expect(onSelect).toHaveBeenCalledWith({ show: "type", key: "shelf" });
     expect(await screen.findByRole("menuitem", { name: /^Rename/ })).toBeTruthy();
+  });
+
+  it("edits a cell in place: a relation's cardinality is one step", async () => {
+    vi.mocked(api.applyModelDraftOperations).mockResolvedValue(step(5));
+    renderEditor();
+    fireEvent.click(await screen.findByRole("tab", { name: /^Relations/ }));
+    fireEvent.click((await screen.findAllByRole("button", { name: /^Edit Cardinality:/ }))[0]);
+    const form = await screen.findByRole("form", { name: "Edit Cardinality" });
+    fireEvent.change(within(form).getByRole("combobox"), { target: { value: "one-to-one" } });
+    fireEvent.click(within(form).getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(api.applyModelDraftOperations).toHaveBeenCalledWith("d1", 4, [
+        { kind: "setRelationRule", relationType: "stores", from: "shelf", to: "bin", cardinality: "one-to-one" },
+      ]),
+    );
   });
 
   it("links an issue to the element it concerns", async () => {

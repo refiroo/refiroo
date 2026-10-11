@@ -1196,6 +1196,53 @@ planned (D36–D42), with these differences:
   `ui/EmptyState` with Object type, Application and Relationship matrix as buttons.
 - **A type under itself** appears twice in the pane; the row chosen is the one shown selected (the
   inner one could not be chosen before).
+- **Every element panel in the type panel's form** (the user, after approval, 2026-10-11): a relation
+  type shows its keys and containment as chips, its two names with their directions, and the pairs
+  it is allowed between as a table whose rows carry their own menus, with **Allow between two
+  types…** (`relation-type-allow`, `allowRelation`); an attribute type shows its value type and
+  features as chips and the types it is attached to as a table with each binding's menu, with
+  **Attach to a type…** (`attribute-type-attach`, `attachAttribute`); an application lists its types
+  as a table (where each stands, attributes, relations, state, menu). A type in any table is its tile
+  and name, opening the type (`TypeLink`). `test:browser:authoring-a4a`: 16 and 17 checks on the two
+  models, axe on both panels; 77 editor Vitest tests.
+- **The editor's tables are the record lists' table** (the user: "reuse the existing components"):
+  every editor table is `ui/DataTable` through `EditorTable`, over a list held whole
+  (`fixedWindow`, moved from the test helpers into `lib/hooks/useCursorWindow`, so the helper is one
+  copy), with resizable columns remembered per table, its phone layout and no paging chrome
+  (`whole`, passing `ScrollWindow`'s existing switches). `ui/SettingsTable` stays the settings
+  pages' table. The type panel's "Shared with" and "From → to" are plain text again (the user).
+- **Edited in place, as a record's title and fields are** (the user): the editable value and its
+  form are now `ui/EditInPlace` (`EditInPlaceValue`, `InlineEditForm`), lifted out of
+  `EditableField` and `InlineAttributeEditor`, which use them unchanged. An element's name in its
+  heading, a relation type's two names and a group's label (`EditableText`), and a table's cells
+  (`EditableCell`): value type, required, unique and read-only of an attribute; cardinality and
+  required of a relation; required and read-only of an attribute on each type; a group's label and
+  start. Each save is one step. The headers lost their Rename and Move to… buttons; both stay in
+  the ⋯ menu.
+- **A cut-off cell shows its whole value** (the user): every `ui/DataTable` cell the column cuts
+  shows its value below it, wrapped, on hover or focus, and on a touch screen on a long press or a
+  tap on its text (`ui/CellReveal`); nothing for a cell that fits or is being edited.
+- **Which records a relationship may choose** (0.9 K7, the user's question): the editor sets a
+  relation's `candidates` (**Which records may be chosen…** in its menu and its table cell, and in
+  **Turn into a list type…**, which then names its list type and relation itself so the criteria
+  follow in the same step); the fields and operators are 0.9's (APPLICATION_MODEL D170), the server
+  validates each criterion. The outline serves `relations[].candidates`. A relation's menu gained
+  **Make required / optional**.
+- **A2 defect found here:** `setRelationRule` refused a `candidates` change on a released relation
+  as needing a migration, though 0.9 made adding, changing or removing criteria compatible
+  (installing checks no data). It now applies when only `candidates` changes; cardinality, required
+  and scoped uniqueness stay draft-only. Unit case in `test_kinds.py`; API.md's table amended.
+- **A2 layout defect found by the user's draft:** a newly allowed relation joined the `from`
+  type's first outgoing relations panel, whatever it was set up for. On a page whose first such
+  panel lists translations sorted by `ancestor:language`, the new relation made it list two related
+  types and the draft invalid (`… cannot sort by 'ancestor:language': it lists several related
+  object types`). A relation now joins only a plain relations panel (its relation types, direction
+  and title, as the server generates them) or gets a panel of its own (`layout.place_relation`;
+  regression cases in `test_layout.py`). The user's draft keeps the panel its step made; undoing
+  that step and allowing the relation again places it in a panel of its own.
+- **Editor tables fit their pane** until a column is sized by hand (cells wrap); an open cell
+  editor stands above the cells beside it; the cut-off box measures visible text only, so a
+  control's margin or a screen-reader label is not taken for a cut (the user's screenshots).
 - **The matrix scrolls inside a frame** (the user, after the second screenshots): a bordered, rounded
   box instead of open white sides, with the type column and the header row staying in place while it
   scrolls; checked by `test:browser:authoring-a4a` (14 checks on the renamed example).

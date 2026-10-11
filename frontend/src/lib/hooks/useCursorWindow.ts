@@ -379,3 +379,35 @@ export function useCursorWindow<T>(
     anchorAt,
   };
 }
+
+/**
+ * A complete, fully loaded window over `items`: a list the browser already holds whole (the model
+ * editor's attributes, relations and types, bounded by the model), shown by the same table as a
+ * paged one (`ui/DataTable`). Nothing pages, so every loader is a no-op.
+ */
+export function fixedWindow<T>(items: T[], overrides: Partial<CursorWindow<T>> = {}): CursorWindow<T> {
+  const noop = () => undefined;
+  return {
+    items,
+    startIndex: 0,
+    totalCount: items.length,
+    hasPrevious: false,
+    hasNext: false,
+    loading: false,
+    error: "",
+    before: { loading: false, error: "" },
+    after: { loading: false, error: "" },
+    landing: undefined,
+    loadPrevious: noop,
+    loadNext: noop,
+    jumpTo: noop,
+    jumpToStart: noop,
+    jumpToEnd: noop,
+    seek: noop,
+    retry: noop,
+    reload: noop,
+    setViewportIndex: noop,
+    anchorAt: () => undefined,
+    ...overrides,
+  };
+}

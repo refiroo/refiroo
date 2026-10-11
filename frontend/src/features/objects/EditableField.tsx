@@ -15,9 +15,8 @@ import { useEffect, useRef, useState } from "react";
 import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { attributeName, fieldValue } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
-import { readEditHint } from "@/lib/editHint";
 import { formatValue } from "@/ui/formatValue";
-import { Icon } from "@/ui/Icon";
+import { EditInPlaceValue } from "@/ui/EditInPlace";
 import type {
   AttributeTypeDefinition,
   EngineModel,
@@ -178,34 +177,19 @@ export function EditableField({
   const empty = !editable.isName && !editable.stored;
   return (
     <>
-      <button
-        ref={control}
-        type="button"
-        className={`attribute-edit attribute-edit-${layout}`}
-        data-edit-hint={readEditHint()}
+      <EditInPlaceValue
+        controlRef={control}
+        layout={layout}
+        name={name}
+        empty={empty}
         disabled={disabled || !!warning}
-        onClick={(event) => {
-          // A click that ends a text selection inside the value is left for copying.
-          const selection = window.getSelection();
-          if (selection?.toString() && event.currentTarget.contains(selection.anchorNode)) return;
+        onEdit={() => {
           setSaved(false);
           onEdit();
         }}
       >
-        {empty && layout !== "row" ? (
-          <span className="unset-value">Add {name}</span>
-        ) : (
-          <>
-            <span className="visually-hidden">
-              {empty ? "Add" : "Edit"} {name}:
-            </span>{" "}
-            {shownValue(model, object, field)}
-          </>
-        )}
-        <span className="attribute-edit-hint">
-          <Icon name={empty ? "plus" : "pencil"} size={layout === "title" ? 16 : 13} />
-        </span>
-      </button>
+        {shownValue(model, object, field)}
+      </EditInPlaceValue>
       {status}
     </>
   );

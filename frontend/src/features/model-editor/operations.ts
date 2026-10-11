@@ -12,6 +12,7 @@
 import type { DraftOperation, ModelDraftOutline } from "@/types";
 import type { ActionMenuItem } from "@/ui/ActionMenu";
 import type { IconName } from "@/ui/Icon";
+import { cleaned, type Candidates, type End } from "@/features/model-editor/candidates";
 import {
   applicationsOf,
   attributeTypeOf,
@@ -34,7 +35,7 @@ export type OperationTarget =
   | { on: "relation"; relationType: string; from: string; to: string }
   | { on: "group"; applicationKey: string; group: string };
 
-export type FieldValue = string | boolean | string[];
+export type FieldValue = string | boolean | string[] | Candidates;
 export type FieldValues = Record<string, FieldValue>;
 
 export type OperationField = {
@@ -48,6 +49,8 @@ export type OperationField = {
   | { type: "select"; options: { value: string; label: string }[]; required?: boolean }
   | { type: "checkbox" }
   | { type: "checkboxes"; options: { value: string; label: string }[] }
+  /** Which records a relationship may choose (0.9 K7), per end; an end without a type offers its name. */
+  | { type: "criteria"; ends: Record<End, { typeKey?: string; label: string }> }
 );
 
 export interface OperationSpec {
@@ -72,7 +75,7 @@ export interface OperationSpec {
   build: (values: FieldValues, target: never, outline: ModelDraftOutline) => DraftOperation[];
 }
 
-const VALUE_TYPES = [
+export const VALUE_TYPES = [
   { value: "text", label: "Text" },
   { value: "longText", label: "Long text" },
   { value: "integer", label: "Whole number" },
@@ -98,7 +101,14 @@ export function cardinalityLabel(cardinality: string | null | undefined): string
   return CARDINALITIES.find((item) => item.value === cardinality)?.label ?? cardinality ?? "Many to many";
 }
 
-const text = (values: FieldValues, name: string) => String(values[name] ?? "").trim();
+const text = (values: FieldValues, name: string) => {
+  const value = values[name];
+  return typeof value === "string" ? value.trim() : typeof value === "boolean" ? String(value) : "";
+};
+const criteria = (values: FieldValues, name: string) => {
+  const value = values[name];
+  return value && typeof value === "object" && !Array.isArray(value) ? cleaned(value) : null;
+};
 const flag = (values: FieldValues, name: string) => values[name] === true;
 const optional = (value: string) => (value ? value : undefined);
 const NEW = "__new__";
@@ -762,18 +772,55 @@ export const OPERATIONS: OperationSpec[] = [
         required: true,
       },
       { name: "reverseName", label: "Reverse name", type: "text", required: true },
-    ],
-    initial: (t, o) => ({ name: attributeTypeOf(o, t.attributeType)?.name ?? "" }),
-    build: (values, t) => [
       {
-        kind: "convertAttributeToListType",
-        objectType: t.objectType,
-        attributeType: t.attributeType,
-        name: text(values, "name"),
-        ...(text(values, "pluralName") ? { pluralName: text(values, "pluralName") } : {}),
-        relationType: { name: text(values, "relationName"), reverseName: text(values, "reverseName") },
+        name: "candidates",
+        label: "Which records may be chosen",
+        type: "criteria",
+        ends: {
+          from: {
+            typeKey: t.objectType,
+            label: objectTypeOf(o, t.objectType)?.pluralName ?? typeName(o, t.objectType),
+          },
+          to: { label: "Records of the list" },
+        },
       },
     ],
+    initial: (t, o) => ({ name: attributeTypeOf(o, t.attributeType)?.name ?? "", candidates: {} }),
+    build: (values, t, o) => {
+      // The step names the list type and its relation itself, so the criteria can follow in it.
+      const taken = keysOf(o);
+      const listKey = keyFromLabel(text(values, "name"), taken);
+      const relationKey = keyFromLabel(text(values, "relationName"), new Set([...taken, listKey]));
+      const reverseKey = keyFromLabel(text(values, "reverseName"), new Set([...taken, listKey, relationKey]));
+      const chosen = criteria(values, "candidates");
+      return [
+        {
+          kind: "convertAttributeToListType",
+          objectType: t.objectType,
+          attributeType: t.attributeType,
+          key: listKey,
+          name: text(values, "name"),
+          ...(text(values, "pluralName") ? { pluralName: text(values, "pluralName") } : {}),
+          relationType: {
+            key: relationKey,
+            reverseKey,
+            name: text(values, "relationName"),
+            reverseName: text(values, "reverseName"),
+          },
+        },
+        ...(chosen
+          ? [
+              {
+                kind: "setRelationRule",
+                relationType: relationKey,
+                from: t.objectType,
+                to: listKey,
+                candidates: chosen,
+              },
+            ]
+          : []),
+      ];
+    },
   }),
   spec<On<"attribute">>({
     id: "attribute-up",
@@ -878,6 +925,33 @@ export const OPERATIONS: OperationSpec[] = [
     ],
   }),
   spec<On<"attributeType">>({
+    id: "attribute-type-attach",
+    on: "attributeType",
+    label: "Attach to a type…",
+    title: (t, o) => `Attach ${attributeTypeOf(o, t.attributeType)?.name ?? t.attributeType} to a type`,
+    available: (t, o) => o.objectTypes.some((type) => !attributeTypeOf(o, t.attributeType)?.boundBy.includes(type.key)),
+    fields: (t, o) => [
+      {
+        name: "objectType",
+        label: "Type",
+        type: "select",
+        required: true,
+        options: o.objectTypes
+          .filter((type) => !attributeTypeOf(o, t.attributeType)?.boundBy.includes(type.key))
+          .map((type) => ({ value: type.key, label: type.name })),
+      },
+      { name: "required", label: "Required", type: "checkbox" },
+    ],
+    build: (values, t) => [
+      {
+        kind: "attachAttribute",
+        objectType: text(values, "objectType"),
+        attributeType: t.attributeType,
+        required: flag(values, "required"),
+      },
+    ],
+  }),
+  spec<On<"attributeType">>({
     id: "attribute-type-remove",
     on: "attributeType",
     label: "Remove attribute type",
@@ -926,6 +1000,30 @@ export const OPERATIONS: OperationSpec[] = [
     ],
   }),
   spec<On<"relationType">>({
+    id: "relation-type-allow",
+    on: "relationType",
+    label: "Allow between two types…",
+    title: (t, o) => `Allow ${relationTypeOf(o, t.relationType)?.name ?? t.relationType} between two types`,
+    available: (t, o) => !relationTypeOf(o, t.relationType)?.containment && o.objectTypes.length > 0,
+    fields: (_, o) => [
+      { name: "from", label: "From", type: "select", options: typeOptions(o), required: true },
+      { name: "to", label: "To", type: "select", options: typeOptions(o), required: true },
+      { name: "cardinality", label: "Cardinality", type: "select", options: CARDINALITIES, required: true },
+      { name: "required", label: "Required", type: "checkbox" },
+    ],
+    initial: () => ({ cardinality: "many-to-many" }),
+    build: (values, t) => [
+      {
+        kind: "allowRelation",
+        relationType: t.relationType,
+        from: text(values, "from"),
+        to: text(values, "to"),
+        cardinality: text(values, "cardinality"),
+        required: flag(values, "required"),
+      },
+    ],
+  }),
+  spec<On<"relationType">>({
     id: "relation-type-remove",
     on: "relationType",
     label: "Remove relation type",
@@ -959,6 +1057,50 @@ export const OPERATIONS: OperationSpec[] = [
         to: t.to,
         cardinality: text(values, "cardinality"),
         required: flag(values, "required"),
+      },
+    ],
+  }),
+  spec<On<"relation">>({
+    id: "relation-required",
+    on: "relation",
+    label: (t, o) => (relationOf(t, o)?.required ? "Make optional" : "Make required"),
+    draftOnly: (t, o) => isReleased(relationOf(t, o)?.mark),
+    available: (t, o) => !relationOf(t, o)?.containment,
+    direct: true,
+    build: (_, t, o) => [
+      {
+        kind: "setRelationRule",
+        relationType: t.relationType,
+        from: t.from,
+        to: t.to,
+        required: !relationOf(t, o)?.required,
+      },
+    ],
+  }),
+  spec<On<"relation">>({
+    id: "relation-candidates",
+    on: "relation",
+    label: "Which records may be chosen…",
+    title: (t, o) => `Which records ${relationTypeOf(o, t.relationType)?.name ?? t.relationType} may choose`,
+    fields: (t, o) => [
+      {
+        name: "candidates",
+        label: "Criteria",
+        type: "criteria",
+        ends: {
+          from: { typeKey: t.from, label: objectTypeOf(o, t.from)?.pluralName ?? typeName(o, t.from) },
+          to: { typeKey: t.to, label: objectTypeOf(o, t.to)?.pluralName ?? typeName(o, t.to) },
+        },
+      },
+    ],
+    initial: (t, o) => ({ candidates: (relationOf(t, o)?.candidates ?? {}) as Candidates }),
+    build: (values, t) => [
+      {
+        kind: "setRelationRule",
+        relationType: t.relationType,
+        from: t.from,
+        to: t.to,
+        candidates: criteria(values, "candidates"),
       },
     ],
   }),
@@ -1102,7 +1244,8 @@ present("Add", "plus", [
 ]);
 present("Add", "mapping", ["add-relation-type", "type-allow"]);
 present("Add", "list", ["add-group", "application-add-group"]);
-present("Add", "link", ["type-attach"]);
+present("Add", "link", ["type-attach", "attribute-type-attach"]);
+present("Add", "mapping", ["relation-type-allow"]);
 present("Change", "pencil", [
   "application-rename",
   "type-rename",
@@ -1122,6 +1265,8 @@ present("Change", "lock", [
 present("Change", "toggle", ["attribute-required", "attribute-read-only", "attribute-unique", "group-fold"]);
 present("Change", "type", ["attribute-value-type", "attribute-type-value-type"]);
 present("Change", "sliders", ["attribute-type-features", "relation-rule"]);
+present("Change", "toggle", ["relation-required"]);
+present("Change", "filter", ["relation-candidates"]);
 present("Move", "arrow-right", ["type-move", "attribute-move"]);
 present("Move", "list", ["type-group"]);
 present("Move", "sort-ascending", ["attribute-up", "group-up"]);

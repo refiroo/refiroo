@@ -165,6 +165,7 @@ def build_outline(data: dict[str, Any], base: dict[str, Any] | None) -> dict[str
                 "cardinality": b.get("cardinality"),
                 "required": bool(b.get("required", False)),
                 "containment": b.get("relationTypeKey") in containment,
+                **({"candidates": b["candidates"]} if isinstance(b.get("candidates"), dict) else {}),
                 "mark": mark.relation(b),
             }
             for b in bindings

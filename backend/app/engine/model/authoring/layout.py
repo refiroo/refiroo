@@ -159,23 +159,33 @@ def place_child(document: Document, parent_key: str, child_key: str) -> None:
 
 
 def place_relation(document: Document, relation_key: str, from_key: str) -> None:
-    """Show an allowed relation in its ``from`` type's detail pages."""
+    """Show an allowed relation in its ``from`` type's detail pages: in a plain outgoing relations
+    panel there, or a new one where the page has none (a panel set up for its own records keeps them
+    alone; found in A4a, where a relation joined a translations panel sorted by its language)."""
     for path in detail_paths(document, from_key):
         panels = document.at(path).get("panels") or []
-        panel = next(
-            (
-                p
-                for p in panels
-                if p.get("type") == "relations" and (p.get("config") or {}).get("direction") == "outgoing"
-            ),
-            None,
-        )
+        panel = next((p for p in panels if _plain_outgoing_relations(p)), None)
         if panel is None:
             add_panel(document, path, _relations_panel([relation_key], panels))
         else:
             _append_new(
                 document, path + ["panels", {"key": panel["key"]}, "config", "relationTypeKeys"], relation_key
             )
+
+
+# What a relations panel may hold and still take any relation: its relation types, direction, title
+# and place. A panel with columns, sorts or filters of its own is set up for the records it lists
+# (a translations panel sorted by its language), and another type's relation would break it.
+_PLAIN_RELATIONS_CONFIG = {"relationTypeKeys", "direction", "showRelationshipColumn"}
+
+
+def _plain_outgoing_relations(panel: dict[str, Any]) -> bool:
+    config = panel.get("config") or {}
+    return (
+        panel.get("type") == "relations"
+        and config.get("direction") == "outgoing"
+        and set(config) <= _PLAIN_RELATIONS_CONFIG
+    )
 
 
 def add_panel(document: Document, detail: Path, panel: dict[str, Any], index: int | None = None) -> None:

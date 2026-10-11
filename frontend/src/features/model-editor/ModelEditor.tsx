@@ -316,6 +316,7 @@ export function ModelEditor({
           canDrag={!phone}
           onOperation={operate}
           onSelect={select}
+          run={run}
         />
       )}
     </section>

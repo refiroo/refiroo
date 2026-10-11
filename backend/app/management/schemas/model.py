@@ -480,6 +480,8 @@ class OutlineRelation(BaseModel):
     cardinality: str | None = None
     required: bool
     containment: bool
+    # Which records may be chosen at each end (0.9 K7), as the model declares it; absent without.
+    candidates: dict[str, Any] | None = None
     mark: OutlineMark
 
     model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
