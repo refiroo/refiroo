@@ -372,8 +372,8 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   taken by 0.9 J2; plan D11–D16 accepted 2026-10-11 (D14: interim release after T1); D1–D10, D17–D21 and
   A-D5–A-D9 accepted with the A0 plan the same day.
   - [x] A1 import profile contract and execution: delivered by 0.9 J2 and J3 (2026-10-07).
-  - [ ] A0 design pass: decisions, API design, operation vocabulary, journeys and ADR-041 written
-    (2026-10-11); waiting for the user's approval of the editor mock-up and the W1 sample.
+  - [x] A0 design pass: decisions, API design, operation vocabulary, journeys, ADR-041, the editor
+    mock-up and the W1 sample, approved by the user (2026-10-11).
   - [ ] N1 navigation groups and schema 0.10.
   - [ ] A2 operation API on model drafts: model-side operations, history, undo, default views.
   - [ ] A4a editor: model pane, relationship matrix, install and activate.

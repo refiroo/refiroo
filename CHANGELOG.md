@@ -12,7 +12,8 @@ All notable changes to this project are documented in this file. The format foll
   the model authoring API designed in API.md (draft operations and their kinds, history, undo and
   redo, source files and their profiles, the dry-run summary, inferences); ADR-041, model drafts
   change through recorded operations; journeys J33–J35 and their planned routes in the API
-  inventory; the synthetic workbooks W1–W3 defined in test terms.
+  inventory; the synthetic workbooks W1–W3 defined in test terms; the editor mock-up and the W1
+  sample approved.
 
 ## [0.9.0] - 2026-10-11
 

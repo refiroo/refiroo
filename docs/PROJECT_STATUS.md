@@ -14,9 +14,9 @@ TODO: the backend suite's time over its 5-minute ceiling, three browser runner f
 subqueries to measure, and the recorded read exceptions. Schema 0.9 is released with it (D206). The
 version strings and the tag (`v0.9.0`) follow the user's instruction (D207). Next is 0.10, planned on
 2026-10-11 ([plan](BASE_0_10_IMPLEMENTATION_PLAN.md)): the model designer first, then spreadsheet
-onboarding, starting with the A0 design pass. **A0's documents are written (2026-10-11):** its
-decisions accepted, the API design, ADR-041 and journeys J33–J35; it is complete once the user
-approves the editor mock-up and the W1 sample.
+onboarding, starting with the A0 design pass. **A0 is delivered (2026-10-11):** its decisions
+accepted, the API design, ADR-041, journeys J33–J35, and the editor mock-up and W1 sample approved
+by the user. Next is N1, navigation groups and schema 0.10.
 
 ### How 0.9 was built
 

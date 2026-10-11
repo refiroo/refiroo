@@ -9,7 +9,7 @@ D17–D21 and A-D5–A-D9 were accepted with the [A0 plan](#a0-plan-2026-10-11) 
 T1, A3, A5–A8 and R are specified below at package level; each package's detailed plan, test cases
 and decisions are written and accepted when it starts, and it is delivered in the order of the
 [delivery queue](#delivery-queue), each by the [delivery steps](#how-a-package-is-delivered).
-**Delivered:** none yet.
+**Delivered:** A0 (2026-10-11).
 
 **Target:** Product 0.10.0, [model authoring and spreadsheet onboarding](ROADMAP.md#product-release-010--model-authoring-and-spreadsheet-onboarding).
 The `navigation` declaration (A-D2) extends the model, so 0.10 opens the next schema language version
@@ -225,7 +225,7 @@ migration), `contract` (every route change) and `volume` (every budget).
 | # | Package | Needs | Scope in one line |
 | --- | --- | --- | --- |
 | 0 | — | 0.9.0 released | **Met 2026-10-11**, tag `v0.9.0` |
-| 1 | [A0](#a0-design-pass) | — | Decisions D1–D10 and A-D5–A-D9; API design; operation vocabulary; journeys; mock-ups of the editor; workbook shapes |
+| 1 | [A0](#a0-design-pass) | — | **Delivered 2026-10-11.** Decisions D1–D10 and A-D5–A-D9; API design; operation vocabulary; journeys; mock-ups of the editor; workbook shapes |
 | 2 | [N1](#n1-navigation-groups-and-schema-010) | A0 | Schema 0.10 with `navigation`; sidebar groups and the group page |
 | 3 | [A2](#a2-operation-api-on-model-drafts) | A0, N1 | `POST …/operations`, history, undo and redo; the model-side catalogue; generated defaults for new types |
 | 4 | [A4a](#a4a-editor--model-pane) | A2 | The editor frame and model pane, relationship matrix, issues, history, install and activate |
@@ -459,8 +459,9 @@ door is affected.
 
 ##### A0 record (2026-10-11)
 
-**Documents written 2026-10-11; waiting for the user's approval of the mock-up and the W1 sample.**
-A0 is complete when both are approved (and revised, if asked).
+**Delivered 2026-10-11.** The user approved the mock-up and the W1 sample the same day ("all is
+good"), without changes; the editor's layout is the one A4a builds on, and W1's shape is the one A3's
+generator writes.
 
 - **Decisions:** D1–D10, D17–D21 and A-D5–A-D9 accepted as recommended, recorded in the decisions
   table and in MODEL_AUTHORING. Package scopes amended: N1 (D1's refusal below 0.10), A2 (D17's
@@ -492,8 +493,8 @@ A0 is complete when both are approved (and revised, if asked).
 
 **Checks:** `pytest tests/test_api_journeys.py`: 5 passed (the inventory with the planned routes, and
 every journey it cites). **Not done:** the mock-up was not opened at 1440px and 390px in light and
-dark before it was shown, because no browser tool was available in this session; its rendering is
-unverified until the user looks at it. Links were checked by hand for the anchors added (the API.md
+dark before it was shown, because no browser tool was available in this session; the user then
+looked at it and approved it. Links were checked by hand for the anchors added (the API.md
 heading was named "Draft operations" so the existing restructuring "Operations" anchor stays as it
 was). No product code; no other suite.
 
@@ -828,4 +829,5 @@ Design-level decisions are [A-D1–A-D12](MODEL_AUTHORING.md#open-decisions).
 
 ## Next
 
-1. A0: the [A0 plan](#a0-plan-2026-10-11) is written; on its acceptance, the decisions, API design, journeys and the editor mock-up.
+1. N1: navigation groups and schema 0.10 (A0 delivered 2026-10-11). A3 may fill the wait for N1's
+   screenshot approval.
