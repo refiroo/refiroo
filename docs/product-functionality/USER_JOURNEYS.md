@@ -46,6 +46,7 @@ background jobs are J24, the change feed J26 and supplier files J27.
 | Relationship sets and coverage | J10 replace a record's related records, J16 coverage across ancestors (J09 retired) |
 | Change sets and history (designer) | J05 prepare and publish, J06 live beside a change set, J07 withdraw and restart from history, J17 review changes, J18 next model version |
 | Administration | J08 model release, J19 workspaces, J25 consumer API definition |
+| Model authoring | J33 design a model in the editor, J34 onboard a workbook, J35 load the next version of a workbook |
 | Integration | J11 bulk change, J20 discover, J21 read completely, J22 precise dataset, J23 business date, J24 background job, J26 follow changes, J27 supplier file, J28 consumer read, J29 consumer lookup, J30 consumer events |
 | Operations | J12 run, refuse and recover, J31 check the deployment |
 
@@ -674,7 +675,8 @@ selects nothing. Read-only inspection and export stay available when administrat
   after activation is refused; activation does not wait for the workspace lock.
 - **J08.7 Export a release** (with its model) to reuse elsewhere.
 - **J08.8 Read the activation history** of a release.
-- **J08.9 Read a model draft's history** (planned, decided D-5).
+- **J08.9 Read a model draft's history** (planned, decided D-5): the draft's operation history
+  (0.10 A2, ADR-041), every step with its kind, parameters, inverse and time.
 - **J08.10 A release dropping and restoring `unique`**: records may share a value while the
   attribute is not unique; restoring it is refused while they do, and holds the value once active.
 - **J08.11 A binding tightened to many-to-one** (0.9 K3a): a release that makes a binding
@@ -782,6 +784,121 @@ A list may name a `sortBy` attribute: a scalar attribute its type binds, refused
 document with `consumerApis`), `409 CONSUMER_CONTRACT_VERSION_REQUIRED`.
 
 **Evidence today:** `test_consumer_api_model`; the J25 journey tests.
+
+## Model authoring
+
+Product 0.10 ([plan](../BASE_0_10_IMPLEMENTATION_PLAN.md),
+[MODEL_AUTHORING](../MODEL_AUTHORING.md)). One editor over a model draft. Every change is an operation
+the API accepts from any client ([API.md § Model authoring](../API.md#model-authoring-product-010-designed));
+the browser editor is one client. The model lifecycle of J08 is unchanged: a draft, an immutable
+release, an activation. Data from a workbook arrives through J27's import, in a change set reviewed
+by J17. Each journey runs on two models that differ in keys and shape: the example model with every
+key renamed, and the generated model B (D20); the workbook journeys on the synthetic workbooks W1
+and W2.
+
+### J33 — Design a model in the editor
+
+**Actor:** model administrator. **Channel:** UI (Settings › Model › Open in editor), API.
+**Stories:** US-P05 (additive and draft-only operations). **Scenario:** SC-12.
+**Status:** planned: navigation groups N1, operations A2, editor A4a and A4b.
+
+1. Open a draft of the active release, or an empty one, in the editor.
+2. Change the model by operations: applications, object types in their containment tree, attributes,
+   relation types and the relations allowed between types, navigation groups, views and panels.
+3. Read the issues after each step and the history of every step; undo and redo.
+4. Install and activate in one confirmed step, with the release version, the differences and the
+   compatibility result shown.
+5. Work with records of the new or changed types.
+
+Keys are free to change until an element is released (in the draft's base release); after that only
+its labels change, and a change that needs a migration is refused with its impact. A draft may be
+invalid between steps; installation refuses an invalid draft as J08 does.
+
+**Variants:**
+
+- **J33.1 From an empty draft**: an application with types, attributes, a relation and a group, built
+  by operations alone, installs, activates and holds records.
+- **J33.2 Extend the active model**: types and attributes added beside released ones; the released
+  ones marked as released.
+- **J33.3 Generated layout**: a new type gets a table view and a detail page from the server; an
+  attribute attached or a relation allowed appears in them.
+- **J33.4 Undo and redo** a step; a new step clears what can be redone.
+- **J33.5 An undo with dependants** is refused naming them; undoing them together succeeds.
+- **J33.6 A stale editor**: a step at an old version is refused with the steps applied since.
+- **J33.7 A released element**: a key change, a removal or a split of a released element is refused
+  `OPERATION_REQUIRES_MIGRATION` with its impact; nothing of the request applies.
+- **J33.8 A request that cannot apply** (an unknown element, a key taken) applies nothing.
+- **J33.9 Group collections**: groups declared on an application show as sidebar sections and a
+  group page with a search; collections in no group keep their place (N1).
+- **J33.10 Lay out a type** in the preview: panels ordered, shown or hidden; a table view's columns,
+  filters and sort; field order. The record screen shows the same layout after activation (A4b).
+- **J33.11 Keyboard alone and 390px**: every drag has its Move to… path; the panes become tabs.
+- **J33.12 A whole-model edit** in the JSON workbench is recorded as one step, and operations continue
+  on the edited model.
+
+**Refusals:** `422 INVALID_OPERATION`, `409 OPERATION_REQUIRES_MIGRATION`,
+`409 OPERATION_HAS_DEPENDANTS`, `409 NOTHING_TO_UNDO`, `409 NOTHING_TO_REDO`, `409 VERSION_CONFLICT`,
+`413 OPERATION_BATCH_TOO_LARGE`, `404 MODEL_DRAFT_NOT_FOUND`; J08's refusals at installation and
+activation; with administration disabled the routes are absent.
+
+**Evidence today:** none (planned).
+
+### J34 — Onboard a workbook
+
+**Actor:** model administrator. **Channel:** UI (the editor with a workbook), API.
+**Stories:** US-P09. **Scenario:** SC-12. **Status:** planned: profiling A3, editor with a source
+file A5, inference A6; model-description sheets A7 and sheets laid out for reading A8 (below the
+cut line).
+
+1. Upload a workbook to a new or open draft; read its sheets, blocks and column statistics.
+2. Accept, change or reject the proposed model and mapping, or map by hand.
+3. After every step read the dry-run summary and the rows behind each figure.
+4. Install and activate; load the workbook through an import job into a new change set.
+5. Review the change set (J17) and publish it.
+
+**Variants:**
+
+- **J34.1 Upload and profile**: header rows, blocks and per-column statistics, paged.
+- **J34.2 Map by hand**: columns to attributes, parents, relations, related records; values mapped;
+  a column ignored.
+- **J34.3 The dry run follows the editing**: after a rename, a move or a value map, the summary and
+  its difference from the last one; a sample above the row limit, the full run on request.
+- **J34.4 Proposals**: each table pattern proposed with its evidence; accepted, changed or rejected;
+  nothing applied unasked.
+- **J34.5 Extend the active model**: columns matched to existing types and attributes, not duplicated.
+- **J34.6 Pinned decisions**: re-inference after edits reports disagreements and changes nothing pinned.
+- **J34.7 The profile follows the model**: a rename, move, split or merge after mapping keeps the
+  draft's profile valid.
+- **J34.8 Load into a change set**, review it and publish it.
+- **J34.9 A model-description workbook** (A7) and **J34.10 a sheet of lists laid out for reading**
+  (A8).
+
+**Refusals:** `413 IMPORT_TOO_LARGE`, `422 UNSUPPORTED_FILE_FORMAT`, `404 SOURCE_FILE_NOT_FOUND`,
+`409 SOURCE_FILE_PROFILE_NOT_READY`; J33's refusals for operations; J27's for the import.
+
+**Evidence today:** none (planned).
+
+### J35 — Load the next version of a workbook
+
+**Actor:** model administrator; data steward. **Channel:** UI, API. **Stories:** US-P10.
+**Status:** planned (A5).
+
+1. Upload the next version of a workbook to its saved profile.
+2. Read what differs before loading: new, missing and renamed columns, new list values, name drift,
+   records missing from the new version.
+3. Load into a new change set and review only the differences.
+
+**Variants:**
+
+- **J35.1 Differences first**: nothing loads before the report is read.
+- **J35.2 Missing records** are reported and kept; retired or deleted only when the profile says so,
+  in the change set.
+- **J35.3 A profile against a newer release**: re-checked, with every binding that no longer resolves
+  at its path.
+
+**Refusals:** J27's import refusals; `422 INVALID_IMPORT_PROFILE` with its problems.
+
+**Evidence today:** none (planned).
 
 ## Integration
 

@@ -1,7 +1,7 @@
 # Model authoring and spreadsheet onboarding (Product 0.10)
 
 Status: design direction accepted 2026-09-29 ([ADR-035](DECISIONS.md#adr-035--model-authoring-is-an-editor-of-operations-on-a-model-draft-a-spreadsheet-is-one-way-to-start-it)).
-Decisions are listed at the end (A-D1 to A-D3 decided; A-D4 and A-D10 taken by 0.9 J2; A-D11 and A-D12 open but non-blocking; the others open). The packages, sequence and acceptance are in the
+Decisions are listed at the end (A-D1 to A-D3 decided; A-D4 and A-D10 taken by 0.9 J2; A-D5 to A-D9 decided in 0.10 A0; A-D11 and A-D12 open but non-blocking). The packages, sequence and acceptance are in the
 [Base 0.10 plan](BASE_0_10_IMPLEMENTATION_PLAN.md) (2026-10-11, the designer first); the
 [roadmap](ROADMAP.md#product-release-010--model-authoring-and-spreadsheet-onboarding) places the
 release after 0.9, whose import jobs (Track J) this design builds on.
@@ -80,8 +80,8 @@ allowed pairs; generic detail panels). This design removes the reason for the fi
   moved attribute never leaves a profile pointing at something that no longer exists.
 - **Operation.** One typed edit: rename, remap, move, split, merge and so on (see the catalogue). Applied
   with the draft's expected version, validated, then appended to the draft's operation history.
-- **Source file.** An uploaded workbook or CSV file, stored as a 0.9 job file (D12) with its checksum,
-  and its **profile**: sheets, header rows, blocks, columns and their statistics.
+- **Source file.** An uploaded workbook or CSV file, a resource of its own owned by a draft or a
+  profile and kept in the job file directory (0.10 plan D5), with its checksum, and its **profile**: sheets, header rows, blocks, columns and their statistics.
 - **Import profile.** The declarative mapping from a source file's sheets and columns to model elements.
   It is what the 0.9 import job executes, and it replaces the per-upload script.
 - **Inference.** Detects patterns in a source profile and proposes operations. Its proposals are
@@ -348,7 +348,11 @@ Groups have one level, and the group page shows no record counts. Both are non-b
 
 ## API outline
 
-Routes are fixed when their packages are written; the outline shows the resources:
+The design is in [API.md § Model authoring](API.md#model-authoring-product-010-designed) (0.10 A0,
+2026-10-11), with [ADR-041](DECISIONS.md#adr-041--model-drafts-change-through-recorded-operations); it differs from
+this outline in three places: undo and redo are routes of their own, a source file is a resource
+owned by a draft or a profile rather than a job file (plan D5), and install and activate stay the two
+existing routes. The outline as first written:
 
 - `POST /api/v1/model-drafts/{draftId}/operations` — apply operations at `expectedVersion`; returns the new
   draft version, diagnostics and the dry-run summary of every attached source file.
@@ -429,11 +433,11 @@ The recommendation is the planning default.
 | A-D2 | Navigation with many small list types | **Decided 2026-09-29:** model-declared navigation groups on the application ([Navigation groups](#navigation-groups)); not a container record type, a separate application or automatic grouping. One level, no record counts on the group page (A-D11, A-D12); optional field in 0.10's first schema language version |
 | A-D3 | Where profiles live | **Decided 2026-09-29:** stored resources that name a model release and are re-checked on use; not part of the model release, so a changed mapping needs no model release |
 | A-D4 | File formats | **Taken by 0.9 J2 (D64–D74):** XLSX, CSV and JSON Lines. No legacy `.xls` (convert first). Values as stored, formulas not evaluated |
-| A-D5 | Optional assistant | Off by default and pluggable. It receives headers and a bounded sample only when configured; its output is proposals |
-| A-D6 | Keys of new elements | Generated from labels, editable until the element is installed |
-| A-D7 | Records missing from a new version | Reported; retire or delete only when the profile says so, in a change set |
-| A-D8 | Install and activate from the editor | One confirmed step running both, refused on any diagnostic, with the compatibility check shown |
-| A-D9 | Sheets laid out for reading (A8) | Blocks detected and proposed; the administrator confirms each block. Colour and formatting carry no meaning |
+| A-D5 | Optional assistant | **Decided 2026-10-11 (0.10 A0):** off by default and pluggable. It receives headers and a bounded sample only when configured; its output is proposals. Only its interface is in 0.10 (A6) |
+| A-D6 | Keys of new elements | **Decided 2026-10-11 (0.10 A0):** generated from labels (lower-case, hyphen-separated ASCII, accents dropped, `-2`, `-3` on a clash), editable until the element is released, that is, in the draft's base release (plan D17) |
+| A-D7 | Records missing from a new version | **Decided 2026-10-11 (0.10 A0):** reported; retire or delete only when the profile says so, in a change set |
+| A-D8 | Install and activate from the editor | **Decided 2026-10-11 (0.10 A0):** one confirmed step running both, refused on any diagnostic, with the compatibility check and the release version (plan D18) shown |
+| A-D9 | Sheets laid out for reading (A8) | **Decided 2026-10-11 (0.10 A0):** blocks detected and proposed; the administrator confirms each block. Colour and formatting carry no meaning |
 | A-D10 | XLSX reader | **Taken by 0.9 J2:** `openpyxl` (MIT), read-only mode, values not formulas; licence recorded in LICENSING_TODO |
 | A-D11 | Nested navigation groups | **Open, non-blocking.** One level in 0.10; nesting only when a real model needs it beyond a group page and search |
 | A-D12 | Record counts on the group page | **Open, non-blocking.** None in 0.10; later only as a bounded read, since a count per collection on every page view has a cost |

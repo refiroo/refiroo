@@ -1555,3 +1555,44 @@ look E: the current app's structure with the "Atlas" colour system.
   right.
 - The design before UA is kept at the git tag `ui-before-atlas`, so it can be compared or restored;
   how is in [UA's revert point](SETTINGS_AND_UI_PLAN.md#ua-the-atlas-redesign).
+
+## ADR-041 — Model drafts change through recorded operations
+
+**Status:** Accepted, 2026-10-11, by the user with the
+[Base 0.10 A0 plan](BASE_0_10_IMPLEMENTATION_PLAN.md#a0-plan-2026-10-11) (D4, D17, D19). Builds on
+[ADR-035](#adr-035--model-authoring-is-an-editor-of-operations-on-a-model-draft-a-spreadsheet-is-one-way-to-start-it).
+The contract is in [API.md § Model authoring](API.md#model-authoring-product-010-designed).
+
+### Motivation
+
+ADR-035 made the editor an editor of operations. Undo, redo, a stale editor catching up, inference
+proposals and a profile following a renamed element all need the same thing: each change to a draft
+as a typed record with what it changed and how to take it back. Until 0.10 a draft changed only by a
+whole-model `PATCH`, and its audit events record which top-level fields changed, not how.
+
+### Decision
+
+- **Every change to a draft is an operation stored in the draft's history**: kind, parameters,
+  inverse, draft version, author and time, grouped in steps (one request, one step). A whole-model
+  `PATCH` is recorded as one `replaceModel` operation with the previous model as its inverse, so
+  the history is complete whichever client wrote.
+- **The inverse is stored when the operation is applied**, not derived later, so undo never depends
+  on the model staying as it was. Undo and redo are new steps that apply inverses; nothing in the
+  history is rewritten.
+- **The history belongs to the draft** and is deleted with it. A release keeps none: it is an
+  immutable snapshot, and its differences from another release are the semantic diff.
+- **Elements are named by key** in operations, never by position, so an operation means the same
+  after the model around it changed.
+- **What is released is decided against the draft's base release**, and an installation makes the
+  release it created the new base.
+- **The server produces layout changes**: generated views and panels for a new type, and the
+  placement of an attached attribute or allowed relation, so every client gets the same model from
+  the same operations.
+
+### Consequences
+
+- The editor never writes model JSON; integrators can drive the same changes through the API.
+- Operations may leave a draft invalid between steps; validation stays the compiler's and installation
+  refuses an invalid draft as before.
+- Migration-class changes (1.0) are new kinds in the same history, applied through ADR-034's
+  restructuring of records.

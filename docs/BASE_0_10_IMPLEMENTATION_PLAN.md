@@ -4,8 +4,8 @@
 designer line comes first** (D11, requested by the user 2026-10-11): the editor opened on a model,
 without a workbook, is built and checked before the spreadsheet profiling, mapping and inference it
 later hosts. A-D1–A-D3 are decided; A-D4 and A-D10 were taken by 0.9 J2 (D64–D74); **D11–D16 are
-accepted by the user (2026-10-11)**, D14 changed to tag an interim release after T1; D1–D10 and
-A-D5–A-D9 are open with a recommendation and are settled in A0. Work packages A0, N1, A2, A4a, A4b,
+accepted by the user (2026-10-11)**, D14 changed to tag an interim release after T1; **D1–D10,
+D17–D21 and A-D5–A-D9 were accepted with the [A0 plan](#a0-plan-2026-10-11) the same day.** Work packages A0, N1, A2, A4a, A4b,
 T1, A3, A5–A8 and R are specified below at package level; each package's detailed plan, test cases
 and decisions are written and accepted when it starts, and it is delivered in the order of the
 [delivery queue](#delivery-queue), each by the [delivery steps](#how-a-package-is-delivered).
@@ -272,8 +272,29 @@ workbook helpers in the import tests.
   separated by empty columns; some with a column per language, some with Y/N flags per item, some with
   a "multiple answers" note under the header.
 
-The designer packages need no workbook: they run on the starter model with its keys renamed and on a
-second, differently shaped generated model. The spreadsheet journeys run on W1 and W2, A8's on W3.
+**In test terms** (A0, 2026-10-11). A generator takes a seed and a size and writes the workbook;
+tests name these structures, never a header text, as the journey configurations do. Headers are
+plain business words in an invented neutral domain.
+
+- **W1**, sheet `S1` (one row per record, `n` rows, default 200): `K` the key (unique, fully filled,
+  code-like); `N` the name; `P` a parent name repeated per row (about `n/15` distinct) with `Po` (its
+  sort order) and `Pi` (its external ID), both constant per `P`; `T` a text lookup (about 8 distinct)
+  with `N/A` and `-` on about 5% of rows; `Lc` and `Ln` a code and name pair (about 6 codes) where
+  two codes each carry two different names; `F1`, `F2` two Y/N columns and `Fo` a text column, `;`
+  separated on some rows, together naming members of one set; `X` a GUID per row (an external
+  system's ID). Sheet `S2`: `K`, `Lang` (7 language codes) and `N` translated, one row per record and
+  language, one `N` differing from `S1`'s for its language.
+- **W1′** = W1 with 5 records changed, 3 added, 2 missing, one new `T` value, one new column `Y`, and
+  `Ln` renamed.
+- **W2**: sheet `D` (columns field code, field type, lookup target) describing W1's `T`, `Lc` and
+  flag set; one sheet per lookup with ID and name; `?` IDs, one list marked "to be defined", names
+  drifting from W1 for the same IDs, and only part of W1's IDs present.
+- **W3**: one sheet with 20–40 blocks (`B`), each a header and values, side by side, separated by
+  empty columns, under section and group header rows; some blocks with a column per language, some
+  with Y/N columns per item, some with a "multiple answers" note under the header.
+
+The designer packages need no workbook: they run on the starter model with its keys renamed and on
+the journey configuration `generated-b` (D20). The spreadsheet journeys run on W1 and W2, A8's on W3.
 
 ## A0: Design pass
 
@@ -295,6 +316,187 @@ package scopes confirmed or adjusted here.
 
 **Checks:** documentation and a throwaway mock-up, removed afterwards; no product code.
 
+##### A0 plan (2026-10-11)
+
+**Planned 2026-10-11; accepted by the user the same day ("you can go ahead"), every decision as
+recommended.** Checked
+against the code at `29aac8e`:
+
+- **Drafts** (`engine/model/drafts.py`, `model_drafts`): a draft has `version`, `model_json` and an
+  optional `base_model_release_id`. Its lifecycle is written to `audit_events` (`model_draft`
+  created, updated, deleted, with a summary of the changed fields), but nothing reads that as the
+  draft's history: J08.9, "read a model draft's history", is planned and unbuilt (API_JOURNEYS D-5).
+- **Installation** (`POST /model-drafts/{id}/installation`) leaves the draft as it was: open,
+  editable, its base release unchanged. Installing the same `release.key` and `release.version` with
+  different content is `409 RELEASE_IDENTITY_CONFLICT`; the release identity (`key`, `name`,
+  `version`) sits in the model document.
+- **Compile** diffs the draft against its base release, or the active release when it has none
+  (`semantic_diff`), and runs the compatibility check against the active release. This is what the
+  editor's new, changed and released marks and the draft-only check can stand on.
+- **Gate:** `MODEL_ADMIN_MUTATIONS_ENABLED`, which requires `WEB_CONCURRENCY=1`; installation runs
+  under an in-process lock and takes the draft row `FOR UPDATE`.
+- **Schema:** `schemaVersion` accepts 0.5–0.9. `ApplicationDefinition` allows extra members, so a
+  0.9 document holding `navigation` is accepted today and the member is ignored.
+- **Job files** (`engine/jobs/files.py`) are named after their job and live only as long as it:
+  an import's upload goes when its job finishes, and `reconcile` deletes any file without a job.
+  Nothing there can hold a file a draft keeps for weeks.
+- **Test models:** journey tests run on `generated-a`, `generated-b` and the example
+  (`tests/journeys/configurations.py`), named by structure (`R`, `H`, `P`/`C`, `Bnn`, …).
+- **Frontend:** the JSON workbench (`features/model-admin/ModelWorkbench.tsx`,
+  `ModelDraftEditor.tsx`) in Settings › Model; `RelationMatrixView` is a records grid that pages
+  records and cell states from the server, not a grid of types.
+- **Inventory check** (`tests/test_api_journeys.py`) requires every served route, parameter, code and
+  setting to be listed, and every journey the inventory cites to exist. Planned routes may be listed
+  before they exist.
+
+**What A0 produces**, in this order, each with its approval point:
+
+1. **Decisions.** The user accepts or changes D1–D10, the new D17–D21 and A-D5–A-D9 below. They are
+   then recorded here and in MODEL_AUTHORING, and the package scopes are amended where a decision
+   changes them (listed with each decision).
+2. **The operation vocabulary** in API.md, under a "Designed for 0.10" heading that each package
+   moves into "delivered". It has one row per kind, with its parameters, inverse, class and profile
+   side (A5). The first cut is below. The final list is written against `models/schema.py`, so every
+   kind names a real model element.
+3. **The API design** in API.md's style: operations and history, source files and their profiles,
+   the dry-run summary and inference proposals. It is written at contract level (routes, bodies,
+   codes, paging, limits); the field-level detail of A3's and A6's parts is finished in those
+   packages' plans.
+4. **Journeys.** USER_JOURNEYS gains J33, J34 and J35 (below), and J08.9 is pointed at the operation
+   history. API_JOURNEYS gains the planned routes, codes and settings with their journeys.
+5. **The editor mock-up**, published as a claude.ai artifact as U1's mock-ups were: clickable, built
+   on the Atlas tokens, light and dark, 1440px and 390px. It uses an invented neutral domain, not the
+   example model. The user approves it, possibly after revisions, and the approved link is recorded
+   here.
+6. **The workbook shapes** W1–W3 written out in test terms (structures, as `configurations.py` names
+   them), plus a one-sheet sample of W1's main sheet (about 20 rows) for the user to open in their
+   own spreadsheet program before the shape is fixed.
+7. **ADR-041** if D4 is accepted as recommended.
+8. **The A0 record**: the decisions as taken, the mock-up link, the scope amendments, and the checks.
+
+**Mock-up screens** (one artifact, switchable):
+
+- The editor opened on a draft of the active release: model pane (applications, the containment
+  tree, a type's attributes, relation types), preview, issues and history; new, changed and released
+  marks; the source and mapping panes shown as the places A5 fills.
+- The relationship matrix of allowed relations between types: a cell's menu to allow or remove a
+  relation and set its cardinality.
+- The editor with a workbook (A5's layout): source, mapping, model and preview together, with the
+  dry-run summary and its difference after an operation.
+- Keyboard paths: Move to… for an attribute and for a type, the context menu with the operations for
+  the selected element, undo and redo.
+- Install and activate as one confirmed step: the release version (D18), the differences and the
+  compatibility result.
+- 390px: the panes as tabs, the same editor reachable.
+
+**Operation vocabulary, first cut** (model side; mapping and value kinds are A5's and written in A0
+only by name):
+
+| Group | Kinds | Class |
+| --- | --- | --- |
+| Names | `setLabel` (any element) · `setKey` (any element) | additive · draft-only |
+| Release | `setRelease` (key, name, version; D18) | additive |
+| Applications | `addApplication` · `removeApplication` | additive · draft-only |
+| Types | `addObjectType` (with generated views and panels) · `removeObjectType` · `splitObjectType` · `mergeObjectTypes` · `convertAttributeToListType` | additive · draft-only ×4 |
+| Attributes | `addAttributeType` · `attachAttribute` · `detachAttribute` · `moveAttribute` · `setValueType` · `setAttributeRule` (required, unique) | additive ×2 · draft-only ×4 |
+| Structure | `setContainment` · `addRelationType` · `allowRelation` · `disallowRelation` · `setRelationRule` (cardinality, required) | draft-only · additive ×2 · draft-only ×2 |
+| Views and panels | `addView` · `removeView` · `insertViewItem` · `moveViewItem` · `removeViewItem` · `setViewProperty` (D19) | additive |
+| Navigation | `addNavigationGroup` · `removeNavigationGroup` · `setNavigationGroup` · `placeCollection` | additive |
+| Whole model | `replaceModel` (written by `PATCH`, never sent by the editor) | — |
+
+Every kind's inverse is a kind of this table, or the stored prior state of the element it replaced
+(`replaceModel`, `removeObjectType`, `mergeObjectTypes`).
+
+**Journeys** (wording final in USER_JOURNEYS; the variants are the ones the packages' test cases
+will walk):
+
+- **J33 Design a model in the editor** (US-P05; A2, A4a, A4b, N1). Variants: build an application
+  from an empty draft; extend the active model; undo and redo; an undo with dependants; a stale
+  version answered with the newer operations; a draft-only operation on a released element refused
+  with its impact; group collections; lay out a type's table and detail page; install and activate,
+  then work with records of the new type.
+- **J34 Onboard a workbook** (US-P09; A3, A5, A6). Variants: upload and profile; accept, change and
+  reject proposals; map by hand; the dry run after an operation; load into a change set and review
+  it; extend the active model rather than duplicate it.
+- **J35 Load the next version of a workbook** (US-P10; A5). Variants: differences reported before
+  loading (new, missing and renamed columns, new values, drift); missing records reported and kept;
+  only the differences in the change set review.
+- **J08.9** (planned) becomes the operation history read, delivered by A2.
+
+**Decisions** (accepted 2026-10-11). D1–D10 are the plan's, restated where the code changed the
+recommendation; D17–D21 are new from the check above.
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D1 | Schema language version | **As planned, with one addition.** 0.10 adds only the optional `navigation` member, and earlier versions stay valid. The addition: below 0.10 a `navigation` member is refused at its pointer, as 0.9 K5 refused `related:` below 0.9. Today an application allows extra members, so without this a 0.9 document carrying `navigation` would be accepted and the groups would silently do nothing. Amends N1's tests |
+| D2 | Cut line | As planned: A7 and A8 first, then A6 |
+| D3 | Starter model | As planned: unchanged unless a group improves it |
+| D4 | Where operation history lives | **As planned, with its relation to the audit stated.** A `model_draft_operations` table (kind, parameters, inverse, author, time, draft version), paged, deleted with its draft. It is the answer to J08.9. The audit events stay as they are (API_JOURNEYS D-5 decided to keep capturing them); the history adds what they lack, the parameters and inverse of each change. Recorded as ADR-041 ("model drafts change only through recorded operations"), since every later authoring package builds on it |
+| D5 | Source files | **Changed: a resource of its own, not job files.** Job files live and die with their job (checked above), and a source file belongs to a draft or a profile for as long as they exist. Proposed: a `source_files` row (owner, name, format, size, SHA-256) with the file in `JOB_FILE_DIR` under its own name, `IMPORT_MAX_BYTES` as the limit, `reconcile` taught its names, the latest file per owner kept and older ones removed after the job retention period. An import may then name a stored source file instead of sending it again. Amends A3's scope (the table, the reconcile rule) and A5's (the load names the file) |
+| D6 | Capability gates | **As planned.** Operations, inference, install and activate under `MODEL_ADMIN_MUTATIONS_ENABLED`; uploading source files, profiling and dry runs (jobs) also under `INTEGRATION_JOBS_ENABLED`. The editor with a workbook needs both settings; without the second, its workbook actions are absent, as other routes are |
+| D7 | Where the editor lives | **As planned, inside the one frame.** Opened from Settings › Model ("Open in editor") and later "New from a workbook", as its own route rendered in `ShellFrame` under `TopBar` with the settings navigation out of the way. It is not a second frame (U-D14) and not a new top-level destination |
+| D8 | Undo with dependants | **As planned, with "depends" defined.** A later operation depends on an earlier one when it names an element the earlier one created or re-keyed. The undo is refused with `OPERATION_HAS_DEPENDANTS` listing them; the client may undo them together. A new operation clears the redo list |
+| D9 | Interactive dry-run budget | As planned: 1 s up to 10,000 rows on this machine, a deterministic sample above that, measured once in A3 |
+| D10 | Concurrent editors | As planned: optimistic versions only |
+| D17 | What counts as released, for the draft-only class | **The draft's base release, or the active release when it has none; installing a draft makes the release it created its new base.** Today a draft stays open with its old base after it is installed, so without the rebase a key installed a minute ago could still be renamed as if it were new. With it, carrying on in the same draft after installing means preparing the next version. Amends A2 (the rebase at installation, the class check against the base) |
+| D18 | The release identity in the editor | **A `setRelease` operation; the install-and-activate step proposes the next version and the user can edit it.** Installing the same key and version with different content is refused today, so the designer must change the version before every install. The step suggests the base release's version with its last number raised by one, and the change is recorded as an operation like any other. Amends A2 and A4a |
+| D19 | How views and panels are edited | **A few generic verbs over a view's or panel's named lists** (`insertViewItem`, `moveViewItem`, `removeViewItem` on `columns`, `filterFields`, `sortFields`, panels, fields) **and `setViewProperty` for single values,** addressed by the view's key and the list's name. One kind per view type and setting would multiply kinds every time a view type gains a setting. Replacing a whole view declaration would leave the layout to the editor, against principle 2 (the server produces layout changes). The existing validators check the result. Amends A2 and A4b |
+| D20 | The two designer models | **The example model with every key renamed, and `generated-b`.** The journey configurations already keep `generated-b` different in shape and keys, so a second generator would add test machinery and no coverage. The renamed example shows that no code depends on its keys. Amends the "designer packages" paragraph under Acceptance workbooks |
+| D21 | Where the mock-up lives | **A claude.ai artifact, as U1's mock-ups were.** It can be opened from any device and leaves nothing in the repository. The approved link is recorded in the A0 record |
+| A-D5 | Optional assistant | As MODEL_AUTHORING recommends: off by default, pluggable, receives headers and a bounded sample only when configured, and returns proposals. Only its interface is in 0.10 (A6) |
+| A-D6 | Keys of new elements | As recommended, with the rule fixed: lower-case, hyphen-separated ASCII from the label (accents dropped), `-2`, `-3` on a clash, editable until released (D17) |
+| A-D7 | Records missing from a new version | As recommended: reported; retired or deleted only when the profile says so, in a change set |
+| A-D8 | Install and activate from the editor | As recommended, with D18's version in the confirmation |
+| A-D9 | Sheets laid out for reading | As recommended: blocks proposed, each confirmed; colour and formatting carry no meaning |
+
+**Checks.** Documentation only: `pytest tests/test_api_journeys.py` (the inventory and the journey
+IDs it cites), the links in every changed document, and the mock-up opened at 1440px and 390px in
+light and dark before it is shown. No product code and no other suite.
+
+**Composable domains (ADR-032):** A0 changes only documents. D5 touches inbound flow (a stored
+source file an import can name), which leaves the door open: the import itself is unchanged. No
+door is affected.
+
+##### A0 record (2026-10-11)
+
+**Documents written 2026-10-11; waiting for the user's approval of the mock-up and the W1 sample.**
+A0 is complete when both are approved (and revised, if asked).
+
+- **Decisions:** D1–D10, D17–D21 and A-D5–A-D9 accepted as recommended, recorded in the decisions
+  table and in MODEL_AUTHORING. Package scopes amended: N1 (D1's refusal below 0.10), A2 (D17's
+  rebase, D18's `setRelease`, D19's view verbs, the generated layout), A3 (D5's `source_files`),
+  the designer models (D20).
+- **API design:** [API.md § Model authoring](API.md#model-authoring-product-010-designed): draft
+  operations with the kinds table (34 model-side kinds plus `replaceModel` and `restoreElements`, each with its class and inverse; the eight
+  mapping kinds named for A5), history, undo and redo, source files and their profiles, the dry-run
+  summary, inferences. **Where it goes beyond the plan:** steps (one request is one history step and
+  one undo); a draft may be invalid between steps, with diagnostics returned and installation still
+  refusing; `restoreElements` as the inverse of removals; a limit of 500 operations per request
+  (`MODEL_OPERATION_MAX_ITEMS`, `413 OPERATION_BATCH_TOO_LARGE`); the migration impact counted
+  exactly up to 10,000; install and activate kept as the two existing routes, with no combined
+  route. `author` is `null` until 0.12: nothing in the engine records who made a change today.
+- **ADR-041**, model drafts change through recorded operations.
+- **Journeys:** J33 (design a model, 12 variants), J34 (onboard a workbook, 10), J35 (the next
+  version, 3) in USER_JOURNEYS; J08.9 pointed at the operation history; the planned routes, codes
+  and setting in API_JOURNEYS. MODEL_AUTHORING's outline now points to the design.
+- **Workbooks:** W1–W3 defined in test terms under [Acceptance workbooks](#acceptance-workbooks); a
+  20-row sample of W1's main sheet (an invented office-supplies catalogue) sent to the user to open
+  in their spreadsheet program. The generators remain A3's.
+- **Mock-up:** [model editor canvas](https://claude.ai/artifact/XDpdfTB1zy93AERaaLVbU7), six
+  boards: the editor on a model draft (clickable: type selection, issues and history, undo, a dark
+  tweak), the relationship matrix (clickable cells), the editor with a workbook (A5's four panes and
+  the dry-run figures), the context menu and Move to… (with the released-attribute refusal), install
+  and activate, and 390px with the panes as tabs. Built on the Atlas tokens from
+  `frontend/src/styles/tokens.css`, without the account's design system, which belongs to another
+  product. Private until shared.
+
+**Checks:** `pytest tests/test_api_journeys.py`: 5 passed (the inventory with the planned routes, and
+every journey it cites). **Not done:** the mock-up was not opened at 1440px and 390px in light and
+dark before it was shown, because no browser tool was available in this session; its rendering is
+unverified until the user looks at it. Links were checked by hand for the anchors added (the API.md
+heading was named "Draft operations" so the existing restructuring "Operations" anchor stays as it
+was). No product code; no other suite.
+
 ## Track: the designer
 
 ### N1: Navigation groups and schema 0.10
@@ -306,14 +508,15 @@ A-D12, ADR-029. **Needs:** A0.
 
 - Schema language 0.10 (D1): the optional `navigation.groups` on an application, with its
   validation (each entry a collection of the application, a collection in at most one group, unique
-  group keys) and APPLICATION_MODEL's section. Earlier schema versions stay valid.
+  group keys) and APPLICATION_MODEL's section. Earlier schema versions stay valid; a `navigation`
+  member below 0.10 is refused at its pointer (D1, amended in A0).
 - The sidebar shows declared groups as labelled, collapsible sections; ungrouped collections stay at
   the top level in their current order.
 - The group page: its collections with a search over their names, reachable from the group's header.
 - Read through the existing model and application routes; no new data, no migration.
 
 **Tests:** the `navigation` contract (valid, unknown collection, a collection in two groups,
-duplicate group key, absent field unchanged); a model of schema 0.9 activating unchanged. Browser
+duplicate group key, absent field unchanged, present below schema 0.10); a model of schema 0.9 activating unchanged. Browser
 (`test:browser:authoring-n1`): a grouped and an ungrouped application in the sidebar, collapse and
 expand, the group page and its search, keyboard alone, 1440px and 390px.
 
@@ -346,6 +549,10 @@ design, D4, D6, D8, D10, D13. **Needs:** A0, N1.
 - A whole-model `PATCH` on a draft is recorded as one `replaceModel` operation, so the history stays
   complete.
 - A stale `expectedVersion` is `409` with the operations applied since (D10).
+- `setRelease` (D18), and installation making the new release the draft's base (D17), the class
+  check standing on it (amended in A0).
+- View and panel edits as D19's generic verbs; the generated layout of a new type and of an attached
+  attribute or allowed relation ([API.md § Operations](API.md#draft-operations)).
 
 **Tests:** journeys through the API: build a small application from an empty draft (types,
 attributes, a relation, a group), undo part of it, install and activate it, create a record; the
@@ -435,7 +642,9 @@ binding, J3's preview, D5, D6, D9. **Needs:** A0.
 
 **Scope:**
 
-- `POST /source-files` on 0.9 job file storage and limits, attachable to a draft (D5).
+- `POST /source-files`: a resource of its own owned by a draft or a profile, the file in
+  `JOB_FILE_DIR` under `IMPORT_MAX_BYTES`, the cleanup taught its names, `sourceFileId` on
+  `POST /imports` (D5, amended in A0).
 - `GET /source-files/{id}/profile`, built by a job: sheets, header row, data ranges and blocks, and
   per column fill, distinct count, value types, candidate key, delimiters, placeholders and value
   overlap with other columns and with existing records of mapped types. Computed in PostgreSQL over
@@ -575,27 +784,33 @@ touched. No door is affected.
 
 ## Decisions
 
-D11–D16 accepted by the user on 2026-10-11 (D14 changed from its recommendation). D1–D10 are open
-and settled in A0 unless a package is named; the recommendation is the planning default.
+D11–D16 accepted by the user on 2026-10-11 (D14 changed from its recommendation). D1–D10 and
+D17–D21 accepted with the A0 plan the same day; where A0 restated one, the
+[A0 plan](#a0-plan-2026-10-11) holds the full wording.
 Design-level decisions are [A-D1–A-D12](MODEL_AUTHORING.md#open-decisions).
 
 | # | Question | Recommendation | Blocks |
 | --- | --- | --- | --- |
-| D1 | Schema language version | 0.10, adding only the optional `navigation` declaration; earlier versions stay valid; the starter moves to it only if it declares groups (D3) | N1 |
-| D2 | Cut line | A7 and A8 may move to 0.10.x; R then accepts W1/W1′ and the designer. If more must go, A6 next, with the designer and manual mapping (A5) released | R |
-| D3 | Starter model | Unchanged unless a group improves it; acceptance uses the generated models | N1, R |
-| D4 | Where operation history lives | A table per draft operation (kind, parameters, inverse, author, time, draft version); deleted with its draft; an installed release keeps no operation history | A2 |
-| D5 | Source files attached to drafts and profiles | Stored as 0.9 job files; the latest file per draft and per profile kept while they exist (outside D14 retention) so it can be edited again; older ones follow D14 | A3, A5 |
-| D6 | Capability gates | Operations, inference and install under the model administration gate; source upload and import under `INTEGRATION_JOBS_ENABLED` | A2, A3 |
-| D7 | Where the editor lives | Opened from Settings › Model on a draft ("Open in editor") and by "New from a workbook" (A5), as a full-width workspace rather than inside the settings layout; no new top-level destination; the JSON workbench stays | A4a |
-| D8 | Undo with dependent operations | Refused with the dependants listed; the client offers to undo them together | A2 |
-| D9 | Interactive dry-run budget | A summary within 1 s for up to 10,000 rows on the reference machine; a deterministic sample above that with the full run on request; measured once in A3 | A3 |
-| D10 | Concurrent editors | Optimistic versions only; no locks or live co-editing | A2, A4a |
+| D1 | Schema language version | **Accepted 2026-10-11:** 0.10, adding only the optional `navigation` declaration; earlier versions stay valid, and below 0.10 a `navigation` member is refused at its pointer; the starter moves to 0.10 only if it declares groups (D3) | N1 |
+| D2 | Cut line | **Accepted 2026-10-11:** A7 and A8 may move to 0.10.x; R then accepts W1/W1′ and the designer. If more must go, A6 next, with the designer and manual mapping (A5) released | R |
+| D3 | Starter model | **Accepted 2026-10-11:** unchanged unless a group improves it; acceptance uses the generated models | N1, R |
+| D4 | Where operation history lives | **Accepted 2026-10-11:** a table of the draft's operations (kind, parameters, inverse, author, time, draft version, step); deleted with its draft; an installed release keeps none; it answers J08.9; [ADR-041](DECISIONS.md#adr-041--model-drafts-change-through-recorded-operations) | A2 |
+| D5 | Source files attached to drafts and profiles | **Accepted 2026-10-11, changed in A0:** a resource of its own (`source_files`), the file in `JOB_FILE_DIR` under its own name, owned by a draft or a profile and deleted with it; the latest per owner kept, older ones removed after the job retention period; `POST /imports` may name one. Job files live and die with their job, so they cannot hold it | A3, A5 |
+| D6 | Capability gates | **Accepted 2026-10-11:** operations, inference and install under the model administration gate; source upload and import under `INTEGRATION_JOBS_ENABLED` | A2, A3 |
+| D7 | Where the editor lives | **Accepted 2026-10-11:** opened from Settings › Model on a draft ("Open in editor") and by "New from a workbook" (A5), as its own full-width route inside `ShellFrame` under `TopBar` (no second frame, U-D14); no new top-level destination; the JSON workbench stays | A4a |
+| D8 | Undo with dependent operations | **Accepted 2026-10-11:** refused `OPERATION_HAS_DEPENDANTS` with the dependants listed (a later step depends on an earlier one when it names an element the earlier created or re-keyed); the client may undo them together; a new step clears redo | A2 |
+| D9 | Interactive dry-run budget | **Accepted 2026-10-11:** a summary within 1 s for up to 10,000 rows on the reference machine; a deterministic sample above that with the full run on request; measured once in A3 | A3 |
+| D10 | Concurrent editors | **Accepted 2026-10-11:** optimistic versions only; no locks or live co-editing | A2, A4a |
 | D11 | Order of the lines | **Accepted 2026-10-11:** the designer line before the spreadsheet line, as the user requested (see [why](#why-the-designer-comes-first)); A3 may fill a gap | All |
 | D12 | Which model a draft's profile is checked against | **Accepted 2026-10-11:** the draft's own model while editing; saved as an instance profile on install and activate, so instance profiles keep resolving against the active release as J2 defined (D65) | A5 |
 | D13 | Profile effects of model operations | **Accepted 2026-10-11:** in A5, not A2: before A5 no draft holds a profile, and an instance profile cannot name an unreleased element, which is all a draft-only operation may touch | A2, A5 |
 | D14 | An interim release after T1 | **Accepted 2026-10-11, changed by the user:** the designer is released as 0.10.0-alpha.1 when T1 passes, tagged `v0.10.0-alpha.1` ([T1](#t1-designer-checkpoint)). The recommendation was a checkpoint without a release | T1 |
 | D15 | Split and merge of types in A2 | **Accepted 2026-10-11:** in A2 as model operations on unreleased types (their profile side in A5); they are in the roadmap's exit gate and their inverses shape the history format | A2 |
+| D17 | What counts as released (draft-only class) | **Accepted 2026-10-11 (A0):** the draft's base release, or the active release when it has none; an installation makes the release it created the draft's new base | A2 |
+| D18 | Release identity in the editor | **Accepted 2026-10-11 (A0):** a `setRelease` operation; install and activate proposes the base version with its last number raised, editable | A2, A4a |
+| D19 | How views and panels are edited | **Accepted 2026-10-11 (A0):** generic verbs over a view's or panel's named lists (`insertViewItem`, `moveViewItem`, `removeViewItem`) and `setViewProperty`, addressed by keys; the server produces layout changes | A2, A4b |
+| D20 | The two designer models | **Accepted 2026-10-11 (A0):** the example model with every key renamed, and `generated-b` | A2, A4a, A4b, T1 |
+| D21 | Where the mock-up lives | **Accepted 2026-10-11 (A0):** a claude.ai artifact | A0 |
 | D16 | The preview's data before A5 | **Accepted 2026-10-11:** an existing record of the active workspace for a released type, an empty record for a new type; never a write | A4b |
 
 ## Risks
@@ -613,4 +828,4 @@ Design-level decisions are [A-D1–A-D12](MODEL_AUTHORING.md#open-decisions).
 
 ## Next
 
-1. A0: settle D1–D10 and A-D5–A-D9, and the editor mock-up.
+1. A0: the [A0 plan](#a0-plan-2026-10-11) is written; on its acceptance, the decisions, API design, journeys and the editor mock-up.

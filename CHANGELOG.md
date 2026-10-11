@@ -6,6 +6,14 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- Base 0.10 A0 (design, no product code): decisions D1–D10, D17–D21 and A-D5–A-D9 accepted;
+  the model authoring API designed in API.md (draft operations and their kinds, history, undo and
+  redo, source files and their profiles, the dry-run summary, inferences); ADR-041, model drafts
+  change through recorded operations; journeys J33–J35 and their planned routes in the API
+  inventory; the synthetic workbooks W1–W3 defined in test terms.
+
 ## [0.9.0] - 2026-10-11
 
 Base 0.9, integration-grade APIs, and its schema language 0.9. Build acceptance (R) reviewed every

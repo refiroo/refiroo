@@ -3636,6 +3636,231 @@ the same events and `deliveryId` after 10 s, 30 s, 1, 2, 5, 10 and 30 min, then 
 for 24 hours from its first failure; then the subscription is suspended `DELIVERY_FAILED`. Delivery
 is at least once: deduplicate by `eventId`.
 
+## Model authoring (Product 0.10, designed)
+
+Designed in the [Base 0.10 A0 plan](BASE_0_10_IMPLEMENTATION_PLAN.md#a0-plan-2026-10-11) from
+[MODEL_AUTHORING.md](MODEL_AUTHORING.md) and [ADR-041](DECISIONS.md#adr-041--model-drafts-change-through-recorded-operations).
+Each part moves into "delivered" with its package: operations, history and undo with A2, source files
+and the dry-run summary with A3, a draft's profiles and the mapping kinds with A5, inferences with A6.
+Field-level detail not fixed here is finished in that package's plan.
+
+- `POST /api/v1/model-drafts/{draftId}/operations`, `GET /api/v1/model-drafts/{draftId}/operations`
+- `POST /api/v1/model-drafts/{draftId}/undo`, `POST /api/v1/model-drafts/{draftId}/redo`
+- `POST /api/v1/source-files`, `GET /api/v1/source-files`, `GET /api/v1/source-files/{sourceFileId}`,
+  `DELETE /api/v1/source-files/{sourceFileId}?expectedVersion=`
+- `GET /api/v1/source-files/{sourceFileId}/profile/sheets`,
+  `GET /api/v1/source-files/{sourceFileId}/profile/sheets/{sheet}/columns`
+- `GET /api/v1/model-drafts/{draftId}/dry-run`, `POST /api/v1/model-drafts/{draftId}/dry-run`,
+  `GET /api/v1/model-drafts/{draftId}/dry-run/rows`
+- `GET /api/v1/model-drafts/{draftId}/profiles` (A5)
+- `POST /api/v1/model-drafts/{draftId}/inferences`, `GET /api/v1/model-drafts/{draftId}/inferences/{inferenceId}/proposals` (A6)
+
+The draft routes are registered with `MODEL_ADMIN_MUTATIONS_ENABLED`, as the draft routes before them
+(reads too, since a draft is administration data). Source files, profiling and dry runs are jobs and
+are registered with `INTEGRATION_JOBS_ENABLED` as well (D6).
+
+### Draft operations
+
+```json
+{
+  "expectedVersion": 7,
+  "operations": [
+    { "kind": "addObjectType", "applicationKey": "catalogue", "name": "Unit", "pluralName": "Units",
+      "parent": null },
+    { "kind": "attachAttribute", "objectType": "unit", "attributeType": "code", "required": true }
+  ]
+}
+```
+
+- The operations of one request are applied in order, **all or none**, to the draft's model, and are
+  one step of the history: one undo takes back the whole request. The answer (`200`) holds the new
+  `version`, the stored entries (each with its `sequence` and `inverse`), the model's `valid` flag
+  and its `diagnostics`, the same list `POST …/compile` gives, and from A3 the dry-run summary of each
+  attached source file.
+- **A draft may be invalid between operations.** An operation is refused only when it cannot be
+  applied (an unknown element, a key already taken, a list position out of range, a class it may not
+  have); a model that does not yet validate (a type without a view, a required attribute no view
+  shows) is accepted with its diagnostics, and installation refuses it as it does today. The
+  validators are the compiler's; there is no second set.
+- **Elements are named by key**, never by a position or a database ID: `objectType`,
+  `attributeType`, `relationType`, `applicationKey`; an attribute binding by `objectType` and
+  `attributeType`; a relation binding by `relationType`, `from` and `to`; a view by `applicationKey`
+  and `view`; a panel by `applicationKey`, `detail` (its object type) and `panel`; a navigation
+  group by `applicationKey` and `group`. A key the operation creates is generated from its name when
+  omitted (A-D6: lower-case, hyphen-separated ASCII, accents dropped, `-2`, `-3` on a clash).
+- **Class** (MODEL_AUTHORING): an additive kind is always applied. A draft-only kind applies while
+  every element it touches is absent from the draft's **base release** (the active release when the
+  draft has none, D17); otherwise it is refused `409 OPERATION_REQUIRES_MIGRATION` with
+  `details.index`, the element and its impact in live data and open change sets (`records`, `values`,
+  `relationships`, counted exactly up to 10,000 each and reported as `10000+` beyond), and nothing of
+  the request is applied.
+- **The server keeps the model whole.** `setKey` rewrites every reference to the key (bindings,
+  views, panels, navigation, consumer API definitions); `addObjectType` adds the type to its
+  application with a generated table view and detail page (below); `attachAttribute` and
+  `allowRelation` add the attribute or relation to the type's generated layout unless `"layout":
+  false`; `removeObjectType` removes what only it used and reports what it removed in the entry.
+- Refusals: `422 INVALID_OPERATION` (`details.index`, `details.pointer` into the request,
+  `details.reason`), `409 OPERATION_REQUIRES_MIGRATION`, `409 VERSION_CONFLICT` with
+  `details.operations`, the history entries since `expectedVersion` (at most 100, then
+  `details.more: true` and the history route to page), `404 MODEL_DRAFT_NOT_FOUND`,
+  `413 OPERATION_BATCH_TOO_LARGE` over `MODEL_OPERATION_MAX_ITEMS` (500).
+
+**Generated layout** for a new object type: a table view (`name`, the display attribute, the attached
+attributes in order; filter and sort fields from the attributes' features; `defaultSort` `name`;
+`pageSize` 50) and a detail page (an attributes panel in `main`; a hierarchy panel in `side` when it
+has a parent; a children panel when it contains types; a relations panel when a binding names it).
+The same operation from any client gives the same layout.
+
+#### Kinds
+
+Model side (A2). The inverse is another kind of the table, or the element's prior declaration where a
+kind removes or replaces it.
+
+| Kind | Parameters | Class | Inverse |
+| --- | --- | --- | --- |
+| `setLabel` | element; any of `name`, `pluralName`, `reverseName`, `description`, `icon`, `color`, `title` | additive | `setLabel` with the old values |
+| `setKey` | element, `key` (and `reverseKey` for a relation type) | draft-only | `setKey` back |
+| `setRelease` | `key`, `name`, `version` (D18) | additive | `setRelease` back |
+| `addApplication` | `key`?, `name`, `description`, `icon`, `color` | additive | `removeApplication` |
+| `removeApplication` | `applicationKey` | draft-only | `restoreElements` |
+| `addObjectType` | `applicationKey`, `key`?, `name`, `pluralName`, `parent` (`null` or parent type keys and a containment relation type, new or existing), `displayAttribute`? | additive | `removeObjectType` |
+| `removeObjectType` | `objectType` | draft-only | `restoreElements` |
+| `splitObjectType` | `objectType`, the new type's `name` and `key`?, the attributes to move, the relation type joining them and its cardinality | draft-only | `mergeObjectTypes` of the two |
+| `mergeObjectTypes` | `into`, `from` (attributes, bindings and layout of `from` joined into `into`) | draft-only | `restoreElements` |
+| `convertAttributeToListType` | `objectType`, `attributeType`, the list type's `name` and `key`?, the relation type | draft-only | `restoreElements` |
+| `addAttributeType` | `key`?, `name`, `valueType`, `features` (`searchable`, `filterable`, `sortable`, `unique`), `validation` | additive | `removeAttributeType` |
+| `removeAttributeType` | `attributeType` (not bound anywhere) | draft-only | `restoreElements` |
+| `setAttributeTypeFeatures` | `attributeType`, features to set | additive; draft-only to add `unique` | `setAttributeTypeFeatures` back |
+| `setValueType` | `attributeType`, `valueType`, `validation` | draft-only | `setValueType` back |
+| `attachAttribute` | `objectType`, `attributeType`, `required`, `readOnly`, `position`, `layout` | additive; draft-only when `required` on a released type | `detachAttribute` |
+| `detachAttribute` | `objectType`, `attributeType` | draft-only | `attachAttribute` with its binding and layout places |
+| `moveAttribute` | `attributeType`, `from`, `to` (a type), `layout` | draft-only | `moveAttribute` back |
+| `setAttributeBinding` | `objectType`, `attributeType`; `required`, `readOnly`, `position` | additive for `position`; draft-only otherwise | `setAttributeBinding` back |
+| `setContainment` | `objectType`, its parent types and containment relation types (the `parentOf` relation type, its bindings and the type's `parentRelationTypeKeys` changed together) | draft-only | `setContainment` back |
+| `addRelationType` | `key`?, `reverseKey`?, `name`, `reverseName`, `isOriented` | additive | `removeRelationType` |
+| `removeRelationType` | `relationType` (no binding left) | draft-only | `restoreElements` |
+| `allowRelation` | `relationType`, `from`, `to`, `cardinality`, `required`, `layout` | additive | `disallowRelation` |
+| `disallowRelation` | relation binding | draft-only | `allowRelation` with its declaration |
+| `setRelationRule` | relation binding; `cardinality`, `required`, `candidates`, `uniqueToAncestorTypeKey` | draft-only | `setRelationRule` back |
+| `addView` | `applicationKey`, a view declaration (a table view may give only `objectType`; the rest is generated) | additive | `removeView` |
+| `removeView` | view | additive | `addView` with its declaration |
+| `insertViewItem` | view or panel, `list` (`columns`, `filterFields`, `sortFields`, `fields`, `panels`, …), `item`, `position` (D19) | additive | `removeViewItem` |
+| `moveViewItem` | view or panel, `list`, `item`, `position` | additive | `moveViewItem` back |
+| `removeViewItem` | view or panel, `list`, `item` | additive | `insertViewItem` at its old position |
+| `setViewProperty` | view or panel, `property` (`name`, `defaultSort`, `pageSize`, `region`, `visible`, `title`, …), `value` | additive | `setViewProperty` back |
+| `addNavigationGroup` | `applicationKey`, `key`?, `label`, `collapsed`, `position` | additive | `removeNavigationGroup` |
+| `removeNavigationGroup` | group (its collections return to the top level) | additive | `addNavigationGroup` with its collections |
+| `setNavigationGroup` | group; `label`, `collapsed`, `position` | additive | `setNavigationGroup` back |
+| `placeCollection` | `applicationKey`, `collection`, `group` (`null`: top level), `position` | additive | `placeCollection` back |
+| `replaceModel` | the whole model; written by `PATCH /model-drafts/{id}`, refused in a request | — | `replaceModel` with the previous model |
+| `restoreElements` | declarations to put back, as stored in the entry it undoes; refused in a request | — | the kind it undid |
+
+Mapping and value kinds (A5, named here and specified in A5's plan): `mapColumn`,
+`setColumnReading` (text, lookup, relation, relation flag), `splitColumn`, `unpivotColumns`,
+`ignoreColumn`, `ignoreSheet`, `setValueMap`, `addValuesToList`. They change the draft's profiles
+only; the model-side kinds above also change the profiles when a draft holds them (D13).
+
+### History, undo and redo
+
+`GET /api/v1/model-drafts/{draftId}/operations` lists the draft's history, oldest first, ADR-030 paging
+(`from=end` for the latest). Each entry:
+
+```json
+{ "sequence": 12, "step": 5, "kind": "attachAttribute",
+  "parameters": { "objectType": "unit", "attributeType": "code", "required": true },
+  "inverse": { "kind": "detachAttribute", "objectType": "unit", "attributeType": "code" },
+  "draftVersion": 8, "author": null, "at": "2026-10-12T09:00:00Z",
+  "undone": false, "origin": { "type": "request" } }
+```
+
+`step` groups the entries of one request; `origin` is `request`, `undo`, `redo`, `patch` (a
+whole-model `PATCH`, recorded as `replaceModel`) or, from A6, `proposal` with its ID. `author` is
+`null` until 0.12 brings identities. The history is the draft's and goes with it (D4); a release
+keeps none. It answers J08.9.
+
+- **`POST …/undo`** `{ "expectedVersion": 8, "step": 5 }` applies the inverses of a step, last
+  entry first, as a new step with origin `undo`. Without `step` it undoes the latest step not yet
+  undone. A step a later, not undone step depends on (D8: one names an element the earlier one
+  created or re-keyed) is refused `409 OPERATION_HAS_DEPENDANTS` with `details.dependants` (their
+  steps); the client may undo them first, or send them in `steps` together.
+- **`POST …/redo`** `{ "expectedVersion": 9 }` applies again the step the latest undo took back.
+  Any new request clears what can be redone.
+- Refusals: `409 NOTHING_TO_UNDO`, `409 NOTHING_TO_REDO`, `409 OPERATION_HAS_DEPENDANTS`,
+  `409 VERSION_CONFLICT` (as above).
+
+**Installation** keeps its route. A successful installation makes the release it created the draft's
+base (D17), so what the draft held becomes released. The editor's "install and activate" is the
+existing installation then activation (`POST /model-releases/{id}/activation`), confirmed once by the
+user (A-D8); an activation refused after the installation leaves the installed release, and the
+editor says so. No combined route: an integrator has both steps already.
+
+### Source files and their profiles
+
+`POST /api/v1/source-files` is `multipart/form-data` with a `file` and a `request`
+`{ "owner": { "draftId": "…" } }` or `{ "owner": { "profileKey": "…" } }`. It answers `201` with the
+file and the profiling job:
+
+```json
+{ "id": "…", "name": "supplier.xlsx", "format": "xlsx", "bytes": 182044, "sha256": "…",
+  "owner": { "draftId": "…" }, "uploadedAt": "…", "version": 1,
+  "profile": { "state": "queued", "jobId": "…" } }
+```
+
+- A source file is a resource of its own (D5), stored in `JOB_FILE_DIR` under its own name, limited by
+  `IMPORT_MAX_BYTES`, deleted with its owner. The latest file per owner is kept while the owner
+  exists; an older one is removed `JOB_RETENTION_DAYS` after a newer one arrived.
+- Profiling is a job of kind `profile`, on the worker that runs imports. Its rows are staged in
+  PostgreSQL and its statistics are set statements over them (principle 6).
+- **`GET …/profile/sheets`** (paged) lists sheets with their row count, detected header row and
+  blocks (`range`, `headerRow`). **`GET …/profile/sheets/{sheet}/columns`** (paged) gives each
+  column's `header`, `letter`, `filled`, `distinct`, `valueTypes` (count per type the attribute
+  registry can read), `candidateKey`, `delimiters` (character and share of cells it splits),
+  `placeholders` (value and count) and `overlaps` (another column, or a field of a mapped type's
+  existing records in a named workspace, with the share of values found). Bounded lists name their
+  limit.
+- `POST /imports` gains `sourceFileId` in place of the `file` part (D5), so a load names the file
+  the editor profiled.
+- Refusals: `413 IMPORT_TOO_LARGE`, `422 UNSUPPORTED_FILE_FORMAT`, `404 SOURCE_FILE_NOT_FOUND`,
+  `409 SOURCE_FILE_PROFILE_NOT_READY` (`details.state`), `409 VERSION_CONFLICT` on delete.
+
+### The dry-run summary
+
+For a draft with source files and profiles, the 0.9 import preview runs against the draft's compiled
+model (not the active release) in a rolled-back transaction, in the workspace the request names. It
+writes nothing.
+
+```json
+{ "sourceFileId": "…", "workspaceKey": "main", "coverage": "complete",
+  "rows": { "total": 200, "run": 200 },
+  "sources": [ { "source": 0, "objectType": "unit", "records": { "created": 14, "updated": 0,
+                 "unchanged": 0 }, "values": 28, "relationships": 0, "relatedRecords": 0,
+                 "rejections": [ { "code": "DUPLICATE_KEY_IN_FILE", "rows": 2 } ] } ],
+  "difference": { "sources": [ { "source": 0, "records": { "created": 14 }, "was": { "created": 0 } } ] },
+  "draftVersion": 9, "ranAt": "…" }
+```
+
+- Each operation's answer carries the summary when the draft holds source files (A5's editor reads it
+  there); `GET …/dry-run` reads the latest; `POST …/dry-run` `{ "full": true }` runs every row as a
+  job.
+- **`coverage`** is `complete` up to `JOB_PREVIEW_MAX_ITEMS` rows (D9's 10,000) and `sample` above it:
+  a deterministic sample, the same rows each time, so differences compare like with like. The
+  full run is on request. The 1-second budget is measured once in A3 and recorded.
+- **`GET …/dry-run/rows`** (paged, `source=`, `status=`, `code=`) lists the rows behind a figure,
+  as `/jobs/{id}/rows` does for an import.
+
+### Inferences (A6)
+
+`POST /api/v1/model-drafts/{draftId}/inferences`
+`{ "sourceFileId": "…", "mode": "newApplication" | "extend", "applicationKey": "…" }` runs the table
+patterns over the file's profile as a job and applies nothing. `GET …/inferences/{id}/proposals`
+(paged) lists proposals: `pattern`, `evidence` (the statistics and sample values it rests on),
+`operations` (a batch of the kinds above), `alternatives` (other batches), and `disagreements` with
+pinned elements. A proposal is accepted by sending its operations, changed or not, with
+`"proposalId"` to `POST …/operations`; nothing is applied otherwise. An element a request from the
+administrator touched is **pinned**: a later inference reports a disagreement and never proposes to
+change it. The optional assistant (A-D5) adds proposals through the same shape and is off unless
+configured.
+
 ## Planned integration endpoints
 
 Designed in [INTEGRATION_API.md](INTEGRATION_API.md) and sequenced in the

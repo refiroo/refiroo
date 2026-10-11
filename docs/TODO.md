@@ -369,10 +369,11 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 - [ ] 0.10 design ([MODEL_AUTHORING.md](MODEL_AUTHORING.md), ADR-035) and
   [plan](BASE_0_10_IMPLEMENTATION_PLAN.md) (2026-10-11, replacing the provisional one): the designer
   line first, then the spreadsheet line (D11, the user's request). A-D1–A-D3 decided; A-D4 and A-D10
-  taken by 0.9 J2; plan D11–D16 accepted 2026-10-11 (D14: interim release after T1); D1–D10 and
-  A-D5–A-D9 open, settled in A0.
+  taken by 0.9 J2; plan D11–D16 accepted 2026-10-11 (D14: interim release after T1); D1–D10, D17–D21 and
+  A-D5–A-D9 accepted with the A0 plan the same day.
   - [x] A1 import profile contract and execution: delivered by 0.9 J2 and J3 (2026-10-07).
-  - [ ] A0 design pass: decisions, API design, operation vocabulary, journeys, the editor mock-up.
+  - [ ] A0 design pass: decisions, API design, operation vocabulary, journeys and ADR-041 written
+    (2026-10-11); waiting for the user's approval of the editor mock-up and the W1 sample.
   - [ ] N1 navigation groups and schema 0.10.
   - [ ] A2 operation API on model drafts: model-side operations, history, undo, default views.
   - [ ] A4a editor: model pane, relationship matrix, install and activate.
