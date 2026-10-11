@@ -1243,6 +1243,19 @@ planned (D36–D42), with these differences:
 - **Editor tables fit their pane** until a column is sized by hand (cells wrap); an open cell
   editor stands above the cells beside it; the cut-off box measures visible text only, so a
   control's margin or a screen-reader label is not taken for a cut (the user's screenshots).
+- **Removing relations** (the user: "the delete relation is missing"): a relation between two types
+  had a Remove item, labelled only "Remove", and a relation type could be removed only while no type
+  pair used it, so a type in use had no delete. The item is now **Remove relation**, and **Remove
+  relation type** works on a type in use: its question names the pairs, and it removes them and the
+  type in one step (`disallowRelation` for each pair, then `removeRelationType`), undone as one. A
+  released relation or type is still refused with its impact. **Then a parent link too** (the user
+  could not find the item on one: it was left out of containment relations): its question says where
+  the child type is left (under its other parents, at the top level only, or nowhere, which the draft
+  shows as an issue until Move to… places it); the server's `disallowRelation` already takes the link
+  off the child type's parents. Checks: 96 Vitest tests; the runner removes Rack's link to Room and
+  undoes it (`test:browser:authoring-a4a`, 21 and 23 checks on the two models). Built while A4b was in progress, coordinated with its session; committed with A4b
+  (`719ad13`). Checks: `src/features/model-editor` 87 Vitest tests; `test:browser:authoring-a4a` 43
+  checks on both models, among them a type in use removed and undone.
 - **The matrix scrolls inside a frame** (the user, after the second screenshots): a bordered, rounded
   box instead of open white sides, with the type column and the header row staying in place while it
   scrolls; checked by `test:browser:authoring-a4a` (14 checks on the renamed example).

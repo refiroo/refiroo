@@ -158,6 +158,17 @@ describe("the editor's operation descriptors (D38)", () => {
     });
   });
 
+  it("removes a parent link too, saying where the child type is left", () => {
+    const remove = operationById("relation-remove")!;
+    const target = { on: "relation", relationType: "holds", from: "area", to: "shelf" } as never;
+    expect(remove.build({}, target, outline)).toEqual([
+      { kind: "disallowRelation", relationType: "holds", from: "area", to: "shelf" },
+    ]);
+    expect(remove.confirm!(target, outline)).toBe(
+      "Stop placing Shelf under Area (Holds)? Shelf then has no place to stand, and the draft shows an issue until you place it with Move to….",
+    );
+  });
+
   it("removes a relation type in use with the pairs that allow it, in one step", () => {
     const remove = operationById("relation-type-remove")!;
     const target = { on: "relationType", relationType: "stores" } as never;
@@ -244,7 +255,7 @@ describe("the editor's operation descriptors (D38)", () => {
     expect(ids({ on: "attribute", objectType: "shelf", attributeType: "depth" })).not.toContain("attribute-down");
     expect(ids({ on: "attributeType", attributeType: "code" })).not.toContain("attribute-type-remove");
     expect(ids({ on: "attributeType", attributeType: "colour" })).toContain("attribute-type-remove");
-    expect(ids({ on: "relation", relationType: "holds", from: "area", to: "shelf" })).not.toContain("relation-remove");
+    expect(ids({ on: "relation", relationType: "holds", from: "area", to: "shelf" })).toContain("relation-remove");
     expect(ids({ on: "relationType", relationType: "stores" })).toContain("relation-type-remove");
   });
 });

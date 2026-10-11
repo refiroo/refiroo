@@ -81,6 +81,8 @@ All notable changes to this project are documented in this file. The format foll
   dialog's buttons keep a margin from its bottom edge (0.10 A4a).
 - `setRelationRule` refused a change of which records a released relationship may choose
   (`candidates`) as needing a migration; it is compatible (0.9 K7) and now applies (0.10 A4a).
+- The model editor can remove a relation type that type pairs still use: the pairs and the type go
+  in one step (0.10 A4a); every relation, a parent link included, has Remove relation in its menu.
 - A relation allowed on a model draft joined a relations panel set up for other records (a
   translations panel sorted by its language) and made the draft invalid; it now joins only a plain
   relations panel or gets its own (0.10 A4a, A2's generated layout).

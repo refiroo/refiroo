@@ -1122,9 +1122,21 @@ export const OPERATIONS: OperationSpec[] = [
     on: "relation",
     label: "Remove relation",
     draftOnly: (t, o) => isReleased(relationOf(t, o)?.mark),
-    available: (t, o) => !relationOf(t, o)?.containment,
-    confirm: (t, o) =>
-      `Stop allowing ${relationTypeOf(o, t.relationType)?.name ?? t.relationType} from ${typeName(o, t.from)} to ${typeName(o, t.to)}?`,
+    // A parent link too (the user, after A4a): the child type then stands only where its other
+    // parents or the top level allow, and the draft says so until it is placed again.
+    confirm: (t, o) => {
+      const name = relationTypeOf(o, t.relationType)?.name ?? t.relationType;
+      if (!relationOf(t, o)?.containment)
+        return `Stop allowing ${name} from ${typeName(o, t.from)} to ${typeName(o, t.to)}?`;
+      const child = objectTypeOf(o, t.to);
+      const others = (child?.parents ?? []).filter((parent) => parent !== t.from);
+      const after = others.length
+        ? `${typeName(o, t.to)} stays under ${others.map((key) => typeName(o, key)).join(", ")}.`
+        : child?.rootCreatable
+          ? `${typeName(o, t.to)} then stands at the top level only.`
+          : `${typeName(o, t.to)} then has no place to stand, and the draft shows an issue until you place it with Move to….`;
+      return `Stop placing ${typeName(o, t.to)} under ${typeName(o, t.from)} (${name})? ${after}`;
+    },
     build: (_, t) => [{ kind: "disallowRelation", relationType: t.relationType, from: t.from, to: t.to }],
   }),
 

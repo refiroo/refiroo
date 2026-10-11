@@ -603,6 +603,27 @@ async function journey(label, source, { emptyDraft = false } = {}) {
         await apply();
       }
       assert.equal(await row("Rack A4a").getAttribute("aria-level"), "3");
+      // A parent link is removed from its row's menu like any relation, saying where the type is left.
+      await row("Rack A4a").click();
+      await page.getByRole("tab", { name: /^Relations/ }).click();
+      await page.getByRole("button", { name: /^Operations for Holds rack from Room A4a/ }).click();
+      await chooseMenu("Remove relation");
+      const parentRemoval = page.getByRole("alertdialog");
+      await parentRemoval.getByText(/Stop placing Rack A4a under Room A4a .* has no place to stand/).waitFor();
+      await parentRemoval.getByRole("button", { name: "Remove relation" }).click();
+      await parentRemoval.waitFor({ state: "hidden" });
+      await page.waitForFunction(() =>
+        [...document.querySelectorAll('[role="treeitem"]')].some(
+          (item) => item.textContent?.startsWith("Rack A4a") && item.getAttribute("aria-level") === "2",
+        ),
+      );
+      await page.getByRole("button", { name: "Undo", exact: true }).click();
+      await page.waitForFunction(() =>
+        [...document.querySelectorAll('[role="treeitem"]')].some(
+          (item) => item.textContent?.startsWith("Rack A4a") && item.getAttribute("aria-level") === "3",
+        ),
+      );
+      checks.push(`${label}: a parent link is removed from its row's menu, saying where the type is left, and undone`);
       const issues = page.getByRole("button", { name: /^Issues and history/ });
       if ((await issues.getAttribute("aria-expanded")) === "false") await issues.click();
       await page.getByRole("tab", { name: /Issues/ }).click();
