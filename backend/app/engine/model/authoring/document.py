@@ -10,6 +10,11 @@ object naming a list item by its identity (``{"key": …}``, ``{"objectTypeKey":
 ``{"attributeTypeKey": …}``, a relation binding's three keys) or, in a list of strings, by the string
 itself (``{"value": …}``). So a change still finds its place after other steps changed the lists
 around it.
+
+A draft's import profile (0.10 A5, D75) is a second document changed by the same operations. Its
+items have identities of their own (a source's ``id``, a column binding's ``column`` or
+``columns``), and it writes into the model document's log, each entry naming its document, so one
+operation's reversal takes back both (D13).
 """
 
 import copy
@@ -25,6 +30,10 @@ _IDENTITIES: tuple[tuple[str, ...], ...] = (
     ("objectTypeKey",),
     ("attributeTypeKey",),
 )
+# In a draft's import profile: a source by its ``id``, a column binding by its column or columns.
+PROFILE_IDENTITIES: tuple[tuple[str, ...], ...] = (("id",), ("column",), ("columns",))
+MODEL = "model"
+PROFILE = "profile"
 
 
 class Refusal(Exception):
@@ -38,10 +47,10 @@ class Refusal(Exception):
         self.message = message
 
 
-def identity(item: Any) -> dict[str, Any]:
+def identity(item: Any, identities: tuple[tuple[str, ...], ...] = _IDENTITIES) -> dict[str, Any]:
     """The path segment naming ``item`` within its list."""
     if isinstance(item, dict):
-        for fields in _IDENTITIES:
+        for fields in identities:
             if all(field in item for field in fields):
                 return {field: item[field] for field in fields}
     return {"value": item}
@@ -72,11 +81,31 @@ def _step(node: Any, segment: Any) -> Any:
 
 
 class Document:
-    """The model document, changed only through these methods so every change is logged."""
+    """The model document, changed only through these methods so every change is logged.
 
-    def __init__(self, data: dict[str, Any]) -> None:
+    ``name`` is written on each entry of a document other than the model; ``log`` may be another
+    document's, so both are reversed together."""
+
+    def __init__(
+        self,
+        data: dict[str, Any],
+        *,
+        name: str = MODEL,
+        identities: tuple[tuple[str, ...], ...] = _IDENTITIES,
+        log: list[dict[str, Any]] | None = None,
+    ) -> None:
         self.data = data
-        self.log: list[dict[str, Any]] = []
+        self.name = name
+        self.identities = identities
+        self.log: list[dict[str, Any]] = [] if log is None else log
+
+    def _logged(self, entry: dict[str, Any]) -> None:
+        if self.name != MODEL:
+            entry["document"] = self.name
+        self.log.append(entry)
+
+    def identity(self, item: Any) -> dict[str, Any]:
+        return identity(item, self.identities)
 
     # --- reading ---
 
@@ -103,16 +132,16 @@ class Document:
         container = self._list(path)
         position = len(container) if index is None else max(0, min(index, len(container)))
         container.insert(position, value)
-        self.log.append({"change": "remove", "path": copy.deepcopy(path), "item": identity(value)})
+        self._logged({"change": "remove", "path": copy.deepcopy(path), "item": self.identity(value)})
 
     def remove(self, path: Path, item: Any) -> Any:
         """Remove ``item`` (a value, or the item a path segment names) from the list at ``path``."""
         container = self.at(path)
-        segment = item if isinstance(item, dict) and _is_segment(item) else {"value": item}
+        segment = item if isinstance(item, dict) and _is_segment(item, self.identities) else {"value": item}
         for position, candidate in enumerate(container):
             if _matches(candidate, segment):
                 removed = container.pop(position)
-                self.log.append(
+                self._logged(
                     {
                         "change": "insert",
                         "path": copy.deepcopy(path),
@@ -129,7 +158,7 @@ class Document:
             return []
         removed = []
         for candidate in [item for item in container if predicate(item)]:
-            removed.append(self.remove(path, identity(candidate)))
+            removed.append(self.remove(path, self.identity(candidate)))
         return removed
 
     def set(self, path: Path, field: str, value: Any) -> None:
@@ -145,16 +174,16 @@ class Document:
             if not absent and node[field] == value:
                 return
             node[field] = value
-        self.log.append(
+        self._logged(
             {"change": "set", "path": copy.deepcopy(path), "field": field, "value": None if absent else before}
         )
 
     def move(self, path: Path, item: Any, index: int) -> int:
         """Move ``item`` within the list at ``path`` to ``index``; returns its old index."""
         container = self.at(path)
-        segment = item if isinstance(item, dict) and _is_segment(item) else {"value": item}
+        segment = item if isinstance(item, dict) and _is_segment(item, self.identities) else {"value": item}
         old = next(i for i, candidate in enumerate(container) if _matches(candidate, segment))
-        value = self.remove(path, identity(container[old]))
+        value = self.remove(path, self.identity(container[old]))
         self.insert(path, value, index)
         return old
 
@@ -173,15 +202,17 @@ class Document:
         return list(reversed(self.log))
 
 
-def _is_segment(value: dict[str, Any]) -> bool:
-    return any(all(field in value for field in fields) and len(value) == len(fields) for fields in _IDENTITIES) or (
+def _is_segment(value: dict[str, Any], identities: tuple[tuple[str, ...], ...] = _IDENTITIES) -> bool:
+    return any(all(field in value for field in fields) and len(value) == len(fields) for fields in identities) or (
         set(value) == {"value"}
     )
 
 
-def apply_changes(document: Document, changes: list[dict[str, Any]]) -> None:
-    """Apply logged changes (a ``restoreElements`` operation's), each logged again in turn."""
+def apply_changes(documents: dict[str, Document], changes: list[dict[str, Any]]) -> None:
+    """Apply logged changes (a ``restoreElements`` operation's), each to the document it names and
+    logged again in turn."""
     for change in changes:
+        document = documents[change.get("document", MODEL)]
         path = change["path"]
         if change["change"] == "insert":
             document.insert(path, copy.deepcopy(change["value"]), change["index"])

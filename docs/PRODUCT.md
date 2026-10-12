@@ -201,6 +201,13 @@ can complete the task in the application; "API" means another system can.
   stand for nothing and where else the same values occur; then dry-run the whole file through an
   import profile against the draft's model, as if it were installed, and read what the import would
   do, how that differs from the last dry run, and the rows behind each figure, with nothing written.
+  Map the workbook step by step in the draft's own import profile, undone like any model change,
+  kept valid as the model is renamed and reorganized, and dry-run again after each step; installing
+  the draft saves the profile for the load. A lookup may create the list values it names.
+- Start a draft from a workbook and map it in the model editor: the sheets and columns beside the
+  model, a column's mapping in the centre, Map to… by keyboard or by dragging a column onto a type,
+  value maps, the dry run after each step with the rows behind each figure; then load the workbook
+  into a new change set in one confirmed dialog and review and publish it.
 - Declare consumer APIs in the model: the read-only contracts other systems will use, written as
   what each one exposes, offers, looks like and filters by, with defaults for what is left out, and
   checked so that a breaking change needs a new contract version. Another system reads one business object through

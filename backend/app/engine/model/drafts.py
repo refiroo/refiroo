@@ -56,6 +56,13 @@ def load_draft_for_update(session: Session, draft_id: str) -> ModelDraft:
     return draft
 
 
+class _Unchanged:
+    """A parameter left out, where ``None`` is a value."""
+
+
+UNCHANGED = _Unchanged()
+
+
 def update_draft(
     session: Session,
     draft_id: str,
@@ -63,7 +70,10 @@ def update_draft(
     *,
     name: str | None,
     model: dict[str, Any] | None,
+    profile: dict[str, Any] | None | _Unchanged = UNCHANGED,
 ) -> ModelDraft:
+    """The draft at ``expectedVersion`` + 1 with the given name, model and import profile
+    (0.10 A5: ``profile`` left out keeps the draft's)."""
     draft = load_draft(session, draft_id)
     values: dict[str, Any] = {
         "version": expected_version + 1,
@@ -76,6 +86,8 @@ def update_draft(
     if model is not None:
         values["model_json"] = model
         changed_fields.append("model")
+    if not isinstance(profile, _Unchanged):
+        values["profile_json"] = profile
 
     result = session.execute(
         update(ModelDraft)

@@ -55,6 +55,7 @@ import type {
   ModelDraftOutline,
   ModelDraftPage,
   ModelDraftStep,
+  ModelInstallation,
   ModelRelease,
   ModelReleaseActivationPage,
   ModelReleaseDiff,
@@ -78,6 +79,13 @@ import type {
   RestructuringPreview,
   RestructuringRequest,
   RestructuringResult,
+  DraftProfile,
+  DryRun,
+  SourceColumn,
+  SourceFile,
+  SourceFileUpload,
+  SourcePage,
+  SourceSheet,
 } from "@/types";
 
 import { ApiError } from "@/api/errors";
@@ -453,6 +461,55 @@ export const api = {
       headers: { "Idempotency-Key": idempotencyKey },
     });
   },
+  /** Import a stored source file (0.10 A3, D5): the request alone, naming `sourceFileId`. */
+  startImportOfSourceFile: (body: ImportRequest & { sourceFileId: string }, idempotencyKey: string) => {
+    const form = new FormData();
+    form.append("request", JSON.stringify(body));
+    return request<Job>("/api/v1/imports", {
+      method: "POST",
+      body: form,
+      headers: { "Idempotency-Key": idempotencyKey },
+    });
+  },
+  /** Upload a workbook to a draft or a stored profile (0.10 A3); its profiling is queued. */
+  uploadSourceFile: (file: File, body: SourceFileUpload) => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("request", JSON.stringify(body));
+    return request<SourceFile>("/api/v1/source-files", { method: "POST", body: form });
+  },
+  sourceFile: (id: string) => request<SourceFile>(`/api/v1/source-files/${encodeURIComponent(id)}`),
+  /** A profiled file's sheets in workbook order, one page of up to 500. */
+  sourceSheets: (id: string, cursor?: string) => {
+    const params = new URLSearchParams({ pageSize: "500" });
+    if (cursor) params.set("cursor", cursor);
+    return request<SourcePage<SourceSheet>>(`/api/v1/source-files/${encodeURIComponent(id)}/profile/sheets?${params}`);
+  },
+  /** A sheet's profiled columns in column order, one page of up to 500. */
+  sourceColumns: (id: string, sheet: string, cursor?: string) => {
+    const params = new URLSearchParams({ pageSize: "500" });
+    if (cursor) params.set("cursor", cursor);
+    return request<SourcePage<SourceColumn>>(
+      `/api/v1/source-files/${encodeURIComponent(id)}/profile/sheets/${encodeURIComponent(sheet)}/columns?${params}`,
+    );
+  },
+  /** The draft's import profile with its warnings and its source file (0.10 A5, D75). */
+  modelDraftProfile: (draftId: string) =>
+    request<DraftProfile>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/profile`),
+  /** The draft's latest dry run (0.10 A3, D67). */
+  modelDraftDryRun: (draftId: string) => request<DryRun>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/dry-run`),
+  /** The latest dry run's rows behind a figure: a source's, by status or refusal code. */
+  modelDraftDryRunRows: (
+    draftId: string,
+    query: PageSelector & { source?: number; status?: JobRow["status"]; code?: string; pageSize?: number },
+  ) => {
+    const params = new URLSearchParams({ pageSize: String(query.pageSize ?? 50) });
+    if (query.source !== undefined) params.set("source", String(query.source));
+    if (query.status) params.set("status", query.status);
+    if (query.code) params.set("code", query.code);
+    setPaging(params, query);
+    return request<JobRowPage>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/dry-run/rows?${params}`);
+  },
   /** Queue an export (0.9 J1); the answer is the queued job. */
   createExport: (body: ExportRequest) =>
     request<Job>("/api/v1/exports", { method: "POST", body: JSON.stringify(body) }),
@@ -604,7 +661,7 @@ export const api = {
       body: JSON.stringify({ expectedVersion }),
     }),
   installModelDraft: (draftId: string, expectedVersion: number) =>
-    request<ModelRelease>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/installation`, {
+    request<ModelInstallation>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/installation`, {
       method: "POST",
       body: JSON.stringify({ expectedVersion }),
     }),

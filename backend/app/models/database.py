@@ -110,6 +110,8 @@ class ModelDraft(Base):
         ForeignKey("model_releases.id", ondelete="SET NULL"), nullable=True, index=True
     )
     model_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    # The draft's import profile (0.10 A5, D75), changed only by operations; ``None`` for none.
+    profile_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     created_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)

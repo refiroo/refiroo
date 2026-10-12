@@ -232,13 +232,21 @@ export function ModelWorkbench({
       }
       actions={
         capabilities?.modelAdmin.manageDrafts && (
-          <button
-            ref={newDraftButtonRef}
-            className="primary"
-            onClick={() => setCreating({ name: "", releaseId: createReleaseId })}
-          >
-            <Icon name="plus" /> New draft
-          </button>
+          <>
+            <button
+              className="secondary"
+              onClick={() => setCreating({ name: "", releaseId: createReleaseId, workbook: true })}
+            >
+              <Icon name="table" /> New from a workbook
+            </button>
+            <button
+              ref={newDraftButtonRef}
+              className="primary"
+              onClick={() => setCreating({ name: "", releaseId: createReleaseId })}
+            >
+              <Icon name="plus" /> New draft
+            </button>
+          </>
         )
       }
     >

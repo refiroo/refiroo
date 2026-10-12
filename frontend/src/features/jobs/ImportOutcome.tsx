@@ -6,11 +6,20 @@
  * nothing names a type.
  */
 
-import { useState } from "react";
-import { api } from "@/api/client";
+import { useState, type DependencyList } from "react";
+import { api, type PageSelector } from "@/api/client";
 import { attributeName } from "@/model/fields";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
-import type { BindingReportColumn, EngineModel, ImportProfile, Job, JobItemOutcome, JobNotice, JobRow } from "@/types";
+import type {
+  BindingReportColumn,
+  EngineModel,
+  ImportProfile,
+  Job,
+  JobItemOutcome,
+  JobNotice,
+  JobRow,
+  JobRowPage,
+} from "@/types";
 import { Choice } from "@/ui/Choice";
 import { DataTable, type DataColumn } from "@/ui/DataTable";
 import { DescriptionList, type DescriptionItem } from "@/ui/DescriptionList";
@@ -324,12 +333,44 @@ function actionText(row: JobRow, preview: boolean): string {
 export function ImportRowsSection({ job }: { job: Job }) {
   const preview = previewing(job);
   const refused = preview ? (job.preview?.rows?.rejected ?? 0) : job.counts.rejected + job.counts.unprocessed;
-  const [filter, setFilter] = useState<RowFilter>(refused > 0 ? "rejected" : "all");
-  // The rows are read again when the preview's outcomes give way to the execution's.
+  return (
+    <Section
+      title={preview ? "Rows in the preview" : "Rows"}
+      description="Each row of the file with what loading it does or why it cannot load, in sheet and row order."
+    >
+      <JobRowsTable
+        name="import-rows"
+        preview={preview}
+        initialFilter={refused > 0 ? "rejected" : "all"}
+        // The rows are read again when the preview's outcomes give way to the execution's.
+        deps={[job.id, job.state, job.confirmedAt]}
+        rows={(query) => api.jobRows(job.id, query)}
+      />
+    </Section>
+  );
+}
+
+/**
+ * A file's rows with their outcomes, filtered by status and paged (D84): an import's, or a dry
+ * run's rows behind one of its figures (0.10 A5b). `preview` words them as what loading would do.
+ */
+export function JobRowsTable({
+  name,
+  rows,
+  deps,
+  preview,
+  initialFilter,
+}: {
+  name: string;
+  rows: (query: PageSelector & { status?: JobRow["status"]; pageSize: number }) => Promise<JobRowPage>;
+  deps: DependencyList;
+  preview: boolean;
+  initialFilter: RowFilter;
+}) {
+  const [filter, setFilter] = useState<RowFilter>(initialFilter);
   const list = useCursorWindow<JobRow>(
-    (selector) =>
-      api.jobRows(job.id, { ...selector, pageSize: ROWS_PAGE, ...(filter === "all" ? {} : { status: filter }) }),
-    [job.id, filter, job.state, job.confirmedAt],
+    (selector) => rows({ ...selector, pageSize: ROWS_PAGE, ...(filter === "all" ? {} : { status: filter }) }),
+    [...deps, filter],
   );
   const STATUS: Record<JobRow["status"], { label: string; tone: "success" | "error" | "neutral" }> = {
     applied: { label: preview ? "Loads" : "Loaded", tone: "success" },
@@ -361,13 +402,10 @@ export function ImportRowsSection({ job }: { job: Job }) {
     },
   ];
   return (
-    <Section
-      title={preview ? "Rows in the preview" : "Rows"}
-      description="Each row of the file with what loading it does or why it cannot load, in sheet and row order."
-    >
+    <>
       <div className="rows-filter">
         <Choice
-          name="import-rows"
+          name={name}
           value={filter}
           options={[
             ["rejected", "Refused"],
@@ -387,6 +425,6 @@ export function ImportRowsSection({ job }: { job: Job }) {
         pageSize={ROWS_PAGE}
         emptyMessage={filter === "all" ? "No rows were read." : "No rows here."}
       />
-    </Section>
+    </>
   );
 }

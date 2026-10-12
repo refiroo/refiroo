@@ -130,6 +130,11 @@ export interface ModelRelease extends ModelReleaseSummary {
   model?: Record<string, unknown>;
 }
 
+/** An installation's answer: the release, and the import profile it saved from the draft's (0.10 A5, D80). */
+export interface ModelInstallation extends ModelRelease {
+  importProfile?: { key: string; version: number } | null;
+}
+
 export interface ModelReleasePage {
   items: ModelReleaseSummary[];
   nextCursor: string | null;
@@ -229,6 +234,8 @@ export interface ModelDraftStep {
   entries: ModelDraftOperationEntry[];
   valid: boolean;
   diagnostics: ModelDiagnostic[];
+  /** The dry run the step queued (0.10 A5, D79), or null when it queued none. */
+  dryRun?: { state: "checking"; jobId: string } | null;
 }
 
 /** Whether an element is absent from the draft's base release, declared differently, or as it was. */

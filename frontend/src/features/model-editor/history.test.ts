@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { ModelDraftOperationEntry } from "@/types";
 import { outlineFixture } from "@/test/draftOutline";
-import { canRedo, describeOperation, describeStep, historySteps, undoable } from "@/features/model-editor/history";
+import {
+  canRedo,
+  describeOperation,
+  describeStep,
+  followKeyChange,
+  historySteps,
+  undoable,
+} from "@/features/model-editor/history";
 import { summarizeChanges } from "@/features/model-editor/InstallDialog";
 import { nameOf } from "@/features/model-editor/outline";
 
@@ -206,5 +213,29 @@ describe("the consumer API steps in words (0.10 A4c)", () => {
     ],
   ])("%s %j reads as a sentence", (kind, parameters, words) => {
     expect(describeOperation(kind, parameters, names as never)).toBe(words);
+  });
+});
+
+describe("the selection after a key change (0.10 A5b)", () => {
+  const rekey = (element: Record<string, string>, key: string) =>
+    entry(5, "setKey", { type: "request" }, false, { element, key });
+  it("follows the selected element to its new key, and nothing else", () => {
+    expect(followKeyChange({ show: "type", key: "item" }, [rekey({ objectType: "item" }, "article")])).toEqual({
+      show: "type",
+      key: "article",
+    });
+    expect(
+      followKeyChange({ show: "type", key: "item", mode: "preview" }, [rekey({ objectType: "item" }, "a")]),
+    ).toEqual({
+      show: "type",
+      key: "a",
+      mode: "preview",
+    });
+    // A key of another element, or of a part of the selected one, leaves the selection.
+    expect(followKeyChange({ show: "type", key: "item" }, [rekey({ objectType: "other" }, "x")])).toBeUndefined();
+    expect(
+      followKeyChange({ show: "application", key: "app" }, [rekey({ applicationKey: "app", group: "g" }, "h")]),
+    ).toBeUndefined();
+    expect(followKeyChange({ show: "matrix" }, [rekey({ objectType: "item" }, "x")])).toBeUndefined();
   });
 });

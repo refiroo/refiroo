@@ -45,6 +45,7 @@ from ...engine.model.releases import (
     model_activation_lock,
     model_installation_lock,
 )
+from ...engine.sources import draft_profile
 from ...errors import api_error
 from ...models.database import AuditEvent, ModelDraft, ModelDraftOperation, ModelRelease
 from ..dependencies import ActiveModelSnapshot, DbSession
@@ -67,13 +68,15 @@ from ..schemas.model import (
     ModelDraftOperationsRequest,
     ModelDraftOutlineResponse,
     ModelDraftPage,
+    ModelDraftProfileResponse,
     ModelDraftResponse,
     ModelDraftStepResponse,
     ModelDraftUndoRequest,
     ModelDraftUpdate,
     ModelDraftVersionRequest,
-    ModelReleaseResponse,
+    ModelInstallationResponse,
     ModelRuntimeStateResponse,
+    StepDryRun,
 )
 
 router = APIRouter(prefix="/api/v1", tags=["model administration"])
@@ -252,7 +255,7 @@ def apply_model_draft_operations(
         payload.operations,
         request.app.state.model_operation_max_items,
     )
-    return _step_response(session, result)
+    return _step_response(session, result, request)
 
 
 @router.get("/model-drafts/{draft_id}/operations", response_model=ModelDraftOperationPage)
@@ -354,29 +357,55 @@ def get_model_draft_consumer_api_openapi(
 
 @router.post("/model-drafts/{draft_id}/undo", response_model=ModelDraftStepResponse, response_model_exclude_unset=True)
 def undo_model_draft_step(
-    draft_id: str, payload: ModelDraftUndoRequest, session: DbSession
+    draft_id: str, payload: ModelDraftUndoRequest, session: DbSession, request: Request
 ) -> ModelDraftStepResponse:
     result = history.undo(session, draft_id, payload.expectedVersion, payload.step, payload.steps)
-    return _step_response(session, result)
+    return _step_response(session, result, request)
 
 
 @router.post("/model-drafts/{draft_id}/redo", response_model=ModelDraftStepResponse, response_model_exclude_unset=True)
 def redo_model_draft_step(
-    draft_id: str, payload: ModelDraftVersionRequest, session: DbSession
+    draft_id: str, payload: ModelDraftVersionRequest, session: DbSession, request: Request
 ) -> ModelDraftStepResponse:
     result = history.redo(session, draft_id, payload.expectedVersion)
-    return _step_response(session, result)
+    return _step_response(session, result, request)
 
 
-def _step_response(session: Session, result: history.StepResult) -> ModelDraftStepResponse:
+def _step_response(session: Session, result: history.StepResult, request: Request) -> ModelDraftStepResponse:
+    """The step's answer; a step that can change what the load writes queues the draft's dry run
+    when integration jobs are enabled (0.10 A5, D79)."""
     response = ModelDraftStepResponse(
         version=result.draft.version,
         entries=[_entry(row) for row in result.entries],
         valid=result.valid,
         diagnostics=[diagnostic_response(item) for item in result.diagnostics],
+        dryRun=None,
     )
+    job = None
+    if request.app.state.integration_jobs_enabled:
+        job = draft_profile.dry_run_after(
+            session,
+            result.draft,
+            list(result.operations),
+            retention_days=request.app.state.batch_limits.retention_days,
+        )
     session.commit()
+    if job is not None:
+        response.dryRun = StepDryRun(state="checking", jobId=job.id)
+        worker = getattr(request.app.state, "job_worker", None)
+        if worker is not None:
+            worker.wake()
     return response
+
+
+@router.get("/model-drafts/{draft_id}/profile", response_model=ModelDraftProfileResponse)
+def get_model_draft_profile(draft_id: str, session: DbSession) -> ModelDraftProfileResponse:
+    """The draft's import profile (0.10 A5, D75): as the draft holds it, the import profile it
+    stands for, its warnings against the draft's model, and the source file it binds. It reads
+    and writes nothing."""
+    answer = draft_profile.read(session, load_draft(session, draft_id))
+    answer["diagnostics"] = [diagnostic_response(item) for item in answer["diagnostics"]]
+    return ModelDraftProfileResponse.model_validate(answer)
 
 
 def _entry(row: ModelDraftOperation) -> ModelDraftOperationEntry:
@@ -474,7 +503,7 @@ def compile_model_draft(
 
 @router.post(
     "/model-drafts/{draft_id}/installation",
-    response_model=ModelReleaseResponse,
+    response_model=ModelInstallationResponse,
     response_model_exclude_none=True,
     status_code=status.HTTP_201_CREATED,
 )
@@ -484,7 +513,7 @@ def install_model_draft(
     session: DbSession,
     snapshot: ActiveModelSnapshot,
     response: Response,
-) -> ModelReleaseResponse:
+) -> ModelInstallationResponse:
     with model_installation_lock:
         draft = load_draft_for_update(session, draft_id)
         require_draft_version(draft, payload.expectedVersion)
@@ -507,6 +536,8 @@ def install_model_draft(
             ) from exc
         # D17: what the draft held is now released; its version is unchanged (D34).
         draft.base_model_release_id = release.id
+        # D80: the draft's import profile becomes the instance profile of its key.
+        saved = draft_profile.save_at_installation(session, draft, release, compiled.model)
         if created:
             session.add(
                 AuditEvent(
@@ -525,7 +556,7 @@ def install_model_draft(
         session.commit()
         if not created:
             response.status_code = status.HTTP_200_OK
-        return ModelReleaseResponse(
+        return ModelInstallationResponse(
             id=release.public_id,
             key=release.release_key,
             name=release.release_name,
@@ -534,6 +565,7 @@ def install_model_draft(
             modelHash=release.model_hash,
             installedAt=as_utc(release.installed_at),
             active=release.public_id == snapshot.release_id,
+            importProfile={"key": saved.key, "version": saved.version} if saved is not None else None,
         )
 
 

@@ -9,6 +9,10 @@
  * draft back as its outline after each step (D36), so the browser never works out the model's rules.
  * A step refused because another editor moved the draft on is held, and the editor asks whether to
  * apply it again on the newer version (D41).
+ *
+ * With a workbook (0.10 A5b, D84), a source pane stands left of the model pane: a selected column
+ * shows its mapping in the centre, Map to… and drops onto the model pane map it, the drawer's Dry
+ * run tab follows each step, and Load into a change set installs, activates and loads (D81).
  */
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
@@ -24,6 +28,15 @@ import type {
   ModelDraftStep,
   RouteState,
 } from "@/types";
+import { AddWorkbookDialog } from "@/features/model-editor/AddWorkbookDialog";
+import { ColumnPanel } from "@/features/model-editor/ColumnPanel";
+import { DryRunPanel, DryRunRowsDialog, dryRunLabel, type DryRunRows } from "@/features/model-editor/DryRunPanel";
+import { LoadDialog } from "@/features/model-editor/LoadDialog";
+import { MapColumnDialog, type MapStart } from "@/features/model-editor/MapColumnDialog";
+import { columnsOfType, dropChoice, typesFed, usesOf, type ColumnUse } from "@/features/model-editor/mapping";
+import { DRAG_COLUMN, SourcePane } from "@/features/model-editor/SourcePane";
+import { useDraftSource } from "@/features/model-editor/useDraftSource";
+import { ValueMapDialog } from "@/features/model-editor/ValueMapDialog";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { readLocalPreference, useLocalNumberPreference, writeLocalPreference } from "@/lib/localPreference";
 import { PageHeader } from "@/ui/PageHeader";
@@ -43,10 +56,10 @@ import { StatusPill } from "@/ui/StatusPill";
 import { Tabs } from "@/ui/Tabs";
 import { useToast } from "@/ui/Toast";
 import { ElementPanel } from "@/features/model-editor/ElementPanel";
-import { canRedo, describeOperation, historySteps, undoable } from "@/features/model-editor/history";
+import { canRedo, describeOperation, followKeyChange, historySteps, undoable } from "@/features/model-editor/history";
 import { InstallDialog } from "@/features/model-editor/InstallDialog";
 import { IssuesAndHistory } from "@/features/model-editor/IssuesAndHistory";
-import { ModelPane, type PaneDrop } from "@/features/model-editor/ModelPane";
+import { droppedColumn, ModelPane, type PaneDrop } from "@/features/model-editor/ModelPane";
 import { MoveToDialog, type MoveSubject } from "@/features/model-editor/MoveToDialog";
 import { OperationDialog, refusalText, type StepOutcome } from "@/features/model-editor/OperationDialog";
 import { type FieldValues, type OperationSpec, type OperationTarget } from "@/features/model-editor/operations";
@@ -72,7 +85,12 @@ type Dialog =
   | { kind: "operation"; operation: OperationSpec; target: OperationTarget; preset?: FieldValues }
   | { kind: "move"; subject: MoveSubject; target?: string }
   | { kind: "install" }
-  | { kind: "dependants"; steps: number[]; dependants: number[] };
+  | { kind: "dependants"; steps: number[]; dependants: number[] }
+  | { kind: "map"; start: MapStart }
+  | { kind: "valueMap"; use: ColumnUse; header: string }
+  | { kind: "rows"; rows: DryRunRows }
+  | { kind: "load" }
+  | { kind: "workbook" };
 
 /** A step refused because the draft moved on (D41): what came first, and how to send mine again. */
 type Stale = { since: ModelDraftOperationEntry[]; more: boolean; send: Send };
@@ -84,6 +102,7 @@ export function ModelEditor({
   onNavigate,
   onActivated,
   onOpenApplication,
+  onOpenChangeSet,
   activeModel,
   workspaceKey,
 }: {
@@ -94,6 +113,8 @@ export function ModelEditor({
   /** Reloads the active model after an activation. */
   onActivated: () => Promise<unknown>;
   onOpenApplication: (applicationKey: string) => void;
+  /** After a load (0.10 A5b): the change set's review, in the application the profile loads. */
+  onOpenChangeSet: (target: { applicationKey: string; workspaceKey: string; changeSetId: string }) => void;
   /** The running model: the preview reads its records through it (0.10 A4b, D44). */
   activeModel: EngineModel;
   /** The workspace the preview reads records from first. */
@@ -117,7 +138,15 @@ export function ModelEditor({
   const [paneTab, setPaneTab] = useState(selection.show === "consumerApi" ? "apis" : "model");
   const [menuOpen, setMenuOpen] = useState(false);
   const version = useRef(0);
+  // The selection a step's answer is compared with: a changed key of the selected element follows.
+  const selected = useRef(selection);
+  useEffect(() => {
+    selected.current = selection;
+  });
   const paneWidth = useLocalNumberPreference("rdm:model-editor:pane-width:v1", 300, 220, 560);
+  const sourceWidth = useLocalNumberPreference("rdm:model-editor:source-width:v1", 320, 240, 560);
+  const source = useDraftSource(draftId, outline?.version);
+  const { dryRunQueued } = source;
 
   const [bottomOpen, setBottomOpen] = useState(() =>
     readLocalPreference(BOTTOM_KEY, false, (value): value is boolean => typeof value === "boolean"),
@@ -172,7 +201,10 @@ export function ModelEditor({
     async (send: Send): Promise<StepOutcome> => {
       setNotice(undefined);
       try {
-        await send(version.current);
+        const answer = await send(version.current);
+        if (answer.dryRun) dryRunQueued(answer.dryRun.jobId);
+        const followed = followKeyChange(selected.current, answer.entries);
+        if (followed) onSelect(followed);
       } catch (cause) {
         if (!isApiError(cause, "VERSION_CONFLICT")) throw cause;
         const details = (cause.details ?? {}) as { operations?: ModelDraftOperationEntry[]; more?: boolean };
@@ -184,7 +216,7 @@ export function ModelEditor({
       await load();
       return "applied";
     },
-    [load],
+    [load, dryRunQueued, onSelect],
   );
   const run = useCallback(
     (operations: DraftOperation[]) => step((at) => api.applyModelDraftOperations(draftId, at, operations)),
@@ -236,6 +268,10 @@ export function ModelEditor({
   }
 
   function drop(item: PaneDrop) {
+    if (item.kind === "column") {
+      mapColumn(item.sheet, item.header, item.target);
+      return;
+    }
     setDialog(
       item.kind === "attribute"
         ? {
@@ -245,6 +281,19 @@ export function ModelEditor({
           }
         : { kind: "move", subject: { kind: "objectType", objectType: item.objectType }, target: item.target },
     );
+  }
+
+  /** Map to… a column, its target chosen when it was dropped on a type (D76). */
+  function mapColumn(sheet: string, header: string, target?: string) {
+    if (!outline) return;
+    const profile = source.profile?.profile;
+    const used = usesOf(profile, sheet, header).find((use) => !use.binding.ignore);
+    setDialog({
+      kind: "map",
+      start: target
+        ? { sheet, header, ...dropChoice(profile, outline, sheet, target) }
+        : { sheet, header, rowType: used?.source.objectTypeKey },
+    });
   }
 
   if (loadError)
@@ -267,6 +316,7 @@ export function ModelEditor({
   const redoAvailable = canRedo(steps);
   const base = outline.baseRelease;
   const workbench: RouteState = { kind: "settings", page: "model", draftId };
+  const workbookLabel = source.profile?.sourceFile ? "Upload a newer workbook…" : "Add a workbook…";
   const addTarget: OperationTarget = paneTab === "apis" ? { on: "consumerApis" } : { on: "draft" };
   const selectedName =
     selection.show === "type"
@@ -279,16 +329,63 @@ export function ModelEditor({
             ? (attributeTypeOf(outline, selection.key)?.name ?? selection.key)
             : selection.show === "consumerApi"
               ? (consumerApiOf(outline, selection.key)?.name ?? selection.key)
-              : selection.show === "matrix"
-                ? "Matrix"
-                : "Selection";
+              : selection.show === "column"
+                ? selection.key
+                : selection.show === "matrix"
+                  ? "Matrix"
+                  : "Selection";
 
+  const hasSource = Boolean(source.profile?.sourceFile);
+  const draftProfile = source.profile?.profile;
+  // The types the selected column feeds, and the columns feeding the selected type.
+  const linkedTypes = new Set(
+    selection.show === "column"
+      ? usesOf(draftProfile, selection.sheet, selection.key).flatMap((use) => typesFed(use))
+      : [],
+  );
+  const linkedColumns = selection.show === "type" ? columnsOfType(draftProfile, selection.key) : new Set<string>();
+  const sheetLoads = (sheet: string) => {
+    const loads = (draftProfile?.sources ?? []).filter((item) => item.sheet === sheet);
+    if (!loads.length) return "Not loaded yet: map a column to start";
+    return `Loads ${loads
+      .map((item) => {
+        const key = item.key?.attributeTypeKey
+          ? attributeTypeOf(outline, item.key.attributeTypeKey)?.name
+          : item.key?.column;
+        return `${typeName(outline, item.objectTypeKey)}${key ? ` (key ${key})` : ""}`;
+      })
+      .join(", ")}`;
+  };
+  const sourcePane = hasSource && (
+    <SourcePane
+      source={source}
+      selection={selection}
+      linked={linkedColumns}
+      canDrag={!phone}
+      sheetNames={sheetLoads}
+      onSelect={select}
+      onMap={(sheet, header) => mapColumn(sheet, header)}
+      onIgnoreSheet={(sheet) => void guarded(() => run([{ kind: "ignoreSheet", sheet }]))}
+    />
+  );
   const onPaneMenu = (next: EditorSelection) => {
     select(next);
     setMenuOpen(true);
   };
   const pane = (
-    <section className="model-editor-model" aria-label="Model and consumer APIs">
+    <section
+      className="model-editor-model"
+      aria-label="Model and consumer APIs"
+      onDragOver={(event) => {
+        if (event.dataTransfer.types.includes(DRAG_COLUMN)) event.preventDefault();
+      }}
+      onDrop={(event) => {
+        const column = droppedColumn(event);
+        if (!column) return;
+        event.preventDefault();
+        mapColumn(column.sheet, column.header);
+      }}
+    >
       <Tabs
         label="Edit"
         selected={paneTab}
@@ -317,6 +414,7 @@ export function ModelEditor({
                 <ModelPane
                   outline={outline}
                   selection={selection}
+                  linked={linkedTypes}
                   canDrag={!phone}
                   onSelect={select}
                   onMenu={onPaneMenu}
@@ -369,10 +467,25 @@ export function ModelEditor({
           ? "Relationship matrix"
           : selection.show === "consumerApi"
             ? "Selected consumer API"
-            : "Selected element"
+            : selection.show === "column"
+              ? "Selected column"
+              : "Selected element"
       }
     >
-      {mode === "preview" ? (
+      {selection.show === "column" ? (
+        <ColumnPanel
+          key={`${selection.sheet}:${selection.key}`}
+          sheet={selection.sheet}
+          header={selection.key}
+          source={source}
+          outline={outline}
+          busy={busy}
+          run={(operations) => void guarded(() => run(operations))}
+          onMap={() => mapColumn(selection.sheet, selection.key)}
+          onValueMap={(use) => setDialog({ kind: "valueMap", use, header: selection.key })}
+          onRows={(rows) => setDialog({ kind: "rows", rows })}
+        />
+      ) : mode === "preview" ? (
         typePreview(
           "preview",
           <>
@@ -431,16 +544,35 @@ export function ModelEditor({
       history={history}
       onSelect={select}
       onUndoStep={(value) => void undo([value])}
+      profile={source.profile}
+      dryRun={
+        hasSource
+          ? {
+              label: `Dry run · ${dryRunLabel(source.dryRun)}`,
+              content: (
+                <DryRunPanel
+                  dryRun={source.dryRun}
+                  error={source.dryRunError}
+                  onRetry={source.retry}
+                  outline={outline}
+                  onRows={(rows) => setDialog({ kind: "rows", rows })}
+                />
+              ),
+            }
+          : undefined
+      }
     />
   );
+  const issueCount = outline.diagnostics.length + (draftProfile ? (source.profile?.diagnostics.length ?? 0) : 0);
+  const drawerName = hasSource ? "Issues, history and dry run" : "Issues and history";
   // On a desktop the pane is a drawer at the bottom, closed until the reader opens it; nothing else
   // opens or closes it (the user, 2026-10-11). On a phone it is the Issues tab.
   const bottom = phone ? (
-    <section className="model-editor-bottom" aria-label="Issues and history">
+    <section className="model-editor-bottom" aria-label={drawerName}>
       {issuesAndHistory}
     </section>
   ) : (
-    <section className={`model-editor-bottom${bottomOpen ? " open" : ""}`} aria-label="Issues and history">
+    <section className={`model-editor-bottom${bottomOpen ? " open" : ""}`} aria-label={drawerName}>
       <button
         type="button"
         className="model-editor-bottom-toggle"
@@ -449,13 +581,12 @@ export function ModelEditor({
         onClick={() => toggleBottom(!bottomOpen)}
       >
         <Icon name={bottomOpen ? "chevron-down" : "chevron-right"} size={14} />
-        <span>Issues and history</span>
-        <StatusPill tone={errors ? "error" : warnings ? "warning" : "success"}>
-          {outline.diagnostics.length
-            ? `${outline.diagnostics.length} ${outline.diagnostics.length === 1 ? "issue" : "issues"}`
-            : "No issues"}
+        <span>{drawerName}</span>
+        <StatusPill tone={errors ? "error" : issueCount ? "warning" : "success"}>
+          {issueCount ? `${issueCount} ${issueCount === 1 ? "issue" : "issues"}` : "No issues"}
         </StatusPill>
         <span className="muted">{steps.length ? `${steps.length} steps` : "No steps yet"}</span>
+        {hasSource && <span className="muted">Dry run: {dryRunLabel(source.dryRun)}</span>}
       </button>
       <div id="model-editor-issues-history" className="model-editor-bottom-body" hidden={!bottomOpen}>
         {bottomOpen && issuesAndHistory}
@@ -504,6 +635,18 @@ export function ModelEditor({
                   title: "The draft's version: one more with every step",
                 },
                 { icon: "check", label: "Saved after every step" },
+                ...(source.profile?.sourceFile
+                  ? [
+                      {
+                        icon: "document" as const,
+                        label: (
+                          <>
+                            Workbook <strong>{source.profile.sourceFile.name}</strong>
+                          </>
+                        ),
+                      },
+                    ]
+                  : []),
                 {
                   icon: errors ? "state-conflict" : "check",
                   label: errors
@@ -527,10 +670,20 @@ export function ModelEditor({
                   />
                   <IconButton icon="redo" label="Redo" disabled={busy || !redoAvailable} onClick={() => void redo()} />
                   <ActionMenu
-                    label="More: Open as JSON, Install and activate"
+                    label="More: Open as JSON, Install and activate, Load, Add a workbook"
                     items={[
                       { id: "json", label: "Open as JSON", onAction: () => onNavigate(workbench) },
                       { id: "install", label: "Install and activate…", onAction: () => setDialog({ kind: "install" }) },
+                      ...(hasSource
+                        ? [
+                            {
+                              id: "load",
+                              label: "Load into a change set…",
+                              onAction: () => setDialog({ kind: "load" }),
+                            },
+                          ]
+                        : []),
+                      { id: "workbook", label: workbookLabel, onAction: () => setDialog({ kind: "workbook" }) },
                     ]}
                   />
                 </>
@@ -555,9 +708,22 @@ export function ModelEditor({
                   <RouteLink className="secondary" href={routePath(workbench)} onNavigate={() => onNavigate(workbench)}>
                     Open as JSON
                   </RouteLink>
-                  <button type="button" className="primary" onClick={() => setDialog({ kind: "install" })}>
+                  <button
+                    type="button"
+                    className={hasSource ? "secondary" : "primary"}
+                    onClick={() => setDialog({ kind: "install" })}
+                  >
                     Install and activate…
                   </button>
+                  {hasSource && (
+                    <button type="button" className="primary" onClick={() => setDialog({ kind: "load" })}>
+                      Load into a change set…
+                    </button>
+                  )}
+                  <ActionMenu
+                    label="More actions"
+                    items={[{ id: "workbook", label: workbookLabel, onAction: () => setDialog({ kind: "workbook" }) }]}
+                  />
                 </>
               )}
             </div>
@@ -639,15 +805,35 @@ export function ModelEditor({
             selected={phoneTab}
             onChange={setPhoneTab}
             tabs={[
+              ...(hasSource ? [{ id: "source", label: "Source", content: sourcePane }] : []),
               { id: "model", label: paneTab === "apis" ? "Consumer APIs" : "Model", content: pane },
               { id: "element", label: selectedName, content: centre },
-              { id: "issues", label: `Issues ${outline.diagnostics.length}`, content: bottom },
+              { id: "issues", label: `Issues ${issueCount}`, content: bottom },
             ]}
           />
         </div>
       ) : (
         <>
-          <div className="model-editor-panes" style={{ "--editor-pane": `${paneWidth.value}px` } as CSSProperties}>
+          <div
+            className={`model-editor-panes${hasSource ? " with-source" : ""}`}
+            style={
+              { "--editor-pane": `${paneWidth.value}px`, "--source-pane": `${sourceWidth.value}px` } as CSSProperties
+            }
+          >
+            {hasSource && (
+              <>
+                {sourcePane}
+                <ResizeHandle
+                  className="editor-resizer source-resizer"
+                  label="Resize the source pane"
+                  value={sourceWidth.value}
+                  min={240}
+                  max={560}
+                  onChange={sourceWidth.change}
+                  onReset={sourceWidth.reset}
+                />
+              </>
+            )}
             {pane}
             <ResizeHandle
               className="editor-resizer"
@@ -699,6 +885,63 @@ export function ModelEditor({
             cannot be undone alone.
           </p>
         </ConfirmDialog>
+      )}
+      {dialog?.kind === "map" && (
+        <MapColumnDialog
+          start={dialog.start}
+          column={source.columns(dialog.start.sheet)?.find((item) => item.header === dialog.start.header)}
+          profile={draftProfile}
+          outline={outline}
+          run={run}
+          onClose={() => setDialog(undefined)}
+        />
+      )}
+      {dialog?.kind === "valueMap" && (
+        <ValueMapDialog
+          source={dialog.use.source.id}
+          header={dialog.header}
+          mapName={dialog.use.binding.valueMap}
+          column={source.columns(dialog.use.source.sheet)?.find((item) => item.header === dialog.header)}
+          profile={draftProfile}
+          outline={outline}
+          run={run}
+          onClose={() => setDialog(undefined)}
+        />
+      )}
+      {dialog?.kind === "rows" && (
+        <DryRunRowsDialog draftId={draftId} rows={dialog.rows} onClose={() => setDialog(undefined)} />
+      )}
+      {dialog?.kind === "workbook" && (
+        <AddWorkbookDialog
+          draftId={draftId}
+          replaces={source.profile?.sourceFile?.name}
+          defaultWorkspace={workspaceKey}
+          onUploaded={(file) => {
+            source.uploaded(file);
+            toast(`${file.name} is uploaded and being profiled.`);
+          }}
+          onClose={() => setDialog(undefined)}
+        />
+      )}
+      {dialog?.kind === "load" && source.profile && (
+        <LoadDialog
+          draftId={draftId}
+          outline={outline}
+          profile={source.profile}
+          dryRun={source.dryRun}
+          defaultWorkspace={workspaceKey}
+          run={run}
+          latestVersion={() => version.current}
+          onActivated={async () => {
+            await onActivated();
+            await load();
+          }}
+          onOpenReview={(target) => {
+            setDialog(undefined);
+            onOpenChangeSet(target);
+          }}
+          onClose={() => setDialog(undefined)}
+        />
       )}
       {dialog?.kind === "install" && (
         <InstallDialog

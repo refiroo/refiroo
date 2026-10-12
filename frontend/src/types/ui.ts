@@ -124,7 +124,9 @@ export type EditorSelection =
   | { show: "matrix" }
   | { show: "type"; key: string; mode?: EditorMode }
   | { show: "application" | "relationType" | "attributeType"; key: string }
-  | { show: "consumerApi"; key: string; tab?: ConsumerApiTab };
+  | { show: "consumerApi"; key: string; tab?: ConsumerApiTab }
+  /** A column of the draft's source file, by its sheet and header (0.10 A5b). */
+  | { show: "column"; sheet: string; key: string };
 
 /** How a type is shown in the model editor: its definition (the default), its preview, its layout. */
 export type EditorMode = "preview" | "layout";

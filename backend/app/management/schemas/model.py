@@ -125,6 +125,17 @@ class ModelReleaseResponse(ModelReleaseSummary):
     model: dict[str, Any] | None = None
 
 
+class InstalledImportProfile(BaseModel):
+    """The instance import profile an installation saved from the draft's (0.10 A5, D80)."""
+
+    key: str
+    version: int
+
+
+class ModelInstallationResponse(ModelReleaseResponse):
+    importProfile: InstalledImportProfile | None = None
+
+
 class ModelReleasePage(CollectionPage[ModelReleaseSummary]):
     pass
 
@@ -384,13 +395,39 @@ class ModelDraftOperationPage(CollectionPage[ModelDraftOperationEntry]):
     pass
 
 
+class StepDryRun(BaseModel):
+    """The dry run a step queued (0.10 A5, D79); ``GET …/dry-run`` reads it."""
+
+    state: Literal["checking"]
+    jobId: str
+
+
 class ModelDraftStepResponse(BaseModel):
-    """The draft after a step: its version, the step's entries and the compiler's diagnostics."""
+    """The draft after a step: its version, the step's entries, the compiler's diagnostics and the
+    draft profile's warnings (0.10 A5), and the dry run the step queued, or ``null``."""
 
     version: int
     entries: list[ModelDraftOperationEntry]
     valid: bool
     diagnostics: list[ModelDiagnosticResponse]
+    dryRun: StepDryRun | None = None
+
+
+class DraftProfileSourceFile(BaseModel):
+    id: str
+    name: str
+    profile: str
+
+
+class ModelDraftProfileResponse(BaseModel):
+    """``GET /model-drafts/{id}/profile`` (0.10 A5, D75)."""
+
+    version: int
+    profile: dict[str, Any] | None
+    definition: dict[str, Any] | None
+    valid: bool
+    diagnostics: list[ModelDiagnosticResponse]
+    sourceFile: DraftProfileSourceFile | None
 
 
 OutlineMark = Literal["new", "changed", "released"]

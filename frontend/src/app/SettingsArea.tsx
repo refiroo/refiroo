@@ -65,6 +65,16 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
           onActivated={router.reloadModel}
           activeModel={model}
           workspaceKey={workspaceKey}
+          onOpenChangeSet={({ applicationKey, workspaceKey: changeSetWorkspace, changeSetId }) =>
+            navigate({
+              kind: "changeSetChanges",
+              applicationKey,
+              workspaceKey: changeSetWorkspace,
+              changeSetId,
+              tab: "records",
+              changeKinds: [],
+            })
+          }
           onOpenApplication={(applicationKey) => {
             // The active model was just reloaded; read it again so the new application is known here.
             void api.model().then((active) => {

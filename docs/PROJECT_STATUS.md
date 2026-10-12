@@ -54,7 +54,19 @@ difference from the last one and the rows behind each figure (D65–D71; D67, ch
 replaces D9's sample); `sourceFileId` on imports; the W1–W3 generators. Measuring the dry run found an
 import binding defect (relationship links looked up per row), fixed the same day, and **A3a** (a
 trial run records no audit entries, relation sets advance from arrays) brought the dry run of a
-10,000-row workbook from 19.8 s to about 7 s. Next is A5.
+10,000-row workbook from 19.8 s to about 7 s. **A5 is planned in three slices (D74, accepted
+2026-10-12); A5a, a draft's import profile edited by operations, is delivered (2026-10-12)**
+through the API: eleven source and mapping kinds, the model kinds carrying the profile with them
+(renames, moves, splits, merges, list types; removals leaving unmapped columns), the dry run queued
+after each step that can change the load, the profile saved at installation, and `missing:
+"create"` on lookups and parents (D75–D80). **A5b, the editor with a workbook, is committed
+(2026-10-12)**, not accepted as complete: a workbook's draft has nothing proposed, and what it still
+needs is settled in A6, which comes next, before A5c. Built: New from a workbook on Settings ›
+Model; a source pane left of the model pane with the sheets and each column's status and
+statistics; a selected column's mapping in the centre; Map to… by keyboard or by dragging a column
+onto a type, value maps; the dry run as a drawer tab with each figure's rows; Load into a change
+set (install, activate, load, review); `test:browser:authoring-a5` on both designer models. Next is
+A6, inference: the model and its mappings proposed from the workbook.
 
 ### How 0.9 was built
 

@@ -881,8 +881,9 @@ an empty draft and extending the active model to records and the consumer tier, 
 
 **Actor:** model administrator. **Channel:** UI (the editor with a workbook), API.
 **Stories:** US-P09. **Scenario:** SC-12. **Status:** J34.1 and J34.3 delivered through the API
-(0.10 A3); the editor with a source file A5, inference A6; model-description sheets A7 and sheets
-laid out for reading A8 (below the cut line).
+(0.10 A3); J34.2, J34.7 and the profile saved for J34.8 through the API (0.10 A5a); J34.1–J34.3,
+J34.7 and J34.8 in the editor with a workbook (0.10 A5b); inference A6; model-description sheets
+A7 and sheets laid out for reading A8 (below the cut line).
 
 1. Upload a workbook to a new or open draft; read its sheets, blocks and column statistics.
 2. Accept, change or reject the proposed model and mapping, or map by hand.
@@ -893,8 +894,9 @@ laid out for reading A8 (below the cut line).
 **Variants:**
 
 - **J34.1 Upload and profile**: header rows, blocks and per-column statistics, paged.
-- **J34.2 Map by hand**: columns to attributes, parents, relations, related records; values mapped;
-  a column ignored.
+- **J34.2 Map by hand**: a sheet's source and its key; columns to attributes, parents, relations,
+  flags and related records, split on a delimiter; values mapped; values a list lacks added by the
+  load; a column or a sheet ignored; each one step of the draft's history.
 - **J34.3 The dry run follows the editing**: after a rename, a move or a value map, the summary and
   its difference from the last one; every row of the file checked, a dry run of a draft changed
   since it was sent cancelled; nothing written.
@@ -903,15 +905,19 @@ laid out for reading A8 (below the cut line).
 - **J34.5 Extend the active model**: columns matched to existing types and attributes, not duplicated.
 - **J34.6 Pinned decisions**: re-inference after edits reports disagreements and changes nothing pinned.
 - **J34.7 The profile follows the model**: a rename, move, split or merge after mapping keeps the
-  draft's profile valid.
-- **J34.8 Load into a change set**, review it and publish it.
+  draft's profile valid; a removal leaves its column unmapped with a warning; undo puts back both.
+- **J34.8 Load into a change set**, review it and publish it; installing the draft saves its
+  profile for the load.
 - **J34.9 A model-description workbook** (A7) and **J34.10 a sheet of lists laid out for reading**
   (A8).
 
 **Refusals:** `413 IMPORT_TOO_LARGE`, `422 UNSUPPORTED_FILE_FORMAT`, `404 SOURCE_FILE_NOT_FOUND`,
 `409 SOURCE_FILE_PROFILE_NOT_READY`; J33's refusals for operations; J27's for the import.
 
-**Evidence today:** none (planned).
+**Evidence today:** `backend/tests/journeys/test_j34_onboard.py` (J34.1, J34.2, J34.3, J34.7, J34.8
+through the API, on two configurations; J34.8 also as the editor's three calls, the review and the
+publication); `test:browser:authoring-a5` (J34.1–J34.3, J34.7, J34.8 in the editor, on both designer
+models).
 
 ### J35 — Load the next version of a workbook
 
@@ -1255,7 +1261,8 @@ through the API delivered in 0.9 J2, its preview and confirmation in 0.9 J3, and
 - **J27.8 Load a file through a profile**: an XLSX or CSV file into live data or a change set;
   attributes converted by their value types, value maps, parents and relationships matched by a
   name, ID or attribute (also to records the same file creates), split cells, flag columns and
-  related records; each row's items name its sheet and row.
+  related records; a parent or relation column matched by name may create the records it names
+  that do not exist, once per value (0.10 A5a); each row's items name its sheet and row.
 - **J27.9 Load a file without a profile**: a JSON Lines file of batch items, or an export's CSV or
   XLSX tables sent back; an unchanged export changes nothing.
 - **J27.10 Rows that cannot load**: a value that does not convert, a match finding no record or

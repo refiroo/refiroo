@@ -3767,14 +3767,19 @@ body.tree-drag-refused * {
 .restructuring-dialog .notice {
   margin-bottom: 14px;
 }
-/* A long plan scrolls under the actions, which stay in reach at the dialog's foot. */
-form.restructuring-plan-form .dialog-actions {
+/* A long plan (or Map to…, 0.10 A5b) scrolls under the actions, which stay in reach at the dialog's foot. */
+form.restructuring-plan-form .dialog-actions,
+form.map-column .dialog-actions {
   position: sticky;
   bottom: -20px;
   margin: 0 -22px -20px;
   padding: 12px 22px 20px;
   border-top: 1px solid var(--border-faint);
   background: var(--surface-raised);
+}
+/* Map to… sticks its actions to the dialog's own foot, their padding inside the frame. */
+form.map-column .dialog-actions {
+  bottom: 0;
 }
 .restructuring-updating {
   margin: -6px 0 10px;

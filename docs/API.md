@@ -2540,6 +2540,12 @@ fixed values it matches. A list pages in key order (ADR-030).
 - **`matchBy`** finds the record a cell names: `{"field": "name"}`, `{"field": "id"}` or
   `{"attributeTypeKey"}`, unique or not. It looks at the context's records and at the records the
   same file creates or changes, so a row can name a record another sheet or row of the file loads.
+- **`missing`** (0.10 A5a, D77) on a `parent` or `relation` binding matched by name: `"create"`
+  makes a cell naming no record create one of the binding's type with the cell's text as its name,
+  once per distinct value per load, before the records that name it; it goes into the same context
+  (a change set's review shows it) and is subject to the type's rules (a type with required values
+  refuses it). `"refuse"`, the default, refuses the row `REFERENCE_NOT_FOUND`. With any other
+  match it is refused `CREATE_NEEDS_NAME_MATCH`.
 - **`relatedRecord`** (D70) is a record of `objectTypeKey` under the record `parent` finds (a fixed
   `value`, or the row's cell in `column`), related to the row's record by `relationTypeKey`; this
   column fills its `name` (`field`) or one attribute. Columns naming the same relation, type and
@@ -2572,7 +2578,7 @@ profile is refused with every problem at once: `422 INVALID_IMPORT_PROFILE` with
 `UNKNOWN_APPLICATION`, `UNKNOWN_OBJECT_TYPE`, `TYPE_NOT_IN_APPLICATION`, `UNKNOWN_ATTRIBUTE`,
 `ATTRIBUTE_NOT_BOUND`, `ATTRIBUTE_READ_ONLY`, `KEY_NOT_UNIQUE`, `KEY_NOT_BOUND`,
 `UNKNOWN_RELATION_TYPE`, `RELATION_NOT_ALLOWED`, `PARENT_NOT_ALLOWED`, `UNKNOWN_VALUE_MAP`,
-`FLAG_WITHOUT_TARGET`, `SOURCE_CYCLE`). A stored profile answers with `version`, `checkedAgainst`
+`FLAG_WITHOUT_TARGET`, `SOURCE_CYCLE`, `CREATE_NEEDS_NAME_MATCH`). A stored profile answers with `version`, `checkedAgainst`
 (the release it was saved against), `createdAt`, `updatedAt`, and `valid` and `problems` as it reads
 under the active release now, so a profile a later release broke shows what to fix.
 
@@ -3656,8 +3662,10 @@ Field-level detail not fixed here is finished in that package's plan. **Delivere
 [history, undo and redo](#history-undo-and-redo). **Delivered by A4a (2026-10-11):** [the draft's
 outline](#the-drafts-outline). **Delivered by A4b (2026-10-11):** [the draft's model](#the-drafts-model)
 and the detail page kinds. **Delivered by A3 (2026-10-12):** [source files and their
-profiles](#source-files-and-their-profiles) and [the dry-run summary](#the-dry-run-summary). The rest
-of this section is designed.
+profiles](#source-files-and-their-profiles) and [the dry-run summary](#the-dry-run-summary).
+**Delivered by A5a (2026-10-12):** [a draft's import profile](#a-drafts-import-profile) with the
+source and mapping kinds, the dry run after each step and the profile saved at installation. The
+rest of this section is designed.
 
 - `POST /api/v1/model-drafts/{draftId}/operations`, `GET /api/v1/model-drafts/{draftId}/operations`
 - `POST /api/v1/model-drafts/{draftId}/undo`, `POST /api/v1/model-drafts/{draftId}/redo`
@@ -3669,7 +3677,7 @@ of this section is designed.
   `GET /api/v1/source-files/{sourceFileId}/profile/sheets/{sheet}/columns`
 - `GET /api/v1/model-drafts/{draftId}/dry-run`, `POST /api/v1/model-drafts/{draftId}/dry-run`,
   `GET /api/v1/model-drafts/{draftId}/dry-run/rows`
-- `GET /api/v1/model-drafts/{draftId}/profiles` (A5)
+- `GET /api/v1/model-drafts/{draftId}/profile` (A5a)
 - `POST /api/v1/model-drafts/{draftId}/inferences`, `GET /api/v1/model-drafts/{draftId}/inferences/{inferenceId}/proposals` (A6)
 
 The draft routes are registered with `MODEL_ADMIN_MUTATIONS_ENABLED`, as the draft routes before them
@@ -3845,10 +3853,9 @@ blocks and events are left to the author. Refused `unsupportedSchemaVersion` on 
 0.9 (`setRelease` raises it), `keyTaken` for a key another definition has, `unknownElement` for an
 exposed type the draft lacks.
 
-Mapping and value kinds (A5, named here and specified in A5's plan): `mapColumn`,
-`setColumnReading` (text, lookup, relation, relation flag), `splitColumn`, `unpivotColumns`,
-`ignoreColumn`, `ignoreSheet`, `setValueMap`, `addValuesToList`. They change the draft's profiles
-only; the model-side kinds above also change the profiles when a draft holds them (D13).
+Source and mapping kinds (A5a, delivered, D76): they change the draft's import profile only, are
+additive, and are listed with it in [a draft's import profile](#a-drafts-import-profile). The
+model-side kinds above also change the profile when the draft holds one (D13, D78).
 
 ### History, undo and redo
 
@@ -4123,6 +4130,85 @@ and a dry run whose draft has changed since it was sent stops as `cancelled`.
   the draft does not own, `409 SOURCE_FILE_PROFILE_NOT_READY`, `404 DRY_RUN_NOT_FOUND` (reads
   before the first), the workspace's codes. The routes are model administration's and need
   `INTEGRATION_JOBS_ENABLED` too (D6).
+
+### A draft's import profile
+
+**Delivered by A5a (2026-10-12).** A draft holds one import profile (D75), changed only by
+operations and undone with the model: the source and mapping kinds below edit it, and the model
+kinds change it where they rename, move or remove what it names (D78). It binds the draft's current
+source file and is checked against the draft's own model (D12).
+
+`GET /api/v1/model-drafts/{draftId}/profile` reads it, writing nothing:
+
+```json
+{ "version": 18,
+  "profile": { "key": "catalogue", "name": "catalogue",
+    "sources": [ { "id": "items-j34-item", "sheet": "Items", "headerRow": 1, "applicationKey": "catalogue",
+                   "objectTypeKey": "item", "key": { "attributeTypeKey": "code" },
+                   "columns": [ { "column": "Item code", "attributeTypeKey": "code" } ] } ],
+    "valueMaps": {}, "ignoredSheets": [], "unmapped": [] },
+  "definition": { "sources": [ … ], "valueMaps": {} },
+  "valid": true, "diagnostics": [],
+  "sourceFile": { "id": "…", "name": "catalogue.xlsx", "profile": "completed" } }
+```
+
+- `profile` is `null` until the first mapping kind. Beside the import profile it holds what only
+  the editor needs: each source's `id`, `ignoredSheets`, and `unmapped`: the bindings a model step
+  took away (`id`, `sheet`, `source`, `column` or `columns`, `binding`, or `key` or `loads` for a
+  source's key or the source itself, and `because`, the kind that took it).
+- `definition` is the import profile the draft's stands for, as `POST /imports` takes it inline:
+  without the editor's members and without sources that map no column yet; `null` when none maps
+  one.
+- `diagnostics` are warnings at `/profile/…` pointers: `COLUMN_UNMAPPED` (an unmapped entry),
+  `SOURCE_WITHOUT_COLUMNS`, `SOURCE_WITHOUT_KEY` (every row creates a record), and every problem
+  the import's check finds against the draft's compiled model (J2's codes, `CREATE_NEEDS_NAME_MATCH`).
+  They never block installing the model. `valid` is true when the profile has a `definition`, the
+  draft compiles, and nothing but those three reminders is reported.
+- The same warnings follow the model's in every step's `diagnostics`.
+
+**The kinds** (D76). A source is named by its `id`, a column by its header text, a sheet by its
+name in the draft's profiled source file. A sheet or column the file lacks, a source the profile
+lacks, or any kind on a draft without a profiled file is refused `INVALID_OPERATION`
+(`unknownElement`); a binding naming an element the draft's model does not declare or allow is
+refused the same way. Bindings use the import profile's vocabulary
+([Import profiles](#import-profiles)). Every inverse is `restoreElements`, so an undo is exact.
+
+| Kind | Parameters | What it changes |
+| --- | --- | --- |
+| `setProfile` | `key`, `name` | The key the instance profile is saved under at installation, and its name. The first mapping kind starts the profile with both taken from the file's name (A-D6) |
+| `addSource` | `sheet`, `objectType`, `applicationKey`? (the first holding the type), `headerRow`? (the sheet's), `block`?, `key`? (`{attributeTypeKey}` or `{column}`), `id`? (from the sheet and type), `position`? | A source loading the type from the sheet, with no columns yet |
+| `setSource` | `source`; any of `sheet`, `headerRow`, `block`, `objectType`, `applicationKey`, `key` (`null` removes it), `record` | The source's settings |
+| `removeSource` | `source` | The source and its bindings |
+| `ignoreSheet` | `sheet` | Its sources removed, the sheet listed in `ignoredSheets` (`addSource` on it takes it out) |
+| `mapColumn` | `source`, `column`, `binding` (a column binding without its `column`: `field`, `attributeTypeKey`, `parent`, `relation` or `relatedRecord`, with `valueMap`?) | The column's binding, replacing what it had, its unmapped entry gone |
+| `setColumnReading` | `source`, `column`, `reading`: `text` (`attributeTypeKey`), `lookup` (a relation matched by name), `relation` (`matchBy`?; keeps `split` and `missing`), `relationFlag` (`target`, the record's name); `relationTypeKey`, `objectTypeKey`, `direction` default to the column's relation | How the column is read. Flag columns of one relation and type join one `relationFlags` binding |
+| `splitColumn` | `source`, `column`, `delimiter` (`null` stops splitting) | A relation column's `split` |
+| `ignoreColumn` | `source`, `column` | `{"column", "ignore": true}` |
+| `addValuesToList` | `source`, `column`, `create`? (default `true`) | A relation or parent column matched by name gets `missing: "create"` (D77) |
+| `setValueMap` | `name`, `entries` (text to a value or `null`; `null` removes the map and its uses), `source`? and `column`? (that column reads through it) | The profile's `valueMaps` |
+
+**The profile follows the model** (D78). `setKey` of an application, type, attribute type or
+relation type rewrites it in the profile. `moveAttribute` moves the attribute's columns to a source
+of the target type on the same sheet and block; `splitObjectType` moves the split attributes'
+columns to a new source of the new type on the same sheet, keyed by the first moved unique
+attribute and joined to the original source by the split's relation; `mergeObjectTypes` re-points
+the merged type's sources and bindings; `convertAttributeToListType` turns the column into a lookup
+of the list by name with `missing: "create"`; `setContainment` re-points a parent column when the
+type has exactly one parent type. After a kind that removes or reshapes (one whose inverse is
+`restoreElements`), every source or binding naming an element the model no longer declares or
+allows becomes an `unmapped` entry. A profile that no longer fits is never refused.
+
+**The dry run after a step** (D79). With `INTEGRATION_JOBS_ENABLED`, a request, undo or redo on a
+draft with a profiled file and a `valid` profile queues the draft's dry run with the profile's
+`definition` in the file's workspace (the default workspace when the file names none), unless the
+step holds only `setLabel`, `setRelease`, `setProfile`, view, panel and detail page kinds,
+navigation kinds or consumer API kinds; the answer's `dryRun` is `{"state": "checking", "jobId"}`,
+otherwise `null`. `GET …/dry-run` reads it ([The dry-run summary](#the-dry-run-summary)).
+
+**At installation** (D80) a draft whose profile has a `definition` that holds against the release
+just installed writes it to the instance profile of its `key` (created, or its next version),
+checked against that release; the answer gains `importProfile` (`key`, `version`). The draft's
+source file stays the draft's; an import names it by `sourceFileId`.
 
 ### Inferences (A6)
 

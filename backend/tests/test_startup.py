@@ -28,7 +28,8 @@ from app.db import DatabaseStartupError, get_engine, migration_config
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261012_01"
+HEAD = "20261013_01"
+SOURCE_FILES = "20261012_01"
 DRAFT_OPERATIONS = "20261011_01"
 IMPORT_PREVIEW = "20261007_08"
 UNIQUE_VALUES = "20261007_07"
@@ -1217,6 +1218,71 @@ def test_upgrade_to_source_files_keeps_jobs_and_an_interrupted_run_recovers(
     assert _scalar(url, "SELECT to_regclass('source_files') IS NULL") is True
     assert _scalar(url, "SELECT count(*) FROM jobs WHERE kind = 'profile'") == 0
     assert _scalar(url, "SELECT count(*) FROM jobs WHERE kind = 'batch'") == 1
+    engine.dispose()
+
+
+def test_upgrade_to_draft_profiles_keeps_drafts_and_an_interrupted_run_recovers(
+    monkeypatch, databases, tmp_path
+):
+    """0.10 A5 on a database with a model draft, taken back to the previous revision: with a
+    ``profile_json`` column already there (by hand) the revision rolls back and the start refuses
+    naming it; once dropped, the next start adds it and the service starts twice. The draft is kept
+    without a profile, and a mapping step on a file uploaded after the upgrade writes one. A
+    downgrade removes the column again."""
+    url = seeds.create_empty()
+    databases.append(url)
+    monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
+    monkeypatch.setenv("JOB_FILE_DIR", str(tmp_path / "job-files"))
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        assert errors == []
+        state = client.get("/api/v1/model-runtime-state").json()
+        release = client.get(
+            f"/api/v1/model-releases/{state['activeReleaseId']}", params={"includeModel": "true"}
+        ).json()
+        response = client.post("/api/v1/model-drafts", json={"name": "Kept", "model": release["model"]})
+        assert response.status_code == 201, response.text
+        draft = response.json()
+    command.downgrade(migration_config(url), SOURCE_FILES)
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE model_drafts ADD COLUMN profile_json json"))
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        message = _assert_refused(
+            client,
+            errors,
+            "Database migration failed",
+            f"Current revision: {SOURCE_FILES}",
+            f"target revision: {HEAD}",
+            "still at its current revision",
+        )
+        assert "profile_json" in message
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == SOURCE_FILES
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE model_drafts DROP COLUMN profile_json"))
+    for _start in range(2):
+        with serve(monkeypatch, _render(url)) as (client, errors):
+            assert errors == []
+            profile = client.get(f"/api/v1/model-drafts/{draft['id']}/profile").json()
+            assert (profile["version"], profile["profile"]) == (draft["version"], None)
+        assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        response = client.post(
+            "/api/v1/source-files",
+            files={"file": ("kept.csv", b"code,name\na,Alpha\n", "text/csv")},
+            data={"request": json.dumps({"owner": {"draftId": draft["id"]}})},
+        )
+        assert response.status_code == 201, response.text
+        client.app.state.job_worker.run_until_idle()
+        body = {"expectedVersion": draft["version"], "operations": [{"kind": "setProfile", "name": "Kept"}]}
+        response = client.post(f"/api/v1/model-drafts/{draft['id']}/operations", json=body)
+        assert response.status_code == 200, response.text
+    assert _scalar(url, "SELECT count(*) FROM model_drafts WHERE profile_json IS NOT NULL") == 1
+    command.downgrade(migration_config(url), SOURCE_FILES)
+    assert _scalar(
+        url,
+        "SELECT count(*) FROM information_schema.columns WHERE table_name = 'model_drafts'"
+        " AND column_name = 'profile_json'",
+    ) == 0
     engine.dispose()
 
 

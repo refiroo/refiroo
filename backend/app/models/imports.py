@@ -11,6 +11,9 @@ from typing import Any, Literal
 from pydantic import UUID4, BaseModel, ConfigDict, Field, model_validator
 
 Direction = Literal["outgoing", "incoming"]
+# What a match finding no record does: refuse the row, or create the record by the cell's name
+# (0.10 A5, D77).
+Missing = Literal["refuse", "create"]
 ImportFormat = Literal["xlsx", "csv", "jsonl"]
 COLUMN_LETTERS = r"^[A-Z]{1,3}$"
 
@@ -36,6 +39,13 @@ class ParentBinding(BaseModel):
 
     objectTypeKey: str
     matchBy: MatchBy
+    missing: Missing | None = Field(
+        default=None,
+        description=(
+            "``create``: a cell naming no record creates one with that name (matchBy name only);"
+            " ``refuse``, the default, refuses the row"
+        ),
+    )
 
 
 class RelationValue(BaseModel):
@@ -67,6 +77,13 @@ class RelationBinding(BaseModel):
     idColumn: str | None = Field(default=None, min_length=1)
     versionColumn: str | None = Field(default=None, min_length=1)
     attributes: list[RelationValue] = Field(default_factory=list)
+    missing: Missing | None = Field(
+        default=None,
+        description=(
+            "``create``: a cell naming no record creates one with that name (matchBy name only);"
+            " ``refuse``, the default, refuses the row"
+        ),
+    )
 
     @model_validator(mode="after")
     def one_relationship_per_row(self) -> RelationBinding:

@@ -94,6 +94,7 @@ _TEMPORARY_TABLES = (
     (
         "CREATE TEMPORARY TABLE import_matches (match_id serial PRIMARY KEY, object_type_key text,"
         " field text, attr text, value jsonb, candidates integer NOT NULL DEFAULT 0, resolved text,"
+        " creates boolean NOT NULL DEFAULT false, created boolean NOT NULL DEFAULT false,"
         " UNIQUE (object_type_key, field, attr, value)) ON COMMIT DROP"
     ),
     (
@@ -994,7 +995,13 @@ class _ProfileBinding:
                 entry["empty"] += 1
                 return
             state.parent = self._matched(
-                entry, src, parent.objectTypeKey, parent.matchBy, raw, binding.column
+                entry,
+                src,
+                parent.objectTypeKey,
+                parent.matchBy,
+                raw,
+                binding.column,
+                parent.missing == "create",
             )
         elif binding.relation is not None:
             state.links += self._relations(plan, binding, raw, cells)
@@ -1045,13 +1052,17 @@ class _ProfileBinding:
         match: MatchBy,
         raw: Any,
         column_name: str,
+        create: bool = False,
     ) -> dict[str, Any]:
-        """A match cell's value, kept for the report's resolution counts."""
+        """A match cell's value, kept for the report's resolution counts. ``create``: a match that
+        finds no record creates one by the cell's name (0.10 A5, D77)."""
         try:
             found = self._match(object_type_key, match, raw, column_name)
         except _RowError:
             entry["refused"] += 1
             raise
+        if create:
+            found["create"] = True
         self.match_cells.add(src, column_name, found)
         return found
 
@@ -1156,6 +1167,7 @@ class _ProfileBinding:
                     match_by,
                     piece,
                     binding.column,
+                    relation.missing == "create" and match_by is relation.matchBy,
                 ),
                 binding.column,
                 relation.replace,
@@ -1518,12 +1530,14 @@ class _ProfileBinding:
         rejected with the first such column."""
         self._sql(
             """
-            INSERT INTO import_matches (object_type_key, field, attr, value)
-            SELECT DISTINCT m ->> 'type', m ->> 'field', m ->> 'attr', m -> 'value' FROM (
+            INSERT INTO import_matches (object_type_key, field, attr, value, creates)
+            SELECT m ->> 'type', m ->> 'field', m ->> 'attr', m -> 'value',
+                bool_or(coalesce((m ->> 'create')::boolean, false)) FROM (
                 SELECT parent AS m FROM import_rows WHERE parent IS NOT NULL AND error IS NULL
                 UNION ALL SELECT match FROM import_links WHERE match IS NOT NULL
                 UNION ALL SELECT parent FROM import_related WHERE parent IS NOT NULL
                 UNION ALL SELECT match FROM import_match_cells) found
+            GROUP BY 1, 2, 3, 4
             """
         )
         self._sql("ANALYZE import_matches")
@@ -1561,6 +1575,14 @@ class _ProfileBinding:
                 SELECT match_id, count(*) AS n, min(object_id) AS one FROM candidates GROUP BY match_id)
             UPDATE import_matches m SET candidates = c.n, resolved = CASE WHEN c.n = 1 THEN c.one END
             FROM counted c WHERE c.match_id = m.match_id
+            """
+        )
+        # A name no record has, in a column that creates what it names, is a new record (D77).
+        self._sql(
+            """
+            UPDATE import_matches SET resolved = gen_random_uuid()::text, candidates = 1, created = true
+            WHERE creates AND candidates = 0 AND field = 'name' AND jsonb_typeof(value) = 'string'
+              AND btrim(value #>> '{}') <> ''
             """
         )
         joined = _JOINED
@@ -1712,6 +1734,33 @@ class _ProfileBinding:
         attributes = (
             "(SELECT coalesce(jsonb_agg(jsonb_build_object('attributeTypeKey', a.key, 'value', a.value)"
             " ORDER BY a.key), '[]'::jsonb) FROM jsonb_each({s}.attributes) a)"
+        )
+        # Records a column creates by name (D77) run first, each with the first row naming it.
+        applications: dict[str, str] = {}
+        for application in self.model.applications:
+            for type_key in application.objectTypeKeys:
+                applications.setdefault(type_key, application.key)
+        self.session.execute(
+            text(
+                f"""
+                INSERT INTO import_items (phase, src, depth, row_number, sub, ref, item)
+                SELECT 0, n.src, 0, n.row_number, n.match_id, n.ref,
+                    jsonb_build_object('op', 'upsert', 'ref', n.ref,
+                        'applicationKey', CAST(:applications AS jsonb) ->> m.object_type_key,
+                        'objectTypeKey', m.object_type_key, 'key', jsonb_build_object('id', m.resolved),
+                        'name', left(btrim(m.value #>> '{{}}'), {MAX_NAME}), 'attributes', '[]'::jsonb)
+                FROM import_matches m
+                JOIN LATERAL (
+                    SELECT r.src, r.row_number, r.ref, m.match_id FROM import_rows r
+                    WHERE r.error IS NULL AND (
+                        (r.parent IS NOT NULL AND {_JOINED.format(s="r.parent")})
+                        OR EXISTS (SELECT 1 FROM import_links l
+                                   WHERE l.row_id = r.row_id AND {_JOINED.format(s="l.match")}))
+                    ORDER BY r.src, r.row_number LIMIT 1) n ON true
+                WHERE m.created
+                """
+            ),
+            {"applications": json.dumps(applications)},
         )
         self._sql(
             f"""

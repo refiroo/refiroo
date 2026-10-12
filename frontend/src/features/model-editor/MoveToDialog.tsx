@@ -8,13 +8,14 @@
  * affect, and the dialog shows that (D39).
  */
 
-import { useId, useMemo, useState, type KeyboardEvent } from "react";
+import { useMemo, useState } from "react";
 import type { ModelDraftOutline } from "@/types";
 import { FormField } from "@/ui/FormField";
 import { HueTile } from "@/ui/HueTile";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { refusalText, type RunStep } from "@/features/model-editor/OperationDialog";
+import { chosenTarget, shownTargets, TargetList } from "@/features/model-editor/TargetList";
 import { attributeTypeOf, draftTypeHue, isReleased, objectTypeOf, typeName } from "@/features/model-editor/outline";
 
 export type MoveSubject =
@@ -70,10 +71,8 @@ export function MoveToDialog({
   run: RunStep;
   onClose: () => void;
 }) {
-  const id = useId();
   const choices = useMemo(() => moveChoices(subject, outline), [subject, outline]);
   const [search, setSearch] = useState("");
-  const shown = choices.filter((item) => item.name.toLowerCase().includes(search.trim().toLowerCase()));
   const [chosen, setChosen] = useState(() =>
     initialTarget !== undefined && choices.some((item) => item.value === initialTarget)
       ? initialTarget
@@ -94,7 +93,7 @@ export function MoveToDialog({
             ?.mark,
         )
       : isReleased(objectTypeOf(outline, subject.objectType)?.mark);
-  const current = shown.find((item) => item.value === chosen) ?? shown[0];
+  const current = chosenTarget(shownTargets(choices, search), chosen);
   const containment = outline.relationTypes.filter((item) => item.containment);
   const parentName = current && current.value !== TOP_LEVEL ? current.name : "";
 
@@ -126,20 +125,6 @@ export function MoveToDialog({
     }
   }
 
-  function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    const index = shown.findIndex((item) => item.value === current?.value);
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-      event.preventDefault();
-      const next = shown[Math.min(shown.length - 1, Math.max(0, index + (event.key === "ArrowDown" ? 1 : -1)))];
-      if (next) setChosen(next.value);
-    } else if (event.key === "Enter") {
-      event.preventDefault();
-      if (!pending && current) void move();
-    }
-  }
-
-  const listId = `${id}-targets`;
-  const optionId = (value: string) => `${id}-option-${value || "top"}`;
   return (
     <Modal
       title={`Move ${subjectName} to…`}
@@ -160,47 +145,29 @@ export function MoveToDialog({
           if (!pending && current) void move();
         }}
       >
-        <FormField label="Find a target" help="Up and Down choose, Enter moves">
-          {(control) => (
-            <input
-              {...control}
-              autoFocus
-              role="combobox"
-              aria-expanded="true"
-              aria-controls={listId}
-              aria-autocomplete="list"
-              aria-activedescendant={current ? optionId(current.value) : undefined}
-              value={search}
-              placeholder="Type to filter"
-              onChange={(event) => setSearch(event.target.value)}
-              onKeyDown={onKeyDown}
-            />
-          )}
-        </FormField>
-        <ul id={listId} role="listbox" aria-label="Targets" className="move-to-targets">
-          {shown.map((item) => (
-            <li
-              key={item.value || "top"}
-              id={optionId(item.value)}
-              role="option"
-              aria-selected={item.value === current?.value}
-              className={item.value === current?.value ? "selected" : undefined}
-              onClick={() => setChosen(item.value)}
-            >
-              {item.value === TOP_LEVEL ? (
+        <TargetList
+          label="Find a target"
+          help="Up and Down choose, Enter moves"
+          targets={choices.map((item) => ({
+            ...item,
+            tile:
+              item.value === TOP_LEVEL ? (
                 <span className="move-to-top" aria-hidden="true" />
               ) : (
                 <HueTile
                   hue={draftTypeHue(outline, item.value)}
                   icon={objectTypeOf(outline, item.value)?.icon ?? undefined}
                 />
-              )}
-              <span className="move-to-name">{item.name}</span>
-              {item.note && <span className="move-to-note">{item.note}</span>}
-            </li>
-          ))}
-          {!shown.length && <li className="move-to-empty">No target matches “{search}”.</li>}
-        </ul>
+              ),
+          }))}
+          search={search}
+          onSearch={setSearch}
+          chosen={current?.value}
+          onChoose={setChosen}
+          onConfirm={() => {
+            if (!pending) void move();
+          }}
+        />
         {subject.kind === "objectType" && parentName && (
           <FormField
             label="Containment relation"

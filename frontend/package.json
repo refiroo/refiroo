@@ -18,6 +18,7 @@
     "test:browser:authoring-a4b": "node e2e/authoring-a4b-preview-layout.mjs",
     "test:browser:authoring-a4c": "node e2e/authoring-a4c-consumer-apis.mjs",
     "test:browser:authoring-t1": "node e2e/authoring-t1-designer.mjs",
+    "test:browser:authoring-a5": "node e2e/authoring-a5-workbook.mjs",
     "test:browser:change-sets": "node e2e/wp9-change-sets.mjs",
     "test:browser:publications": "node e2e/wp9-publications.mjs",
     "test:browser:wp11": "node e2e/wp11-model-admin.mjs",

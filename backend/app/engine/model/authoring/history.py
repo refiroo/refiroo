@@ -18,9 +18,10 @@ from sqlalchemy.orm import Session
 from ....common.time import as_utc
 from ....errors import api_error
 from ....models.database import ModelDraft, ModelDraftOperation
+from ...sources import draft_profile
 from ..compiler import ModelDiagnostic, compile_authored_model
 from ..drafts import load_draft_for_update, update_draft
-from .document import Document, Refusal
+from .document import PROFILE, PROFILE_IDENTITIES, Document, Refusal
 from .kinds import INTERNAL_KINDS, Applied, Context, MigrationRequired, apply_operation, element_of
 from .released import base_release, impact, released_atoms
 
@@ -34,7 +35,10 @@ class StepResult:
     draft: ModelDraft
     entries: list[ModelDraftOperation]
     valid: bool
+    # The model's diagnostics, then the draft profile's warnings (0.10 A5).
     diagnostics: tuple[ModelDiagnostic, ...]
+    # What the step applied, as the dry run after it reads them (D79).
+    operations: tuple[dict[str, Any], ...] = ()
 
 
 def apply_request(
@@ -165,17 +169,22 @@ def _locked(session: Session, draft_id: str, expected_version: int) -> ModelDraf
 
 def _apply(
     session: Session, draft: ModelDraft, operations: list[dict[str, Any]], pointer: str
-) -> tuple[list[Applied], dict[str, Any]]:
-    """The operations applied in order to a copy of the draft's model: what each did, and the model."""
+) -> tuple[list[Applied], dict[str, Any], dict[str, Any] | None]:
+    """The operations applied in order to copies of the draft's model and import profile: what
+    each did, the model and the profile."""
     base = base_release(session, draft)
     released = released_atoms(base.model_json if base else None)
     document = Document(copy.deepcopy(draft.model_json))
-    context = Context(document, released.__contains__)
+    profile = Document(
+        copy.deepcopy(draft.profile_json or {}), name=PROFILE, identities=PROFILE_IDENTITIES, log=document.log
+    )
+    sheets, file_name = draft_profile.sheets(session, draft)
+    context = Context(document, released.__contains__, profile, sheets, file_name)
     applied: list[Applied] = []
     for index, operation in enumerate(operations):
         if not isinstance(operation, dict):
             raise _invalid(index, Refusal("", "invalidValue", "An operation is an object with a kind"), pointer)
-        document.log = []
+        document.log.clear()
         try:
             applied.append(apply_operation(context, operation))
         except Refusal as refusal:
@@ -193,7 +202,7 @@ def _apply(
                     "impact": impact(session, exc.element),
                 },
             ) from exc
-    return applied, document.data
+    return applied, document.data, profile.data or None
 
 
 def _invalid(index: int, refusal: Refusal, pointer: str = "operations") -> Exception:
@@ -211,14 +220,15 @@ def _commit_step(
     draft: ModelDraft,
     expected_version: int,
     operations: list[dict[str, Any]],
-    result: tuple[list[Applied], dict[str, Any]],
+    result: tuple[list[Applied], dict[str, Any], dict[str, Any] | None],
     origin: dict[str, Any],
 ) -> StepResult:
-    applied, model = result
-    draft = update_draft(session, draft.public_id, expected_version, name=None, model=model)
+    applied, model, profile = result
+    draft = update_draft(session, draft.public_id, expected_version, name=None, model=model, profile=profile)
     entries = _write_entries(session, draft, operations, applied, origin)
     compiled = compile_authored_model(draft.model_json)
-    return StepResult(draft, entries, compiled.valid, compiled.diagnostics)
+    warnings = draft_profile.diagnostics(draft.profile_json, compiled.model if compiled.valid else None)
+    return StepResult(draft, entries, compiled.valid, (*compiled.diagnostics, *warnings), tuple(operations))
 
 
 def _write_entries(

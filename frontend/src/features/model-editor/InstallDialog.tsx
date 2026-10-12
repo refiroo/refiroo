@@ -74,6 +74,72 @@ export function contractsByApi(diagnostics: ModelDiagnostic[]): Map<string, Mode
 
 type Outcome = { kind: "installed"; release: ModelRelease; reason: string } | { kind: "active"; release: ModelRelease };
 
+/** The release identity the draft installs as (D18): its key, name and version, editable. */
+export function useReleaseIdentity(outline: ModelDraftOutline) {
+  const [key, setKey] = useState(outline.release.key ?? "");
+  const [name, setName] = useState(outline.release.name ?? "");
+  const [version, setVersion] = useState(() => suggestedVersion(outline));
+  const changed =
+    key.trim() !== (outline.release.key ?? "") ||
+    name.trim() !== (outline.release.name ?? "") ||
+    version.trim() !== (outline.release.version ?? "");
+  return {
+    key,
+    setKey,
+    name,
+    setName,
+    version,
+    setVersion,
+    changed,
+    complete: Boolean(key.trim() && version.trim() && name.trim()),
+    /** The `setRelease` step a changed identity needs first. */
+    operation: { kind: "setRelease", key: key.trim(), name: name.trim(), version: version.trim() },
+  };
+}
+
+export type ReleaseIdentity = ReturnType<typeof useReleaseIdentity>;
+
+export function ReleaseIdentityFields({
+  identity,
+  outline,
+}: {
+  identity: ReleaseIdentity;
+  outline: ModelDraftOutline;
+}) {
+  return (
+    <div className="install-identity">
+      <FormField label="Release key">
+        {(control) => (
+          <input
+            {...control}
+            className="mono"
+            value={identity.key}
+            onChange={(event) => identity.setKey(event.target.value)}
+          />
+        )}
+      </FormField>
+      <FormField
+        label="Version"
+        help={outline.baseRelease?.version ? `Base release ${outline.baseRelease.version}` : undefined}
+      >
+        {(control) => (
+          <input
+            {...control}
+            className="mono"
+            value={identity.version}
+            onChange={(event) => identity.setVersion(event.target.value)}
+          />
+        )}
+      </FormField>
+      <FormField label="Name">
+        {(control) => (
+          <input {...control} value={identity.name} onChange={(event) => identity.setName(event.target.value)} />
+        )}
+      </FormField>
+    </div>
+  );
+}
+
 export function InstallDialog({
   draftId,
   outline,
@@ -94,9 +160,8 @@ export function InstallDialog({
 }) {
   const [compilation, setCompilation] = useState<ModelCompilation>();
   const [loadError, setLoadError] = useState("");
-  const [key, setKey] = useState(outline.release.key ?? "");
-  const [name, setName] = useState(outline.release.name ?? "");
-  const [version, setVersion] = useState(() => suggestedVersion(outline));
+  const identity = useReleaseIdentity(outline);
+  const version = identity.version;
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [outcome, setOutcome] = useState<Outcome>();
@@ -116,21 +181,15 @@ export function InstallDialog({
     };
   }, [draftId, outline.version]);
 
-  const identityChanged =
-    key.trim() !== (outline.release.key ?? "") ||
-    name.trim() !== (outline.release.name ?? "") ||
-    version.trim() !== (outline.release.version ?? "");
   const contractsBreak = compilation?.consumerContracts?.classification === "version_required";
-  const blocked = !compilation?.valid || contractsBreak || !key.trim() || !version.trim() || !name.trim();
+  const blocked = !compilation?.valid || contractsBreak || !identity.complete;
 
   async function confirm() {
     setPending(true);
     setError("");
     try {
-      if (identityChanged) {
-        const outcome = await run([
-          { kind: "setRelease", key: key.trim(), name: name.trim(), version: version.trim() },
-        ]);
+      if (identity.changed) {
+        const outcome = await run([identity.operation]);
         if (outcome === "stale") {
           onClose();
           return;
@@ -191,29 +250,7 @@ export function InstallDialog({
           if (!pending && !blocked) void confirm();
         }}
       >
-        <div className="install-identity">
-          <FormField label="Release key">
-            {(control) => (
-              <input {...control} className="mono" value={key} onChange={(event) => setKey(event.target.value)} />
-            )}
-          </FormField>
-          <FormField
-            label="Version"
-            help={outline.baseRelease?.version ? `Base release ${outline.baseRelease.version}` : undefined}
-          >
-            {(control) => (
-              <input
-                {...control}
-                className="mono"
-                value={version}
-                onChange={(event) => setVersion(event.target.value)}
-              />
-            )}
-          </FormField>
-          <FormField label="Name">
-            {(control) => <input {...control} value={name} onChange={(event) => setName(event.target.value)} />}
-          </FormField>
-        </div>
+        <ReleaseIdentityFields identity={identity} outline={outline} />
         {loadError && <Notice tone="error">{loadError}</Notice>}
         {!compilation && !loadError && <Skeleton lines={3} label="Comparing with the base release" />}
         {compilation && (
@@ -290,7 +327,7 @@ export function InstallDialog({
   );
 }
 
-function activationRefusal(cause: unknown): string {
+export function activationRefusal(cause: unknown): string {
   if (isApiError(cause)) {
     const diagnostics = ((cause.details ?? {}) as { diagnostics?: { message: string }[] }).diagnostics ?? [];
     return [cause.message, ...diagnostics.map((item) => item.message)].join(" ");

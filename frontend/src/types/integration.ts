@@ -87,6 +87,8 @@ export interface ImportRequest {
   changeSetId: string | null;
   expectedChangeSetVersion: number | null;
   profileKey: string | null;
+  /** A stored source file imported in place of a file sent (0.10 A3, D5). */
+  sourceFileId?: string;
   policy: ImportPolicy;
   onExisting: ImportOnExisting;
   otherWorkspaceIds: OtherWorkspaceIds;

@@ -10,7 +10,8 @@
  *
  * Drags (D40), with mouse or pen: a type dropped on another type or on an application (its top
  * level), and an attribute (dragged from the type's table) dropped on a type, each open Move to…
- * with the target chosen.
+ * with the target chosen. A column of the source file dropped on a type opens Map to… (0.10 A5b);
+ * the types the selected column feeds are marked `linked`.
  *
  * The tree itself is `EditorTree`, which the Consumer APIs tab lists its definitions in too (0.10 A4c).
  */
@@ -21,6 +22,7 @@ import { HueTile } from "@/ui/HueTile";
 import { Icon, type IconName } from "@/ui/Icon";
 import { MarkPill } from "@/features/model-editor/MarkPill";
 import { draftTypeHue, objectTypeOf, typeName } from "@/features/model-editor/outline";
+import { DRAG_COLUMN } from "@/features/model-editor/SourcePane";
 
 /** The data a drag carries: a type, or an attribute of a type. */
 export const DRAG_TYPE = "application/x-rdm-object-type";
@@ -28,7 +30,17 @@ export const DRAG_ATTRIBUTE = "application/x-rdm-attribute";
 
 export type PaneDrop =
   | { kind: "objectType"; objectType: string; target: string }
-  | { kind: "attribute"; objectType: string; attributeType: string; target: string };
+  | { kind: "attribute"; objectType: string; attributeType: string; target: string }
+  /** A column of the source file (its sheet and header); no target when dropped beside the tree. */
+  | { kind: "column"; sheet: string; header: string; target?: string };
+
+/** The column a drag carries, if it carries one. */
+export function droppedColumn(event: DragEvent): { sheet: string; header: string } | undefined {
+  const column = event.dataTransfer.getData(DRAG_COLUMN);
+  if (!column) return undefined;
+  const [sheet, header] = column.split("\u0000");
+  return { sheet, header };
+}
 
 export type TreeRow = {
   id: string;
@@ -142,6 +154,7 @@ export function ModelPane({
   onSelect,
   onMenu,
   onDrop,
+  linked,
 }: {
   outline: ModelDraftOutline;
   selection: EditorSelection;
@@ -150,6 +163,8 @@ export function ModelPane({
   /** Shift+F10 or the context-menu key on a row: select it and open its operations. */
   onMenu: (selection: EditorSelection) => void;
   onDrop: (drop: PaneDrop) => void;
+  /** Types the selected column feeds (0.10 A5b). */
+  linked?: Set<string>;
 }) {
   return (
     <EditorTree
@@ -158,6 +173,7 @@ export function ModelPane({
       rows={(folded) => paneRows(outline, folded)}
       foldedAtStart={FOLDED_AT_START}
       selection={selection}
+      linked={linked}
       canDrag={canDrag}
       onSelect={onSelect}
       onMenu={onMenu}
@@ -177,6 +193,7 @@ export function EditorTree({
   onSelect,
   onMenu,
   onDrop,
+  linked,
 }: {
   label: string;
   outline: ModelDraftOutline;
@@ -184,6 +201,7 @@ export function EditorTree({
   rows: (folded: Set<string>) => TreeRow[];
   foldedAtStart?: Set<string>;
   selection: EditorSelection;
+  linked?: Set<string>;
   canDrag: boolean;
   onSelect: (selection: EditorSelection) => void;
   onMenu: (selection: EditorSelection) => void;
@@ -251,6 +269,8 @@ export function EditorTree({
   }
 
   function dropOf(event: DragEvent, row: Row): PaneDrop | undefined {
+    const column = droppedColumn(event);
+    if (column && row.typeKey) return { kind: "column", ...column, target: row.typeKey };
     const type = event.dataTransfer.getData(DRAG_TYPE);
     const attribute = event.dataTransfer.getData(DRAG_ATTRIBUTE);
     if (type && (row.typeKey || row.topLevel) && row.typeKey !== type)
@@ -263,7 +283,8 @@ export function EditorTree({
   }
   const accepts = (event: DragEvent, row: Row) =>
     (event.dataTransfer.types.includes(DRAG_TYPE) && Boolean(row.typeKey || row.topLevel)) ||
-    (event.dataTransfer.types.includes(DRAG_ATTRIBUTE) && Boolean(row.typeKey));
+    (event.dataTransfer.types.includes(DRAG_ATTRIBUTE) && Boolean(row.typeKey)) ||
+    (event.dataTransfer.types.includes(DRAG_COLUMN) && Boolean(row.typeKey));
 
   return (
     <ul className="model-pane-tree" role="tree" aria-label={label} ref={tree}>
@@ -285,6 +306,7 @@ export function EditorTree({
               row.section || row.level === 1 ? "heading" : "",
               selected ? "selected" : "",
               dropTarget === row.id ? "drop-target" : "",
+              row.typeKey && linked?.has(row.typeKey) ? "linked" : "",
             ]
               .filter(Boolean)
               .join(" ")}
@@ -304,7 +326,11 @@ export function EditorTree({
               event.preventDefault();
               setDropTarget(undefined);
               const drop = dropOf(event, row);
-              if (drop) onDrop?.(drop);
+              if (drop) {
+                // The pane's own drop, beside the tree, is for a column no row took.
+                event.stopPropagation();
+                onDrop?.(drop);
+              }
             }}
             onFocus={() => setFocusId(row.id)}
             onClick={() => activate(row)}

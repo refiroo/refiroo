@@ -455,8 +455,8 @@ notice is marked "Needs v2" as soon as it is made, with a button that raises the
 and the install dialog lists each consumer API's result; activation waits until each is compatible.
 Renaming a key the draft added renames it in the consumer APIs too.
 
-**A workbook against a draft** (through the API so far): an Excel workbook or a CSV file uploaded to
-a model draft is kept with it and read once. Its profile lists each sheet's lists (blocks of columns
+**A workbook against a draft**: an Excel workbook or a CSV file uploaded to a model draft is kept
+with it and read once. Its profile lists each sheet's lists (blocks of columns
 between empty columns) with their header rows, and each column's filled cells, distinct values, the
 types its values can be read as, whether it can identify a row, the characters that split its
 values, the values that stand for "nothing" such as N/A, and the other columns, and the records of a
@@ -467,8 +467,40 @@ since the last dry run, and the rows behind each figure. It writes nothing; a dr
 changed meanwhile is cancelled. An import can later name the stored file instead of sending it
 again.
 
-Limits: a field's editor cannot be chosen (each value type has one); the editor does not show
-workbooks yet (later 0.10 work), so the profile and the dry run are read through the API. A consumer
+The draft keeps its own import profile, built one step at a time like the model: which sheet loads
+which type and how a row finds its record, then each column mapped to a name, an attribute, a
+parent, a relationship (read as a lookup by name, split on a delimiter, or as Y/N flag columns) or
+ignored, values replaced through value maps, and a lookup allowed to create the list values it
+names that do not exist yet. Each step is in the draft's history and undone with Undo. The profile
+follows the model: renaming a type or an attribute renames it in the profile, a moved attribute
+takes its column along, splitting and merging types carry their columns, and a removed attribute
+leaves its column marked as no longer mapped until it is mapped again. After each step that could
+change the load the dry run runs again by itself. Installing the draft saves its profile for loading
+the workbook, and any import may use "create missing values" on a lookup.
+
+**The editor with a workbook.** Settings › Model has **New from a workbook**: a draft of the active
+release (or an empty one) with the workbook uploaded to it, opened in the editor; an open draft takes
+one, or a newer one, from its ⋯ menu. While the workbook is read the editor says so; then a **source
+pane** stands left of the model pane: the sheets as tabs, each with the types it loads, and each
+column with its letter, its statistics in a line and its status (key, mapped, not mapped, ignored, or
+an issue). Selecting a column shows it in the centre: what it feeds, how it is read and matched, its
+split, whether values that do not exist are created, its value map, whether it is the rows' key, the
+rows of its source the dry run refused, and its statistics; the type it feeds is marked in the model
+pane, and selecting a type marks the columns that feed it. **Map to…**, from the column, by
+Shift+F10 in the list, or by dragging the column onto a type in the model pane, asks which type each
+row is a record of (proposed from the sheet's name), what the column holds (the name, an attribute
+or a new one, the parent, a related record, a flag of a relation, or nothing) and its target, chosen
+by typing and arrow keys; it starts the sheet's source when none loads that type, and is one step,
+undone with Undo. A value map starts from the column's placeholders. The drawer's **Dry run** tab
+shows the figures per source with what they were before the step, each opening the rows behind it.
+**Load into a change set…** installs and activates the draft when the model changed (or only saves
+the profile when it did not), opens a change set named after the file in a chosen workspace, loads
+the stored file through the saved profile, follows the load and opens the change set's review, from
+where it is validated and published. Changing the key of the selected element keeps it selected.
+
+Limits: a field's editor cannot be chosen (each value type has one); Map to… does not offer a value
+of a related record (a translation, a system's ID) or a match by an attribute, which the API's
+mapping kinds take; the next version of a workbook and its differences are later 0.10 work. A consumer
 API's documents are worked out from the draft; messages from real records come from the consumer API
 after activation.
 

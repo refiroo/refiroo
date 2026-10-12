@@ -129,10 +129,12 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # with the Source* schemas and their upload body; ImportRequest's sourceFileId and the import
     # route's optional file part; the job kinds profile and dryRun on JobResponse and the job list's
     # kind filter. Diffed against HEAD, nothing else changed (the dry-run routes are model
-    # administration's, outside the default document).
+    # administration's, outside the default document). Re-baselined for 0.10 A5a: ParentBinding's and
+    # RelationBinding's optional missing (refuse or create, D77). Diffed against HEAD, nothing else
+    # changed (the draft profile route and the step's dryRun are model administration's).
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "98c2c4e00e349675d5e161d38a5e57f2cb000d6efb72c78cd14b1027c3f48cca"
+        "04463d1dd1c6d767dfce408ba54e88e3a506f98f6b9ddebd354c658f8938a13c"
     )
 
 
@@ -316,6 +318,7 @@ def test_base_0_5_enabled_openapi_exposes_guarded_activation(monkeypatch):
         "/api/v1/model-drafts/{draft_id}/outline": frozenset({"get"}),
         # 0.10 A4b: the draft compiled, for the preview (D43).
         "/api/v1/model-drafts/{draft_id}/model": frozenset({"get"}),
+        "/api/v1/model-drafts/{draft_id}/profile": frozenset({"get"}),
         "/api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}": frozenset({"get"}),
         "/api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}/schema.json": frozenset({"get"}),
         "/api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}/example.json": frozenset({"get"}),

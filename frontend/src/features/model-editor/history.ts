@@ -3,9 +3,10 @@
  * line, from its entries' kinds and parameters, and what the history says about undo and redo.
  */
 
-import type { ModelDraftOperationEntry } from "@/types";
+import type { EditorSelection, ModelDraftOperationEntry } from "@/types";
 import type { ElementKind } from "@/features/model-editor/outline";
 import { describeConsumerOperation } from "@/features/model-editor/consumer";
+import { describeMappingOperation } from "@/features/model-editor/mapping";
 
 /** One step of the history: its entries, oldest first. */
 export interface HistoryStep {
@@ -171,7 +172,11 @@ export function describeOperation(kind: string, p: Record<string, unknown>, name
     case "restoreElements":
       return "Put back what a step changed";
     default:
-      return describeConsumerOperation(kind, p, (key) => names("consumerApi", key)) ?? kind;
+      return (
+        describeMappingOperation(kind, p, names) ??
+        describeConsumerOperation(kind, p, (key) => names("consumerApi", key)) ??
+        kind
+      );
   }
 }
 
@@ -220,4 +225,32 @@ export function canRedo(steps: HistoryStep[]): boolean {
     return false;
   }
   return false;
+}
+
+/** Which member of a `setKey` element names each kind of selection (an element alone, no part of it). */
+const SELECTED_BY: Partial<Record<NonNullable<EditorSelection["show"]>, string>> = {
+  type: "objectType",
+  attributeType: "attributeType",
+  relationType: "relationType",
+  application: "applicationKey",
+  consumerApi: "consumerApi",
+};
+
+/**
+ * The selection after a step that changed the selected element's key (0.10 A5b): the same element
+ * under its new key, so the editor keeps showing it; `undefined` when the step left it alone.
+ */
+export function followKeyChange(
+  selection: EditorSelection,
+  entries: ModelDraftOperationEntry[],
+): EditorSelection | undefined {
+  const member = selection.show ? SELECTED_BY[selection.show] : undefined;
+  if (!member || !("key" in selection)) return undefined;
+  let key = selection.key;
+  for (const entry of entries) {
+    const element = (entry.parameters.element ?? {}) as Record<string, string>;
+    if (entry.kind === "setKey" && Object.keys(element).length === 1 && element[member] === key)
+      key = String(entry.parameters.key);
+  }
+  return key === selection.key ? undefined : ({ ...selection, key } as EditorSelection);
 }

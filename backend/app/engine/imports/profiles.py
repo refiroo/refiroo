@@ -210,6 +210,7 @@ def _source_problems(
                 problems += _match_problems(
                     model, parent.objectTypeKey, parent.matchBy, f"{at}/parent/matchBy"
                 )
+            problems += _create_problems(parent.missing, parent.matchBy, f"{at}/parent")
         elif binding.relation is not None or binding.relationFlags is not None:
             relation = binding.relation or binding.relationFlags
             name = "relation" if binding.relation is not None else "relationFlags"
@@ -224,6 +225,10 @@ def _source_problems(
             if model.object_type(relation.objectTypeKey) is not None:
                 problems += _match_problems(
                     model, relation.objectTypeKey, relation.matchBy, f"{at}/{name}/matchBy"
+                )
+            if binding.relation is not None:
+                problems += _create_problems(
+                    binding.relation.missing, binding.relation.matchBy, f"{at}/relation"
                 )
             if binding.relation is not None and binding.relation.attributes:
                 problems += _relation_value_problems(
@@ -361,6 +366,19 @@ def _relation_value_problems(
         for index, value in enumerate(relation.attributes)
         if value.attributeTypeKey not in binding.attributeTypeKeys
     ]
+
+
+def _create_problems(missing: str, match: MatchBy, path: str) -> list[Problem]:
+    """A record created for a cell takes the cell as its name, so only a match by name creates."""
+    if missing == "create" and match.field != "name":
+        return [
+            Problem(
+                f"{path}/missing",
+                "CREATE_NEEDS_NAME_MATCH",
+                "Only a match by name creates the records it does not find",
+            )
+        ]
+    return []
 
 
 def _match_problems(

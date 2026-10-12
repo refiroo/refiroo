@@ -3,9 +3,13 @@
  * each linked to the element the server tied it to (D36). History lists the draft's steps newest
  * first, in plain words, with their time and whether they were undone; a step not undone can be
  * undone from its line, and one that later steps depend on is offered to undo with them (D8).
+ *
+ * With a source file (0.10 A5b), Issues lists the draft profile's warnings too, each linked to its
+ * column, and a third tab holds the dry run.
  */
 
-import type { EditorSelection, ModelDraftOutline, OutlineDiagnostic, OutlineElement } from "@/types";
+import type { ReactNode } from "react";
+import type { DraftProfile, EditorSelection, ModelDraftOutline, OutlineDiagnostic, OutlineElement } from "@/types";
 import { formatServerTime } from "@/lib/dates";
 import type { CursorFeed } from "@/lib/hooks/useCursorFeed";
 import type { ModelDraftOperationEntry } from "@/types";
@@ -15,6 +19,7 @@ import { StatusPill } from "@/ui/StatusPill";
 import { Tabs } from "@/ui/Tabs";
 import { describeStep, historySteps, undoable } from "@/features/model-editor/history";
 import { elementLabel, nameOf } from "@/features/model-editor/outline";
+import { columnsOfIssue } from "@/features/model-editor/mapping";
 
 /** Where an issue's link goes: the element's own panel, the matrix for a relation between two types. */
 export function selectionFor(element: OutlineElement): EditorSelection {
@@ -34,6 +39,8 @@ export function IssuesAndHistory({
   history,
   onSelect,
   onUndoStep,
+  profile,
+  dryRun,
 }: {
   outline: ModelDraftOutline;
   tab: string;
@@ -41,10 +48,16 @@ export function IssuesAndHistory({
   history: CursorFeed<ModelDraftOperationEntry>;
   onSelect: (selection: EditorSelection) => void;
   onUndoStep: (step: number) => void;
+  /** The draft's profile, whose warnings join the issues. */
+  profile?: DraftProfile;
+  /** The dry run tab's content, with a source file. */
+  dryRun?: { label: string; content: ReactNode };
 }) {
   const names = nameOf(outline);
   const steps = historySteps(history.items);
   const issues = outline.diagnostics;
+  const profileIssues = profile?.profile ? profile.diagnostics : [];
+  const count = issues.length + profileIssues.length;
   return (
     <Tabs
       label="Draft"
@@ -53,12 +66,32 @@ export function IssuesAndHistory({
       tabs={[
         {
           id: "issues",
-          label: `Issues (${issues.length})`,
-          content: issues.length ? (
+          label: `Issues (${count})`,
+          content: count ? (
             <ul className="editor-issues">
               {issues.map((issue, index) => (
                 <Issue key={`${issue.path}:${index}`} issue={issue} outline={outline} onSelect={onSelect} />
               ))}
+              {profileIssues.map((issue, index) => {
+                const [column] = profile?.profile ? columnsOfIssue(profile.profile, issue) : [];
+                return (
+                  <li key={`${issue.path}:${index}`}>
+                    <StatusPill tone="warning">Warning</StatusPill>
+                    <span className="editor-issue-text">{issue.message}</span>
+                    {column ? (
+                      <button
+                        type="button"
+                        className="link-button"
+                        onClick={() => onSelect({ show: "column", sheet: column.sheet, key: column.header })}
+                      >
+                        Go to column {column.header}
+                      </button>
+                    ) : (
+                      <code className="element-key">{issue.path}</code>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <EmptyState>No issues: the draft is valid and can be installed.</EmptyState>
@@ -105,6 +138,7 @@ export function IssuesAndHistory({
             </div>
           ),
         },
+        ...(dryRun ? [{ id: "dryRun", label: dryRun.label, content: dryRun.content }] : []),
       ]}
     />
   );

@@ -417,8 +417,12 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
     lock; with no audit entries in a trial run (D72) and sets advanced from arrays (D73) it takes
     5.75 s (2026-10-12). The rest is PostgreSQL writing the rows it tests and the ORM's bookkeeping;
     a change-set context that does not block live writes remains an option if A5 needs it.
-  - [ ] A5 editor with a source file: source and mapping panes, saved and re-run profiles.
-  - [ ] A6 inference over the table patterns.
+  - [x] A5a a draft's import profile, edited by operations; the dry run after each step; the
+    profile saved at installation; `missing: "create"` (delivered 2026-10-12).
+  - [ ] A5b the editor with a workbook: source pane, a column's mapping, Map to…, the dry-run
+    drawer, Load (committed 2026-10-12; not accepted as complete, its open points settled in A6).
+  - [ ] A6 inference over the table patterns (next, before A5c; the user, 2026-10-12).
+  - [ ] A5c the next version of a workbook: the profile check, missing records, Settings › Imports.
   - [ ] A7 model-description sheets and matching across files (below the cut line).
   - [ ] A8 list blocks in sheets laid out for reading (below the cut line).
   - [ ] R build acceptance and release.

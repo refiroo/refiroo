@@ -40,6 +40,16 @@ beforeEach(() => {
   vi.mocked(api.modelDraftModel).mockResolvedValue({ version: 4, valid: false, diagnostics: [] });
   vi.mocked(api.workspaces).mockResolvedValue({ items: [], nextCursor: null });
   vi.mocked(api.modelDraftOutline).mockResolvedValue(outlineFixture());
+  // A draft without a workbook: no source pane, no dry run (0.10 A5b).
+  vi.mocked(api.modelDraftProfile).mockResolvedValue({
+    version: 4,
+    profile: null,
+    definition: null,
+    valid: false,
+    diagnostics: [],
+    sourceFile: null,
+  });
+  vi.mocked(api.modelDraftDryRun).mockRejectedValue(new ApiError(404, "DRY_RUN_NOT_FOUND", "No dry run"));
   vi.mocked(api.modelDraft).mockResolvedValue({
     id: "d1",
     name: "Store changes",
@@ -66,6 +76,7 @@ function renderEditor(selection: Parameters<typeof ModelEditor>[0]["selection"] 
         onNavigate={vi.fn()}
         onActivated={vi.fn()}
         onOpenApplication={vi.fn()}
+        onOpenChangeSet={vi.fn()}
         activeModel={activeModel}
         workspaceKey="default"
       />
@@ -153,6 +164,7 @@ describe("ModelEditor", () => {
           onNavigate={vi.fn()}
           onActivated={vi.fn()}
           onOpenApplication={vi.fn()}
+          onOpenChangeSet={vi.fn()}
           activeModel={activeModel}
           workspaceKey="default"
         />
@@ -193,6 +205,7 @@ describe("ModelEditor", () => {
           onNavigate={vi.fn()}
           onActivated={vi.fn()}
           onOpenApplication={vi.fn()}
+          onOpenChangeSet={vi.fn()}
           activeModel={activeModel}
           workspaceKey="default"
         />

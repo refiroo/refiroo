@@ -517,3 +517,443 @@ def test_an_import_naming_a_stored_source_file_loads_as_the_file_sent_does(world
         {"request": json.dumps(loaded(sent, sourceFileId=stored["id"]))},
     )
     refused(both, 422, "REQUEST_VALIDATION_ERROR")
+
+
+# --- A5a: the draft's profile, edited by operations (D75–D80) ---
+
+
+def _step(world, draft: dict[str, Any], *operations: dict[str, Any]) -> dict[str, Any]:
+    """One request of operations; its answer (the draft may hold profile warnings)."""
+    return ok(
+        world.api.post(
+            f"/model-drafts/{draft['id']}/operations",
+            {"expectedVersion": _version(world, draft), "operations": list(operations)},
+        )
+    )
+
+
+def _draft_profile(world, draft: dict[str, Any]) -> dict[str, Any]:
+    return ok(world.api.get(f"/model-drafts/{draft['id']}/profile"))
+
+
+def _catalogue(world, draft: dict[str, Any]) -> dict[str, str]:
+    """The draft's catalogue: a category type (top level) containing items, a material and a
+    colour list, item attributes for W1's key, order and supplier columns, and relations from an
+    item to its material, its colour and to records of K (its features)."""
+    app = world.app("K")
+    _apply(
+        world,
+        draft,
+        {"kind": "addObjectType", "applicationKey": app, "key": "j34-category", "name": "Category", "pluralName": "Categories", "parent": None},
+        {
+            "kind": "addObjectType",
+            "applicationKey": app,
+            "key": "j34-item",
+            "name": "Item",
+            "pluralName": "Items",
+            "parent": {"objectTypes": ["j34-category"], "relationType": {"name": "Contains", "reverseName": "In", "key": "j34-contains"}},
+        },
+        {"kind": "addObjectType", "applicationKey": app, "key": "j34-material", "name": "Material", "pluralName": "Materials", "parent": None},
+        {"kind": "addObjectType", "applicationKey": app, "key": "j34-colour", "name": "Colour", "pluralName": "Colours", "parent": None},
+        {"kind": "addAttributeType", "key": "j34-code", "name": "Item code", "valueType": "text", "features": {"unique": True}},
+        {"kind": "addAttributeType", "key": "j34-order", "name": "Order", "valueType": "integer", "features": {}},
+        {"kind": "addAttributeType", "key": "j34-category-id", "name": "Category ID", "valueType": "text", "features": {"unique": True}},
+        {"kind": "addAttributeType", "key": "j34-supplier", "name": "Supplier ID", "valueType": "text", "features": {"unique": True}},
+        {"kind": "attachAttribute", "objectType": "j34-item", "attributeType": "j34-code"},
+        {"kind": "attachAttribute", "objectType": "j34-item", "attributeType": "j34-order"},
+        {"kind": "attachAttribute", "objectType": "j34-item", "attributeType": "j34-supplier"},
+        {"kind": "attachAttribute", "objectType": "j34-category", "attributeType": "j34-category-id"},
+        {"kind": "addRelationType", "key": "j34-made-of", "name": "Made of", "reverseName": "Material of"},
+        {"kind": "allowRelation", "relationType": "j34-made-of", "from": "j34-item", "to": "j34-material"},
+        {"kind": "addRelationType", "key": "j34-coloured", "name": "Coloured", "reverseName": "Colour of"},
+        {"kind": "allowRelation", "relationType": "j34-coloured", "from": "j34-item", "to": "j34-colour"},
+        {"kind": "addRelationType", "key": "j34-has-feature", "name": "Has feature", "reverseName": "Feature of"},
+        {"kind": "allowRelation", "relationType": "j34-has-feature", "from": "j34-item", "to": world.key("K")},
+    )
+    return {"app": app}
+
+
+def _features(world, workspace: str) -> None:
+    """K records named as W1's feature columns and features, which its flags and ``Fo`` name."""
+    for name in sorted({workbooks.HEADERS["F1"], workbooks.HEADERS["F2"], *workbooks.FEATURES}):
+        ok(world.create("K", name, workspace=workspace), 201)
+
+
+def _onboarding(world) -> tuple[dict[str, Any], workbooks.W1, dict[str, Any], str]:
+    """A draft with the catalogue, W1 profiled for it in a workspace holding the features."""
+    workspace = _workspace(world)
+    _features(world, workspace)
+    draft = _draft(world)
+    _catalogue(world, draft)
+    book = workbooks.w1(rows=200)
+    source = _profiled(world, {"draftId": draft["id"]}, "catalogue.xlsx", book.content, workspaceKey=workspace)
+    return draft, book, source, workspace
+
+
+def _map_by_hand(world, draft: dict[str, Any], book: workbooks.W1) -> list[dict[str, Any]]:
+    """W1's S1 mapped onto items, one request per step, as the editor sends them; the answers."""
+    h = book.header
+    lookup = {"relation": {"relationTypeKey": "j34-made-of", "objectTypeKey": "j34-material", "matchBy": {"field": "name"}, "missing": "create"}}
+    steps = [
+        [{"kind": "addSource", "id": "items", "sheet": workbooks.S1, "objectType": "j34-item", "key": {"attributeTypeKey": "j34-code"}}],
+        [{"kind": "mapColumn", "source": "items", "column": h("K"), "binding": {"attributeTypeKey": "j34-code"}}],
+        [{"kind": "mapColumn", "source": "items", "column": h("N"), "binding": {"field": "name"}}],
+        [{"kind": "mapColumn", "source": "items", "column": h("P"), "binding": {"parent": {"objectTypeKey": "j34-category", "matchBy": {"field": "name"}, "missing": "create"}}}],
+        [{"kind": "mapColumn", "source": "items", "column": h("T"), "binding": lookup}],
+        [{"kind": "setColumnReading", "source": "items", "column": h("F1"), "reading": "relationFlag", "relationTypeKey": "j34-has-feature", "objectTypeKey": world.key("K"), "target": h("F1")}],
+        [{"kind": "setColumnReading", "source": "items", "column": h("F2"), "reading": "relationFlag", "target": h("F2"), "relationTypeKey": "j34-has-feature", "objectTypeKey": world.key("K")}],
+        [{"kind": "setColumnReading", "source": "items", "column": h("Fo"), "reading": "relation", "relationTypeKey": "j34-has-feature", "objectTypeKey": world.key("K")}],
+        [{"kind": "splitColumn", "source": "items", "column": h("Fo"), "delimiter": ";"}],
+        [{"kind": "ignoreColumn", "source": "items", "column": h("X")}],
+    ]
+    return [_step(world, draft, *operations) for operations in steps]
+
+
+def _install(world, draft: dict[str, Any]) -> dict[str, Any]:
+    """The draft installed as the next version of its release (D18)."""
+    _step(world, draft, {"kind": "setRelease", "version": "1.1.0"})
+    return ok(world.api.post(f"/model-drafts/{draft['id']}/installation", {"expectedVersion": _version(world, draft)}), 201)
+
+
+def _summary_of(world, draft: dict[str, Any], answer: dict[str, Any]) -> dict[str, Any]:
+    """The dry run a step queued, once the worker ran it."""
+    assert answer["dryRun"] is not None and answer["dryRun"]["state"] == "checking", answer
+    _run(world)
+    done = ok(world.api.get(f"/model-drafts/{draft['id']}/dry-run"))
+    assert (done["jobId"], done["state"], done["draftVersion"]) == (answer["dryRun"]["jobId"], "completed", answer["version"]), done
+    return done["summary"]
+
+
+@pytest.mark.journey("J34.2")
+@pytest.mark.structures("K")
+def test_a_workbook_is_mapped_by_hand_one_step_at_a_time_and_the_dry_run_follows(world):
+    """Given a draft with a new type and W1 profiled. When a source is added on S1 and K, N, P, T,
+    the flags F1/F2, Fo (split on ;) are mapped and X ignored, one request each. Then each is one
+    step, the draft's profile reads them and is valid against the draft's model, and the last
+    step's dry run counts S1's rows with no row refused (T's values created, D77)."""
+    draft, book, _, _ = _onboarding(world)
+    before = _all(world, f"/model-drafts/{draft['id']}/operations")
+    answers = _map_by_hand(world, draft, book)
+    after = _all(world, f"/model-drafts/{draft['id']}/operations")
+    assert len({entry["step"] for entry in after}) - len({entry["step"] for entry in before}) == len(answers)
+
+    read = _draft_profile(world, draft)
+    assert read["valid"] is True, read["diagnostics"]
+    (items,) = read["profile"]["sources"]
+    by_column = {b.get("column") or tuple(b["columns"]): b for b in items["columns"]}
+    assert by_column[book.header("K")] == {"column": book.header("K"), "attributeTypeKey": "j34-code"}
+    assert by_column[(book.header("F1"), book.header("F2"))]["relationFlags"]["targets"] == {
+        book.header("F1"): book.header("F1"),
+        book.header("F2"): book.header("F2"),
+    }
+    assert by_column[book.header("Fo")]["relation"]["split"] == ";"
+    assert by_column[book.header("X")] == {"column": book.header("X"), "ignore": True}
+    assert "id" not in read["definition"]["sources"][0]
+
+    summary = _summary_of(world, draft, answers[-1])
+    (source,) = summary["sources"]
+    assert (source["rows"], source["records"]["created"], source["rejections"]) == (200, 200, [])
+    assert source["relatedRecords"] == len(book.distinct("P")) + len(book.distinct("T"))
+
+
+@pytest.mark.journey("J34.2")
+@pytest.mark.structures("K")
+def test_a_value_map_and_values_added_to_a_list_change_the_next_dry_run(world):
+    """Given W1 mapped by hand. When N/A and - are mapped to empty for T, then the colour code Lc is
+    read as a lookup of a list without its values, and its values are added to the list. Then the
+    first dry run's difference shows the created related records falling by the placeholders, the
+    lookup refuses every row REFERENCE_NOT_FOUND, and adding the values clears the refusals."""
+    draft, book, _, _ = _onboarding(world)
+    first = _summary_of(world, draft, _map_by_hand(world, draft, book)[-1])["sources"][0]
+
+    mapped = _step(
+        world,
+        draft,
+        {"kind": "setValueMap", "name": "placeholders", "entries": dict.fromkeys(workbooks.PLACEHOLDERS), "source": "items", "column": book.header("T")},
+    )
+    summary = _summary_of(world, draft, mapped)
+    assert summary["sources"][0]["relatedRecords"] == first["relatedRecords"] - len(workbooks.PLACEHOLDERS)
+    (difference,) = summary["difference"]
+    assert difference["figures"]["relatedRecords"] == {"now": first["relatedRecords"] - 2, "was": first["relatedRecords"]}
+
+    lookup = _step(
+        world,
+        draft,
+        {"kind": "setColumnReading", "source": "items", "column": book.header("Lc"), "reading": "lookup", "relationTypeKey": "j34-coloured", "objectTypeKey": "j34-colour"},
+    )
+    refusals = _summary_of(world, draft, lookup)["sources"][0]["rejections"]
+    assert refusals == [{"code": "REFERENCE_NOT_FOUND", "rows": 200}]
+    rows = ok(world.api.get(f"/model-drafts/{draft['id']}/dry-run/rows", code="REFERENCE_NOT_FOUND", pageSize=5))
+    assert len(rows["items"]) == 5
+
+    added = _step(world, draft, {"kind": "addValuesToList", "source": "items", "column": book.header("Lc")})
+    source = _summary_of(world, draft, added)["sources"][0]
+    assert source["rejections"] == []
+    assert source["relatedRecords"] == first["relatedRecords"] - 2 + len(book.distinct("Lc"))
+
+
+def _followed(world, draft: dict[str, Any], operation: dict[str, Any]) -> dict[str, Any]:
+    """``operation`` applied; one undo puts the profile back whole, and one redo applies it again.
+    The profile after it."""
+    before = _draft_profile(world, draft)["profile"]
+    _step(world, draft, operation)
+    after = _draft_profile(world, draft)
+    ok(world.api.post(f"/model-drafts/{draft['id']}/undo", {"expectedVersion": _version(world, draft)}))
+    assert _draft_profile(world, draft)["profile"] == before
+    ok(world.api.post(f"/model-drafts/{draft['id']}/redo", {"expectedVersion": _version(world, draft)}))
+    assert _draft_profile(world, draft)["profile"] == after["profile"]
+    return after
+
+
+def _bindings(profile: dict[str, Any], source_id: str) -> dict[str, dict[str, Any]]:
+    source = next(s for s in profile["sources"] if s["id"] == source_id)
+    return {b.get("column") or ",".join(b["columns"]): b for b in source["columns"]}
+
+
+@pytest.mark.journey("J34.7")
+@pytest.mark.structures("K")
+def test_the_draft_profile_follows_renames_moves_splits_and_merges_and_undoes_with_them(world):
+    """Given W1 mapped, with a category source on S1 and Po mapped to the items' order. When the
+    item type and its code are re-keyed, the order attribute moved to the category, the supplier ID
+    split into a type of its own and that type merged back. Then the profile names the new keys,
+    the moved column sits in the category's source, the split's columns in a source of the new
+    type joined by the split's relation, the merge re-points them; the profile is valid after each;
+    and one undo of each puts the profile back whole."""
+    draft, book, _, _ = _onboarding(world)
+    _map_by_hand(world, draft, book)
+    h = book.header
+    _step(
+        world,
+        draft,
+        {"kind": "addSource", "id": "categories", "sheet": workbooks.S1, "objectType": "j34-category", "key": {"attributeTypeKey": "j34-category-id"}},
+        {"kind": "mapColumn", "source": "categories", "column": h("Pi"), "binding": {"attributeTypeKey": "j34-category-id"}},
+        {"kind": "mapColumn", "source": "categories", "column": h("P"), "binding": {"field": "name"}},
+        {"kind": "mapColumn", "source": "items", "column": h("Po"), "binding": {"attributeTypeKey": "j34-order"}},
+        {"kind": "mapColumn", "source": "items", "column": h("X"), "binding": {"attributeTypeKey": "j34-supplier"}},
+    )
+
+    renamed = _followed(world, draft, {"kind": "setKey", "element": {"objectType": "j34-item"}, "key": "j34-article"})
+    assert renamed["valid"] is True, renamed["diagnostics"]
+    items = next(s for s in renamed["profile"]["sources"] if s["id"] == "items")
+    assert items["objectTypeKey"] == "j34-article"
+
+    rekeyed = _followed(world, draft, {"kind": "setKey", "element": {"attributeType": "j34-code"}, "key": "j34-article-code"})
+    assert rekeyed["valid"] is True, rekeyed["diagnostics"]
+    items = next(s for s in rekeyed["profile"]["sources"] if s["id"] == "items")
+    assert items["key"] == {"attributeTypeKey": "j34-article-code"}
+    assert _bindings(rekeyed["profile"], "items")[h("K")]["attributeTypeKey"] == "j34-article-code"
+
+    moved = _followed(world, draft, {"kind": "moveAttribute", "attributeType": "j34-order", "from": "j34-article", "to": "j34-category"})
+    assert moved["valid"] is True, moved["diagnostics"]
+    assert h("Po") not in _bindings(moved["profile"], "items")
+    assert _bindings(moved["profile"], "categories")[h("Po")] == {"column": h("Po"), "attributeTypeKey": "j34-order"}
+
+    split = _followed(
+        world,
+        draft,
+        {"kind": "splitObjectType", "objectType": "j34-article", "key": "j34-supply", "name": "Supply", "attributes": ["j34-supplier"], "relationType": {"name": "Supplied as", "reverseName": "Supply of", "key": "j34-supplied"}},
+    )
+    assert split["valid"] is True, split["diagnostics"]
+    supply = next(s for s in split["profile"]["sources"] if s["objectTypeKey"] == "j34-supply")
+    assert (supply["sheet"], supply["key"]) == (workbooks.S1, {"attributeTypeKey": "j34-supplier"})
+    assert _bindings(split["profile"], supply["id"])[h("X")] == {"column": h("X"), "attributeTypeKey": "j34-supplier"}
+    assert _bindings(split["profile"], "items")[h("X")]["relation"] == {
+        "relationTypeKey": "j34-supplied",
+        "objectTypeKey": "j34-supply",
+        "matchBy": {"attributeTypeKey": "j34-supplier"},
+    }
+
+    merged = _followed(world, draft, {"kind": "mergeObjectTypes", "into": "j34-article", "from": "j34-supply"})
+    assert merged["valid"] is True, merged["diagnostics"]
+    assert {s["objectTypeKey"] for s in merged["profile"]["sources"]} == {"j34-article", "j34-category"}
+    assert _bindings(merged["profile"], "items")[h("X")]["relation"]["objectTypeKey"] == "j34-article"
+
+
+@pytest.mark.journey("J34.7")
+@pytest.mark.structures("K")
+def test_a_removed_attribute_leaves_its_column_unmapped_until_undone(world):
+    """Given Po mapped to the items' order. When the order attribute is detached. Then its column is
+    no longer bound, the profile keeps it as unmapped and the step warns COLUMN_UNMAPPED at it;
+    after undo the column is mapped again and the warning is gone."""
+    draft, book, _, _ = _onboarding(world)
+    _map_by_hand(world, draft, book)
+    _step(world, draft, {"kind": "mapColumn", "source": "items", "column": book.header("Po"), "binding": {"attributeTypeKey": "j34-order"}})
+
+    answer = _step(world, draft, {"kind": "detachAttribute", "objectType": "j34-item", "attributeType": "j34-order"})
+    unmapped = [d for d in answer["diagnostics"] if d["code"] == "COLUMN_UNMAPPED"]
+    assert [d["path"] for d in unmapped] == ["/profile/unmapped/0"], answer["diagnostics"]
+    profile = _draft_profile(world, draft)["profile"]
+    assert book.header("Po") not in _bindings(profile, "items")
+    (entry,) = profile["unmapped"]
+    assert (entry["column"], entry["because"]) == (book.header("Po"), {"kind": "detachAttribute"})
+
+    undone = ok(world.api.post(f"/model-drafts/{draft['id']}/undo", {"expectedVersion": _version(world, draft)}))
+    assert not [d for d in undone["diagnostics"] if d["code"] == "COLUMN_UNMAPPED"]
+    assert _bindings(_draft_profile(world, draft)["profile"], "items")[book.header("Po")]["attributeTypeKey"] == "j34-order"
+
+
+@pytest.mark.journey("J34.3")
+@pytest.mark.structures("K")
+def test_a_step_that_can_change_the_load_queues_the_dry_run_and_a_label_does_not(world):
+    """Given W1 mapped. When a step maps a column. Then its answer says the dry run is checking and
+    the draft's latest dry run is of that version. When a step only changes a label. Then no dry
+    run is queued (D79)."""
+    draft, book, _, _ = _onboarding(world)
+    _map_by_hand(world, draft, book)
+    _run(world)
+    answer = _step(world, draft, {"kind": "ignoreColumn", "source": "items", "column": book.header("Ln")})
+    _summary_of(world, draft, answer)
+
+    label = _step(world, draft, {"kind": "setLabel", "element": {"objectType": "j34-item"}, "name": "Article"})
+    assert label["dryRun"] is None
+    assert ok(world.api.get(f"/model-drafts/{draft['id']}/dry-run"))["draftVersion"] == answer["version"]
+
+
+@pytest.mark.journey("J34.8")
+@pytest.mark.structures("K")
+def test_installing_saves_the_draft_profile_and_an_import_naming_it_loads_what_the_dry_run_counted(world):
+    """Given W1 mapped and its dry run. When the draft is installed and activated. Then the
+    installation saved an instance profile of the draft profile's key, checked against the new
+    release; an import naming it and the draft's stored file into a change set creates the records
+    the dry run counted."""
+    draft, book, source, workspace = _onboarding(world)
+    summary = _summary_of(world, draft, _map_by_hand(world, draft, book)[-1])
+    figures = summary["sources"][0]
+    profile_key = _draft_profile(world, draft)["profile"]["key"]
+
+    release = _install(world, draft)
+    assert release["importProfile"] == {"key": profile_key, "version": 1}
+    stored = ok(world.api.get(f"/import-profiles/{profile_key}"))
+    assert stored["checkedAgainst"] == release["id"]
+    ok(world.activate(release["id"]))
+    assert ok(world.api.get(f"/import-profiles/{profile_key}"))["valid"] is True
+
+    change_set = world.change_set(workspace)
+    request = {
+        "changeSetId": change_set["id"],
+        "expectedChangeSetVersion": change_set["version"],
+        "profileKey": profile_key,
+        "sourceFileId": source["id"],
+        "policy": "independent",
+        "onExisting": "overwrite",
+        "stage": "execute",
+    }
+    job = ok(world.api.upload("/imports", {}, {"request": json.dumps(request)}), 202)
+    _run(world)
+    done = ok(world.api.get(f"/jobs/{job['id']}"))
+    assert (done["state"], done["counts"]["rejected"]) == ("completed", 0), done
+    assert done["counts"]["created"] == (
+        figures["records"]["created"] + figures["relatedRecords"] + figures["relationships"]
+    )
+
+
+@pytest.mark.journey("J34.8")
+@pytest.mark.structures("K")
+def test_the_editor_loads_the_workbook_into_a_new_change_set_whose_review_lists_it_and_publishing_makes_it_live(world):
+    """Given W1 mapped by hand and its dry run. When the editor's load runs its three calls (D81):
+    the draft installed and activated, a change set named after the file, and the import of the
+    stored file through the saved profile into it. Then the change set lists the records the dry
+    run counted as added, nothing is live before publishing, and after publishing the records are
+    the workspace's."""
+    draft, book, source, workspace = _onboarding(world)
+    figures = _summary_of(world, draft, _map_by_hand(world, draft, book)[-1])["sources"][0]
+
+    release = _install(world, draft)
+    ok(world.activate(release["id"]))
+    change_set = world.change_set(workspace, name="Load catalogue.xlsx (2026-10-12)")
+    request = {
+        "changeSetId": change_set["id"],
+        "expectedChangeSetVersion": change_set["version"],
+        "profileKey": release["importProfile"]["key"],
+        "sourceFileId": source["id"],
+        "policy": "independent",
+        "onExisting": "overwrite",
+        "stage": "execute",
+    }
+    job = ok(world.api.upload("/imports", {}, {"request": json.dumps(request)}), 202)
+    _run(world)
+    assert ok(world.api.get(f"/jobs/{job['id']}"))["state"] == "completed"
+
+    review = _all(world, f"/change-sets/{change_set['id']}/object-changes", objectTypeKey="j34-item")
+    assert len(review) == figures["records"]["created"] == len(book.rows)
+    assert {item["kind"] for item in review} == {"added"}
+    live = ok(world.api.get("/objects/j34-item", workspaceKey=workspace, includeTotal=True))
+    assert live["totalCount"] == 0
+
+    world.publish(change_set, workspace)
+    live = ok(world.api.get("/objects/j34-item", workspaceKey=workspace, includeTotal=True))
+    assert live["totalCount"] == len(book.rows)
+
+
+@pytest.mark.journey("J34.2")
+@pytest.mark.structures("K")
+def test_mapping_kinds_refuse_what_the_file_or_the_draft_lacks(world):
+    """A mapping kind naming a column or a sheet the file lacks is INVALID_OPERATION
+    (unknownElement), as is addSource on a draft without a source file; a stale version is
+    VERSION_CONFLICT."""
+    draft, book, _, _ = _onboarding(world)
+    _map_by_hand(world, draft, book)
+
+    def operation(*operations: dict[str, Any], version: int | None = None):
+        body = {"expectedVersion": version or _version(world, draft), "operations": list(operations)}
+        return world.api.post(f"/model-drafts/{draft['id']}/operations", body)
+
+    column = refused(operation({"kind": "ignoreColumn", "source": "items", "column": "No such column"}), 422, "INVALID_OPERATION")
+    assert (column["details"]["reason"], column["details"]["pointer"]) == ("unknownElement", "/operations/0/column")
+    sheet = refused(operation({"kind": "addSource", "sheet": "No such sheet", "objectType": "j34-item"}), 422, "INVALID_OPERATION")
+    assert sheet["details"]["reason"] == "unknownElement"
+    refused(operation({"kind": "ignoreColumn", "source": "items", "column": book.header("X")}, version=1), 409, "VERSION_CONFLICT")
+
+    empty = _draft(world)
+    _catalogue(world, empty)
+    bare = world.api.post(
+        f"/model-drafts/{empty['id']}/operations",
+        {"expectedVersion": _version(world, empty), "operations": [{"kind": "addSource", "sheet": workbooks.S1, "objectType": "j34-item"}]},
+    )
+    assert refused(bare, 422, "INVALID_OPERATION")["details"]["reason"] == "unknownElement"
+
+
+@pytest.mark.journey("J27.8")
+@pytest.mark.structures("K")
+def test_an_import_creates_the_list_values_a_lookup_names_once_whatever_the_rows(world):
+    """Given an inline profile whose relation column creates the list records it does not find
+    (D77). When a file names one absent value on three rows and an existing one on another. Then
+    the absent value is created once and every row relates to it; a column creating by an
+    attribute match is refused CREATE_NEEDS_NAME_MATCH."""
+    workspace = _workspace(world)
+    draft = _draft(world)
+    _catalogue(world, draft)
+    _apply(world, draft, {"kind": "allowRelation", "relationType": "j34-made-of", "from": "j34-category", "to": "j34-material"})
+    release = _install(world, draft)
+    ok(world.activate(release["id"]))
+    paper = {"workspaceKey": workspace, "applicationKey": world.app("K"), "objectTypeKey": "j34-material", "name": "Paper", "attributes": []}
+    ok(world.api.post("/objects", paper), 201)
+
+    def profile(match: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "sources": [
+                {
+                    "applicationKey": world.app("K"),
+                    "objectTypeKey": "j34-category",
+                    "columns": [
+                        {"column": "name", "field": "name"},
+                        {"column": "material", "relation": {"relationTypeKey": "j34-made-of", "objectTypeKey": "j34-material", "matchBy": match, "missing": "create"}},
+                    ],
+                },
+            ]
+        }
+
+    content = b"name,material\nA,Glossy\nB,Glossy\nC,Glossy\nD,Paper\n"
+    request = {"workspaceKey": workspace, "policy": "independent", "stage": "execute", "profile": profile({"field": "name"})}
+    job = ok(world.api.upload("/imports", {"file": ("lists.csv", content, "text/csv")}, {"request": json.dumps(request)}), 202)
+    _run(world)
+    done = ok(world.api.get(f"/jobs/{job['id']}"))
+    rows = ok(world.api.get(f"/jobs/{job['id']}/rows", pageSize=10))["items"]
+    assert (done["state"], done["counts"]["rejected"]) == ("completed", 0), rows
+    names = [item["name"] for item in _all(world, "/objects/j34-material", workspaceKey=workspace)]
+    assert sorted(names) == ["Glossy", "Paper"]
+    assert done["counts"]["created"] == 4 + 1 + 4
+
+    bad = {**request, "profile": profile({"attributeTypeKey": "j34-code"})}
+    error = refused(world.api.upload("/imports", {"file": ("lists.csv", content, "text/csv")}, {"request": json.dumps(bad)}), 422, "INVALID_IMPORT_PROFILE")
+    assert any(p["code"] == "CREATE_NEEDS_NAME_MATCH" for p in error["details"]["problems"]), error

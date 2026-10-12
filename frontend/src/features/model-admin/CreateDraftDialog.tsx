@@ -5,12 +5,18 @@
  *
  * Import and export happen in the browser: the engine reads no server filesystem, so a draft
  * enters the system either by copying a release or by the user handing over a document.
+ *
+ * "New from a workbook" (0.10 A5b) is the same dialog with a workbook to upload: the draft is
+ * created, the workbook uploaded to it and profiled, and the editor opens on it. It starts from the
+ * active release, so the applications already there stay; an empty model is a choice.
  */
 
 import { useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import { FileField } from "@/ui/FileField";
+import { FormField } from "@/ui/FormField";
+import { WORKBOOK_ACCEPT } from "@/features/model-editor/AddWorkbookDialog";
 import { keyFromLabel } from "@/features/model-editor/outline";
 import type { ModelDraft, ModelReleaseSummary } from "@/types";
 import { Modal } from "@/ui/Modal";
@@ -19,6 +25,8 @@ import { Notice } from "@/ui/Notice";
 export interface CreateDraftSeed {
   name: string;
   releaseId: string;
+  /** Ask for a workbook to upload to the new draft (0.10 A5b). */
+  workbook?: boolean;
 }
 
 /** A model with nothing in it yet, in the newest schema language the deployment reads. */
@@ -50,6 +58,9 @@ export function CreateDraftDialog({
   const [createName, setCreateName] = useState(seed.name);
   const [createReleaseId, setCreateReleaseId] = useState(seed.releaseId);
   const [importText, setImportText] = useState("{}");
+  const [workbook, setWorkbook] = useState<File>();
+  // A draft created whose workbook did not upload: trying again uploads to it, creating no second one.
+  const [created, setCreated] = useState<ModelDraft>();
   const [createError, setCreateError] = useState("");
   const [pending, setPending] = useState(false);
 
@@ -70,13 +81,27 @@ export function CreateDraftDialog({
           throw new Error("Imported JSON must be an object.");
         model = parsed as Record<string, unknown>;
       }
-      onCreated(
-        await api.createModelDraft({
+      const draft =
+        created ??
+        (await api.createModelDraft({
           name: createName.trim(),
           ...(baseReleaseId ? { baseReleaseId } : {}),
           model,
-        }),
-      );
+        }));
+      setCreated(draft);
+      if (workbook) {
+        try {
+          await api.uploadSourceFile(workbook, { owner: { draftId: draft.id } });
+        } catch (cause) {
+          throw new Error(
+            `Draft ${draft.name} was created, but the workbook was not uploaded: ${errorMessage(cause)}`,
+            {
+              cause,
+            },
+          );
+        }
+      }
+      onCreated(draft);
     } catch (cause) {
       setCreateError(errorMessage(cause));
     } finally {
@@ -85,7 +110,18 @@ export function CreateDraftDialog({
   }
 
   return (
-    <Modal title="Create draft" eyebrow="Model candidate" size="compact" busy={pending} onClose={onClose}>
+    <Modal
+      title={seed.workbook ? "New from a workbook" : "Create draft"}
+      eyebrow="Model candidate"
+      description={
+        seed.workbook
+          ? "A draft with the workbook: its sheets and columns are profiled, then mapped onto the model in the editor."
+          : undefined
+      }
+      size="compact"
+      busy={pending}
+      onClose={onClose}
+    >
       <form
         onSubmit={(event) => {
           event.preventDefault();
@@ -102,6 +138,11 @@ export function CreateDraftDialog({
             onChange={(event) => setCreateName(event.target.value)}
           />
         </label>
+        {seed.workbook && (
+          <FormField label="Workbook" help="An XLSX workbook or a CSV file">
+            {(control) => <FileField control={control} accept={WORKBOOK_ACCEPT} onFile={setWorkbook} />}
+          </FormField>
+        )}
         <label>
           Starting document
           <select value={createSource} onChange={(event) => setCreateSource(event.target.value as typeof createSource)}>
@@ -151,7 +192,12 @@ export function CreateDraftDialog({
           </button>
           <button
             className="primary"
-            disabled={pending || !createName.trim() || (createSource === "release" && !createReleaseId)}
+            disabled={
+              pending ||
+              !createName.trim() ||
+              (createSource === "release" && !createReleaseId) ||
+              (seed.workbook && !workbook)
+            }
           >
             {pending ? "Creating…" : "Create draft"}
           </button>

@@ -97,7 +97,9 @@ allowed pairs; generic detail panels). This design removes the reason for the fi
 
 - **From a workbook:** upload, confirm the sheets and blocks to use, and inference fills the editor with
   a proposal. Choose whether the proposal extends the active model (matching columns to existing types
-  and attributes first) or starts a new application.
+  and attributes first) or starts a new application. As built (A5b): **New from a workbook** on
+  Settings › Model creates a draft of the active release (an empty model is a choice) with the
+  workbook, and an open draft takes one from its ⋯ menu; the mapping is by hand until A6.
 - **From a model:** open a draft of the active release, or an empty one. No source file; the preview
   uses existing records instead of rows.
 - **From a saved profile:** upload the next version of a workbook to its profile. Only differences and
@@ -105,14 +107,18 @@ allowed pairs; generic detail panels). This design removes the reason for the fi
 
 ### Layout
 
-Three synchronized panes and a preview:
+As built (0.10 A4a–A4c, and A5's D84): a resizable model pane, the centre showing the selected
+element (or the preview), and a drawer below with Issues, History and, with a workbook, the dry
+run. A workbook adds a source pane left of the model pane; a selected column's mapping shows in the
+centre, as a selected type's definition does. At 390px the panes are tabs. The panes as first
+designed:
 
 - **Source.** The sheet or block with its header row, each column marked mapped, unmapped, ignored or
   with issues, and its statistics (filled, distinct, value types, candidate key, overlap with other
   columns).
 - **Mapping.** Each column linked to the model element it feeds: attribute, parent, relation, lookup,
   translation, system mapping or ignored, with the transformation applied (split on a delimiter,
-  unpivot, value map). Selecting a column highlights its target, and the reverse.
+  flag columns, value map). Selecting a column highlights its target, and the reverse.
 - **Model.** The structure being built or changed: applications, object types in their containment
   tree, each type's attributes, and the relationship matrix of allowed relation types between types.
   Elements show whether they are new, changed or already released.
@@ -169,10 +175,10 @@ is allowed:
 | Structure | Change cardinality or required on a relation | — | Draft-only |
 | Mapping | Map a column to an attribute, parent, relation, lookup, translation or system mapping | Yes | Additive |
 | Mapping | Change how a column is read: text, lookup, relation, flag of a relation | Yes | Additive |
-| Mapping | Split a column on a delimiter; unpivot columns into records | Yes | Additive |
+| Mapping | Split a column on a delimiter; flag columns of one relation; a column per related record (a language) | Yes | Additive |
 | Mapping | Ignore a column or a sheet | Yes | Additive |
 | Values | Map values: variants to one value, placeholders to empty | Yes | Additive |
-| Values | Add values found in the data to a list | Yes | Additive |
+| Values | Add values found in the data to a list: the load creates the records a lookup names that do not exist (0.10 A5, D77) | Yes | Additive |
 | Views | Add, reorder, show or hide views, panels, columns, filters and fields | — | Additive |
 
 Once a release is installed, a draft-only operation on a released element is recorded as a migration
@@ -344,7 +350,8 @@ Groups have one level, and the group page shows no record counts. Both are non-b
   The change set review screen shows what the new version changes: added, changed and removed records,
   and relationship changes.
 - Records missing from the new version are reported, never deleted by default. Whether a load may
-  retire or delete them is a profile option (A-D7).
+  delete them, in a change set only, is a profile option (A-D7; records have no retired state, so
+  0.10 A5's D82 leaves "retire" out).
 - Matching across files (the model-description workbook and the flat table naming the same records)
   uses IDs or codes, never names alone; differing names are drift to resolve.
 

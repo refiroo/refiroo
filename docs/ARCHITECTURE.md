@@ -163,7 +163,22 @@ Model authoring has three explicit stages (ADR-016):
    them. `authoring/consumer_documents.py` serves a draft's definition with its contract against the
    active release and three documents built from the draft by the consumer modules the consumer tier
    uses: the object message's JSON Schema, a message example written from it, and the OpenAPI
-   document.
+   document. A draft also holds one **import profile** (0.10 A5, `model_drafts.profile_json`): a
+   second `Document` over it, with identities of its own (a source's `id`, a column binding's
+   column), writes into the model document's log with each entry naming its document, so one
+   operation's inverse takes back both. The source and mapping kinds (`authoring/mapping.py`) edit it;
+   the model kinds carry it with them (`authoring/profile_side.py`): explicit follow code for keys,
+   moves, splits, merges, list types and containment, and, in every compound kind's `restoring`, one
+   generic prune that turns whatever names an element the model no longer declares into an unmapped
+   entry. `engine/sources/draft_profile.py` reads it as the import profile an import takes, checks it
+   against the draft's compiled model, queues the dry run after a step that can change the load, and
+   saves it as an instance profile at installation. In the browser (0.10 A5b), `useDraftSource`
+   reads the profile after every step, follows the file's profiling and the dry run over their job
+   event streams, and reads a sheet's columns when it is opened; `model-editor/mapping.ts` reads the
+   profile for the source pane and turns a Map to… choice into one request of the mapping kinds
+   (with `addAttributeType`, `attachAttribute` and `addSource` before it where needed). The load
+   (D81) calls installation, activation, a change set and `POST /imports` with `sourceFileId` in
+   turn; there is no combined route.
 2. **Validation and compilation** are free of side effects: diagnostics with JSON pointers, canonical
    compilation, a key-based semantic diff, compatibility analysis against stored data and, from schema
    0.8, the consumer contract comparison.

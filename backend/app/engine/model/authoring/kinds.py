@@ -16,8 +16,18 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ..compiler import SCHEMA_VERSIONS
+from . import profile_side
 from .cascade import Gone, prune, rename
-from .document import Document, Path, Refusal, apply_changes, identity
+from .document import (
+    MODEL,
+    PROFILE,
+    PROFILE_IDENTITIES,
+    Document,
+    Path,
+    Refusal,
+    apply_changes,
+    identity,
+)
 from .keys import key_from_label
 from .layout import (
     application_path,
@@ -76,10 +86,35 @@ class Applied:
     named: set[str] = field(default_factory=set)
 
 
+@dataclass(frozen=True)
+class Sheet:
+    """A sheet of the draft's profiled source file: its header row and its columns' headers."""
+
+    name: str
+    header_row: int | None
+    headers: tuple[str, ...]
+
+
 class Context:
-    def __init__(self, document: Document, released: Callable[[str], bool]) -> None:
+    def __init__(
+        self,
+        document: Document,
+        released: Callable[[str], bool],
+        profile: Document | None = None,
+        sheets: dict[str, Sheet] | None = None,
+        file_name: str | None = None,
+    ) -> None:
         self.document = document
         self.released = released
+        # The draft's import profile (0.10 A5, D75), writing into the model document's log.
+        self.profile = profile or Document({}, name=PROFILE, identities=PROFILE_IDENTITIES, log=document.log)
+        # The draft's profiled source file, or None (the mapping kinds refuse then).
+        self.sheets = sheets
+        self.file_name = file_name
+
+    @property
+    def documents(self) -> dict[str, Document]:
+        return {MODEL: self.document, PROFILE: self.profile}
 
     @property
     def data(self) -> dict[str, Any]:
@@ -204,7 +239,9 @@ def apply_operation(context: Context, operation: dict[str, Any]) -> Applied:
 
 
 def restoring(context: Context, operation: dict[str, Any], applied: Applied) -> Applied:
-    """``applied`` with the inverse that puts back what its kind changed."""
+    """``applied`` with the inverse that puts back what its kind changed. What the change took away
+    from the model leaves the draft's profile too, as unmapped entries (D78)."""
+    profile_side.prune(context.profile, context.data, operation["kind"])
     applied.inverse = {
         "kind": "restoreElements",
         "undoes": operation,
@@ -348,6 +385,7 @@ def set_key(context: Context, raw: dict[str, Any]) -> Applied:
         if reverse_new is not None and reverse_new != old_reverse and reverse_new in taken | {new}:
             raise Refusal("reverseKey", "keyTaken", f"Key '{reverse_new}' is already used")
         rename(context.document, "relationKey", old, new)
+        profile_side.rename(context.profile, "relationType", old, new)
         if reverse_new is not None and reverse_new != old_reverse:
             rename(context.document, "relationKey", old_reverse, reverse_new)
             context.document.set(["relationTypes", {"key": new}], "reverseKey", reverse_new)
@@ -356,6 +394,8 @@ def set_key(context: Context, raw: dict[str, Any]) -> Applied:
         context.document.set(path, "key", new)
     else:
         rename(context.document, element_kind, old, new, _rename_scope(element_kind, reference))
+        if element_kind in ("application", "objectType", "attributeType"):
+            profile_side.rename(context.profile, element_kind, old, new)
     new_reference = dict(reference)
     new_reference[{"application": "applicationKey"}.get(element_kind, element_kind)] = new
     inverse["element"] = new_reference
@@ -650,6 +690,9 @@ def split_object_type(context: Context, raw: dict[str, Any]) -> Applied:
         place_attribute(context.document, new_key, attribute_key)
     prune(context.document, gone)
     _allow(context, relation_key, source, new_key, cardinality, False)
+    profile_side.split_columns(
+        context.profile, profile_side.facts(context.data), source, new_key, apps[0], moved, relation_key
+    )
     stored = {**raw, "key": new_key, "relationType": relation_key if isinstance(relation, str) else {**relation, "key": relation_key}}
     applied = Applied(
         stored,
@@ -702,6 +745,7 @@ def merge_object_types(context: Context, raw: dict[str, Any]) -> Applied:
     document.remove(["objectTypes"], {"key": source})
     gone = Gone(types={source})
     prune(document, gone)
+    profile_side.rename(context.profile, "objectType", source, into)
     return restoring(
         context,
         {"kind": "mergeObjectTypes", **raw},
@@ -731,6 +775,7 @@ def convert_attribute_to_list_type(context: Context, raw: dict[str, Any]) -> App
     _drop_unbound_attribute(context, attribute_key, gone)
     prune(context.document, gone)
     _allow(context, relation_key, owner, new_key, "many-to-many", False)
+    profile_side.list_lookup(context.profile, owner, attribute_key, new_key, relation_key)
     stored = {**raw, "key": new_key, "relationType": relation_key if isinstance(relation, str) else {**relation, "key": relation_key}}
     applied = Applied(
         stored,
@@ -901,6 +946,7 @@ def move_attribute(context: Context, raw: dict[str, Any]) -> Applied:
     keep_order(context.document, type_path(target) + ["attributes"], {"attributeTypeKey": attribute_key})
     if params.optional("layout", bool, True):
         place_attribute(context.document, target, attribute_key)
+    profile_side.move_columns(context.profile, attribute_key, source, target)
     return restoring(
         context,
         {"kind": "moveAttribute", **raw},
@@ -973,6 +1019,7 @@ def set_containment(context: Context, raw: dict[str, Any]) -> Applied:
     stored_parent, created = _contain(context, key, parent)
     for parent_key in parent[0] if parent else []:
         place_child(context.document, parent_key, key)
+    profile_side.follow_parent(context.profile, key, list(parent[0]) if parent else [])
     named = {atom("objectType", key)} | {atom("objectType", p) for p in (parent[0] if parent else [])}
     stored = {**raw, "parent": stored_parent}
     return restoring(context, {"kind": "setContainment", **stored}, Applied(stored, {}, created=created, named=named))
@@ -1544,7 +1591,7 @@ def restore_elements(context: Context, raw: dict[str, Any]) -> Applied:
     if not isinstance(changes, list) or not isinstance(undoes, dict):
         raise Refusal("changes", "invalidValue", "'changes' are the logged changes of an operation")
     try:
-        apply_changes(context.document, changes)
+        apply_changes(context.documents, changes)
     except LookupError as exc:
         raise Refusal("changes", "conflict", f"The document no longer holds what this restores: {exc}") from exc
     return Applied(raw, copy.deepcopy(undoes))
