@@ -162,3 +162,49 @@ describe("the install dialog's differences", () => {
     ]);
   });
 });
+
+describe("the consumer API steps in words (0.10 A4c)", () => {
+  const names = (kind: string, key: string) => (kind === "consumerApi" && key === "shop-feed" ? "Shop feed" : key);
+  it.each<[string, Record<string, unknown>, string]>([
+    ["addConsumerApi", { name: "Stock levels", exposes: ["bin"] }, "Added consumer API Stock levels"],
+    ["removeConsumerApi", { consumerApi: "shop-feed" }, "Removed consumer API Shop feed"],
+    [
+      "insertConsumerApiPart",
+      { consumerApi: "shop-feed", pointer: "/object/fields", key: "packSize", value: "pack-size" },
+      "Added field packSize to Shop feed",
+    ],
+    [
+      "insertConsumerApiPart",
+      { consumerApi: "shop-feed", pointer: "/exposes", value: "bin" },
+      "Exposed bin in Shop feed",
+    ],
+    [
+      "setConsumerApiPart",
+      { consumerApi: "shop-feed", pointer: "/contractVersion", value: 2 },
+      "Set Shop feed to contract version 2",
+    ],
+    [
+      "setConsumerApiPart",
+      { consumerApi: "shop-feed", pointer: "/operations/xref", value: null },
+      "Stopped offering XREF in Shop feed",
+    ],
+    [
+      "setConsumerApiPart",
+      { consumerApi: "shop-feed", pointer: "/operations/events", value: { perType: true } },
+      "Offered events per type in Shop feed",
+    ],
+    ["setConsumerApiPart", { consumerApi: "shop-feed", pointer: "", value: {} }, "Edited Shop feed as JSON"],
+    [
+      "moveConsumerApiPart",
+      { consumerApi: "shop-feed", pointer: "/operations/lists/items", position: 0 },
+      "Moved list items to place 1 in Shop feed",
+    ],
+    [
+      "removeConsumerApiPart",
+      { consumerApi: "shop-feed", pointer: "/filters/channel" },
+      "Removed filter channel from Shop feed",
+    ],
+  ])("%s %j reads as a sentence", (kind, parameters, words) => {
+    expect(describeOperation(kind, parameters, names as never)).toBe(words);
+  });
+});

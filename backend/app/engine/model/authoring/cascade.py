@@ -3,7 +3,7 @@
 :func:`prune` takes out of the document every reference to elements that are gone: an item naming
 them leaves its list, a field falls back to its default, and a view, detail page or panel that
 exists only for a gone element goes with it (a children or relations panel whose list emptied, a
-table view of a removed type). :func:`rename` rewrites every slot naming a key.
+table view of a removed type). :func:`rename` rewrites every slot naming a key, in consumer API definitions too (0.10 A4c, D54).
 """
 
 from collections.abc import Callable
@@ -13,6 +13,7 @@ from typing import Any
 from .document import Document, Path, identity
 from .references import (
     Slot,
+    consumer_slots,
     format_field,
     known_keys,
     names_in_slot,
@@ -191,7 +192,8 @@ def rename(document: Document, kind: str, old: str, new: str, within: Callable[[
     reverse key in fields) to ``new``; identities last, deepest first, so paths resolve throughout."""
     data = document.data
     known = known_keys(data)
-    pending = [slot for slot in slots(data) if within is None or within(slot)]
+    every = [*slots(data), *consumer_slots(data)]
+    pending = [slot for slot in every if within is None or within(slot)]
     ordered = sorted(pending, key=lambda s: (_is_definition(s), -len(s.path)))
     # An identity slot's object is held, not its path: renaming one end of a binding changes the
     # identity the other end's path names (a type related to itself).
@@ -225,10 +227,10 @@ def rename(document: Document, kind: str, old: str, new: str, within: Callable[[
 
 
 def references(data: dict[str, Any], kind: str, key: str) -> list[Slot]:
-    """The slots naming ``key`` of ``kind``, definitions left out."""
+    """The slots naming ``key`` of ``kind``, consumer API definitions included, definitions left out."""
     known = known_keys(data)
     return [
         slot
-        for slot in slots(data)
+        for slot in [*slots(data), *consumer_slots(data)]
         if not _is_definition(slot) and (kind, key) in set(names_in_slot(data, slot, known))
     ]

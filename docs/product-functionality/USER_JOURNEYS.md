@@ -804,7 +804,7 @@ and W2.
 operation API (J33.1–J33.8, J33.12 through the API) delivered by A2 (2026-10-11); the editor's
 model pane (A4a, 2026-10-11): the browser side of J33.1–J33.7 and
 J33.11 except layout; the preview and layout editing (A4b, 2026-10-12): J33.10 and J33.11 for
-layout, delivered.
+layout, delivered; the consumer API editor (A4c, 2026-10-12): J33.13 and J33.14, delivered.
 
 1. Open a draft of the active release, or an empty one, in the editor.
 2. Change the model by operations: applications, object types in their containment tree, attributes,
@@ -841,6 +841,13 @@ invalid between steps; installation refuses an invalid draft as J08 does.
 - **J33.11 Keyboard alone and 390px**: every drag has its Move to… path; the panes become tabs.
 - **J33.12 A whole-model edit** in the JSON workbench is recorded as one step, and operations continue
   on the edited model.
+- **J33.13 Define a consumer API in the editor** (A4c): a definition added from the types it exposes
+  and changed part by part (fields, related records, operations, lists, XREF rules, filters, events),
+  each change one step with undo; its schema and a message example read from the draft; a key changed
+  after it is exposed is rewritten in the definition; served by the consumer tier after activation.
+- **J33.14 A consumer contract change at activation** (A4c): a change the active release's consumers
+  would notice shows as needing a higher contract version after each step and in the install dialog;
+  activation is refused until the version is raised, which is one step.
 
 **Refusals:** `422 INVALID_OPERATION`, `409 OPERATION_REQUIRES_MIGRATION`,
 `409 OPERATION_HAS_DEPENDANTS`, `409 NOTHING_TO_UNDO`, `409 NOTHING_TO_REDO`, `409 VERSION_CONFLICT`,
@@ -858,7 +865,14 @@ and activate, a record in the new collection, an application from an empty draft
 `test_j33_layout` (the draft's model, a layout laid out step by step and found after activation,
 `addDetailPage`; two configurations each) and `test:browser:authoring-a4b` (the renamed example and
 generated-b: the preview, the layout editor, by menu, keyboard and drag, a new type, an invalid
-draft, no write from the preview, the record screen after activation, 390px).
+draft, no write from the preview, the record screen after activation, 390px). J33.13 and J33.14:
+`test_j33_consumer_apis` (a consumer API defined by operations and served after activation, a wrong
+source and a wrong shape, a contract change at activation, a key rewritten, a removal and its undo,
+the documents' refusals; two configurations each), the consumer kinds and their inverses in
+`tests/unit/engine/model/authoring/test_kinds.py`, and `test:browser:authoring-a4c` (the renamed
+example and generated-b: the Consumer APIs tab, fields, related, switches, lists, filters, undo, the
+Schema and Message example, the contract version raised, a new consumer API, install and activate
+and the consumer tier, 390px).
 
 ### J34 — Onboard a workbook
 

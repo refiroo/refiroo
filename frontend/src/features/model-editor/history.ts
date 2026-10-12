@@ -5,6 +5,7 @@
 
 import type { ModelDraftOperationEntry } from "@/types";
 import type { ElementKind } from "@/features/model-editor/outline";
+import { describeConsumerOperation } from "@/features/model-editor/consumer";
 
 /** One step of the history: its entries, oldest first. */
 export interface HistoryStep {
@@ -170,7 +171,7 @@ export function describeOperation(kind: string, p: Record<string, unknown>, name
     case "restoreElements":
       return "Put back what a step changed";
     default:
-      return kind;
+      return describeConsumerOperation(kind, p, (key) => names("consumerApi", key)) ?? kind;
   }
 }
 

@@ -310,6 +310,10 @@ def test_base_0_5_enabled_openapi_exposes_guarded_activation(monkeypatch):
         "/api/v1/model-drafts/{draft_id}/outline": frozenset({"get"}),
         # 0.10 A4b: the draft compiled, for the preview (D43).
         "/api/v1/model-drafts/{draft_id}/model": frozenset({"get"}),
+        "/api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}": frozenset({"get"}),
+        "/api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}/schema.json": frozenset({"get"}),
+        "/api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}/example.json": frozenset({"get"}),
+        "/api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}/openapi.json": frozenset({"get"}),
     }
 
 

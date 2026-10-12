@@ -163,6 +163,11 @@ validated, compiled, installed and pinned like the rest of the model release. Th
 draft → validate → install lifecycle, gives every definition the model's precise path-and-reason
 errors, and ensures a definition can never reference a type or relation the release lacks.
 
+A draft's definitions are changed like the rest of the draft, by operations with history and undo
+(0.10 A4c, [API.md § Kinds](API.md#kinds)), from the model editor's Consumer APIs tab or any client.
+A draft also serves each definition's schema, a message example and its OpenAPI document before it is
+installed ([API.md § A draft's consumer APIs](API.md#a-drafts-consumer-apis)).
+
 Each definition has its own `contractVersion`, separate from the model release version. A new model
 release that changes a published definition's output must raise that definition's `contractVersion`.
 Model validation compares definitions with the previously installed release and rejects an unmarked

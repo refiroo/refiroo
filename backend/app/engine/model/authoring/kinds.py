@@ -29,7 +29,7 @@ from .layout import (
     table_view,
     type_path,
 )
-from .references import consumer_api_pointer, known_keys
+from .references import known_keys
 
 VALUE_TYPES = {"text", "longText", "integer", "decimal", "boolean", "date", "dateTime", "json"}
 CARDINALITIES = {"one-to-one", "one-to-many", "many-to-one", "many-to-many"}
@@ -45,6 +45,7 @@ ELEMENT_FIELDS: dict[str, tuple[str, ...]] = {
     "detail": ("applicationKey", "detail"),
     "panel": ("applicationKey", "detail", "panel"),
     "group": ("applicationKey", "group"),
+    "consumerApi": ("consumerApi",),
 }
 
 
@@ -338,15 +339,9 @@ def set_key(context: Context, raw: dict[str, Any]) -> Applied:
     if reverse_new is not None and element_kind != "relationType":
         raise Refusal("reverseKey", "invalidValue", "Only a relation type has a reverse key")
     if element_kind in ("application", "objectType", "attributeType", "relationType"):
+        # Only an element the base release lacks is re-keyed, so a definition naming it is not yet read
+        # by any consumer, and the rename rewrites it (D54).
         context.unreleased(element)
-        names = {old} | ({context.document.at(path).get("reverseKey")} if element_kind == "relationType" else set())
-        pointer = consumer_api_pointer(context.data, {name for name in names if name})
-        if pointer is not None:
-            raise Refusal(
-                "element",
-                "namedByConsumerApi",
-                f"'{old}' is named by a consumer API definition at {pointer}; change it there first",
-            )
     inverse: dict[str, Any] = {"kind": "setKey", "key": old}
     if element_kind == "relationType":
         old_reverse = context.document.at(path).get("reverseKey")

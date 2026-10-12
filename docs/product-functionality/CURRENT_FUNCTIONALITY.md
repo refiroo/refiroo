@@ -443,13 +443,28 @@ A type the model gives no detail page of its own can be given one in a step. Aft
 activate, the record screen shows the same layout. A draft with errors is not previewed until they
 are fixed or undone.
 
+**Consumer APIs**, the second tab of the editor's left pane, lists the draft's consumer APIs. A new
+one starts from the types it exposes, with their fields, Get by ID and a list per type. Each opens with
+its tabs: the exposed types and their public names and the related records it serves; its fields,
+with their sources (picked in order from what the exposed types and the types above them hold), role
+and default, edited in place; which operations it offers, its lists, its
+XREF match rules and its custom events; its filters. Two documents an integration takes from it are
+shown with Copy and Download: the **Schema** of the message consumers receive and a **Message
+example**. Every change is a step with undo. A change the consumers of the active release would
+notice is marked "Needs v2" as soon as it is made, with a button that raises the contract version,
+and the install dialog lists each consumer API's result; activation waits until each is compatible.
+Renaming a key the draft added renames it in the consumer APIs too.
+
 Limits: a field's editor cannot be chosen (each value type has one); spreadsheet onboarding is later
-0.10 work. Consumer API definitions are edited in the JSON workbench.
+0.10 work. A consumer API's documents are worked out from the draft; messages from real records come
+from the consumer API after activation.
 
 Evidence: [model editor](../../frontend/src/features/model-editor/ModelEditor.tsx),
 [A4a runner](../../frontend/e2e/authoring-a4a-model-editor.mjs),
 [preview and layout editor](../../frontend/src/features/model-editor/TypePreview.tsx),
 [A4b runner](../../frontend/e2e/authoring-a4b-preview-layout.mjs),
+[consumer API editor](../../frontend/src/features/model-editor/ConsumerApis.tsx),
+[A4c runner](../../frontend/e2e/authoring-a4c-consumer-apis.mjs),
 [model workbench](../../frontend/src/features/model-admin/ModelWorkbench.tsx),
 [draft editor](../../frontend/src/features/model-admin/ModelDraftEditor.tsx),
 [WP11 runner](../../frontend/e2e/wp11-model-admin.mjs),

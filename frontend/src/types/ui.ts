@@ -117,16 +117,20 @@ export type SettingsRoute =
 /**
  * What the model editor's centre shows: an element by its key, or the relationship matrix. A type
  * may be shown as its preview, or laid out in the layout editor, which takes the whole editor
- * (0.10 A4b).
+ * (0.10 A4b). A consumer API opens on one of its tabs (0.10 A4c).
  */
 export type EditorSelection =
   | { show?: undefined }
   | { show: "matrix" }
   | { show: "type"; key: string; mode?: EditorMode }
-  | { show: "application" | "relationType" | "attributeType"; key: string };
+  | { show: "application" | "relationType" | "attributeType"; key: string }
+  | { show: "consumerApi"; key: string; tab?: ConsumerApiTab };
 
 /** How a type is shown in the model editor: its definition (the default), its preview, its layout. */
 export type EditorMode = "preview" | "layout";
+
+/** The tabs of a consumer API in the model editor (0.10 A4c). */
+export type ConsumerApiTab = "types" | "fields" | "operations" | "filters" | "schema" | "example";
 
 export type SettingsPage = SettingsRoute["page"];
 

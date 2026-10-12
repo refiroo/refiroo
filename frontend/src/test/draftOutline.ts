@@ -1,4 +1,30 @@
-import type { ModelDraftOutline } from "@/types";
+import type { ConsumerDefinition, ModelDraftOutline } from "@/types";
+
+/** A consumer API definition over the fixture's types, as the draft would hold it (0.10 A4c). */
+export function consumerDefinitionFixture(): ConsumerDefinition {
+  return {
+    key: "shop-feed",
+    name: "Shop feed",
+    contractVersion: 1,
+    exposes: ["shelf", "bin"],
+    publicNames: { bin: "StorageBin" },
+    object: {
+      fields: {
+        id: { role: "id" },
+        name: { role: "name", from: "name" },
+        depth: "depth",
+        code: { role: "code", from: ["shelf-code", "bin-code"] },
+      },
+      related: { bins: { via: "stores", fields: { binName: "name" } } },
+    },
+    operations: {
+      objects: {},
+      xref: { matchOn: [{ field: "name", exact: 200 }] },
+      lists: { shelves: { of: "shelf" } },
+    },
+    filters: { kind: { byType: true } },
+  };
+}
 
 /** A small outline for the editor's tests: a released top-level type with a child, and a new type. */
 export function outlineFixture(): ModelDraftOutline {
@@ -124,6 +150,20 @@ export function outlineFixture(): ModelDraftOutline {
         required: false,
         containment: false,
         mark: "new",
+      },
+    ],
+    consumerApis: [
+      {
+        key: "shop-feed",
+        name: "Shop feed",
+        contractVersion: 1,
+        exposes: [
+          { objectType: "shelf", publicName: "Shelf" },
+          { objectType: "bin", publicName: "StorageBin" },
+        ],
+        counts: { fields: 4, related: 1, lists: 1, filters: 1, events: 0 },
+        mark: "released",
+        contract: null,
       },
     ],
     valid: false,

@@ -8,6 +8,7 @@ import type {
   ModelDraftOutline,
   OutlineApplication,
   OutlineAttributeType,
+  OutlineConsumerApi,
   OutlineElement,
   OutlineMark,
   OutlineObjectType,
@@ -30,6 +31,10 @@ export function relationTypeOf(outline: ModelDraftOutline, key: string): Outline
 
 export function attributeTypeOf(outline: ModelDraftOutline, key: string): OutlineAttributeType | undefined {
   return outline.attributeTypes.find((item) => item.key === key);
+}
+
+export function consumerApiOf(outline: ModelDraftOutline, key: string): OutlineConsumerApi | undefined {
+  return outline.consumerApis.find((item) => item.key === key);
 }
 
 /** A type's name, or its key when the outline does not hold it. */
@@ -64,7 +69,7 @@ export function placeOf(outline: ModelDraftOutline, type: OutlineObjectType): st
 }
 
 /** What the history calls an element: its name in the draft, or its key once it is gone. */
-export type ElementKind = "objectType" | "attributeType" | "relationType" | "application" | "group";
+export type ElementKind = "objectType" | "attributeType" | "relationType" | "application" | "group" | "consumerApi";
 
 export function nameOf(outline: ModelDraftOutline) {
   return (kind: ElementKind, key: string, applicationKey = ""): string => {
@@ -79,6 +84,8 @@ export function nameOf(outline: ModelDraftOutline) {
         return applicationOf(outline, key)?.name ?? key;
       case "group":
         return applicationOf(outline, applicationKey)?.navigation.groups.find((g) => g.key === key)?.label ?? key;
+      case "consumerApi":
+        return consumerApiOf(outline, key)?.name ?? key;
     }
   };
 }
@@ -92,6 +99,8 @@ export const MARK_LABELS: Record<OutlineMark, string> = { new: "New", changed: "
 
 /** What an issue's element is called, for its link. */
 export function elementLabel(outline: ModelDraftOutline, element: OutlineElement): string {
+  if (element.consumerApi)
+    return `Consumer API ${consumerApiOf(outline, element.consumerApi)?.name ?? element.consumerApi}`;
   if (element.objectType && element.attributeType)
     return `${typeName(outline, element.objectType)} › ${attributeTypeOf(outline, element.attributeType)?.name ?? element.attributeType}`;
   if (element.objectType) return typeName(outline, element.objectType);

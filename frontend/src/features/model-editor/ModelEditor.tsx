@@ -2,7 +2,8 @@
  * The model editor on a draft (0.10 A4a; MODEL_AUTHORING "The editor"): the model pane, the selected
  * element or the relationship matrix, and the issues and history, under a bar with undo, redo, the
  * JSON workbench and install and activate. Opened from Settings › Model (D7), full width in the
- * shared frame (D37). Below 760px the panes are tabs.
+ * shared frame (D37). Below 760px the panes are tabs. The left pane has two tabs, Model and Consumer
+ * APIs (0.10 A4c, D59); a selected consumer API opens in the centre (`ConsumerApis`).
  *
  * Every change is an operation step on the server at the draft's version (A2). The editor reads the
  * draft back as its outline after each step (D36), so the browser never works out the model's rules.
@@ -49,7 +50,15 @@ import { ModelPane, type PaneDrop } from "@/features/model-editor/ModelPane";
 import { MoveToDialog, type MoveSubject } from "@/features/model-editor/MoveToDialog";
 import { OperationDialog, refusalText, type StepOutcome } from "@/features/model-editor/OperationDialog";
 import { type FieldValues, type OperationSpec, type OperationTarget } from "@/features/model-editor/operations";
-import { applicationOf, attributeTypeOf, nameOf, relationTypeOf, typeName } from "@/features/model-editor/outline";
+import {
+  applicationOf,
+  attributeTypeOf,
+  consumerApiOf,
+  nameOf,
+  relationTypeOf,
+  typeName,
+} from "@/features/model-editor/outline";
+import { ConsumerApiPane, ConsumerApiPanel } from "@/features/model-editor/ConsumerApis";
 import { RelationshipMatrix } from "@/features/model-editor/RelationshipMatrix";
 import { OperationsMenu } from "@/features/model-editor/OperationsMenu";
 import { TypePreview } from "@/features/model-editor/TypePreview";
@@ -104,6 +113,8 @@ export function ModelEditor({
   const [bottomTab, setBottomTab] = useState("issues");
   const [elementTab, setElementTab] = useState("attributes");
   const [phoneTab, setPhoneTab] = useState(selection.show ? "element" : "model");
+  // The left pane's tab (0.10 A4c, D59): it follows a selected consumer API, and stays where the reader put it.
+  const [paneTab, setPaneTab] = useState(selection.show === "consumerApi" ? "apis" : "model");
   const [menuOpen, setMenuOpen] = useState(false);
   const version = useRef(0);
   const paneWidth = useLocalNumberPreference("rdm:model-editor:pane-width:v1", 300, 220, 560);
@@ -220,6 +231,7 @@ export function ModelEditor({
 
   function select(next: EditorSelection) {
     onSelect(next);
+    if (next.show) setPaneTab(next.show === "consumerApi" ? "apis" : "model");
     if (phone) setPhoneTab("element");
   }
 
@@ -255,7 +267,7 @@ export function ModelEditor({
   const redoAvailable = canRedo(steps);
   const base = outline.baseRelease;
   const workbench: RouteState = { kind: "settings", page: "model", draftId };
-  const addTarget: OperationTarget = { on: "draft" };
+  const addTarget: OperationTarget = paneTab === "apis" ? { on: "consumerApis" } : { on: "draft" };
   const selectedName =
     selection.show === "type"
       ? typeName(outline, selection.key)
@@ -265,38 +277,60 @@ export function ModelEditor({
           ? (relationTypeOf(outline, selection.key)?.name ?? selection.key)
           : selection.show === "attributeType"
             ? (attributeTypeOf(outline, selection.key)?.name ?? selection.key)
-            : selection.show === "matrix"
-              ? "Matrix"
-              : "Selection";
+            : selection.show === "consumerApi"
+              ? (consumerApiOf(outline, selection.key)?.name ?? selection.key)
+              : selection.show === "matrix"
+                ? "Matrix"
+                : "Selection";
 
+  const onPaneMenu = (next: EditorSelection) => {
+    select(next);
+    setMenuOpen(true);
+  };
   const pane = (
-    <section className="model-editor-model" aria-labelledby="model-pane-title">
-      <div className="model-editor-pane-head">
-        <h2 id="model-pane-title" className="nav-label">
-          Model
-        </h2>
-        <OperationsMenu
-          label="Add to the model"
-          icon="plus"
-          tooltip="Add"
-          target={addTarget}
-          outline={outline}
-          onOperation={operate}
-        />
-      </div>
-      {outline.applications.length === 0 && (
-        <p className="muted model-editor-empty">The draft is empty. Add an application to start.</p>
-      )}
-      <ModelPane
-        outline={outline}
-        selection={selection}
-        canDrag={!phone}
-        onSelect={select}
-        onMenu={(next) => {
-          select(next);
-          setMenuOpen(true);
-        }}
-        onDrop={drop}
+    <section className="model-editor-model" aria-label="Model and consumer APIs">
+      <Tabs
+        label="Edit"
+        selected={paneTab}
+        onChange={setPaneTab}
+        header={
+          <div className="model-editor-pane-add">
+            <OperationsMenu
+              label={paneTab === "apis" ? "Add a consumer API" : "Add to the model"}
+              icon="plus"
+              tooltip="Add"
+              target={addTarget}
+              outline={outline}
+              onOperation={operate}
+            />
+          </div>
+        }
+        tabs={[
+          {
+            id: "model",
+            label: "Model",
+            content: (
+              <>
+                {outline.applications.length === 0 && (
+                  <p className="muted model-editor-empty">The draft is empty. Add an application to start.</p>
+                )}
+                <ModelPane
+                  outline={outline}
+                  selection={selection}
+                  canDrag={!phone}
+                  onSelect={select}
+                  onMenu={onPaneMenu}
+                  onDrop={drop}
+                />
+              </>
+            ),
+          },
+          {
+            id: "apis",
+            label: "Consumer APIs",
+            content: <ConsumerApiPane outline={outline} selection={selection} onSelect={select} onMenu={onPaneMenu} />,
+          },
+        ]}
       />
     </section>
   );
@@ -330,7 +364,13 @@ export function ModelEditor({
   const centre = (
     <section
       className="model-editor-centre"
-      aria-label={selection.show === "matrix" ? "Relationship matrix" : "Selected element"}
+      aria-label={
+        selection.show === "matrix"
+          ? "Relationship matrix"
+          : selection.show === "consumerApi"
+            ? "Selected consumer API"
+            : "Selected element"
+      }
     >
       {mode === "preview" ? (
         typePreview(
@@ -344,6 +384,18 @@ export function ModelEditor({
             </button>
           </>,
         )
+      ) : selection.show === "consumerApi" ? (
+        <ConsumerApiPanel
+          key={selection.key}
+          draftId={draftId}
+          outline={outline}
+          selection={selection}
+          onSelect={select}
+          menuOpen={menuOpen}
+          onMenuOpenChange={setMenuOpen}
+          onOperation={operate}
+          run={run}
+        />
       ) : selection.show === "matrix" ? (
         <>
           <header className="element-header">
@@ -587,7 +639,7 @@ export function ModelEditor({
             selected={phoneTab}
             onChange={setPhoneTab}
             tabs={[
-              { id: "model", label: "Model", content: pane },
+              { id: "model", label: paneTab === "apis" ? "Consumer APIs" : "Model", content: pane },
               { id: "element", label: selectedName, content: centre },
               { id: "issues", label: `Issues ${outline.diagnostics.length}`, content: bottom },
             ]}

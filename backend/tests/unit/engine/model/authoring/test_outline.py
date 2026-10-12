@@ -92,3 +92,20 @@ def test_a_relation_carries_which_records_it_may_choose():
     (relation,) = build_outline(draft, None)["relations"]
     assert relation["candidates"] == criteria
     assert "candidates" not in build_outline(DOCUMENT, None)["relations"][0]
+
+
+def test_a_consumer_api_written_by_hand_without_its_parts_is_outlined_without_failing():
+    """A definition saved through the JSON workbench may lack its key or name, or hold a version that
+    is not a number; the outline lists what it can and leaves the rest to the diagnostics (0.10 A4c)."""
+    data = {
+        "consumerApis": [
+            {"name": "No key"},
+            {"key": "feed", "contractVersion": "two", "exposes": ["shelf", 3], "publicNames": {"shelf": 5}},
+        ]
+    }
+    (entry,) = build_outline(data, None)["consumerApis"]
+    assert entry["key"] == "feed"
+    assert entry["name"] == "feed"
+    assert entry["contractVersion"] is None
+    assert entry["exposes"] == [{"objectType": "shelf", "publicName": "Shelf"}]
+    assert entry["mark"] == "new"

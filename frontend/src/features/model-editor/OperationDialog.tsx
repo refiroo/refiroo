@@ -13,6 +13,7 @@ import { FormField } from "@/ui/FormField";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import {
+  fieldOptions,
   initialValues,
   missingField,
   visibleFields,
@@ -22,6 +23,8 @@ import {
 } from "@/features/model-editor/operations";
 import { elementLabel } from "@/features/model-editor/outline";
 import { CandidatesField } from "@/features/model-editor/CandidatesField";
+import { ChoiceListField } from "@/features/model-editor/ChoiceListField";
+import { PairsField } from "@/features/model-editor/PairsField";
 
 /** What the editor did with a step: applied, or held back because the draft moved on (D41). */
 export type StepOutcome = "applied" | "stale";
@@ -104,7 +107,18 @@ export function OperationDialog({
 
   const missing = missingField(operation, target, outline, values);
   const fields = visibleFields(operation, target, outline, values);
-  const set = (name: string, value: FieldValues[string]) => setValues((current) => ({ ...current, [name]: value }));
+  // A select whose options follow an earlier choice moves to its first option when its value is no
+  // longer offered (a related record's field after another block is chosen).
+  const set = (name: string, value: FieldValues[string]) =>
+    setValues((current) => {
+      const next = { ...current, [name]: value };
+      for (const field of operation.fields?.(target as never, outline) ?? [])
+        if (field.type === "select" && typeof field.options === "function" && field.name !== name) {
+          const offered = field.options(next);
+          if (!offered.some((option) => option.value === next[field.name])) next[field.name] = offered[0]?.value ?? "";
+        }
+      return next;
+    });
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (!missing) void send();
@@ -164,6 +178,47 @@ export function OperationDialog({
               </FormField>
             );
           }
+          const list = Array.isArray(values[field.name]) ? (values[field.name] as string[]) : [];
+          if (field.type === "choices")
+            return (
+              <ChoiceListField
+                key={field.name}
+                label={field.label}
+                hint={field.hint}
+                ordered={field.ordered}
+                empty={field.empty}
+                options={fieldOptions(field, values)}
+                value={list}
+                onChange={(next) => set(field.name, next)}
+              />
+            );
+          if (field.type === "pairs")
+            return (
+              <PairsField
+                key={field.name}
+                label={field.label}
+                hint={field.hint}
+                options={fieldOptions(field, values)}
+                value={list}
+                onChange={(next) => set(field.name, next)}
+              />
+            );
+          if (field.type === "json")
+            return (
+              <FormField key={field.name} label={field.label} help={field.hint}>
+                {(control) => (
+                  <textarea
+                    {...control}
+                    className="mono operation-json"
+                    rows={16}
+                    spellCheck={false}
+                    autoFocus={index === 0}
+                    value={String(values[field.name] ?? "")}
+                    onChange={(event) => set(field.name, event.target.value)}
+                  />
+                )}
+              </FormField>
+            );
           return (
             <FormField key={field.name} label={field.label} help={field.hint}>
               {(control) =>
@@ -173,11 +228,7 @@ export function OperationDialog({
                     value={String(values[field.name] ?? "")}
                     onChange={(event) => set(field.name, event.target.value)}
                   >
-                    {field.options.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
+                    {groupedOptions(fieldOptions(field, values))}
                   </select>
                 ) : (
                   <input
@@ -208,4 +259,25 @@ export function OperationDialog({
       </form>
     </Modal>
   );
+}
+
+/** A select's options, under their groups where they have one. */
+function groupedOptions(options: { value: string; label: string; group?: string }[]) {
+  const groups = [...new Set(options.map((option) => option.group ?? ""))];
+  return groups.map((group) => {
+    const items = options
+      .filter((option) => (option.group ?? "") === group)
+      .map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ));
+    return group ? (
+      <optgroup key={group} label={group}>
+        {items}
+      </optgroup>
+    ) : (
+      items
+    );
+  });
 }

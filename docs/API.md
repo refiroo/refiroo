@@ -3714,9 +3714,12 @@ are registered with `INTEGRATION_JOBS_ENABLED` as well (D6).
   released for a draft without a base, even when the draft created it again: its records would carry
   over.
 - **The server keeps the model whole.** `setKey` rewrites every reference to the key (bindings,
-  views, panels, fields such as `ancestor:<type>` and `related:<key>`, navigation); an element a
-  consumer API definition names is refused `INVALID_OPERATION` with `reason: namedByConsumerApi` and
-  the naming node's pointer, and is renamed there first in the JSON workbench (D29). `addObjectType`
+  views, panels, fields such as `ancestor:<type>` and `related:<key>`, navigation), consumer API
+  definitions included: exposed types, public names, field sources, related blocks' `via` and fields,
+  lists, XREF rules and filters (0.10 A4c, D54, replacing A2's `namedByConsumerApi` refusal, D29).
+  Only an element the base release lacks is re-keyed, so no definition a consumer reads changes; the
+  rewrite is undone with the step. A removal leaves a definition naming the removed element alone,
+  and the draft's issues point at it. `addObjectType`
   adds the type to its application with a generated table view, and a detail page where the
   application declares its `details` (below); `attachAttribute` and `allowRelation` add the
   attribute or relation to the type's layout unless `"layout": false`. A removal takes with it what
@@ -3731,7 +3734,7 @@ are registered with `INTEGRATION_JOBS_ENABLED` as well (D6).
 - Refusals: `422 INVALID_OPERATION` (`details.index`, `details.pointer` into the request,
   `details.reason`: `unknownKind`, `internalKind`, `unknownParameter`, `missingParameter`,
   `invalidValue`, `unknownElement`, `keyTaken`, `alreadyAttached`, `alreadyAllowed`,
-  `alreadyPresent`, `stillBound`, `outOfRange`, `namedByConsumerApi`, `conflict`),
+  `alreadyPresent`, `stillBound`, `outOfRange`, `unsupportedSchemaVersion`, `conflict`),
   `409 OPERATION_REQUIRES_MIGRATION`, `409 VERSION_CONFLICT` with `details.operations`, the history
   entries since `expectedVersion` (at most 100, then `details.more: true` and the history route to
   page), `404 MODEL_DRAFT_NOT_FOUND`, `413 OPERATION_BATCH_TOO_LARGE` over
@@ -3810,6 +3813,35 @@ the layout places the change took.
 | `placeCollection` | `applicationKey`, `collection`, `group` (`null`: top level), `position` | additive | `placeCollection` back |
 | `replaceModel` | the whole model; written by `PATCH /model-drafts/{id}`, refused in a request | — | `replaceModel` with the previous model |
 | `restoreElements` | `undoes` (the operation it takes back), `removes` (the elements that operation created, which putting things back takes away: refused `OPERATION_REQUIRES_MIGRATION` once released) and `changes` (the stored prior state); refused in a request | — | the kind it undid |
+
+Consumer API side (A4c, delivered, D51–D55). A definition (schema 0.9 and later,
+[CONSUMER_API](CONSUMER_API.md#definition-shape)) is changed by two whole-definition kinds and four
+part verbs that name a part by a JSON **`pointer`** below the definition (`/object/fields`,
+`/operations/lists/items`, `/filters/channel/matchOn/0`), as the view verbs name a view's lists. A
+keyed map (fields, related blocks, lists, filters, public names) keeps its members in written order,
+which is the order fields are served in, so a position places a member as in a list. A change is
+refused `INVALID_OPERATION` (`invalidValue`, with where the shape breaks) when the definition would no
+longer have the schema 0.9 shape; what it names (sources, relations, types) is reported by the step's
+`diagnostics` at the author's pointers, so a draft may be invalid between steps (D52). Definitions are
+not released elements: changing one the base release declares is not refused; the contract check
+against the active release protects its consumers at activation (D55, C-D17).
+
+| Kind | Parameters | Class | Inverse |
+| --- | --- | --- | --- |
+| `addConsumerApi` | `name`, `key`? (from the name, A-D6), `exposes` (type keys), `position`; or `definition` (as `removeConsumerApi`'s inverse) | additive | `removeConsumerApi` |
+| `removeConsumerApi` | `consumerApi` | additive | `addConsumerApi` with its `definition` and `position` |
+| `setConsumerApiPart` | `consumerApi`, `pointer`, `value`: the member or item set (a member its object lacks is added); `null` takes an optional member out; the empty pointer replaces the definition | additive | `setConsumerApiPart` with the old value |
+| `insertConsumerApiPart` | `consumerApi`, `pointer` (a list, or a keyed map with `key` naming the member), `value`, `position`; a list or map its object lacks is started | additive | `removeConsumerApiPart` |
+| `moveConsumerApiPart` | `consumerApi`, `pointer` (the member or item), `position` | additive | `moveConsumerApiPart` back |
+| `removeConsumerApiPart` | `consumerApi`, `pointer` (the member or item) | additive | `insertConsumerApiPart` at its old position |
+
+**The starting definition** `addConsumerApi` writes (D53): `contractVersion` 1; the fields `id`
+(role `id`) and `name` (role `name`) and one field per attribute an exposed type binds, in binding
+order, named by its key in camelCase (a clash with a taken or reserved name gets a number);
+`operations.objects` and a list per exposed type keyed by its plural name. XREF, filters, related
+blocks and events are left to the author. Refused `unsupportedSchemaVersion` on a draft below schema
+0.9 (`setRelease` raises it), `keyTaken` for a key another definition has, `unknownElement` for an
+exposed type the draft lacks.
 
 Mapping and value kinds (A5, named here and specified in A5's plan): `mapColumn`,
 `setColumnReading` (text, lookup, relation, relation flag), `splitColumn`, `unpivotColumns`,
@@ -3908,8 +3940,15 @@ can be read, beside its diagnostics.
 - **`diagnostics`** are the compiler's, as `POST /model-validations` gives them for the draft's model,
   each with **`element`**: the element its pointer falls in, named as operations name elements
   (`{"objectType"}`, `{"objectType", "attributeType"}`, `{"relationType", "from", "to"}`,
-  `{"applicationKey", "view"}`, `{"applicationKey", "detail"}`, `{"applicationKey", "group"}`, …), or
-  `null` for a pointer in no element (the release, a consumer API definition).
+  `{"applicationKey", "view"}`, `{"applicationKey", "detail"}`, `{"applicationKey", "group"}`,
+  `{"consumerApi"}`, …), or `null` for a pointer in no element (the release, the product).
+- **`consumerApis`** (A4c): each definition as `key`, `name`, `description`, `contractVersion`,
+  `exposes` (each type with its `publicName`, the default written out), `counts` (`fields`, `related`,
+  `lists`, `filters`, `events`), `mark` (against the base release's definition of that key) and
+  `contract`: the definition checked against what the **active** release's consumers read,
+  `classification` `compatible` or `version_required` with the `diagnostics` (each with its
+  `element`), as `consumerContracts` of the compile gives them; `null` while the draft does not
+  compile (D55).
 - Refusals: `404 MODEL_DRAFT_NOT_FOUND`. The route is registered with `MODEL_ADMIN_MUTATIONS_ENABLED`,
   as the other draft routes.
 
@@ -3941,6 +3980,28 @@ panel in `main`, a hierarchy panel in `side` when it has a parent, a children pa
 types, a relations panel when a binding names it at its `from` end); the editor's layout editor sends it
 as a step of its own (**Declare its page**), since the fallback page names its panels differently. On a
 type with a page it is refused `INVALID_OPERATION` (`alreadyPresent`).
+
+### A draft's consumer APIs
+
+`GET /api/v1/model-drafts/{draftId}/consumer-apis/{consumerApi}` answers one consumer API definition of
+the draft (A4c, D56): `version`, `valid`, `definition` as written, and when the draft compiles,
+`expanded` (every default written out, as `GET /model/consumer-apis/{consumerApi}` serves the active
+one) and `contract` (as the outline's). Three documents an integration takes from a draft before it
+is installed, each a download of its own:
+
+- `…/schema.json`: the **JSON Schema** (2020-12) of the object message the definition serves (its
+  OpenAPI document's `Object` component and the schemas it refers to, under `$defs`), which an
+  integration validates messages against or generates types from;
+- `…/example.json`: **a message example**, one message valid against that schema, written by the
+  server from it: a value of each property's type, a related block as one object or a list of one. No
+  record is read, so the consumer tier never reads a model that is not running; messages from real
+  records come from the consumer API after activation;
+- `…/openapi.json`: the definition's **OpenAPI document** as the consumer tier will serve it.
+
+They read only. Refusals: `404 MODEL_DRAFT_NOT_FOUND`, `404 CONSUMER_API_NOT_FOUND`
+(`details.consumerApi`), and for the three documents `422 INVALID_MODEL` with the diagnostics while
+the draft does not compile. Registered with `MODEL_ADMIN_MUTATIONS_ENABLED`, as the other draft
+routes.
 
 ### Source files and their profiles
 

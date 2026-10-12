@@ -175,6 +175,15 @@ export interface ModelCompilation extends ModelValidation {
   compatibility: ModelCompatibility;
   againstReleaseId?: string;
   changes: ModelChange[];
+  /** The draft's consumer API definitions against the active release's (0.9 C1); absent when invalid. */
+  consumerContracts?: ModelConsumerContracts;
+}
+
+/** Consumer API definitions checked against what the active release's consumers read (C-D17). */
+export interface ModelConsumerContracts {
+  classification: "compatible" | "version_required";
+  activeReleaseId: string;
+  diagnostics: ModelDiagnostic[];
 }
 
 export interface ModelReleaseDiff {
@@ -319,6 +328,41 @@ export interface ModelDraftModel {
   placements?: ModelPlacements;
 }
 
+/** A consumer API definition checked against what the active release's consumers read (0.10 A4c, D55). */
+export interface OutlineConsumerContract {
+  classification: "compatible" | "version_required";
+  diagnostics: OutlineDiagnostic[];
+}
+
+/** A consumer API definition of the draft as the editor lists it (0.10 A4c); `contract` is null while
+ * the draft does not compile. */
+export interface OutlineConsumerApi {
+  key: string;
+  name: string;
+  description?: string | null;
+  contractVersion?: number | null;
+  exposes: { objectType: string; publicName: string }[];
+  counts: { fields: number; related: number; lists: number; filters: number; events: number };
+  mark: OutlineMark;
+  contract: OutlineConsumerContract | null;
+}
+
+/** A consumer API definition as written in the draft (schema 0.9, CONSUMER_API "Definition shape"). */
+export type ConsumerDefinition = Record<string, unknown>;
+
+/** `GET /model-drafts/{id}/consumer-apis/{consumerApi}` (0.10 A4c, D56). */
+export interface ModelDraftConsumerApi {
+  version: number;
+  valid: boolean;
+  definition: ConsumerDefinition;
+  /** With every default written out, when the draft compiles. */
+  expanded?: ConsumerDefinition;
+  contract?: OutlineConsumerContract;
+}
+
+/** The documents an integration takes from a draft's consumer API (D56). */
+export type ConsumerApiDocumentKind = "schema" | "example" | "openapi";
+
 /** A draft's structure as the editor shows it (`GET /model-drafts/{id}/outline`, 0.10 A4a, D36). */
 export interface ModelDraftOutline {
   version: number;
@@ -330,6 +374,7 @@ export interface ModelDraftOutline {
   attributeTypes: OutlineAttributeType[];
   relationTypes: OutlineRelationType[];
   relations: OutlineRelation[];
+  consumerApis: OutlineConsumerApi[];
   valid: boolean;
   diagnostics: OutlineDiagnostic[];
 }

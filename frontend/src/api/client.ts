@@ -45,7 +45,9 @@ import type {
   SubscriptionCreate,
   SubscriptionPage,
   SubscriptionUpdate,
+  ConsumerApiDocumentKind,
   ModelCompilation,
+  ModelDraftConsumerApi,
   DraftOperation,
   ModelDraft,
   ModelDraftOperationPage,
@@ -611,6 +613,14 @@ export const api = {
   /** The draft compiled as `model` serves the active one, with its placements (0.10 A4b, D43). */
   modelDraftModel: (draftId: string) =>
     request<ModelDraftModel>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/model`),
+  /** A consumer API definition of the draft, with its defaults and contract (0.10 A4c, D56). */
+  modelDraftConsumerApi: (draftId: string, consumerApi: string) =>
+    request<ModelDraftConsumerApi>(
+      `/api/v1/model-drafts/${encodeURIComponent(draftId)}/consumer-apis/${encodeURIComponent(consumerApi)}`,
+    ),
+  /** Its schema, a message example or its OpenAPI document, from the draft (D56). */
+  modelDraftConsumerApiDocument: (draftId: string, consumerApi: string, document: ConsumerApiDocumentKind) =>
+    request<Record<string, unknown>>(consumerApiDocumentPath(draftId, consumerApi, document)),
   applyModelDraftOperations: (draftId: string, expectedVersion: number, operations: DraftOperation[]) =>
     request<ModelDraftStep>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/operations`, {
       method: "POST",
@@ -998,4 +1008,13 @@ function writeQuery(expectedVersion: number, context: ChangeSetWriteContext) {
   if (context.expectedChangeSetVersion !== undefined)
     params.set("expectedChangeSetVersion", String(context.expectedChangeSetVersion));
   return params;
+}
+
+/** Where a draft's consumer API document is served, for a request or a download link (0.10 A4c). */
+export function consumerApiDocumentPath(
+  draftId: string,
+  consumerApi: string,
+  document: ConsumerApiDocumentKind,
+): string {
+  return `/api/v1/model-drafts/${encodeURIComponent(draftId)}/consumer-apis/${encodeURIComponent(consumerApi)}/${document}.json`;
 }

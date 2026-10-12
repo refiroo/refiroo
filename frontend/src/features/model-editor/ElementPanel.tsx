@@ -44,7 +44,7 @@ import {
   typeName,
 } from "@/features/model-editor/outline";
 
-function Header({
+export function Header({
   tile,
   title,
   mark,
@@ -80,7 +80,7 @@ function Header({
   );
 }
 
-function OperationButton({
+export function OperationButton({
   id,
   target,
   outline,
@@ -849,7 +849,7 @@ function bindingOf(outline: ModelDraftOutline, typeKey: string, attributeKey: st
 }
 
 /** A type in a table: its tile and name, choosing it shows the type. */
-function TypeLink({
+export function TypeLink({
   outline,
   typeKey,
   onSelect,
@@ -870,7 +870,7 @@ function TypeLink({
   );
 }
 
-function Missing({ what }: { what: string }) {
+export function Missing({ what }: { what: string }) {
   return (
     <section className="element-panel element-panel-empty">
       <p className="muted">This {what} is no longer in the draft. An undo or another editor may have removed it.</p>

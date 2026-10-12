@@ -18,6 +18,7 @@ import { elementLabel, nameOf } from "@/features/model-editor/outline";
 
 /** Where an issue's link goes: the element's own panel, the matrix for a relation between two types. */
 export function selectionFor(element: OutlineElement): EditorSelection {
+  if (element.consumerApi) return { show: "consumerApi", key: element.consumerApi };
   if (element.objectType) return { show: "type", key: element.objectType };
   if (element.relationType && element.from) return { show: "matrix" };
   if (element.relationType) return { show: "relationType", key: element.relationType };

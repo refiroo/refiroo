@@ -146,11 +146,16 @@ function settingsRoute(parts: string[], query: URLSearchParams): SettingsRoute |
 }
 
 const EDITOR_ELEMENTS = ["type", "application", "relationType", "attributeType"] as const;
+const CONSUMER_API_TABS = ["types", "fields", "operations", "filters", "schema", "example"] as const;
 
 function editorSelection(query: URLSearchParams): EditorSelection {
   const show = query.get("show");
   const key = query.get("key")?.trim();
   if (show === "matrix") return { show };
+  if (show === "consumerApi" && key) {
+    const tab = CONSUMER_API_TABS.find((item) => item === query.get("tab"));
+    return tab ? { show, key, tab } : { show, key };
+  }
   const element = EDITOR_ELEMENTS.find((item) => item === show);
   if (!element || !key) return {};
   const mode = EDITOR_MODES.find((item) => item === query.get("mode"));
@@ -175,7 +180,12 @@ function settingsPath(route: SettingsRoute) {
     const { show } = route.editor;
     if (!show) return base;
     if (show === "matrix") return `${base}?show=matrix`;
-    const mode = route.editor.show === "type" && route.editor.mode ? `&mode=${route.editor.mode}` : "";
+    const mode =
+      route.editor.show === "type" && route.editor.mode
+        ? `&mode=${route.editor.mode}`
+        : route.editor.show === "consumerApi" && route.editor.tab
+          ? `&tab=${route.editor.tab}`
+          : "";
     return `${base}?show=${show}&key=${encodeURIComponent(route.editor.key)}${mode}`;
   }
   if (route.page === "model" && route.draftId) return `/settings/model/drafts/${encodeURIComponent(route.draftId)}`;

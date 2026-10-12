@@ -20,7 +20,10 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from ....models.database import ModelDraft
+from ....models.schema import EngineModel
 from ..compiler import compile_authored_model
+from ..consumer_contract import contract_diagnostics
+from ..consumer_expansion import public_name
 from ..diagnostics import ModelDiagnostic
 from ..placements import model_placements
 from .document import Document
@@ -29,12 +32,22 @@ from .layout import contained_types
 from .released import base_release, released_atoms
 
 
-def draft_outline(session: Session, draft: ModelDraft) -> dict[str, Any]:
-    """The draft's outline at its current version, with its diagnostics."""
+def draft_outline(session: Session, draft: ModelDraft, active: EngineModel | None = None) -> dict[str, Any]:
+    """The draft's outline at its current version, with its diagnostics; with the ``active`` model,
+    each consumer API's contract against what its consumers read now (0.10 A4c, D55)."""
     base = base_release(session, draft)
     data = draft.model_json if isinstance(draft.model_json, dict) else {}
     outline = build_outline(data, base.model_json if base else None)
     compiled = compile_authored_model(draft.model_json)
+    if active is not None and compiled.valid and compiled.model is not None:
+        found = contract_diagnostics(active, compiled.model)
+        for entry in outline["consumerApis"]:
+            prefix = f"/consumerApis/{_escape(entry['key'])}"
+            mine = [item for item in found if item.path == prefix or item.path.startswith(f"{prefix}/")]
+            entry["contract"] = {
+                "classification": "version_required" if any(i.severity == "error" for i in mine) else "compatible",
+                "diagnostics": [diagnostic_with_element(data, item) for item in mine],
+            }
     return {
         "version": draft.version,
         "baseReleaseId": base.public_id if base else None,
@@ -175,6 +188,10 @@ def build_outline(data: dict[str, Any], base: dict[str, Any] | None) -> dict[str
             }
             for key, item in relation_types.items()
         ],
+        # A definition without a key (one written by hand) is left to the diagnostics.
+        "consumerApis": [
+            _consumer_api(item, base) for item in _items(data, "consumerApis") if isinstance(item.get("key"), str)
+        ],
         "relations": [
             {
                 "relationType": b.get("relationTypeKey"),
@@ -191,6 +208,50 @@ def build_outline(data: dict[str, Any], base: dict[str, Any] | None) -> dict[str
     }
 
 
+def _consumer_api(definition: dict[str, Any], base: dict[str, Any]) -> dict[str, Any]:
+    """A consumer API definition as the editor lists it, marked against the base release's; its
+    ``contract`` is added by :func:`draft_outline` when the draft compiles (D55)."""
+    key = definition.get("key")
+    before = _item(base, "consumerApis", key)
+    names = definition.get("publicNames") if isinstance(definition.get("publicNames"), dict) else {}
+    shape = definition.get("object") if isinstance(definition.get("object"), dict) else {}
+    operations = definition.get("operations") if isinstance(definition.get("operations"), dict) else {}
+    events = operations.get("events") if isinstance(operations.get("events"), dict) else {}
+    version = definition.get("contractVersion")
+    name, description = definition.get("name"), definition.get("description")
+    return {
+        "key": key,
+        "name": name if isinstance(name, str) and name else key,
+        "description": description if isinstance(description, str) else None,
+        "contractVersion": version if isinstance(version, int) and not isinstance(version, bool) else None,
+        "exposes": [
+            {
+                "objectType": type_key,
+                "publicName": names[type_key] if isinstance(names.get(type_key), str) else public_name(type_key),
+            }
+            for type_key in definition.get("exposes") or []
+            if isinstance(type_key, str)
+        ],
+        "counts": {
+            "fields": _size(shape.get("fields")),
+            "related": _size(shape.get("related")),
+            "lists": _size(operations.get("lists")),
+            "filters": _size(definition.get("filters")),
+            "events": _size(events.get("custom")),
+        },
+        "mark": "new" if before is None else ("changed" if before != definition else "released"),
+        "contract": None,
+    }
+
+
+def _size(value: Any) -> int:
+    return len(value) if isinstance(value, (dict, list)) else 0
+
+
+def _escape(segment: str) -> str:
+    return segment.replace("~", "~0").replace("/", "~1")
+
+
 def diagnostic_with_element(data: dict[str, Any], item: ModelDiagnostic) -> dict[str, Any]:
     result: dict[str, Any] = {"severity": item.severity, "code": item.code, "path": item.path, "message": item.message}
     if item.count is not None:
@@ -201,7 +262,7 @@ def diagnostic_with_element(data: dict[str, Any], item: ModelDiagnostic) -> dict
 
 def element_at(data: dict[str, Any], pointer: str) -> dict[str, str] | None:
     """The element a diagnostic's pointer falls in, named as operations name elements, or ``None``
-    when it falls in no element (the release, the product, a consumer API definition). A segment
+    when it falls in no element (the release, the product). A segment
     names a list item by its key, as the validators write pointers, or by its index, as a shape
     error does."""
     parts = [_unescape(part) for part in pointer.split("/")[1:]] if pointer.startswith("/") else []
@@ -219,6 +280,9 @@ def element_at(data: dict[str, Any], pointer: str) -> dict[str, str] | None:
                 "to": item.get("toObjectTypeKey"),
             }
         return None
+    if head == "consumerApis" and rest:
+        definition = _item(data, head, rest[0])
+        return {"consumerApi": definition.get("key")} if definition is not None else None
     names = {"objectTypes": "objectType", "attributeTypes": "attributeType", "relationTypes": "relationType"}
     if head in names and rest:
         item = _item(data, head, rest[0])

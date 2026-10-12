@@ -4,12 +4,16 @@
  * the base release and editable, the differences from the base release, validity and the
  * compatibility with stored data. A changed identity is a `setRelease` step first. A refused
  * activation leaves the installed release, and the dialog says so.
+ *
+ * Each consumer API is shown checked against what the active release's consumers read (0.10 A4c,
+ * D58): one that needs a higher contract version offers the step that raises it, and activation
+ * waits until none does, as the server would refuse it.
  */
 
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
-import type { ModelChange, ModelCompilation, ModelDraftOutline, ModelRelease } from "@/types";
+import type { ModelChange, ModelCompilation, ModelDiagnostic, ModelDraftOutline, ModelRelease } from "@/types";
 import { FormField } from "@/ui/FormField";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
@@ -56,6 +60,16 @@ export function summarizeChanges(
     lines.set(label, (lines.get(label) ?? new Set()).add(name));
   }
   return [...lines].map(([label, names]) => ({ label, names: [...names] }));
+}
+
+/** The consumer contract diagnostics by the consumer API their pointer names. */
+export function contractsByApi(diagnostics: ModelDiagnostic[]): Map<string, ModelDiagnostic[]> {
+  const found = new Map<string, ModelDiagnostic[]>();
+  for (const item of diagnostics) {
+    const key = item.path.split("/")[2]?.replaceAll("~1", "/").replaceAll("~0", "~");
+    if (key) found.set(key, [...(found.get(key) ?? []), item]);
+  }
+  return found;
 }
 
 type Outcome = { kind: "installed"; release: ModelRelease; reason: string } | { kind: "active"; release: ModelRelease };
@@ -106,7 +120,8 @@ export function InstallDialog({
     key.trim() !== (outline.release.key ?? "") ||
     name.trim() !== (outline.release.name ?? "") ||
     version.trim() !== (outline.release.version ?? "");
-  const blocked = !compilation?.valid || !key.trim() || !version.trim() || !name.trim();
+  const contractsBreak = compilation?.consumerContracts?.classification === "version_required";
+  const blocked = !compilation?.valid || contractsBreak || !key.trim() || !version.trim() || !name.trim();
 
   async function confirm() {
     setPending(true);
@@ -247,6 +262,14 @@ export function InstallDialog({
                   </Notice>
                 ))}
             </div>
+            {compilation.valid && compilation.consumerContracts && (
+              <ConsumerContracts
+                outline={outline}
+                diagnostics={compilation.consumerContracts.diagnostics}
+                run={run}
+                pending={pending}
+              />
+            )}
           </>
         )}
         {error && (
@@ -273,4 +296,75 @@ function activationRefusal(cause: unknown): string {
     return [cause.message, ...diagnostics.map((item) => item.message)].join(" ");
   }
   return errorMessage(cause);
+}
+
+/** Each consumer API of the draft against what its consumers read now, with the step a break needs (D58). */
+function ConsumerContracts({
+  outline,
+  diagnostics,
+  run,
+  pending,
+}: {
+  outline: ModelDraftOutline;
+  diagnostics: ModelDiagnostic[];
+  run: RunStep;
+  pending: boolean;
+}) {
+  const byApi = contractsByApi(diagnostics);
+  const removed = [...byApi].filter(([key]) => !outline.consumerApis.some((item) => item.key === key));
+  if (!outline.consumerApis.length && !removed.length) return null;
+  return (
+    <section aria-labelledby="install-consumer-apis">
+      <h3 id="install-consumer-apis" className="install-heading">
+        Consumer APIs
+      </h3>
+      <ul className="install-contracts">
+        {outline.consumerApis.map((item) => {
+          const breaking = (byApi.get(item.key) ?? []).filter((d) => d.severity === "error");
+          const next = (item.contractVersion ?? 1) + 1;
+          return (
+            <li key={item.key}>
+              <span>
+                <strong>{item.name}</strong>{" "}
+                <span className="muted">{`${item.key} v${item.contractVersion ?? 1}`}</span>
+              </span>
+              {breaking.length ? (
+                <>
+                  <span className="install-contract-break">
+                    Needs version {next}:{" "}
+                    {breaking.map((d) => d.message.replace(/; raise contractVersion.*$/, "")).join("; ")}
+                  </span>
+                  <button
+                    type="button"
+                    className="primary"
+                    disabled={pending}
+                    onClick={() =>
+                      void run([
+                        { kind: "setConsumerApiPart", consumerApi: item.key, pointer: "/contractVersion", value: next },
+                      ])
+                    }
+                  >
+                    Raise to v{next}
+                  </button>
+                </>
+              ) : (
+                <span className="install-contract-ok">Compatible</span>
+              )}
+            </li>
+          );
+        })}
+        {removed.map(([key, items]) => (
+          <li key={key}>
+            <span>
+              <strong>{key}</strong> <span className="muted">removed</span>
+            </span>
+            <span className="install-contract-warn">{items.map((d) => d.message).join(" ")}</span>
+          </li>
+        ))}
+      </ul>
+      {byApi.size > 0 && [...byApi.values()].flat().some((d) => d.severity === "error") && (
+        <p className="muted">Activation is refused while a consumer API needs a higher contract version.</p>
+      )}
+    </section>
+  );
 }

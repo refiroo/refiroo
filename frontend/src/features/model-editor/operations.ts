@@ -9,14 +9,39 @@
  * choosing it sends the request and the server's refusal says what it would affect (D39).
  */
 
-import type { DraftOperation, ModelDraftOutline } from "@/types";
+import type { ConsumerDefinition, DraftOperation, ModelDraftOutline } from "@/types";
+import type { ChoiceOption } from "@/features/model-editor/ChoiceListField";
 import type { ActionMenuItem } from "@/ui/ActionMenu";
 import type { IconName } from "@/ui/Icon";
 import { cleaned, type Candidates, type End } from "@/features/model-editor/candidates";
 import {
+  exposesOf,
+  FILTER_VERBS,
+  filtersOf,
+  fieldRow,
+  filterReads,
+  matchOptions,
+  offers,
+  parseList,
+  parsePairs,
+  pointer,
+  relatedOf,
+  ROLE_OPTIONS,
+  relatedFieldOptions,
+  relatedTypesOf,
+  setField,
+  sortOptions,
+  sourceOptions,
+  throughOptions,
+  viaOptions,
+  watchOptions,
+  writeField,
+} from "@/features/model-editor/consumer";
+import {
   applicationsOf,
   attributeTypeOf,
   isReleased,
+  consumerApiOf,
   keyFromLabel,
   keysOf,
   objectTypeOf,
@@ -33,7 +58,23 @@ export type OperationTarget =
   | { on: "attributeType"; attributeType: string }
   | { on: "relationType"; relationType: string }
   | { on: "relation"; relationType: string; from: string; to: string }
-  | { on: "group"; applicationKey: string; group: string };
+  | { on: "group"; applicationKey: string; group: string }
+  /** The Consumer APIs tab's ＋ (0.10 A4c). */
+  | { on: "consumerApis" }
+  /** A consumer API, with its definition as the draft holds it. */
+  | { on: "consumerApi"; consumerApi: string; definition: ConsumerDefinition }
+  /** A member or item of a consumer API definition: a field, a list, a filter, a rule… */
+  | {
+      on: "consumerItem";
+      consumerApi: string;
+      pointer: string;
+      label: string;
+      index: number;
+      count: number;
+      value: unknown;
+      /** The definition it belongs to, where an operation offers what the definition holds. */
+      definition?: ConsumerDefinition;
+    };
 
 export type FieldValue = string | boolean | string[] | Candidates;
 export type FieldValues = Record<string, FieldValue>;
@@ -46,8 +87,23 @@ export type OperationField = {
   hint?: string;
 } & (
   | { type: "text"; required?: boolean }
-  | { type: "select"; options: { value: string; label: string }[]; required?: boolean }
+  /** Options may follow the values chosen so far (a related record's fields after its block). */
+  | { type: "select"; options: ChoiceOption[] | ((values: FieldValues) => ChoiceOption[]); required?: boolean }
   | { type: "checkbox" }
+  /** A JSON document edited as text (a consumer API definition or a part of it). */
+  | { type: "json"; required?: boolean }
+  /** Several items chosen from a grouped picklist: in order (a field's sources) or as a set (a
+   * filter's match fields); the options may follow the values chosen so far (0.10 A4c). */
+  | {
+      type: "choices";
+      ordered: boolean;
+      options: ChoiceOption[] | ((values: FieldValues) => ChoiceOption[]);
+      /** What none chosen means. */
+      empty?: string;
+      required?: boolean;
+    }
+  /** Output names each reading a source picked from a list, as `output=source` (a related block). */
+  | { type: "pairs"; options: ChoiceOption[] | ((values: FieldValues) => ChoiceOption[]); required?: boolean }
   | { type: "checkboxes"; options: { value: string; label: string }[] }
   /** Which records a relationship may choose (0.9 K7), per end; an end without a type offers its name. */
   | { type: "criteria"; ends: Record<End, { typeKey?: string; label: string }> }
@@ -1203,7 +1259,575 @@ export const OPERATIONS: OperationSpec[] = [
       `Remove the group ${groupOf(t, o)?.label ?? t.group}? Its collections return to the top of the sidebar.`,
     build: (_, t) => [{ kind: "removeNavigationGroup", applicationKey: t.applicationKey, group: t.group }],
   }),
+  ...CONSUMER_OPERATIONS(),
 ];
+
+/** A JSON field's value, read when the step is built; a mistake is said before anything is sent. */
+function json(values: FieldValues, name: string): unknown {
+  try {
+    return JSON.parse(text(values, name));
+  } catch {
+    throw new Error("The JSON cannot be read. Check its brackets, quotes and commas.");
+  }
+}
+
+const number = (values: FieldValues, name: string) => {
+  const value = text(values, name);
+  return value ? Number(value) : undefined;
+};
+
+/** The consumer API operations (0.10 A4c, D51): the six kinds, each part named by its pointer. */
+function CONSUMER_OPERATIONS(): OperationSpec[] {
+  type Api = On<"consumerApi">;
+  type Item = On<"consumerItem">;
+  const set = (t: { consumerApi: string }, path: string, value: unknown): DraftOperation => ({
+    kind: "setConsumerApiPart",
+    consumerApi: t.consumerApi,
+    pointer: path,
+    value,
+  });
+  const insert = (t: Api, path: string, value: unknown, key?: string): DraftOperation => ({
+    kind: "insertConsumerApiPart",
+    consumerApi: t.consumerApi,
+    pointer: path,
+    ...(key !== undefined ? { key } : {}),
+    value,
+  });
+  const exposed = (t: Api, o: ModelDraftOutline) =>
+    exposesOf(t.definition).map((key) => ({ value: key, label: typeName(o, key) }));
+  const objectOf = (t: Api) => (t.definition.object ?? {}) as Record<string, unknown>;
+  const version = (t: Api) => Number(t.definition.contractVersion ?? 1);
+  return [
+    spec<On<"consumerApis">>({
+      id: "consumer-add",
+      on: "consumerApis",
+      label: "Consumer API…",
+      title: () => "New consumer API",
+      available: (_, o) => o.objectTypes.length > 0,
+      fields: (_, o) => [
+        { name: "name", label: "Name", type: "text", required: true },
+        {
+          name: "key",
+          label: "Key",
+          type: "text",
+          hint: "Its name in URLs: /api/consumer/<key>/v1. Made from the name when left empty; fixed once released.",
+        },
+        {
+          name: "exposes",
+          label: "Types to expose",
+          type: "checkboxes",
+          hint: "The server starts it with the ID, the name, a field per attribute these types bind, Get by ID and a list per type.",
+          options: o.objectTypes.map((type) => ({ value: type.key, label: type.name })),
+        },
+      ],
+      build: (values) => [
+        {
+          kind: "addConsumerApi",
+          name: text(values, "name"),
+          ...(text(values, "key") ? { key: text(values, "key") } : {}),
+          exposes: Array.isArray(values.exposes) ? values.exposes : [],
+        },
+      ],
+    }),
+    // --- a consumer API: its additions, then its own changes ---
+    spec<Api>({
+      id: "consumer-expose",
+      on: "consumerApi",
+      label: "Expose a type…",
+      available: (t, o) => o.objectTypes.some((type) => !exposesOf(t.definition).includes(type.key)),
+      fields: (t, o) => [
+        {
+          name: "objectType",
+          label: "Type",
+          type: "select",
+          required: true,
+          options: o.objectTypes
+            .filter((type) => !exposesOf(t.definition).includes(type.key))
+            .map((type) => ({ value: type.key, label: type.name })),
+        },
+      ],
+      build: (values, t) => [insert(t, "/exposes", text(values, "objectType"))],
+    }),
+    spec<Api>({
+      id: "consumer-add-field",
+      on: "consumerApi",
+      label: "Add field…",
+      fields: (t, o) => [
+        { name: "output", label: "Output name", type: "text", required: true, hint: "The name consumers read." },
+        sourcesField(sourceOptions(o, exposesOf(t.definition))),
+        { name: "role", label: "Role", type: "select", options: ROLE_OPTIONS },
+      ],
+      build: (values, t) => [
+        insert(
+          t,
+          pointer("object", "fields"),
+          writeField({ sources: chosen(values, "sources"), role: text(values, "role") }),
+          text(values, "output"),
+        ),
+      ],
+    }),
+    spec<Api>({
+      id: "consumer-object-extras",
+      on: "consumerApi",
+      label: "Parent, path and hierarchy…",
+      fields: () => [
+        { name: "parent", label: "Serve the parent (objectType, id, code, name)", type: "checkbox" },
+        { name: "path", label: "Serve the path", type: "checkbox" },
+        { name: "hierarchy", label: "Serve the hierarchy", type: "checkbox" },
+      ],
+      initial: (t) => ({
+        parent: Boolean(objectOf(t).parent),
+        path: Boolean(objectOf(t).path),
+        hierarchy: Boolean(objectOf(t).hierarchy),
+      }),
+      build: (values, t) => {
+        const current = objectOf(t);
+        const keep = (name: string, written: unknown) =>
+          flag(values, name) ? (current[name] ? current[name] : written) : null;
+        return [
+          set(t, "/object/parent", keep("parent", ["objectType", "id", "code", "name"])),
+          set(t, "/object/path", keep("path", true)),
+          set(t, "/object/hierarchy", keep("hierarchy", true)),
+        ];
+      },
+    }),
+    spec<Api>({
+      id: "consumer-add-related",
+      on: "consumerApi",
+      label: "Add related…",
+      available: (t, o) => viaOptions(o, exposesOf(t.definition)).length > 0,
+      fields: (t, o) => [
+        { name: "output", label: "Output name", type: "text", required: true },
+        { name: "via", label: "Via", type: "select", required: true, options: viaOptions(o, exposesOf(t.definition)) },
+        {
+          name: "fields",
+          label: "Fields",
+          type: "pairs",
+          required: true,
+          hint: "Each field's name for consumers and what it reads from the related record.",
+          options: (v) => relatedFieldOptions(o, relatedTypesOf(o, text(v, "via"), exposesOf(t.definition))),
+        },
+      ],
+      initial: () => ({ fields: ["name=name"] }),
+      build: (values, t) => [
+        insert(
+          t,
+          pointer("object", "related"),
+          { via: text(values, "via"), fields: pairsOf(values, "fields") },
+          text(values, "output"),
+        ),
+      ],
+    }),
+    spec<Api>({
+      id: "consumer-add-list",
+      on: "consumerApi",
+      label: "Add list…",
+      fields: (t, o) => [
+        { name: "key", label: "Key", type: "text", required: true, hint: "Its name in URLs: …/lists/<key>." },
+        { name: "of", label: "Of", type: "select", required: true, options: exposed(t, o) },
+        {
+          name: "within",
+          label: "Within the filter",
+          type: "select",
+          options: [
+            { value: "", label: "None: every record of the type" },
+            ...filtersOf(t.definition, o).map((f) => ({ value: f.name, label: f.name })),
+          ],
+        },
+        { name: "sortBy", label: "Sorted by", type: "select", options: (v) => sortOptions(o, text(v, "of")) },
+      ],
+      build: (values, t) => [
+        insert(
+          t,
+          pointer("operations", "lists"),
+          {
+            of: text(values, "of"),
+            ...(text(values, "within") ? { within: { filter: text(values, "within") } } : {}),
+            ...(text(values, "sortBy") ? { sortBy: text(values, "sortBy") } : {}),
+          },
+          text(values, "key"),
+        ),
+      ],
+    }),
+    spec<Api>({
+      id: "consumer-add-rule",
+      on: "consumerApi",
+      label: "Add XREF rule…",
+      available: (t) => offers(t.definition, "xref"),
+      fields: (t, o) => [
+        {
+          name: "field",
+          label: "Field",
+          type: "select",
+          required: true,
+          options: matchOptions(o, t.definition, { verb: "under", types: exposesOf(t.definition) }),
+        },
+        { name: "exact", label: "Exact weight", type: "text" },
+        { name: "contains", label: "Contains weight", type: "text" },
+      ],
+      build: (values, t) => [
+        insert(t, pointer("operations", "xref", "matchOn"), {
+          field: text(values, "field"),
+          ...(number(values, "exact") !== undefined ? { exact: number(values, "exact") } : {}),
+          ...(number(values, "contains") !== undefined ? { contains: number(values, "contains") } : {}),
+        }),
+      ],
+    }),
+    spec<Api>({
+      id: "consumer-add-through",
+      on: "consumerApi",
+      label: "Add a match through a related block…",
+      available: (t) => offers(t.definition, "xref") && relatedOf(t.definition).length > 0,
+      fields: (t, o) => [
+        {
+          name: "related",
+          label: "Related block",
+          type: "select",
+          required: true,
+          options: relatedOf(t.definition).map((row) => ({ value: row.output, label: row.output })),
+        },
+        {
+          name: "field",
+          label: "Field of the related record",
+          type: "select",
+          required: true,
+          options: (v) => {
+            const block = relatedOf(t.definition).find((row) => row.output === text(v, "related"));
+            return relatedFieldOptions(o, relatedTypesOf(o, block?.via ?? "", exposesOf(t.definition)));
+          },
+        },
+        { name: "exact", label: "Exact weight", type: "text" },
+        { name: "contains", label: "Contains weight", type: "text" },
+      ],
+      build: (values, t) => [
+        insert(t, pointer("operations", "xref", "alsoMatchThrough"), {
+          related: text(values, "related"),
+          firstOf: [
+            {
+              field: text(values, "field"),
+              ...(number(values, "exact") !== undefined ? { exact: number(values, "exact") } : {}),
+              ...(number(values, "contains") !== undefined ? { contains: number(values, "contains") } : {}),
+            },
+          ],
+        }),
+      ],
+    }),
+    spec<Api>({
+      id: "consumer-add-event",
+      on: "consumerApi",
+      label: "Add custom event…",
+      fields: (t, o) => [
+        { name: "key", label: "Key", type: "text", required: true },
+        { name: "objectTypes", label: "Types", type: "checkboxes", options: exposed(t, o) },
+        {
+          name: "changes",
+          label: "Changes",
+          type: "checkboxes",
+          options: ["created", "updated", "deleted"].map((value) => ({ value, label: value })),
+        },
+        {
+          name: "watch",
+          label: "Watches",
+          type: "choices",
+          ordered: false,
+          options: watchOptions(t.definition),
+          empty: "Any change to what consumers read.",
+        },
+      ],
+      initial: () => ({ changes: ["created", "updated", "deleted"] }),
+      build: (values, t) => {
+        const watch = chosen(values, "watch");
+        const event = {
+          key: text(values, "key"),
+          objectTypes: Array.isArray(values.objectTypes) ? values.objectTypes : [],
+          changes: Array.isArray(values.changes) ? values.changes : [],
+          ...(watch.length ? { watch: watchOf(t, watch) } : {}),
+        };
+        const events = (t.definition.operations as Record<string, unknown> | undefined)?.events;
+        return events
+          ? [insert(t, pointer("operations", "events", "custom"), event)]
+          : [set(t, pointer("operations", "events"), { custom: [event] })];
+      },
+    }),
+    spec<Api>({
+      id: "consumer-add-filter",
+      on: "consumerApi",
+      label: "Add filter…",
+      fields: (t, o) => [
+        { name: "name", label: "Name", type: "text", required: true, hint: "Its query parameter: ?<name>=…" },
+        { name: "verb", label: "Verb", type: "select", required: true, options: [...FILTER_VERBS] },
+        {
+          name: "types",
+          label: "Types",
+          type: "checkboxes",
+          when: (v) => v.verb === "under" || v.verb === "linkedTo",
+          options: o.objectTypes.map((type) => ({ value: type.key, label: type.name })),
+        },
+        {
+          name: "through",
+          label: "Through",
+          type: "choices",
+          ordered: false,
+          when: (v) => v.verb === "linkedTo",
+          options: throughOptions(t.definition),
+        },
+        {
+          name: "related",
+          label: "Related block",
+          type: "select",
+          when: (v) => v.verb === "onRelated",
+          options: relatedOf(t.definition).map((row) => ({ value: row.output, label: row.output })),
+        },
+        {
+          name: "matchOn",
+          label: "Matches on",
+          type: "choices",
+          ordered: false,
+          when: (v) => v.verb !== "byType",
+          options: (v) => matchOptions(o, t.definition, readsOf(v)),
+          empty: "The defaults: id, code and name.",
+        },
+        {
+          name: "options",
+          label: "Options",
+          type: "checkboxes",
+          when: (v) => v.verb === "onRelated",
+          options: [
+            { value: "keepOnlyMatching", label: "Keep only matching records" },
+            { value: "scoreOnlyMatching", label: "Score only matching items" },
+            { value: "crosswalk", label: "Crosswalk (to.<name>)" },
+          ],
+        },
+      ],
+      initial: () => ({ through: ["itself"] }),
+      build: (values, t) => [insert(t, pointer("filters"), filterOf(values), text(values, "name"))],
+    }),
+    spec<Api>({
+      id: "consumer-rename",
+      on: "consumerApi",
+      label: "Rename…",
+      fields: () => [{ name: "name", label: "Name", type: "text", required: true }],
+      initial: (t) => ({ name: String(t.definition.name ?? "") }),
+      build: (values, t) => [set(t, "/name", text(values, "name"))],
+    }),
+    spec<Api>({
+      id: "consumer-describe",
+      on: "consumerApi",
+      label: "Describe…",
+      fields: () => [
+        { name: "description", label: "Description", type: "text", hint: "Carried into its OpenAPI document." },
+      ],
+      initial: (t) => ({ description: String(t.definition.description ?? "") }),
+      build: (values, t) => [set(t, "/description", text(values, "description") || null)],
+    }),
+    spec<Api>({
+      id: "consumer-raise",
+      on: "consumerApi",
+      label: (t) => `Raise contract version to ${version(t) + 1}`,
+      direct: true,
+      build: (_, t) => [set(t, "/contractVersion", version(t) + 1)],
+    }),
+    spec<Api>({
+      id: "consumer-key",
+      on: "consumerApi",
+      label: "Change key…",
+      fields: () => [
+        {
+          ...keyField,
+          hint: "A released API's consumers get 404 under the old key once this is active.",
+        },
+      ],
+      initial: (t) => ({ key: t.consumerApi }),
+      build: (values, t) => [set(t, "/key", text(values, "key"))],
+    }),
+    spec<Api>({
+      id: "consumer-json",
+      on: "consumerApi",
+      label: "Edit as JSON…",
+      title: (t) => `Edit ${String(t.definition.name ?? t.consumerApi)} as JSON`,
+      fields: () => [{ name: "json", label: "Definition", type: "json", required: true, hint: "Applied as one step." }],
+      initial: (t) => ({ json: JSON.stringify(t.definition, null, 2) }),
+      build: (values, t) => [set(t, "", json(values, "json"))],
+    }),
+    spec<Api>({
+      id: "consumer-remove",
+      on: "consumerApi",
+      label: "Remove consumer API",
+      confirm: (t) =>
+        `Remove ${String(t.definition.name ?? t.consumerApi)}? Once the draft is active, its consumers get 404 from /api/consumer/${t.consumerApi}.`,
+      build: (_, t) => [{ kind: "removeConsumerApi", consumerApi: t.consumerApi }],
+    }),
+    // --- a member or item of a definition ---
+    spec<Item>({
+      id: "consumer-item-up",
+      on: "consumerItem",
+      label: "Move up",
+      direct: true,
+      available: (t) => t.index > 0,
+      build: (_, t) => [
+        { kind: "moveConsumerApiPart", consumerApi: t.consumerApi, pointer: t.pointer, position: t.index - 1 },
+      ],
+    }),
+    spec<Item>({
+      id: "consumer-item-down",
+      on: "consumerItem",
+      label: "Move down",
+      direct: true,
+      available: (t) => t.index < t.count - 1,
+      build: (_, t) => [
+        { kind: "moveConsumerApiPart", consumerApi: t.consumerApi, pointer: t.pointer, position: t.index + 1 },
+      ],
+    }),
+    spec<Item>({
+      id: "consumer-field-sources",
+      on: "consumerItem",
+      label: "Sources…",
+      title: (t) => `Sources of ${t.label}`,
+      available: (t) => isField(t) && fieldOf(t).role !== "id",
+      fields: (t, o) => {
+        const exposes = consumerApiOf(o, t.consumerApi)?.exposes.map((item) => item.objectType) ?? [];
+        return [sourcesField(sourceOptions(o, exposes, fieldOf(t).sources))];
+      },
+      initial: (t) => ({ sources: fieldOf(t).sources }),
+      build: (values, t) => setField(t.consumerApi, fieldOf(t), { sources: chosen(values, "sources") }),
+    }),
+    spec<Item>({
+      id: "consumer-filter-match",
+      on: "consumerItem",
+      label: "Matches on…",
+      title: (t) => `What ${t.label} matches on`,
+      available: (t) => /^\/filters\/[^/]+$/.test(t.pointer) && filterReads(t.value).verb !== "byType",
+      fields: (t, o) => [
+        {
+          name: "matchOn",
+          label: "Matches on",
+          type: "choices",
+          ordered: false,
+          options: matchOptions(o, t.definition ?? {}, filterReads(t.value), listOf(t.value, "matchOn")),
+          empty: "The defaults: id, code and name.",
+        },
+      ],
+      initial: (t) => ({ matchOn: listOf(t.value, "matchOn") }),
+      build: (values, t) => {
+        const fields = chosen(values, "matchOn");
+        return [set(t, `${t.pointer}/matchOn`, fields.length ? fields : null)];
+      },
+    }),
+    spec<Item>({
+      id: "consumer-related-fields",
+      on: "consumerItem",
+      label: "Fields…",
+      title: (t) => `Fields of ${t.label}`,
+      available: (t) => /^\/object\/related\/[^/]+$/.test(t.pointer),
+      fields: (t, o) => {
+        const via = String((t.value as { via?: unknown } | null)?.via ?? "");
+        const exposes = consumerApiOf(o, t.consumerApi)?.exposes.map((item) => item.objectType) ?? [];
+        const current = Object.values(fieldsMapOf(t.value));
+        return [
+          {
+            name: "fields",
+            label: "Fields",
+            type: "pairs",
+            required: true,
+            hint: "Each field's name for consumers and what it reads from the related record.",
+            options: relatedFieldOptions(o, relatedTypesOf(o, via, exposes), current),
+          },
+        ];
+      },
+      initial: (t) => ({
+        fields: Object.entries(fieldsMapOf(t.value)).map(([output, source]) => `${output}=${source}`),
+      }),
+      build: (values, t) => [set(t, `${t.pointer}/fields`, pairsOf(values, "fields"))],
+    }),
+    spec<Item>({
+      id: "consumer-item-json",
+      on: "consumerItem",
+      label: "Edit as JSON…",
+      title: (t) => `Edit ${t.label} as JSON`,
+      fields: () => [{ name: "json", label: "Value", type: "json", required: true }],
+      initial: (t) => ({ json: JSON.stringify(t.value, null, 2) }),
+      build: (values, t) => [set(t, t.pointer, json(values, "json"))],
+    }),
+    spec<Item>({
+      id: "consumer-item-remove",
+      on: "consumerItem",
+      label: (t) => `Remove ${t.label}`,
+      confirm: (t) => `Remove ${t.label}? Undo puts it back.`,
+      build: (_, t) => [{ kind: "removeConsumerApiPart", consumerApi: t.consumerApi, pointer: t.pointer }],
+    }),
+  ];
+}
+
+/** A consumer field's sources: chosen in order from what the exposed types offer (the user, A4c). */
+function sourcesField(options: { value: string; label: string; group?: string }[]): OperationField {
+  return {
+    name: "sources",
+    label: "Sources",
+    type: "choices",
+    ordered: true,
+    required: true,
+    options,
+    hint: "Read in this order: the first that is not empty is served. Sources share one value type.",
+  };
+}
+
+/** An ordered choice's items (a typed list when a test or an older client sends text). */
+function chosen(values: FieldValues, name: string): string[] {
+  const value = values[name];
+  return Array.isArray(value) ? value : parseList(text(values, name));
+}
+
+const FIELD_POINTER = /^\/object\/fields\/([^/]+)$/;
+const isField = (t: On<"consumerItem">) => FIELD_POINTER.test(t.pointer);
+const fieldOf = (t: On<"consumerItem">) =>
+  fieldRow((FIELD_POINTER.exec(t.pointer)?.[1] ?? "").replaceAll("~1", "/").replaceAll("~0", "~"), t.value, t.index);
+
+/** A watch from the names typed: related blocks by their names, the rest output fields. */
+function watchOf(t: On<"consumerApi">, names: string[]) {
+  const related = new Set(relatedOf(t.definition).map((row) => row.output));
+  const fields = names.filter((name) => !related.has(name));
+  const blocks = names.filter((name) => related.has(name));
+  return { ...(fields.length ? { fields } : {}), ...(blocks.length ? { related: blocks } : {}) };
+}
+
+/** What the filter being added reads, from the dialog's values. */
+const readsOf = (values: FieldValues) => ({
+  verb: text(values, "verb"),
+  types: Array.isArray(values.types) ? values.types : [],
+  related: text(values, "related") || undefined,
+});
+
+/** A related block's fields from a pairs field (`output=source`). */
+function pairsOf(values: FieldValues, name: string): Record<string, string> {
+  const value = values[name];
+  return parsePairs(Array.isArray(value) ? value.join(", ") : text(values, name));
+}
+
+const listOf = (value: unknown, name: string): string[] => {
+  const items = (value as Record<string, unknown> | null)?.[name];
+  return Array.isArray(items) ? items.filter((item): item is string => typeof item === "string") : [];
+};
+
+const fieldsMapOf = (value: unknown): Record<string, string> => {
+  const fields = (value as { fields?: unknown } | null)?.fields;
+  return fields && typeof fields === "object" ? (fields as Record<string, string>) : {};
+};
+
+function filterOf(values: FieldValues): Record<string, unknown> {
+  const verb = text(values, "verb");
+  const matchOn = chosen(values, "matchOn");
+  const types = Array.isArray(values.types) ? values.types : [];
+  const options = Array.isArray(values.options) ? values.options : [];
+  const match = matchOn.length ? { matchOn } : {};
+  if (verb === "byType") return { byType: true };
+  if (verb === "under") return { under: types, ...match };
+  if (verb === "linkedTo") return { linkedTo: types, through: chosen(values, "through"), ...match };
+  return {
+    onRelated: text(values, "related"),
+    ...match,
+    ...Object.fromEntries(options.map((option) => [option, true])),
+  };
+}
 
 function relationOf(t: On<"relation">, o: ModelDraftOutline) {
   return o.relations.find((r) => r.relationType === t.relationType && r.from === t.from && r.to === t.to);
@@ -1299,6 +1923,31 @@ present("Move", "sort-descending", ["attribute-down", "group-down"]);
 present("Reshape", "swap", ["type-split"]);
 present("Reshape", "replace", ["type-merge"]);
 present("Reshape", "list", ["attribute-list"]);
+present("Add", "plus", [
+  "consumer-add",
+  "consumer-expose",
+  "consumer-add-field",
+  "consumer-add-related",
+  "consumer-add-list",
+  "consumer-add-rule",
+  "consumer-add-through",
+  "consumer-add-event",
+  "consumer-add-filter",
+]);
+present("Change", "pencil", [
+  "consumer-rename",
+  "consumer-describe",
+  "consumer-object-extras",
+  "consumer-field-sources",
+  "consumer-filter-match",
+  "consumer-related-fields",
+]);
+present("Change", "number", ["consumer-raise"]);
+present("Change", "lock", ["consumer-key"]);
+present("Change", "pencil", ["consumer-json", "consumer-item-json"]);
+present("Move", "sort-ascending", ["consumer-item-up"]);
+present("Move", "sort-descending", ["consumer-item-down"]);
+present("Remove", "trash", ["consumer-remove", "consumer-item-remove"]);
 present("Remove", "trash", [
   "application-remove",
   "type-remove",
@@ -1351,12 +2000,20 @@ export function missingField(
   );
 }
 
+/** A field's options for the values entered so far: they may follow an earlier choice. */
+export function fieldOptions(
+  field: Extract<OperationField, { options: unknown }>,
+  values: FieldValues,
+): { value: string; label: string; group?: string }[] {
+  return typeof field.options === "function" ? field.options(values) : field.options;
+}
+
 /** The values a dialog starts with: the descriptor's, and each select's first option. */
 export function initialValues(item: OperationSpec, target: OperationTarget, outline: ModelDraftOutline): FieldValues {
   const values: FieldValues = { ...(item.initial?.(target as never, outline) ?? {}) };
   for (const field of item.fields?.(target as never, outline) ?? []) {
     if (field.type === "select" && values[field.name] === undefined && field.required)
-      values[field.name] = field.options[0]?.value ?? "";
+      values[field.name] = fieldOptions(field, values)[0]?.value ?? "";
   }
   return values;
 }

@@ -13,9 +13,10 @@ a key, with the kind of element it names:
   lead with ``-``.
 
 ``setKey`` rewrites what the slots name; removals find what names a removed element; D8 reads which
-elements an operation names. Consumer API definitions are not walked: they name elements in their own
-grammar, and an element they name is not re-keyed (D29); :func:`consumer_api_pointer` finds such a
-name.
+elements an operation names. Consumer API definitions name elements in their own grammar;
+:func:`consumer_slots` walks it for ``setKey``, which rewrites a definition as it rewrites a view
+(0.10 A4c, D54). Removals leave a definition naming a removed element alone: the draft's issues then
+point at it, since only the author can say what the API should serve instead.
 """
 
 from collections.abc import Iterator
@@ -341,43 +342,91 @@ def names_in_slot(data: dict[str, Any], slot: Slot, known: tuple[set[str], set[s
         yield (slot.kind, value)
 
 
-def consumer_api_pointer(data: dict[str, Any], keys: set[str]) -> str | None:
-    """The pointer of the first node in a consumer API definition that names one of ``keys``
-    (as a string, a member name, or inside ``ancestor:``/``related:`` text), or ``None``."""
+def consumer_slots(data: dict[str, Any]) -> Iterator[Slot]:
+    """Every place a consumer API definition (schema 0.9) names a model element: the exposed types and
+    the public names' members, field sources (``<attribute>``, ``ancestor:<type>.<field>``), a related
+    block's ``via`` (a relation's key or reverse key) and fields, a list's type, ``within`` types and
+    sort, XREF's match fields and preferred types, custom events' types, and the filters' types and
+    match fields. Output names, list keys and filter names are the author's, never re-keyed."""
+    for definition in _list(data, "consumerApis"):
+        if not isinstance(definition, dict):
+            continue
+        path: Path = ["consumerApis", identity(definition)]
+        exposed = _keys(tuple(definition.get("exposes") or ()))
+        yield from _strings(path, definition, "exposes", "objectType")
+        names = definition.get("publicNames")
+        if isinstance(names, dict):
+            for type_key in names:
+                yield Slot(path + ["publicNames"], type_key, "objectTypeMapKey", member=type_key)
+        shape = definition.get("object") if isinstance(definition.get("object"), dict) else {}
+        fields = shape.get("fields")
+        if isinstance(fields, dict):
+            for name, value in fields.items():
+                yield from _source(path + ["object", "fields"], fields, name, value, exposed)
+        related = shape.get("related")
+        if isinstance(related, dict):
+            for name, block in related.items():
+                if not isinstance(block, dict):
+                    continue
+                block_path = path + ["object", "related", name]
+                if isinstance(block.get("via"), str):
+                    yield Slot(block_path, "via", "relationType")
+                inner = block.get("fields")
+                if isinstance(inner, dict):
+                    for output in inner:
+                        yield from _field(block_path + ["fields"], inner, output, ())
+        operations = definition.get("operations") if isinstance(definition.get("operations"), dict) else {}
+        lists = operations.get("lists")
+        if isinstance(lists, dict):
+            for key, item in lists.items():
+                if not isinstance(item, dict):
+                    continue
+                list_path = path + ["operations", "lists", key]
+                if isinstance(item.get("of"), str):
+                    yield Slot(list_path, "of", "objectType")
+                yield from _field(list_path, item, "sortBy", _keys((item.get("of"),)))
+                if isinstance(item.get("within"), dict):
+                    yield from _strings(list_path + ["within"], item["within"], "types", "objectType")
+        xref = operations.get("xref") if isinstance(operations.get("xref"), dict) else {}
+        for position, rule in enumerate(_list(xref, "matchOn")):
+            if isinstance(rule, dict):
+                yield from _field(path + ["operations", "xref", "matchOn", position], rule, "field", exposed)
+        for position, through in enumerate(_list(xref, "alsoMatchThrough")):
+            if not isinstance(through, dict):
+                continue
+            through_path = path + ["operations", "xref", "alsoMatchThrough", position]
+            yield from _strings(through_path, through, "preferTypes", "objectType")
+            for index, rule in enumerate(_list(through, "firstOf")):
+                if isinstance(rule, dict):
+                    yield from _field(through_path + ["firstOf", index], rule, "field", ())
+        events = operations.get("events") if isinstance(operations.get("events"), dict) else {}
+        for position, event in enumerate(_list(events, "custom")):
+            if isinstance(event, dict):
+                yield from _strings(path + ["operations", "events", "custom", position], event, "objectTypes", "objectType")
+        filters = definition.get("filters")
+        if isinstance(filters, dict):
+            for name, item in filters.items():
+                if not isinstance(item, dict):
+                    continue
+                filter_path = path + ["filters", name]
+                yield from _strings(filter_path, item, "under", "objectType")
+                yield from _strings(filter_path, item, "linkedTo", "objectType")
+                types = _keys(tuple(item.get("under") or item.get("linkedTo") or ()))
+                yield from _fields(filter_path, item, "matchOn", types)
 
-    def walk(node: Any, pointer: str) -> str | None:
-        if isinstance(node, str):
-            return pointer if any(_names(node, key) for key in keys) else None
-        if isinstance(node, dict):
-            for name, item in node.items():
-                child = f"{pointer}/{_segment(name)}"
-                if name in keys:
-                    return child
-                found = walk(item, child)
-                if found:
-                    return found
-        if isinstance(node, list):
-            for position, item in enumerate(node):
-                found = walk(item, f"{pointer}/{position}")
-                if found:
-                    return found
-        return None
 
-    for position, definition in enumerate(_list(data, "consumerApis")):
-        found = walk(definition, f"/consumerApis/{position}")
-        if found:
-            return found
-    return None
-
-
-def _names(text: str, key: str) -> bool:
-    """Whether ``text`` names ``key``: the whole text, or a part between ``:`` and ``.`` (a key that
-    holds a dot is matched whole), so a false match only refuses a rename, never misses one."""
-    if text == key or text.removeprefix("-") == key:
-        return True
-    if key in text and ("." in key or ":" in key):
-        return True
-    return key in text.replace(":", ".").split(".")
+def _source(path: Path, fields: dict[str, Any], name: str, value: Any, types: tuple[str, ...]) -> Iterator[Slot]:
+    """A consumer field's sources: one source, a list of them, or ``from`` of a written-out field."""
+    if isinstance(value, str):
+        yield Slot(path, name, "field", types=types)
+    elif isinstance(value, list):
+        yield from _fields(path, fields, name, types)
+    elif isinstance(value, dict):
+        source = value.get("from")
+        if isinstance(source, str):
+            yield Slot(path + [name], "from", "field", types=types)
+        elif isinstance(source, list):
+            yield from _fields(path + [name], value, "from", types)
 
 
 def _segment(value: str) -> str:

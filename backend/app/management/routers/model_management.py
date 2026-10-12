@@ -1,3 +1,5 @@
+from typing import Any
+
 from fastapi import APIRouter, Query, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -6,6 +8,12 @@ from ...common.cursors import METADATA_CURSOR_MESSAGE
 from ...common.pagination import datetime_key, integer_key, paginate_statement, text_key
 from ...common.time import as_utc
 from ...engine.model.authoring import history
+from ...engine.model.authoring.consumer_documents import (
+    draft_consumer_api,
+    draft_example,
+    draft_openapi,
+    draft_schema,
+)
 from ...engine.model.authoring.outline import draft_model, draft_outline
 from ...engine.model.compatibility import analyze_compatibility
 from ...engine.model.compiler import (
@@ -51,6 +59,7 @@ from ..schemas.model import (
     ModelActivationRequest,
     ModelCompatibilityResponse,
     ModelCompilationResponse,
+    ModelDraftConsumerApiResponse,
     ModelDraftCreate,
     ModelDraftModelResponse,
     ModelDraftOperationEntry,
@@ -276,9 +285,13 @@ def list_model_draft_operations(
     response_model_by_alias=True,
     response_model_exclude_unset=True,
 )
-def get_model_draft_outline(draft_id: str, session: DbSession) -> ModelDraftOutlineResponse:
-    """The draft's structure as the editor shows it (0.10 A4a, D36)."""
-    return ModelDraftOutlineResponse.model_validate(draft_outline(session, load_draft(session, draft_id)))
+def get_model_draft_outline(
+    draft_id: str, session: DbSession, snapshot: ActiveModelSnapshot
+) -> ModelDraftOutlineResponse:
+    """The draft's structure as the editor shows it (0.10 A4a, D36), with each consumer API's
+    contract against the active release (0.10 A4c, D55)."""
+    outline = draft_outline(session, load_draft(session, draft_id), snapshot.model)
+    return ModelDraftOutlineResponse.model_validate(outline)
 
 
 @router.get(
@@ -290,6 +303,53 @@ def get_model_draft_model(draft_id: str, session: DbSession) -> ModelDraftModelR
     """The draft compiled as ``GET /model`` serves the active model, with its placements, for a
     preview before installing (0.10 A4b, D43). It reads and writes nothing."""
     return ModelDraftModelResponse.model_validate(draft_model(load_draft(session, draft_id)))
+
+
+@router.get(
+    "/model-drafts/{draft_id}/consumer-apis/{consumer_api}",
+    response_model=ModelDraftConsumerApiResponse,
+    response_model_exclude_unset=True,
+)
+def get_model_draft_consumer_api(
+    draft_id: str, consumer_api: str, session: DbSession, snapshot: ActiveModelSnapshot
+) -> ModelDraftConsumerApiResponse:
+    """A consumer API definition of the draft as written and, when the draft compiles, with every
+    default and its contract against the active release (0.10 A4c, D56). It reads and writes nothing."""
+    answer = draft_consumer_api(load_draft(session, draft_id), consumer_api, snapshot.model)
+    return ModelDraftConsumerApiResponse.model_validate(answer)
+
+
+@router.get("/model-drafts/{draft_id}/consumer-apis/{consumer_api}/schema.json", response_model=dict[str, Any])
+def get_model_draft_consumer_api_schema(
+    draft_id: str, consumer_api: str, request: Request, session: DbSession
+) -> dict[str, Any]:
+    """The JSON Schema of the object message the definition serves, from the draft (D56)."""
+    return draft_schema(
+        load_draft(session, draft_id), consumer_api, resolve_max_items=request.app.state.consumer_resolve_max_items
+    )
+
+
+@router.get("/model-drafts/{draft_id}/consumer-apis/{consumer_api}/example.json", response_model=dict[str, Any])
+def get_model_draft_consumer_api_example(
+    draft_id: str, consumer_api: str, request: Request, session: DbSession
+) -> dict[str, Any]:
+    """One object message valid against the definition's schema, written from it; no record is read (D56)."""
+    return draft_example(
+        load_draft(session, draft_id), consumer_api, resolve_max_items=request.app.state.consumer_resolve_max_items
+    )
+
+
+@router.get("/model-drafts/{draft_id}/consumer-apis/{consumer_api}/openapi.json", response_model=dict[str, Any])
+def get_model_draft_consumer_api_openapi(
+    draft_id: str, consumer_api: str, request: Request, session: DbSession
+) -> dict[str, Any]:
+    """The definition's OpenAPI document as the consumer tier will serve it from this draft (D56)."""
+    return draft_openapi(
+        load_draft(session, draft_id),
+        consumer_api,
+        root_path=request.scope.get("root_path", ""),
+        resolve_max_items=request.app.state.consumer_resolve_max_items,
+    )
 
 
 @router.post("/model-drafts/{draft_id}/undo", response_model=ModelDraftStepResponse, response_model_exclude_unset=True)

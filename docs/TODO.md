@@ -404,8 +404,10 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
     prints the draft's history when it happens; look at it then.
   - [ ] A4b's surfaces (the preview, the layout editor, the field group and sort dialogs) into the
     accessibility and visual gates, light and dark, at T1; dark mode is uninspected until then.
-  - [ ] A4c editor: consumer APIs, a Consumer APIs tab beside Model; consumer API definitions changed
-    by operations (added by the user 2026-10-11, before T1; design pass and plan when it comes).
+  - [x] A4c editor: consumer APIs (delivered 2026-10-12).
+  - [ ] A4c's surfaces (the Consumer APIs tab, a definition's tabs, its dialogs and the install
+    dialog's section) into the accessibility and visual gates, light and dark, at T1; dark mode is
+    uninspected until then.
   - [ ] T1 designer checkpoint (US-P05), released as 0.10.0-alpha.1 (D14).
   - [ ] A3 source profiling and the dry-run summary; the synthetic workbooks W1–W3.
   - [ ] A5 editor with a source file: source and mapping panes, saved and re-run profiles.

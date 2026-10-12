@@ -61,7 +61,20 @@ describe("routes", () => {
       "/settings/model/drafts/d1/editor?show=type&key=shelf&mode=layout",
       { kind: "settings", page: "model", draftId: "d1", editor: { show: "type", key: "shelf", mode: "layout" } },
     ],
-  ])("round-trips the settings page %s (U3, 0.10 A4a)", (path, route) => {
+    [
+      "/settings/model/drafts/d1/editor?show=consumerApi&key=shop-feed&tab=schema",
+      {
+        kind: "settings",
+        page: "model",
+        draftId: "d1",
+        editor: { show: "consumerApi", key: "shop-feed", tab: "schema" },
+      },
+    ],
+    [
+      "/settings/model/drafts/d1/editor?show=consumerApi&key=shop-feed",
+      { kind: "settings", page: "model", draftId: "d1", editor: { show: "consumerApi", key: "shop-feed" } },
+    ],
+  ])("round-trips the settings page %s (U3, 0.10 A4a, A4c)", (path, route) => {
     expect(at(path)).toEqual(route);
     expect(routePath(route)).toBe(path);
   });
@@ -82,6 +95,12 @@ describe("routes", () => {
       "/settings/model/drafts/d1/editor?show=application&key=k&mode=preview",
       "/settings/model/drafts/d1/editor?show=application&key=k",
     ],
+    // A consumer API's tab belongs to it; an unknown one is dropped (0.10 A4c).
+    [
+      "/settings/model/drafts/d1/editor?show=consumerApi&key=k&tab=other",
+      "/settings/model/drafts/d1/editor?show=consumerApi&key=k",
+    ],
+    ["/settings/model/drafts/d1/editor?show=type&key=k&tab=schema", "/settings/model/drafts/d1/editor?show=type&key=k"],
     ["/workspaces", "/settings/workspaces"],
     ["/workspaces/central-europe", "/settings/workspaces/central-europe"],
   ])("reads %s as the settings page at %s, so the old address redirects (U3)", (path, canonical) => {

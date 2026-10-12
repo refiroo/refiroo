@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { outlineFixture } from "@/test/draftOutline";
+import { consumerDefinitionFixture, outlineFixture } from "@/test/draftOutline";
 import {
+  fieldOptions,
   initialValues,
   missingField,
   needsMigration,
@@ -43,6 +44,13 @@ const KINDS = new Set([
   "removeNavigationGroup",
   "setNavigationGroup",
   "placeCollection",
+  // The consumer API kinds (0.10 A4c, D51).
+  "addConsumerApi",
+  "removeConsumerApi",
+  "setConsumerApiPart",
+  "insertConsumerApiPart",
+  "moveConsumerApiPart",
+  "removeConsumerApiPart",
 ]);
 
 const outline = outlineFixture();
@@ -55,6 +63,17 @@ const TARGETS: Record<OperationTarget["on"], OperationTarget> = {
   relationType: { on: "relationType", relationType: "stores" },
   relation: { on: "relation", relationType: "stores", from: "shelf", to: "bin" },
   group: { on: "group", applicationKey: "shop", group: "lists" },
+  consumerApis: { on: "consumerApis" },
+  consumerApi: { on: "consumerApi", consumerApi: "shop-feed", definition: consumerDefinitionFixture() },
+  consumerItem: {
+    on: "consumerItem",
+    consumerApi: "shop-feed",
+    pointer: "/object/fields/depth",
+    label: "field depth",
+    index: 2,
+    count: 4,
+    value: "depth",
+  },
 };
 
 /** The form as a user completes it: the descriptor's starting values, every empty required field filled. */
@@ -64,7 +83,12 @@ function completed(id: string, target: OperationTarget): FieldValues {
   for (let guard = 0; guard < 10; guard += 1) {
     const missing = missingField(operation, target, outline, values);
     if (!missing) break;
-    values[missing.name] = missing.type === "select" ? (missing.options[0]?.value ?? "x") : `Filled ${missing.name}`;
+    values[missing.name] =
+      missing.type === "select"
+        ? (fieldOptions(missing, values)[0]?.value ?? "x")
+        : missing.type === "choices" || missing.type === "pairs"
+          ? [fieldOptions(missing, values)[0]?.value ?? "x"]
+          : `Filled ${missing.name}`;
   }
   return values;
 }
@@ -81,6 +105,7 @@ describe("the editor's operation descriptors (D38)", () => {
         expect(KINDS).toContain(item.kind);
         for (const [name, value] of Object.entries(item)) {
           if (value === null) continue; // a `parent` or `group` of null means the top level.
+          if (item.kind === "setConsumerApiPart" && name === "pointer") continue; // "" is the whole definition (D51).
           expect(value, `${item.kind}.${name}`).not.toBe("");
         }
       }
@@ -277,5 +302,212 @@ describe("keys and versions", () => {
       suggestedVersion({ ...outline, release: { version: "2026.10-rc3" }, baseRelease: { version: "2026.10-rc3" } }),
     ).toBe("2026.10-rc4");
     expect(suggestedVersion({ ...outline, baseRelease: null, release: { version: "1.0.0" } })).toBe("1.0.0");
+  });
+});
+
+describe("the consumer API descriptors (0.10 A4c, D51)", () => {
+  const api = TARGETS.consumerApi as never;
+
+  it("adds a field at the end of the fields, written in its shortest form", () => {
+    const [insert] = operationById("consumer-add-field")!.build(
+      { output: "label", sources: "name, shelf-code", role: "" },
+      api,
+      outline,
+    );
+    expect(insert).toEqual({
+      kind: "insertConsumerApiPart",
+      consumerApi: "shop-feed",
+      pointer: "/object/fields",
+      key: "label",
+      value: ["name", "shelf-code"],
+    });
+  });
+
+  it("raises the contract version by one, and adds a related block over a relation of an exposed type", () => {
+    expect(operationById("consumer-raise")!.label(api, outline)).toBe("Raise contract version to 2");
+    expect(operationById("consumer-raise")!.build({}, api, outline)).toEqual([
+      { kind: "setConsumerApiPart", consumerApi: "shop-feed", pointer: "/contractVersion", value: 2 },
+    ]);
+    const via = visibleFields(operationById("consumer-add-related")!, TARGETS.consumerApi, outline, {}).find(
+      (field) => field.name === "via",
+    );
+    // Shelf is reached by its containment's reverse, and starts and ends Stores.
+    expect(via?.type === "select" && fieldOptions(via, {}).map((option) => option.value)).toEqual([
+      "held-by",
+      "stores",
+      "stored-on",
+    ]);
+  });
+
+  it("starts the events with a custom event when the definition declares none", () => {
+    const build = operationById("consumer-add-event")!.build;
+    const values = { key: "depth-changed", objectTypes: ["shelf"], changes: ["updated"], watch: "depth, bins" };
+    expect(build(values, api, outline)).toEqual([
+      {
+        kind: "setConsumerApiPart",
+        consumerApi: "shop-feed",
+        pointer: "/operations/events",
+        value: {
+          custom: [
+            {
+              key: "depth-changed",
+              objectTypes: ["shelf"],
+              changes: ["updated"],
+              watch: { fields: ["depth"], related: ["bins"] },
+            },
+          ],
+        },
+      },
+    ]);
+  });
+
+  it("builds a filter from its verb with only the parts that verb takes", () => {
+    const build = operationById("consumer-add-filter")!.build;
+    expect(
+      build({ name: "where", verb: "under", types: ["shelf"], matchOn: "", through: "itself" }, api, outline),
+    ).toEqual([
+      {
+        kind: "insertConsumerApiPart",
+        consumerApi: "shop-feed",
+        pointer: "/filters",
+        key: "where",
+        value: { under: ["shelf"] },
+      },
+    ]);
+    expect(
+      build(
+        { name: "bin", verb: "onRelated", related: "bins", matchOn: "binName", options: ["crosswalk"] },
+        api,
+        outline,
+      )[0],
+    ).toMatchObject({ value: { onRelated: "bins", matchOn: ["binName"], crosswalk: true } });
+  });
+
+  it("offers a field's sources from what the exposed types and the types above them hold, in order", () => {
+    const options = visibleFields(operationById("consumer-add-field")!, TARGETS.consumerApi, outline, {}).find(
+      (field) => field.name === "sources",
+    );
+    expect(options?.type).toBe("choices");
+    const values = options?.type === "choices" ? fieldOptions(options, {}).map((option) => option.value) : [];
+    // Name first, then the exposed types' attributes, then what a type above them holds.
+    expect(values[0]).toBe("name");
+    expect(values).toContain("depth");
+    expect(values).toContain("ancestor:area.name");
+    const [insert] = operationById("consumer-add-field")!.build(
+      { output: "label", sources: ["depth", "name"], role: "" },
+      api,
+      outline,
+    );
+    expect(insert).toMatchObject({ key: "label", value: ["depth", "name"] });
+  });
+
+  it("changes a field's sources in their chosen order, keeping its role and default", () => {
+    const code = {
+      ...(TARGETS.consumerItem as object),
+      pointer: "/object/fields/code",
+      label: "field code",
+      value: { role: "code", from: ["shelf-code", "bin-code"] },
+    } as OperationTarget;
+    const sources = operationById("consumer-field-sources")!;
+    expect(operationsFor(code, outline)).toContain(sources);
+    expect(initialValues(sources, code, outline)).toEqual({ sources: ["shelf-code", "bin-code"] });
+    expect(sources.build({ sources: ["bin-code", "shelf-code"] }, code as never, outline)).toEqual([
+      {
+        kind: "setConsumerApiPart",
+        consumerApi: "shop-feed",
+        pointer: "/object/fields/code",
+        value: { from: ["bin-code", "shelf-code"], role: "code" },
+      },
+    ]);
+    const id = { ...(code as object), pointer: "/object/fields/id", value: { role: "id" } } as OperationTarget;
+    expect(operationsFor(id, outline)).not.toContain(sources);
+  });
+
+  it("offers field names from lists wherever a dialog asks for one (the user, A4c)", () => {
+    const typed = OPERATIONS.filter((item) => item.id.startsWith("consumer-"))
+      .flatMap((item) => {
+        const target = TARGETS[item.on];
+        return (item.fields?.(target as never, outline) ?? []).map((field) => ({ id: item.id, field }));
+      })
+      .filter(({ field }) => field.type === "text")
+      .map(({ id, field }) => `${id}.${field.name}`);
+    // What is still typed is a name the author gives or a number, never a field name.
+    expect(typed.sort()).toEqual(
+      [
+        "consumer-add.key",
+        "consumer-add.name",
+        "consumer-add-event.key",
+        "consumer-add-field.output",
+        "consumer-add-filter.name",
+        "consumer-add-list.key",
+        "consumer-add-related.output",
+        "consumer-add-rule.contains",
+        "consumer-add-rule.exact",
+        "consumer-add-through.contains",
+        "consumer-add-through.exact",
+        "consumer-describe.description",
+        "consumer-key.key",
+        "consumer-rename.name",
+      ].sort(),
+    );
+  });
+
+  it("offers an XREF rule the exposed types' id, name, code and searchable or unique attributes", () => {
+    const field = visibleFields(operationById("consumer-add-rule")!, TARGETS.consumerApi, outline, {}).find(
+      (item) => item.name === "field",
+    )!;
+    const values = field.type === "select" ? fieldOptions(field, {}).map((option) => option.value) : [];
+    expect(values.slice(0, 3)).toEqual(["id", "name", "code"]);
+  });
+
+  it("offers a related block the fields of the records it reaches, and writes them as output and source", () => {
+    const operation = operationById("consumer-add-related")!;
+    const fields = visibleFields(operation, TARGETS.consumerApi, outline, {}).find((item) => item.name === "fields")!;
+    const offered =
+      fields.type === "pairs" ? fieldOptions(fields, { via: "stores" }).map((option) => option.value) : [];
+    expect(offered).toEqual(expect.arrayContaining(["id", "objectType", "name"]));
+    expect(
+      operation.build({ output: "bins", via: "stores", fields: ["binName=name", "binId=id"] }, api, outline),
+    ).toEqual([
+      {
+        kind: "insertConsumerApiPart",
+        consumerApi: "shop-feed",
+        pointer: "/object/related",
+        key: "bins",
+        value: { via: "stores", fields: { binName: "name", binId: "id" } },
+      },
+    ]);
+  });
+
+  it("chooses what a filter matches on, and takes it out to fall back to the defaults", () => {
+    const filter = {
+      ...(TARGETS.consumerItem as object),
+      pointer: "/filters/where",
+      label: "filter where",
+      value: { under: ["area"], matchOn: ["name"] },
+      definition: consumerDefinitionFixture(),
+    } as OperationTarget;
+    const match = operationById("consumer-filter-match")!;
+    expect(initialValues(match, filter, outline)).toEqual({ matchOn: ["name"] });
+    expect(match.build({ matchOn: [] }, filter as never, outline)).toEqual([
+      { kind: "setConsumerApiPart", consumerApi: "shop-feed", pointer: "/filters/where/matchOn", value: null },
+    ]);
+    const byType = { ...(filter as object), value: { byType: true } } as OperationTarget;
+    expect(operationsFor(byType, outline)).not.toContain(match);
+  });
+
+  it("refuses JSON it cannot read before anything is sent", () => {
+    expect(() => operationById("consumer-json")!.build({ json: "{ nope" }, api, outline)).toThrow(
+      /JSON cannot be read/,
+    );
+  });
+
+  it("moves an item by one place and offers no move past either end", () => {
+    const item = TARGETS.consumerItem as never;
+    expect(operationById("consumer-item-up")!.build({}, item, outline)).toEqual([
+      { kind: "moveConsumerApiPart", consumerApi: "shop-feed", pointer: "/object/fields/depth", position: 1 },
+    ]);
+    const last = { ...TARGETS.consumerItem, index: 3 } as OperationTarget;
+    expect(operationsFor(last, outline).map((op) => op.id)).not.toContain("consumer-item-down");
   });
 });

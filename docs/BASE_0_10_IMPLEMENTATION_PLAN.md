@@ -231,7 +231,7 @@ migration), `contract` (every route change) and `volume` (every budget).
 | 3 | [A2](#a2-operation-api-on-model-drafts) | A0, N1 | **Delivered 2026-10-11.** `POST …/operations`, history, undo and redo; the model-side catalogue; generated defaults for new types |
 | 4 | [A4a](#a4a-editor--model-pane) | A2 | **Delivered 2026-10-11.** The editor frame and model pane, relationship matrix, issues, history, install and activate |
 | 5 | [A4b](#a4b-editor--preview-and-layout-editing) | A4a | **Delivered 2026-10-12.** Preview with existing records; views, panels and fields laid out in place |
-| 6 | [A4c](#a4c-editor--consumer-apis) | A4a, A4b | **Added by the user 2026-10-11.** The consumer API editor: a Consumer APIs tab beside Model in the editor; consumer API definitions changed by operations. Planned in detail when it comes |
+| 6 | [A4c](#a4c-editor--consumer-apis) | A4a, A4b | **Delivered 2026-10-12.** The consumer API editor: a Consumer APIs tab beside Model; definitions changed by six kinds; their schema and message example; the contract at activation |
 | 7 | [T1](#t1-designer-checkpoint) | A4b, A4c | US-P05 composed in the browser on two models; the designer's gates; tagged `v0.10.0-alpha.1` (D14) |
 | 8 | [A3](#a3-source-profiling-and-the-dry-run-summary) | A0 | Source files, profiles of sheets and columns, the dry-run summary; W1–W3 generators. May be taken earlier as a filler |
 | 9 | [A5](#a5-editor-with-a-source-file) | A3, T1 | Source and mapping panes, mapping operations, profiles following the model, load, saved profiles and re-runs |
@@ -815,7 +815,7 @@ No frontend change: the editor is A4a, and the JSON workbench's `PATCH` is recor
 
 | # | Question | Recommendation |
 | --- | --- | --- |
-| D29 | `setKey` on an element a consumer API definition names | **Refused `INVALID_OPERATION`** (`reason: namedByConsumerApi`, with the pointer of the naming node), **instead of rewriting the definition as A0 designed.** A consumer definition names elements in its own grammar (field sources, `ancestor:<type>.<field>`, `via` by relation key or reverse key, public names), A2 has no kinds for consumer APIs, and a renamed element changes what consumers read. The definition is edited in the JSON workbench (one `replaceModel` step). Amends A0's "setKey rewrites every reference" |
+| D29 | `setKey` on an element a consumer API definition names | **Refused `INVALID_OPERATION`** (`reason: namedByConsumerApi`, with the pointer of the naming node), **instead of rewriting the definition as A0 designed.** A consumer definition names elements in its own grammar (field sources, `ancestor:<type>.<field>`, `via` by relation key or reverse key, public names), A2 has no kinds for consumer APIs, and a renamed element changes what consumers read. The definition is edited in the JSON workbench (one `replaceModel` step). Amends A0's "setKey rewrites every reference". *Replaced by A4c's D54 (2026-10-12): the definitions are rewritten* |
 | D30 | Containment in `addObjectType` and `setContainment` | **`parent: null`** puts the type at the top (`rootCreatable: true`); **`parent: { "objectTypes": [...], "relationType": "<key>" or { "name", "reverseName", "key"? } }`** binds one containment relation type (existing, or created with `parentOf` and `creatableOnChildAdd`) `one-to-many` from each parent type, and sets `rootCreatable: false`. A type containing itself names its own key in `setContainment`. One relation type for several parents is what `possible_types` already reads as one placement per parent |
 | D31 | What a removal takes with it | **`removeObjectType`** removes its attribute bindings, the relation bindings at either end, its views and detail page, navigation entries, and the items naming it in other views and panels (a panel or view left with an empty required list goes too); **relation types and attribute types left unbound go when they are absent from the base release.** Everything removed is stored in the entry, and `restoreElements` puts it back at its old places. `removeApplication` removes the application and the types only it lists, the same way |
 | D32 | Undo and redo order | **A stack:** undo takes back the latest step not yet undone (or the `steps` named); redo applies again the steps the latest undos took back, most recently undone first. Any new request or `PATCH` clears redo; an installation does not |
@@ -1554,6 +1554,252 @@ open tab. The Model tab brings the model editor; the Consumer APIs tab brings th
   editor shows of a definition's served shape (a sample read, or the shape only); the journeys
   (J33 or a journey of its own) and the browser runner; a mock-up approved before building (a new
   surface).
+
+##### A4c plan (2026-10-12)
+
+**Planned 2026-10-12; accepted by the user the same day ("Design looks good … otherwise its
+good"): D51–D59, the test cases and the mock-up**
+([consumer API editor mock-up](https://claude.ai/artifact/V1V9r8ggEV1D2uDnxWfAZ9), eight boards,
+1440px and 390px, light and dark; private until shared), **with one amendment (the user): no
+"Served shape"; the schema definition and a message example are two items with buttons of their
+own, since an integration uses them as two different documents** (D56 as amended below). Checked against the code at
+`d25a8cd`:
+
+- **Definitions in the document.** A draft holds `consumerApis` in the schema 0.9 shape
+  (`models/schema.py` `ConsumerApiDocument`: `key`, `name`, `description`, `contractVersion`,
+  `exposes`, `publicNames`, `object` with `fields`, `parent`, `path`, `hierarchy`, `related`,
+  `operations` with `objects`, `xref` (`matchOn`, `alsoMatchThrough`), `resolve`, `lists`, `events`
+  (`perType`, `custom`), and `filters`). `consumer_expansion.expand` turns it into the internal form
+  with every default; `consumer_rendering.expanded_definition` writes the defaults out, as
+  `GET /model/consumer-apis/{consumerApi}` serves them; `consumer_contract.output_contract` gives each
+  output field's type and each related block's shape (one or many); `contract_diagnostics` compares a
+  candidate with the active release; `consumer_openapi.consumer_openapi` builds a definition's
+  OpenAPI document. Every reference rule is in `validation/consumer_api_rules.py`, at the author's
+  pointers. The draft is stored as `JSON` (not `JSONB`), so member order, which is field output
+  order, survives.
+- **Field sources** may name an attribute that **any** exposed type binds
+  (`_check_sources`); output names are unique and `objectType`, `matchScore` and `target` are
+  reserved.
+- **A2 and A4a** give consumer definitions no kinds: `setKey` on an element a definition names is
+  refused `namedByConsumerApi` (D29, `references.consumer_api_pointer`), and the outline leaves
+  `consumerApis` out (a diagnostic under `/consumerApis/…` belongs to no element). The view verbs
+  (`insertViewItem`, `moveViewItem`, `removeViewItem`, `setViewProperty`) are the precedent for
+  generic verbs over named lists.
+- **Activation** already refuses a breaking change without a higher version
+  (`releases.py`, `409 CONSUMER_CONTRACT_VERSION_REQUIRED`), and `POST …/compile` answers
+  `consumerContracts`; the editor's `InstallDialog` shows `compatibility` but not
+  `consumerContracts`, and shows a refused activation's diagnostics as one line.
+- **Both designer models** carry a definition: the example's `rdm`, and generated-a's and
+  generated-b's (`configurations._consumer_api`), so the journeys and the runner run on two.
+
+**What is built:**
+
+1. **Backend: consumer API kinds** (D51–D54) in `engine/model/authoring/consumer.py`, registered in
+   `KINDS`: `addConsumerApi`, `removeConsumerApi`, and four part verbs over a JSON pointer below one
+   definition: `setConsumerApiPart`, `insertConsumerApiPart`, `moveConsumerApiPart`,
+   `removeConsumerApiPart`. Each checks that the definition still has the schema 0.9 shape after the
+   change (refused `INVALID_OPERATION` at its pointer otherwise) and returns its inverse;
+   references are left to the compiler's diagnostics. `addConsumerApi` writes the starting
+   definition (D53). `setKey` rewrites the definitions that name the element (D54), through a walk
+   of the consumer grammar added to `references.py`.
+2. **Backend: the outline** (`authoring/outline.py`) gains `consumerApis`: per definition its key,
+   name, contract version, mark (new, changed or released against the base release, D55), exposed
+   types with their public names, counts per part, and `contract` (the check against the active
+   release, when the draft compiles). Diagnostics under `/consumerApis/<key>` are tied to the
+   definition.
+3. **Backend: the definition, its schema and a message example** (D56).
+   `GET /model-drafts/{id}/consumer-apis/{consumerApi}`: the draft's `version`, `valid`, the
+   definition as written, and when the draft compiles, the definition with every default
+   (`expanded_definition`) and its `contract`. Three documents beside it, each a download of its
+   own: `…/schema.json`, the JSON Schema (2020-12) of the object message consumers receive, the
+   same schema the OpenAPI document's component holds; `…/example.json`, one message valid against
+   that schema, written by the server from it; `…/openapi.json`, the whole API's OpenAPI document
+   from the draft. All under the model administration gate; reads, nothing written.
+4. **Frontend: the Consumer APIs tab** (D57, D59). The left pane gets **Model** and **Consumer APIs**
+   tabs (`ui/Tabs`) before the ＋ button, which adds within the open tab. The tab lists the
+   definitions as a tree (as `ModelPane`: one tab stop, keys, Shift+F10), each with its mark and
+   contract state. A definition selected opens in the centre: its header (name, `/api/consumer/<key>/v<n>`,
+   contract version, contract state, **Schema** and **Message example**, ⋯ with Rename…, Describe…, Raise contract
+   version, Edit as JSON…, Download OpenAPI (draft), Remove consumer API…) and tabs **Types and
+   related**, **Fields**, **Operations**, **Filters**, **Schema**, **Message example**. Schema and Message example each have Copy and
+   Download. Tables are `EditorTable`
+   with in-place cells (`EditableCell`), rows with ⋯ menus (`OperationsMenu`); dialogs are
+   descriptors on the one `OperationDialog`. ＋ in the tab opens **New consumer API** (name, key,
+   types to expose).
+5. **Frontend: install and activate** (D58). `InstallDialog` gains a Consumer APIs section from the
+   compile's `consumerContracts`: each definition's result, with **Raise to v<n+1>** for one that
+   needs it (one step), and Activate disabled while one does; a removed definition is a warning.
+6. **Address:** `?show=consumerApi&key=<key>&tab=<tab>` (`routing/routes.ts`), so Back works and a
+   reload keeps the place; the pane's tab follows the selection.
+7. **Documents:** API.md (the six kinds in the kinds table, the two routes, the outline's
+   `consumerApis`; D29's refusal replaced by D54), API_JOURNEYS (routes), USER_JOURNEYS (J33.13,
+   J33.14), CONSUMER_API (a definition is also edited by operations), UI_ACCEPTANCE (rows A4c-1 to
+   A4c-3), CURRENT_FUNCTIONALITY, PRODUCT, CHANGELOG, PROJECT_STATUS, TODO.
+
+No migration. **Reference patterns:** A4a's model pane and element panel (the tree, the header with
+facts and ⋯, the tabs, `EditorTable` with in-place cells), **Actions** (`ActionMenu`) for the
+menus, **Dialog** (`OperationDialog` over `ui/Modal`) for additions, **Notice** for a contract
+change, A4a's `InstallDialog`.
+
+**Decisions** (D51 onward):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D51 | The kind vocabulary for consumer definitions | **Two whole-definition kinds and four part verbs over a JSON pointer below the definition**, as the view verbs are generic over a view's lists: `addConsumerApi` and `removeConsumerApi`; `setConsumerApiPart` (`consumerApi`, `pointer`, `value`; `null` takes an optional member out, as A2's flags), `insertConsumerApiPart` (`pointer` of a list or of a keyed map, `value`, `key` for a map, `position`), `moveConsumerApiPart` (`pointer` of the item, `position`), `removeConsumerApiPart` (`pointer` of the item). Inverses: set ↔ set with the old value; insert ↔ remove; move ↔ move back; remove ↔ insert at its old position. `pointer: ""` with `setConsumerApiPart` replaces the definition (Edit as JSON). The alternative, about twenty named kinds (`exposeType`, `addField`, `addFilter`, `addMatchRule`, …), reads better in the API reference but needs a kind for every part of the definition grammar and a new one whenever the grammar grows. The history's words are written per pointer by the editor, as A4b's layout words are ("Added field packSize to Shop feed") |
+| D52 | What a consumer kind refuses, and what it leaves to the issues | **Refused: what makes the document unreadable.** An unknown definition, a pointer that names nothing, a key taken, a position out of range, and a value that does not have the schema 0.9 shape at its place (the definition is re-read as `ConsumerApiDocument` after the change) are `422 INVALID_OPERATION` at the parameter, and nothing applies. **Left to the issues: references.** A source naming no attribute, a `via` naming no relation, a role given twice: the step applies and the answer's diagnostics point at the node, as an invalid model step does (A2). Checking references in the kinds would copy `consumer_api_rules.py`'s rules into a second place. A draft below schema 0.9 is refused `addConsumerApi` (`reason: unsupportedSchemaVersion`); `setRelease` raises it first |
+| D53 | What `addConsumerApi` writes | **A starting definition from the exposed types, as the server generates a new type's layout (principle 2):** `contractVersion` 1; fields `id` (role `id`), `name` (role `name`) and one field per attribute an exposed type binds, in binding order, named by the key in camelCase (a clash with a taken or reserved name gets a number); `operations.objects` and a list per exposed type, keyed by its plural key (`of` the type). No XREF, filters, related blocks or events: those need choices only the author can make. Parameters `name`, `key` (generated from the name, A-D6, when left out), `exposes`, `position`; the stored parameters hold the written definition, so redo writes the same one. Inverse `removeConsumerApi`, whose inverse is `addConsumerApi` with the stored definition |
+| D54 | `setKey` on an element a definition names (revisits D29) | **Rewrite the draft's definitions, as A0 designed, instead of refusing.** `setKey` already applies only to elements the base release does not declare (a released element is `OPERATION_REQUIRES_MIGRATION`), and a released definition names only released elements, so a rewrite changes only definitions no consumer reads yet. The walk covers the consumer grammar: `exposes`, `publicNames` keys, field sources (`<attribute>`, `ancestor:<type>.<attribute>`), related `via` (key and reverse key) and related fields, list `of`, `within.types`, `sortBy`, filter `under`, `linkedTo`, `matchOn`, XREF `matchOn` and `firstOf` fields, `preferTypes`, event `objectTypes`. The rewrite is logged, so undo puts the old names back. A type whose public name comes from its key gets the new key's: the type is new. Cost: the walk in `references.py`, held by the existing unit test that re-keys every element of both models. The alternative, D29's refusal, leaves "add a type, expose it, rename it" blocked until the definition is edited by hand |
+| D55 | Released definitions, marks and the contract | **No migration refusal for consumer definitions.** A definition is marked new, changed or released against the base release, as model elements are, but changing a released one is not refused: what protects consumers is the contract check against the active release at activation (C-D17, F23), which the editor shows as it goes (D56, D58). The outline carries each definition's `contract` (`compatible` or `version_required` with the diagnostics), computed when the draft compiles. A definition's `key` can be changed by `setConsumerApiPart` at `/key`; for a released one the check reports `CONSUMER_API_REMOVED` (consumers of the old key get 404), as removing it does |
+| D56 | What the editor shows of a definition's served shape | *Amended by the user at acceptance:* **two documents, each its own tab and button: the Schema (the JSON Schema of the object message, which an integration validates against or generates types from) and a Message example (one message valid against it, which an integration uses as a fixture or to agree the format), both worked out by the server from the draft; no sample read.** `GET /model-drafts/{id}/consumer-apis/{consumerApi}` answers the definition with its defaults written out and the contract result; `…/schema.json` and `…/example.json` answer the two documents, and `…/openapi.json` the whole API's OpenAPI document, so an integrator gets what their client will read before it is installed. The example's values come from each field's type (a related block as one object or a list of one), not from records. A sample from real records would make the consumer tier read a model that is not running, the objection D44 and D45 answered for the preview; consumers read samples after activation. A sample read through a draft is recorded for after 1.0 if a client needs it. An invalid draft answers `valid: false` and the definition as written; the OpenAPI document is then `422 INVALID_MODEL` |
+| D57 | What the editor's forms cover | **Every part of the definition, in tables and switches:** the definition's name, description and contract version; exposed types and public names; fields (sources in order, role, default, description, order); parent, path and hierarchy; related blocks (via a relation forward or reverse, their fields); operations offered (switches for Get by ID, XREF, Resolve, events per type); lists (`of`, `within`, `sortBy`); XREF match rules and the rules that match through a related block; custom events (types, changes, watched outputs and blocks); filters, each with its verb chosen when added and its parts edited in place. **Edit as JSON…** edits the one definition (one `setConsumerApiPart` step) for anything a form makes awkward. Cost: the largest part of the package; the forms reuse A4a's table, cell and dialog components, and each choice is one descriptor building one request |
+| D58 | Install and activate | **The dialog shows the consumer contract result from the compile, per definition, and offers Raise to v<n+1> for one that needs it (one `setConsumerApiPart` at `/contractVersion`); Activate is disabled while one remains.** A removed definition is a warning naming the consumers' 404. The server still refuses a breaking activation (`409 CONSUMER_CONTRACT_VERSION_REQUIRED`); the dialog's disabled button only saves the round trip, and a refusal is shown with its diagnostics as a list |
+| D59 | Where it stands | **As the intent says, and as the mock-up shows:** two tabs in the left pane, Model and Consumer APIs, before ＋, which adds within the open tab; a definition selected opens in the centre with its tabs; Issues and History stay the editor's one drawer, and a consumer step is undone by the bar's Undo. The selection is in the address (`show=consumerApi`), so the pane's tab follows it. At 390px the phone tabs are the pane (named by its open tab), the selected definition and Issues |
+
+**Journey test cases** (backend, J33.13 and J33.14 through the API, on generated-a and the example,
+naming no key of either; marker `authoring`):
+
+1. **J33.13 Define a consumer API by operations.** Given a draft of the active release. When
+   `addConsumerApi` exposes `R` and `K`, then the answer is `valid`, the outline lists the definition
+   as `new` with `contract: compatible`, and the schema lists `id`, `name` and a property for each
+   attribute `R` and `K` bind with its type, the example validates against the schema, and there is a
+   list per type. When a field is inserted, a related
+   block added via a relation allowed from `R`, a list `within` an `under` filter added and an XREF
+   rule added, each in its own request, then each is one step, the draft stays valid, and one undo
+   takes back only the last. After install and activate, the consumer tier answers
+   `GET /api/consumer/<key>/v1/objects/{id}` for an `R` record valid against the schema read before
+   installing, and the list for `R` pages its records.
+2. **Invalid between steps; a value of the wrong shape.** Inserting a field whose source names no
+   attribute applies, answers `valid: false` with the diagnostic at
+   `/consumerApis/<key>/object/fields/<field>/source/0`, and the outline ties it to the definition;
+   setting an XREF weight to a text, or inserting at a position out of range, or naming an unknown
+   definition, is `422 INVALID_OPERATION` at the parameter, and the draft's version is unchanged.
+3. **J33.14 A contract change at activation.** Given a draft of the active release with its
+   definition. When a field the active release serves is removed, then the outline's `contract` is
+   `version_required` with the field's pointer, and activation is
+   `409 CONSUMER_CONTRACT_VERSION_REQUIRED`. When `contractVersion` is raised by one step, then the
+   contract is `compatible`, the draft installs and activates, `…/v2/objects/{id}` answers without the
+   field and `…/v1/…` answers `404`.
+4. **A key changed after it is exposed (D54).** Given a draft with a new type, a new attribute it
+   binds, and a definition exposing the type with a field from the attribute and a list of it. When
+   `setKey` re-keys the type and the attribute, then the definition names the new keys, the draft is
+   valid, and the schema is unchanged apart from the type's default public name; one undo
+   puts back the old keys in the definition.
+5. **Remove and put back.** `removeConsumerApi` on the released definition answers a draft whose
+   contract lists `CONSUMER_API_REMOVED` as a warning; undo returns the definition exactly as it
+   was; `addConsumerApi` with a key taken is `422 INVALID_OPERATION` (`keyTaken`).
+6. **Not found and gated:** the definition of an unknown draft is `404 MODEL_DRAFT_NOT_FOUND`, of
+   an unknown definition `404 CONSUMER_API_NOT_FOUND`; the schema, example and OpenAPI document of an
+   invalid draft are `422 INVALID_MODEL`; with administration disabled the routes are absent.
+
+**Browser** (`test:browser:authoring-a4c`, on both designer models, naming no key): open the
+Consumer APIs tab and the model's definition; add a field and change its sources in place, add a
+related block, switch XREF off and on, add a list and a filter, each one step in History; undo one;
+open Schema and Message example; remove a released field, see "needs version 2", raise the version
+from the Schema tab; New consumer API exposing two types; Install and activate showing the consumer
+contract section; read the consumer tier's object after activation. Keyboard alone for one pass
+(the tree, the tabs, a table's menus, a dialog); 1440px and 390px; axe on the tab, a definition's
+tabs, New consumer API and the install dialog; screenshots for approval.
+
+**Unit tests:** backend, each consumer kind applied and then its inverse returns the document,
+generated over every part of both models' definitions (the existing property test's way);
+`addConsumerApi`'s definition compiles valid for every type of both models; `setKey` over every
+element of both models leaves no old key in a definition (the existing re-key test extended).
+Frontend, the consumer descriptors (each builds the request API.md defines) and their history
+words, and the address's `show=consumerApi`.
+
+**Groups:** `authoring`, `model`, `model_admin`, `contract`; the consumer tier's journeys are not
+selected (the tier is unchanged; case 1 and 3 read it after activation). Vitest for the new and
+changed modules (`vitest related`); `npm run format`, `lint`, `build`; `test:browser:authoring-a4c`
+and `-a4a` (the shared pane and install dialog). **Deferred to T1:** visual baselines and the
+accessibility gate's scenarios, as A4a and A4b deferred theirs.
+
+**Composable domains (ADR-032):** the consumer API's `match` declaration (XREF rules) is edited by
+the new kinds but its grammar is unchanged; no door is affected.
+
+##### A4c record (2026-10-12)
+
+**Delivered 2026-10-12.** The user approved it ("you can commit") after the two rounds of changes
+below (the sources picklist, then a selector wherever a field name was typed). Built as planned (D51–D59, with D56 as the user amended it at acceptance), with these differences:
+
+- **Schema and Message example (the user, at acceptance).** No "Served shape": the definition's
+  **Schema** (the JSON Schema of the object message) and a **Message example** are two tabs, each with
+  Copy and Download, and two buttons in the header, since an integration uses them as two documents.
+  The routes are `…/schema.json` and `…/example.json` beside `…/openapi.json`; the definition read
+  answers the definition, its defaults and its contract, without a shape of its own.
+- **XREF switched off asks first, and Resolve stops with Get by ID or XREF** (found by the runner on
+  generated-b). Switching XREF off took its match rules with it, and switching it on again started it
+  empty, leaving a filter that scores through those rules invalid; and Resolve stayed offered without
+  what it answers through. Switching off Get by ID or XREF now stops Resolve in the same step, and
+  switching XREF off while it holds rules asks, saying that Undo puts them back.
+- **No field name is typed by hand (the user, after the first screenshots: "this shall apply
+  everywhere").** Every place a dialog or a cell asked for a field name now offers a selector of
+  what is valid there, so a mistake cannot be typed:
+  - a field's **sources**, in order (the first non-empty is served): Name, the exposed types'
+    attributes with each value type, and the name and attributes of each type above them
+    (`ancestor:<type>.<field>`), with Move up, Move down and Remove (Add field…, **Sources…**, the
+    cell);
+  - a filter's **match fields**, as removable chips, with the defaults said when none is chosen: under
+    or linked to types, `id`, `name`, `code` and their searchable or unique attributes (C-D20); on a
+    related block, its fields (Add filter…, **Matches on…**, the cell); a linked-to filter's
+    **routes** (the record itself, a related block, a shared related record) as chips;
+  - an **XREF rule's field** and the **field read through a related block**, as grouped selects, the
+    latter following the block chosen;
+  - a related block's **fields**, as rows of an output name reading a source picked from the
+    records the block reaches (Add related…, **Fields…**, the cell);
+  - a list's **sort**, as a select of the scalar attributes of its type (Add list…, the cell);
+  - a custom event's **watched outputs**, as chips of the fields and related blocks.
+
+  One component, `ChoiceListField`, draws an ordered list or chips; `PairsField` draws the rows; both
+  are field kinds of the one `OperationDialog`, whose selects now show groups and follow an earlier
+  choice. What is still typed is a name the author gives (an output, a key, a filter's name) or a
+  weight; `operations.test` pins that list. A value written by hand earlier stays listed. The runner
+  picks a field's sources and orders them, and adds a filter with its match fields as chips; 20
+  checks on both models again.
+- **No marks on a definition's rows.** The mock-up marked each field New or Released; the outline marks
+  whole definitions only (against the base release's definition of that key), and the contract check
+  says what consumers would notice. Listed for the user's review.
+- **The operation switches are checkboxes with the switch role**, styled as the editor's checkboxes,
+  not the mock-up's sliders.
+- **Shared, not copied:** the pane's tree is one `EditorTree` (extracted from `ModelPane`) listing the
+  model and the consumer APIs; the definition's header, its add buttons and the "no longer in the
+  draft" state are `ElementPanel`'s, now exported; every dialog is a descriptor on the one
+  `OperationDialog`, which gained a JSON field for Edit as JSON…; `EditableCell` gained an `optional`
+  text cell (a public name back to its default, a default taken out). The UI icon set gained `api`,
+  `document` and `download`.
+- **The consumer kinds register from the authoring package's `__init__`**: registering them from
+  `kinds.py` made an import cycle `test_boundaries` refuses, and registering them from the history
+  module left readers of `KINDS` without them (the unit test of every kind found it).
+- API_JOURNEYS held `GET /model-drafts/{id}/model` twice (from A4b); one row was removed.
+- **Seen, not started by this session:** a `uvicorn` on port 61380, running since 2026-10-07, was left
+  as it was.
+
+**Checks:**
+
+- Journeys `tests/journeys/test_j33_consumer_apis.py`: seen failing first (12 of 14; the two "absent
+  when disabled" cases pass either way), then 14 passed (7 cases on two configurations).
+- Unit `tests/unit/engine/model/authoring/`: 2,554 passed; the outline of a definition written by
+  hand without its key or with a version that is not a number (found in the final review: the outline
+  route would have failed on it); the consumer kinds over every part of both
+  models' definitions (about 600 applied and undone exactly per model; the rest refused for a shape
+  the grammar does not allow), `addConsumerApi` for every type of both models compiling, and every key
+  of the example re-keyed with its consumer API kept.
+- Groups `authoring`, `model`, `model_admin`, `contract` by EXECUTION_GUIDE §2: 3,206 passed in 73 s,
+  parallel; the serial part selects none. `ruff check app/ tests/` clean. No migration. The OpenAPI
+  lock is unchanged (the routes are gated); the gated inventory and API_JOURNEYS list the four routes.
+- Vitest: `src/features/model-editor` and `src/routing`, 181 passed (the consumer descriptors, the
+  history's consumer words, the address); `vitest related` over every changed source file, 60 files
+  and 703 tests passed. `npm run format`; `npm run lint`, 0 errors (the 7 earlier warnings); `npm run
+  build` succeeds.
+- Browser: `test:browser:authoring-a4c`, 20 checks on both designer models (listed in
+  EXECUTION_GUIDE); `test:browser:authoring-a4a` (44) and `-a4b` (29) for the shared pane, frame and
+  dialogs.
+- **Not run:** the full suites, `test:a11y` and `test:visual` (build acceptance; the editor joins the
+  gates at T1). Dark mode is uninspected.
+- **Appearance:** inspected at 1440px in the light theme from the runner's screenshots (the Fields
+  tab, the Schema with and without a contract change, the install dialog) and at 390px (the
+  definition and the pane). Two fixes came of it: a pane row with a name, a mark and the contract pill
+  pushed the name out (the row's note is now the version alone, and the name keeps a few letters), and
+  at 390px a role broke letter by letter. The user approved the screenshots, 2026-10-12.
 
 ### T1: Designer checkpoint
 

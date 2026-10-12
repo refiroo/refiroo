@@ -63,6 +63,7 @@ import {
   Pencil,
   Trash2,
   Webhook,
+  Download,
 } from "lucide-react";
 
 const icons = {
@@ -113,6 +114,9 @@ const icons = {
   tree: ListTree,
   user: UserRound,
   webhook: Webhook,
+  api: Plug,
+  document: FileText,
+  download: Download,
   "state-one": CircleCheck,
   "state-several": Copy,
   "state-conflict": TriangleAlert,

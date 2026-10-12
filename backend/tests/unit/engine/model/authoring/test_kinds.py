@@ -3,7 +3,9 @@
 The operations are generated over every element of two models (the example model and generated-b),
 not written one per kind: each is applied to the document, then its inverse, and the document must be
 as it was. ``setKey`` over every key of the example model keeps the model valid and leaves no
-reference to an old key.
+reference to an old key, in its consumer API definitions too (0.10 A4c, D54). The consumer API kinds
+are generated over every part of both models' definitions, and ``addConsumerApi`` over every type
+writes a definition that compiles.
 """
 
 import copy
@@ -102,6 +104,43 @@ def _operations(model: dict[str, Any]) -> Iterator[dict[str, Any]]:
     yield {"kind": "addAttributeType", "name": "Zz attribute", "valueType": "integer"}
     yield {"kind": "addRelationType", "name": "Zz rel", "reverseName": "Zz rel back"}
     yield {"kind": "setRelease", "version": "9.9.9", "schemaVersion": "0.10"}
+    yield from _consumer_operations(model)
+
+
+def _consumer_operations(model: dict[str, Any]) -> Iterator[dict[str, Any]]:
+    """The consumer API kinds over every part of every definition: each member and item set to
+    itself, moved first, removed, and a copy inserted under a new key or at the start."""
+    types = [t["key"] for t in model["objectTypes"]]
+    yield {"kind": "addConsumerApi", "name": "Zz feed", "exposes": types[:2]}
+    for definition in model.get("consumerApis", []):
+        api = definition["key"]
+        yield {"kind": "removeConsumerApi", "consumerApi": api}
+        yield {"kind": "setConsumerApiPart", "consumerApi": api, "pointer": "", "value": definition}
+        yield {"kind": "setConsumerApiPart", "consumerApi": api, "pointer": "/contractVersion", "value": 9}
+        yield {"kind": "setConsumerApiPart", "consumerApi": api, "pointer": "/key", "value": "zz-api"}
+        for pointer, node in _parts(definition, ""):
+            yield {"kind": "setConsumerApiPart", "consumerApi": api, "pointer": pointer, "value": node}
+            yield {"kind": "removeConsumerApiPart", "consumerApi": api, "pointer": pointer}
+            yield {"kind": "moveConsumerApiPart", "consumerApi": api, "pointer": pointer, "position": 0}
+            container, _, last = pointer.rpartition("/")
+            if last.isdigit():
+                yield {"kind": "insertConsumerApiPart", "consumerApi": api, "pointer": container, "value": node, "position": 0}
+            else:
+                yield {"kind": "insertConsumerApiPart", "consumerApi": api, "pointer": container, "key": f"zz{last}", "value": node, "position": 0}
+
+
+def _parts(node: Any, pointer: str) -> Iterator[tuple[str, Any]]:
+    """Every member of a map or item of a list below the definition's top level, with its pointer."""
+    if isinstance(node, dict):
+        for name, value in node.items():
+            child = f"{pointer}/{name}"
+            if pointer:
+                yield child, value
+            yield from _parts(value, child)
+    elif isinstance(node, list):
+        for index, value in enumerate(node):
+            yield f"{pointer}/{index}", value
+            yield from _parts(value, f"{pointer}/{index}")
 
 
 def _cases() -> Iterator[Any]:
@@ -122,7 +161,7 @@ def test_an_operation_and_then_its_inverse_return_the_document(model_name: str, 
     try:
         applied = _apply(data, operation)
     except Refusal as refusal:
-        # A refusal must leave a reason a client can act on; consumer-named keys are refused (D29).
+        # A refusal must leave a reason a client can act on.
         assert refusal.reason, refusal.message
         return
     inverse = applied.inverse
@@ -159,7 +198,6 @@ def test_which_records_a_released_relationship_may_choose_changes_without_a_migr
 
 def test_every_key_of_the_example_renamed_keeps_it_valid_and_leaves_no_old_reference():
     data = copy.deepcopy(MODELS["example"])
-    data.pop("consumerApis", None)
     renamed: list[tuple[str, str]] = []
     for kind, collection in (("objectType", "objectTypes"), ("attributeType", "attributeTypes"), ("relationType", "relationTypes")):
         for key, reverse in [(item["key"], item.get("reverseKey")) for item in data[collection]]:
@@ -176,3 +214,13 @@ def test_every_key_of_the_example_renamed_keeps_it_valid_and_leaves_no_old_refer
     for kind, old in renamed:
         assert references(data, kind, old) == [], (kind, old)
     assert json.dumps(data).count('"zq-') > 0
+
+
+@pytest.mark.parametrize("model_name", list(MODELS))
+def test_a_consumer_api_started_for_any_type_compiles(model_name: str):
+    """D53: the definition ``addConsumerApi`` writes is valid for every type of both models."""
+    for object_type in MODELS[model_name]["objectTypes"]:
+        data = copy.deepcopy(MODELS[model_name])
+        _apply(data, {"kind": "addConsumerApi", "name": f"Feed of {object_type['name']}", "exposes": [object_type["key"]]})
+        compiled = compile_model(data)
+        assert compiled.valid, (object_type["key"], compiled.diagnostics)

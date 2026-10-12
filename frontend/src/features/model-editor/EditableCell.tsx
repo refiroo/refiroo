@@ -17,6 +17,8 @@ export type CellEdit = {
   value: string;
   /** Choices for a select; a text field without. */
   options?: { value: string; label: string }[];
+  /** A text cell that may be emptied (a public name back to its default, a default taken out). */
+  optional?: boolean;
   operations: (value: string) => DraftOperation[];
 };
 
@@ -51,7 +53,7 @@ export function EditableCell({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const next = String(new FormData(event.currentTarget).get("value") ?? "").trim();
-    if (next === edit.value || (!edit.options && !next)) {
+    if (next === edit.value || (!edit.options && !next && !edit.optional)) {
       setEditing(false);
       return;
     }
@@ -102,7 +104,7 @@ export function EditableCell({
               ))}
             </select>
           ) : (
-            <input name="value" defaultValue={edit.value} required autoFocus />
+            <input name="value" defaultValue={edit.value} required={!edit.optional} autoFocus />
           )}
         </label>
       </InlineEditForm>

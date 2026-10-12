@@ -11,12 +11,14 @@
  * Drags (D40), with mouse or pen: a type dropped on another type or on an application (its top
  * level), and an attribute (dragged from the type's table) dropped on a type, each open Move to…
  * with the target chosen.
+ *
+ * The tree itself is `EditorTree`, which the Consumer APIs tab lists its definitions in too (0.10 A4c).
  */
 
-import { useMemo, useRef, useState, type DragEvent, type KeyboardEvent } from "react";
+import { useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
 import type { EditorSelection, ModelDraftOutline, OutlineMark, OutlineTypeNode } from "@/types";
 import { HueTile } from "@/ui/HueTile";
-import { Icon } from "@/ui/Icon";
+import { Icon, type IconName } from "@/ui/Icon";
 import { MarkPill } from "@/features/model-editor/MarkPill";
 import { draftTypeHue, objectTypeOf, typeName } from "@/features/model-editor/outline";
 
@@ -28,19 +30,23 @@ export type PaneDrop =
   | { kind: "objectType"; objectType: string; target: string }
   | { kind: "attribute"; objectType: string; attributeType: string; target: string };
 
-type Row = {
+export type TreeRow = {
   id: string;
   level: number;
   label: string;
   note?: string;
   mark?: OutlineMark;
+  /** Shown after the mark: a consumer API's contract state. */
+  badge?: ReactNode;
+  icon?: IconName;
   selection?: EditorSelection;
   /** A section that folds. */
-  section?: "relationTypes" | "attributeTypes";
+  section?: string;
   typeKey?: string;
   /** Dropping a type here puts it at the top level. */
   topLevel?: boolean;
 };
+type Row = TreeRow;
 
 const FOLDED_AT_START = new Set(["attributeTypes"]);
 
@@ -125,6 +131,7 @@ export function paneRows(outline: ModelDraftOutline, folded: Set<string>): Row[]
 
 function sameSelection(a: EditorSelection | undefined, b: EditorSelection) {
   if (!a?.show || a.show !== b.show) return false;
+  if (a.show === "consumerApi" && b.show === "consumerApi") return a.key === b.key && (!a.tab || a.tab === b.tab);
   return a.show === "matrix" || ("key" in a && "key" in b && a.key === b.key);
 }
 
@@ -144,8 +151,46 @@ export function ModelPane({
   onMenu: (selection: EditorSelection) => void;
   onDrop: (drop: PaneDrop) => void;
 }) {
-  const [folded, setFolded] = useState(() => new Set(FOLDED_AT_START));
-  const rows = useMemo(() => paneRows(outline, folded), [outline, folded]);
+  return (
+    <EditorTree
+      label="Model"
+      outline={outline}
+      rows={(folded) => paneRows(outline, folded)}
+      foldedAtStart={FOLDED_AT_START}
+      selection={selection}
+      canDrag={canDrag}
+      onSelect={onSelect}
+      onMenu={onMenu}
+      onDrop={onDrop}
+    />
+  );
+}
+
+/** One `role="tree"` over the rows a pane lists, with the Tree pattern's keys, menus and drags. */
+export function EditorTree({
+  label,
+  outline,
+  rows: rowsFor,
+  foldedAtStart = new Set<string>(),
+  selection,
+  canDrag,
+  onSelect,
+  onMenu,
+  onDrop,
+}: {
+  label: string;
+  outline: ModelDraftOutline;
+  /** The rows, with the sections folded so far left closed. */
+  rows: (folded: Set<string>) => TreeRow[];
+  foldedAtStart?: Set<string>;
+  selection: EditorSelection;
+  canDrag: boolean;
+  onSelect: (selection: EditorSelection) => void;
+  onMenu: (selection: EditorSelection) => void;
+  onDrop?: (drop: PaneDrop) => void;
+}) {
+  const [folded, setFolded] = useState(() => new Set(foldedAtStart));
+  const rows = rowsFor(folded);
   // A type can stand in several places (several parents, or under itself); the row the reader chose
   // is the one shown selected, the first matching row otherwise.
   const [chosenRow, setChosenRow] = useState<string>();
@@ -221,7 +266,7 @@ export function ModelPane({
     (event.dataTransfer.types.includes(DRAG_ATTRIBUTE) && Boolean(row.typeKey));
 
   return (
-    <ul className="model-pane-tree" role="tree" aria-label="Model" ref={tree}>
+    <ul className="model-pane-tree" role="tree" aria-label={label} ref={tree}>
       {rows.map((row, index) => {
         const selected = index === selectedIndex;
         const type = row.typeKey ? objectTypeOf(outline, row.typeKey) : undefined;
@@ -259,7 +304,7 @@ export function ModelPane({
               event.preventDefault();
               setDropTarget(undefined);
               const drop = dropOf(event, row);
-              if (drop) onDrop(drop);
+              if (drop) onDrop?.(drop);
             }}
             onFocus={() => setFocusId(row.id)}
             onClick={() => activate(row)}
@@ -277,10 +322,13 @@ export function ModelPane({
               <HueTile hue={draftTypeHue(outline, row.typeKey)} icon={type?.icon ?? undefined} size={20} />
             ) : row.id === "matrix" ? (
               <Icon name="matrix" size={14} />
+            ) : row.icon ? (
+              <Icon name={row.icon} size={14} />
             ) : null}
             <span className="model-pane-label">{row.label}</span>
             {row.note && <span className="model-pane-note">{row.note}</span>}
             {row.mark && <MarkPill mark={row.mark} />}
+            {row.badge}
           </li>
         );
       })}

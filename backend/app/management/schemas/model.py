@@ -493,6 +493,51 @@ class OutlineDiagnostic(ModelDiagnosticResponse):
     element: dict[str, str] | None
 
 
+class OutlineConsumerExposedType(BaseModel):
+    objectType: str
+    publicName: str
+
+
+class OutlineConsumerCounts(BaseModel):
+    fields: int
+    related: int
+    lists: int
+    filters: int
+    events: int
+
+
+class OutlineConsumerContract(BaseModel):
+    """A definition checked against what the active release's consumers read (C-D17)."""
+
+    classification: Literal["compatible", "version_required"]
+    diagnostics: list[OutlineDiagnostic]
+
+
+class OutlineConsumerApi(BaseModel):
+    """A consumer API definition of the draft (0.10 A4c, D55); ``contract`` is ``null`` while the
+    draft does not compile."""
+
+    key: str
+    name: str
+    description: str | None = None
+    contractVersion: int | None = None
+    exposes: list[OutlineConsumerExposedType]
+    counts: OutlineConsumerCounts
+    mark: OutlineMark
+    contract: OutlineConsumerContract | None
+
+
+class ModelDraftConsumerApiResponse(BaseModel):
+    """A draft's consumer API definition as written and, when the draft compiles, with every default
+    written out and its contract against the active release (0.10 A4c, D56)."""
+
+    version: int
+    valid: bool
+    definition: dict[str, Any]
+    expanded: dict[str, Any] | None = None
+    contract: OutlineConsumerContract | None = None
+
+
 class ModelDraftOutlineResponse(BaseModel):
     """A draft's structure as the editor shows it, each element marked against the base release
     (0.10 A4a, D36)."""
@@ -506,6 +551,7 @@ class ModelDraftOutlineResponse(BaseModel):
     attributeTypes: list[OutlineAttributeType]
     relationTypes: list[OutlineRelationType]
     relations: list[OutlineRelation]
+    consumerApis: list[OutlineConsumerApi]
     valid: bool
     diagnostics: list[OutlineDiagnostic]
 

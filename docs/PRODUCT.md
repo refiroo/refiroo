@@ -153,6 +153,10 @@ can complete the task in the application; "API" means another system can.
   undo and redo; install and activate in one confirmed step.
 - Preview a type's record page and table from the draft over real records before installing it, and
   lay out its panels, fields, columns, filters and sort in place, each change a step with undo.
+- Define the draft's consumer APIs in the same editor: what each exposes, its fields, related
+  records, operations, lists, match rules, events and filters, each change a step with undo; read the
+  schema of its message and a message example before installing; see at once when a change needs a
+  higher contract version, and raise it in a step.
 
 ### Integrate other systems — API
 

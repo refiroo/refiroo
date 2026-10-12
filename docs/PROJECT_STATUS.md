@@ -36,7 +36,12 @@ under a band of its own; **Edit layout** opens the layout editor over the whole 
 fields and table columns are moved by menu, keyboard or drag, grouped, hidden and sorted, one step
 each; `GET /model-drafts/{id}/model` and the kinds `addDetailPage` and `removeDetailPage`. The user
 moved the preview from a side pane into the centre while it was built; the side pane is kept in
-SAVED_UI_PATTERNS. Next is A4c.
+SAVED_UI_PATTERNS. **A4c, the consumer API editor, is delivered (2026-10-12)**, approved by the user: the editor's left pane has Model and Consumer APIs tabs; a consumer API
+opens with its exposed types and related records, fields, operations, lists, match rules, events and
+filters, each change one of six operation kinds with undo, and with two documents an integration
+takes from the draft, the Schema of its message and a Message example; a change its consumers would
+notice shows as needing a higher contract version, raised in a step, and the install dialog checks
+each one; `setKey` rewrites the definitions that name a new element. Next is T1.
 
 ### How 0.9 was built
 

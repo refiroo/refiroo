@@ -379,7 +379,8 @@ to a draft changed by a whole-model patch works on the patched model.
 | A2 | Operation API on model drafts: the catalogue's additive and draft-only model operations, history, undo, version checks, default views for new types | N1 |
 | A4a | Editor: model pane, relationship matrix, issues, history, install and activate | A2 |
 | A4b | Editor: preview with generated views and panels, layout editing | A4a |
-| T1 | The designer checked on its own (US-P05); released as 0.10.0-alpha.1 | A4b |
+| A4c | Editor: consumer API definitions by operations, their schema and message example, the contract at activation | A4b |
+| T1 | The designer checked on its own (US-P05); released as 0.10.0-alpha.1 | A4c |
 | A3 | Source profiling and the dry-run summary after each operation | A1 |
 | A5 | Editor with a source file: source and mapping panes, mapping operations, the profile side of model operations, profiles saved and re-run | A3, T1 |
 | A6 | Inference: the table patterns of the catalogue; extending an existing model | A5 |

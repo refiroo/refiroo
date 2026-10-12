@@ -155,7 +155,15 @@ Model authoring has three explicit stages (ADR-016):
    `PreviewDataProvider` and `api/previewClient`: the reads go to the runtime routes, which serve
    the active model, and every other call is refused in the browser before a request, so the preview
    cannot write; reads the active model cannot answer (a new type, a field it lacks) are answered or
-   adjusted there. Layout changes are the view verbs (`model-editor/layout.ts`), one step each.
+   adjusted there. Layout changes are the view verbs (`model-editor/layout.ts`), one step each. Its
+   **Consumer APIs** tab (0.10 A4c) edits consumer API definitions by the consumer kinds
+   (`authoring/consumer.py`: two whole-definition kinds and four part verbs naming a part by a JSON
+   pointer below the definition, the definition re-read as `ConsumerApiDocument` after each); the
+   reference index walks the definitions' grammar (`references.consumer_slots`), so `setKey` rewrites
+   them. `authoring/consumer_documents.py` serves a draft's definition with its contract against the
+   active release and three documents built from the draft by the consumer modules the consumer tier
+   uses: the object message's JSON Schema, a message example written from it, and the OpenAPI
+   document.
 2. **Validation and compilation** are free of side effects: diagnostics with JSON pointers, canonical
    compilation, a key-based semantic diff, compatibility analysis against stored data and, from schema
    0.8, the consumer contract comparison.

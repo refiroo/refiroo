@@ -41,7 +41,9 @@ export function OperationsMenu({
       isOpen={isOpen}
       onOpenChange={onOpenChange}
       // The Add menu holds one kind of action; its sections would repeat one heading.
-      items={menuItems(target, outline, (item) => onOperation(item, target), { sections: target.on !== "draft" })}
+      items={menuItems(target, outline, (item) => onOperation(item, target), {
+        sections: target.on !== "draft" && target.on !== "consumerApis",
+      })}
     />
   );
 }

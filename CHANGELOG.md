@@ -73,6 +73,25 @@ All notable changes to this project are documented in this file. The format foll
   `GET /model` serves the active model, with its placements; the operations `addDetailPage` and
   `removeDetailPage` give a type without a declared detail page the page a new type gets. The
   browser runner `test:browser:authoring-a4b`.
+- Base 0.10 A4c: the consumer API editor (D51–D59; J33.13, J33.14). The editor's left pane has
+  **Model** and **Consumer APIs** tabs, ＋ adding within the open one. A consumer API opens with its
+  tabs: the exposed types and public names and the related records it serves; its fields with their
+  sources (chosen in order from a picklist of what the exposed types and the types above them hold),
+  role and default, edited in place (no field name is typed by hand anywhere in the tab: match
+  fields, related fields, XREF fields, sort fields, routes and watched outputs are chosen from what
+  is valid there); the operations it offers, its lists, XREF match rules
+  and custom events; its filters; and two documents with Copy and Download, the **Schema** of the
+  message consumers receive and a **Message example**. Six operation kinds change definitions, each
+  step with undo: `addConsumerApi` (a starting definition from the exposed types), `removeConsumerApi`
+  and four part verbs naming a part by a JSON pointer (`setConsumerApiPart`,
+  `insertConsumerApiPart`, `moveConsumerApiPart`, `removeConsumerApiPart`). The outline lists each
+  definition with its contract against the active release, shown as "Needs v2" with a step that raises
+  the version; the install dialog lists each consumer API's result and activates only when none needs
+  a higher version. `GET /model-drafts/{id}/consumer-apis/{consumerApi}` and its `schema.json`,
+  `example.json` and `openapi.json` serve a draft's definition and documents before it is installed.
+  `setKey` on an element a consumer API names now rewrites the definition instead of refusing (D54,
+  replacing A2's D29). Switching XREF off asks first, since its match rules go with it, and stops
+  Resolve too. The browser runner `test:browser:authoring-a4c`.
 
 ### Fixed
 
