@@ -9,7 +9,7 @@ D17–D21 and A-D5–A-D9 were accepted with the [A0 plan](#a0-plan-2026-10-11) 
 T1, A3, A5–A8 and R are specified below at package level; each package's detailed plan, test cases
 and decisions are written and accepted when it starts, and it is delivered in the order of the
 [delivery queue](#delivery-queue), each by the [delivery steps](#how-a-package-is-delivered).
-**Delivered:** A0, N1, A2 (2026-10-11).
+**Delivered:** A0, N1, A2, A4a (2026-10-11); A4b, A4c and T1, released as 0.10.0-alpha.1 (2026-10-12).
 
 **Target:** Product 0.10.0, [model authoring and spreadsheet onboarding](ROADMAP.md#product-release-010--model-authoring-and-spreadsheet-onboarding).
 The `navigation` declaration (A-D2) extends the model, so 0.10 opens the next schema language version
@@ -232,7 +232,7 @@ migration), `contract` (every route change) and `volume` (every budget).
 | 4 | [A4a](#a4a-editor--model-pane) | A2 | **Delivered 2026-10-11.** The editor frame and model pane, relationship matrix, issues, history, install and activate |
 | 5 | [A4b](#a4b-editor--preview-and-layout-editing) | A4a | **Delivered 2026-10-12.** Preview with existing records; views, panels and fields laid out in place |
 | 6 | [A4c](#a4c-editor--consumer-apis) | A4a, A4b | **Delivered 2026-10-12.** The consumer API editor: a Consumer APIs tab beside Model; definitions changed by six kinds; their schema and message example; the contract at activation |
-| 7 | [T1](#t1-designer-checkpoint) | A4b, A4c | US-P05 composed in the browser on two models; the designer's gates; tagged `v0.10.0-alpha.1` (D14) |
+| 7 | [T1](#t1-designer-checkpoint) | A4b, A4c | **Delivered 2026-10-12, released as 0.10.0-alpha.1.** US-P05 composed in the browser on two models; the designer's gates; tagged `v0.10.0-alpha.1` (D14) |
 | 8 | [A3](#a3-source-profiling-and-the-dry-run-summary) | A0 | Source files, profiles of sheets and columns, the dry-run summary; W1–W3 generators. May be taken earlier as a filler |
 | 9 | [A5](#a5-editor-with-a-source-file) | A3, T1 | Source and mapping panes, mapping operations, profiles following the model, load, saved profiles and re-runs |
 | 10 | [A6](#a6-inference-over-table-patterns) | A5 | Proposals from the table patterns; new application or extending the active model; pinned decisions |
@@ -1817,6 +1817,176 @@ a migration check (clean bootstrap and upgrade from 0.9.0, schema 0.9 → 0.10 a
 tag `v0.10.0-alpha.1` with the commit on the user's instruction. It is not a full R: the full suites
 and the full review of every change wait for 0.10.0's R, which still reviews everything since 0.9.0.
 
+##### T1 plan (2026-10-12)
+
+**Planned 2026-10-12; accepted by the user the same day ("otherwise ok"): D60–D64 and the test
+cases, with D60 amended at the user's question: the walks also click every button they use, since
+earlier packages' runners passed while a button's action was wrong.** Checked
+against the code at `5963d96`:
+
+- **What each package proved on its own.** `test:browser:authoring-a4a` (44 checks), `-a4b` (29) and
+  `-a4c` (20) each run on both designer models (D20) and walk their own surface; none walks US-P05
+  from start to end, and each starts from a draft its own setup prepared. The API side is covered by
+  `test_j33_operations`, `test_j33_outline`, `test_j33_layout`, `test_j33_consumer_apis` and
+  `test_j33_design`, two configurations each.
+- **What was deferred to T1.** Every designer package left its surfaces out of the accessibility
+  gate (`e2e/accessibility-gate.mjs`, 109 checks at 0.9 R) and the visual gate
+  (`e2e/visual-regression-gate.mjs`, 100 baselines), and dark mode uninspected: N1's sidebar groups,
+  group page and phone band; A4a's editor, matrix, Move to…, operation and install dialogs; A4b's
+  preview, layout editor and its dialogs; A4c's Consumer APIs tab, a definition's tabs, its dialogs
+  and the install dialog's section (TODO). A4a's shared dialog and menu styles and N1's phone band
+  changed existing baselines, which are to be re-recorded after review.
+- **What the release touches.** One migration since 0.9.0 (`20261011_01_model_draft_operations`),
+  whose upgrade from `20261007_08`, interruption and recovery A2 tested in `test_startup`. Version
+  strings in `backend/pyproject.toml`, `backend/app/config.py` (`ENGINE_VERSION`) and
+  `frontend/package.json`, written as 0.9.0-alpha.1 was (`0.9.0-alpha.1`). The starter model is
+  unchanged (D3), so no content release.
+- **Open in TODO that touches the line:** A4b's once-seen runner case (the added application still
+  in the draft after Undo); the startup check for a migration changed after it was applied (for the
+  user to decide; not T1's).
+
+**What is built:**
+
+1. **A composed browser journey**, `e2e/authoring-t1-designer.mjs` (`test:browser:authoring-t1`),
+   US-P05 from start to end on both designer models, naming no key (D60, cases below).
+2. **The gates:** the designer's surfaces into the accessibility and visual gates, light and dark
+   (D61); the changed baselines re-recorded after the user reviews their differences.
+3. **The backend groups together** (D62), and the release's migration check (D63).
+4. **The interim release** 0.10.0-alpha.1 (D63): CHANGELOG section, version strings, PROJECT_STATUS,
+   TODO; the commit and tag `v0.10.0-alpha.1` on the user's instruction.
+
+No behaviour changes are planned. A defect found is fixed in T1 with its regression test when it is
+small, or becomes a named amendment (T1a, …) before the release when it changes what A3 or A5 build
+on (D64).
+
+**Decisions** (D60 onward):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D60 | What the composed journey walks, and how | *Amended at acceptance:* **One runner, both designer models, each walk done once by keyboard alone and once by clicking, at 1440px, then a shorter walk at 390px.** Walk 1 is keyboard alone on the renamed example and clicked on generated-b; walk 2 the other way round, so every step is taken both ways and the runner's length is unchanged. Clicking means the real button (found by its role and name, clicked as a user does, no API shortcut in between), and each click is checked by what the screen shows and what the server then holds, so a button that calls the wrong action fails. T1 adds the end-to-end order nobody has walked, the keyboard for all of it, which the spec names, and every button in it clicked. Two walks per model: *from an empty draft* (an application, two types under each other, attributes, a relation allowed from the matrix, a navigation group, a column and a panel laid out, a consumer API exposing the new types; install and activate; a record of each new type created on the record screen; the consumer tier serving one) and *extending the active model* (a type under a released one, an attribute on a released type, a relation, a field added to the released consumer API, which then needs a higher contract version, raised; install and activate; a record created and seen in its released parent's panel). At 390px: open the editor, add a type and an attribute through the phone tabs, install and activate, create a record. Cost: one runner of about 3–4 minutes over both models |
+| D61 | Which surfaces join the gates, and in which themes | **Every designer surface into the accessibility gate in light and dark; into the visual gate, light for every surface and dark for one per package.** Accessibility (about 20 scenarios): the sidebar groups, the group page, the phone band; the editor's model pane with an element, the matrix, Move to…, an operation dialog, the install dialog, Issues and History; the preview and the layout editor with its group and sort dialogs; the Consumer APIs tab, a definition's Fields and Schema tabs, a consumer dialog and the install dialog's consumer section. Visual (about 16 light, 5 dark): the same surfaces' screens, dark for the sidebar groups, the model pane, the preview, the layout editor and a consumer definition, as 0.9 kept dark to a representative subset. The changed existing baselines (dialogs, menus, the phone shell) are re-recorded only after the user has seen the differences; a difference not explained by N1 or A4a stops the gate as a defect. Both gates run on the example model as they do today: the designer models' second configuration is the runners' job (D60) |
+| D62 | Which backend checks | **`authoring` and `model` together, as the spec says, with `model_admin`, `contract` and `startup` for the release (D63); no full suite**, which waits for R by AGENTS.md. Run once, parallel and serial parts, within the 2-minute ceiling or reported with its time |
+| D63 | What the alpha's migration check covers | **Clean bootstrap and restart, the upgrade of a database built by 0.9.0 (tag `v0.9.0`, at `20261007_08`, with records and a draft) to the head, and schema 0.9 → 0.10 activation, plus a smoke start on a copy of the development database.** The upgrade and its interruption are A2's `test_startup` case, rerun with the `startup` group; the 0.9 → 0.10 activation is N1's `test_earlier_models_are_unchanged_by_schema_0_10`, rerun; the database built by the 0.9.0 code itself (not by the head's baseline downgraded) is the one new step, done once by hand with the tagged code in a scratch worktree and a scratch database, both removed after. Versions written `0.10.0-alpha.1` in the three files, as 0.9.0-alpha.1 was |
+| D64 | When T1 passes, and what a failure does | **T1 passes when the composed runner, the gates and the backend groups pass and the user approves the screenshots and baseline differences; then the release steps run.** A defect found is fixed in T1 with its regression test when it is local to the designer; one that changes the operation API, the outline or a contract A3 or A5 builds on becomes an amendment package before the release, with the user's agreement. A runner flake seen once is rerun once and recorded in TODO, as 0.9 R's D201 did; seen twice it is a defect |
+
+**Journey test cases** (browser, `test:browser:authoring-t1`, on the renamed example and
+`generated-b`, naming no key of either; types, applications and parents read from each model):
+
+1. **J33.1 + J33.13, from an empty draft** (keyboard alone on one model, clicked on the other; D60).
+   Given an empty draft opened from Settings › Model. When an application, a top type, a child type under it, an
+   attribute on each, a relation allowed between them from the matrix, a navigation group holding
+   the top type's collection, a column moved and a panel hidden in the layout editor, and a consumer
+   API exposing both types are added, each by keys alone or by clicking its buttons, then History lists each as one step and
+   Issues is empty. When installed and activated from the install dialog, then the application's
+   sidebar shows the group, a record of the top type and a child under it are created on the record
+   screen with the layout as laid out, and the consumer tier answers the child record valid against
+   the Schema read in the editor before installing.
+2. **J33.2 + J33.14, extending the active model** (the other way round from case 1). *Amended in
+   the record: the field added is compatible; a released field renamed is the change that needs the
+   higher version.* Given a draft of the active
+   release with records in it. When a type under a released type, an attribute on a released type,
+   a relation from a released type to the new one, and a field from the new attribute in the
+   released consumer API are added, then the released elements stay marked released, the definition
+   shows that it needs a higher contract version, and the install dialog holds Activate until it is
+   raised in one step. When installed and activated, then a record of the new type is created under
+   an existing parent and shown in the parent's children, the existing records keep their values,
+   and the consumer tier serves the field at the new version and answers `404` at the old one.
+3. **J33.4 inside the walk.** In walk 2, one step is undone and redone (by keyboard or the bar's
+   buttons, as the walk goes) before installing,
+   and a new step after an undo leaves nothing to redo.
+4. **J33.11 at 390px.** On each model, a draft opened at 390px: a type and an attribute added
+   through the phone tabs, installed and activated, a record of the type created; no horizontal
+   scroll on any screen of the walk.
+5. **No error and nothing left.** Across the walks, the browser shows no `Error:` text and no
+   console error; the runner's drafts are installed or deleted, and its databases are clones removed
+   after.
+
+These pass on the first run if the packages are right, since T1 changes no behaviour (as 0.9's T1
+found); they cannot be confirmed failing first, which the record will say.
+
+**Groups:** `authoring`, `model`, `model_admin`, `contract`, `startup`; `test:browser:authoring-t1`;
+`test:a11y` and `test:visual`, extended (D61); no Vitest beyond the files a fix changes; `npm run
+format`, `lint`, `build` if a frontend file changes. **Not run:** the full suites and the other
+browser runners (R).
+
+**Composable domains (ADR-032):** no contract changes; no door is affected.
+
+##### T1 record (2026-10-12)
+
+**Delivered 2026-10-12 and released as 0.10.0-alpha.1 (D14):** the user approved the screenshots and
+the changed baselines and asked for the commit and the interim release ("you can commit and make the
+interim release"). Version strings `0.10.0-alpha.1` in `backend/pyproject.toml`, `ENGINE_VERSION` and
+`frontend/package.json` (with its lock); the CHANGELOG section; the tag `v0.10.0-alpha.1`. The visual
+gate's update mode rewrites every baseline; only the 8 reviewed and the 23 new ones were kept, the
+68 others restored, and the gate then passed (123 checks). Built as planned, with these differences
+and findings:
+
+- **Walk 2's contract change is a rename.** Adding a field to a released consumer API is compatible
+  (the contract check counts only what consumers lose or see change), so the walk adds the field from
+  the new attribute, sees no version needed, then renames a released field, which needs version 2.
+  Case 2 is amended to say so.
+- **Keyboard mode chooses a select's option by typing its name.** On macOS a closed native select
+  opens its list on the arrow keys rather than changing its value, as a keyboard user there knows; the
+  runner types the option, as that user does, and fails if another option is chosen.
+- **Defect (from A4a): after installation everything the draft added read as changed.** The release
+  holds each element with its defaults written out (`model_dump`), the draft what was authored, and
+  the outline compared them as raw JSON, so after an installation the new type, its attribute, its
+  relation, its parent type and its application, and a consumer API added in the draft, were all marked
+  changed against the release just installed from them. Marks now compare one element at a time in the
+  release's form (`outline._same`, through the schema class of each element), so they stay right
+  while the rest of the draft is invalid. Found in the phone-editor screenshot of the gates'
+  surfaces. Regression: `test_after_installation_what_the_draft_added_is_marked_released` (J33.2, two
+  configurations), seen failing without the fix; walk 2 now checks that the new type and its parent
+  read released after installing.
+- **Defect (from A4b): the preview's History panel read the live API.** For a new type's empty record
+  it asked `GET /objects/{type}/preview-empty-record/history`, a 404 in the browser's console. The
+  History panel used the plain client, not the page's (`useDataApi`), so the preview's client never saw
+  the read. It now reads through the page's client; the change-set and publication clients pass history
+  through unchanged, so nothing else changes. Found by the runner's console check on generated-b's
+  clicked walk (the keyboard walk had hidden that panel). Regression in `HistoryPanel.test` (the panel
+  under the preview's client asks the server nothing), seen failing without the fix.
+- Both defects passed their packages' runners because those runners watched neither the console nor
+  the marks after installing; T1's runner fails on any console error, any 4xx or 5xx response and
+  any `Error:` text.
+- **The designer surfaces in the gates** are one helper, `e2e/helpers/designer-surfaces.mjs`, visited
+  by both gates as 0.9's `release-surfaces` is: 18 surfaces on the starter model raised to 0.10 with a
+  type, an attribute and a navigation group set up by one operation request, light and dark (36
+  accessibility scenarios), and 23 visual baselines (18 light, 5 dark: the type panel, the preview, the
+  layout editor, a consumer API's fields and the sidebar's groups).
+- **Dark mode inspected** for every designer surface from the gates' screenshots: the semantic tokens
+  hold; no defect seen.
+
+**Checks:**
+
+- Browser: `test:browser:authoring-t1`, 34 checks on both designer models in 42 s (walk 1 by keyboard
+  on the renamed example and by clicking on generated-b, walk 2 the other way round, 390px on each),
+  then walk 1 (18) and walk 2 (16) again after the last changes. The cases pass, as T1 changes no
+  behaviour; they were not seen failing first, except where the two defects made them fail.
+- `test:a11y`: 145 checks (109 and the 36 designer scenarios) passed in 2 min 53 s. A first run was
+  stopped by a timeout after the machine slept (1 h 48 min of wall time) and was run again.
+- `test:visual`: 123 checks in 2 min; the 23 designer baselines are new, and 8 existing ones differ:
+  the four phone screens (`narrow-collection-domain-*`, `narrow-record-detail-domain-*`: N1's band and
+  no top-bar tabs) and the export and import dialogs, light and dark (A4a's shared dialog spacing).
+  Each difference was inspected and is explained by N1 or A4a; none recorded until the user approves.
+- Backend groups `authoring`, `model`, `model_admin`, `contract`, `startup`: 3,364 passed in 1 min
+  43 s, parallel; the serial part selects none. `ruff check app/ tests/` clean.
+- Frontend: `vitest related` over `HistoryPanel.tsx`, 4 files and 52 tests; `npm run format`; `npm
+  run lint`, 0 errors (the 7 earlier warnings); `npm run build` succeeds.
+- **Migration (D63):** the `startup` group above (A2's upgrade from `20261007_08`, its interruption
+  and recovery, clean bootstrap and restart). By hand: the tagged 0.9.0 code in a scratch worktree
+  built a scratch database on the development server (`20261007_08`) with a record and a draft; the
+  head code upgraded it to `20261011_01`, kept the record and the draft (with an empty history),
+  applied operations to that draft raising it to schema 0.10 with a navigation group, installed and
+  activated it (the 0.9 → 0.10 activation), and started again; no error in its log. N1's
+  `test_earlier_models_are_unchanged_by_schema_0_10` is in the `model` group above. Smoke start: a
+  copy of the development database (143 MB, `pg_dump` and `pg_restore`) answered `/system` and
+  `/model` with 200. Worktree and both scratch databases removed.
+- **Not run:** the full suites and the other browser runners (R). The record screen's runners were not
+  run for the History panel change: the panel's request is the same function through the page's
+  client, and the gates' record pages passed.
+- **Seen, not started by this session:** the user's development server and its PostgreSQL, and the
+  `uvicorn` on port 61380 noted in A4c, left running.
+
 ## Track: the spreadsheet
 
 ### A3: Source profiling and the dry-run summary
@@ -2014,6 +2184,5 @@ Design-level decisions are [A-D1–A-D12](MODEL_AUTHORING.md#open-decisions).
 
 ## Next
 
-1. A4b, the preview and layout editing (A4a delivered 2026-10-11), starting with its plan; then
-   A4c, the consumer API editor (added by the user 2026-10-11), with its design pass. A3 may fill a
-   wait for approval.
+1. A3, source profiling and the dry-run summary, starting with its plan: the designer line is
+   delivered and released as 0.10.0-alpha.1 (T1, 2026-10-12).

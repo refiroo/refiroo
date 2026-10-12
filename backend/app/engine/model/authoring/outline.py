@@ -10,17 +10,30 @@ The outline reads the draft's raw document: a draft may be invalid between steps
 with what can be read, beside the compiler's diagnostics, each tied to the element its pointer falls in.
 
 A mark is ``new`` when the base release does not declare the element, ``changed`` when it does with a
-different declaration, and ``released`` otherwise. A type is also ``changed`` when a relation allowed
+different declaration, and ``released`` otherwise. Declarations are compared in the form a release
+stores, every default written out (``_same``): a draft holds what was authored, and after an
+installation its base release holds the same elements with their defaults (0.10 T1). A type is also ``changed`` when a relation allowed
 from it was added, changed or removed: the relations a type starts are part of the type, as its
 outgoing relations panel and the matrix's rows show.
 """
 
 from typing import Any
 
+from pydantic import BaseModel, ValidationError
 from sqlalchemy.orm import Session
 
 from ....models.database import ModelDraft
-from ....models.schema import EngineModel
+from ....models.schema import (
+    ApplicationDefinition,
+    AttributeTypeDefinition,
+    ConsumerApiDocument,
+    EngineModel,
+    NavigationGroupDefinition,
+    ObjectTypeAttributeDefinition,
+    ObjectTypeDefinition,
+    ObjectTypeRelationDefinition,
+    RelationTypeDefinition,
+)
 from ..compiler import compile_authored_model
 from ..consumer_contract import contract_diagnostics
 from ..consumer_expansion import public_name
@@ -239,7 +252,7 @@ def _consumer_api(definition: dict[str, Any], base: dict[str, Any]) -> dict[str,
             "filters": _size(definition.get("filters")),
             "events": _size(events.get("custom")),
         },
-        "mark": "new" if before is None else ("changed" if before != definition else "released"),
+        "mark": "new" if before is None else ("released" if _same("consumerApis", before, definition) else "changed"),
         "contract": None,
     }
 
@@ -323,24 +336,27 @@ class _Marks:
     def of(self, value: str, declaration: Any, where: tuple[str, str]) -> str:
         if value not in self.released:
             return "new"
-        return "changed" if _item(self.base, where[0], where[1]) != declaration else "released"
+        return "released" if _same(where[0], _item(self.base, where[0], where[1]), declaration) else "changed"
 
     def binding(self, type_key: str, attribute_key: str, declaration: Any) -> str:
         if atom("attributeBinding", type_key, attribute_key) not in self.released:
             return "new"
         base_type = _item(self.base, "objectTypes", type_key) or {}
         before = _item(base_type, "attributes", attribute_key, "attributeTypeKey")
-        return "changed" if before != declaration else "released"
+        return "released" if _same("attributes", before, declaration) else "changed"
 
     def relation(self, declaration: dict[str, Any]) -> str:
         identity = (declaration.get("relationTypeKey"), declaration.get("fromObjectTypeKey"), declaration.get("toObjectTypeKey"))
         if atom("relationBinding", *[str(key) for key in identity]) not in self.released:
             return "new"
-        return "changed" if self._base_relation(identity) != declaration else "released"
+        return "released" if _same("objectTypeRelations", self._base_relation(identity), declaration) else "changed"
 
     def outgoing_differs(self, type_key: str, outgoing: list[dict[str, Any]]) -> bool:
-        before = [b for b in _items(self.base, "objectTypeRelations") if b.get("fromObjectTypeKey") == type_key]
-        return _by_identity(before) != _by_identity(outgoing)
+        before = _by_identity([b for b in _items(self.base, "objectTypeRelations") if b.get("fromObjectTypeKey") == type_key])
+        after = _by_identity(outgoing)
+        return before.keys() != after.keys() or any(
+            not _same("objectTypeRelations", before[identity], binding) for identity, binding in after.items()
+        )
 
     def _base_relation(self, identity: tuple[Any, ...]) -> dict[str, Any] | None:
         return next(
@@ -402,7 +418,7 @@ def _navigation(application: dict[str, Any], base: dict[str, Any], types: list[s
                 "label": group.get("label") or group.get("key"),
                 "collapsed": bool(group.get("collapsed", False)),
                 "collections": collections,
-                "mark": "new" if before is None else ("changed" if before != group else "released"),
+                "mark": "new" if before is None else ("released" if _same("groups", before, group) else "changed"),
             }
         )
     return {"groups": groups, "ungrouped": [key for key in _collections(application) if key not in grouped]}
@@ -432,6 +448,33 @@ def _collections(application: dict[str, Any]) -> list[str]:
 
 def _is_containment(relation_type: dict[str, Any]) -> bool:
     return bool((relation_type.get("features") or {}).get("parentOf", False))
+
+
+# The schema class of each kind of element, by the member that lists it.
+_FORMS: dict[str, type[BaseModel]] = {
+    "applications": ApplicationDefinition,
+    "attributeTypes": AttributeTypeDefinition,
+    "objectTypes": ObjectTypeDefinition,
+    "relationTypes": RelationTypeDefinition,
+    "objectTypeRelations": ObjectTypeRelationDefinition,
+    "consumerApis": ConsumerApiDocument,
+    "attributes": ObjectTypeAttributeDefinition,
+    "groups": NavigationGroupDefinition,
+}
+
+
+def _same(collection: str, before: Any, after: Any) -> bool:
+    """Whether two declarations of an element are the same, compared in the form a release stores
+    them, every default written out; one that does not read as its schema class differs."""
+    if before == after:
+        return True
+    if before is None or after is None:
+        return False
+    form = _FORMS[collection]
+    try:
+        return form.model_validate(before).model_dump(mode="json") == form.model_validate(after).model_dump(mode="json")
+    except ValidationError:
+        return False
 
 
 def _by_identity(bindings: list[dict[str, Any]]) -> dict[tuple[Any, ...], dict[str, Any]]:

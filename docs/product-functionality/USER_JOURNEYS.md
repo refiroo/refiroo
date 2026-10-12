@@ -872,7 +872,10 @@ the documents' refusals; two configurations each), the consumer kinds and their 
 `tests/unit/engine/model/authoring/test_kinds.py`, and `test:browser:authoring-a4c` (the renamed
 example and generated-b: the Consumer APIs tab, fields, related, switches, lists, filters, undo, the
 Schema and Message example, the contract version raised, a new consumer API, install and activate
-and the consumer tier, 390px).
+and the consumer tier, 390px). US-P05 composed (J33.1, J33.2, J33.4, J33.11, J33.13, J33.14):
+`test:browser:authoring-t1` (both designer models, each walk by keyboard alone and by clicking, from
+an empty draft and extending the active model to records and the consumer tier, 390px; 0.10 T1), and
+`test_j33_outline`'s case that what an installed draft added reads released.
 
 ### J34 — Onboard a workbook
 

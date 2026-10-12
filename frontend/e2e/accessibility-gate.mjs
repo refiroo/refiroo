@@ -28,6 +28,7 @@ import {
 } from "./helpers/acceptance-data.mjs";
 import { cancelDrag } from "./helpers/tree.mjs";
 import { visitReleaseSurfaces } from "./helpers/release-surfaces.mjs";
+import { visitDesignerSurfaces } from "./helpers/designer-surfaces.mjs";
 
 // Permitted known violations with tracked issue references.
 // Each entry must state the axe rule id and a tracking reference.
@@ -458,6 +459,17 @@ try {
   // Integration, a webhook's configuration and deliveries, relation columns, the filter editor, the
   // selection bar and the bulk dialogs, exporting and importing with their notifications and job pages ---
   await visitReleaseSurfaces(async ({ page: surface, name }) => {
+    const found = await runAxe(surface, ALLOWLIST, name);
+    if (found.violations.length > 0) failures.push(`${name}:\n${formatViolations(found.violations)}`);
+    checks.push(`${name}: ${found.violations.length} violations, ${found.allowed.length} allowed`);
+    await surface.screenshot({ path: resolve(output, `a11y-${name}.png`), fullPage: true });
+  });
+
+  // --- 16. Base 0.10 designer surfaces (0.10 T1, D61), light and dark, on a harness of their own:
+  // the model editor's pane, matrix, dialogs, history and install dialog; the preview and the layout
+  // editor; a consumer API's fields and schema; the sidebar's groups, a group page, and at 390px the
+  // phone band, the drawer's groups and the editor's tabs ---
+  await visitDesignerSurfaces(async ({ page: surface, name }) => {
     const found = await runAxe(surface, ALLOWLIST, name);
     if (found.violations.length > 0) failures.push(`${name}:\n${formatViolations(found.violations)}`);
     checks.push(`${name}: ${found.violations.length} violations, ${found.allowed.length} allowed`);

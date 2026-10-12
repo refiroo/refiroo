@@ -41,7 +41,12 @@ opens with its exposed types and related records, fields, operations, lists, mat
 filters, each change one of six operation kinds with undo, and with two documents an integration
 takes from the draft, the Schema of its message and a Message example; a change its consumers would
 notice shows as needing a higher contract version, raised in a step, and the install dialog checks
-each one; `setKey` rewrites the definitions that name a new element. Next is T1.
+each one; `setKey` rewrites the definitions that name a new element. **T1, the designer checkpoint,
+is delivered and the designer released as 0.10.0-alpha.1 (2026-10-12, tag `v0.10.0-alpha.1`)**: US-P05 walked end to end on both designer models, each walk
+once by keyboard alone and once by clicking (`test:browser:authoring-t1`); the designer's surfaces in
+the accessibility and visual gates, light and dark; the backend groups and the upgrade of a database
+built by 0.9.0. It fixed two defects: marks read changed after an installation (A4a), and the
+preview's History panel read the live API (A4b). Next is A3, the spreadsheet line.
 
 ### How 0.9 was built
 

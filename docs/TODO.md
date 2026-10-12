@@ -379,9 +379,9 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
     mock-up and the W1 sample, approved by the user (2026-10-11).
   - [x] N1 navigation groups and schema 0.10, with the phone band: delivered and approved by the
     user (2026-10-11).
-  - [ ] N1's surfaces (the sidebar groups, the group page, the phone band) into the accessibility
-    and visual gates, light and dark, at T1, re-recording the phone shell baselines; dark mode is
-    uninspected until then.
+  - [x] N1's surfaces (the sidebar groups, the group page, the phone band) into the accessibility
+    and visual gates, light and dark, at T1 (2026-10-12); the phone shell baselines re-recorded after
+    review; dark mode inspected.
   - [x] Desktop data-context band: proposal made ([proposal](https://claude.ai/artifact/BQf1M8edotaquqTXcknrjz));
     the topic dropped by the user for now (2026-10-11), desktop unchanged.
   - [x] A2 operation API on model drafts: model-side operations, history, undo and redo, generated
@@ -394,21 +394,20 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
     answers 500 on every read of the table. A startup comparison of the live columns with the models,
     refusing with the table and column, would catch it; it costs a catalogue read per start and a
     startup test. Not done; for the user to decide.
-  - [ ] The visual gate's baselines for dialogs and menus change with A4a's shared dialog and menu
-    styles (every dialog's field spacing, every `ActionMenu`); re-record at T1 after review.
-  - [ ] A4a's surfaces (the editor, the matrix, Move to…, the operation and install dialogs) into the
-    accessibility and visual gates, light and dark, at T1; dark mode is uninspected until then.
+  - [x] The visual gate's baselines for dialogs and menus change with A4a's shared dialog and menu
+    styles: the export and import dialogs (light and dark) re-recorded at T1 after review (2026-10-12).
+  - [x] A4a's surfaces (the editor, the matrix, Move to…, the operation and install dialogs) into the
+    accessibility and visual gates, light and dark, at T1 (2026-10-12); dark mode inspected.
   - [x] A4b editor: preview and layout editing (delivered 2026-10-12).
   - [ ] A4b: one runner run on the renamed example ended with the application a test step adds still
     in the draft although the preview had come back after Undo; not seen again in two runs. The runner
     prints the draft's history when it happens; look at it then.
-  - [ ] A4b's surfaces (the preview, the layout editor, the field group and sort dialogs) into the
-    accessibility and visual gates, light and dark, at T1; dark mode is uninspected until then.
+  - [x] A4b's surfaces (the preview, the layout editor, the field group and sort dialogs) into the
+    accessibility and visual gates, light and dark, at T1 (2026-10-12); dark mode inspected.
   - [x] A4c editor: consumer APIs (delivered 2026-10-12).
-  - [ ] A4c's surfaces (the Consumer APIs tab, a definition's tabs, its dialogs and the install
-    dialog's section) into the accessibility and visual gates, light and dark, at T1; dark mode is
-    uninspected until then.
-  - [ ] T1 designer checkpoint (US-P05), released as 0.10.0-alpha.1 (D14).
+  - [x] A4c's surfaces (the Consumer APIs tab, a definition's tabs, its dialogs and the install
+    dialog's section) into the accessibility and visual gates, light and dark, at T1 (2026-10-12); dark mode inspected.
+  - [x] T1 designer checkpoint (US-P05), released as 0.10.0-alpha.1 (D14), 2026-10-12.
   - [ ] A3 source profiling and the dry-run summary; the synthetic workbooks W1–W3.
   - [ ] A5 editor with a source file: source and mapping panes, saved and re-run profiles.
   - [ ] A6 inference over the table patterns.

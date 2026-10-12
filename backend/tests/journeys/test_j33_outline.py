@@ -96,6 +96,54 @@ def test_the_outline_of_a_draft_of_the_active_release_marks_what_is_new(world):
     }
 
 
+@pytest.mark.journey("J33.2")
+@pytest.mark.structures("R", "K")
+def test_after_installation_what_the_draft_added_is_marked_released(world):
+    """Given a draft of the active release with a type added under R, a new attribute on it, a
+    relation from it to K and the release version raised. When the draft is installed, which makes
+    the release its base. Then every element of the outline is marked released: the release holds
+    each element with its defaults written out, and that is no change (0.10 T1)."""
+    draft = _draft_of_active(world)
+    r_key, k_key, r_app = world.key("R"), world.key("K"), world.app("R")
+    version = ok(world.api.get(f"/model-releases/{draft['baseReleaseId']}"))["version"]
+    answer = ok(
+        _apply(
+            world,
+            draft,
+            draft["version"],
+            {
+                "kind": "addObjectType",
+                "applicationKey": r_app,
+                "key": "j33-note",
+                "name": "Note",
+                "pluralName": "Notes",
+                "parent": {
+                    "objectTypes": [r_key],
+                    "relationType": {"key": "j33-has-note", "name": "Has note", "reverseName": "Note of"},
+                },
+            },
+            {"kind": "addAttributeType", "key": "j33-text", "name": "Note text", "valueType": "text"},
+            {"kind": "attachAttribute", "objectType": "j33-note", "attributeType": "j33-text"},
+            {"kind": "addRelationType", "key": "j33-cites", "name": "Cites", "reverseName": "Cited by"},
+            {"kind": "allowRelation", "relationType": "j33-cites", "from": "j33-note", "to": k_key},
+            {"kind": "setRelease", "version": f"{version}-t1"},
+        )
+    )
+    ok(world.api.post(f"/model-drafts/{draft['id']}/installation", {"expectedVersion": answer["version"]}), 201)
+
+    outline = _outline(world, draft)
+    marks = {
+        f"{collection} {item.get('key', item.get('relationType'))}": item["mark"]
+        for collection in ("applications", "objectTypes", "attributeTypes", "relationTypes", "relations")
+        for item in outline[collection]
+    }
+    marks |= {
+        f"attribute {t['key']}.{a['attributeType']}": a["mark"] for t in outline["objectTypes"] for a in t["attributes"]
+    }
+    assert {name: mark for name, mark in marks.items() if mark != "released"} == {}
+    assert "objectTypes j33-note" in marks
+
+
 @pytest.mark.journey("J33.1")
 @pytest.mark.structures("A1")
 def test_the_outline_of_a_draft_built_from_empty_holds_what_the_request_built(world):

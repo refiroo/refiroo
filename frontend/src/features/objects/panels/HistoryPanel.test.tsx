@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { domainObject, testModel } from "@/test/fixtures";
 import { HistoryPanel } from "@/features/objects/panels/HistoryPanel";
+import { createPreviewClient, PREVIEW_EMPTY_ID } from "@/api/previewClient";
+import { PreviewDataProvider } from "@/features/workspaces/WorkspaceDataContext";
 
 vi.mock("@/api/client", () => ({ api: { objectHistory: vi.fn() } }));
 
@@ -121,5 +123,17 @@ describe("HistoryPanel", () => {
     expect(screen.getByText("Record created")).toBeInTheDocument();
     expect(screen.getByText("Changed Code")).toBeInTheDocument();
     expect(screen.queryByText(/expectedChangeSetVersion|fromObjectId|initialRelations|objectTypeKey/)).toBeNull();
+  });
+
+  it("reads through the page's client, so a new type's empty record in the preview asks the server nothing", async () => {
+    // 0.10 T1: the preview's History panel asked the live API for the empty record's history (404).
+    vi.mocked(api.objectHistory).mockClear();
+    render(
+      <PreviewDataProvider client={createPreviewClient(testModel, testModel)}>
+        <HistoryPanel model={testModel} objectTypeKey="domain" objectId={PREVIEW_EMPTY_ID} />
+      </PreviewDataProvider>,
+    );
+    expect(await screen.findByText("No history recorded yet.")).toBeInTheDocument();
+    expect(api.objectHistory).not.toHaveBeenCalled();
   });
 });

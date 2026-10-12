@@ -6,6 +6,13 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [0.10.0-alpha.1] - 2026-10-12
+
+The model designer, released on its own (D14): everything since 0.9.0, Base 0.10 packages A0, N1,
+A2, A4a, A4b, A4c and the designer checkpoint T1. Schema language 0.10. The spreadsheet onboarding
+line (A3, A5–A8) follows in 0.10.0. One migration since 0.9.0 (`20261011_01`, the draft operation
+history); a database of 0.9.0 upgrades on start.
+
 ### Added
 
 - Base 0.10 A0 (design, no product code): decisions D1–D10, D17–D21 and A-D5–A-D9 accepted;
@@ -92,9 +99,25 @@ All notable changes to this project are documented in this file. The format foll
   `setKey` on an element a consumer API names now rewrites the definition instead of refusing (D54,
   replacing A2's D29). Switching XREF off asks first, since its match rules go with it, and stops
   Resolve too. The browser runner `test:browser:authoring-a4c`.
+- Base 0.10 T1, the designer checkpoint (D60–D64): US-P05 walked end to end in the browser on both
+  designer models by `test:browser:authoring-t1`. An application designed from an empty draft, and
+  the active model extended with a consumer API change that needs a higher contract version, are
+  each installed, used on the record screen and served by the consumer tier. Each walk is taken once
+  by keyboard alone and once by clicking every button. Each step is checked on the server, and the
+  run fails on a console error or a failed request. The designer's surfaces (the editor, the matrix,
+  its dialogs, history and install dialog, the preview and layout editor, a consumer API's fields and
+  schema, the sidebar's groups, a group page, and the phone band, drawer and editor tabs) join the
+  accessibility gate in light and dark and the visual gate.
 
 ### Fixed
 
+- After a model draft was installed, the editor marked everything the draft had added, and the
+  types and applications around it, as changed against the release just installed from it. The
+  release holds each element with its defaults written out, and the outline compared it with the
+  draft's authored form; marks now compare both in the release's form (0.10 T1, from A4a).
+- The preview of a new type's empty record asked the server for the history of a record that does
+  not exist (a 404 in the browser); the record page's History panel now reads through the page's
+  client, which answers the preview's empty record itself (0.10 T1, from A4b).
 - Every dialog's labelled fields: a label stood further from its own control than from the field
   before it; the label now sits right above its control with a clear step to the next field, and a
   dialog's buttons keep a margin from its bottom edge (0.10 A4a).

@@ -28,6 +28,7 @@ import {
 } from "./helpers/acceptance-data.mjs";
 import { cancelDrag } from "./helpers/tree.mjs";
 import { visitReleaseSurfaces } from "./helpers/release-surfaces.mjs";
+import { visitDesignerSurfaces } from "./helpers/designer-surfaces.mjs";
 
 let harness;
 const checks = [];
@@ -317,6 +318,12 @@ try {
 
   // --- 15. Base 0.9 surfaces (0.9 R, D202), light and dark, on a harness of their own ---
   await visitReleaseSurfaces(({ page: surface, name, mask }) => capture(surface, name, output, mask));
+
+  // Base 0.10 designer surfaces (0.10 T1, D61): every one light, a representative one per package dark.
+  await visitDesignerSurfaces(async ({ page: surface, name, mask, dark }) => {
+    if (name.endsWith("-dark") && !dark) return;
+    await capture(surface, name, output, mask);
+  });
 
   // Write report.
   const report = { checks, failures, passed: failures.length === 0 };

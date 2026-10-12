@@ -219,8 +219,9 @@ gate scenarios (light and dark) for the preview and the refactoring dialogs are 
 
 | N1-3 | The phone band (0.10 N1, the user's request): below 760px one line, the workspace, the application in its tile and the data context (its pill), each a button opening a popover: the workspace selector (Manage workspaces), the applications (the top bar's buttons), and the line saying what an edit does with Live, Change sets and Publications; the top bar without tabs in every area, the drawer without the workspace selector; long names cut with an ellipsis, full in the popover's title | the band of every application page at 390px | **Shell** band; `ui/ControlPopover`; `WorkspaceSelector`; `ApplicationButtons` | — (the workspace selector's own) | **B** (one workspace; three applications; Live and a change set's band with its actions) | — | **B** (switch application, open change sets) | — | — | C (`WorkspaceSelector.test`) | **B** (390px, one line at most 48px, no page overflow) | **B** (each trigger by keyboard; Escape closes, focus back) | `test:browser:authoring-n1`, `DataContextBand.test` (phone case), `test:browser` (a change set's application switch), `test:browser:settings` (Back on a phone); axe on the band at 390px |
 
-Dark mode was not inspected for N1's surfaces; they use the semantic tokens only. The phone shell's
-visual baselines (`*-390`) change with N1-3 and are re-recorded at T1's gates.
+N1's surfaces are in the accessibility and visual gates since T1 (`helpers/designer-surfaces.mjs`:
+`sidebar-groups`, `group-page`, `phone-band`, `phone-drawer-groups`), light and dark; dark mode was
+inspected then. The phone shell's visual baselines (`narrow-*`) changed with N1-3.
 
 ### Surfaces added in 0.10 A4a
 
@@ -243,8 +244,11 @@ buttons clear of the frame, labels nearer their controls than the field before, 
 width at 1440px and 1920px with no page scroll). Issues and history is a drawer opened and closed by
 hand only; the model pane and the matrix's side panel resize (`ui/ResizeHandle`).
 
-Dark mode was not inspected for A4a's surfaces; they use the semantic tokens only. Visual baselines
-and the gates' scenarios for the editor are recorded at T1 (the A4a plan).
+The editor's surfaces (A4a, A4b, A4c) are in the accessibility and visual gates since T1
+(`helpers/designer-surfaces.mjs`: the type panel, the add-type and Move to… dialogs, the matrix, the
+history, the preview, the layout editor with its field group and sort dialogs, a consumer API's
+fields, Add field and schema, the install dialog, the editor at 390px), light and dark; dark mode was
+inspected then. US-P05 end to end, by keyboard and by clicking, is `test:browser:authoring-t1`.
 
 W1, W3, W4, S12 and S13 above describe these pages before U3. W3's capability status is replaced by
 Deployment's capability groups and a notice on a disabled page naming its setting.

@@ -1,4 +1,4 @@
-import { api } from "@/api/client";
+import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { formatServerTime } from "@/lib/dates";
 import { attributeName } from "@/model/fields";
@@ -22,6 +22,8 @@ export function HistoryPanel({
   hue?: Hue;
   refreshToken?: number;
 }) {
+  // The page's client: in the model editor's preview it answers an empty record's history itself.
+  const api = useDataApi();
   const { items, loading, error, hasMore, loadMore, retry } = useCursorFeed<AuditEventItem>(
     (cursor) => api.objectHistory(objectTypeKey, objectId, { cursor, pageSize: 20 }),
     [objectId, objectTypeKey, refreshToken],
