@@ -10,6 +10,7 @@ import io
 
 from openpyxl import Workbook
 from scenario import W1
+from sqlalchemy import event
 
 from app.db import SessionLocal
 from app.engine.imports.binding import ImportLimits, bind_import
@@ -27,6 +28,40 @@ def _workbook(path, sheets):
     buffer = io.BytesIO()
     book.save(buffer)
     path.write_bytes(buffer.getvalue())
+
+
+def _bind(path, profile, listen=None):
+    """Bind ``path`` through ``profile`` as an import's preview in W1, writing nothing;
+    ``listen(connection, statement)`` sees each statement before it runs."""
+    with SessionLocal() as session:
+        snapshot = resolve_model_snapshot(session)
+        job = start_job(
+            session,
+            kind="import",
+            workspace_key=W1,
+            change_set_id=None,
+            model_release_id=snapshot.release_db_id,
+            parameters={
+                "policy": "independent",
+                "stage": "preview",
+                "file": {"format": "xlsx"},
+                "profile": {"definition": profile},
+            },
+            total=None,
+            retention_days=7,
+            queued=True,
+        )
+        connection = session.connection()
+        if listen is not None:
+            event.listen(connection, "before_cursor_execute", listen)
+        try:
+            return bind_import(
+                session, job, path, snapshot.model, lambda: None, ImportLimits(10_000, 1_000_000)
+            )
+        finally:
+            if listen is not None:
+                event.remove(connection, "before_cursor_execute", listen)
+            session.rollback()
 
 
 def test_the_report_counts_each_binding_kind_per_column(seeded, tmp_path):
@@ -93,28 +128,7 @@ def test_the_report_counts_each_binding_kind_per_column(seeded, tmp_path):
             ],
         },
     )
-    with SessionLocal() as session:
-        snapshot = resolve_model_snapshot(session)
-        job = start_job(
-            session,
-            kind="import",
-            workspace_key=W1,
-            change_set_id=None,
-            model_release_id=snapshot.release_db_id,
-            parameters={
-                "policy": "independent",
-                "stage": "preview",
-                "file": {"format": "xlsx"},
-                "profile": {"definition": profile},
-            },
-            total=None,
-            retention_days=7,
-            queued=True,
-        )
-        bound = bind_import(
-            session, job, path, snapshot.model, lambda: None, ImportLimits(10_000, 1_000_000)
-        )
-        session.rollback()
+    bound = _bind(path, profile)
 
     tokens, branches = bound.report
     assert (tokens["sheet"], tokens["rows"], tokens["rejectedRows"]) == ("Tokens", 3, 0)
@@ -144,3 +158,66 @@ def test_the_report_counts_each_binding_kind_per_column(seeded, tmp_path):
     assert web["binding"] == phone["binding"] == "relationFlags"
     assert (web["empty"], web["resolved"], web["ambiguous"]) == (3, 1, 0)
     assert (phone["empty"], phone["resolved"], phone["ambiguous"]) == (3, 0, 1)
+
+
+def _subplan_reads(node, table, inside=False):
+    """Whether a plan node reads ``table`` inside a subplan run once per outer row."""
+    inside = inside or node.get("Parent Relationship") == "SubPlan"
+    if inside and node.get("Relation Name") == table:
+        return True
+    return any(_subplan_reads(child, table, inside) for child in node.get("Plans", []))
+
+
+def test_record_items_collect_relationship_links_once_not_per_row(seeded, tmp_path):
+    """0.10 A3 (found measuring the dry run): building the record items looked up each row's
+    required links in a subquery run per row, scanning every link each time, so binding a file
+    with a relationship column grew with rows times links (8 s of a 10,000-row file's 9 s). The
+    statement's plan reads ``import_links`` once, not in a per-row subplan."""
+    k = seeded.key
+    profile = {
+        "sources": [
+            {
+                "sheet": "Tokens",
+                "applicationKey": seeded.app("K"),
+                "objectTypeKey": k("K"),
+                "columns": [
+                    {"column": "Code", "attributeTypeKey": k("K.code")},
+                    {"column": "Name", "field": "name"},
+                ],
+            },
+            {
+                "sheet": "Branches",
+                "applicationKey": seeded.app("H"),
+                "objectTypeKey": k("H"),
+                "columns": [
+                    {"column": "Name", "field": "name"},
+                    {
+                        "column": "Tokens",
+                        "relation": {
+                            "relationTypeKey": k("Bnn"),
+                            "objectTypeKey": k("K"),
+                            "matchBy": {"attributeTypeKey": k("K.code")},
+                        },
+                    },
+                ],
+            },
+        ]
+    }
+    path = tmp_path / "file.source"
+    _workbook(
+        path,
+        {
+            "Tokens": [("Code", "Name"), ("LTK1", "Link one"), ("LTK2", "Link two")],
+            "Branches": [("Name", "Tokens"), ("Linked one", "LTK1"), ("Linked two", "LTK2")],
+        },
+    )
+    plans = []
+
+    def explain(connection, cursor, statement, parameters, context, executemany):
+        if statement.lstrip().startswith("INSERT INTO import_items") and "SELECT 1," in statement:
+            cursor.execute("EXPLAIN (FORMAT JSON) " + statement, parameters)
+            plans.append(cursor.fetchone()[0][0]["Plan"])
+
+    _bind(path, profile, explain)
+    (plan,) = plans
+    assert not _subplan_reads(plan, "import_links"), plan

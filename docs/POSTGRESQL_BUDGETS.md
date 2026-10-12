@@ -647,11 +647,18 @@ journey application with the test worker running each job to its end (D67's meas
 | Upload (stored, profile job queued) | 0.07 s |
 | Profile job (read, 330,000 cells staged by `COPY`, blocks, statistics, overlaps) | 6.3 s |
 | Dry run (bind from the staged cells, preview of every item, summary) | 19.8 s for 19,453 items |
+| … after the binding fix below: binding / preview | 1.4 s / 11.8 s |
 
-No budget was set for A3 (D67 withdrew D9's 1 s). Per item the dry run costs what J3's preview did
-(§9: 10.6 s for 10,000 items, binding included). The preview step holds the workspace's write lock
-for most of the 19.8 s, so live writes in that workspace wait that long once per dry run; how much
-of the time is binding and how much preview was not split. Running the dry run in a change-set
-context, which takes the workspace lock in key-share mode and does not block live writes, is the
-known alternative (§9's 18 s per 10,000 items in a change set), recorded in TODO for a decision.
+No budget was set for A3 (D67 withdrew D9's 1 s). **Split and fixed the same day** (one profiled
+run, one run timing each statement, one run after the fix): binding took 9.3 s, 8.1 s of it one
+statement, the record items, which looked up each row's required relationship links in a subquery
+run per row and so scanned every link for every row (rows × links; any import whose profile has a
+relationship column paid it, which J3's budget files did not have). Collected once with a grouped
+join, binding takes 1.4 s; `test_binding` holds the statement's plan free of a per-row read of the
+links. The preview, 11.8 s, holds the workspace's write lock: about 5 s is PostgreSQL writing the
+rows it then rolls back (audit entries 1.2 s with their subjects 0.4 s, attribute values 0.9 s,
+relation set versions 0.8 s, records 0.5 s, relationships 0.4 s) and about 6.5 s Python (psycopg
+rewriting multi-row statements of up to 368,000 characters, and the ORM's bookkeeping). Running the
+dry run in a change-set context, which does not block live writes, remains an alternative (§9's 18 s
+per 10,000 items in a change set). Options for the preview are recorded in TODO.
 

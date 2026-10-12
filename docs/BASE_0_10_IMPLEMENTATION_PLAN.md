@@ -2199,6 +2199,12 @@ changed it; through the API only (no editor surface, A5's). What is built:
 `UNIT_GROUPS`, although EXECUTION_GUIDE lists it under `jobs`, so a `-m jobs` run leaves it out;
 `engine/sources/` was added to the map.
 
+**Follow-up the same day, at the user's request:** the 19.8 s split into binding 9.3 s (8.1 s of it
+one statement looking up relationship links per row, a 0.9 import defect) and preview 11.5 s; the
+statement now collects the links once (1.4 s), held by a plan check in `test_binding`; `jobs` group
+370 passed, import unit tests and J34 passed; the dry run is 13.2 s. The preview's options are in
+TODO for an A3a.
+
 **Measured once** (D67, POSTGRESQL_BUDGETS §11): W1 at 10,000 rows profiled in 6.3 s, dry run 19.8 s
 for 19,453 items, about J3's cost per item; the preview holds the workspace's write lock most of that
 time. Recorded in TODO with the options, for a decision before A5 runs a dry run after every step.

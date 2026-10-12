@@ -410,11 +410,15 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   - [x] T1 designer checkpoint (US-P05), released as 0.10.0-alpha.1 (D14), 2026-10-12.
   - [x] A3 source profiling and the dry-run summary; the synthetic workbooks W1–W3 (delivered
     2026-10-12).
-  - [ ] A3: a dry run of W1 at 10,000 rows takes 19.8 s and holds the workspace's write lock for its
-    preview (POSTGRESQL_BUDGETS §11), so live writes in the workspace wait once per dry run. Options,
-    for the user to decide before A5 runs a dry run after every editor step: keep it (superseded runs
-    are cancelled), run it in a change-set context that does not block live writes (slower, about
-    18 s per 10,000 items in 0.9), or measure the split between binding and preview first.
+  - [x] A3: the dry run's binding of W1 at 10,000 rows took 9.3 s, 8.1 s of it the record items'
+    per-row lookup of relationship links (also every import with a relationship column); fixed with
+    a grouped join, 1.4 s (2026-10-12, POSTGRESQL_BUDGETS §11).
+  - [ ] A3: the dry run's preview of W1 at 10,000 rows takes 11.8 s and holds the workspace's write
+    lock, so live writes in the workspace wait once per dry run. Proposed before A5 (as an A3a, to be
+    planned and accepted): skip audit entries in a preview (no rule reads them; about 1.5–2.5 s), and
+    send bulk writes as arrays or by `COPY` instead of multi-row statements (most of the 4–5 s of
+    statement building, for every batch, import and preview). The change-set context that does not
+    block live writes remains the other option.
   - [ ] A5 editor with a source file: source and mapping panes, saved and re-run profiles.
   - [ ] A6 inference over the table patterns.
   - [ ] A7 model-description sheets and matching across files (below the cut line).

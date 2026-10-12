@@ -32,7 +32,13 @@ One migration (`20261012_01`, source files and the `profile` and `dryRun` job ki
 
 - Base 0.10 A3: D9's interactive dry-run budget (1 s for 10,000 rows, a sample above it) is replaced
   by D67, at the user's decision: every dry run checks the whole file. Measured once: profiling W1 at
-  10,000 rows takes 6.3 s, its dry run 19.8 s (19,453 items).
+  10,000 rows takes 6.3 s, its dry run 13.2 s (19,453 items) after the fix below.
+
+### Fixed
+
+- Binding an import whose profile has a relationship column grew with rows times links: the record
+  items looked up each row's required links in a subquery run per row. They are collected once with
+  a grouped join; a 10,000-row file binds in 1.4 s instead of 9.3 s.
 - `GET /jobs/{id}/rows` serves a dry run's rows too and takes `source` and `code` internally for the
   dry-run rows route; the job list's `kind` filter takes `profile` and `dryRun`.
 

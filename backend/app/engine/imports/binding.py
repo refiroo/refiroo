@@ -1726,15 +1726,20 @@ class _ProfileBinding:
                 || CASE WHEN r.parent_id IS NOT NULL
                     THEN jsonb_build_object('parent', jsonb_build_object('id', r.parent_id))
                     ELSE '{{}}'::jsonb END
-                || coalesce((
-                    SELECT jsonb_build_object('initialRelations', jsonb_agg(DISTINCT jsonb_build_object(
+                || coalesce(required.relations, '{{}}'::jsonb)
+            FROM import_rows r
+            -- The required links of each row and of the rows repeating its key, collected once
+            -- (a lookup per row scanned every link each time: rows times links, 0.10 A3).
+            LEFT JOIN (
+                SELECT coalesce(g.rep_id, g.row_id) AS row_id,
+                    jsonb_build_object('initialRelations', jsonb_agg(DISTINCT jsonb_build_object(
                         'relationTypeKey', l.relation_type_key, 'direction', 'incoming',
-                        'object', jsonb_build_object('id', l.target_id))))
-                    FROM import_links l JOIN import_rows g ON g.row_id = l.row_id
-                    WHERE l.required AND l.target_id IS NOT NULL AND g.error IS NULL
-                      AND (g.row_id = r.row_id OR g.rep_id = r.row_id)
-                    HAVING count(*) > 0), '{{}}'::jsonb)
-            FROM import_rows r WHERE r.error IS NULL AND r.rep_id IS NULL AND r.mode = 'upsert'
+                        'object', jsonb_build_object('id', l.target_id)))) AS relations
+                FROM import_links l JOIN import_rows g ON g.row_id = l.row_id
+                WHERE l.required AND l.target_id IS NOT NULL AND g.error IS NULL
+                GROUP BY coalesce(g.rep_id, g.row_id)
+            ) required ON required.row_id = r.row_id
+            WHERE r.error IS NULL AND r.rep_id IS NULL AND r.mode = 'upsert'
             """
         )
         self._sql(

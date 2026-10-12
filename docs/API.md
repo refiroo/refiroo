@@ -4115,8 +4115,8 @@ and a dry run whose draft has changed since it was sent stops as `cancelled`.
   a figure, as `GET /jobs/{id}/rows` does for an import (which also serves a dry-run job); `code`
   keeps the rows with an outcome refused with it.
 - The dry run is a job of kind `dryRun`, listed by `GET /jobs`. It holds the workspace's write lock
-  while it previews, as an import's preview does: 19.8 s in all for W1 at 10,000 rows (19,453
-  items) on the reference machine (POSTGRESQL_BUDGETS).
+  while it previews, as an import's preview does: 13.2 s in all for W1 at 10,000 rows (19,453
+  items) on the reference machine, 11.8 s of it the preview (POSTGRESQL_BUDGETS).
 - Refusals: `422 INVALID_MODEL` with the diagnostics for a draft that does not compile (D71), `422
   INVALID_IMPORT_PROFILE` with every problem at its pointer, `404 SOURCE_FILE_NOT_FOUND` for a file
   the draft does not own, `409 SOURCE_FILE_PROFILE_NOT_READY`, `404 DRY_RUN_NOT_FOUND` (reads
