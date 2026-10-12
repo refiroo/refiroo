@@ -519,8 +519,9 @@ its parameters, state, progress and one outcome per item, kept for a retention p
 - **Previews** (`engine/jobs/preview.py`; imports 0.9 J3, batches 0.9 K2): after an import's binding,
   or once a batch sent with `stage: preview` is claimed, the worker runs the first
   `JOB_PREVIEW_MAX_ITEMS` items through `run_items` independently, in one transaction it
-  rolls back whole, so records, relationships, feed positions, audit entries, matrix states, unique
-  values and change-set versions go together and PostgreSQL drops the transaction's notifications;
+  rolls back whole, so records, relationships, matrix states, unique values and change-set versions
+  go together and PostgreSQL drops the transaction's notifications; it records no audit entry and
+  takes no feed position at all (`audit.trial_run`, 0.10 A3a, D72), since nothing in it reads them;
   a short transaction holding the lease then records the outcomes and the summary, and the job waits
   in `awaiting_confirmation` without a lease, which no worker claims. Confirming (under the job row's
   lock, after the context is checked again) removes the preview's outcomes and queues the job: an

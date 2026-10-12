@@ -51,7 +51,10 @@ run, is delivered (2026-10-12)** through the API: a workbook kept with a draft o
 staged once in PostgreSQL; its sheets' blocks and header rows and each column's statistics; a dry
 run of the whole file through an inline profile against the draft's model, writing nothing, with its
 difference from the last one and the rows behind each figure (D65–D71; D67, changed by the user,
-replaces D9's sample); `sourceFileId` on imports; the W1–W3 generators. Next is A5.
+replaces D9's sample); `sourceFileId` on imports; the W1–W3 generators. Measuring the dry run found an
+import binding defect (relationship links looked up per row), fixed the same day, and **A3a** (a
+trial run records no audit entries, relation sets advance from arrays) brought the dry run of a
+10,000-row workbook from 19.8 s to about 7 s. Next is A5.
 
 ### How 0.9 was built
 

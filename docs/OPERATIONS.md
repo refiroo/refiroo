@@ -210,8 +210,8 @@ owned by a model draft or an import profile.
   for a 10,000-row workbook of two sheets; they go with their file.
 - **Jobs:** profiling (`profile`) and dry runs (`dryRun`) run on the batch worker beside imports and
   batches. A dry run previews every row of its file in one rolled-back transaction, holding its
-  workspace's write lock that long, as an import's preview does: 11.8 s of the 13.2 s a 10,000-row
-  workbook (19,453 items) takes on the reference machine, so live writes in that workspace wait that long once per
+  workspace's write lock that long, as an import's preview does: 5.75 s of the about 7 s a
+  10,000-row workbook (19,453 items) takes on the reference machine, so live writes in that workspace wait that long once per
   dry run. A newer dry run of the same draft cancels a running one.
 
 ## Consumer events

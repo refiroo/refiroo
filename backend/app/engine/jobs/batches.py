@@ -69,7 +69,7 @@ from ..indexes.unique_values import DuplicateValueWritten
 from ..model import registry
 from ..model.registry import resolve_model_snapshot
 from ..records import rules
-from ..records.audit import audit_cause
+from ..records.audit import audit_cause, trial_run
 from ..records.batch_lookup import BatchLookup, ChangeSetBatchLookup, LiveBatchLookup
 from ..records.bulk import write_change_set, write_live
 from ..records.counterparts import counterpart
@@ -233,7 +233,11 @@ def run_items(
     outer = session.begin_nested()
     try:
         # The outer savepoint's release applies the items' matrix notes once (ADR-033).
-        with audit_cause(session, "job", job_id), matrix_states.deferred(session):
+        with (
+            audit_cause(session, "job", job_id),
+            trial_run(session) if previewing else nullcontext(),
+            matrix_states.deferred(session),
+        ):
             claim = (
                 ChangeSetWrites(session, context.change_set).hold_claim(expected_change_set_version)
                 if context.change_set is not None

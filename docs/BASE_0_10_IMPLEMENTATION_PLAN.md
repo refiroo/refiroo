@@ -10,7 +10,7 @@ T1, A3, A5–A8 and R are specified below at package level; each package's detai
 and decisions are written and accepted when it starts, and it is delivered in the order of the
 [delivery queue](#delivery-queue), each by the [delivery steps](#how-a-package-is-delivered).
 **Delivered:** A0, N1, A2, A4a (2026-10-11); A4b, A4c and T1, released as 0.10.0-alpha.1 (2026-10-12);
-A3 (2026-10-12).
+A3 and A3a (2026-10-12).
 
 **Target:** Product 0.10.0, [model authoring and spreadsheet onboarding](ROADMAP.md#product-release-010--model-authoring-and-spreadsheet-onboarding).
 The `navigation` declaration (A-D2) extends the model, so 0.10 opens the next schema language version
@@ -235,6 +235,7 @@ migration), `contract` (every route change) and `volume` (every budget).
 | 6 | [A4c](#a4c-editor--consumer-apis) | A4a, A4b | **Delivered 2026-10-12.** The consumer API editor: a Consumer APIs tab beside Model; definitions changed by six kinds; their schema and message example; the contract at activation |
 | 7 | [T1](#t1-designer-checkpoint) | A4b, A4c | **Delivered 2026-10-12, released as 0.10.0-alpha.1.** US-P05 composed in the browser on two models; the designer's gates; tagged `v0.10.0-alpha.1` (D14) |
 | 8 | [A3](#a3-source-profiling-and-the-dry-run-summary) | A0 | **Delivered 2026-10-12.** Source files, profiles of sheets and columns, the dry run of the whole file; W1–W3 generators |
+| 8a | [A3a](#a3a-a-faster-trial-run) | A3 | **Delivered 2026-10-12.** A trial run records no audit entries (D72); sets advance from arrays (D73) |
 | 9 | [A5](#a5-editor-with-a-source-file) | A3, T1 | Source and mapping panes, mapping operations, profiles following the model, load, saved profiles and re-runs |
 | 10 | [A6](#a6-inference-over-table-patterns) | A5 | Proposals from the table patterns; new application or extending the active model; pinned decisions |
 | — | _cut line (D2)_ | | _If R is out of reach, 0.10.0 releases here and A7, A8 move to 0.10.x_ |
@@ -2222,6 +2223,82 @@ the upgrade, and the downgrade. `test_api_journeys`, `test_openapi_contract`, `t
 `npm run build`: passed. **Not run:** the `authoring` group's 2,632 A2 cases (no code of theirs
 changed), every browser runner (no surface changed beyond the job titles), the full suites (R).
 
+### A3a: A faster trial run
+
+**Needs:** A3. Added by the user on 2026-10-12, after the dry run of W1 at 10,000 rows measured
+19.8 s and the binding fix brought it to 13.2 s, 11.8 s of it the trial run (the J3 preview), which
+holds the workspace's write lock (POSTGRESQL_BUDGETS §11). The trial run is shared: a dry run, an
+import's preview and a batch's preview all run it.
+
+##### A3a plan (2026-10-12)
+
+**Planned 2026-10-12; accepted by the user the same day ("yes"), D72, D73 and the test cases as
+recommended.** Checked
+against the code at `4d29daa`, with the statement timings of §11:
+
+- **Audit entries in a trial run** cost 1.6 s in PostgreSQL (`audit_events` 1.2 s, their subjects
+  0.4 s) plus building them in Python (`to_jsonable` over every change), and take feed positions.
+  Both bulk write paths call `record_all` (`engine/records/bulk.py`) and ignore what it returns; no
+  rule, lookup or summary reads an audit entry within a run; the run is rolled back.
+- **The very large statements are one function's.** `increment_set_versions_by`
+  (`engine/records/relation_set_versions.py`) writes up to 1,000 sets per `INSERT … VALUES` with ten
+  named parameters per row, about 368,000 characters each: 0.8 s in PostgreSQL for W1 and most of
+  the 4.5 s (profiled) psycopg spends turning statements into PostgreSQL's form. The record, value
+  and relationship inserts are short statements and are not changed.
+- The rest (about 5 s) is PostgreSQL writing the rows the trial run tests, and the ORM's bookkeeping;
+  A3a does not change it.
+
+**Decisions:**
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D72 | Audit entries in a trial run | **A trial run records none and takes no feed position: `run_items(previewing=True)` marks the session, and `record_audit_events` writes nothing while it is marked.** No reader exists inside the run and everything is rolled back, so the outcome of every item is unchanged. An execution, and every single write, audits as before |
+| D73 | How sets advance in bulk | **One `INSERT … SELECT … FROM unnest(…)` per thousand sets, each column one array parameter, with the same `ON CONFLICT` rules and the same key order.** It writes exactly what it writes today, for every batch, import, preview and live write; the statement stays short whatever the number of sets. `COPY` was considered and set aside: it cannot express the conflict rule that advances an existing set |
+
+**Expected:** the trial run of W1 from 11.8 s to about 8–9 s, and the lock with it; the binding
+(1.4 s) is unchanged. Measured once after the change.
+
+**Test cases** (behaviour is unchanged, so no new journey; the existing journeys of previews and
+relation sets are the cases):
+
+1. **Unit, `tests/unit/engine/records/test_relation_set_versions.py`:** advancing more than 1,000
+   sets at once, some already written and some new, live and in a change set, leaves each at its old
+   version plus its count (generated over counts and existing versions).
+2. **Unit, `tests/unit/engine/records/test_audit.py`:** while a session is marked as a trial run,
+   recorded entries write no event, no subject and take no feed position; unmarked, they do.
+3. **Existing journeys rerun as the cases of the shared paths:** J27.11 and J11's previews (outcomes
+   and summaries unchanged), J34 (the dry run's summary unchanged), the relation set journeys (J13,
+   J24's set versions), and `test_batch_statements` (its statement counts, updated only where a
+   preview's audit statements disappear).
+
+**Groups:** `jobs`, `records`, `change_sets` (the write paths), `volume`'s `test_batch_statements`;
+`ruff`. No migration, route or frontend change.
+
+**Composable domains (ADR-032):** audit and history are unchanged for every write that commits; a
+trial run never committed any. No door is affected.
+
+##### A3a record (2026-10-12)
+
+**Delivered 2026-10-12** as planned (D72, D73). `engine/records/audit.trial_run` marks a session
+during a trial run and `record_audit_events` writes nothing while it is marked; `run_items` marks
+it when previewing. `increment_set_versions_by` advances up to 1,000 sets per
+`INSERT … SELECT … FROM unnest(…) WITH ORDINALITY`, each column one array parameter, with the
+same conflict targets (the live partial index, the change-set constraint) and key order.
+
+**Measured once** (W1 at 10,000 rows, 19,453 items, as §11): binding 1.24 s, trial run **5.75 s**
+(11.8 s before; the plan expected 8–9 s), the dry run about 7 s in all, with the same summary
+(9,453 records, 9,453 relationships, the placeholder rows refused). The workspace's write lock is
+held about 5.8 s per dry run.
+
+**Checks:** the two unit tests (`test_audit`'s trial-run case, written first and seen failing on the
+missing marker; `test_relation_set_versions`, 6 cases over three seeds, live and in a change set,
+passing before and after as the plan's guard). The groups `jobs`, `records` and `change_sets` in
+parallel: 1,064 passed, and their 3 serial cases; `test_batch_statements` unchanged and passing
+(its counts measure executions, not previews); `tests/unit/engine/imports/` and J34: passed.
+`ruff check app/ tests/`: clean. **Over the ceiling:** the three groups took 3 min 40 s, above a
+package's 2-minute ceiling (AGENTS.md), and the run was not announced beforehand; the selection was
+the guide's for the write paths the package changed.
+
 ### A5: Editor with a source file
 
 **Design:** [MODEL_AUTHORING layout and recurring loads](MODEL_AUTHORING.md#recurring-loads-and-reconciliation),
@@ -2388,5 +2465,6 @@ Design-level decisions are [A-D1–A-D12](MODEL_AUTHORING.md#open-decisions).
 
 ## Next
 
-1. A5, the editor with a source file, starting with its plan; before it, the user's decisions on
-   A3's two test-case gaps and on the dry run's write lock (TODO). A3 is delivered (2026-10-12).
+1. A5, the editor with a source file, starting with its plan; before it, the user's decision on
+   A3's two test-case gaps and a look at the W1′, W2 and W3 samples. A3 and A3a are delivered
+   (2026-10-12).

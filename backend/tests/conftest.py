@@ -183,6 +183,7 @@ UNIT_GROUPS: dict[str, tuple[str, ...]] = {
     "engine/reads/": ("consumer",),
     "engine/sources/": ("authoring", "jobs"),
     "engine/records/test_audit.py": ("records", "jobs"),
+    "engine/records/test_relation_set_versions.py": ("records", "jobs"),
     "models/test_commands.py": ("jobs",),
     "models/test_database.py": ("startup", "jobs"),
     "test_config.py": ("startup", "jobs"),

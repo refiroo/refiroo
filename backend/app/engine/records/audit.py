@@ -16,6 +16,7 @@ _HISTORY_KEYS = (
     integer_key("sequenceId", AuditEvent.sequence_id, "sequence_id", descending=True),
 )
 _CAUSE = "audit_cause"
+_TRIAL = "audit_trial_run"
 
 
 @contextmanager
@@ -30,6 +31,18 @@ def audit_cause(session: Session, kind: str, cause_id: str) -> Iterator[None]:
         yield
     finally:
         session.info.pop(_CAUSE, None)
+
+
+@contextmanager
+def trial_run(session: Session) -> Iterator[None]:
+    """A trial run (a preview or a dry run, rolled back whole) meanwhile: decided writes record no
+    audit entry and take no feed position (0.10 A3a, D72). Nothing within a run reads them, and
+    the run commits nothing."""
+    session.info[_TRIAL] = True
+    try:
+        yield
+    finally:
+        session.info.pop(_TRIAL, None)
 
 
 def audit_cause_of(session: Session) -> tuple[str | None, str | None]:
@@ -72,7 +85,7 @@ def record_audit_events(
     multi-row inserts whose sequence numbers come back for their subjects. With
     ``workspace_key`` they change its live data and take feed positions (``LiveWrites.record_all``).
     """
-    if not entries:
+    if not entries or session.info.get(_TRIAL):
         return []
     cause_kind, cause_id = session.info.get(_CAUSE, (None, None))
     events = [

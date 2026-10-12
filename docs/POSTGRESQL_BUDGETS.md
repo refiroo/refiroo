@@ -648,6 +648,7 @@ journey application with the test worker running each job to its end (D67's meas
 | Profile job (read, 330,000 cells staged by `COPY`, blocks, statistics, overlaps) | 6.3 s |
 | Dry run (bind from the staged cells, preview of every item, summary) | 19.8 s for 19,453 items |
 | … after the binding fix below: binding / preview | 1.4 s / 11.8 s |
+| … after A3a (no audit in a trial run, sets from arrays): binding / preview | 1.24 s / 5.75 s |
 
 No budget was set for A3 (D67 withdrew D9's 1 s). **Split and fixed the same day** (one profiled
 run, one run timing each statement, one run after the fix): binding took 9.3 s, 8.1 s of it one
@@ -660,5 +661,7 @@ rows it then rolls back (audit entries 1.2 s with their subjects 0.4 s, attribut
 relation set versions 0.8 s, records 0.5 s, relationships 0.4 s) and about 6.5 s Python (psycopg
 rewriting multi-row statements of up to 368,000 characters, and the ORM's bookkeeping). Running the
 dry run in a change-set context, which does not block live writes, remains an alternative (§9's 18 s
-per 10,000 items in a change set). Options for the preview are recorded in TODO.
+per 10,000 items in a change set). **A3a** (D72, D73) then removed the trial run's audit entries
+and wrote the relation set increments as one array statement per thousand sets: the preview takes
+5.75 s, the dry run about 7 s.
 

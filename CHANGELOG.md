@@ -32,7 +32,11 @@ One migration (`20261012_01`, source files and the `profile` and `dryRun` job ki
 
 - Base 0.10 A3: D9's interactive dry-run budget (1 s for 10,000 rows, a sample above it) is replaced
   by D67, at the user's decision: every dry run checks the whole file. Measured once: profiling W1 at
-  10,000 rows takes 6.3 s, its dry run 13.2 s (19,453 items) after the fix below.
+  10,000 rows takes 6.3 s, its dry run about 7 s (19,453 items) after the fix and A3a below.
+- Base 0.10 A3a: a trial run (an import's or a batch's preview, a dry run) records no audit entry and
+  takes no feed position (D72), and relation sets advance in one array statement per thousand sets
+  for every write (D73); the trial run of a 10,000-row workbook takes 5.75 s instead of 11.8 s, and
+  holds the workspace's write lock that much shorter.
 
 ### Fixed
 
