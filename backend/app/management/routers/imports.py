@@ -5,6 +5,7 @@
 progress and outcomes are the job routes' (``jobs.py``).
 """
 
+from contextlib import nullcontext
 from typing import Annotated
 
 from fastapi import APIRouter, File, Form, Header, Query, Request, Response, UploadFile
@@ -21,6 +22,8 @@ from ...engine.imports.profiles import (
 )
 from ...engine.imports.submit import Upload, submit_import
 from ...engine.jobs.inline import BatchLimits
+from ...engine.sources.store import stored_upload
+from ...errors import api_error
 from ...models.imports import ImportProfileCreate, ImportProfileUpdate, ImportRequest
 from ..dependencies import DbSession
 from ..paging import PageQuery
@@ -98,16 +101,23 @@ def delete_import_profile(
 def create_import(
     request: Request,
     session: DbSession,
-    file: Annotated[UploadFile, File(description="The XLSX, CSV or JSON Lines file")],
     payload: Annotated[
         Json[ImportRequest],
         Form(
             alias="request",
             description="The import request as JSON: the context (workspaceKey, or changeSetId "
             "with expectedChangeSetVersion), profileKey or an inline profile (neither for JSON "
-            "Lines or an export's tables), format, policy, onExisting and stage",
+            "Lines or an export's tables), format, policy, onExisting and stage; sourceFileId "
+            "to import a stored source file in place of the file part",
         ),
     ],
+    file: Annotated[
+        UploadFile | None,
+        File(
+            description="The XLSX, CSV or JSON Lines file; none when the request names "
+            "sourceFileId"
+        ),
+    ] = None,
     idempotency_key: str | None = Header(
         default=None,
         alias="Idempotency-Key",
@@ -124,20 +134,35 @@ def create_import(
     that cannot be bound (a value that does not convert, a match finding no record or several, a
     key repeated with other values) is rejected with the column. Under ``atomic`` such a row stops
     the import before anything is written. A file that does not fit the profile fails the job with
-    every problem (``IMPORT_FILE_MISMATCH``). Refused before a job is stored: ``413
+    every problem (``IMPORT_FILE_MISMATCH``). ``sourceFileId`` imports a stored source file (0.10
+    A3) instead of a file part. Refused before a job is stored: ``413
     IMPORT_TOO_LARGE``, ``422 UNSUPPORTED_FILE_FORMAT``, ``422 INVALID_IMPORT_PROFILE`` and the
     context's codes.
     """
     limits: BatchLimits = request.app.state.batch_limits
-    upload = Upload.read(file.filename or "", file.file, limits.import_max_bytes)
-    job, replayed = submit_import(
-        session,
-        payload,
-        upload,
-        files=request.app.state.job_files,
-        idempotency_key=idempotency_key,
-        retention_days=limits.retention_days,
-    )
+    files = request.app.state.job_files
+    if (file is None) == (payload.sourceFileId is None):
+        raise api_error(
+            422,
+            "REQUEST_VALIDATION_ERROR",
+            "Send the file part or name a stored source file in sourceFileId, not both",
+            [{"loc": ["body", "file"], "msg": "file or request.sourceFileId, exactly one"}],
+        )
+    with (
+        stored_upload(
+            session, payload.sourceFileId, files=files, max_bytes=limits.import_max_bytes
+        )
+        if file is None
+        else nullcontext(Upload.read(file.filename or "", file.file, limits.import_max_bytes))
+    ) as upload:
+        job, replayed = submit_import(
+            session,
+            payload,
+            upload,
+            files=files,
+            idempotency_key=idempotency_key,
+            retention_days=limits.retention_days,
+        )
     worker = getattr(request.app.state, "job_worker", None)
     if worker is not None:
         worker.wake()

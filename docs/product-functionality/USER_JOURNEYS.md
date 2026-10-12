@@ -880,9 +880,9 @@ an empty draft and extending the active model to records and the consumer tier, 
 ### J34 — Onboard a workbook
 
 **Actor:** model administrator. **Channel:** UI (the editor with a workbook), API.
-**Stories:** US-P09. **Scenario:** SC-12. **Status:** planned: profiling A3, editor with a source
-file A5, inference A6; model-description sheets A7 and sheets laid out for reading A8 (below the
-cut line).
+**Stories:** US-P09. **Scenario:** SC-12. **Status:** J34.1 and J34.3 delivered through the API
+(0.10 A3); the editor with a source file A5, inference A6; model-description sheets A7 and sheets
+laid out for reading A8 (below the cut line).
 
 1. Upload a workbook to a new or open draft; read its sheets, blocks and column statistics.
 2. Accept, change or reject the proposed model and mapping, or map by hand.
@@ -896,7 +896,8 @@ cut line).
 - **J34.2 Map by hand**: columns to attributes, parents, relations, related records; values mapped;
   a column ignored.
 - **J34.3 The dry run follows the editing**: after a rename, a move or a value map, the summary and
-  its difference from the last one; a sample above the row limit, the full run on request.
+  its difference from the last one; every row of the file checked, a dry run of a draft changed
+  since it was sent cancelled; nothing written.
 - **J34.4 Proposals**: each table pattern proposed with its evidence; accepted, changed or rejected;
   nothing applied unasked.
 - **J34.5 Extend the active model**: columns matched to existing types and attributes, not duplicated.

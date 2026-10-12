@@ -196,6 +196,11 @@ can complete the task in the application; "API" means another system can.
   on Jobs and feed previews a file, shows its refused rows and how its columns were read, and loads it
   on confirmation. Another workspace's export loads as the workspace's own records, whole, and sent
   again changes nothing.
+- Keep a workbook with a model draft and read its profile: its sheets' lists and header rows, and per
+  column what its values are, whether it identifies a row, how its values are split, the values that
+  stand for nothing and where else the same values occur; then dry-run the whole file through an
+  import profile against the draft's model, as if it were installed, and read what the import would
+  do, how that differs from the last dry run, and the rows behind each figure, with nothing written.
 - Declare consumer APIs in the model: the read-only contracts other systems will use, written as
   what each one exposes, offers, looks like and filters by, with defaults for what is left out, and
   checked so that a breaking change needs a new contract version. Another system reads one business object through

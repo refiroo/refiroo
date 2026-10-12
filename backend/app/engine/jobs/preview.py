@@ -26,7 +26,7 @@ from sqlalchemy.orm import Session
 from ...models.commands import BatchItem
 from ...models.database import Job
 from .batches import BatchContext, run_items
-from .store import ItemOutcome, await_confirmation, load_inputs, record_outcomes
+from .store import ROW_KINDS, ItemOutcome, await_confirmation, load_inputs, record_outcomes
 
 _ITEM = TypeAdapter(BatchItem)
 
@@ -124,7 +124,7 @@ def preview_summary(session: Session, job: Job) -> dict[str, Any]:
         "result": result,
         "previewedAt": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
     }
-    if job.kind == "import":
+    if job.kind in ROW_KINDS:
         rows, previewed, rejected = session.execute(
             text(_ROWS), {"job": job.sequence_id, "processed": job.processed}
         ).one()

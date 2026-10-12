@@ -46,7 +46,12 @@ is delivered and the designer released as 0.10.0-alpha.1 (2026-10-12, tag `v0.10
 once by keyboard alone and once by clicking (`test:browser:authoring-t1`); the designer's surfaces in
 the accessibility and visual gates, light and dark; the backend groups and the upgrade of a database
 built by 0.9.0. It fixed two defects: marks read changed after an installation (A4a), and the
-preview's History panel read the live API (A4b). Next is A3, the spreadsheet line.
+preview's History panel read the live API (A4b). **A3, source files, their profiles and the dry
+run, is delivered (2026-10-12)** through the API: a workbook kept with a draft or a profile and
+staged once in PostgreSQL; its sheets' blocks and header rows and each column's statistics; a dry
+run of the whole file through an inline profile against the draft's model, writing nothing, with its
+difference from the last one and the rows behind each figure (D65–D71; D67, changed by the user,
+replaces D9's sample); `sourceFileId` on imports; the W1–W3 generators. Next is A5.
 
 ### How 0.9 was built
 

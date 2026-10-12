@@ -30,6 +30,11 @@ batch's. Its file goes once the job finishes. A preview (0.9 J3) runs its items 
 rolled back (``preview.py``), records what they would do and waits for confirmation without
 a lease; a confirmed preview is queued again and binds its file anew (D81).
 
+**Source files** (0.10 A3): a ``profile`` job stages a source file's cells and profiles them in one
+step (``sources/profiling.py``). A ``dryRun`` binds a draft's source file from its staged cells and
+previews every item against the draft's model, as an import's preview does, then completes with its
+summary (``sources/dry_run.py``); it stops as ``cancelled`` once its draft has changed.
+
 **Exports** (Base 0.9 J1, D53) run on a worker of their own, which claims only ``export`` jobs while
 the batch worker claims the rest, so neither kind waits behind the other. An export runs in one
 step from one snapshot (``exports.py``); a cancel request, the lease and progress go through a short
@@ -58,14 +63,23 @@ from ...errors import ApiError
 from ...models.commands import BatchItem
 from ...models.database import ChangeSet, Job
 from ..imports.binding import ImportLimits, bind_import
+from ..sources.dry_run import (
+    book_opener,
+    dry_run_context,
+    record_dry_run,
+    superseded,
+)
+from ..sources.profiling import profile_source_file
+from ..sources.store import expire_superseded
 from .background import open_job_context
-from .batches import JobCancelled, run_items
+from .batches import BatchContext, JobCancelled, run_items
 from .exports import ExportCancelled, ExportControl, run_export
 from .files import JobFiles
 from .preview import preview_items, record_preview
 from .store import (
     FINISHED,
     PREVIEWED_KINDS,
+    ROW_KINDS,
     complete_job,
     expire_jobs,
     finish_export,
@@ -87,7 +101,7 @@ SWEEP_SECONDS = 3600.0
 # The worker threads' names, which a measurement of one request's statements leaves out.
 THREAD_NAME = "rdm-job-worker"
 EXPORT_THREAD_NAME = "rdm-export-worker"
-BATCH_KINDS = ("batch", "import")
+BATCH_KINDS = ("batch", "import", "profile", "dryRun")
 EXPORT_KINDS = ("export",)
 _ITEM = TypeAdapter(BatchItem)
 
@@ -154,11 +168,17 @@ class JobWorker:
         return chunks
 
     def sweep(self, now: datetime | None = None) -> int:
-        """Expire finished jobs past their retention and remove the files no job serves any more;
-        the number expired."""
+        """Expire finished jobs past their retention, delete source files superseded longer ago
+        (0.10 A3, D5) and remove the files no job or source file serves any more; the number of
+        jobs expired."""
+        now = now or datetime.now(UTC)
         with self.session_factory() as session:
-            expired = expire_jobs(session, now or datetime.now(UTC))
+            expired = expire_jobs(session, now)
+            superseded_files = expire_superseded(session, now, self.settings.retention_days)
             session.commit()
+            if self.files is not None:
+                for source_file_id in superseded_files:
+                    self.files.upload(source_file_id).unlink(missing_ok=True)
             if self.files is not None:
                 self.files.reconcile(session)
         return expired
@@ -194,7 +214,8 @@ class JobWorker:
                 .values(
                     state="running",
                     stage=case(
-                        ((Job.kind == "import") & Job.total.is_(None), "binding"),
+                        ((Job.kind == "profile"), "profiling"),
+                        (Job.kind.in_(ROW_KINDS) & Job.total.is_(None), "binding"),
                         (
                             Job.kind.in_(PREVIEWED_KINDS)
                             & Job.confirmed_at.is_(None)
@@ -232,7 +253,9 @@ class JobWorker:
                 self._run_export(job)
                 return
             try:
-                if job.kind == "import" and job.total is None:
+                if job.kind == "profile":
+                    self._profile(session, job)
+                elif job.kind in ROW_KINDS and job.total is None:
                     self._bind(session, job)
                 elif previewing(job):
                     self._preview(session, job)
@@ -307,18 +330,19 @@ class JobWorker:
     def _bind(self, session: Session, job: Job) -> None:
         """Bind the import's file into its outcomes and inputs in one commit (0.9 J2). Under
         ``atomic`` a rejected row ends the job there: its items become ``unprocessed``."""
-        context = open_job_context(session, job)
+        context = self._context(session, job)
         files = self._files()
         bound = bind_import(
             session,
             job,
             files.source(job.id),
             context.model,
-            lambda: self._binding_check(job.sequence_id),
+            lambda: self._binding_check(job),
             ImportLimits(
                 atomic_max_items=self.settings.atomic_max_items,
                 background_max_items=self.settings.background_max_items,
             ),
+            book_opener(session, job, files) if job.kind == "dryRun" else None,
         )
         self._hold_lease(session, job.sequence_id)
         record_binding(
@@ -354,23 +378,69 @@ class JobWorker:
         they would do and leave the job waiting for confirmation. A restart meanwhile runs the
         preview again from the stored inputs."""
         sequence_id = job.sequence_id
-        context = open_job_context(session, job)
+        context = self._context(session, job)
+        dry_run = job.kind == "dryRun"
         outcomes = preview_items(
             session,
             job,
             context,
-            limit=self.settings.preview_max_items,
-            should_stop=self._chunk_check(sequence_id),
+            # A dry run checks the whole file (D67).
+            limit=job.total if dry_run else self.settings.preview_max_items,
+            should_stop=self._stop_check(job),
         )
         session.rollback()
         self._hold_lease(session, sequence_id)
         job = session.get(Job, sequence_id)
-        record_preview(session, job, outcomes, retention_days=self.settings.retention_days)
+        if dry_run:
+            record_dry_run(
+                session, job, outcomes, context.model, retention_days=self.settings.retention_days
+            )
+        else:
+            record_preview(session, job, outcomes, retention_days=self.settings.retention_days)
         session.commit()
 
-    def _binding_check(self, sequence_id: int) -> None:
-        """While a file is bound: renew the lease, and stop for a cancel request or a lost lease."""
-        if self._renewed(sequence_id):
+    def _context(self, session: Session, job: Job) -> BatchContext:
+        """Where the job's items run: a dry run's, with its draft's model; any other's."""
+        if job.kind == "dryRun":
+            return dry_run_context(session, job)
+        return open_job_context(session, job)
+
+    def _stop_check(self, job: Job) -> Callable[[], bool]:
+        """A preview's stop check; a dry run also stops once its draft has changed."""
+        renewed = self._chunk_check(job.sequence_id)
+        if job.kind != "dryRun":
+            return renewed
+        parameters = dict(job.parameters)
+
+        def check() -> bool:
+            if renewed():
+                return True
+            with self.session_factory() as session:
+                return superseded(session, parameters)
+
+        return check
+
+    # --- source files -----------------------------------------------------------------------------
+
+    def _profile(self, session: Session, job: Job) -> None:
+        """Stage and profile the job's source file in one step and complete the job."""
+        source_file_id = job.parameters["sourceFileId"]
+        profile_source_file(
+            session,
+            source_file_id,
+            self._files().upload(source_file_id),
+            lambda: self._binding_check(job),
+        )
+        self._hold_lease(session, job.sequence_id)
+        complete_job(session, job, retention_days=self.settings.retention_days)
+        # A profile has no items, so no result.
+        job.result = None
+        session.commit()
+
+    def _binding_check(self, job: Job) -> None:
+        """While a file is bound or staged: renew the lease, and stop for a cancel request, a lost
+        lease or, for a dry run, its draft changed."""
+        if self._stop_check(job)():
             raise JobCancelled
 
     def _chunk_check(self, sequence_id: int) -> Callable[[], bool]:

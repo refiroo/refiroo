@@ -124,10 +124,15 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # Re-baselined for 0.9 R-F14: three route descriptions name their codes in upper case (the
     # cancel route's JOB_FINISHED, the feed's FEED_POSITION_EXPIRED, the query's INVALID_QUERY);
     # diffed against HEAD, nothing else changed. Re-baselined for 0.9.0 (R, D207): info.version
-    # 0.9.0; diffed against the previous document, nothing else changed.
+    # 0.9.0; diffed against the previous document, nothing else changed. Re-baselined for 0.10 A3:
+    # the source file routes (/source-files, /source-files/{id}, its profile's sheets and columns)
+    # with the Source* schemas and their upload body; ImportRequest's sourceFileId and the import
+    # route's optional file part; the job kinds profile and dryRun on JobResponse and the job list's
+    # kind filter. Diffed against HEAD, nothing else changed (the dry-run routes are model
+    # administration's, outside the default document).
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "ff38735f2c88545c6f6482d84f09e631666ccd386efd14f2ddff2c7c7d640522"
+        "98c2c4e00e349675d5e161d38a5e57f2cb000d6efb72c78cd14b1027c3f48cca"
     )
 
 
@@ -158,8 +163,9 @@ def test_paging_openapi_inventory():
         assert {"totalCount", "startIndex"}.isdisjoint(document["components"]["schemas"][name]["required"])
         assert properties["totalCount"]["type"] == properties["startIndex"]["type"] == "integer"
     # 0.9 B1 added the job list and a job's outcomes; H4c removed GET /workspaces/{key}/mappings (D-1);
-    # 0.9 J2 added the import profiles; 0.9 J3 an import's rows; 0.9 K6a what records hold.
-    assert seekable <= paged and len(paged) == 29
+    # 0.9 J2 added the import profiles; 0.9 J3 an import's rows; 0.9 K6a what records hold; 0.10 A3
+    # the source files and a profile's sheets and columns.
+    assert seekable <= paged and len(paged) == 32
     assert {
         "/api/v1/jobs",
         "/api/v1/jobs/{job_id}/items",
@@ -314,6 +320,9 @@ def test_base_0_5_enabled_openapi_exposes_guarded_activation(monkeypatch):
         "/api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}/schema.json": frozenset({"get"}),
         "/api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}/example.json": frozenset({"get"}),
         "/api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}/openapi.json": frozenset({"get"}),
+        # 0.10 A3: a draft's dry run and the rows behind it (D65–D67).
+        "/api/v1/model-drafts/{draft_id}/dry-run": frozenset({"get", "post"}),
+        "/api/v1/model-drafts/{draft_id}/dry-run/rows": frozenset({"get"}),
     }
 
 

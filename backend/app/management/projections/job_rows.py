@@ -13,21 +13,31 @@ from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by
 from sqlalchemy.orm import Session
 
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
+from ...engine.jobs.store import ROW_KINDS
 from ...errors import api_error
 from ...models.database import Job, JobItem
 from ..schemas.jobs import JobActions, JobItemResponse, JobRowPage, JobRowResponse
 
 
 def job_row_page(
-    session: Session, job: Job, *, status: str | None, page: PageRequest, page_size: int
+    session: Session,
+    job: Job,
+    *,
+    status: str | None,
+    page: PageRequest,
+    page_size: int,
+    source: int | None = None,
+    code: str | None = None,
 ) -> JobRowPage:
-    if job.kind != "import":
+    """``source`` keeps one source's rows; ``code`` the rows with an outcome refused with it (a
+    dry run's rows behind a figure, 0.10 A3)."""
+    if job.kind not in ROW_KINDS:
         raise api_error(
             404,
             "JOB_HAS_NO_ROWS",
             f"Job '{job.id}' is a {job.kind}; only an import's outcomes read by row",
         )
-    rows = _rows(job, status)
+    rows = _rows(job, status, source, code)
     found: Page[Any] = paginate_statement(
         session,
         select(rows),
@@ -36,7 +46,7 @@ def job_row_page(
             integer_key("row", rows.c.row_number, "row_number"),
         ),
         scope="job-rows",
-        filters={"jobId": job.id, "status": status},
+        filters={"jobId": job.id, "status": status, "source": source, "code": code},
         page=page,
         page_size=page_size,
         message="Job row cursor is invalid",
@@ -45,7 +55,7 @@ def job_row_page(
     return JobRowPage(items=[_row(row) for row in found.items], **found.links())
 
 
-def _rows(job: Job, status: str | None) -> Any:
+def _rows(job: Job, status: str | None, source: int | None, code: str | None) -> Any:
     def applied(action: str) -> Any:
         return func.count().filter(
             (JobItem.status == "applied")
@@ -81,6 +91,12 @@ def _rows(job: Job, status: str | None) -> Any:
     )
     if status is not None:
         statement = statement.having(worst == status)
+    if source is not None:
+        statement = statement.where(JobItem.source_index == source)
+    if code is not None:
+        statement = statement.having(
+            func.bool_or(cast(JobItem.outcome, JSONB)["error"]["code"].astext == code)
+        )
     return statement.subquery()
 
 

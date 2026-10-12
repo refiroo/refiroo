@@ -4,7 +4,7 @@ import { jobEventsUrl, jobOutputUrl } from "@/api/client";
 import { testModel } from "@/test/fixtures";
 import type { Job } from "@/types";
 import { ToastProvider } from "@/ui/Toast";
-import { JobNotificationsProvider, useJobNotifications } from "./JobNotifications";
+import { JobNotificationsProvider, jobTitle, useJobNotifications } from "./JobNotifications";
 
 /** An EventSource the test drives: what the engine would push over a job's stream. */
 class FakeEventSource {
@@ -112,5 +112,15 @@ describe("JobNotifications (0.9 J1u)", () => {
     expect(JSON.parse(window.sessionStorage.getItem("rdm.followedJobs")!)).toEqual([]);
     fireEvent.click(screen.getByRole("link", { name: "Review" }));
     expect(onNavigate).toHaveBeenCalledWith({ kind: "settings", page: "jobs", jobId: "j2" });
+  });
+});
+
+describe("jobTitle (0.10 A3)", () => {
+  it("names a source file's profile and a draft's dry run after the file", () => {
+    const job = (kind: Job["kind"], parameters: Record<string, unknown>) => ({ kind, parameters }) as Job;
+    expect(jobTitle(testModel, job("profile", { file: { name: "codes.xlsx" } }))).toBe("Profile of codes.xlsx");
+    expect(jobTitle(testModel, job("dryRun", { file: { name: "codes.xlsx" } }))).toBe("Dry run of codes.xlsx");
+    expect(jobTitle(testModel, job("dryRun", {}))).toBe("Dry run");
+    expect(jobTitle(testModel, job("batch", {}))).toBe("Batch");
   });
 });

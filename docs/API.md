@@ -3655,7 +3655,9 @@ Field-level detail not fixed here is finished in that package's plan. **Delivere
 (2026-10-11):** [draft operations](#draft-operations), the [kinds](#kinds) of the model side and the
 [history, undo and redo](#history-undo-and-redo). **Delivered by A4a (2026-10-11):** [the draft's
 outline](#the-drafts-outline). **Delivered by A4b (2026-10-11):** [the draft's model](#the-drafts-model)
-and the detail page kinds. The rest of this section is designed.
+and the detail page kinds. **Delivered by A3 (2026-10-12):** [source files and their
+profiles](#source-files-and-their-profiles) and [the dry-run summary](#the-dry-run-summary). The rest
+of this section is designed.
 
 - `POST /api/v1/model-drafts/{draftId}/operations`, `GET /api/v1/model-drafts/{draftId}/operations`
 - `POST /api/v1/model-drafts/{draftId}/undo`, `POST /api/v1/model-drafts/{draftId}/redo`
@@ -4005,57 +4007,121 @@ routes.
 
 ### Source files and their profiles
 
-`POST /api/v1/source-files` is `multipart/form-data` with a `file` and a `request`
-`{ "owner": { "draftId": "…" } }` or `{ "owner": { "profileKey": "…" } }`. It answers `201` with the
-file and the profiling job:
+**Delivered by A3 (2026-10-12).** `POST /api/v1/source-files` is `multipart/form-data` with a `file`
+(an XLSX workbook or a CSV file) and a `request`:
+
+```json
+{ "owner": { "draftId": "…" }, "format": "xlsx", "csv": { "delimiter": ";" }, "workspaceKey": "main" }
+```
+
+`owner` is `{ "draftId" }` or `{ "profileKey" }`, exactly one; `format` defaults to the file name's
+suffix; `csv.delimiter` (default `,`) is the delimiter a CSV file is read with; `workspaceKey`, when
+given, names the workspace whose records the profile compares the columns with. It answers `201`
+with the file and its profile's state:
 
 ```json
 { "id": "…", "name": "supplier.xlsx", "format": "xlsx", "bytes": 182044, "sha256": "…",
-  "owner": { "draftId": "…" }, "uploadedAt": "…", "version": 1,
+  "owner": { "draftId": "…", "profileKey": null }, "workspaceKey": "main", "csvDelimiter": null,
+  "uploadedAt": "…", "supersededAt": null, "version": 1,
   "profile": { "state": "queued", "jobId": "…" } }
 ```
 
-- A source file is a resource of its own (D5), stored in `JOB_FILE_DIR` under its own name, limited by
-  `IMPORT_MAX_BYTES`, deleted with its owner. The latest file per owner is kept while the owner
-  exists; an older one is removed `JOB_RETENTION_DAYS` after a newer one arrived.
-- Profiling is a job of kind `profile`, on the worker that runs imports. Its rows are staged in
-  PostgreSQL and its statistics are set statements over them (principle 6).
-- **`GET …/profile/sheets`** (paged) lists sheets with their row count, detected header row and
-  blocks (`range`, `headerRow`). **`GET …/profile/sheets/{sheet}/columns`** (paged) gives each
-  column's `header`, `letter`, `filled`, `distinct`, `valueTypes` (count per type the attribute
-  registry can read), `candidateKey`, `delimiters` (character and share of cells it splits),
-  `placeholders` (value and count) and `overlaps` (another column, or a field of a mapped type's
-  existing records in a named workspace, with the share of values found). Bounded lists name their
-  limit.
-- `POST /imports` gains `sourceFileId` in place of the `file` part (D5), so a load names the file
-  the editor profiled.
-- Refusals: `413 IMPORT_TOO_LARGE`, `422 UNSUPPORTED_FILE_FORMAT`, `404 SOURCE_FILE_NOT_FOUND`,
-  `409 SOURCE_FILE_PROFILE_NOT_READY` (`details.state`), `409 VERSION_CONFLICT` on delete.
+- A source file is a resource of its own (D5), stored in `JOB_FILE_DIR` as `{id}.upload`, limited by
+  `IMPORT_MAX_BYTES`, deleted with its owner (its staged cells and profile with it). An upload
+  supersedes the owner's earlier file: that one stays readable with `supersededAt`, and the job
+  retention sweep deletes it `JOB_RETENTION_DAYS` later.
+- **Profiling** is a job of kind `profile` on the batch worker. It reads the file once and stages
+  every filled cell in PostgreSQL (D66); every statistic is a set statement over the staged cells.
+  `profile.state` is `queued` or `running`, then `completed` once stored, or the job's `failed` or
+  `cancelled` with its `error`.
+- `GET /source-files` (paged, newest first; `draftId` or `profileKey`), `GET /source-files/{id}`,
+  `DELETE /source-files/{id}?expectedVersion=` (`204`; a profile job still running is cancelled).
+- **`GET …/profile/sheets`** (paged, workbook order): each sheet's `index`, `name`, `rows` (rows with a
+  cell), `headerRow` (its first block's) and `blocks`, each with `range` (`A3:C12`), `firstColumn`,
+  `lastColumn`, `headerRow`, `lastRow` and `rows` below the header: the values an import profile's
+  source takes as `headerRow` and `block`. A block is a run of columns holding cells between empty
+  columns; its header row is the first row whose cells in the block are all text, fill every column
+  and are followed by a row within those columns; a row that is such a header for every block of a
+  sheet is all of theirs, so a title, section or group row above a one-column list is passed over.
+  A block whose header has an empty cell takes the text row with the most cells. Colour and
+  formatting are not read (D68, A-D9).
+- **`GET …/profile/sheets/{sheet}/columns`** (paged, column order, every block's) gives each column's
+  `sheet`, `letter`, `header`, `block`, `rows`, `filled`, `distinct`, `valueTypes` (cells readable as
+  `text`, `integer`, `decimal`, `boolean`, `date`, `dateTime`, as the attribute registry converts
+  them), `candidateKey` (filled on every row, no value twice), `delimiters` (`;`, `,`, `|`, `/`, line
+  break, each with the `cells` holding it and their `share`), `placeholders` and `overlaps`, with
+  `limits`.
+  - **Placeholders** (D70): a value standing for "no value", one of `N/A`, `NA`, `-`, `--`, `?`,
+    `TBD`, `none` ignoring case, or of at most two characters none a letter or digit found in at
+    least 1% of the column's cells; each with its `count`, at most 10 listed.
+  - **Overlaps** (D69): the columns, and with a `workspaceKey` the record names and unique text
+    attributes of the model's types in that workspace, holding the most of the column's distinct
+    values: another column as `sheet`, `column`, `header`; a field as `workspaceKey`,
+    `objectTypeKey` and `field: name` or `attributeTypeKey`; each with `values` and `share` of the
+    compared values. At most 1,000 distinct values per column are compared (the first in text
+    order) and the best 5 listed. The model is the draft's when it compiles, the active release's
+    otherwise and for a profile's file.
+- `POST /imports` takes `sourceFileId` in its `request` in place of the `file` part (D5): the stored
+  file is imported as if it had been sent. Sending both, or neither, is `422 REQUEST_VALIDATION_ERROR`.
+- Refusals: `413 IMPORT_TOO_LARGE`, `422 UNSUPPORTED_FILE_FORMAT` (`.xls` with the hint to save as
+  XLSX), `404 SOURCE_FILE_NOT_FOUND`, `404 SOURCE_SHEET_NOT_FOUND`, `404 MODEL_DRAFT_NOT_FOUND`,
+  `404 IMPORT_PROFILE_NOT_FOUND`, `409 SOURCE_FILE_PROFILE_NOT_READY` (`details.state`, and `error`
+  for a failed profile), `409 VERSION_CONFLICT` on delete (`details.currentVersion`); a profile job
+  or a load whose file is gone from `JOB_FILE_DIR` fails with `410 SOURCE_FILE_MISSING`.
 
 ### The dry-run summary
 
-For a draft with source files and profiles, the 0.9 import preview runs against the draft's compiled
-model (not the active release) in a rolled-back transaction, in the workspace the request names. It
-writes nothing.
+**Delivered by A3 (2026-10-12).** `POST /api/v1/model-drafts/{draftId}/dry-run` runs the 0.9 import
+preview of one of the draft's source files against the draft's compiled model (not the active
+release) in a workspace, writing nothing:
 
 ```json
-{ "sourceFileId": "…", "workspaceKey": "main", "coverage": "complete",
-  "rows": { "total": 200, "run": 200 },
-  "sources": [ { "source": 0, "objectType": "unit", "records": { "created": 14, "updated": 0,
-                 "unchanged": 0 }, "values": 28, "relationships": 0, "relatedRecords": 0,
-                 "rejections": [ { "code": "DUPLICATE_KEY_IN_FILE", "rows": 2 } ] } ],
-  "difference": { "sources": [ { "source": 0, "records": { "created": 14 }, "was": { "created": 0 } } ] },
-  "draftVersion": 9, "ranAt": "…" }
+{ "sourceFileId": "…", "workspaceKey": "main", "profile": { "sources": [ … ], "valueMaps": { … } },
+  "onExisting": "reject" }
 ```
 
-- Each operation's answer carries the summary when the draft holds source files (A5's editor reads it
-  there); `GET …/dry-run` reads the latest; `POST …/dry-run` `{ "full": true }` runs every row as a
-  job.
-- **`coverage`** is `complete` up to `JOB_PREVIEW_MAX_ITEMS` rows (D9's 10,000) and `sample` above it:
-  a deterministic sample, the same rows each time, so differences compare like with like. The
-  full run is on request. The 1-second budget is measured once in A3 and recorded.
-- **`GET …/dry-run/rows`** (paged, `source=`, `status=`, `code=`) lists the rows behind a figure,
-  as `/jobs/{id}/rows` does for an import.
+The `profile` is an inline import profile (D65), checked against the draft's model; from A5 the
+editor uses the draft's own profile. It answers `202` with the dry run `checking`; the worker binds
+the file's staged cells through the import binding (D66) and previews **every** item the import
+would run in a transaction it rolls back (D67). A dry run still running for the draft is cancelled,
+and a dry run whose draft has changed since it was sent stops as `cancelled`.
+
+`GET …/dry-run` reads the draft's latest:
+
+```json
+{ "jobId": "…", "state": "completed", "draftId": "…", "draftVersion": 9, "sourceFileId": "…",
+  "workspaceKey": "main",
+  "summary": { "coverage": "complete", "rows": { "total": 214, "run": 214 },
+    "sources": [ { "source": 0, "profileSource": 0, "sheet": "Items", "objectTypeKey": "unit",
+                   "rows": 214, "records": { "created": 212, "updated": 0, "unchanged": 0 },
+                   "values": 212, "relationships": 205, "relatedRecords": 0,
+                   "rejections": [ { "code": "REFERENCE_NOT_FOUND", "rows": 2 } ] } ],
+    "difference": [ { "source": 0, "objectTypeKey": "unit", "sheet": "Items",
+                      "figures": { "records.created": { "now": 212, "was": 205 } } } ],
+    "previousJobId": "…", "ranAt": "…" },
+  "bindingReport": [ … ], "error": null }
+```
+
+- `state` is `checking` while its job is queued or running, then `completed`, `failed` (with
+  `error`), `cancelled` or `expired`. `summary` is set once completed.
+- Per source, in load order (`source`, as the rows route takes it; `profileSource` its position in
+  the profile): the rows with an outcome, records `created`, `updated` and `unchanged`, the
+  attribute `values` written, `relationships` and `relatedRecords` written, and the rows refused by
+  code. `coverage` is always `complete` (D67).
+- `difference` lists, per source (by its sheet and type), each figure that changed since the
+  draft's previous completed dry run of the same file, as `now` and `was`; `[]` when nothing
+  changed, `null` for the first.
+- **`GET …/dry-run/rows`** (paged; `source`, `status`, `code`) lists the latest dry run's rows behind
+  a figure, as `GET /jobs/{id}/rows` does for an import (which also serves a dry-run job); `code`
+  keeps the rows with an outcome refused with it.
+- The dry run is a job of kind `dryRun`, listed by `GET /jobs`. It holds the workspace's write lock
+  while it previews, as an import's preview does: 19.8 s in all for W1 at 10,000 rows (19,453
+  items) on the reference machine (POSTGRESQL_BUDGETS).
+- Refusals: `422 INVALID_MODEL` with the diagnostics for a draft that does not compile (D71), `422
+  INVALID_IMPORT_PROFILE` with every problem at its pointer, `404 SOURCE_FILE_NOT_FOUND` for a file
+  the draft does not own, `409 SOURCE_FILE_PROFILE_NOT_READY`, `404 DRY_RUN_NOT_FOUND` (reads
+  before the first), the workspace's codes. The routes are model administration's and need
+  `INTEGRATION_JOBS_ENABLED` too (D6).
 
 ### Inferences (A6)
 

@@ -181,6 +181,7 @@ UNIT_GROUPS: dict[str, tuple[str, ...]] = {
     "engine/model/": ("model",),
     "engine/model/authoring/": ("authoring", "model"),
     "engine/reads/": ("consumer",),
+    "engine/sources/": ("authoring", "jobs"),
     "engine/records/test_audit.py": ("records", "jobs"),
     "models/test_commands.py": ("jobs",),
     "models/test_database.py": ("startup", "jobs"),
@@ -218,6 +219,7 @@ JOURNEY_GROUPS: dict[str, tuple[str, ...]] = {
     "J30": ("feed", "consumer"),
     "J31": ("startup",),
     "J33": ("authoring", "model", "model_admin"),
+    "J34": ("authoring", "jobs"),
 }
 
 

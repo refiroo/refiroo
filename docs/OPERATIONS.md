@@ -26,7 +26,7 @@ and the one line the API and the Deployment page show) and to the table of its g
 | `RDM_MODEL_PATH` | `model/rdm-starter.json` | Bootstrap model file. Not the active-model setting; see [Model releases](#model-releases-and-rollback) |
 | `RDM_CURSOR_SIGNING_KEY` | ephemeral | Secret that signs pagination cursors. Without it each process generates its own key, so cursors stop working after a restart and between instances |
 | `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated browser origins allowed to call the API |
-| `JOB_FILE_DIR` | `var/job-files` | Where export files wait for download and import files wait to be read, named after their job; created at start. With job creation on, a directory that cannot be written stops startup. An export's file is kept while its job is completed and removed when the job expires (`JOB_RETENTION_DAYS`), fails or is cancelled; an import's file until its job finishes. Several instances need it on shared storage. See [Exports](#exports) and [Imports](#imports) |
+| `JOB_FILE_DIR` | `var/job-files` | Where export files wait for download and import files wait to be read, named after their job, and where model authoring's source files are kept (0.10 A3); created at start. With job creation on, a directory that cannot be written stops startup. An export's file is kept while its job is completed and removed when the job expires (`JOB_RETENTION_DAYS`), fails or is cancelled; an import's file until its job finishes. Several instances need it on shared storage. See [Exports](#exports), [Imports](#imports) and [Source files and dry runs](#source-files-and-dry-runs) |
 | `RDM_API_REFERENCE_SCRIPT` | `bundled` | `bundled` serves the pinned Scalar script from the engine, so `/docs` works offline; `cdn` loads the same version from jsDelivr under its integrity hash. Any other value stops startup |
 | `WEB_CONCURRENCY` | `1` | Uvicorn worker count. Must be `1` while model administration is enabled |
 | `VITE_API_URL` (frontend) | `http://localhost:8000` | API address the browser application calls |
@@ -194,6 +194,25 @@ as a long batch does.
   the preview again from the bound items. A preview waiting for confirmation holds no lock and no
   lease; its file stays in `JOB_FILE_DIR` until it is confirmed and finishes, is cancelled, or
   expires `JOB_RETENTION_DAYS` after the preview ended. Confirming binds the file again.
+
+### Source files and dry runs
+
+Model authoring (0.10 A3) keeps workbooks as **source files** (`POST /api/v1/source-files`), each
+owned by a model draft or an import profile.
+
+- **Files:** stored in `JOB_FILE_DIR` as `{sourceFileId}.upload` under `IMPORT_MAX_BYTES`, kept as
+  long as the draft or profile that owns it. An upload supersedes the owner's earlier file, which the
+  hourly sweep deletes `JOB_RETENTION_DAYS` later; deleting a draft or profile deletes its files'
+  rows, and the sweep removes a file without a row once it is older than ten minutes. Disk use is one
+  current file per draft and profile, plus superseded ones within the retention period. A file
+  removed by hand fails the jobs that read it with `SOURCE_FILE_MISSING`; upload it again.
+- **Staged cells:** profiling copies every filled cell into `source_file_cells`, about 330,000 rows
+  for a 10,000-row workbook of two sheets; they go with their file.
+- **Jobs:** profiling (`profile`) and dry runs (`dryRun`) run on the batch worker beside imports and
+  batches. A dry run previews every row of its file in one rolled-back transaction, holding its
+  workspace's write lock that long, as an import's preview does: 19.8 s for a 10,000-row workbook
+  (19,453 items) on the reference machine, so live writes in that workspace wait that long once per
+  dry run. A newer dry run of the same draft cancels a running one.
 
 ## Consumer events
 

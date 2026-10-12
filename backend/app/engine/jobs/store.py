@@ -141,7 +141,7 @@ def record_outcomes(session: Session, job: Job, outcomes: Sequence[ItemOutcome])
         if outcome.status == "applied":
             counts[outcome.fields["action"]] += 1
     job.counts = counts
-    if job.kind == "import" and outcomes:
+    if job.kind in ROW_KINDS and outcomes:
         # The outcomes take their source and row from the inputs they ran (0.9 J3).
         session.execute(
             update(JobItem)
@@ -216,7 +216,10 @@ def _foreign_notice(workspace_key: str, rows: int, counterparts: bool) -> dict[s
     }
 
 
-PREVIEWED_KINDS = ("import", "batch")
+PREVIEWED_KINDS = ("import", "batch", "dryRun")
+# The jobs whose items are a file's rows, each outcome with its source and row (0.9 J3): an import,
+# and a draft's dry run of one (0.10 A3).
+ROW_KINDS = ("import", "dryRun")
 
 
 def previewing(job: Job) -> bool:

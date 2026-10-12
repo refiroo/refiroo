@@ -4,7 +4,13 @@
 import type { Job } from "@/types";
 import type { StatusTone } from "@/ui/StatusPill";
 
-export const KIND: Record<Job["kind"], string> = { batch: "Batch", import: "Import", export: "Export" };
+export const KIND: Record<Job["kind"], string> = {
+  batch: "Batch",
+  import: "Import",
+  export: "Export",
+  profile: "Profile",
+  dryRun: "Dry run",
+};
 
 /** Whether a job is an export of a workbook for people (0.9 J6). */
 export const forPeople = (job: Job) => job.kind === "export" && job.parameters.layout === "people";

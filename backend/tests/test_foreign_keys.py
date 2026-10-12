@@ -74,6 +74,13 @@ RULES = {
     ("model_drafts", "base_model_release_id"): ("model_releases", "SET NULL"),
     # A draft's history goes with its draft (0.10 A2, D4).
     ("model_draft_operations", "draft_id"): ("model_drafts", "CASCADE"),
+    # A source file goes with the draft or profile that owns it, and its staged cells and profile
+    # with it (0.10 A3, D5).
+    ("source_files", "draft_id"): ("model_drafts", "CASCADE"),
+    ("source_files", "profile_key"): ("import_profiles", "CASCADE"),
+    ("source_file_cells", "source_file_id"): ("source_files", "CASCADE"),
+    ("source_file_sheets", "source_file_id"): ("source_files", "CASCADE"),
+    ("source_file_columns", "source_file_id"): ("source_files", "CASCADE"),
     ("model_applications", "model_release_id"): ("model_releases", "CASCADE"),
     ("model_application_object_types", "model_release_id"): ("model_releases", "CASCADE"),
     ("model_attribute_types", "model_release_id"): ("model_releases", "CASCADE"),

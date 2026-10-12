@@ -527,6 +527,19 @@ its parameters, state, progress and one outcome per item, kept for a retention p
   import's inputs go too and it binds the file again, while a batch keeps its stored items and runs
   them from the first; either way it runs as an execution: one execution path. Cancelling a waiting
   job finishes it in the request; retention expires it like a finished one.
+- **Source files and dry runs** (`engine/sources/`, 0.10 A3): a source file belongs to a model draft
+  or an import profile (`source_files`, deleted with its owner); its file is `{id}.upload` in
+  `JOB_FILE_DIR`, kept while its row exists. A `profile` job reads the file once through the import
+  readers and copies every filled cell into `source_file_cells` with its kind, its text and its
+  value as the reader gave it (`values.py`); blocks, header rows and column statistics are set
+  statements over those cells, stored in `source_file_sheets` and `source_file_columns`. A `dryRun`
+  job is an import preview with two differences: its context carries the draft's compiled model in
+  place of the active release's (`dry_run.dry_run_context`), and the binding reads the staged cells
+  through `StagedFile`, a `TabularFile` over `source_file_cells`, so it is the same binding and the
+  same write rules (a draft's new unique attribute is checked by the rule against
+  `attribute_values`; the database index of unique values follows the active release only). It
+  previews every item, then completes with its summary instead of waiting for confirmation; its stop
+  check also stops it once the draft's version moved on.
 - **Following a job** (0.9 J1u): a trigger on `jobs` sends `pg_notify('rdm_job_events', id)` when
   a change to a job's state, progress, cancel request or output commits, so every path that changes
   a job is heard and nothing rolled back is. One listener thread per process (`engine/jobs/events.py`)

@@ -50,6 +50,7 @@ from .management.routers import (
     queries,
     relation_matrix,
     relations,
+    source_files,
     system,
     workspaces,
 )
@@ -331,9 +332,13 @@ def create_app() -> FastAPI:
     application.include_router(relation_matrix.router)
     application.include_router(jobs.router)
     application.include_router(imports.router)
+    application.include_router(source_files.router)
     if settings.integration_jobs_enabled:
         application.include_router(jobs.write_router)
         application.include_router(imports.write_router)
+        application.include_router(source_files.write_router)
+        if mutations_enabled:
+            application.include_router(source_files.dry_run_router)
     if settings.consumer_subscriptions_enabled:
         application.include_router(consumer_subscriptions.router)
     application.include_router(consumer_router.router)

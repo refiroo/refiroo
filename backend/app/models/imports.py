@@ -307,6 +307,8 @@ class ImportRequest(BaseModel):
     # Whether IDs of another workspace's records stand for this workspace's own (0.9 J5, D96).
     otherWorkspaceIds: Literal["refuse", "counterparts"] = "refuse"
     stage: Literal["execute", "preview"]
+    # A stored source file to import in place of the request's file part (0.10 A3, D5).
+    sourceFileId: str | None = Field(default=None, min_length=1)
 
     @model_validator(mode="after")
     def one_profile(self) -> ImportRequest:

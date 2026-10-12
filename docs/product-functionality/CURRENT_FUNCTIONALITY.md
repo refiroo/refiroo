@@ -455,9 +455,22 @@ notice is marked "Needs v2" as soon as it is made, with a button that raises the
 and the install dialog lists each consumer API's result; activation waits until each is compatible.
 Renaming a key the draft added renames it in the consumer APIs too.
 
-Limits: a field's editor cannot be chosen (each value type has one); spreadsheet onboarding is later
-0.10 work. A consumer API's documents are worked out from the draft; messages from real records come
-from the consumer API after activation.
+**A workbook against a draft** (through the API so far): an Excel workbook or a CSV file uploaded to
+a model draft is kept with it and read once. Its profile lists each sheet's lists (blocks of columns
+between empty columns) with their header rows, and each column's filled cells, distinct values, the
+types its values can be read as, whether it can identify a row, the characters that split its
+values, the values that stand for "nothing" such as N/A, and the other columns, and the records of a
+chosen workspace, holding the same values. A dry run then loads the whole file through an import
+profile against the draft's model, as if it were installed, and says what the import would do:
+records created and changed, values, relationships and the rows refused by reason, what changed
+since the last dry run, and the rows behind each figure. It writes nothing; a dry run of a draft
+changed meanwhile is cancelled. An import can later name the stored file instead of sending it
+again.
+
+Limits: a field's editor cannot be chosen (each value type has one); the editor does not show
+workbooks yet (later 0.10 work), so the profile and the dry run are read through the API. A consumer
+API's documents are worked out from the draft; messages from real records come from the consumer API
+after activation.
 
 Evidence: [model editor](../../frontend/src/features/model-editor/ModelEditor.tsx),
 [A4a runner](../../frontend/e2e/authoring-a4a-model-editor.mjs),

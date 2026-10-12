@@ -9,7 +9,8 @@ D17–D21 and A-D5–A-D9 were accepted with the [A0 plan](#a0-plan-2026-10-11) 
 T1, A3, A5–A8 and R are specified below at package level; each package's detailed plan, test cases
 and decisions are written and accepted when it starts, and it is delivered in the order of the
 [delivery queue](#delivery-queue), each by the [delivery steps](#how-a-package-is-delivered).
-**Delivered:** A0, N1, A2, A4a (2026-10-11); A4b, A4c and T1, released as 0.10.0-alpha.1 (2026-10-12).
+**Delivered:** A0, N1, A2, A4a (2026-10-11); A4b, A4c and T1, released as 0.10.0-alpha.1 (2026-10-12);
+A3 (2026-10-12).
 
 **Target:** Product 0.10.0, [model authoring and spreadsheet onboarding](ROADMAP.md#product-release-010--model-authoring-and-spreadsheet-onboarding).
 The `navigation` declaration (A-D2) extends the model, so 0.10 opens the next schema language version
@@ -233,7 +234,7 @@ migration), `contract` (every route change) and `volume` (every budget).
 | 5 | [A4b](#a4b-editor--preview-and-layout-editing) | A4a | **Delivered 2026-10-12.** Preview with existing records; views, panels and fields laid out in place |
 | 6 | [A4c](#a4c-editor--consumer-apis) | A4a, A4b | **Delivered 2026-10-12.** The consumer API editor: a Consumer APIs tab beside Model; definitions changed by six kinds; their schema and message example; the contract at activation |
 | 7 | [T1](#t1-designer-checkpoint) | A4b, A4c | **Delivered 2026-10-12, released as 0.10.0-alpha.1.** US-P05 composed in the browser on two models; the designer's gates; tagged `v0.10.0-alpha.1` (D14) |
-| 8 | [A3](#a3-source-profiling-and-the-dry-run-summary) | A0 | Source files, profiles of sheets and columns, the dry-run summary; W1–W3 generators. May be taken earlier as a filler |
+| 8 | [A3](#a3-source-profiling-and-the-dry-run-summary) | A0 | **Delivered 2026-10-12.** Source files, profiles of sheets and columns, the dry run of the whole file; W1–W3 generators |
 | 9 | [A5](#a5-editor-with-a-source-file) | A3, T1 | Source and mapping panes, mapping operations, profiles following the model, load, saved profiles and re-runs |
 | 10 | [A6](#a6-inference-over-table-patterns) | A5 | Proposals from the table patterns; new application or extending the active model; pinned decisions |
 | — | _cut line (D2)_ | | _If R is out of reach, 0.10.0 releases here and A7, A8 move to 0.10.x_ |
@@ -438,7 +439,7 @@ recommendation; D17–D21 are new from the check above.
 | D6 | Capability gates | **As planned.** Operations, inference, install and activate under `MODEL_ADMIN_MUTATIONS_ENABLED`; uploading source files, profiling and dry runs (jobs) also under `INTEGRATION_JOBS_ENABLED`. The editor with a workbook needs both settings; without the second, its workbook actions are absent, as other routes are |
 | D7 | Where the editor lives | **As planned, inside the one frame.** Opened from Settings › Model ("Open in editor") and later "New from a workbook", as its own route rendered in `ShellFrame` under `TopBar` with the settings navigation out of the way. It is not a second frame (U-D14) and not a new top-level destination |
 | D8 | Undo with dependants | **As planned, with "depends" defined.** A later operation depends on an earlier one when it names an element the earlier one created or re-keyed. The undo is refused with `OPERATION_HAS_DEPENDANTS` listing them; the client may undo them together. A new operation clears the redo list |
-| D9 | Interactive dry-run budget | As planned: 1 s up to 10,000 rows on this machine, a deterministic sample above that, measured once in A3 |
+| D9 | Interactive dry-run budget | As planned: 1 s up to 10,000 rows on this machine, a deterministic sample above that, measured once in A3. *Replaced by D67 (A3): the whole file, always* |
 | D10 | Concurrent editors | As planned: optimistic versions only |
 | D17 | What counts as released, for the draft-only class | **The draft's base release, or the active release when it has none; installing a draft makes the release it created its new base.** Today a draft stays open with its old base after it is installed, so without the rebase a key installed a minute ago could still be renamed as if it were new. With it, carrying on in the same draft after installing means preparing the next version. Amends A2 (the rebase at installation, the class check against the base) |
 | D18 | The release identity in the editor | **A `setRelease` operation; the install-and-activate step proposes the next version and the user can edit it.** Installing the same key and version with different content is refused today, so the designer must change the version before every install. The step suggests the base release's version with its last number raised by one, and the change is recorded as an operation like any other. Amends A2 and A4a |
@@ -2006,17 +2007,214 @@ binding, J3's preview, D5, D6, D9. **Needs:** A0.
 - The dry-run summary: for a draft with source files and a profile, the J3 preview run against the
   draft's model, returning counts per source (records, values, relations, related records),
   rejections by code and the difference from the previous summary, each figure linking to a paged
-  row list. Within the interactive budget up to a row limit, on a deterministic sample above it with
-  the full run on request, and the response says which (D9).
+  row list. Every row, as a job; a newer draft version cancels the running one (D67, replacing D9).
 - The W1, W1′, W2 and W3 generators.
 
 **Tests:** W1, W2 and W3 profiled (header and block detection, statistics); the dry run on W1 after a
-rename, a move and a value map, with its difference; the sample-versus-full switch at the limit; the
+rename, a move and a value map, with its difference; the whole file checked, a superseded run cancelled; the
 budget measured once and recorded.
 
 **Groups:** `authoring`, `jobs`, `contract`, `startup` (if a table is added), `volume` (the budget).
 
 **Exit:** profiles and summaries in API.md; the budget recorded.
+
+##### A3 plan (2026-10-12)
+
+**Planned 2026-10-12; accepted by the user the same day: D65, D66 and D68–D71 and the test cases
+as recommended ("otherwise its fine"), D68 after asking what ignoring colour and formatting means;
+D67 changed by the user from a sampled interactive run to a check of the whole file ("by definition,
+the dry run is a dry run, a check of the whole set"), which withdraws D9's 1-second target.** Checked
+against the code at `b0ae3ef`:
+
+- **The import path takes its model as a value.** `check_profile(model, definition)`, the binding
+  (`imports/binding.py`) and `run_items` over a `BatchContext` read the `EngineModel` they are given;
+  only `open_batch_context` resolves it from the active release or the change set. The unique rule
+  (`rules.unique_values`) reads holders from `attribute_values` through the lookup, not from
+  `unique_attribute_values`, so a draft that adds a type or makes an attribute unique is checked
+  correctly by the same rules. The database's `check` after the write sees only the active release's
+  unique attributes; for a draft's newly unique attribute the rule is the only check, which is enough
+  in a rolled-back run. **So the dry run is the J3 preview with the draft's compiled model in the
+  context, and no second validation path** (principle 4).
+- **D9's budget does not hold on that path.** 0.9 measured the preview's own step at about 5–8 s
+  live and 18 s in a change set for 10,000 items (D82, POSTGRESQL_BUDGETS), holding the workspace's
+  write lock that long; PG3b measured 0.25–0.46 s per 500 items. Reading 10,000 rows of XLSX through
+  openpyxl adds seconds of its own. D9's "1 s for 10,000 rows" cannot hold for a check of the whole
+  file; D67 withdraws it.
+- **Job files cannot hold a source file** (A0, checked again): `JobFiles.reconcile` removes every file
+  in `JOB_FILE_DIR` whose name is not a running or completed job's.
+- **A draft may be invalid between steps** (A2); installation then refuses it `422 INVALID_MODEL`
+  with its diagnostics (`model_management.install_model_draft`).
+- **No draft holds a profile before A5** (D12, D13), so A3's dry run needs the profile in its request.
+- Migration head `20261011_01_model_draft_operations`; settings in `config.py`
+  (`INTEGRATION_JOBS_ENABLED`, `JOB_RETENTION_DAYS`, `JOB_PREVIEW_MAX_ITEMS`, `IMPORT_MAX_BYTES`);
+  the J2 workbook helpers are private to `test_j27_import.py`.
+
+**What is built:**
+
+1. **Migration** `20261012_01_source_files`: `source_files` (`id`, `draft_id` → `model_drafts`
+   `ON DELETE CASCADE` or `profile_key` → `import_profiles` `ON DELETE CASCADE`, exactly one;
+   `name`, `format`, `bytes`, `sha256`, `version`, `uploaded_at`, `superseded_at`, `profile_job_id`);
+   `source_file_rows` (`source_file_id` cascade, `sheet_index`, `row_number`, `cells` JSON array,
+   primary key on the three) for staged rows (D66); `source_file_sheets` and `source_file_columns`
+   for the profile, keyed by file, sheet index and column, paged by them; `model_draft_dry_runs`
+   (`draft_id` cascade, `source_file_id`, `draft_version`, `request` JSON, `summary` JSON, `job_id`,
+   `ran_at`), the latest and its predecessor read for the difference. A `jobs.kind` of `profile` and
+   `dryRun`.
+2. **Engine `engine/sources/`** (no FastAPI):
+   - `files.py`: store an upload under `{sourceFileId}.file` in `JOB_FILE_DIR`; `reconcile` taught
+     its names (a file is kept while its row exists); supersede the owner's older file and remove it
+     `JOB_RETENTION_DAYS` later (the sweep the job retention already runs).
+   - `staging.py`: the `profile` job reads the file once through the J2 readers and stages its rows
+     with `COPY` into `source_file_rows`, per sheet, without a header assumption.
+   - `profiling.py`: set statements over the staged rows (D68): the header row and blocks per sheet,
+     then per column `filled`, `distinct`, `valueTypes`, `candidateKey`, `delimiters`,
+     `placeholders`, `overlaps` with other columns and with existing records (D69).
+   - `staged_file.py`: a `TabularFile` over `source_file_rows`, so the J2 binding reads staged rows
+     with no change to the binding (D66).
+   - `dry_run.py`: open a context of the named workspace with the draft's compiled model; bind the
+     request's profile over the staged file; run the J3 preview over every item as a `dryRun` job,
+     cancelling the draft's running one (D67);
+     record the summary per source with rejections by code, and its difference from the draft's
+     previous dry run of the same file.
+3. **Routes** (`management/routers/source_files.py` and the dry-run routes in
+   `model_management.py`), as API.md designs them, gated by D6: `POST /source-files` (multipart),
+   `GET /source-files` (`draftId` or `profileKey`, paged), `GET /source-files/{id}`,
+   `DELETE /source-files/{id}?expectedVersion=`, `GET …/profile/sheets`,
+   `GET …/profile/sheets/{sheet}/columns` (both paged, `409 SOURCE_FILE_PROFILE_NOT_READY` until the
+   job ends); `POST /model-drafts/{id}/dry-run` (D65), `GET …/dry-run` (the latest),
+   `GET …/dry-run/rows` (`source`, `status`, `code`, paged, as `/jobs/{id}/rows`);
+   `sourceFileId` on `POST /imports` in place of the `file` part. OpenAPI lock re-baselined.
+4. **Generators** `tests/workbooks.py`: W1, W1′, W2 and W3 as A0 defines them, from a seed and a
+   size, written with openpyxl in an invented neutral domain; one sample of each opened in the
+   user's spreadsheet program before the shape is fixed (mock up before building formats).
+5. **Documents:** API.md moves source files and the dry run into "delivered" with their field-level
+   detail; API_JOURNEYS moves the A3 routes, codes and settings out of "planned"; OPERATIONS gains the
+   new setting (D67) and the storage of source files; CHANGELOG, PROJECT_STATUS, TODO.
+
+**Decisions** (recommendations):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D65 | Where the dry run's import profile comes from before A5 | **In the request: `POST …/dry-run` `{ "sourceFileId", "workspaceKey", "profile" }`, the inline profile `POST /imports` takes, checked against the draft's model.** A draft holds no profile until A5 (D12, D13). In A5 the editor stops sending it: the draft's profile is used and every operation's answer carries the summary. The request form stays for integrators, who keep their profile outside the engine |
+| D66 | How the dry run reads its rows | **From the rows the profile job staged, through a `TabularFile` over `source_file_rows`; the binding is unchanged.** The file is read once, at upload. Reading a 10,000-row workbook through openpyxl again after every editor step would cost seconds by itself. The staged rows stay while the file exists, so A5's row lists and A6's evidence read them too |
+| D67 | D9's budget on the J3 preview path | **Accepted as changed by the user: every dry run checks the whole file, every item the import would run, through the J3 preview path; a file too large for an import is refused alike. It runs as a `dryRun` job, so an operation answers at once and the summary reads `checking` until the job ends; a newer draft version cancels a running dry run of the draft and starts its own. D9's 1-second target is withdrawn; the time on W1 at 10,000 rows is measured once and recorded.** The recommendation was a sample of the first 1,000 items; the user rejected it because a sample cannot say whether the load will work, which is a dry run's purpose. Each run holds the workspace's write lock for its length (5–8 s at 10,000 items, 0.9's figures); cancelling superseded runs bounds how often. Running it in a change-set context, which does not block live writes, is the known alternative (about 18 s at 10,000 items) if the measurement shows the lock matters |
+| D68 | How the header row and blocks are found | **Per sheet, the header is the first row whose filled cells are all text and are followed by rows filled in the same columns; blocks are runs of filled columns separated by fully empty columns, each with its own header row.** It covers W1 and W2 and reports W3's blocks, which A8 confirms (A-D9). Nothing reads colour or formatting. An administrator who disagrees changes the profile's `headerRow` and `block`, as J2 allows |
+| D69 | Overlap "with existing records of mapped types" before any mapping exists | **Overlap with the values of the draft model's unique attributes and record names in a workspace the profile request names, the best five per column, each over distinct values and bounded (`PROFILE_OVERLAP_SAMPLE`, 1,000 distinct values per column).** A3 has no mapping (A5) to say which type a column belongs to; unique attributes and names are what A6's extend mode will match on. Without a named workspace the profile has column-to-column overlaps only |
+| D70 | Placeholders | **A value is a placeholder when it is one of a fixed list (`N/A`, `n/a`, `NA`, `-`, `--`, `?`, `TBD`, `tbd`, `none`, empty after trimming) or a value of at most two non-alphanumeric characters found in at least 1% of a column's cells; each listed with its count.** Fixed and visible, so a test can name its expectation; A6's pattern decides what to do with them |
+| D71 | A dry run on a draft that does not compile | **Refused `422 INVALID_MODEL` with the draft's diagnostics, as installation refuses it; nothing recorded.** A draft may be invalid between steps (A2); a summary from a model that cannot be installed would mislead, and one code for "this draft does not compile" serves both routes |
+
+**Journey test cases** (`tests/journeys/test_j34_onboard.py`, J34.1 and J34.3; each on two
+configurations: the workbooks are the same, the draft is the configuration's model with types added
+by operations, so no test names a configuration's key):
+
+1. **J34.1 Upload and profile.** Given a draft and W1 at 200 rows, when it is uploaded, then a
+   `profile` job is queued, the profile reads `409 SOURCE_FILE_PROFILE_NOT_READY` until it ends,
+   and then lists `S1` and `S2` with header row 1 and their row counts; `S1`'s columns, paged two at a
+   time, give `K` as the only candidate key, `P` with about `n/15` distinct values, `T`'s `N/A` and `-`
+   as placeholders, `Fo`'s `;` as a delimiter, and `Ln` overlapping `S2`'s `N`.
+2. **J34.1 Blocks.** Given W3, when profiled, then each block is reported with its range and header
+   row, separated by its empty columns, and the section and group header rows are not columns.
+3. **J34.1 Limits and refusals.** A file over `IMPORT_MAX_BYTES` is `413 IMPORT_TOO_LARGE`, an `.xls`
+   is `422 UNSUPPORTED_FILE_FORMAT`; a second upload to the same draft supersedes the first, which is
+   still listed until the retention sweep; deleting the draft deletes its files and their rows.
+4. **J34.3 The dry run follows the editing.** Given a draft with a new type and W1 mapped by an inline
+   profile, when the dry run runs, then it counts records, values and relationships per source with
+   rejections by code; after `setKey` on the mapped attribute (with the profile updated) the next run
+   is the same; after a value map for `T`'s placeholders the rejections fall and the difference names
+   the figures that changed against the last run; `GET …/dry-run/rows?code=` lists the rows behind a
+   rejection figure.
+5. **J34.3 The whole file.** Given W1 above 1,000 rows, the dry run's summary covers every row;
+   a draft changed while a dry run runs cancels it and the next summary is of the new version; the
+   dry run writes nothing (the workspace's records and feed are unchanged).
+6. **J34.3 Refusals.** A dry run on a draft that does not compile is `422 INVALID_MODEL`; a
+   profile naming an element the draft lacks is J2's `422` with the problem at its pointer; an unknown
+   source file is `404 SOURCE_FILE_NOT_FOUND`.
+7. **J27 variant, `sourceFileId` on `POST /imports`:** an import naming a stored source file loads as
+   the same file sent inline does.
+
+**Unit tests** (`tests/unit/engine/sources/`): header and block detection on edge shapes (a title
+row above the header, an empty first column, one-column blocks), placeholders and delimiters,
+generated combinations; the staged `TabularFile` gives the same rows as the J2 readers for one
+XLSX and one CSV.
+
+**Budget:** measured once (D67), recorded in POSTGRESQL_BUDGETS: profiling W1 at 10,000 rows, and
+the interactive dry run on it. Run in `volume` only when the release runs budgets.
+
+**Groups:** `authoring`, `jobs`, `contract`, `startup` (the migration: clean bootstrap, upgrade from
+`20261011_01`, restart, an interrupted upgrade), `test_api_journeys.py`; `J34` joins
+`JOURNEY_GROUPS` as `authoring`, `jobs`. No frontend change.
+
+**Composable domains (ADR-032):** inbound flow gains a stored source file an import can name and a
+dry run of an import against a draft; identity, attribute storage, audit and history, bulk APIs, the
+`match` declaration and mapping coverage are unchanged. No door is affected.
+
+##### A3 record (2026-10-12)
+
+**Delivered 2026-10-12** as planned, with D65, D66 and D68–D71 as recommended and D67 as the user
+changed it; through the API only (no editor surface, A5's). What is built:
+
+- **Migration `20261012_01_source_files`**: `source_files` (one owner, a draft or a profile, cascade),
+  `source_file_cells` (the staged cells, D66), `source_file_sheets`, `source_file_columns`; `jobs.kind`
+  gains `profile` and `dryRun`. A downgrade removes them and the jobs of the new kinds.
+- **`engine/sources/`**: `store.py` (upload, supersede, read, delete, the retention sweep, an import's
+  stored upload), `values.py` (a cell staged with its kind, text and value, and back), `profiling.py`
+  (the `profile` job: `COPY` of every filled cell, blocks and header rows by D68, statistics,
+  placeholders and overlaps as set statements), `staged.py` (`StagedFile`, a `TabularFile` over the
+  staged cells), `dry_run.py` (submit, the context with the draft's model, the summary and its
+  difference). The worker runs both kinds; `JobFiles.reconcile` keeps `{id}.upload` while its row
+  exists. The binding takes an opener for its rows (`bind_import(…, open_book=)`), nothing else in it
+  changed.
+- **Routes** as API.md now records them; `sourceFileId` on `POST /imports`; `GET /jobs/{id}/rows`
+  serves a dry run. OpenAPI lock re-baselined by diffing the document against HEAD: the four
+  source-file paths, their schemas, `ImportRequest.sourceFileId`, the import's optional file part and
+  the two job kinds, nothing else; the dry-run routes are model administration's, in the guarded
+  list.
+- **Browser** (not planned, found in the checks): the Jobs list and notifications would have named a
+  profile or dry-run job "Batch"; they read "Profile of <file>" and "Dry run of <file>" (`KIND` in
+  `jobText.ts`, `jobTitle`).
+- **Generators** `tests/workbooks.py`: W1, W1′, W2, W3 from a seed and a size.
+
+**Where it differs from the plan and the design:**
+
+1. **No `model_draft_dry_runs` table.** The dry run's job holds its summary (`jobs.report.dryRun`) and
+   the previous one is the draft's last completed dry run of the same file, so a summary, and the
+   difference against it, lasts as long as the job (`JOB_RETENTION_DAYS`).
+2. **No `{ "full": true }`** on `POST …/dry-run`: every dry run checks the whole file (D67).
+3. **D68's fallback** for a block whose header has an empty cell is the text row with the most cells
+   (the first of equals), found while writing the unit tests; the plan's "first text row followed by
+   a row within its columns" found none in that case.
+4. **Two approved test-case statements do not fit W1 as A0 defined it** (spec gaps, for the user):
+   case 1 says "`K` as the only candidate key", but `X`, a GUID on every row, is one too, so the
+   test asserts `K` and `X`; it says "`Ln` overlapping `S2`'s `N`", but `Ln` (colour names) shares no
+   value with `S2`'s `N` (item names), so the test asserts `K` with `S2`'s `K` and `N` with `S2`'s `N`.
+   W1's names repeat across records (a generator choice), so `N` is not a candidate key.
+5. **Test order:** the journey cases were written after the code, not seen failing first (step 5).
+6. **The smoke start** was done by the user's own development server: running with `--reload`, it
+   restarted on the code change and migrated the development database to `20261012_01` (healthy, its
+   53 jobs kept, the new routes answering).
+7. New codes beyond the design: `404 SOURCE_SHEET_NOT_FOUND`, `404 DRY_RUN_NOT_FOUND`, `410
+   SOURCE_FILE_MISSING`.
+
+**Found, not changed:** `tests/unit/engine/imports/` (77 cases) belongs to no group in
+`UNIT_GROUPS`, although EXECUTION_GUIDE lists it under `jobs`, so a `-m jobs` run leaves it out;
+`engine/sources/` was added to the map.
+
+**Measured once** (D67, POSTGRESQL_BUDGETS §11): W1 at 10,000 rows profiled in 6.3 s, dry run 19.8 s
+for 19,453 items, about J3's cost per item; the preview holds the workspace's write lock most of that
+time. Recorded in TODO with the options, for a decision before A5 runs a dry run after every step.
+
+**Checks:** J34 (`test_j34_onboard.py`, 7 cases × 2 configurations): 14 passed. Unit tests
+`tests/unit/engine/sources/` (92) and the upload sweep case in `test_files.py`: passed. The groups
+`jobs`, `contract` and `startup` in parallel: 471 passed in 1 min 50 s, and their serial case; the
+first run's 31 failures were this package's (the pinned head revision, the reviewed foreign keys, a
+boundary rule against `session.delete`, the dialect check's `json_typeof`, a unit test's fake
+session) and were fixed and rerun. A new `test_startup` case: upgrade from `20261011_01` keeping a
+draft and a job, an interrupted upgrade refused and recovered, two restarts, a file profiled after
+the upgrade, and the downgrade. `test_api_journeys`, `test_openapi_contract`, `test_schema_drift`,
+`test_boundaries`, `test_j33_operations`: passed. `ruff check app/ tests/`: clean. Frontend: Vitest
+`src/features/jobs` (31) passed; `npm run format`, `npm run lint` (0 errors, the 7 listed warnings),
+`npm run build`: passed. **Not run:** the `authoring` group's 2,632 A2 cases (no code of theirs
+changed), every browser runner (no surface changed beyond the job titles), the full suites (R).
 
 ### A5: Editor with a source file
 
@@ -2153,7 +2351,7 @@ Design-level decisions are [A-D1–A-D12](MODEL_AUTHORING.md#open-decisions).
 | D6 | Capability gates | **Accepted 2026-10-11:** operations, inference and install under the model administration gate; source upload and import under `INTEGRATION_JOBS_ENABLED` | A2, A3 |
 | D7 | Where the editor lives | **Accepted 2026-10-11:** opened from Settings › Model on a draft ("Open in editor") and by "New from a workbook" (A5), as its own full-width route inside `ShellFrame` under `TopBar` (no second frame, U-D14); no new top-level destination; the JSON workbench stays | A4a |
 | D8 | Undo with dependent operations | **Accepted 2026-10-11:** refused `OPERATION_HAS_DEPENDANTS` with the dependants listed (a later step depends on an earlier one when it names an element the earlier created or re-keyed); the client may undo them together; a new step clears redo | A2 |
-| D9 | Interactive dry-run budget | **Accepted 2026-10-11:** a summary within 1 s for up to 10,000 rows on the reference machine; a deterministic sample above that with the full run on request; measured once in A3 | A3 |
+| D9 | Interactive dry-run budget | **Accepted 2026-10-11; replaced by D67 (A3, 2026-10-12):** every dry run checks the whole file as a job, superseded runs cancelled; no 1-second target; the time measured once in A3 | A3 |
 | D10 | Concurrent editors | **Accepted 2026-10-11:** optimistic versions only; no locks or live co-editing | A2, A4a |
 | D11 | Order of the lines | **Accepted 2026-10-11:** the designer line before the spreadsheet line, as the user requested (see [why](#why-the-designer-comes-first)); A3 may fill a gap | All |
 | D12 | Which model a draft's profile is checked against | **Accepted 2026-10-11:** the draft's own model while editing; saved as an instance profile on install and activate, so instance profiles keep resolving against the active release as J2 defined (D65) | A5 |
@@ -2184,5 +2382,5 @@ Design-level decisions are [A-D1–A-D12](MODEL_AUTHORING.md#open-decisions).
 
 ## Next
 
-1. A3, source profiling and the dry-run summary, starting with its plan: the designer line is
-   delivered and released as 0.10.0-alpha.1 (T1, 2026-10-12).
+1. A5, the editor with a source file, starting with its plan; before it, the user's decisions on
+   A3's two test-case gaps and on the dry run's write lock (TODO). A3 is delivered (2026-10-12).

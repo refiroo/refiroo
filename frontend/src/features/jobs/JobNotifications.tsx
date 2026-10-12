@@ -17,7 +17,7 @@ import { routePath } from "@/routing/routes";
 import type { EngineModel, Job, RouteState } from "@/types";
 import { useToast, type ToastAction } from "@/ui/Toast";
 import { importTitle } from "./ImportOutcome";
-import { forPeople } from "./jobText";
+import { forPeople, KIND } from "./jobText";
 import { isFinal, useJobStream } from "./useJobStream";
 
 const STORAGE_KEY = "rdm.followedJobs";
@@ -179,9 +179,11 @@ export function useJobEnded(listener: EndedListener) {
   useEffect(() => onEnded((job) => latest.current(job)), [onEnded]);
 }
 
-/** "Export of Codelists, Codes", "Import of codes.csv", or "Batch". */
+/** "Export of Codelists, Codes", "Import of codes.csv", "Profile of codes.csv", "Dry run of
+ * codes.csv", or "Batch". */
 export function jobTitle(model: EngineModel, job: Job): string {
   if (job.kind === "import") return importTitle(job);
+  if (job.kind === "profile" || job.kind === "dryRun") return sourceTitle(job);
   if (job.kind !== "export") return "Batch";
   const scope = job.parameters.scope as { types?: { objectTypeKey: string }[] } | undefined;
   const names = (scope?.types ?? []).map(
@@ -189,4 +191,11 @@ export function jobTitle(model: EngineModel, job: Job): string {
   );
   if (forPeople(job)) return names.length ? `Workbook for people of ${names.join(", ")}` : "Workbook for people";
   return names.length ? `Export of ${names.join(", ")}` : "Export";
+}
+
+/** A source file's profile or a model draft's dry run (0.10 A3), named after the file. */
+function sourceTitle(job: Job): string {
+  const label = KIND[job.kind];
+  const name = (job.parameters.file as { name?: string } | undefined)?.name;
+  return name ? `${label} of ${name}` : label;
 }

@@ -61,6 +61,8 @@ MAX_NAME = 500
 # A related record's version cell holding this leaves the record out of its row (0.9 J6a, D195).
 NOT_LOADED = "not loaded"
 _ITEM = TypeAdapter(BatchItem)
+# Opens the rows a profile binds: the format and the CSV delimiter in, the rows out.
+type BookOpener = Callable[[str, str], TabularFile]
 _RECORD_COLUMNS = ("objectTypeKey", "applicationKey", "id", "version", "name", "parentObjectId")
 
 _TEMPORARY_TABLES = (
@@ -164,10 +166,13 @@ def bind_import(
     model: EngineModel,
     check: Callable[[], None],
     limits: ImportLimits,
+    open_book: BookOpener | None = None,
 ) -> Bound:
     """Bind the file at ``path`` into the job's outcomes and inputs; the caller commits. ``check``
-    is called every :data:`CHECK_ROWS` rows read and raises to stop."""
-    if not path.is_file():
+    is called every :data:`CHECK_ROWS` rows read and raises to stop. ``open_book`` reads the rows
+    from elsewhere than the file, as a dry run reads a source file's staged cells (0.10 A3, D66);
+    it serves a binding through a profile only."""
+    if open_book is None and not path.is_file():
         raise api_error(
             410,
             "IMPORT_FILE_MISSING",
@@ -194,7 +199,10 @@ def bind_import(
             else None
         )
         report = _Report()
-        _ProfileBinding(session, job, model, profile, context, rows, report).run(path, file_format)
+        opener = open_book or partial(open_tabular, path)
+        _ProfileBinding(session, job, model, profile, context, rows, report).run(
+            opener, file_format
+        )
     else:
         report = _Report()
         _bind_table_layout(session, path, file_format, model, rows, report)
@@ -781,9 +789,9 @@ class _ProfileBinding:
 
     # --- reading ---
 
-    def run(self, path: Path, file_format: str) -> None:
+    def run(self, open_book: BookOpener, file_format: str) -> None:
         delimiter = self.profile.csv.delimiter if self.profile.csv is not None else ","
-        book = open_tabular(path, file_format, delimiter)
+        book = open_book(file_format, delimiter)
         try:
             plans = self._plans(book, file_format == "xlsx")
             for plan in plans:

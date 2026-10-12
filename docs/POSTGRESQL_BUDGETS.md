@@ -634,3 +634,24 @@ inputs had changed ([R's record](BASE_0_9_IMPLEMENTATION_PLAN.md#r-build-accepta
   closure's walk reading every owned record of a type per record) and R-F27 (the matrix walk under
   tombstones) were fixed first, each with its regression test.
 
+## 11. Source files and the dry run (0.10 A3)
+
+W1 at 10,000 rows (`tests/workbooks.py`, seed 1: 2.2 MB, sheet `S1` 10,000 rows of 12 columns, `S2`
+70,000 rows of 3; 330,000 filled cells), uploaded to a draft of the generated-a journey model with
+one type added and profiled; then a dry run of `S1` through a profile of the key, the name and a
+relationship looked up by name. Measured once on 2026-10-12 on the reference machine, through the
+journey application with the test worker running each job to its end (D67's measurement).
+
+| Step | Measured |
+| --- | --- |
+| Upload (stored, profile job queued) | 0.07 s |
+| Profile job (read, 330,000 cells staged by `COPY`, blocks, statistics, overlaps) | 6.3 s |
+| Dry run (bind from the staged cells, preview of every item, summary) | 19.8 s for 19,453 items |
+
+No budget was set for A3 (D67 withdrew D9's 1 s). Per item the dry run costs what J3's preview did
+(§9: 10.6 s for 10,000 items, binding included). The preview step holds the workspace's write lock
+for most of the 19.8 s, so live writes in that workspace wait that long once per dry run; how much
+of the time is binding and how much preview was not split. Running the dry run in a change-set
+context, which takes the workspace lock in key-share mode and does not block live writes, is the
+known alternative (§9's 18 s per 10,000 items in a change set), recorded in TODO for a decision.
+

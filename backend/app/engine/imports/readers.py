@@ -75,6 +75,11 @@ class TabularFile(Protocol):
         sheet has no row at the header row."""
         ...
 
+    def rows(self, sheet: str) -> Iterator[tuple[int, list[Any]]]:
+        """Every row of ``sheet`` with its number, from the first, empty rows left out: what a
+        source file's profile reads (0.10 A3), before any header is known."""
+        ...
+
     def close(self) -> None: ...
 
 
@@ -110,9 +115,13 @@ class XlsxFile:
         except StopIteration:
             return None
         return Table(
-            [_header_cell(value) for value in header],
+            [header_cell(value) for value in header],
             _numbered(area.header_row, ([_xlsx_cell(value) for value in row] for row in rows)),
         )
+
+    def rows(self, sheet: str) -> Iterator[tuple[int, list[Any]]]:
+        found = self._book[sheet].iter_rows(values_only=True)
+        return _numbered(0, ([_xlsx_cell(value) for value in row] for row in found))
 
     def close(self) -> None:
         self._book.close()
@@ -138,7 +147,10 @@ class CsvFile:
             _cut(record, area)
             for record in _until(lines, area.last_row - number if area.last_row else None)
         )
-        return Table([_header_cell(value) for value in header], _numbered(number, rows))
+        return Table([header_cell(value) for value in header], _numbered(number, rows))
+
+    def rows(self, sheet: str) -> Iterator[tuple[int, list[Any]]]:
+        return _numbered(0, self._records())
 
     def _records(self) -> Iterator[list[str]]:
         try:
@@ -214,7 +226,8 @@ def open_tabular(path: Path, file_format: str, delimiter: str = ",") -> TabularF
     return CsvFile(path, delimiter)
 
 
-def _header_cell(value: Any) -> str | None:
+def header_cell(value: Any) -> str | None:
+    """A header cell as a column name: trimmed text, ``None`` when empty."""
     if is_empty(value):
         return None
     text = cell_text(value).strip()

@@ -193,7 +193,9 @@ class JobResponse(BaseModel):
 
     ``parameters`` holds the kind's choices: ``run`` and ``onExisting`` for a batch; ``context``,
     ``scope``, ``include`` and ``format`` for an export, whose ``result`` stays ``null`` (it has no
-    item outcomes) and whose ``output`` describes its file once completed.
+    item outcomes) and whose ``output`` describes its file once completed. A ``profile`` job
+    (0.10 A3) profiles a source file and has no ``result``; a ``dryRun`` previews a model draft's
+    import, and its summary is read at ``GET /model-drafts/{id}/dry-run``.
     ``changeSetVersion``, for a job in a change set, is the version the job holds: its claim while
     it is queued or running, the version it left once finished. ``leaseOwner`` and
     ``leaseExpiresAt`` name the worker running a background job; ``cancelRequestedAt`` is set by a
@@ -201,7 +203,7 @@ class JobResponse(BaseModel):
     """
 
     id: str
-    kind: Literal["batch", "import", "export"]
+    kind: Literal["batch", "import", "export", "profile", "dryRun"]
     workspaceKey: str
     changeSetId: str | None
     changeSetVersion: int | None

@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from sqlalchemy import (
     JSON,
+    BigInteger,
     Boolean,
     CheckConstraint,
     Date,
@@ -14,6 +15,7 @@ from sqlalchemy import (
     Integer,
     LargeBinary,
     Numeric,
+    PrimaryKeyConstraint,
     String,
     Text,
     UniqueConstraint,
@@ -21,6 +23,7 @@ from sqlalchemy import (
     literal_column,
     text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.types import TypeDecorator
@@ -1306,7 +1309,9 @@ class Job(Base):
 
     __tablename__ = "jobs"
     __table_args__ = (
-        CheckConstraint("kind IN ('batch', 'import', 'export')", name="ck_job_kind"),
+        CheckConstraint(
+            "kind IN ('batch', 'import', 'export', 'profile', 'dryRun')", name="ck_job_kind"
+        ),
         CheckConstraint(
             "state IN ('queued', 'running', 'awaiting_confirmation', 'completed', 'failed', "
             "'cancelled', 'expired')",
@@ -1454,3 +1459,102 @@ class ImportProfile(Base):
     updated_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
     )
+
+
+class SourceFile(Base):
+    """A file a model draft or an import profile owns (Product 0.10 A3, D5), deleted with its
+    owner. The file is in ``JOB_FILE_DIR`` as ``{public_id}.upload``; its filled cells are staged in
+    ``source_file_cells`` by its profiling job (D66). A newer file of the same owner supersedes it,
+    and the job retention sweep removes it ``JOB_RETENTION_DAYS`` later."""
+
+    __tablename__ = "source_files"
+    __table_args__ = (
+        CheckConstraint(
+            "(draft_id IS NULL) <> (profile_key IS NULL)", name="ck_source_files_one_owner"
+        ),
+        Index("ix_source_files_draft", "draft_id", "id"),
+        Index("ix_source_files_profile", "profile_key", "id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    public_id: Mapped[str] = mapped_column(
+        String(36), unique=True, index=True, default=lambda: str(uuid4())
+    )
+    draft_id: Mapped[int | None] = mapped_column(
+        ForeignKey("model_drafts.id", ondelete="CASCADE"), nullable=True
+    )
+    profile_key: Mapped[str | None] = mapped_column(
+        ForeignKey("import_profiles.key", ondelete="CASCADE"), nullable=True
+    )
+    name: Mapped[str] = mapped_column(String(300), nullable=False)
+    format: Mapped[str] = mapped_column(String(10), nullable=False)
+    bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    # The delimiter a CSV file was staged with; ``None`` for a workbook.
+    csv_delimiter: Mapped[str | None] = mapped_column(String(1), nullable=True)
+    # The workspace whose records the profile's overlaps read (D69); ``None`` for none.
+    workspace_key: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    uploaded_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    superseded_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    profile_job_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+
+
+class SourceFileCell(Base):
+    """One filled cell of a source file, as its profiling job read it (0.10 A3, D66): its kind
+    (``text``, ``integer``, ``decimal``, ``boolean``, ``date``, ``dateTime``), its text as an import
+    matches it, and its value as the reader gave it (``value.py`` in ``engine/sources``)."""
+
+    __tablename__ = "source_file_cells"
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "source_file_id", "sheet_index", "row_number", "column_number",
+            name="pk_source_file_cells",
+        ),
+    )
+
+    source_file_id: Mapped[int] = mapped_column(
+        ForeignKey("source_files.id", ondelete="CASCADE"), nullable=False
+    )
+    sheet_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    row_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    column_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    kind: Mapped[str] = mapped_column(String(10), nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    value: Mapped[Any] = mapped_column(JSONB, nullable=False)
+
+
+class SourceFileSheet(Base):
+    """A sheet of a source file's profile (0.10 A3): its rows, header row and blocks."""
+
+    __tablename__ = "source_file_sheets"
+    __table_args__ = (
+        PrimaryKeyConstraint("source_file_id", "sheet_index", name="pk_source_file_sheets"),
+    )
+
+    source_file_id: Mapped[int] = mapped_column(
+        ForeignKey("source_files.id", ondelete="CASCADE"), nullable=False
+    )
+    sheet_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    name: Mapped[str] = mapped_column(String(300), nullable=False)
+    profile: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+
+
+class SourceFileColumn(Base):
+    """A column of a source file's profile (0.10 A3): its statistics."""
+
+    __tablename__ = "source_file_columns"
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "source_file_id", "sheet_index", "column_number", name="pk_source_file_columns"
+        ),
+    )
+
+    source_file_id: Mapped[int] = mapped_column(
+        ForeignKey("source_files.id", ondelete="CASCADE"), nullable=False
+    )
+    sheet_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    column_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    statistics: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)

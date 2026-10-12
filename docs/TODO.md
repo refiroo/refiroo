@@ -408,7 +408,13 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   - [x] A4c's surfaces (the Consumer APIs tab, a definition's tabs, its dialogs and the install
     dialog's section) into the accessibility and visual gates, light and dark, at T1 (2026-10-12); dark mode inspected.
   - [x] T1 designer checkpoint (US-P05), released as 0.10.0-alpha.1 (D14), 2026-10-12.
-  - [ ] A3 source profiling and the dry-run summary; the synthetic workbooks W1–W3.
+  - [x] A3 source profiling and the dry-run summary; the synthetic workbooks W1–W3 (delivered
+    2026-10-12).
+  - [ ] A3: a dry run of W1 at 10,000 rows takes 19.8 s and holds the workspace's write lock for its
+    preview (POSTGRESQL_BUDGETS §11), so live writes in the workspace wait once per dry run. Options,
+    for the user to decide before A5 runs a dry run after every editor step: keep it (superseded runs
+    are cancelled), run it in a change-set context that does not block live writes (slower, about
+    18 s per 10,000 items in 0.9), or measure the split between binding and preview first.
   - [ ] A5 editor with a source file: source and mapping panes, saved and re-run profiles.
   - [ ] A6 inference over the table patterns.
   - [ ] A7 model-description sheets and matching across files (below the cut line).

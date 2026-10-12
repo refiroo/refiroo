@@ -29,7 +29,8 @@ export type JobState =
 /** A job (`GET /api/v1/jobs`): `result` says whether every item applied. */
 export interface Job {
   id: string;
-  kind: "batch" | "import" | "export";
+  /** `profile` and `dryRun` (0.10 A3): a source file's profile and a model draft's dry run. */
+  kind: "batch" | "import" | "export" | "profile" | "dryRun";
   workspaceKey: string;
   changeSetId: string | null;
   state: JobState;

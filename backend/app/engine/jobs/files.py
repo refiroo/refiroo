@@ -7,6 +7,9 @@ it, and :meth:`JobFiles.reconcile` removes whatever a stopped process left behin
 
 An import's uploaded file (0.9 J2) is ``{jobId}.source``, kept while its job waits or runs: a
 restart binds it again. It goes when the job finishes.
+
+A source file (0.10 A3, D5) is ``{sourceFileId}.upload``, kept while its ``source_files`` row
+exists: it lives as long as the draft or profile that owns it, not as long as a job.
 """
 
 import logging
@@ -17,12 +20,13 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ...models.database import Job
+from ...models.database import Job, SourceFile
 
 logger = logging.getLogger(__name__)
 
 PARTIAL = "partial"
 SOURCE = "source"
+UPLOAD = "upload"
 # The states in which an import still reads its file.
 READS_SOURCE = frozenset({"queued", "running", "awaiting_confirmation"})
 # A file of no job stays this long after it was last written (0.9 R-F10): an import writes its file
@@ -43,6 +47,9 @@ class JobFiles:
     def source(self, job_id: str) -> Path:
         return self.directory / f"{job_id}.{SOURCE}"
 
+    def upload(self, source_file_id: str) -> Path:
+        return self.directory / f"{source_file_id}.{UPLOAD}"
+
     def remove(self, job_id: str) -> None:
         """Every file of the job, written or partial."""
         for path in self.directory.glob(f"{job_id}.*"):
@@ -50,8 +57,8 @@ class JobFiles:
 
     def reconcile(self, session: Session) -> int:
         """Remove each file whose job neither runs nor is completed (expired, cancelled, failed,
-        unknown), each partial file of a completed job, and each import's file whose job no
-        longer reads it; the number removed. A file of no job written in the last
+        unknown), each partial file of a completed job, each import's file whose job no
+        longer reads it, and each source file whose row is gone; the number removed. A file of no job written in the last
         :data:`UNCOMMITTED_SECONDS` is left for a later sweep: its job may not be committed yet."""
         if not self.directory.is_dir():
             return 0
@@ -60,11 +67,23 @@ class JobFiles:
             return 0
         ids = {path.name.split(".", 1)[0] for path in paths}
         states = dict(session.execute(select(Job.id, Job.state).where(Job.id.in_(ids))).all())
+        named = {path.name.split(".", 1)[0] for path in paths if path.name.endswith(f".{UPLOAD}")}
+        uploads = (
+            set(session.scalars(select(SourceFile.public_id).where(SourceFile.public_id.in_(named))))
+            if named
+            else set()
+        )
         removed = 0
         recent = time.time() - UNCOMMITTED_SECONDS
         for path in paths:
             job_id, extension = path.name.split(".", 1)
             state = states.get(job_id)
+            if extension == UPLOAD:
+                # A source file is written just before the commit that stores its row.
+                if job_id not in uploads and _modified(path) <= recent:
+                    path.unlink(missing_ok=True)
+                    removed += 1
+                continue
             if state is None and _modified(path) > recent:
                 continue
             # A running export's file is renamed into place just before the commit that completes
