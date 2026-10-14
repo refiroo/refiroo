@@ -17,7 +17,8 @@ from configurations import example, generated
 
 from app.engine.model.authoring.document import PROFILE, PROFILE_IDENTITIES, Document, Refusal
 from app.engine.model.authoring.kinds import Context, apply_operation
-from app.engine.model.authoring.profile_side import binding_resolves, facts
+from app.engine.model.authoring.profile_side import binding_resolves, facts, holds_one
+from app.models.schema import ObjectTypeRelationDefinition
 
 MODELS = {"example": example().model, "generated-b": generated("b").model}
 
@@ -98,3 +99,17 @@ def test_the_profile_names_only_what_the_model_declares_and_the_inverse_restores
             assert binding_resolves(known, source, binding), (operation["kind"], source["id"], binding)
     apply_operation(_context(model, profile), applied.inverse)
     assert (model, profile) == original, f"{operation} then {applied.inverse['kind']}"
+
+
+@pytest.mark.parametrize("name", MODELS)
+def test_a_lookup_replaces_exactly_when_the_rows_record_holds_one_of_the_relation(name):
+    """D105 (0.10 A5c): from either end of every relation binding of both models, ``holds_one``
+    agrees with the model's own rule for the record at that end, and a pair the model does not
+    allow holds nothing."""
+    model = MODELS[name]
+    for item in model["objectTypeRelations"]:
+        binding = ObjectTypeRelationDefinition.model_validate(item)
+        relation, source, target = item["relationTypeKey"], item["fromObjectTypeKey"], item["toObjectTypeKey"]
+        assert holds_one(model, relation, "outgoing", source, target) is binding.holds_one("from")
+        assert holds_one(model, relation, "incoming", target, source) is binding.holds_one("to")
+    assert holds_one(model, "zz-none", "outgoing", "a", "b") is False

@@ -191,7 +191,7 @@ def list_jobs(
     session: DbSession,
     paging: PageQuery,
     workspace_key: str | None = Query(default=None, alias="workspaceKey"),
-    kind: Literal["batch", "import", "export", "profile", "dryRun", "inference"] | None = None,
+    kind: Literal["batch", "import", "export", "profile", "dryRun", "inference", "profileCheck"] | None = None,
     state: Literal[
         "queued", "running", "awaiting_confirmation", "completed", "failed", "cancelled", "expired"
     ]

@@ -243,6 +243,9 @@ describe("the source and mapping kinds in the history", () => {
     expect(say("setSource", { source: "shelves-shelf", key: { attributeTypeKey: "code" } })).toBe(
       "Made Code the key of source shelves-shelf",
     );
+    expect(say("setMissing", { source: "shelves-shelf", missing: "delete" })).toBe(
+      "Records missing from the file are deleted from source shelves-shelf in a change set",
+    );
     expect(say("addObjectType", {})).toBeUndefined();
   });
 });

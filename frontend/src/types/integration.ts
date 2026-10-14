@@ -273,20 +273,36 @@ export interface JobRowPage {
   startIndex?: number;
 }
 
-/** A stored import profile as the dialog reads it; the column bindings are left untyped. */
+/** A stored import profile as the screens read it; the column bindings are left untyped. */
 export interface ImportProfile {
   key: string;
   name: string;
   version: number;
+  checkedAgainst: string;
   valid: boolean;
   problems: { path: string; code: string; message: string }[];
-  sources: {
-    sheet?: string | null;
-    applicationKey: string;
-    objectTypeKey: string;
-    record?: "upsert" | "existing";
-    key?: { attributeTypeKey?: string | null; column?: string | null } | null;
-  }[];
+  createdAt: string;
+  updatedAt: string;
+  csv?: { delimiter: string } | null;
+  sources: ImportProfileSource[];
+  valueMaps: Record<string, Record<string, unknown>>;
+}
+
+export interface ImportProfileSource {
+  sheet?: string | null;
+  applicationKey: string;
+  objectTypeKey: string;
+  record?: "upsert" | "existing";
+  key?: {
+    attributeTypeKey?: string | null;
+    column?: string | null;
+    versionColumn?: string | null;
+    nameColumn?: string | null;
+  } | null;
+  /** What a load does with the records no row names (0.10 A5c, D82); report when absent. */
+  missing?: "report" | "delete" | null;
+  columns: Record<string, unknown>[];
+  [member: string]: unknown;
 }
 
 export interface ImportProfilePage {

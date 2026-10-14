@@ -94,6 +94,8 @@ export type SettingsRoute =
   | { kind: "settings"; page: "about" | "appearance" | "deployment" | "consumer-apis" | "api-reference" }
   /** Jobs and feed, or one job's page (0.9 J1u). */
   | { kind: "settings"; page: "jobs"; jobId?: string }
+  /** Stored import profiles, or one profile's page with its next file's check (0.10 A5c, D85). */
+  | { kind: "settings"; page: "imports"; profileKey?: string }
   | { kind: "settings"; page: "workspaces"; workspaceKey?: string }
   | {
       kind: "settings";

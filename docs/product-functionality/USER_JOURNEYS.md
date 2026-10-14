@@ -927,25 +927,30 @@ both designer models).
 
 ### J35 — Load the next version of a workbook
 
-**Actor:** model administrator; data steward. **Channel:** UI, API. **Stories:** US-P10.
-**Status:** planned (A5).
+**Actor:** model administrator; data steward. **Channel:** UI (Settings › Imports), API.
+**Stories:** US-P10. **Status:** delivered (0.10 A5c).
 
 1. Upload the next version of a workbook to its saved profile.
 2. Read what differs before loading: new, missing and renamed columns, new list values, name drift,
-   records missing from the new version.
+   records missing from the new version, the profile against the active release and what the load
+   would do; accept a rename or ignore a new column, and the file is checked again.
 3. Load into a new change set and review only the differences.
 
 **Variants:**
 
 - **J35.1 Differences first**: nothing loads before the report is read.
-- **J35.2 Missing records** are reported and kept; retired or deleted only when the profile says so,
-  in the change set.
+- **J35.2 Missing records** are reported and kept; deleted only when the profile says so, in the
+  change set, each with its own relationships (D104); a lookup's changed value switches its record
+  (D105). Records have no retired state (D82).
 - **J35.3 A profile against a newer release**: re-checked, with every binding that no longer resolves
   at its path.
 
-**Refusals:** J27's import refusals; `422 INVALID_IMPORT_PROFILE` with its problems.
+**Refusals:** J27's import refusals; `422 INVALID_IMPORT_PROFILE` with its problems; `422
+MISSING_DELETE_NEEDS_CHANGE_SET` for a live load that deletes; `404 PROFILE_CHECK_NOT_FOUND`.
 
-**Evidence today:** none (planned).
+**Evidence today:** `backend/tests/journeys/test_j35_next_version.py` (J35.1–J35.3, two
+configurations); `test:browser:authoring-a5`'s A5c walk (Settings › Imports, W1′ checked, a rename
+accepted, a column ignored, loaded, the review holding only the differences, both designer models).
 
 ## Integration
 

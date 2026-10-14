@@ -6,11 +6,26 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
-Three migrations (`20261012_01`, source files and the `profile` and `dryRun` job kinds;
+Four migrations (`20261012_01`, source files and the `profile` and `dryRun` job kinds;
 `20261013_01`, a model draft's import profile; `20261014_01`, a draft's proposals and the
-`inference` job kind); a database of 0.10.0-alpha.1 upgrades on start.
+`inference` job kind; `20261015_01`, the `profileCheck` job kind); a database of 0.10.0-alpha.1
+upgrades on start.
 
 ### Added
+
+- Base 0.10 A5c: the next version of a workbook (D82–D85, D104, D105; J35). A file uploaded to a
+  stored import profile is profiled and checked by a job of kind `profileCheck`, writing nothing:
+  columns new, missing and renamed (same position, at least half the values shared), the profile
+  against the active release, the dry run of the file through the profile as it would read it, new
+  values of match columns, name drift and records missing from the file
+  (`GET /import-profiles/{key}/check`, its `new-values`, `drift`, `missing-records` and `rows`;
+  `POST …/check` checks again). A source's `missing` (`report`, `delete`): records no row names are
+  counted by every binding and the dry run, and deleted only into a change set, each with its own
+  relationships (`422 MISSING_DELETE_NEEDS_CHANGE_SET` live); the kind `setMissing`.
+  **Settings › Integration › Imports** lists the profiles; a profile's page uploads the next
+  version, shows the check (Accept a rename, Ignore a new column, keep or delete missing records)
+  and loads into a change set whose review holds only the differences. The editor's Load dialog and
+  the profile's share their parts (`ChangeSetLoad`). `test:browser:authoring-a5`'s A5c walk.
 
 - Base 0.10 A6b: the editor filled by the inference (D94; J34.4, J34.6, J34.8). New from a workbook
   asks what to propose (a new application with its name, additions to the model, or nothing) and the
@@ -96,6 +111,12 @@ Three migrations (`20261012_01`, source files and the `profile` and `dryRun` job
 
 ### Changed
 
+- Base 0.10 A5c (D105): a relation column onto a relation its record holds one of (many-to-one from
+  its side, or one-to-one) is mapped with `replace: true` by the mapping kinds, Map to… and the
+  inference, so the next version's changed value switches the record instead of being refused
+  `CARDINALITY_VIOLATION`. The dry run's summary counts `deleted` records and `missingRecords`; the
+  binding report `missingRecords`.
+
 - Base 0.10 A6b: an operation of a proposal holds when the binding has what it sets, so proposing
   again no longer re-applies a binding a value map was added to (found by the browser runner: the
   name drift's map was dropped and the dry run refused the drifting rows). The editor's marks name
@@ -119,6 +140,11 @@ Three migrations (`20261012_01`, source files and the `profile` and `dryRun` job
   holds the workspace's write lock that much shorter.
 
 ### Fixed
+
+- Import binding (0.9 J2, found by 0.10 A5c's 10,000-row measurement): finding each row's record by
+  its key attribute, and a match by attribute, compared every row with every record of the context
+  (21.9 s for 10,000 rows into a workspace holding them); they now join on a table of the values a
+  key or a match reads, a hash join (the whole binding of W1′ at 10,000 rows: 2.4 s).
 
 - Base 0.10 A6b (reported on a real workbook): a workbook with nothing to propose got the new
   application alone, which left the draft refusing an application without types; now nothing is

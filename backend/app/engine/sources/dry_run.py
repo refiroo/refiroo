@@ -9,9 +9,10 @@ binds its file and previews every item (D67) in a transaction it rolls back, as 
 with the draft's model in the context in place of the active release's. A dry run whose draft has
 changed since it was sent stops as ``cancelled``: its answer would be about a model no longer there.
 
-The summary counts, per source in load order: rows, records created, updated and unchanged, the
-values they write, relationships, related records, and the rows refused by code; and the
-difference from the draft's previous completed dry run of the same file.
+The summary counts, per source in load order: rows, records created, updated, unchanged and
+deleted, the values they write, relationships, related records, the records missing from the file
+(0.10 A5c, D82) and the rows refused by code; and the difference from the draft's previous completed
+dry run of the same file. A profile's check (``profile_check.py``) summarizes its run the same way.
 """
 
 from datetime import UTC, datetime
@@ -165,13 +166,13 @@ def record_dry_run(
     """The dry run's outcomes, its summary and its difference from the draft's previous one; the
     job completes. The caller commits."""
     record_outcomes(session, job, outcomes)
-    summary = _summary(session, job, model)
+    found = summary(session, job, model)
     previous = _previous(session, job)
-    summary["difference"] = (
-        _difference(previous["sources"], summary["sources"]) if previous is not None else None
+    found["difference"] = (
+        _difference(previous["sources"], found["sources"]) if previous is not None else None
     )
-    summary["previousJobId"] = previous["jobId"] if previous is not None else None
-    job.report = {**(job.report or {}), "dryRun": summary}
+    found["previousJobId"] = previous["jobId"] if previous is not None else None
+    job.report = {**(job.report or {}), "dryRun": found}
     complete_job(session, job, retention_days=retention_days)
 
 
@@ -206,9 +207,11 @@ WHERE job_id = :job AND source_index IS NOT NULL GROUP BY source_index
 _RECORD_OPS = {"create", "update", "upsert"}
 
 
-def _summary(session: Session, job: Job, model: EngineModel) -> dict[str, Any]:
+def summary(session: Session, job: Job, model: EngineModel) -> dict[str, Any]:
+    """Per source in load order, what the job's previewed items would do (module docstring)."""
     definition = ImportProfileDefinition.model_validate(job.parameters["profile"]["definition"])
     order = source_order(model, definition) or list(range(len(definition.sources)))
+    bound = (job.report or {}).get("bindingReport") or []
     sources: list[dict[str, Any]] = []
     for position, index in enumerate(order):
         source = definition.sources[index]
@@ -219,10 +222,13 @@ def _summary(session: Session, job: Job, model: EngineModel) -> dict[str, Any]:
                 "sheet": source.sheet,
                 "objectTypeKey": source.objectTypeKey,
                 "rows": 0,
-                "records": {"created": 0, "updated": 0, "unchanged": 0},
+                "records": {"created": 0, "updated": 0, "unchanged": 0, "deleted": 0},
                 "values": 0,
                 "relationships": 0,
                 "relatedRecords": 0,
+                "missingRecords": (bound[position] if position < len(bound) else {}).get(
+                    "missingRecords", 0
+                ),
                 "rejections": {},
             }
         )
@@ -237,7 +243,9 @@ def _summary(session: Session, job: Job, model: EngineModel) -> dict[str, Any]:
             continue
         if row.status != "applied":
             continue
-        if row.op in _RECORD_OPS:
+        if row.op == "delete":
+            entry["records"]["deleted"] += row.items if row.action == "deleted" else 0
+        elif row.op in _RECORD_OPS:
             if row.type_key == entry["objectTypeKey"]:
                 entry["records"][row.action] = entry["records"].get(row.action, 0) + row.items
             elif row.action != "unchanged":
@@ -251,10 +259,14 @@ def _summary(session: Session, job: Job, model: EngineModel) -> dict[str, Any]:
             {"code": code, "rows": rows} for code, rows in sorted(entry["rejections"].items())
         ]
     rows_total = sum(entry["rows"] for entry in sources)
+    drafted = (
+        {"draftId": job.parameters["draftId"], "draftVersion": job.parameters["draftVersion"]}
+        if "draftId" in job.parameters
+        else {}
+    )
     return {
         "jobId": job.id,
-        "draftId": job.parameters["draftId"],
-        "draftVersion": job.parameters["draftVersion"],
+        **drafted,
         "sourceFileId": job.parameters["sourceFileId"],
         "workspaceKey": job.workspace_key,
         "coverage": "complete",
@@ -289,6 +301,7 @@ def _figures(entry: dict[str, Any]) -> dict[str, int]:
         "values": entry["values"],
         "relationships": entry["relationships"],
         "relatedRecords": entry["relatedRecords"],
+        "missingRecords": entry.get("missingRecords", 0),
     }
     figures.update({f"rejections.{item['code']}": item["rows"] for item in entry["rejections"]})
     return figures

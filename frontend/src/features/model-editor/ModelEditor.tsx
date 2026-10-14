@@ -1022,7 +1022,7 @@ export function ModelEditor({
       )}
       {dialog?.kind === "workbook" && (
         <AddWorkbookDialog
-          draftId={draftId}
+          owner={{ draftId }}
           replaces={source.profile?.sourceFile?.name}
           defaultWorkspace={workspaceKey}
           onUploaded={(file) => {

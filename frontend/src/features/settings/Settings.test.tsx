@@ -120,6 +120,7 @@ describe("SettingsShell", () => {
       "Model",
       "Deployment",
       "Consumer APIs",
+      "Imports",
       "Webhooks",
       "Jobs and feed",
       "API reference",

@@ -519,8 +519,24 @@ as proposed follows it, what you changed stays, and where the workbook reads a c
 is an issue; a proposal you undid is not applied again. Once installed, the types read Released.
 Through the API the proposals can be read before anything is applied.
 
-Limits: a field's editor cannot be chosen (each value type has one); the next version of a workbook
-and its differences are later 0.10 work; sheets laid out for reading (several lists side by side)
+**The next version of a workbook.** Installing a draft with a workbook saves its import profile;
+Settings › Integration › **Imports** lists the stored profiles, the types each loads, whether it
+still holds against the active model and its latest file. On a profile's page, **Upload the next
+version…** takes the new file, reads it and checks it against the profile before anything is
+written: columns new, missing or renamed (a column under a new header at the same place, holding
+the same values), values that name no record yet (created by the load, or refused), records whose
+name in the file differs from the live record, records the file no longer names, the profile's
+problems against the active model, and what the load would do (records added, changed and
+unchanged, rows refused, each list with its rows). **Accept** a rename and **Ignore** a new column
+from the page; each saves the profile and checks the file again. Records missing from the file are
+kept unless the profile says to delete them, which happens only in a change set: the record goes
+with its own relationships, and a record others depend on is refused for you to decide. **Load into
+a change set…** opens a new change set with the file loaded; its review lists only what the new
+version changes. A lookup column now switches its record's value when the next version names
+another (a material changed from Steel to Bamboo), where the relation allows one per record.
+
+Limits: a field's editor cannot be chosen (each value type has one); the draft editor has no control
+for what a load does with missing records (Settings › Imports and the API set it); sheets laid out for reading (several lists side by side)
 and sheets describing a model propose nothing yet (A8, A7); the optional assistant is an interface
 only, with no provider. A consumer
 API's documents are worked out from the draft; messages from real records come from the consumer API

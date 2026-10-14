@@ -344,7 +344,7 @@ def test_the_dry_run_follows_the_editing_of_the_draft(world):
     (items,) = summary["sources"]
     loaded = 200 - placeholder_rows
     assert items["objectTypeKey"] == keys["type"] and items["rows"] == 200
-    assert items["records"] == {"created": loaded, "updated": 0, "unchanged": 0}
+    assert items["records"] == {"created": loaded, "updated": 0, "unchanged": 0, "deleted": 0}
     assert items["values"] == loaded and items["relationships"] == loaded
     (rejection,) = items["rejections"]
     assert rejection == {"code": "REFERENCE_NOT_FOUND", "rows": placeholder_rows}

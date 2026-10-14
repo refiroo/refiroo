@@ -30,6 +30,7 @@ export const SETTINGS_NAVIGATION: SettingsGroup[] = [
     label: "Integration",
     pages: [
       { page: "consumer-apis", label: "Consumer APIs" },
+      { page: "imports", label: "Imports" },
       { page: "webhooks", label: "Webhooks" },
       { page: "jobs", label: "Jobs and feed" },
       { page: "api-reference", label: "API reference" },

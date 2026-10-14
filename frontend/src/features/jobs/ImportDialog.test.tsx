@@ -25,22 +25,29 @@ const profile = (key: string, extra: Partial<ImportProfile> = {}): ImportProfile
   key,
   name: `Profile ${key}`,
   version: 1,
+  checkedAgainst: "r1",
   valid: true,
   problems: [],
+  createdAt: "2026-10-01T00:00:00Z",
+  updatedAt: "2026-10-01T00:00:00Z",
   sources: [
     {
       sheet: "Codes",
       applicationKey: "master",
       objectTypeKey: "domain",
       key: { attributeTypeKey: "code" },
+      columns: [{ column: "Code", attributeTypeKey: "code" }],
     },
   ],
+  valueMaps: {},
   ...extra,
 });
 
 const PROFILES = [
   profile("supplier"),
-  profile("keyless", { sources: [{ sheet: "Codes", applicationKey: "master", objectTypeKey: "domain" }] }),
+  profile("keyless", {
+    sources: [{ sheet: "Codes", applicationKey: "master", objectTypeKey: "domain", columns: [{ column: "Code" }] }],
+  }),
   profile("broken", { valid: false, problems: [{ path: "/sources/0", code: "UNKNOWN_OBJECT_TYPE", message: "…" }] }),
 ];
 

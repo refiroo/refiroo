@@ -331,7 +331,10 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   alone takes about 2 min 15 s in parallel (48 cases, the slowest the loads of W1 at 11 s); its
   cases each build a draft, profile W1 and run its jobs. Measured once on a shared laptop. To fix in
   the next package: a session fixture profiling W1 once per configuration for the cases that only
-  read it, or the J34 module split so its cases spread over the workers.
+  read it, or the J34 module split so its cases spread over the workers. **Still open after A5c
+  (2026-10-14):** the `jobs` group took 2 min 51 s (449 cases); split, the group without J34 and
+  J35 took 1 min 18 s (397) and J34 with J35 2 min 37 s (66). A5c did not take this fix on (its own
+  cases add 8).
 - [x] R: add J1u's export dialog, notification and job page, and J4's import dialog, the import's
   job page (waiting and loaded) and its notifications, to `test:a11y` and `test:visual` (scenarios
   and baselines), light and dark; J1u and J4 checked them with axe in their runners (D95). Done in
@@ -432,10 +435,14 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
     a change-set context that does not block live writes remains an option if A5 needs it.
   - [x] A5a a draft's import profile, edited by operations; the dry run after each step; the
     profile saved at installation; `missing: "create"` (delivered 2026-10-12).
-  - [ ] A5b the editor with a workbook: source pane, a column's mapping, Map to…, the dry-run
-    drawer, Load (committed 2026-10-12; not accepted as complete, its open points settled in A6).
-  - [ ] A6 inference over the table patterns (next, before A5c; the user, 2026-10-12).
-  - [ ] A5c the next version of a workbook: the profile check, missing records, Settings › Imports.
+  - [x] A5b the editor with a workbook: source pane, a column's mapping, Map to…, the dry-run
+    drawer, Load (committed 2026-10-12; its open points settled in A6).
+  - [x] A6 inference over the table patterns (A6a 2026-10-12, A6b 2026-10-14).
+  - [ ] A5c the next version of a workbook: the profile check, missing records, Settings › Imports
+    (built 2026-10-14; delivered when the user approves its screenshots).
+  - [x] A5c: the check of W1′ at 10,000 rows stopped at binding's first lease renewal (the check's
+    own lock on its job row) and the binding's key lookup took 21.9 s against 10,000 records; both
+    fixed, the check takes 10.1 s after 6.1 s of profiling (2026-10-14, A5c record).
   - [ ] A7 model-description sheets and matching across files (below the cut line).
   - [ ] A8 list blocks in sheets laid out for reading (below the cut line).
   - [ ] R build acceptance and release.

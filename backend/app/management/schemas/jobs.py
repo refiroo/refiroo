@@ -175,6 +175,11 @@ class BindingReportSource(BaseModel):
     objectTypeKey: str | None
     rows: int
     rejectedRows: int
+    missingRecords: int = Field(
+        default=0,
+        description="Records of the source's type the context holds with the key filled that no "
+        "row names (0.10 A5c, D82); deleted when the source says missing: delete",
+    )
     columns: list[BindingReportColumn]
 
 
@@ -203,7 +208,7 @@ class JobResponse(BaseModel):
     """
 
     id: str
-    kind: Literal["batch", "import", "export", "profile", "dryRun", "inference"]
+    kind: Literal["batch", "import", "export", "profile", "dryRun", "inference", "profileCheck"]
     workspaceKey: str
     changeSetId: str | None
     changeSetVersion: int | None

@@ -35,6 +35,9 @@ step (``sources/profiling.py``). A ``dryRun`` binds a draft's source file from i
 previews every item against the draft's model, as an import's preview does, then completes with its
 summary (``sources/dry_run.py``); it stops as ``cancelled`` once its draft has changed. An
 ``inference`` (0.10 A6) proposes from a draft's source file in one step (``sources/inference/``).
+A file of an import profile is checked once profiled (0.10 A5c): a ``profileCheck`` compares its
+columns, then binds its staged cells through the profile and previews every item in the profile's
+workspace as a dry run does, and completes with its report (``sources/profile_check.py``).
 
 **Exports** (Base 0.9 J1, D53) run on a worker of their own, which claims only ``export`` jobs while
 the batch worker claims the rest, so neither kind waits behind the other. An export runs in one
@@ -71,8 +74,15 @@ from ..sources.dry_run import (
     superseded,
 )
 from ..sources.inference.run import run_inference
+from ..sources.profile_check import (
+    complete_unbound,
+    prepare,
+    queue_check,
+    record_check,
+    record_findings,
+)
 from ..sources.profiling import profile_source_file
-from ..sources.store import expire_superseded
+from ..sources.store import expire_superseded, load_source_file
 from .background import open_job_context
 from .batches import BatchContext, JobCancelled, run_items
 from .exports import ExportCancelled, ExportControl, run_export
@@ -103,9 +113,11 @@ SWEEP_SECONDS = 3600.0
 # The worker threads' names, which a measurement of one request's statements leaves out.
 THREAD_NAME = "rdm-job-worker"
 EXPORT_THREAD_NAME = "rdm-export-worker"
-BATCH_KINDS = ("batch", "import", "profile", "dryRun", "inference")
+BATCH_KINDS = ("batch", "import", "profile", "dryRun", "inference", "profileCheck")
 EXPORT_KINDS = ("export",)
 _ITEM = TypeAdapter(BatchItem)
+# The jobs that bind a source file's staged cells rather than a job file (0.10 A3, A5c).
+_STAGED_KINDS = ("dryRun", "profileCheck")
 
 
 @dataclass(frozen=True)
@@ -317,6 +329,7 @@ class JobWorker:
             expected_change_set_version=job.change_set_version,
             job_id=job.id,
             should_stop=self._chunk_check(job.sequence_id) if atomic else None,
+            file_rows=job.kind in ROW_KINDS,
         )
         self._hold_lease(session, job.sequence_id)
         record_outcomes(session, job, outcomes)
@@ -339,6 +352,18 @@ class JobWorker:
         """Bind the import's file into its outcomes and inputs in one commit (0.9 J2). Under
         ``atomic`` a rejected row ends the job there: its items become ``unprocessed``."""
         context = self._context(session, job)
+        if job.kind == "profileCheck":
+            runnable = prepare(session, job, context.model)
+            self._hold_lease(session, job.sequence_id)
+            if not runnable:
+                # The profile has problems, or no source fits the file: the report is complete.
+                complete_unbound(session, job, retention_days=self.settings.retention_days)
+                session.commit()
+                return
+            # The check's report and its profile commit before binding: binding renews the lease
+            # from a session of its own, which would wait for this one's lock on the job row.
+            session.commit()
+            job = session.get(Job, job.sequence_id)
         files = self._files()
         bound = bind_import(
             session,
@@ -350,12 +375,14 @@ class JobWorker:
                 atomic_max_items=self.settings.atomic_max_items,
                 background_max_items=self.settings.background_max_items,
             ),
-            book_opener(session, job, files) if job.kind == "dryRun" else None,
+            book_opener(session, job, files) if job.kind in _STAGED_KINDS else None,
         )
         self._hold_lease(session, job.sequence_id)
         record_binding(
             session, job, rejected=bound.rejected, items=bound.items, report=bound.report
         )
+        if job.kind == "profileCheck":
+            record_findings(job, bound.findings)
         retention = self.settings.retention_days
         if previewing(job):
             # The preview runs next, every item whatever the policy (D80).
@@ -392,8 +419,8 @@ class JobWorker:
             session,
             job,
             context,
-            # A dry run checks the whole file (D67).
-            limit=job.total if dry_run else self.settings.preview_max_items,
+            # A dry run and a profile's check run the whole file (D67).
+            limit=job.total if job.kind in _STAGED_KINDS else self.settings.preview_max_items,
             should_stop=self._stop_check(job),
         )
         session.rollback()
@@ -401,6 +428,10 @@ class JobWorker:
         job = session.get(Job, sequence_id)
         if dry_run:
             record_dry_run(
+                session, job, outcomes, context.model, retention_days=self.settings.retention_days
+            )
+        elif job.kind == "profileCheck":
+            record_check(
                 session, job, outcomes, context.model, retention_days=self.settings.retention_days
             )
         else:
@@ -443,6 +474,10 @@ class JobWorker:
         complete_job(session, job, retention_days=self.settings.retention_days)
         # A profile has no items, so no result.
         job.result = None
+        source = load_source_file(session, source_file_id)
+        if source.profile_key is not None:
+            # A profile's next file is checked once profiled (0.10 A5c, D83).
+            queue_check(session, source, retention_days=self.settings.retention_days)
         session.commit()
 
     def _infer(self, session: Session, job: Job) -> None:

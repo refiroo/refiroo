@@ -13,7 +13,8 @@ and decisions are written and accepted when it starts, and it is delivered in th
 A3 and A3a (2026-10-12); A5a (2026-10-12); A5b committed (2026-10-12), its open points carried into
 A6, which comes before A5c (the user, 2026-10-12); A6a, inference through the API (2026-10-12); A6b,
 the editor filled by the inference, delivered (screenshots approved 2026-10-14, after its run on the
-user's workbooks and D99–D103).
+user's workbooks and D99–D103); A5c, the next version of a workbook, built (2026-10-14, D104 and
+D105 accepted), its screenshots waiting for approval.
 
 **Target:** Product 0.10.0, [model authoring and spreadsheet onboarding](ROADMAP.md#product-release-010--model-authoring-and-spreadsheet-onboarding).
 The `navigation` declaration (A-D2) extends the model, so 0.10 opens the next schema language version
@@ -239,7 +240,7 @@ migration), `contract` (every route change) and `volume` (every budget).
 | 7 | [T1](#t1-designer-checkpoint) | A4b, A4c | **Delivered 2026-10-12, released as 0.10.0-alpha.1.** US-P05 composed in the browser on two models; the designer's gates; tagged `v0.10.0-alpha.1` (D14) |
 | 8 | [A3](#a3-source-profiling-and-the-dry-run-summary) | A0 | **Delivered 2026-10-12.** Source files, profiles of sheets and columns, the dry run of the whole file; W1–W3 generators |
 | 8a | [A3a](#a3a-a-faster-trial-run) | A3 | **Delivered 2026-10-12.** A trial run records no audit entries (D72); sets advance from arrays (D73) |
-| 9 | [A5](#a5-editor-with-a-source-file) | A3, T1 | **A5a delivered 2026-10-12; A5b committed 2026-10-12, its open points carried into A6; A5c after A6.** Source and mapping panes, mapping operations, profiles following the model, load, saved profiles and re-runs |
+| 9 | [A5](#a5-editor-with-a-source-file) | A3, T1 | **A5a delivered 2026-10-12; A5b committed 2026-10-12, its open points carried into A6; A5c built 2026-10-14, delivered when its screenshots are approved.** Source and mapping panes, mapping operations, profiles following the model, load, saved profiles and re-runs |
 | 10 | [A6](#a6-inference-over-table-patterns) | A5 | **A6a delivered 2026-10-12; A6b delivered 2026-10-14.** Proposals from the table patterns; new application or extending the active model; pinned decisions |
 | — | _cut line (D2)_ | | _If R is out of reach, 0.10.0 releases here and A7, A8 move to 0.10.x_ |
 | 11 | [A7](#a7-model-description-sheets-and-matching-across-files) | A6 | Model-description sheets; matching records across files |
@@ -2452,6 +2453,8 @@ unpivot, A-D7's retire), CHANGELOG, PROJECT_STATUS, TODO.
 | D83 | How the next version's differences are worked out | **A job of kind `profileCheck` on a profile's new file, after its profiling: columns by header (new, missing; renamed when a missing and a new column stand at the same position and share at least half their distinct values), new values per lookup column, name drift per key, missing records (D82), the profile's problems against the active release (J35.3) and the dry run's summary; read by `GET /import-profiles/{key}/check`.** One job so the report is one consistent read; each list paged by its rows, as the dry run's. The renamed-column rule is fixed and visible so a test can name it, as D70's placeholders were |
 | D84 | The editor's layout with a workbook | **A source pane left of the model pane, the selected column's mapping in the centre, the dry run as a drawer tab** (the mock-up's board 1). The built editor already puts the selected element in the centre and keeps a drawer under it; a column is one more kind of selected element. A0's separate mapping column (four columns at 1440px, board 3 of the A0 mock-up) is the alternative; with the centre it would leave each column too narrow. At 390px the panes are tabs: Source, Model, the selection, Issues |
 | D85 | Where the next version is uploaded | **Settings › Imports, a list of stored profiles and a profile's page.** The 0.9 import dialog loads a file once; a profile is an instance's standing object and needs a home, as Settings › Model is for drafts. The editor is not that home: a recurring load does not open a draft |
+| D104 | How `missing: delete` deletes a record with relationships (A5c, asked 2026-10-14) | **Accepted by the user (2026-10-14) as recommended: the record with its own relationships, no token; a record others depend on (a child it contains, a record it owns through a required relation) refused `OBJECT_HAS_DEPENDANTS` with its impact.** The 0.9 deletion rule (K2b, D120) wants `cascade` and a preview's token for any record with a relationship, and an import cannot carry tokens (its confirmation binds the file again), so `delete` deleted almost nothing. Only an import's binding gives a delete item the ref `missing!…`, and only a file's rows (`ROW_KINDS`) are run with that reading. The rejected alternatives: a full cascade without a token, or no cascade at all |
+| D105 | A lookup whose value changes in the next version (A5c, asked 2026-10-14) | **Accepted by the user (2026-10-14) as recommended: the mapping kinds write `replace: true` for a relation column onto a relation the row's record holds one of (many-to-one from its side, or one-to-one), without `split`, `idColumn` or `attributes` and not saying `replace`.** A relation column adds; W1′'s changed material gave an item a second one, refused `CARDINALITY_VIOLATION`. Map to… and the inference reach the profile through those kinds, so both follow; the import contract is unchanged and profiles stored before keep refusing until re-mapped or edited. The rejected alternatives: the import replacing on its own, or leaving it |
 
 **Journey test cases** (backend; J34 in `tests/journeys/test_j34_onboard.py`, J35 in a new
 `test_j35_next_version.py`; each on two configurations, the draft built by operations on the
@@ -2671,6 +2674,100 @@ warnings are in files this package did not touch), `npm run build`: clean. **Scr
 source tab and a column): two problems found and fixed (the choice rows' layout, the column's
 letter and statistics at 390px opened from the address). **Not run:** the accessibility and visual
 gates (the A5 surfaces join them at R), the full suites (R).
+
+##### A5c record (2026-10-14)
+
+**Built 2026-10-14** as planned (D82, D83, D85, and D104, D105 asked and accepted the same day), in
+the approved board's shape (Next version, the mock-up's board 4); **delivered when the user approves
+its screenshots** (step 3). What is built:
+
+- **Migration `20261015_01_profile_check`**: `jobs.kind` gains `profileCheck`.
+- **A source's `missing`** (`report`, `delete`; D82): `models/imports.py` (`delete` needs a keyed
+  source loading its records); the binding finds the records of a keyed source's type the context
+  holds with the key filled that no row names in one statement into `import_missing`, counts them in
+  the binding report (`missingRecords`) and, for `delete`, adds delete items after every other item
+  (ref `missing!{id}`). A record goes with its own relationships and no token; one others depend on
+  is refused with its impact (D104: `Deletion.own_links`, read by the batch runner for a file's rows
+  only). `POST /imports` refuses a live load that deletes `MISSING_DELETE_NEEDS_CHANGE_SET`; an
+  import of a stored file keeps its `sourceFileId` in its parameters. The kind `setMissing`.
+- **The check** (`engine/sources/profile_check.py`, D83): queued by the worker once a profile's file
+  is profiled, and by `POST /import-profiles/{key}/check`; it compares the columns per sheet with the
+  profile and the file the profile read before (its own earlier file, else its last import's stored
+  file), checks the profile against the active release, binds the staged cells through the profile
+  as it reads this file (renames followed, missing columns left out) live in the file's workspace,
+  keeps what binding found (new values, drift, missing records; `binding._findings`) and previews
+  every item as a dry run does (`dry_run.summary`, now public, counting `deleted` and
+  `missingRecords`). Routes: `GET …/check`, `…/check/new-values`, `…/check/drift`,
+  `…/check/missing-records` (each paged over the job's report), `…/check/rows`.
+- **D105**: `mapping._replacing` writes `replace: true` for a lookup onto a relation the row's record
+  holds one of (`profile_side.holds_one`); the inference's comparison reads a binding as holding
+  what a proposal sets member by member (`compare._has`), so proposing again stays quiet.
+- **Settings › Integration › Imports** (D85): `ImportsPage` (the list, a profile's page, following
+  the profiling and the check over the job stream), `ProfileCheckReport` (Columns with Ignore and
+  Accept, Values, Records with the missing records' choice, the profile against the active release;
+  its lists in `CheckRowsDialog`), `ProfileLoadDialog`, `profileEdits` (the profile changes Accept,
+  Ignore and the choice save with `PUT`, then the file is checked again). Shared, not copied: the
+  editor's Load dialog's change set fields, steps, call and progress moved into
+  `features/jobs/ChangeSetLoad.tsx` (`ChangeSetFields`, `LoadStep`, `stepState`,
+  `loadIntoChangeSet`, `LoadProgress`); `AddWorkbookDialog` takes any owner.
+
+**Where it differs from the plan and the design:**
+
+1. **D104 and D105** were not in the plan; both found while building (the J35.2 case and the browser
+   walk) and decided by the user.
+2. **The check reads the file through the profile as it would read it**, renames followed and
+   missing columns left out, so a renamed column still gives the differences and a dry run; the
+   load itself stays refused `IMPORT_FILE_MISMATCH` until the profile is updated (Accept). D83 did
+   not say how a file that no longer fits would be dry-run.
+3. **New columns are reported once per sheet**, against what every source on the sheet names (the
+   browser walk found a sheet of two sources listing each new column twice and the other source's
+   columns as new).
+4. **The lists are kept on the check's job** and paged over its report, not stored in a table; the
+   job's retention removes them.
+5. **Missing records are found by the source's key only**: a row refused for another reason still
+   names its record; a source of the same type keyed differently counts its found records.
+6. **The draft editor has no control for `missing`**: the kind is the API's, and Settings › Imports
+   sets it on the stored profile.
+7. **Found measuring the check of W1′ at 10,000 rows, and fixed:** the check stopped for ever at the
+   binding's first lease renewal (every 10,000 rows), which waited for the check's own lock on its
+   job row (the report written before binding; now committed first; regression in J35.1 with the
+   renewal every 50 rows, seen failing without the fix). The missing-records statement first joined
+   on an `OR` (12.7 s at 10,000 × 10,000; three anti-joins, 0.011 s), and the 0.9 binding's lookup of
+   a row's record by its key attribute, and a match by attribute, compared every row with every
+   record (21.9 s): they now join on `import_context_values` and `import_row_values`, the values a key
+   or a match reads (a pre-existing 0.9 defect; CHANGELOG Fixed).
+8. **Test order:** the J35 cases were written after the code, not seen failing first (step 5); the
+   lease regression was.
+
+**Budget** (measured once, generated-a, this laptop): W1′ at 10,000 rows uploaded to a profile whose
+workspace holds W1's 10,000 items: profiling 6.1 s, then the check job 10.1 s (prepare 0.1 s,
+binding 2.4 s, the preview of 40,107 items 6.1 s, recording 1.5 s). Two earlier attempts were
+stopped at a 4-minute cap (the lock above).
+
+**Checks:** J35 (`test_j35_next_version.py`, new): 4 cases × 2 configurations, 8 passed (J35.1 with
+the lease regression, J35.2 with the re-check, `delete` in a change set and the live refusal, the
+`setMissing` case, J35.3). J34 with J35: 66 passed in 2 min 37 s (the two dry-run cases updated for
+`deleted` and proposing again for D105). `jobs` without J34 and J35: 397 passed in 1 min 18 s, and
+its serial part; before the binding's last change the whole `jobs` group, 449 in 2 min 51 s.
+`records` (the deletion path): 424 passed in 2 min 6 s. Unit: authoring (with `holds_one` over both
+models), `tests/unit/engine/sources` (with `test_profile_check.py`). `test_startup`'s new case
+(upgrade from `20261014_01` keeping a profile, an interrupted upgrade refused naming `ck_job_kind`
+and recovered, two restarts, a check job after the upgrade, the downgrade) and A6's; `test_schema_
+drift`, `test_boundaries`, `test_api_journeys`, `test_openapi_contract` (re-baselined by diffing the
+document against HEAD: the check's reads and schemas, `Source.missing`, `missingRecords`, the job
+kind; nothing else). `ruff check app/ tests/`: clean. Vitest `settings`, `jobs`, `model-editor`,
+`routing`, `app`: 22 files, 322 of 323 passed; the one failure was the Settings navigation's list,
+which the new Imports page changes (updated, its file rerun: 12 passed). New: `profileEdits.test`;
+`mapping.test` +1 (`setMissing`'s words); the import dialog's fixture made as the server answers. `npm run format`, `npm run lint` (0 errors;
+the 7 warnings in files this package did not touch), `npm run build`: clean.
+`test:browser:authoring-a5` on both designer models, 24 checks (12 new for A5c), run after the last
+change; `-a6` 18 checks (D105 and the proposal comparison); `test:browser:integration` (the
+Integration navigation). **Screenshots inspected** (1440px: the profiles list, a profile's check,
+the review after loading W1′; 390px: the check): three problems found and fixed (the section's lines
+stretched to the row's height, the notice breaking after the file name, the missing records' select
+unstyled). **Not run:** `-a4a`, `-a4b`, `-a4c`, `-t1` (the shared editor changed only in the Load
+dialog's parts and the workbook dialog's owner, both in the A5 walk), the accessibility and visual
+gates (A5-5 joins them at R), the full suites (R).
 
 ### A6: Inference over table patterns
 
@@ -3185,7 +3282,8 @@ Design-level decisions are [A-D1–A-D12](MODEL_AUTHORING.md#open-decisions).
 
 ## Next
 
-1. A6, inference over the table patterns, then A5c, the next version of a workbook (the user,
+1. A5c's screenshots approved by the user ([record](#a5c-record-2026-10-14)); then A7 and A8 (below
+   the cut line, D2) or R. A6 came before A5c (the user,
    2026-10-12: A5b is tested well only once A6 proposes the model and its mappings). A5b is committed
    ([record](#a5b-record-2026-10-12)); what it still needs is settled in A6. A5a is delivered (2026-10-12); the [A5 plan](#a5-plan-2026-10-12),
    its decisions, test cases and mock-up were accepted the same day. A3 and A3a are delivered (2026-10-12).

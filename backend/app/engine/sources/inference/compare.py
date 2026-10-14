@@ -219,7 +219,7 @@ def holds(operation: dict[str, Any], model: dict[str, Any], profile: dict[str, A
         # The binding has what the operation sets; what other steps added to it (a value map of the
         # name drift's or the placeholders') does not undo it, and setting it again would drop that.
         current = state(f"column:{operation['source']}/{operation['column']}")
-        return current is not None and all(current.get(k) == v for k, v in operation["binding"].items())
+        return current is not None and _has(current, operation["binding"])
     if name == "setColumnReading" and operation.get("reading") == "relationFlag":
         current = state(f"column:{operation['source']}/{operation['column']}") or {}
         flags = current.get("relationFlags") or {}
@@ -252,6 +252,14 @@ def holds(operation: dict[str, Any], model: dict[str, Any], profile: dict[str, A
     if name == "addNavigationGroup":
         return state(f"group:{operation['applicationKey']}/{operation['key']}") is not None
     return False
+
+
+def _has(current: Any, wanted: Any) -> bool:
+    """Whether ``current`` holds everything ``wanted`` sets, member by member: a lookup the mapping
+    kinds made replacing (0.10 A5c, D105) still has what its proposal set."""
+    if isinstance(wanted, dict):
+        return isinstance(current, dict) and all(_has(current.get(k), v) for k, v in wanted.items())
+    return current == wanted
 
 
 def _version(value: Any) -> tuple[int, ...]:

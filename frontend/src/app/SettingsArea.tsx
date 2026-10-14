@@ -9,6 +9,7 @@ import { ApiReferencePage } from "@/features/settings/ApiReferencePage";
 import { AppearancePage } from "@/features/settings/AppearancePage";
 import { ConsumerApisPage } from "@/features/settings/ConsumerApisPage";
 import { DeploymentPage } from "@/features/settings/DeploymentPage";
+import { ImportsPage } from "@/features/settings/ImportsPage";
 import { JobsPage } from "@/features/settings/JobsPage";
 import { WebhooksPage } from "@/features/settings/WebhooksPage";
 import { ModelWorkbench } from "@/features/model-admin/ModelWorkbench";
@@ -93,6 +94,13 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
         <ConsumerApisPage onNavigate={(next) => navigate(next)} />
       ) : route.page === "webhooks" ? (
         <WebhooksPage route={route} model={model} onNavigate={(next) => navigate(next)} />
+      ) : route.page === "imports" ? (
+        <ImportsPage
+          model={model}
+          route={route}
+          defaultWorkspace={workspaceKey}
+          onNavigate={(next) => navigate(next)}
+        />
       ) : route.page === "jobs" ? (
         <JobsPage model={model} route={route} onNavigate={(next) => navigate(next)} />
       ) : route.page === "api-reference" ? (

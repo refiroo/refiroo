@@ -104,6 +104,8 @@ from .store import ItemOutcome, applied_deletions
 # A cancel request is looked for before every this many items an atomic job decides, and before
 # its items are written (D28).
 STOP_CHECK_ITEMS = 500
+# The ref an import's binding gives the delete item of a record its file no longer names (0.10 A5c).
+MISSING_REF = "missing!"
 
 # Where in an item a single write's refusal points, by its code; otherwise at the item.
 _POINTERS = {
@@ -221,10 +223,15 @@ def run_items(
     should_stop: Callable[[], bool] | None = None,
     other_workspace_ids: str = "refuse",
     previewing: bool = False,
+    file_rows: bool = False,
 ) -> list[ItemOutcome]:
     """Apply ``items`` (each with its index in the job) under the policy; the caller records the
     outcomes and commits. An inline batch is one call; a background job one call per chunk; a
     preview (``previewing``) one call the caller rolls back.
+
+    ``file_rows``: the items are a file's rows bound by an import, a dry run or a profile's check
+    (``ROW_KINDS``), whose binding alone gives a delete item the ref ``missing!…``: a record its
+    file no longer names, deleted with its own relationships (0.10 A5c, D104).
 
     A stale ``expectedChangeSetVersion`` raises before any item runs. ``should_stop`` is asked
     before every ``STOP_CHECK_ITEMS`` items and before the items are written; when it answers
@@ -254,6 +261,7 @@ def run_items(
                     other_workspace_ids,
                     job_id=job_id,
                     previewing=previewing,
+                    file_rows=file_rows,
                 ).run()
     except JobCancelled:
         outer.rollback()
@@ -318,6 +326,7 @@ class _Batch:
         *,
         job_id: str,
         previewing: bool = False,
+        file_rows: bool = False,
     ) -> None:
         self.writer = (
             _ChangeSetItems(session, context) if context.change_set else _LiveItems(session, context)
@@ -330,6 +339,7 @@ class _Batch:
         self.session = session
         self.job_id = job_id
         self.previewing = previewing
+        self.file_rows = file_rows
         # The record each delete item of this call deleted, by its item: an earlier chunk's are
         # read from the job's outcomes (D122).
         self.deleting: dict[str, int] = {}
@@ -468,7 +478,13 @@ class _Batch:
         )
         atomic = self.policy == "atomic"
         runs = [
-            Deletion(index, *found[index], item.cascade, item.deletionPreviewToken)
+            Deletion(
+                index,
+                *found[index],
+                item.cascade,
+                item.deletionPreviewToken,
+                own_links=self.file_rows and (item.ref or "").startswith(MISSING_REF),
+            )
             for index, item in segment
             if index in found and not (atomic and first_refused is not None and index > first_refused)
         ]

@@ -13,7 +13,9 @@ vi.mock("@/api/client", async (load) => {
 describe("New from a workbook (0.10 A6b)", () => {
   it("proposes a new model in a draft that starts empty, without the active model (the user, 2026-10-14)", async () => {
     vi.mocked(api.workspaces).mockResolvedValue({ items: [], nextCursor: null });
-    vi.mocked(api.system).mockResolvedValue({ schemaLanguages: ["0.9", "0.10"] } as Awaited<ReturnType<typeof api.system>>);
+    vi.mocked(api.system).mockResolvedValue({ schemaLanguages: ["0.9", "0.10"] } as Awaited<
+      ReturnType<typeof api.system>
+    >);
     vi.mocked(api.createModelDraft).mockResolvedValue({ id: "d1", name: "Catalogue" } as ModelDraft);
     vi.mocked(api.uploadSourceFile).mockResolvedValue({} as never);
     const onCreated = vi.fn();

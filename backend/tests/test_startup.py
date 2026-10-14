@@ -28,7 +28,8 @@ from app.db import DatabaseStartupError, get_engine, migration_config
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261014_01"
+HEAD = "20261015_01"
+DRAFT_PROPOSALS = "20261014_01"
 DRAFT_PROFILES = "20261013_01"
 SOURCE_FILES = "20261012_01"
 DRAFT_OPERATIONS = "20261011_01"
@@ -1347,6 +1348,79 @@ def test_upgrade_to_draft_proposals_keeps_drafts_and_an_interrupted_run_recovers
     command.downgrade(migration_config(url), DRAFT_PROFILES)
     assert _scalar(url, "SELECT count(*) FROM information_schema.tables WHERE table_name = 'model_draft_proposals'") == 0
     assert _scalar(url, "SELECT count(*) FROM jobs WHERE kind = 'inference'") == 0
+    engine.dispose()
+
+
+def test_upgrade_to_the_profile_check_kind_keeps_jobs_and_an_interrupted_run_recovers(
+    monkeypatch, databases, tmp_path
+):
+    """0.10 A5c on a database taken back to the previous revision, holding a stored import
+    profile: with the job kind constraint gone (by hand) the revision rolls back and the start
+    refuses naming it; once restored, the next start upgrades and the service starts twice. A file
+    uploaded to the profile after the upgrade is checked by a job of kind ``profileCheck``, and a
+    downgrade removes those jobs."""
+    url = seeds.create_empty()
+    databases.append(url)
+    monkeypatch.setenv("INTEGRATION_JOBS_ENABLED", "true")
+    monkeypatch.setenv("JOB_FILE_DIR", str(tmp_path / "job-files"))
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        assert errors == []
+        model = client.get("/api/v1/model").json()
+        with_type = next(t for t in model["objectTypes"] if t["key"])
+        application = next(a for a in model["applications"] if with_type["key"] in a["objectTypeKeys"])
+        profile = {
+            "key": "kept",
+            "name": "Kept",
+            "sources": [
+                {
+                    "applicationKey": application["key"],
+                    "objectTypeKey": with_type["key"],
+                    "columns": [{"column": "name", "field": "name"}],
+                }
+            ],
+        }
+        response = client.post("/api/v1/import-profiles", json=profile)
+        assert response.status_code == 201, response.text
+    command.downgrade(migration_config(url), DRAFT_PROPOSALS)
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE jobs DROP CONSTRAINT ck_job_kind"))
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        message = _assert_refused(
+            client,
+            errors,
+            "Database migration failed",
+            f"Current revision: {DRAFT_PROPOSALS}",
+            f"target revision: {HEAD}",
+            "still at its current revision",
+        )
+        assert "ck_job_kind" in message
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == DRAFT_PROPOSALS
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "ALTER TABLE jobs ADD CONSTRAINT ck_job_kind CHECK "
+                "(kind IN ('batch', 'import', 'export', 'profile', 'dryRun', 'inference'))"
+            )
+        )
+    for _start in range(2):
+        with serve(monkeypatch, _render(url)) as (client, errors):
+            assert errors == []
+            assert client.get("/api/v1/import-profiles/kept").json()["version"] == 1
+        assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        response = client.post(
+            "/api/v1/source-files",
+            files={"file": ("kept.csv", b"name\nAlpha\nBeta\n", "text/csv")},
+            data={"request": json.dumps({"owner": {"profileKey": "kept"}})},
+        )
+        assert response.status_code == 201, response.text
+        client.app.state.job_worker.run_until_idle()
+        check = client.get("/api/v1/import-profiles/kept/check").json()
+        assert check["state"] == "completed", check
+    assert _scalar(url, "SELECT count(*) FROM jobs WHERE kind = 'profileCheck'") == 1
+    command.downgrade(migration_config(url), DRAFT_PROPOSALS)
+    assert _scalar(url, "SELECT count(*) FROM jobs WHERE kind = 'profileCheck'") == 0
     engine.dispose()
 
 

@@ -66,6 +66,7 @@ def preview_items(
         job_id=job.id,
         should_stop=should_stop,
         previewing=True,
+        file_rows=job.kind in ROW_KINDS,
     )
 
 

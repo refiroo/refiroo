@@ -35,7 +35,13 @@ import type {
   JobPage,
   JobRow,
   JobRowPage,
+  ImportProfile,
   ImportProfilePage,
+  ImportProfileSource,
+  ProfileCheck,
+  CheckDrift,
+  CheckMissingRecord,
+  CheckNewValue,
   ImportRequest,
   ExportRequest,
   DeliveryDetail,
@@ -482,6 +488,53 @@ export const api = {
     return request<SourceFile>("/api/v1/source-files", { method: "POST", body: form });
   },
   sourceFile: (id: string) => request<SourceFile>(`/api/v1/source-files/${encodeURIComponent(id)}`),
+  /** A profile's latest file (0.10 A5c): the newest of its source files, or none. */
+  latestProfileFile: async (profileKey: string) => {
+    const params = new URLSearchParams({ profileKey, pageSize: "1" });
+    const page = await request<SourcePage<SourceFile>>(`/api/v1/source-files?${params}`);
+    return page.items[0] as SourceFile | undefined;
+  },
+  importProfile: (key: string) => request<ImportProfile>(`/api/v1/import-profiles/${encodeURIComponent(key)}`),
+  /** Replace a stored profile at its version (0.9 J2): every member but the key. */
+  updateImportProfile: (profile: ImportProfile, sources: ImportProfileSource[]) =>
+    request<ImportProfile>(`/api/v1/import-profiles/${encodeURIComponent(profile.key)}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        name: profile.name,
+        ...(profile.csv ? { csv: profile.csv } : {}),
+        sources,
+        valueMaps: profile.valueMaps,
+        expectedVersion: profile.version,
+      }),
+    }),
+  /** The check of a profile's latest file (0.10 A5c, D83). */
+  profileCheck: (key: string) => request<ProfileCheck>(`/api/v1/import-profiles/${encodeURIComponent(key)}/check`),
+  /** Check the profile's current file again, after the profile changed. */
+  runProfileCheck: (key: string) =>
+    request<ProfileCheck>(`/api/v1/import-profiles/${encodeURIComponent(key)}/check`, { method: "POST" }),
+  /** One of the check's lists, a page: new values, drifting names, records missing from the file. */
+  profileCheckList: <Item extends CheckNewValue | CheckDrift | CheckMissingRecord>(
+    key: string,
+    list: "new-values" | "drift" | "missing-records",
+    query: PageSelector & { source?: number; pageSize?: number },
+  ) => {
+    const params = new URLSearchParams({ pageSize: String(query.pageSize ?? 50) });
+    if (query.source !== undefined) params.set("source", String(query.source));
+    setPaging(params, query);
+    return request<SourcePage<Item>>(`/api/v1/import-profiles/${encodeURIComponent(key)}/check/${list}?${params}`);
+  },
+  /** The rows behind the check's figures, as a dry run's. */
+  profileCheckRows: (
+    key: string,
+    query: PageSelector & { source?: number; status?: JobRow["status"]; code?: string; pageSize?: number },
+  ) => {
+    const params = new URLSearchParams({ pageSize: String(query.pageSize ?? 50) });
+    if (query.source !== undefined) params.set("source", String(query.source));
+    if (query.status) params.set("status", query.status);
+    if (query.code) params.set("code", query.code);
+    setPaging(params, query);
+    return request<JobRowPage>(`/api/v1/import-profiles/${encodeURIComponent(key)}/check/rows?${params}`);
+  },
   /** A profiled file's sheets in workbook order, one page of up to 500. */
   sourceSheets: (id: string, cursor?: string) => {
     const params = new URLSearchParams({ pageSize: "500" });

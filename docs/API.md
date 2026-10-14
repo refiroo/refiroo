@@ -2574,6 +2574,15 @@ fixed values it matches. A list pages in key order (ADR-030).
 - **`relatedRecord.versionColumn`** (0.9 J6a, D194) holds the version a row claims for the related
   record it finds (`expectedVersion` on its upsert); the text `not loaded` leaves that related record
   out of the row (D195).
+- **`missing`** (0.10 A5c, D82, D104) on a source: what a load does with the records of its type
+  that the context holds with the source's key filled (every record of the type, for an ID key) and
+  that no row of the file names. `"report"`, the default (also when left out), keeps them; the
+  binding report and the dry run count them (`missingRecords`) and a profile's check lists them.
+  `"delete"` deletes them after every other item, only in a change set (a live load is refused
+  `422 MISSING_DELETE_NEEDS_CHANGE_SET`): each record goes with its own relationships, with no
+  token, and one that other records depend on (a child it contains, a record it owns through a
+  required relation) is refused `OBJECT_HAS_DEPENDANTS` with its impact. Its item's `ref` is
+  `missing!{id}`. It needs a source loading its records (`record: "upsert"`) by a `key`.
 - **Sources run in order** of their references: a source whose parent, relationship or related
   record's parent names a type another source loads runs after it. Sources that reference each
   other are refused (`SOURCE_CYCLE`).
@@ -2632,11 +2641,13 @@ as a parameter. Refusals: `409 IMPORT_PROFILE_EXISTS`, `404 IMPORT_PROFILE_NOT_F
 
 It answers `202` with the queued job. Its `parameters` hold `policy`, `onExisting`,
 `otherWorkspaceIds`, `stage`, the
-`profile` as the job uses it (`key` and `version`, or the inline one, and its `definition`) and the
-`file` (`name`, `format`, `bytes`, `sha256`). Refused before a job is stored: `413 IMPORT_TOO_LARGE`
+`profile` as the job uses it (`key` and `version`, or the inline one, and its `definition`), the
+`file` (`name`, `format`, `bytes`, `sha256`) and, for a stored source file, its `sourceFileId`
+(0.10 A5c: a profile's check compares the next version with it). Refused before a job is stored: `413 IMPORT_TOO_LARGE`
 (`details.setting` `IMPORT_MAX_BYTES`, `maximum`, `bytes`), `422 UNSUPPORTED_FILE_FORMAT`,
 `422 INVALID_IMPORT_PROFILE` (a stored profile no longer valid, or an inline one, with its
-problems), `404 IMPORT_PROFILE_NOT_FOUND`, the context's codes as for a batch, and
+problems), `422 MISSING_DELETE_NEEDS_CHANGE_SET` (a live load through a profile that deletes the
+records missing from the file, 0.10 A5c), `404 IMPORT_PROFILE_NOT_FOUND`, the context's codes as for a batch, and
 `422 REQUEST_VALIDATION_ERROR` (a part missing, or `request` of the wrong shape).
 
 ### What the job does
@@ -2729,7 +2740,7 @@ a JSON Lines file; an export's table layout reports its `name` and `#` attribute
 `objectTypeKey` `null`.
 
 ```json
-[{ "sheet": "Codes", "objectTypeKey": "master-value", "rows": 12, "rejectedRows": 2,
+[{ "sheet": "Codes", "objectTypeKey": "master-value", "rows": 12, "rejectedRows": 2, "missingRecords": 0,
    "columns": [
      { "column": "Order", "binding": "attributeTypeKey", "target": "sort-order",
        "cells": 12, "empty": 1, "converted": 9, "valueMapped": 1, "refused": 1 },
@@ -2737,6 +2748,8 @@ a JSON Lines file; an export's table layout reports its `name` and `#` attribute
        "cells": 12, "empty": 0, "resolved": 10, "notFound": 1, "ambiguous": 1, "refused": 0 } ] }]
 ```
 
+- `missingRecords` (0.10 A5c) counts the records of the source's type no row names (the source's
+  `missing`); 0 for a source without a key.
 - `binding` is the profile's kind: `field` (the name), `attributeTypeKey`, `key` (an ID key column),
   `relatedRecord`, which count `converted`, `valueMapped` (a value map replaced the cell) and
   `refused` cells; or `parent`, `relation`, `relationFlags` (one entry per flag column), which count
@@ -4123,9 +4136,9 @@ and a dry run whose draft has changed since it was sent stops as `cancelled`.
 - `state` is `checking` while its job is queued or running, then `completed`, `failed` (with
   `error`), `cancelled` or `expired`. `summary` is set once completed.
 - Per source, in load order (`source`, as the rows route takes it; `profileSource` its position in
-  the profile): the rows with an outcome, records `created`, `updated` and `unchanged`, the
-  attribute `values` written, `relationships` and `relatedRecords` written, and the rows refused by
-  code. `coverage` is always `complete` (D67).
+  the profile): the rows with an outcome, records `created`, `updated`, `unchanged` and `deleted`
+  (0.10 A5c), the attribute `values` written, `relationships` and `relatedRecords` written,
+  `missingRecords` (the records of the type no row names) and the rows refused by code. `coverage` is always `complete` (D67).
 - `difference` lists, per source (by its sheet and type), each figure that changed since the
   draft's previous completed dry run of the same file, as `now` and `was`; `[]` when nothing
   changed, `null` for the first.
@@ -4190,8 +4203,9 @@ refused the same way. Bindings use the import profile's vocabulary
 | `addSource` | `sheet`, `objectType`, `applicationKey`? (the first holding the type), `headerRow`? (the sheet's), `block`?, `key`? (`{attributeTypeKey}` or `{column}`), `id`? (from the sheet and type), `position`? | A source loading the type from the sheet, with no columns yet |
 | `setSource` | `source`; any of `sheet`, `headerRow`, `block`, `objectType`, `applicationKey`, `key` (`null` removes it), `record` | The source's settings |
 | `removeSource` | `source` | The source and its bindings |
+| `setMissing` | `source`, `missing`: `report` or `delete` | What a load does with the records no row names (0.10 A5c, D82); `delete` needs a keyed source loading its records (`invalidValue` otherwise); removing the source's key takes `delete` away |
 | `ignoreSheet` | `sheet` | Its sources removed, the sheet listed in `ignoredSheets` (`addSource` on it takes it out) |
-| `mapColumn` | `source`, `column`, `binding` (a column binding without its `column`: `field`, `attributeTypeKey`, `parent`, `relation` or `relatedRecord`, with `valueMap`?) | The column's binding, replacing what it had, its unmapped entry gone |
+| `mapColumn` | `source`, `column`, `binding` (a column binding without its `column`: `field`, `attributeTypeKey`, `parent`, `relation` or `relatedRecord`, with `valueMap`?) | The column's binding, replacing what it had, its unmapped entry gone. A `relation` onto a relation the row's record holds one of (many-to-one from its side, or one-to-one), without `split`, `idColumn` or `attributes` and not saying `replace`, is stored with `replace: true`: a new value in the next file switches the record (0.10 A5c, D105). The same holds for every kind writing a relation binding |
 | `setColumnReading` | `source`, `column`, `reading`: `text` (`attributeTypeKey`), `lookup` (a relation matched by name), `relation` (`matchBy`?; keeps `split` and `missing`), `relationFlag` (`target`, the record's name); `relationTypeKey`, `objectTypeKey`, `direction` default to the column's relation | How the column is read. Flag columns of one relation and type join one `relationFlags` binding |
 | `splitColumn` | `source`, `column`, `delimiter` (`null` stops splitting) | A relation column's `split` |
 | `ignoreColumn` | `source`, `column` | `{"column", "ignore": true}` |
@@ -4314,6 +4328,60 @@ A proposal whose step was undone is `rejected`.
 
 **The optional assistant** (A-D5, D95) is off unless `INFERENCE_ASSISTANT` names a factory
 (OPERATIONS); no provider is bundled.
+
+### The next version of a workbook
+
+**Delivered by A5c (2026-10-14).** A file uploaded to a stored profile (`POST /source-files` with
+`owner: {"profileKey"}`) is profiled, then checked by a job of kind `profileCheck` (D83), which
+writes nothing. `POST /import-profiles/{key}/check` (`202`, registered with
+`INTEGRATION_JOBS_ENABLED`) checks the profile's current file again, as after the profile changed;
+a check still running for the profile is cancelled. `GET /import-profiles/{key}/check` reads the
+latest:
+
+```json
+{ "jobId": "…", "state": "completed", "profileKey": "items", "profileVersion": 3,
+  "sourceFileId": "…", "previousSourceFileId": "…", "workspaceKey": "main", "releaseId": "…",
+  "valid": true, "problems": [],
+  "sources": [{ "profileSource": 0, "source": 0, "sheet": "Items", "objectTypeKey": "item",
+    "missing": "report", "sheetFound": true,
+    "columns": { "new": [{ "column": "Pack size", "letter": "M" }], "missing": [],
+                 "renamed": [{ "from": "Colour", "to": "Colour name", "letter": "H", "shared": 1.0 }] },
+    "newValues": 1, "drift": 5, "missingRecords": 2 }],
+  "dryRun": { "coverage": "complete", "rows": { … }, "sources": [ … ], … },
+  "bindingReport": [ … ], "error": null }
+```
+
+- **Columns**, by header against the profile and the file the profile read before (its own earlier
+  file, else the stored file its last import named by `sourceFileId`): `missing` per source (it
+  names the column, the file lacks it), `new` once per sheet, on its first source (no source on the
+  sheet names it and the earlier file lacked it), and `renamed`: a missing and a new column at the
+  same position sharing at least half of the larger of their distinct value counts (`shared`).
+  Without an earlier file nothing is renamed.
+- **The profile against the active release** (`releaseId`): `valid` and every problem at its pointer
+  into the stored profile (J35.3). A profile with problems is not read: `dryRun` is `null` and no
+  source has a `source` position.
+- **What the load would do**: the file is bound through the profile as it would read this file
+  (renamed columns under their new header, members naming a missing column left out, a source whose
+  sheet is gone or that has nothing left to load not read; `sheetFound`, `source: null`) in the
+  file's workspace (the default when it names none), live, with `onExisting: "overwrite"`, and every
+  item previewed in a transaction rolled back, as a dry run is: `dryRun` is the dry run's summary
+  ([The dry-run summary](#the-dry-run-summary)) with each source's `profileSource` in the stored
+  profile. A load of the file through the unchanged profile is still refused `IMPORT_FILE_MISMATCH`
+  while a column it names is missing or renamed: the client updates the profile first.
+- Per source, the counts of three lists, each read by its own route (paged by position; `source` in
+  load order):
+  - `GET …/check/new-values`: each value of a match column that names no record (`column`, `value`,
+    `cells`, `created`: the load creates it, the column's `missing: "create"`, or refuses it);
+  - `GET …/check/drift`: each row whose key finds a record named otherwise (`row`, `recordId`,
+    `key`, `name` in the file, `recordName`);
+  - `GET …/check/missing-records`: each record of the type no row names (`recordId`, `name`,
+    `key`), kept or deleted by the load as the source's `missing` says.
+- `GET …/check/rows` (paged; `source`, `status`, `code`) lists the rows behind the summary's
+  figures, as a dry run's rows route does.
+- Refusals: `404 PROFILE_CHECK_NOT_FOUND` before the profile's first file is checked, `404
+  IMPORT_PROFILE_NOT_FOUND`; `POST …/check` also `404 SOURCE_FILE_NOT_FOUND` (the profile holds no
+  file) and `409 SOURCE_FILE_PROFILE_NOT_READY`. A release activated while the check waits fails
+  it `MODEL_RELEASE_CHANGED`, as any job's.
 
 ## Planned integration endpoints
 

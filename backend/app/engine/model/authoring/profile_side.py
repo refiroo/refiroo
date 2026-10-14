@@ -75,6 +75,19 @@ def facts(model: dict[str, Any]) -> Facts:
     return found
 
 
+def holds_one(model: dict[str, Any], relation: str, direction: str, own: str, other: str) -> bool:
+    """Whether the row's record (``own``) holds at most one relationship of the binding: a
+    many-to-one from its side, or one-to-one (0.10 A5c, D105)."""
+    ends = (own, other) if direction == "outgoing" else (other, own)
+    for item in _items(model, "objectTypeRelations"):
+        if (item.get("relationTypeKey"), item.get("fromObjectTypeKey"), item.get("toObjectTypeKey")) == (relation, *ends):
+            cardinality = item.get("cardinality") or "many-to-many"
+            return cardinality == "one-to-one" or cardinality == (
+                "many-to-one" if direction == "outgoing" else "one-to-many"
+            )
+    return False
+
+
 def _items(data: dict[str, Any], name: str) -> list[dict[str, Any]]:
     return [item for item in data.get(name) or [] if isinstance(item, dict)]
 

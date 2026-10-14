@@ -213,6 +213,12 @@ can complete the task in the application; "API" means another system can.
   multi-valued cells, translations, external IDs, placeholders, drifting names) becomes one step in
   the editor, marked as proposed with why and its alternatives, changed like anything else; propose
   again after a newer workbook, keeping what you decided and reporting where the workbook disagrees.
+- Load the next version of a workbook through its saved profile: see what differs before anything
+  is written (columns new, missing or renamed, new list values, names that drifted, records the file
+  no longer names, the profile against the current model, what the load would do), accept a rename
+  or ignore a new column, then load it into a new change set whose review holds only the
+  differences. Records missing from the file are kept, or deleted in the change set when the
+  profile says so.
 - Declare consumer APIs in the model: the read-only contracts other systems will use, written as
   what each one exposes, offers, looks like and filters by, with defaults for what is left out, and
   checked so that a breaking change needs a new contract version. Another system reads one business object through

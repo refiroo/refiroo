@@ -180,10 +180,12 @@ export interface DryRunSource {
   sheet: string | null;
   objectTypeKey: string;
   rows: number;
-  records: { created: number; updated: number; unchanged: number };
+  records: { created: number; updated: number; unchanged: number; deleted?: number };
   values: number;
   relationships: number;
   relatedRecords: number;
+  /** Records of the type no row names (0.10 A5c, D82). */
+  missingRecords?: number;
   rejections: { code: string; rows: number }[];
 }
 
@@ -194,6 +196,16 @@ export interface DryRunDifference {
   figures: Record<string, { now: number; was: number }>;
 }
 
+/** The figures of a run through a profile: a draft's dry run, or a profile's check. */
+export interface DryRunSummary {
+  coverage: "complete";
+  rows: { total: number; run: number };
+  sources: DryRunSource[];
+  difference: DryRunDifference[] | null;
+  previousJobId: string | null;
+  ranAt: string;
+}
+
 /** A draft's latest dry run (D67, D79). */
 export interface DryRun {
   jobId: string;
@@ -202,15 +214,71 @@ export interface DryRun {
   draftVersion: number;
   sourceFileId: string;
   workspaceKey: string;
-  summary: {
-    coverage: "complete";
-    rows: { total: number; run: number };
-    sources: DryRunSource[];
-    difference: DryRunDifference[] | null;
-    previousJobId: string | null;
-    ranAt: string;
-  } | null;
+  summary: DryRunSummary | null;
   error: { code: string; message: string } | null;
+}
+
+/** One source of a profile as its check found the next file (0.10 A5c, D83). */
+export interface CheckSource {
+  profileSource: number;
+  /** Its position in the check's load order, as the lists and rows take it; null when not read. */
+  source: number | null;
+  sheet: string | null;
+  objectTypeKey: string;
+  missing: "report" | "delete";
+  sheetFound: boolean;
+  columns: {
+    new: { column: string; letter: string }[];
+    missing: { column: string }[];
+    renamed: { from: string; to: string; letter: string; shared: number }[];
+  } | null;
+  newValues: number;
+  drift: number;
+  missingRecords: number;
+}
+
+/** `GET /import-profiles/{key}/check`: the check of the profile's latest file. */
+export interface ProfileCheck {
+  jobId: string;
+  state: "checking" | "completed" | "failed" | "cancelled" | "expired";
+  profileKey: string;
+  profileVersion: number | null;
+  sourceFileId: string;
+  previousSourceFileId: string | null;
+  workspaceKey: string;
+  releaseId: string | null;
+  valid: boolean | null;
+  problems: { path: string; code: string; message: string }[];
+  sources: CheckSource[];
+  dryRun: DryRunSummary | null;
+  error: { code: string; message: string } | null;
+}
+
+/** A value of a match column naming no record: created by the load, or refused. */
+export interface CheckNewValue {
+  source: number;
+  column: string;
+  value: unknown;
+  created: boolean;
+  cells: number;
+}
+
+/** A row whose key finds a record named otherwise. */
+export interface CheckDrift {
+  source: number;
+  row: number;
+  recordId: string;
+  key: unknown;
+  name: string;
+  recordName: string | null;
+}
+
+/** A record of a source's type no row of the file names (D82). */
+export interface CheckMissingRecord {
+  source: number;
+  recordId: string;
+  name: string;
+  key: unknown;
 }
 
 /** What an inference proposes from (0.10 A6, D87): a new application, or additions to the model. */

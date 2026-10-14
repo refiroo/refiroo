@@ -6,11 +6,12 @@ progress and outcomes are the job routes' (``jobs.py``).
 """
 
 from contextlib import nullcontext
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, File, Form, Header, Query, Request, Response, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import Json
+from sqlalchemy.orm import Session
 
 from ...engine.imports.profiles import (
     create_profile,
@@ -22,14 +23,25 @@ from ...engine.imports.profiles import (
 )
 from ...engine.imports.submit import Upload, submit_import
 from ...engine.jobs.inline import BatchLimits
+from ...engine.sources.profile_check import latest_check, submit_check
 from ...engine.sources.store import stored_upload
 from ...errors import api_error
+from ...models.database import Job
 from ...models.imports import ImportProfileCreate, ImportProfileUpdate, ImportRequest
 from ..dependencies import DbSession
 from ..paging import PageQuery
 from ..presenters import import_profile_page, import_profile_response, job_responses
-from ..schemas.imports import ImportProfilePage, ImportProfileResponse
-from ..schemas.jobs import JobResponse
+from ..projections.job_rows import job_row_page
+from ..projections.profile_check import check_response, finding_page
+from ..schemas.imports import (
+    CheckDriftPage,
+    CheckMissingRecordPage,
+    CheckNewValuePage,
+    ImportProfilePage,
+    ImportProfileResponse,
+    ProfileCheckResponse,
+)
+from ..schemas.jobs import JobResponse, JobRowPage
 
 router = APIRouter(prefix="/api/v1", tags=["imports"])
 write_router = APIRouter(prefix="/api/v1", tags=["imports"])
@@ -171,3 +183,117 @@ def create_import(
         status_code=202,
         headers={"Idempotent-Replayed": "true"} if replayed else None,
     )
+
+
+# --- a profile's check of its next file (0.10 A5c, D83) ------------------------------------------
+
+
+@router.get("/import-profiles/{profile_key}/check", response_model=ProfileCheckResponse)
+def get_profile_check(profile_key: str, session: DbSession) -> ProfileCheckResponse:
+    """The check of the profile's latest file (D83): ``checking``, then the columns new, missing
+    and renamed, the profile against the active release, what the load would do and the counts of
+    new values, drifting names and records missing from the file; ``404 PROFILE_CHECK_NOT_FOUND``
+    before the profile's first file is checked."""
+    return check_response(_check(session, profile_key))
+
+
+@write_router.post(
+    "/import-profiles/{profile_key}/check", response_model=ProfileCheckResponse, status_code=202
+)
+def run_profile_check(profile_key: str, request: Request, session: DbSession) -> JSONResponse:
+    """Check the profile's current file again, as after a change to the profile; a check still
+    running is cancelled. Refused: ``404 SOURCE_FILE_NOT_FOUND`` when the profile holds no file,
+    ``409 SOURCE_FILE_PROFILE_NOT_READY`` before it is profiled."""
+    limits: BatchLimits = request.app.state.batch_limits
+    job = submit_check(session, profile_key, retention_days=limits.retention_days)
+    worker = getattr(request.app.state, "job_worker", None)
+    if worker is not None:
+        worker.wake()
+    return JSONResponse(check_response(job).model_dump(mode="json", by_alias=True), status_code=202)
+
+
+@router.get("/import-profiles/{profile_key}/check/new-values", response_model=CheckNewValuePage)
+def list_check_new_values(
+    profile_key: str,
+    session: DbSession,
+    paging: PageQuery,
+    source: int | None = Query(default=None, ge=0, description="A source, in load order"),
+    page_size: int = Query(default=100, ge=1, le=1000, alias="pageSize"),
+) -> CheckNewValuePage:
+    """Values of match columns naming no record, each with its cells: created by the load or
+    refused, in source, column and value order."""
+    found = finding_page(
+        session, _check(session, profile_key), "newValues", source=source, page=paging,
+        page_size=page_size,
+    )
+    return CheckNewValuePage(items=[row.value for row in found.items], **found.links())
+
+
+@router.get("/import-profiles/{profile_key}/check/drift", response_model=CheckDriftPage)
+def list_check_drift(
+    profile_key: str,
+    session: DbSession,
+    paging: PageQuery,
+    source: int | None = Query(default=None, ge=0, description="A source, in load order"),
+    page_size: int = Query(default=100, ge=1, le=1000, alias="pageSize"),
+) -> CheckDriftPage:
+    """Rows whose key finds a record named otherwise, in source and row order."""
+    found = finding_page(
+        session, _check(session, profile_key), "drift", source=source, page=paging,
+        page_size=page_size,
+    )
+    return CheckDriftPage(items=[row.value for row in found.items], **found.links())
+
+
+@router.get(
+    "/import-profiles/{profile_key}/check/missing-records", response_model=CheckMissingRecordPage
+)
+def list_check_missing_records(
+    profile_key: str,
+    session: DbSession,
+    paging: PageQuery,
+    source: int | None = Query(default=None, ge=0, description="A source, in load order"),
+    page_size: int = Query(default=100, ge=1, le=1000, alias="pageSize"),
+) -> CheckMissingRecordPage:
+    """Records of a source's type no row names (D82), in source and name order: kept by a load,
+    or deleted by one into a change set when the source says ``missing: delete``."""
+    found = finding_page(
+        session, _check(session, profile_key), "missingRecords", source=source, page=paging,
+        page_size=page_size,
+    )
+    return CheckMissingRecordPage(items=[row.value for row in found.items], **found.links())
+
+
+@router.get("/import-profiles/{profile_key}/check/rows", response_model=JobRowPage)
+def list_check_rows(
+    profile_key: str,
+    session: DbSession,
+    paging: PageQuery,
+    source: int | None = Query(default=None, ge=0, description="A source, in load order"),
+    status: Literal["applied", "rejected", "unprocessed"] | None = Query(default=None),
+    code: str | None = Query(default=None, description="Rows with an outcome refused this code"),
+    page_size: int = Query(default=500, ge=1, le=1000, alias="pageSize"),
+) -> JobRowPage:
+    """The rows behind the check's figures, as ``GET /model-drafts/{id}/dry-run/rows`` reads a
+    dry run's."""
+    return job_row_page(
+        session,
+        _check(session, profile_key),
+        status=status,
+        page=paging,
+        page_size=page_size,
+        source=source,
+        code=code,
+    )
+
+
+def _check(session: Session, profile_key: str) -> Job:
+    job = latest_check(session, profile_key)
+    if job is None:
+        raise api_error(
+            404,
+            "PROFILE_CHECK_NOT_FOUND",
+            f"Import profile '{profile_key}' has no checked file yet; upload one with "
+            "POST /source-files naming the profile as its owner",
+        )
+    return job

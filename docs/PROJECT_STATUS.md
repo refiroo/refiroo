@@ -79,8 +79,18 @@ workbooks, D99–D103)**: New
 from a workbook asks what to propose and the editor opens with the proposals applied, one step each;
 what is still as proposed reads Proposed, with Proposed because, its evidence and its alternatives
 in the centre; ⋯ › Propose again…; Map to… matches by an attribute and fills a related record's
-value; `test:browser:authoring-a6` on both designer models. Then A5c, the next version of a
-workbook.
+value; `test:browser:authoring-a6` on both designer models. **A5c, the next version of a workbook,
+is built (2026-10-14), its screenshots waiting for the user's approval** ([record](BASE_0_10_IMPLEMENTATION_PLAN.md#a5c-record-2026-10-14)):
+a file uploaded to a stored profile is checked by a `profileCheck` job, writing nothing (columns
+new, missing and renamed, the profile against the active release, the dry run, new values, name
+drift, records missing from the file; `GET /import-profiles/{key}/check` and its lists); a source's
+`missing: delete` deletes them in a change set only, each with its own relationships (D104); a
+lookup onto a single-valued relation replaces (D105); **Settings › Integration › Imports** with a
+profile's page to upload, check, accept a rename, ignore a column and load into a change set whose
+review holds only the differences. Measuring the check at 10,000 rows found two defects, fixed: the
+check locked itself out at the binding's first lease renewal, and the 0.9 binding's lookup by key
+attribute compared every row with every record (21.9 s; now 2.4 s for the whole binding). The
+check of W1′ at 10,000 rows takes 10.1 s after 6.1 s of profiling. Migration `20261015_01`.
 
 ### How 0.9 was built
 

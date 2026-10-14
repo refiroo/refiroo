@@ -543,6 +543,10 @@ export function describeMappingOperation(kind: string, p: Record<string, unknown
         : `Changed source ${text(p.source)}`;
     case "removeSource":
       return `Removed source ${text(p.source)}`;
+    case "setMissing":
+      return p.missing === "delete"
+        ? `Records missing from the file are deleted from source ${text(p.source)} in a change set`
+        : `Records missing from the file are kept for source ${text(p.source)}`;
     case "ignoreSheet":
       return `Ignored sheet ${text(p.sheet)}`;
     case "mapColumn":

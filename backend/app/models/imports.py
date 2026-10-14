@@ -264,7 +264,11 @@ class SourceKey(BaseModel):
 class Source(BaseModel):
     """One object type loaded from a sheet (the first sheet when omitted, the file for CSV).
     ``record: existing`` finds each row's record by its key and writes only its relationships and
-    related records."""
+    related records.
+
+    ``missing`` (0.10 A5c, D82) says what a load does with the records of the type that the
+    context holds with the key filled and that no row names: ``report`` them (the default, also
+    when left out) or ``delete`` them, which only a load into a change set may do."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -276,11 +280,16 @@ class Source(BaseModel):
     record: Literal["upsert", "existing"] = "upsert"
     key: SourceKey | None = None
     columns: list[ColumnBinding] = Field(min_length=1)
+    missing: Literal["report", "delete"] | None = None
 
     @model_validator(mode="after")
     def existing_needs_key(self) -> Source:
         if self.record == "existing" and self.key is None:
             raise ValueError("record: existing finds each row's record by its key")
+        if self.missing == "delete" and (self.key is None or self.record == "existing"):
+            raise ValueError(
+                "missing: delete needs a source that loads its records (record: upsert) by a key"
+            )
         if self.key is not None and self.key.nameColumn is not None and self.record != "existing":
             raise ValueError("key.nameColumn finds existing records only (record: existing)")
         return self

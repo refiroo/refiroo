@@ -1312,7 +1312,9 @@ class Job(Base):
     __tablename__ = "jobs"
     __table_args__ = (
         CheckConstraint(
-            "kind IN ('batch', 'import', 'export', 'profile', 'dryRun', 'inference')", name="ck_job_kind"
+            "kind IN ('batch', 'import', 'export', 'profile', 'dryRun', 'inference', "
+            "'profileCheck')",
+            name="ck_job_kind",
         ),
         CheckConstraint(
             "state IN ('queued', 'running', 'awaiting_confirmation', 'completed', 'failed', "

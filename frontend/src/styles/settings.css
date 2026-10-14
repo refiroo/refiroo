@@ -879,3 +879,66 @@ td:has(> .row-problems) {
   align-items: center;
   gap: var(--space-3);
 }
+
+/* Settings › Imports: a profile's check of its next file (0.10 A5c), four sections side by side. */
+.check-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--space-6) var(--space-8);
+}
+.check-lines {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.check-lines > li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 36px;
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--text-sm);
+}
+.check-lines > li:last-child {
+  border-bottom: 0;
+}
+.check-lines > li > span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.check-lines .status-pill {
+  margin-right: var(--space-1);
+}
+.check-lines > li.check-source {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+.check-lines > li.check-problem code:last-child {
+  flex: none;
+  color: var(--status-error-text);
+}
+.check-choice label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.check-choice label > span {
+  color: var(--text-secondary);
+}
+.check-grid + .section-description {
+  margin-top: var(--space-4);
+}
+
+@media (max-width: 760px) {
+  .check-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .check-lines > li {
+    flex-wrap: wrap;
+  }
+}

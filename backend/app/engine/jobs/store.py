@@ -216,10 +216,10 @@ def _foreign_notice(workspace_key: str, rows: int, counterparts: bool) -> dict[s
     }
 
 
-PREVIEWED_KINDS = ("import", "batch", "dryRun")
+PREVIEWED_KINDS = ("import", "batch", "dryRun", "profileCheck")
 # The jobs whose items are a file's rows, each outcome with its source and row (0.9 J3): an import,
-# and a draft's dry run of one (0.10 A3).
-ROW_KINDS = ("import", "dryRun")
+# a draft's dry run of one (0.10 A3) and a profile's check of its next file (0.10 A5c).
+ROW_KINDS = ("import", "dryRun", "profileCheck")
 
 
 def previewing(job: Job) -> bool:

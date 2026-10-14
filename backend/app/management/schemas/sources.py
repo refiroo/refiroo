@@ -141,6 +141,7 @@ class DryRunRecords(BaseModel):
     created: int
     updated: int
     unchanged: int
+    deleted: int = Field(default=0, description="Records missing from the file a source deletes")
 
 
 class DryRunSource(BaseModel):
@@ -156,6 +157,9 @@ class DryRunSource(BaseModel):
     values: int
     relationships: int
     relatedRecords: int
+    missingRecords: int = Field(
+        default=0, description="Records of the type no row names (0.10 A5c, D82)"
+    )
     rejections: list[DryRunRejection]
 
 

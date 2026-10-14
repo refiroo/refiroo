@@ -18,6 +18,13 @@ The worker binds an import before its first chunk, in one transaction:
    related records, then relationships (D72). Each carries its source and row (0.9 J3), so the
    outcomes read by row. The batch path runs them unchanged.
 
+**Records missing from the file** (0.10 A5c, D82): a source loading its records by a key finds
+the records of its type the context holds with the key filled and no row of the file names, in one
+statement; the report counts them per source, and a source with ``missing: "delete"`` deletes them
+after every other item. A profile's check (``kind: profileCheck``) also reads what binding found
+before the temporary tables go: the new values of match columns, the rows naming a found record by
+another name (drift) and the missing records (:func:`_findings`).
+
 **The binding report** (0.9 J3, D86) says per source and column what binding made of the cells:
 read, empty, converted, value-mapped, refused; for a match column (a parent, a relationship, a flag)
 how many values found one record, none or several. The cell counts are kept while the rows stream;
@@ -46,6 +53,7 @@ from ...models.commands import BatchItem
 from ...models.database import Job
 from ...models.imports import ColumnBinding, ImportProfileDefinition, MatchBy, Source
 from ...models.schema import EngineModel
+from ..jobs.batches import MISSING_REF
 from ..reads.context_sets import record_source, relation_source
 from ..reads.snapshot_reads import SnapshotContext, change_set_context
 from ..records.counterparts import counterpart
@@ -99,9 +107,20 @@ _TEMPORARY_TABLES = (
     ),
     (
         "CREATE TEMPORARY TABLE import_context (object_id text PRIMARY KEY, object_type_key text,"
-        " name text, parent_object_id text, attributes jsonb) ON COMMIT DROP"
+        " name text, parent_object_id text, attributes jsonb, version integer) ON COMMIT DROP"
     ),
     "CREATE INDEX ON import_context (object_type_key, name)",
+    # The attribute values a key or a match reads, of the context's records and of the file's rows,
+    # one row each, so a lookup by attribute is an equality join PostgreSQL can hash (0.10 A5c): a
+    # join on ``attributes -> attr`` naming both tables compares every row with every record.
+    (
+        "CREATE TEMPORARY TABLE import_context_values (object_type_key text, attr text, value jsonb,"
+        " object_id text, PRIMARY KEY (object_type_key, attr, value, object_id)) ON COMMIT DROP"
+    ),
+    (
+        "CREATE TEMPORARY TABLE import_row_values (object_type_key text, attr text, value jsonb,"
+        " record_id text) ON COMMIT DROP"
+    ),
     (
         "CREATE TEMPORARY TABLE import_context_relations (relation_type_key text, from_id text,"
         " to_id text) ON COMMIT DROP"
@@ -117,6 +136,11 @@ _TEMPORARY_TABLES = (
     # With counterparts (0.9 J5, D100): a match by ID naming another workspace's record, and the
     # ID of its counterpart here, derived in Python (PostgreSQL has no SHA-1 of its own).
     "CREATE TEMPORARY TABLE import_counterparts (match_id integer, object_id text) ON COMMIT DROP",
+    # The context's records of a keyed source's type that no row names (0.10 A5c, D82).
+    (
+        "CREATE TEMPORARY TABLE import_missing (src integer, object_id text PRIMARY KEY, name text,"
+        " key_value jsonb, version integer) ON COMMIT DROP"
+    ),
     # Every match cell the file holds, for the binding report: a refused row's too.
     (
         "CREATE TEMPORARY TABLE import_match_cells (src integer, column_name text, match jsonb)"
@@ -133,6 +157,8 @@ class Bound:
     rejected: int
     items: int
     report: list[dict[str, Any]] | None = None
+    # A profile check's findings (0.10 A5c): new values, drift and missing records.
+    findings: dict[str, list[dict[str, Any]]] | None = None
 
 
 @dataclass(frozen=True)
@@ -208,7 +234,12 @@ def bind_import(
         report = _Report()
         _bind_table_layout(session, path, file_format, model, rows, report)
     stored = _store(session, job, limits)
-    return Bound(stored.rejected, stored.items, report.finish(session) if report else None)
+    return Bound(
+        stored.rejected,
+        stored.items,
+        report.finish(session) if report else None,
+        _findings(session) if job.kind == "profileCheck" and definition is not None else None,
+    )
 
 
 class _RowCounter:
@@ -284,6 +315,9 @@ class _Report:
         rejected = dict(
             session.execute(text("SELECT src, count(*) FROM import_errors GROUP BY src")).all()
         )
+        missing = dict(
+            session.execute(text("SELECT src, count(*) FROM import_missing GROUP BY src")).all()
+        )
         report = []
         for src in sorted(self.sources):
             columns = []
@@ -292,7 +326,10 @@ class _Report:
                     counts = found.get((src, entry["column"]), (0, 0, 0))
                     entry["resolved"], entry["notFound"], entry["ambiguous"] = counts
                 columns.append(entry)
-            source = self.sources[src] | {"rejectedRows": rejected.get(src, 0)}
+            source = self.sources[src] | {
+                "rejectedRows": rejected.get(src, 0),
+                "missingRecords": missing.get(src, 0),
+            }
             report.append(source | {"columns": columns})
         return report
 
@@ -726,6 +763,7 @@ class _ProfileBinding:
         self.report = report
         self.match_cells = _Copy(session, "import_match_cells", ("src", "column_name", "match"))
         self.row_id = 0
+        self.plans: list[_Plan] = []
         # Each source's named columns, by plan index (rows empty in all of them are skipped).
         self._names: dict[int, list[str]] = {}
         self.entry_id = 0
@@ -796,7 +834,7 @@ class _ProfileBinding:
         delimiter = self.profile.csv.delimiter if self.profile.csv is not None else ","
         book = open_book(file_format, delimiter)
         try:
-            plans = self._plans(book, file_format == "xlsx")
+            plans = self.plans = self._plans(book, file_format == "xlsx")
             for plan in plans:
                 found = book.table(
                     plan.source.sheet if file_format == "xlsx" else None, _area(plan.source)
@@ -836,7 +874,7 @@ class _ProfileBinding:
                 )
                 continue
             columns = found.columns()
-            for path, name in _named_columns(source, at):
+            for path, name in named_columns(source, at):
                 if name not in columns:
                     mismatch.add(path, "COLUMN_NOT_FOUND", f"The header has no column '{name}'")
             sheet = (source.sheet or book.sheet_names[0]) if xlsx else book.sheet_names[0]
@@ -850,7 +888,7 @@ class _ProfileBinding:
         # parent read from the rows of another type's sheet, on a row without one (0.10 A6b, D99).
         names = self._names.get(plan.index)
         if names is None:
-            names = self._names[plan.index] = [name for _, name in _named_columns(plan.source, "")]
+            names = self._names[plan.index] = [name for _, name in named_columns(plan.source, "")]
         if names and all(_cell(plan.columns, cells, name) is None for name in names):
             return
         self.row_id += 1
@@ -1356,15 +1394,17 @@ class _ProfileBinding:
                     column("name"),
                     column("parent_object_id"),
                     column("attributes"),
+                    column("version"),
                 )
             ).from_select(
-                ["object_id", "object_type_key", "name", "parent_object_id", "attributes"],
+                ["object_id", "object_type_key", "name", "parent_object_id", "attributes", "version"],
                 select(
                     source.c.object_id,
                     source.c.object_type_key,
                     source.c.name,
                     source.c.parent_object_id,
                     cast(source.c.attributes, JSONB),
+                    source.c.version,
                 ),
             )
         )
@@ -1409,6 +1449,57 @@ class _ProfileBinding:
         self._related_identities()
         self._members()
         self._items()
+        self._missing()
+
+    def _missing(self) -> None:
+        """The records missing from the file (D82): per source that loads its records by a key,
+        the context's records of its type with the key filled that no row of the file names; each
+        counted once, by the first such source. A source with ``missing: "delete"`` deletes them
+        after every other item, in name order."""
+        for plan in sorted(self.plans, key=lambda found: found.order):
+            source = plan.source
+            if source.key is None or source.record == "existing":
+                continue
+            attribute = source.key.attributeTypeKey
+            self.session.execute(
+                text(
+                    """
+                    INSERT INTO import_missing (src, object_id, name, key_value, version)
+                    SELECT :src, c.object_id, c.name,
+                        CASE WHEN k.attr IS NULL THEN to_jsonb(c.object_id)
+                            ELSE c.attributes -> k.attr END,
+                        c.version
+                    FROM import_context c, (SELECT CAST(:attr AS text) AS attr) k
+                    WHERE c.object_type_key = :type
+                      AND (k.attr IS NULL OR c.attributes -> k.attr IS NOT NULL)
+                      -- Three anti-joins on plain equalities, so each is a hash anti-join: a
+                      -- row that found the record, a row naming its key, a row naming its ID.
+                      AND NOT EXISTS (SELECT 1 FROM import_rows r WHERE r.record_id = c.object_id)
+                      AND NOT EXISTS (SELECT 1 FROM import_rows r
+                          WHERE r.key_kind = 'attribute' AND r.object_type_key = c.object_type_key
+                            AND r.key_attr = k.attr AND r.key_value = c.attributes -> k.attr)
+                      AND NOT EXISTS (SELECT 1 FROM import_rows r
+                          WHERE r.key_kind = 'id' AND r.key_value #>> '{}' = c.object_id)
+                    ON CONFLICT (object_id) DO NOTHING
+                    """
+                ),
+                {"src": plan.order, "attr": attribute, "type": source.objectTypeKey},
+            )
+            if source.missing == "delete":
+                self.session.execute(
+                    text(
+                        """
+                        INSERT INTO import_items (phase, src, depth, row_number, sub, ref, item)
+                        SELECT 9, m.src, 0, NULL, row_number() OVER (ORDER BY m.name, m.object_id),
+                            CAST(:ref AS text) || m.object_id,
+                            jsonb_build_object('op', 'delete', 'ref', CAST(:ref AS text) || m.object_id,
+                                'target', jsonb_build_object('id', m.object_id),
+                                'expectedVersion', m.version)
+                        FROM import_missing m WHERE m.src = :src
+                        """
+                    ),
+                    {"src": plan.order, "ref": MISSING_REF},
+                )
 
     def _context_types(self) -> set[str]:
         types: set[str] = set()
@@ -1473,10 +1564,23 @@ class _ProfileBinding:
         repeated key takes its first row's."""
         self._sql(
             """
+            INSERT INTO import_context_values (object_type_key, attr, value, object_id)
+            SELECT c.object_type_key, k.attr, c.attributes -> k.attr, c.object_id
+            FROM (SELECT DISTINCT object_type_key, key_attr AS attr FROM import_rows
+                  WHERE key_kind = 'attribute') k
+            JOIN import_context c ON c.object_type_key = k.object_type_key
+            WHERE c.attributes -> k.attr IS NOT NULL
+            ON CONFLICT DO NOTHING
+            """
+        )
+        self._sql("ANALYZE import_context_values")
+        self._sql(
+            """
             UPDATE import_rows r SET record_id = c.object_id, existing = true, current_name = c.name
-            FROM import_context c
+            FROM import_context_values v JOIN import_context c ON c.object_id = v.object_id
             WHERE r.error IS NULL AND r.rep_id IS NULL AND r.key_kind = 'attribute'
-              AND c.object_type_key = r.object_type_key AND c.attributes -> r.key_attr = r.key_value
+              AND v.object_type_key = r.object_type_key AND v.attr = r.key_attr
+              AND v.value = r.key_value
             """
         )
         self._sql(
@@ -1569,6 +1673,28 @@ class _ProfileBinding:
             """
         )
         self._sql("ANALYZE import_matches")
+        self._sql(
+            """
+            INSERT INTO import_context_values (object_type_key, attr, value, object_id)
+            SELECT c.object_type_key, k.attr, c.attributes -> k.attr, c.object_id
+            FROM (SELECT DISTINCT object_type_key, attr FROM import_matches WHERE attr <> '') k
+            JOIN import_context c ON c.object_type_key = k.object_type_key
+            WHERE c.attributes -> k.attr IS NOT NULL
+            ON CONFLICT DO NOTHING
+            """
+        )
+        self._sql(
+            """
+            INSERT INTO import_row_values (object_type_key, attr, value, record_id)
+            SELECT f.object_type_key, k.attr, f.attributes -> k.attr, f.record_id
+            FROM (SELECT DISTINCT object_type_key, attr FROM import_matches WHERE attr <> '') k
+            JOIN import_rows f ON f.object_type_key = k.object_type_key AND f.mode = 'upsert'
+                AND f.rep_id IS NULL AND f.error IS NULL
+            WHERE f.attributes -> k.attr IS NOT NULL
+            """
+        )
+        self._sql("ANALYZE import_context_values")
+        self._sql("ANALYZE import_row_values")
         if self.job.parameters.get("otherWorkspaceIds") == "counterparts":
             self._counterpart_matches()
         self._sql(
@@ -1584,9 +1710,9 @@ class _ProfileBinding:
                 JOIN import_counterparts k ON k.match_id = m.match_id
                 JOIN import_context c ON c.object_type_key = m.object_type_key
                     AND c.object_id = k.object_id
-                UNION SELECT m.match_id, c.object_id FROM import_matches m
-                JOIN import_context c ON c.object_type_key = m.object_type_key
-                    AND m.attr <> '' AND c.attributes -> m.attr = m.value
+                UNION SELECT m.match_id, v.object_id FROM import_matches m
+                JOIN import_context_values v ON v.object_type_key = m.object_type_key
+                    AND m.attr <> '' AND v.attr = m.attr AND v.value = m.value
                 UNION SELECT m.match_id, f.record_id FROM import_matches m
                 JOIN import_rows f ON f.object_type_key = m.object_type_key AND f.mode = 'upsert'
                     AND f.rep_id IS NULL AND f.error IS NULL
@@ -1596,9 +1722,8 @@ class _ProfileBinding:
                     AND f.rep_id IS NULL AND f.error IS NULL
                     AND m.field = 'id' AND f.record_id = m.value #>> '{}'
                 UNION SELECT m.match_id, f.record_id FROM import_matches m
-                JOIN import_rows f ON f.object_type_key = m.object_type_key AND f.mode = 'upsert'
-                    AND f.rep_id IS NULL AND f.error IS NULL
-                    AND m.attr <> '' AND f.attributes -> m.attr = m.value),
+                JOIN import_row_values f ON f.object_type_key = m.object_type_key
+                    AND m.attr <> '' AND f.attr = m.attr AND f.value = m.value),
             counted AS (
                 SELECT match_id, count(*) AS n, min(object_id) AS one FROM candidates GROUP BY match_id)
             UPDATE import_matches m SET candidates = c.n, resolved = CASE WHEN c.n = 1 THEN c.one END
@@ -1937,7 +2062,7 @@ def _area(source: Source) -> Area:
     return Area.of(source.headerRow, source.block)
 
 
-def _named_columns(source: Source, at: str) -> Iterator[tuple[str, str]]:
+def named_columns(source: Source, at: str) -> Iterator[tuple[str, str]]:
     """Every column the source names, with its pointer."""
     if source.key is not None:
         for name in ("column", "versionColumn", "nameColumn"):
@@ -1966,6 +2091,57 @@ def _named_columns(source: Source, at: str) -> Iterator[tuple[str, str]]:
                 f"{at}/columns/{index}/relatedRecord/parent/column",
                 binding.relatedRecord.parent.column,
             )
+
+
+# --- a profile check's findings (0.10 A5c, D83) -----------------------------------------------------
+
+
+def _findings(session: Session) -> dict[str, list[dict[str, Any]]]:
+    """What a profile's check lists, read from the temporary tables before they go: each value of
+    a match column that names no record of the context (one the load creates, or refuses), with
+    its rows; each row whose key finds a record by another name than the row's (drift); each record
+    missing from the file. Every list in source, then column or row order."""
+    new_values = session.execute(
+        text(
+            f"""
+            SELECT c.src, c.column_name, m.value, m.created, count(*) AS cells
+            FROM import_match_cells c JOIN import_matches m ON {_JOINED.format(s="c.match")}
+            WHERE m.created OR m.candidates = 0
+            GROUP BY c.src, c.column_name, m.value, m.created
+            ORDER BY c.src, c.column_name, m.value #>> '{{}}'
+            """
+        )
+    ).all()
+    drift = session.execute(
+        text(
+            """
+            SELECT src, row_number, record_id, key_value, name, current_name FROM import_rows
+            WHERE existing AND mode = 'upsert' AND name IS NOT NULL
+              AND current_name IS DISTINCT FROM name
+            ORDER BY src, row_number
+            """
+        )
+    ).all()
+    missing = session.execute(
+        text(
+            "SELECT src, object_id, name, key_value FROM import_missing ORDER BY src, name, object_id"
+        )
+    ).all()
+    return {
+        "newValues": [
+            {"source": src, "column": column_name, "value": value, "created": created, "cells": cells}
+            for src, column_name, value, created, cells in new_values
+        ],
+        "drift": [
+            {"source": src, "row": number, "recordId": record_id, "key": key, "name": name,
+             "recordName": current}
+            for src, number, record_id, key, name, current in drift
+        ],
+        "missingRecords": [
+            {"source": src, "recordId": object_id, "name": name, "key": key}
+            for src, object_id, name, key in missing
+        ],
+    }
 
 
 # --- the job's outcomes and inputs ------------------------------------------------------------------

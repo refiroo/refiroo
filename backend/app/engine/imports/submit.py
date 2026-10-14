@@ -112,6 +112,14 @@ def submit_import(
     ):
         raise api_error(409, "CHANGE_SET_VERSION_CONFLICT", "Change set version has changed")
     profile = _profile(session, request, context.model, found_format, upload)
+    if context.change_set is None and _deletes_missing(profile):
+        raise api_error(
+            422,
+            "MISSING_DELETE_NEEDS_CHANGE_SET",
+            "The profile deletes the records missing from the file (missing: delete), which only "
+            "a load into a change set may do; name a change set, or set the source's missing to "
+            "report",
+        )
     job = start_job(
         session,
         kind="import",
@@ -131,6 +139,9 @@ def submit_import(
                 "bytes": upload.size,
                 "sha256": upload.sha256,
             },
+            # The stored source file imported (0.10 A3), which a profile's check compares the
+            # next version with (A5c, D83).
+            **({"sourceFileId": request.sourceFileId} if request.sourceFileId else {}),
         },
         total=None,
         retention_days=retention_days,
@@ -223,6 +234,15 @@ def _profile(
         **described,
         "definition": definition.model_dump(mode="json", exclude_none=True),
     }
+
+
+def _deletes_missing(profile: dict[str, Any] | None) -> bool:
+    """Whether a source of the profile deletes the records missing from the file (D82)."""
+    if profile is None:
+        return False
+    return any(
+        source.get("missing") == "delete" for source in profile["definition"]["sources"]
+    )
 
 
 def _workspace_key(session: Session, request: ImportRequest) -> str:

@@ -1,0 +1,155 @@
+/**
+ * Load a stored profile's latest file into a new change set (0.10 A5c, D85): the editor's load
+ * without the model step (D81), since a stored profile holds against the active release already. A
+ * change set named after the file in the workspace the check ran in, the import of the stored file
+ * through the profile, the job followed until it ends; then Open the change set review, which lists
+ * only what the file changes.
+ */
+
+import { useEffect, useState } from "react";
+import { api } from "@/api/client";
+import { errorMessage } from "@/api/errors";
+import type { Job, SourceFile, Workspace } from "@/types";
+import { Modal } from "@/ui/Modal";
+import { Notice } from "@/ui/Notice";
+import { isFinal, useJobStream } from "@/features/jobs/useJobStream";
+import {
+  ChangeSetFields,
+  changeSetName,
+  loadIntoChangeSet,
+  LoadProgress,
+  LoadStep,
+  stepState,
+} from "@/features/jobs/ChangeSetLoad";
+
+type Stage = "ready" | "opening" | "loading" | "done" | "stopped";
+const ORDER: Stage[] = ["opening", "loading", "done"];
+
+export function ProfileLoadDialog({
+  profileKey,
+  file,
+  defaultWorkspace,
+  summary,
+  onOpenReview,
+  onClose,
+}: {
+  profileKey: string;
+  file: SourceFile;
+  defaultWorkspace: string;
+  /** What the check says the load does, in a sentence. */
+  summary: string;
+  onOpenReview: (target: { workspaceKey: string; changeSetId: string }) => void;
+  onClose: () => void;
+}) {
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [name, setName] = useState(() => changeSetName(file.name));
+  const [workspace, setWorkspace] = useState(defaultWorkspace);
+  const [stage, setStage] = useState<Stage>("ready");
+  const [error, setError] = useState("");
+  const [job, setJob] = useState<Job>();
+  const [changeSetId, setChangeSetId] = useState<string>();
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .workspaces()
+      .then((page) => {
+        if (!cancelled) setWorkspaces(page.items);
+      })
+      .catch((cause) => {
+        if (!cancelled) setError(errorMessage(cause));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useJobStream(job && !isFinal(job) ? job.id : undefined, (next) => {
+    setJob(next);
+    if (isFinal(next)) setStage(next.state === "completed" ? "done" : "stopped");
+  });
+
+  async function load() {
+    setError("");
+    try {
+      setStage("opening");
+      setJob(
+        await loadIntoChangeSet({
+          workspace,
+          name,
+          profileKey,
+          sourceFileId: file.id,
+          onOpened: (changeSet) => {
+            setChangeSetId(changeSet.id);
+            setStage("loading");
+          },
+        }),
+      );
+    } catch (cause) {
+      setStage("stopped");
+      setError(errorMessage(cause));
+    }
+  }
+
+  const working = stage === "opening" || stage === "loading";
+  return (
+    <Modal
+      title={`Load ${file.name} into a change set`}
+      eyebrow="Load the next version"
+      description={summary}
+      busy={working}
+      onClose={onClose}
+    >
+      <form
+        className="dialog-body load-dialog"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (stage === "ready" && workspace && name.trim()) void load();
+        }}
+      >
+        <ol className="load-steps">
+          <LoadStep number={1} state={stepState(ORDER, stage, 0)} fields>
+            <strong>Open a change set</strong>
+            <ChangeSetFields
+              name={name}
+              onName={setName}
+              workspace={workspace}
+              onWorkspace={setWorkspace}
+              workspaces={workspaces}
+              disabled={stage !== "ready"}
+            />
+          </LoadStep>
+          <LoadStep number={2} state={stepState(ORDER, stage, 1)}>
+            <strong>Load the rows</strong>
+            <p className="muted">The stored file through the profile; records found are updated.</p>
+            <LoadProgress job={job} stage={stage} />
+          </LoadStep>
+        </ol>
+        {error && (
+          <Notice tone="error" title="Stopped" focusOnMount>
+            {error}
+          </Notice>
+        )}
+        <div className="dialog-actions">
+          <button type="button" className="secondary" onClick={onClose} disabled={working}>
+            {stage === "done" || stage === "stopped" ? "Close" : "Cancel"}
+          </button>
+          {stage === "done" && changeSetId ? (
+            <button
+              type="button"
+              className="primary"
+              autoFocus
+              onClick={() => onOpenReview({ workspaceKey: workspace, changeSetId })}
+            >
+              Open the change set review
+            </button>
+          ) : (
+            <button type="submit" className="primary" disabled={stage !== "ready" || !workspace || !name.trim()}>
+              {stage === "opening" ? "Opening the change set…" : stage === "loading" ? "Loading…" : "Load"}
+            </button>
+          )}
+        </div>
+      </form>
+    </Modal>
+  );
+}

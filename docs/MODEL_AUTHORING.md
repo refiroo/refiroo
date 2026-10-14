@@ -427,7 +427,12 @@ Groups have one level, and the group page shows no record counts. Both are non-b
   and relationship changes.
 - Records missing from the new version are reported, never deleted by default. Whether a load may
   delete them, in a change set only, is a profile option (A-D7; records have no retired state, so
-  0.10 A5's D82 leaves "retire" out).
+  0.10 A5's D82 leaves "retire" out). A deleted record goes with its own relationships; one other
+  records depend on is refused for a person to decide (D104).
+- A lookup onto a relation a record holds one of replaces it, so a value changed in the next version
+  switches the record rather than adding a second one (D105).
+- The differences are a check job on the profile's next file, read from Settings › Imports (D83,
+  D85); a renamed column is accepted there, which updates the profile.
 - Matching across files (the model-description workbook and the flat table naming the same records)
   uses IDs or codes, never names alone; differing names are drift to resolve.
 

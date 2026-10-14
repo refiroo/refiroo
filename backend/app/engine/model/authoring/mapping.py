@@ -98,7 +98,28 @@ def _checked(context: Context, source: dict[str, Any], column: str, binding: dic
         raise Refusal(f"{field}/valueMap", "unknownElement", f"No value map '{binding['valueMap']}'")
     if not profile_side.binding_resolves(profile_side.facts(context.data), source, candidate):
         raise Refusal(field, "unknownElement", "The binding names an element the draft's model does not declare or allow")
-    return candidate
+    return _replacing(context, source, candidate)
+
+
+def _replacing(context: Context, source: dict[str, Any], binding: dict[str, Any]) -> dict[str, Any]:
+    """A lookup onto a relation the row's record holds one of replaces it (0.10 A5c, D105): the
+    cell is that record, so a new value in the next file switches it rather than adding a second
+    one the relation refuses. Left as given when the binding says ``replace``, splits its cell or
+    carries one relationship per row (``idColumn``, ``attributes``)."""
+    relation = binding.get("relation")
+    if not isinstance(relation, dict) or any(
+        relation.get(name) for name in ("replace", "split", "idColumn", "attributes")
+    ) or "replace" in relation:
+        return binding
+    if not profile_side.holds_one(
+        context.data,
+        relation.get("relationTypeKey"),
+        relation.get("direction") or "outgoing",
+        source.get("objectTypeKey"),
+        relation.get("objectTypeKey"),
+    ):
+        return binding
+    return {**binding, "relation": {**relation, "replace": True}}
 
 
 def _unbind(context: Context, source: dict[str, Any], column: str) -> int | None:
@@ -238,6 +259,9 @@ def set_source(context: Context, raw: dict[str, Any]) -> Applied:
         context.profile.set(path, "applicationKey", app)
     if "key" in raw:
         context.profile.set(path, "key", _source_key(context, raw["key"], source))
+        if raw["key"] is None and source.get("missing") is not None:
+            # Missing records are found by the key: without one there are none (D82).
+            context.profile.set(path, "missing", None)
     if "record" in raw:
         record = params.optional("record")
         if record not in (None, "upsert", "existing"):
@@ -254,6 +278,27 @@ def remove_source(context: Context, raw: dict[str, Any]) -> Applied:
     source = _source(context, raw.get("source"))
     context.profile.remove(["sources"], {"id": source["id"]})
     return _done(context, raw, "removeSource", _named(source))
+
+
+@kind("setMissing")
+def set_missing(context: Context, raw: dict[str, Any]) -> Applied:
+    """What a load does with the records of the source's type that no row names (0.10 A5c, D82):
+    ``report`` them (the default) or ``delete`` them, in a change set only. Deleting needs a source
+    that loads its records by a key."""
+    params = Params(raw, ("source", "missing"))
+    source = _source(context, raw.get("source"))
+    missing = params.text("missing")
+    if missing not in ("report", "delete"):
+        raise Refusal("missing", "invalidValue", "'missing' is report or delete")
+    if missing == "delete" and (source.get("key") is None or source.get("record") == "existing"):
+        raise Refusal(
+            "missing",
+            "invalidValue",
+            f"Source '{source['id']}' has no key, or loads no records of its own, so no record is "
+            "missing from it",
+        )
+    context.profile.set(profile_side.source_path(source), "missing", None if missing == "report" else missing)
+    return _done(context, raw, "setMissing", _named(source))
 
 
 @kind("ignoreSheet")

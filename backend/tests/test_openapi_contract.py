@@ -135,10 +135,16 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # Re-baselined for 0.10 A6a: FlagsBinding's and RelatedParent's optional missing (D93), the job
     # kind inference on JobResponse and the job list's kind filter, and a profiled column's values
     # (SourceColumnResponse) and valuesListed (SourceColumnLimits). Diffed against HEAD, nothing
-    # else changed (the inference routes are model administration's).
+    # else changed (the inference routes are model administration's). Re-baselined for 0.10 A5c: the
+    # profile check's reads (GET /import-profiles/{key}/check, its new-values, drift,
+    # missing-records and rows) with the Check* schemas and ProfileCheckResponse, which brings the
+    # DryRun* summary schemas into the default document; Source's optional missing (D82),
+    # BindingReportSource's missingRecords and the job kind profileCheck on JobResponse and the job
+    # list's kind filter. Diffed against HEAD, nothing else changed (POST …/check is registered with
+    # integration jobs, off in the default document).
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "e3b89030ba3699db77c1c011c4b808937b869fb8c708b4d2dd0639f86a120655"
+        "29c33bea0572dac7185f4738a32925a15022e8175173d4ccebade7873393cb20"
     )
 
 
@@ -170,8 +176,9 @@ def test_paging_openapi_inventory():
         assert properties["totalCount"]["type"] == properties["startIndex"]["type"] == "integer"
     # 0.9 B1 added the job list and a job's outcomes; H4c removed GET /workspaces/{key}/mappings (D-1);
     # 0.9 J2 added the import profiles; 0.9 J3 an import's rows; 0.9 K6a what records hold; 0.10 A3
-    # the source files and a profile's sheets and columns.
-    assert seekable <= paged and len(paged) == 32
+    # the source files and a profile's sheets and columns; 0.10 A5c a profile check's new values,
+    # drift, missing records and rows.
+    assert seekable <= paged and len(paged) == 36
     assert {
         "/api/v1/jobs",
         "/api/v1/jobs/{job_id}/items",

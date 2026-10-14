@@ -330,13 +330,18 @@ _CHANGE_SET_TOMBSTONES = (
 class Deletion:
     """One record to delete: the item it stands for (its index in a job; 0 for a single delete),
     whether it cascades, and the token confirming the impact it was shown. In a preview a cascade
-    needs no token: the preview gives it."""
+    needs no token: the preview gives it.
+
+    ``own_links``: a record a load deletes because its file no longer names it (0.10 A5c, D104),
+    deleted with its own relationships and no token, since they cannot outlive it; a record others
+    depend on (a child, a record it owns) is refused with its impact, never deleted with it."""
 
     item: int
     object_id: str
     object_type_key: str
     cascade: bool
     token: str | None = None
+    own_links: bool = False
 
 
 @dataclass
@@ -644,6 +649,8 @@ def _verdict(scope: DeletionScope, row: _Row, previewing: bool) -> Deleted:
         "retainedAssociationCount": row.retained,
         "deletionPreviewToken": token,
     }
+    if deletion.own_links and (row.objects or 0) <= 1:
+        return Deleted(row.item, impact=impact)
     if not deletion.cascade:
         if (row.objects or 0) > 1 or row.linked:
             return Deleted(
