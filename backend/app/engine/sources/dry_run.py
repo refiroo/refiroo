@@ -11,8 +11,9 @@ changed since it was sent stops as ``cancelled``: its answer would be about a mo
 
 The summary counts, per source in load order: rows, records created, updated, unchanged and
 deleted, the values they write, relationships, related records, the records missing from the file
-(0.10 A5c, D82) and the rows refused by code; and the difference from the draft's previous completed
-dry run of the same file. A profile's check (``profile_check.py``) summarizes its run the same way.
+(0.10 A5c, D82), the rows skipped for want of a key (0.10 A7, D110) and the rows refused by code;
+and the difference from the draft's previous completed dry run of the same file. A profile's check
+(``profile_check.py``) summarizes its run the same way.
 """
 
 from datetime import UTC, datetime
@@ -229,6 +230,9 @@ def summary(session: Session, job: Job, model: EngineModel) -> dict[str, Any]:
                 "missingRecords": (bound[position] if position < len(bound) else {}).get(
                     "missingRecords", 0
                 ),
+                "skippedRows": (bound[position] if position < len(bound) else {}).get(
+                    "skippedRows", 0
+                ),
                 "rejections": {},
             }
         )
@@ -302,6 +306,7 @@ def _figures(entry: dict[str, Any]) -> dict[str, int]:
         "relationships": entry["relationships"],
         "relatedRecords": entry["relatedRecords"],
         "missingRecords": entry.get("missingRecords", 0),
+        "skippedRows": entry.get("skippedRows", 0),
     }
     figures.update({f"rejections.{item['code']}": item["rows"] for item in entry["rejections"]})
     return figures

@@ -79,6 +79,10 @@ export const PATTERN_LABELS: Record<string, string> = {
   externalId: "External IDs",
   attribute: "Attribute",
   navigationGroup: "Navigation group",
+  modelDescription: "Model description",
+  describedList: "A list the description names",
+  describedField: "A field the description names",
+  describedFlags: "Flags the description names",
   assistant: "The assistant's suggestion",
 };
 

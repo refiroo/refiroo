@@ -49,7 +49,8 @@ from ...model.drafts import load_draft
 from ...model.registry import resolve_model_snapshot
 from ...workspaces.catalogue import resolve_workspace
 from ..draft_profile import current_source
-from ..store import require_profile
+from ..profiling import PLACEHOLDER_VALUES
+from ..store import compared_workspace, require_profile
 from . import assistant as assistants
 from .build import Builder, Proposal
 from .compare import (
@@ -200,6 +201,7 @@ def run_inference(session: Session, job: Job, *, assistant_setting: str = "", as
         raise api_error(404, "SOURCE_FILE_NOT_FOUND", f"Source file '{parameters['sourceFileId']}' was deleted")
     model, profile = draft.model_json, draft.profile_json or {}
     workbook = staged_workbook(session, source)
+    workspace = compared_workspace(session, source)
     findings = find(workbook)
     rows = _rows(session, draft)
     steps = proposal_steps(rows)
@@ -218,7 +220,8 @@ def run_inference(session: Session, job: Job, *, assistant_setting: str = "", as
         application_name=parameters.get("applicationName"),
         reuse={anchor: dict(step.origin.get("keys") or {}) for anchor, step in earlier.items() if anchor},
         released=released.__contains__,
-        identifiers=_identifiers(session, source, workbook) if parameters["mode"] == "extend" else {},
+        identifiers=_identifiers(session, source, workbook, workspace) if parameters["mode"] == "extend" and workspace else {},
+        stored=StoredRecords(session, source, workbook, workspace) if parameters["mode"] == "extend" and workspace else None,
     )
     proposals = builder.build(findings)
     engine = engine_elements(steps, model, profile)
@@ -235,6 +238,7 @@ def run_inference(session: Session, job: Job, *, assistant_setting: str = "", as
         f"Sheet '{name}' has a second column {header!r} ({letter}); it is left out, since columns are bound by their header: give it a header of its own"
         for name, header, letter in getattr(workbook, "repeated", [])
     ]
+    warnings += builder.warnings
     if not proposals:
         warnings.append("No sheet showed a shape to propose from: nothing is proposed, map the workbook by hand")
     if assistant_setting:
@@ -261,14 +265,86 @@ def run_inference(session: Session, job: Job, *, assistant_setting: str = "", as
     }
 
 
-def _identifiers(session: Session, source: SourceFile, workbook: Any) -> dict[tuple[str, str], dict[str, str]]:
+class StoredRecords:
+    """D112 in extend mode: what a column of the file holds that the workspace's records do not,
+    each question one statement over the staged cells and the records (principle 6)."""
+
+    def __init__(self, session: Session, source: SourceFile, workbook: Any, workspace: str) -> None:
+        self.session = session
+        self.source = source
+        self.workspace = workspace
+        self.columns = {(t.name, c.header): (t.index, c.number, t.header_row) for t in workbook.sheets for c in t.columns}
+
+    def _cells(self, sheet: str, column: str) -> dict[str, Any]:
+        index, number, header = self.columns[(sheet, column)]
+        return {"file": self.source.id, "sheet": index, "column": number, "header": header, "workspace": self.workspace}
+
+    def holds_records(self, type_key: str) -> bool:
+        return bool(
+            self.session.scalar(
+                text("SELECT EXISTS (SELECT 1 FROM objects WHERE workspace_key = :workspace AND object_type_key = :type)"),
+                {"workspace": self.workspace, "type": type_key},
+            )
+        )
+
+    def missing(self, sheet: str, column: str, type_key: str, attribute: str | None) -> list[dict[str, Any]]:
+        stored = (
+            "SELECT 1 FROM attribute_values a JOIN objects o ON o.id = a.object_id"
+            " AND o.workspace_key = :workspace AND o.object_type_key = :type"
+            " WHERE a.attribute_type_key = :attribute AND a.text_value = c.text"
+            if attribute
+            else "SELECT 1 FROM objects o WHERE o.workspace_key = :workspace AND o.object_type_key = :type AND o.name = c.text"
+        )
+        found = self.session.execute(
+            text(
+                f"""
+                SELECT c.text, count(*) AS n FROM source_file_cells c
+                WHERE c.source_file_id = :file AND c.sheet_index = :sheet AND c.column_number = :column
+                  AND c.row_number > :header AND lower(btrim(c.text)) <> ALL(:placeholders)
+                  AND NOT EXISTS ({stored})
+                GROUP BY c.text ORDER BY n DESC, c.text
+                """
+            ),
+            self._cells(sheet, column) | {"type": type_key, "attribute": attribute, "placeholders": list(PLACEHOLDER_VALUES)},
+        )
+        return [{"value": value, "rows": rows} for value, rows in found]
+
+    def drift(self, sheet: str, code: str, name: str, type_key: str, attribute: str) -> list[dict[str, Any]]:
+        names = self._cells(sheet, name)
+        found = self.session.execute(
+            text(
+                """
+                WITH pairs AS (
+                    SELECT a.text AS code, b.text AS name, count(*) AS n FROM source_file_cells a
+                    JOIN source_file_cells b ON b.source_file_id = a.source_file_id
+                        AND b.sheet_index = a.sheet_index AND b.row_number = a.row_number
+                        AND b.column_number = :name_column
+                    WHERE a.source_file_id = :file AND a.sheet_index = :sheet
+                      AND a.column_number = :column AND a.row_number > :header
+                    GROUP BY a.text, b.text),
+                stored AS (
+                    SELECT v.text_value AS code, o.name FROM attribute_values v
+                    JOIN objects o ON o.id = v.object_id AND o.workspace_key = :workspace
+                        AND o.object_type_key = :type
+                    WHERE v.attribute_type_key = :attribute)
+                SELECT p.code, s.name, json_agg(json_build_object('value', p.name, 'count', p.n)
+                                                ORDER BY p.n DESC, p.name)
+                FROM pairs p JOIN stored s ON s.code = p.code
+                GROUP BY p.code, s.name HAVING bool_or(p.name IS DISTINCT FROM s.name)
+                ORDER BY p.code
+                """
+            ),
+            self._cells(sheet, code) | {"name_column": names["column"], "type": type_key, "attribute": attribute},
+        )
+        return [{"code": value, "stored": stored, "names": listed} for value, stored, listed in found]
+
+
+def _identifiers(session: Session, source: SourceFile, workbook: Any, workspace: str) -> dict[tuple[str, str], dict[str, str]]:
     """D96 in extend mode: for a column whose values are at least half an existing type's unique
     attribute values in the file's workspace (its profile's overlaps, D69), the type, the attribute
     and the one parent record those records stand under (a system's mappings stand under the
     system), read with one statement per such column."""
     found: dict[tuple[str, str], dict[str, str]] = {}
-    if source.workspace_key is None:
-        return found
     for table in workbook.sheets:
         for column in table.columns:
             overlaps = [o for o in column.overlaps if o.get("attributeTypeKey") and o.get("share", 0) >= 0.5]
@@ -289,7 +365,7 @@ def _identifiers(session: Session, source: SourceFile, workbook: Any) -> dict[tu
                     """
                 ),
                 {
-                    "workspace": source.workspace_key,
+                    "workspace": workspace,
                     "type": best["objectTypeKey"],
                     "attribute": best["attributeTypeKey"],
                     "file": source.id,

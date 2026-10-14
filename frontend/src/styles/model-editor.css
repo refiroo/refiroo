@@ -1345,7 +1345,8 @@
   color: var(--status-proposed-text);
   font-weight: 600;
 }
-.source-dot.status-ignored {
+.source-dot.status-ignored,
+.source-dot.status-describes {
   border: 1px solid var(--text-tertiary);
   background: transparent;
 }

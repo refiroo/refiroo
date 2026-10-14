@@ -173,3 +173,60 @@ def test_a_sheet_with_one_clear_table_is_read_by_it_and_lists_side_by_side_are_n
     assert main_block([block("B", "C", 11), block("E", "F", 18), block("H", "I", 16), block("K", "L", 8)]) is None
     assert main_block([block("F", "I", 38), block("K", "N", 38), block("P", "S", 35), block("U", "X", 29)]) is None
     assert main_block([block("A", "B", 500), block("D", "E", 10)]) is None, "too narrow to be a table"
+
+
+# --- a model description (0.10 A7, D107) --------------------------------------------------------
+
+
+def _described(types, targets, fields=None):
+    fields = fields or [f"Field {i}" for i in range(len(types))]
+    return workbook(
+        ("Fields", {"Field": fields, "Kind": types, "Target": targets}),
+        ("Colours", {"ID": ["C1", "C2", "C3"], "Name": ["Red", "Green", "Blue"]}),
+        ("Sizes", {"ID": ["S1", "S2"], "Name": ["Small", "Large"]}),
+    )
+
+
+@pytest.mark.parametrize(
+    ("word", "kind"),
+    [("lookup", "lookup"), ("List", "lookup"), ("Multi-Select", "multi"), ("multi lookup", "multi"), ("Yes/No", "flag"),
+     ("checkbox", "flag"), ("String", "text"), ("long_text", "longText"), ("Number", "integer"), ("decimal", "decimal"), ("DATE", "date")],
+)
+def test_each_type_word_reads_as_its_kind(word, kind):
+    found = find(_described(["lookup", "lookup", word], ["Colours", "Sizes", None]))
+    (description,) = [f for f in found if f.pattern == "modelDescription"]
+    assert description.detail["fields"][2]["kind"] == kind
+
+
+def test_a_description_claims_its_sheet_and_the_sheets_it_names():
+    found = find(_described(["lookup", "multi", "text"], ["Colours", "Sizes", None]))
+    patterns = [(f.pattern, f.sheet) for f in found]
+    assert ("modelDescription", "Fields") in patterns
+    assert {s for p, s in patterns if p == "describedList"} == {"Colours", "Sizes"}
+    assert not [p for p in patterns if p[0] in ("keyColumn", "textLookup", "attribute")]
+
+
+def test_a_type_column_needs_four_fifths_type_words_and_a_target_column_half_sheet_names():
+    four_of_five = find(_described(["lookup", "lookup", "text", "text", "whatever"], ["Colours", "Sizes", None, None, None]))
+    assert [f for f in four_of_five if f.pattern == "modelDescription"]
+    three_of_five = find(_described(["lookup", "lookup", "text", "huh", "whatever"], ["Colours", "Sizes", None, None, None]))
+    assert not [f for f in three_of_five if f.pattern == "modelDescription"]
+    under_half = find(_described(["lookup", "lookup", "lookup"], ["Colours", "Elsewhere", "Nowhere"]))
+    assert not [f for f in under_half if f.pattern == "modelDescription"]
+
+
+def test_a_column_naming_sheets_without_type_words_is_no_description():
+    found = find(_described(["alpha", "beta", "gamma"], ["Colours", "Sizes", "Colours"]))
+    assert not [f for f in found if f.pattern.startswith(("modelDescription", "described"))]
+    assert {f.sheet for f in found if f.pattern == "keyColumn"} >= {"Colours", "Sizes"}
+
+
+def test_a_list_sheet_of_placeholders_is_to_be_defined_and_a_placeholder_key_is_skipped():
+    book = workbook(
+        ("Fields", {"Field": ["Colour", "Finish"], "Kind": ["lookup", "lookup"], "Target": ["Colours", "Finishes"]}),
+        ("Colours", {"ID": ["C1", "C2", "?"], "Name": ["Red", "Green", "Unknown"]}),
+        ("Finishes", {"ID": ["To be defined"], "Name": [None]}),
+    )
+    lists = {f.evidence["target"]: f for f in find(book) if f.pattern == "describedList"}
+    assert lists["Finishes"].evidence["toBeDefined"] is True
+    assert lists["Colours"].detail["placeholders"] == ["?"]

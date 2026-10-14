@@ -334,7 +334,9 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   read it, or the J34 module split so its cases spread over the workers. **Still open after A5c
   (2026-10-14):** the `jobs` group took 2 min 51 s (449 cases); split, the group without J34 and
   J35 took 1 min 18 s (397) and J34 with J35 2 min 37 s (66). A5c did not take this fix on (its own
-  cases add 8).
+  cases add 8). **Worse after A7 (2026-10-14):** `jobs` 5 min 59 s (475 cases), and J34 with J35
+  and the source unit tests 3 min 25 s (198); A7's cases add 12 (W2 is profiled, applied, installed
+  and loaded before W1 onto it). A7 did not take the fix on either.
 - [x] R: add J1u's export dialog, notification and job page, and J4's import dialog, the import's
   job page (waiting and loaded) and its notifications, to `test:a11y` and `test:visual` (scenarios
   and baselines), light and dark; J1u and J4 checked them with axe in their runners (D95). Done in
@@ -438,12 +440,16 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   - [x] A5b the editor with a workbook: source pane, a column's mapping, Map to…, the dry-run
     drawer, Load (committed 2026-10-12; its open points settled in A6).
   - [x] A6 inference over the table patterns (A6a 2026-10-12, A6b 2026-10-14).
-  - [ ] A5c the next version of a workbook: the profile check, missing records, Settings › Import profiles
-    (built 2026-10-14; delivered when the user approves its screenshots).
+  - [x] A5c the next version of a workbook: the profile check, missing records, Settings › Import profiles
+    (delivered 2026-10-14, screenshots approved).
   - [x] A5c: the check of W1′ at 10,000 rows stopped at binding's first lease renewal (the check's
     own lock on its job row) and the binding's key lookup took 21.9 s against 10,000 records; both
     fixed, the check takes 10.1 s after 6.1 s of profiling (2026-10-14, A5c record).
-  - [ ] A7 model-description sheets and matching across files (below the cut line).
+  - [ ] A7 model-description sheets and matching across files (below the cut line): built
+    2026-10-14, delivered when the user approves its screenshots.
+  - [ ] A7, not covered: a description whose type the model already has (extend mode over a
+    description) is unit tested only; a description workbook's next version through its saved
+    profile is not exercised.
   - [ ] A8 list blocks in sheets laid out for reading (below the cut line).
   - [ ] R build acceptance and release.
   - [ ] A-D1 revision, deferred by the user (2026-10-11) until the designer works: reuse one object

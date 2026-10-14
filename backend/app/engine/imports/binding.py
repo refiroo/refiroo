@@ -274,11 +274,17 @@ class _Report:
             "objectTypeKey": object_type_key,
             "rows": 0,
             "rejectedRows": 0,
+            "skippedRows": 0,
         }
         self.columns[src] = {}
 
     def row(self, src: int) -> None:
         self.sources[src]["rows"] += 1
+
+    def skip(self, src: int) -> None:
+        """A row read and then skipped: no row of the source's, one skipped (D110)."""
+        self.sources[src]["rows"] -= 1
+        self.sources[src]["skippedRows"] += 1
 
     def cell(
         self, src: int, column_name: str, binding: str, target: str | None, *, matched: bool = False
@@ -953,6 +959,10 @@ class _ProfileBinding:
                         )
         except _RowError as rejected:
             failures.append(rejected.body)
+        if key_value is None and source.key is not None and source.rowsWithoutKey == "skip":
+            # A row without a key is no record of the source (0.10 A7, D110): counted, not loaded.
+            self.report.skip(plan.order)
+            return
         expected_version = None
         if source.key is not None and source.key.versionColumn is not None:
             version_column = source.key.versionColumn

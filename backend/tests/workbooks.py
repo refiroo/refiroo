@@ -137,34 +137,68 @@ def w1_next(seed: int = 1, rows: int = 200) -> W1:
     return W1(_book(records, names, headers), records, names, headers)
 
 
-def w2(seed: int = 1, rows: int = 200) -> bytes:
+DESCRIPTION = "D"
+D_HEADERS = {"F": "Field code", "Ty": "Field type", "Tg": "Lookup target"}
+
+
+@dataclass
+class W2:
+    """A generated W2: its file and, by role, what its sheets hold. ``lists`` are the target sheets
+    with rows (each list's ID and name, without the placeholder row); ``undefined`` the target sheet
+    holding only "To be defined"; ``flags`` the flag target, which has no sheet; ``fields`` each
+    described field's type and target, in the description's order."""
+
+    content: bytes
+    fields: list[tuple[str, str, str]]
+    lists: dict[str, list[tuple[Any, str]]]
+    undefined: str
+    flags: str
+    placeholder: tuple[str, str]
+    description: str = DESCRIPTION
+    headers: dict[str, str] = field(default_factory=lambda: dict(D_HEADERS))
+
+    def lookups(self) -> dict[str, str]:
+        """Each lookup field and the list sheet it names."""
+        return {f: t for f, kind, t in self.fields if kind == "lookup"}
+
+
+def w2(seed: int = 1, rows: int = 200) -> W2:
     """W2 for the W1 of the same seed and size."""
     base = w1(seed, rows)
     rng = random.Random(seed + 2)
     book = Workbook()
     book.remove(book.active)
-    description = book.create_sheet("D")
-    description.append(["Field code", "Field type", "Lookup target"])
-    description.append([HEADERS["T"], "lookup", "Materials"])
-    description.append([HEADERS["Lc"], "lookup", "Colours"])
-    description.append([HEADERS["F1"], "flag", "Features"])
-    description.append([HEADERS["F2"], "flag", "Features"])
-    description.append(["Finish", "lookup", "Finishes"])
+    fields = [
+        (HEADERS["T"], "lookup", "Materials"),
+        (HEADERS["Lc"], "lookup", "Colours"),
+        (HEADERS["F1"], "flag", "Features"),
+        (HEADERS["F2"], "flag", "Features"),
+        ("Finish", "lookup", "Finishes"),
+    ]
+    description = book.create_sheet(DESCRIPTION)
+    description.append(list(D_HEADERS.values()))
+    for entry in fields:
+        description.append(list(entry))
+    lists: dict[str, list[tuple[Any, str]]] = {}
     materials = book.create_sheet("Materials")
     materials.append(["ID", "Name"])
     present = sorted(base.distinct("T") - set(PLACEHOLDERS))
-    for index, name in enumerate(present[: max(1, len(present) - 2)], start=1):
+    lists["Materials"] = list(enumerate(present[: max(1, len(present) - 2)], start=1))
+    for index, name in lists["Materials"]:
         materials.append([index, name])
-    materials.append(["?", "Unknown material"])
+    placeholder = ("?", "Unknown material")
+    materials.append(list(placeholder))
     colours = book.create_sheet("Colours")
     colours.append(["ID", "Name"])
+    lists["Colours"] = []
     for code, names in sorted(COLOURS.items()):
         drifted = names[0] if rng.random() < 0.5 else f"{names[0]} colour"
         colours.append([code, drifted])
+        lists["Colours"].append((code, drifted))
     finishes = book.create_sheet("Finishes")
     finishes.append(["ID", "Name"])
     finishes.append(["To be defined", None])
-    return _save(book)
+    return W2(_save(book), fields, lists, "Finishes", "Features", placeholder)
 
 
 @dataclass

@@ -129,6 +129,16 @@ class Table(Protocol):
         """The rows where both columns are filled and hold the same value."""
         ...
 
+    def distinct_values(self, column: int, limit: int) -> list[dict[str, Any]] | None:
+        """Every distinct value of the column with its count, most frequent first; ``None`` when it
+        holds more than ``limit`` (0.10 A7: a description's type and target columns)."""
+        ...
+
+    def rows_of(self, columns: Sequence[int], limit: int) -> list[tuple[str | None, ...]] | None:
+        """The columns' cells, row by row in sheet order, for rows holding one of them; ``None``
+        when there are more than ``limit`` such rows (0.10 A7: a description's fields)."""
+        ...
+
 
 class Workbook(Protocol):
     sheets: Sequence[Table]
@@ -249,6 +259,39 @@ class StagedTable:
             ),
             self._parameters(first=first, second=second),
         )
+
+    def distinct_values(self, column: int, limit: int) -> list[dict[str, Any]] | None:
+        found = self.session.execute(
+            text(
+                """
+                SELECT text, count(*) AS n FROM source_file_cells
+                WHERE source_file_id = :file AND sheet_index = :sheet AND column_number = :column
+                  AND row_number > :header
+                GROUP BY text ORDER BY n DESC, text LIMIT :limit
+                """
+            ),
+            self._parameters(column=column, limit=limit + 1),
+        ).all()
+        if len(found) > limit:
+            return None
+        return [{"value": value, "count": count} for value, count in found]
+
+    def rows_of(self, columns: Sequence[int], limit: int) -> list[tuple[str | None, ...]] | None:
+        wanted = list(columns)
+        found = self.session.execute(
+            text(
+                """
+                SELECT row_number, json_object_agg(column_number, text) FROM source_file_cells
+                WHERE source_file_id = :file AND sheet_index = :sheet
+                  AND column_number = ANY(:columns) AND row_number > :header
+                GROUP BY row_number ORDER BY row_number LIMIT :limit
+                """
+            ),
+            self._parameters(columns=wanted, limit=limit + 1),
+        ).all()
+        if len(found) > limit:
+            return None
+        return [tuple(cells.get(str(number)) for number in wanted) for _, cells in found]
 
 
 @dataclass

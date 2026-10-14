@@ -180,6 +180,10 @@ class BindingReportSource(BaseModel):
         description="Records of the source's type the context holds with the key filled that no "
         "row names (0.10 A5c, D82); deleted when the source says missing: delete",
     )
+    skippedRows: int = Field(
+        default=0,
+        description="Rows without a key the source skips (rowsWithoutKey: skip, 0.10 A7, D110)",
+    )
     columns: list[BindingReportColumn]
 
 

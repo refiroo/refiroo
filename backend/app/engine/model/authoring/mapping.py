@@ -234,7 +234,7 @@ def add_source(context: Context, raw: dict[str, Any]) -> Applied:
 
 @kind("setSource")
 def set_source(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("source", "sheet", "headerRow", "block", "applicationKey", "objectType", "key", "record"))
+    params = Params(raw, ("source", "sheet", "headerRow", "block", "applicationKey", "objectType", "key", "record", "rowsWithoutKey"))
     source = _source(context, raw.get("source"))
     path = profile_side.source_path(source)
     found = profile_side.facts(context.data)
@@ -262,11 +262,21 @@ def set_source(context: Context, raw: dict[str, Any]) -> Applied:
         if raw["key"] is None and source.get("missing") is not None:
             # Missing records are found by the key: without one there are none (D82).
             context.profile.set(path, "missing", None)
+        if raw["key"] is None and source.get("rowsWithoutKey") is not None:
+            context.profile.set(path, "rowsWithoutKey", None)
     if "record" in raw:
         record = params.optional("record")
         if record not in (None, "upsert", "existing"):
             raise Refusal("record", "invalidValue", "'record' is upsert or existing")
         context.profile.set(path, "record", None if record == "upsert" else record)
+    if "rowsWithoutKey" in raw:
+        # What a load does with a row whose key is empty (0.10 A7, D110).
+        rows = params.optional("rowsWithoutKey")
+        if rows not in (None, "refuse", "skip"):
+            raise Refusal("rowsWithoutKey", "invalidValue", "'rowsWithoutKey' is refuse or skip")
+        if rows == "skip" and source.get("key") is None:
+            raise Refusal("rowsWithoutKey", "invalidValue", f"Source '{source['id']}' has no key, so no row is without one")
+        context.profile.set(path, "rowsWithoutKey", None if rows == "refuse" else rows)
     if len(raw) == 1:
         raise Refusal("source", "missingParameter", "Name what changes")
     return _done(context, raw, "setSource", _named(source))

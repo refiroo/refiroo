@@ -15,12 +15,12 @@ import copy
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol
 from uuid import uuid4
 
 from ...model.authoring.keys import key_from_label
 from .facts import Column, Table, Workbook
-from .patterns import LIST_PATTERNS, Finding, fold
+from .patterns import DESCRIPTION_PATTERNS, LIST_PATTERNS, Finding, fold
 
 # The schema language that declares navigation groups (0.10 N1, D1).
 NAVIGATION_SCHEMA = "0.10"
@@ -31,6 +31,28 @@ FIT_SHARE = 0.95
 OTHER_WORDS = ("other", "more", "additional")
 # Words ending a code column's header, dropped from its list's name.
 CODE_WORDS = ("code", "codes", "id", "no", "nr", "number", "key")
+# D111 (0.10 A7): a sheet maps to an existing type when this share of the type's attribute and
+# relation names, and at least this many, are headers of the sheet.
+FIELDS_SHARE = 0.5
+FIELDS_LEAST = 2
+# Values listed in the evidence of missing IDs and drift (D112).
+DIFFERENCES_LISTED = 50
+
+
+class Stored(Protocol):
+    """What a workbook's columns hold that the workspace's records do not (0.10 A7, D112): asked of
+    the staged cells and the records by set statements (``run.py``)."""
+
+    def missing(self, sheet: str, column: str, type_key: str, attribute: str | None) -> list[dict[str, Any]]:
+        """The column's values (placeholders aside) that no record of the type holds, by name or by
+        the attribute, with their rows."""
+        ...
+
+    def drift(self, sheet: str, code: str, name: str, type_key: str, attribute: str) -> list[dict[str, Any]]:
+        """Each code a record of the type holds whose names in the file differ from the record's."""
+        ...
+
+    def holds_records(self, type_key: str) -> bool: ...
 
 
 def singular(label: str) -> str:
@@ -157,6 +179,7 @@ class Builder:
         reuse: dict[str, dict[str, str]],
         released: Callable[[str], bool],
         identifiers: dict[tuple[str, str], dict[str, str]] | None = None,
+        stored: Stored | None = None,
     ) -> None:
         self.model = model
         self.profile = profile or {}
@@ -169,6 +192,16 @@ class Builder:
         self.released = released
         # D96: ID columns whose values an existing type holds, with the parent they stand under.
         self.identifiers = identifiers or {}
+        # D112: what the columns hold that the workspace's records do not (extend mode).
+        self.stored = stored if mode == "extend" else None
+        # Warnings the proposals raise (a list to be defined, an unknown type word, what differs).
+        self.warnings: list[str] = []
+        # A model description's type, and its lists by target (0.10 A7).
+        self.described: RowType | None = None
+        self.described_lists: dict[str, tuple[str, str]] = {}
+        # D112's sentence on a lookup's missing values, by (sheet, column), for the column's later
+        # proposals to repeat.
+        self.missing_sentences: dict[tuple[str, str], str] = {}
         self.taken: dict[str, set[str]] = {
             "applications": {a.get("key") for a in model.get("applications") or []},
             "objectTypes": {t.get("key") for t in model.get("objectTypes") or []},
@@ -271,7 +304,57 @@ class Builder:
         for item in self.model.get("objectTypes") or []:
             if sheet in (fold(item.get("name") or ""), fold(item.get("pluralName") or "")):
                 return item["key"]
+        return self.described_by({fold(c.header) for c in table.columns})
+
+    def fields_of(self, type_key: str) -> set[str]:
+        """A type's attribute names and the names of the relations it holds, folded (D111)."""
+        found = self._type(type_key) or {}
+        names = {fold((self._attribute_type(b.get("attributeTypeKey")) or {}).get("name") or "") for b in found.get("attributes") or []}
+        relations = {r.get("key"): r for r in self.model.get("relationTypes") or []}
+        for allowed in self.model.get("objectTypeRelations") or []:
+            relation = relations.get(allowed.get("relationTypeKey")) or {}
+            if allowed.get("fromObjectTypeKey") == type_key and not (relation.get("features") or {}).get("parentOf"):
+                names.add(fold(relation.get("name") or ""))
+        return names - {""}
+
+    def described_by(self, headers: set[str]) -> str | None:
+        """D111 (a): the type at least half of whose attribute and relation names (two at least) are
+        among ``headers``; the best share first."""
+        if self.mode != "extend":
+            return None
+        best: tuple[float, str] | None = None
+        for item in self.model.get("objectTypes") or []:
+            names = self.fields_of(item["key"])
+            if len(names) < FIELDS_LEAST:
+                continue
+            share = len(names & headers) / len(names)
+            if len(names & headers) >= FIELDS_LEAST and share >= FIELDS_SHARE and (best is None or share > best[0]):
+                best = (share, item["key"])
+        return best[1] if best else None
+
+    def existing_list(self, name: str) -> str | None:
+        """D111 (b): the existing type a list proposed under ``name`` is, by its name or plural."""
+        if self.mode != "extend":
+            return None
+        wanted = fold(name)
+        for item in self.model.get("objectTypes") or []:
+            if wanted in (fold(item.get("name") or ""), fold(item.get("pluralName") or "")):
+                return item["key"]
         return None
+
+    def matched_code(self, column: Column) -> tuple[str, str] | None:
+        """D111 (c): the existing type and unique attribute holding at least half the column's
+        values."""
+        if self.mode != "extend":
+            return None
+        overlaps = [
+            o for o in column.overlaps
+            if o.get("objectTypeKey") and o.get("attributeTypeKey") and o.get("share", 0) >= MATCH_SHARE and self._type(o["objectTypeKey"])
+        ]
+        if not overlaps:
+            return None
+        best = max(overlaps, key=lambda o: o["share"])
+        return best["objectTypeKey"], best["attributeTypeKey"]
 
     def matched_lookup(self, column: Column) -> str | None:
         if self.mode != "extend":
@@ -348,7 +431,7 @@ class Builder:
             method = getattr(self, f"_{finding.pattern}", None)
             if method is None:
                 continue
-            if finding.sheet not in self.rows and finding.pattern not in ("translationsByRow", "navigationGroup"):
+            if finding.sheet not in self.rows and finding.pattern not in ("translationsByRow", "navigationGroup", *DESCRIPTION_PATTERNS):
                 continue
             proposal = method(finding, by_id) if finding.pattern == "navigationGroup" else method(finding)
             if proposal is not None:
@@ -573,12 +656,21 @@ class Builder:
         while words and words[-1].lower() in CODE_WORDS:
             words.pop()
         name = _capital(singular(" ".join(words) or readable(name_column.header)))
+        matched = self.matched_code(code)
+        existing = matched[0] if matched else self.existing_list(name)
+        if matched:
+            return self._stored_pair(finding, table, code, name_column, row, matched[0], matched[1])
         summary = (
             f"{code.header} and {name_column.header} vary together ({code.distinct} codes, {name_column.distinct} names): "
             f"a list {name} with its code, each {row.name} referring to one."
         )
         proposal, _, _ = self._start(finding, summary, code.header)
-        target, operations = self._list_type(proposal, name)
+        if existing:
+            target, operations = existing, []
+            proposal.keys["list"] = existing
+            name = (self._type(existing) or {}).get("name") or name
+        else:
+            target, operations = self._list_type(proposal, name)
         attribute, more = self.attribute(proposal, "codeAttribute", table, code, target, unique=True, value_type="text")
         operations += more
         relation, more = self._relation(proposal, row, target, name, "many-to-one")
@@ -610,7 +702,60 @@ class Builder:
                     {"kind": "mapColumn", "source": row.source, "column": code.header, "binding": {"attributeTypeKey": code_text}},
                     {"kind": "mapColumn", "source": row.source, "column": name_column.header, "binding": {"attributeTypeKey": name_text}},
                     {"kind": "removeSource", "source": source},
-                    {"kind": "removeObjectType", "objectType": target},
+                    *([] if existing else [{"kind": "removeObjectType", "objectType": target}]),
+                ],
+            }
+        ]
+        return proposal
+
+    def _stored_pair(
+        self, finding: Finding, table: Table, code: Column, name_column: Column, row: RowType, target: str, attribute: str
+    ) -> Proposal:
+        """D111 (c), D112: a code and name pair whose codes are a stored list's: each row relates to
+        the record of its code; the stored names stand, and where the file names a code otherwise
+        that is drift, reported, with loading the file's names as the alternative."""
+        name = (self._type(target) or {}).get("name") or target
+        attribute_name = (self._attribute_type(attribute) or {}).get("name") or attribute
+        proposal, _, _ = self._start(finding, "", code.header)
+        proposal.keys["list"] = target
+        relation, operations = self._relation(proposal, row, target, name, "many-to-one")
+        operations.append(
+            self._map(proposal, row.source, code.header, {"relation": {"relationTypeKey": relation, "objectTypeKey": target, "matchBy": {"attributeTypeKey": attribute}}})
+        )
+        proposal.binds[code.header] = (row.source, "relation")
+        proposal.operations = operations
+        drift = self.stored.drift(table.name, code.header, name_column.header, target, attribute) if self.stored else []
+        missing = self.stored.missing(table.name, code.header, target, attribute) if self.stored else []
+        proposal.evidence = {
+            **finding.evidence,
+            "acrossFiles": True,
+            "drift": drift[:DIFFERENCES_LISTED],
+            "driftCodes": len(drift),
+            "missing": missing[:DIFFERENCES_LISTED],
+            "missingValues": len(missing),
+        }
+        proposal.summary = (
+            f"{code.header} holds the {attribute_name} of the stored {name} records: each {row.name} refers to the one of its code, "
+            f"and {name_column.header} is left unread, since the stored names stand."
+        )
+        if drift:
+            listed = "; ".join(
+                f"{d['code']} is {d['stored']}, here {' and '.join(n['value'] for n in d['names'] if n['value'] != d['stored'])}" for d in drift[:5]
+            )
+            proposal.summary += f" {len(drift)} codes are named otherwise in this file ({listed})."
+            self.warnings.append(f"{name_column.header} of sheet '{table.name}' names {len(drift)} {name} codes otherwise than the stored records: {listed}")
+        if missing:
+            listed = ", ".join(f"{m['value']} ({m['rows']})" for m in missing[:5])
+            proposal.summary += f" {len(missing)} codes are not stored yet ({listed}): their rows are refused until they are."
+            self.warnings.append(f"{code.header} of sheet '{table.name}' names {len(missing)} {name} codes the stored records lack: {listed}")
+        source = self.key(proposal, "altSource", "sources", f"{table.name} {target}")
+        proposal.alternatives = [
+            {
+                "label": f"Load the names in {name_column.header} onto the stored {name} records (renaming them in the change set)",
+                "operations": [
+                    {"kind": "addSource", "id": source, "sheet": table.name, "objectType": target, "applicationKey": self._application_of(target) or self.app, "key": {"attributeTypeKey": attribute}},
+                    {"kind": "mapColumn", "source": source, "column": code.header, "binding": {"attributeTypeKey": attribute}},
+                    {"kind": "mapColumn", "source": source, "column": name_column.header, "binding": {"field": "name"}},
                 ],
             }
         ]
@@ -621,7 +766,8 @@ class Builder:
         by_number = {c.number: c for c in table.columns}
         code, name_column = (by_number[n] for n in finding.columns)
         pair = next((p for p in self.proposals if p.pattern == "codeAndName" and p.sheet == table.name and p.columns[0] == code.header), None)
-        if pair is None:
+        # A pair read onto a stored list loads no names of its own, so its names map nothing (D112).
+        if pair is None or "source" not in pair.keys:
             return None
         entries: dict[str, str] = {}
         for item in finding.detail["drift"]:
@@ -665,7 +811,12 @@ class Builder:
             + f": one list {name}, each {row.name} having several."
         )
         proposal, _, _ = self._start(finding, summary, flags[0].header)
-        target, operations = self._list_type(proposal, name)
+        existing = self.existing_list(name)
+        if existing:
+            target, operations = existing, []
+            proposal.keys["list"] = existing
+        else:
+            target, operations = self._list_type(proposal, name)
         relation, more = self._relation(proposal, row, target, name, "many-to-many")
         operations += more
         for column in flags:
@@ -716,7 +867,12 @@ class Builder:
             f"{round(finding.evidence['share'] * 100)}% of its cells: a list {name}, each {row.name} having several."
         )
         proposal, _, _ = self._start(finding, summary, column.header)
-        target, operations = self._list_type(proposal, name)
+        existing = self.existing_list(name)
+        if existing:
+            target, operations = existing, []
+            proposal.keys["list"] = existing
+        else:
+            target, operations = self._list_type(proposal, name)
         relation, more = self._relation(proposal, row, target, name, "many-to-many")
         operations += more
         operations.append(
@@ -734,7 +890,7 @@ class Builder:
         table = self.tables[finding.sheet]
         column = next(c for c in table.columns if c.number == finding.columns[0])
         row = self.rows[table.name]
-        existing = self.matched_lookup(column)
+        existing = self.matched_lookup(column) or self.existing_list(_capital(singular(readable(column.header))))
         name = (self._type(existing) or {}).get("name") if existing else _capital(singular(readable(column.header)))
         summary = (
             f"{column.header} has {column.distinct} values over {column.filled} rows: "
@@ -763,7 +919,36 @@ class Builder:
         if not existing:
             alternative.append({"kind": "removeObjectType", "objectType": target})
         proposal.alternatives = [{"label": f"Read {column.header} as a text attribute of {row.name} instead", "operations": alternative}]
+        if existing:
+            self._missing(proposal, table, column, row, target, None, lookup)
         return proposal
+
+    def _missing(
+        self, proposal: Proposal, table: Table, column: Column, row: RowType, target: str, attribute: str | None, lookup: dict[str, Any] | None
+    ) -> None:
+        """D112: the column's values no stored record of ``target`` holds, in the evidence and the
+        warnings, their rows refused by the load; created on load as the alternative, where a match
+        by name can create them."""
+        if self.stored is None or not self.stored.holds_records(target):
+            return
+        missing = self.stored.missing(table.name, column.header, target, attribute)
+        proposal.evidence = {**proposal.evidence, "missing": missing[:DIFFERENCES_LISTED], "missingValues": len(missing)}
+        if not missing:
+            return
+        name = (self._type(target) or {}).get("name") or target
+        listed = ", ".join(f"{m['value']} ({m['rows']})" for m in missing[:5]) + (", …" if len(missing) > 5 else "")
+        sentence = f"{len(missing)} of its values are not {name} records yet ({listed}): their rows are refused until they are."
+        proposal.summary += f" {sentence}"
+        self.missing_sentences[(table.name, column.header)] = sentence
+        self.warnings.append(f"{column.header} of sheet '{table.name}' names {len(missing)} {name} values the stored records lack: {listed}")
+        if lookup is not None:
+            created = {**lookup, "missing": "create"}
+            proposal.alternatives.append(
+                {
+                    "label": f"Create the {len(missing)} missing {name} values on load",
+                    "operations": [{"kind": "mapColumn", "source": row.source, "column": column.header, "binding": {"relation": created}}],
+                }
+            )
 
     def _placeholders(self, finding: Finding) -> Proposal | None:
         table = self.tables[finding.sheet]
@@ -784,6 +969,13 @@ class Builder:
                     for operation in alternative["operations"]:
                         if operation["kind"] == "mapColumn" and operation["column"] == column.header:
                             operation["binding"]["valueMap"] = name
+                # The column's latest proposal is this one, so it also says what the lookup found
+                # missing from the stored list, and offers creating it (0.10 A7, D112).
+                sentence = self.missing_sentences.get((table.name, column.header))
+                if sentence:
+                    proposal.summary += f" {sentence}"
+                    proposal.evidence = {**proposal.evidence, "missing": earlier.evidence["missing"]}
+                    proposal.alternatives = [copy.deepcopy(a) for a in earlier.alternatives if a["label"].startswith("Create the ")]
         return proposal
 
     def _externalId(self, finding: Finding) -> Proposal:
@@ -1062,6 +1254,169 @@ class Builder:
             )
         proposal.operations = operations
         return proposal
+
+    # --- a model description (0.10 A7, D107–D109) -------------------------------------------------
+
+    def _modelDescription(self, finding: Finding) -> Proposal:
+        fields = finding.detail["fields"]
+        lookups = [f for f in fields if f["kind"] in ("lookup", "multi") and f["target"]]
+        proposal, table, columns = self._start(
+            finding,
+            "",
+        )
+        matched = self.described_by({fold(f["field"]) for f in fields})
+        name = (self._type(matched) or {}).get("name") if matched else _capital(singular(readable(table.name)))
+        proposal.summary = (
+            f"{table.name} describes a model: {len(fields)} fields in {columns[0].header} with their types in "
+            f"{columns[1].header}, {len(lookups)} of them looking up a list {columns[2].header} names"
+            + (f": they are the fields of the existing {name}." if matched else f": a type {name} with them, its lists read from the sheets they name.")
+        )
+        operations: list[dict[str, Any]] = []
+        if matched:
+            type_key = matched
+            proposal.keys["type"] = matched
+            app = self._application_of(matched) or self.app
+        else:
+            type_key = self.key(proposal, "type", "objectTypes", name)
+            app = self.app
+            operations.append({"kind": "addObjectType", "applicationKey": app, "key": type_key, "name": name, "pluralName": plural(name), "parent": None})
+        if table.name not in (self.profile.get("ignoredSheets") or []):
+            operations.append({"kind": "ignoreSheet", "sheet": table.name})
+        proposal.operations = operations
+        self.described = RowType(type_key, "", None, app or "", name, released=self.released(f"objectType:{type_key}"))
+        return proposal
+
+    def _describedList(self, finding: Finding) -> Proposal | None:
+        evidence = finding.evidence
+        target = evidence["target"]
+        name = _capital(singular(readable(target)))
+        sheet = evidence.get("sheet")
+        if evidence.get("toBeDefined"):
+            summary = f"{target} is to be defined: its sheet {sheet} holds only {', '.join(evidence['values'])}. The list {name} is added with nothing to load."
+        elif sheet is None:
+            summary = f"{target} has no sheet: the list {name} is added, its records " + (
+                "named by the flag fields when a file holding them loads." if evidence.get("records") == "named by the fields" else "added later."
+            )
+        else:
+            summary = f"{target} names the sheet {sheet}: a list {name}, read from it."
+        proposal = self._new("describedList", finding.sheet, [], summary, evidence, f"describedList|{target}")
+        existing = self.existing_list(name)
+        operations: list[dict[str, Any]] = []
+        if existing:
+            target_key = existing
+            proposal.keys["list"] = existing
+            name = (self._type(existing) or {}).get("name") or name
+        else:
+            target_key, operations = self._list_type(proposal, name)
+        self.described_lists[target] = (target_key, name)
+        if evidence.get("toBeDefined"):
+            self.warnings.append(f"{target} is to be defined: its sheet {sheet} holds no value yet, so the list {name} loads nothing")
+            if sheet not in (self.profile.get("ignoredSheets") or []):
+                operations.append({"kind": "ignoreSheet", "sheet": sheet})
+        elif sheet is not None and finding.columns:
+            table = self.tables[sheet]
+            by_number = {c.number: c for c in table.columns}
+            key = by_number.get(finding.detail.get("key"))
+            label = by_number.get(finding.detail.get("name"))
+            proposal.columns = [c.header for c in (key, label) if c is not None]
+            source = self.key(proposal, "source", "sources", f"{sheet} {target_key}")
+            app = self._application_of(target_key) or self.app
+            add: dict[str, Any] = {"kind": "addSource", "id": source, "sheet": sheet, "objectType": target_key, "applicationKey": app}
+            maps: list[dict[str, Any]] = []
+            attribute = None
+            if key is not None:
+                attribute, more = self.attribute(proposal, "keyAttribute", table, key, target_key, unique=True, value_type="text" if key.textual else key.value_type())
+                operations += more
+                add["key"] = {"attributeTypeKey": attribute}
+                maps.append(self._map(proposal, source, key.header, {"attributeTypeKey": attribute}))
+            if label is not None:
+                maps.append(self._map(proposal, source, label.header, {"field": "name"}))
+            operations += [add, *maps]
+            placeholders = finding.detail.get("placeholders") or []
+            if key is not None and placeholders:
+                value_map = self.key(proposal, "valueMap", "valueMaps", f"{key.header} placeholders")
+                operations.append({"kind": "setValueMap", "name": value_map, "entries": dict.fromkeys(placeholders), "source": source, "column": key.header})
+                operations.append({"kind": "setSource", "source": source, "rowsWithoutKey": "skip"})
+                rows = sum(p["count"] for p in evidence.get("placeholderKeys") or [])
+                proposal.summary += f" A row whose {key.header} is {', '.join(placeholders)} ({rows} {'row' if rows == 1 else 'rows'}) stands for no record and is skipped."
+        proposal.operations = operations
+        return proposal
+
+    def _describedField(self, finding: Finding) -> Proposal | None:
+        described = self.described
+        if described is None:
+            return None
+        entry = finding.detail["field"]
+        field_name, kind, target = entry["field"], entry["kind"], entry["target"]
+        listed = self.described_lists.get(target) if target else None
+        proposal = self._new("describedField", finding.sheet, [], "", finding.evidence, f"describedField|{finding.sheet}|{field_name}")
+        if kind in ("lookup", "multi") and listed:
+            target_key, list_name = listed
+            _, operations = self._named_relation(proposal, described, target_key, field_name, "many-to-one" if kind == "lookup" else "many-to-many")
+            proposal.summary = f"{field_name} is a {entry['type']} of {target}: each {described.name} refers to {'one' if kind == 'lookup' else 'several'} of {list_name}."
+            proposal.operations = operations
+            return proposal
+        value_type = {"flag": "boolean", "lookup": "text", "multi": "text"}.get(kind, kind)
+        if not entry.get("known"):
+            self.warnings.append(f"Field '{field_name}' has the type '{entry['type']}', which is not a type word: read as text")
+        attribute = self._described_attribute(described.type_key, field_name, value_type)
+        operations: list[dict[str, Any]] = []
+        if attribute is None:
+            attribute = self.key(proposal, "attribute", "attributeTypes", field_name)
+            operations.append({"kind": "addAttributeType", "key": attribute, "name": field_name, "valueType": value_type, "features": {}})
+        else:
+            proposal.keys["attribute"] = attribute
+        if not self._binds(described.type_key, attribute):
+            operations.append({"kind": "attachAttribute", "objectType": described.type_key, "attributeType": attribute})
+        proposal.summary = f"{field_name} is {entry['type'] or 'without a type'}: an attribute of {described.name} holding {_described(value_type)}."
+        proposal.operations = operations
+        return proposal
+
+    def _describedFlags(self, finding: Finding) -> Proposal | None:
+        described = self.described
+        listed = self.described_lists.get(finding.detail["target"])
+        if described is None or listed is None:
+            return None
+        target_key, list_name = listed
+        fields = finding.detail["fields"]
+        proposal = self._new(
+            "describedFlags",
+            finding.sheet,
+            [],
+            f"{', '.join(fields)} are flags of {finding.detail['target']}: one list {list_name}, each {described.name} having several, "
+            "a flag set standing for the record of its field's name.",
+            finding.evidence,
+            f"describedFlags|{finding.sheet}|{finding.detail['target']}",
+        )
+        _, proposal.operations = self._named_relation(proposal, described, target_key, readable(finding.detail["target"]), "many-to-many")
+        return proposal
+
+    def _named_relation(self, proposal: Proposal, row: RowType, target: str, name: str, cardinality: str) -> tuple[str, list[dict[str, Any]]]:
+        """A relation named as a described field, or the one of that name already allowed between
+        the two types (D111 (d))."""
+        relations = {r.get("key"): r for r in self.model.get("relationTypes") or []}
+        for allowed in self.model.get("objectTypeRelations") or []:
+            relation = relations.get(allowed.get("relationTypeKey")) or {}
+            if (allowed.get("fromObjectTypeKey"), allowed.get("toObjectTypeKey")) == (row.type_key, target) and fold(relation.get("name") or "") == fold(name):
+                proposal.keys["relation"] = relation["key"]
+                return relation["key"], []
+        key = self.key(proposal, "relation", "relations", f"{row.name} {name}")
+        reverse = self.key(proposal, "relationReverse", "relations", f"{name} of {row.name}")
+        return key, [
+            {"kind": "addRelationType", "key": key, "reverseKey": reverse, "name": name, "reverseName": f"{name} of"},
+            {"kind": "allowRelation", "relationType": key, "from": row.type_key, "to": target, "cardinality": cardinality},
+        ]
+
+    def _described_attribute(self, type_key: str, name: str, value_type: str) -> str | None:
+        """An existing attribute type of the field's name and a fitting type, the type's own first."""
+        if self.mode != "extend":
+            return None
+        candidates = [
+            a for a in self.model.get("attributeTypes") or []
+            if fold(a.get("name") or "") == fold(name) and (a.get("valueType") or "text") in _compatible(value_type)
+        ]
+        bound = [a for a in candidates if self._binds(type_key, a["key"])]
+        return (bound or candidates or [{}])[0].get("key")
 
     def _navigationGroup(self, finding: Finding, by_id: dict[int, Finding]) -> Proposal | None:
         collections = [self.list_types[id(f)] for f in finding.detail["lists"] if id(f) in self.list_types]

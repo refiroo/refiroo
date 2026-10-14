@@ -13,6 +13,19 @@ upgrades on start.
 
 ### Added
 
+- Base 0.10 A7: model-description sheets and matching across files (D106–D113; J34.9). A sheet of a
+  field, a type and a target column is read before every other rule: the described type, a list per
+  target read from its sheet by its ID and name (a placeholder ID skipped), a list to be defined
+  added with nothing to load, a relation per lookup field, an attribute per plain field, one set per
+  flag target (`modelDescription`, `describedList`, `describedField`, `describedFlags`). Extend mode
+  across files: a sheet matched to a type by its fields, a proposed list to an existing type of its
+  name, a code column to a stored unique attribute; missing values and name drift against the stored
+  records in the evidence and the warnings, each with an alternative (create on load; load the
+  file's names). A source's `rowsWithoutKey` (`refuse`, `skip`, `SKIP_NEEDS_KEY`) and `skippedRows`
+  in the binding report and the dry run; `setSource` takes it. The placeholder words gain `tbc`, `to
+  be defined`, `to be decided`, `to be confirmed`. The editor: a description sheet's columns read
+  Describes the model, the dry run's rows skipped figure, the new evidence words;
+  `test:browser:authoring-a7`. W2's generator returns its structures.
 - Base 0.10 A5c: the next version of a workbook (D82–D85, D104, D105; J35). A file uploaded to a
   stored import profile is profiled and checked by a job of kind `profileCheck`, writing nothing:
   columns new, missing and renamed (same position, at least half the values shared), the profile
@@ -148,6 +161,11 @@ upgrades on start.
   holds the workspace's write lock that much shorter.
 
 ### Fixed
+
+- Base 0.10 A6 extend mode (found by A7's browser runner): a workbook the editor uploads names no
+  workspace, and its columns were then compared with no records, so additions to the model matched
+  nothing by value from the editor. A file without a workspace is compared with the default
+  workspace's records, as its profile job already ran there.
 
 - Import binding (0.9 J2, found by 0.10 A5c's 10,000-row measurement): finding each row's record by
   its key attribute, and a match by attribute, compared every row with every record of the context

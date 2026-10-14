@@ -124,6 +124,14 @@ def _source_problems(
     model: EngineModel, profile: ImportProfileDefinition, source: Source, path: str
 ) -> list[Problem]:
     problems: list[Problem] = []
+    if source.rowsWithoutKey == "skip" and source.key is None:
+        problems.append(
+            Problem(
+                f"{path}/rowsWithoutKey",
+                "SKIP_NEEDS_KEY",
+                "rowsWithoutKey: skip skips rows whose key is empty, and the source has no key",
+            )
+        )
     application = next((a for a in model.applications if a.key == source.applicationKey), None)
     object_type = model.object_type(source.objectTypeKey)
     if application is None:

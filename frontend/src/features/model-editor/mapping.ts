@@ -29,7 +29,7 @@ import {
 /** A column of a sheet, as the profile names it: its sheet and its header text. */
 export const columnId = (sheet: string, header: string) => `${sheet}\u0000${header}`;
 
-export type ColumnStatus = "key" | "mapped" | "proposed" | "unmapped" | "ignored" | "issue";
+export type ColumnStatus = "key" | "mapped" | "proposed" | "unmapped" | "ignored" | "describes" | "issue";
 
 export const STATUS_LABELS: Record<ColumnStatus, string> = {
   key: "Key",
@@ -37,6 +37,7 @@ export const STATUS_LABELS: Record<ColumnStatus, string> = {
   proposed: "Proposed",
   unmapped: "Not mapped",
   ignored: "Ignored",
+  describes: "Describes the model",
   issue: "Issue",
 };
 

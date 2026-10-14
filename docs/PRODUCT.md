@@ -213,6 +213,12 @@ can complete the task in the application; "API" means another system can.
   multi-valued cells, translations, external IDs, placeholders, drifting names) becomes one step in
   the editor, marked as proposed with why and its alternatives, changed like anything else; propose
   again after a newer workbook, keeping what you decided and reporting where the workbook disagrees.
+- Start from a workbook that describes a model (a sheet of fields, their types and the lists they
+  look up, each list on a sheet of its own): the engine reads the description first and proposes
+  the described type, its fields and its lists, skipping placeholder IDs and adding lists still to
+  be defined with nothing to load. A flat table naming the same records then comes as additions to
+  the model and is matched to what was loaded by ID or code, with the values the lists lack and the
+  names that differ reported, not loaded unasked.
 - Load the next version of a workbook through its saved profile: see what differs before anything
   is written (columns new, missing or renamed, new list values, names that drifted, records the file
   no longer names, the profile against the current model, what the load would do), accept a rename

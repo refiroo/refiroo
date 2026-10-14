@@ -186,6 +186,8 @@ export interface DryRunSource {
   relatedRecords: number;
   /** Records of the type no row names (0.10 A5c, D82). */
   missingRecords?: number;
+  /** Rows without a key the source skips (rowsWithoutKey: skip, 0.10 A7, D110). */
+  skippedRows?: number;
   rejections: { code: string; rows: number }[];
 }
 

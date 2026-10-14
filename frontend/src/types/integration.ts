@@ -317,6 +317,8 @@ export interface ImportProfileSource {
   } | null;
   /** What a load does with the records no row names (0.10 A5c, D82); report when absent. */
   missing?: "report" | "delete" | null;
+  /** What a load does with a row whose key is empty (0.10 A7, D110); refuse when absent. */
+  rowsWithoutKey?: "refuse" | "skip" | null;
   columns: Record<string, unknown>[];
   [member: string]: unknown;
 }

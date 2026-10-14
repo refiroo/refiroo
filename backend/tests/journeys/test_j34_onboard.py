@@ -1590,3 +1590,306 @@ def test_a_table_with_a_note_beside_it_is_read_by_the_table(world):
     assert on_sheet and all(s.get("block", {}).get("lastColumn") == "L" for s in on_sheet), on_sheet
     summary = _summary_of(world, draft, answer)
     assert all(s["rejections"] == [] for s in summary["sources"]), summary["sources"]
+
+
+# --- A7: model-description sheets and matching across files (D106–D113) ------------------------
+
+
+def _load(world, draft: dict[str, Any], source: dict[str, Any], workspace: str) -> dict[str, Any]:
+    """The draft installed and activated, its saved profile loading the file into a change set
+    that is then published; the import job."""
+    release = _install(world, draft)
+    ok(world.activate(release["id"]))
+    change_set = world.change_set(workspace)
+    request = {
+        "changeSetId": change_set["id"],
+        "expectedChangeSetVersion": change_set["version"],
+        "profileKey": release["importProfile"]["key"],
+        "sourceFileId": source["id"],
+        "policy": "independent",
+        "onExisting": "overwrite",
+        "stage": "execute",
+    }
+    job = ok(world.api.upload("/imports", {}, {"request": json.dumps(request)}), 202)
+    _run(world)
+    done = ok(world.api.get(f"/jobs/{job['id']}"))
+    assert (done["state"], done["counts"]["rejected"]) == ("completed", 0), done
+    world.publish(change_set, workspace)
+    return done
+
+
+def _described(proposals: list[dict[str, Any]]) -> dict[str, Any]:
+    """W2's proposals by role: the description, its lists by sheet (the flag target's under its
+    evidence's target), its fields and flag sets, and the keys their operations add."""
+    found: dict[str, Any] = {"lists": {}, "fields": [], "flags": [], "types": {}}
+    for proposal in proposals:
+        pattern = proposal["pattern"]
+        if pattern == "modelDescription":
+            assert "description" not in found
+            found["description"] = proposal
+        elif pattern == "describedList":
+            found["lists"][proposal["evidence"]["target"]] = proposal
+        elif pattern == "describedField":
+            found["fields"].append(proposal)
+        elif pattern == "describedFlags":
+            found["flags"].append(proposal)
+        for operation in proposal["operations"]:
+            if operation["kind"] == "addObjectType":
+                found["types"][proposal["id"]] = operation["key"]
+    return found
+
+
+def _relations_from(proposals: list[dict[str, Any]], type_key: str) -> list[str]:
+    """The types the proposals allow a relation to from ``type_key``."""
+    return [
+        o["to"] for p in proposals for o in p["operations"] if o["kind"] == "allowRelation" and o["from"] == type_key
+    ]
+
+
+def _w2_draft(world) -> tuple[dict[str, Any], workbooks.W2, dict[str, Any], str]:
+    workspace = _workspace(world)
+    draft = _draft(world)
+    book = workbooks.w2(rows=200)
+    source = _profiled(world, {"draftId": draft["id"]}, "described.xlsx", book.content, workspaceKey=workspace)
+    return draft, book, source, workspace
+
+
+@pytest.mark.journey("J34.9")
+@pytest.mark.structures("K")
+def test_a_model_description_is_read_before_the_lists_it_names(world):
+    """Given W2 profiled on a draft. When the inference runs in new-application mode. Then one
+    modelDescription names D's three columns with its evidence; the described type relates to two
+    lists by lookups, to a flag set's list and to the list to be defined; the two list sheets are
+    sources of their lists keyed by their ID; no proposal reads D or a list sheet as a row type; the
+    list to be defined has no source and one warning."""
+    draft, book, _, _ = _w2_draft(world)
+    read = _infer(world, draft)
+    proposals = _proposals(world, draft)
+    described = _described(proposals)
+    description = described["description"]
+    assert description["sheet"] == book.description
+    assert description["columns"] == [book.headers[s] for s in ("F", "Ty", "Tg")]
+    evidence = description["evidence"]
+    targets = {t for _, _, t in book.fields}
+    assert (evidence["fields"], evidence["targets"]) == (len(book.fields), len(targets))
+    assert sorted(evidence["sheets"]) == sorted([*book.lists, book.undefined])
+    assert {w["value"] for w in evidence["typeWords"]} == {kind for _, kind, _ in book.fields}
+
+    described_type = described["types"][description["id"]]
+    lists = {target: described["types"][p["id"]] for target, p in described["lists"].items()}
+    assert set(lists) == targets
+    related = _relations_from(proposals, described_type)
+    assert sorted(related) == sorted([lists[t] for t in book.lookups().values()] + [lists[book.flags]])
+    for sheet in book.lists:
+        (added,) = [o for o in described["lists"][sheet]["operations"] if o["kind"] == "addSource"]
+        assert (added["sheet"], added["objectType"]) == (sheet, lists[sheet])
+        assert "attributeTypeKey" in added["key"]
+    undefined = described["lists"][book.undefined]
+    assert not [o for o in undefined["operations"] if o["kind"] == "addSource"]
+    assert undefined["evidence"]["toBeDefined"] is True
+    assert len([w for w in read["warnings"] if book.undefined in w and "to be defined" in w]) == 1
+    row_patterns = ("keyColumn", "repeatedParent", "textLookup", "codeAndName", "attribute")
+    read_as_rows = [p for p in proposals if p["pattern"] in row_patterns and p["sheet"] in (book.description, *book.lists)]
+    assert read_as_rows == []
+
+
+def _w2_loaded(world) -> tuple[workbooks.W2, dict[str, Any], str, dict[str, Any]]:
+    """W2's proposals applied, installed, loaded and published; the book, its proposals by role,
+    the workspace and the dry run's summary before the load."""
+    draft, book, source, workspace = _w2_draft(world)
+    _infer(world, draft)
+    described = _described(_proposals(world, draft))
+    answer = ok(_application(world, draft))
+    assert answer["valid"] is True, answer["diagnostics"]
+    summary = _summary_of(world, draft, answer)
+    _load(world, draft, source, workspace)
+    return book, described, workspace, summary
+
+
+@pytest.mark.journey("J34.9")
+@pytest.mark.structures("K")
+def test_the_description_and_its_lists_load_without_their_placeholders(world):
+    """When W2's proposals are applied, the dry run refuses no row and skips one (the placeholder
+    ID); installed, loaded into a change set and published, the lists hold the IDs W2 lists without
+    the placeholder, the list to be defined holds nothing, and no record is named by a placeholder."""
+    book, described, workspace, summary = _w2_loaded(world)
+    assert all(s["rejections"] == [] for s in summary["sources"]), summary["sources"]
+    assert sum(s["skippedRows"] for s in summary["sources"]) == 1
+    lists = {target: described["types"][p["id"]] for target, p in described["lists"].items()}
+    for sheet, rows in book.lists.items():
+        names = sorted(item["name"] for item in _all(world, f"/objects/{lists[sheet]}", workspaceKey=workspace))
+        assert names == sorted(name for _, name in rows), sheet
+        assert book.placeholder[1] not in names
+    assert _total(world, lists[book.undefined], workspace) == 0
+
+
+@pytest.mark.journey("J34.9")
+@pytest.mark.structures("K")
+def test_a_flat_table_onto_the_described_model_matches_by_id_and_reports_what_differs(world):
+    """Given W2 loaded and published. When W1 is uploaded to a new draft of the active model and
+    the inference runs in extend mode. Then S1 maps to the described type; Lc relates to the colours
+    by their ID and Ln is not mapped, with drift for each code whose names differ from the stored
+    one; T relates to the materials by name, the materials W2 lacks listed as missing with their
+    rows; F1 and F2 are flags of the flag set's list; no type name appears twice. Applied, the dry
+    run refuses exactly the rows naming a missing material; with Create them on load, none."""
+    book2, described, workspace, _ = _w2_loaded(world)
+    lists = {target: described["types"][p["id"]] for target, p in described["lists"].items()}
+    described_type = described["types"][described["description"]["id"]]
+    draft = _draft(world)
+    book = workbooks.w1(rows=200)
+    _profiled(world, {"draftId": draft["id"]}, "catalogue.xlsx", book.content, workspaceKey=workspace)
+    _infer(world, draft, mode="extend")
+    proposals = _proposals(world, draft)
+    by_pattern = {p["pattern"]: p for p in proposals if p["sheet"] == workbooks.S1}
+
+    stored = dict(book2.lists["Colours"])
+    names: dict[str, set[str]] = {}
+    for row in book.rows:
+        names.setdefault(row["Lc"], set()).add(row["Ln"])
+    drifting = {code for code, found in names.items() if found != {stored[code]}}
+    pair = by_pattern["codeAndName"]
+    assert {d["code"] for d in pair["evidence"]["drift"]} == drifting
+    assert "nameDrift" not in by_pattern
+    materials = {name for _, name in book2.lists["Materials"]}
+    missing = {}
+    for row in book.rows:
+        if row["T"] not in materials and row["T"] not in workbooks.PLACEHOLDERS:
+            missing[row["T"]] = missing.get(row["T"], 0) + 1
+    lookup = by_pattern["textLookup"]
+    assert {m["value"]: m["rows"] for m in lookup["evidence"]["missing"]} == missing
+
+    answer = ok(_application(world, draft))
+    assert answer["valid"] is True, answer["diagnostics"]
+    profile = _draft_profile(world, draft)["profile"]
+    items = next(s for s in profile["sources"] if s["sheet"] == workbooks.S1 and s.get("key"))
+    assert items["objectTypeKey"] == described_type
+    bound = _bindings(profile, items["id"])
+    colour = bound[book.header("Lc")]["relation"]
+    assert colour["objectTypeKey"] == lists["Colours"] and "attributeTypeKey" in colour["matchBy"]
+    assert not any(b.get("column") == book.header("Ln") for s in profile["sources"] for b in s["columns"])
+    material = bound[book.header("T")]["relation"]
+    assert (material["objectTypeKey"], material["matchBy"]) == (lists["Materials"], {"field": "name"})
+    (flags,) = [b for b in items["columns"] if "relationFlags" in b]
+    assert set(flags["columns"]) == {book.header("F1"), book.header("F2")}
+    assert flags["relationFlags"]["objectTypeKey"] == lists[book2.flags]
+    model = ok(world.api.get(f"/model-drafts/{draft['id']}/model"))["model"]
+    names_of = {t["key"]: fold_name(t["name"]) for t in model["objectTypes"]}
+    added = [o["key"] for p in proposals for o in p["operations"] if o["kind"] == "addObjectType"]
+    list_names = [names_of[key] for key in [*lists.values(), *added]]
+    assert len(list_names) == len(set(list_names)), sorted(list_names)
+
+    summary = _summary_of(world, draft, answer)
+    refusals = {s["sheet"]: s["rejections"] for s in summary["sources"] if s["rejections"]}
+    naming = sum(missing.values())
+    # The rows naming a missing material are refused; so are the translations of those items,
+    # whose items the load does not create.
+    assert refusals == {
+        workbooks.S1: [{"code": "REFERENCE_NOT_FOUND", "rows": naming}],
+        workbooks.S2: [{"code": "REFERENCE_NOT_FOUND", "rows": naming * len(workbooks.LANGUAGES)}],
+    }, refusals
+
+    (create,) = [
+        a for a in lookup["alternatives"]
+        if any(o.get("binding", {}).get("relation", {}).get("missing") == "create" for o in a["operations"])
+    ]
+    answer = _step(world, draft, *create["operations"])
+    summary = _summary_of(world, draft, answer)
+    assert all(s["rejections"] == [] for s in summary["sources"]), summary["sources"]
+
+
+def fold_name(name: str) -> str:
+    from app.engine.sources.inference.patterns import fold
+
+    return fold(name)
+
+
+@pytest.mark.journey("J34.9")
+@pytest.mark.structures("K")
+def test_a_sheet_naming_other_sheets_is_no_description_without_its_type_words(world):
+    """W1 alone proposes no modelDescription; W2 with D's type column holding words outside the
+    vocabulary proposes none either, and its list sheets are read by A6's rules."""
+    draft, _, _, _ = _inferred(world)
+    assert not [p for p in _proposals(world, draft) if p["pattern"].startswith(("modelDescription", "described"))]
+
+    import io
+
+    from openpyxl import load_workbook
+
+    book = workbooks.w2(rows=200)
+    changed = load_workbook(io.BytesIO(book.content))
+    sheet = changed[book.description]
+    for row in range(2, len(book.fields) + 2):
+        sheet.cell(row=row, column=2, value=f"Kind {row}")
+    content = io.BytesIO()
+    changed.save(content)
+    workspace = _workspace(world)
+    other = _draft(world)
+    _profiled(world, {"draftId": other["id"]}, "described.xlsx", content.getvalue(), workspaceKey=workspace)
+    _infer(world, other)
+    proposals = _proposals(world, other)
+    assert not [p for p in proposals if p["pattern"].startswith(("modelDescription", "described"))]
+    assert {p["sheet"] for p in proposals if p["pattern"] == "keyColumn"} >= set(book.lists)
+
+
+@pytest.mark.journey("J27.8")
+@pytest.mark.structures("K")
+def test_an_import_skips_rows_without_a_key_when_its_source_says_so(world):
+    """Given an inline profile keyed by a unique attribute and a file with an empty key on one row.
+    With rowsWithoutKey skip the other rows load and the row is counted skipped; left out, it is
+    refused MISSING_RECORD_KEY; skip on a source without a key is refused INVALID_IMPORT_PROFILE."""
+    workspace = _workspace(world)
+    draft = _draft(world)
+    _catalogue(world, draft)
+    release = _install(world, draft)
+    ok(world.activate(release["id"]))
+    content = b"id,name\nA1,Alpha\n,Beta\nC3,Gamma\n"
+
+    def importing(source: dict[str, Any]):
+        profile = {
+            "sources": [
+                {
+                    "applicationKey": world.app("K"),
+                    "objectTypeKey": "j34-category",
+                    "columns": [{"column": "id", "attributeTypeKey": "j34-category-id"}, {"column": "name", "field": "name"}],
+                    **source,
+                }
+            ]
+        }
+        request = {"workspaceKey": workspace, "policy": "independent", "stage": "execute", "profile": profile}
+        return world.api.upload("/imports", {"file": ("keys.csv", content, "text/csv")}, {"request": json.dumps(request)})
+
+    keyed = {"key": {"attributeTypeKey": "j34-category-id"}}
+    job = ok(importing({**keyed, "rowsWithoutKey": "skip"}), 202)
+    _run(world)
+    done = ok(world.api.get(f"/jobs/{job['id']}"))
+    assert (done["state"], done["counts"]["rejected"], done["counts"]["created"]) == ("completed", 0, 2), done
+    assert done["bindingReport"][0]["skippedRows"] == 1
+    assert sorted(o["name"] for o in _all(world, "/objects/j34-category", workspaceKey=workspace)) == ["Alpha", "Gamma"]
+
+    job = ok(importing(keyed), 202)
+    _run(world)
+    done = ok(world.api.get(f"/jobs/{job['id']}"))
+    rows = ok(world.api.get(f"/jobs/{job['id']}/rows", pageSize=10))["items"]
+    assert done["counts"]["rejected"] == 1
+    assert [o["error"]["code"] for r in rows for o in r["outcomes"] if o.get("error")] == ["MISSING_RECORD_KEY"], rows
+
+    error = refused(importing({"rowsWithoutKey": "skip"}), 422, "INVALID_IMPORT_PROFILE")
+    assert [p["path"] for p in error["details"]["problems"]] == ["/sources/0/rowsWithoutKey"], error
+
+
+@pytest.mark.journey("J34.5")
+@pytest.mark.structures("K")
+def test_a_workbook_uploaded_without_a_workspace_is_compared_with_the_default_workspaces_records(world):
+    """Regression (found by the A7 browser runner, 2026-10-14): the editor uploads a workbook without
+    naming a workspace, and its columns were compared with no records, so extend mode matched
+    nothing by value. Given records of K named as T's values in the default workspace, when W1 is
+    uploaded to a draft without a workspace, then T's overlaps name K by name."""
+    book = workbooks.w1(rows=60)
+    for name in sorted(book.distinct("T") - set(workbooks.PLACEHOLDERS)):
+        ok(world.create("K", name), 201)
+    draft = _draft(world)
+    source = _profiled(world, {"draftId": draft["id"]}, "catalogue.xlsx", book.content)
+    columns = ok(world.api.get(f"/source-files/{source['id']}/profile/sheets/{workbooks.S1}/columns", pageSize=50))["items"]
+    material = next(c for c in columns if c["header"] == book.header("T"))
+    named = [o for o in material["overlaps"] if o.get("objectTypeKey") == world.key("K") and o.get("field") == "name"]
+    assert named and named[0]["workspaceKey"] == ok(world.api.get("/workspace-runtime-state"))["defaultWorkspaceKey"], material["overlaps"]

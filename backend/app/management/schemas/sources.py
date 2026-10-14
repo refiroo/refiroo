@@ -160,6 +160,10 @@ class DryRunSource(BaseModel):
     missingRecords: int = Field(
         default=0, description="Records of the type no row names (0.10 A5c, D82)"
     )
+    skippedRows: int = Field(
+        default=0,
+        description="Rows without a key the source skips (rowsWithoutKey: skip, 0.10 A7, D110)",
+    )
     rejections: list[DryRunRejection]
 
 

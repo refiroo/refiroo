@@ -883,8 +883,8 @@ an empty draft and extending the active model to records and the consumer tier, 
 **Stories:** US-P09. **Scenario:** SC-12. **Status:** J34.1 and J34.3 delivered through the API
 (0.10 A3); J34.2, J34.7 and the profile saved for J34.8 through the API (0.10 A5a); J34.1–J34.3,
 J34.7 and J34.8 in the editor with a workbook (0.10 A5b); J34.4–J34.6 through the API (0.10 A6a)
-and in the editor (0.10 A6b); model-description sheets
-A7 and sheets laid out for reading A8 (below the cut line).
+and in the editor (0.10 A6b); J34.9 through the API and in the editor (0.10 A7); sheets laid out
+for reading A8 (below the cut line).
 
 1. Upload a workbook to a new or open draft; read its sheets, blocks and column statistics.
 2. Accept, change or reject the proposed model and mapping, or map by hand.
@@ -910,8 +910,13 @@ A7 and sheets laid out for reading A8 (below the cut line).
   draft's profile valid; a removal leaves its column unmapped with a warning; undo puts back both.
 - **J34.8 Load into a change set**, review it and publish it; installing the draft saves its
   profile for the load.
-- **J34.9 A model-description workbook** (A7) and **J34.10 a sheet of lists laid out for reading**
-  (A8).
+- **J34.9 A model-description workbook** (0.10 A7): a sheet of field, type and target columns is
+  read before the lists its targets name: the described type with its relations and attributes,
+  each list from its sheet by its ID, placeholder IDs skipped, a list to be defined added with
+  nothing to load. A flat table then comes as additions to the model, matched against what the
+  description loaded: its sheet to the described type, its lists to the stored lists, codes by
+  their ID, with name drift and missing IDs reported, not loaded unasked.
+- **J34.10 a sheet of lists laid out for reading** (A8).
 
 **Refusals:** `413 IMPORT_TOO_LARGE`, `422 UNSUPPORTED_FILE_FORMAT`, `404 SOURCE_FILE_NOT_FOUND`,
 `409 SOURCE_FILE_PROFILE_NOT_READY`; the inference's `404 INFERENCE_NOT_FOUND`, `404
@@ -923,7 +928,9 @@ INVALID_INFERENCE_REQUEST`; J33's refusals for operations; J27's for the import.
 two configurations, J34.4–J34.6 since A6a; J34.8 also as the editor's three calls, the review and the
 publication); `test:browser:authoring-a5` (J34.1–J34.3, J34.7, J34.8 in the editor, on both designer
 models); `test:browser:authoring-a6` (J34.4, J34.6, J34.8 in the editor filled by the inference, on
-both designer models).
+both designer models); J34.9: `test_j34_onboard.py`'s A7 cases (two configurations) and
+`test:browser:authoring-a7` (W2 described, loaded and published, W1 onto it with drift and missing
+values, both designer models).
 
 ### J35 — Load the next version of a workbook
 

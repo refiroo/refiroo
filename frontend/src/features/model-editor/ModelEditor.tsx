@@ -257,8 +257,12 @@ export function ModelEditor({
         const outcome = await step(async (at) => {
           const answer = await api.applyProposals(draftId, at);
           // The sheet's type the first proposal added: shown, so the proposals are in view.
-          first = answer.entries.find((entry) => entry.kind === "addObjectType" && entry.origin.pattern === "keyColumn")
-            ?.parameters.key as string | undefined;
+          // A model description's type, when the workbook describes one (0.10 A7).
+          first = answer.entries.find(
+            (entry) =>
+              entry.kind === "addObjectType" &&
+              (entry.origin.pattern === "keyColumn" || entry.origin.pattern === "modelDescription"),
+          )?.parameters.key as string | undefined;
           return answer;
         });
         if (outcome === "applied" && first) select({ show: "type", key: first });
@@ -410,6 +414,12 @@ export function ModelEditor({
   const proposedElements = new Set(
     [...inference.proposed.keys()].filter((element) => !isReleasedElement(outline, element)),
   );
+  // The sheets the inference read as a model description (0.10 A7).
+  const describingSheets = new Set(
+    inference.proposals
+      .filter((item) => item.pattern === "modelDescription" && item.sheet)
+      .map((item) => item.sheet as string),
+  );
   const proposedElement =
     selection.show === "column"
       ? columnElements(draftProfile, selection.sheet, selection.key).find((element) => proposedElements.has(element))
@@ -452,6 +462,7 @@ export function ModelEditor({
       canDrag={!phone}
       sheetNames={sheetLoads}
       proposed={proposedElements}
+      describing={describingSheets}
       onSelect={select}
       onMap={(sheet, header) => mapColumn(sheet, header)}
       onIgnoreSheet={(sheet) => void guarded(() => run([{ kind: "ignoreSheet", sheet }]))}

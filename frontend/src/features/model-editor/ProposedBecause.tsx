@@ -29,11 +29,15 @@ function words(value: Value): string {
     if ("value" in item && "count" in item) return `${String(item.value)} ×${String(item.count)}`;
     if ("column" in item && "constantIn" in item)
       return `${String(item.column)}: constant in ${String(item.constantIn)}`;
+    if ("code" in item && "stored" in item && "names" in item)
+      return `${String(item.code)}: stored ${String(item.stored)}, here ${words(item.names)}`;
     if ("code" in item && "names" in item) return `${String(item.code)}: ${words(item.names)}`;
+    if ("value" in item && "rows" in item) return `${String(item.value)} (${String(item.rows)} rows)`;
     return Object.entries(item)
       .map(([key, inner]) => `${key} ${words(inner)}`)
       .join(" · ");
   }
+  if (typeof value === "boolean") return value ? "yes" : "no";
   if (typeof value === "number" && value > 0 && value < 1) return `${Math.round(value * 100)}%`;
   return String(value);
 }

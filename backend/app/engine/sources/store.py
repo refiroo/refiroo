@@ -19,7 +19,7 @@ from sqlalchemy import delete, exists, select, update
 from sqlalchemy.orm import Session
 
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
-from ...errors import api_error
+from ...errors import ApiError, api_error
 from ...models.database import (
     Job,
     ModelDraft,
@@ -106,6 +106,16 @@ def store_source_file(
         target.unlink(missing_ok=True)
         raise
     return source
+
+
+def compared_workspace(session: Session, source: SourceFile) -> str | None:
+    """The workspace whose records a file's columns are compared with (D69, D91, D112): the one it
+    names, else the default workspace, as its profile job runs in (0.10 A7: the editor uploads
+    without naming one, and its columns were compared with no records). ``None`` when it is gone."""
+    try:
+        return resolve_workspace(session, source.workspace_key).key
+    except ApiError:
+        return None
 
 
 @contextmanager

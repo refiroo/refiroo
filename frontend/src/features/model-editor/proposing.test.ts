@@ -44,4 +44,20 @@ describe("what the inference proposed (0.10 A6b)", () => {
     expect(patternLabel("repeatedParent")).toBe("Repeated parent");
     expect(patternLabel("somethingNew")).toBe("somethingNew");
   });
+
+  it("reads what differs from the stored records and a list to be defined (0.10 A7)", () => {
+    const lines = evidenceLines({
+      acrossFiles: true,
+      drift: [{ code: "C2", stored: "Navy", names: [{ value: "Navy blue", count: 3 }] }],
+      missing: [{ value: "Bamboo", rows: 12 }],
+      toBeDefined: false,
+    });
+    expect(lines).toEqual([
+      "Across files: yes",
+      "Drift: C2: stored Navy, here Navy blue ×3",
+      "Missing: Bamboo (12 rows)",
+      "To be defined: no",
+    ]);
+    expect(patternLabel("modelDescription")).toBe("Model description");
+  });
 });

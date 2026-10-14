@@ -268,7 +268,11 @@ class Source(BaseModel):
 
     ``missing`` (0.10 A5c, D82) says what a load does with the records of the type that the
     context holds with the key filled and that no row names: ``report`` them (the default, also
-    when left out) or ``delete`` them, which only a load into a change set may do."""
+    when left out) or ``delete`` them, which only a load into a change set may do.
+
+    ``rowsWithoutKey`` (0.10 A7, D110) says what a load does with a row whose key is empty after
+    value maps: ``refuse`` it (the default, ``MISSING_RECORD_KEY``) or ``skip`` it, counted as
+    skipped and not loaded."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -281,6 +285,7 @@ class Source(BaseModel):
     key: SourceKey | None = None
     columns: list[ColumnBinding] = Field(min_length=1)
     missing: Literal["report", "delete"] | None = None
+    rowsWithoutKey: Literal["refuse", "skip"] | None = None
 
     @model_validator(mode="after")
     def existing_needs_key(self) -> Source:

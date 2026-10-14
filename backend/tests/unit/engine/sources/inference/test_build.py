@@ -121,3 +121,43 @@ def test_extend_mode_relates_an_id_column_to_the_records_holding_its_values():
     assert (relation["objectTypeKey"], relation["matchBy"]) == ("system-value", {"attributeTypeKey": "external-id"})
     assert "ERP" in external.summary
     assert not [o for o in external.operations if o["kind"] == "addAttributeType"]
+
+
+# --- extend mode across files (0.10 A7, D111) ---------------------------------------------------
+
+
+def _described_model():
+    """A type with three fields (an attribute and two relations) and a list of colours."""
+    return _model(
+        applications=[{"key": "app", "name": "App", "objectTypeKeys": ["thing", "colour"], "views": [], "details": []}],
+        objectTypes=[
+            {"key": "thing", "name": "D", "pluralName": "Ds", "attributes": [{"attributeTypeKey": "weight"}]},
+            {"key": "colour", "name": "Colour", "pluralName": "Colours", "attributes": []},
+        ],
+        attributeTypes=[{"key": "weight", "name": "Weight", "valueType": "decimal"}],
+        relationTypes=[{"key": "shade", "name": "Shade"}, {"key": "tone", "name": "Tone"}],
+        objectTypeRelations=[
+            {"relationTypeKey": "shade", "fromObjectTypeKey": "thing", "toObjectTypeKey": "colour"},
+            {"relationTypeKey": "tone", "fromObjectTypeKey": "thing", "toObjectTypeKey": "colour"},
+        ],
+    )
+
+
+def _builder(model, mode="extend"):
+    return Builder(model, None, workbook(), mode=mode, file_name="x.xlsx", application_key=None, application_name=None, reuse={}, released=lambda _a: False)
+
+
+def test_a_sheet_maps_to_the_type_half_of_whose_fields_are_its_headers():
+    builder = _builder(_described_model())
+    assert builder.described_by({"weight", "shade", "price"}) == "thing"
+    assert builder.described_by({"shade", "price"}) is None, "one of three fields is under half"
+    assert builder.described_by({"weight"}) is None, "two fields at least"
+    assert _builder(_described_model(), mode="newApplication").described_by({"weight", "shade", "tone"}) is None
+
+
+def test_a_list_proposed_under_an_existing_types_name_or_plural_is_that_type():
+    builder = _builder(_described_model())
+    assert builder.existing_list("Colour") == "colour"
+    assert builder.existing_list("colours") == "colour"
+    assert builder.existing_list("Côlour!") == "colour"
+    assert builder.existing_list("Size") is None

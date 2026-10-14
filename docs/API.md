@@ -2583,6 +2583,13 @@ fixed values it matches. A list pages in key order (ADR-030).
   token, and one that other records depend on (a child it contains, a record it owns through a
   required relation) is refused `OBJECT_HAS_DEPENDANTS` with its impact. Its item's `ref` is
   `missing!{id}`. It needs a source loading its records (`record: "upsert"`) by a `key`.
+- **`rowsWithoutKey`** (0.10 A7, D110) on a source with a `key`: what a load does with a row whose
+  key cell is empty after its value map. `"refuse"`, the default (also when left out), refuses it
+  `MISSING_RECORD_KEY` (for an attribute key); `"skip"` reads no record from it and counts it in the
+  binding report's and the dry run's `skippedRows`, writing nothing and refusing nothing. A skipped
+  row makes no item, so no outcome rows stand behind the count. `"skip"` on a source without a key
+  is refused `INVALID_IMPORT_PROFILE` with `SKIP_NEEDS_KEY` at `/sources/{i}/rowsWithoutKey`. A
+  placeholder ID (`?`) is skipped by mapping it to empty and skipping rows without a key.
 - **Sources run in order** of their references: a source whose parent, relationship or related
   record's parent names a type another source loads runs after it. Sources that reference each
   other are refused (`SOURCE_CYCLE`).
@@ -2593,7 +2600,7 @@ profile is refused with every problem at once: `422 INVALID_IMPORT_PROFILE` with
 `UNKNOWN_APPLICATION`, `UNKNOWN_OBJECT_TYPE`, `TYPE_NOT_IN_APPLICATION`, `UNKNOWN_ATTRIBUTE`,
 `ATTRIBUTE_NOT_BOUND`, `ATTRIBUTE_READ_ONLY`, `KEY_NOT_UNIQUE`, `KEY_NOT_BOUND`,
 `UNKNOWN_RELATION_TYPE`, `RELATION_NOT_ALLOWED`, `PARENT_NOT_ALLOWED`, `UNKNOWN_VALUE_MAP`,
-`FLAG_WITHOUT_TARGET`, `SOURCE_CYCLE`, `CREATE_NEEDS_NAME_MATCH`). A stored profile answers with `version`, `checkedAgainst`
+`FLAG_WITHOUT_TARGET`, `SOURCE_CYCLE`, `CREATE_NEEDS_NAME_MATCH`, `SKIP_NEEDS_KEY`). A stored profile answers with `version`, `checkedAgainst`
 (the release it was saved against), `createdAt`, `updatedAt`, and `valid` and `problems` as it reads
 under the active release now, so a profile a later release broke shows what to fix.
 
@@ -2758,7 +2765,8 @@ a JSON Lines file; an export's table layout reports its `name` and `#` attribute
 ```
 
 - `missingRecords` (0.10 A5c) counts the records of the source's type no row names (the source's
-  `missing`); 0 for a source without a key.
+  `missing`); 0 for a source without a key. `skippedRows` (0.10 A7) counts the rows a source with
+  `rowsWithoutKey: "skip"` skipped for an empty key; they are not in `rows`.
 - `binding` is the profile's kind: `field` (the name), `attributeTypeKey`, `key` (an ID key column),
   `relatedRecord`, which count `converted`, `valueMapped` (a value map replaced the cell) and
   `refused` cells; or `parent`, `relation`, `relationFlags` (one entry per flag column), which count
@@ -4147,7 +4155,8 @@ and a dry run whose draft has changed since it was sent stops as `cancelled`.
 - Per source, in load order (`source`, as the rows route takes it; `profileSource` its position in
   the profile): the rows with an outcome, records `created`, `updated`, `unchanged` and `deleted`
   (0.10 A5c), the attribute `values` written, `relationships` and `relatedRecords` written,
-  `missingRecords` (the records of the type no row names) and the rows refused by code. `coverage` is always `complete` (D67).
+  `missingRecords` (the records of the type no row names), `skippedRows` (rows skipped for an empty
+  key, 0.10 A7) and the rows refused by code. `coverage` is always `complete` (D67).
 - `difference` lists, per source (by its sheet and type), each figure that changed since the
   draft's previous completed dry run of the same file, as `now` and `was`; `[]` when nothing
   changed, `null` for the first.
@@ -4210,7 +4219,7 @@ refused the same way. Bindings use the import profile's vocabulary
 | --- | --- | --- |
 | `setProfile` | `key`, `name` | The key the instance profile is saved under at installation, and its name. The first mapping kind starts the profile with both taken from the file's name (A-D6) |
 | `addSource` | `sheet`, `objectType`, `applicationKey`? (the first holding the type), `headerRow`? (the sheet's), `block`?, `key`? (`{attributeTypeKey}` or `{column}`), `id`? (from the sheet and type), `position`? | A source loading the type from the sheet, with no columns yet |
-| `setSource` | `source`; any of `sheet`, `headerRow`, `block`, `objectType`, `applicationKey`, `key` (`null` removes it), `record` | The source's settings |
+| `setSource` | `source`; any of `sheet`, `headerRow`, `block`, `objectType`, `applicationKey`, `key` (`null` removes it, and `rowsWithoutKey` with it), `record`, `rowsWithoutKey` (`refuse` or `skip`; `skip` needs a key, `invalidValue` otherwise; 0.10 A7) | The source's settings |
 | `removeSource` | `source` | The source and its bindings |
 | `setMissing` | `source`, `missing`: `report` or `delete` | What a load does with the records no row names (0.10 A5c, D82); `delete` needs a keyed source loading its records (`invalidValue` otherwise); removing the source's key takes `delete` away |
 | `ignoreSheet` | `sheet` | Its sources removed, the sheet listed in `ignoredSheets` (`addSource` on it takes it out) |
@@ -4290,7 +4299,10 @@ draft's latest inference, as the dry run's are (D87).
   decided it; they are also `INFERENCE_DISAGREES` warnings in `GET …/profile`'s `diagnostics`, at
   the column's binding (`/profile/sources/{i}/columns/{j}`), while they hold. `warnings`: sheets laid out for reading (several blocks, A8), a sheet read by its
   main table and the blocks beside it, a second column with an earlier column's header (left out:
-  a column is bound by its header), no shape to propose from, an assistant that failed.
+  a column is bound by its header), no shape to propose from, an assistant that failed; and from a
+  model description and extend mode (0.10 A7): a list to be defined, a field whose type is not a
+  type word, values a column holds that the stored list lacks, codes named otherwise than the
+  stored records.
 
 `GET /api/v1/model-drafts/{draftId}/inference/proposals` (paged in apply order; `sheet`, `column`;
 `409 INFERENCE_NOT_READY` while it runs) lists each proposal: `id`, `position`, `pattern`, `sheet`,
@@ -4307,6 +4319,26 @@ undone before; not applied again unless asked by ID).
 the draft is older) and `assistant` (a label the optional assistant suggests). Columns of different
 sheets with one header and value type share one attribute type; unique ones only when no value
 appears in both (D98).
+
+A **model description** (0.10 A7, D107–D109) is read before the rules above, and neither it nor the
+sheets its targets name are read by them: `modelDescription` (the described type, its sheet
+ignored; `evidence`: `fields`, `targets`, `sheets` the targets name, `typeWords` with their counts),
+`describedList` per target (a list read from its sheet by its ID and name, a placeholder ID skipped
+through a value map and `rowsWithoutKey: "skip"`; `evidence.toBeDefined` when the sheet holds only
+placeholders, then the list has no source and its sheet is ignored; no source when the target has
+no sheet), `describedField` per field (a relation named after a lookup or multi field to its
+target's list, else an attribute of the field's type) and `describedFlags` per flag target (one
+relation to its list, whose records the flag columns of a later file create).
+
+In **extend** mode the files meet through the stored model and records (D106, D111, D112): a sheet
+maps to a type at least half of whose attribute and relation names (two at least) are its headers;
+a list any proposal would add under an existing type's name is that type; a code column whose values
+are at least half a stored unique attribute's values relates by that attribute, and its name
+column is not loaded (`evidence.drift`: each stored code named otherwise in the file, with the
+stored name and the file's names; the alternative loads the file's names). A lookup onto a list
+holding records lists `evidence.missing` (each value no record holds, with its rows), refused by the
+load, with "Create them on load" (`missing: "create"`) as the alternative. A file uploaded without a
+workspace is compared with the default workspace's records.
 
 `POST /api/v1/model-drafts/{draftId}/inference/application`
 

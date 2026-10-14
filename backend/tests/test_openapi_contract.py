@@ -143,10 +143,12 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # list's kind filter. Diffed against HEAD, nothing else changed (POST …/check is registered with
     # integration jobs, off in the default document). Re-baselined for A5c's last load: a profile's
     # lastLoad (ImportProfileLastLoad, ImportLoadCounts) and the two read routes' descriptions;
-    # diffed against the previous commit, nothing else changed.
+    # diffed against the previous commit, nothing else changed. Re-baselined for A7 (D110): Source's
+    # optional rowsWithoutKey and its description, skippedRows on BindingReportSource and
+    # DryRunSourceSummary; diffed against the previous commit, nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "7cbfcc8107353072a02264ab47c43ef35bb38ec8177e96d5bf5eb3aed1a1a61d"
+        "2ff6323707170a50529f33f897e7c2f182a30a5c4cb97f1a0be4d8c7c5a14534"
     )
 
 

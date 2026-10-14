@@ -345,6 +345,38 @@ after its key column's header without a final code word ("Type Code" → Type), 
 sheet; a navigation group after the row type. A few English words are the patterns' own ("Has …",
 "Language", "Translation"); every name is the administrator's to change.
 
+**A model description, as built (0.10 A7, D107–D109).** Read before every rule above; neither the
+description nor the sheets its targets name are read by them. A sheet is a description when it holds
+a **field column** (text, filled and different on every row), a **type column** (at least 80% of its
+cells field-type words) and a **target column** (at least half its cells naming another sheet,
+folded as names are), found by their values, never their headers. The type words are English:
+`lookup`, `list`, `reference`, `select` (one record of the target); `multi`, `multiple`,
+`multi-select`, `multi-lookup` (several); `flag`, `yes/no`, `boolean`, `checkbox` (a member of the
+target's flag set, a yes/no attribute without a target); `text`, `string`; `long text`,
+`description`; `number`, `integer`; `decimal`; `date`. A word outside the list makes its field a
+text attribute, with a warning. It proposes the **described type**, named after the description
+sheet (the description does not name the type it describes), the sheet ignored; per target a
+**list**, read from the target's sheet by its ID (the key column rule) and name, a placeholder ID
+skipped (its value map sends it to empty and the source skips rows without a key); a target sheet
+holding only placeholders is a **list to be defined** (the list, no source, its sheet ignored, a
+warning); a target without a sheet is a list with no source. Per lookup or multi field a relation
+named after the field to its list, per plain field an attribute of its type, and per flag target one
+relation to its list, whose records a later file's flag columns create. The placeholder words gain
+`tbc`, `to be defined`, `to be decided` and `to be confirmed`.
+
+**Matching across files, as built (0.10 A7, D106, D111, D112).** Two workbooks meet through the
+stored model and records: the description workbook is installed and loaded, and the flat table comes
+as additions to the model. Added to D91: a sheet maps to an existing type when at least half of the
+type's attribute and relation names (two at least) are its headers; a list any proposal would add
+under an existing type's name (or plural, folded) is that type; a code column whose values are at
+least half a stored unique attribute's values relates by that attribute, before any match by name;
+a relation already allowed between the two types is reused. What differs is reported, not scored:
+**missing IDs** (a matched column's values no stored record holds, with their rows), refused by the
+load, with creating them on load as the alternative; and **name drift** (a code whose name in the
+file differs from the stored record's), with the stored names standing and loading the file's names
+as the alternative. A file uploaded without a workspace is compared with the default workspace's
+records.
+
 **Inference is deterministic first.** Profiling computes types, uniqueness, fill rates, delimiters and
 value overlap between columns and sheets; the patterns are rules over those statistics. An optional
 assistant (A-D5) may suggest names and meanings of columns ("Ctry" probably means country) as

@@ -1,6 +1,7 @@
 /**
  * The source pane of the model editor (0.10 A5b, D84): the draft's source file, its sheets as tabs
- * and each sheet's columns with their status (the key, mapped, not mapped, ignored, with an issue)
+ * and each sheet's columns with their status (the key, mapped, not mapped, ignored, with an issue;
+ * a model description's columns read Describes the model, 0.10 A7)
  * and statistics from the file's profile (A3). Selecting a column shows its mapping in the centre;
  * a type selected in the model pane marks the columns that feed it.
  *
@@ -42,6 +43,7 @@ export function SourcePane({
   onMap,
   onIgnoreSheet,
   proposed = NONE,
+  describing = NONE,
 }: {
   source: DraftSource;
   selection: EditorSelection;
@@ -49,6 +51,8 @@ export function SourcePane({
   linked: Set<string>;
   /** The elements still as the inference proposed them (0.10 A6b): their columns read Proposed. */
   proposed?: ReadonlySet<string>;
+  /** Sheets read as a model description (0.10 A7): their types came from it, nothing loads from them. */
+  describing?: ReadonlySet<string>;
   canDrag: boolean;
   /** Each loaded sheet's sources, in words: "Loads Item · key Item code". */
   sheetNames: (sheet: string) => string;
@@ -100,6 +104,7 @@ export function SourcePane({
                 columns={source.columns(sheet.name)}
                 profile={source.profile}
                 proposed={proposed}
+                describes={describing.has(sheet.name)}
                 selection={selection}
                 linked={linked}
                 canDrag={canDrag}
@@ -125,6 +130,7 @@ function SheetColumns({
   columns,
   profile,
   proposed,
+  describes,
   selection,
   linked,
   canDrag,
@@ -137,6 +143,7 @@ function SheetColumns({
   columns: SourceColumn[] | undefined;
   profile: DraftProfile | undefined;
   proposed: ReadonlySet<string>;
+  describes: boolean;
   selection: EditorSelection;
   linked: Set<string>;
   canDrag: boolean;
@@ -180,7 +187,12 @@ function SheetColumns({
     <div className="source-sheet">
       <div className="source-sheet-head">
         <span className="muted">
-          {ignored ? "Ignored: nothing loads from this sheet" : loads} · header row {sheet.headerRow ?? "—"}
+          {describes && ignored
+            ? "Describes the model: its fields and lists were read from it, nothing loads from it"
+            : ignored
+              ? "Ignored: nothing loads from this sheet"
+              : loads}{" "}
+          · header row {sheet.headerRow ?? "—"}
         </span>
         <ActionMenu
           label={`Sheet ${sheet.name}`}
@@ -199,7 +211,13 @@ function SheetColumns({
               (state.status === "mapped" || state.status === "key") &&
               columnElements(profile?.profile, sheet.name, header).some((element) => proposed.has(element));
             const status: ColumnStatus =
-              ignored && state.status === "unmapped" ? "ignored" : engines ? "proposed" : state.status;
+              describes && ignored && (state.status === "unmapped" || state.status === "ignored")
+                ? "describes"
+                : ignored && state.status === "unmapped"
+                  ? "ignored"
+                  : engines
+                    ? "proposed"
+                    : state.status;
             return (
               <li
                 key={`${column.block}:${column.letter}`}

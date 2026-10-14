@@ -47,6 +47,7 @@ from ...models.schema import EngineModel
 from ..imports.readers import CSV_SHEET, PROFILE_SHEET, open_tabular
 from ..model.compiler import compile_authored_model
 from ..model.registry import resolve_model_snapshot
+from .store import compared_workspace
 from .values import staged
 
 # Cells written per round of COPY, and read between cancel checks.
@@ -60,7 +61,11 @@ PLACEHOLDERS_LISTED = 10
 VALUES_LISTED = 10
 # D70: values that stand for "no value", ignoring case; and a value of at most two characters,
 # none a letter or digit, found in at least this share of a column's cells.
-PLACEHOLDER_VALUES = ("n/a", "na", "-", "--", "?", "tbd", "none")
+PLACEHOLDER_VALUES = (
+    "n/a", "na", "-", "--", "?", "tbd", "none",
+    # 0.10 A7 (D109): a value still to be decided.
+    "tbc", "to be defined", "to be decided", "to be confirmed",
+)
 PLACEHOLDER_SHARE = 0.01
 DELIMITERS = (";", ",", "|", "/", "\n")
 
@@ -482,15 +487,16 @@ def _store_columns(session: Session, source: SourceFile, model: EngineModel | No
                 "header": other.header if other is not None else None,
             },
         )
-    if model is not None and source.workspace_key is not None:
+    workspace = compared_workspace(session, source)
+    if model is not None and workspace is not None:
         types = [item.key for item in model.objectTypes]
         for sheet, column, type_key, found in session.execute(
-            text(_NAME_OVERLAPS), {"workspace": source.workspace_key, "types": types}
+            text(_NAME_OVERLAPS), {"workspace": workspace, "types": types}
         ):
             add(
                 (sheet, column),
                 found,
-                {"workspaceKey": source.workspace_key, "objectTypeKey": type_key, "field": "name"},
+                {"workspaceKey": workspace, "objectTypeKey": type_key, "field": "name"},
             )
         attributes = [
             item.key
@@ -500,13 +506,13 @@ def _store_columns(session: Session, source: SourceFile, model: EngineModel | No
         if attributes:
             for sheet, column, type_key, attribute, found in session.execute(
                 text(_ATTRIBUTE_OVERLAPS),
-                {"workspace": source.workspace_key, "attributes": attributes},
+                {"workspace": workspace, "attributes": attributes},
             ):
                 add(
                     (sheet, column),
                     found,
                     {
-                        "workspaceKey": source.workspace_key,
+                        "workspaceKey": workspace,
                         "objectTypeKey": type_key,
                         "attributeTypeKey": attribute,
                     },

@@ -14,7 +14,8 @@ A3 and A3a (2026-10-12); A5a (2026-10-12); A5b committed (2026-10-12), its open 
 A6, which comes before A5c (the user, 2026-10-12); A6a, inference through the API (2026-10-12); A6b,
 the editor filled by the inference, delivered (screenshots approved 2026-10-14, after its run on the
 user's workbooks and D99–D103); A5c, the next version of a workbook, built (2026-10-14, D104 and
-D105 accepted), its screenshots waiting for approval.
+D105 accepted), delivered (screenshots approved 2026-10-14). A7, model-description sheets and
+matching across files, built (2026-10-14, D106–D113 accepted), its screenshots waiting for approval.
 
 **Target:** Product 0.10.0, [model authoring and spreadsheet onboarding](ROADMAP.md#product-release-010--model-authoring-and-spreadsheet-onboarding).
 The `navigation` declaration (A-D2) extends the model, so 0.10 opens the next schema language version
@@ -240,10 +241,10 @@ migration), `contract` (every route change) and `volume` (every budget).
 | 7 | [T1](#t1-designer-checkpoint) | A4b, A4c | **Delivered 2026-10-12, released as 0.10.0-alpha.1.** US-P05 composed in the browser on two models; the designer's gates; tagged `v0.10.0-alpha.1` (D14) |
 | 8 | [A3](#a3-source-profiling-and-the-dry-run-summary) | A0 | **Delivered 2026-10-12.** Source files, profiles of sheets and columns, the dry run of the whole file; W1–W3 generators |
 | 8a | [A3a](#a3a-a-faster-trial-run) | A3 | **Delivered 2026-10-12.** A trial run records no audit entries (D72); sets advance from arrays (D73) |
-| 9 | [A5](#a5-editor-with-a-source-file) | A3, T1 | **A5a delivered 2026-10-12; A5b committed 2026-10-12, its open points carried into A6; A5c built 2026-10-14, delivered when its screenshots are approved.** Source and mapping panes, mapping operations, profiles following the model, load, saved profiles and re-runs |
+| 9 | [A5](#a5-editor-with-a-source-file) | A3, T1 | **A5a delivered 2026-10-12; A5b committed 2026-10-12, its open points carried into A6; A5c delivered 2026-10-14; A5's exit gate met.** Source and mapping panes, mapping operations, profiles following the model, load, saved profiles and re-runs |
 | 10 | [A6](#a6-inference-over-table-patterns) | A5 | **A6a delivered 2026-10-12; A6b delivered 2026-10-14.** Proposals from the table patterns; new application or extending the active model; pinned decisions |
 | — | _cut line (D2)_ | | _If R is out of reach, 0.10.0 releases here and A7, A8 move to 0.10.x_ |
-| 11 | [A7](#a7-model-description-sheets-and-matching-across-files) | A6 | Model-description sheets; matching records across files |
+| 11 | [A7](#a7-model-description-sheets-and-matching-across-files) | A6 | **Built 2026-10-14, delivered when its screenshots are approved.** Model-description sheets; matching records across files |
 | 12 | [A8](#a8-list-blocks-in-sheets-laid-out-for-reading) | A6 | List blocks detected, confirmed and loaded |
 | 13 | [R](#r-build-acceptance-and-release) | all | Build acceptance and release |
 
@@ -2677,9 +2678,11 @@ gates (the A5 surfaces join them at R), the full suites (R).
 
 ##### A5c record (2026-10-14)
 
-**Built 2026-10-14** as planned (D82, D83, D85, and D104, D105 asked and accepted the same day), in
-the approved board's shape (Next version, the mock-up's board 4); **delivered when the user approves
-its screenshots** (step 3). What is built:
+**Delivered 2026-10-14**: built as planned (D82, D83, D85, and D104, D105 asked and accepted the
+same day), in the approved board's shape (Next version, the mock-up's board 4), revised after the
+user's run on the development server (below), and its screenshots approved by the user the same
+day. With it A5's exit gate is met: W1 and W1′ load without JSON or code (the browser walk on both
+designer models). What is built:
 
 - **Migration `20261015_01_profile_check`**: `jobs.kind` gains `profileCheck`.
 - **A source's `missing`** (`report`, `delete`; D82): `models/imports.py` (`delete` needs a keyed
@@ -3208,6 +3211,206 @@ drift and missing IDs, and propose value maps.
 **Tests:** W2 alone becomes an application; W2 then W1 into the same draft reconcile by ID with drift
 reported; placeholders and "to be defined" lists reported, not loaded as values.
 
+##### A7 plan (2026-10-14)
+
+**Planned 2026-10-14; D106–D113 and the test cases accepted by the user the same day ("yes").** Started
+on the user's instruction ("deliver A7"), ahead of A8, which the Next list recommended first.
+Checked against the code at `1079de4`:
+
+- **A draft holds one profile and one current file** (`draft_profile.py`, `store.py`, D5): a newer
+  upload supersedes the older, and a load or dry run refuses a profile naming a sheet the file
+  lacks (`binding._plans`, `SHEET_NOT_FOUND`). "W2 then W1 into the same draft", as the package's
+  test line says, would leave W2's sources naming sheets W1 does not have. Where the two files meet
+  is D106.
+- **Nothing reads a description sheet today.** W2's sheet `D` has no candidate key without spaces,
+  so the rules skip it; `Materials` and `Colours` become types of their own by the key rule
+  (an ID and a name, D99), with nothing relating them to anything; `Finishes` (one row, "To be
+  defined", no name) has no key and is skipped silently.
+- **Extend mode matches less than cross-file matching needs** (`build.py`, D91): a sheet by its
+  key's values or its name, a column by an attribute's name, a text lookup by stored names. A code
+  and name pair always adds a new list, even when its codes are an existing list's unique values,
+  and a flag set always adds a new list. So W1 onto W2's model would duplicate Colours and the
+  flag set's list.
+- **Binding already finds drift and unknown values against stored records** (`binding._findings`:
+  values of a match column naming no record, a key finding a record by another name), but only the
+  profile check (A5c) reads them; a draft's dry run does not.
+- **A row whose key is empty is refused** `MISSING_RECORD_KEY` (`binding`), so a placeholder ID
+  mapped to empty still refuses its row; nothing skips a row on purpose (D99 skips only rows empty
+  in every column a source names). `PLACEHOLDER_VALUES` (profiling, D70) are `n/a`, `na`, `-`,
+  `--`, `?`, `tbd`, `none`; MODEL_AUTHORING's catalogue also names `TBC`.
+
+**What is built** (one package, D113):
+
+1. **The description rule** (`patterns.py`, D107), run before every other rule: a sheet with a
+   field, a type and a target column is a model description; the sheets its targets name are read
+   as its lists, never as row types.
+2. **Its proposals** (`build.py`, D108): the described type, an attribute per plain field, a
+   relation per lookup field to its target's list, one flag set per flag target, each target sheet
+   a source of its list keyed by its ID; alternatives as A6's (a lookup read as a text attribute).
+3. **Placeholders and lists to be defined** (D109): the placeholder words gain `tbc`, `to be
+   defined`, `to be decided`, `to be confirmed`; a target sheet holding nothing but placeholders
+   gives its list type with no source and a warning; a row whose ID is a placeholder is skipped
+   (D110).
+4. **Import:** a source's `rowsWithoutKey: "refuse" | "skip"` (D110), counted in the dry run and the
+   outcomes as skipped.
+5. **Extend mode across files** (`build.py`, D111): a sheet matched to a type by its headers, every
+   proposed list matched to an existing type of its name, a column matched by codes before names, a
+   header matched to a relation the type already holds.
+6. **What differs between the files** (D112): codes and names a column holds that the stored list
+   lacks (missing IDs) and codes whose stored name differs (drift), found by a set statement over
+   the staged cells and the workspace's records, in the proposal's evidence and the inference's
+   warnings, each with an alternative.
+7. **Editor:** the description sheet's columns read **Describes the model** in the source pane;
+   Proposed because words for the description, a list to be defined, missing IDs and drift.
+   Nothing else changes on screen.
+
+**Documents:** API.md (`rowsWithoutKey`, the inference's new patterns and warnings), MODEL_AUTHORING
+(the description rule and the cross-file rules as built), USER_JOURNEYS J34.9, API_JOURNEYS,
+UI_ACCEPTANCE (the A6 rows gain the A7 states), CURRENT_FUNCTIONALITY and PRODUCT, CHANGELOG,
+PROJECT_STATUS, TODO. W2's generator is unchanged; its shapes already hold every case below.
+
+**Decisions** (D106 onward):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D106 | Where two workbooks meet | **Through the stored model and records: W2 becomes an application, installed and loaded; W1 then comes as additions to the active model (New from a workbook, extend mode, A6's D91) and is matched against W2's types and records. This changes the package's test line from "into the same draft" to "onto the model and records W2 made".** It reuses what is built: extend mode, one profile per workbook saved at installation, and each workbook's next version through its own profile (A5c). The records are what any later file meets anyway. The other way, one draft holding several workbooks with one profile each, would let both be edited before anything installs, but the source files, the draft's profile, the dry run, installation and the load would all become per workbook, with the source pane: an A5-sized change. It can be a later package if the user wants it |
+| D107 | Recognising a description sheet | **A sheet with three columns, found by their values, not their headers: a field column (text, every value different), a type column (every filled value a word of the field-type vocabulary below) and a target column (at least half its filled values name another sheet of the workbook, folded as D91 folds names). Vocabulary: `lookup`, `list`, `reference`, `select` → one record of the target; `multi`, `multiple`, `multi-select`, `multi-lookup` → several; `flag`, `yes/no`, `boolean`, `checkbox` → a member of the target's flag set, a yes/no attribute without a target; `text`, `string` → text; `long text`, `description` → long text; `number`, `integer` → integer; `decimal` → decimal; `date` → date.** Read before the rules A6 built, so the sheets it names become its lists. Headers vary between organisations ("Field code", "Attribute", "Column"), so they are not read. The type words are English, as D90's language names are; a type word outside the list makes the field a text attribute, with a warning naming it |
+| D108 | What a description proposes | **The described type, named after the description sheet (written as words, D103), renamed in the editor; per plain field an attribute of its type; per lookup field a relation named after the field to a list named after its target; the flag fields of one target one relation to one list named after the target, its records named by the fields (created by a later load, D93); per target with a sheet a list type keyed by that sheet's ID (D90's key rule) with its name, the sheet its source. One proposal per field and per list, each with A6's alternatives.** The description does not name the type it describes (W2's sheet is called `D`), so any name is a guess; the sheet's is the nearest. W2 alone has no rows of the described type, so the type is declared with no source until a data workbook arrives (D106) |
+| D109 | Placeholders and lists to be defined | **The placeholder words gain `tbc`, `to be defined`, `to be decided` and `to be confirmed`. A target sheet whose rows hold nothing but placeholders and empty cells gives its list type, relations included, no source, and a warning "{list} is to be defined: its sheet holds no value yet". A row whose ID is a placeholder is not loaded: its value map sends the placeholder to empty and the source skips rows without a key (D110), with the count in the evidence.** The scope says "reported, not loaded as values". The list still exists so the field can relate to it once someone fills it |
+| D110 | Skipping a row without a key | **A source's `rowsWithoutKey`: `refuse` (the default, today's behaviour, `MISSING_RECORD_KEY`) or `skip`: a row whose key is empty after value maps is not loaded, counted as skipped in the dry run, the preview and the outcomes, with its rows behind the figure. Only for a source with a key.** Without it W2's `?` row is refused on every dry run and every load, so the file never loads clean. It extends the import contract for any client, as D77 and D93 did. A general row filter ("skip rows where …") was considered and left out: it is the ETL the plan excludes |
+| D111 | Extend mode across files | **Added to D91: (a) a sheet maps to an existing type when at least half of the type's attribute and relation names (two at least) are headers of the sheet; (b) a list any proposal would add (a lookup, a code and name pair, a flag set) under the name of an existing type, folded, is that type; (c) a column matches that type by its unique attribute when at least 50% of its distinct values are that attribute's stored values, otherwise by name when at least 50% are stored names; (d) a header named as a relation the matched type holds is read through that relation.** (a) is how W1's sheet finds W2's described type, which has no records and no name W1 knows. (b) stops the duplicates found above. (c) is the design's "IDs or codes, never names alone" where the file holds codes; a file holding only names (W1's material) is matched by name and says so in the evidence. Released elements are matched, never changed |
+| D112 | What differs between the files | **Reported, not scored: missing IDs (a matched column's values that no stored record holds, with their row counts) and name drift (for a code and name pair matched to a stored list, each code whose name in the file differs from the stored name). Both in the proposal's evidence and as warnings of the inference. Missing values stay refused by the load, with "Create them on load" (`missing: "create"`) as the alternative; the pair's name column is not mapped, so the stored names stand, with "Load the names from this file" (the list's source keyed by the code, renaming the stored records in the change set) as the alternative.** The stored list is the earlier file's decision, so the later file does not overwrite it unasked; the administrator chooses which file is right. A value map for drift (A6's name drift) maps names within one file; across files the stored record is the reference, so no value map is proposed there |
+| D113 | One package, and the screen | **One package. The editor shows A7 through what A6b built: the description sheet's columns read Describes the model in the source pane (a status, as Ignored is), and Proposed because gains the words for a description, a list to be defined, missing IDs and drift. No mock-up, since no surface is new; the package is complete when the user approves its screenshots (1440px and 390px: W2's draft with the description selected, a list to be defined, W1's draft with drift and missing IDs).** A6 was split because its rules were uncertain and a screen depended on them; A7's screen change is a word and four sentences. If the user wants a mock-up first, it is one board of the A6 mock-up with these states |
+
+**Journey test cases** (backend, `tests/journeys/test_j34_onboard.py`, J34.9; each on two
+configurations, W2 and W1 of one seed at 200 rows in a new workspace; no test names a
+configuration's key or a header text):
+
+1. **J34.9 A description recognised.** Given W2 profiled on a draft, when the inference runs in
+   new-application mode, then one proposal of pattern `modelDescription` names `D`'s three columns
+   with its evidence (five fields, four targets naming sheets of the workbook, the type words); the
+   described type has two relations to lists (lookups), one to a flag set's list and one to the
+   list to be defined; `Materials` and `Colours` are sources of their lists keyed by their ID; no
+   proposal reads `D`, `Materials` or `Colours` as a row type; `Finishes` has no source and one
+   warning says it is to be defined.
+2. **J34.9 W2 loaded.** When the proposals are applied, the dry run counts no refused row and one
+   skipped (the `?` row); installed, loaded into a change set and published, the materials list
+   holds the IDs W2 lists without `?`, colours six records, the list to be defined none, and no
+   record is named by a placeholder.
+3. **J34.9 W1 onto W2's records.** Given case 2 published, when W1 is uploaded to a new draft of the
+   active model and the inference runs in extend mode, then `S1` maps to the described type;
+   `Lc` relates to the colours list by its ID attribute and `Ln` is not mapped, with drift listing
+   each code whose name in W1 differs from W2's; `T` relates to the materials list by name, with
+   the two materials W2 lacks listed as missing with their row counts; `F1` and `F2` are flags of
+   the flag set's list; no list type name appears twice in the draft. Applied, the dry run refuses
+   exactly the rows naming a missing material; with "Create them on load" taken, none.
+4. **J34.9 Not a description.** W1 alone (new application) proposes no `modelDescription`; a
+   workbook whose sheet names other sheets in one column but holds a type word outside the
+   vocabulary in another proposes none either, and its sheets are read by A6's rules.
+5. **J27.8 variant, `rowsWithoutKey`.** An import with an inline profile whose key column is empty
+   on some rows: with `skip`, the rows with a key load and the others are counted skipped; left out,
+   they are refused `MISSING_RECORD_KEY`; `skip` on a source without a key is refused
+   `INVALID_IMPORT_PROFILE` at its pointer.
+
+**Browser** (`test:browser:authoring-a7`, new; both designer models, naming no key): New from a
+workbook with W2 and a new application; the description sheet's columns read Describes the model;
+the list to be defined with its warning; load and publish; then W1 as additions to the active
+model, a list with drift and one with missing IDs read in Proposed because, one alternative taken
+by keyboard alone; 1440px and 390px.
+
+**Unit tests:** D107 on generated sheets (each type word, the half of targets on either side, a
+control sheet with a column of sheet names and no type column); D111's matching (folding, the
+half of the type's fields, codes before names); the placeholder words in profiling; D110 in the
+binding (skipped counted, refused by default).
+
+**Groups:** `authoring`, `jobs` (D110 in binding and the dry run), `contract` (the profile schema
+and the inference's patterns); no migration (`rowsWithoutKey` lives in the profile's JSON). Vitest
+related; `test:browser:authoring-a7`, and `-a6` for the shared panes.
+
+**Composable domains (ADR-032):** inbound flow gains `rowsWithoutKey: "skip"`; matching across
+files is reported, not scored, and by IDs or codes before names, as the design says; identity,
+attribute storage, audit and history, the `match` declaration and mapping coverage are unchanged.
+No door is affected.
+
+##### A7 record (2026-10-14)
+
+**Built 2026-10-14** as planned (D106–D113); **delivered when the user approves its screenshots**
+(D113). What is built:
+
+- **The description rule** (`patterns.py`, D107): a sheet's field, type and target columns found by
+  their values (`TYPE_WORDS`, `TYPE_SHARE` 80%, `TARGET_SHARE` 50%, at most `DESCRIPTION_ROWS`
+  1,000 rows and `DESCRIPTION_VALUES` 200 distinct values per column read), run before every other
+  rule; the description and its target sheets are not read by A6's rules. Two bounded questions
+  join the facts interface (`distinct_values`, `rows_of`), with their twins in the tests' memory
+  tables.
+- **Its proposals** (`build.py`, D108, D109): `modelDescription` (the described type, its sheet
+  ignored), `describedList` (a list from its sheet keyed by its ID, a placeholder ID through a value
+  map and `rowsWithoutKey: "skip"`; a list to be defined with its sheet ignored and a warning; no
+  source without a sheet), `describedField` (a relation named after the field, or an attribute of
+  the field's type), `describedFlags`. After proposing, the editor selects the described type.
+- **Import** (D110): a source's `rowsWithoutKey`, `skippedRows` in the binding report and the dry
+  run (and its difference), `SKIP_NEEDS_KEY` in the profile check, `setSource` taking it. The
+  placeholder words gain `tbc`, `to be defined`, `to be decided`, `to be confirmed`.
+- **Extend mode across files** (D111, D112): `described_by`, `existing_list`, `matched_code` in the
+  builder; a pair onto a stored list (`_stored_pair`: no own source, the name column unread, drift
+  and missing codes, Load the names as the alternative); a lookup onto a list holding records lists
+  its missing values with Create them on load; the flag set and the multi-valued list reuse an
+  existing list of their name. `StoredRecords` (`run.py`) answers missing values and drift with one
+  statement each over the staged cells and the records.
+- **Editor** (D113): Describes the model as a column status and the sheet head's words, the pattern
+  labels, the evidence words for drift, missing values and yes/no, the dry run's rows skipped figure;
+  `test:browser:authoring-a7`.
+
+**Where it differs from the plan** (each found while building; the approved cases are unchanged in
+what they claim):
+
+1. **Case 1's evidence**: the plan's "four targets naming sheets of the workbook" is wrong for W2: it
+   has four targets, of which three name sheets (the flag target has none). The test asserts
+   `targets` 4 and `sheets` the three.
+2. **Case 3's refusals**: besides the rows naming a missing material, the dry run refuses those
+   items' translation rows on `S2` (`REFERENCE_NOT_FOUND`, 7 per item), since the items do not load.
+   The test asserts both, per sheet; with Create them on load none is refused.
+3. **Case 3's "no list type name twice"** is checked over W2's lists and the types W1's proposals
+   add: generated-a and generated-b have a type of their own named "D", the name the described type
+   takes from W2's sheet (D108).
+4. **Case 5's refusal** comes from the profile check (`INVALID_IMPORT_PROFILE`, `SKIP_NEEDS_KEY` at
+   `/sources/0/rowsWithoutKey`), not the request schema, which would have answered
+   `REQUEST_VALIDATION_ERROR`.
+5. **D107's type column**: the plan asked for every value a type word and also a warning for a word
+   outside the list, which cannot both hold; built as 80% of the cells, the rest text attributes with
+   a warning (unit tested at four and three in five).
+6. **D110's skipped rows** make no item, so the dry run counts them with no rows behind the figure.
+7. **A matched lookup's missing values** are also on the column's placeholder proposal, which is the
+   column's latest proposal and so the one its Proposed because shows (found by the browser runner).
+8. **Missing values against a stored list** stay refused (D112) only where the list holds records; a
+   flag set's list, whose records a later file's flag columns create (D108), keeps A6's creating.
+9. **Defect found and fixed (A6, extend mode):** the editor uploads a workbook without a workspace,
+   and its columns were compared with no records, so additions to the model never matched by value
+   from the editor. A file without a workspace is compared with the default workspace's records
+   (`store.compared_workspace`, used by profiling and the inference). Regression:
+   `test_a_workbook_uploaded_without_a_workspace_is_compared_with_the_default_workspaces_records`
+   (J34.5, seen failing without the fix).
+
+**Checks:** journey and unit tests written first: the five cases failed before the build (the
+control, case 4, passed already, as a control does). `test_j34_onboard.py` (with the A7 cases),
+`test_j35_next_version.py` and `tests/unit/engine/sources/`: 198 passed (3 min 25 s, over the
+2-minute ceiling: the J34 test-time item in TODO); after the last backend changes the cases on
+their paths again: 165 passed (1 min 9 s). `-m contract`: 76 passed, the OpenAPI lock re-baselined
+after diffing the document against the previous commit (Source's `rowsWithoutKey`, `skippedRows` on
+two schemas, nothing else). `-m jobs`: 475 passed (5 min 59 s, over the ceiling and run without
+being announced first). New unit tests: D107 on generated sheets (each type word, the 80% and
+half thresholds, a control, a list to be defined), D111's matching; 44 inference unit tests pass.
+`ruff check app/ tests/`: clean. Frontend: `vitest related` 75 passed, `proposing.test` 3,
+`npm run format`, `npm run lint` (0 errors, the 7 known warnings), `npm run build`: clean.
+`test:browser:authoring-a7` (new): 12 checks on both designer models, about 30 s;
+`test:browser:authoring-a6`: 18 checks. **Screenshots inspected** (1440px: the description, the list
+to be defined with the dry run, drift, missing values; 390px: drift): two problems found and fixed
+(the description's columns read Ignored; the drift sentence's wording). **Not run:** `-a5`, `-a4*`
+and `-t1` (the shared panes are covered by `-a6`), the accessibility and visual gates (A7-1 joins
+them at R), the full suites (R); no migration, so no `startup`. **Not covered:** a description
+whose type the model already has (extend mode over a description) is unit tested only; a
+description workbook's next version through its saved profile is not exercised.
+
 ### A8: List blocks in sheets laid out for reading
 
 Below the cut line (D2). **Needs:** A6.
@@ -3301,8 +3504,9 @@ Design-level decisions are [A-D1–A-D12](MODEL_AUTHORING.md#open-decisions).
 
 ## Next
 
-1. A5c's screenshots approved by the user ([record](#a5c-record-2026-10-14)); then A7 and A8 (below
-   the cut line, D2) or R. A6 came before A5c (the user,
+1. **A7 is built (2026-10-14, [record](#a7-record-2026-10-14)), delivered when the user approves its
+   screenshots**; its plan, D106–D113 and test cases were accepted by the user the same day. The user chose A7 before A8. A5c is delivered (2026-10-14,
+   [record](#a5c-record-2026-10-14)). After A7: A8 (below the cut line, D2) or R. A6 came before A5c (the user,
    2026-10-12: A5b is tested well only once A6 proposes the model and its mappings). A5b is committed
    ([record](#a5b-record-2026-10-12)); what it still needs is settled in A6. A5a is delivered (2026-10-12); the [A5 plan](#a5-plan-2026-10-12),
    its decisions, test cases and mock-up were accepted the same day. A3 and A3a are delivered (2026-10-12).

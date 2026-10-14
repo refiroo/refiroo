@@ -30,6 +30,7 @@ const TONES: Record<ColumnStatus, "success" | "neutral" | "warning" | "proposed"
   proposed: "proposed",
   unmapped: "neutral",
   ignored: "neutral",
+  describes: "neutral",
   issue: "warning",
 };
 

@@ -2,7 +2,8 @@
 between its columns, each finding a pattern with the columns and the evidence it rests on.
 
 A rule reads a :class:`~.facts.Workbook`, never the database, and claims the columns it explains, so
-a later rule does not explain them again. The rules run in a fixed order per sheet: translations
+a later rule does not explain them again. A model description (0.10 A7, D107) is read first, and
+it and the sheets its targets name are not read by the rules below. The rules run in a fixed order per sheet: translations
 of another sheet's records, the key and the name, flag columns, code and name pairs, level
 columns, a repeated parent, multi-valued cells, references to another sheet, translations by column,
 text lookups, external IDs, and every remaining column as an attribute; then placeholders and name
@@ -50,6 +51,22 @@ LANGUAGE_CODES = frozenset(
 LANGUAGE_NAMES = frozenset(
     ["arabic", "bulgarian", "chinese", "croatian", "czech", "danish", "dutch", "english", "estonian", "finnish", "french", "german", "greek", "hebrew", "hindi", "hungarian", "icelandic", "indonesian", "irish", "italian", "japanese", "korean", "latvian", "lithuanian", "maltese", "norwegian", "polish", "portuguese", "romanian", "russian", "serbian", "slovak", "slovenian", "spanish", "swedish", "thai", "turkish", "ukrainian", "vietnamese", "welsh"]
 )
+# A model description (0.10 A7, D107): the field-type words and what each makes of a field, the
+# share of a type column's cells that are such words and of a target column's cells that name
+# another sheet, and the bounds within which a sheet is read as one.
+TYPE_WORDS = {
+    "lookup": "lookup", "list": "lookup", "reference": "lookup", "select": "lookup",
+    "multi": "multi", "multiple": "multi", "multi select": "multi", "multi lookup": "multi",
+    "flag": "flag", "yes/no": "flag", "boolean": "flag", "checkbox": "flag",
+    "text": "text", "string": "text",
+    "long text": "longText", "description": "longText",
+    "number": "integer", "integer": "integer",
+    "decimal": "decimal", "date": "date",
+}
+TYPE_SHARE = 0.8
+TARGET_SHARE = 0.5
+DESCRIPTION_ROWS = 1000
+DESCRIPTION_VALUES = 200
 _LEVEL = re.compile(r"^(.*?)\s*(\d+)$")
 _TRANSLATED = re.compile(r"^(?P<base>.+?)[\s_\-]*[\(\[]?(?P<language>[A-Za-z]+)[\)\]]?$")
 
@@ -60,6 +77,11 @@ def fold(label: str) -> str:
     ascii_text = unicodedata.normalize("NFKD", label).encode("ascii", "ignore").decode().lower()
     words = re.findall(r"[a-z0-9]+", ascii_text)
     return " ".join(w[:-1] if len(w) > 3 and w.endswith("s") and not w.endswith("ss") else w for w in words)
+
+
+def type_word(value: str) -> str | None:
+    """What a description's field-type word makes of a field (D107), or ``None``."""
+    return TYPE_WORDS.get(re.sub(r"[\s_-]+", " ", value.strip().lower()))
 
 
 def is_language(value: str) -> bool:
@@ -129,7 +151,16 @@ def find(workbook: Workbook) -> list[Finding]:
         if sheet.key is not None and sheet.name is None and guid is not None and sheet.key.textual:
             sheet.key, sheet.name = guid, sheet.key
     findings: list[Finding] = []
+    # A model description is read first (D107): it and the sheets its targets name are its own.
+    described: set[str] = set()
     for sheet in sheets:
+        found = _description(sheet, sheets, workbook)
+        if found:
+            findings += found
+            described |= {sheet.table.name, *found[0].detail["sheets"].values()}
+    for sheet in sheets:
+        if sheet.table.name in described:
+            continue
         translations = _translations_by_row(sheet, sheets, workbook)
         if translations is not None:
             findings.append(translations)
@@ -170,6 +201,126 @@ def find(workbook: Workbook) -> list[Finding]:
 
 # Patterns whose proposal adds a list type.
 LIST_PATTERNS = ("textLookup", "codeAndName", "flagColumns", "multiValued")
+# Patterns read from a model description rather than a sheet's rows (0.10 A7).
+DESCRIPTION_PATTERNS = ("modelDescription", "describedList", "describedField", "describedFlags")
+
+
+def _description(sheet: _Sheet, sheets: list[_Sheet], workbook: Workbook) -> list[Finding]:
+    """D107: a sheet of a field column (text, every value different), a type column (80% of its
+    cells field-type words) and a target column (half its cells naming another sheet) describes a
+    model; its findings are the description, each target's list, each field and each flag set."""
+    table = sheet.table
+    if len(table.columns) < 3 or table.rows == 0 or table.rows > DESCRIPTION_ROWS:
+        return []
+    others = {fold(s.table.name): s.table.name for s in sheets if s is not sheet}
+    others.update({fold(name): name for name in workbook.skipped if fold(name) not in others})
+    values: dict[int, list[dict[str, Any]]] = {}
+    for column in table.columns:
+        if column.textual and column.distinct <= DESCRIPTION_VALUES:
+            found = table.distinct_values(column.number, DESCRIPTION_VALUES)
+            if found is not None:
+                values[column.number] = found
+
+    def share(number: int, test: Any) -> float:
+        cells = values[number]
+        total = sum(v["count"] for v in cells)
+        return sum(v["count"] for v in cells if test(v["value"])) / total if total else 0.0
+
+    types = [c for c in table.columns if c.number in values and share(c.number, type_word) >= TYPE_SHARE]
+    targets = [
+        c for c in table.columns
+        if c.number in values and c not in types and share(c.number, lambda v: fold(v) in others) >= TARGET_SHARE
+    ]
+    if not types or not targets:
+        return []
+    type_column = types[0]
+    target_column = max(targets, key=lambda c: (share(c.number, lambda v: fold(v) in others), -c.number))
+    field_column = next(
+        (
+            c for c in table.columns
+            if c.number not in (type_column.number, target_column.number) and c.candidate_key and c.textual
+        ),
+        None,
+    )
+    if field_column is None:
+        return []
+    rows = table.rows_of([field_column.number, type_column.number, target_column.number], DESCRIPTION_ROWS)
+    if rows is None:
+        return []
+    fields = []
+    for field_name, word, target in rows:
+        if field_name is None:
+            continue
+        kind = type_word(word or "")
+        fields.append({"field": field_name, "type": word, "kind": kind or "text", "known": kind is not None, "target": target})
+    sheet_of = {
+        target: others[fold(target)]
+        for target in dict.fromkeys(f["target"] for f in fields if f["target"])
+        if fold(target) in others
+    }
+    words = [{"value": v["value"], "count": v["count"]} for v in values[type_column.number]]
+    columns = [field_column, type_column, target_column]
+    distinct_targets = list(dict.fromkeys(f["target"] for f in fields if f["target"]))
+    found = [
+        sheet.finding(
+            "modelDescription",
+            columns,
+            evidence={
+                "fields": len(fields),
+                "targets": len(distinct_targets),
+                "sheets": sorted(set(sheet_of.values())),
+                "typeWords": words,
+            },
+            fields=fields,
+            sheets=sheet_of,
+        )
+    ]
+    by_name = {s.table.name: s for s in sheets}
+    for target in distinct_targets:
+        kinds = {f["kind"] for f in fields if f["target"] == target}
+        listed = by_name.get(sheet_of.get(target, ""))
+        found.append(_described_list(table.name, target, listed, flag_only=kinds == {"flag"}))
+    for field_entry in fields:
+        if field_entry["kind"] == "flag" and field_entry["target"]:
+            continue
+        found.append(Finding("describedField", table.name, [], dict(field_entry), {"field": field_entry}))
+    for target in distinct_targets:
+        flagged = [f["field"] for f in fields if f["kind"] == "flag" and f["target"] == target]
+        if flagged:
+            found.append(Finding("describedFlags", table.name, [], {"target": target, "fields": flagged}, {"target": target, "fields": flagged}))
+    return found
+
+
+def _described_list(description: str, target: str, listed: _Sheet | None, *, flag_only: bool) -> Finding:
+    """A target's list (D108, D109): read from its sheet by its ID and name, unless the sheet holds
+    nothing but placeholders (a list to be defined); without a sheet, a list of no source."""
+    evidence: dict[str, Any] = {"target": target, "sheet": listed.table.name if listed else None, "toBeDefined": False}
+    if listed is None:
+        evidence["records"] = "named by the fields" if flag_only else "none in the workbook"
+        return Finding("describedList", description, [], evidence, {"target": target})
+    table = listed.table
+    filled = [c for c in table.columns if c.filled]
+    if all(sum(p["count"] for p in c.placeholders) == c.filled for c in filled):
+        evidence["toBeDefined"] = True
+        evidence["values"] = sorted({p["value"] for c in filled for p in c.placeholders})
+        return Finding("describedList", table.name, [], evidence, {"target": target, "toBeDefined": True})
+    key = key_column(table.columns)
+    name = name_column(table, key) if key is not None else None
+    if name is None:
+        name = next((c for c in table.columns if c is not key and c.textual), None)
+    columns = [c for c in (key, name) if c is not None]
+    placeholders = [p["value"] for p in key.placeholders] if key is not None else []
+    evidence.update({"rows": table.rows, "placeholderKeys": [dict(p) for p in key.placeholders] if key is not None else []})
+    listed.claim(*columns)
+    return listed.finding(
+        "describedList",
+        columns,
+        evidence=evidence,
+        target=target,
+        key=key.number if key else None,
+        name=name.number if name else None,
+        placeholders=placeholders,
+    )
 
 
 def key_column(columns: Sequence[Column]) -> Column | None:

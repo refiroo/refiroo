@@ -519,6 +519,21 @@ as proposed follows it, what you changed stays, and where the workbook reads a c
 is an issue; a proposal you undid is not applied again. Once installed, the types read Released.
 Through the API the proposals can be read before anything is applied.
 
+**A workbook that describes a model.** A sheet listing fields with their types (lookup, flag, text,
+number, date, …) and the list each lookup takes its values from, each list on a sheet of its own,
+is read before anything else: the engine proposes one type with those fields, each list read from
+its sheet by its ID and name, and one set for the flag fields of one target. The description
+sheet's columns read **Describes the model**; nothing loads from it. A row whose ID is a placeholder
+such as `?` is skipped (the dry run counts it), and a list whose sheet holds only "To be defined" is
+added with nothing to load. A flat table naming the same records then comes as **additions to the
+model**, after the description is loaded: its sheet is matched to the described type by its
+headers, its lists to the stored lists by name, a code column to the stored records by their ID.
+Where the file names a code otherwise than the stored record, the stored name stands and the
+difference is shown, with loading the file's names as the alternative; values the stored list lacks
+are shown with their rows and refused, with creating them on load as the alternative. What the
+editor uploads is compared with the default workspace's records. Workbooks of lists laid out side
+by side for reading are not read yet.
+
 **The next version of a workbook.** Installing a draft with a workbook saves its import profile;
 Settings › Data operations › **Import profiles** lists the stored profiles beside the selected one: whether it
 still holds against the active model, and its last load (the file, when, what it did with the rows,

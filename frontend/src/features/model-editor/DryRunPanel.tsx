@@ -41,6 +41,8 @@ function figuresOf(source: DryRunSource): Figure[] {
     { name: "values", label: "values", now: source.values, rows: applied },
     { name: "relationships", label: "relationships", now: source.relationships, rows: applied },
     { name: "relatedRecords", label: "related records created", now: source.relatedRecords, rows: applied },
+    // Rows skipped for want of a key (0.10 A7, D110) make no item, so no rows stand behind the figure.
+    { name: "skippedRows", label: "rows skipped, no key", now: source.skippedRows ?? 0 },
     ...source.rejections.map((item) => ({
       name: `rejections.${item.code}`,
       label: `rows refused · ${item.code}`,

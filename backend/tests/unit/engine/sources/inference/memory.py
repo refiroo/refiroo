@@ -86,6 +86,16 @@ class MemoryTable:
     def same(self, first: int, second: int) -> int:
         return sum(1 for a, b in zip(self.cells(first), self.cells(second), strict=True) if a and a == b)
 
+    def distinct_values(self, column: int, limit: int) -> list[dict[str, Any]] | None:
+        counts = Counter(c for c in self.cells(column) if c is not None)
+        if len(counts) > limit:
+            return None
+        return [{"value": v, "count": n} for v, n in sorted(counts.items(), key=lambda i: (-i[1], i[0]))]
+
+    def rows_of(self, columns: list[int], limit: int) -> list[tuple[str | None, ...]] | None:
+        found = [row for row in zip(*(self.cells(n) for n in columns), strict=True) if any(c is not None for c in row)]
+        return None if len(found) > limit else found
+
 
 @dataclass
 class MemoryWorkbook:
