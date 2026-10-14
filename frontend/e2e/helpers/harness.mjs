@@ -12,6 +12,21 @@ const helpers = dirname(fileURLToPath(import.meta.url));
 const frontend = resolve(helpers, "..", "..");
 const root = resolve(frontend, "..");
 
+/**
+ * Report to `push` every uncaught error in the context's pages and every page part the app's error
+ * boundary replaced (React handles those itself, so they are no page error). Once per context.
+ */
+const watched = new WeakSet();
+export function watchPageErrors(context, push) {
+  if (watched.has(context)) return context;
+  watched.add(context);
+  context.on("weberror", (error) => push(error.error().message));
+  context.on("console", (message) => {
+    if (message.type() === "error" && message.text().startsWith("This page stopped working")) push(message.text());
+  });
+  return context;
+}
+
 async function freePort() {
   const server = createServer();
   await new Promise((done, reject) => { server.once("error", reject); server.listen(0, "127.0.0.1", done); });
@@ -44,6 +59,9 @@ export async function bootHarness(options = {}) {
   const output = await mkdtemp(resolve(tmpdir(), "rdm-ui07-gate-"));
   const processes = [];
   let log = "";
+  // Uncaught errors in any page the run opens, and a page part the error boundary replaced: either
+  // fails the run at cleanup, whatever its checks said (a dialog blanked the page unnoticed, 2026-10-14).
+  const pageErrors = [];
 
   function start(command, args, cwd, env) {
     const child = spawn(command, args, { cwd, env: { ...process.env, ...env }, stdio: ["ignore", "pipe", "pipe"] });
@@ -129,6 +147,16 @@ export async function bootHarness(options = {}) {
       ...(process.env.PLAYWRIGHT_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH } : {}),
     });
 
+    const watch = (context) => watchPageErrors(context, (error) => pageErrors.push(error));
+    const newContext = browser.newContext.bind(browser);
+    browser.newContext = async (...args) => watch(await newContext(...args));
+    const newPage = browser.newPage.bind(browser);
+    browser.newPage = async (...args) => {
+      const opened = await newPage(...args);
+      watch(opened.context());
+      return opened;
+    };
+
     const context = await browser.newContext({ hasTouch: true, viewport: viewport ?? { width: 1440, height: 900 } });
     page = await context.newPage();
     page.setDefaultTimeout(10000);
@@ -147,6 +175,10 @@ export async function bootHarness(options = {}) {
     timings.total = Math.round(performance.now() - started);
     timings.checks = timings.total - timings.setupTotal;
     console.error(`harness timings (ms): ${JSON.stringify(timings)}`);
+    if (pageErrors.length) {
+      console.error(`page errors (the run fails):\n${pageErrors.map((error) => `- ${error}`).join("\n")}`);
+      process.exitCode = 1;
+    }
     try { browser?.close(); } catch { /* ignore */ }
     for (const child of processes) {
       try { child.kill(); } catch { /* ignore */ }
@@ -155,5 +187,5 @@ export async function bootHarness(options = {}) {
     database.drop();
   }
 
-  return { page, browser, apiUrl, uiUrl, output, records, api, timings, log: () => log, cleanup };
+  return { page, browser, apiUrl, uiUrl, output, records, api, timings, pageErrors, log: () => log, cleanup };
 }

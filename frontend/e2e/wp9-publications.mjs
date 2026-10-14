@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { createServer } from "node:net";
 import { chromium } from "playwright";
 import { cloneDatabase } from "./helpers/database.mjs";
+import { watchPageErrors } from "./helpers/harness.mjs";
 
 const frontend = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const root = resolve(frontend, "..");
@@ -161,7 +162,7 @@ try {
   });
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   page.setDefaultTimeout(10000);
-  page.on("pageerror", (error) => failures.push(error.message));
+  watchPageErrors(page.context(), (error) => failures.push(error));
   const historicalReads = [];
   page.on("request", (request) => {
     if (request.url().includes("publicationId=")) historicalReads.push(request.url());

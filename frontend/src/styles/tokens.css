@@ -309,6 +309,10 @@
   --status-draft-text: var(--neutral-700);
   --status-draft-marker: var(--neutral-450);
   --status-draft-line: var(--neutral-300);
+  /* Still as the inference proposed it (0.10 A6b): a mark of its own, not a context's colour. */
+  --status-proposed-surface: var(--plum-50);
+  --status-proposed-text: var(--plum-800);
+  --status-proposed-marker: var(--plum-500);
 
   /* --- 3. Component tokens --- */
   --topbar-height: 56px;
@@ -434,6 +438,9 @@
   --status-draft-text: var(--night-700);
   --status-draft-marker: var(--night-500);
   --status-draft-line: var(--night-300);
+  --status-proposed-surface: var(--plum-dark-50);
+  --status-proposed-text: var(--plum-dark-100);
+  --status-proposed-marker: var(--plum-dark-400);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -535,6 +542,9 @@
     --status-draft-text: var(--night-700);
     --status-draft-marker: var(--night-500);
     --status-draft-line: var(--night-300);
+    --status-proposed-surface: var(--plum-dark-50);
+    --status-proposed-text: var(--plum-dark-100);
+    --status-proposed-marker: var(--plum-dark-400);
   }
 }
 

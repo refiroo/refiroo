@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
 import { cloneDatabase } from "./helpers/database.mjs";
+import { watchPageErrors } from "./helpers/harness.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const checks = [];
@@ -95,7 +96,7 @@ try {
     });
     const page = await context.newPage();
     page.setDefaultTimeout(15000);
-    page.on("pageerror", (error) => failures.push(`${label}: ${error.message}`));
+    watchPageErrors(page.context(), (error) => failures.push(`${label}: ${error}`));
 
     await page.goto(`${apiUrl}/docs`);
     await page.getByRole("heading", { name: openapi.info.title, level: 1 }).waitFor();

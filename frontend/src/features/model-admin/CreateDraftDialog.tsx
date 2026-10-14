@@ -8,7 +8,9 @@
  *
  * "New from a workbook" (0.10 A5b) is the same dialog with a workbook to upload: the draft is
  * created, the workbook uploaded to it and profiled, and the editor opens on it. It starts from the
- * active release, so the applications already there stay; an empty model is a choice.
+ * active release, so the applications already there stay; an empty model is a choice. What to
+ * propose (0.10 A6b) is asked here and handed to the editor, which proposes and applies it once the
+ * workbook is profiled; mapping by hand stays a choice.
  */
 
 import { useState } from "react";
@@ -17,6 +19,9 @@ import { errorMessage } from "@/api/errors";
 import { FileField } from "@/ui/FileField";
 import { FormField } from "@/ui/FormField";
 import { WORKBOOK_ACCEPT } from "@/features/model-editor/AddWorkbookDialog";
+import { proposeWhenProfiled } from "@/features/model-editor/proposing";
+import { nameOfFile, proposeRequest, ProposeFields, type ProposeChoice } from "@/features/model-editor/ProposeFields";
+import { WorkspaceField } from "@/features/model-editor/WorkspaceField";
 import { keyFromLabel } from "@/features/model-editor/outline";
 import type { ModelDraft, ModelReleaseSummary } from "@/types";
 import { Modal } from "@/ui/Modal";
@@ -59,10 +64,16 @@ export function CreateDraftDialog({
   const [createReleaseId, setCreateReleaseId] = useState(seed.releaseId);
   const [importText, setImportText] = useState("{}");
   const [workbook, setWorkbook] = useState<File>();
+  const [propose, setPropose] = useState<ProposeChoice>({ mode: "newApplication", applicationName: "" });
+  const [workspace, setWorkspace] = useState("");
   // A draft created whose workbook did not upload: trying again uploads to it, creating no second one.
   const [created, setCreated] = useState<ModelDraft>();
   const [createError, setCreateError] = useState("");
   const [pending, setPending] = useState(false);
+
+  // A new model starts the draft empty, whatever the starting document says (it is not shown then).
+  const newModel = Boolean(seed.workbook) && propose.mode === "newModel";
+  const source = newModel ? "empty" : createSource;
 
   async function createDraft() {
     setCreateError("");
@@ -70,12 +81,12 @@ export function CreateDraftDialog({
     try {
       let model: Record<string, unknown> = {};
       let baseReleaseId: string | undefined;
-      if (createSource === "empty") model = emptyModel(createName.trim(), (await api.system()).schemaLanguages);
-      if (createSource === "release") {
+      if (source === "empty") model = emptyModel(createName.trim(), (await api.system()).schemaLanguages);
+      if (source === "release") {
         const release = await api.modelRelease(createReleaseId, true);
         model = release.model ?? {};
         baseReleaseId = release.id;
-      } else if (createSource === "import") {
+      } else if (source === "import") {
         const parsed: unknown = JSON.parse(importText);
         if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
           throw new Error("Imported JSON must be an object.");
@@ -91,7 +102,10 @@ export function CreateDraftDialog({
       setCreated(draft);
       if (workbook) {
         try {
-          await api.uploadSourceFile(workbook, { owner: { draftId: draft.id } });
+          await api.uploadSourceFile(workbook, {
+            owner: { draftId: draft.id },
+            ...(workspace ? { workspaceKey: workspace } : {}),
+          });
         } catch (cause) {
           throw new Error(
             `Draft ${draft.name} was created, but the workbook was not uploaded: ${errorMessage(cause)}`,
@@ -101,6 +115,8 @@ export function CreateDraftDialog({
           );
         }
       }
+      const request = workbook ? proposeRequest(propose) : undefined;
+      if (request) proposeWhenProfiled(draft.id, request);
       onCreated(draft);
     } catch (cause) {
       setCreateError(errorMessage(cause));
@@ -115,10 +131,10 @@ export function CreateDraftDialog({
       eyebrow="Model candidate"
       description={
         seed.workbook
-          ? "A draft with the workbook: its sheets and columns are profiled, then mapped onto the model in the editor."
+          ? "A draft with the workbook: its sheets and columns are profiled, and the engine writes a first draft of the model and its mapping into the editor. Each proposal is a step you can change or undo."
           : undefined
       }
-      size="compact"
+      size={seed.workbook ? "wide" : "compact"}
       busy={pending}
       onClose={onClose}
     >
@@ -140,31 +156,62 @@ export function CreateDraftDialog({
         </label>
         {seed.workbook && (
           <FormField label="Workbook" help="An XLSX workbook or a CSV file">
-            {(control) => <FileField control={control} accept={WORKBOOK_ACCEPT} onFile={setWorkbook} />}
+            {(control) => (
+              <FileField
+                control={control}
+                accept={WORKBOOK_ACCEPT}
+                onFile={(file) => {
+                  setWorkbook(file);
+                  if (file && !propose.applicationName)
+                    setPropose((current) => ({ ...current, applicationName: nameOfFile(file.name) }));
+                }}
+              />
+            )}
           </FormField>
         )}
-        <label>
-          Starting document
-          <select value={createSource} onChange={(event) => setCreateSource(event.target.value as typeof createSource)}>
-            <option value="release">Installed release</option>
-            <option value="empty">Empty model</option>
-            <option value="import">Import JSON</option>
-          </select>
-        </label>
-        {createSource === "release" && (
-          <label>
-            Base release
-            <select value={createReleaseId} onChange={(event) => setCreateReleaseId(event.target.value)}>
-              {releases.map((release) => (
-                <option key={release.id} value={release.id}>
-                  {release.key}@{release.version}
-                  {release.active ? " (active)" : ""}
-                </option>
-              ))}
-            </select>
-          </label>
+        {seed.workbook && <ProposeFields value={propose} onChange={setPropose} start />}
+        {seed.workbook && (
+          <WorkspaceField
+            value={workspace}
+            onChange={setWorkspace}
+            onError={setCreateError}
+            withDefault
+            help={
+              propose.mode === "extend"
+                ? "Columns whose values are this workspace's records are matched to their types"
+                : "The dry run checks the workbook against this workspace"
+            }
+          />
         )}
-        {createSource === "import" && (
+        {!newModel && (
+          <div className="dialog-pair">
+            <label>
+              Starting document
+              <select
+                value={createSource}
+                onChange={(event) => setCreateSource(event.target.value as typeof createSource)}
+              >
+                <option value="release">Installed release</option>
+                <option value="empty">Empty model</option>
+                <option value="import">Import JSON</option>
+              </select>
+            </label>
+            {createSource === "release" && (
+              <label>
+                Base release
+                <select value={createReleaseId} onChange={(event) => setCreateReleaseId(event.target.value)}>
+                  {releases.map((release) => (
+                    <option key={release.id} value={release.id}>
+                      {release.key}@{release.version}
+                      {release.active ? " (active)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
+        )}
+        {source === "import" && (
           <>
             <label>
               JSON document
@@ -195,11 +242,11 @@ export function CreateDraftDialog({
             disabled={
               pending ||
               !createName.trim() ||
-              (createSource === "release" && !createReleaseId) ||
+              (source === "release" && !createReleaseId) ||
               (seed.workbook && !workbook)
             }
           >
-            {pending ? "Creating…" : "Create draft"}
+            {pending ? "Creating…" : seed.workbook && propose.mode !== "none" ? "Create and propose" : "Create draft"}
           </button>
         </div>
       </form>

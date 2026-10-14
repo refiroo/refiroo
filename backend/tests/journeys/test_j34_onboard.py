@@ -244,7 +244,13 @@ def test_a_workbook_uploaded_to_a_draft_is_profiled_sheet_by_sheet_and_column_by
         "overlapValues": 1000,
         "overlapsListed": 5,
         "placeholdersListed": 10,
+        "valuesListed": 10,
     }
+    # The most frequent values with their counts (0.10 A6).
+    materials = {row["T"] for row in book.rows}
+    frequent = column("T")["values"]
+    assert len(frequent) == min(10, len(materials))
+    assert frequent[0]["count"] == max(sum(row["T"] == value for row in book.rows) for value in materials)
 
 
 @pytest.mark.journey("J34.1")
@@ -957,3 +963,630 @@ def test_an_import_creates_the_list_values_a_lookup_names_once_whatever_the_rows
     bad = {**request, "profile": profile({"attributeTypeKey": "j34-code"})}
     error = refused(world.api.upload("/imports", {"file": ("lists.csv", content, "text/csv")}, {"request": json.dumps(bad)}), 422, "INVALID_IMPORT_PROFILE")
     assert any(p["code"] == "CREATE_NEEDS_NAME_MATCH" for p in error["details"]["problems"]), error
+
+
+# --- A6: inference over the table patterns (D86–D98) ---------------------------------------------
+
+W1_PATTERNS = {
+    "newApplication": (),
+    "keyColumn": ("K", "N"),
+    "repeatedParent": ("P", "Po", "Pi"),
+    "textLookup": ("T",),
+    "placeholders": ("T",),
+    "codeAndName": ("Lc", "Ln"),
+    "nameDrift": ("Lc", "Ln"),
+    "flagColumns": ("F1", "F2", "Fo"),
+    "externalId": ("X",),
+    "translationsByRow": ("K", "Lang", "N"),
+    "navigationGroup": (),
+}
+
+
+def _infer(world, draft: dict[str, Any], **body: Any) -> dict[str, Any]:
+    """The draft's inference, run by the worker; its read once completed."""
+    started = ok(world.api.post(f"/model-drafts/{draft['id']}/inference", {"mode": "newApplication", **body}), 202)
+    assert started["state"] == "checking", started
+    _run(world)
+    done = ok(world.api.get(f"/model-drafts/{draft['id']}/inference"))
+    assert (done["jobId"], done["state"]) == (started["jobId"], "completed"), done
+    return done
+
+
+def _proposals(world, draft: dict[str, Any]) -> list[dict[str, Any]]:
+    return _all(world, f"/model-drafts/{draft['id']}/inference/proposals")
+
+
+def _by_pattern(proposals: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    found: dict[str, dict[str, Any]] = {}
+    for proposal in proposals:
+        assert proposal["pattern"] not in found, proposal["pattern"]
+        found[proposal["pattern"]] = proposal
+    return found
+
+
+def _application(world, draft: dict[str, Any], ids: list[str] | None = None, version: int | None = None):
+    body: dict[str, Any] = {"expectedVersion": version or _version(world, draft)}
+    if ids is not None:
+        body["proposals"] = ids
+    return world.api.post(f"/model-drafts/{draft['id']}/inference/application", body)
+
+
+def _inferred(world) -> tuple[dict[str, Any], workbooks.W1, dict[str, Any], str]:
+    """A draft of the active model with W1 profiled in a new workspace, and its inference run."""
+    workspace = _workspace(world)
+    draft = _draft(world)
+    book = workbooks.w1(rows=200)
+    source = _profiled(world, {"draftId": draft["id"]}, "catalogue.xlsx", book.content, workspaceKey=workspace)
+    _infer(world, draft)
+    return draft, book, source, workspace
+
+
+def _created(entries: list[dict[str, Any]], proposals: dict[str, dict[str, Any]], pattern: str, kind: str) -> list[dict[str, Any]]:
+    """The parameters of the ``kind`` operations the step of ``pattern``'s proposal applied."""
+    wanted = proposals[pattern]["id"]
+    return [e["parameters"] for e in entries if e["kind"] == kind and e["origin"].get("proposalId") == wanted]
+
+
+def _total(world, type_key: str, workspace: str) -> int:
+    return ok(world.api.get(f"/objects/{type_key}", workspaceKey=workspace, includeTotal=True, pageSize=1))["totalCount"]
+
+
+@pytest.mark.journey("J34.4")
+@pytest.mark.structures("K")
+def test_the_inference_proposes_each_pattern_of_the_workbook_with_its_evidence_and_applies_nothing(world):
+    """Given W1 profiled on a draft. When the inference runs in new-application mode. Then it lists
+    the eleven proposals of W1's patterns, each with its columns and evidence; no proposal reads N
+    as a key or lookup, X as a key or Po as a parent; and until applied the draft is unchanged."""
+    workspace = _workspace(world)
+    draft = _draft(world)
+    book = workbooks.w1(rows=200)
+    _profiled(world, {"draftId": draft["id"]}, "catalogue.xlsx", book.content, workspaceKey=workspace)
+    version = _version(world, draft)
+    history = _all(world, f"/model-drafts/{draft['id']}/operations")
+
+    read = _infer(world, draft)
+    assert read["mode"] == "newApplication" and read["draftVersion"] == version
+    proposals = _by_pattern(_proposals(world, draft))
+    assert set(proposals) == set(W1_PATTERNS)
+    s2 = {"K": workbooks.S2_HEADERS["K"], "Lang": workbooks.S2_HEADERS["Lang"], "N": workbooks.S2_HEADERS["N"]}
+    for pattern, structures in W1_PATTERNS.items():
+        proposal = proposals[pattern]
+        header = s2.__getitem__ if pattern == "translationsByRow" else book.header
+        assert proposal["columns"] == [header(s) for s in structures], pattern
+        assert proposal["status"] == "open" and proposal["operations"], pattern
+        assert proposal["summary"], pattern
+    assert proposals["translationsByRow"]["sheet"] == workbooks.S2
+    assert proposals["keyColumn"]["sheet"] == workbooks.S1
+
+    parent = proposals["repeatedParent"]["evidence"]
+    assert parent["groups"] == len(book.distinct("P"))
+    assert {d["column"]: d["constantIn"] for d in parent["dependents"]} == {
+        book.header("Po"): parent["groups"],
+        book.header("Pi"): parent["groups"],
+    }
+    pair = proposals["codeAndName"]["evidence"]
+    names: dict[str, set[str]] = {}
+    for row in book.rows:
+        names.setdefault(row["Lc"], set()).add(row["Ln"])
+    assert {d["code"] for d in pair["drift"]} == {code for code, found in names.items() if len(found) > 1}
+    assert proposals["placeholders"]["evidence"]["placeholders"] and {
+        p["value"] for p in proposals["placeholders"]["evidence"]["placeholders"]
+    } == set(workbooks.PLACEHOLDERS)
+
+    lookups = {c for p in proposals.values() if p["pattern"] in ("textLookup", "codeAndName", "repeatedParent") for c in p["columns"][:1]}
+    assert book.header("N") not in lookups
+    assert proposals["keyColumn"]["columns"][0] == book.header("K")
+    assert book.header("X") not in proposals["keyColumn"]["columns"]
+    assert proposals["repeatedParent"]["columns"][0] == book.header("P")
+    assert _version(world, draft) == version
+    assert _all(world, f"/model-drafts/{draft['id']}/operations") == history
+
+
+def _empty_draft(world) -> dict[str, Any]:
+    """A draft of an empty model, as the start dialog's A new model creates it."""
+    schema = ok(world.api.get("/system"))["schemaLanguages"][-1]
+    empty = {
+        "schemaVersion": schema,
+        "release": {"key": "workbook-only", "name": "Workbook only", "version": "1.0.0"},
+        "product": {"name": "Workbook only"},
+        "attributeTypes": [],
+        "objectTypes": [],
+        "relationTypes": [],
+        "objectTypeRelations": [],
+        "applications": [],
+    }
+    return ok(world.api.post("/model-drafts", {"name": "Workbook only", "model": empty}), 201)
+
+
+@pytest.mark.journey("J34.4")
+@pytest.mark.structures("K")
+def test_a_new_application_on_an_empty_model_is_a_model_of_the_workbook_alone(world):
+    """Given an empty model (the start dialog's Empty model) with W1 profiled. When the inference
+    runs in new-application mode and every proposal is applied. Then the draft compiles to a model
+    of the workbook's one application and its types, and nothing of the active model."""
+    workspace = _workspace(world)
+    draft = _empty_draft(world)
+    book = workbooks.w1(rows=50)
+    _profiled(world, {"draftId": draft["id"]}, "catalogue.xlsx", book.content, workspaceKey=workspace)
+    _infer(world, draft)
+    answer = ok(_application(world, draft))
+    assert answer["valid"] is True, answer["diagnostics"]
+    compiled = ok(world.api.post(f"/model-drafts/{draft['id']}/compile", {"expectedVersion": _version(world, draft)}))
+    model = compiled["model"]
+    assert len(model["applications"]) == 1, [a["key"] for a in model["applications"]]
+    active = {t["key"] for t in world.configuration.model["objectTypes"]}
+    assert model["objectTypes"] and not active & {t["key"] for t in model["objectTypes"]}
+    assert _draft_profile(world, draft)["valid"] is True
+
+
+@pytest.mark.journey("J34.4")
+@pytest.mark.structures("K")
+def test_a_workbook_of_real_shapes_gives_a_model_its_own_dry_run_takes_whole(world):
+    """Given W4 (the shapes of the user's workbooks, 2026-10-14) profiled on an empty model. When
+    the inference runs and every proposal is applied. Then the statuses are keyed by their GUID and
+    named; the kinds have one parent, Category, optional for the rows without one, and Slot_Name is
+    a list they refer to; Categoría and Kategorie translate Category by their values; North and South
+    are one set; Definition is long text; the second Customer Name is left out with a warning; the
+    names read as words; and the dry run refuses no row."""
+    workspace = _workspace(world)
+    draft = _empty_draft(world)
+    book = workbooks.w4()
+    _profiled(world, {"draftId": draft["id"]}, "kinds.xlsx", book.content, workspaceKey=workspace)
+    read = _infer(world, draft)
+    assert any("second column 'Customer Name'" in w for w in read["warnings"]), read["warnings"]
+    proposals = _proposals(world, draft)
+    by_sheet_pattern = {(p["sheet"], p["pattern"], tuple(p["columns"])) for p in proposals}
+    assert ("Statuses", "keyColumn", ("Id", "Name")) in by_sheet_pattern
+    assert ("Kinds", "translationsByColumn", ("Categoría", "Kategorie")) in by_sheet_pattern
+    assert ("Kinds", "flagColumns", ("North", "South")) in by_sheet_pattern
+    assert not [p for p in proposals if p["pattern"] == "repeatedParent" and p["columns"][0] == "Definition"]
+
+    answer = ok(_application(world, draft))
+    assert answer["valid"] is True, answer["diagnostics"]
+    model = ok(world.api.post(f"/model-drafts/{draft['id']}/compile", {"expectedVersion": answer["version"]}))["model"]
+    types = {t["name"]: t for t in model["objectTypes"]}
+    assert {"Kind", "Status", "Category", "Slot Name", "Language", "Translation"} <= set(types), sorted(types)
+    assert types["Kind"]["features"]["rootCreatable"] is True, "a kind without a category stands at the top"
+    contained = [r for r in model["objectTypeRelations"] if r["toObjectTypeKey"] == types["Kind"]["key"]]
+    assert len(contained) == 1, contained
+    names = {a["name"]: a for a in model["attributeTypes"]}
+    assert names["Definition"]["valueType"] == "longText"
+    summary = _summary_of(world, draft, answer)
+    assert all(s["rejections"] == [] for s in summary["sources"]), summary["sources"]
+    kinds = next(s for s in summary["sources"] if s["objectTypeKey"] == types["Kind"]["key"])
+    assert kinds["records"]["created"] == book.rows
+
+
+@pytest.mark.journey("J34.4")
+@pytest.mark.structures("K")
+def test_the_applied_inference_loads_w1_into_a_change_set_that_publishes_every_record(world):
+    """When every proposal is applied, each is one step of origin proposal, the draft and its
+    profile are valid and the dry run refuses no row; installed, loaded into a change set and
+    published, the workspace holds W1's parents, items, lists and translations."""
+    draft, book, source, workspace = _inferred(world)
+    proposals = _by_pattern(_proposals(world, draft))
+    answer = ok(_application(world, draft))
+    assert answer["valid"] is True, answer["diagnostics"]
+    entries = answer["entries"]
+    assert {e["origin"]["type"] for e in entries} == {"proposal"}
+    assert len({e["step"] for e in entries}) == len(proposals)
+    assert _draft_profile(world, draft)["valid"] is True
+    summary = _summary_of(world, draft, answer)
+    assert all(s["rejections"] == [] for s in summary["sources"]), summary["sources"]
+    assert any(s["records"]["created"] == len(book.rows) for s in summary["sources"])
+    assert {p["status"] for p in _proposals(world, draft)} == {"applied"}
+
+    release = _install(world, draft)
+    ok(world.activate(release["id"]))
+    change_set = world.change_set(workspace)
+    request = {
+        "changeSetId": change_set["id"],
+        "expectedChangeSetVersion": change_set["version"],
+        "profileKey": release["importProfile"]["key"],
+        "sourceFileId": source["id"],
+        "policy": "independent",
+        "onExisting": "overwrite",
+        "stage": "execute",
+    }
+    job = ok(world.api.upload("/imports", {}, {"request": json.dumps(request)}), 202)
+    _run(world)
+    done = ok(world.api.get(f"/jobs/{job['id']}"))
+    assert (done["state"], done["counts"]["rejected"]) == ("completed", 0), done
+    world.publish(change_set, workspace)
+
+    def key(pattern: str, top: bool = True) -> str:
+        made = _created(entries, proposals, pattern, "addObjectType")
+        return next(p["key"] for p in made if (p["parent"] is None) == top)
+
+    majority: dict[str, dict[str, int]] = {}
+    for row in book.rows:
+        counts = majority.setdefault(row["Lc"], {})
+        counts[row["Ln"]] = counts.get(row["Ln"], 0) + 1
+    assert _total(world, key("repeatedParent"), workspace) == len(book.distinct("P"))
+    assert _total(world, key("keyColumn"), workspace) == len(book.rows)
+    assert _total(world, key("textLookup"), workspace) == len(book.distinct("T") - set(workbooks.PLACEHOLDERS))
+    colours = ok(world.api.get(f"/objects/{key('codeAndName')}", workspaceKey=workspace, pageSize=50))["items"]
+    assert sorted(c["name"] for c in colours) == sorted(max(n, key=n.get) for n in majority.values())
+    features = {book.header("F1"), book.header("F2")} | {
+        part.strip() for row in book.rows if row["Fo"] for part in row["Fo"].split(";")
+    }
+    assert _total(world, key("flagColumns"), workspace) == len(features)
+    assert _total(world, key("translationsByRow"), workspace) == len(workbooks.LANGUAGES)
+    assert _total(world, key("translationsByRow", top=False), workspace) == len(book.names)
+
+
+@pytest.mark.journey("J34.4")
+@pytest.mark.structures("K")
+def test_an_applied_proposal_is_changed_by_the_editors_operations_and_becomes_the_administrators(world):
+    """After applying: the text lookup's alternative maps T to a text attribute and removes its
+    list; a renamed parent type keeps the profile valid; undoing the translations' step removes
+    them and leaves S2 unmapped; what was changed is no longer listed as proposed."""
+    draft, book, _, _ = _inferred(world)
+    proposals = _by_pattern(_proposals(world, draft))
+    entries = ok(_application(world, draft))["entries"]
+    proposed = {item["element"] for item in ok(world.api.get(f"/model-drafts/{draft['id']}/inference"))["proposed"]}
+    material = _created(entries, proposals, "textLookup", "addObjectType")[0]["key"]
+    parent = _created(entries, proposals, "repeatedParent", "addObjectType")[0]["key"]
+    assert {f"objectType:{material}", f"objectType:{parent}"} <= proposed
+
+    lookup = proposals["textLookup"]
+    alternative = _step(world, draft, *lookup["alternatives"][0]["operations"])
+    assert alternative["valid"] is True, alternative["diagnostics"]
+    model = ok(world.api.get(f"/model-drafts/{draft['id']}/model"))["model"]
+    assert material not in {t["key"] for t in model["objectTypes"]}
+    items = next(s for s in _draft_profile(world, draft)["profile"]["sources"] if s["sheet"] == workbooks.S1 and any(b.get("column") == book.header("K") for b in s["columns"]))
+    assert "attributeTypeKey" in _bindings(_draft_profile(world, draft)["profile"], items["id"])[book.header("T")]
+
+    renamed = _step(world, draft, {"kind": "setLabel", "element": {"objectType": parent}, "name": "Product group"})
+    assert renamed["valid"] is True
+    translations = next(e["step"] for e in entries if e["origin"].get("proposalId") == proposals["translationsByRow"]["id"])
+    ok(world.api.post(f"/model-drafts/{draft['id']}/undo", {"expectedVersion": _version(world, draft), "step": translations}))
+    profile = _draft_profile(world, draft)
+    assert profile["valid"] is True, profile["diagnostics"]
+    assert not any(s["sheet"] == workbooks.S2 for s in profile["profile"]["sources"])
+
+    after = ok(world.api.get(f"/model-drafts/{draft['id']}/inference"))
+    still = {item["element"] for item in after["proposed"]}
+    assert f"objectType:{parent}" not in still
+    assert f"objectType:{material}" not in still
+    colour = _created(entries, proposals, "codeAndName", "addObjectType")[0]["key"]
+    assert f"objectType:{colour}" in still
+    assert next(p for p in _proposals(world, draft) if p["pattern"] == "translationsByRow")["status"] == "open"
+
+
+@pytest.mark.journey("J34.4")
+@pytest.mark.structures("K")
+def test_proposals_are_applied_with_what_they_require_and_refused_otherwise(world):
+    """A proposal without the one it requires is PROPOSAL_REQUIREMENT_MISSING; both together
+    apply in order; an unknown proposal is PROPOSAL_NOT_FOUND; a stale version VERSION_CONFLICT;
+    an inference on a file still profiling SOURCE_FILE_PROFILE_NOT_READY, without a file
+    SOURCE_FILE_NOT_FOUND."""
+    draft, _, _, _ = _inferred(world)
+    proposals = _by_pattern(_proposals(world, draft))
+    missing = refused(_application(world, draft, [proposals["keyColumn"]["id"]]), 422, "PROPOSAL_REQUIREMENT_MISSING")
+    assert missing["details"]["requirement"] == proposals["newApplication"]["id"]
+    both = ok(_application(world, draft, [proposals["keyColumn"]["id"], proposals["newApplication"]["id"]]))
+    order = sorted({(e["step"], e["origin"]["proposalId"]) for e in both["entries"]})
+    assert [proposal for _, proposal in order] == [proposals["newApplication"]["id"], proposals["keyColumn"]["id"]]
+    refused(_application(world, draft, [str(uuid4())]), 404, "PROPOSAL_NOT_FOUND")
+    refused(_application(world, draft, [proposals["externalId"]["id"]], version=1), 409, "VERSION_CONFLICT")
+
+    waiting = _draft(world)
+    ok(_upload(world, {"draftId": waiting["id"]}, "catalogue.xlsx", workbooks.w1(rows=20).content), 201)
+    refused(world.api.post(f"/model-drafts/{waiting['id']}/inference", {"mode": "newApplication"}), 409, "SOURCE_FILE_PROFILE_NOT_READY")
+    _run(world)
+    bare = _draft(world)
+    refused(world.api.post(f"/model-drafts/{bare['id']}/inference", {"mode": "newApplication"}), 404, "SOURCE_FILE_NOT_FOUND")
+
+
+@pytest.mark.journey("J34.5")
+@pytest.mark.structures("K")
+def test_extending_the_active_model_maps_columns_onto_what_exists_and_adds_no_duplicate(world):
+    """Given an active model with a type named as S1 binding a unique attribute named as K's
+    header, an unbound attribute type named as X's, and a list type whose records are named as T's
+    values. When the inference runs in extend mode and is applied. Then S1 loads that type, K and
+    X map to those attributes, T relates to that list, and nothing is added twice."""
+    workspace = _workspace(world)
+    book = workbooks.w1(rows=200)
+    first = _draft(world)
+    app = world.app("K")
+    _apply(
+        world,
+        first,
+        {"kind": "addObjectType", "applicationKey": app, "key": "j34-item", "name": "Item", "pluralName": workbooks.S1, "parent": None},
+        {"kind": "addAttributeType", "key": "j34-code", "name": book.header("K"), "valueType": "text", "features": {"unique": True}},
+        {"kind": "attachAttribute", "objectType": "j34-item", "attributeType": "j34-code"},
+        {"kind": "addAttributeType", "key": "j34-supplier", "name": book.header("X"), "valueType": "text", "features": {"unique": True}},
+        {"kind": "addObjectType", "applicationKey": app, "key": "j34-substance", "name": "Substance", "pluralName": "Substances", "parent": None},
+    )
+    release = _install(world, first)
+    ok(world.activate(release["id"]))
+    for name in sorted(book.distinct("T") - set(workbooks.PLACEHOLDERS)):
+        body = {"workspaceKey": workspace, "applicationKey": app, "objectTypeKey": "j34-substance", "name": name, "attributes": []}
+        ok(world.api.post("/objects", body), 201)
+
+    draft = _draft(world)
+    _profiled(world, {"draftId": draft["id"]}, "catalogue.xlsx", book.content, workspaceKey=workspace)
+    _infer(world, draft, mode="extend")
+    answer = ok(_application(world, draft))
+    assert answer["valid"] is True, answer["diagnostics"]
+    profile = _draft_profile(world, draft)["profile"]
+    items = next(s for s in profile["sources"] if s["sheet"] == workbooks.S1 and s["objectTypeKey"] == "j34-item")
+    bound = _bindings(profile, items["id"])
+    assert bound[book.header("K")]["attributeTypeKey"] == "j34-code"
+    assert bound[book.header("X")]["attributeTypeKey"] == "j34-supplier"
+    assert bound[book.header("T")]["relation"]["objectTypeKey"] == "j34-substance"
+    model = ok(world.api.get(f"/model-drafts/{draft['id']}/model"))["model"]
+    item = next(t for t in model["objectTypes"] if t["key"] == "j34-item")
+    assert "j34-supplier" in {b["attributeTypeKey"] for b in item["attributes"]}
+    headers = set(book.headers.values())
+    names = [a["name"] for a in model["attributeTypes"] if a["name"] in headers]
+    assert len(names) == len(set(names)), names
+    assert book.header("T") not in {t["name"] for t in model["objectTypes"]}
+
+
+@pytest.mark.journey("J34.5")
+@pytest.mark.structures("K")
+def test_extending_relates_an_id_column_to_the_records_already_holding_its_values(world):
+    """D96 (added in A6a beside the approved cases, to cover the decision): given an active model
+    with a type under a parent type holding a unique attribute, and records of it under one parent
+    record holding W1's X values, when the inference runs in extend mode and is applied, then X
+    relates each item to the record holding its value, matched by the attribute, and the dry run
+    refuses no row."""
+    workspace = _workspace(world)
+    book = workbooks.w1(rows=60)
+    app = world.app("K")
+    first = _draft(world)
+    _apply(
+        world,
+        first,
+        {"kind": "addObjectType", "applicationKey": app, "key": "j34-system", "name": "System", "pluralName": "Systems", "parent": None},
+        {
+            "kind": "addObjectType",
+            "applicationKey": app,
+            "key": "j34-mapping",
+            "name": "Mapping",
+            "pluralName": "Mappings",
+            "parent": {"objectTypes": ["j34-system"], "relationType": {"name": "Holds", "reverseName": "Held by", "key": "j34-system-holds"}},
+        },
+        {"kind": "addAttributeType", "key": "j34-external", "name": "External ID", "valueType": "text", "features": {"unique": True}},
+        {"kind": "attachAttribute", "objectType": "j34-mapping", "attributeType": "j34-external"},
+    )
+    release = _install(world, first)
+    ok(world.activate(release["id"]))
+    system = str(uuid4())
+    items = [{"op": "create", "id": system, "applicationKey": app, "objectTypeKey": "j34-system", "name": "Supplier system", "attributes": []}]
+    items += [
+        {
+            "op": "create",
+            "applicationKey": app,
+            "objectTypeKey": "j34-mapping",
+            "name": value,
+            "parent": {"id": system},
+            "attributes": [{"attributeTypeKey": "j34-external", "value": value}],
+        }
+        for value in sorted(book.distinct("X"))
+    ]
+    result = ok(world.api.post("/batches", {"workspaceKey": workspace, "policy": "atomic", "run": "inline", "items": items}))
+    assert result["job"]["result"] == "applied", result["job"]
+
+    draft = _draft(world)
+    _profiled(world, {"draftId": draft["id"]}, "catalogue.xlsx", book.content, workspaceKey=workspace)
+    _infer(world, draft, mode="extend")
+    external = _by_pattern(_proposals(world, draft))["externalId"]
+    answer = ok(_application(world, draft))
+    assert answer["valid"] is True, answer["diagnostics"]
+    profile = _draft_profile(world, draft)["profile"]
+    items_source = next(s for s in profile["sources"] if any(b.get("column") == book.header("K") for b in s["columns"]) and s.get("key"))
+    relation = _bindings(profile, items_source["id"])[book.header("X")]["relation"]
+    assert (relation["objectTypeKey"], relation["matchBy"]) == ("j34-mapping", {"attributeTypeKey": "j34-external"})
+    assert external["columns"] == [book.header("X")] and "Supplier system" in external["summary"]
+    summary = _summary_of(world, draft, answer)
+    assert all(s["rejections"] == [] for s in summary["sources"]), summary["sources"]
+
+
+@pytest.mark.journey("J34.6")
+@pytest.mark.structures("K")
+def test_proposing_again_follows_the_engines_proposals_and_leaves_the_administrators_decisions(world):
+    """After applying, taking T's alternative, renaming the parent type and undoing the
+    translations, W1′ is uploaded and the inference runs and is applied again: the new column Y is
+    mapped by a proposal step; the colour name binding, still the engine's, follows Ln's new
+    header; T keeps its attribute with one INFERENCE_DISAGREES naming the step that decided it;
+    the parent type keeps its name; the translations are not applied again."""
+    draft, book, _, workspace = _inferred(world)
+    proposals = _by_pattern(_proposals(world, draft))
+    entries = ok(_application(world, draft))["entries"]
+    decided = _step(world, draft, *proposals["textLookup"]["alternatives"][0]["operations"])["entries"][0]["step"]
+    parent = _created(entries, proposals, "repeatedParent", "addObjectType")[0]["key"]
+    _step(world, draft, {"kind": "setLabel", "element": {"objectType": parent}, "name": "Product group"})
+    translations = next(e["step"] for e in entries if e["origin"].get("proposalId") == proposals["translationsByRow"]["id"])
+    ok(world.api.post(f"/model-drafts/{draft['id']}/undo", {"expectedVersion": _version(world, draft), "step": translations}))
+
+    newer = workbooks.w1_next(rows=200)
+    _profiled(world, {"draftId": draft["id"]}, "catalogue-v2.xlsx", newer.content, workspaceKey=workspace)
+    read = _infer(world, draft)
+    (disagreement,) = read["disagreements"]
+    assert (disagreement["column"], disagreement["step"]) == (newer.header("T"), decided)
+    again = _by_pattern(_proposals(world, draft))
+    assert again["translationsByRow"]["status"] == "rejected"
+    answer = ok(_application(world, draft))
+    assert answer["valid"] is True, answer["diagnostics"]
+    assert {e["origin"]["type"] for e in answer["entries"]} == {"proposal"}
+
+    profile = _draft_profile(world, draft)
+    items = next(s for s in profile["profile"]["sources"] if any(b.get("column") == newer.header("K") for b in s["columns"]) and s.get("key"))
+    assert newer.header("Y") in _bindings(profile["profile"], items["id"])
+    assert "attributeTypeKey" in _bindings(profile["profile"], items["id"])[newer.header("T")]
+    colour = _created(entries, proposals, "codeAndName", "addObjectType")[0]["key"]
+    colours = next(s for s in profile["profile"]["sources"] if s["objectTypeKey"] == colour)
+    columns = _bindings(profile["profile"], colours["id"])
+    assert columns[newer.header("Ln")].get("field") == "name"
+    assert book.header("Ln") not in columns
+    assert not any(s["sheet"] == workbooks.S2 for s in profile["profile"]["sources"])
+    model = ok(world.api.get(f"/model-drafts/{draft['id']}/model"))["model"]
+    assert next(t for t in model["objectTypes"] if t["key"] == parent)["name"] == "Product group"
+    warnings = {d["code"] for d in profile["diagnostics"]}
+    assert "INFERENCE_DISAGREES" in warnings
+
+
+@pytest.mark.journey("J27.8")
+@pytest.mark.structures("K")
+def test_an_import_creates_the_parents_of_related_records_and_the_records_flags_stand_for(world):
+    """Given an inline profile whose translation column creates the language it names and whose
+    flag columns create the records they stand for (D93). When W1 is imported. Then each language
+    and each flag record is created once, with every translation and flagged relationship."""
+    workspace = _workspace(world)
+    book = workbooks.w1(rows=40)
+    app = world.app("K")
+    draft = _draft(world)
+    _apply(
+        world,
+        draft,
+        {"kind": "addObjectType", "applicationKey": app, "key": "j34-item", "name": "Item", "pluralName": "Items", "parent": None},
+        {"kind": "addAttributeType", "key": "j34-code", "name": "Item code", "valueType": "text", "features": {"unique": True}},
+        {"kind": "attachAttribute", "objectType": "j34-item", "attributeType": "j34-code"},
+        {"kind": "addObjectType", "applicationKey": app, "key": "j34-language", "name": "Language", "pluralName": "Languages", "parent": None},
+        {
+            "kind": "addObjectType",
+            "applicationKey": app,
+            "key": "j34-translation",
+            "name": "Translation",
+            "pluralName": "Translations",
+            "parent": {"objectTypes": ["j34-language"], "relationType": {"name": "Contains", "reverseName": "In", "key": "j34-language-contains"}},
+        },
+        {"kind": "addRelationType", "key": "j34-translated", "name": "Has translation", "reverseName": "Translation of"},
+        {"kind": "allowRelation", "relationType": "j34-translated", "from": "j34-item", "to": "j34-translation", "cardinality": "one-to-many"},
+        {"kind": "addObjectType", "applicationKey": app, "key": "j34-feature", "name": "Feature", "pluralName": "Features", "parent": None},
+        {"kind": "addRelationType", "key": "j34-has-feature", "name": "Has feature", "reverseName": "Feature of"},
+        {"kind": "allowRelation", "relationType": "j34-has-feature", "from": "j34-item", "to": "j34-feature"},
+    )
+    release = _install(world, draft)
+    ok(world.activate(release["id"]))
+    h = book.header
+    s2 = workbooks.S2_HEADERS
+    profile = {
+        "sources": [
+            {
+                "sheet": workbooks.S1,
+                "applicationKey": app,
+                "objectTypeKey": "j34-item",
+                "key": {"attributeTypeKey": "j34-code"},
+                "columns": [
+                    {"column": h("K"), "attributeTypeKey": "j34-code"},
+                    {"column": h("N"), "field": "name"},
+                    {
+                        "columns": [h("F1"), h("F2")],
+                        "relationFlags": {
+                            "relationTypeKey": "j34-has-feature",
+                            "objectTypeKey": "j34-feature",
+                            "matchBy": {"field": "name"},
+                            "targets": {h("F1"): h("F1"), h("F2"): h("F2")},
+                            "missing": "create",
+                        },
+                    },
+                ],
+            },
+            {
+                "sheet": workbooks.S2,
+                "applicationKey": app,
+                "objectTypeKey": "j34-item",
+                "record": "existing",
+                "key": {"attributeTypeKey": "j34-code"},
+                "columns": [
+                    {"column": s2["K"], "attributeTypeKey": "j34-code"},
+                    {
+                        "column": s2["N"],
+                        "relatedRecord": {
+                            "relationTypeKey": "j34-translated",
+                            "applicationKey": app,
+                            "objectTypeKey": "j34-translation",
+                            "parent": {"objectTypeKey": "j34-language", "matchBy": {"field": "name"}, "column": s2["Lang"], "missing": "create"},
+                            "field": "name",
+                        },
+                    },
+                ],
+            },
+        ]
+    }
+    request = {"workspaceKey": workspace, "profile": profile, "policy": "independent", "onExisting": "overwrite", "stage": "execute"}
+    job = ok(world.api.upload("/imports", {"file": ("catalogue.xlsx", book.content, XLSX)}, {"request": json.dumps(request)}), 202)
+    _run(world)
+    done = ok(world.api.get(f"/jobs/{job['id']}"))
+    assert (done["state"], done["counts"]["rejected"]) == ("completed", 0), done
+    assert _total(world, "j34-language", workspace) == len(workbooks.LANGUAGES)
+    assert _total(world, "j34-translation", workspace) == len(book.names)
+    flagged = {h(f) for f in ("F1", "F2") if any(row[f] == "Y" for row in book.rows)}
+    assert _total(world, "j34-feature", workspace) == len(flagged)
+
+
+@pytest.mark.journey("J34.6")
+@pytest.mark.structures("K")
+def test_proposing_again_on_the_same_workbook_applies_nothing(world):
+    """Regression (A6b's browser runner): proposing again on the unchanged workbook after an
+    alternative taken left the name drift's value map in place and offered nothing; it used to
+    re-apply the colour list's name binding, dropping the drift's value map, and the dry run then
+    refused the rows of the drifting names."""
+    draft, _, _, _ = _inferred(world)
+    proposals = _by_pattern(_proposals(world, draft))
+    _summary_of(world, draft, ok(_application(world, draft)))
+    _step(world, draft, *proposals["textLookup"]["alternatives"][0]["operations"])
+    again = _infer(world, draft)
+    assert again["counts"]["open"] == 0, [p for p in _proposals(world, draft) if p["status"] == "open"]
+    refused(_application(world, draft), 409, "NOTHING_TO_APPLY")
+
+
+@pytest.mark.journey("J34.4")
+@pytest.mark.structures("K")
+def test_a_workbook_with_nothing_to_propose_leaves_the_draft_as_it_was(world):
+    """Regression (reported on a real workbook, 2026-10-14): when every sheet is laid out for
+    reading, the inference proposes nothing, says why, and applying is NOTHING_TO_APPLY; it used to
+    propose the new application alone, and applying it left the draft refusing an application
+    without types."""
+    workspace = _workspace(world)
+    draft = _draft(world)
+    _profiled(world, {"draftId": draft["id"]}, "lists.xlsx", workbooks.w3().content, workspaceKey=workspace)
+    read = _infer(world, draft)
+    assert read["counts"] == {"open": 0, "applied": 0, "held": 0, "rejected": 0}
+    assert any("laid out for reading" in warning for warning in read["warnings"])
+    assert any("nothing is proposed" in warning for warning in read["warnings"])
+    assert _proposals(world, draft) == []
+    refused(_application(world, draft), 409, "NOTHING_TO_APPLY")
+    assert ok(world.api.get(f"/model-drafts/{draft['id']}/outline"))["valid"] is True
+
+
+@pytest.mark.journey("J34.4")
+@pytest.mark.structures("K")
+def test_a_table_with_a_note_beside_it_is_read_by_the_table(world):
+    """Reported on a real workbook (2026-10-14): a sheet whose table has a small block beside it
+    proposed nothing. Given W1 with a two-column note block right of S1's table, the inference reads
+    S1 by its table, names the note block in its warnings, every source on S1 loads from the table's
+    block, and the applied draft's dry run refuses no row."""
+    import io
+
+    from openpyxl import load_workbook
+
+    book = workbooks.w1(rows=200)
+    sheet_book = load_workbook(io.BytesIO(book.content))
+    sheet = sheet_book[workbooks.S1]
+    last = len(book.headers)
+    sheet.cell(row=2, column=last + 2, value="Note")
+    sheet.cell(row=2, column=last + 3, value="By")
+    for row in range(3, 23):
+        sheet.cell(row=row, column=last + 2, value=f"checked {row}")
+        sheet.cell(row=row, column=last + 3, value="desk")
+    content = io.BytesIO()
+    sheet_book.save(content)
+
+    workspace = _workspace(world)
+    draft = _draft(world)
+    _profiled(world, {"draftId": draft["id"]}, "catalogue.xlsx", content.getvalue(), workspaceKey=workspace)
+    read = _infer(world, draft)
+    assert any(f"Sheet '{workbooks.S1}' is read by its table" in warning for warning in read["warnings"])
+    proposals = _by_pattern(_proposals(world, draft))
+    assert proposals["keyColumn"]["columns"][0] == book.header("K")
+    answer = ok(_application(world, draft))
+    profile = _draft_profile(world, draft)["profile"]
+    on_sheet = [s for s in profile["sources"] if s["sheet"] == workbooks.S1]
+    assert on_sheet and all(s.get("block", {}).get("lastColumn") == "L" for s in on_sheet), on_sheet
+    summary = _summary_of(world, draft, answer)
+    assert all(s["rejections"] == [] for s in summary["sources"]), summary["sources"]

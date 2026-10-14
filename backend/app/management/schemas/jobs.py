@@ -203,7 +203,7 @@ class JobResponse(BaseModel):
     """
 
     id: str
-    kind: Literal["batch", "import", "export", "profile", "dryRun"]
+    kind: Literal["batch", "import", "export", "profile", "dryRun", "inference"]
     workspaceKey: str
     changeSetId: str | None
     changeSetVersion: int | None

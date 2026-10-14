@@ -132,9 +132,13 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # administration's, outside the default document). Re-baselined for 0.10 A5a: ParentBinding's and
     # RelationBinding's optional missing (refuse or create, D77). Diffed against HEAD, nothing else
     # changed (the draft profile route and the step's dryRun are model administration's).
+    # Re-baselined for 0.10 A6a: FlagsBinding's and RelatedParent's optional missing (D93), the job
+    # kind inference on JobResponse and the job list's kind filter, and a profiled column's values
+    # (SourceColumnResponse) and valuesListed (SourceColumnLimits). Diffed against HEAD, nothing
+    # else changed (the inference routes are model administration's).
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "04463d1dd1c6d767dfce408ba54e88e3a506f98f6b9ddebd354c658f8938a13c"
+        "e3b89030ba3699db77c1c011c4b808937b869fb8c708b4d2dd0639f86a120655"
     )
 
 
@@ -326,6 +330,9 @@ def test_base_0_5_enabled_openapi_exposes_guarded_activation(monkeypatch):
         # 0.10 A3: a draft's dry run and the rows behind it (D65–D67).
         "/api/v1/model-drafts/{draft_id}/dry-run": frozenset({"get", "post"}),
         "/api/v1/model-drafts/{draft_id}/dry-run/rows": frozenset({"get"}),
+        "/api/v1/model-drafts/{draft_id}/inference": frozenset({"get", "post"}),
+        "/api/v1/model-drafts/{draft_id}/inference/proposals": frozenset({"get"}),
+        "/api/v1/model-drafts/{draft_id}/inference/application": frozenset({"post"}),
     }
 
 

@@ -42,6 +42,7 @@ not authorization ([ADR-031](DECISIONS.md#adr-031--workspace-terminology-and-dep
 | `WORKSPACE_ADMIN_MUTATIONS_ENABLED` | on | Workspace create, rename, retire, reactivate, delete and default switching. Turn it off on an API exposed outside a trusted environment unless an access-control layer protects it |
 | `INTEGRATION_JOBS_ENABLED` | on | Job creation (`POST /api/v1/batches`) and cancellation. Job reads stay registered |
 | `CONSUMER_SUBSCRIPTIONS_ENABLED` | off | The webhook subscriptions API (`/api/v1/consumer-subscriptions`), reads included, and from 0.9 C12 their delivery. Requires `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`; startup refuses without it. Turned off, stored subscriptions are kept and continue when it is turned on again |
+| `INFERENCE_ASSISTANT` | empty | The optional assistant of a model draft's inference (0.10 A6, D95), as `package.module:function`, a factory returning an object with `suggest(request)`. Empty, nothing is sent anywhere. Configured, each inference sends it every sheet's headers and at most `INFERENCE_ASSISTANT_ROWS` rows, and the types its proposals add; its label suggestions become proposals, never applied unasked. No provider is bundled; a failing assistant is a warning on the inference |
 
 Always available: installed-release reads, diff and inline validation; workspace discovery; the
 change-set workflow (create, edit, validate, publish, discard) and publication withdrawal. Retired
@@ -64,6 +65,7 @@ Reported under `integrationJobs` by `GET /api/v1/capabilities`; a request over a
 | `IMPORT_MAX_BYTES` | 200 MB | An import's file (`POST /api/v1/imports`); a larger one is `413 IMPORT_TOO_LARGE`, and the request's body is held on disk while it is read. An import's items count against `BACKGROUND_JOB_MAX_ITEMS` and, `atomic`, `ATOMIC_JOB_MAX_ITEMS` (`IMPORT_TOO_MANY_ITEMS`) |
 | `JOB_PREVIEW_MAX_ITEMS` | 10,000 | The items a preview runs, an import's (`stage: preview`, 0.9 J3) or a batch's (0.9 K2); beyond them the preview is a `sample`. Named `IMPORT_PREVIEW_MAX_ITEMS` before 0.9 K2, which renamed it without an alias. The preview holds its workspace's write lock (or its change set's claim) while it runs, so a larger value makes other writes in that workspace wait longer once per preview |
 | `MODEL_OPERATION_MAX_ITEMS` | 500 | Operations in one request to a model draft (`POST /model-drafts/{id}/operations`, 0.10 A2); more is `413 OPERATION_BATCH_TOO_LARGE`. A request is one step of the draft's history and is applied and validated as a whole, so a larger value makes one step slower to apply and to undo |
+| `INFERENCE_ASSISTANT_ROWS` | 20 | Rows of each sheet an inference sends the assistant, when `INFERENCE_ASSISTANT` names one |
 | `JOB_CHUNK_ITEMS` | 500 | Items one background chunk commits |
 | `JOB_LEASE_SECONDS` | 120 | A worker's lease on a job, renewed each chunk |
 | `JOB_RETENTION_DAYS` | 7 | How long a finished job keeps its outcomes and idempotency key |

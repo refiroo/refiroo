@@ -76,6 +76,8 @@ export interface SourceColumn {
   candidateKey: boolean;
   delimiters: { character: string; cells: number; share: number }[];
   placeholders: { value: string; count: number }[];
+  /** The most frequent values with their counts (0.10 A6); absent on a file profiled before. */
+  values?: { value: string; count: number }[];
   overlaps: SourceOverlap[];
 }
 
@@ -95,6 +97,27 @@ export interface ProfileRelation {
   targets?: Record<string, string>;
 }
 
+/**
+ * A record related to the row's record under a parent record (a translation under its language),
+ * whose name or one attribute the column fills (D70; the parent created by name, 0.10 A6, D93).
+ */
+export interface ProfileRelatedRecord {
+  relationTypeKey?: string;
+  direction?: "outgoing" | "incoming";
+  applicationKey?: string;
+  objectTypeKey?: string;
+  parent?: {
+    objectTypeKey?: string;
+    matchBy?: { field?: string; attributeTypeKey?: string };
+    value?: string;
+    column?: string;
+    missing?: "create";
+  };
+  field?: "name";
+  attributeTypeKey?: string;
+  matchBy?: { attributeTypeKey?: string };
+}
+
 /** One column binding of a source, in the import profile's vocabulary (API.md, import profiles). */
 export interface ProfileBinding {
   column?: string;
@@ -104,7 +127,7 @@ export interface ProfileBinding {
   parent?: ProfileRelation;
   relation?: ProfileRelation;
   relationFlags?: ProfileRelation;
-  relatedRecord?: Record<string, unknown>;
+  relatedRecord?: ProfileRelatedRecord;
   ignore?: boolean;
   valueMap?: string | null;
 }
@@ -188,4 +211,54 @@ export interface DryRun {
     ranAt: string;
   } | null;
   error: { code: string; message: string } | null;
+}
+
+/** What an inference proposes from (0.10 A6, D87): a new application, or additions to the model. */
+export interface InferenceRequest {
+  mode: "newApplication" | "extend";
+  applicationKey?: string;
+  applicationName?: string;
+}
+
+/** A column the draft reads otherwise than a pattern does (D92). */
+export interface InferenceDisagreement {
+  proposalId: string;
+  pattern: string;
+  sheet: string | null;
+  column: string;
+  source: string;
+  binding: string;
+  proposed: string;
+  found: string;
+  step: number | null;
+}
+
+/** `GET /model-drafts/{id}/inference`: the draft's latest inference. */
+export interface Inference {
+  jobId: string;
+  state: "checking" | "completed" | "failed" | "cancelled" | "expired";
+  mode: InferenceRequest["mode"];
+  draftVersion: number;
+  sourceFileId: string;
+  counts: { open: number; applied: number; held: number; rejected: number };
+  disagreements: InferenceDisagreement[];
+  warnings: string[];
+  /** The elements still as a proposal step left them: the engine's, until changed (D92). */
+  proposed: { element: string; proposalId: string | null; pattern: string | null }[];
+  error: { code: string; message: string } | null;
+}
+
+/** A proposal of the latest inference (D89, D90). */
+export interface Proposal {
+  id: string;
+  position: number;
+  pattern: string;
+  sheet: string | null;
+  columns: string[];
+  summary: string;
+  evidence: Record<string, unknown>;
+  operations: { kind: string; [name: string]: unknown }[];
+  alternatives: { label: string; operations: { kind: string; [name: string]: unknown }[] }[];
+  requires: string[];
+  status: "open" | "applied" | "held" | "rejected";
 }

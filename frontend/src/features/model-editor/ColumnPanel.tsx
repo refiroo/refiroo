@@ -5,10 +5,11 @@
  * source. Each change is one step; Map to… and Ignore act on the whole column.
  */
 
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 import type { DraftOperation, DryRun, ModelDraftOutline, SourceColumn } from "@/types";
 import type { DraftSource } from "@/features/model-editor/useDraftSource";
 import { StatusPill } from "@/ui/StatusPill";
+import { ProposedPill } from "@/features/model-editor/ProposedBecause";
 import { typeName, attributeTypeOf } from "@/features/model-editor/outline";
 import {
   columnState,
@@ -23,9 +24,10 @@ import {
   type ColumnUse,
 } from "@/features/model-editor/mapping";
 
-const TONES: Record<ColumnStatus, "success" | "neutral" | "warning"> = {
+const TONES: Record<ColumnStatus, "success" | "neutral" | "warning" | "proposed"> = {
   key: "success",
   mapped: "success",
+  proposed: "proposed",
   unmapped: "neutral",
   ignored: "neutral",
   issue: "warning",
@@ -50,7 +52,10 @@ export function ColumnPanel({
   onMap,
   onValueMap,
   onRows,
+  proposed,
 }: {
+  /** Why the column is mapped as it is, while it is still as proposed (0.10 A6b, D94). */
+  proposed?: ReactNode;
   sheet: string;
   header: string;
   source: DraftSource;
@@ -94,7 +99,11 @@ export function ColumnPanel({
             Column {column?.letter ?? ""} of {sheet}
           </p>
           <h2 id="element-title">{header}</h2>
-          <StatusPill tone={TONES[state.status]}>{STATUS_LABELS[state.status]}</StatusPill>
+          {proposed && state.status !== "issue" ? (
+            <ProposedPill />
+          ) : (
+            <StatusPill tone={TONES[state.status]}>{STATUS_LABELS[state.status]}</StatusPill>
+          )}
         </div>
         <div className="element-actions">
           <button type="button" className="primary" onClick={onMap} disabled={busy}>
@@ -117,6 +126,8 @@ export function ColumnPanel({
           )}
         </div>
       </header>
+
+      {proposed}
 
       {state.issues.length > 0 && (
         <ul className="column-issues">
@@ -291,6 +302,20 @@ export function ColumnPanel({
                   .join(" · ") || "—"}
               </dd>
             </div>
+            {(column.values ?? []).length > 0 && (
+              <div>
+                <dt>Most frequent values</dt>
+                <dd>
+                  <ul className="plain-list column-values">
+                    {(column.values ?? []).map((item) => (
+                      <li key={item.value}>
+                        <span>{item.value}</span> <span className="muted">{item.count} rows</span>
+                      </li>
+                    ))}
+                  </ul>
+                </dd>
+              </div>
+            )}
             {column.placeholders.length > 0 && (
               <div>
                 <dt>Placeholders</dt>

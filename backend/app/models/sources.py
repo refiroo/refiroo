@@ -1,4 +1,5 @@
-"""Source files and the dry run: what a client sends (Product 0.10 A3, API.md § Model authoring).
+"""Source files, the dry run and the inference: what a client sends (Product 0.10 A3, A6, API.md
+§ Model authoring).
 
 A source file belongs to a model draft or an import profile (D5). A dry run names a draft's source
 file and the import profile to bind it with (D65), and runs the import against the draft's model in
@@ -50,3 +51,26 @@ class DryRunRequest(BaseModel):
     workspaceKey: str = Field(min_length=1)
     profile: InlineProfile
     onExisting: Literal["reject", "overwrite"] = "reject"
+
+
+class InferenceRequest(BaseModel):
+    """``POST /model-drafts/{id}/inference`` (0.10 A6, D87): what the table patterns propose for
+    the draft's current source file: a new application (named ``applicationName``, by default after
+    the file, keyed ``applicationKey`` when given), or additions to the draft's model, new types
+    going into ``applicationKey`` (by default the application most matched types are in, D91)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    mode: Literal["newApplication", "extend"]
+    applicationKey: str | None = Field(default=None, min_length=1)
+    applicationName: str | None = Field(default=None, min_length=1)
+
+
+class InferenceApplicationRequest(BaseModel):
+    """``POST /model-drafts/{id}/inference/application`` (D89): the proposals of the draft's latest
+    inference to apply, each its own step; by default every one that is open."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    expectedVersion: int = Field(ge=1)
+    proposals: list[str] | None = Field(default=None, min_length=1)

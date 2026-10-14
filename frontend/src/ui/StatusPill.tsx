@@ -1,12 +1,14 @@
 import type { ReactNode } from "react";
 
-export type StatusTone = "live" | "changeSet" | "publication" | "draft" | "success" | "warning" | "error" | "neutral";
+export type StatusTone =
+  "live" | "changeSet" | "publication" | "draft" | "proposed" | "success" | "warning" | "error" | "neutral";
 
 const TONE_CLASS: Record<StatusTone, string> = {
   live: "tone-live",
   changeSet: "tone-change-set",
   publication: "tone-publication",
   draft: "tone-draft",
+  proposed: "tone-proposed",
   success: "tone-success",
   warning: "tone-warning",
   error: "tone-error",

@@ -81,6 +81,9 @@ import type {
   RestructuringResult,
   DraftProfile,
   DryRun,
+  Inference,
+  InferenceRequest,
+  Proposal,
   SourceColumn,
   SourceFile,
   SourceFileUpload,
@@ -510,6 +513,36 @@ export const api = {
     setPaging(params, query);
     return request<JobRowPage>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/dry-run/rows?${params}`);
   },
+  /** Propose a model and its mapping from the draft's workbook (0.10 A6, D87); applies nothing. */
+  proposeFromWorkbook: (draftId: string, body: InferenceRequest) =>
+    request<Inference>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/inference`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  /** The draft's latest inference (D87). */
+  modelDraftInference: (draftId: string) =>
+    request<Inference>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/inference`),
+  /** Every proposal of the draft's latest inference, in the order they apply. */
+  modelDraftProposals: async (draftId: string) => {
+    const items: Proposal[] = [];
+    let cursor: string | null = null;
+    do {
+      const params = new URLSearchParams({ pageSize: "500" });
+      if (cursor) params.set("cursor", cursor);
+      const page: SourcePage<Proposal> = await request<SourcePage<Proposal>>(
+        `/api/v1/model-drafts/${encodeURIComponent(draftId)}/inference/proposals?${params}`,
+      );
+      items.push(...page.items);
+      cursor = page.nextCursor;
+    } while (cursor);
+    return items;
+  },
+  /** Apply the latest inference's proposals (every open one by default), one step each (D89). */
+  applyProposals: (draftId: string, expectedVersion: number, proposals?: string[]) =>
+    request<ModelDraftStep>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/inference/application`, {
+      method: "POST",
+      body: JSON.stringify({ expectedVersion, ...(proposals ? { proposals } : {}) }),
+    }),
   /** Queue an export (0.9 J1); the answer is the queued job. */
   createExport: (body: ExportRequest) =>
     request<Job>("/api/v1/exports", { method: "POST", body: JSON.stringify(body) }),

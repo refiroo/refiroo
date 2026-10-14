@@ -11,6 +11,7 @@ import { HueTile } from "@/ui/HueTile";
 import { Icon } from "@/ui/Icon";
 import { Tabs } from "@/ui/Tabs";
 import { MarkPill } from "@/features/model-editor/MarkPill";
+import { ProposedPill } from "@/features/model-editor/ProposedBecause";
 import { EditorTable, type EditorColumn } from "@/features/model-editor/EditorTable";
 import { YES_NO } from "@/features/model-editor/EditableCell";
 import { describeCandidates } from "@/features/model-editor/candidates";
@@ -48,6 +49,7 @@ export function Header({
   tile,
   title,
   mark,
+  proposed,
   facts,
   rename,
   outline,
@@ -56,6 +58,8 @@ export function Header({
   tile?: ReactNode;
   title: string;
   mark?: OutlineMark;
+  /** Still as the inference proposed it (0.10 A6b): marked Proposed in place of its mark. */
+  proposed?: boolean;
   facts: ReactNode;
   /** The name is edited in place as a record's title is; saving is one `setLabel` step. */
   rename: (name: string) => Promise<StepOutcome>;
@@ -71,7 +75,7 @@ export function Header({
           value={title}
           outline={outline}
           onSave={rename}
-          after={mark && <MarkPill mark={mark} />}
+          after={proposed ? <ProposedPill /> : mark && <MarkPill mark={mark} />}
         />
         {facts}
       </div>
@@ -128,9 +132,12 @@ export function ElementPanel({
   onSelect,
   run,
   onPreview,
+  proposed,
 }: {
   outline: ModelDraftOutline;
   selection: EditorSelection;
+  /** Why the selected element is as it is, while it is still as proposed (0.10 A6b, D94). */
+  proposed?: ReactNode;
   tab: string;
   onTab: (tab: string) => void;
   /** The element's operations menu, opened from the model pane by Shift+F10. */
@@ -237,6 +244,7 @@ export function ElementPanel({
           outline={outline}
           rename={(name) => run([{ kind: "setLabel", element: { objectType: type.key }, name }])}
           mark={type.mark}
+          proposed={Boolean(proposed)}
           facts={keyFacts(type.key, type.mark)}
         >
           <button type="button" className="secondary" onClick={onPreview}>
@@ -244,6 +252,7 @@ export function ElementPanel({
           </button>
           {menu(`Operations for ${type.name}`, target)}
         </Header>
+        {proposed}
         <p className="element-place">
           {placeOf(outline, type)}
           {apps.length ? ` · in ${apps.map((a) => a.name).join(", ")}` : " · in no application"}
@@ -630,6 +639,7 @@ export function ElementPanel({
           outline={outline}
           rename={(name) => run([{ kind: "setLabel", element: { relationType: relationType.key }, name }])}
           mark={relationType.mark}
+          proposed={Boolean(proposed)}
           facts={keyFacts(relationType.key, relationType.mark, [
             ...(relationType.reverseKey
               ? [{ icon: "arrow-left" as const, label: <code>{relationType.reverseKey}</code>, title: "Reverse key" }]
@@ -641,6 +651,7 @@ export function ElementPanel({
         >
           {menu(`Operations for ${relationType.name}`, target)}
         </Header>
+        {proposed}
         <h3 className="element-subheading">Names</h3>
         <dl className="element-names">
           <div>
@@ -729,6 +740,7 @@ export function ElementPanel({
           outline={outline}
           rename={(name) => run([{ kind: "setLabel", element: { attributeType: attributeType.key }, name }])}
           mark={attributeType.mark}
+          proposed={Boolean(proposed)}
           facts={keyFacts(attributeType.key, attributeType.mark, [
             { icon: "type", label: valueTypeLabel(attributeType.valueType), title: "Value type" },
             ...features.map((name) => ({ icon: "check" as const, label: name[0].toUpperCase() + name.slice(1) })),
@@ -736,6 +748,7 @@ export function ElementPanel({
         >
           {menu(`Operations for ${attributeType.name}`, target)}
         </Header>
+        {proposed}
         <h3 className="element-subheading">Attached to</h3>
         <EditorTable
           editing={editing}

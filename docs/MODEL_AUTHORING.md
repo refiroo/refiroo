@@ -84,10 +84,14 @@ allowed pairs; generic detail panels). This design removes the reason for the fi
   profile and kept in the job file directory (0.10 plan D5), with its checksum, and its **profile**: sheets, header rows, blocks, columns and their statistics.
 - **Import profile.** The declarative mapping from a source file's sheets and columns to model elements.
   It is what the 0.9 import job executes, and it replaces the per-upload script.
-- **Inference.** Detects patterns in a source profile and proposes operations. Its proposals are
-  offered, not applied; accepting one applies its operations.
-- **Pinned decision.** An element the administrator has changed or confirmed. Re-running inference, or
-  profiling a new version of the workbook, never overrides a pinned decision; it reports disagreements.
+- **Inference.** Detects patterns in a source profile and proposes operations. Asked for, it writes
+  its proposals into the draft as steps of the history, one per proposal (0.10 A6, D89, D94); after
+  that everything is editing, and each proposal can be undone, changed or replaced by its
+  alternative.
+- **Pinned decision.** An element the administrator has changed: any step other than a proposal's
+  makes it theirs, for good. Re-running inference, or profiling a new version of the workbook, never
+  overrides it; it reports disagreements. What is still the engine's (as a proposal step left it)
+  may be revised by a later inference, each revision a step that can be undone (D92).
 - **Dry run.** The 0.9 import preview, run on the source file with the current draft and profile. It
   writes nothing.
 
@@ -99,7 +103,14 @@ allowed pairs; generic detail panels). This design removes the reason for the fi
   a proposal. Choose whether the proposal extends the active model (matching columns to existing types
   and attributes first) or starts a new application. As built (A5b): **New from a workbook** on
   Settings › Model creates a draft of the active release (an empty model is a choice) with the
-  workbook, and an open draft takes one from its ⋯ menu; the mapping is by hand until A6.
+  workbook, and an open draft takes one from its ⋯ menu. Since A6 it asks what to propose (a new
+  application added to the model the draft starts from, a new model, additions to the model, or
+  nothing). **A new model** is the same application in a draft that starts empty, without the active
+  model's applications; installed, it replaces the active model for every workspace until 0.11 gives
+  each workspace a model of its own and the editor opens with the proposals applied,
+  one step each; what is still as proposed is marked Proposed, with Proposed because in the centre
+  (the finding, its evidence, its alternatives as steps); ⋯ › Propose again… reads the workbook
+  again (D92, D94).
 - **From a model:** open a draft of the active release, or an empty one. No source file; the preview
   uses existing records instead of rows.
 - **From a saved profile:** upload the next version of a workbook to its profile. Only differences and
@@ -268,6 +279,71 @@ evidence, and offers the alternatives when the evidence is not decisive.
 | Name drift | One ID or code with different names in different rows or files | A value map, or a warning to resolve |
 | Model description sheet | Columns such as field code, field type and lookup target | Attributes and relations of the described type, read before the lookup sheets it names |
 | List blocks | Several header-and-values blocks on one sheet, separated by empty columns or rows | One source per block, confirmed by the administrator |
+
+**The rules as built (0.10 A6a, D90; revised in A6b on real workbooks, D99–D103).** Each pattern is a fixed rule over the profile's statistics
+(A3) and the facts between columns, asked of the staged cells; the thresholds are fixed so a test
+names what a rule finds. The rules run per sheet in this order, each claiming the columns it
+explains:
+
+- **Translations, one row per language:** a sheet without a key, holding a column of two or more
+  language codes (ISO 639-1) or English language names, and a column of which at least 90% of the
+  distinct values are another sheet's keys, once per language; the column named as that sheet's name
+  column holds the translated names.
+- **Key column and name:** the key is the leftmost candidate key that is text without spaces, or
+  integers, and not a GUID; without one, a GUID filled and different on every row (D99: a list of an
+  ID and a name). The name is the first other text column, neither a lookup nor code-like, filled on
+  at least 95% of the rows (a header holding the word "name" first); a text key that would leave the
+  rows without a name, beside such a GUID, becomes the name and the GUID the key.
+- **Translations found by their values (D100):** claimed here, before the rules below read the
+  columns, and proposed after what they translate. A column translates a base column whose values
+  repeat when it has between 80% and 125% as many distinct values, one value per base value and one
+  base value per value (80% of each: translators split and merge a few), and at most half its rows
+  the same as the base's. The k-th translation of every base is in the k-th language, named by a
+  language word of its header when it has one, else "Language k" for the administrator to name. A
+  base that is a type's name (the row's, a code and name pair's list, a repeated parent with a key)
+  gets translations of that type; another base leaves its translations attributes.
+- **Flag columns:** the columns of a sheet whose every cell is one word of the same `y/n`,
+  `yes/no`, `x`/empty, `true/false` or `1/0`, adjacent or not, form one set (D101); a multi-valued
+  column beside one of them joins it (D97). A lone yes/no column is a yes/no attribute reading its
+  words through a value map.
+- **Code and name pair:** a code-like column (short text without spaces, holding letters and digits)
+  and a text column with at most 1.5 names per code, each name with one code in at least 98% of its
+  groups. **Name drift:** a code of such a pair with two or more names; the proposal maps each less
+  frequent name to the code's most frequent one.
+- **Level columns:** headers differing only by a number (Level 1, Level 2, …), or a column of which at
+  least 90% of the values are the sheet's own keys.
+- **Repeated parent:** a text column with at most a third as many distinct values as rows, grouping
+  other columns that are constant within at least 98% of its groups; a dependent with one value per
+  group that is a GUID or code-like is the parent's key. Text averaging more than 60 characters is
+  sentences, a shared description: never a parent, a pair's name or a lookup, and read as long text
+  (D102). A row type has one parent (D99): the first such column; a further one is a list the row
+  refers to. The parent is optional (the type may also stand at the top) when some rows leave the
+  parent column empty, and always for a parent code column, whose empty rows are the top.
+- **Multi-valued cell:** a delimiter in at least 10% of the cells whose parts are at least 80% values
+  found whole in the column.
+- **Reference to another sheet:** at least 90% of a column's distinct values among another sheet's
+  keys, or its names (matched by name).
+- **Translations, one column per language:** headers that are the name column's with a language
+  suffix (`Name (de)`, `Name FR`).
+- **Text lookup:** text with at most 50 distinct values that are at most 20% of its filled cells.
+- **External IDs:** every cell a GUID. Every remaining column is an **attribute** of the value type
+  its cells read as, unique when it is a candidate key; **placeholders** (D70) follow the lookup or
+  attribute holding them; a **navigation group** gathers two or more lists one sheet proposes.
+
+Columns of different sheets with one header and value type share one attribute type, a unique one
+only when no value appears in both (D98). In extend mode a sheet maps to an existing type when at
+least 50% of its key's values are that type's unique values or names in the workspace, or when its
+name is the type's (names folded for case, accents, punctuation and a final plural `s`), and a column
+to an attribute of the same name its cells fit (95%), a global attribute type before a new one (D91).
+A sheet of several blocks is read by its main table when one block is clearly the table (at least
+three columns and 60% of the sheet's cells), as a source limited to that block's columns; the other
+blocks, and sheets where no block is, are left to A8 and named in the inference's warnings. A second
+column with a header an earlier column of the sheet has is left out with a warning, since a column
+is bound by its header. Names come from the headers and sheet names written as words (D103:
+underscores and joined capitals split, a header in capitals sentence-cased); a row type is named
+after its key column's header without a final code word ("Type Code" → Type), else after its
+sheet; a navigation group after the row type. A few English words are the patterns' own ("Has …",
+"Language", "Translation"); every name is the administrator's to change.
 
 **Inference is deterministic first.** Profiling computes types, uniqueness, fill rates, delimiters and
 value overlap between columns and sheets; the patterns are rules over those statistics. An optional

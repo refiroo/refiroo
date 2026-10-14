@@ -6,10 +6,43 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
-Two migrations (`20261012_01`, source files and the `profile` and `dryRun` job kinds;
-`20261013_01`, a model draft's import profile); a database of 0.10.0-alpha.1 upgrades on start.
+Three migrations (`20261012_01`, source files and the `profile` and `dryRun` job kinds;
+`20261013_01`, a model draft's import profile; `20261014_01`, a draft's proposals and the
+`inference` job kind); a database of 0.10.0-alpha.1 upgrades on start.
 
 ### Added
+
+- Base 0.10 A6b: the editor filled by the inference (D94; J34.4, J34.6, J34.8). New from a workbook
+  asks what to propose (a new application with its name, additions to the model, or nothing) and the
+  workspace the columns are compared with; once the workbook is profiled the editor proposes and
+  applies the proposals, one step each, and shows the sheet's type. What is still as proposed reads
+  **Proposed** in the model and source panes (a tone of its own) and its centre says **Proposed
+  because**, with its evidence and its alternatives as steps; History names each proposal; ⋯ ›
+  **Propose again…**; disagreements are Issues with Go to column. Map to… reads a column as a related
+  record matched by a unique attribute, or as a value of a related record under its parent; a
+  column's centre lists its most frequent values. `test:browser:authoring-a6`.
+- Base 0.10 A6a: inference over the table patterns (D86–D98; J34.4–J34.6), through the API.
+  `POST /model-drafts/{id}/inference` runs a job of kind `inference` over the draft's source file in
+  new-application or extend mode; `GET …/inference` reads its counts, disagreements, warnings and
+  the elements still as proposed; `GET …/inference/proposals` lists each proposal with its pattern,
+  columns, one-sentence summary, evidence, operations, alternatives and requirements; and
+  `POST …/inference/application` writes the open proposals into the draft, one history step each,
+  with one dry run after the last. The patterns: a sheet's key and name, a repeated parent with the
+  columns constant within it, level columns, a code and name pair with its name drift, flag columns
+  with a multi-valued column beside them, multi-valued cells, text lookups with their placeholders,
+  references to another sheet, translations by row and by column, GUID columns, every other column
+  as an attribute, and a navigation group of a sheet's lists (raising the schema language to 0.10
+  when needed). Columns of several sheets with one header and type share an attribute type. Extend
+  mode maps sheets, columns and lookups onto the draft's existing types, attributes and records
+  first. Proposing again recognises its earlier proposals: what is still the engine's follows a
+  newer workbook, what the administrator changed is kept and a column read otherwise is reported
+  (`INFERENCE_DISAGREES` also among the profile's warnings); an undone proposal is not applied again.
+  W1 goes from upload to a published change set by applying its proposals. The optional assistant
+  is an interface only (`INFERENCE_ASSISTANT`, `INFERENCE_ASSISTANT_ROWS`), off by default.
+- Base 0.10 A6a: `missing: "create"` on a flag set and on a related record's `parent`, and a
+  `record: "existing"` row finding the record another source of the same file creates (D93); the
+  kind `unmapColumn`, and `addValuesToList` on flag columns and related records; a profiled column's
+  most frequent `values`.
 
 - Base 0.10 A5a: a model draft's import profile, edited by operations (D74–D80; J34.2, J34.7,
   J34.8), through the API. A draft holds one profile, read by `GET /model-drafts/{id}/profile`
@@ -63,6 +96,16 @@ Two migrations (`20261012_01`, source files and the `profile` and `dryRun` job k
 
 ### Changed
 
+- Base 0.10 A6b: an operation of a proposal holds when the binding has what it sets, so proposing
+  again no longer re-applies a binding a value map was added to (found by the browser runner: the
+  name drift's map was dropped and the dry run refused the drifting rows). The editor's marks name
+  the proposal that created an element, not the last one naming it. Add a workbook and New from a
+  workbook share one workspace field (`WorkspaceField`); a dialog lays two short fields side by side
+  (`dialog-pair`); the model pane scrolls a selection made elsewhere into view.
+- Base 0.10 A6a: profiling analyzes the staged cells once they are copied in, so the statements over
+  them are planned for their real size: the inference of W1 at 10,000 rows took 54.6 s before and
+  0.35 s after (profiling unchanged at 6 s). The step answer of the operation, undo, redo and
+  application routes is one function (`management/steps.py`).
 - Base 0.10 A5b: the editor keeps the selected element selected after a step that changes its key
   (the address used to keep the old key, and the centre lost it). The target list of Move to… is
   shared with Map to… (`TargetList`), the install dialog's release identity with the load
@@ -76,6 +119,28 @@ Two migrations (`20261012_01`, source files and the `profile` and `dryRun` job k
   holds the workspace's write lock that much shorter.
 
 ### Fixed
+
+- Base 0.10 A6b (reported on a real workbook): a workbook with nothing to propose got the new
+  application alone, which left the draft refusing an application without types; now nothing is
+  proposed and the inference says why. Load into a change set and Install and activate on a draft that
+  does not compile blanked the page (its compilation has no changes); both now say the draft has
+  errors, and Load says when nothing is mapped yet. A sheet with a note or small block beside its
+  table is now read by its table. A page part failing while rendering shows what failed and a reload
+  under the top bar instead of an empty page.
+- Base 0.10 A6b, on the user's own workbooks (D99–D103): the proposed model no longer refuses rows
+  of its own workbook. A type gets one parent (a further repeated column is a list it refers to),
+  optional where rows leave it empty (`setContainment`'s `parent.optional`), and a source reads no
+  record from a row holding nothing in its columns. Lists of a GUID and a name are proposed;
+  translations are found by their values whatever their headers; a sheet's yes/no columns form one
+  set; descriptions in sentences are long text, never a parent; names are written as words, a type
+  named after its key column. A second column with an earlier column's header is left out with a
+  warning.
+- Base 0.10 A6b: New from a workbook offers **A new model**: the workbook's application in a draft
+  that starts empty, without the active model's applications ("A new application" adds it to the
+  model the draft starts from).
+- Base 0.10 A6b: compiling a draft that does not compile sends `changes` empty instead of leaving it
+  out, so the answer matches its type in clients and their test fakes. Browser runners fail on any
+  uncaught page error or a page part the error boundary replaced, in every page a run opens.
 
 - Binding an import whose profile has a relationship column grew with rows times links: the record
   items looked up each row's required links in a subquery run per row. They are collected once with

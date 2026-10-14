@@ -29,11 +29,12 @@ import {
 /** A column of a sheet, as the profile names it: its sheet and its header text. */
 export const columnId = (sheet: string, header: string) => `${sheet}\u0000${header}`;
 
-export type ColumnStatus = "key" | "mapped" | "unmapped" | "ignored" | "issue";
+export type ColumnStatus = "key" | "mapped" | "proposed" | "unmapped" | "ignored" | "issue";
 
 export const STATUS_LABELS: Record<ColumnStatus, string> = {
   key: "Key",
   mapped: "Mapped",
+  proposed: "Proposed",
   unmapped: "Not mapped",
   ignored: "Ignored",
   issue: "Issue",
@@ -167,7 +168,16 @@ export function feedWords(outline: ModelDraftOutline, { source, binding }: Colum
     const flag = binding.relationFlags?.targets?.[header];
     return `${type} · ${relationName(outline, relation)} → ${far}${flag ? ` “${flag}”` : ""}`;
   }
-  if (binding.relatedRecord) return `${type} · a related record`;
+  const related = binding.relatedRecord;
+  if (related) {
+    const far = typeName(outline, related.objectTypeKey ?? "");
+    const fills =
+      related.field === "name"
+        ? "name"
+        : (attributeTypeOf(outline, related.attributeTypeKey ?? "")?.name ?? related.attributeTypeKey);
+    const parent = related.parent?.value ?? (related.parent?.column ? `the ${related.parent.column} of the row` : "");
+    return `${type} · ${relationName(outline, related)} → ${far} ${fills}${parent ? ` under ${parent}` : ""}`;
+  }
   return type;
 }
 
@@ -220,13 +230,22 @@ export function likelyValueType(column: SourceColumn | undefined): string {
 // --- Map to… ---
 
 /** What a column holds, as Map to… asks (the mock-up's choices). */
-export type MapKind = "name" | "attribute" | "parent" | "lookup" | "flag" | "ignore";
+export type MapKind = "name" | "attribute" | "parent" | "lookup" | "related" | "flag" | "ignore";
 
 export const MAP_KINDS: { kind: MapKind; title: string; text: string }[] = [
   { kind: "name", title: "The record's name", text: "Each row's record is called this" },
   { kind: "attribute", title: "An attribute of the row's record", text: "One of its attributes, or a new one" },
   { kind: "parent", title: "The row's parent", text: "A record of the parent type, matched by name" },
-  { kind: "lookup", title: "A related record", text: "Matched by name; a delimiter splits several" },
+  {
+    kind: "lookup",
+    title: "A related record",
+    text: "Matched by name or a unique attribute; a delimiter splits several",
+  },
+  {
+    kind: "related",
+    title: "A value of a related record",
+    text: "Its name or an attribute, under a parent record: a translation under its language",
+  },
   { kind: "flag", title: "A flag of a relation", text: "Y, yes, x or 1 relates the row to one chosen record" },
   { kind: "ignore", title: "Nothing: ignore it", text: "Kept out of the load and of the issues" },
 ];
@@ -266,7 +285,7 @@ export function mapTargets(kind: MapKind, rowType: string, outline: ModelDraftOu
     ];
   if (kind === "parent")
     return type.parents.map((key) => ({ value: key, name: typeName(outline, key), note: "by name", typeKey: key }));
-  if (kind === "lookup" || kind === "flag")
+  if (kind === "lookup" || kind === "flag" || kind === "related")
     return lookupRelations(outline, rowType).map((item) => {
       const incoming = item.from !== rowType;
       const far = incoming ? item.from : item.to;
@@ -301,6 +320,18 @@ export interface MapChoice {
   create?: boolean;
   /** The record a flag column relates the row to, by its name. */
   flagTarget?: string;
+  /** A lookup matched by a unique attribute of the far type instead of the name (0.10 A6b). */
+  matchAttribute?: string;
+  /** A value of a related record (0.10 A6b): what it fills, and the parent record it stands under. */
+  related?: {
+    /** `name`, or an attribute type's key. */
+    fills: string;
+    parentType: string;
+    /** The parent record's name, or the column of the row holding it. */
+    parentValue?: string;
+    parentColumn?: string;
+    createParent: boolean;
+  };
 }
 
 /**
@@ -410,13 +441,38 @@ export function mapOperations(
         binding: {
           relation: {
             ...relation(),
-            matchBy: { field: "name" },
+            matchBy: choice.matchAttribute ? { attributeTypeKey: choice.matchAttribute } : { field: "name" },
             ...(choice.split ? { split: choice.split } : {}),
-            ...(choice.create ? { missing: "create" } : {}),
+            // Only a match by name creates what it does not find (CREATE_NEEDS_NAME_MATCH).
+            ...(choice.create && !choice.matchAttribute ? { missing: "create" } : {}),
           },
         },
       });
       break;
+    case "related": {
+      const related = choice.related;
+      if (!related) break;
+      const reach = relation();
+      const far = reach.objectTypeKey;
+      operations.push({
+        kind: "mapColumn",
+        ...column,
+        binding: {
+          relatedRecord: {
+            ...reach,
+            applicationKey: outline.applications.find((item) => item.objectTypeKeys.includes(far))?.key,
+            parent: {
+              objectTypeKey: related.parentType,
+              matchBy: { field: "name" },
+              ...(related.parentColumn ? { column: related.parentColumn } : { value: related.parentValue ?? "" }),
+              ...(related.createParent ? { missing: "create" } : {}),
+            },
+            ...(related.fills === "name" ? { field: "name" } : { attributeTypeKey: related.fills }),
+          },
+        },
+      });
+      break;
+    }
     case "flag":
       operations.push({
         kind: "setColumnReading",

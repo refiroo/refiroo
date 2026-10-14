@@ -52,6 +52,25 @@ describe("the history's steps", () => {
     expect(describeStep(steps[1], names)).toBe("Added type Box under Shelf; Attached Code to box, required");
   });
 
+  it("names a proposal's step by what the rule found (0.10 A6b)", () => {
+    const [step] = historySteps([
+      entry(5, "addObjectType", {
+        type: "proposal",
+        proposalId: "p1",
+        pattern: "textLookup",
+        summary: "Material has 8 values",
+      }),
+      entry(5, "mapColumn", {
+        type: "proposal",
+        proposalId: "p1",
+        pattern: "textLookup",
+        summary: "Material has 8 values",
+      }),
+    ]);
+    expect(describeStep(step, names)).toBe("Proposed: Material has 8 values");
+    expect(undoable(step)).toBe(true);
+  });
+
   it("names undo and redo steps by the steps they took back", () => {
     const [redo, undo] = historySteps([
       entry(3, "removeObjectType", { type: "undo", steps: [1, 2] }, true),

@@ -33,7 +33,8 @@ a lease; a confirmed preview is queued again and binds its file anew (D81).
 **Source files** (0.10 A3): a ``profile`` job stages a source file's cells and profiles them in one
 step (``sources/profiling.py``). A ``dryRun`` binds a draft's source file from its staged cells and
 previews every item against the draft's model, as an import's preview does, then completes with its
-summary (``sources/dry_run.py``); it stops as ``cancelled`` once its draft has changed.
+summary (``sources/dry_run.py``); it stops as ``cancelled`` once its draft has changed. An
+``inference`` (0.10 A6) proposes from a draft's source file in one step (``sources/inference/``).
 
 **Exports** (Base 0.9 J1, D53) run on a worker of their own, which claims only ``export`` jobs while
 the batch worker claims the rest, so neither kind waits behind the other. An export runs in one
@@ -69,6 +70,7 @@ from ..sources.dry_run import (
     record_dry_run,
     superseded,
 )
+from ..sources.inference.run import run_inference
 from ..sources.profiling import profile_source_file
 from ..sources.store import expire_superseded
 from .background import open_job_context
@@ -101,7 +103,7 @@ SWEEP_SECONDS = 3600.0
 # The worker threads' names, which a measurement of one request's statements leaves out.
 THREAD_NAME = "rdm-job-worker"
 EXPORT_THREAD_NAME = "rdm-export-worker"
-BATCH_KINDS = ("batch", "import", "profile", "dryRun")
+BATCH_KINDS = ("batch", "import", "profile", "dryRun", "inference")
 EXPORT_KINDS = ("export",)
 _ITEM = TypeAdapter(BatchItem)
 
@@ -116,6 +118,9 @@ class WorkerSettings:
     background_max_items: int = 1_000_000
     # The items a preview runs (JOB_PREVIEW_MAX_ITEMS; 0.9 J3, D83; batches since 0.9 K2).
     preview_max_items: int = 10_000
+    # The inference assistant (INFERENCE_ASSISTANT, INFERENCE_ASSISTANT_ROWS; 0.10 A6, D95).
+    inference_assistant: str = ""
+    inference_assistant_rows: int = 20
 
 
 class _LeaseLost(Exception):
@@ -215,6 +220,7 @@ class JobWorker:
                     state="running",
                     stage=case(
                         ((Job.kind == "profile"), "profiling"),
+                        ((Job.kind == "inference"), "inferring"),
                         (Job.kind.in_(ROW_KINDS) & Job.total.is_(None), "binding"),
                         (
                             Job.kind.in_(PREVIEWED_KINDS)
@@ -255,6 +261,8 @@ class JobWorker:
             try:
                 if job.kind == "profile":
                     self._profile(session, job)
+                elif job.kind == "inference":
+                    self._infer(session, job)
                 elif job.kind in ROW_KINDS and job.total is None:
                     self._bind(session, job)
                 elif previewing(job):
@@ -434,6 +442,20 @@ class JobWorker:
         self._hold_lease(session, job.sequence_id)
         complete_job(session, job, retention_days=self.settings.retention_days)
         # A profile has no items, so no result.
+        job.result = None
+        session.commit()
+
+    def _infer(self, session: Session, job: Job) -> None:
+        """Propose from the job's draft's source file in one step and complete the job (0.10 A6)."""
+        run_inference(
+            session,
+            job,
+            assistant_setting=self.settings.inference_assistant,
+            assistant_rows=self.settings.inference_assistant_rows,
+        )
+        self._hold_lease(session, job.sequence_id)
+        complete_job(session, job, retention_days=self.settings.retention_days)
+        # An inference has no items, so no result.
         job.result = None
         session.commit()
 

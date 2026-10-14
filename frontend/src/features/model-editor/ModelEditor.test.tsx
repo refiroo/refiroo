@@ -50,6 +50,7 @@ beforeEach(() => {
     sourceFile: null,
   });
   vi.mocked(api.modelDraftDryRun).mockRejectedValue(new ApiError(404, "DRY_RUN_NOT_FOUND", "No dry run"));
+  vi.mocked(api.modelDraftInference).mockRejectedValue(new ApiError(404, "INFERENCE_NOT_FOUND", "No inference"));
   vi.mocked(api.modelDraft).mockResolvedValue({
     id: "d1",
     name: "Store changes",

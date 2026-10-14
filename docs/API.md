@@ -550,8 +550,9 @@ returns:
 release, falling back to the active release when the draft has no available base; `changes` is the
 key-based semantic diff used for pre-install review and preserves the distinction between omission and
 an explicit JSON `null`. Compatibility classification is `compatible`,
-`migration_required` or `invalid`; invalid compilation returns `valid: false`, omits `model` and
-`modelHash`, and uses `invalid`. `consumerContracts` (above, under diff) is present when the draft
+`migration_required` or `invalid`; invalid compilation returns `valid: false`, omits `model`,
+`modelHash` and `againstReleaseId`, sends `changes` empty (0.10 A6b: it was omitted) and uses
+`invalid`. `consumerContracts` (above, under diff) is present when the draft
 is valid. Installation repeats compilation and compatibility analysis and
 returns the installed release detail with `model` absent. A newly installed release returns HTTP
 `201`; an idempotent retry for identical content returns HTTP `200`. Installation never activates the
@@ -2524,12 +2525,15 @@ fixed values it matches. A list pages in key order (ADR-030).
 
 - **A source** loads one object type of one application from a sheet (the first sheet when
   `sheet` is left out; a CSV file is one sheet), from its `headerRow`, optionally within a `block`.
-  Columns the profile does not name are ignored; a header names a column by its text.
+  Columns the profile does not name are ignored; a header names a column by its text. A row
+  holding nothing in any column the source names is no record of it and is skipped (a list or
+  parent read from another type's sheet, on a row without one; 0.10 A6b, D99).
 - **`key`** finds a row's existing record: `{"attributeTypeKey"}`, an attribute declared `unique`
   whose value the row's own column supplies, or `{"column"}`, a column holding the public ID.
   Without a key every row creates a record, so sending such a file twice creates its records twice. A found record is updated (under `onExisting`, below);
   otherwise a record is created. `record: "existing"` finds each row's record by its key and writes
-  only its relationships and related records (a sheet of translations, one row per language).
+  only its relationships and related records (a sheet of translations, one row per language); since
+  0.10 A6 (D93) it also finds the record another source of the same file creates by that key.
 - **Bindings**, one kind per column: `field: "name"`; `attributeTypeKey` (a writable attribute the
   type binds); `parent`; `relation` (`relationTypeKey` and `direction` from the row's record,
   `outgoing` by default; `split` cuts a cell into several values; `replace: true` makes the matched
@@ -2545,7 +2549,9 @@ fixed values it matches. A list pages in key order (ADR-030).
   once per distinct value per load, before the records that name it; it goes into the same context
   (a change set's review shows it) and is subject to the type's rules (a type with required values
   refuses it). `"refuse"`, the default, refuses the row `REFERENCE_NOT_FOUND`. With any other
-  match it is refused `CREATE_NEEDS_NAME_MATCH`.
+  match it is refused `CREATE_NEEDS_NAME_MATCH`. Since 0.10 A6 (D93) a `relationFlags` binding takes
+  it too (a set flag whose record does not exist creates it, named by the target), and so does a
+  related record's `parent` (the language a translation row names, created by its name).
 - **`relatedRecord`** (D70) is a record of `objectTypeKey` under the record `parent` finds (a fixed
   `value`, or the row's cell in `column`), related to the row's record by `relationTypeKey`; this
   column fills its `name` (`field`) or one attribute. Columns naming the same relation, type and
@@ -3664,8 +3670,9 @@ outline](#the-drafts-outline). **Delivered by A4b (2026-10-11):** [the draft's m
 and the detail page kinds. **Delivered by A3 (2026-10-12):** [source files and their
 profiles](#source-files-and-their-profiles) and [the dry-run summary](#the-dry-run-summary).
 **Delivered by A5a (2026-10-12):** [a draft's import profile](#a-drafts-import-profile) with the
-source and mapping kinds, the dry run after each step and the profile saved at installation. The
-rest of this section is designed.
+source and mapping kinds, the dry run after each step and the profile saved at installation.
+**Delivered by A6a (2026-10-12):** [inferences](#inferences), the kind `unmapColumn`, and
+`missing: "create"` on flag sets and related records' parents.
 
 - `POST /api/v1/model-drafts/{draftId}/operations`, `GET /api/v1/model-drafts/{draftId}/operations`
 - `POST /api/v1/model-drafts/{draftId}/undo`, `POST /api/v1/model-drafts/{draftId}/redo`
@@ -3678,7 +3685,9 @@ rest of this section is designed.
 - `GET /api/v1/model-drafts/{draftId}/dry-run`, `POST /api/v1/model-drafts/{draftId}/dry-run`,
   `GET /api/v1/model-drafts/{draftId}/dry-run/rows`
 - `GET /api/v1/model-drafts/{draftId}/profile` (A5a)
-- `POST /api/v1/model-drafts/{draftId}/inferences`, `GET /api/v1/model-drafts/{draftId}/inferences/{inferenceId}/proposals` (A6)
+- `POST /api/v1/model-drafts/{draftId}/inference`, `GET /api/v1/model-drafts/{draftId}/inference`,
+  `GET /api/v1/model-drafts/{draftId}/inference/proposals`,
+  `POST /api/v1/model-drafts/{draftId}/inference/application` (A6a)
 
 The draft routes are registered with `MODEL_ADMIN_MUTATIONS_ENABLED`, as the draft routes before them
 (reads too, since a draft is administration data). Source files, profiling and dry runs are jobs and
@@ -3768,7 +3777,8 @@ client gives the same layout.
 `{"applicationKey", "view"}`, `{"applicationKey", "detail", "panel"}` (`detail` is the page's object
 type) and `{"applicationKey", "group"}`. A containment `parent` (D30) is `null` (the top level,
 `rootCreatable: true`) or `{"objectTypes": [...], "relationType": "<key>" or {"name",
-"reverseName", "key"?, "reverseKey"?}}`: one containment relation type (`parentOf`,
+"reverseName", "key"?, "reverseKey"?}, "optional"?: true}` (`optional`: a record may also stand at
+the top, `rootCreatable: true` beside the parent; 0.10 A6b, D99): one containment relation type (`parentOf`,
 `creatableOnChildAdd`), existing or new, bound `one-to-many` from each parent type. A view or panel
 target is `applicationKey` with `view`, with `detail` (the page; its list is `panels`) or with
 `detail` and `panel`. A flag (`required`, `readOnly`) and `valueType` may be `null`: the default,
@@ -4056,8 +4066,9 @@ with the file and its profile's state:
   `sheet`, `letter`, `header`, `block`, `rows`, `filled`, `distinct`, `valueTypes` (cells readable as
   `text`, `integer`, `decimal`, `boolean`, `date`, `dateTime`, as the attribute registry converts
   them), `candidateKey` (filled on every row, no value twice), `delimiters` (`;`, `,`, `|`, `/`, line
-  break, each with the `cells` holding it and their `share`), `placeholders` and `overlaps`, with
-  `limits`.
+  break, each with the `cells` holding it and their `share`), `placeholders`, `values` (its 10 most
+  frequent, each with its `count`; 0.10 A6) and `overlaps`, with `limits` (`valuesListed` among
+  them).
   - **Placeholders** (D70): a value standing for "no value", one of `N/A`, `NA`, `-`, `--`, `?`,
     `TBD`, `none` ignoring case, or of at most two characters none a letter or digit found in at
     least 1% of the column's cells; each with its `count`, at most 10 listed.
@@ -4184,7 +4195,8 @@ refused the same way. Bindings use the import profile's vocabulary
 | `setColumnReading` | `source`, `column`, `reading`: `text` (`attributeTypeKey`), `lookup` (a relation matched by name), `relation` (`matchBy`?; keeps `split` and `missing`), `relationFlag` (`target`, the record's name); `relationTypeKey`, `objectTypeKey`, `direction` default to the column's relation | How the column is read. Flag columns of one relation and type join one `relationFlags` binding |
 | `splitColumn` | `source`, `column`, `delimiter` (`null` stops splitting) | A relation column's `split` |
 | `ignoreColumn` | `source`, `column` | `{"column", "ignore": true}` |
-| `addValuesToList` | `source`, `column`, `create`? (default `true`) | A relation or parent column matched by name gets `missing: "create"` (D77) |
+| `addValuesToList` | `source`, `column`, `create`? (default `true`) | A relation or parent column matched by name gets `missing: "create"` (D77); since A6 a flag column's set, and a related record column's `parent` (D93) |
+| `unmapColumn` | `source`, `column` | The column's binding taken out (A6), also a column the file no longer has (a header renamed in a newer workbook); a column not bound is left as it is |
 | `setValueMap` | `name`, `entries` (text to a value or `null`; `null` removes the map and its uses), `source`? and `column`? (that column reads through it) | The profile's `valueMaps` |
 
 **The profile follows the model** (D78). `setKey` of an application, type, attribute type or
@@ -4210,18 +4222,98 @@ just installed writes it to the instance profile of its `key` (created, or its n
 checked against that release; the answer gains `importProfile` (`key`, `version`). The draft's
 source file stays the draft's; an import names it by `sourceFileId`.
 
-### Inferences (A6)
+### Inferences
 
-`POST /api/v1/model-drafts/{draftId}/inferences`
-`{ "sourceFileId": "…", "mode": "newApplication" | "extend", "applicationKey": "…" }` runs the table
-patterns over the file's profile as a job and applies nothing. `GET …/inferences/{id}/proposals`
-(paged) lists proposals: `pattern`, `evidence` (the statistics and sample values it rests on),
-`operations` (a batch of the kinds above), `alternatives` (other batches), and `disagreements` with
-pinned elements. A proposal is accepted by sending its operations, changed or not, with
-`"proposalId"` to `POST …/operations`; nothing is applied otherwise. An element a request from the
-administrator touched is **pinned**: a later inference reports a disagreement and never proposes to
-change it. The optional assistant (A-D5) adds proposals through the same shape and is off unless
-configured.
+**Delivered by A6a (2026-10-12)**, designed in the [0.10 A6 plan](BASE_0_10_IMPLEMENTATION_PLAN.md#a6-plan-2026-10-12)
+(D86–D98). An inference proposes a model and its mapping from the draft's current source file. Its
+proposals are batches of the operation kinds above; applying them writes each as one step of the
+draft's history, after which everything is editing. The routes are singular: they are about the
+draft's latest inference, as the dry run's are (D87).
+
+`POST /api/v1/model-drafts/{draftId}/inference`
+
+```json
+{ "mode": "newApplication", "applicationName": "Catalogue" }
+```
+
+- `mode`: `newApplication` (a new application, named `applicationName`, by default after the file,
+  keyed `applicationKey` when given, a key no application has) or `extend` (the draft's model is
+  matched first, D91; new types go into `applicationKey`, by default the application most matched
+  types are in).
+- Answers `202` with the inference `checking`; it is a job of kind `inference` (D88), and an
+  inference still running for the draft is cancelled. Nothing is applied.
+- Refused: `404 SOURCE_FILE_NOT_FOUND` (no file), `409 SOURCE_FILE_PROFILE_NOT_READY`, `422
+  INVALID_MODEL` (the draft does not compile), `422 INVALID_INFERENCE_REQUEST` (an application key
+  that does not fit the mode, with `pointer`).
+
+`GET /api/v1/model-drafts/{draftId}/inference` (`404 INFERENCE_NOT_FOUND` before the first):
+
+```json
+{ "jobId": "…", "state": "completed", "mode": "newApplication", "draftVersion": 3,
+  "sourceFileId": "…", "counts": { "open": 11, "applied": 0, "held": 0, "rejected": 0 },
+  "disagreements": [ { "proposalId": "…", "pattern": "textLookup", "sheet": "Items",
+                       "column": "Material", "source": "items-item", "binding": "attributeTypeKey",
+                       "proposed": "relation", "found": "Material has 8 values …", "step": 14 } ],
+  "warnings": [], "proposed": [ { "element": "objectType:category", "proposalId": "…",
+                                  "pattern": "repeatedParent" } ],
+  "error": null }
+```
+
+- `proposed` lists the elements still as a proposal step left them: the engine's, until the
+  administrator changes them (D92). Elements are named as the history names them
+  (`objectType:<key>`, `attributeBinding:<type>/<attribute>`, …) and, for the draft's profile,
+  `source:<id>`, `column:<source>/<header>` and `valueMap:<name>`. The editor marks them Proposed.
+- `disagreements`: columns the draft binds otherwise than a pattern reads them, with the step that
+  decided it; they are also `INFERENCE_DISAGREES` warnings in `GET …/profile`'s `diagnostics`, at
+  the column's binding (`/profile/sources/{i}/columns/{j}`), while they hold. `warnings`: sheets laid out for reading (several blocks, A8), a sheet read by its
+  main table and the blocks beside it, a second column with an earlier column's header (left out:
+  a column is bound by its header), no shape to propose from, an assistant that failed.
+
+`GET /api/v1/model-drafts/{draftId}/inference/proposals` (paged in apply order; `sheet`, `column`;
+`409 INFERENCE_NOT_READY` while it runs) lists each proposal: `id`, `position`, `pattern`, `sheet`,
+`columns` (headers), `summary` (one sentence), `evidence` (the statistics and values it rests on),
+`operations`, `alternatives` (`label` and `operations`), `requires` (proposal IDs) and `status`:
+`open`, `applied`, `held` (a column it binds is bound already) or `rejected` (the same proposal was
+undone before; not applied again unless asked by ID).
+
+**Patterns** (D90; the rules and thresholds are in MODEL_AUTHORING's pattern catalogue):
+`newApplication`, `keyColumn` (the sheet's type, its key and name), `repeatedParent`,
+`levelColumns`, `codeAndName`, `nameDrift`, `flagColumns`, `multiValued`, `textLookup`,
+`placeholders`, `sheetReference`, `translationsByRow`, `translationsByColumn`, `externalId`,
+`attribute` (every remaining column), `navigationGroup` (raising the schema language to 0.10 when
+the draft is older) and `assistant` (a label the optional assistant suggests). Columns of different
+sheets with one header and value type share one attribute type; unique ones only when no value
+appears in both (D98).
+
+`POST /api/v1/model-drafts/{draftId}/inference/application`
+
+```json
+{ "expectedVersion": 3, "proposals": ["…", "…"] }
+```
+
+- Applies the proposals named (every `open` one when `proposals` is left out), all or none, each one
+  step of origin `proposal` in their order, and answers as `POST …/operations` does, with the dry
+  run following the last step (D89). An alternative is applied by sending its operations to `POST
+  …/operations`, which makes what it changes the administrator's.
+- A step's `origin` names the `proposalId`, `inferenceId`, `pattern`, its `summary`, `anchor`,
+  `signature`, the `keys` it gave its roles and the elements it `created`; proposing again recognises a proposal by
+  its anchor and keeps its ID.
+- Refused: `404 PROPOSAL_NOT_FOUND`, `409 PROPOSAL_ALREADY_APPLIED`, `422
+  PROPOSAL_REQUIREMENT_MISSING` (`proposal`, `requirement`: a proposal needing another neither
+  applied nor sent), `409 INFERENCE_STALE` (the draft changed after the inference by anything but
+  its own proposals: propose again), `409 INFERENCE_NOT_READY`, `409 NOTHING_TO_APPLY`, `409
+  VERSION_CONFLICT`, and `422 INVALID_OPERATION` with `details.step`, the proposal it came from.
+
+**Proposing again** (D92). An element is the engine's while every change to it since it was proposed
+came from a proposal step; any other step makes it the administrator's. A new inference keeps the ID
+of the proposal an earlier step applied for the same anchor: while everything that proposal created
+is still the engine's, what changed since (a renamed column in a newer workbook, a new column) is
+`open` again, as operations that take the draft from the earlier proposal to the new one; once the
+administrator changed any of it, nothing is proposed and a column read otherwise is a disagreement.
+A proposal whose step was undone is `rejected`.
+
+**The optional assistant** (A-D5, D95) is off unless `INFERENCE_ASSISTANT` names a factory
+(OPERATIONS); no provider is bundled.
 
 ## Planned integration endpoints
 

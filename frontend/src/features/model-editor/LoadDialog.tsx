@@ -205,7 +205,9 @@ export function LoadDialog({
                 )}
                 {!profile.valid && (
                   <Notice tone="warning">
-                    The profile has problems an import would refuse: each is in the Issues list.
+                    {profile.profile
+                      ? "The profile has problems an import would refuse: each is in the Issues list."
+                      : "Nothing is mapped yet: map the workbook's columns onto the model first."}
                   </Notice>
                 )}
               </div>

@@ -13,6 +13,7 @@ import { checkRecordReturn } from "./ui03a-navigation.mjs";
 import { checkInspectorDeletion } from "./ui03b-deletion.mjs";
 import { checkHierarchySelection } from "./ui03b-hierarchy.mjs";
 import { cloneDatabase } from "./helpers/database.mjs";
+import { watchPageErrors } from "./helpers/harness.mjs";
 
 const frontend = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const root = resolve(frontend, "..");
@@ -126,7 +127,7 @@ try {
   browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIGHT_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH } : {}) });
   const page = await browser.newPage({ hasTouch: true, viewport: { width: 1440, height: 1000 } });
   page.setDefaultTimeout(10000);
-  page.on("pageerror", (error) => failures.push(error.message));
+  watchPageErrors(page.context(), (error) => failures.push(error));
   const requests = [];
   page.on("request", (request) => { if (request.url().startsWith(apiUrl)) requests.push(request.url()); });
   for (const [type, app, view, filter] of [["domain", "rdm-master", "domains", "qa-count.gte=0"], ["system", "rdm-systems", "systems", "qa-date.gte=2026-01-01"]]) {

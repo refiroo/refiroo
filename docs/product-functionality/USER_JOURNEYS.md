@@ -882,7 +882,8 @@ an empty draft and extending the active model to records and the consumer tier, 
 **Actor:** model administrator. **Channel:** UI (the editor with a workbook), API.
 **Stories:** US-P09. **Scenario:** SC-12. **Status:** J34.1 and J34.3 delivered through the API
 (0.10 A3); J34.2, J34.7 and the profile saved for J34.8 through the API (0.10 A5a); J34.1–J34.3,
-J34.7 and J34.8 in the editor with a workbook (0.10 A5b); inference A6; model-description sheets
+J34.7 and J34.8 in the editor with a workbook (0.10 A5b); J34.4–J34.6 through the API (0.10 A6a)
+and in the editor (0.10 A6b); model-description sheets
 A7 and sheets laid out for reading A8 (below the cut line).
 
 1. Upload a workbook to a new or open draft; read its sheets, blocks and column statistics.
@@ -900,10 +901,11 @@ A7 and sheets laid out for reading A8 (below the cut line).
 - **J34.3 The dry run follows the editing**: after a rename, a move or a value map, the summary and
   its difference from the last one; every row of the file checked, a dry run of a draft changed
   since it was sent cancelled; nothing written.
-- **J34.4 Proposals**: each table pattern proposed with its evidence; accepted, changed or rejected;
-  nothing applied unasked.
+- **J34.4 Proposals**: each table pattern proposed with its evidence; asked for, applied as one step
+  each, then changed, replaced by an alternative or undone like any step; nothing applied unasked.
 - **J34.5 Extend the active model**: columns matched to existing types and attributes, not duplicated.
-- **J34.6 Pinned decisions**: re-inference after edits reports disagreements and changes nothing pinned.
+- **J34.6 Pinned decisions**: re-inference after edits reports disagreements and changes nothing the
+  administrator changed; what is still the engine's follows the newer workbook, a step each.
 - **J34.7 The profile follows the model**: a rename, move, split or merge after mapping keeps the
   draft's profile valid; a removal leaves its column unmapped with a warning; undo puts back both.
 - **J34.8 Load into a change set**, review it and publish it; installing the draft saves its
@@ -912,12 +914,16 @@ A7 and sheets laid out for reading A8 (below the cut line).
   (A8).
 
 **Refusals:** `413 IMPORT_TOO_LARGE`, `422 UNSUPPORTED_FILE_FORMAT`, `404 SOURCE_FILE_NOT_FOUND`,
-`409 SOURCE_FILE_PROFILE_NOT_READY`; J33's refusals for operations; J27's for the import.
+`409 SOURCE_FILE_PROFILE_NOT_READY`; the inference's `404 INFERENCE_NOT_FOUND`, `404
+PROPOSAL_NOT_FOUND`, `409 PROPOSAL_ALREADY_APPLIED`, `409 INFERENCE_STALE`, `409
+INFERENCE_NOT_READY`, `409 NOTHING_TO_APPLY`, `422 PROPOSAL_REQUIREMENT_MISSING`, `422
+INVALID_INFERENCE_REQUEST`; J33's refusals for operations; J27's for the import.
 
-**Evidence today:** `backend/tests/journeys/test_j34_onboard.py` (J34.1, J34.2, J34.3, J34.7, J34.8
-through the API, on two configurations; J34.8 also as the editor's three calls, the review and the
+**Evidence today:** `backend/tests/journeys/test_j34_onboard.py` (J34.1–J34.8 through the API, on
+two configurations, J34.4–J34.6 since A6a; J34.8 also as the editor's three calls, the review and the
 publication); `test:browser:authoring-a5` (J34.1–J34.3, J34.7, J34.8 in the editor, on both designer
-models).
+models); `test:browser:authoring-a6` (J34.4, J34.6, J34.8 in the editor filled by the inference, on
+both designer models).
 
 ### J35 — Load the next version of a workbook
 

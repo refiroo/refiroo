@@ -281,7 +281,9 @@ export function ModelDraftEditor({
             {compilation.modelHash && <code className="model-hash">{compilation.modelHash}</code>}
           </div>
           <ModelDiagnostics diagnostics={compilation.diagnostics} onPath={goToPath} />
-          {compilation.valid && <ModelDiff changes={compilation.changes} compatibility={compilation.compatibility} />}
+          {compilation.valid && (
+            <ModelDiff changes={compilation.changes ?? []} compatibility={compilation.compatibility} />
+          )}
           {canInstall && compilation.valid && compilation.modelHash && (
             <button className="primary install-action" onClick={() => setConfirm("install")}>
               Install immutable release…

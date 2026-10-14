@@ -179,6 +179,7 @@ export interface ModelCompilation extends ModelValidation {
   modelHash?: string;
   compatibility: ModelCompatibility;
   againstReleaseId?: string;
+  /** Empty for a draft that does not compile. */
   changes: ModelChange[];
   /** The draft's consumer API definitions against the active release's (0.9 C1); absent when invalid. */
   consumerContracts?: ModelConsumerContracts;
@@ -216,7 +217,15 @@ export interface ModelDraftOperationEntry {
   author: string | null;
   at: string;
   undone: boolean;
-  origin: { type: "request" | "undo" | "redo" | "patch" | "proposal"; steps?: number[]; step?: number };
+  origin: {
+    type: "request" | "undo" | "redo" | "patch" | "proposal";
+    steps?: number[];
+    step?: number;
+    /** A proposal step's (0.10 A6): the proposal, its pattern and its summary. */
+    proposalId?: string;
+    pattern?: string;
+    summary?: string;
+  };
 }
 
 export interface ModelDraftOperationPage {

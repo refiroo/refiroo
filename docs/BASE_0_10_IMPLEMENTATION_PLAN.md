@@ -11,7 +11,9 @@ and decisions are written and accepted when it starts, and it is delivered in th
 [delivery queue](#delivery-queue), each by the [delivery steps](#how-a-package-is-delivered).
 **Delivered:** A0, N1, A2, A4a (2026-10-11); A4b, A4c and T1, released as 0.10.0-alpha.1 (2026-10-12);
 A3 and A3a (2026-10-12); A5a (2026-10-12); A5b committed (2026-10-12), its open points carried into
-A6, which comes before A5c (the user, 2026-10-12).
+A6, which comes before A5c (the user, 2026-10-12); A6a, inference through the API (2026-10-12); A6b,
+the editor filled by the inference, delivered (screenshots approved 2026-10-14, after its run on the
+user's workbooks and D99–D103).
 
 **Target:** Product 0.10.0, [model authoring and spreadsheet onboarding](ROADMAP.md#product-release-010--model-authoring-and-spreadsheet-onboarding).
 The `navigation` declaration (A-D2) extends the model, so 0.10 opens the next schema language version
@@ -238,7 +240,7 @@ migration), `contract` (every route change) and `volume` (every budget).
 | 8 | [A3](#a3-source-profiling-and-the-dry-run-summary) | A0 | **Delivered 2026-10-12.** Source files, profiles of sheets and columns, the dry run of the whole file; W1–W3 generators |
 | 8a | [A3a](#a3a-a-faster-trial-run) | A3 | **Delivered 2026-10-12.** A trial run records no audit entries (D72); sets advance from arrays (D73) |
 | 9 | [A5](#a5-editor-with-a-source-file) | A3, T1 | **A5a delivered 2026-10-12; A5b committed 2026-10-12, its open points carried into A6; A5c after A6.** Source and mapping panes, mapping operations, profiles following the model, load, saved profiles and re-runs |
-| 10 | [A6](#a6-inference-over-table-patterns) | A5 | Proposals from the table patterns; new application or extending the active model; pinned decisions |
+| 10 | [A6](#a6-inference-over-table-patterns) | A5 | **A6a delivered 2026-10-12; A6b delivered 2026-10-14.** Proposals from the table patterns; new application or extending the active model; pinned decisions |
 | — | _cut line (D2)_ | | _If R is out of reach, 0.10.0 releases here and A7, A8 move to 0.10.x_ |
 | 11 | [A7](#a7-model-description-sheets-and-matching-across-files) | A6 | Model-description sheets; matching records across files |
 | 12 | [A8](#a8-list-blocks-in-sheets-laid-out-for-reading) | A6 | List blocks detected, confirmed and loaded |
@@ -2696,6 +2698,388 @@ pinned decisions; W1 onto the starter model extends it rather than duplicating i
 **Groups:** `authoring`, `contract`; frontend unit tests.
 
 **Exit:** screenshots approved; the roadmap's first exit gate line holds on W1.
+
+##### A6 plan (2026-10-12)
+
+**Planned 2026-10-12, revised the same day after the user's review; D86–D98, the test cases and
+the revised mock-up accepted by the user the same day ("go ahead").** The first version put the proposals in a
+list of their own with Accept and Reject; the user found it "terminal and very binary", a
+questionnaire beside the editor rather than the editor. **Revised (approach and D92's Propose again
+rule accepted by the user, 2026-10-12, "okay"):** the inference writes its first draft into the
+draft as ordinary steps, and everything after that is the editing A4a–A5b built, as
+MODEL_AUTHORING's principle 2 says ("an editor, not a wizard"). Mock-up ([editor with
+proposals](https://claude.ai/artifact/3gB1sWQGg9QLNGLwC2NJV4), four boards: the editor filled by
+the inference with a proposed type selected, the start dialog, proposing again after a newer
+workbook, 390px; private until shared). Checked against the code at `7ac83de`:
+
+- **The profile has per-column statistics only.** A3 stores filled, distinct, value types,
+  candidate key, delimiters, placeholders and the five best overlaps per column
+  (`engine/sources/profiling.py`). Four patterns need facts between columns that it does not hold:
+  a code and name that vary together, columns constant per value of another (the repeated
+  parent's order and ID), a key repeated once per language, and the parts of a split cell found as
+  whole values elsewhere. The staged cells (`source_file_cells`) are still there (D66), so these
+  are set statements over them, not a second read of the file.
+- **History already knows a proposal step.** `history.py` lists `proposal` among undoable origins
+  and stores each step's `created`, `rekeyed` and `named` elements, so an applied proposal is an
+  ordinary step, and whose an element is (the engine's or the administrator's, D92) can be read
+  from history. **One gap:** the mapping kinds name sources and model elements in their effects,
+  not columns (`mapping.py`, `_named`), so a column's owner needs a `column:` entry added there.
+- **The import contract carries most proposals as they are.** Rows of one source sharing a key with
+  the same values load as one record (0.9 D69), so a second source on the same sheet can load a
+  list or a parent by its code or ID; rows that disagree are refused `DUPLICATE_KEY_IN_FILE`, which
+  is why name drift needs its value map before the load. **One gap:** a related record's `parent`
+  (`RelatedParent`) and a flag set (`relationFlags`) have no `missing`, so in a new application a
+  translation proposal would refuse every row until its language records exist, and a flag
+  proposal every row with a flag set until its records exist (D93).
+- **What A5b left open** (its record): nothing is proposed; Map to… cannot choose a related record's
+  value or a match by an attribute, which proposals produce (translations, a list matched by its
+  code); the column's centre has no sample values.
+
+**What is built**, in two slices (D86):
+
+**A6a: inference through the API.**
+
+1. **Migration** `20261014_01_draft_proposals`: `model_draft_proposals` (draft, inference job,
+   position, pattern, signature, the proposal as JSON with its evidence and alternatives). The
+   inference is a job of kind `inference` (D88); its proposals are rows so they page, and the
+   centre's Proposed because reads an element's proposal from them. Whether a proposal is applied,
+   and whether it was rejected (D92), is read from history, not stored.
+2. **Profile:** each column's statistics gain `values`, its ten most frequent values with their
+   counts (closing A5b's missing samples; the evidence quotes them).
+3. **Engine `engine/sources/inference/`:** the cross-column facts as set statements over the staged
+   cells (`facts.py`); one rule per pattern over the statistics and facts (`patterns.py`, D90), each
+   giving a proposal with its evidence, operations and alternatives; matching against the draft's
+   model in extend mode (`matching.py`, D91); attribute types shared across the workbook's sheets
+   (D98); requirements between proposals; the comparison with
+   what the draft already holds, by owner (D92); the assistant's interface (`assistant.py`, D95).
+   History: the `column:` effect, and each element's owner read from the steps naming it.
+4. **Routes** (D87): `POST /model-drafts/{id}/inference`, `GET …/inference` (with its
+   disagreements), `GET …/inference/proposals` (paged, `sheet`, `column`: evidence, operations,
+   alternatives, `applied`), `POST …/inference/application` (D89). The disagreements also join the
+   draft's diagnostics as `INFERENCE_DISAGREES` warnings. OpenAPI lock re-baselined.
+5. **Import binding:** `missing: "create"` on a related record's `parent` and on a flag set, both
+   matched by name (D93).
+
+**A6b: the editor filled by the inference** (D94). No new view: the existing panes and centre.
+
+6. **New from a workbook** asks what to propose: a new application (its name, from the file's),
+   additions to the active model, or nothing (A5b's mapping by hand); after profiling it runs the
+   inference and applies it, and the editor opens on the model and mapping it wrote, with the dry
+   run. ⋯ › **Propose again…** does the same on an open draft (after a newer workbook, say).
+7. **Proposed, until edited:** a type, attribute, relation or list type, and a column, that is
+   still the engine's (D92) carries a **Proposed** mark in the model pane and the source pane, as
+   New does. Its centre (A4a's element panel, A5b's column) gains **Proposed because**: what the
+   rule found, in one sentence, with its evidence (statistics and values), and its alternatives as
+   actions ("Read as a text attribute instead"), each one step through `POST …/operations`.
+   Editing the element by any operation makes it the administrator's and the mark goes.
+8. **Disagreements** of Propose again are warnings in Issues, each with **Go to column**; History
+   names each applied proposal ("Proposed: Category as the parent of Item").
+9. **A5b's open points:** Map to… offers a value of a related record and a match by an attribute;
+   the column's centre shows its most frequent values.
+
+**Documents:** API.md (the inference routes replacing the designed ones, `values`, `missing` on a
+related parent and a flag set), API_JOURNEYS, USER_JOURNEYS (J34.4–J34.6), MODEL_AUTHORING (the pattern rules as
+built, pinned decisions, the assistant), UI_ACCEPTANCE rows A6-1 and A6-2, OPERATIONS
+(`INFERENCE_ASSISTANT`), CURRENT_FUNCTIONALITY and PRODUCT, CHANGELOG, PROJECT_STATUS, TODO.
+
+**What W1 gives** (new application, the proposals in the order they are applied; the test
+names structures, never headers):
+
+| # | Pattern | Columns | Proposal | Alternatives |
+| --- | --- | --- | --- | --- |
+| 1 | — | — | A new application named after the file | — |
+| 2 | Key column | `S1`: `K`, `N` | Type from the sheet's name (singular), `K` its unique key attribute, `N` its name; the source | — |
+| 3 | Repeated parent | `P`, `Po`, `Pi` | Parent type from `P`'s header holding `Po` (integer) and `Pi` (unique text); containment; a second source on `S1` keyed by `Pi`; `P` the item's parent by name | A list related to the type (no containment) |
+| 4 | Text lookup | `T` | List type from the header, a relation from the row's type, `T` read by name with values created by the load | A text attribute |
+| 5 | Placeholder values | `T` | Value map: `N/A`, `-` to empty, with their counts | — |
+| 6 | Code and name pair | `Lc`, `Ln` | List type with a unique code; a third source on `S1` keyed by `Lc`, `Ln` its name; `Lc` related by the code | `Ln` a text attribute, `Lc` a text attribute |
+| 7 | Name drift | `Lc`, `Ln` | Value map sending each code's less frequent name to its most frequent one (2 codes) | A warning only |
+| 8 | Flag columns, with a multi-valued cell beside them | `F1`, `F2`, `Fo` | One list, one relation: `F1`, `F2` its flags (each a record named by its header), `Fo` split on `;` with values created | A yes/no attribute per flag column, `Fo` its own list |
+| 9 | External IDs | `X` | A unique text attribute | Ignore the column |
+| 10 | Reference to another sheet; translations, one row per language | `S2`: `K` → `S1`'s `K`, `Lang`, `N` | A language list and a translation type under it, a relation from the row's type; `S2` a source of existing records keyed by `K`, `N` the translation's name under the language its row names | Ignore the sheet |
+| 11 | Navigation group | — | The list types the sheet's proposals add, as one collapsed group named after the sheet | — |
+
+Level columns and translations by column are not in W1 or W2; their rules are unit tested on
+generated tables (D90).
+
+**Decisions** (D86 onward):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D86 | One package or slices | **Two slices, each with its own record and checks: A6a (inference through the API: the rules, the job, the proposals and their application, extend mode, pinned decisions, the assistant's interface, `missing` on a related parent and a flag set) and A6b (the editor: the start, the Proposed marks and Proposed because, A5b's open points).** As D74 did for A5: the rules have the most uncertainty and are checked on W1 through the API before a screen depends on them. A6's exit stays one: W1 to a published change set from the inference's first draft, changed in the editor, screenshots approved |
+| D87 | The routes | **Singular, the latest inference of the draft, as the dry run's routes are: `POST /model-drafts/{id}/inference` (`mode`, `applicationKey` or `applicationName`, `workspaceKey`?) answering `202` with `{state: "checking", jobId}`; `GET …/inference` (state, mode, draft version, counts, disagreements); `GET …/inference/proposals` (paged); `POST …/inference/application` (D89).** A0 designed `POST …/inferences` and `GET …/inferences/{id}/proposals`. A draft has one current file (D5) and only its latest inference matters, as only its latest dry run does; an id in every path would make a client remember which is current. Reading the proposals before applying them stays possible for an integrator who wants to look first; the editor applies at once |
+| D88 | Synchronous or a job | **A job of kind `inference`, as profiling and the dry run are; the editor follows it over the job's event stream as A5b does.** Its time is unmeasured: the rules are a few grouped statements per column pair of a sheet, and 40 sheets or 10,000 rows are possible. W1 at 10,000 rows is measured once in A6a. A request held open for a whole-file statement is what the job model exists to avoid |
+| D89 | How proposals reach the draft | **`POST …/inference/application` with `expectedVersion` and optionally `proposals` (ids; by default every proposal not yet applied): all or none, each proposal its own step of origin `proposal` (its id and pattern), in the order of their requirements, one dry run after the last. The editor calls it as soon as the inference completes. An alternative is not a second application: it is a batch of ordinary operations (from the proposal as applied to the alternative) the client sends to `POST …/operations`, which makes the element the administrator's.** The first version had an acceptance route and Accept/Reject per proposal; the user rejected that as a questionnaire beside the editor. Choosing "propose" in New from a workbook (or Propose again) is the request, so the J34.4 rule "nothing applied unasked" holds. **Requirements:** a proposal naming an element another creates requires it; applying one without it is refused `422 PROPOSAL_REQUIREMENT_MISSING` with the requirement's id. A proposal step is undone like any step (D8: dependants together) |
+| D90 | The rules | **Each pattern a fixed rule over the profile's statistics and the cross-column facts, with fixed thresholds stated in MODEL_AUTHORING so a test names its expectation (as D70 did): key column — a candidate key, text without spaces or integer, not a GUID, the leftmost such; name — the first other text column filled on ≥ 95% of rows with ≥ 50% distinct; code and name pair — a code-like column and a text column with at most 1.5 names per code; repeated parent — a column with distinct ≤ rows / 3 grouping other columns constant within ≥ 98% of its groups; level columns — headers differing only by a number, or a column whose values are ≥ 90% in the key column; text lookup — text, distinct ≤ 50 and ≤ 20% of filled cells; reference to another sheet — ≥ 90% of a column's distinct values in another sheet's key column; multi-valued cell — a delimiter in ≥ 10% of cells whose parts are ≥ 80% values found whole in the column; flag columns — every filled cell in one of `y/n`, `yes/no`, `x`/empty, `true/false`, `1/0`, adjacent columns forming one set, joined by an adjacent multi-valued column; translations by row — a column of ≥ 2 language codes or names repeating a key referenced to another sheet once per value; by column — headers differing only by a language suffix; external IDs — every cell a GUID, or a unique code under a header naming an ID beside a key; placeholders — A3's (D70); name drift — a code with two or more names; navigation group — two or more list types proposed from one sheet.** Deterministic and visible. Scored similarity was considered and left out: it gives an answer nobody can predict or name in a test, and the design says inference is deterministic first. The language codes are ISO 639-1 and the names in English, the only words in the rules beyond the placeholder list |
+| D91 | Extend mode | **The draft's model is read for matches before anything new is proposed, in this order: a sheet becomes a source of an existing type when ≥ 50% of its key column's distinct values are that type's unique attribute values or names in the workspace (A3's overlaps, D69), or when the sheet's name equals the type's name or plural; a column maps to an attribute the type binds when its header equals that attribute's name and ≥ 95% of its cells convert to its value type; a global attribute type of that name and fitting type is attached rather than a new one added; a lookup column relates to an existing type when ≥ 50% of its distinct values are that type's record names, through a relation type already allowed between them when there is one. Names compare after folding case, accents and punctuation and dropping a final plural `s`.** New types go into `applicationKey`, by default the application holding most matched types. "Not duplicated" is then checkable: an attribute matched is never added again. Released elements are matched, never changed (a change would be a migration) |
+| D92 | Pinned decisions | **An element, binding, ignored column or sheet is the engine's while every step naming it since it was proposed is of origin `proposal`; a step of any other origin naming it (a request, a patch) makes it the administrator's, for good. A proposal step undone, or a proposed element the administrator removed, is a rejection: the same proposal (pattern and columns, its signature) is not applied again. Propose again: for what nothing decides yet, the new proposals are applied as steps; for what is still the engine's and the new rule's result differs (a renamed column in a newer workbook), a step of origin `proposal` takes it from the earlier proposal to the new one, undone like any step; for what is the administrator's and the rule reads otherwise, a disagreement (current binding, what the rule found, the step that decided it) is reported and nothing changes.** Accepted by the user (2026-10-12) with the revised approach: otherwise the engine's earlier guesses would freeze just by sitting in the draft. The first version pinned everything the draft held; with proposals applied directly, that would have left Propose again unable to correct its own guesses. "Mine for good" keeps the design's rule that inference never overrides a decision. The column's owner needs the `column:` effect (above) |
+| D93 | Records a new application's proposals name before they exist | **`missing: "create"` on a related record's `parent` and on a flag set, both matched by name: a language a row names, or the record a set flag stands for, is created once per load when it does not exist, as D77 does for a lookup.** Without it a translation or flag proposal for a new application loads nothing (or refuses every flagged row) until someone adds the languages and flag records by hand, which is what A6 removes. A separate source loading them would need a unique key the list does not have, and a flag's record is named by a header, which no row holds. It extends the import contract for any client, as D77 did |
+| D94 | The proposals in the editor | **No proposals view: the inference fills the model and source panes; what is still the engine's carries a Proposed mark; the selected element's or column's centre shows Proposed because (the rule's finding, its evidence, its alternatives as actions); disagreements are Issues warnings; History names each proposal.** The user's review (2026-10-12): a card list with Accept and Reject is binary and terminal, and nothing in it could be changed until accepted. In the editor every proposal is changeable by the operations that already exist (rename, Move to…, Map to…, remove, undo), the profile follows (D78), and the dry run shows the effect. The cost is that a first look at "what the engine guessed" is spread over the panes rather than in one list; the Proposed marks and History are that overview |
+| D95 | The assistant (A-D5) | **An interface only: `INFERENCE_ASSISTANT`, empty by default (off), names a Python factory returning an object with `suggest(request)`; the request carries each sheet's headers and at most `INFERENCE_ASSISTANT_ROWS` (20) rows; it answers label suggestions for elements other proposals add, served as proposals of pattern `assistant` (`setLabel` operations requiring the proposal they rename), marked as the assistant's. No provider is bundled; a failing assistant is reported in the inference's `warnings` and the deterministic proposals stand.** Pluggable by setting, as the design asks, with nothing sent anywhere unless an operator configures it. Tested with a fake in a unit test |
+| D96 | External IDs | **A unique text attribute named by the header, with Ignore as the alternative; in extend mode, a related record of an existing type when ≥ 50% of the values are already that type's unique attribute values.** The design says "system mappings", but a system mapping is a related-record structure (a mapped type under a system's record) that a new application does not have, and building one for each ID column would add two types per column. A plain unique attribute keeps the ID searchable and keyed, and the extend case uses a structure that is there |
+| D98 | Attribute types shared within a workbook | **Columns of different sheets or sources with the same header (folded as D91 folds names) and the same proposed value type become one global attribute type, attached to each type that has them, proposed by the first proposal that needs it and required by the others. A unique column shares only with unique columns and only when no value appears in both (A3's column overlaps): uniqueness is per workspace and attribute type, across every type (`unique_attribute_values`), so two lists sharing a unique "Code" could not hold the same code. Otherwise each gets its own attribute type, keyed `-2`, `-3` (A-D6).** Added at the user's request (2026-10-12) after comparing with a model Claude built from a workbook, where a "code" attribute was reused across types. Attribute types are global and reusable by design; one per column would make a workbook with ten lists hold ten "Code" attribute types. W1 has no repeated header outside its key reference, so the rule is unit tested on generated workbooks |
+| D99 | Rows the proposed model refuses (found on the user's workbooks, 2026-10-14) | **A row type gets one parent: the first repeated column; a further one is a list it refers to (each set the parent anew, the last winning, and the earlier parent columns were looked up as the last parent's type). A parent is optional (`setContainment`'s `parent.optional`, `rootCreatable` beside the parent) when some rows leave the parent column empty, and always for a parent code column. A source reads no record from a row holding nothing in any column it names. The key falls back to a GUID filled and different on every row; a text key leaving the rows without a name, beside such a GUID, is the name. A reference to another sheet matches its names too.** Accepted by the user (2026-10-14, "Yes" to fixing the defects). Three workbooks' proposed models refused 20 of 30, 1,676 of 2,694 and 153 of 3,727 of their own rows; 10 of a workbook's 12 lists (an ID and a name) were not proposed |
+| D100 | Translations found by their values | **Columns about as many values as a base column whose values repeat, one value per base value and back (80% each), mostly different, are its translations, whatever their headers say; the k-th translation of every base is in the k-th language (a header's language word, else "Language k"). A base that is no type's name leaves them attributes.** Accepted by the user (2026-10-14). A workbook repeated its columns per language with headers in each language (one header even repeated in English): no header rule finds that. All-different columns are excluded, since any two of them match one to one; translations of an attribute that is not a name (a unique "Type") stay attributes, which the translation type (a name) cannot hold |
+| D101 | Flag sets | **The yes/no columns of a sheet with one vocabulary form one set, adjacent or not.** Accepted by the user (2026-10-14): twelve station columns split by translation columns became four lists |
+| D102 | Sentences | **Text averaging more than 60 characters is a description: never a parent, a pair's name or a lookup; long text.** Accepted by the user (2026-10-14): a description repeated over rows was proposed as a parent type |
+| D103 | Names | **Headers and sheet names written as words (underscores, joined capitals, capitals); a row type named after its key's header without a final code word, else its sheet; a navigation group after its row type.** Accepted by the user (2026-10-14): types were named "SHEET COPY (01-01-26)" and kept "Platform_Code" |
+| D97 | The flag set's name | **When a multi-valued column stands next to the flag columns (W1's shape), the list is named after it, with a leading `Other`, `More` or `Additional` dropped; otherwise "{type} flags". Either is renamed in the editor.** The flag headers name members, not the set, and the set has no header of its own. The three words are English, like D90's language names |
+
+**Journey test cases** (backend, `tests/journeys/test_j34_onboard.py`; each on two configurations,
+the draft the configuration's active model, W1 at 200 rows in a new workspace; no test names a
+configuration's key or a header text):
+
+*A6a*
+
+1. **J34.4 Proposals with their evidence.** Given W1 profiled on a draft, when the inference runs in
+   new-application mode, then it lists the eleven proposals of the table above, each naming its
+   pattern, its columns by structure and its evidence (for the repeated parent: `P`'s groups and
+   `Po`, `Pi` constant in all of them; for the code and name pair: the two codes with two names);
+   no proposal reads `N` as a key or lookup, `X` as a key, or `Po` as a parent; and until it is
+   applied the draft's version and history are unchanged.
+2. **J34.4 Applied, loaded and published.** When the inference is applied, then each proposal is
+   one step of origin `proposal`, the draft compiles, its profile is valid, the dry run counts 200
+   items with no row refused; installed and loaded into a change set and published, the workspace
+   holds `n/15` parents, 200 items, 8 materials, 6 colours with one name each, the features and
+   1,400 translations under 7 languages.
+3. **J34.4 Changed after applying.** Sending the text lookup's alternative maps `T` to a text
+   attribute and removes the material list; renaming the parent type and moving `Po`'s attribute
+   keep the profile valid (D78); undoing the translations' step removes them and leaves `S2`
+   unmapped; each of these makes or leaves the element the administrator's (D92).
+4. **J34.4 Requirements and refusals.** Applying a proposal without the proposal it requires is
+   `PROPOSAL_REQUIREMENT_MISSING`; both together are applied in order; an unknown proposal is `404
+   PROPOSAL_NOT_FOUND`; a stale version `VERSION_CONFLICT`; an inference on a draft whose file is
+   still profiling `409 SOURCE_FILE_PROFILE_NOT_READY`, without a file `404 SOURCE_FILE_NOT_FOUND`.
+5. **J34.5 Extend the active model.** Given a draft holding a type named as `S1`, binding a unique
+   attribute named as `K`'s header, an unbound global attribute type named as `X`'s, and a list
+   type whose records in the workspace are named as `T`'s values, when the inference runs in extend
+   mode and is applied, then the draft has a source of that type, `K` mapped to its attribute,
+   `X`'s attribute type attached, and `T` related to the list type; no attribute type name appears
+   twice and no new list type is named as `T`'s header.
+6. **J34.6 Propose again after edits and a newer workbook.** After case 3's edits, W1′ uploaded to
+   the draft and the inference run and applied again: `Y` (new) is mapped by a new proposal step;
+   the colour list's name binding, still the engine's, follows `Ln`'s new header in a step of
+   origin `proposal`; `T` (the administrator's) is unchanged, with one `INFERENCE_DISAGREES`
+   naming the step that remapped it; the renamed parent type keeps its name; the translations
+   (undone) are not applied again.
+7. **J27.8 variant, `missing: "create"` on a related record's parent and a flag set:** an import
+   with an inline profile whose translation column names languages that do not exist, and whose
+   flag columns stand for records that do not exist, creates each language and each flag record
+   once, the translations under them and the flagged relationships.
+
+*A6b* (the browser runner)
+
+**Browser** (`test:browser:authoring-a6`, new; on both designer models, naming no key): New from a
+workbook with W1 and a new application; the editor opens filled, with Proposed marks and the dry
+run at 0 refused; a proposed type's Proposed because and an alternative taken from it (keyboard
+alone); a rename making it the administrator's (the mark goes); a proposal step undone; the load,
+the review, publication; 1440px and 390px; axe on a proposed type's and a proposed column's
+centre. `-a5` and `-a4a` (the shared panes, Map to…, the element panel).
+
+**Unit tests:** each rule of D90 on generated tables with a control column that must not match
+(property-based where the shape varies: sizes, column order, placeholders); D98 on generated
+workbooks (a shared header and type shared; a different type, a unique column with values in
+common, and a unique and a non-unique column each kept apart); the matching of D91
+(name folding, thresholds); the comparison with the draft (D92); the assistant interface with a
+fake (bounded rows, proposals only, a failure reported); the owner of an element read from
+history; frontend, the Proposed because descriptors and history words.
+
+**Groups:** A6a `authoring`, `jobs` (the inference job, `missing` on a related parent and a flag set), `contract`,
+`startup` (the migration: bootstrap, upgrade from `20261013_01`, restart, interrupted upgrade); W1
+at 10,000 rows measured once. A6b Vitest related, `test:browser:authoring-a6`, `-a5`.
+
+**Composable domains (ADR-032):** inbound flow gains `missing: "create"` on a related record's
+parent and a flag set; identity, attribute storage, audit and history, the `match` declaration and mapping
+coverage are unchanged (proposals are model-draft data, and an applied one is an ordinary step).
+No door is affected.
+
+##### A6a record (2026-10-12)
+
+**Delivered 2026-10-12** as planned (D86–D98), through the API; no frontend change. What is built:
+
+- **Migration `20261014_01_draft_proposals`**: `model_draft_proposals` (the latest inference's
+  proposals, deleted with the draft) and the job kind `inference`.
+- **`engine/sources/inference/`**: `facts.py` (a sheet's columns and the questions the rules ask of
+  the staged cells, each one set statement: values constant within another column's groups, distinct
+  pairs, names per code, a split cell's parts, values two columns share), `patterns.py` (the rules of
+  D90 over that interface), `build.py` (each finding a proposal: operations with keys given per
+  role, alternatives, anchor and signature; extend matching, D91; shared attribute types, D98),
+  `compare.py` (an element's state, snapshots, whether an operation holds, what operations create and
+  name), `run.py` (the job, the reads, ownership from history, the application, the disagreements
+  as warnings) and `assistant.py` (D95).
+- **History**: `apply_steps` writes several steps in one request, each with an origin made once its
+  operations applied; a proposal step's origin carries its anchor, keys, created elements and a
+  snapshot of what it touched, which `entry_response` leaves out.
+- **Routes** (`management/routers/inference.py`): `POST` and `GET /model-drafts/{id}/inference`,
+  `GET …/inference/proposals` (`sheet`, `column`), `POST …/inference/application`; the step answer
+  shared by the operation, undo, redo and application routes (`management/steps.py`). `GET
+  …/profile` adds `INFERENCE_DISAGREES` warnings. Settings `INFERENCE_ASSISTANT` and
+  `INFERENCE_ASSISTANT_ROWS`.
+- **Kinds**: `unmapColumn`; `addValuesToList` on a flag set and a related record's column.
+- **Import binding** (D93): `missing: "create"` on a flag set and a related record's `parent`.
+- **Profiling**: a column's ten most frequent `values`; the staged cells analyzed after `COPY`.
+- **OpenAPI lock** re-baselined by diffing the document against HEAD: `missing` on `FlagsBinding`
+  and `RelatedParent`, the job kind `inference`, a column's `values` and `valuesListed`, nothing
+  else (the inference routes are model administration's).
+
+**Where it differs from the plan and the design:**
+
+1. **No `workspaceKey` on `POST …/inference`**: the overlaps extend mode reads were computed when the
+   file was profiled, against the file's workspace, so the inference uses that one.
+2. **Status `held`** besides `open`, `applied` and `rejected`: a proposal whose columns the draft
+   binds already (by hand), applied by no step. Codes beyond the plan: `INFERENCE_NOT_READY`,
+   `INFERENCE_STALE` (the draft changed after the inference other than by its own proposals),
+   `NOTHING_TO_APPLY`, `PROPOSAL_ALREADY_APPLIED`, `INVALID_INFERENCE_REQUEST`.
+3. **D92, removal:** removing a proposed element is not a rejection; it makes what the proposal
+   created the administrator's, so the proposal is not applied again either, and a column it read
+   otherwise is a disagreement (case 6's `T`). Only an undone proposal step is a rejection. Taken
+   literally, D92's "or a proposed element the administrator removed" would have marked `T`'s text
+   lookup rejected, which case 6 (approved) reports as a disagreement.
+4. **Whose an element is** is read from snapshots in the proposal steps' origins, not from a
+   `column:` effect in the mapping kinds (the plan's gap): a snapshot also tells a renamed type from
+   one only referenced, which effects cannot.
+5. **D93 needed two more parts of the binding**, found by case 7: a `record: "existing"` row finds the
+   record another source of the same file creates by its key (a translation sheet beside the sheet
+   loading the records), and a related record's parent created by name gets its creation item.
+6. **D96, extend:** an ID column whose values are an existing type's unique values under one parent
+   record becomes a relation to that type matched by the attribute, not a related record: a related
+   record only finds one the row already relates to and would create a second record holding the
+   same unique value. Covered by a case added beside the approved seven (J34.5, 2 configurations).
+7. **D90, as built:** the name column prefers a header holding the word "name" and needs no share of
+   distinct values (W1's names repeat: 64 over 200 rows); level columns are found before a repeated
+   parent (Level 1 is constant within Level 2's groups, found by a unit test); a lone yes/no column is
+   a yes/no attribute with a value map, not a lookup of "Y" and "N" (found by a unit test). A
+   navigation group raises the schema language to 0.10 when the draft is older (found by case 2: a
+   0.9 model refuses `navigation`).
+8. **Measured (D88):** the inference of W1 at 10,000 rows took 54.6 s: the staged cells had no
+   planner statistics after `COPY`. Profiling now analyzes them; measured once again: 0.35 s
+   (profiling 6.0 s, application of the 11 proposals 0.2 s).
+9. **Test order:** the seven journey cases were written from the plan and seen failing before the
+   code; the D96 case was added after its code.
+
+**Smoke start:** the user's development server (`--reload`) restarted on the change, migrated the
+development database to `20261014_01`, and answers `GET /model-drafts/{id}/inference` with `404
+INFERENCE_NOT_FOUND` for an existing draft. The orphaned uvicorn on port 61380 noted in A5a is still
+running, left for the user.
+
+**Checks:** J34 (`test_j34_onboard.py`): the 8 new cases × 2 configurations passed, and the module's
+earlier cases (48 in all); A3's profiling case updated for `values` (the package's own change). Unit
+`tests/unit/engine/sources/inference/` (new): 22 passed (each rule on generated tables over 4 seeds,
+sizes and column orders with control columns; D98's four cases; extend matching; D96's binding;
+ownership and holds; the assistant with a fake). Groups by EXECUTION_GUIDE §2: `authoring or
+contract`, 3,455 passed in 2 min 12 s; `jobs or startup`, 547 passed in 2 min 10 s, and its serial
+part, 1 passed. **Both over the 2-minute ceiling** (TODO, to fix in the next package). A new
+`test_startup` case: upgrade from `20261013_01` keeping a draft, an interrupted upgrade refused and
+recovered, two restarts, an inference after the upgrade, the downgrade. `test_openapi_contract`,
+`test_api_journeys`, `test_boundaries`, `test_schema_drift`, `test_foreign_keys`, `test_config`:
+passed. `ruff check app/ tests/`: clean. **Not run:** the browser runners and the frontend (no
+surface changed; A6b), the full suites (R). **Not covered by a test:** the assistant's row limit is
+the statement's `LIMIT` in `run._assisted`, read but not exercised.
+
+##### A6b record (2026-10-12)
+
+**Built 2026-10-12** as planned (D94, the revised mock-up's four boards); **delivered 2026-10-14**:
+the user approved its screenshots after the run on their workbooks (item 8). What is built:
+
+- **Start points:** New from a workbook asks **Propose** (a new application with its name from the
+  file's, additions to the model, nothing) and **Compare with the records of** (the workspace;
+  `WorkspaceField`, extracted from Add a workbook and shared); the request waits for the workbook's
+  profiling (`proposing.ts`) and the editor proposes, follows the inference's job and applies its
+  open proposals as one request of one step each (`useInference`), then shows the sheet's type. ⋯ ›
+  **Propose again…** (`ProposeDialog`, the same `ProposeFields`).
+- **Proposed, until edited:** a **Proposed** mark (a status tone of its own, `--status-proposed-*`,
+  light and dark) in place of New in the model pane and as a column's status in the source pane; a
+  **Proposed because** section (`ProposedBecause`) under the header of a type, attribute type,
+  relation type and column: the pattern, the summary, **Evidence** and the alternatives, each one
+  step through `POST …/operations`. History reads "Proposed: …" (the origin's `summary`);
+  disagreements arrive as the profile's `INFERENCE_DISAGREES` warnings at the column's binding, with
+  Go to column. A notice says when the editor is proposing, and why nothing was proposed.
+- **A5b's open points:** Map to… reads a related record matched by a unique attribute (**Matched by**;
+  no "create" then) and **a value of a related record** (what it fills, its parent's type, the record
+  named or the column naming it, created when missing); the column's centre lists its most
+  frequent values.
+- **Backend** (after A6a's record): a proposal step's origin carries the proposal's `summary`; an
+  `INFERENCE_DISAGREES` warning points at the column's binding; `proposed` names the proposal that
+  created each element; an operation holds when the binding has what it sets.
+
+**Where it differs from the plan and the mock-up:**
+
+1. **An installed element is no longer marked Proposed**: once in a release it reads Released and has
+   no Proposed because, since its alternatives would be migrations. The profile's columns keep theirs.
+2. **Taking an alternative makes what it changes the administrator's**, as D92 says: the text
+   lookup's alternative attaches an attribute to the row's type, so that type reads New afterwards.
+3. **The start dialog is wide** with a workbook (three choices, the name, the workspace), and the
+   starting document and base release stand side by side (`dialog-pair`): A6's runner measured its
+   buttons 60 px below the frame first.
+4. **Found by the browser runner and fixed:** proposing again on the unchanged workbook re-applied the
+   colour list's name binding, which dropped the name drift's value map, and the dry run refused 102
+   rows (`holds` compared the binding whole); regression case `test_proposing_again_on_the_same_
+   workbook_applies_nothing` (J34.6, 2 configurations) and a unit case. A list's Proposed because named
+   the navigation group, the last proposal listing it, instead of the text lookup that made it. The
+   "Nothing" choice's text held "workbook", so its label matched the Workbook field (reworded). A
+   type under a parent has its row id ending in `/key` (the runner's own selector).
+5. **Reported by the user on a real workbook (2026-10-14), fixed:** every sheet but one was lists side
+   by side and the other had a side block, so nothing was proposed but the new application, applied
+   alone: an application without types, which a model refuses. Load into a change set then blanked
+   the page: an invalid draft's compilation has no `changes` (`exclude_unset`), the Load dialog read
+   its length and the app has no error boundary (the Install dialog read it the same way; latent
+   since A4a and A5b, the Install dialog's test fixture sent `changes: []`). The application is now
+   proposed only with what goes into it and an inference finding nothing says so (regression case
+   `test_a_workbook_with_nothing_to_propose_leaves_the_draft_as_it_was`, J34.4, on W3); both dialogs
+   read a missing `changes` as none, and the Load dialog says nothing is mapped yet (`LoadDialog.test`,
+   the Install fixture as the server answers). Each regression seen failing without its fix.
+6. **Accepted by the user after the report (2026-10-14):** a sheet of several blocks is read by its
+   main table when one block is clearly the table (`MAIN_COLUMNS` 3, `MAIN_SHARE` 60% of the sheet's
+   cells), its source limited to that block's columns (`block`); the other blocks stay A8's and are
+   named in the warnings (regression case `test_a_table_with_a_note_beside_it_is_read_by_the_table`, J34.1, and a
+   unit case). The app has an error boundary (`ErrorBoundary`) round the page inside the frame and
+   round the app: a part failing while rendering says what failed and offers a reload, the top bar
+   stays, and a new address clears it (`ErrorBoundary.test`).
+7. **Why the tests missed it, and what changed (the user, 2026-10-14):** the compile answer of an
+   invalid draft sends `changes` empty instead of leaving it out, so answer, type and test fakes agree
+   (regression in `test_navigation_needs_schema_0_10_and_its_own_shape`, J33.9, seen failing without
+   it); every browser runner fails on an uncaught page error or a part the error boundary replaced,
+   in any page it opens (`watchPageErrors`, `harness.node-test`). A new application on an empty model
+   is checked: a model of the workbook alone (`test_a_new_application_on_an_empty_model_is_a_model_of_
+   the_workbook_alone`, J34.4). At the user's request, the start offers **A new model**: the same
+   new application in a draft that starts empty (the starting document is not asked then), since
+   "A new application" adds it to the model the draft starts from, the active one by default
+   (`CreateDraftDialog.test`).
+8. **Run on the user's four workbooks (2026-10-14) and revised (D99–D103, accepted):** the
+   proposed models refused many of their own rows (one parent per type, optional parents, rows empty
+   for a source, a GUID key, references by name), and the rules missed lists of an ID and a name,
+   translations by value, yes/no columns apart, descriptions and readable names. Run again on the
+   files: a data dictionary 153 rows, none refused; a reference data workbook 4,117 rows, one refused
+   (a category named without its ID, a gap in the file); a working copy 3,735 rows, 70 refused (two
+   categories translated on a few rows as a category the English column does not have, conflicts in
+   the file the dry run names); a workbook of lists side by side proposes nothing (A8). A second
+   column with an earlier column's header is left out with a warning. Generated W4 holds these
+   shapes (`test_a_workbook_of_real_shapes_gives_a_model_its_own_dry_run_takes_whole`, J34.4, seen
+   failing without the row rule) and `test_build__shapes` the rules; the samples stay out of the
+   repository. **Not covered:** translations of an attribute that is not a name (they stay
+   attributes); a code and name pair whose codes hold no digit is two lists.
+9. **Found, not A6's (TODO):** History words a rename with the element's current name; a type's
+   attribute table wraps "Yes" beside the source pane; Export, Import and Load still list workspaces
+   themselves.
+
+**Checks:** `test:browser:authoring-a6` (new), both designer models, 18 checks, about 35 s: New from a
+workbook proposing a new application (11 steps), the Proposed marks and History, the dry run with 0
+refused, a proposed type's Proposed because and evidence, the text lookup's alternative by keyboard
+alone, a proposed column, a rename taking the mark away, a proposal step undone, Propose again with
+nothing new, 390px with the section inside the width, Map to… matched by an attribute and a value of
+a related record, Load, the review, publication (200 items), installed types Released; axe 0
+violations on the start dialog, a proposed type and column, Map to… and 390px; dialogs measured.
+`-a5` 18 checks (it now chooses "Nothing: I will map it by hand") and `-a4a` 44 (the shared panes and
+element panel). Vitest `model-editor`, `model-admin` and `ui`: 243 passed (new: `proposing.test`, 2;
+`mapping.test` +2; `history.test` +1; `ModelEditor.test` mocks the inference read). Backend after
+A6b's changes: the inference unit tests and J34's inference cases, 40 passed; `ruff check app/
+tests/`: clean. `npm run format`, `npm run lint` (0 errors; the 7 warnings in files this package did
+not touch), `npm run build`: clean. **Screenshots inspected** (1440px: the start dialog, the filled
+editor, a proposed type with its evidence, a proposed column; 390px: a proposed type): five problems
+found and fixed (the name field's style, the editor not showing the proposals, the placeholders'
+sentence, the section past the phone's edge, a released type still Proposed). **Not run:** `-a4b`,
+`-a4c` and `-t1` (the preview, the consumer APIs and the designer's walks do not reach the changed
+parts), the accessibility and visual gates (A6-1 and A6-2 join them at R), the full suites (R).
 
 ### A7: Model-description sheets and matching across files
 

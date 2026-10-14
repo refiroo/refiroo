@@ -41,6 +41,7 @@ from .management.routers import (
     change_sets,
     consumer_subscriptions,
     imports,
+    inference,
     jobs,
     mapping,
     model,
@@ -254,6 +255,8 @@ def create_app() -> FastAPI:
         atomic_max_items=settings.atomic_job_max_items,
         background_max_items=settings.background_job_max_items,
         preview_max_items=settings.job_preview_max_items,
+        inference_assistant=settings.inference_assistant,
+        inference_assistant_rows=settings.inference_assistant_rows,
     )
     application.state.job_worker = (
         JobWorker(SessionLocal, worker_settings, files=application.state.job_files)
@@ -339,6 +342,7 @@ def create_app() -> FastAPI:
         application.include_router(source_files.write_router)
         if mutations_enabled:
             application.include_router(source_files.dry_run_router)
+            application.include_router(inference.router)
     if settings.consumer_subscriptions_enabled:
         application.include_router(consumer_subscriptions.router)
     application.include_router(consumer_router.router)

@@ -46,6 +46,7 @@ from ...engine.model.releases import (
     model_installation_lock,
 )
 from ...engine.sources import draft_profile
+from ...engine.sources.inference import run as inference
 from ...errors import api_error
 from ...models.database import AuditEvent, ModelDraft, ModelDraftOperation, ModelRelease
 from ..dependencies import ActiveModelSnapshot, DbSession
@@ -76,8 +77,8 @@ from ..schemas.model import (
     ModelDraftVersionRequest,
     ModelInstallationResponse,
     ModelRuntimeStateResponse,
-    StepDryRun,
 )
+from ..steps import step_response
 
 router = APIRouter(prefix="/api/v1", tags=["model administration"])
 
@@ -255,7 +256,7 @@ def apply_model_draft_operations(
         payload.operations,
         request.app.state.model_operation_max_items,
     )
-    return _step_response(session, result, request)
+    return step_response(session, result, request)
 
 
 @router.get("/model-drafts/{draft_id}/operations", response_model=ModelDraftOperationPage)
@@ -360,7 +361,7 @@ def undo_model_draft_step(
     draft_id: str, payload: ModelDraftUndoRequest, session: DbSession, request: Request
 ) -> ModelDraftStepResponse:
     result = history.undo(session, draft_id, payload.expectedVersion, payload.step, payload.steps)
-    return _step_response(session, result, request)
+    return step_response(session, result, request)
 
 
 @router.post("/model-drafts/{draft_id}/redo", response_model=ModelDraftStepResponse, response_model_exclude_unset=True)
@@ -368,34 +369,7 @@ def redo_model_draft_step(
     draft_id: str, payload: ModelDraftVersionRequest, session: DbSession, request: Request
 ) -> ModelDraftStepResponse:
     result = history.redo(session, draft_id, payload.expectedVersion)
-    return _step_response(session, result, request)
-
-
-def _step_response(session: Session, result: history.StepResult, request: Request) -> ModelDraftStepResponse:
-    """The step's answer; a step that can change what the load writes queues the draft's dry run
-    when integration jobs are enabled (0.10 A5, D79)."""
-    response = ModelDraftStepResponse(
-        version=result.draft.version,
-        entries=[_entry(row) for row in result.entries],
-        valid=result.valid,
-        diagnostics=[diagnostic_response(item) for item in result.diagnostics],
-        dryRun=None,
-    )
-    job = None
-    if request.app.state.integration_jobs_enabled:
-        job = draft_profile.dry_run_after(
-            session,
-            result.draft,
-            list(result.operations),
-            retention_days=request.app.state.batch_limits.retention_days,
-        )
-    session.commit()
-    if job is not None:
-        response.dryRun = StepDryRun(state="checking", jobId=job.id)
-        worker = getattr(request.app.state, "job_worker", None)
-        if worker is not None:
-            worker.wake()
-    return response
+    return step_response(session, result, request)
 
 
 @router.get("/model-drafts/{draft_id}/profile", response_model=ModelDraftProfileResponse)
@@ -403,8 +377,11 @@ def get_model_draft_profile(draft_id: str, session: DbSession) -> ModelDraftProf
     """The draft's import profile (0.10 A5, D75): as the draft holds it, the import profile it
     stands for, its warnings against the draft's model, and the source file it binds. It reads
     and writes nothing."""
-    answer = draft_profile.read(session, load_draft(session, draft_id))
-    answer["diagnostics"] = [diagnostic_response(item) for item in answer["diagnostics"]]
+    draft = load_draft(session, draft_id)
+    answer = draft_profile.read(session, draft)
+    # What the latest inference found otherwise (0.10 A6, D92): reminders, never a blocker.
+    found = [*answer["diagnostics"], *inference.disagreement_diagnostics(session, draft)]
+    answer["diagnostics"] = [diagnostic_response(item) for item in found]
     return ModelDraftProfileResponse.model_validate(answer)
 
 
@@ -438,9 +415,12 @@ def compile_model_draft(
     require_draft_version(draft, payload.expectedVersion)
     compiled = compile_authored_model(draft.model_json)
     if not compiled.valid or compiled.model is None:
+        # `changes` is sent empty, not left out: an answer's lists are always present (a client read
+        # its length and blanked the page, reported 2026-10-14).
         return ModelCompilationResponse(
             valid=False,
             diagnostics=[diagnostic_response(item) for item in compiled.diagnostics],
+            changes=[],
             compatibility=ModelCompatibilityResponse(
                 classification="invalid",
                 activeReleaseId=snapshot.release_id,

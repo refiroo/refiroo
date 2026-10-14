@@ -10,6 +10,7 @@ import { createServer } from "node:net";
 import { chromium } from "playwright";
 import { chooseObject } from "./helpers/lists.mjs";
 import { cloneDatabase } from "./helpers/database.mjs";
+import { watchPageErrors } from "./helpers/harness.mjs";
 
 const frontend = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const root = resolve(frontend, "..");
@@ -92,7 +93,7 @@ try {
   browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIGHT_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH } : {}) });
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   page.setDefaultTimeout(10000);
-  page.on("pageerror", (error) => failures.push(error.message));
+  watchPageErrors(page.context(), (error) => failures.push(error));
   page.on("dialog", (dialog) => dialog.accept());
   const writes = [];
   page.on("request", (request) => { if (["POST", "PATCH", "DELETE"].includes(request.method())) writes.push({ url: request.url(), method: request.method(), body: request.postDataJSON() }); });

@@ -246,3 +246,40 @@ describe("the source and mapping kinds in the history", () => {
     expect(say("addObjectType", {})).toBeUndefined();
   });
 });
+
+describe("Map to… a related record (0.10 A6b)", () => {
+  const base = { sheet: "Shelves", header: "Bins", rowType: "shelf", target: relationValue(stores) } as const;
+
+  it("matches by a unique attribute without creating what it does not find", () => {
+    const [operation] = mapOperations(
+      { ...base, kind: "lookup", matchAttribute: "code", create: true },
+      draft.profile,
+      outline,
+    );
+    expect(operation.binding).toEqual({
+      relation: { relationTypeKey: "stores", objectTypeKey: "bin", matchBy: { attributeTypeKey: "code" } },
+    });
+  });
+
+  it("fills a related record's name under the parent a column names, created when it does not exist", () => {
+    const [operation] = mapOperations(
+      {
+        ...base,
+        kind: "related",
+        related: { fills: "name", parentType: "area", parentColumn: "Area", createParent: true },
+      },
+      draft.profile,
+      outline,
+    );
+    expect(operation).toMatchObject({ kind: "mapColumn", source: "shelves-shelf", column: "Bins" });
+    expect(operation.binding).toEqual({
+      relatedRecord: {
+        relationTypeKey: "stores",
+        objectTypeKey: "bin",
+        applicationKey: "shop",
+        parent: { objectTypeKey: "area", matchBy: { field: "name" }, column: "Area", missing: "create" },
+        field: "name",
+      },
+    });
+  });
+});

@@ -8,6 +8,7 @@
 
 import { useState, type CSSProperties, type ReactNode } from "react";
 import { useLocalNumberPreference } from "@/lib/localPreference";
+import { ErrorBoundary } from "@/ui/ErrorBoundary";
 import { Icon } from "@/ui/Icon";
 import { NavigationDrawer } from "@/ui/NavigationDrawer";
 import { ResizeHandle } from "@/ui/ResizeHandle";
@@ -78,7 +79,7 @@ export function ShellFrame({
         </>
       )}
       <main id="main-content" className={`workspace-main${main?.className ? ` ${main.className}` : ""}`} tabIndex={-1}>
-        {children}
+        <ErrorBoundary resetKey={window.location.pathname + window.location.search}>{children}</ErrorBoundary>
       </main>
     </div>
   );

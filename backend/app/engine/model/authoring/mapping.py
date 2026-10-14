@@ -377,20 +377,55 @@ def ignore_column(context: Context, raw: dict[str, Any]) -> Applied:
 
 @kind("addValuesToList")
 def add_values_to_list(context: Context, raw: dict[str, Any]) -> Applied:
-    """A lookup or parent column creates the records it names that do not exist (D77)."""
+    """A lookup or parent column creates the records it names that do not exist (D77); a flag
+    column, the records its set's flags stand for, and a related record's column, the parent it
+    names (0.10 A6, D93)."""
     params = Params(raw, ("source", "column", "create"))
     source = _source(context, raw.get("source"))
     column = _column(context, source, raw.get("column"))
     current = _current(source, column)
-    part = next((p for p in ("relation", "parent") if current and isinstance(current.get(p), dict)), None)
-    if part is None or current[part].get("matchBy") != {"field": "name"}:
-        raise Refusal("column", "invalidValue", "Only a relation or parent column matched by name creates the values it names")
+    path: tuple[str, ...] | None = None
+    for candidate in (("relation",), ("parent",), ("relationFlags",), ("relatedRecord", "parent")):
+        inner: Any = current
+        for name in candidate:
+            inner = inner.get(name) if isinstance(inner, dict) else None
+        if isinstance(inner, dict):
+            path = candidate
+            break
+    target = current
+    for name in path or ():
+        target = target[name]
+    if path is None or target.get("matchBy") != {"field": "name"}:
+        raise Refusal("column", "invalidValue", "Only a column matched by name creates the records it names")
     changed = copy.deepcopy(current)
+    inner = changed
+    for name in path:
+        inner = inner[name]
     if params.optional("create", bool, True):
-        changed[part]["missing"] = "create"
+        inner["missing"] = "create"
     else:
-        changed[part].pop("missing", None)
+        inner.pop("missing", None)
+    columns_path = [*profile_side.source_path(source), "columns"]
+    if path == ("relationFlags",):
+        index = source["columns"].index(current)
+        context.profile.remove(columns_path, context.profile.identity(current))
+        _checked(context, source, column, changed, "column")
+        context.profile.insert(columns_path, changed, index)
+        return _done(context, raw, "addValuesToList", _named(source, changed))
     return _done(context, raw, "addValuesToList", _bind(context, source, column, {k: v for k, v in changed.items() if k != "column"}, "column"))
+
+
+@kind("unmapColumn")
+def unmap_column(context: Context, raw: dict[str, Any]) -> Applied:
+    """The column's binding taken out of the source, also for a column the file no longer has (a
+    header renamed in a newer workbook, 0.10 A6); a column not bound is left as it is."""
+    Params(raw, ("source", "column"))
+    source = _source(context, raw.get("source"))
+    column = raw.get("column")
+    if not isinstance(column, str) or not column:
+        raise Refusal("column", "invalidValue", "'column' is a column's header")
+    _unbind(context, source, column)
+    return _done(context, raw, "unmapColumn", _named(source))
 
 
 # --- values ---

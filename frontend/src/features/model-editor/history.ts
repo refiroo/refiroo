@@ -203,6 +203,8 @@ export function historySteps(entries: ModelDraftOperationEntry[]): HistoryStep[]
 export function describeStep(step: HistoryStep, names: Names): string {
   if (step.origin.type === "undo") return `Undid step ${(step.origin.steps ?? []).join(" and ")}`;
   if (step.origin.type === "redo") return `Redid step ${step.origin.step ?? ""}`.trim();
+  // A proposal applied (0.10 A6b): what the rule found, as the proposal said it.
+  if (step.origin.type === "proposal" && step.origin.summary) return `Proposed: ${step.origin.summary}`;
   return step.entries.map((entry) => describeOperation(entry.kind, entry.parameters, names)).join("; ");
 }
 

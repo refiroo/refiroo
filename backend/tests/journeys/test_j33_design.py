@@ -139,7 +139,8 @@ def test_a_collection_stands_in_one_group_and_group_keys_are_unique(world):
 def test_navigation_needs_schema_0_10_and_its_own_shape(world):
     """Given A1's navigation in a schema 0.9 model, or a group with a member groups do not have.
     When validated. Then the first is refused INVALID_MODEL at A1's navigation, the second at the
-    unknown member; neither model installs."""
+    unknown member; the second, compiled as a draft, answers with no changes (the list present);
+    neither model installs."""
     model, pointer = _grouped(world, version="0.9")
     (diagnostic,) = _diagnostics(world, model)
     assert diagnostic["code"] == "INVALID_MODEL", diagnostic
@@ -152,6 +153,14 @@ def test_navigation_needs_schema_0_10_and_its_own_shape(world):
         "/navigation/groups/0/colour"
     ), diagnostic
     draft = ok(world.api.post("/model-drafts", {"name": "Shape", "model": model}), 201)
+    # Compiled, the invalid draft answers with every list present: `changes` empty, not left out
+    # (the editor's Load dialog read its length and blanked the page, reported 2026-10-14).
+    compiled = ok(
+        world.api.post(
+            f"/model-drafts/{draft['id']}/compile", {"expectedVersion": draft["version"]}
+        )
+    )
+    assert compiled["valid"] is False and compiled["changes"] == []
     refused(
         world.api.post(
             f"/model-drafts/{draft['id']}/installation", {"expectedVersion": draft["version"]}

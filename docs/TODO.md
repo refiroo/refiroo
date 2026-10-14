@@ -319,6 +319,19 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   H3 measured 2 min 41 s for 1,032 cases (0.16 s each), R 0.17 s each. The suite doubled in 0.9. The
   slowest are volume statement counts and journey parametrisations (the run's list of tests over 10 s).
   Revisit the ceiling or the slowest modules before 1.0.
+- [ ] **Found in 0.10 A6b (2026-10-12), not A6's:** History words a `setLabel` step with the element's
+  current name ("Renamed Product group to Product group", A4a's `describeOperation`): it should name
+  the old name, from the step's inverse. A type's attribute table is narrow beside the source pane at
+  1440px, so its Unique column wraps "Yes" letter by letter (A4a's `EditorTable`). Export, Import and
+  Load still load and list workspaces themselves; A6b moved Add a workbook and New from a workbook
+  onto `WorkspaceField` (U-D14): move the other three onto it.
+- [ ] **Budget (0.10 A6a, 2026-10-12):** a package's group runs went over the 2-minute ceiling:
+  `authoring or contract` 3,455 cases in 2 min 12 s (1 min 23 s for 3,420 in A5a) and `jobs or
+  startup` 547 in 2 min 10 s (1 min 50 s for 509 in A5a), with no test over 10 s. The J34 module
+  alone takes about 2 min 15 s in parallel (48 cases, the slowest the loads of W1 at 11 s); its
+  cases each build a draft, profile W1 and run its jobs. Measured once on a shared laptop. To fix in
+  the next package: a session fixture profiling W1 once per configuration for the cases that only
+  read it, or the J34 module split so its cases spread over the workers.
 - [x] R: add J1u's export dialog, notification and job page, and J4's import dialog, the import's
   job page (waiting and loaded) and its notifications, to `test:a11y` and `test:visual` (scenarios
   and baselines), light and dark; J1u and J4 checked them with axe in their runners (D95). Done in

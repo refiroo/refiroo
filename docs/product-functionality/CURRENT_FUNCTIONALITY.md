@@ -497,10 +497,32 @@ shows the figures per source with what they were before the step, each opening t
 the profile when it did not), opens a change set named after the file in a chosen workspace, loads
 the stored file through the saved profile, follows the load and opens the change set's review, from
 where it is validated and published. Changing the key of the selected element keeps it selected.
+Map to… also reads a column as a related record matched by a unique attribute of its type, or as a
+value of a related record (its name or an attribute, under a parent record named once or in another
+column, created when it does not exist), and the column's centre lists its most frequent values.
 
-Limits: a field's editor cannot be chosen (each value type has one); Map to… does not offer a value
-of a related record (a translation, a system's ID) or a match by an attribute, which the API's
-mapping kinds take; the next version of a workbook and its differences are later 0.10 work. A consumer
+**The engine proposes the model and its mapping.** New from a workbook asks what to propose: a new
+application (named after the file, or as you name it), additions to the model (the sheets and
+columns matched to its types and attributes first, by name and by the values its records hold in a
+chosen workspace), or nothing. Once the workbook is read, the engine reads its sheets for known
+shapes (the key and the name of each row, a parent repeated on every row with the columns that
+belong to it, a code with its name, lists stored as text, Y/N columns of one set, cells holding
+several values, translations one row per language or one column per language, columns holding
+GUIDs, placeholders such as N/A, names that drift for one code) and writes a first draft into the
+editor: each proposal one step of the history ("Proposed: …"), undone like any step, with the dry
+run after the last. What is still as the engine proposed it is marked **Proposed** in the model and
+source panes; selecting it shows **Proposed because**: what was found, its evidence and the
+alternatives (a text attribute instead of a list, a list instead of a parent, yes/no attributes
+instead of a set), each one step. Any change makes the element yours, and the mark goes. ⋯ ›
+**Propose again…** reads the workbook once more, for instance after a newer version: what is still
+as proposed follows it, what you changed stays, and where the workbook reads a column otherwise it
+is an issue; a proposal you undid is not applied again. Once installed, the types read Released.
+Through the API the proposals can be read before anything is applied.
+
+Limits: a field's editor cannot be chosen (each value type has one); the next version of a workbook
+and its differences are later 0.10 work; sheets laid out for reading (several lists side by side)
+and sheets describing a model propose nothing yet (A8, A7); the optional assistant is an interface
+only, with no provider. A consumer
 API's documents are worked out from the draft; messages from real records come from the consumer API
 after activation.
 

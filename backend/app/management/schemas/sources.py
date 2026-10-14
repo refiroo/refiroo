@@ -1,7 +1,7 @@
 """Source files, their profiles and the dry run (Product 0.10 A3, API.md § Model authoring)."""
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -102,6 +102,7 @@ class SourceColumnLimits(BaseModel):
     overlapValues: int = Field(description="Distinct values of the column compared, at most")
     overlapsListed: int
     placeholdersListed: int
+    valuesListed: int = Field(default=10, description="Most frequent values listed, at most")
 
 
 class SourceColumnResponse(BaseModel):
@@ -120,6 +121,9 @@ class SourceColumnResponse(BaseModel):
     candidateKey: bool = Field(description="Filled on every row, no value twice")
     delimiters: list[SourceDelimiter]
     placeholders: list[SourcePlaceholder]
+    values: list[SourcePlaceholder] = Field(
+        default_factory=list, description="The most frequent values with their counts (0.10 A6)"
+    )
     overlaps: list[SourceOverlap]
     limits: SourceColumnLimits
 
@@ -202,3 +206,82 @@ class DryRunResponse(BaseModel):
     bindingReport: list[BindingReportSource] | None
     error: ApiErrorBody | None
 
+
+
+class InferenceDisagreement(BaseModel):
+    """A column the draft reads otherwise than a pattern does (D92): its sheet, the source, how
+    the draft binds it and how the pattern would, the pattern's finding, and the step that
+    decided it."""
+
+    proposalId: str
+    pattern: str
+    sheet: str | None
+    column: str
+    source: str
+    binding: str
+    proposed: str
+    found: str
+    step: int | None
+
+
+class ProposedElement(BaseModel):
+    """An element still as a proposal step left it: the engine's, until the administrator
+    changes it (D92). Elements are named as the history names them, and ``source:<id>``,
+    ``column:<source>/<header>``, ``valueMap:<name>`` for the draft's profile."""
+
+    element: str
+    proposalId: str | None
+    pattern: str | None
+
+
+class InferenceCounts(BaseModel):
+    open: int
+    applied: int
+    held: int
+    rejected: int
+
+
+class InferenceResponse(BaseModel):
+    """A model draft's latest inference (0.10 A6, D87): ``checking`` while its job runs, then
+    ``completed`` with its proposals' counts by status, what the workbook disagrees with, its
+    warnings, and the elements still as proposed; ``failed`` with the error."""
+
+    jobId: str
+    state: Literal["checking", "completed", "failed", "cancelled", "expired"]
+    mode: Literal["newApplication", "extend"]
+    draftVersion: int
+    sourceFileId: str
+    counts: InferenceCounts
+    disagreements: list[InferenceDisagreement]
+    warnings: list[str]
+    proposed: list[ProposedElement]
+    error: ApiErrorBody | None
+
+
+class ProposalAlternative(BaseModel):
+    label: str
+    operations: list[dict[str, Any]]
+
+
+class ProposalResponse(BaseModel):
+    """A proposal (D89, D90): the pattern found, on which sheet and columns, in one sentence, with
+    the evidence it rests on; the operations it applies (the kinds of ``POST …/operations``), its
+    alternatives as operations to send after it, the proposals it requires, and its status:
+    ``open``, ``applied``, ``held`` (the draft decides those columns already) or ``rejected`` (an
+    undone proposal, not applied again)."""
+
+    id: str
+    position: int
+    pattern: str
+    sheet: str | None
+    columns: list[str]
+    summary: str
+    evidence: dict[str, Any]
+    operations: list[dict[str, Any]]
+    alternatives: list[ProposalAlternative]
+    requires: list[str]
+    status: Literal["open", "applied", "held", "rejected"]
+
+
+class ProposalPage(CollectionPage[ProposalResponse]):
+    """The latest inference's proposals in the order they apply."""

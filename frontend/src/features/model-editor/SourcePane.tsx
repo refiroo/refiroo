@@ -25,6 +25,9 @@ import {
   statisticsWords,
   type ColumnStatus,
 } from "@/features/model-editor/mapping";
+import { columnElements } from "@/features/model-editor/proposing";
+
+const NONE: ReadonlySet<string> = new Set();
 
 /** The data a dragged column carries: its sheet and header. */
 export const DRAG_COLUMN = "application/x-rdm-column";
@@ -38,11 +41,14 @@ export function SourcePane({
   onSelect,
   onMap,
   onIgnoreSheet,
+  proposed = NONE,
 }: {
   source: DraftSource;
   selection: EditorSelection;
   /** Columns (`columnId`) that feed the type selected in the model pane. */
   linked: Set<string>;
+  /** The elements still as the inference proposed them (0.10 A6b): their columns read Proposed. */
+  proposed?: ReadonlySet<string>;
   canDrag: boolean;
   /** Each loaded sheet's sources, in words: "Loads Item · key Item code". */
   sheetNames: (sheet: string) => string;
@@ -93,6 +99,7 @@ export function SourcePane({
                 sheet={sheet}
                 columns={source.columns(sheet.name)}
                 profile={source.profile}
+                proposed={proposed}
                 selection={selection}
                 linked={linked}
                 canDrag={canDrag}
@@ -117,6 +124,7 @@ function SheetColumns({
   sheet,
   columns,
   profile,
+  proposed,
   selection,
   linked,
   canDrag,
@@ -128,6 +136,7 @@ function SheetColumns({
   sheet: SourceSheet;
   columns: SourceColumn[] | undefined;
   profile: DraftProfile | undefined;
+  proposed: ReadonlySet<string>;
   selection: EditorSelection;
   linked: Set<string>;
   canDrag: boolean;
@@ -186,7 +195,11 @@ function SheetColumns({
           {rows.map((column, index) => {
             const header = column.header ?? "";
             const state = columnState(profile, issues, sheet.name, header);
-            const status: ColumnStatus = ignored && state.status === "unmapped" ? "ignored" : state.status;
+            const engines =
+              (state.status === "mapped" || state.status === "key") &&
+              columnElements(profile?.profile, sheet.name, header).some((element) => proposed.has(element));
+            const status: ColumnStatus =
+              ignored && state.status === "unmapped" ? "ignored" : engines ? "proposed" : state.status;
             return (
               <li
                 key={`${column.block}:${column.letter}`}

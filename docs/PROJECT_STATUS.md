@@ -65,8 +65,22 @@ needs is settled in A6, which comes next, before A5c. Built: New from a workbook
 Model; a source pane left of the model pane with the sheets and each column's status and
 statistics; a selected column's mapping in the centre; Map to… by keyboard or by dragging a column
 onto a type, value maps; the dry run as a drawer tab with each figure's rows; Load into a change
-set (install, activate, load, review); `test:browser:authoring-a5` on both designer models. Next is
-A6, inference: the model and its mappings proposed from the workbook.
+set (install, activate, load, review); `test:browser:authoring-a5` on both designer models. **A6,
+inference, is planned in two slices (D86–D98, accepted 2026-10-12 after the user turned a first
+design of Accept/Reject cards into proposals written into the editor as steps); A6a, inference
+through the API, is delivered (2026-10-12)**: `POST /model-drafts/{id}/inference` proposes from the
+draft's workbook in new-application or extend mode, each pattern with its evidence, operations and
+alternatives; `…/inference/application` writes them as one step each; proposing again follows what
+is still the engine's and reports where the administrator decided otherwise; W1 goes from upload to
+a published change set by applying its proposals; `missing: "create"` on flag sets and related
+records' parents. Its group runs went over the 2-minute ceiling (TODO). **A6b, the editor filled
+by the inference, is delivered (2026-10-14, screenshots approved after its run on the user's
+workbooks, D99–D103)**: New
+from a workbook asks what to propose and the editor opens with the proposals applied, one step each;
+what is still as proposed reads Proposed, with Proposed because, its evidence and its alternatives
+in the centre; ⋯ › Propose again…; Map to… matches by an attribute and fills a related record's
+value; `test:browser:authoring-a6` on both designer models. Then A5c, the next version of a
+workbook.
 
 ### How 0.9 was built
 

@@ -28,7 +28,8 @@ from app.db import DatabaseStartupError, get_engine, migration_config
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261013_01"
+HEAD = "20261014_01"
+DRAFT_PROFILES = "20261013_01"
 SOURCE_FILES = "20261012_01"
 DRAFT_OPERATIONS = "20261011_01"
 IMPORT_PREVIEW = "20261007_08"
@@ -1283,6 +1284,69 @@ def test_upgrade_to_draft_profiles_keeps_drafts_and_an_interrupted_run_recovers(
         "SELECT count(*) FROM information_schema.columns WHERE table_name = 'model_drafts'"
         " AND column_name = 'profile_json'",
     ) == 0
+    engine.dispose()
+
+
+def test_upgrade_to_draft_proposals_keeps_drafts_and_an_interrupted_run_recovers(
+    monkeypatch, databases, tmp_path
+):
+    """0.10 A6 on a database with a model draft, taken back to the previous revision: with a
+    ``model_draft_proposals`` table already there (by hand) the revision rolls back and the start
+    refuses naming it; once dropped, the next start creates it and the service starts twice. The
+    draft is kept, an inference on a file uploaded after the upgrade runs as a job of kind
+    ``inference`` and stores its proposals, and a downgrade removes the table and those jobs."""
+    url = seeds.create_empty()
+    databases.append(url)
+    monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
+    monkeypatch.setenv("JOB_FILE_DIR", str(tmp_path / "job-files"))
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        assert errors == []
+        state = client.get("/api/v1/model-runtime-state").json()
+        release = client.get(
+            f"/api/v1/model-releases/{state['activeReleaseId']}", params={"includeModel": "true"}
+        ).json()
+        response = client.post("/api/v1/model-drafts", json={"name": "Kept", "model": release["model"]})
+        assert response.status_code == 201, response.text
+        draft = response.json()
+    command.downgrade(migration_config(url), DRAFT_PROFILES)
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        connection.execute(text("CREATE TABLE model_draft_proposals (id integer PRIMARY KEY)"))
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        message = _assert_refused(
+            client,
+            errors,
+            "Database migration failed",
+            f"Current revision: {DRAFT_PROFILES}",
+            f"target revision: {HEAD}",
+            "still at its current revision",
+        )
+        assert "model_draft_proposals" in message
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == DRAFT_PROFILES
+    with engine.begin() as connection:
+        connection.execute(text("DROP TABLE model_draft_proposals"))
+    for _start in range(2):
+        with serve(monkeypatch, _render(url)) as (client, errors):
+            assert errors == []
+            response = client.get(f"/api/v1/model-drafts/{draft['id']}")
+            assert response.json()["version"] == draft["version"]
+        assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        response = client.post(
+            "/api/v1/source-files",
+            files={"file": ("kept.csv", b"code,name,size\nA1,Alpha,3\nB2,Beta,5\n", "text/csv")},
+            data={"request": json.dumps({"owner": {"draftId": draft["id"]}})},
+        )
+        assert response.status_code == 201, response.text
+        client.app.state.job_worker.run_until_idle()
+        response = client.post(f"/api/v1/model-drafts/{draft['id']}/inference", json={"mode": "newApplication"})
+        assert response.status_code == 202, response.text
+        client.app.state.job_worker.run_until_idle()
+        assert client.get(f"/api/v1/model-drafts/{draft['id']}/inference").json()["state"] == "completed"
+    assert _scalar(url, "SELECT count(*) FROM model_draft_proposals") > 0
+    command.downgrade(migration_config(url), DRAFT_PROFILES)
+    assert _scalar(url, "SELECT count(*) FROM information_schema.tables WHERE table_name = 'model_draft_proposals'") == 0
+    assert _scalar(url, "SELECT count(*) FROM jobs WHERE kind = 'inference'") == 0
     engine.dispose()
 
 

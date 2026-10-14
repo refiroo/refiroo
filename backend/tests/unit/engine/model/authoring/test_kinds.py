@@ -86,6 +86,8 @@ def _operations(model: dict[str, Any]) -> Iterator[dict[str, Any]]:
                 "relationType": {"name": "Has part", "reverseName": "Part of"},
             }
         yield {"kind": "addObjectType", "applicationKey": model["applications"][0]["key"], "name": "Zz child", "pluralName": "Zz children", "parent": {"objectTypes": [type_key], "relationType": {"name": "Holds", "reverseName": "Held by"}}}
+        # A parent a record may also do without (0.10 A6b, D99).
+        yield {"kind": "setContainment", "objectType": type_key, "parent": {"objectTypes": [types[0]], "relationType": {"name": "Holds", "reverseName": "Held by"}, "optional": True}}
     for first, second in pairwise(types):
         yield {"kind": "mergeObjectTypes", "into": first, "from": second}
     for attribute in model["attributeTypes"]:

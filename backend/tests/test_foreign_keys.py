@@ -74,6 +74,7 @@ RULES = {
     ("model_drafts", "base_model_release_id"): ("model_releases", "SET NULL"),
     # A draft's history goes with its draft (0.10 A2, D4).
     ("model_draft_operations", "draft_id"): ("model_drafts", "CASCADE"),
+    ("model_draft_proposals", "draft_id"): ("model_drafts", "CASCADE"),
     # A source file goes with the draft or profile that owns it, and its staged cells and profile
     # with it (0.10 A3, D5).
     ("source_files", "draft_id"): ("model_drafts", "CASCADE"),

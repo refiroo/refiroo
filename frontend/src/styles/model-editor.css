@@ -1338,6 +1338,13 @@
 .source-dot.status-issue {
   background: var(--status-warning-marker);
 }
+.source-dot.status-proposed {
+  background: var(--status-proposed-marker);
+}
+.source-column-status.status-proposed {
+  color: var(--status-proposed-text);
+  font-weight: 600;
+}
 .source-dot.status-ignored {
   border: 1px solid var(--text-tertiary);
   background: transparent;
@@ -1576,4 +1583,69 @@
   .source-column {
     min-height: 52px;
   }
+}
+
+/* Why an element is as it is, while still as the inference proposed it (0.10 A6b, D94). */
+.proposed-because {
+  display: grid;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--status-proposed-marker);
+  border-radius: var(--radius-control);
+  background: var(--status-proposed-surface);
+}
+.proposed-because-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.proposed-because-head h3 {
+  margin: 0;
+  color: var(--status-proposed-text);
+  font-size: var(--text-md);
+}
+.proposed-because-head .muted,
+.proposed-because-summary {
+  color: var(--text-primary);
+}
+.proposed-because-summary {
+  margin: 0;
+}
+.proposed-because-evidence {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-control);
+  background: var(--surface-raised);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  list-style: none;
+}
+.proposed-because-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.proposed-because-actions button {
+  max-width: 100%;
+  height: auto;
+  min-height: 32px;
+  white-space: normal;
+  text-align: left;
+}
+.element-panel > .proposed-because {
+  margin-bottom: var(--space-3);
+}
+.column-values li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.propose-fields {
+  margin-bottom: var(--space-3);
 }

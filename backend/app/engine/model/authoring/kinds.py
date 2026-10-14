@@ -473,11 +473,14 @@ def remove_application(context: Context, raw: dict[str, Any]) -> Applied:
 
 def _parent(context: Context, raw: Any, child: str, name: str = "parent") -> tuple[list[str], str | dict[str, Any]] | None:
     """A ``parent`` parameter (D30): ``None`` for the top level, or the parent types and the
-    containment relation type (a key, or a new one's ``name``, ``reverseName`` and ``key``)."""
+    containment relation type (a key, or a new one's ``name``, ``reverseName`` and ``key``), and
+    ``optional`` when a record may also stand at the top (0.10 A6b, D99)."""
     if raw is None:
         return None
-    if not isinstance(raw, dict) or set(raw) - {"objectTypes", "relationType"}:
+    if not isinstance(raw, dict) or set(raw) - {"objectTypes", "relationType", "optional"}:
         raise Refusal(name, "invalidValue", "'parent' is null or names objectTypes and a relationType")
+    if not isinstance(raw.get("optional", False), bool):
+        raise Refusal(f"{name}/optional", "invalidValue", "'optional' is true or false")
     parents = raw.get("objectTypes")
     if not isinstance(parents, list) or not parents:
         raise Refusal(f"{name}/objectTypes", "invalidValue", "Name at least one parent type")
@@ -505,8 +508,11 @@ def _parent(context: Context, raw: Any, child: str, name: str = "parent") -> tup
     return list(parents), {**relation, "key": key, "reverseKey": reverse}
 
 
-def _contain(context: Context, child: str, parent: tuple[list[str], str | dict[str, Any]] | None) -> tuple[Any, set[str]]:
-    """Place ``child`` at the top or under its parents; returns the stored parent and created atoms."""
+def _contain(
+    context: Context, child: str, parent: tuple[list[str], str | dict[str, Any]] | None, optional: bool = False
+) -> tuple[Any, set[str]]:
+    """Place ``child`` at the top or under its parents, there only unless ``optional``; returns the
+    stored parent and created atoms."""
     created: set[str] = set()
     path = type_path(child)
     if parent is None:
@@ -540,11 +546,15 @@ def _contain(context: Context, child: str, parent: tuple[list[str], str | dict[s
         )
         created.add(atom("relationBinding", relation_key, parent_key, child))
     object_type = context.document.at(path)
-    context.document.set(path, "features", {**(object_type.get("features") or {}), "rootCreatable": False})
+    context.document.set(path, "features", {**(object_type.get("features") or {}), "rootCreatable": optional})
     behavior = dict(object_type.get("behavior") or {})
     behavior["parentRelationTypeKeys"] = [relation_key]
     context.document.set(path, "behavior", behavior)
-    return {"objectTypes": parents, "relationType": relation}, created
+    return {"objectTypes": parents, "relationType": relation, **({"optional": True} if optional else {})}, created
+
+
+def _optional(raw: Any) -> bool:
+    return isinstance(raw, dict) and raw.get("optional") is True
 
 
 @kind("addObjectType")
@@ -568,7 +578,7 @@ def add_object_type(context: Context, raw: dict[str, Any]) -> Applied:
     object_type["attributes"] = []
     context.document.insert(["objectTypes"], object_type)
     context.document.insert(application_path(app) + ["objectTypeKeys"], key)
-    stored_parent, created = _contain(context, key, parent)
+    stored_parent, created = _contain(context, key, parent, _optional(raw.get("parent")))
     created |= {atom("objectType", key)}
     display = params.optional("displayAttribute")
     if display is not None:
@@ -1016,7 +1026,7 @@ def set_containment(context: Context, raw: dict[str, Any]) -> Applied:
                 context.document.remove(path + ["config", "objectTypeKeys"], key)
     prune(context.document, gone)
     parent = _parent(context, raw.get("parent"), key)
-    stored_parent, created = _contain(context, key, parent)
+    stored_parent, created = _contain(context, key, parent, _optional(raw.get("parent")))
     for parent_key in parent[0] if parent else []:
         place_child(context.document, parent_key, key)
     profile_side.follow_parent(context.profile, key, list(parent[0]) if parent else [])

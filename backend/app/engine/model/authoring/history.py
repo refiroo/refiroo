@@ -8,6 +8,7 @@ undo (D32). A step that a later, not undone step depends on is not undone alone 
 """
 
 import copy
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -16,7 +17,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ....common.time import as_utc
-from ....errors import api_error
+from ....errors import ApiError, api_error
 from ....models.database import ModelDraft, ModelDraftOperation
 from ...sources import draft_profile
 from ..compiler import ModelDiagnostic, compile_authored_model
@@ -57,6 +58,47 @@ def apply_request(
             raise _invalid(index, Refusal("kind", "internalKind", f"'{operation['kind']}' is written by the server"))
     applied = _apply(session, draft, operations, pointer="operations")
     return _commit_step(session, draft, expected_version, operations, applied, {"type": "request"})
+
+
+# What a step's origin is made of once its operations applied: what each did, the model, the profile.
+OriginOf = Callable[[list[Applied], dict[str, Any], dict[str, Any] | None], dict[str, Any]]
+
+
+def apply_steps(
+    session: Session,
+    draft_id: str,
+    expected_version: int,
+    steps: list[tuple[str, list[dict[str, Any]], OriginOf]],
+    max_items: int,
+) -> StepResult:
+    """Several steps in one request, all or none, each one step of the history with the origin
+    ``origin_of`` gives it once its operations applied (0.10 A6: the proposals an inference
+    applies, D89). A refusal names the step it came from in ``details.step``."""
+    draft = _locked(session, draft_id, expected_version)
+    entries: list[ModelDraftOperation] = []
+    operations: list[dict[str, Any]] = []
+    result: StepResult | None = None
+    for name, step_operations, origin_of in steps:
+        if len(step_operations) > max_items:
+            raise api_error(
+                413,
+                "OPERATION_BATCH_TOO_LARGE",
+                f"A step holds at most {max_items} operations",
+                {"limit": max_items, "received": len(step_operations), "step": name},
+            )
+        try:
+            applied = _apply(session, draft, step_operations, pointer="operations")
+        except ApiError as error:
+            if isinstance(error.details, dict):
+                error.details["step"] = name
+            raise
+        result = _commit_step(session, draft, draft.version, step_operations, applied, origin_of(*applied))
+        draft = result.draft
+        entries += result.entries
+        operations += step_operations
+    if result is None:
+        raise api_error(409, "NOTHING_TO_APPLY", "The request holds no step to apply")
+    return StepResult(draft, entries, result.valid, result.diagnostics, tuple(operations))
 
 
 def undo(
@@ -153,7 +195,8 @@ def entry_response(row: ModelDraftOperation) -> dict[str, Any]:
         "author": row.author,
         "at": as_utc(row.created_at).isoformat().replace("+00:00", "Z"),
         "undone": row.undone_by_step is not None,
-        "origin": row.origin,
+        # A proposal step's snapshot is for ownership (0.10 A6, D92), not for readers.
+        "origin": {k: v for k, v in (row.origin or {}).items() if k != "snapshot"},
     }
 
 

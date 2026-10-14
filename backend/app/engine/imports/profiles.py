@@ -226,10 +226,7 @@ def _source_problems(
                 problems += _match_problems(
                     model, relation.objectTypeKey, relation.matchBy, f"{at}/{name}/matchBy"
                 )
-            if binding.relation is not None:
-                problems += _create_problems(
-                    binding.relation.missing, binding.relation.matchBy, f"{at}/relation"
-                )
+            problems += _create_problems(relation.missing, relation.matchBy, f"{at}/{name}")
             if binding.relation is not None and binding.relation.attributes:
                 problems += _relation_value_problems(
                     model, source.objectTypeKey, binding.relation, f"{at}/relation/attributes"
@@ -294,6 +291,7 @@ def _related_problems(
         problems += _match_problems(
             model, parent.objectTypeKey, parent.matchBy, f"{path}/parent/matchBy"
         )
+    problems += _create_problems(parent.missing, parent.matchBy, f"{path}/parent")
     if related.attributeTypeKey is not None:
         problems += _attribute_problems(
             model,

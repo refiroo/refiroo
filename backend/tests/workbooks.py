@@ -224,6 +224,63 @@ def w3(seed: int = 1, blocks: int = 24) -> W3:
     return W3(_save(book), described)
 
 
+@dataclass
+class W4:
+    """The shapes of real workbooks (0.10 A6b, D99–D103): sheet ``Kinds`` keyed by ``Kind Code``,
+    named by a repeating ``Customer Name``; a ``Category`` with its ``Category ID`` and ``Sort
+    Order`` empty on some rows, translated value for value by ``Categoría`` and ``Kategorie``; a
+    ``Slot_Name`` with its ``Slot hours``; yes/no columns ``North`` and ``South`` apart; a repeated
+    ``Definition`` in sentences; a second ``Customer Name`` column. Sheet ``Statuses``: a GUID
+    ``Id`` and a ``Name`` of several words."""
+
+    content: bytes
+    rows: int
+    blank_categories: int
+
+
+W4_CATEGORIES = {
+    "Night tram": ("Tranvía nocturno", "Noční tramvaj", 1),
+    "Admin timetable": ("Tren regional", "Osobní vlak", 2),
+    "Train train": ("Tren de cercanías", "Rychlík se sestrou", 3),
+    "Boat": ("Imagen", "Zobrazování", 4),
+    "Massage": ("Autobús", "Autobus", 5),
+}
+W4_DEFINITIONS = (
+    "Use this kind when the caller asks for a first conversation before any treatment is planned",
+    "Use this kind when results arrived and a clinician needs to talk them through with the passenger",
+    "Use this kind for internal planning only; it is never offered to the people booking online",
+)
+
+
+def w4(seed: int = 1, rows: int = 120) -> W4:
+    rng = random.Random(seed + 4)
+    book = Workbook()
+    kinds = book.active
+    kinds.title = "Kinds"
+    kinds.append(
+        ["Kind Code", "Customer Name", "Category ID", "Sort Order", "Category", "Slot_Name", "Slot hours", "North",
+         "Duration", "South", "Definition", "Categoría", "Kategorie", "Customer Name"]
+    )
+    ids = {name: str(uuid.UUID(int=index + 1)) for index, name in enumerate(W4_CATEGORIES)}
+    slots = {"Morning": "8-12", "Evening": "17-21", "Weekend": "9-13"}
+    blank = 0
+    for index in range(rows):
+        category = rng.choice(list(W4_CATEGORIES)) if index % 25 else None
+        blank += category is None
+        spanish, czech, order = W4_CATEGORIES[category] if category else (None, None, None)
+        slot = rng.choice(list(slots))
+        kinds.append(
+            [f"K-{index + 1:04d}", f"Kind {index // 2 + 1}", ids.get(category), order, category, slot, slots[slot],
+             rng.choice("YN"), f"{rng.choice([15, 30, 45])} min", rng.choice("YN"), rng.choice(W4_DEFINITIONS),
+             spanish, czech, f"Druh {index // 2 + 1}"]
+        )
+    statuses = book.create_sheet("Statuses")
+    statuses.append(["Id", "Name"])
+    for index, name in enumerate(("Booked and confirmed", "Waiting for payment", "No show", "Cancelled by station", "Arrived")):
+        statuses.append([str(uuid.UUID(int=1000 + index)), name])
+    return W4(_save(book), rows, blank)
+
+
 def _ensure_shapes(records: list[dict[str, Any]]) -> None:
     """The structures every W1 holds whatever its size: both names of each two-named colour code,
     both placeholders, and a ``;``-separated ``Fo``."""

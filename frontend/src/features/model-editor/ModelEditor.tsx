@@ -13,6 +13,10 @@
  * With a workbook (0.10 A5b, D84), a source pane stands left of the model pane: a selected column
  * shows its mapping in the centre, Map to… and drops onto the model pane map it, the drawer's Dry
  * run tab follows each step, and Load into a change set installs, activates and loads (D81).
+ *
+ * The inference fills the editor (0.10 A6b, D94): asked for by New from a workbook (once the workbook
+ * is profiled) or by ⋯ › Propose again…, its proposals are applied as steps, one each. What is still
+ * as proposed is marked Proposed in the panes, and its centre says why, with its alternatives.
  */
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
@@ -36,6 +40,16 @@ import { MapColumnDialog, type MapStart } from "@/features/model-editor/MapColum
 import { columnsOfType, dropChoice, typesFed, usesOf, type ColumnUse } from "@/features/model-editor/mapping";
 import { DRAG_COLUMN, SourcePane } from "@/features/model-editor/SourcePane";
 import { useDraftSource } from "@/features/model-editor/useDraftSource";
+import { useInference } from "@/features/model-editor/useInference";
+import { ProposeDialog } from "@/features/model-editor/ProposeDialog";
+import { ProposedBecause } from "@/features/model-editor/ProposedBecause";
+import {
+  columnElements,
+  elementOfSelection,
+  hasWaitingProposal,
+  isReleasedElement,
+  takeWaitingProposal,
+} from "@/features/model-editor/proposing";
 import { ValueMapDialog } from "@/features/model-editor/ValueMapDialog";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { readLocalPreference, useLocalNumberPreference, writeLocalPreference } from "@/lib/localPreference";
@@ -90,7 +104,8 @@ type Dialog =
   | { kind: "valueMap"; use: ColumnUse; header: string }
   | { kind: "rows"; rows: DryRunRows }
   | { kind: "load" }
-  | { kind: "workbook" };
+  | { kind: "workbook" }
+  | { kind: "propose" };
 
 /** A step refused because the draft moved on (D41): what came first, and how to send mine again. */
 type Stale = { since: ModelDraftOperationEntry[]; more: boolean; send: Send };
@@ -223,6 +238,58 @@ export function ModelEditor({
     [draftId, step],
   );
 
+  // The inference completed: its open proposals become steps, one each (D89).
+  const inference = useInference(draftId, outline?.version, (done) => {
+    if (!done.counts.open) {
+      inference.settled();
+      setNotice({
+        tone: "success",
+        text: done.disagreements.length
+          ? `Nothing new to propose. The workbook reads ${done.disagreements.length} ${done.disagreements.length === 1 ? "column" : "columns"} otherwise than you decided: see Issues.`
+          : "Nothing new to propose: the draft holds what the workbook shows.",
+      });
+      return;
+    }
+    void (async () => {
+      setBusy(true);
+      try {
+        let first: string | undefined;
+        const outcome = await step(async (at) => {
+          const answer = await api.applyProposals(draftId, at);
+          // The sheet's type the first proposal added: shown, so the proposals are in view.
+          first = answer.entries.find((entry) => entry.kind === "addObjectType" && entry.origin.pattern === "keyColumn")
+            ?.parameters.key as string | undefined;
+          return answer;
+        });
+        if (outcome === "applied" && first) select({ show: "type", key: first });
+        if (outcome === "applied") {
+          toast(`${done.counts.open} ${done.counts.open === 1 ? "proposal" : "proposals"} applied, one step each.`);
+          setBottomTab("history");
+        }
+      } catch (cause) {
+        setNotice({
+          tone: "error",
+          text: isApiError(cause, "INFERENCE_STALE")
+            ? "The draft changed while the workbook was read. Propose again from the ⋯ menu."
+            : outline
+              ? refusalText(cause, outline)
+              : errorMessage(cause),
+        });
+      } finally {
+        setBusy(false);
+        inference.settled();
+      }
+    })();
+  });
+  const { propose: proposeFrom, running: proposing } = inference;
+  const profiled = source.profile?.sourceFile?.profile === "completed";
+  // New from a workbook asked to propose: once the workbook is profiled, the editor does.
+  useEffect(() => {
+    if (!profiled || proposing || !hasWaitingProposal(draftId)) return;
+    const request = takeWaitingProposal(draftId);
+    if (request) void proposeFrom(request);
+  }, [profiled, proposing, draftId, proposeFrom]);
+
   async function guarded(action: () => Promise<unknown>) {
     setBusy(true);
     try {
@@ -337,6 +404,27 @@ export function ModelEditor({
 
   const hasSource = Boolean(source.profile?.sourceFile);
   const draftProfile = source.profile?.profile;
+  // What is still as the inference proposed it (D92), and the section saying why for the selection.
+  // An installed element is part of a release: it reads Released, and its alternatives would be
+  // migrations, so it is no longer marked Proposed.
+  const proposedElements = new Set(
+    [...inference.proposed.keys()].filter((element) => !isReleasedElement(outline, element)),
+  );
+  const proposedElement =
+    selection.show === "column"
+      ? columnElements(draftProfile, selection.sheet, selection.key).find((element) => proposedElements.has(element))
+      : elementOfSelection(selection);
+  const proposedNote =
+    proposedElement && proposedElements.has(proposedElement) ? (
+      <ProposedBecause
+        proposal={inference.proposed.get(proposedElement)}
+        busy={busy}
+        run={(operations) => void guarded(() => run(operations))}
+      />
+    ) : undefined;
+  const proposeAgain = profiled
+    ? [{ id: "propose", label: "Propose again…", onAction: () => setDialog({ kind: "propose" }) }]
+    : [];
   // The types the selected column feeds, and the columns feeding the selected type.
   const linkedTypes = new Set(
     selection.show === "column"
@@ -363,6 +451,7 @@ export function ModelEditor({
       linked={linkedColumns}
       canDrag={!phone}
       sheetNames={sheetLoads}
+      proposed={proposedElements}
       onSelect={select}
       onMap={(sheet, header) => mapColumn(sheet, header)}
       onIgnoreSheet={(sheet) => void guarded(() => run([{ kind: "ignoreSheet", sheet }]))}
@@ -415,6 +504,7 @@ export function ModelEditor({
                   outline={outline}
                   selection={selection}
                   linked={linkedTypes}
+                  proposed={proposedElements}
                   canDrag={!phone}
                   onSelect={select}
                   onMenu={onPaneMenu}
@@ -484,6 +574,7 @@ export function ModelEditor({
           onMap={() => mapColumn(selection.sheet, selection.key)}
           onValueMap={(use) => setDialog({ kind: "valueMap", use, header: selection.key })}
           onRows={(rows) => setDialog({ kind: "rows", rows })}
+          proposed={proposedNote}
         />
       ) : mode === "preview" ? (
         typePreview(
@@ -532,6 +623,7 @@ export function ModelEditor({
           onSelect={select}
           run={run}
           onPreview={() => showType("preview")}
+          proposed={proposedNote}
         />
       )}
     </section>
@@ -670,7 +762,7 @@ export function ModelEditor({
                   />
                   <IconButton icon="redo" label="Redo" disabled={busy || !redoAvailable} onClick={() => void redo()} />
                   <ActionMenu
-                    label="More: Open as JSON, Install and activate, Load, Add a workbook"
+                    label="More: Open as JSON, Install and activate, Load, Add a workbook, Propose again"
                     items={[
                       { id: "json", label: "Open as JSON", onAction: () => onNavigate(workbench) },
                       { id: "install", label: "Install and activate…", onAction: () => setDialog({ kind: "install" }) },
@@ -684,6 +776,7 @@ export function ModelEditor({
                           ]
                         : []),
                       { id: "workbook", label: workbookLabel, onAction: () => setDialog({ kind: "workbook" }) },
+                      ...proposeAgain,
                     ]}
                   />
                 </>
@@ -722,13 +815,28 @@ export function ModelEditor({
                   )}
                   <ActionMenu
                     label="More actions"
-                    items={[{ id: "workbook", label: workbookLabel, onAction: () => setDialog({ kind: "workbook" }) }]}
+                    items={[
+                      { id: "workbook", label: workbookLabel, onAction: () => setDialog({ kind: "workbook" }) },
+                      ...proposeAgain,
+                    ]}
                   />
                 </>
               )}
             </div>
           }
         />
+      )}
+      {(proposing || hasWaitingProposal(draftId)) && (
+        <Notice tone="info" title="Proposing from the workbook">
+          {profiled
+            ? "Reading the patterns of every sheet; the proposals are applied as steps, one each, when it completes."
+            : "The workbook is being profiled; the engine proposes its model and mapping right after."}
+        </Notice>
+      )}
+      {inference.error && !proposing && (
+        <Notice tone="error" title="Nothing was proposed">
+          {inference.error}
+        </Notice>
       )}
       {stale && (
         <Notice
@@ -890,6 +998,7 @@ export function ModelEditor({
         <MapColumnDialog
           start={dialog.start}
           column={source.columns(dialog.start.sheet)?.find((item) => item.header === dialog.start.header)}
+          headers={(source.columns(dialog.start.sheet) ?? []).flatMap((item) => (item.header ? [item.header] : []))}
           profile={draftProfile}
           outline={outline}
           run={run}
@@ -919,6 +1028,17 @@ export function ModelEditor({
           onUploaded={(file) => {
             source.uploaded(file);
             toast(`${file.name} is uploaded and being profiled.`);
+          }}
+          onClose={() => setDialog(undefined)}
+        />
+      )}
+      {dialog?.kind === "propose" && source.profile?.sourceFile && (
+        <ProposeDialog
+          fileName={source.profile.sourceFile.name}
+          initialMode={inference.inference?.mode}
+          onPropose={(request) => {
+            setDialog(undefined);
+            void proposeFrom(request);
           }}
           onClose={() => setDialog(undefined)}
         />

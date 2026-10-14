@@ -105,6 +105,8 @@ async function journey(label, source) {
     await page.getByRole("button", { name: "New from a workbook" }).click();
     await dialog().getByLabel("Draft name").fill("Catalogue A5");
     await dialog().getByLabel("Workbook").setInputFiles(resolve(harness.output, "catalogue.xlsx"));
+    // A5's walk maps by hand; proposing is A6's runner (0.10 A6b).
+    await dialog().getByRole("radio", { name: /Nothing: I will map it by hand/ }).check();
     await dialog().getByRole("button", { name: "Create draft" }).click();
     await page.waitForURL(/\/editor/);
     draftId = new URL(page.url()).pathname.split("/")[4];

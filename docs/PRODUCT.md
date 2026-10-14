@@ -208,6 +208,11 @@ can complete the task in the application; "API" means another system can.
   model, a column's mapping in the centre, Map to… by keyboard or by dragging a column onto a type,
   value maps, the dry run after each step with the rows behind each figure; then load the workbook
   into a new change set in one confirmed dialog and review and publish it.
+- Have the engine propose the model and its mapping from a workbook, as a new application or as
+  additions to the model: each shape it recognises (keys, parents, code lists, lookups, flag sets,
+  multi-valued cells, translations, external IDs, placeholders, drifting names) becomes one step in
+  the editor, marked as proposed with why and its alternatives, changed like anything else; propose
+  again after a newer workbook, keeping what you decided and reporting where the workbook disagrees.
 - Declare consumer APIs in the model: the read-only contracts other systems will use, written as
   what each one exposes, offers, looks like and filters by, with defaults for what is left out, and
   checked so that a breaking change needs a new contract version. Another system reads one business object through

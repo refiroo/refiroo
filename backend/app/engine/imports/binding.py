@@ -726,6 +726,8 @@ class _ProfileBinding:
         self.report = report
         self.match_cells = _Copy(session, "import_match_cells", ("src", "column_name", "match"))
         self.row_id = 0
+        # Each source's named columns, by plan index (rows empty in all of them are skipped).
+        self._names: dict[int, list[str]] = {}
         self.entry_id = 0
         self.rows = _Copy(
             session,
@@ -844,6 +846,13 @@ class _ProfileBinding:
         return plans
 
     def _row(self, plan: _Plan, number: int, cells: list[Any]) -> None:
+        # A row holding nothing in any column the source names is no record of it: a list or
+        # parent read from the rows of another type's sheet, on a row without one (0.10 A6b, D99).
+        names = self._names.get(plan.index)
+        if names is None:
+            names = self._names[plan.index] = [name for _, name in _named_columns(plan.source, "")]
+        if names and all(_cell(plan.columns, cells, name) is None for name in names):
+            return
         self.row_id += 1
         row_id = self.row_id
         source = plan.source
@@ -1203,6 +1212,7 @@ class _ProfileBinding:
                         flags.matchBy,
                         flags.targets[column_name],
                         column_name,
+                        flags.missing == "create",
                     ),
                     column_name,
                     False,
@@ -1254,6 +1264,9 @@ class _ProfileBinding:
                 if parent_raw is not None
                 else None
             )
+            if parent_match is not None and parent.missing == "create":
+                # A parent no record matches is created by its name (0.10 A6, D93).
+                parent_match["create"] = True
             backward = spec.direction == "outgoing"
             source_type, target_type = (
                 (plan.source.objectTypeKey, spec.objectTypeKey)
@@ -1495,15 +1508,6 @@ class _ProfileBinding:
         self._sql(
             """
             UPDATE import_rows SET error = jsonb_build_object(
-                'code', 'REFERENCE_NOT_FOUND',
-                'message', format('No %s record has the key %s', object_type_key, key_value),
-                'details', jsonb_build_object('column', key_column))
-            WHERE error IS NULL AND rep_id IS NULL AND mode = 'existing' AND NOT existing
-            """
-        )
-        self._sql(
-            """
-            UPDATE import_rows SET error = jsonb_build_object(
                 'code', 'NAME_REQUIRED',
                 'message', 'A new record needs a name, and the row has none',
                 'details', jsonb_build_object('column', NULL))
@@ -1513,7 +1517,31 @@ class _ProfileBinding:
         self._sql(
             """
             UPDATE import_rows SET record_id = gen_random_uuid()::text
-            WHERE error IS NULL AND rep_id IS NULL AND record_id IS NULL
+            WHERE error IS NULL AND rep_id IS NULL AND record_id IS NULL AND mode = 'upsert'
+            """
+        )
+        # An existing-records row also finds the record another row of the file creates by the same
+        # key, as a sheet of translations names the records the main sheet loads (0.10 A6, D93).
+        self._sql(
+            """
+            UPDATE import_rows r SET record_id = f.record_id FROM import_rows f
+            WHERE r.error IS NULL AND r.rep_id IS NULL AND r.mode = 'existing' AND NOT r.existing
+              AND r.key_kind = 'attribute' AND f.mode = 'upsert' AND f.error IS NULL
+              AND f.rep_id IS NULL AND f.object_type_key = r.object_type_key
+              AND f.key_kind = 'attribute' AND f.key_attr = r.key_attr AND f.key_value = r.key_value
+            """
+        )
+        self._sql(
+            """
+            UPDATE import_rows r SET error = jsonb_build_object(
+                'code', 'REFERENCE_NOT_FOUND',
+                'message', format('No %s record has the key %s', r.object_type_key, r.key_value),
+                'details', jsonb_build_object('column', r.key_column))
+            WHERE r.error IS NULL AND r.rep_id IS NULL AND r.mode = 'existing' AND NOT r.existing
+              AND NOT EXISTS (
+                  SELECT 1 FROM import_rows f WHERE f.mode = 'upsert' AND f.error IS NULL
+                    AND f.rep_id IS NULL AND f.object_type_key = r.object_type_key
+                    AND f.record_id = r.record_id)
             """
         )
         self._sql(
@@ -1755,7 +1783,10 @@ class _ProfileBinding:
                     WHERE r.error IS NULL AND (
                         (r.parent IS NOT NULL AND {_JOINED.format(s="r.parent")})
                         OR EXISTS (SELECT 1 FROM import_links l
-                                   WHERE l.row_id = r.row_id AND {_JOINED.format(s="l.match")}))
+                                   WHERE l.row_id = r.row_id AND {_JOINED.format(s="l.match")})
+                        OR EXISTS (SELECT 1 FROM import_related d
+                                   WHERE d.row_id = r.row_id AND d.parent IS NOT NULL
+                                     AND {_JOINED.format(s="d.parent")}))
                     ORDER BY r.src, r.row_number LIMIT 1) n ON true
                 WHERE m.created
                 """

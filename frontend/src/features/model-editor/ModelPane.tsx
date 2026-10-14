@@ -16,11 +16,12 @@
  * The tree itself is `EditorTree`, which the Consumer APIs tab lists its definitions in too (0.10 A4c).
  */
 
-import { useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
 import type { EditorSelection, ModelDraftOutline, OutlineMark, OutlineTypeNode } from "@/types";
 import { HueTile } from "@/ui/HueTile";
 import { Icon, type IconName } from "@/ui/Icon";
 import { MarkPill } from "@/features/model-editor/MarkPill";
+import { ProposedPill } from "@/features/model-editor/ProposedBecause";
 import { draftTypeHue, objectTypeOf, typeName } from "@/features/model-editor/outline";
 import { DRAG_COLUMN } from "@/features/model-editor/SourcePane";
 
@@ -57,12 +58,18 @@ export type TreeRow = {
   typeKey?: string;
   /** Dropping a type here puts it at the top level. */
   topLevel?: boolean;
+  /** Still as the inference proposed it (0.10 A6b): marked Proposed in place of its mark. */
+  proposed?: boolean;
 };
 type Row = TreeRow;
 
 const FOLDED_AT_START = new Set(["attributeTypes"]);
 
-export function paneRows(outline: ModelDraftOutline, folded: Set<string>): Row[] {
+export function paneRows(
+  outline: ModelDraftOutline,
+  folded: Set<string>,
+  proposed: ReadonlySet<string> = new Set(),
+): Row[] {
   const rows: Row[] = [];
   for (const application of outline.applications) {
     rows.push({
@@ -82,6 +89,7 @@ export function paneRows(outline: ModelDraftOutline, folded: Set<string>): Row[]
         mark: type?.mark,
         selection: { show: "type", key: node.objectType },
         typeKey: node.objectType,
+        proposed: proposed.has(`objectType:${node.objectType}`),
       });
       for (const child of node.children) visit(child, level + 1, `${path}${node.objectType}/`);
     };
@@ -93,6 +101,7 @@ export function paneRows(outline: ModelDraftOutline, folded: Set<string>): Row[]
         label: group.label,
         note: "group",
         mark: group.mark,
+        proposed: proposed.has(`group:${application.key}/${group.key}`),
         selection: { show: "application", key: application.key },
       });
       for (const collection of group.collections)
@@ -119,6 +128,7 @@ export function paneRows(outline: ModelDraftOutline, folded: Set<string>): Row[]
         level: 2,
         label: item.containment ? `${item.name} (containment)` : item.name,
         mark: item.mark,
+        proposed: proposed.has(`relationType:${item.key}`),
         selection: { show: "relationType", key: item.key },
       });
   rows.push({
@@ -135,6 +145,7 @@ export function paneRows(outline: ModelDraftOutline, folded: Set<string>): Row[]
         level: 2,
         label: item.name,
         mark: item.mark,
+        proposed: proposed.has(`attributeType:${item.key}`),
         selection: { show: "attributeType", key: item.key },
       });
   rows.push({ id: "matrix", level: 1, label: "Relationship matrix", selection: { show: "matrix" } });
@@ -155,6 +166,7 @@ export function ModelPane({
   onMenu,
   onDrop,
   linked,
+  proposed,
 }: {
   outline: ModelDraftOutline;
   selection: EditorSelection;
@@ -165,12 +177,14 @@ export function ModelPane({
   onDrop: (drop: PaneDrop) => void;
   /** Types the selected column feeds (0.10 A5b). */
   linked?: Set<string>;
+  /** The elements still as the inference proposed them (0.10 A6b). */
+  proposed?: ReadonlySet<string>;
 }) {
   return (
     <EditorTree
       label="Model"
       outline={outline}
-      rows={(folded) => paneRows(outline, folded)}
+      rows={(folded) => paneRows(outline, folded, proposed)}
       foldedAtStart={FOLDED_AT_START}
       selection={selection}
       linked={linked}
@@ -223,6 +237,14 @@ export function EditorTree({
   const tabIndex = focusId && rows.some((row) => row.id === focusId) ? focusIndex : Math.max(0, selectedIndex);
   const tree = useRef<HTMLUListElement>(null);
   const [dropTarget, setDropTarget] = useState<string>();
+  // A selection made elsewhere (the address, a step, the inference's first type) is scrolled into view.
+  const selectedId = selectedIndex >= 0 ? rows[selectedIndex]?.id : undefined;
+  useEffect(() => {
+    if (!selectedId) return;
+    tree.current
+      ?.querySelector<HTMLElement>(`[data-row="${CSS.escape(selectedId)}"]`)
+      ?.scrollIntoView?.({ block: "nearest" });
+  }, [selectedId]);
 
   const focusRow = (index: number) => {
     const row = rows[index];
@@ -353,7 +375,7 @@ export function EditorTree({
             ) : null}
             <span className="model-pane-label">{row.label}</span>
             {row.note && <span className="model-pane-note">{row.note}</span>}
-            {row.mark && <MarkPill mark={row.mark} />}
+            {row.proposed ? <ProposedPill /> : row.mark && <MarkPill mark={row.mark} />}
             {row.badge}
           </li>
         );

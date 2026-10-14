@@ -1312,7 +1312,7 @@ class Job(Base):
     __tablename__ = "jobs"
     __table_args__ = (
         CheckConstraint(
-            "kind IN ('batch', 'import', 'export', 'profile', 'dryRun')", name="ck_job_kind"
+            "kind IN ('batch', 'import', 'export', 'profile', 'dryRun', 'inference')", name="ck_job_kind"
         ),
         CheckConstraint(
             "state IN ('queued', 'running', 'awaiting_confirmation', 'completed', 'failed', "
@@ -1560,3 +1560,27 @@ class SourceFileColumn(Base):
     sheet_index: Mapped[int] = mapped_column(Integer, nullable=False)
     column_number: Mapped[int] = mapped_column(Integer, nullable=False)
     statistics: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+
+
+class ModelDraftProposal(Base):
+    """A proposal of a model draft's latest inference (Product 0.10 A6, D87–D89): its pattern,
+    the columns and evidence it rests on, the operations it applies and their alternatives. A newer
+    inference replaces the draft's proposals; whether one was applied or rejected is read from the
+    draft's history (D92), not stored here."""
+
+    __tablename__ = "model_draft_proposals"
+    __table_args__ = (Index("ix_model_draft_proposals_draft", "draft_id", "position"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    public_id: Mapped[str] = mapped_column(
+        String(36), unique=True, index=True, default=lambda: str(uuid4())
+    )
+    draft_id: Mapped[int] = mapped_column(
+        ForeignKey("model_drafts.id", ondelete="CASCADE"), nullable=False
+    )
+    # The inference job's public ID.
+    inference_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    pattern: Mapped[str] = mapped_column(String(60), nullable=False)
+    signature: Mapped[str] = mapped_column(Text, nullable=False)
+    body: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)

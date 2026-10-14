@@ -108,6 +108,13 @@ class FlagsBinding(BaseModel):
         default_factory=lambda: ["x", "yes", "y", "true", "1"],
         description="Cell texts counted as set, compared ignoring case; a boolean TRUE cell is set",
     )
+    missing: Missing | None = Field(
+        default=None,
+        description=(
+            "``create``: a set flag whose record does not exist creates it with the target's name"
+            " (matchBy name only, 0.10 A6, D93); ``refuse``, the default, refuses the row"
+        ),
+    )
 
 
 class RelatedParent(BaseModel):
@@ -120,6 +127,13 @@ class RelatedParent(BaseModel):
     matchBy: MatchBy
     value: str | None = None
     column: str | None = None
+    missing: Missing | None = Field(
+        default=None,
+        description=(
+            "``create``: a parent no record matches is created with the value or the cell as its"
+            " name (matchBy name only, 0.10 A6, D93); ``refuse``, the default, refuses the row"
+        ),
+    )
 
     @model_validator(mode="after")
     def one_source(self) -> RelatedParent:

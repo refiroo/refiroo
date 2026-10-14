@@ -315,6 +315,11 @@
   --pill-text: var(--status-error-text);
   --pill-marker: var(--status-error-marker);
 }
+.tone-proposed {
+  --pill-surface: var(--status-proposed-surface);
+  --pill-text: var(--status-proposed-text);
+  --pill-marker: var(--status-proposed-marker);
+}
 .tone-draft,
 .tone-neutral {
   --pill-surface: var(--status-draft-surface);
@@ -1869,6 +1874,17 @@ tr:focus-within .icon-button.icon-button-quiet {
 }
 .compact-dialog {
   width: min(520px, 100%);
+}
+/* Two short fields side by side in a dialog form; one above the other on a phone. */
+.dialog-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 var(--space-3);
+}
+@media (max-width: 560px) {
+  .dialog-pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 .wide-dialog {
   width: min(860px, 100%);
@@ -4670,4 +4686,9 @@ form.map-column .dialog-actions {
 }
 .cell-reveal-above {
   transform: translateY(-100%);
+}
+
+/* A page part that failed while rendering (ErrorBoundary). */
+.error-boundary {
+  padding: var(--space-4);
 }

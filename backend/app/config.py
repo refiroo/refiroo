@@ -76,6 +76,10 @@ class Settings(BaseModel):
     job_preview_max_items: int = Field(default=10_000, ge=1)
     # Operations in one request to a model draft (0.10 A2).
     model_operation_max_items: int = Field(default=500, ge=1)
+    # The optional inference assistant (0.10 A6, A-D5, D95): a factory ``module:function``, empty
+    # for none, and the rows of each sheet it is sent.
+    inference_assistant: str = ""
+    inference_assistant_rows: int = Field(default=20, ge=1)
     # Export files and, from J2, uploads (D12, D55): one directory, created at start.
     job_file_dir: Path = DEFAULT_JOB_FILE_DIR
     # How long the change feed answers a position (D8, INTEGRATION_API F5); reported by
@@ -133,6 +137,8 @@ class Settings(BaseModel):
             import_max_bytes=_positive(env, "IMPORT_MAX_BYTES", 200 * 1024 * 1024),
             job_preview_max_items=_positive(env, "JOB_PREVIEW_MAX_ITEMS", 10_000),
             model_operation_max_items=_positive(env, "MODEL_OPERATION_MAX_ITEMS", 500),
+            inference_assistant=env.get("INFERENCE_ASSISTANT", "").strip(),
+            inference_assistant_rows=_positive(env, "INFERENCE_ASSISTANT_ROWS", 20),
             job_file_dir=Path(env.get("JOB_FILE_DIR", "").strip() or DEFAULT_JOB_FILE_DIR),
             feed_retention_days=_positive(env, "FEED_RETENTION_DAYS", 30),
             consumer_resolve_max_items=_positive(env, "CONSUMER_RESOLVE_MAX_ITEMS", 1_000),
@@ -318,6 +324,12 @@ SETTINGS_CATALOGUE: tuple[CatalogueEntry, ...] = (
         "capabilities",
         "Webhook subscriptions and their delivery",
     ),
+    CatalogueEntry(
+        "INFERENCE_ASSISTANT",
+        "inference_assistant",
+        "capabilities",
+        "The inference assistant's factory; empty for none, the default",
+    ),
     CatalogueEntry("BATCH_MAX_ITEMS", "batch_max_items", "limits", "Items in an inline batch"),
     CatalogueEntry(
         "BATCH_MAX_BYTES", "batch_max_bytes", "limits", "Bytes in an inline batch's body"
@@ -357,6 +369,12 @@ SETTINGS_CATALOGUE: tuple[CatalogueEntry, ...] = (
         "model_operation_max_items",
         "limits",
         "Operations in one request to a model draft",
+    ),
+    CatalogueEntry(
+        "INFERENCE_ASSISTANT_ROWS",
+        "inference_assistant_rows",
+        "limits",
+        "Rows of each sheet the inference assistant is sent",
     ),
     CatalogueEntry(
         "JOB_LEASE_SECONDS",

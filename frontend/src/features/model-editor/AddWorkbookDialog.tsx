@@ -5,10 +5,11 @@
  * run checks against.
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
-import type { SourceFile, Workspace } from "@/types";
+import type { SourceFile } from "@/types";
+import { WorkspaceField } from "@/features/model-editor/WorkspaceField";
 import { FileField } from "@/ui/FileField";
 import { FormField } from "@/ui/FormField";
 import { Modal } from "@/ui/Modal";
@@ -32,25 +33,9 @@ export function AddWorkbookDialog({
   onClose: () => void;
 }) {
   const [file, setFile] = useState<File>();
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [workspace, setWorkspace] = useState(defaultWorkspace);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .workspaces()
-      .then((page) => {
-        if (!cancelled) setWorkspaces(page.items);
-      })
-      .catch((cause) => {
-        if (!cancelled) setError(errorMessage(cause));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   async function upload() {
     if (!file) return;
@@ -89,17 +74,7 @@ export function AddWorkbookDialog({
         <FormField label="Workbook" help="An XLSX workbook or a CSV file">
           {(control) => <FileField control={control} accept={WORKBOOK_ACCEPT} onFile={setFile} />}
         </FormField>
-        <FormField label="Compare with the records of">
-          {(control) => (
-            <select {...control} value={workspace} onChange={(event) => setWorkspace(event.target.value)}>
-              {workspaces.map((item) => (
-                <option key={item.key} value={item.key}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          )}
-        </FormField>
+        <WorkspaceField value={workspace} onChange={setWorkspace} onError={setError} />
         {error && (
           <Notice tone="error" title="Not uploaded">
             {error}

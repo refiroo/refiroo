@@ -15,7 +15,8 @@ statement over the staged cells (principle 6):
   formatting are not read.
 - **Columns**, per block over the rows below its header: ``filled``, ``distinct``,
   ``valueTypes`` (cells readable as each value type the attribute registry converts),
-  ``candidateKey`` (filled on every row, no value twice), ``delimiters`` (``;``, ``,``, ``|``,
+  ``candidateKey`` (filled on every row, no value twice), ``values`` (the most frequent, with
+  their counts, 0.10 A6), ``delimiters`` (``;``, ``,``, ``|``,
   ``/`` and line breaks, with the share of cells holding one), ``placeholders`` (D70) and
   ``overlaps``: the columns, and with a workspace named the record names and unique text
   attributes of the model's types, holding the most of the column's distinct values (D69).
@@ -55,6 +56,8 @@ HEADER_ROWS = 50
 OVERLAP_VALUES = 1_000
 OVERLAPS_LISTED = 5
 PLACEHOLDERS_LISTED = 10
+# A column's most frequent values listed with their counts (0.10 A6).
+VALUES_LISTED = 10
 # D70: values that stand for "no value", ignoring case; and a value of at most two characters,
 # none a letter or digit, found in at least this share of a column's cells.
 PLACEHOLDER_VALUES = ("n/a", "na", "-", "--", "?", "tbd", "none")
@@ -114,6 +117,9 @@ def profile_source_file(
     for table in (SourceFileColumn, SourceFileSheet, SourceFileCell):
         session.execute(delete(table).where(table.source_file_id == source.id))
     names = _stage(session, source, path, check)
+    # Cells staged by COPY have no statistics yet; without them the statements over them (the
+    # profile's, an inference's joins between columns) are planned as for an empty table (0.10 A6).
+    session.execute(text("ANALYZE source_file_cells"))
     session.execute(text(_COLUMNS_TABLE))
     for sheet_index, name in enumerate(names):
         layouts = _layouts(session, source.id, sheet_index)
@@ -358,10 +364,23 @@ placeholders AS (
     ) ranked
     WHERE rank <= :listed_placeholders
     GROUP BY sheet_index, column_number
+),
+frequent AS (
+    SELECT sheet_index, column_number,
+        json_agg(json_build_object('value', text, 'count', n) ORDER BY n DESC, text) AS found
+    FROM (
+        SELECT sheet_index, column_number, text, count(*) AS n,
+            row_number() OVER (PARTITION BY sheet_index, column_number
+                               ORDER BY count(*) DESC, text) AS rank
+        FROM data GROUP BY sheet_index, column_number, text
+    ) ranked
+    WHERE rank <= :listed_values
+    GROUP BY sheet_index, column_number
 )
-SELECT b.*, p.found AS placeholders, h.text AS header
+SELECT b.*, p.found AS placeholders, f.found AS frequent, h.text AS header
 FROM basic b
 LEFT JOIN placeholders p USING (sheet_index, column_number)
+LEFT JOIN frequent f USING (sheet_index, column_number)
 LEFT JOIN profile_columns pc USING (sheet_index, column_number)
 LEFT JOIN source_file_cells h ON h.source_file_id = :file AND h.sheet_index = b.sheet_index
     AND h.column_number = b.column_number AND h.row_number = pc.header_row
@@ -419,6 +438,7 @@ def _store_columns(session: Session, source: SourceFile, model: EngineModel | No
                 "placeholders": list(PLACEHOLDER_VALUES),
                 "share": PLACEHOLDER_SHARE,
                 "listed_placeholders": PLACEHOLDERS_LISTED,
+                "listed_values": VALUES_LISTED,
             },
         ).all()
     }
@@ -548,11 +568,13 @@ def _statistics(row: Any, place: Any, overlaps: list[dict[str, Any]]) -> dict[st
         "candidateKey": filled == place.rows and row.distinct_values == filled,
         "delimiters": delimiters,
         "placeholders": row.placeholders or [],
+        "values": row.frequent or [],
         "overlaps": overlaps[:OVERLAPS_LISTED],
         "limits": {
             "overlapValues": OVERLAP_VALUES,
             "overlapsListed": OVERLAPS_LISTED,
             "placeholdersListed": PLACEHOLDERS_LISTED,
+            "valuesListed": VALUES_LISTED,
         },
     }
 

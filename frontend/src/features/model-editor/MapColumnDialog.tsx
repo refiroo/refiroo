@@ -1,7 +1,9 @@
 /**
  * Map to… a column of the draft's source file (0.10 A5b, D76): the type each row of its sheet is a
  * record of, what the column holds (the name, an attribute, the parent, a related record, a flag of
- * a relation, nothing) and the target, chosen from a list typed into with Up, Down and Enter. One
+ * a relation, a value of a related record under its parent, nothing) and the target, chosen from a
+ * list typed into with Up, Down and Enter; a related record is matched by name or by a unique
+ * attribute of its type (0.10 A6b, closing A5b's open points). One
  * confirmed choice is one request, so one step undone by Undo. It is the keyboard and phone path of
  * dropping the column on the model pane, which opens it with the target chosen.
  */
@@ -43,6 +45,7 @@ export interface MapStart {
 export function MapColumnDialog({
   start,
   column,
+  headers,
   profile,
   outline,
   run,
@@ -50,6 +53,8 @@ export function MapColumnDialog({
 }: {
   start: MapStart;
   column: SourceColumn | undefined;
+  /** The sheet's column headers: a related record's parent may be named in another column. */
+  headers: string[];
   profile: DraftProfileDocument | null | undefined;
   outline: ModelDraftOutline;
   run: RunStep;
@@ -71,6 +76,13 @@ export function MapColumnDialog({
   const [split, setSplit] = useState(topDelimiter);
   const [create, setCreate] = useState(true);
   const [flagTarget, setFlagTarget] = useState(start.header);
+  const [matchAttribute, setMatchAttribute] = useState("");
+  const [fills, setFills] = useState("name");
+  const [parentType, setParentType] = useState("");
+  const [parentFrom, setParentFrom] = useState<"value" | "column">("value");
+  const [parentValue, setParentValue] = useState("");
+  const [parentColumn, setParentColumn] = useState("");
+  const [createParent, setCreateParent] = useState(true);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
 
@@ -88,14 +100,30 @@ export function MapColumnDialog({
     [kind, rowType, outline],
   );
   const current = chosenTarget(shownTargets(targets, search), chosen);
-  const needsTarget = kind === "attribute" || kind === "parent" || kind === "lookup" || kind === "flag";
+  const needsTarget =
+    kind === "attribute" || kind === "parent" || kind === "lookup" || kind === "flag" || kind === "related";
+  // The type at the far end of the chosen relation, for a lookup's match and a related record.
+  const farKey =
+    (kind === "lookup" || kind === "related") && current
+      ? targets.find((item) => item.value === current.value)?.typeKey
+      : undefined;
+  const farType = farKey ? objectTypeOf(outline, farKey) : undefined;
+  const uniqueAttributes = farType?.attributes.filter((item) => item.unique) ?? [];
+  const fillable = farType?.attributes.filter((item) => !item.readOnly) ?? [];
+  const parents = farType?.parents ?? [];
+  const chosenParent = parents.includes(parentType) ? parentType : (parents[0] ?? "");
+  const otherColumns = headers.filter((item) => item !== start.header);
+  const relatedReady =
+    kind !== "related" ||
+    (Boolean(chosenParent) && (parentFrom === "value" ? Boolean(parentValue.trim()) : Boolean(parentColumn)));
   const newAttribute = kind === "attribute" && current?.value === NEW_ATTRIBUTE;
   const attribute =
     kind === "attribute" && current && !newAttribute
       ? objectTypeOf(outline, rowType)?.attributes.find((item) => item.attributeType === current.value)
       : undefined;
   const canKey = kind === "attribute" && (newAttribute ? unique : Boolean(attribute?.unique));
-  const ready = Boolean(rowType) && (!needsTarget || Boolean(current)) && (!newAttribute || Boolean(name.trim()));
+  const ready =
+    Boolean(rowType) && (!needsTarget || Boolean(current)) && (!newAttribute || Boolean(name.trim())) && relatedReady;
 
   async function map() {
     if (!ready) return;
@@ -110,6 +138,19 @@ export function MapColumnDialog({
       split: kind === "lookup" ? split : undefined,
       create: (kind === "lookup" || kind === "parent") && create,
       flagTarget: flagTarget.trim(),
+      matchAttribute:
+        kind === "lookup" && uniqueAttributes.some((item) => item.attributeType === matchAttribute)
+          ? matchAttribute
+          : undefined,
+      related:
+        kind === "related"
+          ? {
+              fills,
+              parentType: chosenParent,
+              ...(parentFrom === "column" ? { parentColumn } : { parentValue: parentValue.trim() }),
+              createParent,
+            }
+          : undefined,
     };
     setPending(true);
     setError("");
@@ -250,11 +291,112 @@ export function MapColumnDialog({
             )}
           </FormField>
         )}
-        {(kind === "lookup" || kind === "parent") && (
+        {kind === "lookup" && uniqueAttributes.length > 0 && (
+          <FormField
+            label="Matched by"
+            help="A unique attribute matches records that exist; only a name creates new ones"
+          >
+            {(control) => (
+              <select {...control} value={matchAttribute} onChange={(event) => setMatchAttribute(event.target.value)}>
+                <option value="">The record's name</option>
+                {uniqueAttributes.map((item) => (
+                  <option key={item.attributeType} value={item.attributeType}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </FormField>
+        )}
+        {((kind === "lookup" && !matchAttribute) || kind === "parent") && (
           <label className="checkbox">
             <input type="checkbox" checked={create} onChange={(event) => setCreate(event.target.checked)} />
             Create the records a cell names that do not exist
           </label>
+        )}
+        {kind === "related" && farType && (
+          <div className="map-new-attribute">
+            <FormField label={`Fills, on the ${farType.name}`}>
+              {(control) => (
+                <select {...control} value={fills} onChange={(event) => setFills(event.target.value)}>
+                  <option value="name">Its name</option>
+                  {fillable.map((item) => (
+                    <option key={item.attributeType} value={item.attributeType}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </FormField>
+            {parents.length ? (
+              <>
+                <FormField label={`Under a record of`}>
+                  {(control) => (
+                    <select {...control} value={chosenParent} onChange={(event) => setParentType(event.target.value)}>
+                      {parents.map((key) => (
+                        <option key={key} value={key}>
+                          {typeName(outline, key)}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </FormField>
+                <fieldset className="map-parent-from">
+                  <legend>Which {typeName(outline, chosenParent)}</legend>
+                  <label className="checkbox">
+                    <input
+                      type="radio"
+                      name="parent-from"
+                      checked={parentFrom === "value"}
+                      onChange={() => setParentFrom("value")}
+                    />
+                    The one named
+                    <input
+                      aria-label={`The ${typeName(outline, chosenParent)}'s name`}
+                      value={parentValue}
+                      disabled={parentFrom !== "value"}
+                      onChange={(event) => setParentValue(event.target.value)}
+                    />
+                  </label>
+                  <label className="checkbox">
+                    <input
+                      type="radio"
+                      name="parent-from"
+                      checked={parentFrom === "column"}
+                      disabled={!otherColumns.length}
+                      onChange={() => setParentFrom("column")}
+                    />
+                    The one each row names in
+                    <select
+                      aria-label="The column naming it"
+                      value={parentColumn}
+                      disabled={parentFrom !== "column"}
+                      onChange={(event) => setParentColumn(event.target.value)}
+                    >
+                      <option value="">Choose a column</option>
+                      {otherColumns.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </fieldset>
+                <label className="checkbox">
+                  <input
+                    type="checkbox"
+                    checked={createParent}
+                    onChange={(event) => setCreateParent(event.target.checked)}
+                  />
+                  Create the {typeName(outline, chosenParent)} records that do not exist
+                </label>
+              </>
+            ) : (
+              <p className="muted">
+                {farType.name} stands under no parent type, so it cannot be a related record here.
+              </p>
+            )}
+          </div>
         )}
         {kind === "flag" && (
           <FormField label="The record a Y relates the row to" help="Its name; the column's header by default">
