@@ -1354,23 +1354,154 @@
   color: var(--status-warning-text);
   font-weight: 600;
 }
+/* A sheet laid out for reading, list by list (0.10 A8b, D122). */
+.source-list-title {
+  padding: var(--space-3) var(--space-3) var(--space-1);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.source-list {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: var(--space-1) var(--space-3);
+  border-bottom: 1px solid var(--border-faint);
+  cursor: pointer;
+  user-select: none;
+}
+.source-list:hover {
+  background: var(--surface-hover);
+}
+.source-list:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.source-list.selected {
+  background: var(--state-selected);
+  color: var(--state-selected-text);
+}
+.source-list.selected .source-column-stats,
+.source-list.selected .source-column-letter {
+  color: inherit;
+}
+.source-column.in-list {
+  padding-left: calc(var(--space-3) + 20px);
+  background: var(--surface-sunken);
+}
+.source-column.in-list.selected {
+  background: var(--state-selected);
+}
+
+/* A sheet's cells, a list's rectangle shaded (0.10 A8b, D123, D125). */
+.cell-grid-frame {
+  max-width: 100%;
+  overflow: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+}
+.cell-grid {
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+.cell-grid th {
+  position: sticky;
+  top: 0;
+  padding: 2px var(--space-2);
+  border: 1px solid var(--border-faint);
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.cell-grid tbody th {
+  position: sticky;
+  left: 0;
+  text-align: right;
+}
+.cell-grid td {
+  max-width: 220px;
+  overflow: hidden;
+  padding: 2px var(--space-2);
+  border: 1px solid var(--border-faint);
+  color: var(--text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cell-grid td.cell-in {
+  background: var(--state-selected);
+  color: var(--text-primary);
+}
+.cell-grid td.cell-header {
+  background: color-mix(in srgb, var(--action-primary) 22%, var(--surface-raised));
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.cell-grid td.cell-note {
+  background: var(--state-selected);
+  font-style: italic;
+}
+.list-panel-cells {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.list-panel-cells p {
+  margin: 0;
+  font-size: var(--text-xs);
+}
+.adjust-list {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.adjust-list-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+.adjust-list-fields .form-field input,
+.adjust-list-fields .form-field select {
+  width: 7rem;
+}
+.adjust-list-range {
+  margin-left: auto;
+  font-weight: 600;
+}
+.adjust-list .cell-grid-frame {
+  max-height: 46vh;
+}
+.adjust-list-summary {
+  display: grid;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+
 /* A type the selected column feeds, in the model pane. */
 .model-pane-row.linked:not(.selected) {
   box-shadow: inset 0 0 0 2px var(--state-selected-line);
 }
 
 /* A column in the centre. */
-.column-panel {
+.column-panel,
+.list-panel {
   display: grid;
   gap: var(--space-4);
 }
-.column-panel .element-title {
+.column-panel .element-title,
+.list-panel .element-title {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
 }
-.column-panel .element-title .eyebrow {
+.column-panel .element-title .eyebrow,
+.list-panel .element-title .eyebrow {
   flex-basis: 100%;
   margin: 0;
 }
@@ -1581,8 +1712,20 @@
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-1);
   }
-  .source-column {
+  .source-column,
+  .source-list {
     min-height: 52px;
+  }
+  .adjust-list-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .adjust-list-fields .form-field input,
+  .adjust-list-fields .form-field select {
+    width: 100%;
+  }
+  .adjust-list-range {
+    grid-column: 1 / -1;
   }
 }
 

@@ -541,9 +541,14 @@ note row skipped and the note kept as the type's description; a column beside th
 most of their rows is their translation (in the language its header names, else "Language 1",
 which you rename), a column of Y and N is a yes/no attribute, a column with only its header is
 reported and not read. The lists under one title are grouped in the sidebar. A "free field" or a
-header with nothing under it proposes nothing, and the inference says so. Through the API a list's
-block can be narrowed or widened (`setSource`). Lists of one shape side by side whose headers are
-categories are each their own list for now.
+header with nothing under it proposes nothing, and the inference says so. In the editor the source
+pane shows such a sheet as its lists under their titles, each Proposed, Loaded or Not loaded;
+selecting one shows the cells around it, so a value that is no value (a second header row, a
+sentence) can be seen. **Adjust list…** sets the rows and columns it loads, its columns keeping what
+they load when its header row moves, and can name the list after its new header; **Don't load this
+list** takes it out of the load and the model in one step, and proposing again leaves it out; **Load
+as a list…** reads a part of the sheet the inference left out as a list. Lists of one shape side by
+side whose headers are categories are each their own list for now.
 
 **The next version of a workbook.** Installing a draft with a workbook saves its import profile;
 Settings › Data operations › **Import profiles** lists the stored profiles beside the selected one: whether it
@@ -565,9 +570,8 @@ another (a material changed from Steel to Bamboo), where the relation allows one
 
 Limits: a field's editor cannot be chosen (each value type has one); the draft editor has no control
 for what a load does with missing records (Settings › Import profiles and the API set it); the
-source pane shows a sheet laid out for reading as its columns, not yet list by list with a way to
-adjust or drop a list (A8b), and lists of one shape whose headers are categories are not yet read
-as one list under them (A8c); the optional assistant is an interface
+lists of one shape whose headers are categories are not yet read as one list under them (A8c);
+dragging a list's outline on the grid is not offered (its fields set it); the optional assistant is an interface
 only, with no provider. A consumer
 API's documents are worked out from the draft; messages from real records come from the consumer API
 after activation.

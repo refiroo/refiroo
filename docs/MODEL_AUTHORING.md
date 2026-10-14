@@ -378,6 +378,15 @@ file differs from the stored record's), with the stored names standing and loadi
 as the alternative. A file uploaded without a workspace is compared with the default workspace's
 records.
 
+**Lists in the editor, as built (0.10 A8b, D122–D128).** The source pane shows a sheet laid out for
+reading as its lists under their innermost titles, each with its range, rows, note and status
+(Proposed, Loaded, Not loaded), and opens the selected list to its columns; the centre shows a list
+with the cells around it. **Adjust list…** sets the rows and columns a list loads (one `setSource`;
+its columns keep their bindings on their letters, and it may take the new header's name); **Don't
+load this list** removes its source and, when nothing else loads, relates to or contains it, its
+list type, in one step; **Load as a list…** reads a rectangle the inference left out as A8a reads a
+list, and the result is the administrator's.
+
 **Lists laid out for reading, as built (0.10 A8a, D115–D119).** A sheet where no block is the table
 (or that is one block of at most two columns holding several lists one under another), with at most 2,000 rows with a cell, is read list by
 list by its profile. Each run of columns between empty columns is split at empty rows; a row whose

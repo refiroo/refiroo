@@ -152,6 +152,22 @@ class SourceColumnPage(CollectionPage[SourceColumnResponse]):
     """A sheet's profiled columns, block by block, each block's in column order."""
 
 
+class SourceCell(BaseModel):
+    """A staged cell: its text as an import matches it, and its value type."""
+
+    text: str
+    kind: str = Field(description="text, integer, decimal, boolean, date or dateTime")
+
+
+class SourceCellRow(BaseModel):
+    row: int
+    cells: dict[str, SourceCell] = Field(description="The row's filled cells in the range, by column letter")
+
+
+class SourceCellPage(CollectionPage[SourceCellRow]):
+    """The rows of a range holding a cell, in row order (0.10 A8b)."""
+
+
 class DryRunRejection(BaseModel):
     code: str
     rows: int
@@ -313,3 +329,16 @@ class ProposalResponse(BaseModel):
 
 class ProposalPage(CollectionPage[ProposalResponse]):
     """The latest inference's proposals in the order they apply."""
+
+
+class ListProposalResponse(BaseModel):
+    """A rectangle read as a list (0.10 A8b, D128): a ``listBlock`` proposal built against the
+    draft as it is, not stored; its ``operations`` go to ``POST …/operations`` as one step."""
+
+    pattern: str
+    sheet: str | None
+    columns: list[str]
+    summary: str
+    evidence: dict[str, Any]
+    operations: list[dict[str, Any]]
+    alternatives: list[dict[str, Any]]

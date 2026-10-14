@@ -7,12 +7,15 @@ for the same area: cells as the reader gave them (``values.unstaged``), empty ro
 """
 
 from collections.abc import Iterator
+from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import select, text
+from openpyxl.utils.cell import range_boundaries
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
-from ...models.database import SourceFileSheet
+from ...errors import api_error
+from ...models.database import SourceFileCell, SourceFileSheet
 from ..imports.readers import Area, Table, header_cell
 from .values import unstaged
 
@@ -26,6 +29,62 @@ WHERE source_file_id = :file AND sheet_index = :sheet
   AND column_number BETWEEN :first AND :last
 ORDER BY row_number, column_number
 """
+
+
+@dataclass(frozen=True)
+class CellRange:
+    """A rectangle of a sheet (``A3:C12``), 1-based and inclusive (0.10 A8b, D124)."""
+
+    first_column: int
+    first_row: int
+    last_column: int
+    last_row: int
+
+
+def cell_range(session: Session, file_id: int, sheet_index: int, raw: str) -> CellRange:
+    """``raw`` read as a range of the sheet; ``422 INVALID_RANGE`` for one that is not a range,
+    is empty (its end before its start) or holds no cell of the sheet's used area."""
+
+    def refuse(reason: str) -> Exception:
+        return api_error(422, "INVALID_RANGE", f"'{raw}' {reason}", {"range": raw, "path": "/query/range"})
+
+    try:
+        first_column, first_row, last_column, last_row = range_boundaries(raw.strip().upper())
+    except (ValueError, TypeError):
+        raise refuse("is not a range such as A3:C12") from None
+    if None in (first_column, first_row, last_column, last_row):
+        raise refuse("names whole rows or columns; name its corners, such as A3:C12")
+    if last_column < first_column or last_row < first_row:
+        raise refuse("is empty: its end is before its start")
+    rows, columns = session.execute(
+        select(func.max(SourceFileCell.row_number), func.max(SourceFileCell.column_number)).where(
+            SourceFileCell.source_file_id == file_id, SourceFileCell.sheet_index == sheet_index
+        )
+    ).one()
+    if rows is None or first_row > rows or first_column > columns:
+        raise refuse(f"is outside the sheet, which holds cells up to row {rows or 0}")
+    return CellRange(first_column, first_row, last_column, last_row)
+
+
+def cell_rows(file_id: int, sheet_index: int, area: CellRange) -> Any:
+    """The rows of ``area`` holding a cell, each its ``row_number`` and ``cells``: the cells by
+    column number, each its ``text`` and ``kind`` (one statement over the staged cells)."""
+    return (
+        select(
+            SourceFileCell.row_number.label("row_number"),
+            func.jsonb_object_agg(
+                SourceFileCell.column_number,
+                func.jsonb_build_object("text", SourceFileCell.text, "kind", SourceFileCell.kind),
+            ).label("cells"),
+        )
+        .where(
+            SourceFileCell.source_file_id == file_id,
+            SourceFileCell.sheet_index == sheet_index,
+            SourceFileCell.row_number.between(area.first_row, area.last_row),
+            SourceFileCell.column_number.between(area.first_column, area.last_column),
+        )
+        .group_by(SourceFileCell.row_number)
+    )
 
 
 class StagedFile:

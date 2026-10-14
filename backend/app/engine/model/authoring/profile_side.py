@@ -283,15 +283,26 @@ def prune(profile: Document, model: dict[str, Any], because: str) -> None:
         if isinstance(key, dict) and "attributeTypeKey" in key and not known.bound(
             source["objectTypeKey"], key["attributeTypeKey"]
         ):
-            profile.set(source_path(source), "key", None)
-            _unmapped(profile, {"sheet": source.get("sheet"), "source": source["id"], "key": key}, because)
+            unmap_key(profile, source, because)
         for binding in list(source.get("columns") or []):
             if binding_resolves(known, source, binding):
                 continue
-            profile.remove([*source_path(source), "columns"], profile.identity(binding))
-            entry = {"sheet": source.get("sheet"), "source": source["id"], "binding": binding}
-            entry["column" if "column" in binding else "columns"] = binding.get("column", binding.get("columns"))
-            _unmapped(profile, entry, because)
+            unmap(profile, source, binding, because)
+
+
+def unmap(profile: Document, source: dict[str, Any], binding: dict[str, Any], because: str) -> None:
+    """A source's binding taken out and kept as an unmapped entry, with the operation that took it."""
+    profile.remove([*source_path(source), "columns"], profile.identity(binding))
+    entry = {"sheet": source.get("sheet"), "source": source["id"], "binding": binding}
+    entry["column" if "column" in binding else "columns"] = binding.get("column", binding.get("columns"))
+    _unmapped(profile, entry, because)
+
+
+def unmap_key(profile: Document, source: dict[str, Any], because: str) -> None:
+    """A source's key taken out and kept as an unmapped entry."""
+    key = source.get("key")
+    profile.set(source_path(source), "key", None)
+    _unmapped(profile, {"sheet": source.get("sheet"), "source": source["id"], "key": key}, because)
 
 
 def _unmapped(profile: Document, entry: dict[str, Any], because: str) -> None:

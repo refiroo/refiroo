@@ -88,11 +88,14 @@ class Applied:
 
 @dataclass(frozen=True)
 class Sheet:
-    """A sheet of the draft's profiled source file: its header row and its columns' headers."""
+    """A sheet of the draft's profiled source file: its header row and its columns' headers, and
+    ``row``: a row's filled cells as trimmed text by column number (0.10 A8b, D126), read from the
+    staged cells when a kind needs it."""
 
     name: str
     header_row: int | None
     headers: tuple[str, ...]
+    row: Callable[[int], dict[int, str]] | None = field(default=None, compare=False)
 
 
 class Context:

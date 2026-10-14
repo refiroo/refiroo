@@ -10,7 +10,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from .imports import CsvOptions, InlineProfile
+from .imports import Block, CsvOptions, InlineProfile
 
 SourceFormat = Literal["xlsx", "csv"]
 
@@ -64,6 +64,19 @@ class InferenceRequest(BaseModel):
     mode: Literal["newApplication", "extend"]
     applicationKey: str | None = Field(default=None, min_length=1)
     applicationName: str | None = Field(default=None, min_length=1)
+
+
+class ListProposalRequest(BaseModel):
+    """``POST /model-drafts/{id}/inference/list`` (0.10 A8b, D128): a rectangle of the draft's
+    file to read as a list, its header row and ``block`` as a source takes them; new types go into
+    ``applicationKey``, by default the application the sheet's sources load into."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    sheet: str = Field(min_length=1)
+    headerRow: int = Field(ge=1)
+    block: Block
+    applicationKey: str | None = Field(default=None, min_length=1)
 
 
 class InferenceApplicationRequest(BaseModel):

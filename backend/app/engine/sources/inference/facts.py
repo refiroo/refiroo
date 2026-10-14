@@ -404,7 +404,7 @@ def staged_workbook(session: Session, source: SourceFile) -> StagedWorkbook:
         blocks = profile.get("blocks") or []
         if profile.get("laidOut"):
             workbook.laid_out.append(sheet.name)
-            workbook.blocks += _block_tables(session, source.id, sheet, blocks, columns.get(sheet.sheet_index, []))
+            workbook.blocks += block_tables(session, source.id, sheet, blocks, columns.get(sheet.sheet_index, []))
             continue
         chosen = 0 if len(blocks) == 1 else main_block(blocks)
         if chosen is None or not blocks[chosen].get("headerRow"):
@@ -459,7 +459,7 @@ def staged_workbook(session: Session, source: SourceFile) -> StagedWorkbook:
     return workbook
 
 
-def _block_tables(
+def block_tables(
     session: Session,
     file_id: int,
     sheet: SourceFileSheet,

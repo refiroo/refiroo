@@ -4121,6 +4121,13 @@ with the file and its profile's state:
   break, each with the `cells` holding it and their `share`), `placeholders`, `values` (its 10 most
   frequent, each with its `count`; 0.10 A6) and `overlaps`, with `limits` (`valuesListed` among
   them).
+- **`GET …/profile/sheets/{sheet}/cells?range=A3:C12`** (0.10 A8b, D124; paged by rows with cursors
+  and positions, `pageSize` up to 500) gives the rows of the range that hold a cell, in row order,
+  each `{"row": 4, "cells": {"A": {"text": "…", "kind": "text"}}}`: the staged text as an import
+  matches it and its value type (`text`, `integer`, `decimal`, `boolean`, `date`, `dateTime`); a
+  row with no cell in the range is left out. `range` is required; one that is not a range, is empty
+  (its end before its start) or lies wholly outside the sheet's cells is refused `422
+  INVALID_RANGE` (`details.range`).
   - **Placeholders** (D70): a value standing for "no value", one of `N/A`, `NA`, `-`, `--`, `?`,
     `TBD`, `none` ignoring case, or of at most two characters none a letter or digit found in at
     least 1% of the column's cells; each with its `count`, at most 10 listed.
@@ -4242,7 +4249,7 @@ refused the same way. Bindings use the import profile's vocabulary
 | --- | --- | --- |
 | `setProfile` | `key`, `name` | The key the instance profile is saved under at installation, and its name. The first mapping kind starts the profile with both taken from the file's name (A-D6) |
 | `addSource` | `sheet`, `objectType`, `applicationKey`? (the first holding the type), `headerRow`? (the sheet's), `block`?, `key`? (`{attributeTypeKey}`, `{column}` or `{field: "name"}`, 0.10 A8a), `id`? (from the sheet and type), `position`? | A source loading the type from the sheet, with no columns yet |
-| `setSource` | `source`; any of `sheet`, `headerRow`, `block`, `objectType`, `applicationKey`, `key` (`null` removes it, and `rowsWithoutKey` with it), `record`, `rowsWithoutKey` (`refuse` or `skip`; `skip` needs a key, `invalidValue` otherwise; 0.10 A7) | The source's settings |
+| `setSource` | `source`; any of `sheet`, `headerRow`, `block`, `objectType`, `applicationKey`, `key` (`null` removes it, and `rowsWithoutKey` with it), `record`, `rowsWithoutKey` (`refuse` or `skip`; `skip` needs a key, `invalidValue` otherwise; 0.10 A7) | The source's settings. A new `headerRow` or `block` on the same sheet keeps each binding on its column (0.10 A8b, D126): the binding, and a key column, name the header their column letter holds on the new header row; one outside the new block, whose new header cell is empty, or whose new header another binding took becomes an `unmapped` entry |
 | `removeSource` | `source` | The source and its bindings |
 | `setMissing` | `source`, `missing`: `report` or `delete` | What a load does with the records no row names (0.10 A5c, D82); `delete` needs a keyed source loading its records (`invalidValue` otherwise); removing the source's key takes `delete` away |
 | `ignoreSheet` | `sheet` | Its sources removed, the sheet listed in `ignoredSheets` (`addSource` on it takes it out) |
@@ -4371,6 +4378,19 @@ with no values, proposes nothing and is a warning. `evidence`: `block` (`range`,
 `values`, `translations`, `empty`, `flags`, `attributes`. The lists under one innermost title, two
 or more, are a `navigationGroup` named after the title (`evidence.title`).
 
+**A rectangle read as a list** (0.10 A8b, D128). `POST /api/v1/model-drafts/{draftId}/inference/list`
+with `{"sheet": "Lists", "headerRow": 16, "block": {"firstColumn": "J", "lastColumn": "K",
+"lastRow": 22}, "applicationKey": "…"}` reads that rectangle of the draft's current file by the
+rules above and answers its `listBlock` proposal (`pattern`, `sheet`, `columns`, `summary`,
+`evidence`, `operations`, `alternatives`), built against the draft as it is and not stored; sending
+its `operations` to `POST …/operations` loads the list, as the administrator's. A `free` note is a
+note here: the list was asked for. New types go into `applicationKey`, by default the application
+the sheet's sources load into; the draft's language list and translation type are reused. Synchronous
+(one statement over the staged cells). Refused: `404 SOURCE_FILE_NOT_FOUND` (no file), `409
+SOURCE_FILE_PROFILE_NOT_READY`, `404 SOURCE_SHEET_NOT_FOUND`, `422 INVALID_RANGE` (outside the sheet,
+or nothing under its header but a note), `422 INVALID_INFERENCE_REQUEST` (an application the draft
+lacks), `422 REQUEST_VALIDATION_ERROR`.
+
 In **extend** mode the files meet through the stored model and records (D106, D111, D112): a sheet
 maps to a type at least half of whose attribute and relation names (two at least) are its headers;
 a list any proposal would add under an existing type's name is that type; a code column whose values
@@ -4401,7 +4421,8 @@ workspace is compared with the default workspace's records.
   VERSION_CONFLICT`, and `422 INVALID_OPERATION` with `details.step`, the proposal it came from.
 
 **Proposing again** (D92). An element is the engine's while every change to it since it was proposed
-came from a proposal step; any other step makes it the administrator's. A new inference keeps the ID
+came from a proposal step; any other step makes it the administrator's, including one that creates
+it again as the proposal made it (0.10 A8b: a list removed and loaded as a list). A new inference keeps the ID
 of the proposal an earlier step applied for the same anchor: while everything that proposal created
 is still the engine's, what changed since (a renamed column in a newer workbook, a new column) is
 `open` again, as operations that take the draft from the earlier proposal to the new one; once the

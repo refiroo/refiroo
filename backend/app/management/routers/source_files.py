@@ -30,6 +30,7 @@ from ..paging import PageQuery
 from ..presenters import diagnostic_details
 from ..projections.job_rows import job_row_page
 from ..projections.source_files import (
+    cell_page,
     column_page,
     dry_run_response,
     sheet_page,
@@ -39,6 +40,7 @@ from ..projections.source_files import (
 from ..schemas.jobs import JobRowPage
 from ..schemas.sources import (
     DryRunResponse,
+    SourceCellPage,
     SourceColumnPage,
     SourceFilePage,
     SourceFileResponse,
@@ -157,6 +159,25 @@ def list_source_columns(
     SOURCE_SHEET_NOT_FOUND`` for a sheet the file does not have."""
     source = load_source_file(session, source_file_id)
     return column_page(session, source, sheet, paging, page_size)
+
+
+@router.get(
+    "/source-files/{source_file_id}/profile/sheets/{sheet}/cells",
+    response_model=SourceCellPage,
+)
+def list_source_cells(
+    source_file_id: str,
+    sheet: str,
+    session: DbSession,
+    paging: PageQuery,
+    cell_range: str = Query(alias="range", description="The rectangle to read, such as A3:C12"),
+    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+) -> SourceCellPage:
+    """The rows of a range of a sheet that hold a cell, in row order, each with its cells by column
+    letter: the staged text and its value type (0.10 A8b, D124). Refused: ``422 INVALID_RANGE``
+    for a range that is malformed, empty or outside the sheet, ``404 SOURCE_SHEET_NOT_FOUND``."""
+    source = load_source_file(session, source_file_id)
+    return cell_page(session, source, sheet, cell_range, paging, page_size)
 
 
 @dry_run_router.post(

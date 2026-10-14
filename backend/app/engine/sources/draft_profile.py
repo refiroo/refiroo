@@ -12,6 +12,7 @@ dry run with this profile; at installation, :func:`save_at_installation` writes 
 profile checked against the release just installed (D80).
 """
 
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
@@ -26,6 +27,7 @@ from ...models.database import (
     ModelDraft,
     ModelRelease,
     SourceFile,
+    SourceFileCell,
     SourceFileColumn,
     SourceFileSheet,
 )
@@ -79,6 +81,25 @@ def current_source(session: Session, draft: ModelDraft) -> SourceFile | None:
     )
 
 
+def _row_reader(session: Session, file_id: int, sheet_index: int) -> Callable[[int], dict[int, str]]:
+    """A row of the sheet's staged cells as trimmed text by column number (0.10 A8b, D126)."""
+
+    def read(row_number: int) -> dict[int, str]:
+        return {
+            number: text.strip()
+            for number, text in session.execute(
+                select(SourceFileCell.column_number, SourceFileCell.text).where(
+                    SourceFileCell.source_file_id == file_id,
+                    SourceFileCell.sheet_index == sheet_index,
+                    SourceFileCell.row_number == row_number,
+                )
+            )
+            if text.strip()
+        }
+
+    return read
+
+
 def sheets(session: Session, draft: ModelDraft) -> tuple[dict[str, Sheet] | None, str | None]:
     """The sheets of the draft's profiled source file, with their columns' headers, and its name;
     ``None`` when the draft has no file or it is not profiled yet."""
@@ -100,7 +121,12 @@ def sheets(session: Session, draft: ModelDraft) -> tuple[dict[str, Sheet] | None
     for row in session.scalars(
         select(SourceFileSheet).where(SourceFileSheet.source_file_id == source.id).order_by(SourceFileSheet.sheet_index)
     ):
-        found[row.name] = Sheet(row.name, (row.profile or {}).get("headerRow"), tuple(headers.get(row.sheet_index, ())))
+        found[row.name] = Sheet(
+            row.name,
+            (row.profile or {}).get("headerRow"),
+            tuple(headers.get(row.sheet_index, ())),
+            _row_reader(session, source.id, row.sheet_index),
+        )
     return found, source.name
 
 

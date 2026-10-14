@@ -20,7 +20,7 @@ elements created and a snapshot of what the step touched, which is how later rea
 engine's elements from the administrator's.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -168,19 +168,31 @@ def proposal_steps(rows: list[ModelDraftOperation]) -> list[ProposalStep]:
     return [steps[s] for s in sorted(steps)]
 
 
-def engine_elements(steps: list[ProposalStep], model: dict[str, Any], profile: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
+def engine_elements(
+    steps: list[ProposalStep],
+    model: dict[str, Any],
+    profile: dict[str, Any] | None,
+    rows: Sequence[ModelDraftOperation] = (),
+) -> dict[str, dict[str, Any]]:
     """Every element still as the latest proposal step touching it left it, with that step's
-    origin (D92)."""
-    latest: dict[str, tuple[Any, dict[str, Any]]] = {}
+    origin (D92). An element another step created after that proposal is the administrator's,
+    even when it is made as the proposal made it (0.10 A8b: a list removed and loaded again)."""
+    latest: dict[str, tuple[Any, dict[str, Any], int]] = {}
     for step in steps:
         if step.undone:
             continue
         for element, state in (step.origin.get("snapshot") or {}).items():
-            latest[element] = (state, step.origin)
+            latest[element] = (state, step.origin, step.step)
+    recreated: dict[str, int] = {}
+    for row in rows:
+        if (row.origin or {}).get("type") == "proposal" or row.undone_by_step is not None:
+            continue
+        for element in (row.effects or {}).get("created") or []:
+            recreated[element] = max(recreated.get(element, 0), row.step)
     return {
         element: origin
-        for element, (state, origin) in latest.items()
-        if state is not None and element_state(model, profile, element) == state
+        for element, (state, origin, at) in latest.items()
+        if state is not None and element_state(model, profile, element) == state and recreated.get(element, 0) < at
     }
 
 
@@ -224,7 +236,7 @@ def run_inference(session: Session, job: Job, *, assistant_setting: str = "", as
         stored=StoredRecords(session, source, workbook, workspace) if parameters["mode"] == "extend" and workspace else None,
     )
     proposals = builder.build(findings)
-    engine = engine_elements(steps, model, profile)
+    engine = engine_elements(steps, model, profile, rows)
     disagreements: list[dict[str, Any]] = []
     for proposal in proposals:
         disagreements += _decide(proposal, earlier.get(proposal.anchor), rejected, engine, model, profile, rows)
@@ -603,7 +615,7 @@ def read_inference(session: Session, draft: ModelDraft) -> dict[str, Any]:
         for status in statuses(session, draft, job, rows).values():
             counts[status] = counts.get(status, 0) + 1
     steps = proposal_steps(rows)
-    engine = engine_elements(steps, draft.model_json, draft.profile_json)
+    engine = engine_elements(steps, draft.model_json, draft.profile_json, rows)
     # Each element with the proposal that created it: a later proposal naming it (a navigation
     # group listing a list) is not why it is there.
     created_by = {

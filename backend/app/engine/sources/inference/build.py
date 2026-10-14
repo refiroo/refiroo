@@ -451,6 +451,17 @@ class Builder:
                     operation["block"] = dict(block)
         return self.proposals
 
+    def list_proposal(self, finding: Finding, application: str | None, translations: tuple[str, str] | None) -> Proposal | None:
+        """One list's proposal on its own (0.10 A8b, D128): new types go into ``application``, and
+        translations reuse the draft's language list and translation type when it has them."""
+        self.app = application
+        if translations is not None:
+            self.translation_types = ("", *translations)
+        proposal = self._listBlock(finding)
+        if proposal is not None:
+            proposal.requires = [r for r in proposal.requires if r]
+        return proposal
+
     def _add(self, proposal: Proposal | None, finding: Finding | None = None) -> None:
         if proposal is None:
             return
@@ -1419,7 +1430,7 @@ class Builder:
             name = (self._type(existing) or {}).get("name") or name
         else:
             target, operations = self._list_type(proposal, name)
-            if note:
+            if note and note["meaning"] in NOTE_DESCRIPTIONS:
                 operations[0]["description"] = NOTE_DESCRIPTIONS[note["meaning"]]
         app = self._application_of(target) or self.app
         source = self.key(proposal, "source", "sources", f"{finding.sheet} {target}")
@@ -1440,7 +1451,8 @@ class Builder:
             value_map = self.key(proposal, "valueMap", "valueMaps", f"{names.header} note")
             operations.append({"kind": "setValueMap", "name": value_map, "entries": {note["text"]: None}, "source": source, "column": names.header})
             operations.append({"kind": "setSource", "source": source, "rowsWithoutKey": "skip"})
-            proposal.summary += f" The note {note['text']!r} under its header says {NOTE_DESCRIPTIONS[note['meaning']].lower()}; its row is skipped."
+            said = NOTE_DESCRIPTIONS.get(note["meaning"], "it is a free field").lower()
+            proposal.summary += f" The note {note['text']!r} under its header says {said}; its row is skipped."
         row = RowType(target, source, None, app, name, released=self.released(f"objectType:{target}"))
         alternatives: list[dict[str, Any]] = []
         if finding.detail["translations"]:

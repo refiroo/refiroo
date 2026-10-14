@@ -148,10 +148,12 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # DryRunSourceSummary; diffed against the previous commit, nothing else changed. Re-baselined for
     # A8a (D115–D119): SourceBlock's titles and note (SourceBlockNote), SourceSheetResponse's laidOut,
     # SourceOverlap's block, SourceKey's field (name) and the descriptions of those and of the column
-    # page; diffed against the previous commit, nothing else changed.
+    # page; diffed against the previous commit, nothing else changed. Re-baselined for A8b (D124): GET
+    # /source-files/{id}/profile/sheets/{sheet}/cells and the SourceCell, SourceCellRow and
+    # SourceCellPage schemas; diffed against the previous commit, nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "447b27e6d2f991ced90075abfaff1391dde274e4cc96586944f4a56d72e70dc2"
+        "2930974dd0dca1a32b36ebd0987be5d06a3dbdaf003062f6d14f2fd7b3ed8e57"
     )
 
 
@@ -184,8 +186,8 @@ def test_paging_openapi_inventory():
     # 0.9 B1 added the job list and a job's outcomes; H4c removed GET /workspaces/{key}/mappings (D-1);
     # 0.9 J2 added the import profiles; 0.9 J3 an import's rows; 0.9 K6a what records hold; 0.10 A3
     # the source files and a profile's sheets and columns; 0.10 A5c a profile check's new values,
-    # drift, missing records and rows.
-    assert seekable <= paged and len(paged) == 36
+    # drift, missing records and rows; 0.10 A8b a range of a sheet's cells.
+    assert seekable <= paged and len(paged) == 37
     assert {
         "/api/v1/jobs",
         "/api/v1/jobs/{job_id}/items",
@@ -347,6 +349,8 @@ def test_base_0_5_enabled_openapi_exposes_guarded_activation(monkeypatch):
         "/api/v1/model-drafts/{draft_id}/inference": frozenset({"get", "post"}),
         "/api/v1/model-drafts/{draft_id}/inference/proposals": frozenset({"get"}),
         "/api/v1/model-drafts/{draft_id}/inference/application": frozenset({"post"}),
+        # 0.10 A8b: a rectangle read as a list (D128).
+        "/api/v1/model-drafts/{draft_id}/inference/list": frozenset({"post"}),
     }
 
 

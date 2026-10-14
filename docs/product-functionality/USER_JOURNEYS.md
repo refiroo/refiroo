@@ -923,13 +923,19 @@ for reading A8 (below the cut line).
   column as an attribute and its note as its description, the note row skipped; the lists under one
   title grouped in the sidebar; a free field or a header with nothing under it proposes nothing and
   says why. A list's block narrowed by `setSource` loads the rows left in it. A table, even with an
-  empty row in it, is not read as lists.
+  empty row in it, is not read as lists. In the editor (0.10 A8b) the source pane lists the sheet's
+  lists under their titles, each Proposed, Loaded or Not loaded, and a selected list shows its
+  cells; a list's cells are read by range through the API. **Adjust list…** moves its header row or
+  narrows it, each column keeping its binding on its letter; **Don't load this list** removes its
+  source and list type in one step, undoable, and proposing again leaves it alone; **Load as a
+  list…** reads a rectangle as a list on request, the administrator's, and a rectangle with nothing
+  under its header is refused.
 
 **Refusals:** `413 IMPORT_TOO_LARGE`, `422 UNSUPPORTED_FILE_FORMAT`, `404 SOURCE_FILE_NOT_FOUND`,
 `409 SOURCE_FILE_PROFILE_NOT_READY`; the inference's `404 INFERENCE_NOT_FOUND`, `404
 PROPOSAL_NOT_FOUND`, `409 PROPOSAL_ALREADY_APPLIED`, `409 INFERENCE_STALE`, `409
 INFERENCE_NOT_READY`, `409 NOTHING_TO_APPLY`, `422 PROPOSAL_REQUIREMENT_MISSING`, `422
-INVALID_INFERENCE_REQUEST`; J33's refusals for operations; J27's for the import.
+INVALID_INFERENCE_REQUEST`; `422 INVALID_RANGE` (0.10 A8b); J33's refusals for operations; J27's for the import.
 
 **Evidence today:** `backend/tests/journeys/test_j34_onboard.py` (J34.1–J34.8 through the API, on
 two configurations, J34.4–J34.6 since A6a; J34.8 also as the editor's three calls, the review and the
@@ -937,8 +943,9 @@ publication); `test:browser:authoring-a5` (J34.1–J34.3, J34.7, J34.8 in the ed
 models); `test:browser:authoring-a6` (J34.4, J34.6, J34.8 in the editor filled by the inference, on
 both designer models); J34.9: `test_j34_onboard.py`'s A7 cases (two configurations) and
 `test:browser:authoring-a7` (W2 described, loaded and published, W1 onto it with drift and missing
-values, both designer models); J34.10: `test_j34_onboard.py`'s A8a cases (W3, two configurations),
-and J27's variant of a source keyed by name.
+values, both designer models); J34.10: `test_j34_onboard.py`'s A8a and A8b cases (W3, two configurations),
+J27's variant of a source keyed by name, and `test:browser:authoring-a8` (the source pane list by list,
+Adjust list…, Don't load this list, Load as a list…, both designer models).
 
 ### J35 — Load the next version of a workbook
 

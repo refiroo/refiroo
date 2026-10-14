@@ -4,7 +4,7 @@
  * (API.md, "Source files and their profiles", "The dry-run summary", "A draft's import profile").
  */
 
-import type { ModelDiagnostic } from "@/types/modelAdmin";
+import type { DraftOperation, ModelDiagnostic } from "@/types/modelAdmin";
 
 /** Where a file's profile stands: `completed` once stored, otherwise its job's state. */
 export interface SourceFileProfileState {
@@ -93,6 +93,35 @@ export interface SourceColumn {
   /** The most frequent values with their counts (0.10 A6); absent on a file profiled before. */
   values?: { value: string; count: number }[];
   overlaps: SourceOverlap[];
+}
+
+/** A staged cell: its text as an import matches it and its value type (0.10 A8b, D124). */
+export interface SourceCell {
+  text: string;
+  kind: string;
+}
+
+/** A row of a range of a sheet holding a cell, its cells by column letter. */
+export interface SourceCellRow {
+  row: number;
+  cells: Record<string, SourceCell>;
+}
+
+/** A rectangle of a sheet as a source takes it: its header row and block. */
+export interface SourceRectangle {
+  headerRow: number;
+  block: { firstColumn: string; lastColumn: string; lastRow: number };
+}
+
+/** `POST /model-drafts/{id}/inference/list` (0.10 A8b, D128): a rectangle read as a list, not stored. */
+export interface ListProposal {
+  pattern: string;
+  sheet: string | null;
+  columns: string[];
+  summary: string;
+  evidence: Record<string, unknown>;
+  operations: DraftOperation[];
+  alternatives: { label: string; operations: DraftOperation[] }[];
 }
 
 export interface SourcePage<T> {

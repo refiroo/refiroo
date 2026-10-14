@@ -9,6 +9,7 @@ from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
 
 from ...engine.model.drafts import load_draft
+from ...engine.sources.inference.one_list import propose_list
 from ...engine.sources.inference.run import (
     InvalidDraft,
     apply_inference,
@@ -17,12 +18,17 @@ from ...engine.sources.inference.run import (
     submit_inference,
 )
 from ...errors import api_error
-from ...models.sources import InferenceApplicationRequest, InferenceRequest
+from ...models.sources import InferenceApplicationRequest, InferenceRequest, ListProposalRequest
 from ..dependencies import DbSession
 from ..paging import PageQuery
 from ..presenters import diagnostic_details
 from ..schemas.model import ModelDraftStepResponse
-from ..schemas.sources import InferenceResponse, ProposalPage, ProposalResponse
+from ..schemas.sources import (
+    InferenceResponse,
+    ListProposalResponse,
+    ProposalPage,
+    ProposalResponse,
+)
 from ..steps import step_response
 
 router = APIRouter(prefix="/api/v1", tags=["model administration"])
@@ -116,3 +122,17 @@ def apply_proposals(
     """
     result = apply_inference(session, draft_id, payload, max_items=request.app.state.model_operation_max_items)
     return step_response(session, result, request)
+
+
+@router.post("/model-drafts/{draft_id}/inference/list", response_model=ListProposalResponse)
+def propose_one_list(draft_id: str, payload: ListProposalRequest, session: DbSession) -> ListProposalResponse:
+    """Read a rectangle of the draft's file as a list (0.10 A8b, D128): the ``listBlock`` proposal
+    A8a's rules make of it against the draft as it is now, answered and not stored. Its
+    ``operations`` sent to ``POST …/operations`` load the list as the administrator's. A free field
+    note is read as a note, since the list was asked for.
+
+    Refused: ``404 SOURCE_FILE_NOT_FOUND`` (no file), ``409 SOURCE_FILE_PROFILE_NOT_READY``, ``404
+    SOURCE_SHEET_NOT_FOUND``, ``422 INVALID_RANGE`` for a rectangle outside the sheet or with no
+    value under its header, ``422 INVALID_INFERENCE_REQUEST`` for an application the draft lacks.
+    """
+    return ListProposalResponse.model_validate(propose_list(session, draft_id, payload))

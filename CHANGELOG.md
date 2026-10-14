@@ -13,6 +13,18 @@ column statistics per block); a database of 0.10.0-alpha.1 upgrades on start.
 
 ### Added
 
+- Base 0.10 A8b: the editor's source pane list by list (D122–D130; J34.10). A sheet laid out for
+  reading shows its lists under their titles, each Proposed, Loaded or Not loaded, the open list's
+  columns under it (one tree, keyboard operable); a selected list shows its titles, cells, note,
+  what it loads, Proposed because and the sheet's cells around it. **Adjust list…** sets its header
+  row, last row and columns over the cells (one `setSource`, and Name the list after the new
+  header); **Don't load this list** removes its source and, when nothing else needs it, its list
+  type, in one step; **Load as a list…** reads a rectangle as a list. API: `GET
+  /source-files/{id}/profile/sheets/{sheet}/cells?range=` (paged rows of staged cells), `POST
+  /model-drafts/{id}/inference/list` (a rectangle's `listBlock` proposal, not stored), `422
+  INVALID_RANGE`; `setSource` moving a header row or narrowing a block keeps each binding on its
+  column letter, the rest unmapped. `test:browser:authoring-a8`.
+
 - Base 0.10 A8a: lists of a sheet laid out for reading, through the API (D114–D121; J34.10). A sheet
   holding no table but lists side by side and under each other is read list by list: each column
   run split at empty rows, prose left out, each list's header, the titles above it and a note under
@@ -174,6 +186,12 @@ column statistics per block); a database of 0.10.0-alpha.1 upgrades on start.
   holds the workspace's write lock that much shorter.
 
 ### Fixed
+
+- Base 0.10 A6 (found by A8b's case 10): an element the administrator created again exactly as a
+  proposal had made it (a list removed and loaded again) read as still proposed, and was marked
+  Proposed and followed by Propose again. A step other than a proposal's that creates an element
+  after its proposal now makes it the administrator's, as D92 says. Regression:
+  `test_a_rectangle_is_read_as_a_list_on_request` (J34.10, seen failing without the fix).
 
 - Base 0.10 A5, A6 (found by A8a's real-file smoke): a column whose header begins or ends with a
   space could not be mapped in a draft (`unknownElement`), since the draft's sheets kept the spaces

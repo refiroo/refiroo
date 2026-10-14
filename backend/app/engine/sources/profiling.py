@@ -54,7 +54,7 @@ from ..imports.readers import CSV_SHEET, PROFILE_SHEET, open_tabular
 from ..model.compiler import compile_authored_model
 from ..model.registry import resolve_model_snapshot
 from .inference.facts import main_block
-from .layout import Cell, split
+from .layout import Cell, note_meaning, split
 from .store import compared_workspace
 from .values import staged
 
@@ -673,6 +673,63 @@ def _statistics(row: Any, place: Any, overlaps: list[dict[str, Any]]) -> dict[st
             "valuesListed": VALUES_LISTED,
         },
     }
+
+
+def rectangle_columns(
+    session: Session, file_id: int, sheet_index: int, first: int, last: int, header_row: int, last_row: int
+) -> tuple[dict[str, Any], list[tuple[int, dict[str, Any]]]]:
+    """A rectangle of a sheet read as one list (0.10 A8b, D128): its block as the profile
+    describes one (the note under its header found as profiling finds it, D119) and its columns'
+    statistics, by the statement profiling uses, without overlaps."""
+    note = None
+    under = session.execute(
+        text(
+            "SELECT text FROM source_file_cells WHERE source_file_id = :file AND sheet_index = :sheet"
+            " AND column_number BETWEEN :first AND :last AND row_number = ("
+            " SELECT min(row_number) FROM source_file_cells WHERE source_file_id = :file"
+            " AND sheet_index = :sheet AND column_number BETWEEN :first AND :last"
+            " AND row_number > :header AND row_number <= :final) ORDER BY column_number"
+        ),
+        {"file": file_id, "sheet": sheet_index, "first": first, "last": last, "header": header_row, "final": last_row},
+    ).scalars().all()
+    note_row = session.scalar(
+        text(
+            "SELECT min(row_number) FROM source_file_cells WHERE source_file_id = :file"
+            " AND sheet_index = :sheet AND column_number BETWEEN :first AND :last"
+            " AND row_number > :header AND row_number <= :final"
+        ),
+        {"file": file_id, "sheet": sheet_index, "first": first, "last": last, "header": header_row, "final": last_row},
+    )
+    found = next(((value, note_meaning(value)) for value in under if note_meaning(value)), None)
+    if found is not None:
+        note = {"row": note_row, "text": found[0], "meaning": found[1]}
+    layout = BlockLayout(first, last, header_row, last_row, (), note)
+    rows = _data_rows(session, file_id, sheet_index, layout)
+    session.execute(text("DROP TABLE IF EXISTS profile_columns"))
+    session.execute(text(_COLUMNS_TABLE))
+    session.execute(
+        text(
+            "INSERT INTO profile_columns SELECT :sheet, n, 0, :header, :last, :note, :rows"
+            " FROM generate_series(CAST(:first AS integer), CAST(:final AS integer)) n"
+        ),
+        {"sheet": sheet_index, "header": header_row, "last": last_row, "note": note["row"] if note else 0, "rows": rows, "first": first, "final": last},
+    )
+    places = {row.column_number: row for row in session.execute(text("SELECT * FROM profile_columns")).all()}
+    statistics = [
+        (row.at_column, _statistics(row, places[row.at_column], []))
+        for row in session.execute(
+            text(_STATISTICS),
+            {
+                "file": file_id,
+                "placeholders": list(PLACEHOLDER_VALUES),
+                "share": PLACEHOLDER_SHARE,
+                "listed_placeholders": PLACEHOLDERS_LISTED,
+                "listed_values": VALUES_LISTED,
+            },
+        ).all()
+    ]
+    session.execute(text("DROP TABLE profile_columns"))
+    return layout.describe(0, rows), sorted(statistics, key=lambda pair: pair[0])
 
 
 def _model_for(session: Session, source: SourceFile) -> EngineModel | None:

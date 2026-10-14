@@ -454,8 +454,9 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
     description) is unit tested only; a description workbook's next version through its saved
     profile is not exercised.
   - [x] A8a lists of a sheet laid out for reading through the API (delivered 2026-10-14, A8a record).
-  - [ ] A8b the source pane list by list: a sheet laid out for reading shown as its lists, a list
-    adjusted (`setSource`'s block) or dropped; a mock-up first, complete on approved screenshots.
+  - [ ] A8b the source pane list by list: **built 2026-10-15 (A8b record), its screenshots awaiting
+    the user's approval**. A sheet laid out for reading shown as its lists, a list adjusted
+    (`setSource`'s block) or dropped; a mock-up first, complete on approved screenshots.
     The real-file smoke's misreadings (a title with sentences under it read as a list, a second
     header row read as a value, sub-list headers read as titles) are what it lets the administrator
     correct.

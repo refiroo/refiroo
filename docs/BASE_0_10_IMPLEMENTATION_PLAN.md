@@ -247,7 +247,7 @@ migration), `contract` (every route change) and `volume` (every budget).
 | 10 | [A6](#a6-inference-over-table-patterns) | A5 | **A6a delivered 2026-10-12; A6b delivered 2026-10-14.** Proposals from the table patterns; new application or extending the active model; pinned decisions |
 | — | _cut line (D2)_ | | _If R is out of reach, 0.10.0 releases here and A7, A8 move to 0.10.x_ |
 | 11 | [A7](#a7-model-description-sheets-and-matching-across-files) | A6 | **Delivered 2026-10-14** (screenshots approved). Model-description sheets; matching records across files |
-| 12 | [A8](#a8-list-blocks-in-sheets-laid-out-for-reading) | A6 | **A8a delivered 2026-10-14; A8b and A8c open.** List blocks detected, confirmed and loaded |
+| 12 | [A8](#a8-list-blocks-in-sheets-laid-out-for-reading) | A6 | **A8a delivered 2026-10-14; A8b built 2026-10-15, its screenshots awaiting approval; A8c open.** List blocks detected, confirmed and loaded |
 | 13 | [R](#r-build-acceptance-and-release) | all | Build acceptance and release |
 
 ## Sequence and dependencies
@@ -3624,6 +3624,181 @@ passed, `npm run format`, `npm run lint` (0 errors, the 7 known warnings), `npm 
 run:** browser runners (no screen changed; `test:browser:authoring-a6` and `-a7` read the source
 pane, which A8b reworks), the accessibility and visual gates, the full suites (R).
 
+##### A8b plan (2026-10-14)
+
+**Planned 2026-10-14 on the user's instruction ("deliver build 0.10 A8b"); D122–D130, the test
+cases and the mock-up accepted by the user on 2026-10-15 ("all good, you can go ahead").** Mock-up
+([lists of a sheet](https://claude.ai/artifact/V31U2wkFwnfA4XR4oMrrPv), four boards: the source pane
+list by list with a proposed list selected, Adjust list…, a list nothing loads with Load as a
+list…, 390px; private until shared). Its workbook is made up, with the shapes A8a found on the
+user's reading-layout workbook. Checked against the code at `50384ae`:
+
+- **The source pane is a flat column list per sheet** (`SourcePane.tsx`, one `listbox`). A sheet
+  laid out for reading lists the same header once per list holding it, with nothing saying which
+  list a column belongs to; on the real workbook's densest sheet that is 39 lists in one list.
+- **No route reads cells.** The profile serves sheets (with their blocks, `titles` and `note`) and
+  column statistics; the staged cells (`source_file_cells`) are read only by the engine.
+- **`setSource` changes `headerRow` and `block`** and leaves the bindings alone; bindings name a
+  column by its header (`mapColumn`), so moving the header row leaves every binding naming a
+  header the new row does not have.
+- **Undoing a proposal's step is refused when a later step names what it created**
+  (`OPERATION_HAS_DEPENDANTS`, D8). The navigation group step names every list of its group, so
+  undoing one list's step would also undo its group.
+- **A removal takes the type's navigation entries with it** (D31); the type's source becomes an
+  `unmapped` entry (D78) unless it is removed first.
+- **`POST …/inference/application` is refused `INFERENCE_STALE`** after any step that is not a
+  proposal's, so a list cannot be proposed again from the latest inference once the administrator
+  has edited anything.
+- **A list's proposal is built from a `BlockTable`** (`facts.py`), filled by one statement over the
+  staged cells for a rectangle; `patterns.list_block` and `build._listBlock` do not depend on how
+  the rectangle was found.
+
+**What is built:**
+
+1. **The source pane list by list** (D122): a sheet laid out for reading shows its lists under their
+   titles; each list one row (header, range, rows, a note, its status: Proposed, Loaded, Not
+   loaded); the selected list opens to its columns, which are A5b's column rows with their
+   statuses, Map to… and drags. Sheets holding a table are as before.
+2. **A selected list in the centre** (D123): its titles, range, header row, rows, note and what it
+   loads; Proposed because while it is the engine's (A6b's card, from its `listBlock` proposal);
+   the cells around it; its actions.
+3. **The cells of a range** (D124): `GET /source-files/{id}/profile/sheets/{sheet}/cells?range=E11:G19`,
+   paged by rows.
+4. **Adjust list…** (D125, D126): a dialog over the sheet's cells with header row, last row, first
+   and last column; one `setSource` step; bindings follow their column letters.
+5. **Don't load this list** (D127): one step removing the list's source and its list type.
+6. **Load as a list…** (D128): the same dialog on a list nothing loads; the engine reads the
+   rectangle as A8a reads every list; the operations sent as one step.
+7. **390px** (D129) and the browser runner `test:browser:authoring-a8`.
+
+**Decisions** (D122 onward):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D122 | How a sheet laid out for reading shows in the source pane | **Its lists, under their titles (the innermost title as a heading), each one row: the header, the range, the rows and the note in words, and a status: Proposed (a source the engine still owns loads it), Loaded (yours), Not loaded (no source loads it: dropped, a free field, a header with no values). The selected list opens to its columns, which are the column rows A5b built. One `role="tree"` with one tab stop: Up and Down move, Right opens a list, Left closes it or goes to its list, Enter selects, Shift+F10 on a column opens Map to… as today.** A list is what the administrator thinks in on such a sheet, and A8a's misreadings are fixed per list. A column list per list as a second level of tabs was considered; 39 lists do not fit as tabs. A list's status comes from the draft's profile: a source on the sheet whose `headerRow` lies within the list's rows and whose columns overlap the list's is the list's source. That is matching in the browser, over data the client already holds, and it decides only what is shown |
+| D123 | What the centre shows for a list | **The list's titles, cells (range, header row, rows), note and what it loads (the list type, keyed by name, its group); Proposed because from its `listBlock` proposal while the source and type are still the engine's; the sheet's cells around the list, a row and a column on each side, the list shaded and its header darker. Actions: Adjust list… and Don't load this list on a loaded list; Load as a list… on one nothing loads.** The cells are how the administrator sees that a role row was read as a value, or that two sentences were read as a list (the A8a smoke's misreadings); the statistics cannot show it. A selected column keeps A5b's centre |
+| D124 | How the browser reads cells | **A new read, `GET /source-files/{id}/profile/sheets/{sheet}/cells?range=A1:F30`, paged by rows (`PageQuery`, cursors and positions like every collection): each row's `row` and its `cells`, by column letter, the staged value as text with its value type. A range is required; an empty range or one outside the sheet is refused `INVALID_RANGE` with the reason. Under the source files' gate.** API-first: an integrator checking a list's rectangle before an import needs the same read. Paging keeps it bounded without a cap. The staged cells are already one row per cell, so this is one keyset query |
+| D125 | How a list is adjusted | **A dialog (`ui/Modal`) showing the sheet's cells with the list outlined and four fields: header row, last row, first column, last column. The outline follows as they change; under it, the rows the list will load against the rows it loads now. Apply sends one `setSource` (`headerRow`, `block`); the dry run follows. Fields are the keyboard and phone path; the grid is the picture and takes no clicks.** Dragging the outline's edges on the grid was considered; it is the mouse-only part of the dialog and can come later without changing anything here. The dialog shows the whole sheet up to 200 rows around the list, read by D124's pages as the grid scrolls |
+| D126 | What happens to a list's columns when its header row moves | **`setSource` with a new `headerRow` rewrites each of the source's bindings to the header the same column letter holds on the new row; a column left outside the new `block`, or whose new header cell is empty, becomes an `unmapped` entry, as a removal leaves one (D78). The dialog says which header each column will have. When the header row moves, it offers "Name the list after the new header", off by default, sent in the same step as `setLabel` of the type.** Without it, moving the header row (the fix for the A8a smoke's role row read as a value) leaves every binding naming a header that row does not have. The rule is generic: a table's header row moved by any client keeps its columns. A `firstRow` for values in the import contract was the other way (header stays, values start later); it adds a field every source, import and dry run would carry for one case, and the note row (D119) already shows a skipped row needs none. Composable domains (ADR-032): inbound flow only, no door affected |
+| D127 | What Don't load this list does | **One step of two operations, sent together: `removeSource` of the list's source, then `removeObjectType` of its list type when nothing else in the draft loads or relates to it (otherwise the source alone). Undo restores both. The list then reads Not loaded; its columns not mapped. Propose again leaves it alone: a removal is the administrator's change (D92).** The plan said "undo its proposal's step"; undo is refused when a later step names what it created (D8), and the navigation group's step names every list in it, so undoing one list would take its group with it, and an edit made since would block it. A list nothing loads needs no "ignore": it loads nothing already, so the plan's "ignores the block" is dropped. Whether D92 treats a removal as the administrator's change is not yet checked in code; case 9 asserts it |
+| D128 | What Load as a list… does | **The adjust dialog in its loading form, on a list nothing loads (a free field, a header read as a title, a list dropped earlier): the administrator sets the rectangle and the engine reads it as A8a reads every list. A new route, `POST /model-drafts/{id}/inference/list` with `sheet`, `headerRow` and `block`, answers a `listBlock` proposal for that rectangle (summary, evidence, operations), built now against the draft and not stored; the editor sends its operations to `POST …/operations` as one step. The list is the administrator's (New), not Proposed. A free field note is read as any note, and the list is loaded because it was asked for. A rectangle with no values under its header is refused `INVALID_RANGE`.** The browser building the operations itself would copy A8a's reading rules (translations, yes/no columns, the note) into the client. Proposing again from the latest inference is refused once anything was edited (`INFERENCE_STALE`), so the stored proposals cannot serve. A rectangle is read by one statement, so the route answers at once, with no job |
+| D129 | 390px | **As A5b's tabs: Source lists the lists under their titles; choosing one opens the selection tab with its card, cells (scrolling sideways in their frame) and actions as full-width buttons; the dialog fills the screen, its fields above the cells.** The same tabs, nothing new to learn |
+| D130 | When A8b is done | **On approved screenshots (1440px and 390px, light and dark): W3's sheet list by list with a list selected; Adjust list… with the header row moved; a dropped list; Load as a list… on the free field. Plus one real-file smoke on the user's reading-layout workbook: the three A8a misreadings each fixed in the editor (a list dropped, a header row moved, a list loaded), the dry run refusing no row.** Memory rules: a spreadsheet package is tried on a real file before done, dialogs included |
+
+**Journey test cases** (backend, `tests/journeys/test_j34_onboard.py`, J34.10 continued; each on two
+configurations, W3 of one seed in a new workspace; no test names a configuration's key or a
+header text):
+
+7. **J34.10 A list's cells.** Given W3 profiled, reading a list's range returns its rows in order,
+   the header row first, each cell by its letter with its value type, paged with cursors; an
+   empty range and a range outside the sheet are refused `INVALID_RANGE`.
+8. **J34.10 A header row moved.** Given the proposals applied, when a list's source moves its
+   `headerRow` one row down, each bound column keeps its binding under the header its letter has
+   on the new row, and the dry run counts one row fewer for it; a column whose new header cell is
+   empty is `unmapped`.
+9. **J34.10 A list not loaded.** When a list's source and list type are removed in one step, the
+   dry run has no source for it, its navigation group no longer lists it, and proposing again
+   proposes nothing for it; undoing the step restores the source, the type and the group entry.
+10. **J34.10 A rectangle loaded as a list.** Given the free-field list's rectangle, the list route
+    answers a proposal with a list type, a source on that rectangle keyed by name and the note row
+    skipped; its operations applied, the dry run loads its values; a rectangle with nothing under
+    its header is refused `INVALID_RANGE`.
+
+**Unit tests:** D126's rebinding (moved down, moved up, a column dropped by a narrower block, an
+empty new header cell).
+
+**Browser cases** (`test:browser:authoring-a8`, new, real backend, W3 in a new application and in
+extend mode over `generated-b`):
+
+1. The sheet shows its lists under their titles with their statuses; by keyboard alone a list is
+   opened to its columns and a column mapped with Map to….
+2. A selected list shows its cells and Proposed because.
+3. Adjust list… by keyboard: the last row two up, Apply; the list's rows and the dry run follow;
+   History names the step.
+4. Don't load this list: the list reads Not loaded and leaves the model pane; Undo brings it back.
+5. Load as a list… on the free field: the list type appears in the model pane marked New; the dry
+   run loads it.
+6. 390px: Source → a list → its tab; the dialog usable.
+
+`test:browser:authoring-a6` and `-a7` run again for the shared panes.
+
+**Groups:** `authoring`, `jobs` (the dry run after a moved header), `contract` (the cells route,
+the list route, `INVALID_RANGE`; the OpenAPI lock re-baselined after a diff); Vitest related.
+**UI acceptance:** the reference pattern is A5b's source pane and A6b's Proposed because; the state
+inventory gains the list row (Proposed, Loaded, Not loaded, loading, error) and the dialog (its
+states, a refused apply).
+
+**Composable domains (ADR-032):** inbound flow gains bindings that follow their column when a
+header row moves (D126); identity, attribute storage, audit and history, the `match` declaration
+and mapping coverage are unchanged. No door is affected.
+
+##### A8b record (2026-10-15)
+
+**Built 2026-10-15** as planned (D122–D130, the approved mock-up's four boards); **complete when the
+user approves its screenshots** (D130). What is built:
+
+- **The source pane list by list** (`SourcePane.tsx` `SheetLists`, `lists.ts`, D122): a sheet laid
+  out for reading is one `role="tree"` of its lists in reading order under their innermost titles,
+  each with the range its source loads, its rows and note, and a Proposed, Loaded or Not loaded
+  pill; the open list's columns are A5b's column rows (the row's markup and status extracted once,
+  `ColumnRowBody`, `columnDisplayStatus`, for the list and the tree).
+- **A selected list** (`ListPanel.tsx`, `CellGrid.tsx`, `useCells.ts`, D123): `show=list&sheet=&block=`
+  in the address; Proposed because while its source or type is the engine's; its cells around it.
+- **The cells of a range** (D124): `GET /source-files/{id}/profile/sheets/{sheet}/cells?range=`,
+  `staged.cell_range` and `cell_rows`, one keyset-paged statement; `INVALID_RANGE`.
+- **Adjust list…** (`AdjustListDialog.tsx`, D125) and **`setSource` following column letters**
+  (`mapping._follow_columns`, D126): the kinds' sheets read a row of staged cells on demand
+  (`Sheet.row`); a binding or key column whose new header cell is empty, outside the block, or taken
+  by another binding becomes an unmapped entry (`profile_side.unmap`, `unmap_key`, now also used by
+  `prune`); a source moved to another header row may be mapped by that row's headers.
+- **Don't load this list** (D127): `removeSource` and, when no other source loads it and no other
+  type relates to or contains it, `removeObjectType`, in one request.
+- **Load as a list…** (D128): `POST /model-drafts/{id}/inference/list` (`inference/one_list.py`):
+  the rectangle's statistics by profiling's statement (`profiling.rectangle_columns`), its table
+  (`facts.block_tables`, made public), `list_block(asked=True)` and `Builder.list_proposal`, which
+  reuses the draft's language list and translation type.
+- **390px** (D129): the dialog's fields two by two.
+
+**Where it differs from the plan:**
+
+1. **Case 10 on a dropped list** (the user, 2026-10-15): W3's free field holds no values, so the case
+   loads a list dropped by case 9's step and the free field's rectangle is the refused case; browser
+   case 5 the same way.
+2. **The dialog does not send a rectangle with nothing to load**: it says there is nothing to load
+   and offers no Load (found on the screenshots); the API's refusal is case 10's.
+3. **Defect found and fixed (A6, D92):** an element created again exactly as its proposal made it
+   read as still the engine's (ownership was decided by comparing states). Found by case 10. Fixed in
+   `run.engine_elements`, which now reads the steps that created an element after its proposal.
+4. **D127's check, done:** case 9 passed before any code changed; a removal is the administrator's
+   and Propose again leaves the list alone.
+5. **Found by the runner:** the profile lists blocks column run by column run, so a title's lists
+   were not consecutive; the tree reads them in reading order and gathers each title's lists.
+
+**Real-file smoke** (the user's reading-layout workbook, once, through the API; by structure): 4
+sheets, 87 lists proposed, 8 warnings; applied, the dry run reads 720 rows and refuses none. A list
+of a sentence (J26:J27) dropped in one valid step, its type removed; a three-column list's header
+moved a row down: the column with a header of its own there followed its letter, one whose new
+header repeated another's and one whose new header cell is empty became unmapped; the one list
+nothing loaded with values under its header read as a list on request, the 8 headers with nothing
+under them refused; afterwards the dry run reads 719 rows over 87 sources and refuses none.
+
+**Checks:** the four cases written first: 6 of 8 failed before the build (case 9 passed, see 4).
+`test_j34_onboard.py`, `test_j35_next_version.py`, `tests/unit/engine/sources/`,
+`tests/unit/engine/model/authoring/`: 3,450 passed in 6 min 47 s (with the user's go-ahead, estimated
+at about 4 minutes; the authoring units, 3,190, were included). `-m contract`: 76 passed, the
+OpenAPI lock re-baselined after diffing the document against the previous commit (the cells route
+and `SourceCell`, `SourceCellRow`, `SourceCellPage`; nothing else). New unit tests:
+`tests/unit/engine/model/authoring/test_mapping.py` (7: moved down, up, an empty new header cell,
+narrowed, moved and narrowed, a key column, an unchanged header row) and `lists.test.ts` (5). `ruff
+check app/ tests/`: clean. Frontend: `npm run format`, `npm run lint` (0 errors, the 7 known
+warnings), `npm run build`, `vitest related` on the changed files 556 of 557 (the one,
+`WorkspaceAdmin`'s retire test, passes alone with and without A8b: a timing flake under load).
+Browser: `test:browser:authoring-a8` 14 checks on both designer models;
+`-a6` (18) and `-a7` (12) for the shared panes. Screenshots inspected (1440px light and dark, 390px):
+the list tree, a proposed list, the adjust dialog with the header moved, a dropped list, Load as a
+list…, the free field's dialog, 390px list, source and dialog. **Not run:** the accessibility and
+visual gates (R; axe ran in the runner on a list's centre and the dialog), the full suites (R).
+
 ## R: Build acceptance and release
 
 - A full review of every change since 0.9.0 first, as every R.
@@ -3706,8 +3881,8 @@ Design-level decisions are [A-D1–A-D12](MODEL_AUTHORING.md#open-decisions).
 
 ## Next
 
-1. **A8a is delivered (2026-10-14, [record](#a8a-record-2026-10-14))**; next A8b, the source pane
-   list by list with adjusting and dropping a list, which starts with a mock-up, then A8c (D120).
+1. **A8b is built (2026-10-15, [record](#a8b-record-2026-10-15))**, complete when the user approves
+   its screenshots; then A8c (D120). A8a is delivered (2026-10-14, [record](#a8a-record-2026-10-14)).
    **A7 is delivered (2026-10-14, [record](#a7-record-2026-10-14)), its screenshots approved**; its plan, D106–D113 and test cases were accepted by the user the same day. The user chose A7 before A8. A5c is delivered (2026-10-14,
    [record](#a5c-record-2026-10-14)). After A7: A8 (below the cut line, D2) or R. A6 came before A5c (the user,
    2026-10-12: A5b is tested well only once A6 proposes the model and its mappings). A5b is committed

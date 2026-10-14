@@ -16,6 +16,7 @@ dependants (D8).
 import copy
 from typing import Any
 
+from openpyxl.utils.cell import column_index_from_string
 from pydantic import ValidationError
 
 from ....models.imports import ColumnBinding
@@ -58,6 +59,16 @@ def _source(context: Context, source_id: Any, field: str = "source") -> dict[str
 
 def _column(context: Context, source: dict[str, Any], column: Any, field: str = "column") -> str:
     sheet = _sheet(context, source.get("sheet"), field)
+    own_row = source.get("headerRow")
+    # A source moved to another header row maps the headers of that row (0.10 A8b, D126).
+    if (
+        isinstance(column, str)
+        and column not in sheet.headers
+        and sheet.row is not None
+        and isinstance(own_row, int)
+        and column in sheet.row(own_row).values()
+    ):
+        return column
     if not isinstance(column, str) or column not in sheet.headers:
         raise Refusal(field, "unknownElement", f"Sheet '{sheet.name}' has no column '{column}'")
     return column
@@ -242,6 +253,7 @@ def set_source(context: Context, raw: dict[str, Any]) -> Applied:
     source = _source(context, raw.get("source"))
     path = profile_side.source_path(source)
     found = profile_side.facts(context.data)
+    placed = (source.get("sheet"), source.get("headerRow"), copy.deepcopy(source.get("block")))
     if "sheet" in raw:
         context.profile.set(path, "sheet", _sheet(context, raw["sheet"]).name)
     if "headerRow" in raw:
@@ -283,7 +295,81 @@ def set_source(context: Context, raw: dict[str, Any]) -> Applied:
         context.profile.set(path, "rowsWithoutKey", None if rows == "refuse" else rows)
     if len(raw) == 1:
         raise Refusal("source", "missingParameter", "Name what changes")
+    if "sheet" not in raw and ("headerRow" in raw or "block" in raw):
+        _follow_columns(context, source, placed[1], placed[2])
     return _done(context, raw, "setSource", _named(source))
+
+
+def _span(block: Any) -> tuple[int, int]:
+    """The columns a source's ``block`` limits it to, by number (all of them without one)."""
+    block = block or {}
+    first = block.get("firstColumn")
+    last = block.get("lastColumn")
+    return (
+        column_index_from_string(first) if first else 1,
+        column_index_from_string(last) if last else 1 << 14,
+    )
+
+
+def _follow_columns(context: Context, source: dict[str, Any], header_row: Any, block: Any) -> None:
+    """A source moved to another header row or narrowed keeps each binding on its column (0.10
+    A8b, D126): the binding names the header its column letter holds on the new header row; a
+    column outside the new block, or whose new header cell is empty, becomes an unmapped entry,
+    as does a key column. Bindings name columns by header, so without this a moved header row
+    leaves every binding naming a header the new row does not have."""
+    source = _source(context, source["id"])
+    sheet = _sheet(context, source.get("sheet"))
+    if sheet.row is None or not isinstance(header_row, int):
+        return
+    old_first, old_last = _span(block)
+    columns: dict[str, int] = {}
+    for number, text in sorted(sheet.row(header_row).items()):
+        if old_first <= number <= old_last:
+            columns.setdefault(text, number)
+    new_first, new_last = _span(source.get("block"))
+    new_row = sheet.row(source.get("headerRow") or header_row)
+
+    def moved(header: str) -> str | None | bool:
+        """The header's column on the new row; ``None`` when it has none, ``False`` when the
+        column was not on the old row (left as it is)."""
+        number = columns.get(header)
+        if number is None:
+            return False
+        if not new_first <= number <= new_last:
+            return None
+        return new_row.get(number)
+
+    because = "setSource"
+    taken: set[str] = set()
+    renamed: list[tuple[int, dict[str, Any]]] = []
+    for index, binding in enumerate(list(source.get("columns") or [])):
+        names = [binding["column"]] if "column" in binding else list(binding.get("columns") or [])
+        if not names:
+            continue
+        targets = [moved(name) for name in names]
+        new_names = [name if target is False else target for name, target in zip(names, targets, strict=True)]
+        if any(target is None for target in targets) or taken & set(new_names):
+            profile_side.unmap(context.profile, source, binding, because)
+            continue
+        taken |= set(new_names)
+        if new_names != names:
+            context.profile.remove([*profile_side.source_path(source), "columns"], context.profile.identity(binding))
+            changed = copy.deepcopy(binding)
+            if "column" in changed:
+                changed["column"] = new_names[0]
+            else:
+                changed["columns"] = new_names
+            renamed.append((index, changed))
+    for index, changed in renamed:
+        bindings = _source(context, source["id"]).get("columns") or []
+        context.profile.insert([*profile_side.source_path(source), "columns"], changed, min(index, len(bindings)))
+    key = source.get("key")
+    if isinstance(key, dict) and isinstance(key.get("column"), str):
+        target = moved(key["column"])
+        if target is None:
+            profile_side.unmap_key(context.profile, source, because)
+        elif target is not False and target != key["column"]:
+            context.profile.set([*profile_side.source_path(source), "key"], "column", target)
 
 
 @kind("removeSource")

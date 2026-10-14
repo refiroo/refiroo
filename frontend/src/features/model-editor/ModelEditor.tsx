@@ -33,7 +33,10 @@ import type {
   RouteState,
 } from "@/types";
 import { AddWorkbookDialog } from "@/features/model-editor/AddWorkbookDialog";
+import { AdjustListDialog } from "@/features/model-editor/AdjustListDialog";
 import { ColumnPanel } from "@/features/model-editor/ColumnPanel";
+import { ListPanel } from "@/features/model-editor/ListPanel";
+import { columnNumber, dropOperations, listHeader, listStatus, sourceOfList } from "@/features/model-editor/lists";
 import { DryRunPanel, DryRunRowsDialog, dryRunLabel, type DryRunRows } from "@/features/model-editor/DryRunPanel";
 import { LoadDialog } from "@/features/model-editor/LoadDialog";
 import { MapColumnDialog, type MapStart } from "@/features/model-editor/MapColumnDialog";
@@ -105,7 +108,8 @@ type Dialog =
   | { kind: "rows"; rows: DryRunRows }
   | { kind: "load" }
   | { kind: "workbook" }
-  | { kind: "propose" };
+  | { kind: "propose" }
+  | { kind: "list"; mode: "adjust" | "load"; sheet: string; block: number };
 
 /** A step refused because the draft moved on (D41): what came first, and how to send mine again. */
 type Stale = { since: ModelDraftOperationEntry[]; more: boolean; send: Send };
@@ -161,7 +165,13 @@ export function ModelEditor({
   const paneWidth = useLocalNumberPreference("rdm:model-editor:pane-width:v1", 300, 220, 560);
   const sourceWidth = useLocalNumberPreference("rdm:model-editor:source-width:v1", 320, 240, 560);
   const source = useDraftSource(draftId, outline?.version);
-  const { dryRunQueued } = source;
+  const { dryRunQueued, loadColumns } = source;
+  // A list opened from the address or the phone's tab: its sheet's columns name it (0.10 A8b).
+  const listSheetName = selection.show === "list" ? selection.sheet : undefined;
+  const sheetsRead = source.sheets.length > 0;
+  useEffect(() => {
+    if (listSheetName && sheetsRead) loadColumns(listSheetName);
+  }, [listSheetName, sheetsRead, loadColumns]);
 
   const [bottomOpen, setBottomOpen] = useState(() =>
     readLocalPreference(BOTTOM_KEY, false, (value): value is boolean => typeof value === "boolean"),
@@ -389,22 +399,31 @@ export function ModelEditor({
   const workbench: RouteState = { kind: "settings", page: "model", draftId };
   const workbookLabel = source.profile?.sourceFile ? "Upload a newer workbook…" : "Add a workbook…";
   const addTarget: OperationTarget = paneTab === "apis" ? { on: "consumerApis" } : { on: "draft" };
+  // The selected list of a sheet laid out for reading (0.10 A8b): its block, header and source.
+  const listSheet = selection.show === "list" ? source.sheets.find((item) => item.name === selection.sheet) : undefined;
+  const listBlock =
+    selection.show === "list" ? listSheet?.blocks.find((item) => item.index === selection.block) : undefined;
+  const listName = listBlock && listSheet ? listHeader(listBlock, source.columns(listSheet.name)) : undefined;
+  const listLoads =
+    listBlock && listSheet ? sourceOfList(source.profile?.profile, listSheet.name, listBlock) : undefined;
   const selectedName =
-    selection.show === "type"
-      ? typeName(outline, selection.key)
-      : selection.show === "application"
-        ? (applicationOf(outline, selection.key)?.name ?? selection.key)
-        : selection.show === "relationType"
-          ? (relationTypeOf(outline, selection.key)?.name ?? selection.key)
-          : selection.show === "attributeType"
-            ? (attributeTypeOf(outline, selection.key)?.name ?? selection.key)
-            : selection.show === "consumerApi"
-              ? (consumerApiOf(outline, selection.key)?.name ?? selection.key)
-              : selection.show === "column"
-                ? selection.key
-                : selection.show === "matrix"
-                  ? "Matrix"
-                  : "Selection";
+    selection.show === "list"
+      ? (listName ?? "List")
+      : selection.show === "type"
+        ? typeName(outline, selection.key)
+        : selection.show === "application"
+          ? (applicationOf(outline, selection.key)?.name ?? selection.key)
+          : selection.show === "relationType"
+            ? (relationTypeOf(outline, selection.key)?.name ?? selection.key)
+            : selection.show === "attributeType"
+              ? (attributeTypeOf(outline, selection.key)?.name ?? selection.key)
+              : selection.show === "consumerApi"
+                ? (consumerApiOf(outline, selection.key)?.name ?? selection.key)
+                : selection.show === "column"
+                  ? selection.key
+                  : selection.show === "matrix"
+                    ? "Matrix"
+                    : "Selection";
 
   const hasSource = Boolean(source.profile?.sourceFile);
   const draftProfile = source.profile?.profile;
@@ -423,7 +442,11 @@ export function ModelEditor({
   const proposedElement =
     selection.show === "column"
       ? columnElements(draftProfile, selection.sheet, selection.key).find((element) => proposedElements.has(element))
-      : elementOfSelection(selection);
+      : selection.show === "list"
+        ? [`source:${listLoads?.id}`, `objectType:${listLoads?.objectTypeKey}`].find((element) =>
+            proposedElements.has(element),
+          )
+        : elementOfSelection(selection);
   const proposedNote =
     proposedElement && proposedElements.has(proposedElement) ? (
       <ProposedBecause
@@ -572,10 +595,35 @@ export function ModelEditor({
             ? "Selected consumer API"
             : selection.show === "column"
               ? "Selected column"
-              : "Selected element"
+              : selection.show === "list"
+                ? "Selected list"
+                : "Selected element"
       }
     >
-      {selection.show === "column" ? (
+      {selection.show === "list" ? (
+        listBlock && listSheet ? (
+          <ListPanel
+            key={`${listSheet.name}:${listBlock.index}`}
+            sheet={listSheet.name}
+            block={listBlock}
+            header={listName ?? ""}
+            fileId={source.profile?.sourceFile?.id}
+            listSource={listLoads}
+            status={listStatus(listLoads, proposedElements)}
+            outline={outline}
+            busy={busy}
+            proposed={proposedNote}
+            onAdjust={() => setDialog({ kind: "list", mode: "adjust", sheet: listSheet.name, block: listBlock.index })}
+            onLoad={() => setDialog({ kind: "list", mode: "load", sheet: listSheet.name, block: listBlock.index })}
+            onDrop={() => {
+              if (listLoads) void guarded(() => run(dropOperations(outline, draftProfile, listLoads)));
+            }}
+            onShowType={(key) => select({ show: "type", key })}
+          />
+        ) : (
+          <Skeleton lines={6} label="Reading the list" />
+        )
+      ) : selection.show === "column" ? (
         <ColumnPanel
           key={`${selection.sheet}:${selection.key}`}
           sheet={selection.sheet}
@@ -1052,6 +1100,24 @@ export function ModelEditor({
           onPropose={(request) => {
             setDialog(undefined);
             void proposeFrom(request);
+          }}
+          onClose={() => setDialog(undefined)}
+        />
+      )}
+      {dialog?.kind === "list" && listBlock && listSheet && (
+        <AdjustListDialog
+          mode={dialog.mode}
+          draftId={draftId}
+          fileId={source.profile?.sourceFile?.id}
+          sheet={listSheet.name}
+          header={listName ?? ""}
+          block={listBlock}
+          listSource={listLoads}
+          lastColumn={Math.max(...listSheet.blocks.map((item) => columnNumber(item.lastColumn)))}
+          send={run}
+          onDone={() => {
+            setDialog(undefined);
+            toast(dialog.mode === "adjust" ? `${listName} adjusted.` : `${listName} loaded as a list.`);
           }}
           onClose={() => setDialog(undefined)}
         />

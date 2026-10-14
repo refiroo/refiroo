@@ -2,21 +2,26 @@
 
 from typing import Any
 
+from openpyxl.utils.cell import get_column_letter
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
+from ...engine.sources.staged import cell_range, cell_rows
 from ...engine.sources.store import profile_state, require_profile
 from ...errors import api_error
 from ...models.database import (
     Job,
     ModelDraft,
     SourceFile,
+    SourceFileCell,
     SourceFileColumn,
     SourceFileSheet,
 )
 from ..schemas.sources import (
     DryRunResponse,
+    SourceCellPage,
+    SourceCellRow,
     SourceColumnPage,
     SourceColumnResponse,
     SourceFileOwnerResponse,
@@ -87,12 +92,7 @@ def sheet_page(
     )
 
 
-def column_page(
-    session: Session, source: SourceFile, sheet: str, page: PageRequest, page_size: int
-) -> SourceColumnPage:
-    """A sheet's profiled columns, block by block, each block's in column order (a column of a
-    sheet laid out for reading may be in several blocks, 0.10 A8a)."""
-    require_profile(session, source)
+def _sheet_index(session: Session, source: SourceFile, sheet: str) -> int:
     index = session.scalar(
         select(SourceFileSheet.sheet_index).where(
             SourceFileSheet.source_file_id == source.id, SourceFileSheet.name == sheet
@@ -105,6 +105,16 @@ def column_page(
             f"Source file '{source.public_id}' has no sheet '{sheet}'",
             {"sheet": sheet},
         )
+    return index
+
+
+def column_page(
+    session: Session, source: SourceFile, sheet: str, page: PageRequest, page_size: int
+) -> SourceColumnPage:
+    """A sheet's profiled columns, block by block, each block's in column order (a column of a
+    sheet laid out for reading may be in several blocks, 0.10 A8a)."""
+    require_profile(session, source)
+    index = _sheet_index(session, source, sheet)
     found: Page[SourceFileColumn] = paginate_statement(
         session,
         select(SourceFileColumn).where(
@@ -119,6 +129,40 @@ def column_page(
     )
     return SourceColumnPage(
         items=[SourceColumnResponse(sheet=sheet, **item.statistics) for item in found.items],
+        **found.links(),
+    )
+
+
+_CELL_ROW_KEYS = (integer_key("row", SourceFileCell.row_number, "row_number"),)
+
+
+def cell_page(
+    session: Session, source: SourceFile, sheet: str, raw: str, page: PageRequest, page_size: int
+) -> SourceCellPage:
+    """The rows of a range of a sheet holding a cell, in row order, each with its cells by column
+    letter (0.10 A8b, D124)."""
+    require_profile(session, source)
+    index = _sheet_index(session, source, sheet)
+    area = cell_range(session, source.id, index, raw)
+    found: Page[Any] = paginate_statement(
+        session,
+        cell_rows(source.id, index, area),
+        keys=_CELL_ROW_KEYS,
+        scope="source-file-cells",
+        filters={"sourceFileId": source.public_id, "sheet": sheet, "range": raw},
+        page=page,
+        page_size=page_size,
+        message="Source file cell cursor is invalid",
+        rows=True,
+    )
+    return SourceCellPage(
+        items=[
+            SourceCellRow(
+                row=item.row_number,
+                cells={get_column_letter(int(number)): cell for number, cell in sorted(item.cells.items(), key=lambda pair: int(pair[0]))},
+            )
+            for item in found.items
+        ],
         **found.links(),
     )
 

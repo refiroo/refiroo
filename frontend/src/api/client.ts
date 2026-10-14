@@ -89,11 +89,14 @@ import type {
   DryRun,
   Inference,
   InferenceRequest,
+  ListProposal,
   Proposal,
+  SourceCellRow,
   SourceColumn,
   SourceFile,
   SourceFileUpload,
   SourcePage,
+  SourceRectangle,
   SourceSheet,
 } from "@/types";
 
@@ -549,6 +552,20 @@ export const api = {
       `/api/v1/source-files/${encodeURIComponent(id)}/profile/sheets/${encodeURIComponent(sheet)}/columns?${params}`,
     );
   },
+  /** The rows of a range of a sheet holding a cell, one page (0.10 A8b, D124). */
+  sourceCells: (id: string, sheet: string, range: string, cursor?: string) => {
+    const params = new URLSearchParams({ pageSize: "500", range });
+    if (cursor) params.set("cursor", cursor);
+    return request<SourcePage<SourceCellRow>>(
+      `/api/v1/source-files/${encodeURIComponent(id)}/profile/sheets/${encodeURIComponent(sheet)}/cells?${params}`,
+    );
+  },
+  /** A rectangle of the draft's file read as a list, answered and not stored (0.10 A8b, D128). */
+  proposeList: (draftId: string, body: { sheet: string } & SourceRectangle) =>
+    request<ListProposal>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/inference/list`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   /** The draft's import profile with its warnings and its source file (0.10 A5, D75). */
   modelDraftProfile: (draftId: string) =>
     request<DraftProfile>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/profile`),

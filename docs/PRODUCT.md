@@ -222,7 +222,8 @@ can complete the task in the application; "API" means another system can.
 - Start from a sheet of lists laid out for reading (lists side by side and under each other, under
   section and group titles): each list is read with its header, the titles above it and a note
   such as "multiple answers", and proposed as a list loaded by name, with its translation and yes/no
-  columns; the lists under one title are grouped in the sidebar.
+  columns; the lists under one title are grouped in the sidebar. In the editor each list is shown
+  with its cells, and adjusted, left out or loaded as a list on request.
 - Load the next version of a workbook through its saved profile: see what differs before anything
   is written (columns new, missing or renamed, new list values, names that drifted, records the file
   no longer names, the profile against the current model, what the load would do), accept a rename

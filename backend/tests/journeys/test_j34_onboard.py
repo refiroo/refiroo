@@ -2093,6 +2093,152 @@ def test_a_block_narrowed_by_its_source_loads_the_rows_left_in_it(world):
     assert {k: v for k, v in now.items() if k != made["key"]} == {k: v for k, v in rows.items() if k != made["key"]}
 
 
+# --- J34.10 the editor's lists (0.10 A8b, D122–D130) --------------------------------------------
+
+
+def _range(first: str, top: int, last: str, bottom: int) -> str:
+    return f"{first}{top}:{last}{bottom}"
+
+
+def _w3_applied(world) -> tuple[dict[str, Any], workbooks.W3, dict[str, Any], dict[str, Any], dict[str, Any]]:
+    """W3's proposals applied: the draft, the book, its file, the listBlocks by place and the dry
+    run the application queued."""
+    draft, book, source, _ = _w3_draft(world)
+    _infer(world, draft)
+    blocks = _list_blocks(_proposals(world, draft))
+    answer = ok(_application(world, draft))
+    return draft, book, source, blocks, _summary_of(world, draft, answer)
+
+
+def _groups(world, draft: dict[str, Any]) -> dict[str, list[str]]:
+    model = ok(world.api.get(f"/model-drafts/{draft['id']}/model"))["model"]
+    return {
+        group["label"]: list(group["collections"])
+        for application in model["applications"]
+        for group in (application.get("navigation") or {}).get("groups", [])
+    }
+
+
+def _rows_by_type(summary: dict[str, Any]) -> dict[str, int]:
+    return {s["objectTypeKey"]: s["rows"] for s in summary["sources"]}
+
+
+@pytest.mark.journey("J34.10")
+@pytest.mark.structures("K")
+def test_a_lists_cells_are_read_row_by_row_by_their_range(world):
+    """Given W3 profiled. When a list's range is read. Then its rows come in order, the header row
+    first, each cell by its letter with its value type, paged with cursors; a range that is empty or
+    outside the sheet is refused INVALID_RANGE."""
+    _, book, source, _ = _w3_draft(world)
+    block = next(b for b in book.lists() if b["shape"] == "languages")
+    first, last, header = _place(block)
+    path = f"/source-files/{source['id']}/profile/sheets/{book.sheet}/cells"
+    rows = _all(world, path, page_size=3, range=_range(first, header, last, block["lastRow"]))
+    assert [r["row"] for r in rows] == list(range(header, block["lastRow"] + 1))
+    letters = [_letter(n) for n in range(block["first"], block["last"] + 1)]
+    assert all(sorted(r["cells"]) == letters for r in rows), rows
+    assert rows[0]["cells"][first] == {"text": block["title"], "kind": "text"}
+    assert [r["cells"][first]["text"] for r in rows[1:]] == block["values"]
+    for wrong in ("B5:A2", "A9000:B9010", "nonsense"):
+        refused(world.api.get(path, range=wrong), 422, "INVALID_RANGE")
+
+
+@pytest.mark.journey("J34.10")
+@pytest.mark.structures("K")
+def test_a_lists_header_row_moved_keeps_each_column_on_its_letter(world):
+    """Given W3's proposals applied. When a list's source moves its headerRow one row down, each
+    bound column keeps its binding under the header its letter has on the new row and the dry run
+    counts one row fewer for it; a column whose new header cell is empty becomes unmapped."""
+    draft, book, _, blocks, before = _w3_applied(world)
+    block = next(b for b in book.lists() if b["shape"] == "languages")
+    proposal = blocks[_place(block)]
+    made = _list_type(proposal)
+    (added,) = _operations(proposal, "addSource")
+    bound = {o["column"]: o["binding"] for o in _operations(proposal, "mapColumn")}
+    after = _summary_of(world, draft, _step(world, draft, {"kind": "setSource", "source": added["id"], "headerRow": block["headerRow"] + 1}))
+    assert _rows_by_type(after)[made["key"]] == _rows_by_type(before)[made["key"]] - 1
+    moved = next(s for s in _draft_profile(world, draft)["profile"]["sources"] if s["id"] == added["id"])
+    assert moved["headerRow"] == block["headerRow"] + 1
+    now = {c["column"]: {k: v for k, v in c.items() if k != "column"} for c in moved["columns"]}
+    below = {block["title"]: block["values"][0]}
+    for header, values in block["translations"].items():
+        below[header] = values[0]
+    assert now == {below[header]: binding for header, binding in bound.items()}
+
+    gapped = next(b for b in book.blocks if b["shape"] == "gapped")
+    (gap_source,) = _operations(blocks[_place(gapped)], "addSource")
+    _step(world, draft, {"kind": "setSource", "source": gap_source["id"], "headerRow": gapped["headerRow"] + 1})
+    profile = _draft_profile(world, draft)["profile"]
+    assert [(u["source"], u["column"]) for u in profile["unmapped"]] == [(gap_source["id"], gapped["title"])]
+
+
+@pytest.mark.journey("J34.10")
+@pytest.mark.structures("K")
+def test_a_list_not_loaded_leaves_the_load_and_its_group_until_undone(world):
+    """Given W3's proposals applied. When a list's source and list type are removed in one step,
+    the dry run has no source for it, its navigation group no longer lists it, and proposing again
+    proposes nothing for it; undoing the step restores the source, the type and the group entry."""
+    draft, book, _, blocks, _ = _w3_applied(world)
+    block = next(b for b in book.lists() if b["shape"] == "plain" and len(book.groups()[b["titles"][-1]]) >= 2)
+    proposal = blocks[_place(block)]
+    made = _list_type(proposal)
+    (added,) = _operations(proposal, "addSource")
+    group = block["titles"][-1]
+    assert made["key"] in _groups(world, draft)[group]
+
+    answer = _step(world, draft, {"kind": "removeSource", "source": added["id"]}, {"kind": "removeObjectType", "objectType": made["key"]})
+    assert answer["valid"] is True, answer["diagnostics"]
+    assert made["key"] not in _rows_by_type(_summary_of(world, draft, answer))
+    assert made["key"] not in _groups(world, draft)[group]
+
+    _infer(world, draft)
+    again = _list_blocks(_proposals(world, draft)).get(_place(block))
+    assert again is None or again["status"] != "open", again
+
+    ok(world.api.post(f"/model-drafts/{draft['id']}/undo", {"expectedVersion": _version(world, draft)}))
+    assert added["id"] in [s["id"] for s in _draft_profile(world, draft)["profile"]["sources"]]
+    assert made["key"] in _groups(world, draft)[group]
+
+
+@pytest.mark.journey("J34.10")
+@pytest.mark.structures("K")
+def test_a_rectangle_is_read_as_a_list_on_request(world):
+    """Given W3's proposals applied and a list with a note not loaded (its source and type removed).
+    When its rectangle is sent to the list route, the answer is a list proposal with a list type, a
+    source on that rectangle keyed by name and its note row skipped; its operations applied, the
+    dry run loads its values, and the list is the administrator's, not proposed. The free field's
+    rectangle, with nothing under its header but its note, is refused INVALID_RANGE. (Case 10 as
+    the user decided on 2026-10-15: W3's free field holds no values to load.)"""
+    draft, book, _, blocks, _ = _w3_applied(world)
+    block = next(b for b in book.lists() if b["note"] and b["headerRow"] == book.header_row)
+    proposal = blocks[_place(block)]
+    made = _list_type(proposal)
+    (added,) = _operations(proposal, "addSource")
+    _step(world, draft, {"kind": "removeSource", "source": added["id"]}, {"kind": "removeObjectType", "objectType": made["key"]})
+
+    first, last, header = _place(block)
+    path = f"/model-drafts/{draft['id']}/inference/list"
+    body = {"sheet": book.sheet, "headerRow": header, "block": {"firstColumn": first, "lastColumn": last, "lastRow": block["lastRow"]}}
+    read = ok(world.api.post(path, body))
+    assert read["pattern"] == "listBlock"
+    (source,) = _operations(read, "addSource")
+    assert (source["headerRow"], source["block"]["firstColumn"], source["block"]["lastColumn"], source["block"]["lastRow"]) == (header, first, last, block["lastRow"])
+    assert source["key"] == {"field": "name"}
+    assert {"kind": "setSource", "source": source["id"], "rowsWithoutKey": "skip"} in read["operations"]
+    answer = _step(world, draft, *read["operations"])
+    assert answer["valid"] is True, answer["diagnostics"]
+    summary = _summary_of(world, draft, answer)
+    (loaded,) = [s for s in summary["sources"] if s["objectTypeKey"] == source["objectType"]]
+    assert (loaded["records"]["created"], loaded["skippedRows"], loaded["rejections"]) == (len(block["values"]), 1, [])
+    proposed = {e["element"] for e in ok(world.api.get(f"/model-drafts/{draft['id']}/inference"))["proposed"]}
+    assert f"objectType:{source['objectType']}" not in proposed
+
+    free = next(b for b in book.blocks if b["shape"] == "free")
+    first, last, header = _place(free)
+    body = {"sheet": book.sheet, "headerRow": header, "block": {"firstColumn": first, "lastColumn": last, "lastRow": free["lastRow"]}}
+    refused(world.api.post(path, body), 422, "INVALID_RANGE")
+
+
 @pytest.mark.journey("J34.10")
 @pytest.mark.structures("K")
 def test_a_table_is_not_read_as_lists_even_with_an_empty_row_in_it(world):

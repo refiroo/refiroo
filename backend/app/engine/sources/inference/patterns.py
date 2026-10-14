@@ -733,10 +733,11 @@ def _list_blocks(workbook: Workbook) -> list[Finding]:
     return findings
 
 
-def list_block(block: BlockTable) -> Finding | None:
+def list_block(block: BlockTable, *, asked: bool = False) -> Finding | None:
     """A list's columns read within the list (D116, D118, D119): the first its names, a column of
     yes/no words a yes/no attribute (two or more a flag set), a text column filled beside most names
-    a translation, a column holding only its header reported, any other an attribute."""
+    a translation, a column holding only its header reported, any other an attribute. ``asked``:
+    the administrator asked for the list (0.10 A8b, D128), so a free field note does not stop it."""
     if not block.columns:
         return None
     names, others = block.columns[0], block.columns[1:]
@@ -753,7 +754,7 @@ def list_block(block: BlockTable) -> Finding | None:
         "attributes": [],
     }
     detail: dict[str, Any] = {"block": block, "list": False, "translations": [], "flags": [], "attributes": []}
-    if (note and note["meaning"] == "free") or not names.filled:
+    if (note and note["meaning"] == "free" and not asked) or not names.filled:
         detail["reason"] = "free" if note and note["meaning"] == "free" else "empty"
         return Finding("listBlock", block.name, [names.number], {**evidence, "list": False}, detail)
     detail["list"] = True

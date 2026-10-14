@@ -159,6 +159,9 @@ function editorSelection(query: URLSearchParams): EditorSelection {
   if (show === "matrix") return { show };
   const sheet = query.get("sheet");
   if (show === "column" && key && sheet) return { show, sheet, key };
+  const block = Number(query.get("block"));
+  if (show === "list" && sheet && Number.isInteger(block) && block >= 0 && query.get("block"))
+    return { show, sheet, block };
   if (show === "consumerApi" && key) {
     const tab = CONSUMER_API_TABS.find((item) => item === query.get("tab"));
     return tab ? { show, key, tab } : { show, key };
@@ -191,6 +194,8 @@ function settingsPath(route: SettingsRoute) {
     if (show === "matrix") return `${base}?show=matrix`;
     if (show === "column")
       return `${base}?show=column&sheet=${encodeURIComponent(route.editor.sheet)}&key=${encodeURIComponent(route.editor.key)}`;
+    if (show === "list")
+      return `${base}?show=list&sheet=${encodeURIComponent(route.editor.sheet)}&block=${route.editor.block}`;
     const mode =
       route.editor.show === "type" && route.editor.mode
         ? `&mode=${route.editor.mode}`
