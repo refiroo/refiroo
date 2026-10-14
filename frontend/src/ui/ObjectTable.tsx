@@ -2,7 +2,9 @@
  * A list of records in a table (collections, a record's children): `ui/DataTable` with a record on
  * every row. A row is keyed by its record, opens it on a click or from its identity cell, can be
  * selected, and carries the record's action menu (by its button, a right click or Shift+F10). Given
- * a `selection`, a leading checkbox column selects records for a bulk action (0.9 K1).
+ * a `selection`, a leading checkbox column selects records for a bulk action (0.9 K1). Given
+ * `renderCell`, each cell's content passes through it, which edits cells in place
+ * (`features/objects/useCellEditing`, 0.10 A9).
  */
 
 import { useState, type ReactNode } from "react";
@@ -46,6 +48,7 @@ export function ObjectTable({
   emptyAction,
   columnWidths = {},
   onColumnWidths,
+  renderCell,
 }: {
   compact?: boolean;
   identityColumn?: string;
@@ -76,6 +79,8 @@ export function ObjectTable({
   columnWidths?: Record<string, number>;
   /** Stores the widths after a resize (`useTableDisplay`); without it the columns do not resize. */
   onColumnWidths?: (widths: Record<string, number>) => void;
+  /** Wraps a cell's content, given its row and column: the cell's in-place editing (A9). */
+  renderCell?: (item: ObjectItem, column: string, shown: ReactNode) => ReactNode;
 }) {
   const [menuId, setMenuId] = useState<string>();
   const identity = identityColumn ?? (columns.includes("name") ? "name" : columns.includes("id") ? "id" : columns[0]);
@@ -84,20 +89,23 @@ export function ObjectTable({
       columns={columns.map((column) => ({
         key: column,
         label: attributeName(model, column),
-        cell: (item) =>
-          column === identity ? (
-            <button
-              className="cell-link"
-              data-record-id={item.id}
-              data-row-focus
-              aria-current={selectedId === item.id ? "true" : undefined}
-              onClick={() => onOpen(item)}
-            >
+        cell: (item) => {
+          const shown =
+            column === identity ? (
+              <button
+                className="cell-link"
+                data-record-id={item.id}
+                data-row-focus
+                aria-current={selectedId === item.id ? "true" : undefined}
+                onClick={() => onOpen(item)}
+              >
+                <FieldValue item={item} field={column} model={model} />
+              </button>
+            ) : (
               <FieldValue item={item} field={column} model={model} />
-            </button>
-          ) : (
-            <FieldValue item={item} field={column} model={model} />
-          ),
+            );
+          return renderCell ? renderCell(item, column, shown) : shown;
+        },
       }))}
       identityColumn={identity}
       list={list}
@@ -110,7 +118,8 @@ export function ObjectTable({
         onClick: (event) => {
           // The identity button is the keyboard path; the row is a larger pointer target.
           const target = event.target as HTMLElement;
-          if (target.closest("button, a, input, select, textarea, [role='menu']")) return;
+          // A cell's open editor is a form; a click in it is the editor's.
+          if (target.closest("button, a, input, select, textarea, form, [role='menu']")) return;
           if (window.getSelection()?.toString()) return;
           onOpen(item);
         },

@@ -93,3 +93,21 @@ export function relationItems(
   });
   return { items, rowOf };
 }
+
+/**
+ * One record's relationships of a kind as ticked in a checklist, against those it held (0.10 A9,
+ * D136): the records added and the records removed, so a save sends only the changes and keeps a
+ * record someone else related meanwhile.
+ */
+export function checklistChange(
+  held: readonly OtherRecord[],
+  ticked: readonly OtherRecord[],
+): Extract<RelationChange, { mode: "change" }> {
+  const before = new Set(held.map((record) => record.id));
+  const after = new Set(ticked.map((record) => record.id));
+  return {
+    mode: "change",
+    add: ticked.filter((record) => !before.has(record.id)),
+    remove: held.filter((record) => !after.has(record.id)),
+  };
+}

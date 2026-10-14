@@ -1,13 +1,19 @@
 import { ownEndReason, ownEndScope } from "@/model/candidates";
 import { useEffect, useMemo, useState } from "react";
 import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
-import { errorMessage, isApiError } from "@/api/errors";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import type { EngineModel, ObjectItem, RelationItem, RelationsPanelDefinition } from "@/types";
-import { holdsOne, holdsOneHere, isManagedRelation, relatedObjectTypes, relationChoices } from "@/model/lookup";
+import {
+  holdsOne,
+  holdsOneHere,
+  isManagedRelation,
+  isReplaceable,
+  relatedObjectTypes,
+  relationChoices,
+} from "@/model/lookup";
 import type { RelationChoice } from "@/model/lookup";
-import { ConfirmDialog } from "@/ui/ConfirmDialog";
+import { DeleteRelationDialog } from "@/features/objects/DeleteRelationDialog";
 import { RelationFormDialog } from "./RelationFormDialog";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
 import { FieldValue } from "@/ui/FieldValue";
@@ -78,7 +84,6 @@ export function RelationsPanel({
   const defaultSort =
     panel.config.defaultSort && isQueryableField(panel.config.defaultSort, live) ? panel.config.defaultSort : "name";
   const [sort, setSort] = useState<string>();
-  const [removeError, setRemoveError] = useState("");
   const [creating, setCreating] = useState(false);
   const [creatingDependent, setCreatingDependent] = useState<{
     applicationKey: string;
@@ -89,7 +94,6 @@ export function RelationsPanel({
   const [changing, setChanging] = useState<RelationItem>();
   const [setting, setSetting] = useState(false);
   const [removing, setRemoving] = useState<RelationItem>();
-  const [pending, setPending] = useState(false);
   const choices = useMemo(
     () => relationChoices(model, object.objectTypeKey, panel),
     [model, object.objectTypeKey, panel],
@@ -263,7 +267,7 @@ export function RelationsPanel({
     const locked = managed(item) ? "Managed through Parent" : required ? "Required relationship" : undefined;
     return (
       <div className="row-actions relation-row-actions">
-        {!readOnly && !locked && changeChoice(item) && (
+        {!readOnly && changeChoice(item) && (
           <IconButton
             icon="swap"
             label={`Change ${kind}`}
@@ -310,43 +314,25 @@ export function RelationsPanel({
         allowed.toObjectTypeKey === toType,
     );
   }
-  /** The kind a row's relationship is, where the record holds only one of it. */
-  function changeChoice(item: RelationItem) {
+  /**
+   * The kind a row's relationship is, where the record holds only one of it and may change it: a
+   * required one too, unless it is containment or required ownership (0.10 A9, D135).
+   */
+  function changeChoice(item: RelationItem): RelationChoice | undefined {
     const allowed = allowedFor(item);
-    if (!allowed || !holdsOne(allowed, item.direction === "outgoing" ? "from" : "to")) return undefined;
-    return choices.find(
-      (choice) =>
-        choice.direction === item.direction &&
-        choice.relation.relationTypeKey === item.relation.relationTypeKey &&
-        choice.otherObjectTypeKey === item.object.objectTypeKey,
-    );
+    if (!allowed || !isReplaceable(model, allowed) || !holdsOne(allowed, item.direction === "outgoing" ? "from" : "to"))
+      return undefined;
+    const definition = model.relationTypes.find((relation) => relation.key === allowed.relationTypeKey);
+    return {
+      direction: item.direction,
+      relation: allowed,
+      otherObjectTypeKey: item.object.objectTypeKey,
+      label: (item.direction === "outgoing" ? definition?.name : definition?.reverseName) ?? allowed.relationTypeKey,
+    };
   }
   function managed(item: RelationItem) {
     const allowed = allowedFor(item);
     return allowed ? isManagedRelation(model, allowed) : true;
-  }
-
-  async function remove() {
-    if (!removing) return;
-    setPending(true);
-    setRemoveError("");
-    try {
-      await api.deleteRelation(removing.relation.id, removing.relation.version);
-      setRemoving(undefined);
-      changed();
-    } catch (cause) {
-      setRemoveError(errorMessage(cause));
-      if (isApiError(cause, "VERSION_CONFLICT") || isApiError(cause, "CHANGE_SET_VERSION_CONFLICT")) {
-        try {
-          const fresh = await api.relation(removing.relation.id, object.workspaceKey);
-          setRemoving({ ...removing, relation: fresh });
-        } catch (reloadCause) {
-          setRemoveError(errorMessage(reloadCause));
-        }
-      }
-    } finally {
-      setPending(false);
-    }
   }
 
   return (
@@ -486,19 +472,15 @@ export function RelationsPanel({
         />
       )}
       {removing && (
-        <ConfirmDialog
-          title="Delete relationship?"
-          confirmLabel="Delete relationship"
-          pending={pending}
-          error={removeError}
-          onCancel={() => {
+        <DeleteRelationDialog
+          relation={removing}
+          workspaceKey={object.workspaceKey}
+          onCancel={() => setRemoving(undefined)}
+          onDeleted={() => {
             setRemoving(undefined);
-            setRemoveError("");
+            changed();
           }}
-          onConfirm={remove}
-        >
-          <p>The connected objects will remain. Only this relationship will be deleted.</p>
-        </ConfirmDialog>
+        />
       )}
     </>
   );

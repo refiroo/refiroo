@@ -9,6 +9,7 @@
 import type { FormEvent, ReactNode, Ref } from "react";
 import { readEditHint } from "@/lib/editHint";
 import { Icon } from "@/ui/Icon";
+import { IconButton } from "@/ui/IconButton";
 
 export type EditLayout = "row" | "title" | "subtitle";
 
@@ -61,6 +62,61 @@ export function EditInPlaceValue({
         <Icon name={empty ? "plus" : "pencil"} size={layout === "title" ? 16 : 13} />
       </span>
     </button>
+  );
+}
+
+/**
+ * A list's cell that edits in place (0.10 A9, D133): the value as the list shows it (a click on it
+ * opens the record, as anywhere in the row), then a pencil and, given `onRemove`, a trash. The cell
+ * shows them while the pointer is over it, always on touch; they are out of the tab order, since the row's Edit record
+ * and its menu are the keyboard's way.
+ */
+export function EditInPlaceCell({
+  name,
+  record,
+  disabled = false,
+  cellRef,
+  onEdit,
+  onRemove,
+  children,
+}: {
+  /** What is edited: "Edit {name} of {record}". */
+  name: string;
+  record: string;
+  disabled?: boolean;
+  cellRef?: Ref<HTMLSpanElement>;
+  onEdit: () => void;
+  onRemove?: () => void;
+  /** The value as the list shows it. */
+  children: ReactNode;
+}) {
+  return (
+    <span className="cell-edit" ref={cellRef}>
+      <span className="cell-edit-value">{children}</span>
+      <span className="cell-edit-actions">
+        <IconButton
+          icon="pencil"
+          label={`Edit ${name} of ${record}`}
+          tooltip={`Edit ${name}`}
+          quiet
+          tabIndex={-1}
+          disabled={disabled}
+          onClick={onEdit}
+        />
+        {onRemove && (
+          <IconButton
+            icon="trash"
+            label={`Remove ${name} of ${record}`}
+            tooltip={`Remove ${name}`}
+            tone="danger"
+            quiet
+            tabIndex={-1}
+            disabled={disabled}
+            onClick={onRemove}
+          />
+        )}
+      </span>
+    </span>
   );
 }
 

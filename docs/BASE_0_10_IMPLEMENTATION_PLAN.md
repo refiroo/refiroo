@@ -134,6 +134,7 @@ live co-editing (D10).
 | 6 | Inference over table patterns; extending an existing model | US-P09 | A6 |
 | 7 | Model-description sheets, matching across files | US-P09 | A7 (below the cut line) |
 | 8 | List blocks in sheets laid out for reading | US-P09 | A8 (below the cut line) |
+| — | Collection cells edited in place (added by the user 2026-10-15) | US-P05 | A9 |
 
 ## Tracks overview
 
@@ -248,7 +249,8 @@ migration), `contract` (every route change) and `volume` (every budget).
 | — | _cut line (D2)_ | | _If R is out of reach, 0.10.0 releases here and A7, A8 move to 0.10.x_ |
 | 11 | [A7](#a7-model-description-sheets-and-matching-across-files) | A6 | **Delivered 2026-10-14** (screenshots approved). Model-description sheets; matching records across files |
 | 12 | [A8](#a8-list-blocks-in-sheets-laid-out-for-reading) | A6 | **A8a delivered 2026-10-14; A8b built 2026-10-15, its screenshots awaiting approval; A8c open.** List blocks detected, confirmed and loaded |
-| 13 | [R](#r-build-acceptance-and-release) | all | Build acceptance and release |
+| 13 | [A9](#a9-collection-cells-edited-in-place) | — | **Added 2026-10-15.** Collection table cells edited in place: values, single and many-valued relations |
+| 14 | [R](#r-build-acceptance-and-release) | all | Build acceptance and release |
 
 ## Sequence and dependencies
 
@@ -258,6 +260,7 @@ Designer:     A0 ─ N1 ─ A2 ─ A4a ─ A4b ─ A4c ─ T1
 Spreadsheet:  A0 ─ A3 ─────────────────────┐          A3 may fill a gap in the designer line
                               T1 ──────────┴─ A5 ─ A6 ─┬─ A7
                                                        └─ A8
+Collections:  A9 (reuses 0.9 UA4, UA8, K3a, K5, K7 and A4a)
               ── cut line (D2) between A6 and A7 ──
 Release:      T1, A6 (A7, A8 above the cut) → R
 ```
@@ -3799,6 +3802,166 @@ the list tree, a proposed list, the adjust dialog with the header moved, a dropp
 list…, the free field's dialog, 390px list, source and dialog. **Not run:** the accessibility and
 visual gates (R; axe ran in the runner on a list's centre and the dialog), the full suites (R).
 
+## Track: collections
+
+### A9: Collection cells edited in place
+
+**Added by the user 2026-10-15.** **Needs:** nothing undelivered (it reuses 0.9 UA4, UA8, K3a, K5,
+K7 and 0.10 A4a). Not a roadmap 0.10 item; it extends US-P05's "edit in place" to the record lists.
+
+**Why.** A record's fields are edited in place on its page (0.9 UA4 revision, UA8), and the model
+editor's table cells are too (A4a), but a collection's table (`ui/ObjectTable`) only shows values: a
+change means opening the record, or a selection and a bulk dialog (Track K). The pieces exist; the
+table does not use them.
+
+**What exists (checked against the code at `50384ae`).**
+
+- `ui/ObjectTable` renders every column but the identity one with `ui/FieldValue`: values through
+  `formatValue`, relation columns (`related:<key>`, `related:<key>.<field>`, K5, K5a) as
+  `RelatedRecordChips`, ancestor columns (`ancestor:<type>`) as a chip. A click anywhere in a row
+  opens the record; it already receives `readOnly` (a publication, a workspace not active).
+- `objects/EditableField` edits one field of one record in place (name with the record's version,
+  a bound attribute not marked read-only), with the change-set status, conflicts, Not set / Null /
+  Empty text and the Edit pencil setting; `fieldEditing` says whether a field can be edited.
+  Layouts: `row`, `title`, `subtitle`.
+- `ui/EditInPlace` (`EditInPlaceValue`, `InlineEditForm`), and A4a's `EditableCell`, whose open
+  editor stands above the cells beside it; `ui/CellReveal` for a cut-off cell.
+- Relationships: `panels/RelationsPanel` and `panels/RelationFormDialog` (`ui/ObjectLookup`, the
+  binding's candidates, K7) with **Set**, **Change** and **Delete** where a record holds at most one
+  of the kind (K3a, D139); the K3 dialogs add and remove several; `ui/MultiSelect`.
+
+**Scope (the interaction decided by the user, 2026-10-15).**
+
+1. **Pointer and touch only.** An editable cell shows its icons while the pointer is over that
+   cell, not the whole row (the user, 2026-10-15, on the mock-up); always on touch (`hover: none`); a click anywhere else in the row, the value's text
+   included, still opens the record. Only an icon edits.
+2. **A value cell** (name or attribute): **Edit** (pencil) opens the in-place editor in the cell;
+   with a value set, also **Delete** (trash), with the details panel's confirmation. A required field
+   has no Delete; a read-only binding or a computed field shows no icons.
+3. **A relation column, at most one of the kind** (K3a): **Edit** opens the relationship picker
+   (Set when empty, Change when held), the binding's candidates applied (K7); **Delete** removes the
+   relationship, absent where it is required.
+4. **A relation column, several of the kind:** **Edit** only, opening the multi-value selector:
+   add and remove related records, candidates applied; no Delete icon.
+5. **Keyboard:** unchanged. The row's Edit record shortcut and ⋯ menu stay the keyboard path; the
+   cell icons are not in the tab order.
+6. **After a save** the list reloads at its position (`useCursorWindow.reload`); a row the edit no
+   longer matches (filter, sort) stays where it is until the next reload.
+7. **Read-only stays read-only:** a publication, a retired workspace, another workspace's route.
+   In a change set, saves go to the change set and say so, as on the record page.
+8. **Phones and cut-off cells:** the icons show on touch; an open editor stands above its
+   neighbours as A4a's cells do; `CellReveal` is not shown for a cell being edited.
+
+**For the plan.** Ancestor columns (moving a record is the move rule's, U-D22) and the identity
+column (its click opens the record) are open questions for the plan, as is whether the multi-value
+selector is K3's dialog for one record or a new picker over `ObjectLookup` and chips. One component:
+`EditableField` gains a `cell` layout and relation cells reuse `RelationFormDialog`; nothing is
+copied. No backend change is expected (the record, attribute and relationship routes exist); the
+plan confirms it. A mock-up first on the dev server (a new interaction on an existing screen).
+
+**Tests:** `test:browser:authoring-a9`: a value edited in a cell, live and in a change set; a value
+deleted; a conflict; a single relation changed through the picker with candidates applied; a
+many-valued relation with one added and one removed; a publication with no icons; 390px with touch.
+`EditableField` unit tests for the cell layout.
+
+##### A9 plan (2026-10-15)
+
+**Planned 2026-10-15 on the user's instruction ("deliver build 0.10 a9"); D131–D139 and the test
+cases accepted by the user the same day (D135 as recommended: the record page aligned).** Checked against the code at `7d52c66`:
+
+- **Two tables use `ui/ObjectTable`:** a collection (`CollectionView`) and a record's table panel
+  (`panels/CollectionPanelTable`). Both know `readOnly`, but pass it only to the row's action menu:
+  `ObjectTable` itself takes no `readOnly` yet (the entry says it does; it gains one).
+- **`EditableField`'s value is its edit button** (`EditInPlaceValue`): a click on the value opens the
+  editor. Scope 1 says a click on a cell's value opens the record, so a cell cannot reuse that
+  control as it is; the `cell` layout shows the value as text and the pencil as its own icon.
+- **Removing a value lives inside `AttributesPanel`**: its confirmation, the delete with the record's
+  version and the "Value removed; refresh needed" dialog. A cell needs the same flow.
+- **A row's relation column holds at most 20 related records** (`expand`, K5b), each with its
+  relationship's ID but not its version. A Delete must read the relationship first; a many-valued
+  edit must read the record's whole set (`GET /relations?objectId=…&relationTypeKey=…&direction=…`).
+- **One `related:<key>` column can stand for several bindings** (one relation type to several types);
+  `isSingleValuedRelatedColumn` (D145 of 0.9) already says when a row holds at most one.
+- **The record page offers no Change on any required relationship** (`relationChoices` skips every
+  required binding), but the server refuses only containment and required ownership
+  (`relation_sets.set_binding`): Change on a required many-to-one is allowed by the engine and
+  unreachable in the UI. See D135.
+- **K3's relationship dialog is the bulk flow**: a background preview job with policies and counts.
+  Its picker, `ui/RecordChecklist` (K6a), already searches, pins ticked records on top, applies the
+  binding's candidates and lists several types under headings. An inline batch
+  (`POST /batches`, `run: "inline"`, UA9) with `ensureRelation` / `ensureNoRelation` items exists.
+- **`ui/Toast`** shows app-wide news; `DataTable` owns `CellReveal`.
+- **No backend change**: every write A9 makes has a route (record update, attribute set and delete,
+  relationship create, delete and mapping replacement, inline batch).
+
+**What is built:**
+
+1. **`EditableField` gains a `cell` layout** (D133): the value as text, and while the row is hovered
+   (always on touch) a pencil and, where allowed, a trash, both out of the tab order. The pencil opens
+   `InlineAttributeEditor` in the cell, standing above its neighbours as A4a's cells do; one editor
+   open per table.
+2. **One remove-value flow** (D134): the confirmation and the refresh dialog move out of
+   `AttributesPanel` into `objects/RemoveValueDialog`, which the details panel and the cell both use.
+3. **Relation cells** (D135–D137): `model/lookup.cellRelationChoices` says what a row may do in a
+   `related:` column; a single one opens `RelationFormDialog` (Set or Change) and deletes through
+   the relationship panel's confirmation; a many-valued one opens `RelatedRecordsDialog`, a
+   `RecordChecklist` of the record's set, saved as one inline batch.
+4. **`ObjectTable` wires them** for every column but ancestors and containment (D131, D132); a save
+   reloads the window at its position and says where it went in a toast (D138).
+5. **Documents:** USER_JOURNEYS (J02.7, J13.11), CURRENT_FUNCTIONALITY and PRODUCT (edit in place
+   in lists), UI_ACCEPTANCE (the table row), CHANGELOG, PROJECT_STATUS. API_JOURNEYS unchanged (no
+   route).
+
+**Decisions** (D131 onward):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D131 | Which tables | **Both `ObjectTable` tables: a collection and a record's table panel.** One component (U-D14); a record's children are a list like any other, and `readOnly` already decides both |
+| D132 | The identity column, ancestor columns and containment | **The identity cell (usually the name) gets the icons beside its link; its click still opens the record. Ancestor columns and a `related:` column of a containment relation get none: a record moves through Move, whose rule and dialog are the move rule's (U-D22).** Renaming is the most common fix in a list; leaving the name out would make the one column people edit most the one they cannot. Moving a record from a cell would skip the move dialog's checks (descendants, scoped uniqueness), so it stays on the record |
+| D133 | How a value cell edits | **`EditableField` with `layout="cell"`: the value as text (a click opens the record), a pencil icon (`IconButton`, `tabIndex=-1`, its label kept for screen readers; shown while the pointer is over the cell, changed from the row by the user on the mock-up) that opens `InlineAttributeEditor` in the cell, positioned above the neighbouring cells with at least the editor's width; Escape or Cancel closes it and focus goes to the row's identity link (the icon takes no focus). `CellReveal` is off for the cell being edited. The Edit pencil setting does not apply: the cell's icon is the only way in, so it always shows on hover.** The value-as-button of the record page would make a click on the value edit, which scope 1 rules out. The same component keeps one save, conflict and change-set path |
+| D134 | Deleting a value | **A trash beside the pencil where a value is set and the binding is not required; the details panel's confirmation and refresh dialog, extracted into `RemoveValueDialog` and used by both.** Copying the panel's flow into the table is what U-D14 forbids |
+| D135 | A relation cell holding at most one | **Pencil: `RelationFormDialog` as Set (empty) or Change (held), its choices the bindings behind the column, candidates applied (K7). Trash where held and the binding is not required: the relationship panel's "Delete relationship?" confirmation, the relationship's version read when it opens. A required many-to-one gets the pencil (Change) and no trash; required ownership and containment get no icons. The record page's relationship panel is aligned in the same package: it offers Change on a required many-to-one too (still no Delete).** The engine allows the change and refuses only containment and required ownership; offering it in a list but not on the record would make the two places differ for one field. The alternative is no icons on any required relation in the list either, leaving the record page as it is |
+| D136 | A relation cell holding several | **Pencil only: `RelatedRecordsDialog`, a `ui/Modal` around `RecordChecklist` with the record's related records ticked (the whole set, read by pages), the bindings' types under headings, candidates applied (records it already holds stay ticked though they no longer qualify, as J13.10). Save sends only the changes as one inline, atomic batch of `ensureRelation` and `ensureNoRelation`; a refusal shows the item's reason and changes nothing. Relationship values are not edited here (as K3).** K3's dialog runs a background job with a preview and policies, steps a single record does not need; a new picker over `ObjectLookup` and chips would copy what `RecordChecklist` does. Sending changes rather than the whole set keeps a record someone else added meanwhile |
+| D137 | A column standing for several bindings | **Single-valued (D135) only where `isSingleValuedRelatedColumn` says the row holds at most one; otherwise D136 across all its types. A binding behind the column that holds one per record then refuses a second record through the batch, with its reason.** The rule the column already sorts by; mixed bindings are rare and the refusal is the engine's |
+| D138 | After a save | **The window reloads at its position (`useCursorWindow.reload`); a toast says "{Field} of “{record}” saved to Live" or "…saved to change set “{name}”" (the workspace warning when there is one). A row the change no longer matches stays until the next reload.** The cell is too narrow for the record page's inline status line, and the toast is the existing place for news that outlives a moment |
+| D139 | Mock-up and when A9 is done | **First the cell icons, an open value editor, the Set/Change dialog and the many-valued dialog built on the dev server and sent as screenshots (1440px light and dark, 390px) for approval; then the rest and the tests. Done on approved screenshots and the browser cases below.** A new interaction on an existing screen (the entry) |
+
+**Journey variants** (USER_JOURNEYS, UI): **J02.7 Correct it in a list** (a value or name edited or
+removed from a collection's cell, live and in a change set, claiming the record's version) and
+**J13.11 Relate from a list** (a single relationship set, changed or deleted, and a many-valued one
+added to and removed from, from a collection's cell, candidates applied). No backend journey test:
+no route or rule changes; J02 and J13 already cover the writes.
+
+**Browser cases** (`test:browser:authoring-a9`, new, real backend, two object types of the example
+model and one of `generated-b`; no case names a configuration's key):
+
+1. **A value edited in a cell, live.** Given a collection, when the pointer is over a row, the
+   attribute cell shows Edit; Edit opens the editor in the cell above its neighbours; a new value
+   saved shows in the row after the reload and a toast says Saved to Live; a click on the value
+   opens the record.
+2. **In a change set.** The same edit with a change set open: the toast names the change set, and the
+   live list does not show the value.
+3. **A value deleted.** A set optional value: Delete, the confirmation, the cell reads empty; a
+   required field has no Delete; a read-only binding has no icons.
+4. **A conflict.** The record changed through the API after the list was read: the save is refused,
+   the editor says so and reloads the value; nothing is overwritten.
+5. **A single relation changed.** An at-most-one column: Edit opens Change with only the binding's
+   candidates offered; the choice saved shows its chip; Delete with its confirmation empties it; a
+   required one offers Change and no Delete.
+6. **Many-valued.** A many-valued column: Edit opens the dialog with the record's set ticked; one
+   ticked and one unticked, Save; the cell shows the new set; no Delete icon.
+7. **Read-only.** A publication: no icons in any cell.
+8. **390px with touch** (`hasTouch`, `hover: none`): the icons show without hover; the editor and both
+   dialogs are usable; axe on the open editor and the many-valued dialog.
+
+**Unit tests:** `EditableField` cell layout (icons by binding: none read-only, no Delete required;
+the value click not editing); `cellRelationChoices` (single, many, required many-to-one, required
+ownership, containment, mixed bindings); the batch items from a ticked/unticked diff.
+
+**Checks:** `vitest related` on the changed files; `npm run format`, `npm run lint`, `npm run build`;
+`test:browser:authoring-a9`; `test:browser:ua8` for the details panel's moved remove flow. No
+backend groups (no backend change). Screenshots inspected and sent.
+
 ## R: Build acceptance and release
 
 - A full review of every change since 0.9.0 first, as every R.
@@ -3882,7 +4045,9 @@ Design-level decisions are [A-D1–A-D12](MODEL_AUTHORING.md#open-decisions).
 ## Next
 
 1. **A8b is built (2026-10-15, [record](#a8b-record-2026-10-15))**, complete when the user approves
-   its screenshots; then A8c (D120). A8a is delivered (2026-10-14, [record](#a8a-record-2026-10-14)).
+   its screenshots; then A8c (D120). **A9 added 2026-10-15** ([entry](#a9-collection-cells-edited-in-place)):
+   collection cells edited in place, the interaction decided by the user; **planned 2026-10-15
+   ([plan](#a9-plan-2026-10-15)), D131–D139 and its cases accepted the same day; the mock-up (D139) built and committed 2026-10-15, its screenshots awaiting approval. Open: the user's question on a column of a required-ownership binding (no icons today; the user asked for Edit), the browser cases, unit tests and documents**. A8a is delivered (2026-10-14, [record](#a8a-record-2026-10-14)).
    **A7 is delivered (2026-10-14, [record](#a7-record-2026-10-14)), its screenshots approved**; its plan, D106–D113 and test cases were accepted by the user the same day. The user chose A7 before A8. A5c is delivered (2026-10-14,
    [record](#a5c-record-2026-10-14)). After A7: A8 (below the cut line, D2) or R. A6 came before A5c (the user,
    2026-10-12: A5b is tested well only once A6 proposes the model and its mappings). A5b is committed

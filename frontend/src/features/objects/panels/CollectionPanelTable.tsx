@@ -15,6 +15,7 @@ import { objectTypeFor } from "@/model/lookup";
 import type { ObjectItem } from "@/types";
 import { InlineError } from "@/ui/InlineError";
 import { TableDisplay, useTableDisplay } from "@/ui/TableDisplay";
+import { useCellEditing } from "@/features/objects/useCellEditing";
 import { ObjectTable } from "@/ui/ObjectTable";
 import { SortMenu, useTableSort } from "@/ui/TableSort";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
@@ -80,6 +81,8 @@ export function CollectionPanelTable({
       expand.join(" "),
     ],
   );
+  // Cells edited in place (0.10 A9): a save reloads the list where it is.
+  const cells = useCellEditing({ model, list: pages, readOnly: Boolean(readOnly), onChanged });
   const { error } = pages;
   const sorting = useTableSort({
     sort,
@@ -139,6 +142,7 @@ export function CollectionPanelTable({
           sorting={sorting}
           list={pages}
           pageSize={selectedPageSize}
+          renderCell={cells.renderCell}
           label={`${objectType.pluralName} of ${object.name}`}
           onOpen={(item) => onOpen(item.objectTypeKey, item.id, item.applicationKey)}
           renderActions={(item, menu) => (
@@ -152,6 +156,7 @@ export function CollectionPanelTable({
           )}
         />
       )}
+      {cells.dialogs}
       {creating && (
         <ObjectFormDialog
           model={model}

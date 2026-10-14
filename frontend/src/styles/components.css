@@ -1365,6 +1365,62 @@ th[aria-sort] {
 .table-wrap .row-actions {
   white-space: nowrap;
 }
+/* A list's cell edited in place (0.10 A9, D133): the value, then a pencil and a trash shown while
+   the pointer is over the cell itself, not the whole row (the user, 2026-10-15). They stand over the cell's end, so they take no width from the columns; on
+   touch they are always shown, after the value. */
+.cell-edit {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+.cell-edit-value {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cell-edit-actions {
+  position: absolute;
+  top: 50%;
+  right: -6px;
+  display: inline-flex;
+  padding-left: 14px;
+  transform: translateY(-50%);
+  background: linear-gradient(to right, transparent, var(--surface-sunken) 12px);
+  opacity: 0;
+  pointer-events: none;
+}
+td:hover .cell-edit-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+.cell-edit-actions .icon-button.icon-button-quiet {
+  width: 26px;
+  min-height: 26px;
+}
+.cell-edit-actions .icon-button:disabled {
+  visibility: hidden;
+}
+@media (hover: none) {
+  .cell-edit {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+  }
+  .cell-edit-actions {
+    position: static;
+    padding-left: 0;
+    transform: none;
+    background: none;
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+/* The open editor stands above the cells beside it (as A4a's cells do, `.cell-editor`). */
+td:has(.cell-editor) {
+  overflow: visible;
+  white-space: normal;
+}
 /* Icon actions repeated on every row (UA8): borderless and quiet until the row or the icon is
    hovered or focused; Delete turns red. The tooltip names the action. */
 /* Doubled class: wins over a container's link-style button rules (`.row-actions button`). */

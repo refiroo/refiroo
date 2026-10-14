@@ -221,6 +221,57 @@ export function isSingleValuedRelatedColumn(model: EngineModel, objectTypeKey: s
   return bindings.length === 1 && holdsOne(bindings[0], end);
 }
 
+/**
+ * Whether a record's relationship of this binding may be changed to another record (Change): the
+ * engine's set replacement refuses containment and required ownership, and nothing else (A9, D135).
+ */
+export function isReplaceable(model: EngineModel, relation: ObjectTypeRelationDefinition): boolean {
+  return !isManagedRelation(model, relation) && !isRequiredOwnership(relation);
+}
+
+/** What a row of a list may change in a `related:` column, edited in its cell (0.10 A9, D135–D137). */
+export interface RelatedCellEdit {
+  /** The column's relation type and the direction it reads. */
+  relationTypeKey: string;
+  direction: "outgoing" | "incoming";
+  /** The bindings behind the column, as relationship choices named by the column. */
+  choices: RelationChoice[];
+  /** The row holds at most one (D137): Set, Change and Delete; otherwise a many-valued edit. */
+  single: boolean;
+  /** A single relationship held may be deleted: no binding behind the column is required. */
+  removable: boolean;
+}
+
+/**
+ * How a row of `objectTypeKey` edits the `related:` column `field`, or `undefined` where it shows
+ * no icons: no binding of the row's type stands behind it, or one is containment (a record moves
+ * through Move, D132) or required ownership (the engine refuses its change).
+ */
+export function relatedCellEdit(model: EngineModel, objectTypeKey: string, field: string): RelatedCellEdit | undefined {
+  const column = relatedColumn(model, field);
+  if (!column) return undefined;
+  const end = column.direction === "outgoing" ? "from" : "to";
+  const bindings = model.objectTypeRelations.filter(
+    (relation) =>
+      relation.relationTypeKey === column.relationTypeKey &&
+      (end === "from" ? relation.fromObjectTypeKey : relation.toObjectTypeKey) === objectTypeKey,
+  );
+  if (!bindings.length || bindings.some((relation) => !isReplaceable(model, relation))) return undefined;
+  return {
+    relationTypeKey: column.relationTypeKey,
+    direction: column.direction,
+    choices: bindings.map((relation) => ({
+      direction: column.direction,
+      relation,
+      otherObjectTypeKey: end === "from" ? relation.toObjectTypeKey : relation.fromObjectTypeKey,
+      label: column.name,
+    })),
+    // As `isSingleValuedRelatedColumn`, also where the column shows a field of the related record.
+    single: bindings.length === 1 && holdsOne(bindings[0], end),
+    removable: bindings.every((relation) => !relation.required),
+  };
+}
+
 export function applicationFor(model: EngineModel, key: string) {
   return model.applications.find((item) => item.key === key);
 }

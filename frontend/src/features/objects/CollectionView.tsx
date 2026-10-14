@@ -28,6 +28,7 @@ import { BulkRelationDialog, hasBulkRelations } from "@/features/objects/BulkRel
 import { readMatching } from "@/lib/readMatching";
 import type { CollectionFilter, ObjectItem, TableViewDefinition } from "@/types";
 import type { ViewComponentProps } from "./views/types";
+import { useCellEditing } from "./useCellEditing";
 
 export function ObjectCollectionView({
   model,
@@ -153,6 +154,8 @@ export function ObjectCollectionView({
     { anchor: query.anchor, refreshToken },
   );
   const { loading, error } = pages;
+  // Cells edited in place (0.10 A9): a save reloads the list where it is.
+  const cells = useCellEditing({ model, list: pages, readOnly, onChanged });
   // The selection belongs to the list its search, filters and scope define (K1, D108).
   const listKey = JSON.stringify([query.search, query.filters, query.parentObjectId ?? null]);
   const selection = useRecordSelection(listKey, pages.items, bulkSelection?.maxItems ?? 0);
@@ -386,6 +389,7 @@ export function ObjectCollectionView({
                 {...menu}
               />
             )}
+            renderCell={cells.renderCell}
             label={`${view.name} table`}
             emptyIcon={<HueTile hue={hue} icon={objectType.icon} size={40} />}
             emptyMessage={
@@ -397,6 +401,7 @@ export function ObjectCollectionView({
             emptyAction={narrowed ? undefined : add}
           />
         )}
+        {cells.dialogs}
       </Card>
       {/* Kept open once opened: a delete empties the selection it acted on (D125). */}
       {bulkAction && bulkSelection && (

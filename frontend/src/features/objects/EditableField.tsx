@@ -9,14 +9,19 @@
  * its version, and an attribute the type binds and does not mark read-only, saved by the attribute
  * routes. Any other field (a computed or built-in one), and every field when read-only, is text.
  * Which field is open is the parent's state, so it can keep one editor open at a time.
+ *
+ * In a list's cell (`cell`, 0.10 A9, D133) a click on the value opens the record, so the value is
+ * not the control: the cell shows what the caller gives it, and a pencil (and, given `onRemove`, a
+ * trash) beside it, out of the tab order, which the cell shows on hover. The editor opens in the
+ * cell, above its neighbours; when it closes, focus goes to the row's link.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { attributeName, fieldValue } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
 import { formatValue } from "@/ui/formatValue";
-import { EditInPlaceValue } from "@/ui/EditInPlace";
+import { EditInPlaceCell, EditInPlaceValue } from "@/ui/EditInPlace";
 import type {
   AttributeTypeDefinition,
   EngineModel,
@@ -26,7 +31,7 @@ import type {
 } from "@/types";
 import { InlineAttributeEditor } from "./panels/InlineAttributeEditor";
 
-export type FieldLayout = "row" | "title" | "subtitle";
+export type FieldLayout = "row" | "title" | "subtitle" | "cell";
 
 /** The record's name as the editor takes a field: required text. */
 const NAME_ATTRIBUTE: AttributeTypeDefinition = {
@@ -99,6 +104,8 @@ export function EditableField({
   onClose,
   onSaved,
   onConflict,
+  display,
+  onRemove,
 }: {
   model: EngineModel;
   object: ObjectItem;
@@ -115,10 +122,15 @@ export function EditableField({
   onClose: () => void;
   onSaved: (object: ObjectItem) => void;
   onConflict: () => Promise<void>;
+  /** In a cell: the value as the list shows it. */
+  display?: ReactNode;
+  /** In a cell: removes the value (the caller confirms); offered where one is set and not required. */
+  onRemove?: () => void;
 }) {
   const api = useDataApi();
   const { changeSet, warning } = useWorkspaceData();
   const control = useRef<HTMLButtonElement>(null);
+  const cell = useRef<HTMLSpanElement>(null);
   const wasEditing = useRef(editing);
   const [saved, setSaved] = useState(false);
   const editable = fieldEditing(model, object, field, readOnly);
@@ -129,13 +141,18 @@ export function EditableField({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => {
-    if (wasEditing.current && !editing) requestAnimationFrame(() => control.current?.focus());
+    if (wasEditing.current && !editing)
+      requestAnimationFrame(() =>
+        layout === "cell"
+          ? cell.current?.closest("tr")?.querySelector<HTMLElement>("[data-row-focus]")?.focus()
+          : control.current?.focus(),
+      );
     wasEditing.current = editing;
   }, [editing]);
 
   if (editing && editable)
     return (
-      <div className={`field-editor field-editor-${layout}`}>
+      <div className={`field-editor field-editor-${layout}${layout === "cell" ? " cell-editor" : ""}`}>
         <InlineAttributeEditor
           object={object}
           binding={editable.binding}
@@ -175,6 +192,19 @@ export function EditableField({
 
   const name = editable.isName ? "Name" : attributeName(model, field);
   const empty = !editable.isName && !editable.stored;
+  if (layout === "cell")
+    return (
+      <EditInPlaceCell
+        cellRef={cell}
+        name={name}
+        record={object.name}
+        disabled={disabled || !!warning}
+        onEdit={onEdit}
+        onRemove={onRemove && !empty && !editable.binding.required ? onRemove : undefined}
+      >
+        {display}
+      </EditInPlaceCell>
+    );
   return (
     <>
       <EditInPlaceValue
