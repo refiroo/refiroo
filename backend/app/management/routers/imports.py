@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 from pydantic import Json
 from sqlalchemy.orm import Session
 
+from ...engine.imports.loads import last_loads
 from ...engine.imports.profiles import (
     create_profile,
     delete_profile,
@@ -53,15 +54,19 @@ def list_import_profiles(
     paging: PageQuery,
     page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
 ) -> ImportProfilePage:
-    """Import profiles in key order, each read under the active model release."""
+    """Import profiles in key order, each read under the active model release, with its last load
+    (0.10 A5c)."""
     page = profile_page(session, paging, page_size)
-    return import_profile_page(stored_page(session, page.items), page)
+    loads = last_loads(session, [profile.key for profile in page.items])
+    return import_profile_page(stored_page(session, page.items), page, loads)
 
 
 @router.get("/import-profiles/{profile_key}", response_model=ImportProfileResponse)
 def get_import_profile(profile_key: str, session: DbSession) -> ImportProfileResponse:
-    """A profile, with ``valid`` and ``problems`` under the active model release."""
-    return import_profile_response(read_profile(session, profile_key))
+    """A profile, with ``valid`` and ``problems`` under the active model release, and its last
+    load: the latest import naming it and what became of what it loaded (0.10 A5c)."""
+    found = read_profile(session, profile_key)
+    return import_profile_response(found, last_loads(session, [found.profile.key]).get(profile_key))
 
 
 @write_router.post("/import-profiles", response_model=ImportProfileResponse, status_code=201)
@@ -80,7 +85,8 @@ def update_import_profile(
 ) -> ImportProfileResponse:
     """Replace a profile at ``expectedVersion`` (``409 IMPORT_PROFILE_VERSION_CONFLICT`` naming
     the current version otherwise); checked as a new one is."""
-    return import_profile_response(update_profile(session, profile_key, payload))
+    found = update_profile(session, profile_key, payload)
+    return import_profile_response(found, last_loads(session, [found.profile.key]).get(profile_key))
 
 
 @write_router.delete("/import-profiles/{profile_key}", status_code=204)

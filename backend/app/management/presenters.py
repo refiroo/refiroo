@@ -520,9 +520,12 @@ def _utc_or_none(value: datetime | None) -> datetime | None:
     return as_utc(value) if value is not None else None
 
 
-def import_profile_response(found: StoredProfile) -> ImportProfileResponse:
+def import_profile_response(
+    found: StoredProfile, last_load: dict[str, Any] | None = None
+) -> ImportProfileResponse:
     profile = found.profile
     return ImportProfileResponse(
+        lastLoad=last_load,
         key=profile.key,
         name=profile.name,
         version=profile.version,
@@ -535,5 +538,10 @@ def import_profile_response(found: StoredProfile) -> ImportProfileResponse:
     )
 
 
-def import_profile_page(found: list[StoredProfile], page: Page[Any]) -> ImportProfilePage:
-    return ImportProfilePage(items=[import_profile_response(item) for item in found], **page.links())
+def import_profile_page(
+    found: list[StoredProfile], page: Page[Any], last_loads: dict[str, dict[str, Any]]
+) -> ImportProfilePage:
+    return ImportProfilePage(
+        items=[import_profile_response(item, last_loads.get(item.profile.key)) for item in found],
+        **page.links(),
+    )

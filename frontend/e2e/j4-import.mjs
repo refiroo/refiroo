@@ -10,8 +10,8 @@
 // 6. The file corrected and sent again: rows already loaded preview as unchanged (D94).
 // 7. All or nothing: the same kind of file previews as loading nothing; Cancel import ends it and
 //    nothing changed.
-// 8. New import on Jobs and feed into a change set, an XLSX file; leaving the page, Preview ready's
-//    Review brings the user back; after a reload Jobs and feed opens the waiting import; loaded, the
+// 8. New import on Jobs into a change set, an XLSX file; leaving the page, Preview ready's
+//    Review brings the user back; after a reload Jobs opens the waiting import; loaded, the
 //    change set shows the records.
 // 9. A file over IMPORT_MAX_BYTES (lowered for the run) refused at the file field.
 // Axe on the dialog, the waiting and the loaded job page and the Preview ready notification, light
@@ -254,7 +254,7 @@ try {
   expect(leftover.items.length === 0, `atomic: ${leftover.items.length} records written by a cancelled preview`);
   checks.push("all or nothing previews as writing nothing; Cancel import ends it and nothing was written");
 
-  // 8. New import on Jobs and feed into a change set, XLSX; leave and come back.
+  // 8. New import on Jobs into a change set, XLSX; leave and come back.
   const changeSet = await api("/workspaces/default/change-sets", { name: "J4 import", source: "currentLive" });
   const workbook = xlsxFile("sc10-systems.xlsx", files.systems("J4D", true));
   await page.goto(`${uiUrl}/settings/jobs`);
@@ -273,7 +273,7 @@ try {
   await page.getByRole("heading", { level: 1, name: "Import of sc10-systems.xlsx" }).waitFor();
   const jobId = page.url().split("/").at(-1);
   // Leave at once; the notification brings the user back.
-  await page.getByRole("link", { name: "Jobs and feed" }).first().click();
+  await page.getByRole("link", { name: "Jobs", exact: true }).first().click();
   const ready = toasts.locator(".toast", { hasText: "Import of sc10-systems.xlsx: the preview is ready." });
   await ready.waitFor({ timeout: 30000 });
   let result = await runAxe(page, [], "j4-notification-light");
@@ -291,7 +291,7 @@ try {
   await page.locator(".record-collection").getByText("J4D New system").first().waitFor();
   const live = await api("/objects/system?workspaceKey=default&search=J4D&pageSize=5");
   expect(live.items.length === 0, "change set: the import reached live data");
-  checks.push("New import from Jobs and feed into a change set (XLSX): left, Review brought the user back, reopened from Jobs and feed after a reload, loaded into the change set only");
+  checks.push("New import from Jobs into a change set (XLSX): left, Review brought the user back, reopened from Jobs after a reload, loaded into the change set only");
 
   // 10. The export of one workspace previewed into another. Refused (0.9 J4a): the page says why rows
   // cannot load, and each refused row names the workspace its record belongs to. Loaded as this
@@ -395,7 +395,7 @@ try {
     // Loaded while the user is elsewhere: the completed notification, then View job.
     await queueAhead(`J4${theme === "light" ? "M" : "N"}`);
     await page.getByRole("button", { name: "Load the file" }).click();
-    await page.getByRole("link", { name: "Jobs and feed" }).first().click();
+    await page.getByRole("link", { name: "Jobs", exact: true }).first().click();
     const completed = toasts.locator(".toast", { hasText: "completed." }).last();
     await completed.waitFor({ timeout: 60000 });
     result = await runAxe(page, [], `j4-notification-${theme}`);

@@ -4,7 +4,7 @@
 // from the settings navigation (the rail, or the drawer at 390px); each API's base URL, read from the
 // page, answering on the consumer API, and its routes as its document states them; a route's link
 // opening /docs on that operation; the starter's XREF finding a record; a background batch submitted through the API listed
-// on Jobs and feed and cancelled there by keyboard, the API then reporting it cancelled; the API
+// on Jobs and cancelled there by keyboard, the API then reporting it cancelled; the API
 // reference page's sources; axe on the three pages; screenshots light and dark.
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -39,7 +39,7 @@ const SECOND = {
 
 const PAGES = [
   ["Consumer APIs", "/settings/consumer-apis", (page) => page.getByRole("region", { name: "RDM API · v1" })],
-  ["Jobs and feed", "/settings/jobs", (page) => page.getByRole("region", { name: "Limits" }).getByText("Chunk")],
+  ["Jobs", "/settings/jobs", (page) => page.getByRole("region", { name: "Limits" }).getByText("Chunk")],
   ["API reference", "/settings/api-reference", (page) => page.getByRole("group", { name: "API reference sources" })],
 ];
 
@@ -82,7 +82,7 @@ try {
       await shot(`u4-${address.split("/").at(-1)}-${suffix}`);
     }
     checks.push(
-      `${suffix}: Consumer APIs, Jobs and feed and API reference open from the settings navigation, no horizontal scroll`,
+      `${suffix}: Consumer APIs, Jobs and API reference open from the settings navigation, no horizontal scroll`,
     );
   }
 
@@ -140,7 +140,7 @@ try {
   );
   checks.push("the second API's Batch resolve link opens the reference on its source, scrolled to that operation");
 
-  // 3. Jobs and feed: a background batch submitted through the API is listed; one queued behind a
+  // 3. Jobs: a background batch submitted through the API is listed; one queued behind a
   //    large one is cancelled from the page by keyboard, and the API reports it cancelled.
   const items = (prefix, count) =>
     Array.from({ length: count }, (_, n) => ({
@@ -184,7 +184,7 @@ try {
   await page.getByRole("button", { name: "Refresh" }).click();
   await row.getByText("Cancelled").waitFor();
   checks.push(
-    `Jobs and feed lists both submitted jobs; the queued one cancelled by keyboard (Enter, Tab, Enter) shows Cancel requested, then Cancelled after Refresh, and GET /jobs/{id} reads ${final.state}`,
+    `Jobs lists both submitted jobs; the queued one cancelled by keyboard (Enter, Tab, Enter) shows Cancel requested, then Cancelled after Refresh, and GET /jobs/{id} reads ${final.state}`,
   );
 
   // 4. API reference: the management source and both consumer sources, each linked to its source.

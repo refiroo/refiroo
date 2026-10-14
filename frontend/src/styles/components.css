@@ -4692,3 +4692,15 @@ form.map-column .dialog-actions {
 .error-boundary {
   padding: var(--space-4);
 }
+/* A trail's links (a Settings page's list, 0.10 A5c) read as its buttons do. */
+.breadcrumbs a {
+  color: var(--text-tertiary);
+  text-decoration: none;
+}
+.breadcrumbs a:hover {
+  color: var(--action-primary);
+  text-decoration: underline;
+}
+.settings-page > .breadcrumbs {
+  margin-bottom: var(--space-1);
+}

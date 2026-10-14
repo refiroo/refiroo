@@ -173,7 +173,7 @@ describe("ImportDialog (0.9 J4)", () => {
     expect(screen.getByLabelText("Profile")).toHaveAttribute("aria-invalid", "true");
   });
 
-  it("from Jobs and feed, loads into a chosen workspace's change set at its version (D89)", async () => {
+  it("from Jobs, loads into a chosen workspace's change set at its version (D89)", async () => {
     vi.mocked(api.workspaces).mockResolvedValue({
       items: [
         { key: "west", label: "West", status: "active", version: 1, createdAt: "", updatedAt: "" },

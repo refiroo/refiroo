@@ -4,6 +4,16 @@ import { domainObject, testModel } from "@/test/fixtures";
 import type { RouteState } from "@/types";
 import { changeReviewFor, defaultRoute, parseRoute, routePath } from "@/routing/routes";
 
+describe("Import profiles (0.10 A5c)", () => {
+  it("opens from its address and from the old Imports address, and writes the new one", () => {
+    for (const path of ["/settings/import-profiles/items", "/settings/imports/items"]) {
+      const route = parseRoute(testModel, "default", { pathname: path, search: "" });
+      expect(route).toEqual({ kind: "settings", page: "import-profiles", profileKey: "items" });
+      expect(routePath(route)).toBe("/settings/import-profiles/items");
+    }
+  });
+});
+
 describe("routes", () => {
   const at = (path: string) =>
     parseRoute(testModel, "default", {

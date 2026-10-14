@@ -85,7 +85,7 @@ a file uploaded to a stored profile is checked by a `profileCheck` job, writing 
 new, missing and renamed, the profile against the active release, the dry run, new values, name
 drift, records missing from the file; `GET /import-profiles/{key}/check` and its lists); a source's
 `missing: delete` deletes them in a change set only, each with its own relationships (D104); a
-lookup onto a single-valued relation replaces (D105); **Settings › Integration › Imports** with a
+lookup onto a single-valued relation replaces (D105); **Settings › Data operations › Import profiles** with a
 profile's page to upload, check, accept a rename, ignore a column and load into a change set whose
 review holds only the differences. Measuring the check at 10,000 rows found two defects, fixed: the
 check locked itself out at the binding's first lease renewal, and the 0.9 binding's lookup by key

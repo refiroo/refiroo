@@ -121,7 +121,11 @@ function settingsRoute(parts: string[], query: URLSearchParams): SettingsRoute |
   if (isSinglePage(page)) return { kind: "settings", page };
   if (page === "workspaces") return kind ? { kind: "settings", page, workspaceKey: kind } : { kind: "settings", page };
   if (page === "jobs") return kind ? { kind: "settings", page, jobId: kind } : { kind: "settings", page };
-  if (page === "imports") return kind ? { kind: "settings", page, profileKey: kind } : { kind: "settings", page };
+  // Import profiles were "Imports" until 2026-10-14; the old address opens the same page.
+  if (page === "import-profiles" || page === "imports")
+    return kind
+      ? { kind: "settings", page: "import-profiles", profileKey: kind }
+      : { kind: "settings", page: "import-profiles" };
   if (page === "webhooks") {
     if (!kind) return { kind: "settings", page };
     if (id !== "deliveries") return { kind: "settings", page, subscriptionId: kind };
@@ -178,7 +182,8 @@ function settingsPath(route: SettingsRoute) {
     return route.eventId ? `${opened}/${encodeURIComponent(route.eventId)}` : opened;
   }
   if (route.page === "jobs" && route.jobId) return `/settings/jobs/${encodeURIComponent(route.jobId)}`;
-  if (route.page === "imports" && route.profileKey) return `/settings/imports/${encodeURIComponent(route.profileKey)}`;
+  if (route.page === "import-profiles" && route.profileKey)
+    return `/settings/import-profiles/${encodeURIComponent(route.profileKey)}`;
   if (route.page === "model" && route.draftId && route.editor) {
     const base = `/settings/model/drafts/${encodeURIComponent(route.draftId)}/editor`;
     const { show } = route.editor;

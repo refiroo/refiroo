@@ -1,8 +1,8 @@
 /**
- * Settings › Integration › Jobs and feed (Track U U4): the jobs of every workspace, newest first
+ * Settings › Data operations › Jobs (Track U U4; under Data operations since 0.10 A5c): the jobs of every workspace, newest first
  * (`GET /jobs`), with their state and outcome counts, and a cancel for a queued or running job while
- * jobs can be created (`POST /jobs/{id}/cancel`, J24.2); then the job limits and the change feed's
- * retention from `GET /capabilities`. Each job opens its own page, and New export starts an export
+ * jobs can be created (`POST /jobs/{id}/cancel`, J24.2); then the job limits from `GET /capabilities`
+ * (the change feed's retention is on Consumer APIs). Each job opens its own page, and New export starts an export
  * of any types of a workspace (0.9 J1u, D57, D62). New import loads a file into a workspace's live
  * data or one of its change sets, and opens the import's page (0.9 J4, D89, D91).
  */
@@ -100,8 +100,8 @@ function JobList({ model, onNavigate }: { model: EngineModel; onNavigate: (route
 
   return (
     <SettingsLayout
-      eyebrow="Integration"
-      title="Jobs and feed"
+      eyebrow="Data operations"
+      title="Jobs"
       description="Bulk writes, imports and exports run as jobs. Jobs of every workspace are listed newest first; finished jobs are kept for the retention below."
       actions={
         canCancel && (

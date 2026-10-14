@@ -143,30 +143,26 @@ export function ProfileCheckReport({
                 </li>
               )}
               <li>
-                <span>
-                  Missing from the file
+                <span>Missing from the file</span>
+                <span className="check-figure">
                   {source.missingRecords > 0 && (
-                    <>
-                      {" "}
-                      ·{" "}
-                      <button
-                        type="button"
-                        className="link-button"
-                        onClick={() =>
-                          onOpen({
-                            kind: "list",
-                            list: "missing-records",
-                            source: source.source ?? 0,
-                            title: `Records missing from the file · ${typeName(source.objectTypeKey)}`,
-                          })
-                        }
-                      >
-                        Rows
-                      </button>
-                    </>
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() =>
+                        onOpen({
+                          kind: "list",
+                          list: "missing-records",
+                          source: source.source ?? 0,
+                          title: `Records missing from the file · ${typeName(source.objectTypeKey)}`,
+                        })
+                      }
+                    >
+                      Show rows
+                    </button>
                   )}
+                  <strong>{count(source.missingRecords)}</strong>
                 </span>
-                <strong>{count(source.missingRecords)}</strong>
               </li>
               <li className="check-choice">
                 <label>
@@ -202,23 +198,19 @@ export function ProfileCheckReport({
           ))}
           {check.dryRun && (
             <li>
-              <span>
-                Dry run · all {count(check.dryRun.rows.total)} rows
+              <span>Dry run · all {count(check.dryRun.rows.total)} rows</span>
+              <span className="check-figure">
                 {refused > 0 && (
-                  <>
-                    {" "}
-                    ·{" "}
-                    <button
-                      type="button"
-                      className="link-button"
-                      onClick={() => onOpen({ kind: "rows", source: 0, title: "Rows the load would refuse" })}
-                    >
-                      Rows
-                    </button>
-                  </>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => onOpen({ kind: "rows", source: 0, title: "Rows the load would refuse" })}
+                  >
+                    Show rows
+                  </button>
                 )}
+                <span>{count(refused)} refused</span>
               </span>
-              <span>{count(refused)} refused</span>
             </li>
           )}
         </ul>
@@ -346,10 +338,10 @@ function SourceValues({
           </span>
           <button
             type="button"
-            className="link-button"
+            className="secondary"
             onClick={() => onOpen({ kind: "list", list: "new-values", source: at, title: "New values" })}
           >
-            Rows
+            Show rows
           </button>
         </li>
       )}
@@ -363,10 +355,10 @@ function SourceValues({
         {source.drift > 0 && (
           <button
             type="button"
-            className="link-button"
+            className="secondary"
             onClick={() => onOpen({ kind: "list", list: "drift", source: at, title: "Names that drifted" })}
           >
-            Rows
+            Show rows
           </button>
         )}
       </li>

@@ -438,7 +438,7 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   - [x] A5b the editor with a workbook: source pane, a column's mapping, Map to…, the dry-run
     drawer, Load (committed 2026-10-12; its open points settled in A6).
   - [x] A6 inference over the table patterns (A6a 2026-10-12, A6b 2026-10-14).
-  - [ ] A5c the next version of a workbook: the profile check, missing records, Settings › Imports
+  - [ ] A5c the next version of a workbook: the profile check, missing records, Settings › Import profiles
     (built 2026-10-14; delivered when the user approves its screenshots).
   - [x] A5c: the check of W1′ at 10,000 rows stopped at binding's first lease renewal (the check's
     own lock on its job row) and the binding's key lookup took 21.9 s against 10,000 records; both

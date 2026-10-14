@@ -141,10 +141,12 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # DryRun* summary schemas into the default document; Source's optional missing (D82),
     # BindingReportSource's missingRecords and the job kind profileCheck on JobResponse and the job
     # list's kind filter. Diffed against HEAD, nothing else changed (POST …/check is registered with
-    # integration jobs, off in the default document).
+    # integration jobs, off in the default document). Re-baselined for A5c's last load: a profile's
+    # lastLoad (ImportProfileLastLoad, ImportLoadCounts) and the two read routes' descriptions;
+    # diffed against the previous commit, nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "29c33bea0572dac7185f4738a32925a15022e8175173d4ccebade7873393cb20"
+        "7cbfcc8107353072a02264ab47c43ef35bb38ec8177e96d5bf5eb3aed1a1a61d"
     )
 
 

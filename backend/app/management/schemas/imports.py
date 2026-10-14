@@ -20,6 +20,32 @@ class ImportProfileProblem(BaseModel):
     message: str
 
 
+class ImportLoadCounts(BaseModel):
+    created: int
+    updated: int
+    deleted: int
+    rejected: int
+
+
+class ImportProfileLastLoad(BaseModel):
+    """The latest import naming the profile (0.10 A5c) and what became of what it loaded:
+    ``live`` (loaded into live data), ``inChangeSet`` (its change set still holds it),
+    ``published`` (``publicationId``) or ``discarded`` (its change set is gone and no publication
+    of it is on record); null until the job completes. A job past its retention is not found."""
+
+    jobId: str
+    state: str
+    fileName: str | None
+    sourceFileId: str | None = Field(description="The stored source file it read; null for a file sent with the import")
+    workspaceKey: str
+    changeSetId: str | None
+    createdAt: datetime
+    finishedAt: datetime | None
+    counts: ImportLoadCounts
+    outcome: Literal["live", "inChangeSet", "published", "discarded"] | None
+    publicationId: str | None
+
+
 class ImportProfileResponse(BaseModel):
     """A stored profile. ``checkedAgainst`` is the release it was saved against; ``valid`` and
     ``problems`` say how it reads under the active release, so a profile a later release broke
@@ -29,6 +55,7 @@ class ImportProfileResponse(BaseModel):
     name: str
     version: int
     checkedAgainst: str
+    lastLoad: ImportProfileLastLoad | None = None
     valid: bool
     problems: list[ImportProfileProblem]
     createdAt: datetime

@@ -927,7 +927,7 @@ both designer models).
 
 ### J35 — Load the next version of a workbook
 
-**Actor:** model administrator; data steward. **Channel:** UI (Settings › Imports), API.
+**Actor:** model administrator; data steward. **Channel:** UI (Settings › Data operations › Import profiles), API.
 **Stories:** US-P10. **Status:** delivered (0.10 A5c).
 
 1. Upload the next version of a workbook to its saved profile.
@@ -949,7 +949,7 @@ both designer models).
 MISSING_DELETE_NEEDS_CHANGE_SET` for a live load that deletes; `404 PROFILE_CHECK_NOT_FOUND`.
 
 **Evidence today:** `backend/tests/journeys/test_j35_next_version.py` (J35.1–J35.3, two
-configurations); `test:browser:authoring-a5`'s A5c walk (Settings › Imports, W1′ checked, a rename
+configurations); `test:browser:authoring-a5`'s A5c walk (Settings › Import profiles, W1′ checked, a rename
 accepted, a column ignored, loaded, the review holding only the differences, both designer models).
 
 ## Integration
@@ -1156,8 +1156,8 @@ single writes' codes.
 
 ### J24 — Run a large background job and recover
 
-**Actor:** integrator; exchange operator. **Channel:** API; UI (Settings › Integration › Jobs and
-feed lists jobs and cancels a queued or running one, 0.9 U4). **Stories:** US-I03, US-I04.
+**Actor:** integrator; exchange operator. **Channel:** API; UI (Settings › Data operations › Jobs
+lists jobs and cancels a queued or running one, 0.9 U4). **Stories:** US-I03, US-I04.
 **Scenario:** SC-10. **Status:** delivered (0.9 B2).
 
 1. Submit a batch to run in the background; receive the queued job.
@@ -1339,7 +1339,7 @@ through the API delivered in 0.9 J2, its preview and confirmation in 0.9 J3, and
   the counts, the result under the policy, the refused rows with each failing cell and the binding
   report, then **Load the file** or **Cancel import**, then the result. Refused rows are corrected
   in the file and the file sent again: rows already loaded come back unchanged. A user who left is
-  brought back by Preview ready, or by Jobs and feed.
+  brought back by Preview ready, or by Jobs.
 
 **Refusals:** `422 INVALID_QUERY`, `422 AS_OF_NOT_SUPPORTED`, `422 WORKSPACE_CONTEXT_MISMATCH`,
 `404 PARENT_NOT_FOUND`, `404 WORKSPACE_NOT_FOUND`, `404 CHANGE_SET_NOT_FOUND`,

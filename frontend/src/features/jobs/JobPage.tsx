@@ -21,6 +21,7 @@ import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { DescriptionList, type DescriptionItem } from "@/ui/DescriptionList";
 import { InlineError } from "@/ui/InlineError";
 import { Notice } from "@/ui/Notice";
+import { Breadcrumbs } from "@/ui/Breadcrumbs";
 import { RouteLink } from "@/ui/RouteLink";
 import { Section } from "@/ui/Section";
 import { SettingsLayout } from "@/ui/SettingsLayout";
@@ -116,14 +117,24 @@ export function JobPage({
     }
   }
 
-  const back = (
-    <RouteLink href={jobsHref} onNavigate={onJobs}>
-      Jobs and feed
-    </RouteLink>
+  const back = (page: string) => (
+    <Breadcrumbs
+      items={[
+        {
+          key: "list",
+          content: (
+            <RouteLink href={jobsHref} onNavigate={onJobs}>
+              Jobs
+            </RouteLink>
+          ),
+        },
+        { key: "page", content: page, current: true },
+      ]}
+    />
   );
   if (error) {
     return (
-      <SettingsLayout eyebrow={back} title="Job">
+      <SettingsLayout trail={back("Job")} title="Job">
         <InlineError
           message={error}
           onRetry={() => {
@@ -136,7 +147,7 @@ export function JobPage({
   }
   if (!job) {
     return (
-      <SettingsLayout eyebrow={back} title="Job">
+      <SettingsLayout trail={back("Job")} title="Job">
         <Skeleton label="Loading the job" lines={6} />
       </SettingsLayout>
     );
@@ -150,7 +161,7 @@ export function JobPage({
   const waitingName = imported ? "import" : "preview";
   return (
     <SettingsLayout
-      eyebrow={back}
+      trail={back(jobTitle(model, job))}
       title={jobTitle(model, job)}
       description={<code>{job.id}</code>}
       actions={

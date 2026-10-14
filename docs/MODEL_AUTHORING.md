@@ -431,7 +431,7 @@ Groups have one level, and the group page shows no record counts. Both are non-b
   records depend on is refused for a person to decide (D104).
 - A lookup onto a relation a record holds one of replaces it, so a value changed in the next version
   switches the record rather than adding a second one (D105).
-- The differences are a check job on the profile's next file, read from Settings › Imports (D83,
+- The differences are a check job on the profile's next file, read from Settings › Import profiles (D83,
   D85); a renamed column is accepted there, which updates the profile.
 - Matching across files (the model-description workbook and the flat table naming the same records)
   uses IDs or codes, never names alone; differing names are drift to resolve.

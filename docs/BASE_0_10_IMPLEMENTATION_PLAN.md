@@ -2739,6 +2739,25 @@ its screenshots** (step 3). What is built:
 8. **Test order:** the J35 cases were written after the code, not seen failing first (step 5); the
    lease regression was.
 
+**Revised after the user's run on the development server (2026-10-14):** a profile installed from
+a draft and loaded from the editor read "None uploaded to the profile" and "no file uploaded yet",
+which counted only files uploaded to the profile; the profile's answer now carries `lastLoad`
+(`engine/imports/loads.py`: the latest import naming it, and its change set open, published (the
+publication's audit entry) or discarded), shown in the list and on the page (J35.1–J35.2 cover
+published, in a change set and discarded). The list and the page's bare links were the user's
+second point: Imports became a catalogue (`CatalogueLayout`, as Workspaces, Model and Webhooks)
+with the profile beside it, buttons for its actions and its rows; the record page's breadcrumbs
+became `ui/Breadcrumbs`, used by a job's page too (Jobs and feed › the job), and `SettingsLayout`
+takes a `trail`. Then, at the user's request, a settings group **Data operations** (Imports, Jobs) ahead of
+Integration, and Imports renamed **Import profiles** (`/settings/import-profiles`, the old address
+still opening it), since Jobs › New import is the other, one-off import; Jobs and feed renamed Jobs, its feed retention moved to Consumer APIs (Deployment keeps
+both); `test:browser:settings` had not listed Imports in its keyboard order since A5c added it, and
+now lists the new order. Checks after the revision: J35 8 passed; J27 with the contract checks 67 passed
+(the OpenAPI lock re-baselined for `lastLoad`, diffed against `96b6f4e`); Vitest `settings`,
+`jobs`, `objects`, `ui`, `app` 435 passed; `test:browser:authoring-a5` 24 checks (it now opens the
+profile from the catalogue and reads its last load, with axe on the profile's page) and
+`test:browser:j1u` 12 checks; ruff, tsc, format and lint clean.
+
 **Budget** (measured once, generated-a, this laptop): W1′ at 10,000 rows uploaded to a profile whose
 workspace holds W1's 10,000 items: profiling 6.1 s, then the check job 10.1 s (prepare 0.1 s,
 binding 2.4 s, the preview of 40,107 items 6.1 s, recording 1.5 s). Two earlier attempts were

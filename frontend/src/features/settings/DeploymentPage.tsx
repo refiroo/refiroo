@@ -15,7 +15,7 @@ import { SettingsLayout } from "@/ui/SettingsLayout";
 import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
-import { bytes, count, jobLimitItems } from "./limits";
+import { bytes, count, feedRetentionItem, jobLimitItems } from "./limits";
 import { useCapabilities, useSystem } from "./useSystem";
 
 const GROUPS: { group: SystemSetting["group"]; title: string }[] = [
@@ -149,6 +149,7 @@ function capabilityGroups(capabilities: CapabilitiesResponse) {
       scope: "Creating and cancelling batch jobs. Job reads stay available when it is off.",
       limits: [
         ...jobLimitItems(capabilities),
+        feedRetentionItem(capabilities),
         { term: "Consumer batch resolve", value: `${count(capabilities.consumerApi.resolveMaxItems)} items` },
       ],
     },

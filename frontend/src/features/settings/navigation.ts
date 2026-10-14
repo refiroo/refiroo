@@ -27,12 +27,19 @@ export const SETTINGS_NAVIGATION: SettingsGroup[] = [
     ],
   },
   {
+    // Work done on the data rather than configuration: loading workbooks and following jobs (the
+    // user, 2026-10-14). They are not settings either, and move out of Settings together later.
+    label: "Data operations",
+    pages: [
+      { page: "import-profiles", label: "Import profiles" },
+      { page: "jobs", label: "Jobs" },
+    ],
+  },
+  {
     label: "Integration",
     pages: [
       { page: "consumer-apis", label: "Consumer APIs" },
-      { page: "imports", label: "Imports" },
       { page: "webhooks", label: "Webhooks" },
-      { page: "jobs", label: "Jobs and feed" },
       { page: "api-reference", label: "API reference" },
     ],
   },

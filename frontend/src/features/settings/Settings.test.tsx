@@ -108,7 +108,7 @@ describe("SettingsShell", () => {
       within(navigation)
         .getAllByRole("heading")
         .map((heading) => heading.textContent),
-    ).toEqual(["General", "Administration", "Integration"]);
+    ).toEqual(["General", "Administration", "Data operations", "Integration"]);
     expect(
       within(navigation)
         .getAllByRole("link")
@@ -119,10 +119,10 @@ describe("SettingsShell", () => {
       "Workspaces",
       "Model",
       "Deployment",
+      "Import profiles",
+      "Jobs",
       "Consumer APIs",
-      "Imports",
       "Webhooks",
-      "Jobs and feed",
       "API reference",
     ]);
     expect(within(navigation).getByRole("link", { name: "Deployment" })).toHaveAttribute("aria-current", "page");

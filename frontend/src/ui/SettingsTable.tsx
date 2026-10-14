@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 /**
- * A ruled table of a settings page (Deployment, Jobs and feed, API reference): the first cell of a
+ * A ruled table of a settings page (Deployment, Jobs, API reference): the first cell of a
  * row is its head. Focusable, so a table wider than the page scrolls from the keyboard; at phone
  * width each row stacks, its values under their column's name (`data-label` on each cell).
  */

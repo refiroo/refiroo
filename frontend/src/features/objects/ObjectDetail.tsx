@@ -27,6 +27,7 @@ import { RecordChip } from "@/ui/RecordChip";
 import { PageHeader } from "@/ui/PageHeader";
 import { panelComponentRegistry } from "./panels/registry";
 import type { PanelProps } from "./panels/types";
+import { Breadcrumbs } from "@/ui/Breadcrumbs";
 import { Card } from "@/ui/Card";
 
 /**
@@ -308,27 +309,28 @@ export function ObjectDetail({
         </div>
       )}
       <div className="record-header" data-hue={hue}>
-        <nav className="breadcrumbs" aria-label="Breadcrumb">
-          <ol>
-            {detail.breadcrumbs.showApplication && (
-              <li>
-                <button onClick={onBack}>{application.name}</button>
-              </li>
-            )}
-            {detail.breadcrumbs.showAncestors &&
-              object.path.slice(0, -1).map((part) => (
-                <li key={part.id}>
-                  <RecordChip
-                    hue={objectTypeHue(model, part.objectTypeKey)}
-                    onOpen={() => onOpen(part.objectTypeKey, part.id)}
-                  >
-                    {part.name}
-                  </RecordChip>
-                </li>
-              ))}
-            {detail.breadcrumbs.showObjectType && <li aria-current="location">{objectType.name}</li>}
-          </ol>
-        </nav>
+        <Breadcrumbs
+          items={[
+            detail.breadcrumbs.showApplication && {
+              key: "application",
+              content: <button onClick={onBack}>{application.name}</button>,
+            },
+            ...(detail.breadcrumbs.showAncestors
+              ? object.path.slice(0, -1).map((part) => ({
+                  key: part.id,
+                  content: (
+                    <RecordChip
+                      hue={objectTypeHue(model, part.objectTypeKey)}
+                      onOpen={() => onOpen(part.objectTypeKey, part.id)}
+                    >
+                      {part.name}
+                    </RecordChip>
+                  ),
+                }))
+              : []),
+            detail.breadcrumbs.showObjectType && { key: "type", content: objectType.name, current: true },
+          ]}
+        />
         <PageHeader
           variant="detail"
           onContextMenu={(event) => {

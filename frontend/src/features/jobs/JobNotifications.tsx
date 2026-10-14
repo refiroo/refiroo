@@ -29,7 +29,7 @@ interface JobNotifications {
   follow: (job: Job, options?: { announce?: boolean }) => void;
   /** Hear of each followed job that ends; returns the way to stop listening. */
   onEnded: (listener: EndedListener) => () => void;
-  /** Open a job's page in Settings › Jobs and feed, with its address for a link. */
+  /** Open a job's page in Settings › Jobs, with its address for a link. */
   view: { href: (job: Pick<Job, "id">) => string; open: (job: Pick<Job, "id">) => void };
 }
 

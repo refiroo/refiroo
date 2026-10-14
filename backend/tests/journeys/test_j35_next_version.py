@@ -127,6 +127,9 @@ def test_the_next_version_is_checked_before_anything_loads(world, monkeypatch):
     first lease renewal, which waited for the check's own lock on its job row. The renewal comes
     every ``CHECK_ROWS`` rows, here every 50, so 200 rows reach it."""
     workspace, profile_key, book = _loaded(world)
+    # The profile's last load is W1's, into a change set since published.
+    last = ok(world.api.get(f"/import-profiles/{profile_key}"))["lastLoad"]
+    assert (last["outcome"], last["counts"]["created"] > 0, last["publicationId"] is not None) == ("published", True, True)
     monkeypatch.setattr(import_binding, "CHECK_ROWS", 50)
     following = workbooks.w1_next(rows=200)
     ok(
@@ -207,6 +210,8 @@ def test_records_missing_from_the_next_version_are_kept_or_deleted_in_a_change_s
     review = _all(world, f"/change-sets/{kept['id']}/object-changes", objectTypeKey="j34-item")
     assert {item["kind"] for item in review} == {"added", "changed"}
     assert sum(item["kind"] == "added" for item in review) == 3
+    last = ok(world.api.get(f"/import-profiles/{profile_key}"))["lastLoad"]
+    assert (last["outcome"], last["changeSetId"], last["sourceFileId"]) == ("inChangeSet", kept["id"], source_id)
 
     _accept_rename(world, profile_key, book.header("Ln"), following.header("Ln"), missing="delete")
     refused(_load(world, workspace, profile_key, source_id, None), 422, "MISSING_DELETE_NEEDS_CHANGE_SET")
@@ -217,6 +222,11 @@ def test_records_missing_from_the_next_version_are_kept_or_deleted_in_a_change_s
     review = _all(world, f"/change-sets/{deleting['id']}/object-changes", objectTypeKey="j34-item")
     removed = [item for item in review if item["kind"] == "removed"]
     assert sorted(item["before"]["name"] for item in removed) == sorted(row["N"] for row in book.rows[:2])
+    # Discarded, its load is gone: the profile says so rather than showing it as pending.
+    version = ok(world.api.get(f"/change-sets/{deleting['id']}"))["version"]
+    ok(world.api.delete(f"/change-sets/{deleting['id']}", expectedVersion=version), 204)
+    listed = next(p for p in _all(world, "/import-profiles") if p["key"] == profile_key)
+    assert listed["lastLoad"]["outcome"] == "discarded"
     assert _items(world, workspace) == len(book.rows)
 
 

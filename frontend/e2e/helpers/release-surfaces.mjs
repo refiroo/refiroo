@@ -46,7 +46,7 @@ export async function visitReleaseSurfaces(visit) {
       for (const button of await page.locator(".toast-dismiss").all()) await button.click();
     };
     // What differs from run to run: the receiver's port, times, IDs (whole or shortened), an export's
-    // checksum, and the jobs listed on Jobs and feed (their times, IDs and how far each has run).
+    // checksum, and the jobs listed on Jobs (their times, IDs and how far each has run).
     const varying = () => [
       page.getByText(/127\.0\.0\.1|\d{1,2}\/\d{1,2}\/\d{4}|^[0-9a-f]{8}(-|…)|^[0-9a-f]{64}$/),
       page.getByRole("row").filter({ hasText: /processed/ }),
@@ -237,7 +237,7 @@ export async function visitReleaseSurfaces(visit) {
         "import-notification",
         async () => {
           await page.getByRole("button", { name: "Load the file" }).click();
-          await page.getByRole("link", { name: "Jobs and feed" }).first().click();
+          await page.getByRole("link", { name: "Jobs", exact: true }).first().click();
           await toasts.locator(".toast", { hasText: "completed." }).last().waitFor({ timeout: 60000 });
         },
         { keepToasts: true, continues: true },

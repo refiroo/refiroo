@@ -942,3 +942,23 @@ td:has(> .row-problems) {
     flex-wrap: wrap;
   }
 }
+
+/* An import profile in the catalogue's detail (0.10 A5c): each part inset as the actions are, and
+   the check's four sections in one column when the detail is narrow. */
+.import-detail {
+  container-type: inline-size;
+}
+.import-detail > :not(.model-detail-header):not(.model-actions) {
+  margin: 0 20px;
+}
+@container (max-width: 900px) {
+  .import-detail .check-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.check-figure {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-3);
+}

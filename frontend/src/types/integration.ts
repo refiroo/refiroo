@@ -273,8 +273,24 @@ export interface JobRowPage {
   startIndex?: number;
 }
 
+/** A profile's last load (0.10 A5c): the latest import naming it and what became of what it loaded. */
+export interface ImportProfileLastLoad {
+  jobId: string;
+  state: string;
+  fileName: string | null;
+  sourceFileId: string | null;
+  workspaceKey: string;
+  changeSetId: string | null;
+  createdAt: string;
+  finishedAt: string | null;
+  counts: { created: number; updated: number; deleted: number; rejected: number };
+  outcome: "live" | "inChangeSet" | "published" | "discarded" | null;
+  publicationId: string | null;
+}
+
 /** A stored import profile as the screens read it; the column bindings are left untyped. */
 export interface ImportProfile {
+  lastLoad?: ImportProfileLastLoad | null;
   key: string;
   name: string;
   version: number;

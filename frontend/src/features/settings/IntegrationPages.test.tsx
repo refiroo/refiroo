@@ -103,6 +103,7 @@ describe("Consumer APIs", () => {
     expect(api.consumerApis).toHaveBeenLastCalledWith("c2");
     expect(api.consumerApiDocument).toHaveBeenCalledWith(`${API_URL}/api/consumer/codes/v2/openapi.json`);
     expect(codes).toHaveTextContent("Codes for consumers");
+    expect(await screen.findByRole("region", { name: "Change feed" })).toHaveTextContent(/Change feed kept\s*30 days/);
     expect(within(codes).getByText(`${API_URL}/api/consumer/codes/v2`)).toBeInTheDocument();
     expect(within(codes).getByRole("button", { name: "Copy Base URL" })).toBeInTheDocument();
     expect(within(codes).getByRole("link", { name: `${API_URL}/api/consumer/codes/v2/openapi.json` })).toHaveAttribute(
@@ -144,7 +145,7 @@ describe("Consumer APIs", () => {
   });
 });
 
-describe("Jobs and feed", () => {
+describe("Jobs", () => {
   it("lists jobs with their state and counts, loads more, and shows the limits", async () => {
     vi.mocked(api.jobs)
       .mockResolvedValueOnce({ items: [job("j2")], nextCursor: "next" })
@@ -163,7 +164,8 @@ describe("Jobs and feed", () => {
     expect(screen.queryByRole("button", { name: "Load more jobs" })).not.toBeInTheDocument();
     const limits = screen.getByRole("region", { name: "Limits" });
     expect(limits).toHaveTextContent(/Background batch\s*1,000,000 items, 50 MB/);
-    expect(limits).toHaveTextContent(/Change feed kept\s*30 days/);
+    // The change feed's retention is on Consumer APIs, whose consumers follow it (0.10 A5c).
+    expect(limits).not.toHaveTextContent(/Change feed/);
   });
 
   it("cancels a running job after confirming, and shows the request", async () => {

@@ -3,7 +3,7 @@
 // Systems). From a collection narrowed by a filter, Export opens the dialog prefilled with the page's
 // type and filter; started by keyboard; the started notification, then the finished one with
 // Download and View job, pushed over the job's event stream; the download's name and size; the job
-// page with what the file holds, the counts matching the filter. New export from Jobs and feed with a
+// page with what the file holds, the counts matching the filter. New export from Jobs with a
 // workspace and a type chosen. A cancelled job's page. Axe on the dialog, the notification and the
 // job page; screenshots of each.
 import { writeFile } from "node:fs/promises";
@@ -128,7 +128,7 @@ try {
 
   await page.setViewportSize({ width: 1440, height: 900 });
 
-  // 5. New export from Jobs and feed: a workspace and a type chosen, then the notification.
+  // 5. New export from Jobs: a workspace and a type chosen, then the notification.
   await page.goto(`${uiUrl}/settings/jobs`);
   await page.getByRole("button", { name: "New export" }).click();
   const dialog = page.getByRole("dialog", { name: "Export" });
@@ -138,7 +138,7 @@ try {
   await page.getByRole("button", { name: "Done" }).click();
   await dialog.getByRole("button", { name: "Start export" }).click();
   await toasts.locator(".toast", { hasText: "Export of Codelists completed." }).waitFor({ timeout: 20000 });
-  checks.push("New export from Jobs and feed: Codelists chosen, the export completed and was notified");
+  checks.push("New export from Jobs: Codelists chosen, the export completed and was notified");
 
   // 6. A cancelled job's page: a small batch queued behind a large one, cancelled through the API.
   const items = (prefix, count) =>

@@ -1,5 +1,5 @@
 /**
- * Settings › Integration › Imports (0.10 A5c, D85): the instance's stored import profiles, and a
+ * Settings › Data operations › Import profiles (0.10 A5c, D85): the instance's stored import profiles, and a
  * profile's page for the next version of its workbook (J35). The list names each profile, the types
  * it loads, whether it holds against the active release and its latest file. A profile's page has
  * Upload the next version (the file is profiled, then checked: D83), the check's report, and Load
@@ -14,23 +14,23 @@ import { errorMessage, isApiError } from "@/api/errors";
 import { formatServerTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { objectTypeFor } from "@/model/lookup";
-import { routePath } from "@/routing/routes";
 import type {
   EngineModel,
   ImportProfile,
+  ImportProfileLastLoad,
   ImportProfileSource,
   ProfileCheck,
   RouteState,
   SettingsRoute,
   SourceFile,
 } from "@/types";
+import { DescriptionList } from "@/ui/DescriptionList";
 import { EmptyState } from "@/ui/EmptyState";
 import { InlineError } from "@/ui/InlineError";
 import { Notice } from "@/ui/Notice";
-import { RouteLink } from "@/ui/RouteLink";
 import { Section } from "@/ui/Section";
+import { CatalogueEntry, CatalogueLayout } from "@/ui/CatalogueLayout";
 import { SettingsLayout } from "@/ui/SettingsLayout";
-import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
 import { isFinal, useJobStream } from "@/features/jobs/useJobStream";
@@ -38,150 +38,163 @@ import { AddWorkbookDialog } from "@/features/model-editor/AddWorkbookDialog";
 import { CheckRowsDialog, differences, loadable, ProfileCheckReport, type CheckRows } from "./ProfileCheckReport";
 import { ProfileLoadDialog } from "./ProfileLoadDialog";
 import { ignoreColumn, renameColumn, setMissing } from "./profileEdits";
+import { count } from "./limits";
 import { useCapabilities } from "./useSystem";
 
-const IMPORTS: Extract<SettingsRoute, { page: "imports" }> = { kind: "settings", page: "imports" };
+const IMPORTS: Extract<SettingsRoute, { page: "import-profiles" }> = { kind: "settings", page: "import-profiles" };
 
-export function ImportsPage({
+export function ImportProfilesPage({
   model,
   route,
   defaultWorkspace,
   onNavigate,
 }: {
   model: EngineModel;
-  route: Extract<SettingsRoute, { page: "imports" }>;
+  route: Extract<SettingsRoute, { page: "import-profiles" }>;
   defaultWorkspace: string;
   onNavigate: (route: RouteState) => void;
 }) {
   const typeName = (key: string) => objectTypeFor(model, key)?.name ?? key;
-  if (route.profileKey)
-    return (
-      <ProfilePage
-        key={route.profileKey}
-        profileKey={route.profileKey}
-        typeName={typeName}
-        defaultWorkspace={defaultWorkspace}
-        back={{ href: routePath(IMPORTS), onNavigate: () => onNavigate(IMPORTS) }}
-        onOpenReview={({ applicationKey, workspaceKey, changeSetId }) =>
-          onNavigate({
-            kind: "changeSetChanges",
-            applicationKey,
-            workspaceKey,
-            changeSetId,
-            tab: "records",
-            changeKinds: [],
-          })
-        }
-      />
-    );
-  return <ProfileList typeName={typeName} onNavigate={onNavigate} />;
+  const feed = useCursorFeed((cursor) => api.importProfiles(cursor), []);
+  const selected = route.profileKey;
+  const empty = !feed.loading && !feed.error && feed.items.length === 0;
+
+  const catalogue = (
+    <nav className="model-catalogue" aria-label="Import profiles">
+      <section>
+        <h2 className="nav-label">
+          Profiles <span>{feed.items.length}</span>
+        </h2>
+        {feed.items.map((profile) => (
+          <CatalogueEntry
+            key={profile.key}
+            icon="document"
+            title={profile.name}
+            subtitle={
+              profile.lastLoad
+                ? `Loaded ${formatServerTime(profile.lastLoad.createdAt)} · ${loadOutcome(profile.lastLoad)}`
+                : "Not loaded yet"
+            }
+            current={selected === profile.key}
+            onSelect={() => onNavigate({ ...IMPORTS, profileKey: profile.key })}
+            pill={
+              <StatusPill tone={profile.valid ? "success" : "error"}>
+                {profile.valid ? "Valid" : "Needs a fix"}
+              </StatusPill>
+            }
+          />
+        ))}
+        {feed.loading && !feed.items.length && <p className="explorer-empty">Loading import profiles…</p>}
+        {feed.error && (
+          <div className="catalogue-error">
+            <InlineError message={feed.error} onRetry={feed.retry} />
+          </div>
+        )}
+        {feed.hasMore && (
+          <button className="load-more" disabled={feed.loading} onClick={feed.loadMore}>
+            Load more profiles
+          </button>
+        )}
+      </section>
+    </nav>
+  );
+
+  return (
+    <SettingsLayout
+      eyebrow="Data operations"
+      title="Import profiles"
+      description="Import profiles say how a workbook's sheets and columns load into the model. Upload the next version of a workbook to its profile to see what changed before loading it."
+    >
+      {empty ? (
+        <EmptyState>
+          No import profiles yet. A profile is saved when a model draft holding a workbook is installed from the model
+          editor, or with <code>POST /api/v1/import-profiles</code>.
+        </EmptyState>
+      ) : (
+        <CatalogueLayout
+          catalogue={catalogue}
+          hasSelection={Boolean(selected)}
+          backLabel="All import profiles"
+          onBack={() => onNavigate(IMPORTS)}
+        >
+          {selected ? (
+            <ProfileDetail
+              key={selected}
+              profileKey={selected}
+              typeName={typeName}
+              defaultWorkspace={defaultWorkspace}
+              job={(jobId) => onNavigate({ kind: "settings", page: "jobs", jobId })}
+              onChanged={(changed) =>
+                feed.setItems((items) => items.map((item) => (item.key === changed.key ? changed : item)))
+              }
+              onOpenReview={({ applicationKey, workspaceKey, changeSetId }) =>
+                onNavigate({
+                  kind: "changeSetChanges",
+                  applicationKey,
+                  workspaceKey,
+                  changeSetId,
+                  tab: "records",
+                  changeKinds: [],
+                })
+              }
+            />
+          ) : (
+            <div className="panel-state">Choose an import profile.</div>
+          )}
+        </CatalogueLayout>
+      )}
+    </SettingsLayout>
+  );
 }
 
 function loads(profile: ImportProfile, typeName: (key: string) => string): string {
   return [...new Set(profile.sources.map((source) => typeName(source.objectTypeKey)))].join(", ");
 }
 
-function ProfileList({
-  typeName,
-  onNavigate,
-}: {
-  typeName: (key: string) => string;
-  onNavigate: (route: RouteState) => void;
-}) {
-  const feed = useCursorFeed((cursor) => api.importProfiles(cursor), []);
-  return (
-    <SettingsLayout
-      eyebrow="Integration"
-      title="Imports"
-      description="Import profiles say how a workbook's sheets and columns load into the model. Upload the next version of a workbook to its profile to see what changed before loading it."
-    >
-      <Section title="Import profiles">
-        {feed.error ? (
-          <InlineError message={feed.error} onRetry={feed.retry} />
-        ) : feed.loading && feed.items.length === 0 ? (
-          <Skeleton label="Loading the import profiles" lines={4} />
-        ) : feed.items.length === 0 ? (
-          <EmptyState>
-            No import profiles yet. A profile is saved when a model draft holding a workbook is installed from the model
-            editor, or with <code>POST /api/v1/import-profiles</code>.
-          </EmptyState>
-        ) : (
-          <SettingsTable
-            label="Import profiles"
-            columns={["Profile", "Loads", "Against the active release", "Latest file"]}
-          >
-            {feed.items.map((profile) => {
-              const next: RouteState = { ...IMPORTS, profileKey: profile.key };
-              return (
-                <tr key={profile.key}>
-                  <th scope="row">
-                    <RouteLink className="job-name" href={routePath(next)} onNavigate={() => onNavigate(next)}>
-                      {profile.name}
-                      <code>{profile.key}</code>
-                    </RouteLink>
-                  </th>
-                  <td data-label="Loads">{loads(profile, typeName)}</td>
-                  <td data-label="Against the active release">
-                    <StatusPill tone={profile.valid ? "success" : "error"}>
-                      {profile.valid ? "Valid" : "Needs a fix"}
-                    </StatusPill>
-                  </td>
-                  <td data-label="Latest file">
-                    <LatestFile profileKey={profile.key} />
-                  </td>
-                </tr>
-              );
-            })}
-          </SettingsTable>
-        )}
-        {feed.hasMore && !feed.error && (
-          <button className="load-more" disabled={feed.loading} onClick={feed.loadMore}>
-            Load more profiles
-          </button>
-        )}
-      </Section>
-    </SettingsLayout>
-  );
+/** What became of a load, in words (0.10 A5c). */
+export function loadOutcome(load: ImportProfileLastLoad): string {
+  switch (load.outcome) {
+    case "live":
+      return "loaded into live data";
+    case "inChangeSet":
+      return "in a change set, not published yet";
+    case "published":
+      return "published";
+    case "discarded":
+      return "its change set was discarded: nothing of it is live";
+    default:
+      return load.state === "failed" ? "the load failed" : `the load is ${load.state}`;
+  }
 }
 
-function LatestFile({ profileKey }: { profileKey: string }) {
-  const [file, setFile] = useState<SourceFile | null>();
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .latestProfileFile(profileKey)
-      .then((found) => {
-        if (!cancelled) setFile(found ?? null);
-      })
-      .catch(() => {
-        if (!cancelled) setFile(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [profileKey]);
-  if (file === undefined) return <span className="muted">…</span>;
-  if (file === null) return <span className="muted">None uploaded to the profile</span>;
-  return (
-    <span>
-      {file.name} · {formatServerTime(file.uploadedAt)}
-    </span>
-  );
+/** What the load did with the rows, in words. */
+export function loadCounts(load: ImportProfileLastLoad): string {
+  const { created, updated, deleted, rejected } = load.counts;
+  return [
+    `${count(created)} created`,
+    `${count(updated)} updated`,
+    ...(deleted ? [`${count(deleted)} deleted`] : []),
+    `${count(rejected)} refused`,
+  ].join(", ");
 }
 
 type Dialog = { kind: "upload" } | { kind: "load" } | CheckRows;
 
-function ProfilePage({
+function ProfileDetail({
   profileKey,
   typeName,
   defaultWorkspace,
-  back,
+  job,
+  onChanged,
   onOpenReview,
 }: {
   profileKey: string;
   typeName: (key: string) => string;
   defaultWorkspace: string;
-  back: { href: string; onNavigate: () => void };
+  /** Open a job's page. */
+  job: (jobId: string) => void;
+  /** The profile changed here: the catalogue shows it too. */
+  onChanged: (profile: ImportProfile) => void;
   onOpenReview: (target: { applicationKey: string; workspaceKey: string; changeSetId: string }) => void;
 }) {
   const { capabilities } = useCapabilities();
@@ -243,7 +256,9 @@ function ProfilePage({
     setSaving(true);
     setSaveError("");
     try {
-      setProfile(await api.updateImportProfile(profile, sources));
+      const saved = await api.updateImportProfile(profile, sources);
+      setProfile(saved);
+      onChanged(saved);
       const started = await api.runProfileCheck(profileKey);
       setCheck(started);
       setFollowing(started.jobId);
@@ -254,25 +269,17 @@ function ProfilePage({
     }
   }
 
-  const title = profile?.name ?? "Import profile";
   if (error)
     return (
-      <SettingsLayout eyebrow={<RouteLink {...back}>Imports</RouteLink>} title={title}>
-        <InlineError
-          message={error}
-          onRetry={() => {
-            setError("");
-            setAttempt((value) => value + 1);
-          }}
-        />
-      </SettingsLayout>
+      <InlineError
+        message={error}
+        onRetry={() => {
+          setError("");
+          setAttempt((value) => value + 1);
+        }}
+      />
     );
-  if (!profile || file === undefined)
-    return (
-      <SettingsLayout eyebrow={<RouteLink {...back}>Imports</RouteLink>} title={title}>
-        <Skeleton label="Loading the import profile" lines={6} />
-      </SettingsLayout>
-    );
+  if (!profile || file === undefined) return <Skeleton label="Loading the import profile" lines={6} />;
 
   const checking = Boolean(following) || check?.state === "checking";
   const checked = check && check.state === "completed" && check.sourceFileId === file?.id ? check : undefined;
@@ -284,41 +291,87 @@ function ProfilePage({
     : "";
   const description = [
     `Loads ${loads(profile, typeName)}`,
-    profile.valid ? "valid against the active release" : "needs a fix against the active release",
-    file ? `latest file ${file.name}, uploaded ${formatServerTime(file.uploadedAt)}` : "no file uploaded yet",
+    profile.valid ? "fits the active release" : "needs a fix against the active release",
+    ...(file ? [`next version ${file.name}, uploaded ${formatServerTime(file.uploadedAt)}`] : []),
   ].join(" · ");
+  const last = profile.lastLoad;
 
   return (
-    <SettingsLayout
-      eyebrow={<RouteLink {...back}>Imports</RouteLink>}
-      title={
-        <>
-          {profile.name} <code>{profile.key}</code>
-        </>
-      }
-      description={description}
-      actions={
-        canWrite && (
-          <>
-            <button type="button" className="secondary" onClick={() => setDialog({ kind: "upload" })}>
-              Upload the next version…
-            </button>
+    <div className="model-editor-stack import-detail">
+      <header className="model-detail-header">
+        <div>
+          <h2>{profile.name}</h2>
+          <p>
+            <code>{profile.key}</code> · {description}
+          </p>
+        </div>
+        <StatusPill tone={profile.valid ? "success" : "error"}>{profile.valid ? "Valid" : "Needs a fix"}</StatusPill>
+      </header>
+      {canWrite && (
+        <div className="model-actions">
+          <button type="button" className="secondary" onClick={() => setDialog({ kind: "upload" })}>
+            Upload the next version…
+          </button>
+          <button
+            type="button"
+            className="primary"
+            disabled={!canLoad || checking}
+            onClick={() => setDialog({ kind: "load" })}
+          >
+            Load into a change set…
+          </button>
+        </div>
+      )}
+      <Section
+        title="Last load"
+        headingLevel={3}
+        actions={
+          last &&
+          (last.outcome === "inChangeSet" && last.changeSetId ? (
             <button
               type="button"
-              className="primary"
-              disabled={!canLoad || checking}
-              onClick={() => setDialog({ kind: "load" })}
+              className="secondary"
+              onClick={() =>
+                onOpenReview({
+                  applicationKey: profile.sources[0].applicationKey,
+                  workspaceKey: last.workspaceKey,
+                  changeSetId: last.changeSetId!,
+                })
+              }
             >
-              Load into a change set…
+              Open the change set review
             </button>
-          </>
-        )
-      }
-    >
+          ) : (
+            <button type="button" className="secondary" onClick={() => job(last.jobId)}>
+              Open the load's job
+            </button>
+          ))
+        }
+      >
+        {last ? (
+          <DescriptionList
+            className="compact"
+            items={[
+              { term: "File", value: last.fileName ?? "A file sent with the import" },
+              {
+                term: "Loaded",
+                value: `${formatServerTime(last.createdAt)} into ${last.changeSetId ? "a change set" : "live data"} of ${last.workspaceKey}`,
+              },
+              { term: "Rows", value: loadCounts(last) },
+              { term: "Now", value: loadOutcome(last) },
+            ]}
+          />
+        ) : (
+          <p className="section-description">
+            Not loaded through this profile yet, or the load's job has passed its retention.
+          </p>
+        )}
+      </Section>
       {!file ? (
         <EmptyState>
-          No workbook is uploaded to this profile yet. Upload the next version of the workbook it loads: it is checked
-          against the profile before anything is written.
+          {last
+            ? `No next version is uploaded yet. When ${last.fileName ?? "the workbook"} changes, upload the new file: it is checked against the profile and what it loaded last before anything is written.`
+            : "Upload the workbook this profile loads: it is checked against the profile before anything is written."}
         </EmptyState>
       ) : checking ? (
         <Notice tone="info">
@@ -391,12 +444,22 @@ function ProfilePage({
           onOpenReview={({ workspaceKey, changeSetId }) =>
             onOpenReview({ applicationKey: profile.sources[0].applicationKey, workspaceKey, changeSetId })
           }
-          onClose={() => setDialog(undefined)}
+          onClose={() => {
+            setDialog(undefined);
+            // The load is the profile's last one now.
+            void api.importProfile(profileKey).then(
+              (found) => {
+                setProfile(found);
+                onChanged(found);
+              },
+              () => undefined,
+            );
+          }}
         />
       )}
       {(dialog?.kind === "list" || dialog?.kind === "rows") && (
         <CheckRowsDialog profileKey={profileKey} rows={dialog} onClose={() => setDialog(undefined)} />
       )}
-    </SettingsLayout>
+    </div>
   );
 }

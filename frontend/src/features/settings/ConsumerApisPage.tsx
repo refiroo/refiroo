@@ -3,13 +3,15 @@
  * its base URL, its OpenAPI document and its routes. The API index (`GET /api/consumer`) names each one and its OpenAPI
  * document; the document gives the routes, each linked to its operation in the API reference at
  * `/docs`, which holds everything else the contract says. Read only: a definition changes through a
- * model release.
+ * model release. Last, the change feed consumers follow and how long it keeps its entries (moved
+ * here from Jobs and feed in 0.10 A5c).
  */
 
 import { api } from "@/api/client";
 import { routePath } from "@/routing/routes";
 import type { ConsumerApiDocument, ConsumerApiIndexEntry, SettingsRoute } from "@/types";
 import { CopyValue } from "@/ui/CopyValue";
+import { DescriptionList } from "@/ui/DescriptionList";
 import { EmptyState } from "@/ui/EmptyState";
 import { InlineError } from "@/ui/InlineError";
 import { RouteLink } from "@/ui/RouteLink";
@@ -18,7 +20,8 @@ import { SettingsLayout } from "@/ui/SettingsLayout";
 import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
 import { allConsumerApis, baseUrl, consumerSlug, openapiUrl, operationUrl } from "./consumerAddresses";
-import { useSettingsRead, useSystem } from "./useSystem";
+import { feedRetentionItem } from "./limits";
+import { useCapabilities, useSettingsRead, useSystem } from "./useSystem";
 
 async function loadApis() {
   const entries = await allConsumerApis();
@@ -29,6 +32,7 @@ async function loadApis() {
 export function ConsumerApisPage({ onNavigate }: { onNavigate: (route: SettingsRoute) => void }) {
   const { data: apis, error, retry } = useSettingsRead(loadApis);
   const { system, error: systemError, retry: retrySystem } = useSystem();
+  const { capabilities } = useCapabilities();
   const release = system?.activeModelRelease;
   const releaseRoute: SettingsRoute | undefined = release && { kind: "settings", page: "model", releaseId: release.id };
   const failure = error || systemError;
@@ -74,6 +78,19 @@ export function ConsumerApisPage({ onNavigate }: { onNavigate: (route: SettingsR
             </EmptyState>
           ) : (
             apis.map(({ entry, document }) => <ConsumerApi key={entry.consumerApi} entry={entry} document={document} />)
+          )}
+          {capabilities && (
+            <Section
+              title="Change feed"
+              description={
+                <>
+                  Consumers follow each workspace's changes at <code>GET /api/v1/workspaces/{"{key}"}/feed</code>; a
+                  position older than the retention can no longer be read.
+                </>
+              }
+            >
+              <DescriptionList className="compact" items={[feedRetentionItem(capabilities)]} />
+            </Section>
           )}
         </>
       )}

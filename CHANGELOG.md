@@ -22,10 +22,18 @@ upgrades on start.
   `POST …/check` checks again). A source's `missing` (`report`, `delete`): records no row names are
   counted by every binding and the dry run, and deleted only into a change set, each with its own
   relationships (`422 MISSING_DELETE_NEEDS_CHANGE_SET` live); the kind `setMissing`.
-  **Settings › Integration › Imports** lists the profiles; a profile's page uploads the next
+  **Settings › Data operations › Import profiles** lists the profiles; a profile's page uploads the next
   version, shows the check (Accept a rename, Ignore a new column, keep or delete missing records)
   and loads into a change set whose review holds only the differences. The editor's Load dialog and
   the profile's share their parts (`ChangeSetLoad`). `test:browser:authoring-a5`'s A5c walk.
+  Revised the same day after the user's run on the development server: Import profiles is a catalogue
+  beside the selected profile, as Workspaces and Webhooks; a profile's answer carries `lastLoad`
+  (the latest import naming it and whether its change set is open, published or discarded), shown
+  in the catalogue and on the profile's page, where a profile loaded from the editor read "no file
+  uploaded"; the record page's breadcrumbs became `ui/Breadcrumbs`, which a job's page uses too
+  (Jobs › the job). A settings group **Data operations** holds Import profiles (at
+  `/settings/import-profiles`; the old `/settings/imports` still opens it) and Jobs (renamed from Jobs
+  and feed; the change feed's retention moved to Consumer APIs), ahead of Integration.
 
 - Base 0.10 A6b: the editor filled by the inference (D94; J34.4, J34.6, J34.8). New from a workbook
   asks what to propose (a new application with its name, additions to the model, or nothing) and the

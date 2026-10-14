@@ -217,7 +217,7 @@ field and changes nothing, execution follows the chosen policy, an interrupted i
 retry with its key creates nothing twice); **SC-10 passes in the browser (Base 0.9 J4,
 `test:browser:j4`)**: the operator chooses the destination and a profile, previews, reads errors by
 row and field with no live data changed, loads under the chosen policy and reads applied, refused and
-unprocessed rows; a waiting or interrupted import is reopened from Jobs and feed. The simplicity
+unprocessed rows; a waiting or interrupted import is reopened from Jobs. The simplicity
 check is met as D94 reads it: refused rows are corrected in the file and the whole file sent again,
 and the preview shows the rows already loaded as unchanged, so nothing is redone blindly.
 

@@ -32,7 +32,7 @@ backend coverage is not mistaken for a complete user experience. Reviewed 2026-1
 | F19 | Operate and recover the service | Operator messages | Available | Production hardening is 0.11 |
 | F20 | Query and look up across the data | Not applicable | Available | 0.9 Q1–Q3 |
 | F21 | Read by business date (`asOf`) | Fields only | Available | 0.9 Q4, C16 |
-| F22 | Load data in bulk as jobs | Validated: imports previewed and loaded from a collection or Jobs and feed; jobs listed and cancelled in Settings | Available | 0.9 B1–B2; import screen 0.9 J4 |
+| F22 | Load data in bulk as jobs | Validated: imports previewed and loaded from a collection or Jobs; jobs listed and cancelled in Settings | Available | 0.9 B1–B2; import screen 0.9 J4 |
 | F23 | Declare consumer APIs and read through them | JSON model editing; each shown in Settings | Definitions; reading one business object; reading lists; looking up by code; reading a publication; an index and a typed document per API; following change events; subscribing to them | 0.9 C1–C6, C10, C11; Webhooks page U5 |
 | F24 | Read the API reference | Available at `/docs`, each source linked from Settings | Not applicable | 0.9 V1, V2 |
 | F25 | Follow changes in order | Not applicable | Available | 0.9 F1; retention and recovery 0.9 F2 |
@@ -520,8 +520,10 @@ is an issue; a proposal you undid is not applied again. Once installed, the type
 Through the API the proposals can be read before anything is applied.
 
 **The next version of a workbook.** Installing a draft with a workbook saves its import profile;
-Settings › Integration › **Imports** lists the stored profiles, the types each loads, whether it
-still holds against the active model and its latest file. On a profile's page, **Upload the next
+Settings › Data operations › **Import profiles** lists the stored profiles beside the selected one: whether it
+still holds against the active model, and its last load (the file, when, what it did with the rows,
+and whether it is live, waiting in a change set, published or discarded, with the change set review
+or the load's job a click away). On a profile's page, **Upload the next
 version…** takes the new file, reads it and checks it against the profile before anything is
 written: columns new, missing or renamed (a column under a new header at the same place, holding
 the same values), values that name no record yet (created by the load, or refused), records whose
@@ -536,7 +538,7 @@ version changes. A lookup column now switches its record's value when the next v
 another (a material changed from Steel to Bamboo), where the relation allows one per record.
 
 Limits: a field's editor cannot be chosen (each value type has one); the draft editor has no control
-for what a load does with missing records (Settings › Imports and the API set it); sheets laid out for reading (several lists side by side)
+for what a load does with missing records (Settings › Import profiles and the API set it); sheets laid out for reading (several lists side by side)
 and sheets describing a model propose nothing yet (A8, A7); the optional assistant is an interface
 only, with no provider. A consumer
 API's documents are worked out from the draft; messages from real records come from the consumer API
@@ -684,7 +686,7 @@ applied or cancelled. Background jobs report progress, survive
 restarts without repeating or skipping an item, and can be cancelled. Jobs and their outcomes are
 kept for a configurable retention.
 
-Settings › Integration › **Jobs and feed** lists the jobs of every workspace, newest first, with
+Settings › Data operations › **Jobs** lists the jobs of every workspace, newest first, with
 their state, result and item counts, and cancels a queued or running job after confirming (while
 the deployment lets jobs be created). It also shows the batch and job limits and how long the
 change feed is kept.
@@ -701,8 +703,8 @@ cancelled or failed export has no file.
 
 In the browser, **Export** on a collection page exports what the page shows (its type, its data
 context, its filters and its narrowing to a parent; the search is not carried), with other types of
-the application if wanted, a date, the relationships and a format. Settings › Integration › Jobs
-and feed starts an export of any types of a workspace. A notification says the export started, and
+the application if wanted, a date, the relationships and a format. Settings › Data operations › Jobs
+starts an export of any types of a workspace. A notification says the export started, and
 another when it finished, with Download and the job's page, or that it failed or was cancelled. Each
 job has its own page showing its state and progress as they change, its error, Cancel, and for an
 export what the file holds and Download. An integration follows any job the same way through the
@@ -718,7 +720,7 @@ relationships themselves with their values. The header stays in view and can be 
 and relationship columns are coloured as their kinds of record are in the app, and the record's ID
 and version sit in hidden columns. A column that cannot say what to change (a relationship edited on
 its own sheet, a field that identifies nothing) is marked "(not imported)". Imported back from the
-page or Jobs and feed without choosing a profile, the workbook is read as it was written, and the
+page or Jobs without choosing a profile, the workbook is read as it was written, and the
 import's page says so ("Read as exported from System values on 10 Oct 2026"): an untouched workbook
 changes nothing; edited values, names and rows change exactly those; a list of names replaces the
 record's relationships of that kind, a relationship sheet adds and changes relationships but never
@@ -761,7 +763,7 @@ import loads the file as it stands then, so data changed meanwhile counts; cance
 ends without writing.
 
 In the browser, **Import** on a collection page loads a file into the data the page shows, live or
-its change set, and **New import** on Settings › Integration › Jobs and feed loads one into a chosen
+its change set, and **New import** on Settings › Data operations › Jobs loads one into a chosen
 workspace's live data or one of its change sets. The user picks the file, a stored profile or none,
 whether the rows that can load load or nothing does unless every row loads, and whether records the
 file finds are updated; the import is always previewed first, and its page opens at once. It shows

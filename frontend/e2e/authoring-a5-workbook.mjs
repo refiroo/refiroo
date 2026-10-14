@@ -376,17 +376,19 @@ async function journey(label, source) {
 
     // A5c: the next version through Settings › Imports (J35).
     const profileKey = (await draftProfile()).profile.key;
-    await page.goto(`${harness.uiUrl}/settings/imports`);
-    const listed = page.getByRole("link", { name: new RegExp(profileKey) });
+    await page.goto(`${harness.uiUrl}/settings/import-profiles`);
+    // The catalogue: the profile with its last load, W1's, published (0.10 A5c).
+    const listed = page.getByRole("navigation", { name: "Import profiles" }).getByRole("button", { name: /published/ });
     await listed.waitFor();
-    await page
-      .getByText(/None uploaded to the profile/)
-      .first()
-      .waitFor();
     await shot("imports-1440");
     await listed.click();
-    await page.waitForURL(new RegExp(`/settings/imports/${profileKey}$`));
-    await page.getByText(/No workbook is uploaded to this profile yet/).waitFor();
+    await page.waitForURL(new RegExp(`/settings/import-profiles/${profileKey}$`));
+    const lastLoad = page.getByRole("region", { name: "Last load" });
+    await lastLoad.getByText("published", { exact: true }).waitFor();
+    await lastLoad.getByRole("button", { name: "Open the load's job" }).waitFor();
+    await page.getByText(/No next version is uploaded yet/).waitFor();
+    await assertAccessible(page, `a5-${label}-imports`);
+    await shot("profile-1440");
     await page.getByRole("button", { name: "Upload the next version…" }).click();
     await dialog().getByLabel("Workbook").setInputFiles(resolve(harness.output, "catalogue-v2.xlsx"));
     await assertDialogLayout(page, `${label}: Upload the next version`);
@@ -412,11 +414,11 @@ async function journey(label, source) {
     await assertAccessible(page, `a5-${label}-check`);
     await shot("check-1440");
     checks.push(
-      `${label}: W1′ uploaded to the profile is checked: the colour column renamed, a new column, the new material switching an item's material, 5 names drifted, no row refused, nothing written`,
+      `${label}: the profile in the catalogue shows its last load, W1's, published; W1′ uploaded to it is checked: the colour column renamed, a new column, the new material switching an item's material, 5 names drifted, no row refused, nothing written`,
     );
 
     // Missing records: 2, kept by default; their rows open.
-    await recordsPart.getByRole("button", { name: "Rows" }).click();
+    await recordsPart.getByRole("button", { name: "Show rows" }).click();
     await dialog()
       .getByRole("heading", { name: /Records missing from the file/ })
       .waitFor();
@@ -469,7 +471,7 @@ async function journey(label, source) {
     await phone.getByRole("listbox", { name: `Columns of ${S1}` }).waitFor();
     assert.equal(await phone.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
     await phone.screenshot({ path: resolve(harness.output, `a5-${label}-390-source.png`), fullPage: true });
-    await phone.goto(`${harness.uiUrl}/settings/imports/${profileKey}`);
+    await phone.goto(`${harness.uiUrl}/settings/import-profiles/${profileKey}`);
     await phone.getByText(/catalogue-v2\.xlsx checked:/).waitFor({ timeout: 30_000 });
     assert.equal(await phone.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
     await assertAccessible(phone, `a5-${label}-390-check`);

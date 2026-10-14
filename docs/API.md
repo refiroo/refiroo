@@ -2597,6 +2597,15 @@ profile is refused with every problem at once: `422 INVALID_IMPORT_PROFILE` with
 (the release it was saved against), `createdAt`, `updatedAt`, and `valid` and `problems` as it reads
 under the active release now, so a profile a later release broke shows what to fix.
 
+**The last load** (0.10 A5c). `GET /import-profiles` and `GET /import-profiles/{key}` (and `PUT`'s
+answer) carry `lastLoad`: the latest import naming the profile (`jobId`, `state`, `fileName`,
+`sourceFileId` for a stored file, `workspaceKey`, `changeSetId`, `createdAt`, `finishedAt`,
+`counts` of `created`, `updated`, `deleted`, `rejected`) and its `outcome` once completed: `live`
+(loaded into live data), `inChangeSet` (its change set still holds it), `published` (with
+`publicationId`, read from the publication's audit entry naming the change set) or `discarded` (the
+change set is gone and no publication of it is on record). `null` for a profile never loaded, or
+once the job passed its retention.
+
 `PUT` replaces the whole profile at `expectedVersion` in the body; `DELETE` takes `expectedVersion`
 as a parameter. Refusals: `409 IMPORT_PROFILE_EXISTS`, `404 IMPORT_PROFILE_NOT_FOUND`,
 `409 IMPORT_PROFILE_VERSION_CONFLICT` with `details.currentVersion`.

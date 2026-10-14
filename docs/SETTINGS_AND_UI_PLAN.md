@@ -42,8 +42,10 @@ professional UI fixup. The answers below were checked against the code on 2026-1
   load of `/docs` shows the new one.
 - **Administrative settings:** **Settings › Administration** (Workspaces, Model, Deployment; and
   Operations in 0.11).
-- **API settings:** **Settings › Integration** (Consumer APIs, Webhooks, Jobs and feed, API
-  reference) in 0.9, and **Settings › Security** (users and roles, OAuth clients and their access
+- **Data operations:** **Settings › Data operations** (Import profiles, Jobs), grouped so in 0.10 A5c (the
+  user, 2026-10-14): work on the data, not settings, to move out of Settings together later.
+- **API settings:** **Settings › Integration** (Consumer APIs, Webhooks, API reference; Jobs until
+  0.10 A5c) in 0.9, and **Settings › Security** (users and roles, OAuth clients and their access
   per consumer API, webhook signing-key rotation) in 0.12. A webhook's signing key is shown once, on
   the Webhooks page when the subscription is created (0.9, C-D12 revised 2026-10-05).
 
@@ -83,7 +85,8 @@ becomes a select at the top of the page.
 | Administration | Operations | Health, readiness, metrics summary, last backup rehearsal | 0.11 routes | U7 (0.11) |
 | Integration | Consumer APIs | Per definition: name, namespace, contract version, base URL with copy, OpenAPI URL, a link to its source on `/docs`, exposed types, lists, events (each with its types, change kinds and watched outputs, read-only). The model release that declares it, with a link to the model | `GET /api/consumer` (C6), the active release | U4 (0.9) |
 | Integration | Webhooks | Subscriptions: create (the signing key shown once), edit, suspend, resume (after expired events: the lost range and the publication to re-sync from, and resume with `reset`, starting after the feed's head, with the order "reset, then re-sync" explained, C-D93 revised, C-D110; a resume that needs an edit lists what to fix, C-D98), delete; the suspension reason with its message and findings; the allowed hosts from capabilities (C-D101); a workspace's subscriptions named where deleting it is refused (`deleteBlockedBy: subscribed`); events chosen from the definition's declared events, each linked to its declaration on Consumer APIs; payload (`full` or `identity`); delivery state from the subscription's `delivery` (C12, C-D108): last delivered, and while a batch fails its attempts, first failure, last error by kind and next attempt; the dispatcher's reasons (`DELIVERY_FAILED`, `FILTER_MATCHES_NOTHING`, `EVENTS_EXPIRED`) each with its fix; the delivery limits from capabilities. Signed from 0.9 (C-D12 revised 2026-10-05); 0.12 adds rotation | `/api/v1/consumer-subscriptions` (C11–C12) | U5 (0.9) |
-| Integration | Jobs and feed | Recent jobs with status and outcome counts; cancel; batch and job limits; feed retention | job routes (B1–B2), `GET /api/v1/capabilities` | U4 (0.9) |
+| Data operations | Import profiles | Stored import profiles as a catalogue: a profile's last load, the next version uploaded and checked, loaded into a change set (0.10 A5c) | `/import-profiles`, its check, `/source-files`, `/imports` | 0.10 A5c |
+| Data operations | Jobs | Recent jobs with status and outcome counts; cancel; batch and job limits (the feed's retention moved to Consumer APIs, 0.10 A5c) | job routes (B1–B2), `GET /api/v1/capabilities` | U4 (0.9) |
 | Integration | API reference | Links to `/docs`, one per source, with its version | `GET /api/consumer` | U4 (0.9) |
 | Security | Users and roles; OAuth clients and their access per consumer API; signing keys; sign-in | 0.12 routes | U8 (0.12) |
 

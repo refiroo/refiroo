@@ -1,6 +1,6 @@
 /**
- * The job limits and the change feed's retention as Settings shows them, on Deployment and on Jobs
- * and feed (one list, U-D14).
+ * The job limits as Settings shows them, on Deployment and on Jobs (one list, U-D14), and the change
+ * feed's retention, on Deployment and on Consumer APIs, whose consumers follow the feed.
  */
 
 import type { CapabilitiesResponse } from "@/types";
@@ -24,6 +24,9 @@ export function jobLimitItems(capabilities: CapabilitiesResponse): DescriptionIt
     { term: "Import file", value: bytes(jobs.importMaxBytes) },
     { term: "Preview", value: `${count(jobs.previewMaxItems)} items` },
     { term: "Jobs kept", value: `${count(jobs.retentionDays)} days` },
-    { term: "Change feed kept", value: `${count(capabilities.changeFeed.retentionDays)} days` },
   ];
+}
+
+export function feedRetentionItem(capabilities: CapabilitiesResponse): DescriptionItem {
+  return { term: "Change feed kept", value: `${count(capabilities.changeFeed.retentionDays)} days` };
 }
