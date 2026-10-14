@@ -219,6 +219,10 @@ can complete the task in the application; "API" means another system can.
   be defined with nothing to load. A flat table naming the same records then comes as additions to
   the model and is matched to what was loaded by ID or code, with the values the lists lack and the
   names that differ reported, not loaded unasked.
+- Start from a sheet of lists laid out for reading (lists side by side and under each other, under
+  section and group titles): each list is read with its header, the titles above it and a note
+  such as "multiple answers", and proposed as a list loaded by name, with its translation and yes/no
+  columns; the lists under one title are grouped in the sidebar.
 - Load the next version of a workbook through its saved profile: see what differs before anything
   is written (columns new, missing or renamed, new list values, names that drifted, records the file
   no longer names, the profile against the current model, what the load would do), accept a rename

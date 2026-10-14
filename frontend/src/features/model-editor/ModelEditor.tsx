@@ -449,7 +449,9 @@ export function ModelEditor({
       .map((item) => {
         const key = item.key?.attributeTypeKey
           ? attributeTypeOf(outline, item.key.attributeTypeKey)?.name
-          : item.key?.column;
+          : item.key?.field === "name"
+            ? "Name"
+            : item.key?.column;
         return `${typeName(outline, item.objectTypeKey)}${key ? ` (key ${key})` : ""}`;
       })
       .join(", ")}`;

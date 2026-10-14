@@ -531,8 +531,19 @@ headers, its lists to the stored lists by name, a code column to the stored reco
 Where the file names a code otherwise than the stored record, the stored name stands and the
 difference is shown, with loading the file's names as the alternative; values the stored list lacks
 are shown with their rows and refused, with creating them on load as the alternative. What the
-editor uploads is compared with the default workspace's records. Workbooks of lists laid out side
-by side for reading are not read yet.
+editor uploads is compared with the default workspace's records.
+
+**A sheet of lists laid out for reading.** A sheet holding no table but many small lists, side by
+side and under each other, under section and group titles, is read list by list: each list with
+its header, the titles above it and a note under its header ("multiple answers", "multiple choice",
+"free field"). Each list is proposed as a list type loading its own part of the sheet by name, the
+note row skipped and the note kept as the type's description; a column beside the names filled on
+most of their rows is their translation (in the language its header names, else "Language 1",
+which you rename), a column of Y and N is a yes/no attribute, a column with only its header is
+reported and not read. The lists under one title are grouped in the sidebar. A "free field" or a
+header with nothing under it proposes nothing, and the inference says so. Through the API a list's
+block can be narrowed or widened (`setSource`). Lists of one shape side by side whose headers are
+categories are each their own list for now.
 
 **The next version of a workbook.** Installing a draft with a workbook saves its import profile;
 Settings › Data operations › **Import profiles** lists the stored profiles beside the selected one: whether it
@@ -553,8 +564,10 @@ version changes. A lookup column now switches its record's value when the next v
 another (a material changed from Steel to Bamboo), where the relation allows one per record.
 
 Limits: a field's editor cannot be chosen (each value type has one); the draft editor has no control
-for what a load does with missing records (Settings › Import profiles and the API set it); sheets laid out for reading (several lists side by side)
-and sheets describing a model propose nothing yet (A8, A7); the optional assistant is an interface
+for what a load does with missing records (Settings › Import profiles and the API set it); the
+source pane shows a sheet laid out for reading as its columns, not yet list by list with a way to
+adjust or drop a list (A8b), and lists of one shape whose headers are categories are not yet read
+as one list under them (A8c); the optional assistant is an interface
 only, with no provider. A consumer
 API's documents are worked out from the draft; messages from real records come from the consumer API
 after activation.

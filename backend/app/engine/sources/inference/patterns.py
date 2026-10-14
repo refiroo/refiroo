@@ -7,7 +7,9 @@ it and the sheets its targets name are not read by the rules below. The rules ru
 of another sheet's records, the key and the name, flag columns, code and name pairs, level
 columns, a repeated parent, multi-valued cells, references to another sheet, translations by column,
 text lookups, external IDs, and every remaining column as an attribute; then placeholders and name
-drift for the columns found, and a navigation group per sheet that proposes two or more lists.
+drift for the columns found, and a navigation group per sheet that proposes two or more lists. The
+lists of a sheet laid out for reading (0.10 A8a, D116) are read last, one ``listBlock`` each, with a
+navigation group per title over two or more of them.
 
 The thresholds are stated in MODEL_AUTHORING's pattern catalogue so a test names what a rule finds.
 Scored similarity is deliberately absent: the same workbook always gives the same findings.
@@ -19,7 +21,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from .facts import Column, Table, Workbook
+from .facts import BlockTable, Column, Table, Workbook
 
 # D90's thresholds.
 NAME_FILLED = 0.95
@@ -184,6 +186,7 @@ def find(workbook: Workbook) -> list[Finding]:
         found += _external_ids(sheet)
         found += _attributes(sheet)
         findings += _with_values(sheet, found) + aligned
+    findings += _list_blocks(workbook)
     for sheet in sheets:
         lists = [f for f in findings if f.sheet == sheet.table.name and f.pattern in LIST_PATTERNS]
         if len(lists) >= 2:
@@ -200,7 +203,9 @@ def find(workbook: Workbook) -> list[Finding]:
 
 
 # Patterns whose proposal adds a list type.
-LIST_PATTERNS = ("textLookup", "codeAndName", "flagColumns", "multiValued")
+LIST_PATTERNS = ("textLookup", "codeAndName", "flagColumns", "multiValued", "listBlock")
+# D118: a column of a list filled on at least this share of the rows its names fill is a translation.
+TRANSLATION_FILLED = 0.8
 # Patterns read from a model description rather than a sheet's rows (0.10 A7).
 DESCRIPTION_PATTERNS = ("modelDescription", "describedList", "describedField", "describedFlags")
 
@@ -213,7 +218,9 @@ def _description(sheet: _Sheet, sheets: list[_Sheet], workbook: Workbook) -> lis
     if len(table.columns) < 3 or table.rows == 0 or table.rows > DESCRIPTION_ROWS:
         return []
     others = {fold(s.table.name): s.table.name for s in sheets if s is not sheet}
-    others.update({fold(name): name for name in workbook.skipped if fold(name) not in others})
+    others.update(
+        {fold(name): name for name in [*workbook.skipped, *getattr(workbook, "laid_out", [])] if fold(name) not in others}
+    )
     values: dict[int, list[dict[str, Any]]] = {}
     for column in table.columns:
         if column.textual and column.distinct <= DESCRIPTION_VALUES:
@@ -703,6 +710,77 @@ def _aligned_translations(sheet: _Sheet) -> list[Finding]:
             )
         )
     return found
+
+
+def _list_blocks(workbook: Workbook) -> list[Finding]:
+    """D116: one ``listBlock`` per list of a sheet laid out for reading, its first column the
+    names; per innermost title over two lists or more, a navigation group (D115's titles)."""
+    findings: list[Finding] = []
+    for block in getattr(workbook, "blocks", []):
+        found = list_block(block)
+        if found is not None:
+            findings.append(found)
+    by_title: dict[tuple[str, str], list[Finding]] = {}
+    for finding in findings:
+        block = finding.detail["block"]
+        if block.titles and finding.detail["list"]:
+            by_title.setdefault((finding.sheet, block.titles[-1]), []).append(finding)
+    for (sheet, title), lists in by_title.items():
+        if len(lists) >= 2:
+            findings.append(
+                Finding("navigationGroup", sheet, [], {"lists": len(lists), "sheet": sheet, "title": title}, {"lists": lists})
+            )
+    return findings
+
+
+def list_block(block: BlockTable) -> Finding | None:
+    """A list's columns read within the list (D116, D118, D119): the first its names, a column of
+    yes/no words a yes/no attribute (two or more a flag set), a text column filled beside most names
+    a translation, a column holding only its header reported, any other an attribute."""
+    if not block.columns:
+        return None
+    names, others = block.columns[0], block.columns[1:]
+    note = dict(block.note) if block.note else None
+    evidence: dict[str, Any] = {
+        "block": block.described(),
+        "header": names.header,
+        "titles": list(block.titles),
+        "note": {"text": note["text"], "meaning": note["meaning"]} if note else None,
+        "values": names.filled,
+        "translations": [],
+        "empty": [],
+        "flags": [],
+        "attributes": [],
+    }
+    detail: dict[str, Any] = {"block": block, "list": False, "translations": [], "flags": [], "attributes": []}
+    if (note and note["meaning"] == "free") or not names.filled:
+        detail["reason"] = "free" if note and note["meaning"] == "free" else "empty"
+        return Finding("listBlock", block.name, [names.number], {**evidence, "list": False}, detail)
+    detail["list"] = True
+    vocabularies = {}
+    for column in others:
+        if column.filled:
+            words = {str(v["value"]).strip().lower() for v in column.values}
+            vocabulary = next((v for v in FLAG_VOCABULARIES if words and words <= v), None)
+            if vocabulary is not None and column.distinct <= len(vocabulary):
+                vocabularies[column.number] = sorted(words)
+    translated = 0
+    for column in others:
+        if not column.filled:
+            evidence["empty"].append({"column": column.header, "letter": column.letter})
+        elif column.number in vocabularies:
+            detail["flags"].append(column.number)
+            evidence["flags"].append({**evidence_of(column), "vocabulary": vocabularies[column.number]})
+        elif column.textual and column.filled >= TRANSLATION_FILLED * names.filled:
+            language = _language_of(column.header, translated)
+            translated += 1
+            detail["translations"].append((column.number, language))
+            evidence["translations"].append({"column": column.header, "letter": column.letter, "language": language, "filled": column.filled})
+        else:
+            detail["attributes"].append(column.number)
+            evidence["attributes"].append(evidence_of(column))
+    detail["vocabularies"] = vocabularies
+    return Finding("listBlock", block.name, [names.number, *(c.number for c in others if c.filled)], {**evidence, "list": True}, detail)
 
 
 def _language_of(header: str, index: int) -> str:

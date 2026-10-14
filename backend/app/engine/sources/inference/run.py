@@ -229,7 +229,10 @@ def run_inference(session: Session, job: Job, *, assistant_setting: str = "", as
     for proposal in proposals:
         disagreements += _decide(proposal, earlier.get(proposal.anchor), rejected, engine, model, profile, rows)
     _requirements(proposals)
-    warnings = [f"Sheet '{name}' holds several blocks laid out for reading; it proposes nothing yet" for name in workbook.skipped]
+    warnings = [
+        f"Sheet '{name}' holds several blocks and no table, and has too many rows to read list by list; it proposes nothing"
+        for name in workbook.skipped
+    ]
     warnings += [
         f"Sheet '{name}' is read by its table {table}; {', '.join(others)} beside it {'is' if len(others) == 1 else 'are'} left for later"
         for name, table, others in workbook.partial

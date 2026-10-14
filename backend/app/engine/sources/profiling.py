@@ -13,6 +13,12 @@ statement over the staged cells (principle 6):
   (a header with an empty cell), the text row with the most cells is the header, the first of
   equals; a block without a text row above another row has none. Colour and
   formatting are not read.
+- **A sheet laid out for reading** (0.10 A8a, D115): a sheet with no main table (several column
+  runs and none holding the table, ``inference.facts.main_block``, or one run of at most two
+  columns holding several lists one under another) and at most :data:`LAYOUT_ROWS` rows with a cell is read list by list
+  (``layout.split``): each run split at empty rows, each list a block with its header row, the
+  titles above it and its note (D119), whose row the statistics leave out. Its column statistics
+  are kept per block, as a column may hold several.
 - **Columns**, per block over the rows below its header: ``filled``, ``distinct``,
   ``valueTypes`` (cells readable as each value type the attribute registry converts),
   ``candidateKey`` (filled on every row, no value twice), ``values`` (the most frequent, with
@@ -47,6 +53,8 @@ from ...models.schema import EngineModel
 from ..imports.readers import CSV_SHEET, PROFILE_SHEET, open_tabular
 from ..model.compiler import compile_authored_model
 from ..model.registry import resolve_model_snapshot
+from .inference.facts import main_block
+from .layout import Cell, split
 from .store import compared_workspace
 from .values import staged
 
@@ -68,12 +76,15 @@ PLACEHOLDER_VALUES = (
 )
 PLACEHOLDER_SHARE = 0.01
 DELIMITERS = (";", ",", "|", "/", "\n")
+# A sheet laid out for reading is read list by list up to this many rows with a cell (D115).
+LAYOUT_ROWS = 2_000
 
 
 # Each profiled column with its block's header and last row.
 _COLUMNS_TABLE = (
     "CREATE TEMPORARY TABLE profile_columns (sheet_index integer, column_number integer,"
-    " block_index integer, header_row integer, last_row integer, rows integer) ON COMMIT DROP"
+    " block_index integer, header_row integer, last_row integer, note_row integer, rows integer)"
+    " ON COMMIT DROP"
 )
 
 
@@ -83,6 +94,9 @@ class BlockLayout:
     last_column: int
     header_row: int | None
     last_row: int
+    # A list's titles and note on a sheet laid out for reading (0.10 A8a).
+    titles: tuple[str, ...] = ()
+    note: dict[str, Any] | None = None
 
     def describe(self, index: int, data_rows: int) -> dict[str, Any]:
         first, last = get_column_letter(self.first_column), get_column_letter(self.last_column)
@@ -95,6 +109,8 @@ class BlockLayout:
             "headerRow": self.header_row,
             "lastRow": self.last_row,
             "rows": data_rows,
+            "titles": list(self.titles),
+            "note": self.note,
         }
 
 
@@ -128,13 +144,20 @@ def profile_source_file(
     session.execute(text(_COLUMNS_TABLE))
     for sheet_index, name in enumerate(names):
         layouts = _layouts(session, source.id, sheet_index)
+        laid_out = _laid_out(session, source.id, sheet_index, layouts)
+        if laid_out:
+            lists = _lists(session, source.id, sheet_index, layouts)
+            # One narrow block is a list of its own (an ID and a name) unless it stacks several.
+            laid_out = len(layouts) > 1 or len(lists) > 1
+            if laid_out:
+                layouts = lists
         blocks = []
         for block_index, layout in enumerate(layouts):
             rows = _data_rows(session, source.id, sheet_index, layout)
             blocks.append(layout.describe(block_index, rows))
             session.execute(
                 text(
-                    "INSERT INTO profile_columns SELECT :sheet, n, :block, :header, :last, :rows"
+                    "INSERT INTO profile_columns SELECT :sheet, n, :block, :header, :last, :note, :rows"
                     " FROM generate_series(CAST(:first AS integer), CAST(:final AS integer)) n"
                 ),
                 {
@@ -142,6 +165,7 @@ def profile_source_file(
                     "block": block_index,
                     "header": layout.header_row or 0,
                     "last": layout.last_row,
+                    "note": layout.note["row"] if layout.note else 0,
                     "rows": rows,
                     "first": layout.first_column,
                     "final": layout.last_column,
@@ -163,6 +187,7 @@ def profile_source_file(
                 profile={
                     "rows": filled_rows,
                     "headerRow": blocks[0]["headerRow"] if blocks else None,
+                    "laidOut": laid_out,
                     "blocks": blocks,
                 },
             )
@@ -309,6 +334,7 @@ def _data_rows(session: Session, file_id: int, sheet_index: int, layout: BlockLa
             "SELECT count(DISTINCT row_number) FROM source_file_cells"
             " WHERE source_file_id = :file AND sheet_index = :sheet"
             " AND column_number BETWEEN :first AND :last AND row_number > :header"
+            " AND row_number <= :final AND row_number <> :note"
         ),
         {
             "file": file_id,
@@ -316,20 +342,64 @@ def _data_rows(session: Session, file_id: int, sheet_index: int, layout: BlockLa
             "first": layout.first_column,
             "last": layout.last_column,
             "header": layout.header_row or 0,
+            "final": layout.last_row,
+            "note": layout.note["row"] if layout.note else 0,
         },
     )
+
+
+def _laid_out(session: Session, file_id: int, sheet_index: int, runs: list[BlockLayout]) -> bool:
+    """D115: whether the sheet is laid out for reading: no run holds its table, and it has at most
+    :data:`LAYOUT_ROWS` rows with a cell."""
+    if not runs:
+        return False
+    if len(runs) == 1:
+        if runs[0].last_column - runs[0].first_column + 1 > 2:
+            return False
+    else:
+        described = [run.describe(i, _data_rows(session, file_id, sheet_index, run)) for i, run in enumerate(runs)]
+        if main_block(described) is not None:
+            return False
+    filled = session.scalar(
+        text(
+            "SELECT count(DISTINCT row_number) FROM source_file_cells"
+            " WHERE source_file_id = :file AND sheet_index = :sheet"
+        ),
+        {"file": file_id, "sheet": sheet_index},
+    )
+    return filled <= LAYOUT_ROWS
+
+
+def _lists(session: Session, file_id: int, sheet_index: int, runs: list[BlockLayout]) -> list[BlockLayout]:
+    """A sheet laid out for reading, list by list (D115): its cells, at most :data:`LAYOUT_ROWS`
+    rows of them, read once and split by ``layout.split``."""
+    grid: dict[int, dict[int, Cell]] = {}
+    for row, column, value in session.execute(
+        text(
+            "SELECT row_number, column_number, text FROM source_file_cells"
+            " WHERE source_file_id = :file AND sheet_index = :sheet AND btrim(text) <> ''"
+        ),
+        {"file": file_id, "sheet": sheet_index},
+    ):
+        grid.setdefault(row, {})[column] = Cell(value, len(value))
+    found = split([(run.first_column, run.last_column) for run in runs], grid)
+    return [
+        BlockLayout(b.first_column, b.last_column, b.header_row, b.last_row, b.titles, b.note)
+        for b in found
+    ]
 
 
 # Each column's statistics over the rows below its block's header (D68–D70), as JSON.
 _STATISTICS = """
 WITH data AS (
-    SELECT p.sheet_index, p.column_number, p.rows, c.kind, c.text, c.value
+    SELECT p.sheet_index, p.block_index, p.column_number, p.rows, c.kind, c.text, c.value
     FROM profile_columns p
     JOIN source_file_cells c ON c.source_file_id = :file AND c.sheet_index = p.sheet_index
         AND c.column_number = p.column_number AND c.row_number > p.header_row
+        AND c.row_number <= p.last_row AND c.row_number <> p.note_row
 ),
 basic AS (
-    SELECT sheet_index, column_number, min(rows) AS rows, count(*) AS filled,
+    SELECT sheet_index, block_index, column_number, min(rows) AS rows, count(*) AS filled,
         count(DISTINCT text) AS distinct_values,
         count(*) FILTER (WHERE kind = 'integer'
             OR CASE WHEN kind = 'decimal' THEN (value #>> '{}')::numeric
@@ -350,92 +420,101 @@ basic AS (
         count(*) FILTER (WHERE kind = 'text' AND strpos(text, '|') > 0) AS d_bar,
         count(*) FILTER (WHERE kind = 'text' AND strpos(text, '/') > 0) AS d_slash,
         count(*) FILTER (WHERE kind = 'text' AND strpos(text, E'\\n') > 0) AS d_newline
-    FROM data GROUP BY sheet_index, column_number
+    FROM data GROUP BY sheet_index, block_index, column_number
 ),
 placeholders AS (
-    SELECT sheet_index, column_number,
+    SELECT sheet_index, block_index, column_number,
         json_agg(json_build_object('value', text, 'count', n) ORDER BY n DESC, text) AS found
     FROM (
-        SELECT d.sheet_index, d.column_number, d.text, count(*) AS n,
-            row_number() OVER (PARTITION BY d.sheet_index, d.column_number
+        SELECT d.sheet_index, d.block_index, d.column_number, d.text, count(*) AS n,
+            row_number() OVER (PARTITION BY d.sheet_index, d.block_index, d.column_number
                                ORDER BY count(*) DESC, d.text) AS rank
         FROM data d
         WHERE d.kind = 'text'
-        GROUP BY d.sheet_index, d.column_number, d.text
+        GROUP BY d.sheet_index, d.block_index, d.column_number, d.text
         HAVING lower(btrim(d.text)) = ANY(:placeholders)
             OR (char_length(btrim(d.text)) <= 2 AND btrim(d.text) !~ '[[:alnum:]]'
                 AND count(*) >= :share * (SELECT count(*) FROM data e
-                    WHERE e.sheet_index = d.sheet_index AND e.column_number = d.column_number))
+                    WHERE e.sheet_index = d.sheet_index AND e.block_index = d.block_index
+                      AND e.column_number = d.column_number))
     ) ranked
     WHERE rank <= :listed_placeholders
-    GROUP BY sheet_index, column_number
+    GROUP BY sheet_index, block_index, column_number
 ),
 frequent AS (
-    SELECT sheet_index, column_number,
+    SELECT sheet_index, block_index, column_number,
         json_agg(json_build_object('value', text, 'count', n) ORDER BY n DESC, text) AS found
     FROM (
-        SELECT sheet_index, column_number, text, count(*) AS n,
-            row_number() OVER (PARTITION BY sheet_index, column_number
+        SELECT sheet_index, block_index, column_number, text, count(*) AS n,
+            row_number() OVER (PARTITION BY sheet_index, block_index, column_number
                                ORDER BY count(*) DESC, text) AS rank
-        FROM data GROUP BY sheet_index, column_number, text
+        FROM data GROUP BY sheet_index, block_index, column_number, text
     ) ranked
     WHERE rank <= :listed_values
-    GROUP BY sheet_index, column_number
+    GROUP BY sheet_index, block_index, column_number
 )
-SELECT b.*, p.found AS placeholders, f.found AS frequent, h.text AS header
-FROM basic b
-LEFT JOIN placeholders p USING (sheet_index, column_number)
-LEFT JOIN frequent f USING (sheet_index, column_number)
-LEFT JOIN profile_columns pc USING (sheet_index, column_number)
-LEFT JOIN source_file_cells h ON h.source_file_id = :file AND h.sheet_index = b.sheet_index
-    AND h.column_number = b.column_number AND h.row_number = pc.header_row
+SELECT b.*, pc.sheet_index AS at_sheet, pc.block_index AS at_block,
+    pc.column_number AS at_column, p.found AS placeholders, f.found AS frequent, h.text AS header
+FROM profile_columns pc
+LEFT JOIN basic b USING (sheet_index, block_index, column_number)
+LEFT JOIN placeholders p USING (sheet_index, block_index, column_number)
+LEFT JOIN frequent f USING (sheet_index, block_index, column_number)
+LEFT JOIN source_file_cells h ON h.source_file_id = :file AND h.sheet_index = pc.sheet_index
+    AND h.column_number = pc.column_number AND h.row_number = pc.header_row
+-- A column of a block with values, or with a header and none (0.10 A8a: a translation column
+-- holding only its header).
+WHERE b.column_number IS NOT NULL OR h.text IS NOT NULL
 """
 
 _VALUES = """
 CREATE TEMPORARY TABLE profile_values ON COMMIT DROP AS
-SELECT sheet_index, column_number, text FROM (
-    SELECT sheet_index, column_number, text,
-        row_number() OVER (PARTITION BY sheet_index, column_number ORDER BY text) AS rank
+SELECT sheet_index, block_index, column_number, text FROM (
+    SELECT sheet_index, block_index, column_number, text,
+        row_number() OVER (PARTITION BY sheet_index, block_index, column_number ORDER BY text) AS rank
     FROM (
-        SELECT DISTINCT c.sheet_index, c.column_number, c.text
+        SELECT DISTINCT c.sheet_index, p.block_index, c.column_number, c.text
         FROM profile_columns p
         JOIN source_file_cells c ON c.source_file_id = :file AND c.sheet_index = p.sheet_index
             AND c.column_number = p.column_number AND c.row_number > p.header_row
+            AND c.row_number <= p.last_row AND c.row_number <> p.note_row
     ) found
 ) ranked
 WHERE rank <= :values
 """
 
 _COLUMN_OVERLAPS = """
-SELECT a.sheet_index, a.column_number, b.sheet_index, b.column_number, count(*)
+SELECT a.sheet_index, a.block_index, a.column_number, b.sheet_index, b.block_index, b.column_number,
+    count(*)
 FROM profile_values a
 JOIN profile_values b ON b.text = a.text
-    AND (b.sheet_index, b.column_number) <> (a.sheet_index, a.column_number)
-GROUP BY a.sheet_index, a.column_number, b.sheet_index, b.column_number
+    AND (b.sheet_index, b.block_index, b.column_number)
+        <> (a.sheet_index, a.block_index, a.column_number)
+GROUP BY a.sheet_index, a.block_index, a.column_number, b.sheet_index, b.block_index,
+    b.column_number
 """
 
 _NAME_OVERLAPS = """
-SELECT v.sheet_index, v.column_number, o.object_type_key, count(DISTINCT v.text)
+SELECT v.sheet_index, v.block_index, v.column_number, o.object_type_key, count(DISTINCT v.text)
 FROM profile_values v
 JOIN objects o ON o.workspace_key = :workspace AND o.object_type_key = ANY(:types)
     AND o.name = v.text
-GROUP BY v.sheet_index, v.column_number, o.object_type_key
+GROUP BY v.sheet_index, v.block_index, v.column_number, o.object_type_key
 """
 
 _ATTRIBUTE_OVERLAPS = """
-SELECT v.sheet_index, v.column_number, o.object_type_key, a.attribute_type_key,
+SELECT v.sheet_index, v.block_index, v.column_number, o.object_type_key, a.attribute_type_key,
     count(DISTINCT v.text)
 FROM profile_values v
 JOIN attribute_values a ON a.attribute_type_key = ANY(:attributes) AND a.text_value = v.text
 JOIN objects o ON o.id = a.object_id AND o.workspace_key = :workspace
-GROUP BY v.sheet_index, v.column_number, o.object_type_key, a.attribute_type_key
+GROUP BY v.sheet_index, v.block_index, v.column_number, o.object_type_key, a.attribute_type_key
 """
 
 
 def _store_columns(session: Session, source: SourceFile, model: EngineModel | None) -> None:
     parameters = {"file": source.id}
     columns = {
-        (row.sheet_index, row.column_number): row
+        (row.at_sheet, row.at_block, row.at_column): row
         for row in session.execute(
             text(_STATISTICS),
             parameters
@@ -448,15 +527,15 @@ def _store_columns(session: Session, source: SourceFile, model: EngineModel | No
         ).all()
     }
     layout = {
-        (row.sheet_index, row.column_number): row
+        (row.sheet_index, row.block_index, row.column_number): row
         for row in session.execute(text("SELECT * FROM profile_columns")).all()
     }
     session.execute(text(_VALUES), parameters | {"values": OVERLAP_VALUES})
     sampled = dict(
         session.execute(
             text(
-                "SELECT sheet_index || ':' || column_number, count(*) FROM profile_values"
-                " GROUP BY sheet_index, column_number"
+                "SELECT sheet_index || ':' || block_index || ':' || column_number, count(*)"
+                " FROM profile_values GROUP BY sheet_index, block_index, column_number"
             )
         ).all()
     )
@@ -467,34 +546,44 @@ def _store_columns(session: Session, source: SourceFile, model: EngineModel | No
             )
         ).all()
     )
-    overlaps: dict[tuple[int, int], list[dict[str, Any]]] = {}
+    overlaps: dict[tuple[int, int, int], list[dict[str, Any]]] = {}
+    laid_out = {
+        index
+        for index, profile in session.execute(
+            select(SourceFileSheet.sheet_index, SourceFileSheet.profile).where(
+                SourceFileSheet.source_file_id == source.id
+            )
+        )
+        if (profile or {}).get("laidOut")
+    }
 
-    def add(at: tuple[int, int], found: int, entry: dict[str, Any]) -> None:
-        total = sampled.get(f"{at[0]}:{at[1]}") or 0
+    def add(at: tuple[int, int, int], found: int, entry: dict[str, Any]) -> None:
+        total = sampled.get(f"{at[0]}:{at[1]}:{at[2]}") or 0
         if total and found:
             entry["values"] = found
             entry["share"] = round(found / total, 3)
             overlaps.setdefault(at, []).append(entry)
 
-    for sheet_a, column_a, sheet_b, column_b, found in session.execute(text(_COLUMN_OVERLAPS)):
-        other = columns.get((sheet_b, column_b))
-        add(
-            (sheet_a, column_a),
-            found,
-            {
-                "sheet": sheets[sheet_b],
-                "column": get_column_letter(column_b),
-                "header": other.header if other is not None else None,
-            },
-        )
+    for sheet_a, block_a, column_a, sheet_b, block_b, column_b, found in session.execute(
+        text(_COLUMN_OVERLAPS)
+    ):
+        other = columns.get((sheet_b, block_b, column_b))
+        entry = {
+            "sheet": sheets[sheet_b],
+            "column": get_column_letter(column_b),
+            "header": other.header if other is not None else None,
+        }
+        if sheet_b in laid_out:
+            entry["block"] = block_b
+        add((sheet_a, block_a, column_a), found, entry)
     workspace = compared_workspace(session, source)
     if model is not None and workspace is not None:
         types = [item.key for item in model.objectTypes]
-        for sheet, column, type_key, found in session.execute(
+        for sheet, block, column, type_key, found in session.execute(
             text(_NAME_OVERLAPS), {"workspace": workspace, "types": types}
         ):
             add(
-                (sheet, column),
+                (sheet, block, column),
                 found,
                 {"workspaceKey": workspace, "objectTypeKey": type_key, "field": "name"},
             )
@@ -504,12 +593,12 @@ def _store_columns(session: Session, source: SourceFile, model: EngineModel | No
             if item.features.get("unique") and item.valueType in {"text", "longText"}
         ]
         if attributes:
-            for sheet, column, type_key, attribute, found in session.execute(
+            for sheet, block, column, type_key, attribute, found in session.execute(
                 text(_ATTRIBUTE_OVERLAPS),
                 {"workspace": workspace, "attributes": attributes},
             ):
                 add(
-                    (sheet, column),
+                    (sheet, block, column),
                     found,
                     {
                         "workspaceKey": workspace,
@@ -527,7 +616,8 @@ def _store_columns(session: Session, source: SourceFile, model: EngineModel | No
             {
                 "source_file_id": source.id,
                 "sheet_index": at[0],
-                "column_number": at[1],
+                "block_index": at[1],
+                "column_number": at[2],
                 "statistics": _statistics(row, place, listed),
             }
         )
@@ -536,7 +626,7 @@ def _store_columns(session: Session, source: SourceFile, model: EngineModel | No
 
 
 def _statistics(row: Any, place: Any, overlaps: list[dict[str, Any]]) -> dict[str, Any]:
-    filled = row.filled
+    filled = row.filled or 0
     value_types = {
         name: count
         for name, count in (
@@ -565,13 +655,13 @@ def _statistics(row: Any, place: Any, overlaps: list[dict[str, Any]]) -> dict[st
     )
     return {
         "header": row.header,
-        "letter": get_column_letter(row.column_number),
+        "letter": get_column_letter(row.at_column),
         "block": place.block_index,
         "rows": place.rows,
         "filled": filled,
-        "distinct": row.distinct_values,
+        "distinct": row.distinct_values or 0,
         "valueTypes": value_types,
-        "candidateKey": filled == place.rows and row.distinct_values == filled,
+        "candidateKey": filled > 0 and filled == place.rows and row.distinct_values == filled,
         "delimiters": delimiters,
         "placeholders": row.placeholders or [],
         "values": row.frequent or [],

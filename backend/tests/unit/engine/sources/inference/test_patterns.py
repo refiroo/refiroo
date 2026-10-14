@@ -12,8 +12,10 @@ import uuid
 
 import pytest
 import workbooks
+from openpyxl.utils import get_column_letter
 
-from app.engine.sources.inference.patterns import find, fold, is_language
+from app.engine.sources.inference.facts import BlockTable
+from app.engine.sources.inference.patterns import find, fold, is_language, list_block
 
 from .memory import workbook
 
@@ -230,3 +232,53 @@ def test_a_list_sheet_of_placeholders_is_to_be_defined_and_a_placeholder_key_is_
     lists = {f.evidence["target"]: f for f in find(book) if f.pattern == "describedList"}
     assert lists["Finishes"].evidence["toBeDefined"] is True
     assert lists["Colours"].detail["placeholders"] == ["?"]
+
+
+# --- a list of a sheet laid out for reading (0.10 A8a, D116, D118, D119) -------------------------
+
+
+def _block(data: dict[str, list], note: dict | None = None):
+    table = workbook(("Lists", data)).sheets[0]
+    block = BlockTable(
+        name="Lists",
+        index=100_001,
+        sheet_index=0,
+        block=0,
+        first_column="A",
+        last_column=get_column_letter(len(data)),
+        header_row=1,
+        last_row=table.rows + 1,
+        rows=table.rows,
+        note=note,
+        columns=table.columns,
+    )
+    return list_block(block)
+
+
+def test_a_list_reads_a_yes_no_column_as_a_flag_and_two_as_a_set():
+    one = _block({"Kinds": ["A", "B", "C"], "Allowed": ["Y", "N", "Y"]})
+    assert one.detail["flags"] == [2] and one.detail["vocabularies"][2] == ["n", "y"]
+    two = _block({"Kinds": ["A", "B", "C"], "UK": ["Y", "N", "Y"], "ES": ["yes", "no", "no"]})
+    assert two.detail["flags"] == [2, 3]
+
+
+def test_a_column_beside_the_names_is_their_translation_when_filled_beside_most_of_them():
+    names = [f"Value {i}" for i in range(10)]
+    filled = [f"Wert {i}" for i in range(8)] + [None, None]
+    sparse = [f"Wert {i}" for i in range(7)] + [None, None, None]
+    found = _block({"Kinds": names, "Kinds (de)": filled, "Sorten": filled})
+    assert found.detail["translations"] == [(2, "de"), (3, "Language 2")]
+    assert _block({"Kinds": names, "Sorten": sparse}).detail["attributes"] == [2]
+
+
+def test_a_column_holding_only_its_header_is_reported_not_read():
+    found = _block({"Kinds": ["A", "B"], "Sorten": [None, None]})
+    assert found.evidence["empty"] == [{"column": "Sorten", "letter": "B"}]
+    assert found.detail["translations"] == [] and found.detail["attributes"] == []
+
+
+def test_a_free_field_or_a_header_without_values_is_not_a_list():
+    free = _block({"Comment": [None]}, note={"row": 2, "text": "Free field", "meaning": "free"})
+    assert (free.detail["list"], free.detail["reason"]) == (False, "free")
+    noted = _block({"Kinds": ["A", "B"]}, note={"row": 2, "text": "(multiple answers)", "meaning": "many"})
+    assert noted.detail["list"] is True and noted.evidence["note"] == {"text": "(multiple answers)", "meaning": "many"}

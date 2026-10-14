@@ -21,7 +21,10 @@ header a structure has from the generated workbook, never a header text.
   from W1 for the same IDs, and only part of W1's IDs.
 - **W3**: one sheet of 20–40 blocks side by side, separated by empty columns, under a section row
   and a group row; some blocks with a column per language, some with a Y/N column per item, some
-  with a "multiple answers" note under the header.
+  with a "multiple answers" note under the header. Under them, after an empty row, a second band in
+  the same columns under a section of its own (0.10 A8, D121): a header followed by an empty row, a
+  translation column whose header names no language and one holding only its header, a block that
+  is a note alone (``Free field``), a sentence under a list, and a ``Multiple choice`` note.
 """
 
 import io
@@ -203,19 +206,48 @@ def w2(seed: int = 1, rows: int = 200) -> W2:
 
 @dataclass
 class W3:
+    """Each block: its columns (``first``, ``last``), ``headerRow``, ``lastRow``, ``shape``, its
+    header (``title``), the ``titles`` above it (outer first), its ``values`` (the list's names, none
+    for a block that is no list), ``translations`` (each translation column's header, with the
+    values it holds or none), ``note`` and ``prose`` (a sentence under it, not part of it)."""
+
     content: bytes
     blocks: list[dict[str, Any]]
     sheet: str = "Lists"
     header_row: int = 3
 
+    def lists(self) -> list[dict[str, Any]]:
+        return [b for b in self.blocks if b["values"]]
+
+    def groups(self) -> dict[str, list[str]]:
+        """Each innermost title with the headers of the lists under it."""
+        found: dict[str, list[str]] = {}
+        for block in self.lists():
+            found.setdefault(block["titles"][-1], []).append(block["title"])
+        return found
+
+
+# The second band's blocks (0.10 A8, D121), each in the columns of the first band's block of its
+# position: a header followed by an empty row, a translation column whose header names no language,
+# one holding only its header, a block that is a note alone, a list with a sentence under it, and a
+# second note word.
+SECOND_BAND = ("gapped", "unmarked", "headerOnly", "free", "prose", "choice")
+WIDTHS = {"plain": 1, "languages": 3, "flags": 2, "multiple": 1}
+PROSE = "These values are reviewed every year by the people who maintain the catalogue."
+
 
 def w3(seed: int = 1, blocks: int = 24) -> W3:
+    """One sheet of lists laid out for reading: a first band of ``blocks`` lists side by side under
+    a section row and a group row (header row 3), and under it, after an empty row, a second band of
+    lists in the same columns under a section of its own (0.10 A8, D121)."""
     rng = random.Random(seed + 3)
     book = Workbook()
     sheet = book.active
     sheet.title = "Lists"
     column = 1
-    described = []
+    described: list[dict[str, Any]] = []
+    sections: dict[int, str] = {}
+    groups: dict[int, str] = {}
     for index in range(blocks):
         shape = ("plain", "languages", "flags", "multiple")[index % 4]
         title = f"List {index + 1:02d}"
@@ -226,22 +258,33 @@ def w3(seed: int = 1, blocks: int = 24) -> W3:
             "multiple": [title],
         }[shape]
         if index % 6 == 0:
-            sheet.cell(row=1, column=column, value=f"Section {index // 6 + 1}")
+            sections[column] = f"Section {index // 6 + 1}"
+            sheet.cell(row=1, column=column, value=sections[column])
         if index % 3 == 0:
-            sheet.cell(row=2, column=column, value=f"Group {index // 3 + 1}")
+            groups[column] = f"Group {index // 3 + 1}"
+            sheet.cell(row=2, column=column, value=groups[column])
         for offset, header in enumerate(headers):
             sheet.cell(row=3, column=column + offset, value=header)
         first_value = 4
+        note = None
         if shape == "multiple":
-            sheet.cell(row=4, column=column, value="(multiple answers)")
+            note = "(multiple answers)"
+            sheet.cell(row=4, column=column, value=note)
             first_value = 5
         count = rng.randint(3, 9)
+        values = []
+        translations: dict[str, list[str] | None] = {}
+        if shape == "languages":
+            translations = {headers[1]: [], headers[2]: []}
         for value_index in range(count):
             row = first_value + value_index
-            sheet.cell(row=row, column=column, value=f"{title} value {value_index + 1}")
+            values.append(f"{title} value {value_index + 1}")
+            sheet.cell(row=row, column=column, value=values[-1])
             if shape == "languages":
-                sheet.cell(row=row, column=column + 1, value=f"{title} Wert {value_index + 1}")
-                sheet.cell(row=row, column=column + 2, value=f"{title} valeur {value_index + 1}")
+                for offset, word in ((1, "Wert"), (2, "valeur")):
+                    text = f"{title} {word} {value_index + 1}"
+                    sheet.cell(row=row, column=column + offset, value=text)
+                    translations[headers[offset]].append(text)
             elif shape == "flags":
                 sheet.cell(row=row, column=column + 1, value=rng.choice("YN"))
         width = len(headers)
@@ -249,13 +292,86 @@ def w3(seed: int = 1, blocks: int = 24) -> W3:
             {
                 "first": column,
                 "last": column + width - 1,
+                "headerRow": 3,
                 "lastRow": first_value + count - 1,
                 "shape": shape,
                 "title": title,
+                "titles": [],
+                "values": values,
+                "translations": translations,
+                "note": note,
+                "prose": False,
             }
         )
         column += width + 1
-    return W3(_save(book), described)
+    for block in described:
+        block["titles"] = [
+            _title_over(sections, block["first"]),
+            _title_over(groups, block["first"]),
+        ]
+    second = _second_band(sheet, described, rng, max(b["lastRow"] for b in described) + 2)
+    return W3(_save(book), described + second)
+
+
+def _title_over(titles: dict[int, str], column: int) -> str:
+    return titles[max(c for c in titles if c <= column)]
+
+
+def _second_band(sheet: Any, first: list[dict[str, Any]], rng: random.Random, top: int) -> list[dict[str, Any]]:
+    """D121: a section title on row ``top``, the headers on the row under it, one block per shape
+    of :data:`SECOND_BAND` in the columns of the first band's blocks wide enough for it."""
+    header_row = top + 1
+    title = f"Section {(len(first) - 1) // 6 + 2}"
+    sheet.cell(row=top, column=1, value=title)
+    found = []
+    runs = iter(first)
+    for position, shape in enumerate(SECOND_BAND):
+        width = 2 if shape in ("unmarked", "headerOnly") else 1
+        run = next(r for r in runs if r["last"] - r["first"] + 1 >= width)
+        column = run["first"]
+        name = f"Second {position + 1:02d}"
+        sheet.cell(row=header_row, column=column, value=name)
+        other = f"Lista {position + 1:02d}"
+        if width == 2:
+            sheet.cell(row=header_row, column=column + 1, value=other)
+        first_value = header_row + 1
+        note = None
+        if shape == "gapped":
+            first_value = header_row + 2
+        elif shape in ("free", "choice"):
+            note = "Free field" if shape == "free" else "Multiple choice"
+            sheet.cell(row=header_row + 1, column=column, value=note)
+            first_value = header_row + 2
+        count = 0 if shape == "free" else rng.randint(3, 6)
+        values, translated = [], []
+        for index in range(count):
+            row = first_value + index
+            values.append(f"{name} value {index + 1}")
+            sheet.cell(row=row, column=column, value=values[-1])
+            if shape == "unmarked":
+                translated.append(f"{name} valor {index + 1}")
+                sheet.cell(row=row, column=column + 1, value=translated[-1])
+        last_row = first_value + count - 1 if count else header_row + 1
+        if shape == "prose":
+            sheet.cell(row=last_row + 2, column=column, value=PROSE)
+        found.append(
+            {
+                "first": column,
+                "last": column + width - 1,
+                "headerRow": header_row,
+                "lastRow": last_row,
+                "shape": shape,
+                "title": name,
+                "titles": [title],
+                "values": values,
+                "translations": (
+                    {other: translated} if shape == "unmarked" else {other: None} if shape == "headerOnly" else {}
+                ),
+                "note": note,
+                "prose": shape == "prose",
+            }
+        )
+    return found
 
 
 @dataclass

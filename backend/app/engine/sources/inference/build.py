@@ -29,6 +29,8 @@ MATCH_SHARE = 0.5
 FIT_SHARE = 0.95
 # D97: words a joined multi-valued column's header starts with, dropped from the set's name.
 OTHER_WORDS = ("other", "more", "additional")
+# What a note under a list's header says (0.10 A8a, D119), as the list type's description.
+NOTE_DESCRIPTIONS = {"many": "Multiple answers: a record may refer to several", "one": "One answer: a record refers to one"}
 # Words ending a code column's header, dropped from its list's name.
 CODE_WORDS = ("code", "codes", "id", "no", "nr", "number", "key")
 # D111 (0.10 A7): a sheet maps to an existing type when this share of the type's attribute and
@@ -431,7 +433,7 @@ class Builder:
             method = getattr(self, f"_{finding.pattern}", None)
             if method is None:
                 continue
-            if finding.sheet not in self.rows and finding.pattern not in ("translationsByRow", "navigationGroup", *DESCRIPTION_PATTERNS):
+            if finding.sheet not in self.rows and finding.pattern not in ("translationsByRow", "navigationGroup", "listBlock", *DESCRIPTION_PATTERNS):
                 continue
             proposal = method(finding, by_id) if finding.pattern == "navigationGroup" else method(finding)
             if proposal is not None:
@@ -1391,6 +1393,132 @@ class Builder:
         _, proposal.operations = self._named_relation(proposal, described, target_key, readable(finding.detail["target"]), "many-to-many")
         return proposal
 
+    # --- a list of a sheet laid out for reading (0.10 A8a, D116–D119) ------------------------------
+
+    def _listBlock(self, finding: Finding) -> Proposal | None:
+        block = finding.detail["block"]
+        evidence = finding.evidence
+        by_number = {c.number: c for c in block.columns}
+        names = block.columns[0]
+        place = f"{finding.sheet} {block.range}"
+        if not finding.detail["list"]:
+            if finding.detail.get("reason") == "free":
+                self.warnings.append(f"{names.header} ({place}) is a free field, not a list: nothing is proposed for it")
+            else:
+                self.warnings.append(f"{names.header} ({place}) is a header with no values under it, not a list: nothing is proposed for it")
+            return None
+        name = _capital(singular(readable(names.header)))
+        note = evidence.get("note")
+        summary = f"{names.header} ({place}) lists {names.filled} values: a list {name}, read from its block by name."
+        proposal = self._new("listBlock", finding.sheet, [c.header for c in block.columns], summary, evidence, f"listBlock|{finding.sheet}|{block.first_column}{block.header_row}")
+        existing = self.existing_list(name)
+        operations: list[dict[str, Any]] = []
+        if existing:
+            target = existing
+            proposal.keys["list"] = existing
+            name = (self._type(existing) or {}).get("name") or name
+        else:
+            target, operations = self._list_type(proposal, name)
+            if note:
+                operations[0]["description"] = NOTE_DESCRIPTIONS[note["meaning"]]
+        app = self._application_of(target) or self.app
+        source = self.key(proposal, "source", "sources", f"{finding.sheet} {target}")
+        operations.append(
+            {
+                "kind": "addSource",
+                "id": source,
+                "sheet": finding.sheet,
+                "objectType": target,
+                "applicationKey": app,
+                "headerRow": block.header_row,
+                "block": {"firstColumn": block.first_column, "lastColumn": block.last_column, "lastRow": block.last_row},
+                "key": {"field": "name"},
+            }
+        )
+        operations.append(self._map(proposal, source, names.header, {"field": "name"}))
+        if note:
+            value_map = self.key(proposal, "valueMap", "valueMaps", f"{names.header} note")
+            operations.append({"kind": "setValueMap", "name": value_map, "entries": {note["text"]: None}, "source": source, "column": names.header})
+            operations.append({"kind": "setSource", "source": source, "rowsWithoutKey": "skip"})
+            proposal.summary += f" The note {note['text']!r} under its header says {NOTE_DESCRIPTIONS[note['meaning']].lower()}; its row is skipped."
+        row = RowType(target, source, None, app, name, released=self.released(f"objectType:{target}"))
+        alternatives: list[dict[str, Any]] = []
+        if finding.detail["translations"]:
+            _, translation, relation, more = self._translations(proposal, row)
+            operations += more
+            for number, language in finding.detail["translations"]:
+                column = by_number[number]
+                operations.append(
+                    self._map(
+                        proposal,
+                        source,
+                        column.header,
+                        {
+                            "relatedRecord": {
+                                "relationTypeKey": relation,
+                                "applicationKey": self.app,
+                                "objectTypeKey": translation,
+                                "parent": {"objectTypeKey": proposal.keys["language"], "matchBy": {"field": "name"}, "value": language, "missing": "create"},
+                                "field": "name",
+                            }
+                        },
+                    )
+                )
+                attribute = self.key(proposal, f"altAttribute:{column.header}", "attributeTypes", column.header)
+                alternatives.append(
+                    {
+                        "label": f"Read {column.header} as a text attribute of {name} instead",
+                        "operations": [
+                            {"kind": "addAttributeType", "key": attribute, "name": readable(column.header), "valueType": "text", "features": {}},
+                            {"kind": "attachAttribute", "objectType": target, "attributeType": attribute},
+                            {"kind": "mapColumn", "source": source, "column": column.header, "binding": {"attributeTypeKey": attribute}},
+                        ],
+                    }
+                )
+            languages = ", ".join(language for _, language in finding.detail["translations"])
+            proposal.summary += f" {', '.join(by_number[n].header for n, _ in finding.detail['translations'])} translate its names ({languages})."
+        flags = [by_number[n] for n in finding.detail["flags"]]
+        vocabularies = finding.detail["vocabularies"]
+        if len(flags) == 1:
+            column = flags[0]
+            attribute, more = self.attribute(proposal, f"flag:{column.header}", block, column, target, value_type="boolean")
+            operations += more
+            operations.append(self._map(proposal, source, column.header, {"attributeTypeKey": attribute}))
+            map_key = self.key(proposal, f"flagMap:{column.header}", "valueMaps", f"{column.header} yes no")
+            operations.append({"kind": "setValueMap", "name": map_key, "entries": _yes_no(vocabularies[column.number]), "source": source, "column": column.header})
+            proposal.summary += f" {column.header} holds yes or no: a yes/no attribute."
+        elif flags:
+            flag_list, more = self._list_type(proposal, f"{name} flags") if not self.existing_list(f"{name} flags") else (self.existing_list(f"{name} flags"), [])
+            operations += more
+            relation, more = self._relation(proposal, row, flag_list, f"{name} flags", "many-to-many", role="flagRelation")
+            operations += more
+            for column in flags:
+                operations.append(
+                    {
+                        "kind": "setColumnReading",
+                        "source": source,
+                        "column": column.header,
+                        "reading": "relationFlag",
+                        "relationTypeKey": relation,
+                        "objectTypeKey": flag_list,
+                        "target": column.header,
+                    }
+                )
+                proposal.binds[column.header] = (source, "relationFlags")
+            operations.append({"kind": "addValuesToList", "source": source, "column": flags[0].header})
+            proposal.summary += f" {', '.join(c.header for c in flags)} hold yes or no: one list of them, each value having several."
+        for number in finding.detail["attributes"]:
+            column = by_number[number]
+            attribute, more = self.attribute(proposal, f"attribute:{column.header}", block, column, target)
+            operations += more
+            operations.append(self._map(proposal, source, column.header, {"attributeTypeKey": attribute}))
+        if evidence.get("empty"):
+            empty = ", ".join(e["column"] for e in evidence["empty"])
+            proposal.summary += f" {empty} {'holds' if len(evidence['empty']) == 1 else 'hold'} no values yet and {'is' if len(evidence['empty']) == 1 else 'are'} not read."
+        proposal.operations = operations
+        proposal.alternatives = alternatives
+        return proposal
+
     def _named_relation(self, proposal: Proposal, row: RowType, target: str, name: str, cardinality: str) -> tuple[str, list[dict[str, Any]]]:
         """A relation named as a described field, or the one of that name already allowed between
         the two types (D111 (d))."""
@@ -1424,12 +1552,15 @@ class Builder:
         if len(collections) < 2:
             return None
         row = self.rows.get(finding.sheet)
-        label = f"{row.name if row else readable(finding.sheet)} lists"
+        title = finding.evidence.get("title")
+        # The lists under a title of a sheet laid out for reading are grouped by it (0.10 A8a).
+        label = readable(title) if title else f"{row.name if row else readable(finding.sheet)} lists"
         older = _schema(self.model.get("schemaVersion")) < _schema(NAVIGATION_SCHEMA)
         summary = f"Group the {len(collections)} lists the sheet {finding.sheet} adds in the sidebar as \"{label}\", folded" + (
             f"; navigation groups raise the model's schema language to {NAVIGATION_SCHEMA}." if older else "."
         )
-        proposal = self._new("navigationGroup", finding.sheet, [], summary, finding.evidence, f"navigationGroup|{finding.sheet}")
+        anchor = "|".join(filter(None, ["navigationGroup", finding.sheet, title]))
+        proposal = self._new("navigationGroup", finding.sheet, [], summary, finding.evidence, anchor)
         key = self.key(proposal, "group", "groups", label)
         proposal.operations = [{"kind": "setRelease", "schemaVersion": NAVIGATION_SCHEMA}] if older else []
         proposal.operations.append(

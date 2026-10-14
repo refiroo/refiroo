@@ -46,9 +46,19 @@ class SourceFilePage(CollectionPage[SourceFileResponse]):
     """Source files, newest first (ADR-030)."""
 
 
+class SourceBlockNote(BaseModel):
+    """A note under a list's header (0.10 A8a, D119): its row, its text and what it says of the
+    list: ``many`` answers, ``one``, or ``free`` (a free field, no list)."""
+
+    row: int
+    text: str
+    meaning: Literal["many", "one", "free"]
+
+
 class SourceBlock(BaseModel):
-    """A run of columns holding cells, between empty columns (D68), usable as an import profile
-    source's ``headerRow`` and ``block``."""
+    """A run of columns holding cells, between empty columns (D68), or on a sheet laid out for
+    reading one list of such a run, between empty rows (0.10 A8a, D115); usable as an import
+    profile source's ``headerRow`` and ``block``."""
 
     index: int
     range: str
@@ -56,7 +66,11 @@ class SourceBlock(BaseModel):
     lastColumn: str
     headerRow: int | None
     lastRow: int
-    rows: int = Field(description="Rows below the header with a cell in the block")
+    rows: int = Field(description="Rows below the header with a cell in the block, its note left out")
+    titles: list[str] = Field(
+        default_factory=list, description="The titles above the list, the outermost first (D115)"
+    )
+    note: SourceBlockNote | None = None
 
 
 class SourceSheetResponse(BaseModel):
@@ -64,6 +78,10 @@ class SourceSheetResponse(BaseModel):
     name: str
     rows: int = Field(description="Rows with a cell")
     headerRow: int | None = Field(description="The first block's header row")
+    laidOut: bool = Field(
+        default=False,
+        description="Laid out for reading: lists side by side or stacked, read list by list (D115)",
+    )
     blocks: list[SourceBlock]
 
 
@@ -91,6 +109,7 @@ class SourceOverlap(BaseModel):
     share: float
     sheet: str | None = None
     column: str | None = None
+    block: int | None = None
     header: str | None = None
     workspaceKey: str | None = None
     objectTypeKey: str | None = None
@@ -106,7 +125,8 @@ class SourceColumnLimits(BaseModel):
 
 
 class SourceColumnResponse(BaseModel):
-    """A column's statistics over the rows below its block's header (D68–D70)."""
+    """A column of a block, with its statistics over the rows below the block's header (D68–D70),
+    the block's note left out (0.10 A8a)."""
 
     sheet: str
     letter: str
@@ -129,7 +149,7 @@ class SourceColumnResponse(BaseModel):
 
 
 class SourceColumnPage(CollectionPage[SourceColumnResponse]):
-    """A sheet's profiled columns in column order."""
+    """A sheet's profiled columns, block by block, each block's in column order."""
 
 
 class DryRunRejection(BaseModel):

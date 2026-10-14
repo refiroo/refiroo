@@ -92,8 +92,10 @@ def sheets(session: Session, draft: ModelDraft) -> tuple[dict[str, Sheet] | None
         .order_by(SourceFileColumn.sheet_index, SourceFileColumn.column_number)
     ):
         header = statistics.get("header")
-        if isinstance(header, str) and header:
-            headers.setdefault(sheet_index, []).append(header)
+        # Trimmed as the import's reader names a column (``readers.header_cell``); found on a real
+        # workbook whose headers end in a space (0.10 A8a).
+        if isinstance(header, str) and header.strip():
+            headers.setdefault(sheet_index, []).append(header.strip())
     found = {}
     for row in session.scalars(
         select(SourceFileSheet).where(SourceFileSheet.source_file_id == source.id).order_by(SourceFileSheet.sheet_index)

@@ -2529,7 +2529,12 @@ fixed values it matches. A list pages in key order (ADR-030).
   holding nothing in any column the source names is no record of it and is skipped (a list or
   parent read from another type's sheet, on a row without one; 0.10 A6b, D99).
 - **`key`** finds a row's existing record: `{"attributeTypeKey"}`, an attribute declared `unique`
-  whose value the row's own column supplies, or `{"column"}`, a column holding the public ID.
+  whose value the row's own column supplies, `{"column"}`, a column holding the public ID, or
+  `{"field": "name"}` (0.10 A8a, D117), the record of the type with the name the row's `field:
+  "name"` column gives (a list of names without codes): two rows with one name are one record as
+  for any key, and a name two records of the type share in the context is refused
+  `AMBIGUOUS_NAME_KEY`; a source keyed by name without a column binding the name is refused
+  `INVALID_IMPORT_PROFILE` with `KEY_NOT_BOUND` at `/sources/{i}/key/field`.
   Without a key every row creates a record, so sending such a file twice creates its records twice. A found record is updated (under `onExisting`, below);
   otherwise a record is created. `record: "existing"` finds each row's record by its key and writes
   only its relationships and related records (a sheet of translations, one row per language); since
@@ -4084,15 +4089,32 @@ with the file and its profile's state:
 - `GET /source-files` (paged, newest first; `draftId` or `profileKey`), `GET /source-files/{id}`,
   `DELETE /source-files/{id}?expectedVersion=` (`204`; a profile job still running is cancelled).
 - **`GET …/profile/sheets`** (paged, workbook order): each sheet's `index`, `name`, `rows` (rows with a
-  cell), `headerRow` (its first block's) and `blocks`, each with `range` (`A3:C12`), `firstColumn`,
-  `lastColumn`, `headerRow`, `lastRow` and `rows` below the header: the values an import profile's
-  source takes as `headerRow` and `block`. A block is a run of columns holding cells between empty
+  cell), `headerRow` (its first block's), `laidOut` (0.10 A8a) and `blocks`, each with `range`
+  (`A3:C12`), `firstColumn`, `lastColumn`, `headerRow`, `lastRow`, `rows` below the header (its note
+  row left out), `titles` and `note`: the values an import profile's source takes as `headerRow` and
+  `block`. A block is a run of columns holding cells between empty
   columns; its header row is the first row whose cells in the block are all text, fill every column
   and are followed by a row within those columns; a row that is such a header for every block of a
   sheet is all of theirs, so a title, section or group row above a one-column list is passed over.
   A block whose header has an empty cell takes the text row with the most cells. Colour and
   formatting are not read (D68, A-D9).
-- **`GET …/profile/sheets/{sheet}/columns`** (paged, column order, every block's) gives each column's
+- **A sheet laid out for reading** (`laidOut`, 0.10 A8a, D115): a sheet whose blocks hold no table
+  (no block of at least three columns holds 60% of its cells, or it is one block of at most two
+  columns holding several lists one under another) and that has at most 2,000 rows with a cell is read list by list. Each run of columns is
+  split at empty rows; rows averaging more than 60 characters are prose and belong to no list. A
+  one-row block directly above another (at most one empty row between) is its header, unless it is
+  one cell over lists beside it that start on the same row with nothing such above them: then it is
+  their title. Lists side by side share the header row most of them start on; one-cell rows above it
+  are titles. A one-row block left over is a title when it is one cell, else a list header with no
+  values (`rows` 0). A list's `titles` are the nearest title above it whose columns reach it (to the
+  next title on its row) and the titles on the rows directly above that one, the outermost first. A
+  list's `note` (D119) is the first row under its header when a cell of it is a note word,
+  `{row, text, meaning}`: `multiple answer(s)`, `multiple choice`, `multi-select`, `several` →
+  `many`; `single answer`, `single choice`, `one answer` → `one`; `free field`, `free text` →
+  `free` (folded for case, brackets and punctuation).
+- **`GET …/profile/sheets/{sheet}/columns`** (paged, block by block and each block's in column order;
+  a column of a sheet laid out for reading is listed once per list holding it, a column holding only
+  its header with `filled` 0, 0.10 A8a) gives each column's
   `sheet`, `letter`, `header`, `block`, `rows`, `filled`, `distinct`, `valueTypes` (cells readable as
   `text`, `integer`, `decimal`, `boolean`, `date`, `dateTime`, as the attribute registry converts
   them), `candidateKey` (filled on every row, no value twice), `delimiters` (`;`, `,`, `|`, `/`, line
@@ -4104,7 +4126,8 @@ with the file and its profile's state:
     least 1% of the column's cells; each with its `count`, at most 10 listed.
   - **Overlaps** (D69): the columns, and with a `workspaceKey` the record names and unique text
     attributes of the model's types in that workspace, holding the most of the column's distinct
-    values: another column as `sheet`, `column`, `header`; a field as `workspaceKey`,
+    values: another column as `sheet`, `column`, `header` (and `block` on a sheet laid out for
+    reading); a field as `workspaceKey`,
     `objectTypeKey` and `field: name` or `attributeTypeKey`; each with `values` and `share` of the
     compared values. At most 1,000 distinct values per column are compared (the first in text
     order) and the best 5 listed. The model is the draft's when it compiles, the active release's
@@ -4218,7 +4241,7 @@ refused the same way. Bindings use the import profile's vocabulary
 | Kind | Parameters | What it changes |
 | --- | --- | --- |
 | `setProfile` | `key`, `name` | The key the instance profile is saved under at installation, and its name. The first mapping kind starts the profile with both taken from the file's name (A-D6) |
-| `addSource` | `sheet`, `objectType`, `applicationKey`? (the first holding the type), `headerRow`? (the sheet's), `block`?, `key`? (`{attributeTypeKey}` or `{column}`), `id`? (from the sheet and type), `position`? | A source loading the type from the sheet, with no columns yet |
+| `addSource` | `sheet`, `objectType`, `applicationKey`? (the first holding the type), `headerRow`? (the sheet's), `block`?, `key`? (`{attributeTypeKey}`, `{column}` or `{field: "name"}`, 0.10 A8a), `id`? (from the sheet and type), `position`? | A source loading the type from the sheet, with no columns yet |
 | `setSource` | `source`; any of `sheet`, `headerRow`, `block`, `objectType`, `applicationKey`, `key` (`null` removes it, and `rowsWithoutKey` with it), `record`, `rowsWithoutKey` (`refuse` or `skip`; `skip` needs a key, `invalidValue` otherwise; 0.10 A7) | The source's settings |
 | `removeSource` | `source` | The source and its bindings |
 | `setMissing` | `source`, `missing`: `report` or `delete` | What a load does with the records no row names (0.10 A5c, D82); `delete` needs a keyed source loading its records (`invalidValue` otherwise); removing the source's key takes `delete` away |
@@ -4297,7 +4320,9 @@ draft's latest inference, as the dry run's are (D87).
   `source:<id>`, `column:<source>/<header>` and `valueMap:<name>`. The editor marks them Proposed.
 - `disagreements`: columns the draft binds otherwise than a pattern reads them, with the step that
   decided it; they are also `INFERENCE_DISAGREES` warnings in `GET …/profile`'s `diagnostics`, at
-  the column's binding (`/profile/sources/{i}/columns/{j}`), while they hold. `warnings`: sheets laid out for reading (several blocks, A8), a sheet read by its
+  the column's binding (`/profile/sources/{i}/columns/{j}`), while they hold. `warnings`: a sheet of
+  several blocks and no table too large to read list by list, a list that is a free field or a
+  header with no values (0.10 A8a), a sheet read by its
   main table and the blocks beside it, a second column with an earlier column's header (left out:
   a column is bound by its header), no shape to propose from, an assistant that failed; and from a
   model description and extend mode (0.10 A7): a list to be defined, a field whose type is not a
@@ -4316,7 +4341,8 @@ undone before; not applied again unless asked by ID).
 `levelColumns`, `codeAndName`, `nameDrift`, `flagColumns`, `multiValued`, `textLookup`,
 `placeholders`, `sheetReference`, `translationsByRow`, `translationsByColumn`, `externalId`,
 `attribute` (every remaining column), `navigationGroup` (raising the schema language to 0.10 when
-the draft is older) and `assistant` (a label the optional assistant suggests). Columns of different
+the draft is older), `listBlock` (0.10 A8a, below) and `assistant` (a label the optional assistant
+suggests). Columns of different
 sheets with one header and value type share one attribute type; unique ones only when no value
 appears in both (D98).
 
@@ -4329,6 +4355,21 @@ placeholders, then the list has no source and its sheet is ignored; no source wh
 no sheet), `describedField` per field (a relation named after a lookup or multi field to its
 target's list, else an attribute of the field's type) and `describedFlags` per flag target (one
 relation to its list, whose records the flag columns of a later file create).
+
+A **sheet laid out for reading** (0.10 A8a, D116–D119) proposes a `listBlock` per list of its
+profile: a list type named after the header (described "Multiple answers: a record may refer to
+several" or "One answer: a record refers to one" under a note), a source on the list's `headerRow`
+and `block` keyed by name (`key: {"field": "name"}`), its first column the name. Its other columns
+are read within the list: a column of yes/no words is a yes/no attribute (two or more, a flag set
+of their own list); a text column filled on at least 80% of the rows its names fill is a
+translation of the names, in the language a language word of its header names, else `Language k`,
+each with the alternative of a text attribute; a column holding only its header is listed in
+`evidence.empty` and not read; any other column is an attribute. A note row is skipped (its value
+map sends the note to empty and `rowsWithoutKey: "skip"`). A list under a `free` note, or a header
+with no values, proposes nothing and is a warning. `evidence`: `block` (`range`, `firstColumn`,
+`lastColumn`, `headerRow`, `lastRow`, `rows`), `header`, `titles`, `note` (`text`, `meaning`),
+`values`, `translations`, `empty`, `flags`, `attributes`. The lists under one innermost title, two
+or more, are a `navigationGroup` named after the title (`evidence.title`).
 
 In **extend** mode the files meet through the stored model and records (D106, D111, D112): a sheet
 maps to a type at least half of whose attribute and relation names (two at least) are its headers;

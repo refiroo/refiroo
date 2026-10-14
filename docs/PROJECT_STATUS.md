@@ -91,8 +91,8 @@ review holds only the differences. Measuring the check at 10,000 rows found two 
 check locked itself out at the binding's first lease renewal, and the 0.9 binding's lookup by key
 attribute compared every row with every record (21.9 s; now 2.4 s for the whole binding). The
 check of W1′ at 10,000 rows takes 10.1 s after 6.1 s of profiling. Migration `20261015_01`.
-**A7, model-description sheets and matching across files, is built (2026-10-14), its screenshots
-waiting for the user's approval** ([record](BASE_0_10_IMPLEMENTATION_PLAN.md#a7-record-2026-10-14)):
+**A7, model-description sheets and matching across files, is delivered (2026-10-14, screenshots
+approved by the user)** ([record](BASE_0_10_IMPLEMENTATION_PLAN.md#a7-record-2026-10-14)):
 a sheet of field, type and target columns is read before the lists it names (the described type,
 each list from its sheet by its ID, placeholder IDs skipped by a source's new `rowsWithoutKey:
 "skip"`, lists to be defined added with nothing to load); a flat table then comes as additions to
@@ -100,6 +100,16 @@ the model, matched to the stored type by its fields, to the stored lists by name
 codes by their ID, with missing values and name drift reported and each an alternative; the
 editor's description sheet reads Describes the model. It fixed an A6 defect: the editor's
 workbooks were compared with no records, so additions to the model never matched by value.
+**A8 is planned in three slices (D114–D121, accepted 2026-10-14); A8a, lists of a sheet laid out
+for reading through the API, is delivered (2026-10-14)**
+([record](BASE_0_10_IMPLEMENTATION_PLAN.md#a8a-record-2026-10-14)): a sheet holding no table but
+lists side by side and under each other is read list by list, each with its header, the titles
+above it and a note under its header; column statistics are kept per block (migration
+`20261016_01`); each list is proposed as a list type loading its block by name (a source's new
+`key: {"field": "name"}`), with its translations, yes/no columns and note, and the lists under one
+title as a navigation group. On the user's reading-layout workbook it proposes 87 lists and 10
+groups whose dry run refuses no row. It fixed an A5/A6 defect: a header ending in a space could not
+be mapped. Next: A8b, the source pane list by list (a mock-up first), then A8c.
 
 ### How 0.9 was built
 

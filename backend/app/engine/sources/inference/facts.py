@@ -9,10 +9,12 @@ test builds the same interface over rows it generates.
 A sheet of one block is read whole. Of a sheet with several blocks, its **main block** is read when
 one is clearly the table (:func:`main_block`: at least :data:`MAIN_COLUMNS` columns and
 :data:`MAIN_SHARE` of the sheet's cells; reported by the user on a real workbook, 2026-10-14: a table
-with a two-column note beside it proposed nothing); the other blocks, and sheets of lists side by
-side, are left to A8 and named in the inference's warnings.
+with a two-column note beside it proposed nothing); the other blocks are named in the inference's
+warnings. A sheet laid out for reading (its profile's ``laidOut``, 0.10 A8a, D115) is read list by
+list: each of its blocks is a :class:`BlockTable` of the workbook's ``blocks``.
 """
 
+import json
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
@@ -24,6 +26,8 @@ from sqlalchemy.orm import Session
 
 from ....models.database import SourceFile, SourceFileColumn, SourceFileSheet
 
+# A list's table index (BlockTable.index): above every sheet's own.
+BLOCK_INDEX = 100_000
 # A sheet's main block: this many columns at least, and this share of the sheet's cells.
 MAIN_COLUMNS = 3
 MAIN_SHARE = 0.6
@@ -140,10 +144,47 @@ class Table(Protocol):
         ...
 
 
+@dataclass
+class BlockTable:
+    """A list of a sheet laid out for reading (0.10 A8a): where it stands, the titles above it, its
+    note (D119) and its columns' statistics over its rows."""
+
+    name: str
+    # Unique among the workbook's tables, so columns of two lists share attribute types (D98).
+    index: int
+    sheet_index: int
+    block: int
+    first_column: str
+    last_column: str
+    header_row: int
+    last_row: int
+    rows: int
+    titles: tuple[str, ...] = ()
+    note: dict[str, Any] | None = None
+    columns: list[Column] = field(default_factory=list)
+
+    @property
+    def range(self) -> str:
+        return f"{self.first_column}{self.header_row}:{self.last_column}{self.last_row}"
+
+    def described(self) -> dict[str, Any]:
+        return {
+            "range": self.range,
+            "firstColumn": self.first_column,
+            "lastColumn": self.last_column,
+            "headerRow": self.header_row,
+            "lastRow": self.last_row,
+            "rows": self.rows,
+        }
+
+
 class Workbook(Protocol):
     sheets: Sequence[Table]
-    # Sheets laid out for reading (more than one block), left to A8.
+    # Sheets of several blocks neither holding a table nor read list by list.
     skipped: Sequence[str]
+    # The lists of sheets laid out for reading (0.10 A8a), and those sheets' names.
+    blocks: Sequence[BlockTable]
+    laid_out: Sequence[str]
 
     def common(self, first: tuple[int, int], second: tuple[int, int]) -> int:
         """The distinct values two columns (sheet index, column number) share."""
@@ -300,6 +341,8 @@ class StagedWorkbook:
     file_id: int
     sheets: list[StagedTable] = field(default_factory=list)
     skipped: list[str] = field(default_factory=list)
+    blocks: list[BlockTable] = field(default_factory=list)
+    laid_out: list[str] = field(default_factory=list)
     # Sheets read by their main block: (sheet, the block's range, the other blocks' ranges).
     partial: list[tuple[str, str, list[str]]] = field(default_factory=list)
     # Columns left out for a header an earlier column of the sheet has: (sheet, header, letter).
@@ -351,12 +394,18 @@ def staged_workbook(session: Session, source: SourceFile) -> StagedWorkbook:
             SourceFileColumn.sheet_index, SourceFileColumn.column_number, SourceFileColumn.statistics
         )
         .where(SourceFileColumn.source_file_id == source.id)
-        .order_by(SourceFileColumn.sheet_index, SourceFileColumn.column_number)
+        .order_by(
+            SourceFileColumn.sheet_index, SourceFileColumn.block_index, SourceFileColumn.column_number
+        )
     ):
         columns.setdefault(sheet_index, []).append((number, statistics))
     for sheet in sheets:
         profile = sheet.profile or {}
         blocks = profile.get("blocks") or []
+        if profile.get("laidOut"):
+            workbook.laid_out.append(sheet.name)
+            workbook.blocks += _block_tables(session, source.id, sheet, blocks, columns.get(sheet.sheet_index, []))
+            continue
         chosen = 0 if len(blocks) == 1 else main_block(blocks)
         if chosen is None or not blocks[chosen].get("headerRow"):
             if blocks:
@@ -408,6 +457,79 @@ def staged_workbook(session: Session, source: SourceFile) -> StagedWorkbook:
             table.columns.append(column_of(number, statistics, spaced, guids, longest or 0, float(average or 0)))
         workbook.sheets.append(table)
     return workbook
+
+
+def _block_tables(
+    session: Session,
+    file_id: int,
+    sheet: SourceFileSheet,
+    blocks: Sequence[dict[str, Any]],
+    columns: Sequence[tuple[int, dict[str, Any]]],
+) -> list[BlockTable]:
+    """The lists of a sheet laid out for reading, each with its columns and the facts of their
+    cells over its rows, read by one statement (D115)."""
+    facts = {
+        (block, number): (spaced, guids, longest, average)
+        for block, number, spaced, guids, longest, average in session.execute(
+            text(
+                """
+                SELECT b.index, c.column_number, count(*) FILTER (WHERE c.text ~ '\\s'),
+                    count(*) FILTER (WHERE c.text ~ :guid), max(char_length(c.text)),
+                    avg(char_length(c.text))
+                FROM jsonb_to_recordset(CAST(:blocks AS jsonb))
+                    AS b(index integer, first integer, last integer, header integer, final integer,
+                         note integer)
+                JOIN source_file_cells c ON c.source_file_id = :file AND c.sheet_index = :sheet
+                    AND c.column_number BETWEEN b.first AND b.last AND c.row_number > b.header
+                    AND c.row_number <= b.final AND c.row_number <> b.note
+                GROUP BY b.index, c.column_number
+                """
+            ),
+            {
+                "file": file_id,
+                "sheet": sheet.sheet_index,
+                "guid": GUID,
+                "blocks": json.dumps(
+                    [
+                        {
+                            "index": b["index"],
+                            "first": column_index_from_string(b["firstColumn"]),
+                            "last": column_index_from_string(b["lastColumn"]),
+                            "header": b.get("headerRow") or 0,
+                            "final": b["lastRow"],
+                            "note": (b.get("note") or {}).get("row") or 0,
+                        }
+                        for b in blocks
+                    ]
+                ),
+            },
+        )
+    }
+    found = []
+    for block in blocks:
+        if not block.get("headerRow"):
+            continue
+        table = BlockTable(
+            name=sheet.name,
+            index=BLOCK_INDEX + sheet.sheet_index * BLOCK_INDEX + block["index"],
+            sheet_index=sheet.sheet_index,
+            block=block["index"],
+            first_column=block["firstColumn"],
+            last_column=block["lastColumn"],
+            header_row=block["headerRow"],
+            last_row=block["lastRow"],
+            rows=block.get("rows") or 0,
+            titles=tuple(block.get("titles") or ()),
+            note=block.get("note"),
+        )
+        for number, statistics in columns:
+            header = statistics.get("header")
+            if statistics.get("block") != block["index"] or not isinstance(header, str) or not header.strip():
+                continue
+            spaced, guids, longest, average = facts.get((block["index"], number), (0, 0, 0, 0))
+            table.columns.append(column_of(number, statistics, spaced, guids, longest or 0, float(average or 0)))
+        found.append(table)
+    return found
 
 
 def main_block(blocks: Sequence[dict[str, Any]]) -> int | None:

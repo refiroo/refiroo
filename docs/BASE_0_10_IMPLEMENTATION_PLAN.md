@@ -15,7 +15,9 @@ A6, which comes before A5c (the user, 2026-10-12); A6a, inference through the AP
 the editor filled by the inference, delivered (screenshots approved 2026-10-14, after its run on the
 user's workbooks and D99–D103); A5c, the next version of a workbook, built (2026-10-14, D104 and
 D105 accepted), delivered (screenshots approved 2026-10-14). A7, model-description sheets and
-matching across files, built (2026-10-14, D106–D113 accepted), its screenshots waiting for approval.
+matching across files, built (2026-10-14, D106–D113 accepted), delivered (screenshots approved 2026-10-14).
+A8 planned in three slices (D114–D121 accepted 2026-10-14); A8a, lists of a sheet laid out for
+reading through the API, delivered (2026-10-14).
 
 **Target:** Product 0.10.0, [model authoring and spreadsheet onboarding](ROADMAP.md#product-release-010--model-authoring-and-spreadsheet-onboarding).
 The `navigation` declaration (A-D2) extends the model, so 0.10 opens the next schema language version
@@ -244,8 +246,8 @@ migration), `contract` (every route change) and `volume` (every budget).
 | 9 | [A5](#a5-editor-with-a-source-file) | A3, T1 | **A5a delivered 2026-10-12; A5b committed 2026-10-12, its open points carried into A6; A5c delivered 2026-10-14; A5's exit gate met.** Source and mapping panes, mapping operations, profiles following the model, load, saved profiles and re-runs |
 | 10 | [A6](#a6-inference-over-table-patterns) | A5 | **A6a delivered 2026-10-12; A6b delivered 2026-10-14.** Proposals from the table patterns; new application or extending the active model; pinned decisions |
 | — | _cut line (D2)_ | | _If R is out of reach, 0.10.0 releases here and A7, A8 move to 0.10.x_ |
-| 11 | [A7](#a7-model-description-sheets-and-matching-across-files) | A6 | **Built 2026-10-14, delivered when its screenshots are approved.** Model-description sheets; matching records across files |
-| 12 | [A8](#a8-list-blocks-in-sheets-laid-out-for-reading) | A6 | List blocks detected, confirmed and loaded |
+| 11 | [A7](#a7-model-description-sheets-and-matching-across-files) | A6 | **Delivered 2026-10-14** (screenshots approved). Model-description sheets; matching records across files |
+| 12 | [A8](#a8-list-blocks-in-sheets-laid-out-for-reading) | A6 | **A8a delivered 2026-10-14; A8b and A8c open.** List blocks detected, confirmed and loaded |
 | 13 | [R](#r-build-acceptance-and-release) | all | Build acceptance and release |
 
 ## Sequence and dependencies
@@ -3334,8 +3336,8 @@ No door is affected.
 
 ##### A7 record (2026-10-14)
 
-**Built 2026-10-14** as planned (D106–D113); **delivered when the user approves its screenshots**
-(D113). What is built:
+**Built 2026-10-14** as planned (D106–D113); **delivered 2026-10-14**, its screenshots approved by
+the user (D113). What is built:
 
 - **The description rule** (`patterns.py`, D107): a sheet's field, type and target columns found by
   their values (`TYPE_WORDS`, `TYPE_SHARE` 80%, `TARGET_SHARE` 50%, at most `DESCRIPTION_ROWS`
@@ -3422,6 +3424,206 @@ drops each block in the source pane (A-D9). Colour and formatting carry no meani
 **Tests:** W3's blocks detected with their headers; confirmed blocks become list types in proposed
 navigation groups; an adjusted block boundary; a language pair becomes translations.
 
+##### A8 plan (2026-10-14)
+
+**Planned 2026-10-14; D114–D121 and the test cases accepted by the user the same day** (D118 as
+written, after the user asked how a translation is known, see D118). Started
+on the user's instruction ("deliver build 0.1 a8", read as 0.10 A8). A7's screenshots were waiting
+for approval when A8 started; A7 is committed (`c089802`). Checked against the code at `c089802`
+read cell by cell; no content of it is copied here):
+
+- **Blocks are column runs only** (`profiling._layouts`, D68): columns holding a cell, split by
+  empty columns. The real workbook also **stacks lists in the same columns**, one under another,
+  split by empty rows (one sheet holds eight lists in its first two columns), so today each column
+  run is one "block" of several lists. W3 has blocks side by side only.
+- **What sits around a list in the real workbook:** a section title above several lists (one cell,
+  merged across them in Excel; merges are formatting and are not read); the list's header, sometimes
+  followed by an empty row; a note row under the header (`(Multiple answer)`, `Multiple choice`,
+  `Free field`) with its translation in the paired column; a translation column whose header is the
+  header in another language, with no language suffix, filled on some lists and empty on others;
+  Y/N columns headed by a country code beside each language column; a second header row naming a
+  role; sub-lists headed by an item of the list above; prose paragraphs below a list.
+- **Several lists of one shape side by side whose headers are values, not list names**: one sheet
+  has twelve blocks of four columns (name, flag, translated name, flag), each headed by a category,
+  together one list of items under twelve categories. W3 has nothing like it. See D120.
+- **Inference reads one block per sheet** (`facts.main_block`, A6): the main table when one block
+  holds at least 60% of the cells and three columns; otherwise the sheet is skipped with a warning
+  "left to A8" (`workbook.partial`).
+- **A source can already load a rectangle**: `headerRow` and `block` (`firstColumn`, `lastColumn`,
+  `lastRow`) in the import contract, and `setSource` changes both, so adjusting a block's boundary
+  needs no new operation.
+- **A list of names alone cannot be keyed.** A source's key is a unique attribute or a public-ID
+  column (`SourceKey`); a column has one binding (`mapColumn`); A6's lists without a sheet are
+  created by a lookup's `missing: "create"`, by name. A block of one column of names has neither.
+  See D117.
+- **D100 does not find a list's translations**: it needs a base column whose values repeat, and a
+  list's names are all different.
+
+**What is built**, in three slices (D114):
+
+**A8a, blocks through the API** (no screen):
+
+1. **Blocks split by rows** (`profiling.py`, D115): on a sheet laid out for reading, a column run is
+   split at empty rows into blocks, each with its header, its **note** and the **titles** above it.
+   Sheets holding a main table keep today's blocks.
+2. **One list per block** (`patterns.py`, `build.py`, D116): a `listBlock` proposal per block: a list
+   type named after the header, a source limited to the block's rectangle, its first column the
+   name, keyed by name (D117); other columns read by A6's rules within the block (a lone Y/N column a
+   yes/no attribute, two or more a flag set, a code column a key); translation columns (D118); the
+   note row skipped (A7's value map to empty and `rowsWithoutKey: "skip"`) and the note recorded
+   (D119); a block holding nothing but a note proposes no list and says why.
+3. **Navigation groups from titles** (D116): the lists under one title form a group named after it,
+   the innermost title when there are two levels (groups have one level, A-D11).
+4. **Import:** a source keyed by name (D117).
+5. **W3 grows** (D121) to hold the real workbook's shapes.
+
+**A8b, blocks in the editor's source pane** (a new surface, so a mock-up first, then build): a
+sheet laid out for reading lists its blocks (title path, header, range, rows) with each block's
+columns under it; a block's list reads Proposed like any proposal; **Adjust block…** changes its
+rectangle (`setSource`), shown on a grid of the block's cells; **Don't load this block** undoes its
+proposal's step, or ignores the block when it was never proposed; an unproposed block can be
+proposed as a list. The A8b plan holds the mock-up and the browser cases.
+
+**A8c, lists of one shape as one list** (D120): the alternative "one list with the headers as its
+parents", which needs a source to set the same parent on every row it loads.
+
+**Documents:** API.md (the profile's blocks, `key.field`, the new pattern and warnings),
+MODEL_AUTHORING (the block rules as built), USER_JOURNEYS J34.10, API_JOURNEYS, UI_ACCEPTANCE (A8b),
+CURRENT_FUNCTIONALITY and PRODUCT, CHANGELOG, PROJECT_STATUS, TODO.
+
+**Decisions** (D114 onward):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D114 | Slices | **A8a through the API (blocks, proposals, the name key), A8b the source pane (mock-up first, the package then complete on approved screenshots), A8c lists of one shape as one list (D120). Each delivered and recorded on its own, as A5 and A6 were.** A8b's screen depends on what A8a finds on the real workbook, as A6b's did on A6a; A8c changes the import contract and is the part most likely to be cut |
+| D115 | Where blocks split | **On a sheet with no main table (A6's `main_block` finds none) and more than one column run, or one run of at most two columns: a column run is split at every empty row into parts; a part that is one text row (one cell or a row of text cells) directly above a part in the same columns, with at most one empty row between, is its header; a one-cell part whose column starts no part below it in the next rows is a title (section or group) for the blocks below it, from its column to the next title's column on its row; a part of text averaging more than 60 characters (D102) is prose, not a block. A sheet with a main table keeps today's blocks.** A table with an empty row in it must not be cut in two; the main-table rule already tells a table from a layout, so it decides here too. Real headers are sometimes followed by an empty row, so one empty row between a header and its values joins them. Bounded: the parts are found by one statement over the staged cells, never by reading the sheet in Python |
+| D116 | What a block proposes | **A `listBlock` proposal per block: a list type named after the header (written as words, D103), a source on the block's rectangle with the first column as the name, the other columns read by A6's rules inside the block; per title, a navigation group of its lists named after the title, the innermost title where there are two levels. A sub-list headed by a value of the list above it is proposed as a list of its own, with that relation left to the administrator.** Colour, bold and merges are not read (A-D9). Sub-lists are rare in the files seen and their reading is a guess; the editor can relate them |
+| D117 | A list of names without codes | **A source's key gains a third form, `{"field": "name"}`: a row's record is the one of the type with that name in the load's context; two rows or two records with one name are refused (`DUPLICATE_KEY_IN_FILE` as today; `AMBIGUOUS_NAME_KEY` for the records). Generic: any client may load a list by name.** The other ways are worse: a generated code attribute would need one column bound twice (a column has one binding), and leaving these lists to be created by a later lookup's `missing: "create"` leaves the block's own file unloadable. Identity door (ADR-032): not affected; public IDs and unique attributes are unchanged, and the name is a match, not an identity |
+| D118 | A list's translations | **Inside a block, a text column beside the name column, filled on at least 80% of the name's rows, is a translation of the name, in the language its header names (a suffix or a language word, as today), else "Language k". A translation column holding only its header is reported in the evidence ("holds no values yet") and not bound.** D100 needs repeated values and cannot see a list. The real workbook's translation headers are the header in another language with no suffix, so "Language k" is what the administrator renames there. **How it is known** (the user's question, 2026-10-14): it is not; the rule sees a second text per item on the same rows, and only a header naming a language says which. A plain attribute by default was considered and left out by the user: the proposal stays a translation, which the editor turns into an attribute in one step |
+| D119 | Notes under a header | **A row directly under the header (or under its empty row) whose cells are notes is not loaded: its value map sends the note to empty and the source skips rows without a key (A7, D110). Note words, English, folded: `multiple answer(s)`, `multiple choice`, `multi-select`, `several` → many; `single answer`, `single choice`, `one answer` → one; `free field`, `free text` → not a list: the block proposes no list and a warning names it. The note's meaning is the proposal's evidence and the list type's description ("Multiple answers").** The list itself has no cardinality: a relation does, and no type relates to these lists yet. The description keeps it in front of the administrator until a later file or the editor adds the relation |
+| D120 | Lists of one shape side by side | **In A8c: three or more adjacent blocks under one title with the same columns by kind propose, as an alternative to a list each, one list with the blocks' headers as records of a parent list. To load it a source gains `parent: {"fixed": "<a value>"}`, setting the same parent on every row it loads. Leaving A8c out leaves such sheets as a list per block, which the administrator merges by hand (A2's merge), losing which block a row came from.** The real workbook's main sheet is this shape; W3's flag blocks are adjacent lists of one shape that are separate lists, so the evidence cannot decide and a list per block stays the default. A fixed value is an import feature any client may use |
+| D121 | W3 grows | **W3 gains a second band of blocks under the first, separated by an empty row; a header followed by an empty row; a translation column whose header carries no language suffix, and one holding only its header; a note `Free field`; prose under a block; and (for A8c) a run of three blocks of one shape under one title whose headers are values.** The cases below must hold for what the real workbook does, and W3 is how the tests see it without client data |
+
+**Journey test cases** (backend, `tests/journeys/test_j34_onboard.py`, J34.10; each on two
+configurations, W3 of one seed in a new workspace; no test names a configuration's key or a header
+text):
+
+1. **J34.10 Blocks found.** Given W3 profiled, the sheet's profile lists every block of both bands
+   with its range, header row and titles; a block below another in the same columns is a block of
+   its own; title rows, note rows and prose are in no block's columns as values.
+2. **J34.10 One list per block.** When the inference runs in new-application mode, there is one
+   `listBlock` proposal per W3 block that is a list and none for the `Free field` block, whose
+   warning names it; each list's source names its block's rectangle; the language blocks' columns
+   are translations of the name, in German and French where the header says so and "Language 2"
+   where it does not; the empty translation column is unbound and reported; the flags block's Y/N
+   column is a yes/no attribute; the note blocks' lists carry the note in their evidence and
+   description; one navigation group per innermost title, holding its lists.
+3. **J34.10 Loaded.** When the proposals are applied, the dry run refuses no row and counts each
+   note row skipped; installed, loaded into a change set and published, each list holds its values
+   by name with their translations, and no record is named by a note, a title or a header.
+4. **J34.10 An adjusted block.** When a block's source is narrowed by `setSource` to end two rows
+   earlier, the dry run counts two rows fewer for it and the others are unchanged.
+5. **J34.10 Not a layout.** W1 (one table) and a table with an empty row in it propose no
+   `listBlock`, and their blocks are as before A8.
+6. **J27 variant, a source keyed by name.** An import keyed by `{"field": "name"}` creates the
+   list's records, a second run of the same file changes none, and a file naming a record by a name
+   two records share is refused `AMBIGUOUS_NAME_KEY`.
+
+**Unit tests:** D115 on generated grids (stacked and side-by-side parts, a header with an empty row,
+a title over three blocks, prose, a table with an empty row unchanged); D118 and D119's words.
+
+**Groups:** `authoring`, `jobs` (the name key in binding and the dry run), `contract` (the profile's
+blocks, `SourceKey`, the pattern); no migration (the key lives in the profile's JSON). A8b: Vitest
+related, `test:browser:authoring-a8` (new) and `-a6` for the shared panes.
+
+**Real-file smoke** (before A8a is reported done): the user's reading-layout workbook profiled and
+proposed once; what it finds, per sheet, in the record, by structure, not content.
+
+**Composable domains (ADR-032):** inbound flow gains a key by name (D117) and, with A8c, a fixed
+parent (D120); identity (public IDs), attribute storage, audit and history, the `match` declaration
+and mapping coverage are unchanged. No door is affected.
+
+##### A8a record (2026-10-14)
+
+**Delivered 2026-10-14** (A8a has no screen, D114). A8b (the source pane, a mock-up first) and A8c
+(D120) are open. What is built:
+
+- **Lists of a sheet laid out for reading** (`engine/sources/layout.py`, D115, D119): the sheet's
+  cells (at most `LAYOUT_ROWS` 2,000 rows) read once, each column run split at empty rows, prose
+  left out, headers, titles and notes found; the profile's sheets gain `laidOut`, its blocks
+  `titles` and `note`; a note's row is left out of the block's statistics.
+- **Column statistics per block** (migration `20261016_01`, `source_file_columns.block_index` in the
+  key): a column holds several stacked lists; the column page pages by block, then column; a column
+  holding only its header is listed with `filled` 0; a column overlap names its `block` on a sheet
+  laid out for reading.
+- **`listBlock`** (`patterns.list_block`, `build._listBlock`, D116–D119): a list type per list with
+  a source on its block keyed by name, its translations (each with the alternative of a text
+  attribute), a yes/no column as an attribute, two or more as a flag set, other columns as
+  attributes, a column of only its header reported, the note row skipped and the note the type's
+  description; a free field or a header with no values a warning; a navigation group per innermost
+  title of two lists or more. The facts read each list as a `BlockTable`.
+- **Import** (D117): `key: {"field": "name"}`, `AMBIGUOUS_NAME_KEY`, `KEY_NOT_BOUND` at
+  `/key/field`; `addSource` and `setSource` take it.
+- **W3** grows (D121) except the run of one shape, which A8c adds. Frontend: the types, a source
+  keyed by name in the source pane's words, the pattern's label; the pane itself is A8b's.
+
+**Where it differs from the plan** (each found while building; the approved cases are unchanged in
+what they claim):
+
+1. **A migration**, where the plan said none: a column of a stacked layout holds several lists, and
+   its statistics were keyed by sheet and column only. `20261016_01` adds `block_index` to the key,
+   filled from the statistics' `block`; its case in `test_startup` (upgrade, an interrupted run
+   refused and recovered, two starts, a downgrade) was written with it.
+2. **D115's rules, refined on the user's reading-layout workbook** before the tests ran: a one-row
+   part directly above a list is its header unless it is one cell over lists beside it starting on
+   the same row with nothing such above them (then their title); lists side by side share a header
+   row only where two parts at least start on it and two hold values under it, and only under
+   one-cell rows. **Found by A7's cases:** a sheet of one block of two columns (an ID and a name)
+   is laid out only when it stacks several lists; first built without that, it took W2's list
+   sheets from A7's rules.
+3. **D119's note is found by the profile**, not the inference, so the note row is out of the
+   statistics (case 1 asserts no column holds a note among its values); the words are
+   `layout.NOTE_WORDS`.
+4. **Case 2's "Language 2"** is "Language 1": an unnamed translation is numbered among the list's
+   translations, as A6 numbers them (D100).
+5. **`AMBIGUOUS_NAME_KEY`** is the code of a source keyed by name; a `record: existing` source's
+   name fallback (`nameColumn`) keeps `REFERENCE_AMBIGUOUS`.
+6. **Defect found and fixed (A5, A6):** the draft's sheets kept a header's surrounding spaces while
+   the import reads it trimmed, so a column whose header ends in a space could not be mapped
+   (`unknownElement`); found by the real-file smoke on a list's header. Regression:
+   `test_a_header_ending_in_a_space_is_mapped_by_its_trimmed_name` (J34.2, seen failing without
+   the fix).
+7. **Older tests the package made wrong, replaced:** A3's W3 block test reads the first band (W3 has
+   a second); A6's nothing-to-propose regression uses a sheet of headers with nothing under them,
+   since W3 now proposes its lists; A3's overlap assertion gains `block: None`.
+
+**Real-file smoke** (the user's reading-layout workbook, once, through the API; by structure):
+four sheets, all laid out for reading, with 8, 21, 27 and 39 blocks; 87 lists proposed and 10
+navigation groups; 8 warnings, each a header with no values; the proposals applied leave the draft
+valid; the dry run reads 720 rows over 87 sources, skips the 4 note rows and refuses none.
+Misreadings left to A8b's adjusting and dropping: a title with two sentences under it read as a
+list of two values; a second header row (a role under each category) read as a value; on the
+densest sheet a few sub-list headers read as titles; the lists of one shape under categories read
+as a list each (A8c).
+
+**Checks:** the six cases written first: 12 of 16 failed before the build (case 5, the control,
+and A6's replaced regression passed). `test_j34_onboard.py`, `test_j35_next_version.py`,
+`tests/unit/engine/sources/`, `tests/unit/engine/imports/`: 323 passed (3 min 49 s, over the
+2-minute ceiling, run with the user's go-ahead; a first run found A7's narrow sheets, fixed above).
+`-m jobs` without those: 276 passed (3 min 29 s, with the go-ahead). `test_startup`,
+`test_schema_drift`, `test_foreign_keys`: 44 passed (1 min 30 s), and the new migration case.
+`-m contract`: 76 passed, the OpenAPI lock re-baselined after diffing the document against the
+previous commit (the block's `titles` and `note`, `SourceBlockNote`, `laidOut`, the overlap's
+`block`, `SourceKey.field`, descriptions; nothing else). `tests/unit/engine/model/authoring/`:
+3,190 passed; the J33 journeys (`-m authoring` without units, J34, J35): 66 passed; `-m
+model_admin`: 321 passed in 4 min 52 s, **over the ceiling and run without being announced** (it
+was estimated from T1's run of five groups). New unit tests: `test_layout.py` (10: side by side,
+stacked, a header with an empty row, titles reaching and levels, prose, a header without values,
+notes) and four for `list_block`. `ruff check app/ tests/`: clean. Frontend: `vitest related` 75
+passed, `npm run format`, `npm run lint` (0 errors, the 7 known warnings), `npm run build`. **Not
+run:** browser runners (no screen changed; `test:browser:authoring-a6` and `-a7` read the source
+pane, which A8b reworks), the accessibility and visual gates, the full suites (R).
+
 ## R: Build acceptance and release
 
 - A full review of every change since 0.9.0 first, as every R.
@@ -3504,8 +3706,9 @@ Design-level decisions are [A-D1–A-D12](MODEL_AUTHORING.md#open-decisions).
 
 ## Next
 
-1. **A7 is built (2026-10-14, [record](#a7-record-2026-10-14)), delivered when the user approves its
-   screenshots**; its plan, D106–D113 and test cases were accepted by the user the same day. The user chose A7 before A8. A5c is delivered (2026-10-14,
+1. **A8a is delivered (2026-10-14, [record](#a8a-record-2026-10-14))**; next A8b, the source pane
+   list by list with adjusting and dropping a list, which starts with a mock-up, then A8c (D120).
+   **A7 is delivered (2026-10-14, [record](#a7-record-2026-10-14)), its screenshots approved**; its plan, D106–D113 and test cases were accepted by the user the same day. The user chose A7 before A8. A5c is delivered (2026-10-14,
    [record](#a5c-record-2026-10-14)). After A7: A8 (below the cut line, D2) or R. A6 came before A5c (the user,
    2026-10-12: A5b is tested well only once A6 proposes the model and its mappings). A5b is committed
    ([record](#a5b-record-2026-10-12)); what it still needs is settled in A6. A5a is delivered (2026-10-12); the [A5 plan](#a5-plan-2026-10-12),

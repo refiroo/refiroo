@@ -6,12 +6,25 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
-Four migrations (`20261012_01`, source files and the `profile` and `dryRun` job kinds;
+Five migrations (`20261012_01`, source files and the `profile` and `dryRun` job kinds;
 `20261013_01`, a model draft's import profile; `20261014_01`, a draft's proposals and the
-`inference` job kind; `20261015_01`, the `profileCheck` job kind); a database of 0.10.0-alpha.1
-upgrades on start.
+`inference` job kind; `20261015_01`, the `profileCheck` job kind; `20261016_01`, a source file's
+column statistics per block); a database of 0.10.0-alpha.1 upgrades on start.
 
 ### Added
+
+- Base 0.10 A8a: lists of a sheet laid out for reading, through the API (D114–D121; J34.10). A sheet
+  holding no table but lists side by side and under each other is read list by list: each column
+  run split at empty rows, prose left out, each list's header, the titles above it and a note under
+  its header (`multiple answers`, `multiple choice`, `free field`, …); the profile's sheets gain
+  `laidOut`, its blocks `titles` and `note`, and column statistics are kept per block (migration
+  `20261016_01`; a column holding only its header listed with `filled` 0; an overlap names its
+  `block`). The inference proposes a `listBlock` per list: a list type loading its block by name, its
+  translations (else "Language k"), a yes/no column as an attribute, two or more as a flag set, the
+  note row skipped and the note the type's description; a navigation group per title over two lists
+  or more; a free field or a header without values is a warning. A source's key may be `{"field":
+  "name"}` (`AMBIGUOUS_NAME_KEY`, `KEY_NOT_BOUND`); `addSource` and `setSource` take it. W3 gains a
+  second band of lists with the real workbook's shapes.
 
 - Base 0.10 A7: model-description sheets and matching across files (D106–D113; J34.9). A sheet of a
   field, a type and a target column is read before every other rule: the described type, a list per
@@ -162,6 +175,9 @@ upgrades on start.
 
 ### Fixed
 
+- Base 0.10 A5, A6 (found by A8a's real-file smoke): a column whose header begins or ends with a
+  space could not be mapped in a draft (`unknownElement`), since the draft's sheets kept the spaces
+  the import trims. The draft's sheets name a column as the import reads it.
 - Base 0.10 A6 extend mode (found by A7's browser runner): a workbook the editor uploads names no
   workspace, and its columns were then compared with no records, so additions to the model matched
   nothing by value from the editor. A file without a workspace is compared with the default

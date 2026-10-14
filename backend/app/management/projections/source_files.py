@@ -28,7 +28,10 @@ from ..schemas.sources import (
 )
 
 _SHEET_KEYS = (integer_key("index", SourceFileSheet.sheet_index, "sheet_index"),)
-_COLUMN_KEYS = (integer_key("column", SourceFileColumn.column_number, "column_number"),)
+_COLUMN_KEYS = (
+    integer_key("block", SourceFileColumn.block_index, "block_index"),
+    integer_key("column", SourceFileColumn.column_number, "column_number"),
+)
 
 
 def source_file_response(session: Session, source: SourceFile) -> SourceFileResponse:
@@ -87,7 +90,8 @@ def sheet_page(
 def column_page(
     session: Session, source: SourceFile, sheet: str, page: PageRequest, page_size: int
 ) -> SourceColumnPage:
-    """A sheet's profiled columns in column order, every block's."""
+    """A sheet's profiled columns, block by block, each block's in column order (a column of a
+    sheet laid out for reading may be in several blocks, 0.10 A8a)."""
     require_profile(session, source)
     index = session.scalar(
         select(SourceFileSheet.sheet_index).where(

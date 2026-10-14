@@ -28,7 +28,8 @@ from app.db import DatabaseStartupError, get_engine, migration_config
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261015_01"
+HEAD = "20261016_01"
+PROFILE_CHECK = "20261015_01"
 DRAFT_PROPOSALS = "20261014_01"
 DRAFT_PROFILES = "20261013_01"
 SOURCE_FILES = "20261012_01"
@@ -1421,6 +1422,64 @@ def test_upgrade_to_the_profile_check_kind_keeps_jobs_and_an_interrupted_run_rec
     assert _scalar(url, "SELECT count(*) FROM jobs WHERE kind = 'profileCheck'") == 1
     command.downgrade(migration_config(url), DRAFT_PROPOSALS)
     assert _scalar(url, "SELECT count(*) FROM jobs WHERE kind = 'profileCheck'") == 0
+    engine.dispose()
+
+
+def test_upgrade_to_block_columns_keeps_profiles_and_an_interrupted_run_recovers(
+    monkeypatch, databases, tmp_path
+):
+    """0.10 A8a on a database taken back to the previous revision (a downgrade keeps one row per
+    column), holding a file profiled with two blocks side by side: with a ``block_index`` column already there (by hand) the revision rolls
+    back and the start refuses naming it; once dropped, the next start upgrades, each stored column
+    keeps its block, and the service starts twice. A downgrade keeps the columns."""
+    url = seeds.create_empty()
+    databases.append(url)
+    monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
+    monkeypatch.setenv("JOB_FILE_DIR", str(tmp_path / "job-files"))
+    content = b"code,name,,size\na,Alpha,,S\nb,Beta,,M\nc,Gamma,,L\n"
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        assert errors == []
+        state = client.get("/api/v1/model-runtime-state").json()
+        release = client.get(
+            f"/api/v1/model-releases/{state['activeReleaseId']}", params={"includeModel": "true"}
+        ).json()
+        draft = client.post("/api/v1/model-drafts", json={"name": "Kept", "model": release["model"]}).json()
+        response = client.post(
+            "/api/v1/source-files",
+            files={"file": ("kept.csv", content, "text/csv")},
+            data={"request": json.dumps({"owner": {"draftId": draft["id"]}})},
+        )
+        assert response.status_code == 201, response.text
+        source = response.json()
+        client.app.state.job_worker.run_until_idle()
+    # The profile as the previous revision stored it: one row per column, its block in its statistics.
+    command.downgrade(migration_config(url), PROFILE_CHECK)
+    assert _scalar(url, "SELECT count(*) FROM source_file_columns") == 3
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE source_file_columns ADD COLUMN block_index integer"))
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        message = _assert_refused(
+            client,
+            errors,
+            "Database migration failed",
+            f"Current revision: {PROFILE_CHECK}",
+            f"target revision: {HEAD}",
+            "still at its current revision",
+        )
+        assert "block_index" in message
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == PROFILE_CHECK
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE source_file_columns DROP COLUMN block_index"))
+    for _start in range(2):
+        with serve(monkeypatch, _render(url)) as (client, errors):
+            assert errors == []
+            columns = client.get(f"/api/v1/source-files/{source['id']}/profile/sheets/csv/columns").json()
+            assert [(c["block"], c["header"]) for c in columns["items"]] == [(0, "code"), (0, "name"), (1, "size")]
+        assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+    assert _scalar(url, "SELECT count(*) FROM source_file_columns WHERE block_index = 1") == 1
+    command.downgrade(migration_config(url), PROFILE_CHECK)
+    assert _scalar(url, "SELECT count(*) FROM source_file_columns") == 3
     engine.dispose()
 
 

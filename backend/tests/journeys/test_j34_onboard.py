@@ -230,6 +230,7 @@ def test_a_workbook_uploaded_to_a_draft_is_profiled_sheet_by_sheet_and_column_by
     assert column("K")["overlaps"][0] == {
         "sheet": workbooks.S2,
         "column": "A",
+        "block": None,
         "header": workbooks.S2_HEADERS["K"],
         "values": 200,
         "share": 1.0,
@@ -257,25 +258,24 @@ def test_a_workbook_uploaded_to_a_draft_is_profiled_sheet_by_sheet_and_column_by
 @pytest.mark.structures("A1")
 def test_lists_laid_side_by_side_are_reported_as_blocks_under_their_header_row(world):
     """Given W3, lists side by side under a section row and a group row. When profiled. Then each
-    list is a block with its range and header row 3, separated by its empty columns, and the
-    section and group rows are not taken for columns."""
+    list is a block with its range and header row, separated by its empty columns, and the
+    section and group rows are not taken for columns. (Since 0.10 A8 W3 has a second band below the
+    first, read as blocks of their own: J34.10.)"""
     draft = _draft(world)
     book = workbooks.w3()
     source = _profiled(world, {"draftId": draft["id"]}, "lists.xlsx", book.content)
     (sheet,) = ok(world.api.get(f"/source-files/{source['id']}/profile/sheets"))["items"]
     assert sheet["name"] == book.sheet and sheet["headerRow"] == book.header_row
-    assert len(sheet["blocks"]) == len(book.blocks)
-    letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
-    def letter(number: int) -> str:
-        return (letters[(number - 1) // 26 - 1] if number > 26 else "") + letters[(number - 1) % 26]
-
-    for found, made in zip(sheet["blocks"], book.blocks, strict=True):
-        assert (found["firstColumn"], found["lastColumn"]) == (letter(made["first"]), letter(made["last"]))
-        assert (found["headerRow"], found["lastRow"]) == (book.header_row, made["lastRow"])
+    first_band = [b for b in book.blocks if b["headerRow"] == book.header_row]
+    found = [b for b in sheet["blocks"] if b["headerRow"] == book.header_row]
+    assert len(found) == len(first_band)
+    for block, made in zip(found, first_band, strict=True):
+        assert (block["firstColumn"], block["lastColumn"]) == (_letter(made["first"]), _letter(made["last"]))
+        assert block["lastRow"] == made["lastRow"]
     columns = _all(world, f"/source-files/{source['id']}/profile/sheets/{book.sheet}/columns")
-    firsts = [c for c in columns if c["letter"] in {letter(made["first"]) for made in book.blocks}]
-    assert [c["header"] for c in firsts] == [made["title"] for made in book.blocks]
+    heads = {(c["letter"], c["block"]): c["header"] for c in columns}
+    indexes = {(b["firstColumn"], b["headerRow"]): i for i, b in enumerate(sheet["blocks"])}
+    assert [heads[(_letter(m["first"]), indexes[(_letter(m["first"]), m["headerRow"])])] for m in first_band] == [m["title"] for m in first_band]
 
 
 @pytest.mark.journey("J34.1")
@@ -1538,16 +1538,24 @@ def test_proposing_again_on_the_same_workbook_applies_nothing(world):
 @pytest.mark.journey("J34.4")
 @pytest.mark.structures("K")
 def test_a_workbook_with_nothing_to_propose_leaves_the_draft_as_it_was(world):
-    """Regression (reported on a real workbook, 2026-10-14): when every sheet is laid out for
-    reading, the inference proposes nothing, says why, and applying is NOTHING_TO_APPLY; it used to
-    propose the new application alone, and applying it left the draft refusing an application
-    without types."""
+    """Regression (reported on a real workbook, 2026-10-14): when no sheet shows a shape to
+    propose from, the inference proposes nothing, says why, and applying is NOTHING_TO_APPLY; it
+    used to propose the new application alone, and applying it left the draft refusing an
+    application without types. (W3 served here until 0.10 A8 made its lists proposable; a sheet of
+    headers with nothing under them stands in.)"""
+    from openpyxl import Workbook
+
+    book = Workbook()
+    sheet = book.active
+    sheet.title = "Headings"
+    for column, (first, second) in enumerate((("Size", "Taille"), ("Kind", "Sorte"), ("Shape", "Forme")), start=1):
+        sheet.cell(row=1, column=column * 3 - 2, value=first)
+        sheet.cell(row=1, column=column * 3 - 1, value=second)
     workspace = _workspace(world)
     draft = _draft(world)
-    _profiled(world, {"draftId": draft["id"]}, "lists.xlsx", workbooks.w3().content, workspaceKey=workspace)
+    _profiled(world, {"draftId": draft["id"]}, "headings.xlsx", workbooks._save(book), workspaceKey=workspace)
     read = _infer(world, draft)
     assert read["counts"] == {"open": 0, "applied": 0, "held": 0, "rejected": 0}
-    assert any("laid out for reading" in warning for warning in read["warnings"])
     assert any("nothing is proposed" in warning for warning in read["warnings"])
     assert _proposals(world, draft) == []
     refused(_application(world, draft), 409, "NOTHING_TO_APPLY")
@@ -1893,3 +1901,277 @@ def test_a_workbook_uploaded_without_a_workspace_is_compared_with_the_default_wo
     material = next(c for c in columns if c["header"] == book.header("T"))
     named = [o for o in material["overlaps"] if o.get("objectTypeKey") == world.key("K") and o.get("field") == "name"]
     assert named and named[0]["workspaceKey"] == ok(world.api.get("/workspace-runtime-state"))["defaultWorkspaceKey"], material["overlaps"]
+
+
+# --- J34.10 a sheet of lists laid out for reading (0.10 A8a, D114–D121) ------------------------
+
+
+def _letter(number: int) -> str:
+    letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    return (letters[(number - 1) // 26 - 1] if number > 26 else "") + letters[(number - 1) % 26]
+
+
+def _w3_draft(world) -> tuple[dict[str, Any], workbooks.W3, dict[str, Any], str]:
+    workspace = _workspace(world)
+    draft = _draft(world)
+    book = workbooks.w3()
+    source = _profiled(world, {"draftId": draft["id"]}, "lists.xlsx", book.content, workspaceKey=workspace)
+    return draft, book, source, workspace
+
+
+def _place(block: dict[str, Any]) -> tuple[str, str, int]:
+    """A W3 block's columns and header row as the profile and a source name them."""
+    return _letter(block["first"]), _letter(block["last"]), block["headerRow"]
+
+
+def _list_blocks(proposals: list[dict[str, Any]]) -> dict[tuple[str, str, int], dict[str, Any]]:
+    """The listBlock proposals by their block's columns and header row."""
+    found = {}
+    for proposal in proposals:
+        if proposal["pattern"] == "listBlock":
+            block = proposal["evidence"]["block"]
+            at = (block["firstColumn"], block["lastColumn"], block["headerRow"])
+            assert at not in found, at
+            found[at] = proposal
+    return found
+
+
+def _operations(proposal: dict[str, Any], kind: str) -> list[dict[str, Any]]:
+    return [o for o in proposal["operations"] if o["kind"] == kind]
+
+
+def _list_type(proposal: dict[str, Any]) -> dict[str, Any]:
+    """The addObjectType of a listBlock's own list (the first translated list adds the language and
+    translation types too)."""
+    (added,) = _operations(proposal, "addSource")
+    (made,) = [o for o in _operations(proposal, "addObjectType") if o["key"] == added["objectType"]]
+    return made
+
+
+@pytest.mark.journey("J34.10")
+@pytest.mark.structures("K")
+def test_a_sheet_laid_out_for_reading_is_profiled_list_by_list_with_the_titles_above_each(world):
+    """Given W3 profiled. Then its profile lists every block of both bands with its range, header
+    row and titles; a block under another in the same columns is a block of its own; and no
+    block's column holds a title, a note or the sentence under a list among its values."""
+    _, book, source, _ = _w3_draft(world)
+    (sheet,) = ok(world.api.get(f"/source-files/{source['id']}/profile/sheets"))["items"]
+    found = {(b["firstColumn"], b["lastColumn"], b["headerRow"]): b for b in sheet["blocks"]}
+    made = {_place(b): b for b in book.blocks}
+    assert set(found) == set(made)
+    for at, block in made.items():
+        assert found[at]["lastRow"] == block["lastRow"], at
+        assert found[at]["titles"] == block["titles"], at
+    stacked = [b for b in book.blocks if b["headerRow"] != book.header_row]
+    assert stacked and all(any(o["first"] == b["first"] and o["headerRow"] < b["headerRow"] for o in book.blocks) for b in stacked)
+
+    columns = _all(world, f"/source-files/{source['id']}/profile/sheets/{book.sheet}/columns")
+    noise = {t for b in book.blocks for t in b["titles"]} | {b["note"] for b in book.blocks if b["note"]} | {workbooks.PROSE}
+    held = {v["value"] for c in columns for v in c["values"]}
+    assert not held & noise, held & noise
+    heads = {(c["letter"], c["block"]): c["header"] for c in columns}
+    for index, block in enumerate(sheet["blocks"]):
+        assert heads[(block["firstColumn"], index)] == made[(block["firstColumn"], block["lastColumn"], block["headerRow"])]["title"]
+
+
+@pytest.mark.journey("J34.10")
+@pytest.mark.structures("K")
+def test_each_list_of_a_sheet_laid_out_for_reading_is_proposed_with_its_translations_flags_notes_and_group(world):
+    """When the inference runs on W3 in new-application mode. Then one listBlock per block that is a
+    list, none for the note alone (a warning names it); each list's source names its block; the
+    language blocks' columns are translations in the language their header names, else Language 1;
+    the column holding only its header is unbound and reported; the Y/N column is a yes/no
+    attribute; a note's list carries the note in its evidence and description; one navigation group
+    per innermost title, holding its lists."""
+    draft, book, _, _ = _w3_draft(world)
+    read = _infer(world, draft)
+    proposals = _proposals(world, draft)
+    blocks = _list_blocks(proposals)
+    lists = {_place(b): b for b in book.lists()}
+    assert set(blocks) == set(lists)
+    (free,) = [b for b in book.blocks if not b["values"]]
+    assert any(free["title"] in w and "not a list" in w for w in read["warnings"]), read["warnings"]
+
+    names = {}
+    for at, block in lists.items():
+        proposal = blocks[at]
+        (added,) = _operations(proposal, "addSource")
+        assert added["sheet"] == book.sheet and added["headerRow"] == block["headerRow"]
+        assert (added["block"]["firstColumn"], added["block"]["lastColumn"], added["block"]["lastRow"]) == (at[0], at[1], block["lastRow"])
+        assert added["key"] == {"field": "name"}
+        made = _list_type(proposal)
+        names[at] = made["key"]
+        mapped = {o["column"]: o["binding"] for o in _operations(proposal, "mapColumn")}
+        assert mapped[block["title"]] == {"field": "name"}
+        for header, values in block["translations"].items():
+            if values is None:
+                assert header not in mapped
+                assert header in [e["column"] for e in proposal["evidence"]["empty"]]
+                continue
+            language = header.rsplit("(", 1)[1].rstrip(")") if "(" in header else "Language 1"
+            assert mapped[header]["relatedRecord"]["parent"]["value"] == language, header
+        if block["shape"] == "flags":
+            (flag,) = [h for h in mapped if h != block["title"]]
+            attribute = mapped[flag]["attributeTypeKey"]
+            types = {o["key"]: o["valueType"] for p in proposals for o in _operations(p, "addAttributeType")}
+            assert types[attribute] == "boolean"
+        if block["note"]:
+            assert proposal["evidence"]["note"]["meaning"] == "many"
+            assert made["description"]
+        else:
+            assert proposal["evidence"].get("note") is None
+
+    groups = [p for p in proposals if p["pattern"] == "navigationGroup"]
+    collections = {}
+    for proposal in groups:
+        (added,) = _operations(proposal, "addNavigationGroup")
+        collections[added["label"]] = sorted(added["collections"])
+    expected = {
+        title: sorted(names[_place(b)] for b in book.lists() if b["title"] in headers)
+        for title, headers in book.groups().items()
+        if len(headers) >= 2
+    }
+    assert collections == expected
+
+
+def _w3_loaded(world) -> tuple[workbooks.W3, list[dict[str, Any]], str, dict[str, Any]]:
+    draft, book, source, workspace = _w3_draft(world)
+    _infer(world, draft)
+    proposals = _proposals(world, draft)
+    answer = ok(_application(world, draft))
+    assert answer["valid"] is True, answer["diagnostics"]
+    summary = _summary_of(world, draft, answer)
+    _load(world, draft, source, workspace)
+    return book, proposals, workspace, summary
+
+
+@pytest.mark.journey("J34.10")
+@pytest.mark.structures("K")
+def test_the_lists_of_a_sheet_laid_out_for_reading_load_by_name_with_their_translations(world):
+    """When W3's proposals are applied, the dry run refuses no row and counts each note row
+    skipped; installed, loaded into a change set and published, each list holds its values by
+    name, with their translations, and no record is named by a note, a title or a header."""
+    book, proposals, workspace, summary = _w3_loaded(world)
+    assert all(s["rejections"] == [] for s in summary["sources"]), summary["sources"]
+    noted = [b for b in book.lists() if b["note"]]
+    assert sum(s["skippedRows"] for s in summary["sources"]) == len(noted)
+    blocks = _list_blocks(proposals)
+    noise = {t for b in book.blocks for t in b["titles"]} | {b["note"] for b in book.blocks if b["note"]} | {b["title"] for b in book.blocks}
+    translation_type = None
+    for block in book.lists():
+        made = _list_type(blocks[_place(block)])
+        names = sorted(o["name"] for o in _all(world, f"/objects/{made['key']}", workspaceKey=workspace))
+        assert names == sorted(block["values"]), block["title"]
+        assert not set(names) & noise
+        if block["shape"] == "languages":
+            mapped = {o["column"]: o["binding"] for o in _operations(blocks[_place(block)], "mapColumn")}
+            translation_type = next(b["relatedRecord"]["objectTypeKey"] for b in mapped.values() if "relatedRecord" in b)
+    translated = {o["name"] for o in _all(world, f"/objects/{translation_type}", workspaceKey=workspace)}
+    expected = {v for b in book.lists() for values in b["translations"].values() if values for v in values}
+    assert translated == expected
+
+
+@pytest.mark.journey("J34.10")
+@pytest.mark.structures("K")
+def test_a_block_narrowed_by_its_source_loads_the_rows_left_in_it(world):
+    """When a block's source is narrowed by setSource to end two rows earlier, the dry run counts
+    two rows fewer for it, and the other sources count as before."""
+    draft, book, _, _ = _w3_draft(world)
+    _infer(world, draft)
+    proposals = _proposals(world, draft)
+    answer = ok(_application(world, draft))
+    before = _summary_of(world, draft, answer)
+    block = next(b for b in book.lists() if b["shape"] == "plain" and len(b["values"]) >= 4)
+    proposal = _list_blocks(proposals)[_place(block)]
+    made = _list_type(proposal)
+    (added,) = _operations(proposal, "addSource")
+    narrowed = {**added["block"], "lastRow": block["lastRow"] - 2}
+    after = _summary_of(world, draft, _step(world, draft, {"kind": "setSource", "source": added["id"], "block": narrowed}))
+    rows = {s["objectTypeKey"]: s["rows"] for s in before["sources"]}
+    now = {s["objectTypeKey"]: s["rows"] for s in after["sources"]}
+    assert now[made["key"]] == rows[made["key"]] - 2
+    assert {k: v for k, v in now.items() if k != made["key"]} == {k: v for k, v in rows.items() if k != made["key"]}
+
+
+@pytest.mark.journey("J34.10")
+@pytest.mark.structures("K")
+def test_a_table_is_not_read_as_lists_even_with_an_empty_row_in_it(world):
+    """W1 (one table) and a table with an empty row in it propose no listBlock, and each is one
+    block, as before A8."""
+    from openpyxl import Workbook
+
+    book = Workbook()
+    sheet = book.active
+    sheet.title = "Table"
+    sheet.append(["Code", "Name", "Size", "Price"])
+    for index in range(1, 21):
+        sheet.append([f"C{index:03d}", f"Thing {index}", index % 4, index * 1.5])
+        if index == 10:
+            sheet.append([])
+    gapped = workbooks._save(book)
+    for name, content in (("catalogue.xlsx", workbooks.w1(rows=60).content), ("gapped.xlsx", gapped)):
+        workspace = _workspace(world)
+        draft = _draft(world)
+        source = _profiled(world, {"draftId": draft["id"]}, name, content, workspaceKey=workspace)
+        sheets = ok(world.api.get(f"/source-files/{source['id']}/profile/sheets"))["items"]
+        assert all(len(s["blocks"]) == 1 for s in sheets), [(s["name"], s["blocks"]) for s in sheets]
+        _infer(world, draft)
+        assert not [p for p in _proposals(world, draft) if p["pattern"] == "listBlock"]
+
+
+@pytest.mark.journey("J27.8")
+@pytest.mark.structures("K")
+def test_an_import_keyed_by_name_finds_its_records_by_name(world):
+    """J27 variant (0.10 A8a, D117): an import keyed by {"field": "name"} creates the list's
+    records; the same file again changes none; a file naming a record by a name two records of the
+    type share is refused AMBIGUOUS_NAME_KEY."""
+    workspace = _workspace(world)
+    draft = _draft(world)
+    _catalogue(world, draft)
+    release = _install(world, draft)
+    ok(world.activate(release["id"]))
+
+    def importing(content: bytes):
+        profile = {
+            "sources": [
+                {
+                    "applicationKey": world.app("K"),
+                    "objectTypeKey": "j34-material",
+                    "key": {"field": "name"},
+                    "columns": [{"column": "name", "field": "name"}],
+                }
+            ]
+        }
+        request = {"workspaceKey": workspace, "policy": "independent", "stage": "execute", "onExisting": "overwrite", "profile": profile}
+        job = ok(world.api.upload("/imports", {"file": ("names.csv", content, "text/csv")}, {"request": json.dumps(request)}), 202)
+        _run(world)
+        return job, ok(world.api.get(f"/jobs/{job['id']}"))
+
+    _, done = importing(b"name\nPaper\nCard\nSteel\n")
+    assert (done["state"], done["counts"]["created"], done["counts"]["rejected"]) == ("completed", 3, 0), done
+    _, done = importing(b"name\nPaper\nCard\nSteel\n")
+    assert (done["counts"]["created"], done["counts"]["updated"], done["counts"]["rejected"]) == (0, 0, 0), done
+    assert sorted(o["name"] for o in _all(world, "/objects/j34-material", workspaceKey=workspace)) == ["Card", "Paper", "Steel"]
+
+    body = {"applicationKey": world.app("K"), "objectTypeKey": "j34-material", "name": "Paper", "workspaceKey": workspace}
+    ok(world.api.post("/objects", body), 201)
+    job, done = importing(b"name\nPaper\n")
+    rows = ok(world.api.get(f"/jobs/{job['id']}/rows", pageSize=10))["items"]
+    assert [o["error"]["code"] for r in rows for o in r["outcomes"] if o.get("error")] == ["AMBIGUOUS_NAME_KEY"], rows
+
+
+@pytest.mark.journey("J34.2")
+@pytest.mark.structures("K")
+def test_a_header_ending_in_a_space_is_mapped_by_its_trimmed_name(world):
+    """Regression (found on the user's reading-layout workbook by A8a's real-file smoke): the import
+    reads a header without its surrounding spaces, but the draft's sheets kept them, so mapping the
+    column by the name the import reads was refused unknownElement. Given a file whose header ends
+    in a space, a source maps the column by its trimmed name and the dry run reads it."""
+    workspace = _workspace(world)
+    draft = _draft(world)
+    _catalogue(world, draft)
+    _profiled(world, {"draftId": draft["id"]}, "spaced.csv", b"Colour ,Code\nRed,R\nBlue,B\n", workspaceKey=workspace)
+    _step(world, draft, {"kind": "addSource", "id": "colours", "sheet": "csv", "objectType": "j34-colour", "key": {"field": "name"}})
+    summary = _summary_of(world, draft, _step(world, draft, {"kind": "mapColumn", "source": "colours", "column": "Colour", "binding": {"field": "name"}}))
+    (colours,) = summary["sources"]
+    assert (colours["rows"], colours["rejections"]) == (2, [])

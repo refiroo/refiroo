@@ -145,10 +145,13 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # lastLoad (ImportProfileLastLoad, ImportLoadCounts) and the two read routes' descriptions;
     # diffed against the previous commit, nothing else changed. Re-baselined for A7 (D110): Source's
     # optional rowsWithoutKey and its description, skippedRows on BindingReportSource and
-    # DryRunSourceSummary; diffed against the previous commit, nothing else changed.
+    # DryRunSourceSummary; diffed against the previous commit, nothing else changed. Re-baselined for
+    # A8a (D115–D119): SourceBlock's titles and note (SourceBlockNote), SourceSheetResponse's laidOut,
+    # SourceOverlap's block, SourceKey's field (name) and the descriptions of those and of the column
+    # page; diffed against the previous commit, nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "2ff6323707170a50529f33f897e7c2f182a30a5c4cb97f1a0be4d8c7c5a14534"
+        "447b27e6d2f991ced90075abfaff1391dde274e4cc96586944f4a56d72e70dc2"
     )
 
 

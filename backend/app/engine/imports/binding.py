@@ -928,6 +928,19 @@ class _ProfileBinding:
                             column=key_column,
                         )
                     )
+            elif source.key is not None and source.key.field == "name":
+                # 0.10 A8a (D117): the record of the type named as the row names it.
+                key_kind = "name"
+                key_column = next(b.column for b in source.columns if b.field == "name")
+                key_value = state.name
+                if key_value is None and key_column not in failed:
+                    raise _RowError(
+                        _error(
+                            "MISSING_RECORD_KEY",
+                            f"The key column {key_column} is empty",
+                            column=key_column,
+                        )
+                    )
             elif source.key is not None:
                 key_kind, key_column = "id", source.key.column
                 entry = self.report.cell(plan.order, key_column, "key", "id")
@@ -1613,7 +1626,8 @@ class _ProfileBinding:
                 record_id = CASE WHEN f.n = 1 THEN f.one END, existing = f.n = 1,
                 current_name = CASE WHEN f.n = 1 THEN f.name END,
                 error = CASE WHEN f.n > 1 THEN jsonb_build_object(
-                    'code', 'REFERENCE_AMBIGUOUS',
+                    'code', CASE WHEN r.mode = 'upsert' THEN 'AMBIGUOUS_NAME_KEY'
+                        ELSE 'REFERENCE_AMBIGUOUS' END,
                     'message', format('%s %s records are named %s', f.n, r.object_type_key, r.key_value),
                     'details', jsonb_build_object('column', r.key_column, 'count', f.n)) END
             FROM found f WHERE f.row_id = r.row_id

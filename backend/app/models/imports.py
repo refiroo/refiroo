@@ -239,7 +239,8 @@ class Block(BaseModel):
 
 class SourceKey(BaseModel):
     """What finds a row's existing record: one unique attribute (its value from the column that
-    binds it) or a column holding the public ID (D2).
+    binds it), a column holding the public ID (D2), or the record's name (``field: name``, its value
+    from the column that binds the name; 0.10 A8a, D117: a list of names without codes).
 
     ``versionColumn`` holds the version the row claims for the record it finds, so a record changed
     since the file was written is refused (0.9 J6, D186). ``nameColumn``, with an ID column and
@@ -249,13 +250,15 @@ class SourceKey(BaseModel):
 
     attributeTypeKey: str | None = None
     column: str | None = Field(default=None, min_length=1)
+    field: Literal["name"] | None = None
     versionColumn: str | None = Field(default=None, min_length=1)
     nameColumn: str | None = Field(default=None, min_length=1)
 
     @model_validator(mode="after")
     def one_form(self) -> SourceKey:
-        if (self.attributeTypeKey is None) == (self.column is None):
-            raise ValueError("A source key is either {attributeTypeKey} or {column}")
+        forms = [self.attributeTypeKey, self.column, self.field]
+        if sum(form is not None for form in forms) != 1:
+            raise ValueError("A source key is one of {attributeTypeKey}, {column} or {field: name}")
         if self.nameColumn is not None and self.column is None:
             raise ValueError("nameColumn finds a record whose ID column is empty")
         return self

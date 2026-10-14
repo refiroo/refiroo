@@ -183,6 +183,16 @@ def _source_problems(
                     f"No column of the source binds the key attribute '{key}'",
                 )
             )
+    if source.key is not None and source.key.field == "name" and not any(
+        binding.field == "name" for binding in source.columns
+    ):
+        problems.append(
+            Problem(
+                f"{path}/key/field",
+                "KEY_NOT_BOUND",
+                "No column of the source binds the name the key finds records by",
+            )
+        )
     for index, binding in enumerate(source.columns):
         at = f"{path}/columns/{index}"
         if binding.valueMap is not None and binding.valueMap not in profile.valueMaps:

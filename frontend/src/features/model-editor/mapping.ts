@@ -121,6 +121,7 @@ export function columnState(
   const keyed = fed.some(
     ({ source, binding }) =>
       source.key?.column === header ||
+      (source.key?.field === "name" && binding.field === "name") ||
       (binding.attributeTypeKey !== undefined && source.key?.attributeTypeKey === binding.attributeTypeKey),
   );
   return { status: keyed ? "key" : "mapped", uses, issues: own };

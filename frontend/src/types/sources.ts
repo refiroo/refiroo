@@ -32,6 +32,13 @@ export interface SourceFileUpload {
   workspaceKey?: string;
 }
 
+/** A note under a list's header (0.10 A8a, D119) and what it says of the list. */
+export interface SourceBlockNote {
+  row: number;
+  text: string;
+  meaning: "many" | "one" | "free";
+}
+
 export interface SourceBlock {
   index: number;
   range: string;
@@ -40,6 +47,9 @@ export interface SourceBlock {
   headerRow: number | null;
   lastRow: number;
   rows: number;
+  /** The titles above a list of a sheet laid out for reading, the outermost first (0.10 A8a). */
+  titles?: string[];
+  note?: SourceBlockNote | null;
 }
 
 export interface SourceSheet {
@@ -47,6 +57,8 @@ export interface SourceSheet {
   name: string;
   rows: number;
   headerRow: number | null;
+  /** Laid out for reading: read list by list (0.10 A8a, D115). */
+  laidOut?: boolean;
   blocks: SourceBlock[];
 }
 
@@ -56,6 +68,8 @@ export interface SourceOverlap {
   share: number;
   sheet?: string | null;
   column?: string | null;
+  /** The other column's block, on a sheet laid out for reading (0.10 A8a). */
+  block?: number | null;
   header?: string | null;
   workspaceKey?: string | null;
   objectTypeKey?: string | null;
@@ -139,7 +153,8 @@ export interface ProfileSource {
   block?: Record<string, unknown> | null;
   applicationKey: string | null;
   objectTypeKey: string;
-  key?: { attributeTypeKey?: string; column?: string } | null;
+  /** A unique attribute, an ID column, or the record's name (`field: "name"`, 0.10 A8a, D117). */
+  key?: { attributeTypeKey?: string; column?: string; field?: "name" } | null;
   record?: "existing" | null;
   columns: ProfileBinding[];
 }

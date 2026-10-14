@@ -916,7 +916,14 @@ for reading A8 (below the cut line).
   nothing to load. A flat table then comes as additions to the model, matched against what the
   description loaded: its sheet to the described type, its lists to the stored lists, codes by
   their ID, with name drift and missing IDs reported, not loaded unasked.
-- **J34.10 a sheet of lists laid out for reading** (A8).
+- **J34.10 A sheet of lists laid out for reading** (0.10 A8a through the API; the source pane is
+  A8b): lists placed side by side and stacked under each other, under section and group titles,
+  are read list by list, each with its header, the titles above it and a note under its header; each
+  list proposed as a list type loading its block by name, with its translation columns, a yes/no
+  column as an attribute and its note as its description, the note row skipped; the lists under one
+  title grouped in the sidebar; a free field or a header with nothing under it proposes nothing and
+  says why. A list's block narrowed by `setSource` loads the rows left in it. A table, even with an
+  empty row in it, is not read as lists.
 
 **Refusals:** `413 IMPORT_TOO_LARGE`, `422 UNSUPPORTED_FILE_FORMAT`, `404 SOURCE_FILE_NOT_FOUND`,
 `409 SOURCE_FILE_PROFILE_NOT_READY`; the inference's `404 INFERENCE_NOT_FOUND`, `404
@@ -930,7 +937,8 @@ publication); `test:browser:authoring-a5` (J34.1–J34.3, J34.7, J34.8 in the ed
 models); `test:browser:authoring-a6` (J34.4, J34.6, J34.8 in the editor filled by the inference, on
 both designer models); J34.9: `test_j34_onboard.py`'s A7 cases (two configurations) and
 `test:browser:authoring-a7` (W2 described, loaded and published, W1 onto it with drift and missing
-values, both designer models).
+values, both designer models); J34.10: `test_j34_onboard.py`'s A8a cases (W3, two configurations),
+and J27's variant of a source keyed by name.
 
 ### J35 — Load the next version of a workbook
 
@@ -1280,7 +1288,9 @@ through the API delivered in 0.9 J2, its preview and confirmation in 0.9 J3, and
   attributes converted by their value types, value maps, parents and relationships matched by a
   name, ID or attribute (also to records the same file creates), split cells, flag columns and
   related records; a parent or relation column matched by name may create the records it names
-  that do not exist, once per value (0.10 A5a); each row's items name its sheet and row.
+  that do not exist, once per value (0.10 A5a); each row's items name its sheet and row. A list of
+  names without codes is keyed by name: loaded again it changes nothing, and a name two stored
+  records share is refused `AMBIGUOUS_NAME_KEY` (0.10 A8a).
 - **J27.9 Load a file without a profile**: a JSON Lines file of batch items, or an export's CSV or
   XLSX tables sent back; an unchanged export changes nothing.
 - **J27.10 Rows that cannot load**: a value that does not convert, a match finding no record or

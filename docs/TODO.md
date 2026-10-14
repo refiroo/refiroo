@@ -336,7 +336,10 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   J35 took 1 min 18 s (397) and J34 with J35 2 min 37 s (66). A5c did not take this fix on (its own
   cases add 8). **Worse after A7 (2026-10-14):** `jobs` 5 min 59 s (475 cases), and J34 with J35
   and the source unit tests 3 min 25 s (198); A7's cases add 12 (W2 is profiled, applied, installed
-  and loaded before W1 onto it). A7 did not take the fix on either.
+  and loaded before W1 onto it). A7 did not take the fix on either. **After A8a (2026-10-14):** J34
+  with J35 and the source and import unit tests 3 min 49 s (323), the rest of `jobs` 3 min 29 s
+  (276), and `model_admin` alone 4 min 52 s (321), the last over the ceiling unannounced. A8a did
+  not take the fix on.
 - [x] R: add J1u's export dialog, notification and job page, and J4's import dialog, the import's
   job page (waiting and loaded) and its notifications, to `test:a11y` and `test:visual` (scenarios
   and baselines), light and dark; J1u and J4 checked them with axe in their runners (D95). Done in
@@ -445,12 +448,19 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   - [x] A5c: the check of W1′ at 10,000 rows stopped at binding's first lease renewal (the check's
     own lock on its job row) and the binding's key lookup took 21.9 s against 10,000 records; both
     fixed, the check takes 10.1 s after 6.1 s of profiling (2026-10-14, A5c record).
-  - [ ] A7 model-description sheets and matching across files (below the cut line): built
-    2026-10-14, delivered when the user approves its screenshots.
+  - [x] A7 model-description sheets and matching across files (below the cut line): delivered
+    2026-10-14, screenshots approved.
   - [ ] A7, not covered: a description whose type the model already has (extend mode over a
     description) is unit tested only; a description workbook's next version through its saved
     profile is not exercised.
-  - [ ] A8 list blocks in sheets laid out for reading (below the cut line).
+  - [x] A8a lists of a sheet laid out for reading through the API (delivered 2026-10-14, A8a record).
+  - [ ] A8b the source pane list by list: a sheet laid out for reading shown as its lists, a list
+    adjusted (`setSource`'s block) or dropped; a mock-up first, complete on approved screenshots.
+    The real-file smoke's misreadings (a title with sentences under it read as a list, a second
+    header row read as a value, sub-list headers read as titles) are what it lets the administrator
+    correct.
+  - [ ] A8c lists of one shape side by side under categories as one list (D120: a source's fixed
+    parent; W3's run of one shape).
   - [ ] R build acceptance and release.
   - [ ] A-D1 revision, deferred by the user (2026-10-11) until the designer works: reuse one object
     type for similar reference data in a similar hierarchy while it fits, with attributes switched

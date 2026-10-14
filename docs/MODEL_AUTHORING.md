@@ -337,7 +337,8 @@ name is the type's (names folded for case, accents, punctuation and a final plur
 to an attribute of the same name its cells fit (95%), a global attribute type before a new one (D91).
 A sheet of several blocks is read by its main table when one block is clearly the table (at least
 three columns and 60% of the sheet's cells), as a source limited to that block's columns; the other
-blocks, and sheets where no block is, are left to A8 and named in the inference's warnings. A second
+blocks are named in the inference's warnings, and a sheet where no block is the table is read list
+by list (below). A second
 column with a header an earlier column of the sheet has is left out with a warning, since a column
 is bound by its header. Names come from the headers and sheet names written as words (D103:
 underscores and joined capitals split, a header in capitals sentence-cased); a row type is named
@@ -376,6 +377,30 @@ load, with creating them on load as the alternative; and **name drift** (a code 
 file differs from the stored record's), with the stored names standing and loading the file's names
 as the alternative. A file uploaded without a workspace is compared with the default workspace's
 records.
+
+**Lists laid out for reading, as built (0.10 A8a, D115–D119).** A sheet where no block is the table
+(or that is one block of at most two columns holding several lists one under another), with at most 2,000 rows with a cell, is read list by
+list by its profile. Each run of columns between empty columns is split at empty rows; a row whose
+cells average more than 60 characters is prose and no part of a list. A one-row part directly above
+another (at most one empty row between) is that list's header, unless it is one cell over lists
+beside it that start on the same row with nothing such above them, which makes it their title.
+Lists side by side share the header row most of them start on, with one-cell rows above it as
+titles. A one-row part left over is a title when it is one cell, else a header with no values. A
+list's titles are the nearest title above it whose columns reach it (a title reaches to the next
+title on its row) and those on the rows directly above that one. Its **note** is the first row under
+its header when a cell of it is a note word (English, folded): `multiple answer(s)`, `multiple
+choice`, `multi-select`, `several` (many); `single answer`, `single choice`, `one answer` (one);
+`free field`, `free text` (no list). Colour, bold and merged cells are not read. Each list proposes
+a list type named after its header, a source on its block keyed by name (D117), its first column
+the name; within the list a column of yes/no words is a yes/no attribute (two or more a flag set), a
+text column filled on 80% of the rows its names fill is their translation (a language word of its
+header, else "Language k"; D118: the rule sees a second text per item, only a header says which
+language), a column holding only its header is reported and not read, any other an attribute. The
+note row is skipped and the note becomes the type's description; a free field or a header with no
+values proposes nothing and is a warning. The lists under one innermost title, two or more, are a
+navigation group named after it. Lists of one shape side by side whose headers are values of
+another list (the categories of one list of items) are read as a list each; reading them as one
+list under its categories is A8c (D120).
 
 **Inference is deterministic first.** Profiling computes types, uniqueness, fill rates, delimiters and
 value overlap between columns and sheets; the patterns are rules over those statistics. An optional

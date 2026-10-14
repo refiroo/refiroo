@@ -163,9 +163,13 @@ def _current(source: dict[str, Any], column: str) -> dict[str, Any] | None:
 def _source_key(context: Context, raw: Any, source: dict[str, Any]) -> dict[str, Any] | None:
     if raw is None:
         return None
-    if not isinstance(raw, dict) or len(raw) != 1 or not ({"attributeTypeKey", "column"} >= set(raw)):
-        raise Refusal("key", "invalidValue", "A source key is {attributeTypeKey} or {column}")
-    if "column" in raw:
+    if not isinstance(raw, dict) or len(raw) != 1 or not ({"attributeTypeKey", "column", "field"} >= set(raw)):
+        raise Refusal("key", "invalidValue", "A source key is {attributeTypeKey}, {column} or {field: name}")
+    if "field" in raw:
+        # 0.10 A8a (D117): records found by their name.
+        if raw["field"] != "name":
+            raise Refusal("key/field", "invalidValue", "A source key's field is 'name'")
+    elif "column" in raw:
         _column(context, source, raw["column"], "key/column")
     elif not profile_side.facts(context.data).bound(source.get("objectTypeKey"), raw["attributeTypeKey"]):
         raise Refusal("key/attributeTypeKey", "unknownElement", f"'{source.get('objectTypeKey')}' does not bind '{raw['attributeTypeKey']}'")

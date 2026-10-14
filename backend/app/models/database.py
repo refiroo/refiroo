@@ -1547,12 +1547,17 @@ class SourceFileSheet(Base):
 
 
 class SourceFileColumn(Base):
-    """A column of a source file's profile (0.10 A3): its statistics."""
+    """A column of a block of a source file's profile (0.10 A3; per block since A8a, D115): its
+    statistics."""
 
     __tablename__ = "source_file_columns"
     __table_args__ = (
         PrimaryKeyConstraint(
-            "source_file_id", "sheet_index", "column_number", name="pk_source_file_columns"
+            "source_file_id",
+            "sheet_index",
+            "block_index",
+            "column_number",
+            name="pk_source_file_columns",
         ),
     )
 
@@ -1560,6 +1565,7 @@ class SourceFileColumn(Base):
         ForeignKey("source_files.id", ondelete="CASCADE"), nullable=False
     )
     sheet_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    block_index: Mapped[int] = mapped_column(Integer, nullable=False)
     column_number: Mapped[int] = mapped_column(Integer, nullable=False)
     statistics: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
 
