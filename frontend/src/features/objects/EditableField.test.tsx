@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError, api } from "@/api/client";
 import { codelistObject, domainObject, testModel } from "@/test/fixtures";
 import { EditableField } from "@/features/objects/EditableField";
-import type { ObjectItem } from "@/types";
+import type { EngineModel, ObjectItem } from "@/types";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -18,7 +18,7 @@ function Held({
 }: {
   start: ObjectItem;
   field: string;
-  layout?: "row" | "title" | "subtitle";
+  layout?: "row" | "title" | "subtitle" | "cell";
   readOnly?: boolean;
   onConflict?: () => Promise<void>;
 }) {
@@ -102,5 +102,84 @@ describe.each([domainObject, codelistObject])("a field edited in place (UA8), $o
   it("offers Add where an editable header field is empty", () => {
     render(<Held start={{ ...record, attributes: [] }} field="code" layout="subtitle" />);
     expect(screen.getByRole("button", { name: /^Add Code/ })).toBeInTheDocument();
+  });
+});
+
+/** A list's cell (0.10 A9, D133): the value as the list shows it, the icons beside it. */
+function Cell({
+  start,
+  field,
+  model = testModel,
+  onRemove,
+}: {
+  start: ObjectItem;
+  field: string;
+  model?: EngineModel;
+  onRemove?: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  return (
+    <EditableField
+      model={model}
+      object={start}
+      field={field}
+      layout="cell"
+      display={<span>shown value</span>}
+      editing={editing}
+      onEdit={() => setEditing(true)}
+      onClose={() => setEditing(false)}
+      onSaved={() => setEditing(false)}
+      onConflict={async () => undefined}
+      onRemove={onRemove}
+    />
+  );
+}
+
+describe.each([domainObject, codelistObject])("a field in a list's cell (0.10 A9), $objectTypeKey", (record) => {
+  it("shows the list's value as text; only the pencil, out of the tab order, opens the editor", () => {
+    render(<Cell start={record} field="code" />);
+    fireEvent.click(screen.getByText("shown value"));
+    expect(screen.queryByRole("form")).toBeNull();
+    const pencil = screen.getByRole("button", { name: `Edit Code of ${record.name}` });
+    expect(pencil).toHaveAttribute("tabindex", "-1");
+    fireEvent.click(pencil);
+    expect(screen.getByRole("form", { name: "Edit Code" })).toBeInTheDocument();
+  });
+
+  it("offers Remove only for a set value that is not required", () => {
+    const onRemove = vi.fn();
+    const withActive = {
+      ...record,
+      attributes: [
+        ...record.attributes.filter((item) => item.attributeTypeKey !== "active"),
+        { attributeTypeKey: "active", value: true },
+      ],
+    } as ObjectItem;
+    const { unmount } = render(<Cell start={withActive} field="active" onRemove={onRemove} />);
+    fireEvent.click(screen.getByRole("button", { name: `Remove Active of ${record.name}` }));
+    expect(onRemove).toHaveBeenCalled();
+    unmount();
+    render(
+      <>
+        <Cell start={record} field="code" onRemove={onRemove} />
+        <Cell start={record} field="name" onRemove={onRemove} />
+        <Cell start={{ ...record, attributes: [] }} field="active" onRemove={onRemove} />
+      </>,
+    );
+    expect(screen.queryByRole("button", { name: /^Remove/ })).toBeNull();
+  });
+
+  it("shows no icons for a read-only binding or a built-in field", () => {
+    const model = structuredClone(testModel);
+    for (const type of model.objectTypes)
+      for (const binding of type.attributes) if (binding.attributeTypeKey === "code") binding.readOnly = true;
+    render(
+      <>
+        <Cell start={record} field="code" model={model} />
+        <Cell start={record} field="id" />
+      </>,
+    );
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.getAllByText("shown value")).toHaveLength(2);
   });
 });

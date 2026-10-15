@@ -4,14 +4,7 @@ import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDat
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import type { EngineModel, ObjectItem, RelationItem, RelationsPanelDefinition } from "@/types";
-import {
-  holdsOne,
-  holdsOneHere,
-  isManagedRelation,
-  isReplaceable,
-  relatedObjectTypes,
-  relationChoices,
-} from "@/model/lookup";
+import { holdsOne, holdsOneHere, isManagedRelation, relatedObjectTypes, relationChoices } from "@/model/lookup";
 import type { RelationChoice } from "@/model/lookup";
 import { DeleteRelationDialog } from "@/features/objects/DeleteRelationDialog";
 import { RelationFormDialog } from "./RelationFormDialog";
@@ -267,7 +260,7 @@ export function RelationsPanel({
     const locked = managed(item) ? "Managed through Parent" : required ? "Required relationship" : undefined;
     return (
       <div className="row-actions relation-row-actions">
-        {!readOnly && changeChoice(item) && (
+        {!readOnly && !locked && changeChoice(item) && (
           <IconButton
             icon="swap"
             label={`Change ${kind}`}
@@ -314,21 +307,16 @@ export function RelationsPanel({
         allowed.toObjectTypeKey === toType,
     );
   }
-  /**
-   * The kind a row's relationship is, where the record holds only one of it and may change it: a
-   * required one too, unless it is containment or required ownership (0.10 A9, D135).
-   */
-  function changeChoice(item: RelationItem): RelationChoice | undefined {
+  /** The kind a row's relationship is, where the record holds only one of it. */
+  function changeChoice(item: RelationItem) {
     const allowed = allowedFor(item);
-    if (!allowed || !isReplaceable(model, allowed) || !holdsOne(allowed, item.direction === "outgoing" ? "from" : "to"))
-      return undefined;
-    const definition = model.relationTypes.find((relation) => relation.key === allowed.relationTypeKey);
-    return {
-      direction: item.direction,
-      relation: allowed,
-      otherObjectTypeKey: item.object.objectTypeKey,
-      label: (item.direction === "outgoing" ? definition?.name : definition?.reverseName) ?? allowed.relationTypeKey,
-    };
+    if (!allowed || !holdsOne(allowed, item.direction === "outgoing" ? "from" : "to")) return undefined;
+    return choices.find(
+      (choice) =>
+        choice.direction === item.direction &&
+        choice.relation.relationTypeKey === item.relation.relationTypeKey &&
+        choice.otherObjectTypeKey === item.object.objectTypeKey,
+    );
   }
   function managed(item: RelationItem) {
     const allowed = allowedFor(item);

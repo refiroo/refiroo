@@ -222,8 +222,9 @@ export function isSingleValuedRelatedColumn(model: EngineModel, objectTypeKey: s
 }
 
 /**
- * Whether a record's relationship of this binding may be changed to another record (Change): the
- * engine's set replacement refuses containment and required ownership, and nothing else (A9, D135).
+ * Whether a record's relationships of this binding may be changed from a list's cell: the engine
+ * refuses to move or unlink containment and required ownership (0.10 A9, D135). A record holding
+ * one of a required binding is always owned that way: a many-to-one cannot be required.
  */
 export function isReplaceable(model: EngineModel, relation: ObjectTypeRelationDefinition): boolean {
   return !isManagedRelation(model, relation) && !isRequiredOwnership(relation);
@@ -238,8 +239,6 @@ export interface RelatedCellEdit {
   choices: RelationChoice[];
   /** The row holds at most one (D137): Set, Change and Delete; otherwise a many-valued edit. */
   single: boolean;
-  /** A single relationship held may be deleted: no binding behind the column is required. */
-  removable: boolean;
 }
 
 /**
@@ -268,7 +267,6 @@ export function relatedCellEdit(model: EngineModel, objectTypeKey: string, field
     })),
     // As `isSingleValuedRelatedColumn`, also where the column shows a field of the related record.
     single: bindings.length === 1 && holdsOne(bindings[0], end),
-    removable: bindings.every((relation) => !relation.required),
   };
 }
 

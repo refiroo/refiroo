@@ -73,7 +73,7 @@ can complete the task in the application; "API" means another system can.
 ### Keep data accurate — browser and API
 
 - Add, edit and delete records, edit a field in place (the name and subtitle in the record's header
-  too), connect and disconnect related records. Where the model limits which records a relationship
+  too, and a value or a relationship from its cell in a list), connect and disconnect related records. Where the model limits which records a relationship
   may choose, only those are offered, everywhere it can be chosen.
 - A save is live immediately and recorded in the record's history. If someone else changed the record
   meanwhile, nothing is overwritten: your input is kept and the newer version is shown.

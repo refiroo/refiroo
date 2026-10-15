@@ -3,7 +3,7 @@ import type { SelectableRow } from "@/lib/recordSelection";
 import { bulkRelationChoices, holdsOne, type RelationActions } from "@/model/lookup";
 import { testModel } from "@/test/fixtures";
 import type { EngineModel, ObjectTypeRelationDefinition } from "@/types";
-import { claimedByPreview, itemCount, pairRef, relationItems } from "./bulkRelations";
+import { checklistChange, claimedByPreview, itemCount, pairRef, relationItems } from "./bulkRelations";
 
 type Cardinality = ObjectTypeRelationDefinition["cardinality"];
 
@@ -156,5 +156,24 @@ describe("the items a relationship change sends (0.9 K3, D129, D130)", () => {
     const ref = pairRef(long, { id: "o", name: "O".repeat(300) });
     expect(ref.length).toBeLessThanOrEqual(200);
     expect(ref).toContain(" → ");
+  });
+});
+
+describe("one record's related records as ticked in a checklist (0.10 A9, D136)", () => {
+  const z = { id: "z", name: "Zed" };
+  it("sends only the records added and removed", () => {
+    expect(checklistChange([x, y], [y, z])).toEqual({ mode: "change", add: [z], remove: [x] });
+    expect(checklistChange([x], [x])).toEqual({ mode: "change", add: [], remove: [] });
+    expect(checklistChange([], [x])).toEqual({ mode: "change", add: [x], remove: [] });
+  });
+
+  it("makes an ensure item per change, so a record someone else related meanwhile stays", () => {
+    const relation = withBinding({}).objectTypeRelations.at(-1)!;
+    const choice = { direction: "outgoing" as const, relation, otherObjectTypeKey: "codelist", label: "Cites" };
+    const { items } = relationItems([rows[0]], choice, checklistChange([x], [y]));
+    expect(items.map((item) => [item.op, "from" in item && item.from.id, "to" in item && item.to.id])).toEqual([
+      ["ensureRelation", "a", "y"],
+      ["ensureNoRelation", "a", "x"],
+    ]);
   });
 });

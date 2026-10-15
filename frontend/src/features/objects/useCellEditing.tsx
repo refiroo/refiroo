@@ -97,7 +97,7 @@ export function useCellEditing({
           record={item.name}
           disabled={busy}
           onEdit={() => (edit.single ? void openSingle(item, edit, false) : setOpen({ kind: "many", item, edit }))}
-          onRemove={edit.single && edit.removable && holds ? () => void openSingle(item, edit, true) : undefined}
+          onRemove={edit.single && holds ? () => void openSingle(item, edit, true) : undefined}
         >
           {shown}
         </EditInPlaceCell>

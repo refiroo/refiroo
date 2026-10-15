@@ -13,6 +13,17 @@ column statistics per block); a database of 0.10.0-alpha.1 upgrades on start.
 
 ### Added
 
+- Base 0.10 A9: a list's cells edited in place (D131–D139; J02.7, J13.11). In a collection or a
+  record's table, the cell under the pointer shows a pencil and, where an optional value or a single
+  relationship is set, a trash beside its value (always on touch); a click elsewhere still opens the
+  record. A value or name is edited in the cell; a relationship a record holds one of is set,
+  changed (among the binding's candidates) or deleted; one it holds several of is edited in a
+  dialog of ticked records, saved as one inline atomic batch of the records added and removed. A
+  toast says whether a save went to Live or the open change set. Ancestor columns, containment,
+  required ownership, read-only bindings, computed fields and publications show no icons. The
+  details panel's remove and the relationship panel's delete are one dialog each, shared with the
+  cells. No API change. `test:browser:authoring-a9`.
+
 - Base 0.10 A8b: the editor's source pane list by list (D122–D130; J34.10). A sheet laid out for
   reading shows its lists under their titles, each Proposed, Loaded or Not loaded, the open list's
   columns under it (one tree, keyboard operable); a selected list shows its titles, cells, note,

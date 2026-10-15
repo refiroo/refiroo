@@ -153,6 +153,12 @@ coherent edit is one save; the record keeps its identity, its place and its rela
 - **J02.6 Correct it from the header** (UI, Base 0.9 UA8): the record's title (usually its name) and
   subtitle are edited in place in its header, on the full page and in the inspector, as a details
   field is; an empty editable subtitle offers Add; saving claims the record's version.
+- **J02.7 Correct it in a list** (UI, Base 0.10 A9): a name or value is edited, or an optional
+  value removed after its confirmation, from its cell in a collection or a record's table: the
+  cell under the pointer shows a pencil and a trash beside its value (always on touch), a click on
+  the value still opens the record; saving claims the record's version, goes to the open change set
+  when there is one and says where it went; a read-only binding, a computed field and a
+  publication show no icons.
 
 **Refusals:** `409 VERSION_CONFLICT`, `409 DUPLICATE_ATTRIBUTE_VALUE`, `422 INVALID_ATTRIBUTE_VALUE`
 (a value of the wrong type), `422 ATTRIBUTE_BELOW_MINIMUM`, `422 ATTRIBUTE_ABOVE_MAXIMUM`,
@@ -269,6 +275,11 @@ The containment relationship is not edited here: it follows the record's parent 
 - **J13.10 A relationship outlives its criteria** (D175): when the data changes so a related record
   no longer meets them, the relationship is kept, the change set publishes, and the record is no
   longer offered.
+- **J13.11 Relate from a list** (UI, Base 0.10 A9): in a collection's relation column, a record
+  that holds at most one of the kind sets, changes (one replacement, only the binding's
+  candidates offered) or deletes it from its cell; one that holds several edits the set in a
+  dialog of records ticked, saved as one all-or-nothing batch of the records added and removed.
+  Containment and required ownership show no icons: the engine refuses to move or unlink them.
 
 **Refusals:** `422 UNKNOWN_RELATION_TYPE`, `422 INVALID_RELATION_PAIR`, `422 RELATION_ENDPOINT_MISSING`,
 `422 RELATION_WRONG_SCOPE`, `422 UNKNOWN_RELATION_ATTRIBUTES`, `422 IMMUTABLE_RELATION`,

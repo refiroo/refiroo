@@ -219,7 +219,14 @@ removed by its trash icon after a confirmation; saving is always explicit (Save 
 cancels), and selecting a value's text to copy it does not open the editor. The record's header
 edits its title (usually the name) and subtitle the same way, on the full page and beside a tree,
 and offers Add for an empty subtitle; **Edit record**, the form with every field, is in the record's
-⋯ menu. The header shows its ID, the `id` every API returns, with a button that copies it. In a
+⋯ menu. A list of records (a collection, or a record's table) edits in its cells too: the cell
+under the pointer shows a pencil, and a trash where an optional value or a single relationship is
+set, beside its value (always on a touch screen); the pencil opens the value's editor in the cell,
+the relationship picker where a record holds one of the kind (only the records the model allows),
+or a dialog of ticked records where it holds several, saved together. A click elsewhere in the row,
+the value included, still opens the record; a toast says whether the save went to Live or the open
+change set. Ancestor columns, containment and owned relationships, read-only and computed fields
+and publications show no icons; the keyboard's way is the row's ⋯ menu. The header shows its ID, the `id` every API returns, with a button that copies it. In a
 record's relationship tables each row's actions are icons, each with a tooltip: change to another
 record, edit the relationship's values, delete; a row that is managed through the parent or
 required shows a lock saying so.

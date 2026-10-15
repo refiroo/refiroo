@@ -109,7 +109,11 @@ above it and a note under its header; column statistics are kept per block (migr
 `key: {"field": "name"}`), with its translations, yes/no columns and note, and the lists under one
 title as a navigation group. On the user's reading-layout workbook it proposes 87 lists and 10
 groups whose dry run refuses no row. It fixed an A5/A6 defect: a header ending in a space could not
-be mapped. **A8b, the source pane list by list, is built (2026-10-15)**
+be mapped. **A9, a list's cells edited in place, is delivered (2026-10-15)**
+([record](BASE_0_10_IMPLEMENTATION_PLAN.md#a9-record-2026-10-15)), added by the user and its
+screenshots approved: in a collection or a record's table a value, a name or a relationship is
+edited from its cell (the icons on the hovered cell, beside the value); a single relationship set,
+changed or deleted, a many-valued one edited in a dialog of ticked records. **A8b, the source pane list by list, is built (2026-10-15)**
 ([record](BASE_0_10_IMPLEMENTATION_PLAN.md#a8b-record-2026-10-15)), D122–D130 and the
 [mock-up](https://claude.ai/artifact/V31U2wkFwnfA4XR4oMrrPv) accepted by the user; it is complete
 when its screenshots are approved: a sheet laid out for reading shows its lists under their titles,

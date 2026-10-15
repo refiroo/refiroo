@@ -1365,28 +1365,25 @@ th[aria-sort] {
 .table-wrap .row-actions {
   white-space: nowrap;
 }
-/* A list's cell edited in place (0.10 A9, D133): the value, then a pencil and a trash shown while
-   the pointer is over the cell itself, not the whole row (the user, 2026-10-15). They stand over the cell's end, so they take no width from the columns; on
-   touch they are always shown, after the value. */
+/* A list's cell edited in place (0.10 A9, D133): the value, then a pencil and a trash right after it,
+   shown while the pointer is over the cell itself, not the whole row (the user, 2026-10-15); always
+   on touch. */
 .cell-edit {
-  position: relative;
-  display: block;
-  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 100%;
+  vertical-align: middle;
 }
 .cell-edit-value {
-  display: block;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Beside the value, their place kept while hidden so the columns do not move on hover. */
 .cell-edit-actions {
-  position: absolute;
-  top: 50%;
-  right: -6px;
   display: inline-flex;
-  padding-left: 14px;
-  transform: translateY(-50%);
-  background: linear-gradient(to right, transparent, var(--surface-sunken) 12px);
+  flex: none;
   opacity: 0;
   pointer-events: none;
 }
@@ -1402,16 +1399,7 @@ td:hover .cell-edit-actions {
   visibility: hidden;
 }
 @media (hover: none) {
-  .cell-edit {
-    display: flex;
-    align-items: center;
-    gap: var(--space-1);
-  }
   .cell-edit-actions {
-    position: static;
-    padding-left: 0;
-    transform: none;
-    background: none;
     opacity: 1;
     pointer-events: auto;
   }

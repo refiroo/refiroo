@@ -148,7 +148,7 @@ export function EditableField({
           : control.current?.focus(),
       );
     wasEditing.current = editing;
-  }, [editing]);
+  }, [editing, layout]);
 
   if (editing && editable)
     return (
@@ -185,7 +185,7 @@ export function EditableField({
   if (!editable)
     return (
       <>
-        {shownValue(model, object, field)}
+        {layout === "cell" ? display : shownValue(model, object, field)}
         {status}
       </>
     );

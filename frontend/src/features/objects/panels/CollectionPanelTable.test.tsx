@@ -1,8 +1,13 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render as renderBase, screen, waitFor, within } from "@testing-library/react";
+import { ToastProvider } from "@/ui/Toast";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { CollectionPanelTable } from "@/features/objects/panels/CollectionPanelTable";
 import { codelistObject, domainObject, testModel } from "@/test/fixtures";
+
+/** A list's cells edited in place say where a save went in a toast (0.10 A9), as the app's provider shows it. */
+const render: typeof renderBase = ((ui: Parameters<typeof renderBase>[0], options?: Parameters<typeof renderBase>[1]) =>
+  renderBase(ui, { wrapper: ToastProvider, ...options })) as typeof renderBase;
 
 afterEach(() => vi.restoreAllMocks());
 
