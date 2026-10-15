@@ -489,6 +489,16 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   - [ ] Non-blocking open items: A-D11 nested navigation groups (one level in 0.10); A-D12 record
     counts on the group page (none in 0.10, later only as a bounded read).
 
+## Next — 0.11 production hardening and staged model rollout
+
+- [ ] 0.11 design pass, from the [planning input](BASE_0_11_IMPLEMENTATION_PLAN.md) (2026-10-15):
+  decisions with recommendations, the data-move inventory completed, packages and order, journeys;
+  accepted by the user before any build.
+  - [ ] The user's requirement: each workspace runs a model of its own (different models).
+  - [ ] The user's requirement: data moved between workspaces whose models differ, through a proposed
+    and hand-completed model-to-model mapping; its placement in 0.11 to be confirmed by the user.
+  - [ ] First package: the backend suite's time (D152; J34/J35 profile W1 once per configuration).
+
 ## Later — production and self-service authoring
 
 - [ ] Complete the release licensing checklist in [LICENSING_TODO.md](LICENSING_TODO.md), including

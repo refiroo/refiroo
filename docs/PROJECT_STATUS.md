@@ -17,7 +17,10 @@ cancels, a rename stopping the dry run for good, the next version's check of a t
 (56 s at 200 rows) and of W1 at 10,000 rows (101 s, now 16 s), and relation chips no longer using
 the cell's width since A9. The commit and the tag `v0.10.0` follow the user's instruction (D153).
 Open: the backend suite's time (D152, the next build's first package) and, in TODO, one
-visual-gate flake whose cause was not found.
+visual-gate flake whose cause was not found. Next, recommended: 0.11, starting with its design pass; its
+[planning input](BASE_0_11_IMPLEMENTATION_PLAN.md) records the user's two new requirements (each
+workspace a model of its own; data moved between workspaces whose models differ), the R findings
+that feed it, the test-time package first (D152), and how release runs are done from now on.
 
 ### How 0.10 was built
 
