@@ -461,8 +461,24 @@ immutable model releases in controlled stages. Authentication and authorization 
   (normally the historical pin), with a preview of incompatibilities and potential data loss,
   confirmation bound to the exact reviewed versions or cancel, and atomic model/data application;
   this is the accepted GAP-02 extension, not an override of ordinary activation
-- Workspace-scoped model-release assignment: resolve workspace before its immutable snapshot, migrate
-  its data, then atomically switch its release
+- **Each workspace runs a model of its own** (the user's requirement, recorded 2026-10-15; MODEL_AUTHORING
+  has promised it for 0.11): different workspaces may run different models, not only different
+  versions of one model, and a workspace's model is installed, activated and migrated without
+  touching the others. Workspace-scoped model-release assignment is its mechanism: resolve the
+  workspace before its immutable snapshot, migrate its data, then atomically switch its release.
+  The 0.11 plan decides with the user what a workspace without its own model follows, what reads
+  across workspaces mean when their models differ, and the supported schema-language window
+- **Data moved between workspaces whose models differ** (the user's requirement, recorded
+  2026-10-15): records, values, relationships and hierarchy of one workspace (or a chosen part)
+  moved or copied into another wherever the two models are compatible, even partly, through a
+  mapping between the two models that the engine proposes (as A6/A7 propose from a workbook: by
+  keys, names and values, with evidence and alternatives) and the administrator completes or
+  corrects by hand, step by step with undo (as A5's mapping operations); what cannot move is
+  reported, never dropped silently. Built from what exists: 0.9 J5's records of another workspace
+  loaded as one's own (identity kept, found again on the next move), import profiles and value
+  maps, the dry run of every item, the load into a reviewed change set, and the model compatibility
+  analysis. The plan inventories everything such a move can need before it is designed (the user:
+  "literally everything which possibly can be needed")
 - Moving a draft onto a release its content does not fit: reuse the 0.11 conversion machinery against
   that draft and the live data under it, preview the conversions and any loss of draft-authored
   content, and apply only on confirmation of the exact reviewed draft and release versions, or cancel;
@@ -477,6 +493,11 @@ immutable model releases in controlled stages. Authentication and authorization 
   production-like tests at full volume (single-process multi-writer is 0.9.0-alpha.1's gate).
 - A tree node can be moved by touch drag on a phone without breaking scrolling or opening a record,
   confirmed in the same move dialog as with a mouse (D35).
+- Two workspaces of one instance run two different models side by side, each installed, activated
+  and migrated on its own, with no request combining their snapshots.
+- Records of one workspace move into a workspace of a different, partly compatible model through a
+  proposed and hand-completed model-to-model mapping, dry run and reviewed change set, with what
+  could not move reported.
 - Workspace migration, release switch and operator backup recovery are rehearsed without mixed-model
   requests. Historical change sets are not direct dataset restore operations.
 - Confirmed historical migration validates transformed data, preserves immutable history, affects only
@@ -620,8 +641,8 @@ need a migration, and reuses proven definitions.
   capabilities and the doors current work keeps open (identity redirects, value provenance, derived
   values, redaction within immutable history, keyed inbound upsert, reusable matching and review
   vocabulary, additive value types).
-- **Workspace groups as owners of a model history.** A possible later step beyond 0.11's
-  workspace-scoped release assignment: a group of workspaces owns one model history, so teams in one
+- **Workspace groups as owners of a model history.** A possible later step beyond 0.11, which
+  gives each workspace a model of its own: a group of workspaces owns one model history, so teams in one
   organisation can release their models independently (with dev/test/prod staged rollout inside a
   group), and workspace keys and release identities become unique per group. It is not a tenancy
   mechanism: hosting is one instance per organisation. Groups separate models, so data in different
