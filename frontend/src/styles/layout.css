@@ -64,31 +64,6 @@
 .product-mark strong {
   font-weight: 600;
 }
-/* `TopBar`'s way back (Settings returns to where it was opened from): a quiet link after the mark. */
-.topbar-back {
-  display: inline-flex;
-  align-items: center;
-  align-self: center;
-  gap: 6px;
-  flex: none;
-  min-height: 32px;
-  max-width: 260px;
-  padding: 0 10px;
-  border-radius: var(--radius-control);
-  color: var(--text-secondary);
-  font-size: var(--text-sm);
-  font-weight: 550;
-  text-decoration: none;
-  white-space: nowrap;
-}
-.topbar-back:hover {
-  background: var(--surface-hover);
-  color: var(--text-primary);
-}
-.topbar-back-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 /* The tabs start 36px after the product name (ADR-040); the header's gap gives the first 20. */
 .application-nav {
   display: flex;
@@ -140,12 +115,6 @@
   align-items: center;
   gap: var(--space-1);
 }
-/* On a settings page the Settings link is the current tab, so it stretches to the bar's rule. */
-.settings-tab {
-  align-self: stretch;
-  margin-right: var(--space-3);
-  text-decoration: none;
-}
 .topbar-icon-button {
   display: grid;
   place-items: center;
@@ -167,6 +136,18 @@
 .topbar-icon-button[data-focus-visible] {
   outline: 2px solid var(--focus-color);
   outline-offset: 1px;
+}
+/* The Settings icon reaches the bar's rule so that, current, it carries the tabs' ink underline in
+   its own place and width: opening Settings moves nothing in the bar (the user, 2026-10-15). */
+.topbar-settings {
+  align-self: stretch;
+  height: auto;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+}
+.topbar-settings[aria-current="page"] {
+  border-bottom-color: var(--text-primary);
+  color: var(--text-primary);
 }
 .navigation-toggle {
   display: none;

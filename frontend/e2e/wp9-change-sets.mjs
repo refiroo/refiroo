@@ -258,8 +258,15 @@ try {
   await openChangeSetMenu();
   await page.getByRole("menuitem", { name: "Discard change set", exact: true }).click();
   await confirm().getByRole("button", { name: "Discard change set", exact: true }).click();
-  await shown(page.getByText("Change set discarded. Live data is unchanged.", { exact: true }));
+  const discarded = page.getByText("Change set discarded. Live data is unchanged.", { exact: true });
+  await shown(discarded);
   assert.equal((await fetch(`${apiUrl}/api/v1/change-sets/${second}`)).status, 404);
+  // A confirmation shown once, as a toast, not a notice kept on every page (reported 2026-10-15).
+  await page.screenshot({ path: resolve(output, "discarded-toast.png") });
+  await page.locator(".toast", { has: discarded }).getByRole("button", { name: "Dismiss" }).click();
+  await discarded.waitFor({ state: "detached" });
+  await page.screenshot({ path: resolve(output, "discarded-dismissed.png") });
+  checks.push("a discarded change set is confirmed by a toast that leaves no notice behind");
 
   // Valid change set + later independent live record can form an invalid final graph.
   const third = await startChangeSet("Merged graph refusal");

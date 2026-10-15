@@ -24,7 +24,7 @@ import { Notice } from "@/ui/Notice";
 import { ResizeHandle } from "@/ui/ResizeHandle";
 import { useLocalNumberPreference } from "@/lib/localPreference";
 import { Card } from "@/ui/Card";
-import { ToastProvider } from "@/ui/Toast";
+import { ToastProvider, useToast } from "@/ui/Toast";
 import { JobNotificationsProvider, useJobEnded, useJobNotifications } from "@/features/jobs/JobNotifications";
 import { ExportDialog, type ExportStart } from "@/features/jobs/ExportDialog";
 import { ImportDialog, type ImportStart } from "@/features/jobs/ImportDialog";
@@ -32,7 +32,6 @@ import { useCapabilities } from "@/features/settings/useSystem";
 
 export default function App() {
   const router = useRouter();
-  const [message, setMessage] = useState("");
   const { model, route, error } = router;
   if (!model || !route) return <div className="center-message">{error || "Loading the model…"}</div>;
   // Toasts and the notifications about this tab's jobs live above every page (0.9 J1u).
@@ -50,7 +49,7 @@ export default function App() {
             workspaceKey={route.workspaceKey}
             model={model}
           >
-            <AppContent router={router} route={route} message={message} setMessage={setMessage} />
+            <AppContent router={router} route={route} />
           </WorkspaceDataProvider>
         )}
       </JobNotificationsProvider>
@@ -58,19 +57,10 @@ export default function App() {
   );
 }
 
-function AppContent({
-  router,
-  route,
-  message,
-  setMessage,
-}: {
-  router: Router;
-  route: ApplicationRoute;
-  message: string;
-  setMessage: (message: string) => void;
-}) {
+function AppContent({ router, route }: { router: Router; route: ApplicationRoute }) {
   const { model: currentModel, error, navigate, replaceRoute, lastCollection, rememberWorkspace } = router;
   const data = useWorkspaceData();
+  const toast = useToast();
   const model = data.model ?? currentModel;
   const [refreshToken, setRefreshToken] = useState(0);
   // Writes made in the collection beside an open record; the record's own writes do not count.
@@ -301,7 +291,9 @@ function AppContent({
         reviewing={activeRoute.kind === "changeSetChanges"}
         onReview={() => navigate(changeReviewFor(application.key, data.changeSet!.workspaceKey, data.changeSet!.id))}
         onExit={(result) => {
-          setMessage(result);
+          // A confirmation of leaving the change set, shown once (reported 2026-10-15: a page notice
+          // stayed on every page until a reload).
+          toast(result);
           navigate({ ...viewRoute(application, application.defaultView, data.changeSet!.workspaceKey) });
           setRefreshToken((value) => value + 1);
         }}
@@ -339,7 +331,6 @@ function AppContent({
       onOpenObject={(item) => openObject(item, undefined, "hierarchy")}
       contextActions={contextActions}
     >
-      {message && <Notice tone="success">{message}</Notice>}
       {data.loadingError ? (
         <Card flush className="panel">
           <Notice

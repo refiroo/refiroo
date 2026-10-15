@@ -20,6 +20,7 @@ vi.mock("@/api/client", () => ({
     modelRelease: vi.fn(),
     modelReleases: vi.fn(),
     setChangeSetModelRelease: vi.fn(),
+    discardChangeSet: vi.fn(),
     defaultWorkspaceModel: vi.fn(),
     workspaceModel: vi.fn(),
     workspaceRuntimeState: vi.fn(),
@@ -685,6 +686,38 @@ describe("App", () => {
       }),
     );
     await waitFor(() => expect(window.location.search).not.toContain("changeSetId"));
+  });
+
+  it("confirms a discarded change set once, not on every page after it (reported 2026-10-15)", async () => {
+    vi.mocked(api.changeSet).mockResolvedValue({
+      id: "change-set-1",
+      workspaceKey: "west",
+      name: "Review",
+      modelReleaseId: "current-model",
+      modelReleaseKey: "test",
+      modelReleaseVersion: "1",
+      source: "currentLive" as const,
+      derivedFromPublicationId: null,
+      version: 8,
+      createdAt: "",
+      updatedAt: "",
+    });
+    vi.mocked(api.discardChangeSet).mockResolvedValue(undefined);
+    vi.mocked(api.objects).mockResolvedValue({ items: [{ ...domainObject, workspaceKey: "west" }], nextCursor: null });
+    vi.mocked(api.object).mockResolvedValue({ ...domainObject, workspaceKey: "west" });
+    visit("/apps/test-app/views/domains?workspaceKey=west&changeSetId=change-set-1");
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "More change set actions" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Discard change set" }));
+    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Discard change set" }));
+    const confirmation = await screen.findByText("Change set discarded. Live data is unchanged.");
+    await waitFor(() => expect(window.location.search).not.toContain("changeSetId"));
+    expect(confirmation).toBeVisible();
+    // A confirmation of one action, which the user can dismiss and which no other page shows.
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    fireEvent.click((await screen.findAllByRole("button", { name: domainObject.name }))[0]);
+    expect(await screen.findByRole("heading", { name: domainObject.name, level: 1 })).toBeInTheDocument();
+    expect(screen.queryByText("Change set discarded. Live data is unchanged.")).not.toBeInTheDocument();
   });
 
   it("recovers a removed change set view after changing the pinned model and drops old cursors", async () => {

@@ -17,7 +17,7 @@ import { ModelEditor } from "@/features/model-editor/ModelEditor";
 import { api } from "@/api/client";
 import { WorkspaceAdmin } from "@/features/workspaces/WorkspaceAdmin";
 import { applicationFor } from "@/model/lookup";
-import { defaultRoute, routePath, viewRoute } from "@/routing/routes";
+import { defaultRoute, viewRoute } from "@/routing/routes";
 import type { ApplicationDefinition, EngineModel, SettingsRoute } from "@/types";
 import { SettingsShell } from "./SettingsShell";
 import type { Router } from "./useRouter";
@@ -33,15 +33,6 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
         : (lastCollection(selected.key) ?? viewRoute(selected, selected.defaultView, workspaceKey)),
     );
   };
-  // Back returns to the page Settings was opened from: the last application page of the session, or
-  // the home page when Settings was the first page opened.
-  const returnRoute = lastApplicationRoute() ?? defaultRoute(model, workspaceKey);
-  const returnApplication = applicationFor(model, returnRoute.applicationKey);
-  const back = {
-    label: `Back to ${returnApplication?.name ?? "applications"}`,
-    href: routePath(returnRoute),
-    onNavigate: () => navigate(returnRoute),
-  };
   // A workspace opens in the application the user last worked in.
   const application = applicationFor(model, lastApplicationRoute()?.applicationKey ?? "") ?? model.applications[0];
 
@@ -54,7 +45,6 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
       onHome={() => navigate(defaultRoute(model, workspaceKey))}
       onSelectApplication={selectApplication}
       onNavigate={(next) => navigate(next)}
-      back={back}
     >
       {editing?.page === "model" && editing.draftId ? (
         <ModelEditor

@@ -33,6 +33,16 @@ All notable changes to this project are documented in this file. The format foll
 - Settings › Model reads and activates the default workspace's model; Load into a change set
   activates the release into the workspace it loads into.
 
+### Fixed
+
+- Leaving a change set (discard or publish) left its confirmation as a notice above every page until
+  the browser reloaded; it is now a toast, shown once and dismissable (reported 2026-10-15).
+- Opening Settings reshaped the top bar: a way back was inserted after the product mark, shifting the
+  application tabs, and the Settings icon became a wider "Settings" tab. The bar is now the same on
+  every page: the Settings icon keeps its place and width and is marked current by the tabs' ink
+  underline, and Settings has no way back of its own (the product mark and the application tabs
+  leave it) (the user, 2026-10-15).
+
 ### Removed (0.11 M1)
 
 - `GET /model-runtime-state`, `POST /model-releases/{id}/activation`, the `active` field and filter

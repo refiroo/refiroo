@@ -1,8 +1,9 @@
 /**
  * The Settings pages in the shared frame (`ShellFrame`, `TopBar`; Track U U3): the same top bar as
- * the application pages, with the Settings link current and no application tab, the settings
+ * the application pages, with the Settings icon current and no application tab, the settings
  * navigation in the rail, and the page. Settings are not workspace data, so there is no workspace
- * switcher and no data-context band. Below 760px the navigation moves into the drawer, opened from
+ * switcher, no data-context band and no way back: the product mark goes home, as on every page
+ * (the user, 2026-10-15: the bar itself never changes). Below 760px the navigation moves into the drawer, opened from
  * a bar naming the current page. A page with panes of its own (the model editor) asks for the
  * full width: no settings navigation, the top bar the same (0.10 A4a, D37).
  */
@@ -13,7 +14,7 @@ import { routePath } from "@/routing/routes";
 import type { ApplicationDefinition, EngineModel, RouteState, SettingsPage } from "@/types";
 import { RouteLink } from "@/ui/RouteLink";
 import { ShellFrame } from "./ShellFrame";
-import { TopBar, type TopBarBack } from "./TopBar";
+import { TopBar } from "./TopBar";
 
 export function SettingsShell({
   model,
@@ -21,7 +22,6 @@ export function SettingsShell({
   onHome,
   onSelectApplication,
   onNavigate,
-  back,
   fullWidth = false,
   children,
 }: {
@@ -30,8 +30,6 @@ export function SettingsShell({
   onHome: () => void;
   onSelectApplication: (application: ApplicationDefinition) => void;
   onNavigate: (route: RouteState) => void;
-  /** Back to the page the user opened Settings from. */
-  back: TopBarBack;
   fullWidth?: boolean;
   children: ReactNode;
 }) {
@@ -42,7 +40,6 @@ export function SettingsShell({
         <TopBar
           model={model}
           inSettings
-          back={back}
           onHome={onHome}
           onSelectApplication={onSelectApplication}
           onNavigate={onNavigate}

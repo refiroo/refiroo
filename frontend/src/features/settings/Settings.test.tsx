@@ -73,7 +73,7 @@ afterEach(() => {
 });
 
 describe("SettingsShell", () => {
-  function renderShell(onNavigate = vi.fn(), onSelectApplication = vi.fn(), onHome = vi.fn(), onBack = vi.fn()) {
+  function renderShell(onNavigate = vi.fn(), onSelectApplication = vi.fn(), onHome = vi.fn()) {
     render(
       <SettingsShell
         model={testModel}
@@ -81,24 +81,21 @@ describe("SettingsShell", () => {
         onHome={onHome}
         onSelectApplication={onSelectApplication}
         onNavigate={onNavigate}
-        back={{
-          label: "Back to Test App",
-          href: "/apps/test-app/views/domains?workspaceKey=default",
-          onNavigate: onBack,
-        }}
       >
         <p>Page</p>
       </SettingsShell>,
     );
-    return { onNavigate, onSelectApplication, onHome, onBack };
+    return { onNavigate, onSelectApplication, onHome };
   }
 
-  it("offers the way back to the page Settings was opened from in the top bar", () => {
-    const { onBack } = renderShell();
-    const back = within(screen.getByRole("banner")).getByRole("link", { name: "Back to Test App" });
-    expect(back).toHaveAttribute("href", "/apps/test-app/views/domains?workspaceKey=default");
-    fireEvent.click(back);
-    expect(onBack).toHaveBeenCalled();
+  it("shows the top bar unchanged, with no way back: the mark and the tabs leave (the user, 2026-10-15)", () => {
+    renderShell();
+    const banner = screen.getByRole("banner");
+    expect(screen.queryByRole("link", { name: /^Back to/ })).toBeNull();
+    // The Settings icon is current in its own place, as the icon it is on every page.
+    const settings = within(banner).getByRole("link", { name: "Settings" });
+    expect(settings).toHaveAttribute("aria-current", "page");
+    expect(settings).toHaveTextContent("");
   });
 
   it("lists the built pages by group and marks the current one", () => {
