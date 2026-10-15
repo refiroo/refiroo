@@ -215,7 +215,8 @@ def test_actual_startup_recovery_command_selects_supported_candidate_and_restart
             with TestClient(create_app()) as client:
                 assert client.get("/health").status_code == 503
             command_text = schema_upgrade_command(get_settings())
-            assert error_log.call_args.args[2] == command_text
+            # The command in the message startup logs, whatever its other arguments (0.11 M1).
+            assert command_text in error_log.call_args.args[1:]
             # Interrupt after candidate installation and runtime updates, before commit.
             with monkeypatch.context() as interruption:
                 interruption.setattr("app.cli.model_schema_upgrade.AuditEvent", Mock(side_effect=RuntimeError("interrupted transition")))

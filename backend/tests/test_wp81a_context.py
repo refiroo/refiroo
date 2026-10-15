@@ -21,6 +21,7 @@ from app.models.database import (
     PublicationRelation,
     RdmObject,
     Workspace,
+    WorkspaceModel,
 )
 from app.models.schema import EngineModel
 
@@ -64,19 +65,20 @@ def _install_candidate(candidate: EngineModel) -> ModelRelease:
         return release
 
 
-def _activate_candidate(monkeypatch, candidate: EngineModel):
+def _activate_candidate(monkeypatch, candidate: EngineModel, workspace_key: str = "default"):
+    """``candidate`` installed and activated into ``workspace_key`` (0.11 M1)."""
     release = _install_candidate(candidate)
     monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
     with TestClient(create_app()) as client:
         with SessionLocal() as session:
-            state = default_model(session)
+            state = session.get(WorkspaceModel, workspace_key)
             assert state is not None
             active = session.get(ModelRelease, state.model_release_id)
             assert active is not None
             expected_version = state.version
             active_id = active.public_id
         response = client.post(
-            DEFAULT_ACTIVATION,
+            f"/api/v1/workspaces/{workspace_key}/model/activation",
             json={
                 "releaseId": release.public_id,
                 "expectedVersion": expected_version,
@@ -143,11 +145,13 @@ def test_1_live_only_incompatible_data_blocks_activation_without_publication(mon
         )
         assert created.status_code == 201, created.text
         candidate, _binding = _candidate_without_language_attribute(client, f"0.6.0-live-{uuid4().hex}")
-    response, _release, active_id, expected_version = _activate_candidate(monkeypatch, candidate)
+    response, _release, active_id, expected_version = _activate_candidate(
+        monkeypatch, candidate, workspace_key
+    )
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "MODEL_MIGRATION_REQUIRED"
     with SessionLocal() as session:
-        state = default_model(session)
+        state = session.get(WorkspaceModel, workspace_key)
         assert state is not None
         assert state.version == expected_version
         live = session.scalar(select(RdmObject).where(RdmObject.id == created.json()["id"]))
@@ -158,7 +162,9 @@ def test_1_live_only_incompatible_data_blocks_activation_without_publication(mon
         assert active is not None and active.public_id == active_id
 
 
-def test_2_catalogue_retired_live_data_still_blocks_incompatible_activation(monkeypatch):
+def test_2_a_retired_workspace_keeps_its_release_and_its_live_data(monkeypatch):
+    """0.11 M1 (ADR-042): a retired workspace keeps the release its data was written under; a
+    release activated into it is refused, so its data never meets a release it does not fit."""
     with TestClient(app) as client:
         workspace_key = unique_key("retired-live")
         create_workspace(client, workspace_key)
@@ -179,12 +185,15 @@ def test_2_catalogue_retired_live_data_still_blocks_incompatible_activation(monk
             workspace.status = "retired"
             session.commit()
         candidate, _binding = _candidate_without_language_attribute(client, f"0.6.0-retired-{uuid4().hex}")
-    response, _release, _active_id, expected_version = _activate_candidate(monkeypatch, candidate)
+    response, _release, active_id, expected_version = _activate_candidate(
+        monkeypatch, candidate, workspace_key
+    )
     assert response.status_code == 409
-    assert response.json()["error"]["code"] == "MODEL_MIGRATION_REQUIRED"
+    assert response.json()["error"]["code"] == "WORKSPACE_RETIRED"
     with SessionLocal() as session:
-        state = default_model(session)
+        state = session.get(WorkspaceModel, workspace_key)
         assert state is not None and state.version == expected_version
+        assert session.get(ModelRelease, state.model_release_id).public_id == active_id
         live = session.scalar(select(RdmObject).where(RdmObject.id == created.json()["id"]))
         assert live is not None
         session.delete(live)

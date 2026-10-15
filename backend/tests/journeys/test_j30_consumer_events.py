@@ -56,7 +56,8 @@ def _activate(world, suffix, events=None, change=None):
     if change is not None:
         change(model, definition)
     release = world.install(model)
-    ok(world.activate(release["id"]))
+    # Into every workspace running the model, as one activation did before 0.11 (M1).
+    ok(world.activate_everywhere(release["id"]))
     return release
 
 

@@ -167,7 +167,9 @@ def _object(session: Session, object_type: str, *, parent: RdmObject | None = No
 
 
 def _compatibility(session: Session, candidate_source: dict):
-    return analyze_compatibility(session, _model(), _model(candidate_source), "active-release")
+    return analyze_compatibility(
+        session, _model(), _model(candidate_source), "active-release", ["default"]
+    )
 
 
 def test_presentation_change_and_unused_addition_are_compatible(session: Session):
@@ -378,6 +380,7 @@ def test_cardinality_is_checked_across_all_pairs_sharing_a_relation_type(session
         _model(active_source),
         _model(candidate_source),
         "active-release",
+        ["default"],
     )
 
     assert result.classification == "migration_required"
@@ -431,6 +434,7 @@ def test_one_to_one_cardinality_checks_shared_sources_across_target_pairs(sessio
         _model(active_source),
         _model(candidate_source),
         "active-release",
+        ["default"],
     )
 
     assert result.classification == "migration_required"

@@ -253,7 +253,7 @@ def test_an_activation_dropping_a_matrix_shape_beside_a_chunk_does_not_deadlock(
         running = pool.submit(run_chunk)
         try:
             assert reached.wait(HOLD_TIMEOUT), "the chunk never reached its release check"
-            activation = pool.submit(_activate, client, release).result(HOLD_TIMEOUT)
+            activation = pool.submit(_activate, client, release, workspace).result(HOLD_TIMEOUT)
         finally:
             released.set()
         assert running.result(HOLD_TIMEOUT) is True

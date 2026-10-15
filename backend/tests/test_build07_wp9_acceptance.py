@@ -12,7 +12,6 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 from test_build07_wp6 import add_field_and_view, install_model
-from workspace_model_support import DEFAULT_ACTIVATION
 from wp8_support import create_object, create_workspace, unique_key
 
 from app.config import reload_settings
@@ -137,10 +136,11 @@ def test_sc15_two_change_sets_on_two_releases_through_activation_and_refusals(cl
     assert refused.json()["error"]["code"] == "CHANGE_SET_MODEL_RELEASE_CONFLICT"
     assert _snapshot(client, retail, warehouse, live["id"]) == before
 
-    # The administrator activates the candidate; live data is unchanged by that selection.
-    runtime = client.get("/api/v1/workspaces/default/model").json()
+    # The administrator activates the candidate into the retail workspace (0.11 M1); live data is
+    # unchanged by that selection.
+    runtime = client.get(f"/api/v1/workspaces/{retail}/model").json()
     activated = client.post(
-        DEFAULT_ACTIVATION,
+        f"/api/v1/workspaces/{retail}/model/activation",
         json={
             "releaseId": candidate,
             "expectedVersion": runtime["version"],

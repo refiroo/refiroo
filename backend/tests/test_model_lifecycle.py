@@ -200,7 +200,7 @@ def test_release_cursor_rejects_tampering_and_filter_reuse():
 
         filtered = client.get(
             "/api/v1/model-releases",
-            params={"active": True, "cursor": cursor, "pageSize": 1},
+            params={"assigned": True, "cursor": cursor, "pageSize": 1},
         )
         assert filtered.status_code == 422
         assert filtered.json()["error"]["code"] == "INVALID_CURSOR"

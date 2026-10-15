@@ -289,7 +289,7 @@ change) and `volume` (every budget).
 | 0 | — | 0.10.0 released | **Met 2026-10-15**, tag `v0.10.0` |
 | 1 | [P0](#p0-design-pass) | — | **Delivered 2026-10-15.** Decisions D4–D11 and D13–D29 settled; ADR-042; API design; the move inventory completed; journeys J36–J38; mock-ups of M5 and X4 |
 | | **Part 1 — workspace models** | | |
-| 2 | [M1](#m1-a-release-assignment-per-workspace) | P0 | Every workspace names its release; every request resolves its workspace, then its snapshot; the commit guard per workspace |
+| 2 | [M1](#m1-a-release-assignment-per-workspace) | P0 | **Delivered 2026-10-15** (M2 folded in). Every workspace names its release; every request resolves its workspace, then its snapshot; the commit guard per workspace |
 | 3 | [M2](#m2-installing-and-activating-into-one-workspace) | — | **Folded into M1 (D32).** Activation into one workspace with its own compatibility check; unique values, matrix states and subscriptions scoped to it; a new workspace created on a model |
 | 4 | [M3](#m3-instance-wide-resources-bound-to-a-workspaces-model) | M2 | Import profiles, drafts, source files, jobs and dry runs, consumer APIs and events resolved through the workspace's model |
 | 5 | [M4](#m4-reads-spanning-workspaces) | M3 | Cross-type lookup, feed, mapping coverage, exports and counterpart imports when models differ |
@@ -771,8 +771,8 @@ identity and attribute storage are unchanged.
 
 ##### M1 record (2026-10-15)
 
-**Built 2026-10-15; the package's group run waits for the user's go-ahead** (it is longer than the
-2-minute ceiling, see Checks). Built as planned, M2 included:
+**Delivered 2026-10-15** (commit `a55d634`, and the test fixes after the group run). Built as
+planned, M2 included:
 
 - **Migration `20261018_01`:** `workspace_models` (D30), one row per workspace from the singleton at
   version 1; `model_runtime_state`, its trigger and `model_releases.is_active` dropped; the
@@ -839,10 +839,21 @@ runners' API calls (syntax-checked only); Vitest fixtures.
 - Ruff on `app/` and `tests/`: clean. Frontend: `tsc`, `npm run lint` (0 errors, the 7 listed
   warnings), `npm run format`, `npm run build` passed; Vitest on the 13 changed files, 130 passed.
 
-**Not run yet:** the groups the execution guide selects for these boundaries (`workspace_models`,
-`model`, `model_admin`, `records`, `matrix`, `workspaces`, `change_sets`, `mapping`, `feed`,
-`consumer`, `jobs`, `startup`, with `test_pg3_concurrency` and `test_w5_activation_write_race`):
-announced for the user's go-ahead. No browser runner (no visible change; R runs them). **What the
+- **The groups the execution guide selects** (`workspace_models`, `model`, `model_admin`, `records`,
+  `matrix`, `workspaces`, `change_sets`, `mapping`, `feed`, `consumer`, `jobs`, `startup`, which
+  include `test_pg3_concurrency` and `test_w5_activation_write_race`), on the user's go-ahead, load
+  3.6: 5,435 passed and 34 failed in 6 min 52 s. All 34 were older tests M1 made wrong: compatibility
+  calls without their workspaces (18), the race helper without its workspace (1), the removed
+  `active` filter (1), the startup log call read by argument position (5), activations into the
+  default workspace followed by work in another (J30, the SC15 acceptance: 7), and incompatible data
+  in another workspace expected to block the default's activation (2). Fixed, the second of the last
+  rewritten with the user's approval: a retired workspace keeps its release and an activation into it
+  is refused `WORKSPACE_RETIRED` (ADR-042 replaces "retired data blocks activation"). Rerun: the 8
+  files, 99 passed (37 s); the other importers of the changed J30 helper, 60 passed (1 min 22 s); the
+  serial part of the groups, 3 passed (9 s).
+
+**Not run:** the full suites, `queries`, `authoring` and `volume` (no change there), the browser
+runners (no visible change), all at R. **What the
 user cannot do yet:** choose a workspace in Settings › Model or the shell (M5), import profiles and
 drafts per workspace model (M3), spanning reads across models (M4).
 
