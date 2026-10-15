@@ -17,20 +17,20 @@ from typing import Any
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from ...models.database import AuditEvent, ModelRuntimeState, Workspace
+from ...models.database import AuditEvent, Workspace, WorkspaceModel
 
 
 def take_positions(session: Session, workspace_key: str, count: int) -> tuple[int, int | None]:
     """Take ``count`` positions of the workspace's feed: the first one, and the model release the
-    write runs under (the active one, which the commit check holds it to).
+    write runs under (the workspace's, which the commit check holds it to).
 
     The caller holds the workspace row lock (``LiveWrites._begin``, or publishing's and
     withdrawal's own); the update needs no other. ``updated_at`` is kept: the workspace itself
     did not change.
     """
     active = (
-        select(ModelRuntimeState.active_model_release_id)
-        .where(ModelRuntimeState.id == 1)
+        select(WorkspaceModel.model_release_id)
+        .where(WorkspaceModel.workspace_key == workspace_key)
         .scalar_subquery()
     )
     last, release_id = session.execute(

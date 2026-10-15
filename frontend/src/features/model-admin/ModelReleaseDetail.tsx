@@ -7,7 +7,7 @@ import type {
   ModelReleaseActivation,
   ModelReleaseDiff,
   ModelReleaseSummary,
-  ModelRuntimeState,
+  WorkspaceModel,
 } from "@/types";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { ModelDiagnostics } from "@/features/model-admin/ModelDiagnostics";
@@ -90,7 +90,7 @@ export function ModelReleaseDetail({
   canManageDrafts: boolean;
   canActivate: boolean;
   onCreateDraft: (release: ModelRelease) => void;
-  onActivated: (state: ModelRuntimeState) => void;
+  onActivated: (state: WorkspaceModel) => void;
 }) {
   const [release, setRelease] = useState<ModelRelease>();
   const [releases, setReleases] = useState<ModelReleaseSummary[]>();
@@ -184,8 +184,8 @@ export function ModelReleaseDetail({
     setPending(true);
     setError("");
     try {
-      const runtime = await api.modelRuntimeState();
-      const activated = await api.activateModelRelease(releaseId, runtime);
+      const runtime = await api.defaultWorkspaceModel();
+      const activated = await api.activateWorkspaceModel(releaseId, runtime);
       setConfirm(false);
       onActivated(activated);
     } catch (cause) {
@@ -219,7 +219,7 @@ export function ModelReleaseDetail({
     );
   if (!release) return <div className="panel-state">Loading release…</div>;
   const byId = new Map(releases?.map((item) => [item.id, item]));
-  // The runtime selection is authoritative; `release.active` is only as fresh as the last load.
+  // The workspace's assignment is authoritative; a release's `workspaces` is only as fresh as the last load.
   const isActive = release.id === activeReleaseId;
   const check = activationCheck?.activeReleaseId === activeReleaseId ? activationCheck : undefined;
   const readiness = check?.state === "ready" ? check.diff.compatibility : undefined;
@@ -350,7 +350,7 @@ export function ModelReleaseDetail({
                       {candidates.map((item) => (
                         <option key={item.id} value={item.id}>
                           {releaseLabel(item)}
-                          {item.active ? " (active)" : ""}
+                          {item.id === activeReleaseId ? " (active)" : ""}
                           {item.id === defaultBase?.releaseId ? " (default)" : ""}
                         </option>
                       ))}

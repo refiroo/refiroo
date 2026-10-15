@@ -11,9 +11,9 @@ from ...models.database import (
     ChangeSetBase,
     ChangeSetBaseObject,
     ChangeSetBaseRelation,
-    ModelRuntimeState,
     Publication,
     Workspace,
+    WorkspaceModel,
 )
 from ..indexes import matrix_states
 from ..indexes.snapshot_values import copy_live, delete_owner_values
@@ -156,17 +156,19 @@ def _capture_current_live(
     if workspace.status != "active":
         raise api_error(409, "WORKSPACE_RETIRED", "Retired workspaces cannot be edited")
     state = session.scalar(
-        select(ModelRuntimeState).where(ModelRuntimeState.id == 1).with_for_update(read=True)
+        select(WorkspaceModel)
+        .where(WorkspaceModel.workspace_key == workspace_key)
+        .with_for_update(read=True)
     )
     if (
         state is None
         or (
             expected_model_runtime_release_id is None
-            and state.active_model_release_id != model_release_id
+            and state.model_release_id != model_release_id
         )
         or (
             expected_model_runtime_release_id is not None
-            and state.active_model_release_id != expected_model_runtime_release_id
+            and state.model_release_id != expected_model_runtime_release_id
         )
     ):
         raise api_error(
@@ -176,7 +178,7 @@ def _capture_current_live(
         )
     base = ChangeSetBase(
         workspace_key=workspace_key,
-        model_release_id=state.active_model_release_id,
+        model_release_id=state.model_release_id,
         model_runtime_version=state.version,
     )
     session.add(base)

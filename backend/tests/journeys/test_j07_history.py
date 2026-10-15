@@ -95,7 +95,7 @@ def test_a_publication_reads_the_same_through_every_route(world):
         values={"D.active": True},
         relations=[world.owner("Bown", r["id"])],
     )
-    release = ok(world.api.get("/model-runtime-state"))["activeReleaseId"]
+    release = world.workspace_model()["releaseId"]
     p1 = world.publish(world.change_set())
 
     ok(world.update("R", r["id"], r["version"], name="Renamed live", values={"R.u": "LIVE"}))

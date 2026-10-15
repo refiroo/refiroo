@@ -97,8 +97,8 @@ async function journey(label, source) {
   };
 
   try {
-    const state = await harness.api("/model-runtime-state");
-    const release = await harness.api(`/model-releases/${state.activeReleaseId}?includeModel=true`);
+    const state = await harness.api("/workspaces/default/model");
+    const release = await harness.api(`/model-releases/${state.releaseId}?includeModel=true`);
     const draft = await harness.api("/model-drafts", { name: "A4c consumer APIs", model: release.model, baseReleaseId: release.id });
 
     // The pane's second tab, and the definition opened from it by keyboard (D59).

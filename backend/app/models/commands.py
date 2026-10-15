@@ -145,6 +145,8 @@ class WorkspaceCreate(BaseModel):
 
     key: str = Field(min_length=1, max_length=160, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
     label: str = Field(min_length=1, max_length=300)
+    # The release the workspace runs; the default workspace's without it (0.11 D4, D31).
+    modelReleaseId: UUID4 | None = None
 
     @field_validator("key", "label", mode="before")
     @classmethod

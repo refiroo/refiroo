@@ -10,6 +10,7 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
+from workspace_model_support import default_model
 from wp8_support import create_change_set, create_object, create_workspace, unique_key
 
 from app.db import SessionLocal
@@ -21,7 +22,6 @@ from app.models.database import (
     ChangeSet,
     ChangeSetBase,
     ModelRelease,
-    ModelRuntimeState,
 )
 
 
@@ -40,7 +40,6 @@ def install_model(client, mutate=None, *, schema=None, corrupt=False, source_mod
             schema_version=schema or model["schemaVersion"],
             model_json={} if corrupt else model,
             model_hash=hashlib.sha256(json.dumps(model).encode()).hexdigest(),
-            is_active=False,
         )
         session.add(release)
         session.commit()
@@ -279,7 +278,7 @@ def test_inherited_incompatible_creation_change_and_tombstones_are_atomic():
             base = session.get(ChangeSetBase, row.base_id)
             assert base.model_release_id != row.model_release_id
             assert (
-                base.model_release_id == session.get(ModelRuntimeState, 1).active_model_release_id
+                base.model_release_id == default_model(session).model_release_id
             )
 
 
@@ -483,8 +482,8 @@ def test_selected_capture_keeps_active_identity_and_snapshot_retry():
                 select(ChangeSet).where(ChangeSet.id == created.json()["id"])
             )
             base = session.get(ChangeSetBase, change_set.base_id)
-            active = session.get(ModelRuntimeState, 1)
-            assert base.model_release_id == active.active_model_release_id != target_db
+            active = default_model(session)
+            assert base.model_release_id == active.model_release_id != target_db
             assert base.model_runtime_version == active.version
             with pytest.raises(ApiError) as error:
                 create_change_set_service(
@@ -492,7 +491,7 @@ def test_selected_capture_keeps_active_identity_and_snapshot_retry():
                     workspace,
                     target_db,
                     source="currentLive",
-                    expected_model_runtime_release_id=active.active_model_release_id + 100,
+                    expected_model_runtime_release_id=active.model_release_id + 100,
                     validate_selected_model=True,
                 )
             assert error.value.code == "CHANGE_SET_SNAPSHOT_RETRY"

@@ -4,6 +4,7 @@ import { ApiError, api } from "@/api/client";
 import type { WorkspaceDetail } from "@/types";
 import { WorkspaceAdmin } from "@/features/workspaces/WorkspaceAdmin";
 import { capabilitiesFixture } from "@/test/capabilities";
+import { testWorkspaceModel } from "@/test/fixtures";
 import { ToastProvider } from "@/ui/Toast";
 
 vi.mock("@/api/client", async (load) => {
@@ -19,6 +20,7 @@ const primary: WorkspaceDetail = {
   version: 1,
   createdAt: time,
   updatedAt: time,
+  model: testWorkspaceModel,
   deletable: false,
   deleteBlockedBy: "default",
 };
@@ -29,6 +31,7 @@ const retail: WorkspaceDetail = {
   version: 3,
   createdAt: time,
   updatedAt: time,
+  model: testWorkspaceModel,
   deletable: false,
   deleteBlockedBy: "published",
 };
@@ -39,6 +42,7 @@ const archive: WorkspaceDetail = {
   version: 2,
   createdAt: time,
   updatedAt: time,
+  model: testWorkspaceModel,
   deletable: false,
   deleteBlockedBy: "notEmpty",
 };

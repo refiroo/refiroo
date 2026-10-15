@@ -118,7 +118,9 @@ class ModelReleaseSummary(BaseModel):
     schemaVersion: str
     modelHash: str
     installedAt: datetime
-    active: bool
+    # Run by at least one workspace, and the keys of the workspaces running it (0.11 D24).
+    assigned: bool
+    workspaces: list[str]
 
 
 class ModelReleaseResponse(ModelReleaseSummary):
@@ -141,11 +143,14 @@ class ModelReleasePage(CollectionPage[ModelReleaseSummary]):
 
 
 class ModelReleaseActivationResponse(BaseModel):
-    """One recorded selection of a release as the active model, read from the audit trail."""
+    """One recorded selection of a release as a workspace's model, read from the audit trail;
+    ``workspaceKey`` is absent for one made for the whole instance before 0.11, and
+    ``runtimeVersion`` is the assignment's version it gave the workspace."""
 
     eventId: str
     kind: Literal["activated", "schemaUpgraded"]
     previousReleaseId: str
+    workspaceKey: str | None = None
     runtimeVersion: int
     occurredAt: datetime
 
@@ -327,20 +332,6 @@ class ModelDraftVersionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     expectedVersion: int = Field(ge=1)
-
-
-class ModelActivationRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    expectedRuntimeVersion: int = Field(ge=1)
-    expectedActiveReleaseId: UUID4
-
-
-class ModelRuntimeStateResponse(BaseModel):
-    activeReleaseId: str
-    activeModelHash: str
-    version: int
-    updatedAt: datetime
 
 
 class ModelDraftResponse(BaseModel):

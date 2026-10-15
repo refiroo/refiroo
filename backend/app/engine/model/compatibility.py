@@ -1,4 +1,6 @@
 from collections import defaultdict
+from collections.abc import Sequence
+from contextvars import ContextVar
 from typing import Any
 
 from sqlalchemy import Numeric, and_, cast, exists, func, literal, or_, select
@@ -17,14 +19,16 @@ class CompatibilityResult:
         self.diagnostics = tuple(diagnostics)
 
 
-def _is_in_active_workspace(_item: Any) -> Any:
-    """Compatibility covers every authoritative live row, including retired catalogues.
+# The workspaces whose data an analysis counts (0.11 M1): the activation's workspace, or those
+# running the release a draft or a diff is compared with. Set by ``analyze_compatibility``.
+_SCOPE: ContextVar[tuple[str, ...]] = ContextVar("compatibility_scope", default=())
 
-    The helper name is retained at the query call sites for a small, reviewable change.  Live
-    objects are authoritative independently of whether their workspace still has an active
-    publication; publication membership is historical data and must not hide live incompatibilities.
-    """
-    return literal(True)
+
+def _in_scope(item: Any) -> Any:
+    """A live row of one of the analysed workspaces, retired catalogues included: live objects are
+    authoritative independently of whether their workspace still has an active publication, and
+    another workspace's data runs under its own release (ADR-042)."""
+    return item.workspace_key.in_(_SCOPE.get())
 
 
 def analyze_compatibility(
@@ -32,8 +36,23 @@ def analyze_compatibility(
     active_model: EngineModel,
     candidate_model: EngineModel,
     active_release_id: str,
+    workspace_keys: Sequence[str],
 ) -> CompatibilityResult:
-    """Assess a valid candidate against stored runtime data using bounded SQL queries."""
+    """Assess a valid candidate against the stored data of ``workspace_keys`` using bounded SQL
+    queries."""
+    token = _SCOPE.set(tuple(workspace_keys))
+    try:
+        return _analyze(session, active_model, candidate_model, active_release_id)
+    finally:
+        _SCOPE.reset(token)
+
+
+def _analyze(
+    session: Session,
+    active_model: EngineModel,
+    candidate_model: EngineModel,
+    active_release_id: str,
+) -> CompatibilityResult:
     diagnostics: list[ModelDiagnostic] = []
     active_objects = {item.key: item for item in active_model.objectTypes}
     candidate_objects = {item.key: item for item in candidate_model.objectTypes}
@@ -226,7 +245,9 @@ def _check_numeric_bounds(
             session.scalar(
                 select(func.count())
                 .select_from(AttributeValue)
+                .join(RdmObject, RdmObject.id == AttributeValue.object_id)
                 .where(
+                    _in_scope(RdmObject),
                     AttributeValue.attribute_type_key == key,
                     operator(candidate_value),
                 )
@@ -421,7 +442,7 @@ def _check_cardinality(
             .where(
                 ObjectRelation.relation_type_key == pair.relationTypeKey,
                 record.object_type_key == end_type,
-                _is_in_active_workspace(record),
+                _in_scope(record),
             )
             .group_by(end_id)
             .having(func.count() > 1)
@@ -449,7 +470,7 @@ def _count_scoped_uniqueness_violations(
         RdmObject.parent_object_id.label("parent_id"),
         RdmObject.object_type_key.label("ancestor_type"),
         literal(0).label("depth"),
-    ).where(_is_in_active_workspace(RdmObject)).cte(
+    ).where(_in_scope(RdmObject)).cte(
         "object_lineage", recursive=True
     )
     parent = aliased(RdmObject)
@@ -497,8 +518,8 @@ def _count_scoped_uniqueness_violations(
             ObjectRelation.relation_type_key == pair.relationTypeKey,
             source.object_type_key == pair.fromObjectTypeKey,
             target.object_type_key == pair.toObjectTypeKey,
-            _is_in_active_workspace(source),
-            _is_in_active_workspace(target),
+            _in_scope(source),
+            _in_scope(target),
         )
     )
     condition = pair.features.get("uniqueWhenToAttributeEquals")
@@ -531,7 +552,7 @@ def _count_objects(session: Session, *conditions: Any) -> int:
         session.scalar(
             select(func.count())
             .select_from(RdmObject)
-            .where(_is_in_active_workspace(RdmObject), *conditions)
+            .where(_in_scope(RdmObject), *conditions)
         )
         or 0
     )
@@ -544,7 +565,7 @@ def _count_attribute_values(
         select(func.count())
         .select_from(AttributeValue)
         .join(RdmObject, RdmObject.id == AttributeValue.object_id)
-        .where(_is_in_active_workspace(RdmObject))
+        .where(_in_scope(RdmObject))
     )
     if object_type_key is not None:
         statement = statement.where(RdmObject.object_type_key == object_type_key)
@@ -613,7 +634,7 @@ def _count_invalid_periods(
             .join(start, and_(start.object_id == RdmObject.id, start.attribute_type_key == start_key))
             .join(end, and_(end.object_id == RdmObject.id, end.attribute_type_key == end_key))
             .where(
-                _is_in_active_workspace(RdmObject),
+                _in_scope(RdmObject),
                 RdmObject.object_type_key == object_type_key,
                 end.date_value <= start.date_value,
             )
@@ -631,7 +652,7 @@ def _count_duplicate_attribute_groups(session: Session, key: str, value_type: st
         select(RdmObject.workspace_key, column)
         .join(AttributeValue, AttributeValue.object_id == RdmObject.id)
         .where(*conditions)
-        .where(_is_in_active_workspace(RdmObject))
+        .where(_in_scope(RdmObject))
         .group_by(RdmObject.workspace_key, column)
         .having(func.count() > 1)
         .subquery()
@@ -652,8 +673,8 @@ def _count_relation_pair(session: Session, pair: ObjectTypeRelationDefinition) -
                 ObjectRelation.relation_type_key == pair.relationTypeKey,
                 from_object.object_type_key == pair.fromObjectTypeKey,
                 to_object.object_type_key == pair.toObjectTypeKey,
-                _is_in_active_workspace(from_object),
-                _is_in_active_workspace(to_object),
+                _in_scope(from_object),
+                _in_scope(to_object),
             )
         )
         or 0
@@ -682,8 +703,8 @@ def _count_relation_attribute_bound_violations(
             .join(to_object, to_object.id == ObjectRelation.to_object_id)
             .where(
                 violation,
-                _is_in_active_workspace(from_object),
-                _is_in_active_workspace(to_object),
+                _in_scope(from_object),
+                _in_scope(to_object),
             )
         )
         or 0
@@ -707,8 +728,8 @@ def _count_relations_with_attribute(
                 ObjectRelation.relation_type_key == pair.relationTypeKey,
                 from_object.object_type_key == pair.fromObjectTypeKey,
                 to_object.object_type_key == pair.toObjectTypeKey,
-                _is_in_active_workspace(from_object),
-                _is_in_active_workspace(to_object),
+                _in_scope(from_object),
+                _in_scope(to_object),
                 has_key,
             )
         )
@@ -730,7 +751,7 @@ def _count_missing_required_relation(
             ObjectRelation.to_object_id == RdmObject.id,
             ObjectRelation.relation_type_key == relation_key,
             source.object_type_key.in_(source_keys),
-            _is_in_active_workspace(source),
+            _in_scope(source),
         )
     )
     return _count_objects(

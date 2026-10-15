@@ -21,6 +21,7 @@ from ...models.database import (
 )
 from ..events.subscription_rules import has_subscriptions, suspend_for_retired_workspace
 from ..indexes import matrix_states
+from ..model.workspace_models import assign_new_workspace
 
 DeleteBlocker = Literal["default", "published", "notEmpty", "subscribed"]
 
@@ -127,6 +128,17 @@ def create_workspace(session: Session, payload: WorkspaceCreate) -> Workspace:
     label = payload.label.strip()
     item = Workspace(key=key, label=label, status="active")
     session.add(item)
+    try:
+        session.flush()
+    except IntegrityError:
+        session.rollback()
+        raise api_error(
+            409, "WORKSPACE_ALREADY_EXISTS", f"Workspace '{key}' already exists"
+        ) from None
+    # The release it runs: the one named, or the default workspace's (0.11 D4, D31).
+    assign_new_workspace(
+        session, key, str(payload.modelReleaseId) if payload.modelReleaseId else None
+    )
     try:
         session.flush()
         matrix_states.sync_workspace(session, key)

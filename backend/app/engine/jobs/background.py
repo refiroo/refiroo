@@ -157,7 +157,7 @@ def open_job_context(session: Session, job: Job) -> BatchContext:
     """
     if job.change_set_id is None:
         workspace = resolve_workspace(session, job.workspace_key, require_active=True)
-        snapshot = resolve_model_snapshot(session)
+        snapshot = resolve_model_snapshot(session, workspace.key)
         if snapshot.release_db_id != job.model_release_id:
             raise _release_changed()
         return BatchContext(

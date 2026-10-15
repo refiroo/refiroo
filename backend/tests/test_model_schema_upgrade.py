@@ -1,23 +1,30 @@
 import json
 import os
 import subprocess
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
 from fastapi.testclient import TestClient
 from model_support import MODEL_PATH, starter_at_schema
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, delete, select
 from sqlalchemy.orm import Session
+from workspace_model_support import default_model
 
 from app.cli.model_schema_upgrade import transition
 from app.config import get_settings, reload_settings
 from app.db import SessionLocal
 from app.engine.model.compatibility import CompatibilityResult
 from app.engine.model.diagnostics import ModelDiagnostic
-from app.engine.model.registry import ModelRegistry, UnsupportedSelectedModelSchema, model_registry
+from app.engine.model.registry import (
+    ModelRegistry,
+    UnavailableWorkspaceModel,
+    WorkspaceModelUnavailable,
+    model_registry,
+)
 from app.main import app, create_app, schema_upgrade_command
-from app.models.database import ModelRelease, ModelRuntimeState
+from app.models.database import ModelRelease, Workspace, WorkspaceModel
 
 
 def _candidate_model_path(tmp_path: Path, schema_version: str) -> Path:
@@ -43,11 +50,17 @@ def _legacy_database(database: str) -> str:
             schema_version="0.4",
             model_hash="a" * 64,
             model_json=source,
-            is_active=True,
         )
         session.add(release)
         session.flush()
-        session.add(ModelRuntimeState(id=1, active_model_release_id=release.id, version=1))
+        # Every workspace runs it, as an engine before 0.5 left a database (0.11 M1).
+        session.execute(delete(WorkspaceModel))
+        for key in session.scalars(select(Workspace.key)).all():
+            session.add(
+                WorkspaceModel(
+                    workspace_key=key, model_release_id=release.id, version=1, updated_at=datetime.now(UTC)
+                )
+            )
         session.commit()
         public_id = release.public_id
     engine.dispose()
@@ -59,11 +72,9 @@ def test_offline_schema_upgrade_installs_checks_and_atomically_selects_candidate
     old_release_id = _legacy_database(database)
     model_05 = _candidate_model_path(tmp_path, "0.5")
     engine = create_engine(database)
-    with Session(engine) as session, pytest.raises(
-        UnsupportedSelectedModelSchema
-    ) as error:
-        ModelRegistry().resolve_active(session)
-    assert error.value.schema_version == "0.4"
+    with Session(engine) as session, pytest.raises(WorkspaceModelUnavailable) as error:
+        ModelRegistry().resolve_workspace(session, None)
+    assert error.value.unavailable.schema_version == "0.4"
     with monkeypatch.context() as patch:
         patch.setenv("DATABASE_URL", database)
         reload_settings()
@@ -71,8 +82,8 @@ def test_offline_schema_upgrade_installs_checks_and_atomically_selects_candidate
     reload_settings()
 
     with Session(engine) as session:
-        state = session.get(ModelRuntimeState, 1)
-        selected = session.get(ModelRelease, state.active_model_release_id)
+        state = default_model(session)
+        selected = session.get(ModelRelease, state.model_release_id)
         assert selected.public_id == selected_id
         assert selected.schema_version == "0.5"
         assert state.version == 2
@@ -103,7 +114,7 @@ def test_offline_schema_upgrade_rolls_back_installation_when_compatibility_fails
 
     engine = create_engine(database)
     with Session(engine) as session:
-        state = session.get(ModelRuntimeState, 1)
+        state = default_model(session)
         releases = list(session.scalars(select(ModelRelease)))
         assert state.version == 1
         assert len(releases) == 1
@@ -127,10 +138,10 @@ def test_offline_schema_upgrade_rejects_a_selected_schema_05_release(tmp_path, m
 
     engine = create_engine(database)
     with Session(engine) as session:
-        state = session.get(ModelRuntimeState, 1)
+        state = default_model(session)
         releases = list(session.scalars(select(ModelRelease)))
         assert state.version == 2
-        assert session.get(ModelRelease, state.active_model_release_id).public_id == selected_id
+        assert session.get(ModelRelease, state.model_release_id).public_id == selected_id
         assert len(releases) == 2
 
 
@@ -138,17 +149,20 @@ def test_startup_reports_the_exact_schema_upgrade_command_without_a_traceback(
     monkeypatch, caplog
 ):
     def reject_selected_schema(_session):
-        raise UnsupportedSelectedModelSchema("0.4")
+        # Every workspace runs a schema 0.4 release: nothing can be served.
+        model_registry.mark_unhealthy()
+        return [UnavailableWorkspaceModel(0, "00000000-0000-4000-8000-000000000000", "0.4")]
 
     model_registry.clear()
-    monkeypatch.setattr(model_registry, "resolve_active", reject_selected_schema)
+    monkeypatch.setattr(model_registry, "start", reject_selected_schema)
     try:
         with caplog.at_level("ERROR", logger="app.main"), TestClient(
             create_app()
         ) as client:
             assert client.get("/health").status_code == 503
 
-        assert "RDM Engine cannot serve model-backed requests" in caplog.text
+        assert "RDM Engine cannot serve workspaces" in caplog.text
+        assert "/health returns HTTP 503" in caplog.text
         assert schema_upgrade_command(get_settings()) in caplog.text
         assert "<path>" not in caplog.text
         assert "Traceback" not in caplog.text
@@ -167,7 +181,6 @@ def test_schema_04_release_remains_listable_and_exportable_as_history():
                 schema_version="0.4",
                 model_hash="b" * 64,
                 model_json={"schemaVersion": "0.4", "historical": True},
-                is_active=False,
             )
             session.add(historical)
             session.commit()
@@ -210,9 +223,9 @@ def test_actual_startup_recovery_command_selects_supported_candidate_and_restart
                     transition(candidate_path)
             engine = create_engine(database)
             with Session(engine) as session:
-                state = session.get(ModelRuntimeState, 1)
+                state = default_model(session)
                 assert state.version == 1
-                assert session.get(ModelRelease, state.active_model_release_id).public_id == old_release_id
+                assert session.get(ModelRelease, state.model_release_id).public_id == old_release_id
             result = subprocess.run(command_text, shell=True, capture_output=True, text=True, env=os.environ.copy(), check=False)
             assert result.returncode == 0, result.stderr
             assert "Selected supported model release" in result.stdout

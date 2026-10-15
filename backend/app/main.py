@@ -26,7 +26,8 @@ from .engine.jobs.worker import EXPORT_KINDS, EXPORT_THREAD_NAME, JobWorker, Wor
 from .engine.model.bootstrap import bootstrap_model
 from .engine.model.compiler import SCHEMA_VERSIONS
 from .engine.model.loader import load_bootstrap_model
-from .engine.model.registry import UnsupportedSelectedModelSchema, model_registry
+from .engine.model.registry import model_registry
+from .engine.model.workspace_models import workspaces_running
 from .errors import ApiError
 from .management.errors import (
     api_error_handler,
@@ -98,21 +99,39 @@ async def lifespan(application: FastAPI):
         return
     bootstrap_model(loaded_model)
     with SessionLocal() as session:
-        try:
-            model_registry.resolve_active(session)
-            build_matrix_states(session)
-        except UnsupportedSelectedModelSchema as exc:
-            model_registry.mark_unhealthy()
-            logger.error(
-                "RDM Engine cannot serve model-backed requests: the database selects schema %s, "
-                f"but this version supports schema {', '.join(SCHEMA_VERSIONS)}.\n"
-                "Stop all RDM Engine processes using this database, run this exact command in the "
-                "same configured environment, then restart the API:\n  %s\n"
-                "Until the transition succeeds, /health returns HTTP 503.",
-                exc.schema_version,
-                schema_upgrade_command(get_settings()),
-            )
-    # A process that cannot serve the model runs no jobs: each chunk would fail its job.
+        # A release this version cannot serve makes only its workspaces unavailable (0.11 D29).
+        unavailable_releases = model_registry.start(session)
+        consequence = (
+            "Until the transition succeeds, their requests answer HTTP 503; other workspaces "
+            "are served."
+            if model_registry.ready
+            else "Until the transition succeeds, /health returns HTTP 503."
+        )
+        for unavailable in unavailable_releases:
+            workspaces = ", ".join(workspaces_running(session, unavailable.release_db_id))
+            if unavailable.unsupported_schema:
+                logger.error(
+                    "RDM Engine cannot serve workspaces %s: they run model release %s of schema "
+                    f"%s, but this version supports schema {', '.join(SCHEMA_VERSIONS)}.\n"
+                    "Stop all RDM Engine processes using this database, run this exact command in "
+                    "the same configured environment, then restart the API:\n  %s\n%s",
+                    workspaces,
+                    unavailable.release_id,
+                    unavailable.schema_version,
+                    schema_upgrade_command(get_settings()),
+                    consequence,
+                )
+            else:
+                logger.error(
+                    "RDM Engine cannot serve workspaces %s: their model release %s is invalid "
+                    "(%d diagnostics). %s",
+                    workspaces,
+                    unavailable.release_id,
+                    len(unavailable.diagnostics),
+                    consequence,
+                )
+        build_matrix_states(session)
+    # A process that can serve no workspace's model runs no jobs: each chunk would fail its job.
     worker = application.state.job_worker if application.state.run_job_worker else None
     exporter = application.state.export_worker if application.state.run_job_worker else None
     if not model_registry.ready:

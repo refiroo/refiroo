@@ -137,7 +137,7 @@ function CreateChangeSet({
       setPending(false);
     }
   }
-  const activeRelease = releases.items.find((r) => r.active);
+  const activeRelease = releases.items.find((r) => r.workspaces.includes(workspaceKey));
   return (
     <Modal
       title="Start from current live data"
@@ -156,11 +156,12 @@ function CreateChangeSet({
         </label>
         <ReleasePicker
           label="Model version"
+          workspaceKey={workspaceKey}
           releases={releases}
           value={selectedRelease}
           onChange={setSelectedRelease}
           placeholder={activeRelease ? `${activeRelease.key} ${activeRelease.version} (active)` : "Active release"}
-          exclude={(release) => release.active}
+          exclude={(release) => release.workspaces.includes(workspaceKey)}
           onlyWhenChoice
         />
         {error && (
@@ -194,6 +195,7 @@ function CreateChangeSet({
  */
 function ReleasePicker({
   label,
+  workspaceKey,
   releases,
   value,
   onChange,
@@ -202,6 +204,8 @@ function ReleasePicker({
   onlyWhenChoice = false,
 }: {
   label: string;
+  /** The workspace whose running release is marked active (0.11 M1). */
+  workspaceKey: string;
   releases: CursorFeed<ModelReleaseSummary>;
   value: string;
   onChange: (releaseId: string) => void;
@@ -221,7 +225,7 @@ function ReleasePicker({
               .map((release) => (
                 <option key={release.id} value={release.id}>
                   {release.key} {release.version}
-                  {release.active ? " (active)" : ""}
+                  {release.workspaces.includes(workspaceKey) ? " (active)" : ""}
                 </option>
               ))}
           </select>
@@ -500,6 +504,7 @@ export function ChangeSetActions({
             </p>
             <ReleasePicker
               label="Target release"
+              workspaceKey={current.workspaceKey}
               releases={releases}
               value={selectedRelease}
               onChange={setSelectedRelease}

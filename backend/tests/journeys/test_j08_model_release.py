@@ -12,7 +12,7 @@ DISABLED = {"MODEL_ADMIN_MUTATIONS_ENABLED": "false"}
 
 
 def _active(world):
-    return ok(world.api.get("/model-runtime-state"))
+    return world.workspace_model()
 
 
 def _model_release(world):
@@ -56,10 +56,10 @@ def test_draft_compile_install_and_activate_a_release(world):
     answers the next runtime state and the model reads the new release. A stale draft, an unknown
     draft, an invalid model and a reused release identity are refused."""
     m1 = _active(world)
-    releases = ok(world.api.get("/model-releases", active=True))["items"]
-    assert [r["id"] for r in releases] == [m1["activeReleaseId"]]
+    releases = ok(world.api.get("/model-releases", assigned=True))["items"]
+    assert [r["id"] for r in releases] == [m1["releaseId"]]
     model, added = world.candidate("compatible")
-    draft = _draft(world, world.configuration.model, base=m1["activeReleaseId"])
+    draft = _draft(world, world.configuration.model, base=m1["releaseId"])
     patched = ok(
         world.api.patch(
             f"/model-drafts/{draft['id']}", {"expectedVersion": draft["version"], "model": model}
@@ -77,13 +77,13 @@ def test_draft_compile_install_and_activate_a_release(world):
     assert any(c["kind"] == "added" and added in c["path"] for c in compiled["changes"])
     assert all({"kind", "path"} <= set(c) for c in compiled["changes"])
     release = ok(_install(world, patched), 201)
-    assert release["active"] is False and _model_release(world) == m1["activeReleaseId"]
+    assert release["assigned"] is False and _model_release(world) == m1["releaseId"]
     again = ok(_install(world, patched), 200)
     assert again["id"] == release["id"]
 
     activated = ok(world.activate(release["id"]))
     assert (
-        activated["activeReleaseId"] == release["id"] and activated["version"] == m1["version"] + 1
+        activated["releaseId"] == release["id"] and activated["version"] == m1["version"] + 1
     )
     assert _model_release(world) == release["id"]
 
@@ -143,7 +143,7 @@ def test_with_model_administration_disabled(world):
     answer as on any instance; every draft, install and activation route is absent, and the
     capabilities say so with the setting's name."""
     _validate_without_saving(world)
-    release = _active(world)["activeReleaseId"]
+    release = _active(world)["releaseId"]
     assert "model" not in ok(world.api.get(f"/model-releases/{release}"))
     assert ok(world.api.get(f"/model-releases/{release}", includeModel=True))["model"]
     capabilities = ok(world.api.get("/capabilities"))["modelAdmin"]
@@ -153,7 +153,7 @@ def test_with_model_administration_disabled(world):
         False,
     )
     assert capabilities["setting"] == "MODEL_ADMIN_MUTATIONS_ENABLED"
-    body = {"expectedRuntimeVersion": 1, "expectedActiveReleaseId": release}
+    body = {"releaseId": release, "expectedVersion": 1, "expectedReleaseId": release}
     for response in (
         world.api.get("/model-drafts"),
         world.api.post("/model-drafts", {"name": "x", "model": {}}),
@@ -161,7 +161,7 @@ def test_with_model_administration_disabled(world):
             "/model-drafts/00000000-0000-4000-8000-000000000000/installation",
             {"expectedVersion": 1},
         ),
-        world.api.post(f"/model-releases/{release}/activation", body),
+        world.api.post(f"/workspaces/{W1}/model/activation", body),
     ):
         assert response.status_code == 404, response.text
 
@@ -207,7 +207,7 @@ def test_reactivate_an_older_release_and_read_the_activation_history(world):
     """Given M1 selected at bootstrap and M2 activated. When M1 is activated again. Then the model
     reads M1; M1's history lists only that activation, coming from M2, and M2's its own, coming from
     M1, oldest first; an unknown release's history is refused."""
-    m1 = _active(world)["activeReleaseId"]
+    m1 = _active(world)["releaseId"]
     model, _key = world.candidate("compatible")
     m2 = world.install(model)["id"]
     ok(world.activate(m2))
@@ -252,7 +252,7 @@ def test_data_the_candidate_does_not_fit_blocks_activation(world):
     compiled = _compile(world, _draft(world, model))
     release = world.install(model)["id"]
     diff = ok(
-        world.api.get(f"/model-releases/{release}/diff", againstReleaseId=state["activeReleaseId"])
+        world.api.get(f"/model-releases/{release}/diff", againstReleaseId=state["releaseId"])
     )
     for answer in (compiled, diff):
         assert answer["compatibility"]["classification"] == "migration_required"
@@ -261,7 +261,7 @@ def test_data_the_candidate_does_not_fit_blocks_activation(world):
         ]
         assert diagnostic["count"] == lacking
     refused(world.activate(release), 409, "MODEL_MIGRATION_REQUIRED")
-    assert _active(world) == state and _model_release(world) == state["activeReleaseId"]
+    assert _active(world) == state and _model_release(world) == state["releaseId"]
 
 
 @pytest.mark.journey("J08.5")
@@ -275,14 +275,12 @@ def test_two_activations_from_the_same_runtime_state(world):
     m2 = world.install(model)["id"]
     model["release"]["version"] += "-other"
     m3 = world.install(model)["id"]
-    body = {
-        "expectedRuntimeVersion": state["version"],
-        "expectedActiveReleaseId": state["activeReleaseId"],
-    }
-    ok(world.api.post(f"/model-releases/{m2}/activation", body))
-    refused(world.api.post(f"/model-releases/{m3}/activation", body), 409, "ACTIVATION_CONFLICT")
+    body = {"expectedVersion": state["version"], "expectedReleaseId": state["releaseId"]}
+    path = f"/workspaces/{W1}/model/activation"
+    ok(world.api.post(path, {"releaseId": m2, **body}))
+    refused(world.api.post(path, {"releaseId": m3, **body}), 409, "ACTIVATION_CONFLICT")
     now = _active(world)
-    assert (now["activeReleaseId"], now["version"]) == (m2, state["version"] + 1)
+    assert (now["releaseId"], now["version"]) == (m2, state["version"] + 1)
 
 
 @pytest.mark.journey("J08.6")
@@ -291,7 +289,7 @@ def test_activation_beside_a_live_write(world):
     """Given actor A's live write resolved under M1 and waiting for its workspace, and actor B
     activating M2. Then B's activation completes while A still waits; A is then refused because the
     release changed, naming both releases, and nothing of A is saved."""
-    m1 = _active(world)["activeReleaseId"]
+    m1 = _active(world)["releaseId"]
     model, _key = world.candidate("compatible")
     m2 = world.install(model)["id"]
     record = world.made("R", "Before activation")
@@ -302,7 +300,7 @@ def test_activation_beside_a_live_write(world):
         ok(world.activate(m2))
         assert not write.done()
     error = refused(write.result(timeout=30), 409, "MODEL_RELEASE_CHANGED")
-    assert (error["details"]["resolvedReleaseId"], error["details"]["activeReleaseId"]) == (m1, m2)
+    assert (error["details"]["resolvedReleaseId"], error["details"]["currentReleaseId"]) == (m1, m2)
     assert world.record("R", record["id"])["name"] == "Before activation"
 
 
@@ -328,7 +326,7 @@ def test_a_release_dropping_and_restoring_unique(world):
     records take one value, the release restoring uniqueness is activated, one record changes and
     it is activated again. Then the records may share the value meanwhile; restoring it is refused
     while they do; once it is active, a create and a batch item with the value are refused."""
-    restoring = _active(world)["activeReleaseId"]
+    restoring = _active(world)["releaseId"]
     model = copy.deepcopy(world.configuration.model)
     u = world.key("R.u")
     attribute = next(a for a in model["attributeTypes"] if a["key"] == u)
@@ -382,7 +380,7 @@ def test_a_binding_tightened_to_many_to_one_waits_for_its_data(world):
 
     release = world.install(model)["id"]
     diff = ok(
-        world.api.get(f"/model-releases/{release}/diff", againstReleaseId=state["activeReleaseId"])
+        world.api.get(f"/model-releases/{release}/diff", againstReleaseId=state["releaseId"])
     )
     assert diff["compatibility"]["classification"] == "migration_required"
     (diagnostic,) = diff["compatibility"]["diagnostics"]

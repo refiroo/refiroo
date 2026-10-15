@@ -293,13 +293,34 @@ class World:
         installation = {"expectedVersion": draft["version"]}
         return ok(self.api.post(f"/model-drafts/{draft['id']}/installation", installation), 201)
 
-    def activate(self, release_id: str) -> Response:
-        state = ok(self.api.get("/model-runtime-state"))
+    def workspace_model(self, workspace: str = W1) -> dict[str, Any]:
+        """The release ``workspace`` runs and its assignment's version (``GET …/model``)."""
+        return ok(self.api.get(f"/workspaces/{workspace}/model"))
+
+    def activate(self, release_id: str, workspace: str = W1) -> Response:
+        """``release_id`` activated into ``workspace``, claiming its current assignment."""
+        current = ok(self.api.get(f"/workspaces/{workspace}/model"))
         body = {
-            "expectedRuntimeVersion": state["version"],
-            "expectedActiveReleaseId": state["activeReleaseId"],
+            "releaseId": release_id,
+            "expectedVersion": current["version"],
+            "expectedReleaseId": current["releaseId"],
         }
-        return self.api.post(f"/model-releases/{release_id}/activation", body)
+        return self.api.post(f"/workspaces/{workspace}/model/activation", body)
+
+    def activate_everywhere(self, release_id: str) -> Response:
+        """``release_id`` activated into the default workspace and then into every other active
+        workspace running the release it ran: what one activation did before 0.11. The default
+        workspace's answer; a refusal there activates nothing else."""
+        before = self.workspace_model()["releaseId"]
+        answer = self.activate(release_id)
+        if answer.status_code != 200:
+            return answer
+        running = ok(self.api.get("/workspace-models", releaseId=before, pageSize=500))["items"]
+        for item in running:
+            other = self.activate(release_id, item["workspaceKey"])
+            if other.status_code != 200:
+                refused(other, 409, "WORKSPACE_RETIRED")
+        return answer
 
     def candidate(self, kind: str) -> tuple[dict[str, Any], str]:
         """A model derived from the configuration's, with its new release version, and the key of

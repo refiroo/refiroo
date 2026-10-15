@@ -1,8 +1,10 @@
 from typing import Literal
 
 from fastapi import APIRouter, Query, Request, status
+from sqlalchemy import select
 
 from ...common.pagination import paginate_statement, text_key
+from ...engine.model.workspace_models import assignments_of, load_assignment
 from ...engine.reads.feed import read_feed
 from ...engine.workspaces.catalogue import (
     build_workspace_query,
@@ -14,17 +16,20 @@ from ...engine.workspaces.catalogue import (
     update_workspace,
 )
 from ...models.commands import WorkspaceCreate, WorkspaceUpdate
-from ...models.database import Workspace
+from ...models.database import ModelRelease, Workspace, WorkspaceModel
 from ..dependencies import DbSession
 from ..paging import PageQuery
 from ..presenters import (
     feed_page,
     runtime_state_response,
+    workspace_assignment_response,
     workspace_detail_response,
-    workspace_response,
+    workspace_page_items,
 )
 from ..schemas.records import FeedPage
 from ..schemas.workspaces import (
+    WorkspaceAssignmentPage,
+    WorkspaceAssignmentResponse,
     WorkspaceDetailResponse,
     WorkspacePage,
     WorkspaceRuntimeStateResponse,
@@ -56,13 +61,53 @@ def list_workspaces(
         message="Workspace cursor is invalid",
     )
     return WorkspacePage(
-        items=[workspace_response(item) for item in page.items], **page.links()
+        items=workspace_page_items(session, page.items), **page.links()
     )
 
 
 @read_router.get("/workspaces/{workspace_key}", response_model=WorkspaceDetailResponse)
 def get_workspace(workspace_key: str, session: DbSession) -> WorkspaceDetailResponse:
     return workspace_detail_response(session, load_workspace(session, workspace_key))
+
+
+@read_router.get("/workspaces/{workspace_key}/model", response_model=WorkspaceAssignmentResponse)
+def get_workspace_model(workspace_key: str, session: DbSession) -> WorkspaceAssignmentResponse:
+    """The release the workspace runs and its assignment's version (0.11 M1, ADR-042)."""
+    return workspace_assignment_response(load_assignment(session, workspace_key))
+
+
+@read_router.get("/workspace-models", response_model=WorkspaceAssignmentPage)
+def list_workspace_models(
+    session: DbSession,
+    paging: PageQuery,
+    release_key: str | None = Query(default=None, alias="releaseKey"),
+    release_id: str | None = Query(default=None, alias="releaseId"),
+    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+) -> WorkspaceAssignmentPage:
+    """Every workspace's assignment in workspace key order, of one model (``releaseKey``) or one
+    release (``releaseId``) when named (0.11 M1)."""
+    statement = select(WorkspaceModel).join(
+        ModelRelease, ModelRelease.id == WorkspaceModel.model_release_id
+    )
+    if release_key is not None:
+        statement = statement.where(ModelRelease.release_key == release_key)
+    if release_id is not None:
+        statement = statement.where(ModelRelease.public_id == release_id)
+    page = paginate_statement(
+        session,
+        statement,
+        keys=(text_key("workspaceKey", WorkspaceModel.workspace_key, "workspace_key"),),
+        scope="workspace-models",
+        filters={"releaseKey": release_key, "releaseId": release_id},
+        page=paging,
+        page_size=page_size,
+        message="Workspace model cursor is invalid",
+    )
+    assignments = assignments_of(session, (item.workspace_key for item in page.items))
+    return WorkspaceAssignmentPage(
+        items=[workspace_assignment_response(assignments[item.workspace_key]) for item in page.items],
+        **page.links(),
+    )
 
 
 FeedKind = Literal["object", "relation", "publication"]

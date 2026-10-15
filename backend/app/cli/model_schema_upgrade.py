@@ -1,9 +1,14 @@
-"""Atomically transition an offline database from a selected schema 0.4 model to a supported schema."""
+"""Atomically transition an offline database from a selected schema 0.4 model to a supported schema.
+
+The workspaces running the default workspace's release, which must be of schema 0.4, move to the
+candidate together (0.11 M1); a workspace on another release is left as it is.
+"""
 
 import argparse
 import json
 import sys
 from dataclasses import asdict
+from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy import update
@@ -15,8 +20,8 @@ from ..engine.model.diagnostics import ModelValidationError
 from ..engine.model.legacy import parse_schema_04_for_transition
 from ..engine.model.loader import load_model
 from ..engine.model.releases import ReleaseIdentityConflict, install_model_release
-from ..engine.model.runtime import require_runtime_state
-from ..models.database import AuditEvent, ModelRelease, ModelRuntimeState
+from ..engine.model.workspace_models import default_assignment, workspaces_running
+from ..models.database import AuditEvent, WorkspaceModel
 
 
 def transition(model_path: Path) -> str:
@@ -28,7 +33,7 @@ def transition(model_path: Path) -> str:
         )
     create_database()
     with SessionLocal() as session:
-        runtime_state, active_release = require_runtime_state(session)
+        _assignment, active_release = default_assignment(session)
         if active_release.schema_version != "0.4":
             raise RuntimeError(
                 "The offline schema transition requires a selected schema 0.4 release; "
@@ -41,8 +46,9 @@ def transition(model_path: Path) -> str:
             raise RuntimeError(
                 f"Release '{exc.release_key}@{exc.release_version}' already has different content"
             ) from exc
+        workspaces = workspaces_running(session, active_release.id)
         compatibility = analyze_compatibility(
-            session, active_model, candidate, active_release.public_id
+            session, active_model, candidate, active_release.public_id, workspaces
         )
         if compatibility.classification != "compatible":
             diagnostics = [asdict(item) for item in compatibility.diagnostics]
@@ -51,39 +57,35 @@ def transition(model_path: Path) -> str:
                 + json.dumps(diagnostics, sort_keys=True)
             )
         result = session.execute(
-            update(ModelRuntimeState)
+            update(WorkspaceModel)
             .where(
-                ModelRuntimeState.id == runtime_state.id,
-                ModelRuntimeState.version == runtime_state.version,
-                ModelRuntimeState.active_model_release_id == active_release.id,
+                WorkspaceModel.workspace_key.in_(workspaces),
+                WorkspaceModel.model_release_id == active_release.id,
             )
             .values(
-                active_model_release_id=candidate_release.id,
-                version=runtime_state.version + 1,
+                model_release_id=candidate_release.id,
+                version=WorkspaceModel.version + 1,
+                updated_at=datetime.now(UTC),
             )
         )
-        if result.rowcount != 1:
-            raise RuntimeError("Model runtime state changed during the offline transition")
-        session.execute(update(ModelRelease).values(is_active=False))
-        session.execute(
-            update(ModelRelease)
-            .where(ModelRelease.id == candidate_release.id)
-            .values(is_active=True)
-        )
-        session.add(
-            AuditEvent(
-                aggregate_type="model_runtime_state",
-                aggregate_id=candidate_release.public_id,
-                action="schema_upgraded",
-                version=runtime_state.version + 1,
-                changes={
-                    "oldReleaseId": active_release.public_id,
-                    "newReleaseId": candidate_release.public_id,
-                    "oldSchemaVersion": active_release.schema_version,
-                    "newSchemaVersion": candidate_release.schema_version,
-                },
+        if result.rowcount != len(workspaces):
+            raise RuntimeError("A workspace's model changed during the offline transition")
+        for workspace_key in workspaces:
+            session.add(
+                AuditEvent(
+                    aggregate_type="workspace_model",
+                    aggregate_id=candidate_release.public_id,
+                    action="schema_upgraded",
+                    version=session.get(WorkspaceModel, workspace_key).version,
+                    changes={
+                        "workspaceKey": workspace_key,
+                        "oldReleaseId": active_release.public_id,
+                        "newReleaseId": candidate_release.public_id,
+                        "oldSchemaVersion": active_release.schema_version,
+                        "newSchemaVersion": candidate_release.schema_version,
+                    },
+                )
             )
-        )
         session.commit()
         return candidate_release.public_id
 

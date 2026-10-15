@@ -83,9 +83,9 @@ def store_source_file(
     job = start_job(
         session,
         kind="profile",
-        workspace_key=resolve_workspace(session, request.workspaceKey).key,
+        workspace_key=(workspace_key := resolve_workspace(session, request.workspaceKey).key),
         change_set_id=None,
-        model_release_id=resolve_model_snapshot(session).release_db_id,
+        model_release_id=resolve_model_snapshot(session, workspace_key).release_db_id,
         parameters={
             "sourceFileId": source.public_id,
             "file": {"name": source.name, "format": found_format, "bytes": upload.size},

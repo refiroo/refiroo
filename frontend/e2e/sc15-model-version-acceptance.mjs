@@ -60,7 +60,7 @@ try {
 
   // ---- Fixtures: releases, another workspace, and a snapshot of everything a refusal must keep ----
   const active = await api("/model");
-  const { activeReleaseId } = await api("/model-runtime-state");
+  const { releaseId: activeReleaseId } = await api("/workspaces/default/model");
   const next = await installRelease(api, "SC-15 next", nextReleaseModel(active, `${active.release.version}-sc15-next`));
   const incompatible = await installRelease(
     api, "SC-15 incompatible", incompatibleReleaseModel(active, `${active.release.version}-sc15-incompatible`),
@@ -77,7 +77,7 @@ try {
   const priority = (object) => object.attributes.find((item) => item.attributeTypeKey === "qa-priority")?.value;
   async function untouched() {
     return JSON.stringify({
-      runtime: (await api("/model-runtime-state")).activeReleaseId,
+      runtime: (await api("/workspaces/default/model")).releaseId,
       live: await api(valuePath()),
       publications: await api("/workspaces/default/publications"),
       warehouse: await api("/objects/system?workspaceKey=warehouse&applicationKey=rdm-systems"),
@@ -228,9 +228,10 @@ try {
   expect(await activate.isDisabled(), "draft2 can activate before its release is active");
 
   // ---- 6. The administrator activates the candidate: live follows it, draft1 no longer matches ----
-  const runtime = await api("/model-runtime-state");
-  await api(`/model-releases/${next.id}/activation`, {
-    expectedRuntimeVersion: runtime.version, expectedActiveReleaseId: runtime.activeReleaseId,
+  const runtime = await api("/workspaces/default/model");
+  await api("/workspaces/default/model/activation", {
+    releaseId: next.id,
+    expectedVersion: runtime.version, expectedReleaseId: runtime.releaseId,
   });
   await page.goto(valuesUrl());
   await page.getByRole("heading", { name: "Prioritised values", level: 1 }).waitFor();

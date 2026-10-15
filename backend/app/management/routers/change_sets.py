@@ -19,7 +19,7 @@ from ...engine.change_sets.pinning import (
 from ...engine.change_sets.publish import publish_change_set, withdraw_publication
 from ...engine.change_sets.validation import validate_change_set
 from ...engine.model.registry import resolve_model_snapshot, resolve_pinned_release
-from ...engine.model.runtime import load_runtime_state
+from ...engine.model.workspace_models import load_assignment
 from ...engine.operations.restructuring import (
     ChangeTypeOperation,
     ChangeTypeUnderOperation,
@@ -48,7 +48,7 @@ from ...engine.workspaces.catalogue import load_workspace
 from ...engine.workspaces.workspace_audit import record_change_set_validated
 from ...errors import ApiError, api_error
 from ...models.database import ChangeSet, ModelRelease, Publication
-from ..dependencies import ActiveModelSnapshot, DbSession
+from ..dependencies import DbSession
 from ..paging import PageQuery
 from ..presenters import snapshot_attributes
 from ..schemas.change_sets import (
@@ -169,11 +169,9 @@ def post_change_set(
         if payload.modelReleaseId
         else None
     )
-    active_release_id = (
-        load_runtime_state(session)[1].id
-        if selected
-        else resolve_model_snapshot(session).release_db_id
-    )
+    active_release_id = load_assignment(session, workspace_key)[1].id
+    if not selected:
+        resolve_model_snapshot(session, workspace_key)
     return _change_set_response(
         session,
         create_change_set(
@@ -520,9 +518,9 @@ def post_change_set_publication(
     change_set_id: str,
     payload: ChangeSetPublishRequest,
     session: DbSession,
-    snapshot: ActiveModelSnapshot,
 ) -> PublicationResponse:
-    _change_set, change_set_model = pinned_model(session, change_set_id)
+    change_set, change_set_model = pinned_model(session, change_set_id)
+    snapshot = resolve_model_snapshot(session, change_set.workspace_key)
     publication = publish_change_set(
         session,
         change_set_id,

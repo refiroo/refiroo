@@ -71,7 +71,7 @@ export function WorkspaceDataProvider({
     async function load() {
       const [context, runtime] = await Promise.all([
         changeSetId ? api.changeSet(changeSetId) : api.publication(publicationId!),
-        api.modelRuntimeState().catch(() => undefined),
+        api.workspaceModel(workspaceKey).catch(() => undefined),
       ]);
       const label = changeSetId ? "change set" : "publication";
       if (context.workspaceKey !== workspaceKey)
@@ -83,12 +83,12 @@ export function WorkspaceDataProvider({
         workspaceKey,
         ...(changeSetId ? { changeSetId } : { publicationId }),
       });
-      const activeLabel = await differingReleaseLabel(runtime?.activeReleaseId, context.modelReleaseId);
+      const activeLabel = await differingReleaseLabel(runtime?.releaseId, context.modelReleaseId);
       if (active) {
         setLoaded({
           ...(changeSetId ? { changeSet: context as ChangeSet } : { publication: context as Publication }),
           model: pinnedModel,
-          activeModelReleaseId: runtime?.activeReleaseId,
+          activeModelReleaseId: runtime?.releaseId,
           activeModelReleaseLabel: activeLabel,
         });
         setError(undefined);
@@ -172,13 +172,13 @@ function LoadedChangeSet({
             changeSetId: refreshed.id,
           });
         }
-        const runtime = await api.modelRuntimeState();
-        const activeLabel = await differingReleaseLabel(runtime.activeReleaseId, refreshed.modelReleaseId);
+        const runtime = await api.workspaceModel(refreshed.workspaceKey);
+        const activeLabel = await differingReleaseLabel(runtime.releaseId, refreshed.modelReleaseId);
         if (nextModel) {
           setModel(nextModel);
           loadedReleaseId = refreshed.modelReleaseId;
         }
-        setActiveModelReleaseId(runtime.activeReleaseId);
+        setActiveModelReleaseId(runtime.releaseId);
         setActiveModelReleaseLabel(activeLabel);
         setChangeSet(refreshed);
       },

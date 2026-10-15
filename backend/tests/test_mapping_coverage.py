@@ -25,7 +25,7 @@ from app.engine.model.compiler import canonical_model, parse_model
 from app.engine.model.registry import model_registry
 from app.main import create_app
 from app.management.projections.mapping import MappingRead
-from app.models.database import ModelRelease, ModelRuntimeState
+from app.models.database import ModelRelease
 
 BINDING = {
     "relationTypeKey": "system-value-maps-to-master",
@@ -39,6 +39,8 @@ IN = dict(
     viewKey="master-to-system-mapping",
     **{**BINDING, "direction": "incoming"},
 )
+from workspace_model_support import default_model
+
 BASE = "/api/v1/workspaces/default"
 
 
@@ -655,8 +657,8 @@ def test_change_set_pinned_model_and_release_bound_cursor(client):
         )
         session.add(release)
         session.flush()
-        runtime = session.get(ModelRuntimeState, 1)
-        runtime.active_model_release_id = release.id
+        runtime = default_model(session)
+        runtime.model_release_id = release.id
         runtime.version += 1
         session.commit()
     r = client.get(BASE + "/mapping-coverage", params=dict(OUT, viewKey="by-name"))

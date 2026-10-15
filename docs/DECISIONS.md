@@ -1608,7 +1608,7 @@ whole-model `PATCH`, and its audit events record which top-level fields changed,
 [Base 0.11 P0 plan](BASE_0_11_IMPLEMENTATION_PLAN.md#p0-plan-2026-10-15) (D4–D11, D23–D29).
 Supersedes the closing paragraph of
 [ADR-021](#adr-021--introduce-strict-typed-views-in-schema-05). The contract is in
-[API.md § Workspace models](API.md#workspace-models-product-011-designed).
+[API.md § Workspace models](API.md#workspace-models-product-011).
 
 ### Motivation
 

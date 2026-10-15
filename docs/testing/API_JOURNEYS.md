@@ -41,14 +41,15 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/docs` a
 | `GET /system` | J31, J31.1–J31.3 |
 | `GET /model`, `GET /model/placements` | J20, J20.1, J03, J14 |
 | `GET /model/consumer-apis/{consumerApi}` (the definition expanded, C18) | J20.6 |
-| `GET /model-runtime-state` | J08 (fresh version for activation), J20.2 |
+| `GET /workspaces/{key}/model` (0.11 M1) | J08 (fresh version for activation), J20.2, J36.1 |
+| `GET /workspace-models` (`releaseKey`, `releaseId`, paging; 0.11 M1) | J36.2 |
 | `POST /model-validations` | J08.1, J25.6, J11.12 |
 | `GET /applications`, `GET /applications/{key}`, `GET /attribute-types`, `GET /attribute-types/{key}`, `GET /object-types`, `GET /object-types/{key}`, `GET /relation-types`, `GET /relation-types/{key}` | J20 |
 | `GET /object-type-relations` (`fromObjectType`, `toObjectType`) | J20, J13 |
-| `GET /model-releases` (`releaseKey`, `active`), `GET /model-releases/{id}` (`includeModel`) | J08, J08.7, J20.2 |
+| `GET /model-releases` (`releaseKey`, `assigned`; each release's `assigned` and `workspaces`), `GET /model-releases/{id}` (`includeModel`) | J08, J08.7, J20.2, J36.1 |
 | `GET /model-releases/{id}/activations` | J08.8 |
 | `GET /model-releases/{id}/diff` (`againstReleaseId`) | J08.2, J25, J08.11 |
-| `POST /model-releases/{id}/activation` | J08, J08.3, J08.5, J08.6, J08.10, J08.11 |
+| `POST /workspaces/{key}/model/activation` (`releaseId`, `expectedVersion`, `expectedReleaseId`; `changeSetsLeftBehind`; 0.11 M1) | J08, J08.3, J08.5, J08.6, J08.10, J08.11, J36.2, J36.5 |
 | `GET/POST /model-drafts`, `GET/PATCH/DELETE /model-drafts/{id}` | J08 |
 | `POST /model-drafts/{id}/compile`, `POST /model-drafts/{id}/installation` | J08, J25 |
 | `POST /model-drafts/{id}/operations` (`expectedVersion`, `operations`, the model-side kinds; `proposalId` planned for A6), `GET /model-drafts/{id}/operations` (paging) (0.10 A2, [API.md § Draft operations](../API.md#draft-operations)) | J33, J33.1–J33.8, J33.12, J08.9 |
@@ -125,7 +126,8 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/docs` a
 | `GET /jobs/{id}/events` (server-sent events: the job at once and after each committed change, ending after a final state; 0.9 J1u) | J24.7, J27.6 |
 | `POST /consumer-subscriptions`, `GET /consumer-subscriptions` (`consumerApi`, `workspaceKey`, `status`), `GET`, `PATCH` and `DELETE /consumer-subscriptions/{id}`, `POST /consumer-subscriptions/{id}/suspend`, `POST /consumer-subscriptions/{id}/resume` (`reset`); served with `CONSUMER_SUBSCRIPTIONS_ENABLED`; the subscription's `delivery`; `name` (U5a); `maxEventsPerBatch`, `payload`, `format` (C17; `mode` and `debounceSeconds` retired) | J30.6, J30.7, J30.8, J30.9 |
 | `GET /consumer-subscriptions/{id}/deliveries` (`status`, paging), `GET /consumer-subscriptions/{id}/deliveries/{deliveryId}`, `POST …/deliveries/{deliveryId}/resend` (`eventId`); `CONSUMER_WEBHOOK_LOG_RETENTION_DAYS` and `consumerSubscriptions.logRetentionDays` (U5a) | J30.10 |
-| Planned for 0.11 ([API.md § Workspace models](../API.md#workspace-models-product-011-designed)): a workspace's `model` (`releaseId`, `releaseKey`, `releaseVersion`, `schemaVersion`, `modelHash`, `version`); `modelReleaseId` on `POST /workspaces`; `GET /workspaces/{key}/model`; `GET /workspace-models` (`releaseKey`, `releaseId`, paging); `POST /workspaces/{key}/model/activation` (`releaseId`, `expectedVersion`, `expectedReleaseId`; `changeSetsLeftBehind`); `assigned` and `workspaces` on `GET /model-releases`; `compatibility.workspaces` on draft compile (M1, M2; `GET /model-runtime-state` and `POST /model-releases/{id}/activation` removed by M2) | J36, J36.1–J36.8 |
+| Delivered in 0.11 M1 ([API.md § Workspace models](../API.md#workspace-models-product-011)): a workspace's `model` (`releaseId`, `releaseKey`, `releaseVersion`, `schemaVersion`, `modelHash`, `version`, `updatedAt`); `modelReleaseId` on `POST /workspaces`; `RDM-Workspace` on `GET /model`; `MODEL_RELEASE_CHANGED`'s `workspaceKey` and `currentReleaseId`; `CHANGE_SET_MODEL_RELEASE_CONFLICT`'s `workspaceKey`; `MODEL_REGISTRY_UNAVAILABLE`'s `workspaceKey`, `releaseId` and `schemaVersion` (`GET /model-runtime-state` and `POST /model-releases/{id}/activation` removed) | J36.1, J36.2, J36.3, J36.5, J36.6, J36.8 |
+| Planned for 0.11: `compatibility.workspaces` on draft compile (M3, D25) | J36 |
 | Planned for 0.11: an import profile's `modelKey`; `workspace` on the consumer API index and OpenAPI document; spanning reads' `workspaceKey` and `modelReleaseId` per item (M3, M4) | J36.6, J36.7 |
 | Planned for 0.11: `POST /workspaces/{key}/model/migrations` (`targetReleaseId`, `expectedVersion`), `POST /change-sets/{id}/model-migrations` (`targetReleaseId`, `expectedChangeSetVersion`); a migration job's rows (`conversion`, `loss`, `refused`) and its confirmation (`expectedFeedPosition`, `acceptLoss`) (V1–V3) | J37, J37.1–J37.8 |
 | Planned for 0.11: `GET/POST /model-mappings`, `GET/DELETE /model-mappings/{key}`, `POST/GET /model-mappings/{key}/operations`, `POST /model-mappings/{key}/undo`, `POST /model-mappings/{key}/redo`, `POST /model-mappings/{key}/inference`, `GET /model-mappings/{key}/inference/proposals` (X1) | J38.1 |

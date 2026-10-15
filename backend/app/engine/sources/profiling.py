@@ -757,11 +757,11 @@ def rectangle_columns(
 
 def _model_for(session: Session, source: SourceFile) -> EngineModel | None:
     """The model whose records a column is compared with (D69): a draft's own when it compiles,
-    the active release's otherwise and for a profile's file."""
+    the file's workspace's release otherwise and for a profile's file."""
     if source.draft_id is not None:
         draft = session.get(ModelDraft, source.draft_id)
         if draft is not None:
             compiled = compile_authored_model(draft.model_json)
             if compiled.valid and compiled.model is not None:
                 return compiled.model
-    return resolve_model_snapshot(session).model
+    return resolve_model_snapshot(session, source.workspace_key).model

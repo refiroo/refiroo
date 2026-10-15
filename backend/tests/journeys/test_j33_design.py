@@ -177,7 +177,7 @@ def test_earlier_models_are_unchanged_by_schema_0_10(world):
     to 0.10 without navigation and compiled against the active release. Then the first compiles to
     the active release's hash, with no navigation member, and the second is valid and compatible,
     installs and activates."""
-    active = ok(world.api.get("/model-runtime-state"))["activeReleaseId"]
+    active = world.workspace_model()["releaseId"]
     release = ok(world.api.get(f"/model-releases/{active}"))
     draft = ok(
         world.api.post("/model-drafts", {"name": "Same", "model": world.configuration.model}), 201

@@ -6,6 +6,39 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.11 M1)
+
+- Each workspace runs a model release of its own (ADR-042): `GET /workspaces/{key}/model`,
+  `GET /workspace-models` (by model or release, paged), `modelReleaseId` on `POST /workspaces`, and a
+  workspace's `model` on every workspace response. Two workspaces may run two different models.
+- `POST /workspaces/{key}/model/activation` activates a release into one workspace: the compatibility
+  check counts that workspace's data alone, the contract check compares with its release, only its
+  subscriptions are suspended and its matrix states resynchronised; the answer lists its change sets
+  left on the previous release (`changeSetsLeftBehind`).
+- Every read and write resolves its workspace first, then that workspace's release: `GET /model`
+  adds `RDM-Workspace`; a live write naming a record runs under the record's workspace model; jobs,
+  batches, source files, consumer reads, subscriptions and webhook delivery under their workspace's.
+  Unique values follow each workspace's release (D28).
+- `GET /model-releases`: `assigned` and `workspaces` per release and the `assigned` filter (D24);
+  activations name their `workspaceKey`.
+
+### Changed (0.11 M1)
+
+- The commit guard checks each workspace a write resolved, under a share lock on that workspace's
+  assignment row: `409 MODEL_RELEASE_CHANGED` names `workspaceKey`, `resolvedReleaseId` and
+  `currentReleaseId`. `CHANGE_SET_MODEL_RELEASE_CONFLICT` names the workspace.
+- A release this version cannot serve makes only the workspaces running it unavailable
+  (`503 MODEL_REGISTRY_UNAVAILABLE` with `workspaceKey`, `releaseId`, `schemaVersion`); `/health` is
+  503 only when no workspace can be served (D29, D34).
+- Settings › Model reads and activates the default workspace's model; Load into a change set
+  activates the release into the workspace it loads into.
+
+### Removed (0.11 M1)
+
+- `GET /model-runtime-state`, `POST /model-releases/{id}/activation`, the `active` field and filter
+  of `GET /model-releases`. Migration `20261018_01` gives every workspace the release the instance ran
+  (version 1) and drops `model_runtime_state` and `model_releases.is_active`.
+
 ### Planned (0.11 P0)
 
 - Base 0.11's design pass: each workspace runs a model of its own (ADR-042), with the decisions

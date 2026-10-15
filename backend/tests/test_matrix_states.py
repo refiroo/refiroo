@@ -31,6 +31,7 @@ from test_relation_matrix_writes import (
     translation_payload,
     unlink,
 )
+from workspace_model_support import DEFAULT_ACTIVATION, default_model
 from wp8_support import create_change_set, create_workspace, publish_change_set
 
 from app.db import SessionLocal, get_engine
@@ -41,7 +42,6 @@ from app.models.database import (
     MatrixCellState,
     MatrixStateBuild,
     ModelRelease,
-    ModelRuntimeState,
     RdmObject,
 )
 from app.models.schema import EngineModel
@@ -319,10 +319,14 @@ def test_activation_and_release_change_follow_the_model(admin_client, stored_onl
     assert_derived()
 
     with SessionLocal() as session:
-        state = session.get(ModelRuntimeState, 1)
-        active = session.get(ModelRelease, state.active_model_release_id)
-        expected = {"expectedRuntimeVersion": state.version, "expectedActiveReleaseId": active.public_id}
-    activated = client.post(f"/api/v1/model-releases/{release.public_id}/activation", json=expected)
+        state = default_model(session)
+        active = session.get(ModelRelease, state.model_release_id)
+        expected = {
+            "releaseId": release.public_id,
+            "expectedVersion": state.version,
+            "expectedReleaseId": active.public_id,
+        }
+    activated = client.post(DEFAULT_ACTIVATION, json=expected)
     assert activated.status_code == 200, activated.text
     after = {key for kind, _id, key in _all_builds() if kind == "live"}
     assert after < before and len(after) == 3

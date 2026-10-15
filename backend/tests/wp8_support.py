@@ -20,6 +20,7 @@ from app.models.database import (
     ModelRelease,
     Publication,
     Workspace,
+    WorkspaceModel,
 )
 
 
@@ -573,7 +574,9 @@ def copy_active_model_release_as_unused() -> ModelRelease:
     """Insert a non-active twin release with a distinct release version and return it."""
     with SessionLocal() as session:
         active = session.scalar(
-            select(ModelRelease).order_by(ModelRelease.is_active.desc()).limit(1)
+            select(ModelRelease)
+            .join(WorkspaceModel, WorkspaceModel.model_release_id == ModelRelease.id)
+            .limit(1)
         )
         assert active is not None, "No active model release installed"
         model_json = dict(active.model_json)
@@ -588,7 +591,6 @@ def copy_active_model_release_as_unused() -> ModelRelease:
             schema_version=active.schema_version,
             model_hash=uuid4().hex,
             model_json=model_json,
-            is_active=False,
         )
         session.add(twin)
         session.commit()

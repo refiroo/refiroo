@@ -140,19 +140,20 @@ try {
     "PATCH",
   );
 
-  const runtimeBefore = await api("/model-runtime-state");
+  const runtimeBefore = await api("/workspaces/default/model");
   const candidate = structuredClone(model);
   candidate.release.version = `${oldModelVersion}-history-new`;
   candidate.product.description = "Current definition after historical publication";
   const modelDraft = await api("/model-drafts", {
     name: "History model change",
-    baseReleaseId: runtimeBefore.activeReleaseId,
+    baseReleaseId: runtimeBefore.releaseId,
     model: candidate,
   });
   const installed = await api(`/model-drafts/${modelDraft.id}/installation`, { expectedVersion: modelDraft.version });
-  await api(`/model-releases/${installed.id}/activation`, {
-    expectedRuntimeVersion: runtimeBefore.version,
-    expectedActiveReleaseId: runtimeBefore.activeReleaseId,
+  await api("/workspaces/default/model/activation", {
+    releaseId: installed.id,
+    expectedVersion: runtimeBefore.version,
+    expectedReleaseId: runtimeBefore.releaseId,
   });
   const currentPublication = await publish("Current publication", oldPublication.id);
 

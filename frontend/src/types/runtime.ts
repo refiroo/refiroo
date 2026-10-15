@@ -4,6 +4,7 @@
  */
 
 import type { ValueType } from "@/types/model";
+import type { WorkspaceModel } from "@/types/modelAdmin";
 
 /**
  * Navigation every collection page returns (ADR-030). The cursor fields other than `nextCursor`
@@ -56,6 +57,8 @@ export interface Workspace {
   version: number;
   createdAt: string;
   updatedAt: string;
+  /** The release the workspace runs (0.11 M1). */
+  model: Omit<WorkspaceModel, "workspaceKey">;
 }
 
 /** One workspace as a single-item read returns it; the paged list omits the deletion fields. */

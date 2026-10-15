@@ -12,6 +12,7 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 from test_build07_wp6 import add_field_and_view, install_model
+from workspace_model_support import DEFAULT_ACTIVATION
 from wp8_support import create_object, create_workspace, unique_key
 
 from app.config import reload_settings
@@ -56,7 +57,7 @@ def _snapshot(client, retail, warehouse, language_id):
 
     return json.dumps(
         {
-            "runtime": get("/model-runtime-state")["activeReleaseId"],
+            "runtime": get("/workspaces/default/model")["releaseId"],
             "model": get("/model"),
             "live": get(f"/objects/language/{language_id}", workspaceKey=retail),
             "publications": get(f"/workspaces/{retail}/publications"),
@@ -137,12 +138,13 @@ def test_sc15_two_change_sets_on_two_releases_through_activation_and_refusals(cl
     assert _snapshot(client, retail, warehouse, live["id"]) == before
 
     # The administrator activates the candidate; live data is unchanged by that selection.
-    runtime = client.get("/api/v1/model-runtime-state").json()
+    runtime = client.get("/api/v1/workspaces/default/model").json()
     activated = client.post(
-        f"/api/v1/model-releases/{candidate}/activation",
+        DEFAULT_ACTIVATION,
         json={
-            "expectedRuntimeVersion": runtime["version"],
-            "expectedActiveReleaseId": runtime["activeReleaseId"],
+            "releaseId": candidate,
+            "expectedVersion": runtime["version"],
+            "expectedReleaseId": runtime["releaseId"],
         },
     )
     assert activated.status_code == 200, activated.text

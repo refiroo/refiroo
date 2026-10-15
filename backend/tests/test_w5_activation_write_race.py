@@ -26,7 +26,6 @@ from app.models.database import (
     AttributeValue,
     ChangeSetBase,
     ModelRelease,
-    ModelRuntimeState,
     ObjectRelation,
     RdmObject,
 )
@@ -93,43 +92,44 @@ def _domain_representation_one_to_one(source: dict) -> None:
     pair["cardinality"] = "one-to-one"
 
 
-def _activate(client: TestClient, release: ModelRelease) -> httpx.Response:
-    with SessionLocal() as session:
-        state = session.get(ModelRuntimeState, 1)
-        assert state is not None
-        active = session.get(ModelRelease, state.active_model_release_id)
-        assert active is not None
-        expected_version, active_id = state.version, active.public_id
+def _activate(client: TestClient, release: ModelRelease, workspace: str) -> httpx.Response:
+    """``release`` activated into ``workspace`` (0.11 M1), claiming its current assignment."""
+    state = client.get(f"/api/v1/workspaces/{workspace}/model").json()
     return client.post(
-        f"/api/v1/model-releases/{release.public_id}/activation",
-        json={"expectedRuntimeVersion": expected_version, "expectedActiveReleaseId": active_id},
+        f"/api/v1/workspaces/{workspace}/model/activation",
+        json={
+            "releaseId": release.public_id,
+            "expectedVersion": state["version"],
+            "expectedReleaseId": state["releaseId"],
+        },
     )
 
 
-def _race(monkeypatch, client: TestClient, release: ModelRelease,
+def _race(monkeypatch, client: TestClient, release: ModelRelease, workspace: str,
           write: Callable[[], httpx.Response]) -> httpx.Response:
-    """Hold ``write`` after it resolved release A, activate ``release``, then let it continue."""
+    """Hold ``write`` after it resolved release A, activate ``release`` into its workspace, then
+    let it continue."""
     resolved, activated = threading.Event(), threading.Event()
-    original = model_registry.resolve_active
+    original = model_registry.resolve_workspace
     held = False
 
-    def resolve_then_hold(session):
+    def resolve_then_hold(session, workspace_key):
         nonlocal held
-        snapshot = original(session)
+        snapshot = original(session, workspace_key)
         if not held:
             held = True
             resolved.set()
             assert activated.wait(HOLD_TIMEOUT)
         return snapshot
 
-    monkeypatch.setattr(model_registry, "resolve_active", resolve_then_hold)
+    monkeypatch.setattr(model_registry, "resolve_workspace", resolve_then_hold)
     with ThreadPoolExecutor(max_workers=1) as pool:
         pending = pool.submit(write)
         assert resolved.wait(HOLD_TIMEOUT)
-        activation = _activate(client, release)
+        activation = _activate(client, release, workspace)
         activated.set()
         response = pending.result(timeout=HOLD_TIMEOUT)
-    monkeypatch.setattr(model_registry, "resolve_active", original)
+    monkeypatch.setattr(model_registry, "resolve_workspace", original)
     assert activation.status_code == 200, activation.text
     return response
 
@@ -138,7 +138,7 @@ def _assert_stale_release_refused(response: httpx.Response, release: ModelReleas
     assert response.status_code == 409, response.text
     error = response.json()["error"]
     assert error["code"] == "MODEL_RELEASE_CHANGED"
-    assert error["details"]["activeReleaseId"] == release.public_id
+    assert error["details"]["currentReleaseId"] == release.public_id
 
 
 def test_object_write_resolved_under_a_is_refused_after_b_activates(monkeypatch, client):
@@ -151,6 +151,7 @@ def test_object_write_resolved_under_a_is_refused_after_b_activates(monkeypatch,
         monkeypatch,
         client,
         release,
+        workspace_key,
         lambda: client.post(
             "/api/v1/objects",
             json={
@@ -197,6 +198,7 @@ def test_attribute_write_resolved_under_a_is_refused_after_b_activates(monkeypat
         monkeypatch,
         client,
         release,
+        workspace_key,
         lambda: client.delete(
             f"/api/v1/objects/system/{system['id']}/attributes/system-type",
             params={"expectedVersion": system["version"]},
@@ -240,7 +242,7 @@ def test_relation_write_resolved_under_a_is_refused_after_b_activates(monkeypatc
     assert represent(first).status_code == 201
     release = _candidate(client, _domain_representation_one_to_one)
 
-    response = _race(monkeypatch, client, release, lambda: represent(second))
+    response = _race(monkeypatch, client, release, workspace_key, lambda: represent(second))
 
     _assert_stale_release_refused(response, release)
     with SessionLocal() as session:
@@ -262,7 +264,7 @@ def test_activation_waits_for_a_flushed_live_write_and_then_sees_it(monkeypatch,
 
     def hold_after_recheck(session: Session) -> None:
         # Runs after the W5 recheck, which flushed the write and so holds its row locks.
-        if "resolved_active_model_release_db_id" not in session.info or session.info.get("w5_held"):
+        if "resolved_workspace_model_releases" not in session.info or session.info.get("w5_held"):
             return
         session.info["w5_held"] = True
         flushed.set()
@@ -283,7 +285,7 @@ def test_activation_waits_for_a_flushed_live_write_and_then_sees_it(monkeypatch,
                 },
             )
             assert flushed.wait(HOLD_TIMEOUT)
-            activation = pool.submit(_activate, client, release)
+            activation = pool.submit(_activate, client, release, workspace_key)
             time.sleep(0.3)
             assert not activation.done()
             released.set()
@@ -305,6 +307,7 @@ def test_draft_base_capture_resolved_under_a_is_refused_after_b_activates(monkey
         monkeypatch,
         client,
         release,
+        workspace_key,
         lambda: client.post(
             f"/api/v1/workspaces/{workspace_key}/change-sets", json={"source": "currentLive"}
         ),

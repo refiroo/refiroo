@@ -21,12 +21,8 @@ from sqlalchemy.orm import Session
 from ...config import ApiReferenceScript
 from ...engine.model.consumer_definitions import consumer_apis
 from ...engine.model.consumer_openapi import consumer_openapi_path
-from ...engine.model.registry import (
-    ModelRegistryUnavailable,
-    UnsupportedSelectedModelSchema,
-    model_registry,
-)
-from ...engine.model.runtime import find_runtime_state
+from ...engine.model.registry import resolve_model_snapshot
+from ...errors import ApiError
 from ..dependencies import DbSession
 
 SCALAR_VERSION = "1.72.2"
@@ -92,16 +88,14 @@ def api_reference_router(script: ApiReferenceScript) -> APIRouter:
 
 
 def consumer_sources(session: Session, root_path: str) -> list[dict]:
-    """One source per consumer API of the active release, in ``consumerApi`` order as the API index
-    lists them, labelled ``{name} · v{contractVersion}``. The slug is prefixed so no definition's key
-    can take the management source's. While no active model can be read (none installed, the
-    registry unhealthy, an unsupported schema) the page still documents the management API, whose
-    own routes then report the cause."""
-    if find_runtime_state(session) is None:
-        return []
+    """One source per consumer API of the default workspace's release, in ``consumerApi`` order as
+    the API index lists them, labelled ``{name} · v{contractVersion}``. The slug is prefixed so no
+    definition's key can take the management source's. While that model cannot be read (none
+    installed, the registry unhealthy, an unsupported schema) the page still documents the
+    management API, whose own routes then report the cause."""
     try:
-        model = model_registry.resolve_active(session).model
-    except ModelRegistryUnavailable, UnsupportedSelectedModelSchema:
+        model = resolve_model_snapshot(session, None).model
+    except ApiError:
         return []
     return [
         {

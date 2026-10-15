@@ -479,7 +479,7 @@ def parsed(profile: ImportProfile) -> ImportProfileDefinition:
 
 
 def create_profile(session: Session, payload: ImportProfileCreate) -> StoredProfile:
-    snapshot = resolve_model_snapshot(session)
+    snapshot = resolve_model_snapshot(session, None)
     require_valid(snapshot.model, payload)
     now = datetime.now(UTC)
     profile = ImportProfile(
@@ -520,7 +520,7 @@ def read_profile(session: Session, key: str) -> StoredProfile:
 def stored(session: Session, profile: ImportProfile) -> StoredProfile:
     """The profile with its problems under the active release, and the release it was saved
     against."""
-    snapshot = resolve_model_snapshot(session)
+    snapshot = resolve_model_snapshot(session, None)
     problems = check_profile(snapshot.model, parsed(profile))
     checked = session.scalar(
         select(ModelRelease.public_id).where(ModelRelease.id == profile.checked_release_id)
@@ -530,7 +530,7 @@ def stored(session: Session, profile: ImportProfile) -> StoredProfile:
 
 def stored_page(session: Session, profiles: list[ImportProfile]) -> list[StoredProfile]:
     """A page of profiles read under the active release, with one read of their releases."""
-    snapshot = resolve_model_snapshot(session)
+    snapshot = resolve_model_snapshot(session, None)
     releases = dict(
         session.execute(
             select(ModelRelease.id, ModelRelease.public_id).where(
@@ -565,7 +565,7 @@ def profile_page(session: Session, page: PageRequest, page_size: int) -> Page[Im
 
 
 def update_profile(session: Session, key: str, payload: ImportProfileUpdate) -> StoredProfile:
-    snapshot = resolve_model_snapshot(session)
+    snapshot = resolve_model_snapshot(session, None)
     profile = load_profile(session, key, for_update=True)
     _claim(profile, payload.expectedVersion)
     require_valid(snapshot.model, payload)
@@ -579,7 +579,7 @@ def update_profile(session: Session, key: str, payload: ImportProfileUpdate) -> 
 
 
 def delete_profile(session: Session, key: str, expected_version: int) -> None:
-    resolve_model_snapshot(session)
+    resolve_model_snapshot(session, None)
     profile = load_profile(session, key, for_update=True)
     _claim(profile, expected_version)
     session.execute(delete(ImportProfile).where(ImportProfile.sequence_id == profile.sequence_id))

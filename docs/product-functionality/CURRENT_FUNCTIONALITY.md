@@ -412,6 +412,17 @@ never activates. Activation is refused when existing data would not fit, and als
 contract changes incompatibly without a new contract version (F23). Releases on unsupported older
 schemas stay inspectable and exportable.
 
+Each workspace runs a model release of its own, and different workspaces may run different models.
+Through the API a workspace is created on a chosen installed release (or on the default workspace's),
+and a release is activated into one workspace: only that workspace's data is checked, only its
+subscriptions are suspended, and the other workspaces keep their models. The activation names the
+workspace's change sets left on its previous release, which cannot be published. Every read and
+write runs under its workspace's model; a write is refused, nothing saved, when its workspace was
+moved to another release meanwhile. A workspace whose release this version cannot read is unavailable
+on its own while the others are served. Settings › Model manages the default workspace's model;
+choosing another workspace there, and the import profiles, drafts and consumer API index following
+a workspace's model, come with later 0.11 packages.
+
 Through the API, a draft can also be changed step by step with typed operations instead of whole
 JSON: add, rename, re-key, split, merge or remove applications, types, attributes and relation
 types, set where a type sits in the containment tree, allow relations between types, lay out views

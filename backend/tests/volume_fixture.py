@@ -39,13 +39,14 @@ from app.models.database import (
     ChangeSet,
     ChangeSetObject,
     ChangeSetRelation,
-    ModelRuntimeState,
     ObjectRelation,
     Publication,
     PublicationObject,
     PublicationRelation,
     RdmObject,
     Workspace,
+    WorkspaceModel,
+    WorkspaceRuntimeState,
 )
 
 APPLICATION = "vol-catalogue"
@@ -583,6 +584,22 @@ def seed_volume(engine: Engine, shape: VolumeShape) -> VolumeDataset:
     matrix = _matrix_data(shape, groups[3:], now)
 
     _bulk_insert(engine, Workspace, [{"key": WORKSPACE, "label": "Volume", "version": 1}])
+    # The workspace runs the volume model, active in the default workspace (0.11 M1); its row comes
+    # before the values, whose unique-value trigger reads it.
+    with Session(engine) as session:
+        default_release = session.scalar(
+            select(WorkspaceModel.model_release_id)
+            .join(
+                WorkspaceRuntimeState,
+                WorkspaceRuntimeState.default_workspace_key == WorkspaceModel.workspace_key,
+            )
+        )
+    assert default_release is not None, "The volume model must be active before seeding"
+    _bulk_insert(
+        engine,
+        WorkspaceModel,
+        [{"workspace_key": WORKSPACE, "model_release_id": default_release, "version": 1, "updated_at": now}],
+    )
     _bulk_insert(engine, RdmObject, [*objects, *matrix.objects])
     for key in (CODE, RANK):
         _bulk_insert(engine, AttributeValue, _attribute_rows(attributes, new_id, key))
@@ -601,7 +618,7 @@ def seed_volume(engine: Engine, shape: VolumeShape) -> VolumeDataset:
     _bulk_insert(engine, ObjectRelation, [*relations, *matrix.relations])
 
     with Session(engine) as session:
-        release_id = session.scalar(select(ModelRuntimeState.active_model_release_id))
+        release_id = session.scalar(select(WorkspaceModel.model_release_id).where(WorkspaceModel.workspace_key == WORKSPACE))
         assert release_id is not None, "The volume model must be active before seeding"
         publication = Publication(
             id=new_id(),
@@ -996,7 +1013,7 @@ def seed_review_change_set(engine: Engine, dataset: VolumeDataset) -> ReviewChan
 
     publication = dataset.publication_id
     with Session(engine) as session:
-        release_id = session.scalar(select(ModelRuntimeState.active_model_release_id))
+        release_id = session.scalar(select(WorkspaceModel.model_release_id).where(WorkspaceModel.workspace_key == WORKSPACE))
         change_set = ChangeSet(
             id=new_id(),
             workspace_key=WORKSPACE,

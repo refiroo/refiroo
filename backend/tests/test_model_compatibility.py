@@ -115,7 +115,6 @@ def add_release(session: Session) -> ModelRelease:
         schema_version="0.5",
         model_hash=uuid4().hex + uuid4().hex,
         model_json=_source(),
-        is_active=False,
     )
     session.add(release)
     session.flush()

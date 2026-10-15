@@ -28,7 +28,8 @@ from app.db import DatabaseStartupError, get_engine, migration_config
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261017_01"
+HEAD = "20261018_01"
+JOB_INDEXES = "20261017_01"
 PROFILE_CHECK = "20261015_01"
 DRAFT_PROPOSALS = "20261014_01"
 DRAFT_PROFILES = "20261013_01"
@@ -1114,9 +1115,9 @@ def test_upgrade_to_draft_operations_keeps_drafts_and_an_interrupted_run_recover
     monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
     with serve(monkeypatch, _render(url)) as (client, errors):
         assert errors == []
-        state = client.get("/api/v1/model-runtime-state").json()
+        state = client.get("/api/v1/workspaces/default/model").json()
         release = client.get(
-            f"/api/v1/model-releases/{state['activeReleaseId']}", params={"includeModel": "true"}
+            f"/api/v1/model-releases/{state['releaseId']}", params={"includeModel": "true"}
         ).json()
         response = client.post("/api/v1/model-drafts", json={"name": "Kept", "model": release["model"]})
         assert response.status_code == 201, response.text
@@ -1171,9 +1172,9 @@ def test_upgrade_to_source_files_keeps_jobs_and_an_interrupted_run_recovers(
     monkeypatch.setenv("JOB_FILE_DIR", str(tmp_path / "job-files"))
     with serve(monkeypatch, _render(url)) as (client, errors):
         assert errors == []
-        state = client.get("/api/v1/model-runtime-state").json()
+        state = client.get("/api/v1/workspaces/default/model").json()
         release = client.get(
-            f"/api/v1/model-releases/{state['activeReleaseId']}", params={"includeModel": "true"}
+            f"/api/v1/model-releases/{state['releaseId']}", params={"includeModel": "true"}
         ).json()
         response = client.post("/api/v1/model-drafts", json={"name": "Kept", "model": release["model"]})
         assert response.status_code == 201, response.text
@@ -1238,9 +1239,9 @@ def test_upgrade_to_draft_profiles_keeps_drafts_and_an_interrupted_run_recovers(
     monkeypatch.setenv("JOB_FILE_DIR", str(tmp_path / "job-files"))
     with serve(monkeypatch, _render(url)) as (client, errors):
         assert errors == []
-        state = client.get("/api/v1/model-runtime-state").json()
+        state = client.get("/api/v1/workspaces/default/model").json()
         release = client.get(
-            f"/api/v1/model-releases/{state['activeReleaseId']}", params={"includeModel": "true"}
+            f"/api/v1/model-releases/{state['releaseId']}", params={"includeModel": "true"}
         ).json()
         response = client.post("/api/v1/model-drafts", json={"name": "Kept", "model": release["model"]})
         assert response.status_code == 201, response.text
@@ -1303,9 +1304,9 @@ def test_upgrade_to_draft_proposals_keeps_drafts_and_an_interrupted_run_recovers
     monkeypatch.setenv("JOB_FILE_DIR", str(tmp_path / "job-files"))
     with serve(monkeypatch, _render(url)) as (client, errors):
         assert errors == []
-        state = client.get("/api/v1/model-runtime-state").json()
+        state = client.get("/api/v1/workspaces/default/model").json()
         release = client.get(
-            f"/api/v1/model-releases/{state['activeReleaseId']}", params={"includeModel": "true"}
+            f"/api/v1/model-releases/{state['releaseId']}", params={"includeModel": "true"}
         ).json()
         response = client.post("/api/v1/model-drafts", json={"name": "Kept", "model": release["model"]})
         assert response.status_code == 201, response.text
@@ -1439,9 +1440,9 @@ def test_upgrade_to_block_columns_keeps_profiles_and_an_interrupted_run_recovers
     content = b"code,name,,size\na,Alpha,,S\nb,Beta,,M\nc,Gamma,,L\n"
     with serve(monkeypatch, _render(url)) as (client, errors):
         assert errors == []
-        state = client.get("/api/v1/model-runtime-state").json()
+        state = client.get("/api/v1/workspaces/default/model").json()
         release = client.get(
-            f"/api/v1/model-releases/{state['activeReleaseId']}", params={"includeModel": "true"}
+            f"/api/v1/model-releases/{state['releaseId']}", params={"includeModel": "true"}
         ).json()
         draft = client.post("/api/v1/model-drafts", json={"name": "Kept", "model": release["model"]}).json()
         response = client.post(
@@ -1480,6 +1481,85 @@ def test_upgrade_to_block_columns_keeps_profiles_and_an_interrupted_run_recovers
     assert _scalar(url, "SELECT count(*) FROM source_file_columns WHERE block_index = 1") == 1
     command.downgrade(migration_config(url), PROFILE_CHECK)
     assert _scalar(url, "SELECT count(*) FROM source_file_columns") == 3
+    engine.dispose()
+
+
+def test_upgrade_to_workspace_models_assigns_every_workspace_and_an_interrupted_run_recovers(
+    monkeypatch, databases
+):
+    """0.11 M1 on a database taken back to 0.10.0's revision, holding two workspaces with unique
+    values: with a ``workspace_models`` table already there (by hand) the revision rolls back and
+    the start refuses naming it; once dropped, the next start gives every workspace the release the
+    singleton selected at version 1, keeps every unique value's row, drops the singleton and the
+    flag, and the service starts twice. A downgrade restores the singleton from the default
+    workspace."""
+    url = seeds.create_empty()
+    databases.append(url)
+    monkeypatch.setenv("WORKSPACE_ADMIN_MUTATIONS_ENABLED", "true")
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        assert errors == []
+        assert client.post("/api/v1/workspaces", json={"key": "east", "label": "East"}).status_code == 201
+        for workspace, code in (("default", "M1-UP-1"), ("east", "M1-UP-2"), ("east", "M1-UP-3")):
+            body = {
+                "applicationKey": "rdm-master",
+                "objectTypeKey": "domain",
+                "name": f"Domain {code}",
+                "workspaceKey": workspace,
+                "attributes": [{"attributeTypeKey": "domain-code", "value": code}],
+            }
+            assert client.post("/api/v1/objects", json=body).status_code == 201
+        release_id = client.get("/api/v1/workspaces/default/model").json()["releaseId"]
+    held = _scalar(url, "SELECT count(*) FROM unique_attribute_values")
+    assert held >= 3
+    command.downgrade(migration_config(url), JOB_INDEXES)
+    assert _scalar(url, "SELECT count(*) FROM model_runtime_state") == 1
+    assert _scalar(url, "SELECT count(*) FROM unique_attribute_values") == held
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        connection.execute(text("CREATE TABLE workspace_models (stray integer)"))
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        message = _assert_refused(
+            client,
+            errors,
+            "Database migration failed",
+            f"Current revision: {JOB_INDEXES}",
+            f"target revision: {HEAD}",
+            "still at its current revision",
+        )
+        assert "workspace_models" in message
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == JOB_INDEXES
+    with engine.begin() as connection:
+        connection.execute(text("DROP TABLE workspace_models"))
+    for _start in range(2):
+        with serve(monkeypatch, _render(url)) as (client, errors):
+            assert errors == []
+            for workspace in ("default", "east"):
+                model = client.get(f"/api/v1/workspaces/{workspace}/model").json()
+                assert (model["releaseId"], model["version"]) == (release_id, 1)
+            duplicate = {
+                "applicationKey": "rdm-master",
+                "objectTypeKey": "domain",
+                "name": "Duplicate",
+                "workspaceKey": "east",
+                "attributes": [{"attributeTypeKey": "domain-code", "value": "M1-UP-2"}],
+            }
+            refused = client.post("/api/v1/objects", json=duplicate)
+            assert refused.json()["error"]["code"] == "DUPLICATE_ATTRIBUTE_VALUE"
+        assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+    assert _scalar(url, "SELECT count(*) FROM unique_attribute_values") == held
+    assert _scalar(url, "SELECT to_regclass('model_runtime_state') IS NULL") is True
+    assert (
+        _scalar(
+            url,
+            "SELECT count(*) FROM information_schema.columns "
+            "WHERE table_name = 'model_releases' AND column_name = 'is_active'",
+        )
+        == 0
+    )
+    command.downgrade(migration_config(url), JOB_INDEXES)
+    assert _scalar(url, "SELECT count(*) FROM model_runtime_state") == 1
+    assert _scalar(url, "SELECT count(*) FROM model_releases WHERE is_active") == 1
+    assert _scalar(url, "SELECT count(*) FROM unique_attribute_values") == held
     engine.dispose()
 
 

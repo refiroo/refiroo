@@ -67,8 +67,8 @@ export async function visitSpreadsheetSurfaces(visit) {
   };
   /** A draft of the active release raised to schema 0.10, the workbook uploaded and its proposals applied. */
   const proposed = async (name, file, content) => {
-    const state = await api("/model-runtime-state");
-    const release = await api(`/model-releases/${state.activeReleaseId}?includeModel=true`);
+    const state = await api("/workspaces/default/model");
+    const release = await api(`/model-releases/${state.releaseId}?includeModel=true`);
     const created = await api("/model-drafts", { name, model: release.model, baseReleaseId: release.id });
     const { id } = created;
     await api(`/model-drafts/${id}/operations`, {
@@ -241,10 +241,11 @@ export async function visitSpreadsheetSurfaces(visit) {
       operations: [{ kind: "setRelease", version: "0.10.0-gate" }],
     });
     const release = await api(`/model-drafts/${catalogue.id}/installation`, { expectedVersion: versioned.version });
-    const state = await api("/model-runtime-state");
-    await api(`/model-releases/${release.id}/activation`, {
-      expectedRuntimeVersion: state.version,
-      expectedActiveReleaseId: state.activeReleaseId,
+    const state = await api("/workspaces/default/model");
+    await api("/workspaces/default/model/activation", {
+      releaseId: release.id,
+      expectedVersion: state.version,
+      expectedReleaseId: state.releaseId,
     });
     const changeSet = await api("/workspaces/default/change-sets", { name: "Load catalogue.xlsx", source: "currentLive" });
     const form = new FormData();

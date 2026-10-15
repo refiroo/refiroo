@@ -691,12 +691,18 @@ def activate_events(client) -> None:
         f"/api/v1/model-drafts/{draft['id']}/installation", json={"expectedVersion": draft["version"]}
     )
     assert release.status_code == 201, release.text
-    state = client.get("/api/v1/model-runtime-state").json()
-    activated = client.post(
-        f"/api/v1/model-releases/{release.json()['id']}/activation",
-        json={"expectedRuntimeVersion": state["version"], "expectedActiveReleaseId": state["activeReleaseId"]},
-    )
-    assert activated.status_code == 200, activated.text
+    # Into the default workspace and the volume workspace, each running its own release (0.11 M1).
+    for workspace in ("default", WORKSPACE):
+        state = client.get(f"/api/v1/workspaces/{workspace}/model").json()
+        activated = client.post(
+            f"/api/v1/workspaces/{workspace}/model/activation",
+            json={
+                "releaseId": release.json()["id"],
+                "expectedVersion": state["version"],
+                "expectedReleaseId": state["releaseId"],
+            },
+        )
+        assert activated.status_code == 200, activated.text
 
 
 def event_scenarios(

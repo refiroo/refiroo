@@ -7,9 +7,10 @@ from ...common.time import as_utc
 from ...engine.model.compatibility import analyze_compatibility
 from ...engine.model.compiler import SCHEMA_VERSIONS, compile_model
 from ...engine.model.diff import semantic_diff
+from ...engine.model.workspace_models import assigned_workspaces, workspaces_running
 from ...errors import api_error
-from ...models.database import AuditEvent, ModelRelease
-from ..dependencies import ActiveModelSnapshot, DbSession
+from ...models.database import AuditEvent, ModelRelease, WorkspaceModel
+from ..dependencies import DbSession, DefaultModelSnapshot
 from ..paging import PageQuery
 from ..presenters import (
     change_response,
@@ -44,19 +45,21 @@ _ACTIVATION_KINDS = {"activated": "activated", "schema_upgraded": "schemaUpgrade
 @router.get("/model-releases", response_model=ModelReleasePage)
 def list_model_releases(
     session: DbSession,
-    snapshot: ActiveModelSnapshot,
     paging: PageQuery,
     release_key: str | None = Query(default=None, alias="releaseKey"),
-    active: bool | None = None,
+    assigned: bool | None = None,
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
 ) -> ModelReleasePage:
+    """Installed releases, oldest first; ``assigned`` keeps those some workspace runs (``true``) or
+    none does (``false``). Each names the workspaces running it (D24)."""
     statement = select(ModelRelease)
     if release_key is not None:
         statement = statement.where(ModelRelease.release_key == release_key)
-    if active is True:
-        statement = statement.where(ModelRelease.public_id == snapshot.release_id)
-    elif active is False:
-        statement = statement.where(ModelRelease.public_id != snapshot.release_id)
+    running = select(WorkspaceModel.model_release_id)
+    if assigned is True:
+        statement = statement.where(ModelRelease.id.in_(running))
+    elif assigned is False:
+        statement = statement.where(ModelRelease.id.not_in(running))
 
     page = paginate_statement(
         session,
@@ -65,15 +68,14 @@ def list_model_releases(
         scope="model-releases",
         filters={
             "releaseKey": release_key,
-            "active": active,
-            "activeReleaseId": snapshot.release_id,
+            "assigned": assigned,
         },
         page=paging,
         page_size=page_size,
         message=METADATA_CURSOR_MESSAGE,
     )
     return ModelReleasePage(
-        items=[build_release_response(item, snapshot.release_id) for item in page.items],
+        items=release_responses(session, page.items),
         **page.links(),
     )
 
@@ -86,11 +88,10 @@ def list_model_releases(
 def get_model_release(
     release_id: str,
     session: DbSession,
-    snapshot: ActiveModelSnapshot,
     include_model: bool = Query(default=False, alias="includeModel"),
 ) -> ModelReleaseResponse:
     release = load_release(session, release_id)
-    return build_release_response(release, snapshot.release_id, include_model=include_model)
+    return release_responses(session, [release], include_model=include_model)[0]
 
 
 @router.get(
@@ -103,14 +104,15 @@ def list_model_release_activations(
     paging: PageQuery,
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
 ) -> ModelReleaseActivationPage:
-    """Recorded selections of this release as the active model, with the release they replaced.
+    """Recorded selections of this release as a workspace's model, with the release they replaced
+    and the workspace (none for a selection made for the whole instance before 0.11).
 
     The initial bootstrap selection is not an audited activation, so a release first selected by
     bootstrap has no item for that selection.
     """
     load_release(session, release_id)
     statement = select(AuditEvent).where(
-        AuditEvent.aggregate_type == "model_runtime_state",
+        AuditEvent.aggregate_type.in_(("workspace_model", "model_runtime_state")),
         AuditEvent.aggregate_id == release_id,
         AuditEvent.action.in_(tuple(_ACTIVATION_KINDS)),
     )
@@ -130,6 +132,7 @@ def list_model_release_activations(
                 eventId=event.event_id,
                 kind=_ACTIVATION_KINDS[event.action],
                 previousReleaseId=event.changes["oldReleaseId"],
+                workspaceKey=event.changes.get("workspaceKey"),
                 runtimeVersion=event.version,
                 occurredAt=as_utc(event.occurred_at),
             )
@@ -147,7 +150,7 @@ def list_model_release_activations(
 def diff_model_release(
     release_id: str,
     session: DbSession,
-    snapshot: ActiveModelSnapshot,
+    snapshot: DefaultModelSnapshot,
     against_release_id: str = Query(alias="againstReleaseId"),
 ) -> ModelReleaseDiffResponse:
     releases = {
@@ -199,11 +202,14 @@ def diff_model_release(
     ):
         raise api_error(500, "INTERNAL_ERROR", "Compiled model result is incomplete")
 
+    # Against the data of the workspaces running the default workspace's release (M3 reports
+    # each workspace running the baseline's model, D25).
     compatibility = analyze_compatibility(
         session,
         snapshot.model,
         candidate.model,
         snapshot.release_id,
+        workspaces_running(session, snapshot.release_db_id),
     )
     changes = semantic_diff(baseline.canonical_model, candidate.canonical_model)
 
@@ -229,9 +235,20 @@ def load_release(session: DbSession, release_id: str) -> ModelRelease:
     return release
 
 
+def release_responses(
+    session: DbSession, releases: list[ModelRelease], *, include_model: bool = False
+) -> list[ModelReleaseResponse]:
+    """The releases with the workspaces running each, read once for the page."""
+    running = assigned_workspaces(session, (release.id for release in releases))
+    return [
+        build_release_response(release, running.get(release.id, []), include_model=include_model)
+        for release in releases
+    ]
+
+
 def build_release_response(
     release: ModelRelease,
-    active_release_id: str,
+    workspaces: list[str],
     *,
     include_model: bool = False,
 ) -> ModelReleaseResponse:
@@ -243,7 +260,8 @@ def build_release_response(
         schemaVersion=release.schema_version,
         modelHash=release.model_hash,
         installedAt=as_utc(release.installed_at),
-        active=release.public_id == active_release_id,
+        assigned=bool(workspaces),
+        workspaces=workspaces,
         model=release.model_json if include_model else None,
     )
 

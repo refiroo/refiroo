@@ -2,7 +2,7 @@ from fastapi import APIRouter, Query, Response, status
 
 from ...engine.change_sets.access import ensure_change_set_writable
 from ...engine.change_sets.records import delete_change_set_attribute, patch_change_set_attribute
-from ...engine.model.registry import resolve_change_set_snapshot, resolve_model_snapshot
+from ...engine.model.registry import resolve_change_set_snapshot, resolve_record_snapshot
 from ...engine.reads.snapshot_reads import change_set_context, find_object, publication_context
 from ...engine.records.attributes import load_attribute_value
 from ...engine.records.context import load_active_projection
@@ -89,11 +89,11 @@ def _write(object_type_key: str, object_id: str, attribute_type_key: str, payloa
             update={"workspaceKey": change_set.workspace_key, "changeSetVersion": change_set.version}
         )
     if delete:
-        snapshot = snapshot or resolve_model_snapshot(session)
+        snapshot = snapshot or resolve_record_snapshot(session, object_id)
         delete_live_attribute_value(session, snapshot.model, object_type_key, object_id,
                                     attribute_type_key, payload.expectedVersion)
         return Response(status_code=204)
-    snapshot = snapshot or resolve_model_snapshot(session)
+    snapshot = snapshot or resolve_record_snapshot(session, object_id)
     set_live_attribute_value(session, snapshot.model, object_type_key, object_id, attribute_type_key,
                              payload.value, payload.expectedVersion, create_only=require_absent)
     item = load_active_projection(session, object_id, object_type_key)

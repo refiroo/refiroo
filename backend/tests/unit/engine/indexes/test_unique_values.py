@@ -18,12 +18,17 @@ from app.db import SessionLocal
 from app.engine.indexes import unique_values
 from app.engine.model.compiler import parse_model
 from app.engine.model.registry import resolve_model_snapshot
-from app.engine.model.releases import activate_model_release, install_model_release
+from app.engine.model.releases import (
+    WorkspaceRetired,
+    activate_model_release,
+    install_model_release,
+)
+from app.engine.model.workspace_models import workspaces_running
 from app.engine.records.objects import apply_object_create
 from app.engine.records.writes import LiveWrites
 from app.errors import ApiError
 from app.models.commands import ObjectCreate
-from app.models.database import AttributeValue, ModelRuntimeState, UniqueAttributeValue
+from app.models.database import AttributeValue, ModelRelease, UniqueAttributeValue, WorkspaceModel
 
 
 def _records(world) -> list[str]:
@@ -164,14 +169,22 @@ def test_the_rows_follow_the_active_release(seeded):
         session.commit()
 
         def activate(release_id, active_id):
-            state = session.get(ModelRuntimeState, 1)
-            activate_model_release(
-                session,
-                release_id,
-                expected_runtime_version=state.version,
-                expected_active_release_id=active_id,
-            )
-            session.commit()
+            # Into every active workspace running it: each keeps its own rows (0.11 D28).
+            running = session.scalar(select(ModelRelease.id).where(ModelRelease.public_id == active_id))
+            for workspace_key in workspaces_running(session, running):
+                state = session.get(WorkspaceModel, workspace_key)
+                try:
+                    activate_model_release(
+                        session,
+                        workspace_key,
+                        release_id,
+                        expected_version=state.version,
+                        expected_release_id=active_id,
+                    )
+                except WorkspaceRetired:
+                    session.rollback()
+                    continue
+                session.commit()
 
         activate(release.public_id, active)
         assert _rows(session, u) == 0

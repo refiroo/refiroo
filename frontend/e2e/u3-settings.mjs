@@ -36,7 +36,7 @@ try {
   const shot = (name) => page.screenshot({ path: resolve(output, `${name}.png`), fullPage: true });
   const path = () => new URL(page.url()).pathname;
   const overflow = () => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-  const activeRelease = (await api("/model-runtime-state")).activeReleaseId;
+  const activeRelease = (await api("/workspaces/default/model")).releaseId;
 
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });

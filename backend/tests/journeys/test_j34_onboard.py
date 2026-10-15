@@ -40,7 +40,7 @@ def _workspace(world) -> str:
 
 
 def _draft(world) -> dict[str, Any]:
-    active = ok(world.api.get("/model-runtime-state"))["activeReleaseId"]
+    active = world.workspace_model()["releaseId"]
     release = ok(world.api.get(f"/model-releases/{active}", includeModel=True))
     body = {"name": "Onboarding", "model": release["model"], "baseReleaseId": release["id"]}
     return ok(world.api.post("/model-drafts", body), 201)
@@ -844,7 +844,7 @@ def test_installing_saves_the_draft_profile_and_an_import_naming_it_loads_what_t
     assert release["importProfile"] == {"key": profile_key, "version": 1}
     stored = ok(world.api.get(f"/import-profiles/{profile_key}"))
     assert stored["checkedAgainst"] == release["id"]
-    ok(world.activate(release["id"]))
+    ok(world.activate_everywhere(release["id"]))
     assert ok(world.api.get(f"/import-profiles/{profile_key}"))["valid"] is True
 
     change_set = world.change_set(workspace)
@@ -878,7 +878,7 @@ def test_the_editor_loads_the_workbook_into_a_new_change_set_whose_review_lists_
     figures = _summary_of(world, draft, _map_by_hand(world, draft, book)[-1])["sources"][0]
 
     release = _install(world, draft)
-    ok(world.activate(release["id"]))
+    ok(world.activate_everywhere(release["id"]))
     change_set = world.change_set(workspace, name="Load catalogue.xlsx (2026-10-12)")
     request = {
         "changeSetId": change_set["id"],
@@ -944,7 +944,7 @@ def test_an_import_creates_the_list_values_a_lookup_names_once_whatever_the_rows
     _catalogue(world, draft)
     _apply(world, draft, {"kind": "allowRelation", "relationType": "j34-made-of", "from": "j34-category", "to": "j34-material"})
     release = _install(world, draft)
-    ok(world.activate(release["id"]))
+    ok(world.activate_everywhere(release["id"]))
     paper = {"workspaceKey": workspace, "applicationKey": world.app("K"), "objectTypeKey": "j34-material", "name": "Paper", "attributes": []}
     ok(world.api.post("/objects", paper), 201)
 
@@ -1190,7 +1190,7 @@ def test_the_applied_inference_loads_w1_into_a_change_set_that_publishes_every_r
     assert {p["status"] for p in _proposals(world, draft)} == {"applied"}
 
     release = _install(world, draft)
-    ok(world.activate(release["id"]))
+    ok(world.activate_everywhere(release["id"]))
     change_set = world.change_set(workspace)
     request = {
         "changeSetId": change_set["id"],
@@ -1313,7 +1313,7 @@ def test_extending_the_active_model_maps_columns_onto_what_exists_and_adds_no_du
         {"kind": "addObjectType", "applicationKey": app, "key": "j34-substance", "name": "Substance", "pluralName": "Substances", "parent": None},
     )
     release = _install(world, first)
-    ok(world.activate(release["id"]))
+    ok(world.activate_everywhere(release["id"]))
     for name in sorted(book.distinct("T") - set(workbooks.PLACEHOLDERS)):
         body = {"workspaceKey": workspace, "applicationKey": app, "objectTypeKey": "j34-substance", "name": name, "attributes": []}
         ok(world.api.post("/objects", body), 201)
@@ -1366,7 +1366,7 @@ def test_extending_relates_an_id_column_to_the_records_already_holding_its_value
         {"kind": "attachAttribute", "objectType": "j34-mapping", "attributeType": "j34-external"},
     )
     release = _install(world, first)
-    ok(world.activate(release["id"]))
+    ok(world.activate_everywhere(release["id"]))
     system = str(uuid4())
     items = [{"op": "create", "id": system, "applicationKey": app, "objectTypeKey": "j34-system", "name": "Supplier system", "attributes": []}]
     items += [
@@ -1474,7 +1474,7 @@ def test_an_import_creates_the_parents_of_related_records_and_the_records_flags_
         {"kind": "allowRelation", "relationType": "j34-has-feature", "from": "j34-item", "to": "j34-feature"},
     )
     release = _install(world, draft)
-    ok(world.activate(release["id"]))
+    ok(world.activate_everywhere(release["id"]))
     h = book.header
     s2 = workbooks.S2_HEADERS
     profile = {
@@ -1620,7 +1620,7 @@ def _load(world, draft: dict[str, Any], source: dict[str, Any], workspace: str) 
     """The draft installed and activated, its saved profile loading the file into a change set
     that is then published; the import job."""
     release = _install(world, draft)
-    ok(world.activate(release["id"]))
+    ok(world.activate_everywhere(release["id"]))
     change_set = world.change_set(workspace)
     request = {
         "changeSetId": change_set["id"],
@@ -1862,7 +1862,7 @@ def test_an_import_skips_rows_without_a_key_when_its_source_says_so(world):
     draft = _draft(world)
     _catalogue(world, draft)
     release = _install(world, draft)
-    ok(world.activate(release["id"]))
+    ok(world.activate_everywhere(release["id"]))
     content = b"id,name\nA1,Alpha\n,Beta\nC3,Gamma\n"
 
     def importing(source: dict[str, Any]):
@@ -2359,7 +2359,7 @@ def test_lists_of_one_shape_load_as_one_list_under_their_headers(world):
     assert _step(world, draft, *alternative["operations"])["valid"] is True
 
     release = _install(world, draft)
-    ok(world.activate(release["id"]))
+    ok(world.activate_everywhere(release["id"]))
 
     def loading() -> dict[str, Any]:
         change_set = world.change_set(workspace)
@@ -2445,7 +2445,7 @@ def _catalogue_installed(world) -> str:
     workspace = _workspace(world)
     draft = _draft(world)
     _catalogue(world, draft)
-    ok(world.activate(_install(world, draft)["id"]))
+    ok(world.activate_everywhere(_install(world, draft)["id"]))
     return workspace
 
 
@@ -2514,7 +2514,7 @@ def test_an_import_keyed_by_name_finds_its_records_by_name(world):
     draft = _draft(world)
     _catalogue(world, draft)
     release = _install(world, draft)
-    ok(world.activate(release["id"]))
+    ok(world.activate_everywhere(release["id"]))
 
     def importing(content: bytes):
         profile = {

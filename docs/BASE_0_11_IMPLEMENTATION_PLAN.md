@@ -290,7 +290,7 @@ change) and `volume` (every budget).
 | 1 | [P0](#p0-design-pass) | — | **Delivered 2026-10-15.** Decisions D4–D11 and D13–D29 settled; ADR-042; API design; the move inventory completed; journeys J36–J38; mock-ups of M5 and X4 |
 | | **Part 1 — workspace models** | | |
 | 2 | [M1](#m1-a-release-assignment-per-workspace) | P0 | Every workspace names its release; every request resolves its workspace, then its snapshot; the commit guard per workspace |
-| 3 | [M2](#m2-installing-and-activating-into-one-workspace) | M1 | Activation into one workspace with its own compatibility check; unique values, matrix states and subscriptions scoped to it; a new workspace created on a model |
+| 3 | [M2](#m2-installing-and-activating-into-one-workspace) | — | **Folded into M1 (D32).** Activation into one workspace with its own compatibility check; unique values, matrix states and subscriptions scoped to it; a new workspace created on a model |
 | 4 | [M3](#m3-instance-wide-resources-bound-to-a-workspaces-model) | M2 | Import profiles, drafts, source files, jobs and dry runs, consumer APIs and events resolved through the workspace's model |
 | 5 | [M4](#m4-reads-spanning-workspaces) | M3 | Cross-type lookup, feed, mapping coverage, exports and counterpart imports when models differ |
 | 6 | [M5](#m5-the-ui-follows-the-workspaces-model) | M4 | The shell follows the workspace's model; Settings › Model per workspace; "New from a workbook" into a chosen workspace |
@@ -570,7 +570,7 @@ approved"), without changes; their shapes are the ones M5 and X4 build on.
   scoped by the inventory.
 - **ADR-042**, each workspace runs its own model release; ADR-021's closing paragraph marked
   superseded; "tenant" replaced in ADR-021 and TODO (D22).
-- **API design:** [API.md § Workspace models](API.md#workspace-models-product-011-designed): a
+- **API design:** [API.md § Workspace models](API.md#workspace-models-product-011): a
   workspace's model and its activation, resolution and the commit guard per workspace, what follows
   the workspace's model, spanning reads, the migration preview and confirmation, model mappings and
   moves, with their codes. **Where it goes beyond the plan:** `GET /model-runtime-state` and
@@ -606,7 +606,7 @@ approved them.
 
 #### M1: A release assignment per workspace
 
-**Design:** ADR-042, D4–D6, D24, D29; [API.md § Workspace models](API.md#workspace-models-product-011-designed). **Needs:** P0.
+**Design:** ADR-042, D4–D6, D24, D29; [API.md § Workspace models](API.md#workspace-models-product-011). **Needs:** P0.
 
 **Scope:**
 
@@ -634,7 +634,221 @@ every workspace the active release.
 
 **Exit:** no request resolves "the" active release; the 0.10 behaviour unchanged with one model.
 
+##### M1 plan (2026-10-15)
+
+**Planned 2026-10-15; accepted by the user the same day: D30, D31, D33, D34 and the test cases.
+D32 rejected** ("we don't develop just to bridge M1 to M2 then remove the development"): **M2 is
+folded into M1** instead, so the 0.10 routes are replaced, not bridged; the cases below include
+M2's. Checked against the code at `71b15ea`.
+
+**What the check found beyond P0's list:**
+
+- **The workspace row cannot carry the guard's lock.** Live writes take the workspace row
+  `FOR NO KEY UPDATE` (`LiveWrites._begin`, then `take_positions` updates it), publishing takes it
+  `FOR NO KEY UPDATE` and withdrawal `FOR UPDATE`, change-set writes `FOR KEY SHARE`. A guard's
+  `FOR SHARE` on that row conflicts with `NO KEY UPDATE`: every change-set write would queue behind
+  the workspace's live writes and its publication, which today run beside each other (PG-D5). D30.
+- **A fresh database's default workspace exists before any release.** The baseline migration
+  creates it and `workspace_runtime_state`; bootstrap installs the release later. A not-null
+  `workspaces.model_release_id` has nothing to hold at that point. D30.
+- **M1's tests need two models side by side through the API**, and only M2 would let a client put a
+  workspace on another model. D31.
+- **Once two models can run side by side, M2's and M3's readers act on the wrong model.** The
+  unique-values triggers would check model B's records against model A's unique attributes; matrix
+  states would keep A's shapes for B's live data; activation would count B's records in A's
+  compatibility check and suspend B's subscriptions by A's definitions; the consumer routes, the
+  event dispatcher and the jobs would read A for B's data. D32, D33.
+- `analyze_compatibility` already has the hook a workspace filter needs (`_is_in_active_workspace`,
+  `literal(True)` today, used at every count).
+- Live writes on an existing record (update, delete, attribute value, relation) resolve the model
+  before they know the record; per workspace they read the record's workspace first (one indexed
+  read of `objects.workspace_key`), then its model. Not a decision; listed so it is not missed.
+
+**Decisions** (D30 onward; each with what, why and cost):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D30 | Where a workspace's assignment lives | **A table of its own, `workspace_models`** (`workspace_key` primary key and foreign key to `workspaces`, cascading on delete; `model_release_id`, restricted; `version`; `updated_at`), not columns on `workspaces`. Why: the commit guard's share lock and activation's update lock then sit on a row nothing else locks, so today's lock behaviour holds per workspace exactly as it holds for the singleton; a workspace without a row is only possible between the baseline migration and bootstrap, which fills it. Cost: one join when a request resolves its model. The API is unchanged: workspace responses still carry `model`, and its `version` is this row's |
+| D31 | Creating a workspace on a named release | **Moved from M2 into M1:** `POST /workspaces` takes the optional `modelReleaseId` (any installed release of a supported schema; `404 MODEL_RELEASE_NOT_FOUND`, `422 UNSUPPORTED_SCHEMA_VERSION`). Why: M1's tests must build two workspaces on two models through the public API; without it only a hand-made database state could, which the test rules forbid. Cost: one optional field. A new workspace is empty, so it needs no compatibility check. M2 keeps activation into an existing workspace |
+| D32 | What the 0.10 activation route does until M2 removes it | **Rejected by the user (2026-10-15):** no code is built only to bridge two packages. M2 is folded into M1: `POST /workspaces/{workspaceKey}/model/activation` and `GET /workspace-models` replace `POST /model-releases/{id}/activation` and `GET /model-runtime-state` in M1, with activation into one workspace (its own compatibility check, contract check, subscription suspension and matrix states) and the change sets it leaves behind (D26). The browser's Settings › Model calls the new routes for the default workspace, which is what it manages today; M5 adds the choice of workspace |
+| D33 | M2's and M3's readers that already know their workspace | **Changed in M1 to use it**, since D31 makes two models possible: the unique-values triggers read each written record's workspace release, and the refill trigger moves to `workspace_models`, refilling only that workspace's rows (D28, done here); matrix states keep the workspace's live shapes; the feed records the workspace's release; the consumer read routes, the event dispatcher and worker, subscription create and change, and jobs and batches resolve their workspace's model; activation's check and suspension per D32. **Left to M3**, resolving the default workspace's model as their meaning is today: import profiles (D9), drafts without a base (D25), source profiling, checks, dry runs and inference started without a workspace, the consumer index and OpenAPI (D10, D27) and the API reference page. Why: each changed reader would otherwise act on the wrong model's rules; the ones left are those whose meaning M3 decides. Cost: M1 grows by these readers, M2 shrinks by D28 |
+| D34 | A workspace whose release cannot be loaded (D29), in detail | **Only that workspace answers `503 MODEL_REGISTRY_UNAVAILABLE`** with `details.workspaceKey`, `releaseId` and, for an unsupported schema, `schemaVersion` (the log keeps 0.10's upgrade instructions). `/health` answers 503 only when the database is unreachable or no workspace can be served, so one workspace on one model behaves as in 0.10. The job worker, listener, event deriver and dispatcher start when at least one workspace can be served; a job or subscription of an unavailable workspace fails with that code instead of running. Why: "without touching the others" (D29). Cost: the registry keeps a set of unloadable releases instead of one flag; readiness listing them is O1's |
+
+**What is built:**
+
+1. **Migration `20261018_01_workspace_models`:** the table (D30), one row per existing workspace
+   from `model_runtime_state` (version 1); `model_runtime_state` and its trigger dropped,
+   `model_releases.is_active` and its index dropped (D24); the unique-values functions rewritten to
+   read the record's workspace release, the refill trigger on `workspace_models` (D33). Downgrade
+   restores the singleton from the default workspace's row. `ChangeSetBase.model_runtime_version`
+   keeps its column and now holds the assignment version.
+2. **Bootstrap and the schema-upgrade CLI:** bootstrap gives every workspace without a row the
+   bootstrap release; the 0.6-era `is_active` path goes; the CLI's transition assigns every
+   workspace running the selected 0.4 release.
+3. **Registry:** `resolve_model_snapshot(session, workspace_key)` resolves the workspace (default
+   when `None`), then its release through the per-release cache; `session.info` records each
+   workspace's resolved release, and `require_resolved_release` rechecks each under a share lock on
+   its `workspace_models` row; `MODEL_RELEASE_CHANGED` gains `details.workspaceKey` and
+   `currentReleaseId` (replacing `activeReleaseId`). Startup loads every assigned release (D34).
+   `resolve_active`, `refresh_active` and `runtime.py` go.
+4. **Every call site** of P0's M1 list, and D33's: routers through `ActiveModelSnapshot` /
+   `RequestModelSnapshot` (now resolving `workspaceKey`; an unknown one is
+   `404 WORKSPACE_NOT_FOUND`), the change-set base capture and publish check against the
+   workspace's release (`CHANGE_SET_MODEL_RELEASE_CONFLICT` with `details.workspaceKey`), the feed,
+   the reference page, system state (the default workspace's), startup.
+5. **API:** workspace responses gain `model`; `GET /workspaces/{workspaceKey}/model`;
+   `POST /workspaces` `modelReleaseId` (D31); `GET /model` and the metadata routes add the
+   `RDM-Workspace` header beside `X-Model-Release-Id` and the `ETag`; `GET /model-releases` replaces
+   `active` with `assigned` (filter and field) and adds `workspaces` (D24). From M2:
+   `POST /workspaces/{workspaceKey}/model/activation` (`releaseId`, `expectedVersion`,
+   `expectedReleaseId`) activates into that workspace alone: its compatibility check counts that
+   workspace's data, the contract check compares with its release, subscription suspension and the
+   matrix-state resync cover it only; the answer adds `changeSetsLeftBehind` (D26); the audit entry
+   names the workspace and `GET /model-releases/{id}/activations` items gain `workspaceKey`.
+   `GET /workspace-models` pages the assignments (`releaseKey`, `releaseId`). `GET
+   /model-runtime-state` and `POST /model-releases/{id}/activation` are removed. OpenAPI lock
+   re-baselined by diffing.
+6. **Frontend, no visible change:** the release type's `active` becomes `assigned` (four reads in
+   Settings › Model and the create-draft dialog); `Workspace` gains `model`; Settings › Model, the
+   install dialog and the load dialog read the default workspace's model and activate into it
+   through the new routes (M5 adds the choice of workspace).
+7. **Docs:** API.md (the M1 part moved to delivered), ARCHITECTURE (resolution and the lock),
+   OPERATIONS (D34's health), USER_JOURNEYS J36 evidence, CHANGELOG, PROJECT_STATUS, TODO.
+
+**Journey test cases** (J36, `workspace_models` marker; each runs in both directions,
+`generated-a` beside `generated-b` and the reverse; names structures only):
+
+1. **J36.1 A new workspace on another model.** Given configuration X running in the default
+   workspace and Y's model installed. When a workspace is created with Y's release. Then its
+   `model` names Y's release, version 1; the default workspace's still names X's;
+   `GET /workspaces/{key}/model` answers the same; `GET /model-releases?assigned=true` lists both,
+   each with its workspace. A workspace created without `modelReleaseId` runs X's release; an
+   unknown release is `404 MODEL_RELEASE_NOT_FOUND`.
+2. **J36.3/J36.6 Each workspace reads and writes by its own model.** Given the two workspaces of
+   case 1. When `GET /model?workspaceKey=` is read for each, and an `R` is created, read and found
+   in each. Then each answers its own model with its `X-Model-Release-Id` and `RDM-Workspace`; each
+   record carries its model's keys; X's `R` type key is refused in Y's workspace with its unknown-type
+   code. `GET /model` without `workspaceKey` answers the default workspace's model; an unknown
+   `workspaceKey` is `404 WORKSPACE_NOT_FOUND`.
+3. **Unique values follow the workspace's model.** Given the two workspaces. When two `R`s with
+   one `R.u` value are created in Y's workspace. Then the second is refused with the unique-value
+   code; the same value is accepted once in X's workspace.
+4. **J36.5 A write when its workspace's release changed meanwhile.** Given X's release X1 in the
+   default workspace, X2 installed, and a workspace on Y. When actor A's live write in the default
+   workspace is resolved under X1 and waits, X2 is activated into the default workspace, and a live
+   write in Y's workspace runs meanwhile. Then A is refused `409 MODEL_RELEASE_CHANGED` naming the workspace, X1 and X2,
+   nothing of A is saved; the write in Y's workspace commits; Y's workspace still runs Y.
+5. **J36.2 Activation into one workspace leaves the others alone.** Given two workspaces on X1,
+   the second holding records of a type X2 drops and a subscription X2 cannot serve, and a
+   workspace on Y. When X2 is activated into the first. Then it is not refused for the second's
+   records; the first runs X2 at version 2, the second X1 and Y's workspace Y, each at its version;
+   only the first's subscriptions are suspended; activating X2 into the second is
+   `409 MODEL_MIGRATION_REQUIRED` counting its records only; a stale `expectedVersion` is
+   `409 ACTIVATION_CONFLICT` with `details.workspaceKey`; `GET /workspace-models?releaseKey=` lists
+   the assignments of X.
+6. **A change set publishes under its workspace's release.** Given the two workspaces. When a
+   change set is created, edited and published in Y's workspace. Then it is pinned to Y's release
+   and publishes; a change set of the default workspace pinned to X1 is listed in the activation's
+   `changeSetsLeftBehind` when X2 is activated there, and its publish is refused
+   `409 CHANGE_SET_MODEL_RELEASE_CONFLICT` with `details.workspaceKey`.
+7. **J36.8 One workspace's release cannot be loaded** (the state arrives from outside the API: an
+   older database whose release this version cannot read). Given a workspace on such a release.
+   When the engine starts. Then that workspace's reads answer `503 MODEL_REGISTRY_UNAVAILABLE`
+   naming it; the default workspace serves; `/health` is 200.
+
+**Startup and migration** (the `startup` group, older-style module): upgrade of a 0.10.0 database
+holding two workspaces (every workspace assigned the active release, unique values kept, the
+singleton and the flag gone), clean bootstrap, restart, an interrupted migration resumed, the
+lifespan against a real temporary database, and a smoke start on a copy of the development
+database. **Unit:** the registry's resolution with one unloadable release among several.
+
+**Groups:** `workspace_models` (new), `model`, `records`, `matrix`, `events`, `contract`,
+`startup`; the frontend's
+Settings › Model and create-draft tests, format, lint and build. No full suite (R).
+
+**Composable domains (ADR-032):** no door is affected; unique values stay keyed by workspace, and
+identity and attribute storage are unchanged.
+
+##### M1 record (2026-10-15)
+
+**Built 2026-10-15; the package's group run waits for the user's go-ahead** (it is longer than the
+2-minute ceiling, see Checks). Built as planned, M2 included:
+
+- **Migration `20261018_01`:** `workspace_models` (D30), one row per workspace from the singleton at
+  version 1; `model_runtime_state`, its trigger and `model_releases.is_active` dropped; the
+  unique-values triggers read the record's workspace release and the refill trigger is on
+  `workspace_models`, per workspace (D28). The downgrade restores the singleton from the default
+  workspace (a workspace on another model then has no representation; values another model made
+  unique lose their rows).
+- **Registry:** `resolve_model_snapshot(session, workspace_key)` (the default workspace for `None`),
+  `resolve_record_snapshot` and `resolve_relation_snapshot` for writes naming a record; the commit
+  guard per resolved workspace; unloadable releases per release (`start`, `withdraw`, D34);
+  `engine/model/runtime.py` removed; `engine/model/workspace_models.py` (assignment reads, a new
+  workspace's assignment).
+- **Activation into one workspace** (`releases.activate_model_release`), its route, `GET
+  /workspaces/{key}/model`, `GET /workspace-models`, `modelReleaseId` on `POST /workspaces`; the two
+  0.10 routes removed; compatibility scoped by workspace (`analyze_compatibility(…, workspace_keys)`).
+- **D33's readers:** unique values, matrix states, the feed, consumer reads, the event dispatcher,
+  subscriptions, jobs, batches and the source jobs resolve their workspace's model. Import profiles,
+  drafts, the consumer index and OpenAPI and the reference page resolve the default workspace's,
+  for M3.
+- **Frontend:** the release type's `assigned` and `workspaces`, `Workspace.model`,
+  `api.workspaceModel`, `api.defaultWorkspaceModel`, `api.activateWorkspaceModel`. Settings › Model,
+  the install dialog and the create-draft dialog work on the default workspace; the change-set
+  dialog and the workspace data context compare with the workspace's own release; Load into a change
+  set activates into the workspace it loads into. No visible change with one model.
+- **Docs:** API.md (the delivered contract and § Workspace models), ARCHITECTURE, OPERATIONS,
+  CURRENT_FUNCTIONALITY, USER_JOURNEYS J36, API_JOURNEYS, EXECUTION_GUIDE (the `workspace_models`
+  group), CHANGELOG, PROJECT_STATUS, TODO.
+
+**Where it differs from the plan:** `RDM-Workspace` is set on `GET /model` only, not on the metadata
+routes (they answer no model headers today). Creating a workspace on a release is gated by workspace
+administration, not model administration (it changes no existing workspace's model). The audit
+aggregate of an activation is `workspace_model`; the activation history still reads 0.10's
+`model_runtime_state` entries, without a workspace.
+
+**Older tests changed because M1 made them wrong** (no case's intent changed): the harness's
+`world.activate` (into a named workspace) and a new `world.activate_everywhere` (what one activation
+did before 0.11, used by J34, which loads into workspaces of its own); J08, J12.6 (one schema-upgrade
+entry per workspace now), J21's route list and the runtime-state reads of eleven journey files; the
+older modules `test_model_lifecycle`, `test_w5_activation_write_race` and `test_pg3_concurrency`
+(activation into the workspace the race writes in; the lock patterns on `workspace_models`),
+`test_model_schema_upgrade`, `test_startup` (`HEAD`), `test_foreign_keys`, `test_matrix_states`,
+`test_wp81a_context`, `test_wp81b_current_live_bases`, the unique-values unit test, the volume
+fixture (its workspace's assignment row, inserted before its values) and baseline; twelve browser
+runners' API calls (syntax-checked only); Vitest fixtures.
+
+**Checks so far:**
+
+- J36 (`test_j36_workspace_models.py`): 7 cases × 2 directions written first and seen failing (14
+  failed: routes and fields absent), then 14 passed (28.8 s).
+- `test_startup`: the new upgrade case (a 0.10.0 database with two workspaces and unique values, an
+  interrupted run rolled back and refused naming the table, two starts, assignments at version 1,
+  unique rows kept, singleton and flag gone, a downgrade) with the two neighbouring migration cases:
+  3 passed. **Smoke start** on a copy of the development database (`rdm`, at `20261016_01`, 2
+  workspaces, 2,380 records): migrated to `20261018_01`, both workspaces on the release that was
+  active at version 1, `/health` and `/system` 200, unique-value rows 15 before and after; the copy
+  dropped and the development server stopped again.
+- Journeys J07, J08, J12, J18, J20, J21, J25, J27, J31, J33, J34 in one parallel run (4 min 31 s,
+  load 6, **over the ceiling and not announced first**): 3 failures, both caused by the change (J12.6
+  counting one entry per workspace; J34 loading into workspaces activation no longer moves), fixed,
+  then J12.6 (2 passed) and J34 alone (112 passed, 5 min 3 s, **also not announced first**).
+- `contract` group: 38 passed; `test_boundaries::test_tiers_hold` fails, at `71b15ea` too (TODO).
+  OpenAPI lock re-baselined after diffing the default document against `71b15ea`: two routes added,
+  one removed, the schemas named in the lock's comment changed, nothing else.
+- Ruff on `app/` and `tests/`: clean. Frontend: `tsc`, `npm run lint` (0 errors, the 7 listed
+  warnings), `npm run format`, `npm run build` passed; Vitest on the 13 changed files, 130 passed.
+
+**Not run yet:** the groups the execution guide selects for these boundaries (`workspace_models`,
+`model`, `model_admin`, `records`, `matrix`, `workspaces`, `change_sets`, `mapping`, `feed`,
+`consumer`, `jobs`, `startup`, with `test_pg3_concurrency` and `test_w5_activation_write_race`):
+announced for the user's go-ahead. No browser runner (no visible change; R runs them). **What the
+user cannot do yet:** choose a workspace in Settings › Model or the shell (M5), import profiles and
+drafts per workspace model (M3), spanning reads across models (M4).
+
 #### M2: Installing and activating into one workspace
+
+**Folded into M1 (the user, 2026-10-15, D32).** Its scope below is delivered with M1.
 
 **Design:** D4, D5, D14, D26, D28. **Needs:** M1.
 

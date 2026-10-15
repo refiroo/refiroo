@@ -30,7 +30,8 @@ const release = {
   schemaVersion: "0.4",
   modelHash: "abc",
   installedAt: "2026-09-05T00:00:00Z",
-  active: true,
+  assigned: true,
+  workspaces: ["default"],
 };
 const draft: ModelDraft = {
   id: "d1",
@@ -59,9 +60,13 @@ describe("ModelWorkbench", () => {
   it("keeps release inspection visible while hiding mutation actions", async () => {
     vi.mocked(api.capabilities).mockResolvedValue(capabilitiesFixture({ manageModel: false }));
     vi.mocked(api.modelReleases).mockResolvedValue({ items: [release], nextCursor: null });
-    vi.mocked(api.modelRuntimeState).mockResolvedValue({
-      activeReleaseId: "r1",
-      activeModelHash: "abc",
+    vi.mocked(api.defaultWorkspaceModel).mockResolvedValue({
+      workspaceKey: "default",
+      releaseId: "r1",
+      releaseKey: "rdm",
+      releaseVersion: "1",
+      schemaVersion: "0.10",
+      modelHash: "abc",
       version: 1,
       updatedAt: release.installedAt,
     });
@@ -80,13 +85,17 @@ describe("ModelWorkbench", () => {
   });
 
   it("keeps unsupported historical releases inspectable while blocking activation", async () => {
-    const historical = { ...release, id: "historical", active: false };
+    const historical = { ...release, id: "historical", assigned: false, workspaces: [] };
     vi.mocked(api.capabilities).mockResolvedValue(capabilitiesFixture({ manageModel: true }));
     vi.mocked(api.modelReleases).mockResolvedValue({ items: [release, historical], nextCursor: null });
     vi.mocked(api.modelDrafts).mockResolvedValue({ items: [], nextCursor: null });
-    vi.mocked(api.modelRuntimeState).mockResolvedValue({
-      activeReleaseId: "r1",
-      activeModelHash: "abc",
+    vi.mocked(api.defaultWorkspaceModel).mockResolvedValue({
+      workspaceKey: "default",
+      releaseId: "r1",
+      releaseKey: "rdm",
+      releaseVersion: "1",
+      schemaVersion: "0.10",
+      modelHash: "abc",
       version: 1,
       updatedAt: release.installedAt,
     });
@@ -107,9 +116,13 @@ describe("ModelWorkbench", () => {
     vi.mocked(api.capabilities).mockResolvedValue(capabilitiesFixture({ manageModel: true }));
     vi.mocked(api.modelReleases).mockResolvedValue({ items: [release], nextCursor: null });
     vi.mocked(api.modelDrafts).mockResolvedValue({ items: [draft], nextCursor: null });
-    vi.mocked(api.modelRuntimeState).mockResolvedValue({
-      activeReleaseId: "r1",
-      activeModelHash: "abc",
+    vi.mocked(api.defaultWorkspaceModel).mockResolvedValue({
+      workspaceKey: "default",
+      releaseId: "r1",
+      releaseKey: "rdm",
+      releaseVersion: "1",
+      schemaVersion: "0.10",
+      modelHash: "abc",
       version: 1,
       updatedAt: release.installedAt,
     });

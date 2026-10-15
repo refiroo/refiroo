@@ -87,6 +87,14 @@ def _workspace(session: Session, key: str | None) -> Workspace | ApiError:
     return workspace
 
 
+def _model_of(session: Session, workspace_key: str | None) -> EngineModel:
+    """The model a subscription to the workspace is checked against (0.11 M1); an unknown
+    workspace is reported among the findings, so the default workspace's model checks the rest."""
+    if workspace_key is not None and session.get(Workspace, workspace_key) is None:
+        workspace_key = None
+    return resolve_model_snapshot(session, workspace_key).model
+
+
 def _findings(
     session: Session,
     model: EngineModel,
@@ -147,7 +155,7 @@ def create_subscription(
     session: Session, payload: ConsumerSubscriptionCreate, settings: SubscriptionSettings
 ) -> tuple[ConsumerSubscription, str]:
     """The new subscription and its signing key, which no later read returns."""
-    model = resolve_model_snapshot(session).model
+    model = _model_of(session, payload.workspaceKey)
     asked = Asked(payload.consumerApi, list(dict.fromkeys(payload.events)), listed(payload.filters))
     findings, workspace = _findings(session, model, asked, payload.workspaceKey, payload.url, settings)
     if findings:
@@ -232,7 +240,7 @@ def update_subscription(
 
     def change() -> ConsumerSubscription:
         subscription = _claimed(session, public_id, payload.expectedVersion)
-        model = resolve_model_snapshot(session).model
+        model = resolve_model_snapshot(session, subscription.workspace_key).model
         events = list(dict.fromkeys(payload.events)) if payload.events is not None else subscription.event_keys
         filters = listed(payload.filters) if payload.filters is not None else subscription.filters
         url = payload.url if payload.url is not None else subscription.url
@@ -304,7 +312,7 @@ def resume_subscription(
             raise api_error(
                 409, "SUBSCRIPTION_NOT_SUSPENDED", f"Subscription '{public_id}' is not suspended"
             )
-        model = resolve_model_snapshot(session).model
+        model = resolve_model_snapshot(session, subscription.workspace_key).model
         asked = Asked(subscription.consumer_api, subscription.event_keys, subscription.filters)
         findings, _workspace_found = _findings(
             session, model, asked, subscription.workspace_key, subscription.url, settings

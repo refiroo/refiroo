@@ -101,7 +101,7 @@ try {
     await page.goto(`${apiUrl}/docs`);
     await page.getByRole("heading", { name: openapi.info.title, level: 1 }).waitFor();
     // An operation from the management document, found by its path, proves the source was read.
-    await page.getByText("/api/v1/model-runtime-state").first().waitFor();
+    await page.getByText("/api/v1/workspace-models").first().waitFor();
     await page.waitForLoadState("networkidle");
     expect(await page.title() === "RDM Engine API reference", `${label}: title ${await page.title()}`);
     expect(loaded.includes("/docs/scalar/standalone.js"), `${label}: bundled script not loaded: ${loaded}`);

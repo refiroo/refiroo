@@ -10,10 +10,11 @@ from unittest.mock import patch
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
+from workspace_model_support import DEFAULT_ACTIVATION, default_model
 
 from app.db import SessionLocal
 from app.main import app, create_app
-from app.models.database import ModelDraft, ModelRelease, ModelRuntimeState
+from app.models.database import ModelDraft, ModelRelease
 
 
 def _install_historical(*, schema_version="0.4", stored_schema_version=None, corrupt=False):
@@ -31,7 +32,6 @@ def _install_historical(*, schema_version="0.4", stored_schema_version=None, cor
             schema_version=stored_schema_version or schema_version,
             model_hash=hashlib.sha256(json.dumps(model_json, sort_keys=True).encode()).hexdigest(),
             model_json=model_json,
-            is_active=False,
         )
         session.add(release)
         session.commit()
@@ -136,12 +136,12 @@ def test_activation_unsupported_schema_retains_422(monkeypatch):
         active_id = client.get("/api/v1/model").headers["X-Model-Release-Id"]
         historical_id = _install_historical(schema_version="0.4")
         with SessionLocal() as session:
-            state = session.get(ModelRuntimeState, 1)
+            state = default_model(session)
             version = state.version
 
         response = client.post(
-            f"/api/v1/model-releases/{historical_id}/activation",
-            json={"expectedRuntimeVersion": version, "expectedActiveReleaseId": active_id},
+            DEFAULT_ACTIVATION,
+            json={"releaseId": historical_id, "expectedVersion": version, "expectedReleaseId": active_id},
         )
 
     assert response.status_code == 422
@@ -163,20 +163,20 @@ def test_activation_reports_unsupported_schema_from_json_without_mutation(monkey
             schema_version="0.4", stored_schema_version="0.6"
         )
         with SessionLocal() as session:
-            state = session.get(ModelRuntimeState, 1)
+            state = default_model(session)
             version = state.version
 
         response = client.post(
-            f"/api/v1/model-releases/{historical_id}/activation",
-            json={"expectedRuntimeVersion": version, "expectedActiveReleaseId": active_id},
+            DEFAULT_ACTIVATION,
+            json={"releaseId": historical_id, "expectedVersion": version, "expectedReleaseId": active_id},
         )
 
     assert response.status_code == 422
     assert response.json()["error"]["details"]["schemaVersion"] == "0.4"
     with SessionLocal() as session:
-        state = session.get(ModelRuntimeState, 1)
+        state = default_model(session)
         assert state.version == version
-        assert session.get(ModelRelease, state.active_model_release_id).public_id == active_id
+        assert session.get(ModelRelease, state.model_release_id).public_id == active_id
 
 
 def test_unexpected_error_includes_correlation_id():

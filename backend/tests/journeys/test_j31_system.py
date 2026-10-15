@@ -49,8 +49,8 @@ def test_read_what_the_deployment_runs(world):
     # Oldest first, by number: 0.10 after 0.9 (0.10 N1).
     assert system["schemaLanguages"] == list(SCHEMA_VERSIONS)
     assert system["schemaLanguages"][-2:] == ["0.9", "0.10"]
-    state = ok(world.api.get("/model-runtime-state"))
-    release = ok(world.api.get(f"/model-releases/{state['activeReleaseId']}"))
+    state = world.workspace_model()
+    release = ok(world.api.get(f"/model-releases/{state['releaseId']}"))
     assert system["activeModelRelease"] == {
         "id": release["id"],
         "key": release["key"],
@@ -156,7 +156,7 @@ def test_the_active_release_after_an_activation(world):
     before = ok(world.api.get("/system"))["activeModelRelease"]
     assert before["id"] != release["id"]
     ok(world.activate(release["id"]))
-    state = ok(world.api.get("/model-runtime-state"))
+    state = world.workspace_model()
     active = ok(world.api.get("/system"))["activeModelRelease"]
     assert (active["id"], active["key"], active["version"]) == (
         release["id"],

@@ -204,7 +204,7 @@ export function CreateDraftDialog({
                   {releases.map((release) => (
                     <option key={release.id} value={release.id}>
                       {release.key}@{release.version}
-                      {release.active ? " (active)" : ""}
+                      {release.assigned ? " (active)" : ""}
                     </option>
                   ))}
                 </select>

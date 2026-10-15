@@ -165,3 +165,14 @@ export const codelistObject: ObjectItem = {
     },
   ],
 };
+
+/** The release a fixture workspace runs, as a workspace response carries it (0.11 M1). */
+export const testWorkspaceModel = {
+  releaseId: "release-1",
+  releaseKey: "test",
+  releaseVersion: "0.3.0",
+  schemaVersion: "0.5",
+  modelHash: "hash",
+  version: 1,
+  updatedAt: "2026-09-05T00:00:00Z",
+};

@@ -53,7 +53,7 @@ def test_pin_a_change_set_to_the_candidate_activate_and_publish(world):
     write made live; M2 activated and C2 published. Then C2 reads M2 and the write succeeds there,
     live refuses it, C1 and live keep M1 until activation, and C2 then publishes. When C1 is moved to
     M2. Then its version advances and it publishes."""
-    m1 = ok(world.api.get("/model-runtime-state"))["activeReleaseId"]
+    m1 = world.workspace_model()["releaseId"]
     model, added = world.candidate("compatible")
     m2 = world.install(model)["id"]
     c1 = world.change_set(name="On M1")
@@ -143,7 +143,7 @@ def test_an_unavailable_corrupt_or_unsupported_release_is_refused(world):
     and an unsupported stored release are refused the same way; such releases arrive only from
     outside the API (an older engine, a damaged store), so the test writes them into the store."""
     c1 = world.change_set()
-    state = ok(world.api.get("/model-runtime-state"))
+    state = world.workspace_model()
     others = ok(world.api.get(f"/workspaces/{W2}/change-sets"))["items"]
     unknown = str(uuid4())
     refused(
@@ -180,7 +180,7 @@ def test_an_unavailable_corrupt_or_unsupported_release_is_refused(world):
     refused(_pin(world, c1, corrupt), 409, "PINNED_MODEL_INVALID")
     refused(_pin(world, c1, unsupported), 409, "UNSUPPORTED_PINNED_MODEL_SCHEMA")
 
-    assert ok(world.api.get("/model-runtime-state")) == state
+    assert world.workspace_model() == state
     assert world.current(c1)["version"] == c1["version"]
     assert ok(world.api.get(f"/workspaces/{W2}/change-sets"))["items"] == others
 

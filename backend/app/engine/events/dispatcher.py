@@ -202,7 +202,7 @@ class EventDispatcher:
             )
             if subscription is None or subscription.status != ACTIVE:
                 return False
-            model = resolve_model_snapshot(session).model
+            model = resolve_model_snapshot(session, subscription.workspace_key).model
             definition = definition_of(model, subscription.consumer_api)
             # A release that no longer serves it suspended it when it was activated (C-D99).
             if definition is None or definition.contractVersion != subscription.contract_version:

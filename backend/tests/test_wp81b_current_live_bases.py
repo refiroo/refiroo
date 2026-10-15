@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select, text
 from sqlalchemy.exc import OperationalError
+from workspace_model_support import default_model
 from wp8_support import (
     build_complete_graph,
     create_change_set,
@@ -28,7 +29,6 @@ from app.models.database import (
     ChangeSetBase,
     ChangeSetBaseObject,
     ChangeSetBaseRelation,
-    ModelRuntimeState,
 )
 from app.models.schema import EngineModel
 
@@ -261,15 +261,15 @@ def test_current_live_capture_refuses_a_model_selection_that_changed_before_lock
         workspace_key = unique_key("model-capture-race")
         create_workspace(client, workspace_key)
     with SessionLocal() as session:
-        state = session.get(ModelRuntimeState, 1)
+        state = default_model(session)
         assert state is not None
         with pytest.raises(ApiError) as error:
             create_change_set_service(
                 session,
                 workspace_key,
-                state.active_model_release_id,
+                state.model_release_id,
                 source="currentLive",
-                expected_model_runtime_release_id=state.active_model_release_id + 1,
+                expected_model_runtime_release_id=state.model_release_id + 1,
             )
         assert error.value.code == "CHANGE_SET_SNAPSHOT_RETRY"
         assert (
@@ -321,13 +321,13 @@ def test_current_live_capture_reads_one_snapshot_while_an_external_writer_commit
 @pytest.mark.parametrize(
     "statement",
     [
-        "UPDATE model_runtime_state SET version = version WHERE id = 1",
+        "UPDATE workspace_models SET version = version WHERE workspace_key = :key",
         "UPDATE workspaces SET status = status WHERE key = :key",
     ],
     ids=["activation", "retirement"],
 )
 def test_current_live_capture_holds_off_activation_and_retirement(monkeypatch, statement):
-    """While the capture runs, the runtime-state and workspace rows cannot be changed."""
+    """While the capture runs, the workspace's model assignment and its row cannot be changed."""
     with TestClient(app) as client:
         workspace_key = unique_key("capture-locks")
         create_workspace(client, workspace_key)
@@ -363,7 +363,10 @@ def test_current_live_capture_after_a_concurrent_activation_asks_for_a_retry():
         try:
             connection = external.connect()
             transaction = connection.begin()
-            connection.execute(text("UPDATE model_runtime_state SET version = version WHERE id = 1"))
+            connection.execute(
+                text("UPDATE workspace_models SET version = version WHERE workspace_key = :key"),
+                {"key": workspace_key},
+            )
             # The capture starts its snapshot, then waits for the runtime-state row until the
             # "activation" above commits; a row changed after the snapshot cannot be captured.
             timer = threading.Timer(0.3, transaction.commit)
@@ -512,9 +515,9 @@ def test_sc05_current_live_copies_post_publication_independent_relation_changes(
                 candidate = EngineModel.model_validate(source)
                 with SessionLocal() as session:
                     release = ensure_bootstrap_release(session, candidate)
-                    state = session.get(ModelRuntimeState, 1)
+                    state = default_model(session)
                     assert state is not None
-                    state.active_model_release_id = release.id
+                    state.model_release_id = release.id
                     state.version += 1
                     session.commit()
                 model_registry.clear()

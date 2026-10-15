@@ -118,9 +118,9 @@ def submit_inference(session: Session, draft_id: str, request: InferenceRequest,
     job = start_job(
         session,
         kind=KIND,
-        workspace_key=resolve_workspace(session, source.workspace_key).key,
+        workspace_key=(workspace_key := resolve_workspace(session, source.workspace_key).key),
         change_set_id=None,
-        model_release_id=resolve_model_snapshot(session).release_db_id,
+        model_release_id=resolve_model_snapshot(session, workspace_key).release_db_id,
         parameters={
             "draftId": draft.public_id,
             "draftVersion": draft.version,

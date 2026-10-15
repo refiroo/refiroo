@@ -197,8 +197,8 @@ export function InstallDialog({
       }
       const release = await api.installModelDraft(draftId, latestVersion());
       try {
-        const state = await api.modelRuntimeState();
-        await api.activateModelRelease(release.id, state);
+        const state = await api.defaultWorkspaceModel();
+        await api.activateWorkspaceModel(release.id, state);
       } catch (cause) {
         setOutcome({ kind: "installed", release, reason: activationRefusal(cause) });
         onInstalledOnly();

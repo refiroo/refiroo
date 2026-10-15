@@ -140,13 +140,19 @@ def finding_body(error: ApiError) -> dict[str, Any]:
     return {"code": error.code, "message": error.message, "pointer": (error.details or {}).get("pointer")}
 
 
-def suspend_left_behind(session: Session, model: EngineModel) -> None:
-    """Suspend each active subscription the release being activated cannot serve (C-D99), in the
-    activation's transaction. A suspended one keeps its reason; its resume checks again."""
+def suspend_left_behind(session: Session, model: EngineModel, workspace_key: str) -> None:
+    """Suspend each active subscription of the workspace that the release being activated into it
+    cannot serve (C-D99, 0.11 M1), in the activation's transaction. A suspended one keeps its
+    reason; its resume checks again."""
     now = datetime.now(UTC)
     rows = []
     for subscription in session.scalars(
-        select(ConsumerSubscription).where(ConsumerSubscription.status == ACTIVE).with_for_update()
+        select(ConsumerSubscription)
+        .where(
+            ConsumerSubscription.status == ACTIVE,
+            ConsumerSubscription.workspace_key == workspace_key,
+        )
+        .with_for_update()
     ):
         asked = Asked(subscription.consumer_api, subscription.event_keys, subscription.filters)
         findings = definition_findings(model, asked)
@@ -155,7 +161,7 @@ def suspend_left_behind(session: Session, model: EngineModel) -> None:
                 {
                     "row": subscription.sequence_id,
                     "reason": MODEL_CHANGED,
-                    "message": "The active model release no longer declares what this subscription "
+                    "message": "The workspace's model release no longer declares what this subscription "
                     "names; edit it, then resume it",
                     "details": {"errors": [finding_body(error) for error in findings]},
                 }

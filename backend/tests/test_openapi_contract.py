@@ -154,10 +154,17 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # Re-baselined for 0.10 A8c: a source's fixed parent (FixedParent, Source.parent and its
     # description) and a note's meaning heading (SourceBlockNote); diffed against the previous
     # commit, nothing else changed. Re-baselined for 0.10.0 (R, D153): info.version 0.10.0; with
-    # 0.10.0-alpha.1 the document hashes to the previous lock exactly.
+    # 0.10.0-alpha.1 the document hashes to the previous lock exactly. Re-baselined for 0.11 M1
+    # (ADR-042): GET /workspaces/{key}/model and GET /workspace-models (WorkspaceModelResponse,
+    # WorkspaceAssignmentResponse, WorkspaceAssignmentPage); a workspace's model; WorkspaceCreate's
+    # modelReleaseId; a release's assigned and workspaces in place of active, and the list's assigned
+    # filter; an activation's workspaceKey; GET /model's RDM-Workspace header; GET
+    # /model-runtime-state and ModelRuntimeStateResponse removed. Diffed against the previous
+    # commit, nothing else changed (the activation route is registered with model administration,
+    # off in the default document).
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "971667891eb4d65067a2b79c2ca65114810aa8fddaf0441f80437e730ad2892d"
+        "26731088033791e54ba93dcaa1fdad2219305c03798a57c84797d3a89db7a3c9"
     )
 
 
@@ -190,8 +197,9 @@ def test_paging_openapi_inventory():
     # 0.9 B1 added the job list and a job's outcomes; H4c removed GET /workspaces/{key}/mappings (D-1);
     # 0.9 J2 added the import profiles; 0.9 J3 an import's rows; 0.9 K6a what records hold; 0.10 A3
     # the source files and a profile's sheets and columns; 0.10 A5c a profile check's new values,
-    # drift, missing records and rows; 0.10 A8b a range of a sheet's cells.
-    assert seekable <= paged and len(paged) == 37
+    # drift, missing records and rows; 0.10 A8b a range of a sheet's cells; 0.11 M1 the workspaces'
+    # model assignments.
+    assert seekable <= paged and len(paged) == 38
     assert {
         "/api/v1/jobs",
         "/api/v1/jobs/{job_id}/items",
@@ -356,6 +364,9 @@ def test_base_0_5_enabled_openapi_exposes_guarded_activation(monkeypatch):
         # 0.10 A8b: a rectangle read as a list (D128).
         "/api/v1/model-drafts/{draft_id}/inference/list": frozenset({"post"}),
     }
+    # 0.11 M1: activation names its workspace; the instance-wide route is gone (ADR-042).
+    assert set(schema["paths"]["/api/v1/workspaces/{workspace_key}/model/activation"]) == {"post"}
+    assert "/api/v1/model-releases/{release_id}/activation" not in schema["paths"]
 
 
 def test_base_0_9_c11_c12_enabled_openapi_exposes_the_subscriptions_api(monkeypatch):

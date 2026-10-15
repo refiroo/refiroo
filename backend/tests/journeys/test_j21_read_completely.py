@@ -262,7 +262,7 @@ def test_an_unknown_query_parameter_is_refused(world):
         "/attribute-types",
         "/object-type-relations",
         "/model-releases",
-        "/model-runtime-state",
+        "/workspace-models",
         "/jobs",
         "/workspace-runtime-state",
     ]

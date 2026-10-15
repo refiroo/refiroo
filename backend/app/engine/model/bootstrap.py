@@ -1,8 +1,10 @@
-from sqlalchemy import select, update
+from datetime import UTC, datetime
+
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ...db import SessionLocal
-from ...models.database import ModelRelease, ModelRuntimeState
+from ...models.database import ModelRelease, Workspace, WorkspaceModel
 from ...models.schema import EngineModel
 from .releases import ReleaseIdentityConflict, install_model_release
 
@@ -15,6 +17,8 @@ def bootstrap_model(model: EngineModel) -> ModelRelease:
 
 
 def ensure_bootstrap_release(session: Session, model: EngineModel) -> ModelRelease:
+    """Install the bootstrap model and give it to every workspace that runs no release yet: on a
+    new database, the default workspace the baseline migration created (0.11 M1)."""
     try:
         release, _created = install_model_release(session, model)
     except ReleaseIdentityConflict as exc:
@@ -23,28 +27,15 @@ def ensure_bootstrap_release(session: Session, model: EngineModel) -> ModelRelea
             f"{model.release.key}@{model.release.version} has different installed content"
         ) from exc
 
-    state = session.get(ModelRuntimeState, 1)
-    if state is None:
-        legacy_active = list(
-            session.scalars(select(ModelRelease).where(ModelRelease.is_active.is_(True)))
+    unassigned = session.scalars(
+        select(Workspace.key)
+        .where(~Workspace.key.in_(select(WorkspaceModel.workspace_key)))
+        .order_by(Workspace.key)
+    ).all()
+    now = datetime.now(UTC)
+    for key in unassigned:
+        session.add(
+            WorkspaceModel(workspace_key=key, model_release_id=release.id, version=1, updated_at=now)
         )
-        if len(legacy_active) > 1:
-            raise RuntimeError(
-                "Cannot initialize model runtime state: multiple legacy active releases exist"
-            )
-        selected_release = legacy_active[0] if legacy_active else release
-        state = ModelRuntimeState(id=1, active_model_release_id=selected_release.id, version=1)
-        session.add(state)
-        session.flush()
-
-    _sync_legacy_active_flag(session, state.active_model_release_id)
+    session.flush()
     return release
-
-
-def _sync_legacy_active_flag(session: Session, active_release_id: int) -> None:
-    session.execute(update(ModelRelease).values(is_active=False))
-    session.execute(
-        update(ModelRelease)
-        .where(ModelRelease.id == active_release_id)
-        .values(is_active=True)
-    )

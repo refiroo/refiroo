@@ -78,24 +78,11 @@ class ModelRelease(Base):
     schema_version: Mapped[str] = mapped_column(String(40))
     model_hash: Mapped[str] = mapped_column(String(64), unique=True)
     model_json: Mapped[dict[str, Any]] = mapped_column(JSON)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     installed_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), default=lambda: datetime.now(UTC)
     )
 
 
-class ModelRuntimeState(Base):
-    __tablename__ = "model_runtime_state"
-    __table_args__ = (CheckConstraint("id = 1", name="ck_model_runtime_state_singleton"),)
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
-    active_model_release_id: Mapped[int] = mapped_column(
-        ForeignKey("model_releases.id", ondelete="RESTRICT"), nullable=False, index=True
-    )
-    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
-    updated_at: Mapped[datetime] = mapped_column(
-        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
-    )
 
 
 class ModelDraft(Base):
@@ -182,6 +169,40 @@ class Workspace(Base):
     # The workspace's feed: the last position a live write took (Base 0.9 F1, INTEGRATION_API F3).
     feed_position: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
+    )
+
+
+class WorkspaceModel(Base):
+    """The release a workspace runs (Product 0.11 M1, ADR-042, D30), with the assignment's version.
+
+    A row of its own rather than columns on ``workspaces``: a write rechecks its workspace's release
+    under a share lock on this row as it commits (``registry.require_resolved_release``), and
+    activation holds it for update, so neither waits on the locks live writes and publishing take
+    on the workspace row. A trigger keeps ``unique_attribute_values`` following each row's release.
+    """
+
+    __tablename__ = "workspace_models"
+
+    workspace_key: Mapped[str] = mapped_column(
+        ForeignKey(
+            "workspaces.key",
+            name="fk_workspace_models_workspace_key_workspaces",
+            ondelete="CASCADE",
+        ),
+        primary_key=True,
+    )
+    model_release_id: Mapped[int] = mapped_column(
+        ForeignKey(
+            "model_releases.id",
+            name="fk_workspace_models_model_release_id_model_releases",
+            ondelete="RESTRICT",
+        ),
+        nullable=False,
+        index=True,
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
     )
 
 
@@ -530,12 +551,12 @@ class AttributeValue(Base):
 
 
 class UniqueAttributeValue(Base):
-    """A live value of an attribute the active release declares ``unique``, held once per
-    workspace (ADR-010, 0.9 J2a, D75).
+    """A live value of an attribute its workspace's release declares ``unique``, held once per
+    workspace (ADR-010, 0.9 J2a, D75, 0.11 D28).
 
     PostgreSQL keeps these rows: triggers on ``attribute_values`` add them as values are written,
-    the ``attribute_values`` cascade removes them, and a trigger on ``model_runtime_state`` follows
-    the active release. No code writes them; ``engine/indexes/unique_values.py`` reads them at the
+    the ``attribute_values`` cascade removes them, and a trigger on ``workspace_models`` follows
+    each workspace's release. No code writes them; ``engine/indexes/unique_values.py`` reads them at the
     end of a write. The constraint is deferred, so values handed between records within one write
     pass; it holds at commit whatever wrote the values.
     """

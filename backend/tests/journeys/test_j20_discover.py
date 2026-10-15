@@ -106,7 +106,7 @@ def test_read_capabilities_model_placements_and_metadata(world):
     record = world.made("R", "Identified")
     samples = [
         record,
-        ok(world.api.get("/model-runtime-state")),
+        world.workspace_model(),
         ok(world.api.get("/model-releases")),
         ok(world.api.get(f"/workspaces/{W1}/change-sets")),
     ]
@@ -166,16 +166,16 @@ def test_read_the_releases(world):
     """When the releases are listed, the active one, a release's detail and the runtime state read.
     Then the list pages the installed releases, the active filter returns only M1, the detail omits
     its model unless asked, and the runtime state names M1 and its version."""
-    state = ok(world.api.get("/model-runtime-state"))
+    state = world.workspace_model()
     model, _key = world.candidate("compatible")
     candidate = world.install(model)["id"]
     installed = [r["id"] for r in _walk(world, "/model-releases")]
-    assert sorted(installed) == sorted([state["activeReleaseId"], candidate])
-    active = ok(world.api.get("/model-releases", active=True))["items"]
-    assert [r["id"] for r in active] == [state["activeReleaseId"]]
+    assert sorted(installed) == sorted([state["releaseId"], candidate])
+    active = ok(world.api.get("/model-releases", assigned=True))["items"]
+    assert [r["id"] for r in active] == [state["releaseId"]]
     assert "model" not in ok(world.api.get(f"/model-releases/{candidate}"))
     assert ok(world.api.get(f"/model-releases/{candidate}", includeModel=True))["model"]
-    assert state["version"] >= 1 and UUID4.match(state["activeReleaseId"])
+    assert state["version"] >= 1 and UUID4.match(state["releaseId"])
 
 
 # --- the consumer APIs' documents (C6b) ----------------------------------------------------------

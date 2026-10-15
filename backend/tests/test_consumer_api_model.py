@@ -17,6 +17,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 from model_support import MODEL_PATH, renamed_model
+from workspace_model_support import DEFAULT_ACTIVATION, default_model
 
 from app.config import reload_settings
 from app.db import SessionLocal, get_engine
@@ -29,7 +30,6 @@ from app.engine.model.consumer_openapi import consumer_openapi
 from app.engine.model.consumer_rendering import expanded_definition
 from app.engine.model.registry import model_registry
 from app.main import create_app
-from app.models.database import ModelRuntimeState
 from app.models.schema import ConsumerApiDocument, EngineModel
 
 Keys = Callable[[str], str]
@@ -482,13 +482,13 @@ def _install(source: dict[str, Any], version: str) -> str:
 
 def _activate(client: TestClient, release_id: str):
     with SessionLocal() as session:
-        state = session.get(ModelRuntimeState, 1)
+        state = default_model(session)
         assert state is not None
         version = state.version
     active = client.get("/api/v1/model").headers["X-Model-Release-Id"]
     return client.post(
-        f"/api/v1/model-releases/{release_id}/activation",
-        json={"expectedRuntimeVersion": version, "expectedActiveReleaseId": active},
+        DEFAULT_ACTIVATION,
+        json={"releaseId": release_id, "expectedVersion": version, "expectedReleaseId": active},
     )
 
 

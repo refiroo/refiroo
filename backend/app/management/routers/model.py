@@ -5,13 +5,11 @@ from fastapi.responses import JSONResponse
 
 from ...common.cursors import METADATA_CURSOR_MESSAGE
 from ...common.pagination import paginate_sequence
-from ...common.time import as_utc
 from ...engine.events import delivery
 from ...engine.model.compiler import compile_authored_model
 from ...engine.model.consumer_definitions import consumer_api
 from ...engine.model.consumer_rendering import expanded_definition
 from ...engine.model.placements import model_placements
-from ...engine.model.runtime import load_runtime_state
 from ...engine.records.rules import get_application, get_object_type
 from ...errors import api_error
 from ...models.schema import ConsumerApiDocument
@@ -38,7 +36,6 @@ from ..schemas.model import (
     ModelAdminCapabilities,
     ModelDocumentRequest,
     ModelPlacements,
-    ModelRuntimeStateResponse,
     ModelValidationResponse,
     ObjectTypeRelationResponse,
     ObjectTypeResponse,
@@ -110,20 +107,28 @@ def get_capabilities(request: Request) -> CapabilitiesResponse:
         200: {
             "headers": {
                 "ETag": {
-                    "description": "Quoted SHA-256 entity tag of the active immutable model",
+                    "description": "Quoted SHA-256 entity tag of the context's immutable model",
                     "schema": {"type": "string"},
                 },
                 "X-Model-Release-Id": {
-                    "description": "Public UUID of the active installed release",
+                    "description": "Public UUID of the release the context runs",
                     "schema": {"type": "string", "format": "uuid"},
+                },
+                "RDM-Workspace": {
+                    "description": "Key of the workspace read: workspaceKey, the context's "
+                    "workspace or the default workspace",
+                    "schema": {"type": "string"},
                 },
             }
         }
     },
 )
 def get_model(response: Response, snapshot: RequestModelSnapshot) -> dict[str, Any]:
+    """The model of the workspace named by ``workspaceKey`` (the default workspace without it), or
+    of the change set or publication named (0.11 M1, D6)."""
     response.headers["ETag"] = f'"{snapshot.model_hash}"'
     response.headers["X-Model-Release-Id"] = snapshot.release_id
+    response.headers["RDM-Workspace"] = snapshot.workspace_key or ""
     return snapshot.model.model_dump(mode="json")
 
 
@@ -165,17 +170,6 @@ def get_consumer_api_definition(consumerApi: str, snapshot: RequestModelSnapshot
         )
     return JSONResponse(
         expanded_definition(snapshot.model, definition), headers={"ETag": f'"{snapshot.model_hash}"'}
-    )
-
-
-@router.get("/model-runtime-state", response_model=ModelRuntimeStateResponse)
-def get_model_runtime_state(session: DbSession) -> ModelRuntimeStateResponse:
-    runtime_state, active_release = load_runtime_state(session)
-    return ModelRuntimeStateResponse(
-        activeReleaseId=active_release.public_id,
-        activeModelHash=active_release.model_hash,
-        version=runtime_state.version,
-        updatedAt=as_utc(runtime_state.updated_at),
     )
 
 

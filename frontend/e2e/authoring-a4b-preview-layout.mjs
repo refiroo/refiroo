@@ -63,7 +63,7 @@ const SAMPLE = {
 
 /** Writes the preview must never send: any non-GET request except the editor's own steps. */
 const EDITOR_WRITES =
-  /\/model-drafts\/[^/]+\/(operations|undo|redo|installation)$|\/model-releases\/[^/]+\/activation$|\/model-drafts$/;
+  /\/model-drafts\/[^/]+\/(operations|undo|redo|installation)$|\/workspaces\/[^/]+\/model\/activation$|\/model-drafts$/;
 
 async function journey(label, source) {
   const model = structuredClone(source);
@@ -113,8 +113,8 @@ async function journey(label, source) {
       workspaceKey: "default",
       attributes: values,
     });
-    const state = await harness.api("/model-runtime-state");
-    const release = await harness.api(`/model-releases/${state.activeReleaseId}?includeModel=true`);
+    const state = await harness.api("/workspaces/default/model");
+    const release = await harness.api(`/model-releases/${state.releaseId}?includeModel=true`);
     const draft = await harness.api("/model-drafts", {
       name: "A4b layout",
       model: release.model,

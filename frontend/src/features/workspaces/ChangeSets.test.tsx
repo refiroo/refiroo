@@ -14,7 +14,8 @@ const activeRelease: ModelReleaseSummary = {
   schemaVersion: "0.6",
   modelHash: "abc",
   installedAt: "2026-09-14T00:00:00Z",
-  active: true,
+  assigned: true,
+  workspaces: ["west"],
 };
 const olderRelease: ModelReleaseSummary = {
   id: "release-older",
@@ -24,7 +25,8 @@ const olderRelease: ModelReleaseSummary = {
   schemaVersion: "0.5",
   modelHash: "def",
   installedAt: "2026-09-10T00:00:00Z",
-  active: false,
+  assigned: false,
+  workspaces: [],
 };
 
 const baseChangeSet: ChangeSet = {

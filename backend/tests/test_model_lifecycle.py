@@ -7,6 +7,7 @@ import seeds
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from sqlalchemy import func, select
+from workspace_model_support import DEFAULT_ACTIVATION, default_model
 
 from app.db import SessionLocal
 from app.engine.model.bootstrap import ensure_bootstrap_release
@@ -14,6 +15,7 @@ from app.engine.model.diagnostics import ModelValidationError
 from app.engine.model.loader import load_bootstrap_model
 from app.engine.model.registry import ModelRegistry, model_registry
 from app.engine.model.releases import install_model_release
+from app.engine.model.workspace_models import workspaces_running
 from app.main import app, create_app
 from app.models.database import (
     ApplicationMeta,
@@ -21,7 +23,6 @@ from app.models.database import (
     Base,
     ModelDraft,
     ModelRelease,
-    ModelRuntimeState,
     Publication,
     PublicationObject,
     RdmObject,
@@ -60,10 +61,10 @@ def test_first_bootstrap_initializes_runtime_state_and_restart_is_idempotent():
         restarted = ensure_bootstrap_release(session, _model("0.4.0"))
         session.commit()
 
-        state = session.get(ModelRuntimeState, 1)
+        state = default_model(session)
         assert state is not None
         assert restarted.public_id == first_public_id
-        assert state.active_model_release_id == first.id
+        assert state.model_release_id == first.id
         assert session.scalar(select(func.count()).select_from(ModelRelease)) == 1
 
 
@@ -74,11 +75,10 @@ def test_different_bootstrap_release_installs_inactive_and_preserves_runtime_sel
         second = ensure_bootstrap_release(session, _model("0.5.0"))
         session.commit()
 
-        state = session.get(ModelRuntimeState, 1)
+        state = default_model(session)
         assert state is not None
-        assert state.active_model_release_id == first.id
-        assert first.is_active is True
-        assert second.is_active is False
+        assert state.model_release_id == first.id
+        assert workspaces_running(session, second.id) == []
         assert session.scalar(select(func.count()).select_from(ModelRelease)) == 2
 
 
@@ -105,13 +105,13 @@ def test_resolved_request_snapshots_keep_model_and_metadata_from_one_release():
         second = ensure_bootstrap_release(session, _model("0.5.0", product_name="Second model"))
         session.commit()
 
-        first_snapshot = registry.resolve_active(session)
-        assert registry.resolve_active(session).model is first_snapshot.model
-        state = session.get(ModelRuntimeState, 1)
+        first_snapshot = registry.resolve_workspace(session, None)
+        assert registry.resolve_workspace(session, None).model is first_snapshot.model
+        state = default_model(session)
         assert state is not None
-        state.active_model_release_id = second.id
+        state.model_release_id = second.id
         session.commit()
-        second_snapshot = registry.resolve_active(session)
+        second_snapshot = registry.resolve_workspace(session, None)
 
         assert first_snapshot.release_db_id == first.id
         assert first_snapshot.model.release.version == "0.4.0"
@@ -135,7 +135,7 @@ def test_resolved_model_snapshot_graph_is_immutable():
     with _session() as session:
         ensure_bootstrap_release(session, _model("0.4.0"))
         session.commit()
-        snapshot = registry.resolve_active(session)
+        snapshot = registry.resolve_workspace(session, None)
 
         with pytest.raises(ValidationError):
             snapshot.model.product.name = "Mutated product"
@@ -146,7 +146,7 @@ def test_resolved_model_snapshot_graph_is_immutable():
         with pytest.raises(TypeError, match="Model definitions are immutable"):
             snapshot.model._object_types_by_key.clear()
 
-        resolved_again = registry.resolve_active(session)
+        resolved_again = registry.resolve_workspace(session, None)
         assert resolved_again.model is snapshot.model
         assert resolved_again.model.product.name == "RDM Engine"
 
@@ -160,14 +160,14 @@ def test_active_model_headers_and_release_read_apis_are_coherent():
         assert etag.startswith('"') and etag.endswith('"')
         model_hash = etag[1:-1]
 
-        active_page = client.get("/api/v1/model-releases", params={"active": True})
+        active_page = client.get("/api/v1/model-releases", params={"assigned": True})
         assert active_page.status_code == 200
         assert active_page.json()["nextCursor"] is None
         assert len(active_page.json()["items"]) == 1
         summary = active_page.json()["items"][0]
         assert summary["id"] == release_id
         assert summary["modelHash"] == model_hash
-        assert summary["active"] is True
+        assert summary["assigned"] is True
         assert "model" not in summary
         installed_at = datetime.fromisoformat(summary["installedAt"])
         assert installed_at.utcoffset() == UTC.utcoffset(installed_at)
@@ -358,9 +358,9 @@ def test_draft_crud_compile_and_installation_lifecycle(monkeypatch):
         }
         active = client.get("/api/v1/model")
         active_release_id = active.headers["X-Model-Release-Id"]
-        runtime_state = client.get("/api/v1/model-runtime-state")
+        runtime_state = client.get("/api/v1/workspaces/default/model")
         assert runtime_state.status_code == 200
-        assert runtime_state.json()["activeReleaseId"] == active_release_id
+        assert runtime_state.json()["releaseId"] == active_release_id
         assert runtime_state.json()["version"] >= 1
         candidate = active.json()
         candidate["release"]["version"] = "0.4.0-wp3-install"
@@ -435,7 +435,7 @@ def test_draft_crud_compile_and_installation_lifecycle(monkeypatch):
         )
         assert installed.status_code == 201
         release = installed.json()
-        assert release["active"] is False
+        assert release["assigned"] is False
         assert "model" not in release
         assert client.get("/api/v1/model").headers["X-Model-Release-Id"] == active_release_id
 
@@ -568,22 +568,23 @@ def test_guarded_activation_updates_runtime_state_registry_and_audit(monkeypatch
                 session, EngineModel.model_validate(candidate_model)
             )
             session.commit()
-            state = session.get(ModelRuntimeState, 1)
+            state = default_model(session)
             assert state is not None
             expected_version = state.version
 
         response = client.post(
-            f"/api/v1/model-releases/{candidate.public_id}/activation",
+            DEFAULT_ACTIVATION,
             json={
-                "expectedRuntimeVersion": expected_version,
-                "expectedActiveReleaseId": old_release_id,
+                "releaseId": candidate.public_id,
+                "expectedVersion": expected_version,
+                "expectedReleaseId": old_release_id,
             },
         )
 
         assert response.status_code == 200
         body = response.json()
-        assert body["activeReleaseId"] == candidate.public_id
-        assert body["activeModelHash"] == candidate.model_hash
+        assert body["releaseId"] == candidate.public_id
+        assert body["modelHash"] == candidate.model_hash
         assert body["version"] == expected_version + 1
         assert datetime.fromisoformat(body["updatedAt"]).utcoffset() == UTC.utcoffset(
             datetime.fromisoformat(body["updatedAt"])
@@ -597,7 +598,7 @@ def test_guarded_activation_updates_runtime_state_registry_and_audit(monkeypatch
         event = session.scalar(
             select(AuditEvent)
             .where(
-                AuditEvent.aggregate_type == "model_runtime_state",
+                AuditEvent.aggregate_type == "workspace_model",
                 AuditEvent.action == "activated",
                 AuditEvent.version == expected_version + 1,
             )
@@ -605,6 +606,8 @@ def test_guarded_activation_updates_runtime_state_registry_and_audit(monkeypatch
         )
         assert event is not None
         assert event.changes == {
+            "workspaceKey": "default",
+            "changeSetsLeftBehind": [],
             "oldReleaseId": old_release_id,
             "oldModelHash": active.headers["ETag"].strip('"'),
             "newReleaseId": candidate.public_id,
@@ -626,11 +629,11 @@ def test_activation_blocks_incompatible_runtime_data_without_changing_selection(
             item for item in candidate_model["applications"] if item["key"] != used_application
         ]
         with SessionLocal() as session:
-            state = session.get(ModelRuntimeState, 1)
+            state = default_model(session)
             assert state is not None
             publication = Publication(
                 workspace_key="default",
-                model_release_id=state.active_model_release_id,
+                model_release_id=state.model_release_id,
                 publication_number=1,
                 status="active",
             )
@@ -667,10 +670,11 @@ def test_activation_blocks_incompatible_runtime_data_without_changing_selection(
             expected_version = state.version
 
         response = client.post(
-            f"/api/v1/model-releases/{candidate.public_id}/activation",
+            DEFAULT_ACTIVATION,
             json={
-                "expectedRuntimeVersion": expected_version,
-                "expectedActiveReleaseId": active_release_id,
+                "releaseId": candidate.public_id,
+                "expectedVersion": expected_version,
+                "expectedReleaseId": active_release_id,
             },
         )
 
@@ -685,7 +689,7 @@ def test_activation_blocks_incompatible_runtime_data_without_changing_selection(
         assert diagnostic["count"] >= 1
         assert client.get("/api/v1/model").headers["X-Model-Release-Id"] == active_release_id
         with SessionLocal() as session:
-            state = session.get(ModelRuntimeState, 1)
+            state = default_model(session)
             assert state is not None
             assert state.version == expected_version
 
@@ -697,32 +701,35 @@ def test_activation_rejects_stale_runtime_tokens(monkeypatch):
         active = client.get("/api/v1/model")
         active_release_id = active.headers["X-Model-Release-Id"]
         with SessionLocal() as session:
-            state = session.get(ModelRuntimeState, 1)
+            state = default_model(session)
             assert state is not None
             current_version = state.version
 
         response = client.post(
-            f"/api/v1/model-releases/{active_release_id}/activation",
+            DEFAULT_ACTIVATION,
             json={
-                "expectedRuntimeVersion": current_version + 1,
-                "expectedActiveReleaseId": active_release_id,
+                "releaseId": active_release_id,
+                "expectedVersion": current_version + 1,
+                "expectedReleaseId": active_release_id,
             },
         )
         wrong_release_response = client.post(
-            f"/api/v1/model-releases/{active_release_id}/activation",
+            DEFAULT_ACTIVATION,
             json={
-                "expectedRuntimeVersion": current_version,
-                "expectedActiveReleaseId": str(uuid4()),
+                "releaseId": active_release_id,
+                "expectedVersion": current_version,
+                "expectedReleaseId": str(uuid4()),
             },
         )
 
     assert response.status_code == 409
     assert response.json()["error"] == {
         "code": "ACTIVATION_CONFLICT",
-        "message": "The active model selection changed before activation",
+        "message": "The model of workspace 'default' changed before activation",
         "details": {
-            "activeReleaseId": active_release_id,
-            "runtimeVersion": current_version,
+            "workspaceKey": "default",
+            "currentReleaseId": active_release_id,
+            "currentVersion": current_version,
         },
     }
     assert wrong_release_response.status_code == 409
@@ -744,16 +751,17 @@ def test_concurrent_activation_allows_only_one_runtime_state_claim(monkeypatch):
                     ensure_bootstrap_release(session, EngineModel.model_validate(candidate_model))
                 )
             session.commit()
-            state = session.get(ModelRuntimeState, 1)
+            state = default_model(session)
             assert state is not None
             expected_version = state.version
 
         def activate(candidate: ModelRelease):
             return client.post(
-                f"/api/v1/model-releases/{candidate.public_id}/activation",
+                DEFAULT_ACTIVATION,
                 json={
-                    "expectedRuntimeVersion": expected_version,
-                    "expectedActiveReleaseId": active_release_id,
+                    "releaseId": candidate.public_id,
+                    "expectedVersion": expected_version,
+                    "expectedReleaseId": active_release_id,
                 },
             )
 
@@ -765,7 +773,7 @@ def test_concurrent_activation_allows_only_one_runtime_state_claim(monkeypatch):
         assert conflict.json()["error"]["code"] == "ACTIVATION_CONFLICT"
         winner = next(response for response in responses if response.status_code == 200).json()
         assert (
-            client.get("/api/v1/model").headers["X-Model-Release-Id"] == winner["activeReleaseId"]
+            client.get("/api/v1/model").headers["X-Model-Release-Id"] == winner["releaseId"]
         )
 
 
@@ -782,34 +790,36 @@ def test_registry_refresh_failure_leaves_committed_activation_unready(monkeypatc
                 session, EngineModel.model_validate(candidate_model)
             )
             session.commit()
-            state = session.get(ModelRuntimeState, 1)
+            state = default_model(session)
             assert state is not None
             expected_version = state.version
 
-        def fail_refresh():
+        def fail_refresh(_release_db_id):
             raise RuntimeError("publish failed")
 
         monkeypatch.setattr(
-            "app.management.routers.model_management.model_registry.refresh_active", fail_refresh
+            "app.management.routers.model_management.model_registry.warm", fail_refresh
         )
         response = client.post(
-            f"/api/v1/model-releases/{candidate.public_id}/activation",
+            DEFAULT_ACTIVATION,
             json={
-                "expectedRuntimeVersion": expected_version,
-                "expectedActiveReleaseId": active_release_id,
+                "releaseId": candidate.public_id,
+                "expectedVersion": expected_version,
+                "expectedReleaseId": active_release_id,
             },
         )
 
         assert response.status_code == 503
         assert response.json()["error"]["code"] == "MODEL_REGISTRY_REFRESH_FAILED"
-        assert client.get("/health").status_code == 503
+        # Only the workspace on that release is unavailable (0.11 D29); health counts every one.
         unavailable = client.get("/api/v1/model")
         assert unavailable.status_code == 503
         assert unavailable.json()["error"]["code"] == "MODEL_REGISTRY_UNAVAILABLE"
+        assert unavailable.json()["error"]["details"]["workspaceKey"] == "default"
         with SessionLocal() as session:
-            state = session.get(ModelRuntimeState, 1)
+            state = default_model(session)
             assert state is not None
-            assert state.active_model_release_id == candidate.id
+            assert state.model_release_id == candidate.id
             assert state.version == expected_version + 1
 
     model_registry.clear()
@@ -828,17 +838,18 @@ def test_activation_rejects_corrupted_installed_model_without_mutation(monkeypat
                 session, EngineModel.model_validate(candidate_model)
             )
             session.commit()
-            state = session.get(ModelRuntimeState, 1)
+            state = default_model(session)
             assert state is not None
             expected_version = state.version
             candidate.model_json = {}
             session.commit()
 
         response = client.post(
-            f"/api/v1/model-releases/{candidate.public_id}/activation",
+            DEFAULT_ACTIVATION,
             json={
-                "expectedRuntimeVersion": expected_version,
-                "expectedActiveReleaseId": active_release_id,
+                "releaseId": candidate.public_id,
+                "expectedVersion": expected_version,
+                "expectedReleaseId": active_release_id,
             },
         )
 
@@ -847,7 +858,7 @@ def test_activation_rejects_corrupted_installed_model_without_mutation(monkeypat
         assert response.json()["error"]["details"]
         assert client.get("/api/v1/model").headers["X-Model-Release-Id"] == active_release_id
         with SessionLocal() as session:
-            state = session.get(ModelRuntimeState, 1)
+            state = default_model(session)
             assert state is not None
             assert state.version == expected_version
 
@@ -867,20 +878,20 @@ def test_activation_rejects_a_historical_schema_release_without_mutation(monkeyp
                 schema_version="0.4",
                 model_hash=identity * 2,
                 model_json={"schemaVersion": "0.4", "historical": True},
-                is_active=False,
             )
             session.add(historical)
             session.commit()
             historical_id = historical.public_id
-            state = session.get(ModelRuntimeState, 1)
+            state = default_model(session)
             assert state is not None
             expected_version = state.version
 
         response = client.post(
-            f"/api/v1/model-releases/{historical_id}/activation",
+            DEFAULT_ACTIVATION,
             json={
-                "expectedRuntimeVersion": expected_version,
-                "expectedActiveReleaseId": active_release_id,
+                "releaseId": historical_id,
+                "expectedVersion": expected_version,
+                "expectedReleaseId": active_release_id,
             },
         )
 
@@ -897,7 +908,7 @@ def test_activation_rejects_a_historical_schema_release_without_mutation(monkeyp
         }
         assert client.get("/api/v1/model").headers["X-Model-Release-Id"] == active_release_id
         with SessionLocal() as session:
-            state = session.get(ModelRuntimeState, 1)
+            state = default_model(session)
             assert state is not None
             assert state.version == expected_version
 
@@ -938,12 +949,13 @@ def test_release_activation_history_reads_recorded_predecessors_oldest_first(mon
         # original -> first -> second -> first (rollback) -> original (restores the shared database)
         current_id = original_id
         for target_id in (first_id, second_id, first_id, original_id):
-            state = client.get("/api/v1/model-runtime-state").json()
+            state = client.get("/api/v1/workspaces/default/model").json()
             response = client.post(
-                f"/api/v1/model-releases/{target_id}/activation",
+                DEFAULT_ACTIVATION,
                 json={
-                    "expectedRuntimeVersion": state["version"],
-                    "expectedActiveReleaseId": current_id,
+                    "releaseId": target_id,
+                    "expectedVersion": state["version"],
+                    "expectedReleaseId": current_id,
                 },
             )
             assert response.status_code == 200, response.json()

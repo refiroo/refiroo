@@ -14,7 +14,7 @@ from scenario import ok, refused
 
 
 def _active_release(world) -> dict[str, Any]:
-    active = ok(world.api.get("/model-runtime-state"))["activeReleaseId"]
+    active = world.workspace_model()["releaseId"]
     return ok(world.api.get(f"/model-releases/{active}", includeModel=True))
 
 

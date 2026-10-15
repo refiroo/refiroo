@@ -9,7 +9,11 @@ from ...engine.change_sets.records import (
     put_change_set_object,
     update_change_set_object,
 )
-from ...engine.model.registry import resolve_change_set_snapshot, resolve_model_snapshot
+from ...engine.model.registry import (
+    resolve_change_set_snapshot,
+    resolve_model_snapshot,
+    resolve_record_snapshot,
+)
 from ...engine.reads.model_query import (
     Expansion,
     both_filters,
@@ -137,7 +141,7 @@ def create_object(
             "workspaceKey is required for a live (active workspace) write; omit changeSetId "
             "and provide workspaceKey, or target a change set",
         )
-    snapshot = resolve_model_snapshot(session)
+    snapshot = resolve_model_snapshot(session, payload.workspaceKey)
     item = create_object_record(session, snapshot.model, payload)
     return build_object_responses(session, snapshot.model, [item])[0]
 
@@ -167,7 +171,7 @@ def update_object(
             session, change_set_id, object_id, change_set_payload, object_type_key=object_type_key
         )
         return _change_set_write_response(session, change_set_id, row)
-    snapshot = resolve_model_snapshot(session)
+    snapshot = resolve_record_snapshot(session, object_id)
     item = update_object_record(session, snapshot.model, object_type_key, object_id, payload)
     return build_object_responses(session, snapshot.model, [item])[0]
 
@@ -198,7 +202,7 @@ def delete_object(
             deletion_preview=deletion_preview_token,
         )
     else:
-        snapshot = resolve_model_snapshot(session)
+        snapshot = resolve_record_snapshot(session, object_id)
         delete_object_record(
             session,
             snapshot.model,
@@ -747,7 +751,7 @@ def get_object_history(
                 page_size=page_size,
             )
         )
-    snapshot = resolve_model_snapshot(session)
+    snapshot = resolve_record_snapshot(session, object_id)
     get_object_type(snapshot.model, object_type_key)
     item = load_object(session, object_id, object_type_key)
     return audit_event_page(

@@ -19,9 +19,10 @@ from ....models.database import (
     ChangeSetRelation,
     ModelDraft,
     ModelRelease,
-    ModelRuntimeState,
     ObjectRelation,
     RdmObject,
+    WorkspaceModel,
+    WorkspaceRuntimeState,
 )
 from .kinds import atom
 
@@ -29,13 +30,19 @@ IMPACT_LIMIT = 10_000
 
 
 def base_release(session: Session, draft: ModelDraft) -> ModelRelease | None:
-    """The draft's base release, or the active release when it has none."""
+    """The draft's base release, or the default workspace's when it has none (D25)."""
     if draft.base_model_release_id is not None:
         release = session.get(ModelRelease, draft.base_model_release_id)
         if release is not None:
             return release
-    state = session.get(ModelRuntimeState, 1)
-    return session.get(ModelRelease, state.active_model_release_id) if state else None
+    return session.scalar(
+        select(ModelRelease)
+        .join(WorkspaceModel, WorkspaceModel.model_release_id == ModelRelease.id)
+        .join(
+            WorkspaceRuntimeState,
+            WorkspaceRuntimeState.default_workspace_key == WorkspaceModel.workspace_key,
+        )
+    )
 
 
 def released_atoms(model: dict[str, Any] | None) -> frozenset[str]:

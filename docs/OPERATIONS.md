@@ -333,8 +333,13 @@ has no composed test yet; multi-node operation is 0.11 work. Its known caveats a
 ## Model releases and rollback
 
 `RDM_MODEL_PATH` is bootstrap input, not the active-model setting. Startup validates the file and
-installs its content when that release is missing; an existing database keeps the release it selects
-in `model_runtime_state`, even when the file holds a newer one. Changing the file never activates it.
+installs its content when that release is missing and gives it to a workspace that runs none (a new
+database's default workspace); an existing database keeps the release each workspace runs
+(`workspace_models`, 0.11 M1), even when the file holds a newer one. Changing the file never activates
+it. A release this version cannot serve, such as one of an unsupported schema, makes only the
+workspaces running it unavailable (`503 MODEL_REGISTRY_UNAVAILABLE` naming the workspace); startup
+logs each, with the schema upgrade command where it applies, and `/health` answers 503 only when no
+workspace can be served (or the database is unreachable).
 A schema 0.8 file that declares `consumerApis` refuses to start, naming the file: rewrite its
 consumer API definitions in schema 0.9 or point `RDM_MODEL_PATH` at a 0.9 model such as
 `model/rdm-starter.json` (0.9 C18). Releases already installed are not affected.

@@ -16,7 +16,7 @@ try {
   const { page, browser, uiUrl, api, output } = harness;
   page.on("pageerror", (error) => failures.push(error.message));
 
-  const original = await api("/model-runtime-state");
+  const original = await api("/workspaces/default/model");
   const model = await api("/model");
   async function install(suffix) {
     const source = { ...model, release: { ...model.release, version: `${model.release.version}-${suffix}` } };
@@ -25,9 +25,10 @@ try {
   }
   const introduced = await install("wp12-introduced");
   const pending = await install("wp12-pending");
-  await api(`/model-releases/${introduced.id}/activation`, {
-    expectedRuntimeVersion: original.version,
-    expectedActiveReleaseId: original.activeReleaseId,
+  await api("/workspaces/default/model/activation", {
+    releaseId: introduced.id,
+    expectedVersion: original.version,
+    expectedReleaseId: original.releaseId,
   });
   console.log("WP-12 browser: fixtures ready");
 
@@ -69,14 +70,14 @@ try {
   checks.push("inactive release uses labelled installation-order baseline; activation check names current active");
 
   // Explicit baseline choice leaves the activation check context unchanged.
-  await page.getByRole("combobox", { name: "Compare with" }).selectOption(original.activeReleaseId);
+  await page.getByRole("combobox", { name: "Compare with" }).selectOption(original.releaseId);
   await page.getByText("Chosen baseline.").waitFor();
   await check.getByText("compatible", { exact: true }).waitFor();
   expect(await page.getByRole("button", { name: "Activate…" }).isEnabled(), "activation disabled after choice");
   checks.push("explicit baseline choice re-compares history; activation readiness unchanged");
 
   // Bootstrap release: first release of its key, no recorded predecessor.
-  await page.goto(`${uiUrl}/settings/model/releases/${original.activeReleaseId}`);
+  await page.goto(`${uiUrl}/settings/model/releases/${original.releaseId}`);
   await page.getByText(/No earlier release to compare with/).waitFor();
   checks.push("first installed release shows an explained no-predecessor state");
 
@@ -108,7 +109,7 @@ try {
   const report = {
     browser: browser.version(),
     viewports: ["1440x900", "390x844"],
-    releases: [original.activeReleaseId, introduced.id, pending.id],
+    releases: [original.releaseId, introduced.id, pending.id],
     checks,
     failures,
     passed: failures.length === 0,

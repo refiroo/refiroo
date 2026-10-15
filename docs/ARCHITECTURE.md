@@ -109,18 +109,21 @@ A canonical hash identifies model content. New content with a new release key an
 immutable release with its relational metadata rows; reusing an identity with different content is
 refused. Earlier releases stay for comparison, rollback and audit.
 
-The active release is selected by a singleton runtime-state row (`model_runtime_state`). The
-configured model file is bootstrap input only: it installs missing content and initialises an empty
-runtime state, and is never a second authority. A live request reads the runtime state once, resolves
-the selected release to one immutable parsed snapshot and uses it throughout. Change-set and
-publication requests resolve their own pinned release (ADR-027) instead of interpreting old content
-with the current model. An in-process registry caches snapshots by release ID and hash; it never
-decides which release is active.
-
-Model selection is global. 0.11 may introduce workspace-scoped assignments: a request would resolve
-its workspace first, then the one release assigned to it. That needs executable data migration,
-atomic switching, cursors bound to release identity, protected administration, multi-node propagation
-and parsers for every permitted schema version; it cannot be workspace pinning alone.
+Each workspace runs a release of its own (ADR-042): `workspace_models` holds one row per workspace
+naming its release and the assignment's version. Different workspaces may run different models, not
+only different versions of one. The configured model file is bootstrap input only: it installs
+missing content and gives it to every workspace that runs nothing yet (a new database's default
+workspace), and is never a second authority. A live request resolves its workspace first
+(`workspaceKey`, the context's workspace, the record's for a write naming a record, or the default
+workspace), then that workspace's release, to one immutable parsed snapshot it uses throughout
+(`engine/model/registry.resolve_model_snapshot`). Change-set and publication requests resolve their
+own pinned release (ADR-027) instead of interpreting old content with the current model. An
+in-process registry caches one parsed snapshot per release, whichever workspaces run it; it never
+decides which release a workspace runs. A release this process cannot serve (an unsupported schema,
+an invalid model, a failed load after activation) makes only the workspaces running it answer
+`503 MODEL_REGISTRY_UNAVAILABLE` (D29); the instance is unhealthy only when no workspace can be
+served. Moving a workspace's data to a release it does not fit (migrations), spanning reads and
+multi-node propagation follow in 0.11's later packages.
 
 ### Model lifecycle
 
@@ -183,20 +186,24 @@ Model authoring has three explicit stages (ADR-016):
    compilation, a key-based semantic diff, compatibility analysis against stored data and, from schema
    0.8, the consumer contract comparison.
 3. **Installation** creates an immutable, content-addressed release and leaves the selection unchanged.
-   **Activation** claims the runtime state with optimistic concurrency and is permitted only when
-   stored data fits the candidate.
+   **Activation** names one workspace, claims its assignment with optimistic concurrency and is
+   permitted only when that workspace's stored data fits the candidate; the other workspaces keep
+   their releases.
 
-Compatibility examines every authoritative live record, including live-only rows and retired
-workspaces. Publications are excluded because they are read under their own pinned release.
+Compatibility examines every authoritative live record of the workspaces it is asked about
+(activation: its workspace), including live-only rows of a retired one. Publications are excluded
+because they are read under their own pinned release.
 Activating a release that declares an effective period over records it would refuse is
 `MODEL_MIGRATION_REQUIRED` with their count. A consumer API definition whose contract loses or changes
 anything its consumers read needs a higher `contractVersion` (`engine/model/consumer_contract.py`,
 C-D17, C-D18); removing a whole definition is a warning.
 
-Activation commits the runtime-state change before publishing the new snapshot to the process's
-registry. If the process cannot refresh to the committed selection, readiness is unhealthy and
-requests never fall back to the bootstrap file or a guessed cached model; a restart loads the database
-selection.
+Activation commits the workspace's new assignment, then loads the release into the process's
+registry. If the process cannot load it, the workspaces on that release are unavailable and requests
+never fall back to the bootstrap file or a guessed cached model; a restart loads the database's
+assignments. Activation also resynchronises that workspace's matrix states and suspends that
+workspace's subscriptions the new release cannot serve, and answers the workspace's change sets left
+on the release it no longer runs (D26), which cannot publish.
 
 Within one process, release installations are serialised across drafts, and database uniqueness
 constraints are the final identity guard, so concurrent identical installs keep their idempotent
@@ -240,13 +247,13 @@ readable and refuse every runtime write. Workspace administration is a deploymen
 - **`attribute_values`** holds one value per record and attribute type, in the physical column its
   declared type selects: text, integer, decimal, boolean, date, date-time or JSON. Dynamic modelling
   does not reduce values to text.
-- **`unique_attribute_values`** holds each live value of an attribute the active release declares
-  `unique` once per workspace: the value's row, record, workspace, attribute and the SHA-256 of its
+- **`unique_attribute_values`** holds each live value of an attribute its workspace's release
+  declares `unique` once per workspace: the value's row, record, workspace, attribute and the SHA-256 of its
   canonical JSON (`rdm_value_digest`), under a deferred unique constraint (ADR-010, 0.9 J2a). Empty
   text has no row. PostgreSQL keeps it: statement triggers on `attribute_values` add the rows of
-  written values, the `attribute_values` cascade removes them, and a trigger on `model_runtime_state`
-  adds and removes rows as the active release declares `unique` on more or fewer attributes. No code
-  writes it.
+  written values under the record's workspace release, the `attribute_values` cascade removes them,
+  and a trigger on `workspace_models` adds and removes a workspace's rows as its new release declares
+  `unique` on more or fewer attributes (0.11 D28). No code writes it.
 - **`object_relations`** holds typed directed edges, checked against the allowed combinations and
   cardinality before they are written.
 - **`relation_set_versions`** versions each relation set exactly, per workspace, relation type and
@@ -315,8 +322,8 @@ per-record publication controls.
 **Change sets.** `source: currentLive` captures a private immutable base of current live data:
 records, values, both forms of containment, independent relations, the selected model identity and
 record versions, including edits since the last publication. The capture reads at REPEATABLE READ, so
-the base is one snapshot, and holds share locks on the workspace and runtime-state rows, so neither a
-retirement nor an activation commits while it runs; a change the snapshot cannot hold answers
+the base is one snapshot, and holds share locks on the workspace's row and its assignment row, so
+neither a retirement nor an activation into the workspace commits while it runs; a change the snapshot cannot hold answers
 `409 CHANGE_SET_SNAPSHOT_RETRY`. `source: publication` starts from a chosen publication and records
 `derivedFromPublicationId`. Either way the change set stores only changed rows and tombstones over its
 base (`effective_change_set_membership`). Rename, discard and record edits each claim the change set's
@@ -367,25 +374,30 @@ bulk job.
   (`FOR SHARE`), retirement and deletion (`FOR UPDATE`), but not with a key share lock: the one a row
   naming the workspace takes through its foreign key, or the one a change-set write takes.
 - **Lock order:** the workspace (whose row also holds the feed counter, 0.9 F1), then a change set,
-  then the runtime-state row (activation,
-  retirement and default switching for update; a write's commit check shared), then records and their
-  index rows, and a job's row only at its chunk's checkpoint. Retirement, default switching and
-  deletion lock the workspace before the runtime state, and publishing locks the workspace before its
-  change set. A change-set write takes the workspace's key share lock and then its change-set row
+  then the workspace's assignment row in `workspace_models` (activation for update; a write's commit
+  check and a current-live capture shared), then records and their index rows, and a job's row only
+  at its chunk's checkpoint. Activation locks the workspace's active subscriptions and, when the
+  releases declare different `unique` attributes, the unique values' table before the assignment
+  (0.9 R-F2, R-F3). Retirement, default switching and deletion lock the workspace before the
+  workspace runtime-state row, and publishing locks the workspace before its change set. The
+  assignment is a row of its own, not columns on `workspaces`, so the commit check's share lock never
+  waits on the workspace row's update locks (D30). A change-set write takes the workspace's key share lock and then its change-set row
   (`load_change_set(for_update=True)`): retirement and deletion wait for it, and it waits for them and
   is then refused `409 WORKSPACE_RETIRED`; live writes, publishing and other change sets' writes run
   beside it, and writes to one change set serialise on its row. Tested by `test_pg3_concurrency`, each
   invariant raced on two connections.
-- **A write never commits under a release that is no longer active.** A request that resolves the
-  active release binds its session to it. Before commit the session flushes its rows and rereads the
-  active release under a share lock on the runtime-state row; activation locks that row for update
-  before its compatibility check, so the two cannot interleave in one process or across instances. A
-  write that flushed first is seen by the compatibility check; a write after activation sees the new
-  release and is refused `409 MODEL_RELEASE_CHANGED`, nothing saved.
+- **A write never commits under a release its workspace no longer runs.** A request that resolves a
+  workspace's release binds its session to it (each workspace it resolved). Before commit the session
+  flushes its rows and rereads each workspace's release under a share lock on its assignment row;
+  activation locks that row for update before its compatibility check, so the two cannot interleave
+  in one process or across instances. A write that flushed first is seen by the compatibility check;
+  a write after activation sees the new release and is refused `409 MODEL_RELEASE_CHANGED` naming the
+  workspace, nothing saved. A write in another workspace locks another row.
 - **A write never commits into a workspace deleted or retired after it resolved it.** The same
   commit point rereads the workspace (`404 WORKSPACE_NOT_FOUND`, `409 WORKSPACE_RETIRED`). Workspace
-  deletion checks for records, change sets and publications and locks the workspace and runtime-state
-  rows; the `workspaces.key` foreign keys (`RESTRICT`) protect every other row naming the workspace,
+  deletion checks for records, change sets and publications and locks the workspace and the
+  workspace runtime-state rows (the assignment row goes with the workspace by `CASCADE`); the
+  `workspaces.key` foreign keys (`RESTRICT`) protect every other row naming the workspace,
   and every `ondelete` rule is pinned in `test_foreign_keys`.
 - **Decided in memory, written in bulk** (PG-D12–PG-D16). A create or update is decided by the rules
   over a batch lookup (`records/batch_lookup.py`): the records it reads, preloaded per chunk, with the
@@ -669,9 +681,9 @@ Because capabilities are per process, several instances can share one database w
 for example an internal administration instance with one process and a public instance with both
 administration groups off and any worker count. What holds today:
 
-- **Activation reaches other instances without a restart.** Every request reads the selected release
-  from the runtime state and caches parsed models by release identity, so another instance serves a
-  newly activated release from its next request.
+- **Activation reaches other instances without a restart.** Every request reads its workspace's
+  release from `workspace_models` and caches parsed models by release identity, so another instance
+  serves a newly activated release from its next request.
 - **Writes are safe across instances:** the commit-time release and workspace rechecks and the
   workspace lock (see [Writes and concurrency](#writes-and-concurrency)) hold across processes.
 - **Instances must share `RDM_CURSOR_SIGNING_KEY`** when one client's requests can reach different

@@ -22,7 +22,11 @@ in the shape of 0.10's plan. Part 1, first at the user's request, groups the wor
 workspace a model of its own, a workspace moved to another release, data moved between workspaces
 whose models differ); Part 2 is production hardening; Part 3 the first public release. The P0 design
 pass was delivered on 2026-10-15 (decisions D4–D29 and the move inventory accepted, ADR-042, the API
-design, J36–J38, the M5 and X4 mock-ups approved); M1 is next. Accepted by the user 2026-10-15: the data move in 0.11 (D3), the suite's
+design, J36–J38, the M5 and X4 mock-ups approved). **M1, a release per workspace, is built
+(2026-10-15)** with M2 folded in (the user rejected a bridge between them, D32): each workspace runs a
+release of its own, a workspace is created on one, a release is activated into one workspace, and
+every request resolves its workspace before its model, the commit guard per workspace; the package's
+group run waits for the user's go-ahead ([record](BASE_0_11_IMPLEMENTATION_PLAN.md#m1-record-2026-10-15)). Accepted by the user 2026-10-15: the data move in 0.11 (D3), the suite's
 time (D152) as a filler during Part 1 before X2 at the latest (D2), and 0.11.0-alpha.1 after the M6
 checkpoint (D12).
 

@@ -11,14 +11,16 @@ from ...models.database import (
     ApplicationObjectTypeMeta,
     AttributeTypeMeta,
     AuditEvent,
+    ChangeSet,
     ConsumerSubscription,
     ModelRelease,
-    ModelRuntimeState,
     ObjectTypeAttributeMeta,
     ObjectTypeMeta,
     ObjectTypeRelationMeta,
     RelationTypeMeta,
     ViewDefinitionMeta,
+    Workspace,
+    WorkspaceModel,
 )
 from ...models.schema import EngineModel
 from ..events.subscription_rules import suspend_left_behind
@@ -27,6 +29,7 @@ from .compatibility import CompatibilityResult, analyze_compatibility
 from .compiler import SUPPORTED_SCHEMA_VERSIONS, ModelDiagnostic, canonical_model, compile_model
 from .consumer_contract import contract_diagnostics
 from .validation import require_valid_references
+from .workspace_models import load_assignment
 
 model_installation_lock = Lock()
 model_activation_lock = Lock()
@@ -40,13 +43,19 @@ class ReleaseIdentityConflict(Exception):
 
 @dataclass(frozen=True)
 class ActivationConflict(Exception):
-    active_release_id: str
-    runtime_version: int
+    workspace_key: str
+    current_release_id: str
+    current_version: int
 
 
 @dataclass(frozen=True)
 class ModelReleaseNotFound(Exception):
     release_id: str
+
+
+@dataclass(frozen=True)
+class WorkspaceNotFound(Exception):
+    workspace_key: str
 
 
 @dataclass(frozen=True)
@@ -73,38 +82,51 @@ class ConsumerContractVersionRequired(Exception):
 
 
 @dataclass(frozen=True)
-class ActivatedRuntimeState:
-    active_release_id: str
-    active_model_hash: str
+class WorkspaceRetired(Exception):
+    workspace_key: str
+
+
+@dataclass(frozen=True)
+class Activation:
+    """A workspace's new assignment, and its change sets left on the release it no longer runs."""
+
+    workspace_key: str
+    release: ModelRelease
     version: int
     updated_at: datetime
+    change_sets_left_behind: tuple[ChangeSet, ...]
 
 
 def _lock_what_activation_changes(
-    session: Session, release_id: str, expected_active_release_id: str
+    session: Session, workspace_key: str, release_id: str, expected_release_id: str
 ) -> None:
-    """Lock, before the runtime state, the rows activation changes after its check (0.9 R-F2,
-    R-F3): the active subscriptions it may suspend, and the unique attribute values when the
-    releases declare different ``unique`` attributes (the runtime state's trigger then rewrites
-    them). A write holding such a row takes the runtime state's share lock only as it commits; had
-    the activation held the runtime state first, each would wait for the other. Locked first, the
-    activation waits for that write, which commits, and the lock order is runtime state's
-    (ARCHITECTURE): workspace, change set, runtime state, records. The releases are read unlocked:
-    an activation that changed the active one meanwhile is refused below as a conflict."""
+    """Lock, before the workspace's assignment, the rows activation changes after its check (0.9
+    R-F2, R-F3): the workspace's active subscriptions it may suspend, and the unique attribute
+    values when the releases declare different ``unique`` attributes (the assignment's trigger then
+    rewrites the workspace's rows). A write holding such a row takes the assignment's share lock
+    only as it commits; had the activation held the assignment first, each would wait for the
+    other. Locked first, the activation waits for that write, which commits, and the lock order is
+    the assignment's (ARCHITECTURE): workspace, change set, assignment, records. The table lock is
+    the one place an activation holds up writes of other workspaces, until it commits. The releases
+    are read unlocked: an activation that changed the assignment meanwhile is refused below as a
+    conflict."""
     session.execute(
         select(ConsumerSubscription.sequence_id)
-        .where(ConsumerSubscription.status == "active")
+        .where(
+            ConsumerSubscription.status == "active",
+            ConsumerSubscription.workspace_key == workspace_key,
+        )
         .order_by(ConsumerSubscription.sequence_id)
         .with_for_update()
     ).all()
     sources = dict(
         session.execute(
             select(ModelRelease.public_id, ModelRelease.model_json).where(
-                ModelRelease.public_id.in_([release_id, expected_active_release_id])
+                ModelRelease.public_id.in_([release_id, expected_release_id])
             )
         ).all()
     )
-    if _unique_keys(sources.get(release_id)) != _unique_keys(sources.get(expected_active_release_id)):
+    if _unique_keys(sources.get(release_id)) != _unique_keys(sources.get(expected_release_id)):
         session.execute(text("LOCK TABLE unique_attribute_values IN SHARE ROW EXCLUSIVE MODE"))
 
 
@@ -121,30 +143,26 @@ def _unique_keys(source: Any) -> frozenset[str]:
 
 def activate_model_release(
     session: Session,
+    workspace_key: str,
     release_id: str,
     *,
-    expected_runtime_version: int,
-    expected_active_release_id: str,
-) -> ActivatedRuntimeState:
-    """Validate and select an installed release in the current transaction.
+    expected_version: int,
+    expected_release_id: str,
+) -> Activation:
+    """Validate and select an installed release for one workspace in the current transaction.
 
-    The transaction excludes live writes from the compatibility check until it commits (0.8 W5):
-    the runtime-state row is locked for update, and a live write rechecks the active release under
-    a share lock on the same row before it commits (``registry._require_resolved_release``), so it
-    waits for the activation and is then refused if its release is no longer active.
+    The transaction excludes the workspace's live writes from the compatibility check until it
+    commits (0.8 W5): the workspace's assignment row is locked for update, and a live write rechecks
+    its workspace's release under a share lock on the same row before it commits
+    (``registry.require_resolved_release``), so it waits for the activation and is then refused if
+    its release is no longer the workspace's. Other workspaces keep their release, their data is not
+    counted and their subscriptions are not touched (ADR-042).
     """
-    _lock_what_activation_changes(session, release_id, expected_active_release_id)
-    row = session.execute(
-        select(ModelRuntimeState, ModelRelease)
-        .join(
-            ModelRelease,
-            ModelRelease.id == ModelRuntimeState.active_model_release_id,
-        )
-        .with_for_update(of=ModelRuntimeState)
-    ).one_or_none()
-    if row is None:
-        raise RuntimeError("Model runtime state has no active installed release")
-    runtime_state, active_release = row
+    workspace = session.get(Workspace, workspace_key)
+    if workspace is None:
+        raise WorkspaceNotFound(workspace_key)
+    _lock_what_activation_changes(session, workspace_key, release_id, expected_release_id)
+    assignment, current_release = load_assignment(session, workspace_key, for_update=True)
 
     candidate_release = session.scalar(
         select(ModelRelease).where(ModelRelease.public_id == release_id)
@@ -153,27 +171,29 @@ def activate_model_release(
         raise ModelReleaseNotFound(release_id)
 
     if (
-        runtime_state.version != expected_runtime_version
-        or active_release.public_id != expected_active_release_id
+        assignment.version != expected_version
+        or current_release.public_id != expected_release_id
     ):
-        raise ActivationConflict(active_release.public_id, runtime_state.version)
+        raise ActivationConflict(workspace_key, current_release.public_id, assignment.version)
+    if workspace.status != "active":
+        raise WorkspaceRetired(workspace_key)
 
     if candidate_release.schema_version not in SUPPORTED_SCHEMA_VERSIONS:
         raise UnsupportedModelSchema(
             candidate_release.public_id, candidate_release.schema_version
         )
 
-    active_compilation = compile_model(active_release.model_json)
+    current_compilation = compile_model(current_release.model_json)
     candidate_compilation = compile_model(candidate_release.model_json)
     if (
-        not active_compilation.valid
-        or active_compilation.model is None
+        not current_compilation.valid
+        or current_compilation.model is None
         or not candidate_compilation.valid
         or candidate_compilation.model is None
     ):
         invalid_compilation, invalid_release = (
-            (active_compilation, active_release)
-            if not active_compilation.valid
+            (current_compilation, current_release)
+            if not current_compilation.valid
             else (candidate_compilation, candidate_release)
         )
         if invalid_compilation.unsupported_schema_version is not None:
@@ -185,77 +205,69 @@ def activate_model_release(
 
     compatibility = analyze_compatibility(
         session,
-        active_compilation.model,
+        current_compilation.model,
         candidate_compilation.model,
-        active_release.public_id,
+        current_release.public_id,
+        [workspace_key],
     )
     if compatibility.classification == "migration_required":
         raise ModelMigrationRequired(compatibility)
-    # Consumers read the active release, so its definitions are the contract (C-D17).
+    # The workspace's consumers read its release, so its definitions are the contract (C-D17).
     contract_errors = [
         item
-        for item in contract_diagnostics(active_compilation.model, candidate_compilation.model)
+        for item in contract_diagnostics(current_compilation.model, candidate_compilation.model)
         if item.severity == "error"
     ]
     if contract_errors:
         raise ConsumerContractVersionRequired(tuple(contract_errors))
 
     updated_at = datetime.now(UTC)
+    new_version = expected_version + 1
     result = session.execute(
-        update(ModelRuntimeState)
+        update(WorkspaceModel)
         .where(
-            ModelRuntimeState.id == runtime_state.id,
-            ModelRuntimeState.version == expected_runtime_version,
-            ModelRuntimeState.active_model_release_id == active_release.id,
+            WorkspaceModel.workspace_key == workspace_key,
+            WorkspaceModel.version == expected_version,
+            WorkspaceModel.model_release_id == current_release.id,
         )
-        .values(
-            active_model_release_id=candidate_release.id,
-            version=expected_runtime_version + 1,
-            updated_at=updated_at,
-        )
+        .values(model_release_id=candidate_release.id, version=new_version, updated_at=updated_at)
         .execution_options(synchronize_session=False)
     )
     if result.rowcount != 1:
-        current_row = session.execute(
-            select(ModelRuntimeState, ModelRelease).join(
-                ModelRelease,
-                ModelRelease.id == ModelRuntimeState.active_model_release_id,
-            )
-        ).one()
-        current_state, current_release = current_row
-        raise ActivationConflict(current_release.public_id, current_state.version)
+        current, release = load_assignment(session, workspace_key)
+        raise ActivationConflict(workspace_key, release.public_id, current.version)
 
-    session.execute(update(ModelRelease).values(is_active=False))
-    session.execute(
-        update(ModelRelease)
-        .where(ModelRelease.id == candidate_release.id)
-        .values(is_active=True)
+    # Stored matrix cell states follow the workspace's new matrix shapes (A3b).
+    matrix_states.sync_workspace(session, workspace_key)
+    # The workspace's subscriptions the new release cannot serve are suspended with it (C11, C-D99).
+    suspend_left_behind(session, candidate_compilation.model, workspace_key)
+    left_behind = tuple(
+        session.scalars(
+            select(ChangeSet)
+            .where(
+                ChangeSet.workspace_key == workspace_key,
+                ChangeSet.model_release_id == current_release.id,
+            )
+            .order_by(ChangeSet.sequence_id)
+        )
     )
-    new_version = expected_runtime_version + 1
-    # Stored matrix cell states follow the newly active model's matrix shapes (A3b).
-    matrix_states.sync_all(session)
-    # Subscriptions the new release cannot serve are suspended with it (C11, C-D99).
-    suspend_left_behind(session, candidate_compilation.model)
     session.add(
         AuditEvent(
-            aggregate_type="model_runtime_state",
+            aggregate_type="workspace_model",
             aggregate_id=candidate_release.public_id,
             action="activated",
             version=new_version,
             changes={
-                "oldReleaseId": active_release.public_id,
-                "oldModelHash": active_release.model_hash,
+                "workspaceKey": workspace_key,
+                "oldReleaseId": current_release.public_id,
+                "oldModelHash": current_release.model_hash,
                 "newReleaseId": candidate_release.public_id,
                 "newModelHash": candidate_release.model_hash,
+                "changeSetsLeftBehind": [item.id for item in left_behind],
             },
         )
     )
-    return ActivatedRuntimeState(
-        active_release_id=candidate_release.public_id,
-        active_model_hash=candidate_release.model_hash,
-        version=new_version,
-        updated_at=updated_at,
-    )
+    return Activation(workspace_key, candidate_release, new_version, updated_at, left_behind)
 
 
 def install_model_release(session: Session, model: EngineModel) -> tuple[ModelRelease, bool]:
@@ -286,7 +298,6 @@ def install_model_release(session: Session, model: EngineModel) -> tuple[ModelRe
         schema_version=model.schemaVersion,
         model_hash=model_hash,
         model_json=model_json,
-        is_active=False,
     )
     session.add(release)
     session.flush()

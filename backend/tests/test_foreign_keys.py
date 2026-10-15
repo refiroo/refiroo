@@ -39,6 +39,8 @@ RULES = {
     ("change_set_bases", "workspace_key"): ("workspaces", "RESTRICT"),
     ("publications", "workspace_key"): ("workspaces", "RESTRICT"),
     ("workspace_runtime_state", "default_workspace_key"): ("workspaces", "RESTRICT"),
+    # A workspace's model assignment goes with the workspace (0.11 M1).
+    ("workspace_models", "workspace_key"): ("workspaces", "CASCADE"),
     ("relation_set_versions", "workspace_key"): ("workspaces", "CASCADE"),
     # Consumer events and the deriver's checkpoint are derived from the workspace's feed (0.9 C10);
     # they go with it.
@@ -60,7 +62,7 @@ RULES = {
     ("workspaces", "active_publication_id"): ("publications", "RESTRICT"),
     # Model releases are immutable and never deleted while anything is pinned to them; a draft
     # outlives the release it started from. The release's own catalogue rows go with it.
-    ("model_runtime_state", "active_model_release_id"): ("model_releases", "RESTRICT"),
+    ("workspace_models", "model_release_id"): ("model_releases", "RESTRICT"),
     ("change_sets", "model_release_id"): ("model_releases", "RESTRICT"),
     ("change_set_bases", "model_release_id"): ("model_releases", "RESTRICT"),
     ("publications", "model_release_id"): ("model_releases", "RESTRICT"),

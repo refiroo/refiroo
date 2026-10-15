@@ -493,8 +493,19 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 
 - [x] 0.11 P0 design pass, per the [Base 0.11 plan](BASE_0_11_IMPLEMENTATION_PLAN.md), delivered
   2026-10-15: decisions D4–D29 and the move inventory accepted, ADR-042, API design, J36–J38, the M5
-  and X4 mock-ups approved. Next: M1.
+  and X4 mock-ups approved. M1 (with M2 folded in, plan D32) delivered 2026-10-15; next: M3.
   - [ ] The user's requirement: each workspace runs a model of its own (Track M, then Track V).
+    M1 delivered the API: a workspace on a release of its own, activation into one workspace, the
+    commit guard per workspace. Still to come: import profiles, drafts and the consumer index
+    following a workspace's model (M3), spanning reads (M4), the browser (M5).
+  - [ ] **Found in M1 (2026-10-15), not caused by it:** `test_boundaries::test_tiers_hold` fails at
+    `71b15ea` already (the import cycle `sources.draft_profile` ↔ `sources.dry_run`, the deferred
+    import in `dry_run`). Untouched by M1.
+  - [ ] **Found in M1, unchanged code path:** after an offline schema upgrade (J12.6) the event
+    deriver logs an error for feed entries written under the release whose schema the upgrade
+    replaced (`UNSUPPORTED_PINNED_MODEL_SCHEMA` in `worker._plans_for`); it retries every 2 s.
+  - [ ] **Found in M1:** `test_j34_onboard.py` alone took 5 min 3 s with `-n auto` (112 cases), over
+    the package ceiling; one more input for S1 (D152).
   - [ ] The user's requirement: data moved between workspaces whose models differ (Track X), in
     0.11 (plan D3, accepted 2026-10-15).
   - [ ] The backend suite's time (D152, package S1): a filler during Part 1, before X2 at the latest

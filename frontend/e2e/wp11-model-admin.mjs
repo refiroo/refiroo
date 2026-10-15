@@ -13,7 +13,7 @@ try {
   console.log("WP-11 browser: harness ready");
   page.on("pageerror", (error) => failures.push(error.message));
 
-  const runtime = await api("/model-runtime-state");
+  const runtime = await api("/workspaces/default/model");
   const model = await api("/model");
   model.release = { ...model.release, version: `${model.release.version}-wp11-target` };
   const modelDraft = await api("/model-drafts", { name: "WP-11 target", model });
@@ -70,7 +70,7 @@ try {
   const report = {
     browser: browser.version(),
     viewports: ["1440x900", "390x844"],
-    modelConfigurations: [runtime.activeReleaseId, targetRelease.id],
+    modelConfigurations: [runtime.releaseId, targetRelease.id],
     checks,
     pageErrors: failures,
     passed: failures.length === 0,

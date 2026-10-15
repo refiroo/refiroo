@@ -40,16 +40,19 @@ from ...engine.model.releases import (
     ModelReleaseNotFound,
     ReleaseIdentityConflict,
     UnsupportedModelSchema,
+    WorkspaceNotFound,
+    WorkspaceRetired,
     activate_model_release,
     install_model_release,
     model_activation_lock,
     model_installation_lock,
 )
+from ...engine.model.workspace_models import workspaces_running
 from ...engine.sources import draft_profile
 from ...engine.sources.inference import run as inference
 from ...errors import api_error
 from ...models.database import AuditEvent, ModelDraft, ModelDraftOperation, ModelRelease
-from ..dependencies import ActiveModelSnapshot, DbSession
+from ..dependencies import DbSession, DefaultModelSnapshot
 from ..paging import PageQuery
 from ..presenters import (
     change_response,
@@ -58,7 +61,6 @@ from ..presenters import (
     diagnostic_response,
 )
 from ..schemas.model import (
-    ModelActivationRequest,
     ModelCompatibilityResponse,
     ModelCompilationResponse,
     ModelDraftConsumerApiResponse,
@@ -76,7 +78,11 @@ from ..schemas.model import (
     ModelDraftUpdate,
     ModelDraftVersionRequest,
     ModelInstallationResponse,
-    ModelRuntimeStateResponse,
+)
+from ..schemas.workspaces import (
+    ChangeSetLeftBehind,
+    WorkspaceModelActivation,
+    WorkspaceModelActivationResponse,
 )
 from ..steps import step_response
 
@@ -94,35 +100,50 @@ _OPERATION_KEYS = (integer_key("sequence", ModelDraftOperation.sequence, "sequen
 
 
 @router.post(
-    "/model-releases/{release_id}/activation",
-    response_model=ModelRuntimeStateResponse,
+    "/workspaces/{workspace_key}/model/activation",
+    response_model=WorkspaceModelActivationResponse,
 )
-def activate_release(
-    release_id: str, payload: ModelActivationRequest, session: DbSession
-) -> ModelRuntimeStateResponse:
+def activate_workspace_model(
+    workspace_key: str, payload: WorkspaceModelActivation, session: DbSession
+) -> WorkspaceModelActivationResponse:
+    """Activate an installed release into one workspace (0.11 M1, ADR-042): its compatibility check
+    counts that workspace's data alone, and the other workspaces keep their releases."""
     with model_activation_lock:
         try:
             activated = activate_model_release(
                 session,
-                release_id,
-                expected_runtime_version=payload.expectedRuntimeVersion,
-                expected_active_release_id=str(payload.expectedActiveReleaseId),
+                workspace_key,
+                str(payload.releaseId),
+                expected_version=payload.expectedVersion,
+                expected_release_id=str(payload.expectedReleaseId),
             )
+        except WorkspaceNotFound as exc:
+            raise api_error(
+                404, "WORKSPACE_NOT_FOUND", f"Workspace '{exc.workspace_key}' not found"
+            ) from exc
         except ModelReleaseNotFound as exc:
             raise api_error(
                 404,
                 "MODEL_RELEASE_NOT_FOUND",
-                f"Model release '{release_id}' not found",
+                f"Model release '{exc.release_id}' not found",
             ) from exc
         except ActivationConflict as exc:
             raise api_error(
                 409,
                 "ACTIVATION_CONFLICT",
-                "The active model selection changed before activation",
+                f"The model of workspace '{exc.workspace_key}' changed before activation",
                 {
-                    "activeReleaseId": exc.active_release_id,
-                    "runtimeVersion": exc.runtime_version,
+                    "workspaceKey": exc.workspace_key,
+                    "currentReleaseId": exc.current_release_id,
+                    "currentVersion": exc.current_version,
                 },
+            ) from exc
+        except WorkspaceRetired as exc:
+            raise api_error(
+                409,
+                "WORKSPACE_RETIRED",
+                f"Workspace '{exc.workspace_key}' is retired; its model is not changed",
+                {"workspaceKey": exc.workspace_key},
             ) from exc
         except UnsupportedModelSchema as exc:
             raise api_error(
@@ -140,7 +161,7 @@ def activate_release(
             raise api_error(
                 409,
                 "MODEL_MIGRATION_REQUIRED",
-                "Stored runtime data is incompatible with the candidate model",
+                f"Data of workspace '{workspace_key}' is incompatible with the candidate model",
                 diagnostic_details(exc.compatibility.diagnostics),
             ) from exc
         except ConsumerContractVersionRequired as exc:
@@ -159,29 +180,37 @@ def activate_release(
                 diagnostic_details(exc.diagnostics),
             ) from exc
 
+        response = WorkspaceModelActivationResponse(
+            workspaceKey=workspace_key,
+            releaseId=activated.release.public_id,
+            releaseKey=activated.release.release_key,
+            releaseVersion=activated.release.release_version,
+            schemaVersion=activated.release.schema_version,
+            modelHash=activated.release.model_hash,
+            version=activated.version,
+            updatedAt=activated.updated_at,
+            changeSetsLeftBehind=[
+                ChangeSetLeftBehind(id=item.id, name=item.name, version=item.version)
+                for item in activated.change_sets_left_behind
+            ],
+        )
         with model_registry.publication_guard():
             session.commit()
-
             try:
-                model_registry.refresh_active()
+                model_registry.warm(activated.release.id)
             except Exception as exc:
-                model_registry.mark_unhealthy()
+                model_registry.withdraw(activated.release)
                 raise api_error(
                     503,
                     "MODEL_REGISTRY_REFRESH_FAILED",
-                    "The model was activated, but this process could not publish the committed selection",
+                    "The model was activated, but this process could not load the new release",
                     {
-                        "activeReleaseId": activated.active_release_id,
-                        "runtimeVersion": activated.version,
+                        "workspaceKey": workspace_key,
+                        "releaseId": response.releaseId,
+                        "version": response.version,
                     },
                 ) from exc
-
-    return ModelRuntimeStateResponse(
-        activeReleaseId=activated.active_release_id,
-        activeModelHash=activated.active_model_hash,
-        version=activated.version,
-        updatedAt=activated.updated_at,
-    )
+    return response
 
 
 @router.get("/model-drafts", response_model=ModelDraftPage)
@@ -290,7 +319,7 @@ def list_model_draft_operations(
     response_model_exclude_unset=True,
 )
 def get_model_draft_outline(
-    draft_id: str, session: DbSession, snapshot: ActiveModelSnapshot
+    draft_id: str, session: DbSession, snapshot: DefaultModelSnapshot
 ) -> ModelDraftOutlineResponse:
     """The draft's structure as the editor shows it (0.10 A4a, D36), with each consumer API's
     contract against the active release (0.10 A4c, D55)."""
@@ -315,7 +344,7 @@ def get_model_draft_model(draft_id: str, session: DbSession) -> ModelDraftModelR
     response_model_exclude_unset=True,
 )
 def get_model_draft_consumer_api(
-    draft_id: str, consumer_api: str, session: DbSession, snapshot: ActiveModelSnapshot
+    draft_id: str, consumer_api: str, session: DbSession, snapshot: DefaultModelSnapshot
 ) -> ModelDraftConsumerApiResponse:
     """A consumer API definition of the draft as written and, when the draft compiles, with every
     default and its contract against the active release (0.10 A4c, D56). It reads and writes nothing."""
@@ -409,7 +438,7 @@ def compile_model_draft(
     draft_id: str,
     payload: ModelDraftVersionRequest,
     session: DbSession,
-    snapshot: ActiveModelSnapshot,
+    snapshot: DefaultModelSnapshot,
 ) -> ModelCompilationResponse:
     draft = load_draft(session, draft_id)
     require_draft_version(draft, payload.expectedVersion)
@@ -428,7 +457,11 @@ def compile_model_draft(
             ),
         )
     compatibility = analyze_compatibility(
-        session, snapshot.model, compiled.model, snapshot.release_id
+        session,
+        snapshot.model,
+        compiled.model,
+        snapshot.release_id,
+        workspaces_running(session, snapshot.release_db_id),
     )
     baseline_release = None
     if draft.base_model_release_id is not None:
@@ -491,7 +524,7 @@ def install_model_draft(
     draft_id: str,
     payload: ModelDraftVersionRequest,
     session: DbSession,
-    snapshot: ActiveModelSnapshot,
+    snapshot: DefaultModelSnapshot,
     response: Response,
 ) -> ModelInstallationResponse:
     with model_installation_lock:
@@ -505,7 +538,13 @@ def install_model_draft(
                 "Model draft is invalid and cannot be installed",
                 diagnostic_details(compiled.diagnostics),
             )
-        analyze_compatibility(session, snapshot.model, compiled.model, snapshot.release_id)
+        analyze_compatibility(
+            session,
+            snapshot.model,
+            compiled.model,
+            snapshot.release_id,
+            workspaces_running(session, snapshot.release_db_id),
+        )
         try:
             release, created = install_model_release(session, compiled.model)
         except ReleaseIdentityConflict as exc:
@@ -544,7 +583,8 @@ def install_model_draft(
             schemaVersion=release.schema_version,
             modelHash=release.model_hash,
             installedAt=as_utc(release.installed_at),
-            active=release.public_id == snapshot.release_id,
+            assigned=bool(running := workspaces_running(session, release.id)),
+            workspaces=running,
             importProfile={"key": saved.key, "version": saved.version} if saved is not None else None,
         )
 

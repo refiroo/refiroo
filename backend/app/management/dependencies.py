@@ -19,11 +19,13 @@ def get_session() -> Iterator[Session]:
 DbSession = Annotated[Session, Depends(get_session)]
 
 
-def active_model_snapshot(session: DbSession) -> ModelSnapshot:
-    return resolve_model_snapshot(session)
+def default_model_snapshot(session: DbSession) -> ModelSnapshot:
+    """The default workspace's model, for the instance-wide resources M3 binds to a workspace's
+    model (drafts, release comparisons)."""
+    return resolve_model_snapshot(session, None)
 
 
-ActiveModelSnapshot = Annotated[ModelSnapshot, Depends(active_model_snapshot)]
+DefaultModelSnapshot = Annotated[ModelSnapshot, Depends(default_model_snapshot)]
 
 
 def request_model_snapshot(
@@ -32,7 +34,8 @@ def request_model_snapshot(
     change_set_id: str | None = Query(default=None, alias="changeSetId"),
     publication_id: str | None = Query(default=None, alias="publicationId"),
 ) -> ModelSnapshot:
-    """Resolve the one model authority for a live, change-set or publication read request."""
+    """Resolve the one model authority for a live, change-set or publication read request: the
+    named workspace's model, the default workspace's without one (D6), or the context's release."""
     return resolve_request_model(session, workspace_key, change_set_id, publication_id)
 
 

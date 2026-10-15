@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { ApiError } from "@/api/errors";
-import { codelistObject, domainObject, testModel } from "@/test/fixtures";
+import { codelistObject, domainObject, testModel, testWorkspaceModel } from "@/test/fixtures";
 import type { ApplicationDefinition } from "@/types";
 import { TREE_PAGE_SIZE } from "@/features/objects/RecordTree";
 import { capabilitiesFixture } from "@/test/capabilities";
@@ -20,7 +20,8 @@ vi.mock("@/api/client", () => ({
     modelRelease: vi.fn(),
     modelReleases: vi.fn(),
     setChangeSetModelRelease: vi.fn(),
-    modelRuntimeState: vi.fn(),
+    defaultWorkspaceModel: vi.fn(),
+    workspaceModel: vi.fn(),
     workspaceRuntimeState: vi.fn(),
     workspace: vi.fn(),
     deleteWorkspace: vi.fn(),
@@ -73,12 +74,26 @@ describe("App", () => {
       version: 1,
       updatedAt: "2026-09-05T00:00:00Z",
     });
-    vi.mocked(api.modelRuntimeState).mockResolvedValue({
-      activeReleaseId: "current-model",
-      activeModelHash: "hash",
+    vi.mocked(api.defaultWorkspaceModel).mockResolvedValue({
+      workspaceKey: "default",
+      releaseId: "current-model",
+      releaseKey: "rdm",
+      releaseVersion: "1",
+      schemaVersion: "0.10",
+      modelHash: "hash",
       version: 1,
       updatedAt: "2026-09-05T00:00:00Z",
     });
+    vi.mocked(api.workspaceModel).mockImplementation(async (workspaceKey) => ({
+      workspaceKey,
+      releaseId: "current-model",
+      releaseKey: "rdm",
+      releaseVersion: "1",
+      schemaVersion: "0.10",
+      modelHash: "hash",
+      version: 1,
+      updatedAt: "2026-09-05T00:00:00Z",
+    }));
     vi.mocked(api.workspace).mockImplementation(async (key) => ({
       key,
       label: key === "default" ? "Default" : key,
@@ -86,6 +101,7 @@ describe("App", () => {
       version: 1,
       createdAt: "2026-09-05T00:00:00Z",
       updatedAt: "2026-09-05T00:00:00Z",
+      model: testWorkspaceModel,
       deletable: false,
     }));
     vi.mocked(api.workspaces).mockResolvedValue({ items: [], nextCursor: null });
@@ -313,6 +329,7 @@ describe("App", () => {
           version: 1,
           createdAt: "2026-09-05T00:00:00Z",
           updatedAt: "2026-09-05T00:00:00Z",
+          model: testWorkspaceModel,
         },
         {
           key: "west",
@@ -321,6 +338,7 @@ describe("App", () => {
           version: 1,
           createdAt: "2026-09-05T00:00:00Z",
           updatedAt: "2026-09-05T00:00:00Z",
+          model: testWorkspaceModel,
         },
       ],
       nextCursor: null,
@@ -332,6 +350,7 @@ describe("App", () => {
       version: 1,
       createdAt: "2026-09-05T00:00:00Z",
       updatedAt: "2026-09-05T00:00:00Z",
+      model: testWorkspaceModel,
       deletable: false,
       deleteBlockedBy: "notEmpty",
     }));
@@ -360,6 +379,7 @@ describe("App", () => {
       version: 1,
       createdAt: "2026-09-05T00:00:00Z",
       updatedAt: "2026-09-05T00:00:00Z",
+      model: testWorkspaceModel,
     };
     vi.mocked(api.workspaces).mockResolvedValue({ items: [west], nextCursor: null });
     vi.mocked(api.workspace).mockImplementation(async (key) =>
@@ -409,6 +429,7 @@ describe("App", () => {
       version: 2,
       createdAt: "2026-09-05T00:00:00Z",
       updatedAt: "2026-09-05T00:00:00Z",
+      model: testWorkspaceModel,
       deletable: false,
     });
     visit("/apps/test-app/views/domains?workspaceKey=archive");
@@ -428,6 +449,7 @@ describe("App", () => {
       version: 2,
       createdAt: "2026-09-05T00:00:00Z",
       updatedAt: "2026-09-05T00:00:00Z",
+      model: testWorkspaceModel,
       deletable: false,
     });
     vi.mocked(api.object).mockResolvedValue({ ...domainObject, workspaceKey: "archive" });
@@ -498,6 +520,7 @@ describe("App", () => {
           version: 1,
           createdAt: "2026-09-05T00:00:00Z",
           updatedAt: "2026-09-05T00:00:00Z",
+          model: testWorkspaceModel,
         },
       ],
       nextCursor: null,
@@ -629,7 +652,8 @@ describe("App", () => {
       schemaVersion: testModel.schemaVersion,
       modelHash: "hash",
       installedAt: "",
-      active: true,
+      assigned: true,
+      workspaces: ["default"],
       model: testModel as unknown as Record<string, unknown>,
     });
     vi.mocked(api.object).mockResolvedValue({ ...domainObject, workspaceKey: "west" });
@@ -693,7 +717,8 @@ describe("App", () => {
       schemaVersion: testModel.schemaVersion,
       modelHash: "hash",
       installedAt: "",
-      active: false,
+      assigned: false,
+      workspaces: [],
     };
     vi.mocked(api.changeSet).mockResolvedValue(changeSet);
     vi.mocked(api.model).mockResolvedValueOnce(testModel).mockResolvedValueOnce(testModel).mockResolvedValue(nextModel);
@@ -744,7 +769,8 @@ describe("App", () => {
       schemaVersion: testModel.schemaVersion,
       modelHash: "old-hash",
       installedAt: "",
-      active: false,
+      assigned: false,
+      workspaces: [],
       model: testModel as unknown as Record<string, unknown>,
     });
     vi.mocked(api.object).mockResolvedValue({ ...domainObject, workspaceKey: "west", name: "Historical domain" });
@@ -796,7 +822,8 @@ describe("App", () => {
       schemaVersion: testModel.schemaVersion,
       modelHash: "old-hash",
       installedAt: "",
-      active: false,
+      assigned: false,
+      workspaces: [],
       model: testModel as unknown as Record<string, unknown>,
     });
     visit("/apps/test-app/views/domains?workspaceKey=west&publicationId=publication-2");

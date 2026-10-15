@@ -68,11 +68,11 @@ export function LoadDialog({
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([api.compileModelDraft(draftId, outline.version), api.modelRuntimeState()])
+    Promise.all([api.compileModelDraft(draftId, outline.version), api.defaultWorkspaceModel()])
       .then(([compiled, state]) => {
         if (cancelled) return;
         setCompilation(compiled);
-        setActiveId(state.activeReleaseId);
+        setActiveId(state.releaseId);
       })
       .catch((cause) => {
         if (!cancelled) setLoadError(errorMessage(cause));
@@ -122,9 +122,10 @@ export function LoadDialog({
         );
         return;
       }
-      if (!release.active) {
+      // The release runs in the workspace the file loads into (0.11 M1), activated there.
+      if (!release.workspaces.includes(workspace)) {
         try {
-          await api.activateModelRelease(release.id, await api.modelRuntimeState());
+          await api.activateWorkspaceModel(release.id, await api.workspaceModel(workspace));
         } catch (cause) {
           setStage("stopped");
           setError(`${release.name} ${release.version} is installed but not active: ${activationRefusal(cause)}`);

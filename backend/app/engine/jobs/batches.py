@@ -181,7 +181,7 @@ def open_batch_context(session: Session, request: BatchRequest) -> BatchContext:
     check_batch_context(request)
     if request.changeSetId is None:
         workspace = resolve_workspace(session, request.workspaceKey, require_active=True)
-        snapshot = resolve_model_snapshot(session)
+        snapshot = resolve_model_snapshot(session, workspace.key)
         return BatchContext(
             workspace.key, None, snapshot.model, snapshot.release_db_id, snapshot.model_hash
         )

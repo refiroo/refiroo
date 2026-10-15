@@ -165,7 +165,7 @@ def test_profiles_are_kept_under_a_version_and_refused_with_every_problem(world)
     profile = _ledger_profile(world)
     created = ok(world.api.post("/import-profiles", profile), 201)
     assert created["version"] == 1 and created["valid"] is True and created["problems"] == []
-    active = ok(world.api.get("/model-runtime-state"))["activeReleaseId"]
+    active = world.workspace_model()["releaseId"]
     assert created["checkedAgainst"] == active
     read = ok(world.api.get(f"/import-profiles/{profile['key']}"))
     assert read["sources"] == created["sources"] and read["name"] == "Ledgers"

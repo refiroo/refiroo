@@ -72,7 +72,7 @@ def test_declare_validate_compare_and_activate_a_consumer_api(world):
     assert pointer in json.dumps(error["details"])
 
     _activate_definition(world, "api")
-    state = ok(world.api.get("/model-runtime-state"))
+    state = world.workspace_model()
     draft, compiled = _compile(world, _model(world, "removed", drop_flag=True))
     assert compiled["consumerContracts"]["classification"] == "version_required"
     (diagnostic,) = [
@@ -86,7 +86,7 @@ def test_declare_validate_compare_and_activate_a_consumer_api(world):
     assert "flag" in diagnostic["path"] + diagnostic["message"], diagnostic
     release = ok(_install(world, draft), 201)
     refused(world.activate(release["id"]), 409, "CONSUMER_CONTRACT_VERSION_REQUIRED")
-    assert ok(world.api.get("/model-runtime-state")) == state
+    assert world.workspace_model() == state
     _activate_definition(world, "removed-v2", drop_flag=True, version=2)
 
 

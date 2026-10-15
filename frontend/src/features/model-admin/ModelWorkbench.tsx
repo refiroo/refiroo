@@ -13,7 +13,7 @@ import type {
   ModelDraft,
   ModelRelease,
   ModelReleaseSummary,
-  ModelRuntimeState,
+  WorkspaceModel,
   SettingsRoute,
 } from "@/types";
 import { CapabilityStatus } from "@/features/administration/CapabilityStatus";
@@ -52,7 +52,7 @@ export function ModelWorkbench({
   const [releaseCursor, setReleaseCursor] = useState<string | null>();
   const [drafts, setDrafts] = useState<ModelDraft[]>([]);
   const [draftCursor, setDraftCursor] = useState<string | null>();
-  const [runtime, setRuntime] = useState<ModelRuntimeState>();
+  const [runtime, setRuntime] = useState<WorkspaceModel>();
   const [error, setError] = useState("");
   const [creating, setCreating] = useState<CreateDraftSeed>();
   const [createReleaseId, setCreateReleaseId] = useState("");
@@ -81,13 +81,13 @@ export function ModelWorkbench({
       const [caps, releasePage, state] = await Promise.all([
         api.capabilities(),
         api.modelReleases(),
-        api.modelRuntimeState(),
+        api.defaultWorkspaceModel(),
       ]);
       setCapabilities(caps);
       setReleases(releasePage.items);
       setReleaseCursor(releasePage.nextCursor);
       setRuntime(state);
-      setCreateReleaseId((current) => current || state.activeReleaseId);
+      setCreateReleaseId((current) => current || state.releaseId);
       if (caps.modelAdmin.manageDrafts) {
         const draftPage = await api.modelDrafts();
         setDrafts(draftPage.items);
@@ -147,16 +147,16 @@ export function ModelWorkbench({
     });
   }
 
-  function activated(state: ModelRuntimeState) {
+  function activated(state: WorkspaceModel) {
     setRuntime(state);
     void Promise.all([load(), onActiveModelChange?.()]).then(() => {
       toast("The release is now the active model.");
-      onRouteChange({ ...MODEL, releaseId: state.activeReleaseId });
+      onRouteChange({ ...MODEL, releaseId: state.releaseId });
     });
   }
 
   const selectedDraft = route.draftId ? drafts.find((item) => item.id === route.draftId) : undefined;
-  const activeReleaseId = runtime?.activeReleaseId ?? releases.find((item) => item.active)?.id ?? "";
+  const activeReleaseId = runtime?.releaseId ?? releases.find((item) => item.assigned)?.id ?? "";
   const activeRelease = releases.find((item) => item.id === activeReleaseId);
   // Without a selection in the address the active release is shown, as the workbench always did.
   const shownReleaseId = route.draftId ? undefined : (route.releaseId ?? (activeReleaseId || undefined));
@@ -175,7 +175,7 @@ export function ModelWorkbench({
             subtitle={`${release.key} · ${release.version}`}
             current={shownReleaseId === release.id}
             onSelect={() => onRouteChange({ ...MODEL, releaseId: release.id })}
-            pill={release.active && <StatusPill tone="success">Active</StatusPill>}
+            pill={release.id === activeReleaseId && <StatusPill tone="success">Active</StatusPill>}
           />
         ))}
         {releaseCursor && (

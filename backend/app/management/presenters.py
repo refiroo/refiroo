@@ -18,6 +18,7 @@ from ..engine.jobs.store import release_public_ids
 from ..engine.model.compiler import ModelDiagnostic
 from ..engine.model.consumer_contract import contract_diagnostics
 from ..engine.model.diff import SemanticChange
+from ..engine.model.workspace_models import Assignment, assignments_of, load_assignment
 from ..engine.reads.feed import FeedPage as FeedRead
 from ..engine.reads.object_query import live_object_paths
 from ..engine.records.attributes import load_attribute_values
@@ -79,7 +80,9 @@ from .schemas.records import (
     RelationResponse,
 )
 from .schemas.workspaces import (
+    WorkspaceAssignmentResponse,
     WorkspaceDetailResponse,
+    WorkspaceModelResponse,
     WorkspaceResponse,
     WorkspaceRuntimeStateResponse,
 )
@@ -210,7 +213,27 @@ def build_relation_response(relation: ObjectRelation) -> RelationResponse:
     )
 
 
-def workspace_response(item: Workspace) -> WorkspaceResponse:
+def workspace_model_response(assignment: Assignment) -> WorkspaceModelResponse:
+    item, release = assignment
+    return WorkspaceModelResponse(
+        releaseId=release.public_id,
+        releaseKey=release.release_key,
+        releaseVersion=release.release_version,
+        schemaVersion=release.schema_version,
+        modelHash=release.model_hash,
+        version=item.version,
+        updatedAt=as_utc(item.updated_at),
+    )
+
+
+def workspace_assignment_response(assignment: Assignment) -> WorkspaceAssignmentResponse:
+    return WorkspaceAssignmentResponse(
+        **workspace_model_response(assignment).model_dump(),
+        workspaceKey=assignment[0].workspace_key,
+    )
+
+
+def workspace_response(item: Workspace, assignment: Assignment) -> WorkspaceResponse:
     return WorkspaceResponse(
         key=item.key,
         label=item.label,
@@ -218,7 +241,13 @@ def workspace_response(item: Workspace) -> WorkspaceResponse:
         version=item.version,
         createdAt=as_utc(item.created_at),
         updatedAt=as_utc(item.updated_at),
+        model=workspace_model_response(assignment),
     )
+
+
+def workspace_page_items(session: Session, items: list[Workspace]) -> list[WorkspaceResponse]:
+    assignments = assignments_of(session, (item.key for item in items))
+    return [workspace_response(item, assignments[item.key]) for item in items]
 
 
 def workspace_detail_response(session: Session, item: Workspace) -> WorkspaceDetailResponse:
@@ -226,7 +255,9 @@ def workspace_detail_response(session: Session, item: Workspace) -> WorkspaceDet
         session, item.key, load_workspace_runtime_state(session).default_workspace_key
     )
     return WorkspaceDetailResponse(
-        **workspace_response(item).model_dump(), deletable=blocker is None, deleteBlockedBy=blocker
+        **workspace_response(item, load_assignment(session, item.key)).model_dump(),
+        deletable=blocker is None,
+        deleteBlockedBy=blocker,
     )
 
 

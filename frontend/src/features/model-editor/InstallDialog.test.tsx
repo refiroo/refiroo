@@ -32,17 +32,26 @@ describe("InstallDialog (A-D8, D18, D42)", () => {
   it("sets the proposed version, installs at the draft's latest version and activates", async () => {
     vi.mocked(api.compileModelDraft).mockResolvedValue(compiled(true));
     vi.mocked(api.installModelDraft).mockResolvedValue(release);
-    vi.mocked(api.modelRuntimeState).mockResolvedValue({
-      activeReleaseId: "r1",
-      activeModelHash: "h",
+    vi.mocked(api.defaultWorkspaceModel).mockResolvedValue({
+      workspaceKey: "default",
+      releaseId: "r1",
+      releaseKey: "rdm",
+      releaseVersion: "1",
+      schemaVersion: "0.10",
+      modelHash: "h",
       version: 3,
       updatedAt: "",
     });
-    vi.mocked(api.activateModelRelease).mockResolvedValue({
-      activeReleaseId: "r2",
-      activeModelHash: "h2",
+    vi.mocked(api.activateWorkspaceModel).mockResolvedValue({
+      workspaceKey: "default",
+      releaseId: "r2",
+      releaseKey: "rdm",
+      releaseVersion: "1",
+      schemaVersion: "0.10",
+      modelHash: "h2",
       version: 4,
       updatedAt: "",
+      changeSetsLeftBehind: [],
     });
     const { run, onActivated } = renderDialog();
     expect(await screen.findByText("Bin")).toBeTruthy();
@@ -55,13 +64,17 @@ describe("InstallDialog (A-D8, D18, D42)", () => {
   it("keeps the installed release when activation is refused, and says so", async () => {
     vi.mocked(api.compileModelDraft).mockResolvedValue(compiled(true));
     vi.mocked(api.installModelDraft).mockResolvedValue(release);
-    vi.mocked(api.modelRuntimeState).mockResolvedValue({
-      activeReleaseId: "r1",
-      activeModelHash: "h",
+    vi.mocked(api.defaultWorkspaceModel).mockResolvedValue({
+      workspaceKey: "default",
+      releaseId: "r1",
+      releaseKey: "rdm",
+      releaseVersion: "1",
+      schemaVersion: "0.10",
+      modelHash: "h",
       version: 3,
       updatedAt: "",
     });
-    vi.mocked(api.activateModelRelease).mockRejectedValue(
+    vi.mocked(api.activateWorkspaceModel).mockRejectedValue(
       new ApiError(409, "MODEL_MIGRATION_REQUIRED", "Activation needs a migration", {
         diagnostics: [{ message: "4 records lose their type." }],
       }),

@@ -103,7 +103,7 @@ try {
   await capture(page, "settings-model-light", output, [
     page.locator(".release-metadata dd, .catalogue-text small:has-text(':')"),
   ]);
-  const activeRelease = (await api("/model-runtime-state")).activeReleaseId;
+  const activeRelease = (await api("/workspaces/default/model")).releaseId;
   await page.goto(`${uiUrl}/settings/model/releases/${activeRelease}`);
   await shown(page.getByRole("button", { name: "Export JSON" }));
   await capture(page, "settings-release-detail-light", output, [page.locator(".release-metadata dd")]);

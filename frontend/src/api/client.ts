@@ -66,7 +66,8 @@ import type {
   ModelReleaseActivationPage,
   ModelReleaseDiff,
   ModelReleasePage,
-  ModelRuntimeState,
+  WorkspaceModel,
+  WorkspaceModelActivation,
   ModelValidation,
   Workspace,
   WorkspaceDetail,
@@ -735,7 +736,10 @@ export const api = {
     request<ModelReleaseDiff>(
       `/api/v1/model-releases/${encodeURIComponent(releaseId)}/diff?againstReleaseId=${encodeURIComponent(againstReleaseId)}`,
     ),
-  modelRuntimeState: () => request<ModelRuntimeState>("/api/v1/model-runtime-state"),
+  workspaceModel: (workspaceKey: string) =>
+    request<WorkspaceModel>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/model`),
+  /** The default workspace's model, the one Settings › Model manages (0.11 M1). */
+  defaultWorkspaceModel: async () => api.workspaceModel((await api.workspaceRuntimeState()).defaultWorkspaceKey),
   validateModel: (model: Record<string, unknown>) =>
     request<ModelValidation>("/api/v1/model-validations", { method: "POST", body: JSON.stringify({ model }) }),
   modelDrafts: (options: { cursor?: string; pageSize?: number } = {}) => {
@@ -806,11 +810,15 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ expectedVersion }),
     }),
-  activateModelRelease: (releaseId: string, state: ModelRuntimeState) =>
-    request<ModelRuntimeState>(`/api/v1/model-releases/${encodeURIComponent(releaseId)}/activation`, {
-      method: "POST",
-      body: JSON.stringify({ expectedRuntimeVersion: state.version, expectedActiveReleaseId: state.activeReleaseId }),
-    }),
+  /** ``releaseId`` activated into the workspace of ``current``, claiming its assignment (0.11 M1). */
+  activateWorkspaceModel: (releaseId: string, current: WorkspaceModel) =>
+    request<WorkspaceModelActivation>(
+      `/api/v1/workspaces/${encodeURIComponent(current.workspaceKey)}/model/activation`,
+      {
+        method: "POST",
+        body: JSON.stringify({ releaseId, expectedVersion: current.version, expectedReleaseId: current.releaseId }),
+      },
+    ),
   objects: (objectTypeKey: string, query: ObjectQuery) => request<ObjectPage>(objectQueryPath(objectTypeKey, query)),
   object: (
     objectTypeKey: string,

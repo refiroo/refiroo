@@ -81,7 +81,7 @@ def submit_dry_run(
         kind=KIND,
         workspace_key=workspace.key,
         change_set_id=None,
-        model_release_id=resolve_model_snapshot(session).release_db_id,
+        model_release_id=resolve_model_snapshot(session, workspace.key).release_db_id,
         parameters={
             "policy": "independent",
             "run": "background",
@@ -116,7 +116,7 @@ def dry_run_context(session: Session, job: Job) -> BatchContext:
     was sent for. A draft changed since stops the dry run (``JobCancelled``); a release activated
     since fails it, as any job's."""
     workspace = resolve_workspace(session, job.workspace_key, require_active=True)
-    snapshot = resolve_model_snapshot(session)
+    snapshot = resolve_model_snapshot(session, workspace.key)
     if snapshot.release_db_id != job.model_release_id:
         raise api_error(
             409,

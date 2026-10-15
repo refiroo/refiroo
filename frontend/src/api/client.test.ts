@@ -242,25 +242,35 @@ describe("API client", () => {
       )
       .mockResolvedValueOnce(
         jsonResponse({
-          activeReleaseId: "active",
-          activeModelHash: "hash",
+          workspaceKey: "default",
+          releaseId: "active",
+          releaseKey: "rdm",
+          releaseVersion: "1",
+          schemaVersion: "0.10",
+          modelHash: "hash",
           version: 4,
           updatedAt: "2026-09-05T00:00:00Z",
         }),
       );
     vi.stubGlobal("fetch", fetchMock);
     await api.compileModelDraft("change-set/id", 7);
-    await api.activateModelRelease("release/id", {
-      activeReleaseId: "active",
-      activeModelHash: "hash",
+    await api.activateWorkspaceModel("release/id", {
+      workspaceKey: "default",
+      releaseId: "active",
+      releaseKey: "rdm",
+      releaseVersion: "1",
+      schemaVersion: "0.10",
+      modelHash: "hash",
       version: 3,
       updatedAt: "2026-09-05T00:00:00Z",
     });
     expect(fetchMock.mock.calls[0][0]).toContain("/model-drafts/change-set%2Fid/compile");
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ expectedVersion: 7 });
+    expect(fetchMock.mock.calls[1][0]).toContain("/workspaces/default/model/activation");
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
-      expectedRuntimeVersion: 3,
-      expectedActiveReleaseId: "active",
+      releaseId: "release/id",
+      expectedVersion: 3,
+      expectedReleaseId: "active",
     });
   });
 });

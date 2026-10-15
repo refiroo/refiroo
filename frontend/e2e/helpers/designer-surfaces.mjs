@@ -25,8 +25,8 @@ export async function visitDesignerSurfaces(visit) {
     }
   };
   try {
-    const state = await api("/model-runtime-state");
-    const release = await api(`/model-releases/${state.activeReleaseId}?includeModel=true`);
+    const state = await api("/workspaces/default/model");
+    const release = await api(`/model-releases/${state.releaseId}?includeModel=true`);
     const draft = await api("/model-drafts", { name: "Designer surfaces", model: release.model, baseReleaseId: release.id });
     const [application] = release.model.applications;
     const top = application.objectTypeKeys

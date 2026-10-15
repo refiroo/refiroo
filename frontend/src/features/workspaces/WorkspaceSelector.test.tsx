@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { WorkspaceSelector } from "@/features/workspaces/WorkspaceSelector";
+import { testWorkspaceModel } from "@/test/fixtures";
 
 vi.mock("@/api/client", () => ({
   api: { workspace: vi.fn(), workspaces: vi.fn() },
@@ -14,6 +15,7 @@ const defaultWorkspace = {
   version: 1,
   createdAt: "2026-09-05T00:00:00Z",
   updatedAt: "2026-09-05T00:00:00Z",
+  model: testWorkspaceModel,
   deletable: false,
 };
 

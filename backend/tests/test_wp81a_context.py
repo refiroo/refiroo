@@ -5,6 +5,7 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 from postgres_server import without_foreign_keys
 from sqlalchemy import select
+from workspace_model_support import DEFAULT_ACTIVATION, default_model
 from wp8_support import create_change_set, create_workspace, unique_key
 
 from app.db import SessionLocal
@@ -14,7 +15,6 @@ from app.main import app, create_app
 from app.models.database import (
     ChangeSet,
     ModelRelease,
-    ModelRuntimeState,
     ObjectRelation,
     Publication,
     PublicationObject,
@@ -69,17 +69,18 @@ def _activate_candidate(monkeypatch, candidate: EngineModel):
     monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
     with TestClient(create_app()) as client:
         with SessionLocal() as session:
-            state = session.get(ModelRuntimeState, 1)
+            state = default_model(session)
             assert state is not None
-            active = session.get(ModelRelease, state.active_model_release_id)
+            active = session.get(ModelRelease, state.model_release_id)
             assert active is not None
             expected_version = state.version
             active_id = active.public_id
         response = client.post(
-            f"/api/v1/model-releases/{release.public_id}/activation",
+            DEFAULT_ACTIVATION,
             json={
-                "expectedRuntimeVersion": expected_version,
-                "expectedActiveReleaseId": active_id,
+                "releaseId": release.public_id,
+                "expectedVersion": expected_version,
+                "expectedReleaseId": active_id,
             },
         )
     return response, release, active_id, expected_version
@@ -89,19 +90,20 @@ def _restore_active(monkeypatch, release_id: str) -> None:
     monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
     with TestClient(create_app()) as client:
         with SessionLocal() as session:
-            state = session.get(ModelRuntimeState, 1)
+            state = default_model(session)
             assert state is not None
-            current = session.get(ModelRelease, state.active_model_release_id)
+            current = session.get(ModelRelease, state.model_release_id)
             assert current is not None
             if current.public_id == release_id:
                 return
             expected_version = state.version
             current_id = current.public_id
         response = client.post(
-            f"/api/v1/model-releases/{release_id}/activation",
+            DEFAULT_ACTIVATION,
             json={
-                "expectedRuntimeVersion": expected_version,
-                "expectedActiveReleaseId": current_id,
+                "releaseId": release_id,
+                "expectedVersion": expected_version,
+                "expectedReleaseId": current_id,
             },
         )
         assert response.status_code == 200, response.text
@@ -145,14 +147,14 @@ def test_1_live_only_incompatible_data_blocks_activation_without_publication(mon
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "MODEL_MIGRATION_REQUIRED"
     with SessionLocal() as session:
-        state = session.get(ModelRuntimeState, 1)
+        state = default_model(session)
         assert state is not None
         assert state.version == expected_version
         live = session.scalar(select(RdmObject).where(RdmObject.id == created.json()["id"]))
         assert live is not None
         session.delete(live)
         session.commit()
-        active = session.get(ModelRelease, state.active_model_release_id)
+        active = session.get(ModelRelease, state.model_release_id)
         assert active is not None and active.public_id == active_id
 
 
@@ -181,7 +183,7 @@ def test_2_catalogue_retired_live_data_still_blocks_incompatible_activation(monk
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "MODEL_MIGRATION_REQUIRED"
     with SessionLocal() as session:
-        state = session.get(ModelRuntimeState, 1)
+        state = default_model(session)
         assert state is not None and state.version == expected_version
         live = session.scalar(select(RdmObject).where(RdmObject.id == created.json()["id"]))
         assert live is not None
@@ -197,9 +199,9 @@ def test_3_compatible_candidate_activation_succeeds(monkeypatch):
     response, release, active_id, expected_version = _activate_candidate(monkeypatch, candidate)
     try:
         assert response.status_code == 200, response.text
-        assert response.json()["activeReleaseId"] == release.public_id
+        assert response.json()["releaseId"] == release.public_id
         with SessionLocal() as session:
-            state = session.get(ModelRuntimeState, 1)
+            state = default_model(session)
             assert state is not None and state.version == expected_version + 1
     finally:
         _restore_active(monkeypatch, active_id)
@@ -468,7 +470,6 @@ def test_0_unsupported_pinned_change_set_model_is_explicit_and_never_uses_active
                 schema_version="0.4",
                 model_hash=uuid4().hex + uuid4().hex,
                 model_json=release.model_json,
-                is_active=False,
             )
             session.add(unsupported)
             session.flush()
@@ -532,7 +533,6 @@ def test_pinned_model_unavailable_and_invalid_are_structured_without_fallback():
                 schema_version="0.5",
                 model_hash=uuid4().hex + uuid4().hex,
                 model_json={"schemaVersion": "0.5", "invalid": True},
-                is_active=False,
             )
             session.add(invalid_release)
             session.flush()

@@ -1001,7 +1001,8 @@ configuration's keys.
 ### J36 — Run a workspace on a model of its own
 
 **Actor:** model administrator. **Channel:** UI (Settings › Model, Settings › Workspaces), API.
-**Stories:** US-P05. **Status:** planned (0.11 M1–M6).
+**Stories:** US-P05. **Status:** partly delivered (0.11 M1, 2026-10-15): J36.1, J36.2, J36.3,
+J36.5, J36.6 and J36.8 through the API; J36.4 with M3, J36.7 with M4, the browser with M5.
 
 1. Install a release of a model no workspace runs yet.
 2. Create a workspace on it, or activate it into an existing workspace after its compatibility check
@@ -1032,7 +1033,8 @@ configuration's keys.
 `422 MODEL_ELEMENT_NOT_IN_EVERY_MODEL`, `422 IMPORT_PROFILE_MODEL_MISMATCH`,
 `503 MODEL_REGISTRY_UNAVAILABLE` naming the workspace.
 
-**Evidence today:** none (planned).
+**Evidence today:** `tests/journeys/test_j36_workspace_models.py` (7 cases, generated A beside B and
+B beside A); the upgrade of a 0.10.0 database in `test_startup`.
 
 ### J37 — Move a workspace to another release
 

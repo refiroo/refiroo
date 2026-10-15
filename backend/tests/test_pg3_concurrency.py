@@ -39,7 +39,8 @@ from app.models.database import Job, RdmObject
 
 HOLD_TIMEOUT = 10
 WORKSPACE_LOCK = "%FROM workspaces%FOR NO KEY UPDATE%"
-RUNTIME_STATE_LOCK = "%FROM model_runtime_state%FOR UPDATE%"
+# The assignment row activation holds for update (0.11 M1).
+RUNTIME_STATE_LOCK = "%FROM workspace_models%FOR UPDATE%"
 
 
 @pytest.fixture
@@ -456,7 +457,7 @@ def test_an_activation_does_not_wait_for_the_workspace_lock(client, workspace, a
         pending = pool.submit(post_object, client, workspace, "domain", domain_code=unique_key("d"))
         try:
             assert at_lock.reached.wait(HOLD_TIMEOUT)
-            activation = _activate(client, release)
+            activation = _activate(client, release, workspace)
         finally:
             at_lock.release()
         response = pending.result(HOLD_TIMEOUT)
@@ -475,7 +476,7 @@ def test_an_activation_waits_for_a_write_committing_under_the_old_release(
         pending = pool.submit(post_object, client, workspace, "domain", domain_code=unique_key("d"))
         try:
             assert at_commit.reached.wait(HOLD_TIMEOUT)
-            activation = pool.submit(_activate, client, release)
+            activation = pool.submit(_activate, client, release, workspace)
             assert waiting_on(RUNTIME_STATE_LOCK)
         finally:
             at_commit.release()
@@ -509,11 +510,14 @@ def test_an_activation_waits_for_a_subscription_row_a_delivery_holds(client, wor
             text("UPDATE consumer_subscriptions SET updated_at = updated_at WHERE public_id = :id"),
             {"id": created_subscription.json()["id"]},
         )
-        activation = pool.submit(_activate, client, release)
+        activation = pool.submit(_activate, client, release, workspace)
         try:
             assert waiting_on("%FROM consumer_subscriptions%FOR UPDATE%")
             holder.execute(text("SET LOCAL lock_timeout = '3s'"))
-            holder.execute(text("SELECT id FROM model_runtime_state WHERE id = 1 FOR SHARE"))
+            holder.execute(
+                text("SELECT 1 FROM workspace_models WHERE workspace_key = :w FOR SHARE"),
+                {"w": workspace},
+            )
         finally:
             holder.commit()
         assert activation.result(HOLD_TIMEOUT).status_code == 200
@@ -533,11 +537,14 @@ def test_an_activation_changing_unique_waits_for_a_write_of_those_values(client,
             ),
             {"id": record["id"]},
         )
-        activation = pool.submit(_activate, client, release)
+        activation = pool.submit(_activate, client, release, workspace)
         try:
             assert waiting_on("%LOCK TABLE unique_attribute_values%")
             holder.execute(text("SET LOCAL lock_timeout = '3s'"))
-            holder.execute(text("SELECT id FROM model_runtime_state WHERE id = 1 FOR SHARE"))
+            holder.execute(
+                text("SELECT 1 FROM workspace_models WHERE workspace_key = :w FOR SHARE"),
+                {"w": workspace},
+            )
         finally:
             holder.commit()
         assert activation.result(HOLD_TIMEOUT).status_code == 200

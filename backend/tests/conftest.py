@@ -84,6 +84,7 @@ GROUP_DESCRIPTIONS = {
     "jobs": "jobs, outcomes, idempotency, batches, background execution, import profiles, imports and exports",
     "feed": "feed positions, publish entries and the feed read, retention, consumer events (C10)",
     "authoring": "model draft operations, their history, undo and redo, generated layout (0.10 A2)",
+    "workspace_models": "each workspace's model: assignment, resolution, activation and the commit guard per workspace (0.11 M1)",
 }
 TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_model.py": ("model",),
@@ -221,6 +222,7 @@ JOURNEY_GROUPS: dict[str, tuple[str, ...]] = {
     "J31": ("startup",),
     "J33": ("authoring", "model", "model_admin"),
     "J34": ("authoring", "jobs"),
+    "J36": ("workspace_models", "model_admin", "workspaces"),
 }
 
 

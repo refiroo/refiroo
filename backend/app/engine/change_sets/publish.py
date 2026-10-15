@@ -617,7 +617,9 @@ def publish_change_set(
         raise api_error(
             409,
             "CHANGE_SET_MODEL_RELEASE_CONFLICT",
-            "Change set is pinned to a different application-model release",
+            f"Change set is pinned to a release workspace '{change_set.workspace_key}' no longer "
+            "runs",
+            {"workspaceKey": change_set.workspace_key},
         )
     writes.claim(expected_change_set_version)
     live = LiveWrites(session, change_set.workspace_key)

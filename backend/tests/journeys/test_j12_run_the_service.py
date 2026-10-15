@@ -17,7 +17,7 @@ import seeds
 from alembic import command as alembic
 from alembic.script import ScriptDirectory
 from model_support import starter_at_schema
-from scenario import W1, model_path, ok, scenario_seed
+from scenario import W1, W2, W3, model_path, ok, scenario_seed
 from service import command, execute, scalar, serve
 from test_j24_background_job import _unreachable
 
@@ -262,8 +262,8 @@ def _select_a_schema_04_release(configuration, url):
     execute(
         url,
         "UPDATE model_releases SET schema_version = '0.4', release_version = :version, "
-        "model_json = CAST(:model AS json), model_hash = :hash WHERE id = (SELECT active_model_release_id "
-        "FROM model_runtime_state WHERE id = 1)",
+        "model_json = CAST(:model AS json), model_hash = :hash WHERE id = (SELECT model_release_id "
+        "FROM workspace_models WHERE workspace_key = 'default')",
         version="0.4.0-legacy",
         model=json.dumps(legacy),
         hash=hashlib.sha256(json.dumps(legacy).encode()).hexdigest(),
@@ -280,7 +280,7 @@ def test_an_unsupported_model_schema_is_upgraded_offline(configuration, database
     a supported release in one step, recorded as a schema upgrade; the restart serves the records."""
     url = _clone(databases, scenario_seed(configuration))
     _select_a_schema_04_release(configuration, url)
-    selected = "SELECT active_model_release_id FROM model_runtime_state WHERE id = 1"
+    selected = "SELECT model_release_id FROM workspace_models WHERE workspace_key = 'default'"
     before = scalar(url, selected)
     with serve(configuration, url) as service:
         message = _refusal(
@@ -307,10 +307,10 @@ def test_an_unsupported_model_schema_is_upgraded_offline(configuration, database
         _serves(service)
         api = service.world.api
         assert api.get("/model").headers["X-Model-Release-Id"] == release_id
-        kinds = [
-            a["kind"] for a in ok(api.get(f"/model-releases/{release_id}/activations"))["items"]
-        ]
-        assert kinds == ["schemaUpgraded"]
+        # One entry per workspace the upgrade moved (0.11 M1): each runs its own release.
+        items = ok(api.get(f"/model-releases/{release_id}/activations"))["items"]
+        assert [a["kind"] for a in items] == ["schemaUpgraded"] * 3
+        assert sorted(a["workspaceKey"] for a in items) == sorted([W1, W2, W3])
         page = ok(api.get(f"/objects/{configuration.key('R')}", workspaceKey="closed-site"))
         assert page["items"]
 

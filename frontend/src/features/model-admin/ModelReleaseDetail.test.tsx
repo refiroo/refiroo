@@ -18,7 +18,8 @@ function summary(id: string, version: string, schemaVersion: string, active = fa
     schemaVersion,
     modelHash: `hash-${id}`,
     installedAt: "2026-09-01T00:00:00Z",
-    active,
+    assigned: active,
+    workspaces: active ? ["default"] : [],
   };
 }
 
@@ -200,7 +201,7 @@ describe("ModelReleaseDetail after activation and failures", () => {
     expect(direction()).toHaveTextContent(/installation order only/);
 
     // The workbench keeps the same release route and passes the new runtime selection.
-    vi.mocked(api.modelRelease).mockResolvedValue({ ...r06, active: true, model: {} });
+    vi.mocked(api.modelRelease).mockResolvedValue({ ...r06, assigned: true, workspaces: ["default"], model: {} });
     vi.mocked(api.modelReleaseActivations).mockResolvedValue({ items: [introduction("r07")], nextCursor: null });
     vi.mocked(api.modelReleaseDiff).mockClear();
     view.rerender(

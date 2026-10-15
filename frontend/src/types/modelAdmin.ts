@@ -123,7 +123,9 @@ export interface ModelReleaseSummary {
   schemaVersion: string;
   modelHash: string;
   installedAt: string;
-  active: boolean;
+  /** Run by at least one workspace, and the keys of the workspaces running it (0.11 M1). */
+  assigned: boolean;
+  workspaces: string[];
 }
 
 export interface ModelRelease extends ModelReleaseSummary {
@@ -199,11 +201,21 @@ export interface ModelReleaseDiff {
   compatibility: ModelCompatibility;
 }
 
-export interface ModelRuntimeState {
-  activeReleaseId: string;
-  activeModelHash: string;
+/** The release a workspace runs and its assignment's version, which activation claims (0.11 M1). */
+export interface WorkspaceModel {
+  workspaceKey: string;
+  releaseId: string;
+  releaseKey: string;
+  releaseVersion: string;
+  schemaVersion: string;
+  modelHash: string;
   version: number;
   updatedAt: string;
+}
+
+/** A workspace's new assignment, and its change sets left on the release it no longer runs (D26). */
+export interface WorkspaceModelActivation extends WorkspaceModel {
+  changeSetsLeftBehind: { id: string; name: string | null; version: number }[];
 }
 
 /** One operation of a draft's history (0.10 A2, ADR-041). */

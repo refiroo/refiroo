@@ -293,21 +293,27 @@ Read-only and behind no capability, like `/capabilities` (for administrators onc
   `default` as `null`; only `source` says whether they are set. `DATABASE_URL` is reported without its
   password (also a `password` query parameter), or `null` when it cannot be read as a URL.
 
-`GET /api/v1/model` continues to return the active `EngineModel` body and adds:
+`GET /api/v1/model` returns the `EngineModel` of the workspace named by `workspaceKey` (the default
+workspace without it, an unknown one `404 WORKSPACE_NOT_FOUND`), or of the change set or publication
+named, and adds:
 
-- `ETag: "<modelHash>"`; and
-- `X-Model-Release-Id: <releaseId>`.
+- `ETag: "<modelHash>"`;
+- `X-Model-Release-Id: <releaseId>`; and
+- `RDM-Workspace: <workspaceKey>`, the workspace read (Product 0.11 M1).
 
-Both headers and the body come from the same request-scoped installed release snapshot.
+The headers and the body come from the same request-scoped installed release snapshot. Every route
+that reads the model resolves it this way (D6): its workspace first, then the release that workspace
+runs ([Workspace models](#workspace-models-product-011)).
 
 #### Installed releases
 
-- `GET /api/v1/model-releases?releaseKey=...&active=...&pageSize=...&cursor=...`
+- `GET /api/v1/model-releases?releaseKey=...&assigned=...&pageSize=...&cursor=...`
 - `GET /api/v1/model-releases/{releaseId}?includeModel=false`
 - `GET /api/v1/model-releases/{releaseId}/diff?againstReleaseId=...`
 - `GET /api/v1/model-releases/{releaseId}/activations?pageSize=...&cursor=...`
-- `GET /api/v1/model-runtime-state`
-- `POST /api/v1/model-releases/{releaseId}/activation`
+- `GET /api/v1/workspaces/{workspaceKey}/model`, `GET /api/v1/workspace-models` and
+  `POST /api/v1/workspaces/{workspaceKey}/model/activation`
+  ([Workspace models](#workspace-models-product-011))
 
 The collection returns the standard [page](#collection-paging). A release summary and detail share
 this identity shape; `model` is included only on detail when `includeModel=true`:
@@ -321,10 +327,16 @@ this identity shape; `model` is included only on detail when `includeModel=true`
   "schemaVersion": "0.4",
   "modelHash": "7c9d...",
   "installedAt": "2026-09-04T12:00:00Z",
-  "active": false,
+  "assigned": true,
+  "workspaces": ["default", "north"],
   "model": {}
 }
 ```
+
+`assigned` says whether at least one workspace runs the release, and `workspaces` names them in key
+order; the `assigned` filter keeps those some workspace runs (`true`) or none does (`false`)
+(Product 0.11 D24). The comparison (`…/diff`) checks compatibility against the data of the workspaces
+running the default workspace's release.
 
 `model` is absent, rather than `null`, unless requested. Release list and detail are always readable;
 release installation and activation are mutation-gated.
@@ -418,48 +430,15 @@ while both releases offer XREF, so offering it again is an addition. A lower `co
 releases any change. A definition the candidate no longer declares is a `CONSUMER_API_REMOVED`
 warning and does not change the classification.
 
-Activation accepts both concurrency tokens:
-
-```json
-{
-  "expectedRuntimeVersion": 3,
-  "expectedActiveReleaseId": "412c4041-..."
-}
-```
-
-Clients obtain those tokens from `GET /api/v1/model-runtime-state`, which returns the same runtime
-state shape without mutating it. The workbench refreshes this state immediately before activation.
-
-It returns the complete new runtime state:
-
-```json
-{
-  "activeReleaseId": "6f57924d-...",
-  "activeModelHash": "7c9d...",
-  "version": 4,
-  "updatedAt": "2026-09-04T12:05:00Z"
-}
-```
-
-Activation reparses the installed active and candidate models and checks current stored data in the
-same transaction as its conditional runtime-state update. It commits that selection before refreshing
-the process registry. A post-commit registry refresh failure returns `503
-MODEL_REGISTRY_REFRESH_FAILED`; `/health` then reports `503` and model-dependent requests are refused
-rather than using a guessed snapshot (`503 MODEL_REGISTRY_UNAVAILABLE`). Restarting successfully
-reloads the database-selected release. Historical releases using an unsupported schema return `422
-UNSUPPORTED_SCHEMA_VERSION`; if a supported installed release fails reparsing, activation returns
-`500 INVALID_INSTALLED_MODEL`. Both failures leave runtime state unchanged.
-
-Activation and live writes exclude each other (Base 0.8 W5). Activation locks the runtime-state row
-for update before its compatibility check, so the check sees every live write that committed before
-the switch. A request that resolved the active release — a live object, attribute,
-relation or mapping write, a deletion, a publish or a change-set creation — rereads the active release
-inside its own transaction before committing. If another release was activated after the request
-resolved its model, nothing is saved and it returns `409 MODEL_RELEASE_CHANGED` with
-`details.resolvedReleaseId` and `details.activeReleaseId`; the client reloads the model and retries.
-A write about to commit waits for an activation in progress, and an activation waits for writes
-already checking their release (0.9.0-alpha.1: row locks; `model_activation_retry` is no longer
-returned).
+Activation names its workspace (Product 0.11 M1): see
+[Workspace models](#workspace-models-product-011) for its body, answer, refusals and the commit guard
+each write runs under. `GET /model-releases/{releaseId}/activations` lists the recorded selections of
+the release, oldest first, each with the release it replaced, `kind` (`activated` or
+`schemaUpgraded`), `runtimeVersion` (the assignment version it gave the workspace) and `workspaceKey`
+(absent for a selection made for the whole instance before 0.11). Historical releases using an
+unsupported schema return `422 UNSUPPORTED_SCHEMA_VERSION`; if a supported installed release fails
+reparsing, activation returns `500 INVALID_INSTALLED_MODEL`. Both leave the workspace's release
+unchanged.
 
 #### Drafts, validation, compilation and installation
 
@@ -3951,7 +3930,7 @@ keeps none. It answers J08.9.
 **Installation** keeps its route. A successful installation makes the release it created, or the
 identical one it found, the draft's base (D17), so what the draft held becomes released. The draft's
 `version` is unchanged (D34): the model did not change, and an editor at that version carries on. The editor's "install and activate" is the
-existing installation then activation (`POST /model-releases/{id}/activation`), confirmed once by the
+existing installation then activation (`POST /workspaces/{key}/model/activation`), confirmed once by the
 user (A-D8); an activation refused after the installation leaves the installed release, and the
 editor says so. No combined route: an integrator has both steps already.
 
@@ -4517,18 +4496,18 @@ latest:
   file) and `409 SOURCE_FILE_PROFILE_NOT_READY`. A release activated while the check waits fails
   it `MODEL_RELEASE_CHANGED`, as any job's.
 
-## Workspace models (Product 0.11, designed)
+## Workspace models (Product 0.11)
 
 Designed in the [Base 0.11 P0 plan](BASE_0_11_IMPLEMENTATION_PLAN.md#p0-plan-2026-10-15) from
-[ADR-042](DECISIONS.md#adr-042--each-workspace-runs-its-own-model-release). Each part moves into
-"delivered" with its package: a workspace's model and resolution with M1, activation into one
-workspace with M2, what was instance-wide with M3, reads spanning workspaces with M4, migrations with
-V1–V3, mappings between models with X1, moves with X2 and X3. Field-level detail not fixed here is
-finished in that package's plan. Nothing here is delivered yet.
+[ADR-042](DECISIONS.md#adr-042--each-workspace-runs-its-own-model-release). **A workspace's model and
+its activation are delivered** (M1, with M2 folded in, 2026-10-15). Designed, each moving into
+"delivered" with its package: what was instance-wide (M3), reads spanning workspaces (M4),
+migrations (V1–V3), mappings between models (X1) and moves (X2, X3). Field-level detail not fixed
+here is finished in that package's plan.
 
-- `GET /api/v1/workspace-models?releaseKey=…&releaseId=…&pageSize=…&cursor=…` (M2)
-- `GET /api/v1/workspaces/{workspaceKey}/model` (M1)
-- `POST /api/v1/workspaces/{workspaceKey}/model/activation` (M2)
+- `GET /api/v1/workspace-models?releaseKey=…&releaseId=…&pageSize=…&cursor=…` (delivered)
+- `GET /api/v1/workspaces/{workspaceKey}/model` (delivered)
+- `POST /api/v1/workspaces/{workspaceKey}/model/activation` (delivered)
 - `POST /api/v1/workspaces/{workspaceKey}/model/migrations` (V1)
 - `POST /api/v1/change-sets/{changeSetId}/model-migrations` (V2, V3)
 - `GET /api/v1/model-mappings`, `GET /api/v1/model-mappings/{mappingKey}`,
@@ -4540,12 +4519,13 @@ finished in that package's plan. Nothing here is delivered yet.
 - `POST /api/v1/moves` (X2), with the job routes: `GET /jobs/{jobId}`, `GET /jobs/{jobId}/rows`,
   `POST /jobs/{jobId}/confirm`, `POST /jobs/{jobId}/cancel` (X2, X3)
 
-Removed by M2: `GET /model-runtime-state` and `POST /model-releases/{releaseId}/activation`, replaced
-by the workspace's model and its activation. Assignment and activation are registered with
-`MODEL_ADMIN_MUTATIONS_ENABLED`; migrations, mappings and moves with `INTEGRATION_JOBS_ENABLED` as
-well (D14). Reads of a workspace's model are always served.
+Removed by M1: `GET /model-runtime-state` and `POST /model-releases/{releaseId}/activation`, replaced
+by the workspace's model and its activation. Activation is registered with
+`MODEL_ADMIN_MUTATIONS_ENABLED`; creating a workspace on a release is workspace administration
+(`WORKSPACE_ADMIN_MUTATIONS_ENABLED`); migrations, mappings and moves will need
+`INTEGRATION_JOBS_ENABLED` as well (D14). Reads of a workspace's model are always served.
 
-### A workspace's model (M1, M2)
+### A workspace's model (delivered, M1)
 
 Every workspace names the release it runs; nothing follows a default (D4). A workspace response
 (`GET`, `POST`, `PATCH /workspaces/{workspaceKey}` and the list) gains `model`:
@@ -4559,8 +4539,9 @@ Every workspace names the release it runs; nothing follows a default (D4). A wor
 
 `version` is the assignment's own version, raised by every activation into the workspace; it is
 what activation claims. `POST /workspaces` takes an optional `modelReleaseId`, any installed release
-of a supported schema; without it the workspace starts on the default workspace's release. Changing
-the default workspace moves no workspace's release.
+of a supported schema (`404 MODEL_RELEASE_NOT_FOUND`, `422 UNSUPPORTED_SCHEMA_VERSION`); without it
+the workspace starts on the default workspace's release (D31). Changing the default workspace moves
+no workspace's release.
 
 `GET /workspaces/{workspaceKey}/model` answers the same object with `workspaceKey`. It replaces
 `GET /model-runtime-state`. `GET /workspace-models` pages every workspace's assignment in workspace
@@ -4568,9 +4549,13 @@ key order (ADR-030), filtered by `releaseKey` (a model) or `releaseId`.
 
 **Resolution.** A request resolves its workspace first (`workspaceKey`, the context's workspace, or
 the default workspace), then that workspace's release. `GET /model`, its placements and the metadata
-routes read the named workspace's model (D6); `X-Model-Release-Id` and the `ETag` follow it, and
-`RDM-Workspace` names the workspace read. A change set or publication still reads its pinned
-release. `GET /model-releases/{releaseId}?includeModel=true` reads any installed release's model.
+routes read the named workspace's model (D6), an unknown workspace `404 WORKSPACE_NOT_FOUND`;
+`X-Model-Release-Id` and the `ETag` follow it, and on `GET /model` `RDM-Workspace` names the
+workspace read. A change set or publication still reads its pinned release. A live write naming a
+record (update, delete, an attribute value, a relationship) runs under the model of the record's
+workspace; a create, a batch or a job under the model of the workspace it names. The consumer API's
+reads resolve the model of their `workspace` parameter.
+`GET /model-releases/{releaseId}?includeModel=true` reads any installed release's model.
 
 `GET /model-releases` replaces `active` by `assigned` (`true`: run by at least one workspace) and
 each release adds `workspaces`, the keys of the workspaces running it (D24).
@@ -4588,7 +4573,9 @@ plus `changeSetsLeftBehind`: the workspace's open change sets pinned to the rele
 runs (D26), each with `id`, `name` and `version`. Such a change set cannot publish
 (`409 CHANGE_SET_MODEL_RELEASE_CONFLICT`, now with `details.workspaceKey`) until it is moved (V3) or
 discarded. The audit event `activated` names the workspace; `GET /model-releases/{id}/activations`
-items gain `workspaceKey`.
+items gain `workspaceKey`. The new release is loaded into the process after the commit; if that
+fails the answer is `503 MODEL_REGISTRY_REFRESH_FAILED` and the workspaces on that release are
+unavailable until a restart.
 
 | Status | Code | When |
 | --- | --- | --- |
@@ -4599,15 +4586,22 @@ items gain `workspaceKey`.
 | 409 | `CONSUMER_CONTRACT_VERSION_REQUIRED` | as today, against this workspace's release |
 | 422 | `UNSUPPORTED_SCHEMA_VERSION` | the release's schema is outside the window (V4) |
 
-**The commit guard per workspace.** A write rechecks, under a share lock on its workspace's row, that
-the workspace still runs the release the write was validated under; activation holds that row for
-update. Otherwise `409 MODEL_RELEASE_CHANGED` with `details.workspaceKey`, `resolvedReleaseId` and
-`currentReleaseId`, and nothing is saved. A write in another workspace is never held up.
+**The commit guard per workspace.** A write rechecks, under a share lock on its workspace's
+assignment row (`workspace_models`, D30), that the workspace still runs the release the write was
+validated under; activation holds that row for update. Otherwise `409 MODEL_RELEASE_CHANGED` with
+`details.workspaceKey`, `resolvedReleaseId` and `currentReleaseId`, and nothing is saved. A write in
+another workspace takes another row and is never held up by the guard; an activation that changes
+which attributes are unique holds the unique values' table until it commits, as in 0.9 R-F2, the one
+moment it holds up writes elsewhere.
 
-**A workspace whose release cannot be loaded** (D29) answers `503 MODEL_REGISTRY_UNAVAILABLE` with
-`details.workspaceKey`; other workspaces are served, and readiness lists it (O1).
+**A workspace whose release cannot be loaded** (D29, D34) answers `503 MODEL_REGISTRY_UNAVAILABLE`
+with `details.workspaceKey`, `releaseId` and, for an unsupported schema, `schemaVersion` and
+`supportedSchemaVersions`; other workspaces are served. `/health` answers 503 only when the database
+is unreachable or no workspace can be served; readiness listing the unavailable ones is O1's.
 
-**Drafts (D25).** Compiling a draft with a base release adds `compatibility.workspaces`: for each
+**Drafts (D25, M3).** Not delivered yet: a draft without a base compiles against the default
+workspace's release, and compiling and the release comparison check compatibility against the data of
+the workspaces running the default workspace's release. Compiling a draft with a base release adds `compatibility.workspaces`: for each
 workspace running the base's model, its key, its release and the classification and diagnostics of
 activating the draft's model there. A draft without a base compiles against the default workspace's
 release. Installing stays instance-wide; activation names its workspace.

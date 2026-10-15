@@ -65,13 +65,13 @@ from ...models.database import (
     ChangeSetRelation,
     MatrixCellState,
     MatrixStateBuild,
-    ModelRuntimeState,
     ObjectRelation,
     Publication,
     PublicationObject,
     PublicationRelation,
     RdmObject,
     Workspace,
+    WorkspaceModel,
 )
 from ..model.registry import model_registry
 from ..reads.matrix_cells import (
@@ -162,12 +162,14 @@ def required_shapes(
 ) -> dict[Owner, dict[str, MatrixShape]]:
     """The shapes each owner of the workspace keeps states for.
 
-    Live keeps the active model's; a change set, its release's; a change set's base, the change set's
+    Live keeps the workspace's model's; a change set, its release's; a change set's base, the change set's
     release's; a publication, its own release's and those of change sets based on it. The history
     keeps every shape any of them uses, since each context's ``historyOnly`` reads it.
     """
     cache = {} if cache is None else cache
-    active_release = session.scalar(select(ModelRuntimeState.active_model_release_id))
+    active_release = session.scalar(
+        select(WorkspaceModel.model_release_id).where(WorkspaceModel.workspace_key == workspace_key)
+    )
     live = Owner("live", workspace_key, workspace_key)
     required: dict[Owner, dict[str, MatrixShape]] = {
         live: dict(_release_shapes(session, active_release, cache)) if active_release else {}

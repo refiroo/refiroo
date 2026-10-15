@@ -413,7 +413,7 @@ try {
   // page, About, Appearance, Deployment and a release's page; then the phone's navigation drawer ---
   const retired = await api("/workspaces", { key: "archive", label: "Archive" });
   await api("/workspaces/archive", { expectedVersion: retired.version, status: "retired" }, "PATCH");
-  const activeRelease = (await api("/model-runtime-state")).activeReleaseId;
+  const activeRelease = (await api("/workspaces/default/model")).releaseId;
   const settingsPages = [
     ["workspaces-admin", "/settings/workspaces", () => page.getByRole("button", { name: /Archive.*Retired/s })],
     [

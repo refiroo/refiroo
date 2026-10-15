@@ -43,8 +43,8 @@ it.each(["unavailable model", "dirty input"])("blocks writes and retries a pin r
     .mockResolvedValueOnce(changeSet)
     .mockResolvedValue({ ...changeSet, modelReleaseId: "new", version: 2 });
   vi.spyOn(api, "modelRelease").mockRejectedValue(new Error("not needed"));
-  vi.spyOn(api, "modelRuntimeState").mockResolvedValue({ activeReleaseId: "old" } as Awaited<
-    ReturnType<typeof api.modelRuntimeState>
+  vi.spyOn(api, "workspaceModel").mockResolvedValue({ releaseId: "old" } as Awaited<
+    ReturnType<typeof api.workspaceModel>
   >);
   const loadModel = vi.spyOn(api, "model").mockResolvedValueOnce(testModel);
   if (failure === "unavailable model") loadModel.mockRejectedValueOnce(new Error("Model unavailable"));
@@ -76,8 +76,8 @@ it.each(["unavailable model", "dirty input"])("blocks writes and retries a pin r
 
 it("names a differing active release by key and version, not by its id", async () => {
   vi.spyOn(api, "changeSet").mockResolvedValue(changeSet);
-  vi.spyOn(api, "modelRuntimeState").mockResolvedValue({ activeReleaseId: "active-id" } as Awaited<
-    ReturnType<typeof api.modelRuntimeState>
+  vi.spyOn(api, "workspaceModel").mockResolvedValue({ releaseId: "active-id" } as Awaited<
+    ReturnType<typeof api.workspaceModel>
   >);
   vi.spyOn(api, "model").mockResolvedValue(testModel);
   const release = vi

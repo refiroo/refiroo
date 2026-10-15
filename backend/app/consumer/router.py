@@ -208,7 +208,7 @@ def get_object(
 ) -> dict[str, Any] | Response:
     """Get by ID: the definition's shared object for the record with this object ID, narrowed by the
     definition's parameters (C-D31)."""
-    active = resolve_model_snapshot(session)
+    active = resolve_model_snapshot(session, request.query_params.get("workspace"))
     definition = consumer_definition(active.model, consumer_api, contract_version)
     _offered(definition, "objects")
 
@@ -236,7 +236,7 @@ def get_list(
 ) -> dict[str, Any] | Response:
     """A page of the definition's list ``list_key``: the records of its type, below the parent
     values when given, narrowed by the definition's parameters (C-D27–C-D31)."""
-    active = resolve_model_snapshot(session)
+    active = resolve_model_snapshot(session, request.query_params.get("workspace"))
     definition = consumer_definition(active.model, consumer_api, contract_version)
 
     def check(declared: ConsumerApiDefinition) -> _Parameters:
@@ -274,7 +274,7 @@ def get_xref(
 ) -> dict[str, Any] | Response:
     """XREF: the exposed objects the query's terms match, scored by the definition's ``match`` and
     narrowed by its parameters, a page of them or with ``expect=one`` the single best (C-D34–C-D43)."""
-    active = resolve_model_snapshot(session)
+    active = resolve_model_snapshot(session, request.query_params.get("workspace"))
     definition = consumer_definition(active.model, consumer_api, contract_version)
     _offered(definition, "xref")
     expect = request.query_params.getlist("expect")
@@ -317,7 +317,7 @@ def post_resolve(
     the definition's parameters from ``defaults`` and the item, its outcome the single read's answer
     (C-D47–C-D50). A read: the body only carries the items. It answers no ETag: HTTP answers ``304``
     to ``GET`` only (C-D65)."""
-    active = resolve_model_snapshot(session)
+    active = resolve_model_snapshot(session, request.query_params.get("workspace"))
     definition = consumer_definition(active.model, consumer_api, contract_version)
     _offered(definition, "resolve")
 
@@ -350,7 +350,7 @@ def get_publications(
 ) -> dict[str, Any] | Response:
     """The workspace's publications, newest first, each with the ``eventSequence`` to follow changes
     from after reading it (C-D66)."""
-    active = resolve_model_snapshot(session)
+    active = resolve_model_snapshot(session, request.query_params.get("workspace"))
     definition = consumer_definition(active.model, consumer_api, contract_version)
     parameters = _Parameters.check(request, definition, serves=_PUBLICATIONS, applies_definition=False)
     page_size, page = _page(parameters)
@@ -377,7 +377,7 @@ def get_events(
     identity only (C10, C-D88–C-D92, C-D7 revised). The read is one snapshot, so ``stateAt`` is the
     position its objects show."""
     session.connection(execution_options={"isolation_level": "REPEATABLE READ"})
-    active = resolve_model_snapshot(session)
+    active = resolve_model_snapshot(session, request.query_params.get("workspace"))
     definition = consumer_definition(active.model, consumer_api, contract_version)
     if not definition.events:
         raise api_error(
@@ -504,7 +504,7 @@ def _events_request(parameters: _Parameters, definition: ConsumerApiDefinition, 
 def get_index(request: Request, response: Response, session: DbSession) -> dict[str, Any] | Response:
     """The API index: every consumer API of the active release, by ``consumerApi``, with its name,
     contract version and the URL of its OpenAPI document (C-D69). Definitions are not per workspace."""
-    active = resolve_model_snapshot(session)
+    active = resolve_model_snapshot(session, None)
     parameters = _plain(request, _PUBLICATIONS - {"workspace"})
     page_size, page = _page(parameters)
     root_path = _root_path(request)
@@ -536,7 +536,7 @@ def get_openapi(
     """The definition's own OpenAPI document at its contract version (C6b): its paths written out with
     the name and version, ``info.version`` the contract version; another version answers
     ``404 CONTRACT_VERSION_NOT_FOUND`` naming the one served."""
-    active = resolve_model_snapshot(session)
+    active = resolve_model_snapshot(session, None)
     definition = consumer_definition(active.model, consumer_api, contract_version)
     _plain(request, frozenset())
     root_path = _root_path(request)
