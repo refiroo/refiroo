@@ -248,7 +248,7 @@ migration), `contract` (every route change) and `volume` (every budget).
 | 10 | [A6](#a6-inference-over-table-patterns) | A5 | **A6a delivered 2026-10-12; A6b delivered 2026-10-14.** Proposals from the table patterns; new application or extending the active model; pinned decisions |
 | — | _cut line (D2)_ | | _If R is out of reach, 0.10.0 releases here and A7, A8 move to 0.10.x_ |
 | 11 | [A7](#a7-model-description-sheets-and-matching-across-files) | A6 | **Delivered 2026-10-14** (screenshots approved). Model-description sheets; matching records across files |
-| 12 | [A8](#a8-list-blocks-in-sheets-laid-out-for-reading) | A6 | **A8a delivered 2026-10-14; A8b built 2026-10-15, its screenshots awaiting approval; A8c delivered 2026-10-15.** List blocks detected, confirmed and loaded |
+| 12 | [A8](#a8-list-blocks-in-sheets-laid-out-for-reading) | A6 | **A8a delivered 2026-10-14; A8b delivered 2026-10-15, its screenshots approved; A8c delivered 2026-10-15. A8 is complete.** List blocks detected, confirmed and loaded |
 | 13 | [A9](#a9-collection-cells-edited-in-place) | — | **Added and delivered 2026-10-15** (screenshots approved). Collection table cells edited in place: values, single and many-valued relations |
 | 14 | [R](#r-build-acceptance-and-release) | all | Build acceptance and release |
 
@@ -3737,8 +3737,8 @@ and mapping coverage are unchanged. No door is affected.
 
 ##### A8b record (2026-10-15)
 
-**Built 2026-10-15** as planned (D122–D130, the approved mock-up's four boards); **complete when the
-user approves its screenshots** (D130). What is built:
+**Built 2026-10-15** as planned (D122–D130, the approved mock-up's four boards); **delivered
+2026-10-15, its screenshots approved by the user** (D130, "it is approved"). What is built:
 
 - **The source pane list by list** (`SourcePane.tsx` `SheetLists`, `lists.ts`, D122): a sheet laid
   out for reading is one `role="tree"` of its lists in reading order under their innermost titles,
@@ -4260,8 +4260,7 @@ Design-level decisions are [A-D1–A-D12](MODEL_AUTHORING.md#open-decisions).
 
 ## Next
 
-1. **A8b is built (2026-10-15, [record](#a8b-record-2026-10-15))**, complete when the user approves
-   its screenshots. **A8c is delivered (2026-10-15, [record](#a8c-record-2026-10-15))**. **A9 added 2026-10-15** ([entry](#a9-collection-cells-edited-in-place)):
+1. **A8b is delivered (2026-10-15, [record](#a8b-record-2026-10-15)), its screenshots approved.** Next: R (build acceptance and release), starting with the full review of every change since the last release. **A8c is delivered (2026-10-15, [record](#a8c-record-2026-10-15))**. **A9 added 2026-10-15** ([entry](#a9-collection-cells-edited-in-place)):
    collection cells edited in place, the interaction decided by the user; **planned 2026-10-15
    ([plan](#a9-plan-2026-10-15)), **delivered the same day** ([record](#a9-record-2026-10-15))**. A8a is delivered (2026-10-14, [record](#a8a-record-2026-10-14)).
    **A7 is delivered (2026-10-14, [record](#a7-record-2026-10-14)), its screenshots approved**; its plan, D106–D113 and test cases were accepted by the user the same day. The user chose A7 before A8. A5c is delivered (2026-10-14,
