@@ -6,6 +6,14 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Planned (0.11 P0)
+
+- Base 0.11's design pass: each workspace runs a model of its own (ADR-042), with the decisions
+  D4–D29 and the inventory of what a move between models meets accepted; the API design for a
+  workspace's model, activation into one workspace, migrations, mappings between models and moves
+  (API.md § Workspace models); journeys J36–J38; mock-ups of the shell and Settings across workspace
+  models and of the move editor.
+
 ## [0.10.0] - 2026-10-15
 
 Base 0.10 is released: the model designer and spreadsheet onboarding, accepted by R (a full review

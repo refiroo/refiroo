@@ -47,6 +47,7 @@ background jobs are J24, the change feed J26 and supplier files J27.
 | Change sets and history (designer) | J05 prepare and publish, J06 live beside a change set, J07 withdraw and restart from history, J17 review changes, J18 next model version |
 | Administration | J08 model release, J19 workspaces, J25 consumer API definition |
 | Model authoring | J33 design a model in the editor, J34 onboard a workbook, J35 load the next version of a workbook |
+| Workspace models | J36 run a workspace on a model of its own, J37 move a workspace to another release, J38 move data between workspaces whose models differ |
 | Integration | J11 bulk change, J20 discover, J21 read completely, J22 precise dataset, J23 business date, J24 background job, J26 follow changes, J27 supplier file, J28 consumer read, J29 consumer lookup, J30 consumer events |
 | Operations | J12 run, refuse and recover, J31 check the deployment |
 
@@ -989,6 +990,107 @@ MISSING_DELETE_NEEDS_CHANGE_SET` for a live load that deletes; `404 PROFILE_CHEC
 **Evidence today:** `backend/tests/journeys/test_j35_next_version.py` (J35.1–J35.3, two
 configurations); `test:browser:authoring-a5`'s A5c walk (Settings › Import profiles, W1′ checked, a rename
 accepted, a column ignored, loaded, the review holding only the differences, both designer models).
+
+## Workspace models
+
+An organisation's workspaces may run different models, not only different versions of one model
+([ADR-042](../DECISIONS.md#adr-042--each-workspace-runs-its-own-model-release)). Every journey here
+runs on two differently shaped models side by side (`generated-a` and `generated-b`) and names no
+configuration's keys.
+
+### J36 — Run a workspace on a model of its own
+
+**Actor:** model administrator. **Channel:** UI (Settings › Model, Settings › Workspaces), API.
+**Stories:** US-P05. **Status:** planned (0.11 M1–M6).
+
+1. Install a release of a model no workspace runs yet.
+2. Create a workspace on it, or activate it into an existing workspace after its compatibility check
+   on that workspace's data alone.
+3. Work in each workspace: every read and write resolves the workspace's own model; switching
+   workspace switches the applications and navigation.
+
+**Variants:**
+
+- **J36.1 A new workspace on another model**: created on a named release; the other workspaces'
+  models unchanged.
+- **J36.2 A new release of one workspace's model**: activated into that workspace only; the others
+  keep theirs, and its open change sets on the old release are listed as left behind.
+- **J36.3 Same application keys, different models**: two workspaces whose models share application
+  and type keys but differ in shape each read and write by their own.
+- **J36.4 New from a workbook into a new workspace**: the model built from a workbook installed and
+  activated into a workspace created in the same step, never into every workspace.
+- **J36.5 A write when its workspace's release changed meanwhile**: refused, nothing saved; a write
+  in another workspace commits.
+- **J36.6 Reads see only their model**: a type of the other model is unknown in this workspace.
+- **J36.7 A read spanning workspaces with different models**: every item names its workspace and
+  release; a filter on an element one model lacks is refused, naming the workspaces.
+- **J36.8 One workspace's release cannot be loaded**: that workspace is unavailable; the others
+  serve.
+
+**Refusals:** `409 ACTIVATION_CONFLICT`, `409 MODEL_MIGRATION_REQUIRED` (this workspace's data only),
+`409 MODEL_RELEASE_CHANGED`, `409 CHANGE_SET_MODEL_RELEASE_CONFLICT`,
+`422 MODEL_ELEMENT_NOT_IN_EVERY_MODEL`, `422 IMPORT_PROFILE_MODEL_MISMATCH`,
+`503 MODEL_REGISTRY_UNAVAILABLE` naming the workspace.
+
+**Evidence today:** none (planned).
+
+### J37 — Move a workspace to another release
+
+**Actor:** model administrator. **Channel:** UI (Settings › Model), API. **Stories:** US-P05.
+**Status:** planned (0.11 V1–V4).
+
+1. Choose a workspace and a target release its data does not fit as it is.
+2. Read the preview: every conversion and every potential loss, item by item.
+3. Confirm the reviewed preview; the data and the workspace's release switch together.
+
+**Variants:**
+
+- **J37.1 Preview** with conversions and loss, nothing changed.
+- **J37.2 Confirm**, accepting the loss the preview listed.
+- **J37.3 Cancel**: nothing changes.
+- **J37.4 A stale review**: the workspace changed since the preview; refused.
+- **J37.5 A failed execution**: nothing changes.
+- **J37.6 A change set started from a publication** moved to a named release (V2).
+- **J37.7 A change set moved onto a release its content does not fit**, previewed and confirmed (V3).
+- **J37.8 Schema versions side by side**: a model of an older schema version activated in one
+  workspace beside one of the current version in another (V4).
+
+**Refusals:** `409 MIGRATION_REVIEW_STALE`, `422 MIGRATION_LOSS_NOT_ACCEPTED`,
+`422 UNSUPPORTED_SCHEMA_VERSION`, `409 WORKSPACE_RETIRED`.
+
+**Evidence today:** none (planned).
+
+### J38 — Move data between workspaces whose models differ
+
+**Actor:** model administrator; data steward. **Channel:** UI (the move editor), API.
+**Stories:** US-P09. **Status:** planned (0.11 X1–X5).
+
+1. Open a mapping from the source workspace's model to the target's; the engine proposes it and the
+   user completes it.
+2. Choose what moves and read the dry run of every item: what is created, updated, and what cannot
+   move with the reason.
+3. Copy or move into a change set of the target workspace, review it and publish it.
+
+**Variants:**
+
+- **J38.1 The mapping proposed and completed**: proposals with evidence placed as editable steps,
+  corrected by hand, undone and redone, saved and reused.
+- **J38.2 Copy a whole workspace** into a workspace of another model.
+- **J38.3 Move a subtree**: the copy plus a reviewed deletion change set in the source.
+- **J38.4 A relationship whose other end stays behind**: carried when the other end is in the target,
+  dropped and reported otherwise.
+- **J38.5 A unique value already held in the target**: refused with the holder, or matched to it when
+  the mapping says so.
+- **J38.6 A second move found again**: records moved before are updated, not duplicated; a record
+  moved back finds its original.
+- **J38.7 What could not move reported**: by type, reason and count, every item listed.
+- **J38.8 The change set reviewed and published**: the target's consumers see the records only then.
+
+**Refusals:** `422 MOVE_SAME_WORKSPACE`, `422 MODEL_MAPPING_MODEL_MISMATCH`,
+`404 MODEL_MAPPING_NOT_FOUND`, `409 MOVE_MAPPING_CHANGED`, `409 MODEL_RELEASE_CHANGED`; row refusals
+as an import's (J27).
+
+**Evidence today:** none (planned).
 
 ## Integration
 

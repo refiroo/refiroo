@@ -491,13 +491,15 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 
 ## Next — 0.11 production hardening and staged model rollout
 
-- [ ] 0.11 design pass, from the [planning input](BASE_0_11_IMPLEMENTATION_PLAN.md) (2026-10-15):
-  decisions with recommendations, the data-move inventory completed, packages and order, journeys;
-  accepted by the user before any build.
-  - [ ] The user's requirement: each workspace runs a model of its own (different models).
-  - [ ] The user's requirement: data moved between workspaces whose models differ, through a proposed
-    and hand-completed model-to-model mapping; its placement in 0.11 to be confirmed by the user.
-  - [ ] First package: the backend suite's time (D152; J34/J35 profile W1 once per configuration).
+- [x] 0.11 P0 design pass, per the [Base 0.11 plan](BASE_0_11_IMPLEMENTATION_PLAN.md), delivered
+  2026-10-15: decisions D4–D29 and the move inventory accepted, ADR-042, API design, J36–J38, the M5
+  and X4 mock-ups approved. Next: M1.
+  - [ ] The user's requirement: each workspace runs a model of its own (Track M, then Track V).
+  - [ ] The user's requirement: data moved between workspaces whose models differ (Track X), in
+    0.11 (plan D3, accepted 2026-10-15).
+  - [ ] The backend suite's time (D152, package S1): a filler during Part 1, before X2 at the latest
+    (plan D2, accepted 2026-10-15).
+  - [ ] 0.11.0-alpha.1 when the M6 checkpoint passes (plan D12, accepted 2026-10-15).
 
 ## Later — production and self-service authoring
 
@@ -631,8 +633,8 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   explicit confirmation tied to the reviewed versions or cancel, atomic workspace model/data switch,
   immutable history and unaffected-workspace isolation. Confirmation cannot waive target validity or
   parser support; nothing in Base 0.6 overrides them.
-- [ ] Product 0.11: add workspace-scoped model-release assignment for staged tenant or
-  governance-domain rollout.
+- [ ] Product 0.11: each workspace runs a model of its own (ADR-042; 0.11 Track M), with staged
+  per-workspace rollout.
   Resolve the workspace before its immutable model snapshot, scope compatibility and migration to that
   workspace, bind cursors to the release identity and switch assignments atomically. Supporting mixed
   schema-language versions additionally requires a bounded current/previous parser window and explicit

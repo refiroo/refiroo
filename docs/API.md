@@ -4517,6 +4517,220 @@ latest:
   file) and `409 SOURCE_FILE_PROFILE_NOT_READY`. A release activated while the check waits fails
   it `MODEL_RELEASE_CHANGED`, as any job's.
 
+## Workspace models (Product 0.11, designed)
+
+Designed in the [Base 0.11 P0 plan](BASE_0_11_IMPLEMENTATION_PLAN.md#p0-plan-2026-10-15) from
+[ADR-042](DECISIONS.md#adr-042--each-workspace-runs-its-own-model-release). Each part moves into
+"delivered" with its package: a workspace's model and resolution with M1, activation into one
+workspace with M2, what was instance-wide with M3, reads spanning workspaces with M4, migrations with
+V1–V3, mappings between models with X1, moves with X2 and X3. Field-level detail not fixed here is
+finished in that package's plan. Nothing here is delivered yet.
+
+- `GET /api/v1/workspace-models?releaseKey=…&releaseId=…&pageSize=…&cursor=…` (M2)
+- `GET /api/v1/workspaces/{workspaceKey}/model` (M1)
+- `POST /api/v1/workspaces/{workspaceKey}/model/activation` (M2)
+- `POST /api/v1/workspaces/{workspaceKey}/model/migrations` (V1)
+- `POST /api/v1/change-sets/{changeSetId}/model-migrations` (V2, V3)
+- `GET /api/v1/model-mappings`, `GET /api/v1/model-mappings/{mappingKey}`,
+  `POST /api/v1/model-mappings`, `DELETE /api/v1/model-mappings/{mappingKey}?expectedVersion=` (X1)
+- `POST /api/v1/model-mappings/{mappingKey}/operations`,
+  `GET /api/v1/model-mappings/{mappingKey}/operations`, `POST …/undo`, `POST …/redo` (X1)
+- `POST /api/v1/model-mappings/{mappingKey}/inference`,
+  `GET /api/v1/model-mappings/{mappingKey}/inference/proposals` (X1)
+- `POST /api/v1/moves` (X2), with the job routes: `GET /jobs/{jobId}`, `GET /jobs/{jobId}/rows`,
+  `POST /jobs/{jobId}/confirm`, `POST /jobs/{jobId}/cancel` (X2, X3)
+
+Removed by M2: `GET /model-runtime-state` and `POST /model-releases/{releaseId}/activation`, replaced
+by the workspace's model and its activation. Assignment and activation are registered with
+`MODEL_ADMIN_MUTATIONS_ENABLED`; migrations, mappings and moves with `INTEGRATION_JOBS_ENABLED` as
+well (D14). Reads of a workspace's model are always served.
+
+### A workspace's model (M1, M2)
+
+Every workspace names the release it runs; nothing follows a default (D4). A workspace response
+(`GET`, `POST`, `PATCH /workspaces/{workspaceKey}` and the list) gains `model`:
+
+```json
+"model": {
+  "releaseId": "6f57924d-…", "releaseKey": "catalogue", "releaseVersion": "1.4.0",
+  "schemaVersion": "0.10", "modelHash": "7c9d…", "version": 3, "updatedAt": "2026-10-20T09:00:00Z"
+}
+```
+
+`version` is the assignment's own version, raised by every activation into the workspace; it is
+what activation claims. `POST /workspaces` takes an optional `modelReleaseId`, any installed release
+of a supported schema; without it the workspace starts on the default workspace's release. Changing
+the default workspace moves no workspace's release.
+
+`GET /workspaces/{workspaceKey}/model` answers the same object with `workspaceKey`. It replaces
+`GET /model-runtime-state`. `GET /workspace-models` pages every workspace's assignment in workspace
+key order (ADR-030), filtered by `releaseKey` (a model) or `releaseId`.
+
+**Resolution.** A request resolves its workspace first (`workspaceKey`, the context's workspace, or
+the default workspace), then that workspace's release. `GET /model`, its placements and the metadata
+routes read the named workspace's model (D6); `X-Model-Release-Id` and the `ETag` follow it, and
+`RDM-Workspace` names the workspace read. A change set or publication still reads its pinned
+release. `GET /model-releases/{releaseId}?includeModel=true` reads any installed release's model.
+
+`GET /model-releases` replaces `active` by `assigned` (`true`: run by at least one workspace) and
+each release adds `workspaces`, the keys of the workspaces running it (D24).
+
+**Activation into one workspace.**
+
+```json
+{ "releaseId": "6f57924d-…", "expectedVersion": 3, "expectedReleaseId": "412c4041-…" }
+```
+
+The compatibility analysis counts only this workspace's records, change sets and publications; the
+consumer contract is checked against this workspace's current release; unique values, matrix states
+and subscription suspension change for this workspace only (D28). The answer is the new assignment,
+plus `changeSetsLeftBehind`: the workspace's open change sets pinned to the release it no longer
+runs (D26), each with `id`, `name` and `version`. Such a change set cannot publish
+(`409 CHANGE_SET_MODEL_RELEASE_CONFLICT`, now with `details.workspaceKey`) until it is moved (V3) or
+discarded. The audit event `activated` names the workspace; `GET /model-releases/{id}/activations`
+items gain `workspaceKey`.
+
+| Status | Code | When |
+| --- | --- | --- |
+| 404 | `WORKSPACE_NOT_FOUND`, `MODEL_RELEASE_NOT_FOUND` | as named |
+| 409 | `ACTIVATION_CONFLICT` | `expectedVersion` or `expectedReleaseId` is stale; `details.workspaceKey`, `currentVersion`, `currentReleaseId` |
+| 409 | `WORKSPACE_RETIRED` | a retired workspace's model is not changed |
+| 409 | `MODEL_MIGRATION_REQUIRED` | this workspace's data needs a migration (V1); the diagnostics count this workspace only |
+| 409 | `CONSUMER_CONTRACT_VERSION_REQUIRED` | as today, against this workspace's release |
+| 422 | `UNSUPPORTED_SCHEMA_VERSION` | the release's schema is outside the window (V4) |
+
+**The commit guard per workspace.** A write rechecks, under a share lock on its workspace's row, that
+the workspace still runs the release the write was validated under; activation holds that row for
+update. Otherwise `409 MODEL_RELEASE_CHANGED` with `details.workspaceKey`, `resolvedReleaseId` and
+`currentReleaseId`, and nothing is saved. A write in another workspace is never held up.
+
+**A workspace whose release cannot be loaded** (D29) answers `503 MODEL_REGISTRY_UNAVAILABLE` with
+`details.workspaceKey`; other workspaces are served, and readiness lists it (O1).
+
+**Drafts (D25).** Compiling a draft with a base release adds `compatibility.workspaces`: for each
+workspace running the base's model, its key, its release and the classification and diagnostics of
+activating the draft's model there. A draft without a base compiles against the default workspace's
+release. Installing stays instance-wide; activation names its workspace.
+
+### What follows the workspace's model (M3)
+
+- **Import profiles** gain `modelKey`, the release key they are written for, set when saved (D9). A
+  profile's `valid` and `problems` are read against the release of the workspace named by
+  `workspaceKey` (default workspace without it). An import whose profile names another model is
+  refused `422 IMPORT_PROFILE_MODEL_MISMATCH` with `details.modelKey` and `details.workspaceModelKey`.
+- **Jobs** run under their workspace's release, recorded as today in the job's `modelReleaseId`.
+- **Consumer APIs** (D10, D27): the index (`GET /api/consumer`) and each definition's OpenAPI document take
+  `workspace`, as the read routes do, and name the workspace and release they describe. A definition
+  key may mean different contracts in two workspaces. Events, checkpoints, subscriptions and webhooks
+  are derived under the workspace's release.
+
+### Reads spanning workspaces (M4)
+
+A read over several workspaces (`GET /objects` without `workspaceKey`, exports of several
+workspaces, mapping coverage) resolves each workspace's release on its own (D7). Every item names its
+`workspaceKey` and `modelReleaseId`. A filter or sort naming a type, attribute or relation some
+workspace's model lacks is refused `422 MODEL_ELEMENT_NOT_IN_EVERY_MODEL` with `details.element`
+and `details.workspaces` (the keys lacking it); naming `workspaceKey` narrows the read instead. An
+import with `otherWorkspaceIds: "counterparts"` whose source workspace runs another model is refused
+`422 COUNTERPARTS_ACROSS_MODELS`, pointing to the move.
+
+### A workspace's data migrated to another release (V1)
+
+```json
+{ "targetReleaseId": "9a1e…", "expectedVersion": 3 }
+```
+
+`POST /workspaces/{workspaceKey}/model/migrations` starts a background job of kind `migration` in
+the preview stage: every conversion and every potential loss of this workspace's data under the
+target release, item by item, from the compatibility analysis, as the job's `preview` (counts by
+kind) and `GET /jobs/{jobId}/rows?status=conversion|loss|refused` (ADR-030). Nothing changes until
+`POST /jobs/{jobId}/confirm`:
+
+```json
+{ "expectedVersion": 3, "expectedFeedPosition": 18204, "acceptLoss": true }
+```
+
+The confirmation binds the reviewed assignment version and the workspace's feed position; a
+workspace changed since is `409 MIGRATION_REVIEW_STALE` (preview again). A preview with loss is
+refused without `acceptLoss: true` (`422 MIGRATION_LOSS_NOT_ACCEPTED`). The conversions run in
+PostgreSQL in the job; the data and the assignment switch in one transaction; a failure changes
+nothing. Cancel (`POST /jobs/{jobId}/cancel`) of a waiting preview changes nothing. History stays
+as it was.
+
+`POST /change-sets/{changeSetId}/model-migrations` (`targetReleaseId`, `expectedChangeSetVersion`)
+does the same for one change set's content (V2: one started from a publication; V3: one left on a
+release its workspace no longer runs), never deleting change-set content to make it fit.
+
+### Mappings between two models (X1)
+
+A **model mapping** says what each element of a source model becomes in a target model: types,
+attributes, relations, parents, value maps, defaults and how existing target records are matched
+(D18). It is stored once for the instance, keyed, versioned and named by its two models'
+release keys; it changes only through operations, with history, undo and redo as a draft's
+(ADR-041).
+
+```json
+{
+  "key": "catalogue-to-assets", "name": "Catalogue to assets",
+  "sourceModelKey": "catalogue", "targetModelKey": "assets", "version": 12,
+  "types": [
+    { "source": "item", "target": "asset", "match": { "attributeTypeKey": "asset-code" },
+      "attributes": [ { "source": "item-code", "target": "asset-code" },
+                      { "source": "weight", "target": "mass-kg", "valueMap": "units" },
+                      { "source": "colour", "ignore": true } ],
+      "parent": { "relationTypeKey": "in-location", "missing": "create" },
+      "relations": [ { "source": "supplied-by", "target": "provided-by" } ],
+      "defaults": { "status": "new" } }
+  ],
+  "valueMaps": { "units": { "N/A": null } }
+}
+```
+
+Operations follow A5's mapping kinds (`mapColumn`, `unmapColumn`, `setValueMap`, `setMissing`) with a
+source model element in place of a column; X1 fixes the list, first cut `mapType`, `unmapType`,
+`mapAttribute`, `unmapAttribute`, `mapRelation`, `setParent`, `setMatch`, `setValueMap`,
+`setMissing`, `setDefault`. Inference
+(`POST …/inference`) proposes a mapping from keys, names, value types and the stored records of a
+source and a target workspace, each proposal with evidence and alternatives; applying one adds it as
+a step marked Proposed. Two models with one key are proposed as identity (I34). The mapping's
+`problems` list what no longer resolves when either model has a newer release (drift).
+
+### Moves (X2, X3)
+
+```json
+{
+  "sourceWorkspaceKey": "north", "targetWorkspaceKey": "south",
+  "mapping": { "key": "catalogue-to-assets", "expectedVersion": 12 },
+  "selection": { "types": ["item"], "parentObjectId": null, "where": null, "objectIds": null },
+  "sourceAt": "live", "mode": "copy", "stage": "preview"
+}
+```
+
+`POST /moves` starts a background job of kind `move`. `selection` names a whole workspace (empty), types,
+a subtree (`parentObjectId`), a filter (`where`, as exports) or records (`objectIds`, K1's
+selection); `sourceAt` is `live` or a publication ID, recorded with the job (I30). The preview is
+the dry run of every selected record (D67), each a row: `create`, `update` (found by its counterpart
+ID, I2), `updateOriginal` (found by its recorded origin, I3, D23), or `refused` with the target's
+refusal codes as an import row's (J3); `notMoved` rows name the reason (`TYPE_NOT_MAPPED`,
+`VALUE_NOT_CONVERTIBLE`, `RELATION_TARGET_LEFT_BEHIND`, …). The preview adds counts by type and
+outcome, the relationships carried and dropped, and possible duplicates (I4).
+
+`POST /jobs/{jobId}/confirm` loads the preview's outcome into a new change set of the target
+workspace, opened for review; with `mode: "move"`, also a change set of the source workspace
+deleting the moved records (D17). A mapping changed since the preview is
+`409 MOVE_MAPPING_CHANGED`; the target's model changed since is `409 MODEL_RELEASE_CHANGED`.
+Nothing reaches either workspace's feed or consumers until a change set is published (D20). A
+moved record's ID is its counterpart in the target; its origin (source workspace and record) is
+stored and returned as `origin` on the job's rows and the record's audit entry.
+
+| Status | Code | When |
+| --- | --- | --- |
+| 422 | `MOVE_SAME_WORKSPACE` | source and target are one workspace |
+| 422 | `MODEL_MAPPING_MODEL_MISMATCH` | the mapping's models are not the two workspaces' models; `details` names all four keys |
+| 404 | `MODEL_MAPPING_NOT_FOUND` | the mapping key does not exist |
+| 409 | `MOVE_MAPPING_CHANGED` | `expectedVersion` is stale, at start or at confirmation |
+| 409 | `WORKSPACE_RETIRED` | the target is retired |
+
 ## Planned integration endpoints
 
 Designed in [INTEGRATION_API.md](INTEGRATION_API.md) and sequenced in the

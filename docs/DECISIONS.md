@@ -412,8 +412,10 @@ honestly as a table until a typed tree contract exists, while its mapping view i
 0.6 can represent and render that task honestly. Compatibility adapters are added only when a published
 schema has an explicit support commitment.
 
-Workspace-scoped model-release assignment is deliberately separate. It can later provide staged
-tenant or governance-domain migration, but running workspaces on different schema-language versions
+*Superseded by [ADR-042](#adr-042--each-workspace-runs-its-own-model-release) (2026-10-15): each
+workspace runs its own model, and the schema-language window is 0.11 V4's.* Workspace-scoped
+model-release assignment is deliberately separate. It can later provide staged
+per-workspace migration, but running workspaces on different schema-language versions
 requires the engine to serve every pinned parser and contract concurrently; workspace pinning does
 not remove that compatibility obligation. That future capability is sequenced with executable data
 migration, protected administration and a bounded supported-version window.
@@ -1599,3 +1601,53 @@ whole-model `PATCH`, and its audit events record which top-level fields changed,
   refuses an invalid draft as before.
 - Migration-class changes (1.0) are new kinds in the same history, applied through ADR-034's
   restructuring of records.
+
+## ADR-042 — Each workspace runs its own model release
+
+**Status:** Accepted, 2026-10-15, by the user with the
+[Base 0.11 P0 plan](BASE_0_11_IMPLEMENTATION_PLAN.md#p0-plan-2026-10-15) (D4–D11, D23–D29).
+Supersedes the closing paragraph of
+[ADR-021](#adr-021--introduce-strict-typed-views-in-schema-05). The contract is in
+[API.md § Workspace models](API.md#workspace-models-product-011-designed).
+
+### Motivation
+
+Different workspaces of one organisation's instance must be able to run different models, not only
+different versions of one model, each installed, activated and migrated without touching the others
+(the user, 2026-10-15). Until 0.11 one singleton row (`model_runtime_state`) named the release every
+request resolved, and activation checked and switched every workspace at once. This is not
+multi-tenancy: hosting stays one instance per organisation.
+
+### Decision
+
+- **A model is the line of releases sharing one `release.key`.** Releases stay instance-wide,
+  immutable and installed once; only their assignment is per workspace.
+- **Every workspace names its release** (`workspaces.model_release_id`). Nothing follows a default:
+  a workspace created without a release starts on the default workspace's release, and changing the
+  default workspace moves nothing. The singleton `model_runtime_state` and `model_releases.is_active`
+  are removed.
+- **A request resolves its workspace first, then that workspace's release.** No request combines two
+  snapshots; a read spanning workspaces resolves each workspace's snapshot on its own and names it in
+  every item. A route that names no workspace reads the default workspace.
+- **The commit guard is per workspace:** a write checks under a share lock on its workspace's row that
+  the workspace still runs the release it was validated under; activation locks that row.
+- **Activation targets one workspace.** Its compatibility check, contract check, unique values,
+  matrix states and subscription suspension cover that workspace only. A change set pinned to a
+  release its workspace no longer runs cannot publish until it is moved or discarded.
+- **What was instance-wide follows the workspace's model:** import profiles are bound to a model,
+  jobs and dry runs resolve their workspace, consumer API definitions, events and webhooks are per
+  workspace, and a consumer API key may mean different contracts in two workspaces.
+- **A workspace whose release cannot be loaded is unavailable on its own;** the others serve.
+- **Schema versions 0.5–0.10 run side by side**, since every one compiles into the same internal
+  model; the window and its conversion rules are written down in 0.11 V4.
+- **Data meets across models only through a move** (0.11 Track X): there are no relationships
+  between workspaces, and a moved record is a counterpart whose origin is recorded.
+
+### Consequences
+
+- About 30 modules change from "the active release" to "the workspace's release" (M1–M4); while every
+  workspace names the same release, behaviour is 0.10's.
+- Snapshot propagation across processes (N1) and model-derived indexes (Q2) are built per workspace
+  from the start.
+- Workspace groups owning a model history (unscheduled) stay possible: release identities remain
+  instance-wide.

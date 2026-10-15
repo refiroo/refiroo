@@ -106,11 +106,14 @@ allowed pairs; generic detail panels). This design removes the reason for the fi
   workbook, and an open draft takes one from its ⋯ menu. Since A6 it asks what to propose (a new
   application added to the model the draft starts from, a new model, additions to the model, or
   nothing). **A new model** is the same application in a draft that starts empty, without the active
-  model's applications; installed, it replaces the active model for every workspace until 0.11 gives
-  each workspace a model of its own and the editor opens with the proposals applied,
+  model's applications; the editor opens with the proposals applied,
   one step each; what is still as proposed is marked Proposed, with Proposed because in the centre
   (the finding, its evidence, its alternatives as steps); ⋯ › Propose again… reads the workbook
-  again (D92, D94).
+  again (D92, D94). Until 0.11, installing and activating a new model replaces the active model for
+  every workspace. **From 0.11 (D15, ADR-042)** each workspace runs a model of its own: a new model is
+  installed and activated into one workspace the user chooses or creates in the same step, never into
+  every workspace, and installing and activating from the editor names the target workspace(s); a
+  draft's compatibility is shown for each workspace running its base model (D25).
 - **From a model:** open a draft of the active release, or an empty one. No source file; the preview
   uses existing records instead of rows.
 - **From a saved profile:** upload the next version of a workbook to its profile. Only differences and

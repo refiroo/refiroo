@@ -435,8 +435,8 @@ and blocked; they are enabled in 1.0 on the 0.11 migration boundary.
 
 ## Product release 0.11 — Production hardening and staged model rollout
 
-Planning input: [Base 0.11 plan](BASE_0_11_IMPLEMENTATION_PLAN.md) (2026-10-15; the design pass comes
-first).
+Plan: [Base 0.11 plan](BASE_0_11_IMPLEMENTATION_PLAN.md) (2026-10-15; the workspace-model part
+first, then production hardening; the P0 design pass comes first).
 
 ### Product outcome
 

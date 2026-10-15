@@ -17,10 +17,14 @@ cancels, a rename stopping the dry run for good, the next version's check of a t
 (56 s at 200 rows) and of W1 at 10,000 rows (101 s, now 16 s), and relation chips no longer using
 the cell's width since A9. The commit and the tag `v0.10.0` follow the user's instruction (D153).
 Open: the backend suite's time (D152, the next build's first package) and, in TODO, one
-visual-gate flake whose cause was not found. Next, recommended: 0.11, starting with its design pass; its
-[planning input](BASE_0_11_IMPLEMENTATION_PLAN.md) records the user's two new requirements (each
-workspace a model of its own; data moved between workspaces whose models differ), the R findings
-that feed it, the test-time package first (D152), and how release runs are done from now on.
+visual-gate flake whose cause was not found. Next: 0.11, [planned](BASE_0_11_IMPLEMENTATION_PLAN.md) 2026-10-15
+in the shape of 0.10's plan. Part 1, first at the user's request, groups the workspace models (each
+workspace a model of its own, a workspace moved to another release, data moved between workspaces
+whose models differ); Part 2 is production hardening; Part 3 the first public release. The P0 design
+pass was delivered on 2026-10-15 (decisions D4–D29 and the move inventory accepted, ADR-042, the API
+design, J36–J38, the M5 and X4 mock-ups approved); M1 is next. Accepted by the user 2026-10-15: the data move in 0.11 (D3), the suite's
+time (D152) as a filler during Part 1 before X2 at the latest (D2), and 0.11.0-alpha.1 after the M6
+checkpoint (D12).
 
 ### How 0.10 was built
 
