@@ -28,6 +28,14 @@ function cellWidth(element: HTMLElement): number {
   if (!(cell instanceof HTMLElement)) return element.clientWidth;
   const style = getComputedStyle(cell);
   const padding = (Number.parseFloat(style.paddingLeft) || 0) + (Number.parseFloat(style.paddingRight) || 0);
+  // In a cell edited in place (0.10 A9) the chips sit beside the edit icons, in a box only as wide as
+  // what it shows: they may take the cell less the icons, or they could never grow (0.10 R).
+  const editing = element.closest(".cell-edit");
+  const actions = editing?.querySelector<HTMLElement>(".cell-edit-actions");
+  if (editing instanceof HTMLElement && actions) {
+    const gap = Number.parseFloat(getComputedStyle(editing).columnGap) || 0;
+    return cell.clientWidth - padding - actions.offsetWidth - gap;
+  }
   return Math.min(element.clientWidth || Number.POSITIVE_INFINITY, cell.clientWidth - padding);
 }
 

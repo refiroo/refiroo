@@ -9,7 +9,7 @@
  * relationships that get a sheet of their own (by default those the table shows as columns).
  */
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import type {
@@ -20,12 +20,12 @@ import type {
   ExportRelations,
   ExportRequest,
   Job,
-  Workspace,
 } from "@/types";
 import { attributeName } from "@/model/fields";
 import { RELATED_FIELD_PREFIX } from "@/model/lookup";
 import { Choice } from "@/ui/Choice";
 import { FormField } from "@/ui/FormField";
+import { WorkspaceField } from "@/features/workspaces/WorkspaceField";
 import { Icon } from "@/ui/Icon";
 import { Modal } from "@/ui/Modal";
 import { MultiSelect } from "@/ui/MultiSelect";
@@ -96,7 +96,6 @@ export function ExportDialog({
 }) {
   const types = useMemo(() => exportableTypes(model, start.objectTypeKeys), [model, start.objectTypeKeys]);
   const [workspaceKey, setWorkspaceKey] = useState(start.workspaceKey ?? "");
-  const [workspaces, setWorkspaces] = useState<Workspace[]>();
   const [chosen, setChosen] = useState<string[]>([...start.selected]);
   const [belowParent, setBelowParent] = useState(Boolean(start.parentObjectId));
   const [asOf, setAsOf] = useState("");
@@ -126,22 +125,6 @@ export function ExportDialog({
   const [lists, setLists] = useState(true);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<{ field: ExportField; message: string }>();
-
-  useEffect(() => {
-    if (start.workspaceKey) return;
-    let current = true;
-    api
-      .workspaces()
-      .then((page) => {
-        if (!current) return;
-        setWorkspaces(page.items);
-        setWorkspaceKey((key) => key || page.items[0]?.key || "");
-      })
-      .catch((cause) => current && setError({ field: "form", message: errorMessage(cause) }));
-    return () => {
-      current = false;
-    };
-  }, [start.workspaceKey]);
 
   const dated = types.some((type) => chosen.includes(type.key) && type.effectivePeriod);
   const filtered = start.filters && chosen.includes(start.filters.objectTypeKey) ? start.filters : undefined;
@@ -213,22 +196,11 @@ export function ExportDialog({
             </FormField>
           )}
           {!start.workspaceKey && (
-            <FormField label="Workspace">
-              {(control) => (
-                <select
-                  {...control}
-                  value={workspaceKey}
-                  disabled={!workspaces}
-                  onChange={(event) => setWorkspaceKey(event.target.value)}
-                >
-                  {(workspaces ?? []).map((workspace) => (
-                    <option key={workspace.key} value={workspace.key}>
-                      {workspace.label}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </FormField>
+            <WorkspaceField
+              value={workspaceKey}
+              onChange={setWorkspaceKey}
+              onError={(message) => setError({ field: "form", message })}
+            />
           )}
           {!forPeople && (
             <FormField

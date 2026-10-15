@@ -1,7 +1,7 @@
 {
   "name": "rdm-engine-ui",
   "private": true,
-  "version": "0.10.0-alpha.1",
+  "version": "0.10.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
@@ -18,6 +18,7 @@
     "test:browser:authoring-a4b": "node e2e/authoring-a4b-preview-layout.mjs",
     "test:browser:authoring-a4c": "node e2e/authoring-a4c-consumer-apis.mjs",
     "test:browser:authoring-t1": "node e2e/authoring-t1-designer.mjs",
+    "test:browser:authoring-r": "node e2e/authoring-r-acceptance.mjs",
     "test:browser:authoring-a5": "node e2e/authoring-a5-workbook.mjs",
     "test:browser:authoring-a6": "node e2e/authoring-a6-proposals.mjs",
     "test:browser:authoring-a7": "node e2e/authoring-a7-description.mjs",

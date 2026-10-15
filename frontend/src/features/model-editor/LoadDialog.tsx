@@ -10,7 +10,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
-import type { DraftProfile, DryRun, Job, ModelCompilation, ModelDraftOutline, ModelRelease, Workspace } from "@/types";
+import type { DraftProfile, DryRun, Job, ModelCompilation, ModelDraftOutline, ModelRelease } from "@/types";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { Skeleton } from "@/ui/Skeleton";
@@ -57,7 +57,6 @@ export function LoadDialog({
   const file = profile.sourceFile?.name ?? "the workbook";
   const [compilation, setCompilation] = useState<ModelCompilation>();
   const [activeId, setActiveId] = useState<string>();
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [loadError, setLoadError] = useState("");
   const identity = useReleaseIdentity(outline);
   const [name, setName] = useState(() => changeSetName(file));
@@ -69,12 +68,11 @@ export function LoadDialog({
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([api.compileModelDraft(draftId, outline.version), api.modelRuntimeState(), api.workspaces()])
-      .then(([compiled, state, page]) => {
+    Promise.all([api.compileModelDraft(draftId, outline.version), api.modelRuntimeState()])
+      .then(([compiled, state]) => {
         if (cancelled) return;
         setCompilation(compiled);
         setActiveId(state.activeReleaseId);
-        setWorkspaces(page.items);
       })
       .catch((cause) => {
         if (!cancelled) setLoadError(errorMessage(cause));
@@ -207,7 +205,7 @@ export function LoadDialog({
                 onName={setName}
                 workspace={workspace}
                 onWorkspace={setWorkspace}
-                workspaces={workspaces}
+                onError={setLoadError}
                 disabled={stage !== "ready"}
               />
             </LoadStep>

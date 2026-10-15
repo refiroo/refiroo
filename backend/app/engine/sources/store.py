@@ -1,7 +1,7 @@
 """Source files: a draft's or a profile's file, kept for as long as its owner (Product 0.10 A3, D5).
 
 ``POST /source-files`` checks the file as an import's upload is checked (``IMPORT_MAX_BYTES``, a
-workbook or CSV format) and stores it in ``JOB_FILE_DIR`` as ``{id}.upload``, then queues the job
+workbook or CSV format) and stores it in ``JOB_FILE_DIR`` as ``{public_id}.upload``, then queues the job
 of kind ``profile`` that stages its cells and profiles them (``profiling.py``), in one commit. The
 owner's earlier file is superseded: it stays readable, and the job retention sweep removes it
 ``JOB_RETENTION_DAYS`` after the newer one arrived (:func:`expire_superseded`). A file goes with its
@@ -15,7 +15,7 @@ from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from sqlalchemy import delete, exists, select, update
+from sqlalchemy import delete, exists, select, text, update
 from sqlalchemy.orm import Session
 
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
@@ -30,7 +30,7 @@ from ...models.sources import SourceFileRequest
 from ..imports.profiles import load_profile
 from ..imports.submit import Upload
 from ..jobs.files import JobFiles
-from ..jobs.store import start_job
+from ..jobs.store import job_parameter, start_job
 from ..model.drafts import load_draft
 from ..model.registry import resolve_model_snapshot
 from ..workspaces.catalogue import resolve_workspace
@@ -194,27 +194,45 @@ def source_file_page(
 def delete_source_file(
     session: Session, source_file_id: str, expected_version: int, *, files: JobFiles
 ) -> None:
-    """Delete the file at ``expectedVersion``, its cells and profile; a profile job still running
-    is asked to stop. Commits."""
+    """Delete the file at ``expectedVersion``, its cells and profile; every job still running on
+    it (its profile, a dry run, a profile's check, an inference) is asked to stop first, in a
+    transaction of its own, so a profile holding the file stops at its next check and the delete
+    then proceeds (0.10 R-F5, R-F8). Commits."""
     source = load_source_file(session, source_file_id)
+    _require_version(source, expected_version)
+    session.execute(
+        update(Job)
+        .where(
+            Job.state.in_(("queued", "running")),
+            (Job.id == source.profile_job_id)
+            | (
+                Job.kind.in_(_READING_KINDS)
+                & (job_parameter("sourceFileId") == source.public_id)
+            ),
+        )
+        .values(cancel_requested_at=datetime.now(UTC))
+        .execution_options(synchronize_session=False)
+    )
+    session.commit()
     session.refresh(source, with_for_update=True)
+    _require_version(source, expected_version)
+    session.execute(delete(SourceFile).where(SourceFile.id == source.id))
+    session.commit()
+    files.upload(source_file_id).unlink(missing_ok=True)
+
+
+# The jobs that read a source file's cells while they run.
+_READING_KINDS = ("profile", "dryRun", "profileCheck", "inference")
+
+
+def _require_version(source: SourceFile, expected_version: int) -> None:
     if source.version != expected_version:
         raise api_error(
             409,
             "VERSION_CONFLICT",
-            f"Source file '{source_file_id}' is at version {source.version}",
+            f"Source file '{source.public_id}' is at version {source.version}",
             {"currentVersion": source.version},
         )
-    if source.profile_job_id is not None:
-        session.execute(
-            update(Job)
-            .where(Job.id == source.profile_job_id, Job.state.in_(("queued", "running")))
-            .values(cancel_requested_at=datetime.now(UTC))
-            .execution_options(synchronize_session=False)
-        )
-    session.execute(delete(SourceFile).where(SourceFile.id == source.id))
-    session.commit()
-    files.upload(source_file_id).unlink(missing_ok=True)
 
 
 def profile_state(session: Session, source: SourceFile) -> dict[str, object]:
@@ -254,7 +272,22 @@ def require_profile(session: Session, source: SourceFile) -> None:
 
 def expire_superseded(session: Session, now: datetime, retention_days: int) -> list[str]:
     """Delete the files superseded more than ``retention_days`` ago (D5); their IDs, whose files the
-    caller removes from disk once it committed."""
+    caller removes from disk once it committed.
+
+    First, a file with a newer one of the same owner is marked superseded when the newer arrived:
+    two uploads committed together each supersede only what was committed before (0.10 R-F9)."""
+    session.execute(
+        text(
+            """
+            UPDATE source_files f SET superseded_at = (
+                SELECT min(n.uploaded_at) FROM source_files n
+                WHERE n.id > f.id AND (n.draft_id = f.draft_id OR n.profile_key = f.profile_key))
+            WHERE f.superseded_at IS NULL AND EXISTS (
+                SELECT 1 FROM source_files n
+                WHERE n.id > f.id AND (n.draft_id = f.draft_id OR n.profile_key = f.profile_key))
+            """
+        )
+    )
     return list(
         session.scalars(
             delete(SourceFile)

@@ -29,6 +29,7 @@ import {
 import { cancelDrag } from "./helpers/tree.mjs";
 import { visitReleaseSurfaces } from "./helpers/release-surfaces.mjs";
 import { visitDesignerSurfaces } from "./helpers/designer-surfaces.mjs";
+import { visitSpreadsheetSurfaces } from "./helpers/spreadsheet-surfaces.mjs";
 
 let harness;
 const checks = [];
@@ -321,6 +322,12 @@ try {
 
   // Base 0.10 designer surfaces (0.10 T1, D61): every one light, a representative one per package dark.
   await visitDesignerSurfaces(async ({ page: surface, name, mask, dark }) => {
+    if (name.endsWith("-dark") && !dark) return;
+    await capture(surface, name, output, mask);
+  });
+
+  // --- Base 0.10 spreadsheet and cell surfaces (0.10 R, D148), light and the dark subset ---
+  await visitSpreadsheetSurfaces(async ({ page: surface, name, mask, dark }) => {
     if (name.endsWith("-dark") && !dark) return;
     await capture(surface, name, output, mask);
   });

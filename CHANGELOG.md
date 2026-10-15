@@ -6,10 +6,51 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
-Five migrations (`20261012_01`, source files and the `profile` and `dryRun` job kinds;
+## [0.10.0] - 2026-10-15
+
+Base 0.10 is released: the model designer and spreadsheet onboarding, accepted by R (a full review
+of every change since 0.9.0, the full suites, the 49 browser runners, the accessibility and visual
+gates with the spreadsheet and cell surfaces, the schema 0.10 checks and the budgets). Schema 0.10
+(an application's `navigation`) is a released schema language; the starter stays content release
+0.9.5 on schema 0.9.
+
+Six migrations (`20261012_01`, source files and the `profile` and `dryRun` job kinds;
 `20261013_01`, a model draft's import profile; `20261014_01`, a draft's proposals and the
 `inference` job kind; `20261015_01`, the `profileCheck` job kind; `20261016_01`, a source file's
-column statistics per block); a database of 0.10.0-alpha.1 upgrades on start.
+column statistics per block; `20261017_01`, indexes on the jobs a draft, a profile or a source file
+has); a database of 0.10.0-alpha.1 upgrades on start.
+
+### Fixed (0.10 R)
+
+- An import that deletes the records missing from its file (`missing: delete`) through a source
+  keyed by name no longer deletes a record a refused row names (an ambiguous name) (R-F1).
+- The dry run's difference from the last one compares each source with its own figures when
+  several load one type from one sheet (a list read block by block, translations by language) (R-F2).
+- `allowRelation` with `required` to a released type is refused with its impact, as a required
+  attribute is (R-F3).
+- A list's single-valued relationship cell finds its relationship among every page of the record's
+  relationships (R-F4); a relation column's chips use the cell's width again beside the edit icons
+  (R-F18).
+- A file's profile no longer blocks its owner's next upload and the draft's steps; a file's delete
+  stops every job reading it first (R-F5, R-F8); inference and the profile's statistics renew their
+  lease and stop for a cancel request (R-F6, R-F7); a dry run or check whose file went fails
+  `SOURCE_FILE_NOT_FOUND`; the sweep supersedes a file a concurrent upload left current (R-F9);
+  applying proposals locks the draft first (R-F10); a profile-only step's audit entry names the
+  profile (R-F11).
+- A rename or another step that cannot change the load leaves the running dry run to finish rather
+  than stopping it with none to follow (R-F15).
+- Checking the next version of a workbook that loads related records (translations) took 56 s at
+  200 rows: the related records are found through each row's own relationships (R-F16). At 10,000
+  rows a dry run's or a check's recording joined its fresh outcomes row against row: outcomes are
+  inserted with their source and row, and the summary analyzes the job tables first; W1′'s check at
+  10,000 rows 16 s again (R-F19).
+- The dry run's, the check's and the inference's lookups of their earlier jobs use an index
+  (migration `20261017_01`) (R-F14).
+- Import profiles: an earlier read of the check answering late no longer sets the page back to
+  Checking (R-F17).
+- History names a renamed element by its name before the step; an editor table's cells break between
+  words; Export, Import and both Load dialogs choose their workspace with the shared field, every
+  page read; the editor's drawer counts every step of the draft.
 
 ### Added
 

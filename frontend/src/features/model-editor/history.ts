@@ -73,16 +73,24 @@ function propertyWords(p: Record<string, unknown>, names: Names): string {
   return `Set ${str(p.property)} of ${target}`;
 }
 
-/** One operation in words. Unknown kinds fall back to their name, so a later kind still reads. */
-export function describeOperation(kind: string, p: Record<string, unknown>, names: Names): string {
+/** One operation in words. Unknown kinds fall back to their name, so a later kind still reads.
+ * `inverse`, the entry's, holds what a rename replaced: the element is named as it was. */
+export function describeOperation(
+  kind: string,
+  p: Record<string, unknown>,
+  names: Names,
+  inverse?: Record<string, unknown> | null,
+): string {
   const type = (key: unknown) => names("objectType", str(key));
   const attribute = (key: unknown) => names("attributeType", str(key));
   const relation = (key: unknown) => names("relationType", str(key));
   switch (kind) {
     case "setLabel": {
       const labels = [p.name, p.pluralName, p.reverseName, p.label, p.title].map(str).filter(Boolean);
+      // The element by its name before the step: the current name is the new one (R, A6b's TODO).
+      const was = str(inverse?.name) || elementWords(p.element, names);
       return labels.length
-        ? `Renamed ${elementWords(p.element, names)} to ${labels.join(" / ")}`
+        ? `Renamed ${was} to ${labels.join(" / ")}`
         : `Changed the description of ${elementWords(p.element, names)}`;
     }
     case "setKey":
@@ -205,7 +213,7 @@ export function describeStep(step: HistoryStep, names: Names): string {
   if (step.origin.type === "redo") return `Redid step ${step.origin.step ?? ""}`.trim();
   // A proposal applied (0.10 A6b): what the rule found, as the proposal said it.
   if (step.origin.type === "proposal" && step.origin.summary) return `Proposed: ${step.origin.summary}`;
-  return step.entries.map((entry) => describeOperation(entry.kind, entry.parameters, names)).join("; ");
+  return step.entries.map((entry) => describeOperation(entry.kind, entry.parameters, names, entry.inverse)).join("; ");
 }
 
 /** Whether a step can be undone from its line: a change not undone yet (an undo is taken back by redo). */

@@ -28,7 +28,7 @@ from app.db import DatabaseStartupError, get_engine, migration_config
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261016_01"
+HEAD = "20261017_01"
 PROFILE_CHECK = "20261015_01"
 DRAFT_PROPOSALS = "20261014_01"
 DRAFT_PROFILES = "20261013_01"

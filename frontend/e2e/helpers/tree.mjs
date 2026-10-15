@@ -11,7 +11,11 @@ export const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"
  */
 export async function openFoldedGroups(page, scope = page.locator("body"), limit = 40) {
   // A tree that is still loading has no heading yet: wait for its first one, briefly.
-  await scope.locator(".tree-heading").first().waitFor({ timeout: 10000 }).catch(() => undefined);
+  await scope
+    .locator(".tree-heading")
+    .first()
+    .waitFor({ timeout: 10000 })
+    .catch(() => undefined);
   for (let step = 0; step < limit; step++) {
     const chevron = scope.locator('.tree-heading[aria-expanded="false"] > .tree-row > .tree-toggle').first();
     if (!(await chevron.count())) return;
@@ -71,20 +75,30 @@ export function treeDriver(page, fail) {
           (item.getAttribute("aria-label") ?? "").startsWith(prefix),
         );
         // Not drawn yet: it lies further down a branch that loads as focus moves on.
-        return !target || Boolean(document.activeElement.compareDocumentPosition(target) & Node.DOCUMENT_POSITION_FOLLOWING);
+        return (
+          !target || Boolean(document.activeElement.compareDocumentPosition(target) & Node.DOCUMENT_POSITION_FOLLOWING)
+        );
       }, name);
       await page.keyboard.press(below ? "ArrowDown" : "ArrowUp");
       await page.waitForTimeout(30);
     }
-    throw new Error(`the arrow keys never reached ${name} from ${start.label}; focus is on ${JSON.stringify(await focused())}`);
+    throw new Error(
+      `the arrow keys never reached ${name} from ${start.label}; focus is on ${JSON.stringify(await focused())}`,
+    );
   }
 
   /** Types into the lens search, arrows to the match and opens it with Enter. */
   async function findBySearch(search, name) {
     await lens.getByRole("textbox", { name: /^Search / }).focus();
     await page.keyboard.type(search);
-    await lens.getByRole("treeitem", { name: new RegExp(`^${escapeRegExp(name)}, in `) }).first().waitFor();
-    await page.keyboard.press("Tab");
+    await lens
+      .getByRole("treeitem", { name: new RegExp(`^${escapeRegExp(name)}, in `) })
+      .first()
+      .waitFor();
+    // The results redraw until the search's requests settle; a Tab pressed meanwhile can land past
+    // the tree, as a person's would not (the c4 flake of 0.9 R and 0.10 R).
+    await page.waitForLoadState("networkidle");
+    await keyIntoTree("Tab", 10);
     await arrowTo(name);
     await page.keyboard.press("Enter");
   }
@@ -176,7 +190,19 @@ export function treeDriver(page, fail) {
   /** The tree item for `name` (label start) in the lens. */
   const item = (name) => lens.getByRole("treeitem", { name: new RegExp(`^${escapeRegExp(name)}(,|$)`) }).first();
 
-  return { lens, item, focused, keyIntoTree, arrowTo, findBySearch, menu, expectFocus, addChild, searchCandidates, chooseAndMove };
+  return {
+    lens,
+    item,
+    focused,
+    keyIntoTree,
+    arrowTo,
+    findBySearch,
+    menu,
+    expectFocus,
+    addChild,
+    searchCandidates,
+    chooseAndMove,
+  };
 }
 
 // Pointer drags in the tree lens (Base 0.8 B5). A drag is pressed on a row, moved over a target in
@@ -252,7 +278,11 @@ export function dragState(page) {
     const preview = document.querySelector(".tree-drag-preview");
     return {
       dragging: Boolean(preview),
-      tone: preview?.classList.contains("refused") ? "refused" : preview?.classList.contains("accepted") ? "accepted" : "",
+      tone: preview?.classList.contains("refused")
+        ? "refused"
+        : preview?.classList.contains("accepted")
+          ? "accepted"
+          : "",
       text: preview?.textContent ?? "",
       line: Boolean(document.querySelector(".tree-drop-line")),
       cursor: getComputedStyle(document.body).cursor,

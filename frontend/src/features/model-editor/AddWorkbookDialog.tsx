@@ -10,7 +10,7 @@ import { useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import type { SourceFile, SourceFileUpload } from "@/types";
-import { WorkspaceField } from "@/features/model-editor/WorkspaceField";
+import { WorkspaceField } from "@/features/workspaces/WorkspaceField";
 import { FileField } from "@/ui/FileField";
 import { FormField } from "@/ui/FormField";
 import { Modal } from "@/ui/Modal";
@@ -81,7 +81,12 @@ export function AddWorkbookDialog({
         <FormField label="Workbook" help="An XLSX workbook or a CSV file">
           {(control) => <FileField control={control} accept={WORKBOOK_ACCEPT} onFile={setFile} />}
         </FormField>
-        <WorkspaceField value={workspace} onChange={setWorkspace} onError={setError} />
+        <WorkspaceField
+          label="Compare with the records of"
+          value={workspace}
+          onChange={setWorkspace}
+          onError={setError}
+        />
         {error && (
           <Notice tone="error" title="Not uploaded">
             {error}

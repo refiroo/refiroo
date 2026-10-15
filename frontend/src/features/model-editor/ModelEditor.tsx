@@ -220,6 +220,9 @@ export function ModelEditor({
     },
   );
   const steps = historySteps(history.items);
+  // Steps are numbered one by one, so the newest one's number is how many the draft has, though
+  // only its latest operations are read (a proposal can hold dozens; 0.10 A8c's TODO, fixed in R).
+  const stepCount = steps.reduce((most, step) => Math.max(most, step.step), 0);
 
   /** Sends a step at the draft's version; a stale version holds it and asks (D41). */
   const step = useCallback(
@@ -738,7 +741,9 @@ export function ModelEditor({
         <StatusPill tone={errors ? "error" : issueCount ? "warning" : "success"}>
           {issueCount ? `${issueCount} ${issueCount === 1 ? "issue" : "issues"}` : "No issues"}
         </StatusPill>
-        <span className="muted">{steps.length ? `${steps.length} steps` : "No steps yet"}</span>
+        <span className="muted">
+          {stepCount ? `${stepCount} ${stepCount === 1 ? "step" : "steps"}` : "No steps yet"}
+        </span>
         {hasSource && <span className="muted">Dry run: {dryRunLabel(source.dryRun)}</span>}
       </button>
       <div id="model-editor-issues-history" className="model-editor-bottom-body" hidden={!bottomOpen}>

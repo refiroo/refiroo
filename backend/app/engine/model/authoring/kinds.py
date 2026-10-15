@@ -1114,6 +1114,10 @@ def allow_relation(context: Context, raw: dict[str, Any]) -> Applied:
     if cardinality not in CARDINALITIES:
         raise Refusal("cardinality", "invalidValue", f"Unknown cardinality '{cardinality}'")
     required = params.optional("required", bool, False)
+    if required:
+        # The target's stored records would each need the relationship, as a required attribute
+        # needs its value (0.10 R-F3).
+        context.unreleased(atom("objectType", target))
     if params.optional("layout", bool, True):
         _allow(context, relation_key, source, target, cardinality, required)
     else:

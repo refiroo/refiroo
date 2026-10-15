@@ -153,10 +153,11 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # SourceCellPage schemas; diffed against the previous commit, nothing else changed.
     # Re-baselined for 0.10 A8c: a source's fixed parent (FixedParent, Source.parent and its
     # description) and a note's meaning heading (SourceBlockNote); diffed against the previous
-    # commit, nothing else changed.
+    # commit, nothing else changed. Re-baselined for 0.10.0 (R, D153): info.version 0.10.0; with
+    # 0.10.0-alpha.1 the document hashes to the previous lock exactly.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "c52a0c6425e6313c91c46dd0abfab10ea699e6afd4ed9bf5efb133f0ab4f855d"
+        "971667891eb4d65067a2b79c2ca65114810aa8fddaf0441f80437e730ad2892d"
     )
 
 

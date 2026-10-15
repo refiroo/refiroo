@@ -319,7 +319,7 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   H3 measured 2 min 41 s for 1,032 cases (0.16 s each), R 0.17 s each. The suite doubled in 0.9. The
   slowest are volume statement counts and journey parametrisations (the run's list of tests over 10 s).
   Revisit the ceiling or the slowest modules before 1.0.
-- [ ] **Found in 0.10 A6b (2026-10-12), not A6's:** History words a `setLabel` step with the element's
+- [x] **Found in 0.10 A6b (2026-10-12), not A6's; fixed in 0.10 R (2026-10-15):** History words a `setLabel` step with the element's
   current name ("Renamed Product group to Product group", A4a's `describeOperation`): it should name
   the old name, from the step's inverse. A type's attribute table is narrow beside the source pane at
   1440px, so its Unique column wraps "Yes" letter by letter (A4a's `EditorTable`). Export, Import and
@@ -390,7 +390,7 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 
 ## Next after 0.9 — 0.10 model authoring and spreadsheet onboarding
 
-- [ ] 0.10 design ([MODEL_AUTHORING.md](MODEL_AUTHORING.md), ADR-035) and
+- [x] 0.10 design ([MODEL_AUTHORING.md](MODEL_AUTHORING.md), ADR-035) and
   [plan](BASE_0_10_IMPLEMENTATION_PLAN.md) (2026-10-11, replacing the provisional one): the designer
   line first, then the spreadsheet line (D11, the user's request). A-D1–A-D3 decided; A-D4 and A-D10
   taken by 0.9 J2; plan D11–D16 accepted 2026-10-11 (D14: interim release after T1); D1–D10, D17–D21 and
@@ -465,10 +465,23 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   - [ ] A8c, not covered: a category's name in another language (a translation column's header) and
     a second header row's role are not loaded with the parent list; a row keyed by name under a
     parent is not matched by name from another row of the same file.
-  - [ ] Editor history: the steps count reads the steps of the last 100 operations, so a large step
+  - [x] Fixed in 0.10 R (2026-10-15): editor history: the steps count reads the steps of the last 100 operations, so a large step
     (A8c's alternative is about 70) makes it read fewer steps than the draft has (found by A8c's
     browser runner).
-  - [ ] R build acceptance and release.
+  - [x] R build acceptance and release: done 2026-10-15 (D147–D153; R-F1–R-F19 fixed but R-F14;
+    record in the plan); the commit and the tag `v0.10.0` on the user's instruction.
+  - [x] **Flakes (0.10 R, 2026-10-15):** `test:browser:c4`'s (focus left the tree looking for Pickup
+    point, seen at 0.9's R too) had its cause in the shared lens helper: `findBySearch` pressed Tab
+    once while the search's results still redrew. It now waits for the requests to settle and tabs
+    until a tree row has focus; `c4`, `b3`, `b4` and `c5`, which share it, passed. `authoring-a5`
+    failed only while the laptop's load stood at 190.
+  - [ ] **Flake (0.10 R, 2026-10-15), cause not found:** one `test:visual` run failed in 0.9's release
+    surfaces (MULTI, a seeded record, not shown within 10 s of opening System values); four other
+    runs passed. Nothing in the code explains it; look again if it recurs.
+  - [x] **R-F14 (0.10 R review), fixed in R (2026-10-15):** the supersede and latest-job reads of
+    the dry run, the check and the inference bound the parameter's key (`Job.parameters[...]`), so no
+    index could serve them; they go through `jobs.store.job_parameter` (the key written literally)
+    and three partial expression indexes (migration `20261017_01`).
   - [ ] A-D1 revision, deferred by the user (2026-10-11) until the designer works: reuse one object
     type for similar reference data in a similar hierarchy while it fits, with attributes switched
     on or off per type so flat types are easier to share; a separate type only where relations

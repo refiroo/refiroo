@@ -1506,14 +1506,19 @@ class _ProfileBinding:
                     FROM import_context c, (SELECT CAST(:attr AS text) AS attr) k
                     WHERE c.object_type_key = :type
                       AND (k.attr IS NULL OR c.attributes -> k.attr IS NOT NULL)
-                      -- Three anti-joins on plain equalities, so each is a hash anti-join: a
-                      -- row that found the record, a row naming its key, a row naming its ID.
+                      -- Four anti-joins on plain equalities, so each is a hash anti-join: a
+                      -- row that found the record, a row naming its key, its ID or its name. A
+                      -- row keyed by name finds no record when its name is ambiguous or the row
+                      -- failed first, and the records it names are then not missing (0.10 R-F1).
                       AND NOT EXISTS (SELECT 1 FROM import_rows r WHERE r.record_id = c.object_id)
                       AND NOT EXISTS (SELECT 1 FROM import_rows r
                           WHERE r.key_kind = 'attribute' AND r.object_type_key = c.object_type_key
                             AND r.key_attr = k.attr AND r.key_value = c.attributes -> k.attr)
                       AND NOT EXISTS (SELECT 1 FROM import_rows r
                           WHERE r.key_kind = 'id' AND r.key_value #>> '{}' = c.object_id)
+                      AND NOT EXISTS (SELECT 1 FROM import_rows r
+                          WHERE r.key_kind = 'name' AND r.object_type_key = c.object_type_key
+                            AND r.key_value #>> '{}' = c.name)
                     ON CONFLICT (object_id) DO NOTHING
                     """
                 ),
@@ -1916,17 +1921,28 @@ class _ProfileBinding:
         already joins to the row's record (narrowed by ``matchBy``); several are ambiguous; none
         means a new one, shared by the rows naming the same one. Rows naming one related record with
         different values are rejected."""
+        # Each row's record's relationships first, both directions as one set of plain equalities,
+        # then the related record by its key: joined by an OR of the two directions and planned
+        # without statistics, it compared every candidate with every relationship, 53 s for W1′'s
+        # 1,400 translations against the 1,400 a first load stored (0.10 R, found by the composed
+        # runner).
+        self._sql("ANALYZE import_related")
+        self._sql("ANALYZE import_context_relations")
         self._sql(
             """
-            WITH candidates AS (
+            WITH ends AS (
+                SELECT relation_type_key, 'outgoing' AS direction, from_id AS near, to_id AS far
+                FROM import_context_relations
+                UNION ALL
+                SELECT relation_type_key, 'incoming', to_id, from_id FROM import_context_relations),
+            candidates AS (
                 SELECT d.entry_id, c.object_id, c.name FROM import_related d
                 JOIN import_rows r ON r.row_id = d.row_id AND r.error IS NULL AND r.existing
-                JOIN import_context c ON c.object_type_key = d.object_type_key
+                JOIN ends x ON x.relation_type_key = d.relation_type_key AND x.direction = d.direction
+                    AND x.near = r.record_id
+                JOIN import_context c ON c.object_id = x.far AND c.object_type_key = d.object_type_key
                     AND c.parent_object_id = d.parent_id
-                    AND (d.match_attr IS NULL OR c.attributes -> d.match_attr = d.attributes -> d.match_attr)
-                JOIN import_context_relations x ON x.relation_type_key = d.relation_type_key
-                    AND ((d.direction = 'outgoing' AND x.from_id = r.record_id AND x.to_id = c.object_id)
-                      OR (d.direction = 'incoming' AND x.to_id = r.record_id AND x.from_id = c.object_id))),
+                    AND (d.match_attr IS NULL OR c.attributes -> d.match_attr = d.attributes -> d.match_attr)),
             counted AS (
                 SELECT entry_id, count(DISTINCT object_id) AS n, min(object_id) AS one,
                        min(name) AS name FROM candidates GROUP BY entry_id)

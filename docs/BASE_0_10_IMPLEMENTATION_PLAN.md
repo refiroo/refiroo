@@ -250,7 +250,7 @@ migration), `contract` (every route change) and `volume` (every budget).
 | 11 | [A7](#a7-model-description-sheets-and-matching-across-files) | A6 | **Delivered 2026-10-14** (screenshots approved). Model-description sheets; matching records across files |
 | 12 | [A8](#a8-list-blocks-in-sheets-laid-out-for-reading) | A6 | **A8a delivered 2026-10-14; A8b delivered 2026-10-15, its screenshots approved; A8c delivered 2026-10-15. A8 is complete. An application opening on a start page, asked during A8, is 0.14's optional UP2.** List blocks detected, confirmed and loaded |
 | 13 | [A9](#a9-collection-cells-edited-in-place) | — | **Added and delivered 2026-10-15** (screenshots approved). Collection table cells edited in place: values, single and many-valued relations |
-| 14 | [R](#r-build-acceptance-and-release) | all | Build acceptance and release |
+| 14 | [R](#r-build-acceptance-and-release) | all | **Done 2026-10-15; 0.10.0 ready to release.** Build acceptance and release: the review, the full suites, 49 runners, the gates, schema 0.10, the budgets |
 
 ## Sequence and dependencies
 
@@ -4191,6 +4191,335 @@ change).
   valid.
 - Full suites per AGENTS.md; documents and versions; tag on the user's instruction.
 
+**Exit:** all gates pass, or each failure is explained and tracked; Base 0.10.0 is ready to release.
+
+### R plan (2026-10-15)
+
+**Status: done 2026-10-15**, steps 0–11 (the commit and the tag `v0.10.0` on the user's
+instruction, D153). The review found 14 findings (R-F1–R-F14) and the runs five more (R-F15–R-F19);
+all fixed. Open by decision: the backend suite's time (D152); in TODO, one visual-gate flake whose
+cause was not found. No finding is fixed and no gate runs until D147–D153 are
+accepted. The scope above stands; this plan says in what order it runs, what it costs, which
+decisions it needs and what a failure means. A7 and A8 are delivered, so nothing moves below the
+cut line (D2) and W1′ is in.
+
+**What was checked for this plan (2026-10-15, at `fcea5e0`).**
+
+- **Size.** Since `v0.9.0`: 77 files in `backend/app` (16,251 lines added), 155 in `frontend/src`
+  (24,129), 6 migrations; 98 test and runner files (12,120). Nothing under `engine/reads`,
+  `consumer` or `events` changed. The shared write paths that did: the import binding
+  (`imports/binding.py`, 499 lines changed), the job worker, batches, audit, relation set versions,
+  deletion, `jobs/files.py` and `jobs/store.py`.
+- **Migrations.** `20261011_01` shipped in 0.10.0-alpha.1; `20261012_01`–`20261016_01` (5) came
+  after it. An upgrade from `v0.9.0` runs 6, from `v0.10.0-alpha.1` 5.
+- **Runners.** `package.json` has 48 browser runners; EXECUTION_GUIDE §3 lists 38. The 10 missing
+  are 0.10's (`authoring-n1`, `-a4a`, `-a4b`, `-a4c`, `-t1`, `-a5`, `-a6`, `-a7`, `-a8`, `-a9`).
+- **Gates.** T1 added the designer's surfaces (`visitDesignerSurfaces`: 123 baselines in all).
+  No spreadsheet surface (A5–A8) and no A9 cell editing is in `test:a11y` or `test:visual`; each
+  package ran axe in its own runner only.
+- **Composed stories.** The A5, A6 and A7 runners each walk part of US-P09 and US-P10 on both
+  designer models, mixing pointer and keyboard. None walks a whole story by keyboard alone, as T1's
+  runner does for US-P05.
+- **Versions.** `0.10.0-alpha.1` in `backend/app/config.py`, `backend/pyproject.toml`,
+  `frontend/package.json`. The starter is content release 0.9.5 on schema 0.9 (D3: unchanged); the
+  example model 0.9.7 on schema 0.9. Schema 0.10 is supported but unreleased.
+- **Known open items in TODO from 0.10 packages:** the `jobs` and `model_admin` groups over their
+  ceiling since A6a (J34 and J35 profiling W1 per case), deferred by five packages; A6b's three
+  small defects (History words a rename with the new name, the attribute table's Unique column
+  wrapping, three dialogs still loading workspaces themselves); A8c's editor history counting steps
+  of the last 100 operations only; A4b's one unexplained runner end; A7's and A8c's uncovered cases;
+  the startup check for an edited migration (for the user to decide).
+- **Not checked:** whether anything fails today; the browser runners' total time; whether the
+  volume seed rebuilds.
+
+**Steps.** Each step's failures are handled by D147 before the next starts.
+
+0. **Full review**, before any gate: every change since `v0.9.0` in `backend/app`, `frontend/src`
+   and the migrations, and the tests and runners for whether they check what they claim. Area by
+   area (the operation catalogue and history; source files, profiling, the dry run and the profile
+   check; inference; the shared write paths named above; routes, schemas and projections; the
+   editor, the source pane, the import profile pages and A9's cells) against each package's
+   decisions, the invariants and the composable-domains doors, and across packages, where a later
+   package changed what an earlier one built (A5c and A7 changed A6; A8 changed A5's source; A9
+   changed 0.9's collection table). Migrations, concurrency (dry-run supersession, the profile
+   check's lease, the draft's optimistic version, the workspace lock during a trial run) and the
+   public contracts get one independent reviewer of the final code (AGENTS.md). Every finding is
+   listed with its outcome.
+1. **Static and unit gates:** Ruff, frontend format check, lint, `tsc -b && vite build`, Vitest,
+   gate helpers.
+2. **Backend suite:** `pytest -n auto -q`, then `pytest -m serial -q`. Expected well over the
+   5-minute ceiling (0.9.0: 6 min 19 s; the `jobs` group alone took 5 min 59 s after A7); announced
+   before it starts (D152).
+3. **Browser runners**, all 48, one at a time, `s5`–`s7` at their default 10 %. EXECUTION_GUIDE §3
+   gains the 10 missing runners in the same step.
+4. **Composed acceptance runner** `test:browser:authoring-r` (D149): US-P09 on W1 (a new
+   application on `generated-b`, extending the renamed example) and on W2, then US-P10 on W1′, each
+   walked once by keyboard alone, 1440px and 390px; US-P05 by rerunning `authoring-t1`.
+5. **Accessibility and visual gates** by D148: new scenarios added first, then `test:a11y` light and
+   dark, then `test:visual`; every baseline that differs is opened, compared with the approved
+   package screenshot and re-recorded only when the difference is a delivered change.
+6. **Migration checks** by D150: clean bootstrap, upgrade path and lifespan by `test_startup` and
+   `test_migrations`; the smoke start on a copy of the development database. No upgrade from a tag.
+7. **Schema checks:** a schema 0.10 release (with `navigation`) installed and activated over the
+   schema 0.9 releases on the step 6 copy; a 0.9 model still valid and installable; an
+   installed 0.9 release still readable as stored.
+8. **Exit gates:** MODEL_AUTHORING's and ROADMAP 0.10's walked item by item, each with its evidence
+   from steps 1–7; the composable-domains check confirmed against the code.
+9. **Long runs** by D151, one announced block after steps 1–8 pass: `pytest -m budget`; W1 at
+   10,000 rows through profiling, the dry run (A3, A3a) and the profile check of W1′ (A5c), compared
+   with their recorded figures. Measured once.
+10. **Documents:** PROJECT_STATUS, ROADMAP (0.10 complete), TODO (R items ticked, residual gaps
+    added), CHANGELOG (`[Unreleased]` becomes `[0.10.0]`), API.md, the functionality catalogue,
+    and "unreleased" removed where schema 0.10 is meant; R's record with every gate's figures.
+11. **Version and tag** by D153: the version strings set, the R record committed, and the tag and
+    commands given when the user asks.
+
+**Decisions** (D147–D149 and D151–D153 accepted by the user on 2026-10-15; D150 decided otherwise)
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D147 | What does a failure mean? | **Accepted 2026-10-15. As 0.9's D201.** A product defect is fixed in R as a named amendment with its regression test, and only its boundary's groups rerun. A runner that drifted from a later package's model or screen is fixed in the runner and recorded, not a defect. A budget over its target is a TODO exception with its figure and cause, unless it regressed against its own earlier figure, which is a defect. A run that fails once and passes on one rerun is a flake: recorded, a TODO item, no release block. Anything else stops R and comes to you |
+| D148 | Which surfaces join `test:a11y` and `test:visual`? | **Accepted 2026-10-15. Every spreadsheet and A9 surface you approved by screenshot**, light and dark at 1440px, and the editor with a workbook at 390px (the roadmap's gate names narrow widths): New from a workbook; the source pane with a selected column's mapping; Map to…; the dry-run drawer with a figure's rows; a Proposed element's centre with its evidence; the Load dialog; Settings › Import profiles and a profile's check; a description sheet's centre; a sheet's lists (A8b) and Adjust list…; A9's hovered cell icons and the many-valued relationship dialog. About 14 scenarios and 30 baselines. Without them the gate the roadmap names holds only half the editor |
+| D149 | How are US-P09 and US-P10 composed? | **Accepted 2026-10-15. One new runner, `authoring-r`, walking each story whole by keyboard alone** on both designer models, as T1 did for US-P05. The A5–A7 runners stay as each package's evidence and run in step 3. They each walk part of a story, with the pointer for drags, so they do not show the story works end to end without a pointer, which the scope asks |
+| D150 | Where do the upgrade's source databases come from? | **Decided 2026-10-15 by the user: no upgrade from either tag.** No installation runs 0.9.0 or alpha.1; the development instance is the only one. Step 6 is the clean bootstrap and migration tests (`test_startup`, `test_migrations`) and the smoke start on a copy of the development database. The recommendation was databases built from both tags |
+| D151 | Which long runs? | **Accepted 2026-10-15. `pytest -m budget` and the W1 10,000-row figures only** (profiling, dry run, W1′ check). No consumer, events, exports or full-volume read tables: no file under `engine/reads`, `consumer` or `events` changed since 0.9.0, where they were measured. The import and batch budgets cover the binding and write paths that did change. If the review finds a read path changed after all, that read's table is added |
+| D152 | The backend suite over its ceiling | **Accepted 2026-10-15. R runs it as it is, announced (expected about 8–10 minutes), and records the time; the fix goes first into the next build's first package, not into R.** The cause is known (J34 and J35 profile W1 in each case). Fixing it in R changes test fixtures while the release is being accepted, and the measured time would then be of new fixtures. Your call: it has been deferred by five packages |
+| D153 | Version numbers | **Accepted 2026-10-15. Engine, backend and frontend `0.10.0`; schema 0.10 becomes a released schema language (fixed from 0.10.0 on); the starter stays content release 0.9.5 on schema 0.9** (D3; renumbering it would install a new release on every database). Tag `v0.10.0` on your instruction |
+
+The open TODO defects from 0.10 packages (A6b's three, A8c's history count) are not R's scope by
+the plan; the review lists them again, and by D147 any it finds to be a product defect is fixed in R.
+
+**Groups:** R runs everything (the full suites by AGENTS.md); "targeted tests only" does not apply to
+build acceptance. Test work added: the composed runner (D149) and the gate scenarios (D148).
+
+#### R step 0: the review (2026-10-15)
+
+**Done 2026-10-15**, before any gate; 14 findings, none high. Read only; nothing run, nothing fixed
+(fixes wait for D147). R-F1–R-F4 are the primary review's; R-F5–R-F14 the independent reviewer's
+(migrations, concurrency, public contracts), whose two medium findings were checked again in the
+code (R-F5: `profiling.py` reads the row `FOR UPDATE`, `store.delete_source_file` locks it too;
+R-F6: `worker._infer` renews the lease only after `run_inference` returns). HEAD moved to
+`8e111a5` during the review: a 0.14 plan commit, documents only, so the release's code is
+`fcea5e0`'s.
+
+| # | Severity | Where | Finding |
+| --- | --- | --- | --- |
+| R-F1 | medium | `imports/binding.py` `_ProfileBinding._missing` | A source keyed by name (A8a's `key: {"field": "name"}`) may say `missing: delete` (`Source` accepts any key), but `_missing` excludes a record only when a row found it (`record_id`) or named its attribute key or ID. A row keyed by name gets no `record_id` when its name is ambiguous (`AMBIGUOUS_NAME_KEY`), under a parent too (A8c's `_names_under_parents`), or when it failed before matching. Its records then count as missing and, with `missing: delete`, the load deletes them in the change set, while the row itself is refused. Every `missing: delete` test uses an attribute key. Confirmed by tracing |
+| R-F2 | low | `sources/dry_run.py` `_difference` | The difference from the last dry run keys a source by its sheet and type. A8c reads one list as a source per block, fixed to its header (D141), and translations as a source per language column: several sources of one type on one sheet. They collapse onto the last of them, so the drawer's and the profile check's "since the last run" figures are wrong for such a workbook. The tests compare files with one source per sheet and type. Confirmed by tracing |
+| R-F3 | low | `model/authoring/kinds.py` `allow_relation`; API.md's operation table | `allowRelation` with `required: true` between released types is classed additive and is not refused, while `attachAttribute` with `required` on a released type is refused with its impact (A2). The installation still refuses it when stored records lack the relationship (`compatibility.py`), so no data is harmed; the editor shows it only at installation, not at the step |
+| R-F4 | low | `features/objects/useCellEditing.tsx` `heldOne` | A9's single-valued relation cell reads the record's relationships of that relation type, two at most, with no filter on the other end's type. When the type's relation type is also bound to another target type and the first two by name are of that type, the cell offers Set instead of Change (the save is then refused for cardinality), and its Remove finds nothing and closes. Depends on that model shape; neither designer model has it. Confirmed by tracing |
+| R-F5 | medium | `sources/profiling.py` `profile_source_file`; `sources/store.py` `store_source_file`, `delete_source_file` | The profile job holds its source file row `FOR UPDATE` for its whole run (staging, statistics, commit), and nothing sets a lock timeout. A delete of the file waits for the profile to end, and its cancel then finds no running job (API.md: "a profile job still running is cancelled"). A second upload to the same owner waits in its supersede `UPDATE`; its inserted row holds a key-share lock on the draft, so every operation, undo, redo and draft delete (`load_draft_for_update`) waits behind it. Uploading a large workbook, then a corrected one, then editing freezes the editor for the first profile's length. Confirmed by tracing (both locks checked again) |
+| R-F6 | medium | `jobs/worker.py` `_infer`; `sources/inference/run.py` `run_inference` | Inference runs in one step without renewing its lease (120 s) or looking for a cancel request, the assistant call included. Past the lease, a worker in another process takes the job and the first rolls back, possibly on every attempt; a newer `POST …/inference` does not stop the older, which completes and writes its proposals. No renewal confirmed (checked again); the multi-process outcome plausible |
+| R-F7 | low | `profiling.py` after staging | The statistics phase (ANALYZE, layouts, overlaps, columns) renews no lease: with several processes a long profile can be taken over and rolled back. Plausible |
+| R-F8 | low | `store.delete_source_file` (also by deleting a draft or profile) | A delete cancels the file's profile job only, not a running dry run, check or inference on it. A delete committed mid-binding leaves later sources reading no cells, and the run completes as `coverage: "complete"` with partial counts; the CSV re-delimited path fails as an internal `JOB_FAILED`, not `SOURCE_FILE_NOT_FOUND`. Cancel scope confirmed; the partial read plausible |
+| R-F9 | low | `store.store_source_file` | Two concurrent uploads for one owner do not supersede each other; reads take the newest, but the older is not expired until a later upload. Confirmed by tracing |
+| R-F10 | low | `inference/run.py` `apply_inference` | Proposals are read unlocked after the "latest job completed" check; a newer inference completing in between swaps them, and the steps name the older job and its draft version. Narrow window; plausible |
+| R-F11 | low | `model/drafts.py` `update_draft` | A step changing only the profile records an audit event whose `changed_fields` does not name the profile. Confirmed |
+| R-F12 | low | `dry_run.py` `summary` | A refusal without a code is counted under `REJECTED`, which API.md does not list. Confirmed |
+| R-F13 | low | migration `20261012_01`, `store.py` docstrings | Both say a stored file is `{id}.upload`; it is `{public_id}.upload`. Confirmed |
+| R-F14 | low | `dry_run.py`, `profile_check.py`, `inference/run.py` | The supersede and latest-job queries filter `jobs.parameters ->> 'draftId'` / `'profileKey'` with no index; every step that queues a dry run scans the jobs of that kind. Cost not measured |
+
+The independent reviewer found sound: the six migrations (chain, columns, keys and indexes against
+the models, `20261011_01` unchanged since alpha.1, every 0.9.0 job kind passing the new check, the
+`20261016_01` backfill and every downgrade); the draft's lock and version, a step committed with its
+dry run, dry-run supersession, no lock cycle between a trial run and activation, a dry run or check
+never confirmable into an apply, the upload's file written before commit and swept safely; every
+new route's gate and status codes, the job kinds agreeing across the filter, response and
+constraint, the OpenAPI lock's re-baselines; A9 using existing idempotent write routes only. Not
+checked by it: a dry run's accuracy when the draft adds a unique attribute the active release's
+trigger does not maintain.
+
+Known from the packages and still open in TODO, listed again because they are product defects
+(D147 decides whether R fixes them): A6b's History wording a rename with the new name, the
+attribute table's Unique column wrapping, and Export, Import and Load still loading workspaces
+themselves; A8c's history counting the steps of the last 100 operations.
+
+**Checked and found sound.**
+- The shared write paths: a trial run's audit suppression (D72) is scoped to previews, and nothing
+  in a run reads audit entries; relation set versions advanced from arrays keep key order and the
+  same conflict targets; a record deleted as missing (`own_links`) is refused when others depend on
+  it; a client cannot forge the `missing!` ref (a JSONL line's ref is replaced, an inline batch never
+  sets `file_rows`).
+- The binding's new steps: lookups through `import_context_values`, records created by name (D77),
+  rows keyed by name under a parent (D142) level by level, the profile check's findings.
+- Released structure (D17): every removal, re-key, value type, `unique`, containment, split, merge
+  and list conversion asks `unreleased`; `candidates` alone stays additive (K7).
+- History: steps, undo of several, dependants (D8), redo order after several undos, a new step
+  ending redo (D32), the version conflict's entries.
+- Capability gates (D6): source uploads and imports under `INTEGRATION_JOBS_ENABLED`; operations,
+  the dry run and inference under model administration as well.
+- Source files stored under their generated ID, never their uploaded name.
+- No new engine or editor code branches on a model key; inference's extend mode finds a draft's
+  translation types from its profile's sources.
+- The record page's editing moved into `ui/EditInPlace` (shared with A9) with 0.9's behaviour
+  kept: a selection inside a value is left for copying, the edit hint, the empty value's Add.
+- The editor's dialogs use the shared modal; its three tables are grids no shared component draws.
+- The Load dialog's partial outcomes (installed but not active, the profile not saved) are said.
+
+**Fixed 2026-10-15** (D147: each with its regression test; the boundary's groups rerun).
+
+| # | Fix | Regression test |
+| --- | --- | --- |
+| R-F1 | `_missing` excludes a record a row names by name too (a fourth anti-join) | `test_j27_import`: twins by name, one ambiguous row, only the unnamed record removed |
+| R-F2 | `_difference` keys a source by its sheet, type and place among the sources sharing them | `tests/unit/engine/sources/test_dry_run.py` |
+| R-F3 | `allowRelation` with `required` asks `unreleased` of the target type; API.md's table | `test_j33_operations`: required refused with its impact, optional applied |
+| R-F4 | `heldRelation` reads every page until it finds the column's relationship | `heldRelation.test` |
+| R-F5 | The profile holds its file's row `FOR KEY SHARE` (`read=True, key_share=True`; `key_share` alone renders `FOR NO KEY UPDATE`, which still blocked the supersede); a delete asks every job on the file to stop and commits that before it locks | `test_j34_onboard`: an upload and a step during a running profile answer at once; a delete during it stops it as cancelled, then answers 204 |
+| R-F6 | `run_inference` takes a `check`, called between its phases and around the assistant | `test_j34_onboard`: a cancel during the run stops it, no proposals |
+| R-F7 | The profile's statistics call `check` per sheet and before the columns | the R-F5 delete test (the profile stops among its statistics) |
+| R-F8 | The dry run and the check refuse to record when their file went (`require_file`); the CSV re-read path says `SOURCE_FILE_NOT_FOUND`; API.md | `test_j34_onboard`: a file deleted during the preview fails the dry run |
+| R-F9 | The sweep marks a file with a newer one of its owner superseded as of the newer's upload | `test_j34_onboard`: two unsuperseded files sorted out by the sweep |
+| R-F10 | `apply_inference` locks the draft before it reads the latest job and its proposals | none: the race needs a second inference committing between two reads of one request; the existing application tests cover the path |
+| R-F11 | `update_draft` names `profile` among the changed fields when the profile changed | `test_j35_next_version`: the setMissing step's audit entry |
+| R-F12 | API.md documents `REJECTED` | — |
+| R-F13 | Both docstrings say `{public_id}.upload` | — |
+| R-F14 | Fixed after step 9: the lookups go through `jobs.store.job_parameter` (the key written literally; `Job.parameters[...]` bound it, which no index matches) and three partial expression indexes on `draftId`, `profileKey` and `sourceFileId` (migration `20261017_01`) | `test_schema_drift`: each lookup's plan can use its index; the `startup` group 173 passed; the dry-run, check, inference and delete journeys 50 passed |
+| A6b TODO | History names a renamed element by its name before the step (the entry's inverse) | `history.test` |
+| A6b TODO | An editor table's cells break between words; only a key breaks anywhere (`.attribute-edit`'s `anywhere` overridden there) | the visual gate's editor baselines |
+| A6b TODO | Export, Import, Load and the profile's Load choose their workspace with the shared `WorkspaceField` (moved to `features/workspaces`, every page read) | `WorkspaceField.test` |
+| A8c TODO | The drawer counts the draft's steps by the newest step's number | `ModelEditor.test` |
+
+**Found by the full suite (step 2):** `test_model_independence` failed on inference's own words
+(`language`, `languages`, `translation`, `translations`), which are starter keys. Checked in the
+code: they are a pattern's and a proposal role's names; a proposal's keys come from
+`key_from_label`, which never takes a key the model holds, and extend mode finds translation types
+by the profile's structure. Test drift (D147): the four words joined `GENERIC_WORDS` with that reason.
+
+**Found by the composed runner (step 4)**, each fixed with its regression test:
+
+| # | Severity | Finding and fix | Regression test |
+| --- | --- | --- | --- |
+| R-F15 | medium | A rename (or any step that cannot change the load, D79) stopped the running dry run as superseded and queued none: the drawer stayed at Stopped. D67 pairs the two ("a newer draft version cancels a running dry run and starts its own"): `superseded` now asks whether a step since the dry run's version can change the load (`runs_dry_run` over the history's entries); API.md | `test_j34_onboard` J34.3: a rename lets the dry run finish; a step that can change the load still cancels it |
+| R-F16 | medium | The next version of a workbook whose profile loads related records (W1's translations, and 0.9 J6a's workbook for people) took 56 s to check at 200 rows: `_related_identities` joined the relationships by an `OR` of both directions, unplanned without statistics, comparing every candidate with every relationship. It now reads each row's record's relationships as one set of equalities, then the related record by its key, with `import_related` and `import_context_relations` analyzed first: 3.8 s | `test_j35_next_version`: an inferred workbook's next version checked within 20 s |
+| R-F17 | low | Import profiles: a read of the check answering after a newer one began (a save, an upload, the next check) could set the page back to Checking a check whose stream had ended. Found by reading the code while tracing the runner; not seen to happen. Only the latest read now sets the page | the composed runner (Accept, then Ignore while the first re-check runs) |
+
+**Checks run after the fixes:** the binding's boundary (`test_j27_import`, `test_j27_people_*`,
+`test_j34_onboard`, `test_j35_next_version`, the imports and sources unit tests) 424 passed twice
+(5 min 24 s and 5 min 26 s); `test_j33_operations`, `test_model_independence`; Ruff clean; Vitest
+for the changed files; format, lint (0 errors, the 7 known warnings) and build.
+
+#### R steps 1 and 2: static, unit and backend gates (2026-10-15)
+
+**Step 1 passed:** Ruff clean, Prettier clean, ESLint 0 errors and the 7 warnings 0.9 recorded (the
+model draft editor and workbench, object detail and form, `useCursorFeed`), `tsc -b && vite build`,
+Vitest 861 passed (89 files), gate helpers 6 passed.
+
+**Step 2 passed after one test fix:** `pytest -n auto -q` 5,770 passed and 1 failed in 8 min 31 s;
+the serial part 3 passed in 10 s. The failure was `test_model_independence` (above, test drift).
+Over the 5-minute ceiling, as D152 expected; no test over 10 s outside `budget` but the ones the run
+listed (the slowest: volume statement counts, J34 and J35 loads, rule parity).
+
+#### R step 3: the browser runners (2026-10-15)
+
+**Passed: all 49 runners** (the 48, with EXECUTION_GUIDE §3 now listing 0.10's ten and `authoring-r`),
+one at a time. A first pass was stopped after 22 runners: the laptop's load average stood near 300
+(other sessions' tools), and 9 runners timed out loading pages or starting the server; none had
+failed an assertion. On a quiet machine (load 5–25, each run's load recorded):
+
+- `authoring-t1` drifted (D147): it fails a walk on any 4xx answer, and since A5 and A6 the editor
+  reads a draft's dry run and inference, which a draft without them answers `404`
+  (`DRY_RUN_NOT_FOUND`, `INFERENCE_NOT_FOUND`), as designed. The runner takes those two as "none";
+  passed.
+- Flakes (D147), each failed once and passed on its rerun: `authoring-a5` (a 10 s wait while the
+  load was 190), `b3` (the lens's row of a record not shown in time), `c4` (focus left the tree
+  looking for Pickup point: the flake TODO records from 0.9's R).
+- **R-F18 (medium), a product defect, found by `k5`:** since A9 wrapped relation cells in
+  `EditInPlaceCell`, K5b's chips measured their own box, only as wide as what it showed, so a cell
+  never showed more chips as its column widened (value 001 kept "1 + 4 more" at the widest; a value
+  given a second record showed "+1 more" in a 370px column). `RelatedRecordChips.cellWidth` now
+  takes the cell's content width less the edit icons beside it. Regression test: `test:browser:k5`
+  (all its checks), with `authoring-a9` and the chips' Vitest tests rerun.
+
+#### R step 4: the composed runner (2026-10-15)
+
+`test:browser:authoring-r` (D149), `e2e/authoring-r-acceptance.mjs`: **12 checks passed in 3 min
+15 s.** On both designer models (the renamed example at 1440px, generated-b at 390px), each walk by
+keyboard alone (Tab, Shift+Tab, arrows, Enter, Space, typing; the file through its chooser): W1 as
+a new application, a proposed type renamed, the dry run refusing no row, installed, activated,
+loaded, reviewed and published (200 items); W1′ through the saved profile, the rename accepted and
+the new column ignored, a review of its 3 added and 5 changed items only, published; W2 as a new
+application, loaded and published (6 colours); W1 as additions to W2's model, its missing values
+created on load, loaded and published. The runner found R-F15–R-F17; writing it needed the waits a
+person makes (each re-check ends before the next step). Screenshots inspected at 390px: the
+profile's check fits the width.
+
+#### R step 5: the accessibility and visual gates (2026-10-15)
+
+**Passed.** New scenarios first (D148): `e2e/helpers/spreadsheet-surfaces.mjs`, on a harness of its
+own, set up through the API (W1, W2 and W3 proposed in drafts raised to schema 0.10; W1 installed,
+loaded and published, W1′ checked; a system value related to a master value): New from a workbook,
+a workbook's column, Map to…, a proposed type with its evidence, the dry run and a figure's rows,
+Load, a description sheet's type, a sheet's lists and Adjust list…, A9's hovered cell and its
+many-valued dialog, a profile's check, and at 390px the editor with a workbook; 14 scenarios,
+light and dark, with the dark subset in the visual gate (20 new baselines). Each screenshot was
+inspected (the right state, the Unique column whole).
+
+- `test:a11y`: **173 checks** (109 at 0.9.0), no unexpected violations, 4 min 5 s.
+- `test:visual`, first in compare mode: 32 baselines over the threshold, each opened beside its
+  approved package screenshot. Every one is a delivered change no package re-recorded: A9's cell
+  icons, kept in place while hidden, on every collection and record table (0.5–1.5 %); A5c's
+  Settings › Data operations around the import and export job pages (3.3–6.7 %); A5's and A6's
+  editor header and "1 step" in the matrix's drawer. Re-recorded those 32 and the 20 new ones only;
+  the 84 others kept as committed. Then **143 checks passed** in compare mode. One compare run
+  failed in 0.9's release surfaces (MULTI not shown in 10 s) and passed on its rerun: a flake
+  (D147), in TODO.
+
+#### R steps 6 and 7: migrations and schema languages (2026-10-15)
+
+**Step 6 passed** (D150: no upgrade from a tag). Clean bootstrap, the upgrade path and lifespan by
+`test_startup` and `test_migrations` in step 2. Smoke start on a copy of the development database
+(`pg_dump` into a scratch database; already at `20261016_01`, 2,380 records, the example model
+0.9.9 on schema 0.10): healthy, `/system` listing schema languages 0.5–0.10, the cross-type lookup
+answered, no error logged.
+
+**Step 7 passed**, on that copy with model administration on: a schema 0.10 release with a new
+navigation group placing a collection installed (`201`) and activated (`200`) over the active
+release; the starter (schema 0.9) installed as a release (`201`): a 0.9 model is still valid; five
+installed schema 0.9 releases read back with their model at schema 0.9. The server was stopped and
+the scratch database dropped.
+
+#### R step 8: the exit gates (2026-10-15)
+
+**MODEL_AUTHORING exit gate, walked item by item:**
+
+| Item | Evidence |
+| --- | --- |
+| The flat-table shape (with its translation sheet) becomes an installed application and a reviewed change set without JSON or code; every inference changeable before loading | `authoring-r`: W1 proposed as a new application, a proposed type renamed, installed, activated, loaded, reviewed and published, by keyboard, on both designer models; J34.4–J34.8; A6's alternatives (`authoring-a6`) |
+| A second, differently shaped workbook (the model-description shape) does the same | `authoring-r`: W2 proposed, loaded and published (6 colours); J34.9; `authoring-a7` |
+| The next version through its saved profile shows only its differences in the review | `authoring-r`: W1′'s review holds its 3 added and 5 changed items only; J35.2 |
+| Renaming, moving, splitting and merging keep the profiles valid; the dry run reflects each operation | J34.7 (the draft profile follows renames, moves, splits and merges, and undoes with them); J34.3 (the dry run follows each step; a rename no longer stops it, R-F15) |
+| Every drag has a keyboard path; the editor passes the gates at desktop and narrow widths | `authoring-t1` (US-P05 by keyboard and by clicking), `authoring-r` (US-P09, US-P10 by keyboard alone, 1440px and 390px); `test:a11y` 173 checks and `test:visual` 143, with the designer's and the spreadsheet's surfaces and the editor at 390px |
+| The same journeys on the starter model, extending it, and on a new application | `authoring-r` on the starter with every key renamed and on `generated-b`: W1 as a new application, and W1 as additions to the model W2 extended |
+| No runtime or editor branch on an application, object-type, attribute or relation key | `test_model_independence` (inference's four pattern words recorded as its own vocabulary, step 2); the review checked every new module (R step 0) |
+
+**ROADMAP 0.10 exit gate:** its items are the same as MODEL_AUTHORING's (two workbook shapes, the
+next version's differences, profiles following renames, moves, splits and merges, the gates at both
+widths, no key branch), with the evidence above. **Composable domains check:** unchanged from the
+plan; R changed no door (identity, provenance, history, inbound flow, matching, value types).
+
+#### R step 9: the long runs (2026-10-15)
+
+`pytest -m budget`: 8 passed in 6 min 19 s. W1 at 10,000 rows (POSTGRESQL_BUDGETS §12): profiling
+6.2 s; W1′'s check first 101.6 s against A5c's 10.1 s, measured on a quiet laptop after a first
+figure of 250 s under a full swap. One profiled run and one statement-timed run located it:
+
+| # | Severity | Finding and fix | Regression test |
+| --- | --- | --- | --- |
+| R-F19 | medium | A dry run or a check records its tens of thousands of outcomes at once and then joined them with the job's inputs, planned by statistics that had not seen them: the update giving each outcome its source and row took 95.3 s, the summary's counts 63.7 s. `record_outcomes` now inserts a file's rows' outcomes with their source and row in one `INSERT … SELECT` from arrays, each finding its input by its unique key; the summary analyzes `job_items` and `job_inputs` before counting | measured once after the fix: W1′'s profile and check 16.3 s (A5c: 6.1 + 10.1 s); `test_j27_import`, `test_j35_next_version`, the job unit tests and J34's dry-run cases, 156 passed, then the J35 and dry-run cases 28 passed, each run in one process |
+
+The full mapping's dry run, measured once after the fix: **22.2 s** for 40,107 items (41.9 s before
+it, under load); no earlier figure for this mapping. After it, R-F14 was fixed, and the `c4` flake's
+cause found in the lens helper (TODO).
+
+#### R steps 10 and 11: documents and version (2026-10-15)
+
+PROJECT_STATUS, ROADMAP (0.10 complete), TODO (R's items closed, the flakes and R-F14 added),
+CHANGELOG (`[Unreleased]` became `[0.10.0]`, R's fixes added), POSTGRESQL_BUDGETS §12, API.md
+(R-F3, R-F8, R-F12, R-F15 and the dry run's difference), EXECUTION_GUIDE (the eleven runners).
+Engine, backend and frontend `0.10.0` (D153); the OpenAPI lock re-baselined for `info.version`
+alone (with `0.10.0-alpha.1` the document hashes to the previous lock). The commit and the tag
+`v0.10.0` on the user's instruction.
+
 ## Composable domains check (ADR-032)
 
 As recorded in [MODEL_AUTHORING](MODEL_AUTHORING.md#composable-domains-check-adr-032): identity and
@@ -4260,7 +4589,7 @@ Design-level decisions are [A-D1–A-D12](MODEL_AUTHORING.md#open-decisions).
 
 ## Next
 
-1. **A8b is delivered (2026-10-15, [record](#a8b-record-2026-10-15)), its screenshots approved.** Next: R (build acceptance and release), starting with the full review of every change since the last release. **A8c is delivered (2026-10-15, [record](#a8c-record-2026-10-15))**. **A9 added 2026-10-15** ([entry](#a9-collection-cells-edited-in-place)):
+1. **R is done (2026-10-15, [plan](#r-plan-2026-10-15)): 0.10.0 ready to release**; R-F1–R-F19 fixed; the commit and the tag `v0.10.0` on the user's instruction. A8b is delivered (2026-10-15, [record](#a8b-record-2026-10-15)), its screenshots approved. **A8c is delivered (2026-10-15, [record](#a8c-record-2026-10-15))**. **A9 added 2026-10-15** ([entry](#a9-collection-cells-edited-in-place)):
    collection cells edited in place, the interaction decided by the user; **planned 2026-10-15
    ([plan](#a9-plan-2026-10-15)), **delivered the same day** ([record](#a9-record-2026-10-15))**. A8a is delivered (2026-10-14, [record](#a8a-record-2026-10-14)).
    **A7 is delivered (2026-10-14, [record](#a7-record-2026-10-14)), its screenshots approved**; its plan, D106–D113 and test cases were accepted by the user the same day. The user chose A7 before A8. A5c is delivered (2026-10-14,

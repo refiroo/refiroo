@@ -18,11 +18,11 @@ import type {
   ImportProfile,
   Job,
   OtherWorkspaceIds,
-  Workspace,
 } from "@/types";
 import { Choice } from "@/ui/Choice";
 import { FileField } from "@/ui/FileField";
 import { FormField } from "@/ui/FormField";
+import { WorkspaceField } from "@/features/workspaces/WorkspaceField";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { bytes } from "@/features/settings/limits";
@@ -75,7 +75,6 @@ export function ImportDialog({
   const [policy, setPolicy] = useState<ImportPolicy>("independent");
   const [onExisting, setOnExisting] = useState<ImportOnExisting>(defaultOnExisting(null));
   const [otherWorkspace, setOtherWorkspace] = useState<OtherWorkspaceIds>("counterparts");
-  const [workspaces, setWorkspaces] = useState<Workspace[]>();
   const [workspaceKey, setWorkspaceKey] = useState(start.context?.workspaceKey ?? "");
   const [changeSets, setChangeSets] = useState<ChangeSet[]>();
   const [data, setData] = useState(LIVE);
@@ -93,21 +92,6 @@ export function ImportDialog({
       current = false;
     };
   }, []);
-
-  useEffect(() => {
-    if (start.context) return;
-    let current = true;
-    everyPage((cursor) => api.workspaces({ cursor }))
-      .then((items) => {
-        if (!current) return;
-        setWorkspaces(items);
-        setWorkspaceKey((key) => key || items[0]?.key || "");
-      })
-      .catch((cause) => current && setError({ field: "form", message: errorMessage(cause), problems: [] }));
-    return () => {
-      current = false;
-    };
-  }, [start.context]);
 
   useEffect(() => {
     if (start.context || !workspaceKey) return;
@@ -188,28 +172,17 @@ export function ImportDialog({
           <h3 id="import-file">The file</h3>
           {!start.context && (
             <>
-              <FormField label="Workspace">
-                {(control) => (
-                  <select
-                    {...control}
-                    value={workspaceKey}
-                    disabled={!workspaces}
-                    onChange={(event) => {
-                      // Only another workspace reads its change sets; the same one keeps those read.
-                      if (event.target.value === workspaceKey) return;
-                      setWorkspaceKey(event.target.value);
-                      setChangeSets(undefined);
-                      setData(LIVE);
-                    }}
-                  >
-                    {(workspaces ?? []).map((workspace) => (
-                      <option key={workspace.key} value={workspace.key}>
-                        {workspace.label}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </FormField>
+              <WorkspaceField
+                value={workspaceKey}
+                onChange={(key) => {
+                  // Only another workspace reads its change sets; the same one keeps those read.
+                  if (key === workspaceKey) return;
+                  setWorkspaceKey(key);
+                  setChangeSets(undefined);
+                  setData(LIVE);
+                }}
+                onError={(message) => setError({ field: "form", message, problems: [] })}
+              />
               <FormField
                 label="Load into"
                 help="A change set keeps the import apart from live data until it is published."

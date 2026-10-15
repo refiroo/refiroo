@@ -88,6 +88,9 @@ def update_draft(
         changed_fields.append("model")
     if not isinstance(profile, _Unchanged):
         values["profile_json"] = profile
+        if profile != draft.profile_json:
+            # A step may change the import profile alone (0.10 A5a; R-F11).
+            changed_fields.append("profile")
 
     result = session.execute(
         update(ModelDraft)

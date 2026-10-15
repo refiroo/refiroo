@@ -1590,3 +1590,47 @@ def test_an_import_row_relating_a_record_that_is_no_candidate_is_refused(world):
     assert codes == ["RELATION_CANDIDATE_REFUSED"], _outcomes(world, job)
     loaded = _named(world, "H", ws)
     assert _related(world, loaded[f"{tag} takes good"]["id"], "Bcand", ws) == {good["id"]}
+
+
+@pytest.mark.journey("J35.2")
+@pytest.mark.structures("R")
+def test_a_load_deleting_missing_records_keeps_every_record_a_row_names_by_name(world):
+    """0.10 R-F1. Given records Twin, Twin, Kept and Gone of one type, and a profile reading the
+    type by name that deletes the records missing from the file. When a file naming Twin and Kept
+    is loaded into a change set. Then the Twin row is refused as ambiguous, and only Gone is
+    removed: a record the file names is never missing, even when its row is refused."""
+    ws = _workspace(world)
+    tag = uuid4().hex[:6]
+    for name in ("Twin", "Twin", "Kept", "Gone"):
+        world.made("R", f"{tag} {name}", workspace=ws)
+    profile = {
+        "key": f"by-name-{tag}",
+        "name": "By name",
+        "sources": [
+            {
+                "sheet": "Names",
+                "applicationKey": world.app("R"),
+                "objectTypeKey": world.key("R"),
+                "key": {"field": "name"},
+                "missing": "delete",
+                "columns": [{"column": "Name", "field": "name"}],
+            }
+        ],
+    }
+    ok(world.api.post("/import-profiles", profile), 201)
+    change_set = world.change_set(ws, name="Missing by name")
+    content = _xlsx({"Names": [("Name",), (f"{tag} Twin",), (f"{tag} Kept",)]})
+    request = {
+        "changeSetId": change_set["id"],
+        "expectedChangeSetVersion": change_set["version"],
+        "profileKey": profile["key"],
+        "policy": "independent",
+        "onExisting": "overwrite",
+        "stage": "execute",
+    }
+    job = _imported(world, "names.xlsx", content, request)
+    assert job["state"] == "completed", job
+    assert [_code(item) for item in _outcomes(world, job) if _code(item)] == ["AMBIGUOUS_NAME_KEY"]
+    page = ok(world.api.get(f"/change-sets/{change_set['id']}/object-changes", pageSize=100))
+    removed = [item["before"]["name"] for item in page["items"] if item["kind"] == "removed"]
+    assert removed == [f"{tag} Gone"]

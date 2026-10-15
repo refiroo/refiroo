@@ -23,7 +23,7 @@ from sqlalchemy import select, text, update
 from sqlalchemy.orm import Session
 
 from ...errors import api_error
-from ...models.database import Job, ModelDraft, SourceFile
+from ...models.database import Job, ModelDraft, ModelDraftOperation, SourceFile
 from ...models.imports import ImportProfileDefinition
 from ...models.schema import EngineModel
 from ...models.sources import DryRunRequest
@@ -31,7 +31,7 @@ from ..imports.profiles import check_profile, invalid_profile, source_order
 from ..imports.readers import TabularFile, open_tabular
 from ..jobs.batches import BatchContext, JobCancelled
 from ..jobs.files import JobFiles
-from ..jobs.store import ItemOutcome, complete_job, record_outcomes, start_job
+from ..jobs.store import ItemOutcome, complete_job, job_parameter, record_outcomes, start_job
 from ..model.compiler import compile_authored_model
 from ..model.drafts import load_draft
 from ..model.registry import resolve_model_snapshot
@@ -71,7 +71,7 @@ def submit_dry_run(
         .where(
             Job.kind == KIND,
             Job.state.in_(RUNNING),
-            Job.parameters["draftId"].as_string() == draft.public_id,
+            job_parameter("draftId") == draft.public_id,
         )
         .values(cancel_requested_at=datetime.now(UTC))
         .execution_options(synchronize_session=False)
@@ -128,11 +128,22 @@ def dry_run_context(session: Session, job: Job) -> BatchContext:
 
 
 def superseded(session: Session, parameters: dict[str, Any]) -> bool:
-    """Whether a dry run's draft (its job's ``parameters``) changed or went since it was sent."""
-    version = session.scalar(
-        select(ModelDraft.version).where(ModelDraft.public_id == parameters["draftId"])
-    )
-    return version != parameters["draftVersion"]
+    """Whether a dry run's draft (its job's ``parameters``) went, or took a step since the dry run
+    was sent that can change what the load writes (D79). A step that cannot, a rename or a layout
+    change, queues no dry run of its own, so the running one goes on: stopping it left the drawer
+    at Stopped with no result (0.10 R, found by the composed runner)."""
+    from .draft_profile import runs_dry_run  # draft_profile queues dry runs through this module
+
+    draft_id = session.scalar(select(ModelDraft.id).where(ModelDraft.public_id == parameters["draftId"]))
+    if draft_id is None:
+        return True
+    steps = session.execute(
+        select(ModelDraftOperation.kind, ModelDraftOperation.parameters).where(
+            ModelDraftOperation.draft_id == draft_id,
+            ModelDraftOperation.draft_version > parameters["draftVersion"],
+        )
+    ).all()
+    return runs_dry_run([{**(found or {}), "kind": kind} for kind, found in steps])
 
 
 def book_opener(session: Session, job: Job, files: JobFiles):
@@ -150,7 +161,10 @@ def book_opener(session: Session, job: Job, files: JobFiles):
 
     def open_book(file_format: str, delimiter: str) -> TabularFile:
         if file_format == "csv" and delimiter != source.csv_delimiter:
-            return open_tabular(files.upload(source.public_id), file_format, delimiter)
+            path = files.upload(source.public_id)
+            if not path.is_file():
+                raise _deleted(job)
+            return open_tabular(path, file_format, delimiter)
         return StagedFile(session, source.id)
 
     return open_book
@@ -166,6 +180,7 @@ def record_dry_run(
 ) -> None:
     """The dry run's outcomes, its summary and its difference from the draft's previous one; the
     job completes. The caller commits."""
+    require_file(session, job)
     record_outcomes(session, job, outcomes)
     found = summary(session, job, model)
     previous = _previous(session, job)
@@ -177,11 +192,30 @@ def record_dry_run(
     complete_job(session, job, retention_days=retention_days)
 
 
+def require_file(session: Session, job: Job) -> None:
+    """Refuse to record a run whose source file was deleted while it read the file's cells: what
+    it read may be part of the file only (0.10 R-F8). A file deleted stays deleted, so one there
+    now was there throughout."""
+    found = session.scalar(
+        select(SourceFile.id).where(SourceFile.public_id == job.parameters["sourceFileId"])
+    )
+    if found is None:
+        raise _deleted(job)
+
+
+def _deleted(job: Job) -> Exception:
+    return api_error(
+        404,
+        "SOURCE_FILE_NOT_FOUND",
+        f"Source file '{job.parameters['sourceFileId']}' was deleted while it was read",
+    )
+
+
 def latest_dry_run(session: Session, draft_id: str) -> Job | None:
     draft = load_draft(session, draft_id)
     return session.scalar(
         select(Job)
-        .where(Job.kind == KIND, Job.parameters["draftId"].as_string() == draft.public_id)
+        .where(Job.kind == KIND, job_parameter("draftId") == draft.public_id)
         .order_by(Job.sequence_id.desc())
         .limit(1)
     )
@@ -237,6 +271,10 @@ def summary(session: Session, job: Job, model: EngineModel) -> dict[str, Any]:
             }
         )
     parameters = {"job": job.sequence_id}
+    # The job's tens of thousands of outcomes and inputs were written moments ago; planned by
+    # statistics that had not seen them, the counts joined each outcome with every input of the
+    # job: 64 s of a 10,000-row check (0.10 R). ANALYZE samples a bounded number of rows.
+    session.execute(text("ANALYZE job_items, job_inputs"))
     for at, rows in session.execute(text(_ROWS), parameters):
         sources[at]["rows"] = rows
     for row in session.execute(text(_COUNTS), parameters):
@@ -288,8 +326,8 @@ def _previous(session: Session, job: Job) -> dict[str, Any] | None:
             Job.kind == KIND,
             Job.state == "completed",
             Job.sequence_id < job.sequence_id,
-            Job.parameters["draftId"].as_string() == job.parameters["draftId"],
-            Job.parameters["sourceFileId"].as_string() == job.parameters["sourceFileId"],
+            job_parameter("draftId") == job.parameters["draftId"],
+            job_parameter("sourceFileId") == job.parameters["sourceFileId"],
         )
         .order_by(Job.sequence_id.desc())
         .limit(1)
@@ -315,16 +353,24 @@ def _figures(entry: dict[str, Any]) -> dict[str, int]:
 def _difference(
     before: list[dict[str, Any]], after: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
-    """Per source (by the type it loads and its sheet), each figure that changed: what it is now
-    and what it was. A source new or gone since compares with zeros."""
+    """Per source (by its sheet, the type it loads and its place among the sources sharing them),
+    each figure that changed: what it is now and what it was. A source new or gone since compares
+    with zeros. Several sources may load one type from one sheet: a list read block by block
+    (D141), or translations by language (0.10 R-F2)."""
 
-    def key(entry: dict[str, Any]) -> tuple[str | None, str]:
-        return entry["sheet"], entry["objectTypeKey"]
+    def keyed(entries: list[dict[str, Any]]) -> list[tuple[tuple[str | None, str, int], dict[str, Any]]]:
+        seen: dict[tuple[str | None, str], int] = {}
+        found = []
+        for entry in entries:
+            shared = (entry["sheet"], entry["objectTypeKey"])
+            seen[shared] = seen.get(shared, -1) + 1
+            found.append(((*shared, seen[shared]), entry))
+        return found
 
-    old = {key(entry): _figures(entry) for entry in before}
+    old = {key: _figures(entry) for key, entry in keyed(before)}
     changed = []
-    for entry in after:
-        now, was = _figures(entry), old.pop(key(entry), {})
+    for key, entry in keyed(after):
+        now, was = _figures(entry), old.pop(key, {})
         figures = {
             name: {"now": now.get(name, 0), "was": was.get(name, 0)}
             for name in sorted(set(now) | set(was))
@@ -335,7 +381,7 @@ def _difference(
                 {"source": entry["source"], "objectTypeKey": entry["objectTypeKey"],
                  "sheet": entry["sheet"], "figures": figures}
             )
-    for (sheet, type_key), was in old.items():
+    for (sheet, type_key, _place), was in old.items():
         figures = {name: {"now": 0, "was": count} for name, count in sorted(was.items()) if count}
         if figures:
             changed.append(
@@ -356,10 +402,12 @@ def _draft_source(session: Session, draft: ModelDraft, source_file_id: str) -> S
 
 
 def _current_draft(session: Session, job: Job) -> ModelDraft:
+    """The dry run's draft, unless it went or took a step that can change the load since (its
+    model then differs from the dry run's only in what the load does not read)."""
     draft = session.scalar(
         select(ModelDraft).where(ModelDraft.public_id == job.parameters["draftId"])
     )
-    if draft is None or draft.version != job.parameters["draftVersion"]:
+    if draft is None or superseded(session, job.parameters):
         raise JobCancelled
     return draft
 

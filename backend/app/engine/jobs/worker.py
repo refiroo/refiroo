@@ -487,6 +487,7 @@ class JobWorker:
             job,
             assistant_setting=self.settings.inference_assistant,
             assistant_rows=self.settings.inference_assistant_rows,
+            check=lambda: self._binding_check(job),
         )
         self._hold_lease(session, job.sequence_id)
         complete_job(session, job, retention_days=self.settings.retention_days)

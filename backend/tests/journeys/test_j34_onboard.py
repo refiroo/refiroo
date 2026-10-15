@@ -11,6 +11,9 @@ The journey application runs no worker thread: a test runs the job worker itself
 import copy
 import json
 import os
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
@@ -18,6 +21,9 @@ from uuid import uuid4
 import pytest
 import workbooks
 from scenario import ok, refused
+from sqlalchemy import text
+
+from app.db import SessionLocal
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 TYPES = {"xlsx": XLSX, "csv": "text/csv", "xls": "application/vnd.ms-excel"}
@@ -384,9 +390,10 @@ def test_the_dry_run_follows_the_editing_of_the_draft(world):
 @pytest.mark.journey("J34.3")
 @pytest.mark.structures("K")
 def test_the_dry_run_checks_the_whole_file_writes_nothing_and_gives_way_to_a_newer_draft(world):
-    """Given W1 above 1,000 rows. When a dry run is sent and the draft changes before it runs, it
-    stops as cancelled; the next one reports every row of the new version; and the workspace's
-    records and feed are unchanged."""
+    """Given W1 above 1,000 rows. When a dry run is sent and the draft takes a step that can change
+    the load before it runs, it stops as cancelled; a dry run sent before a step that cannot (a
+    rename, D79) runs to its end (0.10 R); the next one reports every row of the new version; and
+    the workspace's records and feed are unchanged."""
     workspace = _workspace(world)
     book = workbooks.w1(rows=1200)
     _materials(world, book, workspace)
@@ -398,8 +405,14 @@ def test_the_dry_run_checks_the_whole_file_writes_nothing_and_gives_way_to_a_new
 
     profile = _profile(world, book, keys)
     body = {"sourceFileId": source["id"], "workspaceKey": workspace, "profile": profile}
-    stale = ok(world.api.post(f"/model-drafts/{draft['id']}/dry-run", body), 202)
+    kept = ok(world.api.post(f"/model-drafts/{draft['id']}/dry-run", body), 202)
     _apply(world, draft, {"kind": "setLabel", "element": {"objectType": keys["type"]}, "name": "Article"})
+    _run(world)
+    finished = ok(world.api.get(f"/model-drafts/{draft['id']}/dry-run"))
+    assert (finished["jobId"], finished["state"]) == (kept["jobId"], "completed")
+
+    stale = ok(world.api.post(f"/model-drafts/{draft['id']}/dry-run", body), 202)
+    _apply(world, draft, {"kind": "addAttributeType", "key": "j34-later", "name": "Later", "valueType": "text"})
     _run(world)
     cancelled = ok(world.api.get(f"/model-drafts/{draft['id']}/dry-run"))
     assert (cancelled["jobId"], cancelled["state"]) == (stale["jobId"], "cancelled")
@@ -2547,3 +2560,151 @@ def test_a_header_ending_in_a_space_is_mapped_by_its_trimmed_name(world):
     summary = _summary_of(world, draft, _step(world, draft, {"kind": "mapColumn", "source": "colours", "column": "Colour", "binding": {"field": "name"}}))
     (colours,) = summary["sources"]
     assert (colours["rows"], colours["rejections"]) == (2, [])
+
+
+# --- 0.10 R: a source file's jobs and the requests meeting them (R-F5–R-F9) ---------------------
+
+
+class _PausedProfile:
+    """The worker, in a thread of its own, running a file's profile and stopped once its cells are
+    staged: the profile's transaction holds what it holds for the rest of its run."""
+
+    def __init__(self, world, monkeypatch) -> None:
+        from app.engine.sources import profiling
+
+        self.reached, self.released = threading.Event(), threading.Event()
+        staged = profiling._stage
+
+        def pausing(*args: Any, **kwargs: Any) -> list[str]:
+            names = staged(*args, **kwargs)
+            self.reached.set()
+            self.released.wait(30)
+            return names
+
+        monkeypatch.setattr(profiling, "_stage", pausing)
+        self.pool = ThreadPoolExecutor(max_workers=2)
+        self.worker = self.pool.submit(world.api.client.app.state.job_worker.run_until_idle)
+        assert self.reached.wait(30), "the profile did not start"
+
+    def finish(self) -> None:
+        self.released.set()
+        self.worker.result(timeout=60)
+        self.pool.shutdown()
+
+
+@pytest.mark.journey("J34.1")
+@pytest.mark.structures("A1")
+def test_a_running_profile_leaves_the_next_upload_and_the_drafts_steps_free(world, monkeypatch):
+    """0.10 R-F5. Given a draft's file whose profile is running. When the corrected file is
+    uploaded and a step is applied to the draft meanwhile. Then both answer at once, without waiting
+    for the profile; the first file is superseded once the profile ends."""
+    draft = _draft(world)
+    owner = {"draftId": draft["id"]}
+    first = ok(_upload(world, owner, "first.csv", b"code,name\na,Alpha\n"), 201)
+    paused = _PausedProfile(world, monkeypatch)
+    try:
+        second = paused.pool.submit(_upload, world, owner, "second.csv", b"code,name\nb,Beta\n")
+        ok(second.result(timeout=10), 201)
+        step = {"kind": "addAttributeType", "key": "j34-free", "name": "Free", "valueType": "text"}
+        paused.pool.submit(_apply, world, draft, step).result(timeout=10)
+    finally:
+        paused.finish()
+    assert ok(world.api.get(f"/source-files/{first['id']}"))["supersededAt"] is not None
+
+
+@pytest.mark.journey("J34.1")
+@pytest.mark.structures("A1")
+def test_deleting_a_file_stops_its_running_profile_and_then_deletes(world, monkeypatch):
+    """0.10 R-F5, R-F7. Given a draft's file whose profile is running. When the file is deleted.
+    Then the delete asks the profile to stop before it waits for it; the profile stops at its next
+    check, among its statistics, as cancelled, and the delete then answers 204."""
+    draft = _draft(world)
+    first = ok(_upload(world, {"draftId": draft["id"]}, "first.csv", b"code,name\na,Alpha\n"), 201)
+    job_id = first["profile"]["jobId"]
+    paused = _PausedProfile(world, monkeypatch)
+    try:
+        deleting = paused.pool.submit(
+            world.api.delete, f"/source-files/{first['id']}", expectedVersion=first["version"]
+        )
+        deadline = time.monotonic() + 10
+        while ok(world.api.get(f"/jobs/{job_id}"))["cancelRequestedAt"] is None:
+            assert time.monotonic() < deadline, "the delete did not ask the profile to stop"
+            time.sleep(0.05)
+    finally:
+        paused.finish()
+    ok(deleting.result(timeout=30), 204)
+    assert ok(world.api.get(f"/jobs/{job_id}"))["state"] == "cancelled"
+    refused(world.api.get(f"/source-files/{first['id']}"), 404, "SOURCE_FILE_NOT_FOUND")
+
+
+@pytest.mark.journey("J34.3")
+@pytest.mark.structures("K")
+def test_a_dry_run_whose_file_is_deleted_while_it_runs_fails_and_says_so(world, monkeypatch):
+    """0.10 R-F8. Given a dry run of a draft's file. When the file is deleted while the dry run
+    previews its rows. Then the dry run fails SOURCE_FILE_NOT_FOUND instead of completing with
+    what it read."""
+    from app.engine.jobs import worker as worker_module
+
+    draft, book, source, _workspace_key = _onboarding(world)
+    _map_by_hand(world, draft, book)
+    previewed = worker_module.preview_items
+
+    def deleting(*args: Any, **kwargs: Any):
+        found = previewed(*args, **kwargs)
+        with SessionLocal() as session:
+            session.execute(text("DELETE FROM source_files WHERE public_id = :id"), {"id": source["id"]})
+            session.commit()
+        return found
+
+    monkeypatch.setattr(worker_module, "preview_items", deleting)
+    # The last mapping step queued the dry run.
+    _run(world)
+    job = ok(world.api.get(f"/jobs/{ok(world.api.get(f'/model-drafts/{draft['id']}/dry-run'))['jobId']}"))
+    assert job["state"] == "failed" and "SOURCE_FILE_NOT_FOUND" in json.dumps(job["error"]), job
+
+
+@pytest.mark.journey("J34.1")
+@pytest.mark.structures("A1")
+def test_two_uploads_committed_together_are_sorted_out_by_the_sweep(world):
+    """0.10 R-F9. Given two files of one draft, neither superseded, as two uploads committed
+    together leave them. When the retention sweep runs. Then the older is superseded as of the
+    newer's upload, and deleted by a sweep past the retention period."""
+    draft = _draft(world)
+    owner = {"draftId": draft["id"]}
+    first = _profiled(world, owner, "first.csv", b"code,name\na,Alpha\n")
+    second = _profiled(world, owner, "second.csv", b"code,name\nb,Beta\n")
+    with SessionLocal() as session:
+        session.execute(text("UPDATE source_files SET superseded_at = NULL WHERE public_id = :id"), {"id": first["id"]})
+        session.commit()
+    worker = world.api.client.app.state.job_worker
+    worker.sweep()
+    assert ok(world.api.get(f"/source-files/{first['id']}"))["supersededAt"] == second["uploadedAt"]
+    worker.sweep(datetime.now(UTC) + timedelta(days=8))
+    refused(world.api.get(f"/source-files/{first['id']}"), 404, "SOURCE_FILE_NOT_FOUND")
+
+
+@pytest.mark.journey("J34.4")
+@pytest.mark.structures("A1")
+def test_an_inference_asked_to_stop_while_it_runs_stops(world, monkeypatch):
+    """0.10 R-F6. Given a draft's inference running. When it is asked to stop while it reads the
+    workbook, as a newer inference of the draft asks. Then it stops as cancelled at its next check
+    and stores no proposals."""
+    from app.engine.sources.inference import run as inference_run
+
+    workspace = _workspace(world)
+    draft = _draft(world)
+    book = workbooks.w1(rows=50)
+    _profiled(world, {"draftId": draft["id"]}, "catalogue.xlsx", book.content, workspaceKey=workspace)
+    started = ok(world.api.post(f"/model-drafts/{draft['id']}/inference", {"mode": "newApplication"}), 202)
+    found = inference_run.find
+
+    def asked_to_stop(*args: Any, **kwargs: Any):
+        with SessionLocal() as session:
+            session.execute(text("UPDATE jobs SET cancel_requested_at = now() WHERE id = :id"), {"id": started["jobId"]})
+            session.commit()
+        return found(*args, **kwargs)
+
+    monkeypatch.setattr(inference_run, "find", asked_to_stop)
+    _run(world)
+    assert ok(world.api.get(f"/jobs/{started['jobId']}"))["state"] == "cancelled"
+    refused(world.api.get(f"/model-drafts/{draft['id']}/inference/proposals"), 409, "INFERENCE_NOT_READY")

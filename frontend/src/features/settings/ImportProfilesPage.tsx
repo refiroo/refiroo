@@ -8,7 +8,7 @@
  * checks the file again.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import { formatServerTime } from "@/lib/dates";
@@ -209,12 +209,19 @@ function ProfileDetail({
   const [dialog, setDialog] = useState<Dialog>();
   const [attempt, setAttempt] = useState(0);
 
+  // Each read of the check, and each change that sets it (a save, an upload), takes the next number;
+  // a read answering after a newer one began is dropped. A late answer saying "checking" for a check
+  // whose stream had ended left the page checking for good (0.10 R, found by the composed runner).
+  const reads = useRef(0);
   const readCheck = useCallback(async () => {
+    const read = ++reads.current;
     try {
       const found = await api.profileCheck(profileKey);
+      if (read !== reads.current) return;
       setCheck(found);
       setFollowing(found.state === "checking" ? found.jobId : undefined);
     } catch (cause) {
+      if (read !== reads.current) return;
       if (isApiError(cause, "PROFILE_CHECK_NOT_FOUND")) setCheck(null);
       else throw cause;
     }
@@ -260,6 +267,7 @@ function ProfileDetail({
       setProfile(saved);
       onChanged(saved);
       const started = await api.runProfileCheck(profileKey);
+      reads.current += 1;
       setCheck(started);
       setFollowing(started.jobId);
     } catch (cause) {
@@ -429,6 +437,7 @@ function ProfileDetail({
           description="Checked against the profile before anything is written: new, missing and renamed columns, new values, names that drifted and records missing from the file."
           onUploaded={(uploaded) => {
             setFile(uploaded);
+            reads.current += 1;
             setCheck(undefined);
             setFollowing(uploaded.profile.jobId ?? undefined);
           }}

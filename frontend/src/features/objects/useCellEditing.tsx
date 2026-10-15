@@ -9,12 +9,13 @@
  */
 
 import { useState, type ReactNode } from "react";
+import type { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import type { CursorWindow } from "@/lib/hooks/useCursorWindow";
 import { attributeName, relatedRecords } from "@/model/fields";
 import { RELATED_FIELD_PREFIX, relatedCellEdit, type RelatedCellEdit } from "@/model/lookup";
-import type { AttributeTypeDefinition, EngineModel, ObjectItem, RelationItem } from "@/types";
+import type { AttributeTypeDefinition, EngineModel, ObjectItem, RelationItem, RelationPage } from "@/types";
 import { EditInPlaceCell } from "@/ui/EditInPlace";
 import { useToast } from "@/ui/Toast";
 import { EditableField, fieldEditing } from "./EditableField";
@@ -58,17 +59,7 @@ export function useCellEditing({
     toast(warning || `${what} of “${item.name}” saved to ${changeSet ? `change set “${changeSet.name}”` : "Live"}`);
   }
 
-  /** The relationship a row holds in a single-valued column, read with its version. */
-  async function heldOne(item: ObjectItem, edit: RelatedCellEdit): Promise<RelationItem | undefined> {
-    const types = edit.choices.map((choice) => choice.otherObjectTypeKey);
-    const page = await api.relations(item.id, {
-      workspaceKey: item.workspaceKey,
-      direction: edit.direction,
-      relationTypeKey: edit.relationTypeKey,
-      pageSize: 2,
-    });
-    return page.items.find((held) => types.includes(held.object.objectTypeKey));
-  }
+  const heldOne = (item: ObjectItem, edit: RelatedCellEdit) => heldRelation(api.relations, item, edit);
 
   async function openSingle(item: ObjectItem, edit: RelatedCellEdit, removing: boolean) {
     setReading(true);
@@ -178,4 +169,29 @@ export function useCellEditing({
 function relationName(model: EngineModel, held: RelationItem): string {
   const definition = model.relationTypes.find((relation) => relation.key === held.relation.relationTypeKey);
   return (held.direction === "outgoing" ? definition?.name : definition?.reverseName) ?? held.relation.relationTypeKey;
+}
+
+/** The relationship a row holds in a single-valued column, read with its version. The relation type
+ * may also join the record to other types, whose relationships the read cannot leave out, so it
+ * reads on until it finds the column's (0.10 R-F4). */
+export async function heldRelation(
+  read: (objectId: string, options: Parameters<typeof api.relations>[1]) => Promise<RelationPage>,
+  item: ObjectItem,
+  edit: RelatedCellEdit,
+): Promise<RelationItem | undefined> {
+  const types = edit.choices.map((choice) => choice.otherObjectTypeKey);
+  let cursor: string | undefined;
+  do {
+    const page = await read(item.id, {
+      workspaceKey: item.workspaceKey,
+      direction: edit.direction,
+      relationTypeKey: edit.relationTypeKey,
+      pageSize: 100,
+      cursor,
+    });
+    const held = page.items.find((found) => types.includes(found.object.objectTypeKey));
+    if (held) return held;
+    cursor = page.nextCursor ?? undefined;
+  } while (cursor);
+  return undefined;
 }

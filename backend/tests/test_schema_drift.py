@@ -86,3 +86,35 @@ def test_the_comparison_names_a_declaration_no_migration_creates(migrated):
         ),
         "remove_index objects.ix_undeclared (name, version)",
     ]
+
+
+def test_a_jobs_lookup_by_draft_profile_or_file_can_use_its_index(migrated):
+    """0.10 R, R-F14: the dry run's, the check's and the inference's lookups go through
+    ``job_parameter``, whose literal key matches the partial expression indexes; with
+    ``Job.parameters[...]`` the key was a bound parameter no index could serve. Sequential scans
+    are off so the plan shows whether the index applies, whatever the table's size."""
+    from sqlalchemy import select
+    from sqlalchemy.dialects import postgresql
+
+    from app.engine.jobs.store import job_parameter
+    from app.models.database import Job
+
+    engine = create_engine(migrated)
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SET enable_seqscan = off"))
+            for key, index in (
+                ("draftId", "ix_jobs_draft"),
+                ("profileKey", "ix_jobs_profile"),
+                ("sourceFileId", "ix_jobs_source_file"),
+            ):
+                statement = select(Job.sequence_id).where(
+                    Job.kind == "dryRun", job_parameter(key) == "x"
+                )
+                compiled = statement.compile(
+                    dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}
+                )
+                plan = "\n".join(row[0] for row in connection.execute(text(f"EXPLAIN {compiled}")))
+                assert index in plan, plan
+    finally:
+        engine.dispose()

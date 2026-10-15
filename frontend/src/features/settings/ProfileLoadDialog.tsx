@@ -6,10 +6,9 @@
  * only what the file changes.
  */
 
-import { useEffect, useState } from "react";
-import { api } from "@/api/client";
+import { useState } from "react";
 import { errorMessage } from "@/api/errors";
-import type { Job, SourceFile, Workspace } from "@/types";
+import type { Job, SourceFile } from "@/types";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { isFinal, useJobStream } from "@/features/jobs/useJobStream";
@@ -41,28 +40,12 @@ export function ProfileLoadDialog({
   onOpenReview: (target: { workspaceKey: string; changeSetId: string }) => void;
   onClose: () => void;
 }) {
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [name, setName] = useState(() => changeSetName(file.name));
   const [workspace, setWorkspace] = useState(defaultWorkspace);
   const [stage, setStage] = useState<Stage>("ready");
   const [error, setError] = useState("");
   const [job, setJob] = useState<Job>();
   const [changeSetId, setChangeSetId] = useState<string>();
-
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .workspaces()
-      .then((page) => {
-        if (!cancelled) setWorkspaces(page.items);
-      })
-      .catch((cause) => {
-        if (!cancelled) setError(errorMessage(cause));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   useJobStream(job && !isFinal(job) ? job.id : undefined, (next) => {
     setJob(next);
@@ -115,7 +98,7 @@ export function ProfileLoadDialog({
               onName={setName}
               workspace={workspace}
               onWorkspace={setWorkspace}
-              workspaces={workspaces}
+              onError={setError}
               disabled={stage !== "ready"}
             />
           </LoadStep>

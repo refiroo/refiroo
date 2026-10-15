@@ -29,6 +29,7 @@ import {
 import { cancelDrag } from "./helpers/tree.mjs";
 import { visitReleaseSurfaces } from "./helpers/release-surfaces.mjs";
 import { visitDesignerSurfaces } from "./helpers/designer-surfaces.mjs";
+import { visitSpreadsheetSurfaces } from "./helpers/spreadsheet-surfaces.mjs";
 
 // Permitted known violations with tracked issue references.
 // Each entry must state the axe rule id and a tracking reference.
@@ -470,6 +471,17 @@ try {
   // editor; a consumer API's fields and schema; the sidebar's groups, a group page, and at 390px the
   // phone band, the drawer's groups and the editor's tabs ---
   await visitDesignerSurfaces(async ({ page: surface, name }) => {
+    const found = await runAxe(surface, ALLOWLIST, name);
+    if (found.violations.length > 0) failures.push(`${name}:\n${formatViolations(found.violations)}`);
+    checks.push(`${name}: ${found.violations.length} violations, ${found.allowed.length} allowed`);
+    await surface.screenshot({ path: resolve(output, `a11y-${name}.png`), fullPage: true });
+  });
+
+  // --- 17. Base 0.10 spreadsheet and cell surfaces (0.10 R, D148), light and dark, on a harness of
+  // their own: New from a workbook, a column and Map to…, a proposed type, the dry run and a
+  // figure's rows, Load, a description sheet, a sheet's lists and Adjust list…, a profile's check,
+  // A9's hovered cell and many-valued dialog, and at 390px the editor with a workbook ---
+  await visitSpreadsheetSurfaces(async ({ page: surface, name }) => {
     const found = await runAxe(surface, ALLOWLIST, name);
     if (found.violations.length > 0) failures.push(`${name}:\n${formatViolations(found.violations)}`);
     checks.push(`${name}: ${found.violations.length} violations, ${found.allowed.length} allowed`);

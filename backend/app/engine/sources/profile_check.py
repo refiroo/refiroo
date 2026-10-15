@@ -39,10 +39,10 @@ from ...models.schema import EngineModel
 from ..imports.binding import named_columns
 from ..imports.profiles import check_profile, load_profile, parsed, source_order
 from ..imports.readers import Area
-from ..jobs.store import ItemOutcome, complete_job, record_outcomes, start_job
+from ..jobs.store import ItemOutcome, complete_job, job_parameter, record_outcomes, start_job
 from ..model.registry import resolve_model_snapshot
 from ..workspaces.catalogue import resolve_workspace
-from .dry_run import summary
+from .dry_run import require_file, summary
 from .staged import StagedFile
 from .store import profile_state
 
@@ -62,7 +62,7 @@ def queue_check(session: Session, source: SourceFile, *, retention_days: int) ->
         .where(
             Job.kind == KIND,
             Job.state.in_(RUNNING),
-            Job.parameters["profileKey"].as_string() == profile.key,
+            job_parameter("profileKey") == profile.key,
         )
         .values(cancel_requested_at=datetime.now(UTC))
         .execution_options(synchronize_session=False)
@@ -135,7 +135,7 @@ def latest_check(session: Session, profile_key: str) -> Job | None:
     load_profile(session, profile_key)
     return session.scalar(
         select(Job)
-        .where(Job.kind == KIND, Job.parameters["profileKey"].as_string() == profile_key)
+        .where(Job.kind == KIND, job_parameter("profileKey") == profile_key)
         .order_by(Job.sequence_id.desc())
         .limit(1)
     )
@@ -247,6 +247,7 @@ def record_check(
     retention_days: int,
 ) -> None:
     """The check's previewed outcomes and its summary; the job completes. The caller commits."""
+    require_file(session, job)
     record_outcomes(session, job, outcomes)
     found = summary(session, job, model)
     check = dict(job.report["check"])

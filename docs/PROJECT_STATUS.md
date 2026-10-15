@@ -1,6 +1,25 @@
 # Project status
 
-## Current development baseline — Base 0.9 complete (2026-10-11)
+## Current development baseline — Base 0.10 complete (2026-10-15)
+
+**Base 0.10 is complete**, build acceptance R included
+([record](BASE_0_10_IMPLEMENTATION_PLAN.md#r-build-acceptance-and-release)): the model designer and
+spreadsheet onboarding, with schema 0.10 released (D153; the starter stays content release 0.9.5).
+R reviewed every change since 0.9.0 (14 findings, one independent reviewer for migrations,
+concurrency and contracts) and ran: the backend suite (5,771 cases, 8 min 31 s, over its ceiling as
+D152 expected), Vitest (861), all 49 browser runners, a new runner walking US-P09 and US-P10 by
+keyboard alone at 1440px and 390px (`authoring-r`), the accessibility (173 checks) and visual (143)
+gates with 14 new spreadsheet and cell scenarios, a smoke start and schema 0.10 checks on a copy of
+the development database (D150: no upgrade from a tag), and the budgets. It fixed all 19 findings
+(R-F1–R-F19; migration `20261017_01` for R-F14), among them: an import deleting records a
+refused row named, a file's profile blocking the next upload and the editor, inference ignoring
+cancels, a rename stopping the dry run for good, the next version's check of a translated workbook
+(56 s at 200 rows) and of W1 at 10,000 rows (101 s, now 16 s), and relation chips no longer using
+the cell's width since A9. The commit and the tag `v0.10.0` follow the user's instruction (D153).
+Open: the backend suite's time (D152, the next build's first package) and, in TODO, one
+visual-gate flake whose cause was not found.
+
+### How 0.10 was built
 
 **Base 0.9 is complete**, build acceptance R included ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#r-build-acceptance-and-release)).
 R reviewed every change since 0.8.0 and ran every gate: the backend suite (2,201 cases), Vitest

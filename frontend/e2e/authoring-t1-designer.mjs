@@ -276,11 +276,17 @@ function editor(page, harness, who) {
 /** Errors a person would see: console errors, uncaught errors and an `Error:` text on the page. */
 function watchErrors(page) {
   const seen = [];
+  // A draft without a workbook has no dry run and no inference: the editor reads both since A5 and
+  // A6 and takes the 404 as "none" (DRY_RUN_NOT_FOUND, INFERENCE_NOT_FOUND), as API.md says (0.10 R).
+  const absent = (url) => /\/model-drafts\/[^/]+\/(dry-run|inference)$/.test(new URL(url).pathname);
   page.on("console", (message) => {
-    if (message.type() === "error") seen.push(`console: ${message.text()}`);
+    if (message.type() !== "error") return;
+    if (message.text().includes("status of 404") && absent(message.location().url || "http://x/")) return;
+    seen.push(`console: ${message.text()}`);
   });
   page.on("pageerror", (error) => seen.push(`page: ${error.message}`));
   page.on("response", (response) => {
+    if (response.status() === 404 && response.request().method() === "GET" && absent(response.url())) return;
     if (response.status() >= 400) seen.push(`response: ${response.status()} ${response.request().method()} ${response.url()}`);
   });
   return async (where) => {

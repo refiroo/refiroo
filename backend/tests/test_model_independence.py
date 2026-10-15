@@ -15,6 +15,14 @@ GENERIC_WORDS = {
     "description": "OpenAPI and model metadata field name",
     "hierarchical": "model-schema relation property",
     "system": "appearance preference that follows the operating system",
+    # Inference's own words for a sheet pattern (0.10 A6, D98): a translation sheet and its language
+    # columns, and the roles of the types it proposes for them. A proposal's keys are generated from
+    # its labels and never take a key the model holds (``key_from_label``), and extend mode finds
+    # the draft's translation types by its profile's structure, never by key (0.10 R step 2).
+    "language": "inference's role and evidence name for a language column (A6)",
+    "languages": "inference's evidence field: a translation sheet's languages (A6)",
+    "translation": "inference's role and pattern name for a translation sheet (A6)",
+    "translations": "inference's name for a list block's translation columns (A8a)",
 }
 
 

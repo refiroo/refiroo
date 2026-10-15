@@ -7,7 +7,8 @@
 
 import type { ReactNode } from "react";
 import { api } from "@/api/client";
-import type { ChangeSet, Job, Workspace } from "@/types";
+import { WorkspaceField } from "@/features/workspaces/WorkspaceField";
+import type { ChangeSet, Job } from "@/types";
 import { FormField } from "@/ui/FormField";
 import { Notice } from "@/ui/Notice";
 import { importRequest } from "./importRequest";
@@ -47,14 +48,15 @@ export function ChangeSetFields({
   onName,
   workspace,
   onWorkspace,
-  workspaces,
+  onError,
   disabled,
 }: {
   name: string;
   onName: (name: string) => void;
   workspace: string;
   onWorkspace: (workspace: string) => void;
-  workspaces: Workspace[];
+  /** Says that the workspaces could not be read. */
+  onError: (message: string) => void;
   disabled: boolean;
 }) {
   return (
@@ -64,22 +66,7 @@ export function ChangeSetFields({
           <input {...control} value={name} disabled={disabled} onChange={(event) => onName(event.target.value)} />
         )}
       </FormField>
-      <FormField label="Workspace">
-        {(control) => (
-          <select
-            {...control}
-            value={workspace}
-            disabled={disabled}
-            onChange={(event) => onWorkspace(event.target.value)}
-          >
-            {workspaces.map((item) => (
-              <option key={item.key} value={item.key}>
-                {item.label}
-              </option>
-            ))}
-          </select>
-        )}
-      </FormField>
+      <WorkspaceField value={workspace} onChange={onWorkspace} onError={onError} disabled={disabled} />
     </>
   );
 }

@@ -21,7 +21,7 @@ import { FormField } from "@/ui/FormField";
 import { WORKBOOK_ACCEPT } from "@/features/model-editor/AddWorkbookDialog";
 import { proposeWhenProfiled } from "@/features/model-editor/proposing";
 import { nameOfFile, proposeRequest, ProposeFields, type ProposeChoice } from "@/features/model-editor/ProposeFields";
-import { WorkspaceField } from "@/features/model-editor/WorkspaceField";
+import { WorkspaceField } from "@/features/workspaces/WorkspaceField";
 import { keyFromLabel } from "@/features/model-editor/outline";
 import type { ModelDraft, ModelReleaseSummary } from "@/types";
 import { Modal } from "@/ui/Modal";
@@ -172,6 +172,7 @@ export function CreateDraftDialog({
         {seed.workbook && <ProposeFields value={propose} onChange={setPropose} start />}
         {seed.workbook && (
           <WorkspaceField
+            label="Compare with the records of"
             value={workspace}
             onChange={setWorkspace}
             onError={setCreateError}

@@ -665,3 +665,24 @@ per 10,000 items in a change set). **A3a** (D72, D73) then removed the trial run
 and wrote the relation set increments as one array statement per thousand sets: the preview takes
 5.75 s, the dry run about 7 s.
 
+
+## 12. At 0.10.0's acceptance (R, 2026-10-15)
+
+`pytest -m budget`: 8 passed in 6 min 19 s (the batch and import budgets, over the binding and write
+paths 0.10 changed). No read, consumer, event or export table was measured again: no file under
+`engine/reads`, `consumer` or `events` changed since 0.9.0 (D151).
+
+W1 at 10,000 rows (generated-a, the reference laptop, one process), mapped by hand in full (J34's
+mapping: 40,107 items, against A3's three columns): profiling **6.2 s** (A3: 6.3 s). The check of
+W1′ at 10,000 rows uploaded to the saved profile, the workspace holding W1's records: first
+**101.6 s** against A5c's 10.1 s, then **16.3 s** with profiling (A5c: 6.1 + 10.1 s) after the fix.
+
+**The cause, measured once and fixed (R-F19):** a dry run or a check records its tens of thousands
+of outcomes in one transaction and joins them with the job's inputs at once, planned by statistics
+collected before those rows existed: PostgreSQL took the job to hold about one row and compared
+each outcome with every input. Two statements: the update giving each outcome its source and row
+(95.3 s) and the summary's counts (63.7 s). A5c's figure came from a run where the tables had been
+analyzed in time. Now the outcomes are inserted with their source and row in one `INSERT … SELECT`
+from arrays, each finding its input by its unique key, and the summary analyzes `job_items` and
+`job_inputs` before counting. The full mapping's dry run, measured once after the fix: **22.2 s**
+for 40,107 items (41.9 s before it, under load); no earlier figure for this mapping.

@@ -989,6 +989,14 @@
 .editor-table table:not(.sized-columns) td {
   max-width: none;
   white-space: normal;
+  /* Words stay whole, so a short column ("Yes") is never narrower than its word; a key, one long
+     word, may still break anywhere to fit the pane (A6b's TODO, fixed in R). */
+  overflow-wrap: break-word;
+}
+.editor-table table:not(.sized-columns) td .attribute-edit {
+  overflow-wrap: break-word;
+}
+.editor-table table:not(.sized-columns) td .element-key {
   overflow-wrap: anywhere;
 }
 .editor-table table:not(.sized-columns) th {

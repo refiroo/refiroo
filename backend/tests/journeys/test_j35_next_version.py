@@ -17,8 +17,10 @@ from typing import Any
 import pytest
 import workbooks
 from scenario import ok, refused
+from sqlalchemy import text
 from test_j34_onboard import (
     _all,
+    _inferred,
     _install,
     _map_by_hand,
     _onboarding,
@@ -26,8 +28,10 @@ from test_j34_onboard import (
     _run,
     _step,
     _upload,
+    _version,
 )
 
+from app.db import SessionLocal
 from app.engine.imports import binding as import_binding
 
 
@@ -287,6 +291,16 @@ def test_a_draft_source_says_what_a_load_does_with_records_missing_from_the_file
     _step(world, draft, {"kind": "setMissing", "source": "items", "missing": "delete"})
     (items,) = ok(world.api.get(f"/model-drafts/{draft['id']}/profile"))["definition"]["sources"]
     assert items["missing"] == "delete"
+    # Its audit entry names the profile it changed (0.10 R-F11).
+    with SessionLocal() as session:
+        changed = session.scalar(
+            text(
+                "SELECT changes -> 'changedFields' FROM audit_events WHERE aggregate_type = 'model_draft'"
+                " AND aggregate_id = :id ORDER BY sequence_id DESC LIMIT 1"
+            ),
+            {"id": draft["id"]},
+        )
+    assert "profile" in changed and "name" not in changed
     version = ok(world.api.get(f"/model-drafts/{draft['id']}"))["version"]
     ok(world.api.post(f"/model-drafts/{draft['id']}/undo", {"expectedVersion": version}))
     (items,) = ok(world.api.get(f"/model-drafts/{draft['id']}/profile"))["definition"]["sources"]
@@ -299,3 +313,27 @@ def test_a_draft_source_says_what_a_load_does_with_records_missing_from_the_file
         {"expectedVersion": version, "operations": [{"kind": "setMissing", "source": "items", "missing": "delete"}]},
     )
     assert refused(answer, 422, "INVALID_OPERATION")["details"]["reason"] == "invalidValue"
+
+
+@pytest.mark.journey("J35.1")
+@pytest.mark.structures("K")
+def test_the_next_version_of_an_inferred_workbook_is_checked_in_seconds(world):
+    """0.10 R (found by the composed runner). Given W1 onboarded through its proposals, with its
+    translation sheet's 1,400 related records loaded and published. When W1′ is uploaded to the
+    saved profile. Then its check ends within 20 s: finding each row's stored translation compared
+    every candidate with every relationship, 53 s of a 56 s check."""
+    draft, _book, source, workspace = _inferred(world)
+    ok(world.api.post(f"/model-drafts/{draft['id']}/inference/application", {"expectedVersion": _version(world, draft)}))
+    _run(world)
+    release = _install(world, draft)
+    ok(world.activate(release["id"]))
+    profile_key = release["importProfile"]["key"]
+    change_set = world.change_set(workspace)
+    ok(_load(world, workspace, profile_key, source["id"], change_set), 202)
+    _run(world)
+    world.publish(change_set, workspace)
+    following = workbooks.w1_next(rows=200)
+    ok(_upload(world, {"profileKey": profile_key}, "catalogue-v2.xlsx", following.content, workspaceKey=workspace), 201)
+    _run_within(world, 20)
+    check = ok(world.api.get(f"/import-profiles/{profile_key}/check"))
+    assert check["state"] == "completed", check

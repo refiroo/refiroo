@@ -387,6 +387,31 @@ def test_a_draft_only_operation_on_a_released_element_is_refused_with_its_impact
     assert _history(world, draft)["items"] == []
 
 
+@pytest.mark.journey("J33.7")
+@pytest.mark.structures("R")
+def test_a_required_relationship_to_a_released_type_is_refused_as_a_required_attribute_is(world):
+    """0.10 R-F3. Given a draft of the active release. When a new relation type is allowed to R as
+    required, then as optional. Then the first is refused OPERATION_REQUIRES_MIGRATION at its index
+    with R's records counted, as attaching a required attribute to R is; the second applies."""
+    draft = _draft_of_active(world)
+    relation = {
+        "kind": "addRelationType",
+        "key": "j33-needs",
+        "name": "Needs",
+        "reverseName": "Needed by",
+        "isOriented": True,
+    }
+
+    def allow(required: bool) -> dict[str, Any]:
+        return {"kind": "allowRelation", "relationType": "j33-needs", "from": world.key("R"), "to": world.key("R"), "required": required}
+
+    error = refused(_apply(world, draft, draft["version"], relation, allow(True)), 409, "OPERATION_REQUIRES_MIGRATION")
+    assert error["details"]["index"] == 1
+    assert error["details"]["element"] == {"objectType": world.key("R")}
+    assert error["details"]["impact"]["records"] >= 0
+    ok(_apply(world, draft, draft["version"], relation, allow(False)))
+
+
 @pytest.mark.journey("J33.8")
 @pytest.mark.structures("R")
 @pytest.mark.settings(MODEL_OPERATION_MAX_ITEMS="3")

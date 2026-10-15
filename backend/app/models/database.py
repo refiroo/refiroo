@@ -1323,6 +1323,21 @@ class Job(Base):
         ),
         Index("ix_jobs_workspace_created", "workspace_key", "sequence_id"),
         Index("ix_jobs_state", "state", "sequence_id"),
+        # The jobs a draft, a profile or a source file has (0.10 R, R-F14), read through
+        # `jobs.store.job_parameter`, which writes the key literally so these match.
+        *(
+            Index(
+                name,
+                text(f"(parameters ->> '{key}')"),
+                "sequence_id",
+                postgresql_where=text(f"(parameters ->> '{key}') IS NOT NULL"),
+            )
+            for name, key in (
+                ("ix_jobs_draft", "draftId"),
+                ("ix_jobs_profile", "profileKey"),
+                ("ix_jobs_source_file", "sourceFileId"),
+            )
+        ),
     )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

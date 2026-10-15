@@ -118,9 +118,16 @@ def profile_source_file(
     session: Session, source_file_id: str, path: Path, check: Callable[[], None]
 ) -> None:
     """Stage the file's cells and store its profile; the caller commits. ``check`` is called
-    every :data:`CHUNK_CELLS` cells read and raises to stop."""
+    every :data:`CHUNK_CELLS` cells read and between the statistics of each sheet, and raises to
+    stop.
+
+    The file's row is held ``FOR KEY SHARE``: a delete waits for the profile (after asking it to
+    stop), while the next upload's supersede, which changes no key, does not (0.10 R-F5); a lock
+    that held it whole stalled that upload and, behind it, every step on its draft."""
     source = session.scalar(
-        select(SourceFile).where(SourceFile.public_id == source_file_id).with_for_update()
+        select(SourceFile)
+        .where(SourceFile.public_id == source_file_id)
+        .with_for_update(read=True, key_share=True)
     )
     if source is None:
         raise api_error(
@@ -143,6 +150,8 @@ def profile_source_file(
     session.execute(text("ANALYZE source_file_cells"))
     session.execute(text(_COLUMNS_TABLE))
     for sheet_index, name in enumerate(names):
+        # The statistics renew the lease and look for a cancel too (0.10 R-F7).
+        check()
         layouts = _layouts(session, source.id, sheet_index)
         laid_out = _laid_out(session, source.id, sheet_index, layouts)
         if laid_out:
@@ -192,6 +201,7 @@ def profile_source_file(
                 },
             )
         )
+    check()
     _store_columns(session, source, _model_for(session, source))
 
 

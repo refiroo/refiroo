@@ -80,6 +80,14 @@ describe("the history's steps", () => {
     expect(describeStep(redo, names)).toBe("Redid step 3");
   });
 
+  it("names a renamed element by its name before the step, from the step's inverse", () => {
+    const rename = { element: { objectType: "shelf" }, name: "Rack" };
+    // The names read now give the new name; the inverse keeps the one the step replaced.
+    expect(describeOperation("setLabel", rename, names, { kind: "setLabel", ...rename, name: "Wall shelf" })).toBe(
+      "Renamed Wall shelf to Rack",
+    );
+  });
+
   it("reads an unknown kind as its name and a released type's key as its name", () => {
     expect(describeOperation("someLaterKind", {}, names)).toBe("someLaterKind");
     expect(describeOperation("setKey", { element: { objectType: "shelf" }, key: "rack" }, names)).toBe(

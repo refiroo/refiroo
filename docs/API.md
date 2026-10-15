@@ -3863,7 +3863,7 @@ the layout places the change took.
 | `setContainment` | `objectType`, `parent` (D30; the `parentOf` relation type, its bindings, the type's `parentRelationTypeKeys` and the parents' children panels changed together) | draft-only | `restoreElements` |
 | `addRelationType` | `key`?, `reverseKey`?, `name`, `reverseName`, `isOriented` | additive | `removeRelationType` |
 | `removeRelationType` | `relationType` (no binding left) | draft-only | `restoreElements` |
-| `allowRelation` | `relationType`, `from`, `to`, `cardinality`, `required`, `layout` | additive | `disallowRelation` |
+| `allowRelation` | `relationType`, `from`, `to`, `cardinality`, `required`, `layout` | additive; draft-only when `required` to a released type (0.10 R-F3) | `disallowRelation` |
 | `disallowRelation` | relation binding | draft-only | `restoreElements` |
 | `setRelationRule` | relation binding; `cardinality`, `required`, `candidates`, `uniqueToAncestorTypeKey` | draft-only; additive for `candidates` alone (compatible in a release, 0.9 K7; corrected in A4a) | `setRelationRule` back |
 | `addView` | `applicationKey`, `view` (a declaration; a table view may give only `objectTypeKey`, with `key` and `name` optional, and the rest is generated), `position`, `default` | additive | `removeView` |
@@ -4099,7 +4099,7 @@ with the file and its profile's state:
   `profile.state` is `queued` or `running`, then `completed` once stored, or the job's `failed` or
   `cancelled` with its `error`.
 - `GET /source-files` (paged, newest first; `draftId` or `profileKey`), `GET /source-files/{id}`,
-  `DELETE /source-files/{id}?expectedVersion=` (`204`; a profile job still running is cancelled).
+  `DELETE /source-files/{id}?expectedVersion=` (`204`; every job still running on the file, its profile, a dry run, a check or an inference, is asked to stop first, 0.10 R-F8).
 - **`GET …/profile/sheets`** (paged, workbook order): each sheet's `index`, `name`, `rows` (rows with a
   cell), `headerRow` (its first block's), `laidOut` (0.10 A8a) and `blocks`, each with `range`
   (`A3:C12`), `firstColumn`, `lastColumn`, `headerRow`, `lastRow`, `rows` below the header (its note
@@ -4178,7 +4178,8 @@ The `profile` is an inline import profile (D65), checked against the draft's mod
 editor uses the draft's own profile. It answers `202` with the dry run `checking`; the worker binds
 the file's staged cells through the import binding (D66) and previews **every** item the import
 would run in a transaction it rolls back (D67). A dry run still running for the draft is cancelled,
-and a dry run whose draft has changed since it was sent stops as `cancelled`.
+and a dry run whose draft has since taken a step that can change the load (one that queues a dry run
+of its own, D79) stops as `cancelled`; a rename or a layout change leaves it running (0.10 R).
 
 `GET …/dry-run` reads the draft's latest:
 
@@ -4202,8 +4203,11 @@ and a dry run whose draft has changed since it was sent stops as `cancelled`.
   the profile): the rows with an outcome, records `created`, `updated`, `unchanged` and `deleted`
   (0.10 A5c), the attribute `values` written, `relationships` and `relatedRecords` written,
   `missingRecords` (the records of the type no row names), `skippedRows` (rows skipped for an empty
-  key, 0.10 A7) and the rows refused by code. `coverage` is always `complete` (D67).
-- `difference` lists, per source (by its sheet and type), each figure that changed since the
+  key, 0.10 A7) and the rows refused by code (`REJECTED` for a refusal that carries no code of its
+  own). `coverage` is always `complete` (D67). A dry run whose source file is deleted while it reads
+  the file fails `SOURCE_FILE_NOT_FOUND` (0.10 R-F8).
+- `difference` lists, per source (by its sheet, its type and its place among the sources loading
+  that type from that sheet, 0.10 R-F2), each figure that changed since the
   draft's previous completed dry run of the same file, as `now` and `was`; `[]` when nothing
   changed, `null` for the first.
 - **`GET …/dry-run/rows`** (paged; `source`, `status`, `code`) lists the latest dry run's rows behind

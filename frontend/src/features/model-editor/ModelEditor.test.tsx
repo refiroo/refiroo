@@ -112,6 +112,20 @@ describe("ModelEditor", () => {
     expect(api.modelDraftOutline).toHaveBeenCalledTimes(1);
   });
 
+  it("counts every step of the draft, though only its latest operations are read (R)", async () => {
+    // The latest page holds one large step, 120, of 100 operations; the older ones are not read yet.
+    vi.mocked(api.modelDraftOperations).mockResolvedValue({
+      items: Array.from({ length: 100 }, (_, index) => ({
+        ...entry(120, "mapColumn", { source: "lists", column: `C${index}` }),
+        sequence: 400 + index,
+      })),
+      nextCursor: null,
+      prevCursor: "older",
+    });
+    renderEditor();
+    expect(await screen.findByText("120 steps")).toBeTruthy();
+  });
+
   it("asks before applying a step again on a draft another editor moved on (D41)", async () => {
     vi.mocked(api.applyModelDraftOperations)
       .mockRejectedValueOnce(

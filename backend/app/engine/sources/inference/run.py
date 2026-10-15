@@ -39,13 +39,13 @@ from ....models.database import (
     SourceFile,
 )
 from ....models.sources import InferenceApplicationRequest, InferenceRequest
-from ...jobs.store import start_job
+from ...jobs.store import job_parameter, start_job
 from ...model.authoring import history
 from ...model.authoring.kinds import Applied
 from ...model.authoring.released import base_release, released_atoms
 from ...model.compiler import compile_authored_model
 from ...model.diagnostics import ModelDiagnostic
-from ...model.drafts import load_draft
+from ...model.drafts import load_draft, load_draft_for_update
 from ...model.registry import resolve_model_snapshot
 from ...workspaces.catalogue import resolve_workspace
 from ..draft_profile import current_source
@@ -111,7 +111,7 @@ def submit_inference(session: Session, draft_id: str, request: InferenceRequest,
         )
     session.execute(
         update(Job)
-        .where(Job.kind == KIND, Job.state.in_(RUNNING), Job.parameters["draftId"].as_string() == draft.public_id)
+        .where(Job.kind == KIND, Job.state.in_(RUNNING), job_parameter("draftId") == draft.public_id)
         .values(cancel_requested_at=datetime.now(UTC))
         .execution_options(synchronize_session=False)
     )
@@ -203,9 +203,18 @@ def _ownable(element: str) -> bool:
 # --- the job ----------------------------------------------------------------------------------------
 
 
-def run_inference(session: Session, job: Job, *, assistant_setting: str = "", assistant_rows: int = 20) -> None:
+def run_inference(
+    session: Session,
+    job: Job,
+    *,
+    assistant_setting: str = "",
+    assistant_rows: int = 20,
+    check: Callable[[], None] = lambda: None,
+) -> None:
     """Find, build and compare the proposals of the job's draft and store them; the job completes.
-    The caller commits."""
+    The caller commits. ``check`` is called between the phases (reading, finding, building, the
+    assistant) and raises to stop: it renews the job's lease and looks for a cancel request, as a
+    newer inference of the draft sends (0.10 R-F6)."""
     parameters = job.parameters
     draft = load_draft(session, parameters["draftId"])
     source = session.scalar(select(SourceFile).where(SourceFile.public_id == parameters["sourceFileId"]))
@@ -213,8 +222,10 @@ def run_inference(session: Session, job: Job, *, assistant_setting: str = "", as
         raise api_error(404, "SOURCE_FILE_NOT_FOUND", f"Source file '{parameters['sourceFileId']}' was deleted")
     model, profile = draft.model_json, draft.profile_json or {}
     workbook = staged_workbook(session, source)
+    check()
     workspace = compared_workspace(session, source)
     findings = find(workbook)
+    check()
     rows = _rows(session, draft)
     steps = proposal_steps(rows)
     applied = [s for s in steps if not s.undone]
@@ -236,6 +247,7 @@ def run_inference(session: Session, job: Job, *, assistant_setting: str = "", as
         stored=StoredRecords(session, source, workbook, workspace) if parameters["mode"] == "extend" and workspace else None,
     )
     proposals = builder.build(findings)
+    check()
     engine = engine_elements(steps, model, profile, rows)
     disagreements: list[dict[str, Any]] = []
     for proposal in proposals:
@@ -260,6 +272,7 @@ def run_inference(session: Session, job: Job, *, assistant_setting: str = "", as
         proposals, warning = _assisted(session, source, workbook, proposals, assistant_setting, assistant_rows)
         if warning:
             warnings.append(warning)
+        check()
     session.execute(delete(ModelDraftProposal).where(ModelDraftProposal.draft_id == draft.id))
     session.flush()
     for position, proposal in enumerate(proposals):
@@ -575,7 +588,7 @@ def _assisted(
 def latest_inference(session: Session, draft: ModelDraft) -> Job | None:
     return session.scalar(
         select(Job)
-        .where(Job.kind == KIND, Job.parameters["draftId"].as_string() == draft.public_id)
+        .where(Job.kind == KIND, job_parameter("draftId") == draft.public_id)
         .order_by(Job.sequence_id.desc())
         .limit(1)
     )
@@ -673,8 +686,10 @@ def proposal_page(
 
 def apply_inference(session: Session, draft_id: str, request: InferenceApplicationRequest, *, max_items: int) -> history.StepResult:
     """The proposals asked for (every open one by default), each one step of origin ``proposal``,
-    in their order, all or none."""
-    draft = load_draft(session, draft_id)
+    in their order, all or none. The draft is locked first, as its steps lock it: an inference
+    storing its proposals waits for the application, or the application for it, and never reads
+    one job's proposals under another's (0.10 R-F10)."""
+    draft = load_draft_for_update(session, draft_id)
     job = require_inference(session, draft)
     if job.state != "completed":
         raise api_error(409, "INFERENCE_NOT_READY", f"The draft's inference is {job.state}", {"state": job.state})

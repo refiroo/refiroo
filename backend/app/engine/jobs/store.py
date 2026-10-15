@@ -17,7 +17,18 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import JSON, delete, func, insert, literal, select, text, update
+from sqlalchemy import (
+    JSON,
+    String,
+    delete,
+    func,
+    insert,
+    literal,
+    literal_column,
+    select,
+    text,
+    update,
+)
 from sqlalchemy.orm import Session
 
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
@@ -121,7 +132,9 @@ def load_inputs(session: Session, job: Job, count: int) -> list[tuple[int, dict[
 
 def record_outcomes(session: Session, job: Job, outcomes: Sequence[ItemOutcome]) -> None:
     """Add outcomes in item order and move the job's checkpoint past them."""
-    if outcomes:
+    if outcomes and job.kind in ROW_KINDS:
+        _record_row_outcomes(session, job, outcomes)
+    elif outcomes:
         session.execute(
             insert(JobItem),
             [
@@ -141,20 +154,40 @@ def record_outcomes(session: Session, job: Job, outcomes: Sequence[ItemOutcome])
         if outcome.status == "applied":
             counts[outcome.fields["action"]] += 1
     job.counts = counts
-    if job.kind in ROW_KINDS and outcomes:
-        # The outcomes take their source and row from the inputs they ran (0.9 J3).
-        session.execute(
-            update(JobItem)
-            .where(
-                JobItem.job_id == job.sequence_id,
-                JobItem.item_index.between(outcomes[0].index, outcomes[-1].index),
-                JobInput.job_id == job.sequence_id,
-                JobInput.item_index == JobItem.item_index,
-            )
-            .values(source_index=JobInput.source_index, row_number=JobInput.row_number)
-            .execution_options(synchronize_session=False)
-        )
     job.processed += len(outcomes)
+
+
+# A file's rows' outcomes (0.9 J3), each with the source and row of the input it ran, in one
+# statement per chunk: every outcome finds its input by the job and its item number, the input's
+# unique key. Inserted first and then updated from the inputs, a dry run's or a check's tens of
+# thousands of outcomes, all recorded at once, were joined as one row each by statistics that had
+# not seen them, and each was compared with every input: 95 s of a 10,000-row check (0.10 R).
+_ROW_OUTCOMES = text(
+    """
+    INSERT INTO job_items (job_id, item_index, ref, status, outcome, source_index, row_number)
+    SELECT :job, o.item_index, o.ref, o.status, CAST(o.outcome AS json), n.source_index, n.row_number
+    FROM unnest(CAST(:indexes AS integer[]), CAST(:refs AS text[]), CAST(:statuses AS text[]),
+        CAST(:outcomes AS text[])) AS o(item_index, ref, status, outcome)
+    LEFT JOIN job_inputs n ON n.job_id = :job AND n.item_index = o.item_index
+    ORDER BY o.item_index
+    """
+)
+_ROW_CHUNK = 5_000
+
+
+def _record_row_outcomes(session: Session, job: Job, outcomes: Sequence[ItemOutcome]) -> None:
+    for start in range(0, len(outcomes), _ROW_CHUNK):
+        chunk = outcomes[start : start + _ROW_CHUNK]
+        session.execute(
+            _ROW_OUTCOMES,
+            {
+                "job": job.sequence_id,
+                "indexes": [outcome.index for outcome in chunk],
+                "refs": [outcome.ref for outcome in chunk],
+                "statuses": [outcome.status for outcome in chunk],
+                "outcomes": [json.dumps(outcome.fields) for outcome in chunk],
+            },
+        )
 
 
 def record_binding(
@@ -214,6 +247,15 @@ def _foreign_notice(workspace_key: str, rows: int, counterparts: bool) -> dict[s
         f"{'it' if rows == 1 else 'they'} cannot load here. {ELSEWHERE}.",
         "details": {"workspaceKey": workspace_key, "rows": rows},
     }
+
+
+def job_parameter(name: str) -> Any:
+    """A job's top-level parameter as text, its key written literally (``parameters ->> 'draftId'``)
+    so the partial indexes over ``draftId``, ``profileKey`` and ``sourceFileId`` serve it (0.10 R,
+    R-F14); ``Job.parameters[name]`` binds the key and casts, which no index matches."""
+    if not name.isidentifier():
+        raise ValueError(f"not a parameter name: {name!r}")
+    return literal_column(f"(jobs.parameters ->> '{name}')", type_=String)
 
 
 PREVIEWED_KINDS = ("import", "batch", "dryRun", "profileCheck")

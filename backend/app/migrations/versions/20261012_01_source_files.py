@@ -2,7 +2,7 @@
 D5, D65–D71).
 
 ``source_files`` holds a file a model draft or an import profile owns (exactly one, deleted with it);
-the file itself is in ``JOB_FILE_DIR`` as ``{id}.upload``. ``source_file_cells`` holds every filled
+the file itself is in ``JOB_FILE_DIR`` as ``{public_id}.upload``. ``source_file_cells`` holds every filled
 cell the profiling job read, typed, once per file (D66); ``source_file_sheets`` and
 ``source_file_columns`` hold the profile. ``jobs.kind`` gains ``profile`` and ``dryRun``. PostgreSQL
 runs the DDL in the migration's transaction, so an interrupted run leaves the database at

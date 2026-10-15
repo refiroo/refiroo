@@ -10,7 +10,16 @@ model and the import mapping, ADR-035), 0.11 for production hardening and staged
 0.12 for security (authentication and authorization across the backend, frontend and APIs), and 1.0 for
 migration-class model changes, protected publishing and extensions.
 
-## Current development baseline — Base 0.9 complete, Base 0.10 next
+## Current development baseline — Base 0.10 complete
+
+Base 0.10 is complete (2026-10-15; build acceptance R in
+[its plan](BASE_0_10_IMPLEMENTATION_PLAN.md#r-build-acceptance-and-release)): model authoring and
+spreadsheet onboarding. The model editor (operations with history, undo and redo, the relationship
+matrix, the preview and layout editing, consumer APIs) and, with a workbook, its profiles, the dry
+run of the whole file, proposals from table patterns, model-description sheets, lists of sheets laid
+out for reading, the next version through a saved profile, and a list's cells edited in place. Its
+schema language 0.10 (an application's `navigation`) is released with it. The designer was released
+first as 0.10.0-alpha.1 (2026-10-12).
 
 Base 0.9 is complete (2026-10-11; build acceptance R in
 [its plan](BASE_0_9_IMPLEMENTATION_PLAN.md#r-build-acceptance-and-release)): integration-grade APIs
@@ -20,7 +29,7 @@ consumer API with events and signed webhooks, the API reference at `/docs`, the 
 the collection screens' selection, filters, relation columns and bulk dialogs. Its schema language
 is 0.9, released with it and fixed from now on. Base 0.8 was released on 2026-09-29 and the interim
 [0.9.0-alpha.1](#interim-release-090-alpha1--postgresql-runtime) on 2026-10-03. Next is 0.10, model
-authoring and spreadsheet onboarding.
+authoring and spreadsheet onboarding, now complete.
 
 Base 0.5 delivered the operational and model-release foundation. Base 0.7 is released (2026-09-25):
 core mapping as a lens of one contextual application browser, schema 0.6 `mappingGrid` views,
@@ -377,7 +386,9 @@ contract uses API keys or puts a credential in a URL. The 0.12 security release 
 - Every consumer API's namespace, contract version and base URL is visible
   on a settings page, and its API reference shows that version with no placeholder.
 
-## Product release 0.10 — Model authoring and spreadsheet onboarding
+## Product release 0.10 — Model authoring and spreadsheet onboarding (complete)
+
+**Released 2026-10-15** after build acceptance R: the review of every change since 0.9.0 (19 findings, all fixed but one recorded in TODO), the full backend suite and Vitest, 49 browser runners, US-P09 and US-P10 composed by keyboard alone at 1440px and 390px, the accessibility (173 checks) and visual (143) gates with the spreadsheet surfaces, schema 0.10 installed and activated over 0.9, and the budgets. Every item of the exit gate below has its evidence in R's record.
 
 ### Product outcome
 
