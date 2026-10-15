@@ -271,11 +271,16 @@ def test_installed_release_diff_is_key_based_and_assesses_active_runtime_data():
     body = response.json()
     assert body["releaseId"] == candidate_release.public_id
     assert body["againstReleaseId"] == active_release_id
+    workspaces = body["compatibility"].pop("workspaces")
     assert body["compatibility"] == {
         "classification": "compatible",
         "activeReleaseId": active_release_id,
         "diagnostics": [],
     }
+    # 0.11 M3 (D25): each workspace running the model, every one compatible.
+    assert workspaces and all(
+        (item["classification"], item["diagnostics"]) == ("compatible", []) for item in workspaces
+    )
     paths = {item["path"] for item in body["changes"]}
     assert "/applications/rdm-master/views/domains/name" in paths
     assert "/release/version" in paths

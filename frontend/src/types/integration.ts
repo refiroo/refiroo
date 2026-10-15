@@ -295,6 +295,8 @@ export interface ImportProfile {
   name: string;
   version: number;
   checkedAgainst: string;
+  /** The model the profile belongs to: its release key (0.11 D9). */
+  modelKey: string;
   valid: boolean;
   problems: { path: string; code: string; message: string }[];
   createdAt: string;

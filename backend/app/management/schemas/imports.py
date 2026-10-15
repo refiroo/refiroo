@@ -47,14 +47,17 @@ class ImportProfileLastLoad(BaseModel):
 
 
 class ImportProfileResponse(BaseModel):
-    """A stored profile. ``checkedAgainst`` is the release it was saved against; ``valid`` and
-    ``problems`` say how it reads under the active release, so a profile a later release broke
-    shows what to fix before an import is refused for it."""
+    """A stored profile. ``checkedAgainst`` is the release it was saved against and ``modelKey``
+    that release's key, the model the profile belongs to (0.11 D9); ``valid`` and ``problems`` say
+    how it reads under the release of the workspace asked for, so a profile a later release broke
+    shows what to fix before an import is refused for it. In a workspace running another model it
+    reads as not valid, with the one problem ``IMPORT_PROFILE_MODEL_MISMATCH``."""
 
     key: str
     name: str
     version: int
     checkedAgainst: str
+    modelKey: str
     lastLoad: ImportProfileLastLoad | None = None
     valid: bool
     problems: list[ImportProfileProblem]

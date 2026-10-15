@@ -25,8 +25,13 @@ pass was delivered on 2026-10-15 (decisions D4–D29 and the move inventory acce
 design, J36–J38, the M5 and X4 mock-ups approved). **M1, a release per workspace, is delivered
 (2026-10-15)** with M2 folded in (the user rejected a bridge between them, D32): each workspace runs a
 release of its own, a workspace is created on one, a release is activated into one workspace, and
-every request resolves its workspace before its model, the commit guard per workspace; M3 is next
-([record](BASE_0_11_IMPLEMENTATION_PLAN.md#m1-record-2026-10-15)). Accepted by the user 2026-10-15: the data move in 0.11 (D3), the suite's
+every request resolves its workspace before its model, the commit guard per workspace
+([record](BASE_0_11_IMPLEMENTATION_PLAN.md#m1-record-2026-10-15)). **M3, what was instance-wide,
+is delivered (2026-10-16)** through the API: import profiles belong to a model and are refused in a
+workspace running another; a draft is compared with its own model, with compatibility reported for
+each workspace running it; the consumer API index and OpenAPI documents per workspace; a model built
+from a workbook installed into a new workspace. The editor's choice of workspace moved to M5 (D38).
+M4 is next ([record](BASE_0_11_IMPLEMENTATION_PLAN.md#m3-record-2026-10-16)). Accepted by the user 2026-10-15: the data move in 0.11 (D3), the suite's
 time (D152) as a filler during Part 1 before X2 at the latest (D2), and 0.11.0-alpha.1 after the M6
 checkpoint (D12).
 

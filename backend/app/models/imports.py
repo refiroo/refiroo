@@ -345,15 +345,21 @@ ProfileKey = Field(min_length=1, max_length=160, pattern=r"^[A-Za-z0-9][A-Za-z0-
 
 
 class ImportProfileCreate(ImportProfileDefinition):
+    """A new profile, checked against the release of ``workspaceKey`` (the default workspace
+    without it), whose model it then belongs to (0.11 D9)."""
+
     key: str = ProfileKey
     name: str = Field(min_length=1, max_length=200)
+    workspaceKey: str | None = None
 
 
 class ImportProfileUpdate(ImportProfileDefinition):
-    """The whole profile at ``expectedVersion``; its key is the path's."""
+    """The whole profile at ``expectedVersion``; its key is the path's. Checked against the release
+    of ``workspaceKey`` (the default workspace without it), which runs the profile's model."""
 
     name: str = Field(min_length=1, max_length=200)
     expectedVersion: int = Field(ge=1)
+    workspaceKey: str | None = None
 
 
 class InlineProfile(ImportProfileDefinition):

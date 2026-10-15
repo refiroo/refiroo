@@ -2597,8 +2597,10 @@ profile is refused with every problem at once: `422 INVALID_IMPORT_PROFILE` with
 `ATTRIBUTE_NOT_BOUND`, `ATTRIBUTE_READ_ONLY`, `KEY_NOT_UNIQUE`, `KEY_NOT_BOUND`,
 `UNKNOWN_RELATION_TYPE`, `RELATION_NOT_ALLOWED`, `PARENT_NOT_ALLOWED`, `UNKNOWN_VALUE_MAP`,
 `FLAG_WITHOUT_TARGET`, `SOURCE_CYCLE`, `CREATE_NEEDS_NAME_MATCH`, `SKIP_NEEDS_KEY`). A stored profile answers with `version`, `checkedAgainst`
-(the release it was saved against), `createdAt`, `updatedAt`, and `valid` and `problems` as it reads
-under the active release now, so a profile a later release broke shows what to fix.
+(the release it was saved against), `modelKey` (that release's key, the model the profile belongs
+to, 0.11 D9), `createdAt`, `updatedAt`, and `valid` and `problems` as it reads under the release of
+the workspace asked for (`workspaceKey`, the default workspace without it) now, so a profile a later
+release broke shows what to fix ([per workspace](#what-follows-the-workspaces-model-delivered-m3)).
 
 **The last load** (0.10 A5c). `GET /import-profiles` and `GET /import-profiles/{key}` (and `PUT`'s
 answer) carry `lastLoad`: the latest import naming the profile (`jobId`, `state`, `fileName`,
@@ -2611,7 +2613,8 @@ once the job passed its retention.
 
 `PUT` replaces the whole profile at `expectedVersion` in the body; `DELETE` takes `expectedVersion`
 as a parameter. Refusals: `409 IMPORT_PROFILE_EXISTS`, `404 IMPORT_PROFILE_NOT_FOUND`,
-`409 IMPORT_PROFILE_VERSION_CONFLICT` with `details.currentVersion`.
+`409 IMPORT_PROFILE_VERSION_CONFLICT` with `details.currentVersion`,
+`422 IMPORT_PROFILE_MODEL_MISMATCH` (saved in a workspace running another model).
 
 ### Sending a file
 
@@ -4500,8 +4503,8 @@ latest:
 
 Designed in the [Base 0.11 P0 plan](BASE_0_11_IMPLEMENTATION_PLAN.md#p0-plan-2026-10-15) from
 [ADR-042](DECISIONS.md#adr-042--each-workspace-runs-its-own-model-release). **A workspace's model and
-its activation are delivered** (M1, with M2 folded in, 2026-10-15). Designed, each moving into
-"delivered" with its package: what was instance-wide (M3), reads spanning workspaces (M4),
+its activation are delivered** (M1, with M2 folded in, 2026-10-15), and **what was instance-wide**
+(M3, 2026-10-15). Designed, each moving into "delivered" with its package: reads spanning workspaces (M4),
 migrations (V1–V3), mappings between models (X1) and moves (X2, X3). Field-level detail not fixed
 here is finished in that package's plan.
 
@@ -4599,24 +4602,40 @@ with `details.workspaceKey`, `releaseId` and, for an unsupported schema, `schema
 `supportedSchemaVersions`; other workspaces are served. `/health` answers 503 only when the database
 is unreachable or no workspace can be served; readiness listing the unavailable ones is O1's.
 
-**Drafts (D25, M3).** Not delivered yet: a draft without a base compiles against the default
-workspace's release, and compiling and the release comparison check compatibility against the data of
-the workspaces running the default workspace's release. Compiling a draft with a base release adds `compatibility.workspaces`: for each
-workspace running the base's model, its key, its release and the classification and diagnostics of
-activating the draft's model there. A draft without a base compiles against the default workspace's
-release. Installing stays instance-wide; activation names its workspace.
+### What follows the workspace's model (delivered, M3)
 
-### What follows the workspace's model (M3)
-
-- **Import profiles** gain `modelKey`, the release key they are written for, set when saved (D9). A
-  profile's `valid` and `problems` are read against the release of the workspace named by
-  `workspaceKey` (default workspace without it). An import whose profile names another model is
-  refused `422 IMPORT_PROFILE_MODEL_MISMATCH` with `details.modelKey` and `details.workspaceModelKey`.
-- **Jobs** run under their workspace's release, recorded as today in the job's `modelReleaseId`.
-- **Consumer APIs** (D10, D27): the index (`GET /api/consumer`) and each definition's OpenAPI document take
-  `workspace`, as the read routes do, and name the workspace and release they describe. A definition
-  key may mean different contracts in two workspaces. Events, checkpoints, subscriptions and webhooks
-  are derived under the workspace's release.
+- **Import profiles** (D9, D35, D40) gain `modelKey`: the model a profile belongs to, the key of the
+  release it was last saved against (`checkedAgainst`). Create and update take `workspaceKey` in the
+  body and are checked against that workspace's release (the default workspace without it); the read
+  and the list take `workspaceKey` as a query parameter, and the list `modelKey`. A profile read in a
+  workspace running another model is `valid: false` with the one problem
+  `IMPORT_PROFILE_MODEL_MISMATCH` at `""`. Saving it there, an import naming it
+  (`POST /imports` with `profileKey`) and a file uploaded to it (`POST /source-files` with
+  `owner.profileKey`) in such a workspace are refused `422 IMPORT_PROFILE_MODEL_MISMATCH` with
+  `details.profileKey`, `modelKey` and `workspaceModelKey`.
+- **Installing a draft** whose profile would be saved under the key of another model's profile is
+  refused before anything is installed: `409 IMPORT_PROFILE_MODEL_MISMATCH` with
+  `details.profileKey`, `modelKey` and `draftModelKey` (D36). Installing checks no workspace's data;
+  activation does.
+- **Drafts** (D25, D37) are compared with their base release; without one, with the newest installed
+  release of their own model (`release.key`); with neither they are a new model. That release is
+  what `againstReleaseId` and `changes` of `POST /model-drafts/{id}/compile` read (every element
+  `added` and `againstReleaseId` null for a new model), what the outline's and a draft consumer API's
+  contracts and compile's `consumerContracts` compare with (absent for a new model), and what a
+  draft-only operation's released elements and their `impact` come from; the impact counts only the
+  workspaces running the draft's model and their change sets. `compatibility` stays what activating
+  into the default workspace would do, and adds `workspaces`: one entry per workspace running a
+  release of the candidate's model (retired ones and unavailable ones left out), with
+  `workspaceKey`, `releaseId`, `classification` and `diagnostics` of that workspace's data against
+  its own release. `GET /model-releases/{id}/diff` adds the same `workspaces`.
+- **Jobs** run under their workspace's release, recorded as today in the job's `modelReleaseId`
+  (M1).
+- **Consumer APIs** (D10, D27): the index (`GET /api/consumer`) and each definition's OpenAPI
+  document take `workspace`, as the read routes do, and answer `RDM-Workspace` and
+  `X-Model-Release-Id` naming the workspace and release they describe; the index's document links
+  carry the `workspace` asked for. A definition key may mean different contracts in two workspaces.
+  Events, checkpoints, subscriptions and webhooks are derived under the workspace's release (M1).
+  The API reference page (`GET /docs`) takes `?workspace=` (D39).
 
 ### Reads spanning workspaces (M4)
 

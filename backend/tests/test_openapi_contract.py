@@ -161,10 +161,14 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # filter; an activation's workspaceKey; GET /model's RDM-Workspace header; GET
     # /model-runtime-state and ModelRuntimeStateResponse removed. Diffed against the previous
     # commit, nothing else changed (the activation route is registered with model administration,
-    # off in the default document).
+    # off in the default document). Re-baselined for 0.11 M3 (D9, D25, D35, D37, D40): an import
+    # profile's modelKey, workspaceKey on its create and update bodies and on its read and list, the
+    # list's modelKey filter and the routes' descriptions; the release diff's compatibility as
+    # CandidateCompatibilityResponse with its workspaces (WorkspaceCompatibilityResponse), replacing
+    # ModelCompatibilityResponse. Diffed against the previous commit, nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "26731088033791e54ba93dcaa1fdad2219305c03798a57c84797d3a89db7a3c9"
+        "434b29cb516433e19c5e44ef130e95c330302370071a4136ab8d2417931e8610"
     )
 
 

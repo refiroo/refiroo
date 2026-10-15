@@ -493,14 +493,21 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 
 - [x] 0.11 P0 design pass, per the [Base 0.11 plan](BASE_0_11_IMPLEMENTATION_PLAN.md), delivered
   2026-10-15: decisions D4–D29 and the move inventory accepted, ADR-042, API design, J36–J38, the M5
-  and X4 mock-ups approved. M1 (with M2 folded in, plan D32) delivered 2026-10-15; next: M3.
+  and X4 mock-ups approved. M1 (with M2 folded in, plan D32) delivered 2026-10-15; M3 delivered
+  2026-10-16; next: M4.
   - [ ] The user's requirement: each workspace runs a model of its own (Track M, then Track V).
     M1 delivered the API: a workspace on a release of its own, activation into one workspace, the
-    commit guard per workspace. Still to come: import profiles, drafts and the consumer index
-    following a workspace's model (M3), spanning reads (M4), the browser (M5).
+    commit guard per workspace. M3: import profiles, drafts and the consumer index and OpenAPI
+    following a workspace's model. Still to come: spanning reads (M4), the browser (M5, including the
+    editor's choice of workspace, plan D38).
   - [ ] **Found in M1 (2026-10-15), not caused by it:** `test_boundaries::test_tiers_hold` fails at
     `71b15ea` already (the import cycle `sources.draft_profile` ↔ `sources.dry_run`, the deferred
-    import in `dry_run`). Untouched by M1.
+    import in `dry_run`). Untouched by M1 and M3.
+  - [ ] **Found in M3 (2026-10-16), not caused by it:**
+    `test_model_lifecycle::test_installed_release_diff_is_key_based_and_assesses_active_runtime_data`
+    passes only after the module's earlier tests: alone, on a fresh database, its own
+    `ensure_bootstrap_release` gives the candidate to the default workspace, so the diff compares the
+    release with itself.
   - [ ] **Found in M1, unchanged code path:** after an offline schema upgrade (J12.6) the event
     deriver logs an error for feed entries written under the release whose schema the upgrade
     replaced (`UNSUPPORTED_PINNED_MODEL_SCHEMA` in `worker._plans_for`); it retries every 2 s.

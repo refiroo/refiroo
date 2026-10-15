@@ -419,9 +419,13 @@ subscriptions are suspended, and the other workspaces keep their models. The act
 workspace's change sets left on its previous release, which cannot be published. Every read and
 write runs under its workspace's model; a write is refused, nothing saved, when its workspace was
 moved to another release meanwhile. A workspace whose release this version cannot read is unavailable
-on its own while the others are served. Settings › Model manages the default workspace's model;
-choosing another workspace there, and the import profiles, drafts and consumer API index following
-a workspace's model, come with later 0.11 packages.
+on its own while the others are served. Through the API, an import profile belongs to one model: it
+is read and used in the workspaces running that model, and refused in a workspace running another;
+a draft is compared with its own model and shows, for each workspace running that model, what
+activating it there would need; a model built from a workbook can be installed and given a new
+workspace of its own. The consumer API index and each API's OpenAPI document describe the workspace
+asked for. Settings › Model manages the default workspace's model; choosing a workspace in the
+browser (Settings › Model, the editor's install dialog, New from a workbook) comes with M5.
 
 Through the API, a draft can also be changed step by step with typed operations instead of whole
 JSON: add, rename, re-key, split, merge or remove applications, types, attributes and relation

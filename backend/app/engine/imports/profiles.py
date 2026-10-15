@@ -14,6 +14,10 @@ never only the first, so a client fixes a profile in one pass:
   another source loads runs after it, and a cycle is a problem (``SOURCE_CYCLE``).
 
 Profiles are instance-wide (D65): ``key`` is unique, writes are versioned (optimistic concurrency).
+Each belongs to a model (0.11 D9, D35): the ``release.key`` of the release it was last saved
+against. It is saved, read and used under the release of a workspace (the default workspace
+without one); in a workspace running another model it reads as not valid and is refused for use
+(``IMPORT_PROFILE_MODEL_MISMATCH``, D40).
 """
 
 from dataclasses import dataclass
@@ -37,7 +41,7 @@ from ...models.imports import (
     Source,
 )
 from ...models.schema import EngineModel
-from ..model.registry import resolve_model_snapshot
+from ..model.registry import ModelSnapshot, resolve_model_snapshot
 from ..model.traversal import parent_type_keys
 
 _PROFILE_KEYS = (text_key("key", ImportProfile.key, "key"),)
@@ -459,12 +463,16 @@ def _unknown_type(path: str, key: str) -> Problem:
 # --- storage -------------------------------------------------------------------------------------
 
 
+MISMATCH = "IMPORT_PROFILE_MODEL_MISMATCH"
+
+
 @dataclass(frozen=True)
 class StoredProfile:
-    """A stored profile with what reading it under the active release found."""
+    """A stored profile with what reading it under a workspace's release found."""
 
     profile: ImportProfile
     checked_against: str
+    model_key: str
     problems: list[Problem]
 
 
@@ -478,8 +486,45 @@ def parsed(profile: ImportProfile) -> ImportProfileDefinition:
     return ImportProfileDefinition.model_validate(profile.definition)
 
 
+def model_key_of(session: Session, profile: ImportProfile) -> str:
+    """The model the profile belongs to: the key of the release it was last saved against (D35)."""
+    return session.scalar(
+        select(ModelRelease.release_key).where(ModelRelease.id == profile.checked_release_id)
+    )
+
+
+def mismatch(profile_key: str, model_key: str, workspace_model_key: str) -> Exception:
+    return api_error(
+        422,
+        MISMATCH,
+        f"Import profile '{profile_key}' is written for the model '{model_key}', and the workspace "
+        f"runs '{workspace_model_key}'",
+        {"profileKey": profile_key, "modelKey": model_key, "workspaceModelKey": workspace_model_key},
+    )
+
+
+def require_model(session: Session, profile: ImportProfile, model: EngineModel) -> None:
+    """``422 IMPORT_PROFILE_MODEL_MISMATCH`` when ``model`` is not the profile's model (D40)."""
+    model_key = model_key_of(session, profile)
+    if model_key != model.release.key:
+        raise mismatch(profile.key, model_key, model.release.key)
+
+
+def _problems(model_key: str, snapshot: ModelSnapshot, profile: ImportProfile) -> list[Problem]:
+    if model_key != snapshot.model.release.key:
+        return [
+            Problem(
+                "",
+                MISMATCH,
+                f"The profile is written for the model '{model_key}', and the workspace runs "
+                f"'{snapshot.model.release.key}'",
+            )
+        ]
+    return check_profile(snapshot.model, parsed(profile))
+
+
 def create_profile(session: Session, payload: ImportProfileCreate) -> StoredProfile:
-    snapshot = resolve_model_snapshot(session, None)
+    snapshot = resolve_model_snapshot(session, payload.workspaceKey)
     require_valid(snapshot.model, payload)
     now = datetime.now(UTC)
     profile = ImportProfile(
@@ -500,7 +545,7 @@ def create_profile(session: Session, payload: ImportProfileCreate) -> StoredProf
             409, "IMPORT_PROFILE_EXISTS", f"An import profile '{payload.key}' already exists"
         ) from None
     session.commit()
-    return StoredProfile(profile, snapshot.release_id, [])
+    return StoredProfile(profile, snapshot.release_id, snapshot.model.release.key, [])
 
 
 def load_profile(session: Session, key: str, *, for_update: bool = False) -> ImportProfile:
@@ -513,51 +558,51 @@ def load_profile(session: Session, key: str, *, for_update: bool = False) -> Imp
     return profile
 
 
-def read_profile(session: Session, key: str) -> StoredProfile:
-    return stored(session, load_profile(session, key))
+def read_profile(session: Session, key: str, workspace_key: str | None = None) -> StoredProfile:
+    return stored(session, load_profile(session, key), workspace_key)
 
 
-def stored(session: Session, profile: ImportProfile) -> StoredProfile:
-    """The profile with its problems under the active release, and the release it was saved
+def stored(session: Session, profile: ImportProfile, workspace_key: str | None = None) -> StoredProfile:
+    """The profile with its problems under the workspace's release, and the release it was saved
     against."""
-    snapshot = resolve_model_snapshot(session, None)
-    problems = check_profile(snapshot.model, parsed(profile))
-    checked = session.scalar(
-        select(ModelRelease.public_id).where(ModelRelease.id == profile.checked_release_id)
-    )
-    return StoredProfile(profile, checked, problems)
+    return stored_page(session, [profile], workspace_key)[0]
 
 
-def stored_page(session: Session, profiles: list[ImportProfile]) -> list[StoredProfile]:
-    """A page of profiles read under the active release, with one read of their releases."""
-    snapshot = resolve_model_snapshot(session, None)
-    releases = dict(
-        session.execute(
-            select(ModelRelease.id, ModelRelease.public_id).where(
+def stored_page(
+    session: Session, profiles: list[ImportProfile], workspace_key: str | None = None
+) -> list[StoredProfile]:
+    """A page of profiles read under the workspace's release, with one read of their releases."""
+    snapshot = resolve_model_snapshot(session, workspace_key)
+    releases = {
+        row.id: (row.public_id, row.release_key)
+        for row in session.execute(
+            select(ModelRelease.id, ModelRelease.public_id, ModelRelease.release_key).where(
                 ModelRelease.id.in_({profile.checked_release_id for profile in profiles})
             )
         )
-        .tuples()
-        .all()
-    )
-    return [
-        StoredProfile(
-            profile,
-            releases[profile.checked_release_id],
-            check_profile(snapshot.model, parsed(profile)),
-        )
-        for profile in profiles
-    ]
+    }
+    found = []
+    for profile in profiles:
+        release_id, model_key = releases[profile.checked_release_id]
+        found.append(StoredProfile(profile, release_id, model_key, _problems(model_key, snapshot, profile)))
+    return found
 
 
-def profile_page(session: Session, page: PageRequest, page_size: int) -> Page[ImportProfile]:
-    """Profiles in key order."""
+def profile_page(
+    session: Session, page: PageRequest, page_size: int, model_key: str | None = None
+) -> Page[ImportProfile]:
+    """Profiles in key order, of one model when ``model_key`` is given."""
+    statement = select(ImportProfile)
+    if model_key is not None:
+        statement = statement.join(
+            ModelRelease, ModelRelease.id == ImportProfile.checked_release_id
+        ).where(ModelRelease.release_key == model_key)
     return paginate_statement(
         session,
-        select(ImportProfile),
+        statement,
         keys=_PROFILE_KEYS,
         scope="import-profiles",
-        filters={},
+        filters={"modelKey": model_key},
         page=page,
         page_size=page_size,
         message="Import profile list cursor is invalid",
@@ -565,9 +610,10 @@ def profile_page(session: Session, page: PageRequest, page_size: int) -> Page[Im
 
 
 def update_profile(session: Session, key: str, payload: ImportProfileUpdate) -> StoredProfile:
-    snapshot = resolve_model_snapshot(session, None)
+    snapshot = resolve_model_snapshot(session, payload.workspaceKey)
     profile = load_profile(session, key, for_update=True)
     _claim(profile, payload.expectedVersion)
+    require_model(session, profile, snapshot.model)
     require_valid(snapshot.model, payload)
     profile.name = payload.name
     profile.definition = definition_of(payload)
@@ -575,11 +621,10 @@ def update_profile(session: Session, key: str, payload: ImportProfileUpdate) -> 
     profile.checked_release_id = snapshot.release_db_id
     profile.updated_at = datetime.now(UTC)
     session.commit()
-    return StoredProfile(profile, snapshot.release_id, [])
+    return StoredProfile(profile, snapshot.release_id, snapshot.model.release.key, [])
 
 
 def delete_profile(session: Session, key: str, expected_version: int) -> None:
-    resolve_model_snapshot(session, None)
     profile = load_profile(session, key, for_update=True)
     _claim(profile, expected_version)
     session.execute(delete(ImportProfile).where(ImportProfile.sequence_id == profile.sequence_id))

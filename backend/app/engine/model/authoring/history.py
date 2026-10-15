@@ -242,7 +242,7 @@ def _apply(
                     "kind": operation.get("kind"),
                     "element": element_of(exc.element),
                     "baseReleaseId": base.public_id if base else None,
-                    "impact": impact(session, exc.element),
+                    "impact": impact(session, exc.element, base.release_key if base else None),
                 },
             ) from exc
     return applied, document.data, profile.data or None

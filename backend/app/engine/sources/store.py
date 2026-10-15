@@ -27,7 +27,7 @@ from ...models.database import (
     SourceFileSheet,
 )
 from ...models.sources import SourceFileRequest
-from ..imports.profiles import load_profile
+from ..imports.profiles import load_profile, require_model
 from ..imports.submit import Upload
 from ..jobs.files import JobFiles
 from ..jobs.store import job_parameter, start_job
@@ -53,6 +53,13 @@ def store_source_file(
     draft_id, profile_key = _owner(session, request)
     if request.workspaceKey is not None:
         resolve_workspace(session, request.workspaceKey)
+    if profile_key is not None:
+        # A profile's file is checked under the workspace's model, which must be the profile's (D40).
+        require_model(
+            session,
+            load_profile(session, profile_key),
+            resolve_model_snapshot(session, request.workspaceKey).model,
+        )
     now = datetime.now(UTC)
     source = SourceFile(
         draft_id=draft_id,

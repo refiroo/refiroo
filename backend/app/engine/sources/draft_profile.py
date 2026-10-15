@@ -20,7 +20,7 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ...errors import ApiError
+from ...errors import ApiError, api_error
 from ...models.database import (
     ImportProfile,
     Job,
@@ -34,7 +34,7 @@ from ...models.database import (
 from ...models.imports import ImportProfileDefinition, InlineProfile
 from ...models.schema import EngineModel
 from ...models.sources import DryRunRequest
-from ..imports.profiles import check_profile, definition_of
+from ..imports.profiles import MISMATCH, check_profile, definition_of, model_key_of
 from ..model.authoring.kinds import Sheet
 from ..model.compiler import compile_authored_model
 from ..model.diagnostics import ModelDiagnostic
@@ -273,6 +273,27 @@ def dry_run_after(
     except ApiError:
         # The workspace went or the file is not readable: the step stands, without a dry run.
         return None
+
+
+def require_installable(session: Session, draft: ModelDraft, model: EngineModel) -> None:
+    """Before installing: ``409 IMPORT_PROFILE_MODEL_MISMATCH`` when the draft's profile would be
+    saved under the key of another model's profile (0.11 D36), which would stop that model's
+    imports."""
+    key = (draft.profile_json or {}).get("key")
+    if not key:
+        return
+    stored = session.scalar(select(ImportProfile).where(ImportProfile.key == key))
+    if stored is None:
+        return
+    model_key = model_key_of(session, stored)
+    if model_key != model.release.key:
+        raise api_error(
+            409,
+            MISMATCH,
+            f"Import profile '{key}' belongs to the model '{model_key}'; the draft's model is "
+            f"'{model.release.key}'. Give the draft's profile another key",
+            {"profileKey": key, "modelKey": model_key, "draftModelKey": model.release.key},
+        )
 
 
 def save_at_installation(session: Session, draft: ModelDraft, release: ModelRelease, model: EngineModel) -> ImportProfile | None:

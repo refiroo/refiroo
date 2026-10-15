@@ -34,7 +34,7 @@ function diff(releaseId: string, againstReleaseId: string, changes: ModelRelease
     releaseId,
     againstReleaseId,
     changes,
-    compatibility: { classification: "compatible" as const, activeReleaseId: "r07", diagnostics: [] },
+    compatibility: { classification: "compatible" as const, activeReleaseId: "r07", diagnostics: [], workspaces: [] },
   };
 }
 

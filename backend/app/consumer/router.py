@@ -17,7 +17,7 @@ from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field, replace
 from datetime import date
 from typing import Annotated, Any
-from urllib.parse import unquote_plus
+from urllib.parse import unquote_plus, urlencode
 
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy import select
@@ -55,6 +55,8 @@ from .etag import entity_tag, none_match
 
 PREFIX = "/api/consumer"
 WORKSPACE_HEADER = "RDM-Workspace"
+# The release the index and an OpenAPI document describe (0.11 D27), as GET /api/v1/model names it.
+RELEASE_HEADER = "X-Model-Release-Id"
 PUBLICATION_HEADER = "RDM-Publication"
 AS_OF_HEADER = "RDM-As-Of-Applied"
 # A business date: a calendar day, written YYYY-MM-DD and nothing else (C-D79).
@@ -502,19 +504,22 @@ def _events_request(parameters: _Parameters, definition: ConsumerApiDefinition, 
 @router.get("", response_model=None)
 @reads_own_parameters
 def get_index(request: Request, response: Response, session: DbSession) -> dict[str, Any] | Response:
-    """The API index: every consumer API of the active release, by ``consumerApi``, with its name,
-    contract version and the URL of its OpenAPI document (C-D69). Definitions are not per workspace."""
-    active = resolve_model_snapshot(session, None)
-    parameters = _plain(request, _PUBLICATIONS - {"workspace"})
+    """The API index: every consumer API of the release ``workspace`` runs (the default workspace
+    without it), by ``consumerApi``, with its name, contract version and the URL of its OpenAPI
+    document (C-D69), which carries the ``workspace`` asked for. A definition key may mean another
+    contract in another workspace (0.11 D27): the headers name the workspace and release described."""
+    parameters = _plain(request, _PUBLICATIONS)
+    workspace, active = _described(response, session, request.query_params.get("workspace"))
     page_size, page = _page(parameters)
     root_path = _root_path(request)
+    suffix = _workspace_query(request)
     entries = [
         {
             "consumerApi": item.key,
             "name": item.name,
             **({"description": item.description} if item.description else {}),
             "contractVersion": item.contractVersion,
-            "openapi": f"{root_path}{consumer_openapi_path(item)}",
+            "openapi": f"{root_path}{consumer_openapi_path(item)}{suffix}",
         }
         for item in consumer_apis(active.model)
     ]
@@ -525,7 +530,8 @@ def get_index(request: Request, response: Response, session: DbSession) -> dict[
         )
         return {"items": found.items, "pageSize": page_size, **found.links()}
 
-    return _document(request, response, entity_tag(("index", active.release_id, root_path), "index"), read)
+    tag = entity_tag(("index", workspace.key, active.release_id, root_path, suffix), "index")
+    return _document(request, response, tag, read)
 
 
 @router.get("/{consumer_api}/v{contract_version}/openapi.json", response_model=None)
@@ -533,17 +539,18 @@ def get_index(request: Request, response: Response, session: DbSession) -> dict[
 def get_openapi(
     consumer_api: str, contract_version: str, request: Request, response: Response, session: DbSession
 ) -> dict[str, Any] | Response:
-    """The definition's own OpenAPI document at its contract version (C6b): its paths written out with
-    the name and version, ``info.version`` the contract version; another version answers
+    """The definition's own OpenAPI document at its contract version (C6b), from the release
+    ``workspace`` runs (the default workspace without it, 0.11 D10): its paths written out with the
+    name and version, ``info.version`` the contract version; another version answers
     ``404 CONTRACT_VERSION_NOT_FOUND`` naming the one served."""
-    active = resolve_model_snapshot(session, None)
+    _plain(request, frozenset({"workspace"}))
+    workspace, active = _described(response, session, request.query_params.get("workspace"))
     definition = consumer_definition(active.model, consumer_api, contract_version)
-    _plain(request, frozenset())
     root_path = _root_path(request)
     return _document(
         request,
         response,
-        entity_tag(("openapi", active.release_id, root_path), definition.contractVersion),
+        entity_tag(("openapi", workspace.key, active.release_id, root_path), definition.contractVersion),
         lambda: consumer_openapi(
             active.model,
             definition,
@@ -551,6 +558,21 @@ def get_openapi(
             resolve_max_items=request.app.state.consumer_resolve_max_items,
         ),
     )
+
+
+def _described(response: Response, session: Session, workspace_key: str | None) -> tuple[Workspace, ModelSnapshot]:
+    """The workspace a document describes and its model, named in the answer's headers."""
+    workspace = _workspace(session, workspace_key)
+    active = resolve_model_snapshot(session, workspace.key)
+    response.headers[WORKSPACE_HEADER] = workspace.key
+    response.headers[RELEASE_HEADER] = active.release_id
+    return workspace, active
+
+
+def _workspace_query(request: Request) -> str:
+    """``?workspace=…`` as the request named it, for the links a document gives."""
+    key = request.query_params.get("workspace")
+    return f"?{urlencode({'workspace': key})}" if key else ""
 
 
 def _root_path(request: Request) -> str:

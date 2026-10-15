@@ -228,15 +228,17 @@ def test_reactivate_an_older_release_and_read_the_activation_history(world):
 @pytest.mark.journey("J08.4")
 @pytest.mark.structures("R")
 def test_data_the_candidate_does_not_fit_blocks_activation(world):
-    """Given a release that makes an attribute required, and N records lacking it. When it is
-    compiled, compared and activated. Then compiling and comparing need a migration, with a
-    diagnostic at the type's path counting N; activation is refused naming the data, and the runtime
-    state and model are unchanged."""
+    """Given a release that makes an attribute required, and records lacking it in the default
+    workspace and in the other workspaces running its model. When it is compiled, compared and
+    activated into the default workspace. Then compiling and comparing need a migration, with a
+    diagnostic at the type's path counting the default workspace's records, and one entry for each
+    active workspace running the model counting its own (a retired one is not listed, 0.11 M3 D37);
+    activation is refused naming the data, and the runtime state and model are unchanged."""
     for name in ("Lacking one", "Lacking two"):
         world.made("R", name)
     model, key = world.candidate("incompatible")
-    lacking = 0
-    for workspace in (W1, "second-site", "closed-site"):
+    lacking = {}
+    for workspace in (W1, "second-site"):
         page = ok(
             world.api.get(
                 f"/objects/{world.key('R')}",
@@ -246,8 +248,12 @@ def test_data_the_candidate_does_not_fit_blocks_activation(world):
                 **{f"filter.{key}.isUnset": "true"},
             )
         )
-        lacking += page["totalCount"]
+        lacking[workspace] = page["totalCount"]
     state = _active(world)
+
+    def counted(compatibility):
+        (diagnostic,) = [d for d in compatibility["diagnostics"] if world.key("R") in d["path"]]
+        return diagnostic["count"]
 
     compiled = _compile(world, _draft(world, model))
     release = world.install(model)["id"]
@@ -255,11 +261,15 @@ def test_data_the_candidate_does_not_fit_blocks_activation(world):
         world.api.get(f"/model-releases/{release}/diff", againstReleaseId=state["releaseId"])
     )
     for answer in (compiled, diff):
-        assert answer["compatibility"]["classification"] == "migration_required"
-        (diagnostic,) = [
-            d for d in answer["compatibility"]["diagnostics"] if world.key("R") in d["path"]
-        ]
-        assert diagnostic["count"] == lacking
+        compatibility = answer["compatibility"]
+        assert compatibility["classification"] == "migration_required"
+        assert counted(compatibility) == lacking[W1]
+        by_workspace = {item["workspaceKey"]: item for item in compatibility["workspaces"]}
+        assert "closed-site" not in by_workspace
+        for workspace, count in lacking.items():
+            if count:
+                assert by_workspace[workspace]["classification"] == "migration_required"
+                assert counted(by_workspace[workspace]) == count
     refused(world.activate(release), 409, "MODEL_MIGRATION_REQUIRED")
     assert _active(world) == state and _model_release(world) == state["releaseId"]
 

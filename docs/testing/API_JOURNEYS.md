@@ -36,7 +36,7 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/docs` a
 | Operation | Journeys |
 | --- | --- |
 | `GET /health` | J12 |
-| `GET /docs` (`api`, the source Scalar opens), `GET /openapi.json` | J20, J20.5 |
+| `GET /docs` (`api`, the source Scalar opens; `workspace`, whose consumer APIs it lists, 0.11 M3), `GET /openapi.json` | J20, J20.5 |
 | `GET /capabilities` | J20, J12.7, J26.6 (`changeFeed.retentionDays`) |
 | `GET /system` | J31, J31.1–J31.3 |
 | `GET /model`, `GET /model/placements` | J20, J20.1, J03, J14 |
@@ -48,10 +48,10 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/docs` a
 | `GET /object-type-relations` (`fromObjectType`, `toObjectType`) | J20, J13 |
 | `GET /model-releases` (`releaseKey`, `assigned`; each release's `assigned` and `workspaces`), `GET /model-releases/{id}` (`includeModel`) | J08, J08.7, J20.2, J36.1 |
 | `GET /model-releases/{id}/activations` | J08.8 |
-| `GET /model-releases/{id}/diff` (`againstReleaseId`) | J08.2, J25, J08.11 |
+| `GET /model-releases/{id}/diff` (`againstReleaseId`; `compatibility.workspaces`, 0.11 M3) | J08.2, J25, J08.11, J36.2 |
 | `POST /workspaces/{key}/model/activation` (`releaseId`, `expectedVersion`, `expectedReleaseId`; `changeSetsLeftBehind`; 0.11 M1) | J08, J08.3, J08.5, J08.6, J08.10, J08.11, J36.2, J36.5 |
 | `GET/POST /model-drafts`, `GET/PATCH/DELETE /model-drafts/{id}` | J08 |
-| `POST /model-drafts/{id}/compile`, `POST /model-drafts/{id}/installation` | J08, J25 |
+| `POST /model-drafts/{id}/compile` (`compatibility.workspaces`, compared with the draft's own model, 0.11 M3), `POST /model-drafts/{id}/installation` | J08, J25, J36.2, J36.4 |
 | `POST /model-drafts/{id}/operations` (`expectedVersion`, `operations`, the model-side kinds; `proposalId` planned for A6), `GET /model-drafts/{id}/operations` (paging) (0.10 A2, [API.md § Draft operations](../API.md#draft-operations)) | J33, J33.1–J33.8, J33.12, J08.9 |
 | `POST /model-drafts/{id}/undo` (`step`, `steps`), `POST /model-drafts/{id}/redo` (0.10 A2) | J33.4, J33.5, J33.12 |
 | `GET /model-drafts/{id}/outline`: the draft's structure as the editor shows it, each element marked against the base release, diagnostics tied to elements (0.10 A4a, D36, [API.md § The draft's outline](../API.md#the-drafts-outline)) | J33, J33.1, J33.2 |
@@ -111,7 +111,7 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/docs` a
 | `POST /batches` (`run`: `background`), `GET /jobs` (`kind`, `state`), `GET /jobs/{id}`, `GET /jobs/{id}/items` (`status`), `POST /jobs/{id}/cancel` | J24 |
 | `GET /workspaces/{key}/feed` (`after`, `pageSize`, `kind` and `objectTypeKey` repeatable) | J26, J26.1–J26.6 |
 | `POST /exports` (`context`, `scope`: `types` with `where`, `parentObjectId`, `asOf`; `include.relations`; `format`: `jsonl`, `csv`, `xlsx`), `GET /jobs/{id}/output`, the job's `output` (0.9 J1) | J27, J27.1–J27.5 |
-| `POST /import-profiles`, `GET /import-profiles`, `GET /import-profiles/{key}`, `PUT /import-profiles/{key}` (the whole profile with `expectedVersion`), `DELETE /import-profiles/{key}` (`expectedVersion`); a profile's `valid` and `problems` under the active release (0.9 J2) | J27.7 |
+| `POST /import-profiles`, `GET /import-profiles`, `GET /import-profiles/{key}`, `PUT /import-profiles/{key}` (the whole profile with `expectedVersion`), `DELETE /import-profiles/{key}` (`expectedVersion`); a profile's `valid` and `problems` under the release of `workspaceKey` (0.9 J2); its `modelKey`, `workspaceKey` on every route and the list's `modelKey` (0.11 M3) | J27.7, J36.3, J36.4 |
 | `POST /imports` (`multipart/form-data`: `file`, and `request` as JSON: `workspaceKey` or `changeSetId` with `expectedChangeSetVersion`, `profileKey` or an inline `profile` or neither, `format`, `policy`, `onExisting`, `stage`; `Idempotency-Key`); an import job's `parameters.profile` and `parameters.file`, its items' `ref` (`{sheet}!{row}`) (0.9 J2) | J27.8, J27.9, J27.10 |
 | `POST /imports` with `stage: preview`; the job's `preview` (`coverage`, `items`, `rows`, `counts`, `result`, `previewedAt`), `bindingReport` and `confirmedAt`; `POST /jobs/{id}/confirm`; `POST /jobs/{id}/cancel` of a waiting preview; `GET /jobs/{id}/rows` (`status`, paging); `GET /jobs/{id}/items` (`ref`); a row refusal's `details.cells` (0.9 J3) | J27.10, J27.11, J27.12 |
 | The job's `notices` (`RECORD_IDS_OF_ANOTHER_WORKSPACE`); `OBJECT_ALREADY_EXISTS` and `REFERENCE_NOT_FOUND` naming the workspace that holds the ID (`details.workspaceKey`) (0.9 J4a) | J27.10, J27.11 |
@@ -127,8 +127,8 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/docs` a
 | `POST /consumer-subscriptions`, `GET /consumer-subscriptions` (`consumerApi`, `workspaceKey`, `status`), `GET`, `PATCH` and `DELETE /consumer-subscriptions/{id}`, `POST /consumer-subscriptions/{id}/suspend`, `POST /consumer-subscriptions/{id}/resume` (`reset`); served with `CONSUMER_SUBSCRIPTIONS_ENABLED`; the subscription's `delivery`; `name` (U5a); `maxEventsPerBatch`, `payload`, `format` (C17; `mode` and `debounceSeconds` retired) | J30.6, J30.7, J30.8, J30.9 |
 | `GET /consumer-subscriptions/{id}/deliveries` (`status`, paging), `GET /consumer-subscriptions/{id}/deliveries/{deliveryId}`, `POST …/deliveries/{deliveryId}/resend` (`eventId`); `CONSUMER_WEBHOOK_LOG_RETENTION_DAYS` and `consumerSubscriptions.logRetentionDays` (U5a) | J30.10 |
 | Delivered in 0.11 M1 ([API.md § Workspace models](../API.md#workspace-models-product-011)): a workspace's `model` (`releaseId`, `releaseKey`, `releaseVersion`, `schemaVersion`, `modelHash`, `version`, `updatedAt`); `modelReleaseId` on `POST /workspaces`; `RDM-Workspace` on `GET /model`; `MODEL_RELEASE_CHANGED`'s `workspaceKey` and `currentReleaseId`; `CHANGE_SET_MODEL_RELEASE_CONFLICT`'s `workspaceKey`; `MODEL_REGISTRY_UNAVAILABLE`'s `workspaceKey`, `releaseId` and `schemaVersion` (`GET /model-runtime-state` and `POST /model-releases/{id}/activation` removed) | J36.1, J36.2, J36.3, J36.5, J36.6, J36.8 |
-| Planned for 0.11: `compatibility.workspaces` on draft compile (M3, D25) | J36 |
-| Planned for 0.11: an import profile's `modelKey`; `workspace` on the consumer API index and OpenAPI document; spanning reads' `workspaceKey` and `modelReleaseId` per item (M3, M4) | J36.6, J36.7 |
+| Delivered in 0.11 M3: `compatibility.workspaces` on draft compile and the release diff (D25, D37); an import profile's `modelKey`; `workspace` on the consumer API index and OpenAPI document, which answer `RDM-Workspace` and `X-Model-Release-Id` | J36.2, J36.3, J36.4 |
+| Planned for 0.11: spanning reads' `workspaceKey` and `modelReleaseId` per item (M4) | J36.7 |
 | Planned for 0.11: `POST /workspaces/{key}/model/migrations` (`targetReleaseId`, `expectedVersion`), `POST /change-sets/{id}/model-migrations` (`targetReleaseId`, `expectedChangeSetVersion`); a migration job's rows (`conversion`, `loss`, `refused`) and its confirmation (`expectedFeedPosition`, `acceptLoss`) (V1–V3) | J37, J37.1–J37.8 |
 | Planned for 0.11: `GET/POST /model-mappings`, `GET/DELETE /model-mappings/{key}`, `POST/GET /model-mappings/{key}/operations`, `POST /model-mappings/{key}/undo`, `POST /model-mappings/{key}/redo`, `POST /model-mappings/{key}/inference`, `GET /model-mappings/{key}/inference/proposals` (X1) | J38.1 |
 | Planned for 0.11: `POST /moves` (`sourceWorkspaceKey`, `targetWorkspaceKey`, `mapping`, `selection`, `sourceAt`, `mode`, `stage`); a move job's rows (`create`, `update`, `updateOriginal`, `refused`, `notMoved`) and `origin`; its confirmation into change sets (X2, X3) | J38, J38.2–J38.8 |
@@ -151,8 +151,8 @@ deployment's, each answer checked against the API's own document.
 | `POST /{consumerApi}/v{contractVersion}/resolve` (`workspace`, `publication`, `asOf`; the body's `defaults` and `items`, each with `ref`, `query` or `id`, the definition's parameters and `to.{parameter}`) | J28.13, J28.14, J29.8–J29.10, J29.13, J29.14, J29.15, J23.7, J23.8, J25.5, J25.7 |
 | `GET /{consumerApi}/v{contractVersion}/publications` (`workspace`, `pageSize`, `cursor`, `position`, `from`, `includeTotal`) | J28.14, J30.3, J30.5 |
 | `GET /{consumerApi}/v{contractVersion}/events` (`workspace`, `event`, `after`, `cursor`, `pageSize`, `payload`, the definition's parameters) | J30, J30.1–J30.5 |
-| `GET /` (the API index: `pageSize`, `cursor`, `position`, `from`, `includeTotal`) | J20.3 |
-| `GET /{consumerApi}/v{contractVersion}/openapi.json` | J20.3, J20.4 |
+| `GET /` (the API index: `workspace` (0.11 M3), `pageSize`, `cursor`, `position`, `from`, `includeTotal`) | J20.3, J36.3 |
+| `GET /{consumerApi}/v{contractVersion}/openapi.json` (`workspace`, 0.11 M3) | J20.3, J20.4, J36.3 |
 
 ## Error codes
 
@@ -174,7 +174,8 @@ documented nowhere; API.md documents them since H4c (D-4).
 | J08, J25 | `INVALID_MODEL`, `RELEASE_IDENTITY_CONFLICT`, `MODEL_MIGRATION_REQUIRED`, `MODEL_RELEASE_NOT_FOUND`, `MODEL_DRAFT_NOT_FOUND`, `UNSUPPORTED_SCHEMA_VERSION` (also a schema 0.8 document declaring `consumerApis`, J25.6), `MODEL_REGISTRY_REFRESH_FAILED`, `CONSUMER_CONTRACT_VERSION_REQUIRED`; diff findings `CONSUMER_API_REMOVED`, `CONSUMER_CONTRACT_VERSION_DECREASED` |
 | J25.7 | `OPERATION_NOT_OFFERED` (`404`, on `objects`, `xref` and `resolve` of a definition that does not list the operation) |
 | J20.6 | `CONSUMER_API_NOT_FOUND` (`404`, the expanded read of a definition the context's model does not declare) |
-| J36, J37, J38 (planned for 0.11) | `IMPORT_PROFILE_MODEL_MISMATCH`, `MODEL_ELEMENT_NOT_IN_EVERY_MODEL`, `COUNTERPARTS_ACROSS_MODELS`, `MIGRATION_REVIEW_STALE`, `MIGRATION_LOSS_NOT_ACCEPTED`, `MOVE_SAME_WORKSPACE`, `MODEL_MAPPING_MODEL_MISMATCH`, `MODEL_MAPPING_NOT_FOUND`, `MOVE_MAPPING_CHANGED`; `ACTIVATION_CONFLICT`, `MODEL_RELEASE_CHANGED`, `CHANGE_SET_MODEL_RELEASE_CONFLICT` and `MODEL_REGISTRY_UNAVAILABLE` naming the workspace |
+| J36.3, J36.4 (0.11 M3) | `IMPORT_PROFILE_MODEL_MISMATCH` (422 on a profile's save, import or file in another model's workspace; 409 on installing a draft over another model's profile) |
+| J36, J37, J38 (planned for 0.11) | `MODEL_ELEMENT_NOT_IN_EVERY_MODEL`, `COUNTERPARTS_ACROSS_MODELS`, `MIGRATION_REVIEW_STALE`, `MIGRATION_LOSS_NOT_ACCEPTED`, `MOVE_SAME_WORKSPACE`, `MODEL_MAPPING_MODEL_MISMATCH`, `MODEL_MAPPING_NOT_FOUND`, `MOVE_MAPPING_CHANGED`; `ACTIVATION_CONFLICT`, `MODEL_RELEASE_CHANGED`, `CHANGE_SET_MODEL_RELEASE_CONFLICT` and `MODEL_REGISTRY_UNAVAILABLE` naming the workspace |
 | J08, J11, J24 | `MODEL_RELEASE_CHANGED` |
 | J19 | `WORKSPACE_ALREADY_EXISTS`, `DEFAULT_WORKSPACE_CANNOT_BE_RETIRED`, `WORKSPACE_IS_DEFAULT`, `WORKSPACE_HAS_PUBLICATIONS`, `WORKSPACE_NOT_EMPTY` |
 | J23 | `AS_OF_NOT_SUPPORTED`, `INVALID_EFFECTIVE_PERIOD`; on the consumer API both answer `400`: `AS_OF_NOT_SUPPORTED` (J23.6, J23.7) and `INVALID_AS_OF` (J23.8) |

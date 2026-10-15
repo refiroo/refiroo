@@ -26,6 +26,7 @@ const profile = (key: string, extra: Partial<ImportProfile> = {}): ImportProfile
   name: `Profile ${key}`,
   version: 1,
   checkedAgainst: "r1",
+  modelKey: "m1",
   valid: true,
   problems: [],
   createdAt: "2026-10-01T00:00:00Z",

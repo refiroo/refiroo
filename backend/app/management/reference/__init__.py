@@ -13,6 +13,7 @@ document, so the OpenAPI locks do not change with the page.
 import json
 from pathlib import Path
 from typing import Annotated
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse
@@ -63,6 +64,8 @@ def api_reference_router(script: ApiReferenceScript) -> APIRouter:
         # Scalar writes the selected source's slug into the address (``?api=consumer-…``) and reads it
         # back on load, so a reloaded or shared link opens that source. The page itself ignores it.
         api: Annotated[str | None, Query()] = None,
+        # The workspace whose consumer APIs the page lists (0.11 D39); the default workspace without it.
+        workspace: Annotated[str | None, Query()] = None,
     ) -> HTMLResponse:
         root_path = request.scope.get("root_path", "").rstrip("/")
         sources = [
@@ -72,7 +75,7 @@ def api_reference_router(script: ApiReferenceScript) -> APIRouter:
                 "url": f"{root_path}{request.app.openapi_url}",
                 "default": True,
             },
-            *consumer_sources(session, root_path),
+            *consumer_sources(session, root_path, workspace),
         ]
         return HTMLResponse(render_page(script, root_path, sources))
 
@@ -87,21 +90,23 @@ def api_reference_router(script: ApiReferenceScript) -> APIRouter:
     return router
 
 
-def consumer_sources(session: Session, root_path: str) -> list[dict]:
-    """One source per consumer API of the default workspace's release, in ``consumerApi`` order as
-    the API index lists them, labelled ``{name} · v{contractVersion}``. The slug is prefixed so no
+def consumer_sources(session: Session, root_path: str, workspace: str | None = None) -> list[dict]:
+    """One source per consumer API of the release ``workspace`` runs (the default workspace without
+    it, 0.11 D39), in ``consumerApi`` order as the API index lists them, labelled ``{name} ·
+    v{contractVersion}``, each document asked for that workspace. The slug is prefixed so no
     definition's key can take the management source's. While that model cannot be read (none
-    installed, the registry unhealthy, an unsupported schema) the page still documents the
-    management API, whose own routes then report the cause."""
+    installed, the registry unhealthy, an unsupported schema, an unknown workspace) the page still
+    documents the management API, whose own routes then report the cause."""
     try:
-        model = resolve_model_snapshot(session, None).model
+        model = resolve_model_snapshot(session, workspace).model
     except ApiError:
         return []
+    suffix = f"?{urlencode({'workspace': workspace})}" if workspace else ""
     return [
         {
             "title": f"{definition.name} · v{definition.contractVersion}",
             "slug": f"consumer-{definition.key}-v{definition.contractVersion}",
-            "url": f"{root_path}{consumer_openapi_path(definition)}",
+            "url": f"{root_path}{consumer_openapi_path(definition)}{suffix}",
         }
         for definition in sorted(consumer_apis(model), key=lambda item: item.key)
     ]

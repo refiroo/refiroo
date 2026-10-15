@@ -426,10 +426,10 @@ answers its definitions in 0.9. The shapes map completely:
 GET /api/consumer/{consumerApi}/v{contractVersion}/xref?query=…&{parameters}&expect=one|any&pageSize=…
 GET /api/consumer/{consumerApi}/v{contractVersion}/objects/{id}?{parameters}
 GET /api/consumer/{consumerApi}/v{contractVersion}/lists/{listKey}?{within}=…&{filters}&position=…&pageSize=…
-GET /api/consumer/{consumerApi}/v{contractVersion}/openapi.json
+GET /api/consumer/{consumerApi}/v{contractVersion}/openapi.json?workspace=…
 POST /api/consumer/{consumerApi}/v{contractVersion}/resolve
 GET /api/consumer/{consumerApi}/v{contractVersion}/publications?pageSize=…
-GET /api/consumer
+GET /api/consumer?workspace=…
 ```
 
 - **Operations a definition offers** (C18, C-D132): `objects` (get by ID), `xref` and `resolve` are
@@ -589,10 +589,18 @@ _Delivered in C6a (2026-10-05):_ each item also has `status` (`active`, the one 
 `GET /api/consumer` lists the installed definitions, paged: `consumerApi`, `name`, `contractVersion` and the
 URL of each OpenAPI document. Clients discover the APIs from it, and the API reference page (Base 0.9
 Track D) builds its list of sources from it. _Delivered in C6b (2026-10-05):_ ordered by
-`consumerApi`, `description` when declared, paged without `seek`, not per workspace (C-D69); each
+`consumerApi`, `description` when declared, paged without `seek` (C-D69); each
 document is OpenAPI 3.1 with its paths written out with the name and version, `info.version` the
 contract version (SETTINGS_AND_UI_PLAN "Versions in the documentation"), its schemas from
 `output_contract`, checked against real answers (C-D70).
+
+**Per workspace (0.11 M3, D10, D27).** Each workspace runs a model of its own, so the index and each
+OpenAPI document take `workspace`, as the reads do, and describe the release that workspace runs (the
+default workspace without it; an unknown or retired one is `404 WORKSPACE_NOT_FOUND`). Both answer
+`RDM-Workspace` and `X-Model-Release-Id` naming what they describe, and their ETag follows that
+release. The index's `openapi` links carry the `workspace` asked for. A definition key may mean
+different contracts in two workspaces; a definition another workspace's model declares is
+`404 CONSUMER_API_NOT_FOUND`. The API reference page takes `?workspace=` the same way (D39).
 
 The existing gateway can stay in front and map the reference routes (`/xref`,
 `/site-groups/{groupId}/sites`, …) onto these endpoints, so current consumers move without changes

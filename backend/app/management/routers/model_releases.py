@@ -4,22 +4,21 @@ from sqlalchemy import select
 from ...common.cursors import METADATA_CURSOR_MESSAGE
 from ...common.pagination import datetime_key, integer_key, paginate_statement, text_key
 from ...common.time import as_utc
-from ...engine.model.compatibility import analyze_compatibility
 from ...engine.model.compiler import SCHEMA_VERSIONS, compile_model
 from ...engine.model.diff import semantic_diff
-from ...engine.model.workspace_models import assigned_workspaces, workspaces_running
+from ...engine.model.draft_compatibility import assess
+from ...engine.model.workspace_models import assigned_workspaces
 from ...errors import api_error
 from ...models.database import AuditEvent, ModelRelease, WorkspaceModel
 from ..dependencies import DbSession, DefaultModelSnapshot
 from ..paging import PageQuery
 from ..presenters import (
+    candidate_compatibility_response,
     change_response,
     consumer_contracts_response,
     diagnostic_details,
-    diagnostic_response,
 )
 from ..schemas.model import (
-    ModelCompatibilityResponse,
     ModelReleaseActivationPage,
     ModelReleaseActivationResponse,
     ModelReleaseDiffResponse,
@@ -202,26 +201,15 @@ def diff_model_release(
     ):
         raise api_error(500, "INTERNAL_ERROR", "Compiled model result is incomplete")
 
-    # Against the data of the workspaces running the default workspace's release (M3 reports
-    # each workspace running the baseline's model, D25).
-    compatibility = analyze_compatibility(
-        session,
-        snapshot.model,
-        candidate.model,
-        snapshot.release_id,
-        workspaces_running(session, snapshot.release_db_id),
-    )
+    # Into the default workspace, and into each workspace running the candidate's model (D25).
+    compatibility = assess(session, snapshot, candidate.model)
     changes = semantic_diff(baseline.canonical_model, candidate.canonical_model)
 
     return ModelReleaseDiffResponse(
         againstReleaseId=against_release_id,
         releaseId=release_id,
         changes=[change_response(item) for item in changes],
-        compatibility=ModelCompatibilityResponse(
-            classification=compatibility.classification,
-            activeReleaseId=compatibility.active_release_id,
-            diagnostics=[diagnostic_response(item) for item in compatibility.diagnostics],
-        ),
+        compatibility=candidate_compatibility_response(compatibility),
         consumerContracts=consumer_contracts_response(
             snapshot.model, candidate.model, snapshot.release_id
         ),

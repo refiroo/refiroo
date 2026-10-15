@@ -53,19 +53,26 @@ def list_import_profiles(
     session: DbSession,
     paging: PageQuery,
     page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
+    model_key: str | None = Query(default=None, alias="modelKey", description="Only this model's profiles"),
+    workspace_key: str | None = Query(default=None, alias="workspaceKey"),
 ) -> ImportProfilePage:
-    """Import profiles in key order, each read under the active model release, with its last load
-    (0.10 A5c)."""
-    page = profile_page(session, paging, page_size)
+    """Import profiles in key order, each read under the release of ``workspaceKey`` (the default
+    workspace without it), with its last load (0.10 A5c)."""
+    page = profile_page(session, paging, page_size, model_key)
     loads = last_loads(session, [profile.key for profile in page.items])
-    return import_profile_page(stored_page(session, page.items), page, loads)
+    return import_profile_page(stored_page(session, page.items, workspace_key), page, loads)
 
 
 @router.get("/import-profiles/{profile_key}", response_model=ImportProfileResponse)
-def get_import_profile(profile_key: str, session: DbSession) -> ImportProfileResponse:
-    """A profile, with ``valid`` and ``problems`` under the active model release, and its last
-    load: the latest import naming it and what became of what it loaded (0.10 A5c)."""
-    found = read_profile(session, profile_key)
+def get_import_profile(
+    profile_key: str,
+    session: DbSession,
+    workspace_key: str | None = Query(default=None, alias="workspaceKey"),
+) -> ImportProfileResponse:
+    """A profile, with ``valid`` and ``problems`` under the release of ``workspaceKey`` (the default
+    workspace without it), and its last load: the latest import naming it and what became of what
+    it loaded (0.10 A5c)."""
+    found = read_profile(session, profile_key, workspace_key)
     return import_profile_response(found, last_loads(session, [found.profile.key]).get(profile_key))
 
 
@@ -74,8 +81,9 @@ def create_import_profile(
     payload: ImportProfileCreate, session: DbSession
 ) -> ImportProfileResponse:
     """Save a profile: how a file's sheets and columns become records and relationships. It is
-    checked against the active model release, and refused with every problem at its JSON pointer
-    (``422 INVALID_IMPORT_PROFILE``); ``409 IMPORT_PROFILE_EXISTS`` for a key in use."""
+    checked against the release of ``workspaceKey`` (the default workspace without it), and
+    refused with every problem at its JSON pointer (``422 INVALID_IMPORT_PROFILE``);
+    ``409 IMPORT_PROFILE_EXISTS`` for a key in use."""
     return import_profile_response(create_profile(session, payload))
 
 
@@ -84,7 +92,8 @@ def update_import_profile(
     profile_key: str, payload: ImportProfileUpdate, session: DbSession
 ) -> ImportProfileResponse:
     """Replace a profile at ``expectedVersion`` (``409 IMPORT_PROFILE_VERSION_CONFLICT`` naming
-    the current version otherwise); checked as a new one is."""
+    the current version otherwise); checked as a new one is, and refused
+    ``422 IMPORT_PROFILE_MODEL_MISMATCH`` in a workspace running another model."""
     found = update_profile(session, profile_key, payload)
     return import_profile_response(found, last_loads(session, [found.profile.key]).get(profile_key))
 

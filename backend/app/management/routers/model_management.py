@@ -15,13 +15,14 @@ from ...engine.model.authoring.consumer_documents import (
     draft_schema,
 )
 from ...engine.model.authoring.outline import draft_model, draft_outline
-from ...engine.model.compatibility import analyze_compatibility
+from ...engine.model.authoring.released import base_model, base_release
 from ...engine.model.compiler import (
     SCHEMA_VERSIONS,
     compile_authored_model,
     compile_model,
 )
 from ...engine.model.diff import semantic_diff
+from ...engine.model.draft_compatibility import assess
 from ...engine.model.drafts import (
     base_release_public_id,
     create_draft,
@@ -51,17 +52,18 @@ from ...engine.model.workspace_models import workspaces_running
 from ...engine.sources import draft_profile
 from ...engine.sources.inference import run as inference
 from ...errors import api_error
-from ...models.database import AuditEvent, ModelDraft, ModelDraftOperation, ModelRelease
+from ...models.database import AuditEvent, ModelDraft, ModelDraftOperation
 from ..dependencies import DbSession, DefaultModelSnapshot
 from ..paging import PageQuery
 from ..presenters import (
+    candidate_compatibility_response,
     change_response,
     consumer_contracts_response,
     diagnostic_details,
     diagnostic_response,
 )
 from ..schemas.model import (
-    ModelCompatibilityResponse,
+    CandidateCompatibilityResponse,
     ModelCompilationResponse,
     ModelDraftConsumerApiResponse,
     ModelDraftCreate,
@@ -319,11 +321,12 @@ def list_model_draft_operations(
     response_model_exclude_unset=True,
 )
 def get_model_draft_outline(
-    draft_id: str, session: DbSession, snapshot: DefaultModelSnapshot
+    draft_id: str, session: DbSession
 ) -> ModelDraftOutlineResponse:
     """The draft's structure as the editor shows it (0.10 A4a, D36), with each consumer API's
-    contract against the active release (0.10 A4c, D55)."""
-    outline = draft_outline(session, load_draft(session, draft_id), snapshot.model)
+    contract against the release the draft is compared with (0.10 A4c, D55; 0.11 D37)."""
+    draft = load_draft(session, draft_id)
+    outline = draft_outline(session, draft, base_model(session, draft))
     return ModelDraftOutlineResponse.model_validate(outline)
 
 
@@ -344,11 +347,13 @@ def get_model_draft_model(draft_id: str, session: DbSession) -> ModelDraftModelR
     response_model_exclude_unset=True,
 )
 def get_model_draft_consumer_api(
-    draft_id: str, consumer_api: str, session: DbSession, snapshot: DefaultModelSnapshot
+    draft_id: str, consumer_api: str, session: DbSession
 ) -> ModelDraftConsumerApiResponse:
     """A consumer API definition of the draft as written and, when the draft compiles, with every
-    default and its contract against the active release (0.10 A4c, D56). It reads and writes nothing."""
-    answer = draft_consumer_api(load_draft(session, draft_id), consumer_api, snapshot.model)
+    default and its contract against the release the draft is compared with (0.10 A4c, D56; 0.11
+    D37), compatible for a new model. It reads and writes nothing."""
+    draft = load_draft(session, draft_id)
+    answer = draft_consumer_api(draft, consumer_api, base_model(session, draft))
     return ModelDraftConsumerApiResponse.model_validate(answer)
 
 
@@ -450,67 +455,52 @@ def compile_model_draft(
             valid=False,
             diagnostics=[diagnostic_response(item) for item in compiled.diagnostics],
             changes=[],
-            compatibility=ModelCompatibilityResponse(
+            compatibility=CandidateCompatibilityResponse(
                 classification="invalid",
                 activeReleaseId=snapshot.release_id,
                 diagnostics=[],
+                workspaces=[],
             ),
-        )
-    compatibility = analyze_compatibility(
-        session,
-        snapshot.model,
-        compiled.model,
-        snapshot.release_id,
-        workspaces_running(session, snapshot.release_db_id),
-    )
-    baseline_release = None
-    if draft.base_model_release_id is not None:
-        baseline_release = session.get(ModelRelease, draft.base_model_release_id)
-    if baseline_release is None:
-        baseline_release = session.scalar(
-            select(ModelRelease).where(ModelRelease.public_id == snapshot.release_id)
-        )
-    if baseline_release is None:
-        raise api_error(
-            503, "MODEL_RUNTIME_STATE_UNAVAILABLE", "Model runtime state is unavailable"
-        )
-    baseline = compile_model(baseline_release.model_json)
-    if not baseline.valid or baseline.canonical_model is None:
-        if baseline.unsupported_schema_version is not None:
-            raise api_error(
-                422,
-                "UNSUPPORTED_SCHEMA_VERSION",
-                f"Baseline release '{baseline_release.public_id}' uses schema version"
-                f" '{baseline.unsupported_schema_version}' which this deployment cannot interpret",
-                {
-                    "releaseId": baseline_release.public_id,
-                    "schemaVersion": baseline.unsupported_schema_version,
-                    "supportedSchemaVersions": list(SCHEMA_VERSIONS),
-                    "operation": "compile",
-                },
-            )
-        raise api_error(
-            500, "INVALID_INSTALLED_MODEL", "An installed model release failed validation"
         )
     if compiled.canonical_model is None:
         raise api_error(500, "INTERNAL_ERROR", "Compiled model result is incomplete")
-    changes = semantic_diff(baseline.canonical_model, compiled.canonical_model)
+    # D37: compared with its base, or the newest release of its model; a new model with nothing.
+    baseline_release = base_release(session, draft)
+    baseline = None
+    if baseline_release is not None:
+        baseline = compile_model(baseline_release.model_json)
+        if not baseline.valid or baseline.canonical_model is None or baseline.model is None:
+            if baseline.unsupported_schema_version is not None:
+                raise api_error(
+                    422,
+                    "UNSUPPORTED_SCHEMA_VERSION",
+                    f"Baseline release '{baseline_release.public_id}' uses schema version"
+                    f" '{baseline.unsupported_schema_version}' which this deployment cannot interpret",
+                    {
+                        "releaseId": baseline_release.public_id,
+                        "schemaVersion": baseline.unsupported_schema_version,
+                        "supportedSchemaVersions": list(SCHEMA_VERSIONS),
+                        "operation": "compile",
+                    },
+                )
+            raise api_error(
+                500, "INVALID_INSTALLED_MODEL", "An installed model release failed validation"
+            )
+    changes = semantic_diff(baseline.canonical_model if baseline else {}, compiled.canonical_model)
 
     return ModelCompilationResponse(
         valid=True,
         model=compiled.canonical_model,
         modelHash=compiled.model_hash,
         diagnostics=[diagnostic_response(item) for item in compiled.diagnostics],
-        againstReleaseId=baseline_release.public_id,
+        againstReleaseId=baseline_release.public_id if baseline_release else None,
         changes=[change_response(item) for item in changes],
-        compatibility=ModelCompatibilityResponse(
-            classification=compatibility.classification,
-            activeReleaseId=compatibility.active_release_id,
-            diagnostics=[diagnostic_response(item) for item in compatibility.diagnostics],
-        ),
+        compatibility=candidate_compatibility_response(assess(session, snapshot, compiled.model)),
         consumerContracts=consumer_contracts_response(
-            snapshot.model, compiled.model, snapshot.release_id
-        ),
+            baseline.model, compiled.model, baseline_release.public_id
+        )
+        if baseline is not None and baseline_release is not None
+        else None,
     )
 
 
@@ -524,7 +514,6 @@ def install_model_draft(
     draft_id: str,
     payload: ModelDraftVersionRequest,
     session: DbSession,
-    snapshot: DefaultModelSnapshot,
     response: Response,
 ) -> ModelInstallationResponse:
     with model_installation_lock:
@@ -538,13 +527,8 @@ def install_model_draft(
                 "Model draft is invalid and cannot be installed",
                 diagnostic_details(compiled.diagnostics),
             )
-        analyze_compatibility(
-            session,
-            snapshot.model,
-            compiled.model,
-            snapshot.release_id,
-            workspaces_running(session, snapshot.release_db_id),
-        )
+        # Installing is instance-wide and checks no workspace's data; activation does (ADR-042).
+        draft_profile.require_installable(session, draft, compiled.model)
         try:
             release, created = install_model_release(session, compiled.model)
         except ReleaseIdentityConflict as exc:

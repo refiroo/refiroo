@@ -15,7 +15,12 @@ const compiled = (valid: boolean): ModelCompilation => ({
   diagnostics: valid
     ? []
     : [{ severity: "error", code: "INVALID_REFERENCE", path: "/objectTypes/bin", message: "Bin needs a view" }],
-  compatibility: { classification: valid ? "compatible" : "invalid", activeReleaseId: "r1", diagnostics: [] },
+  compatibility: {
+    classification: valid ? "compatible" : "invalid",
+    activeReleaseId: "r1",
+    diagnostics: [],
+    workspaces: [],
+  },
   changes: valid ? [{ kind: "added", path: "/objectTypes/bin" }] : [],
 });
 const release = { id: "r2", key: "store", name: "Store", version: "1.2.1" } as ModelRelease;

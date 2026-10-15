@@ -108,6 +108,19 @@ export interface ModelCompatibility {
   diagnostics: ModelDiagnostic[];
 }
 
+/** Activating a candidate into one workspace running its model (0.11 D25). */
+export interface WorkspaceCompatibility {
+  workspaceKey: string;
+  releaseId: string;
+  classification: "compatible" | "migration_required";
+  diagnostics: ModelDiagnostic[];
+}
+
+/** Into the default workspace, and into each workspace running the candidate's model (D37). */
+export interface CandidateCompatibility extends ModelCompatibility {
+  workspaces: WorkspaceCompatibility[];
+}
+
 export interface ModelChange {
   kind: "added" | "changed" | "removed";
   path: string;
@@ -179,11 +192,13 @@ export interface ModelValidation {
 export interface ModelCompilation extends ModelValidation {
   model?: Record<string, unknown>;
   modelHash?: string;
-  compatibility: ModelCompatibility;
-  againstReleaseId?: string;
+  compatibility: CandidateCompatibility;
+  /** The release the draft is compared with (D37); null for a new model. */
+  againstReleaseId?: string | null;
   /** Empty for a draft that does not compile. */
   changes: ModelChange[];
-  /** The draft's consumer API definitions against the active release's (0.9 C1); absent when invalid. */
+  /** The draft's consumer API definitions against the release it is compared with's (0.9 C1, 0.11
+   * D37); absent when invalid or for a new model. */
   consumerContracts?: ModelConsumerContracts;
 }
 
@@ -198,7 +213,7 @@ export interface ModelReleaseDiff {
   againstReleaseId: string;
   releaseId: string;
   changes: ModelChange[];
-  compatibility: ModelCompatibility;
+  compatibility: CandidateCompatibility;
 }
 
 /** The release a workspace runs and its assignment's version, which activation claims (0.11 M1). */

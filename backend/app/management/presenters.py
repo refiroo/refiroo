@@ -18,6 +18,7 @@ from ..engine.jobs.store import release_public_ids
 from ..engine.model.compiler import ModelDiagnostic
 from ..engine.model.consumer_contract import contract_diagnostics
 from ..engine.model.diff import SemanticChange
+from ..engine.model.draft_compatibility import CandidateCompatibility
 from ..engine.model.workspace_models import Assignment, assignments_of, load_assignment
 from ..engine.reads.feed import FeedPage as FeedRead
 from ..engine.reads.object_query import live_object_paths
@@ -63,9 +64,11 @@ from .schemas.jobs import (
     JobResponse,
 )
 from .schemas.model import (
+    CandidateCompatibilityResponse,
     ModelChangeResponse,
     ModelConsumerContractsResponse,
     ModelDiagnosticResponse,
+    WorkspaceCompatibilityResponse,
 )
 from .schemas.records import (
     AttributeOutput,
@@ -117,6 +120,24 @@ def diagnostic_response(item: ModelDiagnostic) -> ModelDiagnosticResponse:
     if item.count is not None:
         values["count"] = item.count
     return ModelDiagnosticResponse(**values)
+
+
+def candidate_compatibility_response(found: CandidateCompatibility) -> CandidateCompatibilityResponse:
+    """A candidate's compatibility: into the default workspace, and per workspace of its model."""
+    return CandidateCompatibilityResponse(
+        classification=found.default.classification,
+        activeReleaseId=found.default.active_release_id,
+        diagnostics=[diagnostic_response(item) for item in found.default.diagnostics],
+        workspaces=[
+            WorkspaceCompatibilityResponse(
+                workspaceKey=item.workspace_key,
+                releaseId=item.release_id,
+                classification=item.result.classification,
+                diagnostics=[diagnostic_response(d) for d in item.result.diagnostics],
+            )
+            for item in found.workspaces
+        ],
+    )
 
 
 def consumer_contracts_response(
@@ -561,6 +582,7 @@ def import_profile_response(
         name=profile.name,
         version=profile.version,
         checkedAgainst=found.checked_against,
+        modelKey=found.model_key,
         valid=not found.problems,
         problems=[ImportProfileProblem(**problem.body()) for problem in found.problems],
         createdAt=as_utc(profile.created_at),

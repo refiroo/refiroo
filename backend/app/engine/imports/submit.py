@@ -26,7 +26,7 @@ from ...models.imports import ImportProfileDefinition, ImportRequest
 from ..jobs.batches import check_batch_context, open_batch_context
 from ..jobs.files import JobFiles
 from ..jobs.store import remember_key, replayed_job, request_fingerprint, start_job
-from .profiles import check_profile, invalid_profile, load_profile, parsed
+from .profiles import check_profile, invalid_profile, load_profile, parsed, require_model
 from .readers import PROFILE_SHEET, carried_profile, unreadable
 
 IMPORTS_SCOPE = "POST /imports"
@@ -220,6 +220,7 @@ def _profile(
         )
     if request.profileKey is not None:
         stored = load_profile(session, request.profileKey)
+        require_model(session, stored, model)
         definition = parsed(stored)
         described = {"key": stored.key, "version": stored.version}
     else:

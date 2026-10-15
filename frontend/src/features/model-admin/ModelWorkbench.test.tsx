@@ -175,7 +175,7 @@ describe("ModelDraftEditor", () => {
       diagnostics: [],
       againstReleaseId: "r1",
       changes: [{ kind: "changed", path: "/product/name", before: "Old", after: "Test" }],
-      compatibility: { classification: "compatible", activeReleaseId: "r1", diagnostics: [] },
+      compatibility: { classification: "compatible", activeReleaseId: "r1", diagnostics: [], workspaces: [] },
     });
     render(
       <ModelDraftEditor

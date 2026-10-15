@@ -6,6 +6,29 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.11 M3)
+
+- Import profiles belong to a model: `modelKey` on every profile, `workspaceKey` on its create,
+  update, read and list, and the list's `modelKey` filter. A profile is refused
+  (`422 IMPORT_PROFILE_MODEL_MISMATCH`) when saved, imported with or given a file in a workspace
+  running another model, and reads there as not valid with that problem.
+- Draft compilation and the release diff report `compatibility.workspaces`: what activating would
+  need in each (not retired) workspace running the candidate's model, against its own release.
+- The consumer API index and each OpenAPI document take `workspace` and answer `RDM-Workspace` and
+  `X-Model-Release-Id`; the index's document links carry the workspace. The API reference page
+  (`/docs`) takes `?workspace=`.
+
+### Changed (0.11 M3)
+
+- A draft is compared with its base release, or without one with the newest installed release of
+  its own model, or with nothing when it is a new model (every element `added`, no consumer
+  contracts, no data impact). A draft-only operation's impact counts only the workspaces running the
+  draft's model. The top-level `compatibility` is what activating into the default workspace would
+  do.
+- Installing a draft whose profile key another model's profile holds is refused before anything is
+  installed (`409 IMPORT_PROFILE_MODEL_MISMATCH`); installing no longer runs an unused
+  compatibility analysis.
+
 ### Added (0.11 M1)
 
 - Each workspace runs a model release of its own (ADR-042): `GET /workspaces/{key}/model`,

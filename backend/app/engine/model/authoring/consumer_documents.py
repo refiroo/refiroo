@@ -29,8 +29,9 @@ JSON_SCHEMA = "https://json-schema.org/draft/2020-12/schema"
 _REF = "#/components/schemas/"
 
 
-def draft_consumer_api(draft: ModelDraft, key: str, active: EngineModel) -> dict[str, Any]:
-    """The definition ``key`` of the draft, with its defaults and contract when the draft compiles."""
+def draft_consumer_api(draft: ModelDraft, key: str, active: EngineModel | None) -> dict[str, Any]:
+    """The definition ``key`` of the draft, with its defaults and contract when the draft compiles;
+    against ``active``, the model it is compared with, and compatible without one (a new model)."""
     data = draft.model_json if isinstance(draft.model_json, dict) else {}
     written = next(
         (item for item in data.get("consumerApis") or [] if isinstance(item, dict) and item.get("key") == key),
@@ -47,7 +48,7 @@ def draft_consumer_api(draft: ModelDraft, key: str, active: EngineModel) -> dict
         prefix = f"/consumerApis/{key.replace('~', '~0').replace('/', '~1')}"
         mine = [
             item
-            for item in contract_diagnostics(active, compiled.model)
+            for item in (contract_diagnostics(active, compiled.model) if active is not None else ())
             if item.path == prefix or item.path.startswith(f"{prefix}/")
         ]
         answer["contract"] = {

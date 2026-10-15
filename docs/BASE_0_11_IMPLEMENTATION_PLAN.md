@@ -10,7 +10,7 @@ delivered before production hardening. D1 is the user's; **D2, D3 and D12 were a
 packages are specified below at package level; each package's detailed plan, test cases and
 decisions are written and accepted when it starts, and it is delivered in the order of the
 [delivery queue](#delivery-queue), each by the [delivery steps](#how-a-package-is-delivered).
-**Delivered:** P0 (2026-10-15).
+**Delivered:** P0, M1 with M2 (2026-10-15), M3 (2026-10-16).
 
 **Target:** Product 0.11.0, [production hardening and staged model rollout](ROADMAP.md#product-release-011--production-hardening-and-staged-model-rollout),
 with the two requirements the user added on 2026-10-15 (ROADMAP commit `a0859ae`).
@@ -291,7 +291,7 @@ change) and `volume` (every budget).
 | | **Part 1 — workspace models** | | |
 | 2 | [M1](#m1-a-release-assignment-per-workspace) | P0 | **Delivered 2026-10-15** (M2 folded in). Every workspace names its release; every request resolves its workspace, then its snapshot; the commit guard per workspace |
 | 3 | [M2](#m2-installing-and-activating-into-one-workspace) | — | **Folded into M1 (D32).** Activation into one workspace with its own compatibility check; unique values, matrix states and subscriptions scoped to it; a new workspace created on a model |
-| 4 | [M3](#m3-instance-wide-resources-bound-to-a-workspaces-model) | M2 | Import profiles, drafts, source files, jobs and dry runs, consumer APIs and events resolved through the workspace's model |
+| 4 | [M3](#m3-instance-wide-resources-bound-to-a-workspaces-model) | M2 | **Delivered 2026-10-16.** Import profiles, drafts, source files, jobs and dry runs, consumer APIs and events resolved through the workspace's model |
 | 5 | [M4](#m4-reads-spanning-workspaces) | M3 | Cross-type lookup, feed, mapping coverage, exports and counterpart imports when models differ |
 | 6 | [M5](#m5-the-ui-follows-the-workspaces-model) | M4 | The shell follows the workspace's model; Settings › Model per workspace; "New from a workbook" into a chosen workspace |
 | 7 | [M6](#m6-workspace-models-checkpoint) | M5 | Two workspaces on two models composed in the browser; the roadmap's first workspace-model exit item; tagged 0.11.0-alpha.1 (D12) |
@@ -914,6 +914,159 @@ workspace leaving the existing workspaces' model as it was.
 **Groups:** `workspace_models`, `jobs`, `authoring`, `consumer`, `events`, `contract`.
 
 **Exit:** nothing instance-wide assumes one model.
+
+##### M3 plan (2026-10-15)
+
+**Planned 2026-10-15; D35–D40 and the test cases accepted by the user the same day ("yes").**
+Checked against the code at `6cd6404`.
+
+**Already done by M1 (D33), not rebuilt:** jobs and batches (`open_job_context`,
+`open_batch_context`), source profiling, profile checks, dry runs and inference started in a
+workspace, consumer reads, the event dispatcher, subscriptions, and the event deriver (it reads the
+release each feed entry recorded).
+
+**What is left, found in the code:**
+
+- `engine/imports/profiles.py`: create, read, list, update and delete resolve the default
+  workspace's model; nothing records which model a profile belongs to. `draft_profile.
+  save_at_installation` overwrites a profile of the same key whatever model it was written for.
+- `routers/model_management.py`: the draft's outline, a draft's consumer API, compile and install
+  read the default workspace's model. Install runs a compatibility analysis and throws the result
+  away (installing is instance-wide; it goes).
+- `routers/model_releases.py` `…/diff`: compatibility against the default workspace's data only.
+- `engine/model/authoring/released.py`: a draft-only operation's impact counts records, values and
+  relationships in **every** workspace and change set, whatever model they run; a draft without a
+  base is compared with the default workspace's release, so a new model's draft reads as the default
+  model with everything removed.
+- `consumer/router.py`: the index and the OpenAPI document read the default workspace's model and
+  take no `workspace`; `management/reference` lists the default workspace's consumer APIs.
+
+**Decisions** (D35 onward; each with what, why and cost):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D35 | Where a profile's model (D9's `modelKey`) is kept | **Read from the release it was last saved against** (`checked_release_id`'s `release_key`), no new column. Why: every save already records that release, and M3 makes every save run against a release of the profile's own model, so the two cannot drift; no migration means no startup and upgrade checks. Cost: the list's `modelKey` filter joins `model_releases` |
+| D36 | A draft's profile installed under a key another model's profile holds | **Refused before anything is installed:** `409 IMPORT_PROFILE_MODEL_MISMATCH` naming the profile, its `modelKey` and the draft's. Why: today the installation silently rewrites that profile and the other model's imports start failing (principle 7). Cost: the administrator renames the draft's profile key first |
+| D37 | What a draft is compared with | **One rule for compile, the outline, a draft's consumer API and released-element impact:** its base release; without a base, the newest installed release of its own `release.key`; with none, nothing (a new model: every element new, no consumer contract to raise, no data impact). Impact counts only workspaces running that model (any of its releases) and their change sets. `compatibility` (top level) stays what activating into the **default workspace** would do, as the UI uses it until M5; `compatibility.workspaces` (D25) adds one entry per workspace running the draft's model, against that workspace's own release and data. The release diff gets the same `workspaces`. Why: D25 said "without a base, the default workspace's release", which turns a new model's draft into "everything removed" and counts another model's records as its impact. Cost: one compatibility analysis per workspace of the model at compile (set statements each; workspaces are few) |
+| D38 | Choosing the target workspace in the editor (M3's "installing and activating from the editor asks for the target workspace(s)") | **Moved to M5**, whose approved mock-up holds that dialog and New from a workbook's choice. M3 delivers the API side of D15: install, then `POST /workspaces` with `modelReleaseId` or activation into one workspace, already enough for an integrator. The browser keeps installing and activating into the default workspace until M5. Why: no screen is built twice or without its approved shape. Cost: J36.4 is API-only in M3 |
+| D39 | The API reference page | **Takes `?workspace=`** and lists that workspace's consumer APIs, linking each OpenAPI with the same `workspace`; the default workspace without it. Why: it is the last reader of "the" model. Cost: one parameter |
+| D40 | A profile read in a workspace running another model | **Read, not refused:** `valid: false` with one problem `IMPORT_PROFILE_MODEL_MISMATCH` at `""`; the list takes `modelKey` and `workspaceKey`. Saving (create, update) runs against `workspaceKey`'s release and refuses another model's profile with `422 IMPORT_PROFILE_MODEL_MISMATCH`; so do an import naming it and a file uploaded to it in such a workspace. Why: a list must still show every profile; only using one is wrong. Cost: none beyond the code |
+
+**What is built:**
+
+1. **Import profiles:** `modelKey` on every profile response (D35); `workspaceKey` on create and
+   update (body) and on the read and list (query), the default workspace without it; the list's
+   `modelKey` filter; the mismatch refusal on save, import and upload, the problem on read (D40);
+   D36's check in `save_at_installation`, before installing.
+2. **Drafts:** `released.base_release` and `impact` by D37; compile, the outline and a draft's
+   consumer API compared by D37; `compatibility.workspaces` on compile and on the release diff;
+   install's discarded analysis removed.
+3. **Consumer:** the index and OpenAPI take `workspace`, answer `RDM-Workspace` and
+   `X-Model-Release-Id` as the read routes do, and their ETag follows that release; the index's
+   OpenAPI links carry the `workspace` asked for (D27); the reference page by D39.
+4. **Frontend:** the profile and compile types gain the new fields; no visible change (D38).
+5. **Docs:** API.md § What follows the workspace's model moved to delivered (and the drafts
+   paragraph), MODEL_AUTHORING (D37, D38), CONSUMER_API (the two routes), USER_JOURNEYS J36.4
+   evidence, API_JOURNEYS, CHANGELOG, PROJECT_STATUS, TODO. OpenAPI lock re-baselined by diffing.
+
+**Journey test cases** (`workspace_models` marker; each runs X beside Y and the reverse, names
+structures only):
+
+1. **J36.4 A new model from a workbook into a new workspace.** Given X in the default workspace.
+   When a draft started empty with a workbook has its new-model proposals applied, is compiled,
+   installed, and a workspace is created on that release. Then compile's `compatibility.workspaces`
+   is empty and its `changes` list every element as added; the default workspace still runs X at
+   its version; the profile saved at installation has the new model's `modelKey` and loads the
+   workbook into the new workspace; used in the default workspace it is refused
+   `422 IMPORT_PROFILE_MODEL_MISMATCH`.
+2. **A profile per model.** Given workspaces on X and Y. When a profile is saved in each and an
+   import runs in each with its own. Then both load; X's profile named in Y's workspace (import, file
+   upload, update) is refused `422 IMPORT_PROFILE_MODEL_MISMATCH` with `details.modelKey` and
+   `workspaceModelKey`; read with `workspaceKey` of Y it is `valid: false` with that problem;
+   `GET /import-profiles?modelKey=` lists only that model's.
+3. **D36.** Given X's profile `P`. When a draft of Y's model carrying a profile with `P`'s key is
+   installed. Then `409 IMPORT_PROFILE_MODEL_MISMATCH`, no release installed, `P` unchanged.
+4. **D25/D37 compatibility per workspace.** Given two workspaces on X1, one holding `R` records, and
+   a workspace on Y. When a draft based on X1 that removes `R` is compiled, and X1 is diffed with the
+   release it installs. Then `compatibility.workspaces` lists the two X workspaces, the one with
+   records needing a migration with its counts, the other compatible, and not Y's; a draft-only
+   removal of `R` reports an impact counting only the X workspaces' records.
+5. **D10/D27 consumer APIs per workspace.** Given the two workspaces. When the index and each
+   definition's OpenAPI are read with `workspace` of each. Then each lists its own model's
+   definitions and contract versions, names the workspace (`RDM-Workspace`) and release
+   (`X-Model-Release-Id`), and its OpenAPI links carry the workspace; another workspace's definition
+   is `404` with its not-found code; an `R` created in each workspace is derived as an event under
+   that workspace's definition (passes since M1; kept as the variant's evidence).
+
+**Unit:** D37's "compared with" choice (base, newest of the key, none). **Groups:**
+`workspace_models`, `jobs`, `authoring`, `consumer`, `events`, `contract`, with the frontend's
+profile and compile tests, format, lint and build. No migration, so no startup checks.
+
+**Composable domains (ADR-032):** no door is affected; profiles stay keyed as today and the mapping
+coverage is untouched.
+
+##### M3 record (2026-10-16)
+
+**Delivered 2026-10-16.** Built as planned, through the API:
+
+- **Import profiles** (`engine/imports/profiles.py`): `modelKey` read from the release a profile was
+  saved against (D35); create and update against `workspaceKey`'s release, the read and the list
+  under it, the list's `modelKey` filter; `IMPORT_PROFILE_MODEL_MISMATCH` as a problem on a read and
+  a refusal on save, on `POST /imports` with `profileKey` and on `POST /source-files` with
+  `owner.profileKey` (D40); `draft_profile.require_installable` refuses an installation over another
+  model's profile before installing (D36).
+- **Drafts:** `released.base_release` by D37 (base, the newest installed release of the draft's
+  `release.key`, none), `base_model`, and `impact` scoped to the workspaces running the draft's model
+  and their change sets; compile's `changes`, `againstReleaseId` and `consumerContracts`, the
+  outline's and a draft consumer API's contracts compared by D37;
+  `engine/model/draft_compatibility.py` (`assess`, `by_workspace`) gives compile and the release diff
+  `compatibility.workspaces` (`CandidateCompatibilityResponse`, `WorkspaceCompatibilityResponse`);
+  install's discarded compatibility analysis removed.
+- **Consumer:** the index and OpenAPI document take `workspace` and answer `RDM-Workspace` and
+  `X-Model-Release-Id`, their ETag following that workspace's release; the index's links carry the
+  workspace; the `/docs` page takes `?workspace=` (D39).
+- **Frontend:** the `ImportProfile`, compilation and diff types; no visible change (D38).
+- **Docs:** API.md (§ What follows the workspace's model, delivered; the profile section),
+  CONSUMER_API, MODEL_AUTHORING, CURRENT_FUNCTIONALITY, USER_JOURNEYS (J36.4 delivered, evidence),
+  API_JOURNEYS, EXECUTION_GUIDE (`workspace_models` 24 cases), CHANGELOG, PROJECT_STATUS, TODO.
+
+**Where it differs from the plan:** `compatibility.workspaces` leaves out retired workspaces, which
+no activation reaches (`WORKSPACE_RETIRED`); found by the case's first run on the seed's retired
+workspace. The release diff's top-level `compatibility` and `consumerContracts` stay against the
+default workspace, as the plan's top-level rule says; only compile's `consumerContracts` follow D37.
+The consumer read routes still answer no `X-Model-Release-Id` (only the index and OpenAPI do). The
+D36 refusal names `draftModelKey` beside `profileKey` and `modelKey`.
+
+**Older tests changed because M3 made them wrong** (approved by the user 2026-10-16): J08
+`test_data_the_candidate_does_not_fit_blocks_activation` (the top level counts the default
+workspace's records, each active workspace of the model its own in `compatibility.workspaces`, the
+retired one not listed; before, the top level summed three workspaces, which activation no longer
+checks since M1); `test_model_lifecycle`'s diff case (the new `workspaces` list); five Vitest
+fixtures (the new fields).
+
+**Checks:**
+
+- `test_j36_workspace_resources.py`: 5 cases × 2 directions written first and seen failing (10
+  failed: fields, parameters and refusals absent), then 10 passed (18 s). Unit:
+  `tests/unit/engine/model/authoring/test_released.py` (D37's choice), 1 passed.
+- `contract` with J36: 79 passed; `contract` again after the docs: 75 passed. Both times
+  `test_boundaries::test_tiers_hold` failed with the import cycle recorded in M1 (TODO), none of it
+  M3's. OpenAPI lock re-baselined after diffing the default document against `6cd6404`: profile
+  `modelKey` and `workspaceKey`, the list's `modelKey` filter, `CandidateCompatibilityResponse` and
+  `WorkspaceCompatibilityResponse` replacing `ModelCompatibilityResponse` in the diff, descriptions;
+  nothing else.
+- The groups the guide selects (`jobs`, `authoring`, `consumer`, `feed`, `model_admin`), on the
+  user's go-ahead, load 5: 4,400 passed and 3 failed in 5 min 36 s, over the 2-minute ceiling as
+  announced. The 3 were the older tests above; fixed, then the J08 cases (2 passed),
+  `test_model_lifecycle` as a module (27 passed; the case alone fails on a fresh database for a
+  reason older than M3, TODO) and the groups' serial part (1 passed).
+- Ruff on `app/` and `tests/`: clean. Frontend: `tsc`, Vitest on the 5 changed files (28 passed),
+  `npm run format`, `npm run lint` (0 errors, the 7 listed warnings), `npm run build`.
+
+**Not run:** the full suites, `startup` (no migration), `volume`, `queries`, the browser runners (no
+visible change), all at R. **What the user cannot do yet:** choose the workspace in the browser:
+Settings › Model, the editor's install dialog and New from a workbook still install and activate
+into the default workspace (M5, D38); reads spanning workspaces whose models differ (M4).
 
 #### M4: Reads spanning workspaces
 

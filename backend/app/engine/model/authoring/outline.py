@@ -46,14 +46,15 @@ from .released import base_release, released_atoms
 
 
 def draft_outline(session: Session, draft: ModelDraft, active: EngineModel | None = None) -> dict[str, Any]:
-    """The draft's outline at its current version, with its diagnostics; with the ``active`` model,
-    each consumer API's contract against what its consumers read now (0.10 A4c, D55)."""
+    """The draft's outline at its current version, with its diagnostics, and each consumer API's
+    contract against ``active``, the model the draft is compared with (0.10 A4c, D55; 0.11 D37);
+    without one (a new model) every contract is compatible."""
     base = base_release(session, draft)
     data = draft.model_json if isinstance(draft.model_json, dict) else {}
     outline = build_outline(data, base.model_json if base else None)
     compiled = compile_authored_model(draft.model_json)
-    if active is not None and compiled.valid and compiled.model is not None:
-        found = contract_diagnostics(active, compiled.model)
+    if compiled.valid and compiled.model is not None:
+        found = contract_diagnostics(active, compiled.model) if active is not None else []
         for entry in outline["consumerApis"]:
             prefix = f"/consumerApis/{_escape(entry['key'])}"
             mine = [item for item in found if item.path == prefix or item.path.startswith(f"{prefix}/")]

@@ -34,7 +34,7 @@ describe("LoadDialog (0.10 A5b, D81)", () => {
           message: "unknown default view",
         },
       ],
-      compatibility: { classification: "invalid", activeReleaseId: "r1", diagnostics: [] },
+      compatibility: { classification: "invalid", activeReleaseId: "r1", diagnostics: [], workspaces: [] },
       changes: [],
     };
     vi.mocked(api.compileModelDraft).mockResolvedValue(invalid);

@@ -191,6 +191,25 @@ class ModelCompatibilityResponse(BaseModel):
     diagnostics: list[ModelDiagnosticResponse]
 
 
+class WorkspaceCompatibilityResponse(BaseModel):
+    """Activating the candidate into one workspace running its model: that workspace's data
+    against its own release (0.11 D25)."""
+
+    workspaceKey: str
+    releaseId: str
+    classification: Literal["compatible", "migration_required"]
+    diagnostics: list[ModelDiagnosticResponse]
+
+
+class CandidateCompatibilityResponse(ModelCompatibilityResponse):
+    """What activating the candidate into the default workspace would do (``activeReleaseId`` is
+    the default workspace's release), and ``workspaces``: the same for each workspace running a
+    release of the candidate's model, in workspace key order (0.11 D25, D37). A new model's list
+    is empty."""
+
+    workspaces: list[WorkspaceCompatibilityResponse]
+
+
 class ModelConsumerContractsResponse(BaseModel):
     """The candidate's consumer API definitions against the active release's (Base 0.9 C1, C-D17).
 
@@ -208,7 +227,7 @@ class ModelReleaseDiffResponse(BaseModel):
     againstReleaseId: str
     releaseId: str
     changes: list[ModelChangeResponse]
-    compatibility: ModelCompatibilityResponse
+    compatibility: CandidateCompatibilityResponse
     consumerContracts: ModelConsumerContractsResponse | None = None
 
 
@@ -600,7 +619,7 @@ class ModelCompilationResponse(BaseModel):
     model: dict[str, Any] | None = None
     modelHash: str | None = None
     diagnostics: list[ModelDiagnosticResponse]
-    compatibility: ModelCompatibilityResponse
+    compatibility: CandidateCompatibilityResponse
     againstReleaseId: str | None = None
     changes: list[ModelChangeResponse] = Field(default_factory=list)
     # Present when the draft is valid.
