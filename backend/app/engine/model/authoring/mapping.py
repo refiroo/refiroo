@@ -19,7 +19,7 @@ from typing import Any
 from openpyxl.utils.cell import column_index_from_string
 from pydantic import ValidationError
 
-from ....models.imports import ColumnBinding
+from ....models.imports import ColumnBinding, FixedParent
 from . import profile_side
 from .document import Refusal
 from .keys import key_from_label
@@ -78,6 +78,8 @@ def _named(source: dict[str, Any], binding: dict[str, Any] | None = None) -> set
     """The source and the model elements a binding names (D8)."""
     own = source.get("objectTypeKey", "")
     named = {f"source:{source['id']}", atom("objectType", own)}
+    if isinstance(source.get("parent"), dict):
+        named.add(atom("objectType", source["parent"].get("objectTypeKey", "")))
     if not binding:
         return named
     if "attributeTypeKey" in binding:
@@ -105,6 +107,8 @@ def _checked(context: Context, source: dict[str, Any], column: str, binding: dic
         ColumnBinding.model_validate(candidate)
     except ValidationError as exc:
         raise Refusal(field, "invalidValue", f"Not a column binding: {exc.errors()[0]['msg']}") from exc
+    if binding.get("parent") and source.get("parent"):
+        raise Refusal(f"{field}/parent", "invalidValue", f"Source '{source['id']}' sets every row's parent")
     if binding.get("valueMap") and binding["valueMap"] not in (context.profile.data.get("valueMaps") or {}):
         raise Refusal(f"{field}/valueMap", "unknownElement", f"No value map '{binding['valueMap']}'")
     if not profile_side.binding_resolves(profile_side.facts(context.data), source, candidate):
@@ -187,6 +191,22 @@ def _source_key(context: Context, raw: Any, source: dict[str, Any]) -> dict[str,
     return dict(raw)
 
 
+def _source_parent(context: Context, raw: Any, source: dict[str, Any]) -> dict[str, Any] | None:
+    """A source's one parent for every row (0.10 A8c, D141), its shape an import's and its type one
+    the source's records can stand under; ``None`` takes it away."""
+    if raw is None:
+        return None
+    try:
+        FixedParent.model_validate(raw)
+    except ValidationError as exc:
+        raise Refusal("parent", "invalidValue", f"Not a source's parent: {exc.errors()[0]['msg']}") from exc
+    if any(binding.get("parent") for binding in source.get("columns") or []):
+        raise Refusal("parent", "invalidValue", f"A column of source '{source['id']}' binds the parent")
+    if not profile_side.parent_resolves(profile_side.facts(context.data), source, raw):
+        raise Refusal("parent", "unknownElement", f"A '{source.get('objectTypeKey')}' record cannot stand under a '{raw['objectTypeKey']}' record")
+    return dict(raw)
+
+
 def _done(context: Context, raw: dict[str, Any], name: str, named: set[str], created: set[str] | None = None) -> Applied:
     return restoring(context, {"kind": name, **raw}, Applied(raw, {}, created=created or set(), named=named))
 
@@ -208,7 +228,7 @@ def set_profile(context: Context, raw: dict[str, Any]) -> Applied:
 
 @kind("addSource")
 def add_source(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("id", "sheet", "headerRow", "block", "applicationKey", "objectType", "key", "position"))
+    params = Params(raw, ("id", "sheet", "headerRow", "block", "applicationKey", "objectType", "key", "parent", "position"))
     sheet = _sheet(context, raw.get("sheet"))
     type_key = params.text("objectType")
     found = profile_side.facts(context.data)
@@ -236,6 +256,9 @@ def add_source(context: Context, raw: dict[str, Any]) -> Applied:
     key = _source_key(context, raw.get("key"), source)
     if key is not None:
         source["key"] = key
+    parent = _source_parent(context, raw.get("parent"), source)
+    if parent is not None:
+        source["parent"] = parent
     position = params.optional("position", int)
     if position is not None and not 0 <= position <= len(profile_side.sources(context.profile)):
         raise Refusal("position", "outOfRange", f"Position {position} is outside the list")
@@ -249,7 +272,7 @@ def add_source(context: Context, raw: dict[str, Any]) -> Applied:
 
 @kind("setSource")
 def set_source(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("source", "sheet", "headerRow", "block", "applicationKey", "objectType", "key", "record", "rowsWithoutKey"))
+    params = Params(raw, ("source", "sheet", "headerRow", "block", "applicationKey", "objectType", "key", "record", "rowsWithoutKey", "parent"))
     source = _source(context, raw.get("source"))
     path = profile_side.source_path(source)
     found = profile_side.facts(context.data)
@@ -293,6 +316,8 @@ def set_source(context: Context, raw: dict[str, Any]) -> Applied:
         if rows == "skip" and source.get("key") is None:
             raise Refusal("rowsWithoutKey", "invalidValue", f"Source '{source['id']}' has no key, so no row is without one")
         context.profile.set(path, "rowsWithoutKey", None if rows == "refuse" else rows)
+    if "parent" in raw:
+        context.profile.set(path, "parent", _source_parent(context, raw["parent"], source))
     if len(raw) == 1:
         raise Refusal("source", "missingParameter", "Name what changes")
     if "sheet" not in raw and ("headerRow" in raw or "block" in raw):

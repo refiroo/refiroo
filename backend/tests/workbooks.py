@@ -209,7 +209,8 @@ class W3:
     """Each block: its columns (``first``, ``last``), ``headerRow``, ``lastRow``, ``shape``, its
     header (``title``), the ``titles`` above it (outer first), its ``values`` (the list's names, none
     for a block that is no list), ``translations`` (each translation column's header, with the
-    values it holds or none), ``note`` and ``prose`` (a sentence under it, not part of it)."""
+    values it holds or none), ``note`` with its ``meaning`` (D119's word, or ``heading`` for a
+    second header row, 0.10 A8c, D144) and ``prose`` (a sentence under it, not part of it)."""
 
     content: bytes
     blocks: list[dict[str, Any]]
@@ -218,6 +219,10 @@ class W3:
 
     def lists(self) -> list[dict[str, Any]]:
         return [b for b in self.blocks if b["values"]]
+
+    def run(self) -> list[dict[str, Any]]:
+        """The third band's lists of one shape whose headers are values (0.10 A8c, D145)."""
+        return [b for b in self.blocks if b["shape"] == "run"]
 
     def groups(self) -> dict[str, list[str]]:
         """Each innermost title with the headers of the lists under it."""
@@ -300,6 +305,7 @@ def w3(seed: int = 1, blocks: int = 24) -> W3:
                 "values": values,
                 "translations": translations,
                 "note": note,
+                "meaning": "many" if note else None,
                 "prose": False,
             }
         )
@@ -310,7 +316,8 @@ def w3(seed: int = 1, blocks: int = 24) -> W3:
             _title_over(groups, block["first"]),
         ]
     second = _second_band(sheet, described, rng, max(b["lastRow"] for b in described) + 2)
-    return W3(_save(book), described + second)
+    third = _third_band(sheet, described, rng, sheet.max_row + 3)
+    return W3(_save(book), described + second + third)
 
 
 def _title_over(titles: dict[int, str], column: int) -> str:
@@ -326,12 +333,14 @@ def _second_band(sheet: Any, first: list[dict[str, Any]], rng: random.Random, to
     found = []
     runs = iter(first)
     for position, shape in enumerate(SECOND_BAND):
-        width = 2 if shape in ("unmarked", "headerOnly") else 1
+        # The note list has a yes/no column, so the band's lists of names alone are two, no run
+        # of one shape (0.10 A8c, D140).
+        width = 2 if shape in ("unmarked", "headerOnly", "choice") else 1
         run = next(r for r in runs if r["last"] - r["first"] + 1 >= width)
         column = run["first"]
         name = f"Second {position + 1:02d}"
         sheet.cell(row=header_row, column=column, value=name)
-        other = f"Lista {position + 1:02d}"
+        other = "Ticked" if shape == "choice" else f"Lista {position + 1:02d}"
         if width == 2:
             sheet.cell(row=header_row, column=column + 1, value=other)
         first_value = header_row + 1
@@ -351,6 +360,8 @@ def _second_band(sheet: Any, first: list[dict[str, Any]], rng: random.Random, to
             if shape == "unmarked":
                 translated.append(f"{name} valor {index + 1}")
                 sheet.cell(row=row, column=column + 1, value=translated[-1])
+            elif shape == "choice":
+                sheet.cell(row=row, column=column + 1, value=rng.choice("YN"))
         last_row = first_value + count - 1 if count else header_row + 1
         if shape == "prose":
             sheet.cell(row=last_row + 2, column=column, value=PROSE)
@@ -368,7 +379,55 @@ def _second_band(sheet: Any, first: list[dict[str, Any]], rng: random.Random, to
                     {other: translated} if shape == "unmarked" else {other: None} if shape == "headerOnly" else {}
                 ),
                 "note": note,
+                "meaning": {"Free field": "free", "Multiple choice": "many"}.get(note or ""),
                 "prose": shape == "prose",
+            }
+        )
+    return found
+
+
+def _third_band(sheet: Any, first: list[dict[str, Any]], rng: random.Random, top: int) -> list[dict[str, Any]]:
+    """D145 (0.10 A8c): a section title on row ``top`` over three lists of one shape side by side,
+    in the columns of the first band's three-column blocks, whose headers are values: each a name,
+    a translation headed by the header in another language and a yes/no column; a second header
+    row under each header (a role, its translation, no answer); one name under two of them."""
+    header_row = top + 1
+    title = f"Section {(len(first) - 1) // 6 + 3}"
+    sheet.cell(row=top, column=1, value=title)
+    found = []
+    wide = [b for b in first if b["last"] - b["first"] + 1 >= 3][:3]
+    for position, run in enumerate(wide):
+        column = run["first"]
+        name, other = f"Kind {position + 1:02d}", f"Art {position + 1:02d}"
+        for offset, header in enumerate((name, other, "Here")):
+            sheet.cell(row=header_row, column=column + offset, value=header)
+        role = f"Role {position + 1:02d}"
+        sheet.cell(row=header_row + 1, column=column, value=role)
+        sheet.cell(row=header_row + 1, column=column + 1, value=f"Rolle {position + 1:02d}")
+        values = [f"{name} value {index + 1}" for index in range(rng.randint(3, 6))]
+        if position < 2:
+            values.insert(1, "Shared value")
+        translated = []
+        for index, value in enumerate(values):
+            row = header_row + 2 + index
+            translated.append(f"{value} übersetzt {position + 1}")
+            sheet.cell(row=row, column=column, value=value)
+            sheet.cell(row=row, column=column + 1, value=translated[-1])
+            sheet.cell(row=row, column=column + 2, value=rng.choice("YN"))
+        found.append(
+            {
+                "first": column,
+                "last": column + 2,
+                "headerRow": header_row,
+                "lastRow": header_row + 1 + len(values),
+                "shape": "run",
+                "title": name,
+                "titles": [title],
+                "values": values,
+                "translations": {other: translated},
+                "note": role,
+                "meaning": "heading",
+                "prose": False,
             }
         )
     return found

@@ -120,7 +120,14 @@ when its screenshots are approved: a sheet laid out for reading shows its lists 
 each Proposed, Loaded or Not loaded, a selected list its cells; Adjust list… (a header row moved
 keeps each column on its letter), Don't load this list, Load as a list… (`POST
 …/inference/list`); `GET …/sheets/{sheet}/cells`. It fixed an A6 defect: a list removed and loaded
-again read as still proposed. Next: A8c.
+again read as still proposed. **A8c, lists of one shape as one list under their headers, is
+delivered (2026-10-15)** ([record](BASE_0_10_IMPLEMENTATION_PLAN.md#a8c-record-2026-10-15)),
+D140–D146 accepted by the user: three lists or more of one shape under one title (or none) offer,
+on each, to be read as one list in a parent list of their headers; an import source may fix every
+row's parent (`parent`), and a source keyed by name finds records among their parent's children; a
+row under a header answering none of its yes/no columns is a second header row, skipped. On the
+user's reading-layout workbook a run of 11 lists loads as one list under 11
+categories, refusing nothing, a second load changing nothing.
 
 ### How 0.9 was built
 

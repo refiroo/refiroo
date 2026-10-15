@@ -125,7 +125,11 @@ export function ListPanel({
         </div>
         <div>
           <dt>Note</dt>
-          <dd>{block.note ? `${block.note.text} (row ${block.note.row}), skipped by the load` : "None"}</dd>
+          <dd>
+            {block.note
+              ? `${block.note.meaning === "heading" ? "A second header row, " : ""}${block.note.text} (row ${block.note.row}), skipped by the load`
+              : "None"}
+          </dd>
         </div>
         <div>
           <dt>Loads</dt>
@@ -137,6 +141,9 @@ export function ListPanel({
                   {typeName(outline, listSource.objectTypeKey)}
                 </button>
                 , {listSource.key?.field === "name" ? "keyed by name" : "keyed by its key column"}
+                {listSource.parent
+                  ? `, every row under ${typeName(outline, listSource.parent.objectTypeKey)} “${listSource.parent.value}”`
+                  : ""}
               </>
             ) : (
               "Nothing"

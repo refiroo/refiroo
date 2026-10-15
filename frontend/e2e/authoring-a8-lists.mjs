@@ -9,7 +9,9 @@
 // statuses, and by keyboard alone a list opens to its columns and a column's Map to… opens; a
 // proposed list shows its cells and Proposed because; Adjust list… by keyboard narrows a list, its
 // rows and the dry run following; Don't load this list and Undo; Load as a list… on the dropped list,
-// and on the free field, which is refused; 390px. axe on a list's centre and on the dialog.
+// and on the free field, which is refused; the lists of one shape read as one list under their
+// headers from a list's Proposed because (0.10 A8c, D143); 390px. axe on a list's centre and on the
+// dialog.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { writeFile } from "node:fs/promises";
@@ -33,7 +35,9 @@ const renamed = json(
 const generatedB = json(
   "import json, sys; sys.path.insert(0, 'tests/journeys'); from configurations import generated; print(json.dumps(generated('b').model))",
 );
-const W3 = python("import sys; sys.path.insert(0, 'tests'); import workbooks; sys.stdout.buffer.write(workbooks.w3().content)");
+const W3 = python(
+  "import sys; sys.path.insert(0, 'tests'); import workbooks; sys.stdout.buffer.write(workbooks.w3().content)",
+);
 /** W3's sheet and its blocks by structure: header, columns, rows, shape, titles, values. */
 const { SHEET, BLOCKS } = json(
   "import json, sys; sys.path.insert(0, 'tests'); import workbooks; from openpyxl.utils import get_column_letter as l; " +
@@ -47,6 +51,8 @@ const plain = BLOCKS.filter((b) => b.shape === "plain" && b.values >= 4);
 const adjusted = plain[0];
 const dropped = BLOCKS.find((b) => b.shape === "plain" && b !== adjusted);
 const free = blockOf((b) => b.shape === "free");
+// 0.10 A8c: the third band's lists of one shape whose headers are values (D145).
+const run = BLOCKS.filter((b) => b.shape === "run");
 
 async function assertAccessible(target, name) {
   const result = await runAxe(target, [], name);
@@ -69,7 +75,8 @@ async function journey(label, source, mode) {
   const dialog = () => page.getByRole("dialog").last();
   const sourcePane = page.getByRole("region", { name: "Source", exact: true });
   const tree = sourcePane.getByRole("tree", { name: `Lists of ${SHEET}` });
-  const list = (header) => tree.locator("[role=treeitem][aria-level='1']").filter({ hasText: new RegExp(`^${header} `) });
+  const list = (header) =>
+    tree.locator("[role=treeitem][aria-level='1']").filter({ hasText: new RegExp(`^${header} `) });
   const centre = page.locator(".model-editor-centre");
   const because = () => centre.getByRole("region", { name: "Proposed because" });
   const api = (path, body) => harness.api(path, body);
@@ -105,7 +112,9 @@ async function journey(label, source, mode) {
     await page.getByRole("button", { name: "New from a workbook" }).click();
     await dialog().getByLabel("Draft name").fill("Lists A8");
     await dialog().getByLabel("Workbook").setInputFiles(resolve(harness.output, "lists.xlsx"));
-    await dialog().getByRole("radio", { name: new RegExp(`^${mode}`) }).check();
+    await dialog()
+      .getByRole("radio", { name: new RegExp(`^${mode}`) })
+      .check();
     if (mode === "A new application") await dialog().getByLabel("Application name").fill("Lists A8");
     await dialog().getByRole("button", { name: "Create and propose" }).click();
     await page.waitForURL(/\/editor/);
@@ -129,8 +138,14 @@ async function journey(label, source, mode) {
     assert.equal(reached, true, "Down reaches the list");
     await page.keyboard.press("ArrowRight");
     await list(languages.title).and(page.locator("[aria-expanded='true']")).waitFor();
+    // The tree moves focus on the next frame: each key waits for it to land (found on W3's third
+    // band, 0.10 A8c, where the larger tree let a key arrive first).
+    const focusedItem = () => page.evaluate(() => document.activeElement?.getAttribute("data-item") ?? "");
     await page.keyboard.press("ArrowRight");
+    await page.waitForFunction(() => document.activeElement?.getAttribute("data-item")?.startsWith("column:"));
+    const firstColumn = await focusedItem();
     await page.keyboard.press("ArrowDown");
+    await page.waitForFunction((before) => document.activeElement?.getAttribute("data-item") !== before, firstColumn);
     await page.keyboard.press("Shift+F10");
     await dialog().waitFor();
     await page.keyboard.press("Escape");
@@ -157,8 +172,12 @@ async function journey(label, source, mode) {
     await header.waitFor();
     await assertDialogLayout(page, `${label}: Adjust list…`);
     await header.fill(String(adjusted.headerRow + 1));
-    await dialog().getByText(/Each column keeps its binding on its letter/).waitFor();
-    await dialog().getByLabel(/^Name the list after the new header/).waitFor();
+    await dialog()
+      .getByText(/Each column keeps its binding on its letter/)
+      .waitFor();
+    await dialog()
+      .getByLabel(/^Name the list after the new header/)
+      .waitFor();
     await assertAccessible(page, `a8-${label}-adjust`);
     await shot("adjust-moved-1440");
     await header.fill(String(adjusted.headerRow));
@@ -166,15 +185,26 @@ async function journey(label, source, mode) {
     await lastRow.focus();
     await page.keyboard.press("ControlOrMeta+A");
     await page.keyboard.type(String(adjusted.lastRow - 2));
-    await dialog().getByText(`${adjusted.values - 2} rows below the header (now ${adjusted.values})`, { exact: false }).waitFor();
+    await dialog()
+      .getByText(`${adjusted.values - 2} rows below the header (now ${adjusted.values})`, { exact: false })
+      .waitFor();
     await page.keyboard.press("Enter");
     await dialog().waitFor({ state: "hidden" });
-    await list(adjusted.title).getByText(`${adjusted.first}${adjusted.headerRow}:${adjusted.last}${adjusted.lastRow - 2}`).waitFor();
+    await list(adjusted.title)
+      .getByText(`${adjusted.first}${adjusted.headerRow}:${adjusted.last}${adjusted.lastRow - 2}`)
+      .waitFor();
     const panel = await dryRun();
     const rows = await api(`/model-drafts/${draftId}/dry-run`);
-    assert.ok(rows.summary.sources.some((s) => s.rows === adjusted.values - 2), "a source counts two rows fewer");
+    assert.ok(
+      rows.summary.sources.some((s) => s.rows === adjusted.values - 2),
+      "a source counts two rows fewer",
+    );
     await page.getByRole("tab", { name: "History" }).click();
-    await page.locator(".model-editor-bottom").getByText(/source/i).first().waitFor();
+    await page
+      .locator(".model-editor-bottom")
+      .getByText(/source/i)
+      .first()
+      .waitFor();
     assert.ok(panel);
     checks.push(
       `${label}: Adjust list… by keyboard moves the last row two up; the pane shows the new range, the dry run counts two rows fewer and refuses none`,
@@ -194,7 +224,9 @@ async function journey(label, source, mode) {
     await centre.getByRole("button", { name: "Don't load this list" }).click();
     await list(dropped.title).getByText("Not loaded", { exact: true }).waitFor();
     await centre.getByRole("button", { name: "Load as a list…" }).click();
-    await dialog().getByText(/rows below the header/).waitFor();
+    await dialog()
+      .getByText(/rows below the header/)
+      .waitFor();
     await assertDialogLayout(page, `${label}: Load as a list…`);
     await shot("load-1440");
     await dialog().getByRole("button", { name: "Load as a list" }).click();
@@ -204,20 +236,52 @@ async function journey(label, source, mode) {
     const outline = await api(`/model-drafts/${draftId}/outline`);
     const loadedType = outline.objectTypes.find((t) => t.name === dropped.title);
     assert.ok(loadedType, `${dropped.title} is a type again`);
-    assert.ok(!inference.proposed.some((p) => p.element === `objectType:${loadedType.key}`), "the list is the administrator's");
+    assert.ok(
+      !inference.proposed.some((p) => p.element === `objectType:${loadedType.key}`),
+      "the list is the administrator's",
+    );
     await dryRun();
-    checks.push(`${label}: Load as a list… loads ${dropped.title} again as the administrator's (Loaded, not Proposed); the dry run refuses no row`);
+    checks.push(
+      `${label}: Load as a list… loads ${dropped.title} again as the administrator's (Loaded, not Proposed); the dry run refuses no row`,
+    );
 
     const freeIndex = await blockIndex(free);
     await page.goto(editor(`?show=list&sheet=${encodeURIComponent(SHEET)}&block=${freeIndex}`));
     await centre.getByText(/answers are typed there/).waitFor();
     await centre.getByRole("button", { name: "Load as a list…" }).click();
-    await dialog().getByText(/there is nothing to load/).waitFor();
+    await dialog()
+      .getByText(/there is nothing to load/)
+      .waitFor();
     assert.equal(await dialog().getByRole("button", { name: "Load as a list" }).isDisabled(), true);
     await shot("free-nothing-1440");
     await dialog().getByRole("button", { name: "Cancel" }).click();
     checks.push(
       `${label}: the free field reads why it is not loaded, and Load as a list… on it says there is nothing to load and offers no load (the API's refusal is journey case 10)`,
+    );
+
+    // 7. 0.10 A8c (D143): a run of lists of one shape read as one list under their headers, from a
+    // list's Proposed because.
+    await select(run[0]);
+    const one = because().getByRole("button", {
+      name: `Read these ${run.length} lists as one list under their headers`,
+    });
+    await one.waitFor();
+    await assertAccessible(page, `a8-${label}-run`);
+    await shot("run-1440");
+    await one.click();
+    for (const block of run) await list(block.title).getByText("Loaded", { exact: true }).waitFor();
+    const after = await api(`/model-drafts/${draftId}/outline`);
+    const names = after.objectTypes.map((t) => t.name);
+    assert.ok(!run.some((b) => names.includes(b.title)), "the run's list types are gone");
+    const listName = run[0].titles.at(-1);
+    assert.ok(names.includes(listName) && names.includes(`${listName} category`), "one list and its parent list");
+    const modelTree = page.getByRole("tree", { name: "Model" });
+    await modelTree.getByText(listName, { exact: true }).first().waitFor();
+    await modelTree.getByText(`${listName} category`, { exact: true }).first().waitFor();
+    await dryRun();
+    await shot("run-one-list-1440");
+    checks.push(
+      `${label}: Read these ${run.length} lists as one list under their headers, from ${run[0].title}'s card: the run's lists read Loaded, the model pane shows ${listName} and ${listName} category, the dry run refuses no row`,
     );
 
     // 6. 390px: the Source tab lists the lists; a list opens in its tab; the dialog fits.
@@ -226,7 +290,10 @@ async function journey(label, source, mode) {
     const languagesIndex = await blockIndex(languages);
     await phone.goto(editor(`?show=list&sheet=${encodeURIComponent(SHEET)}&block=${languagesIndex}`));
     await phone.getByRole("tab", { name: languages.title }).waitFor();
-    await phone.locator(".model-editor-centre").getByRole("table", { name: `Cells around the list ${languages.title}` }).waitFor();
+    await phone
+      .locator(".model-editor-centre")
+      .getByRole("table", { name: `Cells around the list ${languages.title}` })
+      .waitFor();
     assert.equal(await phone.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
     await phone.screenshot({ path: resolve(harness.output, `a8-${label}-390-list.png`), fullPage: true });
     await phone.getByRole("tab", { name: "Source" }).click();
@@ -238,7 +305,9 @@ async function journey(label, source, mode) {
     await assertDialogLayout(phone, `${label}: Adjust list… at 390px`);
     await phone.screenshot({ path: resolve(harness.output, `a8-${label}-390-adjust.png`), fullPage: true });
     await narrow.close();
-    checks.push(`${label}: at 390px the Source tab lists the lists, a list opens in its tab within the width, and its dialog fits`);
+    checks.push(
+      `${label}: at 390px the Source tab lists the lists, a list opens in its tab within the width, and its dialog fits`,
+    );
   } catch (error) {
     await page.screenshot({ path: resolve(harness.output, `a8-${label}-failure.png`), fullPage: true }).catch(() => {});
     console.error(harness.log().slice(-3000));

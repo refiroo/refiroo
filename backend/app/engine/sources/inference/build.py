@@ -20,7 +20,7 @@ from uuid import uuid4
 
 from ...model.authoring.keys import key_from_label
 from .facts import Column, Table, Workbook
-from .patterns import DESCRIPTION_PATTERNS, LIST_PATTERNS, Finding, fold
+from .patterns import DESCRIPTION_PATTERNS, LIST_PATTERNS, Finding, fold, shape_of
 
 # The schema language that declares navigation groups (0.10 N1, D1).
 NAVIGATION_SCHEMA = "0.10"
@@ -238,6 +238,8 @@ class Builder:
         # The language list and the translation type, created once per inference: (proposal id,
         # language, translation).
         self.translation_types: tuple[str, str, str] | None = None
+        # Each list's proposal by its finding, for a run's alternative (0.10 A8c, D143).
+        self.block_proposals: dict[int, Proposal] = {}
 
     # --- keys -------------------------------------------------------------------------------
 
@@ -438,6 +440,10 @@ class Builder:
             proposal = method(finding, by_id) if finding.pattern == "navigationGroup" else method(finding)
             if proposal is not None:
                 self._add(proposal, finding)
+        # D143 (0.10 A8c): a run of lists of one shape may be read as one list under their headers.
+        runs = {id(f.detail["run"]): f.detail["run"] for f in findings if f.pattern == "listBlock" and f.detail.get("run")}
+        for run in runs.values():
+            self._one_list(run)
         # A new application is proposed for what goes into it: alone, it would be an application
         # without types, which a model refuses (found on a workbook whose every sheet is laid out
         # for reading).
@@ -465,6 +471,8 @@ class Builder:
     def _add(self, proposal: Proposal | None, finding: Finding | None = None) -> None:
         if proposal is None:
             return
+        if finding is not None and finding.pattern == "listBlock":
+            self.block_proposals[id(finding)] = proposal
         if finding is not None and finding.pattern in LIST_PATTERNS and "list" in proposal.keys:
             self.list_types[id(finding)] = proposal.keys["list"]
         self.proposals.append(proposal)
@@ -1451,8 +1459,11 @@ class Builder:
             value_map = self.key(proposal, "valueMap", "valueMaps", f"{names.header} note")
             operations.append({"kind": "setValueMap", "name": value_map, "entries": {note["text"]: None}, "source": source, "column": names.header})
             operations.append({"kind": "setSource", "source": source, "rowsWithoutKey": "skip"})
-            said = NOTE_DESCRIPTIONS.get(note["meaning"], "it is a free field").lower()
-            proposal.summary += f" The note {note['text']!r} under its header says {said}; its row is skipped."
+            if note["meaning"] == "heading":
+                proposal.summary += f" {note['text']!r} under its header answers none of its yes/no columns: a second header row, skipped."
+            else:
+                said = NOTE_DESCRIPTIONS.get(note["meaning"], "it is a free field").lower()
+                proposal.summary += f" The note {note['text']!r} under its header says {said}; its row is skipped."
         row = RowType(target, source, None, app, name, released=self.released(f"objectType:{target}"))
         alternatives: list[dict[str, Any]] = []
         if finding.detail["translations"]:
@@ -1530,6 +1541,173 @@ class Builder:
         proposal.operations = operations
         proposal.alternatives = alternatives
         return proposal
+
+    def _one_list(self, run: list[Finding]) -> None:
+        """D143 (0.10 A8c): on each list of a run of one shape, the alternative of one list under
+        their headers. It takes away what each list's proposal added (its source, value maps, list
+        type and flag list, whose relations and attributes go with them, D31; not the shared language list and translation
+        type), then adds a parent list named after the run's title (else the sheet) holding the
+        headers, one list contained in it, and a source per list fixed to its header (D141), keyed
+        by name under it (D142). Columns are read by position as the first list's, named after its
+        headers; notes and second header rows are skipped as before. The title's navigation group
+        holds the two new lists."""
+        members = [(f, self.block_proposals.get(id(f))) for f in run]
+        if any(p is None for _, p in members):
+            return
+        added: list[tuple[Finding, Proposal, dict[str, Any]]] = []
+        for finding, proposal in members:
+            (source,) = [o for o in proposal.operations if o["kind"] == "addSource"]
+            if not any(o["kind"] == "addObjectType" and o["key"] == source["objectType"] for o in proposal.operations):
+                return  # a list onto a type the model holds is not taken away (extend mode)
+            added.append((finding, proposal, source))
+        first, _, first_source = added[0]
+        block = first.detail["block"]
+        sheet = first.sheet
+        shared = set(self.translation_types[1:]) if self.translation_types else set()
+        removals: list[dict[str, Any]] = []
+        for _, proposal, source in added:
+            removals.append({"kind": "removeSource", "source": source["id"]})
+        for _, proposal, _ in added:
+            removals += [{"kind": "setValueMap", "name": o["name"], "entries": None} for o in proposal.operations if o["kind"] == "setValueMap"]
+        for _, proposal, _ in added:
+            removals += [
+                {"kind": "removeObjectType", "objectType": o["key"]}
+                for o in proposal.operations
+                if o["kind"] == "addObjectType" and o["key"] not in shared
+            ]
+
+        title = block.titles[-1] if block.titles else None
+        name = _capital(singular(readable(title or sheet)))
+        app = first_source.get("applicationKey") or self.app
+        scratch = self._new("listBlock", sheet, [], "", {}, f"oneList|{sheet}|{block.first_column}{block.header_row}")
+        parent = self.key(scratch, "parent", "objectTypes", f"{name} category")
+        one = self.key(scratch, "list", "objectTypes", name)
+        containment = self.key(scratch, "containment", "relations", f"{parent} contains")
+        reverse = self.key(scratch, "containmentReverse", "relations", f"{one} in")
+        operations: list[dict[str, Any]] = [
+            {"kind": "addObjectType", "applicationKey": app, "key": parent, "name": f"{name} category", "pluralName": plural(f"{name} category"), "parent": None},
+            {"kind": "addObjectType", "applicationKey": app, "key": one, "name": name, "pluralName": plural(name), "parent": _parent_of(parent, containment, reverse)},
+        ]
+        shape = shape_of(first)
+        others = block.columns[1:]
+        yes_no = [i for i, kind in enumerate(shape) if kind == "yesNo"]
+        row = RowType(one, "", None, app, name)
+        relation = None
+        if "translation" in shape and self.translation_types is not None:
+            _, _, translation = self.translation_types
+            relation = self.key(scratch, "relation", "relations", f"{name} has translation")
+            relation_reverse = self.key(scratch, "relationReverse", "relations", f"translation of {name}")
+            operations += [
+                {"kind": "addRelationType", "key": relation, "reverseKey": relation_reverse, "name": "Has translation", "reverseName": "Translation of"},
+                {"kind": "allowRelation", "relationType": relation, "from": one, "to": translation, "cardinality": "one-to-many"},
+            ]
+        attributes: dict[int, str] = {}
+        maps: dict[int, str] = {}
+        for index, kind in enumerate(shape):
+            column = others[index]
+            if kind == "attribute" or (kind == "yesNo" and len(yes_no) == 1):
+                value_type = "boolean" if kind == "yesNo" else column.value_type()
+                key = self.key(scratch, f"attribute:{index}", "attributeTypes", readable(column.header))
+                attributes[index] = key
+                operations += [
+                    {"kind": "addAttributeType", "key": key, "name": readable(column.header), "valueType": value_type, "features": {}},
+                    {"kind": "attachAttribute", "objectType": one, "attributeType": key},
+                ]
+                if kind == "yesNo":
+                    maps[index] = self.key(scratch, f"flagMap:{index}", "valueMaps", f"{column.header} yes no")
+        flag_list = flag_relation = None
+        if len(yes_no) > 1:
+            flag_list, more = self._list_type(scratch, f"{name} flags")
+            operations += more
+            flag_relation, more = self._relation(scratch, row, flag_list, f"{name} flags", "many-to-many", role="flagRelation")
+            operations += more
+        vocabularies: dict[int, set[str]] = {i: set() for i in maps}
+        for finding, _, _ in added:
+            for index in maps:
+                number = finding.detail["block"].columns[1 + index].number
+                vocabularies[index] |= set(finding.detail["vocabularies"].get(number, []))
+        for position, (finding, _, source) in enumerate(added):
+            member = finding.detail["block"]
+            columns = member.columns[1:]
+            header = member.columns[0].header
+            languages = dict(finding.detail["translations"])
+            source_id = self.key(scratch, f"source:{position}", "sources", f"{sheet} {one} {header}")
+            operations.append(
+                {
+                    "kind": "addSource",
+                    "id": source_id,
+                    "sheet": sheet,
+                    "objectType": one,
+                    "applicationKey": app,
+                    "headerRow": source["headerRow"],
+                    "block": dict(source["block"]),
+                    "key": {"field": "name"},
+                    "parent": {"objectTypeKey": parent, "matchBy": {"field": "name"}, "value": header, "missing": "create"},
+                }
+            )
+            operations.append(self._map(scratch, source_id, header, {"field": "name"}))
+            note = finding.evidence.get("note")
+            if note:
+                value_map = self.key(scratch, f"valueMap:{position}", "valueMaps", f"{header} note")
+                operations.append({"kind": "setValueMap", "name": value_map, "entries": {note["text"]: None}, "source": source_id, "column": header})
+                operations.append({"kind": "setSource", "source": source_id, "rowsWithoutKey": "skip"})
+            flagged = []
+            for index, kind in enumerate(shape):
+                column = columns[index]
+                if kind == "translation" and relation is not None:
+                    _, language, translation = self.translation_types
+                    operations.append(
+                        self._map(
+                            scratch,
+                            source_id,
+                            column.header,
+                            {
+                                "relatedRecord": {
+                                    "relationTypeKey": relation,
+                                    "applicationKey": self.app,
+                                    "objectTypeKey": translation,
+                                    "parent": {"objectTypeKey": language, "matchBy": {"field": "name"}, "value": languages[column.number], "missing": "create"},
+                                    "field": "name",
+                                }
+                            },
+                        )
+                    )
+                elif index in attributes:
+                    operations.append(self._map(scratch, source_id, column.header, {"attributeTypeKey": attributes[index]}))
+                    if index in maps:
+                        operations.append(
+                            {"kind": "setValueMap", "name": maps[index], "entries": _yes_no(sorted(vocabularies[index])), "source": source_id, "column": column.header}
+                        )
+                elif kind == "yesNo" and flag_list is not None:
+                    flagged.append(column.header)
+                    operations.append(
+                        {
+                            "kind": "setColumnReading",
+                            "source": source_id,
+                            "column": column.header,
+                            "reading": "relationFlag",
+                            "relationTypeKey": flag_relation,
+                            "objectTypeKey": flag_list,
+                            "target": column.header,
+                        }
+                    )
+            if flagged:
+                operations.append({"kind": "addValuesToList", "source": source_id, "column": flagged[0]})
+        group = next(
+            (
+                (o["applicationKey"], o["key"])
+                for p in self.proposals
+                if p.pattern == "navigationGroup"
+                for o in p.operations
+                if o["kind"] == "addNavigationGroup" and {s["objectType"] for _, _, s in added} & set(o["collections"])
+            ),
+            None,
+        )
+        if group is not None:
+            operations += [{"kind": "placeCollection", "applicationKey": group[0], "collection": c, "group": group[1]} for c in (parent, one)]
+        alternative = {"label": f"Read these {len(added)} lists as one list under their headers", "operations": removals + operations}
+        for _, proposal, _ in added:
+            proposal.alternatives.append(copy.deepcopy(alternative))
 
     def _named_relation(self, proposal: Proposal, row: RowType, target: str, name: str, cardinality: str) -> tuple[str, list[dict[str, Any]]]:
         """A relation named as a described field, or the one of that name already allowed between

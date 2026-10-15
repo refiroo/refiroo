@@ -142,6 +142,24 @@ class RelatedParent(BaseModel):
         return self
 
 
+class FixedParent(BaseModel):
+    """A source's one parent for every row (0.10 A8c, D141): the record ``matchBy`` finds for
+    ``value``, as a related record's fixed parent."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    objectTypeKey: str
+    matchBy: MatchBy
+    value: str = Field(min_length=1)
+    missing: Missing | None = Field(
+        default=None,
+        description=(
+            "``create``: no record matching the value creates one with it as its name (matchBy"
+            " name only); ``refuse``, the default, refuses every row"
+        ),
+    )
+
+
 class RelatedMatch(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -275,7 +293,12 @@ class Source(BaseModel):
 
     ``rowsWithoutKey`` (0.10 A7, D110) says what a load does with a row whose key is empty after
     value maps: ``refuse`` it (the default, ``MISSING_RECORD_KEY``) or ``skip`` it, counted as
-    skipped and not loaded."""
+    skipped and not loaded.
+
+    ``parent`` (0.10 A8c, D141) is every row's parent: the record ``matchBy`` finds for its
+    ``value``, created by that name with ``missing: create``. A source with it binds no column as a
+    parent. A source keyed by name whose rows have a parent finds a row's record among that
+    parent's children (D142)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -289,6 +312,7 @@ class Source(BaseModel):
     columns: list[ColumnBinding] = Field(min_length=1)
     missing: Literal["report", "delete"] | None = None
     rowsWithoutKey: Literal["refuse", "skip"] | None = None
+    parent: FixedParent | None = None
 
     @model_validator(mode="after")
     def existing_needs_key(self) -> Source:

@@ -6,7 +6,7 @@ never only the first, so a client fixes a profile in one pass:
 
 - a source's application and type, and the type in that application;
 - each column's attribute bound to the type and writable; a key attribute bound and ``unique``;
-- a parent the type can stand under; a relationship the two types allow in that direction, and not
+- a parent the type can stand under, bound by a column or fixed by the source (not both); a relationship the two types allow in that direction, and not
   a containment (a parent is its own binding); a related record's type, its parent and relation;
 - each ``matchBy`` attribute bound to the type it matches;
 - each value map named;
@@ -28,10 +28,12 @@ from ...common.pagination import Page, PageRequest, paginate_statement, text_key
 from ...errors import api_error
 from ...models.database import ImportProfile, ModelRelease
 from ...models.imports import (
+    FixedParent,
     ImportProfileCreate,
     ImportProfileDefinition,
     ImportProfileUpdate,
     MatchBy,
+    ParentBinding,
     Source,
 )
 from ...models.schema import EngineModel
@@ -86,7 +88,7 @@ def invalid_profile(problems: list[Problem]) -> Any:
 def referenced_types(source: Source) -> set[str]:
     """The types a source's rows point at: parents, relationship ends and related records'
     parents."""
-    found: set[str] = set()
+    found: set[str] = {source.parent.objectTypeKey} if source.parent is not None else set()
     for binding in source.columns:
         if binding.parent is not None:
             found.add(binding.parent.objectTypeKey)
@@ -183,6 +185,16 @@ def _source_problems(
                     f"No column of the source binds the key attribute '{key}'",
                 )
             )
+    if source.parent is not None:
+        problems += _parent_problems(model, source.objectTypeKey, source.parent, f"{path}/parent")
+        if any(binding.parent is not None for binding in source.columns):
+            problems.append(
+                Problem(
+                    f"{path}/parent",
+                    "PARENT_BOUND_TWICE",
+                    "The source sets every row's parent, so no column of it can bind a parent",
+                )
+            )
     if source.key is not None and source.key.field == "name" and not any(
         binding.field == "name" for binding in source.columns
     ):
@@ -212,23 +224,7 @@ def _source_problems(
                 writable=True,
             )
         elif binding.parent is not None:
-            parent = binding.parent
-            if model.object_type(parent.objectTypeKey) is None:
-                problems.append(_unknown_type(f"{at}/parent/objectTypeKey", parent.objectTypeKey))
-            elif parent.objectTypeKey not in parent_type_keys(model, source.objectTypeKey):
-                problems.append(
-                    Problem(
-                        f"{at}/parent",
-                        "PARENT_NOT_ALLOWED",
-                        f"A '{source.objectTypeKey}' record cannot stand under a "
-                        f"'{parent.objectTypeKey}' record",
-                    )
-                )
-            else:
-                problems += _match_problems(
-                    model, parent.objectTypeKey, parent.matchBy, f"{at}/parent/matchBy"
-                )
-            problems += _create_problems(parent.missing, parent.matchBy, f"{at}/parent")
+            problems += _parent_problems(model, source.objectTypeKey, binding.parent, f"{at}/parent")
         elif binding.relation is not None or binding.relationFlags is not None:
             relation = binding.relation or binding.relationFlags
             name = "relation" if binding.relation is not None else "relationFlags"
@@ -382,6 +378,27 @@ def _relation_value_problems(
         for index, value in enumerate(relation.attributes)
         if value.attributeTypeKey not in binding.attributeTypeKeys
     ]
+
+
+def _parent_problems(
+    model: EngineModel, type_key: str, parent: ParentBinding | FixedParent, path: str
+) -> list[Problem]:
+    """A parent a column binds or a source fixes (0.10 A8c, D141): a type the source's records can
+    stand under, matched by what it binds, created only by name."""
+    problems: list[Problem] = []
+    if model.object_type(parent.objectTypeKey) is None:
+        problems.append(_unknown_type(f"{path}/objectTypeKey", parent.objectTypeKey))
+    elif parent.objectTypeKey not in parent_type_keys(model, type_key):
+        problems.append(
+            Problem(
+                path,
+                "PARENT_NOT_ALLOWED",
+                f"A '{type_key}' record cannot stand under a '{parent.objectTypeKey}' record",
+            )
+        )
+    else:
+        problems += _match_problems(model, parent.objectTypeKey, parent.matchBy, f"{path}/matchBy")
+    return problems + _create_problems(parent.missing, parent.matchBy, path)
 
 
 def _create_problems(missing: str, match: MatchBy, path: str) -> list[Problem]:

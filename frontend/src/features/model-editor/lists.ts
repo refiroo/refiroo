@@ -115,7 +115,12 @@ export function rowsOf(block: SourceBlock, rectangle: SourceRectangle): number {
 export function listWords(block: SourceBlock, rectangle?: SourceRectangle): string {
   const count = rectangle ? rowsOf(block, rectangle) : block.rows;
   const rows = `${count} ${count === 1 ? "row" : "rows"}`;
-  return block.note ? `${rows} · note: ${block.note.text}` : rows;
+  return block.note ? `${rows} · ${noteLabel(block.note)}: ${block.note.text}` : rows;
+}
+
+/** What the row under a list's header is called: a note (D119) or a second header row (0.10 A8c, D144). */
+export function noteLabel(note: NonNullable<SourceBlock["note"]>): string {
+  return note.meaning === "heading" ? "second header row" : "note";
 }
 
 /**

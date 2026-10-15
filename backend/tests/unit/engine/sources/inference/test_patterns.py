@@ -9,6 +9,7 @@ small tables of their own.
 
 import random
 import uuid
+from types import SimpleNamespace
 
 import pytest
 import workbooks
@@ -282,3 +283,51 @@ def test_a_free_field_or_a_header_without_values_is_not_a_list():
     assert (free.detail["list"], free.detail["reason"]) == (False, "free")
     noted = _block({"Kinds": ["A", "B"]}, note={"row": 2, "text": "(multiple answers)", "meaning": "many"})
     assert noted.detail["list"] is True and noted.evidence["note"] == {"text": "(multiple answers)", "meaning": "many"}
+
+
+def _listed(data: dict[str, list], number: int, titles: tuple[str, ...] = ("Kinds",), header_row: int = 1):
+    """A list of a sheet laid out for reading, the ``number``-th, under ``titles``."""
+    table = workbook(("Lists", data)).sheets[0]
+    return BlockTable(
+        name="Lists",
+        index=200_000 + number,
+        sheet_index=0,
+        block=number,
+        first_column=get_column_letter(1 + 4 * number),
+        last_column=get_column_letter(len(data) + 4 * number),
+        header_row=header_row,
+        last_row=header_row + table.rows,
+        rows=table.rows,
+        titles=titles,
+        columns=table.columns,
+    )
+
+
+def _runs(*blocks: BlockTable) -> list[list[str]]:
+    """The runs of one shape (D140) among the lists, each by its lists' headers."""
+    found = find(SimpleNamespace(sheets=[], blocks=list(blocks)))
+    runs = {id(f.detail["run"]): f.detail["run"] for f in found if f.pattern == "listBlock" and f.detail.get("run")}
+    return [[f.detail["block"].columns[0].header for f in run] for run in runs.values()]
+
+
+def _shaped(header: str, translated: bool = True) -> dict[str, list]:
+    data = {header: ["A", "B", "C"], "Here": ["Y", "N", "Y"]}
+    if translated:
+        data = {header: ["A", "B", "C"], f"{header} other": ["a", "b", "c"], "Here": ["Y", "N", "Y"]}
+    return data
+
+
+def test_three_lists_of_one_shape_under_one_title_are_a_run_across_bands():
+    """D140: lists in different bands (header rows) under one title, columns of the same kinds."""
+    lists = [_listed(_shaped(f"Kind {n}"), n, header_row=1 + 10 * (n % 2)) for n in range(3)]
+    assert _runs(*lists) == [["Kind 0", "Kind 1", "Kind 2"]]
+
+
+def test_two_lists_or_a_different_kind_or_another_title_make_no_run():
+    """D140: two lists are no run; a list whose columns differ in kind, or under another title,
+    leaves the rest short of three; lists under no title are one run when three share a shape."""
+    assert _runs(_listed(_shaped("A"), 0), _listed(_shaped("B"), 1)) == []
+    assert _runs(_listed(_shaped("A"), 0), _listed(_shaped("B"), 1), _listed(_shaped("C", translated=False), 2)) == []
+    assert _runs(_listed(_shaped("A"), 0), _listed(_shaped("B"), 1), _listed(_shaped("C"), 2, titles=("Other",))) == []
+    untitled = [_listed(_shaped(f"K{n}"), n, titles=()) for n in range(3)]
+    assert _runs(*untitled) == [["K0", "K1", "K2"]]

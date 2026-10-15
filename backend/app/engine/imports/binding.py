@@ -911,6 +911,15 @@ class _ProfileBinding:
                 self._binding(plan, binding, cells, state)
             except _RowError as rejected:
                 failures.append(rejected.body)
+        if source.parent is not None:
+            # 0.10 A8c (D141): the source's one parent, on every row; no column names it.
+            fixed = source.parent
+            try:
+                state.parent = self._match(fixed.objectTypeKey, fixed.matchBy, fixed.value, None)
+                if fixed.missing == "create":
+                    state.parent["create"] = True
+            except _RowError as rejected:
+                failures.append(rejected.body)
         key_value, key_kind, key_attr, key_column = None, None, None, None
         failed = {failure["details"].get("column") for failure in failures}
         try:
@@ -1098,8 +1107,9 @@ class _ProfileBinding:
             raise _RowError(_from_api(error, column_name)) from None
 
     def _match(
-        self, object_type_key: str, match: MatchBy, raw: Any, column_name: str
+        self, object_type_key: str, match: MatchBy, raw: Any, column_name: str | None
     ) -> dict[str, Any]:
+        """A match's JSON; ``column_name`` is ``None`` for a source's fixed parent (D141)."""
         if match.attributeTypeKey is not None:
             value = self._value(match.attributeTypeKey, raw, column_name)
         elif match.field == "id":
@@ -1468,6 +1478,7 @@ class _ProfileBinding:
         self._duplicates()
         self._identities()
         self._matches()
+        self._names_under_parents()
         self._hierarchy()
         self._related_identities()
         self._members()
@@ -1528,6 +1539,8 @@ class _ProfileBinding:
         types: set[str] = set()
         for source in self.profile.sources:
             types.add(source.objectTypeKey)
+            if source.parent is not None:
+                types.add(source.parent.objectTypeKey)
             for binding in source.columns:
                 if binding.parent is not None:
                     types.add(binding.parent.objectTypeKey)
@@ -1560,15 +1573,18 @@ class _ProfileBinding:
 
     def _duplicates(self) -> None:
         """D69: rows of one source with one key are one record when their own values agree; when
-        they differ, every such row is rejected naming the others."""
+        they differ, every such row is rejected naming the others. Rows keyed by name under a
+        parent are one key with the rows of any source naming that parent (0.10 A8c, D142)."""
         self._sql(
-            """
-            WITH groups AS (
-                SELECT src, key_value, min(row_id) AS rep,
-                       count(DISTINCT jsonb_build_array(name, attributes, parent)) AS variants,
+            f"""
+            WITH keyed AS (
+                SELECT r.*, {_KEY_GROUP.format(r="r")} AS grp FROM import_rows r
+                WHERE r.error IS NULL AND r.key_value IS NOT NULL),
+            groups AS (
+                SELECT grp, min(row_id) AS rep,
+                       count(DISTINCT jsonb_build_array(name, attributes, parent - 'column')) AS variants,
                        array_agg(row_number ORDER BY row_number) AS numbers
-                FROM import_rows WHERE error IS NULL AND key_value IS NOT NULL
-                GROUP BY src, key_value HAVING count(*) > 1)
+                FROM keyed GROUP BY grp HAVING count(*) > 1)
             UPDATE import_rows r SET
                 error = CASE WHEN g.variants > 1 THEN jsonb_build_object(
                     'code', 'DUPLICATE_KEY_IN_FILE',
@@ -1578,7 +1594,7 @@ class _ProfileBinding:
                         'rows', to_jsonb(array_remove(g.numbers, r.row_number)),
                         'column', r.key_column)) END,
                 rep_id = CASE WHEN g.variants = 1 AND r.row_id <> g.rep THEN g.rep END
-            FROM groups g WHERE r.src = g.src AND r.key_value = g.key_value AND r.error IS NULL
+            FROM groups g WHERE {_KEY_GROUP.format(r="r")} = g.grp AND r.error IS NULL
             """
         )
 
@@ -1615,12 +1631,13 @@ class _ProfileBinding:
             """
         )
         self._sql(
-            """
+            f"""
             WITH found AS (
                 SELECT r.row_id, count(c.object_id) AS n, min(c.object_id) AS one, min(c.name) AS name
                 FROM import_rows r LEFT JOIN import_context c
-                    ON c.object_type_key = r.object_type_key AND c.name = r.key_value #>> '{}'
+                    ON c.object_type_key = r.object_type_key AND c.name = r.key_value #>> '{{}}'
                 WHERE r.error IS NULL AND r.rep_id IS NULL AND r.key_kind = 'name'
+                  AND NOT ({_UNDER_PARENT.format(r="r")})
                 GROUP BY r.row_id)
             UPDATE import_rows r SET
                 record_id = CASE WHEN f.n = 1 THEN f.one END, existing = f.n = 1,
@@ -1801,6 +1818,70 @@ class _ProfileBinding:
             WHERE r.row_id = e.row_id AND r.error IS NULL
             """
         )
+
+    def _names_under_parents(self) -> None:
+        """D142 (0.10 A8c): a row keyed by name under a parent is the record of that name among the
+        parent's children. Such rows took a new ID in :meth:`_identities`, so the file's rows match
+        them and stand under them as any new record; level by level, from the rows whose parent is
+        settled, each finding a record takes its ID, and every match, parent and link naming the
+        row follows."""
+        self._sql(
+            f"""
+            CREATE TEMPORARY TABLE import_pending ON COMMIT DROP AS
+            SELECT row_id, record_id FROM import_rows r
+            WHERE r.error IS NULL AND r.rep_id IS NULL AND {_UNDER_PARENT.format(r="r")}
+            """
+        )
+        self._sql(
+            "CREATE TEMPORARY TABLE import_settled (row_id integer, old text, one text, name text,"
+            " n integer) ON COMMIT DROP"
+        )
+        while True:
+            self._sql("TRUNCATE import_settled")
+            settled = self.session.execute(
+                text(
+                    """
+                    WITH ready AS (
+                        SELECT r.row_id, r.record_id, r.parent_id, r.object_type_key, r.key_value
+                        FROM import_rows r JOIN import_pending p ON p.row_id = r.row_id
+                        WHERE NOT EXISTS (
+                            SELECT 1 FROM import_pending q WHERE q.record_id = r.parent_id)),
+                    found AS (
+                        SELECT d.row_id, d.record_id, count(c.object_id) AS n,
+                            min(c.object_id) AS one, min(c.name) AS name
+                        FROM ready d LEFT JOIN import_context c
+                            ON c.object_type_key = d.object_type_key
+                            AND c.name = d.key_value #>> '{}' AND c.parent_object_id = d.parent_id
+                        GROUP BY d.row_id, d.record_id),
+                    gone AS (
+                        DELETE FROM import_pending p USING found f WHERE p.row_id = f.row_id)
+                    INSERT INTO import_settled SELECT row_id, record_id, one, name, n FROM found
+                    """
+                )
+            ).rowcount
+            if not settled:
+                break
+            self._sql(
+                """
+                UPDATE import_rows r SET error = jsonb_build_object(
+                    'code', 'AMBIGUOUS_NAME_KEY',
+                    'message', format('%s %s records under the row''s parent are named %s', s.n,
+                        r.object_type_key, r.key_value),
+                    'details', jsonb_build_object('column', r.key_column, 'count', s.n))
+                FROM import_settled s WHERE s.row_id = r.row_id AND s.n > 1
+                """
+            )
+            self._sql("DELETE FROM import_settled WHERE n <> 1")
+            self._sql(
+                """
+                UPDATE import_rows r SET record_id = s.one, existing = true, current_name = s.name
+                FROM import_settled s WHERE r.row_id = s.row_id OR r.rep_id = s.row_id
+                """
+            )
+            self._sql("UPDATE import_rows r SET parent_id = s.one FROM import_settled s WHERE r.parent_id = s.old")
+            self._sql("UPDATE import_matches m SET resolved = s.one FROM import_settled s WHERE m.resolved = s.old")
+            self._sql("UPDATE import_links l SET target_id = s.one FROM import_settled s WHERE l.target_id = s.old")
+            self._sql("UPDATE import_related d SET parent_id = s.one FROM import_settled s WHERE d.parent_id = s.old")
 
     def _hierarchy(self) -> None:
         """A source's rows under rows of the same source load parents first (depth); rows whose
@@ -2065,6 +2146,17 @@ class _ProfileBinding:
 
 
 # A match's row in ``import_matches``; {s} is the match's JSON.
+# A row keyed by name under a parent (0.10 A8c, D142), found among the parent's children; {r} is
+# the row's alias.
+_UNDER_PARENT = "{r}.mode = 'upsert' AND {r}.key_kind = 'name' AND {r}.parent IS NOT NULL"
+# What makes rows one key (D69): the source and the key, or for rows keyed by name under a parent,
+# the type, the parent the row names and the name, across sources (D142).
+_KEY_GROUP = (
+    "CASE WHEN {r}.mode = 'upsert' AND {r}.key_kind = 'name' AND {r}.parent IS NOT NULL"
+    " THEN jsonb_build_array({r}.object_type_key, {r}.parent - 'column' - 'create', {r}.key_value)"
+    " ELSE jsonb_build_array({r}.src, {r}.key_value) END"
+)
+
 _JOINED = (
     "m.object_type_key = {s} ->> 'type' AND m.field = {s} ->> 'field'"
     " AND m.attr = {s} ->> 'attr' AND m.value = {s} -> 'value'"
@@ -2075,9 +2167,9 @@ _MATCH_ERROR = (
     "jsonb_build_object("
     "'code', CASE WHEN m.candidates = 0 THEN 'REFERENCE_NOT_FOUND' ELSE 'REFERENCE_AMBIGUOUS' END,"
     " 'message', CASE WHEN m.candidates = 0"
-    " THEN format('No %s record matches %s in column %s', m.object_type_key, {s} -> 'value', {s} ->> 'column')"
-    " ELSE format('%s %s records match %s in column %s', m.candidates, m.object_type_key,"
-    " {s} -> 'value', {s} ->> 'column') END,"
+    " THEN format('No %s record matches %s', m.object_type_key, {s} -> 'value')"
+    " ELSE format('%s %s records match %s', m.candidates, m.object_type_key, {s} -> 'value') END"
+    " || coalesce(' in column ' || ({s} ->> 'column'), ', the source''s parent'),"
     " 'details', jsonb_build_object('column', {s} ->> 'column', 'count', m.candidates))"
 )
 

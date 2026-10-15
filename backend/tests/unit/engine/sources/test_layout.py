@@ -126,3 +126,31 @@ def test_note_words_are_folded_and_values_are_not_notes():
         "many", "many", "free", "one", "many"
     ]
     assert [note_meaning(v) for v in ("Multiple", "Free", "Open", "Several kinds")] == [None, None, None, None]
+
+
+def _note(cells: dict[tuple[int, int], str]) -> list[dict[str, object] | None]:
+    return [b.note for b in split(_runs(cells), _grid(cells))]
+
+
+def test_a_row_under_the_header_answering_no_yes_no_column_is_a_second_header_row():
+    """D144 (0.10 A8c): a role under each category, none of its yes/no cells filled, while every
+    later row answers one; read as the list's note (``heading``)."""
+    cells = {
+        **_column(1, 1, "Admin", "Clerk", "First contact", "Renewal", "Transfer"),
+        **_column(2, 1, "UK", "", "Y", "N", "Y"),
+        **_column(3, 1, "Gestión", "Conductor", "Primer andén", "Renovación", "Traslado"),
+        **_column(4, 1, "ES", "", "Y", "", "N"),
+    }
+    cells = {at: value for at, value in cells.items() if value}
+    assert _note(cells) == [{"row": 2, "text": "Clerk", "meaning": "heading"}]
+
+
+def test_a_first_row_with_an_answer_or_a_list_without_yes_no_columns_has_no_second_header_row():
+    """D144: a first row answering one yes/no column is a value; without yes/no columns nothing
+    tells such a row from a value; a later row answering none leaves the first row a value too."""
+    answered = {**_column(1, 1, "Admin", "Clerk", "First"), **_column(2, 1, "UK", "N", "Y")}
+    plain = {**_column(1, 1, "Admin", "Clerk", "First", "Second"), **_column(2, 1, "Other", "Conductor", "Primero", "Segundo")}
+    gapped = {**_column(1, 1, "Admin", "Clerk", "First", "Second"), (3, 2): "Y", (1, 2): "UK"}
+    assert _note(answered) == [None]
+    assert _note(plain) == [None]
+    assert _note(gapped) == [None]

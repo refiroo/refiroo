@@ -554,8 +554,19 @@ selecting one shows the cells around it, so a value that is no value (a second h
 sentence) can be seen. **Adjust list…** sets the rows and columns it loads, its columns keeping what
 they load when its header row moves, and can name the list after its new header; **Don't load this
 list** takes it out of the load and the model in one step, and proposing again leaves it out; **Load
-as a list…** reads a part of the sheet the inference left out as a list. Lists of one shape side by
-side whose headers are categories are each their own list for now.
+as a list…** reads a part of the sheet the inference left out as a list. A row under a list's header
+that answers none of its yes/no columns (a role under each category) is read as a second header row
+and skipped. Three lists or more of the same columns under one title, or under none, can be read as
+one list under their headers: on any of them, **Read these N lists as one list under their headers**
+makes a list of the headers (the categories) and one list of the values under them, each value
+under its header; a value under two headers is two records, and loading the file again changes
+nothing. The engine cannot tell headers that are categories from headers that are list names, so
+each stays its own list until you choose this. A category's name in another language (the header of
+its translation column) and the role in a second header row are not loaded; you add them.
+
+A file of one category's items can be loaded under that category: an import profile's source sets
+the parent of every row it loads, and creates it when asked. A list loaded by name finds its records
+among their parent's children.
 
 **The next version of a workbook.** Installing a draft with a workbook saves its import profile;
 Settings › Data operations › **Import profiles** lists the stored profiles beside the selected one: whether it
@@ -577,7 +588,8 @@ another (a material changed from Steel to Bamboo), where the relation allows one
 
 Limits: a field's editor cannot be chosen (each value type has one); the draft editor has no control
 for what a load does with missing records (Settings › Import profiles and the API set it); the
-lists of one shape whose headers are categories are not yet read as one list under them (A8c);
+a category's name in another language is not loaded when lists are read as one list under their
+headers;
 dragging a list's outline on the grid is not offered (its fields set it); the optional assistant is an interface
 only, with no provider. A consumer
 API's documents are worked out from the draft; messages from real records come from the consumer API

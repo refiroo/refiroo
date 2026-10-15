@@ -460,8 +460,14 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
     The real-file smoke's misreadings (a title with sentences under it read as a list, a second
     header row read as a value, sub-list headers read as titles) are what it lets the administrator
     correct.
-  - [ ] A8c lists of one shape side by side under categories as one list (D120: a source's fixed
-    parent; W3's run of one shape).
+  - [x] A8c lists of one shape as one list under their headers (delivered 2026-10-15, A8c record;
+    D140–D146).
+  - [ ] A8c, not covered: a category's name in another language (a translation column's header) and
+    a second header row's role are not loaded with the parent list; a row keyed by name under a
+    parent is not matched by name from another row of the same file.
+  - [ ] Editor history: the steps count reads the steps of the last 100 operations, so a large step
+    (A8c's alternative is about 70) makes it read fewer steps than the draft has (found by A8c's
+    browser runner).
   - [ ] R build acceptance and release.
   - [ ] A-D1 revision, deferred by the user (2026-10-11) until the designer works: reuse one object
     type for similar reference data in a similar hierarchy while it fits, with attributes switched

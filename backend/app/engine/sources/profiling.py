@@ -54,7 +54,7 @@ from ..imports.readers import CSV_SHEET, PROFILE_SHEET, open_tabular
 from ..model.compiler import compile_authored_model
 from ..model.registry import resolve_model_snapshot
 from .inference.facts import main_block
-from .layout import Cell, note_meaning, split
+from .layout import Cell, heading, note_meaning, split
 from .store import compared_workspace
 from .values import staged
 
@@ -703,6 +703,19 @@ def rectangle_columns(
     found = next(((value, note_meaning(value)) for value in under if note_meaning(value)), None)
     if found is not None:
         note = {"row": note_row, "text": found[0], "meaning": found[1]}
+    else:
+        # A second header row (0.10 A8c, D144), from the rectangle's cells as the layout reads them.
+        grid: dict[int, dict[int, Cell]] = {}
+        for row, column, value in session.execute(
+            text(
+                "SELECT row_number, column_number, text FROM source_file_cells WHERE source_file_id = :file"
+                " AND sheet_index = :sheet AND column_number BETWEEN :first AND :last"
+                " AND row_number > :header AND row_number <= :final AND btrim(text) <> ''"
+            ),
+            {"file": file_id, "sheet": sheet_index, "first": first, "last": last, "header": header_row, "final": last_row},
+        ):
+            grid.setdefault(row, {})[column] = Cell(value, len(value))
+        note = heading(first, last, sorted(grid.items()))
     layout = BlockLayout(first, last, header_row, last_row, (), note)
     rows = _data_rows(session, file_id, sheet_index, layout)
     session.execute(text("DROP TABLE IF EXISTS profile_columns"))

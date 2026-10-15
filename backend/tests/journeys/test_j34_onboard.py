@@ -2016,8 +2016,8 @@ def test_each_list_of_a_sheet_laid_out_for_reading_is_proposed_with_its_translat
             types = {o["key"]: o["valueType"] for p in proposals for o in _operations(p, "addAttributeType")}
             assert types[attribute] == "boolean"
         if block["note"]:
-            assert proposal["evidence"]["note"]["meaning"] == "many"
-            assert made["description"]
+            assert proposal["evidence"]["note"]["meaning"] == block["meaning"]
+            assert made.get("description") or block["meaning"] == "heading"
         else:
             assert proposal["evidence"].get("note") is None
 
@@ -2263,6 +2263,232 @@ def test_a_table_is_not_read_as_lists_even_with_an_empty_row_in_it(world):
         assert all(len(s["blocks"]) == 1 for s in sheets), [(s["name"], s["blocks"]) for s in sheets]
         _infer(world, draft)
         assert not [p for p in _proposals(world, draft) if p["pattern"] == "listBlock"]
+
+
+# --- J34.10 lists of one shape as one list (0.10 A8c, D140–D146) -----------------------------------
+
+
+def _one_list(proposal: dict[str, Any]) -> list[dict[str, Any]]:
+    """A listBlock's alternatives reading its run as one list under the headers (D143)."""
+    return [
+        a for a in proposal["alternatives"]
+        if any(o["kind"] == "addSource" and o.get("parent") for o in a["operations"])
+    ]
+
+
+def _model_types(world, draft: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    model = ok(world.api.get(f"/model-drafts/{draft['id']}/model"))["model"]
+    return {t["key"]: t for t in model["objectTypes"]}
+
+
+def _contains(world, draft: dict[str, Any], parent: str, child: str) -> bool:
+    model = ok(world.api.get(f"/model-drafts/{draft['id']}/model"))["model"]
+    containing = {r["key"] for r in model["relationTypes"] if (r.get("features") or {}).get("parentOf")}
+    return any(
+        (r["fromObjectTypeKey"], r["toObjectTypeKey"]) == (parent, child) and r["relationTypeKey"] in containing
+        for r in model["objectTypeRelations"]
+    )
+
+
+@pytest.mark.journey("J34.10")
+@pytest.mark.structures("K")
+def test_lists_of_one_shape_carry_the_alternative_of_one_list_under_their_headers(world):
+    """Case 11. Given W3 profiled and the inference run. Then each list of the third band's run
+    carries the alternative of one list naming the run's three lists, each source fixed to its
+    list's header; no list of the first two bands carries it."""
+    draft, book, _, _ = _w3_draft(world)
+    _infer(world, draft)
+    blocks = _list_blocks(_proposals(world, draft))
+    run = book.run()
+    assert len(run) == 3
+    for block in run:
+        (alternative,) = _one_list(blocks[_place(block)])
+        sources = _operations(alternative, "addSource")
+        assert sorted(o["parent"]["value"] for o in sources) == sorted(b["title"] for b in run)
+        assert {(o["headerRow"], o["block"]["firstColumn"]) for o in sources} == {(b["headerRow"], _letter(b["first"])) for b in run}
+    others = [p for at, p in blocks.items() if at not in {_place(b) for b in run}]
+    assert others and not [p for p in others if _one_list(p)]
+
+
+@pytest.mark.journey("J34.10")
+@pytest.mark.structures("K")
+def test_lists_of_one_shape_load_as_one_list_under_their_headers(world):
+    """Case 12. When W3's proposals are applied and the alternative's operations sent as one step,
+    the draft has a parent list and one list contained in it, the run's three list types are gone,
+    and the dry run refuses no row and skips each second header row; undoing the step restores the
+    three lists. Sent again, installed, loaded into a change set and published, the parent list
+    holds the three headers, each value stands under its header, the name under two headers is two
+    records, and a second load of the same file changes nothing."""
+    draft, book, source, workspace = _w3_draft(world)
+    _infer(world, draft)
+    blocks = _list_blocks(_proposals(world, draft))
+    ok(_application(world, draft))
+    run = book.run()
+    old = [_list_type(blocks[_place(b)])["key"] for b in run]
+    (alternative,) = _one_list(blocks[_place(run[0])])
+    sources = _operations(alternative, "addSource")
+    (one,) = {o["objectType"] for o in sources}
+    (parent,) = {o["parent"]["objectTypeKey"] for o in sources}
+
+    answer = _step(world, draft, *alternative["operations"])
+    assert answer["valid"] is True, answer["diagnostics"]
+    types = _model_types(world, draft)
+    assert not set(old) & set(types)
+    assert parent in types and _contains(world, draft, parent, one)
+    summary = _summary_of(world, draft, answer)
+    assert all(s["rejections"] == [] for s in summary["sources"]), summary["sources"]
+    mine = [s for s in summary["sources"] if s["objectTypeKey"] == one]
+    assert len(mine) == 3 and all(s["skippedRows"] == 1 for s in mine), mine
+
+    ok(world.api.post(f"/model-drafts/{draft['id']}/undo", {"expectedVersion": _version(world, draft)}))
+    types = _model_types(world, draft)
+    assert set(old) <= set(types) and one not in types
+    assert _step(world, draft, *alternative["operations"])["valid"] is True
+
+    release = _install(world, draft)
+    ok(world.activate(release["id"]))
+
+    def loading() -> dict[str, Any]:
+        change_set = world.change_set(workspace)
+        request = {
+            "changeSetId": change_set["id"],
+            "expectedChangeSetVersion": change_set["version"],
+            "profileKey": release["importProfile"]["key"],
+            "sourceFileId": source["id"],
+            "policy": "independent",
+            "onExisting": "overwrite",
+            "stage": "execute",
+        }
+        job = ok(world.api.upload("/imports", {}, {"request": json.dumps(request)}), 202)
+        _run(world)
+        done = ok(world.api.get(f"/jobs/{job['id']}"))
+        assert (done["state"], done["counts"]["rejected"]) == ("completed", 0), done
+        world.publish(change_set, workspace)
+        return done
+
+    loading()
+    parents = {o["id"]: o["name"] for o in _all(world, f"/objects/{parent}", workspaceKey=workspace)}
+    assert sorted(parents.values()) == sorted(b["title"] for b in run)
+    under: dict[str, list[str]] = {}
+    for record in _all(world, f"/objects/{one}", workspaceKey=workspace):
+        under.setdefault(parents[record["parentObjectId"]], []).append(record["name"])
+    assert {k: sorted(v) for k, v in under.items()} == {b["title"]: sorted(b["values"]) for b in run}
+    assert sum(1 for b in run if "Shared value" in b["values"]) == 2
+    again = loading()
+    assert (again["counts"]["created"], again["counts"]["updated"]) == (0, 0), again["counts"]
+
+
+@pytest.mark.journey("J34.10")
+@pytest.mark.structures("K")
+def test_a_second_header_row_is_a_note_and_names_no_record(world):
+    """Case 13. Given W3 profiled, each run list's note is its second header row (meaning
+    heading); loaded, no record is named by it."""
+    _, book, source, _ = _w3_draft(world)
+    (sheet,) = ok(world.api.get(f"/source-files/{source['id']}/profile/sheets"))["items"]
+    found = {(b["firstColumn"], b["lastColumn"], b["headerRow"]): b for b in sheet["blocks"]}
+    for block in book.run():
+        assert found[_place(block)]["note"] == {"row": block["headerRow"] + 1, "text": block["note"], "meaning": "heading"}
+    book, proposals, workspace, _ = _w3_loaded(world)
+    blocks = _list_blocks(proposals)
+    for block in book.run():
+        names = {o["name"] for o in _all(world, f"/objects/{_list_type(blocks[_place(block)])['key']}", workspaceKey=workspace)}
+        assert block["note"] not in names and names == set(block["values"])
+
+
+def _fixed_import(world, workspace: str, sources: list[dict[str, Any]], sheets: dict[str, list[tuple[Any, ...]]]):
+    """An import of an xlsx file of ``sheets`` by an inline profile of ``sources``: the job and its
+    final state."""
+    from openpyxl import Workbook
+
+    book = Workbook()
+    book.remove(book.active)
+    for name, rows in sheets.items():
+        sheet = book.create_sheet(name)
+        for row in rows:
+            sheet.append(list(row))
+    profile = {"sources": sources}
+    request = {"workspaceKey": workspace, "policy": "independent", "stage": "execute", "onExisting": "overwrite", "profile": profile}
+    files = {"file": ("fixed.xlsx", workbooks._save(book), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
+    answer = world.api.upload("/imports", files, {"request": json.dumps(request)})
+    if answer.status_code != 202:
+        return answer, None
+    job = answer.json()
+    _run(world)
+    return job, ok(world.api.get(f"/jobs/{job['id']}"))
+
+
+def _item_source(world, sheet: str, parent: str, **more: Any) -> dict[str, Any]:
+    return {
+        "sheet": sheet,
+        "applicationKey": world.app("K"),
+        "objectTypeKey": "j34-item",
+        "key": {"field": "name"},
+        "parent": {"objectTypeKey": "j34-category", "matchBy": {"field": "name"}, "value": parent, **more},
+        "columns": [{"column": "name", "field": "name"}],
+    }
+
+
+def _catalogue_installed(world) -> str:
+    workspace = _workspace(world)
+    draft = _draft(world)
+    _catalogue(world, draft)
+    ok(world.activate(_install(world, draft)["id"]))
+    return workspace
+
+
+@pytest.mark.journey("J27.8")
+@pytest.mark.structures("K")
+def test_an_import_sets_a_fixed_parent_on_every_row(world):
+    """Case 14, J27 variant (0.10 A8c, D141). An import whose source sets parent to a value with
+    missing: create creates the parent and places every row under it; with the default refuse and
+    no such record, every row is refused REFERENCE_NOT_FOUND; a source with a fixed parent and a
+    parent column is refused INVALID_IMPORT_PROFILE at its parent."""
+    workspace = _catalogue_installed(world)
+    rows = [("name",), ("Hammer",), ("Saw",), ("Drill",)]
+    _, done = _fixed_import(world, workspace, [_item_source(world, "Items", "Tools", missing="create")], {"Items": rows})
+    assert (done["state"], done["counts"]["rejected"]) == ("completed", 0), done
+    (tools,) = [o for o in _all(world, "/objects/j34-category", workspaceKey=workspace) if o["name"] == "Tools"]
+    items = _all(world, "/objects/j34-item", workspaceKey=workspace)
+    assert sorted(o["name"] for o in items) == ["Drill", "Hammer", "Saw"]
+    assert {o["parentObjectId"] for o in items} == {tools["id"]}
+
+    job, done = _fixed_import(world, workspace, [_item_source(world, "Items", "Garden")], {"Items": [("name",), ("Rake",), ("Hoe",)]})
+    found = ok(world.api.get(f"/jobs/{job['id']}/rows", pageSize=10))["items"]
+    codes = [o["error"]["code"] for r in found for o in r["outcomes"] if o.get("error")]
+    assert codes == ["REFERENCE_NOT_FOUND", "REFERENCE_NOT_FOUND"], found
+
+    both = _item_source(world, "Items", "Tools", missing="create")
+    both["columns"].append({"column": "category", "parent": {"objectTypeKey": "j34-category", "matchBy": {"field": "name"}}})
+    answer, _ = _fixed_import(world, workspace, [both], {"Items": [("name", "category"), ("Axe", "Tools")]})
+    error = refused(answer, 422, "INVALID_IMPORT_PROFILE")
+    assert "/sources/0/parent" in [p["path"] for p in error["details"]["problems"]]
+
+
+@pytest.mark.journey("J27.8")
+@pytest.mark.structures("K")
+def test_an_import_keyed_by_name_finds_records_under_their_parent(world):
+    """Case 15, J27 variant (0.10 A8c, D142). Two sources keyed by name, fixed to two parents, each
+    holding one name: the first load creates two records, the second changes none; two rows of one
+    name under one parent with different values are refused DUPLICATE_KEY_IN_FILE."""
+    workspace = _catalogue_installed(world)
+    sources = [
+        _item_source(world, "Tools", "Tools", missing="create"),
+        _item_source(world, "Toys", "Toys", missing="create"),
+    ]
+    sheets = {"Tools": [("name",), ("Set",)], "Toys": [("name",), ("Set",)]}
+    _, done = _fixed_import(world, workspace, sources, sheets)
+    assert (done["state"], done["counts"]["rejected"]) == ("completed", 0), done
+    items = _all(world, "/objects/j34-item", workspaceKey=workspace)
+    assert [o["name"] for o in items] == ["Set", "Set"] and len({o["parentObjectId"] for o in items}) == 2
+    _, done = _fixed_import(world, workspace, sources, sheets)
+    assert (done["counts"]["created"], done["counts"]["updated"], done["counts"]["rejected"]) == (0, 0, 0), done
+
+    ordered = _item_source(world, "Tools", "Tools", missing="create")
+    ordered["columns"].append({"column": "order", "attributeTypeKey": "j34-order"})
+    job, _ = _fixed_import(world, workspace, [ordered], {"Tools": [("name", "order"), ("Set", 1), ("Set", 2)]})
+    found = ok(world.api.get(f"/jobs/{job['id']}/rows", pageSize=10))["items"]
+    codes = [o["error"]["code"] for r in found for o in r["outcomes"] if o.get("error")]
+    assert codes == ["DUPLICATE_KEY_IN_FILE", "DUPLICATE_KEY_IN_FILE"], found
 
 
 @pytest.mark.journey("J27.8")

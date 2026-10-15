@@ -284,6 +284,11 @@ def prune(profile: Document, model: dict[str, Any], because: str) -> None:
             source["objectTypeKey"], key["attributeTypeKey"]
         ):
             unmap_key(profile, source, because)
+        parent = source.get("parent")
+        if isinstance(parent, dict) and not parent_resolves(known, source, parent):
+            # A source's fixed parent (0.10 A8c) is kept as an unmapped entry, as a key is.
+            profile.set(source_path(source), "parent", None)
+            _unmapped(profile, {"sheet": source.get("sheet"), "source": source["id"], "parent": parent}, because)
         for binding in list(source.get("columns") or []):
             if binding_resolves(known, source, binding):
                 continue
@@ -307,7 +312,9 @@ def unmap_key(profile: Document, source: dict[str, Any], because: str) -> None:
 
 def _unmapped(profile: Document, entry: dict[str, Any], because: str) -> None:
     """An unmapped entry, named ``<source>/<column>`` (``/key``, ``/source``), replacing an older one."""
-    label = entry.get("column") or ",".join(entry.get("columns") or []) or ("key" if "key" in entry else "source")
+    label = entry.get("column") or ",".join(entry.get("columns") or []) or next(
+        (part for part in ("key", "parent") if part in entry), "source"
+    )
     entry_id = f"{entry['source']}/{label}"
     if profile.find(["unmapped", {"id": entry_id}]) is not None:
         profile.remove(["unmapped"], {"id": entry_id})
@@ -326,9 +333,7 @@ def binding_resolves(known: Facts, source: dict[str, Any], binding: dict[str, An
         return known.bound(own, binding["attributeTypeKey"])
     parent = binding.get("parent")
     if isinstance(parent, dict):
-        return parent.get("objectTypeKey") in known.parents.get(own, set()) and _match_resolves(
-            known, parent.get("objectTypeKey"), parent.get("matchBy")
-        )
+        return parent_resolves(known, source, parent)
     for part in ("relation", "relationFlags"):
         inner = binding.get(part)
         if isinstance(inner, dict):
@@ -351,6 +356,14 @@ def binding_resolves(known: Facts, source: dict[str, Any], binding: dict[str, An
             and _match_resolves(known, parent.get("objectTypeKey"), parent.get("matchBy"))
         )
     return True
+
+
+def parent_resolves(known: Facts, source: dict[str, Any], parent: dict[str, Any]) -> bool:
+    """Whether a parent a column binds or the source fixes (0.10 A8c) is a type the source's
+    records can stand under, matched by what its type binds."""
+    return parent.get("objectTypeKey") in known.parents.get(source.get("objectTypeKey"), set()) and _match_resolves(
+        known, parent.get("objectTypeKey"), parent.get("matchBy")
+    )
 
 
 def _match_resolves(known: Facts, type_key: str | None, match: Any) -> bool:

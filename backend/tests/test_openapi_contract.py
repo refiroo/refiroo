@@ -151,9 +151,12 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # page; diffed against the previous commit, nothing else changed. Re-baselined for A8b (D124): GET
     # /source-files/{id}/profile/sheets/{sheet}/cells and the SourceCell, SourceCellRow and
     # SourceCellPage schemas; diffed against the previous commit, nothing else changed.
+    # Re-baselined for 0.10 A8c: a source's fixed parent (FixedParent, Source.parent and its
+    # description) and a note's meaning heading (SourceBlockNote); diffed against the previous
+    # commit, nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "2930974dd0dca1a32b36ebd0987be5d06a3dbdaf003062f6d14f2fd7b3ed8e57"
+        "c52a0c6425e6313c91c46dd0abfab10ea699e6afd4ed9bf5efb133f0ab4f855d"
     )
 
 

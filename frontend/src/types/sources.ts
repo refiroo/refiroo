@@ -36,7 +36,7 @@ export interface SourceFileUpload {
 export interface SourceBlockNote {
   row: number;
   text: string;
-  meaning: "many" | "one" | "free";
+  meaning: "many" | "one" | "free" | "heading";
 }
 
 export interface SourceBlock {
@@ -185,6 +185,13 @@ export interface ProfileSource {
   /** A unique attribute, an ID column, or the record's name (`field: "name"`, 0.10 A8a, D117). */
   key?: { attributeTypeKey?: string; column?: string; field?: "name" } | null;
   record?: "existing" | null;
+  /** Every row's parent: the record found for `value` (0.10 A8c, D141). */
+  parent?: {
+    objectTypeKey: string;
+    matchBy: { field?: string; attributeTypeKey?: string };
+    value: string;
+    missing?: "create" | "refuse";
+  } | null;
   columns: ProfileBinding[];
 }
 

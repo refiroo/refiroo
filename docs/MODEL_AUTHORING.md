@@ -399,7 +399,9 @@ list's titles are the nearest title above it whose columns reach it (a title rea
 title on its row) and those on the rows directly above that one. Its **note** is the first row under
 its header when a cell of it is a note word (English, folded): `multiple answer(s)`, `multiple
 choice`, `multi-select`, `several` (many); `single answer`, `single choice`, `one answer` (one);
-`free field`, `free text` (no list). Colour, bold and merged cells are not read. Each list proposes
+`free field`, `free text` (no list); without one, in a list with yes/no columns, a first row naming
+something and answering none of them while every later row answers one is a **second header row**
+(0.10 A8c, D144), read and skipped as a note. Colour, bold and merged cells are not read. Each list proposes
 a list type named after its header, a source on its block keyed by name (D117), its first column
 the name; within the list a column of yes/no words is a yes/no attribute (two or more a flag set), a
 text column filled on 80% of the rows its names fill is their translation (a language word of its
@@ -407,9 +409,18 @@ header, else "Language k"; D118: the rule sees a second text per item, only a he
 language), a column holding only its header is reported and not read, any other an attribute. The
 note row is skipped and the note becomes the type's description; a free field or a header with no
 values proposes nothing and is a warning. The lists under one innermost title, two or more, are a
-navigation group named after it. Lists of one shape side by side whose headers are values of
-another list (the categories of one list of items) are read as a list each; reading them as one
-list under its categories is A8c (D120).
+navigation group named after it.
+
+**Lists of one shape as one list, as built (0.10 A8c, D140–D143).** Three lists or more of a sheet
+under one innermost title, or all under none, whose columns after the name have the same kinds in
+order, are a run: their headers may be values (the categories of one list of items) or names of
+separate lists, and the shape cannot tell which, so each stays a list of its own and carries the
+alternative "Read these N lists as one list under their headers". Taken, it replaces them in one
+step by a list named after the title (else the sheet) contained in a parent list "… category",
+loaded by one source per former list fixed to its header, which the load creates as a record of the
+parent list. A source keyed by name finds a row's record among its parent's children, so a name
+under two headers is two records. The category's name in another language (a translation column's
+header) is not read, and a second header row is skipped, not stored on the category.
 
 **Inference is deterministic first.** Profiling computes types, uniqueness, fill rates, delimiters and
 value overlap between columns and sheets; the patterns are rules over those statistics. An optional

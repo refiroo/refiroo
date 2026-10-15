@@ -17,7 +17,9 @@ reads such a sheet's filled cells, a bounded set the profile hands it, and finds
   its header, and those rows are titles. A part under a header with nothing below it (at most one
   empty row between) is that header's list; any other part's header is its first row. A one-row
   part left over is a title when it is one cell, else a header with no values.
-- A list's **note** (D119) is the first row under its header when a cell of it is a note word.
+- A list's **note** (D119) is the first row under its header when a cell of it is a note word;
+  else, in a list with yes/no columns, a **second header row** (0.10 A8c, D144): a first row naming
+  something and answering none of them while every later row answers one.
 - A list's titles are the nearest title above it whose columns reach it (a title reaches from its
   column to the next title on its row) and the titles on the rows directly above that one.
 
@@ -42,6 +44,8 @@ NOTE_WORDS = {
     "free field": "free",
     "free text": "free",
 }
+# The words of a yes/no column (A6's vocabularies), which tell a second header row (D144).
+YES_NO = frozenset({"y", "n", "yes", "no", "x", "true", "false", "1", "0"})
 
 
 def note_meaning(value: str) -> str | None:
@@ -195,9 +199,32 @@ def split(runs: Sequence[tuple[int, int]], grid: Grid) -> list[Found]:
             meaning = next(((cell.text, note_meaning(cell.text)) for _, cell in sorted(under.items()) if note_meaning(cell.text)), None)
             if meaning is not None:
                 block.note = {"row": part.data[0], "text": meaning[0], "meaning": meaning[1]}
+            else:
+                block.note = heading(block.first_column, block.last_column, [(row, cells(part, row)) for row in part.data])
         block.titles = _titles_of(block, titles)
         found.append(block)
     return sorted(found, key=lambda b: (b.first_column, b.header_row))
+
+
+def heading(first_column: int, last_column: int, rows: Sequence[tuple[int, Mapping[int, Cell]]]) -> dict[str, object] | None:
+    """D144 (0.10 A8c): a second header row, read as the list's note. In a list with yes/no
+    columns (every value one of :data:`YES_NO`), its first row under the header (``rows``, by row
+    number, with their cells) when it names something and answers none of them while every later
+    row answers one at least."""
+    if len(rows) < 2:
+        return None
+    (first_row, first), later = rows[0], [cells for _, cells in rows[1:]]
+    flags = [
+        column
+        for column in range(first_column + 1, last_column + 1)
+        if any(column in row for row in later)
+        and all(row[column].text.strip().lower() in YES_NO for row in later if column in row)
+    ]
+    if not flags or first_column not in first or any(column in first for column in flags):
+        return None
+    if not all(any(column in row for column in flags) for row in later):
+        return None
+    return {"row": first_row, "text": first[first_column].text, "meaning": "heading"}
 
 
 def _prose(runs: Sequence[tuple[int, int]], grid: Grid) -> set[tuple[int, int]]:

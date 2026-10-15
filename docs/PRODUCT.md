@@ -223,7 +223,9 @@ can complete the task in the application; "API" means another system can.
   section and group titles): each list is read with its header, the titles above it and a note
   such as "multiple answers", and proposed as a list loaded by name, with its translation and yes/no
   columns; the lists under one title are grouped in the sidebar. In the editor each list is shown
-  with its cells, and adjusted, left out or loaded as a list on request.
+  with its cells, and adjusted, left out or loaded as a list on request. Lists of the same columns
+  whose headers are categories can be read as one list under its categories, and a second header
+  row under each header is skipped.
 - Load the next version of a workbook through its saved profile: see what differs before anything
   is written (columns new, missing or renamed, new list values, names that drifted, records the file
   no longer names, the profile against the current model, what the load would do), accept a rename

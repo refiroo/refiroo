@@ -248,7 +248,7 @@ migration), `contract` (every route change) and `volume` (every budget).
 | 10 | [A6](#a6-inference-over-table-patterns) | A5 | **A6a delivered 2026-10-12; A6b delivered 2026-10-14.** Proposals from the table patterns; new application or extending the active model; pinned decisions |
 | — | _cut line (D2)_ | | _If R is out of reach, 0.10.0 releases here and A7, A8 move to 0.10.x_ |
 | 11 | [A7](#a7-model-description-sheets-and-matching-across-files) | A6 | **Delivered 2026-10-14** (screenshots approved). Model-description sheets; matching records across files |
-| 12 | [A8](#a8-list-blocks-in-sheets-laid-out-for-reading) | A6 | **A8a delivered 2026-10-14; A8b built 2026-10-15, its screenshots awaiting approval; A8c open.** List blocks detected, confirmed and loaded |
+| 12 | [A8](#a8-list-blocks-in-sheets-laid-out-for-reading) | A6 | **A8a delivered 2026-10-14; A8b built 2026-10-15, its screenshots awaiting approval; A8c delivered 2026-10-15.** List blocks detected, confirmed and loaded |
 | 13 | [A9](#a9-collection-cells-edited-in-place) | — | **Added and delivered 2026-10-15** (screenshots approved). Collection table cells edited in place: values, single and many-valued relations |
 | 14 | [R](#r-build-acceptance-and-release) | all | Build acceptance and release |
 
@@ -3802,6 +3802,172 @@ the list tree, a proposed list, the adjust dialog with the header moved, a dropp
 list…, the free field's dialog, 390px list, source and dialog. **Not run:** the accessibility and
 visual gates (R; axe ran in the runner on a list's centre and the dialog), the full suites (R).
 
+##### A8c plan (2026-10-15)
+
+**Planned 2026-10-15 on the user's instruction ("can you deliver a8c?"); D140–D146 and the test
+cases accepted by the user the same day ("yes, good").** D120 (accepted with the A8 plan) is the scope; this plan settles
+how. Checked against the code at `ae6002f` and, once, against the user's reading-layout workbook (by
+structure):
+
+- **The real shape.** One sheet holds 16 lists of four columns (a name, a yes/no column headed by a
+  country code, a translated name, a yes/no column headed by another), in four bands. Each header
+  is a category, not a list name; the translated name column's header is the category in the other
+  language; under each header a second header row names a role; 21 of the 98 names under them repeat
+  under another category. A8a reads them as 16 lists.
+- **Its title is prose**: the sentence above the bands averages over 60 characters, so the lists
+  have no title. D120's "under one title" would find nothing on the sheet it was written for.
+- **A8a's shapes on that sheet**: 11 of the 16 lists share their column kinds (name, yes/no,
+  translation, yes/no); the other 5 differ only because a yes/no column holds no values in them.
+  On the whole workbook, 9 groups of three or more lists share a title (or have none) and a shape;
+  their headers are values in some (this sheet; a sheet of procedures under sub-categories) and
+  list names in others. Shape cannot tell them apart, which is why D120 keeps a list per block as
+  the default.
+- **A name key does not know parents** (`binding._identities`): a row keyed by name matches any
+  record of the type with that name. Duplicates in a file are counted per source
+  (`_duplicates`), so the same name in two blocks loads two records the first time and both rows
+  are refused `AMBIGUOUS_NAME_KEY` the second time.
+- **A source has no parent of its own.** A parent is a column binding (`ParentBinding`); a fixed
+  value exists only for a related record's parent (`RelatedParent.value`, A6).
+- **Alternatives** are operations the editor sends after the proposal is applied
+  (`ProposedBecause`, one button each); a list's centre (A8b) already shows its proposal's card.
+
+**What is built:**
+
+1. **A source's parent** (D141): `parent` on a source, every row's parent the record found by a
+   fixed value; created on load when asked.
+2. **Names under a parent** (D142): a source keyed by name whose rows have a parent finds each
+   row's record among that parent's children.
+3. **Runs of one shape** (D140): lists of one sheet of one shape found by the inference.
+4. **The alternative** (D143): on each list of a run, "Read these N lists as one list under their
+   headers", one step replacing the N lists with a parent list and one list.
+5. **A second header row** (D144): a row under a header with no yes/no answers where the rest have
+   them is read as a note and skipped.
+6. **W3 grows** (D121's run, D145).
+
+**Decisions** (D140 onward):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D140 | Which lists are a run of one shape | **Three or more lists of one sheet under the same innermost title, or all under none, whose columns after the name have the same kinds in the same order (yes/no, translation, attribute, holding only its header). Lists in different bands may be one run.** D120 said "adjacent, under one title"; the real sheet's lists are in four bands and its title is prose, so neither holds there. On the real workbook this offers the alternative on 9 runs; on some the headers are list names and the alternative is wrong, which costs a line on the card and nothing else (the default is unchanged) |
+| D141 | How a source sets one parent on every row | **`parent` on a source, the shape a related record's fixed parent already has: `{"objectTypeKey", "matchBy", "value", "missing"}` (`value` required). Each row's parent is the record `matchBy` finds for `value`, created by that name with `missing: "create"`. Checked as a column parent is (`PARENT_NOT_ALLOWED` where the type cannot stand under it, `CREATE_NEEDS_NAME_MATCH`); a source with both `parent` and a column binding `parent` is refused `INVALID_IMPORT_PROFILE` at `/sources/{i}/parent`.** D120 wrote `parent: {"fixed": "<a value>"}`; the type has to be named because a type may stand under several, and one shape for a fixed parent in two places is easier to learn than two. A generic import feature: any client loading a file of one category's items uses it |
+| D142 | A name key under a parent | **A source keyed by name (`key: {"field": "name"}`, D117) whose rows have a parent, fixed or from a column, finds a row's record among that parent's children with that name; a row whose parent is created by the load is a new record. Two rows of the file with one name under one parent are one key (`DUPLICATE_KEY_IN_FILE` when their values differ), across sources too.** Without it the real sheet's 21 repeated names are refused on the second load. The cost: with a parent column, a record the file moves to another parent is a new record there, since a name identifies only within its parent. Identity door (ADR-032): unaffected; public IDs and unique attributes are unchanged, and the name stays a match, not an identity |
+| D143 | What the alternative does | **On each list of a run, one alternative "Read these N lists as one list under their headers": one step that removes each list's source and list type (with the flag list and relations only it used), adds a parent list named "<name> category" and a list "<name>" contained in it (required), named after the run's innermost title or else the sheet, singular, and one source per list on its rectangle with `parent` fixed to its header (`missing: "create"`), keyed by name. The columns are read as A8a reads one list, shared by position: one translation per translation column, one yes/no attribute or one flag list, one attribute per attribute column, each named after the first list's header. Notes and second header rows are skipped as before. The title's navigation group holds the two new lists in place of the N. Undo restores them.** The admin's adjustments of a list (A8b's Adjust list…) made before are not carried over: the alternative is built at inference time from the lists' rectangles. Applying it from one list's card changes the whole run, which the label says by its number |
+| D144 | A second header row | **In a list with yes/no columns, the first row under the header (or its note) whose yes/no cells are all empty while every later row has at least one filled, is a second header row: read as the list's note (`meaning: "heading"`), so it is out of the statistics, skipped on load (A8a's note mechanism, D119), and shown with the list. Applies to every list, not only to runs.** Found on the real sheet (a role per category) and recorded as an A8a misreading left to Adjust list…. With the alternative it would load a record named after a role under every category, and adjusting each of the N sources is what the alternative was meant to spare. Lists without yes/no columns are not read this way: nothing tells such a row from a value. Can be dropped without changing the rest |
+| D145 | W3 grows | **W3 gains a third band: a title over three lists of one shape (name, a translation whose header is the header in another language, a yes/no column), whose headers are values; one name appearing under two of them; and a second header row under each.** D121 left the run to A8c |
+| D146 | When A8c is done | **No new screen: the alternative is a button on the list's card, which A8b built. Done on the cases below, one new check in `test:browser:authoring-a8` (the alternative applied from a list's card, the model pane showing the two lists) with its screenshot inspected and shown in the report, and one real-file smoke: the real sheet's run turned into one list, the dry run refusing no row, a second load changing nothing.** Memory rules: a spreadsheet package is tried on a real file before done |
+
+**Not in A8c:** the parent's translation from the translation column's header (the category's name
+in the other language is not read; the administrator adds it), and a role read as an attribute of
+the parent (D144 skips the row). Both need a source to set more than a parent's name.
+
+**Journey test cases** (backend, `tests/journeys/test_j34_onboard.py`, J34.10 continued, and
+`test_j27_import.py` for the import; each on two configurations, W3 of one seed in a new workspace; no
+test names a configuration's key or a header text):
+
+11. **J34.10 A run found.** Given W3 profiled and the inference run, each list of the third band's
+    run carries the alternative naming three lists; no list of the first two bands does.
+12. **J34.10 One list under its headers.** When the proposals are applied and the alternative's
+    operations sent as one step, the draft has a parent list and one list contained in it, the run's
+    three list types are gone, and the dry run refuses no row and skips each second header row;
+    installed, loaded into a change set and published, the parent list holds the three headers,
+    each value stands under its header, and the name under two headers is two records; a second
+    load of the same file changes nothing. Undoing the step restores the three lists.
+13. **J34.10 A second header row.** Given W3 profiled, each run list's note is its second header
+    row (`meaning: "heading"`), and no record is named by it after the load.
+14. **J27 variant, a source with a fixed parent.** An import whose source sets `parent` to a value
+    with `missing: "create"` creates the parent and places every row under it; with the default
+    `refuse` and no such record, every row is refused `REFERENCE_NOT_FOUND`; a source with a fixed
+    parent and a parent column is refused `INVALID_IMPORT_PROFILE`.
+15. **J27 variant, names under parents.** Two sources keyed by name, fixed to two parents, each
+    holding one name: the first load creates two records, the second changes none; two rows of one
+    name under one parent with different values are refused `DUPLICATE_KEY_IN_FILE`.
+
+**Unit tests:** D140 (a run across bands, two lists not a run, a different kind breaks it, title
+or none), D144 (a role row found, a row with one answer not, a list without yes/no columns not).
+
+**Groups:** `authoring`, `jobs` (the parent and the name key in binding and the dry run),
+`contract` (`Source.parent`; the OpenAPI lock re-baselined after a diff). Frontend: the `Source`
+type and the source pane's words for a source's parent ("every row under …"); Vitest related;
+`test:browser:authoring-a8`.
+
+**Composable domains (ADR-032):** inbound flow gains a fixed parent (D141) and a name key under a
+parent (D142); identity (public IDs), attribute storage, audit and history, the `match` declaration
+and mapping coverage are unchanged. No door is affected.
+
+##### A8c record (2026-10-15)
+
+**Delivered 2026-10-15** as planned (D140–D146). No new screen (D146). What is built:
+
+- **A source's fixed parent** (`models/imports.FixedParent`, `Source.parent`, D141): every row's
+  parent matched once per row as a column parent is, created with `missing: "create"`; checked by
+  `profiles._parent_problems`, shared with a parent column, and `PARENT_BOUND_TWICE` beside one;
+  the parent's type joins the load's context. A refusal names "the source's parent" where a column
+  parent names its column. `addSource` and `setSource` take `parent` (`mapping._source_parent`);
+  `mapColumn` refuses a parent column on such a source; a parent whose type goes is pruned to an
+  unmapped entry (`profile_side.prune`).
+- **Names under a parent** (`binding._names_under_parents`, D142): rows keyed by name with a parent
+  take a new ID in `_identities`, so the file's rows match them as before; after the matches, level
+  by level from the rows whose parent is settled, each finds the record of its name among the
+  parent's children and takes its ID, and every parent, match, link and related record naming the
+  row follows. Duplicates group by type, parent and name across sources (`_KEY_GROUP`).
+- **Runs of one shape** (`patterns.shape_of`, `RUN_LISTS`, D140) and **the alternative**
+  (`Builder._one_list`, D143): removals, then the parent list, the list, a source per list, the
+  group's placement, on each list's proposal.
+- **A second header row** (`layout.heading`, D144): found by the profile and by a rectangle read as
+  a list (`profiling.rectangle_columns`); a note with `meaning: "heading"`; the proposal's sentence
+  and the editor's words say so.
+- **W3's third band** (D145). Frontend: `ProfileSource.parent`, the note's `heading`, a list's
+  Loads line naming its parent, `noteLabel`.
+
+**Where it differs from the plan:**
+
+1. **Cases 14 and 15 are in `test_j34_onboard.py`**, beside A8a's J27.8 variant of a source keyed by
+   name, not in `test_j27_import.py`.
+2. **D143's removals are the sources, value maps, list types and flag lists only**: removing a type
+   takes the relation types and attribute types only it used (D31), so removing them too was refused.
+3. **D144 reads the first row under the header only when the list has no note**: a note and a
+   second header row under one header would need two skipped rows; neither the real workbook nor W3
+   has both.
+4. **D142's limit, found while building**: a row keyed by name under a parent is not matched by
+   name from another row's relationship or lookup in the same file (its record is settled after
+   the matches). Recorded in API.md and TODO.
+5. **W3's second band changed** so that it holds no run (its note list `choice` gained a yes/no
+   column): with three lists of names alone under one title it was a run under D140, against case
+   11. A test fixture change; D140 and the cases are as accepted.
+6. **Older test made wrong by W3, changed:** case 2's note assertion reads the note's meaning from
+   W3 (the third band's notes are second header rows, with no description).
+7. **A8b's browser runner** pressed keys in the list tree faster than its focus moved on the next
+   frame; W3's larger tree made it fail. The runner now waits for focus before each key.
+8. **Found, not fixed (TODO):** the editor's steps count reads the steps of the last 100
+   operations; after the alternative (about 70 operations in W3, 139 on the real sheet) it reads
+   fewer steps than the draft has.
+
+**Real-file smoke** (the user's reading-layout workbook, once, through the API, new-application
+mode; by structure): 87 lists proposed; 12 second header rows found, all on the sheet D120 was
+written for; 12 runs offered (2 on that sheet, of 11 and 6 lists; 10 on the other three sheets,
+3 to 15 lists, some of them separate lists, as D140 expected); applied, the dry run reads 708 rows
+over 87 sources, skips 16 (4 notes, 12 second header rows) and refuses none. The 11-list run read as
+one list: one valid step of 139 operations, the dry run unchanged (708 rows, 87 sources, none
+refused); installed, the first load created 1,130 records and refused none, the second created and
+updated none (1,114 unchanged); 83 values stand under 11 categories, 66 distinct names, so 17
+names repeated under another category are records of their own.
+
+**Checks:** the five cases written first: all 10 runs failed before the build (cases 1–3 failed too,
+on W3's third band). `test_j34_onboard.py`, `test_j35_next_version.py`: 110 passed (4 min 17 s, with
+the user's go-ahead). `-m jobs` without those: 432 passed (1 min 13 s), and its serial part 1.
+`tests/unit/engine/model/authoring/`: 3,197 passed; `tests/unit/engine/sources/`,
+`tests/unit/engine/imports/`: 242 passed. `-m contract`: 76 passed, the OpenAPI lock re-baselined
+after diffing the document against the previous commit (`FixedParent`, `Source.parent` and its
+description, `SourceBlockNote.meaning` gaining `heading`; nothing else). New unit tests: 2 for
+D140 (`test_patterns.py`), 2 for D144 (`test_layout.py`). `ruff check app/ tests/`: clean.
+Frontend: `npm run format`, `npm run lint` (0 errors, the 7 known warnings), `npm run build`,
+`vitest related` 36 passed. Browser: `test:browser:authoring-a8` 16 checks on both designer models
+(the new check 7: the alternative applied from a run list's card, the run's lists Loaded, the model
+pane's two lists, the dry run refusing none; axe on the card). Screenshots inspected (1440px light):
+the run list's card with the alternative, and the list after it. **Not run:** the dark and 390px
+screenshots of the card (no new surface; A8b's are unchanged), the accessibility and visual gates
+(R), the full suites (R).
+
 ## Track: collections
 
 ### A9: Collection cells edited in place
@@ -4095,7 +4261,7 @@ Design-level decisions are [A-D1–A-D12](MODEL_AUTHORING.md#open-decisions).
 ## Next
 
 1. **A8b is built (2026-10-15, [record](#a8b-record-2026-10-15))**, complete when the user approves
-   its screenshots; then A8c (D120). **A9 added 2026-10-15** ([entry](#a9-collection-cells-edited-in-place)):
+   its screenshots. **A8c is delivered (2026-10-15, [record](#a8c-record-2026-10-15))**. **A9 added 2026-10-15** ([entry](#a9-collection-cells-edited-in-place)):
    collection cells edited in place, the interaction decided by the user; **planned 2026-10-15
    ([plan](#a9-plan-2026-10-15)), **delivered the same day** ([record](#a9-record-2026-10-15))**. A8a is delivered (2026-10-14, [record](#a8a-record-2026-10-14)).
    **A7 is delivered (2026-10-14, [record](#a7-record-2026-10-14)), its screenshots approved**; its plan, D106–D113 and test cases were accepted by the user the same day. The user chose A7 before A8. A5c is delivered (2026-10-14,

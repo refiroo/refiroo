@@ -9,7 +9,8 @@ columns, a repeated parent, multi-valued cells, references to another sheet, tra
 text lookups, external IDs, and every remaining column as an attribute; then placeholders and name
 drift for the columns found, and a navigation group per sheet that proposes two or more lists. The
 lists of a sheet laid out for reading (0.10 A8a, D116) are read last, one ``listBlock`` each, with a
-navigation group per title over two or more of them.
+navigation group per title over two or more of them; three or more of one shape under one title, or
+under none, are a run (0.10 A8c, D140), each list's ``detail["run"]``.
 
 The thresholds are stated in MODEL_AUTHORING's pattern catalogue so a test names what a rule finds.
 Scored similarity is deliberately absent: the same workbook always gives the same findings.
@@ -204,6 +205,8 @@ def find(workbook: Workbook) -> list[Finding]:
 
 # Patterns whose proposal adds a list type.
 LIST_PATTERNS = ("textLookup", "codeAndName", "flagColumns", "multiValued", "listBlock")
+# D140: the lists of one shape that are a run, offered as one list under their headers.
+RUN_LISTS = 3
 # D118: a column of a list filled on at least this share of the rows its names fill is a translation.
 TRANSLATION_FILLED = 0.8
 # Patterns read from a model description rather than a sheet's rows (0.10 A7).
@@ -720,6 +723,18 @@ def _list_blocks(workbook: Workbook) -> list[Finding]:
         found = list_block(block)
         if found is not None:
             findings.append(found)
+    # D140 (0.10 A8c): three lists or more of a sheet under one innermost title, or all under
+    # none, whose columns after the name have the same kinds in order, are a run of one shape.
+    runs: dict[tuple[str, str | None, tuple[str, ...]], list[Finding]] = {}
+    for finding in findings:
+        if finding.detail["list"]:
+            block = finding.detail["block"]
+            title = block.titles[-1] if block.titles else None
+            runs.setdefault((finding.sheet, title, shape_of(finding)), []).append(finding)
+    for run in runs.values():
+        if len(run) >= RUN_LISTS:
+            for finding in run:
+                finding.detail["run"] = run
     by_title: dict[tuple[str, str], list[Finding]] = {}
     for finding in findings:
         block = finding.detail["block"]
@@ -731,6 +746,24 @@ def _list_blocks(workbook: Workbook) -> list[Finding]:
                 Finding("navigationGroup", sheet, [], {"lists": len(lists), "sheet": sheet, "title": title}, {"lists": lists})
             )
     return findings
+
+
+def shape_of(finding: Finding) -> tuple[str, ...]:
+    """A list's columns after its name by kind (D140): ``yesNo``, ``translation``, ``attribute``
+    or ``empty`` (holding only its header)."""
+    detail = finding.detail
+    translations = {number for number, _ in detail["translations"]}
+    kinds = []
+    for column in detail["block"].columns[1:]:
+        if not column.filled:
+            kinds.append("empty")
+        elif column.number in detail["flags"]:
+            kinds.append("yesNo")
+        elif column.number in translations:
+            kinds.append("translation")
+        else:
+            kinds.append("attribute")
+    return tuple(kinds)
 
 
 def list_block(block: BlockTable, *, asked: bool = False) -> Finding | None:

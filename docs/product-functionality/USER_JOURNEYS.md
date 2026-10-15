@@ -940,7 +940,11 @@ for reading A8 (below the cut line).
   narrows it, each column keeping its binding on its letter; **Don't load this list** removes its
   source and list type in one step, undoable, and proposing again leaves it alone; **Load as a
   list…** reads a rectangle as a list on request, the administrator's, and a rectangle with nothing
-  under its header is refused.
+  under its header is refused. (0.10 A8c) A row under a list's header that answers none of its
+  yes/no columns is read as a second header row and skipped; three lists or more of one shape under
+  one title (or none) offer, on each list, to be read as one list under their headers: a parent list
+  holding the headers and one list contained in it, each value under its header, a name under two
+  headers two records, a second load changing nothing, the step undoable.
 
 **Refusals:** `413 IMPORT_TOO_LARGE`, `422 UNSUPPORTED_FILE_FORMAT`, `404 SOURCE_FILE_NOT_FOUND`,
 `409 SOURCE_FILE_PROFILE_NOT_READY`; the inference's `404 INFERENCE_NOT_FOUND`, `404
@@ -954,9 +958,10 @@ publication); `test:browser:authoring-a5` (J34.1–J34.3, J34.7, J34.8 in the ed
 models); `test:browser:authoring-a6` (J34.4, J34.6, J34.8 in the editor filled by the inference, on
 both designer models); J34.9: `test_j34_onboard.py`'s A7 cases (two configurations) and
 `test:browser:authoring-a7` (W2 described, loaded and published, W1 onto it with drift and missing
-values, both designer models); J34.10: `test_j34_onboard.py`'s A8a and A8b cases (W3, two configurations),
-J27's variant of a source keyed by name, and `test:browser:authoring-a8` (the source pane list by list,
-Adjust list…, Don't load this list, Load as a list…, both designer models).
+values, both designer models); J34.10: `test_j34_onboard.py`'s A8a, A8b and A8c cases (W3, two configurations),
+J27's variants of a source keyed by name, with a fixed parent and keyed by name under parents, and
+`test:browser:authoring-a8` (the source pane list by list, Adjust list…, Don't load this list, Load
+as a list…, lists of one shape as one list, both designer models).
 
 ### J35 — Load the next version of a workbook
 
@@ -1308,7 +1313,10 @@ through the API delivered in 0.9 J2, its preview and confirmation in 0.9 J3, and
   related records; a parent or relation column matched by name may create the records it names
   that do not exist, once per value (0.10 A5a); each row's items name its sheet and row. A list of
   names without codes is keyed by name: loaded again it changes nothing, and a name two stored
-  records share is refused `AMBIGUOUS_NAME_KEY` (0.10 A8a).
+  records share is refused `AMBIGUOUS_NAME_KEY` (0.10 A8a). A source may set one parent for every
+  row, created when asked (0.10 A8c); rows keyed by name under a parent are found among its children,
+  so one name under two parents is two records, and two rows of one name under one parent with
+  different values are refused `DUPLICATE_KEY_IN_FILE`.
 - **J27.9 Load a file without a profile**: a JSON Lines file of batch items, or an export's CSV or
   XLSX tables sent back; an unchanged export changes nothing.
 - **J27.10 Rows that cannot load**: a value that does not convert, a match finding no record or

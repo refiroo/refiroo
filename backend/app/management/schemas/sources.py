@@ -48,11 +48,12 @@ class SourceFilePage(CollectionPage[SourceFileResponse]):
 
 class SourceBlockNote(BaseModel):
     """A note under a list's header (0.10 A8a, D119): its row, its text and what it says of the
-    list: ``many`` answers, ``one``, or ``free`` (a free field, no list)."""
+    list: ``many`` answers, ``one``, ``free`` (a free field, no list), or ``heading``: a second
+    header row, answering none of the list's yes/no columns (0.10 A8c, D144)."""
 
     row: int
     text: str
-    meaning: Literal["many", "one", "free"]
+    meaning: Literal["many", "one", "free", "heading"]
 
 
 class SourceBlock(BaseModel):

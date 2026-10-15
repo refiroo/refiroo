@@ -2534,11 +2534,23 @@ fixed values it matches. A list pages in key order (ADR-030).
   "name"` column gives (a list of names without codes): two rows with one name are one record as
   for any key, and a name two records of the type share in the context is refused
   `AMBIGUOUS_NAME_KEY`; a source keyed by name without a column binding the name is refused
-  `INVALID_IMPORT_PROFILE` with `KEY_NOT_BOUND` at `/sources/{i}/key/field`.
+  `INVALID_IMPORT_PROFILE` with `KEY_NOT_BOUND` at `/sources/{i}/key/field`. A row keyed by name
+  that has a parent (fixed by the source or from a column) is the record of that name among the
+  parent's children (0.10 A8c, D142): rows of one name under one parent are one key across
+  sources, a row under a parent the load creates is a new record, and so a record a parent column
+  moves to another parent is a new record there. Such a row is not matched by another row's
+  relationship or lookup by name within the same file.
   Without a key every row creates a record, so sending such a file twice creates its records twice. A found record is updated (under `onExisting`, below);
   otherwise a record is created. `record: "existing"` finds each row's record by its key and writes
   only its relationships and related records (a sheet of translations, one row per language); since
   0.10 A6 (D93) it also finds the record another source of the same file creates by that key.
+- **`parent`** (0.10 A8c, D141) sets every row's parent: `{"objectTypeKey", "matchBy", "value",
+  "missing"}`, the record `matchBy` finds for `value`, created by that name with `missing:
+  "create"` (`matchBy` name only); with the default `refuse` and no such record every row is refused
+  `REFERENCE_NOT_FOUND`. Checked as a parent column is (`PARENT_NOT_ALLOWED`,
+  `CREATE_NEEDS_NAME_MATCH`); a source with a fixed parent and a column binding `parent` is refused
+  `INVALID_IMPORT_PROFILE` with `PARENT_BOUND_TWICE` at `/sources/{i}/parent`. A file of one
+  category's items is loaded under that category this way.
 - **Bindings**, one kind per column: `field: "name"`; `attributeTypeKey` (a writable attribute the
   type binds); `parent`; `relation` (`relationTypeKey` and `direction` from the row's record,
   `outgoing` by default; `split` cuts a cell into several values; `replace: true` makes the matched
@@ -4111,7 +4123,11 @@ with the file and its profile's state:
   list's `note` (D119) is the first row under its header when a cell of it is a note word,
   `{row, text, meaning}`: `multiple answer(s)`, `multiple choice`, `multi-select`, `several` →
   `many`; `single answer`, `single choice`, `one answer` → `one`; `free field`, `free text` →
-  `free` (folded for case, brackets and punctuation).
+  `free` (folded for case, brackets and punctuation). Without a note word, in a list with yes/no
+  columns (every value a yes/no word), a first row naming something and answering none of them
+  while every later row answers one is a second header row, `meaning: "heading"` (0.10 A8c, D144),
+  left out of the statistics and skipped as a note is. `POST …/inference/list` reads a rectangle's
+  note the same way.
 - **`GET …/profile/sheets/{sheet}/columns`** (paged, block by block and each block's in column order;
   a column of a sheet laid out for reading is listed once per list holding it, a column holding only
   its header with `filled` 0, 0.10 A8a) gives each column's
@@ -4248,8 +4264,8 @@ refused the same way. Bindings use the import profile's vocabulary
 | Kind | Parameters | What it changes |
 | --- | --- | --- |
 | `setProfile` | `key`, `name` | The key the instance profile is saved under at installation, and its name. The first mapping kind starts the profile with both taken from the file's name (A-D6) |
-| `addSource` | `sheet`, `objectType`, `applicationKey`? (the first holding the type), `headerRow`? (the sheet's), `block`?, `key`? (`{attributeTypeKey}`, `{column}` or `{field: "name"}`, 0.10 A8a), `id`? (from the sheet and type), `position`? | A source loading the type from the sheet, with no columns yet |
-| `setSource` | `source`; any of `sheet`, `headerRow`, `block`, `objectType`, `applicationKey`, `key` (`null` removes it, and `rowsWithoutKey` with it), `record`, `rowsWithoutKey` (`refuse` or `skip`; `skip` needs a key, `invalidValue` otherwise; 0.10 A7) | The source's settings. A new `headerRow` or `block` on the same sheet keeps each binding on its column (0.10 A8b, D126): the binding, and a key column, name the header their column letter holds on the new header row; one outside the new block, whose new header cell is empty, or whose new header another binding took becomes an `unmapped` entry |
+| `addSource` | `sheet`, `objectType`, `applicationKey`? (the first holding the type), `headerRow`? (the sheet's), `block`?, `key`? (`{attributeTypeKey}`, `{column}` or `{field: "name"}`, 0.10 A8a), `parent`? (a fixed parent, 0.10 A8c), `id`? (from the sheet and type), `position`? | A source loading the type from the sheet, with no columns yet |
+| `setSource` | `source`; any of `sheet`, `headerRow`, `block`, `objectType`, `applicationKey`, `key` (`null` removes it, and `rowsWithoutKey` with it), `record`, `rowsWithoutKey` (`refuse` or `skip`; `skip` needs a key, `invalidValue` otherwise; 0.10 A7), `parent` (a fixed parent, `null` removes it; `invalidValue` while a column binds the parent, `unknownElement` for a type the source's records cannot stand under; 0.10 A8c) | The source's settings. A new `headerRow` or `block` on the same sheet keeps each binding on its column (0.10 A8b, D126): the binding, and a key column, name the header their column letter holds on the new header row; one outside the new block, whose new header cell is empty, or whose new header another binding took becomes an `unmapped` entry |
 | `removeSource` | `source` | The source and its bindings |
 | `setMissing` | `source`, `missing`: `report` or `delete` | What a load does with the records no row names (0.10 A5c, D82); `delete` needs a keyed source loading its records (`invalidValue` otherwise); removing the source's key takes `delete` away |
 | `ignoreSheet` | `sheet` | Its sources removed, the sheet listed in `ignoredSheets` (`addSource` on it takes it out) |
@@ -4377,6 +4393,17 @@ with no values, proposes nothing and is a warning. `evidence`: `block` (`range`,
 `lastColumn`, `headerRow`, `lastRow`, `rows`), `header`, `titles`, `note` (`text`, `meaning`),
 `values`, `translations`, `empty`, `flags`, `attributes`. The lists under one innermost title, two
 or more, are a `navigationGroup` named after the title (`evidence.title`).
+
+**Lists of one shape** (0.10 A8c, D140, D143): three lists or more of a sheet under one innermost
+title, or all under none, whose columns after the name have the same kinds in order (yes/no,
+translation, attribute, holding only its header) carry one more alternative each, "Read these N
+lists as one list under their headers". Its operations remove each list's source and value maps
+and its list type and flag list (their relations and attributes go with them), keeping the shared
+language list and translation type; add a list named after the title (else the sheet) and a parent
+list "… category" containing it; and add one source per list on its rectangle, keyed by name and
+fixed to its header (`parent`, `missing: "create"`), its columns read by position as the first
+list's and named after its headers, its note skipped. The title's navigation group takes the two
+new lists. Sent as one step to `POST …/operations` after the proposals are applied.
 
 **A rectangle read as a list** (0.10 A8b, D128). `POST /api/v1/model-drafts/{draftId}/inference/list`
 with `{"sheet": "Lists", "headerRow": 16, "block": {"firstColumn": "J", "lastColumn": "K",

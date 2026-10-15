@@ -13,6 +13,17 @@ column statistics per block); a database of 0.10.0-alpha.1 upgrades on start.
 
 ### Added
 
+- Base 0.10 A8c: lists of one shape read as one list under their headers (D140–D146; J34.10,
+  J27.8). Three lists or more of a sheet laid out for reading under one title (or none) whose
+  columns have the same kinds carry, on each list's proposal, the alternative "Read these N lists as
+  one list under their headers": one step replacing them by a parent list of the headers and one
+  list contained in it, a source per former list fixed to its header. A row under a list's header
+  answering none of its yes/no columns is a second header row (a note with `meaning: "heading"`),
+  skipped. Import: a source's `parent` (`objectTypeKey`, `matchBy`, `value`, `missing`) sets every
+  row's parent, `PARENT_BOUND_TWICE` beside a parent column; a source keyed by name finds a row's
+  record among its parent's children, one key under one parent across sources. `addSource` and
+  `setSource` take `parent`. `test:browser:authoring-a8` gains the alternative applied from a list.
+
 - Base 0.10 A9: a list's cells edited in place (D131–D139; J02.7, J13.11). In a collection or a
   record's table, the cell under the pointer shows a pencil and, where an optional value or a single
   relationship is set, a trash beside its value (always on touch); a click elsewhere still opens the
