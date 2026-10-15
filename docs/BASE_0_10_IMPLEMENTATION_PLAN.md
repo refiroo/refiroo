@@ -248,7 +248,7 @@ migration), `contract` (every route change) and `volume` (every budget).
 | 10 | [A6](#a6-inference-over-table-patterns) | A5 | **A6a delivered 2026-10-12; A6b delivered 2026-10-14.** Proposals from the table patterns; new application or extending the active model; pinned decisions |
 | — | _cut line (D2)_ | | _If R is out of reach, 0.10.0 releases here and A7, A8 move to 0.10.x_ |
 | 11 | [A7](#a7-model-description-sheets-and-matching-across-files) | A6 | **Delivered 2026-10-14** (screenshots approved). Model-description sheets; matching records across files |
-| 12 | [A8](#a8-list-blocks-in-sheets-laid-out-for-reading) | A6 | **A8a delivered 2026-10-14; A8b delivered 2026-10-15, its screenshots approved; A8c delivered 2026-10-15. A8 is complete.** List blocks detected, confirmed and loaded |
+| 12 | [A8](#a8-list-blocks-in-sheets-laid-out-for-reading) | A6 | **A8a delivered 2026-10-14; A8b delivered 2026-10-15, its screenshots approved; A8c delivered 2026-10-15. A8 is complete. An application opening on a start page, asked during A8, is 0.14's optional UP2.** List blocks detected, confirmed and loaded |
 | 13 | [A9](#a9-collection-cells-edited-in-place) | — | **Added and delivered 2026-10-15** (screenshots approved). Collection table cells edited in place: values, single and many-valued relations |
 | 14 | [R](#r-build-acceptance-and-release) | all | Build acceptance and release |
 

@@ -544,6 +544,8 @@ refuses and what a real exchange looks like; a person tells the two type palette
   purpose, behaviour, limitations, errors and a recorded example, an overview per area and an error
   catalogue (V-D1–V-D10; V-D1 open)
 - The type palettes A and B reworked to differ visibly (UP1, moved from TODO)
+- Optional: an application opens on an empty start page asking to choose a list in the sidebar,
+  instead of its default view (UP2, asked 2026-10-15)
 
 ### Exit gate
 

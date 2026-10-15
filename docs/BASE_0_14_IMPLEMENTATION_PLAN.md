@@ -19,6 +19,7 @@ after 0.12 documents authentication too.
 | --- | --- | --- |
 | [V3–V9](#track-v--the-management-api-documented) | 0.9 V2 | The management API documented on `/docs`: the starter extended, content and examples beside the document, the error catalogue; V3 first, then V4–V8 in any order, then V9 |
 | [UP1](#up1-type-palettes-a-and-b-reworked) | 0.9 UA | The type palettes A and B reworked so a person tells them apart at a glance |
+| [UP2](#up2-an-application-opens-on-a-start-page-optional) (optional) | 0.10 | An application opens on an empty start page asking to choose a list in the sidebar, not on its default view |
 
 ## Track V — The management API documented
 
@@ -107,3 +108,33 @@ page, markers at 3:1, in light and dark (`tokens.test.ts`). Show both on the rea
 judge (Settings › Appearance › Type colours switches them). Where: `styles/tokens.css`, the palette
 section of [SETTINGS_AND_UI_PLAN](SETTINGS_AND_UI_PLAN.md#type-palettes-a-and-b). Planned in detail,
 with its screenshots, when it starts.
+
+## UP2: An application opens on a start page (optional)
+
+_Asked by the user 2026-10-15 during 0.10 (first filed under A8), moved here the same day as an
+optional element; 0.10 goes on to R._
+
+**Why.** Opening the app (the bare address, later the first screen after signing in) shows the first
+application's default view, a list of records, before the user has chosen anything; the user found
+it so in a private browser tab. The wish: the main area empty, with a centred text asking to choose
+a list in the sidebar to start.
+
+**What exists (checked against the code at `fcea5e0`).** An application's `defaultView` is required
+by the model (`models/schema.py`, checked by `application_rules`). The browser opens it on load and
+uses it as the fallback in about ten places (`app/App.tsx`): an address naming a view that no longer
+exists, a change set moving to another model release, switching application, leaving a change
+set's review. The bare address resolves to the first application (`routing/routes.ts`, not read in
+detail).
+
+**Proposal (not decided).** Keep `defaultView` in the model unchanged: its fallbacks still need a view,
+and how an application first opens is the shell's behaviour, not the model's. Add an application's
+start page: its address without a view shows the top bar and sidebar, the main area empty but for a
+centred text ("Choose a list in the sidebar to start") under the application's name, the same for
+every application. It shows for the bare address, after sign-in and on switching application; every
+other case keeps today's fallback. The text reuses the editor centre's empty state, extracted once
+into a shared component. On a phone, where the sidebar is folded, the text says how to open it
+(not checked). Frontend only; no API or model change.
+
+**Cost to check when planned:** browser runners and visual baselines that open `/` and expect a list
+must open a view first (not counted). One browser check (the bare address shows the text, choosing a
+list opens it, 390px) and a screenshot for the user's approval.
