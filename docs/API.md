@@ -1269,6 +1269,10 @@ ID, type, parent or timestamps when the record's type is not known. It takes the
 context (`workspaceKey`, or `changeSetId` or `publicationId`, exclusive), [paging](#collection-paging)
 (including `seek`) and `pageSize` (default 100, maximum 500), and:
 
+- `workspaceKey`, repeatable (0.11 M4, D41). None reads the default workspace and one reads that
+  workspace; two or more read those workspaces' live records together, each under its own
+  workspace's model ([Reads spanning workspaces](#reads-spanning-workspaces-delivered-m4)).
+
 - `objectTypeKey`, repeatable, narrows to those types; every type when omitted. An unknown type is
   `404 UNKNOWN_OBJECT_TYPE`. `applicationKey` narrows to the application's records, and a named type
   outside it is `422 INVALID_OBJECT_TYPE_FOR_APPLICATION`.
@@ -1287,9 +1291,10 @@ this route takes. Timestamps in change-set and publication contexts are refused 
 list. `asOf` is refused as `422 AS_OF_NOT_SUPPORTED` with the same `details.route`: an
 [effective period](#effective-periods-and-asof-base-09-q4) belongs to one type (D21).
 
-Items have the per-type list's shape, `objectTypeKey`, attributes and `path` included: narrowed to one
-type, the lookup returns the same items in the same order as `GET /objects/{objectTypeKey}` sorted by
-name. The same query gives the same records in the same order in live data, a change set and a
+Items have the per-type list's shape, `objectTypeKey`, attributes and `path` included, plus
+`modelReleaseId`: the release the item was read under, its workspace's or its change set's or
+publication's (0.11 M4, D43). Narrowed to one type, the lookup returns the same items in the same
+order as `GET /objects/{objectTypeKey}` sorted by name. The same query gives the same records in the same order in live data, a change set and a
 publication. Cursors bind the context, the sorted set of named types and every filter, so repeating or
 reordering `objectTypeKey` keeps a cursor valid; neither this route nor the per-type list accepts the
 other's cursors.
@@ -1297,7 +1302,9 @@ other's cursors.
 Cost over the Track S fixture (258,000 live records of six types, a 261,000-record publication and a
 change set over it; PostgreSQL, 0.9.0-alpha.1 PG5; 20-row pages; median of five): a first page over
 every type takes 5 ms live, 49 ms in a change set and 40 ms in a publication; two named types
-24–32 ms; a name search with its total 8–12 ms. The name search reads the trigram index over record
+24–32 ms; a name search with its total 8–12 ms. Over two workspaces holding those records (0.11 M4,
+measured once under load): a first page 6.7 ms, a name search with its total 13.3 ms, every record
+counted 27 ms, and sorted by type 75 ms, since each record's type name is read from its own model. The name search reads the trigram index over record
 names; a phrase in very many names matches each record instead, so narrowing by `objectTypeKey`,
 `applicationKey` or a parent reduces its cost.
 
@@ -1963,7 +1970,8 @@ GET  /api/v1/jobs/{jobId}/items?status=…&ref=…         outcomes in item orde
   workspace). With `counterparts` such an ID stands for its **counterpart**, this workspace's own
   record derived from it ([Counterparts](#counterparts-base-09-j5)): created with the counterpart's
   ID the first time, found by it after. IDs this workspace's records hold, and IDs no record holds,
-  are used as given.
+  are used as given. An ID of a record whose workspace runs another model has no counterpart: its
+  item is refused `COUNTERPARTS_ACROSS_MODELS` (0.11 M4, D44).
 - **`Idempotency-Key`** header (optional, 1–200 printable characters), scoped to the route and the
   workspace. The same key with the same request answers the original job's response again with
   `Idempotent-Replayed: true` and runs nothing (a background job: `202` with the job as it is now);
@@ -2698,7 +2706,10 @@ other jobs). `RECORD_IDS_OF_ANOTHER_WORKSPACE` (`details.workspaceKey`, `details
 rows that name their records by IDs of another workspace's records, such as an export of that
 workspace: those rows cannot load here, and each is refused naming that workspace (0.9 J4a, D49).
 With `otherWorkspaceIds: "counterparts"` the notice is `RECORD_IDS_AS_COUNTERPARTS` (the same
-details): the rows load as this workspace's own records (0.9 J5).
+details): the rows load as this workspace's own records (0.9 J5). When that workspace runs another
+model it is `COUNTERPARTS_ACROSS_MODELS` (the same details, plus `modelKey`, that workspace's model,
+and `workspaceModelKey`, this one's): those rows cannot load here, each is refused so, and data
+moves between workspaces whose models differ through a move (0.11 M4, D44).
 
 **A file that does not fit** fails the job before an item runs, writing nothing:
 `IMPORT_FILE_MISMATCH` with `details.problems` (`SHEET_NOT_FOUND`, `HEADER_ROW_NOT_FOUND`,
@@ -2746,6 +2757,12 @@ An item applied to a counterpart reports the counterpart's `id` and the ID it wa
 other workspace's record's version): `onExisting` decides, after `unchanged`. A reference to a
 counterpart not loaded yet is `REFERENCE_NOT_FOUND`, naming the other workspace and saying to load
 the file holding it first. Nothing links a counterpart to its original after the load.
+
+**Only within one model** (0.11 M4, D44). Counterparts stand between workspaces running one model
+(one `release.key`, at any of its releases). An item or row naming a record of a workspace that runs
+another model is refused `422 COUNTERPARTS_ACROSS_MODELS` with `details.workspaceKey`, `modelKey`
+(that workspace's model) and `workspaceModelKey` (this workspace's), nothing of it loaded; the other
+items run as usual. Records go between workspaces whose models differ through a move.
 
 ### The binding report
 
@@ -4504,8 +4521,8 @@ latest:
 Designed in the [Base 0.11 P0 plan](BASE_0_11_IMPLEMENTATION_PLAN.md#p0-plan-2026-10-15) from
 [ADR-042](DECISIONS.md#adr-042--each-workspace-runs-its-own-model-release). **A workspace's model and
 its activation are delivered** (M1, with M2 folded in, 2026-10-15), and **what was instance-wide**
-(M3, 2026-10-15). Designed, each moving into "delivered" with its package: reads spanning workspaces (M4),
-migrations (V1–V3), mappings between models (X1) and moves (X2, X3). Field-level detail not fixed
+(M3, 2026-10-15), and **reads spanning workspaces** (M4, 2026-10-16). Designed, each moving into
+"delivered" with its package: migrations (V1–V3), mappings between models (X1) and moves (X2, X3). Field-level detail not fixed
 here is finished in that package's plan.
 
 - `GET /api/v1/workspace-models?releaseKey=…&releaseId=…&pageSize=…&cursor=…` (delivered)
@@ -4637,15 +4654,36 @@ is unreachable or no workspace can be served; readiness listing the unavailable 
   Events, checkpoints, subscriptions and webhooks are derived under the workspace's release (M1).
   The API reference page (`GET /docs`) takes `?workspace=` (D39).
 
-### Reads spanning workspaces (M4)
+### Reads spanning workspaces (delivered, M4)
 
-A read over several workspaces (`GET /objects` without `workspaceKey`, exports of several
-workspaces, mapping coverage) resolves each workspace's release on its own (D7). Every item names its
-`workspaceKey` and `modelReleaseId`. A filter or sort naming a type, attribute or relation some
-workspace's model lacks is refused `422 MODEL_ELEMENT_NOT_IN_EVERY_MODEL` with `details.element`
-and `details.workspaces` (the keys lacking it); naming `workspaceKey` narrows the read instead. An
-import with `otherWorkspaceIds: "counterparts"` whose source workspace runs another model is refused
-`422 COUNTERPARTS_ACROSS_MODELS`, pointing to the move.
+A read names its workspace; one that names none reads the default workspace (D6). The one read of
+records that spans workspaces is the [cross-type lookup](#cross-type-lookup-base-09-q1) asked for
+with two or more `workspaceKey` values (D41): `GET /objects?workspaceKey=north&workspaceKey=south`.
+It reads those workspaces' live records, each workspace's model resolved on its own (D7), and pages
+them as one collection with the lookup's filters, search, sorts and cursors; the cursor binds the
+set of workspaces. Every item names its `workspaceKey` and `modelReleaseId` (D43), and its
+attributes are read under its own workspace's model.
+
+- A named `objectTypeKey` or `applicationKey` some of the workspaces' models lack is refused
+  `422 MODEL_ELEMENT_NOT_IN_EVERY_MODEL` with `details.element` (`{"kind": "objectType"` or
+  `"application", "key"}`) and `details.workspaces` (the keys lacking it); naming only the
+  workspaces that hold it answers. One no model holds is `404 UNKNOWN_OBJECT_TYPE` or
+  `UNKNOWN_APPLICATION`, as on one workspace (D42). The built-in filters and the name search read
+  no model and are always allowed; `sort=objectType` orders by each record's type name in its own
+  model.
+- A change set or publication belongs to one workspace: `changeSetId` or `publicationId` with two
+  workspaces is `422 WORKSPACE_CONTEXT_MISMATCH`.
+- A named workspace that does not exist is `404 WORKSPACE_NOT_FOUND`; one whose release cannot be
+  loaded makes the whole read `503 MODEL_REGISTRY_UNAVAILABLE` naming it (D29), never a page without
+  its records.
+
+The other reads stay within one workspace (D45): the feed (by its path; each entry's
+`modelReleaseId` shows where the workspace's model changed), mapping coverage (no relationship
+crosses workspaces, D8) and an export (one workspace per export). The management lists that span
+workspaces (jobs, consumer subscriptions, source files, import profiles, workspace models) filter by
+keys stored on their rows, never through a model: `consumerApi` lists the subscriptions of that key
+in every workspace, whatever contract it means there (D27). Counterparts stand only between
+workspaces running one model ([Counterparts](#counterparts-base-09-j5)).
 
 ### A workspace's data migrated to another release (V1)
 

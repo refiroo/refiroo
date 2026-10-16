@@ -31,7 +31,11 @@ is delivered (2026-10-16)** through the API: import profiles belong to a model a
 workspace running another; a draft is compared with its own model, with compatibility reported for
 each workspace running it; the consumer API index and OpenAPI documents per workspace; a model built
 from a workbook installed into a new workspace. The editor's choice of workspace moved to M5 (D38).
-M4 is next ([record](BASE_0_11_IMPLEMENTATION_PLAN.md#m3-record-2026-10-16)). Accepted by the user 2026-10-15: the data move in 0.11 (D3), the suite's
+**M4, reads spanning workspaces, is delivered (2026-10-16)** through the API: the cross-type lookup
+reads several workspaces when asked for them, each record under its own workspace's model and naming
+its release, refusing a type or application one of their models lacks; counterparts are refused
+between workspaces whose models differ; every other read stays within one workspace
+([record](BASE_0_11_IMPLEMENTATION_PLAN.md#m4-record-2026-10-16)). M5 is next. Accepted by the user 2026-10-15: the data move in 0.11 (D3), the suite's
 time (D152) as a filler during Part 1 before X2 at the latest (D2), and 0.11.0-alpha.1 after the M6
 checkpoint (D12).
 

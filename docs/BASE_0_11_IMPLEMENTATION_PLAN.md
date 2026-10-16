@@ -10,7 +10,7 @@ delivered before production hardening. D1 is the user's; **D2, D3 and D12 were a
 packages are specified below at package level; each package's detailed plan, test cases and
 decisions are written and accepted when it starts, and it is delivered in the order of the
 [delivery queue](#delivery-queue), each by the [delivery steps](#how-a-package-is-delivered).
-**Delivered:** P0, M1 with M2 (2026-10-15), M3 (2026-10-16).
+**Delivered:** P0, M1 with M2 (2026-10-15), M3 and M4 (2026-10-16).
 
 **Target:** Product 0.11.0, [production hardening and staged model rollout](ROADMAP.md#product-release-011--production-hardening-and-staged-model-rollout),
 with the two requirements the user added on 2026-10-15 (ROADMAP commit `a0859ae`).
@@ -292,7 +292,7 @@ change) and `volume` (every budget).
 | 2 | [M1](#m1-a-release-assignment-per-workspace) | P0 | **Delivered 2026-10-15** (M2 folded in). Every workspace names its release; every request resolves its workspace, then its snapshot; the commit guard per workspace |
 | 3 | [M2](#m2-installing-and-activating-into-one-workspace) | — | **Folded into M1 (D32).** Activation into one workspace with its own compatibility check; unique values, matrix states and subscriptions scoped to it; a new workspace created on a model |
 | 4 | [M3](#m3-instance-wide-resources-bound-to-a-workspaces-model) | M2 | **Delivered 2026-10-16.** Import profiles, drafts, source files, jobs and dry runs, consumer APIs and events resolved through the workspace's model |
-| 5 | [M4](#m4-reads-spanning-workspaces) | M3 | Cross-type lookup, feed, mapping coverage, exports and counterpart imports when models differ |
+| 5 | [M4](#m4-reads-spanning-workspaces) | M3 | **Delivered 2026-10-16.** The cross-type lookup over several workspaces asked for; counterparts refused across models; the feed, coverage and exports stay within one workspace |
 | 6 | [M5](#m5-the-ui-follows-the-workspaces-model) | M4 | The shell follows the workspace's model; Settings › Model per workspace; "New from a workbook" into a chosen workspace |
 | 7 | [M6](#m6-workspace-models-checkpoint) | M5 | Two workspaces on two models composed in the browser; the roadmap's first workspace-model exit item; tagged 0.11.0-alpha.1 (D12) |
 | 8 | [V1](#v1-a-workspaces-data-migrated-to-another-release) | M2 | Migration plan for one workspace: preview, conversions, loss, confirm bound to versions, atomic switch |
@@ -1083,6 +1083,149 @@ item; a filter naming a type only one model has.
 **Groups:** `workspace_models`, `queries`, `feed`, `jobs`, `contract`.
 
 **Exit:** no read combines two snapshots; each spanning read's meaning documented in API.md.
+
+##### M4 plan (2026-10-16)
+
+**Planned 2026-10-16; D41–D45 and the test cases accepted by the user the same day ("okay, you
+can go ahead with the cross-workspace read"), after D41's questions: separate calls per workspace
+already work; the spanning read adds one ordered, paged list and finding a record by ID alone; the
+repeated `workspaceKey` is an array in the OpenAPI document; its cost is measured once (below).** Checked
+against the code at `5921015`.
+
+**What the code does today (found, not assumed):**
+
+- **No read of records spans workspaces.** `GET /objects` (the cross-type lookup) without
+  `workspaceKey` reads the **default workspace** (`resolve_workspace(None)`), as D6 and ADR-042 say
+  for every route that names no workspace. P0's API design (API.md § Reads spanning workspaces)
+  says instead that `GET /objects` *without* `workspaceKey` spans every workspace. The two accepted
+  texts disagree, and following API.md would change today's answer for every client that leaves
+  `workspaceKey` out (D41).
+- **The feed** is per workspace by its path (`/workspaces/{key}/feed`), and each entry already
+  carries `modelReleaseId` (M1). **Mapping coverage** reads one workspace (`workspaceKey`, one
+  snapshot). **An export** names one workspace. None of the three spans anything (D45).
+- **Lists that do span workspaces** are management lists: jobs, consumer subscriptions, source
+  files, import profiles, workspace models. Their filters match keys stored on the row (`kind`,
+  `state`, `consumerApi`, `profileKey`), none read through a model, and their items name their
+  workspace (jobs also `modelReleaseId`).
+- **Counterparts** (`otherWorkspaceIds: "counterparts"`, 0.9 J5) translate another workspace's
+  record ID into this workspace's counterpart whatever model that workspace runs: in an inline batch
+  (`_Items.translate_ids`, `engine/jobs/batches.py`) and in a file's binding
+  (`_counterpart_matches`, `engine/imports/binding.py`). A record of a model with other types
+  then reaches this workspace's rules as if it were its own: its type is unknown here or, worse, a
+  type with the same key means something else.
+
+**Decisions** (D41 onward; each with what, why and cost):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D41 | How a read spanning workspaces is asked for | **Only when asked: `GET /objects` takes `workspaceKey` repeatable.** None reads the default workspace and one reads that workspace, both as today (D6). Two or more read those workspaces' live records together. A spanning read is live only: `changeSetId` or `publicationId` belong to one workspace and with two workspaces are `422 WORKSPACE_CONTEXT_MISMATCH`. Why: keeps D6 and ADR-042, keeps every current client's answer, and still gives the integrator's journey (a record found by ID or name without knowing its workspace). API.md's "without `workspaceKey`" is corrected. Cost: the lookup builds over a set of workspaces, each item's attributes are formatted under its own workspace's model, the cursor binds the sorted workspace list. Not chosen: spanning when `workspaceKey` is left out (changes today's answers), `workspaceKey=*` (finding every workspace is one `GET /workspaces`; workspaces are few) |
+| D42 | What a spanning read refuses (D7's detail) | **A model element named that some read workspace's model lacks:** `objectTypeKey` or `applicationKey` is `422 MODEL_ELEMENT_NOT_IN_EVERY_MODEL` with `details.element` (`{"kind": "objectType" or "application", "key"}`) and `details.workspaces` (the keys lacking it); no read model holding it stays `404 UNKNOWN_OBJECT_TYPE` (or `UNKNOWN_APPLICATION`) as today. The built-in filters (`id`, `name`, `parentObjectId`, timestamps) and `search` read no model and are always allowed. `sort=objectType` orders by each record's type name in its own workspace's model. Why: D7, and a type key that exists in only one model would silently narrow the read to that workspace. Cost: one check per element over the resolved models |
+| D43 | Where an item names its release | **`modelReleaseId` on every item of the cross-type lookup**, in every context (live single, live spanning, change set, publication), so the route has one item shape; the per-type list and record reads are unchanged (one workspace, one release, already in `X-Model-Release-Id` on `GET /model`). Why: D7's "every item names its workspace and release"; items already carry `workspaceKey`. Cost: one field on the lookup's items |
+| D44 | Counterparts between workspaces whose models differ (D7) | **Refused per item:** an ID held by a record of a workspace running another model (another `release.key`, D5) is not translated; its item or file row is rejected `COUNTERPARTS_ACROSS_MODELS` with `details.workspaceKey`, `modelKey` (that workspace's) and `workspaceModelKey` (this one's), and the job's notice for that workspace says the rows cannot load and points to moving data between models (Track X). The same model at another release keeps working as today. Why: per item, as every other row refusal, so the rest of the file still loads and nothing is dropped silently (principle 7); an import's rows are read after it is submitted, so a request-level refusal would come too late anyway. Cost: one check in each of the two translation paths. Without counterparts (`refuse`) nothing changes: `RECORD_IDS_OF_ANOTHER_WORKSPACE` as today |
+| D45 | The feed, mapping coverage, exports and the spanning management lists | **No spanning variant; documented.** Each of the feed, coverage and an export reads one workspace under its own release; a feed entry's `modelReleaseId` already shows where the workspace's model changed. Coverage across workspaces has nothing to count, as no relationship crosses workspaces (D8); a multi-workspace export has no journey (data goes between models by a move, Track X). The management lists' filters match stored keys, so `consumerApi` lists the subscriptions of that key in every workspace whatever contract it means there (D27). Why: no journey needs more, and the exit ("no read combines two snapshots") already holds for them. Cost: API.md paragraphs only. Composable domains: the mapping-coverage door is unaffected |
+
+A spanned workspace whose release cannot be loaded makes the whole read `503
+MODEL_REGISTRY_UNAVAILABLE` naming it (D29), never a page silently without its records.
+
+**What is built:**
+
+1. **Lookup** (`engine/reads/object_lookup.py`, `routers/objects.py`): `workspaceKey` repeatable;
+   one snapshot per workspace; the element check (D42); the statement over the workspace set with
+   types narrowed per model; `objectType` sorted by each workspace's names; items formatted per
+   workspace with `modelReleaseId` (D43); the cursor binding the workspaces.
+2. **Counterparts** (D44): both translation paths skip an ID of another model's workspace and
+   reject its item or row; the notice reworded for it.
+3. **Docs:** API.md (§ Reads spanning workspaces delivered and corrected by D41; the cross-type
+   lookup; counterparts), USER_JOURNEYS J36.7, API_JOURNEYS, CURRENT_FUNCTIONALITY, CHANGELOG,
+   PROJECT_STATUS, TODO. OpenAPI lock re-baselined by diffing.
+
+No migration, no frontend change (the UI always names its workspace).
+
+**Journey test cases** (`workspace_models` marker; X beside Y and the reverse, structures only):
+
+1. **J36.7 A lookup over two workspaces on two models.** Given the default workspace on X and a
+   workspace on Y, each with records. When `GET /objects` names both workspaces. Then it pages every
+   record of both once, ordered by name across them; each item names its `workspaceKey` and the
+   `modelReleaseId` of that workspace's release, with its attributes as its own model names them;
+   `filter.id.eq` finds a Y record without its workspace being known; `sort=objectType` answers.
+2. **An element one model lacks.** When the spanning lookup names a type only X has, then `422
+   MODEL_ELEMENT_NOT_IN_EVERY_MODEL` with `details.workspaces` = [Y's workspace]; the same type
+   with X's workspace alone answers; a type neither has is `404 UNKNOWN_OBJECT_TYPE`; a
+   `changeSetId` with two workspaces is `422 WORKSPACE_CONTEXT_MISMATCH`.
+3. **Without a workspace, as before.** `GET /objects` without `workspaceKey` lists only the default
+   workspace's records, each with its `modelReleaseId`.
+4. **Counterparts across models.** When Y's records' IDs are sent to X's workspace with
+   `otherWorkspaceIds: "counterparts"`, through `POST /batches` and through an import of Y's export,
+   then each such item or row is rejected `COUNTERPARTS_ACROSS_MODELS` naming Y's workspace and both
+   model keys, the import's notice says they cannot load, and nothing of Y's is created in X's
+   workspace; rows without IDs in the same file load.
+
+**Unit:** none planned; the element check is a set difference, covered by case 2. **Groups:**
+`workspace_models`, `queries` (the lookup), `jobs` (counterparts in imports), `contract`. No
+migration, so no startup checks; no browser runner (no visible change).
+
+**Composable domains (ADR-032):** identity unchanged (counterparts keep their derivation, only
+their use across models is refused); mapping coverage unaffected (D45).
+
+##### M4 record (2026-10-16)
+
+**Delivered 2026-10-16.** Built as planned, through the API:
+
+- **The spanning lookup** (`engine/reads/object_lookup.py` `build_spanning_lookup_query`,
+  `routers/objects.py`): `workspaceKey` repeatable; two or more resolve each workspace's snapshot and
+  read their live records in one statement (`workspace_key IN …`, the types of every model), the
+  cursor binding `workspaceKeys`; D42's check (`MODEL_ELEMENT_NOT_IN_EVERY_MODEL`, the element's own
+  404 when no model holds it); `sort=objectType` through a per-workspace label
+  (`ObjectColumns.object_type_label` in `object_query.py`); items built per workspace's model.
+  Every lookup item is `LookupObject` with `modelReleaseId` (D43).
+- **Counterparts across models** (D44): `records/counterparts.held_elsewhere` names each other
+  workspace's model; a batch item naming such a record is refused
+  `refusals.counterparts_across_models` (`engine/jobs/batches.py`), the import's binding gives it no
+  counterpart (`imports/binding.py`), and the job's notice is `COUNTERPARTS_ACROSS_MODELS`
+  (`jobs/store.py`).
+- **Docs:** API.md (the cross-type lookup, `otherWorkspaceIds`, notices, counterparts, § Reads
+  spanning workspaces delivered and corrected by D41), USER_JOURNEYS J36.7, API_JOURNEYS,
+  CURRENT_FUNCTIONALITY, EXECUTION_GUIDE (`workspace_models` 32 cases), CHANGELOG.
+
+**Where it differs from the plan:** the test cases name an application one model lacks instead of a
+shared one (the two generated models share no application key; the refusal is D42's). A spanning
+read hands the shared builder the first workspace's model and types, as the lookup filters, searches
+and sorts only built-in fields; the type label covers the others.
+
+**Older test changed because M4 made it wrong:** `test_cross_type_lookup::
+test_an_item_has_the_per_type_list_shape` compares a lookup item with the per-type list's item; it
+now requires `modelReleaseId` on each lookup item and compares the rest (D43).
+
+**Checks:**
+
+- `test_j36_spanning_reads.py`: 4 cases × 2 directions written first and seen failing (8 failed: a
+  repeated `workspaceKey` read only the last workspace, no `modelReleaseId`, the counterpart
+  translated), then 8 passed.
+- `workspace_models`, `queries`, `records`, `change_sets`, `contract` in parallel: 918 passed and 3
+  failed in 4 min 8 s, over the 2-minute ceiling at load 5.9. The 3: the older test above (fixed, 2
+  passed) and `test_boundaries::test_tiers_hold`, the import cycle recorded in M1 (TODO), none of it
+  M4's. Their serial part: 2 passed.
+- `--journey J27.14 --journey J11 --journey J36` (counterparts, bulk changes, J36): 90 passed in
+  73 s.
+- OpenAPI lock re-baselined after diffing the default document against `5921015`: `LookupObject`,
+  the lookup's items, `workspaceKey` as an array, the route's description; nothing else.
+  `test_api_journeys`, `test_openapi_contract`, `test_error_codes`: 16 passed. Ruff on `app/` and
+  `tests/`: clean.
+
+- `jobs` (selected by `engine/jobs/*` and `engine/imports/*`), on the user's go-ahead: 531 passed in
+  4 min 20 s, over the 2-minute ceiling as announced; its serial part 1 passed.
+- **D41's cost, measured once** on the user's go-ahead (load 7.6; the volume fixture at full scale,
+  seeded in 306 s since no seed was stored; `vol-workspace` and `default` on the volume model,
+  257,758 records; 20-row pages; median of five after a warm-up): a first page 6.0 ms over one
+  workspace, 6.7 ms over two; a name search with its total 12.6 ms and 13.3 ms; over two, sorted by
+  type 74.9 ms (the per-workspace label is evaluated for every record) and every record counted
+  26.8 ms. Spanning costs about what one workspace holding both workspaces' records costs.
+
+**Not run:** the full suites, `startup` (no migration), `volume` and the read budgets (the
+measurement above stands for the new reads), the browser runners (no visible change), all at R.
+**What the user cannot do yet:** choose the workspace in the browser, and the lookup over several
+workspaces has no screen (M5); data goes between workspaces whose models differ only through the
+move (Track X, X1–X3); the counterpart refusal points to it before it exists.
 
 #### M5: The UI follows the workspace's model
 

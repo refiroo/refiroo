@@ -1001,8 +1001,8 @@ configuration's keys.
 ### J36 — Run a workspace on a model of its own
 
 **Actor:** model administrator. **Channel:** UI (Settings › Model, Settings › Workspaces), API.
-**Stories:** US-P05. **Status:** partly delivered (0.11 M1 and M3, 2026-10-15): J36.1–J36.6 and
-J36.8 through the API; J36.7 with M4, the browser with M5.
+**Stories:** US-P05. **Status:** partly delivered (0.11 M1 and M3, 2026-10-15; M4, 2026-10-16):
+J36.1–J36.8 through the API; the browser with M5.
 
 1. Install a release of a model no workspace runs yet.
 2. Create a workspace on it, or activate it into an existing workspace after its compatibility check
@@ -1023,20 +1023,24 @@ J36.8 through the API; J36.7 with M4, the browser with M5.
 - **J36.5 A write when its workspace's release changed meanwhile**: refused, nothing saved; a write
   in another workspace commits.
 - **J36.6 Reads see only their model**: a type of the other model is unknown in this workspace.
-- **J36.7 A read spanning workspaces with different models**: every item names its workspace and
-  release; a filter on an element one model lacks is refused, naming the workspaces.
+- **J36.7 A read spanning workspaces with different models**: the lookup asked for several
+  workspaces; every item names its workspace and release; a filter on an element one model lacks is
+  refused, naming the workspaces; another model's record IDs do not load as counterparts.
 - **J36.8 One workspace's release cannot be loaded**: that workspace is unavailable; the others
   serve.
 
 **Refusals:** `409 ACTIVATION_CONFLICT`, `409 MODEL_MIGRATION_REQUIRED` (this workspace's data only),
 `409 MODEL_RELEASE_CHANGED`, `409 CHANGE_SET_MODEL_RELEASE_CONFLICT`,
-`422 MODEL_ELEMENT_NOT_IN_EVERY_MODEL`, `422 IMPORT_PROFILE_MODEL_MISMATCH`,
+`422 MODEL_ELEMENT_NOT_IN_EVERY_MODEL`, `422 COUNTERPARTS_ACROSS_MODELS`,
+`422 IMPORT_PROFILE_MODEL_MISMATCH`,
 `503 MODEL_REGISTRY_UNAVAILABLE` naming the workspace.
 
 **Evidence today:** `tests/journeys/test_j36_workspace_models.py` (7 cases, generated A beside B and
 B beside A); `tests/journeys/test_j36_workspace_resources.py` (5 cases, M3: a workbook's new model in
 a new workspace, a profile per model, a draft's profile kept off another model's, compatibility per
-workspace of the draft's model, consumer APIs per workspace); the upgrade of a 0.10.0 database in
+workspace of the draft's model, consumer APIs per workspace); `tests/journeys/test_j36_spanning_reads.py`
+(4 cases, M4: a lookup over two workspaces on two models, an element one model lacks, the lookup
+without a workspace, counterparts across models refused); the upgrade of a 0.10.0 database in
 `test_startup`.
 
 ### J37 — Move a workspace to another release

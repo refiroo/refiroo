@@ -424,7 +424,11 @@ is read and used in the workspaces running that model, and refused in a workspac
 a draft is compared with its own model and shows, for each workspace running that model, what
 activating it there would need; a model built from a workbook can be installed and given a new
 workspace of its own. The consumer API index and each API's OpenAPI document describe the workspace
-asked for. Settings › Model manages the default workspace's model; choosing a workspace in the
+asked for. One lookup of records by name, ID, type or parent can read several workspaces at once,
+each record under its own workspace's model and naming its workspace and release; naming a type or
+application one of those models lacks is refused, naming the workspaces that lack it. Records of a
+workspace running another model cannot be loaded as counterparts: each such row is refused and the
+rest of the file loads. Settings › Model manages the default workspace's model; choosing a workspace in the
 browser (Settings › Model, the editor's install dialog, New from a workbook) comes with M5.
 
 Through the API, a draft can also be changed step by step with typed operations instead of whole

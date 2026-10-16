@@ -31,7 +31,6 @@ from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -57,7 +56,7 @@ from ...models.commands import (
     ObjectUpdate,
     RecordReference,
 )
-from ...models.database import ChangeSet, RdmObject
+from ...models.database import ChangeSet
 from ...models.schema import EngineModel
 from ..change_sets.access import change_set_model, load_change_set
 from ..change_sets.records import (
@@ -72,7 +71,7 @@ from ..records import rules
 from ..records.audit import audit_cause, trial_run
 from ..records.batch_lookup import BatchLookup, ChangeSetBatchLookup, LiveBatchLookup
 from ..records.bulk import write_change_set, write_live
-from ..records.counterparts import counterpart
+from ..records.counterparts import counterpart, held_elsewhere
 from ..records.deletion import (
     ChangeSetScope,
     Deletion,
@@ -88,7 +87,7 @@ from ..records.objects import (
     decide_object_update,
     duplicate_relation,
 )
-from ..records.refusals import CHANGE_SET, ELSEWHERE, LIVE
+from ..records.refusals import CHANGE_SET, ELSEWHERE, LIVE, counterparts_across_models
 from ..records.relation_set_versions import SetClaim, set_claim
 from ..records.relation_sets import SetBinding, SetTarget, decide_set_replacement
 from ..records.relation_writes import (
@@ -440,6 +439,7 @@ class _Batch:
                 self._stop_check()
             at = f"/items/{index}"
             try:
+                self.writer.refuse_across_models(item)
                 record = self.writer.resolve(item.target, f"{at}/target")
             except ApiError as error:
                 if error.code == "REFERENCE_NOT_FOUND" and item.target.id is not None:
@@ -525,6 +525,7 @@ class _Batch:
 
     def apply(self, index: int, item: BatchItem) -> dict[str, Any]:
         at = f"/items/{index}"
+        self.writer.refuse_across_models(item)
         if isinstance(item, BatchCreateItem):
             if item.id is None:
                 return self.create(item, at, object_id=None)
@@ -842,24 +843,35 @@ class _Items:
 
     # With counterparts (0.9 J5, D96): the segment's IDs another workspace's records hold, each
     # with its counterpart here and that workspace, read once per segment by ``translate_ids``.
+    # IDs of records whose workspace runs another model are not translated: an item naming one is
+    # refused (0.11 M4, D44), with that workspace and its model's key.
     counterparts = False
     counterpart_of: dict[str, tuple[str, str]]
+    across_models: dict[str, tuple[str, str]]
 
     def translate_ids(self, object_ids: Iterable[str]) -> None:
         """Which of ``object_ids`` are another workspace's records: one statement per segment."""
         self.counterpart_of = {}
+        self.across_models = {}
         if not self.counterparts:
             return
         workspace_key = self.context.workspace_key
-        ids = sorted(set(object_ids))
-        for start in range(0, len(ids), 1000):
-            for object_id, holder in self.session.execute(
-                select(RdmObject.id, RdmObject.workspace_key).where(
-                    RdmObject.id.in_(ids[start : start + 1000]),
-                    RdmObject.workspace_key != workspace_key,
-                )
-            ):
+        model_key = self.model.release.key
+        for object_id, holder, holder_model in held_elsewhere(
+            self.session, workspace_key, object_ids
+        ):
+            if holder_model != model_key:
+                self.across_models[object_id] = (holder, holder_model)
+            else:
                 self.counterpart_of[object_id] = (counterpart(workspace_key, object_id), holder)
+
+    def refuse_across_models(self, item: BatchItem) -> None:
+        """Refuse an item naming a record of a workspace that runs another model (D44)."""
+        for object_id in sorted(_named_ids((item,)) & self.across_models.keys()):
+            holder, holder_model = self.across_models[object_id]
+            raise counterparts_across_models(
+                object_id, holder, holder_model, self.model.release.key
+            )
 
     def translate(self, object_id: str) -> str:
         """The ID an item's ID stands for here: its counterpart when another workspace's record

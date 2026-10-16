@@ -40,6 +40,25 @@ def id_of_another_workspace(object_id: str, workspace_key: str) -> ApiError:
     )
 
 
+ACROSS_MODELS = (
+    "Its workspace runs another model, so its records cannot load here as counterparts; data moves "
+    "between workspaces whose models differ through a move between the two models"
+)
+
+
+def counterparts_across_models(
+    object_id: str, workspace_key: str, model_key: str, workspace_model_key: str
+) -> ApiError:
+    """A record ID asked for as a counterpart whose workspace runs another model (0.11 M4, D44)."""
+    return api_error(
+        422,
+        "COUNTERPARTS_ACROSS_MODELS",
+        f"Record '{object_id}' belongs to workspace '{workspace_key}' (model '{model_key}'). "
+        f"{ACROSS_MODELS}",
+        {"workspaceKey": workspace_key, "modelKey": model_key, "workspaceModelKey": workspace_model_key},
+    )
+
+
 @dataclass(frozen=True)
 class Refusals:
     unknown_object_type: Callable[[str], ApiError]

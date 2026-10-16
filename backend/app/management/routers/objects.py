@@ -3,7 +3,7 @@ from typing import Any
 from fastapi import APIRouter, Query, Request, Response, status
 from sqlalchemy.orm import Session
 
-from ...common.pagination import paginate_statement
+from ...common.pagination import PageRequest, paginate_statement
 from ...engine.change_sets.records import (
     delete_change_set_object,
     put_change_set_object,
@@ -13,6 +13,7 @@ from ...engine.model.registry import (
     resolve_change_set_snapshot,
     resolve_model_snapshot,
     resolve_record_snapshot,
+    resolve_request_model,
 )
 from ...engine.reads.model_query import (
     Expansion,
@@ -25,6 +26,7 @@ from ...engine.reads.model_query import (
 from ...engine.reads.object_lookup import (
     build_live_lookup_query,
     build_snapshot_lookup_query,
+    build_spanning_lookup_query,
     lookup_scope,
     refuse_as_of,
 )
@@ -65,7 +67,13 @@ from ..projections.parent_candidates import parent_candidates
 from ..query_parameters import accepts_field_filters
 from ..schemas.common import CalendarDate
 from ..schemas.queries import QueryObject, TypedObjectPage
-from ..schemas.records import AuditEventPage, ObjectPage, ObjectResponse, ParentCandidatePage
+from ..schemas.records import (
+    AuditEventPage,
+    LookupObject,
+    ObjectPage,
+    ObjectResponse,
+    ParentCandidatePage,
+)
 
 router = APIRouter(prefix="/api/v1", tags=["objects"])
 
@@ -472,6 +480,17 @@ _LOOKUP_OBJECT_TYPE_KEYS = Query(
 )
 
 
+_LOOKUP_WORKSPACE_KEYS = Query(
+    default=None,
+    alias="workspaceKey",
+    description=(
+        "Repeatable. One names the workspace read, the default workspace when omitted; two or more"
+        " read those workspaces' live records together, each item under its own workspace's model"
+        " (0.11 M4)"
+    ),
+)
+
+
 @router.get(
     "/objects",
     response_model=ObjectPage,
@@ -495,12 +514,11 @@ _LOOKUP_OBJECT_TYPE_KEYS = Query(
 def lookup_objects(
     request: Request,
     session: DbSession,
-    snapshot: RequestModelSnapshot,
     paging: SeekablePageQuery,
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
     object_type_keys: list[str] | None = _LOOKUP_OBJECT_TYPE_KEYS,
     application_key: str | None = Query(default=None, alias="applicationKey"),
-    workspace_key: str | None = Query(default=None, alias="workspaceKey"),
+    workspace_keys: list[str] | None = _LOOKUP_WORKSPACE_KEYS,
     change_set_id: str | None = Query(default=None, alias="changeSetId"),
     publication_id: str | None = Query(default=None, alias="publicationId"),
     parent_object_id: str | None = Query(default=None, alias="parentObjectId"),
@@ -526,9 +544,10 @@ def lookup_objects(
         ),
     ),
 ) -> ObjectPage:
-    """Records of any object type in one list: a lookup by name, ID, type, parent or timestamps."""
-    model = snapshot.model
+    """Records of any object type in one list: a lookup by name, ID, type, parent or timestamps,
+    in one workspace or across several (D41)."""
     refuse_as_of(as_of)
+    workspace_keys = sorted(set(workspace_keys or []))
     if change_set_id and publication_id:
         raise api_error(
             422,
@@ -551,6 +570,13 @@ def lookup_objects(
         "sort": sort,
         "field_filters": _field_filters(request),
     }
+    if len(workspace_keys) > 1:
+        return _spanning_lookup(
+            session, workspace_keys, change_set_id, publication_id, options, paging, page_size
+        )
+    workspace_key = workspace_keys[0] if workspace_keys else None
+    snapshot = resolve_request_model(session, workspace_key, change_set_id, publication_id)
+    model = snapshot.model
     if change_set_id or publication_id:
         context = (
             change_set_context(session, change_set_id)
@@ -575,9 +601,11 @@ def lookup_objects(
         paths = object_paths(session, context, page.items)
         return ObjectPage(
             items=[
-                change_set_object_response(
-                    row, context.id, model, path=paths[row.object_id]
-                ).model_copy(update={"workspaceKey": context.workspace_key})
+                _lookup_item(
+                    change_set_object_response(row, context.id, model, path=paths[row.object_id]),
+                    context.workspace_key,
+                    snapshot.release_id,
+                )
                 for row in page.items
             ],
             **page.links(),
@@ -595,7 +623,77 @@ def lookup_objects(
         message="Object cursor is invalid",
         seek=query.seek,
     )
-    return ObjectPage(items=build_object_responses(session, model, page.items), **page.links())
+    return ObjectPage(
+        items=[
+            _lookup_item(record, workspace.key, snapshot.release_id)
+            for record in build_object_responses(session, model, page.items)
+        ],
+        **page.links(),
+    )
+
+
+def _lookup_item(record: ObjectResponse, workspace_key: str, release_id: str) -> LookupObject:
+    return LookupObject(
+        **record.model_dump(exclude={"workspaceKey"}),
+        workspaceKey=workspace_key,
+        modelReleaseId=release_id,
+    )
+
+
+def _spanning_lookup(
+    session: Session,
+    workspace_keys: list[str],
+    change_set_id: str | None,
+    publication_id: str | None,
+    options: dict[str, Any],
+    paging: PageRequest,
+    page_size: int,
+) -> ObjectPage:
+    """The live records of several workspaces, each read under its own workspace's model (D41).
+    A change set or publication belongs to one workspace, so it is refused here."""
+    if change_set_id or publication_id:
+        raise api_error(
+            422,
+            "WORKSPACE_CONTEXT_MISMATCH",
+            "A change set or publication belongs to one workspace; name only its workspace",
+            {
+                "workspaceKeys": workspace_keys,
+                "parameter": "changeSetId" if change_set_id else "publicationId",
+            },
+        )
+    snapshots = {
+        key: resolve_model_snapshot(session, resolve_workspace(session, key).key)
+        for key in workspace_keys
+    }
+    query = build_spanning_lookup_query(
+        {key: snapshot.model for key, snapshot in snapshots.items()}, **options
+    )
+    page = paginate_statement(
+        session,
+        query.statement,
+        keys=query.keys,
+        scope=lookup_scope(None),
+        filters=query.filters,
+        page=paging,
+        page_size=page_size,
+        message="Object cursor is invalid",
+        seek=query.seek,
+    )
+    built: dict[str, ObjectResponse] = {}
+    for key, snapshot in snapshots.items():
+        mine = [item for item in page.items if item.workspace_key == key]
+        built.update(
+            (record.id, record) for record in build_object_responses(session, snapshot.model, mine)
+        )
+    return ObjectPage(
+        items=[
+            _lookup_item(
+                built[item.id], item.workspace_key, snapshots[item.workspace_key].release_id
+            )
+            for item in page.items
+        ],
+        **page.links(),
+    )
 
 
 def _field_filters(request: Request) -> list[tuple[str, str, str]]:

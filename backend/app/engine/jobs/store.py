@@ -33,8 +33,16 @@ from sqlalchemy.orm import Session
 
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
 from ...errors import api_error
-from ...models.database import IdempotencyKey, Job, JobInput, JobItem, ModelRelease, RdmObject
-from ..records.refusals import ELSEWHERE
+from ...models.database import (
+    IdempotencyKey,
+    Job,
+    JobInput,
+    JobItem,
+    ModelRelease,
+    RdmObject,
+    WorkspaceModel,
+)
+from ..records.refusals import ACROSS_MODELS, ELSEWHERE
 
 ACTIONS = ("created", "updated", "unchanged", "deleted")
 FINISHED = frozenset({"completed", "failed", "cancelled", "expired"})
@@ -220,18 +228,46 @@ def _foreign_record_ids(session: Session, job: Job) -> list[dict[str, Any]]:
     statement over the job's inputs."""
     item_id = func.coalesce(JobInput.item["key"]["id"].as_string(), JobInput.item["id"].as_string())
     found = session.execute(
-        select(RdmObject.workspace_key, func.count(func.distinct(JobInput.ref)))
+        select(
+            RdmObject.workspace_key,
+            ModelRelease.release_key,
+            func.count(func.distinct(JobInput.ref)),
+        )
         .join(RdmObject, RdmObject.id == item_id)
+        .join(WorkspaceModel, WorkspaceModel.workspace_key == RdmObject.workspace_key)
+        .join(ModelRelease, ModelRelease.id == WorkspaceModel.model_release_id)
         .where(JobInput.job_id == job.sequence_id, RdmObject.workspace_key != job.workspace_key)
-        .group_by(RdmObject.workspace_key)
+        .group_by(RdmObject.workspace_key, ModelRelease.release_key)
         .order_by(RdmObject.workspace_key)
     ).all()
     counterparts = job.parameters.get("otherWorkspaceIds") == "counterparts"
-    return [_foreign_notice(workspace_key, rows, counterparts) for workspace_key, rows in found]
+    model_key = session.scalar(
+        select(ModelRelease.release_key).where(ModelRelease.id == job.model_release_id)
+    )
+    return [
+        _foreign_notice(workspace_key, rows, counterparts, (holder_model, model_key))
+        for workspace_key, holder_model, rows in found
+    ]
 
 
-def _foreign_notice(workspace_key: str, rows: int, counterparts: bool) -> dict[str, Any]:
+def _foreign_notice(
+    workspace_key: str, rows: int, counterparts: bool, models: tuple[str, str]
+) -> dict[str, Any]:
+    """``models``: the key of the model the other workspace runs, then this job's."""
     named = f"{rows} {'row names its record' if rows == 1 else 'rows name their records'}"
+    if counterparts and models[0] != models[1]:
+        # Not across models (0.11 M4, D44): each such row is refused when it runs.
+        return {
+            "code": "COUNTERPARTS_ACROSS_MODELS",
+            "message": f"{named} by IDs of workspace '{workspace_key}', which runs model "
+            f"'{models[0]}', so {'it' if rows == 1 else 'they'} cannot load here. {ACROSS_MODELS}.",
+            "details": {
+                "workspaceKey": workspace_key,
+                "rows": rows,
+                "modelKey": models[0],
+                "workspaceModelKey": models[1],
+            },
+        }
     if counterparts:
         # Asked for (0.9 J5, D96): the rows load as this workspace's own records.
         return {

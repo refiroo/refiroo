@@ -6,6 +6,21 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.11 M4)
+
+- `GET /objects` takes `workspaceKey` repeatable: two or more read those workspaces' live records
+  in one paged list, each under its own workspace's model. A type or application some of their
+  models lack is refused `422 MODEL_ELEMENT_NOT_IN_EVERY_MODEL`, naming those workspaces; a change
+  set or publication with several workspaces is `422 WORKSPACE_CONTEXT_MISMATCH`.
+- Every item of `GET /objects` names `modelReleaseId`, the release it was read under.
+
+### Changed (0.11 M4)
+
+- Counterparts stand only between workspaces running one model: an item or file row naming a record
+  of a workspace running another model is refused `COUNTERPARTS_ACROSS_MODELS` (with the workspace
+  and both model keys), and the import's notice says so, instead of loading it as this workspace's
+  own record under a model it does not belong to.
+
 ### Added (0.11 M3)
 
 - Import profiles belong to a model: `modelKey` on every profile, `workspaceKey` on its create,

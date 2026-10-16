@@ -119,7 +119,8 @@ class ObjectColumns:
     attribute sort's value rather than looking it up per row. ``value_match`` relates a (possibly
     aliased) values table to the record. ``ancestor`` joins the
     name of each record's ``ancestor:<type>`` into a statement; lists without it cannot sort by one.
-    ``object_type`` is the record's object type key, which ``objectType`` sorts by its model name.
+    ``object_type`` is the record's object type key, which ``objectType`` sorts by its model name;
+    ``object_type_label`` replaces that name when the records' models differ.
     ``relationship`` maps a relation list's row to its relation type key and whether the listed
     record is at the relation's far end, which ``relationship`` sorts by the label the row shows.
     ``search_values`` narrows a search's value look-up to records with a value of the given
@@ -143,6 +144,9 @@ class ObjectColumns:
     select_sort_values: bool = False
     ancestor: Callable[[Select[Any], str], tuple[Select[Any], Any]] | None = None
     object_type: Any = None
+    # The ``objectType`` label when the listed records' type names come from several models (a
+    # lookup spanning workspaces, 0.11 M4): the expression and how a row's label is read back.
+    object_type_label: tuple[Any, Callable[[Any], Any]] | None = None
     relationship: tuple[Any, Any] | None = None
     search_values: Callable[[str, list[str]], Any] | None = None
     search_names: Callable[[str], Any] | None = None
@@ -713,6 +717,9 @@ def _label_sort(
     Labels come from the model, so the list orders by what the user reads rather than by keys.
     Returns the expression and how a record row's label is read back for its cursor position.
     """
+    if field_name == "objectType" and columns.object_type_label is not None:
+        label, read_back = columns.object_type_label
+        return label, lambda _session, row: read_back(row)
     if field_name == "objectType" and columns.object_type is not None:
         names = {item.key: item.name for item in model.objectTypes}
         attribute = columns.object_type.key

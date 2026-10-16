@@ -246,6 +246,8 @@ def test_an_item_has_the_per_type_list_shape(lookup):
         for object_type in (FOLDER, ENTRY):
             listed = _walk(client, f"{LOOKUP}/{k(object_type)}", {**context, "sort": "name"})
             looked_up = _walk(client, LOOKUP, {**context, "objectTypeKey": k(object_type)})
+            # Plus the release each item was read under (0.11 M4, D43).
+            assert all(item.pop("modelReleaseId") for item in looked_up), f"{name} {object_type}"
             assert looked_up == listed, f"{name} {object_type}"
 
 

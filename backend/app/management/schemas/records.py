@@ -37,7 +37,14 @@ class ObjectResponse(BaseModel):
     changeSetVersion: int | None = None
 
 
-class ObjectPage(CollectionPage[ObjectResponse]):
+class LookupObject(ObjectResponse):
+    """A cross-type lookup's item: a record naming the release its workspace's model, or its change
+    set's or publication's, was read under (0.11 M4, D43)."""
+
+    modelReleaseId: str
+
+
+class ObjectPage(CollectionPage[LookupObject]):
     pass
 
 

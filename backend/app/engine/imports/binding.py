@@ -1562,14 +1562,19 @@ class _ProfileBinding:
 
     def _counterpart_matches(self) -> None:
         """Each match by ID naming another workspace's live record, with its counterpart here
-        (0.9 J5, D100): one statement finds them, one ``COPY`` stores the counterparts."""
+        (0.9 J5, D100): one statement finds them, one ``COPY`` stores the counterparts. A record
+        of a workspace running another model has none (0.11 M4, D44): the match stays unresolved,
+        and the row's item, naming that record, is refused when it runs."""
         workspace_key = self.job.workspace_key
         held = self.session.execute(
             text(
                 "SELECT m.match_id, o.id FROM import_matches m JOIN objects o"
-                " ON o.id = m.value #>> '{}' WHERE m.field = 'id' AND o.workspace_key <> :workspace"
+                " ON o.id = m.value #>> '{}'"
+                " JOIN workspace_models w ON w.workspace_key = o.workspace_key"
+                " JOIN model_releases r ON r.id = w.model_release_id"
+                " WHERE m.field = 'id' AND o.workspace_key <> :workspace AND r.release_key = :model"
             ),
-            {"workspace": workspace_key},
+            {"workspace": workspace_key, "model": self.model.release.key},
         ).all()
         counterparts = _Copy(self.session, "import_counterparts", ("match_id", "object_id"))
         for match_id, object_id in held:

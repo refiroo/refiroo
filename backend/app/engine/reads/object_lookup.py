@@ -5,13 +5,16 @@ in live, change set and publication contexts. It answers through the per-type li
 paging, cursors and context parity are the same; it only narrows what may be asked. Search matches
 the name, and filters and sorts cover built-in fields: a model-declared field has a type only on
 one object type's list, so asking for one here is refused with the route that answers it.
+
+Naming several workspaces reads their live records together (0.11 M4, D41): each workspace's model
+is its own, so a type or application some of them lack is refused naming those workspaces (D42).
 """
 
-from collections.abc import Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import case, select
 
 from ...errors import api_error
 from ...models.database import RdmObject
@@ -38,7 +41,9 @@ def lookup_scope(context: SnapshotContext | None) -> str:
     """The cursor scope, distinct from the per-type list's so neither accepts the other's cursors."""
     if context is None:
         return "object-lookup"
-    return "object-lookup-change-set" if context.kind == "change_set" else "object-lookup-publication"
+    return (
+        "object-lookup-change-set" if context.kind == "change_set" else "object-lookup-publication"
+    )
 
 
 def build_live_lookup_query(
@@ -92,6 +97,130 @@ def build_live_lookup_query(
             "typedFilters": normalized_filters,
         },
         seek=seek,
+    )
+
+
+def build_spanning_lookup_query(
+    models: Mapping[str, EngineModel],
+    *,
+    object_type_keys: Sequence[str],
+    application_key: str | None,
+    parent_object_id: str | None,
+    top_level: bool,
+    search: str | None,
+    sort: str | None,
+    field_filters: list[tuple[str, str, str]],
+) -> ObjectQuery:
+    """The live records of several workspaces (``models``: each workspace's model) in one list
+    (D41). A named type or application must be in every workspace's model (D42); ``objectType``
+    sorts by each record's type name in its own workspace's model."""
+    workspaces = sorted(models)
+    if application_key:
+        _in_every_model(models, "application", application_key, _holds_application)
+    for key in sorted(set(object_type_keys)):
+        _in_every_model(models, "objectType", key, _holds_type)
+    _check_built_in(field_filters, sort)
+    listed = {
+        workspace: _listed_types(models[workspace], object_type_keys, application_key)
+        for workspace in workspaces
+    }
+    types = next(iter(listed.values()))[0]
+    narrowing = sorted(
+        {
+            key
+            for found, definitions in listed.values()
+            for key in _narrowing_types(found, definitions)
+        }
+    )
+    statement = select(RdmObject).where(
+        RdmObject.workspace_key.in_(workspaces), RdmObject.object_type_key.in_(narrowing)
+    )
+    if application_key:
+        statement = statement.where(RdmObject.application_key == application_key)
+    if parent_object_id:
+        statement = statement.where(RdmObject.parent_object_id == parent_object_id)
+    if top_level:
+        statement = statement.where(RdmObject.parent_object_id.is_(None))
+    names = {
+        (workspace, item.key): item.name
+        for workspace in workspaces
+        for item in models[workspace].objectTypes
+    }
+    label = case(
+        *(
+            ((RdmObject.workspace_key == workspace) & (RdmObject.object_type_key == key), name)
+            for (workspace, key), name in names.items()
+        ),
+        else_=RdmObject.object_type_key,
+    )
+    columns = replace(
+        LIVE_OBJECT_COLUMNS,
+        builtin={
+            **LIVE_OBJECT_COLUMNS.builtin,
+            "objectTypeKey": RdmObject.object_type_key,
+            "parentObjectId": RdmObject.parent_object_id,
+        },
+        object_type_label=(
+            label,
+            lambda row: names.get((row.workspace_key, row.object_type_key), row.object_type_key),
+        ),
+    )
+    # The lookup filters, searches and sorts built-in fields only, which read no model; the
+    # builder is given one workspace's model and types, and the type label covers the others.
+    first = workspaces[0]
+    statement, keys, seek, normalized_filters = refine_object_query(
+        models[first],
+        columns,
+        statement,
+        object_types=listed[first][1],
+        search=search,
+        sort=sort,
+        field_filters=field_filters,
+        search_fields=SEARCH_FIELDS,
+    )
+    return ObjectQuery(
+        statement=statement,
+        keys=keys,
+        filters={
+            "workspaceKeys": workspaces,
+            **_bound_filters(types, application_key, parent_object_id, top_level, search),
+            "typedFilters": normalized_filters,
+        },
+        seek=seek,
+    )
+
+
+def _holds_application(model: EngineModel, key: str) -> bool:
+    return any(item.key == key for item in model.applications)
+
+
+def _holds_type(model: EngineModel, key: str) -> bool:
+    return any(item.key == key for item in model.objectTypes)
+
+
+def _in_every_model(
+    models: Mapping[str, EngineModel],
+    kind: str,
+    key: str,
+    holds: Callable[[EngineModel, str], bool],
+) -> None:
+    """Refuse an element some of the read workspaces' models lack, naming them (D42); none holding
+    it is the element's own not-found, as on a read of one workspace."""
+    lacking = sorted(workspace for workspace, model in models.items() if not holds(model, key))
+    if not lacking:
+        return
+    if len(lacking) == len(models):
+        model = models[lacking[0]]
+        if kind == "application":
+            get_application(model, key)
+        get_object_type(model, key)
+    raise api_error(
+        422,
+        "MODEL_ELEMENT_NOT_IN_EVERY_MODEL",
+        f"{'Application' if kind == 'application' else 'Object type'} '{key}' is not in the model "
+        f"of every workspace read: {', '.join(lacking)} lack it. Name only the workspaces whose "
+        "models hold it",
+        {"element": {"kind": kind, "key": key}, "workspaces": lacking},
     )
 
 
