@@ -309,7 +309,7 @@ runs ([Workspace models](#workspace-models-product-011)).
 
 - `GET /api/v1/model-releases?releaseKey=...&assigned=...&pageSize=...&cursor=...`
 - `GET /api/v1/model-releases/{releaseId}?includeModel=false`
-- `GET /api/v1/model-releases/{releaseId}/diff?againstReleaseId=...`
+- `GET /api/v1/model-releases/{releaseId}/diff?againstReleaseId=...&workspaceKey=...`
 - `GET /api/v1/model-releases/{releaseId}/activations?pageSize=...&cursor=...`
 - `GET /api/v1/workspaces/{workspaceKey}/model`, `GET /api/v1/workspace-models` and
   `POST /api/v1/workspaces/{workspaceKey}/model/activation`
@@ -335,8 +335,11 @@ this identity shape; `model` is included only on detail when `includeModel=true`
 
 `assigned` says whether at least one workspace runs the release, and `workspaces` names them in key
 order; the `assigned` filter keeps those some workspace runs (`true`) or none does (`false`)
-(Product 0.11 D24). The comparison (`…/diff`) checks compatibility against the data of the workspaces
-running the default workspace's release.
+(Product 0.11 D24). The comparison (`…/diff`) answers `compatibility` and `consumerContracts` for
+activating the release into the workspace `workspaceKey` names, against that workspace's own release
+and data, whatever model it runs; the default workspace without it, and an unknown key
+`404 WORKSPACE_NOT_FOUND` (0.11 D52). `compatibility.workspaces` adds each workspace running a
+release of the candidate's model (D25).
 
 `model` is absent, rather than `null`, unless requested. Release list and detail are always readable;
 release installation and activation are mutation-gated.
@@ -4521,7 +4524,8 @@ latest:
 Designed in the [Base 0.11 P0 plan](BASE_0_11_IMPLEMENTATION_PLAN.md#p0-plan-2026-10-15) from
 [ADR-042](DECISIONS.md#adr-042--each-workspace-runs-its-own-model-release). **A workspace's model and
 its activation are delivered** (M1, with M2 folded in, 2026-10-15), and **what was instance-wide**
-(M3, 2026-10-15), and **reads spanning workspaces** (M4, 2026-10-16). Designed, each moving into
+(M3, 2026-10-15), and **reads spanning workspaces** (M4, 2026-10-16); M5 (2026-10-16) adds
+`releaseName` and the release diff's `workspaceKey` for the browser's per-workspace screens. Designed, each moving into
 "delivered" with its package: migrations (V1–V3), mappings between models (X1) and moves (X2, X3). Field-level detail not fixed
 here is finished in that package's plan.
 
@@ -4552,10 +4556,15 @@ Every workspace names the release it runs; nothing follows a default (D4). A wor
 
 ```json
 "model": {
-  "releaseId": "6f57924d-…", "releaseKey": "catalogue", "releaseVersion": "1.4.0",
-  "schemaVersion": "0.10", "modelHash": "7c9d…", "version": 3, "updatedAt": "2026-10-20T09:00:00Z"
+  "releaseId": "6f57924d-…", "releaseKey": "catalogue", "releaseName": "Catalogue",
+  "releaseVersion": "1.4.0", "schemaVersion": "0.10", "modelHash": "7c9d…", "version": 3,
+  "updatedAt": "2026-10-20T09:00:00Z"
 }
 ```
+
+`releaseName` is the release's name, which names the model to people (M5, D53); it is on every
+workspace response, `GET /workspaces/{workspaceKey}/model`, `GET /workspace-models` and an
+activation's answer.
 
 `version` is the assignment's own version, raised by every activation into the workspace; it is
 what activation claims. `POST /workspaces` takes an optional `modelReleaseId`, any installed release

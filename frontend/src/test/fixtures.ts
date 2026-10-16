@@ -170,6 +170,7 @@ export const codelistObject: ObjectItem = {
 export const testWorkspaceModel = {
   releaseId: "release-1",
   releaseKey: "test",
+  releaseName: "Starter model",
   releaseVersion: "0.3.0",
   schemaVersion: "0.5",
   modelHash: "hash",

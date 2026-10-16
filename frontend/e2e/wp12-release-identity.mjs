@@ -65,15 +65,16 @@ try {
   const pendingText = await direction.innerText();
   expect(pendingText.includes("installation order only"), `fallback label: ${pendingText}`);
   expect(pendingText.includes(`${model.release.version}-wp12-introduced`), `fallback before: ${pendingText}`);
-  const check = page.getByRole("region", { name: /^Current active release .*wp12-introduced → this release/ });
+  // The check lists each workspace of the model against this release (0.11 M5, D51).
+  const check = page.getByRole("region", { name: /^Workspaces running / });
   await check.getByText("compatible", { exact: true }).waitFor();
-  checks.push("inactive release uses labelled installation-order baseline; activation check names current active");
+  checks.push("inactive release uses labelled installation-order baseline; activation check per workspace of the model");
 
   // Explicit baseline choice leaves the activation check context unchanged.
   await page.getByRole("combobox", { name: "Compare with" }).selectOption(original.releaseId);
   await page.getByText("Chosen baseline.").waitFor();
   await check.getByText("compatible", { exact: true }).waitFor();
-  expect(await page.getByRole("button", { name: "Activate…" }).isEnabled(), "activation disabled after choice");
+  expect(await page.getByRole("button", { name: "Activate in a workspace…" }).isEnabled(), "activation disabled after choice");
   checks.push("explicit baseline choice re-compares history; activation readiness unchanged");
 
   // Bootstrap release: first release of its key, no recorded predecessor.
@@ -92,17 +93,16 @@ try {
 
   // Activating the inspected release keeps its route; status, actions and history must follow.
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.getByRole("button", { name: "Activate…" }).click();
-  await page.getByRole("button", { name: "Activate release" }).click();
-  await page.locator(".model-detail-header .status-pill.tone-success", { hasText: "Active" }).waitFor();
+  // Activation goes into one workspace through the activation dialog (0.11 M5, D51).
+  await page.getByRole("button", { name: "Activate in a workspace…" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: /^Activate .* in / }).click();
+  await page.locator(".model-detail-header .status-pill.tone-success", { hasText: "Run by" }).waitFor();
   await page.getByText("Default: the active release this one replaced when it was first activated.").waitFor();
-  expect((await page.getByRole("button", { name: "Activate…" }).count()) === 0, "Activate offered after activation");
   expect(
-    (await page.locator(".model-detail-header .status-pill", { hasText: "Inactive" }).count()) === 0,
-    "Inactive shown after activation",
+    (await page.locator(".model-detail-header .status-pill", { hasText: "Run by no workspace" }).count()) === 0,
+    "Run by no workspace shown after activation",
   );
-  expect((await page.getByRole("region", { name: /^Current active release/ }).count()) === 0, "stale check");
-  await page.getByRole("status").getByText("The release is now the active model.").waitFor();
+  await page.getByRole("status").getByText(/now runs/).waitFor();
   expect(new URL(page.url()).pathname === `/settings/model/releases/${pending.id}`, `after activation ${page.url()}`);
   checks.push("activating the inspected release keeps its page, confirms it, and updates status, actions and baseline");
 

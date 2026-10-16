@@ -84,6 +84,10 @@ only be retired; **Delete…** is for correcting a mistyped key on an empty work
 administration is a deployment setting (on by default until sign-in exists, not a permission); when it
 is off the screen is read only and names the setting.
 
+Each workspace names the model and release it runs, in the selector and in Settings › Workspaces,
+and a new workspace starts on the default workspace's model or on another installed release chosen
+when it is created.
+
 Evidence: [workspace selector](../../frontend/src/features/workspaces/WorkspaceSelector.tsx),
 [workspace administration](../../frontend/src/features/workspaces/WorkspaceAdmin.tsx),
 [W4 runner](../../frontend/e2e/w4-workspace-admin.mjs),
@@ -428,8 +432,23 @@ asked for. One lookup of records by name, ID, type or parent can read several wo
 each record under its own workspace's model and naming its workspace and release; naming a type or
 application one of those models lacks is refused, naming the workspaces that lack it. Records of a
 workspace running another model cannot be loaded as counterparts: each such row is refused and the
-rest of the file loads. Settings › Model manages the default workspace's model; choosing a workspace in the
-browser (Settings › Model, the editor's install dialog, New from a workbook) comes with M5.
+rest of the file loads.
+
+In the browser, each workspace shows its own model: switching workspace changes the applications,
+the navigation and the pages to that workspace's model, and a toast says when the model or its
+release differs. The workspace selector names each workspace's model and release and marks the ones
+running another model or another release. An address naming an application, collection or kind of
+record the workspace's model lacks opens a page saying so, with the workspaces whose model has it,
+instead of another page; so do an unknown workspace and one whose release cannot be loaded. Settings ›
+**Model** lists the workspaces with the model and release each runs (and a newer installed release
+of it), the installed releases grouped by model with the workspaces running each, and the drafts. A
+release is activated into one workspace from that workspace's row or from the release's page: the
+dialog checks that workspace's data alone, lists its open change sets that would stay on its
+previous release and the workspaces it leaves unchanged, and offers no activation when the data does
+not fit. A job's page names its types under its own workspace's model. The model editor previews
+records of a workspace running the draft's model, and **Install and activate** puts the release into
+an existing workspace or a new one created on it. Migrating a workspace's data to a release it does
+not fit is not available yet, and the lookup over several workspaces has no screen.
 
 Through the API, a draft can also be changed step by step with typed operations instead of whole
 JSON: add, rename, re-key, split, merge or remove applications, types, attributes and relation

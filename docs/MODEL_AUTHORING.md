@@ -115,8 +115,12 @@ allowed pairs; generic detail panels). This design removes the reason for the fi
   every workspace, and installing and activating from the editor names the target workspace(s); a
   draft's compatibility is shown for each workspace running its model (D25). As built (M3): through
   the API, a new model is installed and a workspace created on it (`POST /workspaces` with
-  `modelReleaseId`) or activated into one workspace; the editor's choice of workspace comes with M5
-  (D38), and until then the browser installs and activates into the default workspace. A draft is
+  `modelReleaseId`) or activated into one workspace. In the browser (M5, D55) the editor previews
+  the records of a workspace running the draft's model (the one the user came from when it does,
+  else the first that does; none for a new model, whose preview shows empty records), and **Install
+  and activate** asks **Activate into**: an existing workspace (the editor's first; others marked
+  Other model) or a new workspace, named in the dialog and created on the release. A new model no
+  workspace runs proposes a new workspace. A draft is
   compared with its base release, or without one with the newest installed release of its own model
   (`release.key`), or with nothing when it is a new model: then every element is new, no consumer
   contract needs a higher version and no data is affected (D37). Its profile is saved at installation

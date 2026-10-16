@@ -70,7 +70,7 @@ describe("WorkspaceSelector", () => {
     const { rerender } = render(<WorkspaceSelector workspaceKey="default" onChange={vi.fn()} />);
     rerender(<WorkspaceSelector workspaceKey="archive" onChange={vi.fn()} />);
     await waitFor(() => expect(screen.getByRole("combobox", { name: "Workspace" })).toHaveValue("Archive"));
-    expect(screen.getByText("Retired · read only")).toBeInTheDocument();
+    expect(screen.getByText("Starter model 0.3.0 · Retired · read only")).toBeInTheDocument();
   });
 
   it("offers workspace administration at the end of the options when the deployment allows it", async () => {
@@ -143,5 +143,34 @@ describe("WorkspaceSelector", () => {
     expect(await screen.findByRole("combobox", { name: "Workspace" })).toHaveValue("Default workspace");
     if (!screen.queryByRole("listbox")) fireEvent.click(show);
     expect(await screen.findByRole("option", { name: /Central Europe/ })).toBeInTheDocument();
+  });
+
+  it("names each workspace's model and marks another model or release (0.11 D46)", async () => {
+    const otherRelease = { ...testWorkspaceModel, releaseId: "next", releaseVersion: "2" };
+    const otherModel = {
+      ...testWorkspaceModel,
+      releaseId: "x",
+      releaseKey: "archive",
+      releaseName: "Archive register",
+    };
+    vi.mocked(api.workspaces).mockResolvedValue({
+      items: [
+        defaultWorkspace,
+        { ...defaultWorkspace, key: "south", label: "South", model: otherRelease },
+        { ...defaultWorkspace, key: "archive", label: "Archive", model: otherModel },
+        { ...defaultWorkspace, key: "twin", label: "Twin", model: testWorkspaceModel },
+      ],
+      nextCursor: null,
+    });
+    render(<WorkspaceSelector workspaceKey="default" onChange={vi.fn()} />);
+
+    await screen.findByRole("combobox", { name: "Workspace" });
+    const runs = `${testWorkspaceModel.releaseName} ${testWorkspaceModel.releaseVersion}`;
+    expect(screen.getByText(runs)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Show workspace options/ }));
+    expect(await screen.findByRole("option", { name: /South.*Other release/ })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /Archive.*Archive register.*Other model/ })).toBeInTheDocument();
+    const twin = screen.getByRole("option", { name: /Twin/ });
+    expect(twin).not.toHaveTextContent(/Other/);
   });
 });

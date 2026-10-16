@@ -99,7 +99,7 @@ try {
 
   // --- 8. Settings › Model (U3): the list page, and the active release's page ---
   await page.goto(`${uiUrl}/settings/model`);
-  await shown(page.getByRole("navigation", { name: "Model catalogue" }));
+  await shown(page.getByRole("group", { name: "Workspaces and their models" }));
   await capture(page, "settings-model-light", output, [
     page.locator(".release-metadata dd, .catalogue-text small:has-text(':')"),
   ]);
@@ -134,7 +134,7 @@ try {
   await shown(page.getByRole("heading", { name: "Domain 00" }));
   await capture(page, "record-detail-domain-dark", output);
   await page.goto(`${uiUrl}/settings/model`);
-  await shown(page.getByRole("navigation", { name: "Model catalogue" }));
+  await shown(page.getByRole("group", { name: "Workspaces and their models" }));
   await capture(page, "settings-model-dark", output, [
     page.locator(".release-metadata dd, .catalogue-text small:has-text(':')"),
   ]);

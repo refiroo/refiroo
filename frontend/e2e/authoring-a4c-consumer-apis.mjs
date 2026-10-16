@@ -275,7 +275,7 @@ async function journey(label, source) {
     await dialog().getByText("A4c Feed").waitFor();
     await assertAccessible(page, `a4c-${label}-install`);
     await shot("install-1440");
-    await dialog().getByRole("button", { name: /and activate$/ }).click();
+    await dialog().getByRole("button", { name: /and activate in / }).click();
     await page.getByText(/is installed and active/).first().waitFor({ timeout: 30_000 });
     const values = (top.attributes ?? [])
       .filter((binding) => binding.required)

@@ -12,11 +12,14 @@ import {
   SelectValue,
 } from "react-aria-components";
 import { Icon } from "@/ui/Icon";
+import { StatusPill, type StatusTone } from "@/ui/StatusPill";
 
 export type SelectionOption = {
   id: string;
   label: string;
   description?: string;
+  /** A short mark beside the option, such as "Other model" (0.11 D46). */
+  mark?: { label: string; tone: StatusTone };
   disabled?: boolean;
 };
 
@@ -59,6 +62,11 @@ export function SelectField({
                     <strong>{option.label}</strong>
                     {option.description && <small>{option.description}</small>}
                   </span>
+                  {option.mark && (
+                    <StatusPill tone={option.mark.tone} marker={false}>
+                      {option.mark.label}
+                    </StatusPill>
+                  )}
                   {isSelected && <Icon name="check" />}
                 </>
               )}
@@ -144,6 +152,11 @@ export function ComboBoxField({
                 <strong>{option.label}</strong>
                 {option.description && <small>{option.description}</small>}
               </span>
+              {option.mark && (
+                <StatusPill tone={option.mark.tone} marker={false}>
+                  {option.mark.label}
+                </StatusPill>
+              )}
             </ListBoxItem>
           )}
         </ListBox>

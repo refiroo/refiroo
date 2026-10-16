@@ -463,7 +463,7 @@ async function fromEmpty(label, model, mode) {
     // Install and activate.
     await who.press(page.getByRole("button", { name: "Install and activate…" }), "Install and activate…");
     await ed.dialog().getByText("Valid", { exact: true }).waitFor();
-    await who.press(ed.dialog().getByRole("button", { name: /^Install .* and activate$/ }), "Install and activate");
+    await who.press(ed.dialog().getByRole("button", { name: /^Install .* and activate in / }), "Install and activate");
     const done = page.getByRole("status").filter({ hasText: "is installed and active" });
     await done.waitFor({ timeout: 30_000 });
     await who.press(done.getByRole("button", { name: "Open Depot T1" }), "Open Depot T1");
@@ -662,13 +662,13 @@ async function extending(label, model, mode) {
     // Install and activate: held until the version is raised in the dialog, in one step.
     await who.press(page.getByRole("button", { name: "Install and activate…" }), "Install and activate…");
     await ed.dialog().getByRole("heading", { name: "Consumer APIs" }).waitFor();
-    const activate = ed.dialog().getByRole("button", { name: /^Install .* and activate$/ });
+    const activate = ed.dialog().getByRole("button", { name: /^Install .* and activate in / });
     assert.equal(await activate.isDisabled(), true, "Activate waits for the contract version");
     await shot("install-held-1440");
     await ed.oneStep(() => who.press(ed.dialog().getByRole("button", { name: `Raise to v${version + 1}` }), "Raise"), "the version raised");
     await page.waitForFunction(() =>
       [...document.querySelectorAll('[role="dialog"] button')].some(
-        (button) => /^Install .* and activate$/.test(button.textContent ?? "") && !button.disabled,
+        (button) => /^Install .* and activate in /.test(button.textContent ?? "") && !button.disabled,
       ),
     );
     await who.press(activate, "Install and activate");
@@ -755,7 +755,7 @@ async function phoneWalk(label, harness, application) {
     await who.menu(page.getByRole("button", { name: /^More: .*Install and activate/ }), "Install and activate…", "More");
     await ed.dialog().getByText("Valid", { exact: true }).waitFor();
     await fits("the install dialog");
-    await who.press(ed.dialog().getByRole("button", { name: /^Install .* and activate$/ }), "Install and activate");
+    await who.press(ed.dialog().getByRole("button", { name: /^Install .* and activate in / }), "Install and activate");
     const done = page.getByRole("status").filter({ hasText: "is installed and active" });
     await done.waitFor({ timeout: 30_000 });
     await page.screenshot({ path: resolve(harness.output, `t1-${label}-390-installed.png`), fullPage: true });

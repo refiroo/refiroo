@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, api } from "@/api/client";
 import { outlineFixture } from "@/test/draftOutline";
 import { InstallDialog } from "@/features/model-editor/InstallDialog";
-import type { ModelCompilation, ModelRelease } from "@/types";
+import { capabilitiesFixture } from "@/test/capabilities";
+import type { ModelCompilation, ModelRelease, Workspace } from "@/types";
 
 vi.mock("@/api/client", async (load) => {
   const actual = await load<typeof import("@/api/client")>();
@@ -27,20 +28,42 @@ const release = { id: "r2", key: "store", name: "Store", version: "1.2.1" } as M
 
 function renderDialog(run = vi.fn().mockResolvedValue("applied")) {
   const handlers = { onActivated: vi.fn().mockResolvedValue(undefined), onInstalledOnly: vi.fn(), onClose: vi.fn() };
-  render(<InstallDialog draftId="d1" outline={outlineFixture()} run={run} latestVersion={() => 5} {...handlers} />);
+  render(
+    <InstallDialog
+      draftId="d1"
+      outline={outlineFixture()}
+      run={run}
+      latestVersion={() => 5}
+      workspaceKey="default"
+      {...handlers}
+    />,
+  );
   return { run, ...handlers };
 }
 
-beforeEach(() => vi.clearAllMocks());
+/** The editor's workspace, on the draft's model (0.11 D55). */
+const workspace = {
+  key: "default",
+  label: "Default",
+  status: "active",
+  model: { releaseId: "r1", releaseKey: "store", releaseName: "Store", releaseVersion: "1.2.0" },
+} as Workspace;
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.mocked(api.capabilities).mockResolvedValue(capabilitiesFixture({ manageModel: true }));
+  vi.mocked(api.workspaces).mockResolvedValue({ items: [workspace], nextCursor: null });
+});
 
 describe("InstallDialog (A-D8, D18, D42)", () => {
   it("sets the proposed version, installs at the draft's latest version and activates", async () => {
     vi.mocked(api.compileModelDraft).mockResolvedValue(compiled(true));
     vi.mocked(api.installModelDraft).mockResolvedValue(release);
-    vi.mocked(api.defaultWorkspaceModel).mockResolvedValue({
+    vi.mocked(api.workspaceModel).mockResolvedValue({
       workspaceKey: "default",
       releaseId: "r1",
       releaseKey: "rdm",
+      releaseName: "Starter model",
       releaseVersion: "1",
       schemaVersion: "0.10",
       modelHash: "h",
@@ -51,6 +74,7 @@ describe("InstallDialog (A-D8, D18, D42)", () => {
       workspaceKey: "default",
       releaseId: "r2",
       releaseKey: "rdm",
+      releaseName: "Starter model",
       releaseVersion: "1",
       schemaVersion: "0.10",
       modelHash: "h2",
@@ -60,8 +84,9 @@ describe("InstallDialog (A-D8, D18, D42)", () => {
     });
     const { run, onActivated } = renderDialog();
     expect(await screen.findByText("Bin")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Install 1.2.1 and activate" }));
-    await waitFor(() => expect(onActivated).toHaveBeenCalledWith(release));
+    fireEvent.click(screen.getByRole("button", { name: "Install 1.2.1 and activate in Default" }));
+    await waitFor(() => expect(onActivated).toHaveBeenCalledWith(release, workspace));
+    expect(api.workspaceModel).toHaveBeenCalledWith("default");
     expect(run).toHaveBeenCalledWith([{ kind: "setRelease", key: "store", name: "Store", version: "1.2.1" }]);
     expect(api.installModelDraft).toHaveBeenCalledWith("d1", 5);
   });
@@ -69,10 +94,11 @@ describe("InstallDialog (A-D8, D18, D42)", () => {
   it("keeps the installed release when activation is refused, and says so", async () => {
     vi.mocked(api.compileModelDraft).mockResolvedValue(compiled(true));
     vi.mocked(api.installModelDraft).mockResolvedValue(release);
-    vi.mocked(api.defaultWorkspaceModel).mockResolvedValue({
+    vi.mocked(api.workspaceModel).mockResolvedValue({
       workspaceKey: "default",
       releaseId: "r1",
       releaseKey: "rdm",
+      releaseName: "Starter model",
       releaseVersion: "1",
       schemaVersion: "0.10",
       modelHash: "h",
@@ -85,10 +111,10 @@ describe("InstallDialog (A-D8, D18, D42)", () => {
       }),
     );
     const { onActivated, onInstalledOnly } = renderDialog();
-    fireEvent.click(await screen.findByRole("button", { name: "Install 1.2.1 and activate" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Install 1.2.1 and activate in Default" }));
     expect(await screen.findByText("Store 1.2.1 is installed but not active")).toBeTruthy();
     expect(
-      screen.getByText(/Activation needs a migration 4 records lose their type\. The active model is unchanged\./),
+      screen.getByText(/Activation needs a migration 4 records lose their type\. No workspace's model changed\./),
     ).toBeTruthy();
     expect(onInstalledOnly).toHaveBeenCalled();
     expect(onActivated).not.toHaveBeenCalled();
@@ -98,8 +124,8 @@ describe("InstallDialog (A-D8, D18, D42)", () => {
     vi.mocked(api.compileModelDraft).mockResolvedValue(compiled(false));
     renderDialog();
     expect(await screen.findByText(/1 issue stops this step/)).toBeTruthy();
-    expect((screen.getByRole("button", { name: "Install 1.2.1 and activate" }) as HTMLButtonElement).disabled).toBe(
-      true,
-    );
+    expect(
+      (screen.getByRole("button", { name: "Install 1.2.1 and activate in Default" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
   });
 });

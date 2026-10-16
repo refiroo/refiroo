@@ -1,7 +1,10 @@
 /**
- * Settings › Model (Track U U3, U-D10 as revised 2026-10-06): the model workbench as before, its
- * catalogue of releases and drafts beside the selected release or draft. Each has its own address;
- * without one the active release is shown. Below 760px the catalogue and the selection take turns.
+ * Settings › Model (Track U U3, U-D10 as revised 2026-10-06; 0.11 M5, D50): each workspace runs a
+ * model of its own. Without a selection the page shows the workspaces with the model and release
+ * each runs, the installed releases grouped by model with the workspaces running each, and the
+ * drafts. A release or draft opens beside the catalogue, grouped by model. Activation goes into one
+ * workspace through one dialog, from a workspace or from a release (D51). Below 760px the catalogue
+ * and the selection take turns.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -13,17 +16,22 @@ import type {
   ModelDraft,
   ModelRelease,
   ModelReleaseSummary,
-  WorkspaceModel,
   SettingsRoute,
+  Workspace,
+  WorkspaceModelActivation,
 } from "@/types";
 import { CapabilityStatus } from "@/features/administration/CapabilityStatus";
+import { ActivateDialog } from "@/features/model-admin/ActivateDialog";
 import { CreateDraftDialog, type CreateDraftSeed } from "@/features/model-admin/CreateDraftDialog";
 import { ModelDraftEditor } from "@/features/model-admin/ModelDraftEditor";
 import { ModelReleaseDetail } from "@/features/model-admin/ModelReleaseDetail";
 import { CatalogueEntry, CatalogueLayout } from "@/ui/CatalogueLayout";
 import { Icon } from "@/ui/Icon";
 import { EmptyState } from "@/ui/EmptyState";
+import { RuledList, RuledListItem } from "@/ui/RuledList";
+import { Section } from "@/ui/Section";
 import { SettingsLayout } from "@/ui/SettingsLayout";
+import { SettingsTable } from "@/ui/SettingsTable";
 import { StatusPill } from "@/ui/StatusPill";
 import { useToast } from "@/ui/Toast";
 import { Notice } from "@/ui/Notice";
@@ -37,6 +45,37 @@ function appendUnique<T extends { id: string }>(current: T[], incoming: T[]) {
   return [...current, ...incoming.filter((item) => !ids.has(item.id))];
 }
 
+/** Every installed release, oldest first (releases are few: one line per model's versions). */
+async function allReleases() {
+  const items: ModelReleaseSummary[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await api.modelReleases({ cursor, pageSize: 500 });
+    items.push(...page.items);
+    cursor = page.nextCursor ?? undefined;
+  } while (cursor);
+  return items;
+}
+
+/** The installed releases by model (`release.key`), each model named by its newest release. */
+export function releasesByModel(releases: ModelReleaseSummary[]) {
+  const models = new Map<string, ModelReleaseSummary[]>();
+  for (const release of releases) models.set(release.key, [...(models.get(release.key) ?? []), release]);
+  return [...models].map(([key, items]) => {
+    const newestFirst = [...items].sort((a, b) => b.installedAt.localeCompare(a.installedAt));
+    return { key, name: newestFirst[0].name, releases: newestFirst };
+  });
+}
+
+/** A release installed after the one the workspace runs, of the same model: worth activating. */
+function newerRelease(workspace: Workspace, releases: ModelReleaseSummary[]) {
+  const running = releases.find((item) => item.id === workspace.model.releaseId);
+  if (!running) return undefined;
+  return releases
+    .filter((item) => item.key === running.key && item.installedAt > running.installedAt)
+    .sort((a, b) => b.installedAt.localeCompare(a.installedAt))[0];
+}
+
 export function ModelWorkbench({
   route,
   onRouteChange,
@@ -44,15 +83,17 @@ export function ModelWorkbench({
 }: {
   route: ModelsRoute;
   onRouteChange: (route: ModelsRoute) => void;
-  onActiveModelChange?: () => Promise<unknown>;
+  /** A workspace's model changed: the shell forgets the model it held for it (D49). */
+  onActiveModelChange?: (workspaceKey: string) => Promise<unknown>;
 }) {
   const toast = useToast();
   const [capabilities, setCapabilities] = useState<CapabilitiesResponse>();
   const [releases, setReleases] = useState<ModelReleaseSummary[]>([]);
-  const [releaseCursor, setReleaseCursor] = useState<string | null>();
   const [drafts, setDrafts] = useState<ModelDraft[]>([]);
   const [draftCursor, setDraftCursor] = useState<string | null>();
-  const [runtime, setRuntime] = useState<WorkspaceModel>();
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [defaultWorkspaceKey, setDefaultWorkspaceKey] = useState("");
+  const [activating, setActivating] = useState<{ workspaceKey?: string; releaseId?: string }>();
   const [error, setError] = useState("");
   const [creating, setCreating] = useState<CreateDraftSeed>();
   const [createReleaseId, setCreateReleaseId] = useState("");
@@ -78,16 +119,20 @@ export function ModelWorkbench({
   async function load() {
     setError("");
     try {
-      const [caps, releasePage, state] = await Promise.all([
+      const [caps, installed, workspacePage, state] = await Promise.all([
         api.capabilities(),
-        api.modelReleases(),
-        api.defaultWorkspaceModel(),
+        allReleases(),
+        // Workspaces are few (ADR-042); retired ones keep their release and take no activation.
+        api.workspaces({ status: "active", pageSize: 100 }),
+        api.workspaceRuntimeState(),
       ]);
       setCapabilities(caps);
-      setReleases(releasePage.items);
-      setReleaseCursor(releasePage.nextCursor);
-      setRuntime(state);
-      setCreateReleaseId((current) => current || state.releaseId);
+      setReleases(installed);
+      setWorkspaces(workspacePage.items);
+      setDefaultWorkspaceKey(state.defaultWorkspaceKey);
+      const defaultRelease = workspacePage.items.find((item) => item.key === state.defaultWorkspaceKey)?.model
+        .releaseId;
+      setCreateReleaseId((current) => current || defaultRelease || "");
       if (caps.modelAdmin.manageDrafts) {
         const draftPage = await api.modelDrafts();
         setDrafts(draftPage.items);
@@ -104,17 +149,6 @@ export function ModelWorkbench({
   useEffect(() => {
     void load();
   }, []);
-
-  async function moreReleases() {
-    if (!releaseCursor) return;
-    try {
-      const page = await api.modelReleases({ cursor: releaseCursor });
-      setReleases((items) => appendUnique(items, page.items));
-      setReleaseCursor(page.nextCursor);
-    } catch (cause) {
-      setError(errorMessage(cause));
-    }
-  }
 
   async function moreDrafts() {
     if (!draftCursor) return;
@@ -142,48 +176,50 @@ export function ModelWorkbench({
 
   function installed(releaseId: string) {
     void load().then(() => {
-      toast("The draft was installed as a release. It is not active until you activate it.");
+      toast("The draft was installed as a release. No workspace runs it until you activate it in one.");
       onRouteChange({ ...MODEL, releaseId });
     });
   }
 
-  function activated(state: WorkspaceModel) {
-    setRuntime(state);
-    void Promise.all([load(), onActiveModelChange?.()]).then(() => {
-      toast("The release is now the active model.");
-      onRouteChange({ ...MODEL, releaseId: state.releaseId });
+  function activated(result: WorkspaceModelActivation, workspace: Workspace) {
+    setActivating(undefined);
+    const left = result.changeSetsLeftBehind.length;
+    void Promise.all([load(), onActiveModelChange?.(workspace.key)]).then(() => {
+      toast(
+        `${workspace.label} now runs ${result.releaseName} ${result.releaseVersion}.` +
+          (left ? ` ${left} open change ${left === 1 ? "set stays" : "sets stay"} on the release it ran before.` : ""),
+      );
     });
   }
 
   const selectedDraft = route.draftId ? drafts.find((item) => item.id === route.draftId) : undefined;
-  const activeReleaseId = runtime?.releaseId ?? releases.find((item) => item.assigned)?.id ?? "";
-  const activeRelease = releases.find((item) => item.id === activeReleaseId);
-  // Without a selection in the address the active release is shown, as the workbench always did.
-  const shownReleaseId = route.draftId ? undefined : (route.releaseId ?? (activeReleaseId || undefined));
+  const shownReleaseId = route.draftId ? undefined : route.releaseId;
   const selected = Boolean(route.releaseId || route.draftId);
+  const models = releasesByModel(releases);
+  const runBy = (release: ModelReleaseSummary) => {
+    const keys = workspaces.filter((item) => item.model.releaseId === release.id).map((item) => item.label);
+    return keys.length ? `Run by ${keys.join(", ")}` : "Run by no workspace";
+  };
+  const canActivate = Boolean(capabilities?.modelAdmin.activate);
   const catalogue = (
     <nav className="model-catalogue" aria-label="Model catalogue">
-      <section>
-        <h2 className="nav-label">
-          Releases <span>{releases.length}</span>
-        </h2>
-        {releases.map((release) => (
-          <CatalogueEntry
-            key={release.id}
-            icon="model"
-            title={release.name}
-            subtitle={`${release.key} · ${release.version}`}
-            current={shownReleaseId === release.id}
-            onSelect={() => onRouteChange({ ...MODEL, releaseId: release.id })}
-            pill={release.id === activeReleaseId && <StatusPill tone="success">Active</StatusPill>}
-          />
-        ))}
-        {releaseCursor && (
-          <button className="load-more" onClick={moreReleases}>
-            Load more releases
-          </button>
-        )}
-      </section>
+      {models.map((model) => (
+        <section key={model.key}>
+          <h2 className="nav-label">
+            {model.name} <span>{model.key}</span>
+          </h2>
+          {model.releases.map((release) => (
+            <CatalogueEntry
+              key={release.id}
+              icon="model"
+              title={release.version}
+              subtitle={runBy(release)}
+              current={shownReleaseId === release.id}
+              onSelect={() => onRouteChange({ ...MODEL, releaseId: release.id })}
+            />
+          ))}
+        </section>
+      ))}
       {capabilities?.modelAdmin.manageDrafts && (
         <section>
           <h2 className="nav-label">
@@ -216,20 +252,7 @@ export function ModelWorkbench({
     <SettingsLayout
       eyebrow="Administration"
       title="Model"
-      description={
-        <>
-          Review immutable releases and safely move JSON candidates through draft, validation, installation and
-          activation.
-          {activeRelease && (
-            <>
-              {" "}
-              <StatusPill tone="success">
-                Active · {activeRelease.name} {activeRelease.version}
-              </StatusPill>
-            </>
-          )}
-        </>
-      }
+      description="Each workspace runs a model of its own. Activating a release changes one workspace; the others keep theirs. Releases are installed once for the instance and never change."
       actions={
         capabilities?.modelAdmin.manageDrafts && (
           <>
@@ -265,40 +288,66 @@ export function ModelWorkbench({
           Model mutations are disabled. Installed releases remain available for read-only inspection and export.
         </Notice>
       )}
-      <CatalogueLayout
-        catalogue={catalogue}
-        hasSelection={!!selected}
-        backLabel="All releases and drafts"
-        onBack={() => onRouteChange(MODEL)}
-      >
-        {selectedDraft ? (
-          <ModelDraftEditor
-            draft={selectedDraft}
-            canInstall={!!capabilities?.modelAdmin.install}
-            onSaved={updateDraft}
-            onReload={() => reloadDraft(selectedDraft.id)}
-            onInstalled={installed}
-            onOpenEditor={() => onRouteChange({ ...MODEL, draftId: selectedDraft.id, editor: {} })}
-            onDeleted={() => {
-              setDrafts((items) => items.filter((item) => item.id !== selectedDraft.id));
-              toast(`Draft ${selectedDraft.name} was deleted.`);
-              onRouteChange(MODEL);
-            }}
-          />
-        ) : shownReleaseId && activeReleaseId ? (
-          <ModelReleaseDetail
-            key={shownReleaseId}
-            releaseId={shownReleaseId}
-            activeReleaseId={activeReleaseId}
-            canManageDrafts={!!capabilities?.modelAdmin.manageDrafts}
-            canActivate={!!capabilities?.modelAdmin.activate}
-            onCreateDraft={startFromRelease}
-            onActivated={activated}
-          />
-        ) : (
-          <div className="panel-state">Choose an installed release or draft.</div>
-        )}
-      </CatalogueLayout>
+      {capabilities && !selected ? (
+        <ModelOverview
+          workspaces={workspaces}
+          releases={releases}
+          drafts={capabilities.modelAdmin.manageDrafts ? drafts : undefined}
+          moreDrafts={draftCursor ? moreDrafts : undefined}
+          defaultWorkspaceKey={defaultWorkspaceKey}
+          canActivate={canActivate}
+          runBy={runBy}
+          onActivate={(workspaceKey) => setActivating({ workspaceKey })}
+          onOpen={onRouteChange}
+        />
+      ) : (
+        capabilities && (
+          <CatalogueLayout
+            catalogue={catalogue}
+            hasSelection={selected}
+            backLabel="Workspaces, releases and drafts"
+            onBack={() => onRouteChange(MODEL)}
+          >
+            {selectedDraft ? (
+              <ModelDraftEditor
+                draft={selectedDraft}
+                canInstall={!!capabilities.modelAdmin.install}
+                onSaved={updateDraft}
+                onReload={() => reloadDraft(selectedDraft.id)}
+                onInstalled={installed}
+                onOpenEditor={() => onRouteChange({ ...MODEL, draftId: selectedDraft.id, editor: {} })}
+                onDeleted={() => {
+                  setDrafts((items) => items.filter((item) => item.id !== selectedDraft.id));
+                  toast(`Draft ${selectedDraft.name} was deleted.`);
+                  onRouteChange(MODEL);
+                }}
+              />
+            ) : shownReleaseId ? (
+              <ModelReleaseDetail
+                key={shownReleaseId}
+                releaseId={shownReleaseId}
+                workspaces={workspaces}
+                canManageDrafts={!!capabilities.modelAdmin.manageDrafts}
+                canActivate={canActivate}
+                onCreateDraft={startFromRelease}
+                onActivate={(releaseId) => setActivating({ releaseId })}
+              />
+            ) : (
+              <div className="panel-state">Loading the draft…</div>
+            )}
+          </CatalogueLayout>
+        )
+      )}
+      {activating && (
+        <ActivateDialog
+          workspaces={workspaces}
+          releases={releases}
+          workspaceKey={activating.workspaceKey}
+          releaseId={activating.releaseId}
+          onClose={() => setActivating(undefined)}
+          onActivated={activated}
+        />
+      )}
       {creating && (
         <CreateDraftDialog
           releases={releases}
@@ -312,5 +361,142 @@ export function ModelWorkbench({
         />
       )}
     </SettingsLayout>
+  );
+}
+
+/** The page without a selection: the workspaces and their models, the releases by model, the drafts (D50). */
+function ModelOverview({
+  workspaces,
+  releases,
+  drafts,
+  moreDrafts,
+  defaultWorkspaceKey,
+  canActivate,
+  runBy,
+  onActivate,
+  onOpen,
+}: {
+  workspaces: Workspace[];
+  releases: ModelReleaseSummary[];
+  /** Absent where drafts cannot be managed. */
+  drafts?: ModelDraft[];
+  moreDrafts?: () => void;
+  defaultWorkspaceKey: string;
+  canActivate: boolean;
+  runBy: (release: ModelReleaseSummary) => string;
+  onActivate: (workspaceKey: string) => void;
+  onOpen: (route: ModelsRoute) => void;
+}) {
+  return (
+    <>
+      <Section title="Workspaces and their models">
+        <SettingsTable
+          label="Workspaces and their models"
+          columns={["Workspace", "Model", "Release", "Schema", "Since", ...(canActivate ? ["Actions"] : [])]}
+        >
+          {workspaces.map((workspace) => {
+            const newer = newerRelease(workspace, releases);
+            return (
+              <tr key={workspace.key}>
+                <th scope="row">
+                  {workspace.label}
+                  {workspace.key === defaultWorkspaceKey && <span className="muted"> · default</span>}
+                </th>
+                <td data-label="Model">{workspace.model.releaseName}</td>
+                <td data-label="Release">
+                  <span className="mono">{workspace.model.releaseVersion}</span>{" "}
+                  {newer && (
+                    <StatusPill tone="neutral" marker={false}>
+                      {newer.version} installed
+                    </StatusPill>
+                  )}
+                </td>
+                <td data-label="Schema">
+                  <span className="mono">{workspace.model.schemaVersion}</span>
+                </td>
+                <td data-label="Since">{formatServerTime(workspace.model.updatedAt)}</td>
+                {canActivate && (
+                  <td data-label="Actions">
+                    <button
+                      type="button"
+                      className="secondary"
+                      aria-label={`Activate a release in ${workspace.label}`}
+                      onClick={() => onActivate(workspace.key)}
+                    >
+                      Activate a release…
+                    </button>
+                  </td>
+                )}
+              </tr>
+            );
+          })}
+        </SettingsTable>
+      </Section>
+      <Section
+        title="Installed releases"
+        description="A model is the line of releases sharing one key. Each release is installed once for the instance and never changes."
+      >
+        <div className="model-release-groups">
+          {releasesByModel(releases).map((model) => (
+            <div key={model.key} className="model-release-group">
+              <h3>
+                {model.name} <span className="mono muted">{model.key}</span>
+              </h3>
+              <RuledList label={`Releases of ${model.name}`}>
+                {model.releases.map((release) => (
+                  <RuledListItem
+                    key={release.id}
+                    title={<span className="mono">{release.version}</span>}
+                    meta={`Schema ${release.schemaVersion} · ${runBy(release)}`}
+                    actions={
+                      <button
+                        type="button"
+                        className="secondary"
+                        aria-label={`Open ${model.name} ${release.version}`}
+                        onClick={() => onOpen({ ...MODEL, releaseId: release.id })}
+                      >
+                        Open
+                      </button>
+                    }
+                  />
+                ))}
+              </RuledList>
+            </div>
+          ))}
+        </div>
+      </Section>
+      {drafts && (
+        <Section title="Drafts">
+          {drafts.length ? (
+            <RuledList label="Drafts">
+              {drafts.map((draft) => (
+                <RuledListItem
+                  key={draft.id}
+                  title={draft.name}
+                  meta={`Version ${draft.version} · ${formatServerTime(draft.updatedAt)}`}
+                  actions={
+                    <button
+                      type="button"
+                      className="secondary"
+                      aria-label={`Open draft ${draft.name}`}
+                      onClick={() => onOpen({ ...MODEL, draftId: draft.id })}
+                    >
+                      Open
+                    </button>
+                  }
+                />
+              ))}
+            </RuledList>
+          ) : (
+            <EmptyState>No drafts yet.</EmptyState>
+          )}
+          {moreDrafts && (
+            <button className="load-more" onClick={moreDrafts}>
+              Load more drafts
+            </button>
+          )}
+        </Section>
+      )}
+    </>
   );
 }

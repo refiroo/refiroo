@@ -14,7 +14,7 @@ import { JobsPage } from "@/features/settings/JobsPage";
 import { WebhooksPage } from "@/features/settings/WebhooksPage";
 import { ModelWorkbench } from "@/features/model-admin/ModelWorkbench";
 import { ModelEditor } from "@/features/model-editor/ModelEditor";
-import { api } from "@/api/client";
+import { workspaceModel } from "@/model/workspaceModels";
 import { WorkspaceAdmin } from "@/features/workspaces/WorkspaceAdmin";
 import { applicationFor } from "@/model/lookup";
 import { defaultRoute, viewRoute } from "@/routing/routes";
@@ -33,8 +33,6 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
         : (lastCollection(selected.key) ?? viewRoute(selected, selected.defaultView, workspaceKey)),
     );
   };
-  // A workspace opens in the application the user last worked in.
-  const application = applicationFor(model, lastApplicationRoute()?.applicationKey ?? "") ?? model.applications[0];
 
   const editing = route.page === "model" && route.draftId && route.editor ? route : undefined;
   return (
@@ -66,11 +64,12 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
               changeKinds: [],
             })
           }
-          onOpenApplication={(applicationKey) => {
-            // The active model was just reloaded; read it again so the new application is known here.
-            void api.model().then((active) => {
+          onOpenApplication={(applicationKey, openedWorkspace = workspaceKey) => {
+            // The workspace's model was just reloaded; read it so the new application is known here.
+            void workspaceModel(openedWorkspace).then((active) => {
               const opened = applicationFor(active, applicationKey);
-              if (opened) navigate(viewRoute(opened, opened.defaultView, workspaceKey));
+              if (opened) navigate(viewRoute(opened, opened.defaultView, openedWorkspace));
+              else router.openWorkspace(openedWorkspace);
             });
           }}
         />
@@ -105,8 +104,9 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
             if (lastApplicationRoute()?.workspaceKey === workspaceKey) router.rememberWorkspace(defaultWorkspaceKey);
           }}
           onOpenWorkspace={(workspaceKey) => {
-            if (navigate(viewRoute(application, application.defaultView, workspaceKey)))
-              router.rememberWorkspace(workspaceKey);
+            // Its own model's start: the application shown last may not be in its model (0.11 M5).
+            router.openWorkspace(workspaceKey);
+            router.rememberWorkspace(workspaceKey);
           }}
         />
       ) : route.page === "model" ? (

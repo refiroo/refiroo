@@ -1001,8 +1001,11 @@ configuration's keys.
 ### J36 — Run a workspace on a model of its own
 
 **Actor:** model administrator. **Channel:** UI (Settings › Model, Settings › Workspaces), API.
-**Stories:** US-P05. **Status:** partly delivered (0.11 M1 and M3, 2026-10-15; M4, 2026-10-16):
-J36.1–J36.8 through the API; the browser with M5.
+**Stories:** US-P05. **Status:** partly delivered (0.11 M1 and M3, 2026-10-15; M4 and M5,
+2026-10-16): J36.1–J36.8 through the API; in the browser (M5) the shell follows the workspace's
+model, Settings › Model activates into one workspace, Settings › Workspaces creates a workspace on a
+model and the editor installs into an existing or new workspace (J36.1, J36.2, J36.4, J36.6). The
+spanning lookup (J36.7) has no screen.
 
 1. Install a release of a model no workspace runs yet.
 2. Create a workspace on it, or activate it into an existing workspace after its compatibility check

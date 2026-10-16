@@ -16,7 +16,21 @@ import { errorMessage, isApiError } from "@/api/errors";
 import { CapabilityStatus } from "@/features/administration/CapabilityStatus";
 import { formatServerTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
-import type { CapabilitiesResponse, SettingsRoute, Workspace, WorkspaceDetail, WorkspaceRuntimeState } from "@/types";
+import type {
+  CapabilitiesResponse,
+  ModelReleaseSummary,
+  SettingsRoute,
+  Workspace,
+  WorkspaceDetail,
+  WorkspaceRuntimeState,
+} from "@/types";
+import {
+  installedReleases,
+  ModelChoice,
+  NewWorkspaceFields,
+  useNewWorkspaceIdentity,
+} from "@/features/workspaces/NewWorkspaceFields";
+import { workspaceModelLabel } from "@/features/workspaces/WorkspaceSelector";
 import { CatalogueEntry, CatalogueLayout } from "@/ui/CatalogueLayout";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { urlName } from "@/features/settings/webhookText";
@@ -33,19 +47,6 @@ import { useToast } from "@/ui/Toast";
 type WorkspacesRoute = Extract<SettingsRoute, { page: "workspaces" }>;
 
 const WORKSPACES: WorkspacesRoute = { kind: "settings", page: "workspaces" };
-
-const KEY_PATTERN = "[a-z0-9]+(-[a-z0-9]+)*";
-
-/** A key suggestion from a label: lowercase words joined by single hyphens. */
-function suggestKey(label: string) {
-  return label
-    .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 160);
-}
 
 export function WorkspaceAdmin({
   route,
@@ -111,7 +112,7 @@ export function WorkspaceAdmin({
             key={workspace.key}
             icon="workspace"
             title={workspace.label}
-            subtitle={workspace.key}
+            subtitle={`${workspace.key} · ${workspaceModelLabel(workspace)}`}
             current={selectedKey === workspace.key}
             onSelect={() => onRouteChange({ ...WORKSPACES, workspaceKey: workspace.key })}
             pill={
@@ -208,6 +209,7 @@ export function WorkspaceAdmin({
       </CatalogueLayout>
       {creating && (
         <CreateWorkspaceDialog
+          defaultWorkspace={feed.items.find((item) => item.key === runtime?.defaultWorkspaceKey)}
           onClose={() => {
             setCreating(false);
             newButtonRef.current?.focus();
@@ -408,6 +410,12 @@ function WorkspaceDetail({
           <dd>{active ? "Active" : "Retired · read only"}</dd>
         </div>
         <div>
+          <dt>Model</dt>
+          <dd>
+            {workspaceModelLabel(workspace)} · schema {workspace.model.schemaVersion}
+          </dd>
+        </div>
+        <div>
           <dt>Created</dt>
           <dd>{formatServerTime(workspace.createdAt)}</dd>
         </div>
@@ -577,23 +585,44 @@ function WorkspaceSubscriptions({
 }
 
 function CreateWorkspaceDialog({
+  defaultWorkspace,
   onClose,
   onCreated,
 }: {
+  /** The workspace whose release a new one starts on unless another is chosen (D31, D54). */
+  defaultWorkspace?: Workspace;
   onClose: () => void;
   onCreated: (workspace: Workspace) => void;
 }) {
-  const [label, setLabel] = useState("");
-  const [key, setKey] = useState("");
-  const [keyEdited, setKeyEdited] = useState(false);
+  const identity = useNewWorkspaceIdentity();
+  const { label, key } = identity;
+  // Empty: the default workspace's release, which the server chooses (D31).
+  const [releaseId, setReleaseId] = useState("");
+  const [releases, setReleases] = useState<ModelReleaseSummary[]>();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    installedReleases()
+      .then((items) => active && setReleases(items))
+      .catch((cause) => active && setError(errorMessage(cause)));
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function create() {
     setPending(true);
     setError("");
     try {
-      onCreated(await api.createWorkspace({ key: key.trim(), label: label.trim() }));
+      onCreated(
+        await api.createWorkspace({
+          key: key.trim(),
+          label: label.trim(),
+          ...(releaseId ? { modelReleaseId: releaseId } : {}),
+        }),
+      );
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
@@ -607,7 +636,7 @@ function CreateWorkspaceDialog({
       eyebrow="Workspace catalogue"
       size="compact"
       busy={pending}
-      dirty={!!(label || key)}
+      dirty={!!(label || key || releaseId)}
       onClose={onClose}
     >
       <form
@@ -616,37 +645,13 @@ function CreateWorkspaceDialog({
           void create();
         }}
       >
-        <label>
-          Name
-          <input
-            autoFocus
-            required
-            maxLength={300}
-            value={label}
-            onChange={(event) => {
-              setLabel(event.target.value);
-              if (!keyEdited) setKey(suggestKey(event.target.value));
-            }}
-          />
-        </label>
-        <label>
-          Key
-          <input
-            required
-            maxLength={160}
-            pattern={KEY_PATTERN}
-            aria-describedby="workspace-key-hint"
-            value={key}
-            onChange={(event) => {
-              setKey(event.target.value);
-              setKeyEdited(true);
-            }}
-          />
-          <small id="workspace-key-hint" className="field-description">
-            Lowercase letters and digits, separated by single hyphens. The key is permanent and appears in links and API
-            requests.
-          </small>
-        </label>
+        <NewWorkspaceFields identity={identity} autoFocus />
+        <ModelChoice
+          defaultWorkspace={defaultWorkspace}
+          releases={releases}
+          releaseId={releaseId}
+          onChange={setReleaseId}
+        />
         {error && (
           <Notice tone="error" title="The workspace was not created">
             {error}
@@ -656,7 +661,7 @@ function CreateWorkspaceDialog({
           <button type="button" className="secondary" disabled={pending} onClick={onClose}>
             Cancel
           </button>
-          <button className="primary" disabled={pending || !label.trim() || !key.trim()}>
+          <button className="primary" disabled={pending || !identity.complete}>
             {pending ? "Creating…" : "Create workspace"}
           </button>
         </div>

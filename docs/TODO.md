@@ -494,13 +494,20 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 - [x] 0.11 P0 design pass, per the [Base 0.11 plan](BASE_0_11_IMPLEMENTATION_PLAN.md), delivered
   2026-10-15: decisions D4–D29 and the move inventory accepted, ADR-042, API design, J36–J38, the M5
   and X4 mock-ups approved. M1 (with M2 folded in, plan D32) delivered 2026-10-15; M3 and M4
-  delivered 2026-10-16; next: M5.
+  delivered 2026-10-16; M5 delivered 2026-10-16; next: M6.
   - [ ] The user's requirement: each workspace runs a model of its own (Track M, then Track V).
     M1 delivered the API: a workspace on a release of its own, activation into one workspace, the
     commit guard per workspace. M3: import profiles, drafts and the consumer index and OpenAPI
     following a workspace's model. M4: the cross-type lookup over several workspaces, counterparts
-    refused across models. Still to come: the browser (M5, including the
-    editor's choice of workspace, plan D38).
+    refused across models. M5: the browser follows each workspace's model, Settings › Model and
+    Settings › Workspaces per workspace, the editor's choice of workspace. Still to come: the
+    checkpoint (M6), migrations (Track V).
+  - [ ] **Found in M5 (2026-10-16), small:** on the "not in this workspace's model" page the rail
+    still marks the workspace's first collection as current (the shown route is the start); and a
+    switch to another workspace reads the rail's collections twice (the shell remounts once the
+    model arrives). Neither is wrong data; worth a look with M6.
+  - [ ] **At R (from M5):** the visual baselines of Settings › Model change (the overview replaces
+    the catalogue with the active release); review them as intended changes.
   - [ ] **Found in M1 (2026-10-15), not caused by it:** `test_boundaries::test_tiers_hold` fails at
     `71b15ea` already (the import cycle `sources.draft_profile` ↔ `sources.dry_run`, the deferred
     import in `dry_run`). Untouched by M1, M3 and M4.

@@ -635,7 +635,8 @@ export const api = {
   },
   workspace: (workspaceKey: string) =>
     request<WorkspaceDetail>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}`),
-  createWorkspace: (body: { key: string; label: string }) =>
+  /** A new workspace, on `modelReleaseId` or on the default workspace's release (0.11 M1, D54). */
+  createWorkspace: (body: { key: string; label: string; modelReleaseId?: string }) =>
     request<WorkspaceDetail>("/api/v1/workspaces", { method: "POST", body: JSON.stringify(body) }),
   updateWorkspace: (
     workspaceKey: string,
@@ -732,14 +733,14 @@ export const api = {
       `/api/v1/model-releases/${encodeURIComponent(releaseId)}/activations?${params}`,
     );
   },
-  modelReleaseDiff: (releaseId: string, againstReleaseId: string) =>
-    request<ModelReleaseDiff>(
-      `/api/v1/model-releases/${encodeURIComponent(releaseId)}/diff?againstReleaseId=${encodeURIComponent(againstReleaseId)}`,
-    ),
+  /** `compatibility` describes activating into `workspaceKey`, the default workspace without it (D52). */
+  modelReleaseDiff: (releaseId: string, againstReleaseId: string, workspaceKey?: string) => {
+    const params = new URLSearchParams({ againstReleaseId });
+    if (workspaceKey) params.set("workspaceKey", workspaceKey);
+    return request<ModelReleaseDiff>(`/api/v1/model-releases/${encodeURIComponent(releaseId)}/diff?${params}`);
+  },
   workspaceModel: (workspaceKey: string) =>
     request<WorkspaceModel>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/model`),
-  /** The default workspace's model, the one Settings › Model manages (0.11 M1). */
-  defaultWorkspaceModel: async () => api.workspaceModel((await api.workspaceRuntimeState()).defaultWorkspaceKey),
   validateModel: (model: Record<string, unknown>) =>
     request<ModelValidation>("/api/v1/model-validations", { method: "POST", body: JSON.stringify({ model }) }),
   modelDrafts: (options: { cursor?: string; pageSize?: number } = {}) => {

@@ -504,7 +504,7 @@ async function journey(label, source, { emptyDraft = false } = {}) {
     await assertDialogLayout(page, `${label}: Install and activate`);
     await shot("install-1440");
     await dialog()
-      .getByRole("button", { name: /^Install .* and activate$/ })
+      .getByRole("button", { name: /^Install .* and activate in / })
       .click();
     const done = page.getByRole("status").filter({ hasText: "is installed and active" });
     await done.waitFor({ timeout: 30_000 });
@@ -632,7 +632,7 @@ async function journey(label, source, { emptyDraft = false } = {}) {
       await page.getByRole("button", { name: "Install and activate…" }).click();
       await dialog().getByText("Valid", { exact: true }).waitFor();
       await dialog()
-        .getByRole("button", { name: /^Install .* and activate$/ })
+        .getByRole("button", { name: /^Install .* and activate in / })
         .click();
       await page
         .getByRole("status")

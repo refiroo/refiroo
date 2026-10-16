@@ -364,7 +364,7 @@ async function journey(label, source) {
     await page.getByRole("button", { name: "Install and activate…" }).click();
     await dialog().getByText("Valid", { exact: true }).waitFor();
     await dialog()
-      .getByRole("button", { name: /^Install .* and activate$/ })
+      .getByRole("button", { name: /^Install .* and activate in / })
       .click();
     await page.getByRole("status").filter({ hasText: "is installed and active" }).waitFor({ timeout: 30_000 });
     const active = await harness.api("/model");

@@ -239,6 +239,7 @@ def workspace_model_response(assignment: Assignment) -> WorkspaceModelResponse:
     return WorkspaceModelResponse(
         releaseId=release.public_id,
         releaseKey=release.release_key,
+        releaseName=release.release_name,
         releaseVersion=release.release_version,
         schemaVersion=release.schema_version,
         modelHash=release.model_hash,

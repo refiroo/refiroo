@@ -8,12 +8,26 @@
  * Each consumer API is shown checked against what the active release's consumers read (0.10 A4c,
  * D58): one that needs a higher contract version offers the step that raises it, and activation
  * waits until none does, as the server would refuse it.
+ *
+ * The release is activated into one workspace (0.11 M5, D15, D55): an existing one, the editor's
+ * first, or a new one created on it. No other workspace changes.
  */
 
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
-import type { ModelChange, ModelCompilation, ModelDiagnostic, ModelDraftOutline, ModelRelease } from "@/types";
+import type {
+  ModelChange,
+  ModelCompilation,
+  ModelDiagnostic,
+  ModelDraftOutline,
+  ModelRelease,
+  Workspace,
+} from "@/types";
+import { useCapabilities } from "@/features/settings/useSystem";
+import { NewWorkspaceFields, useNewWorkspaceIdentity } from "@/features/workspaces/NewWorkspaceFields";
+import { workspaceModelLabel } from "@/features/workspaces/WorkspaceSelector";
+import { SelectField } from "@/ui/Selection";
 import { FormField } from "@/ui/FormField";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
@@ -73,6 +87,9 @@ export function contractsByApi(diagnostics: ModelDiagnostic[]): Map<string, Mode
 }
 
 type Outcome = { kind: "installed"; release: ModelRelease; reason: string } | { kind: "active"; release: ModelRelease };
+
+/** Where the release is activated: an existing workspace, or a new one created on it (D55). */
+type Into = { kind: "existing"; workspaceKey: string } | { kind: "new" };
 
 /** The release identity the draft installs as (D18): its key, name and version, editable. */
 export function useReleaseIdentity(outline: ModelDraftOutline) {
@@ -145,6 +162,7 @@ export function InstallDialog({
   outline,
   run,
   latestVersion,
+  workspaceKey: editorWorkspace,
   onActivated,
   onInstalledOnly,
   onClose,
@@ -154,7 +172,10 @@ export function InstallDialog({
   run: RunStep;
   /** The draft's version now, after any step this dialog ran. */
   latestVersion: () => number;
-  onActivated: (release: ModelRelease) => Promise<void>;
+  /** The editor's workspace (D55), offered first. */
+  workspaceKey: string;
+  /** The release is active in `workspace`. */
+  onActivated: (release: ModelRelease, workspace: Pick<Workspace, "key" | "label">) => Promise<void>;
   onInstalledOnly: () => void;
   onClose: () => void;
 }) {
@@ -165,6 +186,32 @@ export function InstallDialog({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [outcome, setOutcome] = useState<Outcome>();
+  const { capabilities } = useCapabilities();
+  const canCreate = Boolean(capabilities?.workspaceAdmin.manageWorkspaces);
+  const [workspaces, setWorkspaces] = useState<Workspace[]>();
+  const [chosenInto, setInto] = useState<Into>();
+  const newWorkspace = useNewWorkspaceIdentity();
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .workspaces({ status: "active", pageSize: 100 })
+      .then((page) => !cancelled && setWorkspaces(page.items))
+      .catch((cause) => !cancelled && setLoadError(errorMessage(cause)));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Proposed until chosen: the editor's workspace when it runs the draft's model; a new workspace for
+  // a model no workspace runs, where workspaces may be created; else the editor's workspace.
+  const modelKey = outline.release.key;
+  const runsModel = workspaces?.some((item) => item.model.releaseKey === modelKey);
+  const editorRuns = workspaces?.find((item) => item.key === editorWorkspace)?.model.releaseKey === modelKey;
+  const into: Into =
+    chosenInto ??
+    (!editorRuns && !runsModel && canCreate ? { kind: "new" } : { kind: "existing", workspaceKey: editorWorkspace });
+  const target = into.kind === "existing" ? workspaces?.find((item) => item.key === into.workspaceKey) : undefined;
 
   useEffect(() => {
     let cancelled = false;
@@ -182,7 +229,11 @@ export function InstallDialog({
   }, [draftId, outline.version]);
 
   const contractsBreak = compilation?.consumerContracts?.classification === "version_required";
-  const blocked = !compilation?.valid || contractsBreak || !identity.complete;
+  const blocked =
+    !compilation?.valid ||
+    contractsBreak ||
+    !identity.complete ||
+    (into.kind === "new" ? !newWorkspace.complete : !target);
 
   async function confirm() {
     setPending(true);
@@ -196,16 +247,26 @@ export function InstallDialog({
         }
       }
       const release = await api.installModelDraft(draftId, latestVersion());
+      let workspace: Pick<Workspace, "key" | "label">;
       try {
-        const state = await api.defaultWorkspaceModel();
-        await api.activateWorkspaceModel(release.id, state);
+        if (into.kind === "new") {
+          workspace = await api.createWorkspace({
+            key: newWorkspace.key.trim(),
+            label: newWorkspace.label.trim(),
+            modelReleaseId: release.id,
+          });
+        } else {
+          const state = await api.workspaceModel(into.workspaceKey);
+          await api.activateWorkspaceModel(release.id, state);
+          workspace = target!;
+        }
       } catch (cause) {
         setOutcome({ kind: "installed", release, reason: activationRefusal(cause) });
         onInstalledOnly();
         return;
       }
       setOutcome({ kind: "active", release });
-      await onActivated(release);
+      await onActivated(release, workspace);
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
@@ -221,7 +282,7 @@ export function InstallDialog({
             tone="warning"
             title={`${outcome.release.name} ${outcome.release.version} is installed but not active`}
           >
-            {outcome.reason} The active model is unchanged. Activate the release later from Settings › Model.
+            {outcome.reason} No workspace's model changed. Activate the release later from Settings › Model.
           </Notice>
           <div className="dialog-actions">
             <button type="button" className="primary" onClick={onClose}>
@@ -234,12 +295,18 @@ export function InstallDialog({
 
   const lines = compilation ? summarizeChanges(compilation.changes, outline) : [];
   const errors = compilation?.diagnostics.filter((item) => item.severity === "error") ?? [];
-  const compatible = compilation?.compatibility.classification === "compatible";
+  // The chosen workspace's own check when it runs the draft's model (D25); none for another model.
+  const checked =
+    into.kind === "existing"
+      ? compilation?.compatibility.workspaces.find((item) => item.workspaceKey === into.workspaceKey)
+      : undefined;
+  const compatible = checked?.classification === "compatible";
+  const others = (workspaces ?? []).filter((item) => into.kind === "new" || item.key !== into.workspaceKey);
   return (
     <Modal
       title="Install and activate"
       eyebrow="Release the draft"
-      description="Creates an immutable release from this draft, then makes it the active model. This draft continues as the next version."
+      description="Creates an immutable release from this draft, then activates it in one workspace. This draft continues as the next version."
       busy={pending}
       onClose={onClose}
     >
@@ -251,6 +318,51 @@ export function InstallDialog({
         }}
       >
         <ReleaseIdentityFields identity={identity} outline={outline} />
+        <fieldset className="model-choice">
+          <legend>Activate into</legend>
+          <label className="checkbox">
+            <input
+              type="radio"
+              name="activate-into"
+              checked={into.kind === "existing"}
+              onChange={() => setInto({ kind: "existing", workspaceKey: editorWorkspace })}
+            />
+            <span>An existing workspace</span>
+          </label>
+          {into.kind === "existing" && workspaces && (
+            <SelectField
+              label="Workspace"
+              value={into.workspaceKey}
+              onChange={(key) => setInto({ kind: "existing", workspaceKey: key })}
+              options={[...workspaces]
+                .sort((a, b) => Number(b.key === editorWorkspace) - Number(a.key === editorWorkspace))
+                .map((item) => ({
+                  id: item.key,
+                  label: item.label,
+                  description: workspaceModelLabel(item),
+                  mark:
+                    item.model.releaseKey === modelKey ? undefined : { label: "Other model", tone: "warning" as const },
+                }))}
+            />
+          )}
+          {canCreate && (
+            <label className="checkbox">
+              <input
+                type="radio"
+                name="activate-into"
+                checked={into.kind === "new"}
+                onChange={() => setInto({ kind: "new" })}
+              />
+              <span>A new workspace</span>
+            </label>
+          )}
+          {into.kind === "new" && <NewWorkspaceFields identity={newWorkspace} qualified />}
+          {others.length > 0 && (
+            <small className="field-description">
+              Only that workspace changes. {others.map((item) => item.label).join(", ")} keep their models.
+            </small>
+          )}
+        </fieldset>
         {loadError && <Notice tone="error">{loadError}</Notice>}
         {!compilation && !loadError && <Skeleton lines={3} label="Comparing with the base release" />}
         {compilation && (
@@ -288,14 +400,23 @@ export function InstallDialog({
                 </Notice>
               )}
               {compilation.valid &&
-                (compatible ? (
+                (into.kind === "new" ? (
+                  <Notice tone="success" title="A new workspace">
+                    It starts empty on this release, so no data needs a migration.
+                  </Notice>
+                ) : compatible ? (
                   <Notice tone="success" title="Compatible with stored data">
-                    No record, value or relationship needs a migration.
+                    No record, value or relationship of {target?.label ?? into.workspaceKey} needs a migration.
+                  </Notice>
+                ) : checked ? (
+                  <Notice tone="warning" title="Activation needs a migration">
+                    {checked.diagnostics.map((item) => item.message).join(" ")} The release would be installed but not
+                    activated.
                   </Notice>
                 ) : (
-                  <Notice tone="warning" title="Activation needs a migration">
-                    {compilation.compatibility.diagnostics.map((item) => item.message).join(" ")} The release would be
-                    installed but not activated.
+                  <Notice tone="info" title="Checked when activated">
+                    {target?.label ?? into.workspaceKey} runs another model. Its data is checked against this release
+                    first; if records have no place in it, the release is installed but not activated.
                   </Notice>
                 ))}
             </div>
@@ -319,7 +440,11 @@ export function InstallDialog({
             Cancel
           </button>
           <button type="submit" className="primary" disabled={pending || blocked}>
-            {pending ? "Installing…" : `Install ${version.trim()} and activate`}
+            {pending
+              ? "Installing…"
+              : into.kind === "new"
+                ? `Install ${version.trim()} and create ${newWorkspace.label.trim() || "the workspace"}`
+                : `Install ${version.trim()} and activate in ${target?.label ?? into.workspaceKey}`}
           </button>
         </div>
       </form>

@@ -962,3 +962,71 @@ td:has(> .row-problems) {
   align-items: center;
   gap: var(--space-3);
 }
+
+/* 0.11 M5: workspace models. The choice of a model or a workspace in a dialog (D51, D54, D55):
+   a fieldset of radio rows, each with its note. */
+.model-choice,
+.activate-releases {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.model-choice legend,
+.activate-releases legend {
+  margin-bottom: var(--space-2);
+  padding: 0;
+  font-weight: 600;
+}
+.dialog form .model-choice .checkbox,
+.dialog form .activate-releases .checkbox {
+  margin-bottom: 0;
+}
+.activate-dialog .notice,
+.activate-left-behind {
+  margin-top: var(--space-3);
+}
+.activate-left-behind ul {
+  margin: var(--space-2) 0 0;
+  padding-left: 18px;
+}
+
+/* Settings › Model's installed releases, a ruled list per model (D50). */
+.model-release-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: var(--space-4);
+}
+.model-release-group h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-md);
+}
+
+/* A release's check against each workspace of its model (D51). */
+.release-workspace-checks {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0 14px 12px;
+  list-style: none;
+}
+.release-workspace-checks li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* The page saying what a workspace's model lacks (D48). */
+.not-in-model {
+  display: grid;
+  gap: var(--space-3);
+  max-width: 720px;
+  margin: var(--space-6) auto;
+}
+.migration-reasons {
+  margin: var(--space-2) 0 0;
+  padding-left: 18px;
+}

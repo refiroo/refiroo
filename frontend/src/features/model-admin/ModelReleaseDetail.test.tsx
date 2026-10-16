@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, api } from "@/api/client";
-import type { ModelReleaseActivation, ModelReleaseDiff, ModelReleaseSummary } from "@/types";
+import type { ModelReleaseActivation, ModelReleaseDiff, ModelReleaseSummary, Workspace } from "@/types";
 import { ModelReleaseDetail } from "@/features/model-admin/ModelReleaseDetail";
 
 vi.mock("@/api/client", async (load) => {
@@ -29,12 +29,43 @@ const r06 = summary("r06", "0.6.0", "0.5");
 const r07 = summary("r07", "0.7.0", "0.6", true);
 const other = { ...summary("x1", "1.0.0", "0.6"), key: "other" };
 
+/** A workspace running `releaseId` (0.11 M1). */
+function workspace(key: string, label: string, releaseId: string): Workspace {
+  return {
+    key,
+    label,
+    status: "active",
+    version: 1,
+    createdAt: "2026-09-01T00:00:00Z",
+    updatedAt: "2026-09-01T00:00:00Z",
+    model: {
+      releaseId,
+      releaseKey: "rdm",
+      releaseName: "RDM",
+      releaseVersion: releaseId,
+      schemaVersion: "0.6",
+      modelHash: "h",
+      version: 1,
+      updatedAt: "2026-09-01T00:00:00Z",
+    },
+  };
+}
+
+const onDefault = (releaseId: string) => [workspace("default", "Default", releaseId)];
+
 function diff(releaseId: string, againstReleaseId: string, changes: ModelReleaseDiff["changes"] = []) {
   return {
     releaseId,
     againstReleaseId,
     changes,
-    compatibility: { classification: "compatible" as const, activeReleaseId: "r07", diagnostics: [], workspaces: [] },
+    compatibility: {
+      classification: "compatible" as const,
+      activeReleaseId: "r07",
+      diagnostics: [],
+      workspaces: [
+        { workspaceKey: "default", releaseId: "r07", classification: "compatible" as const, diagnostics: [] },
+      ],
+    },
   };
 }
 
@@ -63,11 +94,11 @@ function setup({
   return render(
     <ModelReleaseDetail
       releaseId={selected.id}
-      activeReleaseId="r07"
+      workspaces={onDefault("r07")}
       canManageDrafts={false}
       canActivate
       onCreateDraft={vi.fn()}
-      onActivated={vi.fn()}
+      onActivate={vi.fn()}
     />,
   );
 }
@@ -116,23 +147,26 @@ describe("ModelReleaseDetail release history comparison", () => {
     expect(direction()).toHaveTextContent("Before: rdm 0.5.0→After: rdm 0.6.0 (this release)");
     expect(direction()).toHaveTextContent(/replaced when it was first activated/);
     expect(api.modelReleaseDiff).toHaveBeenCalledWith("r06", "r05");
-    expect(api.modelReleaseDiff).toHaveBeenCalledWith("r06", "r07");
-    const check = screen.getByRole("region", { name: /Current active release rdm 0.7.0 → this release/ });
-    expect(within(check).getByText("compatible")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Activate…" })).toBeEnabled();
+    // Each workspace of the model is checked, whatever release the history compares with (0.11 D51).
+    expect(api.modelReleaseDiff).toHaveBeenCalledWith("r06", "r06");
+    const check = screen.getByRole("region", { name: "Workspaces running rdm" });
+    expect(await within(check).findByText("compatible")).toBeInTheDocument();
+    expect(within(check).getByText("Default")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Activate in a workspace…" })).toBeEnabled();
     expect(screen.getByLabelText("Compare with")).toHaveValue("r05");
   });
 
-  it("inspects the active release against its predecessor without an activation check", async () => {
+  it("inspects a release every workspace runs against its predecessor, offering no activation", async () => {
     setup({ selected: r07, history: [introduction("r06", "schemaUpgraded")] });
 
     expect(await screen.findByText("/release/version")).toBeInTheDocument();
     expect(direction()).toHaveTextContent("Before: rdm 0.6.0→After: rdm 0.7.0 (this release)");
     expect(direction()).toHaveTextContent(/offline schema upgrade/);
-    expect(api.modelReleaseDiff).toHaveBeenCalledTimes(1);
     expect(api.modelReleaseDiff).toHaveBeenCalledWith("r07", "r06");
-    expect(screen.queryByRole("region", { name: /^Current active release/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Activate…" })).not.toBeInTheDocument();
+    expect(screen.getByText("Run by Default")).toBeInTheDocument();
+    const check = screen.getByRole("region", { name: "Workspaces running rdm" });
+    expect(await within(check).findByText("Runs this release")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Activate in a workspace…" })).not.toBeInTheDocument();
   });
 
   it("falls back to the preceding installed release of the same key across release pages", async () => {
@@ -155,7 +189,7 @@ describe("ModelReleaseDetail release history comparison", () => {
 
     expect(await screen.findByText(/No earlier release to compare with/)).toBeInTheDocument();
     expect(api.modelReleaseDiff).toHaveBeenCalledTimes(1);
-    expect(api.modelReleaseDiff).toHaveBeenCalledWith("r04", "r07");
+    expect(api.modelReleaseDiff).toHaveBeenCalledWith("r04", "r04");
 
     fireEvent.change(screen.getByLabelText("Compare with"), { target: { value: "r06" } });
     expect(await screen.findByText("/release/version")).toBeInTheDocument();
@@ -190,14 +224,14 @@ describe("ModelReleaseDetail release history comparison", () => {
     expect(screen.getByLabelText("Compare with")).toHaveValue("r04");
     expect(screen.queryByText("Semantic changes")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Export JSON" })).toBeEnabled();
-    await waitFor(() => expect(screen.getByRole("button", { name: "Activate…" })).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Activate in a workspace…" })).toBeEnabled());
   });
 });
 
 describe("ModelReleaseDetail after activation and failures", () => {
   it("reflects activation of the inspected release without a remount", async () => {
     const view = setup({ selected: r06 });
-    expect(await screen.findByRole("button", { name: "Activate…" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Activate in a workspace…" })).toBeInTheDocument();
     expect(direction()).toHaveTextContent(/installation order only/);
 
     // The workbench keeps the same release route and passes the new runtime selection.
@@ -207,35 +241,32 @@ describe("ModelReleaseDetail after activation and failures", () => {
     view.rerender(
       <ModelReleaseDetail
         releaseId="r06"
-        activeReleaseId="r06"
+        workspaces={onDefault("r06")}
         canManageDrafts={false}
         canActivate
         onCreateDraft={vi.fn()}
-        onActivated={vi.fn()}
+        onActivate={vi.fn()}
       />,
     );
 
-    expect(await screen.findByText("Active")).toBeInTheDocument();
-    expect(screen.queryByText("Inactive")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Activate…" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: /^Current active release/ })).not.toBeInTheDocument();
+    expect(await screen.findByText("Run by Default")).toBeInTheDocument();
+    expect(screen.queryByText("Run by no workspace")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Activate in a workspace…" })).not.toBeInTheDocument();
     await waitFor(() => expect(direction()).toHaveTextContent(/replaced when it was first activated/));
-    expect(api.modelReleaseDiff).not.toHaveBeenCalledWith("r06", "r06");
   });
 
   it("reports a failed activation check in its section instead of waiting indefinitely", async () => {
     setup({ selected: r06, history: [introduction("r05")] });
     vi.mocked(api.modelReleaseDiff).mockImplementation(async (releaseId, against) => {
-      if (against === "r07") throw new ApiError(503, "service_unavailable", "Service unavailable");
+      if (against === releaseId) throw new ApiError(503, "service_unavailable", "Service unavailable");
       return diff(releaseId, against);
     });
 
-    const check = await screen.findByRole("region", { name: /^Current active release/ });
+    const check = await screen.findByRole("region", { name: "Workspaces running rdm" });
     expect(await within(check).findByRole("alert")).toHaveTextContent(
       "Activation readiness could not be checked: Service unavailable",
     );
-    expect(within(check).queryByText(/Checking against/)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Activate…" })).toBeDisabled();
+    expect(within(check).queryByText(/Checking each workspace/)).not.toBeInTheDocument();
   });
 
   it("reports a failed history load instead of waiting indefinitely", async () => {

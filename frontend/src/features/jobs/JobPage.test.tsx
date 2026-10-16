@@ -10,7 +10,7 @@ import { JobPage } from "./JobPage";
 
 vi.mock("@/api/client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/api/client")>()),
-  api: { job: vi.fn(), jobRows: vi.fn(), jobItems: vi.fn(), confirmJob: vi.fn(), cancelJob: vi.fn() },
+  api: { model: vi.fn(), job: vi.fn(), jobRows: vi.fn(), jobItems: vi.fn(), confirmJob: vi.fn(), cancelJob: vi.fn() },
 }));
 
 class SilentEventSource {
@@ -138,6 +138,8 @@ function renderPage() {
 describe("JobPage of an import (0.9 J4)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // The job's own workspace's model names its types (0.11 D49).
+    vi.mocked(api.model).mockResolvedValue(testModel);
     SilentEventSource.opened = [];
     window.sessionStorage.clear();
     vi.stubGlobal("EventSource", SilentEventSource);

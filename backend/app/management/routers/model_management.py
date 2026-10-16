@@ -186,6 +186,7 @@ def activate_workspace_model(
             workspaceKey=workspace_key,
             releaseId=activated.release.public_id,
             releaseKey=activated.release.release_key,
+            releaseName=activated.release.release_name,
             releaseVersion=activated.release.release_version,
             schemaVersion=activated.release.schema_version,
             modelHash=activated.release.model_hash,

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
+import { forgetWorkspaceModel } from "@/model/workspaceModels";
 import { ApiError } from "@/api/errors";
 import { codelistObject, domainObject, testModel, testWorkspaceModel } from "@/test/fixtures";
 import type { ApplicationDefinition } from "@/types";
@@ -21,7 +22,6 @@ vi.mock("@/api/client", () => ({
     modelReleases: vi.fn(),
     setChangeSetModelRelease: vi.fn(),
     discardChangeSet: vi.fn(),
-    defaultWorkspaceModel: vi.fn(),
     workspaceModel: vi.fn(),
     workspaceRuntimeState: vi.fn(),
     workspace: vi.fn(),
@@ -58,6 +58,8 @@ describe("App", () => {
   });
   beforeEach(() => {
     vi.clearAllMocks();
+    // Each workspace's model is held for the tab (0.11 D49); every case starts without one.
+    forgetWorkspaceModel();
     vi.mocked(api.relations).mockResolvedValue({ items: [], nextCursor: null });
     const stored = new Map<string, string>();
     vi.stubGlobal("localStorage", {
@@ -75,20 +77,11 @@ describe("App", () => {
       version: 1,
       updatedAt: "2026-09-05T00:00:00Z",
     });
-    vi.mocked(api.defaultWorkspaceModel).mockResolvedValue({
-      workspaceKey: "default",
-      releaseId: "current-model",
-      releaseKey: "rdm",
-      releaseVersion: "1",
-      schemaVersion: "0.10",
-      modelHash: "hash",
-      version: 1,
-      updatedAt: "2026-09-05T00:00:00Z",
-    });
     vi.mocked(api.workspaceModel).mockImplementation(async (workspaceKey) => ({
       workspaceKey,
       releaseId: "current-model",
       releaseKey: "rdm",
+      releaseName: "Starter model",
       releaseVersion: "1",
       schemaVersion: "0.10",
       modelHash: "hash",
@@ -600,10 +593,16 @@ describe("App", () => {
     },
   );
 
-  it("falls back to the default route when the URL names an application the model does not have", async () => {
+  it("says an application the workspace's model lacks is not in it, keeping the address (0.11 D48)", async () => {
     visit("/apps/retired-app/views/anything");
     render(<App />);
 
+    expect(
+      await screen.findByRole("heading", { name: "retired-app is not in this workspace's model", level: 1 }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText("No other workspace's model has it.")).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/apps/retired-app/views/anything");
+    fireEvent.click(screen.getByRole("button", { name: "Open Test App in Default" }));
     expect(await screen.findByRole("heading", { name: "Domains", level: 1 })).toBeInTheDocument();
   });
 

@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
+import { forgetWorkspaceModel } from "@/model/workspaceModels";
 import { testModel } from "@/test/fixtures";
 import { defaultRoute, routePath } from "@/routing/routes";
 import { historyState } from "@/routing/navigationHistory";
@@ -26,6 +27,8 @@ const detail: RouteState = {
 
 describe("record navigation", () => {
   beforeEach(() => {
+    // Each workspace's model is held for the tab (0.11 D49); every case starts without one.
+    forgetWorkspaceModel();
     vi.mocked(api.model).mockResolvedValue(testModel);
     vi.mocked(api.workspaceRuntimeState).mockResolvedValue({
       defaultWorkspaceKey: "default",
@@ -132,6 +135,8 @@ describe("record navigation", () => {
     act(() => {
       first.result.current.navigate({ ...detail, workspaceKey: "east" });
     });
+    // Another workspace's model loads before its page shows (0.11 M5).
+    await waitFor(() => expect(first.result.current.route).toMatchObject({ workspaceKey: "east" }));
     expect(first.result.current.route).not.toHaveProperty("collectionOrigin");
     first.unmount();
     window.history.replaceState({}, "", routePath(detail));
@@ -213,5 +218,65 @@ describe("record navigation", () => {
     const savedUnload = new Event("beforeunload", { cancelable: true });
     window.dispatchEvent(savedUnload);
     expect(savedUnload.defaultPrevented).toBe(false);
+  });
+});
+
+describe("a workspace's own model (0.11 M5, D48, D49)", () => {
+  /** A model of another line: its one application has another key. */
+  const otherModel = {
+    ...testModel,
+    release: { key: "other", name: "Other model", version: "1.0.0" },
+    applications: testModel.applications.map((application) => ({ ...application, key: "other-app" })),
+  };
+
+  beforeEach(() => {
+    forgetWorkspaceModel();
+    vi.mocked(api.model).mockImplementation(async ({ workspaceKey } = {}) =>
+      workspaceKey === "east" ? otherModel : testModel,
+    );
+    vi.mocked(api.workspaceRuntimeState).mockResolvedValue({
+      defaultWorkspaceKey: "default",
+      version: 1,
+      updatedAt: "",
+    });
+    window.history.replaceState({}, "", routePath(collection));
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it("loads the model of the workspace the address names, and swaps it with the workspace", async () => {
+    const router = renderHook(useRouter);
+    await waitFor(() => expect(router.result.current.model).toBe(testModel));
+    expect(api.model).toHaveBeenCalledWith({ workspaceKey: "west" });
+    act(() => {
+      router.result.current.openWorkspace("east");
+    });
+    await waitFor(() => expect(router.result.current.model).toBe(otherModel));
+    expect(router.result.current.route).toMatchObject({ applicationKey: "other-app", workspaceKey: "east" });
+    expect(router.result.current.problem).toBeUndefined();
+  });
+
+  it("says what another workspace's model lacks instead of opening its start silently", async () => {
+    const router = renderHook(useRouter);
+    await waitFor(() => expect(router.result.current.route?.kind).toBe("list"));
+    act(() => {
+      router.result.current.navigate({ ...collection, workspaceKey: "east" });
+    });
+    await waitFor(() =>
+      expect(router.result.current.problem).toEqual({
+        kind: "application",
+        applicationKey: "test-app",
+        workspaceKey: "east",
+      }),
+    );
+    // The page shown is the workspace's own start under its own model; the address stays as asked.
+    expect(router.result.current.model).toBe(otherModel);
+    expect(router.result.current.route).toMatchObject({ applicationKey: "other-app", workspaceKey: "east" });
+    expect(window.location.pathname).toBe("/apps/test-app/views/domains");
+    expect(window.location.search).toContain("workspaceKey=east");
+    act(() => {
+      router.result.current.navigate(collection);
+    });
+    await waitFor(() => expect(router.result.current.problem).toBeUndefined());
+    expect(router.result.current.model).toBe(testModel);
   });
 });

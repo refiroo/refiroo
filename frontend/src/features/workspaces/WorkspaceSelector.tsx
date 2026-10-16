@@ -2,7 +2,20 @@ import { useEffect, useId, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import type { Workspace } from "@/types";
-import { ComboBoxField } from "@/ui/Selection";
+import { ComboBoxField, type SelectionOption } from "@/ui/Selection";
+
+/** The model a workspace runs, as people read it: its name and release (0.11 D46, D53). */
+export function workspaceModelLabel(workspace: Pick<Workspace, "model">) {
+  return `${workspace.model.releaseName} ${workspace.model.releaseVersion}`;
+}
+
+/** How another workspace's model differs from the current one's: a mark on its option (D46). */
+export function modelMark(item: Workspace, current: Workspace | undefined): SelectionOption["mark"] {
+  if (!current || item.key === current.key || item.model.releaseId === current.model.releaseId) return undefined;
+  return item.model.releaseKey === current.model.releaseKey
+    ? { label: "Other release", tone: "neutral" }
+    : { label: "Other model", tone: "warning" };
+}
 
 export function WorkspaceSelector({
   workspaceKey,
@@ -64,7 +77,13 @@ export function WorkspaceSelector({
 
   const selectedWorkspace = current?.key === workspaceKey ? current : undefined;
   const description =
-    resolveError || searchError || (selectedWorkspace?.status === "retired" ? "Retired · read only" : undefined);
+    resolveError ||
+    searchError ||
+    (selectedWorkspace
+      ? [workspaceModelLabel(selectedWorkspace), selectedWorkspace.status === "retired" ? "Retired · read only" : ""]
+          .filter(Boolean)
+          .join(" · ")
+      : undefined);
 
   if (onlyWorkspace && selectedWorkspace && items[0]?.key === selectedWorkspace.key) {
     // Nothing to choose between, so the name is a fact rather than a control.
@@ -92,7 +111,8 @@ export function WorkspaceSelector({
   ].map((item) => ({
     id: item.key,
     label: item.label,
-    description: `${item.key}${item.status === "retired" ? " · Retired" : ""}`,
+    description: `${workspaceModelLabel(item)}${item.status === "retired" ? " · Retired" : ""}`,
+    mark: modelMark(item, selectedWorkspace),
   }));
 
   return (

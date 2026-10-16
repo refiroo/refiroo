@@ -169,7 +169,7 @@ export async function visitDesignerSurfaces(visit) {
     // phone's band and drawer (N1).
     await open("?show=type&key=gate-shelf", () => page.getByRole("heading", { name: /Gate shelf/, level: 2 }));
     await page.getByRole("button", { name: "Install and activate…" }).click();
-    await dialog().getByRole("button", { name: /^Install .* and activate$/ }).click();
+    await dialog().getByRole("button", { name: /^Install .* and activate in / }).click();
     await page.getByRole("status").filter({ hasText: "is installed and active" }).waitFor({ timeout: 30000 });
     const collections = () => page.getByRole("navigation", { name: `${application.name} collections` });
     await run([

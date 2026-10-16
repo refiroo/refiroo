@@ -31,6 +31,7 @@ import type {
   ModelDraftOutline,
   ModelDraftStep,
   RouteState,
+  Workspace,
 } from "@/types";
 import { AddWorkbookDialog } from "@/features/model-editor/AddWorkbookDialog";
 import { AdjustListDialog } from "@/features/model-editor/AdjustListDialog";
@@ -129,26 +130,34 @@ export function ModelEditor({
   selection: EditorSelection;
   onSelect: (selection: EditorSelection) => void;
   onNavigate: (route: RouteState) => void;
-  /** Reloads the active model after an activation. */
-  onActivated: () => Promise<unknown>;
-  onOpenApplication: (applicationKey: string) => void;
+  /** Reloads a workspace's model after an activation into it. */
+  onActivated: (workspaceKey: string) => Promise<unknown>;
+  /** Opens an application of the draft's model, in `workspaceKey` (the editor's workspace without it). */
+  onOpenApplication: (applicationKey: string, workspaceKey?: string) => void;
   /** After a load (0.10 A5b): the change set's review, in the application the profile loads. */
   onOpenChangeSet: (target: { applicationKey: string; workspaceKey: string; changeSetId: string }) => void;
   /** The running model: the preview reads its records through it (0.10 A4b, D44). */
   activeModel: EngineModel;
-  /** The workspace the preview reads records from first. */
+  /** The workspace the user came from; the preview reads records from it first when it runs the draft's model. */
   workspaceKey: string;
 }) {
   const toast = useToast();
   const phone = useMediaQuery(PHONE_WIDTH);
   const [outline, setOutline] = useState<ModelDraftOutline>();
+  const editorWorkspace = useEditorWorkspace(outline?.release.key ?? undefined, workspaceKey);
   const [name, setName] = useState("");
   // Whether the draft names a base release of its own; without one, the active release stands in (D17).
   const [ownBase, setOwnBase] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [dialog, setDialog] = useState<Dialog>();
   const [stale, setStale] = useState<Stale>();
-  const [notice, setNotice] = useState<{ tone: "error" | "success"; text: string; applications?: string[] }>();
+  const [notice, setNotice] = useState<{
+    tone: "error" | "success";
+    text: string;
+    applications?: string[];
+    /** The workspace the applications open in. */
+    workspaceKey?: string;
+  }>();
   const [busy, setBusy] = useState(false);
   const [bottomTab, setBottomTab] = useState("issues");
   const [elementTab, setElementTab] = useState("attributes");
@@ -574,7 +583,7 @@ export function ModelEditor({
         version={outline.version}
         objectTypeKey={typeKey}
         activeModel={activeModel}
-        workspaceKey={workspaceKey}
+        workspaceKey={editorWorkspace}
         send={(operations) => guarded(() => run(operations))}
         onDialog={(operation, objectType) =>
           setDialog({ kind: "operation", operation, target: { on: "objectType", objectType } })
@@ -941,7 +950,12 @@ export function ModelEditor({
           tone={notice.tone}
           actions={
             notice.applications?.map((key) => (
-              <button key={key} type="button" className="secondary" onClick={() => onOpenApplication(key)}>
+              <button
+                key={key}
+                type="button"
+                className="secondary"
+                onClick={() => onOpenApplication(key, notice.workspaceKey)}
+              >
                 Open {applicationOf(outline, key)?.name ?? key}
               </button>
             )) ?? (
@@ -1090,7 +1104,7 @@ export function ModelEditor({
         <AddWorkbookDialog
           owner={{ draftId }}
           replaces={source.profile?.sourceFile?.name}
-          defaultWorkspace={workspaceKey}
+          defaultWorkspace={editorWorkspace}
           onUploaded={(file) => {
             source.uploaded(file);
             toast(`${file.name} is uploaded and being profiled.`);
@@ -1133,11 +1147,11 @@ export function ModelEditor({
           outline={outline}
           profile={source.profile}
           dryRun={source.dryRun}
-          defaultWorkspace={workspaceKey}
+          defaultWorkspace={editorWorkspace}
           run={run}
           latestVersion={() => version.current}
-          onActivated={async () => {
-            await onActivated();
+          onActivated={async (_release, activatedWorkspace) => {
+            await onActivated(activatedWorkspace);
             await load();
           }}
           onOpenReview={(target) => {
@@ -1153,16 +1167,18 @@ export function ModelEditor({
           outline={outline}
           run={run}
           latestVersion={() => version.current}
+          workspaceKey={editorWorkspace}
           onInstalledOnly={() => void load()}
-          onActivated={async (release) => {
-            await onActivated();
+          onActivated={async (release, workspace) => {
+            await onActivated(workspace.key);
             await load();
             setDialog(undefined);
-            toast(`${release.name} ${release.version} is the active model.`);
+            toast(`${workspace.label} now runs ${release.name} ${release.version}.`);
             setNotice({
               tone: "success",
-              text: `${release.name} ${release.version} is installed and active. This draft continues from it.`,
+              text: `${release.name} ${release.version} is installed and active in ${workspace.label}. This draft continues from it.`,
               applications: outline.applications.map((item) => item.key).slice(0, 3),
+              workspaceKey: workspace.key,
             });
           }}
           onClose={() => setDialog(undefined)}
@@ -1170,4 +1186,27 @@ export function ModelEditor({
       )}
     </div>
   );
+}
+
+/**
+ * The workspace the editor previews and loads into (0.11 D55): the one the user came from when it
+ * runs the draft's model (`release.key`), else the first active workspace that does, in key order,
+ * else the one the user came from, whose records the preview then does not read.
+ */
+function useEditorWorkspace(modelKey: string | undefined, preferred: string): string {
+  const [workspaces, setWorkspaces] = useState<Workspace[]>();
+  useEffect(() => {
+    let active = true;
+    api
+      .workspaces({ status: "active", pageSize: 100 })
+      .then((page) => active && setWorkspaces(page.items))
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
+  if (!modelKey || !workspaces) return preferred;
+  const running = workspaces.filter((item) => item.model.releaseKey === modelKey);
+  if (running.some((item) => item.key === preferred) || !running.length) return preferred;
+  return [...running].sort((a, b) => a.key.localeCompare(b.key))[0].key;
 }

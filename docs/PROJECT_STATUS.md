@@ -35,7 +35,12 @@ from a workbook installed into a new workspace. The editor's choice of workspace
 reads several workspaces when asked for them, each record under its own workspace's model and naming
 its release, refusing a type or application one of their models lacks; counterparts are refused
 between workspaces whose models differ; every other read stays within one workspace
-([record](BASE_0_11_IMPLEMENTATION_PLAN.md#m4-record-2026-10-16)). M5 is next. Accepted by the user 2026-10-15: the data move in 0.11 (D3), the suite's
+([record](BASE_0_11_IMPLEMENTATION_PLAN.md#m4-record-2026-10-16)). **M5, the UI following the
+workspace's model, is delivered (2026-10-16), screenshots approved**: the shell
+loads each workspace's model and says when an address asks for something it lacks; Settings › Model
+shows each workspace's model and activates into one workspace; a workspace is created on a chosen
+release; the editor installs into an existing or new workspace
+([record](BASE_0_11_IMPLEMENTATION_PLAN.md#m5-record-2026-10-16)). M6 is next. Accepted by the user 2026-10-15: the data move in 0.11 (D3), the suite's
 time (D152) as a filler during Part 1 before X2 at the latest (D2), and 0.11.0-alpha.1 after the M6
 checkpoint (D12).
 

@@ -2005,6 +2005,20 @@ tr:focus-within .icon-button.icon-button-quiet {
 .selection-trigger {
   padding: 6px 10px;
 }
+/* The chosen value names its option; the option's description and mark belong to the list (0.11 M5). */
+.selection-trigger .react-aria-SelectValue {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.selection-trigger .react-aria-SelectValue small,
+.selection-trigger .react-aria-SelectValue .status-pill {
+  display: none;
+}
+.selection-trigger .react-aria-SelectValue strong {
+  font-weight: inherit;
+}
 .selection-trigger[data-focus-visible],
 .combo-control:focus-within {
   border-color: var(--action-primary);

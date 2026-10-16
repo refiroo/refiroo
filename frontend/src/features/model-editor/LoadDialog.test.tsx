@@ -38,10 +38,11 @@ describe("LoadDialog (0.10 A5b, D81)", () => {
       changes: [],
     };
     vi.mocked(api.compileModelDraft).mockResolvedValue(invalid);
-    vi.mocked(api.defaultWorkspaceModel).mockResolvedValue({
+    vi.mocked(api.workspaceModel).mockResolvedValue({
       workspaceKey: "default",
       releaseId: "r1",
       releaseKey: "rdm",
+      releaseName: "Starter model",
       releaseVersion: "1",
       schemaVersion: "0.10",
       modelHash: "h",

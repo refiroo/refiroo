@@ -11,6 +11,7 @@
  * (`useJobEnded`), so a collection reloads after an import into it.
  */
 
+import { loadedWorkspaceModel } from "@/model/workspaceModels";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { jobOutputUrl } from "@/api/client";
 import { routePath } from "@/routing/routes";
@@ -87,7 +88,8 @@ export function JobNotificationsProvider({
 
   const follow = useCallback(
     (job: Job, options: { announce?: boolean } = {}) => {
-      if (options.announce !== false) toast(`${jobTitle(model, job)} started.`, { actions: [jobPage(job)] });
+      if (options.announce !== false)
+        toast(`${jobTitle(modelOf(job, model), job)} started.`, { actions: [jobPage(job)] });
       if (!isFinal(job)) update((ids) => (ids.includes(job.id) ? ids : [...ids, job.id]));
     },
     [jobPage, model, toast, update],
@@ -109,7 +111,7 @@ export function JobNotificationsProvider({
     (job: Job) => {
       update((ids) => ids.filter((id) => id !== job.id));
       if (onItsPage(job)) return;
-      toast(`${jobTitle(model, job)}: the preview is ready.`, {
+      toast(`${jobTitle(modelOf(job, model), job)}: the preview is ready.`, {
         actions: [{ ...jobPage(job), label: "Review" }],
       });
     },
@@ -121,7 +123,7 @@ export function JobNotificationsProvider({
       update((ids) => ids.filter((id) => id !== job.id));
       listeners.current.forEach((listener) => listener(job));
       if (onItsPage(job)) return;
-      const title = jobTitle(model, job);
+      const title = jobTitle(modelOf(job, model), job);
       if (job.state === "completed") {
         const download: ToastAction[] = job.output
           ? [{ label: "Download", href: jobOutputUrl(job.id), download: true }]
@@ -181,6 +183,11 @@ export function useJobEnded(listener: EndedListener) {
 
 /** "Export of Codelists, Codes", "Import of codes.csv", "Profile of codes.csv", "Dry run of
  * codes.csv", or "Batch". */
+/** The model of the job's own workspace when it has loaded, else `model` (0.11 D49). */
+function modelOf(job: Job, model: EngineModel): EngineModel {
+  return (job.workspaceKey ? loadedWorkspaceModel(job.workspaceKey) : undefined) ?? model;
+}
+
 export function jobTitle(model: EngineModel, job: Job): string {
   if (job.kind === "import") return importTitle(job);
   if (job.kind === "profile" || job.kind === "dryRun") return sourceTitle(job);

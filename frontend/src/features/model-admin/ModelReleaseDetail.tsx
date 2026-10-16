@@ -2,14 +2,7 @@ import { useEffect, useState } from "react";
 import { formatServerTime } from "@/lib/dates";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
-import type {
-  ModelRelease,
-  ModelReleaseActivation,
-  ModelReleaseDiff,
-  ModelReleaseSummary,
-  WorkspaceModel,
-} from "@/types";
-import { ConfirmDialog } from "@/ui/ConfirmDialog";
+import type { ModelRelease, ModelReleaseActivation, ModelReleaseDiff, ModelReleaseSummary, Workspace } from "@/types";
 import { ModelDiagnostics } from "@/features/model-admin/ModelDiagnostics";
 import { CompatibilityPill, ModelDiff } from "@/features/model-admin/ModelDiff";
 import { downloadJson } from "@/lib/download";
@@ -24,8 +17,8 @@ type Baseline = {
   activation?: ModelReleaseActivation;
 };
 
-/** The activation check, tagged with the active release it was computed against. */
-type ActivationCheck = { activeReleaseId: string } & (
+/** The release checked against each workspace of its model, tagged with the assignments it read. */
+type ActivationCheck = { assignments: string } & (
   { state: "ready"; diff: ModelReleaseDiff } | { state: "error"; message: string }
 );
 
@@ -79,18 +72,20 @@ const unsupportedSchemaVersion = (cause: unknown) => refusalDetail(cause, "schem
 
 export function ModelReleaseDetail({
   releaseId,
-  activeReleaseId,
+  workspaces,
   canManageDrafts,
   canActivate,
   onCreateDraft,
-  onActivated,
+  onActivate,
 }: {
   releaseId: string;
-  activeReleaseId: string;
+  /** The active workspaces with the release each runs (0.11 M5). */
+  workspaces: Workspace[];
   canManageDrafts: boolean;
   canActivate: boolean;
   onCreateDraft: (release: ModelRelease) => void;
-  onActivated: (state: WorkspaceModel) => void;
+  /** Opens the activation dialog with this release (D51). */
+  onActivate: (releaseId: string) => void;
 }) {
   const [release, setRelease] = useState<ModelRelease>();
   const [releases, setReleases] = useState<ModelReleaseSummary[]>();
@@ -102,11 +97,11 @@ export function ModelReleaseDetail({
   const [error, setError] = useState("");
   const [unsupportedSchema, setUnsupportedSchema] = useState(false);
   const [copyMessage, setCopyMessage] = useState("");
-  const [confirm, setConfirm] = useState(false);
-  const [pending, setPending] = useState(false);
+  // Which workspace runs which release; an activation anywhere changes it and reloads what depends on it.
+  const assignments = workspaces.map((item) => `${item.key}=${item.model.releaseId}`).join(",");
 
-  // The workbench keys this component by release, so each selection starts from empty state. A change
-  // of active release (including activating this one) reloads status, history and the default baseline.
+  // The workbench keys this component by release, so each selection starts from empty state. An
+  // activation (of this release or another) reloads status, history and the default baseline.
   useEffect(() => {
     let cancelled = false;
     api
@@ -135,7 +130,7 @@ export function ModelReleaseDetail({
     return () => {
       cancelled = true;
     };
-  }, [releaseId, activeReleaseId]);
+  }, [releaseId, assignments]);
 
   // Release history: an earlier baseline (Before) against the selected release (After).
   useEffect(() => {
@@ -159,41 +154,26 @@ export function ModelReleaseDetail({
     };
   }, [release, baseline]);
 
-  // Activation readiness is always the current active release against this candidate and live data,
-  // whatever baseline the history comparison uses.
+  // This release against each workspace running a release of its model, their own data each
+  // (D25), whatever baseline the history comparison uses. The list does not depend on the release
+  // compared with, so the release is compared with itself.
   useEffect(() => {
-    if (!release || release.id === activeReleaseId) return;
+    if (!release) return;
     let cancelled = false;
     api
-      .modelReleaseDiff(release.id, activeReleaseId)
+      .modelReleaseDiff(release.id, release.id)
       .then((diff) => {
-        if (!cancelled) setActivationCheck({ activeReleaseId, state: "ready", diff });
+        if (!cancelled) setActivationCheck({ assignments, state: "ready", diff });
       })
       .catch((cause) => {
         if (cancelled) return;
-        // The active release is interpretable by definition, so the refusal concerns this release.
         if (isApiError(cause, "UNSUPPORTED_SCHEMA_VERSION")) setUnsupportedSchema(true);
-        else setActivationCheck({ activeReleaseId, state: "error", message: errorMessage(cause) });
+        else setActivationCheck({ assignments, state: "error", message: errorMessage(cause) });
       });
     return () => {
       cancelled = true;
     };
-  }, [release, activeReleaseId]);
-
-  async function activate() {
-    setPending(true);
-    setError("");
-    try {
-      const runtime = await api.defaultWorkspaceModel();
-      const activated = await api.activateWorkspaceModel(releaseId, runtime);
-      setConfirm(false);
-      onActivated(activated);
-    } catch (cause) {
-      setError(errorMessage(cause));
-    } finally {
-      setPending(false);
-    }
-  }
+  }, [release, assignments]);
 
   async function copy(label: string, value: string) {
     try {
@@ -219,13 +199,13 @@ export function ModelReleaseDetail({
     );
   if (!release) return <div className="panel-state">Loading release…</div>;
   const byId = new Map(releases?.map((item) => [item.id, item]));
-  // The workspace's assignment is authoritative; a release's `workspaces` is only as fresh as the last load.
-  const isActive = release.id === activeReleaseId;
-  const check = activationCheck?.activeReleaseId === activeReleaseId ? activationCheck : undefined;
-  const readiness = check?.state === "ready" ? check.diff.compatibility : undefined;
+  // The workspaces' assignments are authoritative; a release's `workspaces` is only as fresh as its load.
+  const runBy = workspaces.filter((item) => item.model.releaseId === release.id);
+  const label = (key: string) => workspaces.find((item) => item.key === key)?.label ?? key;
+  const check = activationCheck?.assignments === assignments ? activationCheck : undefined;
+  const readiness = check?.state === "ready" ? check.diff.compatibility.workspaces : undefined;
   const current = baseline && comparison?.againstReleaseId === baseline.releaseId ? comparison : undefined;
   const baselineRelease = baseline && byId.get(baseline.releaseId);
-  const activeRelease = byId.get(activeReleaseId);
   const candidates = [...(releases ?? [])].reverse().filter((item) => item.id !== release.id);
   return (
     <div className="model-editor-stack">
@@ -237,7 +217,11 @@ export function ModelReleaseDetail({
             {release.key} · version {release.version} · schema {release.schemaVersion}
           </p>
         </div>
-        {isActive ? <StatusPill tone="success">Active</StatusPill> : <StatusPill tone="neutral">Inactive</StatusPill>}
+        {runBy.length ? (
+          <StatusPill tone="success">Run by {runBy.map((item) => item.label).join(", ")}</StatusPill>
+        ) : (
+          <StatusPill tone="neutral">Run by no workspace</StatusPill>
+        )}
       </header>
       <dl className="release-metadata">
         <div>
@@ -263,13 +247,9 @@ export function ModelReleaseDetail({
             Create draft from release
           </button>
         )}
-        {canActivate && !isActive && !unsupportedSchema && (
-          <button
-            className="primary"
-            disabled={readiness?.classification !== "compatible"}
-            onClick={() => setConfirm(true)}
-          >
-            Activate…
+        {canActivate && !unsupportedSchema && runBy.length < workspaces.length && (
+          <button className="primary" onClick={() => onActivate(release.id)}>
+            Activate in a workspace…
           </button>
         )}
       </div>
@@ -350,7 +330,7 @@ export function ModelReleaseDetail({
                       {candidates.map((item) => (
                         <option key={item.id} value={item.id}>
                           {releaseLabel(item)}
-                          {item.id === activeReleaseId ? " (active)" : ""}
+                          {workspaces.some((workspace) => workspace.model.releaseId === item.id) ? " (run)" : ""}
                           {item.id === defaultBase?.releaseId ? " (default)" : ""}
                         </option>
                       ))}
@@ -395,49 +375,47 @@ export function ModelReleaseDetail({
           )}
         </section>
       )}
-      {!isActive && !unsupportedSchema && (
+      {!unsupportedSchema && (
         <section className="model-result" aria-labelledby="activation-check-heading">
           <div className="model-result-heading">
             <div>
               <p className="eyebrow">Activation check</p>
-              <h3 id="activation-check-heading">
-                Current active release{activeRelease ? ` ${releaseLabel(activeRelease)}` : ""} → this release
-              </h3>
+              <h3 id="activation-check-heading">Workspaces running {release.key}</h3>
             </div>
-            {readiness && <CompatibilityPill classification={readiness.classification} />}
           </div>
           {check?.state === "error" ? (
             <Notice tone="error">Activation readiness could not be checked: {check.message}</Notice>
           ) : !readiness ? (
-            <p className="panel-state">Checking against the active release and stored data…</p>
-          ) : (
+            <p className="panel-state">Checking each workspace's stored data…</p>
+          ) : readiness.length ? (
             <>
               <p className="release-check-note">
-                Readiness to activate this release in place of the current active model, including stored live data. It
-                does not depend on the release history baseline above.
+                Each workspace running a release of {release.key}, its own data against this release. Activating changes
+                one workspace; a workspace on another model is checked when you choose it to activate into.
               </p>
-              {readiness.diagnostics.length > 0 && <ModelDiagnostics diagnostics={readiness.diagnostics} />}
-              {readiness.classification === "migration_required" && (
-                <Notice tone="warning">Activation is blocked because stored runtime data requires migration.</Notice>
-              )}
+              <ul className="release-workspace-checks">
+                {readiness.map((item) => (
+                  <li key={item.workspaceKey}>
+                    <strong>{label(item.workspaceKey)}</strong>{" "}
+                    {item.releaseId === release.id ? (
+                      <StatusPill tone="success">Runs this release</StatusPill>
+                    ) : (
+                      <CompatibilityPill classification={item.classification} />
+                    )}
+                    {item.releaseId !== release.id && item.diagnostics.length > 0 && (
+                      <ModelDiagnostics diagnostics={item.diagnostics} />
+                    )}
+                  </li>
+                ))}
+              </ul>
             </>
+          ) : (
+            <p className="release-check-note">
+              No workspace runs {release.key}. Activating this release into a workspace checks that workspace's data
+              first.
+            </p>
           )}
         </section>
-      )}
-      {confirm && (
-        <ConfirmDialog
-          title={`Activate ${release.key}@${release.version}?`}
-          confirmLabel="Activate release"
-          pending={pending}
-          error={error}
-          onCancel={() => setConfirm(false)}
-          onConfirm={activate}
-        >
-          <p>
-            This changes the model used by new requests. The active release remains installed, so rollback is performed
-            by activating it again after compatibility checks.
-          </p>
-        </ConfirmDialog>
       )}
     </div>
   );

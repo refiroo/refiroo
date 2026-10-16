@@ -11,6 +11,7 @@
  * once applied, and its items' outcomes, each linked to its record where it names one.
  */
 
+import { useWorkspaceModel } from "@/model/workspaceModels";
 import { useEffect, useState } from "react";
 import { api, jobOutputUrl } from "@/api/client";
 import { errorMessage } from "@/api/errors";
@@ -51,7 +52,7 @@ import { isResting, useJobStream } from "./useJobStream";
 const FORMAT_NAMES = { jsonl: "JSON Lines", csv: "CSV", xlsx: "Excel (XLSX)" } as const;
 
 export function JobPage({
-  model,
+  model: shownModel,
   jobId,
   canCancel,
   jobsHref,
@@ -67,6 +68,8 @@ export function JobPage({
   onNavigate?: (route: RouteState) => void;
 }) {
   const [job, setJob] = useState<Job>();
+  // A job is named and read under its own workspace's model (0.11 D49).
+  const model = useWorkspaceModel(job?.workspaceKey, shownModel);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
   const [confirming, setConfirming] = useState(false);

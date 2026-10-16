@@ -35,7 +35,6 @@ const READS = [
   "workspace",
   "workspaceRuntimeState",
   "workspaceModel",
-  "defaultWorkspaceModel",
   "objects",
   "object",
   "attribute",

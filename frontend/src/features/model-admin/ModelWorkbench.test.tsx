@@ -43,9 +43,43 @@ const draft: ModelDraft = {
   updatedAt: "2026-09-05T00:00:00Z",
 };
 
+/** The default workspace on r1 (0.11 M5: Settings › Model reads each workspace's model). */
+function mockWorkspaces() {
+  vi.mocked(api.workspaceRuntimeState).mockResolvedValue({ defaultWorkspaceKey: "default" } as never);
+  vi.mocked(api.workspaces).mockResolvedValue({
+    items: [
+      {
+        key: "default",
+        label: "Default",
+        status: "active",
+        version: 1,
+        createdAt: release.installedAt,
+        updatedAt: release.installedAt,
+        model: {
+          releaseId: "r1",
+          releaseKey: "test",
+          releaseName: "Test",
+          releaseVersion: "1",
+          schemaVersion: "0.4",
+          modelHash: "abc",
+          version: 1,
+          updatedAt: release.installedAt,
+        },
+      },
+    ],
+    nextCursor: null,
+  } as never);
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(api.modelReleaseActivations).mockResolvedValue({ items: [], nextCursor: null });
+  vi.mocked(api.modelReleaseDiff).mockResolvedValue({
+    releaseId: "r1",
+    againstReleaseId: "r1",
+    changes: [],
+    compatibility: { classification: "compatible", activeReleaseId: "r1", diagnostics: [], workspaces: [] },
+  });
 });
 
 function renderWorkbench(route: Parameters<typeof ModelWorkbench>[0]["route"], onRouteChange = vi.fn()) {
@@ -60,16 +94,7 @@ describe("ModelWorkbench", () => {
   it("keeps release inspection visible while hiding mutation actions", async () => {
     vi.mocked(api.capabilities).mockResolvedValue(capabilitiesFixture({ manageModel: false }));
     vi.mocked(api.modelReleases).mockResolvedValue({ items: [release], nextCursor: null });
-    vi.mocked(api.defaultWorkspaceModel).mockResolvedValue({
-      workspaceKey: "default",
-      releaseId: "r1",
-      releaseKey: "rdm",
-      releaseVersion: "1",
-      schemaVersion: "0.10",
-      modelHash: "abc",
-      version: 1,
-      updatedAt: release.installedAt,
-    });
+    mockWorkspaces();
     vi.mocked(api.modelRelease).mockResolvedValue({ ...release, model });
     renderWorkbench({ kind: "settings", page: "model", releaseId: "r1" });
     expect(await screen.findByText(/mutations are disabled/i)).toBeInTheDocument();
@@ -89,16 +114,7 @@ describe("ModelWorkbench", () => {
     vi.mocked(api.capabilities).mockResolvedValue(capabilitiesFixture({ manageModel: true }));
     vi.mocked(api.modelReleases).mockResolvedValue({ items: [release, historical], nextCursor: null });
     vi.mocked(api.modelDrafts).mockResolvedValue({ items: [], nextCursor: null });
-    vi.mocked(api.defaultWorkspaceModel).mockResolvedValue({
-      workspaceKey: "default",
-      releaseId: "r1",
-      releaseKey: "rdm",
-      releaseVersion: "1",
-      schemaVersion: "0.10",
-      modelHash: "abc",
-      version: 1,
-      updatedAt: release.installedAt,
-    });
+    mockWorkspaces();
     vi.mocked(api.modelRelease).mockResolvedValue({ ...historical, model });
     vi.mocked(api.modelReleaseDiff).mockRejectedValue(
       new ApiError(422, "UNSUPPORTED_SCHEMA_VERSION", "Unsupported historical schema"),
@@ -112,32 +128,24 @@ describe("ModelWorkbench", () => {
     expect(screen.getByText(/raw JSON remain available/)).toBeInTheDocument();
   });
 
-  it("shows the active release beside the catalogue without a selection, and opens an entry at its address", async () => {
+  it("shows the workspaces with their models, the releases by model and the drafts without a selection (D50)", async () => {
     vi.mocked(api.capabilities).mockResolvedValue(capabilitiesFixture({ manageModel: true }));
     vi.mocked(api.modelReleases).mockResolvedValue({ items: [release], nextCursor: null });
     vi.mocked(api.modelDrafts).mockResolvedValue({ items: [draft], nextCursor: null });
-    vi.mocked(api.defaultWorkspaceModel).mockResolvedValue({
-      workspaceKey: "default",
-      releaseId: "r1",
-      releaseKey: "rdm",
-      releaseVersion: "1",
-      schemaVersion: "0.10",
-      modelHash: "abc",
-      version: 1,
-      updatedAt: release.installedAt,
-    });
-    vi.mocked(api.modelRelease).mockResolvedValue({ ...release, model });
+    mockWorkspaces();
     const onRouteChange = vi.fn();
     renderWorkbench({ kind: "settings", page: "model" }, onRouteChange);
-    const catalogue = await screen.findByRole("navigation", { name: "Model catalogue" });
-    expect(await within(catalogue).findByRole("button", { name: /Test.*Active/ })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
-    expect(await screen.findByRole("button", { name: /export json/i })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /All releases and drafts/ })).not.toBeInTheDocument();
+    const table = await screen.findByRole("group", { name: "Workspaces and their models" });
+    const row = await within(table).findByRole("row", { name: /Default/ });
+    expect(row).toHaveTextContent("Test");
+    expect(within(row).getByRole("button", { name: "Activate a release in Default" })).toBeInTheDocument();
+    const releases = screen.getByRole("list", { name: "Releases of Test" });
+    expect(releases).toHaveTextContent("Run by Default");
+    expect(screen.queryByRole("navigation", { name: "Model catalogue" })).not.toBeInTheDocument();
     expect(onRouteChange).not.toHaveBeenCalled();
-    fireEvent.click(within(catalogue).getByRole("button", { name: /Candidate/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Open Test 1" }));
+    expect(onRouteChange).toHaveBeenCalledWith({ kind: "settings", page: "model", releaseId: "r1" });
+    fireEvent.click(screen.getByRole("button", { name: "Open draft Candidate" }));
     expect(onRouteChange).toHaveBeenCalledWith({ kind: "settings", page: "model", draftId: "d1" });
   });
 });

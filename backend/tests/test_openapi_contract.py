@@ -168,10 +168,12 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # ModelCompatibilityResponse. Diffed against the previous commit, nothing else changed.
     # Re-baselined for 0.11 M4 (D41, D43): GET /objects takes workspaceKey repeatable (an array) and
     # its items are LookupObject, an ObjectResponse with modelReleaseId; the route's description.
-    # Diffed against the previous commit, nothing else changed.
+    # Diffed against the previous commit, nothing else changed. Re-baselined for 0.11 M5 (D52, D53):
+    # the release diff's workspaceKey and a workspace's model's releaseName (WorkspaceModelResponse,
+    # WorkspaceAssignmentResponse). Diffed against the previous commit, nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "f2cffbbec4a8a3181b57dac3301610d1b62dd0fac797fea68a3b96aea224e211"
+        "042ac6b9a6d8b82b93e865825a229ce47c06281a2d7b6c4b1636d5d96eee060b"
     )
 
 

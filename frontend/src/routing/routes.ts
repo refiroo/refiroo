@@ -336,6 +336,41 @@ export function parseRoute(
   return { ...defaultRoute(model, defaultWorkspaceKey), workspaceKey };
 }
 
+/** What an application address names that a model lacks (0.11 M5, D48). */
+export type MissingElement =
+  | { kind: "application"; applicationKey: string }
+  | { kind: "view"; applicationKey: string; key: string }
+  | { kind: "objectType"; applicationKey: string; key: string }
+  | { kind: "group"; applicationKey: string; key: string };
+
+/**
+ * The element of an application address the model has no place for: an application, a collection
+ * (view), a kind of record or a navigation group. Undefined when the model has it, or when the
+ * address is not an application page. `parseRoute` falls back to the default route for these; the
+ * shell says what was asked for instead of opening that route silently.
+ */
+export function missingElement(
+  model: EngineModel,
+  location: Pick<Location, "pathname"> = window.location,
+): MissingElement | undefined {
+  const parts = location.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+  if (parts[0] !== "apps" || !parts[1]) return undefined;
+  const application = applicationFor(model, parts[1]);
+  if (!application) return { kind: "application", applicationKey: parts[1] };
+  if (parts[2] === "views" && parts[3] && !application.views.some((view) => view.key === parts[3]))
+    return { kind: "view", applicationKey: parts[1], key: parts[3] };
+  if (parts[2] === "objects" && parts[3] && !application.objectTypeKeys.includes(parts[3]))
+    return { kind: "objectType", applicationKey: parts[1], key: parts[3] };
+  if (parts[2] === "groups" && parts[3] && !navigationGroupFor(application, parts[3]))
+    return { kind: "group", applicationKey: parts[1], key: parts[3] };
+  return undefined;
+}
+
+/** The workspace an address names, or `fallback` when it names none. */
+export function addressWorkspaceKey(fallback: string, location: Pick<Location, "search"> = window.location) {
+  return new URLSearchParams(location.search).get("workspaceKey")?.trim() || fallback;
+}
+
 export function routePath(route: RouteState) {
   if (route.kind === "settings") return settingsPath(route);
   const app = encodeURIComponent(route.applicationKey);

@@ -11,6 +11,7 @@
  * mouse or pen (D46); each choice is one step of the draft's history.
  */
 
+import { useWorkspaceModel } from "@/model/workspaceModels";
 import { useEffect, useMemo, useState, type DragEvent, type ReactNode } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
@@ -143,7 +144,11 @@ export function TypePreview({
     };
   }, []);
 
-  const live = activeModel.objectTypes.some((item) => item.key === objectTypeKey);
+  // Records are read under the chosen workspace's own model, and only from a workspace running the
+  // draft's model: another model's records say nothing true about this draft (0.11 D55).
+  const shownModel = useWorkspaceModel(workspaceKey, activeModel);
+  const otherModel = Boolean(read?.model && shownModel.release.key !== read.model.release.key);
+  const live = !otherModel && shownModel.objectTypes.some((item) => item.key === objectTypeKey);
   const readKey = `${objectTypeKey}|${workspaceKey}`;
   useEffect(() => {
     if (!live) return;
@@ -172,16 +177,18 @@ export function TypePreview({
   const objectId = shownRecord?.id ?? PREVIEW_EMPTY_ID;
   const sample = application ? emptyRecord(application.key, objectTypeKey, workspaceKey) : undefined;
   const client = useMemo(
-    () => (model ? createPreviewClient(activeModel, model, sample) : undefined),
+    () => (model ? createPreviewClient(shownModel, model, sample) : undefined),
     // The sample changes only with its place; a new object each render must not make a new client.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [model, activeModel, application?.key, objectTypeKey, workspaceKey],
+    [model, shownModel, application?.key, objectTypeKey, workspaceKey],
   );
 
   const typeName = objectType?.name ?? objectTypeKey;
   const note = editing
     ? "Each change is one step of the draft, undone with Undo."
-    : "The draft's layout over records read live. Its controls are shown and disabled: the preview writes nothing.";
+    : otherModel
+      ? "The draft's layout over an empty record: this workspace runs another model, so none of its records is read."
+      : "The draft's layout over records read live. Its controls are shown and disabled: the preview writes nothing.";
   const frame = (children: ReactNode, choices?: ReactNode) => (
     <section className={`type-preview type-preview-${mode}`} aria-label={editing ? "Layout editor" : "Preview"}>
       <ModeBand mode={mode} name={typeName} note={note} choices={choices} actions={actions} />

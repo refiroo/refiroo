@@ -60,6 +60,8 @@ export async function assertDialogLayout(page, name) {
       rowBottom = fieldBox.bottom;
     }
     for (const element of dialog.querySelectorAll("input, select, textarea, button, [role=listbox]")) {
+      // A visually hidden control (react-aria's form select behind its listbox) is clipped to nothing.
+      if (element.closest('[style*="clip"]')) continue;
       const box = element.getBoundingClientRect();
       if (box.width && (box.left < frame.left - 1 || box.right > frame.right + 1))
         found.push(`a ${element.tagName.toLowerCase()} overflows the dialog sideways`);

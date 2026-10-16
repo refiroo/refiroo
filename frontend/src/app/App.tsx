@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { bulkSelectionFor } from "@/features/objects/SelectionBar";
 import { CollectionView } from "@/features/objects/views/CollectionViewHost";
 import { ObjectDetail } from "@/features/objects/ObjectDetail";
@@ -20,6 +20,7 @@ import { ChangeSetActions, ChangeSets } from "@/features/workspaces/ChangeSets";
 import { ChangeSetReview } from "@/features/workspaces/ChangeSetReview";
 import { PublicationBanner, Publications } from "@/features/workspaces/Publications";
 import { NavigationGroupPage } from "@/features/objects/NavigationGroupPage";
+import { NotInModel } from "@/features/workspaces/NotInModel";
 import { Notice } from "@/ui/Notice";
 import { ResizeHandle } from "@/ui/ResizeHandle";
 import { useLocalNumberPreference } from "@/lib/localPreference";
@@ -33,6 +34,8 @@ import { useCapabilities } from "@/features/settings/useSystem";
 export default function App() {
   const router = useRouter();
   const { model, route, error } = router;
+  // The workspace shown last, kept above the per-workspace content so a switch can say what changed.
+  const shownWorkspaceRef = useRef<Workspace | undefined>(undefined);
   if (!model || !route) return <div className="center-message">{error || "Loading the model…"}</div>;
   // Toasts and the notifications about this tab's jobs live above every page (0.9 J1u).
   return (
@@ -49,7 +52,7 @@ export default function App() {
             workspaceKey={route.workspaceKey}
             model={model}
           >
-            <AppContent router={router} route={route} />
+            <AppContent router={router} route={route} shownWorkspaceRef={shownWorkspaceRef} />
           </WorkspaceDataProvider>
         )}
       </JobNotificationsProvider>
@@ -57,8 +60,28 @@ export default function App() {
   );
 }
 
-function AppContent({ router, route }: { router: Router; route: ApplicationRoute }) {
-  const { model: currentModel, error, navigate, replaceRoute, lastCollection, rememberWorkspace } = router;
+/**
+ * What a switch to `next` changed about the model, for its toast (0.11 M5, D47); nothing when the
+ * two workspaces run the same release.
+ */
+export function modelChangeText(previous: Workspace, next: Workspace): string | undefined {
+  if (previous.key === next.key || previous.model.releaseId === next.model.releaseId) return undefined;
+  const runs = `${next.label} runs ${next.model.releaseName} ${next.model.releaseVersion}`;
+  return previous.model.releaseKey === next.model.releaseKey
+    ? `${runs}, another release of the model ${previous.label} runs (${previous.model.releaseVersion}).`
+    : `${runs}, a different model from ${previous.label}'s: its applications and navigation are shown.`;
+}
+
+function AppContent({
+  router,
+  route,
+  shownWorkspaceRef,
+}: {
+  router: Router;
+  route: ApplicationRoute;
+  shownWorkspaceRef: RefObject<Workspace | undefined>;
+}) {
+  const { model: currentModel, error, navigate, replaceRoute, lastCollection, rememberWorkspace, problem } = router;
   const data = useWorkspaceData();
   const toast = useToast();
   const model = data.model ?? currentModel;
@@ -89,6 +112,13 @@ function AppContent({ router, route }: { router: Router; route: ApplicationRoute
     );
   const [workspace, setWorkspace] = useState<Workspace>();
   const actionSequence = useRef(0);
+  useEffect(() => {
+    if (!workspace) return;
+    const previous = shownWorkspaceRef.current;
+    shownWorkspaceRef.current = workspace;
+    const text = previous && modelChangeText(previous, workspace);
+    if (text) toast(text);
+  }, [workspace, shownWorkspaceRef, toast]);
   const inspectorWidth = useLocalNumberPreference(
     `rdm:layout:inspector-width:v1:${route.applicationKey}:${route.kind === "detail" ? (route.collectionOrigin?.viewKey ?? "record") : "record"}`,
     480,
@@ -331,7 +361,16 @@ function AppContent({ router, route }: { router: Router; route: ApplicationRoute
       onOpenObject={(item) => openObject(item, undefined, "hierarchy")}
       contextActions={contextActions}
     >
-      {data.loadingError ? (
+      {problem ? (
+        <NotInModel
+          key={`${problem.kind}:${problem.workspaceKey}`}
+          problem={problem}
+          model={model}
+          workspace={workspace?.key === activeRoute.workspaceKey ? workspace : undefined}
+          startRoute={defaultRoute(model, activeRoute.workspaceKey)}
+          onNavigate={navigate}
+        />
+      ) : data.loadingError ? (
         <Card flush className="panel">
           <Notice
             tone="error"

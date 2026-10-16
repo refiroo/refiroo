@@ -10,7 +10,7 @@ delivered before production hardening. D1 is the user's; **D2, D3 and D12 were a
 packages are specified below at package level; each package's detailed plan, test cases and
 decisions are written and accepted when it starts, and it is delivered in the order of the
 [delivery queue](#delivery-queue), each by the [delivery steps](#how-a-package-is-delivered).
-**Delivered:** P0, M1 with M2 (2026-10-15), M3 and M4 (2026-10-16).
+**Delivered:** P0, M1 with M2 (2026-10-15), M3, M4 and M5 (2026-10-16).
 
 **Target:** Product 0.11.0, [production hardening and staged model rollout](ROADMAP.md#product-release-011--production-hardening-and-staged-model-rollout),
 with the two requirements the user added on 2026-10-15 (ROADMAP commit `a0859ae`).
@@ -293,7 +293,7 @@ change) and `volume` (every budget).
 | 3 | [M2](#m2-installing-and-activating-into-one-workspace) | — | **Folded into M1 (D32).** Activation into one workspace with its own compatibility check; unique values, matrix states and subscriptions scoped to it; a new workspace created on a model |
 | 4 | [M3](#m3-instance-wide-resources-bound-to-a-workspaces-model) | M2 | **Delivered 2026-10-16.** Import profiles, drafts, source files, jobs and dry runs, consumer APIs and events resolved through the workspace's model |
 | 5 | [M4](#m4-reads-spanning-workspaces) | M3 | **Delivered 2026-10-16.** The cross-type lookup over several workspaces asked for; counterparts refused across models; the feed, coverage and exports stay within one workspace |
-| 6 | [M5](#m5-the-ui-follows-the-workspaces-model) | M4 | The shell follows the workspace's model; Settings › Model per workspace; "New from a workbook" into a chosen workspace |
+| 6 | [M5](#m5-the-ui-follows-the-workspaces-model) | M4 | **Delivered 2026-10-16.** The shell follows the workspace's model; Settings › Model per workspace; "New from a workbook" into a chosen workspace |
 | 7 | [M6](#m6-workspace-models-checkpoint) | M5 | Two workspaces on two models composed in the browser; the roadmap's first workspace-model exit item; tagged 0.11.0-alpha.1 (D12) |
 | 8 | [V1](#v1-a-workspaces-data-migrated-to-another-release) | M2 | Migration plan for one workspace: preview, conversions, loss, confirm bound to versions, atomic switch |
 | 9 | [V2](#v2-a-change-set-from-a-publication-moved-to-another-release) | V1 | GAP-02: a change set started from a publication moved to a named installed release |
@@ -1247,6 +1247,200 @@ them, Settings › Model, activation into one, keyboard alone, 1440px and 390px.
 screens.
 
 **Exit:** screenshots approved.
+
+##### M5 plan (2026-10-16)
+
+**Planned 2026-10-16; D46–D55 and the test cases accepted by the user the same day ("yes it is good you can go ahead").** Checked
+against the code at `c387e97` and the approved mock-up (boards Main, SettingsModel, NewWorkspace,
+PhoneShell).
+
+**What the code does today (found, not assumed):**
+
+- **One model for the whole browser tab.** `useRouter` loads `GET /model` without a workspace once
+  at start (the default workspace's model) and parses every route with it; `reloadModel` reloads the
+  same. Switching workspace (`App.changeWorkspace`) keeps that model, so a workspace on another model
+  shows the default workspace's applications and navigation over its own records.
+- **A route naming an application the model lacks** is silently replaced by the default route
+  (`useRouter`'s `active`), the reason recorded there being a release that retired an application.
+- **The workspace switcher** is `WorkspaceSelector`, a search combo box in the rail on a desktop
+  (restored there in U3 at the user's request) and opened from the band on a phone (0.10 N1). Its
+  options name the label and key only. Workspace responses carry `model` (`releaseKey`,
+  `releaseVersion`, …) but no release name.
+- **Settings › Model** (`ModelWorkbench`) is the U3 catalogue (releases and drafts) beside the
+  selected item; without a selection it shows "the active release", now the default workspace's.
+  A release's **Activate…** (`ModelReleaseDetail`) and the editor's **Install and activate**
+  (`InstallDialog`) both activate into the default workspace (`api.defaultWorkspaceModel`). The
+  activation check reads `GET /model-releases/{id}/diff`, whose top-level `compatibility` is the
+  default workspace's (M3); `compatibility.workspaces` covers only workspaces already on the
+  candidate's model, so nothing checks a release of **another** model against a chosen workspace.
+- **Settings › Workspaces** (`WorkspaceAdmin`, W4/U3 catalogue and detail) creates a workspace with
+  key and label only; the API's `modelReleaseId` (M1) is not offered.
+- **Settings pages** use the tab's one model: the job page and job toasts name types with it,
+  whatever workspace the job ran in. The editor previews live data of the workspace the user came
+  from, whatever model that workspace runs.
+
+**Decisions** (D46 onward; each with what, why and cost):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D46 | Where the workspace switcher sits | **Where it is: the rail on a desktop, the band on a phone,** with the mock-up's content added: under the field the current workspace's model name and release; each option's line "model name · release"; an **Other model** or **Other release** mark on options that differ from the current workspace's. Why: the mock-up put the switcher in the band, but the rail is where you asked for it in U3, and U-D14 allows one switcher only. Cost: none beyond the content |
+| D47 | Telling the user the model changed on a switch | **A toast,** not the mock-up's inline notice: "South branch runs Library catalogue 2.0.0, another release of the model North branch runs (2.1.0)" or "…a different model…". Why: on 2026-10-15 you reported a page notice that stayed on every page until a reload; it became a toast then. Cost: none |
+| D48 | A route naming an application, collection or record type the workspace's model lacks | **The mock-up's page "‹name› is not in this workspace's model",** in place of today's silent jump to the default route, for every cause (another model, or a release that removed it). It names the workspace's model and release, lists the workspaces whose model has it, and offers "Open ‹start› in ‹workspace›" and, after a switch, "Back to ‹previous workspace›". An unknown workspace key in the address gets the same kind of page ("No workspace ‹key›"), and a workspace whose release cannot be loaded (D29) a page naming it, with the switcher still working. Why: a silent jump hides that the bookmark points elsewhere; one rule for every cause. Cost: listing the holders reads each distinct release's model once (few releases), only when the page shows |
+| D49 | Which model Settings and job pages use | **Settings reads the model of the workspace you came from** (its top bar keeps the same tabs, as U-D14 requires); **a job's page and its toasts read the job's own workspace's model**. The browser keeps one model per workspace, loaded when first needed and reloaded after an activation into that workspace. Why: a job of another workspace otherwise names its types with the wrong model (or by key). Cost: a model cache keyed by workspace in the router |
+| D50 | The shape of Settings › Model | **Without a selection, the mock-up's overview:** "Workspaces and their models" (workspace, model, release with "‹newer› installed", schema, since, **Activate a release…**), then **Installed releases** grouped by model, each release "Run by ‹workspaces›" or "Run by no workspace", then the drafts. **With a release or draft selected,** today's catalogue and detail, the catalogue grouped by model and each release marked "Run by …" instead of the single **Active** pill. Why: there is no one active release any more; the overview is the approved shape, and the detail (diff, history, raw JSON, the draft editor's entry) stays as it is. Cost: the overview is a new section; the catalogue changes its grouping |
+| D51 | One activation dialog, two ways in | **The mock-up's dialog, opened from a workspace row** (the workspace fixed, a release chosen) **or from a release's Activate…** (the release fixed, a workspace chosen in a field added at the top). It shows the check for that workspace only, the open change sets that would be left on the old release (read before confirming from the workspace's open change sets pinned to its release, since the activation's own list arrives only after it), "Not changed: ‹other workspaces›", and, when the data does not fit, "A migration is needed" with **no button** until V1 builds the migration preview. The release detail's activation check lists `compatibility.workspaces` (each workspace of the model: compatible or needing a migration). Why: one dialog component (U-D14), and the release detail keeps its way in that the 0.10 runners and SC15 use. Cost: a workspace field on the dialog when opened from a release |
+| D52 | Checking a release against a chosen workspace (any model) | **`GET /model-releases/{id}/diff` takes `workspaceKey`:** the top-level `compatibility` and `consumerContracts` then describe activating into that workspace, against its own release and data; the default workspace without it, as today (D6); an unknown key `404 WORKSPACE_NOT_FOUND`. Why: D51's dialog must check a release of another model against the chosen workspace, which nothing serves today (`compatibility.workspaces` lists only workspaces on the candidate's model). Cost: one query parameter on a read route; OpenAPI lock re-baselined; two journey cases |
+| D53 | The model's name in the switcher and tables | **`releaseName` on a workspace's `model`** (every workspace response, `GET /workspaces/{key}/model`, `GET /workspace-models`): the release's `name`. Why: the mock-up names models ("Library catalogue 2.1.0"); without it each workspace needs one release read. Cost: one field read from the joined release; OpenAPI lock re-baselined |
+| D54 | Settings › Workspaces | **Its current layout kept** (W4/U3 catalogue and detail); each entry's subtitle and the detail name the model and release; **New workspace** gains the mock-up's **Model** choice: "The default workspace's model" (named) or "Another installed release" (a list of every installed release of a supported schema, each with the workspaces running it). The mock-up's table is not built. Why: the table would replace an approved layout for one column. Cost: none beyond the dialog field |
+| D55 | The editor's workspace and its Install and activate | **The editor previews the live data of a workspace running the draft's model:** the one you came from if it does, else the first active one running it (key order), else none (a new model: the preview's collections are empty, said so). **Install and activate** gains the mock-up's **Activate into**: an existing workspace (a list, the editor's workspace first; others marked Other model when they run another) or a new workspace (name and key, offered where workspace administration is allowed). Activation into an existing workspace refused for its data keeps today's "Installed, not active" outcome with the reason. Why: D15, and a preview of one model over another model's records shows nothing true. Cost: the dialog's choice; install, then activate or `POST /workspaces` with `modelReleaseId` |
+
+**What is built:**
+
+1. **Backend** (D52, D53): the diff's `workspaceKey`; `releaseName` on the workspace's model. No
+   migration.
+2. **Router and shell:** the address's workspace resolved first, then that workspace's model (cached
+   per workspace, D49); switching workspace swaps the model, applications and navigation with the
+   page; the D47 toast; the D48 pages; the D46 switcher content.
+3. **Settings › Model:** the D50 overview and catalogue, the D51 dialog from both ways in, the
+   release detail's per-workspace check.
+4. **Settings › Workspaces:** the model in entries and detail; New workspace on a model (D54).
+5. **Editor:** its workspace by D55; Install and activate into an existing or new workspace.
+6. **Docs:** USER_JOURNEYS J36 (browser evidence), API.md (D52, D53), CURRENT_FUNCTIONALITY,
+   MODEL_AUTHORING (D55), UI_ACCEPTANCE (state-inventory rows), EXECUTION_GUIDE (the runner),
+   CHANGELOG, PROJECT_STATUS, TODO.
+
+**Journey test cases.** API (`workspace_models` marker, X beside Y and the reverse):
+
+1. **D52.** Given the default workspace on X with records and a workspace on Y with records. When
+   Y's release is diffed against X's with `workspaceKey` of X's workspace, then `compatibility`
+   counts that workspace's records as needing a migration; with `workspaceKey` of Y's workspace,
+   compatible; without it, the default workspace's as before; an unknown key `404
+   WORKSPACE_NOT_FOUND`.
+2. **D53.** `GET /workspaces`, `GET /workspaces/{key}`, `GET /workspaces/{key}/model` and
+   `GET /workspace-models` name each workspace's `releaseName`, the name of the release it runs.
+
+Browser (`test:browser:workspace-m5`, new; the starter model in the default workspace and
+`generated-b` installed and run by a second workspace, records in each, set up through the API):
+
+3. **Switch.** The switcher shows the current workspace's model and release; the other workspace is
+   marked Other model; choosing it changes the top bar's applications and the navigation to its
+   model's, a toast says so, and its records show; switching back restores the first model.
+4. **Not in this model.** The address of a collection of the first model opened with the second
+   workspace shows "… is not in this workspace's model" naming the workspace holding it; "Open …"
+   opens the second model's start; an unknown workspace key shows its page.
+5. **Activate into one workspace.** A second release of `generated-b` installed through the API;
+   Settings › Model lists both workspaces with their models; **Activate a release…** on the second
+   workspace's row, the new release chosen: compatible, "Not changed: ‹default›"; after activating,
+   that row shows the new release and the default's row is unchanged; the first model's release
+   chosen instead for a workspace with records shows "A migration is needed" and no Activate.
+6. **A workspace on a model.** Settings › Workspaces › New workspace on "Another installed release"
+   (`generated-b`'s); it opens on that model.
+7. **New from a workbook into a new workspace.** A workbook draft installed with **Activate into a
+   new workspace**; the new workspace runs the new model and the default's model is unchanged.
+8. **Keyboard and phone.** Cases 3 and 5 by keyboard alone; at 390px the band's workspace choice and
+   Settings › Model's rows; light and dark screenshots of the switcher, the D48 page, the overview,
+   the dialog and the new-workspace dialog for approval.
+
+**Unit (Vitest):** the router resolving a route against its workspace's model (an application the
+model lacks gives the D48 state, not the default route); the switcher's marks. **Older tests made
+wrong by M5** are changed and listed in the record (expected: `App.test`, `ModelWorkbench.test`,
+`InstallDialog.test`, `WorkspaceSelector.test`, and the API calls of runners that use the single
+Active pill or the release detail's Activate, syntax-checked only).
+
+**Groups:** `workspace_models`, `contract` (the two API changes); Vitest on the changed files;
+format, lint, build; `test:browser:workspace-m5`; the accessibility check on the new surfaces. No
+migration, so no startup checks. **UI reference:** the U3 settings pages (SettingsLayout,
+CatalogueLayout) and the 0.10 N1 band; state-inventory rows added for the overview, the dialog and
+the D48 page.
+
+**Composable domains (ADR-032):** no door is affected (no identity, storage, audit, bulk API, `match`
+or coverage change).
+
+**What the user still cannot do after M5:** preview and run a migration when a release does not fit
+(V1; the dialog says a migration is needed), move change sets left behind (V3), move data between
+models (Track X).
+
+##### M5 record (2026-10-16)
+
+**Delivered 2026-10-16.** The user approved the screenshots the same day ("yes"). Built as
+planned:
+
+- **API** (D52, D53): `GET /model-releases/{id}/diff` takes `workspaceKey` (`routers/model_releases.py`,
+  resolved with `resolve_model_snapshot`); `releaseName` on `WorkspaceModelResponse`, so on every
+  workspace response, its model route, `GET /workspace-models` and an activation's answer.
+- **Router and shell** (D46–D49): `model/workspaceModels.ts` holds each workspace's model for the tab
+  (`workspaceModel`, `useWorkspaceModel`, `forgetWorkspaceModel`); `useRouter` resolves the address's
+  workspace, then its model, and swaps model and page together on a switch (`openWorkspace` for a
+  workspace's own start); `routes.missingElement` and the router's `problem` drive
+  `features/workspaces/NotInModel.tsx` (D48: an element the model lacks, an unknown or unavailable
+  workspace), replacing the silent jump to the start; the switch's toast (`App.modelChangeText`);
+  `WorkspaceSelector` names each model and release and marks Other model / Other release through
+  `ui/Selection`'s new `mark` (a `StatusPill`); a job's page and toasts use the job's workspace's model.
+- **Settings › Model** (D50, D51): `ModelWorkbench`'s overview (Workspaces and their models, Installed
+  releases by model with Run by, Drafts) and the catalogue grouped by model;
+  `model-admin/ActivateDialog.tsx`, one dialog from a workspace's row or a release's page (checked with
+  D52's diff, change sets left behind read from the workspace's open change sets, Not changed, the
+  first five reasons and no Activate when the data does not fit); `ModelReleaseDetail` shows Run by
+  and checks each workspace of its model (`compatibility.workspaces`).
+- **Settings › Workspaces** (D54): the model in each entry and the detail;
+  `workspaces/NewWorkspaceFields.tsx` (name, key, the Model choice) extracted from the create dialog
+  and shared with the editor.
+- **Editor** (D55): the editor's workspace by D55 (`useEditorWorkspace`); `TypePreview` reads under the
+  chosen workspace's own model and not from another model's workspace; `InstallDialog`'s Activate
+  into (an existing workspace, or a new one created with `modelReleaseId`); `LoadDialog` compares with
+  the release its chosen workspace runs (it read the default workspace's). `api.defaultWorkspaceModel`
+  removed.
+- **Docs:** API.md, USER_JOURNEYS J36, API_JOURNEYS, CURRENT_FUNCTIONALITY (F02, F15),
+  MODEL_AUTHORING (D55), UI_ACCEPTANCE (M5-1 to M5-5), EXECUTION_GUIDE (`workspace_models` 36 cases,
+  the runner, R's runner list), CHANGELOG, PROJECT_STATUS, TODO.
+
+**Where it differs from the plan:** case 7 installs an API-made draft of a new model from the editor
+rather than a workbook draft: the dialog and its Activate into are the same whatever made the draft,
+and A5–A7's runners cover the workbook path. A shared select now shows only its option's label once
+chosen (`components.css`; a description or mark stays in the list), and the dialog layout check
+skips visually hidden controls (react-aria's form select), both found by the runner. The install
+dialog names its fields Workspace name and Workspace key beside the release's Name. In the
+activation dialog the reasons the data does not fit are a list of the first five (the release's page
+lists every one), found when inspecting the screenshot, where they ran together as one paragraph.
+
+**Older tests changed because M5 made them wrong:** `App.test` (the D48 page in place of the silent
+fallback; the model cache reset per case), `useRouter.test` (a switch now waits for the other
+workspace's model), `ModelReleaseDetail.test` (Run by, the per-workspace check, Activate in a
+workspace…), `ModelWorkbench.test` (the overview in place of "the active release beside the
+catalogue"), `InstallDialog.test`, `LoadDialog.test`, `JobPage.test` (the job's workspace model),
+`WorkspaceSelector.test` (the description names the model), the fixtures' `releaseName`; runners
+syntax-checked only: the install button's name in a4a, a4b, a4c, t1 and `designer-surfaces`; `wp12`
+(activation through the dialog); `u3-settings`, `accessibility-gate`, `visual-regression-gate` (the
+overview's table in place of the catalogue).
+
+**Checks:**
+
+- `test_j36_workspace_ui_reads.py` (D52, D53): 2 cases × 2 directions written first and seen
+  failing (4 failed: parameter and field absent), then 4 passed (6 s).
+- `contract` and `workspace_models` in one run: 111 passed and 1 failed in 1 min 45 s (load 4.3);
+  the failure is `test_boundaries::test_tiers_hold`, the import cycle recorded in M1 (TODO). OpenAPI
+  lock re-baselined after diffing the default document against `c387e97`: `releaseName` on
+  `WorkspaceModelResponse` and `WorkspaceAssignmentResponse`, the diff's `workspaceKey`; nothing else.
+  Ruff on `app/` and `tests/`: clean.
+- Frontend: `tsc` clean; Vitest on the changed areas (`app`, `model-admin`, `model-editor`,
+  `workspaces`, `jobs`, `settings`, `ui`, `routing`, `model`, `api`): 574 passed in 56 files, the new
+  unit cases being the router's per-workspace model and D48 problem (2) and the switcher's marks
+  (1); `npm run format`, `npm run lint` (0 errors, the 7 listed warnings), `npm run build`.
+- `test:browser:workspace-m5` (new): cases 3–8 passed (17 s), with the starter model and generated-b
+  in two workspaces: keyboard alone for the switch and the activation; 390px for the band's choice
+  and Settings › Model without sideways scroll; axe with no violations on the second workspace's
+  shell, the D48 page, the overview, the activation dialog in both states and the new-workspace
+  dialog; the activation and new-workspace dialogs measured. Screenshots light and dark of the
+  switcher, the D48 page, the overview, the activation dialog (fits and does not fit), the new
+  workspace dialog, the install into a new workspace and the phone switcher and Settings › Model,
+  inspected and approved by the user.
+
+**Not run:** the full suites, `startup` (no migration), `model_admin` beyond `contract`, the older
+runners changed above (syntax only) and the accessibility and visual gates, all at R, where Settings ›
+Model's visual baselines change as intended (TODO). **What the user cannot do yet:** migrate a
+workspace's data to a release it does not fit (V1; the dialog says it is not available yet), move
+change sets left behind (V3), move data between models (Track X); the lookup over several workspaces
+has no screen (no package plans one).
 
 #### M6: Workspace models checkpoint
 

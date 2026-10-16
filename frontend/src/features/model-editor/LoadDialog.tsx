@@ -50,7 +50,8 @@ export function LoadDialog({
   run: RunStep;
   latestVersion: () => number;
   /** The active model changed: reload it before the review opens. */
-  onActivated: (release: ModelRelease) => Promise<void>;
+  /** The release was activated into `workspaceKey`, the workspace the file loads into. */
+  onActivated: (release: ModelRelease, workspaceKey: string) => Promise<void>;
   onOpenReview: (target: { applicationKey: string; workspaceKey: string; changeSetId: string }) => void;
   onClose: () => void;
 }) {
@@ -68,11 +69,10 @@ export function LoadDialog({
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([api.compileModelDraft(draftId, outline.version), api.defaultWorkspaceModel()])
-      .then(([compiled, state]) => {
-        if (cancelled) return;
-        setCompilation(compiled);
-        setActiveId(state.releaseId);
+    api
+      .compileModelDraft(draftId, outline.version)
+      .then((compiled) => {
+        if (!cancelled) setCompilation(compiled);
       })
       .catch((cause) => {
         if (!cancelled) setLoadError(errorMessage(cause));
@@ -83,6 +83,18 @@ export function LoadDialog({
     // The model is read once, when the dialog opens: a step taken here moves the version on.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftId]);
+
+  // The release the workspace loaded into runs now (0.11 M5): the draft activates there if it differs.
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .workspaceModel(workspace)
+      .then((state) => !cancelled && setActiveId(state.releaseId))
+      .catch((cause) => !cancelled && setLoadError(errorMessage(cause)));
+    return () => {
+      cancelled = true;
+    };
+  }, [workspace]);
 
   useJobStream(job && !isFinal(job) ? job.id : undefined, (next) => {
     setJob(next);
@@ -131,7 +143,7 @@ export function LoadDialog({
           setError(`${release.name} ${release.version} is installed but not active: ${activationRefusal(cause)}`);
           return;
         }
-        await onActivated(release);
+        await onActivated(release, workspace);
       }
       setStage("opening");
       setJob(

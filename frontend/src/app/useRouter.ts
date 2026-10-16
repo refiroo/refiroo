@@ -1,17 +1,38 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
-import { errorMessage } from "@/api/errors";
+import { errorMessage, isApiError } from "@/api/errors";
 import { applicationFor } from "@/model/lookup";
-import { defaultRoute, isSettingsRoute, parseRoute, routePath } from "@/routing/routes";
+import { forgetWorkspaceModel, workspaceModel } from "@/model/workspaceModels";
+import {
+  addressWorkspaceKey,
+  defaultRoute,
+  isSettingsRoute,
+  missingElement,
+  parseRoute,
+  routePath,
+  type MissingElement,
+} from "@/routing/routes";
 import { historyState, navigationEntry, restoreOrigin, routeWithOrigin } from "@/routing/navigationHistory";
 import { allowNavigation } from "@/routing/navigationGuard";
 import type { ApplicationRoute, EngineModel, RouteState } from "@/types";
 
 type ListRoute = Extract<RouteState, { kind: "list" }>;
 
+/**
+ * What the address asked for that cannot be shown (0.11 M5, D48): an element the workspace's model
+ * lacks, a workspace that does not exist, or one whose release cannot be loaded (D29). The route is
+ * then the start of the workspace whose model is loaded, and the page says what was asked for.
+ */
+export type RouteProblem =
+  (MissingElement & { workspaceKey: string }) | { kind: "workspace"; workspaceKey: string; unavailable?: string };
+
 export interface Router {
-  /** The active model, or undefined until it has loaded. */
+  /** The model of the workspace being shown (`modelWorkspaceKey`), or undefined until it has loaded. */
   model: EngineModel | undefined;
+  /** The workspace whose model `model` is; Settings keeps the one the user came from (D49). */
+  modelWorkspaceKey: string | undefined;
+  /** What the address asked for that cannot be shown, until the next navigation (D48). */
+  problem: RouteProblem | undefined;
   /** Message shown in place of the application when the model could not be loaded. */
   error: string;
   /**
@@ -45,8 +66,13 @@ export interface Router {
    * the remembered application route becomes the most recent of them.
    */
   rememberWorkspace: (workspaceKey: string) => void;
-  /** Re-reads the active model, after a different release is activated. */
-  reloadModel: () => Promise<void>;
+  /**
+   * Forgets a workspace's model after an activation into it (every workspace's without a key) and
+   * re-reads the shown one if it was among them.
+   */
+  reloadModel: (workspaceKey?: string) => Promise<void>;
+  /** Opens a workspace at its own model's start page (0.11 M5). */
+  openWorkspace: (workspaceKey: string) => void;
   /** The workspace a URL that names none opens in. */
   defaultWorkspaceKey: string;
   /** Records a new default workspace, the fallback for a URL that names none. */
@@ -62,30 +88,98 @@ export interface Router {
  */
 export function useRouter(): Router {
   const [model, setModel] = useState<EngineModel>();
+  const [modelWorkspaceKey, setModelWorkspaceKey] = useState<string>();
   const [route, setRoute] = useState<RouteState>();
+  const [problem, setProblem] = useState<RouteProblem>();
   const [error, setError] = useState("");
   const [defaultWorkspaceKey, setDefaultWorkspaceKey] = useState("default");
   const lastCollections = useRef(new Map<string, ListRoute>());
   const mostRecentCollection = useRef<ListRoute | undefined>(undefined);
   const mostRecentApplicationRoute = useRef<ApplicationRoute | undefined>(undefined);
   const currentRoute = useRef<RouteState | undefined>(undefined);
+  const shown = useRef<{ model: EngineModel; workspaceKey: string } | undefined>(undefined);
+  const defaultKey = useRef("default");
   const historyIndex = useRef(0);
   const restoring = useRef(false);
+  // A workspace's model loads before its page shows; a later navigation supersedes a pending one.
+  const sequence = useRef(0);
+
+  /** Show `next` under `loaded`, the model of `workspaceKey`, with what could not be shown. */
+  const show = useCallback(
+    (loaded: EngineModel, workspaceKey: string, next: RouteState, found: RouteProblem | undefined) => {
+      shown.current = { model: loaded, workspaceKey };
+      currentRoute.current = next;
+      setModel(loaded);
+      setModelWorkspaceKey(workspaceKey);
+      setProblem(found);
+      setRoute(next);
+    },
+    [],
+  );
+
+  /**
+   * The model of the workspace an address names, and the route it parses to under that model. A
+   * workspace that cannot be read falls back to the default workspace's model and start, with the
+   * problem said (D48, D29).
+   */
+  const resolveAddress = useCallback(
+    async (location: Pick<Location, "pathname" | "search">, entry: ReturnType<typeof navigationEntry>) => {
+      const fallback = defaultKey.current;
+      const settings = location.pathname.startsWith("/settings");
+      // Settings keep the model of the workspace shown before them (D49).
+      const workspaceKey = settings
+        ? (shown.current?.workspaceKey ?? fallback)
+        : addressWorkspaceKey(fallback, location);
+      try {
+        const loaded = await workspaceModel(workspaceKey);
+        const missing = settings ? undefined : missingElement(loaded, location);
+        const parsed = restoreOrigin(parseRoute(loaded, workspaceKey, location), entry, loaded);
+        return {
+          loaded,
+          workspaceKey,
+          route: parsed,
+          problem: missing ? { ...missing, workspaceKey } : undefined,
+        };
+      } catch (cause) {
+        const unknown = isApiError(cause, "WORKSPACE_NOT_FOUND");
+        if (workspaceKey === fallback || (!unknown && !isApiError(cause, "MODEL_REGISTRY_UNAVAILABLE"))) throw cause;
+        const loaded = await workspaceModel(fallback);
+        return {
+          loaded,
+          workspaceKey: fallback,
+          route: defaultRoute(loaded, fallback),
+          problem: {
+            kind: "workspace" as const,
+            workspaceKey,
+            ...(unknown ? {} : { unavailable: errorMessage(cause) }),
+          },
+        };
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
-    Promise.all([api.model(), api.workspaceRuntimeState()])
-      .then(([loaded, workspaceState]) => {
+    api
+      .workspaceRuntimeState()
+      .then(async (workspaceState) => {
+        defaultKey.current = workspaceState.defaultWorkspaceKey;
         setDefaultWorkspaceKey(workspaceState.defaultWorkspaceKey);
         const entry = navigationEntry(window.history.state, `${window.location.pathname}${window.location.search}`);
-        const initial = restoreOrigin(parseRoute(loaded, workspaceState.defaultWorkspaceKey), entry, loaded);
+        const resolved = await resolveAddress(window.location, entry);
         historyIndex.current = entry?.index ?? 0;
-        currentRoute.current = initial;
-        setModel(loaded);
-        setRoute(initial);
-        window.history.replaceState(historyState(initial, historyIndex.current), "", routePath(initial));
+        show(resolved.loaded, resolved.workspaceKey, resolved.route, resolved.problem);
+        // An address that cannot be shown stays in the address bar, so it can be corrected or shared.
+        if (!resolved.problem)
+          window.history.replaceState(
+            historyState(resolved.route, historyIndex.current),
+            "",
+            routePath(resolved.route),
+          );
+        else window.history.replaceState(historyState(resolved.route, historyIndex.current), "");
       })
       .catch((cause) => setError(errorMessage(cause)));
-  }, []);
+  }, [resolveAddress, show]);
 
   useEffect(() => {
     if (!model) return;
@@ -112,22 +206,32 @@ export function useRouter(): Router {
         }
         return;
       }
-      const next = restoreOrigin(parseRoute(model, defaultWorkspaceKey), entry, model);
       historyIndex.current = entry?.index ?? historyIndex.current + 1;
-      currentRoute.current = next;
-      window.history.replaceState(historyState(next, historyIndex.current), "", routePath(next));
-      setRoute(next);
+      const location = { pathname: window.location.pathname, search: window.location.search };
+      const ticket = ++sequence.current;
+      resolveAddress(location, entry)
+        .then((resolved) => {
+          if (ticket !== sequence.current) return;
+          if (!resolved.problem)
+            window.history.replaceState(
+              historyState(resolved.route, historyIndex.current),
+              "",
+              routePath(resolved.route),
+            );
+          show(resolved.loaded, resolved.workspaceKey, resolved.route, resolved.problem);
+        })
+        .catch((cause) => setError(errorMessage(cause)));
     };
     window.addEventListener("popstate", pop);
     return () => window.removeEventListener("popstate", pop);
-  }, [defaultWorkspaceKey, model]);
+  }, [model, resolveAddress, show]);
 
   const requested = model && route && !isSettingsRoute(route) ? applicationFor(model, route.applicationKey) : undefined;
   const active =
     model && route
       ? isSettingsRoute(route) || requested
         ? route
-        : defaultRoute(model, defaultWorkspaceKey)
+        : defaultRoute(model, modelWorkspaceKey ?? defaultWorkspaceKey)
       : undefined;
 
   // Remembering the collection is a write, so it belongs in an effect rather than in render. The
@@ -142,19 +246,57 @@ export function useRouter(): Router {
     if (active && !isSettingsRoute(active)) mostRecentApplicationRoute.current = active;
   }, [active]);
 
-  const navigate = useCallback((next: RouteState, replace = false) => {
-    if (restoring.current || !allowNavigation()) return false;
-    const destination = routeWithOrigin(next, currentRoute.current);
-    if (!replace) historyIndex.current += 1;
-    window.history[replace ? "replaceState" : "pushState"](
-      historyState(destination, historyIndex.current),
-      "",
-      routePath(destination),
-    );
-    currentRoute.current = destination;
-    setRoute(destination);
-    return true;
-  }, []);
+  /** Write `destination` to the history, then show it (its model already loaded). */
+  const commit = useCallback(
+    (destination: RouteState, replace: boolean, loaded: EngineModel, workspaceKey: string) => {
+      const path = routePath(destination);
+      const missing = isSettingsRoute(destination)
+        ? undefined
+        : missingElement(loaded, new URL(path, window.location.origin));
+      const shownRoute = missing ? defaultRoute(loaded, workspaceKey) : destination;
+      if (!replace) historyIndex.current += 1;
+      window.history[replace ? "replaceState" : "pushState"](historyState(shownRoute, historyIndex.current), "", path);
+      show(loaded, workspaceKey, shownRoute, missing ? { ...missing, workspaceKey } : undefined);
+    },
+    [show],
+  );
+
+  const navigate = useCallback(
+    (next: RouteState, replace = false) => {
+      if (restoring.current || !allowNavigation()) return false;
+      const destination = routeWithOrigin(next, currentRoute.current);
+      const current = shown.current;
+      const workspaceKey = isSettingsRoute(destination) ? current?.workspaceKey : destination.workspaceKey;
+      const ticket = ++sequence.current;
+      if (current && (!workspaceKey || workspaceKey === current.workspaceKey)) {
+        commit(destination, replace, current.model, current.workspaceKey);
+        return true;
+      }
+      // Another workspace: its model first, then its page under that model (0.11 M5).
+      workspaceModel(workspaceKey!)
+        .then((loaded) => {
+          if (ticket === sequence.current) commit(destination, replace, loaded, workspaceKey!);
+        })
+        .catch((cause) => {
+          if (ticket !== sequence.current || !current) return;
+          // The workspace cannot be read: say so where the user is (D48, D29).
+          const unknown = isApiError(cause, "WORKSPACE_NOT_FOUND");
+          if (!replace) historyIndex.current += 1;
+          window.history[replace ? "replaceState" : "pushState"](
+            historyState(currentRoute.current!, historyIndex.current),
+            "",
+            routePath(destination),
+          );
+          setProblem({
+            kind: "workspace",
+            workspaceKey: workspaceKey!,
+            ...(unknown ? {} : { unavailable: errorMessage(cause) }),
+          });
+        });
+      return true;
+    },
+    [commit],
+  );
 
   const replaceRoute = useCallback((next: RouteState) => {
     if (restoring.current) return;
@@ -164,9 +306,27 @@ export function useRouter(): Router {
     setRoute(destination);
   }, []);
 
-  const reloadModel = useCallback(async () => {
-    setModel(await api.model());
+  const reloadModel = useCallback(async (workspaceKey?: string) => {
+    forgetWorkspaceModel(workspaceKey);
+    const current = shown.current;
+    if (!current || (workspaceKey !== undefined && workspaceKey !== current.workspaceKey)) return;
+    const loaded = await workspaceModel(current.workspaceKey);
+    shown.current = { model: loaded, workspaceKey: current.workspaceKey };
+    setModel(loaded);
   }, []);
+
+  const openWorkspace = useCallback(
+    (workspaceKey: string) => {
+      if (restoring.current || !allowNavigation()) return;
+      const ticket = ++sequence.current;
+      workspaceModel(workspaceKey)
+        .then((loaded) => {
+          if (ticket === sequence.current) commit(defaultRoute(loaded, workspaceKey), false, loaded, workspaceKey);
+        })
+        .catch((cause) => setError(errorMessage(cause)));
+    },
+    [commit],
+  );
 
   const rememberWorkspace = useCallback((workspaceKey: string) => {
     for (const [applicationKey, collection] of lastCollections.current) {
@@ -191,6 +351,8 @@ export function useRouter(): Router {
 
   return {
     model,
+    modelWorkspaceKey,
+    problem,
     error,
     route: active,
     navigate,
@@ -200,7 +362,11 @@ export function useRouter(): Router {
     lastApplicationRoute: () => mostRecentApplicationRoute.current,
     rememberWorkspace,
     reloadModel,
+    openWorkspace,
     defaultWorkspaceKey,
-    defaultWorkspaceChanged: setDefaultWorkspaceKey,
+    defaultWorkspaceChanged: (workspaceKey: string) => {
+      defaultKey.current = workspaceKey;
+      setDefaultWorkspaceKey(workspaceKey);
+    },
   };
 }

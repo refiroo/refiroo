@@ -43,6 +43,7 @@
     "test:browser:c5": "node e2e/c5-restructuring-acceptance.mjs",
     "test:browser:p2": "node e2e/p2-change-review.mjs",
     "test:browser:w4": "node e2e/w4-workspace-admin.mjs",
+    "test:browser:workspace-m5": "node e2e/workspace-m5.mjs",
     "test:browser:settings": "node e2e/u3-settings.mjs",
     "test:browser:integration": "node e2e/u4-integration.mjs",
     "test:browser:webhooks": "node e2e/u5-webhooks.mjs",

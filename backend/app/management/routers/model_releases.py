@@ -7,10 +7,11 @@ from ...common.time import as_utc
 from ...engine.model.compiler import SCHEMA_VERSIONS, compile_model
 from ...engine.model.diff import semantic_diff
 from ...engine.model.draft_compatibility import assess
+from ...engine.model.registry import resolve_model_snapshot
 from ...engine.model.workspace_models import assigned_workspaces
 from ...errors import api_error
 from ...models.database import AuditEvent, ModelRelease, WorkspaceModel
-from ..dependencies import DbSession, DefaultModelSnapshot
+from ..dependencies import DbSession
 from ..paging import PageQuery
 from ..presenters import (
     candidate_compatibility_response,
@@ -149,9 +150,15 @@ def list_model_release_activations(
 def diff_model_release(
     release_id: str,
     session: DbSession,
-    snapshot: DefaultModelSnapshot,
     against_release_id: str = Query(alias="againstReleaseId"),
+    workspace_key: str | None = Query(
+        default=None,
+        alias="workspaceKey",
+        description="The workspace whose activation `compatibility` and `consumerContracts`"
+        " describe, against its own release and data; the default workspace without it (0.11 D52)",
+    ),
 ) -> ModelReleaseDiffResponse:
+    snapshot = resolve_model_snapshot(session, workspace_key)
     releases = {
         release.public_id: release
         for release in session.scalars(
@@ -201,7 +208,8 @@ def diff_model_release(
     ):
         raise api_error(500, "INTERNAL_ERROR", "Compiled model result is incomplete")
 
-    # Into the default workspace, and into each workspace running the candidate's model (D25).
+    # Into the named (or default) workspace, and into each workspace running the candidate's
+    # model (D25, D52).
     compatibility = assess(session, snapshot, candidate.model)
     changes = semantic_diff(baseline.canonical_model, candidate.canonical_model)
 

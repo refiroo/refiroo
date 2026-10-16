@@ -143,7 +143,7 @@ try {
   // --- 7. Settings › Model (the model workbench's list page since U3) ---
   await page.goto(`${uiUrl}/settings/model`);
   await shown(page.getByRole("heading", { name: "Model", exact: true, level: 1 }));
-  await shown(page.getByRole("navigation", { name: "Model catalogue" }));
+  await shown(page.getByRole("group", { name: "Workspaces and their models" }));
   result = await runAxe(page, ALLOWLIST, "model-workbench");
   if (result.violations.length > 0) failures.push(`model-workbench:\n${formatViolations(result.violations)}`);
   checks.push(`model-workbench: ${result.violations.length} violations, ${result.allowed.length} allowed`);
@@ -195,7 +195,7 @@ try {
     ["dark-detail-domain", `/apps/rdm-master/objects/domain/${records.domain[0].id}?workspaceKey=default`, () => page.getByRole("heading", { name: "Domain 00" })],
     ["dark-detail-system", `/apps/rdm-systems/objects/system/${records.system[0].id}?workspaceKey=default`, () => page.getByRole("heading", { name: "System 00" })],
     ["dark-change-sets-list", "/apps/rdm-master/change-sets?workspaceKey=default", () => page.getByText("Second change set")],
-    ["dark-model-workbench", "/settings/model", () => page.getByRole("navigation", { name: "Model catalogue" })],
+    ["dark-model-workbench", "/settings/model", () => page.getByRole("group", { name: "Workspaces and their models" })],
     ["dark-collection-system", "/apps/rdm-systems/views/systems?workspaceKey=default", () => page.getByRole("button", { name: "System 00", exact: true })],
     ["dark-change-set-collection", `/apps/rdm-master/views/domains?workspaceKey=default&changeSetId=${changeSet2.id}`, () => page.getByRole("button", { name: "Domain 00", exact: true })],
     ["dark-change-set-detail", `/apps/rdm-master/objects/domain/${records.domain[0].id}?workspaceKey=default&changeSetId=${changeSet2.id}`, () => page.getByRole("heading", { name: "Domain 00" })],

@@ -12,6 +12,7 @@ class WorkspaceModelResponse(BaseModel):
 
     releaseId: str
     releaseKey: str
+    releaseName: str
     releaseVersion: str
     schemaVersion: str
     modelHash: str

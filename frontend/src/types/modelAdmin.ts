@@ -213,7 +213,9 @@ export interface ModelReleaseDiff {
   againstReleaseId: string;
   releaseId: string;
   changes: ModelChange[];
+  /** Activating the release into the workspace the diff names, the default one without (D52). */
   compatibility: CandidateCompatibility;
+  consumerContracts?: ModelConsumerContracts;
 }
 
 /** The release a workspace runs and its assignment's version, which activation claims (0.11 M1). */
@@ -221,6 +223,8 @@ export interface WorkspaceModel {
   workspaceKey: string;
   releaseId: string;
   releaseKey: string;
+  /** The release's name, which names the model to people (0.11 D53). */
+  releaseName: string;
   releaseVersion: string;
   schemaVersion: string;
   modelHash: string;

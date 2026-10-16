@@ -6,6 +6,34 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.11 M5)
+
+- The browser follows each workspace's model: switching workspace changes the applications,
+  navigation and pages to that workspace's model, with a toast when the model or release differs;
+  the workspace selector names each workspace's model and release and marks another model or
+  release.
+- A page saying what an address asks for that the workspace's model lacks, with the workspaces
+  whose model has it; the same for an unknown workspace and one whose release cannot be loaded.
+- Settings › Model shows the workspaces with their models and releases, the installed releases by
+  model with the workspaces running each, and the drafts; a release is activated into one workspace
+  from that workspace's row or the release's page, checked against that workspace's data alone.
+- Settings › Workspaces creates a workspace on another installed release; the model editor's
+  Install and activate puts the release into an existing or a new workspace.
+- `releaseName` on a workspace's model (workspace responses, its model route, `GET /workspace-models`,
+  an activation's answer); `workspaceKey` on `GET /model-releases/{id}/diff`, whose `compatibility`
+  and `consumerContracts` then describe activating into that workspace.
+- `test:browser:workspace-m5`.
+
+### Changed (0.11 M5)
+
+- An address naming an application the workspace's model lacks no longer opens the start page
+  silently; it says so.
+- A job's page and toasts name types under the job's own workspace's model; the model editor's
+  preview reads records only from a workspace running the draft's model; the load into a change set
+  compares the draft with the release its chosen workspace runs.
+- A release's page shows which workspaces run it and checks it against each workspace of its model;
+  its Activate opens the activation dialog. The single "Active" release is gone from Settings › Model.
+
 ### Added (0.11 M4)
 
 - `GET /objects` takes `workspaceKey` repeatable: two or more read those workspaces' live records

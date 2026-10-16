@@ -20,7 +20,7 @@ const PAGES = [
   ["About", "/settings/about", (page) => page.getByRole("region", { name: "Database" })],
   ["Appearance", "/settings/appearance", (page) => page.getByRole("group", { name: "Table density" })],
   ["Workspaces", "/settings/workspaces", (page) => page.getByRole("navigation", { name: "Workspace catalogue" })],
-  ["Model", "/settings/model", (page) => page.getByRole("navigation", { name: "Model catalogue" })],
+  ["Model", "/settings/model", (page) => page.getByRole("group", { name: "Workspaces and their models" })],
   ["Deployment", "/settings/deployment", (page) => page.getByRole("region", { name: "Capability groups" })],
 ];
 
@@ -134,7 +134,7 @@ try {
     await page.getByRole("button", { name: "Export JSON" }).waitFor();
     await page
       .getByRole(width === 390 ? "button" : "navigation", {
-        name: width === 390 ? "All releases and drafts" : "Model catalogue",
+        name: width === 390 ? "Workspaces, releases and drafts" : "Model catalogue",
       })
       .waitFor();
     await page.goto(`${uiUrl}/settings/workspaces/default`);
