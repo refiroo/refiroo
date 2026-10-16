@@ -440,12 +440,17 @@ release differs. The workspace selector names each workspace's model and release
 running another model or another release. An address naming an application, collection or kind of
 record the workspace's model lacks opens a page saying so, with the workspaces whose model has it,
 instead of another page; so do an unknown workspace and one whose release cannot be loaded. Settings ›
-**Model** lists the workspaces with the model and release each runs (and a newer installed release
-of it), the installed releases grouped by model with the workspaces running each, and the drafts. A
-release is activated into one workspace from that workspace's row or from the release's page: the
-dialog checks that workspace's data alone, lists its open change sets that would stay on its
-previous release and the workspaces it leaves unchanged, and offers no activation when the data does
-not fit. A job's page names its types under its own workspace's model. The model editor previews
+**Model** is laid out as Settings › Workspaces: a list of the models (the default workspace's first,
+then the others in use, then the rest, and the drafts of models not installed yet) beside the
+selected model's card, which shows where it runs, its newest release, its releases newest first with
+the workspaces running each, and the drafts started from its releases with how far behind each is.
+A workspace's model is changed with **Change model…** from the model's card or a release's page:
+the dialog lists the installed releases grouped by model, the workspace's own first, checks that
+workspace's data alone, lists its open change sets that would stay on its previous release and the
+workspaces it leaves unchanged, and offers no change when the data does not fit. A page opened
+before such a change cannot save under the release it was built on: its save is refused in place,
+nothing is saved, and a toast names the workspace's new release with **Reload**. The top bar shows
+the default workspace's model's product name on every page. A job's page names its types under its own workspace's model. The model editor previews
 records of a workspace running the draft's model, and **Install and activate** puts the release into
 an existing workspace or a new one created on it. Migrating a workspace's data to a release it does
 not fit is not available yet, and the lookup over several workspaces has no screen.

@@ -114,6 +114,7 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
           route={route}
           onRouteChange={(next) => navigate(next)}
           onActiveModelChange={router.reloadModel}
+          onOpenWorkspace={(workspaceKey) => navigate({ kind: "settings", page: "workspaces", workspaceKey })}
         />
       ) : null}
     </SettingsShell>

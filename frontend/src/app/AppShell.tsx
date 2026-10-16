@@ -28,6 +28,7 @@ export function AppShell({
   model,
   application,
   activeRoute,
+  nothingCurrent = false,
   refreshToken,
   onNavigate,
   onSelectApplication,
@@ -43,6 +44,8 @@ export function AppShell({
   model: EngineModel;
   application: ApplicationDefinition;
   activeRoute: ApplicationRoute;
+  /** The page shows something the route does not name (D48's page), so the rail marks nothing. */
+  nothingCurrent?: boolean;
   refreshToken: number;
   onNavigate: (route: RouteState) => void;
   onSelectApplication: (application: ApplicationDefinition) => void;
@@ -73,6 +76,7 @@ export function AppShell({
   }, []);
   const changeSetId = routeChangeSetId(activeRoute);
   const publicationId = routePublicationId(activeRoute);
+  const current = nothingCurrent ? undefined : activeRoute;
 
   return (
     <ShellFrame
@@ -110,10 +114,10 @@ export function AppShell({
               model={model}
               application={application}
               workspaceKey={activeRoute.workspaceKey}
-              activeObjectId={activeRoute.kind === "detail" ? activeRoute.objectId : undefined}
-              activeObjectTypeKey={activeRoute.kind === "detail" ? activeRoute.objectTypeKey : undefined}
-              activeViewKey={activeRoute.kind === "list" ? activeRoute.viewKey : undefined}
-              activeGroupKey={activeRoute.kind === "group" ? activeRoute.groupKey : undefined}
+              activeObjectId={current?.kind === "detail" ? current.objectId : undefined}
+              activeObjectTypeKey={current?.kind === "detail" ? current.objectTypeKey : undefined}
+              activeViewKey={current?.kind === "list" ? current.viewKey : undefined}
+              activeGroupKey={current?.kind === "group" ? current.groupKey : undefined}
               refreshToken={refreshToken}
               readOnly={workspace?.status === "retired"}
               onChanged={onChanged}

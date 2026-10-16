@@ -141,6 +141,7 @@ function settingsRoute(parts: string[], query: URLSearchParams): SettingsRoute |
   }
   if (page === "model") {
     if (kind === "releases" && id) return { kind: "settings", page, releaseId: id };
+    if (kind === "models" && id) return { kind: "settings", page, modelKey: id };
     if (kind === "drafts" && id && parts[4] === "editor") {
       return { kind: "settings", page, draftId: id, editor: editorSelection(query) };
     }
@@ -207,6 +208,7 @@ function settingsPath(route: SettingsRoute) {
   if (route.page === "model" && route.draftId) return `/settings/model/drafts/${encodeURIComponent(route.draftId)}`;
   if (route.page === "model" && route.releaseId)
     return `/settings/model/releases/${encodeURIComponent(route.releaseId)}`;
+  if (route.page === "model" && route.modelKey) return `/settings/model/models/${encodeURIComponent(route.modelKey)}`;
   return `/settings/${route.page}`;
 }
 

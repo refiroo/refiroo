@@ -71,11 +71,15 @@ class Api:
     def get(self, path: str, **params: Any) -> Response:
         return self._call("GET", path, params=_params(params))
 
-    def post(self, path: str, body: Any = None, **params: Any) -> Response:
-        return self._call("POST", path, json=body, params=_params(params))
+    def post(
+        self, path: str, body: Any = None, headers: dict[str, str] | None = None, **params: Any
+    ) -> Response:
+        return self._call("POST", path, json=body, params=_params(params), headers=headers)
 
-    def patch(self, path: str, body: Any, **params: Any) -> Response:
-        return self._call("PATCH", path, json=body, params=_params(params))
+    def patch(
+        self, path: str, body: Any, headers: dict[str, str] | None = None, **params: Any
+    ) -> Response:
+        return self._call("PATCH", path, json=body, params=_params(params), headers=headers)
 
     def put(self, path: str, body: Any, **params: Any) -> Response:
         return self._call("PUT", path, json=body, params=_params(params))
@@ -173,6 +177,7 @@ class World:
         change_set: dict[str, Any] | None = None,
         id: str | None = None,
         fill: bool = True,
+        headers: dict[str, str] | None = None,
     ) -> Response:
         """``POST /objects`` for a record of ``structure``; ``values`` are keyed by structure
         (``R.n``) or by attribute key, and fill the type's required values unless ``fill`` is off."""
@@ -196,7 +201,7 @@ class World:
             body["expectedChangeSetVersion"] = change_set["version"]
         if id is not None:
             body["id"] = id
-        return self.api.post("/objects", body)
+        return self.api.post("/objects", body, headers=headers)
 
     def made(self, structure: str, name: str, **kwargs: Any) -> dict[str, Any]:
         """A record created as :meth:`create` does, which must succeed."""

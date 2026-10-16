@@ -8,7 +8,7 @@ import type { ApplicationDefinition } from "@/types";
 import { TREE_PAGE_SIZE } from "@/features/objects/RecordTree";
 import { capabilitiesFixture } from "@/test/capabilities";
 import { findTreeItem } from "@/test/tree";
-import App from "./App";
+import App, { releaseChangedText } from "./App";
 
 vi.mock("@/api/client", () => ({
   api: {
@@ -606,6 +606,77 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: "Domains", level: 1 })).toBeInTheDocument();
   });
 
+  it("says which release a refused write's workspace or change set now runs (0.11 M6a, D66)", async () => {
+    vi.mocked(api.modelRelease).mockResolvedValue({ name: "Journey model A", version: "1.1.0" } as never);
+    const refusal = (details: object) => new ApiError(409, "MODEL_RELEASE_CHANGED", "Reload", details);
+
+    expect(await releaseChangedText(refusal({ workspaceKey: "site-a", currentReleaseId: "r2" }))).toBe(
+      "site-a now runs Journey model A 1.1.0. Nothing was saved.",
+    );
+    expect(
+      await releaseChangedText(refusal({ workspaceKey: "site-a", changeSetId: "cs", currentReleaseId: "r2" })),
+    ).toBe("This change set now uses Journey model A 1.1.0. Nothing was saved.");
+  });
+
+  it("keeps the instance's name in the top bar whatever model the workspace runs (0.11 M6)", async () => {
+    vi.mocked(api.model).mockImplementation(async (context = {}) =>
+      context.workspaceKey === "west" ? { ...testModel, product: { name: "West's own model" } } : testModel,
+    );
+    visit("/apps/test-app/views/domains?workspaceKey=west");
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "Domains", level: 1 });
+    expect(await screen.findByRole("button", { name: "Test Engine home" })).toBeInTheDocument();
+    expect(screen.queryByText("West's own model")).not.toBeInTheDocument();
+  });
+
+  it("marks no collection as current in the rail while saying what the model lacks (0.11 M6, D58)", async () => {
+    visit("/apps/retired-app/views/anything");
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "retired-app is not in this workspace's model", level: 1 });
+    const rail = await screen.findByRole("navigation", { name: "Test App collections" });
+    expect(within(rail).getAllByRole("button").length).toBeGreaterThan(0);
+    expect(within(rail).queryByRole("button", { current: "page" })).not.toBeInTheDocument();
+  });
+
+  it("reads the rail's collections once on a workspace switch, and only the new workspace's (0.11 M6, D58)", async () => {
+    vi.mocked(api.workspaces).mockResolvedValue({
+      items: [
+        {
+          key: "west",
+          label: "West",
+          status: "active",
+          version: 1,
+          createdAt: "2026-09-05T00:00:00Z",
+          updatedAt: "2026-09-05T00:00:00Z",
+          model: testWorkspaceModel,
+        },
+      ],
+      nextCursor: null,
+    });
+    visit("/apps/test-app/views/domains?workspaceKey=default");
+    render(<App />);
+    await screen.findByRole("heading", { name: "Domains", level: 1 });
+    // The rail's top-level reads: one per type at the top of the tree.
+    const railReads = (workspaceKey: string) =>
+      vi
+        .mocked(api.objects)
+        .mock.calls.filter(([, query]) => query?.workspaceKey === workspaceKey && query?.topLevel === true).length;
+    await waitFor(() => expect(railReads("default")).toBeGreaterThan(0));
+    const before = railReads("default");
+
+    const selector = await screen.findByRole("combobox", { name: "Workspace" });
+    fireEvent.change(selector, { target: { value: "west" } });
+    fireEvent.click(screen.getByRole("button", { name: /Show workspace options/ }));
+    fireEvent.click(await screen.findByRole("option", { name: /West/ }));
+    await waitFor(() => expect(railReads("west")).toBe(before));
+    await new Promise((settle) => setTimeout(settle, 50));
+
+    expect(railReads("west")).toBe(before);
+    expect(railReads("default")).toBe(before);
+  });
+
   it("navigates into an object and back to the collection it came from", async () => {
     const westObject = { ...domainObject, workspaceKey: "west" };
     vi.mocked(api.objects).mockResolvedValue({ items: [westObject], nextCursor: null });
@@ -882,13 +953,13 @@ describe("App", () => {
       publishedAt: "",
       withdrawnAt: "",
     });
-    vi.mocked(api.model)
-      .mockResolvedValueOnce(testModel)
-      .mockRejectedValueOnce(
-        new ApiError(409, "UNSUPPORTED_PINNED_MODEL_SCHEMA", "Unsupported pinned schema", {
-          schemaVersion: "0.4",
-        }),
-      );
+    // By context, not by call order: the default workspace's model is also read, for the top bar.
+    vi.mocked(api.model).mockImplementation(async (context = {}) => {
+      if (!context.publicationId) return testModel;
+      throw new ApiError(409, "UNSUPPORTED_PINNED_MODEL_SCHEMA", "Unsupported pinned schema", {
+        schemaVersion: "0.4",
+      });
+    });
     visit("/apps/test-app/views/domains?workspaceKey=west&publicationId=unsupported-publication");
     render(<App />);
 

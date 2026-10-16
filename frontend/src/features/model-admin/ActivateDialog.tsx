@@ -12,6 +12,7 @@ import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import { activationRefusal } from "@/features/model-editor/InstallDialog";
 import { workspaceModelLabel } from "@/features/workspaces/WorkspaceSelector";
+import { releasesByModel } from "@/features/model-admin/modelLines";
 import type {
   ChangeSet,
   ModelDiagnostic,
@@ -21,7 +22,9 @@ import type {
   WorkspaceModelActivation,
 } from "@/types";
 import { Modal } from "@/ui/Modal";
+import { Icon } from "@/ui/Icon";
 import { Notice } from "@/ui/Notice";
+import { StatusPill } from "@/ui/StatusPill";
 import { SelectField } from "@/ui/Selection";
 import { Skeleton } from "@/ui/Skeleton";
 
@@ -39,6 +42,15 @@ async function openChangeSets(workspaceKey: string): Promise<ChangeSet[]> {
     cursor = page.nextCursor ?? undefined;
   } while (cursor);
   return found;
+}
+
+/** The candidate releases by model, the workspace's own model first, each newest first (M6). */
+function groupedCandidates(candidates: ModelReleaseSummary[], ownModelKey: string | undefined) {
+  const models = releasesByModel(candidates);
+  return [
+    ...models.filter((model) => model.key === ownModelKey),
+    ...models.filter((model) => model.key !== ownModelKey),
+  ];
 }
 
 export function ActivateDialog({
@@ -69,10 +81,27 @@ export function ActivateDialog({
     if (fixedRelease) return fixedRelease;
     const current = workspaces.find((item) => item.key === fixedWorkspace);
     const choices = candidatesFor(current);
-    // A newer release of the workspace's own model first, as the mock-up proposes it.
-    return (choices.find((item) => item.key === current?.model.releaseKey) ?? choices[0])?.id ?? "";
+    // The newest other release of the workspace's own model, as the mock-up proposes it; for
+    // another model nothing is chosen for the user (M6).
+    const own = choices
+      .filter((item) => item.key === current?.model.releaseKey)
+      .sort((a, b) => b.installedAt.localeCompare(a.installedAt))[0];
+    return own?.id ?? "";
   });
   const release = releases.find((item) => item.id === releaseId);
+  const groups = groupedCandidates(candidatesFor(workspace), workspace?.model.releaseKey);
+  // A workspace whose own model has no other release: said first, so the list does not look empty.
+  const ownWithNoOther = !fixedRelease && !groups.some((model) => model.key === workspace?.model.releaseKey);
+  // The models whose releases are shown: the workspace's own, and the chosen release's (M6).
+  const [opened, setOpened] = useState<Set<string>>(
+    () =>
+      new Set(
+        [
+          workspaces.find((item) => item.key === fixedWorkspace)?.model.releaseKey,
+          releases.find((item) => item.id === fixedRelease)?.key,
+        ].filter((key): key is string => Boolean(key)),
+      ),
+  );
   const [check, setCheck] = useState<Check>();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -119,7 +148,7 @@ export function ActivateDialog({
   }
 
   const title = fixedWorkspace
-    ? `Activate a release in ${workspace?.label ?? fixedWorkspace}`
+    ? `Change the model of ${workspace?.label ?? fixedWorkspace}`
     : `Activate ${release ? `${release.name} ${release.version}` : "the release"} in a workspace`;
   return (
     <Modal
@@ -152,25 +181,78 @@ export function ActivateDialog({
         ) : (
           <fieldset className="activate-releases">
             <legend>Release</legend>
-            {candidatesFor(workspace).map((item) => (
-              <label key={item.id} className="checkbox">
-                <input
-                  type="radio"
-                  name="activate-release"
-                  checked={item.id === releaseId}
-                  onChange={() => setReleaseId(item.id)}
-                />
-                <span>
-                  <strong>{item.name}</strong> <span className="mono">{item.version}</span>
-                  <small>
-                    {item.key === workspace?.model.releaseKey
-                      ? "Another release of this workspace's model"
-                      : "A different model"}{" "}
-                    · schema {item.schemaVersion}
-                  </small>
+            {ownWithNoOther && workspace && (
+              <p className="activate-release-group activate-release-own">
+                <span className="activate-release-head is-static">
+                  {workspace.model.releaseName}
+                  <StatusPill tone="neutral" marker={false}>
+                    This workspace's model
+                  </StatusPill>
+                  <span className="activate-release-count">no other release</span>
                 </span>
-              </label>
-            ))}
+              </p>
+            )}
+            {groups.map((model) => {
+              const open = opened.has(model.key);
+              const own = model.key === workspace?.model.releaseKey;
+              return (
+                <fieldset key={model.key} className="activate-release-group">
+                  <legend>
+                    <button
+                      type="button"
+                      className="activate-release-head"
+                      aria-expanded={open}
+                      onClick={() =>
+                        setOpened((keys) => {
+                          const next = new Set(keys);
+                          if (open) next.delete(model.key);
+                          else next.add(model.key);
+                          return next;
+                        })
+                      }
+                    >
+                      <Icon name={open ? "chevron-down" : "chevron-right"} />
+                      {model.name}
+                      {own && (
+                        <StatusPill tone="neutral" marker={false}>
+                          This workspace's model
+                        </StatusPill>
+                      )}
+                      <span className="activate-release-count">
+                        {model.releases.length} {model.releases.length === 1 ? "release" : "releases"}
+                      </span>
+                    </button>
+                  </legend>
+                  {open &&
+                    model.releases.map((item, index) => {
+                      const by = workspaces.filter((other) => other.model.releaseId === item.id);
+                      return (
+                        <label
+                          key={item.id}
+                          className={`activate-release-option${item.id === releaseId ? " selected" : ""}`}
+                        >
+                          <input
+                            type="radio"
+                            name="activate-release"
+                            checked={item.id === releaseId}
+                            onChange={() => setReleaseId(item.id)}
+                          />
+                          <span className="mono">{item.version}</span>
+                          <small>
+                            schema {item.schemaVersion}
+                            {index === 0 ? " · newest" : ""}
+                          </small>
+                          {by.length > 0 && (
+                            <StatusPill tone="success" marker={false}>
+                              {by.map((other) => other.label).join(", ")}
+                            </StatusPill>
+                          )}
+                        </label>
+                      );
+                    })}
+                </fieldset>
+              );
+            })}
           </fieldset>
         )}
         {workspace && release && !current && <Skeleton lines={2} label={`Checking ${workspace.label}'s data`} />}

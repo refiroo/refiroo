@@ -52,6 +52,7 @@ describe("routes", () => {
       { kind: "settings", page: "webhooks", subscriptionId: "6f1c-2a", tab: "deliveries", deliveryId: "n-3" },
     ],
     ["/settings/model", { kind: "settings", page: "model" }],
+    ["/settings/model/models/a%20b", { kind: "settings", page: "model", modelKey: "a b" }],
     ["/settings/model/releases/release%2Fid", { kind: "settings", page: "model", releaseId: "release/id" }],
     ["/settings/model/drafts/d1", { kind: "settings", page: "model", draftId: "d1" }],
     ["/settings/model/drafts/d1/editor", { kind: "settings", page: "model", draftId: "d1", editor: {} }],

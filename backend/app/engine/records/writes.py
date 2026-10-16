@@ -37,6 +37,7 @@ from ...models.database import (
 )
 from ...models.schema import EngineModel
 from ..indexes import matrix_states, unique_values
+from ..model import expected_release
 from .audit import AuditEntry, record_audit_event, record_audit_events
 from .batch_lookup import Changes
 from .values import VALUE_COLUMNS, normalize_value
@@ -96,6 +97,8 @@ class LiveWrites:
                 f"Workspace '{self.workspace_key}' was retired while this request was "
                 "processed; nothing was saved",
             )
+        # A client that built this write on another release than the workspace runs (M6a, D64).
+        expected_release.check(self.session, self.workspace_key)
 
     # --- the audit log and the feed ---------------------------------------------------------------
 
@@ -500,6 +503,9 @@ class ChangeSetWrites:
         self.change_set = change_set
         self.change_set_id = change_set.id
         self.workspace_key = change_set.workspace_key
+        expected_release.check(
+            session, self.workspace_key, change_set.model_release_id, change_set_id=change_set.id
+        )
 
     def record(self, **event: Any) -> AuditEvent:
         """Audit a change set edit; it changes no live data, so it takes no feed position."""

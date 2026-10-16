@@ -15,6 +15,7 @@ import type { ApplicationDefinition, ApplicationRoute, CollectionQueryState, Obj
 import { AppShell } from "./AppShell";
 import { SettingsArea } from "./SettingsArea";
 import { useRouter, type Router } from "./useRouter";
+import { InstanceProductContext, useLoadInstanceProduct } from "./instanceProduct";
 import { WorkspaceDataProvider, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { ChangeSetActions, ChangeSets } from "@/features/workspaces/ChangeSets";
 import { ChangeSetReview } from "@/features/workspaces/ChangeSetReview";
@@ -26,6 +27,9 @@ import { ResizeHandle } from "@/ui/ResizeHandle";
 import { useLocalNumberPreference } from "@/lib/localPreference";
 import { Card } from "@/ui/Card";
 import { ToastProvider, useToast } from "@/ui/Toast";
+import { onModelReleaseChanged } from "@/api/expectedRelease";
+import { api } from "@/api/client";
+import type { ApiError } from "@/api/errors";
 import { JobNotificationsProvider, useJobEnded, useJobNotifications } from "@/features/jobs/JobNotifications";
 import { ExportDialog, type ExportStart } from "@/features/jobs/ExportDialog";
 import { ImportDialog, type ImportStart } from "@/features/jobs/ImportDialog";
@@ -36,27 +40,30 @@ export default function App() {
   const { model, route, error } = router;
   // The workspace shown last, kept above the per-workspace content so a switch can say what changed.
   const shownWorkspaceRef = useRef<Workspace | undefined>(undefined);
+  const product = useLoadInstanceProduct(router.defaultWorkspaceKey);
   if (!model || !route) return <div className="center-message">{error || "Loading the model…"}</div>;
   // Toasts and the notifications about this tab's jobs live above every page (0.9 J1u).
   return (
-    <ToastProvider>
-      <JobNotificationsProvider model={model} onNavigate={router.navigate}>
-        {isSettingsRoute(route) ? (
-          // Settings are not workspace data: their own shell, and no workspace or data context (U3).
-          <SettingsArea router={router} model={model} route={route} />
-        ) : (
-          <WorkspaceDataProvider
-            key={`${route.workspaceKey}:${routeChangeSetId(route) ?? routePublicationId(route) ?? "live"}`}
-            changeSetId={routeChangeSetId(route)}
-            publicationId={routePublicationId(route)}
-            workspaceKey={route.workspaceKey}
-            model={model}
-          >
-            <AppContent router={router} route={route} shownWorkspaceRef={shownWorkspaceRef} />
-          </WorkspaceDataProvider>
-        )}
-      </JobNotificationsProvider>
-    </ToastProvider>
+    <InstanceProductContext.Provider value={product}>
+      <ToastProvider>
+        <JobNotificationsProvider model={model} onNavigate={router.navigate}>
+          {isSettingsRoute(route) ? (
+            // Settings are not workspace data: their own shell, and no workspace or data context (U3).
+            <SettingsArea router={router} model={model} route={route} />
+          ) : (
+            <WorkspaceDataProvider
+              key={`${route.workspaceKey}:${routeChangeSetId(route) ?? routePublicationId(route) ?? "live"}`}
+              changeSetId={routeChangeSetId(route)}
+              publicationId={routePublicationId(route)}
+              workspaceKey={route.workspaceKey}
+              model={model}
+            >
+              <AppContent router={router} route={route} shownWorkspaceRef={shownWorkspaceRef} />
+            </WorkspaceDataProvider>
+          )}
+        </JobNotificationsProvider>
+      </ToastProvider>
+    </InstanceProductContext.Provider>
   );
 }
 
@@ -64,6 +71,23 @@ export default function App() {
  * What a switch to `next` changed about the model, for its toast (0.11 M5, D47); nothing when the
  * two workspaces run the same release.
  */
+/**
+ * The toast for a data write refused because its workspace or change set now runs another release
+ * than the page was built on (0.11 M6a, D66); the form shows the refusal itself.
+ */
+export async function releaseChangedText(refusal: ApiError): Promise<string> {
+  const details = (refusal.details ?? {}) as { workspaceKey?: string; changeSetId?: string; currentReleaseId?: string };
+  const [workspace, release] = await Promise.all([
+    details.workspaceKey ? api.workspace(details.workspaceKey).catch(() => undefined) : undefined,
+    details.currentReleaseId ? api.modelRelease(details.currentReleaseId).catch(() => undefined) : undefined,
+  ]);
+  const runs = release ? `${release.name} ${release.version}` : "another model release";
+  const subject = details.changeSetId
+    ? "This change set now uses"
+    : `${workspace?.label ?? details.workspaceKey ?? "This workspace"} now runs`;
+  return `${subject} ${runs}. Nothing was saved.`;
+}
+
 export function modelChangeText(previous: Workspace, next: Workspace): string | undefined {
   if (previous.key === next.key || previous.model.releaseId === next.model.releaseId) return undefined;
   const runs = `${next.label} runs ${next.model.releaseName} ${next.model.releaseVersion}`;
@@ -84,6 +108,16 @@ function AppContent({
   const { model: currentModel, error, navigate, replaceRoute, lastCollection, rememberWorkspace, problem } = router;
   const data = useWorkspaceData();
   const toast = useToast();
+  // A write built on a release the workspace no longer runs: say so once, with Reload (M6a, D66).
+  useEffect(
+    () =>
+      onModelReleaseChanged((refusal) => {
+        releaseChangedText(refusal).then((text) =>
+          toast(text, { tone: "info", actions: [{ label: "Reload", href: window.location.href }] }),
+        );
+      }),
+    [toast],
+  );
   const model = data.model ?? currentModel;
   const [refreshToken, setRefreshToken] = useState(0);
   // Writes made in the collection beside an open record; the record's own writes do not count.
@@ -298,10 +332,9 @@ function AppContent({
         parentObjectTypeKey: undefined,
       });
     }
-    if (changed) {
-      rememberWorkspace(workspaceKey);
-      setRefreshToken((value) => value + 1);
-    }
+    // The other workspace's page mounts afresh under its own data provider, so nothing here reloads:
+    // a reload would read the old workspace again while the other's model loads (0.11 M6, D58).
+    if (changed) rememberWorkspace(workspaceKey);
   }
 
   const collection =
@@ -350,6 +383,7 @@ function AppContent({
       model={model}
       application={application}
       activeRoute={activeRoute}
+      nothingCurrent={Boolean(problem)}
       refreshToken={refreshToken}
       onChanged={() => setRefreshToken((value) => value + 1)}
       onNavigate={navigate}

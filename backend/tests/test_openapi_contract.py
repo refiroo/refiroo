@@ -171,9 +171,11 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # Diffed against the previous commit, nothing else changed. Re-baselined for 0.11 M5 (D52, D53):
     # the release diff's workspaceKey and a workspace's model's releaseName (WorkspaceModelResponse,
     # WorkspaceAssignmentResponse). Diffed against the previous commit, nothing else changed.
+    # Re-baselined for 0.11 M6a (D63): the optional X-Expected-Model-Release-Id header on every
+    # management route. Diffed against the previous commit, nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "042ac6b9a6d8b82b93e865825a229ce47c06281a2d7b6c4b1636d5d96eee060b"
+        "c22c7e9f423e024f0c5c829590f7ec504d2187eccd0892850cf578aba60b9447"
     )
 
 

@@ -494,24 +494,41 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 - [x] 0.11 P0 design pass, per the [Base 0.11 plan](BASE_0_11_IMPLEMENTATION_PLAN.md), delivered
   2026-10-15: decisions D4–D29 and the move inventory accepted, ADR-042, API design, J36–J38, the M5
   and X4 mock-ups approved. M1 (with M2 folded in, plan D32) delivered 2026-10-15; M3 and M4
-  delivered 2026-10-16; M5 delivered 2026-10-16; next: M6.
+  delivered 2026-10-16; M5, M6 and M6a delivered 2026-10-16; next: the 0.11.0-alpha.1 release steps
+  (D12, on the user's instruction), then V1.
   - [ ] The user's requirement: each workspace runs a model of its own (Track M, then Track V).
     M1 delivered the API: a workspace on a release of its own, activation into one workspace, the
     commit guard per workspace. M3: import profiles, drafts and the consumer index and OpenAPI
     following a workspace's model. M4: the cross-type lookup over several workspaces, counterparts
     refused across models. M5: the browser follows each workspace's model, Settings › Model and
-    Settings › Workspaces per workspace, the editor's choice of workspace. Still to come: the
-    checkpoint (M6), migrations (Track V).
-  - [ ] **Found in M5 (2026-10-16), small:** on the "not in this workspace's model" page the rail
+    Settings › Workspaces per workspace, the editor's choice of workspace. M6: the checkpoint
+    composed in the browser; M6a: a request naming the release it was built on. Still to come:
+    migrations (Track V).
+  - [x] **Found in M5 (2026-10-16), small (fixed in M6, D58):** on the "not in this workspace's model" page the rail
     still marks the workspace's first collection as current (the shown route is the start); and a
     switch to another workspace reads the rail's collections twice (the shell remounts once the
     model arrives). Neither is wrong data; worth a look with M6.
-  - [ ] **At R (from M5):** the visual baselines of Settings › Model change (the overview replaces
+  - [ ] **Seen once in M6 (2026-10-16):** the accessibility gate stopped in 0.10's spreadsheet
+    surfaces (`editor-dry-run-rows-dialog`: the dry run's figure never shown) while the machine's load
+    averaged about 17; the rerun passed. Seen again, it is a defect (D62).
+  - [ ] **For 0.14: Settings › Model redesigned (the user, 2026-10-16, in M6).** M6 leaves the page
+    laid out as Settings › Workspaces is (models in the list, the default workspace's first; the
+    selected model's card with where it runs, its releases and its drafts), and the user judged it
+    still not good, to be redesigned in 0.14. Tried in M6 and rejected: columns of releases per model
+    (M5), a catalogue listing every release and draft, a page per model with tabs, cards for
+    workspaces and models with a release timeline. What the user asked for on the way: no window
+    nested in the page; a row or card opens on a click anywhere on it; "Change model…" (not
+    "Activate a release…") and its dialog grouped by model; the default or current item first, not
+    alphabetical; one design for every kind of entry (no separate "New models"); the header's
+    navigation consistent with the other Settings pages. Open question raised: whether "which release
+    a workspace runs" belongs on Settings › Workspaces and the model page should only be the library
+    of models, versions and drafts.
+  - [x] **At R (from M5), done in M6:** the visual baselines of Settings › Model change (the overview replaces
     the catalogue with the active release); review them as intended changes.
-  - [ ] **Found in M1 (2026-10-15), not caused by it:** `test_boundaries::test_tiers_hold` fails at
+  - [x] **Found in M1 (2026-10-15), not caused by it (fixed in M6, D59):** `test_boundaries::test_tiers_hold` fails at
     `71b15ea` already (the import cycle `sources.draft_profile` ↔ `sources.dry_run`, the deferred
     import in `dry_run`). Untouched by M1, M3 and M4.
-  - [ ] **Found in M3 (2026-10-16), not caused by it:**
+  - [x] **Found in M3 (2026-10-16), not caused by it (fixed in M6, D59):**
     `test_model_lifecycle::test_installed_release_diff_is_key_based_and_assesses_active_runtime_data`
     passes only after the module's earlier tests: alone, on a fresh database, its own
     `ensure_bootstrap_release` gives the candidate to the default workspace, so the diff compares the

@@ -102,6 +102,7 @@ import type {
 } from "@/types";
 
 import { ApiError } from "@/api/errors";
+import { expectedReleaseHeader, reportModelReleaseChanged } from "@/api/expectedRelease";
 
 // `ApiError` is re-exported because it is what `request` throws; `errorMessage` and
 // `isApiError` live in ./errors so that a test mocking this module does not shadow them.
@@ -116,17 +117,30 @@ export const jobOutputUrl = (jobId: string) => `${API_URL}/api/v1/jobs/${encodeU
 /** A job's server-sent event stream (0.9 J1u): the job now and after each change, until it ends. */
 export const jobEventsUrl = (jobId: string) => `${API_URL}/api/v1/jobs/${encodeURIComponent(jobId)}/events`;
 
-export async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  return requestUrl<T>(`${API_URL}${path}`, path, init);
+export async function request<T>(
+  path: string,
+  init?: RequestInit,
+  onResponse?: (response: Response) => void,
+): Promise<T> {
+  return requestUrl<T>(`${API_URL}${path}`, path, init, onResponse);
 }
 
 /** A request to an address the API gave whole, such as a document the consumer API index names. */
-async function requestUrl<T>(url: string, path: string, init?: RequestInit): Promise<T> {
+async function requestUrl<T>(
+  url: string,
+  path: string,
+  init?: RequestInit,
+  onResponse?: (response: Response) => void,
+): Promise<T> {
   // A form body (a file upload) sets its own multipart content type with its boundary.
   const json = !(init?.body instanceof FormData);
   const response = await fetch(url, {
     ...init,
-    headers: { ...(json ? { "Content-Type": "application/json" } : {}), ...init?.headers },
+    headers: {
+      ...(json ? { "Content-Type": "application/json" } : {}),
+      ...expectedReleaseHeader(path, init?.method),
+      ...init?.headers,
+    },
   });
   if (!response.ok) {
     const body = await response.text();
@@ -141,8 +155,12 @@ async function requestUrl<T>(url: string, path: string, init?: RequestInit): Pro
     } catch {
       // Non-JSON response evidence belongs in controlled server diagnostics, not the rendered UI.
     }
-    throw new ApiError(response.status, code, message, details);
+    const failure = new ApiError(response.status, code, message, details);
+    if (code === "MODEL_RELEASE_CHANGED" && expectedReleaseHeader(path, init?.method))
+      reportModelReleaseChanged(failure);
+    throw failure;
   }
+  onResponse?.(response);
   if (response.status === 204) return undefined as T;
   const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.includes("application/json")) {
@@ -346,11 +364,14 @@ export const api = {
     if (context.changeSetId) params.set("changeSetId", context.changeSetId);
     if (context.publicationId) params.set("publicationId", context.publicationId);
     const query = params.toString() ? `?${params}` : "";
+    let releaseId: string | undefined;
     const [model, placements] = await Promise.all([
-      request<EngineModel>(`/api/v1/model${query}`),
+      request<EngineModel>(`/api/v1/model${query}`, undefined, (response) => {
+        releaseId = response.headers.get("X-Model-Release-Id") ?? undefined;
+      }),
       request<ModelPlacements>(`/api/v1/model/placements${query}`),
     ]);
-    return { ...model, placements };
+    return { ...model, placements, ...(releaseId ? { releaseId } : {}) };
   },
   capabilities: () => request<CapabilitiesResponse>("/api/v1/capabilities"),
   system: () => request<SystemResponse>("/api/v1/system"),

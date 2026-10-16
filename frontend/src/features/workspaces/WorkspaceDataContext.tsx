@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { api } from "@/api/client";
 import { createChangeSetClient } from "@/api/changeSetClient";
 import { createPublicationClient } from "@/api/publicationClient";
+import { setExpectedRelease } from "@/api/expectedRelease";
 import { errorMessage, isApiError } from "@/api/errors";
 import type { EngineModel, ChangeSet, Publication } from "@/types";
 import { allowNavigation } from "@/routing/navigationGuard";
@@ -65,6 +66,14 @@ export function WorkspaceDataProvider({
   }>();
   const [error, setError] = useState<{ message: string; retryable: boolean }>();
   const [retry, setRetry] = useState(0);
+  // The release this page's data writes name (M6a, D65): live data its model's; a change set its
+  // own (LoadedChangeSet); a publication none, as it takes no writes.
+  const liveRelease = changeSetId || publicationId ? undefined : model.releaseId;
+  useEffect(() => {
+    if (changeSetId) return;
+    setExpectedRelease(liveRelease);
+    return () => setExpectedRelease(undefined);
+  }, [changeSetId, liveRelease]);
   useEffect(() => {
     if (!changeSetId && !publicationId) return;
     let active = true;
@@ -156,6 +165,11 @@ function LoadedChangeSet({
   const [activeModelReleaseId, setActiveModelReleaseId] = useState(initialActiveId);
   const [activeModelReleaseLabel, setActiveModelReleaseLabel] = useState(initialActiveLabel);
   const [warning, setWarning] = useState("");
+  const pinned = changeSet.modelReleaseId;
+  useEffect(() => {
+    setExpectedRelease(pinned);
+    return () => setExpectedRelease(undefined);
+  }, [pinned]);
   const [controller] = useState(() => {
     let loadedReleaseId = initial.modelReleaseId;
     return createChangeSetClient(

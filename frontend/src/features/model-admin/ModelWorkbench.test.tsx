@@ -96,14 +96,18 @@ describe("ModelWorkbench", () => {
     vi.mocked(api.modelReleases).mockResolvedValue({ items: [release], nextCursor: null });
     mockWorkspaces();
     vi.mocked(api.modelRelease).mockResolvedValue({ ...release, model });
-    renderWorkbench({ kind: "settings", page: "model", releaseId: "r1" });
+    const overview = renderWorkbench({ kind: "settings", page: "model" });
     expect(await screen.findByText(/mutations are disabled/i)).toBeInTheDocument();
     // The disabled group names the setting that controls it; the enabled group does not need to.
-    const status = screen.getByRole("region", { name: "Deployment capabilities" });
+    const status = await screen.findByRole("region", { name: "Deployment capabilities" });
     expect(status).toHaveTextContent(/Model administration\s*Disabled/);
     expect(status).toHaveTextContent("MODEL_ADMIN_MUTATIONS_ENABLED");
     expect(status).toHaveTextContent(/Workspace administration\s*Enabled/);
     expect(status).not.toHaveTextContent("WORKSPACE_ADMIN_MUTATIONS_ENABLED");
+    overview.unmount();
+    // A release opened in the page stays inspectable, with no draft actions.
+    renderWorkbench({ kind: "settings", page: "model", releaseId: "r1" });
+    expect(await screen.findByText(/mutations are disabled/i)).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: /export json/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /new draft/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /create draft from release/i })).not.toBeInTheDocument();
@@ -128,25 +132,66 @@ describe("ModelWorkbench", () => {
     expect(screen.getByText(/raw JSON remain available/)).toBeInTheDocument();
   });
 
-  it("shows the workspaces with their models, the releases by model and the drafts without a selection (D50)", async () => {
+  it("lists the models, the default workspace's first, and shows its card without a selection (D50, 0.11 M6)", async () => {
+    const other = { ...release, id: "o1", key: "other", name: "Other", version: "2", assigned: false };
     vi.mocked(api.capabilities).mockResolvedValue(capabilitiesFixture({ manageModel: true }));
-    vi.mocked(api.modelReleases).mockResolvedValue({ items: [release], nextCursor: null });
-    vi.mocked(api.modelDrafts).mockResolvedValue({ items: [draft], nextCursor: null });
+    vi.mocked(api.modelReleases).mockResolvedValue({ items: [other, release], nextCursor: null });
+    vi.mocked(api.modelDrafts).mockResolvedValue({
+      items: [draft, { ...draft, id: "d2", name: "Fresh", baseReleaseId: null }],
+      nextCursor: null,
+    });
     mockWorkspaces();
     const onRouteChange = vi.fn();
-    renderWorkbench({ kind: "settings", page: "model" }, onRouteChange);
-    const table = await screen.findByRole("group", { name: "Workspaces and their models" });
-    const row = await within(table).findByRole("row", { name: /Default/ });
-    expect(row).toHaveTextContent("Test");
-    expect(within(row).getByRole("button", { name: "Activate a release in Default" })).toBeInTheDocument();
-    const releases = screen.getByRole("list", { name: "Releases of Test" });
-    expect(releases).toHaveTextContent("Run by Default");
-    expect(screen.queryByRole("navigation", { name: "Model catalogue" })).not.toBeInTheDocument();
-    expect(onRouteChange).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Open Test 1" }));
-    expect(onRouteChange).toHaveBeenCalledWith({ kind: "settings", page: "model", releaseId: "r1" });
-    fireEvent.click(screen.getByRole("button", { name: "Open draft Candidate" }));
-    expect(onRouteChange).toHaveBeenCalledWith({ kind: "settings", page: "model", draftId: "d1" });
+    const onOpenWorkspace = vi.fn();
+    render(
+      <ToastProvider>
+        <ModelWorkbench
+          route={{ kind: "settings", page: "model" }}
+          onRouteChange={onRouteChange}
+          onOpenWorkspace={onOpenWorkspace}
+        />
+      </ToastProvider>,
+    );
+
+    // The default workspace's model first, then the rest, then a draft of a model not installed yet.
+    const catalogue = await screen.findByRole("navigation", { name: "Model catalogue" });
+    const entries = within(catalogue).getAllByRole("button");
+    expect(entries.map((entry) => entry.querySelector("strong")?.textContent)).toEqual(["Test", "Other", "Fresh"]);
+    expect(entries[0]).toHaveTextContent("1 · in DefaultDefault");
+    expect(entries[2]).toHaveTextContent("Not installed yet · draft version 2");
+    // Without a selection the card shows the default workspace's model.
+    expect(await screen.findByRole("heading", { name: "Test", level: 2 })).toBeInTheDocument();
+    const running = screen.getByRole("list", { name: "Workspaces running Test" });
+    expect(within(running).getByRole("button", { name: "Change the model of Default" })).toBeInTheDocument();
+    fireEvent.click(within(running).getByRole("link", { name: "Default" }));
+    expect(onOpenWorkspace).toHaveBeenCalledWith("default");
+    fireEvent.click(entries[1]);
+    expect(onRouteChange).toHaveBeenCalledWith({ kind: "settings", page: "model", modelKey: "other" });
+  });
+
+  it("shows a model's releases newest first with the workspaces running each, and its drafts (0.11 M6)", async () => {
+    const older = Array.from({ length: 3 }, (_, index) => ({
+      ...release,
+      id: `old-${index}`,
+      version: `0.${index}`,
+      installedAt: `2026-08-0${index + 1}T00:00:00Z`,
+    }));
+    vi.mocked(api.capabilities).mockResolvedValue(capabilitiesFixture({ manageModel: true }));
+    vi.mocked(api.modelReleases).mockResolvedValue({ items: [...older, release], nextCursor: null });
+    vi.mocked(api.modelDrafts).mockResolvedValue({ items: [{ ...draft, baseReleaseId: "old-2" }], nextCursor: null });
+    mockWorkspaces();
+    const onRouteChange = vi.fn();
+    renderWorkbench({ kind: "settings", page: "model", modelKey: "test" }, onRouteChange);
+
+    const releases = await screen.findByRole("list", { name: "Releases of Test" });
+    const rows = within(releases).getAllByRole("listitem");
+    expect(rows.map((row) => within(row).getByRole("link").textContent)).toEqual(["1", "0.2", "0.1", "0.0"]);
+    expect(rows[0]).toHaveTextContent("1Default");
+    // A click anywhere on the line opens the release.
+    fireEvent.click(rows[1].querySelector(".muted")!);
+    expect(onRouteChange).toHaveBeenCalledWith({ kind: "settings", page: "model", releaseId: "old-2" });
+    const drafts = screen.getByRole("list", { name: "Drafts of Test" });
+    expect(within(drafts).getByRole("listitem")).toHaveTextContent("Candidate1 release behindfrom 0.2");
   });
 });
 

@@ -65,7 +65,7 @@ from ..change_sets.records import (
 )
 from ..indexes import matrix_states
 from ..indexes.unique_values import DuplicateValueWritten
-from ..model import registry
+from ..model import expected_release, registry
 from ..model.registry import resolve_model_snapshot
 from ..records import rules
 from ..records.audit import audit_cause, trial_run
@@ -181,10 +181,14 @@ def open_batch_context(session: Session, request: BatchRequest) -> BatchContext:
     if request.changeSetId is None:
         workspace = resolve_workspace(session, request.workspaceKey, require_active=True)
         snapshot = resolve_model_snapshot(session, workspace.key)
+        expected_release.check(session, workspace.key, snapshot.release_db_id)
         return BatchContext(
             workspace.key, None, snapshot.model, snapshot.release_db_id, snapshot.model_hash
         )
     change_set = load_change_set(session, str(request.changeSetId), for_update=True)
+    expected_release.check(
+        session, change_set.workspace_key, change_set.model_release_id, change_set_id=change_set.id
+    )
     return BatchContext(
         change_set.workspace_key,
         change_set,

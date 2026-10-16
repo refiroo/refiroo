@@ -127,13 +127,51 @@ def dry_run_context(session: Session, job: Job) -> BatchContext:
     return BatchContext(workspace.key, None, _compiled(draft), snapshot.release_db_id, None)
 
 
+# Steps of only these kinds change nothing a load writes, so no dry run follows them (D79): labels,
+# the release identity, layout, navigation and consumer API definitions.
+NO_DRY_RUN = frozenset(
+    {
+        "setLabel",
+        "setRelease",
+        "setProfile",
+        "addView",
+        "removeView",
+        "insertViewItem",
+        "moveViewItem",
+        "removeViewItem",
+        "setViewProperty",
+        "addDetailPage",
+        "removeDetailPage",
+        "addNavigationGroup",
+        "removeNavigationGroup",
+        "setNavigationGroup",
+        "placeCollection",
+        "addConsumerApi",
+        "removeConsumerApi",
+        "setConsumerApiPart",
+        "insertConsumerApiPart",
+        "moveConsumerApiPart",
+        "removeConsumerApiPart",
+    }
+)
+
+
+def runs_dry_run(operations: list[dict[str, Any]]) -> bool:
+    """Whether a step of these operations can change what the load writes (D79)."""
+    for operation in operations:
+        name = operation.get("kind")
+        if name == "restoreElements":
+            name = (operation.get("undoes") or {}).get("kind")
+        if name not in NO_DRY_RUN:
+            return True
+    return False
+
+
 def superseded(session: Session, parameters: dict[str, Any]) -> bool:
     """Whether a dry run's draft (its job's ``parameters``) went, or took a step since the dry run
     was sent that can change what the load writes (D79). A step that cannot, a rename or a layout
     change, queues no dry run of its own, so the running one goes on: stopping it left the drawer
     at Stopped with no result (0.10 R, found by the composed runner)."""
-    from .draft_profile import runs_dry_run  # draft_profile queues dry runs through this module
-
     draft_id = session.scalar(select(ModelDraft.id).where(ModelDraft.public_id == parameters["draftId"]))
     if draft_id is None:
         return True

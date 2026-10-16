@@ -29,6 +29,7 @@ from .engine.model.loader import load_bootstrap_model
 from .engine.model.registry import model_registry
 from .engine.model.workspace_models import workspaces_running
 from .errors import ApiError
+from .management.dependencies import MANAGEMENT_DEPENDENCIES
 from .management.errors import (
     api_error_handler,
     http_error_handler,
@@ -327,6 +328,9 @@ def create_app() -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        # A browser on another origin reads the release a model came from, to name it on its
+        # writes (0.11 M6a, D65).
+        expose_headers=["X-Model-Release-Id"],
     )
 
     @application.get("/health")
@@ -337,33 +341,33 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     application.include_router(api_reference_router(settings.api_reference_script))
-    application.include_router(model.router)
-    application.include_router(system.router)
-    application.include_router(model_releases.router)
-    application.include_router(workspaces.read_router)
+    application.include_router(model.router, dependencies=MANAGEMENT_DEPENDENCIES)
+    application.include_router(system.router, dependencies=MANAGEMENT_DEPENDENCIES)
+    application.include_router(model_releases.router, dependencies=MANAGEMENT_DEPENDENCIES)
+    application.include_router(workspaces.read_router, dependencies=MANAGEMENT_DEPENDENCIES)
     if workspace_mutations_enabled:
-        application.include_router(workspaces.admin_router)
-    application.include_router(change_sets.router)
+        application.include_router(workspaces.admin_router, dependencies=MANAGEMENT_DEPENDENCIES)
+    application.include_router(change_sets.router, dependencies=MANAGEMENT_DEPENDENCIES)
     if mutations_enabled:
-        application.include_router(model_management.router)
-    application.include_router(objects.router)
-    application.include_router(queries.router)
-    application.include_router(attributes.router)
-    application.include_router(relations.router)
-    application.include_router(mapping.router)
-    application.include_router(relation_matrix.router)
-    application.include_router(jobs.router)
-    application.include_router(imports.router)
-    application.include_router(source_files.router)
+        application.include_router(model_management.router, dependencies=MANAGEMENT_DEPENDENCIES)
+    application.include_router(objects.router, dependencies=MANAGEMENT_DEPENDENCIES)
+    application.include_router(queries.router, dependencies=MANAGEMENT_DEPENDENCIES)
+    application.include_router(attributes.router, dependencies=MANAGEMENT_DEPENDENCIES)
+    application.include_router(relations.router, dependencies=MANAGEMENT_DEPENDENCIES)
+    application.include_router(mapping.router, dependencies=MANAGEMENT_DEPENDENCIES)
+    application.include_router(relation_matrix.router, dependencies=MANAGEMENT_DEPENDENCIES)
+    application.include_router(jobs.router, dependencies=MANAGEMENT_DEPENDENCIES)
+    application.include_router(imports.router, dependencies=MANAGEMENT_DEPENDENCIES)
+    application.include_router(source_files.router, dependencies=MANAGEMENT_DEPENDENCIES)
     if settings.integration_jobs_enabled:
-        application.include_router(jobs.write_router)
-        application.include_router(imports.write_router)
-        application.include_router(source_files.write_router)
+        application.include_router(jobs.write_router, dependencies=MANAGEMENT_DEPENDENCIES)
+        application.include_router(imports.write_router, dependencies=MANAGEMENT_DEPENDENCIES)
+        application.include_router(source_files.write_router, dependencies=MANAGEMENT_DEPENDENCIES)
         if mutations_enabled:
-            application.include_router(source_files.dry_run_router)
-            application.include_router(inference.router)
+            application.include_router(source_files.dry_run_router, dependencies=MANAGEMENT_DEPENDENCIES)
+            application.include_router(inference.router, dependencies=MANAGEMENT_DEPENDENCIES)
     if settings.consumer_subscriptions_enabled:
-        application.include_router(consumer_subscriptions.router)
+        application.include_router(consumer_subscriptions.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(consumer_router.router)
     return application
 

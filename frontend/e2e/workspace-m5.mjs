@@ -125,17 +125,18 @@ try {
   await page.getByRole("heading", { level: 1, name: "No workspace nowhere" }).waitFor();
   checks.push("4. not in this model: holders listed, address kept, Open goes to the start; unknown workspace page");
 
-  // 5. Activate into one workspace, from its row, by keyboard (case 8).
-  await page.goto(`${uiUrl}/settings/model`);
-  const table = page.getByRole("group", { name: "Workspaces and their models" });
-  const bRow = table.getByRole("row", { name: /Branch B/ });
+  // 5. Activate into one workspace, from its row on its model's card, by keyboard (case 8; 0.11 M6).
+  await page.goto(`${uiUrl}/settings/model/models/${encodeURIComponent(b.release.key)}`);
+  const bRow = page
+    .getByRole("list", { name: `Workspaces running ${b.release.name}` })
+    .getByRole("listitem")
+    .filter({ hasText: /Branch B/ });
   await bRow.waitFor();
-  assert.match(await bRow.textContent(), /1\.1\.0 installed/);
-  await assertAccessible(page, "Settings › Model overview");
+  await assertAccessible(page, "Settings › Model, a model's card");
   await shotBoth("settings-model");
-  await bRow.getByRole("button", { name: "Activate a release in Branch B" }).focus();
+  await bRow.getByRole("button", { name: "Change the model of Branch B" }).focus();
   await page.keyboard.press("Enter");
-  const dialog = page.getByRole("dialog", { name: "Activate a release in Branch B" });
+  const dialog = page.getByRole("dialog", { name: "Change the model of Branch B" });
   await dialog.waitFor();
   // The newer release of its own model is proposed first.
   assert.equal(await dialog.getByRole("radio", { name: /1\.1\.0/ }).isChecked(), true);
@@ -150,11 +151,17 @@ try {
   await page.getByText(/Branch B now runs .* 1\.1\.0/).waitFor();
   assert.equal((await api("/workspaces/branch-b/model")).releaseId, b2.id);
   assert.equal((await api(`/workspaces/${defaultKey}/model`)).releaseId, defaultRelease);
-  const defaultRow = table.getByRole("row", { name: new RegExp(defaultLabel) });
+  await page.goto(`${uiUrl}/settings/model`);
+  const defaultRow = page
+    .getByRole("list", { name: `Workspaces running ${starter.release.name}` })
+    .getByRole("listitem")
+    .filter({ hasText: new RegExp(defaultLabel) });
   assert.match(await defaultRow.textContent(), new RegExp(starter.release.version.replaceAll(".", "\\.")));
   // The other model for the default workspace, whose records have no place in it.
-  await defaultRow.getByRole("button", { name: `Activate a release in ${defaultLabel}` }).click();
-  const other = page.getByRole("dialog", { name: `Activate a release in ${defaultLabel}` });
+  await defaultRow.getByRole("button", { name: `Change the model of ${defaultLabel}` }).click();
+  const other = page.getByRole("dialog", { name: `Change the model of ${defaultLabel}` });
+  // Another model's releases are a group opened on request (0.11 M6).
+  await other.getByRole("button", { name: new RegExp(`^${b.release.name}`) }).click();
   await other.getByRole("radio", { name: /1\.1\.0/ }).check();
   await other.getByText("A different model", { exact: true }).waitFor();
   await assertAccessible(page, "the activation dialog, data that does not fit");
@@ -210,7 +217,7 @@ try {
   await shotBoth("phone-switcher");
   await page.keyboard.press("Escape");
   await page.goto(`${uiUrl}/settings/model`);
-  await page.getByRole("group", { name: "Workspaces and their models" }).waitFor();
+  await page.getByRole("navigation", { name: "Model catalogue" }).waitFor();
   await noPageOverflow(page, "Settings › Model at 390px");
   await shotBoth("phone-settings-model");
   checks.push("8. 390px: band workspace choice and Settings › Model without sideways scroll; light and dark screenshots");

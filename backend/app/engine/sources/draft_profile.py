@@ -39,36 +39,8 @@ from ..model.authoring.kinds import Sheet
 from ..model.compiler import compile_authored_model
 from ..model.diagnostics import ModelDiagnostic
 from ..workspaces.catalogue import resolve_workspace
-from .dry_run import submit_dry_run
+from .dry_run import runs_dry_run, submit_dry_run
 from .store import profile_state
-
-# Steps of only these kinds change nothing a load writes, so no dry run follows them (D79): labels,
-# the release identity, layout, navigation and consumer API definitions.
-NO_DRY_RUN = frozenset(
-    {
-        "setLabel",
-        "setRelease",
-        "setProfile",
-        "addView",
-        "removeView",
-        "insertViewItem",
-        "moveViewItem",
-        "removeViewItem",
-        "setViewProperty",
-        "addDetailPage",
-        "removeDetailPage",
-        "addNavigationGroup",
-        "removeNavigationGroup",
-        "setNavigationGroup",
-        "placeCollection",
-        "addConsumerApi",
-        "removeConsumerApi",
-        "setConsumerApiPart",
-        "insertConsumerApiPart",
-        "moveConsumerApiPart",
-        "removeConsumerApiPart",
-    }
-)
 
 
 def current_source(session: Session, draft: ModelDraft) -> SourceFile | None:
@@ -229,17 +201,6 @@ def read(session: Session, draft: ModelDraft) -> dict[str, Any]:
 def _blocks(item: ModelDiagnostic) -> bool:
     """A warning an import would refuse the profile for (not a reminder such as a missing key)."""
     return item.code not in ("COLUMN_UNMAPPED", "SOURCE_WITHOUT_COLUMNS", "SOURCE_WITHOUT_KEY")
-
-
-def runs_dry_run(operations: list[dict[str, Any]]) -> bool:
-    """Whether a step of these operations can change what the load writes (D79)."""
-    for operation in operations:
-        name = operation.get("kind")
-        if name == "restoreElements":
-            name = (operation.get("undoes") or {}).get("kind")
-        if name not in NO_DRY_RUN:
-            return True
-    return False
 
 
 def dry_run_after(

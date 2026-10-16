@@ -980,10 +980,71 @@ td:has(> .row-problems) {
   padding: 0;
   font-weight: 600;
 }
-.dialog form .model-choice .checkbox,
-.dialog form .activate-releases .checkbox {
+.dialog form .model-choice .checkbox {
   margin-bottom: 0;
 }
+/* The change-model dialog's releases: each model a group that opens (0.11 M6). */
+.activate-releases legend {
+  width: 100%;
+}
+.activate-release-group {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  min-width: 0;
+}
+.activate-releases .activate-release-group legend {
+  float: left;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+.activate-release-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: 0;
+  background: var(--surface-sunken);
+  color: var(--text-primary);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+}
+.activate-release-head.is-static {
+  font-weight: 600;
+}
+.activate-release-count {
+  margin-left: auto;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+  font-weight: 400;
+}
+.dialog form label.activate-release-option {
+  clear: both;
+  margin: 0;
+  color: var(--text-primary);
+  font-weight: 400;
+  display: grid;
+  grid-template-columns: auto 72px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+  cursor: pointer;
+}
+.dialog form label.activate-release-option > small {
+  margin: 0;
+  color: var(--text-tertiary);
+}
+.dialog form label.activate-release-option.selected {
+  background: var(--state-selected);
+}
+
 .activate-dialog .notice,
 .activate-left-behind {
   margin-top: var(--space-3);
@@ -993,15 +1054,77 @@ td:has(> .row-problems) {
   padding-left: 18px;
 }
 
-/* Settings › Model's installed releases, a ruled list per model (D50). */
-.model-release-groups {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
-  gap: var(--space-4);
+/* A row, list item or card that opens what it names on a click anywhere in it (ui/OpenableRow). */
+.openable-row {
+  cursor: pointer;
 }
-.model-release-group h3 {
-  margin: 0 0 var(--space-2);
+tr.openable-row:hover > * {
+  background: var(--surface-hover);
+}
+
+/* Settings › Model's card for a model (0.11 M6): where it runs, then its releases and drafts. */
+.row-title {
+  color: var(--text-primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+.openable-row:hover .row-title,
+.row-title:focus-visible {
+  text-decoration: underline;
+}
+.model-running {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.model-running li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.model-detail-section {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0 20px 18px;
+}
+.model-detail-section h3 {
+  margin: 0;
   font-size: var(--text-md);
+}
+.model-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--border-subtle);
+}
+.model-row {
+  display: grid;
+  grid-template-columns: minmax(80px, 160px) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.model-row:hover {
+  background: var(--surface-hover);
+}
+.model-row-marks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  min-width: 0;
+}
+@media (max-width: 760px) {
+  .model-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .model-row-marks {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
 }
 
 /* A release's check against each workspace of its model (D51). */

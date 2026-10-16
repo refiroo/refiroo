@@ -1001,11 +1001,12 @@ configuration's keys.
 ### J36 — Run a workspace on a model of its own
 
 **Actor:** model administrator. **Channel:** UI (Settings › Model, Settings › Workspaces), API.
-**Stories:** US-P05. **Status:** partly delivered (0.11 M1 and M3, 2026-10-15; M4 and M5,
-2026-10-16): J36.1–J36.8 through the API; in the browser (M5) the shell follows the workspace's
-model, Settings › Model activates into one workspace, Settings › Workspaces creates a workspace on a
-model and the editor installs into an existing or new workspace (J36.1, J36.2, J36.4, J36.6). The
-spanning lookup (J36.7) has no screen.
+**Stories:** US-P05. **Status:** delivered (0.11 M1 and M3, 2026-10-15; M4, M5, M6 and M6a,
+2026-10-16): J36.1–J36.9 through the API; in the browser (M5, composed in M6 on generated-a and
+generated-b) the shell follows the workspace's model, Settings › Model changes one workspace's
+model, Settings › Workspaces creates a workspace on a model, the editor installs into an existing or
+new workspace, and a page built on a replaced release cannot save (J36.1–J36.6, J36.9). The spanning
+lookup (J36.7) has no screen; migrating a workspace's data is J37.
 
 1. Install a release of a model no workspace runs yet.
 2. Create a workspace on it, or activate it into an existing workspace after its compatibility check
@@ -1031,6 +1032,10 @@ spanning lookup (J36.7) has no screen.
   refused, naming the workspaces; another model's record IDs do not load as counterparts.
 - **J36.8 One workspace's release cannot be loaded**: that workspace is unavailable; the others
   serve.
+- **J36.9 A write built on a release the workspace no longer runs**: a client names the release it
+  built the request on (`X-Expected-Model-Release-Id`); when the workspace, or the change set, now
+  resolves another release, the request is refused and nothing is saved; the browser offers to
+  reload. Without the header a write is checked against the current release, as before.
 
 **Refusals:** `409 ACTIVATION_CONFLICT`, `409 MODEL_MIGRATION_REQUIRED` (this workspace's data only),
 `409 MODEL_RELEASE_CHANGED`, `409 CHANGE_SET_MODEL_RELEASE_CONFLICT`,
@@ -1043,8 +1048,13 @@ B beside A); `tests/journeys/test_j36_workspace_resources.py` (5 cases, M3: a wo
 a new workspace, a profile per model, a draft's profile kept off another model's, compatibility per
 workspace of the draft's model, consumer APIs per workspace); `tests/journeys/test_j36_spanning_reads.py`
 (4 cases, M4: a lookup over two workspaces on two models, an element one model lacks, the lookup
-without a workspace, counterparts across models refused); the upgrade of a 0.10.0 database in
-`test_startup`.
+without a workspace, counterparts across models refused); `tests/journeys/test_j36_workspace_ui_reads.py`
+(2 cases, M5); `tests/journeys/test_j36_expected_release.py` (4 cases, M6a: a live write and a
+change-set write naming a release no longer resolved, the other workspace's writes, no header); the
+upgrade of a 0.10.0 database in `test_startup`; in the browser `test:browser:workspace-m5` and the
+composed walk `test:browser:workspace-m6` (M6: two models installed from the editor into new
+workspaces, records, change sets and publications in each, a release changed in one, a stale page's
+save refused).
 
 ### J37 — Move a workspace to another release
 

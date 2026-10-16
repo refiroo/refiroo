@@ -3,10 +3,11 @@
 from collections.abc import Iterator
 from typing import Annotated
 
-from fastapi import Depends, Query
+from fastapi import Depends, Header, Query
 from sqlalchemy.orm import Session
 
 from ..db import SessionLocal
+from ..engine.model import expected_release
 from ..engine.model.registry import ModelSnapshot, resolve_model_snapshot, resolve_request_model
 
 
@@ -36,7 +37,32 @@ def request_model_snapshot(
 ) -> ModelSnapshot:
     """Resolve the one model authority for a live, change-set or publication read request: the
     named workspace's model, the default workspace's without one (D6), or the context's release."""
-    return resolve_request_model(session, workspace_key, change_set_id, publication_id)
+    snapshot = resolve_request_model(session, workspace_key, change_set_id, publication_id)
+    expected_release.check(
+        session, snapshot.workspace_key, snapshot.release_db_id, change_set_id=change_set_id
+    )
+    return snapshot
 
 
 RequestModelSnapshot = Annotated[ModelSnapshot, Depends(request_model_snapshot)]
+
+
+def expect_model_release(
+    session: DbSession,
+    expected_model_release_id: str | None = Header(
+        default=None,
+        alias="X-Expected-Model-Release-Id",
+        description=(
+            "The model release this request was built on (0.11 M6a). When the workspace, or the "
+            "change set, the request addresses resolves another release, the request is refused "
+            "with `409 MODEL_RELEASE_CHANGED` and nothing is saved. Optional."
+        ),
+    ),
+) -> None:
+    """Keep the release a request names on its session, for the write units and the request's
+    snapshot to check (D63, D64)."""
+    expected_release.expect(session, expected_model_release_id)
+
+
+# Every route of the management API takes the header.
+MANAGEMENT_DEPENDENCIES = [Depends(expect_model_release)]

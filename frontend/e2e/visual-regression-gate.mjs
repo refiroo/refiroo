@@ -30,6 +30,7 @@ import { cancelDrag } from "./helpers/tree.mjs";
 import { visitReleaseSurfaces } from "./helpers/release-surfaces.mjs";
 import { visitDesignerSurfaces } from "./helpers/designer-surfaces.mjs";
 import { visitSpreadsheetSurfaces } from "./helpers/spreadsheet-surfaces.mjs";
+import { visitWorkspaceSurfaces } from "./helpers/workspace-surfaces.mjs";
 
 let harness;
 const checks = [];
@@ -99,7 +100,7 @@ try {
 
   // --- 8. Settings › Model (U3): the list page, and the active release's page ---
   await page.goto(`${uiUrl}/settings/model`);
-  await shown(page.getByRole("group", { name: "Workspaces and their models" }));
+  await shown(page.getByRole("navigation", { name: "Model catalogue" }));
   await capture(page, "settings-model-light", output, [
     page.locator(".release-metadata dd, .catalogue-text small:has-text(':')"),
   ]);
@@ -134,7 +135,7 @@ try {
   await shown(page.getByRole("heading", { name: "Domain 00" }));
   await capture(page, "record-detail-domain-dark", output);
   await page.goto(`${uiUrl}/settings/model`);
-  await shown(page.getByRole("group", { name: "Workspaces and their models" }));
+  await shown(page.getByRole("navigation", { name: "Model catalogue" }));
   await capture(page, "settings-model-dark", output, [
     page.locator(".release-metadata dd, .catalogue-text small:has-text(':')"),
   ]);
@@ -328,6 +329,12 @@ try {
 
   // --- Base 0.10 spreadsheet and cell surfaces (0.10 R, D148), light and the dark subset ---
   await visitSpreadsheetSurfaces(async ({ page: surface, name, mask, dark }) => {
+    if (name.endsWith("-dark") && !dark) return;
+    await capture(surface, name, output, mask);
+  });
+
+  // --- Base 0.11 workspace-model surfaces (0.11 M6, D57), light and the dark subset ---
+  await visitWorkspaceSurfaces(async ({ page: surface, name, mask, dark }) => {
     if (name.endsWith("-dark") && !dark) return;
     await capture(surface, name, output, mask);
   });

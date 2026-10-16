@@ -269,6 +269,11 @@ export interface EngineModel {
    * `model/placements`, which reads this and derives nothing.
    */
   placements?: ModelPlacements;
+  /**
+   * The release the server served the model from (`X-Model-Release-Id`), attached by `api.model`;
+   * a page names it on its data writes (0.11 M6a). Not part of the declarative document.
+   */
+  releaseId?: string;
   schemaVersion: string;
   release: { key: string; name: string; version: string };
   product: { name: string; description?: string };

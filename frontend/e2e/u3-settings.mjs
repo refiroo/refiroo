@@ -20,7 +20,7 @@ const PAGES = [
   ["About", "/settings/about", (page) => page.getByRole("region", { name: "Database" })],
   ["Appearance", "/settings/appearance", (page) => page.getByRole("group", { name: "Table density" })],
   ["Workspaces", "/settings/workspaces", (page) => page.getByRole("navigation", { name: "Workspace catalogue" })],
-  ["Model", "/settings/model", (page) => page.getByRole("group", { name: "Workspaces and their models" })],
+  ["Model", "/settings/model", (page) => page.getByRole("navigation", { name: "Model catalogue" })],
   ["Deployment", "/settings/deployment", (page) => page.getByRole("region", { name: "Capability groups" })],
 ];
 
@@ -132,11 +132,8 @@ try {
     }
     await page.goto(`${uiUrl}/settings/model/releases/${activeRelease}`);
     await page.getByRole("button", { name: "Export JSON" }).waitFor();
-    await page
-      .getByRole(width === 390 ? "button" : "navigation", {
-        name: width === 390 ? "Workspaces, releases and drafts" : "Model catalogue",
-      })
-      .waitFor();
+    // A release opens in the page, its trail leading back to Settings › Model (0.11 M6).
+    await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Model" }).waitFor();
     await page.goto(`${uiUrl}/settings/workspaces/default`);
     await page.getByRole("button", { name: "Open workspace" }).waitFor();
     await page

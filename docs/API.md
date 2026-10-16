@@ -1684,7 +1684,16 @@ classification values are not codes and stay in lower case. Validation errors ad
 a `details` array. Unexpected internal errors use code `INTERNAL_ERROR` and include a
 `correlationId` in `details`; the same identifier appears in server logs for operator diagnosis.
 A write validated under a model release that was replaced before it committed returns
-`409 MODEL_RELEASE_CHANGED` and saves nothing (see model activation). A stale `expectedVersion` on a
+`409 MODEL_RELEASE_CHANGED` and saves nothing (see model activation). A client names the release it
+built a request on in the optional request header `X-Expected-Model-Release-Id` (0.11 M6a), the
+release `X-Model-Release-Id` named when it read the model: every route of the management API takes
+it, and when the release the request's context resolves (the workspace's own for live data, the
+change set's or publication's pinned release in one) is another, the request is refused with
+`409 MODEL_RELEASE_CHANGED` before anything is read or written, `details` `{workspaceKey,
+expectedReleaseId, currentReleaseId}` and `changeSetId` in a change set. It is checked where a live
+or change-set write starts, where a batch or import fixes its context, and on a read's context;
+without the header nothing changes. The browser sends it on its data writes; a browser on another
+origin reads `X-Model-Release-Id` because the API exposes it (CORS `Access-Control-Expose-Headers`). A stale `expectedVersion` on a
 record or relation write (an update, a move, a delete or a single value's write, live or in a change
 set, and a batch item's) returns `409 VERSION_CONFLICT` with `details.currentVersion`, the version to
 read again before retrying (decided 2026-10-03, H4c).

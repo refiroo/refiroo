@@ -28,6 +28,7 @@ parameter or code missing here fails it.
 | `applicationKey`, `viewKey` | lookup, mapping and matrix reads | J01, J10, J16, J22.1 |
 | `relationTypeKey`, `fromObjectTypeKey`, `toObjectTypeKey`, `direction` | relations, edge list, mapping reads | J10, J13, J22.2, J22.3 |
 | `Idempotency-Key` header | `POST /batches` | J11.5, J24 |
+| `X-Expected-Model-Release-Id` header (0.11 M6a) | every route of the management API: a record, relation or value write live or in a change set, a batch, an import; a read naming its context's release | J36.9 |
 
 ## Routes
 

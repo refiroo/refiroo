@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
+import { onModelReleaseChanged, setExpectedRelease } from "@/api/expectedRelease";
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  setExpectedRelease(undefined);
+});
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -27,6 +31,47 @@ describe("API client", () => {
       expect(url.searchParams.get("publicationId")).toBe("publication/id");
     }
     expect(model).toEqual({ schemaVersion: "0.7", placements });
+  });
+
+  it("keeps the release a model was served from (0.11 M6a)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url: string) =>
+        url.includes("/placements")
+          ? jsonResponse({ applications: [] })
+          : new Response(JSON.stringify({ schemaVersion: "0.10" }), {
+              headers: { "content-type": "application/json", "X-Model-Release-Id": "release-1" },
+            }),
+      ),
+    );
+    expect((await api.model({ workspaceKey: "west" })).releaseId).toBe("release-1");
+  });
+
+  it("names the page's release on data writes only, and reports a refusal (0.11 M6a, D65)", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => jsonResponse({ items: [], nextCursor: null }));
+    vi.stubGlobal("fetch", fetchMock);
+    const named = () => new Headers(fetchMock.mock.calls.at(-1)![1]?.headers).get("X-Expected-Model-Release-Id");
+
+    await api.updateObject("domain", "id", { expectedVersion: 1, name: "Renamed" });
+    expect(named()).toBeNull();
+    setExpectedRelease("release-1");
+    await api.updateObject("domain", "id", { expectedVersion: 1, name: "Renamed" });
+    expect(named()).toBe("release-1");
+    await api.objects("domain", { workspaceKey: "west" });
+    expect(named()).toBeNull();
+    await api.createWorkspace({ key: "east", label: "East" });
+    expect(named()).toBeNull();
+
+    const refusals: string[] = [];
+    const stop = onModelReleaseChanged((refusal) => refusals.push(refusal.code));
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ error: { code: "MODEL_RELEASE_CHANGED", message: "Reload", details: {} } }, 409),
+    );
+    await expect(api.updateObject("domain", "id", { expectedVersion: 1, name: "Stale" })).rejects.toMatchObject({
+      code: "MODEL_RELEASE_CHANGED",
+    });
+    stop();
+    expect(refusals).toEqual(["MODEL_RELEASE_CHANGED"]);
   });
 
   it("reads move targets live or in a change set, with search, a type and paging", async () => {

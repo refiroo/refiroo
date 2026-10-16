@@ -112,6 +112,8 @@ export type SettingsRoute =
       page: "model";
       releaseId?: string;
       draftId?: string;
+      /** A model's page, by its key: who runs it, its releases and its drafts (0.11 M6). */
+      modelKey?: string;
       /** The draft opened in the model editor (0.10 A4a, D7), with what its centre shows. */
       editor?: EditorSelection;
     };

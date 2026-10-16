@@ -45,7 +45,12 @@ export function ControlPopover({
     if (!isOpen) return;
     const closeOutside = (event: Event) => {
       const target = event.target as Node;
-      if (!popoverRef.current?.contains(target) && !triggerRef.current?.contains(target)) setOpen(false);
+      if (popoverRef.current?.contains(target) || triggerRef.current?.contains(target)) return;
+      // A list opened from inside, such as a combo box's options, is a React Aria popover of its
+      // own elsewhere in the page: a press there is a choice inside, not a press outside (0.11 M6).
+      const layered = target instanceof Element ? target.closest("[data-trigger]") : null;
+      if (layered && layered !== popoverRef.current) return;
+      setOpen(false);
     };
     const events = ["pointerdown", "wheel", "touchmove"] as const;
     for (const type of events) document.addEventListener(type, closeOutside, { capture: true, passive: true });

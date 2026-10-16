@@ -256,11 +256,11 @@ def test_installed_release_diff_is_key_based_and_assesses_active_runtime_data():
     candidate_source["applications"][0]["views"][0]["name"] = "Renamed domains"
     candidate_source["attributeTypes"].reverse()
     candidate = EngineModel.model_validate(candidate_source)
-    with SessionLocal() as session:
-        candidate_release = ensure_bootstrap_release(session, candidate)
-        session.commit()
-
+    # The app starts first, so the default workspace runs the bootstrap release, not the candidate.
     with TestClient(app) as client:
+        with SessionLocal() as session:
+            candidate_release = ensure_bootstrap_release(session, candidate)
+            session.commit()
         active_release_id = client.get("/api/v1/model").headers["X-Model-Release-Id"]
         response = client.get(
             f"/api/v1/model-releases/{candidate_release.public_id}/diff",

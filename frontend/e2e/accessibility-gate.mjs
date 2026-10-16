@@ -30,6 +30,7 @@ import { cancelDrag } from "./helpers/tree.mjs";
 import { visitReleaseSurfaces } from "./helpers/release-surfaces.mjs";
 import { visitDesignerSurfaces } from "./helpers/designer-surfaces.mjs";
 import { visitSpreadsheetSurfaces } from "./helpers/spreadsheet-surfaces.mjs";
+import { visitWorkspaceSurfaces } from "./helpers/workspace-surfaces.mjs";
 
 // Permitted known violations with tracked issue references.
 // Each entry must state the axe rule id and a tracking reference.
@@ -143,7 +144,7 @@ try {
   // --- 7. Settings › Model (the model workbench's list page since U3) ---
   await page.goto(`${uiUrl}/settings/model`);
   await shown(page.getByRole("heading", { name: "Model", exact: true, level: 1 }));
-  await shown(page.getByRole("group", { name: "Workspaces and their models" }));
+  await shown(page.getByRole("navigation", { name: "Model catalogue" }));
   result = await runAxe(page, ALLOWLIST, "model-workbench");
   if (result.violations.length > 0) failures.push(`model-workbench:\n${formatViolations(result.violations)}`);
   checks.push(`model-workbench: ${result.violations.length} violations, ${result.allowed.length} allowed`);
@@ -195,7 +196,7 @@ try {
     ["dark-detail-domain", `/apps/rdm-master/objects/domain/${records.domain[0].id}?workspaceKey=default`, () => page.getByRole("heading", { name: "Domain 00" })],
     ["dark-detail-system", `/apps/rdm-systems/objects/system/${records.system[0].id}?workspaceKey=default`, () => page.getByRole("heading", { name: "System 00" })],
     ["dark-change-sets-list", "/apps/rdm-master/change-sets?workspaceKey=default", () => page.getByText("Second change set")],
-    ["dark-model-workbench", "/settings/model", () => page.getByRole("group", { name: "Workspaces and their models" })],
+    ["dark-model-workbench", "/settings/model", () => page.getByRole("navigation", { name: "Model catalogue" })],
     ["dark-collection-system", "/apps/rdm-systems/views/systems?workspaceKey=default", () => page.getByRole("button", { name: "System 00", exact: true })],
     ["dark-change-set-collection", `/apps/rdm-master/views/domains?workspaceKey=default&changeSetId=${changeSet2.id}`, () => page.getByRole("button", { name: "Domain 00", exact: true })],
     ["dark-change-set-detail", `/apps/rdm-master/objects/domain/${records.domain[0].id}?workspaceKey=default&changeSetId=${changeSet2.id}`, () => page.getByRole("heading", { name: "Domain 00" })],
@@ -482,6 +483,18 @@ try {
   // figure's rows, Load, a description sheet, a sheet's lists and Adjust list…, a profile's check,
   // A9's hovered cell and many-valued dialog, and at 390px the editor with a workbook ---
   await visitSpreadsheetSurfaces(async ({ page: surface, name }) => {
+    const found = await runAxe(surface, ALLOWLIST, name);
+    if (found.violations.length > 0) failures.push(`${name}:\n${formatViolations(found.violations)}`);
+    checks.push(`${name}: ${found.violations.length} violations, ${found.allowed.length} allowed`);
+    await surface.screenshot({ path: resolve(output, `a11y-${name}.png`), fullPage: true });
+  });
+
+  // --- 18. Base 0.11 workspace-model surfaces (0.11 M6, D57), light and dark, on a harness of their
+  // own: the switcher with its marks, the page for what a workspace's model lacks and for an unknown
+  // workspace, Settings › Model's overview and the activation dialog (fits; a migration is needed),
+  // the new workspace's Model choice, a workspace's detail and the install into a new workspace ---
+  await visitWorkspaceSurfaces(async ({ page: surface, name, axe }) => {
+    if (!axe) return;
     const found = await runAxe(surface, ALLOWLIST, name);
     if (found.violations.length > 0) failures.push(`${name}:\n${formatViolations(found.violations)}`);
     checks.push(`${name}: ${found.violations.length} violations, ${found.allowed.length} allowed`);

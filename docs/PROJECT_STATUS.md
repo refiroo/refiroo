@@ -40,7 +40,17 @@ workspace's model, is delivered (2026-10-16), screenshots approved**: the shell
 loads each workspace's model and says when an address asks for something it lacks; Settings › Model
 shows each workspace's model and activates into one workspace; a workspace is created on a chosen
 release; the editor installs into an existing or new workspace
-([record](BASE_0_11_IMPLEMENTATION_PLAN.md#m5-record-2026-10-16)). M6 is next. Accepted by the user 2026-10-15: the data move in 0.11 (D3), the suite's
+([record](BASE_0_11_IMPLEMENTATION_PLAN.md#m5-record-2026-10-16)). **M6, the workspace-model
+checkpoint, and M6a are delivered (2026-10-16)**: J36 composed in the browser on two generated models
+beside the starter, from installing each into a new workspace to published change sets and a release
+changed in one workspace; a page built on a replaced release cannot save (M6a, the optional
+`X-Expected-Model-Release-Id` header); M5's surfaces in the accessibility and visual gates; the
+upgrade of a 0.10.0 database checked by hand. Fixed on the way: the header's name following the
+workspace's model, the phone band's workspace choice by tapping, two of M5's small findings, two
+failing or order-bound tests. Settings › Model was reworked at the user's request and left laid out
+as Settings › Workspaces; its redesign is recorded for 0.14
+([record](BASE_0_11_IMPLEMENTATION_PLAN.md#m6-record-2026-10-16)). 0.11.0-alpha.1 waits for the
+user's approval of the visual baselines and instruction. Accepted by the user 2026-10-15: the data move in 0.11 (D3), the suite's
 time (D152) as a filler during Part 1 before X2 at the latest (D2), and 0.11.0-alpha.1 after the M6
 checkpoint (D12).
 

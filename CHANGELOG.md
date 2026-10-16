@@ -6,6 +6,39 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.11 M6a)
+
+- `X-Expected-Model-Release-Id`, an optional request header on every management route: a request
+  naming a release its workspace, change set or publication no longer resolves is refused with
+  `409 MODEL_RELEASE_CHANGED` before anything is read or written. The browser sends it on its data
+  writes; a page built before its workspace's model changed shows the refusal and a toast with
+  Reload instead of saving under the new release.
+- The API exposes `X-Model-Release-Id` to browsers on other origins.
+
+### Added (0.11 M6)
+
+- `test:browser:workspace-m6`: the workspace-model checkpoint, J36 composed in the browser on two
+  generated models beside the starter.
+- The workspace-model surfaces of M5 and M6 in the accessibility and visual gates, light and dark.
+
+### Changed (0.11 M6)
+
+- Settings › Model is laid out as Settings › Workspaces: the models in a list (the default
+  workspace's first) beside the selected model's card with where it runs, its releases and its
+  drafts. A redesign is planned for 0.14.
+- "Activate a release…" is "Change model…"; its dialog groups the releases by model, the
+  workspace's own first, and preselects nothing in another model.
+- The top bar shows the default workspace's model's product name on every page, whatever model the
+  shown workspace runs.
+
+### Fixed (0.11 M6)
+
+- On a phone, choosing a workspace from the band by tapping did nothing; only the keyboard switched.
+- On the "not in this workspace's model" page the sidebar marked a collection as current; a
+  workspace switch read the sidebar's collections twice.
+- `test_boundaries::test_tiers_hold` failed on an import cycle in the source-file dry run; a model
+  lifecycle test passed only after the tests before it.
+
 ### Added (0.11 M5)
 
 - The browser follows each workspace's model: switching workspace changes the applications,
