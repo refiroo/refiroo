@@ -494,8 +494,8 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 - [x] 0.11 P0 design pass, per the [Base 0.11 plan](BASE_0_11_IMPLEMENTATION_PLAN.md), delivered
   2026-10-15: decisions D4–D29 and the move inventory accepted, ADR-042, API design, J36–J38, the M5
   and X4 mock-ups approved. M1 (with M2 folded in, plan D32) delivered 2026-10-15; M3 and M4
-  delivered 2026-10-16; M5, M6 and M6a delivered 2026-10-16; next: the 0.11.0-alpha.1 release steps
-  (D12, on the user's instruction), then V1.
+  delivered 2026-10-16; M5, M6 and M6a delivered 2026-10-16, released as 0.11.0-alpha.1
+  (2026-10-17); next: V1.
   - [ ] The user's requirement: each workspace runs a model of its own (Track M, then Track V).
     M1 delivered the API: a workspace on a release of its own, activation into one workspace, the
     commit guard per workspace. M3: import profiles, drafts and the consumer index and OpenAPI
@@ -542,7 +542,8 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
     0.11 (plan D3, accepted 2026-10-15).
   - [ ] The backend suite's time (D152, package S1): a filler during Part 1, before X2 at the latest
     (plan D2, accepted 2026-10-15).
-  - [ ] 0.11.0-alpha.1 when the M6 checkpoint passes (plan D12, accepted 2026-10-15).
+  - [x] 0.11.0-alpha.1 when the M6 checkpoint passes (plan D12, accepted 2026-10-15): released
+    2026-10-17, tag `v0.11.0-alpha.1`.
 
 ## Later — production and self-service authoring
 

@@ -6,6 +6,13 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [0.11.0-alpha.1] - 2026-10-17
+
+Each workspace runs a model of its own, released on its own (D12): everything since 0.10.0, Base
+0.11 packages P0, M1 (with M2), M3, M4, M5, M6 and M6a. Moving a workspace's data to another release
+(Track V) and data between workspaces whose models differ (Track X) follow in 0.11.0. One migration
+since 0.10.0 (`20261018_01`, a release per workspace); a database of 0.10.0 upgrades on start.
+
 ### Added (0.11 M6a)
 
 - `X-Expected-Model-Release-Id`, an optional request header on every management route: a request

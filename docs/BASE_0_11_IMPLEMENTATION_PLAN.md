@@ -10,8 +10,8 @@ delivered before production hardening. D1 is the user's; **D2, D3 and D12 were a
 packages are specified below at package level; each package's detailed plan, test cases and
 decisions are written and accepted when it starts, and it is delivered in the order of the
 [delivery queue](#delivery-queue), each by the [delivery steps](#how-a-package-is-delivered).
-**Delivered:** P0, M1 with M2 (2026-10-15), M3, M4, M5, M6 and M6a (2026-10-16; 0.11.0-alpha.1 waits
-for the user's approval of the visual baselines and instruction).
+**Delivered:** P0, M1 with M2 (2026-10-15), M3, M4, M5, M6 and M6a (2026-10-16), released as
+0.11.0-alpha.1 (2026-10-17, tag `v0.11.0-alpha.1`).
 
 **Target:** Product 0.11.0, [production hardening and staged model rollout](ROADMAP.md#product-release-011--production-hardening-and-staged-model-rollout),
 with the two requirements the user added on 2026-10-15 (ROADMAP commit `a0859ae`).
@@ -295,7 +295,7 @@ change) and `volume` (every budget).
 | 4 | [M3](#m3-instance-wide-resources-bound-to-a-workspaces-model) | M2 | **Delivered 2026-10-16.** Import profiles, drafts, source files, jobs and dry runs, consumer APIs and events resolved through the workspace's model |
 | 5 | [M4](#m4-reads-spanning-workspaces) | M3 | **Delivered 2026-10-16.** The cross-type lookup over several workspaces asked for; counterparts refused across models; the feed, coverage and exports stay within one workspace |
 | 6 | [M5](#m5-the-ui-follows-the-workspaces-model) | M4 | **Delivered 2026-10-16.** The shell follows the workspace's model; Settings › Model per workspace; "New from a workbook" into a chosen workspace |
-| 7 | [M6](#m6-workspace-models-checkpoint) | M5 | **Delivered 2026-10-16**, the alpha's tag on instruction. Two workspaces on two models composed in the browser; the roadmap's first workspace-model exit item; tagged 0.11.0-alpha.1 (D12) |
+| 7 | [M6](#m6-workspace-models-checkpoint) | M5 | **Delivered 2026-10-16, released as 0.11.0-alpha.1 (2026-10-17).** Two workspaces on two models composed in the browser; the roadmap's first workspace-model exit item; tagged 0.11.0-alpha.1 (D12) |
 | 7a | [M6a](#m6a-a-write-names-the-release-it-was-built-on) | M5 | **Delivered 2026-10-16.** Added 2026-10-16 in M6: a write names the release it was built on; refused when the workspace runs another; M6's case 4 |
 | 8 | [V1](#v1-a-workspaces-data-migrated-to-another-release) | M2 | Migration plan for one workspace: preview, conversions, loss, confirm bound to versions, atomic switch |
 | 9 | [V2](#v2-a-change-set-from-a-publication-moved-to-another-release) | V1 | GAP-02: a change set started from a publication moved to a named installed release |
@@ -1554,8 +1554,11 @@ browser runners (R).
 
 ##### M6 record (2026-10-16)
 
-**Delivered 2026-10-16**, its release steps (0.11.0-alpha.1, D12) waiting for the user's approval of
-the visual baselines and instruction. Built as planned (D56–D62), with M6a added by the user for
+**Delivered 2026-10-16 and released as 0.11.0-alpha.1 (D12) on 2026-10-17:** the user approved the
+baselines by asking for the commit (`07cd453`) and asked for the release ("you can do it"). Version
+strings `0.11.0-alpha.1` in `backend/pyproject.toml`, `ENGINE_VERSION` and `frontend/package.json`
+(with its lock); the OpenAPI lock re-baselined for `info.version` alone (with 0.10.0 the document
+hashes to the previous lock exactly); the CHANGELOG section; the tag `v0.11.0-alpha.1`. Built as planned (D56–D62), with M6a added by the user for
 case 4. Found and fixed on the way:
 
 - **The header's product name followed the workspace's model** (from M5): every model declares its
@@ -1608,7 +1611,7 @@ Workspaces' detail; 20 accessibility scenarios, 13 visual baselines.
 - `test:visual`: 156 checks; 52 baselines differ, all explained by committed or approved changes
   (`6cd6404`'s one top bar on Settings and the editor, M5's model line under the switcher, its install
   dialog, Settings › Workspaces and a release's page, M6's Settings › Model) and 13 are new. The
-  update run's other 90 rewrites were restored. **Awaiting the user's approval.**
+  update run's other 90 rewrites were restored. Approved by the user with the commit.
 - **Migration (D61)**, by hand: the `v0.10.0` code in a scratch worktree built a scratch database
   with a record, an open change set and a draft; the head upgraded it to `20261018_01` and kept all
   three, the default workspace on its release; a second workspace was created on another installed
