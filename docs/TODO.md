@@ -495,8 +495,7 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   2026-10-15: decisions D4–D29 and the move inventory accepted, ADR-042, API design, J36–J38, the M5
   and X4 mock-ups approved. M1 (with M2 folded in, plan D32) delivered 2026-10-15; M3 and M4
   delivered 2026-10-16; M5, M6 and M6a delivered 2026-10-16, released as 0.11.0-alpha.1
-  (2026-10-17); V1 delivered 2026-10-18; V2's API 2026-10-18, its screen after the mock-up's
-  approval.
+  (2026-10-17); V1 delivered 2026-10-18; V2 delivered 2026-10-18; next: V3.
   - [ ] The user's requirement: each workspace runs a model of its own (Track M, then Track V).
     M1 delivered the API: a workspace on a release of its own, activation into one workspace, the
     commit guard per workspace. M3: import profiles, drafts and the consumer index and OpenAPI
@@ -505,8 +504,8 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
     Settings › Workspaces per workspace, the editor's choice of workspace. M6: the checkpoint
     composed in the browser; M6a: a request naming the release it was built on. V1: a workspace's
     migration to another release, API and screen. V2: a change set on an older release published
-    by migrating its workspace to that release (API; screen pending). Still to come: V2's screen,
-    V3, V4.
+    by migrating its workspace to that release, API and the change set bar. Still to come: V3,
+    V4.
   - [x] **Found in M5 (2026-10-16), small (fixed in M6, D58):** on the "not in this workspace's model" page the rail
     still marks the workspace's first collection as current (the shown route is the start); and a
     switch to another workspace reads the rail's collections twice (the shell remounts once the

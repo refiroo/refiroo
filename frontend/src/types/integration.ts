@@ -89,6 +89,12 @@ export interface MigrationSummary {
   expectedVersion: number;
   feedPosition: number;
   counts: MigrationCounts;
+  /** A migration that publishes a change set (0.11 V2): the change set, its reviewed version and
+   * the workspace's active publication the preview read; once executed, the new publication. */
+  changeSetId?: string;
+  changeSetVersion?: number;
+  activePublicationId?: string;
+  publicationId?: string;
 }
 
 /** One item a migration changes (D72). */

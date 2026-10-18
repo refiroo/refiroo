@@ -16,6 +16,8 @@ vi.mock("@/api/client", () => ({
     cancelJob: vi.fn(),
     workspaceModel: vi.fn(),
     startWorkspaceMigration: vi.fn(),
+    changeSet: vi.fn(),
+    publication: vi.fn(),
   },
 }));
 
@@ -175,5 +177,72 @@ describe("MigrationPage (0.11 V1)", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Migrate South branch to 3.0.0" }));
     const dialog = await screen.findByRole("alertdialog", { name: "South branch changed after this preview" });
     expect(within(dialog).getByRole("button", { name: "Preview again" })).toBeInTheDocument();
+  });
+
+  it("names the change set it publishes, its refusals and the publication (0.11 V2)", async () => {
+    vi.mocked(api.changeSet).mockResolvedValue({ id: "cs-1", name: "Spring reshelving", version: 7 } as never);
+    vi.mocked(api.migrationRows).mockResolvedValue({
+      items: [
+        {
+          index: 0,
+          outcome: "refused",
+          code: "CHANGE_SET_CONFLICT",
+          objectId: "t1",
+          objectName: "Harbour Lights",
+          objectTypeKey: "title",
+        },
+      ],
+      nextCursor: null,
+    } as never);
+    const publishing = (counts: Record<string, number>, extra = {}) =>
+      job(counts, {
+        parameters: { targetReleaseId: "lib-3", typeMappings: [], changeSetId: "cs-1" },
+        ...extra,
+      });
+    show(publishing({ refused: 1 }));
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Migrate South branch to Catalogue 3.0.0 and publish “Spring reshelving”",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Then publishes “Spring reshelving”/)).toBeInTheDocument();
+    expect(screen.getByText(/version 7/)).toBeInTheDocument();
+    fireEvent.click(
+      within(await screen.findByRole("group", { name: "Items by outcome" })).getByRole("button", {
+        name: /Must be fixed/,
+      }),
+    );
+    expect(
+      await screen.findByText("Changed both in the change set and live since the change set started"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Fix them in “Spring reshelving” or in South branch/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Migrate and publish" })).toBeDisabled();
+  });
+
+  it("says the change set is live and names its publication once done (0.11 V2)", async () => {
+    vi.mocked(api.changeSet).mockResolvedValue({ id: "cs-1", name: "Spring reshelving", version: 7 } as never);
+    vi.mocked(api.publication).mockResolvedValue({ id: "p-14", publicationNumber: 14 } as never);
+    show(
+      job(
+        { conversion: 1 },
+        {
+          state: "completed",
+          confirmedAt: "now",
+          parameters: { targetReleaseId: "lib-3", typeMappings: [], changeSetId: "cs-1" },
+          migration: {
+            targetReleaseId: "lib-3",
+            currentReleaseId: "lib-2",
+            expectedVersion: 4,
+            feedPosition: 18204,
+            counts: { conversion: 1, reclassified: 0, loss: 0, refused: 0 },
+            changeSetId: "cs-1",
+            publicationId: "p-14",
+          },
+        },
+      ),
+    );
+    expect(await screen.findByText(/Published as Publication 14\./)).toBeInTheDocument();
+    expect(screen.getByText(/and “Spring reshelving” is live/)).toBeInTheDocument();
   });
 });

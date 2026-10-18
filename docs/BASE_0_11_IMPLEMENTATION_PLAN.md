@@ -11,7 +11,7 @@ packages are specified below at package level; each package's detailed plan, tes
 decisions are written and accepted when it starts, and it is delivered in the order of the
 [delivery queue](#delivery-queue), each by the [delivery steps](#how-a-package-is-delivered).
 **Delivered:** P0, M1 with M2 (2026-10-15), M3, M4, M5, M6 and M6a (2026-10-16), released as
-0.11.0-alpha.1 (2026-10-17, tag `v0.11.0-alpha.1`); V1 (2026-10-18); V2's API (2026-10-18).
+0.11.0-alpha.1 (2026-10-17, tag `v0.11.0-alpha.1`); V1 and V2 (2026-10-18).
 
 **Target:** Product 0.11.0, [production hardening and staged model rollout](ROADMAP.md#product-release-011--production-hardening-and-staged-model-rollout),
 with the two requirements the user added on 2026-10-15 (ROADMAP commit `a0859ae`).
@@ -298,7 +298,7 @@ change) and `volume` (every budget).
 | 7 | [M6](#m6-workspace-models-checkpoint) | M5 | **Delivered 2026-10-16, released as 0.11.0-alpha.1 (2026-10-17).** Two workspaces on two models composed in the browser; the roadmap's first workspace-model exit item; tagged 0.11.0-alpha.1 (D12) |
 | 7a | [M6a](#m6a-a-write-names-the-release-it-was-built-on) | M5 | **Delivered 2026-10-16.** Added 2026-10-16 in M6: a write names the release it was built on; refused when the workspace runs another; M6's case 4 |
 | 8 | [V1](#v1-a-workspaces-data-migrated-to-another-release) | M2 | **Delivered 2026-10-18.** Migration plan for one workspace: preview, conversions, loss, confirm bound to versions, atomic switch |
-| 9 | [V2](#v2-a-change-set-from-a-publication-moved-to-another-release) | V1 | **API delivered 2026-10-18; screen on the mock-up's approval.** GAP-02: a change set on an older release published by migrating its workspace to that release |
+| 9 | [V2](#v2-a-change-set-from-a-publication-moved-to-another-release) | V1 | **Delivered 2026-10-18.** GAP-02: a change set on an older release published by migrating its workspace to that release |
 | 10 | [V3](#v3-a-change-set-moved-onto-a-release-it-does-not-fit) | V1 | ADR-028: a change set moved onto a release its content does not fit, previewed and confirmed |
 | 11 | [V4](#v4-the-schema-language-window) | V1, M6 | The bounded window of schema versions run side by side; explicit conversion rules |
 | 12 | [X1](#x1-the-mapping-between-two-models) | M4, P0 inventory | The model-to-model mapping: proposed, completed with mapping operations, saved and reused |
@@ -2029,9 +2029,26 @@ exist); Vitest for the bar and the page; `test:browser:workspace-v1`'s new case 
 history: every migrated and published change has its entry, as in V1 and publishing; bulk APIs: the
 same job with item outcomes. No door closes.
 
-##### V2 record (in progress, 2026-10-18)
+##### V2 record (2026-10-18)
 
-**API delivered 2026-10-18; the screen (D85) waits for the mock-up's approval.**
+**Delivered 2026-10-18.** The API, then the screen on the board (the user, 2026-10-18: "yes please go
+ahead", taken as the board's approval and the `change_sets` group's go-ahead).
+
+- **Screen (D85):** the change set bar's notice "This change set uses a different model version"
+  offers **Move ‹workspace› to ‹release› and publish…** in `Notice`'s actions slot where model
+  administration and background jobs run, and says why not otherwise (`ChangeSetActions`'
+  `canMigrate`, `onMigrationStarted`, wired in `App`); it starts the migration naming the change set
+  with its version and the assignment's, and opens V1's page. `MigrationPage` reads the change set
+  from the job's parameters: the title adds "and publish ‹change set›", a line says it then publishes
+  it as the next publication in the same step, a new preview (a choice, Preview again) names the
+  change set's current version, the refusals read `CHANGE_SET_CONFLICT` in words and say to fix them
+  in the change set or the workspace, the button is **Migrate and publish**, the stale dialog names the
+  change set, and the done notice says the change set is live and names the publication's number.
+  UI_ACCEPTANCE row V2-1; `test:browser:workspace-v1` case 6.
+- **Where it differs from the board:** the offer sits in the notice's action slot (to the right at
+  1440px) rather than under its text, as every `Notice` places its actions; the done state names the
+  publication without a link (a publications page needs an application, which Settings' page does
+  not have).
 
 - **Built (API):** `POST /workspaces/{key}/model/migrations` takes `changeSetId` and
   `expectedChangeSetVersion`, `targetReleaseId` then optional (D80); the start refuses a change set
@@ -2060,21 +2077,30 @@ same job with item outcomes. No door closes.
   row "V1, V2": the change set bar's notice with **Move ‹workspace› to ‹release› and publish…** (and
   the reason when model administration or jobs are off), and the migration page with its
   "Then publishes ‹change set›" line, the publication's refusals, the bar ("Migrate and publish")
-  and the done state linking the publication; the 390px page is V1's phone board. Awaiting
-  approval.
+  and the done state linking the publication; the 390px page is V1's phone board. Approved
+  2026-10-18.
 
-**Checks so far (2026-10-18):** J37.6 written first, 12 failing at the route (`changeSetId` not
+**Checks (2026-10-18), the screen:** `test:browser:workspace-v1` 6 cases passed (case 6 on
+generated-a and generated-b: the bar's offer and Migrate and publish by keyboard, axe on the bar and
+the page, the workspace on the change set's release and its rename live afterwards); the first run
+stopped at the acceptance because the runner had written nothing the way back removes, fixed in the
+runner by writing the X2-only value as the journey does. Screenshots inspected light and dark
+(`v2-bar`, `v2-preview`, `v2-done`): they follow the board. Vitest: `ChangeSets.test` (2 new),
+`MigrationPage.test` (2 new); the model-admin, workspaces and app folders 156 passed. `npm run
+format`, `lint` (0 errors; the 7 warnings are elsewhere), `build`. The `change_sets` group: 474
+passed, 2 min 21 s (over the 2-minute ceiling as in V1, TODO). **Not run:** the accessibility and
+visual gates (build acceptance); V2 adds no surface to them, and the bar's notice shows only for a
+change set on another release, which no gate scenario has.
+
+**Checks (2026-10-18), the API:** J37.6 written first, 12 failing at the route (`changeSetId` not
 accepted), then 12 passed. Groups `migration or workspace_models or contract`: 146 passed, 43 s
 (`test_every_error_code_is_listed` and the lock failed until API_JOURNEYS listed the code and the
 lock was re-baselined after diffing the document against `989994c`: only `MigrationSummary`'s four
 fields). The publish journeys J05, J06, J17, J18: 48 passed, 54 s. Unit `tests/unit/engine/change_sets`
-and `test_migrations.py`: 23 passed. The serial part: 2 passed. Ruff. **Not run:** the whole
-`change_sets` group (2 min 32 s in V1, over the ceiling; needs a go-ahead), the browser runner,
-Vitest and the gates (no screen yet).
+and `test_migrations.py`: 23 passed. The serial part: 2 passed. Ruff.
 
-**What the user cannot do yet:** publish such a change set from the browser (the bar still only
-offers changing the version or discarding; the screen follows the board's approval); move a change
-set's content onto the workspace's release when it does not fit (V3).
+**What the user cannot do yet:** move a change set's content onto the release its workspace runs
+when the content does not fit (V3); the bar offers changing the version only when it fits.
 
 #### V3: A change set moved onto a release it does not fit
 

@@ -245,3 +245,49 @@ it("separates an unpunctuated server message from the preserved-change-set guida
     ),
   ).toBeVisible();
 });
+
+describe("a change set on a release its workspace no longer runs (0.11 V2)", () => {
+  const older = { ...baseChangeSet, modelReleaseId: olderRelease.id, modelReleaseVersion: "0.6.0", version: 7 };
+  const mismatched = () =>
+    vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
+      api,
+      changeSet: older,
+      activeModelReleaseId: activeRelease.id,
+      activeModelReleaseLabel: "0.7.0",
+      warning: "",
+      refresh: vi.fn().mockResolvedValue(older),
+    });
+
+  it("offers to move the workspace to the change set's release and publish, naming the reviewed versions", async () => {
+    mismatched();
+    vi.spyOn(api, "workspace").mockResolvedValue({ key: "west", label: "West office" } as never);
+    vi.spyOn(api, "workspaceModel").mockResolvedValue({ version: 3 } as never);
+    const start = vi.spyOn(api, "startWorkspaceMigration").mockResolvedValue({ id: "job-9" } as never);
+    const started = vi.fn();
+    render(
+      <ChangeSetActions
+        readOnly={false}
+        onExit={vi.fn()}
+        onModelChanged={vi.fn()}
+        canMigrate
+        onMigrationStarted={started}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Publish change set" })).toBeDisabled();
+    fireEvent.click(await screen.findByRole("button", { name: "Move West office to 0.6.0 and publish…" }));
+    await waitFor(() => expect(started).toHaveBeenCalledWith("job-9"));
+    expect(start).toHaveBeenCalledWith("west", {
+      changeSetId: older.id,
+      expectedChangeSetVersion: 7,
+      expectedVersion: 3,
+    });
+  });
+
+  it("says why not where migrations do not run", async () => {
+    mismatched();
+    vi.spyOn(api, "workspace").mockResolvedValue({ key: "west", label: "West office" } as never);
+    render(<ChangeSetActions readOnly={false} onExit={vi.fn()} onModelChanged={vi.fn()} />);
+    expect(await screen.findByText(/needs model administration and background jobs/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /and publish…/ })).not.toBeInTheDocument();
+  });
+});

@@ -4,7 +4,8 @@
  * (converted, type changed, removed, must be fixed), each list paged (D72); and the bar that accepts
  * the loss and confirms, bound to the reviewed versions (D74). The preview runs as a job and changes
  * nothing; each choice starts a new preview. A confirmation the workspace has outdated asks to
- * preview again.
+ * preview again. A migration naming a change set (0.11 V2, D85) also publishes it: the page says so,
+ * lists what would stop the publication with the refusals, and its done state names the publication.
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -188,6 +189,9 @@ export function MigrationPage({
   const [error, setError] = useState("");
   const [staleRefused, setStaleRefused] = useState(false);
   const [staleClosed, setStaleClosed] = useState(false);
+  // The change set the migration publishes (V2), read once: it is gone once published.
+  const [changeSet, setChangeSet] = useState<{ id: string; name: string; version: number }>();
+  const [publicationNumber, setPublicationNumber] = useState<number>();
 
   useEffect(() => {
     let active = true;
@@ -206,6 +210,34 @@ export function MigrationPage({
   });
 
   const targetReleaseId = job?.parameters.targetReleaseId as string | undefined;
+  const changeSetId = job?.parameters.changeSetId as string | undefined;
+  useEffect(() => {
+    if (!changeSetId || changeSet?.id === changeSetId) return;
+    let active = true;
+    api
+      .changeSet(changeSetId)
+      .then(
+        (loaded) =>
+          active &&
+          setChangeSet({ id: loaded.id, name: loaded.name || "Untitled change set", version: loaded.version }),
+      )
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [changeSetId, changeSet?.id]);
+  const publicationId = job?.migration?.publicationId;
+  useEffect(() => {
+    if (!publicationId) return;
+    let active = true;
+    api
+      .publication(publicationId)
+      .then((publication) => active && setPublicationNumber(publication.publicationNumber))
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [publicationId]);
   const currentReleaseId = job?.migration?.currentReleaseId ?? releaseRunBy(workspaces, job?.workspaceKey);
   useEffect(() => {
     if (!targetReleaseId || !currentReleaseId) return;
@@ -254,11 +286,14 @@ export function MigrationPage({
     setError("");
     try {
       const current = await api.workspaceModel(job.workspaceKey);
+      // A preview naming a change set names its current version (V2).
+      const fresh = changeSetId ? await api.changeSet(changeSetId) : undefined;
       if (waiting) await api.cancelJob(job.id).catch(() => undefined);
       const started = await api.startWorkspaceMigration(job.workspaceKey, {
         targetReleaseId,
         expectedVersion: current.version,
         typeMappings: mappingsOf(next),
+        ...(fresh ? { changeSetId: fresh.id, expectedChangeSetVersion: fresh.version } : {}),
       });
       setAccepted(false);
       setStaleRefused(false);
@@ -305,7 +340,10 @@ export function MigrationPage({
   const blocked = Boolean(counts?.refused);
   const needsLoss = Boolean(counts?.loss) && !blocked;
   const canConfirm = waiting && !blocked && (!counts?.loss || accepted) && !pending;
-  const title = `Migrate ${label} to ${target ? `${target.name} ${target.version}` : "another release"}`;
+  const changeSetName = changeSet ? `“${changeSet.name}”` : "the change set";
+  const title = `Migrate ${label} to ${target ? `${target.name} ${target.version}` : "another release"}${
+    changeSetId ? ` and publish ${changeSetName}` : ""
+  }`;
 
   return (
     <SettingsLayout
@@ -338,6 +376,13 @@ export function MigrationPage({
             <strong>Nothing has changed yet.</strong>
           </p>
         )}
+        {changeSetId && !done && !cancelled && (
+          <p className="migration-publishes">
+            <strong>Then publishes {changeSetName}</strong>
+            {changeSet ? ` (version ${changeSet.version})` : ""} as the next publication, in the same step. If the
+            publication cannot be made, nothing is migrated.
+          </p>
+        )}
         {error && (
           <Notice tone="error" title="Something went wrong" focusOnMount>
             {error}
@@ -364,7 +409,14 @@ export function MigrationPage({
           </div>
         )}
         {done && counts && (
-          <Notice tone="success" title={`${label} runs ${target?.name ?? "the release"} ${version}`} focusOnMount>
+          <Notice
+            tone="success"
+            title={`${label} runs ${target?.name ?? "the release"} ${version}${changeSetId ? `, and ${changeSetName} is live` : ""}`}
+            focusOnMount
+          >
+            {changeSetId && (
+              <>{publicationNumber ? `Published as Publication ${publicationNumber}. ` : "Published. "}</>
+            )}
             {counted(counts.conversion, "value", "values")} converted,{" "}
             {counted(counts.reclassified, "record", "records")} changed type, {lossText(counts)} removed. Each
             record&apos;s history keeps what was removed. Open change sets stay on the release {label} ran before until
@@ -473,7 +525,9 @@ export function MigrationPage({
                 <strong>
                   {count(counts.refused)} {counts.refused === 1 ? "item must" : "items must"} be fixed first.
                 </strong>{" "}
-                Fix the records in {label}, then preview again.
+                {changeSetId
+                  ? `Fix them in ${changeSetName} or in ${label}, then preview again.`
+                  : `Fix the records in ${label}, then preview again.`}
               </span>
             )}
             {needsLoss && (
@@ -493,7 +547,7 @@ export function MigrationPage({
             Cancel
           </button>
           <button type="button" className="primary" onClick={confirm} disabled={!canConfirm}>
-            {pending ? "Confirming…" : `Migrate ${label} to ${version}`}
+            {pending ? "Confirming…" : changeSetId ? "Migrate and publish" : `Migrate ${label} to ${version}`}
           </button>
         </div>
       )}
@@ -509,9 +563,10 @@ export function MigrationPage({
         >
           <div className="dialog-body">
             <p>
-              Records were saved in {label}, or its model changed, after the preview you reviewed, so it may no longer
-              list everything the migration would change. Nothing was migrated. Preview again and review it before
-              confirming.
+              Records were saved in {label}
+              {changeSetId ? `, ${changeSetName} was edited, or a publication was made` : ", or its model changed"},
+              after the preview you reviewed, so it may no longer list everything the migration would change. Nothing
+              was migrated. Preview again and review it before confirming.
             </p>
             <div className="dialog-actions">
               <button type="button" className="secondary" onClick={closeStale} disabled={pending}>
@@ -541,6 +596,7 @@ const REFUSALS: Record<string, (version: string) => string> = {
   REQUIRED_RELATION_MISSING: (version) => `Lacks a relationship ${version} requires`,
   PARENT_REQUIRED: (version) => `Must stand under a parent in ${version}`,
   PARENT_RELATION_SEMANTICS_CHANGED: (version) => `${version} has no place for it under its parent`,
+  CHANGE_SET_CONFLICT: () => "Changed both in the change set and live since the change set started",
 };
 
 /** The attribute a refusal's rule names, from its path (`…/attributes/{key}/…`). */

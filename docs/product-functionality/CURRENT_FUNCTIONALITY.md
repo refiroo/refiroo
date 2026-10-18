@@ -475,6 +475,14 @@ page. The removal is accepted with a checkbox and the migration confirmed with *
 be fixed block it; a workspace changed after the preview asks to preview again; the page says when
 the workspace runs the new release.
 
+A change set that works under a release its workspace no longer runs, such as one started from an
+older publication, cannot be published as it is. Its bar offers **Move ‹workspace› to ‹release› and
+publish…** (where model administration and background jobs run): the same migration page moves the
+workspace's data back to the change set's release and says it then publishes the change set. What
+would stop the publication, such as a record changed both in the change set and live, is listed with
+the items to be fixed. **Migrate and publish** does both in one step, or nothing; the page then names
+the new publication. Through the API this is the same migration naming the change set.
+
 Through the API, a draft can also be changed step by step with typed operations instead of whole
 JSON: add, rename, re-key, split, merge or remove applications, types, attributes and relation
 types, set where a type sits in the containment tree, allow relations between types, lay out views

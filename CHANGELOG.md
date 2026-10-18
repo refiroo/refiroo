@@ -17,6 +17,12 @@ All notable changes to this project are documented in this file. The format foll
   one transaction, or nothing does. The summary names `changeSetId`, `changeSetVersion`,
   `activePublicationId` and `publicationId`. Code `MIGRATION_TARGET_NOT_CHANGE_SET_RELEASE`.
 
+### Added (0.11 V2, browser)
+
+- The change set bar of a change set on another release offers **Move ‹workspace› to ‹release› and
+  publish…**; the migration page then says it publishes the change set, lists what would stop the
+  publication, confirms with **Migrate and publish** and names the new publication.
+
 ### Added (0.11 V1, API)
 
 - `POST /workspaces/{key}/model/migrations`: a workspace's data migrated to another installed

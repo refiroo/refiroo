@@ -473,11 +473,18 @@ export const api = {
     }),
   /**
    * Preview a migration of the workspace's data to an installed release (0.11 V1); the answer is the
-   * queued `migration` job, which changes nothing until it is confirmed.
+   * queued `migration` job, which changes nothing until it is confirmed. Naming a change set (V2)
+   * migrates to its release and publishes it with the migration.
    */
   startWorkspaceMigration: (
     workspaceKey: string,
-    body: { targetReleaseId: string; expectedVersion: number; typeMappings?: MigrationTypeMapping[] },
+    body: {
+      targetReleaseId?: string;
+      expectedVersion: number;
+      typeMappings?: MigrationTypeMapping[];
+      changeSetId?: string;
+      expectedChangeSetVersion?: number;
+    },
   ) =>
     request<Job>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/model/migrations`, {
       method: "POST",

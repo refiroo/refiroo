@@ -360,6 +360,8 @@ function AppContent({
           navigate({ ...viewRoute(application, application.defaultView, data.changeSet!.workspaceKey) });
           setRefreshToken((value) => value + 1);
         }}
+        canMigrate={Boolean(capabilities?.modelAdmin.activate && capabilities?.integrationJobs.createJobs)}
+        onMigrationStarted={(jobId) => navigate({ kind: "settings", page: "model", migrationJobId: jobId })}
         onModelChanged={async () => {
           if (data.reloadChangeSetModel) {
             await data.reloadChangeSetModel();

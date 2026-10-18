@@ -58,11 +58,11 @@ and the release together ([record](BASE_0_11_IMPLEMENTATION_PLAN.md#v1-record-in
 Its screen is built on the approved mock-up (2026-10-18): the activation dialog's Preview the
 migration… opens a page in Settings › Model listing what the release no longer has, the items by
 outcome, and confirming once the loss is accepted. A workspace of 100,000 records migrates in under
-three minutes (preview 66 s, execution 111 s). **V2's API is delivered (2026-10-18):** decisions
-D79–D86 accepted; a change set on a release its workspace no longer runs, such as one started from
-an older publication, is published by migrating the workspace to that release, previewed and
-confirmed in one job ([record](BASE_0_11_IMPLEMENTATION_PLAN.md#v2-record-in-progress-2026-10-18)).
-Its screen follows the mock-up's approval. Accepted by the user 2026-10-15: the data move in 0.11 (D3), the suite's
+three minutes (preview 66 s, execution 111 s). **V2 is delivered (2026-10-18):** decisions D79–D86
+accepted; a change set on a release its workspace no longer runs, such as one started from an older
+publication, is published by migrating the workspace to that release, previewed and confirmed in one
+job, through the API and from the change set bar
+([record](BASE_0_11_IMPLEMENTATION_PLAN.md#v2-record-2026-10-18)). Next: V3. Accepted by the user 2026-10-15: the data move in 0.11 (D3), the suite's
 time (D152) as a filler during Part 1 before X2 at the latest (D2), and 0.11.0-alpha.1 after the M6
 checkpoint (D12).
 

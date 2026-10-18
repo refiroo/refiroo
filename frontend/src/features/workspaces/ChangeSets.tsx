@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import { useCursorFeed, type CursorFeed } from "@/lib/hooks/useCursorFeed";
@@ -274,6 +274,8 @@ export function ChangeSetActions({
   onReview,
   onExit,
   onModelChanged,
+  canMigrate = false,
+  onMigrationStarted,
 }: {
   readOnly: boolean;
   /** The review screen is open, so the bar does not offer it again. */
@@ -282,8 +284,29 @@ export function ChangeSetActions({
   onReview?: () => void;
   onExit: (message: string) => void;
   onModelChanged: () => Promise<void>;
+  /** Migrations may run here (model administration and background jobs, D14). */
+  canMigrate?: boolean;
+  /** A migration publishing this change set started (0.11 V2, D85): its job. */
+  onMigrationStarted?: (jobId: string) => void;
 }) {
   const { changeSet, activeModelReleaseId, activeModelReleaseLabel, warning, refresh } = useWorkspaceData();
+  const mismatchedWorkspace =
+    changeSet && activeModelReleaseId && activeModelReleaseId !== changeSet.modelReleaseId
+      ? changeSet.workspaceKey
+      : undefined;
+  // The workspace's label for the offer to move it to the change set's release (D85).
+  const [workspaceLabel, setWorkspaceLabel] = useState<string>();
+  useEffect(() => {
+    if (!mismatchedWorkspace) return;
+    let active = true;
+    api
+      .workspace(mismatchedWorkspace)
+      .then((workspace) => active && setWorkspaceLabel(workspace.label))
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [mismatchedWorkspace]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [diagnostics, setDiagnostics] = useState<Array<Record<string, unknown>>>([]);
@@ -356,6 +379,26 @@ export function ChangeSetActions({
       } catch (refreshCause) {
         setError(`${asSentence(cause)} ${errorMessage(refreshCause)}`);
       }
+    } finally {
+      setPending(false);
+    }
+  }
+  /** Preview moving the workspace to the change set's release and publishing it with it (V2). */
+  async function migrateAndPublish() {
+    if (!allowNavigation()) return;
+    setPending(true);
+    setError("");
+    try {
+      const fresh = await reload();
+      const assignment = await api.workspaceModel(fresh.workspaceKey);
+      const job = await api.startWorkspaceMigration(fresh.workspaceKey, {
+        changeSetId: fresh.id,
+        expectedChangeSetVersion: fresh.version,
+        expectedVersion: assignment.version,
+      });
+      onMigrationStarted?.(job.id);
+    } catch (cause) {
+      setError(errorMessage(cause));
     } finally {
       setPending(false);
     }
@@ -468,11 +511,30 @@ export function ChangeSetActions({
       </section>
       <BelowContextBand>
         {modelMismatch && (
-          <Notice tone="info" title="This change set uses a different model version">
+          <Notice
+            tone="info"
+            title="This change set uses a different model version"
+            actions={
+              !readOnly && canMigrate && onMigrationStarted ? (
+                <button type="button" className="primary" disabled={pending} onClick={() => void migrateAndPublish()}>
+                  Move {workspaceLabel ?? "the workspace"} to {current.modelReleaseVersion} and publish…
+                </button>
+              ) : undefined
+            }
+          >
             This change set works under {current.modelReleaseKey} {current.modelReleaseVersion}; live data uses the
             active model{activeModelReleaseLabel ? ` ${activeModelReleaseLabel}` : ""}. Publishing requires these
-            versions to match. You can change the change set's model version if the content fits, or discard the change
-            set.
+            versions to match. You can change the change set&apos;s model version if the content fits,
+            {readOnly
+              ? " "
+              : ` move ${workspaceLabel ?? "the workspace"} to ${current.modelReleaseVersion} and publish this change set with it, `}
+            or discard the change set.
+            {!readOnly && !canMigrate && (
+              <>
+                {" "}
+                Moving the workspace needs model administration and background jobs, which this deployment does not run.
+              </>
+            )}
           </Notice>
         )}
         {warning && (
