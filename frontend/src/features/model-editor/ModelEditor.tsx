@@ -96,8 +96,12 @@ import { TypePreview } from "@/features/model-editor/TypePreview";
 
 type Send = (version: number) => Promise<ModelDraftStep>;
 
-/** Whether the reader left the issues and history pane open, remembered in this browser. */
-const BOTTOM_KEY = "rdm:model-editor:issues-history-open:v1";
+/**
+ * Whether the reader left the issues and history pane open, remembered in this browser; closed until
+ * they open it. Only the pane's own toggle stores it (the user, 2026-10-19: Show issues stored it
+ * open, so it opened empty from then on; `v2` leaves those stored values behind).
+ */
+const BOTTOM_KEY = "rdm:model-editor:issues-history-open:v2";
 
 type Dialog =
   | { kind: "operation"; operation: OperationSpec; target: OperationTarget; preset?: FieldValues }
@@ -591,8 +595,9 @@ export function ModelEditor({
         onShowIssues={() => {
           if (shown === "layout") showType();
           setBottomTab("issues");
+          // Opened for now; only the pane's own toggle is the reader's choice.
           if (phone) setPhoneTab("issues");
-          else toggleBottom(true);
+          else setBottomOpen(true);
         }}
         actions={actions}
       />

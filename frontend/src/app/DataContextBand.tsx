@@ -18,7 +18,7 @@
  * The top bar's tabs and the drawer's workspace selector are then left out.
  */
 
-import type { ReactNode } from "react";
+import { useLayoutEffect, useState, type ReactNode } from "react";
 import { WorkspaceSelector } from "@/features/workspaces/WorkspaceSelector";
 import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { PHONE_WIDTH, useMediaQuery } from "@/lib/hooks/useMediaQuery";
@@ -54,6 +54,8 @@ export function DataContextBand({
   onManageWorkspaces?: () => void;
 }) {
   const phone = useMediaQuery(PHONE_WIDTH);
+  const [band, setBand] = useState<HTMLDivElement | null>(null);
+  useLayoutEffect(() => (band ? publishBandHeight(band) : undefined), [band]);
   const { changeSet, publication } = useWorkspaceData();
   const changeSetId = routeChangeSetId(route);
   const publicationId = routePublicationId(route);
@@ -114,7 +116,10 @@ export function DataContextBand({
   const contextName = listing ? (route.kind === "changeSets" ? "Change sets" : "Publications") : status;
 
   return (
-    <div className={`data-context-band band-${listing ? "neutral" : tone === "changeSet" ? "change-set" : tone}`}>
+    <div
+      ref={setBand}
+      className={`data-context-band band-${listing ? "neutral" : tone === "changeSet" ? "change-set" : tone}`}
+    >
       {phone ? (
         <div role="group" className="band-context band-compact" aria-label="Current context">
           <ControlPopover
@@ -215,4 +220,20 @@ export function DataContextBand({
       {contextActions && <div className="band-actions">{contextActions}</div>}
     </div>
   );
+}
+
+/**
+ * Keeps the band's height in `--band-height` on the page while it is shown: what it covers at the
+ * top once the page scrolls, which a list's height leaves room for (`ui/ScrollWindow`).
+ */
+function publishBandHeight(band: HTMLElement) {
+  const root = document.documentElement;
+  const publish = () => root.style.setProperty("--band-height", `${Math.round(band.getBoundingClientRect().height)}px`);
+  publish();
+  const observer = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(publish);
+  observer?.observe(band);
+  return () => {
+    observer?.disconnect();
+    root.style.removeProperty("--band-height");
+  };
 }

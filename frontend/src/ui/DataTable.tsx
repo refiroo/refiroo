@@ -11,6 +11,11 @@
  * dragged; from then on the widths are fixed, a column may be narrower than its content (the cell
  * ends in an ellipsis), and the actions column, or the table's own width, takes up the difference.
  *
+ * Until then the widths stay as the first rows laid them out: the window holds different rows as it
+ * scrolls, and a table laid out by its content moved its columns, and with them the rows' heights
+ * and the rows under the reader, at every page (reported 2026-10-19). They are measured again when
+ * the columns, the density or the table's room change. Cells still wrap.
+ *
  * The resize handles are not inside the header cells (UA7): a header's name is its content, and a
  * handle there added "Resize … column" to it. They stand in one layer before the table, sticky
  * at the top of the scroll window, each at its column's measured right edge.
@@ -26,6 +31,8 @@ import { ScrollWindow } from "@/ui/ScrollWindow";
 import { SortAnnouncement, SortHeader, headerSort, type TableSort } from "@/ui/TableSort";
 
 const LOADING_ROWS = 6;
+/** Where the table lays out its columns (sized or frozen); below it, the narrow layout by content. */
+const WIDE_LAYOUT = "(min-width: 761px)";
 /** The range a column may be sized to; a stored width outside it is ignored. */
 export const COLUMN_WIDTH = { min: 48, max: 800 } as const;
 
@@ -119,6 +126,36 @@ export function DataTable<Row>({
   );
   const columnCount = columns.length + Number(Boolean(actions)) + Number(Boolean(selection));
 
+  // The widths the first rows laid out (see above), for these columns at this room.
+  const table = useRef<HTMLTableElement>(null);
+  const [room, setRoom] = useState(0);
+  const [frozen, setFrozen] = useState<{ key: string; room: number; widths: number[] }>();
+  const freezeKey = [
+    columns.map((column) => column.key).join("\n"),
+    compact,
+    allColumns,
+    Boolean(selection),
+    Boolean(actions),
+  ].join("|");
+  const shown = frozen && !sized && frozen.key === freezeKey && frozen.room === room ? frozen : undefined;
+  const settledRows = rows.length > 0 && !list.loading;
+  useLayoutEffect(() => {
+    const holder = table.current?.parentElement;
+    if (!holder || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => setRoom(holder.clientWidth));
+    observer.observe(holder);
+    return () => observer.disconnect();
+  }, []);
+  useLayoutEffect(() => {
+    const head = table.current?.tHead?.rows[0];
+    if (shown || sized || !settledRows || !room || !head || !window.matchMedia?.(WIDE_LAYOUT).matches) return;
+    setFrozen({ key: freezeKey, room, widths: Array.from(head.cells, (cell) => cell.getBoundingClientRect().width) });
+  }, [shown, sized, settledRows, room, freezeKey]);
+  /** A header cell's frozen width, by its place in the row. */
+  const frozenWidth = (position: number): CSSProperties | undefined =>
+    shown?.widths[position] !== undefined ? { width: `${shown.widths[position]}px` } : undefined;
+  const leading = Number(Boolean(selection));
+
   // Where each column ends, for its resize handle; measured again whenever a header changes size.
   const columnKeys = columns.map((column) => column.key).join("\n");
   useLayoutEffect(() => {
@@ -204,16 +241,21 @@ export function DataTable<Row>({
           </div>
         )}
         <table
-          className={sized ? `sized-columns${actions ? " sized-columns-fill" : ""}` : undefined}
+          ref={table}
+          className={
+            sized ? `sized-columns${actions ? " sized-columns-fill" : ""}` : shown ? "frozen-columns" : undefined
+          }
           style={
-            sized
-              ? ({
-                  "--table-width": `${columns.reduce(
-                    (sum, column) => sum + (columnWidths[column.key] ?? 100),
-                    (actions?.width ?? 0) + (selection?.width ?? 0),
-                  )}px`,
-                } as CSSProperties)
-              : undefined
+            shown
+              ? { width: `${shown.widths.reduce((sum, width) => sum + width, 0)}px` }
+              : sized
+                ? ({
+                    "--table-width": `${columns.reduce(
+                      (sum, column) => sum + (columnWidths[column.key] ?? 100),
+                      (actions?.width ?? 0) + (selection?.width ?? 0),
+                    )}px`,
+                  } as CSSProperties)
+                : undefined
           }
           aria-busy={list.loading || undefined}
           aria-rowcount={list.totalCount !== null && rows.length > 0 ? list.totalCount + 1 : undefined}
@@ -225,12 +267,12 @@ export function DataTable<Row>({
                 <th
                   scope="col"
                   className="selection-column"
-                  style={{ "--selection-width": `${selection.width}px` } as CSSProperties}
+                  style={{ "--selection-width": `${selection.width}px`, ...frozenWidth(0) } as CSSProperties}
                 >
                   {selection.header}
                 </th>
               )}
-              {columns.map((column) => {
+              {columns.map((column, position) => {
                 // Once any column is sized, every column is: one without a stored width takes the default.
                 const width = columnWidths[column.key] ?? (sized ? 100 : undefined);
                 return (
@@ -243,7 +285,11 @@ export function DataTable<Row>({
                     className={secondary(column.key)}
                     scope="col"
                     aria-sort={sorting && headerSort(sorting, column.key)}
-                    style={width !== undefined ? ({ "--column-width": `${width}px` } as CSSProperties) : undefined}
+                    style={
+                      width !== undefined
+                        ? ({ "--column-width": `${width}px` } as CSSProperties)
+                        : frozenWidth(leading + position)
+                    }
                   >
                     {sorting ? <SortHeader field={column.key} label={column.label} sorting={sorting} /> : column.label}
                   </th>
@@ -253,7 +299,12 @@ export function DataTable<Row>({
                 <th
                   scope="col"
                   className={`actions-column ${actions.className ?? "record-actions-column"}`}
-                  style={{ "--actions-width": `${actions.width}px` } as CSSProperties}
+                  style={
+                    {
+                      "--actions-width": `${actions.width}px`,
+                      ...frozenWidth(leading + columns.length),
+                    } as CSSProperties
+                  }
                 >
                   {actions.header}
                 </th>
@@ -291,26 +342,18 @@ export function DataTable<Row>({
               rows.map(({ row, index }) => {
                 const key = rowKey(row);
                 return (
-                  <tr
+                  <DataRow
                     key={key}
-                    data-row-key={key}
-                    data-row-index={index}
-                    aria-rowindex={index + 2}
-                    data-hue={rowHue?.(row)}
-                    {...rowAttributes?.(row)}
-                  >
-                    {selection && <td className="selection-column">{selection.cell(row)}</td>}
-                    {columns.map((column) => (
-                      <td key={column.key} className={secondary(column.key)} data-reveal="">
-                        {column.cell(row)}
-                      </td>
-                    ))}
-                    {actions && (
-                      <td className={`actions-column ${actions.className ?? "record-actions-column"}`}>
-                        {actions.cell(row)}
-                      </td>
-                    )}
-                  </tr>
+                    rowId={key}
+                    row={row}
+                    index={index}
+                    columns={columns}
+                    secondary={secondary}
+                    rowHue={rowHue}
+                    rowAttributes={rowAttributes}
+                    selection={selection}
+                    actions={actions}
+                  />
                 );
               })
             )}
@@ -319,5 +362,52 @@ export function DataTable<Row>({
       </ScrollWindow>
       {reveal.overlay}
     </>
+  );
+}
+
+/**
+ * One row, as a component of its own: a page arriving while the reader scrolls is drawn in the
+ * background (`useCursorWindow`), and React can pause that work only between components, so rows
+ * drawn inline in the table held up scrolling for as long as all of them took (reported 2026-10-19).
+ */
+function DataRow<Row>({
+  rowId,
+  row,
+  index,
+  columns,
+  secondary,
+  rowHue,
+  rowAttributes,
+  selection,
+  actions,
+}: {
+  rowId: string;
+  row: Row;
+  index: number;
+  columns: DataColumn<Row>[];
+  secondary: (key: string) => string | undefined;
+  rowHue?: (row: Row) => Hue | undefined;
+  rowAttributes?: (row: Row) => HTMLAttributes<HTMLTableRowElement>;
+  selection?: { cell: (row: Row) => ReactNode };
+  actions?: { cell: (row: Row) => ReactNode; className?: string };
+}) {
+  return (
+    <tr
+      data-row-key={rowId}
+      data-row-index={index}
+      aria-rowindex={index + 2}
+      data-hue={rowHue?.(row)}
+      {...rowAttributes?.(row)}
+    >
+      {selection && <td className="selection-column">{selection.cell(row)}</td>}
+      {columns.map((column) => (
+        <td key={column.key} className={secondary(column.key)} data-reveal="">
+          {column.cell(row)}
+        </td>
+      ))}
+      {actions && (
+        <td className={`actions-column ${actions.className ?? "record-actions-column"}`}>{actions.cell(row)}</td>
+      )}
+    </tr>
   );
 }

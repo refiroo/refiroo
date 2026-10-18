@@ -607,11 +607,16 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
+  /* A list in the preview fits the pane, not the page, so the wheel can bring it whole into view. */
+  container-type: size;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-4) var(--space-6);
   min-width: 0;
+}
+.type-preview-body .collection-surface .scroll-window {
+  --window-height: calc(100cqh - 64px);
 }
 .type-preview-body > .empty-message,
 .type-preview-body > .inline-error {

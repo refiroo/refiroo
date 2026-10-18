@@ -6,6 +6,21 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Fixed (tables)
+
+- Lists drawn by the shared table (collections, record panels, the model editor's preview and the
+  rest) scroll without jumping: the columns keep the widths the first rows laid out instead of
+  moving as rows come and go; rows added or dropped above keep the view still by the browser's
+  scroll anchoring; a list reads at least 200 rows at a time and keeps about 600; a chunk read while
+  scrolling is drawn in the background, row by row; writing the list's place to the address no
+  longer draws the page again.
+- The wheel is no longer held in a table: it first brings the whole table, with its controls, into
+  view, and at the table's first or last row the page scrolls on. The table's height leaves room for
+  the top bar, the data band and its controls. Carrying one gesture's momentum on from the table to
+  the page is in place but not yet smooth (reported 2026-10-19).
+- The model editor's issues and history start closed; Show issues opens them without keeping them
+  open next time.
+
 ### Added (hierarchy browser)
 
 - Expanding a record or type heading in a hierarchy (the rail and the tree lens) opens its child

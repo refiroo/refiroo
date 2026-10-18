@@ -449,7 +449,7 @@ function AppContent({
               refreshToken={refreshToken}
               onRouteChange={(next) => navigate(next)}
               onAnchorChange={(anchor) => {
-                if (anchor !== activeRoute.anchor) replaceRoute({ ...activeRoute, anchor });
+                if (anchor !== activeRoute.anchor) replaceRoute({ ...activeRoute, anchor }, { silent: true });
               }}
               onOpenRecord={(change) =>
                 navigate({
@@ -547,10 +547,12 @@ function AppContent({
                     }
                     onAnchorChange={(anchor) => {
                       if (anchor === collection.anchor) return;
+                      // Silent: the address follows the reader without drawing the list again.
                       replaceRoute(
                         activeRoute.kind === "detail"
                           ? { ...activeRoute, collectionOrigin: { ...collection, anchor } }
                           : { ...collection, anchor },
+                        { silent: true },
                       );
                     }}
                     onViewChange={(viewKey) => {

@@ -45,9 +45,12 @@ export interface Router {
   navigate: (next: RouteState, replace?: boolean) => boolean;
   /**
    * Replaces the current entry without consulting the navigation guard, for state that only records
-   * where the user is (a list's scroll anchor) and must not discard an open editor.
+   * where the user is (a list's scroll anchor) and must not discard an open editor. `silent` writes
+   * the address and the router's current route without rendering the page again: a list writes its
+   * scroll anchor whenever the reader pauses, and drawing every row again then made scrolling stall
+   * (reported 2026-10-19). The next navigation starts from it.
    */
-  replaceRoute: (next: RouteState) => void;
+  replaceRoute: (next: RouteState, options?: { silent?: boolean }) => void;
   /**
    * The collection the user last looked at, optionally scoped to an application, used to return
    * from detail and to restore each application's view and query after navigation.
@@ -298,12 +301,12 @@ export function useRouter(): Router {
     [commit],
   );
 
-  const replaceRoute = useCallback((next: RouteState) => {
+  const replaceRoute = useCallback((next: RouteState, options?: { silent?: boolean }) => {
     if (restoring.current) return;
     const destination = routeWithOrigin(next, currentRoute.current);
     window.history.replaceState(historyState(destination, historyIndex.current), "", routePath(destination));
     currentRoute.current = destination;
-    setRoute(destination);
+    if (!options?.silent) setRoute(destination);
   }, []);
 
   const reloadModel = useCallback(async (workspaceKey?: string) => {

@@ -1,11 +1,18 @@
 /**
  * The scrolling viewport of a continuous list (ADR-030, Base 0.8 S5).
  *
- * It drives a `useCursorWindow`: it prefetches when the viewport comes within one page of either
- * edge, keeps the rows on screen still when rows are added or evicted above them, lands jumps,
+ * It drives a `useCursorWindow`: it prefetches when the viewport comes within two screens (or one
+ * page, if longer) of either edge, keeps the rows on screen still when rows are added or evicted
+ * above them (by the browser's scroll anchoring where it has it, so nothing writes the scroll
+ * position while the reader scrolls; by hand elsewhere), lands jumps,
  * shows the edge markers and, when the window holds only part of the list, a proportional scrollbar
  * sized from the total. The footer reports the visible range and jumps by page number, to the start
  * or end and, where the list supports it, to a value.
+ *
+ * A wheel over the list first brings the whole list, with its footer, into view in whatever scrolls
+ * around it (the page, a pane, a dialog), and only then scrolls the rows; at the rows' first or last
+ * row the wheel carries on to the page. The list is never a place the wheel gets stuck in (reported
+ * 2026-10-19), and its height leaves room for the page's sticky top and the footer (CSS).
  *
  * Children render the rows. Each row carries `data-row-key` (a stable identity) and
  * `data-row-index` (its absolute index); an element inside it marked `data-row-focus` receives
@@ -30,6 +37,31 @@ function stuckHeader(viewport: HTMLElement) {
   return viewport.querySelector("thead")?.getBoundingClientRect().height ?? 0;
 }
 const format = (value: number) => numberFormat.format(value);
+
+/** Whether the browser keeps a scrolled view in place when content above it changes. */
+const SCROLL_ANCHORING = typeof CSS !== "undefined" && CSS.supports?.("overflow-anchor", "auto") === true;
+
+/** The nearest element that scrolls `element`'s box, or the page. */
+function outerScroller(element: HTMLElement): HTMLElement {
+  for (let node = element.parentElement; node && node !== document.body; node = node.parentElement) {
+    const { overflowY } = getComputedStyle(node);
+    if ((overflowY === "auto" || overflowY === "scroll") && node.scrollHeight > node.clientHeight + 1) return node;
+  }
+  return (document.scrollingElement as HTMLElement | null) ?? document.documentElement;
+}
+
+/** The part of `scroller` the reader sees: below the page's sticky top bar and band, for the page. */
+function visibleArea(scroller: HTMLElement) {
+  if (scroller !== document.scrollingElement && scroller !== document.documentElement) {
+    const box = scroller.getBoundingClientRect();
+    return { top: box.top, bottom: box.bottom };
+  }
+  const style = getComputedStyle(document.documentElement);
+  const covered =
+    (parseFloat(style.getPropertyValue("--topbar-height")) || 0) +
+    (parseFloat(style.getPropertyValue("--band-height")) || 0);
+  return { top: covered, bottom: window.innerHeight };
+}
 
 /** The rows of this viewport, leaving out those of windows nested inside its rows. */
 function ownRows(viewport: HTMLElement) {
@@ -183,11 +215,12 @@ export function ScrollWindow<T>({
     }
     setOverflowing(element.scrollHeight > element.clientHeight + 1);
     if (current.loading || rows.length === 0) return;
-    const pageHeight = (element.scrollHeight / rows.length) * pageSize;
+    // Two screens ahead, so a fast scroll does not run into the loading edge; a page if that is more.
+    const ahead = Math.max((element.scrollHeight / rows.length) * pageSize, element.clientHeight * 2);
     const below = element.scrollHeight - element.scrollTop - element.clientHeight;
-    if (current.hasPrevious && !current.before.loading && !current.before.error && element.scrollTop < pageHeight)
+    if (current.hasPrevious && !current.before.loading && !current.before.error && element.scrollTop < ahead)
       current.loadPrevious();
-    if (current.hasNext && !current.after.loading && !current.after.error && below < pageHeight) current.loadNext();
+    if (current.hasNext && !current.after.loading && !current.after.error && below < ahead) current.loadNext();
     if (below < 2 && current.after.loading) setAnnouncement(`Loading more ${plural}…`);
     else if (element.scrollTop < 2 && current.before.loading) setAnnouncement(`Loading earlier ${plural}…`);
   }, [pageSize, plural, follow]);
@@ -217,6 +250,42 @@ export function ScrollWindow<T>({
     observer.observe(element);
     return () => observer.disconnect();
   }, [schedule]);
+
+  // A wheel brings the whole list into view before it scrolls the rows, where the list fits in what
+  // scrolls around it (see above). At the rows' first or last row, with nothing more to read that
+  // way, the same gesture carries on to what scrolls around the list: the browser holds a gesture,
+  // with its momentum, on the element it started in, so the page moved only on a second gesture
+  // (reported 2026-10-19).
+  useEffect(() => {
+    const element = viewport.current;
+    const box = element?.closest<HTMLElement>(".scroll-window");
+    if (!element || !box) return;
+    const onWheel = (event: WheelEvent) => {
+      if (event.ctrlKey || event.defaultPrevented || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+      const scroller = outerScroller(box);
+      const area = visibleArea(scroller);
+      const line = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? area.bottom - area.top : 1;
+      const delta = event.deltaY * line;
+      // Where the outer scroll cannot go further, the rows scroll as usual.
+      const room = delta > 0 ? scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight : scroller.scrollTop;
+      if (room < 1) return;
+      const rect = box.getBoundingClientRect();
+      const hidden = delta > 0 ? rect.bottom - area.bottom : rect.top - area.top;
+      const revealing = rect.height <= area.bottom - area.top && (delta > 0 ? hidden > 1 : hidden < -1);
+      const current = listRef.current;
+      const atEdge =
+        delta > 0
+          ? element.scrollHeight - element.scrollTop - element.clientHeight < 1 && !current.hasNext
+          : element.scrollTop < 1 && !current.hasPrevious;
+      if (!revealing && !atEdge) return;
+      event.preventDefault();
+      const step = revealing ? (delta > 0 ? Math.min(delta, hidden) : Math.max(delta, hidden)) : delta;
+      if (scroller === document.scrollingElement || scroller === document.documentElement) window.scrollBy(0, step);
+      else scroller.scrollTop += step;
+    };
+    element.addEventListener("wheel", onWheel, { passive: false });
+    return () => element.removeEventListener("wheel", onWheel);
+  }, []);
 
   useEffect(
     () => () => {
@@ -284,7 +353,7 @@ export function ScrollWindow<T>({
           `Showing ${plural} from ${format(Number(target?.dataset.rowIndex ?? list.startIndex) + 1)}` +
             (list.totalCount !== null ? ` of ${format(list.totalCount)}` : ""),
         );
-    } else if (scrollAnchor.current) {
+    } else if (scrollAnchor.current && (heldAnchor.current || !SCROLL_ANCHORING)) {
       const { key, offset } = scrollAnchor.current;
       const row = rows().find((item) => item.dataset.rowKey === key);
       if (row) {
@@ -377,7 +446,7 @@ export function ScrollWindow<T>({
       <div className="scroll-window-frame">
         <div
           ref={viewport}
-          className={`scroll-window-viewport${partial && total !== null ? " has-window-scrollbar" : ""} ${className}`}
+          className={`scroll-window-viewport${partial && total !== null ? " has-window-scrollbar" : ""}${SCROLL_ANCHORING ? " anchors" : ""} ${className}`}
           role={role}
           aria-label={label}
           tabIndex={role === "region" || overflowing ? 0 : -1}

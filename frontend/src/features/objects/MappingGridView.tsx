@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
-import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
+import { scrollChunk, useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { errorMessage, isApiError } from "@/api/errors";
 import { InlineError } from "@/ui/InlineError";
@@ -84,7 +84,7 @@ export function MappingGridView({
         parentObjectId: query.parentObjectId,
         state: query.mappingState,
         ...selector,
-        pageSize,
+        pageSize: scrollChunk(pageSize),
       }),
     [
       application.key,

@@ -19,7 +19,7 @@ import { TableDisplay, useTableDisplay } from "@/ui/TableDisplay";
 import { SortMenu, useTableSort } from "@/ui/TableSort";
 import { ObjectToolbar } from "@/features/objects/ObjectToolbar";
 import { ScopeBanner } from "@/features/objects/CollectionScope";
-import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
+import { scrollChunk, useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useRecordSelection } from "@/lib/hooks/useRecordSelection";
 import { SelectionBar, selectionText } from "@/features/objects/SelectionBar";
 import { BulkChangeDialog } from "@/features/objects/BulkChangeDialog";
@@ -137,7 +137,7 @@ export function ObjectCollectionView({
             // As many as a wide column can show; the cell draws what fits (K5b).
             expandLimit: expand.length ? RELATED_EXPAND_LIMIT : undefined,
             ...selector,
-            pageSize: query.pageSize,
+            pageSize: scrollChunk(query.pageSize),
           })
       : null,
     [

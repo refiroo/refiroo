@@ -1,9 +1,38 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { errorMessage, isApiError } from "@/api/errors";
 import type { PageSelector } from "@/api/client";
 
-/** Pages a window keeps (D2); beyond this the page furthest from the viewport is evicted. */
-export const WINDOW_PAGES = 5;
+/** Pages a window keeps at least (D2); beyond them the page furthest from the viewport is evicted. */
+export const WINDOW_PAGES = 3;
+/**
+ * Rows a window keeps at least, whatever its page size. With small pages (20 rows) a few pages are
+ * a screen or two, and every page scrolled evicted one and moved the rows under the reader; a window
+ * of this many rows evicts far from the view (reported 2026-10-19).
+ */
+export const WINDOW_ROWS = 600;
+/**
+ * Rows a scrolling list reads at a time, at least: a list of a few hundred records loads once and
+ * then scrolls with nothing to do, where 20-row pages read and drew the table again every 20 rows
+ * (reported 2026-10-19). The reader's page size still numbers the pages and their jumps.
+ */
+export const SCROLL_CHUNK = 200;
+
+/** The page size a scrolling list reads with, for a reader's `pageSize`. */
+export const scrollChunk = (pageSize: number) => Math.max(pageSize, SCROLL_CHUNK);
+
+/** Drops pages from `edge` while the window holds more than it keeps. */
+function evict<T>(pages: HeldPage<T>[], edge: "start" | "end"): HeldPage<T>[] {
+  const held = [...pages];
+  let rows = held.reduce((sum, page) => sum + page.items.length, 0);
+  while (held.length > WINDOW_PAGES) {
+    const far = edge === "start" ? held[0] : held[held.length - 1];
+    if (rows - far.items.length < WINDOW_ROWS) break;
+    rows -= far.items.length;
+    if (edge === "start") held.shift();
+    else held.pop();
+  }
+  return held;
+}
 
 /** The part of a collection page the window reads (ADR-030). */
 export interface WindowedPage<T> {
@@ -101,7 +130,7 @@ function append<T>(state: WindowState<T>, page: WindowedPage<T>): WindowState<T>
   if (page.items.length === 0)
     return { ...state, pages: [...state.pages.slice(0, -1), { ...last, nextCursor: null }], totalCount };
   const pages = [...state.pages, hold(page, startIndex)];
-  return { ...state, pages: pages.slice(Math.max(0, pages.length - WINDOW_PAGES)), totalCount };
+  return { ...state, pages: evict(pages, "start"), totalCount };
 }
 
 function prepend<T>(state: WindowState<T>, page: WindowedPage<T>): WindowState<T> {
@@ -117,7 +146,7 @@ function prepend<T>(state: WindowState<T>, page: WindowedPage<T>): WindowState<T
   ).map((held) => ({ ...held, startIndex: held.startIndex + shift }));
   return {
     ...state,
-    pages: pages.slice(0, WINDOW_PAGES),
+    pages: evict(pages, "end"),
     totalCount: state.totalCount === null ? null : Math.max(0, state.totalCount + shift),
   };
 }
@@ -127,7 +156,7 @@ function prepend<T>(state: WindowState<T>, page: WindowedPage<T>): WindowState<T
  *
  * The first page loads whenever `deps` change, from `options.anchor` when given, and asks for
  * totals. `loadPrevious` and `loadNext` extend the window with cursors; once it holds more than
- * `WINDOW_PAGES` pages the page at the opposite edge is dropped, so memory stays flat however far
+ * `WINDOW_PAGES` pages and `WINDOW_ROWS` rows the page at the opposite edge is dropped, so memory stays flat however far
  * the user scrolls. The window's edge pages carry the cursors that go further, so no cursor trail
  * is kept. Jumps (`jumpTo`, `jumpToEnd`, `seek`) replace the window with one request, with totals.
  *
@@ -273,15 +302,19 @@ export function useCursorWindow<T>(
         .then((page) => {
           if (request !== generation.current) return;
           inFlight.current[edge] = false;
-          setState((previous) => {
-            // Apply the page only to the window whose edge it continues.
-            const current = edge === "after" ? previous?.pages.at(-1)?.nextCursor : previous?.pages[0]?.prevCursor;
-            if (!previous || current !== cursor) return previous;
-            const next = edge === "after" ? append(previous, page) : prepend(previous, page);
-            stateRef.current = next;
-            return next;
+          // A page at an edge is drawn in the background: rendering it with the rows held must not
+          // hold up the reader's scrolling (reported 2026-10-19), and it lands off screen anyway.
+          startTransition(() => {
+            setState((previous) => {
+              // Apply the page only to the window whose edge it continues.
+              const current = edge === "after" ? previous?.pages.at(-1)?.nextCursor : previous?.pages[0]?.prevCursor;
+              if (!previous || current !== cursor) return previous;
+              const next = edge === "after" ? append(previous, page) : prepend(previous, page);
+              stateRef.current = next;
+              return next;
+            });
+            setEdge(IDLE);
           });
-          setEdge(IDLE);
         })
         .catch((cause) => {
           if (request !== generation.current) return;

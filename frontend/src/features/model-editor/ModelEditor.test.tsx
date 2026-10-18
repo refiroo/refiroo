@@ -209,6 +209,42 @@ describe("ModelEditor", () => {
     );
   });
 
+  // Reported by the user (2026-10-19): Show issues stored the pane open, so it opened empty after.
+  it("opens the issues from a preview that cannot render, without keeping the pane open", async () => {
+    const editor = (selection: Parameters<typeof ModelEditor>[0]["selection"]) => (
+      <ToastProvider>
+        <ModelEditor
+          draftId="d1"
+          selection={selection}
+          onSelect={vi.fn()}
+          onNavigate={vi.fn()}
+          onActivated={vi.fn()}
+          onOpenApplication={vi.fn()}
+          onOpenChangeSet={vi.fn()}
+          activeModel={activeModel}
+          workspaceKey="default"
+        />
+      </ToastProvider>
+    );
+    vi.mocked(api.model).mockResolvedValue(activeModel);
+    // A browser's storage, which keeps what the editor stores between the two editors.
+    const stored = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => stored.get(key) ?? null,
+      setItem: (key: string, value: string) => stored.set(key, value),
+    });
+    const first = render(editor({ show: "type", key: "bin", mode: "preview" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Show issues" }));
+    expect(screen.getByRole("button", { name: /^Issues and history/ })).toHaveAttribute("aria-expanded", "true");
+    first.unmount();
+    render(editor({}));
+    expect(await screen.findByRole("button", { name: /^Issues and history/ })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    vi.unstubAllGlobals();
+  });
+
   it("links an issue to the element it concerns", async () => {
     const onSelect = vi.fn();
     render(

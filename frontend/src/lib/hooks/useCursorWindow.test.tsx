@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { PageSelector } from "@/api/client";
 import { ApiError } from "@/api/errors";
-import { useCursorWindow, WINDOW_PAGES, type WindowedPage } from "@/lib/hooks/useCursorWindow";
+import { useCursorWindow, WINDOW_PAGES, WINDOW_ROWS, type WindowedPage } from "@/lib/hooks/useCursorWindow";
 
 /** A server over rows 0..total-1 whose cursors name the row a page continues from. */
 function server(total: number, size = 10) {
@@ -33,25 +33,39 @@ function server(total: number, size = 10) {
 
 describe("useCursorWindow", () => {
   it("scrolls forward with a bounded window and back through the evicted pages", async () => {
-    const fetch = server(100);
+    const fetch = server(1000, 100);
     const { result } = renderHook(() => useCursorWindow(fetch, ["list"]));
-    await waitFor(() => expect(result.current.items).toHaveLength(10));
-    expect(result.current.totalCount).toBe(100);
+    await waitFor(() => expect(result.current.items).toHaveLength(100));
+    expect(result.current.totalCount).toBe(1000);
     expect(result.current.landing?.target).toBe("start");
     for (let page = 1; page < 8; page++) {
       act(() => result.current.loadNext());
-      await waitFor(() => expect(result.current.items.at(-1)).toBe(page * 10 + 9));
+      await waitFor(() => expect(result.current.items.at(-1)).toBe(page * 100 + 99));
     }
-    expect(result.current.items).toHaveLength(WINDOW_PAGES * 10);
-    expect(result.current.startIndex).toBe(30);
-    expect(result.current.items[0]).toBe(30);
+    // It keeps its row minimum (and at least its minimum of pages), evicting from the far edge.
+    expect(result.current.items).toHaveLength(Math.max(WINDOW_ROWS, WINDOW_PAGES * 100));
+    expect(result.current.startIndex).toBe(800 - WINDOW_ROWS);
+    expect(result.current.items[0]).toBe(800 - WINDOW_ROWS);
     expect(result.current.hasPrevious).toBe(true);
     act(() => result.current.loadPrevious());
-    await waitFor(() => expect(result.current.items[0]).toBe(20));
-    expect(result.current.startIndex).toBe(20);
-    expect(result.current.items.at(-1)).toBe(69);
+    await waitFor(() => expect(result.current.items[0]).toBe(700 - WINDOW_ROWS));
+    expect(result.current.startIndex).toBe(700 - WINDOW_ROWS);
+    expect(result.current.items.at(-1)).toBe(699);
     // Only the first page asked for totals; scrolling uses cursors alone.
     expect(fetch.mock.calls.filter(([selector]) => selector.includeTotal)).toHaveLength(1);
+  });
+
+  // Reported by the user (2026-10-19): with 20-row pages every page scrolled evicted one.
+  it("keeps at least its row minimum when pages are small", async () => {
+    const fetch = server(1000, 20);
+    const { result } = renderHook(() => useCursorWindow(fetch, ["list"]));
+    await waitFor(() => expect(result.current.items).toHaveLength(20));
+    for (let page = 1; page <= 30; page++) {
+      act(() => result.current.loadNext());
+      await waitFor(() => expect(result.current.items.at(-1)).toBe(page * 20 + 19));
+    }
+    expect(result.current.items).toHaveLength(WINDOW_ROWS);
+    expect(result.current.startIndex).toBe(620 - WINDOW_ROWS);
   });
 
   it("jumps by position with one request, and lands locally when the row is held", async () => {

@@ -472,8 +472,11 @@
   font-size: 13px;
 }
 /* Continuous lists (ScrollWindow, ADR-030) */
+/* The rows' height leaves room for the page's sticky top bar and data band (`--band-height`, set
+   by the band) and the footer, so the whole list fits on screen once the page brings it into view;
+   the wheel does that before it scrolls the rows (ui/ScrollWindow, reported 2026-10-19). */
 .scroll-window {
-  --window-height: min(640px, calc(100vh - 300px));
+  --window-height: calc(100dvh - var(--topbar-height) - var(--band-height, 0px) - 64px);
   min-width: 0;
 }
 .scroll-window-frame {
@@ -482,8 +485,20 @@
 .scroll-window-viewport {
   max-height: max(240px, var(--window-height));
   overflow: auto;
+  /* Rows added or evicted above keep the view still: by the browser's scroll anchoring where it
+     has it (`.anchors`), by ScrollWindow elsewhere. Reaching the first or last row, the wheel
+     carries on to the page; it is never held in the list. */
   overflow-anchor: none;
-  overscroll-behavior: contain;
+}
+.scroll-window-viewport.anchors {
+  overflow-anchor: auto;
+}
+/* The sticky header, the resize handles and the edge notes never anchor: they do not move with the
+   rows. */
+.scroll-window-viewport thead,
+.scroll-window-viewport .column-resizers,
+.scroll-window-viewport .scroll-window-edge {
+  overflow-anchor: none;
 }
 .scroll-window-viewport:focus-visible {
   outline-offset: -2px;
@@ -925,6 +940,14 @@ th[aria-sort] {
    content, its cells end in an ellipsis, and the actions column (or the table's own width) takes
    the difference. Below 760px the handles are off and the table lays out by content again. */
 @media (min-width: 761px) {
+  /* Frozen at the widths the first rows laid out (ui/DataTable): the columns stay still while the
+     window's rows change; cells keep wrapping. */
+  .object-table table.frozen-columns {
+    table-layout: fixed;
+  }
+  .object-table table.frozen-columns td {
+    overflow-wrap: anywhere;
+  }
   .object-table table.sized-columns {
     table-layout: fixed;
     width: var(--table-width);
