@@ -6,6 +6,28 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.11 V4)
+
+- The schema-language window, 0.5–0.10, and the conversion rules between its versions written in
+  one place (APPLICATION_MODEL, "Schema versions and the window"): reading, writing, running side by
+  side, moving data between releases of different versions (by declarations only, never by version)
+  and what happens outside the window. The window is declared once (`SCHEMA_VERSIONS`), held by a
+  unit test.
+
+### Changed (0.11 V4)
+
+- Installing a draft of a schema outside the window answers `422 UNSUPPORTED_SCHEMA_VERSION` with
+  `draftId`, `schemaVersion`, `supportedSchemaVersions` and `operation: "install"`, as activation
+  does, instead of `422 INVALID_MODEL`.
+
+### Fixed (0.11 V4)
+
+- `RDM_MODEL_PATH` naming a model of a schema outside the window stopped startup with a traceback;
+  it now refuses with a message naming the setting, the file, its schema and the supported ones.
+- A workspace on a release of a schema newer than the window was logged with the schema 0.4 upgrade
+  command, which cannot help; the log now says a later RDM Engine wrote the database and is the one
+  to run.
+
 ### Added (0.11 V3)
 
 - A change set left on a release its workspace no longer runs moves onto the workspace's release

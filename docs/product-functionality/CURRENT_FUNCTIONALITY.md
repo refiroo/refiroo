@@ -493,6 +493,15 @@ its release. **Move change set** converts the change set's content and moves it 
 nothing; records it did not change then read as they are live, and it publishes as usual. Through
 the API this is a move of the change set, previewed and confirmed as a migration is.
 
+Workspaces may run models written in different versions of the model language at once: every
+version from 0.5 to 0.10 is read, written and run side by side, each workspace under its own
+release. Raising a model to a newer language version with nothing else changed activates without a
+migration, and a migration between models of different versions converts only what the two models
+declare differently. A model in a version outside that range is refused when it is installed, with
+the supported versions named, and a model file outside it stops the service from starting with what
+to do; a workspace on a release a later engine wrote stays unavailable on its own, and the log says
+to run that later version.
+
 Through the API, a draft can also be changed step by step with typed operations instead of whole
 JSON: add, rename, re-key, split, merge or remove applications, types, attributes and relation
 types, set where a type sits in the containment tree, allow relations between types, lay out views

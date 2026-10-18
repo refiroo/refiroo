@@ -559,7 +559,11 @@ are not mutation-gated. Lifecycle errors use:
 - `422 UNSUPPORTED_SCHEMA_VERSION` when diff, compilation or activation involves a release whose schema
   is not supported by the runtime (details include `releaseId`, `schemaVersion`,
   `supportedSchemaVersions` and `operation`; the schema value comes from the stored model document
-  when compilation detects a metadata/document mismatch);
+  when compilation detects a metadata/document mismatch), and when installation is given a draft of
+  a schema outside the window (details `draftId`, `schemaVersion`, `supportedSchemaVersions` and
+  `operation: "install"`; nothing is installed; 0.11 V4, D98). The window and the conversion rules
+  between its versions are in APPLICATION_MODEL,
+  [Schema versions and the window](APPLICATION_MODEL.md#schema-versions-and-the-window);
 - `409 ACTIVATION_CONFLICT` for stale runtime-state tokens;
 - `409 MODEL_MIGRATION_REQUIRED` when stored data prevents activation;
 - `409 CONSUMER_CONTRACT_VERSION_REQUIRED` when a consumer API definition changes what the active
@@ -4626,7 +4630,7 @@ unavailable until a restart.
 | 409 | `WORKSPACE_RETIRED` | a retired workspace's model is not changed |
 | 409 | `MODEL_MIGRATION_REQUIRED` | this workspace's data needs a migration (V1); the diagnostics count this workspace only |
 | 409 | `CONSUMER_CONTRACT_VERSION_REQUIRED` | as today, against this workspace's release |
-| 422 | `UNSUPPORTED_SCHEMA_VERSION` | the release's schema is outside the window (V4) |
+| 422 | `UNSUPPORTED_SCHEMA_VERSION` | the release's schema is outside the window ([APPLICATION_MODEL](APPLICATION_MODEL.md#schema-versions-and-the-window)) |
 
 **The commit guard per workspace.** A write rechecks, under a share lock on its workspace's
 assignment row (`workspace_models`, D30), that the workspace still runs the release the write was

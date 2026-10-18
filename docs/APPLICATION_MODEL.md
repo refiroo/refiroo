@@ -790,43 +790,74 @@ the example model stay on schema 0.9 (D3). Supported versions are listed oldest 
 (`0.5` … `0.9`, `0.10`), in `GET /system`'s `schemaLanguages` and in a refusal's
 `supportedSchemaVersions`.
 
-## Versioning
+## Schema versions and the window
 
-`schemaVersion` versions the model language; the starter content release `0.9.5` uses schema `0.9`.
-Schema 0.4 added object-level cross-field validation, required initial relationships and scoped
-relationship uniqueness to the 0.3 detail-composition contract. Schema 0.5 adds strict typed table
-views. Schema 0.6 adds the `mappingGrid` view type. Schema 0.7 adds relations-panel sort options
-(`sortFields`, `defaultSort`) and the `relationMatrix` and `tree` view types. Schema 0.8 (Product
-0.9) adds `consumerApis` (Base 0.9 C1) and `effectivePeriod` (Q4) ([above](#schema-08-additions-product-09)), and
-schema 0.9, released with 0.9.0, writes `consumerApis` in its present syntax and adds relation
-columns, `many-to-one` and `candidates` ([above](#schema-09-product-09)). Schema 0.10 (Product 0.10)
-adds navigation groups ([above](#schema-010-product-010)). `release.version` versions one model package.
-Each distinct
-validated model is installed as an immutable database release identified by its content hash.
+`schemaVersion` versions the model language; `release.version` versions one model package; the
+starter content release `0.9.5` uses schema `0.9`. Each distinct validated model is installed as an
+immutable database release identified by its content hash.
 
-Workspace snapshots, change sets and record versions are separate from model-language and model-release
-versions. ADR-026/027 keep current data live and editable while coordinated publishing records
-immutable history. Base 0.6 adds no configurable object publication states. The model declares rules
-used for live writes, effective change sets and the final merged publishing graph; the runtime owns their
-context, versions, lineage and atomicity.
+Workspace snapshots, change sets and record versions are separate from model-language and
+model-release versions. ADR-026/027 keep current data live and editable while coordinated publishing
+records immutable history; there are no configurable object publication states. The model declares
+rules used for live writes, effective change sets and the final merged publishing graph; the runtime
+owns their context, versions, lineage and atomicity. A change set does not edit definitions.
+Publications are interpreted under their pinned model, and a change set's current-live base captures
+the selected model and current record versions. Replacing a workspace's model with reviewed loss is
+a migration (0.11 V1–V3); it never mutates an immutable release or bypasses validation.
 
-A workspace change set does not edit definitions. Publications must be interpreted under their
-pinned supported model (WP8.1 correction). Current-live change set bases must capture the selected model and
-current record versions without pretending that the last publication contains recent live edits.
-Historical schema replacement with reviewed potential loss is an explicit 0.11 migration and model
-selection operation under ADR-027; it does not mutate an immutable model release or bypass validation.
+**The window** is the set of schema versions this deployment reads, writes and runs: `0.5` to `0.10`
+(0.11 D97). It is listed oldest first by number in `GET /system`'s `schemaLanguages` and in every
+refusal's `supportedSchemaVersions`. What each version adds:
 
-ADR-021 reserves schema 0.5 for a strict `table` definition. Product 0.7 adds `mappingGrid` in
-schema 0.6; a schema 0.5 model remains valid and activatable under schema 0.6 (the `mappingGrid` view
-type is an addition, not a replacement). Product 0.8 adds schema 0.7, again a strict superset: schema
-0.5 and 0.6 models keep parsing and activating, and features added in a later schema are refused at their
-path. Absent 0.7 fields are omitted from the canonical document, so a 0.5 or 0.6 release keeps its
-content hash. Stored schema 0.4 releases remain historical immutable JSON
-but cannot be activated. `form` and `dashboard` view types remain unimplemented. A future
-workspace-scoped release assignment may stage model and data migrations, but mixed schema-language
-operation requires explicit support for every concurrently served version.
+| Version | Adds |
+| --- | --- |
+| 0.5 | Strict typed `table` views (ADR-021) |
+| 0.6 | The `mappingGrid` view type |
+| 0.7 | Relations-panel sort options (`sortFields`, `defaultSort`); the `relationMatrix` and `tree` view types |
+| 0.8 | `consumerApis` in the 0.8 shape; `effectivePeriod` ([above](#schema-08-additions-product-09)) |
+| 0.9 | `consumerApis` in its present syntax; relation columns; `many-to-one`; a binding's `candidates` ([above](#schema-09-product-09)) |
+| 0.10 | An application's `navigation` ([above](#schema-010-product-010)) |
 
-Development databases can reset and bootstrap the schema 0.7 starter. To preserve compatible runtime
+Schema 0.4 (cross-field validation, required initial relationships, scoped relationship uniqueness)
+is outside the window; a stored 0.4 release is historical JSON, upgraded offline
+([below](#upgrading-a-schema-04-database)). `form` and `dashboard` view types remain unimplemented.
+
+**The conversion rules** (0.11 D99) hold between every two versions in the window:
+
+1. **Reading.** One parser reads every version into the same internal model. Each version is a strict
+   superset of the one before, except that `consumerApis` changed shape at 0.9: a 0.5–0.8 document is
+   read with the 0.8 shape, as stored, every operation offered. Fields a version does not declare
+   are omitted from the canonical document, so a stored release keeps its content hash.
+2. **Writing.** An author may write any version in the window. A feature newer than the document's
+   version is refused at its path with `INVALID_MODEL`, naming the version that adds it. Raising a
+   draft's version (`setRelease` with `schemaVersion`) changes nothing else; lowering it leaves the
+   draft invalid at the path of every feature newer than the target. A 0.5–0.8 document can no
+   longer declare `consumerApis` (C-D134).
+3. **Side by side.** Every workspace runs its own release, whatever its version, and every change set
+   and publication reads under the release it is pinned to (ADR-042). No request combines two
+   releases, so no request combines two versions.
+4. **Between releases of different versions.** Activation's compatibility analysis, a migration of a
+   workspace or a change set (0.11 V1–V3) and the consumer contract check compare what the two
+   releases declare. The schema version itself never causes a conversion, a loss or a refusal: a
+   release raised to a newer version with nothing else changed activates without a migration.
+   Values convert by the migration's pairs of value types; a value type a later version adds
+   converts to and from the others only once its pairs are written, and until then a value
+   converting to or from it is reported as loss (`VALUE_NOT_CONVERTIBLE`, D102), never dropped
+   silently.
+5. **Outside the window.** Installation, activation, workspace creation and a migration's target
+   answer `422 UNSUPPORTED_SCHEMA_VERSION` with `schemaVersion` and `supportedSchemaVersions`;
+   validation and draft compile report the diagnostic at `/schemaVersion`; startup refuses a model
+   file outside it. A stored release outside the window makes only the workspaces running it
+   unavailable (`503 MODEL_REGISTRY_UNAVAILABLE`); no activation can replace it, since its data
+   cannot be compared. A release newer than the window was written by a later engine, which is the
+   one to run (D101).
+
+No version leaves the window in 0.11. How a version leaves it, with how much notice, and what then
+happens to publications pinned to it, are published with the compatibility commitment (0.11 L2).
+
+### Upgrading a schema 0.4 database
+
+Development databases can reset and bootstrap the starter. To preserve compatible runtime
 data, stop traffic and run from `backend/`:
 
 ```bash

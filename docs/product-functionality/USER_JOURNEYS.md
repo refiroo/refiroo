@@ -1062,7 +1062,8 @@ save refused).
 **Status:** J37.1–J37.5 delivered (0.11 V1, 2026-10-18: the API and Settings › Model's migration
 page); J37.6 delivered (0.11 V2, 2026-10-18: the API, the change set bar's offer and the
 migration page publishing the change set); J37.7 delivered (0.11 V3, 2026-10-18: the API, the change
-set bar's offer and the migration page moving the change set); J37.8 planned (V4).
+set bar's offer and the migration page moving the change set); J37.8 delivered (0.11 V4, 2026-10-18:
+through the API and at startup).
 
 1. Choose a workspace and a target release its data does not fit as it is.
 2. Read the preview: every conversion and every potential loss, item by item.
@@ -1085,8 +1086,13 @@ set bar's offer and the migration page moving the change set); J37.8 planned (V4
   losses in the change set's content and what must be fixed, including a record changed both in the
   change set and live since it started; the confirmation converts and moves the change set, or
   nothing happens, and live data is never touched (V3).
-- **J37.8 Schema versions side by side**: a model of an older schema version activated in one
-  workspace beside one of the current version in another (V4).
+- **J37.8 Schema versions side by side**: workspaces run releases of different schema versions in
+  the window at once, each read and written under its own; a release raised to a newer version with
+  nothing else changed activates without a migration; a migration across versions converts only
+  what the two releases declare differently; a draft raised to a newer version may use what it
+  adds, and lowered is invalid where it uses it; a version outside the window is refused at
+  installation naming the window, a workspace on a release a later engine wrote is unavailable on
+  its own with that recovery, and a model file outside the window refuses to start (V4).
 
 A record the migrated data would break a rule of the target for is refused, and the migration
 cannot be confirmed until the data is fixed and previewed again.

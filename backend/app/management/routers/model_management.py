@@ -603,6 +603,20 @@ def install_model_draft(
         draft = load_draft_for_update(session, draft_id)
         require_draft_version(draft, payload.expectedVersion)
         compiled = compile_authored_model(draft.model_json)
+        if compiled.unsupported_schema_version is not None:
+            # A version outside the window is refused as activation refuses one (0.11 V4, D98).
+            raise api_error(
+                422,
+                "UNSUPPORTED_SCHEMA_VERSION",
+                f"Model draft uses schema version '{compiled.unsupported_schema_version}', which this"
+                f" deployment does not support; supported versions: {', '.join(SCHEMA_VERSIONS)}",
+                {
+                    "draftId": draft.public_id,
+                    "schemaVersion": compiled.unsupported_schema_version,
+                    "supportedSchemaVersions": list(SCHEMA_VERSIONS),
+                    "operation": "install",
+                },
+            )
         if not compiled.valid or compiled.model is None:
             raise api_error(
                 422,

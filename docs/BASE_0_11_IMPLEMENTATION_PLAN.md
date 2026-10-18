@@ -11,7 +11,7 @@ packages are specified below at package level; each package's detailed plan, tes
 decisions are written and accepted when it starts, and it is delivered in the order of the
 [delivery queue](#delivery-queue), each by the [delivery steps](#how-a-package-is-delivered).
 **Delivered:** P0, M1 with M2 (2026-10-15), M3, M4, M5, M6 and M6a (2026-10-16), released as
-0.11.0-alpha.1 (2026-10-17, tag `v0.11.0-alpha.1`); V1, V2 and V3 (2026-10-18).
+0.11.0-alpha.1 (2026-10-17, tag `v0.11.0-alpha.1`); V1, V2, V3 and V4 (2026-10-18).
 
 **Target:** Product 0.11.0, [production hardening and staged model rollout](ROADMAP.md#product-release-011--production-hardening-and-staged-model-rollout),
 with the two requirements the user added on 2026-10-15 (ROADMAP commit `a0859ae`).
@@ -300,7 +300,7 @@ change) and `volume` (every budget).
 | 8 | [V1](#v1-a-workspaces-data-migrated-to-another-release) | M2 | **Delivered 2026-10-18.** Migration plan for one workspace: preview, conversions, loss, confirm bound to versions, atomic switch |
 | 9 | [V2](#v2-a-change-set-from-a-publication-moved-to-another-release) | V1 | **Delivered 2026-10-18.** GAP-02: a change set on an older release published by migrating its workspace to that release |
 | 10 | [V3](#v3-a-change-set-moved-onto-a-release-it-does-not-fit) | V1 | **Delivered 2026-10-18.** ADR-028: a change set moved onto the release its workspace runs when its content does not fit, previewed and confirmed |
-| 11 | [V4](#v4-the-schema-language-window) | V1, M6 | The bounded window of schema versions run side by side; explicit conversion rules |
+| 11 | [V4](#v4-the-schema-language-window) | V1, M6 | **Delivered 2026-10-18.** The window 0.5–0.10 declared once, its conversion rules written, installation outside it refused like activation, two startup refusals fixed |
 | 12 | [X1](#x1-the-mapping-between-two-models) | M4, P0 inventory | The model-to-model mapping: proposed, completed with mapping operations, saved and reused |
 | 13 | [X2](#x2-selection-and-the-dry-run-of-a-move) | X1 | What moves; the dry run of every item; what cannot move, with reasons |
 | 14 | [X3](#x3-the-move) | X2 | Copy or move into a reviewed change set: identity, relationships, hierarchy, values, history |
@@ -2304,6 +2304,144 @@ refused at installation with its version and the window. The list and the dates 
 L2.
 
 **Groups:** `model`, `migration`, `startup`.
+
+##### V4 plan (2026-10-18)
+
+**Planned 2026-10-18; D97–D103 as recommended and the test cases accepted by the user the same day ("okay").**
+Checked against the code at `68b7700` with V3's uncommitted changes in the working tree:
+
+- **One parser already reads every version in the window.** `compiler.SCHEMA_VERSIONS` is
+  `0.5`–`0.10`; `compile_model` refuses any other version with the diagnostic
+  `UNSUPPORTED_SCHEMA_VERSION` at `/schemaVersion`, naming the window in its message. Documents of
+  0.5–0.8 are read by `LegacyEngineModel`, which only keeps the 0.8 shape of `consumerApis`. The
+  window is written three times: `SCHEMA_VERSIONS`, the `Literal` on `EngineModel.schemaVersion`
+  and `LEGACY_SCHEMA_VERSIONS`.
+- **A feature newer than the document is refused at its path** by `validation/fields.require_schema`
+  (0.6 `mappingGrid`; 0.7 `relationMatrix`, `tree`, panel sorting; 0.8 `consumerApis`,
+  `effectivePeriod`; 0.9 relation columns, `many-to-one`, `candidates`; 0.10 `navigation`).
+- **Running side by side already works per request** (ADR-042, D11): the registry caches one
+  snapshot per release; each workspace, change set and publication reads under its own release; a
+  release this process cannot serve makes only its workspaces answer `503 MODEL_REGISTRY_UNAVAILABLE`
+  (D29). Activation, workspace creation and the migration start answer `422
+  UNSUPPORTED_SCHEMA_VERSION` with `details.schemaVersion` and `supportedSchemaVersions`.
+- **Data conversions do not depend on the schema version.** Activation's compatibility analysis,
+  V1–V3's migration plan (`rdm_convert_value`, D69) and the consumer contract check compare the two
+  releases' declarations; nothing reads `schemaVersion`.
+- **Installation is the exception:** `POST /model-drafts/{id}/install` answers a document outside
+  the window with `422 INVALID_MODEL` and the diagnostic in `details`, not the structured
+  `UNSUPPORTED_SCHEMA_VERSION` every other path returns. Validation and draft compile report
+  `valid: false` with the diagnostic, as they should. `setRelease` refuses a version outside the
+  window.
+- **Two startup defects.** (a) `RDM_MODEL_PATH` naming a document outside the window stops the
+  process with a `ModelValidationError` traceback, where schema 0.8 `consumerApis` has a named
+  refusal (J12.7). (b) A workspace on a release outside the window is logged with the advice to run
+  `model_schema_upgrade`, which only handles a schema 0.4 release and refuses anything else; a
+  release of a schema newer than the window (a database used by a later engine) gets advice that
+  cannot work.
+- **The rules are written, but scattered** over APPLICATION_MODEL's per-version sections and
+  "Versioning", ADR-021, ADR-042 and API.md; nothing states the rules for mixed operation in one
+  place.
+- **The test configurations** (`generated-a`, `generated-b`, the starter) are schema 0.9; nothing
+  journey-tests a 0.10 release beside a 0.9 one.
+
+**What is built:** the window declared once; the conversion rules written in one section of
+APPLICATION_MODEL; installation's refusal made the same structured `422 UNSUPPORTED_SCHEMA_VERSION`
+as activation's; the two startup defects fixed; J37.8 walked on two models. No UI and no database
+migration, so no mock-up.
+
+**Decisions** (D97 onward):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D97 | The window in 0.11 | **0.5–0.10, unchanged (D11), declared once in `SCHEMA_VERSIONS`;** a unit test holds the `Literal`, the legacy set and every `require_schema` minimum to it. 0.11 opens no schema 0.11: no 0.11 package declares anything new in the model. Why: every version compiles into the same internal model, so keeping them costs nothing; a second copy of the list is how a version gets accepted by one check and refused by another. Cost: one unit test |
+| D98 | Installation outside the window | **`422 UNSUPPORTED_SCHEMA_VERSION` with `details.schemaVersion`, `supportedSchemaVersions` and `operation: "install"`,** as activation, workspace creation and the migration start already answer; nothing is installed. Validation and draft compile keep `valid: false` with the diagnostic at `/schemaVersion`. A 0.8 document declaring `consumerApis` stays `INVALID_MODEL` (its version is in the window; a feature is refused). Why: an integrator reads one code with the window in `details` wherever a version is outside it. Cost: install's documented answer changes from `INVALID_MODEL` for this case; the OpenAPI lock re-baselined after diffing |
+| D99 | The conversion rules | **Five rules, in one APPLICATION_MODEL section "Schema versions and the window"** that replaces "Versioning" and links the per-version sections. *Reading:* one parser; each version a strict superset of the one before, except that `consumerApis` changed shape at 0.9 (0.5–0.8 read as stored); a stored release keeps its content hash. *Writing:* any version in the window; raising a draft's version changes nothing else; lowering it is refused at the path of every feature newer than the target; 0.5–0.8 cannot declare `consumerApis` (C-D134). *Side by side:* every workspace, change set and publication reads under its own release; no request combines two. *Between releases of different versions:* activation, migration (V1–V3) and the consumer contract compare declarations only; the schema version itself never causes a conversion, a loss or a refusal. *Outside the window:* refused at installation, activation, workspace creation and migration; a stored release outside it makes only its workspaces unavailable. Why: this is what the code does, written where a model author looks. Cost: documentation; the rules are the ones J37.8 checks |
+| D100 | How a version leaves the window | **No version leaves it in 0.11; the procedure and the dates are L2's.** A workspace already on a release outside the window stays as today: unavailable on its own, and no activation can replace its release, since its data cannot be compared (the roadmap's exit gate forbids forcing it). Why: nothing in 0.11 needs a version dropped, and how much notice, and what happens to publications pinned to it, belong with the compatibility commitment. Cost: that state is recovered only by running an engine that reads the version |
+| D101 | Startup | **(a) A model file outside the window refuses to start with a message naming `RDM_MODEL_PATH`, the file, its version and the window,** as J12.7's refusal does. **(b) A workspace on a release outside the window is logged with the recovery that fits:** schema 0.4, the `model_schema_upgrade` command (as today); a version newer than the window, "this database was used by a later RDM Engine: start that version" (D100). Why: AGENTS' error-handling rule, a traceback is not an operator message; the current advice fails for every case but 0.4. Cost: two messages, two startup checks |
+| D102 | A value type added by a later schema (the value-types door) | **A rule, no code:** until a new type's pairs are written in `rdm_convert_value`, a value converting to or from it is loss (VALUE_NOT_CONVERTIBLE), which the function already does for an unknown pair. Why: a new type stays additive and nothing is dropped silently. Cost: the door is open, but adding a type's conversions means a database migration replacing the function, not only a registry entry in `values.py`; COMPOSABLE_DOMAINS says so in one line |
+| D103 | Which versions the journeys walk | **The newest two, 0.9 and 0.10, in both directions,** each test configuration raised to 0.10 by a test helper that sets the version and adds a navigation group. Versions 0.5–0.8 keep their older tests (`test_model_lifecycle`, `test_consumer_api_model`, J25, J12.7). Why: lowering a configuration to 0.5 would mean removing what it is made of; mixed operation does not depend on which two versions run. Cost: older versions side by side are covered by the shared parser, not by a journey |
+
+**Journey test cases** (`tests/journeys/test_j37_8_schema_window.py`, J37.8, `migration`,
+`workspace_models`, `model`; X beside Y, both directions, naming no key; X′ and Y′ are X and Y raised
+to 0.10 with a navigation group):
+
+1. **J37.8 Side by side.** W1 on X (0.9), W2 on Y′ (0.10). Each `GET /model` answers its own schema
+   version, W2's with its navigation; a create, a read, a consumer API read and a published change
+   set succeed in each under its own release (`X-Model-Release-Id`).
+2. **J37.8 Raising the version is no migration.** Activating X′ into W1 needs no migration, its
+   consumer contract is compatible and every record keeps its version; activating X back likewise.
+3. **J37.8 A migration across versions converts by declarations.** X′ also retypes an attribute and
+   removes a binding; migrating W1 from X to it previews exactly that conversion and that loss, no
+   item naming a schema version; confirmed, W1 runs it.
+4. **J37.8 A draft on an older version.** A draft based on X refuses a navigation group at its path
+   naming 0.10; after `setRelease` raises it to 0.10 the group is added and the draft installs;
+   lowered to 0.9 with the group declared, draft compile is `valid: false` at the navigation path.
+5. **J37.8 Installation outside the window.** A draft naming schema 0.4, and one naming the version
+   after the newest: install is `422 UNSUPPORTED_SCHEMA_VERSION` with `schemaVersion` and
+   `supportedSchemaVersions` equal to `GET /system`'s `schemaLanguages`; the releases are unchanged;
+   validation is `valid: false` at `/schemaVersion`; `setRelease` to that version is refused.
+6. **J37.8 A workspace on a release outside the window** (written to the database as a later engine
+   would leave it, which the test says): after a restart only that workspace answers `503
+   MODEL_REGISTRY_UNAVAILABLE` with its schema version and the window, the other serves; the log
+   names the workspace and the later-engine recovery, not the 0.4 command; an activation into it is
+   `422 UNSUPPORTED_SCHEMA_VERSION` and changes nothing.
+7. **J37.8 A model file outside the window** at startup: the service refuses to start with a message
+   naming `RDM_MODEL_PATH`, the file, its version and the window.
+
+Unit test: the window declared once (D97).
+
+**Groups:** `model`, `migration`, `startup` (D101), `workspace_models`, `contract` (install's answer,
+the lock re-baselined after diffing); no database migration, no frontend change.
+
+**Composable domains (ADR-032):** attribute storage and the value-types door: D102 (open, at the
+cost of a migration per new type's conversions); identity, audit, bulk APIs, `match` and mapping
+coverage are unaffected.
+
+##### V4 record (2026-10-18)
+
+**Delivered 2026-10-18.** Built as planned (D97–D103), with no database migration, no route added
+and no frontend change.
+
+- **The window declared once (D97):** `compiler.SCHEMA_VERSIONS` stays the only list; a unit test
+  holds `EngineModel.schemaVersion`'s `Literal`, `LEGACY_SCHEMA_VERSIONS` and every `require_schema`
+  minimum to it. `compiler.after_window` says whether a version is newer than the window.
+- **Installation (D98):** `POST /model-drafts/{id}/installation` answers a draft outside the window
+  with `422 UNSUPPORTED_SCHEMA_VERSION` (`draftId`, `schemaVersion`, `supportedSchemaVersions`,
+  `operation: "install"`). The route has no description, so the OpenAPI document did not change
+  (the lock passes unchanged); the UI shows the server's message as for any refusal.
+- **Startup (D101):** `loader.load_model` refuses a model file outside the window with a message
+  naming `RDM_MODEL_PATH`, the file, its schema and the window, before any parsing; the lifespan
+  logs a workspace on a release newer than the window with "a later RDM Engine" as the recovery
+  instead of the 0.4 command, and every such log ends "Until this is resolved, …" (it said "Until
+  the transition succeeds" for every case).
+- **The rules (D99, D100, D102):** APPLICATION_MODEL's "Versioning" became "Schema versions and the
+  window": the table of what each version adds, the five conversion rules and the line that no
+  version leaves the window in 0.11 (L2). API.md (installation's refusal, the window's link),
+  OPERATIONS (startup checks), COMPOSABLE_DOMAINS (D102's line), USER_JOURNEYS J37.8,
+  API_JOURNEYS, CURRENT_FUNCTIONALITY and CHANGELOG follow it.
+
+Where it differs from the plan: case 6 is two tests, as the log is read through the service
+harness (J12's `serve`) and the 503 and the activation through the application on the world's
+database; case 5 runs for 0.4 and for the version after the newest, each on both models.
+
+**Checks (2026-10-18):** J37.8 written first (`tests/journeys/test_j37_8_schema_window.py`, 9
+tests, 18 cases on generated-a and generated-b, the startup cases on generated-a and the example
+model): before the change the installation, model-file and log cases failed (the log case first on
+a wrong seed in the test, fixed; on the old code its message held the 0.4 command the test
+refuses), and the side-by-side, raising, cross-version migration, draft and later-engine cases
+passed, as the plan expected of behaviour that already held. After the change all 18 pass. Unit:
+`tests/unit/engine/model/test_compiler.py` (6). Groups `model`, `model_admin`, `startup`,
+`contract`, `workspace_models` and `migration`, parallel part: 4,147 passed, 1 failed, in 2 min 36
+s, over the package ceiling, because `model` selects far more than the plan assumed; the failure,
+`test_startup.py::test_upgrade_to_the_profile_check_kind_keeps_jobs_and_an_interrupted_run_recovers`
+(a profile-check job failed in a chunk under parallel load), passed when run alone and touches no
+V4 code, so it is recorded in TODO as a flake. Their serial part selects no case. After the final
+formatting: J37.8, the compiler unit tests and J12 (70 passed). `ruff check app/ tests/` clean.
+Not run: the full suite, Vitest, the browser runners and the gates (no frontend change; build
+acceptance R).
+
+**What the user still cannot do:** retire a schema version from the window or read the dates of
+the supported versions (L2); move data between workspaces whose models differ (Track X).
 
 ### Track X: data moved between workspaces whose models differ
 

@@ -32,3 +32,33 @@ def test_schema_versions_are_listed_oldest_first_by_number():
     (diagnostic,) = compile_model({"schemaVersion": "9.9"}).diagnostics
     assert diagnostic.code == "UNSUPPORTED_SCHEMA_VERSION"
     assert diagnostic.message.endswith(str(list(SCHEMA_VERSIONS)))
+
+
+def test_the_window_is_declared_once():
+    """0.11 V4, D97: the document's ``schemaVersion`` accepts exactly the window, the legacy reader
+    a part of it, and every feature gate names a version in it."""
+    import re
+    import typing
+    from pathlib import Path
+
+    from app.engine.model.consumer_legacy import LEGACY_SCHEMA_VERSIONS, LegacyEngineModel
+    from app.models.schema import EngineModel
+
+    accepted = typing.get_args(EngineModel.model_fields["schemaVersion"].annotation)
+    assert accepted == SCHEMA_VERSIONS
+    legacy = typing.get_args(LegacyEngineModel.model_fields["schemaVersion"].annotation)
+    assert set(legacy) == LEGACY_SCHEMA_VERSIONS and LEGACY_SCHEMA_VERSIONS < set(SCHEMA_VERSIONS)
+    validation = Path(__file__).parents[4] / "app" / "engine" / "model" / "validation"
+    gates = {
+        found
+        for module in validation.glob("*.py")
+        for found in re.findall(r'require_schema\(model, "([0-9.]+)"', module.read_text())
+    }
+    assert gates and gates <= set(SCHEMA_VERSIONS)
+
+
+def test_after_window_is_newer_than_every_version_in_it():
+    from app.engine.model.compiler import after_window
+
+    assert after_window("0.11") and after_window("1.0")
+    assert not after_window("0.10") and not after_window("0.4") and not after_window("draft")

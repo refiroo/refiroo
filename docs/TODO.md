@@ -553,7 +553,8 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   - [ ] **Found in V1 (2026-10-17), not caused by it (fails at `0b08e9c` too):**
     `test_startup::test_upgrade_to_the_profile_check_kind_keeps_jobs_and_an_interrupted_run_recovers`:
     the profile job runs twice (`pk_source_file_cells`, then `uq_job_input` duplicated), so the check
-    fails.
+    fails. Seen again in V4 (2026-10-18) in a parallel group run, where a profile-check job failed in
+    a chunk; it passed run alone.
   - [x] **Found in V1 (2026-10-18), fixed in V1:** a migration's long steps did not renew the
     job's lease, so a second worker could take the job over; they now renew it between their
     statements from a session of their own, and stop if another worker holds the job. N2 still
@@ -568,6 +569,9 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
     records takes 5.8 s. Activation shares it.
   - [ ] **Found in V1:** the `change_sets` group took 2 min 32 s with `-n auto` (474 cases), over the
     package ceiling; one more input for S1 (D152).
+  - [ ] **Found in V4 (2026-10-18):** the groups `model`, `model_admin`, `startup`, `contract`,
+    `workspace_models` and `migration` together took 2 min 36 s with `-n auto` (4,148 cases, `model`
+    selecting most of them), over the package ceiling; one more input for S1 (D152).
   - [ ] The user's requirement: data moved between workspaces whose models differ (Track X), in
     0.11 (plan D3, accepted 2026-10-15).
   - [ ] The backend suite's time (D152, package S1): a filler during Part 1, before X2 at the latest
@@ -711,8 +715,9 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   per-workspace rollout.
   Resolve the workspace before its immutable model snapshot, scope compatibility and migration to that
   workspace, bind cursors to the release identity and switch assignments atomically. Supporting mixed
-  schema-language versions additionally requires a bounded current/previous parser window and explicit
-  conversion; workspace pinning alone is not schema compatibility.
+  schema-language versions additionally requires a bounded parser window and explicit conversion;
+  workspace pinning alone is not schema compatibility (the window, 0.5–0.10, and its conversion rules
+  are V4's, delivered 2026-10-18, in APPLICATION_MODEL "Schema versions and the window").
 - [ ] Product 0.11 (ADR-028): move a change set onto a release its content does not already satisfy, by
   reusing the migration preview/confirm machinery against that change set's own candidate graph and
   current-live base. The review reports conversions and potential loss of change-set content and applies only on

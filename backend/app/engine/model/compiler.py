@@ -25,11 +25,22 @@ __all__ = [
     "CompilationResult",
     "ModelDiagnostic",
     "ModelValidationError",
+    "after_window",
     "canonical_model",
     "compile_authored_model",
     "compile_model",
     "parse_model",
 ]
+
+
+def after_window(version: str) -> bool:
+    """Whether ``version`` is newer than every version in the window: a model written for a later
+    engine (0.11 V4, D101), not one an older engine left behind."""
+    try:
+        parts = tuple(int(part) for part in version.split("."))
+    except ValueError:
+        return False
+    return parts > tuple(int(part) for part in SCHEMA_VERSIONS[-1].split("."))
 
 
 @dataclass(frozen=True)

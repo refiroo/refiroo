@@ -68,7 +68,13 @@ the release the workspace runs even when its content does not fit: one preview l
 and losses in its content and what must be fixed (a record changed both in it and live since it
 started, a rule it breaks), and the confirmation converts its content and makes live data its base,
 never touching live data, through the API and from the change set bar
-([record](BASE_0_11_IMPLEMENTATION_PLAN.md#v3-record-2026-10-18)). Next: V4. Accepted by the user 2026-10-15: the data move in 0.11 (D3), the suite's
+([record](BASE_0_11_IMPLEMENTATION_PLAN.md#v3-record-2026-10-18)). **V4 is delivered (2026-10-18):**
+decisions D97–D103 accepted; the schema-language window, 0.5–0.10, is declared once and its
+conversion rules are written in APPLICATION_MODEL (reading, writing, side by side, between releases
+of different versions by declarations only, outside the window); installing a draft outside the
+window is refused naming the window, as activation is; a model file outside it refuses startup with
+what to do, and a workspace on a release a later engine wrote is logged with that recovery
+([record](BASE_0_11_IMPLEMENTATION_PLAN.md#v4-record-2026-10-18)). Next: X1. Accepted by the user 2026-10-15: the data move in 0.11 (D3), the suite's
 time (D152) as a filler during Part 1 before X2 at the latest (D2), and 0.11.0-alpha.1 after the M6
 checkpoint (D12).
 

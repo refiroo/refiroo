@@ -105,9 +105,12 @@ Startup refuses to serve, logs what to do and answers `GET /health` with `503` w
 - `DATABASE_URL` is missing, not PostgreSQL, uses another driver, or the server is unreachable;
 - the database has another collation, or `pg_trgm` or `btree_gin` is missing and cannot be created;
 - the database schema revision is unknown, or a migration fails (see [Upgrades](#upgrades));
-- the database selects a model release whose schema the engine no longer reads; the log names the
-  selected and supported schemas and prints the offline transition command
-  (`python -m app.cli.model_schema_upgrade`).
+- every workspace runs a model release whose schema is outside the engine's window; the log names
+  the release's and the supported schemas and the recovery: for schema 0.4 the offline transition
+  command (`python -m app.cli.model_schema_upgrade`), for a schema newer than the window (a database
+  a later RDM Engine used) to start that version (0.11 V4);
+- `RDM_MODEL_PATH` names a model of a schema outside the window: the process does not start, and the
+  message names the setting, the file, its schema and the supported ones.
 
 The application does not start at all when model administration is enabled with more than one
 worker. `/health` also returns `503` when an activation committed but this process could not load the newly
@@ -338,7 +341,8 @@ database's default workspace); an existing database keeps the release each works
 (`workspace_models`, 0.11 M1), even when the file holds a newer one. Changing the file never activates
 it. A release this version cannot serve, such as one of an unsupported schema, makes only the
 workspaces running it unavailable (`503 MODEL_REGISTRY_UNAVAILABLE` naming the workspace); startup
-logs each, with the schema upgrade command where it applies, and `/health` answers 503 only when no
+logs each, with the schema upgrade command for schema 0.4 or, for a schema newer than the window,
+the later engine to run, and `/health` answers 503 only when no
 workspace can be served (or the database is unreachable).
 A schema 0.8 file that declares `consumerApis` refuses to start, naming the file: rewrite its
 consumer API definitions in schema 0.9 or point `RDM_MODEL_PATH` at a 0.9 model such as

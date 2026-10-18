@@ -119,7 +119,9 @@ workspace), then that workspace's release, to one immutable parsed snapshot it u
 (`engine/model/registry.resolve_model_snapshot`). Change-set and publication requests resolve their
 own pinned release (ADR-027) instead of interpreting old content with the current model. An
 in-process registry caches one parsed snapshot per release, whichever workspaces run it; it never
-decides which release a workspace runs. A release this process cannot serve (an unsupported schema,
+decides which release a workspace runs. One parser reads every schema version in the window
+([APPLICATION_MODEL](APPLICATION_MODEL.md#schema-versions-and-the-window)), so releases of different
+versions are served side by side. A release this process cannot serve (a schema outside the window,
 an invalid model, a failed load after activation) makes only the workspaces running it answer
 `503 MODEL_REGISTRY_UNAVAILABLE` (D29); the instance is unhealthy only when no workspace can be
 served. A workspace's data moves to a release it does not fit through a migration (below); spanning

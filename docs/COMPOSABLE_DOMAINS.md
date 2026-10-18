@@ -136,6 +136,9 @@ parallel grammar.
 A new attribute value type should be an additive schema change: one registry entry, validation,
 conversion in `engine/records/values.py` and a renderer. Do not hard-code the list of value types
 outside those registries.
+A migration converts values by pairs of value types in the SQL function `rdm_convert_value`; a new
+type's pairs are added there by a database migration, and until they are, a value converting to or
+from the new type is reported as loss, never dropped (0.11 V4, D102).
 
 ## Design-review checklist
 

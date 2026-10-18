@@ -24,7 +24,7 @@ from .engine.jobs.files import JobFiles
 from .engine.jobs.inline import BatchLimits
 from .engine.jobs.worker import EXPORT_KINDS, EXPORT_THREAD_NAME, JobWorker, WorkerSettings
 from .engine.model.bootstrap import bootstrap_model
-from .engine.model.compiler import SCHEMA_VERSIONS
+from .engine.model.compiler import SCHEMA_VERSIONS, after_window
 from .engine.model.loader import load_bootstrap_model
 from .engine.model.registry import model_registry
 from .engine.model.workspace_models import workspaces_running
@@ -103,14 +103,26 @@ async def lifespan(application: FastAPI):
         # A release this version cannot serve makes only its workspaces unavailable (0.11 D29).
         unavailable_releases = model_registry.start(session)
         consequence = (
-            "Until the transition succeeds, their requests answer HTTP 503; other workspaces "
-            "are served."
+            "Until this is resolved, their requests answer HTTP 503; other workspaces are served."
             if model_registry.ready
-            else "Until the transition succeeds, /health returns HTTP 503."
+            else "Until this is resolved, /health returns HTTP 503."
         )
         for unavailable in unavailable_releases:
             workspaces = ", ".join(workspaces_running(session, unavailable.release_db_id))
-            if unavailable.unsupported_schema:
+            if unavailable.unsupported_schema and after_window(unavailable.schema_version):
+                # A later engine wrote this release; no command of this version can read it (D101).
+                logger.error(
+                    "RDM Engine cannot serve workspaces %s: they run model release %s of schema "
+                    f"%s, but this version supports schema {', '.join(SCHEMA_VERSIONS)}.\n"
+                    "This database was used by a later RDM Engine. Start that version to serve these "
+                    "workspaces, or migrate them there to a release of a supported schema before "
+                    "starting this version again.\n%s",
+                    workspaces,
+                    unavailable.release_id,
+                    unavailable.schema_version,
+                    consequence,
+                )
+            elif unavailable.unsupported_schema:
                 logger.error(
                     "RDM Engine cannot serve workspaces %s: they run model release %s of schema "
                     f"%s, but this version supports schema {', '.join(SCHEMA_VERSIONS)}.\n"
