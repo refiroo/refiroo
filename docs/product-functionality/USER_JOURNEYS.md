@@ -1128,8 +1128,8 @@ refusals, a stale review, 390px); the budget `test_migration_budget` (100,000 re
 
 **Actor:** model administrator; data steward. **Channel:** UI (the move editor), API.
 **Stories:** US-P09. **Status:** J38.1 delivered through the API (0.11 X1); the selection and the
-dry run of every item delivered through the API (0.11 X2); the move into a change set and the
-editor planned (0.11 X3–X5).
+dry run of every item delivered through the API (0.11 X2); the move into change sets, copy or move,
+found again and moved back, delivered through the API (0.11 X3); the editor planned (0.11 X4, X5).
 
 1. Open a mapping from the source workspace's model to the target's; the engine proposes it and the
    user completes it.
@@ -1154,12 +1154,15 @@ editor planned (0.11 X3–X5).
 
 **Refusals:** `422 MOVE_SAME_WORKSPACE`, `422 MODEL_MAPPING_MODEL_MISMATCH`,
 `404 MODEL_MAPPING_NOT_FOUND`, `409 MOVE_MAPPING_CHANGED`, `422 MOVE_MAPPING_HAS_PROBLEMS`,
-`409 MODEL_RELEASE_CHANGED`; row refusals as an import's (J27).
+`409 MODEL_RELEASE_CHANGED`, `422 MOVE_NOTHING_TO_MOVE` (at the confirmation),
+`409 MOVE_COPY_NOT_PUBLISHED` (a move's deletion published before its copy); row refusals as an
+import's (J27).
 
-**Evidence today:** `tests/journeys/test_j38_1_model_mapping.py` (J38.1) and
+**Evidence today:** `tests/journeys/test_j38_1_model_mapping.py` (J38.1),
 `tests/journeys/test_j38_2_move_dry_run.py` (the dry runs of J38.2, J38.4, J38.5 and J38.7, and the
-refusals before a move starts), through the API; the load into a change set, J38.3, J38.6 and J38.8
-are planned (X3).
+refusals before a move starts) and `tests/journeys/test_j38_3_move.py` (the load into change sets:
+J38.2 confirmed and executed, J38.3, J38.6, J38.8, and the refusals at the confirmation), through the
+API; the editor is planned (X4).
 
 ## Integration
 

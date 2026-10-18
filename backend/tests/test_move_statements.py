@@ -106,7 +106,7 @@ def test_a_dry_run_costs_a_constant_number_of_statements(measured):
 
 def test_every_record_and_relationship_has_its_row(measured):
     for size, (_statements, job) in measured.items():
-        assert job["state"] == "completed", job
+        assert job["state"] == "awaiting_confirmation", job
         summary = job["move"]
         assert summary["rows"] == 2 * size, summary
         assert summary["counts"]["create"] == size, summary

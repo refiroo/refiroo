@@ -4973,7 +4973,7 @@ nothing fills, and `parents` a source record may stand under that its target typ
 | 409 | `INFERENCE_NOT_READY`, `INFERENCE_STALE` | the inference still runs; the mapping names other releases than it read |
 | 404, 409, 422 | `PROPOSAL_NOT_FOUND`, `PROPOSAL_ALREADY_APPLIED`, `PROPOSAL_REQUIREMENT_MISSING`, `NOTHING_TO_APPLY` | as a draft's inference |
 
-### Moves (delivered: the dry run, X2; planned: the move, X3)
+### Moves (delivered: the dry run, X2; the move, X3)
 
 ```json
 {
@@ -4992,12 +4992,17 @@ moves (I7, D116): `types`, each with an export's `where` criteria; a subtree (`p
 that record and every record under it); records by ID (`objectIds`, up to 10,000); or nothing, the
 whole workspace. A record is selected when every given part selects it; a parent or related record
 not selected is never pulled in. `sourceAt` is `live`, read when the job binds with the source's
-feed position recorded, or a publication ID of the source workspace (I30, D117). In 0.11 X2 `mode`
-is `copy` and `stage` is `preview`: the job is the **dry run of every item** (D67) and completes
-with its summary; X3 adds the confirmation that loads it into a change set. Nothing reaches either
-workspace: no record, feed position, audit entry or change set.
+feed position recorded, or a publication ID of the source workspace (I30, D117). With `stage:
+preview` (the default) the job is the **dry run of every item** (D67) and waits in
+`awaiting_confirmation` with its summary (D128); until it is confirmed nothing reaches either
+workspace: no record, feed position, audit entry or change set. With `stage: execute` it loads at
+once, without waiting. `mode` is `copy` (the default, the source untouched) or `move` (below).
 
-Each selected record becomes, in this order (D118): **found by its counterpart** in the target
+Each selected record becomes, in this order (D118, D133): **found by its origins**, when the chain
+of where it came from (each record a move created keeps its origin, D23) reaches a record of the
+target of its mapped type (`updateOriginal`, `foundBy: origin`: a record moved back finds its
+original); when that original is gone and its ID is free, it is created again under that ID
+(`create`, `foundBy: origin`); else **found by its counterpart** in the target
 (`update`, `foundBy: counterpart`; the counterpart ID as for J5's loads, derived in PostgreSQL by
 `rdm_counterpart`, D120); else **found by the mapping's `match`**, one target record of the mapped
 type by a unique attribute's value or by name (`update`, `foundBy: match`, `matchedBy`; several
@@ -5015,7 +5020,7 @@ The items then run through the batch path against the target's live data and are
 **Rows** are read at `GET /jobs/{jobId}/rows` in their order (records as they would be created, a
 parent first, then relationships), filtered by `outcome`, `reason` (a reason's code) and
 `sourceType`, paged (ADR-030). A row has `kind` (`record`, `relationship`), `outcome` (`create`,
-`update`, `refused`, `notMoved`), `reasons` (each `code`, `message`, `details` and, for the mapping's
+`update`, `updateOriginal`, `refused`, `notMoved`), `reasons` (each `code`, `message`, `details` and, for the mapping's
 reasons, the `action` that changes it: `mapType`, `mapRelation`, `setParent`, `setMatch`, `select`)
 and `leftBehind` (what a moving row does not carry, at the source attribute's `pointer`:
 `ATTRIBUTE_NOT_MAPPED`, `VALUE_NOT_CONVERTIBLE` with the `value`, `ATTRIBUTE_READ_ONLY` for an
@@ -5038,13 +5043,34 @@ workspaces ran, or the publication's) and `mappingSourceReleaseId` and `mappingT
 (what the mapping names). The job keeps the selection and the mapping's definition at its version
 (D112).
 
-Planned for X3: `POST /jobs/{jobId}/confirm` loads the preview's outcome into a new change set of
-the target workspace, opened for review; with `mode: "move"`, also a change set of the source
-workspace deleting the moved records (D17). A mapping changed since the preview is
-`409 MOVE_MAPPING_CHANGED`; the target's model changed since is `409 MODEL_RELEASE_CHANGED`.
-Nothing reaches either workspace's feed or consumers until a change set is published (D20). A moved
-record's origin (source workspace and record) is stored and returned as `origin` on the job's rows
-and the record's audit entry, and a record moved back is `updateOriginal` (D23).
+**The move** (0.11 X3). `POST /jobs/{jobId}/confirm` (no body) loads what the dry run previewed,
+the source as it was read then (D129), into a **new change set of the target workspace** (D130),
+named `Move from <source> (<job ID>)` and opened for review over current live data; the job then
+names it as `changeSetId`. The items are decided again against the target as they load, and the
+load's outcomes replace the preview's rows. A record the move creates has its **origin** (the
+source workspace and record) recorded and named on its row as `origin`; on the record's history
+(`GET /objects/{objectTypeKey}/{objectId}/history`) each entry a move caused names it as
+`cause.origin` (D136). Refused at the confirmation, the job left waiting (D131): `409
+MOVE_MAPPING_CHANGED` (the mapping changed since the dry run), `409 MODEL_RELEASE_CHANGED` (either
+workspace runs another release than at the dry run), `409 WORKSPACE_RETIRED`, `422
+MOVE_NOTHING_TO_MOVE` (no row is created or updated); a move not waiting is `409
+JOB_NOT_AWAITING_CONFIRMATION`, one past its retention `410 JOB_EXPIRED`.
+
+With **`mode: move`** (D17, D134), the load ends by opening a change set of the source workspace
+(`Move to <target> (<job ID>)`, `move.sourceChangeSetId`) that deletes every selected record that
+loaded, each with its own relationships, deepest first. A loaded record's row says what became of
+it in the source (`source`: `deleted`, or `kept` with its reason): one that changed in the source
+since it was read is copied as read and kept (`SOURCE_CHANGED`); one that a record staying depends
+on, such as a child the move does not carry, is kept (`OBJECT_HAS_DEPENDANTS`). A refused or
+not-moved row is never deleted. When nothing is deleted, no change set is opened. Publishing that
+change set before the copy's is `409 MOVE_COPY_NOT_PUBLISHED` (`details.changeSetId`, `state`:
+`open`, or `discarded`, when it can only be discarded); once the copy is published it publishes as
+any change set (D135). Nothing reaches either workspace's feed or consumers until its change set is
+published, then its ordinary events (D20).
+
+The summary also has `mode`, `targetChangeSetId`, `sourceChangeSetId`, `sourceFeedPositionAtLoad`
+(the source's position when it loaded, beside the dry run's `sourceFeedPosition`), counts
+`updateOriginal`, and for `mode: move` `source` (`deleted`, `kept`).
 
 | Status | Code | When |
 | --- | --- | --- |
@@ -5058,6 +5084,8 @@ and the record's audit entry, and a record moved back is `updateOriginal` (D23).
 | 404 | `PUBLICATION_NOT_FOUND` | `sourceAt` is not a publication of the source workspace |
 | 422 | `INVALID_QUERY` | an unknown type or a criterion the source model cannot answer, at `details.path` |
 | 404 | `OBJECT_NOT_FOUND` | the subtree's record or a selected record is not in the source, at `details.path` |
+| 422 | `MOVE_NOTHING_TO_MOVE` | at the confirmation: no row of the dry run is created or updated |
+| 409 | `MOVE_COPY_NOT_PUBLISHED` | publishing a move's deletion change set before its copy's (`POST /change-sets/{id}/publication`) |
 
 A job whose target workspace activates another release before it binds or previews fails with
 `MODEL_RELEASE_CHANGED`, as any job, as does one whose source runs another release than when it was

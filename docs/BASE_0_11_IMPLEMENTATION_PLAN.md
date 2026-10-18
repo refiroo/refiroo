@@ -11,7 +11,7 @@ packages are specified below at package level; each package's detailed plan, tes
 decisions are written and accepted when it starts, and it is delivered in the order of the
 [delivery queue](#delivery-queue), each by the [delivery steps](#how-a-package-is-delivered).
 **Delivered:** P0, M1 with M2 (2026-10-15), M3, M4, M5, M6 and M6a (2026-10-16), released as
-0.11.0-alpha.1 (2026-10-17, tag `v0.11.0-alpha.1`); V1, V2, V3, V4, X1 and X2 (2026-10-18).
+0.11.0-alpha.1 (2026-10-17, tag `v0.11.0-alpha.1`); V1, V2, V3, V4, X1, X2, S1 and X3 (2026-10-18).
 
 **Target:** Product 0.11.0, [production hardening and staged model rollout](ROADMAP.md#product-release-011--production-hardening-and-staged-model-rollout),
 with the two requirements the user added on 2026-10-15 (ROADMAP commit `a0859ae`).
@@ -303,7 +303,7 @@ change) and `volume` (every budget).
 | 11 | [V4](#v4-the-schema-language-window) | V1, M6 | **Delivered 2026-10-18.** The window 0.5–0.10 declared once, its conversion rules written, installation outside it refused like activation, two startup refusals fixed |
 | 12 | [X1](#x1-the-mapping-between-two-models) | M4, P0 inventory | **Delivered 2026-10-18.** The model-to-model mapping: proposed, completed with mapping operations, saved and reused |
 | 13 | [X2](#x2-selection-and-the-dry-run-of-a-move) | X1 | **Delivered 2026-10-18.** What moves; the dry run of every item; what cannot move, with reasons |
-| 14 | [X3](#x3-the-move) | X2 | Copy or move into a reviewed change set: identity, relationships, hierarchy, values, history |
+| 14 | [X3](#x3-the-move) | X2 | **Delivered 2026-10-18.** Copy or move into a reviewed change set: the dry run confirmed or executed, origins and the move back, the source's deletion published after the copy |
 | 15 | [X4](#x4-the-move-editor) | X3, M5 | The move editor: the two models, the mapping, the proposals, the dry-run figures and the report |
 | 16 | [X5](#x5-move-checkpoint) | X4 | The roadmap's move exit item at full volume, measured once |
 | | **Part 2 — production hardening** | | |
@@ -2822,6 +2822,174 @@ and effective periods as the inventory decides; the target's audit naming the mo
 the target's subscribers receiving events on publication as for any change set.
 
 **Groups:** `move`, `jobs`, `change_sets`, `events`.
+
+##### X3 plan (2026-10-18)
+
+**Planned 2026-10-18; D128–D137 as recommended and the test cases (with the edit of X2's J38.2 state assertions, D128) accepted by the user the same day ("All good, you can go ahead").**
+Checked against the code at `cc33d56`:
+
+- **X2's job ends `completed`.** `move_job.preview` runs every input through `run_items`
+  (`previewing=True`), rolls back, records the rows and completes; `MoveRequest` accepts `mode:
+  copy` and `stage: preview` only. The inputs stay in `job_inputs` after the preview, each holding
+  its batch item, so a load can run exactly what was previewed.
+- **An import's confirmation is the pattern.** `jobs/store.await_confirmation` and `confirm_job`
+  hold a previewed job in `awaiting_confirmation` and queue it again; `POST /jobs/{id}/confirm`
+  dispatches by kind (a migration has its own confirmation, `confirm_migration`). A preview past
+  its retention is `410 JOB_EXPIRED`.
+- **A job's writes already name it.** `run_items` writes under `audit_cause(session, "job", id)`,
+  so every change-set entry a load writes carries `cause: {kind: job, id}`; publishing writes the
+  live entries with the publication as cause. A record's history (`object_history`) reads every
+  entry naming the record, change-set entries included.
+- **Deleting with its own relationships exists.** `records/deletion.delete_records` with
+  `Deletion(own_links=True)` (0.10 A5c, D104) deletes a record with its own relationships and
+  refuses one that others depend on (a child, a record a required relation ties to it) with
+  `OBJECT_HAS_DEPENDANTS`; items deleted deepest first are decided in one run, live or in a change
+  set (`ChangeSetScope`).
+- **Nothing records where a record came from** (P0's check); X2's binding finds a target record
+  by counterpart (`rdm_counterpart`) or the mapping's `match` only.
+- **Change sets are independent.** Publishing one checks nothing about another; a change set
+  created without a source is an overlay on live data, pinned to its workspace's release.
+
+**What is built:** the confirmation that loads a move's preview into a new change set of the target
+workspace, `stage: execute` for the same without waiting, `mode: move` with its deletion change set
+in the source workspace, the origins table and the move back, and the origin on a record's history.
+A migration (`20261022_01`, the table `record_origins`), `engine/moves/move_load.py`, the binding's
+origin step, the worker's load step, the OpenAPI lock re-baselined. No UI (X4), so no mock-up.
+
+**Decisions** (D128 onward):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D128 | The job's stages | **`stage: preview` now waits in `awaiting_confirmation`** after the dry run, as an import's preview, and `POST /jobs/{id}/confirm` loads it; **`stage: execute`** binds and loads at once, with no wait. Why: D114 planned it; an integrator who has read a dry run before needs one call, as with imports. Cost: X2's approved J38.2 cases assert `completed` after a preview; they change to `awaiting_confirmation` (an edit of approved cases, which this acceptance covers), and a preview nobody confirms expires after the job retention, as an import's |
+| D129 | What a confirmation loads | **The preview's stored items, as reviewed:** the source as it was read at the preview (I30), decided again against the target at the load, policy `independent`; the load's outcomes replace the preview's rows, as an import's execution does. Why: what the user reviewed is what loads; a source change after the preview is the next move's (I30). Cost: a source change between preview and confirmation is not carried; the summary names both feed positions so a client can see that the source moved on |
+| D130 | Where it loads | **A new change set of the target workspace**, pinned to the target's release, named `Move from <source workspace> (<job ID>)`, opened for review; never live data, never an existing change set. Why: D20 (nothing reaches the target until it is published) and a preview whose target is live data needs nothing else; loading into an existing change set would need the binding to read change-set content. Cost: a move combined with other edits is two change sets; renaming uses the existing `PATCH /change-sets/{id}` |
+| D131 | Refusals at the confirmation | **Checked before anything is written, the job left waiting:** `409 MOVE_MAPPING_CHANGED` (the mapping's version moved since the preview, I31); `409 MODEL_RELEASE_CHANGED` (either workspace runs another release than the preview's, I32); `409 WORKSPACE_RETIRED`; **`422 MOVE_NOTHING_TO_MOVE`** (new: no row is `create`, `update` or `updateOriginal`); plus the existing `409 JOB_NOT_AWAITING_CONFIRMATION` and `410 JOB_EXPIRED`. A confirmation needs both gates, as the submission (D14, I33). Why: an empty change set is noise, and the others are the inventory's. Cost: one new code |
+| D132 | The origins table (D23) | **`record_origins`: the record ID (key), its workspace, the origin workspace and record ID, the job and when**, one row per record a move **creates**, written by one `INSERT … SELECT` in the transaction of the chunk that creates the records. A record found by counterpart or `match` gets none (it has its own identity). Rows stay when the change set is discarded: they speak about an ID only that one source can produce, and every lookup joins a record that exists. Why: D23 accepted; one table, no change to the computed IDs, so J5's imports are unchanged. Cost: one table and an index on the origin record |
+| D133 | Moving back (I3) | **The binding looks for an origin first:** a selected record, a parent or a relationship's other end whose chain of origins (followed in one recursive query, at most `MAX_LEVELS`) reaches a record of the target workspace of the mapped type is that record: `updateOriginal` with `foundBy: origin`. When the original was deleted (a move deleted it) and its ID is free, it is **created again under its original ID** (`create`, `foundBy: origin`) and gets no origin row. Then counterpart, `match`, create, as D118. Rows of moving records name their `origin` when they have one. Why: "a record moved back finds its original" (J38.6), along chains of moves too. Cost: one recursive statement per move, whatever its size |
+| D134 | `mode: move` (D17, I6) | **After the load, one new change set of the source workspace** (`Move to <target workspace> (<job ID>)`) deletes every selected record whose row was loaded (applied `create`, `update` or `updateOriginal`) and whose version in the source is still the one read, deepest first, each with its own relationships (`own_links`). Kept in the source, with the reason on the row's `source` (`{outcome: deleted / kept, reasons}`): a record changed since it was read (`SOURCE_CHANGED`), one that a record staying depends on (`OBJECT_HAS_DEPENDANTS`, such as a child whose type is not mapped). A refused or not-moved row is never deleted. A move from a publication compares with live data the same way. Why: I6 as accepted, through the deletion path A5c uses, so nothing that stays is deleted with it. Cost: none beyond the change set |
+| D135 | Publishing the deletion before the copy | **Guarded:** publishing a move's source change set while its target change set is not published is `409 MOVE_COPY_NOT_PUBLISHED` (naming the target change set); once the copy is published it publishes as any change set; with the copy discarded, the deletion can only be discarded. Why: principle 7, nothing dropped silently: without it, publishing the deletion and discarding the copy loses the records. Cost: one check when a change set publishes (a job naming it as its source change set) and one code; D17's "reviewed on its own" stays true for everything else |
+| D136 | History, publications and events (I25, I26, I29) | **The load's entries carry the move's job as cause (as any job), and a cause that is a move gains `origin` (`workspaceKey`, `objectId`) on `GET /objects/{id}/history`**; the job's rows carry `origin` too. The source's history and publications are not copied. The target's consumers see nothing until its change set publishes, then its ordinary events (D20); the source's deletion change set likewise. Why: the inventory's cases with the existing audit and events. Cost: the history entry's `cause` gains one optional field |
+| D137 | Where the code lives and the volume check | **`engine/moves/move_load.py` (confirmation, load, origins, the source's deletion), the origin step in `move_binding.py`, the worker's load step, migration `20261022_01`.** D123's statement count gains the origin step and stays the same for 50 and 500 records; the load itself is the batch path, as an import's execution, and its full-volume figure is X5's. Translations (I23), effective periods (I24), lookups (I14) and relation attributes (I19) load as X2's binding built them: nothing special. Why: D113's home. Cost: none |
+
+**Journey test cases** (`tests/journeys/test_j38_3_move.py`, J38.2, J38.3, J38.6, J38.8, `move`;
+W1 on X, W2 on Y with X and Y generated-a and generated-b, both directions, naming no key; the
+mapping proposed and applied as in J38.1):
+
+1. **J38.2 and J38.8 A copy confirmed and published.** Given a whole-workspace preview waiting in
+   `awaiting_confirmation`. When it is confirmed, the job completes naming a new change set of W2
+   that holds every `create` and `update` row's record under its target ID; W2's live records, feed
+   and consumer events are unchanged, and W1 is untouched. When the change set is published, the
+   records are live in W2 and W2's consumer API has an event for each; a moved record's history
+   names the move's job as cause with its `origin` in W1.
+2. **J38.6 A second move found again.** After case 1 and a value changed in W1, the same move's
+   rows are `update` with `foundBy: counterpart`; once confirmed and published, W2 holds as many
+   records as before, with the changed value.
+3. **J38.6 Moving back.** After case 1, a move from W2 to W1 through the reverse mapping: the
+   records that came from W1 are `updateOriginal` of their originals (`targetId` the original ID,
+   `origin` named); a record created in W2 itself is `create`. After a `mode: move` (case 4) whose
+   deletion is published, moving those records back creates them again under their original IDs.
+4. **J38.3 Move a subtree.** `mode: move` with `parentObjectId`, confirmed: W2's change set holds
+   the copy, and a new change set of W1 deletes the loaded records; a record under the subtree whose
+   type is unmapped keeps its parent in W1 (`kept`, `OBJECT_HAS_DEPENDANTS`); a record changed in
+   W1 after the preview is copied as previewed and kept (`SOURCE_CHANGED`). Publishing W1's change
+   set first is `409 MOVE_COPY_NOT_PUBLISHED`; after W2's is published it publishes, and the deleted
+   records are gone from W1.
+5. **J38.2 `stage: execute`.** A move sent with `stage: execute` completes without waiting, with its
+   change set and the same rows a confirmed preview would have.
+6. **Refusals at the confirmation.** The mapping changed after the preview `409
+   MOVE_MAPPING_CHANGED`; W2 activated on another release `409 MODEL_RELEASE_CHANGED`; a preview
+   with nothing to create or update `422 MOVE_NOTHING_TO_MOVE`. Each leaves the job waiting and
+   creates no change set.
+
+Unit tests: the origin chain (two moves A → B → C, then back to A, finds A's record; a deleted
+original found for re-creation only while its ID is free). Volume: D137's statement count.
+
+**Groups:** `move`, `jobs`, `change_sets` (the publish guard), `events` (case 1's events),
+`startup` (the migration), `contract` (the route changes; the lock re-baselined after diffing),
+`volume` (D137). No frontend change.
+
+**Composable domains (ADR-032):** identity: an origin is a lookup beside the computed ID, never a
+change of it, so the retired-ID redirect door stays open; audit/history: a history entry's cause
+gains the origin; bulk APIs: the load is a job with an import's rows.
+
+**What the user still cannot do after X3:** edit the mapping, read the dry run and start the move in
+the browser (X4); the figure for a move at full volume (X5).
+
+##### X3 record (2026-10-18)
+
+**Delivered 2026-10-18.** Built as planned (D128–D137): migration `20261022_01` (the table
+`record_origins`, a change set's `waits_for_change_set_id`), `engine/moves/move_load.py` (the
+confirmation, the load, origins, the source's deletion), `engine/moves/origins.py` (a history's
+origin), the binding's origin step in `move_binding.py`, the worker's load step, the confirmation
+dispatched by `POST /jobs/{jobId}/confirm`, the publish guard in `change_sets/publish.py`, and
+`run_items`' `own_links` for the source's deletion; the OpenAPI lock re-baselined after diffing the
+document against `cc33d56` (only the `Move*` summary and row fields, `RecordOrigin` on a row and a
+history entry's cause, the rows' `updateOriginal` filter and the confirmation's description); no
+frontend change.
+
+Where it differs from the plan:
+
+- **The load's change sets are opened over current live data**, as the change sets the UI opens
+  (`source: currentLive`): the base is copied in the job's transaction under share locks on the
+  workspace and its release assignment (`lifecycle.open_job_change_set`). The plan's check said a
+  change set without a source is an overlay on live data; it reads from an empty base, so the
+  load's updates were refused (`REFERENCE_NOT_FOUND`) until this was found by J38.3's case.
+- **No source change set is opened when nothing would be deleted** (every loaded record kept); the
+  summary's `sourceChangeSetId` is then null.
+- **`record_origins` is indexed by its workspace**, not by the origin record: a deleted workspace
+  deletes its rows (`delete_workspace`), and no read goes from an original to its copies.
+- **A history's origin is named on every entry a move caused**, the later moves updating the record
+  included (D136 named the move's job).
+- **The gates.** A move job is created only through `POST /moves`, registered with both gates; its
+  confirmation is on the jobs route, registered with `INTEGRATION_JOBS_ENABLED`, as a migration's
+  is, so switching model administration off after a dry run does not stop its confirmation. No
+  route refuses by gate today (a gated group is not registered), so a refusal would need a new code;
+  left as built (D131 said both).
+- **Also changed:** the rows' `outcome` filter accepts `updateOriginal`; `stop_job` leaves an item
+  that has a row as it is, since a move loads its items beside the rows its mapping decided (a load
+  stopped mid-way would otherwise write a second row); X2's statement-count test asserted
+  `completed` after a dry run and now asserts `awaiting_confirmation` (D128, as J38.2's cases).
+- **The test cases as written:** case 1's events come from the target's model with its consumer API
+  telling every change of the ledger type (the generated configurations declare no events); case
+  3's second half (re-created under the original ID) ends case 4's test, which deletes the original
+  first; case 4's record kept for a dependant is a ledger whose entry type is unmapped, in a first
+  move of its own.
+
+**Checks (2026-10-18):** J38.2, J38.3, J38.6, J38.8 written first
+(`tests/journeys/test_j38_3_move.py`, 6 tests, 12 cases on generated-a and generated-b), all failing
+before the change (the dry run still `completed`); after it all 12 pass. Unit:
+`tests/unit/engine/moves/test_move_binding.py` gained the origin chain (two moves, then back; a
+deleted original re-created while its ID is free; under the counterpart once it is taken), 5
+passed. Groups `move`, `jobs` and `startup` with `-n auto`: 771 passed and 1 failed (the
+statement-count test's state, above), which then passed; the serial part (1) passed; 2 min 59 s,
+inside the 3-minute ceiling (D127) at a load of 3. `startup` gained a case for `20261022_01` (an
+interrupted run refused naming `record_origins`, two starts answering a confirmation, the column,
+a downgrade). `change_sets`, `events` and `contract` (outside those three): 536 passed in 2 min 30
+s, the serial part (2) passed. After the rows filter changed: `test_openapi_contract.py` and
+`test_api_journeys.py`, 14 passed. The record history and workspace deletion journeys (J1, J7, J19),
+52 passed. `volume`: only `test_move_statements.py` (2 passed; the binding's origin step is one
+statement, the counts for 50 and 500 records equal); its full-size budgets were not run. After the
+final formatting: the move tests again, 33 passed. **Smoke start** on a copy of the development
+database (3 workspaces on one model, 2,380 records) at `20261021_01`: the start upgraded it to
+`20261022_01`, `/health` and `/system` 200. A mapping from the default workspace (2,129 records) to
+an empty one, inferred and applied: the whole-workspace dry run waited with 4,554 `create` and 8
+`refused` (`RELATION_CANDIDATE_REFUSED`, as in X2) in 9.8 s; confirmed, it loaded into a change set
+in 10.9 s, which published in 11.4 s. The reverse mapping's dry run found all 2,129 records as
+`updateOriginal` by origin (2.7 s). A second `mode: move` of 20 records: 20 `update` by
+counterpart; the source change set deleted 3 and kept 17 (records with dependants that stay); its
+publication was refused `MOVE_COPY_NOT_PUBLISHED` until the copy was published, then succeeded.
+The copy dropped, the server stopped, the scratch files removed. `ruff check` on the changed files
+clean; `ruff format` on the new and previously formatted files only (the others differed from the
+formatter before this package). **Not run:** the full suite, Vitest, the browser runners and the
+gates (no frontend change; build acceptance R).
+
+**Found:** in the smoke run, the 20-record `mode: move` took 13.3 s from its confirmation to its end
+in the running service, seconds after the 2,129-record publication; driven step by step on the same
+copy it is 0.9 s of work, so the rest was waiting, most likely behind that publication's background
+work; not traced further (TODO, for X5's full-volume measurement).
+
+**What the user still cannot do:** edit the mapping, read the dry run and start a move in the
+browser (X4); the figure for a move at full volume (X5).
 
 #### X4: The move editor
 

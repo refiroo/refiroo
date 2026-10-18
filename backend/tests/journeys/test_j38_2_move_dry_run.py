@@ -56,7 +56,7 @@ def _dry_run(world, key, target, selection=None, **extra):
     assert job["kind"] == "move"
     _run(world)
     job = ok(world.api.get(f"/jobs/{job['id']}"))
-    assert job["state"] == "completed", job
+    assert job["state"] == "awaiting_confirmation", job
     return job, _rows(world, job["id"])
 
 

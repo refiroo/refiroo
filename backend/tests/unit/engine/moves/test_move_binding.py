@@ -12,7 +12,14 @@ name, moves three of the first's records: one whose counterpart the second alrea
 client may create a record under its counterpart ID) though a record of its name is there too, one
 found only by its name, and one found by neither. The first updates its counterpart, the second the
 record of its name, and the third is created under its counterpart ID.
+
+A record's origins (0.11 X3, D133) come first: moved back, a record whose chain of origins reaches
+a record of the target updates it, however many moves the chain has; one whose original is gone is
+created again under the original's ID while that ID is free, and under its counterpart once the ID
+is another record's.
 """
+
+from uuid import uuid4
 
 from configurations import all_configurations
 from scenario import W1, W2
@@ -190,3 +197,101 @@ def test_a_record_is_found_by_its_counterpart_then_by_the_match_then_created(see
     assert rows[by_name]["matchedBy"] == {"field": "name"}
     assert (rows[neither]["outcome"], rows[neither].get("foundBy")) == ("create", None)
     assert rows[neither]["targetId"] == counterpart(W2, neither)
+
+
+def _hierarchy_mapping(side, h):
+    return {
+        "sourceReleaseId": side.release_id,
+        "targetReleaseId": side.release_id,
+        "types": [
+            {
+                "source": h,
+                "target": h,
+                "attributes": [
+                    {"source": b.attributeTypeKey, "target": b.attributeTypeKey}
+                    for b in side.bindings(h)
+                    if not b.readOnly
+                ],
+                "relations": [],
+                "defaults": {},
+            }
+        ],
+        "valueMaps": {},
+    }
+
+
+def test_a_record_moved_back_finds_its_original_along_its_origins(seeded):
+    world = seeded
+    h = world.key("H")
+    original = world.ids["h1"]
+    with SessionLocal() as session:
+        chained, gone, taken = session.scalars(
+            text(
+                "SELECT id FROM objects WHERE workspace_key = :w AND object_type_key = :h"
+                " ORDER BY name LIMIT 3"
+            ),
+            {"w": W2, "h": h},
+        ).all()
+        missing = str(uuid4())
+        # Moves as a client makes them: the original copied into a third workspace, that copy into
+        # W2; another original since deleted; and one whose ID is now another record's.
+        between = str(uuid4())
+        session.execute(
+            text(
+                "INSERT INTO record_origins (object_id, workspace_key, origin_workspace_key,"
+                " origin_object_id, job_id) VALUES"
+                " (:between, 'third', :w1, :original, 'm1'), (:chained, :w2, 'third', :between, 'm2'),"
+                " (:gone, :w2, :w1, :missing, 'm3'), (:taken, :w2, :w1, :held, 'm4')"
+            ),
+            {
+                "w1": W1,
+                "w2": W2,
+                "original": original,
+                "between": between,
+                "chained": chained,
+                "gone": gone,
+                "missing": missing,
+                "taken": taken,
+                "held": chained,
+            },
+        )
+        side = Releases(session).of_workspace(W2)
+        job = start_job(
+            session,
+            kind="move",
+            workspace_key=W1,
+            change_set_id=None,
+            model_release_id=session.scalar(
+                text("SELECT model_release_id FROM workspace_models WHERE workspace_key = :w"),
+                {"w": W1},
+            ),
+            parameters={},
+            total=None,
+            retention_days=1,
+            queued=True,
+        )
+        bind_move(
+            session,
+            job,
+            plan_move(_hierarchy_mapping(side, h), side, side),
+            source=side,
+            selection=MoveSelection(objectIds=[chained, gone, taken]),
+            source_workspace=W2,
+            context=None,
+        )
+        rows = {
+            row["sourceId"]: row
+            for row in session.scalars(
+                text("SELECT item -> 'row' FROM job_inputs WHERE job_id = :job"),
+                {"job": job.sequence_id},
+            )
+        }
+        session.rollback()
+
+    assert (rows[chained]["outcome"], rows[chained]["foundBy"]) == ("updateOriginal", "origin")
+    assert rows[chained]["targetId"] == original
+    assert (rows[gone]["outcome"], rows[gone]["foundBy"]) == ("create", "origin")
+    assert rows[gone]["targetId"] == missing and "origin" not in rows[gone]
+    assert (rows[taken]["outcome"], rows[taken].get("foundBy")) == ("create", None)
+    assert rows[taken]["targetId"] == counterpart(W1, taken)
+    assert rows[taken]["origin"] == {"workspaceKey": W2, "objectId": taken}

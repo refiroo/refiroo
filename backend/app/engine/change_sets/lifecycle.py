@@ -97,6 +97,48 @@ def create_change_set(
     return change_set
 
 
+def open_job_change_set(
+    session: Session,
+    workspace_key: str,
+    model_release_id: int,
+    *,
+    name: str,
+    waits_for_change_set_id: str | None = None,
+) -> ChangeSet:
+    """A change set over current live data that a job opens to load into, in the job's
+    transaction, which commits it with the job's first writes (a move's, 0.11 X3, D130, D134).
+    The workspace row and its release assignment are held for share, so no live write or
+    activation commits while the base is copied; the caller checked the release."""
+    session.scalar(
+        select(Workspace).where(Workspace.key == workspace_key).with_for_update(read=True)
+    )
+    state = session.scalar(
+        select(WorkspaceModel)
+        .where(WorkspaceModel.workspace_key == workspace_key)
+        .with_for_update(read=True)
+    )
+    base = ChangeSetBase(
+        workspace_key=workspace_key,
+        model_release_id=state.model_release_id,
+        model_runtime_version=state.version,
+    )
+    session.add(base)
+    session.flush()
+    copy_live(session, "base", base.id, workspace_key)
+    change_set = ChangeSet(
+        workspace_key=workspace_key,
+        model_release_id=model_release_id,
+        base_id=base.id,
+        name=name,
+        waits_for_change_set_id=waits_for_change_set_id,
+    )
+    session.add(change_set)
+    session.flush()
+    record_change_set_created(session, change_set=change_set)
+    matrix_states.record_change_set(session, change_set)
+    return change_set
+
+
 def _create_current_live_change_set(
     session: Session,
     workspace_key: str,

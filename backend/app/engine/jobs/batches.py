@@ -227,6 +227,7 @@ def run_items(
     other_workspace_ids: str = "refuse",
     previewing: bool = False,
     file_rows: bool = False,
+    own_links: bool = False,
 ) -> list[ItemOutcome]:
     """Apply ``items`` (each with its index in the job) under the policy; the caller records the
     outcomes and commits. An inline batch is one call; a background job one call per chunk; a
@@ -234,7 +235,8 @@ def run_items(
 
     ``file_rows``: the items are a file's rows bound by an import, a dry run or a profile's check
     (``ROW_KINDS``), whose binding alone gives a delete item the ref ``missing!…``: a record its
-    file no longer names, deleted with its own relationships (0.10 A5c, D104).
+    file no longer names, deleted with its own relationships (0.10 A5c, D104). ``own_links``:
+    every delete item is so deleted (a move's deletion in its source, 0.11 X3, D134).
 
     A stale ``expectedChangeSetVersion`` raises before any item runs. ``should_stop`` is asked
     before every ``STOP_CHECK_ITEMS`` items and before the items are written; when it answers
@@ -265,6 +267,7 @@ def run_items(
                     job_id=job_id,
                     previewing=previewing,
                     file_rows=file_rows,
+                    own_links=own_links,
                 ).run()
     except JobCancelled:
         outer.rollback()
@@ -330,6 +333,7 @@ class _Batch:
         job_id: str,
         previewing: bool = False,
         file_rows: bool = False,
+        own_links: bool = False,
     ) -> None:
         self.writer = (
             _ChangeSetItems(session, context) if context.change_set else _LiveItems(session, context)
@@ -343,6 +347,7 @@ class _Batch:
         self.job_id = job_id
         self.previewing = previewing
         self.file_rows = file_rows
+        self.own_links = own_links
         # The record each delete item of this call deleted, by its item: an earlier chunk's are
         # read from the job's outcomes (D122).
         self.deleting: dict[str, int] = {}
@@ -487,7 +492,8 @@ class _Batch:
                 *found[index],
                 item.cascade,
                 item.deletionPreviewToken,
-                own_links=self.file_rows and (item.ref or "").startswith(MISSING_REF),
+                own_links=self.own_links
+                or (self.file_rows and (item.ref or "").startswith(MISSING_REF)),
             )
             for index, item in segment
             if index in found and not (atomic and first_refused is not None and index > first_refused)

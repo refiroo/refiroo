@@ -95,7 +95,7 @@ def migration_row_page(
     )
 
 
-_MOVE_OUTCOMES = ("create", "update", "refused", "notMoved")
+_MOVE_OUTCOMES = ("create", "update", "updateOriginal", "refused", "notMoved")
 _MOVE_OUTCOME = literal_column("(job_items.outcome ->> 'outcome')", type_=String)
 
 

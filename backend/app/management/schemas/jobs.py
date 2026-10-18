@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from pydantic.json_schema import SkipJsonSchema
 
 from .common import ApiErrorBody, CollectionPage, omitted_when_none, without_default
+from .records import RecordOrigin
 
 
 def _by_status() -> Any:
@@ -224,10 +225,11 @@ class MigrationSummary(BaseModel):
 
 
 class MoveCounts(BaseModel):
-    """Rows by outcome (0.11 X2, D122)."""
+    """Rows by outcome (0.11 X2, D122; ``updateOriginal``, X3)."""
 
     create: int
     update: int
+    updateOriginal: int
     refused: int
     notMoved: int
 
@@ -263,6 +265,13 @@ class MoveMappingVersion(BaseModel):
     version: int
 
 
+class MoveSourceCounts(BaseModel):
+    """A ``mode: move``'s records deleted in the source and kept there (D134)."""
+
+    deleted: int
+    kept: int
+
+
 class MoveSummary(BaseModel):
     """What a move's dry run found (0.11 X2, D122): every row (``coverage`` is always
     ``complete``, D67) counted by outcome, by source type and by relation type; the reasons with
@@ -288,6 +297,20 @@ class MoveSummary(BaseModel):
     targetReleaseId: str
     mappingSourceReleaseId: str
     mappingTargetReleaseId: str
+    mode: Literal["copy", "move"]
+    targetChangeSetId: str | None = Field(
+        description="The change set of the target the move loaded (0.11 X3, D130); none before "
+        "it loads"
+    )
+    sourceChangeSetId: str | None = Field(
+        description="A ``mode: move``'s change set of the source deleting what was loaded (D134); "
+        "none when nothing was deleted"
+    )
+    sourceFeedPositionAtLoad: int | None = Field(
+        description="The source's feed position when the move loaded, beside ``sourceFeedPosition``"
+        " read at its dry run: a later change in the source is the next move's (D129)"
+    )
+    source: MoveSourceCounts | SkipJsonSchema[None] = _by_status()
 
 
 class MoveReason(BaseModel):
@@ -316,11 +339,24 @@ class MoveLeftBehind(BaseModel):
     value: Any | SkipJsonSchema[None] = _by_status()
 
 
+class MoveSourceOutcome(BaseModel):
+    """What a ``mode: move`` did with a loaded record in the source (D134): ``deleted`` in the
+    source's change set, or ``kept`` with why (``SOURCE_CHANGED``: it changed since it was read;
+    ``OBJECT_HAS_DEPENDANTS``: a record staying depends on it)."""
+
+    outcome: Literal["deleted", "kept"]
+    reasons: list[MoveReason]
+
+
 class MoveRow(BaseModel):
     """One row of a move's dry run (0.11 X2, D119): a record (``kind: record``) or a relationship
     it holds (``kind: relationship``), with its ``outcome`` in the target: ``create``, ``update``
     (found by its counterpart, ``foundBy: counterpart``, or by the mapping's match, ``matchedBy``),
-    ``refused`` (the target's rule) or ``notMoved`` (the mapping's reason). A record not selected
+    ``refused`` (the target's rule) or ``notMoved`` (the mapping's reason); ``updateOriginal`` is
+    the original a record moved back finds through its origins (``foundBy: origin``, 0.11 X3,
+    D133), and a ``create`` found so is the original created again under its ID. A created record
+    names the ``origin`` it is recorded with; with ``mode: move`` a loaded record names what
+    became of it in the source (``source``, D134). A record not selected
     (``selected: false``) is one the mapping creates: a parent or a relationship's other end
     (``missing: create``), or the parent the mapping names by type and name (no ``sourceId``).
     ``possibleDuplicates`` names up to 10 target records of the type and name a created record
@@ -330,7 +366,7 @@ class MoveRow(BaseModel):
 
     index: int
     kind: Literal["record", "relationship"]
-    outcome: Literal["create", "update", "refused", "notMoved"]
+    outcome: Literal["create", "update", "updateOriginal", "refused", "notMoved"]
     reasons: list[MoveReason]
     leftBehind: list[MoveLeftBehind]
     sourceType: str | SkipJsonSchema[None] = _by_status()
@@ -341,7 +377,9 @@ class MoveRow(BaseModel):
     targetType: str | SkipJsonSchema[None] = _by_status()
     targetParentId: str | SkipJsonSchema[None] = _by_status()
     parentRow: int | SkipJsonSchema[None] = _by_status()
-    foundBy: Literal["counterpart", "match"] | SkipJsonSchema[None] = _by_status()
+    foundBy: Literal["origin", "counterpart", "match"] | SkipJsonSchema[None] = _by_status()
+    origin: RecordOrigin | SkipJsonSchema[None] = _by_status()
+    source: MoveSourceOutcome | SkipJsonSchema[None] = _by_status()
     matchedBy: dict[str, str] | SkipJsonSchema[None] = _by_status()
     possibleDuplicates: list[str] | SkipJsonSchema[None] = _by_status()
     relationId: str | SkipJsonSchema[None] = _by_status()

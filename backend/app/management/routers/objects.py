@@ -15,6 +15,7 @@ from ...engine.model.registry import (
     resolve_record_snapshot,
     resolve_request_model,
 )
+from ...engine.moves.origins import history_origin
 from ...engine.reads.model_query import (
     Expansion,
     both_filters,
@@ -839,26 +840,24 @@ def get_object_history(
         item = find_object(session, context, object_id, object_type_key)
         if item is None:
             raise api_error(404, "OBJECT_NOT_FOUND", f"Object '{object_id}' not found")
-        return audit_event_page(
-            object_history(
-                session,
-                object_id=item.object_id,
-                object_type_key=item.object_type_key,
-                workspace_key=context.workspace_key,
-                page=paging,
-                page_size=page_size,
-            )
-        )
-    snapshot = resolve_record_snapshot(session, object_id)
-    get_object_type(snapshot.model, object_type_key)
-    item = load_object(session, object_id, object_type_key)
-    return audit_event_page(
-        object_history(
+        events = object_history(
             session,
-            object_id=item.id,
+            object_id=item.object_id,
             object_type_key=item.object_type_key,
-            workspace_key=item.workspace_key,
+            workspace_key=context.workspace_key,
             page=paging,
             page_size=page_size,
         )
+        return audit_event_page(events, history_origin(session, item.object_id, events.items))
+    snapshot = resolve_record_snapshot(session, object_id)
+    get_object_type(snapshot.model, object_type_key)
+    item = load_object(session, object_id, object_type_key)
+    events = object_history(
+        session,
+        object_id=item.id,
+        object_type_key=item.object_type_key,
+        workspace_key=item.workspace_key,
+        page=paging,
+        page_size=page_size,
     )
+    return audit_event_page(events, history_origin(session, item.id, events.items))

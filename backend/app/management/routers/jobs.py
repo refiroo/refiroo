@@ -23,6 +23,7 @@ from ...engine.jobs.files import JobFiles
 from ...engine.jobs.inline import BatchLimits, check_batch_request, submit_inline_batch
 from ...engine.jobs.store import job_item_page, job_page, load_job
 from ...engine.model.migrations import confirm_migration
+from ...engine.moves.move_load import confirm_move
 from ...errors import api_error
 from ...models.commands import BatchRequest
 from ...models.exports import ExportRequest
@@ -175,6 +176,13 @@ def confirm_job(
     applies it and switches the workspace's release in one transaction. Refused, leaving it
     waiting: ``409 MIGRATION_REVIEW_STALE`` (the workspace was written or its model changed since
     the preview), ``409 MIGRATION_HAS_REFUSALS``, ``422 MIGRATION_LOSS_NOT_ACCEPTED``.
+
+    A move (0.11 X3) loads what its dry run previewed into a new change set of the target
+    workspace, named on the job as ``changeSetId``; with ``mode: move``, a change set of the source
+    deletes what loaded (``move.sourceChangeSetId``) and publishes only after the target's. Refused,
+    leaving it waiting: ``409 MOVE_MAPPING_CHANGED`` (the mapping changed since the dry run), ``409
+    MODEL_RELEASE_CHANGED`` (either workspace runs another release), ``409 WORKSPACE_RETIRED``,
+    ``422 MOVE_NOTHING_TO_MOVE``.
     """
     job = load_job(session, job_id)
     if job.kind == "migration":
@@ -186,6 +194,8 @@ def confirm_job(
             expected_feed_position=confirmation.expectedFeedPosition,
             accept_loss=confirmation.acceptLoss,
         )
+    elif job.kind == "move":
+        job = confirm_move(session, job_id)
     else:
         job = confirm_preview(session, job_id)
     _wake_worker(request)
@@ -285,7 +295,7 @@ def list_job_rows(
         description="An import's rows whose worst item has this status, or a migration's items "
         "of this outcome",
     ),
-    outcome: Literal["create", "update", "refused", "notMoved"] | None = Query(
+    outcome: Literal["create", "update", "updateOriginal", "refused", "notMoved"] | None = Query(
         default=None, description="A move's rows of this outcome"
     ),
     reason: str | None = Query(

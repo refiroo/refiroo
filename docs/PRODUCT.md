@@ -181,6 +181,12 @@ can complete the task in the application; "API" means another system can.
   reads on.
 - Follow any job as it changes: the engine pushes the job at once and after each change, until it
   ends.
+- Copy or move records between workspaces whose models differ, through a mapping between the two
+  models that the engine proposes and the administrator completes: a dry run lists what every record
+  becomes and what cannot move with why, then the records go into a change set of the target for
+  review. Records moved again are updated, not duplicated, and a record moved back finds its
+  original; a move also opens a change set deleting the records from the source, which publishes
+  only after the copy.
 - Export a stated scope of a workspace (live data, a change set or a publication; chosen types with
   their own criteria, a subtree, a business date, with or without relationships) as JSON Lines, CSV
   or an Excel workbook, read at one instant and described by its job: counts, context, the change

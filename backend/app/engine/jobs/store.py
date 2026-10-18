@@ -346,7 +346,18 @@ def stop_job(
                     JobInput.row_number,
                     literal("unprocessed"),
                     literal({"reason": reason}, JSON),
-                ).where(JobInput.job_id == job.sequence_id, JobInput.item_index >= job.processed),
+                ).where(
+                    JobInput.job_id == job.sequence_id,
+                    JobInput.item_index >= job.processed,
+                    # A move loads its items out of their order with the rows its mapping decided
+                    # (0.11 X3): an item with a row already keeps it.
+                    ~select(JobItem.item_index)
+                    .where(
+                        JobItem.job_id == job.sequence_id,
+                        JobItem.item_index == JobInput.item_index,
+                    )
+                    .exists(),
+                ),
             )
         )
         counts = _empty_counts() | dict(job.counts or {})

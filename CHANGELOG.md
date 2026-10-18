@@ -6,6 +6,35 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.11 X3)
+
+- The move between workspaces whose models differ. A move's dry run (`POST /api/v1/moves`) now waits
+  for confirmation, and `POST /api/v1/jobs/{jobId}/confirm` loads what it previewed into a new
+  change set of the target workspace, opened for review over current live data; with `stage:
+  execute` the move loads at once. Nothing reaches the target's feed or consumers until that change
+  set is published.
+- Where each record a move created came from (its source workspace and record) is kept: a second
+  move updates the records found again, and a record moved back updates its original
+  (`updateOriginal`, `foundBy: origin`) or, when a move deleted the original, is created again under
+  the original's ID. A created record's row names its `origin`, and a record's history names it on
+  every entry a move caused (`cause.origin`).
+- `mode: move`: the copy, plus a change set of the source deleting each selected record that loaded
+  with its own relationships; a record changed in the source since the dry run (`SOURCE_CHANGED`)
+  or one that a record staying depends on (`OBJECT_HAS_DEPENDANTS`) is kept, each row saying what
+  became of it in the source. The summary names both change sets, the source's feed position at the
+  load and the deleted and kept counts.
+- `409 MOVE_COPY_NOT_PUBLISHED`: a move's deletion change set publishes only after its copy;
+  `422 MOVE_NOTHING_TO_MOVE`: a confirmation with nothing to create or update. A confirmation is also
+  refused, leaving the dry run waiting, when the mapping changed (`MOVE_MAPPING_CHANGED`), either
+  workspace runs another release (`MODEL_RELEASE_CHANGED`) or one is retired.
+- Migration `20261022_01`: the table `record_origins` and a change set's `waits_for_change_set_id`.
+
+### Changed (0.11 X3)
+
+- A move's dry run ends in `awaiting_confirmation` instead of `completed`, and expires unconfirmed
+  after the job retention, as an import's preview. Its rows can be filtered by the outcome
+  `updateOriginal`.
+
 ### Fixed (0.11 S1)
 
 - The job worker runs one chunk at a time whichever thread drives it: its claims accept its own

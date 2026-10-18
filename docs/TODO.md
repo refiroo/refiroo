@@ -602,8 +602,14 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
     (no mapping stored): create the index by hand, or take `rdm` back to `20261019_01` after adding
     it and start again.
   - [ ] The user's requirement: data moved between workspaces whose models differ (Track X), in
-    0.11 (plan D3, accepted 2026-10-15). X1, the mapping between two models, and X2, the
-    selection and the dry run of a move, delivered 2026-10-18; X3–X5 remain.
+    0.11 (plan D3, accepted 2026-10-15). X1, the mapping between two models, X2, the selection
+    and the dry run of a move, and X3, the move into change sets, delivered 2026-10-18; X4 and X5
+    remain.
+  - [ ] **Found in X3 (2026-10-18), for X5:** on a copy of the development database, a 20-record
+    `mode: move` took 13.3 s from its confirmation to its end in the running service, seconds after a
+    2,129-record publication in its target; driven step by step it is 0.9 s of work (0.32, 0.13 and
+    0.47 s), so the rest was waiting for the worker, most likely behind the publication's background
+    work. Not traced further; X5 measures the move at full volume.
   - [x] The backend suite's time (D152, package S1): a filler during Part 1, before X2 at the latest
     (plan D2, accepted 2026-10-15; revised 2026-10-18: X2 went first, S1 follows it). Delivered
     2026-10-18: journey cases spread over the workers; the full suite with `-n 6` under a revised

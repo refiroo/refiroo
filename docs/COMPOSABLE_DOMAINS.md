@@ -133,7 +133,9 @@ parallel grammar. The model-to-model mapping's coverage (0.11 X1, D110: source e
 mapped, target requirements nothing fills, parents not allowed) is computed from model metadata in
 `engine/moves/mapping_check.py`, apart from `mappingGrid`'s states. A move's dry run (0.11 X2)
 counts per record what that coverage leaves out (types, attributes, relationships, parents), with
-the same reason codes for every domain.
+the same reason codes for every domain. A move (0.11 X3) records where each record it created came
+from in `record_origins`, a lookup beside the record's ID: the ID itself is never changed, so a
+later retired-ID redirect stays possible.
 
 ### Value types
 

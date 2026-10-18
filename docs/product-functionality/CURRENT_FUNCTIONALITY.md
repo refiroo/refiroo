@@ -522,8 +522,20 @@ reason and the mapping step that would change it (a type not mapped, a parent ne
 the target, a relationship whose other end stays behind). A row also lists what a record leaves
 behind: attributes not mapped, values that do not convert, attributes the target holds read-only,
 an effective period the target type lacks; and target records of the same name that may be
-duplicates. The summary counts rows by outcome, type, relationship and reason. Records cannot be
-copied or moved into the target yet (a later step of 0.11), and there is no screen for it yet.
+duplicates. The summary counts rows by outcome, type, relationship and reason.
+
+Through the API, **the move** itself follows its dry run: once confirmed (or at once, when asked),
+what the dry run showed is copied into a new change set of the target workspace, which is reviewed
+and published like any other; until then the target's data, history and consumers are unchanged.
+A copied record remembers where it came from, so moving the same records again updates them
+instead of creating them twice, and moving a record back finds its original (or re-creates it
+under its original ID if a move deleted it). A record's history names the move and the record it
+came from. A **move** rather than a copy also opens a change set in the source workspace deleting
+what was copied, apart from records changed since the dry run and records that something staying
+behind depends on, each listed with its reason; it can be published only after the copy. The
+confirmation is refused, leaving the dry run to confirm later, when the mapping changed since,
+either workspace runs another release, or nothing would be created or updated. There is no screen
+for moves yet (a later step of 0.11).
 
 Through the API, a draft can also be changed step by step with typed operations instead of whole
 JSON: add, rename, re-key, split, merge or remove applications, types, attributes and relation

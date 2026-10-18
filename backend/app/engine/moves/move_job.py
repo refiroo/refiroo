@@ -11,12 +11,13 @@ the mapping's definition at its version (D112).
 The worker runs it in two steps, as an import's preview: it **binds** the selection through the
 mapping (``move_binding.py``) and commits the rows the mapping decides and the inputs of the
 others; then it **previews** every input through the batch path against the target's live data
-(D115, D67) and rolls everything back. Each input's outcome becomes its row: ``create`` or
-``update`` as planned, or ``refused`` with the target's refusal. A relationship riding on its
-record's create takes that record's outcome; a record whose parent was refused, and a relationship
-whose record was, does not move (``RECORD_NOT_MOVED``). The job then completes with its summary
-(D122). Nothing reaches either workspace: no record, feed position, audit entry or change set.
-X3 adds the load into a change set.
+(D115, D67) and rolls everything back. Each input's outcome becomes its row: ``create``,
+``update`` or ``updateOriginal`` as planned, or ``refused`` with the target's refusal. A
+relationship riding on its record's create takes that record's outcome; a record whose parent was
+refused, and a relationship whose record was, does not move (``RECORD_NOT_MOVED``). The job then
+waits for confirmation with its summary (D122, D128). Nothing reaches either workspace: no record,
+feed position, audit entry or change set. The load once confirmed, or at once with ``stage:
+execute``, is ``move_load.py`` (X3).
 """
 
 import json
@@ -33,7 +34,7 @@ from ...models.database import Job, Workspace, WorkspaceModel
 from ...models.moves import MoveRequest, MoveSelection
 from ..jobs.background import open_job_context
 from ..jobs.batches import run_items
-from ..jobs.store import ItemOutcome, complete_job, start_job
+from ..jobs.store import ItemOutcome, await_confirmation, start_job
 from ..workspaces.catalogue import resolve_workspace
 from .mapping_check import problems
 from .mappings import Releases, load_mapping, mismatch
@@ -41,7 +42,7 @@ from .move_binding import bind_move, plan_move
 from .selection import check_selection, source_context
 
 KIND = "move"
-_ITEM = TypeAdapter(BatchItem)
+ITEM = TypeAdapter(BatchItem)
 
 
 def submit_move(session: Session, request: MoveRequest, *, retention_days: int) -> Job:
@@ -158,7 +159,7 @@ def bind(session: Session, job: Job) -> None:
         context=context,
     )
     job.total = bound.rows
-    job.stage = "previewing"
+    job.stage = "applying" if parameters.get("stage") == "execute" else "previewing"
     job.report = {**(job.report or {}), "sourceFeedPosition": position}
 
 
@@ -171,8 +172,8 @@ def preview(
     retention_days: int,
 ) -> None:
     """Run every input against the target's live data and roll back (D115); then, after ``hold``
-    has taken the job's lease again in the clean session, record each row's outcome, complete the
-    job with its summary and leave the commit to the caller."""
+    has taken the job's lease again in the clean session, record each row's outcome, leave the job
+    waiting for confirmation with its summary (D128) and the commit to the caller."""
     context = open_job_context(session, job)
     inputs = session.execute(
         text(
@@ -185,7 +186,7 @@ def preview(
         run_items(
             session,
             context,
-            [(index, _ITEM.validate_python(item["item"])) for index, item in inputs],
+            [(index, ITEM.validate_python(item["item"])) for index, item in inputs],
             policy="independent",
             on_existing="reject",
             expected_change_set_version=None,
@@ -198,9 +199,11 @@ def preview(
     )
     session.rollback()
     job = hold(session)
-    _record(session, job, outcomes)
-    complete_job(session, job, retention_days=retention_days)
-    job.report = {**(job.report or {}), "move": summary(session, job)}
+    insert_outcomes(session, job, outcomes)
+    settle(session, job)
+    await_confirmation(
+        session, job, summary(session, job), retention_days=retention_days, key="move"
+    )
 
 
 _OUTCOMES = text(
@@ -258,13 +261,17 @@ _COUNTS = text(
     SELECT count(*) FILTER (WHERE status = 'applied'), count(*) FILTER (WHERE status = 'rejected'),
         count(*) FILTER (WHERE status = 'unprocessed'),
         count(*) FILTER (WHERE status = 'applied' AND outcome ->> 'outcome' = 'create'),
-        count(*) FILTER (WHERE status = 'applied' AND outcome ->> 'outcome' = 'update')
+        count(*) FILTER (WHERE status = 'applied'
+            AND outcome ->> 'outcome' IN ('update', 'updateOriginal'))
     FROM job_items WHERE job_id = :job
     """
 )
 
 
-def _record(session: Session, job: Job, outcomes: list[ItemOutcome]) -> None:
+def insert_outcomes(session: Session, job: Job, outcomes: list[ItemOutcome]) -> None:
+    """The outcomes of inputs as their rows: the input's row with the action or the refusal."""
+    if not outcomes:
+        return
     session.execute(
         _OUTCOMES,
         {
@@ -274,6 +281,11 @@ def _record(session: Session, job: Job, outcomes: list[ItemOutcome]) -> None:
             "outcomes": [json.dumps(outcome.fields) for outcome in outcomes],
         },
     )
+
+
+def settle(session: Session, job: Job) -> None:
+    """Once every input has its row: what follows from a parent or a record that does not move,
+    the rows of relationships riding on their records, and the job's counts."""
     for statement in _AFTER:
         session.execute(text(statement), {"job": job.sequence_id})
     applied, rejected, unprocessed, created, updated = session.execute(
@@ -300,6 +312,7 @@ _OUTCOME = (
 _COUNTED = (
     f"jsonb_build_object('create', count(*) FILTER (WHERE {_OUTCOME} = 'create'),"
     f" 'update', count(*) FILTER (WHERE {_OUTCOME} = 'update'),"
+    f" 'updateOriginal', count(*) FILTER (WHERE {_OUTCOME} = 'updateOriginal'),"
     f" 'refused', count(*) FILTER (WHERE {_OUTCOME} = 'refused'),"
     f" 'notMoved', count(*) FILTER (WHERE {_OUTCOME} = 'notMoved'))"
 )
@@ -329,9 +342,11 @@ _SUMMARY = {
 
 
 def summary(session: Session, job: Job) -> dict[str, Any]:
-    """What the dry run found, read from its rows: counts overall, by source type and by relation
-    type; reasons with their counts; the attributes not carried per type; possible duplicates."""
+    """What the dry run found, or the load did, read from its rows: counts overall, by source type
+    and by relation type; reasons with their counts; the attributes not carried per type; possible
+    duplicates; once loaded, the change sets and, for ``mode: move``, the source's counts."""
     parameters = job.parameters
+    report = job.report or {}
     found = {
         name: session.scalar(text(statement), {"job": job.sequence_id})
         for name, statement in _SUMMARY.items()
@@ -344,9 +359,31 @@ def summary(session: Session, job: Job) -> dict[str, Any]:
         "sourceWorkspaceKey": parameters["sourceWorkspaceKey"],
         "targetWorkspaceKey": parameters["targetWorkspaceKey"],
         "sourceAt": parameters["sourceAt"],
-        "sourceFeedPosition": (job.report or {}).get("sourceFeedPosition"),
+        "sourceFeedPosition": report.get("sourceFeedPosition"),
         "sourceReleaseId": parameters["sourceReleaseId"],
         "targetReleaseId": parameters["targetReleaseId"],
         "mappingSourceReleaseId": parameters["mappingDefinition"]["sourceReleaseId"],
         "mappingTargetReleaseId": parameters["mappingDefinition"]["targetReleaseId"],
+        "mode": parameters.get("mode", "copy"),
+        "targetChangeSetId": job.change_set_id,
+        "sourceChangeSetId": report.get("sourceChangeSetId"),
+        "sourceFeedPositionAtLoad": report.get("sourceFeedPositionAtLoad"),
+        **({"source": _source_counts(session, job)} if _deleted_in_source(job) else {}),
     }
+
+
+def _deleted_in_source(job: Job) -> bool:
+    """A ``mode: move`` that has loaded, so its rows say what became of each in the source."""
+    return job.parameters.get("mode") == "move" and job.state == "completed"
+
+
+def _source_counts(session: Session, job: Job) -> dict[str, int]:
+    deleted, kept = session.execute(
+        text(
+            "SELECT count(*) FILTER (WHERE outcome -> 'source' ->> 'outcome' = 'deleted'),"
+            " count(*) FILTER (WHERE outcome -> 'source' ->> 'outcome' = 'kept')"
+            " FROM job_items WHERE job_id = :job"
+        ),
+        {"job": job.sequence_id},
+    ).one()
+    return {"deleted": deleted, "kept": kept}

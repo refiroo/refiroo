@@ -511,6 +511,26 @@ class ChangeSet(Base):
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
     )
+    # A move's deletion change set in its source workspace: the target's change set holding the
+    # copy, which must publish first (0.11 X3, D135).
+    waits_for_change_set_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+
+
+class RecordOrigin(Base):
+    """Where a record a move created came from (0.11 X3, D23, D132): the record copied, in its
+    workspace. No foreign keys: written when the move loads its change set, kept when that change
+    set is discarded; every lookup joins a record that exists."""
+
+    __tablename__ = "record_origins"
+
+    object_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    workspace_key: Mapped[str] = mapped_column(String(160), nullable=False, index=True)
+    origin_workspace_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    origin_object_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    job_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    recorded_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, server_default=func.now()
+    )
 
 
 class AttributeValue(Base):

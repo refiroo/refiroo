@@ -28,7 +28,8 @@ from app.db import DatabaseStartupError, get_engine, migration_config
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261021_01"
+HEAD = "20261022_01"
+MOVES = "20261021_01"
 MODEL_MAPPINGS = "20261020_01"
 WORKSPACE_MIGRATIONS = "20261019_01"
 WORKSPACE_MODELS = "20261018_01"
@@ -1718,6 +1719,55 @@ def test_upgrade_to_moves_and_an_interrupted_run_recovers(monkeypatch, databases
     assert _scalar(url, "SELECT count(*) FROM pg_extension WHERE extname = 'pgcrypto'") == 1
     command.downgrade(migration_config(url), MODEL_MAPPINGS)
     assert _scalar(url, "SELECT to_regprocedure('rdm_counterpart(text, text)') IS NULL") is True
+    engine.dispose()
+
+
+def test_upgrade_to_move_origins_and_an_interrupted_run_recovers(monkeypatch, databases, tmp_path):
+    """0.11 X3 on a database taken back to X2's revision: with a ``record_origins`` table already
+    there (by hand) the revision rolls back and the start refuses naming it; once dropped, the next
+    start adds the origins table and a change set's ``waits_for_change_set_id``, the service starts
+    twice and confirming a job that is not a move's preview is answered. A downgrade removes both."""
+    url = seeds.create_empty()
+    databases.append(url)
+    monkeypatch.setenv("INTEGRATION_JOBS_ENABLED", "true")
+    monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
+    monkeypatch.setenv("JOB_FILE_DIR", str(tmp_path / "job-files"))
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        assert errors == []
+    command.downgrade(migration_config(url), MOVES)
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        connection.execute(text("CREATE TABLE record_origins (id integer)"))
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        message = _assert_refused(
+            client,
+            errors,
+            "Database migration failed",
+            f"Current revision: {MOVES}",
+            f"target revision: {HEAD}",
+            "still at its current revision",
+        )
+        assert "record_origins" in message
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == MOVES
+    with engine.begin() as connection:
+        connection.execute(text("DROP TABLE record_origins"))
+    for _start in range(2):
+        with serve(monkeypatch, _render(url)) as (client, errors):
+            assert errors == []
+            answer = client.post(f"/api/v1/jobs/{uuid4()}/confirm")
+            assert answer.json()["error"]["code"] == "JOB_NOT_FOUND", answer.text
+        assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+    assert _scalar(url, "SELECT to_regclass('record_origins') IS NOT NULL") is True
+    assert (
+        _scalar(
+            url,
+            "SELECT count(*) FROM information_schema.columns WHERE table_name = 'change_sets'"
+            " AND column_name = 'waits_for_change_set_id'",
+        )
+        == 1
+    )
+    command.downgrade(migration_config(url), MOVES)
+    assert _scalar(url, "SELECT to_regclass('record_origins') IS NULL") is True
     engine.dispose()
 
 

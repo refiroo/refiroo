@@ -956,3 +956,25 @@ Rows the mapping decides are the job's outcomes at once; the others wait as inpu
 items, which the next step runs through the batch path against the target's live data, as an
 import's preview does, and rolls back, so a refusal is the target's own rule and code. Two loops walk
 the source's hierarchy once per level; the statements per move do not grow with its records.
+
+Delivered in 0.11 X3: the dry run **waits for confirmation** (`stage: preview`), or the move goes on
+at once (`stage: execute`). Confirming (`move_load.confirm_move`) checks again the mapping's version,
+both workspaces and the releases the dry run ran under, and leaves the job waiting on a refusal. The
+worker then **loads the stored items**, the source as the dry run read it, in chunks through the
+batch path into a **new change set of the target** that the load's first step opens over current
+live data (`lifecycle.open_job_change_set`: the base copied under share locks on the workspace and
+its release assignment, in the job's transaction). Never live data: the target's feed and consumers
+see the records only when that change set publishes. Each chunk writes, in its transaction, the
+**origin** of every record it created into `record_origins` (record ID → source workspace and
+record, the job), one `INSERT … SELECT` from the inputs; the table has no foreign keys, since a row
+precedes the record's publication and outlives a discarded change set, and every lookup joins a
+record that exists. The binding reads origins first: a record whose chain of origins (one recursive
+query) reaches a record of the target updates it (`updateOriginal`), and one whose original is gone
+is created again under the original's ID while that ID is free. A record's history names a move's
+origin on the entries the move caused (`moves/origins.py`). With `mode: move`, the load's last step
+opens a **change set of the source** that deletes every selected record that loaded and has not
+changed since it was read, deepest first, through the batch path's delete with each record's own
+relationships (`own_links`, as a load deleting what its file no longer names): a record that a
+record staying depends on is refused and kept. That change set names the copy's change set
+(`change_sets.waits_for_change_set_id`), and publishing it is refused until the copy is published
+(`MOVE_COPY_NOT_PUBLISHED`).

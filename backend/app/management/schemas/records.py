@@ -116,12 +116,26 @@ class RelationPage(CollectionPage[RelationExpansion]):
     )
 
 
+class RecordOrigin(BaseModel):
+    """The record a move copied a record from, in its workspace (0.11 X3, D23)."""
+
+    workspaceKey: str
+    objectId: str
+
+
 class AuditCause(BaseModel):
     """What made a change other than a single write: a job (Base 0.9, INTEGRATION_API P6) or a
     publication, whose publish applied it to live data (D15)."""
 
     kind: Literal["job", "publication"]
     id: str
+    origin: RecordOrigin | SkipJsonSchema[None] = Field(
+        default=None,
+        exclude_if=omitted_when_none,
+        json_schema_extra=without_default,
+        description="A move's job (0.11 X3, D136): where the record came from, the record it was "
+        "copied from in its workspace",
+    )
 
 
 class AuditEventResponse(BaseModel):

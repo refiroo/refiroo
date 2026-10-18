@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from ...errors import api_error
 from ...models.database import (
+    AuditEvent,
     ChangeSet,
     ChangeSetBase,
     ChangeSetBaseObject,
@@ -668,6 +669,8 @@ def apply_publication(
             "runs",
             {"workspaceKey": change_set.workspace_key},
         )
+    if change_set.waits_for_change_set_id is not None:
+        _require_copy_published(session, change_set)
     writes.claim(expected_change_set_version)
     live = LiveWrites(session, change_set.workspace_key)
     if workspace.active_publication_id != expected_active_publication_id:
@@ -739,6 +742,36 @@ def apply_publication(
     matrix_states.record_publication(session, publication)
     session.flush()
     return publication
+
+
+def _require_copy_published(session: Session, change_set: ChangeSet) -> None:
+    """A move's deletion in its source publishes only after the copy it waits for (0.11 X3,
+    D135): the copy's change set gone, and a publication's entry naming it. Still open, or
+    discarded, it is ``409 MOVE_COPY_NOT_PUBLISHED``."""
+    waited = change_set.waits_for_change_set_id
+    still_open = session.scalar(select(ChangeSet.id).where(ChangeSet.id == waited))
+    source = AuditEvent.changes["changeSetId"].as_string()
+    published = still_open is None and session.scalar(
+        select(AuditEvent.aggregate_id).where(
+            AuditEvent.aggregate_type == "publication",
+            AuditEvent.action == "published",
+            source == waited,
+        )
+    )
+    if published:
+        return
+    state = "open" if still_open is not None else "discarded"
+    raise api_error(
+        409,
+        "MOVE_COPY_NOT_PUBLISHED",
+        f"This change set deletes records a move copied into change set '{waited}', which is "
+        + (
+            "not published yet; publish it first"
+            if state == "open"
+            else "discarded; this deletion can only be discarded"
+        ),
+        {"changeSetId": waited, "state": state},
+    )
 
 
 def withdraw_publication(session: Session, publication_id: str) -> None:

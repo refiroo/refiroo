@@ -20,6 +20,7 @@ from ..engine.model.consumer_contract import contract_diagnostics
 from ..engine.model.diff import SemanticChange
 from ..engine.model.draft_compatibility import CandidateCompatibility
 from ..engine.model.workspace_models import Assignment, assignments_of, load_assignment
+from ..engine.moves.origins import HistoryOrigin
 from ..engine.reads.feed import FeedPage as FeedRead
 from ..engine.reads.object_query import live_object_paths
 from ..engine.records.attributes import load_attribute_values
@@ -80,6 +81,7 @@ from .schemas.records import (
     FeedEntry,
     FeedPage,
     ObjectResponse,
+    RecordOrigin,
     RelationResponse,
 )
 from .schemas.workspaces import (
@@ -291,8 +293,9 @@ def runtime_state_response(item: WorkspaceRuntimeState) -> WorkspaceRuntimeState
     )
 
 
-def _audit_response(event: AuditEvent) -> AuditEventResponse:
+def _audit_response(event: AuditEvent, origin: HistoryOrigin | None = None) -> AuditEventResponse:
     changed_fields, attribute_type_keys = changed_names(event)
+    moved = origin is not None and event.cause_id in origin.moves
     return AuditEventResponse(
         id=event.event_id,
         aggregateType=event.aggregate_type,
@@ -303,13 +306,27 @@ def _audit_response(event: AuditEvent) -> AuditEventResponse:
         attributeTypeKeys=attribute_type_keys,
         occurredAt=event.occurred_at,
         cause=(
-            AuditCause(kind=event.cause_kind, id=event.cause_id) if event.cause_kind else None
+            AuditCause(
+                kind=event.cause_kind,
+                id=event.cause_id,
+                origin=RecordOrigin(workspaceKey=origin.workspace_key, objectId=origin.object_id)
+                if moved and origin is not None
+                else None,
+            )
+            if event.cause_kind
+            else None
         ),
     )
 
 
-def audit_event_page(events: Page[AuditEvent]) -> AuditEventPage:
-    return AuditEventPage(items=[_audit_response(event) for event in events.items], **events.links())
+def audit_event_page(
+    events: Page[AuditEvent], origin: HistoryOrigin | None = None
+) -> AuditEventPage:
+    """A page of a record's history; ``origin`` names, on the entries a move caused, where the
+    record came from (0.11 X3, D136)."""
+    return AuditEventPage(
+        items=[_audit_response(event, origin) for event in events.items], **events.links()
+    )
 
 
 _FEED_KINDS = {"object": "object", "relation": "relation", "publication": "publication"}

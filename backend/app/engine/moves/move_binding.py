@@ -11,8 +11,10 @@ statement over them, in the job's one transaction:
 2. **What each record becomes** (D118): its mapped type; its values through the value map, then
    ``rdm_convert_value``, then the mapping's defaults, with what is left behind per attribute
    (``ATTRIBUTE_NOT_MAPPED``, ``VALUE_NOT_CONVERTIBLE``, ``ATTRIBUTE_READ_ONLY``,
-   ``EFFECTIVE_PERIOD_DROPPED``); found in the target by its counterpart (``rdm_counterpart``,
-   D120), else by the mapping's ``match``, else created under its counterpart ID.
+   ``EFFECTIVE_PERIOD_DROPPED``); found in the target by its origins (a record moved back finds
+   its original, ``updateOriginal``, or is created again under the original's ID when that is
+   gone, X3 D133), else by its counterpart (``rdm_counterpart``, D120), else by the mapping's
+   ``match``, else created under its counterpart ID.
 3. **Where it stands.** Under its source parent's target record (moved along, found, or created
    when the mapping says ``missing: create``), or under one record named by the mapping, or at the
    top; otherwise not moved (``PARENT_NOT_FOUND``, ``PARENT_TYPE_NOT_MAPPED``). A record under one
@@ -77,7 +79,8 @@ _TABLES = (
         reasons jsonb NOT NULL DEFAULT '[]', left_behind jsonb NOT NULL DEFAULT '[]',
         target_values jsonb NOT NULL DEFAULT '{}', parent_row text,
         set_parent boolean NOT NULL DEFAULT false, target_parent_id text, duplicates jsonb,
-        level integer NOT NULL DEFAULT 0, row_index integer) ON COMMIT DROP""",
+        level integer NOT NULL DEFAULT 0, row_index integer, source_version integer,
+        recreated boolean NOT NULL DEFAULT false) ON COMMIT DROP""",
     "CREATE INDEX ON mv_records (parent_row)",
     "CREATE INDEX ON mv_records (target_id)",
     """CREATE TEMPORARY TABLE mv_values (object_id text, source_attr text, target_attr text,
@@ -104,6 +107,7 @@ _RECORDS = table(
     column("name"),
     column("parent_id"),
     column("attributes"),
+    column("source_version"),
 )
 _RELATIONS = table(
     "mv_relations",
@@ -188,10 +192,29 @@ _STEPS_RECORDS = (
         SELECT source_type, jsonb_object_agg(target_attr, value) AS defaults FROM mv_defaults
         WHERE jsonb_typeof(value) <> 'null' GROUP BY source_type) d
     WHERE d.source_type = r.source_type AND r.target_type IS NOT NULL""",
-    # Found by its counterpart (I2).
-    """UPDATE mv_records r SET target_id = o.id, target_version = o.version, found = 'counterpart'
+    # Found by its origin (I3, D133): the nearest record of the target along its chain of
+    # origins, of the mapped type; or, when that original is gone and its ID free, created again
+    # under its ID (``recreated``, which counts as not in the target).
+    f"""WITH RECURSIVE chain (start_id, workspace_key, object_id, depth) AS (
+        SELECT r.object_id, o.origin_workspace_key, o.origin_object_id, 1
+        FROM mv_records r JOIN record_origins o ON o.object_id = r.object_id
+        WHERE r.target_type IS NOT NULL
+        UNION ALL
+        SELECT c.start_id, o.origin_workspace_key, o.origin_object_id, c.depth + 1
+        FROM chain c JOIN record_origins o ON o.object_id = c.object_id
+        WHERE c.workspace_key <> :target AND c.depth < {MAX_LEVELS}),
+    nearest AS (SELECT DISTINCT ON (start_id) start_id, object_id FROM chain
+        WHERE workspace_key = :target ORDER BY start_id, depth)
+    UPDATE mv_records r SET target_id = n.object_id, target_version = o.version,
+        found = CASE WHEN o.id IS NOT NULL THEN 'origin' END, recreated = o.id IS NULL
+    FROM nearest n LEFT JOIN objects o ON o.id = n.object_id AND o.workspace_key = :target
+    WHERE r.object_id = n.start_id AND (o.object_type_key = r.target_type
+        OR (o.id IS NULL AND NOT EXISTS (SELECT 1 FROM objects x WHERE x.id = n.object_id)))""",
+    # Else found by its counterpart (I2).
+    """UPDATE mv_records r SET target_id = o.id, target_version = o.version, found = 'counterpart',
+        recreated = false
     FROM objects o
-    WHERE r.target_type IS NOT NULL AND o.workspace_key = :target
+    WHERE r.target_type IS NOT NULL AND r.found IS NULL AND o.workspace_key = :target
         AND o.id = rdm_counterpart(:target, r.object_id)""",
     # Else found by the mapping's match: a unique attribute's value, or the name (I12).
     f"""WITH candidates AS (
@@ -214,7 +237,7 @@ _STEPS_RECORDS = (
     UPDATE mv_records r SET
         matched = CASE WHEN t.match_name THEN jsonb_build_object('field', 'name')
             ELSE jsonb_build_object('attributeTypeKey', t.match_attr) END,
-        found = CASE WHEN c.n = 1 THEN 'match' END,
+        found = CASE WHEN c.n = 1 THEN 'match' END, recreated = false,
         target_id = CASE WHEN c.n = 1 THEN c.first END,
         target_version = CASE WHEN c.n = 1 THEN o.version END,
         outcome = CASE WHEN c.n > 1 THEN 'refused' END,
@@ -261,7 +284,7 @@ _STEPS_PARENTS = (
         AND {_moving("r")}""",
     # A parent neither selected nor in the target, created when the mapping says so.
     f"""UPDATE mv_records p SET along = true, outcome = 'create',
-        target_id = rdm_counterpart(:target, p.object_id)
+        target_id = COALESCE(p.target_id, rdm_counterpart(:target, p.object_id))
     FROM mv_records r JOIN mv_types t ON t.source_type = r.source_type
     WHERE r.parent_row = p.object_id AND NOT p.selected AND p.found IS NULL
         AND p.target_type IS NOT NULL AND t.parent_missing = 'create' AND {_moving("r")}""",
@@ -355,7 +378,7 @@ _CONVERTED = "rdm_convert_value(e.value::json, p ->> 'fromType', p ->> 'toType')
 _STEPS_ENDS = (
     # ``missing: create``: the other end, neither selected nor in the target, created.
     f"""UPDATE mv_records e SET along = true, outcome = 'create',
-        target_id = rdm_counterpart(:target, e.object_id)
+        target_id = COALESCE(e.target_id, rdm_counterpart(:target, e.object_id))
     FROM mv_relations x JOIN mv_records r ON r.object_id IN (x.from_id, x.to_id)
     WHERE x.outcome IS NULL AND x.missing = 'create' AND e.object_id IN (x.from_id, x.to_id)
         AND e.object_id <> r.object_id AND r.selected AND {_moving("r")} AND NOT e.selected
@@ -446,8 +469,13 @@ _STEPS_ROWS = (
 _RECORD_ROW = """(jsonb_strip_nulls(jsonb_build_object('kind', 'record',
         'sourceId', CASE WHEN r.source_type IS NULL THEN NULL ELSE r.object_id END,
         'sourceType', r.source_type, 'name', r.name, 'selected', r.selected,
-        'targetId', r.target_id, 'targetType', r.target_type, 'outcome', r.outcome,
-        'foundBy', r.found, 'matchedBy', r.matched, 'targetParentId', r.target_parent_id,
+        'targetId', r.target_id, 'targetType', r.target_type,
+        'outcome', CASE WHEN r.found = 'origin' THEN 'updateOriginal' ELSE r.outcome END,
+        'foundBy', CASE WHEN r.recreated THEN 'origin' ELSE r.found END,
+        'origin', CASE WHEN r.outcome = 'create' AND NOT r.recreated AND r.source_type IS NOT NULL
+            THEN jsonb_build_object('workspaceKey', CAST(:source AS text), 'objectId', r.object_id)
+            END,
+        'matchedBy', r.matched, 'targetParentId', r.target_parent_id,
         'parentRow', p.row_index, 'possibleDuplicates', r.duplicates))
     || jsonb_build_object('reasons', r.reasons, 'leftBehind', r.left_behind))"""
 
@@ -469,7 +497,8 @@ _RECORD_ITEM = """CASE r.outcome
 _INSERT_RECORDS = (
     f"""INSERT INTO job_inputs (job_id, item_index, ref, item)
     SELECT :job, r.row_index, r.row_index::text,
-        jsonb_build_object('item', {_RECORD_ITEM}, 'row', {_RECORD_ROW})::json
+        jsonb_build_object('item', {_RECORD_ITEM}, 'row', {_RECORD_ROW},
+            'sourceVersion', r.source_version)::json
     FROM mv_records r LEFT JOIN mv_records p ON p.object_id = r.parent_row
     CROSS JOIN LATERAL (SELECT COALESCE(jsonb_agg(jsonb_build_object('attributeTypeKey', k,
         'value', v) ORDER BY k), '[]') AS list FROM jsonb_each(r.target_values) kv(k, v)) a
@@ -704,7 +733,9 @@ def bind_move(
     for statement in _STEPS_ROWS:
         session.execute(text(statement))
     parameters = {"job": job.sequence_id}
-    for statement in _INSERT_RECORDS + _INSERT_RELATIONS:
+    for statement in _INSERT_RECORDS:
+        session.execute(text(statement), {**parameters, "source": source_workspace})
+    for statement in _INSERT_RELATIONS:
         session.execute(text(statement), parameters)
     rows, decided = session.execute(
         text(
@@ -746,12 +777,21 @@ def _read(
         records.c.name,
         records.c.parent_object_id,
         cast(records.c.attributes, JSONB),
+        records.c.version,
     )
     if chosen is not None:
         statement = statement.where(records.c.object_id.in_(chosen))
     session.execute(
         insert(_RECORDS).from_select(
-            ["object_id", "selected", "source_type", "name", "parent_id", "attributes"],
+            [
+                "object_id",
+                "selected",
+                "source_type",
+                "name",
+                "parent_id",
+                "attributes",
+                "source_version",
+            ],
             statement,
         )
     )
@@ -780,7 +820,15 @@ def _read(
     ).columns(column("parent_id"))
     session.execute(
         insert(_RECORDS).from_select(
-            ["object_id", "selected", "source_type", "name", "parent_id", "attributes"],
+            [
+                "object_id",
+                "selected",
+                "source_type",
+                "name",
+                "parent_id",
+                "attributes",
+                "source_version",
+            ],
             select(
                 others.c.object_id,
                 literal(False),
@@ -788,6 +836,7 @@ def _read(
                 others.c.name,
                 others.c.parent_object_id,
                 cast(others.c.attributes, JSONB),
+                others.c.version,
             ).where(
                 others.c.object_id.in_(named.subquery().select()),
                 others.c.object_id.not_in(held),

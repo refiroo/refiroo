@@ -2,7 +2,8 @@
 
 ``POST /moves`` names the two workspaces, the mapping at the version the client read, what moves
 and which state of the source it is read from. In X2 a move is its dry run alone
-(``stage: preview``, D114); X3 adds the load into a change set.
+(``stage: preview``, D114), which X3 loads into a change set once confirmed, or at once with
+``stage: execute`` (D128).
 """
 
 from typing import Literal
@@ -62,5 +63,13 @@ class MoveRequest(BaseModel):
         min_length=1,
         description="live, read when the dry run starts, or a publication ID of the source (I30)",
     )
-    mode: Literal["copy"] = "copy"
-    stage: Literal["preview"] = "preview"
+    mode: Literal["copy", "move"] = Field(
+        default="copy",
+        description="copy (the source untouched) or move: the copy, plus a change set of the "
+        "source deleting what was loaded (D17, D134)",
+    )
+    stage: Literal["preview", "execute"] = Field(
+        default="preview",
+        description="preview: the dry run waits for POST /jobs/{jobId}/confirm; execute: it loads "
+        "at once (D128). Either way it loads into a new change set of the target (D130)",
+    )

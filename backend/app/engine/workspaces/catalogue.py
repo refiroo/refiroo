@@ -15,6 +15,7 @@ from ...models.database import (
     IdempotencyKey,
     Publication,
     RdmObject,
+    RecordOrigin,
     RelationSetVersion,
     Workspace,
     WorkspaceRuntimeState,
@@ -286,6 +287,8 @@ def delete_workspace(session: Session, key: str, expected_version: int) -> None:
         .execution_options(synchronize_session=False)
     )
     session.execute(delete(IdempotencyKey).where(IdempotencyKey.workspace_key == key))
+    # The origins of records moved into it (0.11 X3), which have no foreign key.
+    session.execute(delete(RecordOrigin).where(RecordOrigin.workspace_key == key))
     session.execute(delete(Workspace).where(Workspace.key == key))
     session.commit()
 

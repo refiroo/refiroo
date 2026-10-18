@@ -195,9 +195,15 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # (MoveRowPage, MoveRow, MoveReason, MoveLeftBehind) with the outcome, reason and sourceType
     # filters, and the jobs list's kind filter. Diffed against the previous commit, nothing else
     # changed (POST /moves is registered with model administration, off in the default document).
+    # Re-baselined for 0.11 X3 (D128–D136): a move's summary gains mode, its change sets, the
+    # source's feed position at the load and its deleted and kept counts (MoveSourceCounts), its
+    # counts updateOriginal; a move's row gains the outcome updateOriginal, foundBy origin, origin
+    # (RecordOrigin) and source (MoveSourceOutcome), and the rows' outcome filter updateOriginal; a
+    # history entry's cause gains origin; the confirmation's description names a move's. Diffed against the previous commit, nothing else
+    # changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "6a3e40a18476f8755942cacf307022d1a3a49640e0c4eeb9206c7def093b969c"
+        "94fd3b6fd4fb30562749e7519abed1a350064c503bcb766efe99e6d5f9eb6278"
     )
 
 
