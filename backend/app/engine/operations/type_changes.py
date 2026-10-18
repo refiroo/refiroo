@@ -51,7 +51,7 @@ from ..records.audit import record_audit_event
 from ..records.context import ChangeSetLookup
 from ..records.refusals import CHANGE_SET
 from ..records.relation_set_versions import increment_set_versions
-from ..records.values import stored_json_value
+from ..records.values import WIDENINGS, stored_json_value
 from ..records.writes import ChangeSetWrites
 
 
@@ -62,8 +62,6 @@ class Keep:
 
 KEEP_PARENT = Keep()
 
-# Value-type pairs a mapped value may cross because nothing is lost (D40).
-WIDENINGS = {("text", "longText"), ("integer", "decimal")}
 
 AttributeOutcomeKind = Literal["kept", "mapped", "restored", "input", "empty"]
 

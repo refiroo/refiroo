@@ -4,7 +4,7 @@
  * workspace chosen). Before anything changes it shows the check of that workspace's data against
  * the release (D52), the workspace's open change sets that would stay on the release it runs now
  * (D26), and the workspaces it leaves as they are. When the data does not fit, it says a migration
- * is needed and offers no activation.
+ * is needed and offers no activation; where migrations may run it offers their preview (0.11 V1).
  */
 
 import { useEffect, useState } from "react";
@@ -60,6 +60,8 @@ export function ActivateDialog({
   releaseId: fixedRelease,
   onClose,
   onActivated,
+  canMigrate = false,
+  onMigrationStarted,
 }: {
   /** The active workspaces, with the release each runs. */
   workspaces: Workspace[];
@@ -70,6 +72,10 @@ export function ActivateDialog({
   releaseId?: string;
   onClose: () => void;
   onActivated: (result: WorkspaceModelActivation, workspace: Workspace) => void;
+  /** Migrations may run here (model administration and background jobs, D14). */
+  canMigrate?: boolean;
+  /** A migration's preview started: its job. */
+  onMigrationStarted?: (jobId: string) => void;
 }) {
   const candidatesFor = (workspace: Workspace | undefined) =>
     releases.filter((release) => release.id !== workspace?.model.releaseId);
@@ -132,6 +138,29 @@ export function ActivateDialog({
   const fits = compatibility?.classification === "compatible" && !contractsBreak;
   const sameModel = release?.key === workspace?.model.releaseKey;
   const others = workspaces.filter((item) => item.key !== workspaceKey);
+
+  const migratable =
+    canMigrate &&
+    compatibility?.classification === "migration_required" &&
+    !contractsBreak &&
+    Boolean(onMigrationStarted);
+
+  async function migrate() {
+    if (!workspace || !release) return;
+    setPending(true);
+    setError("");
+    try {
+      const job = await api.startWorkspaceMigration(workspace.key, {
+        targetReleaseId: release.id,
+        expectedVersion: workspace.model.version,
+      });
+      onMigrationStarted?.(job.id);
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setPending(false);
+    }
+  }
 
   async function activate() {
     if (!workspace || !release) return;
@@ -271,7 +300,10 @@ export function ActivateDialog({
               <Notice tone="warning" title={sameModel ? "A migration is needed" : "A different model"}>
                 <p>
                   {workspace.label}'s data does not fit {release.name} {release.version} as it is, so it cannot be
-                  activated there. Migrating a workspace's data to another release is not available yet.
+                  activated there.{" "}
+                  {migratable
+                    ? "Preview the migration to see every conversion and loss before anything changes."
+                    : "Migrating needs model administration and background jobs, which this deployment does not run."}
                 </p>
                 <MigrationReasons diagnostics={compatibility?.diagnostics ?? []} />
               </Notice>
@@ -324,6 +356,11 @@ export function ActivateDialog({
           {fits && workspace && release && (
             <button type="submit" className="primary" disabled={pending}>
               {pending ? "Activating…" : `Activate ${release.version} in ${workspace.label}`}
+            </button>
+          )}
+          {migratable && (
+            <button type="button" className="primary" onClick={() => void migrate()} disabled={pending}>
+              {pending ? "Starting…" : "Preview the migration…"}
             </button>
           )}
         </div>

@@ -56,6 +56,10 @@ _ITEM_KEYS = (integer_key("index", JobItem.item_index, "item_index"),)
 _INSERT_ROWS = 1000
 
 
+class LeaseLost(Exception):
+    """Another worker holds the job now; its work must not commit (``worker.py``)."""
+
+
 @dataclass(frozen=True)
 class ItemOutcome:
     """One item's outcome (P2): ``applied`` with an action, ``rejected`` with an error, or
@@ -294,7 +298,7 @@ def job_parameter(name: str) -> Any:
     return literal_column(f"(jobs.parameters ->> '{name}')", type_=String)
 
 
-PREVIEWED_KINDS = ("import", "batch", "dryRun", "profileCheck")
+PREVIEWED_KINDS = ("import", "batch", "dryRun", "profileCheck", "migration")
 # The jobs whose items are a file's rows, each outcome with its source and row (0.9 J3): an import,
 # a draft's dry run of one (0.10 A3) and a profile's check of its next file (0.10 A5c).
 ROW_KINDS = ("import", "dryRun", "profileCheck")
@@ -397,12 +401,18 @@ def keep_key_with(session: Session, job: Job) -> None:
 
 
 def await_confirmation(
-    session: Session, job: Job, report: dict[str, Any], *, retention_days: int
+    session: Session,
+    job: Job,
+    report: dict[str, Any],
+    *,
+    retention_days: int,
+    key: str = "preview",
 ) -> None:
-    """A preview's end (D87): the job waits for confirmation with the preview's summary, and is
-    kept, unconfirmed, for the retention from now."""
+    """A preview's end (D87): the job waits for confirmation with the preview's summary (under
+    ``key``: a migration's is ``migration``, 0.11 V1), and is kept, unconfirmed, for the retention
+    from now."""
     now = datetime.now(UTC)
-    job.report = {**(job.report or {}), "preview": report}
+    job.report = {**(job.report or {}), key: report}
     job.state = AWAITING
     job.stage = None
     job.expires_at = now + timedelta(days=retention_days)
@@ -411,12 +421,19 @@ def await_confirmation(
     keep_key_with(session, job)
 
 
-def confirm_job(session: Session, job: Job, check_context: Callable[[Job], None]) -> bool:
+def confirm_job(
+    session: Session,
+    job: Job,
+    check_context: Callable[[Job], None],
+    *,
+    keep_items: bool = False,
+) -> bool:
     """Confirm a waiting preview (D81, D87) under the job row's lock: its context is checked again
     by ``check_context``, which raises to refuse and leave it waiting; then the preview's outcomes
     go and the job is queued to run as an execution. An import's inputs go too, since it binds its
-    file again; a batch keeps its stored items and runs them from the first (0.9 K2). ``False``
-    when the job was confirmed before, which answers unchanged."""
+    file again; a batch keeps its stored items and runs them from the first (0.9 K2). With
+    ``keep_items`` the preview's outcomes stay until the execution replaces them (a migration's,
+    0.11 V1). ``False`` when the job was confirmed before, which answers unchanged."""
     session.refresh(job, with_for_update=True)
     if job.confirmed_at is not None:
         return False
@@ -439,17 +456,18 @@ def confirm_job(session: Session, job: Job, check_context: Callable[[Job], None]
             {"jobId": job.id, "state": job.state},
         )
     check_context(job)
-    if not imported:
+    if not imported and not keep_items:
         _carry_preview_claims(session, job)
-    for table in (JobItem, JobInput) if imported else (JobItem,):
+    for table in (JobItem, JobInput) if imported else () if keep_items else (JobItem,):
         session.execute(delete(table).where(table.job_id == job.sequence_id))
     job.confirmed_at = datetime.now(UTC)
     job.state = "queued"
     job.stage = None
     if imported:
         job.total = None
-    job.processed = 0
-    job.counts = _empty_counts()
+    if not keep_items:
+        job.processed = 0
+        job.counts = _empty_counts()
     job.result = None
     return True
 

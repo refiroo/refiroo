@@ -197,6 +197,70 @@ class JobNotice(BaseModel):
     details: dict[str, Any]
 
 
+class MigrationCounts(BaseModel):
+    """A migration's items by outcome (0.11 V1, D68)."""
+
+    conversion: int
+    reclassified: int
+    loss: int
+    refused: int
+
+
+class MigrationSummary(BaseModel):
+    """What a migration's preview found and what its confirmation binds (D74): the workspace's
+    assignment version (``expectedVersion``) and feed position it read."""
+
+    targetReleaseId: str
+    currentReleaseId: str
+    expectedVersion: int
+    feedPosition: int
+    counts: MigrationCounts
+
+
+class JobConfirmation(BaseModel):
+    """Confirming a previewed job. A migration (0.11 V1) names the assignment version and feed
+    position its preview reported and, when it removes anything, ``acceptLoss: true``; an import
+    or a batch takes no body."""
+
+    model_config = {"extra": "forbid"}
+
+    expectedVersion: int | None = Field(default=None, ge=1)
+    expectedFeedPosition: int | None = Field(default=None, ge=0)
+    acceptLoss: bool = False
+
+
+class MigrationRow(BaseModel):
+    """One item a migration changes (0.11 V1, D72). ``outcome``: ``conversion`` (a value converted,
+    ``VALUE_CONVERTED``, or carried to another attribute, ``VALUE_CARRIED``), ``reclassified`` (a
+    record's type changes), ``loss`` (a record, value or relationship removed) or ``refused`` (a
+    record the target release refuses, by the rule's ``code`` and ``path``). A record's item names
+    it; a relationship's names its ``relationId`` and both ends; a value's its attribute, with
+    ``before`` and, converted, ``after``."""
+
+    index: int
+    outcome: Literal["conversion", "reclassified", "loss", "refused"]
+    code: str
+    objectId: str
+    objectName: str | SkipJsonSchema[None] = _by_status()
+    objectTypeKey: str | SkipJsonSchema[None] = _by_status()
+    targetObjectTypeKey: str | SkipJsonSchema[None] = _by_status()
+    applicationKey: str | SkipJsonSchema[None] = _by_status()
+    targetApplicationKey: str | SkipJsonSchema[None] = _by_status()
+    attributeTypeKey: str | SkipJsonSchema[None] = _by_status()
+    targetAttributeTypeKey: str | SkipJsonSchema[None] = _by_status()
+    relationId: str | SkipJsonSchema[None] = _by_status()
+    relationTypeKey: str | SkipJsonSchema[None] = _by_status()
+    toObjectId: str | SkipJsonSchema[None] = _by_status()
+    before: Any | SkipJsonSchema[None] = _by_status()
+    after: Any | SkipJsonSchema[None] = _by_status()
+    path: str | SkipJsonSchema[None] = _by_status()
+    message: str | SkipJsonSchema[None] = _by_status()
+
+
+class MigrationRowPage(CollectionPage[MigrationRow]):
+    """A migration's items in item order (ADR-030)."""
+
+
 class JobResponse(BaseModel):
     """A job. ``result`` says whether every item applied: a ``completed`` job may be ``partial``.
 
@@ -212,7 +276,9 @@ class JobResponse(BaseModel):
     """
 
     id: str
-    kind: Literal["batch", "import", "export", "profile", "dryRun", "inference", "profileCheck"]
+    kind: Literal[
+        "batch", "import", "export", "profile", "dryRun", "inference", "profileCheck", "migration"
+    ]
     workspaceKey: str
     changeSetId: str | None
     changeSetVersion: int | None
@@ -255,6 +321,10 @@ class JobResponse(BaseModel):
         default=None,
         description="An import's notices about its file as a whole once bound (0.9 J4a), empty "
         "when there are none; null before and for other jobs",
+    )
+    migration: MigrationSummary | None = Field(
+        default=None,
+        description="A migration's summary once previewed (0.11 V1); null for other jobs",
     )
 
 

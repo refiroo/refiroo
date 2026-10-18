@@ -8,7 +8,7 @@ keyset paging on those two integers. A row's status is its worst item's: ``rejec
 
 from typing import Any
 
-from sqlalchemy import case, cast, func, select
+from sqlalchemy import String, case, cast, func, literal_column, select
 from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by
 from sqlalchemy.orm import Session
 
@@ -16,7 +16,19 @@ from ...common.pagination import Page, PageRequest, integer_key, paginate_statem
 from ...engine.jobs.store import ROW_KINDS
 from ...errors import api_error
 from ...models.database import Job, JobItem
-from ..schemas.jobs import JobActions, JobItemResponse, JobRowPage, JobRowResponse
+from ..schemas.jobs import (
+    JobActions,
+    JobItemResponse,
+    JobRowPage,
+    JobRowResponse,
+    MigrationRow,
+    MigrationRowPage,
+)
+
+_ROW_STATUSES = ("applied", "rejected", "unprocessed")
+_OUTCOMES = ("conversion", "reclassified", "loss", "refused")
+# The expression ``ix_job_items_outcome`` indexes (migration 20261019_01).
+_OUTCOME = literal_column("(job_items.outcome ->> 'outcome')", type_=String)
 
 
 def job_row_page(
@@ -35,8 +47,10 @@ def job_row_page(
         raise api_error(
             404,
             "JOB_HAS_NO_ROWS",
-            f"Job '{job.id}' is a {job.kind}; only an import's outcomes read by row",
+            f"Job '{job.id}' is a {job.kind}; only an import's or a migration's outcomes read by "
+            "row",
         )
+    _require_status(status, _ROW_STATUSES)
     rows = _rows(job, status, source, code)
     found: Page[Any] = paginate_statement(
         session,
@@ -53,6 +67,40 @@ def job_row_page(
         rows=True,
     )
     return JobRowPage(items=[_row(row) for row in found.items], **found.links())
+
+
+def migration_row_page(
+    session: Session, job: Job, *, outcome: str | None, page: PageRequest, page_size: int
+) -> MigrationRowPage:
+    """A migration's items in item order (0.11 V1), ``outcome`` keeping one kind."""
+    _require_status(outcome, _OUTCOMES)
+    statement = select(JobItem).where(JobItem.job_id == job.sequence_id)
+    if outcome is not None:
+        statement = statement.where(_OUTCOME == outcome)
+    found: Page[JobItem] = paginate_statement(
+        session,
+        statement,
+        keys=(integer_key("index", JobItem.item_index, "item_index"),),
+        scope="migration-rows",
+        filters={"jobId": job.id, "outcome": outcome},
+        page=page,
+        page_size=page_size,
+        message="Job row cursor is invalid",
+    )
+    return MigrationRowPage(
+        items=[MigrationRow(index=item.item_index, **item.outcome) for item in found.items],
+        **found.links(),
+    )
+
+
+def _require_status(status: str | None, allowed: tuple[str, ...]) -> None:
+    if status is not None and status not in allowed:
+        raise api_error(
+            422,
+            "INVALID_PAGE_PARAMETER",
+            f"This job's rows take status {', '.join(allowed)}",
+            {"parameter": "status", "allowed": list(allowed)},
+        )
 
 
 def _rows(job: Job, status: str | None, source: int | None, code: str | None) -> Any:

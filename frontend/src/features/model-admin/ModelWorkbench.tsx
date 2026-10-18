@@ -22,6 +22,7 @@ import type {
 import { CapabilityStatus } from "@/features/administration/CapabilityStatus";
 import { ActivateDialog } from "@/features/model-admin/ActivateDialog";
 import { CreateDraftDialog, type CreateDraftSeed } from "@/features/model-admin/CreateDraftDialog";
+import { MigrationPage } from "@/features/model-admin/MigrationPage";
 import { ModelDraftEditor } from "@/features/model-admin/ModelDraftEditor";
 import { ModelReleaseDetail } from "@/features/model-admin/ModelReleaseDetail";
 import { ModelDetail, runningWorkspaces } from "@/features/model-admin/ModelPage";
@@ -177,6 +178,8 @@ export function ModelWorkbench({
     draft.baseReleaseId ? modelOfRelease.get(draft.baseReleaseId) : undefined;
   const newModelDrafts = drafts.filter((draft) => !modelOfDraft(draft));
   const canActivate = Boolean(capabilities?.modelAdmin.activate);
+  // A migration is model administration and a background job both (D14).
+  const canMigrate = canActivate && Boolean(capabilities?.integrationJobs.createJobs);
   const canManageDrafts = Boolean(capabilities?.modelAdmin.manageDrafts);
   // The order of the list: the default workspace's model, the other models in use, then the rest.
   const defaultModelKey = workspaces.find((item) => item.key === defaultWorkspaceKey)?.model.releaseKey;
@@ -231,6 +234,19 @@ export function ModelWorkbench({
       </section>
     </nav>
   );
+  if (route.migrationJobId) {
+    return (
+      <MigrationPage
+        key={route.migrationJobId}
+        jobId={route.migrationJobId}
+        workspaces={workspaces}
+        releases={releases}
+        onOpenJob={(jobId) => onRouteChange({ ...MODEL, migrationJobId: jobId })}
+        onBack={() => onRouteChange(MODEL)}
+        onMigrated={(workspaceKey) => Promise.all([load(), onActiveModelChange?.(workspaceKey)])}
+      />
+    );
+  }
   return (
     <SettingsLayout
       eyebrow="Administration"
@@ -332,8 +348,13 @@ export function ModelWorkbench({
           releases={releases}
           workspaceKey={activating.workspaceKey}
           releaseId={activating.releaseId}
+          canMigrate={canMigrate}
           onClose={() => setActivating(undefined)}
           onActivated={activated}
+          onMigrationStarted={(jobId) => {
+            setActivating(undefined);
+            onRouteChange({ ...MODEL, migrationJobId: jobId });
+          }}
         />
       )}
       {creating && (

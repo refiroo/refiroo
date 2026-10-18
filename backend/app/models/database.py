@@ -1334,7 +1334,7 @@ class Job(Base):
     __table_args__ = (
         CheckConstraint(
             "kind IN ('batch', 'import', 'export', 'profile', 'dryRun', 'inference', "
-            "'profileCheck')",
+            "'profileCheck', 'migration')",
             name="ck_job_kind",
         ),
         CheckConstraint(
@@ -1435,6 +1435,14 @@ class JobItem(Base):
         ),
         Index("ix_job_items_status", "job_id", "status", "item_index"),
         Index("ix_job_items_rows", "job_id", "source_index", "row_number"),
+        # A migration's items by outcome (0.11 V1).
+        Index(
+            "ix_job_items_outcome",
+            "job_id",
+            text("(outcome ->> 'outcome')"),
+            "item_index",
+            postgresql_where=text("(outcome ->> 'outcome') IS NOT NULL"),
+        ),
     )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

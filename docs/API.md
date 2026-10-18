@@ -4534,14 +4534,16 @@ Designed in the [Base 0.11 P0 plan](BASE_0_11_IMPLEMENTATION_PLAN.md#p0-plan-202
 [ADR-042](DECISIONS.md#adr-042--each-workspace-runs-its-own-model-release). **A workspace's model and
 its activation are delivered** (M1, with M2 folded in, 2026-10-15), and **what was instance-wide**
 (M3, 2026-10-15), and **reads spanning workspaces** (M4, 2026-10-16); M5 (2026-10-16) adds
-`releaseName` and the release diff's `workspaceKey` for the browser's per-workspace screens. Designed, each moving into
-"delivered" with its package: migrations (V1–V3), mappings between models (X1) and moves (X2, X3). Field-level detail not fixed
+`releaseName` and the release diff's `workspaceKey` for the browser's per-workspace screens, and
+**a workspace's migration to another release is delivered through the API** (V1, 2026-10-17).
+Designed, each moving into "delivered" with its package: migrations of a change set (V2, V3),
+mappings between models (X1) and moves (X2, X3). Field-level detail not fixed
 here is finished in that package's plan.
 
 - `GET /api/v1/workspace-models?releaseKey=…&releaseId=…&pageSize=…&cursor=…` (delivered)
 - `GET /api/v1/workspaces/{workspaceKey}/model` (delivered)
 - `POST /api/v1/workspaces/{workspaceKey}/model/activation` (delivered)
-- `POST /api/v1/workspaces/{workspaceKey}/model/migrations` (V1)
+- `POST /api/v1/workspaces/{workspaceKey}/model/migrations` (delivered, V1)
 - `POST /api/v1/change-sets/{changeSetId}/model-migrations` (V2, V3)
 - `GET /api/v1/model-mappings`, `GET /api/v1/model-mappings/{mappingKey}`,
   `POST /api/v1/model-mappings`, `DELETE /api/v1/model-mappings/{mappingKey}?expectedVersion=` (X1)
@@ -4703,28 +4705,93 @@ keys stored on their rows, never through a model: `consumerApi` lists the subscr
 in every workspace, whatever contract it means there (D27). Counterparts stand only between
 workspaces running one model ([Counterparts](#counterparts-base-09-j5)).
 
-### A workspace's data migrated to another release (V1)
+### A workspace's data migrated to another release (delivered, V1)
 
 ```json
-{ "targetReleaseId": "9a1e…", "expectedVersion": 3 }
+{
+  "targetReleaseId": "9a1e…", "expectedVersion": 3,
+  "typeMappings": [
+    { "fromObjectTypeKey": "series", "toObjectTypeKey": "collection",
+      "attributes": [{ "attributeTypeKey": "location-note", "from": "shelf-note" }] }
+  ]
+}
 ```
 
-`POST /workspaces/{workspaceKey}/model/migrations` starts a background job of kind `migration` in
-the preview stage: every conversion and every potential loss of this workspace's data under the
-target release, item by item, from the compatibility analysis, as the job's `preview` (counts by
-kind) and `GET /jobs/{jobId}/rows?status=conversion|loss|refused` (ADR-030). Nothing changes until
-`POST /jobs/{jobId}/confirm`:
+`POST /workspaces/{workspaceKey}/model/migrations` answers `202` with a queued job of kind
+`migration` (registered with `MODEL_ADMIN_MUTATIONS_ENABLED` and `INTEGRATION_JOBS_ENABLED`, D14).
+The target is any installed release of a supported schema, of the workspace's model or another.
+`typeMappings` (optional, D70) names what a type of the workspace's model became in the target: its
+records keep their IDs and history under the new type, in their application when it lists the new
+type, otherwise in the one application that does. An attribute of the new type takes the values of
+the same attribute of the old type, its display attribute the old display attribute (when the value
+types match or widen, ADR-034), unless `attributes` names a source (`from`, or `null` for none).
+Without a mapping, a type the target lacks loses its records.
+
+**The preview** runs in the background and changes nothing. Every item the migration changes is a
+row (D72), read in item order at `GET /jobs/{jobId}/rows?status=conversion|reclassified|loss|refused`
+(ADR-030; the same route reads an import's rows, and a status of the other kind is
+`422 INVALID_PAGE_PARAMETER`). A row has `index`, `outcome`, `code` and `objectId`, and as it
+applies `objectName`, `objectTypeKey`, `targetObjectTypeKey`, `applicationKey`,
+`targetApplicationKey`, `attributeTypeKey`, `targetAttributeTypeKey`, `relationId`,
+`relationTypeKey`, `toObjectId`, `before`, `after`, `path` and `message`:
+
+| `outcome` | `code` | What |
+| --- | --- | --- |
+| `conversion` | `VALUE_CONVERTED` | A value converted to the value type the target declares (D69) |
+| `conversion` | `VALUE_CARRIED` | A value carried to another attribute by a type mapping |
+| `reclassified` | `RECORD_RECLASSIFIED` | A record whose type changes by a type mapping |
+| `loss` | `OBJECT_TYPE_IN_USE`, `APPLICATION_IN_USE`, `APPLICATION_OBJECT_TYPE_IN_USE` | A record of a type, or application, the target lacks |
+| `loss` | `PARENT_REMOVED` | A record contained in a lost record |
+| `loss` | `ATTRIBUTE_BINDING_IN_USE` | A value of an attribute the record's new type does not bind |
+| `loss` | `VALUE_NOT_CONVERTIBLE` | A value that does not convert (and, required by the target, a refusal too) |
+| `loss` | `RELATION_PAIR_IN_USE`, `RELATION_END_REMOVED` | A relationship the target has no place for, or whose end is lost |
+| `loss` | `RELATION_ATTRIBUTE_IN_USE` | A relationship's value the target's binding drops |
+| `refused` | the compatibility codes (`REQUIRED_ATTRIBUTE_MISSING`, `ATTRIBUTE_UNIQUENESS_VIOLATED`, …) with `path` | A record the migrated data would break a rule of the target for |
+| `refused` | `PARENT_RELATION_SEMANTICS_CHANGED` | A record the target has no place for under its parent |
+
+Conversions (D69): text and long text into each other; a whole number into a decimal and a decimal
+without a fraction into a whole number; any value into text in its stored form and back; text into
+a number, a boolean, a date or an instant when it reads as an import reads a cell; a date into an
+instant at midnight UTC and an instant at midnight UTC into its date; any value into JSON, and text
+into JSON when it parses. Nothing else converts.
+
+Once previewed the job waits (`awaiting_confirmation`) with `migration`: `targetReleaseId`,
+`currentReleaseId`, `expectedVersion` (the assignment's version the preview read), `feedPosition`
+(the workspace's feed position it read) and `counts` by outcome.
+
+**Confirmation.** `POST /jobs/{jobId}/confirm`:
 
 ```json
 { "expectedVersion": 3, "expectedFeedPosition": 18204, "acceptLoss": true }
 ```
 
-The confirmation binds the reviewed assignment version and the workspace's feed position; a
-workspace changed since is `409 MIGRATION_REVIEW_STALE` (preview again). A preview with loss is
-refused without `acceptLoss: true` (`422 MIGRATION_LOSS_NOT_ACCEPTED`). The conversions run in
-PostgreSQL in the job; the data and the assignment switch in one transaction; a failure changes
-nothing. Cancel (`POST /jobs/{jobId}/cancel`) of a waiting preview changes nothing. History stays
-as it was.
+The worker then applies the migration and switches the workspace's release in one transaction, under
+the workspace's row and its assignment: every changed record and relationship has its audit entry and
+feed position at the target release, caused by the job (D73): `updated` with the values before,
+`reclassified` with the record's full before state, `deleted` with what was removed; the switch is
+the release's `activated` event naming the job. Change sets left behind and subscriptions follow as
+on activation (D26), and publications keep their release. It checks again that the workspace is as
+reviewed and that the migrated data breaks no rule of the target; a difference fails the job with
+`MIGRATION_REVIEW_STALE`, and any other failure with `MIGRATION_FAILED` (a correlation ID), nothing
+changed. The job's rows are then the executed items.
+
+| Status | Code | When |
+| --- | --- | --- |
+| 404 | `WORKSPACE_NOT_FOUND`, `MODEL_RELEASE_NOT_FOUND` | as named (start) |
+| 409 | `WORKSPACE_RETIRED` | a retired workspace's model is not changed (start) |
+| 409 | `ACTIVATION_CONFLICT` | the assignment changed since `expectedVersion` (start) |
+| 422 | `UNSUPPORTED_SCHEMA_VERSION` | the target's schema is outside the window (start) |
+| 422 | `MIGRATION_TARGET_IS_CURRENT` | the workspace runs the target already (start) |
+| 422 | `INVALID_MIGRATION_MAPPING` | a mapping names a type or attribute the models lack, or one twice; `details.pointer` (start) |
+| 409 | `CONSUMER_CONTRACT_VERSION_REQUIRED` | the target changes what a consumer API's consumers read without a higher contract version, as on activation (start) |
+| 409 | `MIGRATION_REVIEW_STALE` | the workspace was written (its feed moved) or its model changed since the preview; `details`: `reviewedVersion`, `currentVersion`, `reviewedFeedPosition`, `currentFeedPosition` (confirm, or the job's error) |
+| 409 | `MIGRATION_HAS_REFUSALS` | the preview refused items; fix them and preview again (confirm) |
+| 422 | `MIGRATION_LOSS_NOT_ACCEPTED` | the preview lists losses and `acceptLoss` is not `true` (confirm) |
+| 422 | `REQUEST_VALIDATION_ERROR` | a migration's confirmation without `expectedVersion` or `expectedFeedPosition` |
+| 409 | `JOB_NOT_AWAITING_CONFIRMATION` | a cancelled, running or finished migration (confirm) |
+| — | `MIGRATION_FAILED` | the job's error: the execution failed and changed nothing |
+
+Cancel (`POST /jobs/{jobId}/cancel`) of a waiting preview changes nothing. History stays as it was.
 
 `POST /change-sets/{changeSetId}/model-migrations` (`targetReleaseId`, `expectedChangeSetVersion`)
 does the same for one change set's content (V2: one started from a publication; V3: one left on a

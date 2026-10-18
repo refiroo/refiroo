@@ -1267,6 +1267,18 @@ the type (`/objects/{type}/{id}`) and no update accepts a new one.
   and never convert lossily); audit/history gains the `reclassified` kind, which the 0.9 change feed
   and consumer API must carry. Bulk APIs, `match` and effective dates are not touched.
 
+### Amendment (Base 0.11 V1, D71, 2026-10-17)
+
+A workspace's migration to another release changes record types in live data: its type mappings
+(D70) reclassify every record of a mapped type, keeping IDs and history, with the attribute rules
+above (same attribute, display to display). This is the one exception to D38's "change sets only": a
+change set cannot hold the switch of a workspace's release, and the migration's confirmed preview,
+which lists every record it reclassifies and is bound to the workspace's feed position, stands in
+for the change set's review. Each record still records a `reclassified` audit event with its full
+before state. A migration's value conversions (D69) are wider than D40's two widenings, each
+checked value by value and a value that does not convert listed as a loss; a type change in a change
+set keeps D40's rule.
+
 ## ADR-035 — Model authoring is an editor of operations on a model draft; a spreadsheet is one way to start it
 
 **Status:** Accepted as direction, 2026-09-29 (Product 0.10). The design and its open decisions

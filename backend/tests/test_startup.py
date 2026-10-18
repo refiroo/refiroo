@@ -28,7 +28,8 @@ from app.db import DatabaseStartupError, get_engine, migration_config
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261018_01"
+HEAD = "20261019_01"
+WORKSPACE_MODELS = "20261018_01"
 JOB_INDEXES = "20261017_01"
 PROFILE_CHECK = "20261015_01"
 DRAFT_PROPOSALS = "20261014_01"
@@ -1560,6 +1561,62 @@ def test_upgrade_to_workspace_models_assigns_every_workspace_and_an_interrupted_
     assert _scalar(url, "SELECT count(*) FROM model_runtime_state") == 1
     assert _scalar(url, "SELECT count(*) FROM model_releases WHERE is_active") == 1
     assert _scalar(url, "SELECT count(*) FROM unique_attribute_values") == held
+    engine.dispose()
+
+
+def test_upgrade_to_workspace_migrations_and_an_interrupted_run_recovers(
+    monkeypatch, databases, tmp_path
+):
+    """0.11 V1 on a database taken back to M1's revision: with a ``rdm_convert_value`` function
+    already there (by hand) the revision rolls back and the start refuses naming it; once dropped,
+    the next start adds the ``migration`` job kind, the conversion function and the index of a
+    migration's items, the service starts twice and the migration route answers. A downgrade
+    removes the function and the index."""
+    url = seeds.create_empty()
+    databases.append(url)
+    monkeypatch.setenv("INTEGRATION_JOBS_ENABLED", "true")
+    monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
+    monkeypatch.setenv("JOB_FILE_DIR", str(tmp_path / "job-files"))
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        assert errors == []
+    command.downgrade(migration_config(url), WORKSPACE_MODELS)
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE FUNCTION rdm_convert_value(value json, from_type text, to_type text) "
+                "RETURNS json LANGUAGE sql AS 'SELECT value'"
+            )
+        )
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        message = _assert_refused(
+            client,
+            errors,
+            "Database migration failed",
+            f"Current revision: {WORKSPACE_MODELS}",
+            f"target revision: {HEAD}",
+            "still at its current revision",
+        )
+        assert "rdm_convert_value" in message
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == WORKSPACE_MODELS
+    with engine.begin() as connection:
+        connection.execute(text("DROP FUNCTION rdm_convert_value(json, text, text)"))
+    for _start in range(2):
+        with serve(monkeypatch, _render(url)) as (client, errors):
+            assert errors == []
+            current = client.get("/api/v1/workspaces/default/model").json()
+            body = {"targetReleaseId": current["releaseId"], "expectedVersion": current["version"]}
+            answer = client.post("/api/v1/workspaces/default/model/migrations", json=body)
+            assert answer.json()["error"]["code"] == "MIGRATION_TARGET_IS_CURRENT", answer.text
+        assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+    assert _scalar(url, """SELECT rdm_convert_value('" 12 "'::json, 'text', 'integer')::text""") == "12"
+    assert _scalar(url, "SELECT to_regclass('ix_job_items_outcome') IS NOT NULL") is True
+    command.downgrade(migration_config(url), WORKSPACE_MODELS)
+    assert (
+        _scalar(url, "SELECT to_regprocedure('rdm_convert_value(json, text, text)') IS NULL")
+        is True
+    )
+    assert _scalar(url, "SELECT to_regclass('ix_job_items_outcome') IS NULL") is True
     engine.dispose()
 
 

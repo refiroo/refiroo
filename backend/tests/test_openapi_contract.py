@@ -174,10 +174,15 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # Re-baselined for 0.11 M6a (D63): the optional X-Expected-Model-Release-Id header on every
     # management route. Diffed against the previous commit, nothing else changed. Re-baselined for
     # 0.11.0-alpha.1 (D12): info.version 0.11.0-alpha.1; with 0.10.0 the document hashes to the
-    # previous lock exactly.
+    # previous lock exactly. Re-baselined for 0.11 V1 (D72, D74): a job's kind migration and its
+    # migration summary (MigrationSummary, MigrationCounts), the confirmation's optional body
+    # (JobConfirmation), a job's rows as an import's or a migration's page (MigrationRowPage,
+    # MigrationRow) with the migration outcomes as statuses, and the jobs list's kind filter. Diffed
+    # against the previous commit, nothing else changed (the migration route is registered with
+    # model administration, off in the default document).
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "7b81f0e2b430faeeb155f34ae6b607f6dd3630f1980c8e0a5f0ce525452707e2"
+        "ee2c8c22f29a53e38f00fd0de6327c9ff788af004a34a29751a128ae4179b22c"
     )
 
 
@@ -200,13 +205,19 @@ def test_paging_openapi_inventory():
         assert {"from", "position", "includeTotal"} <= parameters, path
         assert ("seek" in parameters) == (path in seekable), path
         schema = operations["get"]["responses"]["200"]["content"]["application/json"]["schema"]
-        name = schema["$ref"].rsplit("/", 1)[-1]
-        properties = document["components"]["schemas"][name]["properties"]
-        assert {"nextCursor", "prevCursor", "anchor", "totalCount", "startIndex"} <= set(properties)
-        # S4R5: items first; totals are optional integers, omitted rather than null.
-        assert next(iter(properties)) == "items", path
-        assert {"totalCount", "startIndex"}.isdisjoint(document["components"]["schemas"][name]["required"])
-        assert properties["totalCount"]["type"] == properties["startIndex"]["type"] == "integer"
+        # A job's rows are an import's or a migration's page (0.11 V1): each pages alike.
+        for page in schema.get("anyOf", [schema]):
+            name = page["$ref"].rsplit("/", 1)[-1]
+            properties = document["components"]["schemas"][name]["properties"]
+            assert {"nextCursor", "prevCursor", "anchor", "totalCount", "startIndex"} <= set(
+                properties
+            )
+            # S4R5: items first; totals are optional integers, omitted rather than null.
+            assert next(iter(properties)) == "items", path
+            assert {"totalCount", "startIndex"}.isdisjoint(
+                document["components"]["schemas"][name]["required"]
+            )
+            assert properties["totalCount"]["type"] == properties["startIndex"]["type"] == "integer"
     # 0.9 B1 added the job list and a job's outcomes; H4c removed GET /workspaces/{key}/mappings (D-1);
     # 0.9 J2 added the import profiles; 0.9 J3 an import's rows; 0.9 K6a what records hold; 0.10 A3
     # the source files and a profile's sheets and columns; 0.10 A5c a profile check's new values,

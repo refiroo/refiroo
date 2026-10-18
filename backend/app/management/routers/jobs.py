@@ -22,6 +22,7 @@ from ...engine.jobs.exports import FORMATS, submit_export
 from ...engine.jobs.files import JobFiles
 from ...engine.jobs.inline import BatchLimits, check_batch_request, submit_inline_batch
 from ...engine.jobs.store import job_item_page, job_page, load_job
+from ...engine.model.migrations import confirm_migration
 from ...errors import api_error
 from ...models.commands import BatchRequest
 from ...models.exports import ExportRequest
@@ -30,8 +31,16 @@ from ..paging import PageQuery
 from ..presenters import batch_response, job_responses
 from ..presenters import job_item_page as present_job_items
 from ..presenters import job_page as present_jobs
-from ..projections.job_rows import job_row_page
-from ..schemas.jobs import BatchResponse, JobItemPage, JobPage, JobResponse, JobRowPage
+from ..projections.job_rows import job_row_page, migration_row_page
+from ..schemas.jobs import (
+    BatchResponse,
+    JobConfirmation,
+    JobItemPage,
+    JobPage,
+    JobResponse,
+    JobRowPage,
+    MigrationRowPage,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -142,8 +151,14 @@ def cancel_job(job_id: str, request: Request, session: DbSession) -> JobResponse
 
 
 @write_router.post("/jobs/{job_id}/confirm", response_model=JobResponse, status_code=202)
-def confirm_job(job_id: str, request: Request, session: DbSession) -> JobResponse:
-    """Confirm an import (0.9 J3) or a background batch (0.9 K2) previewed with ``stage: preview``.
+def confirm_job(
+    job_id: str,
+    request: Request,
+    session: DbSession,
+    payload: JobConfirmation | None = None,
+) -> JobResponse:
+    """Confirm an import (0.9 J3) or a background batch (0.9 K2) previewed with ``stage: preview``,
+    or a migration (0.11 V1).
 
     The job is queued again and runs as ``stage: execute`` would: an import's stored file is bound
     anew, a batch's stored items run from the first. Data changed since the preview counts, and
@@ -153,8 +168,25 @@ def confirm_job(job_id: str, request: Request, session: DbSession) -> JobRespons
     request's ``expectedChangeSetVersion``). A job not waiting is ``409
     JOB_NOT_AWAITING_CONFIRMATION`` naming its state; a preview past its retention ``410
     JOB_EXPIRED``.
+
+    A migration names its preview's ``expectedVersion`` and ``feedPosition``
+    (``expectedFeedPosition``) and, when it removes anything, ``acceptLoss: true``; the worker then
+    applies it and switches the workspace's release in one transaction. Refused, leaving it
+    waiting: ``409 MIGRATION_REVIEW_STALE`` (the workspace was written or its model changed since
+    the preview), ``409 MIGRATION_HAS_REFUSALS``, ``422 MIGRATION_LOSS_NOT_ACCEPTED``.
     """
-    job = confirm_preview(session, job_id)
+    job = load_job(session, job_id)
+    if job.kind == "migration":
+        confirmation = payload or JobConfirmation()
+        job = confirm_migration(
+            session,
+            job_id,
+            expected_version=confirmation.expectedVersion,
+            expected_feed_position=confirmation.expectedFeedPosition,
+            accept_loss=confirmation.acceptLoss,
+        )
+    else:
+        job = confirm_preview(session, job_id)
     _wake_worker(request)
     return job_responses(session, [job])[0]
 
@@ -191,7 +223,10 @@ def list_jobs(
     session: DbSession,
     paging: PageQuery,
     workspace_key: str | None = Query(default=None, alias="workspaceKey"),
-    kind: Literal["batch", "import", "export", "profile", "dryRun", "inference", "profileCheck"] | None = None,
+    kind: Literal[
+        "batch", "import", "export", "profile", "dryRun", "inference", "profileCheck", "migration"
+    ]
+    | None = None,
     state: Literal[
         "queued", "running", "awaiting_confirmation", "completed", "failed", "cancelled", "expired"
     ]
@@ -235,22 +270,30 @@ def list_job_items(
     )
 
 
-@router.get("/jobs/{job_id}/rows", response_model=JobRowPage)
+@router.get("/jobs/{job_id}/rows", response_model=JobRowPage | MigrationRowPage)
 def list_job_rows(
     job_id: str,
     session: DbSession,
     paging: PageQuery,
-    status: Literal["applied", "rejected", "unprocessed"] | None = Query(
-        default=None, description="Rows whose worst item has this status"
+    status: Literal[
+        "applied", "rejected", "unprocessed", "conversion", "reclassified", "loss", "refused"
+    ]
+    | None = Query(
+        default=None,
+        description="An import's rows whose worst item has this status, or a migration's items "
+        "of this outcome",
     ),
     page_size: int = Query(default=500, ge=1, le=1000, alias="pageSize"),
-) -> JobRowPage:
+) -> JobRowPage | MigrationRowPage:
     """An import's outcomes by row of its file, in source then row order (0.9 J3): each row's
-    worst status, its applied items by action and its rejected and unprocessed outcomes. A batch
-    or an export has none (``404 JOB_HAS_NO_ROWS``)."""
-    return job_row_page(
-        session, load_job(session, job_id), status=status, page=paging, page_size=page_size
-    )
+    worst status, its applied items by action and its rejected and unprocessed outcomes. A
+    migration's items in item order (0.11 V1): every conversion, type change, loss and refusal.
+    A status of the other kind is ``422 INVALID_PAGE_PARAMETER``. A batch or an export has none
+    (``404 JOB_HAS_NO_ROWS``)."""
+    job = load_job(session, job_id)
+    if job.kind == "migration":
+        return migration_row_page(session, job, outcome=status, page=paging, page_size=page_size)
+    return job_row_page(session, job, status=status, page=paging, page_size=page_size)
 
 
 @router.get(

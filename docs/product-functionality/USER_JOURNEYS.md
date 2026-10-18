@@ -1059,7 +1059,8 @@ save refused).
 ### J37 — Move a workspace to another release
 
 **Actor:** model administrator. **Channel:** UI (Settings › Model), API. **Stories:** US-P05.
-**Status:** planned (0.11 V1–V4).
+**Status:** J37.1–J37.5 delivered (0.11 V1, 2026-10-18: the API and Settings › Model's migration
+page); J37.6–J37.8 planned (V2–V4).
 
 1. Choose a workspace and a target release its data does not fit as it is.
 2. Read the preview: every conversion and every potential loss, item by item.
@@ -1068,7 +1069,8 @@ save refused).
 **Variants:**
 
 - **J37.1 Preview** with conversions and loss, nothing changed.
-- **J37.2 Confirm**, accepting the loss the preview listed.
+- **J37.2 Confirm**, accepting the loss the preview listed; a type the target renamed is carried by
+  a type mapping, its records keeping their IDs.
 - **J37.3 Cancel**: nothing changes.
 - **J37.4 A stale review**: the workspace changed since the preview; refused.
 - **J37.5 A failed execution**: nothing changes.
@@ -1077,10 +1079,22 @@ save refused).
 - **J37.8 Schema versions side by side**: a model of an older schema version activated in one
   workspace beside one of the current version in another (V4).
 
-**Refusals:** `409 MIGRATION_REVIEW_STALE`, `422 MIGRATION_LOSS_NOT_ACCEPTED`,
-`422 UNSUPPORTED_SCHEMA_VERSION`, `409 WORKSPACE_RETIRED`.
+A record the migrated data would break a rule of the target for is refused, and the migration
+cannot be confirmed until the data is fixed and previewed again.
 
-**Evidence today:** none (planned).
+**Refusals:** `409 MIGRATION_REVIEW_STALE`, `409 MIGRATION_HAS_REFUSALS`,
+`422 MIGRATION_LOSS_NOT_ACCEPTED`, `422 INVALID_MIGRATION_MAPPING`,
+`422 MIGRATION_TARGET_IS_CURRENT`, `422 UNSUPPORTED_SCHEMA_VERSION`, `409 WORKSPACE_RETIRED`; the
+job's `MIGRATION_FAILED`.
+
+**Evidence today:** `tests/journeys/test_j37_workspace_migration.py` (7 cases, generated A and B,
+each with a target release derived in the test: a preview, a confirmation with and without
+accepting the loss, a type mapping, cancel, stale reviews, refusals, a failed execution);
+`tests/unit/engine/model/test_migrations.py` (the plan, the conversions against the import's reading
+of a cell, an executed migration leaving the matrix cell states true); the upgrade in
+`test_startup`; in the browser `test:browser:workspace-v1` (generated-a and generated-b: the
+preview from the activation dialog, a type mapped from the page, the confirmation by keyboard,
+refusals, a stale review, 390px); the budget `test_migration_budget` (100,000 records, once).
 
 ### J38 — Move data between workspaces whose models differ
 

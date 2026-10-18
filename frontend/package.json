@@ -45,6 +45,7 @@
     "test:browser:w4": "node e2e/w4-workspace-admin.mjs",
     "test:browser:workspace-m5": "node e2e/workspace-m5.mjs",
     "test:browser:workspace-m6": "node e2e/workspace-m6-checkpoint.mjs",
+    "test:browser:workspace-v1": "node e2e/workspace-v1.mjs",
     "test:browser:settings": "node e2e/u3-settings.mjs",
     "test:browser:integration": "node e2e/u4-integration.mjs",
     "test:browser:webhooks": "node e2e/u5-webhooks.mjs",

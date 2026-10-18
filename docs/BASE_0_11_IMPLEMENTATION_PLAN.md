@@ -11,7 +11,7 @@ packages are specified below at package level; each package's detailed plan, tes
 decisions are written and accepted when it starts, and it is delivered in the order of the
 [delivery queue](#delivery-queue), each by the [delivery steps](#how-a-package-is-delivered).
 **Delivered:** P0, M1 with M2 (2026-10-15), M3, M4, M5, M6 and M6a (2026-10-16), released as
-0.11.0-alpha.1 (2026-10-17, tag `v0.11.0-alpha.1`).
+0.11.0-alpha.1 (2026-10-17, tag `v0.11.0-alpha.1`); V1 (2026-10-18).
 
 **Target:** Product 0.11.0, [production hardening and staged model rollout](ROADMAP.md#product-release-011--production-hardening-and-staged-model-rollout),
 with the two requirements the user added on 2026-10-15 (ROADMAP commit `a0859ae`).
@@ -297,7 +297,7 @@ change) and `volume` (every budget).
 | 6 | [M5](#m5-the-ui-follows-the-workspaces-model) | M4 | **Delivered 2026-10-16.** The shell follows the workspace's model; Settings › Model per workspace; "New from a workbook" into a chosen workspace |
 | 7 | [M6](#m6-workspace-models-checkpoint) | M5 | **Delivered 2026-10-16, released as 0.11.0-alpha.1 (2026-10-17).** Two workspaces on two models composed in the browser; the roadmap's first workspace-model exit item; tagged 0.11.0-alpha.1 (D12) |
 | 7a | [M6a](#m6a-a-write-names-the-release-it-was-built-on) | M5 | **Delivered 2026-10-16.** Added 2026-10-16 in M6: a write names the release it was built on; refused when the workspace runs another; M6's case 4 |
-| 8 | [V1](#v1-a-workspaces-data-migrated-to-another-release) | M2 | Migration plan for one workspace: preview, conversions, loss, confirm bound to versions, atomic switch |
+| 8 | [V1](#v1-a-workspaces-data-migrated-to-another-release) | M2 | **Delivered 2026-10-18.** Migration plan for one workspace: preview, conversions, loss, confirm bound to versions, atomic switch |
 | 9 | [V2](#v2-a-change-set-from-a-publication-moved-to-another-release) | V1 | GAP-02: a change set started from a publication moved to a named installed release |
 | 10 | [V3](#v3-a-change-set-moved-onto-a-release-it-does-not-fit) | V1 | ADR-028: a change set moved onto a release its content does not fit, previewed and confirmed |
 | 11 | [V4](#v4-the-schema-language-window) | V1, M6 | The bounded window of schema versions run side by side; explicit conversion rules |
@@ -1720,6 +1720,209 @@ whose loss the user confirmed; at volume once.
 **Groups:** `migration` (new), `workspace_models`, `jobs`, `change_sets`, `startup`.
 
 **Exit:** the roadmap's exit item on confirmed historical migration.
+
+##### V1 plan (2026-10-17)
+
+**Planned 2026-10-17; D68–D78 and the test cases accepted by the user the same day (D70 in V1,
+after its explanation: "ok, go ahead").** Checked against the
+code at `0b08e9c`:
+
+- **The compatibility analysis counts, it does not list.** `analyze_compatibility`
+  (`engine/model/compatibility.py`) compares the workspace's release with a candidate and returns 19
+  kinds of diagnostic, each a count at a model pointer, scoped to one workspace (M1). Nothing names
+  the records behind a count, and it checks only what the candidate changes. It never checks data
+  that a migration would have changed, such as a value converted to another type.
+- **Activation** (`engine/model/releases.activate_model_release`) refuses any diagnostic with
+  `409 MODEL_MIGRATION_REQUIRED`. Otherwise it switches the assignment under its row lock, then
+  syncs matrix states, suspends left-behind subscriptions, lists left-behind change sets and writes
+  one `activated` audit event. A migration's switch is the same tail.
+- **Type changes** (ADR-034, `engine/operations/type_changes.py`) run in change sets only (D38),
+  with derived attribute sources (same attribute type, display, unique-and-required) and
+  `WIDENINGS = {text→longText, integer→decimal}`. Nothing converts values between other types.
+- **Jobs** have a preview stage that waits for confirmation (`jobs/preview.py`, `awaiting_confirmation`,
+  `POST /jobs/{id}/confirm`, rows in `job_items` paged by `GET /jobs/{id}/rows`). The kinds are a
+  check constraint (`ck_job_kind`), so a new kind needs a migration.
+- **The feed is the audit log with positions** (`engine/records/feed.py` `take_positions`): a record
+  changed without an audit entry is a change no consumer sees.
+- **The UI:** M5's activation dialog says "A migration is needed" with no button, waiting for V1
+  (D51). M5's record names V1 as what delivers the migration to users. No mock-up of the preview
+  exists: P0's canvas shows only the offer in the dialog.
+
+**What is built:** `POST /workspaces/{key}/model/migrations` starts a `migration` job. The preview
+stage applies the migration in a transaction, checks the result against the target release in full,
+records every item as a row, and rolls back. `POST /jobs/{id}/confirm` reapplies it under the
+workspace's assignment lock and switches the assignment in the same transaction. In the UI, the
+activation dialog's "A migration is needed" opens the preview.
+
+**Decisions** (D68 onward):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D68 | What a migration does with each kind of difference | **Three outcomes, fixed per diagnostic.** *Conversion:* a value whose attribute (or relation attribute) changes value type is converted (D69). *Loss* (removed, listed, applied only with `acceptLoss`): records of a type or application the target lacks, with what they contain (unless D70 maps them); values of a removed attribute type or binding; relationships of a removed pair; relation attribute values removed. *Refused* (the migration cannot confirm until the data is fixed): a newly required attribute or relationship missing, `atLeastOneOf`, an effective period, uniqueness (attribute or scoped), bounds, cardinality, a parent now required, a parent relation whose meaning changed. Why: a migration may drop what the target has no place for once you have seen the list, but it never makes up a value or a relationship. Cost: one rule table in the engine |
+| D69 | Which value conversions exist | **Done in SQL:** text↔longText; integer→decimal; decimal→integer when the value is whole; any number, boolean or date to text in the API's own format; text to integer, decimal, boolean, date or dateTime when it parses as an import cell does; date→dateTime at midnight UTC; dateTime→date only when the time is midnight UTC; json↔text when it parses. A value that does not convert is a loss item (the value removed), or refused when the target binding is required. Why: these are the lossless or checkable conversions; ADR-034's two widenings stay as they are for type changes. Cost: one SQL conversion per pair, unit-tested pair by pair |
+| D70 | Types the target lacks: delete only, or map | **The request may map types:** `typeMappings: [{ fromObjectTypeKey, toObjectTypeKey, attributes: [{ attributeTypeKey, from }] }]`. Mapped records keep their ID and history (reclassified). Attribute sources follow ADR-034's derived rules unless named, so a renamed type or attribute is carried instead of lost. A mapped record must still have a valid place (its parent's type may contain the new type, or it may stand at the top); otherwise it is refused, with no cascade into descendants in V1. A type the target keeps maps to itself, and `attributes` there carries a renamed attribute. Why: a release that renames a type would otherwise delete every record of it. Cost: the largest part of V1; X1's saved mapping can later be named instead of an inline one |
+| D71 | Live data, although ADR-034 restricts type changes to change sets | **The migration writes live data in one transaction, bound to the confirmed preview.** ADR-034's D38 gains one exception: in a migration, the confirmed preview stands in for the change set's review. Why: the plan's scope and API design (accepted in P0) switch data and assignment together, and a change set cannot hold a model switch. Cost: an amendment note in ADR-034 |
+| D72 | Is the preview a sample or every item | **Amended 2026-10-18** (the user, after the 100,000-record run: "finish it"): the migrated data is checked against the rules new or changed in the target and those over what the migration changed, every record each covers; an unchanged rule over untouched data is not checked again. **Every item**, as D67's dry run: one row per affected record (or relationship) and difference, with the before value and, for a conversion, the after value. Refusals come from checking the migrated data in full against the target release. The analysis gains a listing form with the same predicates, which writes IDs into job rows instead of counting them, run against an empty model so every target rule is checked. Why: "nothing dropped silently" and checks over the whole set. Cost: the listing form of the 19 predicates; rows can number hundreds of thousands, paged under ADR-030 |
+| D73 | What consumers and history see | **Every changed record gets its audit entry, written as a set statement at the target release:** `updated` for converted or removed values, `reclassified` with the full before state for a mapped type, `deleted` for a lost record, and `deleted` for a lost relationship. One `migrated` event on the workspace's model names the job, both releases and the counts. Why: the feed is the audit log, so consumers see the changes, and record history keeps what was removed. Cost: positions for every entry in one `take_positions` call |
+| D74 | What the confirmation binds | **As designed in P0:** `expectedVersion` (the assignment) and `expectedFeedPosition` (the workspace's live feed), read by the preview and returned in its summary. Either moved → `409 MIGRATION_REVIEW_STALE`. A preview with refusals → `409 MIGRATION_HAS_REFUSALS` (new), and loss without `acceptLoss: true` → `422 MIGRATION_LOSS_NOT_ACCEPTED`. On confirm the engine recomputes the plan in the write transaction and refuses when it differs from the preview's digest, as ADR-034 does. Why: what is applied is exactly what was reviewed. Cost: one new code |
+| D75 | Gates and the other workspaces | **`MODEL_ADMIN_MUTATIONS_ENABLED` and `INTEGRATION_JOBS_ENABLED` (D14).** Writes in other workspaces are never held up, except while unique values are refilled (activation's R-F2 lock). Change sets left behind and subscriptions are handled as by activation (D26). Publications stay pinned to the old release, unchanged. Why: the same tail as activation, so no second rule. Cost: none beyond reuse |
+| D76 | The UI | **In V1, on a mock-up you approve first** (delivery step 3). "Preview migration…" in the activation dialog opens one screen with the counts by kind and the rows by tab (conversion, loss, refused), each paged, plus Accept loss and Confirm, and Cancel. Why: M5 promised this to V1, and without it the dialog stays a dead end. Cost: a mock-up round, a browser runner `test:browser:workspace-v1`, and gate scenarios |
+| D77 | The test configurations | **A target release derived from each configuration in the test,** naming no key: pick a type with records and remove or rename it, change an attribute's value type, add a required attribute. Run X beside Y in both directions, as in M6a. Why: journeys test the engine on two models. Cost: one helper in `tests/journeys/` |
+| D78 | Volume | **Measured once, announced:** a workspace of 100,000 records migrating one value-type change and one removed type, preview and confirm. Run in the volume group with `budget`, never by default. Why: set statements must stay set statements. Cost: one budget test |
+
+**Journey test cases** (`tests/journeys/test_j37_workspace_migration.py`, `migration` and
+`workspace_models`; X beside Y, both directions, naming no key; X2 derived from X per D77):
+
+1. **J37.1 Preview.** Given workspace W on X1 with records, and X2 that changes a text attribute to
+   integer (some values parse, one does not), removes a binding with values and removes a type with
+   records. When a migration to X2 is started, then the job waits for confirmation. Its summary
+   counts conversions, losses and no refusals. Its rows list each item with the record, the before
+   and after values. W's records, release and feed position are unchanged.
+2. **J37.2 Confirm with loss.** Given that preview, a confirmation without `acceptLoss` gets
+   `422 MIGRATION_LOSS_NOT_ACCEPTED`. With it, W runs X2, converted values read as integers, the
+   removed values and records are gone, W's feed has an entry for each changed record, and record
+   history shows what was removed. The workspace on Y is unchanged (release, records, feed).
+3. **J37.2 with a type mapping.** Given X2 renames a type, a preview without `typeMappings` lists its
+   records as loss. With the mapping, the preview lists them as reclassified. After confirming they
+   keep their IDs under the new type with their values.
+4. **J37.3 Cancel.** Cancelling the waiting preview changes nothing. A confirmation afterwards gets
+   `409 JOB_NOT_AWAITING_CONFIRMATION`.
+5. **J37.4 Stale.** A record written in W after the preview, or an activation into W, makes the
+   confirmation `409 MIGRATION_REVIEW_STALE`, with nothing changed. A write in the Y workspace does
+   not make it stale.
+6. **Refusals.** Given X2 adds a required attribute W's records lack, the preview's rows are refused
+   with the records named, and confirming gets `409 MIGRATION_HAS_REFUSALS`. After the values are
+   filled, a new preview confirms.
+7. **J37.5 A failed execution.** The confirmation fails at its last statement (injected at the
+   execution boundary, since no client can make a confirmed migration fail; stated in the test). The
+   job is `failed` with an actionable error, and W's records, release and feed are unchanged.
+
+Unit tests: the conversion pairs of D69 (property-based over values), the rule table of D68.
+
+**Groups:** `migration` (new marker, registered), `workspace_models`, `jobs`, `change_sets`,
+`startup` (the `ck_job_kind` migration: bootstrap, upgrade from `20261017_01`, interrupted),
+`contract` (the route, the lock re-baselined after diffing); Vitest for the screen; the new runner on
+two models at 1440px and 390px with keyboard; the budget once (D78), announced.
+
+**Composable domains (ADR-032):** identity is unaffected (a mapped record keeps its ID). Audit and
+history: every change is recorded with its before state, so no door closes. Bulk APIs: the migration
+is a job with item outcomes, as 0.9's.
+
+##### V1 record (in progress, 2026-10-17)
+
+**Delivered 2026-10-18.** API, screen, gates and the budget done; the stored baselines are for the
+user to look at (below). The budget (D78), measured once after the narrowed check: a workspace of
+100,000 records (10,000 groups, the node hierarchy, the matrix's records) to a release turning every
+rank into a decimal and dropping the node type: **preview 65.6 s, execution 110.8 s**, 257,504
+values converted, 254 items removed, nothing refused; the workspace on the target afterwards.
+
+**Closed in V1 too (2026-10-18, the user: "close everything which is V1 now"):** the scoped
+uniqueness count, shared with activation, rewritten to climb from the rule's targets to the first
+ancestor of the scope's type instead of walking every record to its root: a check of every rule of
+the target over the 100,000-record workspace takes **5.8 s** (it ran over 9 minutes); measured in
+`test_migration_budget`, rerun once (preview 64.6 s, execution 116.9 s). A migration's long steps
+renew the worker's lease between their statements from a session of their own and stop when another
+worker holds the job (unit-tested). Checks: `test_model_compatibility` and the migration unit
+module (36, then the lease case: 19 unit), J37, J24, the groups `migration or workspace_models or
+model_admin or model or contract` (3,932 passed, 1 min 47 s), Ruff.
+
+**2026-10-18, the screen and the budget.** The user's "go ahead" taken as approval of the mock-up and
+of D78's run.
+
+- **Screen (D76):** `features/model-admin/MigrationPage.tsx` at `/settings/model/migrations/{jobId}`
+  in Settings › Model, on the approved board: what the release no longer has with a choice per
+  missing type and field (each choice cancels the waiting preview and starts another with the type
+  mappings), the four outcome buttons with counts, the items of one outcome in `DataTable` with
+  `useCursorWindow`, refusals in words ("Empty, and required in ‹version›"), the bar (Accept the
+  loss, Cancel, Migrate), the previewing, refused, cancelled, failed and done states and the stale
+  alert dialog. The activation dialog's **Preview the migration…** where model administration and
+  background jobs run (it says why not otherwise). Types, routes, client calls; `jobText` names the
+  newer job kinds. UI_ACCEPTANCE row V1-1; `test:browser:workspace-v1`; V1's two surfaces added to
+  the gates' `workspace-surfaces.mjs` (`migration-preview`, dark too; `migration-stale-dialog`).
+- **Found on the way and fixed:** the migration did not check the consumer contract as activation
+  does (D75): a target changing what a consumer API's consumers read without a new contract version
+  is now refused at the start, `409 CONSUMER_CONTRACT_VERSION_REQUIRED` (unit-tested). At full size
+  the update of the migrated records ran for minutes: it tested each record against a set inside an
+  `OR`, which PostgreSQL ran as a subplan per row once the set outgrew `work_mem`; the records the
+  migration changes are now marked once in its table and the update joins on the mark, and the
+  migration's tables are analysed after they are filled (R-F19's lesson). Measured after the fix at
+  10,000 and 20,000 records: the update 1.1 s and 1.9 s, every statement in step with the size. The
+  first full-size attempt also ran two workers on one job (the test called the worker beside the
+  application's thread): a step longer than the lease lets another worker take the job over, which
+  matters with several workers (N2, TODO).
+
+**The final check narrowed (2026-10-18, D72 amended).** The 100,000-record run stopped in the check
+of the migrated data: the scoped-uniqueness rule's walk of every record's ancestors took 0.6 s at
+20,000 records and over 9 minutes at 100,000. Asked whether V1 was still open, the user said to
+finish it; the check now covers the rules new or changed in the target and the rules over what the
+migration changed (`migrations.Touched`, `relaxed(target, current, touched)`), every record each
+covers; an unchanged rule over untouched data was checked when that data was written. Unit-tested
+(`test_only_rules_that_changed_or_cover_what_the_migration_touched_are_checked`). The gates' V1
+baselines (`migration-preview-light`, `-dark`, `migration-stale-dialog-light`) and the intended
+change of `activate-migration-needed-dialog-light` (Preview the migration… shown, 3.14%) were stored
+on the same instruction, for the user to look at afterwards. The accessibility gate passed (every
+surface, 0 unexpected violations, 4 min 41 s); the visual gate's only other differences are four
+screens V1 does not touch at 0.50–0.54%, two of them flipping between runs (TODO's flake). The
+gates' V1 setup runs after the other surfaces, so their catalogues show the models they always did.
+
+**Checks (2026-10-18):** `test:browser:workspace-v1` 5 cases passed on generated-a and generated-b
+(keyboard for the preview, the acceptance and the confirmation; axe on the page and the stale dialog;
+390px), screenshots inspected light and dark: they follow the board; fixed on the way, the bar under
+the table's sticky header, a lone option stretched to its card's height, the done page's preview
+text, the Migrate button not wrapping at 390px, the alert dialog's second Close. Vitest:
+`MigrationPage.test` (4), `ActivateDialog.test` (2), `routes.test`, model-admin, routing and jobs
+folders: 107 passed. `npm run format`, `lint` (0 errors; the 7 warnings are elsewhere), `build`.
+Backend after the fixes: J37 and the unit module 31 passed (the contract case added: 17 unit cases),
+`test_openapi_contract`, `test_api_journeys`, `test_boundaries` 17 passed, Ruff. The budget at
+10,000 records: preview 4.2 s, execution 10–19 s (one run under load), 26,116 conversions; at 20,000:
+preview 9–11 s, execution 18–20 s. **Not run yet (each needs a go-ahead):** the full-size budget
+(100,000 records) and the accessibility and visual gates with V1's surfaces, where one baseline
+changes as intended (`activate-migration-needed-dialog` now shows Preview the migration…).
+
+- **Mock-up (D76):** two boards added to the [P0 canvas](https://claude.ai/artifact/EiSQmSGwdGjCf2y21Cv4L9),
+  row "V1": the migration preview at 1440px (what the target no longer has with a choice for each
+  missing type and field, the four outcome tabs with their rows paged, accept the loss, confirm,
+  and the previewing, refused, stale, cancelled and done states as a tweak) and at 390px; the
+  activation dialog's "Preview the migration…" opens it. Awaiting approval.
+- **Built (API):** `engine/model/migrations.py` (plan, preview, confirmation, execution, the
+  switch); `POST /workspaces/{key}/model/migrations` (registered with model administration and
+  background jobs); a job's `migration` summary, `POST /jobs/{id}/confirm`'s optional body, `GET
+  /jobs/{id}/rows` for a migration's items; the compatibility analysis's `listing` hook (its counting
+  checks select the records they count, D72); `releases.switch_workspace_release`, activation's tail
+  shared with the migration; migration `20261019_01` (`migration` job kind, `rdm_convert_value`,
+  `ix_job_items_outcome`). `WIDENINGS` moved to `records/values.py` so both readers share it.
+- **Where it differs from the design:** the job's summary is `migration`, not `preview` (an
+  import's preview is a typed summary of other fields); four codes added: `MIGRATION_HAS_REFUSALS`
+  (D74), `INVALID_MIGRATION_MAPPING` (D70), `MIGRATION_TARGET_IS_CURRENT`, `MIGRATION_FAILED`; a
+  `reclassified` outcome beside the three designed; relationship types are not mapped (a renamed
+  relation type loses its relationships, as listed in the preview); a mapped record whose parent
+  can no longer hold it is refused, without the cascade into descendants (D70); the refusals of a
+  preview pass through the process to survive its savepoint's rollback, bounded by what must be fixed
+  (ARCHITECTURE).
+- **Found on the way and fixed:** a migration's preview and execution first cleared the job's lease
+  before the worker checked it, so the worker rolled back and ran the step again forever; the lease
+  is now checked first.
+
+**Checks so far:** `test_j37_workspace_migration.py`, 7 cases × 2 configurations, written first and
+all failing (14, `404` at the route); then 14 passed. Unit `test_migrations.py`: 16 passed (the
+conversion table against the import's reading of every text sample, every value to text and back,
+the other pairs; the plan's rules and the mapping's pointers; the relaxed target; an executed
+migration leaving the matrix cell states true). `test_startup`: the new upgrade case (an
+interrupted run rolled back naming the function, two starts, the route answering, a downgrade) and
+the M1 case, 2 passed. Groups `migration or workspace_models or model_admin or model or contract`
+(3,928 passed, 1 min 40 s; `test_every_error_code_is_listed` failed until API_JOURNEYS listed the
+new codes), `change_sets` (474 passed, 2 min 32 s, over the ceiling, TODO), the job journeys and
+modules on the confirm and worker paths (J04, J11, J24, J27, J35, `unit/engine/jobs`, cascade
+delete, batch statements: 242 passed, J35's 8 failures failing at `0b08e9c` too, TODO), the serial
+part (1 passed). OpenAPI lock re-baselined after diffing the default document against `0b08e9c`
+(three job routes, `JobResponse`, five new schemas). Smoke start on a copy of the development
+database (3 workspaces, 2,380 records): upgraded to `20261019_01`, `/health` and `/system` 200,
+every workspace on its release, unique-value rows 15 before and after; the copy dropped.
+`test_startup`'s profile-check case fails at `0b08e9c` too (TODO). **Not run yet:** the browser
+runner, the gates and Vitest (no screen yet), the budget (D78).
+
+**What the user cannot do yet:** migrate from Settings (the activation dialog still says a migration
+is needed; the screen is V1's remaining part); move a change set left on the old release (V3).
 
 #### V2: A change set from a publication moved to another release
 

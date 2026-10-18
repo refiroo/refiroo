@@ -416,6 +416,7 @@ def job_responses(session: Session, jobs: list[Job]) -> list[JobResponse]:
             preview=(job.report or {}).get("preview"),
             bindingReport=(job.report or {}).get("bindingReport"),
             notices=(job.report or {}).get("notices"),
+            migration=(job.report or {}).get("migration"),
         )
         for job in jobs
     ]

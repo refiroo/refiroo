@@ -452,8 +452,28 @@ before such a change cannot save under the release it was built on: its save is 
 nothing is saved, and a toast names the workspace's new release with **Reload**. The top bar shows
 the default workspace's model's product name on every page. A job's page names its types under its own workspace's model. The model editor previews
 records of a workspace running the draft's model, and **Install and activate** puts the release into
-an existing workspace or a new one created on it. Migrating a workspace's data to a release it does
-not fit is not available yet, and the lookup over several workspaces has no screen.
+an existing workspace or a new one created on it. The lookup over several workspaces has no screen.
+
+Through the API, a workspace's data is migrated to a release it does not fit, of its own model or
+another: a preview, which changes nothing, lists every value converted to its new type, every record
+whose type changes, everything removed (records of a type the release lacks with what they contain,
+values with no place or that do not convert, relationships with no place) and every record the
+release would refuse. A type the release renamed can be mapped to its new key so its records keep
+their IDs. A preview with refusals cannot be confirmed until the data is fixed; one that removes
+anything is confirmed only by accepting the loss. The confirmation is refused when the workspace
+changed after the preview; once confirmed, the data and the workspace's release switch together,
+each change in the records' history and the workspace's feed, and the other workspaces are not
+touched. A migration is also refused when it would change what a consumer API's consumers read
+without a new contract version, as activation is.
+
+In the browser, **Change model…** offers **Preview the migration…** when the workspace's data does
+not fit the chosen release (where model administration and background jobs run). The migration's page
+in Settings › Model says nothing has changed yet, lists what the release no longer has with a choice
+for each missing type and field (what it became, or not kept; each choice previews again), counts
+the items converted, changed in type, removed and to be fixed, and lists each kind's items page by
+page. The removal is accepted with a checkbox and the migration confirmed with **Migrate**; items to
+be fixed block it; a workspace changed after the preview asks to preview again; the page says when
+the workspace runs the new release.
 
 Through the API, a draft can also be changed step by step with typed operations instead of whole
 JSON: add, rename, re-key, split, merge or remove applications, types, attributes and relation

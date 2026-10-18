@@ -36,6 +36,38 @@ class WorkspaceModelActivation(BaseModel):
     expectedReleaseId: UUID4
 
 
+class MigrationAttributeSource(BaseModel):
+    """Where an attribute of the new type takes its values from: an attribute of the old type, or
+    none (``from: null``)."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True, serialize_by_alias=True)
+
+    attributeTypeKey: str
+    from_: str | None = Field(alias="from")
+
+
+class MigrationTypeMapping(BaseModel):
+    """What a type of the workspace's model became in the target release (0.11 V1, D70): its
+    records keep their IDs under the new type. Attributes not named take the values of the same
+    attribute of the old type, and a display attribute the old type's display attribute."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fromObjectTypeKey: str
+    toObjectTypeKey: str
+    attributes: list[MigrationAttributeSource] = Field(default_factory=list, max_length=500)
+
+
+class WorkspaceMigrationRequest(BaseModel):
+    """A migration of the workspace's data to an installed release (0.11 V1)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    targetReleaseId: UUID4
+    expectedVersion: int = Field(ge=1)
+    typeMappings: list[MigrationTypeMapping] = Field(default_factory=list, max_length=500)
+
+
 class ChangeSetLeftBehind(BaseModel):
     """An open change set of the workspace pinned to the release it no longer runs (D26)."""
 

@@ -1,9 +1,9 @@
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from contextvars import ContextVar
 from typing import Any
 
-from sqlalchemy import Numeric, and_, cast, exists, func, literal, or_, select
+from sqlalchemy import Numeric, Select, and_, cast, exists, func, or_, select
 from sqlalchemy.orm import Session, aliased
 
 from ...models.database import AttributeValue, ObjectRelation, RdmObject
@@ -31,19 +31,30 @@ def _in_scope(item: Any) -> Any:
     return item.workspace_key.in_(_SCOPE.get())
 
 
+# Takes the records behind each counted rule a record can break (0.11 V1, D72): a ``SELECT`` of
+# their IDs, the diagnostic's code, path and message. A migration lists its refusals with it.
+Listing = Callable[[Select[Any], str, str, str], None]
+_LISTING: ContextVar[Listing | None] = ContextVar("compatibility_listing", default=None)
+
+
 def analyze_compatibility(
     session: Session,
     active_model: EngineModel,
     candidate_model: EngineModel,
     active_release_id: str,
     workspace_keys: Sequence[str],
+    *,
+    listing: Listing | None = None,
 ) -> CompatibilityResult:
     """Assess a valid candidate against the stored data of ``workspace_keys`` using bounded SQL
-    queries."""
+    queries. ``listing`` also takes the records behind every rule a record breaks (the removal
+    rules count model elements in use, which a record does not break, and list nothing)."""
     token = _SCOPE.set(tuple(workspace_keys))
+    listed = _LISTING.set(listing)
     try:
         return _analyze(session, active_model, candidate_model, active_release_id)
     finally:
+        _LISTING.reset(listed)
         _SCOPE.reset(token)
 
 
@@ -157,15 +168,12 @@ def _check_attributes(
         for key, binding in sorted(candidate_bindings.items()):
             active_binding = active_bindings.get(key)
             if binding.required and (active_binding is None or not active_binding.required):
-                count = _count_missing_required_attribute(
-                    session,
-                    object_type_key,
-                    key,
-                    candidate_attributes[key].valueType,
-                )
-                _append_counted(
+                _append_records(
                     diagnostics,
-                    count,
+                    session,
+                    _missing_required_attribute(
+                        object_type_key, key, candidate_attributes[key].valueType
+                    ),
                     "REQUIRED_ATTRIBUTE_MISSING",
                     f"/objectTypes/{_pointer(object_type_key)}/attributes/{_pointer(key)}/required",
                     f"Stored '{object_type_key}' objects do not satisfy required attribute '{key}'",
@@ -176,15 +184,10 @@ def _check_attributes(
             candidate_objects[object_type_key].validation.get("atLeastOneOf", ())
         )
         if candidate_rule and candidate_rule != active_rule:
-            count = _count_missing_at_least_one(
-                session,
-                object_type_key,
-                candidate_rule,
-                candidate_attributes,
-            )
-            _append_counted(
+            _append_records(
                 diagnostics,
-                count,
+                session,
+                _missing_at_least_one(object_type_key, candidate_rule, candidate_attributes),
                 "OBJECT_VALIDATION_RULE_VIOLATED",
                 f"/objectTypes/{_pointer(object_type_key)}/validation/atLeastOneOf",
                 f"Stored '{object_type_key}' objects do not satisfy atLeastOneOf",
@@ -193,13 +196,11 @@ def _check_attributes(
         # D20: a period declared or moved to other attributes counts the records it would refuse.
         period = candidate_objects[object_type_key].effectivePeriod
         if period is not None and period != active_objects[object_type_key].effectivePeriod:
-            _append_counted(
+            _append_records(
                 diagnostics,
-                _count_invalid_periods(
-                    session,
-                    object_type_key,
-                    period.startAttributeTypeKey,
-                    period.endAttributeTypeKey,
+                session,
+                _invalid_periods(
+                    object_type_key, period.startAttributeTypeKey, period.endAttributeTypeKey
                 ),
                 "INVALID_EFFECTIVE_PERIOD",
                 f"/objectTypes/{_pointer(object_type_key)}/effectivePeriod",
@@ -212,13 +213,15 @@ def _check_attributes(
         if attribute.features.get("unique") and (
             active_attribute is None or not active_attribute.features.get("unique")
         ):
-            count = _count_duplicate_attribute_groups(session, key, attribute.valueType)
-            _append_counted(
+            groups, records = _duplicate_attribute_groups(key, attribute.valueType)
+            _append_records(
                 diagnostics,
-                count,
+                session,
+                records,
                 "ATTRIBUTE_UNIQUENESS_VIOLATED",
                 f"/attributeTypes/{_pointer(key)}/features/unique",
                 f"Stored values violate uniqueness for attribute '{key}'",
+                count=int(session.scalar(select(func.count()).select_from(groups)) or 0),
             )
         _check_numeric_bounds(session, key, active_attribute, attribute, diagnostics)
 
@@ -241,28 +244,29 @@ def _check_numeric_bounds(
         active_value = active_attribute.validation.get(bound) if active_attribute else None
         if candidate_value is None or candidate_value == active_value:
             continue
-        object_count = int(
-            session.scalar(
-                select(func.count())
-                .select_from(AttributeValue)
-                .join(RdmObject, RdmObject.id == AttributeValue.object_id)
-                .where(
-                    _in_scope(RdmObject),
-                    AttributeValue.attribute_type_key == key,
-                    operator(candidate_value),
-                )
+        # One value per record and attribute: the records are the values counted.
+        records = (
+            select(RdmObject.id)
+            .join(AttributeValue, AttributeValue.object_id == RdmObject.id)
+            .where(
+                _in_scope(RdmObject),
+                AttributeValue.attribute_type_key == key,
+                operator(candidate_value),
             )
-            or 0
         )
-        relation_count = _count_relation_attribute_bound_violations(
-            session, key, bound, candidate_value
+        relations = _relation_attribute_bound_violations(key, bound, candidate_value)
+        object_count = int(
+            session.scalar(select(func.count()).select_from(records.subquery())) or 0
         )
-        _append_counted(
+        relation_count = int(session.scalar(select(func.count()).select_from(relations)) or 0)
+        _append_records(
             diagnostics,
-            object_count + relation_count,
+            session,
+            records.union(select(relations.c.from_object_id)),
             "ATTRIBUTE_VALIDATION_VIOLATED",
             f"/attributeTypes/{_pointer(key)}/validation/{bound}",
             f"Stored values violate {bound} for attribute '{key}'",
+            count=object_count + relation_count,
         )
 
 
@@ -292,7 +296,9 @@ def _check_relations(
     for identity in sorted(set(active_pairs) & set(candidate_pairs)):
         active_pair = active_pairs[identity]
         candidate_pair = candidate_pairs[identity]
-        for key in sorted(set(active_pair.attributeTypeKeys) - set(candidate_pair.attributeTypeKeys)):
+        for key in sorted(
+            set(active_pair.attributeTypeKeys) - set(candidate_pair.attributeTypeKeys)
+        ):
             count = _count_relations_with_attribute(session, active_pair, key)
             _append_counted(
                 diagnostics,
@@ -301,7 +307,9 @@ def _check_relations(
                 f"{_relation_path(identity)}/attributeTypeKeys/{_pointer(key)}",
                 f"Relation attribute '{key}' has stored values",
             )
-        for key in sorted(set(active_pair.attributeTypeKeys) & set(candidate_pair.attributeTypeKeys)):
+        for key in sorted(
+            set(active_pair.attributeTypeKeys) & set(candidate_pair.attributeTypeKeys)
+        ):
             if active_attributes[key].valueType != candidate_attributes[key].valueType:
                 count = _count_relations_with_attribute(session, active_pair, key)
                 _append_counted(
@@ -326,12 +334,10 @@ def _check_relations(
     for (relation_key, target_key), source_keys in sorted(required_by_target.items()):
         if (relation_key, target_key) in active_required_keys:
             continue
-        count = _count_missing_required_relation(
-            session, relation_key, target_key, source_keys
-        )
-        _append_counted(
+        _append_records(
             diagnostics,
-            count,
+            session,
+            _missing_required_relation(relation_key, target_key, source_keys),
             "REQUIRED_RELATION_MISSING",
             f"/objectTypeRelations/{_pointer(relation_key)}/*/{_pointer(target_key)}/required",
             f"Stored '{target_key}' objects lack required relation '{relation_key}'",
@@ -351,13 +357,15 @@ def _check_relations(
             pair.features.get("uniqueToAncestorTypeKey") != active_scope
             or pair.features.get("uniqueWhenToAttributeEquals") != active_condition
         ):
-            count = _count_scoped_uniqueness_violations(session, pair, candidate_model)
-            _append_counted(
+            conflicts = _scoped_uniqueness_conflicts(pair, candidate_model)
+            _append_records(
                 diagnostics,
-                count,
+                session,
+                select(conflicts.c.from_object_id).distinct(),
                 "RELATION_UNIQUENESS_VIOLATED",
                 f"{_relation_path(identity)}/features/uniqueToAncestorTypeKey",
                 f"Stored relations violate scoped uniqueness for '{pair.relationTypeKey}'",
+                count=int(session.scalar(select(func.count()).select_from(conflicts)) or 0),
             )
 
 
@@ -382,14 +390,13 @@ def _check_parent_semantics(
             and active_object is not None
             and active_object.features.get("rootCreatable", False)
         ):
-            count = _count_objects(
-                session,
-                RdmObject.object_type_key == object_type.key,
-                RdmObject.parent_object_id.is_(None),
-            )
-            _append_counted(
+            _append_records(
                 diagnostics,
-                count,
+                session,
+                _objects(
+                    RdmObject.object_type_key == object_type.key,
+                    RdmObject.parent_object_id.is_(None),
+                ),
                 "PARENT_REQUIRED",
                 f"/objectTypes/{_pointer(object_type.key)}/features/rootCreatable",
                 f"Stored '{object_type.key}' objects require a parent",
@@ -405,8 +412,7 @@ def _check_parent_semantics(
         remains_parent = (
             candidate_child is not None
             and identity in candidate_pairs
-            and pair.relationTypeKey
-            in candidate_child.behavior.get("parentRelationTypeKeys", ())
+            and pair.relationTypeKey in candidate_child.behavior.get("parentRelationTypeKeys", ())
             and candidate_relation is not None
             and bool(candidate_relation.features.get("parentOf"))
             == bool(active_relation.features.get("parentOf"))
@@ -430,6 +436,7 @@ def _check_cardinality(
     diagnostics: list[ModelDiagnostic],
 ) -> None:
     count = 0
+    ends: list[Select[Any]] = []
     for end in ("from", "to"):
         if not pair.holds_one(end):
             continue
@@ -437,7 +444,7 @@ def _check_cardinality(
         end_id = ObjectRelation.from_object_id if end == "from" else ObjectRelation.to_object_id
         end_type = pair.fromObjectTypeKey if end == "from" else pair.toObjectTypeKey
         conflicts = (
-            select(end_id)
+            select(end_id.label("object_id"))
             .join(record, record.id == end_id)
             .where(
                 ObjectRelation.relation_type_key == pair.relationTypeKey,
@@ -446,32 +453,51 @@ def _check_cardinality(
             )
             .group_by(end_id)
             .having(func.count() > 1)
-            .subquery()
         )
-        count += int(session.scalar(select(func.count()).select_from(conflicts)) or 0)
-    _append_counted(
+        ends.append(conflicts)
+        count += int(session.scalar(select(func.count()).select_from(conflicts.subquery())) or 0)
+    if not ends:
+        return
+    _append_records(
         diagnostics,
-        count,
+        session,
+        ends[0].union(*ends[1:]) if len(ends) > 1 else ends[0],
         "RELATION_CARDINALITY_VIOLATED",
         f"{_relation_path(identity)}/cardinality",
         f"Stored relations violate cardinality '{pair.cardinality}'",
+        count=count,
     )
 
 
-def _count_scoped_uniqueness_violations(
-    session: Session,
-    pair: ObjectTypeRelationDefinition,
-    model: EngineModel,
-) -> int:
+def _scoped_uniqueness_conflicts(pair: ObjectTypeRelationDefinition, model: EngineModel) -> Any:
+    """The (source, nearest ancestor) groups holding more than one relationship of the pair."""
     ancestor_type = pair.features["uniqueToAncestorTypeKey"]
-    lineage = select(
-        RdmObject.id.label("descendant_id"),
-        RdmObject.id.label("ancestor_id"),
-        RdmObject.parent_object_id.label("parent_id"),
-        RdmObject.object_type_key.label("ancestor_type"),
-        literal(0).label("depth"),
-    ).where(_in_scope(RdmObject)).cte(
-        "object_lineage", recursive=True
+    # Each target of the pair's relationships climbs its parents and stops at the first record of
+    # the scope's type (itself, when it is one): one row per step, from the records the rule covers
+    # only. Walking every record of the workspace to its root and grouping the walk took minutes at
+    # 100,000 records (0.11 V1).
+    start, related = aliased(RdmObject), aliased(RdmObject)
+    lineage = (
+        select(
+            start.id.label("descendant_id"),
+            start.id.label("ancestor_id"),
+            start.parent_object_id.label("parent_id"),
+            start.object_type_key.label("ancestor_type"),
+        )
+        .where(
+            _in_scope(start),
+            start.object_type_key == pair.toObjectTypeKey,
+            exists(
+                select(ObjectRelation.sequence_id)
+                .join(related, related.id == ObjectRelation.from_object_id)
+                .where(
+                    ObjectRelation.to_object_id == start.id,
+                    ObjectRelation.relation_type_key == pair.relationTypeKey,
+                    related.object_type_key == pair.fromObjectTypeKey,
+                )
+            ),
+        )
+        .cte("scope_lineage", recursive=True)
     )
     parent = aliased(RdmObject)
     lineage = lineage.union_all(
@@ -480,27 +506,12 @@ def _count_scoped_uniqueness_violations(
             parent.id,
             parent.parent_object_id,
             parent.object_type_key,
-            lineage.c.depth + 1,
-        ).join(parent, parent.id == lineage.c.parent_id)
-    )
-    nearest = (
-        select(
-            lineage.c.descendant_id,
-            func.min(lineage.c.depth).label("minimum_depth"),
         )
-        .where(lineage.c.ancestor_type == ancestor_type)
-        .group_by(lineage.c.descendant_id)
-        .subquery()
+        .join(parent, parent.id == lineage.c.parent_id)
+        .where(lineage.c.ancestor_type != ancestor_type)
     )
     nearest_ancestor = (
         select(lineage.c.descendant_id, lineage.c.ancestor_id)
-        .join(
-            nearest,
-            and_(
-                nearest.c.descendant_id == lineage.c.descendant_id,
-                nearest.c.minimum_depth == lineage.c.depth,
-            ),
-        )
         .where(lineage.c.ancestor_type == ancestor_type)
         .subquery()
     )
@@ -537,22 +548,22 @@ def _count_scoped_uniqueness_violations(
                     )
                 )
             )
-    conflicts = (
-        statement.group_by(
-            ObjectRelation.from_object_id, nearest_ancestor.c.ancestor_id
-        )
+    return (
+        statement.group_by(ObjectRelation.from_object_id, nearest_ancestor.c.ancestor_id)
         .having(func.count() > 1)
         .subquery()
     )
-    return int(session.scalar(select(func.count()).select_from(conflicts)) or 0)
+
+
+def _objects(*conditions: Any) -> Select[Any]:
+    """The analysed workspaces' records meeting ``conditions``, by ID."""
+    return select(RdmObject.id).where(_in_scope(RdmObject), *conditions)
 
 
 def _count_objects(session: Session, *conditions: Any) -> int:
     return int(
         session.scalar(
-            select(func.count())
-            .select_from(RdmObject)
-            .where(_in_scope(RdmObject), *conditions)
+            select(func.count()).select_from(RdmObject).where(_in_scope(RdmObject), *conditions)
         )
         or 0
     )
@@ -574,9 +585,9 @@ def _count_attribute_values(
     )
 
 
-def _count_missing_required_attribute(
-    session: Session, object_type_key: str, attribute_key: str, value_type: str
-) -> int:
+def _missing_required_attribute(
+    object_type_key: str, attribute_key: str, value_type: str
+) -> Select[Any]:
     column = getattr(AttributeValue, VALUE_COLUMNS[value_type])
     usable = [column.is_not(None)]
     if value_type in {"text", "longText"}:
@@ -588,17 +599,14 @@ def _count_missing_required_attribute(
             *usable,
         )
     )
-    return _count_objects(
-        session, RdmObject.object_type_key == object_type_key, ~present
-    )
+    return _objects(RdmObject.object_type_key == object_type_key, ~present)
 
 
-def _count_missing_at_least_one(
-    session: Session,
+def _missing_at_least_one(
     object_type_key: str,
     attribute_keys: tuple[str, ...],
     attribute_types: dict,
-) -> int:
+) -> Select[Any]:
     predicates = []
     for key in attribute_keys:
         value_type = attribute_types[key].valueType
@@ -615,41 +623,33 @@ def _count_missing_at_least_one(
                 )
             )
         )
-    return _count_objects(
-        session,
-        RdmObject.object_type_key == object_type_key,
-        ~or_(*predicates),
-    )
+    return _objects(RdmObject.object_type_key == object_type_key, ~or_(*predicates))
 
 
-def _count_invalid_periods(
-    session: Session, object_type_key: str, start_key: str, end_key: str
-) -> int:
+def _invalid_periods(object_type_key: str, start_key: str, end_key: str) -> Select[Any]:
     """Records of the type whose end date is not after their start date (both given)."""
     start, end = aliased(AttributeValue), aliased(AttributeValue)
-    return int(
-        session.scalar(
-            select(func.count())
-            .select_from(RdmObject)
-            .join(start, and_(start.object_id == RdmObject.id, start.attribute_type_key == start_key))
-            .join(end, and_(end.object_id == RdmObject.id, end.attribute_type_key == end_key))
-            .where(
-                _in_scope(RdmObject),
-                RdmObject.object_type_key == object_type_key,
-                end.date_value <= start.date_value,
-            )
+    return (
+        select(RdmObject.id)
+        .join(start, and_(start.object_id == RdmObject.id, start.attribute_type_key == start_key))
+        .join(end, and_(end.object_id == RdmObject.id, end.attribute_type_key == end_key))
+        .where(
+            _in_scope(RdmObject),
+            RdmObject.object_type_key == object_type_key,
+            end.date_value <= start.date_value,
         )
-        or 0
     )
 
 
-def _count_duplicate_attribute_groups(session: Session, key: str, value_type: str) -> int:
+def _duplicate_attribute_groups(key: str, value_type: str) -> tuple[Any, Select[Any]]:
+    """The groups of records sharing a value of the attribute in one workspace, and the records
+    in them."""
     column = getattr(AttributeValue, VALUE_COLUMNS[value_type])
     conditions = [AttributeValue.attribute_type_key == key, column.is_not(None)]
     if value_type in {"text", "longText"}:
         conditions.append(column != "")
     conflicts = (
-        select(RdmObject.workspace_key, column)
+        select(RdmObject.workspace_key, column.label("value"))
         .join(AttributeValue, AttributeValue.object_id == RdmObject.id)
         .where(*conditions)
         .where(_in_scope(RdmObject))
@@ -657,7 +657,16 @@ def _count_duplicate_attribute_groups(session: Session, key: str, value_type: st
         .having(func.count() > 1)
         .subquery()
     )
-    return int(session.scalar(select(func.count()).select_from(conflicts)) or 0)
+    records = (
+        select(RdmObject.id)
+        .join(AttributeValue, AttributeValue.object_id == RdmObject.id)
+        .join(
+            conflicts,
+            and_(conflicts.c.workspace_key == RdmObject.workspace_key, conflicts.c.value == column),
+        )
+        .where(*conditions)
+    )
+    return conflicts, records
 
 
 def _count_relation_pair(session: Session, pair: ObjectTypeRelationDefinition) -> int:
@@ -681,33 +690,24 @@ def _count_relation_pair(session: Session, pair: ObjectTypeRelationDefinition) -
     )
 
 
-def _count_relation_attribute_bound_violations(
-    session: Session,
-    key: str,
-    bound_name: str,
-    bound_value: Any,
-) -> int:
+def _relation_attribute_bound_violations(key: str, bound_name: str, bound_value: Any) -> Any:
+    """The relationships whose value of the attribute lies outside the bound, by source record."""
     numeric_value = cast(ObjectRelation.attributes[key].as_string(), Numeric)
     violation = (
-        numeric_value < bound_value
-        if bound_name == "minimum"
-        else numeric_value > bound_value
+        numeric_value < bound_value if bound_name == "minimum" else numeric_value > bound_value
     )
     from_object = aliased(RdmObject)
     to_object = aliased(RdmObject)
-    return int(
-        session.scalar(
-            select(func.count())
-            .select_from(ObjectRelation)
-            .join(from_object, from_object.id == ObjectRelation.from_object_id)
-            .join(to_object, to_object.id == ObjectRelation.to_object_id)
-            .where(
-                violation,
-                _in_scope(from_object),
-                _in_scope(to_object),
-            )
+    return (
+        select(ObjectRelation.from_object_id)
+        .join(from_object, from_object.id == ObjectRelation.from_object_id)
+        .join(to_object, to_object.id == ObjectRelation.to_object_id)
+        .where(
+            violation,
+            _in_scope(from_object),
+            _in_scope(to_object),
         )
-        or 0
+        .subquery()
     )
 
 
@@ -737,12 +737,11 @@ def _count_relations_with_attribute(
     )
 
 
-def _count_missing_required_relation(
-    session: Session,
+def _missing_required_relation(
     relation_key: str,
     target_key: str,
     source_keys: set[str],
-) -> int:
+) -> Select[Any]:
     source = aliased(RdmObject)
     present = exists(
         select(ObjectRelation.sequence_id)
@@ -754,11 +753,7 @@ def _count_missing_required_relation(
             _in_scope(source),
         )
     )
-    return _count_objects(
-        session,
-        RdmObject.object_type_key == target_key,
-        ~present,
-    )
+    return _objects(RdmObject.object_type_key == target_key, ~present)
 
 
 def _relation_identity(item: ObjectTypeRelationDefinition) -> tuple[str, str, str]:
@@ -771,10 +766,7 @@ def _cardinality_restrictions(pair: ObjectTypeRelationDefinition) -> set[str]:
 
 def is_parent_pair(model: EngineModel, pair: ObjectTypeRelationDefinition) -> bool:
     child = model.object_type(pair.toObjectTypeKey)
-    return bool(
-        child
-        and pair.relationTypeKey in child.behavior.get("parentRelationTypeKeys", ())
-    )
+    return bool(child and pair.relationTypeKey in child.behavior.get("parentRelationTypeKeys", ()))
 
 
 def _append_counted(
@@ -794,6 +786,27 @@ def _append_counted(
                 count=count,
             )
         )
+
+
+def _append_records(
+    diagnostics: list[ModelDiagnostic],
+    session: Session,
+    records: Select[Any],
+    code: str,
+    path: str,
+    message: str,
+    *,
+    count: int | None = None,
+) -> None:
+    """A rule records break: ``records`` selects their IDs, counted unless the rule counts
+    something else (``count``: groups, values or relationships), and listed when the analysis
+    lists (D72)."""
+    if count is None:
+        count = int(session.scalar(select(func.count()).select_from(records.subquery())) or 0)
+    listing = _LISTING.get()
+    if count and listing is not None:
+        listing(records, code, path, message)
+    _append_counted(diagnostics, count, code, path, message)
 
 
 def _relation_path(identity: tuple[str, str, str]) -> str:

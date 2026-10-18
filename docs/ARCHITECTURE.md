@@ -122,8 +122,8 @@ in-process registry caches one parsed snapshot per release, whichever workspaces
 decides which release a workspace runs. A release this process cannot serve (an unsupported schema,
 an invalid model, a failed load after activation) makes only the workspaces running it answer
 `503 MODEL_REGISTRY_UNAVAILABLE` (D29); the instance is unhealthy only when no workspace can be
-served. Moving a workspace's data to a release it does not fit (migrations), spanning reads and
-multi-node propagation follow in 0.11's later packages.
+served. A workspace's data moves to a release it does not fit through a migration (below); spanning
+reads are the cross-type lookup's; multi-node propagation follows in 0.11's later packages.
 
 ### Model lifecycle
 
@@ -853,6 +853,33 @@ application, object-type and operation permissions, webhook signing-key rotation
 arrives in 0.9) and UI administration of
 clients and subscriptions, replacing the default-enabled workspace administration. No API keys, and no
 credential in a URL. Record-level rules come only for demonstrated needs.
+
+### Workspace migrations (0.11 V1)
+
+A migration (`engine/model/migrations.py`) is a background job of one workspace naming a target
+installed release. Its plan is decided from the two models alone: each (application, type) pair's
+new type and application or the reason its records are lost (a type mapping keeps a renamed type's
+records), each attribute's target attribute and value type, each relationship pair kept or not. The
+plan goes into temporary tables, and every record, relationship and value of the workspace is
+classified against it in a few set statements: a value converted by `rdm_convert_value` (a SQL
+function, migration `20261019_01`) or lost, a record reclassified or lost with what it contains, a
+relationship kept or lost, a containment edge with no place refused. Those rows are the job's items.
+
+The preview then applies the migration under a savepoint and checks the migrated data against the
+target with the compatibility analysis, the target compared with itself stripped of the rules to
+check: those new or changed in the target (as activation checks) and those over what the migration
+changed (converted attributes, types with changed values, types records were reclassified into,
+relation types it removed relationships of). A rule the workspace's release holds unchanged over
+untouched data was checked when the data was written and is not checked again, which keeps the
+check proportional to the change. A scoped uniqueness rule's count climbs from the rule's targets to
+the first ancestor of the scope's type only (a check of every rule over 100,000 records: 5.8 s). The analysis lists the records behind each count (its `listing` hook). The savepoint is rolled back and the refusals, which pass
+through the process because nothing else crosses a rollback, are written as items. Confirmation binds
+the assignment version and the workspace's feed position the preview read. The execution holds the
+workspace row and its assignment (the lock order of activation), recomputes the items, writes an
+audit entry with a feed position for every changed record and relationship, applies the statements,
+checks the target's rules again and switches the assignment through activation's own tail
+(`releases.switch_workspace_release`: matrix states rebuilt for the workspace's live owner,
+subscriptions suspended, change sets left behind, the `activated` event), all in one transaction.
 
 ### Historical schema replacement (0.11)
 

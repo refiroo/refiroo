@@ -35,6 +35,9 @@ import type {
   JobPage,
   JobRow,
   JobRowPage,
+  MigrationOutcome,
+  MigrationRowPage,
+  MigrationTypeMapping,
   ImportProfile,
   ImportProfilePage,
   ImportProfileSource,
@@ -468,6 +471,31 @@ export const api = {
       body: JSON.stringify(body),
       headers: { "Idempotency-Key": idempotencyKey },
     }),
+  /**
+   * Preview a migration of the workspace's data to an installed release (0.11 V1); the answer is the
+   * queued `migration` job, which changes nothing until it is confirmed.
+   */
+  startWorkspaceMigration: (
+    workspaceKey: string,
+    body: { targetReleaseId: string; expectedVersion: number; typeMappings?: MigrationTypeMapping[] },
+  ) =>
+    request<Job>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/model/migrations`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  /** Confirm a previewed migration, binding the reviewed versions (D74). */
+  confirmMigration: (
+    jobId: string,
+    body: { expectedVersion: number; expectedFeedPosition: number; acceptLoss: boolean },
+  ) =>
+    request<Job>(`/api/v1/jobs/${encodeURIComponent(jobId)}/confirm`, { method: "POST", body: JSON.stringify(body) }),
+  /** A migration's items of one outcome, in item order (0.11 V1). */
+  migrationRows: (jobId: string, query: PageSelector & { status?: MigrationOutcome; pageSize?: number } = {}) => {
+    const params = new URLSearchParams({ pageSize: String(query.pageSize ?? 50) });
+    if (query.status) params.set("status", query.status);
+    setPaging(params, query);
+    return request<MigrationRowPage>(`/api/v1/jobs/${encodeURIComponent(jobId)}/rows?${params}`);
+  },
   /** An import's rows with their outcomes, in sheet and row order (0.9 J3, D84). */
   jobRows: (jobId: string, query: PageSelector & { status?: JobRow["status"]; pageSize?: number } = {}) => {
     const params = new URLSearchParams({ pageSize: String(query.pageSize ?? 50) });

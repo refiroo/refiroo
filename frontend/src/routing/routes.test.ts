@@ -55,6 +55,7 @@ describe("routes", () => {
     ["/settings/model/models/a%20b", { kind: "settings", page: "model", modelKey: "a b" }],
     ["/settings/model/releases/release%2Fid", { kind: "settings", page: "model", releaseId: "release/id" }],
     ["/settings/model/drafts/d1", { kind: "settings", page: "model", draftId: "d1" }],
+    ["/settings/model/migrations/j%201", { kind: "settings", page: "model", migrationJobId: "j 1" }],
     ["/settings/model/drafts/d1/editor", { kind: "settings", page: "model", draftId: "d1", editor: {} }],
     [
       "/settings/model/drafts/d1/editor?show=type&key=a%20b",

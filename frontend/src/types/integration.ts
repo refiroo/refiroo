@@ -30,7 +30,7 @@ export type JobState =
 export interface Job {
   id: string;
   /** `profile` and `dryRun` (0.10 A3): a source file's profile and a model draft's dry run. */
-  kind: "batch" | "import" | "export" | "profile" | "dryRun";
+  kind: "batch" | "import" | "export" | "profile" | "dryRun" | "inference" | "profileCheck" | "migration";
   workspaceKey: string;
   changeSetId: string | null;
   state: JobState;
@@ -68,6 +68,65 @@ export interface Job {
   /** What an import's file as a whole means here, once bound (0.9 J4a), such as rows whose IDs
    * are another workspace's records. */
   notices?: JobNotice[] | null;
+  /** A migration's summary once previewed (0.11 V1): what its confirmation binds. */
+  migration?: MigrationSummary | null;
+}
+
+/** A migration's items by outcome (0.11 V1, D68). */
+export interface MigrationCounts {
+  conversion: number;
+  reclassified: number;
+  loss: number;
+  refused: number;
+}
+
+export type MigrationOutcome = keyof MigrationCounts;
+
+/** What a migration's preview found, and the assignment version and feed position it read (D74). */
+export interface MigrationSummary {
+  targetReleaseId: string;
+  currentReleaseId: string;
+  expectedVersion: number;
+  feedPosition: number;
+  counts: MigrationCounts;
+}
+
+/** One item a migration changes (D72). */
+export interface MigrationRow {
+  index: number;
+  outcome: MigrationOutcome;
+  code: string;
+  objectId: string;
+  objectName?: string;
+  objectTypeKey?: string;
+  targetObjectTypeKey?: string;
+  applicationKey?: string;
+  targetApplicationKey?: string;
+  attributeTypeKey?: string;
+  targetAttributeTypeKey?: string;
+  relationId?: string;
+  relationTypeKey?: string;
+  toObjectId?: string;
+  before?: unknown;
+  after?: unknown;
+  path?: string;
+  message?: string;
+}
+
+export interface MigrationRowPage {
+  items: MigrationRow[];
+  nextCursor: string | null;
+  prevCursor?: string | null;
+  anchor?: string | null;
+  totalCount?: number;
+  startIndex?: number;
+}
+
+/** What a type of the workspace's model became in the target release (D70). */
+export interface MigrationTypeMapping {
+  fromObjectTypeKey: string;
+  toObjectTypeKey: string;
+  attributes?: { attributeTypeKey: string; from: string | null }[];
 }
 
 export interface JobNotice {

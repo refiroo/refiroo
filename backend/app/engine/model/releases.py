@@ -97,7 +97,7 @@ class Activation:
     change_sets_left_behind: tuple[ChangeSet, ...]
 
 
-def _lock_what_activation_changes(
+def lock_what_activation_changes(
     session: Session, workspace_key: str, release_id: str, expected_release_id: str
 ) -> None:
     """Lock, before the workspace's assignment, the rows activation changes after its check (0.9
@@ -161,7 +161,7 @@ def activate_model_release(
     workspace = session.get(Workspace, workspace_key)
     if workspace is None:
         raise WorkspaceNotFound(workspace_key)
-    _lock_what_activation_changes(session, workspace_key, release_id, expected_release_id)
+    lock_what_activation_changes(session, workspace_key, release_id, expected_release_id)
     assignment, current_release = load_assignment(session, workspace_key, for_update=True)
 
     candidate_release = session.scalar(
@@ -170,18 +170,13 @@ def activate_model_release(
     if candidate_release is None:
         raise ModelReleaseNotFound(release_id)
 
-    if (
-        assignment.version != expected_version
-        or current_release.public_id != expected_release_id
-    ):
+    if assignment.version != expected_version or current_release.public_id != expected_release_id:
         raise ActivationConflict(workspace_key, current_release.public_id, assignment.version)
     if workspace.status != "active":
         raise WorkspaceRetired(workspace_key)
 
     if candidate_release.schema_version not in SUPPORTED_SCHEMA_VERSIONS:
-        raise UnsupportedModelSchema(
-            candidate_release.public_id, candidate_release.schema_version
-        )
+        raise UnsupportedModelSchema(candidate_release.public_id, candidate_release.schema_version)
 
     current_compilation = compile_model(current_release.model_json)
     candidate_compilation = compile_model(candidate_release.model_json)
@@ -221,6 +216,30 @@ def activate_model_release(
     if contract_errors:
         raise ConsumerContractVersionRequired(tuple(contract_errors))
 
+    return switch_workspace_release(
+        session,
+        workspace_key,
+        current_release,
+        candidate_release,
+        candidate_compilation.model,
+        expected_version,
+    )
+
+
+def switch_workspace_release(
+    session: Session,
+    workspace_key: str,
+    current_release: ModelRelease,
+    candidate_release: ModelRelease,
+    candidate_model: EngineModel,
+    expected_version: int,
+    *,
+    changes: dict[str, Any] | None = None,
+) -> Activation:
+    """Point the workspace's assignment, held for update and checked by the caller, at the
+    candidate release, and carry what follows the workspace's release with it: its matrix states,
+    its subscriptions the release cannot serve, and the ``activated`` audit event (with
+    ``changes`` added, a migration's). Activation and a confirmed migration (0.11 V1) end here."""
     updated_at = datetime.now(UTC)
     new_version = expected_version + 1
     result = session.execute(
@@ -240,7 +259,7 @@ def activate_model_release(
     # Stored matrix cell states follow the workspace's new matrix shapes (A3b).
     matrix_states.sync_workspace(session, workspace_key)
     # The workspace's subscriptions the new release cannot serve are suspended with it (C11, C-D99).
-    suspend_left_behind(session, candidate_compilation.model, workspace_key)
+    suspend_left_behind(session, candidate_model, workspace_key)
     left_behind = tuple(
         session.scalars(
             select(ChangeSet)
@@ -264,6 +283,7 @@ def activate_model_release(
                 "newReleaseId": candidate_release.public_id,
                 "newModelHash": candidate_release.model_hash,
                 "changeSetsLeftBehind": [item.id for item in left_behind],
+                **(changes or {}),
             },
         )
     )
@@ -285,9 +305,7 @@ def install_model_release(session: Session, model: EngineModel) -> tuple[ModelRe
             raise ReleaseIdentityConflict(model.release.key, model.release.version)
         return identity_release, False
 
-    hash_release = session.scalar(
-        select(ModelRelease).where(ModelRelease.model_hash == model_hash)
-    )
+    hash_release = session.scalar(select(ModelRelease).where(ModelRelease.model_hash == model_hash))
     if hash_release is not None:
         return hash_release, False
 

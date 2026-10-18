@@ -67,6 +67,7 @@ from ...errors import ApiError
 from ...models.commands import BatchItem
 from ...models.database import ChangeSet, Job
 from ..imports.binding import ImportLimits, bind_import
+from ..model import migrations
 from ..sources.dry_run import (
     book_opener,
     dry_run_context,
@@ -92,6 +93,7 @@ from .store import (
     FINISHED,
     PREVIEWED_KINDS,
     ROW_KINDS,
+    LeaseLost,
     complete_job,
     expire_jobs,
     finish_export,
@@ -113,7 +115,7 @@ SWEEP_SECONDS = 3600.0
 # The worker threads' names, which a measurement of one request's statements leaves out.
 THREAD_NAME = "rdm-job-worker"
 EXPORT_THREAD_NAME = "rdm-export-worker"
-BATCH_KINDS = ("batch", "import", "profile", "dryRun", "inference", "profileCheck")
+BATCH_KINDS = ("batch", "import", "profile", "dryRun", "inference", "profileCheck", "migration")
 EXPORT_KINDS = ("export",)
 _ITEM = TypeAdapter(BatchItem)
 # The jobs that bind a source file's staged cells rather than a job file (0.10 A3, A5c).
@@ -135,8 +137,8 @@ class WorkerSettings:
     inference_assistant_rows: int = 20
 
 
-class _LeaseLost(Exception):
-    """Another worker holds the job now; this chunk must not commit."""
+# Another worker holds the job now; this chunk must not commit.
+_LeaseLost = LeaseLost
 
 
 class JobWorker:
@@ -271,7 +273,9 @@ class JobWorker:
                 self._run_export(job)
                 return
             try:
-                if job.kind == "profile":
+                if job.kind == "migration":
+                    self._migrate(session, job)
+                elif job.kind == "profile":
                     self._profile(session, job)
                 elif job.kind == "inference":
                     self._infer(session, job)
@@ -345,6 +349,43 @@ class JobWorker:
             )
         session.commit()
         self._finished_import(job)
+
+    # --- migrations (0.11 V1) ---------------------------------------------------------------------
+
+    def _migrate(self, session: Session, job: Job) -> None:
+        """A migration's preview, rolled back and left waiting, or its confirmed execution, in one
+        step each (``model/migrations.py``)."""
+        retention = self.settings.retention_days
+
+        def hold() -> None:
+            self._hold_lease(session, job.sequence_id)
+
+        def renew() -> None:
+            self._renew_lease(job.sequence_id)
+
+        if previewing(job):
+            migrations.run_preview(session, job, retention_days=retention, hold=hold, renew=renew)
+            session.commit()
+            return
+        migrations.execute(session, job, retention_days=retention, hold=hold, renew=renew)
+
+    def _renew_lease(self, sequence_id: int) -> None:
+        """Extend a lease from a short session of its own, between a long step's statements (a
+        migration's, 0.11 V1): the step's transaction does not hold the job row, so this never
+        waits for it. Another worker holding the job ends the step (``LeaseLost``)."""
+        with self.session_factory() as session:
+            renewed = session.execute(
+                update(Job)
+                .where(Job.sequence_id == sequence_id, Job.lease_owner == self.owner)
+                .values(
+                    lease_expires_at=datetime.now(UTC)
+                    + timedelta(seconds=self.settings.lease_seconds)
+                )
+                .execution_options(synchronize_session=False)
+            )
+            session.commit()
+        if renewed.rowcount != 1:
+            raise _LeaseLost
 
     # --- imports ----------------------------------------------------------------------------------
 

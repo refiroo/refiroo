@@ -50,7 +50,15 @@ workspace's model, the phone band's workspace choice by tapping, two of M5's sma
 failing or order-bound tests. Settings › Model was reworked at the user's request and left laid out
 as Settings › Workspaces; its redesign is recorded for 0.14
 ([record](BASE_0_11_IMPLEMENTATION_PLAN.md#m6-record-2026-10-16)). **Released as 0.11.0-alpha.1
-(2026-10-17, tag `v0.11.0-alpha.1`).** Next: V1, a workspace's data migrated to another release. Accepted by the user 2026-10-15: the data move in 0.11 (D3), the suite's
+(2026-10-17, tag `v0.11.0-alpha.1`).** **V1, a workspace's data migrated to another release, is
+delivered (2026-10-18):** decisions D68–D78 accepted; through the API a migration previews every
+conversion, type change, loss and refusal of one workspace's data under another release, changing
+nothing, and once confirmed (bound to the reviewed versions, accepting the loss) switches the data
+and the release together ([record](BASE_0_11_IMPLEMENTATION_PLAN.md#v1-record-in-progress-2026-10-17)).
+Its screen is built on the approved mock-up (2026-10-18): the activation dialog's Preview the
+migration… opens a page in Settings › Model listing what the release no longer has, the items by
+outcome, and confirming once the loss is accepted. A workspace of 100,000 records migrates in under
+three minutes (preview 66 s, execution 111 s). Next: V2. Accepted by the user 2026-10-15: the data move in 0.11 (D3), the suite's
 time (D152) as a filler during Part 1 before X2 at the latest (D2), and 0.11.0-alpha.1 after the M6
 checkpoint (D12).
 

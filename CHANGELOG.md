@@ -6,6 +6,38 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.11 V1, API)
+
+- `POST /workspaces/{key}/model/migrations`: a workspace's data migrated to another installed
+  release, of its model or another, as a `migration` job. Its preview changes nothing and lists, at
+  `GET /jobs/{id}/rows`, every value converted, record reclassified, loss and refusal; `typeMappings`
+  keeps a renamed type's records under their IDs. `POST /jobs/{id}/confirm` binds the reviewed
+  assignment version and feed position and needs `acceptLoss` for a loss; the data and the
+  workspace's release then switch in one transaction, each change audited with its feed position.
+  Codes `MIGRATION_REVIEW_STALE`, `MIGRATION_HAS_REFUSALS`, `MIGRATION_LOSS_NOT_ACCEPTED`,
+  `INVALID_MIGRATION_MAPPING`, `MIGRATION_TARGET_IS_CURRENT`, `MIGRATION_FAILED`.
+- A job's `migration` summary; `POST /jobs/{id}/confirm` takes an optional body.
+- Migration `20261019_01`: the `migration` job kind, `rdm_convert_value` and an index of a
+  migration's items.
+
+### Added (0.11 V1, browser)
+
+- Settings › Model's activation dialog offers **Preview the migration…** when the data does not fit;
+  the migration's page (`/settings/model/migrations/{jobId}`) lists what the release no longer has
+  with a choice for each missing type and field, the items by outcome, and confirms once the loss is
+  accepted; a stale review asks to preview again. `test:browser:workspace-v1`.
+- A migration is refused with `409 CONSUMER_CONTRACT_VERSION_REQUIRED` when its target changes a
+  consumer API's contract without a new version, as activation is.
+- `test_migration_budget` (`budget`): a workspace of 100,000 records migrated once.
+
+### Changed (0.11 V1)
+
+- The compatibility analysis can list the records behind each rule a record breaks, and its scoped
+  uniqueness count climbs from the rule's targets to their scope only (over 9 minutes at 100,000
+  records before, 5.8 s now); activation shares it.
+- A migration's long steps renew the job worker's lease as they run.
+- ADR-034 amended (D71): a migration's type mappings change record types in live data.
+
 ## [0.11.0-alpha.1] - 2026-10-17
 
 Each workspace runs a model of its own, released on its own (D12): everything since 0.10.0, Base

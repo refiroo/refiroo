@@ -85,6 +85,7 @@ GROUP_DESCRIPTIONS = {
     "feed": "feed positions, publish entries and the feed read, retention, consumer events (C10)",
     "authoring": "model draft operations, their history, undo and redo, generated layout (0.10 A2)",
     "workspace_models": "each workspace's model: assignment, resolution, activation and the commit guard per workspace (0.11 M1)",
+    "migration": "a workspace's data migrated to another release: preview, confirmation, conversions (0.11 V1)",
 }
 TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_model.py": ("model",),
@@ -155,6 +156,7 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_export_volume.py": ("jobs", "volume"),
     "test_import_volume.py": ("jobs", "volume"),
     "test_import_budget.py": ("volume", "jobs"),
+    "test_migration_budget.py": ("volume", "migration"),
     "test_type_changes.py": ("change_sets", "records", "matrix"),
     "test_restructuring_planner.py": ("change_sets", "records", "matrix"),
     "test_restructuring_volume.py": ("volume", "change_sets"),
@@ -223,6 +225,7 @@ JOURNEY_GROUPS: dict[str, tuple[str, ...]] = {
     "J33": ("authoring", "model", "model_admin"),
     "J34": ("authoring", "jobs"),
     "J36": ("workspace_models", "model_admin", "workspaces"),
+    "J37": ("migration", "workspace_models", "jobs"),
 }
 
 
@@ -247,7 +250,12 @@ SERIAL_DESCRIPTION = "timing-based check: left out of a parallel run, run with `
 # Full-size budgets (H3): left out of every run whose -m expression does not name `budget`, and
 # serial when named. PG3b replaces their timed checks with statement counts at two seeded sizes
 # (PG-D17); the 100,000-item batch is measured once at PG5's acceptance.
-BUDGET_MODULES = ("test_batch_volume.py", "test_background_volume.py", "test_import_budget.py")
+BUDGET_MODULES = (
+    "test_batch_volume.py",
+    "test_background_volume.py",
+    "test_import_budget.py",
+    "test_migration_budget.py",
+)
 BUDGET_DESCRIPTION = "full-size budget: left out unless `-m` names `budget`; a release's acceptance only"
 SLOW_SECONDS = 10.0
 JOURNEY_DESCRIPTION = (

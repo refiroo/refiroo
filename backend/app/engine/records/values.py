@@ -13,6 +13,10 @@ from ...errors import api_error
 from ...models.database import AttributeValue
 from ...models.schema import AttributeTypeDefinition
 
+# Value-type pairs a value may cross because nothing is lost (ADR-034, D40): a type change's mapped
+# value, and a display attribute a migration's type mapping carries (0.11 V1).
+WIDENINGS = frozenset({("text", "longText"), ("integer", "decimal")})
+
 VALUE_COLUMNS = {
     "text": "text_value",
     "longText": "text_value",

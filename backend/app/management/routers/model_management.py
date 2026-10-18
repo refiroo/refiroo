@@ -32,6 +32,7 @@ from ...engine.model.drafts import (
     require_draft_version,
     update_draft,
 )
+from ...engine.model.migrations import submit_migration
 from ...engine.model.registry import model_registry
 from ...engine.model.releases import (
     ActivationConflict,
@@ -61,7 +62,9 @@ from ..presenters import (
     consumer_contracts_response,
     diagnostic_details,
     diagnostic_response,
+    job_responses,
 )
+from ..schemas.jobs import JobResponse
 from ..schemas.model import (
     CandidateCompatibilityResponse,
     ModelCompilationResponse,
@@ -83,12 +86,16 @@ from ..schemas.model import (
 )
 from ..schemas.workspaces import (
     ChangeSetLeftBehind,
+    WorkspaceMigrationRequest,
     WorkspaceModelActivation,
     WorkspaceModelActivationResponse,
 )
 from ..steps import step_response
 
 router = APIRouter(prefix="/api/v1", tags=["model administration"])
+# Migrations are model administration and background jobs both (D14): registered with
+# MODEL_ADMIN_MUTATIONS_ENABLED and INTEGRATION_JOBS_ENABLED.
+migration_router = APIRouter(prefix="/api/v1", tags=["model administration"])
 
 # Newest first, with an ascending public-id tie-breaker. The directions differ per key on
 # purpose; the paginator derives each key's comparison from its own direction, so the pair still
@@ -216,6 +223,49 @@ def activate_workspace_model(
     return response
 
 
+@migration_router.post(
+    "/workspaces/{workspace_key}/model/migrations", response_model=JobResponse, status_code=202
+)
+def start_workspace_migration(
+    workspace_key: str, payload: WorkspaceMigrationRequest, request: Request, session: DbSession
+) -> JobResponse:
+    """Preview a migration of the workspace's data to an installed release (0.11 V1).
+
+    Answers 202 with a queued ``migration`` job. Its preview lists every conversion, type change,
+    loss and refusal of this workspace's data under the target release at ``GET
+    /jobs/{jobId}/rows`` and changes nothing; the job then waits for ``POST /jobs/{jobId}/confirm``
+    with its ``migration`` summary's ``expectedVersion`` and ``feedPosition`` (and ``acceptLoss``
+    when it removes anything), after which the data and the workspace's release switch in one
+    transaction. ``typeMappings`` names what a type of the workspace's model became in the target,
+    so its records keep their IDs. Refused before a job exists: ``404 WORKSPACE_NOT_FOUND``, ``404
+    MODEL_RELEASE_NOT_FOUND``, ``409 WORKSPACE_RETIRED``, ``409 ACTIVATION_CONFLICT`` (the
+    assignment changed since ``expectedVersion``), ``422 UNSUPPORTED_SCHEMA_VERSION``, ``422
+    MIGRATION_TARGET_IS_CURRENT``, ``422 INVALID_MIGRATION_MAPPING`` (at ``details.pointer``),
+    ``409 CONSUMER_CONTRACT_VERSION_REQUIRED`` (as on activation)."""
+    try:
+        job = submit_migration(
+            session,
+            workspace_key,
+            target_release_id=str(payload.targetReleaseId),
+            expected_version=payload.expectedVersion,
+            type_mappings=[item.model_dump(by_alias=True) for item in payload.typeMappings],
+            retention_days=request.app.state.batch_limits.retention_days,
+        )
+    except ConsumerContractVersionRequired as exc:
+        raise api_error(
+            409,
+            "CONSUMER_CONTRACT_VERSION_REQUIRED",
+            "A consumer API definition changes what this workspace's consumers read; raise its"
+            " contractVersion in a new release",
+            diagnostic_details(exc.diagnostics),
+        ) from exc
+    session.commit()
+    worker = getattr(request.app.state, "job_worker", None)
+    if worker is not None:
+        worker.wake()
+    return job_responses(session, [job])[0]
+
+
 @router.get("/model-drafts", response_model=ModelDraftPage)
 def list_model_drafts(
     session: DbSession,
@@ -263,7 +313,9 @@ def save_model_draft(payload: ModelDraftCreate, session: DbSession) -> ModelDraf
 def patch_model_draft(
     draft_id: str, payload: ModelDraftUpdate, session: DbSession
 ) -> ModelDraftResponse:
-    previous = load_draft_for_update(session, draft_id).model_json if payload.model is not None else None
+    previous = (
+        load_draft_for_update(session, draft_id).model_json if payload.model is not None else None
+    )
     draft = update_draft(
         session,
         draft_id,
@@ -277,7 +329,11 @@ def patch_model_draft(
     return draft_response(session, draft)
 
 
-@router.post("/model-drafts/{draft_id}/operations", response_model=ModelDraftStepResponse, response_model_exclude_unset=True)
+@router.post(
+    "/model-drafts/{draft_id}/operations",
+    response_model=ModelDraftStepResponse,
+    response_model_exclude_unset=True,
+)
 def apply_model_draft_operations(
     draft_id: str, payload: ModelDraftOperationsRequest, session: DbSession, request: Request
 ) -> ModelDraftStepResponse:
@@ -310,9 +366,7 @@ def list_model_draft_operations(
         cursor_sort_tokens=("sequence",),
         message=METADATA_CURSOR_MESSAGE,
     )
-    return ModelDraftOperationPage(
-        items=[_entry(row) for row in page.items], **page.links()
-    )
+    return ModelDraftOperationPage(items=[_entry(row) for row in page.items], **page.links())
 
 
 @router.get(
@@ -321,9 +375,7 @@ def list_model_draft_operations(
     response_model_by_alias=True,
     response_model_exclude_unset=True,
 )
-def get_model_draft_outline(
-    draft_id: str, session: DbSession
-) -> ModelDraftOutlineResponse:
+def get_model_draft_outline(draft_id: str, session: DbSession) -> ModelDraftOutlineResponse:
     """The draft's structure as the editor shows it (0.10 A4a, D36), with each consumer API's
     contract against the release the draft is compared with (0.10 A4c, D55; 0.11 D37)."""
     draft = load_draft(session, draft_id)
@@ -358,27 +410,40 @@ def get_model_draft_consumer_api(
     return ModelDraftConsumerApiResponse.model_validate(answer)
 
 
-@router.get("/model-drafts/{draft_id}/consumer-apis/{consumer_api}/schema.json", response_model=dict[str, Any])
+@router.get(
+    "/model-drafts/{draft_id}/consumer-apis/{consumer_api}/schema.json",
+    response_model=dict[str, Any],
+)
 def get_model_draft_consumer_api_schema(
     draft_id: str, consumer_api: str, request: Request, session: DbSession
 ) -> dict[str, Any]:
     """The JSON Schema of the object message the definition serves, from the draft (D56)."""
     return draft_schema(
-        load_draft(session, draft_id), consumer_api, resolve_max_items=request.app.state.consumer_resolve_max_items
+        load_draft(session, draft_id),
+        consumer_api,
+        resolve_max_items=request.app.state.consumer_resolve_max_items,
     )
 
 
-@router.get("/model-drafts/{draft_id}/consumer-apis/{consumer_api}/example.json", response_model=dict[str, Any])
+@router.get(
+    "/model-drafts/{draft_id}/consumer-apis/{consumer_api}/example.json",
+    response_model=dict[str, Any],
+)
 def get_model_draft_consumer_api_example(
     draft_id: str, consumer_api: str, request: Request, session: DbSession
 ) -> dict[str, Any]:
     """One object message valid against the definition's schema, written from it; no record is read (D56)."""
     return draft_example(
-        load_draft(session, draft_id), consumer_api, resolve_max_items=request.app.state.consumer_resolve_max_items
+        load_draft(session, draft_id),
+        consumer_api,
+        resolve_max_items=request.app.state.consumer_resolve_max_items,
     )
 
 
-@router.get("/model-drafts/{draft_id}/consumer-apis/{consumer_api}/openapi.json", response_model=dict[str, Any])
+@router.get(
+    "/model-drafts/{draft_id}/consumer-apis/{consumer_api}/openapi.json",
+    response_model=dict[str, Any],
+)
 def get_model_draft_consumer_api_openapi(
     draft_id: str, consumer_api: str, request: Request, session: DbSession
 ) -> dict[str, Any]:
@@ -391,7 +456,11 @@ def get_model_draft_consumer_api_openapi(
     )
 
 
-@router.post("/model-drafts/{draft_id}/undo", response_model=ModelDraftStepResponse, response_model_exclude_unset=True)
+@router.post(
+    "/model-drafts/{draft_id}/undo",
+    response_model=ModelDraftStepResponse,
+    response_model_exclude_unset=True,
+)
 def undo_model_draft_step(
     draft_id: str, payload: ModelDraftUndoRequest, session: DbSession, request: Request
 ) -> ModelDraftStepResponse:
@@ -399,7 +468,11 @@ def undo_model_draft_step(
     return step_response(session, result, request)
 
 
-@router.post("/model-drafts/{draft_id}/redo", response_model=ModelDraftStepResponse, response_model_exclude_unset=True)
+@router.post(
+    "/model-drafts/{draft_id}/redo",
+    response_model=ModelDraftStepResponse,
+    response_model_exclude_unset=True,
+)
 def redo_model_draft_step(
     draft_id: str, payload: ModelDraftVersionRequest, session: DbSession, request: Request
 ) -> ModelDraftStepResponse:
@@ -570,7 +643,9 @@ def install_model_draft(
             installedAt=as_utc(release.installed_at),
             assigned=bool(running := workspaces_running(session, release.id)),
             workspaces=running,
-            importProfile={"key": saved.key, "version": saved.version} if saved is not None else None,
+            importProfile={"key": saved.key, "version": saved.version}
+            if saved is not None
+            else None,
         )
 
 

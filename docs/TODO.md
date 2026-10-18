@@ -495,15 +495,15 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   2026-10-15: decisions D4–D29 and the move inventory accepted, ADR-042, API design, J36–J38, the M5
   and X4 mock-ups approved. M1 (with M2 folded in, plan D32) delivered 2026-10-15; M3 and M4
   delivered 2026-10-16; M5, M6 and M6a delivered 2026-10-16, released as 0.11.0-alpha.1
-  (2026-10-17); next: V1.
+  (2026-10-17); V1 delivered 2026-10-18; next: V2.
   - [ ] The user's requirement: each workspace runs a model of its own (Track M, then Track V).
     M1 delivered the API: a workspace on a release of its own, activation into one workspace, the
     commit guard per workspace. M3: import profiles, drafts and the consumer index and OpenAPI
     following a workspace's model. M4: the cross-type lookup over several workspaces, counterparts
     refused across models. M5: the browser follows each workspace's model, Settings › Model and
     Settings › Workspaces per workspace, the editor's choice of workspace. M6: the checkpoint
-    composed in the browser; M6a: a request naming the release it was built on. Still to come:
-    migrations (Track V).
+    composed in the browser; M6a: a request naming the release it was built on. V1: a workspace's
+    migration to another release, API and screen. Still to come: V2–V4.
   - [x] **Found in M5 (2026-10-16), small (fixed in M6, D58):** on the "not in this workspace's model" page the rail
     still marks the workspace's first collection as current (the shown route is the start); and a
     switch to another workspace reads the rail's collections twice (the shell remounts once the
@@ -538,6 +538,28 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
     replaced (`UNSUPPORTED_PINNED_MODEL_SCHEMA` in `worker._plans_for`); it retries every 2 s.
   - [ ] **Found in M1:** `test_j34_onboard.py` alone took 5 min 3 s with `-n auto` (112 cases), over
     the package ceiling; one more input for S1 (D152).
+  - [ ] **Found in V1 (2026-10-17), not caused by it (fails at `0b08e9c` too):**
+    `tests/journeys/test_j35_next_version.py` fails 8 of its cases: a profile loads
+    `INVALID_IMPORT_PROFILE` "Object type … is not in the model", the profile checked against the
+    default workspace's model rather than its own (M3 bound profiles to a model).
+  - [ ] **Found in V1 (2026-10-17), not caused by it (fails at `0b08e9c` too):**
+    `test_startup::test_upgrade_to_the_profile_check_kind_keeps_jobs_and_an_interrupted_run_recovers`:
+    the profile job runs twice (`pk_source_file_cells`, then `uq_job_input` duplicated), so the check
+    fails.
+  - [x] **Found in V1 (2026-10-18), fixed in V1:** a migration's long steps did not renew the
+    job's lease, so a second worker could take the job over; they now renew it between their
+    statements from a session of their own, and stop if another worker holds the job. N2 still
+    checks every job kind's leases under real concurrency.
+  - [ ] **Found in V1 (2026-10-18):** the visual gate's `integration-jobs-dark`, `import-notification-dark`
+    and `webhook-deliveries` (light, dark) differ by 0.50–0.54%, over the 0.5% threshold, on screens
+    V1 does not change; the webhook ones passed and failed between two runs. Their baselines predate
+    0.11 (the jobs one still shows "Jobs and feed"); look at them with the flake below at R.
+  - [x] **Found in V1 (2026-10-18), fixed in V1:** the compatibility analysis's scoped-uniqueness
+    count walked every record's ancestors to the root (over 9 minutes at 100,000 records); it now
+    climbs from the rule's targets only and stops at the scope: a check of every rule over 100,000
+    records takes 5.8 s. Activation shares it.
+  - [ ] **Found in V1:** the `change_sets` group took 2 min 32 s with `-n auto` (474 cases), over the
+    package ceiling; one more input for S1 (D152).
   - [ ] The user's requirement: data moved between workspaces whose models differ (Track X), in
     0.11 (plan D3, accepted 2026-10-15).
   - [ ] The backend suite's time (D152, package S1): a filler during Part 1, before X2 at the latest

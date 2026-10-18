@@ -10,6 +10,9 @@ export const KIND: Record<Job["kind"], string> = {
   export: "Export",
   profile: "Profile",
   dryRun: "Dry run",
+  inference: "Inference",
+  profileCheck: "Profile check",
+  migration: "Migration",
 };
 
 /** Whether a job is an export of a workbook for people (0.9 J6). */
