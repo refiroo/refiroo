@@ -307,7 +307,7 @@ change) and `volume` (every budget).
 | 15 | [X4](#x4-the-move-editor) | X3, M5 | The move editor: the two models, the mapping, the proposals, the dry-run figures and the report |
 | 16 | [X5](#x5-move-checkpoint) | X4 | The roadmap's move exit item at full volume, measured once |
 | | **Part 2 — production hardening** | | |
-| 17 | [S1](#s1-the-backend-suites-time) | — | The backend suite back under its 5-minute ceiling (D152); a filler during Part 1, delivered before X2 at the latest (D2) |
+| 17 | [S1](#s1-the-backend-suites-time) | — | **Delivered 2026-10-18.** Journey cases spread over the workers; the full suite with `-n 6` under a revised 11-minute ceiling (D126) |
 | 18 | [N1](#n1-snapshots-across-processes) | M2 | Assignment changes propagated across processes; model administration with `WEB_CONCURRENCY` above 1 |
 | 19 | [N2](#n2-the-job-worker-on-several-nodes) | N1 | Every job kind's leases, cancels and supersession under real concurrency |
 | 20 | [N3](#n3-concurrency-invariants-at-full-volume) | N2, Q1 | Several processes and nodes on one database at full volume; constraints as a second line, on evidence |
@@ -2860,6 +2860,90 @@ beyond the ceiling: R's runs made the user's laptop unusable for hours; every la
 gets cheaper when the suite does.
 
 **Exit:** the suite measured once under the ceiling on the user's go-ahead.
+
+##### S1 plan (2026-10-18)
+
+**Planned 2026-10-18; D124 and D125 accepted by the user the same day ("You can go ahead with s1"), with the go-ahead for D125's measurement.**
+Checked against the code at `a73d667`:
+
+- **The suite holds 5,952 cases in 201 modules** (5,771 at 0.10 R). The largest journey module is
+  J34 with 112 cases (48 at A6a), each building a draft, profiling a workbook and running its jobs.
+- **Every module runs on one worker.** `pyproject.toml` sets `--dist loadfile` (H2, 2026-10-01), so
+  a module's cases run one after another on a single worker whatever their number. The run cannot
+  finish before its slowest module, and J34 alone took about 2 min 15 s at 48 cases.
+- **Journey cases share nothing with their neighbours.** The `world` fixture is per case: a clone of
+  the configuration's seed and an application started on it (`journeys/scenario.py`). No fixture
+  under `tests/journeys/` or `tests/unit/` is module, class or package scoped. 19 of the older
+  modules have module-scoped fixtures, and they share the worker's session database, so they keep a
+  worker to themselves.
+- **Shared state between workers is safe except for one file.** Seed builds take a PostgreSQL
+  advisory lock (`seeds.ensure`). `scenario.model_path` writes the configuration's model file in
+  the temp directory in place, so a worker starting the same configuration at the same time could
+  read it half-written. Today that needs two modules on one configuration to start together; once
+  cases spread out, all workers start on one configuration at once.
+
+**What is built:** journey cases are spread over the workers one at a time; every other module stays
+together on one worker (as built: a scheduler in `tests/conftest.py`, below). The model file is written to
+a temporary file and moved into place. EXECUTION_GUIDE §1 and TEST_HARNESS_PLAN (H2) say how the
+run distributes. No product code changes; no migration; no journey changes.
+
+**Decisions** (D124 onward):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D124 | How the slow journey modules get their time back | **Spread journey cases one at a time over the workers; keep every other module on one worker.** TODO's "split J34 so its cases spread over the workers" done for every journey module at once, with no test file edited, and J35 or a future large module never needs it again. Why only journey tests: the `world` fixture already gives each case its own database, while the older modules share a worker's session database and module fixtures. Cost: a module-scoped fixture added to a journey module later would run once per worker that takes its cases; EXECUTION_GUIDE says so |
+| D125 | How the result is measured | **Once, after the change: the full suite in parallel, then its serial part, on your go-ahead, with the time of each module kept in the scratchpad (expected 5–9 minutes).** No baseline run: 0.10 R's 8 min 31 s is the before figure (5,771 cases). Under 5 minutes meets the exit. Over it, I stop and report which modules hold the time and the options, chiefly TODO's other approach (W1 profiled once per configuration as a seed the cases clone), and run nothing more without your go-ahead. Why: the spread may be enough on its own, and the seed is the larger change |
+| D126 | The ceiling, after both measurements (added 2026-10-18) | **Accepted 2026-10-18:** keep D124's spread; the full suite with `-n 6` (10 min 15 s, load 11–19 after start-up) rather than `-n auto` (8 min 49 s, load near 145); its ceiling 11 minutes, recorded as revised. Why: summed test time is about 6 minutes over 10 cores even uncontended, so only less work meets 5 minutes. Cost: about 1.5 minutes more per full run |
+
+**Test cases:** none new. S1 adds no journey; the harness change is checked by the measurement and
+by J34, J35 and one older module with module fixtures run in parallel, which must pass as before.
+
+**Composable domains (ADR-032):** no door affected; test harness only.
+
+##### S1 record (2026-10-18)
+
+**Delivered 2026-10-18.** D126 accepted by the user ("okay"): the exit is revised, not met.
+
+**Built:** `tests/conftest.py` supplies the run's scheduler (`pytest_xdist_make_scheduler`): xdist's
+file scheduler with `layout.worker_scope` as its unit, a journey case alone and any other test with
+its module. Not `--dist loadgroup` as planned: xdist renames every grouped test's ID in parallel runs
+only (`…@group`), so testmon's records would differ between parallel and serial runs; the scheduler
+leaves IDs as they are. `scenario.model_path` writes the model file to a temporary name and moves it
+into place. Unit test `test_a_journey_test_goes_to_a_worker_alone_and_any_other_with_its_module`;
+EXECUTION_GUIDE §1 and TEST_HARNESS_PLAN H2 describe the distribution.
+
+**Checks:** `tests/unit/harness/test_layout.py` 6 passed. J34, J35 and `test_batch_statements` with
+`-n auto`: 136 cases in 1 min 10 s (J34 alone took 5 min 3 s in M1); J35's 8 known failures (TODO,
+since V1). Ruff check clean on the changed files.
+
+**D125's measurement (load 6.7 at the start, 94–145 during the run):** `pytest -n auto -q` 5,939
+passed and 11 failed in **8 min 49 s**; the serial part 3 passed in 11 s. **The exit is not met.** The
+cause: the test time added up is 5,018 s (83.6 min), 8.4 min over 10 workers, so the workers stay
+busy to the end and the run is bound by the total work, no longer by one module. Journey tests hold
+3,141 s, the rest 1,877 s; the largest modules are J34 617 s, `test_mapping_replacement` 159 s,
+`test_startup` 150 s, J30 delivery 127 s, J27 import 121 s, J12 107 s, J29 104 s,
+`test_change_set_position_reads` 102 s. The failures fail alone and at `a73d667` too, so not S1's:
+J35's 8 (TODO), and two new to TODO (`test_unique_values::test_the_rows_follow_the_active_release`,
+`test_j27_export::test_a_cancelled_failed_or_expired_export_serves_no_file`). Per D125 nothing more
+was run; the options went to the user.
+
+**A second measurement, six workers, on the user's go-ahead (load 4.5 at the start, sampled every
+30 s):** `pytest -n 6 -q` 5,938 passed and 12 failed in **10 min 15 s**. The load peaked at 58 in
+the first minute, while the workers started, and stayed between 11 and 19 after it. The test time
+added up was 3,568 s against 10 workers' 5,018 s: each test ran about 30% faster with fewer
+workers competing for the cores. The twelfth failure is TODO's known
+`test_startup::test_upgrade_to_the_profile_check_kind_keeps_jobs_and_an_interrupted_run_recovers`
+(seen in V1 and V4, passes alone). Even uncontended, 3,568 s over 10 cores is about 6 minutes, so no
+worker count meets the 5-minute ceiling; only less work does.
+
+**D126 (accepted 2026-10-18):** the journey spread stays; the full suite runs with `-n 6`, so the
+machine stays usable during R; its ceiling becomes 11 minutes (TEST_HARNESS_PLAN, EXECUTION_GUIDE
+§1 and §3, AGENTS.md). Package runs keep `-n auto` and their 2-minute ceiling. Cost: about a minute
+and a half more per full run than ten workers. W1 profiled once as a seed was not built: J34 is 617 s
+of 5,018 s, about 30 s of a run.
+
+**What the user still cannot do:** nothing changes for the user of the engine. The three failing
+tests (J35, `test_unique_values`, J27 export) remain as TODO records, outside S1.
 
 #### N1: Snapshots across processes
 

@@ -59,6 +59,14 @@ def kind(path: Path) -> str:
     return "suite"
 
 
+def worker_scope(nodeid: str) -> str:
+    """The unit a parallel run sends to one worker (S1, D124): a journey test alone, since its
+    ``world`` is a database of its own; any other test with its whole module, which may share module
+    fixtures and the worker's session database. ``nodeid`` is relative to the backend folder."""
+    module = nodeid.split("::", 1)[0]
+    return nodeid if kind(BACKEND / module) == "journey" else module
+
+
 def unit_target(path: Path) -> Path | None:
     """The module a unit test file tests, or None when its path mirrors no module."""
     relative = path.resolve().relative_to(UNIT)

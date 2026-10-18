@@ -6,7 +6,8 @@ session database, which the modules importing ``app.main.app`` share, and each d
 for through ``migrated_database`` or the volume fixture.
 
 ``pytest -n auto`` runs the modules on several worker processes (pytest-xdist, ``--dist loadfile``
-in ``pyproject.toml``). The run's own process starts the server, removes databases an interrupted
+in ``pyproject.toml``), each module on one worker except journey tests, which are spread one at a
+time (S1). The run's own process starts the server, removes databases an interrupted
 run left behind and builds the ``schema`` seed before any worker starts; each worker has its own
 session database. Timing-based checks are ``serial``: a parallel run leaves them out and names the
 command that runs them, in a second, non-parallel invocation. Full-size budgets are ``budget``: a run
@@ -32,6 +33,7 @@ import layout
 import postgres_server
 import pytest
 import seeds
+from xdist.scheduler import LoadFileScheduling
 
 # Test selection (pytest-testmon, H4b) records which code each test executes through Coverage.py.
 # Its default on Python 3.14, sys.monitoring, loses the lines that run in the TestClient's request
@@ -308,6 +310,20 @@ def _deselect(config: pytest.Config, items: list[pytest.Item], marker: str) -> i
         items[:] = [item for item in items if not item.get_closest_marker(marker)]
         config.hook.pytest_deselected(items=chosen)
     return len(chosen)
+
+
+class _JourneysSpread(LoadFileScheduling):
+    """``--dist loadfile`` with each journey test a unit of its own (S1, D124): a large journey
+    module's cases spread over the workers instead of holding one worker to the end of the run."""
+
+    def _split_scope(self, nodeid: str) -> str:
+        return layout.worker_scope(nodeid)
+
+
+def pytest_xdist_make_scheduler(config: pytest.Config, log):
+    if config.getvalue("dist") == "loadfile":
+        return _JourneysSpread(config, log)
+    return None
 
 
 def pytest_sessionstart(session: pytest.Session) -> None:

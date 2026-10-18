@@ -47,7 +47,11 @@ delete `backend/.test-postgres/`; the next run creates it and rebuilds the seeds
 ### Backend: parallel runs (H2)
 
 One invocation parallelizes itself: `-n auto` starts one worker per core (pytest-xdist), and
-`--dist loadfile` (in `pyproject.toml`) keeps each module on one worker. The run's own process starts
+`--dist loadfile` (in `pyproject.toml`) keeps each module on one worker, except journey tests: the
+scheduler in `conftest.py` sends each journey case to a worker on its own (0.11 S1,
+`layout.worker_scope`), since its `world` is a database of its own, so a large journey module
+spreads over the workers. A journey module therefore takes no module- or class-scoped fixture: it
+would run once on every worker that takes one of its cases. The run's own process starts
 the server, drops leftover databases and builds the `schema` seed before the workers start; each
 worker clones its own session database, and all of them clone from the same seeds.
 
@@ -95,7 +99,7 @@ go-ahead.
 | --- | --- | --- |
 | Focused tests while iterating | seconds | `.venv/bin/python -m pytest tests/test_x.py::test_case -q` (no `-n`) |
 | A package's checks: its boundary's groups (§2) | 2 minutes | `.venv/bin/python -m pytest -n auto -m "<groups>" -q`, then `.venv/bin/python -m pytest -m "serial and (<groups>)" -q` |
-| Build acceptance: the full suite without `budget` | 5 minutes | `.venv/bin/python -m pytest -n auto -q`, then `.venv/bin/python -m pytest -m serial -q` |
+| Build acceptance: the full suite without `budget` | 11 minutes | `.venv/bin/python -m pytest -n 6 -q`, then `.venv/bin/python -m pytest -m serial -q` (six workers, 0.11 S1: ten took 8 min 49 s at a load near 145, six 10 min 15 s at 11–19) |
 | Full-size budgets | announced (2 min 39 s at 0.9.0-alpha.1 PG5; about 25 minutes before PG3b's bulk writes) | `.venv/bin/python -m pytest -m budget -q`, a release's acceptance only |
 
 ### Backend: journey tests, unit tests and selection by change (H4b)
@@ -413,12 +417,12 @@ visual evidence separately.
 
 Run once, against the finished build, after all implementation packages close. Never run two
 pytest invocations at once: they share the harness's PostgreSQL server. The backend suite is one
-parallel invocation followed by its serial part, without `budget` (5-minute ceiling); the full-size
+parallel invocation followed by its serial part, without `budget` (11-minute ceiling, six workers); the full-size
 budgets run only at a release's acceptance (§1).
 
 ```sh
 (cd backend && .venv/bin/python -m ruff check app/ tests/)
-(cd backend && .venv/bin/python -m pytest -n auto -q && .venv/bin/python -m pytest -m serial -q)
+(cd backend && .venv/bin/python -m pytest -n 6 -q && .venv/bin/python -m pytest -m serial -q)
 (cd frontend && npm run format:check && npm run lint && npm run build)
 (cd frontend && npm run test && npm run test:gate-helpers)
 (cd frontend && npm run test:browser && npm run test:browser:authoring && npm run test:browser:change-sets \

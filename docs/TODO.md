@@ -325,7 +325,7 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   1440px, so its Unique column wraps "Yes" letter by letter (A4a's `EditorTable`). Export, Import and
   Load still load and list workspaces themselves; A6b moved Add a workbook and New from a workbook
   onto `WorkspaceField` (U-D14): move the other three onto it.
-- [ ] **Budget (0.10 A6a, 2026-10-12):** a package's group runs went over the 2-minute ceiling:
+- [x] **Budget (0.10 A6a, 2026-10-12; J34's part fixed in 0.11 S1, its cases spread over the workers):** a package's group runs went over the 2-minute ceiling:
   `authoring or contract` 3,455 cases in 2 min 12 s (1 min 23 s for 3,420 in A5a) and `jobs or
   startup` 547 in 2 min 10 s (1 min 50 s for 509 in A5a), with no test over 10 s. The J34 module
   alone takes about 2 min 15 s in parallel (48 cases, the slowest the loads of W1 at 11 s); its
@@ -544,8 +544,15 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   - [ ] **Found in M1, unchanged code path:** after an offline schema upgrade (J12.6) the event
     deriver logs an error for feed entries written under the release whose schema the upgrade
     replaced (`UNSUPPORTED_PINNED_MODEL_SCHEMA` in `worker._plans_for`); it retries every 2 s.
-  - [ ] **Found in M1:** `test_j34_onboard.py` alone took 5 min 3 s with `-n auto` (112 cases), over
-    the package ceiling; one more input for S1 (D152).
+  - [x] **Found in M1, fixed in S1 (2026-10-18):** `test_j34_onboard.py` alone took 5 min 3 s with `-n auto` (112 cases), over
+    the package ceiling; one more input for S1 (D152). Since S1 its cases spread over the workers:
+    J34 with J35 and `test_batch_statements`, 136 cases, 1 min 10 s.
+  - [ ] **Found in S1 (2026-10-18), not caused by it (fails at `a73d667` too, alone and in the suite):**
+    `test_unique_values::test_the_rows_follow_the_active_release` (a unique value's row stays after
+    a release without the feature is activated into every workspace running the old one: 1 row, 0
+    expected) and `test_j27_export::test_a_cancelled_failed_or_expired_export_serves_no_file` (an
+    export queued before a release change completes instead of failing `MODEL_RELEASE_CHANGED`).
+    Both touch what M1 made per workspace; cause not traced.
   - [ ] **Found in V1 (2026-10-17), not caused by it (fails at `0b08e9c` too):**
     `tests/journeys/test_j35_next_version.py` fails 8 of its cases: a profile loads
     `INVALID_IMPORT_PROFILE` "Object type … is not in the model", the profile checked against the
@@ -585,10 +592,13 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   - [ ] The user's requirement: data moved between workspaces whose models differ (Track X), in
     0.11 (plan D3, accepted 2026-10-15). X1, the mapping between two models, and X2, the
     selection and the dry run of a move, delivered 2026-10-18; X3–X5 remain.
-  - [ ] The backend suite's time (D152, package S1): a filler during Part 1, before X2 at the latest
-    (plan D2, accepted 2026-10-15; revised 2026-10-18: X2 went first, S1 follows it).
+  - [x] The backend suite's time (D152, package S1): a filler during Part 1, before X2 at the latest
+    (plan D2, accepted 2026-10-15; revised 2026-10-18: X2 went first, S1 follows it). Delivered
+    2026-10-18: journey cases spread over the workers; the full suite with `-n 6` under a revised
+    11-minute ceiling (D126).
   - [ ] **Found in X2 (2026-10-18):** the groups `move`, `jobs` and `startup` together took 5 min
-    8 s with `-n auto` (757 cases), over the package ceiling; more input for S1 (D152).
+    8 s with `-n auto` (757 cases), over the package ceiling; more input for S1 (D152). J34's cases
+    spread since S1; this selection was not measured again (X3 runs it).
   - [x] 0.11.0-alpha.1 when the M6 checkpoint passes (plan D12, accepted 2026-10-15): released
     2026-10-17, tag `v0.11.0-alpha.1`.
 

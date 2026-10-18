@@ -50,7 +50,11 @@ def model_path(configuration: Configuration) -> Path:
     # As built: a consumer API's fields are read in the order written (C-D140).
     text_ = json.dumps(configuration.model)
     if not path.exists() or path.read_text() != text_:
-        path.write_text(text_)
+        # Moved into place whole: workers starting one configuration together never read it half
+        # written (S1).
+        partial = path.with_name(f"{path.name}.{uuid4().hex}")
+        partial.write_text(text_)
+        partial.replace(path)
     return path
 
 

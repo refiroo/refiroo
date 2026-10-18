@@ -28,7 +28,8 @@ dev = [
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
-# `-n auto` runs modules in parallel, each module on one worker (TEST_HARNESS_PLAN H2).
+# `-n auto` runs modules in parallel, each module on one worker (TEST_HARNESS_PLAN H2), and journey
+# tests one at a time (tests/conftest.py, S1).
 addopts = ["--strict-markers", "--dist", "loadfile"]
 
 [tool.setuptools.packages.find]

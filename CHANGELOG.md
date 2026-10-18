@@ -6,6 +6,16 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed (0.11 S1)
+
+- Backend test runs: in a parallel run each journey test goes to a worker on its own, while any
+  other test module stays on one worker, so a large journey module spreads over the workers (J34
+  with J35, 1 min 10 s; J34 alone took 5 min 3 s). The journey model file is written whole before
+  any worker reads it.
+- The full backend suite runs with six workers (`pytest -n 6`) under a ceiling of 11 minutes,
+  revised from 5 (D126): 10 min 15 s for 5,950 cases with the machine usable, where ten workers
+  took 8 min 49 s at a load near 145.
+
 ### Added (0.11 X2)
 
 - The dry run of a move between workspaces whose models differ (`POST /api/v1/moves`), a background

@@ -43,7 +43,7 @@ of any limit on it.
 | --- | --- | --- |
 | Focused tests while iterating | any time | seconds: one module or case, without `-n` |
 | A package's checks: testmon's selection and the journeys it touches, or its boundary's groups (EXECUTION_GUIDE §2) | end of a package | **2 minutes**, with `-n auto` and the groups' serial part |
-| Build acceptance: the full backend suite without `budget` | end of a build | **5 minutes**, parallel part plus serial part |
+| Build acceptance: the full backend suite without `budget` | end of a build | **11 minutes**, with `-n 6`, parallel part plus serial part (5 minutes until 0.11 S1, which measured 10 min 15 s at 5,950 cases; D126) |
 | Full-size budgets (`-m budget`) | a release's acceptance only, once | announced with its expected time before it starts (2 min 39 s at PG5, 2026-10-03; PG-D17's target is under a minute per context) |
 
 The rules that hold the ceilings:
@@ -163,7 +163,8 @@ rather than here and again there. Worker counts other than `-n auto` were not co
 
 **Scope:** `pytest-xdist` as a dev dependency. The shared session database becomes one per worker,
 so no two processes share a database; all workers clone from the same seeds on the one test
-server. Tests run with `--dist loadfile`, so a module stays on one worker.
+server. Tests run with `--dist loadfile`, so a module stays on one worker. (Since 0.11 S1 a journey
+test goes to a worker on its own; see EXECUTION_GUIDE §1.)
 Timing-based checks (`volume`, the lock-wait tests in `test_jobs_migration`, the worker thread test
 in `test_background_jobs`) carry a `serial` marker and run in a second, non-parallel invocation.
 AGENTS.md's rule "never run multiple backend pytest processes concurrently" becomes "run one pytest

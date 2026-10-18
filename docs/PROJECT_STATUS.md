@@ -86,7 +86,14 @@ updated, refused by the target's rules or not moved with the mapping's reason, e
 counted, nothing written (migration `20261021_01`, which adds the `pgcrypto` extension;
 [record](BASE_0_11_IMPLEMENTATION_PLAN.md#x2-record-2026-10-18)). Records cannot be copied or moved
 into a change set yet (X3), and there is no screen yet (X4). X2 went before S1 on the user's
-go-ahead (D2 revised). Next: S1, the suite's time, then X3. Accepted by the user 2026-10-15: the data move in 0.11 (D3), the suite's
+go-ahead (D2 revised). **S1, the suite's time, is delivered (2026-10-18):** journey cases now
+spread over the test workers one at a time instead of a module holding one worker, so J34 no longer
+holds a run up (with J35, 1 min 10 s; alone 5 min 3 s in M1); measured twice, the suite's summed
+test time is about 6 minutes over 10 cores even uncontended, so D126 runs the full suite with six
+workers (10 min 15 s, the machine usable) under a ceiling revised to 11 minutes
+([record](BASE_0_11_IMPLEMENTATION_PLAN.md#s1-record-2026-10-18)). Three failures found failing
+at `a73d667` too are in TODO (J35's eight, unique-value rows, an export over a release change).
+Next: X3. Accepted by the user 2026-10-15: the data move in 0.11 (D3), the suite's
 time (D152) as a filler during Part 1 before X2 at the latest (D2), and 0.11.0-alpha.1 after the M6
 checkpoint (D12).
 
