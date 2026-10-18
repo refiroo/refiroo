@@ -1060,7 +1060,8 @@ save refused).
 
 **Actor:** model administrator. **Channel:** UI (Settings › Model), API. **Stories:** US-P05.
 **Status:** J37.1–J37.5 delivered (0.11 V1, 2026-10-18: the API and Settings › Model's migration
-page); J37.6–J37.8 planned (V2–V4).
+page); J37.6 delivered through the API (0.11 V2, 2026-10-18; its screen follows the mock-up's
+approval); J37.7–J37.8 planned (V3–V4).
 
 1. Choose a workspace and a target release its data does not fit as it is.
 2. Read the preview: every conversion and every potential loss, item by item.
@@ -1074,7 +1075,10 @@ page); J37.6–J37.8 planned (V2–V4).
 - **J37.3 Cancel**: nothing changes.
 - **J37.4 A stale review**: the workspace changed since the preview; refused.
 - **J37.5 A failed execution**: nothing changes.
-- **J37.6 A change set started from a publication** moved to a named release (V2).
+- **J37.6 A change set on a release its workspace no longer runs** (typically one started from an
+  older publication) published by moving the workspace to the change set's release: one preview
+  lists the migration's items and what would stop the publication; the confirmation migrates and
+  publishes together, or nothing happens (V2).
 - **J37.7 A change set moved onto a release its content does not fit**, previewed and confirmed (V3).
 - **J37.8 Schema versions side by side**: a model of an older schema version activated in one
   workspace beside one of the current version in another (V4).
@@ -1083,6 +1087,7 @@ A record the migrated data would break a rule of the target for is refused, and 
 cannot be confirmed until the data is fixed and previewed again.
 
 **Refusals:** `409 MIGRATION_REVIEW_STALE`, `409 MIGRATION_HAS_REFUSALS`,
+`422 MIGRATION_TARGET_NOT_CHANGE_SET_RELEASE`, `404 CHANGE_SET_NOT_FOUND`,
 `422 MIGRATION_LOSS_NOT_ACCEPTED`, `422 INVALID_MIGRATION_MAPPING`,
 `422 MIGRATION_TARGET_IS_CURRENT`, `422 UNSUPPORTED_SCHEMA_VERSION`, `409 WORKSPACE_RETIRED`; the
 job's `MIGRATION_FAILED`.
@@ -1090,6 +1095,9 @@ job's `MIGRATION_FAILED`.
 **Evidence today:** `tests/journeys/test_j37_workspace_migration.py` (7 cases, generated A and B,
 each with a target release derived in the test: a preview, a confirmation with and without
 accepting the loss, a type mapping, cancel, stale reviews, refusals, a failed execution);
+`tests/journeys/test_j37_6_change_set_release.py` (J37.6: 6 cases on generated A and B, a change
+set from an older publication published with the migration, a stale change set, a publication
+refused in the preview, the start refusals, a failed publication);
 `tests/unit/engine/model/test_migrations.py` (the plan, the conversions against the import's reading
 of a cell, an executed migration leaving the matrix cell states true); the upgrade in
 `test_startup`; in the browser `test:browser:workspace-v1` (generated-a and generated-b: the

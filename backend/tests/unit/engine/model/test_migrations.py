@@ -18,7 +18,12 @@ from sqlalchemy import text
 from app.db import SessionLocal
 from app.engine.imports.cells import attribute_value
 from app.engine.model.compiler import parse_model
-from app.engine.model.migrations import TypeMapping, plan_migration, relaxed
+from app.engine.model.migrations import (
+    TypeMapping,
+    plan_migration,
+    publication_refusal_items,
+    relaxed,
+)
 from app.errors import ApiError
 from app.models.schema import AttributeTypeDefinition
 
@@ -443,3 +448,24 @@ def test_a_long_migration_step_renews_its_lease_and_stops_when_another_worker_ho
         assert (expires - datetime.now(UTC)).total_seconds() > 590
     with pytest.raises(LeaseLost):
         other._renew_lease(sequence_id)
+
+
+def test_what_would_stop_a_publication_becomes_refused_items_naming_their_subject():
+    """A merge conflict names its record or relationship, a version mismatch reading as
+    CHANGE_SET_CONFLICT and another conflict keeping its code; a graph diagnostic keeps its code
+    and names the relationship or record in its details (0.11 V2, D82)."""
+    findings = [
+        {"kind": "object", "id": "o1", "code": "VERSION_MISMATCH", "message": "changed live"},
+        {"kind": "relation", "id": "r1", "code": "DUPLICATE_EDGE", "message": "both define it"},
+        {"code": "REQUIRED_ATTRIBUTE_MISSING", "message": "m", "details": {"objectId": "o2"}},
+        {"code": "CARDINALITY_EXCEEDED", "message": "m", "details": {"relationId": "r2"}},
+        {"code": "IDENTITY_COLLISION", "message": "m", "details": {"id": "o3"}},
+    ]
+    items = publication_refusal_items(findings)
+    assert [(subject, code) for subject, code, _path, _message in items] == [
+        ("object:o1", "CHANGE_SET_CONFLICT"),
+        ("relation:r1", "DUPLICATE_EDGE"),
+        ("object:o2", "REQUIRED_ATTRIBUTE_MISSING"),
+        ("relation:r2", "CARDINALITY_EXCEEDED"),
+        ("object:o3", "IDENTITY_COLLISION"),
+    ]

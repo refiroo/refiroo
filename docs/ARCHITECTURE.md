@@ -897,6 +897,15 @@ the change set. Publications are unchanged. Because model selection is global to
 must use the planned workspace assignment boundary and leave other workspaces' assignments and data
 untouched. Loss confirmation never waives target-model validity or concurrency checks.
 
+Delivered in 0.11 V2: the migration names the change set and its target is the change set's
+release. Its preview merges the change set over the migrated data inside the same savepoint
+(`publish.publication_findings`, the merge collecting its conflicts instead of refusing) and lists
+what would stop the publication as refused items. Confirmation also binds the change set's version
+and the workspace's active publication. The execution claims the change set after the workspace row
+and before the assignment (the documented lock order), migrates, switches the assignment and
+publishes through `publish.apply_publication`, the publication's steps without their commit, in the
+one transaction; its feed entries follow the migration's.
+
 The same preview and confirmation apply to one change set (ADR-028), run against that change set's own
 candidate graph and the live data under it: moving a change set onto a release its content does not
 already satisfy happens only from a reviewed preview.

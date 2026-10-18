@@ -349,8 +349,13 @@ def _merge_change_set_over_live(
     base_objects: dict[str, PublicationObject | ChangeSetBaseObject],
     base_relations: dict[str, PublicationRelation | ChangeSetBaseRelation],
     model: Any,
+    *,
+    collect: list[dict[str, Any]] | None = None,
 ) -> LiveMerge:
     """Compute the live content that would result from applying the change set's delta.
+
+    With ``collect``, the per-record conflicts are added to it instead of refusing the merge, for
+    a preview that lists them (0.11 V2, D82).
 
     The current live projection is authoritative and is the substrate; only records the change set
     actually authored (created / edited / tombstoned relative to its derived-from publication) are
@@ -562,7 +567,9 @@ def _merge_change_set_over_live(
         else:
             seen_edges[edge] = relation_id
 
-    if conflicts:
+    if collect is not None:
+        collect.extend(conflicts)
+    elif conflicts:
         raise api_error(
             409,
             "VERSION_CONFLICT",
@@ -597,6 +604,46 @@ def publish_change_set(
     expected_change_set_version: int,
     expected_active_publication_id: str | None,
 ) -> Publication:
+    publication = apply_publication(
+        session,
+        change_set_id,
+        model,
+        active_release_id,
+        expected_change_set_version,
+        expected_active_publication_id,
+    )
+    session.commit()
+    return publication
+
+
+def publication_findings(
+    session: Session, change_set: ChangeSet, model: Any
+) -> list[dict[str, Any]]:
+    """What would stop the change set's publication over the current live data under ``model``,
+    without changing anything: each merge conflict (``kind``, ``id``, ``code``, ``message``) and
+    each whole-graph diagnostic (``code``, ``message``, ``details``). A migration's preview lists
+    them as refused items (0.11 V2, D82)."""
+    conflicts: list[dict[str, Any]] = []
+    merged = _merge_change_set_over_live(
+        session,
+        change_set,
+        *_publication_snapshot_maps(session, change_set),
+        model,
+        collect=conflicts,
+    )
+    return conflicts + graph_diagnostics(merged.membership, model)
+
+
+def apply_publication(
+    session: Session,
+    change_set_id: str,
+    model: Any,
+    active_release_id: int,
+    expected_change_set_version: int,
+    expected_active_publication_id: str | None,
+) -> Publication:
+    """Publish the change set in the caller's transaction, which commits it: a publication, and a
+    migration that publishes the change set after switching its workspace's release (0.11 V2)."""
     # Lock order (ARCHITECTURE): the workspace row first, so live writes wait for the
     # publication transaction (PG-D5), then the change set, claimed before the merge population
     # is read. ``NO KEY UPDATE`` leaves other change sets' writes, which hold the workspace's key
@@ -690,7 +737,7 @@ def publish_change_set(
     merge_change_set_relation_set_versions_to_live(session, change_set.id, change_set.workspace_key)
     delete_change_set_and_base(session, change_set)
     matrix_states.record_publication(session, publication)
-    session.commit()
+    session.flush()
     return publication
 
 

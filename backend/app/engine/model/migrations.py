@@ -26,6 +26,15 @@ for every record and relationship it changes (D73), checks again that nothing is
 the counts are the reviewed ones, and switches the assignment as activation does
 (``releases.switch_workspace_release``). A failure anywhere rolls everything back.
 
+**A change set published with it** (V2, D79–D83). A migration may name an open change set of the
+workspace pinned to a release the workspace no longer runs; the target is then that release. The
+preview also merges the change set over the migrated data under the target, inside the same
+savepoint, and lists what would stop its publication as refused rows: each record or relationship
+changed both in the change set and live since its base (``CHANGE_SET_CONFLICT``) and each rule the
+merged graph breaks. The confirmation binds the change set's version and the workspace's active
+publication too, and the execution publishes the change set after the switch, in the same
+transaction (``publish.apply_publication``).
+
 The refusals of a preview leave its savepoint through Python, the one place a migration's data
 passes through the process: they must survive the rollback, and no statement can carry rows past
 it. They are bounded by what must be fixed before the migration can run.
@@ -44,8 +53,9 @@ from sqlalchemy import Select, select, text
 from sqlalchemy.orm import Session
 
 from ...errors import ApiError, api_error
-from ...models.database import Job, ModelRelease, Workspace
+from ...models.database import ChangeSet, Job, ModelRelease, Workspace
 from ...models.schema import EngineModel
+from ..change_sets.publish import apply_publication, publication_findings
 from ..indexes import matrix_states
 from ..jobs.store import (
     LeaseLost,
@@ -623,12 +633,16 @@ _REFUSALS = """
 INSERT INTO job_items (job_id, item_index, ref, status, outcome)
 SELECT CAST(:job AS integer), CAST(:offset AS integer) + listed.position - 1, NULL, 'rejected',
     json_strip_nulls(json_build_object(
-        'outcome', 'refused', 'code', listed.code, 'objectId', listed.object_id,
-        'objectName', o.name, 'objectTypeKey', o.object_type_key, 'path', listed.path,
+        'outcome', 'refused', 'code', listed.code,
+        'objectId', coalesce(listed.object_id, r.from_object_id, listed.relation_id),
+        'objectName', o.name, 'objectTypeKey', o.object_type_key, 'relationId', listed.relation_id,
+        'relationTypeKey', r.relation_type_key, 'toObjectId', r.to_object_id, 'path', listed.path,
         'message', listed.message))
-FROM unnest(CAST(:ids AS text[]), CAST(:codes AS text[]), CAST(:paths AS text[]),
-    CAST(:messages AS text[])) WITH ORDINALITY AS listed(object_id, code, path, message, position)
-LEFT JOIN objects o ON o.id = listed.object_id
+FROM unnest(CAST(:ids AS text[]), CAST(:relations AS text[]), CAST(:codes AS text[]),
+    CAST(:paths AS text[]), CAST(:messages AS text[]))
+    WITH ORDINALITY AS listed(object_id, relation_id, code, path, message, position)
+LEFT JOIN object_relations r ON r.id = listed.relation_id
+LEFT JOIN objects o ON o.id = coalesce(listed.object_id, r.from_object_id)
 """
 
 _COUNTS = """
@@ -860,21 +874,38 @@ def _release(session: Session, release_id: str) -> ModelRelease:
     return release
 
 
+def _change_set_of(session: Session, workspace_key: str, change_set_id: str) -> ChangeSet:
+    change_set = session.scalar(select(ChangeSet).where(ChangeSet.id == change_set_id))
+    if change_set is None or change_set.workspace_key != workspace_key:
+        raise api_error(
+            404,
+            "CHANGE_SET_NOT_FOUND",
+            f"Workspace '{workspace_key}' has no open change set '{change_set_id}'",
+            {"workspaceKey": workspace_key, "changeSetId": change_set_id},
+        )
+    return change_set
+
+
 def submit_migration(
     session: Session,
     workspace_key: str,
     *,
-    target_release_id: str,
+    target_release_id: str | None,
     expected_version: int,
     type_mappings: list[dict[str, Any]],
     retention_days: int,
+    change_set_id: str | None = None,
+    expected_change_set_version: int | None = None,
 ) -> Job:
     """Queue the preview of a migration of ``workspace_key`` to the target release. Refused before
     a job exists: an unknown or retired workspace, an unknown target or one of an unsupported
     schema, the release the workspace runs already, an assignment changed since
     ``expected_version`` (``409 ACTIVATION_CONFLICT``), a mapping naming what the models lack, a
     consumer API whose contract changes without a new contract version
-    (``ConsumerContractVersionRequired``)."""
+    (``ConsumerContractVersionRequired``). Naming a change set (V2): another workspace's or none
+    (``404 CHANGE_SET_NOT_FOUND``), one changed since ``expected_change_set_version`` (``409
+    CHANGE_SET_VERSION_CONFLICT``), a target other than its release (``422
+    MIGRATION_TARGET_NOT_CHANGE_SET_RELEASE``)."""
     workspace = session.get(Workspace, workspace_key)
     if workspace is None:
         raise api_error(404, "WORKSPACE_NOT_FOUND", f"Workspace '{workspace_key}' not found")
@@ -886,6 +917,31 @@ def submit_migration(
             {"workspaceKey": workspace_key},
         )
     assignment, current = load_assignment(session, workspace_key)
+    change_set = None
+    if change_set_id is not None:
+        change_set = _change_set_of(session, workspace_key, change_set_id)
+        if change_set.version != expected_change_set_version:
+            raise api_error(
+                409,
+                "CHANGE_SET_VERSION_CONFLICT",
+                "Change set version has changed",
+                {"changeSetId": change_set.id, "currentVersion": change_set.version},
+            )
+        pinned = session.get(ModelRelease, change_set.model_release_id)
+        if target_release_id is not None and target_release_id != pinned.public_id:
+            raise api_error(
+                422,
+                "MIGRATION_TARGET_NOT_CHANGE_SET_RELEASE",
+                f"Change set '{change_set.id}' works under release '{pinned.public_id}'; a "
+                "migration that publishes it moves the workspace to that release",
+                {
+                    "changeSetId": change_set.id,
+                    "changeSetReleaseId": pinned.public_id,
+                    "releaseId": target_release_id,
+                },
+            )
+        target_release_id = pinned.public_id
+    assert target_release_id is not None
     target = _release(session, target_release_id)
     if assignment.version != expected_version:
         raise api_error(
@@ -921,12 +977,13 @@ def submit_migration(
         session,
         kind="migration",
         workspace_key=workspace_key,
-        change_set_id=None,
+        change_set_id=change_set.id if change_set is not None else None,
         model_release_id=current.id,
         parameters={
             "stage": "preview",
             "targetReleaseId": target.public_id,
             "typeMappings": type_mappings,
+            **({"changeSetId": change_set.id} if change_set is not None else {}),
         },
         total=None,
         retention_days=retention_days,
@@ -1061,18 +1118,35 @@ class _Migration:
             return found
         return [("", item.code, item.path, item.message) for item in result.diagnostics]
 
+    def publication_refusals(self, change_set: ChangeSet) -> list[tuple[str, str, str, str]]:
+        """What would stop the change set's publication over the migrated data (D82)."""
+        self.session.expire_all()
+        return publication_refusal_items(
+            publication_findings(self.session, change_set, self.target)
+        )
+
     def write_refusals(self, refused: list[tuple[str, str, str, str]], offset: int) -> None:
+        """Refused items in order. An item's subject is a record's ID, or ``object:<id>`` or
+        ``relation:<id>`` for a publication's refusal (a relationship's item names its source)."""
         if not refused:
             return
         ids, codes, paths, messages = (list(column) for column in zip(*refused, strict=True))
+        objects = [
+            item.removeprefix("object:") if not item.startswith("relation:") else None
+            for item in ids
+        ]
+        relations = [
+            item.removeprefix("relation:") if item.startswith("relation:") else None for item in ids
+        ]
         self.session.execute(
             text(_REFUSALS),
             {
                 "job": self.job.sequence_id,
                 "offset": offset,
-                "ids": ids,
+                "ids": objects,
+                "relations": relations,
                 "codes": codes,
-                "paths": paths,
+                "paths": [path or None for path in paths],
                 "messages": messages,
             },
         )
@@ -1080,6 +1154,30 @@ class _Migration:
     def counts(self) -> dict[str, int]:
         found = dict(self.session.execute(text(_COUNTS), {"job": self.job.sequence_id}).all())
         return {outcome: int(found.get(outcome, 0)) for outcome in OUTCOMES}
+
+
+def publication_refusal_items(
+    findings: Sequence[dict[str, Any]],
+) -> list[tuple[str, str, str, str]]:
+    """A publication's findings as refused items (D82): a merge conflict names its record or
+    relationship, a record or relationship changed in both since the change set's base being
+    ``CHANGE_SET_CONFLICT``; a whole-graph diagnostic keeps its code and names the record or
+    relationship in its details. Subjects are ``object:<id>`` or ``relation:<id>``."""
+    items = []
+    for item in findings:
+        details = item.get("details") or {}
+        if "kind" in item:
+            code = "CHANGE_SET_CONFLICT" if item["code"] == "VERSION_MISMATCH" else item["code"]
+            subject = f"{item['kind']}:{item['id']}"
+        else:
+            code = item["code"]
+            subject = (
+                f"relation:{details['relationId']}"
+                if "relationId" in details
+                else f"object:{details.get('objectId') or details.get('id') or ''}"
+            )
+        items.append((subject, code, "", item["message"]))
+    return items
 
 
 def _insert(session: Session, table: str, rows: Sequence[tuple[Any, ...]]) -> None:
@@ -1125,6 +1223,21 @@ def run_preview(
     feed_position = session.scalar(
         select(Workspace.feed_position).where(Workspace.key == job.workspace_key)
     )
+    workspace = session.get(Workspace, job.workspace_key)
+    change_set = (
+        _change_set_of(session, job.workspace_key, job.change_set_id)
+        if job.change_set_id is not None
+        else None
+    )
+    published = (
+        {
+            "changeSetId": change_set.id,
+            "changeSetVersion": change_set.version,
+            "activePublicationId": workspace.active_publication_id,
+        }
+        if change_set is not None
+        else {}
+    )
     migration.prepare()
     renew()
     written = migration.write_rows()
@@ -1134,6 +1247,9 @@ def run_preview(
         migration.apply(audit=False)
         renew()
         refused = migration.refusals(listing=True)
+        if change_set is not None:
+            renew()
+            refused += migration.publication_refusals(change_set)
     finally:
         savepoint.rollback()
     renew()
@@ -1145,6 +1261,7 @@ def run_preview(
         currentReleaseId=current.public_id,
         expectedVersion=assignment.version,
         feedPosition=int(feed_position or 0),
+        **published,
     )
     hold()
     await_confirmation(
@@ -1244,6 +1361,8 @@ def _require_reviewed(
         session.scalar(select(Workspace.feed_position).where(Workspace.key == job.workspace_key))
         or 0
     )
+    if "changeSetId" in summary:
+        _require_change_set_reviewed(session, job, summary, for_update=for_update)
     if (
         reviewed_version != summary.get("expectedVersion")
         or reviewed_feed_position != summary.get("feedPosition")
@@ -1266,6 +1385,37 @@ def _require_reviewed(
         )
 
 
+def _require_change_set_reviewed(
+    session: Session, job: Job, summary: dict[str, Any], *, for_update: bool
+) -> None:
+    """The change set at the version the preview read, and the workspace's active publication as
+    it was (D83); otherwise ``409 MIGRATION_REVIEW_STALE``."""
+    query = select(ChangeSet).where(ChangeSet.id == summary["changeSetId"])
+    change_set = session.scalar(query.with_for_update() if for_update else query)
+    active = session.scalar(
+        select(Workspace.active_publication_id).where(Workspace.key == job.workspace_key)
+    )
+    current_version = change_set.version if change_set is not None else None
+    if current_version != summary.get("changeSetVersion") or active != summary.get(
+        "activePublicationId"
+    ):
+        raise api_error(
+            409,
+            "MIGRATION_REVIEW_STALE",
+            f"Change set '{summary['changeSetId']}' or the publications of workspace "
+            f"'{job.workspace_key}' changed after the preview you reviewed; nothing was migrated. "
+            "Preview the migration again",
+            {
+                "workspaceKey": job.workspace_key,
+                "changeSetId": summary["changeSetId"],
+                "reviewedChangeSetVersion": summary.get("changeSetVersion"),
+                "currentChangeSetVersion": current_version,
+                "reviewedActivePublicationId": summary.get("activePublicationId"),
+                "currentActivePublicationId": active,
+            },
+        )
+
+
 def run_execution(
     session: Session,
     job: Job,
@@ -1281,6 +1431,11 @@ def run_execution(
     session.execute(
         select(Workspace.key).where(Workspace.key == job.workspace_key).with_for_update()
     )
+    if "changeSetId" in summary:
+        # Lock order (ARCHITECTURE): the workspace, the change set, then the assignment.
+        session.execute(
+            select(ChangeSet.id).where(ChangeSet.id == summary["changeSetId"]).with_for_update()
+        )
     migration = _Migration.open(session, job)
     current_release = session.get(ModelRelease, job.model_release_id)
     lock_what_activation_changes(
@@ -1311,7 +1466,19 @@ def run_execution(
             {"workspaceKey": job.workspace_key, "reviewed": summary.get("counts"), "now": counts},
         )
     switch_assignment(session, migration, current_release, summary["expectedVersion"])
-    _record(job, counts)
+    published = {}
+    if "changeSetId" in summary:
+        renew()
+        publication = apply_publication(
+            session,
+            summary["changeSetId"],
+            migration.target,
+            migration.target_release.id,
+            summary["changeSetVersion"],
+            summary.get("activePublicationId"),
+        )
+        published = {"publicationId": publication.id}
+    _record(job, counts, **published)
     hold()
     complete_job(session, job, retention_days=retention_days)
     return migration.target_release

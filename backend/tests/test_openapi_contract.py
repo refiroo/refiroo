@@ -179,10 +179,13 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # (JobConfirmation), a job's rows as an import's or a migration's page (MigrationRowPage,
     # MigrationRow) with the migration outcomes as statuses, and the jobs list's kind filter. Diffed
     # against the previous commit, nothing else changed (the migration route is registered with
-    # model administration, off in the default document).
+    # model administration, off in the default document). Re-baselined for 0.11 V2 (D80, D83): the
+    # migration summary's changeSetId, changeSetVersion, activePublicationId and publicationId.
+    # Diffed against the previous commit, nothing else changed (the route's request is off in the
+    # default document, as above).
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "ee2c8c22f29a53e38f00fd0de6327c9ff788af004a34a29751a128ae4179b22c"
+        "648a1442d9576bdd6fee8355e545d120f50d451ff60aae08b51539cbd1ba9118"
     )
 
 

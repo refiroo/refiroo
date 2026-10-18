@@ -4536,7 +4536,9 @@ its activation are delivered** (M1, with M2 folded in, 2026-10-15), and **what w
 (M3, 2026-10-15), and **reads spanning workspaces** (M4, 2026-10-16); M5 (2026-10-16) adds
 `releaseName` and the release diff's `workspaceKey` for the browser's per-workspace screens, and
 **a workspace's migration to another release is delivered through the API** (V1, 2026-10-17).
-Designed, each moving into "delivered" with its package: migrations of a change set (V2, V3),
+a change set on a release its workspace no longer runs is published by migrating the workspace
+to it (V2, 2026-10-18). Designed, each moving into "delivered" with its package: a change set's
+content moved to another release (V3),
 mappings between models (X1) and moves (X2, X3). Field-level detail not fixed
 here is finished in that package's plan.
 
@@ -4544,7 +4546,7 @@ here is finished in that package's plan.
 - `GET /api/v1/workspaces/{workspaceKey}/model` (delivered)
 - `POST /api/v1/workspaces/{workspaceKey}/model/activation` (delivered)
 - `POST /api/v1/workspaces/{workspaceKey}/model/migrations` (delivered, V1)
-- `POST /api/v1/change-sets/{changeSetId}/model-migrations` (V2, V3)
+- `POST /api/v1/change-sets/{changeSetId}/model-migrations` (V3)
 - `GET /api/v1/model-mappings`, `GET /api/v1/model-mappings/{mappingKey}`,
   `POST /api/v1/model-mappings`, `DELETE /api/v1/model-mappings/{mappingKey}?expectedVersion=` (X1)
 - `POST /api/v1/model-mappings/{mappingKey}/operations`,
@@ -4793,9 +4795,43 @@ changed. The job's rows are then the executed items.
 
 Cancel (`POST /jobs/{jobId}/cancel`) of a waiting preview changes nothing. History stays as it was.
 
+**A change set published with the migration** (V2, delivered). A change set pinned to a release
+its workspace no longer runs (typically one started from an older publication, which publishing
+refuses with `409 CHANGE_SET_MODEL_RELEASE_CONFLICT`) is published by migrating the workspace to
+that release:
+
+```json
+{ "changeSetId": "c0f81a22-…", "expectedChangeSetVersion": 7, "expectedVersion": 3 }
+```
+
+`targetReleaseId` may be left out: the target is the change set's release, and another one is
+`422 MIGRATION_TARGET_NOT_CHANGE_SET_RELEASE`. The preview migrates a copy of the workspace's live
+data as above, merges the change set over it under the target and lists, beside the migration's
+items, what would stop the publication as `refused` rows: a record or relationship changed both
+in the change set and live since its base (`CHANGE_SET_CONFLICT`, with `relationId` for a
+relationship), an ID created in both (`ID_COLLISION`, `DUPLICATE_EDGE`) and each rule the merged
+graph breaks under its own code. The summary adds `changeSetId`, `changeSetVersion` and
+`activePublicationId`; the confirmation is as above, and a change set edited (or discarded), or a
+publication made, since the preview is `409 MIGRATION_REVIEW_STALE` with
+`reviewedChangeSetVersion`, `currentChangeSetVersion`, `reviewedActivePublicationId` and
+`currentActivePublicationId`. The execution migrates, switches the release and publishes the change
+set in one transaction: its entries follow the migration's in the feed, the change set is gone, and
+the summary names the new `publicationId`. If the publication fails, nothing is migrated
+(`MIGRATION_FAILED`). The change set's content is never changed; consumer contracts are checked at
+the start as on any migration, so a release whose consumer APIs lower a contract version is refused
+(`409 CONSUMER_CONTRACT_VERSION_REQUIRED`): install the historical model with the contract versions
+raised, move the change set onto it (its content fits) and migrate to that release.
+
+| Status | Code | When |
+| --- | --- | --- |
+| 404 | `CHANGE_SET_NOT_FOUND` | not an open change set of this workspace (start) |
+| 409 | `CHANGE_SET_VERSION_CONFLICT` | the change set changed since `expectedChangeSetVersion` (start) |
+| 422 | `MIGRATION_TARGET_NOT_CHANGE_SET_RELEASE` | `targetReleaseId` is not the change set's release; `details.changeSetReleaseId` (start) |
+| 422 | `MIGRATION_TARGET_IS_CURRENT` | the change set is on the workspace's own release: publish it as usual (start) |
+
 `POST /change-sets/{changeSetId}/model-migrations` (`targetReleaseId`, `expectedChangeSetVersion`)
-does the same for one change set's content (V2: one started from a publication; V3: one left on a
-release its workspace no longer runs), never deleting change-set content to make it fit.
+moves one change set's content instead (V3: a change set left on a release its workspace no longer
+runs, moved onto the one it runs), never deleting change-set content to make it fit.
 
 ### Mappings between two models (X1)
 

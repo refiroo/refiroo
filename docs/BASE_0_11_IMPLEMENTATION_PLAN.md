@@ -11,7 +11,7 @@ packages are specified below at package level; each package's detailed plan, tes
 decisions are written and accepted when it starts, and it is delivered in the order of the
 [delivery queue](#delivery-queue), each by the [delivery steps](#how-a-package-is-delivered).
 **Delivered:** P0, M1 with M2 (2026-10-15), M3, M4, M5, M6 and M6a (2026-10-16), released as
-0.11.0-alpha.1 (2026-10-17, tag `v0.11.0-alpha.1`); V1 (2026-10-18).
+0.11.0-alpha.1 (2026-10-17, tag `v0.11.0-alpha.1`); V1 (2026-10-18); V2's API (2026-10-18).
 
 **Target:** Product 0.11.0, [production hardening and staged model rollout](ROADMAP.md#product-release-011--production-hardening-and-staged-model-rollout),
 with the two requirements the user added on 2026-10-15 (ROADMAP commit `a0859ae`).
@@ -298,7 +298,7 @@ change) and `volume` (every budget).
 | 7 | [M6](#m6-workspace-models-checkpoint) | M5 | **Delivered 2026-10-16, released as 0.11.0-alpha.1 (2026-10-17).** Two workspaces on two models composed in the browser; the roadmap's first workspace-model exit item; tagged 0.11.0-alpha.1 (D12) |
 | 7a | [M6a](#m6a-a-write-names-the-release-it-was-built-on) | M5 | **Delivered 2026-10-16.** Added 2026-10-16 in M6: a write names the release it was built on; refused when the workspace runs another; M6's case 4 |
 | 8 | [V1](#v1-a-workspaces-data-migrated-to-another-release) | M2 | **Delivered 2026-10-18.** Migration plan for one workspace: preview, conversions, loss, confirm bound to versions, atomic switch |
-| 9 | [V2](#v2-a-change-set-from-a-publication-moved-to-another-release) | V1 | GAP-02: a change set started from a publication moved to a named installed release |
+| 9 | [V2](#v2-a-change-set-from-a-publication-moved-to-another-release) | V1 | **API delivered 2026-10-18; screen on the mock-up's approval.** GAP-02: a change set on an older release published by migrating its workspace to that release |
 | 10 | [V3](#v3-a-change-set-moved-onto-a-release-it-does-not-fit) | V1 | ADR-028: a change set moved onto a release its content does not fit, previewed and confirmed |
 | 11 | [V4](#v4-the-schema-language-window) | V1, M6 | The bounded window of schema versions run side by side; explicit conversion rules |
 | 12 | [X1](#x1-the-mapping-between-two-models) | M4, P0 inventory | The model-to-model mapping: proposed, completed with mapping operations, saved and reused |
@@ -1933,6 +1933,148 @@ the historical pin), with V1's preview of incompatibilities and loss, confirmati
 exact reviewed versions, and atomic model and data application for that workspace only.
 
 **Groups:** `migration`, `change_sets`.
+
+##### V2 plan (2026-10-18)
+
+**Planned 2026-10-18; D79–D86 and the test cases accepted by the user the same day ("ok").** Checked against
+the code at `989994c`:
+
+- **A change set started from a publication is pinned to that publication's release**
+  (`change_sets/lifecycle.create_change_set`), so once the workspace has moved on, the pin is a
+  release the workspace no longer runs. Publishing then refuses it,
+  `409 CHANGE_SET_MODEL_RELEASE_CONFLICT` (`change_sets/publish.publish_change_set`). The change set
+  bar disables Publish and says to change the change set's version "if the content fits" (ADR-028's
+  pin change, `pinning.set_change_set_model_release`, which refuses content that does not fit), or
+  to discard it. Nothing offers the other direction.
+- **V1's migration** (`engine/model/migrations.py`) already moves a workspace's live data to any
+  installed release: a preview applied inside a savepoint and rolled back, rows per item, a
+  confirmation bound to the assignment version and the feed position, the execution and the switch
+  in one transaction. Its job row has a `change_set_id` column (no foreign key, so a publication
+  deleting the change set leaves the job intact), unused by migrations.
+- **`publish_change_set` commits by itself**, after the merge over live, the whole-graph check,
+  the delta, the feed entries and the change set's deletion. A publication inside a migration's
+  transaction needs the same steps without the commit.
+- **Consumer contracts:** a migration is refused at its start when the target changes what a
+  consumer API's consumers read without a higher contract version (V1, D75). Going back to an older
+  release lowers a contract version whenever the newer one raised it
+  (`CONSUMER_CONTRACT_VERSION_DECREASED`).
+
+**The conflict between the documents (stated before planning, as CLAUDE.md asks).** The P0 API
+design lists `POST /change-sets/{changeSetId}/model-migrations` for V2 and V3 and says it "does the
+same for one change set's content". The GAP-02 decision (your words in PLANNING_HANDOFF: publishing
+"gives a warning … and asks for confirmation of overriding the active scheme with potential data
+loss, or cancel the publishing"), the roadmap item ("model replacement targeting one workspace … the
+historical pin … atomic model/data application"), ARCHITECTURE ("It migrates current live data toward
+that target") and ACCEPTANCE_SCENARIOS SC-13 all say the opposite direction: the **workspace** moves
+to the change set's release, and the change set's content stays as it is. Moving the change set's
+content is V3. This plan follows GAP-02 (D79) and keeps the P0 route for V3 (D80).
+
+**What is built:** a change set whose pin differs from its workspace's release is published by
+migrating the workspace to the pin first, in one confirmed job. `POST /workspaces/{key}/model/migrations`
+takes an optional `changeSetId` (with `expectedChangeSetVersion`); the target is then the change
+set's release. The preview runs V1's preview and, inside the same rolled-back savepoint, the
+change set's merge over the migrated live data, listing what would stop the publication as refused
+items. The execution migrates, switches the assignment and publishes the change set in one
+transaction. In the UI, the change set bar's notice offers the migration (D85).
+
+**Decisions** (D79 onward):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D79 | What V2 moves | **The workspace's live data to the change set's release, then the change set is published, in one transaction.** The change set's content is not touched. Why: this is GAP-02 as you accepted it, the roadmap item and ARCHITECTURE; publishing in the same transaction is what makes it "confirm or cancel the publishing": a migration that succeeded but whose publication then failed would leave the workspace on the old release without the change set live. Cost: the publication's steps split from its commit (one function both paths call) |
+| D80 | The route | **`changeSetId` and `expectedChangeSetVersion` added to V1's `POST /workspaces/{key}/model/migrations`;** `targetReleaseId` becomes optional when a change set is named and, if sent, must be the change set's release (`422 MIGRATION_TARGET_NOT_CHANGE_SET_RELEASE`, new). `POST /change-sets/{id}/model-migrations` stays V3's, which moves the change set's content. Why: the route that migrates a workspace stays the one that migrates a workspace; the route under a change set moves the change set. The P0 design put both under one route with one description that fits V3 only. Cost: a P0 API line rewritten; one new code |
+| D81 | Which change sets | **Any open change set whose release its workspace no longer runs,** whether started from a publication, from live data under an earlier release, or left behind by an activation. A change set on the workspace's own release is refused with V1's `422 MIGRATION_TARGET_IS_CURRENT` (publish it as usual); a change set of another workspace `404 CHANGE_SET_NOT_FOUND` for this workspace. Why: the mechanism does not depend on how the change set started (generic capability first); the publication case is the common one. Cost: none |
+| D82 | What would stop the publication, in the preview | **Refused items, beside V1's:** each record or relationship the change set changed that live data also changed since its base (`CHANGE_SET_CONFLICT`, the publication's `VERSION_CONFLICT` per item) and each rule the merged graph breaks under the target (the whole-graph diagnostics, by code and record). With any, the confirmation is `409 MIGRATION_HAS_REFUSALS`, as in V1. Why: the confirmation must not fail on something the preview could have shown. Cost: the merge's conflicts and diagnostics written as job rows; the merge stays the recorded whole-graph exception (Python), as publishing is today |
+| D83 | What the confirmation binds | **V1's `expectedVersion` and `expectedFeedPosition`, plus the change set's version and the workspace's active publication,** read by the preview and returned in its summary (`changeSetId`, `changeSetVersion`, `activePublicationId`). A change set edited, or a publication made, since the preview is `409 MIGRATION_REVIEW_STALE` with the reviewed and current change set version in `details`. Why: what is applied is exactly what was reviewed, and one code says "preview again" for every kind of staleness. Cost: none beyond the fields |
+| D84 | Consumer contracts on the way back | **Unchanged: refused at the start** (`409 CONSUMER_CONTRACT_VERSION_REQUIRED`, naming each consumer API), with no flag to accept it. The way out exists today: install a release of the historical model with the contract versions raised, move the change set onto it (ADR-028's pin change: the content fits, as nothing else differs), and migrate to that one. Why: a consumer contract is a promise to integrators that the engine never lowers silently (C-D17); ARCHITECTURE says loss confirmation never waives target-model validity. Cost: none; the refusal's message names the recovery |
+| D85 | The UI | **On a mock-up you approve first** (delivery step 3). The change set bar's notice "This change set uses a different model version" gains **Move the workspace to this release…** where model administration and background jobs run (otherwise it says why not). It opens V1's migration page for the new job, which shows one more line ("Then publishes ‹change set›"), lists the publication's refusals with the others, and its done state links the new publication. Why: GAP-02 asks for the warning and confirmation at publishing; one migration page, not a second one. Cost: a board on the P0 canvas, the page's change-set line and refusals, a case in `test:browser:workspace-v1`, the gates' migration surfaces rechecked |
+| D86 | Volume | **No budget of its own.** V1's budget measured the migration at 100,000 records; V2 adds the publication's merge, which publishing already runs at that size. Why: nothing new to measure. Cost: none |
+
+**Journey test cases** (`tests/journeys/test_j37_workspace_migration.py`, J37.6, `migration`,
+`workspace_models`, `change_sets`; X beside Y, both directions, naming no key; X2 derived from X by
+V1's helper). Given in each: workspace W on X1 with records, publication P1; W migrated to X2 (V1)
+and written under X2 (a value of the attribute X2 retyped, a value of an attribute only X2 binds);
+change set C started from P1 (pinned to X1) with one record changed; publishing C refused
+`409 CHANGE_SET_MODEL_RELEASE_CONFLICT`.
+
+1. **J37.6 Preview.** A migration of W naming C waits for confirmation; its summary names C, its
+   version and X1 as the target, and counts conversions (X2's values back to X1's type) and losses
+   (the attribute X1 lacks). W's release, records and feed and C's version are unchanged.
+2. **J37.6 Confirm.** Without `acceptLoss`, `422 MIGRATION_LOSS_NOT_ACCEPTED`. With it, W runs X1,
+   C is gone and the next publication (on X1) is the active one, C's change is live, the converted
+   values read in X1's type, the lost values are gone, and the feed holds the migration's entries
+   followed by the publication's. The workspace on Y is unchanged.
+3. **J37.6 Stale.** C edited after the preview: the confirmation is `409 MIGRATION_REVIEW_STALE`,
+   nothing changed, and a new preview confirms.
+4. **J37.6 Publication refused in the preview.** A record C changed is also changed live after C
+   was started: the preview's refused rows name it (`CHANGE_SET_CONFLICT`) and the confirmation is
+   `409 MIGRATION_HAS_REFUSALS`, nothing changed.
+5. **J37.6 Start refusals.** A target other than C's release, `422
+   MIGRATION_TARGET_NOT_CHANGE_SET_RELEASE`; a change set on W's own release, `422
+   MIGRATION_TARGET_IS_CURRENT`; C named for the Y workspace, `404 CHANGE_SET_NOT_FOUND`.
+6. **J37.6 A failed publication.** The execution fails at the publication's last step (injected at
+   the execution boundary, as J37.5, stated in the test): the job is `failed` with
+   `MIGRATION_FAILED`, W is on X2 with its records and feed unchanged, C still open at its version.
+
+Unit tests: the publication's steps without the commit leave the same state as a publication (one
+case over a published change set), the merge's conflicts and diagnostics turned into rows.
+
+**Groups:** `migration`, `workspace_models`, `change_sets` (the publication's split touches its
+path; its 2 min 32 s over the ceiling is TODO's), `contract` (the route's new fields and code, the
+lock re-baselined after diffing); no migration of the database (the job's kind and `change_set_id`
+exist); Vitest for the bar and the page; `test:browser:workspace-v1`'s new case on two models at
+1440px and 390px with keyboard.
+
+**Composable domains (ADR-032):** identity is unaffected (records keep their IDs); audit and
+history: every migrated and published change has its entry, as in V1 and publishing; bulk APIs: the
+same job with item outcomes. No door closes.
+
+##### V2 record (in progress, 2026-10-18)
+
+**API delivered 2026-10-18; the screen (D85) waits for the mock-up's approval.**
+
+- **Built (API):** `POST /workspaces/{key}/model/migrations` takes `changeSetId` and
+  `expectedChangeSetVersion`, `targetReleaseId` then optional (D80); the start refuses a change set
+  of another workspace (`404 CHANGE_SET_NOT_FOUND`), one changed since its version (`409
+  CHANGE_SET_VERSION_CONFLICT`), a target other than its release (`422
+  MIGRATION_TARGET_NOT_CHANGE_SET_RELEASE`, new) and one on the workspace's own release (`422
+  MIGRATION_TARGET_IS_CURRENT`). The preview merges the change set over the migrated data in V1's
+  savepoint (`change_sets/publish.publication_findings`: the merge collects its conflicts instead of
+  refusing) and writes what would stop the publication as refused rows (`migrations.
+  publication_refusal_items`: `CHANGE_SET_CONFLICT`, the merge's other codes and the graph's, a
+  relationship's row naming `relationId` and its ends). The summary adds `changeSetId`,
+  `changeSetVersion`, `activePublicationId` and, executed, `publicationId`. Confirmation and
+  execution check the change set's version and the active publication (`MIGRATION_REVIEW_STALE`
+  with both versions); the execution claims the change set after the workspace row, migrates,
+  switches and publishes through `publish.apply_publication` (`publish_change_set` is now that plus
+  its commit) in one transaction. No database migration (the job's kind and `change_set_id`
+  existed).
+- **Where it differs from the design:** the plan's unit case "the publication's steps without the
+  commit leave the same state as a publication" is held instead by the publish journeys J05, J06,
+  J17 and J18, which run through the split (48 passed); the unit test covers the findings turned
+  into items. In J37.6's stale case the change set's edit after the preview is made on a record the
+  first migration did not touch: the record first chosen had been changed live by that migration,
+  so the preview rightly refused it as `CHANGE_SET_CONFLICT` (the case as approved is unchanged).
+  The consumer-contract refusal of D84 did not arise on the way back in either configuration.
+- **Mock-up (D85):** a board added to the [P0 canvas](https://claude.ai/artifact/EiSQmSGwdGjCf2y21Cv4L9),
+  row "V1, V2": the change set bar's notice with **Move ‹workspace› to ‹release› and publish…** (and
+  the reason when model administration or jobs are off), and the migration page with its
+  "Then publishes ‹change set›" line, the publication's refusals, the bar ("Migrate and publish")
+  and the done state linking the publication; the 390px page is V1's phone board. Awaiting
+  approval.
+
+**Checks so far (2026-10-18):** J37.6 written first, 12 failing at the route (`changeSetId` not
+accepted), then 12 passed. Groups `migration or workspace_models or contract`: 146 passed, 43 s
+(`test_every_error_code_is_listed` and the lock failed until API_JOURNEYS listed the code and the
+lock was re-baselined after diffing the document against `989994c`: only `MigrationSummary`'s four
+fields). The publish journeys J05, J06, J17, J18: 48 passed, 54 s. Unit `tests/unit/engine/change_sets`
+and `test_migrations.py`: 23 passed. The serial part: 2 passed. Ruff. **Not run:** the whole
+`change_sets` group (2 min 32 s in V1, over the ceiling; needs a go-ahead), the browser runner,
+Vitest and the gates (no screen yet).
+
+**What the user cannot do yet:** publish such a change set from the browser (the bar still only
+offers changing the version or discarding; the screen follows the board's approval); move a change
+set's content onto the workspace's release when it does not fit (V3).
 
 #### V3: A change set moved onto a release it does not fit
 

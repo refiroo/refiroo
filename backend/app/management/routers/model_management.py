@@ -241,15 +241,24 @@ def start_workspace_migration(
     MODEL_RELEASE_NOT_FOUND``, ``409 WORKSPACE_RETIRED``, ``409 ACTIVATION_CONFLICT`` (the
     assignment changed since ``expectedVersion``), ``422 UNSUPPORTED_SCHEMA_VERSION``, ``422
     MIGRATION_TARGET_IS_CURRENT``, ``422 INVALID_MIGRATION_MAPPING`` (at ``details.pointer``),
-    ``409 CONSUMER_CONTRACT_VERSION_REQUIRED`` (as on activation)."""
+    ``409 CONSUMER_CONTRACT_VERSION_REQUIRED`` (as on activation).
+
+    Naming ``changeSetId`` with ``expectedChangeSetVersion`` (0.11 V2) migrates the workspace to
+    that change set's release (``targetReleaseId`` may be left out) and publishes the change set in
+    the same transaction; the preview also lists what would stop the publication as refused items.
+    Refused before a job exists: ``404 CHANGE_SET_NOT_FOUND`` (not a change set of this
+    workspace), ``409 CHANGE_SET_VERSION_CONFLICT``, ``422 MIGRATION_TARGET_NOT_CHANGE_SET_RELEASE``,
+    and ``422 MIGRATION_TARGET_IS_CURRENT`` for a change set on the workspace's own release."""
     try:
         job = submit_migration(
             session,
             workspace_key,
-            target_release_id=str(payload.targetReleaseId),
+            target_release_id=str(payload.targetReleaseId) if payload.targetReleaseId else None,
             expected_version=payload.expectedVersion,
             type_mappings=[item.model_dump(by_alias=True) for item in payload.typeMappings],
             retention_days=request.app.state.batch_limits.retention_days,
+            change_set_id=payload.changeSetId,
+            expected_change_set_version=payload.expectedChangeSetVersion,
         )
     except ConsumerContractVersionRequired as exc:
         raise api_error(

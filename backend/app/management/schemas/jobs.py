@@ -208,13 +208,19 @@ class MigrationCounts(BaseModel):
 
 class MigrationSummary(BaseModel):
     """What a migration's preview found and what its confirmation binds (D74): the workspace's
-    assignment version (``expectedVersion``) and feed position it read."""
+    assignment version (``expectedVersion``) and feed position it read. A migration that
+    publishes a change set (V2, D83) names it with the version and the workspace's active
+    publication it read."""
 
     targetReleaseId: str
     currentReleaseId: str
     expectedVersion: int
     feedPosition: int
     counts: MigrationCounts
+    changeSetId: str | SkipJsonSchema[None] = _by_status()
+    changeSetVersion: int | SkipJsonSchema[None] = _by_status()
+    activePublicationId: str | SkipJsonSchema[None] = _by_status()
+    publicationId: str | SkipJsonSchema[None] = _by_status()
 
 
 class JobConfirmation(BaseModel):

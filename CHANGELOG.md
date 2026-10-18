@@ -6,6 +6,17 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.11 V2, API)
+
+- A change set on a release its workspace no longer runs (typically one started from an older
+  publication) is published by migrating the workspace to the change set's release:
+  `POST /workspaces/{key}/model/migrations` takes `changeSetId` and `expectedChangeSetVersion`, and
+  `targetReleaseId` is then optional. The preview also lists what would stop the publication as
+  refused items (`CHANGE_SET_CONFLICT` and the graph's rules); the confirmation binds the change
+  set's version and the active publication; the migration, the switch and the publication happen in
+  one transaction, or nothing does. The summary names `changeSetId`, `changeSetVersion`,
+  `activePublicationId` and `publicationId`. Code `MIGRATION_TARGET_NOT_CHANGE_SET_RELEASE`.
+
 ### Added (0.11 V1, API)
 
 - `POST /workspaces/{key}/model/migrations`: a workspace's data migrated to another installed

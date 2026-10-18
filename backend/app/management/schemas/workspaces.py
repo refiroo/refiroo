@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import UUID4, BaseModel, ConfigDict, Field
+from pydantic import UUID4, BaseModel, ConfigDict, Field, model_validator
 
 from .common import CollectionPage
 
@@ -59,13 +59,29 @@ class MigrationTypeMapping(BaseModel):
 
 
 class WorkspaceMigrationRequest(BaseModel):
-    """A migration of the workspace's data to an installed release (0.11 V1)."""
+    """A migration of the workspace's data to an installed release (0.11 V1). Naming a change set
+    of the workspace (V2, D79–D80) migrates to that change set's release and publishes the change
+    set in the same transaction; ``targetReleaseId`` may then be left out, and if sent must be the
+    change set's release."""
 
     model_config = ConfigDict(extra="forbid")
 
-    targetReleaseId: UUID4
+    targetReleaseId: UUID4 | None = None
     expectedVersion: int = Field(ge=1)
     typeMappings: list[MigrationTypeMapping] = Field(default_factory=list, max_length=500)
+    changeSetId: str | None = Field(default=None, max_length=36)
+    expectedChangeSetVersion: int | None = Field(default=None, ge=1)
+
+    @model_validator(mode="after")
+    def _names_what_it_needs(self) -> WorkspaceMigrationRequest:
+        if self.changeSetId is None:
+            if self.targetReleaseId is None:
+                raise ValueError("targetReleaseId is required unless a changeSetId is named")
+            if self.expectedChangeSetVersion is not None:
+                raise ValueError("expectedChangeSetVersion is sent only with a changeSetId")
+        elif self.expectedChangeSetVersion is None:
+            raise ValueError("a changeSetId is sent with its expectedChangeSetVersion")
+        return self
 
 
 class ChangeSetLeftBehind(BaseModel):
