@@ -161,6 +161,8 @@
   height: calc(100vh - var(--topbar-height));
   min-width: 0;
   overflow-y: auto;
+  /* Scrolling past the rail's end does not carry on into the page beside it. */
+  overscroll-behavior: contain;
   background: var(--rail-surface);
   border-right: 1px solid var(--border-subtle);
 }

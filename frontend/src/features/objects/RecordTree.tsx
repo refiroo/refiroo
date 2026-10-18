@@ -147,6 +147,12 @@ interface TreeState {
   /** Whether a type group is open; groups start open, and a choice persists like a record's. */
   isGroupOpen: (groupKey: string) => boolean;
   toggle: (objectId: string, expanded: boolean) => void;
+  /** Expands a record or heading as the reader does, opening a sole collapsed child (`awaitingSoleChild`). */
+  expand: (key: string) => void;
+  /** Whether `key` waited to see if it holds a sole child; it waits no longer. */
+  settleSoleChild: (key: string) => boolean;
+  /** Changes whenever an expansion starts waiting, so the groups look again. */
+  soleChildVersion: number;
   /** True while a type-ahead is in progress; Space then extends it rather than opening. */
   typing: () => boolean;
   register: (groupKey: string, list: CursorWindow<ObjectItem> | undefined) => void;
@@ -269,9 +275,10 @@ export function RecordTree({
     steps: RevealStep[];
     path: ObjectItem["path"];
   }>();
-  // The record a focus request waits to focus, and the parent its revealed path puts it under: a
-  // row of it elsewhere (its old place, still drawn just after a move) is not the one to focus.
-  const pendingFocus = useRef<{ id: string; parentId?: string } | undefined>(undefined);
+  // The record a focus request waits to show (and focus, unless the request says not to), and the
+  // parent its revealed path puts it under: a row of it elsewhere (its old place, still drawn just
+  // after a move) is not the one.
+  const pendingFocus = useRef<{ id: string; parentId?: string; focus: boolean } | undefined>(undefined);
   useEffect(() => {
     if (!revealId || !revealType) return;
     let current = true;
@@ -296,7 +303,7 @@ export function RecordTree({
         const ancestors = new Set(item.path.slice(0, -1).map((part) => part.id));
         if (focusing) {
           // A focus request opens every branch above its record, whatever was chosen before.
-          if (moveFocus) pendingFocus.current = { id: item.id, parentId: item.path.at(-2)?.id };
+          pendingFocus.current = { id: item.id, parentId: item.path.at(-2)?.id, focus: moveFocus };
           // Folding groups (UA9, U-D21): the type groups on the path open with the branches, so the
           // path is shown again when the tree returns, not only while the reveal runs.
           const groups = FOLDING_GROUPS
@@ -360,8 +367,21 @@ export function RecordTree({
     (groupKey: string) => branchState.choices.get(groupKey) ?? Boolean(search),
     [branchState, search],
   );
+  /**
+   * Expanding a record or heading by hand opens its child when it holds only one that can expand
+   * (a record with one type heading, a heading with one record); with several, all stay collapsed.
+   * Only that one level opens, never the child's own sole child, so the reader sets the depth
+   * (requested by the user, 2026-10-19). It happens at every expansion, whatever was chosen for the
+   * child before, and the tree's first display expands its top level. A reveal or a drag opening a
+   * branch does not. These are the keys (a record's ID, a heading's fold key, `root`) waiting for
+   * their children to load to see how many there are.
+   */
+  const awaitingSoleChild = useRef(new Set<string>(["root"]));
+  const [soleChildVersion, setSoleChildVersion] = useState(0);
+  const settleSoleChild = useCallback((key: string) => awaitingSoleChild.current.delete(key), []);
   const toggle = useCallback(
     (objectId: string, expanded: boolean) => {
+      if (!expanded) awaitingSoleChild.current.delete(objectId);
       // Folding hides records, and a hidden record leaves the selection (UA9).
       if (!expanded && selected.size) {
         const fold = /^group:(.*):([^:]*)$/.exec(objectId);
@@ -389,6 +409,14 @@ export function RecordTree({
       });
     },
     [storageKey, selected, selectionKey],
+  );
+  const expand = useCallback(
+    (key: string) => {
+      awaitingSoleChild.current.add(key);
+      setSoleChildVersion((version) => version + 1);
+      toggle(key, true);
+    },
+    [toggle],
   );
 
   const tree = useRef<HTMLDivElement>(null);
@@ -528,9 +556,12 @@ export function RecordTree({
       pendingFocus.current = undefined;
       pending.current = undefined;
       // The record's reveal reads first; a user who went elsewhere meanwhile (the lens search, the
-      // inspector) keeps their place, and the record only becomes the tab stop.
+      // inspector) keeps their place, and the record only becomes the tab stop. A request not to
+      // move focus still shows the record.
       const active = document.activeElement;
-      if (!active || active === document.body || tree.current?.contains(active)) focusItem(wanted);
+      if (pendingRow.focus && (!active || active === document.body || tree.current?.contains(active)))
+        focusItem(wanted);
+      else showRow(wanted);
       setFocusKey(wanted.dataset.treeKey);
       return;
     }
@@ -632,7 +663,7 @@ export function RecordTree({
         move(item, -1);
         break;
       case "ArrowRight": {
-        if (expanded === "false" && objectId) toggle(objectId, true);
+        if (expanded === "false" && objectId) expand(objectId);
         else if (expanded === "true") {
           const child = item.querySelector<HTMLElement>("[role='treeitem']");
           if (child) focusItem(child);
@@ -704,6 +735,9 @@ export function RecordTree({
       isExpanded,
       isGroupOpen,
       toggle,
+      expand,
+      settleSoleChild,
+      soleChildVersion,
       typing,
       register,
       rowsChanged,
@@ -731,6 +765,9 @@ export function RecordTree({
       isExpanded,
       isGroupOpen,
       toggle,
+      expand,
+      settleSoleChild,
+      soleChildVersion,
       typing,
       register,
       rowsChanged,
@@ -863,6 +900,14 @@ function TreeGroups({
     return failure ? [{ type, ...failure }] : [];
   });
   const note = shown || failures.length ? "" : values.includes("loading") ? loadingText : emptyText;
+  // Once every group has loaded, an expansion waiting here opens a sole heading (`awaitingSoleChild`).
+  const { settleSoleChild, toggle, soleChildVersion } = useTree();
+  const settled = !values.includes("loading");
+  const soleChildKey = parent?.id ?? parentKey;
+  const sole = drawn.length === 1 ? `group:${parent?.id ?? "top"}:${drawn[0]}` : undefined;
+  useEffect(() => {
+    if (settled && settleSoleChild(soleChildKey) && sole) toggle(sole, true);
+  }, [settled, soleChildKey, sole, settleSoleChild, toggle, soleChildVersion]);
   return (
     <>
       {wrap(
@@ -969,6 +1014,17 @@ function TreeGroup({
     unfolded.current = request;
     toggle(foldKey, true);
   }, [step, groupOpen, revealToken, toggle, foldKey]);
+  // Once its records have loaded, an expansion waiting at this heading opens a sole record that can
+  // expand (`awaitingSoleChild`).
+  const { expand, settleSoleChild, soleChildVersion, childTypesOf } = tree;
+  const only =
+    list.items.length === 1 && !list.hasNext && !list.hasPrevious && (list.totalCount ?? 1) === 1
+      ? list.items[0]
+      : undefined;
+  const soleRecord = only && childTypesOf(only.objectTypeKey).length > 0 ? only.id : undefined;
+  useEffect(() => {
+    if (status !== "loading" && settleSoleChild(foldKey) && soleRecord) toggle(soleRecord, true);
+  }, [status, foldKey, soleRecord, settleSoleChild, toggle, soleChildVersion]);
 
   const label = parent ? `${plural} within ${parent.name}` : search ? `${plural} matching ${search}` : plural;
   if (status !== "shown") return null;
@@ -1014,7 +1070,7 @@ function TreeGroup({
               className="tree-toggle"
               aria-hidden="true"
               title={groupOpen ? "Collapse" : "Expand"}
-              onClick={() => toggle(foldKey, !groupOpen)}
+              onClick={() => (groupOpen ? toggle(foldKey, false) : expand(foldKey))}
             >
               <Icon name={groupOpen ? "chevron-down" : "chevron-right"} size={14} />
             </span>
@@ -1057,23 +1113,54 @@ function TreeGroup({
 function FlatRows<T>({ list, label, children }: { list: CursorWindow<T>; label: string; children: ReactNode }) {
   const bottom = useRef<HTMLDivElement>(null);
   const rows = useRef<HTMLDivElement>(null);
-  // A jump lands on a row (the keyboard crossing a page edge, Ctrl+Home or End): it is brought into
-  // view and, when asked, focused, as a ScrollWindow did.
+  const rowAt = (index: number) =>
+    rows.current?.querySelector<HTMLElement>(`:scope > ul > [data-row-index="${index}"]`) ?? undefined;
+  // A keyboard jump (crossing a page edge, Ctrl+Home or End) lands on a row, which takes focus and is
+  // brought into view. Every load lands too (its first page, a seek to a revealed record, a reload
+  // after a write); those move nothing, since the group's rows scroll with the whole tree and a
+  // group loading would carry the reader away from where they are (reported 2026-10-18).
   const landed = useRef(0);
   const { landing, loading } = list;
   useLayoutEffect(() => {
     if (!landing || landing.token === landed.current || loading) return;
+    if (!landing.focus) {
+      landed.current = landing.token;
+      return;
+    }
     const index =
       landing.target === "start"
         ? list.startIndex
         : landing.target === "end"
           ? list.startIndex + list.items.length - 1
           : landing.target;
-    const row = rows.current?.querySelector<HTMLElement>(`:scope > ul > [data-row-index="${index}"]`);
+    const row = rowAt(index);
     if (!row) return;
     landed.current = landing.token;
-    row.querySelector<HTMLElement>(".tree-row")?.scrollIntoView?.({ block: "nearest" });
-    if (landing.focus) row.focus({ preventScroll: true });
+    focusItem(row);
+  });
+  // Rows dropped above the view (a sixth page loaded below) or added above it (Show earlier records)
+  // would shift what the reader looks at. A browser with scroll anchoring keeps the view itself;
+  // in one without it, the view follows a row both windows hold.
+  const kept = useRef<{ token?: number; start: number; end: number; first?: number; last?: number }>(undefined);
+  useLayoutEffect(() => {
+    const previous = kept.current;
+    const start = list.startIndex;
+    const end = start + list.items.length - 1;
+    const offset = (index: number) => {
+      const row = rowAt(index);
+      return row && rows.current
+        ? row.getBoundingClientRect().top - rows.current.getBoundingClientRect().top
+        : undefined;
+    };
+    // Only a window extended at an edge; a jump or reload replaces the window and lands anew.
+    if (!SCROLL_ANCHORING && previous && previous.token === landing?.token && previous.start !== start) {
+      // Pages dropped above keep the old last row; rows added above keep the old first one.
+      const [index, before] = start > previous.start ? [previous.end, previous.last] : [previous.start, previous.first];
+      const after = offset(index);
+      if (before !== undefined && after !== undefined && Math.abs(after - before) >= 1 && rows.current)
+        scrollerOf(rows.current).scrollTop += after - before;
+    }
+    kept.current = { token: landing?.token, start, end, first: offset(start), last: offset(end) };
   });
   const { hasNext, hasPrevious, loadNext, loadPrevious, before, after, setViewportIndex } = list;
   const last = list.startIndex + list.items.length - 1;
@@ -1211,7 +1298,7 @@ function TreeNode({
             className="tree-toggle"
             aria-hidden="true"
             title={expanded ? "Collapse" : "Expand"}
-            onClick={() => tree.toggle(item.id, !expanded)}
+            onClick={() => (expanded ? tree.toggle(item.id, false) : tree.expand(item.id))}
           >
             <Icon name={expanded ? "chevron-down" : "chevron-right"} size={14} />
           </span>
@@ -1290,9 +1377,38 @@ function ownRowsOf(group: HTMLElement) {
 
 function focusItem(item: HTMLElement) {
   item.focus({ preventScroll: true });
-  // The row, not the item, which also holds the expanded branch below it.
-  item.querySelector<HTMLElement>(".tree-row")?.scrollIntoView?.({ block: "nearest" });
+  showRow(item);
 }
+
+/**
+ * Brings an item's row (not the item, which also holds its expanded branch) into view. In the rail,
+ * only the rail scrolls, never the page beside it; a tree in the page (the tree lens) scrolls the
+ * page as the browser does.
+ */
+function showRow(item: HTMLElement) {
+  const row = item.querySelector<HTMLElement>(".tree-row") ?? item;
+  const scroller = scrollerOf(row);
+  if (scroller === document.scrollingElement || scroller === document.documentElement) {
+    row.scrollIntoView?.({ block: "nearest" });
+    return;
+  }
+  const view = scroller.getBoundingClientRect();
+  const box = row.getBoundingClientRect();
+  if (box.top < view.top) scroller.scrollTop -= view.top - box.top;
+  else if (box.bottom > view.bottom) scroller.scrollTop += Math.min(box.bottom - view.bottom, box.top - view.top);
+}
+
+/** The element that scrolls `element`: the nearest scrolling ancestor, else the page. */
+function scrollerOf(element: HTMLElement): HTMLElement {
+  for (let node = element.parentElement; node && node !== document.body; node = node.parentElement) {
+    const { overflowY } = getComputedStyle(node);
+    if ((overflowY === "auto" || overflowY === "scroll") && node.scrollHeight > node.clientHeight) return node;
+  }
+  return (document.scrollingElement as HTMLElement | null) ?? document.documentElement;
+}
+
+/** Whether the browser keeps a scrolled view in place when content above it changes. */
+const SCROLL_ANCHORING = typeof CSS !== "undefined" && CSS.supports?.("overflow-anchor", "auto") === true;
 
 const NO_SELECTION = new Map<string, ObjectItem>();
 const NO_CONFIGURATION: TreeConfiguration = {};

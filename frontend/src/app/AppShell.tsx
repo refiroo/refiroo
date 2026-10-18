@@ -97,6 +97,8 @@ export function AppShell({
         toggleLabel: "Browse application",
         drawerTitle: "Application navigation",
         resizeLabel: "Resize navigation rail",
+        // The rail holds one application's browser in one workspace; it opens at its top for another.
+        scrollScope: `${application.key}:${activeRoute.workspaceKey}`,
         content: (close) => (
           <>
             <WorkspaceSelector

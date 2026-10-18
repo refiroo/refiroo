@@ -30,6 +30,11 @@ export function ShellFrame({
     toggleLabel: string;
     drawerTitle: string;
     resizeLabel: string;
+    /**
+     * What the rail's scroll position belongs to (`ui/navigationRail`): kept while it stays the
+     * same, the rail opens at its top when it changes. Defaults to the rail's id.
+     */
+    scrollScope?: string;
     /** The rail's content; `close` shuts the drawer after a choice on a phone. */
     content: (close: () => void) => ReactNode;
   };
@@ -61,7 +66,12 @@ export function ShellFrame({
           >
             <Icon name="menu" /> {rail.toggleLabel}
           </button>
-          <NavigationDrawer open={navigationOpen} onClose={close} title={rail.drawerTitle}>
+          <NavigationDrawer
+            open={navigationOpen}
+            onClose={close}
+            title={rail.drawerTitle}
+            scrollScope={rail.scrollScope ?? rail.id}
+          >
             <Rail id={rail.id} className={rail.className} aria-label={rail.label}>
               {rail.content(close)}
               {/* Fixed-position, so it stays inside the navigation landmark without affecting layout. */}

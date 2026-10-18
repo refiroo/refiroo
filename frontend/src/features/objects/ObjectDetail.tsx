@@ -29,6 +29,7 @@ import { panelComponentRegistry } from "./panels/registry";
 import type { PanelProps } from "./panels/types";
 import { Breadcrumbs } from "@/ui/Breadcrumbs";
 import { Card } from "@/ui/Card";
+import { focusInNavigationRail } from "@/ui/navigationRail";
 
 /**
  * The record a detail followed to its current type (D42). Its next mount is the same record under a
@@ -185,7 +186,10 @@ export function ObjectDetail({
     if (followed) followedObjectId = undefined;
   }, [followed]);
   useEffect(() => {
-    if (!loading && !initialAction && !followed) titleRef.current?.focus();
+    if (loading || initialAction || followed) return;
+    // A record chosen in the navigation rail leaves focus there, so the reader goes on browsing.
+    if (focusInNavigationRail()) titleRef.current?.scrollIntoView?.({ block: "nearest" });
+    else titleRef.current?.focus();
   }, [loading, objectId, inspector, initialAction, followed]);
 
   if (loading) return <div className="page-loading">Loading object…</div>;

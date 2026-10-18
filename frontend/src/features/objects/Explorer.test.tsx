@@ -223,6 +223,71 @@ describe("Explorer", () => {
     expect(screen.queryByRole("treeitem", { name: "Urgent tariffs" })).not.toBeInTheDocument();
   });
 
+  // Requested by the user (2026-10-19): expanding opens a sole collapsed child, one level only.
+  it("opens a sole child with its parent, one level at a time, and leaves several collapsed", async () => {
+    const tariffsOnly = record(codelistObject, "tariffs", "Tariffs", connections);
+    const budgets = record(codelistObject, "budgets", "Budgets", finance);
+    const costs = record(codelistObject, "costs", "Cost centres", finance);
+    serve([connections, finance, tariffsOnly, urgent, budgets, costs]);
+    render(explorer());
+    const expanded = (name: string | RegExp) =>
+      waitFor(() => expect(screen.getByRole("treeitem", { name })).toHaveAttribute("aria-expanded", "true"));
+    // The only top-level heading opens on first display; its two records stay collapsed.
+    const connectionsItem = await screen.findByRole("treeitem", { name: "Connections" });
+    expect(connectionsItem).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("treeitem", { name: "Finance" })).toHaveAttribute("aria-expanded", "false");
+
+    // Connections opens its only heading, not the one record in it: the reader sets the depth.
+    toggle(connectionsItem);
+    const tariffsItem = await screen.findByRole("treeitem", { name: "Tariffs" });
+    await expanded(/^Codelists within Connections/);
+    expect(tariffsItem).toHaveAttribute("aria-expanded", "false");
+    toggle(tariffsItem);
+    const urgentItem = await screen.findByRole("treeitem", { name: "Urgent tariffs" });
+    await expanded(/^Codelists within Tariffs/);
+    expect(urgentItem).toHaveAttribute("aria-expanded", "false");
+
+    // A heading expanded by hand opens its only record.
+    toggle(screen.getByRole("treeitem", { name: /^Codelists within Tariffs/ }));
+    toggle(screen.getByRole("treeitem", { name: /^Codelists within Tariffs/ }));
+    await expanded("Urgent tariffs");
+
+    // Collapsed by hand, the heading opens again with the next expansion of its record.
+    toggle(screen.getByRole("treeitem", { name: /^Codelists within Connections/ }));
+    expect(screen.queryByRole("treeitem", { name: "Tariffs" })).not.toBeInTheDocument();
+    toggle(connectionsItem);
+    toggle(screen.getByRole("treeitem", { name: "Connections" }));
+    expect(await screen.findByRole("treeitem", { name: "Tariffs" })).toBeInTheDocument();
+
+    // Finance's heading opens with it, but its two records stay collapsed.
+    toggle(screen.getByRole("treeitem", { name: "Finance" }));
+    const budgetsItem = await screen.findByRole("treeitem", { name: "Budgets" });
+    await expanded(/^Codelists within Finance/);
+    expect(budgetsItem).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("treeitem", { name: "Cost centres" })).toHaveAttribute("aria-expanded", "false");
+  });
+
+  // Reported by the user (2026-10-18): each group that finished loading (the first pages, the
+  // active record's branches, a reload) scrolled the rail to itself, so it jumped as lists arrived.
+  it("moves the rail only for the keyboard, never because a list loaded", async () => {
+    serve();
+    vi.spyOn(api, "object").mockResolvedValue(urgent);
+    const scrolled = vi.fn();
+    Element.prototype.scrollIntoView = scrolled;
+    const { rerender } = render(explorer({ activeObjectId: urgent.id, activeObjectTypeKey: "codelist" }));
+    await item("Urgent tariffs");
+    const reads = vi.mocked(api.objects).mock.calls.length;
+    // A write elsewhere reloads every list the tree holds.
+    rerender(explorer({ activeObjectId: urgent.id, activeObjectTypeKey: "codelist", refreshToken: 1 }));
+    await waitFor(() => expect(api.objects).toHaveBeenCalledTimes(reads * 2));
+    expect(scrolled).not.toHaveBeenCalled();
+
+    act(() => screen.getByRole("treeitem", { name: "Urgent tariffs" }).focus());
+    fireEvent.keyDown(document.activeElement!, { key: "ArrowUp" });
+    expect(document.activeElement).toBe(screen.getByRole("treeitem", { name: /^Codelists within Tariffs/ }));
+    expect(scrolled).toHaveBeenCalledTimes(1);
+  });
+
   // Reported by the user (2026-10-09): clicking another record in an open branch closed and
   // reopened it for a moment, its groups read again behind a "Loading…" note.
   it("keeps the active record's branches open while the next record's path is read", async () => {
@@ -305,7 +370,10 @@ describe("Explorer", () => {
     const press = (key: string) => fireEvent.keyDown(document.activeElement!, { key });
 
     act(() => heading.focus());
-    // UA9 (U-D21): a type group starts folded and opens with Right, as a record does.
+    // The tree's only top-level heading opens on first display (2026-10-19); it folds with Left
+    // and opens with Right, as a record does (UA9, U-D21).
+    await waitFor(() => expect(heading).toHaveAttribute("aria-expanded", "true"));
+    press("ArrowLeft");
     expect(heading).toHaveAttribute("aria-expanded", "false");
     press("ArrowRight");
     expect(heading).toHaveAttribute("aria-expanded", "true");
@@ -328,8 +396,8 @@ describe("Explorer", () => {
     const firstChild = await screen.findByRole("treeitem", { name: "Codelists within Connections, 2" });
     press("ArrowRight");
     expect(document.activeElement).toBe(firstChild);
-    press("ArrowRight");
-    expect(firstChild).toHaveAttribute("aria-expanded", "true");
+    // Connections's only heading opened with it; its two records stay collapsed (2026-10-19).
+    await waitFor(() => expect(firstChild).toHaveAttribute("aria-expanded", "true"));
     press("ArrowDown");
     expect(document.activeElement).toBe(screen.getByRole("treeitem", { name: "Timetable types" }));
     // Left returns to the record's type group heading; Left again folds the heading (UA9, headings
@@ -387,7 +455,7 @@ describe("Explorer", () => {
     await waitFor(() => expect(failure).toBeVisible());
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(await item("Connections")).toBeInTheDocument();
-    expect(read).toHaveBeenCalledTimes(2);
+    expect(read.mock.calls.filter(([type]) => type === "domain")).toHaveLength(2);
   });
 
   // UA9 (U-D23, U-D26): several records selected; selecting never changes the main page.

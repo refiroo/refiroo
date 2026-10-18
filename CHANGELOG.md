@@ -6,6 +6,29 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (hierarchy browser)
+
+- Expanding a record or type heading in a hierarchy (the rail and the tree lens) opens its child
+  when it holds only one that can expand: a record's only heading, a heading's only record. Only
+  that one level opens, so the reader sets the depth; with several children all stay collapsed. It
+  happens at every expansion, also after the child was collapsed by hand, and the tree's first
+  display opens a sole top-level heading. A reveal (the open record's path) or a drag does not.
+
+### Fixed (navigation rail)
+
+- The rail no longer scrolls by itself. A record group finishing its load (its first page, the
+  active record's branches, a reload after a write) scrolled the rail to that group, so the rail
+  jumped as lists arrived; now only keyboard movement in the tree scrolls it, and only the rail,
+  never the page. The tree lens loads the same way, and shows a record it reveals on request.
+- The rail keeps its place for one application in one workspace, across pages, records and views,
+  and into and out of a change set or publication, which mount the frame afresh. Another application
+  or workspace opens the rail at its top, instead of at the offset the previous one had.
+- A record chosen in the rail leaves focus in the rail, as a collection or group already did; the
+  record page no longer takes it.
+- Rows dropped or added above the view (a long group paging on, Show earlier records) no longer
+  shift it in a browser without scroll anchoring; scrolling past the rail's end no longer scrolls
+  the page.
+
 ### Added (0.11 X3)
 
 - The move between workspaces whose models differ. A move's dry run (`POST /api/v1/moves`) now waits
