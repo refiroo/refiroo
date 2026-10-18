@@ -23,9 +23,12 @@ a local folder
 a local folder
 
 # The test harness's private PostgreSQL server and its seeded template databases (PG-D8, H1)
-backend/.test-postgres/
-# The development PostgreSQL server's data directory (scripts/postgres.sh)
-backend/.postgres/
+backend/.test-postgres
+backend/.test-postgres.nosync/
+# The development PostgreSQL server's data directory (scripts/postgres.sh); each may be a link to a
+# `.nosync` folder, which iCloud leaves alone.
+backend/.postgres
+backend/.postgres.nosync/
 
 # Export files waiting for download (JOB_FILE_DIR's default, 0.9 J1)
 var/job-files/

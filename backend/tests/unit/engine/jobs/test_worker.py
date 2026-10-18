@@ -7,6 +7,7 @@ worker's leases, an unexpected error, what a finished job leaves behind, and the
 retries while the database cannot be reached.
 """
 
+import threading
 import time
 from typing import Any
 
@@ -271,3 +272,33 @@ def test_without_its_database_the_worker_waits_between_retries_and_logs_no_trace
     assert sum(r.exc_info is not None for r in retries) == 0
     assert [r.levelname for r in retries][:1] == ["ERROR"]
     assert 1 <= len(retries) <= 4
+
+
+def test_two_threads_driving_one_worker_run_one_chunk_at_a_time(seeded, monkeypatch):
+    """Regression (0.11 S1): a worker's claims accept its own leases, so a test calling
+    ``run_until_idle`` while the service's thread ran could run one chunk twice (a profile check's
+    duplicate cells)."""
+    world = seeded
+    job_id = queue(world, items(world, 4, prefix="T"))
+    one = worker()
+    running, overlaps = [0], []
+    original = JobWorker._run_chunk
+
+    def slow_chunk(self, sequence_id):
+        running[0] += 1
+        overlaps.append(running[0])
+        time.sleep(0.2)
+        try:
+            return original(self, sequence_id)
+        finally:
+            running[0] -= 1
+
+    monkeypatch.setattr(JobWorker, "_run_chunk", slow_chunk)
+    threads = [threading.Thread(target=one.run_until_idle) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(30)
+    assert max(overlaps) == 1
+    assert job(job_id).state == "completed"
+    assert outcomes(job_id) == [("applied", "created")] * 4 and live(world, "T") == 4

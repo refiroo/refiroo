@@ -65,6 +65,15 @@ def _rows(session, key: str, object_id: str | None = None) -> int:
     return session.scalar(statement)
 
 
+def _rows_by_workspace(session, key: str) -> dict[str, int]:
+    statement = (
+        select(UniqueAttributeValue.workspace_key, func.count())
+        .where(UniqueAttributeValue.attribute_type_key == key)
+        .group_by(UniqueAttributeValue.workspace_key)
+    )
+    return dict(session.execute(statement).all())
+
+
 def test_a_duplicate_written_past_the_rules_is_refused_naming_its_holder(seeded):
     world, u = seeded, seeded.key("R.u")
     holder, other = _records(world)
@@ -168,9 +177,11 @@ def test_the_rows_follow_the_active_release(seeded):
         release, _ = install_model_release(session, parse_model(source))
         session.commit()
 
-        def activate(release_id, active_id):
-            # Into every active workspace running it: each keeps its own rows (0.11 D28).
+        def activate(release_id, active_id) -> set[str]:
+            # Into every active workspace running it: each keeps its own rows (0.11 D28). A retired
+            # workspace refuses, keeps its release and so its rows.
             running = session.scalar(select(ModelRelease.id).where(ModelRelease.public_id == active_id))
+            reached = set()
             for workspace_key in workspaces_running(session, running):
                 state = session.get(WorkspaceModel, workspace_key)
                 try:
@@ -185,8 +196,13 @@ def test_the_rows_follow_the_active_release(seeded):
                     session.rollback()
                     continue
                 session.commit()
+                reached.add(workspace_key)
+            return reached
 
-        activate(release.public_id, active)
-        assert _rows(session, u) == 0
+        before = _rows_by_workspace(session, u)
+        reached = activate(release.public_id, active)
+        after = _rows_by_workspace(session, u)
+        assert reached and not any(after.get(key) for key in reached)
+        assert after == {k: n for k, n in before.items() if k not in reached}
         activate(active, release.public_id)
         assert _rows(session, u) == held

@@ -547,21 +547,33 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   - [x] **Found in M1, fixed in S1 (2026-10-18):** `test_j34_onboard.py` alone took 5 min 3 s with `-n auto` (112 cases), over
     the package ceiling; one more input for S1 (D152). Since S1 its cases spread over the workers:
     J34 with J35 and `test_batch_statements`, 136 cases, 1 min 10 s.
-  - [ ] **Found in S1 (2026-10-18), not caused by it (fails at `a73d667` too, alone and in the suite):**
+  - [x] **Found in S1 (2026-10-18), not caused by it (fails at `a73d667` too, alone and in the suite):**
     `test_unique_values::test_the_rows_follow_the_active_release` (a unique value's row stays after
     a release without the feature is activated into every workspace running the old one: 1 row, 0
     expected) and `test_j27_export::test_a_cancelled_failed_or_expired_export_serves_no_file` (an
     export queued before a release change completes instead of failing `MODEL_RELEASE_CHANGED`).
     Both touch what M1 made per workspace; cause not traced.
-  - [ ] **Found in V1 (2026-10-17), not caused by it (fails at `0b08e9c` too):**
+    **Fixed after S1 (2026-10-18), test drift from M1, not defects:** the leftover row is the retired
+    workspace's, which refuses activation and keeps its release and rows (D28); the test now asserts
+    per workspace. The export ran in its own workspace while the test changed the default one's
+    release; it now activates into the export's workspace. Both pass.
+  - [x] **Found in V1 (2026-10-17), not caused by it (fails at `0b08e9c` too):**
     `tests/journeys/test_j35_next_version.py` fails 8 of its cases: a profile loads
     `INVALID_IMPORT_PROFILE` "Object type … is not in the model", the profile checked against the
     default workspace's model rather than its own (M3 bound profiles to a model).
-  - [ ] **Found in V1 (2026-10-17), not caused by it (fails at `0b08e9c` too):**
+    **Fixed after S1 (2026-10-18), test drift from M1, not a defect:** J35 activated the release into
+    the default workspace only (`world.activate`) and loaded into its own workspace, still on the old
+    release, which rightly refused the profile. It activates into every workspace running the old
+    release, as M1 changed J34 (`activate_everywhere`); 10 passed.
+  - [x] **Found in V1 (2026-10-17), not caused by it (fails at `0b08e9c` too):**
     `test_startup::test_upgrade_to_the_profile_check_kind_keeps_jobs_and_an_interrupted_run_recovers`:
     the profile job runs twice (`pk_source_file_cells`, then `uq_job_input` duplicated), so the check
     fails. Seen again in V4 (2026-10-18) in a parallel group run, where a profile-check job failed in
     a chunk; it passed run alone.
+    **Fixed after S1 (2026-10-18):** the test calls `run_until_idle` while the service's worker
+    thread runs; a worker's claims accept its own leases, so both threads ran the same chunk. A worker
+    now runs one chunk at a time whichever thread asks (`JobWorker.run_once`), with a unit test that
+    fails without it (two threads in one chunk, the job failed in a chunk).
   - [x] **Found in V1 (2026-10-18), fixed in V1:** a migration's long steps did not renew the
     job's lease, so a second worker could take the job over; they now renew it between their
     statements from a session of their own, and stop if another worker holds the job. N2 still
@@ -596,9 +608,13 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
     (plan D2, accepted 2026-10-15; revised 2026-10-18: X2 went first, S1 follows it). Delivered
     2026-10-18: journey cases spread over the workers; the full suite with `-n 6` under a revised
     11-minute ceiling (D126).
-  - [ ] **Found in X2 (2026-10-18):** the groups `move`, `jobs` and `startup` together took 5 min
+  - [x] **Found in X2 (2026-10-18):** the groups `move`, `jobs` and `startup` together took 5 min
     8 s with `-n auto` (757 cases), over the package ceiling; more input for S1 (D152). J34's cases
-    spread since S1; this selection was not measured again (X3 runs it).
+    spread since S1. **Measured after S1 (2026-10-18):** 758 passed in 2 min 36 s, and 2 min 44 s
+    with `test_startup` spread too (started at load 19); its tests add up to 1,542 s, 2.6 minutes
+    over 10 workers, so it is bound by its work, as the full suite is. J34 holds 571 s of it (37%),
+    the workbook W1 profiled in each case. **Closed by D127 (S1):** the package ceiling is 3 minutes;
+    W1 profiled once as a seed was not built.
   - [x] 0.11.0-alpha.1 when the M6 checkpoint passes (plan D12, accepted 2026-10-15): released
     2026-10-17, tag `v0.11.0-alpha.1`.
 

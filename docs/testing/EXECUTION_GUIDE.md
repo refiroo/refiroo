@@ -50,7 +50,8 @@ One invocation parallelizes itself: `-n auto` starts one worker per core (pytest
 `--dist loadfile` (in `pyproject.toml`) keeps each module on one worker, except journey tests: the
 scheduler in `conftest.py` sends each journey case to a worker on its own (0.11 S1,
 `layout.worker_scope`), since its `world` is a database of its own, so a large journey module
-spreads over the workers. A journey module therefore takes no module- or class-scoped fixture: it
+spreads over the workers. Older modules whose tests each build their own databases are spread the
+same way once checked (`layout.OWN_DATABASES`: `test_startup.py`). A journey module therefore takes no module- or class-scoped fixture: it
 would run once on every worker that takes one of its cases. The run's own process starts
 the server, drops leftover databases and builds the `schema` seed before the workers start; each
 worker clones its own session database, and all of them clone from the same seeds.
@@ -92,13 +93,13 @@ and teardown added up, so a module fixture's cost lands on its first test) and t
 ### Backend: time ceilings and their commands (H3)
 
 The ceilings are [TEST_HARNESS_PLAN's](../TEST_HARNESS_PLAN.md#time-ceilings); a run expected to
-exceed 2 minutes is announced with its expected time first, and in a package it needs the user's
+exceed 3 minutes is announced with its expected time first, and in a package it needs the user's
 go-ahead.
 
 | Run | Ceiling | Command (from `backend/`) |
 | --- | --- | --- |
 | Focused tests while iterating | seconds | `.venv/bin/python -m pytest tests/test_x.py::test_case -q` (no `-n`) |
-| A package's checks: its boundary's groups (§2) | 2 minutes | `.venv/bin/python -m pytest -n auto -m "<groups>" -q`, then `.venv/bin/python -m pytest -m "serial and (<groups>)" -q` |
+| A package's checks: its boundary's groups (§2) | 3 minutes | `.venv/bin/python -m pytest -n auto -m "<groups>" -q`, then `.venv/bin/python -m pytest -m "serial and (<groups>)" -q` |
 | Build acceptance: the full suite without `budget` | 11 minutes | `.venv/bin/python -m pytest -n 6 -q`, then `.venv/bin/python -m pytest -m serial -q` (six workers, 0.11 S1: ten took 8 min 49 s at a load near 145, six 10 min 15 s at 11–19) |
 | Full-size budgets | announced (2 min 39 s at 0.9.0-alpha.1 PG5; about 25 minutes before PG3b's bulk writes) | `.venv/bin/python -m pytest -m budget -q`, a release's acceptance only |
 

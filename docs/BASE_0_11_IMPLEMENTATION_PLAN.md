@@ -2894,6 +2894,7 @@ run distributes. No product code changes; no migration; no journey changes.
 | D124 | How the slow journey modules get their time back | **Spread journey cases one at a time over the workers; keep every other module on one worker.** TODO's "split J34 so its cases spread over the workers" done for every journey module at once, with no test file edited, and J35 or a future large module never needs it again. Why only journey tests: the `world` fixture already gives each case its own database, while the older modules share a worker's session database and module fixtures. Cost: a module-scoped fixture added to a journey module later would run once per worker that takes its cases; EXECUTION_GUIDE says so |
 | D125 | How the result is measured | **Once, after the change: the full suite in parallel, then its serial part, on your go-ahead, with the time of each module kept in the scratchpad (expected 5–9 minutes).** No baseline run: 0.10 R's 8 min 31 s is the before figure (5,771 cases). Under 5 minutes meets the exit. Over it, I stop and report which modules hold the time and the options, chiefly TODO's other approach (W1 profiled once per configuration as a seed the cases clone), and run nothing more without your go-ahead. Why: the spread may be enough on its own, and the seed is the larger change |
 | D126 | The ceiling, after both measurements (added 2026-10-18) | **Accepted 2026-10-18:** keep D124's spread; the full suite with `-n 6` (10 min 15 s, load 11–19 after start-up) rather than `-n auto` (8 min 49 s, load near 145); its ceiling 11 minutes, recorded as revised. Why: summed test time is about 6 minutes over 10 cores even uncontended, so only less work meets 5 minutes. Cost: about 1.5 minutes more per full run |
+| D127 | The package ceiling (added 2026-10-18) | **Decided within the approved S1:** 3 minutes, as D126 for the full suite: `move or jobs or startup` holds 1,542 s of test work (2 min 36 s); the W1 seed not built |
 
 **Test cases:** none new. S1 adds no journey; the harness change is checked by the measurement and
 by J34, J35 and one older module with module fixtures run in parallel, which must pass as before.
@@ -2942,8 +2943,26 @@ machine stays usable during R; its ceiling becomes 11 minutes (TEST_HARNESS_PLAN
 and a half more per full run than ten workers. W1 profiled once as a seed was not built: J34 is 617 s
 of 5,018 s, about 30 s of a run.
 
-**What the user still cannot do:** nothing changes for the user of the engine. The three failing
-tests (J35, `test_unique_values`, J27 export) remain as TODO records, outside S1.
+**What the user still cannot do:** nothing changes for the user of the engine.
+
+**After delivery, at the user's request to leave no open items (2026-10-18):** the three failing
+areas were test drift from M1's activation into one workspace, not defects: J35 activated into the
+default workspace and loaded into its own (now `activate_everywhere`, as M1 changed J34); the J27
+export changed the default workspace's release while exporting another (now its own); the unique
+rows' test counted the retired workspace's row, which rightly stays (now per workspace). TODO's
+`test_startup` flake was a real race in the harness's use of the worker: `run_until_idle` beside the
+service's thread, both claiming under one lease owner, ran one chunk twice; `JobWorker.run_once` now
+holds a lock, with a unit test seen failing without it. `test_startup` is spread like journey tests
+(`layout.OWN_DATABASES`). **Checks:** J35 10 passed; the J27 case and `test_unique_values` passed;
+the new worker test passed and failed without the lock; `move or jobs or startup` 758 passed in
+2 min 36 s, then 2 min 44 s with `test_startup` spread (started at load 19), its serial part 1
+passed. That selection was over the 2-minute package ceiling: 1,542 s of work, 37% of it J34.
+
+**D127 (2026-10-18, within the approved S1 at the user's instruction to complete it):** the package
+ceiling becomes 3 minutes (AGENTS.md, TEST_HARNESS_PLAN, EXECUTION_GUIDE §1), on D126's reasoning:
+the 2 minutes were set at about 1,000 tests and a package on the job paths now holds about 1,500 s
+of test work; the measured 2 min 36 s fits. W1 profiled once as a seed was not built. S1 has no open
+items; `.gitignore` also ignores the database folders when they are links to `.nosync` folders.
 
 #### N1: Snapshots across processes
 

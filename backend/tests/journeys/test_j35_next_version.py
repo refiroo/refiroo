@@ -81,7 +81,7 @@ def _loaded(world) -> tuple[str, str, workbooks.W1]:
     _map_by_hand(world, draft, book)
     _colours(world, draft, book)
     release = _install(world, draft)
-    ok(world.activate(release["id"]))
+    ok(world.activate_everywhere(release["id"]))
     profile_key = release["importProfile"]["key"]
     change_set = world.change_set(workspace)
     job = ok(_load(world, workspace, profile_key, source["id"], change_set), 202)
@@ -258,7 +258,7 @@ def test_a_profile_a_newer_release_broke_is_listed_at_its_binding_and_refused(wo
     _map_by_hand(world, draft, book)
     _step(world, draft, {"kind": "mapColumn", "source": "items", "column": book.header("X"), "binding": {"attributeTypeKey": "j34-supplier"}})
     release = _install(world, draft)
-    ok(world.activate(release["id"]))
+    ok(world.activate_everywhere(release["id"]))
     profile_key = release["importProfile"]["key"]
 
     model = copy.deepcopy(ok(world.api.get(f"/model-releases/{release['id']}", includeModel=True))["model"])
@@ -266,7 +266,7 @@ def test_a_profile_a_newer_release_broke_is_listed_at_its_binding_and_refused(wo
     item["attributes"] = [b for b in item["attributes"] if b["attributeTypeKey"] != "j34-supplier"]
     model["applications"] = _without(model["applications"], "j34-supplier")
     model["release"]["version"] = "1.2.0"
-    ok(world.activate(world.install(model)["id"]))
+    ok(world.activate_everywhere(world.install(model)["id"]))
 
     source = _profiled(world, {"profileKey": profile_key}, "catalogue.xlsx", book.content, workspaceKey=workspace)
     check = ok(world.api.get(f"/import-profiles/{profile_key}/check"))
@@ -326,7 +326,7 @@ def test_the_next_version_of_an_inferred_workbook_is_checked_in_seconds(world):
     ok(world.api.post(f"/model-drafts/{draft['id']}/inference/application", {"expectedVersion": _version(world, draft)}))
     _run(world)
     release = _install(world, draft)
-    ok(world.activate(release["id"]))
+    ok(world.activate_everywhere(release["id"]))
     profile_key = release["importProfile"]["key"]
     change_set = world.change_set(workspace)
     ok(_load(world, workspace, profile_key, source["id"], change_set), 202)

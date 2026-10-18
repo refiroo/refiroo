@@ -42,7 +42,7 @@ of any limit on it.
 | Run | When | Ceiling (wall time, this machine) |
 | --- | --- | --- |
 | Focused tests while iterating | any time | seconds: one module or case, without `-n` |
-| A package's checks: testmon's selection and the journeys it touches, or its boundary's groups (EXECUTION_GUIDE §2) | end of a package | **2 minutes**, with `-n auto` and the groups' serial part |
+| A package's checks: testmon's selection and the journeys it touches, or its boundary's groups (EXECUTION_GUIDE §2) | end of a package | **3 minutes**, with `-n auto` and the groups' serial part (2 minutes until 0.11 S1: `move or jobs or startup` holds 1,542 s of test work, 2 min 36 s; D127) |
 | Build acceptance: the full backend suite without `budget` | end of a build | **11 minutes**, with `-n 6`, parallel part plus serial part (5 minutes until 0.11 S1, which measured 10 min 15 s at 5,950 cases; D126) |
 | Full-size budgets (`-m budget`) | a release's acceptance only, once | announced with its expected time before it starts (2 min 39 s at PG5, 2026-10-03; PG-D17's target is under a minute per context) |
 

@@ -327,10 +327,10 @@ affects theme tokens or a new surface. Do not update baselines merely to hide an
   parallel run leaves the `serial` tests out and names the second, non-parallel command that runs them.
 - Every run has a [time ceiling](docs/TEST_HARNESS_PLAN.md#time-ceilings) (this machine, wall
   time): focused tests while iterating, seconds; a package's checks (its boundary's groups, parallel
-  and serial part), **2 minutes**; build acceptance (the full backend suite without `budget`, with
+  and serial part), **3 minutes**; build acceptance (the full backend suite without `budget`, with
   `-n 6` so the machine stays usable), **11 minutes**. A ceiling exceeded is a defect of the harness or the tests, reported and fixed in
   the next package. EXECUTION_GUIDE §1 gives the command for each.
-- **Announce before running.** A run expected to take more than 2 minutes is named with its expected
+- **Announce before running.** A run expected to take more than 3 minutes is named with its expected
   time before it starts, and in a package it needs the user's go-ahead. A result already measured is
   not measured again until the code it covers changes.
 - Full-size budgets (`budget`: `test_batch_volume`, `test_background_volume`) never run by default; a

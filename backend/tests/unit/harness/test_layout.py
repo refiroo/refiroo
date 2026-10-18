@@ -46,5 +46,7 @@ def test_a_journey_test_goes_to_a_worker_alone_and_any_other_with_its_module():
     assert layout.worker_scope(journey) == journey
     assert layout.worker_scope("tests/test_api.py::test_y") == "tests/test_api.py"
     assert layout.worker_scope("tests/test_api.py::Group::test_z[1]") == "tests/test_api.py"
+    startup = "tests/test_startup.py::test_a_clean_start"
+    assert layout.worker_scope(startup) == startup
     unit = "tests/unit/harness/test_layout.py::test_kind_follows_the_folder"
     assert layout.worker_scope(unit) == "tests/unit/harness/test_layout.py"

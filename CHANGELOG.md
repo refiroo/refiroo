@@ -6,6 +6,14 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Fixed (0.11 S1)
+
+- The job worker runs one chunk at a time whichever thread drives it: its claims accept its own
+  leases, so a second thread of the same worker (a test calling `run_until_idle` while the service's
+  thread ran) could run one chunk twice and fail the job.
+- Three tests left behind by per-workspace activation (0.11 M1) assert it again: J35 and the J27
+  export activate into the workspace they use, and the unique-value rows are checked per workspace.
+
 ### Changed (0.11 S1)
 
 - Backend test runs: in a parallel run each journey test goes to a worker on its own, while any
@@ -14,7 +22,9 @@ All notable changes to this project are documented in this file. The format foll
   any worker reads it.
 - The full backend suite runs with six workers (`pytest -n 6`) under a ceiling of 11 minutes,
   revised from 5 (D126): 10 min 15 s for 5,950 cases with the machine usable, where ten workers
-  took 8 min 49 s at a load near 145.
+  took 8 min 49 s at a load near 145. A package's checks have a ceiling of 3 minutes, revised from 2
+  (D127). The development and test database folders are ignored by git also as links to `.nosync`
+  folders.
 
 ### Added (0.11 X2)
 

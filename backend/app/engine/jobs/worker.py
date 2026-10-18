@@ -10,6 +10,8 @@ transaction and renews the lease with each chunk's commit. A chunk does not keep
 while it applies items, so a cancel request never waits for it (D28); before it commits, it locks
 the row and checks it still holds the lease, and rolls back when another worker took the job over.
 A process that stops mid-chunk loses that chunk's work only; the job resumes once its lease expires.
+One worker runs one chunk at a time, whichever thread asks (its loop, or ``run_until_idle``): its
+claims accept its own leases, so two of its threads would otherwise run the same chunk (0.11 S1).
 Lock order inside a chunk: the workspace (live) or the change set, then the write path's own
 (records), then the job row at the checkpoint (ARCHITECTURE).
 
@@ -177,6 +179,7 @@ class JobWorker:
         self._wake = threading.Event()
         self._stopping = threading.Event()
         self._thread: threading.Thread | None = None
+        self._one_chunk = threading.Lock()
         # The earliest expiry of a lease another worker holds, seen by the last claim.
         self._leased_elsewhere_until: datetime | None = None
 
@@ -185,11 +188,12 @@ class JobWorker:
     def run_once(self) -> bool:
         """Claim the oldest job this worker may run and run its next chunk; ``False`` when none
         is waiting."""
-        sequence_id = self._claim()
-        if sequence_id is None:
-            return False
-        self._run_chunk(sequence_id)
-        return True
+        with self._one_chunk:
+            sequence_id = self._claim()
+            if sequence_id is None:
+                return False
+            self._run_chunk(sequence_id)
+            return True
 
     def run_until_idle(self) -> int:
         """Run chunks until no job is waiting; the number of chunks run."""

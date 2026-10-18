@@ -403,7 +403,7 @@ def test_a_cancelled_failed_or_expired_export_serves_no_file(world):
 
     failed = ok(_export(world, ws, types), 202)
     model, _ = world.candidate("compatible")
-    ok(world.activate(world.install(model)["id"]))
+    ok(world.activate(world.install(model)["id"], ws))
     _run(world)
     job = ok(world.api.get(f"/jobs/{failed['id']}"))
     assert job["state"] == "failed" and job["error"]["code"] == "MODEL_RELEASE_CHANGED"
