@@ -483,6 +483,16 @@ would stop the publication, such as a record changed both in the change set and 
 the items to be fixed. **Migrate and publish** does both in one step, or nothing; the page then names
 the new publication. Through the API this is the same migration naming the change set.
 
+The other way round, the change set itself moves onto the release its workspace runs, even when its
+content does not fit that release: its bar offers **Move this change set to ‹release›…** (where
+background jobs run). The same page then lists what changes in the change set: its values converted
+to their new types, its records whose type changes, what the release has no place for (removed from
+the change set only once accepted), and what must be fixed first, including a record the change set
+changed that was also changed live since it started. Nothing live changes, and the workspace keeps
+its release. **Move change set** converts the change set's content and moves it in one step, or
+nothing; records it did not change then read as they are live, and it publishes as usual. Through
+the API this is a move of the change set, previewed and confirmed as a migration is.
+
 Through the API, a draft can also be changed step by step with typed operations instead of whole
 JSON: add, rename, re-key, split, merge or remove applications, types, attributes and relation
 types, set where a type sits in the containment tree, allow relations between types, lay out views

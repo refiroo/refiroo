@@ -182,10 +182,14 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # model administration, off in the default document). Re-baselined for 0.11 V2 (D80, D83): the
     # migration summary's changeSetId, changeSetVersion, activePublicationId and publicationId.
     # Diffed against the previous commit, nothing else changed (the route's request is off in the
-    # default document, as above).
+    # default document, as above). Re-baselined for 0.11 V3 (D91): POST
+    # /change-sets/{change_set_id}/model-migrations with ChangeSetMigrationRequest, and the
+    # MigrationTypeMapping and MigrationAttributeSource it names (the route is registered with
+    # background jobs, on in the default document). Diffed against the previous commit, nothing
+    # else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "648a1442d9576bdd6fee8355e545d120f50d451ff60aae08b51539cbd1ba9118"
+        "f383845795b2f1b829339a9d34b7286f6f94b6a60e6de131dddd793f67d00c45"
     )
 
 

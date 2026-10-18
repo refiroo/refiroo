@@ -6,6 +6,9 @@
  * nothing; each choice starts a new preview. A confirmation the workspace has outdated asks to
  * preview again. A migration naming a change set (0.11 V2, D85) also publishes it: the page says so,
  * lists what would stop the publication with the refusals, and its done state names the publication.
+ * A change set's move onto the release its workspace runs (0.11 V3, D95) uses the same page: it names
+ * the change set, says live data stays as it is, lists the change set's items, and its done state
+ * opens the change set.
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -35,33 +38,37 @@ import { Skeleton } from "@/ui/Skeleton";
 const ROWS_PAGE = 50;
 const NOT_KEPT = "";
 
-const OUTCOMES: readonly { key: MigrationOutcome; label: string; hint: (version: string) => string; empty: string }[] =
-  [
-    {
-      key: "conversion",
-      label: "Converted",
-      hint: (version) => `Values changed to the type ${version} declares`,
-      empty: "No value changes type.",
-    },
-    {
-      key: "reclassified",
-      label: "Type changed",
-      hint: () => "Records kept under their new type",
-      empty: "No record changes type. Say above what a missing type became to keep its records.",
-    },
-    {
-      key: "loss",
-      label: "Removed",
-      hint: () => "Applied only if you accept it",
-      empty: "Nothing is removed.",
-    },
-    {
-      key: "refused",
-      label: "Must be fixed",
-      hint: () => "Blocks the migration until fixed",
-      empty: "Nothing blocks the migration.",
-    },
-  ];
+const OUTCOMES: readonly {
+  key: MigrationOutcome;
+  label: string;
+  hint: (version: string, moving: boolean) => string;
+  empty: string;
+}[] = [
+  {
+    key: "conversion",
+    label: "Converted",
+    hint: (version) => `Values changed to the type ${version} declares`,
+    empty: "No value changes type.",
+  },
+  {
+    key: "reclassified",
+    label: "Type changed",
+    hint: () => "Records kept under their new type",
+    empty: "No record changes type. Say above what a missing type became to keep its records.",
+  },
+  {
+    key: "loss",
+    label: "Removed",
+    hint: () => "Applied only if you accept it",
+    empty: "Nothing is removed.",
+  },
+  {
+    key: "refused",
+    label: "Must be fixed",
+    hint: (_version, moving) => (moving ? "Blocks the move until fixed" : "Blocks the migration until fixed"),
+    empty: "Nothing blocks the migration.",
+  },
+];
 
 const count = (value: number) => value.toLocaleString("en-GB");
 
@@ -171,6 +178,7 @@ export function MigrationPage({
   onOpenJob,
   onBack,
   onMigrated,
+  onOpenChangeSet,
 }: {
   jobId: string;
   workspaces: Workspace[];
@@ -180,6 +188,8 @@ export function MigrationPage({
   onBack: () => void;
   /** The workspace runs the target now: the shell reloads its model. */
   onMigrated: (workspaceKey: string) => Promise<unknown> | void;
+  /** A moved change set (V3): open it in its workspace. */
+  onOpenChangeSet?: (workspaceKey: string, changeSetId: string) => void;
 }) {
   const [job, setJob] = useState<Job>();
   const [models, setModels] = useState<{ current: EngineModel; target: EngineModel }>();
@@ -190,7 +200,7 @@ export function MigrationPage({
   const [staleRefused, setStaleRefused] = useState(false);
   const [staleClosed, setStaleClosed] = useState(false);
   // The change set the migration publishes (V2), read once: it is gone once published.
-  const [changeSet, setChangeSet] = useState<{ id: string; name: string; version: number }>();
+  const [changeSet, setChangeSet] = useState<{ id: string; name: string; version: number; releaseId: string }>();
   const [publicationNumber, setPublicationNumber] = useState<number>();
 
   useEffect(() => {
@@ -205,12 +215,16 @@ export function MigrationPage({
   }, [jobId]);
   useJobStream(job && !isResting(job) ? job.id : undefined, (next) => {
     setJob(next);
-    // The workspace runs the target now: the shell forgets the model it held for it (D49).
-    if (next.state === "completed" && next.confirmedAt) void onMigrated(next.workspaceKey);
+    // The workspace runs the target now: the shell forgets the model it held for it (D49). A change
+    // set's move leaves the workspace's release as it was.
+    if (next.state === "completed" && next.confirmedAt && next.parameters.moves !== "changeSet")
+      void onMigrated(next.workspaceKey);
   });
 
   const targetReleaseId = job?.parameters.targetReleaseId as string | undefined;
   const changeSetId = job?.parameters.changeSetId as string | undefined;
+  // A change set's move (V3) rather than a workspace's migration.
+  const moving = job?.parameters.moves === "changeSet";
   useEffect(() => {
     if (!changeSetId || changeSet?.id === changeSetId) return;
     let active = true;
@@ -219,7 +233,12 @@ export function MigrationPage({
       .then(
         (loaded) =>
           active &&
-          setChangeSet({ id: loaded.id, name: loaded.name || "Untitled change set", version: loaded.version }),
+          setChangeSet({
+            id: loaded.id,
+            name: loaded.name || "Untitled change set",
+            version: loaded.version,
+            releaseId: loaded.modelReleaseId,
+          }),
       )
       .catch(() => undefined);
     return () => {
@@ -238,7 +257,9 @@ export function MigrationPage({
       active = false;
     };
   }, [publicationId]);
-  const currentReleaseId = job?.migration?.currentReleaseId ?? releaseRunBy(workspaces, job?.workspaceKey);
+  // What the data is read under now: the workspace's release, or for a move the change set's.
+  const currentReleaseId =
+    job?.migration?.currentReleaseId ?? (moving ? changeSet?.releaseId : releaseRunBy(workspaces, job?.workspaceKey));
   useEffect(() => {
     if (!targetReleaseId || !currentReleaseId) return;
     let active = true;
@@ -285,16 +306,21 @@ export function MigrationPage({
     setPending(true);
     setError("");
     try {
-      const current = await api.workspaceModel(job.workspaceKey);
-      // A preview naming a change set names its current version (V2).
+      // A preview naming a change set names its current version (V2, V3).
       const fresh = changeSetId ? await api.changeSet(changeSetId) : undefined;
       if (waiting) await api.cancelJob(job.id).catch(() => undefined);
-      const started = await api.startWorkspaceMigration(job.workspaceKey, {
-        targetReleaseId,
-        expectedVersion: current.version,
-        typeMappings: mappingsOf(next),
-        ...(fresh ? { changeSetId: fresh.id, expectedChangeSetVersion: fresh.version } : {}),
-      });
+      const started =
+        moving && fresh
+          ? await api.startChangeSetMigration(fresh.id, {
+              expectedChangeSetVersion: fresh.version,
+              typeMappings: mappingsOf(next),
+            })
+          : await api.startWorkspaceMigration(job.workspaceKey, {
+              targetReleaseId,
+              expectedVersion: (await api.workspaceModel(job.workspaceKey)).version,
+              typeMappings: mappingsOf(next),
+              ...(fresh ? { changeSetId: fresh.id, expectedChangeSetVersion: fresh.version } : {}),
+            });
       setAccepted(false);
       setStaleRefused(false);
       onOpenJob(started.id);
@@ -341,9 +367,16 @@ export function MigrationPage({
   const needsLoss = Boolean(counts?.loss) && !blocked;
   const canConfirm = waiting && !blocked && (!counts?.loss || accepted) && !pending;
   const changeSetName = changeSet ? `“${changeSet.name}”` : "the change set";
-  const title = `Migrate ${label} to ${target ? `${target.name} ${target.version}` : "another release"}${
-    changeSetId ? ` and publish ${changeSetName}` : ""
-  }`;
+  const pinned = releases.find((item) => item.id === currentReleaseId);
+  const targetName = target ? `${target.name} ${target.version}` : "another release";
+  const title = moving
+    ? `Move ${changeSetName} to ${targetName}`
+    : `Migrate ${label} to ${targetName}${changeSetId ? ` and publish ${changeSetName}` : ""}`;
+  const description = moving
+    ? `${changeSetName} works under ${pinned ? `${pinned.name} ${pinned.version}` : "another release"}; ${label} runs ${version}. This preview converts what the change set changed to ${version}, lays it over ${label}'s data as it is now, checks every record and lists every item that changes. Live data, ${label}'s release and its publications stay as they are.`
+    : workspace
+      ? `${label} runs ${workspace.model.releaseName} ${workspace.model.releaseVersion}. This preview applies ${version} to a copy of its data, checks every record and lists every item that changes. Other workspaces are not touched.`
+      : undefined;
 
   return (
     <SettingsLayout
@@ -358,17 +391,13 @@ export function MigrationPage({
                 </RouteLink>
               ),
             },
-            { key: "migration", content: "Migration", current: true },
+            { key: "migration", content: moving ? "Move" : "Migration", current: true },
           ]}
         />
       }
-      eyebrow="Workspace model"
+      eyebrow={moving ? "Change set" : "Workspace model"}
       title={title}
-      description={
-        workspace && !done
-          ? `${label} runs ${workspace.model.releaseName} ${workspace.model.releaseVersion}. This preview applies ${version} to a copy of its data, checks every record and lists every item that changes. Other workspaces are not touched.`
-          : undefined
-      }
+      description={done ? undefined : description}
     >
       <div className="migration-page">
         {!done && !cancelled && (
@@ -376,7 +405,7 @@ export function MigrationPage({
             <strong>Nothing has changed yet.</strong>
           </p>
         )}
-        {changeSetId && !done && !cancelled && (
+        {changeSetId && !moving && !done && !cancelled && (
           <p className="migration-publishes">
             <strong>Then publishes {changeSetName}</strong>
             {changeSet ? ` (version ${changeSet.version})` : ""} as the next publication, in the same step. If the
@@ -392,7 +421,13 @@ export function MigrationPage({
           <div role="status" className="migration-running">
             <div className="migration-running-head">
               <strong>
-                {executing ? `Migrating ${label} to ${version}…` : `Checking ${label}'s data against ${version}…`}
+                {moving
+                  ? executing
+                    ? `Moving ${changeSetName} to ${version}…`
+                    : `Checking ${changeSetName} against ${version}…`
+                  : executing
+                    ? `Migrating ${label} to ${version}…`
+                    : `Checking ${label}'s data against ${version}…`}
               </strong>
               {!executing && (
                 <button type="button" className="secondary" onClick={cancel} disabled={pending}>
@@ -403,12 +438,36 @@ export function MigrationPage({
             <Skeleton lines={1} label={executing ? "Migrating" : "Previewing"} />
             <span className="muted">
               {executing
-                ? "The data and the release switch together; until then nothing changes."
+                ? moving
+                  ? "The change set's content and its release change together; until then nothing changes."
+                  : "The data and the release switch together; until then nothing changes."
                 : "Every record is checked, not a sample. You can leave this page; the preview keeps running."}
             </span>
           </div>
         )}
-        {done && counts && (
+        {done && counts && moving && (
+          <Notice
+            tone="success"
+            title={`${changeSetName} works under ${target?.name ?? "the release"} ${version}`}
+            focusOnMount
+            actions={
+              changeSetId && onOpenChangeSet ? (
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => onOpenChangeSet(job!.workspaceKey, changeSetId)}
+                >
+                  Open the change set
+                </button>
+              ) : undefined
+            }
+          >
+            {counted(counts.conversion, "value", "values")} converted,{" "}
+            {counted(counts.reclassified, "record", "records")} changed type, {lossText(counts)} removed. Records the
+            change set did not change read as they are in {label} now. It can be published as usual.
+          </Notice>
+        )}
+        {done && counts && !moving && (
           <Notice
             tone="success"
             title={`${label} runs ${target?.name ?? "the release"} ${version}${changeSetId ? `, and ${changeSetName} is live` : ""}`}
@@ -433,13 +492,15 @@ export function MigrationPage({
               </button>
             }
           >
-            Nothing changed; {label} still runs the release it ran.
+            {moving
+              ? `Nothing changed; ${changeSetName} still works under the release it did.`
+              : `Nothing changed; ${label} still runs the release it ran.`}
           </Notice>
         )}
         {failed && job?.error && !stale && (
           <Notice
             tone="error"
-            title="Not migrated"
+            title={moving ? "Not moved" : "Not migrated"}
             actions={
               <button type="button" className="secondary" onClick={() => void preview(choices)} disabled={pending}>
                 Preview again
@@ -489,7 +550,13 @@ export function MigrationPage({
         {(waiting || done) && counts && models && (
           <section aria-labelledby="migration-items" className="migration-section">
             <h2 id="migration-items" className="install-heading">
-              {done ? "What the migration did" : "What the migration does"}
+              {moving
+                ? done
+                  ? "What the move did to the change set"
+                  : "What the move does to the change set"
+                : done
+                  ? "What the migration did"
+                  : "What the migration does"}
             </h2>
             <div role="group" aria-label="Items by outcome" className="migration-outcomes">
               {OUTCOMES.map((item) => (
@@ -502,7 +569,7 @@ export function MigrationPage({
                 >
                   <span className="migration-outcome-count">{count(counts[item.key])}</span>
                   <span className="migration-outcome-label">{item.label}</span>
-                  <small>{item.hint(version)}</small>
+                  <small>{item.hint(version, moving)}</small>
                 </button>
               ))}
             </div>
@@ -510,9 +577,14 @@ export function MigrationPage({
               key={`${job?.id}:${outcome}:${job?.state}`}
               jobId={job!.id}
               outcome={outcome}
-              empty={OUTCOMES.find((item) => item.key === outcome)!.empty}
+              empty={
+                moving && outcome === "refused"
+                  ? "Nothing blocks the move."
+                  : OUTCOMES.find((item) => item.key === outcome)!.empty
+              }
               models={models}
               version={version}
+              moving={moving}
             />
           </section>
         )}
@@ -534,20 +606,29 @@ export function MigrationPage({
               <label className="migration-accept">
                 <input type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} />
                 <span>
-                  I accept that the {lossText(counts)} listed under Removed are removed. Each record&apos;s history
-                  keeps what was removed.
+                  {moving
+                    ? `I accept that the ${lossText(counts)} listed under Removed are removed from ${changeSetName}. Nothing live is removed.`
+                    : `I accept that the ${lossText(counts)} listed under Removed are removed. Each record's history keeps what was removed.`}
                 </span>
               </label>
             )}
             <small className="muted">
-              If anything in {label} changes before you confirm, you are asked to preview again.
+              {moving
+                ? `If ${changeSetName} or anything in ${label} changes before you confirm, you are asked to preview again.`
+                : `If anything in ${label} changes before you confirm, you are asked to preview again.`}
             </small>
           </div>
           <button type="button" className="secondary" onClick={cancel} disabled={pending}>
             Cancel
           </button>
           <button type="button" className="primary" onClick={confirm} disabled={!canConfirm}>
-            {pending ? "Confirming…" : changeSetId ? "Migrate and publish" : `Migrate ${label} to ${version}`}
+            {pending
+              ? "Confirming…"
+              : moving
+                ? "Move change set"
+                : changeSetId
+                  ? "Migrate and publish"
+                  : `Migrate ${label} to ${version}`}
           </button>
         </div>
       )}
@@ -557,17 +638,27 @@ export function MigrationPage({
           role="alertdialog"
           size="confirm"
           showClose={false}
-          title={`${label} changed after this preview`}
+          title={
+            moving ? `${changeSetName} or ${label} changed after this preview` : `${label} changed after this preview`
+          }
           onClose={closeStale}
           busy={pending}
         >
           <div className="dialog-body">
-            <p>
-              Records were saved in {label}
-              {changeSetId ? `, ${changeSetName} was edited, or a publication was made` : ", or its model changed"},
-              after the preview you reviewed, so it may no longer list everything the migration would change. Nothing
-              was migrated. Preview again and review it before confirming.
-            </p>
+            {moving ? (
+              <p>
+                {changeSetName} was edited, or records were saved in {label}, after the preview you reviewed, so it may
+                no longer list everything the move would change. Nothing was moved. Preview again and review it before
+                confirming.
+              </p>
+            ) : (
+              <p>
+                Records were saved in {label}
+                {changeSetId ? `, ${changeSetName} was edited, or a publication was made` : ", or its model changed"},
+                after the preview you reviewed, so it may no longer list everything the migration would change. Nothing
+                was migrated. Preview again and review it before confirming.
+              </p>
+            )}
             <div className="dialog-actions">
               <button type="button" className="secondary" onClick={closeStale} disabled={pending}>
                 Close
@@ -597,6 +688,8 @@ const REFUSALS: Record<string, (version: string) => string> = {
   PARENT_REQUIRED: (version) => `Must stand under a parent in ${version}`,
   PARENT_RELATION_SEMANTICS_CHANGED: (version) => `${version} has no place for it under its parent`,
   CHANGE_SET_CONFLICT: () => "Changed both in the change set and live since the change set started",
+  MAPPING_SET_CHANGED: () => "Its relationships changed live since the change set started",
+  MISSING_REQUIRED_ATTRIBUTES: (version) => `A field ${version} requires is empty`,
 };
 
 /** The attribute a refusal's rule names, from its path (`…/attributes/{key}/…`). */
@@ -612,12 +705,15 @@ function MigrationRows({
   empty,
   models,
   version,
+  moving = false,
 }: {
   jobId: string;
   outcome: MigrationOutcome;
   empty: string;
   models: { current: EngineModel; target: EngineModel };
   version: string;
+  /** A change set's move (V3): the rows hold the change set's content. */
+  moving?: boolean;
 }) {
   const list = useCursorWindow<MigrationRow>(
     (selector) => api.migrationRows(jobId, { ...selector, status: outcome, pageSize: ROWS_PAGE }),
@@ -671,10 +767,14 @@ function MigrationRows({
               ? relationName(row.relationTypeKey)
               : "The record",
     },
-    { key: "before", label: "Now", cell: (row) => <span className="mono">{shown(row.before)}</span> },
+    {
+      key: "before",
+      label: moving ? "In the change set" : "Now",
+      cell: (row) => <span className="mono">{shown(row.before)}</span>,
+    },
     {
       key: "after",
-      label: "After the migration",
+      label: moving ? "After the move" : "After the migration",
       cell: (row) =>
         row.outcome === "conversion"
           ? shown(row.after)
@@ -692,7 +792,7 @@ function MigrationRows({
       list={list}
       rowKey={(row) => String(row.index)}
       rowAttributes={() => ({ tabIndex: -1 })}
-      label="Items of the migration"
+      label={moving ? "Items of the move" : "Items of the migration"}
       noun={["item", "items"]}
       pageSize={ROWS_PAGE}
       emptyMessage={empty}

@@ -361,6 +361,7 @@ function AppContent({
           setRefreshToken((value) => value + 1);
         }}
         canMigrate={Boolean(capabilities?.modelAdmin.activate && capabilities?.integrationJobs.createJobs)}
+        canMove={Boolean(capabilities?.integrationJobs.createJobs)}
         onMigrationStarted={(jobId) => navigate({ kind: "settings", page: "model", migrationJobId: jobId })}
         onModelChanged={async () => {
           if (data.reloadChangeSetModel) {

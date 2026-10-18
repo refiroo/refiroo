@@ -828,6 +828,17 @@ the target does not already accept. Nothing on any path forces a change through,
 being asked, or switches the version used across the product; and reading, editing and discarding a
 draft under a version that has since been replaced keeps working without needing model agreement.
 
+### ADR-028 0.11 delivery — V3, 2026-10-18
+
+Moving a change set onto a release its content does not fit is delivered for the release its
+workspace runs (0.11 V3, D87–D96): a `migration` job naming the change set previews every conversion,
+loss and refusal of its content over live data as it is now, and applies only on confirmation of the
+reviewed change set version and the workspace's assignment and feed position. Content the target has
+no place for is removed only once the loss is accepted; a rule the content breaks is refused and never
+resolved by removing anything (D90). The change set's base becomes live data captured at the move.
+Moving onto a release the workspace does not run, when the content does not fit, is not offered
+(`MIGRATION_TARGET_NOT_WORKSPACE_RELEASE`; TODO).
+
 ### ADR-028 0.7 implementation detail — WP-6/WP-7, 2026-09-12
 
 Creation against a selected model and explicit version changes require the complete effective

@@ -275,6 +275,7 @@ export function ChangeSetActions({
   onExit,
   onModelChanged,
   canMigrate = false,
+  canMove = false,
   onMigrationStarted,
 }: {
   readOnly: boolean;
@@ -286,7 +287,9 @@ export function ChangeSetActions({
   onModelChanged: () => Promise<void>;
   /** Migrations may run here (model administration and background jobs, D14). */
   canMigrate?: boolean;
-  /** A migration publishing this change set started (0.11 V2, D85): its job. */
+  /** A change set's move may run here (background jobs, 0.11 V3 D93). */
+  canMove?: boolean;
+  /** A migration publishing this change set (0.11 V2, D85), or moving it (V3, D95), started: its job. */
   onMigrationStarted?: (jobId: string) => void;
 }) {
   const { changeSet, activeModelReleaseId, activeModelReleaseLabel, warning, refresh } = useWorkspaceData();
@@ -379,6 +382,21 @@ export function ChangeSetActions({
       } catch (refreshCause) {
         setError(`${asSentence(cause)} ${errorMessage(refreshCause)}`);
       }
+    } finally {
+      setPending(false);
+    }
+  }
+  /** Preview moving this change set onto the release its workspace runs (V3). */
+  async function moveChangeSet() {
+    if (!allowNavigation()) return;
+    setPending(true);
+    setError("");
+    try {
+      const fresh = await reload();
+      const job = await api.startChangeSetMigration(fresh.id, { expectedChangeSetVersion: fresh.version });
+      onMigrationStarted?.(job.id);
+    } catch (cause) {
+      setError(errorMessage(cause));
     } finally {
       setPending(false);
     }
@@ -515,24 +533,41 @@ export function ChangeSetActions({
             tone="info"
             title="This change set uses a different model version"
             actions={
-              !readOnly && canMigrate && onMigrationStarted ? (
-                <button type="button" className="primary" disabled={pending} onClick={() => void migrateAndPublish()}>
-                  Move {workspaceLabel ?? "the workspace"} to {current.modelReleaseVersion} and publish…
-                </button>
+              !readOnly && ((canMove && onMigrationStarted) || (canMigrate && onMigrationStarted)) ? (
+                <>
+                  {canMove && (
+                    <button type="button" className="primary" disabled={pending} onClick={() => void moveChangeSet()}>
+                      Move this change set to {activeModelReleaseLabel ?? "the workspace's release"}…
+                    </button>
+                  )}
+                  {canMigrate && (
+                    <button
+                      type="button"
+                      className={canMove ? "secondary" : "primary"}
+                      disabled={pending}
+                      onClick={() => void migrateAndPublish()}
+                    >
+                      Move {workspaceLabel ?? "the workspace"} to {current.modelReleaseVersion} and publish…
+                    </button>
+                  )}
+                </>
               ) : undefined
             }
           >
             This change set works under {current.modelReleaseKey} {current.modelReleaseVersion}; live data uses the
             active model{activeModelReleaseLabel ? ` ${activeModelReleaseLabel}` : ""}. Publishing requires these
-            versions to match. You can change the change set&apos;s model version if the content fits,
+            versions to match.
             {readOnly
-              ? " "
-              : ` move ${workspaceLabel ?? "the workspace"} to ${current.modelReleaseVersion} and publish this change set with it, `}
-            or discard the change set.
-            {!readOnly && !canMigrate && (
+              ? " You can change the change set’s model version if the content fits, or discard the change set."
+              : ` You can move this change set to the active model (its content is converted where that model differs, and you review every item first), move ${workspaceLabel ?? "the workspace"} to ${current.modelReleaseVersion} and publish this change set with it, or discard the change set.`}
+            {!readOnly && !canMove && (
+              <> Moving the change set needs background jobs, which this deployment does not run.</>
+            )}
+            {!readOnly && canMove && !canMigrate && (
               <>
                 {" "}
-                Moving the workspace needs model administration and background jobs, which this deployment does not run.
+                Moving {workspaceLabel ?? "the workspace"} needs model administration, which this deployment does not
+                run.
               </>
             )}
           </Notice>

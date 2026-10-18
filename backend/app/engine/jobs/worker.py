@@ -67,7 +67,7 @@ from ...errors import ApiError
 from ...models.commands import BatchItem
 from ...models.database import ChangeSet, Job
 from ..imports.binding import ImportLimits, bind_import
-from ..model import migrations
+from ..model import change_set_migrations, migrations
 from ..sources.dry_run import (
     book_opener,
     dry_run_context,
@@ -363,11 +363,13 @@ class JobWorker:
         def renew() -> None:
             self._renew_lease(job.sequence_id)
 
+        # A change set's move (0.11 V3) is the same job kind over the change set's rows.
+        steps = change_set_migrations if migrations.moves_change_set(job) else migrations
         if previewing(job):
-            migrations.run_preview(session, job, retention_days=retention, hold=hold, renew=renew)
+            steps.run_preview(session, job, retention_days=retention, hold=hold, renew=renew)
             session.commit()
             return
-        migrations.execute(session, job, retention_days=retention, hold=hold, renew=renew)
+        steps.execute(session, job, retention_days=retention, hold=hold, renew=renew)
 
     def _renew_lease(self, sequence_id: int) -> None:
         """Extend a lease from a short session of its own, between a long step's statements (a

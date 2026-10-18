@@ -4537,8 +4537,8 @@ its activation are delivered** (M1, with M2 folded in, 2026-10-15), and **what w
 `releaseName` and the release diff's `workspaceKey` for the browser's per-workspace screens, and
 **a workspace's migration to another release is delivered through the API** (V1, 2026-10-17).
 a change set on a release its workspace no longer runs is published by migrating the workspace
-to it (V2, 2026-10-18). Designed, each moving into "delivered" with its package: a change set's
-content moved to another release (V3),
+to it (V2, 2026-10-18), and a change set's content is moved onto the release its workspace runs
+(V3, 2026-10-18). Designed, each moving into "delivered" with its package:
 mappings between models (X1) and moves (X2, X3). Field-level detail not fixed
 here is finished in that package's plan.
 
@@ -4546,7 +4546,7 @@ here is finished in that package's plan.
 - `GET /api/v1/workspaces/{workspaceKey}/model` (delivered)
 - `POST /api/v1/workspaces/{workspaceKey}/model/activation` (delivered)
 - `POST /api/v1/workspaces/{workspaceKey}/model/migrations` (delivered, V1)
-- `POST /api/v1/change-sets/{changeSetId}/model-migrations` (V3)
+- `POST /api/v1/change-sets/{changeSetId}/model-migrations` (delivered, V3)
 - `GET /api/v1/model-mappings`, `GET /api/v1/model-mappings/{mappingKey}`,
   `POST /api/v1/model-mappings`, `DELETE /api/v1/model-mappings/{mappingKey}?expectedVersion=` (X1)
 - `POST /api/v1/model-mappings/{mappingKey}/operations`,
@@ -4613,8 +4613,8 @@ consumer contract is checked against this workspace's current release; unique va
 and subscription suspension change for this workspace only (D28). The answer is the new assignment,
 plus `changeSetsLeftBehind`: the workspace's open change sets pinned to the release it no longer
 runs (D26), each with `id`, `name` and `version`. Such a change set cannot publish
-(`409 CHANGE_SET_MODEL_RELEASE_CONFLICT`, now with `details.workspaceKey`) until it is moved (V3) or
-discarded. The audit event `activated` names the workspace; `GET /model-releases/{id}/activations`
+(`409 CHANGE_SET_MODEL_RELEASE_CONFLICT`, now with `details.workspaceKey`) until it is moved (V3,
+below) or discarded. The audit event `activated` names the workspace; `GET /model-releases/{id}/activations`
 items gain `workspaceKey`. The new release is loaded into the process after the commit; if that
 fails the answer is `503 MODEL_REGISTRY_REFRESH_FAILED` and the workspaces on that release are
 unavailable until a restart.
@@ -4829,9 +4829,46 @@ raised, move the change set onto it (its content fits) and migrate to that relea
 | 422 | `MIGRATION_TARGET_NOT_CHANGE_SET_RELEASE` | `targetReleaseId` is not the change set's release; `details.changeSetReleaseId` (start) |
 | 422 | `MIGRATION_TARGET_IS_CURRENT` | the change set is on the workspace's own release: publish it as usual (start) |
 
-`POST /change-sets/{changeSetId}/model-migrations` (`targetReleaseId`, `expectedChangeSetVersion`)
-moves one change set's content instead (V3: a change set left on a release its workspace no longer
-runs, moved onto the one it runs), never deleting change-set content to make it fit.
+#### A change set moved onto its workspace's release (V3)
+
+`POST /change-sets/{changeSetId}/model-migrations` moves one change set's content instead: a change
+set left on a release its workspace no longer runs, whose content that release does not already
+accept (one that fits is moved by `PATCH /change-sets/{id}/model-release`), is moved onto the release
+its workspace runs (D87). It is registered where background jobs run (`INTEGRATION_JOBS_ENABLED`,
+D93), and answers `202` with a `migration` job naming the change set (`changeSetId`,
+`parameters.moves: "changeSet"`):
+
+```json
+{ "expectedChangeSetVersion": 7, "typeMappings": [] }
+```
+
+`targetReleaseId` may be left out; if sent it must be the workspace's release. `typeMappings` are a
+migration's (D70), naming what a type of the change set's release became in the target. The preview
+converts the change set's own rows by a migration's rules (D68, D69) and lays them over live data as
+it is now, which becomes the change set's base (D88); it changes nothing. Its rows list each value
+converted, record reclassified and loss in the change set's content (`before` is the change set's
+value), and as `refused`: a record or relationship the change set changed or deleted whose live
+state differs from its old base converted the same way (`CHANGE_SET_CONFLICT`, D89), a relationship
+set it changed whose live edges differ from its old base's (`MAPPING_SET_CHANGED`), and every rule
+the moved change set breaks under the target, by the change set's own validation's codes. Nothing is
+removed to make a rule pass (D90). The summary names `changeSetId`, `changeSetVersion`,
+`currentReleaseId` (the change set's release), `targetReleaseId`, and the workspace's
+`expectedVersion` and `feedPosition`, which `POST /jobs/{id}/confirm` names as for any migration,
+with `acceptLoss` when it removes anything. A change set edited, a live write or an activation in
+the workspace since the preview is `409 MIGRATION_REVIEW_STALE` (D92). The execution converts the
+rows, replaces the base, moves the release and records one `model-release-changed` event on the
+change set naming the job and its counts, raising its version once (D94); live data, the workspace's
+release, its feed and its publications are never written. A failure changes nothing
+(`MIGRATION_FAILED`).
+
+| Status | Code | When |
+| --- | --- | --- |
+| 404 | `CHANGE_SET_NOT_FOUND` | no such open change set (start) |
+| 409 | `CHANGE_SET_VERSION_CONFLICT` | the change set changed since `expectedChangeSetVersion` (start) |
+| 409 | `WORKSPACE_RETIRED` | the change set's workspace is retired (start) |
+| 422 | `MIGRATION_TARGET_NOT_WORKSPACE_RELEASE` | `targetReleaseId` is not the workspace's release; `details.workspaceReleaseId` (start) |
+| 422 | `MIGRATION_TARGET_IS_CURRENT` | the change set works under the workspace's release already (start) |
+| 422 | `UNSUPPORTED_SCHEMA_VERSION`, `INVALID_MIGRATION_MAPPING` | as for a workspace's migration (start) |
 
 ### Mappings between two models (X1)
 

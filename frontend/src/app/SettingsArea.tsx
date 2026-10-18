@@ -17,7 +17,7 @@ import { ModelEditor } from "@/features/model-editor/ModelEditor";
 import { workspaceModel } from "@/model/workspaceModels";
 import { WorkspaceAdmin } from "@/features/workspaces/WorkspaceAdmin";
 import { applicationFor } from "@/model/lookup";
-import { defaultRoute, viewRoute } from "@/routing/routes";
+import { changeReviewFor, defaultRoute, viewRoute } from "@/routing/routes";
 import type { ApplicationDefinition, EngineModel, SettingsRoute } from "@/types";
 import { SettingsShell } from "./SettingsShell";
 import type { Router } from "./useRouter";
@@ -115,6 +115,15 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
           onRouteChange={(next) => navigate(next)}
           onActiveModelChange={router.reloadModel}
           onOpenWorkspace={(workspaceKey) => navigate({ kind: "settings", page: "workspaces", workspaceKey })}
+          onOpenChangeSet={(changeSetWorkspace, changeSetId) => {
+            // The change set's review, in the application last used there if its model has it.
+            void workspaceModel(changeSetWorkspace).then((active) => {
+              const last = lastApplicationRoute();
+              const application = (last && applicationFor(active, last.applicationKey)) ?? active.applications[0];
+              if (application) navigate(changeReviewFor(application.key, changeSetWorkspace, changeSetId));
+              else router.openWorkspace(changeSetWorkspace);
+            });
+          }}
         />
       ) : null}
     </SettingsShell>

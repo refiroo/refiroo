@@ -6,6 +6,25 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.11 V3)
+
+- A change set left on a release its workspace no longer runs moves onto the workspace's release
+  even when its content does not fit it: `POST /change-sets/{id}/model-migrations`
+  (`expectedChangeSetVersion`, optional `targetReleaseId`, `typeMappings`), registered where
+  background jobs run, starts a `migration` job (`parameters.moves: "changeSet"`). Its preview
+  converts the change set's own content with a migration's rules, lays it over live data as it is
+  now and lists every conversion, type change, loss and refusal, changing nothing; a record or
+  relationship the change set changed that live data changed since it started is refused
+  (`CHANGE_SET_CONFLICT`, `MAPPING_SET_CHANGED`), as is every rule the moved change set breaks.
+  Confirmed (the change set's version, the workspace's assignment and feed position), the change
+  set's rows, its base (now a capture of live data) and its release change in one transaction; live
+  data, the workspace's release and its feed never do. Code `MIGRATION_TARGET_NOT_WORKSPACE_RELEASE`.
+- The change set bar's notice offers **Move this change set to ‹release›…** beside V2's offer; the
+  migration page names the change set, says live data stays as it is, confirms with **Move change
+  set** and opens the change set when done.
+- `snapshot_values.reindex_change_set`: a change set's typed value index rebuilt from its rows in set
+  statements.
+
 ### Added (0.11 V2, API)
 
 - A change set on a release its workspace no longer runs (typically one started from an older

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Query, status
+from fastapi import APIRouter, Query, Request, status
 from sqlalchemy import select
 
 from ...common.pagination import (
@@ -18,6 +18,7 @@ from ...engine.change_sets.pinning import (
 )
 from ...engine.change_sets.publish import publish_change_set, withdraw_publication
 from ...engine.change_sets.validation import validate_change_set
+from ...engine.model.change_set_migrations import submit_change_set_migration
 from ...engine.model.registry import resolve_model_snapshot, resolve_pinned_release
 from ...engine.model.workspace_models import load_assignment
 from ...engine.operations.restructuring import (
@@ -50,10 +51,11 @@ from ...errors import ApiError, api_error
 from ...models.database import ChangeSet, ModelRelease, Publication
 from ..dependencies import DbSession
 from ..paging import PageQuery
-from ..presenters import snapshot_attributes
+from ..presenters import job_responses, snapshot_attributes
 from ..schemas.change_sets import (
     ChangeKind,
     ChangeSetCreate,
+    ChangeSetMigrationRequest,
     ChangeSetModelReleaseUpdate,
     ChangeSetPage,
     ChangeSetPublishRequest,
@@ -70,6 +72,7 @@ from ..schemas.change_sets import (
     RelationChangePage,
     RelationChangeState,
 )
+from ..schemas.jobs import JobResponse
 from ..schemas.records import ObjectPathPart
 from ..schemas.restructuring import (
     RestructuringApplyRequest,
@@ -83,6 +86,9 @@ from ..schemas.restructuring import (
 # registered, and refused in a retired workspace by the services it calls. Only workspace catalogue
 # administration sits behind WORKSPACE_ADMIN_MUTATIONS_ENABLED.
 router = APIRouter(prefix="/api/v1", tags=["change-sets"])
+# A change set's move onto another release is a background job (0.11 V3, D93): registered where
+# INTEGRATION_JOBS_ENABLED runs them.
+migration_router = APIRouter(prefix="/api/v1", tags=["change-sets"])
 
 
 def _change_set_response(session, item: ChangeSet) -> ChangeSetResponse:
@@ -136,9 +142,7 @@ def list_change_sets(
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
 ) -> ChangeSetPage:
     load_workspace(session, workspace_key)
-    items = list(
-        session.scalars(select(ChangeSet).where(ChangeSet.workspace_key == workspace_key))
-    )
+    items = list(session.scalars(select(ChangeSet).where(ChangeSet.workspace_key == workspace_key)))
     page = paginate_sequence(
         items,
         lambda x: (x.created_at.isoformat(), x.id),
@@ -208,9 +212,7 @@ def patch_change_set(
     )
 
 
-@router.patch(
-    "/change-sets/{change_set_id}/model-release", response_model=ChangeSetResponse
-)
+@router.patch("/change-sets/{change_set_id}/model-release", response_model=ChangeSetResponse)
 def patch_change_set_model_release(
     change_set_id: str, payload: ChangeSetModelReleaseUpdate, session: DbSession
 ) -> ChangeSetResponse:
@@ -225,9 +227,48 @@ def patch_change_set_model_release(
     )
 
 
+@migration_router.post(
+    "/change-sets/{change_set_id}/model-migrations", response_model=JobResponse, status_code=202
+)
+def start_change_set_migration(
+    change_set_id: str, payload: ChangeSetMigrationRequest, request: Request, session: DbSession
+) -> JobResponse:
+    """Preview a move of the change set onto the release its workspace runs (0.11 V3).
+
+    For a change set left on a release its workspace no longer runs, whose content that release
+    does not already accept (otherwise ``PATCH /change-sets/{id}/model-release`` moves it). Answers
+    202 with a queued ``migration`` job naming the change set. Its preview converts the change
+    set's own content to the workspace's release over live data as it is now and lists every
+    conversion, type change, loss and refusal at ``GET /jobs/{jobId}/rows``, changing nothing; a
+    record the change set changed that live data changed since its start is refused as
+    ``CHANGE_SET_CONFLICT``. The job then waits for ``POST /jobs/{jobId}/confirm`` with its
+    ``migration`` summary's ``expectedVersion`` and ``feedPosition`` (and ``acceptLoss`` when it
+    removes anything from the change set); the change set's content, base and release then change
+    in one transaction. Live data, the workspace's release and its feed are never changed. Refused
+    before a job exists: ``404 CHANGE_SET_NOT_FOUND``, ``409 CHANGE_SET_VERSION_CONFLICT``, ``409
+    WORKSPACE_RETIRED``, ``422 MIGRATION_TARGET_NOT_WORKSPACE_RELEASE``, ``422
+    MIGRATION_TARGET_IS_CURRENT``, ``422 UNSUPPORTED_SCHEMA_VERSION``, ``422
+    INVALID_MIGRATION_MAPPING`` (at ``details.pointer``)."""
+    job = submit_change_set_migration(
+        session,
+        change_set_id,
+        expected_change_set_version=payload.expectedChangeSetVersion,
+        target_release_id=str(payload.targetReleaseId) if payload.targetReleaseId else None,
+        type_mappings=[item.model_dump(by_alias=True) for item in payload.typeMappings],
+        retention_days=request.app.state.batch_limits.retention_days,
+    )
+    session.commit()
+    worker = getattr(request.app.state, "job_worker", None)
+    if worker is not None:
+        worker.wake()
+    return job_responses(session, [job])[0]
+
+
 @router.delete("/change-sets/{change_set_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_change_set(
-    change_set_id: str, session: DbSession, expected_version: int = Query(alias="expectedVersion", ge=1)
+    change_set_id: str,
+    session: DbSession,
+    expected_version: int = Query(alias="expectedVersion", ge=1),
 ) -> None:
     discard_change_set(session, change_set_id, expected_version)
 
@@ -288,7 +329,9 @@ def _object_change(model, entry: ObjectChangeEntry) -> ObjectChange:
 
 
 def _relation_end(end: RelationEnd) -> RelationChangeEnd:
-    return RelationChangeEnd(objectId=end.object_id, objectTypeKey=end.object_type_key, name=end.name)
+    return RelationChangeEnd(
+        objectId=end.object_id, objectTypeKey=end.object_type_key, name=end.name
+    )
 
 
 def _relation_change(entry: RelationChangeEntry) -> RelationChange:
@@ -483,9 +526,7 @@ def post_restructuring(
     )
 
 
-@router.post(
-    "/change-sets/{change_set_id}/validation", response_model=ChangeSetValidation
-)
+@router.post("/change-sets/{change_set_id}/validation", response_model=ChangeSetValidation)
 def post_change_set_validation(change_set_id: str, session: DbSession) -> ChangeSetValidation:
     change_set, change_set_model = pinned_model(session, change_set_id)
     diagnostics = validate_change_set(session, change_set_id, change_set_model)
@@ -511,9 +552,7 @@ def post_change_set_validation(change_set_id: str, session: DbSession) -> Change
     return ChangeSetValidation(valid=not diagnostics, diagnostics=diagnostics)
 
 
-@router.post(
-    "/change-sets/{change_set_id}/publication", response_model=PublicationResponse
-)
+@router.post("/change-sets/{change_set_id}/publication", response_model=PublicationResponse)
 def post_change_set_publication(
     change_set_id: str,
     payload: ChangeSetPublishRequest,
@@ -571,8 +610,6 @@ def get_publication(publication_id: str, session: DbSession) -> PublicationRespo
     return _publication_response(session, item)
 
 
-@router.post(
-    "/publications/{publication_id}/withdrawal", status_code=status.HTTP_204_NO_CONTENT
-)
+@router.post("/publications/{publication_id}/withdrawal", status_code=status.HTTP_204_NO_CONTENT)
 def post_publication_withdrawal(publication_id: str, session: DbSession) -> None:
     withdraw_publication(session, publication_id)

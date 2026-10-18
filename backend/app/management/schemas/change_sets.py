@@ -5,6 +5,7 @@ from pydantic import UUID4, BaseModel, ConfigDict, Field, model_validator
 
 from .common import CollectionPage
 from .records import AttributeOutput, ObjectPathPart
+from .workspaces import MigrationTypeMapping
 
 
 class ChangeSetCreate(BaseModel):
@@ -31,6 +32,19 @@ class ChangeSetModelReleaseUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     modelReleaseId: UUID4
     expectedChangeSetVersion: int = Field(ge=1)
+
+
+class ChangeSetMigrationRequest(BaseModel):
+    """A move of the change set onto the release its workspace runs (0.11 V3, D87, D91), converting
+    its content where that release differs. ``targetReleaseId`` may be left out; if sent it must be
+    the workspace's release. ``typeMappings`` names what a type of the change set's release became
+    in it, so its records keep their IDs."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    expectedChangeSetVersion: int = Field(ge=1)
+    targetReleaseId: UUID4 | None = None
+    typeMappings: list[MigrationTypeMapping] = Field(default_factory=list, max_length=500)
 
 
 class ChangeSetUpdate(BaseModel):

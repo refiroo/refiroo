@@ -13,7 +13,7 @@ here themselves.
 from collections.abc import Iterable, Mapping
 from typing import Any
 
-from sqlalchemy import JSON, Connection, delete, event, func, insert, literal, select
+from sqlalchemy import JSON, Connection, delete, event, func, insert, literal, select, text
 from sqlalchemy.orm import Session
 from sqlalchemy.util import IdentitySet
 
@@ -240,3 +240,60 @@ def insert_value_rows(connection: Connection, rows: Iterable[dict[str, Any]]) ->
             batch = []
     if batch:
         connection.execute(insert(_TABLE), batch)
+
+
+# The typed columns of one JSON value under its declared type, as ``typed_value_columns`` decides
+# them: a value that does not hold its type, or a key the release does not declare, is indexed as
+# JSON only. A decimal is indexed canonically; an instant without a zone is UTC.
+_TYPED_INDEX = r"""
+WITH entry AS (
+    SELECT c.object_id, e.key, e.value, t.value_type AS declared,
+        CASE WHEN jsonb_typeof(e.value) = 'string' THEN e.value #>> '{}' END AS raw
+    FROM change_set_objects c
+    CROSS JOIN LATERAL jsonb_each(c.attributes::jsonb) e
+    LEFT JOIN model_attribute_types t ON t.model_release_id = :release AND t.key = e.key
+    WHERE c.change_set_id = :owner AND NOT c.is_deleted
+), typed AS (
+    SELECT entry.*, coalesce(CASE
+        WHEN declared IS NULL THEN false
+        WHEN jsonb_typeof(value) = 'null' OR declared = 'json' THEN true
+        WHEN declared IN ('text', 'longText') THEN jsonb_typeof(value) = 'string'
+        WHEN declared = 'integer' THEN jsonb_typeof(value) = 'number'
+            AND value::text ~ '^-?[0-9]+$' AND value::text::numeric BETWEEN -2147483648 AND 2147483647
+        WHEN declared = 'decimal' THEN jsonb_typeof(value) = 'number'
+            OR (raw IS NOT NULL AND raw ~ '^\s*[+-]?([0-9]+\.?[0-9]*|\.[0-9]+)([eE][+-]?[0-9]+)?\s*$')
+        WHEN declared = 'boolean' THEN jsonb_typeof(value) = 'boolean'
+        WHEN declared = 'date' THEN raw ~ '^\d{4}-\d{2}-\d{2}$' AND pg_input_is_valid(raw, 'date')
+        WHEN declared = 'dateTime' THEN raw IS NOT NULL AND pg_input_is_valid(raw, 'timestamptz')
+        ELSE false
+    END, false) AS holds
+    FROM entry
+)
+INSERT INTO snapshot_attribute_values (owner_kind, owner_id, object_id, attribute_type_key,
+    value_type, text_value, integer_value, decimal_value, boolean_value, date_value,
+    datetime_value, json_value)
+SELECT 'change_set', CAST(:owner AS varchar), object_id, key,
+    CASE WHEN holds THEN declared ELSE 'json' END,
+    CASE WHEN holds AND declared IN ('text', 'longText') THEN raw END,
+    CASE WHEN holds AND declared = 'integer' AND jsonb_typeof(value) = 'number'
+        THEN value::text::integer END,
+    CASE WHEN holds AND declared = 'decimal' AND jsonb_typeof(value) <> 'null'
+        THEN rdm_decimal_text(btrim(coalesce(raw, value::text))::numeric)::numeric END,
+    CASE WHEN holds AND declared = 'boolean' AND jsonb_typeof(value) = 'boolean'
+        THEN value::text::boolean END,
+    CASE WHEN holds AND declared = 'date' AND raw IS NOT NULL THEN raw::date END,
+    CASE WHEN holds AND declared = 'dateTime' AND raw IS NOT NULL THEN
+        CASE WHEN raw ~ '(Z|z|[+-]\d{2}(:?\d{2})?)$' THEN raw::timestamptz
+            ELSE raw::timestamp AT TIME ZONE 'UTC' END
+    END,
+    CASE WHEN (NOT holds OR declared = 'json') AND jsonb_typeof(value) <> 'null'
+        THEN value::json END
+FROM typed
+"""
+
+
+def reindex_change_set(session: Session, change_set_id: str, model_release_id: int) -> None:
+    """Rebuild a change set's whole typed index from its rows' JSON under ``model_release_id``, in
+    two set statements, after a bulk write of its rows outside the ORM (0.11 V3)."""
+    delete_owner_values(session, change_set_id)
+    session.execute(text(_TYPED_INDEX), {"owner": change_set_id, "release": model_release_id})

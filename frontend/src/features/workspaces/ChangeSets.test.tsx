@@ -283,11 +283,65 @@ describe("a change set on a release its workspace no longer runs (0.11 V2)", () 
     });
   });
 
-  it("says why not where migrations do not run", async () => {
+  it("says why not where background jobs do not run", async () => {
     mismatched();
     vi.spyOn(api, "workspace").mockResolvedValue({ key: "west", label: "West office" } as never);
     render(<ChangeSetActions readOnly={false} onExit={vi.fn()} onModelChanged={vi.fn()} />);
-    expect(await screen.findByText(/needs model administration and background jobs/)).toBeInTheDocument();
+    expect(await screen.findByText(/Moving the change set needs background jobs/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /and publish…/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Move this change set/ })).not.toBeInTheDocument();
+  });
+});
+
+describe("a change set moved onto the release its workspace runs (0.11 V3)", () => {
+  const older = { ...baseChangeSet, modelReleaseId: olderRelease.id, modelReleaseVersion: "0.6.0", version: 7 };
+  const mismatched = () =>
+    vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
+      api,
+      changeSet: older,
+      activeModelReleaseId: activeRelease.id,
+      activeModelReleaseLabel: "0.7.0",
+      warning: "",
+      refresh: vi.fn().mockResolvedValue(older),
+    });
+
+  it("offers to move the change set first, naming its reviewed version", async () => {
+    mismatched();
+    vi.spyOn(api, "workspace").mockResolvedValue({ key: "west", label: "West office" } as never);
+    const start = vi.spyOn(api, "startChangeSetMigration").mockResolvedValue({ id: "job-10" } as never);
+    const started = vi.fn();
+    render(
+      <ChangeSetActions
+        readOnly={false}
+        onExit={vi.fn()}
+        onModelChanged={vi.fn()}
+        canMigrate
+        canMove
+        onMigrationStarted={started}
+      />,
+    );
+    const move = await screen.findByRole("button", { name: "Move this change set to 0.7.0…" });
+    expect(move).toHaveClass("primary");
+    expect(screen.getByRole("button", { name: "Move West office to 0.6.0 and publish…" })).toHaveClass("secondary");
+    fireEvent.click(move);
+    await waitFor(() => expect(started).toHaveBeenCalledWith("job-10"));
+    expect(start).toHaveBeenCalledWith(older.id, { expectedChangeSetVersion: 7 });
+  });
+
+  it("moves the change set where only background jobs run, and says why the workspace cannot move", async () => {
+    mismatched();
+    vi.spyOn(api, "workspace").mockResolvedValue({ key: "west", label: "West office" } as never);
+    render(
+      <ChangeSetActions
+        readOnly={false}
+        onExit={vi.fn()}
+        onModelChanged={vi.fn()}
+        canMove
+        onMigrationStarted={vi.fn()}
+      />,
+    );
+    expect(await screen.findByRole("button", { name: "Move this change set to 0.7.0…" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /and publish…/ })).not.toBeInTheDocument();
+    expect(await screen.findByText(/Moving West office needs model administration/)).toBeInTheDocument();
   });
 });

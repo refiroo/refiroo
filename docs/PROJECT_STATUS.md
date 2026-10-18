@@ -62,7 +62,13 @@ three minutes (preview 66 s, execution 111 s). **V2 is delivered (2026-10-18):**
 accepted; a change set on a release its workspace no longer runs, such as one started from an older
 publication, is published by migrating the workspace to that release, previewed and confirmed in one
 job, through the API and from the change set bar
-([record](BASE_0_11_IMPLEMENTATION_PLAN.md#v2-record-2026-10-18)). Next: V3. Accepted by the user 2026-10-15: the data move in 0.11 (D3), the suite's
+([record](BASE_0_11_IMPLEMENTATION_PLAN.md#v2-record-2026-10-18)). **V3 is delivered (2026-10-18):**
+decisions D87–D96 accepted; a change set left on a release its workspace no longer runs moves onto
+the release the workspace runs even when its content does not fit: one preview lists the conversions
+and losses in its content and what must be fixed (a record changed both in it and live since it
+started, a rule it breaks), and the confirmation converts its content and makes live data its base,
+never touching live data, through the API and from the change set bar
+([record](BASE_0_11_IMPLEMENTATION_PLAN.md#v3-record-2026-10-18)). Next: V4. Accepted by the user 2026-10-15: the data move in 0.11 (D3), the suite's
 time (D152) as a filler during Part 1 before X2 at the latest (D2), and 0.11.0-alpha.1 after the M6
 checkpoint (D12).
 

@@ -490,6 +490,19 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  /**
+   * Preview moving a change set onto the release its workspace runs, converting its content where
+   * that release differs (0.11 V3); the answer is the queued `migration` job, which changes nothing
+   * until it is confirmed.
+   */
+  startChangeSetMigration: (
+    changeSetId: string,
+    body: { expectedChangeSetVersion: number; typeMappings?: MigrationTypeMapping[] },
+  ) =>
+    request<Job>(`/api/v1/change-sets/${encodeURIComponent(changeSetId)}/model-migrations`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   /** Confirm a previewed migration, binding the reviewed versions (D74). */
   confirmMigration: (
     jobId: string,

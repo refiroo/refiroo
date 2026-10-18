@@ -425,7 +425,8 @@ UNION SELECT 'changed', r.relation_type_key FROM migration_relation_changes c
 
 # --- the tables a migration works through ----------------------------------------------------------
 
-_TABLES = """
+# The plan's tables, which a change set's move (``change_set_migrations``) fills too.
+PLAN_TABLES = """
 CREATE TEMPORARY TABLE migration_types (
     application_key text, object_type_key text, target_application_key text,
     target_type_key text, code text, PRIMARY KEY (application_key, object_type_key)
@@ -442,6 +443,12 @@ CREATE TEMPORARY TABLE migration_relation_values (
     relation_type_key text, from_type text, to_type text, attribute_type_key text, to_type_value text,
     PRIMARY KEY (relation_type_key, from_type, to_type, attribute_type_key)
 ) ON COMMIT DROP;
+CREATE TEMPORARY TABLE migration_value_types (
+    attribute_type_key text PRIMARY KEY, value_type text
+) ON COMMIT DROP;
+"""
+
+_TABLES = """
 CREATE TEMPORARY TABLE migration_objects (
     object_id varchar(36) PRIMARY KEY, application_key text, object_type_key text,
     target_application_key text, target_type_key text, name text, parent_object_id varchar(36),
@@ -645,7 +652,7 @@ LEFT JOIN object_relations r ON r.id = listed.relation_id
 LEFT JOIN objects o ON o.id = coalesce(listed.object_id, r.from_object_id)
 """
 
-_COUNTS = """
+COUNTS = """
 SELECT outcome ->> 'outcome', count(*) FROM job_items WHERE job_id = :job GROUP BY 1
 """
 
@@ -852,10 +859,29 @@ _APPLY = (
 )
 
 
+def load_plan(
+    session: Session, current: EngineModel, target: EngineModel, mappings: Sequence[TypeMapping]
+) -> MigrationPlan:
+    """Decide the plan and write it into its temporary tables, with the value type each attribute
+    holds in ``current`` (``migration_value_types``)."""
+    plan = plan_migration(current, target, mappings)
+    session.execute(text(PLAN_TABLES))
+    insert_rows(session, "migration_types", plan.types)
+    insert_rows(session, "migration_values", plan.values)
+    insert_rows(session, "migration_pairs", plan.pairs)
+    insert_rows(session, "migration_relation_values", plan.relation_values)
+    insert_rows(
+        session,
+        "migration_value_types",
+        [(item.key, item.valueType) for item in current.attributeTypes],
+    )
+    return plan
+
+
 # --- submission ----------------------------------------------------------------------------------
 
 
-def _release(session: Session, release_id: str) -> ModelRelease:
+def installed_release(session: Session, release_id: str) -> ModelRelease:
     release = session.scalar(select(ModelRelease).where(ModelRelease.public_id == release_id))
     if release is None:
         raise api_error(404, "MODEL_RELEASE_NOT_FOUND", f"Model release '{release_id}' not found")
@@ -942,7 +968,7 @@ def submit_migration(
             )
         target_release_id = pinned.public_id
     assert target_release_id is not None
-    target = _release(session, target_release_id)
+    target = installed_release(session, target_release_id)
     if assignment.version != expected_version:
         raise api_error(
             409,
@@ -1004,7 +1030,7 @@ class _Migration:
 
     @classmethod
     def open(cls, session: Session, job: Job) -> _Migration:
-        target_release = _release(session, job.parameters["targetReleaseId"])
+        target_release = installed_release(session, job.parameters["targetReleaseId"])
         return cls(
             session,
             job,
@@ -1019,27 +1045,14 @@ class _Migration:
 
     def prepare(self) -> None:
         """The plan into its tables, and every record, relationship and value it changes."""
-        plan = plan_migration(
-            self.current, self.target, parse_type_mappings(self.job.parameters["typeMappings"])
-        )
         session = self.session
-        session.execute(text(_TABLES))
-        _insert(session, "migration_types", plan.types)
-        _insert(session, "migration_values", plan.values)
-        _insert(session, "migration_pairs", plan.pairs)
-        _insert(session, "migration_relation_values", plan.relation_values)
-        # The value type each attribute holds in the current model, for relationship values.
-        session.execute(
-            text(
-                "CREATE TEMPORARY TABLE migration_value_types (attribute_type_key text, "
-                "value_type text) ON COMMIT DROP"
-            )
-        )
-        _insert(
+        load_plan(
             session,
-            "migration_value_types",
-            [(item.key, item.valueType) for item in self.current.attributeTypes],
+            self.current,
+            self.target,
+            parse_type_mappings(self.job.parameters["typeMappings"]),
         )
+        session.execute(text(_TABLES))
         for statement in _FILL:
             session.execute(text(statement), {"workspace": self.workspace_key})
         # The tables were just filled: PostgreSQL plans the joins over them from their statistics,
@@ -1152,7 +1165,7 @@ class _Migration:
         )
 
     def counts(self) -> dict[str, int]:
-        found = dict(self.session.execute(text(_COUNTS), {"job": self.job.sequence_id}).all())
+        found = dict(self.session.execute(text(COUNTS), {"job": self.job.sequence_id}).all())
         return {outcome: int(found.get(outcome, 0)) for outcome in OUTCOMES}
 
 
@@ -1180,7 +1193,8 @@ def publication_refusal_items(
     return items
 
 
-def _insert(session: Session, table: str, rows: Sequence[tuple[Any, ...]]) -> None:
+def insert_rows(session: Session, table: str, rows: Sequence[tuple[Any, ...]]) -> None:
+    """Rows into one of a migration's temporary tables."""
     if not rows:
         return
     width = len(rows[0])
@@ -1191,7 +1205,7 @@ def _insert(session: Session, table: str, rows: Sequence[tuple[Any, ...]]) -> No
     )
 
 
-def _record(job: Job, counts: dict[str, int], **summary: Any) -> None:
+def record_summary(job: Job, counts: dict[str, int], **summary: Any) -> None:
     """The job's counts, items and migration summary."""
     total = sum(counts.values())
     job.total = total
@@ -1254,7 +1268,7 @@ def run_preview(
         savepoint.rollback()
     renew()
     migration.write_refusals(refused, written)
-    _record(
+    record_summary(
         job,
         migration.counts(),
         targetReleaseId=migration.target_release.public_id,
@@ -1291,7 +1305,7 @@ def check_confirmation(
 
     def check(job: Job) -> None:
         summary = (job.report or {}).get("migration", {})
-        _require_reviewed(
+        require_reviewed(
             session,
             job,
             reviewed_version=expected_version,
@@ -1347,7 +1361,7 @@ def confirm_migration(
     return job
 
 
-def _require_reviewed(
+def require_reviewed(
     session: Session,
     job: Job,
     *,
@@ -1356,6 +1370,8 @@ def _require_reviewed(
     summary: dict[str, Any],
     for_update: bool = False,
 ) -> None:
+    """The workspace, and a named change set, as the preview read them (D74, D83, D92);
+    otherwise ``409 MIGRATION_REVIEW_STALE``."""
     assignment, current = load_assignment(session, job.workspace_key, for_update=for_update)
     feed_position = int(
         session.scalar(select(Workspace.feed_position).where(Workspace.key == job.workspace_key))
@@ -1367,7 +1383,7 @@ def _require_reviewed(
         reviewed_version != summary.get("expectedVersion")
         or reviewed_feed_position != summary.get("feedPosition")
         or assignment.version != reviewed_version
-        or current.id != job.model_release_id
+        or current.id != _workspace_release_id(session, job)
         or feed_position != reviewed_feed_position
     ):
         raise api_error(
@@ -1383,6 +1399,20 @@ def _require_reviewed(
                 "currentFeedPosition": feed_position,
             },
         )
+
+
+def moves_change_set(job: Job) -> bool:
+    """A ``migration`` job that moves one change set's content (V3, ``change_set_migrations``)
+    rather than a workspace's data."""
+    return (job.parameters or {}).get("moves") == "changeSet"
+
+
+def _workspace_release_id(session: Session, job: Job) -> int:
+    """The release the workspace ran when the preview read it: the job's current release, or for
+    a change set's move the target, which is the workspace's release (D87)."""
+    if moves_change_set(job):
+        return installed_release(session, job.parameters["targetReleaseId"]).id
+    return job.model_release_id
 
 
 def _require_change_set_reviewed(
@@ -1441,7 +1471,7 @@ def run_execution(
     lock_what_activation_changes(
         session, job.workspace_key, migration.target_release.public_id, current_release.public_id
     )
-    _require_reviewed(
+    require_reviewed(
         session,
         job,
         reviewed_version=summary["expectedVersion"],
@@ -1478,7 +1508,7 @@ def run_execution(
             summary.get("activePublicationId"),
         )
         published = {"publicationId": publication.id}
-    _record(job, counts, **published)
+    record_summary(job, counts, **published)
     hold()
     complete_job(session, job, retention_days=retention_days)
     return migration.target_release

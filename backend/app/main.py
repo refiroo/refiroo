@@ -242,7 +242,9 @@ def create_app() -> FastAPI:
     application.state.integration_jobs_enabled = settings.integration_jobs_enabled
     application.state.consumer_resolve_max_items = settings.consumer_resolve_max_items
     application.state.consumer_subscriptions_enabled = settings.consumer_subscriptions_enabled
-    application.state.consumer_webhook_log_retention_days = settings.consumer_webhook_log_retention_days
+    application.state.consumer_webhook_log_retention_days = (
+        settings.consumer_webhook_log_retention_days
+    )
     application.state.subscription_settings = (
         SubscriptionSettings(
             encryption_key=settings.consumer_webhook_key_encryption_key,
@@ -363,14 +365,21 @@ def create_app() -> FastAPI:
         application.include_router(jobs.write_router, dependencies=MANAGEMENT_DEPENDENCIES)
         application.include_router(imports.write_router, dependencies=MANAGEMENT_DEPENDENCIES)
         application.include_router(source_files.write_router, dependencies=MANAGEMENT_DEPENDENCIES)
+        application.include_router(
+            change_sets.migration_router, dependencies=MANAGEMENT_DEPENDENCIES
+        )
         if mutations_enabled:
-            application.include_router(source_files.dry_run_router, dependencies=MANAGEMENT_DEPENDENCIES)
+            application.include_router(
+                source_files.dry_run_router, dependencies=MANAGEMENT_DEPENDENCIES
+            )
             application.include_router(inference.router, dependencies=MANAGEMENT_DEPENDENCIES)
             application.include_router(
                 model_management.migration_router, dependencies=MANAGEMENT_DEPENDENCIES
             )
     if settings.consumer_subscriptions_enabled:
-        application.include_router(consumer_subscriptions.router, dependencies=MANAGEMENT_DEPENDENCIES)
+        application.include_router(
+            consumer_subscriptions.router, dependencies=MANAGEMENT_DEPENDENCIES
+        )
     application.include_router(consumer_router.router)
     return application
 

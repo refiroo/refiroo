@@ -11,7 +11,7 @@ packages are specified below at package level; each package's detailed plan, tes
 decisions are written and accepted when it starts, and it is delivered in the order of the
 [delivery queue](#delivery-queue), each by the [delivery steps](#how-a-package-is-delivered).
 **Delivered:** P0, M1 with M2 (2026-10-15), M3, M4, M5, M6 and M6a (2026-10-16), released as
-0.11.0-alpha.1 (2026-10-17, tag `v0.11.0-alpha.1`); V1 and V2 (2026-10-18).
+0.11.0-alpha.1 (2026-10-17, tag `v0.11.0-alpha.1`); V1, V2 and V3 (2026-10-18).
 
 **Target:** Product 0.11.0, [production hardening and staged model rollout](ROADMAP.md#product-release-011--production-hardening-and-staged-model-rollout),
 with the two requirements the user added on 2026-10-15 (ROADMAP commit `a0859ae`).
@@ -299,7 +299,7 @@ change) and `volume` (every budget).
 | 7a | [M6a](#m6a-a-write-names-the-release-it-was-built-on) | M5 | **Delivered 2026-10-16.** Added 2026-10-16 in M6: a write names the release it was built on; refused when the workspace runs another; M6's case 4 |
 | 8 | [V1](#v1-a-workspaces-data-migrated-to-another-release) | M2 | **Delivered 2026-10-18.** Migration plan for one workspace: preview, conversions, loss, confirm bound to versions, atomic switch |
 | 9 | [V2](#v2-a-change-set-from-a-publication-moved-to-another-release) | V1 | **Delivered 2026-10-18.** GAP-02: a change set on an older release published by migrating its workspace to that release |
-| 10 | [V3](#v3-a-change-set-moved-onto-a-release-it-does-not-fit) | V1 | ADR-028: a change set moved onto a release its content does not fit, previewed and confirmed |
+| 10 | [V3](#v3-a-change-set-moved-onto-a-release-it-does-not-fit) | V1 | **Delivered 2026-10-18.** ADR-028: a change set moved onto the release its workspace runs when its content does not fit, previewed and confirmed |
 | 11 | [V4](#v4-the-schema-language-window) | V1, M6 | The bounded window of schema versions run side by side; explicit conversion rules |
 | 12 | [X1](#x1-the-mapping-between-two-models) | M4, P0 inventory | The model-to-model mapping: proposed, completed with mapping operations, saved and reused |
 | 13 | [X2](#x2-selection-and-the-dry-run-of-a-move) | X1 | What moves; the dry run of every item; what cannot move, with reasons |
@@ -2114,6 +2114,185 @@ change set left on a replaced release is moved or thrown away explicitly.
 **Groups:** `migration`, `change_sets`.
 
 **Exit:** the roadmap's two exit items on moving a draft.
+
+##### V3 plan (2026-10-18)
+
+**Planned 2026-10-18; D87–D96 as recommended, the test cases and the mock-up accepted by the user the same day ("ok, please build the v3").**
+Checked against the code at `68b7700`:
+
+- **A change set holds a base and its own rows.** Its base is a publication's rows
+  (`derived_from_publication_id`) or a private capture of live data (`change_set_bases`, copied by
+  `snapshot_values.copy_live`); its own rows (`change_set_objects`, `change_set_relations`) are
+  what it authored, with tombstones (`is_deleted`). Values are JSON in both, read under the change
+  set's release; the typed index (`snapshot_attribute_values`) follows them.
+- **Today's pin change** (`pinning.set_change_set_model_release`, `PATCH
+  /change-sets/{id}/model-release`) moves a change set only when its whole effective graph already
+  fits (`require_change_set_compatible`): a retyped value, a parent relation whose meaning changed
+  or a broken rule is `409 CHANGE_SET_CONTENT_INCOMPATIBLE`. It changes no row and keeps the base.
+  It is not gated by model administration or jobs.
+- **Publishing checks versions against the base.** `_merge_change_set_over_live` refuses a record
+  or relationship the change set changed whose live version differs from its base's
+  (`VERSION_MISMATCH`, shown as `CHANGE_SET_CONFLICT`), and a touched mapping set whose edges
+  differ (`MAPPING_SET_CHANGED`). **V1's migration raises the version of every live record it
+  converts**, so a change set left on the old release, even once its pin is moved, would conflict
+  on every record it edited that the migration touched: its old base also still holds the old
+  release's values.
+- **V1's machinery** (`engine/model/migrations.py`): the plan from two models
+  (`plan_migration`, type mappings), the conversions in SQL (`rdm_convert_value`), the
+  outcomes and rows, the preview in a rolled-back savepoint, confirmation bound to versions, the
+  `migration` job kind with its `change_set_id` column (V2). Its fill and apply statements read and
+  write the live tables only.
+- **The UI:** the change set bar's notice "This change set uses a different model version" offers
+  V2's Move ‹workspace› to ‹release› and publish…, and says the change set's version can be changed
+  "if the content fits"; the Change model version dialog shows `CHANGE_SET_CONTENT_INCOMPATIBLE`'s
+  diagnostics with no way forward.
+
+**The documents, read together (stated before planning, as CLAUDE.md asks).** ADR-028 and API.md
+say the review "reports … any potential loss of content authored in the change set" and also that
+"a move never deletes change-set content to make a target fit". Read literally the second forbids
+the first. This plan reads them as V1's D68 does (D90): content the target has no place for is
+listed as loss and removed only when you accept it; a rule the content breaks is refused and never
+resolved by removing anything. P0's API line also names `targetReleaseId` freely; D87 narrows it to
+the workspace's release in V3, with the reason and the cost of the general case.
+
+**What is built:** `POST /change-sets/{changeSetId}/model-migrations` starts a `migration` job that
+moves one change set onto the release its workspace runs. The preview converts the change set's own
+rows with V1's plan, replaces its base with a capture of current live data (which already runs the
+target), checks the result against the target in full, lists every item as a row, and rolls back.
+The confirmation applies it, moves the pin and records it on the change set, in one transaction. Live
+data, the workspace's release, its feed and publications are never touched. In the UI, the change set
+bar's notice offers **Move this change set to ‹release›…**, which opens V1's migration page for the
+job.
+
+**Decisions** (D87 onward):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D87 | Which release a change set moves onto | **The release its workspace runs, only.** That is the case D26 and ADR-028 name ("a change set still on the replaced release is either thrown away or explicitly moved onto the new version"), and the only one after which the change set can publish. Another target is `422 MIGRATION_TARGET_NOT_WORKSPACE_RELEASE` (new); a change set whose content already fits any release keeps using today's pin change. Why: on the workspace's release the new base is live data itself (D88), so publishing afterwards compares like with like. On a release nobody runs yet, the base would have to be a converted copy, and V2's migration later raises the version of every record it converts, so that change set would conflict on exactly the records it was prepared for. Cost of the general case if you want it now: a converted private base and a content comparison in V2's merge, roughly doubling V3; otherwise it waits in TODO |
+| D88 | What moves | **The change set's own rows are converted by V1's plan, and its base becomes a capture of current live data.** Values convert by D69's pairs, records of a mapped type are reclassified (D70's `typeMappings`), and what the target has no place for is loss (D90). The old base is dropped (a private one is deleted; a publication stays as it is, and the change set no longer names it). Why: the old base holds the old release's values, so it cannot be read under the target; live data already runs the target and is what publishing merges over. Records the change set did not touch then read as they are live now (for a change set started from a publication: no longer as in that publication). Cost: the conversions written for the change-set tables (JSON rows) beside V1's live-table ones; `copy_live` reused as starting a change set does |
+| D89 | When a change the change set made conflicts with live data | **By content, not version:** a record or relationship the change set changed or deleted is refused as `CHANGE_SET_CONFLICT` when its live state differs from its old base state converted by the same plan; a touched mapping set when its live edges differ from its old base's edges carried by the plan. Why: the workspace's own migration raised versions without changing anything the change set did not expect; a version check would refuse every such record, while a live edit made since the base is still caught. Cost: one comparison statement over the change set's rows (a record changed live and changed back no longer counts as a conflict, which today's publish counts) |
+| D90 | What "never deletes change-set content to make it fit" means | **V1's three outcomes, unchanged.** *Loss*, listed and removed only with `acceptLoss`: a value of an attribute or binding the target lacks or that does not convert; a record the change set created of a type the target lacks, with what it contains; an edit or deletion of a record live data no longer has; a relationship of a pair the target lacks. *Refused*: every rule the converted graph breaks under the target (required values, uniqueness, bounds, cardinality, a parent the target does not allow) and every conflict of D89, fixed by you in the change set or live, then previewed again. Why: loss is what the target cannot hold, which you see and accept; nothing is ever removed to satisfy a rule. Cost: none beyond V1's rule table. Alternative: refuse all loss too, so you remove such content yourself in the change set first (editing under the old release keeps working, ADR-028) |
+| D91 | The route and the job | **As P0 designed it:** `POST /change-sets/{changeSetId}/model-migrations` with `expectedChangeSetVersion`, optional `targetReleaseId` (the workspace's release when left out) and `typeMappings`, answering `202` with a `migration` job naming the change set (`parameters.moves: "changeSet"`). Confirmed by `POST /jobs/{id}/confirm`, rows by `GET /jobs/{id}/rows`, cancel as for any job. Refused before a job exists: `404 CHANGE_SET_NOT_FOUND`, `409 CHANGE_SET_VERSION_CONFLICT`, `409 WORKSPACE_RETIRED`, `422 MIGRATION_TARGET_NOT_WORKSPACE_RELEASE`, `422 MIGRATION_TARGET_IS_CURRENT` (already on it: nothing to move), `422 UNSUPPORTED_SCHEMA_VERSION`, `422 INVALID_MIGRATION_MAPPING`. Why: one job kind and one page for every migration; the job's kind exists, so no database migration. Cost: one new code |
+| D92 | What the confirmation binds | **The change set's version, the workspace's assignment version and its feed position,** read by the preview and returned in its summary (`changeSetId`, `changeSetVersion`, `expectedVersion`, `feedPosition`). A change set edited, a live write or an activation in the workspace since the preview is `409 MIGRATION_REVIEW_STALE`. The confirmation body is V1's (`expectedVersion`, `expectedFeedPosition`, `acceptLoss`). Why: the new base is live data, so a live write changes what was reviewed. Cost: in a busy workspace a preview goes stale quickly; the page's Preview again is one click |
+| D93 | Gates | **`INTEGRATION_JOBS_ENABLED` only.** The move changes no model and no assignment, so it is not model administration, as today's pin change is not. Why: a change set's owner can move it wherever jobs run. Cost: none |
+| D94 | What history and consumers see | **Nothing in the feed** (an unpublished change set is invisible to consumers, D20). One `model-release-changed` event on the change set, as the pin change writes, adding the job's ID and its counts, and the change set's version raised once. Publishing it later writes the ordinary entries. Why: the move is an edit of one change set. Cost: none |
+| D95 | The UI | **On a mock-up you approve first** (delivery step 3). The change set bar's notice gains **Move this change set to ‹workspace's release›…** beside V2's offer where background jobs run (otherwise it says why not), and its text says the version can be changed even when the content does not fit. It opens V1's migration page for the job: the title "Move ‹change set› to ‹release›", a line saying live data and the workspace's release stay as they are, the same choices for missing types and fields, outcome tabs and rows, refusals including `CHANGE_SET_CONFLICT` in words, **Accept the loss**, **Move change set**, and a done state with Open the change set. Why: one page for every migration. Cost: a board on the P0 canvas, the page's change-set mode, a case in `test:browser:workspace-v1` on two models at 1440px and 390px by keyboard |
+| D96 | Volume | **No budget of its own.** The base capture is starting a change set (measured in 0.9), the conversions run over the change set's own rows with V1's statements, and the whole-graph check is publishing's (the recorded exception). Why: nothing new to measure. Cost: none |
+
+**Journey test cases** (`tests/journeys/test_j37_7_change_set_moved.py`, J37.7, `migration`,
+`change_sets`, `workspace_models`; X beside Y, both directions, naming no key; X2 derived from X by
+V1's helper). Given in each: workspace W on X1 with records; change set C started from live data
+under X1, with a record edited (a value of the attribute X2 retypes, one that converts) and a record
+created with a value of the binding X2 removes; W then migrated to X2 (V1); publishing C refused
+`409 CHANGE_SET_MODEL_RELEASE_CONFLICT`.
+
+1. **J37.7 Preview.** A move of C waits for confirmation; its summary names C, its version, X1 and
+   X2; its rows list the conversion and the loss in C's content. C's rows, version and release,
+   and W's records, release and feed are unchanged.
+2. **J37.7 Confirm.** Without `acceptLoss`, `422 MIGRATION_LOSS_NOT_ACCEPTED`. With it, C is on X2
+   at the next version: the converted value reads in X2's type, the lost value is gone, a record C
+   did not touch reads as it is live. W's feed has no new entry. Publishing C then succeeds and its
+   edit is live, although the migration had raised that record's version (D89). Y is unchanged.
+3. **J37.7 A type mapping.** X2 renames a type C created a record of: without `typeMappings` the
+   record is loss; with the mapping it is reclassified, and after confirming keeps its ID under the
+   new type with its values.
+4. **J37.7 A conflict.** A record C edited is also edited live after the migration: the preview
+   refuses it (`CHANGE_SET_CONFLICT`), the confirmation is `409 MIGRATION_HAS_REFUSALS`, nothing
+   changed.
+5. **J37.7 A rule refused.** X2 adds a required attribute the record C created lacks: the preview
+   refuses it with the record named. After the value is filled in C (still on X1), a new preview
+   confirms.
+6. **J37.7 Stale and cancel.** C edited after the preview, or a live write in W: the confirmation is
+   `409 MIGRATION_REVIEW_STALE`, nothing changed. A cancelled preview changes nothing.
+7. **J37.7 Start refusals.** A target other than W's release, `422
+   MIGRATION_TARGET_NOT_WORKSPACE_RELEASE`; a change set already on W's release, `422
+   MIGRATION_TARGET_IS_CURRENT`; a stale `expectedChangeSetVersion`, `409
+   CHANGE_SET_VERSION_CONFLICT`.
+8. **J37.7 A failed execution.** The execution fails at its last statement (injected at the
+   execution boundary, as J37.5, stated in the test): the job is `failed` with `MIGRATION_FAILED`;
+   C's rows, base, version and release are unchanged.
+
+Unit tests: D89's comparison (a value converted by the plan only is no conflict; a live edit, a live
+deletion and a changed mapping set are), the change-set rows' conversion over D69's pairs.
+
+**Groups:** `migration`, `change_sets` (over its ceiling, TODO's), `workspace_models`, `contract`
+(the route and the new code, the lock re-baselined after diffing); the job journeys on the confirm
+path; no database migration; Vitest for the bar and the page; `test:browser:workspace-v1`'s new case.
+
+**Composable domains (ADR-032):** identity is unaffected (records keep their IDs, a mapped one too);
+audit and history: the change set's own event records the move, publication records the rest; bulk
+APIs: the same job with item outcomes. No door closes.
+
+##### V3 record (2026-10-18)
+
+**Delivered 2026-10-18**, the API and the screen on the approved board (the user, 2026-10-18: "ok,
+please build the v3", taken as acceptance of D87–D96 as recommended, the test cases, the board and
+the groups the plan names).
+
+- **Built (API):** `engine/model/change_set_migrations.py`: the submission (`POST
+  /change-sets/{changeSetId}/model-migrations`, `ChangeSetMigrationRequest`, registered with
+  background jobs in `change_sets.migration_router`), the preview, the execution and the change set's
+  `model-release-changed` event; the worker hands a `migration` job with `parameters.moves:
+  "changeSet"` to it (`migrations.moves_change_set`). From V1's module, made public for it:
+  `load_plan` (the plan's tables, now with `migration_value_types` among them), `insert_rows`,
+  `installed_release`, `record_summary`, `COUNTS`, `require_reviewed`, whose release check reads the
+  target for a move. `snapshot_values.reindex_change_set` rebuilds a change set's typed index from
+  its rows' JSON in two set statements, as the flush hook would. No database migration (the job kind
+  and its `change_set_id` existed). One new code, `MIGRATION_TARGET_NOT_WORKSPACE_RELEASE`.
+- **Built (screen, D95):** the change set bar's notice offers **Move this change set to
+  ‹release›…** (primary) beside V2's offer (now secondary) where background jobs run, and says why
+  either is missing (`ChangeSetActions`' `canMove`, `App`). `MigrationPage` reads `moves` from the
+  job: the title "Move ‹change set› to ‹release›", the description naming the change set's release
+  and saying live data, the workspace's release and its publications stay as they are, the change
+  set's release as the current model for what the target no longer has, the columns "In the change
+  set" and "After the move", the refusals `MAPPING_SET_CHANGED` and `MISSING_REQUIRED_ATTRIBUTES` in
+  words, the acceptance "removed from ‹change set›. Nothing live is removed", **Move change set**,
+  the stale dialog naming the change set, and the done notice with **Open the change set**, which
+  opens its review in the application last used there (`SettingsArea`, `ModelWorkbench`). The
+  shell's model is not reloaded after a move: the workspace's release did not change. UI_ACCEPTANCE
+  row V3-1.
+- **Where it differs from the design:** the record the change set created without a value the
+  target requires is refused by the change set's own validation, `MISSING_REQUIRED_ATTRIBUTES`, not
+  V1's `REQUIRED_ATTRIBUTE_MISSING`; the approved case says only that the record is named, and its
+  test names the code it gets. A relationship set conflicts when its edge IDs differ (an edge added
+  or removed live); a changed attribute of an edge counts only for edges the change set changed,
+  through the relationship's own comparison. A deletion the change set made of something live data
+  no longer holds is dropped from it. The change set's relationship-set versions follow the target's
+  type keys and are dropped with a pair the target lacks. The execution holds the workspace row in
+  share mode and the change set row, not the assignment row: it writes nothing a live write holds,
+  and an activation committing meanwhile only leaves the change set behind again. The bar's offer
+  names the release as the bar already labels it (key and version), cut short with "…" when long;
+  the board showed the version alone.
+- **Found on the way and fixed:** the index statement's type check answered `NULL` for a date held
+  as a number, so the value was not indexed as JSON (the unit test against the flush hook found it);
+  the runner first matched the page's description instead of the done notice.
+
+**Checks (2026-10-18):** J37.7 written first, 16 failing at the route (`404`), then 16 passed on
+generated-a and generated-b. Unit `tests/unit/engine/model/test_change_set_migrations.py` (2): the
+index statement against `value_rows` over every value type's samples and mismatches; a moved change
+set conflicting exactly on a live edit, a live deletion and a relationship set changed live, not on
+a record the migration only converted nor one changed live and back, then executed with its index
+and the stored matrix states (`matrix_states.verify`) true. J37, J37.6, J37.7, V1's and V3's unit
+modules and `test_boundaries`: 67 passed, 43 s. Groups `contract`: 76 passed (the lock re-baselined
+after diffing the default document against `68b7700`: the route, `ChangeSetMigrationRequest`,
+`MigrationTypeMapping` and `MigrationAttributeSource` added, nothing removed;
+`test_every_error_code_is_listed` failed until API_JOURNEYS listed the code). Groups `migration or
+workspace_models or change_sets or queries` (`queries` selected by `snapshot_values.py`): 716 passed,
+3 min 12 s, over the 2-minute ceiling as `change_sets` alone is (TODO's); the serial part 2 passed;
+J24 and `unit/engine/jobs` 103 passed. Ruff. Frontend: `ChangeSets.test` (2 new, V2's "why not"
+case replaced since its text changed), `MigrationPage.test` (2 new); the model-admin, workspaces,
+app and routing folders 212 passed; `npm run format`, `lint` (0 errors; the 7 warnings are
+elsewhere), `build`. `test:browser:workspace-v1` 7 cases passed, case 7 on generated-a and
+generated-b (the bar's offer, the acceptance and Move change set by keyboard, axe on the bar and the
+page, 390px without sideways scroll, the change set opened again). Screenshots inspected light and
+dark (`v3-bar`, `v3-preview`, `v3-phone`, `v3-done`): they follow the board; the phone shot shows
+the sticky bar over the page's middle as V1's approved phone shot does (a full-page capture of a
+sticky bar). **Not run:** the accessibility and visual gates (build acceptance; V3 adds no gate
+scenario, its surfaces show only for a change set left behind, as V2's); no budget (D96).
+
+**What the user cannot do yet:** move a change set onto a release its workspace does not run when
+its content does not fit (D87; TODO, not scheduled); run models of older schema versions side by
+side (V4); move data between workspaces whose models differ (Track X).
 
 #### V4: The schema-language window
 

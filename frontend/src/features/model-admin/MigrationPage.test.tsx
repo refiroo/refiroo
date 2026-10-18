@@ -16,6 +16,7 @@ vi.mock("@/api/client", () => ({
     cancelJob: vi.fn(),
     workspaceModel: vi.fn(),
     startWorkspaceMigration: vi.fn(),
+    startChangeSetMigration: vi.fn(),
     changeSet: vi.fn(),
     publication: vi.fn(),
   },
@@ -73,7 +74,7 @@ const job = (counts: Partial<Record<"conversion" | "reclassified" | "loss" | "re
     ...extra,
   }) as unknown as Job;
 
-function show(loaded: Job, onOpenJob = vi.fn()) {
+function show(loaded: Job, onOpenJob = vi.fn(), more: { onMigrated?: () => void; onOpenChangeSet?: () => void } = {}) {
   vi.mocked(api.job).mockResolvedValue(loaded);
   render(
     <MigrationPage
@@ -82,7 +83,8 @@ function show(loaded: Job, onOpenJob = vi.fn()) {
       releases={releases}
       onOpenJob={onOpenJob}
       onBack={() => undefined}
-      onMigrated={() => undefined}
+      onMigrated={more.onMigrated ?? (() => undefined)}
+      onOpenChangeSet={more.onOpenChangeSet}
     />,
   );
   return onOpenJob;
@@ -244,5 +246,62 @@ describe("MigrationPage (0.11 V1)", () => {
     );
     expect(await screen.findByText(/Published as Publication 14\./)).toBeInTheDocument();
     expect(screen.getByText(/and “Spring reshelving” is live/)).toBeInTheDocument();
+  });
+  describe("a change set's move (0.11 V3)", () => {
+    const moving = (counts: Record<string, number>, extra = {}) =>
+      job(counts, {
+        parameters: { targetReleaseId: "lib-3", typeMappings: [], changeSetId: "cs-1", moves: "changeSet" },
+        ...extra,
+      });
+
+    it("names the change set, keeps live data out of it, and confirms with the reviewed versions", async () => {
+      vi.mocked(api.changeSet).mockResolvedValue({
+        id: "cs-1",
+        name: "Autumn labels",
+        version: 4,
+        modelReleaseId: "lib-2",
+      } as never);
+      vi.mocked(api.confirmMigration).mockResolvedValue(moving({ loss: 1 }, { state: "queued", confirmedAt: "now" }));
+      show(moving({ conversion: 2, loss: 1 }));
+
+      expect(
+        await screen.findByRole("heading", { name: "Move “Autumn labels” to Catalogue 3.0.0" }),
+      ).toBeInTheDocument();
+      expect(screen.getByText(/works under Catalogue 2.0.0; South branch runs 3.0.0/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Live data, South branch's release and its publications stay as they are/),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/Then publishes/)).not.toBeInTheDocument();
+      const confirm = screen.getByRole("button", { name: "Move change set" });
+      expect(confirm).toBeDisabled();
+      fireEvent.click(screen.getByRole("checkbox", { name: /removed from “Autumn labels”\. Nothing live is removed/ }));
+      fireEvent.click(confirm);
+      await vi.waitFor(() =>
+        expect(api.confirmMigration).toHaveBeenCalledWith("job-1", {
+          expectedVersion: 4,
+          expectedFeedPosition: 18204,
+          acceptLoss: true,
+        }),
+      );
+    });
+
+    it("opens the moved change set once done, leaving the workspace's model as it was", async () => {
+      vi.mocked(api.changeSet).mockResolvedValue({
+        id: "cs-1",
+        name: "Autumn labels",
+        version: 5,
+        modelReleaseId: "lib-3",
+      } as never);
+      const onMigrated = vi.fn();
+      const onOpenChangeSet = vi.fn();
+      show(moving({ conversion: 2 }, { state: "completed", confirmedAt: "now" }), vi.fn(), {
+        onMigrated,
+        onOpenChangeSet,
+      });
+      expect(await screen.findByText("“Autumn labels” works under Catalogue 3.0.0")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Open the change set" }));
+      expect(onOpenChangeSet).toHaveBeenCalledWith("south", "cs-1");
+      expect(onMigrated).not.toHaveBeenCalled();
+    });
   });
 });

@@ -909,3 +909,21 @@ one transaction; its feed entries follow the migration's.
 The same preview and confirmation apply to one change set (ADR-028), run against that change set's own
 candidate graph and the live data under it: moving a change set onto a release its content does not
 already satisfy happens only from a reviewed preview.
+
+Delivered in 0.11 V3 (`engine/model/change_set_migrations.py`): the target is the release the change
+set's workspace runs. The job is a `migration` naming the change set (`parameters.moves`), and the
+worker hands it to that module. It loads V1's plan (`migrations.load_plan`) into the same temporary
+tables and fills its own from the change set's rows, the old base's rows they name, and live data, in
+set statements: each row's fate, each value's conversion (`rdm_convert_value` over the rows' JSON),
+and the conflicts. A record or relationship the change set changed conflicts when live data differs
+from its old base converted by the plan, compared as JSON in one statement, because the workspace's
+migration raised the versions of the records it converted without changing anything else. The move
+converts the rows, keeps each row's distance from its base version over the live version, captures
+live data as the change set's new base (`copy_live`, as starting a change set does), drops the old
+private base, rebuilds the change set's typed value index from its JSON
+(`snapshot_values.reindex_change_set`, two set statements) and its matrix states
+(`matrix_states.record_change_set`), and validates the moved change set with its own whole-graph
+check (`graph_diagnostics`, publishing's recorded exception). The preview does this under a savepoint
+and rolls it back. The execution holds the workspace row in share mode, which keeps live writes
+(they take its feed positions) out until it commits, then the change set row, and writes nothing
+live.

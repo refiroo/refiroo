@@ -15,7 +15,11 @@
 //   6. (0.11 V2, D85, both configurations) a change set started from an older publication: the
 //      change set bar offers to move the workspace to its release and publish (by keyboard); the
 //      migration page says it publishes the change set; accepted and confirmed, the workspace runs
-//      the change set's release and the change set is live as the next publication.
+//      the change set's release and the change set is live as the next publication;
+//   7. (0.11 V3, D95, both configurations) a change set left on the release its workspace ran: the
+//      bar offers to move the change set (by keyboard); the page names the change set and says live
+//      data stays as it is; accepted and confirmed by keyboard, the change set works under the
+//      workspace's release and opens again from the done notice; 390px; axe; light and dark.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
@@ -62,6 +66,9 @@ for variant in ('a', 'b'):
         'rApp': world.app('R'),
         'extra': _x2_with_extra(world),
         'extraKey': _extra(world),
+        'moved': _x2(world, 'count-integer', 'drop-note'),
+        'count': k.count,
+        'withNote': body('R', 'Made in the change set', {k.note: 'only in the change set'}),
     }
 print(json.dumps(out))
 `);
@@ -213,6 +220,103 @@ async function publishWithMigration(variant, key, label) {
   if (variant === "a") await shotBoth("v2-done");
 }
 
+/** Case 7 (V3): a workspace on X1 with a change set from its live data, then migrated to X2; the
+ * change set moved onto X2 from its bar. */
+async function moveChangeSet(variant, key, label) {
+  const configuration = configurations[variant];
+  const install = async (model, name) => {
+    const draft = await api("/model-drafts", { name, model });
+    return api(`/model-drafts/${draft.id}/installation`, { expectedVersion: draft.version });
+  };
+  const x1 = await install(configuration.x1, `Probe ${variant} left`);
+  const x2 = await install(configuration.moved, `Probe ${variant} moved`);
+  await api("/workspaces", { key, label, modelReleaseId: x1.id });
+  const made = [];
+  for (const record of configuration.records) made.push(await api("/objects", { ...record, workspaceKey: key }));
+  const changeSet = await api(`/workspaces/${key}/change-sets`, { source: "currentLive", name: "Autumn labels" });
+  const twelve = made.find((item) => item.objectTypeKey === configuration.rType);
+  const staged = await api(`/objects/${twelve.objectTypeKey}/${twelve.id}?changeSetId=${changeSet.id}`);
+  let current = await api(`/change-sets/${changeSet.id}`);
+  await api(
+    `/objects/${twelve.objectTypeKey}/${twelve.id}`,
+    {
+      expectedVersion: staged.version,
+      attributes: [{ attributeTypeKey: configuration.count, value: "13" }],
+      changeSetId: changeSet.id,
+      expectedChangeSetVersion: current.version,
+    },
+    "PATCH",
+  );
+  current = await api(`/change-sets/${changeSet.id}`);
+  await api("/objects", {
+    ...configuration.withNote,
+    changeSetId: changeSet.id,
+    expectedChangeSetVersion: current.version,
+  });
+  const assignment = await api(`/workspaces/${key}/model`);
+  const forward = await api(`/workspaces/${key}/model/migrations`, {
+    targetReleaseId: x2.id,
+    expectedVersion: assignment.version,
+  });
+  const previewed = await settled(forward.id);
+  await api(`/jobs/${forward.id}/confirm`, {
+    expectedVersion: previewed.migration.expectedVersion,
+    expectedFeedPosition: previewed.migration.feedPosition,
+    acceptLoss: true,
+  });
+  assert.equal((await settled(forward.id)).state, "completed");
+
+  await page.goto(
+    `${uiUrl}/apps/${encodeURIComponent(configuration.rApp)}/change-sets/${changeSet.id}/changes?workspaceKey=${key}&changeSetId=${changeSet.id}`,
+  );
+  await page.getByText("This change set uses a different model version").waitFor({ timeout: 30_000 });
+  const offer = page.getByRole("button", { name: /^Move this change set to / });
+  await offer.waitFor();
+  if (variant === "a") {
+    await assertAccessible(page, "the change set bar offering the move");
+    await shotBoth("v3-bar");
+  }
+  await offer.focus();
+  await page.keyboard.press("Enter");
+  await page.waitForURL(/\/settings\/model\/migrations\//);
+  await waitForPreview();
+  await page.getByRole("heading", { level: 1, name: /^Move “Autumn labels” to / }).waitFor();
+  await page.getByText(/its publications stay as they are/).waitFor();
+  assert.equal((await api(`/change-sets/${changeSet.id}`)).modelReleaseId, x1.id, "the preview changed nothing");
+  if (variant === "a") {
+    await page.getByRole("cell", { name: "Twelve" }).waitFor();
+    await assertAccessible(page, "the move preview");
+    await shotBoth("v3-preview");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForTimeout(400);
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      true,
+      "the move page scrolls sideways at 390px",
+    );
+    await shotBoth("v3-phone");
+    await page.setViewportSize({ width: 1440, height: 900 });
+  }
+  const accept = page.getByRole("checkbox", { name: /removed from “Autumn labels”/ });
+  await accept.focus();
+  await page.keyboard.press("Space");
+  const confirm = page.getByRole("button", { name: "Move change set" });
+  await confirm.focus();
+  await page.keyboard.press("Enter");
+  await page
+    .getByText(`“Autumn labels” works under ${x2.name} ${x2.version}`, { exact: true })
+    .waitFor({ timeout: 30_000 });
+  assert.equal((await api(`/change-sets/${changeSet.id}`)).modelReleaseId, x2.id);
+  assert.equal((await api(`/workspaces/${key}/model`)).releaseId, x2.id, "the workspace's release is unchanged");
+  const moved = await api(`/objects/${twelve.objectTypeKey}/${twelve.id}?changeSetId=${changeSet.id}`);
+  assert.equal(moved.attributes.find((item) => item.attributeTypeKey === configuration.count)?.value, 13);
+  if (variant === "a") await shotBoth("v3-done");
+  await page.getByRole("button", { name: "Open the change set" }).click();
+  await page.waitForURL(new RegExp(`/change-sets/${changeSet.id}/`));
+  await page.getByRole("button", { name: "Publish change set" }).waitFor({ timeout: 30_000 });
+  assert.equal(await page.getByText("This change set uses a different model version").count(), 0);
+}
+
 const waitForPreview = () => page.getByRole("group", { name: "Items by outcome" }).waitFor({ timeout: 30_000 });
 
 try {
@@ -327,6 +431,13 @@ try {
   await publishWithMigration("b", "history-b", "History B");
   checks.push(
     "6. (V2) both configurations: the change set bar's offer by keyboard, the page names the change set, confirmed: the workspace runs its release and the change set is live",
+  );
+
+  // 7. V3 on both configurations.
+  await moveChangeSet("a", "left-a", "Left A");
+  await moveChangeSet("b", "left-b", "Left B");
+  checks.push(
+    "7. (V3) both configurations: the bar's move offer by keyboard, the page names the change set and keeps live data, 390px, confirmed by keyboard: the change set works under the workspace's release and opens again",
   );
 
   console.log(`workspace-v1: ${checks.length} cases passed\n- ${checks.join("\n- ")}\nscreenshots: ${output}`);
