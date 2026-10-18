@@ -5,8 +5,8 @@
  * column; any edit makes the element the administrator's, and the section goes with the mark.
  */
 
-import { useId, useState } from "react";
 import type { DraftOperation, Proposal } from "@/types";
+import { ProposalNote } from "@/ui/ProposalNote";
 import { StatusPill } from "@/ui/StatusPill";
 import { patternLabel } from "@/features/model-editor/proposing";
 
@@ -69,48 +69,16 @@ export function ProposedBecause({
   busy: boolean;
   run: (operations: DraftOperation[]) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const id = useId();
   return (
-    <section className="proposed-because" aria-labelledby={`${id}-title`}>
-      <header className="proposed-because-head">
-        <h3 id={`${id}-title`}>Proposed because</h3>
-        <span className="muted">
-          {proposal ? patternLabel(proposal.pattern) : "From the workbook"} · edit anything here to make it yours
-        </span>
-      </header>
-      {proposal ? <p className="proposed-because-summary">{proposal.summary}</p> : null}
-      {proposal && (
-        <ul id={`${id}-evidence`} className="proposed-because-evidence" hidden={!open}>
-          {evidenceLines(proposal.evidence).map((line, index) => (
-            <li key={index}>{line}</li>
-          ))}
-        </ul>
-      )}
-      {proposal && (
-        <div className="proposed-because-actions">
-          <button
-            type="button"
-            className="secondary"
-            aria-expanded={open}
-            aria-controls={`${id}-evidence`}
-            onClick={() => setOpen((current) => !current)}
-          >
-            {open ? "Hide the evidence" : "Evidence"}
-          </button>
-          {proposal.alternatives.map((alternative) => (
-            <button
-              key={alternative.label}
-              type="button"
-              className="secondary"
-              disabled={busy}
-              onClick={() => run(alternative.operations)}
-            >
-              {alternative.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </section>
+    <ProposalNote
+      subtitle={`${proposal ? patternLabel(proposal.pattern) : "From the workbook"} · edit anything here to make it yours`}
+      summary={proposal?.summary}
+      evidence={proposal ? evidenceLines(proposal.evidence) : []}
+      alternatives={(proposal?.alternatives ?? []).map((alternative) => ({
+        label: alternative.label,
+        onSelect: () => run(alternative.operations),
+      }))}
+      busy={busy}
+    />
   );
 }

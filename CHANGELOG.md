@@ -44,6 +44,43 @@ All notable changes to this project are documented in this file. The format foll
   shift it in a browser without scroll anchoring; scrolling past the rail's end no longer scrolls
   the page.
 
+### Added (0.11 X4)
+
+- The move editor in the browser. Settings › Data operations › **Copy and move** lists the mappings and the
+  recent moves; **New copy or move…** chooses two workspaces and a saved mapping or a new one, proposed by
+  the engine and applied before the editor opens. A workspace's page in Settings › Workspaces has
+  **Copy or move data…**, the same dialog with that workspace as the source.
+- The editor (`/settings/moves/{mapping}?from=&to=`): both workspaces and models, what moves (every
+  mapped type, the whole workspace, chosen types with filters, or one record and its subtree), Copy
+  or Move, the dry run's figures with their change since the last step, the source's types, the
+  mapping by type with every row a step marked **Proposed** while it is as proposed, undo and redo,
+  and why a row was proposed with its evidence and alternatives. Each step runs the dry run of every
+  item again and cancels the one before; a mapping with problems lists them, linked to their rows.
+- **What cannot move**: every item by reason, linked to the mapping row that changes it; **Start the
+  move…** opens the change set (and, for Move, the source's deletions) under a name given, and a
+  mapping or release changed since the dry run asks to run it again. At 390px the editor is tabs.
+- `ui/ProposalNote` and `ui/OutcomeCards`, shared with the workbook editor and the migration page;
+  the model editor's undo and redo rules read a mapping's history too.
+
+### Changed (0.11 X4)
+
+- The move editor says what is happening in one status line under its title: the dry run in
+  progress and why Start waits, the dry run ready, the copy or move loading with its progress, and
+  done with the change set to review. A copy is called a copy throughout; the settings page is
+  **Copy and move**.
+- The change set bar shows "Change set validation passed" beside its buttons instead of in a notice
+  below, so the buttons stay where they are.
+- The workspace selector lists active workspaces only; a retired workspace is opened from Settings ›
+  Workspaces.
+
+### Fixed (0.11 X4)
+
+- A move's relationship row names its two records (`fromName`, `toName` on `GET
+  /api/v1/jobs/{jobId}/rows`), and the report shows each as "‹from› → ‹relationship› → ‹to›"; rows of
+  one record looked alike, naming it by ID. A refusal by a relationship end's criteria reads "Record
+  not allowed at a relationship's end", saying what it means.
+- The jobs list names move and mapping-proposal jobs, which it showed without a kind.
+
 ### Added (0.11 X3)
 
 - The move between workspaces whose models differ. A move's dry run (`POST /api/v1/moves`) now waits

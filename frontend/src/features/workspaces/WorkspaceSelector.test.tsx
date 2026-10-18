@@ -38,7 +38,8 @@ describe("WorkspaceSelector", () => {
     await waitFor(() =>
       expect(api.workspaces).toHaveBeenLastCalledWith({
         search: "central-europe",
-        status: "all",
+        // Retired workspaces are opened from Settings › Workspaces, not chosen here (the user, 2026-10-19).
+        status: "active",
         pageSize: 50,
       }),
     );

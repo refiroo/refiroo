@@ -3,6 +3,8 @@
  * (`GET /api/v1/jobs`) and webhook subscriptions (`/api/v1/consumer-subscriptions`).
  */
 
+import type { MoveSummary } from "@/types/moves";
+
 /** One consumer API of the active release, as the API index lists it. */
 export interface ConsumerApiIndexEntry {
   consumerApi: string;
@@ -30,7 +32,17 @@ export type JobState =
 export interface Job {
   id: string;
   /** `profile` and `dryRun` (0.10 A3): a source file's profile and a model draft's dry run. */
-  kind: "batch" | "import" | "export" | "profile" | "dryRun" | "inference" | "profileCheck" | "migration";
+  kind:
+    | "batch"
+    | "import"
+    | "export"
+    | "profile"
+    | "dryRun"
+    | "inference"
+    | "profileCheck"
+    | "migration"
+    | "mappingInference"
+    | "move";
   workspaceKey: string;
   changeSetId: string | null;
   state: JobState;
@@ -70,6 +82,8 @@ export interface Job {
   notices?: JobNotice[] | null;
   /** A migration's summary once previewed (0.11 V1): what its confirmation binds. */
   migration?: MigrationSummary | null;
+  /** A move's dry run summary (0.11 X2), and what its load opened (X3). */
+  move?: MoveSummary | null;
 }
 
 /** A migration's items by outcome (0.11 V1, D68). */

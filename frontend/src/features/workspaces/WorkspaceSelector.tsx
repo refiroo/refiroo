@@ -60,7 +60,7 @@ export function WorkspaceSelector({
     const search = query === current?.label ? undefined : query;
     const timeout = window.setTimeout(() => {
       api
-        .workspaces({ search, status: "all", pageSize: 50 })
+        .workspaces({ search, status: "active", pageSize: 50 })
         .then((page) => {
           if (!active) return;
           setItems(page.items);

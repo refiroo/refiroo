@@ -524,7 +524,7 @@ describe("App", () => {
 
     const selector = await screen.findByRole("combobox", { name: "Workspace" });
     fireEvent.change(selector, { target: { value: "west" } });
-    await waitFor(() => expect(api.workspaces).toHaveBeenCalledWith({ search: "west", status: "all", pageSize: 50 }));
+    await waitFor(() => expect(api.workspaces).toHaveBeenCalledWith({ search: "west", status: "active", pageSize: 50 }));
     fireEvent.click(screen.getByRole("button", { name: /Show workspace options/ }));
     fireEvent.click(await screen.findByRole("option", { name: /West/ }));
 

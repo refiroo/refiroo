@@ -388,6 +388,18 @@ class MoveRow(BaseModel):
     direction: Literal["outgoing", "incoming"] | SkipJsonSchema[None] = _by_status()
     fromId: str | SkipJsonSchema[None] = _by_status()
     toId: str | SkipJsonSchema[None] = _by_status()
+    fromName: str | SkipJsonSchema[None] = Field(
+        default=None,
+        exclude_if=omitted_when_none,
+        json_schema_extra=without_default,
+        description="A relationship row's record at its from end, by its name as it is now (0.11 X4)",
+    )
+    toName: str | SkipJsonSchema[None] = Field(
+        default=None,
+        exclude_if=omitted_when_none,
+        json_schema_extra=without_default,
+        description="A relationship row's record at its to end, by its name as it is now (0.11 X4)",
+    )
     targetFromId: str | SkipJsonSchema[None] = _by_status()
     targetToId: str | SkipJsonSchema[None] = _by_status()
     endRows: list[int] | SkipJsonSchema[None] = _by_status()

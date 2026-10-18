@@ -31,6 +31,7 @@ import { Breadcrumbs } from "@/ui/Breadcrumbs";
 import { DataTable, type DataColumn } from "@/ui/DataTable";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
+import { OutcomeCards } from "@/ui/OutcomeCards";
 import { RouteLink } from "@/ui/RouteLink";
 import { SettingsLayout } from "@/ui/SettingsLayout";
 import { Skeleton } from "@/ui/Skeleton";
@@ -558,21 +559,18 @@ export function MigrationPage({
                   ? "What the migration did"
                   : "What the migration does"}
             </h2>
-            <div role="group" aria-label="Items by outcome" className="migration-outcomes">
-              {OUTCOMES.map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  aria-pressed={outcome === item.key}
-                  className={`migration-outcome is-${item.key}${counts[item.key] ? " has-items" : ""}`}
-                  onClick={() => setOutcome(item.key)}
-                >
-                  <span className="migration-outcome-count">{count(counts[item.key])}</span>
-                  <span className="migration-outcome-label">{item.label}</span>
-                  <small>{item.hint(version, moving)}</small>
-                </button>
-              ))}
-            </div>
+            <OutcomeCards
+              label="Items by outcome"
+              items={OUTCOMES.map((item) => ({
+                key: item.key,
+                count: counts[item.key],
+                label: item.label,
+                hint: item.hint(version, moving),
+                tone: item.key === "loss" ? "warning" : item.key === "refused" ? "error" : undefined,
+              }))}
+              selected={outcome}
+              onSelect={(key) => setOutcome(key as MigrationOutcome)}
+            />
             <MigrationRows
               key={`${job?.id}:${outcome}:${job?.state}`}
               jobId={job!.id}

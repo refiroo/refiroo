@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
 from ...engine.jobs.store import ROW_KINDS
 from ...errors import api_error
-from ...models.database import Job, JobItem
+from ...models.database import Job, JobItem, RdmObject
 from ..schemas.jobs import (
     JobActions,
     JobItemResponse,
@@ -135,10 +135,35 @@ def move_row_page(
         page_size=page_size,
         message="Job row cursor is invalid",
     )
-    return MoveRowPage(
-        items=[MoveRow(index=item.item_index, **item.outcome) for item in found.items],
-        **found.links(),
+    # A relationship row names its two ends by ID; their names are read for the page in one
+    # statement, as the records are named now (0.11 X4: eight rows of one record told nothing).
+    ends = {
+        key
+        for item in found.items
+        if item.outcome.get("kind") == "relationship"
+        for key in (item.outcome.get("fromId"), item.outcome.get("toId"))
+        if key
+    }
+    names = (
+        dict(
+            session.execute(
+                select(RdmObject.id, RdmObject.name).where(RdmObject.id.in_(ends))
+            ).all()
+        )
+        if ends
+        else {}
     )
+
+    def row(item: JobItem) -> MoveRow:
+        outcome = dict(item.outcome)
+        if outcome.get("kind") == "relationship":
+            for end in ("from", "to"):
+                name = names.get(outcome.get(f"{end}Id"))
+                if name is not None:
+                    outcome[f"{end}Name"] = name
+        return MoveRow(index=item.item_index, **outcome)
+
+    return MoveRowPage(items=[row(item) for item in found.items], **found.links())
 
 
 def _require_status(status: str | None, allowed: tuple[str, ...]) -> None:

@@ -287,7 +287,7 @@ def test_a_relationship_whose_other_end_stays_behind(world):
     Then the relationship is not moved, its other end left behind, while the ledger is created; with
     the token in the target, found by the mapping's match by name, the relationship is carried to
     it. When permits are selected without the ledgers owning them, which the target requires, each
-    permit is refused for the missing relationship."""
+    permit is refused for the missing relationship. A relationship row names its two records."""
     other, target, key = _mapped(world)
     records = _every_type(world)
     r = records["R"]
@@ -298,6 +298,9 @@ def test_a_relationship_whose_other_end_stays_behind(world):
     [link] = [row for row in _relationships(rows, world.key("B1n")) if row["fromId"] == r["id"]]
     assert link["outcome"] == "notMoved" and _codes(link) == {"RELATION_TARGET_LEFT_BEHIND"}
     assert _records(rows)[r["id"]]["outcome"] == "create"
+    # A relationship row names both its records (0.11 X4), so the report can say which.
+    k01 = ok(world.read("K", world.ids["k01"]))
+    assert (link["fromName"], link["toName"]) == (r["name"], k01["name"])
 
     token = other.made("K", "Token 01", workspace=target)
     ok(

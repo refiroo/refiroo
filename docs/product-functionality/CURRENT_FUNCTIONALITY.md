@@ -74,8 +74,8 @@ Evidence: [application shell](../../frontend/src/app/AppShell.tsx),
 misspelled workspace.
 
 Users select a workspace by label or search; its key stays in the page address, and one workspace is
-the default. Retired workspaces stay readable and are visibly read only. With a single workspace the
-selector is a label.
+the default. The selector offers active workspaces; a retired workspace is opened from Settings ›
+Workspaces, stays readable and is visibly read only. With a single workspace the selector is a label.
 
 Settings › **Workspaces** lists every workspace beside the selected one, which can be created,
 renamed, retired, reactivated, deleted and made the default, each protected against concurrent
@@ -537,8 +537,28 @@ came from. A **move** rather than a copy also opens a change set in the source w
 what was copied, apart from records changed since the dry run and records that something staying
 behind depends on, each listed with its reason; it can be published only after the copy. The
 confirmation is refused, leaving the dry run to confirm later, when the mapping changed since,
-either workspace runs another release, or nothing would be created or updated. There is no screen
-for moves yet (a later step of 0.11).
+either workspace runs another release, or nothing would be created or updated.
+
+In the browser, **Settings › Data operations › Copy and move** lists the saved mappings and the recent
+moves, and **New copy or move…** (also **Copy or move data…** on a workspace's page in Settings › Workspaces, with
+that workspace as the source) chooses the source and target workspaces (each named with the model it
+runs) and a saved mapping or a new one, which the engine proposes before the editor opens. The
+**move editor** shows both workspaces and their models, what moves (every mapped type by default,
+or the whole workspace, chosen types with the collection's filters, or one record with everything
+under it) and Copy or Move, then the dry run's figures (created, updated, cannot move,
+relationships carried and dropped), each with its change since the last step. Below, the source's
+types, the mapping by type and a pane saying why the selected row was proposed, with its evidence
+and alternatives. Each row (a type's target, each field, each relationship, the parent, how existing
+records are found, a default for a required field) is changed in place as one step with undo and
+redo, and is marked **Proposed** while it is as the engine proposed it. Every step runs the dry run
+of every item again. A mapping naming what a model lacks lists its problems instead of figures,
+each linked to its row. **What cannot move** lists every item by reason, each linked to the part of
+the mapping that changes it. **Start the move…** names what loads into a change set of the target
+(and, for Move, the source's deletions), takes the change set's name and opens it; if the mapping
+or a workspace's release changed since the dry run, nothing moves and the editor offers to run it
+again. At phone width the editor's parts are tabs. The editor reads only where background jobs or
+model administration are switched off. Moving a collection's selection, a parent named by type and
+value, value maps and relationship attributes are set through the API.
 
 Through the API, a draft can also be changed step by step with typed operations instead of whole
 JSON: add, rename, re-key, split, merge or remove applications, types, attributes and relation

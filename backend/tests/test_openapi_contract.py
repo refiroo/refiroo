@@ -200,10 +200,11 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # counts updateOriginal; a move's row gains the outcome updateOriginal, foundBy origin, origin
     # (RecordOrigin) and source (MoveSourceOutcome), and the rows' outcome filter updateOriginal; a
     # history entry's cause gains origin; the confirmation's description names a move's. Diffed against the previous commit, nothing else
-    # changed.
+    # changed. Re-baselined for 0.11 X4: a move's relationship row gains fromName and toName.
+    # Diffed against the previous commit, nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "94fd3b6fd4fb30562749e7519abed1a350064c503bcb766efe99e6d5f9eb6278"
+        "9a15463cebe9eb76998f556cac2fc5267a7d0e55d3055adffdc4240640b2c687"
     )
 
 

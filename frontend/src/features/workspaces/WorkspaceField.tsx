@@ -20,6 +20,8 @@ export function WorkspaceField({
   help,
   withDefault,
   disabled,
+  describe,
+  exclude,
 }: {
   /** A workspace's key; empty for the deployment's default workspace, with `withDefault`. */
   value: string;
@@ -30,6 +32,10 @@ export function WorkspaceField({
   /** Offer "the default workspace" (an empty key), when the caller knows no workspace. */
   withDefault?: boolean;
   disabled?: boolean;
+  /** An option's text beyond the workspace's name, such as the model it runs (0.11 X4). */
+  describe?: (workspace: Workspace) => string;
+  /** A workspace not offered, such as the other side of a move. */
+  exclude?: string;
 }) {
   const [workspaces, setWorkspaces] = useState<Workspace[]>();
   // Callers pass a new handler with each render; the workspaces are read once.
@@ -50,9 +56,11 @@ export function WorkspaceField({
       cancelled = true;
     };
   }, []);
+  const offered = (workspaces ?? []).filter((item) => item.key !== exclude);
   useEffect(() => {
-    if (workspaces?.[0] && !value && !withDefault) onChange(workspaces[0].key);
-  }, [workspaces, value, withDefault, onChange]);
+    const first = (workspaces ?? []).find((item) => item.key !== exclude);
+    if (first && (!value || value === exclude) && !withDefault) onChange(first.key);
+  }, [workspaces, value, withDefault, onChange, exclude]);
   return (
     <FormField label={label} help={help}>
       {(control) => (
@@ -63,9 +71,9 @@ export function WorkspaceField({
           onChange={(event) => onChange(event.target.value)}
         >
           {withDefault && <option value="">The default workspace</option>}
-          {(workspaces ?? []).map((item) => (
+          {offered.map((item) => (
             <option key={item.key} value={item.key}>
-              {item.label}
+              {describe ? `${item.label} · ${describe(item)}` : item.label}
             </option>
           ))}
         </select>

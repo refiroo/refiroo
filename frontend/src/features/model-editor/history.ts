@@ -8,12 +8,21 @@ import type { ElementKind } from "@/features/model-editor/outline";
 import { describeConsumerOperation } from "@/features/model-editor/consumer";
 import { describeMappingOperation } from "@/features/model-editor/mapping";
 
-/** One step of the history: its entries, oldest first. */
-export interface HistoryStep {
+/** What steps are read from: a draft's history entry, or a model mapping's (0.11 X4), which share one history. */
+interface StepEntry {
   step: number;
-  entries: ModelDraftOperationEntry[];
+  sequence: number;
   at: string;
-  origin: ModelDraftOperationEntry["origin"];
+  undone: boolean;
+  origin: { type: string };
+}
+
+/** One step of the history: its entries, oldest first. */
+export interface HistoryStep<E extends StepEntry = ModelDraftOperationEntry> {
+  step: number;
+  entries: E[];
+  at: string;
+  origin: E["origin"];
   undone: boolean;
 }
 
@@ -189,12 +198,12 @@ export function describeOperation(
 }
 
 /** The history's entries, newest step first, grouped by step. */
-export function historySteps(entries: ModelDraftOperationEntry[]): HistoryStep[] {
-  const steps = new Map<number, HistoryStep>();
+export function historySteps<E extends StepEntry = ModelDraftOperationEntry>(entries: E[]): HistoryStep<E>[] {
+  const steps = new Map<number, HistoryStep<E>>();
   for (const entry of entries) {
-    const step = steps.get(entry.step) ?? {
+    const step: HistoryStep<E> = steps.get(entry.step) ?? {
       step: entry.step,
-      entries: [],
+      entries: [] as E[],
       at: entry.at,
       origin: entry.origin,
       undone: true,
@@ -217,7 +226,7 @@ export function describeStep(step: HistoryStep, names: Names): string {
 }
 
 /** Whether a step can be undone from its line: a change not undone yet (an undo is taken back by redo). */
-export function undoable(step: HistoryStep): boolean {
+export function undoable(step: Pick<HistoryStep<StepEntry>, "undone" | "origin">): boolean {
   return !step.undone && step.origin.type !== "undo";
 }
 
@@ -225,7 +234,7 @@ export function undoable(step: HistoryStep): boolean {
  * Whether redo has something to take back (D32): walking from the newest step, an undo not taken
  * back yet before any other change. A redo, or an undo already taken back, is passed over.
  */
-export function canRedo(steps: HistoryStep[]): boolean {
+export function canRedo(steps: Pick<HistoryStep<StepEntry>, "undone" | "origin">[]): boolean {
   for (const step of steps) {
     if (step.origin.type === "undo") {
       if (!step.undone) return true;

@@ -9,6 +9,8 @@ import type {
   ChangeKind,
   EditorSelection,
   EngineModel,
+  MoveAddress,
+  MoveChoice,
   RouteState,
   SettingsRoute,
   ViewDefinition,
@@ -121,6 +123,8 @@ function settingsRoute(parts: string[], query: URLSearchParams): SettingsRoute |
   if (isSinglePage(page)) return { kind: "settings", page };
   if (page === "workspaces") return kind ? { kind: "settings", page, workspaceKey: kind } : { kind: "settings", page };
   if (page === "jobs") return kind ? { kind: "settings", page, jobId: kind } : { kind: "settings", page };
+  if (page === "moves")
+    return kind ? { kind: "settings", page, ...moveAddress(kind, query) } : { kind: "settings", page };
   // Import profiles were "Imports" until 2026-10-14; the old address opens the same page.
   if (page === "import-profiles" || page === "imports")
     return kind
@@ -150,6 +154,67 @@ function settingsRoute(parts: string[], query: URLSearchParams): SettingsRoute |
     return { kind: "settings", page };
   }
   return { kind: "settings", page: "about" };
+}
+
+/** The move editor's address from its query; one naming no workspaces opens Moves (D138). */
+function moveAddress(mappingKey: string, query: URLSearchParams): { move?: MoveAddress } {
+  const from = query.get("from")?.trim();
+  const to = query.get("to")?.trim();
+  if (!from || !to) return {};
+  const move: MoveAddress = { mappingKey, from, to };
+  const jobId = query.get("job")?.trim();
+  if (jobId) move.jobId = jobId;
+  const selection = parseSelection(query.get("select"));
+  if (selection) move.selection = selection;
+  if (query.get("mode") === "move") move.mode = "move";
+  if (query.get("view") === "report") move.view = "report";
+  const reason = query.get("reason")?.trim();
+  if (reason) move.reason = reason;
+  const row = query.get("row")?.trim();
+  if (row) move.row = row;
+  return { move };
+}
+
+/** What moves, as the address holds it: JSON of the editor's choice; anything else is the default. */
+function parseSelection(text: string | null): MoveChoice | undefined {
+  if (!text) return undefined;
+  try {
+    const value = JSON.parse(text) as MoveChoice;
+    if (value?.kind === "all") return { kind: "all" };
+    if (value?.kind === "subtree" && typeof value.objectId === "string" && typeof value.objectTypeKey === "string")
+      return {
+        kind: "subtree",
+        objectId: value.objectId,
+        objectTypeKey: value.objectTypeKey,
+        ...(typeof value.name === "string" ? { name: value.name } : {}),
+      };
+    if (value?.kind === "types" && Array.isArray(value.types))
+      return {
+        kind: "types",
+        types: value.types
+          .filter((item) => item && typeof item.objectTypeKey === "string")
+          .map((item) => ({
+            objectTypeKey: item.objectTypeKey,
+            filters: (Array.isArray(item.filters) ? item.filters : []).filter(
+              (filter) => typeof filter?.field === "string" && typeof filter.operator === "string",
+            ),
+          })),
+      };
+    return undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function movePath(move: MoveAddress) {
+  const query = new URLSearchParams({ from: move.from, to: move.to });
+  if (move.jobId) query.set("job", move.jobId);
+  if (move.selection) query.set("select", JSON.stringify(move.selection));
+  if (move.mode === "move") query.set("mode", "move");
+  if (move.view) query.set("view", move.view);
+  if (move.reason) query.set("reason", move.reason);
+  if (move.row) query.set("row", move.row);
+  return `/settings/moves/${encodeURIComponent(move.mappingKey)}?${query}`;
 }
 
 const EDITOR_ELEMENTS = ["type", "application", "relationType", "attributeType"] as const;
@@ -187,6 +252,7 @@ function settingsPath(route: SettingsRoute) {
     return route.eventId ? `${opened}/${encodeURIComponent(route.eventId)}` : opened;
   }
   if (route.page === "jobs" && route.jobId) return `/settings/jobs/${encodeURIComponent(route.jobId)}`;
+  if (route.page === "moves" && route.move) return movePath(route.move);
   if (route.page === "import-profiles" && route.profileKey)
     return `/settings/import-profiles/${encodeURIComponent(route.profileKey)}`;
   if (route.page === "model" && route.draftId && route.editor) {

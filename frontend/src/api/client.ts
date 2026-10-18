@@ -1,4 +1,14 @@
 import type {
+  MappingInference,
+  MappingOperation,
+  MappingProposal,
+  ModelMapping,
+  ModelMappingOperationEntry,
+  ModelMappingPage,
+  ModelMappingStep,
+  MoveOutcome,
+  MoveRequest,
+  MoveRowPage,
   EngineModel,
   ChangeSet,
   ChangeSetPage,
@@ -105,6 +115,7 @@ import type {
 } from "@/types";
 
 import { ApiError } from "@/api/errors";
+import { everyPage } from "@/lib/everyPage";
 import { expectedReleaseHeader, reportModelReleaseChanged } from "@/api/expectedRelease";
 
 // `ApiError` is re-exported because it is what `request` throws; `errorMessage` and
@@ -682,6 +693,103 @@ export const api = {
     request<ModelDraftStep>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/inference/application`, {
       method: "POST",
       body: JSON.stringify({ expectedVersion, ...(proposals ? { proposals } : {}) }),
+    }),
+  /** Model mappings in key order, optionally between two models (0.11 X1). */
+  modelMappings: (query: { sourceModelKey?: string; targetModelKey?: string; cursor?: string } = {}) => {
+    const params = new URLSearchParams({ pageSize: "100" });
+    if (query.sourceModelKey) params.set("sourceModelKey", query.sourceModelKey);
+    if (query.targetModelKey) params.set("targetModelKey", query.targetModelKey);
+    if (query.cursor) params.set("cursor", query.cursor);
+    return request<ModelMappingPage>(`/api/v1/model-mappings?${params}`);
+  },
+  /** A mapping with its problems and coverage against the releases the two workspaces run (D110). */
+  modelMapping: (key: string, workspaces: { source?: string; target?: string } = {}) => {
+    const params = new URLSearchParams();
+    if (workspaces.source) params.set("sourceWorkspaceKey", workspaces.source);
+    if (workspaces.target) params.set("targetWorkspaceKey", workspaces.target);
+    return request<ModelMapping>(`/api/v1/model-mappings/${encodeURIComponent(key)}?${params}`);
+  },
+  /** A mapping between the releases two workspaces run, with no type mapped (D104). */
+  createModelMapping: (body: { key: string; name: string; sourceWorkspaceKey: string; targetWorkspaceKey: string }) =>
+    request<ModelMapping>("/api/v1/model-mappings", { method: "POST", body: JSON.stringify(body) }),
+  /** One step of a mapping's history (D107). */
+  mappingOperations: (key: string, expectedVersion: number, operations: MappingOperation[]) =>
+    request<ModelMappingStep>(`/api/v1/model-mappings/${encodeURIComponent(key)}/operations`, {
+      method: "POST",
+      body: JSON.stringify({ expectedVersion, operations }),
+    }),
+  /** A mapping's history in sequence order, every page (D105). */
+  mappingHistory: (key: string) =>
+    everyPage((cursor) => {
+      const params = new URLSearchParams({ pageSize: "500" });
+      if (cursor) params.set("cursor", cursor);
+      return request<{ items: ModelMappingOperationEntry[]; nextCursor: string | null }>(
+        `/api/v1/model-mappings/${encodeURIComponent(key)}/operations?${params}`,
+      );
+    }),
+  undoMapping: (key: string, expectedVersion: number) =>
+    request<ModelMappingStep>(`/api/v1/model-mappings/${encodeURIComponent(key)}/undo`, {
+      method: "POST",
+      body: JSON.stringify({ expectedVersion }),
+    }),
+  redoMapping: (key: string, expectedVersion: number) =>
+    request<ModelMappingStep>(`/api/v1/model-mappings/${encodeURIComponent(key)}/redo`, {
+      method: "POST",
+      body: JSON.stringify({ expectedVersion }),
+    }),
+  /** Propose the mapping from its two models and the two workspaces' records (D108). */
+  proposeMapping: (key: string, sourceWorkspaceKey: string, targetWorkspaceKey: string) =>
+    request<MappingInference>(`/api/v1/model-mappings/${encodeURIComponent(key)}/inference`, {
+      method: "POST",
+      body: JSON.stringify({ sourceWorkspaceKey, targetWorkspaceKey }),
+    }),
+  mappingInference: (key: string) =>
+    request<MappingInference>(`/api/v1/model-mappings/${encodeURIComponent(key)}/inference`),
+  /** Every proposal of the mapping's latest inference, in the order they apply. */
+  mappingProposals: async (key: string) => {
+    const items: MappingProposal[] = [];
+    let cursor: string | null = null;
+    do {
+      const params = new URLSearchParams({ pageSize: "500" });
+      if (cursor) params.set("cursor", cursor);
+      const page: SourcePage<MappingProposal> = await request<SourcePage<MappingProposal>>(
+        `/api/v1/model-mappings/${encodeURIComponent(key)}/inference/proposals?${params}`,
+      );
+      items.push(...page.items);
+      cursor = page.nextCursor;
+    } while (cursor);
+    return items;
+  },
+  /** Apply the latest inference's open proposals, each one step of origin `proposal`. */
+  applyMappingProposals: (key: string, expectedVersion: number) =>
+    request<ModelMappingStep>(`/api/v1/model-mappings/${encodeURIComponent(key)}/inference/application`, {
+      method: "POST",
+      body: JSON.stringify({ expectedVersion }),
+    }),
+  /** A move's dry run (0.11 X2), waiting for confirmation once it has run (X3, D128). */
+  startMove: (body: MoveRequest) => request<Job>("/api/v1/moves", { method: "POST", body: JSON.stringify(body) }),
+  /** A move's rows in their order, kept to an outcome, a reason's code or a source type (D119). */
+  moveRows: (
+    jobId: string,
+    query: PageSelector & { outcome?: MoveOutcome; reason?: string; sourceType?: string; pageSize?: number } = {},
+  ) => {
+    const params = new URLSearchParams({ pageSize: String(query.pageSize ?? 50) });
+    if (query.outcome) params.set("outcome", query.outcome);
+    if (query.reason) params.set("reason", query.reason);
+    if (query.sourceType) params.set("sourceType", query.sourceType);
+    setPaging(params, query);
+    return request<MoveRowPage>(`/api/v1/jobs/${encodeURIComponent(jobId)}/rows?${params}`);
+  },
+  /** Moves of every workspace, newest first. */
+  moveJobs: (cursor?: string) => {
+    const params = new URLSearchParams({ pageSize: "50", kind: "move" });
+    if (cursor) params.set("cursor", cursor);
+    return request<JobPage>(`/api/v1/jobs?${params}`);
+  },
+  renameChangeSet: (id: string, name: string, expectedVersion: number) =>
+    request<ChangeSet>(`/api/v1/change-sets/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name, expectedVersion }),
     }),
   /** Queue an export (0.9 J1); the answer is the queued job. */
   createExport: (body: ExportRequest) =>

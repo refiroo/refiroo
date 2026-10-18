@@ -14,6 +14,42 @@ describe("Import profiles (0.10 A5c)", () => {
   });
 });
 
+describe("The move editor (0.11 X4, D138)", () => {
+  it("keeps the mapping, both workspaces, the dry run, the selection, the mode and the report in its address", () => {
+    const route: RouteState = {
+      kind: "settings",
+      page: "moves",
+      move: {
+        mappingKey: "a-to-b",
+        from: "north",
+        to: "south",
+        jobId: "job-1",
+        selection: {
+          kind: "types",
+          types: [{ objectTypeKey: "item", filters: [{ field: "name", operator: "contains", value: "A" }] }],
+        },
+        mode: "move",
+        view: "report",
+        reason: "TYPE_NOT_MAPPED",
+        row: "item/type",
+      },
+    };
+    const path = routePath(route);
+    const [pathname, search] = path.split("?");
+    expect(parseRoute(testModel, "default", { pathname, search: `?${search}` })).toEqual(route);
+  });
+
+  it("opens Moves for an address naming no workspaces, and drops a selection it cannot read", () => {
+    expect(parseRoute(testModel, "default", { pathname: "/settings/moves/a-to-b", search: "" })).toEqual({
+      kind: "settings",
+      page: "moves",
+    });
+    expect(
+      parseRoute(testModel, "default", { pathname: "/settings/moves/a-to-b", search: "?from=n&to=s&select=%7Bnot" }),
+    ).toEqual({ kind: "settings", page: "moves", move: { mappingKey: "a-to-b", from: "n", to: "s" } });
+  });
+});
+
 describe("routes", () => {
   const at = (path: string) =>
     parseRoute(testModel, "default", {

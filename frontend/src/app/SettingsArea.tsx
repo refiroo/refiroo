@@ -11,6 +11,8 @@ import { ConsumerApisPage } from "@/features/settings/ConsumerApisPage";
 import { DeploymentPage } from "@/features/settings/DeploymentPage";
 import { ImportProfilesPage } from "@/features/settings/ImportProfilesPage";
 import { JobsPage } from "@/features/settings/JobsPage";
+import { MoveEditor } from "@/features/moves/MoveEditor";
+import { MovesPage } from "@/features/moves/MovesPage";
 import { WebhooksPage } from "@/features/settings/WebhooksPage";
 import { ModelWorkbench } from "@/features/model-admin/ModelWorkbench";
 import { ModelEditor } from "@/features/model-editor/ModelEditor";
@@ -35,11 +37,20 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
   };
 
   const editing = route.page === "model" && route.draftId && route.editor ? route : undefined;
+  const moving = route.page === "moves" ? route.move : undefined;
+  // A change set's review, in the application last used there if its model has it.
+  const openChangeSet = (changeSetWorkspace: string, changeSetId: string) =>
+    void workspaceModel(changeSetWorkspace).then((active) => {
+      const last = lastApplicationRoute();
+      const application = (last && applicationFor(active, last.applicationKey)) ?? active.applications[0];
+      if (application) navigate(changeReviewFor(application.key, changeSetWorkspace, changeSetId));
+      else router.openWorkspace(changeSetWorkspace);
+    });
   return (
     <SettingsShell
       model={model}
       page={route.page}
-      fullWidth={Boolean(editing)}
+      fullWidth={Boolean(editing || moving)}
       onHome={() => navigate(defaultRoute(model, workspaceKey))}
       onSelectApplication={selectApplication}
       onNavigate={(next) => navigate(next)}
@@ -73,6 +84,16 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
             });
           }}
         />
+      ) : moving ? (
+        <MoveEditor
+          key={`${moving.mappingKey}:${moving.from}:${moving.to}`}
+          address={moving}
+          onAddress={(move, replace) => navigate({ kind: "settings", page: "moves", move }, replace)}
+          onNavigate={(next) => navigate(next)}
+          onOpenChangeSet={openChangeSet}
+        />
+      ) : route.page === "moves" ? (
+        <MovesPage onNavigate={(next) => navigate(next)} />
       ) : route.page === "about" ? (
         <AboutPage onNavigate={(next) => navigate(next)} />
       ) : route.page === "appearance" ? (
@@ -115,15 +136,7 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
           onRouteChange={(next) => navigate(next)}
           onActiveModelChange={router.reloadModel}
           onOpenWorkspace={(workspaceKey) => navigate({ kind: "settings", page: "workspaces", workspaceKey })}
-          onOpenChangeSet={(changeSetWorkspace, changeSetId) => {
-            // The change set's review, in the application last used there if its model has it.
-            void workspaceModel(changeSetWorkspace).then((active) => {
-              const last = lastApplicationRoute();
-              const application = (last && applicationFor(active, last.applicationKey)) ?? active.applications[0];
-              if (application) navigate(changeReviewFor(application.key, changeSetWorkspace, changeSetId));
-              else router.openWorkspace(changeSetWorkspace);
-            });
-          }}
+          onOpenChangeSet={openChangeSet}
         />
       ) : null}
     </SettingsShell>

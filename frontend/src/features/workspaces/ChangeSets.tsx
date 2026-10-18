@@ -6,6 +6,7 @@ import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { allowNavigation } from "@/routing/navigationGuard";
 import type { ChangeSet, ChangeSetValidation, ModelReleaseSummary } from "@/types";
 import { Notice } from "@/ui/Notice";
+import { StatusPill } from "@/ui/StatusPill";
 import { InlineError } from "@/ui/InlineError";
 import { Modal } from "@/ui/Modal";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
@@ -331,6 +332,7 @@ export function ChangeSetActions({
   const current = changeSet;
   const reload = refresh;
   const modelMismatch = Boolean(activeModelReleaseId && activeModelReleaseId !== current.modelReleaseId);
+  const validationPassed = Boolean(validation?.result.valid && validation.version === current.version);
   async function check() {
     setPending(true);
     setError("");
@@ -474,6 +476,12 @@ export function ChangeSetActions({
         </div>
         {(!readOnly || (onReview && !reviewing)) && (
           <div className="change-set-bar-actions">
+            {/* A passed validation is said beside the buttons, so they do not move (the user, 2026-10-19). */}
+            {!readOnly && validationPassed && (
+              <span role="status">
+                <StatusPill tone="success">Change set validation passed</StatusPill>
+              </span>
+            )}
             {onReview && !reviewing && (
               <button className="secondary" onClick={onReview}>
                 Review changes
@@ -626,14 +634,14 @@ export function ChangeSetActions({
         </Modal>
       )}
       <BelowContextBand>
-        {validation && (
+        {validation && !(validationPassed && validation.result.diagnostics.length === 0) && (
           <Notice
-            tone={validation.result.valid && validation.version === current.version ? "success" : "warning"}
+            tone={validationPassed ? "info" : "warning"}
             title={
               validation.version !== current.version
                 ? "Change set changed: validate again"
                 : validation.result.valid
-                  ? "Change set validation passed"
+                  ? "Validation notes"
                   : "Change set needs corrections"
             }
           >

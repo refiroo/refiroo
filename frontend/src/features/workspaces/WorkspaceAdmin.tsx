@@ -37,6 +37,8 @@ import { urlName } from "@/features/settings/webhookText";
 import { routePath } from "@/routing/routes";
 import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
+import { NewMoveDialog } from "@/features/moves/NewMoveDialog";
+import { moveAbility } from "@/features/moves/moveAbility";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { RouteLink } from "@/ui/RouteLink";
@@ -186,6 +188,10 @@ export function WorkspaceAdmin({
             workspaceKey={selectedKey}
             runtime={runtime}
             canManage={canManage}
+            canMove={moveAbility(capabilities).canMove}
+            onMove={(mappingKey, from, to) =>
+              onRouteChange({ kind: "settings", page: "moves", move: { mappingKey, from, to } })
+            }
             onChanged={replaceItem}
             onRuntimeChanged={(state) => {
               setRuntime(state);
@@ -230,6 +236,8 @@ function WorkspaceDetail({
   workspaceKey,
   runtime,
   canManage,
+  canMove,
+  onMove,
   onChanged,
   onRuntimeChanged,
   reloadRuntime,
@@ -240,6 +248,10 @@ function WorkspaceDetail({
   workspaceKey: string;
   runtime: WorkspaceRuntimeState;
   canManage: boolean;
+  /** Whether moves run here (0.11 X4, D146): background jobs and model administration. */
+  canMove: boolean;
+  /** A move from this workspace opened in the move editor. */
+  onMove: (mappingKey: string, from: string, to: string) => void;
   onChanged: (workspace: Workspace) => void;
   onRuntimeChanged: (state: WorkspaceRuntimeState) => void;
   reloadRuntime: () => Promise<WorkspaceRuntimeState>;
@@ -253,6 +265,7 @@ function WorkspaceDetail({
   const [renaming, setRenaming] = useState(false);
   const [retiring, setRetiring] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [moving, setMoving] = useState(false);
   const [pending, setPending] = useState(false);
   const [actionError, setActionError] = useState("");
   const [conflict, setConflict] = useState("");
@@ -438,6 +451,11 @@ function WorkspaceDetail({
         <button className="secondary" onClick={() => onOpen(workspace.key)}>
           Open workspace
         </button>
+        {canMove && active && (
+          <button className="secondary" onClick={() => setMoving(true)}>
+            Copy or move data…
+          </button>
+        )}
         {canManage && (
           <>
             <button ref={renameRef} className="secondary" disabled={pending} onClick={() => setRenaming(true)}>
@@ -494,6 +512,16 @@ function WorkspaceDetail({
           ? "Change sets and publications belong to this workspace. Open it to work with them."
           : "A retired workspace keeps its live data, change sets and publications readable; changes are disabled."}
       </p>
+      {moving && (
+        <NewMoveDialog
+          source={workspace.key}
+          onClose={() => setMoving(false)}
+          onOpened={(mappingKey, from, to) => {
+            setMoving(false);
+            onMove(mappingKey, from, to);
+          }}
+        />
+      )}
       {renaming && (
         <RenameWorkspaceDialog
           workspace={workspace}

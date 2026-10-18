@@ -1129,7 +1129,8 @@ refusals, a stale review, 390px); the budget `test_migration_budget` (100,000 re
 **Actor:** model administrator; data steward. **Channel:** UI (the move editor), API.
 **Stories:** US-P09. **Status:** J38.1 delivered through the API (0.11 X1); the selection and the
 dry run of every item delivered through the API (0.11 X2); the move into change sets, copy or move,
-found again and moved back, delivered through the API (0.11 X3); the editor planned (0.11 X4, X5).
+found again and moved back, delivered through the API (0.11 X3); the move editor delivered in the
+browser (0.11 X4); the checkpoint at full volume planned (0.11 X5).
 
 1. Open a mapping from the source workspace's model to the target's; the engine proposes it and the
    user completes it.
@@ -1162,7 +1163,9 @@ import's (J27).
 `tests/journeys/test_j38_2_move_dry_run.py` (the dry runs of J38.2, J38.4, J38.5 and J38.7, and the
 refusals before a move starts) and `tests/journeys/test_j38_3_move.py` (the load into change sets:
 J38.2 confirmed and executed, J38.3, J38.6, J38.8, and the refusals at the confirmation), through the
-API; the editor is planned (X4).
+API; in the browser `test:browser:workspace-x4` (generated-a and generated-b, both directions: the
+mapping proposed, corrected, undone and redone, J38.7's report, J38.2's copy, J38.3's subtree moved,
+the mapping changed after the dry run, 390px).
 
 ## Integration
 

@@ -304,7 +304,7 @@ change) and `volume` (every budget).
 | 12 | [X1](#x1-the-mapping-between-two-models) | M4, P0 inventory | **Delivered 2026-10-18.** The model-to-model mapping: proposed, completed with mapping operations, saved and reused |
 | 13 | [X2](#x2-selection-and-the-dry-run-of-a-move) | X1 | **Delivered 2026-10-18.** What moves; the dry run of every item; what cannot move, with reasons |
 | 14 | [X3](#x3-the-move) | X2 | **Delivered 2026-10-18.** Copy or move into a reviewed change set: the dry run confirmed or executed, origins and the move back, the source's deletion published after the copy |
-| 15 | [X4](#x4-the-move-editor) | X3, M5 | The move editor: the two models, the mapping, the proposals, the dry-run figures and the report |
+| 15 | [X4](#x4-the-move-editor) | X3, M5 | **Delivered 2026-10-19.** The move editor: the two models, the mapping, the proposals, the dry-run figures and the report |
 | 16 | [X5](#x5-move-checkpoint) | X4 | The roadmap's move exit item at full volume, measured once |
 | | **Part 2 — production hardening** | | |
 | 17 | [S1](#s1-the-backend-suites-time) | — | **Delivered 2026-10-18.** Journey cases spread over the workers; the full suite with `-n 6` under a revised 11-minute ceiling (D126) |
@@ -3003,6 +3003,210 @@ of the move into a change set opened for review.
 1440px and 390px.
 
 **Exit:** screenshots approved; one smoke on a real sample including a dialog on an invalid mapping.
+
+##### X4 plan (2026-10-18)
+
+**Planned 2026-10-18; D138–D148 as recommended and the browser cases accepted by the user on 2026-10-19 ("all good, you can go ahead").**
+Checked against the code at `ea05fa4` and the approved boards (MoveEditor, MoveStart, PhoneMove on
+the [P0 canvas](https://claude.ai/artifact/EiSQmSGwdGjCf2y21Cv4L9)):
+
+- **The API is complete for the editor.** Mappings: create from two workspaces, read with
+  `problems` and `coverage` against the releases two named workspaces run, operations, undo, redo,
+  the inference and its proposals (each with `status`, `operations`, `alternatives`, `evidence`),
+  applying open proposals as steps of origin `proposal`. Moves: `POST /moves` (`stage: preview`
+  waits in `awaiting_confirmation` with the `move` summary), `GET /jobs/{id}/rows` filtered by
+  `outcome`, `reason` and `sourceType`, `POST /jobs/{id}/confirm`, `POST /jobs/{id}/cancel` (a
+  waiting preview ends at once), `GET /jobs?kind=move`, `PATCH /change-sets/{id}`. No backend
+  change is needed.
+- **The browser has none of it:** no client calls, types or screens for mappings or moves. Settings
+  › Data operations holds Import profiles and Jobs; there is no "Moves" page.
+- **What X4 reuses:** the job stream (`useJobStream`), V1's page shape for a previewed job (outcome
+  tabs, paged rows with `useCursorWindow`, the stale-review dialog), the workbook editor's
+  `ProposedBecause` and `ProposedPill` (D94's "Proposed because" with evidence and alternatives as
+  steps), `FilterBar` and Export's `criteriaFromFilters` for criteria, `ObjectLookup` for a record,
+  `AttributeField` for a typed default, `Modal`, `Tabs`, `SettingsLayout`, each workspace's model as
+  M5 loads it (with its placements).
+- **A proposal's status is per type** (`applied` while the whole entry is as proposed, `held` after
+  any change), while the boards mark each row.
+
+**What is built:** Settings › Data operations › **Moves** (mappings by model pair, recent moves, New
+move…); the **move editor** at `/settings/moves/{mappingKey}?from=&to=` (the board: header with
+undo, redo and Start the move…; the band with both workspaces, what moves and Copy or Move; the
+dry-run figures; source types, the mapping by type, the reason pane with the target's types); the
+**report** of what cannot move with the **start dialog** and the stale-review dialog; the 390px
+editor as tabs; the client calls and types; Vitest units; the runner `test:browser:workspace-x4`.
+
+**Decisions** (D138 onward):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D138 | Where the editor lives | **A Moves page in Settings › Data operations**, beside Import profiles and Jobs: the mappings by their two models (name, models, version, updated) and the recent moves (jobs of kind `move`: workspaces, mode, state, its change sets), with **New move…**. The editor is `/settings/moves/{mappingKey}?from=<source>&to=<target>`, its report the same address with `view=report&job=<id>`. Why: the boards' back link is "Data operations"; a move is work on data, like an import. Cost: one settings page and one route kind |
+| D139 | Opening a move | **New move… asks for the source workspace, the target workspace and the mapping:** one saved between their two models, or a new one (a name; the key made from it). A new mapping is created from the two workspaces, the inference runs and its open proposals are applied as steps before the editor opens (the dialog says "Proposing…"), as the workbook editor does. Why: J38.1's "the engine proposes it and the user completes it", in one action. Cost: none beyond the dialog |
+| D140 | The figures after every step | **Every step, undo, redo, selection or mode change starts a new dry run (`stage: preview`) and cancels the one before**; the band shows the last finished figures (Create, Update, Cannot move, Relationships carried, dropped) with "±n since the last step", and "Checking…" while one runs. Why: the boards' figures recompute after each step, and the dry run is the only place they come from (D67, every item). Cost: one job per step; on a large source each takes its time (X5 measures); cancelled previews never pile up waiting |
+| D141 | The Proposed mark on a row | **Computed in the browser:** a row (attribute, relationship, parent, match, default) is Proposed while its proposal is `applied` or `held` and the row is as that proposal's operations set it; changed by hand, the mark and its "Proposed because" go; undone, they come back. Why: the API gives each proposal's operations and status already, and its status is per type, so it cannot mark rows. Cost: one function with unit tests; no API change |
+| D142 | What moves | **By default every mapped source type, following the mapping until the user chooses;** **What moves… Change** offers the whole workspace, chosen types each with the collection's filter bar (criteria as Export builds them), or one record with everything under it. Kept in the address. Records by ID stay in the API (no entry from a collection's selection bar: a new surface outside the boards). **Differs from the board:** "their Authors" is not offered, since a related record not selected is never pulled in (D116); the related type is selected as a type. Cost: none |
+| D143 | What cannot move | **The board's report, from the dry run:** one card per reason with its count and what fixes it (the mapping's reasons, the target's refusal codes, and values not carried from `attributesNotCarried`); the chosen reason's rows paged from `GET /jobs/{id}/rows`, every item; a reason whose row names an `action` links to the mapping row that changes it. Why: J38.7, every item listed. Cost: none |
+| D144 | Starting the move | **The board's start dialog:** what loads (counts by outcome, relationships, parents created by name), with Move the second change set in the source, the change set's name (renamed after the load with `PATCH /change-sets/{id}`), Cancel and **Open the change set** (Move: **Open both change sets**), which confirms the dry run and follows it; the done notice links each change set. `409 MOVE_MAPPING_CHANGED` or `MODEL_RELEASE_CHANGED` opens the board's "The mapping changed after this dry run" (or "…a workspace's release changed") with **Open the mapping** and **Dry run again**. Start is disabled with the reason while no row creates or updates, so `MOVE_NOTHING_TO_MOVE` is said, not hit. Cost: one rename call after the load |
+| D145 | A mapping with problems | **No dry run starts while the mapping has problems** against the releases the workspaces run: the figures band says "The dry run waits for the mapping" and lists them, each linked to its row; Start is disabled. A mapping naming other releases than the workspaces run says so and offers **Use the releases the workspaces run** (one `setReleases` step). A refused step (`422 INVALID_OPERATION`) shows at its row in words. Why: `MOVE_MAPPING_HAS_PROBLEMS` would refuse the dry run anyway; the user sees where. Cost: none |
+| D146 | Without the capabilities | **Without background jobs or model administration** (D14), Moves lists the mappings, New move… and the editor's controls are absent, and the editor says why, as V2's notice does. Cost: none |
+| D147 | 390px | **The board's tabs:** Mapping, Source, Target, Not moved; three figures (Create, Update, Cannot move); Start at the bottom; the reason pane below the selected row. Cost: none |
+| D148 | Tests and gates | **The runner below, axe on each surface light and dark inside it, and Vitest units** (the Proposed mark, the request from the selection, the figures' differences, the report's cards). No backend change, so no journey test is added; the API journeys already cover J38. The accessibility and visual gates take X4's surfaces in X5, as M6 took M5's. Cost: none |
+
+**Browser cases** (`e2e/workspace-x4.mjs`, `test:browser:workspace-x4`; W1 on generated-a and W2 on
+generated-b, then the reverse, the models and records from the journey helpers, naming no key; at
+1440px by keyboard alone unless said):
+
+1. **J38.1 A move opened.** Given W1 and W2 with records. When New move… names W1, W2 and a new
+   mapping, then the editor opens with the proposed type and attribute rows marked Proposed, a
+   reason pane for the selected row, and the first dry run's figures.
+2. **J38.1 Corrected by hand, undone, redone.** When a row's target is changed, then its mark goes,
+   the figures recompute with their difference and the mapping's version rises; Undo brings back
+   the mark and the figures; Redo removes it again.
+3. **J38.7 What cannot move.** When a mapped type is unmapped, then Cannot move rises; the report
+   lists the reason with its count and every item, paged; the reason's link returns to the row.
+4. **J38.2 A copy started.** When Start the move… is confirmed, then the done notice names a change
+   set of W2 holding the records under its given name; W2's live records are unchanged.
+5. **The mapping changed after the dry run.** Given a step sent through the API after the figures
+   showed. When the move is started, then the dialog says the mapping changed and nothing moved;
+   Dry run again shows the new version's figures.
+6. **J38.3 A subtree moved (the reverse configuration).** When What moves names one record and its
+   subtree and Move is chosen, then both change sets are named, the source's deleting what loaded.
+7. **390px, light and dark.** The tabs, no sideways scroll, the start by keyboard; axe clean on the
+   editor, the report and both dialogs; screenshots light and dark for approval.
+
+Unit tests (Vitest): the Proposed mark (applied, held, changed, undone), the selection's request
+(default, types with criteria, subtree), the figures' differences, the report's cards.
+
+**Groups:** no backend change (no backend group); Vitest for the new modules; `npm run format`,
+`lint`, `build`; the runner above. **Smoke** on a copy of the development database: a mapping from
+the default workspace to an empty one, a step corrected, the report, a copy started and its change
+set opened; the stale dialog after a step from a second tab.
+
+**Composable domains (ADR-032):** no door is affected: the editor is a client of the X1–X3 API.
+
+**What the user still cannot do after X4:** move the records of a collection's selection from the
+browser (API only, D142); the figure for a move at full volume (X5).
+
+##### X4 record (2026-10-19)
+
+**Delivered 2026-10-19.** Built as planned (D138–D148), browser only, no backend change:
+Settings › Data operations › **Moves** (`features/moves/MovesPage.tsx`: the mappings, each opening
+the editor for two workspaces running its models, the recent moves, **New move…**); **New move…**
+(`NewMoveDialog.tsx`: the two workspaces, each named with its model, and a saved mapping or a new
+one, created, proposed and applied before the editor opens); the **move editor** at
+`/settings/moves/{mappingKey}?from=&to=` (`MoveEditor.tsx`, `MappingPane.tsx`, `mappingRows.ts`:
+the header with undo, redo and Start the move…, the band with both workspaces, What moves and Copy
+or Move, the five figures with their differences, the source's types, the mapping by type with
+each row a step and its Proposed mark, the reason pane with the target's types); the dry run after
+every step (`useMoveDryRun.ts`, `moveRun.ts`); **What moves…** (`SelectionDialog.tsx`); the
+**report** of what cannot move (`MoveReport.tsx`) with the **start dialog**
+(`StartMoveDialog.tsx`) and the stale dialog; the 390px editor as tabs; the client calls and
+`types/moves.ts`; the runner `test:browser:workspace-x4`.
+
+Shared pieces, extracted rather than copied (U-D14): the workbook editor's "Proposed because" is
+`ui/ProposalNote` (both editors render it), V1's outcome buttons are `ui/OutcomeCards` (the
+migration page and the report), the model editor's undo and redo rules (`history.ts`) read a
+mapping's history too, and `WorkspaceField` names a workspace's model and leaves out the other
+side. The jobs list names the kinds `move` and `mappingInference`, which it showed blank.
+
+Where it differs from the plan:
+
+- **The address keeps the selection as the filter bar edits it** (`MoveChoice`: every mapped type,
+  the whole workspace, chosen types with their filters, or one record and its subtree), converted
+  to criteria as Export does when the dry run is sent, and the dry run's job, so a reload follows
+  the run it showed instead of starting another.
+- **The mapping's row for a parent names the containment** the target type stands under, as the
+  inference proposes it; a row the mapping sets to a record named by type and value reads "Under
+  the record the mapping names" and is changed through the API.
+- **Recent moves leaves out cancelled and expired dry runs**: every step replaces the editor's run,
+  and the list filled with them in the first screenshots.
+- **A target's refusal (no mapping step named) links to its type's mapping**, where its fix (a
+  default, a match, a parent) is; the board showed the fix as text only.
+- **Browser case 3 sets What moves to the whole workspace first.** By default the selection follows
+  the mapping (D142), so a type unmapped leaves what moves and Cannot move cannot rise; the case's
+  intent (an unmapped type reported) needs the type selected.
+- **Keyboard:** every button, radio, dialog and the record lookup are driven by keys. The mapping's
+  native selects are focused by keyboard and set with `selectOption`: headless Chromium on macOS
+  opens no menu for the arrows, and its type-ahead sends a change, so a step, per key.
+
+**Checks (2026-10-19):** `test:browser:workspace-x4` written with the screens and run to green: 7
+cases on generated-a → generated-b and generated-b → generated-a, 25 s, axe clean on Moves, New
+move, the editor (1440px and 390px), the report, the start and the stale dialogs; screenshots light
+and dark. Vitest: `features/moves/mappingRows.test.ts` (the Proposed mark applied, held, changed,
+remapped, undone; the rows, their steps and problems), `moveRun.test.ts` (the selection's request,
+a job's stored selection recognised, the figures, their differences, the report's cards),
+`routing/routes.test.ts` (the editor's address both ways); with the files around the shared pieces
+(`features/model-editor`, `model-admin`, `workspaces`, `jobs`, `routing`): 377 passed and 1 failed,
+`ModelEditor.test.tsx` "links an issue to the element it concerns", caused by another session's
+uncommitted change to `ModelEditor.tsx` (the issues pane's open state held in a module variable
+that carries from one test to the next), not by X4. `test:browser:workspace-v1` (the migration page
+on `OutcomeCards`): 7 cases passed; `test:browser:authoring-a6` (`ProposalNote`): 18 checks passed.
+`npm run lint`: 0 errors, 7 warnings in files X4 does not touch; `npm run build` passed; Prettier on
+the changed files only. **Smoke** on a copy of the development database (2,389 records, every
+workspace on the example model): New move… from the default workspace to the empty one with a new
+mapping, proposed and opened in 0.7 s, 183 rows marked Proposed; the first dry run 5.3 s (2,138
+created, 2,425 relationships, 8 dropped); a field unmapped by hand, 4.5 s (14 cannot move); a step
+from a second tab, then Start: the stale dialog, nothing moved; Dry run again 8.9 s; the report with
+four reasons (a required value missing, a parent not moving, a relation candidate refused, values
+not carried); the copy loaded into "Smoke copy" in 4.4 s; no page error. Servers stopped, the copy
+dropped, scratch files removed. **Not run:** the full Vitest suite, the other browser runners and
+the accessibility and visual gates (X5 adds X4's surfaces to the gates, D148; build acceptance R).
+
+**Added after delivery (the user, 2026-10-19):** "the new moves as a button … on the workspaces
+page too, so the workspace related controls are also accessible from one place". A workspace's page
+in Settings › Workspaces has **Move data…** (an active workspace, where moves run), opening New
+move… with that workspace as the source; Moves keeps New move…. The dialog now reads the workspaces
+and mappings itself. Browser case 6 starts there (the source preset, axe on the dialog, light and
+dark screenshots); 7 cases passed, 24 s; `features/workspaces` and `features/moves` Vitest, 89
+passed; lint 0 errors; build passed.
+
+**Found by the user on the development database (2026-10-19):** the report's eight "Relation
+candidate refused" rows looked identical, each naming the relationship and one record's ID, and
+the reason read "The target refuses it". The refusals are right: the binding's candidate criteria
+(0.9 K7, D174) want the record at the `from` end under a category whose name contains a given word,
+the record stands elsewhere, and the source holds those relationships only because criteria are
+checked when a relationship is added, never on one already held (D175); a move adds them in the
+target, so they are checked there. Fixed: a move's relationship row names its two records
+(`fromName`, `toName`, read for the page in one statement, as named now; the OpenAPI lock
+re-baselined after diffing against the commit, nothing else changed), the report shows "‹from› →
+‹relationship› → ‹to›", and the reason reads "Record not allowed at a relationship's end" with what
+it means. J38's relationship case asserts the names; `test_j38_1`, `_2`, `_3`,
+`test_openapi_contract`, `test_api_journeys`: 54 passed.
+
+**Reworked with the user (2026-10-19), before screenshot approval:**
+
+- **One status line in the header** under the title and buttons (`MoveStatus.tsx`): a dry run in
+  progress (what it checks, that nothing changes, and that Start waits for it), a dry run ready
+  (what would load, what cannot), nothing to load, the copy or move loading with its progress, done
+  ("Copy complete: 6 records copied into the change set ‹name› of workspace ‹target›", that
+  publishing makes them live, **Review the change set**, and for a move **Review the deletions**),
+  and a failed load. The figures' own state line and the separate done notice went.
+- **One page title**, "Copy (or Move) from ‹source› to ‹target›", in both views; the report has the
+  section heading "What cannot be copied" (or move) and the trail Copy and move › Mapping › What
+  cannot be copied, its current step bold; the mapping and its version moved from the title row
+  into the band.
+- **A copy is never called a move:** every label of the editor, its dialogs, figures, tabs, report
+  and status follows the chosen operation (`modeWords`); where both are meant, both are named
+  (the menu and page Copy and move, New copy or move…, Copy or move data… on a workspace's page,
+  Recent copies and moves). Reason texts say "left out" and "goes without" instead of "move".
+- **Static button labels:** Start the copy or Start the move in the start dialog; Review the change
+  set in the status.
+- **Two requests outside the editor:** the change set bar says "Change set validation passed" as a
+  status beside its buttons, so they do not move; the notice below stays for corrections and notes.
+  The workspace selector (the rail and the phone band) lists active workspaces only; a retired one
+  is opened from Settings › Workspaces and shows as selected while open.
+
+**Checks after the rework:** `test:browser:workspace-x4` 7 cases passed (its names follow the new
+labels); `wp9-change-sets` passed (the validation text kept); Vitest `features/moves`,
+`features/workspaces`, `routing`, `App.test`: everything passed except three `App.test` cases that
+fail with the selector change reverted too, from another session's uncommitted `App.tsx` and
+`useRouter.ts`; the selector's request assertions changed to `status: active`. Lint 0 errors; build
+passed.
+
+**What the user still cannot do:** move the records of a collection's selection from the browser
+(by ID through the API only, D142); set a parent named by type and value, a value map or a
+relationship's attributes in the editor (through the API); the figure for a move at full volume
+(X5).
 
 #### X5: Move checkpoint
 

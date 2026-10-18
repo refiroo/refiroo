@@ -98,8 +98,13 @@ of the target workspace for review; each record a move creates keeps its origin 
 `20261022_01`), so a second move updates it and a record moved back finds its original; `mode:
 move` adds a change set of the source deleting what loaded, which publishes only after the copy; a
 record's history names the move's origin; all through the API
-([record](BASE_0_11_IMPLEMENTATION_PLAN.md#x3-record-2026-10-18)). There is no screen for moves yet
-(X4). Next: X4. Accepted by the user 2026-10-15: the data move in 0.11 (D3), the suite's
+([record](BASE_0_11_IMPLEMENTATION_PLAN.md#x3-record-2026-10-18)). **X4, the move editor, is delivered (2026-10-19):** decisions
+D138–D148 accepted; Settings › Data operations › Moves and New move…, the editor on the approved
+boards (both workspaces, what moves, copy or move, the dry run's figures run again after every step,
+the mapping by type with its Proposed rows, undo and redo, why a row was proposed), the report of
+what cannot move and the start into a change set of the target, 390px as tabs; no backend change
+([record](BASE_0_11_IMPLEMENTATION_PLAN.md#x4-record-2026-10-19)). Screenshots wait for the user's
+approval. Next: X5. Accepted by the user 2026-10-15: the data move in 0.11 (D3), the suite's
 time (D152) as a filler during Part 1 before X2 at the latest (D2), and 0.11.0-alpha.1 after the M6
 checkpoint (D12).
 

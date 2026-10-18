@@ -94,6 +94,8 @@ export type SettingsRoute =
   | { kind: "settings"; page: "about" | "appearance" | "deployment" | "consumer-apis" | "api-reference" }
   /** Jobs, or one job's page (0.9 J1u). */
   | { kind: "settings"; page: "jobs"; jobId?: string }
+  /** Moves between workspaces, or the move editor of one mapping between two workspaces (0.11 X4). */
+  | { kind: "settings"; page: "moves"; move?: MoveAddress }
   /** Stored import profiles, or one profile's page with its next file's check (0.10 A5c, D85). */
   | { kind: "settings"; page: "import-profiles"; profileKey?: string }
   | { kind: "settings"; page: "workspaces"; workspaceKey?: string }
@@ -135,6 +137,33 @@ export type EditorSelection =
   | { show: "column"; sheet: string; key: string }
   /** A list of a sheet laid out for reading, by its sheet and its block's index (0.10 A8b, D123). */
   | { show: "list"; sheet: string; block: number };
+
+/**
+ * What moves, as the move editor's dialog chooses it (D142): the whole workspace, chosen types each
+ * with the filters a collection's filter bar edits, or one record with everything under it.
+ */
+export type MoveChoice =
+  | { kind: "all" }
+  | { kind: "types"; types: { objectTypeKey: string; filters: CollectionFilter[] }[] }
+  | { kind: "subtree"; objectId: string; objectTypeKey: string; name?: string };
+
+/**
+ * The move editor's address (0.11 X4, D138): the mapping, the two workspaces, the dry run it shows
+ * (followed again after a reload), what moves (absent: every mapped type, D142), copy or move, and
+ * the report of what cannot move with its reason.
+ */
+export interface MoveAddress {
+  mappingKey: string;
+  from: string;
+  to: string;
+  jobId?: string;
+  selection?: MoveChoice;
+  mode?: "copy" | "move";
+  view?: "report";
+  reason?: string;
+  /** The mapping row selected, by its key (`type`, `attribute:{key}`, …) under its source type. */
+  row?: string;
+}
 
 /** How a type is shown in the model editor: its definition (the default), its preview, its layout. */
 export type EditorMode = "preview" | "layout";

@@ -32,6 +32,7 @@ export const SETTINGS_NAVIGATION: SettingsGroup[] = [
     label: "Data operations",
     pages: [
       { page: "import-profiles", label: "Import profiles" },
+      { page: "moves", label: "Copy and move" },
       { page: "jobs", label: "Jobs" },
     ],
   },

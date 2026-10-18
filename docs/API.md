@@ -5029,7 +5029,7 @@ attribute the target type holds read-only, `EFFECTIVE_PERIOD_DROPPED`). A record
 `parentRow` and `possibleDuplicates` (up to 10 target records of the type and name a created
 record has, I4); a record the mapping creates is `selected: false`, and the parent it names by type
 and name has no `sourceId`. A relationship row names `relationId`, `relationTypeKey`, `fromId`,
-`toId`, `targetRelationTypeKey`, `direction`, `targetFromId`, `targetToId`, `endRows` and `rides`
+`toId`, `fromName` and `toName` (its records as they are named now, 0.11 X4), `targetRelationTypeKey`, `direction`, `targetFromId`, `targetToId`, `endRows` and `rides`
 (the row of the record whose create carries it). The mapping's reasons are `TYPE_NOT_MAPPED`,
 `PARENT_TYPE_NOT_MAPPED`, `PARENT_NOT_FOUND`, `RECORD_NOT_MOVED` (its parent or its record does not
 move), `RELATION_NOT_MAPPED`, `RELATION_TARGET_LEFT_BEHIND` and `MATCH_AMBIGUOUS`.
