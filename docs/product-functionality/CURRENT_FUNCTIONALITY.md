@@ -249,7 +249,10 @@ A wrong parent type, a cycle or a separate edit of the engine-managed parent rel
 
 The sidebar tree reads any hierarchy by parent at any size and depth, by keyboard or pointer, and its
 search lists matching records of every type with their path. It scrolls as one list with the page
-or the sidebar, its type groups start folded and open like records, and a long group reads more as
+or the sidebar, its type groups start folded and open like records (expanding a record or group
+also opens its only child, one level at a time; a single top-level group shows open), and the
+sidebar keeps its place within an application and workspace while nothing that loads moves it. A
+long group reads more as
 its end comes into view (with **Show earlier records** above a group opened partway down). Several
 records can be selected (Cmd or Ctrl to add or remove one, Shift for a range, Ctrl+Space and
 Shift+arrows by keyboard, Escape to clear) without changing the page, and dragged together onto a
