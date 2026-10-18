@@ -4542,9 +4542,9 @@ its activation are delivered** (M1, with M2 folded in, 2026-10-15), and **what w
 **a workspace's migration to another release is delivered through the API** (V1, 2026-10-17).
 a change set on a release its workspace no longer runs is published by migrating the workspace
 to it (V2, 2026-10-18), and a change set's content is moved onto the release its workspace runs
-(V3, 2026-10-18). Designed, each moving into "delivered" with its package:
-mappings between models (X1) and moves (X2, X3). Field-level detail not fixed
-here is finished in that package's plan.
+(V3, 2026-10-18), mappings between models (X1, 2026-10-18) and a move's dry run (X2,
+2026-10-18). Designed, moving into "delivered" with its package: the move into a change set (X3).
+Field-level detail not fixed here is finished in that package's plan.
 
 - `GET /api/v1/workspace-models?releaseKey=…&releaseId=…&pageSize=…&cursor=…` (delivered)
 - `GET /api/v1/workspaces/{workspaceKey}/model` (delivered)
@@ -4557,8 +4557,8 @@ here is finished in that package's plan.
   `GET /api/v1/model-mappings/{mappingKey}/operations`, `POST …/undo`, `POST …/redo` (X1)
 - `POST /api/v1/model-mappings/{mappingKey}/inference`,
   `GET /api/v1/model-mappings/{mappingKey}/inference/proposals` (X1)
-- `POST /api/v1/moves` (X2), with the job routes: `GET /jobs/{jobId}`, `GET /jobs/{jobId}/rows`,
-  `POST /jobs/{jobId}/confirm`, `POST /jobs/{jobId}/cancel` (X2, X3)
+- `POST /api/v1/moves` (delivered, X2), with the job routes: `GET /jobs/{jobId}`,
+  `GET /jobs/{jobId}/rows`, `POST /jobs/{jobId}/cancel` (X2); `POST /jobs/{jobId}/confirm` (X3)
 
 Removed by M1: `GET /model-runtime-state` and `POST /model-releases/{releaseId}/activation`, replaced
 by the workspace's model and its activation. Activation is registered with
@@ -4973,41 +4973,95 @@ nothing fills, and `parents` a source record may stand under that its target typ
 | 409 | `INFERENCE_NOT_READY`, `INFERENCE_STALE` | the inference still runs; the mapping names other releases than it read |
 | 404, 409, 422 | `PROPOSAL_NOT_FOUND`, `PROPOSAL_ALREADY_APPLIED`, `PROPOSAL_REQUIREMENT_MISSING`, `NOTHING_TO_APPLY` | as a draft's inference |
 
-### Moves (X2, X3)
+### Moves (delivered: the dry run, X2; planned: the move, X3)
 
 ```json
 {
   "sourceWorkspaceKey": "north", "targetWorkspaceKey": "south",
   "mapping": { "key": "catalogue-to-assets", "expectedVersion": 12 },
-  "selection": { "types": ["item"], "parentObjectId": null, "where": null, "objectIds": null },
+  "selection": { "types": [ { "objectTypeKey": "item",
+                              "where": [ { "field": "item-code", "op": "startsWith", "value": "A" } ] } ],
+                 "parentObjectId": null, "objectIds": null },
   "sourceAt": "live", "mode": "copy", "stage": "preview"
 }
 ```
 
-`POST /moves` starts a background job of kind `move`. `selection` names a whole workspace (empty), types,
-a subtree (`parentObjectId`), a filter (`where`, as exports) or records (`objectIds`, K1's
-selection); `sourceAt` is `live` or a publication ID, recorded with the job (I30). The preview is
-the dry run of every selected record (D67), each a row: `create`, `update` (found by its counterpart
-ID, I2), `updateOriginal` (found by its recorded origin, I3, D23), or `refused` with the target's
-refusal codes as an import row's (J3); `notMoved` rows name the reason (`TYPE_NOT_MAPPED`,
-`VALUE_NOT_CONVERTIBLE`, `RELATION_TARGET_LEFT_BEHIND`, …). The preview adds counts by type and
-outcome, the relationships carried and dropped, and possible duplicates (I4).
+`POST /moves` answers `202` with a queued job of kind `move` (D114). It is registered with
+`INTEGRATION_JOBS_ENABLED` and `MODEL_ADMIN_MUTATIONS_ENABLED` (D14, D111). `selection` names what
+moves (I7, D116): `types`, each with an export's `where` criteria; a subtree (`parentObjectId`,
+that record and every record under it); records by ID (`objectIds`, up to 10,000); or nothing, the
+whole workspace. A record is selected when every given part selects it; a parent or related record
+not selected is never pulled in. `sourceAt` is `live`, read when the job binds with the source's
+feed position recorded, or a publication ID of the source workspace (I30, D117). In 0.11 X2 `mode`
+is `copy` and `stage` is `preview`: the job is the **dry run of every item** (D67) and completes
+with its summary; X3 adds the confirmation that loads it into a change set. Nothing reaches either
+workspace: no record, feed position, audit entry or change set.
 
-`POST /jobs/{jobId}/confirm` loads the preview's outcome into a new change set of the target
-workspace, opened for review; with `mode: "move"`, also a change set of the source workspace
-deleting the moved records (D17). A mapping changed since the preview is
+Each selected record becomes, in this order (D118): **found by its counterpart** in the target
+(`update`, `foundBy: counterpart`; the counterpart ID as for J5's loads, derived in PostgreSQL by
+`rdm_counterpart`, D120); else **found by the mapping's `match`**, one target record of the mapped
+type by a unique attribute's value or by name (`update`, `foundBy: match`, `matchedBy`; several
+are `refused` with `MATCH_AMBIGUOUS` and the candidates); else **created** under its counterpart ID
+(`create`). Its values pass through the value map, then are converted to the target attribute's
+value type, then the mapping's defaults fill what the source lacks; the name always carries, and an
+effective period's bounds carry onto the target type's period when both declare one. Its parent is
+the target record of its source parent (moved along, found, or created when the mapping says
+`missing: create`), or one record the mapping names by type and name (found, or created with
+`missing: create`), or none. A relationship it holds is carried when its other end moves too or is
+found in the target; one the target requires into a created record rides on that record's create.
+The items then run through the batch path against the target's live data and are rolled back
+(D115), so a refusal is the target's own: its code, message and `details` as an import row's (J3).
+
+**Rows** are read at `GET /jobs/{jobId}/rows` in their order (records as they would be created, a
+parent first, then relationships), filtered by `outcome`, `reason` (a reason's code) and
+`sourceType`, paged (ADR-030). A row has `kind` (`record`, `relationship`), `outcome` (`create`,
+`update`, `refused`, `notMoved`), `reasons` (each `code`, `message`, `details` and, for the mapping's
+reasons, the `action` that changes it: `mapType`, `mapRelation`, `setParent`, `setMatch`, `select`)
+and `leftBehind` (what a moving row does not carry, at the source attribute's `pointer`:
+`ATTRIBUTE_NOT_MAPPED`, `VALUE_NOT_CONVERTIBLE` with the `value`, `ATTRIBUTE_READ_ONLY` for an
+attribute the target type holds read-only, `EFFECTIVE_PERIOD_DROPPED`). A record row names
+`sourceId`, `sourceType`, `name`, `selected`, `targetId`, `targetType`, `targetParentId`,
+`parentRow` and `possibleDuplicates` (up to 10 target records of the type and name a created
+record has, I4); a record the mapping creates is `selected: false`, and the parent it names by type
+and name has no `sourceId`. A relationship row names `relationId`, `relationTypeKey`, `fromId`,
+`toId`, `targetRelationTypeKey`, `direction`, `targetFromId`, `targetToId`, `endRows` and `rides`
+(the row of the record whose create carries it). The mapping's reasons are `TYPE_NOT_MAPPED`,
+`PARENT_TYPE_NOT_MAPPED`, `PARENT_NOT_FOUND`, `RECORD_NOT_MOVED` (its parent or its record does not
+move), `RELATION_NOT_MAPPED`, `RELATION_TARGET_LEFT_BEHIND` and `MATCH_AMBIGUOUS`.
+
+The job's **`move` summary** (D122) has `coverage: complete`, `rows`, `counts` by outcome, `types`
+and `relationships` with their counts by outcome, `reasons` with their counts,
+`attributesNotCarried` (per source type, attribute and code, with the records' count),
+`possibleDuplicates` (rows naming any), the `mapping` key and version it ran with, `sourceAt`,
+`sourceFeedPosition`, and four releases: `sourceReleaseId` and `targetReleaseId` (what the
+workspaces ran, or the publication's) and `mappingSourceReleaseId` and `mappingTargetReleaseId`
+(what the mapping names). The job keeps the selection and the mapping's definition at its version
+(D112).
+
+Planned for X3: `POST /jobs/{jobId}/confirm` loads the preview's outcome into a new change set of
+the target workspace, opened for review; with `mode: "move"`, also a change set of the source
+workspace deleting the moved records (D17). A mapping changed since the preview is
 `409 MOVE_MAPPING_CHANGED`; the target's model changed since is `409 MODEL_RELEASE_CHANGED`.
-Nothing reaches either workspace's feed or consumers until a change set is published (D20). A
-moved record's ID is its counterpart in the target; its origin (source workspace and record) is
-stored and returned as `origin` on the job's rows and the record's audit entry.
+Nothing reaches either workspace's feed or consumers until a change set is published (D20). A moved
+record's origin (source workspace and record) is stored and returned as `origin` on the job's rows
+and the record's audit entry, and a record moved back is `updateOriginal` (D23).
 
 | Status | Code | When |
 | --- | --- | --- |
 | 422 | `MOVE_SAME_WORKSPACE` | source and target are one workspace |
-| 422 | `MODEL_MAPPING_MODEL_MISMATCH` | the mapping's models are not the two workspaces' models; `details` names all four keys |
+| 404 | `WORKSPACE_NOT_FOUND` | either workspace does not exist |
+| 409 | `WORKSPACE_RETIRED` | either workspace is retired |
 | 404 | `MODEL_MAPPING_NOT_FOUND` | the mapping key does not exist |
-| 409 | `MOVE_MAPPING_CHANGED` | `expectedVersion` is stale, at start or at confirmation |
-| 409 | `WORKSPACE_RETIRED` | the target is retired |
+| 409 | `MOVE_MAPPING_CHANGED` | `expectedVersion` is stale (`details.currentVersion`) |
+| 422 | `MODEL_MAPPING_MODEL_MISMATCH` | the mapping's models are not the two workspaces' models; `details` names all four keys |
+| 422 | `MOVE_MAPPING_HAS_PROBLEMS` | the mapping names what the releases the two workspaces run (or the publication's) lack or do not allow; `details.problems` as a mapping read's |
+| 404 | `PUBLICATION_NOT_FOUND` | `sourceAt` is not a publication of the source workspace |
+| 422 | `INVALID_QUERY` | an unknown type or a criterion the source model cannot answer, at `details.path` |
+| 404 | `OBJECT_NOT_FOUND` | the subtree's record or a selected record is not in the source, at `details.path` |
+
+A job whose target workspace activates another release before it binds or previews fails with
+`MODEL_RELEASE_CHANGED`, as any job, as does one whose source runs another release than when it was
+sent.
 
 ## Planned integration endpoints
 

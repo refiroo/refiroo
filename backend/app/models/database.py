@@ -1334,7 +1334,7 @@ class Job(Base):
     __table_args__ = (
         CheckConstraint(
             "kind IN ('batch', 'import', 'export', 'profile', 'dryRun', 'inference', "
-            "'profileCheck', 'migration', 'mappingInference')",
+            "'profileCheck', 'migration', 'mappingInference', 'move')",
             name="ck_job_kind",
         ),
         CheckConstraint(

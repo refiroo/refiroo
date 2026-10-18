@@ -31,7 +31,7 @@ from ..paging import PageQuery
 from ..presenters import batch_response, job_responses
 from ..presenters import job_item_page as present_job_items
 from ..presenters import job_page as present_jobs
-from ..projections.job_rows import job_row_page, migration_row_page
+from ..projections.job_rows import job_row_page, migration_row_page, move_row_page
 from ..schemas.jobs import (
     BatchResponse,
     JobConfirmation,
@@ -40,6 +40,7 @@ from ..schemas.jobs import (
     JobResponse,
     JobRowPage,
     MigrationRowPage,
+    MoveRowPage,
 )
 
 logger = logging.getLogger(__name__)
@@ -225,7 +226,7 @@ def list_jobs(
     workspace_key: str | None = Query(default=None, alias="workspaceKey"),
     kind: Literal[
         "batch", "import", "export", "profile", "dryRun", "inference", "profileCheck", "migration",
-        "mappingInference",
+        "mappingInference", "move",
     ]
     | None = None,
     state: Literal[
@@ -271,7 +272,7 @@ def list_job_items(
     )
 
 
-@router.get("/jobs/{job_id}/rows", response_model=JobRowPage | MigrationRowPage)
+@router.get("/jobs/{job_id}/rows", response_model=JobRowPage | MigrationRowPage | MoveRowPage)
 def list_job_rows(
     job_id: str,
     session: DbSession,
@@ -284,14 +285,38 @@ def list_job_rows(
         description="An import's rows whose worst item has this status, or a migration's items "
         "of this outcome",
     ),
+    outcome: Literal["create", "update", "refused", "notMoved"] | None = Query(
+        default=None, description="A move's rows of this outcome"
+    ),
+    reason: str | None = Query(
+        default=None, max_length=100, description="A move's rows with a reason of this code"
+    ),
+    source_type: str | None = Query(
+        default=None,
+        alias="sourceType",
+        max_length=160,
+        description="A move's rows of this source type",
+    ),
     page_size: int = Query(default=500, ge=1, le=1000, alias="pageSize"),
-) -> JobRowPage | MigrationRowPage:
+) -> JobRowPage | MigrationRowPage | MoveRowPage:
     """An import's outcomes by row of its file, in source then row order (0.9 J3): each row's
     worst status, its applied items by action and its rejected and unprocessed outcomes. A
     migration's items in item order (0.11 V1): every conversion, type change, loss and refusal.
-    A status of the other kind is ``422 INVALID_PAGE_PARAMETER``. A batch or an export has none
-    (``404 JOB_HAS_NO_ROWS``)."""
+    A move's rows in their order (0.11 X2): every selected record and relationship it holds, and
+    each record the mapping creates, with its outcome in the target, kept to an ``outcome``, a
+    ``reason`` or a ``sourceType``. A status of the other kind is ``422
+    INVALID_PAGE_PARAMETER``. A batch or an export has none (``404 JOB_HAS_NO_ROWS``)."""
     job = load_job(session, job_id)
+    if job.kind == "move":
+        return move_row_page(
+            session,
+            job,
+            outcome=outcome,
+            reason=reason,
+            source_type=source_type,
+            page=paging,
+            page_size=page_size,
+        )
     if job.kind == "migration":
         return migration_row_page(session, job, outcome=status, page=paging, page_size=page_size)
     return job_row_page(session, job, status=status, page=paging, page_size=page_size)

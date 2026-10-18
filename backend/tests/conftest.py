@@ -86,7 +86,7 @@ GROUP_DESCRIPTIONS = {
     "authoring": "model draft operations, their history, undo and redo, generated layout (0.10 A2)",
     "workspace_models": "each workspace's model: assignment, resolution, activation and the commit guard per workspace (0.11 M1)",
     "migration": "a workspace's data migrated to another release: preview, confirmation, conversions (0.11 V1)",
-    "move": "data moved between workspaces whose models differ: the model-to-model mapping, its inference (0.11 X1)",
+    "move": "data moved between workspaces whose models differ: the model-to-model mapping, its inference (0.11 X1), a move's dry run (0.11 X2)",
 }
 TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_model.py": ("model",),
@@ -158,6 +158,7 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_import_volume.py": ("jobs", "volume"),
     "test_import_budget.py": ("volume", "jobs"),
     "test_migration_budget.py": ("volume", "migration"),
+    "test_move_statements.py": ("volume", "move"),
     "test_type_changes.py": ("change_sets", "records", "matrix"),
     "test_restructuring_planner.py": ("change_sets", "records", "matrix"),
     "test_restructuring_volume.py": ("volume", "change_sets"),

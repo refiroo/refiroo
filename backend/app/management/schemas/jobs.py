@@ -223,6 +223,143 @@ class MigrationSummary(BaseModel):
     publicationId: str | SkipJsonSchema[None] = _by_status()
 
 
+class MoveCounts(BaseModel):
+    """Rows by outcome (0.11 X2, D122)."""
+
+    create: int
+    update: int
+    refused: int
+    notMoved: int
+
+
+class MoveTypeCounts(BaseModel):
+    sourceType: str
+    targetType: str | SkipJsonSchema[None] = _by_status()
+    counts: MoveCounts
+
+
+class MoveRelationCounts(BaseModel):
+    relationTypeKey: str
+    targetRelationTypeKey: str | SkipJsonSchema[None] = _by_status()
+    counts: MoveCounts
+
+
+class MoveReasonCount(BaseModel):
+    code: str
+    count: int
+
+
+class MoveAttributeCount(BaseModel):
+    """A source attribute a type's records leave behind, by why, with how many records."""
+
+    sourceType: str
+    attributeTypeKey: str
+    code: str
+    count: int
+
+
+class MoveMappingVersion(BaseModel):
+    key: str
+    version: int
+
+
+class MoveSummary(BaseModel):
+    """What a move's dry run found (0.11 X2, D122): every row (``coverage`` is always
+    ``complete``, D67) counted by outcome, by source type and by relation type; the reasons with
+    their counts; the attributes not carried per type; the rows naming possible duplicates. It
+    names the mapping and version it ran with, the source state it read (``sourceAt``, and
+    ``sourceFeedPosition`` for live data) and the four releases: the two the workspaces ran and the
+    two the mapping names."""
+
+    coverage: Literal["complete"]
+    rows: int
+    counts: MoveCounts
+    types: list[MoveTypeCounts]
+    relationships: list[MoveRelationCounts]
+    reasons: list[MoveReasonCount]
+    attributesNotCarried: list[MoveAttributeCount]
+    possibleDuplicates: int
+    mapping: MoveMappingVersion
+    sourceWorkspaceKey: str
+    targetWorkspaceKey: str
+    sourceAt: str
+    sourceFeedPosition: int | None
+    sourceReleaseId: str
+    targetReleaseId: str
+    mappingSourceReleaseId: str
+    mappingTargetReleaseId: str
+
+
+class MoveReason(BaseModel):
+    """Why a row does not move: the mapping's reason (``TYPE_NOT_MAPPED``, ``PARENT_NOT_FOUND``,
+    ``PARENT_TYPE_NOT_MAPPED``, ``RECORD_NOT_MOVED``, ``RELATION_NOT_MAPPED``,
+    ``RELATION_TARGET_LEFT_BEHIND``, ``MATCH_AMBIGUOUS``) with ``action``, the mapping step or
+    selection that changes it; or the target's refusal, its single write's code and ``details``
+    (with its ``pointer`` into the batch item)."""
+
+    code: str
+    message: str
+    action: str | SkipJsonSchema[None] = _by_status()
+    details: dict[str, Any] | SkipJsonSchema[None] = _by_status()
+
+
+class MoveLeftBehind(BaseModel):
+    """What a moving row leaves behind: ``ATTRIBUTE_NOT_MAPPED``, ``VALUE_NOT_CONVERTIBLE`` (with
+    ``value``), ``ATTRIBUTE_READ_ONLY`` (the target holds it read-only) or
+    ``EFFECTIVE_PERIOD_DROPPED`` (the target type has no period), at the source attribute's
+    ``pointer``."""
+
+    code: str
+    attributeTypeKey: str
+    pointer: str
+    targetAttributeTypeKey: str | SkipJsonSchema[None] = _by_status()
+    value: Any | SkipJsonSchema[None] = _by_status()
+
+
+class MoveRow(BaseModel):
+    """One row of a move's dry run (0.11 X2, D119): a record (``kind: record``) or a relationship
+    it holds (``kind: relationship``), with its ``outcome`` in the target: ``create``, ``update``
+    (found by its counterpart, ``foundBy: counterpart``, or by the mapping's match, ``matchedBy``),
+    ``refused`` (the target's rule) or ``notMoved`` (the mapping's reason). A record not selected
+    (``selected: false``) is one the mapping creates: a parent or a relationship's other end
+    (``missing: create``), or the parent the mapping names by type and name (no ``sourceId``).
+    ``possibleDuplicates`` names up to 10 target records of the type and name a created record
+    has (I4); ``parentRow`` and ``endRows`` are the rows of its parent and of a relationship's
+    records, ``rides`` the row of the record whose create carries a relationship the target
+    requires."""
+
+    index: int
+    kind: Literal["record", "relationship"]
+    outcome: Literal["create", "update", "refused", "notMoved"]
+    reasons: list[MoveReason]
+    leftBehind: list[MoveLeftBehind]
+    sourceType: str | SkipJsonSchema[None] = _by_status()
+    sourceId: str | SkipJsonSchema[None] = _by_status()
+    name: str | SkipJsonSchema[None] = _by_status()
+    selected: bool | SkipJsonSchema[None] = _by_status()
+    targetId: str | SkipJsonSchema[None] = _by_status()
+    targetType: str | SkipJsonSchema[None] = _by_status()
+    targetParentId: str | SkipJsonSchema[None] = _by_status()
+    parentRow: int | SkipJsonSchema[None] = _by_status()
+    foundBy: Literal["counterpart", "match"] | SkipJsonSchema[None] = _by_status()
+    matchedBy: dict[str, str] | SkipJsonSchema[None] = _by_status()
+    possibleDuplicates: list[str] | SkipJsonSchema[None] = _by_status()
+    relationId: str | SkipJsonSchema[None] = _by_status()
+    relationTypeKey: str | SkipJsonSchema[None] = _by_status()
+    targetRelationTypeKey: str | SkipJsonSchema[None] = _by_status()
+    direction: Literal["outgoing", "incoming"] | SkipJsonSchema[None] = _by_status()
+    fromId: str | SkipJsonSchema[None] = _by_status()
+    toId: str | SkipJsonSchema[None] = _by_status()
+    targetFromId: str | SkipJsonSchema[None] = _by_status()
+    targetToId: str | SkipJsonSchema[None] = _by_status()
+    endRows: list[int] | SkipJsonSchema[None] = _by_status()
+    rides: int | SkipJsonSchema[None] = _by_status()
+
+
+class MoveRowPage(CollectionPage[MoveRow]):
+    """A move's rows in their order: records as they are created, then relationships (ADR-030)."""
+
+
 class JobConfirmation(BaseModel):
     """Confirming a previewed job. A migration (0.11 V1) names the assignment version and feed
     position its preview reported and, when it removes anything, ``acceptLoss: true``; an import
@@ -284,7 +421,7 @@ class JobResponse(BaseModel):
     id: str
     kind: Literal[
         "batch", "import", "export", "profile", "dryRun", "inference", "profileCheck", "migration",
-        "mappingInference",
+        "mappingInference", "move",
     ]
     workspaceKey: str
     changeSetId: str | None
@@ -332,6 +469,10 @@ class JobResponse(BaseModel):
     migration: MigrationSummary | None = Field(
         default=None,
         description="A migration's summary once previewed (0.11 V1); null for other jobs",
+    )
+    move: MoveSummary | None = Field(
+        default=None,
+        description="A move's dry run summary once completed (0.11 X2); null for other jobs",
     )
 
 

@@ -76,8 +76,9 @@ Reported under `integrationJobs` by `GET /api/v1/capabilities`; a request over a
 
 PostgreSQL 17 is the only supported database (since 0.9.0-alpha.1). The database's default collation
 must be the ICU root collation `und` (a language-independent Unicode order), and the role needs the
-`pg_trgm` and `btree_gin` extensions (both in PostgreSQL's contrib modules; `btree_gin` since 0.9
-C14), which startup creates when it may. For a server other than the development one:
+`pg_trgm`, `btree_gin` and `pgcrypto` extensions (all in PostgreSQL's contrib modules; `btree_gin`
+since 0.9 C14, `pgcrypto` since 0.11, for the counterpart IDs a move derives), which startup creates
+when it may. For a server other than the development one:
 
 ```sql
 CREATE DATABASE rdm TEMPLATE template0 LOCALE_PROVIDER icu ICU_LOCALE 'und' LOCALE 'C';
@@ -103,7 +104,8 @@ migration from SQLite.
 Startup refuses to serve, logs what to do and answers `GET /health` with `503` when:
 
 - `DATABASE_URL` is missing, not PostgreSQL, uses another driver, or the server is unreachable;
-- the database has another collation, or `pg_trgm` or `btree_gin` is missing and cannot be created;
+- the database has another collation, or `pg_trgm`, `btree_gin` or `pgcrypto` is missing and cannot
+  be created;
 - the database schema revision is unknown, or a migration fails (see [Upgrades](#upgrades));
 - every workspace runs a model release whose schema is outside the engine's window; the log names
   the release's and the supported schemas and the recovery: for schema 0.4 the offline transition

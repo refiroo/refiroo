@@ -32,7 +32,7 @@ DRIVER = "postgresql+psycopg"
 # PG-D11: the language-independent Unicode root order, the same on every platform.
 COLLATION_PROVIDER, COLLATION_LOCALES = "i", frozenset({"und", "root"})
 # The trigram search indexes (PG-D7) and, for the key columns beside the trigrams, btree_gin (0.9 C14).
-REQUIRED_EXTENSIONS = ("pg_trgm", "btree_gin")
+REQUIRED_EXTENSIONS = ("pg_trgm", "btree_gin", "pgcrypto")
 
 _MAINTENANCE = (
     "RDM Engine startup will remain in maintenance mode and /health will return HTTP 503."
@@ -246,7 +246,7 @@ def _ensure_extensions(connection: Connection, label: str) -> None:
             {"names": missing},
         )
     )
-    named = " and ".join(missing)
+    named = " and ".join(filter(None, (", ".join(missing[:-1]), missing[-1])))
     if not set(missing) <= available:
         action = (
             f"Install the PostgreSQL contrib modules on the database server ({named} ship with "
@@ -260,7 +260,7 @@ def _ensure_extensions(connection: Connection, label: str) -> None:
         )
     noun = "extension" if len(missing) == 1 else "extensions"
     raise DatabaseStartupError(
-        f"The {label} lacks the {named} {noun} that search indexes need, and RDM "
+        f"The {label} lacks the {named} {noun} that search indexes and moves need, and RDM "
         f"Engine could not create {'it' if len(missing) == 1 else 'them'}. Reason: {reason}. "
         + _MAINTENANCE
         + " "

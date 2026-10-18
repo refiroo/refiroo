@@ -2,7 +2,7 @@
 
 A clean database is checked, migrated to the baseline and bootstrapped, and starts again unchanged.
 Every refusal (no or a non-PostgreSQL ``DATABASE_URL``, another collation, an unknown revision, a
-missing ``pg_trgm`` or ``btree_gin``) leaves the service in maintenance mode (``/health`` 503) and logs one message
+missing ``pg_trgm``, ``btree_gin`` or ``pgcrypto``) leaves the service in maintenance mode (``/health`` 503) and logs one message
 saying what failed and what to do, never a traceback. A migration that fails part-way rolls back
 completely, and the next start after the cause is removed succeeds. PG2's revision (the trigram
 search indexes) upgrades a database at the baseline, and its interrupted run rolls back to it.
@@ -28,7 +28,8 @@ from app.db import DatabaseStartupError, get_engine, migration_config
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261020_01"
+HEAD = "20261021_01"
+MODEL_MAPPINGS = "20261020_01"
 WORKSPACE_MIGRATIONS = "20261019_01"
 WORKSPACE_MODELS = "20261018_01"
 JOB_INDEXES = "20261017_01"
@@ -121,7 +122,7 @@ def test_a_clean_database_boots_and_restarts(monkeypatch, databases):
             assert client.get("/api/v1/model").status_code == 200
             assert client.get("/api/v1/workspaces/default").status_code == 200
         assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
-        assert _scalar(url, "SELECT count(*) FROM pg_extension WHERE extname IN ('pg_trgm', 'btree_gin')") == 2
+        assert _scalar(url, "SELECT count(*) FROM pg_extension WHERE extname IN ('pg_trgm', 'btree_gin', 'pgcrypto')") == 3
         assert _scalar(url, "SELECT count(*) FROM model_releases") == 1
 
 
@@ -194,8 +195,8 @@ def test_missing_extensions_the_role_cannot_create_are_refused(monkeypatch, data
         _assert_refused(
             client,
             errors,
-            "lacks the pg_trgm and btree_gin extensions",
-            "CREATE EXTENSION pg_trgm; CREATE EXTENSION btree_gin;",
+            "lacks the pg_trgm, btree_gin and pgcrypto extensions",
+            "CREATE EXTENSION pg_trgm; CREATE EXTENSION btree_gin; CREATE EXTENSION pgcrypto;",
             "permission",
         )
     assert _scalar(url, "SELECT count(*) FROM pg_tables WHERE schemaname = 'public'") == 0
@@ -1661,6 +1662,62 @@ def test_upgrade_to_model_mappings_and_an_interrupted_run_recovers(monkeypatch, 
     command.downgrade(migration_config(url), WORKSPACE_MIGRATIONS)
     for table in ("model_mappings", "model_mapping_operations", "model_mapping_proposals", "ix_jobs_mapping"):
         assert _scalar(url, f"SELECT to_regclass('{table}') IS NULL") is True
+    engine.dispose()
+
+
+def test_upgrade_to_moves_and_an_interrupted_run_recovers(monkeypatch, databases, tmp_path):
+    """0.11 X2 on a database taken back to X1's revision: with an ``rdm_counterpart`` function
+    already there (by hand) the revision rolls back and the start refuses naming it; once dropped,
+    the next start adds ``pgcrypto``, the counterpart function and the ``move`` job kind, the service
+    starts twice and a move is answered. A downgrade removes the function."""
+    url = seeds.create_empty()
+    databases.append(url)
+    monkeypatch.setenv("INTEGRATION_JOBS_ENABLED", "true")
+    monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
+    monkeypatch.setenv("JOB_FILE_DIR", str(tmp_path / "job-files"))
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        assert errors == []
+    command.downgrade(migration_config(url), MODEL_MAPPINGS)
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE FUNCTION rdm_counterpart(workspace_key text, object_id text) "
+                "RETURNS text LANGUAGE sql AS 'SELECT object_id'"
+            )
+        )
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        message = _assert_refused(
+            client,
+            errors,
+            "Database migration failed",
+            f"Current revision: {MODEL_MAPPINGS}",
+            f"target revision: {HEAD}",
+            "still at its current revision",
+        )
+        assert "rdm_counterpart" in message
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == MODEL_MAPPINGS
+    with engine.begin() as connection:
+        connection.execute(text("DROP FUNCTION rdm_counterpart(text, text)"))
+    for _start in range(2):
+        with serve(monkeypatch, _render(url)) as (client, errors):
+            assert errors == []
+            body = {
+                "sourceWorkspaceKey": "default",
+                "targetWorkspaceKey": "default",
+                "mapping": {"key": "none", "expectedVersion": 1},
+            }
+            answer = client.post("/api/v1/moves", json=body)
+            assert answer.json()["error"]["code"] == "MOVE_SAME_WORKSPACE", answer.text
+        assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+    # The counterpart ``records/counterparts.counterpart`` derives for the same pair.
+    assert (
+        _scalar(url, "SELECT rdm_counterpart('west', '6d7f0a52-3c4b-4e1a-9f0e-2b6c8d1e4f70')")
+        == "9f895588-8392-4caf-ac46-eb0fe96bf840"
+    )
+    assert _scalar(url, "SELECT count(*) FROM pg_extension WHERE extname = 'pgcrypto'") == 1
+    command.downgrade(migration_config(url), MODEL_MAPPINGS)
+    assert _scalar(url, "SELECT to_regprocedure('rdm_counterpart(text, text)') IS NULL") is True
     engine.dispose()
 
 

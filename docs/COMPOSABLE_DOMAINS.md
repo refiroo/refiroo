@@ -131,7 +131,9 @@ seeds of similarity search and review queues. Keep their vocabulary independent 
 and of `mappingGrid` where it costs nothing, so a later lens can reuse them instead of introducing a
 parallel grammar. The model-to-model mapping's coverage (0.11 X1, D110: source elements not
 mapped, target requirements nothing fills, parents not allowed) is computed from model metadata in
-`engine/moves/mapping_check.py`, apart from `mappingGrid`'s states.
+`engine/moves/mapping_check.py`, apart from `mappingGrid`'s states. A move's dry run (0.11 X2)
+counts per record what that coverage leaves out (types, attributes, relationships, parents), with
+the same reason codes for every domain.
 
 ### Value types
 

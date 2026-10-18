@@ -50,6 +50,7 @@ from .management.routers import (
     model_management,
     model_mappings,
     model_releases,
+    moves,
     objects,
     queries,
     relation_matrix,
@@ -390,6 +391,7 @@ def create_app() -> FastAPI:
                 source_files.dry_run_router, dependencies=MANAGEMENT_DEPENDENCIES
             )
             application.include_router(inference.router, dependencies=MANAGEMENT_DEPENDENCIES)
+            application.include_router(moves.router, dependencies=MANAGEMENT_DEPENDENCIES)
             application.include_router(
                 model_management.migration_router, dependencies=MANAGEMENT_DEPENDENCIES
             )

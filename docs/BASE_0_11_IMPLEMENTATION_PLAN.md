@@ -11,7 +11,7 @@ packages are specified below at package level; each package's detailed plan, tes
 decisions are written and accepted when it starts, and it is delivered in the order of the
 [delivery queue](#delivery-queue), each by the [delivery steps](#how-a-package-is-delivered).
 **Delivered:** P0, M1 with M2 (2026-10-15), M3, M4, M5, M6 and M6a (2026-10-16), released as
-0.11.0-alpha.1 (2026-10-17, tag `v0.11.0-alpha.1`); V1, V2, V3, V4 and X1 (2026-10-18).
+0.11.0-alpha.1 (2026-10-17, tag `v0.11.0-alpha.1`); V1, V2, V3, V4, X1 and X2 (2026-10-18).
 
 **Target:** Product 0.11.0, [production hardening and staged model rollout](ROADMAP.md#product-release-011--production-hardening-and-staged-model-rollout),
 with the two requirements the user added on 2026-10-15 (ROADMAP commit `a0859ae`).
@@ -302,7 +302,7 @@ change) and `volume` (every budget).
 | 10 | [V3](#v3-a-change-set-moved-onto-a-release-it-does-not-fit) | V1 | **Delivered 2026-10-18.** ADR-028: a change set moved onto the release its workspace runs when its content does not fit, previewed and confirmed |
 | 11 | [V4](#v4-the-schema-language-window) | V1, M6 | **Delivered 2026-10-18.** The window 0.5–0.10 declared once, its conversion rules written, installation outside it refused like activation, two startup refusals fixed |
 | 12 | [X1](#x1-the-mapping-between-two-models) | M4, P0 inventory | **Delivered 2026-10-18.** The model-to-model mapping: proposed, completed with mapping operations, saved and reused |
-| 13 | [X2](#x2-selection-and-the-dry-run-of-a-move) | X1 | What moves; the dry run of every item; what cannot move, with reasons |
+| 13 | [X2](#x2-selection-and-the-dry-run-of-a-move) | X1 | **Delivered 2026-10-18.** What moves; the dry run of every item; what cannot move, with reasons |
 | 14 | [X3](#x3-the-move) | X2 | Copy or move into a reviewed change set: identity, relationships, hierarchy, values, history |
 | 15 | [X4](#x4-the-move-editor) | X3, M5 | The move editor: the two models, the mapping, the proposals, the dry-run figures and the report |
 | 16 | [X5](#x5-move-checkpoint) | X4 | The roadmap's move exit item at full volume, measured once |
@@ -2641,6 +2641,175 @@ left behind) with what to do about it.
 
 **Groups:** `move`, `jobs`, `volume`.
 
+##### X2 plan (2026-10-18)
+
+**Planned 2026-10-18; D114–D123 as recommended and the test cases accepted by the user the same day ("yes its fine"), X2 taken before S1 (D2 revised, below).**
+Checked against the code at `6680834`:
+
+- **An import's phases exist and are reusable.** An import binds its file in PostgreSQL into batch
+  items (`imports/binding.py`: temporary tables, matches resolved in set statements, items ordered
+  records by depth, then relationships, D72), stores them as `job_inputs` with its refused rows as
+  its first outcomes, and previews every item through the batch path (`jobs/batches.run_items`,
+  `previewing=True`) in a transaction it rolls back. A `dryRun` previews the whole file (D67) and
+  completes with its summary; no sample cap applies to it. Row outcomes read by source and row
+  (`job_items.source_index`, `row_number`) through `GET /jobs/{id}/rows`.
+- **The batch path gives the target's rules for free.** Each create or update item is decided by
+  the single write's rules over a batch lookup that sees the items before it (`rules.py`,
+  `batch_lookup.py`), so a refusal carries the import's code and pointer (I27):
+  `MISSING_REQUIRED_ATTRIBUTES`, `DUPLICATE_ATTRIBUTE_VALUE` with the holder,
+  `MISSING_REQUIRED_RELATIONS`, `INVALID_PARENT_TYPE`, `PARENT_REQUIRED`.
+- **Reading the source is a set source already.** `reads/context_sets.record_source` and
+  `relation_source` read live data or a publication alike, each record with its values as one JSON
+  object; exports select their scope from them by types, `where` criteria (`QueryCriterion`) and
+  `parentObjectId`.
+- **Conversion is one SQL function.** `rdm_convert_value` (V1) converts a value between two value
+  types or answers `NULL`; V1 runs it over `attribute_values` in set statements.
+- **Counterpart IDs are computed in Python.** `counterpart()` is a version-5 UUID (SHA-1), and
+  PostgreSQL has no SHA-1 of its own, so J5's binding derives them in Python
+  (`import_counterparts`). `pgcrypto`, which has one, ships with the PostgreSQL contrib modules
+  (present in the Homebrew build), and `db.REQUIRED_EXTENSIONS` already creates and checks
+  `pg_trgm` and `btree_gin` at startup with an actionable refusal.
+- **X1's check is reusable.** `mapping_check.py` computes problems and coverage of a definition
+  against two releases, and against the releases two workspaces run.
+- **No origin table yet.** I3's `updateOriginal` needs D23's origins, which X3 writes; X2's dry run
+  can say `create` or `update` (found by counterpart or by the mapping's `match`), not
+  `updateOriginal`.
+
+**What is built:** `POST /moves`, a background job of kind `move` that binds the selection through
+the mapping into batch items in PostgreSQL and previews every item against the target workspace,
+rolled back, then completes with its summary; its rows read through `GET /jobs/{id}/rows`. A
+migration (the job kind, `pgcrypto` and the function `rdm_counterpart`), a service under
+`engine/moves/`, a router, the OpenAPI lock re-baselined. Nothing is written to either workspace
+(X3 loads), no UI (X4), so no mock-up.
+
+**Decisions** (D114 onward):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D114 | The job and its stages in X2 | **A job of kind `move` with the import's phases, `stage: "preview"` only:** it binds, previews every item (D67) and completes with its summary, as a `dryRun` does. X3 adds the confirmation that loads the preview into a change set (the job then waits for it, as an import's preview), so `stage` accepts `preview` alone until then and no route answers "not yet". Why: D19's one job kind; a dry run without a load is a complete answer, and X4's figures after every step are this job. Cost: X3 changes the job's final state from `completed` to waiting for confirmation, a contract change inside 0.11 |
+| D115 | How the target's validation runs | **Through the batch path, as an import's preview:** the binding writes create and update items naming the target's types, parents and relationships, and `run_items` decides each against the target's live data, every item `independent`, and rolls back. Why: I27 asks for the import's refusals with their codes and pointers, and the rules exist once (`rules.py`); V1's whole-graph check would give compatibility counts, not rows an integrator can act on. Cost: each item is decided in Python over a batch lookup, as every import dry run is; the binding (selection, mapping, conversion, matching, ordering) stays in set statements, and the full-volume figure is X5's |
+| D116 | The selection | **`selection` with `types` (each `{objectTypeKey, where}`, the exports' scope and criteria, refused `INVALID_QUERY` at the pointer), `parentObjectId` (that record and every record under it, I7), `objectIds` (up to 10,000, documented, as an atomic batch's items), combined: a record moves when every given part selects it; an empty selection is the whole workspace.** Selected records only: a parent or a related record not selected is found in the target or reported (D118), never pulled in. Stored on the job with the mapping's definition at its version (D112). Why: I7's five forms, exports' filter language rather than a second one. Cost: API.md's `types: [key]` and top-level `where` become the exports' per-type shape |
+| D117 | Which source state is read | **`sourceAt`: `live` (read in the binding's one transaction, its feed position recorded on the job) or a publication ID of the source workspace** (`publication_context`). Why: I30 asks for one point; both are a `record_source` context already. Cost: none beyond a refusal for another workspace's publication (`PUBLICATION_NOT_FOUND`) |
+| D118 | What each record becomes | **In the order:** found by its counterpart in the target → `update` (I2); else found by the mapping's `match` (a unique attribute's value or the name, one record) → `update` with `matchedBy`; else `create` with the counterpart as its ID (I1). Its type is the mapped type; attributes through the value map, then `rdm_convert_value`, then `defaults` for a value the source lacks (I11, I10, I13); effective periods as I24. **Its parent:** the moved parent's counterpart, a target record found by counterpart or match, or the mapping's fixed parent; `missing: create` adds a create item for a fixed parent by name; otherwise not moved. **Its relationships:** to a moved record, carried; to a record found in the target, carried (I16); otherwise dropped (I17), and a required one's loss is the target's `MISSING_REQUIRED_RELATIONS` (I20). A list record named by a relationship (I14) is matched by key or name, and with `missing: create` created. Why: the inventory's cases in one fixed order; `updateOriginal` is X3's (D23). Cost: a `match` finding several target records is not decided by guessing: the record is `refused` with `MATCH_AMBIGUOUS` and the candidates |
+| D119 | What cannot move, and the rows | **One row per selected record and per relationship it holds, every item listed (J38.7):** `outcome` `create`, `update`, `refused` (the target's rule, its code, pointer and details as an import row) or `notMoved` (the mapping's reason, before any rule: `TYPE_NOT_MAPPED`, `PARENT_TYPE_NOT_MAPPED`, `PARENT_NOT_FOUND`, `RELATION_NOT_MAPPED`, `RELATION_TARGET_LEFT_BEHIND`, `RECORD_NOT_MOVED` for a record whose parent did not move); a moved record's row also lists what it leaves behind (`ATTRIBUTE_NOT_MAPPED`, `VALUE_NOT_CONVERTIBLE` at the attribute's pointer with the value, `EFFECTIVE_PERIOD_DROPPED`) and `possibleDuplicates` (a target record of the same type and name, I4). Each row names `sourceId`, `sourceType`, `targetId`, `targetType` and what to do (`action`: `mapType`, `mapAttribute`, `setDefault`, `setMatch`, `setParent`, `select`). `GET /jobs/{id}/rows` filters by `outcome`, `reason` and `sourceType`, paged (ADR-030). Why: the user reads what cannot move by reason and acts on it in the mapping (X4's report). Cost: a value that does not convert leaves the record moving without it (as V1's loss), so only a required one refuses it |
+| D120 | Counterpart IDs in PostgreSQL | **`pgcrypto` added to `REQUIRED_EXTENSIONS` and an SQL function `rdm_counterpart(workspace, id)`** returning the same UUID as `counterpart()`, held to it by a unit test. Why: every selected record's target ID is a set statement (principle 6, and the PostgreSQL-only rule), not a stream through Python. Cost: one more contrib extension at startup, created by the existing check or refused with its instruction; J5's binding keeps its Python path (not changed here) |
+| D121 | Refusals at the start | **Checked before a job exists:** `422 MOVE_SAME_WORKSPACE`; `404 MODEL_MAPPING_NOT_FOUND`; `409 MOVE_MAPPING_CHANGED` (`expectedVersion` stale); `422 MODEL_MAPPING_MODEL_MISMATCH`; `409 WORKSPACE_RETIRED` (either side); and **`422 MOVE_MAPPING_HAS_PROBLEMS`** with the problems when the mapping, checked against the releases the two workspaces run (D110), has any. Releases other than the mapping's own are allowed when nothing is wrong, and the job records all four. A target whose release changes during the dry run fails it `MODEL_RELEASE_CHANGED`, as any job. Gates: both, as D14 and D111 settled. Why: a dry run of a broken mapping would report the mapping's fault on every row. Cost: one new code |
+| D122 | The summary | **Counts by source type and outcome; by reason with counts; relationships carried and dropped by relation type and reason; attributes not carried per type and attribute with counts (I9); possible duplicates; `coverage: complete` (D67)**; with the mapping key, version and the four releases. Why: X4's figures, read from one job. Cost: none |
+| D123 | Where the code lives and the volume check | **`engine/moves/selection.py` (the selection to a set), `move_binding.py` (the mapping to items), `move_job.py` (submit, preview, summary); `management/routers/moves.py`; migration `20261021_01`.** The `volume` group gains one case: a move's binding costs the same number of statements for 50 and 500 records (as `test_batch_statements`); the full-volume measurement stays X5's. Why: D113's home; I28's "set statements" made checkable without a heavy run. Cost: none |
+
+**Journey test cases** (`tests/journeys/test_j38_2_move_dry_run.py`, J38.2, J38.4, J38.5, J38.7,
+`move`; W1 on X, W2 on Y with X and Y generated-a and generated-b, both directions, naming no key;
+the mapping proposed and applied as in J38.1):
+
+1. **J38.2 A whole workspace.** Given W1 with records of every structure and the applied mapping.
+   When `POST /moves` with an empty selection, then `202`, and once run the job completes with one
+   row per W1 record and relationship; every record of a mapped type is `create` with its
+   counterpart as `targetId` and its mapped type; the counts by type equal W1's. W2's records, feed
+   position and change sets are unchanged.
+2. **J38.2 Selections.** Types with a `where`, a subtree (the record and everything under it), and
+   `objectIds` each select exactly those records; `sourceAt` a publication of W1 omits a record
+   created after it; the job's parameters hold the selection and the mapping's version.
+3. **J38.7 What cannot move.** A type unmapped: its records `notMoved` `TYPE_NOT_MAPPED` with the
+   count, the records under them `RECORD_NOT_MOVED`; an attribute unmapped: listed per attribute
+   with its count, the records still `create`; a value that does not convert: `VALUE_NOT_CONVERTIBLE`
+   at its pointer on a moving record; a required attribute of Y nothing fills: `refused`
+   `MISSING_REQUIRED_ATTRIBUTES`, and after `setDefault` the same records `create`.
+4. **J38.4 A relationship whose other end stays behind.** Selecting one type: a relationship to a
+   record not in W2 is `notMoved` `RELATION_TARGET_LEFT_BEHIND` while its record is `create`; with
+   the other end in W2 (found by the mapping's `match`), it is carried; a required relationship
+   whose other end stays behind refuses its record `MISSING_REQUIRED_RELATIONS`.
+5. **J38.5 A unique value already held.** W2 holds a record with a W1 record's unique value: that
+   row is `refused` `DUPLICATE_ATTRIBUTE_VALUE` naming the holder; after `setMatch` by that
+   attribute it is `update` of the holder with `matchedBy`; a W2 record of the same name only
+   is listed in `possibleDuplicates` of a `create`.
+6. **J38.2 The parent in the target (I21, I22).** The dependant whose parent type differs between
+   the models: moved with its parent, it stands under the parent's counterpart; its parent not
+   selected and not in W2, it is `notMoved` `PARENT_NOT_FOUND`; with a fixed parent and
+   `missing: create`, a create item for that parent comes first and the dependant stands under it.
+7. **Refusals.** Source and target one workspace `422 MOVE_SAME_WORKSPACE`; a mapping of other
+   models `422 MODEL_MAPPING_MODEL_MISMATCH`; an unknown key `404 MODEL_MAPPING_NOT_FOUND`; a stale
+   version `409 MOVE_MAPPING_CHANGED`; a retired target `409 WORKSPACE_RETIRED`; W2 on a release
+   without an attribute the mapping names `422 MOVE_MAPPING_HAS_PROBLEMS` with the problem's
+   pointer; an unknown type in the selection `422 INVALID_QUERY` at its pointer. No job is created
+   by any of them.
+
+Unit tests: `rdm_counterpart` held to `counterpart()`; the order of D118 on a hand-built pair of
+records (counterpart, match, create). Volume: D123's statement count.
+
+**Groups:** `move`, `jobs` (the job kind), `startup` (the migration and the extension), `volume`
+(D123), `contract` (the route; the lock re-baselined after diffing). No frontend change.
+
+**Composable domains (ADR-032):** identity: the counterpart ID is computed in PostgreSQL, the same
+value as today, so the retired-ID door is unchanged; bulk APIs: a move's dry run is a job with an
+import's rows; mapping coverage gains per-record counts (D122).
+
+**What the user still cannot do after X2:** load the dry run into a change set, move rather than
+copy, or move a record back to its original (X3); edit the mapping and read the dry run in the
+browser (X4).
+
+##### X2 record (2026-10-18)
+
+**Delivered 2026-10-18.** Built as planned (D114–D123): migration `20261021_01` (`pgcrypto`,
+`rdm_counterpart`, the job kind `move`), `engine/moves/selection.py`, `move_binding.py` and
+`move_job.py`, the router `management/routers/moves.py`, a move's rows at `GET /jobs/{jobId}/rows`
+and its `move` summary on the job; the OpenAPI lock re-baselined after diffing the document against
+`6680834` (only the `Move*` schemas, `JobResponse.move` and its kind, the rows route's filters and
+answer, the jobs list's kind filter); no frontend change.
+
+Where it differs from the plan:
+
+- **A read-only target attribute is not written** and is listed as `ATTRIBUTE_READ_ONLY` on the row:
+  the target's rule refuses a value for it, so a type binding one would have had every record
+  refused. Found by J38.2's whole-workspace case.
+- **A relationship the target requires into a record it creates rides on that record's create**
+  (D118 named the target's `MISSING_REQUIRED_RELATIONS`): it is carried there when its other end
+  moves or is found, so only one left behind refuses the record, as I20 says. The relationship's
+  row takes its record's outcome (`rides`).
+- **Relationships are `ensureRelation` items**, so one already in the target is found again rather
+  than duplicated.
+- **`missing: refuse` on a relationship** does not move the selected record
+  (`RELATION_TARGET_LEFT_BEHIND` on the record), as `setMissing` documents; `missing: create`
+  creates the other end under its counterpart ID with its mapped values.
+- **Refusals beyond D121:** a retired source as well as target (`WORKSPACE_RETIRED`), `404
+  PUBLICATION_NOT_FOUND` for another workspace's publication, `404 OBJECT_NOT_FOUND` for a subtree
+  or selected record the source lacks, each at `details.path`. A source whose release changed since
+  the move was sent fails the job with `MODEL_RELEASE_CHANGED`.
+- **The startup message for missing extensions** now names three (`pg_trgm, btree_gin and
+  pgcrypto`) and says search indexes and moves need them. J12.4's approved case was edited for
+  D120 only: its list of extensions to install gained `pgcrypto`; what it checks is unchanged.
+- **The volume check** is `tests/test_move_statements.py` (groups `volume` and `move`): 124
+  statements for 50 and for 500 selected records, each with a relationship left behind.
+
+**Checks (2026-10-18):** J38.2 written first (`tests/journeys/test_j38_2_move_dry_run.py`, 7 tests,
+14 cases on generated-a and generated-b), all failing with `404` (no route) or `422` (no `move` job
+kind) before the change; after it all 14 pass. Unit: `tests/unit/engine/moves/test_move_binding.py`
+(4: carried, ignored and read-only attributes; a period carried, dropped and named; the target's
+required relationships; D118's order on the seed: counterpart, then match, then create) and
+`tests/unit/engine/records/test_counterparts.py` (`rdm_counterpart` held to `counterpart` over 200
+generated pairs); 7 passed. Groups `move`, `jobs` and `startup` with `-n auto`: 755 passed and 2
+failed, J12.4 on both configurations (the extension list, above), which then passed; the serial part
+(1) passed; 5 min 8 s, over the package ceiling (TODO). `startup` gained a case for `20261021_01`
+(an interrupted run refused naming `rdm_counterpart`, two starts answering a move, the function's
+value, `pgcrypto`, a downgrade). `contract`: the lock, API_JOURNEYS' route line, parameters
+(`outcome`, `reason`) and code (`MOVE_MAPPING_HAS_PROBLEMS`); 76 passed. `volume`: only
+`test_move_statements.py` (2 passed); the group's full-size budgets were not run (nothing they
+measure changed). **Smoke start** on a copy of the development database (3 workspaces, 2,380
+records) taken back to `20261020_01`: the start upgraded it to `20261021_01`, `/health` and
+`/system` 200; a mapping from the default workspace (2,129 records) to another workspace was created,
+inferred and applied without problems, and a whole-workspace dry run completed with 4,562 rows: 4,554
+`create` and 8 `refused` with `RELATION_CANDIDATE_REFUSED`, relationships the source holds although
+its own model's candidate rule no longer admits them (the record's category does not contain
+"reserved"); records and unique-value rows (15) unchanged; the copy dropped. `ruff check` on the
+changed files clean. **Not run:** the full suite, Vitest, the browser runners and the gates (no
+frontend change; build acceptance R).
+
+**Found:** the development server (`uvicorn --reload`) applied `20261021_01` to `rdm` as soon as the
+file was saved; it was written in one go, so `rdm` holds the complete revision (`pgcrypto`, the
+function, the kind). X1's missing `ix_jobs_mapping` on `rdm` remains (TODO).
+
+**What the user still cannot do:** load the dry run into a change set, move rather than copy, or move
+a record back to its original (X3); edit the mapping and read the dry run in the browser (X4).
+
 #### X3: The move
 
 **Design:** D16, D17, D23; the move inventory I1–I34. **Needs:** X2.
@@ -2837,7 +3006,7 @@ D22 are restated after the code check and D23–D29 are added.
 | # | Question | Recommendation | Blocks |
 | --- | --- | --- | --- |
 | D1 | Order of the parts | **The user's (2026-10-15):** the workspace-model topic grouped and first (Part 1) | All |
-| D2 | Where the suite's time (S1) goes, since D152 placed it first | **Accepted 2026-10-15:** as a filler while a Part 1 package waits for screenshot approval, at the latest before X2, whose packages run the slow `jobs` group. Cost: M1–M5 run their targeted groups on today's slow `jobs` group where they touch it | S1 |
+| D2 | Where the suite's time (S1) goes, since D152 placed it first | **Accepted 2026-10-15:** as a filler while a Part 1 package waits for screenshot approval, at the latest before X2, whose packages run the slow `jobs` group. Cost: M1–M5 run their targeted groups on today's slow `jobs` group where they touch it. **Revised 2026-10-18:** X2 went first on the user's go-ahead with its plan; S1 follows X2 | S1 |
 | D3 | The data move in 0.11 | **Accepted 2026-10-15:** in 0.11, beside the per-workspace models it needs, as Track X | X1–X5 |
 | D4 | What a workspace without "its own" model follows | **Recommended:** none. Every workspace names its release explicitly; the instance's default release is only the one a new workspace starts on, and moving the default never moves an existing workspace. Any "follow the default" would activate into workspaces that did not ask, against "without touching the others" | M1, M2 |
 | D5 | What "a model" is | **Recommended:** the line of releases with one `release.key`; different keys are different models; releases stay instance-wide and immutable. Keeps workspace groups possible later | M1 |

@@ -190,10 +190,14 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # create, delete, operations and their history, undo, redo, the inference, its proposals and
     # their application) with the ModelMapping* and Mapping* schemas, and a job's kind
     # mappingInference (JobResponse and the jobs list's kind filter). Diffed against the previous
-    # commit, nothing else changed.
+    # commit, nothing else changed. Re-baselined for 0.11 X2 (D114, D119, D122): a job's kind move
+    # and its move summary (MoveSummary and the Move* counts), a job's rows as a move's page too
+    # (MoveRowPage, MoveRow, MoveReason, MoveLeftBehind) with the outcome, reason and sourceType
+    # filters, and the jobs list's kind filter. Diffed against the previous commit, nothing else
+    # changed (POST /moves is registered with model administration, off in the default document).
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "e62c4c0083b8754337d9480722fa6c0db2ac93c229e0a93ecceb60bb25d2c7bd"
+        "6a3e40a18476f8755942cacf307022d1a3a49640e0c4eeb9206c7def093b969c"
     )
 
 

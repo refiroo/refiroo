@@ -68,6 +68,7 @@ from ...models.commands import BatchItem
 from ...models.database import ChangeSet, Job
 from ..imports.binding import ImportLimits, bind_import
 from ..model import change_set_migrations, migrations
+from ..moves import move_job
 from ..moves.mapping_inference import run_inference as run_mapping_inference
 from ..sources.dry_run import (
     book_opener,
@@ -125,6 +126,7 @@ BATCH_KINDS = (
     "profileCheck",
     "migration",
     "mappingInference",
+    "move",
 )
 EXPORT_KINDS = ("export",)
 _ITEM = TypeAdapter(BatchItem)
@@ -246,6 +248,8 @@ class JobWorker:
                         ((Job.kind == "profile"), "profiling"),
                         ((Job.kind.in_(("inference", "mappingInference"))), "inferring"),
                         (Job.kind.in_(ROW_KINDS) & Job.total.is_(None), "binding"),
+                        ((Job.kind == "move") & Job.total.is_(None), "binding"),
+                        ((Job.kind == "move"), "previewing"),
                         (
                             Job.kind.in_(PREVIEWED_KINDS)
                             & Job.confirmed_at.is_(None)
@@ -291,6 +295,8 @@ class JobWorker:
                     self._infer(session, job)
                 elif job.kind == "mappingInference":
                     self._infer_mapping(session, job)
+                elif job.kind == "move":
+                    self._move(session, job)
                 elif job.kind in ROW_KINDS and job.total is None:
                     self._bind(session, job)
                 elif previewing(job):
@@ -557,6 +563,35 @@ class JobWorker:
         complete_job(session, job, retention_days=self.settings.retention_days)
         # An inference has no items, so no result.
         job.result = None
+        session.commit()
+
+    # --- moves (0.11 X2) --------------------------------------------------------------------------
+
+    def _move(self, session: Session, job: Job) -> None:
+        """A move's dry run: its binding committed with its rows and inputs, then, at the next
+        chunk, the preview of every input, rolled back, and the job completed with its summary
+        (``moves/move_job.py``)."""
+        sequence_id = job.sequence_id
+        if job.total is None:
+            move_job.bind(session, job)
+            self._hold_lease(session, sequence_id)
+            job.lease_expires_at = datetime.now(UTC) + timedelta(
+                seconds=self.settings.lease_seconds
+            )
+            session.commit()
+            return
+
+        def hold(clean: Session) -> Job:
+            self._hold_lease(clean, sequence_id)
+            return clean.get(Job, sequence_id)
+
+        move_job.preview(
+            session,
+            job,
+            should_stop=self._chunk_check(sequence_id),
+            hold=hold,
+            retention_days=self.settings.retention_days,
+        )
         session.commit()
 
     def _binding_check(self, job: Job) -> None:

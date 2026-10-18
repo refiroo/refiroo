@@ -23,6 +23,8 @@ from ..schemas.jobs import (
     JobRowResponse,
     MigrationRow,
     MigrationRowPage,
+    MoveRow,
+    MoveRowPage,
 )
 
 _ROW_STATUSES = ("applied", "rejected", "unprocessed")
@@ -89,6 +91,52 @@ def migration_row_page(
     )
     return MigrationRowPage(
         items=[MigrationRow(index=item.item_index, **item.outcome) for item in found.items],
+        **found.links(),
+    )
+
+
+_MOVE_OUTCOMES = ("create", "update", "refused", "notMoved")
+_MOVE_OUTCOME = literal_column("(job_items.outcome ->> 'outcome')", type_=String)
+
+
+def move_row_page(
+    session: Session,
+    job: Job,
+    *,
+    outcome: str | None,
+    reason: str | None,
+    source_type: str | None,
+    page: PageRequest,
+    page_size: int,
+) -> MoveRowPage:
+    """A move's rows in their order (0.11 X2, D119), kept to one ``outcome``, rows with a
+    ``reason`` of that code, or one ``sourceType``."""
+    _require_status(outcome, _MOVE_OUTCOMES)
+    statement = select(JobItem).where(JobItem.job_id == job.sequence_id)
+    if outcome is not None:
+        statement = statement.where(_MOVE_OUTCOME == outcome)
+    if reason is not None:
+        statement = statement.where(
+            cast(JobItem.outcome, JSONB)["reasons"].op("@>")(
+                func.jsonb_build_array(func.jsonb_build_object("code", reason))
+            )
+        )
+    if source_type is not None:
+        statement = statement.where(
+            cast(JobItem.outcome, JSONB)["sourceType"].astext == source_type
+        )
+    found: Page[JobItem] = paginate_statement(
+        session,
+        statement,
+        keys=(integer_key("index", JobItem.item_index, "item_index"),),
+        scope="move-rows",
+        filters={"jobId": job.id, "outcome": outcome, "reason": reason, "sourceType": source_type},
+        page=page,
+        page_size=page_size,
+        message="Job row cursor is invalid",
+    )
+    return MoveRowPage(
+        items=[MoveRow(index=item.item_index, **item.outcome) for item in found.items],
         **found.links(),
     )
 

@@ -509,8 +509,21 @@ engine proposes it from the two models and the records the two workspaces alread
 proposal with its evidence and alternatives; proposals are applied as steps marked as proposed and
 then corrected by hand, with history, undo and redo. Every read says what the mapping leaves out
 (types, attributes and relationships not mapped, required values nothing fills, parents the target
-does not allow) and what no longer fits when either model has a newer release. Records cannot be
-moved with it yet, and there is no screen for it yet.
+does not allow) and what no longer fits when either model has a newer release.
+
+Through the API, a **move's dry run** then says, for every record chosen in one workspace, what it
+would become in a workspace of another model through such a mapping, without changing either
+workspace. What moves is the whole workspace, chosen types (with the same criteria as an export),
+a record and everything under it, chosen records, or several of these together, read from the
+workspace's current data or one of its publications. Each record and each relationship it holds
+gets a row: created, updated (the record found again in the target, or matched by a unique value or
+by name), refused by the target's own rules with their reason, or not moved with the mapping's
+reason and the mapping step that would change it (a type not mapped, a parent neither moved nor in
+the target, a relationship whose other end stays behind). A row also lists what a record leaves
+behind: attributes not mapped, values that do not convert, attributes the target holds read-only,
+an effective period the target type lacks; and target records of the same name that may be
+duplicates. The summary counts rows by outcome, type, relationship and reason. Records cannot be
+copied or moved into the target yet (a later step of 0.11), and there is no screen for it yet.
 
 Through the API, a draft can also be changed step by step with typed operations instead of whole
 JSON: add, rename, re-key, split, merge or remove applications, types, attributes and relation

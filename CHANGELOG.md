@@ -6,6 +6,30 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.11 X2)
+
+- The dry run of a move between workspaces whose models differ (`POST /api/v1/moves`), a background
+  job of kind `move`: what each selected record and the relationships it holds become in the target
+  workspace through a model mapping at the version the client read, read from the source's live
+  data or one of its publications. The selection is the whole workspace, types with an export's
+  criteria, a subtree, records by ID, or several of these together. Every row is listed at
+  `GET /jobs/{jobId}/rows` (filtered by `outcome`, `reason` and `sourceType`): `create` under the
+  record's counterpart ID, `update` of a record found by its counterpart or by the mapping's match,
+  `refused` with the target's own refusal, or `notMoved` with the mapping's reason and the step that
+  changes it; with what a moving record leaves behind (attributes not mapped, values that do not
+  convert, read-only attributes, effective periods the target type lacks) and possible duplicates.
+  The job's `move` summary counts rows by outcome, type, relation type and reason. Nothing is written
+  to either workspace.
+- `422 MOVE_MAPPING_HAS_PROBLEMS`: a move whose mapping names what the two workspaces' releases
+  lack or do not allow is refused with the problems.
+- Migration `20261021_01`: the `pgcrypto` extension, the function `rdm_counterpart` (a counterpart
+  ID derived in PostgreSQL, the same as the Python one) and the job kind `move`.
+
+### Changed (0.11 X2)
+
+- RDM Engine requires the `pgcrypto` extension beside `pg_trgm` and `btree_gin`; startup creates it
+  or refuses with the instruction to install it, as for the other two.
+
 ### Added (0.11 X1)
 
 - Model mappings (`/api/v1/model-mappings`): what each type, attribute, relationship and parent of

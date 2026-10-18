@@ -583,10 +583,12 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
     (no mapping stored): create the index by hand, or take `rdm` back to `20261019_01` after adding
     it and start again.
   - [ ] The user's requirement: data moved between workspaces whose models differ (Track X), in
-    0.11 (plan D3, accepted 2026-10-15). X1, the mapping between two models, delivered 2026-10-18;
-    X2–X5 remain.
+    0.11 (plan D3, accepted 2026-10-15). X1, the mapping between two models, and X2, the
+    selection and the dry run of a move, delivered 2026-10-18; X3–X5 remain.
   - [ ] The backend suite's time (D152, package S1): a filler during Part 1, before X2 at the latest
-    (plan D2, accepted 2026-10-15).
+    (plan D2, accepted 2026-10-15; revised 2026-10-18: X2 went first, S1 follows it).
+  - [ ] **Found in X2 (2026-10-18):** the groups `move`, `jobs` and `startup` together took 5 min
+    8 s with `-n auto` (757 cases), over the package ceiling; more input for S1 (D152).
   - [x] 0.11.0-alpha.1 when the M6 checkpoint passes (plan D12, accepted 2026-10-15): released
     2026-10-17, tag `v0.11.0-alpha.1`.
 

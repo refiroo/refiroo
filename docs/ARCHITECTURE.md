@@ -28,7 +28,7 @@ flowchart TD
 
 **Technology.** The backend is a Python 3.14 FastAPI service served by Uvicorn. Pydantic 2 defines
 the JSON model and the API contracts, SQLAlchemy 2 maps persistence and Alembic owns schema
-migrations, on PostgreSQL 17 (ICU root collation, `pg_trgm`, `btree_gin`) through psycopg 3. FastAPI generates the
+migrations, on PostgreSQL 17 (ICU root collation, `pg_trgm`, `btree_gin`, `pgcrypto`) through psycopg 3. FastAPI generates the
 OpenAPI documents, and a bundled Scalar page renders them at `/docs`. The frontend is a React 19 and
 TypeScript single-page application built with Vite, using React Aria Components behind its own
 wrappers, Lucide icons and plain CSS. The components ship as Docker images composed by Docker
@@ -944,3 +944,15 @@ of relationships between mapped types from their keys, names, attributes and par
 the two workspaces' records share, read for every pair of types in one statement; its proposals are
 stored per mapping with stable IDs and applied as steps of origin `proposal`, their status read from
 the mapping rather than stored.
+
+Delivered in 0.11 X2: a **move's dry run** is a job of kind `move` with an import's phases
+(`move_job.py`). Its binding (`move_binding.py`) compiles the mapping into a few small temporary
+tables and decides every selected record (`selection.py`: types through the model query, a subtree,
+IDs) in set statements: its mapped type and values (value maps, `rdm_convert_value`, defaults), its
+target record (found by its counterpart, derived in PostgreSQL by `rdm_counterpart`, else by the
+mapping's match, else created under the counterpart ID), its parent and its relationships, then
+orders the records so a parent and the record a required relationship comes from are created first.
+Rows the mapping decides are the job's outcomes at once; the others wait as inputs holding batch
+items, which the next step runs through the batch path against the target's live data, as an
+import's preview does, and rolls back, so a refusal is the target's own rule and code. Two loops walk
+the source's hierarchy once per level; the statements per move do not grow with its records.

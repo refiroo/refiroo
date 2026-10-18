@@ -1127,8 +1127,9 @@ refusals, a stale review, 390px); the budget `test_migration_budget` (100,000 re
 ### J38 — Move data between workspaces whose models differ
 
 **Actor:** model administrator; data steward. **Channel:** UI (the move editor), API.
-**Stories:** US-P09. **Status:** J38.1 delivered through the API (0.11 X1); the move, its dry run
-and the editor planned (0.11 X2–X5).
+**Stories:** US-P09. **Status:** J38.1 delivered through the API (0.11 X1); the selection and the
+dry run of every item delivered through the API (0.11 X2); the move into a change set and the
+editor planned (0.11 X3–X5).
 
 1. Open a mapping from the source workspace's model to the target's; the engine proposes it and the
    user completes it.
@@ -1152,10 +1153,13 @@ and the editor planned (0.11 X2–X5).
 - **J38.8 The change set reviewed and published**: the target's consumers see the records only then.
 
 **Refusals:** `422 MOVE_SAME_WORKSPACE`, `422 MODEL_MAPPING_MODEL_MISMATCH`,
-`404 MODEL_MAPPING_NOT_FOUND`, `409 MOVE_MAPPING_CHANGED`, `409 MODEL_RELEASE_CHANGED`; row refusals
-as an import's (J27).
+`404 MODEL_MAPPING_NOT_FOUND`, `409 MOVE_MAPPING_CHANGED`, `422 MOVE_MAPPING_HAS_PROBLEMS`,
+`409 MODEL_RELEASE_CHANGED`; row refusals as an import's (J27).
 
-**Evidence today:** none (planned).
+**Evidence today:** `tests/journeys/test_j38_1_model_mapping.py` (J38.1) and
+`tests/journeys/test_j38_2_move_dry_run.py` (the dry runs of J38.2, J38.4, J38.5 and J38.7, and the
+refusals before a move starts), through the API; the load into a change set, J38.3, J38.6 and J38.8
+are planned (X3).
 
 ## Integration
 
@@ -1851,7 +1855,7 @@ controlled diagnostics.
 **Variants:**
 
 - **J12.1 No or a wrong database URL**, **J12.2 the wrong collation**, **J12.3 an unknown revision**,
-  **J12.4 `pg_trgm` or `btree_gin` missing**: each refused with its instruction.
+  **J12.4 `pg_trgm`, `btree_gin` or `pgcrypto` missing**: each refused with its instruction.
 - **J12.5 An interrupted migration** leaves the database at its previous revision; the next start
   recovers.
 - **J12.6 An unsupported model schema in the database**: startup names the offline upgrade command,

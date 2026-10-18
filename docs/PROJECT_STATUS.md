@@ -79,9 +79,14 @@ decisions D104–D113 accepted; a mapping between two models is saved through th
 inference over the two models and the records two workspaces share (each proposal with evidence and
 alternatives, applied as steps marked as proposed), corrected with operations, undone and redone, and
 read with its problems and coverage; drafts and mappings share one history (migration
-`20261020_01`; [record](BASE_0_11_IMPLEMENTATION_PLAN.md#x1-record-2026-10-18)). Records cannot be
-moved yet (X2, X3), and there is no screen yet (X4). Next: S1, the suite's time, which D2 places
-before X2 at the latest, then X2. Accepted by the user 2026-10-15: the data move in 0.11 (D3), the suite's
+`20261020_01`; [record](BASE_0_11_IMPLEMENTATION_PLAN.md#x1-record-2026-10-18)). **X2 is delivered
+(2026-10-18):** decisions D114–D123 accepted; `POST /moves` runs the dry run of a move through the
+API: what each selected record and relationship becomes in a workspace of another model, created,
+updated, refused by the target's rules or not moved with the mapping's reason, every row listed and
+counted, nothing written (migration `20261021_01`, which adds the `pgcrypto` extension;
+[record](BASE_0_11_IMPLEMENTATION_PLAN.md#x2-record-2026-10-18)). Records cannot be copied or moved
+into a change set yet (X3), and there is no screen yet (X4). X2 went before S1 on the user's
+go-ahead (D2 revised). Next: S1, the suite's time, then X3. Accepted by the user 2026-10-15: the data move in 0.11 (D3), the suite's
 time (D152) as a filler during Part 1 before X2 at the latest (D2), and 0.11.0-alpha.1 after the M6
 checkpoint (D12).
 
