@@ -224,7 +224,8 @@ def list_jobs(
     paging: PageQuery,
     workspace_key: str | None = Query(default=None, alias="workspaceKey"),
     kind: Literal[
-        "batch", "import", "export", "profile", "dryRun", "inference", "profileCheck", "migration"
+        "batch", "import", "export", "profile", "dryRun", "inference", "profileCheck", "migration",
+        "mappingInference",
     ]
     | None = None,
     state: Literal[

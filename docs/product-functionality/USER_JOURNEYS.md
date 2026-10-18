@@ -1127,7 +1127,8 @@ refusals, a stale review, 390px); the budget `test_migration_budget` (100,000 re
 ### J38 — Move data between workspaces whose models differ
 
 **Actor:** model administrator; data steward. **Channel:** UI (the move editor), API.
-**Stories:** US-P09. **Status:** planned (0.11 X1–X5).
+**Stories:** US-P09. **Status:** J38.1 delivered through the API (0.11 X1); the move, its dry run
+and the editor planned (0.11 X2–X5).
 
 1. Open a mapping from the source workspace's model to the target's; the engine proposes it and the
    user completes it.

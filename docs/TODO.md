@@ -572,8 +572,19 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   - [ ] **Found in V4 (2026-10-18):** the groups `model`, `model_admin`, `startup`, `contract`,
     `workspace_models` and `migration` together took 2 min 36 s with `-n auto` (4,148 cases, `model`
     selecting most of them), over the package ceiling; one more input for S1 (D152).
+  - [ ] **Found in X1 (2026-10-18):** the groups `move`, `startup` and `jobs` together took 4 min
+    55 s with `-n auto` (734 cases), and D105's draft-side check (J33, J34 and the `authoring` and
+    `sources` unit tests, 3,536 cases) 4 min 57 s, both over the package ceiling; more input for S1
+    (D152).
+  - [ ] **Found in X1 (2026-10-18):** a development server started with `uvicorn --reload` on the
+    shared checkout applies a migration file as soon as it is written, before the package finishes
+    it: the development database `rdm` reached `20261020_01` without the index `ix_jobs_mapping` the
+    final migration adds, and its downgrade then fails on the missing index. Recovery for `rdm`
+    (no mapping stored): create the index by hand, or take `rdm` back to `20261019_01` after adding
+    it and start again.
   - [ ] The user's requirement: data moved between workspaces whose models differ (Track X), in
-    0.11 (plan D3, accepted 2026-10-15).
+    0.11 (plan D3, accepted 2026-10-15). X1, the mapping between two models, delivered 2026-10-18;
+    X2–X5 remain.
   - [ ] The backend suite's time (D152, package S1): a filler during Part 1, before X2 at the latest
     (plan D2, accepted 2026-10-15).
   - [x] 0.11.0-alpha.1 when the M6 checkpoint passes (plan D12, accepted 2026-10-15): released

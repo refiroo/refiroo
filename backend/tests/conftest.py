@@ -86,6 +86,7 @@ GROUP_DESCRIPTIONS = {
     "authoring": "model draft operations, their history, undo and redo, generated layout (0.10 A2)",
     "workspace_models": "each workspace's model: assignment, resolution, activation and the commit guard per workspace (0.11 M1)",
     "migration": "a workspace's data migrated to another release: preview, confirmation, conversions (0.11 V1)",
+    "move": "data moved between workspaces whose models differ: the model-to-model mapping, its inference (0.11 X1)",
 }
 TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_model.py": ("model",),
@@ -183,6 +184,7 @@ UNIT_GROUPS: dict[str, tuple[str, ...]] = {
     "engine/jobs/": ("jobs",),
     "engine/model/": ("model",),
     "engine/model/authoring/": ("authoring", "model"),
+    "engine/moves/": ("move",),
     "engine/reads/": ("consumer",),
     "engine/sources/": ("authoring", "jobs"),
     "engine/records/test_audit.py": ("records", "jobs"),
@@ -226,6 +228,7 @@ JOURNEY_GROUPS: dict[str, tuple[str, ...]] = {
     "J34": ("authoring", "jobs"),
     "J36": ("workspace_models", "model_admin", "workspaces"),
     "J37": ("migration", "workspace_models", "jobs"),
+    "J38": ("move", "jobs"),
 }
 
 

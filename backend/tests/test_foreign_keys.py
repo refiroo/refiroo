@@ -77,6 +77,12 @@ RULES = {
     # A draft's history goes with its draft (0.10 A2, D4).
     ("model_draft_operations", "draft_id"): ("model_drafts", "CASCADE"),
     ("model_draft_proposals", "draft_id"): ("model_drafts", "CASCADE"),
+    # A model mapping names the releases it is checked against; its history and proposals go with
+    # it (0.11 X1, D104, D112).
+    ("model_mappings", "source_release_id"): ("model_releases", "RESTRICT"),
+    ("model_mappings", "target_release_id"): ("model_releases", "RESTRICT"),
+    ("model_mapping_operations", "mapping_id"): ("model_mappings", "CASCADE"),
+    ("model_mapping_proposals", "mapping_id"): ("model_mappings", "CASCADE"),
     # A source file goes with the draft or profile that owns it, and its staged cells and profile
     # with it (0.10 A3, D5).
     ("source_files", "draft_id"): ("model_drafts", "CASCADE"),

@@ -48,6 +48,7 @@ from .management.routers import (
     mapping,
     model,
     model_management,
+    model_mappings,
     model_releases,
     objects,
     queries,
@@ -373,9 +374,13 @@ def create_app() -> FastAPI:
     application.include_router(jobs.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(imports.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(source_files.router, dependencies=MANAGEMENT_DEPENDENCIES)
+    application.include_router(model_mappings.router, dependencies=MANAGEMENT_DEPENDENCIES)
     if settings.integration_jobs_enabled:
         application.include_router(jobs.write_router, dependencies=MANAGEMENT_DEPENDENCIES)
         application.include_router(imports.write_router, dependencies=MANAGEMENT_DEPENDENCIES)
+        application.include_router(
+            model_mappings.write_router, dependencies=MANAGEMENT_DEPENDENCIES
+        )
         application.include_router(source_files.write_router, dependencies=MANAGEMENT_DEPENDENCIES)
         application.include_router(
             change_sets.migration_router, dependencies=MANAGEMENT_DEPENDENCIES

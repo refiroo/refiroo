@@ -6,6 +6,27 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.11 X1)
+
+- Model mappings (`/api/v1/model-mappings`): what each type, attribute, relationship and parent of
+  one model becomes in another, with value maps, defaults and how existing target records are
+  matched, saved between two workspaces' releases. A mapping changes only through operations
+  (`mapType`, `mapAttribute`, `mapRelation`, `setParent`, `setMatch`, `setValueMap`, `setMissing`,
+  `setDefault`, `setReleases` and their removals), with history, undo and redo; every read reports
+  its problems (what a release lacks or no longer allows) and coverage (what it leaves out),
+  against its releases or the releases two named workspaces run.
+- The mapping's inference, a background job of kind `mappingInference`: proposals per type and per
+  relationship from keys, names, attributes, parents and the records the two workspaces share, each
+  with its evidence and alternatives, applied as steps marked as proposed. Two workspaces on one
+  model are proposed as identity.
+- Migration `20261020_01`: the tables `model_mappings`, `model_mapping_operations` and
+  `model_mapping_proposals`, the job kind `mappingInference` and an index of a mapping's jobs.
+
+### Changed (0.11 X1)
+
+- A model draft and a model mapping share one history of steps, undo and redo; a draft's answers
+  are unchanged.
+
 ### Added (0.11 V4)
 
 - The schema-language window, 0.5–0.10, and the conversion rules between its versions written in

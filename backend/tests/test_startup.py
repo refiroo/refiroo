@@ -28,7 +28,8 @@ from app.db import DatabaseStartupError, get_engine, migration_config
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261019_01"
+HEAD = "20261020_01"
+WORKSPACE_MIGRATIONS = "20261019_01"
 WORKSPACE_MODELS = "20261018_01"
 JOB_INDEXES = "20261017_01"
 PROFILE_CHECK = "20261015_01"
@@ -1617,6 +1618,49 @@ def test_upgrade_to_workspace_migrations_and_an_interrupted_run_recovers(
         is True
     )
     assert _scalar(url, "SELECT to_regclass('ix_job_items_outcome') IS NULL") is True
+    engine.dispose()
+
+
+def test_upgrade_to_model_mappings_and_an_interrupted_run_recovers(monkeypatch, databases, tmp_path):
+    """0.11 X1 on a database taken back to V1's revision: with a ``model_mappings`` table already
+    there (by hand) the revision rolls back and the start refuses naming it; once dropped, the next
+    start adds the three mapping tables, the ``mappingInference`` job kind and the index of a
+    mapping's jobs, the service starts twice and a mapping is created and read. A downgrade removes
+    them."""
+    url = seeds.create_empty()
+    databases.append(url)
+    monkeypatch.setenv("INTEGRATION_JOBS_ENABLED", "true")
+    monkeypatch.setenv("JOB_FILE_DIR", str(tmp_path / "job-files"))
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        assert errors == []
+    command.downgrade(migration_config(url), WORKSPACE_MIGRATIONS)
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        connection.execute(text("CREATE TABLE model_mappings (id integer)"))
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        message = _assert_refused(
+            client,
+            errors,
+            "Database migration failed",
+            f"Current revision: {WORKSPACE_MIGRATIONS}",
+            f"target revision: {HEAD}",
+            "still at its current revision",
+        )
+        assert "model_mappings" in message
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == WORKSPACE_MIGRATIONS
+    with engine.begin() as connection:
+        connection.execute(text("DROP TABLE model_mappings"))
+    for start in range(2):
+        with serve(monkeypatch, _render(url)) as (client, errors):
+            assert errors == []
+            body = {"key": f"m{start}", "name": "Mapping", "sourceWorkspaceKey": "default", "targetWorkspaceKey": "default"}
+            assert client.post("/api/v1/model-mappings", json=body).status_code == 201
+            assert client.get(f"/api/v1/model-mappings/m{start}").json()["version"] == 1
+        assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+    assert _scalar(url, "SELECT to_regclass('ix_jobs_mapping') IS NOT NULL") is True
+    command.downgrade(migration_config(url), WORKSPACE_MIGRATIONS)
+    for table in ("model_mappings", "model_mapping_operations", "model_mapping_proposals", "ix_jobs_mapping"):
+        assert _scalar(url, f"SELECT to_regclass('{table}') IS NULL") is True
     engine.dispose()
 
 

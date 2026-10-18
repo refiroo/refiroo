@@ -4874,39 +4874,104 @@ release, its feed and its publications are never written. A failure changes noth
 | 422 | `MIGRATION_TARGET_IS_CURRENT` | the change set works under the workspace's release already (start) |
 | 422 | `UNSUPPORTED_SCHEMA_VERSION`, `INVALID_MIGRATION_MAPPING` | as for a workspace's migration (start) |
 
-### Mappings between two models (X1)
+### Mappings between two models (delivered, X1)
 
 A **model mapping** says what each element of a source model becomes in a target model: types,
 attributes, relations, parents, value maps, defaults and how existing target records are matched
-(D18). It is stored once for the instance, keyed, versioned and named by its two models'
-release keys; it changes only through operations, with history, undo and redo as a draft's
-(ADR-041).
+(D18, D106). It is stored once for the instance under its `key`, named by its two models' release
+keys, and checked against two releases its definition names (`sourceReleaseId`,
+`targetReleaseId`, D104). It changes only through operations, with history, undo and redo as a
+draft's (ADR-041, D105). Reads are always served; writes, operations and the inference are
+registered with `INTEGRATION_JOBS_ENABLED` (`capabilities.integrationJobs.createJobs`, D111).
 
 ```json
 {
   "key": "catalogue-to-assets", "name": "Catalogue to assets",
-  "sourceModelKey": "catalogue", "targetModelKey": "assets", "version": 12,
+  "sourceModelKey": "catalogue", "targetModelKey": "assets",
+  "sourceReleaseId": "4c1e…", "targetReleaseId": "9a2f…", "version": 12,
   "types": [
-    { "source": "item", "target": "asset", "match": { "attributeTypeKey": "asset-code" },
+    { "source": "item", "target": "asset",
       "attributes": [ { "source": "item-code", "target": "asset-code" },
                       { "source": "weight", "target": "mass-kg", "valueMap": "units" },
                       { "source": "colour", "ignore": true } ],
-      "parent": { "relationTypeKey": "in-location", "missing": "create" },
-      "relations": [ { "source": "supplied-by", "target": "provided-by" } ],
+      "relations": [ { "source": "supplied-by", "target": "provided-by", "direction": "outgoing",
+                       "attributes": [ { "source": "since", "target": "valid-from" } ] } ],
+      "parent": { "from": "source", "relationTypeKey": "location-holds-asset", "missing": "create" },
+      "match": { "attributeTypeKey": "asset-code" },
       "defaults": { "status": "new" } }
   ],
-  "valueMaps": { "units": { "N/A": null } }
+  "valueMaps": { "units": { "N/A": null } },
+  "problems": [], "coverage": { "types": [], "attributes": [], "relations": [], "required": [],
+                                "requiredRelations": [], "parents": [] }
 }
 ```
 
-Operations follow A5's mapping kinds (`mapColumn`, `unmapColumn`, `setValueMap`, `setMissing`) with a
-source model element in place of a column; X1 fixes the list, first cut `mapType`, `unmapType`,
-`mapAttribute`, `unmapAttribute`, `mapRelation`, `setParent`, `setMatch`, `setValueMap`,
-`setMissing`, `setDefault`. Inference
-(`POST …/inference`) proposes a mapping from keys, names, value types and the stored records of a
-source and a target workspace, each proposal with evidence and alternatives; applying one adds it as
-a step marked Proposed. Two models with one key are proposed as identity (I34). The mapping's
-`problems` list what no longer resolves when either model has a newer release (drift).
+Each source type maps to one target type; several source types may map to one. A type entry holds
+its attributes (a `target`, optionally read through a `valueMap`, or `ignore: true`), the
+relationships the source type holds at their `from` end (`target` read from the mapped type's
+`direction` end, with relation attributes and `missing`), where its records stand (`parent`: under
+the target record of the source parent, `{"from": "source"}`, or under one record named by
+`objectTypeKey` and `value`; `relationTypeKey` picks a containment when the target type has several;
+`missing: create|refuse`; absent: at the top), how a target record not found by counterpart or
+origin is matched (`match`: a unique target attribute or `{"field": "name"}`), and target attribute
+`defaults` for a source record without a value. The record name always carries; effective periods
+carry when both types declare one.
+
+| Route | Answer |
+| --- | --- |
+| `GET /model-mappings?sourceModelKey&targetModelKey` | Summaries in key order (ADR-030) |
+| `POST /model-mappings` | `201` with the mapping: `key`, `name`, and each side by `sourceWorkspaceKey`/`targetWorkspaceKey` (the release the workspace runs) or `sourceReleaseId`/`targetReleaseId` |
+| `GET /model-mappings/{key}?sourceWorkspaceKey&targetWorkspaceKey` | The mapping with `problems` and `coverage` against its releases, or, for a side whose workspace is named, against the release that workspace runs |
+| `DELETE /model-mappings/{key}?expectedVersion` | `204`; its history and proposals go with it (D112) |
+| `POST /model-mappings/{key}/operations` | One step: `{expectedVersion, operations}` answered with `version`, `entries` (as a draft's, with `mappingVersion`) and `problems` |
+| `GET /model-mappings/{key}/operations` | The history in sequence order |
+| `POST /model-mappings/{key}/undo`, `…/redo` | As a draft's: the latest step, `step` or `steps`; `409 OPERATION_HAS_DEPENDANTS` names the later steps relying on it |
+| `POST /model-mappings/{key}/inference` | `202`: a job of kind `mappingInference` over `sourceWorkspaceKey` and `targetWorkspaceKey`, which must run the mapping's two models |
+| `GET /model-mappings/{key}/inference` | Its state, counts by status (`open`, `applied`, `held`, `rejected`) and warnings |
+| `GET /model-mappings/{key}/inference/proposals?sourceType` | Proposals in the order they apply: `kind` (`type`, `relation`), `sourceType`, `relation`, `target`, `score`, `summary`, `evidence`, `operations`, `alternatives` (operations to send after it), `requires`, `status` |
+| `POST /model-mappings/{key}/inference/application` | `{expectedVersion, proposals?}`: every open proposal by default, each one step of origin `proposal` (the editor's "Proposed" mark), all or none |
+
+**Operations** (D107): `mapType` (`sourceType`, `targetType`; a new target forgets what named the
+old one), `unmapType`, `mapAttribute` (`sourceType`, `attribute`, `target` with optional `valueMap`,
+or `ignore: true`), `unmapAttribute`, `mapRelation` (`sourceType`, `relation`, `target`,
+`direction`, `attributes`, `missing`), `unmapRelation`, `setParent` (`sourceType`, `parent` or
+`null`), `setMatch` (`sourceType`, `match` or `null`), `setValueMap` (`name`, `values` or `null`),
+`setMissing` (`sourceType`, `relation` or the parent, `missing`), `setDefault` (`sourceType`, a
+target `attribute`, `value` or `null`), `setReleases` (`sourceReleaseId`, `targetReleaseId`: releases
+of the mapping's models). Each is checked against the two releases; a refusal is `422
+INVALID_OPERATION` with `details.pointer` at the parameter and `details.reason`: `unknownElement`,
+`bindingNotAllowed`, `valueTypesNotConvertible` (a value-type pair `rdm_convert_value` never
+converts; a pair converting some values, text to date, is accepted and its values are the move's dry
+run), `modelMismatch`, `inUse`, `invalidValue`.
+
+**The inference** (D108, D109) proposes per source type its target type, attributes and parent, and,
+when the two workspaces' records share values, a `match` by a unique attribute the pair maps; and
+per relationship a mapped type holds the target relationship between the mapped types. A candidate
+is scored from the evidence it lists: `sameModel` (one model on both sides: identity, I34),
+`sameKey`, `keyTokens` (the share of the keys' words), `sameName`, `attributes` (attributes shared by
+key or name with convertible values), `parent`, `storedRecords` (the source type's names and unique
+values found among the target type's records, one statement over the two workspaces),
+`cardinality` and `onlyRelation`; below one point nothing is proposed. A proposal keeps its ID from
+one inference to the next, and its status is read from the mapping: `applied` while its entry is as
+it made it, `held` when the mapping decides it otherwise, `rejected` when a step that applied it was
+undone.
+
+**Problems and coverage** (D110) are computed on every read. A problem has `code`
+(`ELEMENT_NOT_IN_RELEASE`, `BINDING_NOT_ALLOWED`, `VALUE_TYPES_NOT_CONVERTIBLE`,
+`ATTRIBUTE_FILLED_TWICE`), `pointer`, `side` and `message`. Coverage lists the source `types`,
+`attributes` and `relations` not mapped, the target's `required` attributes and `requiredRelations`
+nothing fills, and `parents` a source record may stand under that its target type cannot
+(`PARENT_NOT_ALLOWED`, `PARENT_TYPE_NOT_MAPPED`, `PARENT_REQUIRED`).
+
+| Status | Code | When |
+| --- | --- | --- |
+| 404 | `MODEL_MAPPING_NOT_FOUND` | the mapping key does not exist |
+| 409 | `MODEL_MAPPING_EXISTS` | the key is taken |
+| 422 | `INVALID_MODEL_MAPPING` | a side named both by a workspace and a release, or by neither |
+| 422 | `MODEL_MAPPING_MODEL_MISMATCH` | a workspace runs another model than the mapping's; `details` names the four model keys |
+| 409 | `WORKSPACE_RETIRED` | a mapping created from a retired workspace |
+| 409 | `INFERENCE_NOT_READY`, `INFERENCE_STALE` | the inference still runs; the mapping names other releases than it read |
+| 404, 409, 422 | `PROPOSAL_NOT_FOUND`, `PROPOSAL_ALREADY_APPLIED`, `PROPOSAL_REQUIREMENT_MISSING`, `NOTHING_TO_APPLY` | as a draft's inference |
 
 ### Moves (X2, X3)
 

@@ -68,6 +68,7 @@ from ...models.commands import BatchItem
 from ...models.database import ChangeSet, Job
 from ..imports.binding import ImportLimits, bind_import
 from ..model import change_set_migrations, migrations
+from ..moves.mapping_inference import run_inference as run_mapping_inference
 from ..sources.dry_run import (
     book_opener,
     dry_run_context,
@@ -115,7 +116,16 @@ SWEEP_SECONDS = 3600.0
 # The worker threads' names, which a measurement of one request's statements leaves out.
 THREAD_NAME = "rdm-job-worker"
 EXPORT_THREAD_NAME = "rdm-export-worker"
-BATCH_KINDS = ("batch", "import", "profile", "dryRun", "inference", "profileCheck", "migration")
+BATCH_KINDS = (
+    "batch",
+    "import",
+    "profile",
+    "dryRun",
+    "inference",
+    "profileCheck",
+    "migration",
+    "mappingInference",
+)
 EXPORT_KINDS = ("export",)
 _ITEM = TypeAdapter(BatchItem)
 # The jobs that bind a source file's staged cells rather than a job file (0.10 A3, A5c).
@@ -234,7 +244,7 @@ class JobWorker:
                     state="running",
                     stage=case(
                         ((Job.kind == "profile"), "profiling"),
-                        ((Job.kind == "inference"), "inferring"),
+                        ((Job.kind.in_(("inference", "mappingInference"))), "inferring"),
                         (Job.kind.in_(ROW_KINDS) & Job.total.is_(None), "binding"),
                         (
                             Job.kind.in_(PREVIEWED_KINDS)
@@ -279,6 +289,8 @@ class JobWorker:
                     self._profile(session, job)
                 elif job.kind == "inference":
                     self._infer(session, job)
+                elif job.kind == "mappingInference":
+                    self._infer_mapping(session, job)
                 elif job.kind in ROW_KINDS and job.total is None:
                     self._bind(session, job)
                 elif previewing(job):
@@ -532,6 +544,15 @@ class JobWorker:
             assistant_rows=self.settings.inference_assistant_rows,
             check=lambda: self._binding_check(job),
         )
+        self._hold_lease(session, job.sequence_id)
+        complete_job(session, job, retention_days=self.settings.retention_days)
+        # An inference has no items, so no result.
+        job.result = None
+        session.commit()
+
+    def _infer_mapping(self, session: Session, job: Job) -> None:
+        """Propose a model mapping in one step and complete the job (0.11 X1)."""
+        run_mapping_inference(session, job, check=lambda: self._binding_check(job))
         self._hold_lease(session, job.sequence_id)
         complete_job(session, job, retention_days=self.settings.retention_days)
         # An inference has no items, so no result.

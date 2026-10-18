@@ -94,3 +94,42 @@ def test_sql_encoding_equals_python_for_every_stored_value_type(seeded):
                     assert indexed == canonical_decimal(value), value
                 session.delete(row)
                 session.flush()
+
+
+# Stored JSON forms of each value type (``rdm_value_json``): text that reads as every other type and
+# as none, numbers with and without a fraction, an instant at midnight and one not.
+SAMPLES = {
+    "text": ["12", "12.5", "true", "2026-10-18", "2026-10-18T10:00:00Z", '{"a": 1}', "words"],
+    "longText": ["12", "12.5", "true", "2026-10-18", "2026-10-18T10:00:00Z", '{"a": 1}', "words"],
+    "integer": [12, -3],
+    "decimal": ["12", "12.5"],
+    "boolean": [True, False],
+    "date": ["2026-10-18"],
+    "dateTime": ["2026-10-18T00:00:00Z", "2026-10-18T10:30:00Z"],
+    "json": [{"a": 1}, [1, 2], "x"],
+}
+
+
+def test_conversion_classes_hold_to_the_database_function(seeded):
+    """Every value-type pair's class (``always``, ``partial``, ``never``) is what ``rdm_convert_value``
+    does with the samples: always converts each, never none, partial some (0.11 X1, D107)."""
+    import json
+
+    from sqlalchemy import text
+
+    from app.engine.records.values import conversion
+
+    with Session(get_engine()) as session:
+        for source, values in SAMPLES.items():
+            for target in VALUE_COLUMNS:
+                converted = [
+                    session.scalar(
+                        text("SELECT rdm_convert_value(CAST(:value AS json), :source, :target) IS NOT NULL"),
+                        {"value": json.dumps(value), "source": source, "target": target},
+                    )
+                    for value in values
+                ]
+                expected = conversion(source, target)
+                found = "always" if all(converted) else "never" if not any(converted) else "partial"
+                assert found == expected, (source, target, converted)
+    assert conversion("text", "colour") == "never"

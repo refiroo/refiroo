@@ -129,7 +129,9 @@ one-off loads.
 The consumer API `match` scoring declaration and the mapping coverage states are the two existing
 seeds of similarity search and review queues. Keep their vocabulary independent of the consumer API
 and of `mappingGrid` where it costs nothing, so a later lens can reuse them instead of introducing a
-parallel grammar.
+parallel grammar. The model-to-model mapping's coverage (0.11 X1, D110: source elements not
+mapped, target requirements nothing fills, parents not allowed) is computed from model metadata in
+`engine/moves/mapping_check.py`, apart from `mappingGrid`'s states.
 
 ### Value types
 
@@ -138,7 +140,9 @@ conversion in `engine/records/values.py` and a renderer. Do not hard-code the li
 outside those registries.
 A migration converts values by pairs of value types in the SQL function `rdm_convert_value`; a new
 type's pairs are added there by a database migration, and until they are, a value converting to or
-from the new type is reported as loss, never dropped (0.11 V4, D102).
+from the new type is reported as loss, never dropped (0.11 V4, D102). A model mapping refuses a pair
+`rdm_convert_value` never converts (`values.conversion`, held to the function by a unit test), so
+the new type's pairs are mapped once written (0.11 X1).
 
 ## Design-review checklist
 

@@ -17,6 +17,40 @@ from ...models.schema import AttributeTypeDefinition
 # value, and a display attribute a migration's type mapping carries (0.11 V1).
 WIDENINGS = frozenset({("text", "longText"), ("integer", "decimal")})
 
+_TEXTS = frozenset({"text", "longText"})
+# The pairs ``rdm_convert_value`` (0.11 V1, D69) converts for some values only: text read as a
+# number, a flag, a date, an instant or JSON; a decimal with no fraction; an instant at midnight.
+_PARTIAL = frozenset(
+    {
+        *(
+            (text, other)
+            for text in _TEXTS
+            for other in ("integer", "decimal", "boolean", "date", "dateTime", "json")
+        ),
+        ("decimal", "integer"),
+        ("dateTime", "date"),
+    }
+)
+
+
+def conversion(from_type: str, to_type: str) -> str:
+    """How ``rdm_convert_value`` carries a value of ``from_type`` to ``to_type``: ``always``,
+    ``partial`` (some values do not convert) or ``never`` (0.11 X1, D107). A pair the function does
+    not know is ``never``, so a value type added later stays refused until its pairs are written
+    (D102)."""
+    if from_type == to_type or {from_type, to_type} <= _TEXTS:
+        return "always"
+    if to_type in _TEXTS:
+        return "always"
+    if (from_type, to_type) in _PARTIAL:
+        return "partial"
+    if to_type == "json" and from_type in VALUE_COLUMNS:
+        return "always"
+    if (from_type, to_type) in {("integer", "decimal"), ("date", "dateTime")}:
+        return "always"
+    return "never"
+
+
 VALUE_COLUMNS = {
     "text": "text_value",
     "longText": "text_value",

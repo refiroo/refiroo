@@ -1334,7 +1334,7 @@ class Job(Base):
     __table_args__ = (
         CheckConstraint(
             "kind IN ('batch', 'import', 'export', 'profile', 'dryRun', 'inference', "
-            "'profileCheck', 'migration')",
+            "'profileCheck', 'migration', 'mappingInference')",
             name="ck_job_kind",
         ),
         CheckConstraint(
@@ -1344,8 +1344,9 @@ class Job(Base):
         ),
         Index("ix_jobs_workspace_created", "workspace_key", "sequence_id"),
         Index("ix_jobs_state", "state", "sequence_id"),
-        # The jobs a draft, a profile or a source file has (0.10 R, R-F14), read through
-        # `jobs.store.job_parameter`, which writes the key literally so these match.
+        # The jobs a draft, a profile, a source file or a model mapping has (0.10 R, R-F14; 0.11
+        # X1), read through `jobs.store.job_parameter`, which writes the key literally so these
+        # match.
         *(
             Index(
                 name,
@@ -1357,6 +1358,7 @@ class Job(Base):
                 ("ix_jobs_draft", "draftId"),
                 ("ix_jobs_profile", "profileKey"),
                 ("ix_jobs_source_file", "sourceFileId"),
+                ("ix_jobs_mapping", "mappingKey"),
             )
         ),
     )
@@ -1634,5 +1636,89 @@ class ModelDraftProposal(Base):
     inference_id: Mapped[str] = mapped_column(String(36), nullable=False)
     position: Mapped[int] = mapped_column(Integer, nullable=False)
     pattern: Mapped[str] = mapped_column(String(60), nullable=False)
+    signature: Mapped[str] = mapped_column(Text, nullable=False)
+    body: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+
+
+class ModelMapping(Base):
+    """A saved mapping from one model to another (Product 0.11 X1, D18, D104): what each type,
+    attribute, relation and parent of the source model becomes in the target model. Keyed by its
+    two models' release keys; checked against the two releases it names, which its definition also
+    holds (``sourceReleaseId``, ``targetReleaseId``) so that re-pointing it is a step of its history.
+    Changed only by operations (``model_mapping_operations``)."""
+
+    __tablename__ = "model_mappings"
+    __table_args__ = (
+        Index("ix_model_mappings_models", "source_model_key", "target_model_key", "key"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    key: Mapped[str] = mapped_column(String(160), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    source_model_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    target_model_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    source_release_id: Mapped[int] = mapped_column(
+        ForeignKey("model_releases.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    target_release_id: Mapped[int] = mapped_column(
+        ForeignKey("model_releases.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    # The definition as API.md shows it: the two releases' IDs, ``types`` and ``valueMaps``.
+    definition: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+
+
+class ModelMappingOperation(Base):
+    """One operation applied to a model mapping, in its history (0.11 X1, D105), as a draft's."""
+
+    __tablename__ = "model_mapping_operations"
+    __table_args__ = (
+        UniqueConstraint("mapping_id", "sequence", name="uq_model_mapping_operations_sequence"),
+        Index("ix_model_mapping_operations_step", "mapping_id", "step"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    mapping_id: Mapped[int] = mapped_column(
+        ForeignKey("model_mappings.id", ondelete="CASCADE"), nullable=False
+    )
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    step: Mapped[int] = mapped_column(Integer, nullable=False)
+    kind: Mapped[str] = mapped_column(String(60), nullable=False)
+    parameters: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    inverse: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    mapping_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    author: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    origin: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    # The entries the operation created and named, as element atoms (D8's dependants).
+    effects: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    undone_by_step: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+
+
+class ModelMappingProposal(Base):
+    """A proposal of a model mapping's latest inference (0.11 X1, D108): one source type's or one
+    relation's target with its evidence, operations and alternatives. A newer inference replaces
+    them; whether one is applied, held or rejected is read from the mapping and its history."""
+
+    __tablename__ = "model_mapping_proposals"
+    __table_args__ = (Index("ix_model_mapping_proposals_mapping", "mapping_id", "position"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    public_id: Mapped[str] = mapped_column(String(36), unique=True, index=True)
+    mapping_id: Mapped[int] = mapped_column(
+        ForeignKey("model_mappings.id", ondelete="CASCADE"), nullable=False
+    )
+    # The inference job's public ID.
+    inference_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)
     signature: Mapped[str] = mapped_column(Text, nullable=False)
     body: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)

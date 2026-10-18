@@ -929,3 +929,18 @@ check (`graph_diagnostics`, publishing's recorded exception). The preview does t
 and rolls it back. The execution holds the workspace row in share mode, which keeps live writes
 (they take its feed positions) out until it commits, then the change set row, and writes nothing
 live.
+
+Delivered in 0.11 X1 (`engine/moves/`): a **model mapping** (`model_mappings`) says what each
+element of a source model becomes in a target model. Its definition is a JSON document changed only
+by the operation kinds of `mapping_kinds.py` through the draft editor's `Document`, so each kind's
+inverse is the logged reversal of what it changed. Drafts and mappings share one history
+(`engine/model/authoring/history.py`): an `Owner` says how to lock its subject, apply operations,
+write it back and store its entries (`model_draft_operations`, `model_mapping_operations`), and the
+steps, undo, redo, dependants and version conflicts are the same code. A mapping is checked against
+two releases its definition names; `mapping_check.py` reads it against those releases, or the ones
+two workspaces run, for its problems and coverage, from model metadata only (`sides.Side`). The
+inference (`mapping_inference.py`, a job of kind `mappingInference`) scores every pair of types and
+of relationships between mapped types from their keys, names, attributes and parents, and from what
+the two workspaces' records share, read for every pair of types in one statement; its proposals are
+stored per mapping with stable IDs and applied as steps of origin `proposal`, their status read from
+the mapping rather than stored.

@@ -502,6 +502,16 @@ the supported versions named, and a model file outside it stops the service from
 to do; a workspace on a release a later engine wrote stays unavailable on its own, and the log says
 to run that later version.
 
+Through the API, a **mapping between two models** can be saved for moving data between workspaces
+whose models differ: what each type, attribute, relationship and parent of one workspace's model
+becomes in another's, which value maps and defaults apply, and how existing records are found. The
+engine proposes it from the two models and the records the two workspaces already share, each
+proposal with its evidence and alternatives; proposals are applied as steps marked as proposed and
+then corrected by hand, with history, undo and redo. Every read says what the mapping leaves out
+(types, attributes and relationships not mapped, required values nothing fills, parents the target
+does not allow) and what no longer fits when either model has a newer release. Records cannot be
+moved with it yet, and there is no screen for it yet.
+
 Through the API, a draft can also be changed step by step with typed operations instead of whole
 JSON: add, rename, re-key, split, merge or remove applications, types, attributes and relation
 types, set where a type sits in the containment tree, allow relations between types, lay out views

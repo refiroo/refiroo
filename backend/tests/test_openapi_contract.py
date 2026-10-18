@@ -186,10 +186,14 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # /change-sets/{change_set_id}/model-migrations with ChangeSetMigrationRequest, and the
     # MigrationTypeMapping and MigrationAttributeSource it names (the route is registered with
     # background jobs, on in the default document). Diffed against the previous commit, nothing
-    # else changed.
+    # else changed. Re-baselined for 0.11 X1 (D104–D113): the model-mappings routes (list, read,
+    # create, delete, operations and their history, undo, redo, the inference, its proposals and
+    # their application) with the ModelMapping* and Mapping* schemas, and a job's kind
+    # mappingInference (JobResponse and the jobs list's kind filter). Diffed against the previous
+    # commit, nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "f383845795b2f1b829339a9d34b7286f6f94b6a60e6de131dddd793f67d00c45"
+        "e62c4c0083b8754337d9480722fa6c0db2ac93c229e0a93ecceb60bb25d2c7bd"
     )
 
 
@@ -229,8 +233,8 @@ def test_paging_openapi_inventory():
     # 0.9 J2 added the import profiles; 0.9 J3 an import's rows; 0.9 K6a what records hold; 0.10 A3
     # the source files and a profile's sheets and columns; 0.10 A5c a profile check's new values,
     # drift, missing records and rows; 0.10 A8b a range of a sheet's cells; 0.11 M1 the workspaces'
-    # model assignments.
-    assert seekable <= paged and len(paged) == 38
+    # model assignments; 0.11 X1 the model mappings, a mapping's history and its proposals.
+    assert seekable <= paged and len(paged) == 41
     assert {
         "/api/v1/jobs",
         "/api/v1/jobs/{job_id}/items",

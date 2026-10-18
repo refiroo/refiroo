@@ -11,7 +11,7 @@ packages are specified below at package level; each package's detailed plan, tes
 decisions are written and accepted when it starts, and it is delivered in the order of the
 [delivery queue](#delivery-queue), each by the [delivery steps](#how-a-package-is-delivered).
 **Delivered:** P0, M1 with M2 (2026-10-15), M3, M4, M5, M6 and M6a (2026-10-16), released as
-0.11.0-alpha.1 (2026-10-17, tag `v0.11.0-alpha.1`); V1, V2, V3 and V4 (2026-10-18).
+0.11.0-alpha.1 (2026-10-17, tag `v0.11.0-alpha.1`); V1, V2, V3, V4 and X1 (2026-10-18).
 
 **Target:** Product 0.11.0, [production hardening and staged model rollout](ROADMAP.md#product-release-011--production-hardening-and-staged-model-rollout),
 with the two requirements the user added on 2026-10-15 (ROADMAP commit `a0859ae`).
@@ -301,7 +301,7 @@ change) and `volume` (every budget).
 | 9 | [V2](#v2-a-change-set-from-a-publication-moved-to-another-release) | V1 | **Delivered 2026-10-18.** GAP-02: a change set on an older release published by migrating its workspace to that release |
 | 10 | [V3](#v3-a-change-set-moved-onto-a-release-it-does-not-fit) | V1 | **Delivered 2026-10-18.** ADR-028: a change set moved onto the release its workspace runs when its content does not fit, previewed and confirmed |
 | 11 | [V4](#v4-the-schema-language-window) | V1, M6 | **Delivered 2026-10-18.** The window 0.5–0.10 declared once, its conversion rules written, installation outside it refused like activation, two startup refusals fixed |
-| 12 | [X1](#x1-the-mapping-between-two-models) | M4, P0 inventory | The model-to-model mapping: proposed, completed with mapping operations, saved and reused |
+| 12 | [X1](#x1-the-mapping-between-two-models) | M4, P0 inventory | **Delivered 2026-10-18.** The model-to-model mapping: proposed, completed with mapping operations, saved and reused |
 | 13 | [X2](#x2-selection-and-the-dry-run-of-a-move) | X1 | What moves; the dry run of every item; what cannot move, with reasons |
 | 14 | [X3](#x3-the-move) | X2 | Copy or move into a reviewed change set: identity, relationships, hierarchy, values, history |
 | 15 | [X4](#x4-the-move-editor) | X3, M5 | The move editor: the two models, the mapping, the proposals, the dry-run figures and the report |
@@ -2460,6 +2460,174 @@ with A5's mapping operations, with undo. Saved and reused for the next move betw
 models; drift between the models reported.
 
 **Groups:** `move` (new), `authoring`, `contract`.
+
+##### X1 plan (2026-10-18)
+
+**Planned 2026-10-18; D104–D113 as recommended and the test cases accepted by the user the same day ("ok, can you please implement the above?").**
+Checked against the code at `7691c4f` with V4's uncommitted changes in the working tree:
+
+- **A5's operations are a draft's.** The mapping kinds (`engine/model/authoring/mapping.py`) edit a
+  draft's import profile through `Document`, whose log gives every kind an exact inverse
+  (`restoreElements`, ADR-041). Their history, undo, redo, `VERSION_CONFLICT` and dependants
+  (`authoring/history.py`) are written for `ModelDraft` and `model_draft_operations`: the lock,
+  the version, the compile after each step and the profile's warnings are a draft's.
+- **A6/A7's inference reads a file.** The job (`sources/inference/run.py`, kind `inference`)
+  profiles a source file's staged cells, finds table patterns and builds operations that create
+  model elements and bind columns. What carries over is the frame, not the matching: proposals
+  stored per run in `model_draft_proposals` and replaced by the next; applied through
+  `history.apply_steps` as steps of origin `proposal`, each with a snapshot so a later run tells the
+  engine's steps from the administrator's (D92: `open`, `applied`, `held`, `rejected`); stored
+  records compared in set statements (`StoredRecords`, `_identifiers`). Matching one model's
+  elements to another's is new.
+- **Nothing stores a mapping between two models.** V1's `typeMappings` (D70) map types and
+  attributes within one migration request and are not saved; import profiles map a file's columns.
+- **Value conversion is one function.** `rdm_convert_value` (V1, D69) converts every pair it knows
+  and answers `NULL` otherwise; some pairs never convert (a boolean to a date, JSON to a number).
+- **The test models fit the move.** `generated-a` and `generated-b` hold the same structures under
+  entirely different keys (`ledger` and `x_ledger_7`), with the same element names, and differ in
+  shape: in B a dependant stands under a container type A lacks. So the true mapping is known by
+  structure, a parent differs between the models (I22), and the names alone would propose most
+  of it, which is why case 2 also takes the names away.
+- **Gates.** Import profiles are written under `INTEGRATION_JOBS_ENABLED`; A6's inference also
+  under `MODEL_ADMIN_MUTATIONS_ENABLED`, since it edits a draft.
+
+**What is built:** the `model_mappings` resource of API.md's design: created between two models,
+changed only by operations with history, undo and redo, proposed by an inference job turned to two
+workspaces, its drift and coverage reported on every read. A database migration (three tables and
+the job kind), a service under `engine/moves/`, a router, the OpenAPI lock re-baselined. No UI (X4)
+and nothing moves (X2, X3), so no mock-up.
+
+**Decisions** (D104 onward):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D104 | What a mapping is checked against | **Two releases it names, `sourceReleaseId` and `targetReleaseId`,** taken from two workspaces when it is created (or given as release IDs), and moved by an operation `setReleases`, which is undoable like any other. Its identity stays the two model keys (D18): one key, and a list filtered by the two models. Why: an operation is checked against a model; a mapping bound to "whatever the workspace runs today" would change meaning when a workspace activates a release, without any step in its history. As an import profile has `checked_release_id` and a draft its base. Cost: a mapping edited against older releases is re-pointed by hand; D110 shows what that breaks |
+| D105 | Where the history lives | **One history component for drafts and mappings:** `authoring/history.py`'s steps, undo, redo, dependants and conflict entries taken out of `ModelDraft` behind a small owner interface (lock, version, write, check after a step), drafts and mappings both using it; a table `model_mapping_operations` with the columns of `model_draft_operations`. Why: one component, no copies; undo across dependants (D8) and origin `proposal` (D92) behave the same in both. Cost: A2's history refactored in this package, so the `authoring` group runs (as the plan already lists) |
+| D106 | The mapping's shape | **API.md's design, completed:** `types` by source type, each one target type (several source types may name one target; one source type never two, a split by condition is not in 0.11), with `attributes` (target or `ignore`, an optional `valueMap`), `match` (how a target record not found by counterpart or origin is matched: `{attributeTypeKey}` of a unique target attribute, `{field: "name"}`, or none: I12), `parent` (`{from: "source"}` the source parent's mapped record, or `{objectTypeKey, value}` a fixed one, each with `missing: create|refuse`: I21, I22), `relations` (source relation and direction to target relation and direction, with relation attributes: I18, I19), `defaults` (a target attribute's value when the source has none: I13), and `valueMaps` (I11). The record name always carries; effective periods carry when both types declare one (I24), with nothing to map. Why: what X2's dry run needs to decide every item, nothing more. Cost: lookups (I14) are relations to list types here, so a list value not in the target is `missing: create|refuse` on that relation, not a separate construct |
+| D107 | The operations | **`mapType`, `unmapType`, `mapAttribute` (a target, or `ignore: true`), `unmapAttribute`, `mapRelation`, `unmapRelation`, `setParent`, `setMatch`, `setValueMap` (create, replace or remove one map), `setMissing`, `setDefault`, `setReleases`,** each with its inverse from `Document`'s log as A5's kinds. Each is checked against the two releases: the elements exist; the target type binds the attribute; the target allows the relation between the mapped types; a parent's relation contains the target type. A value-type pair `rdm_convert_value` never converts is refused (`valueTypesNotConvertible`); a pair that converts some values (text to date) is accepted and its values are counted in X2. Refusals are `422 INVALID_OPERATION` with the pointer, as a draft's. Why: API.md's first cut with the two missing inverses (`unmapRelation`) and the release step D104 needs. Cost: a Python table of which pairs never convert, held to the SQL function by a unit test |
+| D108 | The inference | **A job of kind `mappingInference`** (`POST /model-mappings/{key}/inference` with `sourceWorkspaceKey` and `targetWorkspaceKey` running the mapping's two releases), proposing per source type one proposal (`mapType` with its attributes, parent and match) and per relation one (`mapRelation`), each with its evidence and up to three alternatives, scored from: same key or same key once case and separators are folded; same name; attribute overlap (names and convertible value types); a parent already proposed; **stored records**: the share of the source type's unique values and names found among a target type's records, one statement per source type over `attribute_values` and `objects` in the two workspaces. Proposals replace the mapping's earlier ones; statuses `open`, `applied`, `held`, `rejected` read from the history as D92. Applying writes each as a step of origin `proposal` (the "Proposed" mark X4 shows) through the one history (D105). Why: the A6 frame the user knows, the matching new; stored records in set statements (principle 6). Cost: the stored-records statement is the slow part at full volume, measured in X5 |
+| D109 | The same model on both sides (I34) | **Allowed and proposed as identity:** every element mapped to the element of the same key, evidence `sameModel`; the two releases may differ, so a key the target release lacks is proposed by name or not at all. Why: a move between two workspaces of one model is the same machinery. Cost: none beyond the matching rule |
+| D110 | Drift and coverage | **Computed on every read, never stored:** `problems` lists each entry naming an element the mapping's releases lack or no longer allow (`ELEMENT_NOT_IN_RELEASE`, `BINDING_NOT_ALLOWED`, `VALUE_TYPES_NOT_CONVERTIBLE`), with its pointer; with `sourceWorkspaceKey` and `targetWorkspaceKey` on the read, the same against the releases those workspaces run, so a mapping is checked before a move without being re-pointed. `coverage` lists the source types, attributes and relations not mapped and the target's required attributes and relations nothing fills (I9, I13, I18). Why: the release a workspace runs changes without the mapping's knowledge; reporting is cheap (model metadata only). Cost: record counts per unmapped element are X2's dry run, not X1's |
+| D111 | Gates and limits | **Reads always; writes, operations and the inference under `INTEGRATION_JOBS_ENABLED`,** as import profiles. Operations per request `MODEL_OPERATION_MAX_ITEMS` (500), as a draft's. The list and the proposals page under ADR-030. Why: a mapping is integration configuration, not a model; the move itself is under both gates (D14). Cost: none |
+| D112 | Deleting a mapping | **`DELETE /model-mappings/{key}` with `expectedVersion`;** its operations and proposals go with it. A move job (X2, X3) keeps the definition it ran with, as an import job keeps its profile. Why: a job's record must not depend on a resource that may change. Cost: none here |
+| D113 | Where the code lives | **`engine/moves/`** (`mappings.py` the resource, `mapping_kinds.py` the operations, `mapping_inference.py` the job), `management/routers/model_mappings.py`, and the `move` marker for `engine/moves/` and J38 in `tests/conftest.py` and EXECUTION_GUIDE. Why: X2 and X3 add the dry run and the move beside it. Cost: none |
+
+**Journey test cases** (`tests/journeys/test_j38_1_model_mapping.py`, J38.1, `move`; W1 on X, W2 on
+Y with X and Y generated-a and generated-b, both directions, naming no key; X4's browser walk is
+X4's):
+
+1. **J38.1 Created between two workspaces.** `POST /model-mappings` naming W1 and W2: `201` with
+   both model keys and releases, version 1, no types, `coverage` listing every source type; a
+   second mapping of the same key `409`; one naming a retired or unknown workspace refused; the
+   list filtered by the two model keys finds it.
+2. **J38.1 Proposed with evidence.** Records of R in W1 and W2 sharing unique values; the inference
+   job completes; every structure type of X is proposed to the same structure of Y, attributes by
+   structure, D's parent naming Y's container (I22), the relations to their structures. With the
+   names of Y's types replaced by a test helper (a release of Y with other names), R is still
+   proposed to R from the stored records, its evidence saying so, with alternatives.
+3. **J38.1 Proposals applied as steps marked Proposed.** Applying them adds one step per proposal
+   of origin `proposal`; the mapping's version rises; a new inference reads them `applied`; the
+   mapping then covers every type and `coverage` lists only what Y has and X lacks.
+4. **J38.1 Corrected by hand.** `mapAttribute` to another attribute, `setDefault` for a required
+   attribute of Y nothing fills (I13), `setMatch` by Y's unique attribute (I12), a value map
+   (I11), a relation unmapped: each applied; refused at its pointer: an attribute Y's type does not
+   bind, a value-type pair that never converts, a relation Y does not allow between the mapped
+   types. A new inference keeps the hand-corrected proposal `held`.
+5. **J38.1 Undone and redone.** The hand step undone restores the mapping exactly, redo applies it
+   again; a proposal step undone reads `rejected` on the next inference; an operation at a stale
+   version is `409 VERSION_CONFLICT` with the newer entries; undoing a step a later one depends on
+   is `409 OPERATION_HAS_DEPENDANTS`.
+6. **J38.1 Drift reported and re-pointed.** W2 activates a release of Y without an attribute the
+   mapping names: the read with W2 lists the entry in `problems` at its pointer, the read without
+   it does not; `setReleases` to the new release puts it in `problems` of every read;
+   `unmapAttribute` clears it; deleting the mapping at its version leaves `404
+   MODEL_MAPPING_NOT_FOUND`.
+7. **J38.1 The same model on both sides (I34).** W1 and a W3 on X: the inference proposes identity
+   for every element with evidence `sameModel`.
+
+Unit tests: each kind's inverse restores the mapping exactly; the pairs that never convert held to
+`rdm_convert_value`; the inference's scoring on two small hand-built models.
+
+**Groups:** `move` (new), `authoring` (D105's refactor), `jobs` (the job kind), `startup` (the
+migration), `contract` (the routes; the lock re-baselined after diffing). No frontend change.
+
+**Composable domains (ADR-032):** mapping coverage gains the two-model case (D110); identity, audit
+and bulk APIs are X3's; the value-types door keeps D102's rule, a pair not yet written in
+`rdm_convert_value` is refused in a mapping until it is.
+
+**What the user still cannot do after X1:** choose what moves and read its dry run (X2), move or
+copy records (X3), edit the mapping in the browser (X4).
+
+##### X1 record (2026-10-18)
+
+**Delivered 2026-10-18.** Built as planned (D104–D113): migration `20261020_01`, the engine
+package `engine/moves/`, the router `management/routers/model_mappings.py`, the OpenAPI lock
+re-baselined after diffing; no frontend change.
+
+- **The resource (D104, D106, D111, D112):** `model_mappings` keyed, named by its two models, its
+  definition holding the two release IDs, `types` and `valueMaps`; created from two workspaces or two
+  releases; listed by models, read, deleted at its version with its history and proposals. Reads
+  are always registered; writes, operations and the inference with `INTEGRATION_JOBS_ENABLED`.
+- **The history (D105):** `authoring/history.py` now works over an `Owner` (lock, apply, write
+  back, store entries); drafts (`DRAFTS`, the default, so every draft call site is unchanged) and
+  mappings (`MAPPINGS`) use the same steps, undo, redo, dependants and conflicts. A draft's
+  answers are unchanged (J33 and J34 pass).
+- **The operations (D107):** the twelve kinds in `mapping_kinds.py`, each refused at its
+  parameter (`unknownElement`, `bindingNotAllowed`, `valueTypesNotConvertible`, `modelMismatch`,
+  `inUse`, `invalidValue`); `values.conversion` classifies each pair of value types as
+  `rdm_convert_value` does (`always`, `partial`, `never`).
+- **The inference (D108, D109):** `mapping_inference.py`, a job of kind `mappingInference` run by
+  the worker; proposals per type (`mapType`, `mapAttribute`, `setParent`, and `setMatch` when the
+  workspaces share records) and per relationship (`mapRelation` with relation attributes), each with
+  evidence and up to three alternatives; one model on both sides proposed as identity.
+- **Problems and coverage (D110):** `mapping_check.py`, on every read and every step's answer.
+
+Where it differs from the plan:
+
+- **Stored records in one statement for every pair of types,** not one per source type (D108):
+  fewer statements, the same answer.
+- **Key evidence is the share of the keys' words** (`keyTokens`), of which "the same key once case
+  and separators are folded" is the whole share; `sameKey` stays for one key in two models.
+- **A proposal's status is read from the mapping, not from a snapshot:** a proposal keeps one ID
+  per mapping from one inference to the next, and reads `applied` while its entry is as it made it,
+  `held` when the mapping decides it otherwise, `rejected` when a step that applied it was undone
+  (D92's statuses without A6's per-element ownership, which a mapping entry does not need).
+- **Added beyond the design:** `POST …/inference/application` (as a draft's), the codes
+  `MODEL_MAPPING_EXISTS` and `INVALID_MODEL_MAPPING`, the problem `ATTRIBUTE_FILLED_TWICE` (two
+  source attributes onto one target attribute are accepted, so that two can swap in one step, and
+  reported), the coverage's `parents`, and an index of a mapping's jobs (`ix_jobs_mapping`, as
+  R-F14's).
+- **Each side named by a workspace or a release,** `sourceWorkspaceKey` and `targetWorkspaceKey`
+  on reads checking against the releases those workspaces run.
+
+**Checks (2026-10-18):** J38.1 written first (`tests/journeys/test_j38_1_model_mapping.py`, 7
+tests, 14 cases on generated-a and generated-b), all failing with `404` before the routes existed;
+after the change all 14 pass. Unit: `tests/unit/engine/moves/` (6: every kind's inverse and its
+inverse's inverse, four scoring rules, the match from shared records) and
+`tests/unit/engine/records/test_values.py` (the conversion classes held to `rdm_convert_value`).
+Groups `move`, `startup` and `jobs` with `-n auto`: 699 passed, 35 failed, in 4 min 55 s, over the
+package ceiling (TODO). The failures were the harness's `HEAD` revision and the reviewed foreign-key
+rules, which a new migration changes, fixed with a new startup case for `20261020_01` (an
+interrupted run refused naming the table, two starts creating and reading a mapping, a downgrade);
+the 32 rerun with `--lf` passed, and the serial part (1) passed. D105's draft side: J33, J34 and the
+`authoring` and `sources` unit tests, 3,536 passed in 4 min 57 s, over the ceiling (TODO). The
+`authoring` group as a whole was not run: it selects 3,522 cases, most of them unrelated to the
+history. `contract`: the lock, the paging inventory (41 collections) and API_JOURNEYS' routes,
+parameters and codes updated; 76 passed. A first run of the three groups without `-n auto` ran
+serially and was stopped after 10 minutes (the harness's PostgreSQL stopped with it). **Smoke
+start** on a copy of the development database (3 workspaces, 2,380 records), taken back to
+`20261019_01`: the start upgraded it to `20261020_01`, `/health` and `/system` 200, unique-value
+rows 15 before and after, and a mapping between two of its workspaces created, inferred (61
+proposals) and applied with no problems; the copy dropped. `ruff check app/ tests/` clean.
+**Not run:** the full suite, Vitest, the browser runners and the gates (no frontend change; build
+acceptance R). `MODEL_MAPPING_MODEL_MISMATCH` and `INVALID_MODEL_MAPPING` are not reached by a test.
+
+**Found:** the development server (`uvicorn --reload` on the shared checkout) applied the migration
+while it was still being written, so the development database `rdm` is at `20261020_01` without
+`ix_jobs_mapping` (TODO, with its recovery); it holds no mapping.
+
+**What the user still cannot do:** choose what moves and read the dry run of every item (X2), copy
+or move records into a change set (X3), edit the mapping in the browser (X4).
 
 #### X2: Selection and the dry run of a move
 
