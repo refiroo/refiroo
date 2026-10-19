@@ -9,7 +9,7 @@
  * tabs (D147). Without background jobs or model administration the editor reads only (D146).
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import { everyPage } from "@/lib/everyPage";
@@ -291,6 +291,16 @@ export function MoveEditor({
   const select = (row: string) => {
     if (row !== address.row) onAddress({ ...address, row }, true);
   };
+  // Stable for the mapping's rows, so a dry run's new figures redraw only the rows they change.
+  const handlers = useRef({ select, run });
+  useEffect(() => {
+    handlers.current = { select, run };
+  });
+  const selectRow = useCallback((row: string) => handlers.current.select(row), []);
+  const stepRow = useCallback(
+    (row: string, operations: MappingOperation[]) => void handlers.current.run(row, operations),
+    [],
+  );
   const openReport = (start = false) => {
     onAddress({ ...address, view: "report" });
     if (start) {
@@ -661,8 +671,8 @@ export function MoveEditor({
           notes={notes}
           busy={busy}
           readOnly={readOnly}
-          onSelect={select}
-          onStep={(row, operations) => void run(row, operations)}
+          onSelect={selectRow}
+          onStep={stepRow}
         />
       )}
       {phone && selectedRow && reasonPane}

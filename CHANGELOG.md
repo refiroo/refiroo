@@ -44,6 +44,46 @@ All notable changes to this project are documented in this file. The format foll
   shift it in a browser without scroll anchoring; scrolling past the rail's end no longer scrolls
   the page.
 
+### Fixed (0.11 X5)
+
+- Publishing a change set into a workspace whose records are newer than the database's statistics
+  (a moved workspace, an import into an empty one) took minutes: freezing the publication's
+  relationships joined both ends to the records and PostgreSQL paired every record with every
+  other, and freezing its records recomputed the workspace's values for each record. A publish of
+  11,000 moved records took 9 minutes and now takes 19 s; 110,000 records publish in 3.4 minutes.
+  The same copy opens a change set over current live data, so a small move just after a large
+  publication no longer waits two minutes (the 13-second wait seen in X3).
+- A move's dry run built each record's item by reading every relationship once per record: 63 s of
+  an 11,000-record dry run, now under 6 s.
+- A move, an import or a publication of more than 65,535 records failed with a database error:
+  the unique-value check after the write, the write unit's removals and the publication's merge
+  listed every record as a parameter of its own. Each is now one array parameter or a join.
+- Moving a whole subtree kept its top record in the source, "with dependants", when those
+  dependants were the records the same move deleted: the source's deletions now run in passes, so
+  a parent is deleted once its moved children are.
+- A move's deletions refused before the copy is published name the copy's change set and workspace
+  instead of its ID.
+- The copy and move editor answers faster at everyday sizes: a step's figures in 0.3 s at 200
+  records and 1.4 s at 2,000, the editor open in 1.1 s and 2.0 s. A dry run of records just written
+  read the selection again for every record (4–7 s at 2,000 records, now under 1 s on the server);
+  a repeated dry run in a larger workspace compared its own rows with each other (40 s, now 1.7 s);
+  the relationships whose records do not move were looked up one by one; and the page redrew every
+  mapping row for new figures.
+- The mapping grid loads again: since the tables began reading 200 rows at a time it asked the
+  coverage route for more than its 100 and showed "Could not load this content".
+- The copy and move editor's default buttons say which field they change ("Set a default for
+  Steward…"), so they are not two buttons both named "Change…".
+
+### Added (0.11 X5)
+
+- `test:browser:workspace-x5`, the move checkpoint: records copied and moved between workspaces of
+  partly compatible models through a proposed and hand-completed mapping, the report, the reviewed
+  change sets published, a second copy updating the same records, records moved back to their
+  originals, and the editor timed at 200 and 2,000 records.
+- The copy and move surfaces are in the accessibility and visual gates.
+- `volume_baseline.py --only-move`: a whole volume workspace moved into another model, each step
+  timed once, with every statement over half a second named.
+
 ### Added (0.11 X4)
 
 - The move editor in the browser. Settings › Data operations › **Copy and move** lists the mappings and the

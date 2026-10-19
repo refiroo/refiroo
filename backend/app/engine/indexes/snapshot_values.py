@@ -168,18 +168,18 @@ def copy_live(session: Session, owner_kind: str, owner_id: str, workspace_key: s
         "datetime_value",
         "json_value",
     ]
+    # Each record's values gathered through its own index entries, so ``objects`` is read once.
+    # A grouped subquery over the workspace's values, joined back to its records, was recomputed
+    # per record when the records were newer than the statistics (0.11 X5: 122 s for 11,000).
     attributes = (
         select(
-            values.c.object_id,
             func.json_object_agg(
                 values.c.attribute_type_key,
                 func.rdm_value_json(values.c.value_type, *[values.c[key] for key in value_columns]),
             ).label("attributes"),
         )
-        .join(objects, objects.c.id == values.c.object_id)
-        .where(objects.c.workspace_key == workspace_key)
-        .group_by(values.c.object_id)
-        .subquery()
+        .where(values.c.object_id == objects.c.id)
+        .lateral("attributes")
     )
     fields = ["application_key", "object_type_key", "name", "parent_object_id"]
     session.execute(
@@ -192,24 +192,22 @@ def copy_live(session: Session, owner_kind: str, owner_id: str, workspace_key: s
                 func.coalesce(attributes.c.attributes, literal({}, type_=JSON)),
                 objects.c.version,
             )
-            .select_from(objects.outerjoin(attributes, attributes.c.object_id == objects.c.id))
+            .select_from(objects.outerjoin(attributes, literal(True)))
             .where(objects.c.workspace_key == workspace_key),
         )
     )
-    source, target = objects.alias("source"), objects.alias("target")
+    # A relationship is its ``from`` record's workspace's (relationships never cross workspaces,
+    # D8), so ``objects`` is read once. Joining the ``to`` end as well let PostgreSQL pair every
+    # record with every other when the workspace's records were newer than its statistics, as
+    # after a move's load (0.11 X5: a publish of 11,000 moved records ran for 9 minutes).
+    source = objects.alias("source")
     fields = ["relation_type_key", "from_object_id", "to_object_id", "attributes", "version"]
     session.execute(
         insert(relation_type).from_select(
             [owner_column, "relation_id", *fields],
             select(literal(owner_id), relations.c.id, *[relations.c[key] for key in fields])
-            .select_from(
-                relations.join(source, source.c.id == relations.c.from_object_id).join(
-                    target, target.c.id == relations.c.to_object_id
-                )
-            )
-            .where(
-                source.c.workspace_key == workspace_key, target.c.workspace_key == workspace_key
-            ),
+            .select_from(relations.join(source, source.c.id == relations.c.from_object_id))
+            .where(source.c.workspace_key == workspace_key),
         )
     )
     fields = ["object_id", "attribute_type_key", "value_type", *value_columns]

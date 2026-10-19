@@ -251,10 +251,14 @@ _AFTER = (
         message="'One of its records does not move'",
         details="jsonb_build_object('refusal', x.outcome::jsonb -> 'reasons' -> 0)",
     )
-    + ")::json WHERE x.job_id = :job AND x.status = 'rejected'"
-    " AND x.outcome ->> 'kind' = 'relationship' AND EXISTS (SELECT 1 FROM job_items e"
-    "  WHERE e.job_id = :job AND e.status <> 'applied' AND e.item_index IN"
-    "  (SELECT value::integer FROM jsonb_array_elements_text(x.outcome::jsonb -> 'endRows')))",
+    # Found in one pass over the relationships' end rows, not probed per relationship (0.11 X5:
+    # 0.9 s of a 2,000-record dry run).
+    + ")::json FROM (SELECT DISTINCT r.item_index FROM job_items r"
+    "  CROSS JOIN LATERAL jsonb_array_elements_text(r.outcome::jsonb -> 'endRows') AS end_row(value)"
+    "  JOIN job_items e ON e.job_id = :job AND e.item_index = end_row.value::integer"
+    "   AND e.status <> 'applied'"
+    "  WHERE r.job_id = :job AND r.status = 'rejected' AND r.outcome ->> 'kind' = 'relationship'"
+    " ) d WHERE x.job_id = :job AND x.item_index = d.item_index",
 )
 _COUNTS = text(
     """
@@ -286,6 +290,10 @@ def insert_outcomes(session: Session, job: Job, outcomes: list[ItemOutcome]) -> 
 def settle(session: Session, job: Job) -> None:
     """Once every input has its row: what follows from a parent or a record that does not move,
     the rows of relationships riding on their records, and the job's counts."""
+    # The rows were written in this transaction; planned on statistics from before them, the joins
+    # of a job's rows with each other compared every row with every other (0.11 X5: 38 s and 53 s
+    # of a 2,000-record dry run, once earlier jobs' rows were in the table). As 0.10 R-F19.
+    session.execute(text("ANALYZE job_items, job_inputs"))
     for statement in _AFTER:
         session.execute(text(statement), {"job": job.sequence_id})
     applied, rejected, unprocessed, created, updated = session.execute(

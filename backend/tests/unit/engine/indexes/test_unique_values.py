@@ -8,6 +8,7 @@ that is active.
 """
 
 import copy
+from uuid import uuid4
 
 import pytest
 from scenario import W1
@@ -206,3 +207,13 @@ def test_the_rows_follow_the_active_release(seeded):
         assert after == {k: n for k, n in before.items() if k not in reached}
         activate(active, release.public_id)
         assert _rows(session, u) == held
+
+
+def test_a_write_of_more_records_than_parameters_allow_is_checked(seeded):
+    """0.11 X5: a move's dry run of 110,000 records failed here, each record a parameter of its own
+    past PostgreSQL's 65,535. Given 70,000 written records (none holding a value). When they are
+    checked. Then the check runs and finds no collision."""
+    ids = [str(uuid4()) for _ in range(70_000)]
+    with SessionLocal() as session:
+        unique_values.check(session, resolve_model_snapshot(session).model, ids)
+        session.rollback()

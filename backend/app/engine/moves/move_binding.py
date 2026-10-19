@@ -482,7 +482,7 @@ _RECORD_ROW = """(jsonb_strip_nulls(jsonb_build_object('kind', 'record',
 _RECORD_ITEM = """CASE r.outcome
     WHEN 'create' THEN jsonb_build_object('op', 'create', 'ref', r.row_index::text,
         'id', r.target_id, 'applicationKey', r.target_app, 'objectTypeKey', r.target_type,
-        'name', r.name, 'attributes', a.list, 'initialRelations', i.list)
+        'name', r.name, 'attributes', a.list, 'initialRelations', COALESCE(i.list, '[]'))
         || CASE WHEN r.target_parent_id IS NOT NULL
             THEN jsonb_build_object('parent', jsonb_build_object('id', r.target_parent_id))
             ELSE '{}' END
@@ -502,11 +502,14 @@ _INSERT_RECORDS = (
     FROM mv_records r LEFT JOIN mv_records p ON p.object_id = r.parent_row
     CROSS JOIN LATERAL (SELECT COALESCE(jsonb_agg(jsonb_build_object('attributeTypeKey', k,
         'value', v) ORDER BY k), '[]') AS list FROM jsonb_each(r.target_values) kv(k, v)) a
-    CROSS JOIN LATERAL (SELECT COALESCE(jsonb_agg(jsonb_build_object(
+    -- The relationships riding on each create, collected once: read per record, they scanned
+    -- every relationship for every record (0.11 X5: 63 s for 11,000 records).
+    LEFT JOIN (SELECT x.rider, jsonb_agg(jsonb_build_object(
             'relationTypeKey', x.target_relation, 'direction', 'incoming',
             'object', jsonb_build_object('id', x.t_from), 'attributes', x.target_values)
-            ORDER BY x.relation_id), '[]') AS list
-        FROM mv_relations x WHERE x.rider = r.object_id AND x.outcome = 'create') i
+            ORDER BY x.relation_id) AS list
+        FROM mv_relations x WHERE x.rider IS NOT NULL AND x.outcome = 'create'
+        GROUP BY x.rider) i ON i.rider = r.object_id
     WHERE r.row_index IS NOT NULL AND {_moving("r")}""",
     f"""INSERT INTO job_items (job_id, item_index, ref, status, outcome)
     SELECT :job, r.row_index, r.row_index::text,
@@ -780,7 +783,22 @@ def _read(
         records.c.version,
     )
     if chosen is not None:
-        statement = statement.where(records.c.object_id.in_(chosen))
+        # The selection read once into a keyed set: as `IN (the selection's query)`, PostgreSQL
+        # ran the query again for every record when its estimates were off, as just after the
+        # records were written (0.11 X5: 4 s of a 2,000-record dry run).
+        session.execute(
+            text("CREATE TEMPORARY TABLE mv_chosen (object_id text PRIMARY KEY) ON COMMIT DROP")
+        )
+        picked = chosen.subquery()
+        session.execute(
+            insert(table("mv_chosen", column("object_id"))).from_select(
+                ["object_id"], select(next(iter(picked.c))).distinct()
+            )
+        )
+        session.execute(text("ANALYZE mv_chosen"))
+        statement = statement.where(
+            records.c.object_id.in_(select(column("object_id")).select_from(table("mv_chosen")))
+        )
     session.execute(
         insert(_RECORDS).from_select(
             [

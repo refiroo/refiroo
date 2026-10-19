@@ -50,6 +50,26 @@ export function person(page, mode) {
       await tabTo(locator, what);
       await page.keyboard.press("Space");
     },
+    /**
+     * A radio of a group: clicked, or the group reached by Tab (which stops at its checked radio,
+     * or its first) and the radio by the arrow keys, which choose as they move.
+     */
+    async radio(locator, what) {
+      if (!keyboard) {
+        // A styled choice covers its input with the label a person clicks.
+        const label = locator.locator("xpath=ancestor::label");
+        return (await label.count()) ? label.first().click() : locator.click();
+      }
+      const name = await locator.getAttribute("name");
+      const group = page.locator(`input[type="radio"][name="${name}"]`);
+      const checked = group.locator(":scope:checked");
+      await tabTo((await checked.count()) ? checked.first() : group.first(), `the radios holding ${what}`);
+      for (let step = 0; step < 10; step += 1) {
+        if (await isFocused(locator)) return;
+        await page.keyboard.press("ArrowDown");
+      }
+      throw new Error(`keyboard: the arrows did not reach ${what}`);
+    },
     fill: typeInto,
     /**
      * A native select. Its list is the browser's own, which no click reaches. By keyboard the option

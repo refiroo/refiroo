@@ -428,8 +428,14 @@ def _merge_change_set_over_live(
             select(ChangeSetObject).where(ChangeSetObject.change_set_id == change_set.id)
         )
     }
+    # Joined to the change set's rows rather than listed: a change set may hold more records than
+    # PostgreSQL's 65,535 parameters (0.11 X5: a move's load of 110,000).
     global_object_ids = set(
-        session.scalars(select(RdmObject.id).where(RdmObject.id.in_(change_set_objects)))
+        session.scalars(
+            select(RdmObject.id)
+            .join(ChangeSetObject, ChangeSetObject.object_id == RdmObject.id)
+            .where(ChangeSetObject.change_set_id == change_set.id)
+        )
     )
     for object_id, row in change_set_objects.items():
         base = base_objects.get(object_id)
@@ -487,7 +493,11 @@ def _merge_change_set_over_live(
         )
     }
     global_relation_ids = set(
-        session.scalars(select(ObjectRelation.id).where(ObjectRelation.id.in_(change_set_relations)))
+        session.scalars(
+            select(ObjectRelation.id)
+            .join(ChangeSetRelation, ChangeSetRelation.relation_id == ObjectRelation.id)
+            .where(ChangeSetRelation.change_set_id == change_set.id)
+        )
     )
     for relation_id, row in change_set_relations.items():
         base = base_relations.get(relation_id)
@@ -749,7 +759,12 @@ def _require_copy_published(session: Session, change_set: ChangeSet) -> None:
     D135): the copy's change set gone, and a publication's entry naming it. Still open, or
     discarded, it is ``409 MOVE_COPY_NOT_PUBLISHED``."""
     waited = change_set.waits_for_change_set_id
-    still_open = session.scalar(select(ChangeSet.id).where(ChangeSet.id == waited))
+    copy = session.execute(
+        select(ChangeSet.id, ChangeSet.name, Workspace.label)
+        .join(Workspace, Workspace.key == ChangeSet.workspace_key)
+        .where(ChangeSet.id == waited)
+    ).first()
+    still_open = copy.id if copy is not None else None
     source = AuditEvent.changes["changeSetId"].as_string()
     published = still_open is None and session.scalar(
         select(AuditEvent.aggregate_id).where(
@@ -764,12 +779,12 @@ def _require_copy_published(session: Session, change_set: ChangeSet) -> None:
     raise api_error(
         409,
         "MOVE_COPY_NOT_PUBLISHED",
-        f"This change set deletes records a move copied into change set '{waited}', which is "
-        + (
-            "not published yet; publish it first"
-            if state == "open"
-            else "discarded; this deletion can only be discarded"
-        ),
+        # Named as a person reads it (0.11 X5): the copy's change set and its workspace, not its ID.
+        f"This change set deletes records a move copied into the change set “{copy.name}” of "
+        f"workspace {copy.label}, which is not published yet; publish it first"
+        if copy is not None
+        else "This change set deletes records a move copied into a change set that was discarded; "
+        "this deletion can only be discarded",
         {"changeSetId": waited, "state": state},
     )
 

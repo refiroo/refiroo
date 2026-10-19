@@ -278,6 +278,7 @@ These apply to every package and to R, and especially to Track Q's full-volume m
 | `move` marker | X1 | The model-to-model mapping, dry runs, moves and their reports |
 | `test:browser:workspace-m5` | M5 | The shell and Settings › Model with two workspaces on two models |
 | `test:browser:workspace-x4` | X4 | The move editor |
+| `test:browser:workspace-x5` | X5 | The move checkpoint: the exit item composed, and the editor timed at 200 and 2,000 records |
 | `test:browser:touch-u1` | U1 | Touch drag on phone emulation |
 
 Existing groups carry on: `model`, `jobs`, `startup` (every migration), `contract` (every route
@@ -305,7 +306,7 @@ change) and `volume` (every budget).
 | 13 | [X2](#x2-selection-and-the-dry-run-of-a-move) | X1 | **Delivered 2026-10-18.** What moves; the dry run of every item; what cannot move, with reasons |
 | 14 | [X3](#x3-the-move) | X2 | **Delivered 2026-10-18.** Copy or move into a reviewed change set: the dry run confirmed or executed, origins and the move back, the source's deletion published after the copy |
 | 15 | [X4](#x4-the-move-editor) | X3, M5 | **Delivered 2026-10-19.** The move editor: the two models, the mapping, the proposals, the dry-run figures and the report |
-| 16 | [X5](#x5-move-checkpoint) | X4 | The roadmap's move exit item at full volume, measured once |
+| 16 | [X5](#x5-move-checkpoint) | X4 | **Delivered 2026-10-19** (screenshots and ten new baselines wait for approval). The move exit item composed in the browser; the move at full volume measured, with six defects fixed on the way |
 | 16a | [X6](#x6-list-reads-within-the-agreed-budget) | X5 | A table's first screen with relation columns within the 0.8 budgets; expansions read in PostgreSQL; the case in the volume baseline; one scrolling design for every long list (budget pages, drawn only near the view) |
 | | **Part 2 — production hardening** | | |
 | 17 | [S1](#s1-the-backend-suites-time) | — | **Delivered 2026-10-18.** Journey cases spread over the workers; the full suite with `-n 6` under a revised 11-minute ceiling (D126) |
@@ -3218,6 +3219,107 @@ partly compatible model through a proposed and hand-completed model-to-model map
 reviewed change set, with what could not move reported", composed in the browser; the move at full
 volume, measured once, announced as a heavy run.
 
+##### X5 plan (2026-10-19)
+
+**Planned 2026-10-19; D149–D154, the browser cases and the heavy runs accepted by the user the same
+day ("decisions are good, you can go ahead with the full volume test"), the full-volume move kept in
+X5 and accepted as measured once. The user's instruction for the run: a performance issue it shows is
+fixed without a further approval and the volume test run again. As agreed in reply: a fix that would
+change an API contract or the model is described, not applied (X5a); after two fix rounds still out
+of line, the work stops and is written up; the editor's figures at about 200 and 2,000 records are
+timed inside the browser walk.** Checked against the code at `c4d80ca`, in the shape of
+[M6](#m6-plan-2026-10-16).
+
+**What each package proved on its own (found, not assumed):**
+
+- **The API side** is J38.1–J38.8 in `test_j38_1_model_mapping`, `test_j38_2_move_dry_run` and
+  `test_j38_3_move`, each generated A to B and B to A: proposals with evidence, hand steps with undo,
+  the dry run of every item, the load into a change set, `mode: move` with the source's deletions
+  publishing only after the copy (`MOVE_COPY_NOT_PUBLISHED`), a second move finding its records by
+  counterpart, a record moved back finding its original.
+- **The browser side** is `test:browser:workspace-x4`: New copy or move…, Proposed rows, a row
+  changed with undo and redo, a type unmapped and reported, a copy started, the stale dialog, a
+  subtree moved, 390px. Each case stops at the done status. **No runner opens the target's change
+  set, publishes it, publishes a move's deletions (or meets their guard), moves a second time or
+  moves records back in the browser,** and the two models are the journey configurations as they
+  are, which map one to one, so "partly compatible" and "hand-completed" are made by unmapping a
+  type, not met.
+- **Not in the browser at all:** a record's history names no move origin (X3 serves it on the
+  history's `cause`; `HistoryPanel` shows no cause of any kind); records chosen in a collection's
+  selection cannot be moved (D142, API only).
+- **Deferred by X4 (D148):** X4's surfaces in the accessibility and visual gates; X4's screenshots
+  still await the user's approval.
+- **Never measured above 2,389 records:** the inference's stored-records statement (D108), the dry
+  run (D115, D140), the load (D137) and the target change set's publication. X3's smoke on 2,129
+  records: dry run 9.8 s, load 10.9 s, publish 11.4 s, about 5 ms a record a step. **Open in TODO:**
+  a 20-record `mode: move` that took 13.3 s in the running service after a publication, against
+  0.9 s of work. The job worker runs one chunk at a time, oldest job first
+  (`engine/jobs/worker.py`, `_claim`), so a job waits behind any job queued before it.
+
+**What is built:**
+
+1. **A composed browser journey**, `e2e/workspace-x5-checkpoint.mjs`
+   (`test:browser:workspace-x5`): the exit item from a workspace's Copy or move data… to published
+   records in the target, a move with its deletions, a second copy and a move back (D149, cases
+   below).
+2. **X4's surfaces in the gates** (D150), the changed baselines re-recorded after you review them.
+3. **The move at full volume**, `volume_baseline.py --only-move` (D151–D152), measured once and
+   recorded in POSTGRESQL_BUDGETS §12; X3's waiting finding traced in the same run (D153).
+4. **The fixes** a walk or the measurement finds, each with its regression test (D154).
+
+No behaviour change is planned. A defect found is fixed in X5 when it is local; one that changes
+what Part 2 builds on becomes an amendment (X5a) with your agreement.
+
+**Decisions** (D149 onward):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D149 | What the composed journey walks, and how | **One runner, generated-a and generated-b each in a workspace of its own beside the starter's default workspace; the target model made partly compatible, as V1's surfaces derive theirs: the other configuration's model with one type left out and one required attribute added that no source attribute fills.** So the proposal leaves a real gap the user completes by hand (a default on the row) and a real type that cannot move, rather than a gap made by unmapping. The walk starts at Copy or move data… on the source workspace's page, goes through the proposal, the hand step, the dry run, the report, Start, **Review the change set**, its validation and Publish, then a move with its deletions, a second copy and a move back (cases below). The A → B half by keyboard alone, the B → A half by clicking (M6's D56). Throughout, the runner fails on a console error, an `Error:` text or a 4xx/5xx other than the expected refusal, and checks that every model read answers the release of the workspace it names. Why: the exit item end to end, which no package walked; X4 stops at the done status. Cost: one runner, about 1–2 minutes |
+| D150 | X4's surfaces into the gates | **Into the accessibility gate light and dark, into the visual gate light, dark for the editor and the report,** added to `e2e/helpers/workspace-surfaces.mjs` as V1's were: Copy and move (the list), New copy or move…, the editor at 1440px and 390px, What moves…, the report, the start dialog, the stale dialog (about 8 surfaces, 16 accessibility scenarios, 10 baselines). Existing baselines X4 changed (a workspace's page with Copy or move data…, the change set bar's validation status) are re-recorded only after you have seen the differences. **The new baselines record X4's screens, so they need X4's screenshots approved;** you can approve both together when you see X5's. Why: Part 2 should not start on unchecked surfaces, as M6 decided for M5's. Cost: the two gates once each, announced |
+| D151 | What the full-volume measurement moves | **The volume workspace (full shape: 110,254 records) copied whole into a new workspace on a partly compatible model derived from the volume model:** every key changed and names kept, so proposals come from names, attribute overlap and stored values rather than keys; the relation matrix application's types left out, so their records are reported as cannot move; one required attribute added to the item type, completed by a default as a hand step. Timed once each, with statements counted: the inference, applying its proposals, the dry run (binding and the preview of every item, separately), the confirmation's load into the target's change set, and that change set's publication. Through the API in `volume_baseline.py --only-move`, the worker's chunks run in the script's thread so their statements count (as `--only-deletion`). Why: I28 and D108, D115, D137 left each of these figures to X5; the publish is in because the exit item ends in a reviewed change set made live. Not measured: a second move (counterpart updates) and `mode: move` (its deletions are the deletion path, measured at 0.9 R: about 50 s for 100,000 records). Cost: a script, no product code |
+| D152 | How the measurement runs, and what is out of line | **First at `--scale 0.1` (about 11,000 records), then once at `--scale 1`, one process each, on the machine's load checked first.** No pass/fail budget (D67 withdrew one for the dry run; none was set in I28). The 0.1 run gives each step's rate; X3's smoke gives about 5 ms a record a step, so the full run is expected at roughly 8–10 minutes each for the dry run, the load and the publish, 25–40 minutes in all, plus about 6 minutes for the seed if it rebuilds (it does when a migration was added since it was built; X2 and X3 added two). **Out of line, so I stop and report the cause and the options before anything more runs:** a step at 0.1 slower than 10 ms a record, a step growing faster than its record count from 0.1 to 1, any step over 15 minutes, or a failure. The figures go to POSTGRESQL_BUDGETS §12 with the editor's consequence named: D140 runs a whole dry run after each step, so its time is how long the figures take on a source that size. Why: one measurement, its cost known before it starts (the rules for heavy runs). Cost: the two runs, the machine busy during the second |
+| D153 | X3's waiting finding | **Traced inside the full run, not in a run of its own:** after the publication, with the worker on its own thread, a 20-record `mode: move` is sent and its timeline recorded (sent, claimed, each chunk, done) together with the jobs queued before it and any lock it waits on (`pg_locks`, sampled while it waits). The cause is named in the record; a fix is made in X5 only when it is local (with its regression test), otherwise TODO with the evidence. Why: the finding is about the running service, and the full run is the only place with a large publication and its background work. Cost: seconds inside the run |
+| D154 | Gaps that are not defects, the checks, and when X5 passes | **Gaps** found on the way (a record's history without its origin, a collection's selection not movable) go to TODO and to "what the user still cannot do", not into X5: a checkpoint changes no behaviour. **Checks:** the runner; the two gates; the two volume runs; Vitest on files a fix changes; `npm run format`, `lint`, `build`; `ruff check` on the script; backend groups only for a backend fix (its boundary's groups). **Heavy runs, one at a time, each named when it starts:** (1) `test:browser:workspace-x5`, about 2 minutes; (2) `test:a11y`, about 5 minutes; (3) `test:visual` and its update run, about 4 minutes each; (4) `--only-move --scale 0.1`, about 5 minutes; (5) `--only-move --scale 1`, 30–45 minutes. **X5 passes** when the runner and the gates pass, the figures are recorded and you approve the screenshots and baseline differences. A runner flake seen once is rerun once and recorded in TODO; seen twice it is a defect |
+
+**Browser cases** (`test:browser:workspace-x5`; W1 on generated-a and W2 on the partly compatible
+model from generated-b, then the reverse; models, record bodies and the derived target from the
+journey helpers, naming no key):
+
+1. **Proposed and completed by hand.** Given W1 with records of every structure the two models
+   share, one of the type the target leaves out, and a root with a child. When Copy or move data… on
+   W1's page names W2 and a new mapping, then the editor opens with Proposed rows and the mapping's
+   problem names the required attribute nothing fills; when a default is given on that row, the
+   problem goes, the row loses no other mark, and the figures show the records that were waiting as
+   Create.
+2. **What could not move, reported.** When the report opens, then it lists the left-out type's
+   records with their count and every item; Create + Update + Cannot move equals the number of
+   records selected, so nothing is dropped unseen.
+3. **A reviewed change set made live.** When the copy is started and **Review the change set** is
+   followed, then the target's change set lists the records under the target's labels, its
+   validation passes, and after Publish W2's collections show them under their parents; W1 is
+   unchanged.
+4. **Identity kept.** When a value is edited in W1 and a second copy is run with the same mapping,
+   then the edited record and the others are Update, none Create; after its change set is
+   published, W2's record has the new value under the same ID.
+5. **A move with its deletions** (the B → A half, by clicking). When a subtree is moved, then both
+   change sets are named; publishing the source's deletions first is refused with a readable message
+   naming the copy; after the copy is published, the deletions publish and the subtree is in the
+   target and gone from the source.
+6. **Moved back.** When records copied in case 3 are moved back with a mapping in the other
+   direction, then the dry run shows them as Update of their originals, not Create.
+7. **No error, one release per read, 390px.** Across the walk: no console error, no `Error:` text,
+   no 4xx/5xx beyond case 5's refusal; every model read answers its workspace's release. At 390px:
+   from the done status, Review the change set and Publish, with no sideways scroll.
+
+These should pass on the first run if X1–X4 are right, since X5 changes no behaviour; they cannot be
+seen failing first, which the record will say. A fix's regression test is seen failing first.
+
+**Groups:** `test:browser:workspace-x5`; `test:a11y` and `test:visual` extended (D150); the two
+volume runs (D152); Vitest and backend groups only for fixes; `npm run format`, `lint`, `build`.
+**Not run:** the full suites and the other browser runners (R).
+
+**Composable domains (ADR-032):** no contract changes; no door is affected.
+
 #### X6: List reads within the agreed budget
 
 **Needs:** X5 (order only, the user's 2026-10-19: "next after X5"). **Found:** 2026-10-19, reported by
@@ -3343,6 +3445,131 @@ changed files only; D159's measurement. **Not run:** the full suites (R).
 
 **Composable domains (ADR-032):** no contract change; the expansion stays generic over any relation
 and any ancestor value, so no door is affected.
+
+##### X5 record (2026-10-19)
+
+**Delivered 2026-10-19.** Built as planned (D149–D154): the runner `e2e/workspace-x5-checkpoint.mjs`
+(`test:browser:workspace-x5`), X4's surfaces in `e2e/helpers/workspace-surfaces.mjs` for both gates,
+`volume_baseline.py --only-move`. X4's editor helpers moved into `e2e/helpers/moves.mjs` (one copy,
+both runners); `e2e/helpers/person.mjs` gained `radio` (a group reached by Tab, the choice by the
+arrows; in click mode its label). The screenshots (light and dark, 390px) and the ten new baselines
+wait for your approval, with X4's.
+
+**Defects found and fixed** (each with its regression test seen failing first):
+
+1. **A publish of moved records ran for minutes** (the full run's first finding, at scale 0.1:
+   544 s for 11,404 records). `snapshot_values.copy_live`, which freezes live data into a
+   publication and into a change set's base, joined each relationship to both its records and
+   each record to an aggregate of the workspace's values; with the records newer than the
+   statistics PostgreSQL paired every record with every other. Now `objects` is read once (a
+   relationship through its `from` record, D8; a record's values through its index entries):
+   19.2 s. `test_snapshot_values.py`.
+2. **X3's 13-second wait (D153)** was the same copy: opening the move's change sets over current
+   live data right after a publication (124 s at scale 0.1, now 4.5 s). Not the worker's queue: no
+   job was queued before it and no lock was waited on.
+3. **The dry run's record items** read the riding relationships once per record (63 s at scale
+   0.1, now under 6 s). `test_move_binding.py`.
+4. **More than 65,535 records in one write failed** (found by the first full run, then by reading
+   the paths the second would reach): `unique_values.check`, the write unit's removals and the
+   publication's merge bound each record as a parameter. One array parameter, or a join on the
+   change set's rows. `test_unique_values.py`, `test_writes.py`, `test_publish.py`.
+5. **A whole subtree moved kept its top record in the source** (found by browser case 5): the
+   source's deletions were decided in one batch over the data before it, so the parent saw its
+   moved children. They now run in passes, at most the hierarchy's depth. New journey case
+   `test_j38_3_move.py::test_a_whole_subtree_moved_leaves_the_source` (both configurations).
+6. **The deletions' refusal named the copy by its ID** (case 5): it now names the copy's change set
+   and workspace (`MOVE_COPY_NOT_PUBLISHED`, details unchanged); the runner asserts the text.
+
+Also fixed: **the mapping grid could not load** since `ad0d19c` (it asked the coverage route for
+200 rows, over its 100), which stopped the accessibility gate before X5's section; the read is
+capped at 100 until X6's D156 replaces the chunk. **The editor's default buttons** were both named
+"Change…" beside What moves' "Change…"; each now names its field.
+
+**Where it differs from the plan:**
+
+- **The volume workspace holds 257,758 records**, not the 110,254 D151 said (the plan counted the
+  catalogue alone; the shape adds 147,054 matrix cells). 110,254 records move; the cells are
+  reported as not moved.
+- **The inference proposes a type the target lacks onto the target's nearest type** (code and rank
+  overlap) rather than leaving it unmapped. The volume run unmaps the matrix types as a hand step;
+  in the browser walk the room is mapped onto another type and reported as "Required value
+  missing" (that type needs a code), so case 2 asserts the room's row under the report's first
+  reason rather than "Type not mapped". Proposing a near type is D108's design; the report is what
+  catches it.
+- **Case 1:** the default makes the ledger *and* its entry Create (the entry waited on its parent).
+- **Case 4's rename** is sent through the API; the case's subject is the second copy.
+- **D152's rule "a step growing faster than its records"** was met by the load (14.6× for 9.8×) and
+  the dry run (12.4×) after the two fix rounds: stopped as agreed, recorded untraced in TODO.
+- **The backend groups** the execution guide selects for `writes.py` took 7 min 40 s, over the
+  package ceiling (TODO).
+
+**Checks (2026-10-19):**
+
+- `test:browser:workspace-x5` (new): 7 cases and the timings passed (43 s): A → B by keyboard alone,
+  B → A by clicking; 18 model reads each answering its workspace's release; no console error,
+  `Error:` text or unexpected 4xx/5xx; 390px without sideways scroll. Cases 1, 2 and 5 failed at
+  first, each on a runner mistake (radios reached by Tab, two buttons named "Change…", the report's
+  reason) or a defect (5 and 6 above), then passed. Timings: at 200 records a step's figures 0.4 s,
+  the load 0.8 s, the publish 1.0 s; at 2,000 records 1.4 s, 2.4 s, 3.1 s, the editor opening in
+  2.4 s (7.1 s once, not seen again).
+- `test:a11y`: 213 checks, no violations, with 16 new scenarios (X4's eight surfaces light and dark).
+  The first runs stopped at the mapping grid (above), at `HEAD` without X5's changes too (checked in
+  a scratch worktree, removed).
+- `test:visual`: 169 checks; 10 baselines new (X4's surfaces, light, and the editor and the report
+  dark) and recorded for your review; 17 existing ones differ, all from `ad0d19c` and `4c144bc`
+  (scrolled lists, the rail), not re-recorded (X6 records the lists it rebuilds); the update run's
+  other rewrites restored.
+- **Volume** ([POSTGRESQL_BUDGETS §13](POSTGRESQL_BUDGETS.md#13-a-move-between-models-at-full-volume-011-x5-2026-10-19)):
+  four runs at scale 0.1 (one stopped by my own pytest run sharing the harness's server) and three
+  at full volume (the first two failed on the 65,535-parameter limit, at the dry run and at the
+  publish). Final: inference 0.9 s, dry run 212 s, load 155 s, publish 206 s, a 20-record move after
+  it 62.6 s, for 110,254 records.
+- Backend: `records`, `change_sets`, `mapping`, `matrix`, `feed`, `queries`, `move`, `jobs` with
+  `-n auto`: 1,691 passed in 7 min 40 s; their serial part 3 passed; `volume` without `budget`: 87
+  passed; J38.3: 14 passed; the new unit tests passed and failed without their fixes. `ruff check
+  app/ tests/` clean; `ruff format` on the files formatted at `HEAD` only.
+- Frontend: Vitest `features/moves` 13 passed; `MappingGridView.test.tsx` 1 failed, 27 passed: the
+  coverage read's page size expects 20 and has failed since `ad0d19c` (200; now 100), X6's (TODO);
+  `tsc`, `npm run lint` (0 errors, 7 listed warnings), `npm run build`; Prettier on the changed
+  files (the reflowed line `person.mjs` held before restored).
+
+`test:browser:workspace-x4` after its helpers moved into `moves.mjs`: 7 cases passed.
+
+**Not run:** the full suites, the other browser runners, the full-size `budget` group (R).
+
+**What the user still cannot do:** see in a record's history where a move copied it from (API only);
+move a collection's selection from the browser (by ID through the API). No package holds either.
+
+**Response times, after the user's review (2026-10-19):** the user did not accept the editor's
+times ("opening with 200 records … 2,000 7 seconds") and asked for them to be fixed. Measured step
+by step (the request, the worker, the binding, the preview, the job's events, the page), not one
+figure. Fixed, each found by a probe that runs a dry run as the service does:
+
+- **A repeated dry run took 40 s** for 2,000 records in a larger workspace (12,042 rows): the dry
+  run's outcome rows, written moments before, were joined row by row on statistics from before
+  them once earlier jobs' rows were in the table. `ANALYZE job_items, job_inputs` before they are
+  settled (as R-F19); a rewrite that avoided statistics was tried and was worse (40–90 s). 1.65 s.
+- **The relationships whose records do not move** were found by probing the table per
+  relationship (0.9 s of that dry run): one pass over their end rows. 0.8 s saved.
+- **The editor's first dry run took 4–7 s at 2,000 records** when the records had just been
+  written (found by tracing the job's events in the browser): the default selection (every mapped
+  type) was `IN (the model query)`, which PostgreSQL ran again per record while it estimated the
+  new workspace empty. The selection is read once into a keyed temporary set. 4.9 s → 0.95 s on
+  the server; held by `tests/test_move_step_time.py` (groups `volume`, `move`: two dry runs of
+  2,000 new records with the default selection under 2.5 s each; 4.75 s and 4.71 s without the fix).
+- **The page redrew every mapping row** when a dry run's figures arrived: the rows are memoised
+  with stable callbacks (about 0.1 s at 2,000 records).
+
+Tried and dropped: `ANALYZE` of the binding's temporary tables (no gain). **After:** 200 records, a
+step 0.3 s, the editor open 1.1 s (0.3 s proposing, 0.4 s the first dry run), the copy loaded 0.8 s,
+published 0.9 s; 2,000 records, a step 1.4 s, open 2.0 s, loaded 2.4 s, published 3.0 s, steady
+across runs (the 6–7 s openings gone). **What remains, by its cause:** at 2,000 records a step is
+the binding 0.2 s, the preview 0.8 s and the page 0.3–0.5 s; half the preview is writing every
+checked item and rolling it back through the ORM (0.49 s of 1.13 s profiled), which is D115's
+design (the preview checks what a real write would refuse). Making it faster means a preview that
+decides without writing, or Core inserts in the shared write unit: a change to the write path, not
+in X5 (TODO). Checks: `move` 57 passed, the new budget test passed and failed without its fix,
+`test:browser:workspace-x5` 8 parts passed, Vitest `features/moves` 13 passed, lint 0 errors, build.
 
 ## Part 2 — Production hardening
 

@@ -3,18 +3,26 @@
 J26.2 and J26.3 publish through the API. Here the comparison itself: a row equal to live has no
 entry, a version alone is an update naming no field, a type change reads as reclassified, a
 containment relation is the record's parent and never an entry, and the order is records changed,
-relations removed, relations changed, records removed (D15, D32).
+relations removed, relations changed, records removed (D15, D32). And the merge of a change set
+larger than PostgreSQL's 65,535 parameters (0.11 X5).
 """
 
 from types import SimpleNamespace
 
+from scenario import W1
+from sqlalchemy import text
+
+from app.db import SessionLocal
 from app.engine.change_sets.access import EffectiveChangeSetMembership
+from app.engine.change_sets.lifecycle import create_change_set
 from app.engine.change_sets.publish import (
     LiveMerge,
     MergedObject,
     MergedRelation,
+    publication_findings,
     publish_entries,
 )
+from app.engine.model.registry import resolve_model_snapshot
 
 HOLDS = "holds"
 MODEL = SimpleNamespace(
@@ -89,3 +97,37 @@ def test_entries_come_in_publish_order_and_leave_containment_out():
         ("relation", "created", "added", ["attributes"]),
         ("object", "deleted", "g", []),
     ]
+
+
+def test_a_change_set_of_more_records_than_parameters_allow_is_merged(seeded):
+    """0.11 X5: publishing a move's change set of 110,000 records failed, its records and
+    relationships listed as parameters past PostgreSQL's 65,535. Given a change set creating
+    70,000 records and 70,000 relationships between them. When what would stop its publication is
+    read, then the merge runs over all of them."""
+    world = seeded
+    with SessionLocal() as session:
+        snapshot = resolve_model_snapshot(session)
+        staged = create_change_set(session, W1, snapshot.release_db_id, source="currentLive")
+        session.execute(
+            text(
+                "INSERT INTO change_set_objects (change_set_id, object_id, application_key,"
+                " object_type_key, name, attributes, version, is_deleted)"
+                " SELECT CAST(:cs AS varchar), gen_random_uuid()::text, :app, :type, 'Bulk ' || n, '{}',"
+                " 1, false"
+                " FROM generate_series(1, 70000) n"
+            ),
+            {"cs": staged.id, "app": world.app("G"), "type": world.key("G")},
+        )
+        session.execute(
+            text(
+                "INSERT INTO change_set_relations (change_set_id, relation_id, relation_type_key,"
+                " from_object_id, to_object_id, attributes, version, is_deleted)"
+                " SELECT CAST(:cs AS varchar), gen_random_uuid()::text, :relation, o.object_id,"
+                " o.object_id, '{}',"
+                " 1, false FROM change_set_objects o WHERE o.change_set_id = :cs"
+            ),
+            {"cs": staged.id, "relation": world.key("Bnn")},
+        )
+        findings = publication_findings(session, staged, snapshot.model)
+        session.rollback()
+    assert isinstance(findings, list)

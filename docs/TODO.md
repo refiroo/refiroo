@@ -601,15 +601,53 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
     final migration adds, and its downgrade then fails on the missing index. Recovery for `rdm`
     (no mapping stored): create the index by hand, or take `rdm` back to `20261019_01` after adding
     it and start again.
-  - [ ] The user's requirement: data moved between workspaces whose models differ (Track X), in
+  - [x] The user's requirement: data moved between workspaces whose models differ (Track X), in
     0.11 (plan D3, accepted 2026-10-15). X1, the mapping between two models, X2, the selection
     and the dry run of a move, and X3, the move into change sets, delivered 2026-10-18; X4, the
-    move editor, delivered 2026-10-19; X5 remains.
-  - [ ] **Found in X3 (2026-10-18), for X5:** on a copy of the development database, a 20-record
+    move editor, delivered 2026-10-19; X5, the checkpoint, delivered 2026-10-19 (screenshots and
+    the ten new baselines wait for the user's approval).
+  - [x] **Found in X3 (2026-10-18), for X5:** on a copy of the development database, a 20-record
     `mode: move` took 13.3 s from its confirmation to its end in the running service, seconds after a
-    2,129-record publication in its target; driven step by step it is 0.9 s of work (0.32, 0.13 and
-    0.47 s), so the rest was waiting for the worker, most likely behind the publication's background
-    work. Not traced further; X5 measures the move at full volume.
+    2,129-record publication in its target. **Traced in X5 (D153):** not the worker's queue (no job
+    was queued before it, no lock waited on) but opening the move's change sets over current live
+    data: the copy into the change set's base paired every record with every other while the
+    records the publication had written were newer than the statistics. Fixed with the
+    publication's copy (`copy_live`); at a tenth of the volume 124 s → 4.5 s.
+  - [ ] **Found in X5 (2026-10-19), not traced (the agreed two fix rounds were used):** at full
+    volume the move's load grew 14.6× and its dry run 12.4× from a tenth of the volume to the full
+    one, for 9.8× the records, with their statements growing linearly (the load 909 → 8,308, the
+    publish 2 a record at both sizes): each statement costs more on the larger tables. 155 s and
+    212 s for 110,254 records; recipe A on the full-volume clone names the statements
+    (`volume_baseline.py --only-move` prints each over half a second).
+  - [ ] **Found in X5 (2026-10-19):** a small move in a large workspace waits for its change sets'
+    capture: opening them over current live data copies both whole workspaces into their bases, so
+    a 20-record `mode: move` out of the full volume workspace (257,758 records, 564,344
+    relationships) took 62.6 s, about 50 s of it the source's base (the change-set capture design,
+    measured at 0.9 R as 61 s). A move that deletes nothing opens no source change set (X3). Options
+    for a later package: a capture limited to what the change set touches, or opening the source's
+    change set from the active publication; neither is X5's.
+  - [ ] **Found in X5 (2026-10-19), for X6:** since `ad0d19c` the mapping grid asked the coverage
+    route for 200 rows (`scrollChunk`), over its 100, and showed "Could not load this content"; X5
+    caps the grid's read at 100. `MappingGridView.test.tsx` "passes the correct binding parameters
+    to the coverage API" expects the reader's page (20) and has failed since `ad0d19c`; X6's D156
+    (the reader's page for every read) makes it pass again. 17 visual baselines differ since
+    `ad0d19c` and `4c144bc` (scrolled lists, the rail's layout), not re-recorded in X5: X6 records
+    the lists it rebuilds.
+  - [ ] **Found in X5 (2026-10-19):** the backend groups `records`, `change_sets`, `mapping`,
+    `matrix`, `feed`, `queries`, `move` and `jobs`, the execution guide's selection for
+    `engine/records/writes.py`, took 7 min 40 s with `-n auto` (1,691 cases), over the 3-minute
+    package ceiling (D127): a change to the write unit selects a large part of the suite.
+  - [ ] **Found in X5 (2026-10-19), the editor's remaining step time:** at 2,000 records a step
+    takes 1.4 s: the binding 0.2 s, the preview 0.8 s, the page 0.3–0.5 s. Half the preview is
+    writing every checked item through the ORM and rolling it back (D115: the preview catches what a
+    real write would refuse). Options: a preview that decides without writing (the database-held
+    checks, unique values and triggers, then need their own set statements), or Core inserts in the
+    shared write unit (every write gains). Either is a change to the write path for its own package;
+    the user decides. The page's share (drawing the editor for new figures) is a smaller follow-up.
+  - [ ] **Found in X5 (2026-10-19), what the user still cannot do:** a record's history does not say
+    where a move copied it from (the API's history serves the origin on `cause` since X3; the
+    history panel shows no cause); records chosen in a collection's selection cannot be moved from
+    the browser (D142, by ID through the API). No package holds either yet.
   - [x] The backend suite's time (D152, package S1): a filler during Part 1, before X2 at the latest
     (plan D2, accepted 2026-10-15; revised 2026-10-18: X2 went first, S1 follows it). Delivered
     2026-10-18: journey cases spread over the workers; the full suite with `-n 6` under a revised

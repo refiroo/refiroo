@@ -18,19 +18,12 @@
 //   7. 390px, light and dark: the tabs, no sideways scroll, the start by keyboard; axe on the editor,
 //      the report and both dialogs.
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
+import { moveEditor, python } from "./helpers/moves.mjs";
 
-const root = resolve(import.meta.dirname, "..", "..");
 const checks = [];
-
-function python(code) {
-  return JSON.parse(
-    execFileSync(resolve(root, "backend/.venv/bin/python"), ["-c", code], { cwd: resolve(root, "backend") }).toString(),
-  );
-}
 
 // Per configuration: its model, the other configuration's, and the bodies of records of the
 // structures both models hold, with which of them stands under which.
@@ -104,36 +97,7 @@ async function setUp(variant, source, target) {
   return { configuration, made };
 }
 
-const jobInAddress = () => new URL(page.url()).searchParams.get("job");
-
-/**
- * The figures of the dry run of the shown state, once it has finished. After a step, `after` names
- * the run shown before it, so the figures read are the next run's.
- */
-async function settledFigures(after) {
-  if (after !== undefined)
-    await page.waitForFunction(
-      (previous) => new URL(window.location.href).searchParams.get("job") !== previous,
-      after,
-      { timeout: 30_000 },
-    );
-  await page.locator('section.move-figures[aria-busy="false"]').waitFor({ timeout: 60_000 });
-  await page.waitForFunction(() => document.querySelector(".move-figure-number")?.textContent?.trim() !== "…", null, {
-    timeout: 60_000,
-  });
-  const values = {};
-  for (const figure of await page.locator(".move-figure").all()) {
-    const label = (await figure.locator(".muted").first().textContent()).trim();
-    const value = (await figure.locator(".move-figure-number").textContent()).trim();
-    values[label] = Number(value.replaceAll(",", ""));
-  }
-  return values;
-}
-
-const mappingVersion = async () => {
-  const text = await page.locator(".move-head-mapping").textContent();
-  return Number(/version (\d+)/.exec(text)[1]);
-};
+const { jobInAddress, settledFigures, mappingVersion } = moveEditor(page);
 
 /** Press Enter on a control reached by focus, as the keyboard does. */
 async function press(locator, key = "Enter") {

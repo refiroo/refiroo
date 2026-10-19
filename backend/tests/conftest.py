@@ -161,6 +161,7 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_import_budget.py": ("volume", "jobs"),
     "test_migration_budget.py": ("volume", "migration"),
     "test_move_statements.py": ("volume", "move"),
+    "test_move_step_time.py": ("volume", "move"),
     "test_type_changes.py": ("change_sets", "records", "matrix"),
     "test_restructuring_planner.py": ("change_sets", "records", "matrix"),
     "test_restructuring_volume.py": ("volume", "change_sets"),

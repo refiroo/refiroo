@@ -23,7 +23,7 @@ from uuid import uuid4
 
 from configurations import all_configurations
 from scenario import W1, W2
-from sqlalchemy import text
+from sqlalchemy import event, text
 
 from app.db import SessionLocal
 from app.engine.jobs.batches import open_batch_context, run_items
@@ -295,3 +295,63 @@ def test_a_record_moved_back_finds_its_original_along_its_origins(seeded):
     assert (rows[taken]["outcome"], rows[taken].get("foundBy")) == ("create", None)
     assert rows[taken]["targetId"] == counterpart(W1, taken)
     assert rows[taken]["origin"] == {"workspaceKey": W2, "objectId": taken}
+
+
+def _loops(node, table):
+    """The most times any scan of ``table`` in an analysed plan ran."""
+    own = node.get("Actual Loops", 0) if node.get("Relation Name") == table else 0
+    return max([own, *(_loops(child, table) for child in node.get("Plans", []))])
+
+
+def test_record_items_collect_their_riding_relationships_once_not_per_record(seeded):
+    """0.11 X5 (found measuring a move of 11,000 records): building the record items read the
+    relationships riding on each create in a lateral subquery run per record, scanning every
+    relationship each time (63 s of the dry run's 68 s). The statement reads them in one pass."""
+    world = seeded
+    h = world.key("H")
+    plans = []
+
+    def explain(connection, cursor, statement, parameters, context, executemany):
+        if (
+            statement.lstrip().startswith("INSERT INTO job_inputs")
+            and "initialRelations" in statement
+        ):
+            cursor.execute("SAVEPOINT explained")
+            cursor.execute("EXPLAIN (ANALYZE, FORMAT JSON) " + statement, parameters)
+            plans.append(cursor.fetchone()[0][0]["Plan"])
+            cursor.execute("ROLLBACK TO SAVEPOINT explained")
+
+    with SessionLocal() as session:
+        side = Releases(session).of_workspace(W1)
+        job = start_job(
+            session,
+            kind="move",
+            workspace_key=W2,
+            change_set_id=None,
+            model_release_id=session.scalar(
+                text("SELECT model_release_id FROM workspace_models WHERE workspace_key = :w"),
+                {"w": W2},
+            ),
+            parameters={},
+            total=None,
+            retention_days=1,
+            queued=True,
+        )
+        engine = session.get_bind()
+        event.listen(engine, "before_cursor_execute", explain)
+        try:
+            bind_move(
+                session,
+                job,
+                plan_move(_hierarchy_mapping(side, h), side, side),
+                source=side,
+                selection=MoveSelection(objectIds=[world.ids[k] for k in ("h1", "h2", "h6")]),
+                source_workspace=W1,
+                context=None,
+            )
+        finally:
+            event.remove(engine, "before_cursor_execute", explain)
+        session.rollback()
+
+    (plan,) = plans
+    assert _loops(plan, "mv_relations") <= 1, plan

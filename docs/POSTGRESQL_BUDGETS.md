@@ -78,6 +78,7 @@ figures by 20–50 %. **Use the full replay once, at the end. Diagnose with plan
 | Publish of a tenth of the items renamed (0.9 T1; the full table runs it last) | `… volume_baseline.py --only-publish --scale 0.1` | ~1 min (11 s publish after T1); at `--scale 1` about 2 min plus |
 | Budgets 1–2 | `.venv/bin/python -m pytest -n auto -q tests/test_volume_baseline.py tests/test_change_lists_volume.py tests/test_restructuring_volume.py tests/test_relation_matrix_volume.py tests/test_batch_statements.py tests/test_paging_contract.py` | ~20 s |
 | Validate and publish at 2 % volume (serial, timed) | `.venv/bin/python -m pytest -q tests/test_graph_validation_scale.py::test_validating_and_publishing_a_large_workspace_stay_within_budget` | ~20 s |
+| A move of the whole workspace into another model (0.11 X5) | `… volume_baseline.py --only-move --scale 1` | ~13 min with the seed built; ~1.5 min at `--scale 0.1` |
 | Batch budgets (a release's acceptance only) | `.venv/bin/python -m pytest -m budget -q -s` | 2 min 39 s at PG5 |
 
 The full-volume seed is rebuilt when any of its inputs changes: the migrations, `tests/volume_fixture.py`,
@@ -686,3 +687,69 @@ analyzed in time. Now the outcomes are inserted with their source and row in one
 from arrays, each finding its input by its unique key, and the summary analyzes `job_items` and
 `job_inputs` before counting. The full mapping's dry run, measured once after the fix: **22.2 s**
 for 40,107 items (41.9 s before it, under load); no earlier figure for this mapping.
+
+## 13. A move between models at full volume (0.11 X5, 2026-10-19)
+
+`volume_baseline.py --only-move`: the volume workspace (full shape: **257,758 records**, of them
+147,054 relation-matrix cells, and 564,344 relationships) copied whole into a new workspace on a
+partly compatible model derived from the volume model: every key changed and every name kept; the
+matrix application's types left out (the inference proposes them as the target's group type, so
+the run unmaps them as an administrator would); a required attribute added to the item type, given
+a default as a hand step. Each step timed once, the worker's chunks in the script's thread so their
+statements count. The reference laptop, PostgreSQL 17.11, load 2–4. No budget (I28, D152): the
+figures are recorded, with the stop rules of D152.
+
+| Step | Scale 0.1 (11,404 records moved) | Full (111,754 rows created: 110,254 records, 1,500 relationships) |
+| --- | --- | --- |
+| Inference (D108's stored-records statement included) | 0.1 s · 21 | 0.9 s · 21 |
+| Applying the proposals | 0.0 s · 66 | 0.0 s · 66 |
+| Dry run: binding | 5.6 s · 86 | 78.3 s · 86 |
+| Dry run: preview of every item | 11.5 s · 221 | 133.8 s · 1,792 |
+| Load into the target's change set | 10.6 s · 909 | 154.9 s · 8,308 |
+| Publish of that change set | 19.2 s · 22,993 | 206.1 s · 224,752 |
+| A 20-record `mode: move` just after, the worker on its thread (D153) | 4.5 s | 62.6 s |
+
+The dry run's rows: 574,374 at full volume, 462,620 of them not moved (`RELATION_NOT_MAPPED`
+315,116, `TYPE_NOT_MAPPED` 147,504: the matrix records and their relationships), each reported.
+
+**Fixed on the way, each measured once before and after at scale 0.1 and held by a test:**
+
+1. **The publication's copy of live data** (`snapshot_values.copy_live`, shared with a change set's
+   capture over current live data): the relationships' copy joined both ends to `objects`, and with
+   the moved records newer than the statistics PostgreSQL estimated one record a side and paired
+   every record with every other (one statement over 6 minutes); the records' copy joined a grouped
+   aggregate of the workspace's values back to its records and recomputed it per record (122 s).
+   A relationship is read through its `from` record (relationships never cross workspaces, D8) and
+   a record's values through its own index entries, so each copy reads `objects` once. The publish
+   **544 s → 19.2 s**; the 20-record move **124 s → 4.5 s** (X3's 13-second wait, the change set's
+   capture after a publication). The class of 0.10 R's R-F19: a plan built on statistics older
+   than the rows it reads. `tests/unit/engine/indexes/test_snapshot_values.py`.
+2. **The dry run's record items** read the relationships riding on each create in a lateral
+   subquery per record over the binding's temporary tables, which autovacuum never analyses
+   (63 s). Collected once with a grouped join: binding **71.5 s → 5.6 s**.
+   `test_move_binding.py::test_record_items_collect_their_riding_relationships_once_not_per_record`.
+3. **More than 65,535 records in one write** (found at full volume): the unique-value check after
+   a write, the write unit's removals and the publication's merge listed each record as a
+   parameter; PostgreSQL refuses a statement with more. One array parameter, or a join on the
+   change set's rows. `test_unique_values.py`, `test_writes.py`, `test_publish.py`.
+
+**Not traced (D152's two fix rounds were used):** from scale 0.1 to full, the load grew 14.6× and
+the dry run 12.4× for 9.8× the records, their statements growing linearly: each statement costs
+more on the larger tables. The publish grew 10.7× (2 statements a record at both sizes: one
+`DELETE` of a record's values and its insert, the publish's per-record path). The 20-record move's
+62.6 s is the capture of both workspaces into the change sets' bases, about 50 s of it the source's
+257,758 records and 564,344 relationships; 0.9 R measured that capture at 61 s. TODO holds both.
+
+**At everyday sizes (after the user's review the same day):** a dry run of 2,000 records just
+written, with the editor's default selection, 4.9 s → 0.95 s (the selection read once into a keyed
+set); a repeated dry run of 12,042 rows 40 s → 1.65 s (`ANALYZE` of the job's rows before they are
+settled, and the not-moving relationships found in one pass). `tests/test_move_step_time.py` holds
+2,000 new records' two dry runs under 2.5 s each (`volume`, `move`).
+
+**What the editor feels** (D140 runs a whole dry run after every step): on a workspace of this
+size the figures take about 3.5 minutes after each step. In the browser, timed by
+`test:browser:workspace-x5`, after the fixes: at 200 records a step's figures in 0.3 s, the editor
+open in 1.1 s, the copy loaded in 0.8 s, published in 0.9 s; at 2,000 records 1.4 s, 2.0 s, 2.4 s
+and 3.0 s, steady across runs. At 2,000 a step is the binding 0.2 s, the preview 0.8 s (half of it
+writing and rolling back every checked item, D115) and the page 0.3–0.5 s.
+

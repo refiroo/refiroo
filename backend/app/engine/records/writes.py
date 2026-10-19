@@ -21,7 +21,8 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import String, all_, any_, bindparam, delete, select, update
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Session
 
 from ...errors import api_error
@@ -52,6 +53,12 @@ def _chunks(ids: Iterable[str]) -> Iterator[list[str]]:
     ordered = list(ids)
     for start in range(0, len(ordered), _CHUNK):
         yield ordered[start : start + _CHUNK]
+
+
+def _listed(ids: Iterable[str]) -> Any:
+    """``ids`` as one array parameter: a write may remove more records than PostgreSQL's 65,535
+    parameters allow in an ``IN`` list (0.11 X5)."""
+    return bindparam(None, sorted(ids), type_=ARRAY(String))
 
 
 class LiveWrites:
@@ -311,10 +318,16 @@ class LiveWrites:
         object_ids = {item.id for item in objects}
         if relation_ids:
             matrix_states.note_rows(self.session, endpoint_ids)
-            self.session.execute(delete(ObjectRelation).where(ObjectRelation.id.in_(relation_ids)))
-        self.session.execute(delete(AttributeValue).where(AttributeValue.object_id.in_(object_ids)))
+            self.session.execute(
+                delete(ObjectRelation).where(ObjectRelation.id == any_(_listed(relation_ids)))
+            )
         self.session.execute(
-            update(RdmObject).where(RdmObject.id.in_(object_ids)).values(parent_object_id=None)
+            delete(AttributeValue).where(AttributeValue.object_id == any_(_listed(object_ids)))
+        )
+        self.session.execute(
+            update(RdmObject)
+            .where(RdmObject.id == any_(_listed(object_ids)))
+            .values(parent_object_id=None)
         )
         for item in objects:
             self.session.delete(item)
@@ -369,7 +382,9 @@ class LiveWrites:
         if merged.removed_relation_ids:
             matrix_states.note_relations_removed(session, merged.removed_relation_ids)
             session.execute(
-                delete(ObjectRelation).where(ObjectRelation.id.in_(merged.removed_relation_ids))
+                delete(ObjectRelation).where(
+                    ObjectRelation.id == any_(_listed(merged.removed_relation_ids))
+                )
             )
         if merged.removed_object_ids:
             matrix_states.note_rows(session, merged.removed_object_ids)
@@ -380,22 +395,24 @@ class LiveWrites:
             session.execute(
                 update(RdmObject)
                 .where(
-                    RdmObject.parent_object_id.in_(merged.removed_object_ids),
-                    ~RdmObject.id.in_(merged.removed_object_ids),
+                    RdmObject.parent_object_id == any_(_listed(merged.removed_object_ids)),
+                    RdmObject.id != all_(_listed(merged.removed_object_ids)),
                 )
                 .values(parent_object_id=None)
             )
             session.execute(
                 update(RdmObject)
-                .where(RdmObject.id.in_(merged.removed_object_ids))
+                .where(RdmObject.id == any_(_listed(merged.removed_object_ids)))
                 .values(parent_object_id=None)
             )
             session.execute(
                 delete(AttributeValue).where(
-                    AttributeValue.object_id.in_(merged.removed_object_ids)
+                    AttributeValue.object_id == any_(_listed(merged.removed_object_ids))
                 )
             )
-            session.execute(delete(RdmObject).where(RdmObject.id.in_(merged.removed_object_ids)))
+            session.execute(
+                delete(RdmObject).where(RdmObject.id == any_(_listed(merged.removed_object_ids)))
+            )
         authored_objects = {
             item.object_id: item
             for item in merged.membership.objects

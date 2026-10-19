@@ -26,7 +26,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import func, select, text
+from sqlalchemy import event, func, select, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
@@ -1268,6 +1268,272 @@ def deletion_scenarios(client, engine: Engine, dataset: VolumeDataset) -> list[M
     return results
 
 
+MOVE_TARGET = "move-target"
+MATRIX_TYPES = {"vol-column", "vol-shelf", "vol-cell"}
+
+
+def move_target_model() -> dict[str, Any]:
+    """0.11 X5, D151: a partly compatible model for the volume workspace's move. Every key differs
+    from the volume model's and every name is kept, so the inference proposes from names, attribute
+    overlap and stored values; the relation matrix application and its types are left out, so their
+    records cannot move; the item type gains a required attribute nothing in the source fills."""
+    model = json.loads(json.dumps(volume_model()).replace("vol-", "cat-"))
+    model["release"] = {"key": "cat-model", "name": "Catalogue model", "version": "1.0.0"}
+    left_out = {key.replace("vol-", "cat-") for key in MATRIX_TYPES}
+    model["objectTypes"] = [item for item in model["objectTypes"] if item["key"] not in left_out]
+    model["objectTypeRelations"] = [
+        item
+        for item in model["objectTypeRelations"]
+        if not {item["fromObjectTypeKey"], item["toObjectTypeKey"]} & left_out
+    ]
+    used = {item["relationTypeKey"] for item in model["objectTypeRelations"]}
+    model["relationTypes"] = [item for item in model["relationTypes"] if item["key"] in used]
+    model["applications"] = [app for app in model["applications"] if not set(app["objectTypeKeys"]) & left_out]
+    model["consumerApis"] = []
+    model["attributeTypes"].append({"key": "cat-owner", "name": "Owner"})
+    item = next(entry for entry in model["objectTypes"] if entry["key"] == "cat-item")
+    item["attributes"].append({"attributeTypeKey": "cat-owner", "required": True, "order": 40})
+    return model
+
+
+def move_scenarios(client, engine: Engine, dataset: VolumeDataset) -> tuple[list[Measurement], dict[str, Any]]:
+    """0.11 X5, D151–D153, run once (``--only-move``): the whole volume workspace copied into a
+    workspace on :func:`move_target_model` through a proposed mapping completed by one hand step;
+    the inference, the application of its proposals, the dry run (each stage), the load and the
+    publication of the target's change set each timed once. The worker's chunks run in this thread,
+    so their statements count. Then, with the worker on its own thread as in the service, a
+    20-record move sent at once and its timeline read (D153)."""
+    worker = client.app.state.job_worker
+    worker.stop()
+    api = "/api/v1"
+    facts: dict[str, Any] = {}
+    results: list[Measurement] = []
+    # Every statement over 0.5 s, with its text, so one run names each slow statement.
+    slow: list[tuple[float, str]] = []
+    began_at: dict[int, float] = {}
+
+    def before_statement(connection, cursor, statement, parameters, context, executemany):
+        began_at[id(cursor)] = time.perf_counter()
+
+    def after_statement(connection, cursor, statement, parameters, context, executemany):
+        spent = time.perf_counter() - began_at.pop(id(cursor), time.perf_counter())
+        if spent > 0.5:
+            slow.append((round(spent, 1), " ".join(statement.split())[:600]))
+            print(f"  slow statement {spent:.1f} s: {' '.join(statement.split())[:300]}", flush=True)
+
+    event.listen(engine, "before_cursor_execute", before_statement)
+    event.listen(engine, "after_cursor_execute", after_statement)
+
+    def ok(response, *statuses: int) -> dict[str, Any]:
+        assert response.status_code in (statuses or (200,)), response.text[:2000]
+        return response.json()
+
+    def job(job_id: str) -> dict[str, Any]:
+        return ok(client.get(f"{api}/jobs/{job_id}"))
+
+    def run(job_id: str, label: str) -> dict[str, Any]:
+        """Every chunk of ``job_id`` until it waits or ends, timed per stage."""
+        stages: dict[str, list[float]] = {}
+        stage = job(job_id)["stage"] or "start"
+        while True:
+            with measure(engine) as cost:
+                ran = worker.run_once()
+            if not ran:
+                break
+            spent = stages.setdefault(stage, [0.0, 0, 0, 0])
+            spent[0] += cost.seconds
+            spent[1] += cost.statements
+            spent[2] += cost.rows_loaded
+            spent[3] += 1
+            stage = job(job_id)["stage"] or stage
+        for name, (seconds, statements, rows, chunks) in stages.items():
+            results.append(
+                Measurement("move", f"{label}: {name} ({chunks} chunks)", 200, seconds * 1000, statements, rows)
+            )
+            print(f"  {label}: {name} {seconds:.1f} s, {statements} statements, {chunks} chunks", flush=True)
+        return job(job_id)
+
+    def timed(label: str, call: Callable[[], Any]) -> Any:
+        with measure(engine) as cost:
+            answer = call()
+        results.append(Measurement("move", label, 200, cost.seconds * 1000, cost.statements, cost.rows_loaded))
+        print(f"  {label}: {cost.seconds:.1f} s, {cost.statements} statements", flush=True)
+        return answer
+
+    with engine.connect() as connection:
+        by_type = dict(
+            connection.execute(
+                text("SELECT object_type_key, count(*) FROM objects WHERE workspace_key = :w GROUP BY 1"),
+                {"w": WORKSPACE},
+            ).all()
+        )
+        relationships = connection.execute(
+            text("SELECT count(*) FROM object_relations r JOIN objects o ON o.id = r.from_object_id"
+                 " WHERE o.workspace_key = :w"),
+            {"w": WORKSPACE},
+        ).scalar_one()
+    facts["source records"] = by_type
+    facts["source relationships"] = relationships
+    print(f"  source: {sum(by_type.values()):,} records {by_type}, {relationships:,} relationships", flush=True)
+
+    draft = ok(client.post(f"{api}/model-drafts", json={"name": "Catalogue", "model": move_target_model()}), 201)
+    release = ok(
+        client.post(f"{api}/model-drafts/{draft['id']}/installation", json={"expectedVersion": draft["version"]}),
+        201,
+    )
+    ok(
+        client.post(
+            f"{api}/workspaces",
+            json={"key": MOVE_TARGET, "label": "Move target", "modelReleaseId": release["id"]},
+        ),
+        201,
+    )
+    mapping = ok(
+        client.post(
+            f"{api}/model-mappings",
+            json={"key": "volume-move", "name": "Volume move", "sourceWorkspaceKey": WORKSPACE,
+                  "targetWorkspaceKey": MOVE_TARGET},
+        ),
+        201,
+    )
+    key = mapping["key"]
+    started = ok(
+        client.post(
+            f"{api}/model-mappings/{key}/inference",
+            json={"sourceWorkspaceKey": WORKSPACE, "targetWorkspaceKey": MOVE_TARGET},
+        ),
+        202,
+    )
+    inference = run(started["jobId"], "inference")
+    assert inference["state"] == "completed", inference
+    current = ok(client.get(f"{api}/model-mappings/{key}"))
+    timed(
+        "apply the proposals",
+        lambda: ok(client.post(f"{api}/model-mappings/{key}/inference/application",
+                               json={"expectedVersion": current["version"]})),
+    )
+    current = ok(
+        client.get(f"{api}/model-mappings/{key}", params={"sourceWorkspaceKey": WORKSPACE,
+                                                          "targetWorkspaceKey": MOVE_TARGET})
+    )
+    facts["types proposed"] = {entry["source"]: entry["target"] for entry in current["types"]}
+    # The hand steps. The inference proposes the matrix types as the target's nearest type (code
+    # and rank overlap); the administrator unmaps them, so their records are reported as not moved.
+    for entry in current["types"]:
+        if entry["source"] in MATRIX_TYPES:
+            current = ok(
+                client.post(
+                    f"{api}/model-mappings/{key}/operations",
+                    json={"expectedVersion": current["version"],
+                          "operations": [{"kind": "unmapType", "sourceType": entry["source"]}]},
+                )
+            )
+    current = ok(
+        client.get(f"{api}/model-mappings/{key}", params={"sourceWorkspaceKey": WORKSPACE,
+                                                          "targetWorkspaceKey": MOVE_TARGET})
+    )
+    # The required attribute nothing fills gets a default.
+    for need in current["coverage"]["required"]:
+        source_type = next(entry["source"] for entry in current["types"] if entry["target"] == need["targetType"])
+        current = ok(
+            client.post(
+                f"{api}/model-mappings/{key}/operations",
+                json={"expectedVersion": current["version"], "operations": [
+                    {"kind": "setDefault", "sourceType": source_type, "attribute": need["attributeTypeKey"],
+                     "value": "Unassigned"}]},
+            )
+        )
+    current = ok(
+        client.get(f"{api}/model-mappings/{key}", params={"sourceWorkspaceKey": WORKSPACE,
+                                                          "targetWorkspaceKey": MOVE_TARGET})
+    )
+    facts["mapping problems"] = current.get("problems")
+    sent = ok(
+        client.post(
+            f"{api}/moves",
+            json={"sourceWorkspaceKey": WORKSPACE, "targetWorkspaceKey": MOVE_TARGET,
+                  "mapping": {"key": key, "expectedVersion": current["version"]}, "selection": {}},
+        ),
+        202,
+    )
+    preview = run(sent["id"], "dry run")
+    assert preview["state"] == "awaiting_confirmation", preview
+    summary = preview["move"]
+    facts["dry run"] = {"rows": summary["rows"], "counts": summary["counts"],
+                        "reasons": summary["reasons"][:10]}
+    print(f"  dry run: {summary['rows']:,} rows {summary['counts']}", flush=True)
+    ok(client.post(f"{api}/jobs/{sent['id']}/confirm"), 202)
+    loaded = run(sent["id"], "load")
+    assert loaded["state"] == "completed", loaded
+    change_set = loaded["move"]["targetChangeSetId"]
+    version = ok(client.get(f"{api}/change-sets/{change_set}"))["version"]
+    timed(
+        f"publish the target's change set ({summary['rows']:,} rows)",
+        lambda: ok(client.post(f"{api}/change-sets/{change_set}/publication",
+                               json={"expectedChangeSetVersion": version, "expectedActivePublicationId": None})),
+    )
+
+    # D153: the service's case. The worker on its own thread, a 20-record move of items already
+    # copied (so 20 updates by counterpart), sent with stage execute; its timeline polled.
+    with engine.connect() as connection:
+        ids = connection.execute(
+            text("SELECT id FROM objects WHERE workspace_key = :w AND object_type_key = :t ORDER BY id LIMIT 20"),
+            {"w": WORKSPACE, "t": ITEM},
+        ).scalars().all()
+    current = ok(client.get(f"{api}/model-mappings/{key}"))
+    worker.start()
+    timeline: list[tuple[float, str, str | None]] = []
+    waits: list[Any] = []
+    try:
+        began = time.perf_counter()
+        small = ok(
+            client.post(
+                f"{api}/moves",
+                json={"sourceWorkspaceKey": WORKSPACE, "targetWorkspaceKey": MOVE_TARGET,
+                      "mapping": {"key": key, "expectedVersion": current["version"]},
+                      "selection": {"objectIds": [str(item) for item in ids]}, "mode": "move",
+                      "stage": "execute"},
+            ),
+            202,
+        )
+        with engine.connect() as connection:
+            queued_before = [
+                tuple(row)
+                for row in connection.execute(
+                    text("SELECT kind, state FROM jobs WHERE state IN ('queued', 'running')"
+                         " AND sequence_id < (SELECT sequence_id FROM jobs WHERE id = :id)"),
+                    {"id": small["id"]},
+                ).all()
+            ]
+        seen = None
+        while time.perf_counter() - began < 300:
+            state = job(small["id"])
+            mark = (state["state"], state["stage"])
+            if mark != seen:
+                timeline.append((round(time.perf_counter() - began, 2), *mark))
+                seen = mark
+            if state["state"] in ("completed", "failed", "cancelled"):
+                break
+            with engine.connect() as connection:
+                blocked = connection.execute(
+                    text("SELECT a.pid, a.wait_event_type, a.wait_event, left(a.query, 160)"
+                         " FROM pg_stat_activity a WHERE a.datname = current_database()"
+                         " AND a.wait_event_type = 'Lock'")
+                ).all()
+            if blocked:
+                waits.append((round(time.perf_counter() - began, 2), [tuple(row) for row in blocked]))
+            time.sleep(0.1)
+    finally:
+        worker.stop()
+    facts["small move"] = {"timeline": timeline, "lock waits": waits[:20], "queued before": queued_before,
+                           "result": state["state"], "counts": state.get("counts")}
+    print(f"  20-record move: {timeline}; lock waits {len(waits)}", flush=True)
+    event.remove(engine, "before_cursor_execute", before_statement)
+    event.remove(engine, "after_cursor_execute", after_statement)
+    facts["slow statements"] = slow
+    return results, facts
+
+
 EXPORT_FORMATS = ("jsonl", "csv", "xlsx")
 
 
@@ -1461,6 +1727,11 @@ def main() -> None:
         action="store_true",
         help="measure only the 0.9 C3 consumer list reads, C4 XREF lookups and C14 batch resolve",
     )
+    parser.add_argument(
+        "--only-move",
+        action="store_true",
+        help="measure only the 0.11 X5 move of the whole workspace into another model, once",
+    )
     arguments = parser.parse_args()
 
     import postgres_server
@@ -1472,6 +1743,9 @@ def main() -> None:
     if arguments.only_events:
         os.environ["MODEL_ADMIN_MUTATIONS_ENABLED"] = "true"
         os.environ.update(SUBSCRIPTION_SETTINGS)
+    if arguments.only_move:
+        # Installing the target's model and the move itself are model administration (D14).
+        os.environ["MODEL_ADMIN_MUTATIONS_ENABLED"] = "true"
     server_started = postgres_server.start()
     try:
         with tempfile.TemporaryDirectory() as directory:
@@ -1495,6 +1769,9 @@ def main() -> None:
                     dataset.counts["events told by the heavy group's rename"] = told
                 elif arguments.only_deletion:
                     results = deletion_scenarios(client, engine, dataset)
+                elif arguments.only_move:
+                    results, facts = move_scenarios(client, engine, dataset)
+                    dataset.counts["move"] = facts
                 elif arguments.only_exports:
                     results = [item for item, _rows in export_scenarios(client, engine, dataset)]
                 elif arguments.only_dated:

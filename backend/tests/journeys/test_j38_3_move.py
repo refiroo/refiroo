@@ -269,6 +269,30 @@ def test_a_subtree_moved(world):
     assert row["targetParentId"] == second["id"]
 
 
+@pytest.mark.journey("J38.3")
+@pytest.mark.structures(*BOTH)
+def test_a_whole_subtree_moved_leaves_the_source(world):
+    """0.11 X5 (found by the checkpoint's browser walk): a ledger whose entries all move. When its
+    subtree moves, the source's change set deletes the ledger and every entry, the ledger not kept
+    for dependants that the same move deletes. Once both change sets are published, the subtree is
+    in the target and gone from the source."""
+    _other_world, target, key = _mapped(world)
+    ledger = _ledger(world, "Whole")
+    entries = [world.made("R2", f"Entry {n}", parent=ledger["id"]) for n in (1, 2)]
+
+    job, _seen = _preview(world, key, target, {"parentObjectId": ledger["id"]}, mode="move")
+    job, rows = _confirm(world, job)
+    found = _records(rows)
+    for record in (ledger, *entries):
+        assert found[record["id"]]["source"] == {"outcome": "deleted", "reasons": []}, found
+    ok(_publish(world, job["changeSetId"], target))
+    ok(_publish(world, job["move"]["sourceChangeSetId"], W1))
+    refused(world.read("R", ledger["id"]), 404, "OBJECT_NOT_FOUND")
+    for entry in entries:
+        refused(world.read("R2", entry["id"]), 404, "OBJECT_NOT_FOUND")
+    assert ok(_record(world, found[ledger["id"]], target))["name"] == ledger["name"]
+
+
 @pytest.mark.journey("J38.2")
 @pytest.mark.structures(*BOTH)
 def test_a_move_executed_without_waiting(world):

@@ -10,7 +10,8 @@ items one by one; whatever no check covers, the constraint refuses at commit.
 
 from collections.abc import Iterable
 
-from sqlalchemy import and_, select
+from sqlalchemy import String, and_, any_, bindparam, select
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Session, aliased
 
 from ...errors import ApiError
@@ -50,7 +51,9 @@ def check(session: Session, model: EngineModel, object_ids: Iterable[str]) -> No
                 other.value_id != mine.value_id,
             ),
         )
-        .where(mine.object_id.in_(written))
+        # One array parameter: a write of more records than PostgreSQL's 65,535 parameters
+        # (0.11 X5: a move's dry run of 110,000 records) must still be checked.
+        .where(mine.object_id == any_(bindparam(None, written, type_=ARRAY(String))))
         .order_by(mine.attribute_type_key, mine.object_id, other.object_id)
         .limit(1)
     ).first()

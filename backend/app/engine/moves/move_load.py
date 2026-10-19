@@ -272,27 +272,44 @@ def _delete_in_source(session: Session, job: Job) -> str | None:
     context = BatchContext(
         workspace, change_set, change_set_model(session, change_set), release, None
     )
-    outcomes = run_items(
-        session,
-        context,
-        [
-            (
-                index,
-                BatchDeleteItem(
-                    op="delete",
-                    ref=str(index),
-                    target=RecordReference(id=object_id),
-                    expectedVersion=version,
-                ),
-            )
-            for index, object_id, _type, version in loaded
-        ],
-        policy="independent",
-        on_existing="reject",
-        expected_change_set_version=change_set.version,
-        job_id=job.id,
-        own_links=True,
-    )
+    pending = [
+        (
+            index,
+            BatchDeleteItem(
+                op="delete",
+                ref=str(index),
+                target=RecordReference(id=object_id),
+                expectedVersion=version,
+            ),
+        )
+        for index, object_id, _type, version in loaded
+    ]
+    # In passes: a batch decides every item over the data before it, so a record whose dependants
+    # this move deletes too is refused for them in the pass that deletes them, and tried again in
+    # the next (0.11 X5). Passes end when one deletes nothing more: at most the hierarchy's depth.
+    decided: dict[int, Any] = {}
+    while pending:
+        session.refresh(change_set)
+        outcomes = run_items(
+            session,
+            context,
+            pending,
+            policy="independent",
+            on_existing="reject",
+            expected_change_set_version=change_set.version,
+            job_id=job.id,
+            own_links=True,
+        )
+        decided.update((outcome.index, outcome) for outcome in outcomes)
+        if not any(outcome.status == "applied" for outcome in outcomes):
+            break
+        waiting = {
+            outcome.index
+            for outcome in outcomes
+            if (outcome.fields.get("error") or {}).get("code") == "OBJECT_HAS_DEPENDANTS"
+        }
+        pending = [item for item in pending if item[0] in waiting]
+    outcomes = [decided[index] for index, *_rest in loaded]
     sources = [_source_outcome(outcome.status, outcome.fields) for outcome in outcomes]
     deleted = any(source["outcome"] == "deleted" for source in sources)
     if deleted:

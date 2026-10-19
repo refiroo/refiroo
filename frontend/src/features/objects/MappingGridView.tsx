@@ -32,6 +32,9 @@ import { DebouncedSearchField } from "@/ui/SearchField";
 import { StatusPill, type StatusTone } from "@/ui/StatusPill";
 import { Card } from "@/ui/Card";
 
+/** The most rows `GET …/mapping-coverage` serves in one page. */
+const COVERAGE_PAGE_MAX = 100;
+
 const STATE_FILTERS: { value: "" | "unmapped" | "mapped" | "ambiguous"; label: string }[] = [
   { value: "", label: "All" },
   { value: "unmapped", label: "Unmapped" },
@@ -84,7 +87,9 @@ export function MappingGridView({
         parentObjectId: query.parentObjectId,
         state: query.mappingState,
         ...selector,
-        pageSize: scrollChunk(pageSize),
+        // The coverage route serves at most 100 rows a page; the scroll chunk (200) made every
+        // read a 422 (found in 0.11 X5's gates). X6 replaces the chunk with the reader's page.
+        pageSize: Math.min(scrollChunk(pageSize), COVERAGE_PAGE_MAX),
       }),
     [
       application.key,

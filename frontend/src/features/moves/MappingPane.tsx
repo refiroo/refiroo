@@ -6,7 +6,7 @@
  * follow, each with Map… to give it a target.
  */
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import type { EngineModel, MappingOperation, ObjectTypeDefinition } from "@/types";
 import { ProposedPill } from "@/features/model-editor/ProposedBecause";
 import { AttributeField } from "@/ui/AttributeField";
@@ -89,7 +89,9 @@ export function MappingPane({
   );
 }
 
-function Row({
+// Memoised: a dry run's figures change a few rows' notes; the others, each a select of every target
+// field, are not drawn again (0.11 X5: 0.34 s per step on a large model).
+const Row = memo(function Row({
   id,
   sourceType,
   row,
@@ -170,7 +172,7 @@ function Row({
       )}
     </div>
   );
-}
+});
 
 /** A target field's default for records whose source gives none: typed, set or cleared as one step. */
 function DefaultValue({
@@ -202,7 +204,17 @@ function DefaultValue({
             : `Default: ${formatValue(row.defaultValue)}`}
         </span>
         {!readOnly && (
-          <button type="button" className="secondary" disabled={busy} onClick={() => setEditing(true)}>
+          <button
+            type="button"
+            className="secondary"
+            disabled={busy}
+            aria-label={
+              row.value === NOT_MAPPED
+                ? `Set a default for ${attribute.name}…`
+                : `Change the default of ${attribute.name}…`
+            }
+            onClick={() => setEditing(true)}
+          >
             {row.value === NOT_MAPPED ? "Set a default…" : "Change…"}
           </button>
         )}
@@ -211,6 +223,7 @@ function DefaultValue({
             type="button"
             className="secondary"
             disabled={busy}
+            aria-label={`Clear the default of ${attribute.name}`}
             onClick={() => onStep([defaultOperation(sourceType, attribute.key, null)])}
           >
             Clear
