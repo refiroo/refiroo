@@ -306,6 +306,7 @@ change) and `volume` (every budget).
 | 14 | [X3](#x3-the-move) | X2 | **Delivered 2026-10-18.** Copy or move into a reviewed change set: the dry run confirmed or executed, origins and the move back, the source's deletion published after the copy |
 | 15 | [X4](#x4-the-move-editor) | X3, M5 | **Delivered 2026-10-19.** The move editor: the two models, the mapping, the proposals, the dry-run figures and the report |
 | 16 | [X5](#x5-move-checkpoint) | X4 | The roadmap's move exit item at full volume, measured once |
+| 16a | [X6](#x6-list-reads-within-the-agreed-budget) | X5 | A table's first screen with relation columns within the 0.8 budgets; expansions read in PostgreSQL; the case in the volume baseline; one scrolling design for every long list (budget pages, drawn only near the view) |
 | | **Part 2 — production hardening** | | |
 | 17 | [S1](#s1-the-backend-suites-time) | — | **Delivered 2026-10-18.** Journey cases spread over the workers; the full suite with `-n 6` under a revised 11-minute ceiling (D126) |
 | 18 | [N1](#n1-snapshots-across-processes) | M2 | Assignment changes propagated across processes; model administration with `WEB_CONCURRENCY` above 1 |
@@ -332,7 +333,7 @@ Part 1
  Releases:               M2 ─ V1 ─┬─ V2
                                   ├─ V3
                           M6 ─────┴─ V4
- Moves:                       M4 ─ X1 ─ X2 ─ X3 ─ X4 ─ X5      (X4 also needs M5)
+ Moves:                       M4 ─ X1 ─ X2 ─ X3 ─ X4 ─ X5 ─ X6 (X4 also needs M5; X6 is order only)
 Part 2
  Suite:         S1                                (filler in Part 1; before X2, D2)
  Nodes:                  M2 ─ N1 ─ N2 ─ N3        (N3 also needs Q1)
@@ -3216,6 +3217,132 @@ relationship's attributes in the editor (through the API); the figure for a move
 partly compatible model through a proposed and hand-completed model-to-model mapping, dry run and
 reviewed change set, with what could not move reported", composed in the browser; the move at full
 volume, measured once, announced as a heavy run.
+
+#### X6: List reads within the agreed budget
+
+**Needs:** X5 (order only, the user's 2026-10-19: "next after X5"). **Found:** 2026-10-19, reported by
+the user: a table of 200 records with a few relation columns takes seconds to open.
+
+**Scope:** a table's first screen, with its relation columns, read within the 0.8 budgets
+([POSTGRESQL_BUDGETS §1](POSTGRESQL_BUDGETS.md#1-the-budgets): 100 ms median for a page, statements
+that do not grow with the data, at most 6 ORM rows per listed row) in every context; an expansion's
+related records read in PostgreSQL with only the fields shown; the request a table with relation
+columns sends added to the volume baseline, so a regression fails a test; and one scrolling
+design for every long list, which scrolls without jumping while every read stays a budget page.
+
+##### X6 plan (2026-10-19)
+
+**Planned 2026-10-19. D155 and D157–D160 accepted by the user on 2026-10-19 ("otherwise it's ok").
+D156 restated at the user's request (2026-10-19): a sound design for scrolling, not a patch that
+breaks the budget contracts. D161–D164 added with it. D156 and D161–D164 accepted by the user on
+2026-10-19. X6 is delivered whole with no further approval stops (the user: "I do not wish to
+revisit this topic again"); follow-ups are decided by recommendation, recorded and reported.** Checked against the code at `c4d80ca`, measured once on the
+dev database (4,527 records, 9,753 relationships) and profiled once.
+
+**What was found:**
+
+- **The table.** A view of 200 records with six relation columns, one of them a value read from each
+  related record's ancestor (`related:<relation>.ancestor:<type>.<attribute>`): rows on screen after
+  2.2 s in the dev browser. The table reads 200 rows at once (`SCROLL_CHUNK`, since `ad0d19c` on
+  2026-10-19; before it, the reader's 20) with every relation column: **813 KB in 294 ms** alone.
+  The same 200 rows without relation columns: 289 KB in 31 ms. Twenty rows with them: 80 KB in 60 ms.
+- **The ancestor column is 250 ms of the 294.** `expand_records` (`projections/model_query.py`)
+  reads every related record of the page, about 1,500 here, as a full record through
+  `build_object_responses`: every attribute value as an ORM row, the whole path, a Pydantic model per
+  attribute. Then it keeps the name and one value. The profile: 150 ms in building those records. The
+  other five relation columns cost 5–15 ms each. Against principle 6 (set work in PostgreSQL), and
+  over budget 2 even at 20 rows: 140 related records and their attribute values for a 20-row page,
+  against 120 ORM rows.
+- **Every read twice in dev.** React StrictMode mounts the page twice. Two of these reads at once in
+  the one Python process: the second answered in 1.6 s against 0.3 s alone. Not traced further. Per
+  page load, capabilities are read four times and the workspace and the rail's top-level lists
+  twice each.
+- **No test saw this request.** The volume baseline measures an expansion on one record (a group's
+  20 related items), never a page of records each with expansions, nor an ancestor value. The 200-row
+  chunk was not measured with relation columns when it was introduced.
+- **Reviewed and in line:** the list without expansions, lookups and the detail panel's relationship
+  list (one full record per row of a page, batched by tree level); the relation matrix (only the
+  shown attribute columns, in one statement); the mapping grid (pages in SQL); change lists and
+  exports (set statements). The other 46 views in dev open with their slowest read at 60–210 ms.
+- **The same path, the same cost:** every table view with relation columns, a detail panel's child
+  tables (`CollectionPanelTable`), and the API's `expand` on `GET /objects/{type}` and on the model
+  query, when they ask for an ancestor value or many related records.
+
+**What is built:**
+
+1. **The narrow expansion read** (D155): one statement per expansion for the whole page, returning
+   only the selected fields; the response is unchanged.
+2. **The scrolling design** (D156, D161–D163): every long list's scroll space spans the whole list,
+   only the rows near the view are drawn, and every read is a budget page. The 200-row chunk goes.
+3. **One request per identical read** (D157) in the API client.
+4. **The budget cases** (D158) in `volume_baseline.py` and `test_volume_baseline`.
+5. **One measurement** (D159) at full volume and one in the dev browser, before and after, in the
+   record and in POSTGRESQL_BUDGETS.
+
+**Decisions** (D155 onward):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D155 | How an expansion's related records are read | **One statement per expansion returns, for every record of the page, the first `limit` relationships with only what the request selects: ID, type, version, name, the selected attributes, and an `ancestor:<type>.<field>` value found by walking up the parent chain inside the same statement (bounded by the hierarchy's depth, as the matrix's walk is).** Live, change set and publication read through `record_source`, as exports do. No ORM entity and no full record per related record. An expansion without `select` (the API's full item, by contract) keeps today's full records; the list's relation columns always send a `select`. The response is byte-for-byte the same. Why: the 250 ms and most of the 813 KB are records built and discarded; principle 6. Cost: the statement covers three contexts; the journeys that read expansions (J01, J22, `test_model_query`, `test_consumer_api_model`) must pass unchanged |
+| D156 | How a long list scrolls (restated 2026-10-19) | **A list addressed by row number, drawn only near the view.** (1) *Reads:* every read is the reader's page (20 by default, the size the budgets are measured at), the first with its total as today; `SCROLL_CHUNK` and `scrollChunk` are removed. Pages are read ahead in the direction of scrolling until two screens beyond the view are held, one request per direction at a time. The browser holds at most `WINDOW_ROWS` (600) rows of data and forgets the furthest ones first. (2) *Place:* the scroll space spans the whole list, sized from the total, so every row has its place before its data arrives. A row not yet read is drawn as a placeholder row at its place. The browser's own scrollbar is then the real one, and the hand-drawn `WindowScrollbar` is removed. (3) *Drawing:* only the rows on screen and one screen either side are in the page, between two spacers that hold the height of the rest. A page that arrives, or data that is forgotten, redraws only those rows and changes no other row's place. (4) *Far moves:* a scrollbar drag, a fling or the page field that lands outside the held rows reads the page there with one position read once scrolling rests (about 120 ms without a scroll event), not every page in between; the held rows are then that page, as a jump is today. (5) *What stays from `ad0d19c`:* column widths frozen from the first rows (UA4), the wheel never held by a list, pages drawn in the background (`startTransition`), the URL anchor written without redrawing. Why: what jumped was rows added and dropped around the reader in a list drawn whole, and what held the wheel was redrawing hundreds of rows per page. Neither happens when places come from row numbers and only about three screens are drawn, so small pages cost nothing to scroll, and the budget page stays the only read. This is how large grids keep scrolling smooth whatever their length. Cost: `ScrollWindow` is rebuilt around the range it draws, and each surface draws only the rows in that range (D162); a fast fling shows placeholder rows for a moment until their page arrives |
+| D161 | Measuring the drawn rows: a library or our own code | **`@tanstack/react-virtual` (3.x, MIT, headless, no styles) computes the range to draw, measures each drawn row's height and corrects the scroll position when a row above the view changes height.** Rows wrap, so heights vary: a row is drawn first at the average measured height, then at its own, and the first row in view stays exactly where it was. Our cursor window stays the data layer: row numbers, cursors, position reads, totals and forgetting. TanStack only decides what is drawn where. Why: measuring and scroll correction for rows of different heights is where hand-written lists get the jumps the user saw; this library is the common one for exactly this, and it adds no look of its own. Cost: one runtime dependency (about 15 KB). Today's anchoring code (`scrollAnchor`, `heldAnchor`, the browser's anchoring) is removed in favour of one rule |
+| D162 | Which lists take the design | **Every flat list in a `ScrollWindow`:** the shared `DataTable` (collections, record panels and relationships, the model editor's tables, job and migration outcomes, the move and profile reports) and the eight lists drawn with `ScrollWindow` directly (relation matrix, mapping grid, change set review, the restructuring and tree-move dialogs, the matrix cell dialog and filter, the record lookup). `ScrollWindow` hands each surface the range to draw and the spacers' heights, and a shared `WindowSpacer` (a `tr`, `li` or `div`) keeps each surface's own markup. **The record tree keeps drawing its held rows:** its groups nest a window inside a row and grow by "more", and it already reads its own page size. Why: one design for every long list, with no surface left on the old path, which "nothing breaks" requires; the tree is not one long list. Cost: each of the nine surfaces changes its row loop; the existing browser runners for them must pass unchanged |
+| D163 | What the reader sees and what assistive technology gets | **Placeholders:** a row not yet read is drawn like today's loading rows (muted bars in the visible columns) at the average row height, and is hidden from assistive technology. **Footer:** unchanged ("1–20 of 2,000", page field, Go to start and end, Go to value). **Keyboard:** ↑ and ↓ past the last drawn row scroll one row and focus it, across page edges as today; Ctrl+Home and Ctrl+End jump. **Assistive technology:** a table carries `aria-rowcount` = the total and every row its absolute `aria-rowindex` (rows already carry it); a listbox's options carry `aria-setsize` and `aria-posinset`. **Known limit:** the browser's find-in-page (Ctrl+F) finds only drawn rows; the list's own search finds every record. Why: a long list's position stays truthful to every reader, and nothing new to learn. Cost: the accessibility gate re-run on the changed surfaces |
+| D164 | Proving that it scrolls well | **`test:browser:s5` (the continuous-lists runner, on the volume model at 10% scale, about 11,000 records, seeded once and reused) gains the cases below, on the item list with a relation column (added to the volume model's item view if it has none; the backend budgets read no view):** (1) wheel steps through the first 2,000 rows and from the last row back: at every step the row at a fixed point has moved by exactly the scrolled distance (no jump of more than 1 px); (2) every list request asks the reader's page size, and none asks more; (3) the page never holds more than three screens of rows; (4) a scrollbar drag to 70% sends one position read and shows the rows around 70% of the total; (5) at the last row, the wheel carries on to the page; (6) ↓ from a focused row crosses a page edge; (7) a cell edited in place keeps the list where it was; (8) at 390px the same holds for (1) and (2); (9) a record panel's child table and the mapping grid scroll the same way (one case each). Vitest covers the window model: page-sized reads, read-ahead, one position read after a far move, forgetting without moving rows. Why: the jumps were reported by eye; this measures them, in the runner that already owns continuous lists, so there is no second scroll runner. Cost: `s5` grows by about a minute; within the quarter of the package that tests may take |
+| D157 | Reads repeated during one page load | **The API client shares one pending GET among identical calls** (same URL while the first is still in flight). StrictMode stays on. Nothing is cached: a finished read is never reused, and writes are untouched. Why: removes the dev doubling (two heavy reads competing in one process) and the repeated capability, workspace and rail reads in production. Cost: a small change in `client.ts`, with a Vitest case |
+| D158 | The budget cases | **`volume_baseline.py` gains the list as a table with relation columns sends it: items at 20 and at 200 rows, two expansions, one with an `ancestor:` value, live, change set and history. `test_volume_baseline` holds budget 1 (the same statements at both scales) and budget 2 (at most 6 ORM rows per listed row) for them.** Why: no test saw this request, so a regression went unnoticed; seen failing first on today's code. Cost: six scenarios in the `volume` group |
+| D159 | The measurement | **Once, announced: the new scenarios at `--scale 1`, the 20-row page within 100 ms median in each context and the 200-row figure recorded without a budget; and the view of this finding opened once in the dev browser, rows on screen and the request list before and after.** A figure out of line (a 20-row page over 100 ms, a step growing with the data) stops the package for a report of cause and options. Cost: one run, plus the seed if it is stale (about 6 minutes) |
+| D160 | Two heavy reads at once | **Not traced in X6.** After D155–D157 the dev browser measurement shows whether a read still waits on another; if a second read still takes more than twice its time alone, TODO for N1 (several processes, `WEB_CONCURRENCY`) with the figures. Why: several processes are N1's. Cost: none in X6 |
+
+**Cases** (backend through the API, in the shape of the journeys; the browser figure is D159's):
+
+1. **Same answer, cheaper.** Given records each related to several records that sit under an
+   ancestor with an attribute, when the list is read with expansions of `name` and of
+   `ancestor:<type>.<attribute>`, then `expanded` is the same as today's in live, change set and
+   publication, and the read runs one statement per expansion, whatever the page size.
+2. **Within the budget.** When the 20-row and 200-row reads of D158 run at the two seeded sizes,
+   then their statement counts are equal and their ORM rows are at most 6 per listed row.
+3. **Budget pages only.** When a list opens and is scrolled, then every read asks the reader's
+   page size, read ahead until two screens beyond the view are held; a far move rests and sends one
+   position read; forgetting rows far away moves no row (Vitest on the window model).
+4. **Scrolls without jumping.** D164's cases in `s5`.
+5. **One read for identical calls.** When two identical GETs are made while the first is pending,
+   then one request goes out and both receive its answer; a later identical call makes a new
+   request (Vitest).
+
+**What the reader sees** (mock-up, a collection at 1440px during a fast scroll; everything else as
+today):
+
+```text
+┌ Timetable types ─────────────────────────────────────────────── Filter  Columns ┐
+│ Name ▲              │ Code   │ Duration │ Roles            │ Translations       ▲│
+│─────────────────────┼────────┼──────────┼──────────────────┼────────────────────█│ ← the browser's
+│ Regional - RE    │ 06-RE  │ 30 min   │ Driver           │ ar de en fr …      █│   own scrollbar,
+│ Diagnostics - RN    │ 06-DY  │ 20 min   │ Nurse            │ ar de en fr …      ░│   sized from the
+│ ▒▒▒▒▒▒▒▒▒▒▒▒▒       │ ▒▒▒▒   │ ▒▒▒▒     │ ▒▒▒▒▒▒▒          │ ▒▒▒▒▒▒▒▒           ░│   total
+│ ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒    │ ▒▒▒▒   │ ▒▒▒▒     │ ▒▒▒▒▒▒           │ ▒▒▒▒▒▒▒▒▒▒         ░│ ← placeholder rows
+│ ▒▒▒▒▒▒▒▒▒▒          │ ▒▒▒▒   │ ▒▒▒▒     │ ▒▒▒▒▒▒▒▒         │ ▒▒▒▒▒▒             ░│   until their page
+│                                                                                  ▼│   arrives (~0.1 s)
+├───────────────────────────────────────────────────────────────────────────────────┤
+│ 141–160 of 200 timetable types        Go to name…   Page [8] of 12   ⇤  ⇥      │ ← footer unchanged
+└───────────────────────────────────────────────────────────────────────────────────┘
+```
+
+The hand-drawn scrollbar beside a partly held list goes; the placeholder rows are today's loading
+rows. The visual baselines of lists with a partly held window change (the scrollbar), and their
+differences are shown in the delivery report.
+
+**Groups:** `volume` (with the new cases), `pytest tests/test_model_query.py
+tests/test_consumer_api_model.py tests/journeys/test_j01_find_and_inspect.py
+tests/journeys/test_j22_precise_dataset.py`; Vitest on `useCursorWindow`, `ScrollWindow`,
+`DataTable`, `client` and the nine surfaces' own files (D162); the browser runners of those
+surfaces, one at a time, each named when it starts: `s5` (with D164), `s7`, `k1`, `k5`, `a4`, `c4`,
+`change-sets`, `workspace-x4`; `test:a11y` and `test:visual` on the changed surfaces (baselines
+re-recorded where only the scrollbar changed); `npm run format`, `lint`, `build`; `ruff` on the
+changed files only; D159's measurement. **Not run:** the full suites (R).
+
+**Composable domains (ADR-032):** no contract change; the expansion stays generic over any relation
+and any ancestor value, so no door is affected.
 
 ## Part 2 — Production hardening
 
