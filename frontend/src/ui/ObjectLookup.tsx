@@ -1,11 +1,11 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import type { CandidateScope } from "@/model/candidates";
 import type { ObjectItem } from "@/types";
 import { InlineError } from "@/ui/InlineError";
-import { ScrollWindow } from "@/ui/ScrollWindow";
+import { ScrollWindow, WindowPlaceholder, WindowSpacer } from "@/ui/ScrollWindow";
 
 const PAGE_SIZE = 20;
 
@@ -69,6 +69,18 @@ export function ObjectLookup({
   const options = list.items.map((item, position) => ({ item, index: list.startIndex + position }));
   const choices = options.filter(({ item }) => item.id !== excludeId);
   const optionId = (objectId: string) => `${id}-option-${objectId}`;
+  // Only drawn options are in the page (0.11 X6): the active option, as it is drawn, names itself
+  // as the combobox's active descendant and comes into view, and leaving the page it unnames itself.
+  // The list redraws alone while it scrolls, so this component cannot do it from its own render.
+  const combobox = useRef<HTMLInputElement>(null);
+  const activeOption = useCallback((node: HTMLLIElement | null) => {
+    const input = combobox.current;
+    if (!input) return;
+    if (node) {
+      input.setAttribute("aria-activedescendant", node.id);
+      node.scrollIntoView?.({ block: "nearest" });
+    } else input.removeAttribute("aria-activedescendant");
+  }, []);
 
   useEffect(() => {
     if (priorWorkspace.current === workspaceKey) return;
@@ -118,12 +130,12 @@ export function ObjectLookup({
   return (
     <div className="object-lookup">
       <input
+        ref={combobox}
         role="combobox"
         aria-label={`Search: ${label}`}
         aria-expanded="true"
         aria-controls={`${id}-listbox`}
         aria-autocomplete="list"
-        aria-activedescendant={active && choices.some(({ item }) => item.id === active) ? optionId(active) : undefined}
         value={input}
         onChange={(event) => setInput(event.target.value)}
         placeholder="Search by name or attribute…"
@@ -175,30 +187,49 @@ export function ObjectLookup({
         rowNavigation={false}
         footer={false}
       >
-        <ul role="listbox" id={`${id}-listbox`} aria-label={label} className="object-lookup-options">
-          {choices.map(({ item, index }) => (
-            <li
-              key={item.id}
-              id={optionId(item.id)}
-              role="option"
-              aria-selected={chosenIds ? chosenIds.has(item.id) : item.id === chosenId}
-              aria-setsize={list.totalCount ?? -1}
-              aria-posinset={index + 1}
-              data-row-key={item.id}
-              data-row-index={index}
-              className={item.id === active ? "is-active" : undefined}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => choose(item)}
-            >
-              <span className="object-lookup-name">{item.name}</span>
-              <small>
-                {item.applicationKey} / {item.path.map((part) => part.name).join(" / ")}
-              </small>
-            </li>
-          ))}
-        </ul>
-        {!choices.length && (
-          <p className="object-lookup-state">{list.loading ? "Loading…" : list.error ? "" : "No matching objects"}</p>
+        {(drawn) => (
+          <>
+            <ul role="listbox" id={`${id}-listbox`} aria-label={label} className="object-lookup-options">
+              <WindowSpacer as="li" edge="before" height={drawn.before} />
+              {drawn.rows.map(({ index, item, size }) =>
+                item === undefined ? (
+                  <WindowPlaceholder key={`placeholder-${index}`} as="li" index={index} size={size} />
+                ) : item.id === excludeId ? (
+                  // The record being edited keeps its place in the list but is not offered.
+                  <li key={item.id} ref={drawn.measure} data-row-index={index} hidden />
+                ) : (
+                  <li
+                    key={item.id}
+                    ref={(node) => {
+                      drawn.measure(node);
+                      if (item.id === active) activeOption(node);
+                    }}
+                    id={optionId(item.id)}
+                    role="option"
+                    aria-selected={chosenIds ? chosenIds.has(item.id) : item.id === chosenId}
+                    aria-setsize={list.totalCount ?? -1}
+                    aria-posinset={index + 1}
+                    data-row-key={item.id}
+                    data-row-index={index}
+                    className={item.id === active ? "is-active" : undefined}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => choose(item)}
+                  >
+                    <span className="object-lookup-name">{item.name}</span>
+                    <small>
+                      {item.applicationKey} / {item.path.map((part) => part.name).join(" / ")}
+                    </small>
+                  </li>
+                ),
+              )}
+              <WindowSpacer as="li" edge="after" height={drawn.after} />
+            </ul>
+            {!choices.length && (
+              <p className="object-lookup-state">
+                {list.loading ? "Loading…" : list.error ? "" : "No matching objects"}
+              </p>
+            )}
+          </>
         )}
       </ScrollWindow>
     </div>

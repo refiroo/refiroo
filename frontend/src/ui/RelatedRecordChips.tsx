@@ -2,16 +2,22 @@
  * A row's related records in a relation column (0.9 K5, K5b): as many whole chips as the cell's width
  * holds, then "+N more" for the rest; no "+N more" when every record fits (D143 revised).
  *
- * The chips are drawn once at their natural width and measured; afterwards only those that fit are
- * drawn, and a resize of the cell recomputes how many from the measured widths (`fittingChips`)
- * without measuring again. Records that change are measured again, and a cell first drawn hidden is
- * measured when it is shown. A cell too narrow for one whole chip shows the first, clipped.
+ * In a table that knows its column's width (`CellRoom`, 0.11 X6) the cell computes how many fit from
+ * the chips' texts (`ui/chipFit`) and draws once: nothing is read back from the page and no observer
+ * is kept, so rows scroll in cheaply. Elsewhere (the narrow layout sizes columns to their content,
+ * and outside a table) the chips are drawn once at their natural width and measured; afterwards only
+ * those that fit are drawn, and a resize of the cell recomputes how many from the measured widths
+ * (`fittingChips`) without measuring again. Records that change are measured again, and a cell first
+ * drawn hidden is measured when it is shown. A cell too narrow for one whole chip shows the first,
+ * clipped.
  */
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useContext, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { Hue } from "@/model/hues";
 import { RecordChip } from "@/ui/RecordChip";
+import { chipMetricsVersion, chipsThatFit, subscribeChipMetrics } from "@/ui/chipFit";
 import { fittingChips } from "@/ui/relatedFit";
+import { CellRoom } from "@/ui/tableCell";
 
 export interface RelatedChip {
   key: string;
@@ -51,11 +57,22 @@ export function RelatedRecordChips({ chips, total }: { chips: RelatedChip[]; tot
   const identity = chips.map((chip) => `${chip.key}:${chip.text}`).join("|") + `#${total}`;
   const [measured, setMeasured] = useState<Measured>();
   const [available, setAvailable] = useState<number>();
-  const current = measured?.of === identity ? measured : undefined;
+  const room = useContext(CellRoom);
+  // Read so the cell draws again once the page's fonts have loaded and the widths are recomputed.
+  useSyncExternalStore(subscribeChipMetrics, chipMetricsVersion, chipMetricsVersion);
+  const computed =
+    room !== undefined && chips.length
+      ? chipsThatFit(
+          chips.map((chip) => chip.text),
+          total,
+          room,
+        )
+      : undefined;
+  const current = computed !== undefined ? undefined : measured?.of === identity ? measured : undefined;
 
   useLayoutEffect(() => {
     const element = box.current;
-    if (!element || current) return;
+    if (!element || current || computed !== undefined) return;
     const widths = Array.from(element.querySelectorAll<HTMLElement>("[data-related-chip]")).map(
       (chip) => chip.offsetWidth,
     );
@@ -66,25 +83,28 @@ export function RelatedRecordChips({ chips, total }: { chips: RelatedChip[]; tot
     if (!widths.some((width) => width > 0)) return;
     setMeasured({ of: identity, widths, gap, more });
     setAvailable(cellWidth(element));
-  }, [identity, current, available]);
+  }, [identity, current, available, computed]);
 
+  const measuring = computed === undefined;
   useLayoutEffect(() => {
     const element = box.current;
-    if (!element || typeof ResizeObserver === "undefined") return;
+    if (!element || !measuring || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(() => setAvailable(cellWidth(element)));
     observer.observe(element);
     const cell = element.closest("td, th");
     if (cell) observer.observe(cell);
     return () => observer.disconnect();
-  }, []);
+  }, [measuring]);
 
   // Before measuring, and where nothing can be measured (no layout), every chip is drawn.
   const shown =
-    current && available
+    computed ??
+    (current && available
       ? fittingChips({ widths: current.widths, gap: current.gap, available, total, moreWidth: () => current.more })
-      : chips.length;
+      : chips.length);
+  const settled = computed !== undefined || current !== undefined;
   // Before measuring, every chip is drawn: the rest of the row's records are counted.
-  const hidden = total - (current ? shown : chips.length);
+  const hidden = total - (settled ? shown : chips.length);
   const names = chips.map((chip) => chip.text).join(", ");
   return (
     <span
@@ -92,13 +112,13 @@ export function RelatedRecordChips({ chips, total }: { chips: RelatedChip[]; tot
       className={shown === 1 ? "related-records related-records-one" : "related-records"}
       title={total > chips.length ? `${names} and ${total - chips.length} more` : names}
     >
-      {chips.slice(0, current ? shown : chips.length).map((chip) => (
+      {chips.slice(0, settled ? shown : chips.length).map((chip) => (
         <span key={chip.key} className="related-records-chip" data-related-chip="">
           <RecordChip hue={chip.hue}>{chip.text}</RecordChip>
         </span>
       ))}
       {hidden > 0 && <span className="related-records-more">+{hidden} more</span>}
-      {!current && (
+      {!settled && (
         <span className="related-records-measure" data-related-measure="" aria-hidden="true">
           +{total} more
         </span>

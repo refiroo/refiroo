@@ -108,7 +108,9 @@ empty result, not an error. A failed page or panel can retry without losing succ
 - **J01.9 A field of the related records in a list** (0.9 K5a): the column names a field of the
   related records or of a record above them (`related:<key>.<field>`, the field as the consumer API
   writes it: `name`, an attribute, `ancestor:<type>.<field>`), and each chip shows that value, "—"
-  where a record has none; such a column does not sort.
+  where a record has none; such a column does not sort. The values are those reading each related
+  record and its ancestor in the same context gives: live, in a change set or in a publication
+  (0.11 X6).
 - **J01.10 Filter a list by its records' relationships** (0.9 K6): the records related, through one
   relationship, to any of chosen records, to none, or to any (`filter.related:<key>.eq` and
   `.isNull`); with the search and other filters, in every context, paged with totals; in the

@@ -6,10 +6,12 @@
  * (0.10 A4a), so a name is edited the same way wherever it is.
  */
 
-import type { FormEvent, ReactNode, Ref } from "react";
+import { useContext, type FormEvent, type ReactNode, type Ref } from "react";
 import { readEditHint } from "@/lib/editHint";
 import { Icon } from "@/ui/Icon";
+import { editIconsRoom } from "@/ui/chipFit";
 import { IconButton } from "@/ui/IconButton";
+import { CellRoom, RowActive } from "@/ui/tableCell";
 
 export type EditLayout = "row" | "title" | "subtitle";
 
@@ -70,6 +72,10 @@ export function EditInPlaceValue({
  * opens the record, as anywhere in the row), then a pencil and, given `onRemove`, a trash. The cell
  * shows them while the pointer is over it, always on touch; they are out of the tab order, since the row's Edit record
  * and its menu are the keyboard's way.
+ *
+ * In a table only the active row (pointer over it or focus in it, `RowActive`) draws the buttons; the
+ * others keep their room empty, so nothing moves when the row becomes active (0.11 X6). The value is
+ * told the width the buttons leave it (`CellRoom`).
  */
 export function EditInPlaceCell({
   name,
@@ -90,9 +96,25 @@ export function EditInPlaceCell({
   /** The value as the list shows it. */
   children: ReactNode;
 }) {
+  const active = useContext(RowActive);
+  const room = useContext(CellRoom);
+  const icons = onRemove ? 2 : 1;
+  const reserved = room === undefined ? undefined : editIconsRoom(icons);
+  const value = (
+    <CellRoom.Provider value={room === undefined || reserved === undefined ? undefined : room - reserved}>
+      <span className="cell-edit-value">{children}</span>
+    </CellRoom.Provider>
+  );
+  if (!active)
+    return (
+      <span className="cell-edit" ref={cellRef}>
+        {value}
+        <span className="cell-edit-actions cell-edit-actions-kept" data-icons={icons} aria-hidden="true" />
+      </span>
+    );
   return (
     <span className="cell-edit" ref={cellRef}>
-      <span className="cell-edit-value">{children}</span>
+      {value}
       <span className="cell-edit-actions">
         <IconButton
           icon="pencil"

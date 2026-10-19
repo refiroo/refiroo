@@ -197,7 +197,100 @@ proposed by the inference and completed with A5's mapping operations. X2 selects
 runs every item. X3 moves or copies it into a reviewed change set, with identity, relationships,
 hierarchy, values and history carried or reported. X4 is the move editor. X5 is the checkpoint.
 
-### Part 2 — Production hardening
+###### X6 record (2026-10-19)
+
+**Delivered 2026-10-19**, with decisions changed during the work after the user's reports, each
+recorded below. Not committed.
+
+**Built as planned:**
+
+- **D155, the narrow expansion read.** An expansion with `select` reads only what it selects in its
+  one statement (`relation_queries.expansion_rows(narrow=…)`): the related records' columns and
+  values, and `ancestor:<type>` values by a walk up the parent chain inside it (`_ancestor_walk`,
+  `_nearest_ancestor`, now shared with the relation list's ancestor sort). An expansion without
+  `select`, or whose `select` names `path`, keeps the full records. Journey case J01.9 "a list's
+  related fields read alike in every context" (both configurations).
+- **D157, one request per identical read** in `api/client.ts`: a GET still in flight is shared;
+  each caller parses its own copy of the answer, so one changing what it received cannot change
+  another's. Nothing is cached.
+- **D158, the budget cases**: `objects: relation columns` and `nodes: relation columns with an
+  ancestor value`, 20 and 200 rows, every context, in `volume_baseline.py`
+  (`--only-relation-columns`) and `test_volume_baseline` (budget 2 per 200-row page). Seen failing
+  on the code before: 131 and 172 ORM rows for a 20-row page, over 120.
+- **D156, D161–D164, lists drawn by row number.** `useCursorWindow` reads the reader's page only
+  (`SCROLL_CHUNK` removed), reads toward the view (`show`) and makes one position read where a far
+  move rests (`rest`); `ScrollWindow` sizes the scroll space from the total, draws the range
+  `@tanstack/react-virtual` (3.14.13, pinned) gives between `WindowSpacer`s, a row not held as a
+  `WindowPlaceholder`; the hand-drawn scrollbar and the anchoring code are gone. All nine surfaces
+  of D162 draw the range in their own markup; the record tree keeps its groups. The volume model's
+  item view gained a relation column (D164), which re-seeded the volume seeds once.
+
+**Changed after the user's reports (2026-10-19), decided with the user:**
+
+- **The window fills itself** (amends D156's "two screens"): after the view's two screens it reads
+  on in the background, a budget page at a time, until it holds about as much as it keeps
+  (`WINDOW_ROWS` 600 less a page either side). A list of a few hundred records is held whole a
+  moment after it opens; grey rows appear only after a jump far into a longer list.
+- **A row's cost is fixed and small** (the user: "laggy and jumping"; profile on the reported view):
+  relation cells compute how many chips fit from their text and the column's width
+  (`ui/chipFit.ts`, `CellRoom`), measured once per column by `DataTable`; edit and remove buttons
+  are drawn only in the hovered or focused row (`RowActive`, the others keeping their room; every
+  row on a screen without hover); rows are memoised; the visible rows are found by arithmetic, and a
+  row is measured once. The measuring of different row heights stays (rows may wrap; the user
+  declined one-line cells).
+- **D159's full-volume measurement dropped** (with the user: nothing in X6 grows with the data;
+  POSTGRESQL_BUDGETS §14). Its second half was done: the reported view opens in 0.66 s (2.2 s),
+  and in the production build it scrolls at 16.7 ms a frame at a fast flick and at 25,000 px/s,
+  no long task, no grey row; in the development build pauses of 55–65 ms remain (React's
+  development checks).
+- **D160:** not traced; the shared reads removed the doubled reads, and no read was seen waiting on
+  another.
+
+**Defects found and fixed on the way** (each with its regression test or runner case):
+
+1. Rows drifted while scrolling: row heights were rounded to whole pixels, and the first drawn row
+   lost half its collapsed border when the row above it left the page (s5 walk).
+2. Ctrl+End then Ctrl+Home at once landed at the end: a landing on held rows did not cancel a jump
+   still being read (`useCursorWindow.test`).
+3. A reopened link landed one to three rows early: it landed before the rows' start was measured,
+   and the estimate for unmeasured rows moved the rows above it; a landing now waits for the
+   margin, the estimate changes only while no unmeasured row is above the view, and the landed row
+   is held in place until the reader moves (s5, s7).
+4. The move dialog could drop the source workspace the user chose (`WorkspaceField`: only a
+   workspace it picked itself gives way). Seen once in `workspace-x4`; it passed after the fix.
+5. The loaded rows could be selected past the bulk limit once the window loads whole lists: the
+   header checkbox and Cmd+A over the loaded rows are refused over `maxItems` with the same
+   explanation as all matching (`useRecordSelection.test`).
+6. The record lookup's active option was not named to assistive technology once the list redrew
+   alone; the option now names itself as it is drawn (s5).
+
+**Where it differs from the plan:** D164 (2) holds for the lens and panels; the rail's record tree
+reads its groups at its own page size (D162). K1's "Select all N matching" button is exercised only
+by Vitest now: K1's 80 domains are held whole, so the button is not offered in the browser; Cmd+A
+reaches all matching while rows are still read.
+
+**Checks (2026-10-19):** backend: `test_model_query`, `test_consumer_api_model`, J01, J22,
+`test_relation_queries` (152 passed), `test_paging_contract`, `test_relations` (51 passed),
+`test_volume_baseline` budgets (3 passed; failing before on the 20-row reads); `ruff check` on the
+changed files. Frontend: Vitest on the changed areas (488 passed, among them the window model, the
+client's shared reads, the edit controls and the selection limit); `tsc`, `npm run lint` (0 errors,
+the 7 listed warnings), `npm run build`. Browser runners, each run alone: `s5` (18 checks, with
+D164's cases: no row moved more than 0.2 px in any wheel walk, 599 lens reads all of
+20), `s7` (14), `k1` (11), `k5` (10), `a4` (10), `c4`, `change-sets`, `workspace-x4` (7),
+`authoring-a9`. `a4` failed once in three runs (focus not back on the matrix cell after the unlink
+dialog at 390px); cause not found, TODO. Gates: `test:a11y` passed (no unexpected violation; its
+spreadsheet surfaces now move the pointer over a row before its edit buttons); `test:visual`, 169
+checks: 35 differed (0.5–3.3%), 17 of them already since `ad0d19c` and `4c144bc` (the rail's layout),
+the rest X6's lists (rows and markers placed by row number, the browser's scrollbar); inspected,
+the 35 baselines re-recorded and **wait for the user's review** with X5's, the update's other
+rewrites restored. The budget tests ran again after the volume model's change (3 passed).
+
+**Not run:** the full suites (R); the full-volume measurement (dropped above).
+
+**What the user still cannot do:** find a value with the browser's find-in-page in rows not drawn
+(the list's search finds every record).
+
+## Part 2 — Production hardening
 
 **S1 — the backend suite's time** (D152). **Track N — several processes and nodes:** snapshot
 propagation (now per workspace), the job worker under real concurrency, the invariants at full
@@ -307,7 +400,7 @@ change) and `volume` (every budget).
 | 14 | [X3](#x3-the-move) | X2 | **Delivered 2026-10-18.** Copy or move into a reviewed change set: the dry run confirmed or executed, origins and the move back, the source's deletion published after the copy |
 | 15 | [X4](#x4-the-move-editor) | X3, M5 | **Delivered 2026-10-19.** The move editor: the two models, the mapping, the proposals, the dry-run figures and the report |
 | 16 | [X5](#x5-move-checkpoint) | X4 | **Delivered 2026-10-19** (screenshots and ten new baselines wait for approval). The move exit item composed in the browser; the move at full volume measured, with six defects fixed on the way |
-| 16a | [X6](#x6-list-reads-within-the-agreed-budget) | X5 | A table's first screen with relation columns within the 0.8 budgets; expansions read in PostgreSQL; the case in the volume baseline; one scrolling design for every long list (budget pages, drawn only near the view) |
+| 16a | [X6](#x6-list-reads-within-the-agreed-budget) | X5 | **Delivered 2026-10-19.** A table's first screen with relation columns within the 0.8 budgets; expansions read in PostgreSQL; the case in the volume baseline; one scrolling design for every long list (budget pages, drawn only near the view) |
 | | **Part 2 — production hardening** | | |
 | 17 | [S1](#s1-the-backend-suites-time) | — | **Delivered 2026-10-18.** Journey cases spread over the workers; the full suite with `-n 6` under a revised 11-minute ceiling (D126) |
 | 18 | [N1](#n1-snapshots-across-processes) | M2 | Assignment changes propagated across processes; model administration with `WEB_CONCURRENCY` above 1 |

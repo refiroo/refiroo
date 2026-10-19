@@ -3,7 +3,8 @@
  *
  * The selection belongs to the list it was made over (D108): a new `listKey` (the search, the
  * filters and the scope) starts from nothing, while sorting, scrolling and opening records keep it.
- * "All matching" is refused over `maxItems`, the most one bulk change may hold (D104); the refusal
+ * "All matching", and the loaded rows, are refused over `maxItems`, the most one bulk change may
+ * hold (D104); the refusal
  * is kept to be explained until the selection or the list changes.
  */
 
@@ -49,10 +50,17 @@ export function useRecordSelection(listKey: string, rows: readonly SelectableRow
     isSelected: (id: string) => isSelected(selection, id),
     toggle: (row: SelectableRow, extend: boolean) =>
       change((previous) => (extend ? range(previous, rows, row) : toggle(previous, row))),
-    toggleLoaded: () => change((previous) => toggleLoaded(previous, rows)),
+    // The loaded rows are refused over `maxItems` as all matching is: a list reads on in the
+    // background (0.11 X6), so the rows loaded may be more than one bulk change may hold.
+    toggleLoaded: () =>
+      loadedState(selection, rows) !== "all" && rows.length > maxItems
+        ? setHeld({ listKey, selection, refusedTotal: rows.length })
+        : change((previous) => toggleLoaded(previous, rows)),
     /** Selects the loaded rows, keeping what is selected (Cmd+A over a list that is all loaded). */
     selectLoaded: () =>
-      change((previous) => (loadedState(previous, rows) === "all" ? previous : toggleLoaded(previous, rows))),
+      rows.length > maxItems
+        ? setHeld({ listKey, selection, refusedTotal: rows.length })
+        : change((previous) => (loadedState(previous, rows) === "all" ? previous : toggleLoaded(previous, rows))),
     /** Selects every record the list matches, or refuses it over `maxItems`. */
     selectMatching: (total: number) =>
       total > maxItems ? setHeld({ listKey, selection, refusedTotal: total }) : change(() => selectMatching(total)),

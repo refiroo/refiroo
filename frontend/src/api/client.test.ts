@@ -144,6 +144,33 @@ describe("API client", () => {
     expect(Object.fromEntries(all.searchParams)).toEqual({ from: "end", relationTypeKey: "maps-to" });
   });
 
+  it("shares one pending read among identical calls, and never a finished one or a write (0.11 X6, D157)", async () => {
+    let answer: (response: Response) => void = () => undefined;
+    const fetchMock = vi.fn().mockImplementation((_url: string, init?: RequestInit) =>
+      init?.method === "DELETE"
+        ? Promise.resolve(new Response(null, { status: 204 }))
+        : new Promise<Response>((resolve) => {
+            answer = resolve;
+          }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const first = api.capabilities();
+    const second = api.capabilities();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    answer(jsonResponse({ features: ["one"] }));
+    expect(await first).toEqual({ features: ["one"] });
+    expect(await second).toEqual({ features: ["one"] });
+
+    const third = api.capabilities();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    answer(jsonResponse({ features: ["two"] }));
+    expect(await third).toEqual({ features: ["two"] });
+
+    await Promise.all([api.deleteObject("thing", "id", 2), api.deleteObject("thing", "id", 2)]);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
   it("preserves structured errors", async () => {
     vi.stubGlobal(
       "fetch",

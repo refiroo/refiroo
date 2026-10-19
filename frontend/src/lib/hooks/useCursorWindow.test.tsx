@@ -151,13 +151,112 @@ describe("useCursorWindow", () => {
     await waitFor(() => expect(result.current.items).toHaveLength(10));
     act(() => result.current.jumpTo(50));
     await waitFor(() => expect(result.current.items[0]).toBe(50));
+    act(() => result.current.loadNext());
+    await waitFor(() => expect(result.current.items).toHaveLength(20));
     act(() => result.current.setViewportIndex(53));
     rerender({ search: "a", token: 1 });
     await waitFor(() => expect(fetch).toHaveBeenLastCalledWith({ cursor: "from:50", includeTotal: true }));
-    await waitFor(() => expect(result.current.landing?.target).toBe(53));
+    // The rows keep their places (0.11 X6): nothing scrolls, and the rows held before stay drawn
+    // where no fresh row is held yet.
+    await waitFor(() => expect(result.current.landing?.target).toBe("keep"));
+    expect(result.current.items).toEqual([50, 51, 52, 53, 54, 55, 56, 57, 58, 59]);
+    expect(result.current.itemAt(65)).toBe(65);
     rerender({ search: "b", token: 1 });
     expect(result.current.items).toEqual([]);
     expect(result.current.loading).toBe(true);
     await waitFor(() => expect(result.current.items[0]).toBe(0));
+  });
+
+  describe("a list drawn by row number (0.11 X6, D156)", () => {
+    it("reads ahead toward the view one page at a time, and fills itself until nearly full", async () => {
+      const fetch = server(1000, 20);
+      const { result } = renderHook(() => useCursorWindow(fetch, ["list"]));
+      await waitFor(() => expect(result.current.items).toHaveLength(20));
+      // The view shows rows 0–14 and needs two screens (30 rows) beyond it held.
+      act(() => {
+        result.current.show(0, 14, 30);
+        result.current.show(0, 14, 30);
+      });
+      // One request per direction at a time, however often the view asks.
+      expect(fetch).toHaveBeenCalledTimes(2);
+      await waitFor(() => expect(result.current.items).toHaveLength(40));
+      // The view keeps asking as it draws; the window goes on until it holds about as much as it
+      // keeps, with room for a page either side, and then stops.
+      for (let round = 0; round < 20; round++) {
+        act(() => result.current.show(0, 14, 30));
+        await waitFor(() => expect(result.current.after.loading).toBe(false));
+      }
+      expect(result.current.items).toHaveLength(280);
+      expect(result.current.items.length).toBeLessThan(WINDOW_ROWS);
+      expect(fetch.mock.calls.slice(1).every(([selector]) => selector.cursor?.startsWith("from:"))).toBe(true);
+      // A list shorter than the window is held whole.
+      const short = server(220, 20);
+      const { result: whole } = renderHook(() => useCursorWindow(short, ["short"]));
+      await waitFor(() => expect(whole.current.items).toHaveLength(20));
+      for (let round = 0; round < 12; round++) {
+        act(() => whole.current.show(0, 14, 30));
+        await waitFor(() => expect(whole.current.after.loading).toBe(false));
+      }
+      expect(whole.current.items).toHaveLength(220);
+      expect(whole.current.hasNext).toBe(false);
+    });
+
+    it("reads nothing while a far move is under way, then one position read where it rests", async () => {
+      const fetch = server(1000, 20);
+      const { result } = renderHook(() => useCursorWindow(fetch, ["list"]));
+      await waitFor(() => expect(result.current.items).toHaveLength(20));
+      act(() => {
+        for (const first of [200, 400, 700]) result.current.show(first, first + 14, 30);
+      });
+      expect(fetch).toHaveBeenCalledTimes(1);
+      act(() => result.current.rest(700, 714, 30));
+      await waitFor(() => expect(result.current.startIndex).toBe(700));
+      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(fetch).toHaveBeenLastCalledWith({ position: 700, includeTotal: true });
+      expect(result.current.landing?.target).toBe("keep");
+      expect(result.current.itemAt(705)).toBe(705);
+      expect(result.current.itemAt(5)).toBeUndefined();
+      // A view at rest near the held rows reads on with cursors, not positions.
+      act(() => result.current.rest(705, 719, 30));
+      act(() => result.current.show(705, 719, 30));
+      await waitFor(() => expect(result.current.itemAt(680)).toBe(680));
+      await waitFor(() => expect(result.current.itemAt(739)).toBe(739));
+      expect(fetch.mock.calls.slice(2).every(([selector]) => selector.cursor !== undefined)).toBe(true);
+    });
+
+    it("forgets the rows furthest from the view without moving any other row", async () => {
+      const fetch = server(2000, 20);
+      const { result } = renderHook(() => useCursorWindow(fetch, ["list"]));
+      await waitFor(() => expect(result.current.items).toHaveLength(20));
+      for (let page = 1; page < 40; page++) {
+        act(() => result.current.loadNext());
+        await waitFor(() => expect(result.current.items.at(-1)).toBe(page * 20 + 19));
+        // Every held row stays at its own row number.
+        const { startIndex, items } = result.current;
+        expect(items.every((row, offset) => row === startIndex + offset)).toBe(true);
+      }
+      expect(result.current.items.length).toBeLessThanOrEqual(WINDOW_ROWS + 20);
+      expect(result.current.itemAt(0)).toBeUndefined();
+      expect(result.current.itemAt(799)).toBe(799);
+    });
+  });
+
+  it("lands a jump to held rows over a jump still being read (0.11 X6)", async () => {
+    let answer: (page: WindowedPage<number>) => void = () => undefined;
+    const pages = server(1000, 20);
+    const fetch = vi.fn((selector: PageSelector) =>
+      selector.fromEnd ? new Promise<WindowedPage<number>>((resolve) => (answer = resolve)) : pages(selector),
+    );
+    const { result } = renderHook(() => useCursorWindow(fetch, ["list"]));
+    await waitFor(() => expect(result.current.items).toHaveLength(20));
+    act(() => result.current.jumpToEnd(true));
+    act(() => result.current.jumpToStart(true));
+    expect(result.current.landing?.target).toBe("start");
+    act(() =>
+      answer({ items: [980, 999], prevCursor: "before:980", nextCursor: null, totalCount: 1000, startIndex: 980 }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(result.current.landing?.target).toBe("start");
+    expect(result.current.startIndex).toBe(0);
   });
 });

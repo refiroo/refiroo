@@ -485,19 +485,10 @@
 .scroll-window-viewport {
   max-height: max(240px, var(--window-height));
   overflow: auto;
-  /* Rows added or evicted above keep the view still: by the browser's scroll anchoring where it
-     has it (`.anchors`), by ScrollWindow elsewhere. Reaching the first or last row, the wheel
-     carries on to the page; it is never held in the list. */
-  overflow-anchor: none;
-}
-.scroll-window-viewport.anchors {
-  overflow-anchor: auto;
-}
-/* The sticky header, the resize handles and the edge notes never anchor: they do not move with the
-   rows. */
-.scroll-window-viewport thead,
-.scroll-window-viewport .column-resizers,
-.scroll-window-viewport .scroll-window-edge {
+  /* The rows keep their places by row number, and the window itself corrects the scroll position
+     when a row above the view changes height (0.11 X6, D161): the browser's own anchoring would
+     correct it a second time. Reaching the first or last row, the wheel carries on to the page; it
+     is never held in the list. */
   overflow-anchor: none;
 }
 .scroll-window-viewport:focus-visible {
@@ -508,63 +499,36 @@
   top: 0;
   z-index: 1;
 }
-/* The window scrollbar replaces the vertical bar, which would describe only the rows held. */
-.scroll-window-viewport.has-window-scrollbar {
-  padding-right: 12px;
+/* The height of the rows not drawn (ui/ScrollWindow's WindowSpacer). */
+.window-spacer,
+.window-spacer > td {
+  padding: 0;
+  border: 0;
+  margin: 0;
+  list-style: none;
 }
-.scroll-window-viewport.has-window-scrollbar::-webkit-scrollbar {
-  width: 0;
-  height: 10px;
+/* Standing for rows, a table spacer keeps the border they shared with the first drawn row. */
+.window-spacer.stands-for-rows > td {
+  border-bottom: 1px solid var(--border-faint);
 }
-.scroll-window-viewport.has-window-scrollbar::-webkit-scrollbar-thumb {
-  border: 2px solid var(--surface-raised);
-  border-radius: 6px;
-  background: var(--border-strong);
+/* A row whose page has not arrived: muted bars at the height its place holds (D163). */
+.window-placeholder {
+  box-sizing: border-box;
+  list-style: none;
+  overflow: hidden;
 }
-@supports not selector(::-webkit-scrollbar) {
-  .scroll-window-viewport.has-window-scrollbar {
-    scrollbar-width: none;
-  }
+.window-placeholder:hover {
+  background: transparent;
 }
-.window-scrollbar {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  bottom: 2px;
-  width: 10px;
-  border-radius: 5px;
-  touch-action: none;
-  cursor: pointer;
+div.window-placeholder,
+li.window-placeholder {
+  display: flex;
+  align-items: center;
 }
-.window-scrollbar:hover {
-  background: var(--surface-hover);
-}
-.window-scrollbar-thumb {
-  position: relative;
-  width: 100%;
-  border-radius: 5px;
-  background: var(--border-control);
-  cursor: grab;
-}
-.window-scrollbar:hover .window-scrollbar-thumb,
-.window-scrollbar-thumb.is-dragging {
-  background: var(--text-tertiary);
-}
-.window-scrollbar-thumb.is-dragging {
-  cursor: grabbing;
-}
-.window-scrollbar-tip {
-  position: absolute;
-  top: 50%;
-  right: 16px;
-  padding: 2px 7px;
-  border-radius: 5px;
-  background: var(--text-primary);
-  color: var(--surface-raised);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  transform: translateY(-50%);
+.window-placeholder .skeleton-line {
+  display: block;
+  width: 64%;
+  height: 12px;
 }
 .scroll-window-edge {
   display: flex;
@@ -576,29 +540,8 @@
   color: var(--text-tertiary);
   font-size: 12.5px;
 }
-.scroll-window-edge.is-loading {
-  color: var(--text-tertiary);
-}
 .scroll-window-edge-error {
   color: var(--status-error-action);
-}
-.scroll-window-spinner {
-  width: 12px;
-  height: 12px;
-  border: 2px solid var(--border-strong);
-  border-top-color: var(--action-primary);
-  border-radius: 50%;
-  animation: window-spin 0.8s linear infinite;
-}
-@keyframes window-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .scroll-window-spinner {
-    animation: none;
-  }
 }
 .scroll-window-footer {
   display: flex;
@@ -1417,6 +1360,14 @@ td:hover .cell-edit-actions {
 .cell-edit-actions .icon-button.icon-button-quiet {
   width: 26px;
   min-height: 26px;
+}
+/* A row not active keeps the icons' room without drawing them (ui/EditInPlace, 0.11 X6). */
+.cell-edit-actions-kept {
+  width: 26px;
+  height: 26px;
+}
+.cell-edit-actions-kept[data-icons="2"] {
+  width: 52px;
 }
 .cell-edit-actions .icon-button:disabled {
   visibility: hidden;

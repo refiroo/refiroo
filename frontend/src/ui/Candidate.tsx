@@ -1,4 +1,4 @@
-import type { LabelHTMLAttributes, ReactNode } from "react";
+import type { LabelHTMLAttributes, ReactNode, Ref } from "react";
 import type { Hue } from "@/model/hues";
 import { HueTile } from "@/ui/HueTile";
 
@@ -19,6 +19,7 @@ export function Candidate({
   disabled = false,
   className,
   children,
+  ref,
   ...rest
 }: {
   /** The row's input. */
@@ -31,10 +32,12 @@ export function Candidate({
   className?: string;
   /** Notes after the text, such as why the record cannot be chosen. */
   children?: ReactNode;
+  /** A scroll window's row measure (`ui/ScrollWindow`). */
+  ref?: Ref<HTMLLabelElement>;
 } & Omit<LabelHTMLAttributes<HTMLLabelElement>, "className" | "children">) {
   const classes = ["candidate", selected && "selected", disabled && "is-disabled", className].filter(Boolean).join(" ");
   return (
-    <label className={classes} {...rest}>
+    <label ref={ref} className={classes} {...rest}>
       {control}
       {type === null ? (
         <span className="candidate-tile-space" aria-hidden="true" />

@@ -127,6 +127,11 @@ export async function visitSpreadsheetSurfaces(visit) {
       toObjectId: masterValue.id,
     });
     const cell = () => page.getByRole("button", { name: /^Edit Maps to master value of / }).first();
+    // A row draws its cells' edit buttons while the pointer is over it (0.11 X6): the pointer reaches
+    // the first row on its way to the cell.
+    const reachRow = async () => {
+      await page.locator("tbody tr[data-row-key]").first().hover();
+    };
 
     // Each: [name, open, { dark }]. A dialog surface opens over the page the surface before it left.
     const surfaces = [
@@ -203,6 +208,8 @@ export async function visitSpreadsheetSurfaces(visit) {
         "collection-cell-hover",
         async () => {
           await page.goto(values);
+          await page.locator("tbody tr[data-row-key]").first().waitFor();
+          await reachRow();
           await cell().waitFor();
           await cell().locator("xpath=ancestor::td").hover();
         },
@@ -211,6 +218,7 @@ export async function visitSpreadsheetSurfaces(visit) {
       [
         "collection-related-records-dialog",
         async () => {
+          await reachRow();
           await cell().click();
           await dialog().getByRole("button", { name: "Save" }).waitFor();
         },

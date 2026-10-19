@@ -20,7 +20,7 @@ import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
-import { ScrollWindow } from "@/ui/ScrollWindow";
+import { ScrollWindow, WindowPlaceholder, WindowSpacer } from "@/ui/ScrollWindow";
 import { Candidate } from "@/ui/Candidate";
 import { HueTile } from "@/ui/HueTile";
 import { objectTypeTile } from "@/model/hues";
@@ -685,36 +685,53 @@ function CreateCellRecord({
             footer={false}
             className="candidate-scroll"
           >
-            {containers.items.map((container, position) => (
-              <Candidate
-                key={container.id}
-                data-row-key={container.id}
-                data-row-index={containers.startIndex + position}
-                selected={containerId === container.id}
-                control={
-                  <input
-                    type="radio"
-                    name="matrix-container"
-                    value={container.id}
-                    checked={containerId === container.id}
-                    onChange={() => {
-                      setContainerId(container.id);
-                      setMissingContainer(false);
-                    }}
-                  />
-                }
-                type={objectTypeTile(model, container.objectTypeKey)}
-                name={container.name}
-                detail={pathOf(container)}
-              />
-            ))}
-            {containers.loading && !containers.items.length && <p className="candidate-state">Loading…</p>}
-            {!containers.loading && !containers.error && !containers.items.length && (
-              <p className="candidate-state">
-                {debounced
-                  ? `No places match “${debounced}”.`
-                  : `Nothing under ${column.name} can hold a ${cellType.name.toLowerCase()}.`}
-              </p>
+            {(drawn) => (
+              <>
+                <WindowSpacer as="div" edge="before" height={drawn.before} />
+                {drawn.rows.map(({ index, item: container, size }) =>
+                  container === undefined ? (
+                    <WindowPlaceholder
+                      key={`placeholder-${index}`}
+                      as="div"
+                      index={index}
+                      size={size}
+                      className="candidate"
+                    />
+                  ) : (
+                    <Candidate
+                      key={container.id}
+                      data-row-key={container.id}
+                      ref={drawn.measure}
+                      data-row-index={index}
+                      selected={containerId === container.id}
+                      control={
+                        <input
+                          type="radio"
+                          name="matrix-container"
+                          value={container.id}
+                          checked={containerId === container.id}
+                          onChange={() => {
+                            setContainerId(container.id);
+                            setMissingContainer(false);
+                          }}
+                        />
+                      }
+                      type={objectTypeTile(model, container.objectTypeKey)}
+                      name={container.name}
+                      detail={pathOf(container)}
+                    />
+                  ),
+                )}
+                <WindowSpacer as="div" edge="after" height={drawn.after} />
+                {containers.loading && !containers.items.length && <p className="candidate-state">Loading…</p>}
+                {!containers.loading && !containers.error && !containers.items.length && (
+                  <p className="candidate-state">
+                    {debounced
+                      ? `No places match “${debounced}”.`
+                      : `Nothing under ${column.name} can hold a ${cellType.name.toLowerCase()}.`}
+                  </p>
+                )}
+              </>
             )}
           </ScrollWindow>
           {containers.error && <InlineError message={containers.error} onRetry={containers.retry} />}
@@ -831,40 +848,57 @@ function LinkCandidates({
           footer={false}
           className="candidate-scroll"
         >
-          {candidates.items.map((candidate, position) => (
-            <Candidate
-              key={candidate.id}
-              data-row-key={candidate.id}
-              data-row-index={candidates.startIndex + position}
-              selected={selectedId === candidate.id}
-              disabled={!candidate.eligible}
-              control={
-                <input
-                  type="radio"
-                  name="matrix-link"
-                  value={candidate.id}
-                  checked={selectedId === candidate.id}
-                  disabled={!candidate.eligible}
-                  onChange={() => setSelectedId(candidate.id)}
-                />
-              }
-              type={objectTypeTile(model, candidate.objectTypeKey)}
-              name={candidate.name}
-              detail={candidateDetails(candidate)}
-            >
-              {!candidate.eligible && candidate.reason && (
-                <StatusPill tone="neutral" marker={false}>
-                  {REASONS[candidate.reason](context)}
-                </StatusPill>
+          {(drawn) => (
+            <>
+              <WindowSpacer as="div" edge="before" height={drawn.before} />
+              {drawn.rows.map(({ index, item: candidate, size }) =>
+                candidate === undefined ? (
+                  <WindowPlaceholder
+                    key={`placeholder-${index}`}
+                    as="div"
+                    index={index}
+                    size={size}
+                    className="candidate"
+                  />
+                ) : (
+                  <Candidate
+                    key={candidate.id}
+                    data-row-key={candidate.id}
+                    ref={drawn.measure}
+                    data-row-index={index}
+                    selected={selectedId === candidate.id}
+                    disabled={!candidate.eligible}
+                    control={
+                      <input
+                        type="radio"
+                        name="matrix-link"
+                        value={candidate.id}
+                        checked={selectedId === candidate.id}
+                        disabled={!candidate.eligible}
+                        onChange={() => setSelectedId(candidate.id)}
+                      />
+                    }
+                    type={objectTypeTile(model, candidate.objectTypeKey)}
+                    name={candidate.name}
+                    detail={candidateDetails(candidate)}
+                  >
+                    {!candidate.eligible && candidate.reason && (
+                      <StatusPill tone="neutral" marker={false}>
+                        {REASONS[candidate.reason](context)}
+                      </StatusPill>
+                    )}
+                  </Candidate>
+                ),
               )}
-            </Candidate>
-          ))}
-          {candidates.loading && !candidates.items.length && <p className="candidate-state">Loading…</p>}
-          {!candidates.loading && !candidates.error && !candidates.items.length && (
-            <p className="candidate-state">
-              No {plural} under {column.name}
-              {debounced ? ` match “${debounced}”` : ""}.
-            </p>
+              <WindowSpacer as="div" edge="after" height={drawn.after} />
+              {candidates.loading && !candidates.items.length && <p className="candidate-state">Loading…</p>}
+              {!candidates.loading && !candidates.error && !candidates.items.length && (
+                <p className="candidate-state">
+                  No {plural} under {column.name}
+                  {debounced ? ` match “${debounced}”` : ""}.
+                </p>
+              )}
+            </>
           )}
         </ScrollWindow>
         {candidates.error && <InlineError message={candidates.error} onRetry={candidates.retry} />}

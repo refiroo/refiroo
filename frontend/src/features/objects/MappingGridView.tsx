@@ -1,10 +1,10 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, type Ref } from "react";
 import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
-import { scrollChunk, useCursorWindow } from "@/lib/hooks/useCursorWindow";
+import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { errorMessage, isApiError } from "@/api/errors";
 import { InlineError } from "@/ui/InlineError";
-import { ScrollWindow } from "@/ui/ScrollWindow";
+import { ScrollWindow, WindowPlaceholder, WindowSpacer } from "@/ui/ScrollWindow";
 import { Icon } from "@/ui/Icon";
 import { PageHeader } from "@/ui/PageHeader";
 import { HueTile } from "@/ui/HueTile";
@@ -31,9 +31,6 @@ import type { ViewComponentProps } from "./views/types";
 import { DebouncedSearchField } from "@/ui/SearchField";
 import { StatusPill, type StatusTone } from "@/ui/StatusPill";
 import { Card } from "@/ui/Card";
-
-/** The most rows `GET …/mapping-coverage` serves in one page. */
-const COVERAGE_PAGE_MAX = 100;
 
 const STATE_FILTERS: { value: "" | "unmapped" | "mapped" | "ambiguous"; label: string }[] = [
   { value: "", label: "All" },
@@ -87,9 +84,7 @@ export function MappingGridView({
         parentObjectId: query.parentObjectId,
         state: query.mappingState,
         ...selector,
-        // The coverage route serves at most 100 rows a page; the scroll chunk (200) made every
-        // read a 422 (found in 0.11 X5's gates). X6 replaces the chunk with the reader's page.
-        pageSize: Math.min(scrollChunk(pageSize), COVERAGE_PAGE_MAX),
+        pageSize,
       }),
     [
       application.key,
@@ -123,6 +118,13 @@ export function MappingGridView({
   const sourceColumns = config.sourceColumns.filter((column) => column !== "name");
   const targetColumns = config.targetDisplayColumns.filter((column) => column !== "name");
   const columnCount = (readOnly ? 3 : 4) + sourceColumns.length;
+  const placeholderCells = [
+    undefined,
+    ...sourceColumns.map(() => "mobile-secondary-column"),
+    undefined,
+    undefined,
+    ...(readOnly ? [] : ["mapping-actions-col"]),
+  ];
   const targetHue = objectTypeHue(model, targetType.key);
   const editingIndex = pages.items.findIndex((row) => row.source.id === editingId);
   const editingRow = editingIndex >= 0 ? pages.items[editingIndex] : undefined;
@@ -189,66 +191,83 @@ export function MappingGridView({
             onAnchorChange={onAnchorChange}
             className="table-wrap mapping-table"
           >
-            <table
-              aria-busy={loading || undefined}
-              aria-rowcount={pages.totalCount !== null && pages.items.length > 0 ? pages.totalCount + 1 : undefined}
-            >
-              <caption className="visually-hidden">{view.name}</caption>
-              <thead>
-                <tr aria-rowindex={1}>
-                  <th scope="col">{sourceType.name}</th>
-                  {sourceColumns.map((col) => (
-                    <th key={col} scope="col" className="mobile-secondary-column">
-                      {attributeName(model, col)}
-                    </th>
-                  ))}
-                  <th scope="col">Status</th>
-                  <th scope="col">{targetType.name}</th>
-                  {!readOnly && (
-                    <th scope="col" className="mapping-actions-col">
-                      Action
-                    </th>
+            {(drawn) => (
+              <table
+                aria-busy={loading || undefined}
+                aria-rowcount={pages.totalCount !== null && pages.items.length > 0 ? pages.totalCount + 1 : undefined}
+              >
+                <caption className="visually-hidden">{view.name}</caption>
+                <thead>
+                  <tr aria-rowindex={1}>
+                    <th scope="col">{sourceType.name}</th>
+                    {sourceColumns.map((col) => (
+                      <th key={col} scope="col" className="mobile-secondary-column">
+                        {attributeName(model, col)}
+                      </th>
+                    ))}
+                    <th scope="col">Status</th>
+                    <th scope="col">{targetType.name}</th>
+                    {!readOnly && (
+                      <th scope="col" className="mapping-actions-col">
+                        Action
+                      </th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading && pages.items.length === 0 ? (
+                    <tr>
+                      <td colSpan={columnCount} className="empty-row">
+                        Loading…
+                      </td>
+                    </tr>
+                  ) : pages.items.length === 0 ? (
+                    <tr>
+                      <td colSpan={columnCount} className="empty-row">
+                        {query.mappingState
+                          ? "No results match these filters"
+                          : query.search
+                            ? "No results match this search"
+                            : `No ${sourceType.pluralName.toLowerCase()} in this workspace yet`}
+                      </td>
+                    </tr>
+                  ) : (
+                    <>
+                      <WindowSpacer as="tr" edge="before" height={drawn.before} columns={columnCount} />
+                      {drawn.rows.map(({ index, item: row, size }) =>
+                        row === undefined ? (
+                          <WindowPlaceholder
+                            key={`placeholder-${index}`}
+                            as="tr"
+                            index={index}
+                            size={size}
+                            cells={placeholderCells}
+                          />
+                        ) : (
+                          <CoverageRow
+                            key={row.source.id}
+                            rowRef={drawn.measure}
+                            index={index}
+                            row={row}
+                            sourceColumns={sourceColumns}
+                            targetColumns={targetColumns}
+                            targetHue={targetHue}
+                            workspaceKey={workspaceKey}
+                            applicationKey={application.key}
+                            viewKey={view.key}
+                            config={config}
+                            changeSetId={changeSet?.id}
+                            readOnly={readOnly}
+                            onEdit={() => setEditingId(row.source.id)}
+                          />
+                        ),
+                      )}
+                      <WindowSpacer as="tr" edge="after" height={drawn.after} columns={columnCount} />
+                    </>
                   )}
-                </tr>
-              </thead>
-              <tbody>
-                {loading && pages.items.length === 0 ? (
-                  <tr>
-                    <td colSpan={columnCount} className="empty-row">
-                      Loading…
-                    </td>
-                  </tr>
-                ) : pages.items.length === 0 ? (
-                  <tr>
-                    <td colSpan={columnCount} className="empty-row">
-                      {query.mappingState
-                        ? "No results match these filters"
-                        : query.search
-                          ? "No results match this search"
-                          : `No ${sourceType.pluralName.toLowerCase()} in this workspace yet`}
-                    </td>
-                  </tr>
-                ) : (
-                  pages.items.map((row, position) => (
-                    <CoverageRow
-                      key={row.source.id}
-                      index={pages.startIndex + position}
-                      row={row}
-                      sourceColumns={sourceColumns}
-                      targetColumns={targetColumns}
-                      targetHue={targetHue}
-                      workspaceKey={workspaceKey}
-                      applicationKey={application.key}
-                      viewKey={view.key}
-                      config={config}
-                      changeSetId={changeSet?.id}
-                      readOnly={readOnly}
-                      onEdit={() => setEditingId(row.source.id)}
-                    />
-                  ))
-                )}
-              </tbody>
-            </table>
+                </tbody>
+              </table>
+            )}
           </ScrollWindow>
         )}
       </Card>
@@ -291,6 +310,7 @@ const STATE_LABELS: Record<string, string> = {
 };
 
 function CoverageRow({
+  rowRef,
   index,
   row,
   sourceColumns,
@@ -304,6 +324,7 @@ function CoverageRow({
   readOnly,
   onEdit,
 }: {
+  rowRef: Ref<HTMLTableRowElement>;
   index: number;
   row: MappingCoverageRow;
   sourceColumns: string[];
@@ -323,6 +344,7 @@ function CoverageRow({
 
   return (
     <tr
+      ref={rowRef}
       data-row-key={row.source.id}
       data-row-index={index}
       aria-rowindex={index + 2}
@@ -489,14 +511,44 @@ function MappingActionDialog({
     [workspaceKey, applicationKey, viewKey, targetTypeKey, changeSetId, debouncedSearch],
   );
   // A target created here is shown first until the list reads it; it has no place in the list yet.
-  const rowIndex = (id: string) => {
-    const position = candidates.items.findIndex((item) => item.id === id);
-    return position >= 0 ? candidates.startIndex + position : -1;
-  };
-  const listed = [
-    ...(created && !candidates.items.some((item) => item.id === created.id) ? [created] : []),
-    ...candidates.items,
-  ];
+  const unlisted = created && !candidates.items.some((item) => item.id === created.id) ? created : undefined;
+
+  function candidateRow(candidate: MappingObjectSummary, index?: number, measure?: (element: Element | null) => void) {
+    const details = [
+      ...new Set(
+        Object.values(candidate.fields)
+          .filter((value) => value != null && value !== "" && value !== candidate.name)
+          .map(String),
+      ),
+    ];
+    return (
+      <Candidate
+        key={candidate.id}
+        ref={measure}
+        data-row-key={candidate.id}
+        data-row-index={index}
+        selected={selectedId === candidate.id}
+        control={
+          <input
+            type="radio"
+            name="mapping-target"
+            value={candidate.id}
+            checked={selectedId === candidate.id}
+            onChange={() => setSelectedId(candidate.id)}
+          />
+        }
+        type={objectTypeTile(model, candidate.objectTypeKey)}
+        name={candidate.name}
+        detail={details.length > 0 && details.join(" · ")}
+      >
+        {currentTargets.some((target) => target.object.id === candidate.id) && (
+          <StatusPill tone="neutral" marker={false}>
+            Current
+          </StatusPill>
+        )}
+      </Candidate>
+    );
+  }
 
   async function save(targetObjectId: string | null, continueToNext = false) {
     setSaving(true);
@@ -586,46 +638,31 @@ function MappingActionDialog({
               footer={false}
               className="candidate-scroll"
             >
-              {listed.map((candidate) => {
-                const details = [
-                  ...new Set(
-                    Object.values(candidate.fields)
-                      .filter((value) => value != null && value !== "" && value !== candidate.name)
-                      .map(String),
-                  ),
-                ];
-                return (
-                  <Candidate
-                    key={candidate.id}
-                    data-row-key={candidate.id}
-                    data-row-index={rowIndex(candidate.id) >= 0 ? rowIndex(candidate.id) : undefined}
-                    selected={selectedId === candidate.id}
-                    control={
-                      <input
-                        type="radio"
-                        name="mapping-target"
-                        value={candidate.id}
-                        checked={selectedId === candidate.id}
-                        onChange={() => setSelectedId(candidate.id)}
+              {(drawn) => (
+                <>
+                  {unlisted && candidateRow(unlisted)}
+                  <WindowSpacer as="div" edge="before" height={drawn.before} />
+                  {drawn.rows.map(({ index, item, size }) =>
+                    item === undefined ? (
+                      <WindowPlaceholder
+                        key={`placeholder-${index}`}
+                        as="div"
+                        index={index}
+                        size={size}
+                        className="candidate"
                       />
-                    }
-                    type={objectTypeTile(model, candidate.objectTypeKey)}
-                    name={candidate.name}
-                    detail={details.length > 0 && details.join(" · ")}
-                  >
-                    {currentTargets.some((target) => target.object.id === candidate.id) && (
-                      <StatusPill tone="neutral" marker={false}>
-                        Current
-                      </StatusPill>
-                    )}
-                  </Candidate>
-                );
-              })}
-              {candidates.loading && !candidates.items.length && <p className="candidate-state">Loading…</p>}
-              {!candidates.loading && !candidates.error && listed.length === 0 && (
-                <p className="candidate-state">
-                  No {targetType.pluralName.toLowerCase()} match{debouncedSearch ? ` “${debouncedSearch}”` : ""}.
-                </p>
+                    ) : (
+                      candidateRow(item, index, drawn.measure)
+                    ),
+                  )}
+                  <WindowSpacer as="div" edge="after" height={drawn.after} />
+                  {candidates.loading && !candidates.items.length && <p className="candidate-state">Loading…</p>}
+                  {!candidates.loading && !candidates.error && !unlisted && candidates.items.length === 0 && (
+                    <p className="candidate-state">
+                      No {targetType.pluralName.toLowerCase()} match{debouncedSearch ? ` “${debouncedSearch}”` : ""}.
+                    </p>
+                  )}
+                </>
               )}
             </ScrollWindow>
             {candidates.error && <InlineError message={candidates.error} onRetry={candidates.retry} />}

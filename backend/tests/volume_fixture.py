@@ -93,14 +93,14 @@ _INSERT_BATCH = 5000
 def volume_model() -> dict[str, Any]:
     """A schema 0.8 model shaped like the starter model but with no starter key."""
 
-    def table(key: str, object_type: str) -> dict[str, Any]:
+    def table(key: str, object_type: str, related: tuple[str, ...] = ()) -> dict[str, Any]:
         return {
             "key": key,
             "name": key,
             "type": "table",
             "objectTypeKey": object_type,
             "config": {
-                "columns": ["name", CODE, RANK],
+                "columns": ["name", CODE, RANK, *(f"related:{relation}" for relation in related)],
                 "filterFields": [CODE, RANK],
                 "sortFields": ["name", CODE, RANK],
                 "defaultSort": "name",
@@ -327,7 +327,8 @@ def volume_model() -> dict[str, Any]:
                             "actions": ["createChild", "rename", "move"],
                         },
                     },
-                    table("items", ITEM),
+                    # A relation column, as a table a reader opens has (0.11 X6, D164).
+                    table("items", ITEM, (ITEM_CITES_GROUP,)),
                     table("nodes", NODE),
                 ],
             },

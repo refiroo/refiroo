@@ -6,14 +6,55 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Fixed (0.11 X6, list reads)
+
+- A table with relation columns opened in seconds: a column showing a value of each related
+  record's ancestor built every related record whole (all its values, its path) and kept one value,
+  250 ms of a 294 ms read for 200 rows, and the table read 200 rows at once. An expansion that names
+  its fields (every relation column does) now reads only those fields, with the ancestor's value
+  found by a walk up the parent chain, in the one statement it already ran; the answer is the same in
+  live data, a change set and a publication. A 20-row page with relation columns now loads 3 to 4
+  database rows per listed row instead of 6.5 to 8.5.
+- Identical reads made while the first is still in flight share it: the development build's double
+  mount no longer sends every read twice, and a page load reads capabilities, the workspace and the
+  rail's lists once each. Nothing is cached.
+
+### Changed (0.11 X6, long lists)
+
+- Every long list (collections, record panels and relationships, the model editor's tables, job,
+  migration, move and profile reports, the relation matrix, the mapping grid, change set review, the
+  restructuring and tree-move dialogs, the matrix cell dialog and column filter, the record lookup)
+  is drawn by row number: the scroll space spans the whole list, sized from its total, and only the
+  rows on screen and a screen either side are in the page. A row whose page has not arrived shows as
+  a loading row at its place, and pages arriving or rows forgotten move no other row. The browser's
+  own scrollbar is the list's; the hand-drawn one is gone. Every read is the reader's page (20 by
+  default); a scrollbar drag, a fling or the page field reads once where the list comes to rest. An
+  edit in place keeps the list where it was. The record tree keeps its groups as they are.
+- A list reads on in the background, a page at a time, until it holds about as much as it keeps
+  (600 rows): a list of a few hundred records is held whole a moment after it opens, so scrolling
+  never meets a row not read (reported 2026-10-19: grey rows while scrolling 200 records).
+- Scrolling a table with relation columns no longer stutters. A relation cell works out how many
+  chips fit from their text and its column's width instead of drawing every chip, measuring it and
+  drawing again; the edit and remove buttons are drawn in the row the pointer is over or that holds
+  focus, the other rows keeping their room (on a touch screen every row still has them); a row
+  already drawn is not drawn again while the list scrolls; the visible rows are found from the
+  scroll position, not read from the page. In the production build the reported view scrolls at a
+  steady 60 frames a second.
+- Fixed: a row could move under the reader while scrolling (row heights rounded to whole pixels;
+  the first drawn row losing half its border), and Ctrl+End followed at once by Ctrl+Home landed at
+  the end.
+- Known limits: the browser's find in page finds only the drawn rows (the list's search finds every
+  record); a screen reader browsing a table without moving focus meets a row's edit buttons only in
+  the row that has focus.
+
 ### Fixed (tables)
 
 - Lists drawn by the shared table (collections, record panels, the model editor's preview and the
   rest) scroll without jumping: the columns keep the widths the first rows laid out instead of
-  moving as rows come and go; rows added or dropped above keep the view still by the browser's
-  scroll anchoring; a list reads at least 200 rows at a time and keeps about 600; a chunk read while
-  scrolling is drawn in the background, row by row; writing the list's place to the address no
-  longer draws the page again.
+  moving as rows come and go; a page read while scrolling is drawn in the background, row by row;
+  writing the list's place to the address no longer draws the page again. (The 200-row reads and
+  the browser's scroll anchoring of this change were replaced in 0.11 X6 by lists drawn by row
+  number.)
 - The wheel is no longer held in a table: it first brings the whole table, with its controls, into
   view, and at the table's first or last row the page scrolls on. The table's height leaves room for
   the top bar, the data band and its controls. Carrying one gesture's momentum on from the table to

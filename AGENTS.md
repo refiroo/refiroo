@@ -179,7 +179,9 @@ errors explicit and machine-readable.
 - `model/` holds reads over the model and stays free of JSX; presentation belongs in `ui/`.
 - Page a collection a user scrolls or jumps through with `lib/hooks/useCursorWindow` rendered in
   `ui/ScrollWindow` (ADR-030): a bounded window of pages, cursors to scroll, positions to jump, one
-  `anchor` in the URL. `useCursorFeed` remains for short append-only feeds (record history, change-set and
+  `anchor` in the URL. Every read is the reader's page. The list is drawn by row number (0.11 X6):
+  draw the range `ScrollWindow` hands you between two `WindowSpacer`s, a row not held as a
+  `WindowPlaceholder`, and give each drawn row `ref={drawn.measure}` and `data-row-index`. `useCursorFeed` remains for short append-only feeds (record history, change-set and
   publication lists). Do not hand-write a cursor stack or page buttons.
 - Recognise an API failure with `isApiError` from `api/errors`, never by reading `code` off a cast,
   and render one with `errorMessage` so users never see an `Error:` prefix.

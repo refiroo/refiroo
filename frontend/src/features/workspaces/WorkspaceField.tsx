@@ -57,9 +57,13 @@ export function WorkspaceField({
     };
   }, []);
   const offered = (workspaces ?? []).filter((item) => item.key !== exclude);
+  // A workspace the user chose stays; one picked here gives way when the other side takes it. The
+  // other way round, choosing as the source the workspace the target had picked by itself put the
+  // source back on the first workspace (found in 0.11 X6).
+  const chosen = useRef(false);
   useEffect(() => {
     const first = (workspaces ?? []).find((item) => item.key !== exclude);
-    if (first && (!value || value === exclude) && !withDefault) onChange(first.key);
+    if (first && (!value || (value === exclude && !chosen.current)) && !withDefault) onChange(first.key);
   }, [workspaces, value, withDefault, onChange, exclude]);
   return (
     <FormField label={label} help={help}>
@@ -68,7 +72,10 @@ export function WorkspaceField({
           {...control}
           value={value}
           disabled={disabled || !workspaces}
-          onChange={(event) => onChange(event.target.value)}
+          onChange={(event) => {
+            chosen.current = true;
+            onChange(event.target.value);
+          }}
         >
           {withDefault && <option value="">The default workspace</option>}
           {offered.map((item) => (

@@ -1123,7 +1123,7 @@ function FlatRows<T>({ list, label, children }: { list: CursorWindow<T>; label: 
   const { landing, loading } = list;
   useLayoutEffect(() => {
     if (!landing || landing.token === landed.current || loading) return;
-    if (!landing.focus) {
+    if (!landing.focus || landing.target === "keep") {
       landed.current = landing.token;
       return;
     }

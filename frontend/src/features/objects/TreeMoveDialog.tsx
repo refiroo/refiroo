@@ -46,7 +46,7 @@ import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
-import { ScrollWindow } from "@/ui/ScrollWindow";
+import { ScrollWindow, WindowPlaceholder, WindowSpacer } from "@/ui/ScrollWindow";
 
 const PAGE_SIZE = 20;
 
@@ -299,56 +299,73 @@ export function TreeMoveDialog({
             footer={false}
             className="candidate-scroll"
           >
-            {candidates.items.map((candidate, position) => {
-              const ancestors = candidate.path
-                .slice(0, -1)
-                .map((part) => part.name)
-                .join(" / ");
-              const typeName = types.size > 1 ? objectTypeFor(model, candidate.objectTypeKey)?.name : undefined;
-              const newTypes = candidate.eligible ? becomes(candidate) : undefined;
-              return (
-                <Candidate
-                  key={candidate.id}
-                  data-row-key={candidate.id}
-                  data-row-index={candidates.startIndex + position}
-                  selected={selected?.id === candidate.id}
-                  disabled={!candidate.eligible}
-                  control={
-                    <input
-                      type="radio"
-                      name="tree-move-target"
-                      value={candidate.id}
-                      checked={selected?.id === candidate.id}
+            {(drawn) => (
+              <>
+                <WindowSpacer as="div" edge="before" height={drawn.before} />
+                {drawn.rows.map(({ index, item: candidate, size }) => {
+                  if (candidate === undefined)
+                    return (
+                      <WindowPlaceholder
+                        key={`placeholder-${index}`}
+                        as="div"
+                        index={index}
+                        size={size}
+                        className="candidate"
+                      />
+                    );
+                  const ancestors = candidate.path
+                    .slice(0, -1)
+                    .map((part) => part.name)
+                    .join(" / ");
+                  const typeName = types.size > 1 ? objectTypeFor(model, candidate.objectTypeKey)?.name : undefined;
+                  const newTypes = candidate.eligible ? becomes(candidate) : undefined;
+                  return (
+                    <Candidate
+                      key={candidate.id}
+                      ref={drawn.measure}
+                      data-row-key={candidate.id}
+                      data-row-index={index}
+                      selected={selected?.id === candidate.id}
                       disabled={!candidate.eligible}
-                      onChange={() => setSelected(candidate)}
-                    />
-                  }
-                  type={objectTypeTile(model, candidate.objectTypeKey)}
-                  name={candidate.name}
-                  detail={[typeName, ancestors].filter(Boolean).join(" · ")}
-                >
-                  {!candidate.eligible && candidate.reason && (
-                    <StatusPill tone="neutral" marker={false}>
-                      {MOVE_REFUSAL_TEXT[candidate.reason]}
-                    </StatusPill>
-                  )}
-                  {newTypes && (
-                    <StatusPill tone="success" marker={false}>
-                      Becomes {typeNames(model, newTypes)}
-                    </StatusPill>
-                  )}
-                </Candidate>
-              );
-            })}
-            {candidates.loading && !candidates.items.length && <p className="candidate-state">Loading…</p>}
-            {!candidates.loading && !candidates.error && !candidates.items.length && (
-              <p className="candidate-state">
-                {debounced
-                  ? `No location matches “${debounced}”.`
-                  : topLevel && !topLevel.refusal
-                    ? `No other record can contain ${label}.`
-                    : `${label} cannot move anywhere else.`}
-              </p>
+                      control={
+                        <input
+                          type="radio"
+                          name="tree-move-target"
+                          value={candidate.id}
+                          checked={selected?.id === candidate.id}
+                          disabled={!candidate.eligible}
+                          onChange={() => setSelected(candidate)}
+                        />
+                      }
+                      type={objectTypeTile(model, candidate.objectTypeKey)}
+                      name={candidate.name}
+                      detail={[typeName, ancestors].filter(Boolean).join(" · ")}
+                    >
+                      {!candidate.eligible && candidate.reason && (
+                        <StatusPill tone="neutral" marker={false}>
+                          {MOVE_REFUSAL_TEXT[candidate.reason]}
+                        </StatusPill>
+                      )}
+                      {newTypes && (
+                        <StatusPill tone="success" marker={false}>
+                          Becomes {typeNames(model, newTypes)}
+                        </StatusPill>
+                      )}
+                    </Candidate>
+                  );
+                })}
+                <WindowSpacer as="div" edge="after" height={drawn.after} />
+                {candidates.loading && !candidates.items.length && <p className="candidate-state">Loading…</p>}
+                {!candidates.loading && !candidates.error && !candidates.items.length && (
+                  <p className="candidate-state">
+                    {debounced
+                      ? `No location matches “${debounced}”.`
+                      : topLevel && !topLevel.refusal
+                        ? `No other record can contain ${label}.`
+                        : `${label} cannot move anywhere else.`}
+                  </p>
+                )}
+              </>
             )}
           </ScrollWindow>
           {candidates.error && <InlineError message={candidates.error} onRetry={candidates.retry} />}

@@ -753,3 +753,39 @@ open in 1.1 s, the copy loaded in 0.8 s, published in 0.9 s; at 2,000 records 1.
 and 3.0 s, steady across runs. At 2,000 a step is the binding 0.2 s, the preview 0.8 s (half of it
 writing and rolling back every checked item, D115) and the page 0.3–0.5 s.
 
+## 14. A list read with relation columns (0.11 X6, 2026-10-19)
+
+Reported by the user: a table of 200 records with six relation columns, one an ancestor's value
+(`related:<relation>.ancestor:<type>.<attribute>`), took 2.2 s to show its rows in the dev browser.
+The 200-row read with those columns was 813 KB in 294 ms, 250 ms of it the ancestor column: every
+related record built whole (values, path, a Pydantic model per value) to keep one value.
+
+An expansion with `select` (every relation column) now reads only what it selects in its one
+statement, the ancestor's value by a walk up the parent chain inside it (D155). The volume baseline
+holds the list as a table sends it (`objects: relation columns` and `nodes: relation columns with an
+ancestor value`, 20 and 200 rows, every context; `volume_baseline.py --only-relation-columns`);
+`test_volume_baseline` holds budget 1 and budget 2 for them. On the code before the change the
+20-row reads materialised 131 and 172 ORM rows, over the 120 a 20-row page may (seen failing).
+
+At the 1% scale (statements, ORM rows, median of 3):
+
+| Context | Read | Rows | Time | Statements | ORM rows |
+| --- | --- | ---: | ---: | ---: | ---: |
+| live | items: the cited group's code, and an ancestor value of the parent (none in the fixture) | 20 | 18 ms | 7 | 83 |
+| live | the same | 200 | 36 ms | 7 | 803 |
+| live | nodes, children's ancestor value (seven levels) | 20 | 16 ms | 10 | 63 |
+| live | the same | 200 | 44 ms | 13 | 603 |
+| change set | items | 20 / 200 | 19 / 46 ms | 8 / 8 | 4 / 4 |
+| change set | nodes | 20 / 200 | 20 / 68 ms | 11 / 14 | 4 / 4 |
+| publication | items | 20 / 200 | 11 / 35 ms | 7 / 7 | 3 / 3 |
+| publication | nodes | 20 / 200 | 13 / 53 ms | 10 / 13 | 3 / 3 |
+
+The nodes' statements grow with the page (10 → 13), not with the data: the listed records' own
+paths are read a level at a time, and a 200-row page reaches deeper levels. In the dev browser the
+reported view shows its rows in 0.66 s (2.2 s before), reading 12 pages of 20.
+
+**Not measured at full volume** (D159's first half, dropped on 2026-10-19 with the user): the work is
+bounded by the page (20 rows, at most 20 related records each, a walk bounded by the hierarchy's
+depth through keyed lookups, the walk the relation list's ancestor sort already ran at full volume),
+and the two-scale budget check is what would see a step growing with the data.
+

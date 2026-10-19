@@ -2,8 +2,9 @@
 
 The engine plans the query (``engine/reads/model_query.py``); this pages it and renders each record
 as the object list does, then narrows it to a ``select``. Expansions read one statement per
-``expand`` for the whole page and render every expanded record in one batch; the per-type list's
-``expand`` (0.9 K5) reads its relation columns through the same step (:func:`expand_records`).
+``expand`` for the whole page: a ``select`` expansion reads only what it selects in that statement
+(0.11 X6), a full one renders every expanded record in one batch. The per-type list's ``expand``
+(0.9 K5) reads its relation columns through the same step (:func:`expand_records`).
 """
 
 from collections.abc import Sequence
@@ -16,7 +17,12 @@ from ...common.pagination import PageRequest, paginate_statement
 from ...engine.model.consumer_contract import split_ancestor_reference
 from ...engine.model.validation.fields import ANCESTOR_FIELD_PREFIX
 from ...engine.reads.model_query import SELECT_FIELDS, Expansion, plan_model_query
-from ...engine.reads.relation_queries import ExpansionRow, expansion_cursor, expansion_rows
+from ...engine.reads.relation_queries import (
+    ExpansionRow,
+    NarrowFields,
+    expansion_cursor,
+    expansion_rows,
+)
 from ...engine.reads.snapshot_reads import (
     SnapshotContext,
     change_set_context,
@@ -92,7 +98,9 @@ def expand_records(
     expansions: Sequence[Expansion],
 ) -> dict[str, list[ExpandedRelations]]:
     """Each anchor's expansions, in ``expansions``' order: one statement per expansion for every
-    anchor, and the expanded records read and rendered in one batch. Empty without expansions."""
+    anchor. An expansion with a ``select`` reads only what it selects in that statement (0.11 X6,
+    D155); one without, the full item by contract, has its records read and rendered in one batch.
+    Empty without expansions."""
     if not expansions:
         return {}
     read = [
@@ -106,23 +114,106 @@ def expand_records(
                 direction=expansion.direction,
                 relation_type_key=expansion.relation_type_key,
                 limit=expansion.limit,
+                narrow=_narrow(expansion),
             ),
         )
         for expansion in expansions
     ]
-    related = _related(session, model, context, read)
+    full = [(expansion, rows) for expansion, rows in read if _narrow(expansion) is None]
+    related = _related(session, model, context, full)
     values = {
         expansion.field: _field_values(session, model, context, related, expansion.field)
-        for expansion in expansions
+        for expansion, _rows in full
         if expansion.field is not None
     }
+    shown_workspace = workspace_key if context is None else context.workspace_key
     return {
         anchor_id: [
-            _expanded(context, workspace_key, expansion, rows, anchor_id, related, values)
+            _expanded(
+                context, workspace_key, shown_workspace, expansion, rows, anchor_id, related, values
+            )
             for expansion, rows in read
         ]
         for anchor_id in anchor_ids
     }
+
+
+def _narrow(expansion: Expansion) -> NarrowFields | None:
+    """What a ``select`` expansion reads of each related record; ``None`` for the full item, and
+    for a ``select`` naming ``path``, which the full read builds."""
+    if expansion.select is None or "path" in expansion.select:
+        return None
+    attributes = [
+        field
+        for field in expansion.select
+        if field not in SELECT_FIELDS and not field.startswith(ANCESTOR_FIELD_PREFIX)
+    ]
+    ancestors = [
+        field.removeprefix(ANCESTOR_FIELD_PREFIX)
+        for field in expansion.select
+        if field.startswith(ANCESTOR_FIELD_PREFIX)
+    ]
+    ancestor_attributes: list[tuple[str, str]] = []
+    if expansion.field is not None:
+        reference = split_ancestor_reference(expansion.field)
+        if reference is None:
+            if expansion.field not in {"id", "name"}:
+                attributes.append(expansion.field)
+        elif reference[1] in {"id", "name"}:
+            ancestors.append(reference[0])
+        else:
+            ancestor_attributes.append(reference)
+    return NarrowFields(
+        attributes=tuple(dict.fromkeys(attributes)),
+        ancestors=tuple(dict.fromkeys(ancestors)),
+        ancestor_attributes=tuple(ancestor_attributes),
+    )
+
+
+def _narrowed(row: ExpansionRow, expansion: Expansion, workspace_key: str) -> SelectedRecord:
+    """The related record as :func:`_selected` narrows it, from the expansion's own row."""
+    fields = row.fields
+    assert fields is not None and expansion.select is not None
+    builtin = {
+        "name": row.related_name,
+        "workspaceKey": workspace_key,
+        "applicationKey": fields.application_key,
+        "parentObjectId": fields.parent_object_id,
+        "createdAt": fields.created_at,
+        "updatedAt": fields.updated_at,
+    }
+    values: dict[str, Any] = {}
+    for field in expansion.select:
+        if field in builtin:
+            values[field] = builtin[field]
+        elif field.startswith(ANCESTOR_FIELD_PREFIX):
+            ancestor = fields.ancestors.get(field.removeprefix(ANCESTOR_FIELD_PREFIX))
+            values[field] = None if ancestor is None else {"id": ancestor[0], "name": ancestor[1]}
+        else:
+            values[field] = fields.attributes.get(field)
+    if expansion.field is not None:
+        values[expansion.field] = _narrowed_field(row, expansion.field)
+    return SelectedRecord(
+        id=row.related_id,
+        objectTypeKey=fields.object_type_key,
+        version=fields.version,
+        fields=values,
+    )
+
+
+def _narrowed_field(row: ExpansionRow, field: str) -> Any:
+    """The per-type list's field (0.9 K5a) from a narrowed row, as :func:`_field_values` reads it."""
+    fields = row.fields
+    assert fields is not None
+    reference = split_ancestor_reference(field)
+    if reference is None:
+        own = {"id": row.related_id, "name": row.related_name}
+        return own[field] if field in own else fields.attributes.get(field)
+    type_key, name = reference
+    ancestor = fields.ancestors.get(type_key)
+    if name in {"id", "name"}:
+        return None if ancestor is None else ancestor[0 if name == "id" else 1]
+    return fields.ancestor_attributes.get(reference)
 
 
 def _context(session: Session, request: ModelQuery) -> SnapshotContext | None:
@@ -217,21 +308,25 @@ def _own_value(record: ObjectResponse, field: str) -> Any:
 def _expanded(
     context: SnapshotContext | None,
     workspace_key: str,
+    shown_workspace: str,
     expansion: Expansion,
     rows: list[ExpansionRow],
     anchor_id: str,
     related: dict[str, ObjectResponse],
-    values: dict[str | None, dict[str, Any]] | None = None,
+    values: dict[str | None, dict[str, Any]],
 ) -> ExpandedRelations:
     mine = [row for row in rows if row.anchor_id == anchor_id]
     count = mine[0].total if mine else 0
     more = count > len(mine)
 
-    def shown(record: ObjectResponse) -> ObjectResponse | SelectedRecord:
+    def shown(row: ExpansionRow) -> ObjectResponse | SelectedRecord:
+        if row.fields is not None:
+            return _narrowed(row, expansion, shown_workspace)
+        record = related[row.related_id]
         if expansion.select is None:
             return record
         selected = _selected(record, expansion.select)
-        if expansion.field is not None and values is not None:
+        if expansion.field is not None:
             selected.fields[expansion.field] = values[expansion.field].get(record.id)
         return selected
 
@@ -240,10 +335,7 @@ def _expanded(
         direction=expansion.direction,
         field=expansion.field,
         count=count,
-        items=[
-            ExpandedRecord(relationId=row.relation_id, object=shown(related[row.related_id]))
-            for row in mine
-        ],
+        items=[ExpandedRecord(relationId=row.relation_id, object=shown(row)) for row in mine],
         nextCursor=(
             expansion_cursor(
                 context,

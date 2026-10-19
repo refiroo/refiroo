@@ -176,13 +176,17 @@ async function journey(label, source) {
     };
     const row = (target, name) => target.getByRole("row", { name: new RegExp(name) }).first();
     const button = (target, name, label) => row(target, name).getByRole("button", { name: label, exact: true });
-    const cell = (target, name, label) =>
-      row(target, name)
+    // A row draws its cells' icons while the pointer is over it (0.11 X6), so the pointer reaches the
+    // row on its way to the cell, as a reader's does.
+    const cell = async (target, name, label) => {
+      await row(target, name).hover();
+      return row(target, name)
         .locator("td")
         .filter({ has: target.getByRole("button", { name: label, exact: true }) });
+    };
     // A pointer reaches a cell's icon by moving over the cell first.
     const clickIcon = async (target, name, label) => {
-      await cell(target, name, label).hover();
+      await (await cell(target, name, label)).hover();
       await button(target, name, label).click();
     };
     const shownActions = (target, name) =>
@@ -194,7 +198,7 @@ async function journey(label, source) {
     // 1. A value edited in a cell, live.
     await open(page);
     const editOne = `Edit ${editedName} of A9 Row One`;
-    await cell(page, "A9 Row One", editOne).hover();
+    await (await cell(page, "A9 Row One", editOne)).hover();
     assert.equal(await shownActions(page, "A9 Row One"), 1, "only the hovered cell shows its icons");
     await shot(page, "cell-hover");
     await button(page, "A9 Row One", editOne).click();
@@ -264,11 +268,11 @@ async function journey(label, source) {
     await change.getByRole("option", { name: /A9 Approved South/ }).click();
     await change.getByRole("button", { name: "Change" }).click();
     await toast("Kept by of “A9 Row One” saved to Live");
-    await cell(page, "A9 Row One", "Edit Kept by of A9 Row One").getByText("A9 Approved South").waitFor();
+    await (await cell(page, "A9 Row One", "Edit Kept by of A9 Row One")).getByText("A9 Approved South").waitFor();
     await clickIcon(page, "A9 Row One", "Remove Kept by of A9 Row One");
     await page.getByRole("alertdialog").getByRole("button", { name: "Delete relationship" }).click();
     await toast("Kept by of “A9 Row One” saved to Live");
-    await cell(page, "A9 Row One", "Edit Kept by of A9 Row One")
+    await (await cell(page, "A9 Row One", "Edit Kept by of A9 Row One"))
       .getByText("A9 Approved South")
       .waitFor({ state: "detached" });
     assert.equal(
@@ -292,7 +296,7 @@ async function journey(label, source) {
     await many.getByRole("checkbox", { name: /A9 Other West/ }).check();
     await many.getByRole("button", { name: "Save" }).click();
     await toast("Works with of “A9 Row One” saved to Live");
-    await cell(page, "A9 Row One", "Edit Works with of A9 Row One").getByText("A9 Other West").waitFor();
+    await (await cell(page, "A9 Row One", "Edit Works with of A9 Row One")).getByText("A9 Other West").waitFor();
     const related = await api(
       `/relations?objectId=${one.id}&relationTypeKey=${keys.works}&direction=outgoing&workspaceKey=default`,
     );
@@ -302,7 +306,7 @@ async function journey(label, source) {
     // Dark.
     await page.evaluate(() => localStorage.setItem("rdm:theme:v1", JSON.stringify("dark")));
     await open(page);
-    await cell(page, "A9 Row One", "Edit Works with of A9 Row One").hover();
+    await (await cell(page, "A9 Row One", "Edit Works with of A9 Row One")).hover();
     await shot(page, "cell-hover-dark");
     await page.evaluate(() => localStorage.setItem("rdm:theme:v1", JSON.stringify("light")));
 

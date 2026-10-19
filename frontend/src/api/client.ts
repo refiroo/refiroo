@@ -139,6 +139,14 @@ export async function request<T>(
   return requestUrl<T>(`${API_URL}${path}`, path, init, onResponse);
 }
 
+/**
+ * Identical reads still in flight, by address and headers (0.11 X6, D157). A component mounted
+ * twice (React's StrictMode in development) or two parts of a page asking for the same thing share
+ * the one request and its answer. Nothing is cached: once the answer arrives the entry goes, and
+ * the next identical call makes a new request. Writes, and reads a caller can abort, never share.
+ */
+const pendingReads = new Map<string, Promise<{ response: Response; body: string | undefined }>>();
+
 /** A request to an address the API gave whole, such as a document the consumer API index names. */
 async function requestUrl<T>(
   url: string,
@@ -148,14 +156,36 @@ async function requestUrl<T>(
 ): Promise<T> {
   // A form body (a file upload) sets its own multipart content type with its boundary.
   const json = !(init?.body instanceof FormData);
-  const response = await fetch(url, {
-    ...init,
-    headers: {
-      ...(json ? { "Content-Type": "application/json" } : {}),
-      ...expectedReleaseHeader(path, init?.method),
-      ...init?.headers,
-    },
-  });
+  const headers = {
+    ...(json ? { "Content-Type": "application/json" } : {}),
+    ...expectedReleaseHeader(path, init?.method),
+    ...init?.headers,
+  };
+  const shared = (init?.method ?? "GET").toUpperCase() === "GET" && !init?.body && !init?.signal;
+  const key = JSON.stringify([url, headers]);
+  let read = shared ? pendingReads.get(key) : undefined;
+  if (!read) {
+    read = send(url, path, { ...init, headers });
+    if (shared) {
+      pendingReads.set(key, read);
+      void read.then(
+        () => pendingReads.delete(key),
+        () => pendingReads.delete(key),
+      );
+    }
+  }
+  const { response, body } = await read;
+  onResponse?.(response);
+  // Each caller parses its own copy, so one changing what it received cannot change another's.
+  return (body === undefined ? undefined : JSON.parse(body)) as T;
+}
+
+async function send(
+  url: string,
+  path: string,
+  init: RequestInit,
+): Promise<{ response: Response; body: string | undefined }> {
+  const response = await fetch(url, init);
   if (!response.ok) {
     const body = await response.text();
     let message = failedResponseMessage(path, response.status);
@@ -170,12 +200,11 @@ async function requestUrl<T>(
       // Non-JSON response evidence belongs in controlled server diagnostics, not the rendered UI.
     }
     const failure = new ApiError(response.status, code, message, details);
-    if (code === "MODEL_RELEASE_CHANGED" && expectedReleaseHeader(path, init?.method))
+    if (code === "MODEL_RELEASE_CHANGED" && expectedReleaseHeader(path, init.method))
       reportModelReleaseChanged(failure);
     throw failure;
   }
-  onResponse?.(response);
-  if (response.status === 204) return undefined as T;
+  if (response.status === 204) return { response, body: undefined };
   const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.includes("application/json")) {
     throw new ApiError(
@@ -184,7 +213,7 @@ async function requestUrl<T>(
       `The request to ${path} returned ${contentType || "an unknown content type"} instead of JSON. Retry or contact support if the problem continues.`,
     );
   }
-  return response.json() as Promise<T>;
+  return { response, body: await response.text() };
 }
 
 function failedResponseMessage(path: string, status: number): string {

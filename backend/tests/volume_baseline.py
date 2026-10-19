@@ -66,6 +66,8 @@ from volume_fixture import (
 )
 
 PAGE_SIZE = 20
+# The wide page a table read before 0.11 X6 (D156), measured beside the reader's page.
+WIDE_PAGE = 200
 CONTEXTS = ("live", "change_set", "history")
 
 
@@ -215,6 +217,8 @@ def _read_scenarios(
         engine, context, dataset, parent=None, offset=total // 2, direction="before"
     )
     citations = {**base, "objectId": dataset.cited_group_id, "pageSize": PAGE_SIZE}
+    item_columns = [f"{ITEM_CITES_GROUP}.{CODE}", f"{GROUP_CONTAINS_ITEM}-reverse.ancestor:{GROUP}.{CODE}"]
+    node_columns = [f"{NODE_HAS_CHILD}.ancestor:{GROUP}.{CODE}", f"{NODE_HAS_CHILD}-reverse.name"]
     return [
         ("objects: first page", items, page),
         ("objects: middle page", items, {**page, "cursor": middle}),
@@ -330,6 +334,21 @@ def _read_scenarios(
         ("objects: dated, first page", items, {**page, "asOf": AS_OF}),
         ("objects: dated, total", items, {**page, "asOf": AS_OF, "includeTotal": True}),
         ("children: heavy parent, dated first page", items, {**heavy, "asOf": AS_OF}),
+        # 0.11 X6 (D158): a table with relation columns, as the list sends it, at the reader's page
+        # and at 200 rows. Items' related records sit under no group; nodes' children sit up to
+        # seven levels under one, so their ancestor value walks the chain.
+        *(
+            (f"objects: relation columns, {size} rows", items, {**page, "pageSize": size, "expand": item_columns})
+            for size in (PAGE_SIZE, WIDE_PAGE)
+        ),
+        *(
+            (
+                f"nodes: relation columns with an ancestor value, {size} rows",
+                f"/api/v1/objects/{NODE}",
+                {**page, "pageSize": size, "expand": node_columns},
+            )
+            for size in (PAGE_SIZE, WIDE_PAGE)
+        ),
     ]
 
 
@@ -613,6 +632,20 @@ def dated_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat: i
             if "dated" in scenario:
                 status, milliseconds, statements, rows = _timed(
                     engine, lambda body=body: client.post(QUERY_PATH, json=body), repeat
+                )
+                results.append(Measurement(context, scenario, status, milliseconds, statements, rows))
+    return results
+
+
+def relation_column_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat: int) -> list[Measurement]:
+    """0.11 X6 (D159): only the lists read with relation columns, in every context
+    (``--only-relation-columns``)."""
+    results = []
+    for context in CONTEXTS:
+        for scenario, path, params in _read_scenarios(engine, context, dataset):
+            if "relation columns" in scenario:
+                status, milliseconds, statements, rows = _timed(
+                    engine, lambda path=path, params=params: client.get(path, params=params), repeat
                 )
                 results.append(Measurement(context, scenario, status, milliseconds, statements, rows))
     return results
@@ -1728,6 +1761,11 @@ def main() -> None:
         help="measure only the 0.9 C3 consumer list reads, C4 XREF lookups and C14 batch resolve",
     )
     parser.add_argument(
+        "--only-relation-columns",
+        action="store_true",
+        help="measure only the 0.11 X6 lists read with relation columns, at 20 and 200 rows",
+    )
+    parser.add_argument(
         "--only-move",
         action="store_true",
         help="measure only the 0.11 X5 move of the whole workspace into another model, once",
@@ -1774,6 +1812,8 @@ def main() -> None:
                     dataset.counts["move"] = facts
                 elif arguments.only_exports:
                     results = [item for item, _rows in export_scenarios(client, engine, dataset)]
+                elif arguments.only_relation_columns:
+                    results = relation_column_scenarios(client, engine, dataset, repeat=arguments.repeat)
                 elif arguments.only_dated:
                     results = dated_scenarios(client, engine, dataset, repeat=arguments.repeat)
                 elif arguments.only_publish:

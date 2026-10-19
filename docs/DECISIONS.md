@@ -964,6 +964,10 @@ Collections support two paging modes. Each request uses exactly one of them.
    prefetches toward both edges and evicts pages far from the viewport, so memory and DOM size do not
    grow with scroll distance. Clicking or dragging the proportional scrollbar, or entering a page
    number, sends one position request; scrolling onward from the landed page uses its cursors.
+   *Revised 2026-10-19 (0.11 X6, D156, D161):* the list is drawn by row number. Its scroll space
+   spans the whole list, sized from the total, and only the rows near the view are drawn; the
+   browser's own scrollbar replaces the proportional one. Every read is the reader's page; a
+   scrollbar drag or a fling reads one position where the view rests.
 5. Consistency differs by mode and is documented. Cursor reads never repeat or skip a row when data
    changes between requests. A position read addresses rows by number, so a concurrent insert or
    delete before that row moves the landing point, and consecutive position reads can repeat or miss

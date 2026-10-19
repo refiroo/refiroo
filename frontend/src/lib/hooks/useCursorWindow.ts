@@ -5,20 +5,11 @@ import type { PageSelector } from "@/api/client";
 /** Pages a window keeps at least (D2); beyond them the page furthest from the viewport is evicted. */
 export const WINDOW_PAGES = 3;
 /**
- * Rows a window keeps at least, whatever its page size. With small pages (20 rows) a few pages are
- * a screen or two, and every page scrolled evicted one and moved the rows under the reader; a window
- * of this many rows evicts far from the view (reported 2026-10-19).
+ * Rows a window holds at most, whatever its page size (0.11 X6, D156): beyond them the rows furthest
+ * from the view are forgotten. A list drawn by row number (`ui/ScrollWindow`) keeps every row's
+ * place, so forgetting moves nothing on screen.
  */
 export const WINDOW_ROWS = 600;
-/**
- * Rows a scrolling list reads at a time, at least: a list of a few hundred records loads once and
- * then scrolls with nothing to do, where 20-row pages read and drew the table again every 20 rows
- * (reported 2026-10-19). The reader's page size still numbers the pages and their jumps.
- */
-export const SCROLL_CHUNK = 200;
-
-/** The page size a scrolling list reads with, for a reader's `pageSize`. */
-export const scrollChunk = (pageSize: number) => Math.max(pageSize, SCROLL_CHUNK);
 
 /** Drops pages from `edge` while the window holds more than it keeps. */
 function evict<T>(pages: HeldPage<T>[], edge: "start" | "end"): HeldPage<T>[] {
@@ -59,7 +50,8 @@ interface HeldPage<T> {
  */
 export interface WindowLanding {
   token: number;
-  target: "start" | "end" | number;
+  /** "keep": the rows arrived where the view already is (a far move, a reload); nothing scrolls. */
+  target: "start" | "end" | "keep" | number;
   focus?: "first" | "last" | "target";
 }
 
@@ -86,6 +78,23 @@ export interface CursorWindow<T> {
   landing: WindowLanding | undefined;
   loadPrevious: () => void;
   loadNext: () => void;
+  /**
+   * The row at an absolute index, when held; while a reload is in flight, the row shown before it,
+   * so the rows on screen stay until the fresh ones arrive.
+   */
+  itemAt: (index: number) => T | undefined;
+  /**
+   * The view shows rows `first`–`last` (0.11 X6, D156): pages are read toward it, one request per
+   * direction at a time, until at least `ahead` rows beyond it either way are held, and on in the
+   * background until the window is nearly full. A view more than `ahead` rows from the held rows
+   * reads nothing until it rests (see `rest`).
+   */
+  show: (first: number, last: number, ahead: number) => void;
+  /**
+   * The view came to rest at rows `first`–`last`: when they are far from the held rows (a
+   * scrollbar drag, a fling), one position read there, and the held rows become that page.
+   */
+  rest: (first: number, last: number, ahead: number) => void;
   /** Brings the row at `index` to the top, with one position request unless it is already held. */
   jumpTo: (index: number, focus?: boolean) => void;
   jumpToStart: (focus?: boolean) => void;
@@ -107,6 +116,8 @@ interface WindowState<T> {
   pages: HeldPage<T>[];
   totalCount: number | null;
   landing?: WindowLanding;
+  /** The rows held before a reload, drawn where no fresh row is held yet. */
+  stale?: HeldPage<T>[];
 }
 
 const IDLE: EdgeStatus = { loading: false, error: "" };
@@ -155,10 +166,12 @@ function prepend<T>(state: WindowState<T>, page: WindowedPage<T>): WindowState<T
  * A bounded, bidirectional window over a cursor-paged collection (ADR-030, Base 0.8 S5).
  *
  * The first page loads whenever `deps` change, from `options.anchor` when given, and asks for
- * totals. `loadPrevious` and `loadNext` extend the window with cursors; once it holds more than
- * `WINDOW_PAGES` pages and `WINDOW_ROWS` rows the page at the opposite edge is dropped, so memory stays flat however far
- * the user scrolls. The window's edge pages carry the cursors that go further, so no cursor trail
- * is kept. Jumps (`jumpTo`, `jumpToEnd`, `seek`) replace the window with one request, with totals.
+ * totals. Every read is the reader's page (0.11 X6, D156): the size the budgets are measured at.
+ * `show` reads ahead toward the view and `loadPrevious` and `loadNext` extend the window with
+ * cursors; once it holds more than `WINDOW_PAGES` pages and `WINDOW_ROWS` rows the page at the
+ * opposite edge is dropped, so memory stays flat however far the user scrolls. The window's edge
+ * pages carry the cursors that go further, so no cursor trail is kept. Jumps (`jumpTo`,
+ * `jumpToEnd`, `seek`) and a far move's `rest` replace the window with one request, with totals.
  *
  * The anchor is read only when the query changes, so a caller may write the current anchor back
  * into its route without reloading the list. `fetchPage` is read through a ref.
@@ -201,6 +214,8 @@ export function useCursorWindow<T>(
       focus?: WindowLanding["focus"],
       /** Reopen at the start when the selector's cursor is no longer valid. */
       startOnInvalidCursor = false,
+      /** Keep drawing the rows held now until fresh rows replace them (a reload). */
+      keepRows = false,
     ) => {
       const read = (
         request: PageSelector,
@@ -227,13 +242,16 @@ export function useCursorWindow<T>(
             const startIndex = page.startIndex ?? 0;
             const target = landAt(startIndex);
             // Until the view measures (it may be hidden), the landing is where the viewport is.
-            viewportIndex.current =
-              target === "start" ? 0 : target === "end" ? startIndex + Math.max(0, page.items.length - 1) : target;
+            if (target !== "keep")
+              viewportIndex.current =
+                target === "start" ? 0 : target === "end" ? startIndex + Math.max(0, page.items.length - 1) : target;
+            const previous = stateRef.current;
             const next: WindowState<T> = {
               key: requestKey,
               pages: [hold(page, startIndex)],
               totalCount: page.totalCount ?? null,
               landing: { token: ++landingSeq.current, target, focus },
+              stale: keepRows && previous?.key === requestKey ? previous.pages : undefined,
             };
             // The view's layout effects extend the window before this hook's effects run, so the
             // ref must already hold the new window when they read its edge cursors.
@@ -270,13 +288,10 @@ export function useCursorWindow<T>(
     const index = viewportIndex.current;
     const page = held.pages.find((item) => index >= item.startIndex && index < item.startIndex + item.items.length);
     const cursor = page && page.prevCursor ? (page.anchor ?? undefined) : undefined;
-    // A list whose cursors bind its content (a restructuring plan) can outlive them: reopen at the start.
-    replace(
-      cursor ? { cursor } : {},
-      (start) => (cursor ? Math.max(start, index) : index > 0 ? index : "start"),
-      undefined,
-      true,
-    );
+    // The rows keep their places (0.11 X6): the view stays where it is and draws the rows it held
+    // until the pages around it are read again. A list whose cursors bind its content (a
+    // restructuring plan) can outlive them: reopen at the start.
+    replace(cursor ? { cursor } : {}, () => "keep", undefined, true, true);
   }, [replace]);
 
   const refreshToken = options.refreshToken ?? 0;
@@ -327,6 +342,11 @@ export function useCursorWindow<T>(
   }, []);
 
   const land = useCallback((target: WindowLanding["target"], focus?: WindowLanding["focus"]) => {
+    // A jump to rows already held is the latest: a read still in flight (an earlier jump) is
+    // dropped, or its arrival would land on top of this one (Ctrl+End, then Ctrl+Home at once).
+    generation.current++;
+    inFlight.current = { before: false, after: false };
+    setStatus({ key: keyRef.current, loading: false, error: "" });
     setState((previous) => {
       const next = previous && { ...previous, landing: { token: ++landingSeq.current, target, focus } };
       stateRef.current = next;
@@ -334,8 +354,54 @@ export function useCursorWindow<T>(
     });
   }, []);
 
+  const show = useCallback(
+    (first: number, last: number, ahead: number) => {
+      const held = stateRef.current;
+      if (!held || held.key !== keyRef.current || !held.pages.length) return;
+      const start = held.pages[0].startIndex;
+      const lastPage = held.pages.at(-1)!;
+      const end = lastPage.startIndex + lastPage.items.length;
+      // Far from the held rows: reading toward the view page by page would read every page in
+      // between; the view's rest reads where it is instead.
+      if (last < start - ahead || first >= end + ahead) return;
+      // Beyond the screens the view needs, the window fills itself in the background, a budget page
+      // at a time, until it holds about as much as it keeps: a list of a few hundred rows is held
+      // whole a moment after it opens, so scrolling never meets a row not read (the user,
+      // 2026-10-19: grey rows while scrolling 220 records). It leaves room for a page either side, so
+      // filling one edge never forgets the rows the other just read.
+      const rows = held.pages[0].items.length;
+      const fill = Math.max(ahead, Math.floor((WINDOW_ROWS - (last - first + 1)) / 2) - 2 * rows);
+      if (end <= last + fill) extend("after");
+      if (start > Math.max(0, first - fill)) extend("before");
+    },
+    [extend],
+  );
+
+  const rest = useCallback(
+    (first: number, last: number, ahead: number) => {
+      const held = stateRef.current;
+      if (!held || held.key !== keyRef.current || !held.pages.length || status.loading) return;
+      const start = held.pages[0].startIndex;
+      const lastPage = held.pages.at(-1)!;
+      const end = lastPage.startIndex + lastPage.items.length;
+      if (last < start - ahead || first >= end + ahead) replace({ position: Math.max(0, first) }, () => "keep");
+    },
+    [replace, status.loading],
+  );
+
   const pages = current?.pages;
+  const stale = current?.stale;
   const items = useMemo(() => pages?.flatMap((page) => page.items) ?? [], [pages]);
+  const itemAt = useCallback(
+    (index: number) => {
+      for (const group of [pages, stale])
+        for (const page of group ?? [])
+          if (index >= page.startIndex && index < page.startIndex + page.items.length)
+            return page.items[index - page.startIndex];
+      return undefined;
+    },
+    [pages, stale],
+  );
   const first = pages?.[0];
   const last = pages?.at(-1);
   const startIndex = first?.startIndex ?? 0;
@@ -400,6 +466,9 @@ export function useCursorWindow<T>(
     landing: current?.landing,
     loadPrevious: useCallback(() => extend("before"), [extend]),
     loadNext: useCallback(() => extend("after"), [extend]),
+    itemAt,
+    show,
+    rest,
     jumpTo,
     jumpToStart,
     jumpToEnd,
@@ -433,6 +502,9 @@ export function fixedWindow<T>(items: T[], overrides: Partial<CursorWindow<T>> =
     landing: undefined,
     loadPrevious: noop,
     loadNext: noop,
+    itemAt: (index) => items[index],
+    show: noop,
+    rest: noop,
     jumpTo: noop,
     jumpToStart: noop,
     jumpToEnd: noop,

@@ -103,34 +103,39 @@ try {
     }
   }
 
-  // 5. All matching with an exception; a new search clears it; Cmd+A; over the limit.
+  // 5. The loaded rows; all matching with an exception; a new search clears it; Cmd+A; over the
+  // limit. Since 0.11 X6 a list of a few hundred records is read whole in the background, so the
+  // header checkbox selects all 80 loaded rows and no "Select all 80 matching" is offered (nothing
+  // matching is left unloaded); all matching is reached by Cmd+A in the table.
   await page.setViewportSize({ width: 1440, height: 900 });
   await open(collections[0]);
-  // The list fills the window with a second page after the first; select once the rows settle.
-  for (let last = -1, now = await page.locator("tbody tr").count(); now !== last; ) {
-    await page.waitForTimeout(300);
-    [last, now] = [now, await page.locator("tbody tr").count()];
-  }
+  await page.waitForFunction(() => document.querySelector("[aria-rowcount]")?.getAttribute("aria-rowcount") === "81");
+  await page.waitForLoadState("networkidle");
   await page.getByRole("checkbox", { name: "Select the records shown" }).click();
-  const loadedCount = await page.locator("tbody tr").count();
-  await barSays(`${loadedCount} selected`, "domains loaded rows");
-  expect(loadedCount < 80, `domains: all ${loadedCount} rows were loaded, so all matching was not reached`);
-  await bar.getByRole("button", { name: "Select all 80 matching" }).click();
-  await barSays("All 80 matching selected", "domains all matching");
+  await barSays("80 selected", "domains loaded rows");
+  expect(!(await bar.getByRole("button", { name: /^Select all \d+ matching$/ }).count()), "domains: all matching offered with every row loaded");
+  await bar.getByRole("button", { name: "Clear selection" }).click();
+  await bar.waitFor({ state: "detached" });
+  await box("K1 Domain 001").focus();
+  await page.keyboard.press("ControlOrMeta+a");
+  // Every matching record is loaded, so Cmd+A selects them all by name.
+  await barSays("80 selected", "domains all matching");
   await box("K1 Domain 001").click();
-  await barSays("All 80 matching except 1", "domains exception");
+  await barSays("79 selected", "domains exception");
   await shot("k1-matching-wide");
   const search = page.getByPlaceholder("Search domains");
   await search.fill("K1 Domai");
   await bar.waitFor({ state: "detached" });
-  checks.push(`domains: the ${loadedCount} loaded rows, Select all 80 matching, one exception; a new search cleared the selection`);
+  checks.push("domains: the header selected the 80 loaded rows (the list held whole, no all-matching offer); Cmd+A all 80, one taken out; a new search cleared the selection");
   await box("K1 Domain 001").waitFor();
   await search.press("ControlOrMeta+a");
   expect(!(await bar.count()), "Cmd+A in the search field selected records");
   await box("K1 Domain 001").focus();
   await page.keyboard.press("ControlOrMeta+a");
-  await barSays("All 80 matching selected", "domains Cmd+A");
-  checks.push("domains: Cmd+A in the search field left the records; in the table it selected all 80 matching");
+  // All 80 either way: by name once every row is loaded, as all matching while the search's rows
+  // are still being read.
+  await bar.getByText(/^(80 selected|All 80 matching selected)$/).waitFor();
+  checks.push("domains: Cmd+A in the search field left the records; in the table it selected all 80 (by name, or as all matching while rows were still read)");
 
   await open(collections[1]);
   await box("K1 System 001").focus();

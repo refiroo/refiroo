@@ -467,6 +467,10 @@ publications alike. On top of it:
   `ancestor:<type>` (walking down from the ancestor through containers only) and one `related` hop,
   read once as a set, never per record. Every name is checked against the model first and refused
   with its JSON pointer. `expand` reads related records in one statement per expansion for the page.
+  An expansion that names its fields (`select`; every list's relation column does) reads only those
+  in that statement: the related records' columns and selected values, and an `ancestor:<type>`
+  field through a walk up the parent chain inside it, bounded by the hierarchy's depth. One without
+  `select` returns full records, read and rendered for the page in one batch.
 - **`asOf`** (ADR-038) is a filter over a declared effective period's two date values, combinable with
   any context; it never selects one. A type without a period refuses it.
 
@@ -658,6 +662,16 @@ Collection query state is browser-owned and URL-backed: search, typed field filt
 supported, one scroll `anchor` cursor and optional containing-object identity. Mapping coverage adds its
 zero/one/many state filter, and the relation matrix its cell state filter. The API binds scope and state
 into opaque cursors, so a continuation cannot silently traverse another context.
+
+Long lists are drawn by row number (ADR-030, revised in 0.11 X6). `lib/hooks/useCursorWindow` holds
+the data: budget pages read with cursors toward the view, at most `WINDOW_ROWS` rows, the furthest
+forgotten first, and one position read where a far move rests. `ui/ScrollWindow` sizes the scroll
+space from the total, so every row has its place before its data arrives, and draws only the rows on
+screen and a screen either side, between two `WindowSpacer`s; a row not held is a
+`WindowPlaceholder`. `@tanstack/react-virtual` decides the range and measures the drawn rows, which
+wrap and so differ in height, correcting the scroll position when a row above the view changes
+height; a forgotten row keeps its measured height. Each surface draws the range in its own markup.
+The record tree is not one long list: its groups draw their held rows.
 
 The model does not declare explicit lens groups (through schema 0.8). The source-type rule is
 deterministic; model-language configuration is added only after real models show where source type is

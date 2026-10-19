@@ -529,6 +529,96 @@ def test_a_list_shows_a_field_of_each_rows_related_records(world):
     refused(world.api.get(r_list, sort=f"related:{bscope}.ancestor:{g_key}.name"), 422, "INVALID_SORT")
 
 
+@pytest.mark.journey("J01.9")
+@pytest.mark.structures("R", "G", "D", "D.active", "Bown", "Bscope", "K.code")
+def test_a_lists_related_fields_read_alike_in_every_context(world):
+    """0.11 X6 (D155). Given R record r related by the scoped relationship to D records under two G
+    records, published as P1, then live G1's code changed and in CS1 D2 renamed and inactive. When
+    the R list expands that relationship with D's name, its active flag and G's name and code, and
+    the model query selects them, in CS1, in P1 and live. Then each value is what reading the D
+    record and its G ancestor in that context says, in name order, with the count and no cursor."""
+    tag = uuid4().hex[:6]
+    bscope, g_key, code, active = (world.key(s) for s in ("Bscope", "G", "K.code", "D.active"))
+    regions = [world.made("G", f"{tag} G{n}", values={"K.code": f"{tag}-G{n}"}) for n in (1, 2)]
+    ds = [
+        world.made(
+            "D",
+            f"{tag} D{n}",
+            parent=world.dependant_parent(region["id"]),
+            values={"D.active": True},
+            relations=[world.owner("Bown", world.made("R", f"{tag} Owner {n}")["id"])],
+        )
+        for n, region in ((1, regions[0]), (2, regions[1]))
+    ]
+    r = world.made("R", f"{tag} Watcher")
+    for d in ds:
+        ok(world.relate("Bscope", r["id"], d["id"]), 201)
+    p1 = world.publish(world.change_set(name=f"{tag} first"))
+    g1 = world.record("G", regions[0]["id"])
+    ok(world.update("G", g1["id"], g1["version"], values={"K.code": f"{tag}-G1 live"}))
+    cs1 = world.change_set(name=f"{tag} staged")
+    staged = world.record("D", ds[1]["id"], changeSetId=cs1["id"])
+    body = {
+        "name": f"{tag} A renamed",
+        "attributes": [{"attributeTypeKey": active, "value": False}],
+        "expectedVersion": staged["version"],
+        "changeSetId": cs1["id"],
+        "expectedChangeSetVersion": world.current(cs1)["version"],
+    }
+    ok(world.api.patch(f"/objects/{world.key('D')}/{ds[1]['id']}", body))
+    fields = [f"ancestor:{g_key}.name", f"ancestor:{g_key}.{code}", active]
+
+    for context in ({"changeSetId": cs1["id"]}, {"publicationId": p1["id"]}, {}):
+        expected = []
+        for d in ds:
+            record = world.record("D", d["id"], **context)
+            g = next(part for part in record["path"] if part["objectTypeKey"] == g_key)
+            region = world.record("G", g["id"], **context)
+            expected.append(
+                (record["name"], [g["name"], world.value(region, "K.code"), world.value(record, "D.active")])
+            )
+        expected.sort()
+        page = ok(
+            world.api.get(
+                f"/objects/{world.key('R')}",
+                search=f"{tag} Watcher",
+                expand=[f"{bscope}.{field}" for field in fields],
+                **context,
+            )
+        )
+        [item] = page["items"]
+        for index, entry in enumerate(item["expanded"]):
+            assert entry["count"] == 2 and entry["nextCursor"] is None
+            shown = [(e["object"]["fields"]["name"], e["object"]["fields"][entry["field"]]) for e in entry["items"]]
+            assert shown == [(name, values[index]) for name, values in expected], context
+
+        query = {
+            "objectTypeKey": world.key("R"),
+            "where": [{"field": "name", "op": "eq", "value": f"{tag} Watcher"}],
+            "select": ["name"],
+            "expand": [
+                {
+                    "relationTypeKey": bscope,
+                    "direction": "outgoing",
+                    "select": ["name", f"ancestor:{g_key}", active, "parentObjectId"],
+                }
+            ],
+            "context": context,
+        }
+        [queried] = ok(world.api.post(f"/workspaces/{W1}/queries/objects", query))["items"]
+        items = queried["expanded"][0]["items"]
+        for entry, (name, values) in zip(items, expected, strict=True):
+            record = world.record("D", entry["object"]["id"], **context)
+            g = next(part for part in record["path"] if part["objectTypeKey"] == g_key)
+            assert entry["object"]["fields"] == {
+                "name": name,
+                f"ancestor:{g_key}": {"id": g["id"], "name": g["name"]},
+                active: values[2],
+                "parentObjectId": record["parentObjectId"],
+            }
+            assert entry["object"]["version"] == record["version"]
+
+
 def _filtered(world, tag, **params):
     """The ids of the tagged H records the list gives with ``params``, read to the end two at a time."""
     ids, cursor, total = [], None, None

@@ -8,7 +8,7 @@
  */
 
 import { Card } from "@/ui/Card";
-import { useId, useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode, type Ref } from "react";
 import { api } from "@/api/client";
 import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorWindow, type CursorWindow } from "@/lib/hooks/useCursorWindow";
@@ -31,7 +31,7 @@ import { Icon } from "@/ui/Icon";
 import { PageHeader } from "@/ui/PageHeader";
 import { RecordChip } from "@/ui/RecordChip";
 import { InlineError } from "@/ui/InlineError";
-import { ScrollWindow } from "@/ui/ScrollWindow";
+import { ScrollWindow, WindowPlaceholder, WindowSpacer } from "@/ui/ScrollWindow";
 import { StatusPill, type StatusTone } from "@/ui/StatusPill";
 import { Tabs } from "@/ui/Tabs";
 
@@ -276,12 +276,14 @@ function EmptyState({
 
 /** One expandable row: a summary line, then a before/after table on request. */
 function ChangeRow({
+  rowRef,
   index,
   rowKey,
   name,
   summary,
   children,
 }: {
+  rowRef: Ref<HTMLLIElement>;
   index: number;
   rowKey: string;
   name: string;
@@ -291,7 +293,7 @@ function ChangeRow({
   const [open, setOpen] = useState(false);
   const detail = useId();
   return (
-    <li className={`change-row${open ? " is-open" : ""}`} data-row-key={rowKey} data-row-index={index}>
+    <li ref={rowRef} className={`change-row${open ? " is-open" : ""}`} data-row-key={rowKey} data-row-index={index}>
       <div className="change-row-summary">
         <button
           type="button"
@@ -365,7 +367,8 @@ function ChangeList<T>({
   noun: [string, string];
   onAnchorChange: (anchor: string | undefined) => void;
   empty: ReactNode;
-  renderRow: (item: T, position: number) => ReactNode;
+  /** A row with data at its absolute `index`; its root element takes `measure` as its ref. */
+  renderRow: (item: T, index: number, measure: (element: Element | null) => void) => ReactNode;
 }) {
   return (
     <>
@@ -379,13 +382,31 @@ function ChangeList<T>({
           className="change-list"
           onAnchorChange={onAnchorChange}
         >
-          {list.items.length > 0 && (
-            <ul className="change-rows" aria-busy={list.loading || undefined}>
-              {list.items.map(renderRow)}
-            </ul>
+          {(drawn) => (
+            <>
+              {list.items.length > 0 && (
+                <ul className="change-rows" aria-busy={list.loading || undefined}>
+                  <WindowSpacer as="li" edge="before" height={drawn.before} />
+                  {drawn.rows.map(({ index, item, size }) =>
+                    item === undefined ? (
+                      <WindowPlaceholder
+                        key={`placeholder-${index}`}
+                        as="li"
+                        index={index}
+                        size={size}
+                        className="change-row"
+                      />
+                    ) : (
+                      renderRow(item, index, drawn.measure)
+                    ),
+                  )}
+                  <WindowSpacer as="li" edge="after" height={drawn.after} />
+                </ul>
+              )}
+              {list.loading && !list.items.length && <p className="candidate-state">Loading changes…</p>}
+              {!list.loading && !list.error && !list.items.length && empty}
+            </>
           )}
-          {list.loading && !list.items.length && <p className="candidate-state">Loading changes…</p>}
-          {!list.loading && !list.error && !list.items.length && empty}
         </ScrollWindow>
       )}
     </>
@@ -431,7 +452,7 @@ function ObjectChanges({
       noun={["record change", "record changes"]}
       onAnchorChange={onAnchorChange}
       empty={<EmptyState filtered={filtered} what="record" />}
-      renderRow={(item, position) => {
+      renderRow={(item, index, measure) => {
         const name = item.after?.name ?? item.before?.name ?? item.objectId;
         // A reclassified record (C1) names its type on both sides; an added or removed one
         // the type of the side it has, so a removed record is named as its source holds it.
@@ -445,7 +466,8 @@ function ObjectChanges({
           <ChangeRow
             key={item.objectId}
             rowKey={item.objectId}
-            index={list.startIndex + position}
+            rowRef={measure}
+            index={index}
             name={name}
             summary={
               <>
@@ -540,7 +562,7 @@ function RelationChanges({
       noun={["relationship change", "relationship changes"]}
       onAnchorChange={onAnchorChange}
       empty={<EmptyState filtered={filtered} what="relationship" parentLinksHidden={!containment} />}
-      renderRow={(item, position) => {
+      renderRow={(item, index, measure) => {
         const type = model.relationTypes.find((relation) => relation.key === item.relationTypeKey);
         const from = item.fromObject.name ?? item.fromObject.objectId;
         const to = item.toObject.name ?? item.toObject.objectId;
@@ -553,7 +575,8 @@ function RelationChanges({
           <ChangeRow
             key={item.relationId}
             rowKey={item.relationId}
-            index={list.startIndex + position}
+            rowRef={measure}
+            index={index}
             name={`${type?.name ?? item.relationTypeKey} ${name}`}
             summary={
               <>

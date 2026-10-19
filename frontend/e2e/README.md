@@ -197,7 +197,7 @@ npm --prefix frontend run test:a11y
 Runs axe-core (WCAG 2.1 AA + best practices) on core page types: collection tables (Domain,
 System), record detail with panels, change-set editing, publications view, model workbench, the change sets
 list and, since Base 0.8 S7, the continuous list and record tree together: the codelist lens at page
-3 of 7 (window scrollbar, footer fields) beside a 60-codelist tree branch scrolling in its group,
+3 of 7 (footer fields; since 0.11 X6 the browser's own scrollbar) beside a 60-codelist tree branch scrolling in its group,
 with focus on a row inside it, in light and dark. A self-check appends a control the tree may not
 own and requires the gate to reject it. Violations not covered by the explicit allowlist in `e2e/accessibility-gate.mjs` fail the
 gate. Exceptions require a tracked issue, an exact axe node target and a maximum node count;

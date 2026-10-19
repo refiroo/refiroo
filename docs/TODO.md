@@ -626,13 +626,12 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
     measured at 0.9 R as 61 s). A move that deletes nothing opens no source change set (X3). Options
     for a later package: a capture limited to what the change set touches, or opening the source's
     change set from the active publication; neither is X5's.
-  - [ ] **Found in X5 (2026-10-19), for X6:** since `ad0d19c` the mapping grid asked the coverage
-    route for 200 rows (`scrollChunk`), over its 100, and showed "Could not load this content"; X5
-    caps the grid's read at 100. `MappingGridView.test.tsx` "passes the correct binding parameters
-    to the coverage API" expects the reader's page (20) and has failed since `ad0d19c`; X6's D156
-    (the reader's page for every read) makes it pass again. 17 visual baselines differ since
-    `ad0d19c` and `4c144bc` (scrolled lists, the rail's layout), not re-recorded in X5: X6 records
-    the lists it rebuilds.
+  - [x] **Found in X5 (2026-10-19), for X6:** the mapping grid's 200-row read and its failing
+    Vitest case: resolved in X6 (every read is the reader's page). The visual baselines that differed
+    since `ad0d19c` and `4c144bc`: see X6's record.
+  - [ ] **Found in X6 (2026-10-19):** `test:browser:a4` failed once in three runs at 390px: after the
+    matrix cell dialog's Unlink, Enter did not reopen the dialog (focus not back on the cell). Not
+    reproduced; cause not found.
   - [ ] **Found in X5 (2026-10-19):** the backend groups `records`, `change_sets`, `mapping`,
     `matrix`, `feed`, `queries`, `move` and `jobs`, the execution guide's selection for
     `engine/records/writes.py`, took 7 min 40 s with `-n auto` (1,691 cases), over the 3-minute

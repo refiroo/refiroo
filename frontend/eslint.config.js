@@ -30,6 +30,14 @@ export default tseslint.config(
     },
   },
   {
+    // `useVirtualizer` (0.11 X6, D161) returns an object whose functions read its state at call
+    // time, so React Compiler leaves the component that calls it unmemoised and says so. That is
+    // the library's design: the scroll window reads the drawn range afresh on every render. It is
+    // used in this file alone.
+    files: ["src/ui/ScrollWindow.tsx"],
+    rules: { "react-hooks/incompatible-library": "off" },
+  },
+  {
     files: ["**/*.test.{ts,tsx}", "src/test/**/*.ts"],
     languageOptions: { globals: { ...globals.node } },
   },

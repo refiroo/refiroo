@@ -15,7 +15,7 @@ import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDat
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { nextGridCell } from "@/lib/gridNavigation";
 import { InlineError } from "@/ui/InlineError";
-import { ScrollWindow } from "@/ui/ScrollWindow";
+import { ScrollWindow, WindowPlaceholder, WindowSpacer } from "@/ui/ScrollWindow";
 import { Icon } from "@/ui/Icon";
 import { PageHeader } from "@/ui/PageHeader";
 import { HueTile } from "@/ui/HueTile";
@@ -176,6 +176,7 @@ export function RelationMatrixView({
       };
     });
   }, [pages.items, patches, listKey]);
+  const patchedRows = useMemo(() => new Map(rows.map((item) => [item.row.id, item])), [rows]);
 
   /** Re-reads the page where the cell alone cannot be; the fresh rows replace the patched cells. */
   const reloadRows = useCallback(() => {
@@ -400,96 +401,118 @@ export function RelationMatrixView({
             onAnchorChange={onAnchorChange}
             className="table-wrap matrix-table"
           >
-            <table
-              ref={grid}
-              role="grid"
-              aria-busy={pages.loading || undefined}
-              aria-readonly={actions.length ? undefined : true}
-              aria-rowcount={pages.totalCount !== null && rows.length > 0 ? pages.totalCount + 1 : undefined}
-              aria-colcount={columns.length + 1}
-              onKeyDown={onGridKeyDown}
-            >
-              <caption className="visually-hidden">
-                {view.name}: {rowsPlural} by {columnType.name.toLowerCase()}
-              </caption>
-              <thead>
-                <tr aria-rowindex={1}>
-                  <th scope="col" className="matrix-row-header" aria-colindex={1}>
-                    {rowType.name}
-                  </th>
-                  {columns.map((column, index) => (
-                    <th key={column.id} scope="col" aria-colindex={index + 2} title={column.name}>
-                      <span className="matrix-column-label">{columnLabel(column)}</span>
-                      {columnLabel(column) !== column.name && <span className="matrix-column-name">{column.name}</span>}
+            {(drawn) => (
+              <table
+                ref={grid}
+                role="grid"
+                aria-busy={pages.loading || undefined}
+                aria-readonly={actions.length ? undefined : true}
+                aria-rowcount={pages.totalCount !== null && rows.length > 0 ? pages.totalCount + 1 : undefined}
+                aria-colcount={columns.length + 1}
+                onKeyDown={onGridKeyDown}
+              >
+                <caption className="visually-hidden">
+                  {view.name}: {rowsPlural} by {columnType.name.toLowerCase()}
+                </caption>
+                <thead>
+                  <tr aria-rowindex={1}>
+                    <th scope="col" className="matrix-row-header" aria-colindex={1}>
+                      {rowType.name}
                     </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {pages.loading && rows.length === 0 ? (
-                  <tr>
-                    <td colSpan={columns.length + 1} className="empty-row">
-                      Loading…
-                    </td>
-                  </tr>
-                ) : rows.length === 0 ? (
-                  <tr>
-                    <td colSpan={columns.length + 1} className="empty-row">
-                      {emptyMessage}
-                    </td>
-                  </tr>
-                ) : (
-                  rows.map((item, position) => (
-                    <tr
-                      key={item.row.id}
-                      data-row-key={item.row.id}
-                      data-row-index={pages.startIndex + position}
-                      aria-rowindex={pages.startIndex + position + 2}
-                    >
-                      <th
-                        scope="row"
-                        className="matrix-row-header"
-                        aria-colindex={1}
-                        data-grid-col={0}
-                        data-row-focus
-                        tabIndex={tabRow === item.row.id && tabColumn === 0 ? 0 : -1}
-                        onFocus={() => setActive({ rowId: item.row.id, column: 0 })}
-                        onClick={() =>
-                          onOpen({
-                            id: item.row.id,
-                            objectTypeKey: item.row.objectTypeKey,
-                            applicationKey: application.key,
-                            workspaceKey,
-                          })
-                        }
-                      >
-                        <span className="matrix-row-name">{item.row.name}</span>
-                        {rowColumns.map((field) => (
-                          <span key={field} className="matrix-row-field">
-                            <span className="visually-hidden">{attributeName(model, field)}: </span>
-                            {formatValue(item.row.fields[field])}
-                          </span>
-                        ))}
+                    {columns.map((column, index) => (
+                      <th key={column.id} scope="col" aria-colindex={index + 2} title={column.name}>
+                        <span className="matrix-column-label">{columnLabel(column)}</span>
+                        {columnLabel(column) !== column.name && (
+                          <span className="matrix-column-name">{column.name}</span>
+                        )}
                       </th>
-                      {columns.map((column, index) => {
-                        const cell = item.cells.find((candidate) => candidate.columnId === column.id);
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {pages.loading && rows.length === 0 ? (
+                    <tr>
+                      <td colSpan={columns.length + 1} className="empty-row">
+                        Loading…
+                      </td>
+                    </tr>
+                  ) : rows.length === 0 ? (
+                    <tr>
+                      <td colSpan={columns.length + 1} className="empty-row">
+                        {emptyMessage}
+                      </td>
+                    </tr>
+                  ) : (
+                    <>
+                      <WindowSpacer as="tr" edge="before" height={drawn.before} columns={columns.length + 1} />
+                      {drawn.rows.map(({ index, item: held, size }) => {
+                        if (held === undefined)
+                          return (
+                            <WindowPlaceholder
+                              key={`placeholder-${index}`}
+                              as="tr"
+                              index={index}
+                              size={size}
+                              cells={[undefined, ...columns.map(() => undefined)]}
+                            />
+                          );
+                        const item = patchedRows.get(held.row.id) ?? held;
                         return (
-                          <MatrixCell
-                            key={column.id}
-                            cell={cell}
-                            cellHue={cellHue}
-                            column={index + 1}
-                            tabbable={tabRow === item.row.id && tabColumn === index + 1}
-                            onFocus={() => setActive({ rowId: item.row.id, column: index + 1 })}
-                            onOpen={() => cell && openCellAt(item.row.id, column.id)}
-                          />
+                          <tr
+                            key={item.row.id}
+                            ref={drawn.measure}
+                            data-row-key={item.row.id}
+                            data-row-index={index}
+                            aria-rowindex={index + 2}
+                          >
+                            <th
+                              scope="row"
+                              className="matrix-row-header"
+                              aria-colindex={1}
+                              data-grid-col={0}
+                              data-row-focus
+                              tabIndex={tabRow === item.row.id && tabColumn === 0 ? 0 : -1}
+                              onFocus={() => setActive({ rowId: item.row.id, column: 0 })}
+                              onClick={() =>
+                                onOpen({
+                                  id: item.row.id,
+                                  objectTypeKey: item.row.objectTypeKey,
+                                  applicationKey: application.key,
+                                  workspaceKey,
+                                })
+                              }
+                            >
+                              <span className="matrix-row-name">{item.row.name}</span>
+                              {rowColumns.map((field) => (
+                                <span key={field} className="matrix-row-field">
+                                  <span className="visually-hidden">{attributeName(model, field)}: </span>
+                                  {formatValue(item.row.fields[field])}
+                                </span>
+                              ))}
+                            </th>
+                            {columns.map((column, index) => {
+                              const cell = item.cells.find((candidate) => candidate.columnId === column.id);
+                              return (
+                                <MatrixCell
+                                  key={column.id}
+                                  cell={cell}
+                                  cellHue={cellHue}
+                                  column={index + 1}
+                                  tabbable={tabRow === item.row.id && tabColumn === index + 1}
+                                  onFocus={() => setActive({ rowId: item.row.id, column: index + 1 })}
+                                  onOpen={() => cell && openCellAt(item.row.id, column.id)}
+                                />
+                              );
+                            })}
+                          </tr>
                         );
                       })}
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                      <WindowSpacer as="tr" edge="after" height={drawn.after} columns={columns.length + 1} />
+                    </>
+                  )}
+                </tbody>
+              </table>
+            )}
           </ScrollWindow>
         )}
         {!pages.loading && !pages.error && rows.length > 0 && columns.length === 0 && (

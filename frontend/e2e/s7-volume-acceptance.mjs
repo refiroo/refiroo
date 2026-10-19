@@ -152,18 +152,39 @@ async function lensJourney(page, { label, url, pageSize, total, expect, endName,
   await wheel(page, table, -1200, 20);
   await table.getByText("Start of list", { exact: true }).waitFor();
 
-  // From the start, a scrollbar click three quarters down lands there.
-  const scrollbar = table.locator("xpath=..").locator(".window-scrollbar");
-  const track = await scrollbar.boundingBox();
+  // From the start, the browser's scrollbar dragged three quarters down (the list is drawn by row
+  // number, 0.11 X6): one position read where it rests, and the rows there are the context's.
   let before = reads.positions.length;
-  await page.mouse.click(track.x + track.width / 2, track.y + track.height * 0.75);
-  const near = (row) => Math.abs(row - total * 0.75) <= Math.max(pageSize, total * 0.05);
-  state = await landing(page, table, (current) => near(current.shown), `${label}: track click`);
-  // A short list's window can already hold the target, which then scrolls without a request.
-  if (total / 2 > windowRows) assert.equal(reads.positions.length - before, 1, `${label}: one request for a track click`);
-  else assert.ok(reads.positions.length - before <= 1, `${label}: at most one request for a track click`);
-  assert.ok(near(state.shown), `${label}: click landed at ${state.range}`);
-  assert.equal(state.shownName, (await expect(state.shown)).items[0].name, `${label}: the clicked row is the context's`);
+  await table.dispatchEvent("pointerdown");
+  await table.evaluate(async (viewport) => {
+    const target = (viewport.scrollHeight - viewport.clientHeight) * 0.75;
+    for (let step = 1; step <= 12; step++) {
+      viewport.scrollTop = (target * step) / 12;
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    }
+  });
+  // The browser's scrollbar spans the scrollable distance: three quarters of it shows the row three
+  // quarters of the way to the last screen's first row.
+  const onScreen = (current) => {
+    const [from, to] = current.range.split(" of ")[0].split("–").map((value) => Number(value.replaceAll(",", "")));
+    return to - from + 1;
+  };
+  let near = () => false;
+  state = await landing(
+    page,
+    table,
+    (current) => {
+      const target = 0.75 * (total - onScreen(current));
+      near = (row) => Math.abs(row - target) <= Math.max(pageSize, total * 0.05);
+      return near(current.shown) && current.shownName !== undefined;
+    },
+    `${label}: scrollbar drag`,
+  );
+  // A short list's window can already hold the target, which then shows without a request.
+  if (total / 2 > windowRows) assert.equal(reads.positions.length - before, 1, `${label}: one request for a scrollbar drag`);
+  else assert.ok(reads.positions.length - before <= 1, `${label}: at most one request for a scrollbar drag`);
+  assert.ok(near(state.shown), `${label}: the drag shows ${state.range}`);
+  assert.equal(state.shownName, (await expect(state.shown)).items[0].name, `${label}: the row shown is the context's`);
 
   // Seek by name lands the value at the top.
   const seek = page.getByRole("textbox", { name: "Go to name" });

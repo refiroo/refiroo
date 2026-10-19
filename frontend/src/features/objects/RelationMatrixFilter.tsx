@@ -11,7 +11,7 @@ import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { ControlPopover } from "@/ui/ControlPopover";
 import { InlineError } from "@/ui/InlineError";
-import { ScrollWindow } from "@/ui/ScrollWindow";
+import { ScrollWindow, WindowPlaceholder, WindowSpacer } from "@/ui/ScrollWindow";
 import { fieldValue } from "@/model/fields";
 import { MATRIX_MAX_COLUMNS } from "@/routing/routes";
 import { StateMark, type MatrixStateKey } from "@/features/objects/relationMatrixStates";
@@ -156,40 +156,57 @@ function ColumnChooser({
         edgeMarkers="partial"
         className="matrix-column-choices"
       >
-        {list.items.map((item, position) => {
-          const label = fieldValue(item, labelField, model);
-          const checked = chosen.includes(item.id);
-          return (
-            <label
-              key={item.id}
-              className="checkbox matrix-column-choice"
-              data-row-key={item.id}
-              data-row-index={list.startIndex + position}
-            >
-              <input
-                type="checkbox"
-                data-row-focus
-                checked={checked}
-                disabled={!checked && full}
-                onChange={() => onChange(checked ? chosen.filter((id) => id !== item.id) : [...chosen, item.id])}
-              />
-              <span>
-                {label !== undefined && label !== null && label !== "" && label !== item.name ? (
-                  <>
-                    <strong>{String(label)}</strong> <small>{item.name}</small>
-                  </>
-                ) : (
-                  item.name
-                )}
-              </span>
-            </label>
-          );
-        })}
-        {list.loading && !list.items.length && <p className="candidate-state">Loading…</p>}
-        {!list.loading && !list.error && !list.items.length && (
-          <p className="candidate-state">
-            No {plural} match{debounced ? ` “${debounced}”` : ""}.
-          </p>
+        {(drawn) => (
+          <>
+            <WindowSpacer as="div" edge="before" height={drawn.before} />
+            {drawn.rows.map(({ index, item, size }) => {
+              if (item === undefined)
+                return (
+                  <WindowPlaceholder
+                    key={`placeholder-${index}`}
+                    as="div"
+                    index={index}
+                    size={size}
+                    className="matrix-column-choice"
+                  />
+                );
+              const label = fieldValue(item, labelField, model);
+              const checked = chosen.includes(item.id);
+              return (
+                <label
+                  key={item.id}
+                  ref={drawn.measure}
+                  className="checkbox matrix-column-choice"
+                  data-row-key={item.id}
+                  data-row-index={index}
+                >
+                  <input
+                    type="checkbox"
+                    data-row-focus
+                    checked={checked}
+                    disabled={!checked && full}
+                    onChange={() => onChange(checked ? chosen.filter((id) => id !== item.id) : [...chosen, item.id])}
+                  />
+                  <span>
+                    {label !== undefined && label !== null && label !== "" && label !== item.name ? (
+                      <>
+                        <strong>{String(label)}</strong> <small>{item.name}</small>
+                      </>
+                    ) : (
+                      item.name
+                    )}
+                  </span>
+                </label>
+              );
+            })}
+            <WindowSpacer as="div" edge="after" height={drawn.after} />
+            {list.loading && !list.items.length && <p className="candidate-state">Loading…</p>}
+            {!list.loading && !list.error && !list.items.length && (
+              <p className="candidate-state">
+                No {plural} match{debounced ? ` “${debounced}”` : ""}.
+              </p>
+            )}
+          </>
         )}
       </ScrollWindow>
       {list.error && <InlineError message={list.error} onRetry={list.retry} />}

@@ -17,7 +17,7 @@
  */
 
 import { StatusPill } from "@/ui/StatusPill";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type Ref } from "react";
 import { errorMessage, isApiError } from "@/api/errors";
 import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
@@ -45,7 +45,7 @@ import { InlineError } from "@/ui/InlineError";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { ObjectLookup } from "@/ui/ObjectLookup";
-import { ScrollWindow } from "@/ui/ScrollWindow";
+import { ScrollWindow, WindowPlaceholder, WindowSpacer } from "@/ui/ScrollWindow";
 import { Tabs } from "@/ui/Tabs";
 import { Candidate } from "@/ui/Candidate";
 import { HueTile } from "@/ui/HueTile";
@@ -438,35 +438,52 @@ export function RestructuringDialog({
                         edgeMarkers="partial"
                         className="restructuring-scroll"
                       >
-                        <ul className="restructuring-record-list" aria-busy={records.loading || undefined}>
-                          {records.items.map((record, position) => (
-                            <PlanRecord
-                              key={record.objectId}
-                              index={records.startIndex + position}
-                              model={model}
-                              record={record}
-                              workspaceKey={workspaceKey}
-                              input={inputs[record.objectId]}
-                              disabled={applying}
-                              onAttribute={(key, value) =>
-                                setInput(record.objectId, (input) => ({
-                                  ...input,
-                                  attributes: { ...input.attributes, [key]: value },
-                                }))
-                              }
-                              onRelation={(key, other) =>
-                                setInput(record.objectId, (input) => ({
-                                  ...input,
-                                  relations: { ...input.relations, [key]: other },
-                                }))
-                              }
-                            />
-                          ))}
-                        </ul>
-                        {!records.loading && !records.error && !records.items.length && (
-                          <p className="candidate-state">
-                            {outcome ? "No record in the plan matches." : "Nothing changes."}
-                          </p>
+                        {(drawn) => (
+                          <>
+                            <ul className="restructuring-record-list" aria-busy={records.loading || undefined}>
+                              <WindowSpacer as="li" edge="before" height={drawn.before} />
+                              {drawn.rows.map(({ index, item: record, size }) =>
+                                record === undefined ? (
+                                  <WindowPlaceholder
+                                    key={`placeholder-${index}`}
+                                    as="li"
+                                    index={index}
+                                    size={size}
+                                    className="restructuring-record"
+                                  />
+                                ) : (
+                                  <PlanRecord
+                                    key={record.objectId}
+                                    rowRef={drawn.measure}
+                                    index={index}
+                                    model={model}
+                                    record={record}
+                                    workspaceKey={workspaceKey}
+                                    input={inputs[record.objectId]}
+                                    disabled={applying}
+                                    onAttribute={(key, value) =>
+                                      setInput(record.objectId, (input) => ({
+                                        ...input,
+                                        attributes: { ...input.attributes, [key]: value },
+                                      }))
+                                    }
+                                    onRelation={(key, other) =>
+                                      setInput(record.objectId, (input) => ({
+                                        ...input,
+                                        relations: { ...input.relations, [key]: other },
+                                      }))
+                                    }
+                                  />
+                                ),
+                              )}
+                              <WindowSpacer as="li" edge="after" height={drawn.after} />
+                            </ul>
+                            {!records.loading && !records.error && !records.items.length && (
+                              <p className="candidate-state">
+                                {outcome ? "No record in the plan matches." : "Nothing changes."}
+                              </p>
+                            )}
+                          </>
                         )}
                       </ScrollWindow>
                     </div>
@@ -859,6 +876,7 @@ const OUTCOME_TEXT: Record<RestructuringRecord["attributes"][number]["outcome"],
 function PlanRecord({
   model,
   record,
+  rowRef,
   index,
   workspaceKey,
   input,
@@ -868,6 +886,7 @@ function PlanRecord({
 }: {
   model: EngineModel;
   record: RestructuringRecord;
+  rowRef: Ref<HTMLLIElement>;
   index: number;
   workspaceKey: string;
   input?: RecordInput;
@@ -902,7 +921,7 @@ function PlanRecord({
         ? "Waiting for a type"
         : undefined;
   return (
-    <li className="restructuring-record" data-row-key={record.objectId} data-row-index={index}>
+    <li ref={rowRef} className="restructuring-record" data-row-key={record.objectId} data-row-index={index}>
       <div className="restructuring-record-head">
         {(after ?? before) && <HueTile {...objectTypeTile(model, (after ?? before)!)} size={18} />}
         <strong>{record.name}</strong>
@@ -1187,29 +1206,46 @@ function SiblingPicker({
           footer={false}
           className="candidate-scroll"
         >
-          {siblings.items.map((sibling, position) => (
-            <Candidate
-              key={sibling.id}
-              data-row-key={sibling.id}
-              data-row-index={siblings.startIndex + position}
-              selected={chosen.has(sibling.id)}
-              control={
-                <input
-                  type="checkbox"
-                  checked={chosen.has(sibling.id)}
-                  onChange={(event) => toggle(sibling, event.target.checked)}
-                />
-              }
-              type={objectTypeTile(model, sibling.objectTypeKey)}
-              name={sibling.name}
-              detail={sibling.id === item.id && "The record the level is inserted above"}
-            />
-          ))}
-          {siblings.loading && !siblings.items.length && <p className="candidate-state">Loading…</p>}
-          {!siblings.loading && !siblings.error && !siblings.items.length && (
-            <p className="candidate-state">
-              {debounced ? `No record matches “${debounced}”.` : `No ${pluralOfType(type).toLowerCase()} here.`}
-            </p>
+          {(drawn) => (
+            <>
+              <WindowSpacer as="div" edge="before" height={drawn.before} />
+              {drawn.rows.map(({ index, item: sibling, size }) =>
+                sibling === undefined ? (
+                  <WindowPlaceholder
+                    key={`placeholder-${index}`}
+                    as="div"
+                    index={index}
+                    size={size}
+                    className="candidate"
+                  />
+                ) : (
+                  <Candidate
+                    key={sibling.id}
+                    data-row-key={sibling.id}
+                    ref={drawn.measure}
+                    data-row-index={index}
+                    selected={chosen.has(sibling.id)}
+                    control={
+                      <input
+                        type="checkbox"
+                        checked={chosen.has(sibling.id)}
+                        onChange={(event) => toggle(sibling, event.target.checked)}
+                      />
+                    }
+                    type={objectTypeTile(model, sibling.objectTypeKey)}
+                    name={sibling.name}
+                    detail={sibling.id === item.id && "The record the level is inserted above"}
+                  />
+                ),
+              )}
+              <WindowSpacer as="div" edge="after" height={drawn.after} />
+              {siblings.loading && !siblings.items.length && <p className="candidate-state">Loading…</p>}
+              {!siblings.loading && !siblings.error && !siblings.items.length && (
+                <p className="candidate-state">
+                  {debounced ? `No record matches “${debounced}”.` : `No ${pluralOfType(type).toLowerCase()} here.`}
+                </p>
+              )}
+            </>
           )}
         </ScrollWindow>
         {siblings.error && <InlineError message={siblings.error} onRetry={siblings.retry} />}
