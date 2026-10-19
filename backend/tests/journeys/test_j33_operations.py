@@ -596,6 +596,15 @@ def test_a_branch_moved_to_another_application_keeps_its_hierarchy_and_undoes_in
     undone = ok(_undo(world, draft, under["version"]))
     ok(_undo(world, draft, undone["version"]))
     assert _model(world, draft) == before
+    assert moved["entries"][0]["removed"] == []
+
+    # A middle type moved alone leaves its parent's children panel nothing to list: the answer says so.
+    alone = ok(_apply(world, draft, _draft(world, draft)["version"], {"kind": "setContainment", "objectType": "j33-mid", "application": "j33-to"}))
+    removed = alone["entries"][0]["removed"]
+    assert [(r["kind"], r["applicationKey"], r["detail"]) for r in removed] == [("panel", "j33-from", "j33-top")], removed
+    assert removed[0]["name"]
+    listed = _history(world, draft, pageSize=1, **{"from": "end"})["items"][0]
+    assert listed["removed"] == removed
 
 
 @pytest.mark.journey("J33.15")

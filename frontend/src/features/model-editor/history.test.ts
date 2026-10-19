@@ -266,3 +266,24 @@ describe("the selection after a key change (0.10 A5b)", () => {
     expect(followKeyChange({ show: "matrix" }, [rekey({ objectType: "item" }, "x")])).toBeUndefined();
   });
 });
+
+describe("what a step could not keep (found 2026-10-19)", () => {
+  it("names the views and panels a move took away, in the step's line", () => {
+    const moved = {
+      ...entry(9, "setContainment", request, false, { objectType: "shelf", parent: null, application: "shop" }),
+      removed: [
+        { kind: "view" as const, applicationKey: "shop", view: "by-area", name: "Shelves by area" },
+        { kind: "panel" as const, applicationKey: "shop", detail: "area", panel: "shelves", name: "Shelves" },
+      ],
+    };
+    const [step] = historySteps([moved]);
+    const [kept] = historySteps([
+      entry(10, "setContainment", request, false, { objectType: "shelf", application: "shop" }),
+    ]);
+    expect(describeStep(kept, names)).toBe("Moved Shelf to Shop");
+    expect(describeStep(step, names)).toMatch(/^Moved Shelf to the top level of Shop\./);
+    expect(describeStep(step, names)).toMatch(
+      /\. Removed, as their types no longer stand in one application: Shelves by area in Shop and the Shelves panel of Area in Shop\. Undo puts them back\.$/,
+    );
+  });
+});

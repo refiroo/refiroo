@@ -11,6 +11,7 @@ A compound kind (a removal, a split, a merge, a move, a containment change) has 
 """
 
 import copy
+import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
@@ -89,6 +90,9 @@ class Applied:
     created: set[str] = field(default_factory=set)
     rekeyed: set[str] = field(default_factory=set)
     named: set[str] = field(default_factory=set)
+    # Views and panels the kind took away because they could stand nowhere after it, named for the
+    # reader (a move between applications says what it could not carry).
+    removed: list[dict[str, str]] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -1062,6 +1066,7 @@ def set_containment(context: Context, raw: dict[str, Any]) -> Applied:
     if "parent" in raw:
         context.unreleased(atom("objectType", key))
     named = {atom("objectType", key)}
+    before = _layout_items(context.document)
     if target is not None:
         named |= _move_to_application(context, key, target, params.optional("fromApplication"))
     stored, created = dict(raw), set()
@@ -1069,7 +1074,42 @@ def set_containment(context: Context, raw: dict[str, Any]) -> Applied:
         stored_parent, created, parents = _set_parent(context, key, raw.get("parent"))
         stored["parent"] = stored_parent
         named |= {atom("objectType", p) for p in parents}
-    return restoring(context, {"kind": "setContainment", **stored}, Applied(stored, {}, created=created, named=named))
+    applied = Applied(stored, {}, created=created, named=named, removed=_removed(before, _layout_items(context.document)))
+    return restoring(context, {"kind": "setContainment", **stored}, applied)
+
+
+def _layout_items(document: Document) -> dict[tuple[str, ...], dict[str, Any]]:
+    """Every view and panel by where it stands: ``(view, app, key)``, ``(panel, app, type, key)``."""
+    items: dict[tuple[str, ...], dict[str, Any]] = {}
+    for application in document.items("applications"):
+        for view in application.get("views") or []:
+            items[("view", application["key"], view["key"])] = view
+        for detail in application.get("details") or []:
+            for panel in detail.get("panels") or []:
+                items[("panel", application["key"], detail["objectTypeKey"], panel["key"])] = panel
+    return items
+
+
+def _removed(before: dict[tuple[str, ...], dict[str, Any]], after: dict[tuple[str, ...], dict[str, Any]]) -> list[dict[str, str]]:
+    """What ``before`` held that ``after`` holds nowhere: not where it stood, not moved (a view by
+    its content under any key, a panel by its page's type and key in any application)."""
+    views = {_without_key(item) for where, item in after.items() if where[0] == "view"}
+    panels = {(where[2], where[3]) for where in after if where[0] == "panel"}
+    removed = []
+    for where, item in before.items():
+        if where in after:
+            continue
+        if where[0] == "view" and _without_key(item) not in views:
+            removed.append({"kind": "view", "applicationKey": where[1], "view": where[2], "name": str(item.get("name") or where[2])})
+        elif where[0] == "panel" and (where[2], where[3]) not in panels:
+            removed.append(
+                {"kind": "panel", "applicationKey": where[1], "detail": where[2], "panel": where[3], "name": str(item.get("title") or where[3])}
+            )
+    return removed
+
+
+def _without_key(view: dict[str, Any]) -> str:
+    return json.dumps({**view, "key": ""}, sort_keys=True)
 
 
 def _set_parent(context: Context, key: str, raw_parent: Any) -> tuple[Any, set[str], list[str]]:

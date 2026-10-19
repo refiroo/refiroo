@@ -389,8 +389,11 @@ async function fromEmpty(label, model, mode) {
       `${tag}: installed and activated; the sidebar shows the group, the table its columns as laid out, the record page without the hidden panel; a record and a child under it created`,
     );
 
-    // The consumer tier serves the child, valid against the Schema read before installing.
-    const served = await fetch(`${harness.apiUrl}/api/consumer/depot-feed-t1/v1/objects/${rackRecord.id}`);
+    // The consumer tier serves the child, valid against the Schema read before installing, in the
+    // workspace the model went into (0.11: the consumer tier reads one workspace's model).
+    const served = await fetch(
+      `${harness.apiUrl}/api/consumer/depot-feed-t1/v1/objects/${rackRecord.id}?workspace=depot-t1-workspace`,
+    );
     assert.equal(served.status, 200, await served.clone().text());
     const message = await served.json();
     assert.equal(message.name, "First rack");
@@ -514,14 +517,20 @@ async function extending(label, model, mode) {
     const undo = page.getByRole("button", { name: "Undo", exact: true });
     const redo = page.getByRole("button", { name: "Redo", exact: true });
     await ed.oneStep(() => who.press(undo, "Undo"), "undo");
-    await page.getByRole("cell", { name: /Scratch T1/ }).waitFor({ state: "detached" });
+    await page
+      .getByRole("cell", { name: /Scratch T1/ })
+      .first()
+      .waitFor({ state: "detached" });
     await ed.oneStep(() => who.press(redo, "Redo"), "redo");
     await page
       .getByRole("cell", { name: /Scratch T1/ })
       .first()
       .waitFor();
     await ed.oneStep(() => who.press(undo, "Undo"), "undo again");
-    await page.getByRole("cell", { name: /Scratch T1/ }).waitFor({ state: "detached" });
+    await page
+      .getByRole("cell", { name: /Scratch T1/ })
+      .first()
+      .waitFor({ state: "detached" });
     assert.equal(await redo.isDisabled(), false);
 
     // A relation from the released type to the new one, from the matrix: the new step clears redo.

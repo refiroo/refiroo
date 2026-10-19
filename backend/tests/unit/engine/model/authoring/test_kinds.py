@@ -260,8 +260,9 @@ def test_a_type_moved_to_another_application_takes_its_branch_and_keeps_the_draf
     original = MODELS[model_name]
     for type_key, source, target in _moves(original):
         data = copy.deepcopy(original)
-        _apply(data, {"kind": "setContainment", "objectType": type_key, "application": target})
+        applied = _apply(data, {"kind": "setContainment", "objectType": type_key, "application": target})
         apps = {a["key"]: a for a in data["applications"]}
+        named = {(r["applicationKey"], r.get("view") or (r["detail"], r["panel"])) for r in applied.removed}
         branch, pending = [], [type_key]
         while pending:
             current = pending.pop()
@@ -293,6 +294,14 @@ def test_a_type_moved_to_another_application_takes_its_branch_and_keeps_the_draf
             config = view["config"]
             need = {config["rowObjectTypeKey"], config["columnObjectTypeKey"], config["cellObjectTypeKey"]}
             assert not any(need <= m for m in members), (type_key, target, view["key"])
+            # What could not be kept is said, not dropped in silence.
+            assert (source, view["key"]) in named, (type_key, target, view["key"], named)
+        for detail in before.get("details", []):
+            for panel in detail["panels"]:
+                if not any(
+                    p["key"] == panel["key"] for a in data["applications"] for d in a.get("details", []) if d["objectTypeKey"] == detail["objectTypeKey"] for p in d["panels"]
+                ):
+                    assert (source, (detail["objectTypeKey"], panel["key"])) in named, (type_key, target, panel["key"], named)
         # What stays behind keeps its columns and fields (a panel lost two, found 2026-10-19).
         for detail in before.get("details", []):
             if detail["objectTypeKey"] in branch:

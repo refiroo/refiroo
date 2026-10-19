@@ -3944,10 +3944,15 @@ model-side kinds above also change the profile when the draft holds one (D13, D7
   "parameters": { "objectType": "unit", "attributeType": "code", "required": true },
   "inverse": { "kind": "detachAttribute", "objectType": "unit", "attributeType": "code" },
   "draftVersion": 8, "author": null, "at": "2026-10-12T09:00:00Z",
-  "undone": false, "origin": { "type": "request" } }
+  "undone": false, "origin": { "type": "request" }, "removed": [] }
 ```
 
-`step` groups the entries of one request; `origin` is `request`, `undo`, `redo`, `patch` (a
+`removed` names the views and panels an operation took away because they could stand in no
+application after it: `{kind: "view", applicationKey, view, name}` or `{kind: "panel",
+applicationKey, detail, panel, name}`. Only `setContainment` with `application` fills it today (a
+matrix whose types no application lists together, a staying page's children or table panel of a
+type that moved); it is the same in the step's answer and in the history, and an undo puts them
+back. `step` groups the entries of one request; `origin` is `request`, `undo`, `redo`, `patch` (a
 whole-model `PATCH`, recorded as `replaceModel`) or, from A6, `proposal` with its ID. `author` is
 `null` until 0.12 brings identities. The history is the draft's and goes with it (D4); a release
 keeps none. It answers J08.9.

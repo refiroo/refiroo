@@ -3,7 +3,7 @@
  * line, from its entries' kinds and parameters, and what the history says about undo and redo.
  */
 
-import type { EditorSelection, ModelDraftOperationEntry } from "@/types";
+import type { EditorSelection, ModelDraftOperationEntry, RemovedElement } from "@/types";
 import type { ElementKind } from "@/features/model-editor/outline";
 import { describeConsumerOperation } from "@/features/model-editor/consumer";
 import { describeMappingOperation } from "@/features/model-editor/mapping";
@@ -144,9 +144,13 @@ export function describeOperation(
       return `Made ${attribute(p.attributeType)} on ${type(p.objectType)} ${p.readOnly ? "read-only" : "editable"}`;
     case "setContainment": {
       const parent = (p.parent as { objectTypes?: string[] } | null)?.objectTypes?.[0];
-      return parent
-        ? `Moved ${type(p.objectType)} under ${type(parent)}`
-        : `Moved ${type(p.objectType)} to the top level`;
+      // With an application, a move there (2026-10-19): the step names it.
+      const into = str(p.application) ? ` of ${names("application", str(p.application))}` : "";
+      const there = str(p.application) ? ` in ${names("application", str(p.application))}` : "";
+      if (parent) return `Moved ${type(p.objectType)} under ${type(parent)}${there}`;
+      // Without a parent the move keeps where the type stands, in the other application.
+      if (!("parent" in p)) return `Moved ${type(p.objectType)} to ${names("application", str(p.application))}`;
+      return `Moved ${type(p.objectType)} to the top level${into}`;
     }
     case "addRelationType":
       return `Added relation type ${str(p.name)}`;
@@ -222,7 +226,26 @@ export function describeStep(step: HistoryStep, names: Names): string {
   if (step.origin.type === "redo") return `Redid step ${step.origin.step ?? ""}`.trim();
   // A proposal applied (0.10 A6b): what the rule found, as the proposal said it.
   if (step.origin.type === "proposal" && step.origin.summary) return `Proposed: ${step.origin.summary}`;
-  return step.entries.map((entry) => describeOperation(entry.kind, entry.parameters, names, entry.inverse)).join("; ");
+  const line = step.entries
+    .map((entry) => describeOperation(entry.kind, entry.parameters, names, entry.inverse))
+    .join("; ");
+  const removed = step.entries.flatMap((entry) => entry.removed ?? []);
+  return removed.length ? `${line}. ${removedWords(removed, names)}` : line;
+}
+
+/**
+ * What a step could not keep, as the editor says it after the step and in its history: the views
+ * and panels that could stand in no application once their types stood apart (a move between
+ * applications, 2026-10-19).
+ */
+export function removedWords(removed: RemovedElement[], names: Names): string {
+  const parts = removed.map((item) =>
+    item.kind === "view"
+      ? `${item.name} in ${names("application", item.applicationKey)}`
+      : `the ${item.name} panel of ${names("objectType", item.detail ?? "")} in ${names("application", item.applicationKey)}`,
+  );
+  const listed = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : parts[0];
+  return `Removed, as their types no longer stand in one application: ${listed}. Undo puts them back.`;
 }
 
 /** Whether a step can be undone from its line: a change not undone yet (an undo is taken back by redo). */

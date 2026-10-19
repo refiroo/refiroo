@@ -74,7 +74,14 @@ import { StatusPill } from "@/ui/StatusPill";
 import { Tabs } from "@/ui/Tabs";
 import { useToast } from "@/ui/Toast";
 import { ElementPanel } from "@/features/model-editor/ElementPanel";
-import { canRedo, describeOperation, followKeyChange, historySteps, undoable } from "@/features/model-editor/history";
+import {
+  canRedo,
+  describeOperation,
+  followKeyChange,
+  historySteps,
+  removedWords,
+  undoable,
+} from "@/features/model-editor/history";
 import { InstallDialog } from "@/features/model-editor/InstallDialog";
 import { IssuesAndHistory } from "@/features/model-editor/IssuesAndHistory";
 import { droppedColumn, ModelPane, type PaneDrop } from "@/features/model-editor/ModelPane";
@@ -156,7 +163,7 @@ export function ModelEditor({
   const [dialog, setDialog] = useState<Dialog>();
   const [stale, setStale] = useState<Stale>();
   const [notice, setNotice] = useState<{
-    tone: "error" | "success";
+    tone: "error" | "success" | "warning";
     text: string;
     applications?: string[];
     /** The workspace the applications open in. */
@@ -172,8 +179,11 @@ export function ModelEditor({
   const version = useRef(0);
   // The selection a step's answer is compared with: a changed key of the selected element follows.
   const selected = useRef(selection);
+  // The outline a step's answer is worded against (what it removed is named in it).
+  const outlineNow = useRef(outline);
   useEffect(() => {
     selected.current = selection;
+    outlineNow.current = outline;
   });
   const paneWidth = useLocalNumberPreference("rdm:model-editor:pane-width:v1", 300, 220, 560);
   const sourceWidth = useLocalNumberPreference("rdm:model-editor:source-width:v1", 320, 240, 560);
@@ -244,6 +254,10 @@ export function ModelEditor({
       try {
         const answer = await send(version.current);
         if (answer.dryRun) dryRunQueued(answer.dryRun.jobId);
+        // What the step could not keep anywhere is said, not dropped in silence.
+        const removed = answer.entries.flatMap((entry) => entry.removed ?? []);
+        if (removed.length && outlineNow.current)
+          setNotice({ tone: "warning", text: removedWords(removed, nameOf(outlineNow.current)) });
         const followed = followKeyChange(selected.current, answer.entries);
         if (followed) onSelect(followed);
       } catch (cause) {

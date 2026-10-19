@@ -303,6 +303,7 @@ def entry_response(row: Any, owner: Owner | None = None) -> dict[str, Any]:
         "undone": row.undone_by_step is not None,
         # A proposal step's snapshot is for ownership (0.10 A6, D92), not for readers.
         "origin": {k: v for k, v in (row.origin or {}).items() if k != "snapshot"},
+        "removed": list((row.effects or {}).get("removed", [])),
     }
 
 
@@ -456,6 +457,7 @@ def _write_entries(
                 "created": sorted(result.created),
                 "rekeyed": sorted(result.rekeyed),
                 "named": sorted(result.named),
+                **({"removed": result.removed} if getattr(result, "removed", None) else {}),
             },
             created_at=now,
         )

@@ -399,6 +399,12 @@ class ModelDraftOperationEntry(BaseModel):
     at: datetime
     undone: bool
     origin: dict[str, Any]
+    removed: list[dict[str, str]] = Field(
+        default_factory=list,
+        description="Views and panels the operation took away because they could stand in no "
+        "application after it, each with its kind, applicationKey, view or detail and panel, and "
+        "name (a move between applications says what it could not carry)",
+    )
 
 
 class ModelDraftOperationPage(CollectionPage[ModelDraftOperationEntry]):

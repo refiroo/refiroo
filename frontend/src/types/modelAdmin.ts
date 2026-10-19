@@ -238,12 +238,24 @@ export interface WorkspaceModelActivation extends WorkspaceModel {
 }
 
 /** One operation of a draft's history (0.10 A2, ADR-041). */
+/** A view or panel an operation took away because it could stand in no application after it. */
+export interface RemovedElement {
+  kind: "view" | "panel";
+  applicationKey: string;
+  view?: string;
+  detail?: string;
+  panel?: string;
+  name: string;
+}
+
 export interface ModelDraftOperationEntry {
   sequence: number;
   step: number;
   kind: string;
   parameters: Record<string, unknown>;
   inverse: Record<string, unknown>;
+  /** What the operation could not keep anywhere (a move between applications); empty mostly. */
+  removed?: RemovedElement[];
   draftVersion: number;
   author: string | null;
   at: string;

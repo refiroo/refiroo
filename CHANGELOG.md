@@ -19,8 +19,10 @@ All notable changes to this project are documented in this file. The format foll
   panels it lacks, and what stays keeps its columns. First delivered without these, it dropped a
   list whose language column reached the translations, columns of a staying panel, and mapping
   grids; a sweep of every type to every application over three real models found them. What can
-  stand in neither application still goes without being named (a matrix whose types no application
-  lists together, a staying page's children panel of a type that moved).
+  stand in neither application (a matrix whose types no application lists together, a staying page's
+  children panel of a type that moved) goes, and is named: a history entry's new `removed` lists
+  it, and the editor says it after the step and in History. History names the application a type
+  moved to.
 - A tree view's top type given a parent left the draft invalid ("cannot exist without a parent");
   a type moved to the top dropped out of the tree it was a node of. The tree now grows up to the new
   parent, or takes the type as a top of its own, and drops what it can no longer show or offer.
@@ -36,6 +38,8 @@ All notable changes to this project are documented in this file. The format foll
   further than its dialog, and the dialog holds the browser's own carry too.
 - The model pane did not scroll while a drag neared its top or bottom, so rows out of view could not
   be reached; it scrolls as the record tree does, through one shared helper.
+- The t1 designer runner followed 0.11: a model of its own installs into a new workspace, read
+  there by the consumer tier; a wait for an undone attribute no longer trips on two matching cells.
 - The Install and activate dialog's buttons fell below its frame when the differences ran long; they
   stay at its foot as Map to…'s do.
 
