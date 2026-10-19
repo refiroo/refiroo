@@ -2135,9 +2135,13 @@ activated meanwhile) creates no job. A worker in the API process then runs it:
   what applied. `progress.processed` equals `progress.total` once the job is finished.
 
 `POST /jobs/{jobId}/cancel` answers `202` with the job and `cancelRequestedAt` set; it waits for no
-chunk. The worker carries it out at the job's next chunk (a queued job before its first item); an
-`atomic` job looks for it before every 500 items it decides and before it writes them, and rolls
-back completely. An import preview waiting for confirmation (0.9 J3) is cancelled at once: it is
+chunk or step, however long. The worker carries it out at the job's next chunk (a queued job before
+its first item); an `atomic` job looks for it before every 500 items it decides and before it
+writes them, and rolls back completely. A job of one step (a profile, a draft's dry run or
+inference, a mapping's inference, a profile's check) and a move's last loading step look for it
+once more before they commit, and end `cancelled` writing nothing of that step (0.11 N2). A dry run,
+an inference, a mapping inference or a profile's check asks the earlier one of its subject to stop
+this way; two sent at the same moment are decided one after the other, so the later one stands. An import preview waiting for confirmation (0.9 J3) is cancelled at once: it is
 `cancelled` with `finishedAt` set, its file removed and its preview's outcomes kept to read until
 retention. Cancelling again changes nothing; a
 finished job is `409 JOB_FINISHED` with `details.state`, an unknown one `404 JOB_NOT_FOUND`.

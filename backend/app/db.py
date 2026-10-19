@@ -35,6 +35,8 @@ DRIVER = "postgresql+psycopg"
 _LOCK_NAMESPACE = 0x52444D
 STARTUP_LOCK = {"namespace": _LOCK_NAMESPACE, "key": 1}
 INSTALLATION_LOCK = {"namespace": _LOCK_NAMESPACE, "key": 2}
+# The job submissions of one subject (0.11 N2), keyed by the subject's hash.
+_JOB_SUBJECT_NAMESPACE = _LOCK_NAMESPACE + 1
 # PG-D11: the language-independent Unicode root order, the same on every platform.
 COLLATION_PROVIDER, COLLATION_LOCALES = "i", frozenset({"und", "root"})
 # The trigram search indexes (PG-D7) and, for the key columns beside the trigrams, btree_gin (0.9 C14).
@@ -319,6 +321,17 @@ def lock_installation(session: Session) -> None:
     """Install releases one at a time across processes until this transaction ends (0.11 N1,
     D167), so a second install of the same model finds the first's release."""
     session.execute(text("SELECT pg_advisory_xact_lock(:namespace, :key)"), INSTALLATION_LOCK)
+
+
+def lock_job_subject(session: Session, kind: str, subject: str) -> None:
+    """Submit jobs of ``kind`` for one subject (a draft, a mapping, a profile) one at a time across
+    processes until this transaction ends (0.11 N2, D171): the stop request a submission sends to
+    the subject's earlier job then sees one committed meanwhile. Two subjects whose names hash
+    alike only wait for each other."""
+    session.execute(
+        text("SELECT pg_advisory_xact_lock(:namespace, hashtext(:subject))"),
+        {"namespace": _JOB_SUBJECT_NAMESPACE, "subject": f"{kind}:{subject}"},
+    )
 
 
 def _unreachable(label: str, exc: DBAPIError) -> DatabaseStartupError:

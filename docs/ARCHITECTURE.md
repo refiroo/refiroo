@@ -514,10 +514,23 @@ its parameters, state, progress and one outcome per item, kept for a retention p
   and `engine/events/dispatcher.py`) in
   chunks: a chunk's writes, outcomes and the job's checkpoint commit in one transaction, so a resumed
   job starts at its first item without an outcome and never repeats or skips one.
-- **Lease.** A worker claims a job with `leaseOwner` and `leaseExpiresAt` in a short transaction and
-  renews the lease with each chunk. A chunk does not hold the job row while it applies items, so a
-  cancel request never waits; it locks the row only at its checkpoint and rolls back if another worker
-  took the job over. The lease lets 0.11 run workers on several nodes without a contract change.
+- **Lease.** A worker claims a job with `leaseOwner` and `leaseExpiresAt` in a short transaction.
+  While it runs a chunk, a heartbeat thread renews the lease every third of `JOB_LEASE_SECONDS` in a
+  short session of its own, whatever the step, so a job stays with its worker however long a step
+  or a single statement takes; another worker takes it over only once its process stops renewing
+  (stopped, frozen, cut off from the database). A chunk, and a long step such as a move's settling,
+  does its work without holding the job row, so a cancel request never waits; it locks the row only
+  at its checkpoint and rolls back if another worker took the job over. A job of one step (a
+  profile, an inference, a dry run, a check) also stops there when a cancel was requested, so it
+  writes nothing once asked to stop.
+- **Several nodes** share the job table: a claim is one `UPDATE … WHERE` claimable, so two workers
+  never both claim; each process's job listener (`LISTEN rdm_job_events`) wakes its workers when any
+  process queues or changes a job, so an idle node starts a job queued on a busy one at once.
+  Submitting a dry run, an inference, a mapping inference or a profile's check takes an advisory
+  lock on its kind and subject (`db.lock_job_subject`), so the stop request it sends to the
+  subject's earlier job sees one submitted at the same moment. An export's partial file is named
+  after its worker's lease, so a worker that lost an export never writes or removes the new owner's
+  file; it is renamed into place under the job row's lock.
 - **A job pins its model release** and fails with `MODEL_RELEASE_CHANGED` when it moves. In a change
   set it holds the change set's version and fails if anyone else writes to it.
 - **Idempotency keys** replay a finished job's response and refuse a reused key with a different body.

@@ -314,7 +314,14 @@ def create_app() -> FastAPI:
     application.state.run_job_worker = True
     # The job event stream's listener (0.9 J1u, D58): it only listens, so tests keep it running.
     application.state.session_factory = SessionLocal
-    application.state.job_listener = JobListener(libpq_url)
+    # It also wakes this process's workers when any process queues or changes a job (0.11 N2).
+    workers = [w for w in (application.state.job_worker, application.state.export_worker) if w]
+
+    def wake_workers() -> None:
+        for worker in workers:
+            worker.wake()
+
+    application.state.job_listener = JobListener(libpq_url, wake_workers)
     application.state.run_job_listener = True
     application.state.feed_retention_days = settings.feed_retention_days
     # The consumer event deriver (C10). Tests that derive themselves set ``run_event_deriver`` to

@@ -30,6 +30,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session
 
 from ....common.pagination import Page, PageRequest, integer_key, paginate_statement
+from ....db import lock_job_subject
 from ....errors import api_error
 from ....models.database import (
     Job,
@@ -109,6 +110,7 @@ def submit_inference(session: Session, draft_id: str, request: InferenceRequest,
             f"Application '{request.applicationKey}' exists; a new application needs a key no application has",
             {"pointer": "/applicationKey"},
         )
+    lock_job_subject(session, KIND, draft.public_id)
     session.execute(
         update(Job)
         .where(Job.kind == KIND, Job.state.in_(RUNNING), job_parameter("draftId") == draft.public_id)

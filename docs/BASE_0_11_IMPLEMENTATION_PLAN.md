@@ -11,7 +11,7 @@ packages are specified below at package level; each package's detailed plan, tes
 decisions are written and accepted when it starts, and it is delivered in the order of the
 [delivery queue](#delivery-queue), each by the [delivery steps](#how-a-package-is-delivered).
 **Delivered:** P0, M1 with M2 (2026-10-15), M3, M4, M5, M6 and M6a (2026-10-16), released as
-0.11.0-alpha.1 (2026-10-17, tag `v0.11.0-alpha.1`); V1, V2, V3, V4, X1, X2, S1 and X3 (2026-10-18); X4, X5, X6 and N1 (2026-10-19).
+0.11.0-alpha.1 (2026-10-17, tag `v0.11.0-alpha.1`); V1, V2, V3, V4, X1, X2, S1 and X3 (2026-10-18); X4, X5, X6, N1 and N2 (2026-10-19).
 
 **Target:** Product 0.11.0, [production hardening and staged model rollout](ROADMAP.md#product-release-011--production-hardening-and-staged-model-rollout),
 with the two requirements the user added on 2026-10-15 (ROADMAP commit `a0859ae`).
@@ -404,7 +404,7 @@ change) and `volume` (every budget).
 | | **Part 2 — production hardening** | | |
 | 17 | [S1](#s1-the-backend-suites-time) | — | **Delivered 2026-10-18.** Journey cases spread over the workers; the full suite with `-n 6` under a revised 11-minute ceiling (D126) |
 | 18 | [N1](#n1-snapshots-across-processes) | M2 | **Delivered 2026-10-19.** Assignment changes propagated across processes; model administration with `WEB_CONCURRENCY` above 1; installation and startup under database locks; the read guard |
-| 19 | [N2](#n2-the-job-worker-on-several-nodes) | N1 | Every job kind's leases, cancels and supersession under real concurrency |
+| 19 | [N2](#n2-the-job-worker-on-several-nodes) | N1 | **Delivered 2026-10-19.** Every job kind's leases, cancels and supersession under real concurrency: a heartbeat per running job, submissions of one subject one at a time, workers woken across processes, a partial export file per lease |
 | 20 | [N3](#n3-concurrency-invariants-at-full-volume) | N2, Q1 | Several processes and nodes on one database at full volume; constraints as a second line, on evidence |
 | 21 | [Q1](#q1-full-volume-fixture-pool-and-bulk-paths) | — | The fixture at full scale; pool sizing; the bulk-path statistics pattern; `NOT IN` subqueries |
 | 22 | [Q2](#q2-model-derived-indexes) | M2, Q1 | Indexes derived from each workspace's model; unique checks on non-text values |
@@ -3969,6 +3969,192 @@ uploads not superseding each other (R-F9); all fixed in R, and the whole worker 
 same way.
 
 **Groups:** `jobs`.
+
+##### N2 plan (2026-10-19)
+
+**Planned 2026-10-19. D170–D175 and the test cases accepted by the user on 2026-10-19.** Checked
+against the code at `31545b2` by reading it; nothing was run. Each finding below is confirmed by
+a test that fails first, or is dropped.
+
+**What was found** (ten kinds: `batch`, `import`, `profile`, `dryRun`, `inference`,
+`profileCheck`, `migration`, `mappingInference`, `move` on the batch worker, `export` on its own):
+
+| Kind and phase | Lease renewed | Cancel seen | Notes |
+| --- | --- | --- | --- |
+| `batch`, `import`: an `independent` chunk (500 items) | at the chunk's commit only | between chunks (D28) | a chunk longer than the lease (120 s) is taken over by another node and rolled back, and the same on the next attempt |
+| `batch`, `import`: an `atomic` chunk; previews; binding | every few hundred items or rows | yes | — |
+| `profile`: staging and statistics | per chunk of cells and per sheet (0.10 R-F7) | yes | — |
+| `inference`, `mappingInference` | between phases | between phases | a phase longer than the lease is taken over; a single phase, such as the shared-values read over two workspaces, is not measured |
+| `dryRun`, `profileCheck` | yes (the preview's check); `prepare` none | yes | `prepare` reads two staged files; short at W1's size, not measured |
+| `migration` (V1, V3) | between statements | at the start | one statement longer than the lease is taken over; 100,000 records took 66 s and 111 s in total (V1) |
+| `move`: the binding | **none** | **none** | at 110,254 records the dry run took 212 s (X5), the binding a part of it |
+| `move`: the preview's settle and the load's last step | taken first, the job row then locked `FOR UPDATE` through the work | — | the settle, the source's deletion (up to every loaded record) and the summary run with the job row locked: a cancel request waits for them (against D28), and another node whose claim reaches the row waits too |
+| `export` | between rows | between rows | a node that takes over writes `{jobId}.partial` while the first still writes it; the first, finding its lease lost, removes every file of the job, the new owner's included |
+
+Across kinds:
+
+- **Concurrent submissions do not supersede each other.** A dry run, an inference, a mapping
+  inference and a profile's check each ask the earlier job of their subject (draft, mapping,
+  profile) to stop with an `UPDATE` in the submitting transaction. Two submissions committed
+  together each miss the other's uncommitted job, so both run, and an inference that finishes
+  last replaces the proposals of the newer one (both delete and insert all of their draft's or
+  mapping's proposals). The pattern R-F9 fixed for uploads, here for jobs.
+- **A job stopped just before its end still writes.** A one-step job (inference, mapping
+  inference, profile, dry run, check) looks for a cancel between phases; its last write and its
+  commit look only at the lease. A cancel arriving after the last check is ignored.
+- **A profile of a superseded file queues a check.** Two files uploaded to one profile and
+  profiled on two nodes: whichever finishes last queues its check and stops the other's. When the
+  older file finishes last, the profile's latest check reports on the file the profile no longer
+  holds. With one worker the profiles run in order and this cannot happen.
+- **A job queued on a busy node waits.** A request wakes only its own process's worker. When that
+  worker is running a long job, the others find the new job only at their next poll, up to 60 s
+  (`IDLE_SECONDS`). The job listener (0.9 J1u) already hears every job inserted or changed, from
+  any process, and wakes only event streams.
+- **Already right, and left so:** the claim (one `UPDATE … WHERE` claimable, so two nodes never
+  both claim); every commit checking the lease under the job row's lock (J24.3); leases released at
+  a clean stop; `JOB_FILE_DIR` on shared storage (OPERATIONS) and the sweep's grace for files whose
+  job is not committed yet; the upload's supersede (0.10 R-F9).
+
+**What is built:**
+
+1. **A heartbeat per running job (D170).** While a worker runs a job, a thread of its own renews
+   the lease every third of `JOB_LEASE_SECONDS` in a short session, whatever the phase, a single
+   long statement included. A heartbeat that finds the job held by another worker marks the lease
+   lost, and the run stops at its next check or its commit (which already checks). The renewals at
+   the check points go; the check points keep looking for a cancel request.
+2. **Submissions serialized per subject (D171).** Submitting a dry run, an inference, a mapping
+   inference or a profile's check first takes a transaction-level advisory lock on its kind and
+   subject, so the second submission's stop request sees the first's job. A one-step job looks for
+   a cancel request once more under its job row's lock before it commits, so a job asked to stop
+   never writes over a newer one.
+3. **A profile queues a check only for its file still current (D172)**, the profile's newest.
+4. **Workers woken across processes (D173).** The job listener wakes its process's workers when a
+   job notification arrives; the poll stays as the fallback.
+5. **A partial export file per lease (D174).** `{jobId}.{lease}.partial`; a worker removes only its
+   own; the sweep reads the new name.
+6. **Long work before the job row (D175).** The move's preview settle and its load's last step do
+   their work first and take the job row last, as a chunk does, so a cancel answers at once.
+7. **Documents:** OPERATIONS (several processes: the heartbeat, the wake-up, what a node's crash
+   costs), ARCHITECTURE (the worker's lease), J24's variants in USER_JOURNEYS and API_JOURNEYS,
+   CHANGELOG, PROJECT_STATUS, TODO.
+
+**Composable domains (ADR-032):** no door affected; N2 touches none of identity, attribute storage,
+audit, the bulk APIs, `match` or coverage.
+
+**Decisions:**
+
+| # | Question | Recommendation | Blocks |
+| --- | --- | --- | --- |
+| D170 | How a long job keeps its lease | **Recommended:** a heartbeat thread per running job, renewing every lease/3. Why: one mechanism for every kind and phase, including a single statement longer than the lease that no check point can cover, and a kind added later cannot forget it. Rejected: adding check points to the phases missing them (the move's binding, independent chunks, long statements stay uncovered). Cost: one more short connection per running job; a node alive but stuck (a statement waiting on a lock forever) keeps its job, where today it loses it after 120 s. J24.3's scenario changes with it: a worker loses its job when its process stops renewing (stopped, frozen, cut off from the database), no longer when it waits on a lock | N2 |
+| D171 | Two submissions of one subject at once | **Recommended:** a transaction-level advisory lock on kind and subject in the submission, and the cancel looked at under the job row's lock before a one-step job commits. Why: the existing stop request then always sees the earlier job, and an older job never writes over a newer one. Cost: two submissions for one subject wait for each other's short transaction | N2 |
+| D172 | A profile finished for a file superseded meanwhile | **Recommended:** it completes but queues no check; the newest file's check stands. Why: the check reports on the file the profile holds. Cost: none | N2 |
+| D173 | A job queued on a node whose worker is busy | **Recommended:** the job listener wakes the workers too, on every job notification; no migration. Why: the listener already hears every committed job change from every process; an idle node starts the job at once instead of within 60 s. Cost: an idle worker runs one indexed claim query per notification, about one per chunk of every running job | N2 |
+| D174 | An export taken over by another node | **Recommended:** the partial file named after its lease; each worker removes only its own. Why: two nodes never write one file, and the loser cannot delete the winner's. Cost: the sweep reads one more name shape | N2 |
+| D175 | Long work done while holding the job row | **Recommended:** the move's preview settle and load end do their work first and take the row last. Why: D28 says a cancel never waits for a chunk; one transaction either way, so losing the lease still rolls everything back. Cost: none | N2 |
+
+**Journey test cases** (J24; two workers in one test process stand for two nodes, as J24.3 does;
+cases 5 and 6 start real processes on one cloned database with a shared `JOB_FILE_DIR`, as N1's
+do):
+
+1. **J24.3 revised, a node that stops renewing** (`jobs`): worker A runs an import's chunk and
+   its heartbeat stops (its process frozen); after the lease, B takes the job over; A, reaching its
+   commit, commits nothing; every row is applied once. Replaces today's lock-wait scenario (D170).
+2. **J24.8 A long step keeps its job** (`jobs`), for each of the ten kinds: with a lease shorter
+   than the kind's steps and worker B claiming throughout, the job completes in the worker that
+   claimed it, B takes none of it over, and its result is what one worker alone produces. Fails
+   today for the kinds whose steps outlast the lease.
+3. **J24.2 Cancel during a long step** (`jobs`): a cancel sent while a move's preview settles, while
+   its load deletes in the source, and just before an inference commits: each answers `202` at
+   once, the job ends `cancelled`, nothing of its last step written. Fails today (the first two
+   wait; the third completes).
+4. **J34 and X1 Two submissions at once** (`jobs`): two dry runs, two inferences and two mapping
+   inferences for one subject sent together: one ends `cancelled`, the other `completed`, and the
+   proposals are the completed one's. Two files uploaded to one profile, the older profiled last:
+   the profile's latest check is of the newer file. Fails today.
+5. **J24.8 A job queued on a busy node** (`jobs`, two processes): A runs a long job; a job sent to A
+   starts on B within 5 s. Fails today (up to 60 s).
+6. **J27 An export taken over** (`jobs`, two processes, `JOB_LEASE_SECONDS=2`): A's process is
+   stopped with `SIGSTOP` while it writes an export; B takes it over and completes; A resumed then
+   stops; the file served is whole. Fails today (A removes B's file).
+
+Unit tests: the heartbeat (renews, stops with its job, marks a lost lease), the per-subject
+advisory lock (a second holder waits).
+
+##### N2 record (2026-10-19)
+
+**Delivered 2026-10-19.** Built as planned:
+
+- **The heartbeat (D170)** (`worker._Heartbeat`): started around every chunk, renewing the lease
+  every third of `JOB_LEASE_SECONDS` from a short session of its own; finding the job held by
+  another worker it marks the lease lost, and the chunk ends at its next check or its commit. The
+  check points (`_renewed`, a migration's `renew`, the export's check) now only read: a cancel
+  request and the lease's owner, never waiting for the job row.
+- **Submissions one at a time per subject (D171):** `db.lock_job_subject`, a transaction-level
+  advisory lock on kind and subject, taken by the dry run's, the inference's, the mapping
+  inference's and the profile check's submission before its stop request. `_hold_lease(…,
+  cancellable=True)` before the commit of a profile, an inference, a mapping inference, a dry run's
+  and a check's preview, and a move's preview and last loading step.
+- **A profile checks its newest file (D172):** a profile completed for a file of which the profile
+  has a newer one queues no check.
+- **The workers woken by the job listener (D173):** `JobListener` takes a wake-up, which `main.py`
+  wires to the job and export workers; called on every notification and after an outage.
+- **A partial export file per lease (D174):** `{jobId}.{lease}.partial`, the lease a hash of the
+  worker's owner; a worker that stops removes only its own partial file, and renames it into place
+  after taking the job row, so it never replaces or removes another's file. The sweep reads the
+  new name.
+- **Long steps before the job row (D175):** the move's preview records its rows, settles them and
+  builds its summary, and its last loading step settles and deletes in the source, before taking
+  the job row.
+
+**Where it differs from the plan:**
+
+- **Case 3's preview settle is not tested on its own.** A cancel during the move's preview settle
+  cannot be held there from outside: the settle waits on no lock a client or the test can hold. It
+  shares the change and the test of the load's last step (D175).
+- **Case 3's inference** asserts what a client sees: the inference ends `cancelled`, and its
+  proposals are not served (`409 INFERENCE_NOT_READY`, as for any cancelled inference). The plan's
+  "nothing of its last step written" cannot be read through the API; the case failed on `31545b2`
+  because the inference completed.
+- **Case 2 seen failing for two of its six walks**, on both configurations, not for all ten
+  kinds: the import with the profile's check, and the mapping inference with the move (the
+  whole-workspace move), livelocked on `31545b2` (two workers taking the job from each other until
+  the 90-second limit). The batch, the profile with the dry run and the inference, the
+  migration and the export walks passed there: at the scenario seeds' size their steps finish
+  within the 0.3-second lease. They pass with N2 too and stay as the walks of those kinds.
+- **Case 1** resumes A once B has taken the job over, not after B completes it: A's statement was
+  waiting for the workspace lock the test held, and PostgreSQL granted it to A's open transaction,
+  so B waits for A's rollback. That a frozen process keeps a lock it holds is in TODO, for N3.
+- **The move walk of case 2** moves the whole workspace instead of composing J38.8 (which takes
+  18 s with one worker, publishing and deriving events): 2.6 s, and it livelocks on `31545b2`.
+- The old J24.3 case (a worker waiting on a lock past its lease loses the job) is removed with
+  D170, replaced by case 1. Two unit tests that asserted a renewal at the check points are
+  replaced: `test_an_atomic_chunk_renews_its_lease_while_it_runs` by the heartbeat's two unit tests,
+  and `test_a_long_migration_step_renews_its_lease…` keeps only its lost-lease half.
+- `processes.Process` gained the server's `pid`, which cases 1, 5 and 6 freeze and resume.
+
+**Checks:**
+
+- The new journey tests, written first: `test_j24_several_nodes.py` (cases 2, 3 and 4: 22 runs over
+  generated A and B, or the example) and `test_j24_several_processes.py` (cases 1, 5 and 6, real
+  processes: 6 runs). On `31545b2`: 14 of the 22 in-process runs failed (the long-step walks
+  above, the cancels, the submissions sent together, the profile's newest file), and all 6 process
+  runs (B never took the job over within its 60-second poll; the second job did not start within
+  5 s). With N2: all pass.
+- `-m "jobs or move or migration"`: 674 passed in 3 min 8 s with `-n auto` (8 s over the package
+  ceiling, D127; in TODO), then its serial part, 3 passed. By mistake the parallel part was run a
+  second time before the serial part; that second run was not read.
+- `tests/unit/test_db.py`, `tests/unit/engine/jobs/` and the migration unit test: 13 passed, and the
+  heartbeat's two serial cases.
+- `test_boundaries`, J12 (`test_j12_run_the_service.py`, the lifespan's start of the workers and the
+  listener) and N1's process cases, with the new journey files: 85 passed in 56 s.
+- Over 10 s outside `budget`: N1's migration across processes (11.5 s), unchanged; none of N2's.
+- **Not run:** `authoring` as a whole group (3,528 cases; the change there is the lock line in three
+  submissions, whose journeys J34 and J35 are in `jobs`); `contract` (no route, code or shape
+  changed; the cancel route's docstring is unchanged); the full suite and the browser runners
+  (R's); no frontend change.
+
+**What the user still cannot do:** see readiness per workspace and per node (O1); the concurrency
+invariants at full volume with several processes, and a frozen process's held locks (N3).
 
 #### N3: Concurrency invariants at full volume
 

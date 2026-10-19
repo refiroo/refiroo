@@ -409,12 +409,11 @@ def test_only_rules_that_changed_or_cover_what_the_migration_touched_are_checked
     assert retyped.object_type(KEYS["R"]).features.get("rootCreatable")
 
 
-def test_a_long_migration_step_renews_its_lease_and_stops_when_another_worker_holds_it(seeded):
-    """A migration's steps renew the worker's lease between their statements (0.11 V1): the worker
-    holding the job extends it; a worker that does not hold it is told so (``LeaseLost``) and its
-    step ends instead of running beside the holder's."""
-    from datetime import UTC, datetime
-
+def test_a_long_migration_step_stops_when_another_worker_holds_it(seeded):
+    """A migration's steps look at the lease between their statements (0.11 V1): the worker
+    holding the job goes on; a worker that does not hold it is told so (``LeaseLost``) and its step
+    ends instead of running beside the holder's. The lease itself is kept by the worker's heartbeat
+    (0.11 N2, D170)."""
     from scenario import W1
 
     from app.engine.jobs.store import LeaseLost
@@ -422,7 +421,6 @@ def test_a_long_migration_step_renews_its_lease_and_stops_when_another_worker_ho
     from app.engine.model.migrations import submit_migration
     from app.engine.model.releases import install_model_release
     from app.engine.model.workspace_models import load_assignment
-    from app.models.database import Job
 
     _current, target = _models(lambda document: _drop_type(document, "N"))
     with SessionLocal() as session:
@@ -443,9 +441,6 @@ def test_a_long_migration_step_renews_its_lease_and_stops_when_another_worker_ho
     assert holder._claim() == sequence_id
 
     holder._renew_lease(sequence_id)
-    with SessionLocal() as session:
-        expires = session.get(Job, sequence_id).lease_expires_at
-        assert (expires - datetime.now(UTC)).total_seconds() > 590
     with pytest.raises(LeaseLost):
         other._renew_lease(sequence_id)
 

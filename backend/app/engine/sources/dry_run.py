@@ -22,6 +22,7 @@ from typing import Any
 from sqlalchemy import select, text, update
 from sqlalchemy.orm import Session
 
+from ...db import lock_job_subject
 from ...errors import api_error
 from ...models.database import Job, ModelDraft, ModelDraftOperation, SourceFile
 from ...models.imports import ImportProfileDefinition
@@ -66,6 +67,7 @@ def submit_dry_run(
     problems = check_profile(model, definition)
     if problems:
         raise invalid_profile(problems)
+    lock_job_subject(session, KIND, draft.public_id)
     session.execute(
         update(Job)
         .where(

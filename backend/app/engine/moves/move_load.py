@@ -142,11 +142,13 @@ def load_step(
     job: Job,
     *,
     chunk_items: int,
-    hold: Callable[[], None],
+    hold: Callable[..., None],
     retention_days: int,
 ) -> None:
     """One step of the load, committed by the caller: its start (the target's change set opened),
-    one chunk of items, or its end (the rows settled, the source's deletion, the summary)."""
+    one chunk of items, or its end (the rows settled, the source's deletion, the summary).
+    ``hold`` takes the job's row before the commit; ``hold(last=True)``, at the end, also stops
+    the job when a cancel was requested."""
     parameters = job.parameters
     report = job.report or {}
     if "sourceFeedPositionAtLoad" not in report:
@@ -181,9 +183,11 @@ def load_step(
                 select(ChangeSet.version).where(ChangeSet.id == job.change_set_id)
             )
             return
-    hold()
+    # The work first, the job's row last, so a cancel meanwhile answers at once and stops the
+    # step here (0.11 N2, D175).
     move_job.settle(session, job)
     source = _delete_in_source(session, job) if parameters["mode"] == "move" else None
+    hold(last=True)
     complete_job(session, job, retention_days=retention_days)
     job.report = {**(job.report or {}), "sourceChangeSetId": source}
     summary = move_job.summary(session, job)

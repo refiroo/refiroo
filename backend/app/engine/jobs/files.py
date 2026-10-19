@@ -1,7 +1,8 @@
 """Job files in ``JOB_FILE_DIR`` (INTEGRATION_API P6, D12, D55; Base 0.9 J1).
 
-A file is named after its job: ``{jobId}.partial`` while it is written, ``{jobId}.{extension}`` once
-its job completed. No path is stored on the job. Output is served only for a completed job, so a
+A file is named after its job: ``{jobId}.{lease}.partial`` while a worker writes it, named after
+that worker's lease so a worker that lost the export to another never writes or removes the other's
+(0.11 N2, D174), and ``{jobId}.{extension}`` once its job completed. No path is stored on the job. Output is served only for a completed job, so a
 file is kept only while its job is completed: a cancel, a failure, a restart or retention removes
 it, and :meth:`JobFiles.reconcile` removes whatever a stopped process left behind.
 
@@ -38,8 +39,8 @@ UNCOMMITTED_SECONDS = 600
 class JobFiles:
     directory: Path
 
-    def partial(self, job_id: str) -> Path:
-        return self.directory / f"{job_id}.{PARTIAL}"
+    def partial(self, job_id: str, lease: str) -> Path:
+        return self.directory / f"{job_id}.{lease}.{PARTIAL}"
 
     def final(self, job_id: str, extension: str) -> Path:
         return self.directory / f"{job_id}.{extension}"
@@ -69,7 +70,9 @@ class JobFiles:
         states = dict(session.execute(select(Job.id, Job.state).where(Job.id.in_(ids))).all())
         named = {path.name.split(".", 1)[0] for path in paths if path.name.endswith(f".{UPLOAD}")}
         uploads = (
-            set(session.scalars(select(SourceFile.public_id).where(SourceFile.public_id.in_(named))))
+            set(
+                session.scalars(select(SourceFile.public_id).where(SourceFile.public_id.in_(named)))
+            )
             if named
             else set()
         )
@@ -91,7 +94,8 @@ class JobFiles:
             if extension == SOURCE:
                 keep = state in READS_SOURCE
             else:
-                keep = state == "running" or (extension != PARTIAL and state == "completed")
+                partial = extension.endswith(PARTIAL)
+                keep = state == "running" or (not partial and state == "completed")
             if not keep:
                 path.unlink(missing_ok=True)
                 removed += 1

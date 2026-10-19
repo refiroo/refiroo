@@ -32,6 +32,7 @@ from pydantic import ValidationError
 from sqlalchemy import select, text, update
 from sqlalchemy.orm import Session
 
+from ...db import lock_job_subject
 from ...errors import api_error
 from ...models.database import Job, ModelRelease, SourceFile
 from ...models.imports import ImportProfileDefinition, Source
@@ -57,6 +58,7 @@ def queue_check(session: Session, source: SourceFile, *, retention_days: int) ->
     """The check of a profile's file, queued, its earlier check still running asked to stop; the
     caller commits."""
     profile = load_profile(session, source.profile_key)
+    lock_job_subject(session, KIND, profile.key)
     session.execute(
         update(Job)
         .where(

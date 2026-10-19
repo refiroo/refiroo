@@ -32,6 +32,8 @@ class Process:
     base: str
     log: Path
     world: World
+    # The server's process ID: with one worker, the process that serves and runs the jobs.
+    pid: int
 
     def output(self) -> str:
         return self.log.read_text(errors="replace")
@@ -76,7 +78,7 @@ def run(
     try:
         _wait_until_serving(server, client, log)
         world = World(configuration, Api(client), url, ids=dict(ids or {}))
-        yield Process(base, log, world)
+        yield Process(base, log, world, server.pid)
     finally:
         client.close()
         server.terminate()

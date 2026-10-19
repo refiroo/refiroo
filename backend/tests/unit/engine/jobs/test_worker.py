@@ -152,34 +152,52 @@ def test_an_atomic_job_runs_as_one_chunk_and_a_rejection_rolls_it_back(seeded):
     assert live(world, "B") == 0
 
 
-def test_an_atomic_chunk_renews_its_lease_while_it_runs(seeded, monkeypatch):
-    """0.9 R-F12: an atomic job is one chunk, however long; each stop check renews the lease in a
-    transaction of its own, so another worker never takes a job that is still running."""
+@pytest.mark.serial
+def test_a_long_chunk_keeps_its_lease_by_the_heartbeat(seeded, monkeypatch):
+    """0.11 N2, D170 (0.9 R-F12 before it): while a chunk runs, however long, the heartbeat renews
+    the lease every third of it, so another worker finds nothing to claim; the heartbeat ends with
+    the chunk."""
     world = seeded
     job_id = queue(world, items(world, 3, "L"), policy="atomic")
     original = worker_module.run_items
-    renewed = []
+    claimed = []
+    other = JobWorker(SessionLocal, WorkerSettings(CHUNK, 0.3, 7), owner="worker-b")
+
+    def run_items(session, context, chunk, **options):
+        time.sleep(1.0)
+        claimed.append(other.run_once())
+        return original(session, context, chunk, **options)
+
+    monkeypatch.setattr(worker_module, "run_items", run_items)
+    JobWorker(SessionLocal, WorkerSettings(CHUNK, 0.3, 7), owner="worker-a").run_until_idle()
+    assert claimed == [False]
+    assert job(job_id).result == "applied" and live(world, "L") == 3
+    assert not [t for t in threading.enumerate() if t.name.endswith("-heartbeat")]
+
+
+@pytest.mark.serial
+def test_a_heartbeat_that_finds_the_job_taken_stops_the_chunk(seeded, monkeypatch):
+    """0.11 N2, D170: when another worker holds the job, the heartbeat marks the lease lost; the
+    chunk's next stop check ends it, and nothing it applied is committed."""
+    world = seeded
+    job_id = queue(world, items(world, 3, "T"), policy="atomic")
+    original = worker_module.run_items
 
     def run_items(session, context, chunk, **options):
         with SessionLocal() as other:
             other.execute(
-                text("UPDATE jobs SET lease_expires_at = now() - interval '1 second' WHERE id = :id"),
-                {"id": job_id},
+                text("UPDATE jobs SET lease_owner = 'worker-b' WHERE id = :id"), {"id": job_id}
             )
             other.commit()
-        assert options["should_stop"]() is False
-        with SessionLocal() as other:
-            renewed.append(
-                other.scalar(
-                    text("SELECT lease_expires_at > now() FROM jobs WHERE id = :id"), {"id": job_id}
-                )
-            )
+        time.sleep(0.5)
+        options["should_stop"]()
         return original(session, context, chunk, **options)
 
     monkeypatch.setattr(worker_module, "run_items", run_items)
-    worker().run_until_idle()
-    assert renewed == [True]
-    assert job(job_id).result == "applied" and live(world, "L") == 3
+    assert JobWorker(SessionLocal, WorkerSettings(CHUNK, 0.3, 7), owner="worker-a").run_once()
+    stored = job(job_id)
+    assert (stored.lease_owner, stored.state) == ("worker-b", "running")
+    assert live(world, "T") == 0
 
 
 def test_a_stopping_worker_releases_its_leases_and_a_finished_job_leaves_no_inputs(seeded):

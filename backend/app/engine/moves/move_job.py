@@ -168,12 +168,13 @@ def preview(
     job: Job,
     *,
     should_stop: Callable[[], bool],
-    hold: Callable[[Session], Job],
+    hold: Callable[[Session], None],
     retention_days: int,
 ) -> None:
-    """Run every input against the target's live data and roll back (D115); then, after ``hold``
-    has taken the job's lease again in the clean session, record each row's outcome, leave the job
-    waiting for confirmation with its summary (D128) and the commit to the caller."""
+    """Run every input against the target's live data and roll back (D115); then, in the clean
+    session, record each row's outcome and the summary, and once ``hold`` has taken the job's row
+    (last, so a cancel meanwhile answers at once, 0.11 N2 D175), leave the job waiting for
+    confirmation (D128) and the commit to the caller."""
     context = open_job_context(session, job)
     inputs = session.execute(
         text(
@@ -197,13 +198,14 @@ def preview(
         if inputs
         else []
     )
+    sequence_id = job.sequence_id
     session.rollback()
-    job = hold(session)
+    job = session.get(Job, sequence_id)
     insert_outcomes(session, job, outcomes)
     settle(session, job)
-    await_confirmation(
-        session, job, summary(session, job), retention_days=retention_days, key="move"
-    )
+    found = summary(session, job)
+    hold(session)
+    await_confirmation(session, job, found, retention_days=retention_days, key="move")
 
 
 _OUTCOMES = text(

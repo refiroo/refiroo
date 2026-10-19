@@ -6,6 +6,34 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed (0.11 N2, the job worker on several nodes)
+
+- A running job keeps its lease by a heartbeat, renewed every third of `JOB_LEASE_SECONDS` whatever
+  its step. Before, a step longer than the lease (a move's binding, which renewed nothing; a chunk;
+  one long statement of a migration) was taken over by another process and rolled back, and with
+  two processes they could take it from each other indefinitely. A job now moves to another worker
+  only when its process stops renewing (stopped, crashed, frozen, cut off from the database), no
+  longer when its worker waits on a lock (J24.3 revised).
+- A job queued through a process whose worker is busy starts at once on an idle process, which
+  hears it through `LISTEN`; before, it waited for that process's next poll, up to 60 s.
+
+### Fixed (0.11 N2)
+
+- Two dry runs, inferences, mapping inferences or profile checks of one subject sent at the same
+  moment both ran, neither stopping the other, and an older inference finishing last replaced the
+  newer one's proposals. They are now decided one after the other; the later one stands.
+- A profile, inference, dry run or check asked to stop after its last check still completed and
+  wrote its result; it now ends cancelled, writing nothing.
+- Two files uploaded to one import profile and profiled on two processes could leave the profile's
+  check on the older file, when that file finished last. A file replaced meanwhile is no longer
+  checked.
+- A cancel sent while a move settled its rows, or deleted in its source, waited for that step; it
+  now answers at once, and a cancel during the source's deletion stops it there.
+- An export taken over by another process after its first stalled could be served corrupted or
+  removed: both wrote one partial file, and the first, finding its lease lost, removed the job's
+  files, the new owner's included. Each worker now writes and removes only a partial file of its
+  own lease, and renames it into place under the job's lock.
+
 ### Added (0.11 N1, several processes)
 
 - Model administration works with several processes on one database: Uvicorn workers

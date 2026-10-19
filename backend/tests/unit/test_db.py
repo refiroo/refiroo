@@ -1,6 +1,6 @@
 """The database locks that make several processes take turns (0.11 N1): the installation lock, held
-by an install's transaction, and the startup lock, held by ``create_database`` while it checks,
-migrates and runs the caller's startup writes."""
+by an install's transaction, the startup lock, held by ``create_database`` while it checks,
+migrates and runs the caller's startup writes, and the lock of a job submission's subject (N2)."""
 
 import threading
 import time
@@ -15,6 +15,7 @@ from app.db import (
     SessionLocal,
     create_database,
     lock_installation,
+    lock_job_subject,
 )
 
 
@@ -34,6 +35,26 @@ def test_a_second_install_waits_for_the_first_to_end(seeded):
     with SessionLocal() as first, SessionLocal() as second, ThreadPoolExecutor(1) as pool:
         lock_installation(first)
         waiting = pool.submit(lock_installation, second)
+        with pytest.raises(TimeoutError):
+            waiting.result(timeout=1)
+        first.rollback()
+        waiting.result(timeout=10)
+        second.rollback()
+
+
+def test_a_second_submission_of_one_subject_waits_for_the_first_to_end(seeded):
+    """Given one session holding the lock of a kind and subject (0.11 N2, D171). When another
+    takes it, it waits until the first transaction ends; another subject's is free meanwhile."""
+    with (
+        SessionLocal() as first,
+        SessionLocal() as second,
+        SessionLocal() as third,
+        ThreadPoolExecutor(1) as pool,
+    ):
+        lock_job_subject(first, "inference", "draft-1")
+        lock_job_subject(third, "inference", "draft-2")
+        third.rollback()
+        waiting = pool.submit(lock_job_subject, second, "inference", "draft-1")
         with pytest.raises(TimeoutError):
             waiting.result(timeout=1)
         first.rollback()

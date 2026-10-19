@@ -9,6 +9,10 @@ Nothing is polled: a stream waits until it is woken, sending a keep-alive while 
 After an outage the listener reconnects with the ``OutageLog`` and wakes every stream once, since a
 notification sent while it was away is lost; each stream reads its job again and sends it only if
 it changed.
+
+It also wakes this process's job workers on every notification (0.11 N2, D173): a job queued on
+another node, or on this one while its worker is busy, starts on an idle worker at once rather
+than at that worker's next poll.
 """
 
 import asyncio
@@ -46,8 +50,11 @@ class Subscription:
 class JobListener:
     """Listens for job notifications in this process and wakes the streams that follow each job."""
 
-    def __init__(self, conninfo: Callable[[], str]) -> None:
+    def __init__(
+        self, conninfo: Callable[[], str], wake_workers: Callable[[], None] = lambda: None
+    ) -> None:
         self._conninfo = conninfo
+        self._wake_workers = wake_workers
         self._subscriptions: dict[str, set[Subscription]] = defaultdict(set)
         self._lock = threading.Lock()
         self._stopping = threading.Event()
@@ -99,12 +106,14 @@ class JobListener:
                     connection.execute(f"LISTEN {CHANNEL}")
                     if outage.failing:
                         # Notifications sent while the listener was away are lost: every stream
-                        # reads its job again.
+                        # reads its job again, and the workers look for work.
                         self.notify()
+                        self._wake_workers()
                     outage.succeeded()
                     while not self._stopping.is_set():
                         for message in connection.notifies(timeout=WAIT_SECONDS):
                             self.notify(message.payload)
+                            self._wake_workers()
             except Exception as exc:  # noqa: BLE001 - every failure is logged by OutageLog
                 outage.failed(exc)
                 self._stopping.wait(RETRY_SECONDS)

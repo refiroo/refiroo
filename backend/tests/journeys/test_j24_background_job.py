@@ -180,29 +180,6 @@ def test_cancel_a_queued_a_running_and_an_atomic_job(world):
     )
 
 
-@pytest.mark.journey("J24.3")
-@pytest.mark.structures("R", "R.u")
-def test_a_worker_that_lost_its_lease_commits_nothing(world):
-    """Given worker A applying a chunk that waits past its lease, and worker B. When B takes the job
-    over and A then reaches its commit. Then A commits nothing, B continues from the first item
-    without an outcome, and every item is applied once."""
-    job = _submit(world, _items(world, 10))
-    a, b = _worker("worker-a", lease=1), _worker("worker-b")
-    with world.holding(W1) as held:
-        slow = held.start(a.run_once)
-        held.waiting(1)
-        time.sleep(1.1)
-        took_over = held.start(b.run_once)
-        held.waiting(2)
-    slow.result(timeout=20)
-    took_over.result(timeout=20)
-    b.run_until_idle()
-    done = _job(world, job["id"])
-    assert (done["state"], done["result"]) == ("completed", "applied")
-    assert _outcomes(world, job["id"]) == [("applied", "created")] * 10
-    assert _named(world, "J") == [f"J {n:03d}" for n in range(10)]
-
-
 @pytest.mark.journey("J24.4")
 @pytest.mark.structures("R", "R.u")
 def test_the_model_the_change_set_or_the_workspace_changes_mid_job(world):

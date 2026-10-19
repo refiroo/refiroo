@@ -1385,8 +1385,12 @@ lists jobs and cancels a queued or running one, 0.9 U4). **Stories:** US-I03, US
 **Variants:**
 
 - **J24.1 An import beside stewards**: a live write in the workspace waits for one chunk at most.
-- **J24.2 Cancel** a queued job, between chunks, or an atomic job (rolled back completely).
-- **J24.3 Two workers**: a worker that lost its lease commits nothing; the other continues.
+- **J24.2 Cancel** a queued job, between chunks, or an atomic job (rolled back completely). A cancel
+  answers at once even during a job's longest step; a job of one step asked to stop before it
+  commits writes nothing (0.11 N2).
+- **J24.3 Two workers**: a worker whose process stops renewing its lease (stopped, frozen, cut off
+  from the database) loses the job once the lease expires; it commits nothing, and the other
+  continues from the first item without an outcome (0.11 N2: a worker waiting on a lock keeps it).
 - **J24.4 The model, the change set or the workspace changes mid-job**: the job fails with the
   reason, keeping the chunks already applied.
 - **J24.5 Retention**: finished jobs expire and keep their summary; their item outcomes are removed,
@@ -1397,6 +1401,12 @@ lists jobs and cancels a queued or running one, 0.9 U4). **Stories:** US-I03, US
   after each committed change of its state, progress, cancel request or output, and ends after a
   final state; a finished job is sent once. A browser follows its own jobs this way and is told
   when they finish (0.9 J1u); nothing is polled.
+- **J24.8 Several nodes** (0.11 N2): several processes run jobs on one database. A job of any kind
+  stays with the worker that claimed it however long its steps last; a job queued on a node whose
+  worker is busy starts on an idle node at once; two requests for one subject sent together (a
+  draft's dry run or inference, a mapping's inference, a profile's check) leave the later one
+  running and the earlier cancelled; a profile checks its newest file; an export taken over by
+  another node serves a whole file.
 
 **Refusals:** `409 JOB_FINISHED`, `404 JOB_NOT_FOUND`; job errors `MODEL_RELEASE_CHANGED`,
 `CHANGE_SET_VERSION_CONFLICT`, `WORKSPACE_RETIRED`, `JOB_FAILED` (with a correlation ID).

@@ -109,7 +109,7 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/docs` a
 | `GET /workspaces/{key}/relation-matrix` (`columnIds`, `columnCursor`, `columnPageSize`, `state`) | J16 |
 | `GET /workspaces/{key}/relation-matrix/containers`, `GET /workspaces/{key}/relation-matrix/link-candidates` (`rowId`, `columnId`) | J16 |
 | `POST /batches` (`run`: `inline`) | J11; relationship items J11.7, J11.8; `replaceRelationSet` J10.10, J11.8 |
-| `POST /batches` (`run`: `background`), `GET /jobs` (`kind`, `state`), `GET /jobs/{id}`, `GET /jobs/{id}/items` (`status`), `POST /jobs/{id}/cancel` | J24 |
+| `POST /batches` (`run`: `background`), `GET /jobs` (`kind`, `state`), `GET /jobs/{id}`, `GET /jobs/{id}/items` (`status`), `POST /jobs/{id}/cancel` | J24, J24.8 (several nodes: every kind under a short lease, submissions of one subject sent together, a busy node, an export taken over; 0.11 N2) |
 | `GET /workspaces/{key}/feed` (`after`, `pageSize`, `kind` and `objectTypeKey` repeatable) | J26, J26.1–J26.6 |
 | `POST /exports` (`context`, `scope`: `types` with `where`, `parentObjectId`, `asOf`; `include.relations`; `format`: `jsonl`, `csv`, `xlsx`), `GET /jobs/{id}/output`, the job's `output` (0.9 J1) | J27, J27.1–J27.5 |
 | `POST /import-profiles`, `GET /import-profiles`, `GET /import-profiles/{key}`, `PUT /import-profiles/{key}` (the whole profile with `expectedVersion`), `DELETE /import-profiles/{key}` (`expectedVersion`); a profile's `valid` and `problems` under the release of `workspaceKey` (0.9 J2); its `modelKey`, `workspaceKey` on every route and the list's `modelKey` (0.11 M3) | J27.7, J36.3, J36.4 |
@@ -213,7 +213,7 @@ documented nowhere; API.md documents them since H4c (D-4).
 | Every setting (reported by `GET /system` with value, default and source; secrets as set or not) | J31, J31.1, J31.2 |
 | `RDM_MODEL_PATH` | J12 (the starter or bootstrap model), J08 |
 | `MODEL_ADMIN_MUTATIONS_ENABLED`, `WORKSPACE_ADMIN_MUTATIONS_ENABLED`, `INTEGRATION_JOBS_ENABLED` | J12.7, J08, J19.4, J11 |
-| `BATCH_MAX_ITEMS`, `BATCH_MAX_BYTES`, `ATOMIC_JOB_MAX_ITEMS`, `BACKGROUND_JOB_MAX_ITEMS`, `BATCH_BACKGROUND_MAX_BYTES`, `JOB_CHUNK_ITEMS`, `JOB_LEASE_SECONDS`, `JOB_RETENTION_DAYS` | J12.7, J11, J24 |
+| `BATCH_MAX_ITEMS`, `BATCH_MAX_BYTES`, `ATOMIC_JOB_MAX_ITEMS`, `BACKGROUND_JOB_MAX_ITEMS`, `BATCH_BACKGROUND_MAX_BYTES`, `JOB_CHUNK_ITEMS`, `JOB_LEASE_SECONDS`, `JOB_RETENTION_DAYS` | J12.7, J11, J24, J24.8 |
 | `FEED_RETENTION_DAYS` | J26.6 |
 | `JOB_FILE_DIR` (export files and import uploads; a directory that cannot be written refuses the start with jobs on) | J27, J12.1 |
 | `IMPORT_MAX_BYTES` (an import's largest file, reported as `integrationJobs.limits.importMaxBytes`) | J27.10 |

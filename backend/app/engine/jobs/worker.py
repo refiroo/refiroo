@@ -6,10 +6,16 @@ repeats or skips one. An ``independent`` job's chunk is ``JOB_CHUNK_ITEMS`` item
 job is one chunk.
 
 **Lease.** A worker claims a job by setting ``leaseOwner`` and ``leaseExpiresAt`` in a short
-transaction and renews the lease with each chunk's commit. A chunk does not keep the job row locked
-while it applies items, so a cancel request never waits for it (D28); before it commits, it locks
-the row and checks it still holds the lease, and rolls back when another worker took the job over.
-A process that stops mid-chunk loses that chunk's work only; the job resumes once its lease expires.
+transaction. While it runs a chunk, a heartbeat thread renews the lease every third of
+``JOB_LEASE_SECONDS`` in a short session of its own, whatever the step, a single long statement
+included (0.11 N2, D170): a job stays with its worker however long a step takes, and is taken over
+only once its process stops renewing (stopped, frozen, cut off from the database). A chunk does not
+keep the job row locked while it applies items, so a cancel request never waits for it (D28, D175);
+before it commits, it locks the row and checks it still holds the lease, and rolls back when another
+worker took the job over. A process that stops mid-chunk loses that chunk's work only; the job
+resumes once its lease expires. A job of one step (a profile, an inference, a dry run, a check, a
+move's settling step) also looks for a cancel request there, so a job asked to stop, by a cancel or
+by a newer job of its subject (D171), never writes over a newer one.
 One worker runs one chunk at a time, whichever thread asks (its loop, or ``run_until_idle``): its
 claims accept its own leases, so two of its threads would otherwise run the same chunk (0.11 S1).
 Lock order inside a chunk: the workspace (live) or the change set, then the write path's own
@@ -48,6 +54,7 @@ session of the worker's own, between the export's rows. A failed, cancelled or l
 file; a completed one's file is renamed into place before the commit that completes the job.
 """
 
+import hashlib
 import logging
 import os
 import socket
@@ -56,7 +63,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Self
 from uuid import uuid4
 
 from pydantic import TypeAdapter
@@ -67,7 +74,7 @@ from ...common.outage import OutageLog
 from ...common.time import as_utc
 from ...errors import ApiError
 from ...models.commands import BatchItem
-from ...models.database import ChangeSet, Job
+from ...models.database import ChangeSet, Job, SourceFile
 from ..imports.binding import ImportLimits, bind_import
 from ..model import change_set_migrations, migrations
 from ..moves import move_job, move_load
@@ -155,6 +162,45 @@ class WorkerSettings:
 _LeaseLost = LeaseLost
 
 
+class _Heartbeat:
+    """Renews the lease of the job a worker runs from a thread of its own, every third of the
+    lease, until the chunk ends (D170). Finding the job held by another worker, it marks the lease
+    lost and stops: the chunk then ends at its next check or its commit. A renewal that fails (the
+    database unreachable) is tried again at the next beat; the lease expires if none succeeds."""
+
+    def __init__(self, worker: JobWorker, sequence_id: int) -> None:
+        self.worker, self.sequence_id = worker, sequence_id
+        self.lost = threading.Event()
+        self._done = threading.Event()
+        self._thread = threading.Thread(
+            target=self._beat, name=f"{worker.thread_name}-heartbeat", daemon=True
+        )
+
+    def __enter__(self) -> Self:
+        self._thread.start()
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self._done.set()
+        self._thread.join()
+
+    def _beat(self) -> None:
+        interval = self.worker.settings.lease_seconds / 3
+        while not self._done.wait(interval):
+            try:
+                renewed = self.worker._extend(self.sequence_id)
+            except Exception:
+                logger.warning(
+                    "The job worker could not renew its lease on job %s; it tries again",
+                    self.sequence_id,
+                    exc_info=True,
+                )
+                continue
+            if not renewed:
+                self.lost.set()
+                return
+
+
 class JobWorker:
     """Runs jobs in this process: ``run_once`` runs one chunk; ``start`` runs them on a thread."""
 
@@ -182,6 +228,11 @@ class JobWorker:
         self._one_chunk = threading.Lock()
         # The earliest expiry of a lease another worker holds, seen by the last claim.
         self._leased_elsewhere_until: datetime | None = None
+        # The running chunk's heartbeat (one chunk at a time, ``_one_chunk``).
+        self._heartbeat: _Heartbeat | None = None
+        # This worker's partial export files carry it, so a worker that lost an export to another
+        # never writes or removes the other's file (D174).
+        self.lease_token = hashlib.sha256(self.owner.encode()).hexdigest()[:12]
 
     # --- one step ---------------------------------------------------------------------------------
 
@@ -192,7 +243,12 @@ class JobWorker:
             sequence_id = self._claim()
             if sequence_id is None:
                 return False
-            self._run_chunk(sequence_id)
+            with _Heartbeat(self, sequence_id) as heartbeat:
+                self._heartbeat = heartbeat
+                try:
+                    self._run_chunk(sequence_id)
+                finally:
+                    self._heartbeat = None
             return True
 
     def run_until_idle(self) -> int:
@@ -399,9 +455,13 @@ class JobWorker:
         steps.execute(session, job, retention_days=retention, hold=hold, renew=renew)
 
     def _renew_lease(self, sequence_id: int) -> None:
-        """Extend a lease from a short session of its own, between a long step's statements (a
-        migration's, 0.11 V1): the step's transaction does not hold the job row, so this never
-        waits for it. Another worker holding the job ends the step (``LeaseLost``)."""
+        """Between a long step's statements (a migration's, 0.11 V1): end the step when another
+        worker holds the job (``LeaseLost``). The heartbeat keeps the lease (D170)."""
+        self._renewed(sequence_id)
+
+    def _extend(self, sequence_id: int) -> bool:
+        """The heartbeat's renewal, in a short session of its own; ``False`` when another worker
+        holds the job. It waits only while the chunk holds the job row to commit."""
         with self.session_factory() as session:
             renewed = session.execute(
                 update(Job)
@@ -413,8 +473,10 @@ class JobWorker:
                 .execution_options(synchronize_session=False)
             )
             session.commit()
-        if renewed.rowcount != 1:
-            raise _LeaseLost
+        return renewed.rowcount == 1
+
+    def _lease_lost(self) -> bool:
+        return self._heartbeat is not None and self._heartbeat.lost.is_set()
 
     # --- imports ----------------------------------------------------------------------------------
 
@@ -494,7 +556,7 @@ class JobWorker:
             should_stop=self._stop_check(job),
         )
         session.rollback()
-        self._hold_lease(session, sequence_id)
+        self._hold_lease(session, sequence_id, cancellable=job.kind in _STAGED_KINDS)
         job = session.get(Job, sequence_id)
         if dry_run:
             record_dry_run(
@@ -540,13 +602,14 @@ class JobWorker:
             self._files().upload(source_file_id),
             lambda: self._binding_check(job),
         )
-        self._hold_lease(session, job.sequence_id)
+        self._hold_lease(session, job.sequence_id, cancellable=True)
         complete_job(session, job, retention_days=self.settings.retention_days)
         # A profile has no items, so no result.
         job.result = None
         source = load_source_file(session, source_file_id)
-        if source.profile_key is not None:
-            # A profile's next file is checked once profiled (0.10 A5c, D83).
+        if source.profile_key is not None and _newest_of_profile(session, source):
+            # A profile's next file is checked once profiled (0.10 A5c, D83); a file a newer one
+            # replaced meanwhile is not, so the profile's check stays its newest file's (D172).
             queue_check(session, source, retention_days=self.settings.retention_days)
         session.commit()
 
@@ -559,7 +622,7 @@ class JobWorker:
             assistant_rows=self.settings.inference_assistant_rows,
             check=lambda: self._binding_check(job),
         )
-        self._hold_lease(session, job.sequence_id)
+        self._hold_lease(session, job.sequence_id, cancellable=True)
         complete_job(session, job, retention_days=self.settings.retention_days)
         # An inference has no items, so no result.
         job.result = None
@@ -568,7 +631,7 @@ class JobWorker:
     def _infer_mapping(self, session: Session, job: Job) -> None:
         """Propose a model mapping in one step and complete the job (0.11 X1)."""
         run_mapping_inference(session, job, check=lambda: self._binding_check(job))
-        self._hold_lease(session, job.sequence_id)
+        self._hold_lease(session, job.sequence_id, cancellable=True)
         complete_job(session, job, retention_days=self.settings.retention_days)
         # An inference has no items, so no result.
         job.result = None
@@ -587,7 +650,7 @@ class JobWorker:
                 session,
                 job,
                 chunk_items=self.settings.chunk_items,
-                hold=lambda: self._hold_lease(session, sequence_id),
+                hold=lambda last=False: self._hold_lease(session, sequence_id, cancellable=last),
                 retention_days=self.settings.retention_days,
             )
             if job.state == "running":
@@ -605,9 +668,8 @@ class JobWorker:
             session.commit()
             return
 
-        def hold(clean: Session) -> Job:
-            self._hold_lease(clean, sequence_id)
-            return clean.get(Job, sequence_id)
+        def hold(clean: Session) -> None:
+            self._hold_lease(clean, sequence_id, cancellable=True)
 
         move_job.preview(
             session,
@@ -625,45 +687,43 @@ class JobWorker:
             raise JobCancelled
 
     def _chunk_check(self, sequence_id: int) -> Callable[[], bool]:
-        """An atomic chunk's or a preview's stop check (D28), asked every few hundred items: it
-        also renews the lease in a short session of its own, so a long chunk keeps its job
-        (0.9 R-F12); a lost lease stops it."""
+        """An atomic chunk's or a preview's stop check (D28), asked every few hundred items; a
+        lost lease stops it."""
         return lambda: self._renewed(sequence_id)
 
     def _renewed(self, sequence_id: int) -> bool:
-        """Renew the job's lease in a short transaction; ``True`` when a cancel was requested.
-        Raises ``_LeaseLost`` when another worker holds the job."""
+        """``True`` when a cancel was requested; raises ``_LeaseLost`` when another worker holds
+        the job. A plain read in a short session: it never waits for the job row, and the
+        heartbeat keeps the lease (D170)."""
+        if self._lease_lost():
+            raise _LeaseLost
         with self.session_factory() as session:
             row = session.execute(
-                select(Job.lease_owner, Job.cancel_requested_at)
-                .where(Job.sequence_id == sequence_id)
-                .with_for_update()
-            ).one()
-            if row.lease_owner != self.owner:
-                session.rollback()
-                raise _LeaseLost
-            session.execute(
-                update(Job)
-                .where(Job.sequence_id == sequence_id)
-                .values(
-                    lease_expires_at=datetime.now(UTC)
-                    + timedelta(seconds=self.settings.lease_seconds)
+                select(Job.lease_owner, Job.cancel_requested_at).where(
+                    Job.sequence_id == sequence_id
                 )
-                .execution_options(synchronize_session=False)
-            )
-            session.commit()
+            ).one()
+        if row.lease_owner != self.owner:
+            raise _LeaseLost
         return row.cancel_requested_at is not None
 
     def _finished_import(self, job: Job) -> None:
         if job.kind == "import" and job.state in FINISHED and self.files is not None:
             self.files.remove(job.id)
 
-    def _hold_lease(self, session: Session, sequence_id: int) -> None:
-        owner = session.scalar(
-            select(Job.lease_owner).where(Job.sequence_id == sequence_id).with_for_update()
-        )
-        if owner != self.owner:
+    def _hold_lease(self, session: Session, sequence_id: int, *, cancellable: bool = False) -> None:
+        """Lock the job row for the commit that ends a step, holding the lease; with
+        ``cancellable``, a job of one step asked to stop meanwhile stops here, writing nothing
+        (D171)."""
+        row = session.execute(
+            select(Job.lease_owner, Job.cancel_requested_at)
+            .where(Job.sequence_id == sequence_id)
+            .with_for_update()
+        ).one()
+        if row.lease_owner != self.owner:
             raise _LeaseLost
+        if cancellable and row.cancel_requested_at is not None:
+            raise JobCancelled
 
     # --- exports ----------------------------------------------------------------------------------
 
@@ -671,7 +731,9 @@ class JobWorker:
         """Run the export from one snapshot in a session of its own; this worker's short sessions
         answer its checks (cancel, lease, progress) meanwhile."""
         files = self._files()
-        partial = files.partial(job.id)
+        # This worker's own partial file: a worker that lost the export removes only its own
+        # (D174); the rest of the job's files go only through ``_stop``, which holds the lease.
+        partial = files.partial(job.id, self.lease_token)
         lost: list[bool] = []
         control = ExportControl(
             check=lambda total, processed: self._export_check(
@@ -686,19 +748,19 @@ class JobWorker:
                 finally:
                     work.rollback()
         except ExportCancelled:
-            files.remove(job.id)
+            partial.unlink(missing_ok=True)
             if not lost:
                 self._stop(job.sequence_id, "cancelled", "JOB_CANCELLED", None)
             return
         except ApiError as error:
-            files.remove(job.id)
+            partial.unlink(missing_ok=True)
             reason = (
                 "MODEL_RELEASE_CHANGED" if error.code == "MODEL_RELEASE_CHANGED" else "JOB_FAILED"
             )
             self._stop(job.sequence_id, "failed", reason, _error_body(error))
             return
         except Exception:
-            files.remove(job.id)
+            partial.unlink(missing_ok=True)
             correlation_id = uuid4().hex
             logger.exception(
                 "Export %s failed (correlation ID %s); it left no file", job.id, correlation_id
@@ -715,15 +777,16 @@ class JobWorker:
                 },
             )
             return
-        final = files.final(job.id, outcome.extension)
-        partial.replace(final)
         with self.session_factory() as session:
             try:
                 self._hold_lease(session, job.sequence_id)
             except _LeaseLost:
                 session.rollback()
-                final.unlink(missing_ok=True)
+                partial.unlink(missing_ok=True)
                 return
+            # Renamed into place under the job's row: no other worker can complete the export
+            # meanwhile, so this never replaces another's file.
+            partial.replace(files.final(job.id, outcome.extension))
             stored = session.get(Job, job.sequence_id)
             finish_export(
                 session, stored, outcome.output, retention_days=self.settings.retention_days
@@ -733,8 +796,11 @@ class JobWorker:
     def _export_check(
         self, sequence_id: int, total: int | None, processed: int, lost: list[bool]
     ) -> bool:
-        """Record progress and renew the lease; ``True`` when the export must stop: a cancel
-        request, or the lease lost to another worker (``lost`` then says so)."""
+        """Record progress; ``True`` when the export must stop: a cancel request, or the lease
+        lost to another worker (``lost`` then says so). The heartbeat keeps the lease (D170)."""
+        if self._lease_lost():
+            lost.append(True)
+            return True
         with self.session_factory() as session:
             row = session.execute(
                 select(Job.lease_owner, Job.cancel_requested_at)
@@ -752,8 +818,6 @@ class JobWorker:
                     total=total,
                     processed=processed,
                     stage="writing",
-                    lease_expires_at=datetime.now(UTC)
-                    + timedelta(seconds=self.settings.lease_seconds),
                 )
                 .execution_options(synchronize_session=False)
             )
@@ -853,6 +917,15 @@ class JobWorker:
                     wait = min(wait, next_sweep - time.monotonic())
                 self._wake.wait(max(0.0, wait))
                 self._wake.clear()
+
+
+def _newest_of_profile(session: Session, source: SourceFile) -> bool:
+    """Whether no newer file of the source's profile was uploaded (D172)."""
+    return not session.scalar(
+        select(func.count()).where(
+            SourceFile.profile_key == source.profile_key, SourceFile.id > source.id
+        )
+    )
 
 
 def _error_body(error: ApiError) -> dict[str, Any]:

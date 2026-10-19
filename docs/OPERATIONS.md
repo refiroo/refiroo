@@ -41,6 +41,14 @@ restart. A read whose workspace switched to another release while it ran answers
 `409 MODEL_RELEASE_CHANGED`, and the client reads again. Instances share `RDM_CURSOR_SIGNING_KEY` and
 keep `JOB_FILE_DIR` on shared storage.
 
+Every process runs a job worker (0.11 N2). A job queued through any process starts on whichever
+worker is idle, at once: each process hears job changes through `LISTEN` and wakes its workers. A
+running job keeps its lease by a heartbeat however long a step takes, and moves to another worker
+only once its process stops renewing (`JOB_LEASE_SECONDS`, 120 s by default): stopped, crashed,
+frozen or cut off from the database. A frozen process that holds a database lock in an open
+transaction holds up the writes waiting for that lock until it resumes or its connection ends; the
+lease does not end that.
+
 ### Capability groups
 
 A capability group's routes are registered only when it is enabled. These are deployment limits,
@@ -77,7 +85,7 @@ Reported under `integrationJobs` by `GET /api/v1/capabilities`; a request over a
 | `MODEL_OPERATION_MAX_ITEMS` | 500 | Operations in one request to a model draft (`POST /model-drafts/{id}/operations`, 0.10 A2); more is `413 OPERATION_BATCH_TOO_LARGE`. A request is one step of the draft's history and is applied and validated as a whole, so a larger value makes one step slower to apply and to undo |
 | `INFERENCE_ASSISTANT_ROWS` | 20 | Rows of each sheet an inference sends the assistant, when `INFERENCE_ASSISTANT` names one |
 | `JOB_CHUNK_ITEMS` | 500 | Items one background chunk commits |
-| `JOB_LEASE_SECONDS` | 120 | A worker's lease on a job, renewed each chunk |
+| `JOB_LEASE_SECONDS` | 120 | A worker's lease on a job, renewed by its heartbeat every third of it while the job runs; how long a stopped process holds its job before another takes it over |
 | `JOB_RETENTION_DAYS` | 7 | How long a finished job keeps its outcomes and idempotency key |
 | `FEED_RETENTION_DAYS` | 30 | How long the change feed answers a position; older positions are `410 FEED_POSITION_EXPIRED`, naming the publication to re-read. Entries after the active publication, and every entry of a workspace without one, are always answered. Consumer events expire with the entries (`410 EVENTS_EXPIRED`) and are deleted hourly. The audit log is not pruned |
 | `CONSUMER_RESOLVE_MAX_ITEMS` | 1,000 | Items in one consumer batch resolve (`POST /api/consumer/…/resolve`); more are refused as `413 BATCH_TOO_LARGE`. Reported by `GET /capabilities` |
@@ -146,8 +154,8 @@ retention every hour.
 - **Graceful stop:** the running chunk finishes and the worker releases its lease, so the next start
   resumes the job at once.
 - **Crash or kill:** the chunk in progress rolls back. Once the lease expires (`JOB_LEASE_SECONDS`), the
-  next worker resumes the job at its first item without an outcome. No item is applied twice or
-  skipped.
+  next worker (in another process, or in this one after a restart) resumes the job at its
+  first item without an outcome. No item is applied twice or skipped.
 - **Database outage:** the worker retries every 2 s, logs the outage in one line (the traceback at
   DEBUG) and then one line a minute, and logs when the database is reachable again.
 - **Cancel:** `POST /api/v1/jobs/{jobId}/cancel` stops a job at its next chunk; an `atomic` job rolls

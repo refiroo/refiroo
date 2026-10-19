@@ -666,6 +666,22 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   - [ ] **Found in N1 (2026-10-19):** the package's groups (`model_admin`, `workspace_models`,
     `migration`, `startup`: 609 cases) took 3 min 39 s with `-n 4`, over the 3-minute package
     ceiling (D127); run with four workers because the laptop was shared (load 2.8–4.9).
+  - [x] N2, the job worker on several nodes, delivered 2026-10-19 (D170–D175): a heartbeat per
+    running job, submissions of one subject one at a time, a profile checking its newest file, the
+    workers woken by the job listener, a partial export file per lease, a move's long steps before
+    the job row. Readiness per workspace is O1's; full volume with several processes N3's.
+  - [ ] **Found in N2 (2026-10-19), for N3:** a process frozen (or cut off) while its transaction
+    holds a database lock keeps that lock until it resumes or its connection ends; the lease does not
+    end it, and every write waiting for the lock waits too (J24.3's case shows it: B's chunk waits
+    for frozen A's workspace lock). Candidates: `idle_in_transaction_session_timeout` and TCP
+    keep-alives on the engine's connections. Not measured.
+  - [ ] **Found in N2 (2026-10-19), for the user:** once a draft's or mapping's latest inference is
+    cancelled, its proposals read `409 INFERENCE_NOT_READY`, and the completed inference before it
+    is no longer served, though its proposals are still stored. So a second inference that a user
+    cancels hides the first one's proposals until an inference runs again. Behaviour since 0.10 A6
+    and 0.11 X1; not changed in N2.
+  - [ ] **Found in N2 (2026-10-19):** `jobs or move or migration` (677 cases) took 3 min 8 s with
+    `-n auto`, over the 3-minute package ceiling (D127) by 8 s, at load 4.6–5.0.
 
 ## Later — production and self-service authoring
 

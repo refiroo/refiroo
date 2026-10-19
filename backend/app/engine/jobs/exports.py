@@ -12,7 +12,7 @@ export worker (``worker.py``, a worker of its own, D53) runs it in one step:
    ``POST …/queries/objects``, in every context. Depth, paths, relationships and the required
    relationships each record carries are set statements over it. JSON Lines and CSV rows are built
    by PostgreSQL; Python writes them to the file and never holds the set.
-3. **The file.** Written as ``{jobId}.partial`` and renamed by the worker once the job completes,
+3. **The file.** Written as ``{jobId}.{lease}.partial`` and renamed by the worker once the job completes,
    with the manifest (D52) stored on the job in that commit.
 
 The snapshot cannot see a cancel request committed after it began, so cancel requests, the lease

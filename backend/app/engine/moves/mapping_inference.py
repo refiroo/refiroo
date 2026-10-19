@@ -38,6 +38,7 @@ from sqlalchemy import delete, select, text, update
 from sqlalchemy.orm import Session
 
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
+from ...db import lock_job_subject
 from ...errors import api_error
 from ...models.database import (
     Job,
@@ -506,6 +507,7 @@ def submit_inference(
     target = releases.of_workspace(target_workspace_key)
     if (source.model_key, target.model_key) != (mapping.source_model_key, mapping.target_model_key):
         raise mismatch(mapping, source.model_key, target.model_key)
+    lock_job_subject(session, KIND, mapping.key)
     session.execute(
         update(Job)
         .where(Job.kind == KIND, Job.state.in_(RUNNING), job_parameter("mappingKey") == mapping.key)
